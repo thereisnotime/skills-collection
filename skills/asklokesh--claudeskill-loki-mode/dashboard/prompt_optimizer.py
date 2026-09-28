@@ -66,7 +66,11 @@ class PromptOptimizer:
         """Get the current (latest) prompt optimization version.
 
         Returns:
-            The latest version data, or a default structure if none exists.
+            The latest version data on a clean read. If no version file
+            exists yet, a "never_ran" marker with null fields (distinct
+            from a real version 0). If the file exists but cannot be
+            parsed, an "error" marker (also null fields) so a corrupt file
+            is never mistaken for "never ran".
         """
         latest = self._latest_file()
         if latest.is_file():
@@ -74,13 +78,20 @@ class PromptOptimizer:
                 return json.loads(latest.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError) as exc:
                 logger.warning("Failed to read latest prompt version: %s", exc)
+                return self._sentinel("error")
 
+        return self._sentinel("never_ran")
+
+    @staticmethod
+    def _sentinel(status: str) -> dict[str, Any]:
+        """Build a never-ran/error marker. Never a fake version 0 or a fake count."""
         return {
-            "version": 0,
+            "version": None,
             "generated_at": None,
-            "based_on_sessions": 0,
-            "failures_analyzed": 0,
+            "based_on_sessions": None,
+            "failures_analyzed": None,
             "changes": [],
+            "status": status,
         }
 
     def get_prompt_for_agent(self, agent_type: str) -> dict[str, Any] | None:
@@ -95,7 +106,7 @@ class PromptOptimizer:
             Dict with agent-specific prompt changes, or None if no optimizations exist.
         """
         current = self.get_current_version()
-        if current["version"] == 0:
+        if not current["version"]:
             return None
 
         agent_changes = [c for c in current.get("changes", []) if c.get("agent_type") == agent_type]
@@ -225,7 +236,9 @@ class PromptOptimizer:
         changes = self._generate_changes(failure_data)
 
         with self._file_lock:
-            current_version = self.get_current_version()["version"]
+            # Never-ran and error sentinels both carry version None; either
+            # way there is no real prior version, so the next one is 1.
+            current_version = self.get_current_version()["version"] or 0
             new_version = current_version + 1
 
             result = {

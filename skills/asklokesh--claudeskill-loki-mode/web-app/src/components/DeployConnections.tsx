@@ -91,6 +91,14 @@ const PLATFORMS: PlatformDef[] = [
   },
 ];
 
+// S-185 / BACKLOG 114: when the status fetch fails, the rows still hold the
+// {connected:false} defaults, so they used to read "Not connected" under the
+// load-error banner. A failed load is unknown, not disconnected.
+export function connectionLabel(connected: boolean, loadFailed: boolean): string {
+  if (connected) return 'Connected';
+  return loadFailed ? 'Status unknown' : 'Not connected';
+}
+
 // ---------------------------------------------------------------------------
 // Token connect form
 // ---------------------------------------------------------------------------
@@ -208,11 +216,13 @@ function GitHubInstructions() {
 function ConnectionCard({
   platform,
   status,
+  loadFailed,
   onConnect,
   onDisconnect,
 }: {
   platform: PlatformDef;
   status: ConnectionStatus;
+  loadFailed: boolean;
   onConnect: (token: string) => Promise<void>;
   onDisconnect: () => void;
 }) {
@@ -269,7 +279,7 @@ function ConnectionCard({
             className={`inline-block w-2.5 h-2.5 rounded-full ${
               status.connected ? 'bg-green-500' : 'bg-gray-300'
             }`}
-            title={status.connected ? 'Connected' : 'Not connected'}
+            title={connectionLabel(status.connected, loadFailed)}
           />
         </div>
       </div>
@@ -481,7 +491,7 @@ export function DeployConnections({
                 <div
                   key={p.id}
                   className="flex items-center gap-1.5"
-                  title={`${p.name}: ${s.connected ? `Connected as ${s.user}` : 'Not connected'}`}
+                  title={`${p.name}: ${s.connected ? `Connected as ${s.user}` : connectionLabel(false, error !== null)}`}
                 >
                   <span
                     className={`w-2 h-2 rounded-full ${
@@ -518,6 +528,7 @@ export function DeployConnections({
             key={platform.id}
             platform={platform}
             status={statuses[platform.id]}
+            loadFailed={error !== null}
             onConnect={connectHandlers[platform.id]}
             onDisconnect={() => handleDisconnect(platform.id)}
           />

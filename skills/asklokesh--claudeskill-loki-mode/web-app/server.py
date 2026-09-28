@@ -3638,7 +3638,25 @@ async def get_metrics() -> JSONResponse:
 
 
 def _infer_session_status(entry: Path) -> str:
-    """Infer session status from project directory contents."""
+    """Infer session status from project directory contents.
+
+    Returns "unknown" (rather than guessing "completed") whenever the only
+    evidence is a state file that has simply gone stale, or a directory that
+    merely contains a source file -- neither is a clean-exit marker, and both
+    used to be misreported as "completed".
+    """
+    # Phase/status strings that describe a run no longer in flight. Anything
+    # else (a RARV step, "running", a custom in-progress label, ...) is only
+    # trustworthy while the state file is fresh -- once it goes stale we no
+    # longer know if the process is still alive, so we must not keep
+    # reporting it as active, and we must not guess "completed" either.
+    _TERMINAL_STATUSES = {"completed", "failed", "paused", "stopped", "cancelled"}
+
+    # Set when dashboard-state.json had a non-idle phase we could not trust
+    # outright (stale and not a terminal phase), so a directory-contents
+    # guess below must not silently overrule it either.
+    saw_untrusted_activity = False
+
     # 1. Check .loki/dashboard-state.json for explicit phase
     # BUG-INT-002 fix: CLI writes dashboard-state.json, not state/session.json
     state_file = entry / ".loki" / "dashboard-state.json"
@@ -3648,15 +3666,19 @@ def _infer_session_status(entry: Path) -> str:
                 st = json.load(f)
             phase = st.get("phase", "")
             if phase and phase != "idle":
-                # Verify the session is actually still running by checking
-                # if dashboard-state.json was modified recently (within last 5 min)
+                if phase.lower() in _TERMINAL_STATUSES:
+                    return phase
+                # Active-looking phase: only trustworthy while fresh. Staleness
+                # means "we can't tell if this is still running" -- it is not
+                # evidence the run finished cleanly, so fall through instead
+                # of returning or guessing "completed".
                 try:
                     mtime = state_file.stat().st_mtime
-                    if time.time() - mtime > 300:  # 5 minutes stale
-                        return "completed"  # Process died, mark as completed
+                    if time.time() - mtime <= 300:  # fresh enough to trust
+                        return phase
                 except OSError:
-                    pass
-                return phase
+                    return phase
+                saw_untrusted_activity = True
         except (json.JSONDecodeError, OSError):
             pass
 
@@ -3671,17 +3693,27 @@ def _infer_session_status(entry: Path) -> str:
                     return "completed"
                 if st.get("status"):
                     status_val = st["status"]
-                    # If status indicates active work, verify freshness
-                    if status_val in ("running", "in_progress", "planning"):
-                        try:
-                            mtime = sf.stat().st_mtime
-                            if time.time() - mtime > 300:  # 5 minutes stale
-                                return "completed"
-                        except OSError:
-                            pass
+                    if status_val.lower() in _TERMINAL_STATUSES:
+                        return status_val
+                    # Active-looking status: only trustworthy while fresh.
+                    # A stale one is unknown, not completed -- the process may
+                    # have died mid-run without recording why.
+                    try:
+                        mtime = sf.stat().st_mtime
+                        if time.time() - mtime > 300:  # 5 minutes stale
+                            return "unknown"
+                    except OSError:
+                        pass
                     return status_val
             except (json.JSONDecodeError, OSError):
                 pass
+
+    # Neither state file gave a definitive, still-trustworthy answer, but one
+    # of them showed activity we couldn't corroborate. We know *something*
+    # was in flight, not whether it finished -- that is "unknown", not a
+    # guess drawn from directory contents.
+    if saw_untrusted_activity:
+        return "unknown"
 
     # 3. Infer from file contents
     files = set()
@@ -3699,7 +3731,9 @@ def _infer_session_status(entry: Path) -> str:
     has_prd = "PRD.md" in files or "prd.md" in files
 
     if has_source:
-        return "completed"
+        # A source file is not a completion marker -- it says nothing about
+        # whether the run finished, failed, or is still in progress.
+        return "unknown"
     if has_prd and len(files) <= 2:
         return "started"
     if has_prd:
@@ -7387,7 +7421,8 @@ async def github_get_pr(session_id: str, pr_number: int) -> JSONResponse:
             None, lambda: _run_gh([
                 "pr", "view", str(pr_number),
                 "--repo", repo,
-                "--json", "number,title,body,state,author,comments,reviews,files,additions,deletions,commits",
+                "--json", "number,title,body,state,author,comments,reviews,files,additions,deletions,commits,"
+                          "headRefName,baseRefName,changedFiles,reviewDecision,statusCheckRollup",
             ], cwd=str(target))
         )
         if result.returncode != 0:

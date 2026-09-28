@@ -284,7 +284,7 @@ export function readEffectiveProvider(): string | null {
   const script = providerOfferScript();
   if (!script) return null;
   try {
-    const r = spawnSync("bash", [script, "effective-provider"], { encoding: "utf8" });
+    const r = spawnSync("bash", [script, "effective-provider"], { env: { ...process.env }, encoding: "utf8" });
     if (r.status !== 0 || !r.stdout) return null;
     const id = r.stdout.trim();
     return id === "" ? null : id;
@@ -435,7 +435,7 @@ export function readProviderAvailability(): ProviderAvailability | null {
   const script = providerOfferScript();
   if (!script) return null;
   try {
-    const r = spawnSync("bash", [script, "providers-json"], { encoding: "utf8" });
+    const r = spawnSync("bash", [script, "providers-json"], { env: { ...process.env }, encoding: "utf8" });
     if (r.status !== 0 || !r.stdout) return null;
     const parsed = JSON.parse(r.stdout) as ProviderAvailability;
     if (!parsed || !Array.isArray(parsed.providers)) return null;
@@ -457,7 +457,7 @@ export function renderProviderAvailability(): string {
   const script = providerOfferScript();
   if (!script) return "";
   try {
-    const r = spawnSync("bash", [script, "providers"], { encoding: "utf8" });
+    const r = spawnSync("bash", [script, "providers"], { env: { ...process.env }, encoding: "utf8" });
     if (r.status !== 0 || !r.stdout) return "";
     return r.stdout;
   } catch {
@@ -699,6 +699,7 @@ function claudeOauthExpired(): boolean {
 function claudeAuthStatusLoggedIn(): "yes" | "no" | "" {
   try {
     const r = spawnSync("claude", ["auth", "status"], {
+      env: { ...process.env },
       encoding: "utf8",
       timeout: 5000,
     });
@@ -835,7 +836,7 @@ async function runText(): Promise<number> {
     let sdkUsable = false;
     const sdkOfferScript = resolve(REPO_ROOT, "autonomy/provider-offer.sh");
     if (existsSync(sdkOfferScript)) {
-      const probe = spawnSync("bash", [sdkOfferScript, "detect-sdk"], { stdio: "ignore" });
+      const probe = spawnSync("bash", [sdkOfferScript, "detect-sdk"], { env: { ...process.env }, stdio: "ignore" });
       sdkUsable = probe.status === 0;
     }
     if (sdkUsable) {
@@ -871,7 +872,7 @@ async function runText(): Promise<number> {
       if (process.stdout.isTTY) {
         const offerScript = resolve(REPO_ROOT, "autonomy/provider-offer.sh");
         if (existsSync(offerScript)) {
-          spawnSync("bash", [offerScript, "report"], { stdio: "inherit" });
+          spawnSync("bash", [offerScript, "report"], { env: { ...process.env }, stdio: "inherit" });
         }
       }
     }

@@ -175,8 +175,11 @@ rm -f METRICS.md
 cd "$ORIG_DIR" || exit 1
 
 # -------------------------------------------
-# Test 9: Works on empty .loki/ directory (shows zeros, does not crash)
+# Test 9: Works on empty .loki/ directory (unrecorded is null, does not crash)
 # -------------------------------------------
+# BACKLOG 118 / S-147: an empty .loki has nothing to count, so
+# total_iterations must be null (unmeasured), not a fabricated 0. Does not
+# crash is still checked via the exit code.
 cd "$TMPDIR_BASE" || exit 1
 mkdir -p .loki
 ((TOTAL++))
@@ -184,13 +187,13 @@ output=$("$LOKI" metrics --json 2>&1) || actual_exit=$?
 actual_exit=${actual_exit:-0}
 if [ "$actual_exit" -eq 0 ]; then
     iterations=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['agent_activity']['total_iterations'])" 2>/dev/null)
-    if [ "$iterations" = "0" ]; then
-        log_pass "loki metrics on empty .loki/ shows zero iterations"
+    if [ "$iterations" = "None" ]; then
+        log_pass "loki metrics on empty .loki/ reports iterations as unrecorded (null)"
     else
-        log_fail "loki metrics on empty .loki/ shows zero iterations" "got iterations=$iterations"
+        log_fail "loki metrics on empty .loki/ reports iterations as unrecorded (null)" "got iterations=$iterations"
     fi
 else
-    log_fail "loki metrics on empty .loki/ shows zero iterations" "exit code was $actual_exit"
+    log_fail "loki metrics on empty .loki/ reports iterations as unrecorded (null)" "exit code was $actual_exit"
 fi
 cd "$ORIG_DIR" || exit 1
 

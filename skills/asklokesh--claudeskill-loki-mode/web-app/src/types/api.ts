@@ -187,7 +187,8 @@ export interface GitHubIssue {
   author: { login: string };
   createdAt: string;
   updatedAt: string;
-  comments: number;
+  // gh issue list --json comments returns an array of comment objects.
+  comments: number | unknown[];
 }
 
 // GitHub Pull Requests

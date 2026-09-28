@@ -29,17 +29,29 @@ _LINEAGE_DISCOVERY_WINDOW_SECONDS = 0.20
 _RECONCILE_SCHEDULING_MARGIN_SECONDS = 0.30
 _LINEAGE_ENV_NAME = "LOKI_DEADLINE_LINEAGE"
 _CONTROL_ENV_NAME = "LOKI_DEADLINE_CONTROL_FILE"
+# How long spawn_tracked waits for the bootstrap to report that it is running.
+# Exceeding it fails the launch closed; it never skips the lineage check.
+_LAUNCH_READY_TIMEOUT_SECONDS = 30.0
+
+# The ready byte is written by interpreted code, so execve has fully returned
+# to userspace and the kernel has published the new environment block. Popen
+# returning is NOT that point: its exec-error pipe closes at close-on-exec time,
+# before the ELF loader sets mm->env_end, and /proc/<pid>/environ reads as empty
+# for a live child in that window.
 _EXEC_BOOTSTRAP = """
 import os
 import sys
 
-gate = int(sys.argv[1])
+ready = int(sys.argv[1])
+os.write(ready, b"1")
+os.close(ready)
+gate = int(sys.argv[2])
 released = os.read(gate, 1)
 os.close(gate)
 if released != b"1":
     raise SystemExit(125)
 try:
-    os.execvpe(sys.argv[2], sys.argv[2:], os.environ)
+    os.execvpe(sys.argv[3], sys.argv[3:], os.environ)
 except FileNotFoundError:
     raise SystemExit(127)
 except PermissionError:
@@ -585,6 +597,7 @@ def spawn_tracked(
     process: subprocess.Popen[bytes] | None = None
     gate_read = gate_write = -1
     lineage_read = lineage_write = -1
+    ready_read = ready_write = -1
     try:
         subreaper = _configure_child_subreaper()
         token = secrets.token_hex(16)
@@ -594,6 +607,7 @@ def spawn_tracked(
         inherited = tuple(popen_kwargs.pop("pass_fds", ()))
         gate_read, gate_write = os.pipe()
         lineage_read, lineage_write = os.pipe()
+        ready_read, ready_write = os.pipe()
         handles = (
             _darwin_pipe_handles(os.getpid(), lineage_read)
             if sys.platform == "darwin"
@@ -602,14 +616,34 @@ def spawn_tracked(
         if sys.platform == "darwin" and not handles:
             raise RuntimeError("attempt lineage pipe identity is unavailable")
         process = subprocess.Popen(
-            [sys.executable, "-c", _EXEC_BOOTSTRAP, str(gate_read), *command],
+            [
+                sys.executable,
+                "-c",
+                _EXEC_BOOTSTRAP,
+                str(ready_write),
+                str(gate_read),
+                *command,
+            ],
             start_new_session=True,
             env=child_env,
-            pass_fds=(*inherited, gate_read, lineage_write),
+            pass_fds=(*inherited, ready_write, gate_read, lineage_write),
             **popen_kwargs,
         )
         os.close(gate_read)
         gate_read = -1
+        os.close(ready_write)
+        ready_write = -1
+        # Wait until the bootstrap is running before reading its marker. EOF
+        # without a byte means it died first; the tracker's reaped-child path
+        # (poll) owns that case, so fall through to it.
+        with selectors.DefaultSelector() as ready_wait:
+            ready_wait.register(ready_read, selectors.EVENT_READ)
+            readable = ready_wait.select(_LAUNCH_READY_TIMEOUT_SECONDS)
+        if not readable:
+            raise RuntimeError("provider attempt did not report ready")
+        os.read(ready_read, 1)
+        os.close(ready_read)
+        ready_read = -1
         tracker = _LineageTracker(process, subreaper, token, handles)
         tracker._lineage_read_fd = lineage_read
         lineage_read = -1
@@ -620,7 +654,14 @@ def spawn_tracked(
         lineage_write = -1
         return process, tracker
     except BaseException:
-        for descriptor in (gate_read, gate_write, lineage_read, lineage_write):
+        for descriptor in (
+            gate_read,
+            gate_write,
+            lineage_read,
+            lineage_write,
+            ready_read,
+            ready_write,
+        ):
             if descriptor >= 0:
                 try:
                     os.close(descriptor)

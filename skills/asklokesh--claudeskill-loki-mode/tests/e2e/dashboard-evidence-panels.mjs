@@ -91,7 +91,7 @@ async function main() {
   const panels = [
     ['loadReceipts', 'receipts-panel', 'receipts-list'],
     ['loadLearnings', 'learnings-panel', 'learnings-list'],
-    ['loadBudget', 'budget-banner', 'budget-banner'],
+    ['loadBudget', 'cost-budget-banner', 'cost-budget-banner'],
   ];
   const rendered = {};
   for (const [fn, panelId, listId] of panels) {

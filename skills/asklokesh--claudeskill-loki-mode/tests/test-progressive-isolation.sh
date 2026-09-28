@@ -9,8 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOKI="$SCRIPT_DIR/../autonomy/loki"
 
 PASS=0; FAIL=0; TOTAL=0
-pass() { ((PASS++)); ((TOTAL++)); echo "PASS: $1"; }
-fail() { ((FAIL++)); ((TOTAL++)); echo "FAIL: $1"; }
+pass() { PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); echo "PASS: $1"; }
+fail() { FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); echo "FAIL: $1"; }
 
 # Capture help outputs once
 RUN_HELP=$(bash "$LOKI" run --help 2>&1) || true
@@ -46,11 +46,12 @@ else
     fail "--detach flag missing from 'loki run --help'"
 fi
 
-# 5. Progressive Isolation section in main help
-if echo "$MAIN_HELP" | grep -qi "Progressive Isolation"; then
-    pass "Progressive Isolation section appears in main help"
+# 5. Isolation dial documented in main help (renamed from "Progressive
+# Isolation" heading to the --isolation LVL flag description)
+if echo "$MAIN_HELP" | grep -qi -- "--isolation.*isolation dial"; then
+    pass "isolation dial appears in main help"
 else
-    fail "Progressive Isolation section missing from main help"
+    fail "isolation dial missing from main help"
 fi
 
 # 6. Cascade documentation (implies keyword)

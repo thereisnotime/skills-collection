@@ -105,13 +105,6 @@ const PROVIDERS: ProviderDef[] = [
     defaultModel: 'gpt-5.3-codex',
   },
   {
-    id: 'gemini',
-    name: 'Gemini',
-    description: 'Google Gemini CLI -- degraded mode',
-    models: ['gemini-3-pro-medium', 'gemini-2.5-flash', 'gemini-2.5-pro'],
-    defaultModel: 'gemini-3-pro-medium',
-  },
-  {
     id: 'cline',
     name: 'Cline',
     description: 'VS Code extension -- sequential mode',
@@ -124,6 +117,13 @@ const PROVIDERS: ProviderDef[] = [
     description: 'Terminal-based pair programming',
     models: ['claude-opus-4-7', 'claude-sonnet-4-6', 'gpt-4.1', 'ollama_chat/deepseek-coder'],
     defaultModel: 'claude-opus-4-7',
+  },
+  {
+    id: 'opencode',
+    name: 'opencode',
+    description: 'Model-agnostic CLI -- 75+ providers, local models',
+    models: ['openrouter/deepseek/deepseek-v3.2', 'openrouter/z-ai/glm-4.6', 'openrouter/minimax/minimax-m2.1', 'ollama/qwen2.5-coder'],
+    defaultModel: 'openrouter/deepseek/deepseek-v3.2',
   },
 ];
 
@@ -217,7 +217,7 @@ export default function SettingsPage() {
   const [providerKeys, setProviderKeys] = useState<Record<string, string>>(() => loadSetting('providerKeys', {}));
   const [providerModels, setProviderModels] = useState<Record<string, string>>(() => loadSetting('providerModels', {}));
   const [providerPriority, setProviderPriority] = useState<string[]>(() =>
-    loadSetting('providerPriority', ['claude', 'codex', 'gemini', 'cline', 'aider'])
+    loadSetting('providerPriority', ['claude', 'codex', 'cline', 'aider', 'opencode'])
   );
   const [settingDefault, setSettingDefault] = useState<string | null>(null);
   const [defaultResults, setDefaultResults] = useState<Record<string, { ok: boolean; message: string }>>({});
@@ -999,12 +999,8 @@ greet("world");`}</pre>
               </div>
             )}
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-[#6B6960]">Build date</span>
-              <span className="text-sm font-mono text-[#36342E]">2026-03-24</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-[#6B6960]">License</span>
-              <span className="text-sm text-[#36342E]">MIT</span>
+              <span className="text-sm text-[#36342E]">BUSL-1.1</span>
             </div>
           </div>
         </div>

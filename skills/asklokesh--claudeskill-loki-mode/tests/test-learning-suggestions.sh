@@ -41,27 +41,27 @@ run_test() {
     local expected_result="${2:-0}"
     shift 2
 
-    ((TESTS_RUN++))
+    TESTS_RUN=$((TESTS_RUN+1))
     echo -n "  Testing $test_name... "
 
     if [ "$expected_result" = "0" ]; then
         if "$@" >/dev/null 2>&1; then
             echo -e "${GREEN}PASS${NC}"
-            ((TESTS_PASSED++))
+            TESTS_PASSED=$((TESTS_PASSED+1))
             return 0
         else
             echo -e "${RED}FAIL${NC}"
-            ((TESTS_FAILED++))
+            TESTS_FAILED=$((TESTS_FAILED+1))
             return 1
         fi
     else
         if ! "$@" >/dev/null 2>&1; then
             echo -e "${GREEN}PASS (expected failure)${NC}"
-            ((TESTS_PASSED++))
+            TESTS_PASSED=$((TESTS_PASSED+1))
             return 0
         else
             echo -e "${RED}FAIL (should have failed)${NC}"
-            ((TESTS_FAILED++))
+            TESTS_FAILED=$((TESTS_FAILED+1))
             return 1
         fi
     fi
@@ -215,12 +215,12 @@ clear_all
 result=$("$SUGGEST_SH" 2>&1) || true
 if echo "$result" | grep -qiE "no suggestions|no aggregation|aggregate"; then
     echo -e "  ${GREEN}Empty case handled correctly${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "  ${YELLOW}No specific empty message (may need aggregation first)${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 3: Create test data and aggregate"
@@ -240,16 +240,16 @@ if [ -d "$TEST_LOKI_DIR/learning/aggregated" ]; then
     agg_count=$(find "$TEST_LOKI_DIR/learning/aggregated" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
     if [ "$agg_count" -gt 0 ]; then
         echo -e "  ${GREEN}Aggregation created (${agg_count} files)${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "  ${RED}No aggregation files created${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
 else
     echo -e "  ${RED}Aggregated directory not created${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 4: Get all suggestions"
@@ -259,13 +259,13 @@ suggestions_output=$("$SUGGEST_SH" 2>&1) || true
 echo -n "  Checking suggestions output... "
 if echo "$suggestions_output" | grep -qiE "suggestion|practice|command|tool|error"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
     echo "  Output was: $suggestions_output"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 5: Filter by type - command"
@@ -275,12 +275,12 @@ cmd_output=$("$SUGGEST_SH" --type command 2>&1) || true
 echo -n "  Checking command suggestions... "
 if echo "$cmd_output" | grep -qiE "command|preference"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${YELLOW}SKIP (may not have command suggestions)${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 6: Filter by type - error"
@@ -290,12 +290,12 @@ err_output=$("$SUGGEST_SH" --type error 2>&1) || true
 echo -n "  Checking error prevention suggestions... "
 if echo "$err_output" | grep -qiE "error|prevention"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${YELLOW}SKIP (may not have error suggestions)${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 7: Filter by type - practice"
@@ -305,12 +305,12 @@ practice_output=$("$SUGGEST_SH" --type practice 2>&1) || true
 echo -n "  Checking best practice suggestions... "
 if echo "$practice_output" | grep -qiE "practice|pattern|success"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${YELLOW}SKIP (may not have practice suggestions)${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 8: Filter by type - tool"
@@ -320,12 +320,12 @@ tool_output=$("$SUGGEST_SH" --type tool 2>&1) || true
 echo -n "  Checking tool suggestions... "
 if echo "$tool_output" | grep -qiE "tool|efficiency"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${YELLOW}SKIP (may not have tool suggestions)${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 9: JSON output"
@@ -335,22 +335,22 @@ json_output=$("$SUGGEST_SH" --json 2>&1) || true
 echo -n "  Checking JSON is valid... "
 if echo "$json_output" | python3 -c "import json, sys; json.load(sys.stdin)" 2>/dev/null; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo -n "  Checking JSON has suggestions array... "
 if echo "$json_output" | grep -q '"suggestions":'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 10: Verbose output"
@@ -361,12 +361,12 @@ echo -n "  Checking verbose includes details... "
 # Verbose output should have more content than regular
 if [ "${#verbose_output}" -gt 100 ]; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${YELLOW}SKIP (output may be short)${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 11: Startup tips"
@@ -376,13 +376,13 @@ startup_output=$("$SUGGEST_SH" --startup 2>&1) || true
 echo -n "  Checking startup tips format... "
 if echo "$startup_output" | grep -qiE "\[TIP\]|no tips|aggregate"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     # May just have no tips
     echo -e "${YELLOW}SKIP (may have no tips yet)${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 12: Limit option"
@@ -404,12 +404,12 @@ context_output=$("$SUGGEST_SH" --context "debugging authentication issues" 2>&1)
 echo -n "  Checking context-aware suggestions... "
 if [ -n "$context_output" ]; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 15: Task type option"
@@ -429,12 +429,12 @@ from learning import LearningSuggestions, Suggestion, SuggestionType, Suggestion
 print('OK')
 " 2>/dev/null | grep -q "OK"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo -n "  Checking suggestion types can be imported... "
 if python3 -c "
@@ -452,12 +452,12 @@ from learning.suggestions import (
 print('OK')
 " 2>/dev/null | grep -q "OK"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 17: Suggestion ranking"
@@ -480,12 +480,12 @@ for i in range(1, len(scores)):
 sys.exit(0)
 " <<< "$json_ranked" 2>/dev/null; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${YELLOW}SKIP (not enough suggestions to verify)${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 18: Invalid type handling"
@@ -495,12 +495,12 @@ invalid_output=$("$SUGGEST_SH" --type invalid_type 2>&1) || true
 echo -n "  Checking invalid type is rejected... "
 if echo "$invalid_output" | grep -qiE "invalid|error|valid types"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "=============================================="

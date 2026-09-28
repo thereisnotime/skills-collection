@@ -885,7 +885,31 @@ def _host_seatbelt_profile(
         lines.append(
             f'(deny network-outbound (remote tcp "*:{port}"))'
         )
-        lines.append(f'(deny network-bind (local tcp "*:{port}"))')
+        # network-bind uses "tcp4", not "tcp": confirmed on macOS 27.0 (26A428)
+        # that sandbox-exec's (local tcp "*:PORT") filter on network-bind never
+        # matches an actual bind (a bind to 127.0.0.1 or 0.0.0.0 on the denied
+        # port succeeds), while (local tcp4 "*:PORT") correctly denies it with
+        # a clean PermissionError. network-outbound's "tcp" filter above is
+        # unaffected (verified separately: an outbound connect to a denied
+        # port is still refused), so only this line changes.
+        #
+        # Known residual gap, same platform bug family, found while fixing
+        # the above (not introduced by it -- reproduced identically against
+        # the un-patched "tcp" rule too): on this same macOS 27.0 build, EVERY
+        # port-qualified network-bind filter for IPv6 ("tcp6 \"*:PORT\"" and
+        # "ip6 \"*:PORT\"") also fails to match, so an IPv6 bind to the
+        # reserved port (e.g. "::1"/"::") still succeeds even with a "tcp6"
+        # deny added. Only a port-unqualified "(deny network-bind (local
+        # ip6))" was confirmed to actually block IPv6 binds, which would deny
+        # ALL IPv6 binding (not just the reserved ports) -- a materially wider
+        # behavior change than this port-scoping fix, and nothing in this
+        # codebase binds IPv6 today (grepped: no AF_INET6/IPv6 usage). Left
+        # unfixed here to keep this change scoped to the failing test; the
+        # reserved ports remain enforced for IPv4 (the only family in active
+        # use), and a confined build could still self-expose a reserved port
+        # over IPv6 loopback/wildcard. Tracked as a follow-up, not silently
+        # closed.
+        lines.append(f'(deny network-bind (local tcp4 "*:{port}"))')
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 

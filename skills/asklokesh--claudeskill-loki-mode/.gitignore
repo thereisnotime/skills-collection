@@ -64,6 +64,9 @@ vscode-extension/.loki/
 # Claude Code harness scheduled-tasks lock (transient, per-session)
 .claude/scheduled_tasks.lock
 
+# Local machine hook/permission config -- never shared, per-operator only.
+.claude/settings.local.json
+
 # Test artifacts
 **/test-results/
 .aider*

@@ -171,7 +171,7 @@ fi
 success_child_file="$TMPROOT/success-child.pid"
 success_marker="$TMPROOT/success-next-action"
 success_mutation="$TMPROOT/success-delayed-mutation"
-_loki_with_deadline 5 python3 - \
+_loki_with_deadline 15 python3 - \
     "$success_child_file" "$success_marker" "$success_mutation" <<'PY' \
     >/dev/null 2>&1
 import os
@@ -196,7 +196,13 @@ if child == 0:
     while True:
         time.sleep(1)
 
-deadline = time.monotonic() + 0.2
+# Bounded wait for the child's PID file, not a fixed sleep: under host load
+# (parallel copies + a CPU hog) fork/setsid/write can lag well past a couple
+# hundred ms, and a too-short bound here makes the leader exit before the
+# child is visible, flaking the assertions below rather than exercising the
+# fail-closed path this test is for. 10s is a generous ceiling; the loop
+# still exits the instant the file appears.
+deadline = time.monotonic() + 10
 while not pathlib.Path(sys.argv[1]).exists() and time.monotonic() < deadline:
     time.sleep(0.001)
 raise SystemExit(0)

@@ -191,6 +191,25 @@
     iterations: "RARV iterations needed to complete a run",
     interventions: "Human interventions needed per run"
   };
+  var AXIS_ORDER = ["council_pass_rate", "gate_pass_rate", "iterations", "interventions"];
+
+  // S-148: named so it can be extracted and unit-tested (see
+  // tests/test-trust-headline.js). Every axis insufficient/unavailable ->
+  // say so honestly instead of claiming "Stable"; a real flat axis (data
+  // present, direction genuinely flat) still reports Stable.
+  function trustHeadline(d) {
+    var axes = d.axes || {};
+    var allInsufficient = AXIS_ORDER.every(function (k) {
+      var ax = axes[k];
+      return !ax || ax.available === false || ax.insufficient === true;
+    });
+    if (allInsufficient) return "Not enough history yet.";
+    var imp = d.improving_count || 0, reg = d.regressing_count || 0;
+    if (imp && !reg) return "Trending more trustworthy: " + imp + " axis improving, none regressing on this repo.";
+    if (reg && !imp) return "Trust regressing: " + reg + " axis regressing. Review recent runs.";
+    if (imp || reg) return "Mixed: " + imp + " improving, " + reg + " regressing.";
+    return "Stable: no significant change across axes yet.";
+  }
 
   function renderAxis(key, ax, series) {
     var label = ax.label || key;
@@ -266,11 +285,7 @@
     var axes = d.axes || {};
     var imp = d.improving_count || 0, reg = d.regressing_count || 0;
     var hClass = (imp && !reg) ? "good" : (reg && !imp ? "bad" : "");
-    var headline;
-    if (imp && !reg) headline = "Trending more trustworthy: " + imp + " axis improving, none regressing on this repo.";
-    else if (reg && !imp) headline = "Trust regressing: " + reg + " axis regressing. Review recent runs.";
-    else if (imp || reg) headline = "Mixed: " + imp + " improving, " + reg + " regressing.";
-    else headline = "Stable: no significant change across axes yet.";
+    var headline = trustHeadline(d);
 
     var cards = '<div class="cards">' +
       '<div class="card"><div class="label">Runs analyzed</div>' +
@@ -285,7 +300,7 @@
       '</div>';
 
     var axesHtml = '<h2>Earned-autonomy signals</h2><div class="axes">';
-    var order = ["council_pass_rate", "gate_pass_rate", "iterations", "interventions"];
+    var order = AXIS_ORDER;
     for (var k = 0; k < order.length; k++) {
       if (axes[order[k]]) axesHtml += renderAxis(order[k], axes[order[k]], series);
     }

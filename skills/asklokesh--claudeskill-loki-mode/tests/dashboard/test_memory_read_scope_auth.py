@@ -95,6 +95,10 @@ for r in server.app.routes:
     methods = getattr(r, "methods", None) or set()
     if hasattr(r, "path") and "GET" in methods:
         routes[r.path] = r
+assert routes, "server.app.routes GET walk found zero routes -- audit would be vacuous"
+assert len(MEMORY_READ_PATHS) > 0, (
+    "MEMORY_READ_PATHS is empty -- this walk would pass vacuously"
+)
 for path in MEMORY_READ_PATHS:
     assert path in routes, f"{path} GET route missing"
     deps = getattr(routes[path], "dependencies", [])

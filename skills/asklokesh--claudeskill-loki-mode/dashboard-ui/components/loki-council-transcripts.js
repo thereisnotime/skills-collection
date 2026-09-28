@@ -28,6 +28,7 @@ export class LokiCouncilTranscripts extends LokiElement {
     super();
     this._transcripts = [];
     this._hookEvents = [];
+    this._hookError = null;
     this._loading = false;
     this._error = null;
     this._api = null;
@@ -108,10 +109,13 @@ export class LokiCouncilTranscripts extends LokiElement {
       this._hookEvents = Array.isArray(hooks && hooks.hook_events)
         ? hooks.hook_events
         : [];
+      this._hookError = null;
     } catch (err) {
       // Drop a stale response if the api-url switched mid-flight.
       if (api !== this._api) return;
+      // Record the failure so it never renders as "no hook events".
       this._hookEvents = [];
+      this._hookError = (err && err.message) ? err.message : String(err);
     } finally {
       this._loading = false;
       this.render();
@@ -500,7 +504,12 @@ export class LokiCouncilTranscripts extends LokiElement {
   _hookEventsHtml() {
     const events = Array.isArray(this._hookEvents) ? this._hookEvents : [];
     let inner;
-    if (events.length === 0) {
+    if (this._hookError) {
+      inner =
+        '<div class="ct-error">Could not load hook events: ' +
+        this._escapeHtml(this._hookError) +
+        '</div>';
+    } else if (events.length === 0) {
       inner =
         '<div class="ct-empty">No live tool activity yet -- Claude hook ' +
         'events stream here while a run is active.</div>';

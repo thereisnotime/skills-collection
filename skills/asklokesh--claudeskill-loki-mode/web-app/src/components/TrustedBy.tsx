@@ -46,7 +46,7 @@ const STATS = [
   {
     icon: Package,
     value: 21,
-    suffix: '+',
+    suffix: '',
     label: 'Templates',
   },
   {
@@ -67,7 +67,7 @@ export function TrustedBy() {
   return (
     <section className="w-full max-w-3xl mx-auto mt-16 mb-4">
       <p className="text-center text-sm text-[#6B6960] mb-8 tracking-wide uppercase font-medium">
-        Trusted by developers building the future
+        At a glance
       </p>
 
       <div className="flex items-center justify-center gap-12 sm:gap-16">

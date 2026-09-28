@@ -186,6 +186,68 @@ class TestCleanupExpiredRotatingKeys:
         tokens = auth._load_tokens()
         assert original["id"] in tokens["tokens"]
 
+    def test_cleanup_fails_closed_on_unparseable_expiry(self, create_key):
+        # auth._deadline_passed treats an unparseable value as expired, so
+        # cleanup must not raise on it (BACKLOG 33: this used to crash via a
+        # bare datetime.fromisoformat before cleanup ever had a caller).
+        from dashboard import api_keys, auth
+
+        original = create_key(name="bad-expiry", scopes=["read"])
+        api_keys.rotate_key("bad-expiry", grace_period_hours=24)
+
+        tokens = auth._load_tokens()
+        tokens["tokens"][original["id"]]["rotation_expires_at"] = "not-a-date"
+        auth._save_tokens(tokens)
+
+        deleted = api_keys.cleanup_expired_rotating_keys()
+        assert original["id"] in deleted
+
+
+class TestCleanupWiredToListing:
+    """BACKLOG 33: cleanup_expired_rotating_keys had no caller, so expired
+    rotating keys stayed in storage indefinitely even though validate_token
+    already rejected them (BACKLOG 119). list_keys_with_details is the one
+    live read path over the full token store, so it now sweeps first.
+    """
+
+    def test_listing_purges_expired_rotating_key_from_storage(self, create_key):
+        from dashboard import api_keys, auth
+
+        original = create_key(name="sweep-me", scopes=["read"])
+        api_keys.rotate_key("sweep-me", grace_period_hours=0)
+
+        tokens = auth._load_tokens()
+        tokens["tokens"][original["id"]]["rotation_expires_at"] = (
+            datetime.now(timezone.utc) - timedelta(hours=1)
+        ).isoformat()
+        auth._save_tokens(tokens)
+
+        api_keys.list_keys_with_details()
+
+        tokens = auth._load_tokens()
+        assert original["id"] not in tokens["tokens"]
+
+    def test_listing_does_not_purge_non_expired_rotating_key(self, create_key):
+        from dashboard import api_keys, auth
+
+        original = create_key(name="keep-rotating", scopes=["read"])
+        api_keys.rotate_key("keep-rotating", grace_period_hours=48)
+
+        api_keys.list_keys_with_details()
+
+        tokens = auth._load_tokens()
+        assert original["id"] in tokens["tokens"]
+
+    def test_listing_does_not_purge_normal_key(self, create_key):
+        from dashboard import api_keys, auth
+
+        normal = create_key(name="plain-key", scopes=["read"])
+
+        api_keys.list_keys_with_details()
+
+        tokens = auth._load_tokens()
+        assert normal["id"] in tokens["tokens"]
+
 
 # ---------------------------------------------------------------------------
 # Metadata tests

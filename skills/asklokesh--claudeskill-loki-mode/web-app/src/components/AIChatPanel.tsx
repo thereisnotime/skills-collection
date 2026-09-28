@@ -34,6 +34,14 @@ function updateLastMessage(
   return updated;
 }
 
+// Final message text for a completed task. Empty output must not read as
+// success: the exit code decides what an empty result says (BACKLOG 114).
+function completionContent(output: string, returncode: number | undefined): string {
+  if (output) return output;
+  if (typeof returncode !== 'number') return 'No output, exit status unknown';
+  return returncode === 0 ? 'Finished with no output' : `Failed (exit ${returncode}), no output`;
+}
+
 /** Parse categorized output lines into structured sections for display. */
 function parseStructuredContent(content: string): {
   textLines: string[];
@@ -540,7 +548,7 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
         last.role === 'system'
           ? {
               isStreaming: false,
-              content: poll.output_lines.join('\n') || 'Done.',
+              content: completionContent(poll.output_lines.join('\n'), poll.returncode),
               filesChanged: poll.files_changed,
               returncode: poll.returncode,
             }
@@ -619,7 +627,7 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
                         isStreaming: false,
                         filesChanged: files_changed,
                         returncode,
-                        content: last.content || 'Done.',
+                        content: completionContent(last.content, returncode),
                       }
                     : {},
                 ),

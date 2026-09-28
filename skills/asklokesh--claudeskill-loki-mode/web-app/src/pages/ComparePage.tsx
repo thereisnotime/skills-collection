@@ -13,10 +13,9 @@ const COMPARISON_DATA: ComparisonRow[] = [
   // AI Models
   { feature: 'Claude (Opus/Sonnet/Haiku)', category: 'AI Models', lokiMode: true, boltNew: false, replit: false, lovable: true },
   { feature: 'GPT-4o / Codex', category: 'AI Models', lokiMode: true, boltNew: true, replit: true, lovable: false },
-  { feature: 'Gemini', category: 'AI Models', lokiMode: true, boltNew: false, replit: true, lovable: false },
   { feature: '5-provider auto-failover', category: 'AI Models', lokiMode: true, boltNew: false, replit: false, lovable: false },
   // Quality
-  { feature: '9 automated quality gates', category: 'Quality', lokiMode: true, boltNew: false, replit: false, lovable: false },
+  { feature: '8 automated quality gates', category: 'Quality', lokiMode: true, boltNew: false, replit: false, lovable: false },
   { feature: 'Blind 3-reviewer code review', category: 'Quality', lokiMode: true, boltNew: false, replit: false, lovable: false },
   { feature: 'Anti-sycophancy checks', category: 'Quality', lokiMode: true, boltNew: false, replit: false, lovable: false },
   { feature: 'Automated test generation', category: 'Quality', lokiMode: true, boltNew: false, replit: 'Partial', lovable: false },
@@ -70,7 +69,7 @@ const BENEFIT_CARDS = [
   },
   {
     title: 'Production Quality',
-    description: '9 quality gates, blind code review, and anti-sycophancy checks ensure code that actually works.',
+    description: '8 quality gates, blind code review, and anti-sycophancy checks ensure code that actually works.',
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-[#1FC5A8]">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

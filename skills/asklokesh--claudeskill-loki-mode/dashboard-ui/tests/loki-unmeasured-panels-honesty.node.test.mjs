@@ -158,6 +158,38 @@ describe('memory browser', async () => {
     e._tokenEconomics = { discoveryTokens: 1200, readTokens: 800, savingsPercent: 62.5 };
     const m = e._renderSummary(); assert.ok(m.includes('1,200') && m.includes('62.5%'));
   });
+  it('reads the real snake_case keys the memory store writes, not camelCase', () => {
+    const e = mk(LokiMemoryBrowser);
+    // Real /api/memory/episodes shape: memory/schemas.py EpisodeTrace.to_dict().
+    const episode = {
+      id: 'ep-1', task_id: 'task-42', agent: 'loki-orchestrator', outcome: 'success',
+      duration_seconds: 12, tokens_used: 500, timestamp: '2026-01-01T00:00:00Z',
+      context: { phase: 'ACT', goal: 'fix the thing' },
+      action_log: [{ t: 1, action: 'edit', target: 'foo.py' }],
+    };
+    e._episodes = [episode];
+    const listHtml = e._renderEpisodes();
+    assert.ok(listHtml.includes('task-42'), 'episode list still shows "Task" instead of the real task_id');
+    assert.ok(listHtml.includes('ACT'), 'episode list did not read the nested context.phase');
+
+    // The detail panel discriminates on action_log, not actionLog.
+    e._selectedItem = episode;
+    const detailHtml = e._renderDetail();
+    assert.ok(detailHtml.includes('Episode:'), 'action_log-keyed object was not recognized as an episode');
+    assert.ok(detailHtml.includes('task-42'), 'detail panel did not read task_id');
+    assert.ok(detailHtml.includes('ACT'), 'detail panel did not read context.phase');
+    assert.ok(detailHtml.includes('fix the thing'), 'detail panel did not read context.goal');
+    assert.ok(detailHtml.includes('12s'), 'detail panel did not read duration_seconds');
+    assert.match(detailHtml, /Tokens Used[\s\S]*?500/, 'detail panel did not read tokens_used');
+    assert.ok(detailHtml.includes('Action Log (1)'), 'detail panel did not read action_log entries');
+
+    // /api/memory/stats sends episode_count / pattern_count / skill_count.
+    e._stats = { backend: 'json', episode_count: 7, pattern_count: 2, skill_count: 1 };
+    const summaryHtml = e._renderSummary.call(Object.assign(e, { _summary: { episodic: {}, semantic: {}, procedural: {} } }));
+    assert.match(summaryHtml, />7</, 'summary did not read episode_count');
+    assert.match(summaryHtml, />2</, 'summary did not read pattern_count');
+    assert.match(summaryHtml, />1</, 'summary did not read skill_count');
+  });
 });
 
 describe('analytics, overview, session control, fleet, cost', async () => {
@@ -175,6 +207,21 @@ describe('analytics, overview, session control, fleet, cost', async () => {
     const e = mk(LokiOverview); e._data = { ...e._data, connected: true, status: 'running' }; e.render(); const o = html(e);
     for (const bad of ['CLAUDE', 'STANDARD', 'Inline', 'null']) assert.ok(!o.includes(bad), bad);
     assert.ok(!/card-value">\s*0\s*</.test(o));
+  });
+  it('council gate card reads `blocked`, the field /api/council/gate actually sends, not `status`', async () => {
+    const { LokiOverview } = await import(C('loki-overview.js'));
+    const e = mk(LokiOverview); e._data = { ...e._data, connected: true, status: 'running' };
+    // Real shape: gate-block.json absent, nothing evaluated yet.
+    e._gateStatus = { blocked: false, gates: [], gates_reason: 'No per-gate results recorded', evidence: { blocked: false } };
+    assert.match(e._renderCouncilGateCard(), /Not blocked/);
+    // Real shape: gate-block.json present, blocked, no `status` guaranteed.
+    e._gateStatus = { blocked: true, critical_failures: 2, gates: [], evidence: { blocked: false } };
+    assert.match(e._renderCouncilGateCard(), /BLOCKED/);
+    assert.match(e._renderCouncilGateCard(), /2 critical failures/);
+    // Unreadable gate file: blocked is explicitly null, not a pass.
+    e._gateStatus = { blocked: null, error: 'Failed to read gate file' };
+    assert.match(e._renderCouncilGateCard(), /Not evaluated|Pending review/);
+    assert.ok(!e._renderCouncilGateCard().includes('BLOCKED'));
   });
   it('session control seeds agents and tasks as unknown, not 0', async () => {
     const { LokiSessionControl } = await import(C('loki-session-control.js'));

@@ -1,178 +1,74 @@
 /**
- * Tests for new UI components - utility functions and data transformations.
+ * Tests for UI component utility functions and data transformations.
  *
- * Uses Node.js built-in test runner. Tests the pure utility functions exported
- * from each component without requiring DOM APIs.
+ * Uses Node.js built-in test runner. Imports the actual exported pure
+ * functions from each component (no DOM APIs required for these functions),
+ * so behavior changes in the shipped code are caught here instead of against
+ * a stale hand-copy.
  *
  * Run with: node --test dashboard-ui/tests/ui-components.test.js
  *
- * The utility functions are imported from a companion helpers file that
- * re-exports them without triggering customElements.define() or DOM imports.
- *
- * @version 1.0.0
+ * @version 2.0.0
  */
 
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-// -- Re-implement pure utility functions from each component for testing.
-// -- These are exact copies of the exported functions, allowing us to test
-// -- the logic without importing modules that depend on browser APIs.
-
-// From loki-rarv-timeline.js
-function formatDuration(ms) {
-  if (ms == null || ms < 0) return '--';
-  if (ms < 1000) return `${ms}ms`;
-  const sec = Math.floor(ms / 1000);
-  if (sec < 60) return `${sec}s`;
-  const min = Math.floor(sec / 60);
-  const remainSec = sec % 60;
-  if (min < 60) return `${min}m ${remainSec}s`;
-  const hr = Math.floor(min / 60);
-  const remainMin = min % 60;
-  return `${hr}h ${remainMin}m`;
-}
-
-function computePhaseWidths(phases) {
-  if (!phases || phases.length === 0) return [];
-  const totalMs = phases.reduce((sum, p) => sum + (p.duration_ms || 0), 0);
-  if (totalMs === 0) {
-    return phases.map(p => ({ phase: p.phase, pct: 100 / phases.length, duration: 0 }));
+// -- Minimal DOM stubs, installed before the component modules are imported.
+// Each component module extends LokiElement (HTMLElement) at class-definition
+// time, so importing it for its pure functions still needs these globals even
+// though the functions under test touch no DOM themselves.
+const fakeClassList = { contains: () => false, add() {}, remove() {}, toggle() {} };
+globalThis.document = {
+  body: { classList: fakeClassList },
+  documentElement: { classList: fakeClassList, dataset: {}, style: { setProperty() {} } },
+  addEventListener() {},
+  removeEventListener() {},
+  querySelector: () => null,
+};
+class FakeHTMLElement {
+  attachShadow() {
+    this._shadow = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+    return this._shadow;
   }
-  return phases.map(p => ({
-    phase: p.phase,
-    pct: ((p.duration_ms || 0) / totalMs) * 100,
-    duration: p.duration_ms || 0,
-  }));
+  get shadowRoot() { return this._shadow; }
+  getAttribute() { return null; }
+  hasAttribute() { return false; }
 }
+globalThis.HTMLElement = FakeHTMLElement;
+globalThis.customElements = {
+  _d: new Map(),
+  define(n, c) { this._d.set(n, c); },
+  get(n) { return this._d.get(n); },
+};
+globalThis.window = globalThis.window || {
+  location: { origin: 'http://localhost:57374' },
+  matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
+  addEventListener() {},
+  removeEventListener() {},
+};
+globalThis.getComputedStyle = globalThis.getComputedStyle || (() => ({ getPropertyValue: () => '' }));
+globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem() {}, removeItem() {} };
 
-// From loki-quality-gates.js
-function formatGateTime(timestamp) {
-  if (!timestamp) return 'Never';
-  try {
-    const d = new Date(timestamp);
-    return d.toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return 'Unknown';
-  }
-}
+// Dynamic imports, run only after the DOM stubs above are installed. A static
+// import is hoisted above this file's own top-level statements, which would
+// run each component module's class definition (extends HTMLElement) before
+// globalThis.HTMLElement exists.
+let formatDuration, computePhaseWidths;
+let formatGateTime, summarizeGates;
+let formatAuditTimestamp, buildAuditQuery;
+let formatTenantLabel;
+let formatRunDuration, formatRunTime;
+let formatKeyTime, maskToken;
 
-function summarizeGates(gates) {
-  if (!gates || gates.length === 0) return { pass: 0, fail: 0, pending: 0, total: 0 };
-  const result = { pass: 0, fail: 0, pending: 0, total: gates.length };
-  for (const gate of gates) {
-    const status = (gate.status || 'pending').toLowerCase();
-    if (status === 'pass') result.pass++;
-    else if (status === 'fail') result.fail++;
-    else result.pending++;
-  }
-  return result;
-}
-
-// From loki-audit-viewer.js
-function formatAuditTimestamp(timestamp) {
-  if (!timestamp) return '--';
-  try {
-    const d = new Date(timestamp);
-    return d.toLocaleString([], {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  } catch {
-    return String(timestamp);
-  }
-}
-
-function buildAuditQuery(filters) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) {
-    if (value != null && value !== '') {
-      params.set(key, String(value));
-    }
-  }
-  const qs = params.toString();
-  return qs ? `?${qs}` : '';
-}
-
-// From loki-tenant-switcher.js
-function formatTenantLabel(tenant) {
-  if (!tenant) return 'Unknown';
-  if (tenant.slug && tenant.name) {
-    return `${tenant.name} (${tenant.slug})`;
-  }
-  return tenant.name || tenant.slug || 'Unknown';
-}
-
-// From loki-run-manager.js
-function formatRunDuration(durationMs, startedAt, endedAt) {
-  let ms = durationMs;
-  if (ms == null && startedAt) {
-    const start = new Date(startedAt).getTime();
-    const end = endedAt ? new Date(endedAt).getTime() : Date.now();
-    ms = end - start;
-  }
-  if (ms == null || ms < 0) return '--';
-  if (ms < 1000) return `${ms}ms`;
-  const sec = Math.floor(ms / 1000);
-  if (sec < 60) return `${sec}s`;
-  const min = Math.floor(sec / 60);
-  const remainSec = sec % 60;
-  if (min < 60) return `${min}m ${remainSec}s`;
-  const hr = Math.floor(min / 60);
-  const remainMin = min % 60;
-  return `${hr}h ${remainMin}m`;
-}
-
-function formatRunTime(timestamp) {
-  if (!timestamp) return '--';
-  try {
-    const d = new Date(timestamp);
-    return d.toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return String(timestamp);
-  }
-}
-
-// From loki-api-keys.js
-function formatKeyTime(timestamp) {
-  if (!timestamp) return 'Never';
-  try {
-    const d = new Date(timestamp);
-    return d.toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return String(timestamp);
-  }
-}
-
-function maskToken(token) {
-  if (!token || token.length < 12) return '****';
-  return token.slice(0, 4) + '****' + token.slice(-4);
-}
-
-
-// ===================================================================
-// Test Suite
-// ===================================================================
+before(async () => {
+  ({ formatDuration, computePhaseWidths } = await import('../components/loki-rarv-timeline.js'));
+  ({ formatGateTime, summarizeGates } = await import('../components/loki-quality-gates.js'));
+  ({ formatAuditTimestamp, buildAuditQuery } = await import('../components/loki-audit-viewer.js'));
+  ({ formatTenantLabel } = await import('../components/loki-tenant-switcher.js'));
+  ({ formatRunDuration, formatRunTime } = await import('../components/loki-run-manager.js'));
+  ({ formatKeyTime, maskToken } = await import('../components/loki-api-keys.js'));
+});
 
 // -------------------------------------------------------------------
 // 1. loki-rarv-timeline
@@ -221,7 +117,6 @@ describe('loki-rarv-timeline', () => {
   });
 });
 
-
 // -------------------------------------------------------------------
 // 2. loki-quality-gates
 // -------------------------------------------------------------------
@@ -237,21 +132,30 @@ describe('loki-quality-gates', () => {
     assert.equal(summary.pass, 2);
     assert.equal(summary.fail, 1);
     assert.equal(summary.pending, 1);
+    assert.equal(summary.notEvaluated, 0);
     assert.equal(summary.total, 4);
+  });
+
+  it('summarizeGates treats a missing/unknown status as notEvaluated, not pending', () => {
+    const gates = [{ name: 'Gate 1' }, { name: 'Gate 2', status: 'weird' }];
+    const summary = summarizeGates(gates);
+    assert.equal(summary.pending, 0);
+    assert.equal(summary.notEvaluated, 2);
+    assert.equal(summary.total, 2);
   });
 
   it('summarizeGates handles empty input', () => {
     const summary = summarizeGates([]);
     assert.equal(summary.total, 0);
     assert.equal(summary.pass, 0);
+    assert.equal(summary.notEvaluated, 0);
   });
 
-  it('formatGateTime returns Never for null/undefined', () => {
-    assert.equal(formatGateTime(null), 'Never');
-    assert.equal(formatGateTime(undefined), 'Never');
+  it('formatGateTime returns "Not recorded" for null/undefined', () => {
+    assert.equal(formatGateTime(null), 'Not recorded');
+    assert.equal(formatGateTime(undefined), 'Not recorded');
   });
 });
-
 
 // -------------------------------------------------------------------
 // 3. loki-audit-viewer
@@ -274,7 +178,6 @@ describe('loki-audit-viewer', () => {
   });
 });
 
-
 // -------------------------------------------------------------------
 // 4. loki-tenant-switcher
 // -------------------------------------------------------------------
@@ -292,7 +195,6 @@ describe('loki-tenant-switcher', () => {
   });
 });
 
-
 // -------------------------------------------------------------------
 // 5. loki-run-manager
 // -------------------------------------------------------------------
@@ -308,11 +210,22 @@ describe('loki-run-manager', () => {
     assert.equal(formatRunDuration(120000, null, null), '2m 0s');
   });
 
+  it('formatRunDuration returns -- for a finished run with no end recorded', () => {
+    // isLive defaults to false: no end and not live means the duration is
+    // unknown, not "now minus start".
+    assert.equal(formatRunDuration(null, '2026-02-21T10:00:00Z', null), '--');
+  });
+
+  it('formatRunDuration computes from start to now when isLive is true', () => {
+    const start = new Date(Date.now() - 5000).toISOString();
+    const result = formatRunDuration(null, start, null, true);
+    assert.match(result, /^\d+s$|^\d+ms$/);
+  });
+
   it('formatRunTime returns -- for null', () => {
     assert.equal(formatRunTime(null), '--');
   });
 });
-
 
 // -------------------------------------------------------------------
 // 6. loki-api-keys

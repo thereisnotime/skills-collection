@@ -266,7 +266,15 @@ function planDisplayBump(dir, changedFiles) {
 
 function applyDisplayBumps(plans) {
   let extendedRaw = readFileSync(EXTENDED_CATALOG, 'utf-8');
-  let cliRaw = existsSync(CLI_CATALOG) ? readFileSync(CLI_CATALOG, 'utf-8') : null;
+  // Read once; ENOENT means there is no CLI catalog to stamp. An existence
+  // check followed by a read and a later write could act on a replaced file.
+  let cliRaw;
+  try {
+    cliRaw = readFileSync(CLI_CATALOG, 'utf-8');
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    cliRaw = null;
+  }
   let extendedDirty = false;
   let cliDirty = false;
   for (const p of plans) {
@@ -291,8 +299,14 @@ function applyDisplayBumps(plans) {
     }
     for (const rel of p.skillFiles) {
       const abs = join(ROOT, rel);
-      if (!existsSync(abs)) continue;
-      const res = editSkillFrontmatter(readFileSync(abs, 'utf-8'), p.to);
+      let current;
+      try {
+        current = readFileSync(abs, 'utf-8');
+      } catch (error) {
+        if (error.code === 'ENOENT') continue; // removed in this PR: nothing to stamp
+        throw error;
+      }
+      const res = editSkillFrontmatter(current, p.to);
       if (res.out) writeFileSync(abs, res.out);
     }
   }

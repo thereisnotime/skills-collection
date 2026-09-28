@@ -97,13 +97,17 @@ export class LokiCheckpointViewer extends LokiElement {
       ]);
       if (api !== this._api) return;
 
-      if (checkpointsResult.status === 'fulfilled') {
+      // allSettled never throws: a rejected read must surface as an error,
+      // not fall through to the empty state (S-166).
+      if (checkpointsResult.status === 'rejected') {
+        const reason = checkpointsResult.reason;
+        this._error = `Could not load checkpoints: ${reason?.message || reason}`;
+      } else {
         this._checkpoints = Array.isArray(checkpointsResult.value)
           ? checkpointsResult.value
           : (checkpointsResult.value?.checkpoints || []);
+        this._error = null;
       }
-
-      this._error = null;
     } catch (err) {
       if (api !== this._api) return;
       this._error = err.message;
@@ -230,7 +234,7 @@ export class LokiCheckpointViewer extends LokiElement {
 
         <div class="checkpoint-list">
           ${this._loading ? '<div class="loading-state">Loading checkpoints...</div>' : ''}
-          ${!this._loading && count === 0 ? '<div class="empty-state">No checkpoints yet. Create one to save the current state.</div>' : ''}
+          ${!this._loading && !this._error && count === 0 ? '<div class="empty-state">No checkpoints yet. Create one to save the current state.</div>' : ''}
           ${this._checkpoints.map(cp => this._renderCheckpointCard(cp)).join('')}
         </div>
 

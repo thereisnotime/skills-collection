@@ -61,6 +61,14 @@ runs:
 
     - name: Install loki-mode
       shell: bash
+      env:
+        # Explicitly blanked, not merely omitted: this step's version check
+        # below runs the agent-capable CLI, and composite steps inherit the
+        # caller's env otherwise.
+        GH_TOKEN: ''
+        GITHUB_TOKEN: ''
+        GH_ENTERPRISE_TOKEN: ''
+        GITHUB_ENTERPRISE_TOKEN: ''
       run: |
         set -eo pipefail
         echo "--- Installing loki-mode from npm ---"
@@ -413,6 +421,14 @@ runs:
     - name: Cleanup
       if: always()
       shell: bash
+      env:
+        # Explicitly blanked, not merely omitted: `loki stop` below runs the
+        # agent-capable CLI, and composite steps inherit the caller's env
+        # otherwise.
+        GH_TOKEN: ''
+        GITHUB_TOKEN: ''
+        GH_ENTERPRISE_TOKEN: ''
+        GITHUB_ENTERPRISE_TOKEN: ''
       run: |
         # Stop only the loki run THIS job's workspace owns. `loki stop` with
         # no arguments is folder-scoped to the current directory's .loki

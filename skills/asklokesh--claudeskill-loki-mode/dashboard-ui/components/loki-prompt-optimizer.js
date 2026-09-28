@@ -377,11 +377,17 @@ export class LokiPromptOptimizer extends LokiElement {
 
     const d = this._data || {};
     const generatedAt = d.generated_at ?? d.last_optimized;
-    // The server's never-ran sentinel is {version: 0, generated_at: null, counts: 0}.
-    const neverRan = !d.version && generatedAt == null;
-    const version = neverRan || d.version == null ? '--' : `v${d.version}`;
-    const lastOptimized = neverRan ? 'No optimization run yet' : this._formatTime(generatedAt);
-    const failuresAnalyzed = neverRan || d.failures_analyzed == null ? '--' : d.failures_analyzed;
+    // The server names its two null-fields sentinels explicitly via status:
+    // "never_ran" (no version file yet) or "error" (file present but unreadable,
+    // e.g. corrupt JSON). Both carry version/generated_at/failures_analyzed as
+    // null, but must not read the same to a viewer -- a corrupt file is not the
+    // same as a fresh install. Fall back to the old version==0 heuristic only
+    // for a response with no status field at all (older cached response shape).
+    const isError = d.status === 'error';
+    const neverRan = d.status === 'never_ran' || (!d.status && !d.version && generatedAt == null);
+    const version = isError ? 'unknown' : (neverRan || d.version == null ? '--' : `v${d.version}`);
+    const lastOptimized = isError ? 'unknown' : (neverRan ? 'No optimization run yet' : this._formatTime(generatedAt));
+    const failuresAnalyzed = isError ? 'unknown' : (neverRan || d.failures_analyzed == null ? '--' : d.failures_analyzed);
     const changes = d.changes || [];
 
     let changesHtml = '';

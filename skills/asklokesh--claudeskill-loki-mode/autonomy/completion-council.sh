@@ -72,6 +72,38 @@ for _cc_cand in "$_LOKI_CC_DIR/lib/secret-scan.sh" "${SCRIPT_DIR:-}/lib/secret-s
 done
 unset _LOKI_CC_DIR _cc_cand
 
+# BACKLOG 134: the three test-result readers (council_heuristic_review,
+# council_evaluate_member, council_devils_advocate_review) resolve their
+# interpreter through run.sh's _loki_snapshot_py_tool and run it -I -S: -E alone
+# still loads user site-packages, whose .pth "import" lines run before any
+# sys.path scrub and can forge json.load (see that function's comment in
+# run.sh for the full rationale and accepted gaps). run.sh sources this file
+# BEFORE it defines _loki_snapshot_py_tool, so in production run.sh's own
+# definition replaces this one; the copy below only serves callers that source
+# this file on its own (tests). run.sh is the source of truth: keep this copy
+# byte-identical to it.
+declare -F _loki_snapshot_py_tool >/dev/null 2>&1 || \
+_loki_snapshot_py_tool() {
+    local c
+    for c in /usr/bin/python3 /bin/python3; do
+        [ -x "$c" ] && [ ! -d "$c" ] && "$c" -I -S -c '' >/dev/null 2>&1 && { printf '%s\n' "$c"; return 0; }
+    done
+    local dir
+    local IFS=:
+    for dir in $PATH; do
+        case "$dir" in
+            /*) ;;
+            *) continue ;;
+        esac
+        if [ -x "$dir/python3" ] && [ ! -d "$dir/python3" ] \
+           && "$dir/python3" -I -S -c '' >/dev/null 2>&1; then
+            printf '%s\n' "$dir/python3"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Council configuration
 COUNCIL_ENABLED=${LOKI_COUNCIL_ENABLED:-true}
 COUNCIL_SIZE=${LOKI_COUNCIL_SIZE:-3}
@@ -1380,7 +1412,10 @@ council_checklist_gate() {
     # than the old `|| echo PASS`, which cleared the first hard gate on a broken
     # host. (Absent python is a real deployment problem; failing open here is
     # exactly the fake-green this gate exists to prevent.)
-    if ! command -v python3 >/dev/null 2>&1; then
+    # S-141: resolved -I -S interpreter (see _loki_snapshot_py_tool); a bare
+    # python3 -E still runs user-site .pth lines that can forge json.load.
+    local _gate_py
+    if ! _gate_py="$(_loki_snapshot_py_tool)"; then
         log_warn "[Council] Hard gate BLOCKED: python3 unavailable, cannot verify checklist (fail-closed)."
         return 1
     fi
@@ -1390,7 +1425,7 @@ council_checklist_gate() {
     # council_heldout_gate at the ship gate, and surfacing them in this gate's
     # block report would leak their identity back into the build loop.
     local gate_result
-    gate_result=$(_RESULTS_FILE="$results_file" _WAIVERS_FILE="$waivers_file" _HELDOUT_FILE="$heldout_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+    gate_result=$(_RESULTS_FILE="$results_file" _WAIVERS_FILE="$waivers_file" _HELDOUT_FILE="$heldout_file" "$_gate_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, sys, os
 
 results_file = os.environ['_RESULTS_FILE']
@@ -1528,8 +1563,14 @@ council_heldout_gate() {
     # The failing titles are NOT carried in this line (a checklist title may
     # contain ':' or '|'); they are read separately from the held-out JSON block
     # below in the BLOCK branch.
-    local gate_result
-    gate_result=$(_RESULTS_FILE="$results_file" _HELDOUT_FILE="$heldout_file" _WAIVERS_FILE="$waivers_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+    # S-141: resolved -I -S interpreter. None resolvable -> "BLOCK 0 1" and fall
+    # through, so the BLOCK branch still records its trust event and block file.
+    local gate_result _heldout_py
+    if ! _heldout_py="$(_loki_snapshot_py_tool)"; then
+        log_warn "[Council] Held-out gate BLOCKED: python3 unavailable (fail-closed)."
+        gate_result="BLOCK 0 1"
+    else
+    gate_result=$(_RESULTS_FILE="$results_file" _HELDOUT_FILE="$heldout_file" _WAIVERS_FILE="$waivers_file" "$_heldout_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, sys, os
 
 results_file = os.environ['_RESULTS_FILE']
@@ -1599,6 +1640,7 @@ if matched == 0:
 verdict = 'BLOCK' if failed > 0 else 'PASS'
 print('%s %d %d' % (verdict, passed, failed))
 " 2>/dev/null || echo "BLOCK 0 1")
+    fi
 
     local verdict pass_count fail_count
     read -r verdict pass_count fail_count <<< "$gate_result"
@@ -1824,6 +1866,12 @@ _loki_test_provenance() {
 # legitimate completion is never falsely stopped. Default-on; opt out with
 # LOKI_EVIDENCE_GATE=0 (byte-identical to prior behavior, no read/write).
 council_evidence_gate() {
+    # P2 (S-116): when the caller sets _LOKI_EVIDENCE_REQUIRE_TESTS=1, inconclusive
+    # test evidence blocks instead of passing through. council_evaluate sets it as
+    # a function-local (bash dynamic scope, gone on return), so the vote alone can
+    # never approve while every other caller keeps the old pass-through rc.
+    local _require_tests="false"
+    [ "${_LOKI_EVIDENCE_REQUIRE_TESTS:-0}" = "1" ] && _require_tests="true"
     # Knob first: opt-out is exact-as-today, before any file read or write.
     [ "${LOKI_EVIDENCE_GATE:-1}" = "0" ] && return 0
 
@@ -2670,6 +2718,15 @@ PYEOF
         # silently. The durable detail is in evidence-gate-details.json; this is
         # the human-visible honesty at the pass site.
         if [ "$test_inconclusive" = "true" ]; then
+            # Tautological provenance is excluded: tests DID run green (e.g.
+            # characterization tests pass on the base by design), and the
+            # provenance block above promises that downgrade never blocks.
+            if [ "$_require_tests" = "true" ] && [ "$test_inconclusive_reason" != "test_provenance_unconfirmed" ]; then
+                # Council route: a vote over inconclusive tests is the vote alone.
+                log_warn "[Council] Evidence gate: completion not backed by test evidence (${test_inconclusive_reason}); the council vote alone cannot approve. Record a real test run, or set LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE=1 to treat no-tests as affirmative."
+                _write_evidence_details "block"
+                return 1
+            fi
             log_warn "[Council] Evidence gate: completion not backed by test evidence (${test_inconclusive_reason}). Pass-through; set LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE=1 to treat no-tests as affirmative."
         fi
         # Same honesty for the runtime-boot axis: a pass that could not confirm the
@@ -3484,8 +3541,10 @@ council_heuristic_review() {
             # evidence -> REJECT (keep iterating), never a heuristic APPROVE.
             local _tr_file=".loki/quality/test-results.json"
             local _tests_ok=0
-            if [ -f "$_tr_file" ] && command -v python3 >/dev/null 2>&1; then
-                _tests_ok=$(_TR="$_tr_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+            local _tr_py=""
+            [ -f "$_tr_file" ] && _tr_py="$(_loki_snapshot_py_tool)" || _tr_py=""
+            if [ -n "$_tr_py" ]; then
+                _tests_ok=$(_TR="$_tr_file" "$_tr_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os
 try:
     with open(os.environ['_TR']) as f:
@@ -3668,9 +3727,11 @@ council_evaluate_member() {
     local tr_file="$loki_dir/quality/test-results.json"
     local test_evidence="absent"   # absent | pass | fail | inconclusive
     local test_runner_seen="none"
-    if [ -f "$tr_file" ]; then
+    local _tr_py=""
+    [ -f "$tr_file" ] && _tr_py="$(_loki_snapshot_py_tool)" || _tr_py=""
+    if [ -n "$_tr_py" ]; then
         local _tr_status
-        _tr_status=$(_TR_FILE="$tr_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+        _tr_status=$(_TR_FILE="$tr_file" "$_tr_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     with open(os.environ['_TR_FILE']) as f:
@@ -3681,11 +3742,19 @@ except (json.JSONDecodeError, IOError, KeyError, ValueError):
 runner = d.get('runner', 'none')
 passed = d.get('pass')
 status = d.get('status', '')
+# S-157 (BACKLOG 89): same failed-count rule as council_evidence_gate. A
+# numeric failed_count above zero is a failure whatever pass says; legacy
+# numeric failed is the fallback; null, missing or a bool is unmeasured.
+def _count(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+failed_n = _count(d.get('failed_count'))
+if failed_n is None:
+    failed_n = _count(d.get('failed'))
 if status == 'no_tests_run':
     print('inconclusive:%s' % runner)
 elif runner == 'none':
     print('pass:none')
-elif passed is False:
+elif passed is False or (failed_n or 0) > 0:
     print('fail:%s' % runner)
 elif passed is not True:
     print('inconclusive:%s' % runner)
@@ -3727,14 +3796,25 @@ else:
             # Cases 6 and 7, with Case 8 as the positive control proving this
             # can still reach COMPLETE when every queue really is empty.
             local unfinished=0
-            local _q _qcount
+            local _q _qcount _q_py=""
             for _q in pending in-progress blocked; do
                 [ -f "$loki_dir/queue/${_q}.json" ] || continue
-                _qcount=$(_QUEUE_FILE="$loki_dir/queue/${_q}.json" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os
+                # Same -I -S interpreter as the test-result readers: a user-site
+                # .pth must not be able to make this count read 0.
+                [ -n "$_q_py" ] || _q_py="$(_loki_snapshot_py_tool)" || _q_py=""
+                _qcount=""
+                [ -n "$_q_py" ] && _qcount=$(_QUEUE_FILE="$loki_dir/queue/${_q}.json" "$_q_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os
 d = json.load(open(os.environ['_QUEUE_FILE']))
-print(len(d.get('tasks', d) if isinstance(d, dict) else d))" 2>/dev/null || echo "0")
-                # Guard against a non-numeric read (malformed file, python absent).
-                case "$_qcount" in ''|*[!0-9]*) _qcount=0 ;; esac
+print(len(d.get('tasks', d) if isinstance(d, dict) else d))" 2>/dev/null)
+                # Fail closed: a present queue file whose count cannot be read
+                # (malformed file, no interpreter) is not evidence it is empty.
+                case "$_qcount" in
+                    ''|*[!0-9]*)
+                        blocked="true"
+                        reasons="${reasons}${_q} queue count unreadable; "
+                        continue
+                        ;;
+                esac
                 if [ "$_qcount" -gt 0 ]; then
                     unfinished=$((unfinished + _qcount))
                     blocked="true"
@@ -3969,9 +4049,11 @@ council_devils_advocate_review() {
     # (nothing writes .loki/logs/test-*.log, so an empty glob is the normal case
     # and must never veto a unanimous COMPLETE on its own).
     local tr_file="$loki_dir/quality/test-results.json"
-    if [ -f "$tr_file" ]; then
+    local _tr_py=""
+    [ -f "$tr_file" ] && _tr_py="$(_loki_snapshot_py_tool)" || _tr_py=""
+    if [ -n "$_tr_py" ]; then
         local _tr_status
-        _tr_status=$(_TR_FILE="$tr_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+        _tr_status=$(_TR_FILE="$tr_file" "$_tr_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     with open(os.environ['_TR_FILE']) as f:
@@ -3994,6 +4076,8 @@ else:
             ((issues_found++))
             issue_details="${issue_details}structured test results red (pass==false); "
         fi
+    elif [ -f "$tr_file" ]; then
+        ((issues_found++)); issue_details="${issue_details}test results unreadable (no isolated python3); "
     fi
     # Additional source: any legacy test log that shows no pass indicator is a red
     # signal. Missing logs are NOT counted (this path is not written by the runner).
@@ -4009,8 +4093,18 @@ else:
     # Skeptical check 2: Are there still failing tasks in the queue?
     if [ -f "$loki_dir/queue/failed.json" ]; then
         local failed_count
-        failed_count=$(_QUEUE_FILE="$loki_dir/queue/failed.json" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os; print(len(json.load(open(os.environ['_QUEUE_FILE']))))" 2>/dev/null || echo "0")
-        if [ "$failed_count" -gt 0 ]; then
+        local failed_count="" _fq_py=""
+        _fq_py="$(_loki_snapshot_py_tool)" || _fq_py=""
+        [ -n "$_fq_py" ] && failed_count=$(_QUEUE_FILE="$loki_dir/queue/failed.json" "$_fq_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os; print(len(json.load(open(os.environ['_QUEUE_FILE']))))" 2>/dev/null)
+        # Fail closed: an unreadable failed-queue count (malformed, no
+        # interpreter) vetoes instead of reading as zero.
+        case "$failed_count" in
+            ''|*[!0-9]*)
+                ((issues_found++))
+                issue_details="${issue_details}failed queue count unreadable; "
+                ;;
+        esac
+        if [ "${failed_count:-0}" -gt 0 ] 2>/dev/null; then
             ((issues_found++))
             issue_details="${issue_details}$failed_count tasks in failed queue; "
         fi
@@ -4115,7 +4209,9 @@ council_evaluate() {
     fi
 
     # Phase 2.5 (v7.19.1): evidence hard gate - block completion unless there is
-    # real evidence that files changed AND tests are green.
+    # real evidence that files changed AND tests are green. The local below makes
+    # an inconclusive test signal block here, so the vote never approves alone.
+    local _LOKI_EVIDENCE_REQUIRE_TESTS=1
     if ! council_evidence_gate; then
         log_info "[Council] Completion blocked by evidence hard gate"
         return 1  # CONTINUE - cannot complete without real evidence
@@ -4150,8 +4246,15 @@ council_evaluate() {
         if declare -f loki_council_dispatch_agents >/dev/null 2>&1; then
             if loki_council_dispatch_agents "$ITERATION_COUNT" "${COUNCIL_PRD_PATH:-}"; then
                 local _va_round_file="$COUNCIL_STATE_DIR/votes/round-${ITERATION_COUNT}.json"
-                if [ -f "$_va_round_file" ]; then
-                    aggregate_result=$(_RF="$_va_round_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os; print(json.load(open(os.environ['_RF'])).get('verdict', 'CONTINUE'))" 2>/dev/null || echo "")
+                # S-141: resolved -I -S interpreter. Dispatch succeeded, so an
+                # unreadable round file is CONTINUE, never a fall-through to the
+                # heuristic path that could still reach COMPLETE.
+                local _va_py=""
+                if [ -f "$_va_round_file" ] && ! _va_py="$(_loki_snapshot_py_tool)"; then
+                    log_warn "[Council] python3 unavailable, cannot read dispatch verdict (fail-closed CONTINUE)."
+                    aggregate_result="CONTINUE"
+                elif [ -f "$_va_round_file" ]; then
+                    aggregate_result=$(_RF="$_va_round_file" "$_va_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os; print(json.load(open(os.environ['_RF'])).get('verdict', 'CONTINUE'))" 2>/dev/null || echo "")
                 fi
             fi
         fi
@@ -4265,19 +4368,34 @@ council_managed_should_stop() {
         return 1
     fi
 
+    # S-196: every reader and the session heredoc run on the resolved -I -S
+    # interpreter (see _loki_snapshot_py_tool); -E still loads user-site .pth
+    # files. None resolvable -> never start the managed session: Bash fallback.
+    # Deliberate consequence: -S hides site-packages, so the anthropic SDK is
+    # never importable and is_enabled() is always False. The managed council
+    # therefore always falls back to Bash voting (warned below). Reviving it
+    # needs a pinned interpreter plus an SDK path that loads no .pth file;
+    # a PATH or venv python3 without -S would let the agent forge the verdict.
+    local _ms_py
+    _ms_py="$(_loki_snapshot_py_tool)" || {
+        log_warn "[Council] Managed completion council unavailable: no isolated -I -S interpreter; falling back to Bash voting"
+        return 1
+    }
+
     local loki_dir="${TARGET_DIR:-.}/.loki"
-    local project_dir="${PROJECT_DIR:-$(pwd)}"
     local round="${ITERATION_COUNT:-0}"
     local verdicts_dir="$COUNCIL_STATE_DIR/verdicts"
     mkdir -p "$verdicts_dir" 2>/dev/null || true
 
     # Build session context: diff_summary, test_summary, pending_tasks.
     # Kept deliberately small so we never choke the session budget.
+    # S-196: diff the target project (same root as loki_dir and
+    # LOKI_TARGET_DIR), never PROJECT_DIR, which is Loki's install tree.
     local diff_summary=""
-    diff_summary=$(cd "$project_dir" 2>/dev/null && git diff --stat 2>/dev/null | tail -20 | tr '\n' ' ' || echo "")
+    diff_summary=$(cd "${TARGET_DIR:-.}" 2>/dev/null && git diff --stat 2>/dev/null | tail -20 | tr '\n' ' ' || echo "")
     local test_summary=""
     if [ -f "$loki_dir/quality/test-results.json" ]; then
-        test_summary=$(_TRF="$loki_dir/quality/test-results.json" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+        test_summary=$(_TRF="$loki_dir/quality/test-results.json" "$_ms_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os
 try:
     d = json.load(open(os.environ['_TRF']))
@@ -4288,7 +4406,7 @@ except Exception:
     fi
     local pending_tasks="[]"
     if [ -f "$loki_dir/queue/pending.json" ]; then
-        pending_tasks=$(_QF="$loki_dir/queue/pending.json" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+        pending_tasks=$(_QF="$loki_dir/queue/pending.json" "$_ms_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os
 try:
     d = json.load(open(os.environ['_QF']))
@@ -4312,7 +4430,7 @@ except Exception:
     _CC_LOKI_DIR="$loki_dir" \
     LOKI_TARGET_DIR="${TARGET_DIR:-$(pwd)}" \
     PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)}" \
-    python3 -E - <<'PYEOF' 2>/dev/null || exit_code=$?
+    "$_ms_py" -I -S - <<'PYEOF' 2>/dev/null || exit_code=$?
 import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, os, sys, pathlib
 
@@ -4450,7 +4568,10 @@ PYEOF
         return 0
     fi
 
-    log_warn "[Council] Managed completion council unavailable (exit=$exit_code); falling back to Bash voting"
+    case "$exit_code" in
+        2|3) log_warn "[Council] Managed completion council unavailable (exit=$exit_code): SDK not importable under the isolated -I -S interpreter; falling back to Bash voting" ;;
+        *) log_warn "[Council] Managed completion council unavailable (exit=$exit_code); falling back to Bash voting" ;;
+    esac
     return 1
 }
 
@@ -4492,8 +4613,11 @@ _council_convergence_evidence_green() {
     # Affirmative test-green is REQUIRED: a real runner that passed. A missing
     # file or runner=="none" (no suite) is NOT affirmative evidence -> not green.
     [ -f "$tr_file" ] || return 1
+    # -I -S interpreter (see _loki_snapshot_py_tool); none resolvable -> not green.
+    local _cv_py
+    _cv_py="$(_loki_snapshot_py_tool)" || return 1
     local tr_state
-    tr_state=$(_TR_FILE="$tr_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+    tr_state=$(_TR_FILE="$tr_file" "$_cv_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     with open(os.environ['_TR_FILE']) as f:
@@ -4504,9 +4628,18 @@ runner = d.get('runner', 'none')
 passed = d.get('pass')
 # Affirmative green requires a REAL suite (runner != none) that recorded a
 # boolean True pass. A missing/null/non-boolean pass key or a zero-test run
-# (status no_tests_run) is inconclusive, which is not green.
+# (status no_tests_run) is inconclusive, which is not green. S-157 (BACKLOG
+# 98): a recorded failure count above zero is never green, by the same rule
+# as council_evidence_gate (numeric failed_count wins, legacy numeric failed
+# is the fallback, null/missing/bool is unmeasured).
+def _count(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+failed_n = _count(d.get('failed_count'))
+if failed_n is None:
+    failed_n = _count(d.get('failed'))
 print('yes' if (runner != 'none' and passed is True
-                and d.get('status') != 'no_tests_run') else 'no')
+                and d.get('status') != 'no_tests_run'
+                and (failed_n or 0) <= 0) else 'no')
 " 2>/dev/null || echo "no")
     [ "$tr_state" = "yes" ] || return 1
 
@@ -4516,7 +4649,7 @@ print('yes' if (runner != 'none' and passed is True
     local results_file="${TARGET_DIR:-.}/.loki/checklist/verification-results.json"
     if [ -f "$results_file" ]; then
         local cl_state
-        cl_state=$(_RESULTS_FILE="$results_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+        cl_state=$(_RESULTS_FILE="$results_file" "$_cv_py" -I -S -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     with open(os.environ['_RESULTS_FILE']) as f:

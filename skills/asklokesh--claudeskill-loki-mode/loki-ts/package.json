@@ -11,7 +11,7 @@
   "scripts": {
     "version": "bun src/cli.ts version",
     "typecheck": "bun run --bun tsc --noEmit",
-    "test": "bun test",
+    "test": "LOKI_NO_BROWSER=1 bun test",
     "bench": "bun run scripts/bench.ts",
     "build": "bun run scripts/build.ts",
     "build:binary": "bun build --compile src/cli.ts --outfile=dist/loki-ts"
@@ -21,7 +21,7 @@
     "typescript": "^5.6.0"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.267",
+    "@anthropic-ai/claude-agent-sdk": "0.3.283",
     "@anthropic-ai/sdk": "^0.124.0",
     "@resvg/resvg-wasm": "^2.6.2"
   },

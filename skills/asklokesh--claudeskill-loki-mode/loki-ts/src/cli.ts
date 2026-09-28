@@ -300,6 +300,12 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       return runStart(rest);
     }
 
+    case "engine10": {
+      const { runEngine10 } = await import("./engine10/cli.ts");
+      const { registryLoader } = await import("./engine10/registry.ts");
+      return runEngine10(rest, registryLoader);
+    }
+
     default:
       // Unknown to Bun -- shim falls through to bash. If invoked directly
       // via `bun src/cli.ts <unknown>`, print help and exit 2.

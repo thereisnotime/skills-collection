@@ -31,6 +31,9 @@ import os
 
 import pytest
 
+# Tests always run headless: loki never opens a browser under this (S-103).
+os.environ.setdefault("LOKI_NO_BROWSER", "1")
+
 # Every variable through which git can redirect a subprocess at a different
 # repository, index, object store, or worktree.
 _GIT_ENV_LEAKS = (

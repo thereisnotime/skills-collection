@@ -7852,6 +7852,8 @@ def _compute_cost_snapshot() -> dict:
     budget_remaining = None
     # Did ANY record carry an observed value? Not "was a file present".
     cost_recorded = False
+    # Tokens were measured (tracker fallback) but no USD figure was recorded.
+    cost_unknown = False
 
     # Read efficiency files (one JSON file per iteration/task).
     # Use the iteration-*.json pattern so this reader sees the same
@@ -7929,25 +7931,32 @@ def _compute_cost_snapshot() -> dict:
                 total_input = totals.get("total_input", 0)
                 total_output = totals.get("total_output", 0)
                 if total_input > 0 or total_output > 0:
-                    # Real observed tokens from the context tracker: this IS a
-                    # measurement, even if the recorded USD total happens to
-                    # be 0.
+                    # Real observed tokens from the context tracker: the TOKENS
+                    # are a measurement. The USD figure is only a measurement
+                    # when the tracker recorded a number; a missing one is
+                    # unknown (null), while a recorded 0.0 stays 0.0.
                     cost_recorded = True
-                    estimated_cost = totals.get("total_cost_usd", 0.0)
+                    usd = totals.get("total_cost_usd")
+                    if isinstance(usd, (int, float)) and not isinstance(usd, bool):
+                        estimated_cost = usd
+                    else:
+                        cost_unknown = True
+                    # No provider recorded -> the model is unknown, not sonnet.
+                    model = str(ctx.get("provider") or "unknown").lower()
                     # Rebuild by_model and by_phase from per_iteration data
                     for it in ctx.get("per_iteration", []):
                         inp = it.get("input_tokens", 0)
                         out = it.get("output_tokens", 0)
-                        cost = it.get("cost_usd", 0)
-                        model = ctx.get("provider", "sonnet").lower()
+                        cost = it.get("cost_usd")
+                        cost_is_num = isinstance(cost, (int, float)) and not isinstance(cost, bool)
                         if model not in by_model:
-                            by_model[model] = {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
+                            by_model[model] = {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0,
+                                               "measured": False, "tokens_measured": True}
                         by_model[model]["input_tokens"] += inp
                         by_model[model]["output_tokens"] += out
-                        by_model[model]["cost_usd"] += cost
-                        # Observed tokens from the tracker (cost_recorded above).
-                        by_model[model]["measured"] = True
-                        by_model[model]["tokens_measured"] = True
+                        if cost_is_num:
+                            by_model[model]["cost_usd"] += cost
+                            by_model[model]["measured"] = True
             except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
                 pass
 
@@ -7964,7 +7973,7 @@ def _compute_cost_snapshot() -> dict:
             # Spend against the cap only when something was measured: with
             # nothing recorded, "used" is unknown, not $0.00, and "remaining"
             # is unknown, not the whole cap.
-            if budget_limit is not None and cost_recorded:
+            if budget_limit is not None and cost_recorded and not cost_unknown:
                 budget_used = estimated_cost
                 budget_remaining = max(0.0, budget_limit - budget_used)
         except (json.JSONDecodeError, KeyError):
@@ -7988,7 +7997,7 @@ def _compute_cost_snapshot() -> dict:
             total_input + total_output + total_cache_read + total_cache_creation
         ) if cost_recorded else None,
         "cache_hit_ratio": round(total_cache_read / _read_in, 4) if _read_in > 0 else None,
-        "estimated_cost_usd": round(estimated_cost, 6) if cost_recorded else None,
+        "estimated_cost_usd": round(estimated_cost, 6) if cost_recorded and not cost_unknown else None,
         "cost_recorded": cost_recorded,
         "by_phase": {k: {
             "input_tokens": v["input_tokens"] if v.get("tokens_measured") else None,
@@ -8352,6 +8361,8 @@ def _compute_cost_timeline() -> dict:
             "generated_at": data.get("generated_at"),
             "model": (data.get("provider") or {}).get("model"),
             "cost_usd": round(run_cost_num, 6) if run_cost_num is not None else None,
+            # A partly priced run's cost is a lower bound (efficiency_cost.py).
+            "cost_partial": (data.get("cost") or {}).get("cost_partial") is True,
             "files_changed": (data.get("files_changed") or {}).get("count"),
             "final_verdict": (data.get("council") or {}).get("final_verdict"),
         })
@@ -8614,16 +8625,27 @@ async def get_pricing():
 # Completion Council API (v5.25.0)
 # =============================================================================
 
+def council_state(loki_dir: _Path) -> dict:
+    """Read council state.json, distinguishing "no state yet" from "unreadable".
+
+    A missing state.json means the council genuinely has not recorded a vote:
+    total_votes is really 0. A state.json that exists but fails to parse (torn
+    write, corruption) means we do not know how many votes were recorded --
+    total_votes must be None, not a fabricated 0 that reads as a real count.
+    """
+    state_file = loki_dir / "council" / "state.json"
+    if not state_file.exists():
+        return {"enabled": False, "total_votes": 0, "verdicts": []}
+    try:
+        return json.loads(state_file.read_text())
+    except Exception:
+        return {"enabled": None, "total_votes": None, "verdicts": None, "error": "unreadable_state"}
+
+
 @app.get("/api/council/state", dependencies=[Depends(auth.require_scope("read"))])
 async def get_council_state():
     """Get current Completion Council state."""
-    state_file = _get_loki_dir() / "council" / "state.json"
-    if state_file.exists():
-        try:
-            return json.loads(state_file.read_text())
-        except Exception:
-            pass
-    return {"enabled": False, "total_votes": 0, "verdicts": []}
+    return council_state(_get_loki_dir())
 
 
 @app.get("/api/council/verdicts", dependencies=[Depends(auth.require_scope("read"))])
@@ -8873,30 +8895,41 @@ async def get_context():
 # Notification Trigger API (v5.40.0)
 # =============================================================================
 
+_EMPTY_NOTIFICATION_SUMMARY = {"total": 0, "unacknowledged": 0, "critical": 0, "warning": 0, "info": 0}
+
+
+def read_active_notifications(loki_dir: _Path) -> dict:
+    """Read notifications/active.json, distinguishing "none yet" from "unreadable".
+
+    A missing active.json means there genuinely are no active notifications:
+    the zero summary is real. A file that exists but fails to parse (torn
+    write, corruption) means we do not know what is active -- summary must be
+    None, not a fabricated all-zero summary that reads as "nothing active".
+    """
+    active_file = loki_dir / "notifications" / "active.json"
+
+    if not active_file.exists():
+        return {"notifications": [], "summary": dict(_EMPTY_NOTIFICATION_SUMMARY)}
+
+    try:
+        data = json.loads(active_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {"notifications": None, "summary": None, "error": "unreadable_active_notifications"}
+
+    return {"notifications": data.get("notifications", []), "summary": data.get("summary", {})}
+
+
 @app.get("/api/notifications", dependencies=[Depends(auth.require_scope("read"))])
 async def get_notifications(
     severity: Optional[str] = Query(None, pattern="^(critical|warning|info)$"),
     unread_only: bool = Query(False),
 ):
     """Get notification list from .loki/notifications/active.json."""
-    loki_dir = _get_loki_dir()
-    active_file = loki_dir / "notifications" / "active.json"
+    result = read_active_notifications(_get_loki_dir())
+    notifications = result["notifications"]
 
-    if not active_file.exists():
-        return {
-            "notifications": [],
-            "summary": {"total": 0, "unacknowledged": 0, "critical": 0, "warning": 0, "info": 0},
-        }
-
-    try:
-        data = json.loads(active_file.read_text())
-    except (json.JSONDecodeError, OSError):
-        return {
-            "notifications": [],
-            "summary": {"total": 0, "unacknowledged": 0, "critical": 0, "warning": 0, "info": 0},
-        }
-
-    notifications = data.get("notifications", [])
+    if notifications is None:
+        return result
 
     # Apply filters
     if severity:
@@ -8906,7 +8939,7 @@ async def get_notifications(
 
     return {
         "notifications": notifications,
-        "summary": data.get("summary", {}),
+        "summary": result["summary"],
     }
 
 
@@ -10328,7 +10361,7 @@ async def get_checklist_waivers():
     try:
         return json.loads(waivers_file.read_text())
     except (json.JSONDecodeError, IOError):
-        return {"waivers": [], "error": "Failed to read waivers file"}
+        return JSONResponse(status_code=500, content={"error": "Failed to read waivers file"})
 
 
 @app.post("/api/checklist/waivers", dependencies=[Depends(auth.require_scope("control"))])
@@ -12514,6 +12547,8 @@ async def list_proofs():
             "generated_at": data.get("generated_at"),
             "loki_version": data.get("loki_version"),
             "cost_usd": (data.get("cost") or {}).get("usd"),
+            # A partly priced run's cost is a lower bound (efficiency_cost.py).
+            "cost_partial": (data.get("cost") or {}).get("cost_partial") is True,
             "files_changed": (data.get("files_changed") or {}).get("count"),
             "final_verdict": (data.get("council") or {}).get("final_verdict"),
             "headline": headline,

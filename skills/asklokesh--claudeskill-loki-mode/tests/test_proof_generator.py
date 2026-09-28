@@ -389,7 +389,9 @@ class FinalWorkspaceDiffTests(unittest.TestCase):
         self.write_snapshot("sub", ["sub/old.txt"])
 
         stat, _ = collect_workspace_diff(os.path.join(self.proj, "sub"), base)
-        self.assertEqual([item["path"] for item in stat["files"]], ["new.txt"])
+        # BACKLOG 92: reported path is repo-top-relative (matching tracked
+        # entries), not TARGET_DIR-relative.
+        self.assertEqual([item["path"] for item in stat["files"]], ["sub/new.txt"])
 
     def _workspace_diff(self):
         sys.path.insert(0, os.path.join(_REPO, "autonomy", "lib"))
@@ -419,6 +421,37 @@ class FinalWorkspaceDiffTests(unittest.TestCase):
         self.assertEqual(
             [item["path"] for item in proof["files_changed"]["files"]],
             ["new.txt", "node_modules_extra.txt"])
+
+    def test_preexisting_bare_file_replaced_by_directory_covers_children(self):
+        # BACKLOG 78: the snapshot recorded a bare-file entry "a" (no trailing
+        # slash). The agent then deletes "a" and creates a directory of the
+        # same name with a child "a/b". That child is a natural extension of
+        # "a" (the file's whole path is superseded, not the run's own work),
+        # so it must be covered the same way a directory entry "a/" already is.
+        base = self._baseline()
+        self.write("a", "mine\n")
+        self.write_snapshot("", ["a"])
+        os.unlink(os.path.join(self.proj, "a"))
+        self.write("a/b", "agent\n")
+        self.write("new.txt", "agent\n")
+
+        proof = self.generate(base)
+        self.assertEqual(
+            [item["path"] for item in proof["files_changed"]["files"]],
+            ["new.txt"])
+
+    def test_preexisting_bare_file_does_not_cover_unrelated_sibling_prefix(self):
+        # Regression: an "a" entry must not falsely cover "ab" (a genuinely
+        # unrelated file that merely shares a leading character), only paths
+        # actually nested under "a/".
+        base = self._baseline()
+        self.write("ab", "agent\n")
+        self.write_snapshot("", ["a"])
+
+        proof = self.generate(base)
+        self.assertEqual(
+            [item["path"] for item in proof["files_changed"]["files"]],
+            ["ab"])
 
     def test_preexisting_file_the_run_changed_is_listed_without_content(self):
         # BACKLOG 59: listed with its own status, no counts and no patch (the
@@ -469,8 +502,74 @@ class FinalWorkspaceDiffTests(unittest.TestCase):
         self.write("sub/old.txt", "mine\nedited\n")
 
         stat, _ = wd.collect_workspace_diff(os.path.join(self.proj, "sub"), base)
+        # BACKLOG 92: reported path is repo-top-relative, not repo_dir-relative.
         self.assertEqual([(i["path"], i["status"]) for i in stat["files"]],
-                         [("old.txt", "preexisting_modified")])
+                         [("sub/old.txt", "preexisting_modified")])
+
+    def test_target_dir_subdirectory_receipt_uses_one_path_base(self):
+        # BACKLOG 92: a real receipt built with TARGET_DIR set to a
+        # subdirectory must report tracked, untracked, and preexisting_modified
+        # entries on the SAME (repo-top-relative) path base. Before the fix,
+        # tracked entries came out "sub/tracked.txt" (git's own convention)
+        # while untracked/preexisting entries came out "new.txt" / "old.txt"
+        # (bare, TARGET_DIR-relative) -- two bases in one receipt.
+        wd = self._workspace_diff()
+        self.write("sub/tracked.txt", "base\n")
+        self.git("add", "sub/tracked.txt")
+        self.git("commit", "-m", "baseline")
+        base = self.git("rev-parse", "HEAD").stdout.strip()
+        self.write("sub/tracked.txt", "base\nchanged\n")
+        self.write("sub/old.txt", "mine\n")
+        self.write_snapshot("sub", ["sub/old.txt"])
+        wd.write_snapshot_hashes(
+            self.proj, os.path.join(self.proj, "sub", ".loki", "state", "preexisting-untracked.z"))
+        self.write("sub/old.txt", "mine\nedited\n")
+        self.write("sub/new.txt", "agent\n")
+
+        loki_dir = os.path.join(self.proj, "sub", ".loki")
+        out_dir = os.path.join(loki_dir, "proofs", "final-tree")
+        proof = _run_generator(loki_dir, out_dir, env_extra={"_LOKI_RUN_START_SHA": base})
+
+        files = {item["path"]: item["status"] for item in proof["files_changed"]["files"]}
+        self.assertEqual(files, {
+            "sub/tracked.txt": "modified",
+            "sub/old.txt": "preexisting_modified",
+            "sub/new.txt": "untracked",
+        })
+
+        # proof-verify re-derives the same stat against the same TARGET_DIR
+        # (repo_dir == self.proj/sub), so the normalized paths must still
+        # round-trip and the receipt's diff_sha256 must still verify.
+        proof_path = os.path.join(out_dir, "proof.json")
+        r = subprocess.run(
+            [sys.executable, "-E", os.path.join(_REPO, "autonomy", "lib", "proof-verify.py"),
+             proof_path, os.path.join(self.proj, "sub")],
+            capture_output=True, text=True, timeout=60)
+        result = json.loads(r.stdout)
+        self.assertEqual((r.returncode, result.get("ok"), result.get("hash_ok")),
+                         (0, True, True), r.stdout + r.stderr)
+
+    def test_target_dir_unset_repo_root_receipt_unchanged(self):
+        # BACKLOG 92 regression: TARGET_DIR defaulting to the repo root (no
+        # subdirectory) must keep reporting bare repo-relative paths exactly
+        # as before -- prefix is empty there, so key == path already.
+        wd = self._workspace_diff()
+        base = self._baseline()
+        self.write("old.txt", "mine\n")
+        self.write_snapshot("", ["old.txt"])
+        wd.write_snapshot_hashes(
+            self.proj, os.path.join(self.proj, ".loki", "state", "preexisting-untracked.z"))
+        self.write("old.txt", "mine\nedited\n")
+        self.write("new.txt", "agent\n")
+        self.write("tracked.txt", "base\nchanged\n")
+
+        proof = self.generate(base)
+        files = {item["path"]: item["status"] for item in proof["files_changed"]["files"]}
+        self.assertEqual(files, {
+            "tracked.txt": "modified",
+            "old.txt": "preexisting_modified",
+            "new.txt": "untracked",
+        })
 
     def test_snapshot_hashes_skip_directories_and_missing_paths(self):
         wd = self._workspace_diff()

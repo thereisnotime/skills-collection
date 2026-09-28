@@ -360,6 +360,56 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Test 9b: first_result_verified_patch must stay False on the code_change
+# branch too (BACKLOG 122). first-artifact.json is written from
+# `git status --porcelain` going dirty -- a change signal, not a verification
+# signal -- so claiming True here would be exactly the fabricated-verification
+# bug this field exists to avoid. Mutating line 1164 back to True must turn
+# this red; that mutation is exercised inline below via sed on a scratch copy
+# so the guard cannot silently rot into a tautology.
+# ---------------------------------------------------------------------------
+CODECHANGE_DIR="$TMP/codechange"
+mkdir -p "$CODECHANGE_DIR/.loki/state"
+cp "$CTX" "$CODECHANGE_DIR/.loki/state/issue-context.json"
+printf '{"seconds_to_first_artifact":12,"iteration":1}\n' \
+    > "$CODECHANGE_DIR/.loki/state/first-artifact.json"
+
+if python3 - "$PROOF_GEN" "$CODECHANGE_DIR/.loki" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("pg", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+j = m._collect_journey(sys.argv[2])
+assert j["first_result_kind"] == "code_change", j
+assert j["first_result_verified_patch"] is False, j
+sys.exit(0)
+PY
+then
+    log_pass "first_result_verified_patch is False for an unverified code_change"
+else
+    log_fail "first_result_verified_patch" "code_change branch claimed verification that did not run"
+fi
+
+# Mutation control: prove the assertion above actually exercises line 1164 by
+# flipping it back to the old (buggy) value on a scratch copy and confirming
+# the same check now fails.
+MUT_GEN="$TMP/proof-generator-mutant.py"
+sed 's/out\["first_result_verified_patch"\] = False$/out["first_result_verified_patch"] = True/' \
+    "$PROOF_GEN" > "$MUT_GEN"
+if ! python3 - "$MUT_GEN" "$CODECHANGE_DIR/.loki" <<'PY' >/dev/null 2>&1
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("pgmut", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+j = m._collect_journey(sys.argv[2])
+assert j["first_result_verified_patch"] is False, j
+sys.exit(0)
+PY
+then
+    log_pass "mutation control: reverting to True is caught by the assertion"
+else
+    log_fail "mutation control" "assertion did not catch the reverted (buggy) True value"
+fi
+
+# ---------------------------------------------------------------------------
 # Test 10: _gp_criteria_lines normalizes list markers and drops a horizontal
 # rule. A bare "---" survives the bullet-strip as a lone "-", so without the
 # rule guard it becomes a phantom criterion -- and a fabricated criterion would
@@ -398,7 +448,7 @@ mkdir -p "$E2E"
     cd "$E2E" || exit 1
     git init -q . >/dev/null 2>&1
     git commit -q --allow-empty -m init >/dev/null 2>&1
-    timeout 90 bash "$LOKI" run "octocat/hello#42" --no-start
+    timeout -k 10 90 bash "$LOKI" run "octocat/hello#42" --no-start
 ) >/dev/null 2>&1
 
 if [ -f "$E2E/.loki/state/journey-plan.json" ] && python3 - "$E2E/.loki/state" <<'PY'

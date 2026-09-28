@@ -855,6 +855,15 @@ def _collect_functional(loki_dir):
     return out
 
 
+def _collect_ablation(loki_dir):
+    """Copy .loki/quality/ablation.json verbatim (S-113). None when absent or
+    unreadable, so the caller attaches no key and an ablation-less receipt stays
+    byte-identical. _compute_headline reads status == not_load_bearing: a change
+    whose deletion leaves the suite green is not proven by that suite.
+    """
+    return _read_json(os.path.join(loki_dir, "quality", "ablation.json"), default=None)
+
+
 def _collect_healthcheck(loki_dir):
     """Read .loki/app-runner/health.json (the app-runner liveness probe).
 
@@ -902,6 +911,7 @@ def _collect_tests(loki_dir):
         "status": "not_run",
         "duration_sec": None,
     }
+    empty = dict(out)
     if not isinstance(raw, dict):
         return out
     out["runner"] = str(raw.get("runner") or "")
@@ -935,6 +945,12 @@ def _collect_tests(loki_dir):
             out["status"] = "inconclusive"
     else:
         out["status"] = "not_run"
+    # BACKLOG 98: a test-results.json left by an earlier iteration is not this
+    # run's evidence, so it cannot lift the headline (the gates' rule). An
+    # earlier red is never discarded: a stale failure still reads failed.
+    if out["status"] != "failed" and not _test_results_fresh(
+            os.path.join(loki_dir, "quality")):
+        return empty
     return out
 
 
@@ -1152,16 +1168,25 @@ def _collect_journey(loki_dir):
         },
     }
 
-    # Time to first useful result. Prefer the first verified code artifact when
-    # one exists. Before that, issue mode can truthfully report its acceptance-
+    # Time to first useful result. Prefer the first code artifact when one
+    # exists. Before that, issue mode can truthfully report its acceptance-
     # bound proposed plan, explicitly labelled as NOT a verified patch.
+    #
+    # first_result_verified_patch is honesty-critical: it must be True only
+    # when a verification step actually ran on the first result, never merely
+    # because a code change happened. first-artifact.json (run.sh) is written
+    # from `git status --porcelain` the instant the tree goes dirty -- a
+    # change signal, not a verification signal -- so this branch is False,
+    # same as the plan branch below. No producer in this codebase sets this
+    # True today; it stays here, honestly False, for the day a verified-patch
+    # signal exists to flip it.
     fa = _read_json(os.path.join(state, "first-artifact.json"), default=None)
     if isinstance(fa, dict):
         v = fa.get("seconds_to_first_artifact")
         if isinstance(v, (int, float)) and v >= 0:
             out["time_to_first_result_sec"] = int(v)
             out["first_result_kind"] = "code_change"
-            out["first_result_verified_patch"] = True
+            out["first_result_verified_patch"] = False
     else:
         fr = _read_json(os.path.join(state, "first-useful-result.json"), default=None)
         if isinstance(fr, dict):
@@ -1451,6 +1476,9 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
     # only, never read by _compute_headline / _compute_degraded.
     if journey:
         facts["journey"] = journey
+    ablation = _collect_ablation(loki_dir)
+    if ablation is not None:
+        facts["ablation"] = ablation
 
     # ASSESSMENTS: LLM opinions. Explicitly labeled as judgment, NOT proof. A
     # green council verdict is an opinion that can be wrong or gamed; it never
@@ -1751,6 +1779,11 @@ def _compute_headline(facts, degraded):
         and tests.get("exit_code") == 0
     )
     if tests_verified and not degraded and diff_nonempty:
+        # S-113: ablation showed deleting the change leaves the suite green, so
+        # the passing tests do not prove the change. Never VERIFIED; amber.
+        ablation = facts.get("ablation")
+        if isinstance(ablation, dict) and ablation.get("status") == "not_load_bearing":
+            return "VERIFIED WITH GAPS"
         return "VERIFIED"
     # Any fact verified at all (tests/build verified, or a passed gate)?
     # A non-empty diff is a PREREQUISITE for VERIFIED (checked above), NOT a

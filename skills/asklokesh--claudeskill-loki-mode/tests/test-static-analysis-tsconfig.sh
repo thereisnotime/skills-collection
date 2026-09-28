@@ -84,12 +84,31 @@ console.log(greet("world"));
 TS
 
 #-------------------------------------------------------------------------------
+# Resolve tsc: prefer this repo's OWN pinned devDependency
+# (node_modules/.bin/tsc, typescript from package.json) over whatever
+# `tsc` a bare PATH lookup happens to find. A bare `command -v tsc` is not
+# hermetic -- CI reproductions (S-110) showed it can resolve an ambient tsc
+# whose project-mode (`-p .`) behavior on a path-aliased tsconfig differs
+# from the repo's own pinned 5.9.3, which verifiably resolves `@/*` via
+# `-p .` correctly. Falls back to PATH only when the repo has no local
+# install (e.g. a bare checkout with no `npm install` yet), matching the
+# same "local first, then global" order run.sh's real gate uses at
+# autonomy/run.sh's TARGET_DIR/node_modules/.bin/tsc check.
+#-------------------------------------------------------------------------------
+TSC_BIN=""
+if [ -x "$REPO_ROOT/node_modules/.bin/tsc" ]; then
+    TSC_BIN="$REPO_ROOT/node_modules/.bin/tsc"
+elif command -v tsc >/dev/null 2>&1; then
+    TSC_BIN="$(command -v tsc)"
+fi
+
+#-------------------------------------------------------------------------------
 # Test A1: per-file `tsc --noEmit "$f"` (the OLD pre-7.5.12 gate behavior)
 #          must FAIL on path-aliased imports -- this proves the bug exists
 #          and our fix is meaningful. Skip if tsc not available.
 #-------------------------------------------------------------------------------
-if command -v tsc >/dev/null 2>&1; then
-    if (cd "$PROJECT" && tsc --noEmit --jsx preserve --target esnext src/main.ts) >/dev/null 2>&1; then
+if [ -n "$TSC_BIN" ]; then
+    if (cd "$PROJECT" && "$TSC_BIN" --noEmit --jsx preserve --target esnext src/main.ts) >/dev/null 2>&1; then
         bad "old per-file tsc unexpectedly succeeded on @/x import (cannot demonstrate bug)"
     else
         ok "old per-file tsc fails on @/x import (bug pre-condition confirmed)"
@@ -99,7 +118,7 @@ if command -v tsc >/dev/null 2>&1; then
     # Test A2: NEW v7.5.12 gate behavior -- `tsc --noEmit -p .` must SUCCEED
     # on the same project because tsconfig paths resolve.
     #---------------------------------------------------------------------------
-    if (cd "$PROJECT" && tsc --noEmit -p .) >/dev/null 2>&1; then
+    if (cd "$PROJECT" && "$TSC_BIN" --noEmit -p .) >/dev/null 2>&1; then
         ok "tsc --noEmit -p . resolves @/x via tsconfig paths (no false block)"
     else
         bad "tsc --noEmit -p . unexpectedly failed on path-aliased import"

@@ -139,6 +139,9 @@ export class LokiManagedMemoryPanel extends LokiElement {
         this._events = Array.isArray(data.events) ? data.events : [];
         this._eventsCount = typeof data.count === 'number' ? data.count : this._events.length;
         this._eventsSource = data.source || null;
+        // The server answers 200 with {events: [], count: 0, error} when the
+        // read fails; surface it instead of the empty-state sentence.
+        if (data.error) this._eventsError = String(data.error);
       } else {
         this._events = [];
         this._eventsCount = 0;

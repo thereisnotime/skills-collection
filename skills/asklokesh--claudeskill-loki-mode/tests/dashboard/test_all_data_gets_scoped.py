@@ -78,11 +78,47 @@ def _run_in_subprocess(body: str):
     )
 
 
-_BODY_NO_UNGUARDED_DATA_GET = """
+_IMPORT_PREAMBLE = """
 import dashboard.server as server
+from fastapi import APIRouter
+"""
 
-unguarded = []
+# FastAPI >= 0.141 stores an included router as ONE lazy wrapper in
+# app.routes (path=None), so a plain app.routes walk sees zero /api/v2 and
+# /api/operator routes even though they are mounted and serving (BACKLOG
+# 27/29; tests/dashboard/test_router_mounts_diagnostic.py). That made this
+# audit's v2 coverage silently vacuous instead of failing loudly (BACKLOG
+# 94a).
+#
+# A first fix (S-126 v1) collected the two known routers by a hardcoded
+# name tuple ("dashboard.api_v2", "dashboard.api_operator"). Review found
+# that reopens the identical failure class: any router added later that is
+# not in the tuple is invisible to this audit, with a fully green suite and
+# a live, reproducible unauthenticated data leak. Sweep every APIRouter
+# instance bound at module scope on dashboard.server instead, exactly the
+# way the P7 route matcher does (tests/moat/p7-no-fabricated-data.sh,
+# `vars(server).items() if isinstance(v, APIRouter)`), so a future router
+# nobody remembered to name is still audited. De-dup by (path, methods)
+# since <= 0.128 already lists the same route objects both ways.
+_DISCOVER_ROUTES = """
+seen = {}
 for r in server.app.routes:
+    path = getattr(r, "path", None)
+    if path is not None:
+        seen[(path, frozenset(getattr(r, "methods", None) or ()))] = r
+for _name, _router in sorted(vars(server).items()):
+    if not isinstance(_router, APIRouter):
+        continue
+    for r in getattr(_router, "routes", []):
+        path = getattr(r, "path", None)
+        if path is not None:
+            seen.setdefault((path, frozenset(getattr(r, "methods", None) or ())), r)
+"""
+
+_AUDIT_ASSERTIONS = r"""
+unguarded = []
+audited_v2 = 0
+for r in seen.values():
     methods = getattr(r, "methods", None) or set()
     path = getattr(r, "path", None)
     if path is None or "GET" not in methods:
@@ -90,17 +126,92 @@ for r in server.app.routes:
     if not path.startswith("/api/"):
         # Non-/api paths are shells/probes; only /api carries data.
         continue
+    if path.startswith("/api/v2/"):
+        audited_v2 += 1
     if path in PUBLIC_ALLOWLIST:
         continue
     deps = getattr(r, "dependencies", [])
     if len(deps) < 1:
         unguarded.append(path)
 
+assert audited_v2 > 0, (
+    "zero /api/v2 GET routes were audited; on FastAPI >= 0.141 this means "
+    "the app.routes walk fell back to the vacuous case (BACKLOG 94a)"
+)
+
+# Second independent source: cross-check discovered routes against the
+# OpenAPI schema, which FastAPI builds from its own internal route registry
+# rather than the app.routes list this audit walks. A per-count threshold
+# (audited_v2 > 0 above) catches total vacuity but not partial loss -- e.g.
+# the operator router silently dropping to 0 while v2 stays nonzero. Compare
+# every /api/* path with a GET operation individually instead.
+import re as _re
+
+# OpenAPI strips Starlette path-converter syntax (route.path keeps
+# "{name:path}"/"{name:int}"; the OpenAPI schema only ever has "{name}"),
+# so paths must be normalized the same way before comparing or every
+# converter-typed path (e.g. /api/collab/file/{file_path:path}) false-flags
+# as "missing".
+_strip_converter = lambda p: _re.sub(r"\{(\w+):[^}]+\}", r"{\1}", p)
+
+try:
+    _openapi_paths = server.app.openapi().get("paths", {})
+except Exception:
+    _openapi_paths = {}
+_openapi_get_paths = {
+    p for p, ops in _openapi_paths.items() if p.startswith("/api/") and "get" in ops
+}
+_seen_paths = {_strip_converter(p) for (p, _methods) in seen.keys()}
+_missing_from_audit = sorted(_openapi_get_paths - _seen_paths)
+assert not _missing_from_audit, (
+    "these /api/* GET paths are in the OpenAPI schema but were not audited "
+    "(route discovery missed them): " + repr(_missing_from_audit)
+)
+
 assert not unguarded, (
     "These /api/* data GET routes have no auth dependency: " + repr(sorted(unguarded))
 )
 print("OK")
 """
+
+_BODY_NO_UNGUARDED_DATA_GET = _IMPORT_PREAMBLE + _DISCOVER_ROUTES + _AUDIT_ASSERTIONS
+
+# Regression fixture for the S-126 review finding: reproduce a router bound
+# at server module scope AFTER this file was written (a completely realistic
+# "someone ships a new router" scenario), exposing an unauthenticated GET. A
+# hardcoded router-name tuple never sees this route; the dynamic
+# vars(server) sweep in _DISCOVER_ROUTES must.
+#
+# Deliberately NOT app.include_router()'d: on FastAPI < 0.141, include_router
+# copies the router's routes directly into app.routes, so the OLD hardcoded
+# tuple code would find it there anyway and the fixture would pass on every
+# FastAPI version regardless of whether router discovery is dynamic. Binding
+# it at module scope without mounting it reproduces the ">= 0.141 lazy
+# wrapper" blind spot (the route exists only on the router object, not on
+# app.routes) on every FastAPI version, so this fixture is a real red/green
+# signal everywhere, not just on the one pinned version.
+_INJECT_LATE_ROUTER = """
+_leak_router = APIRouter()
+
+
+@_leak_router.get("/api/v3/leak-test-9f2c")
+def _leak():
+    return {"secret": "unauthenticated data leak"}
+
+
+server.api_v3_leak_test_router = _leak_router
+"""
+
+_LEAK_PATH = "/api/v3/leak-test-9f2c"
+
+# Runs the REAL audit body (discovery + assertions), not a copy of the
+# discovery logic, against a server with the injected leak router. The audit
+# must (a) discover it via the vars(server) sweep and (b) flag it as
+# unguarded by name, reproducing the reviewer's end-to-end scenario: a live,
+# unauthenticated data GET that the suite silently reports as covered.
+_BODY_LATE_ROUTER_IS_DISCOVERED_AND_FLAGGED = (
+    _IMPORT_PREAMBLE + _INJECT_LATE_ROUTER + _DISCOVER_ROUTES + _AUDIT_ASSERTIONS
+)
 
 
 # Spot-check that the specific high-value leaks named in the finding are guarded.
@@ -205,6 +316,23 @@ class AllDataGetsScopedTest(unittest.TestCase):
     def test_no_unguarded_api_data_get(self):
         proc = _run_in_subprocess(_BODY_NO_UNGUARDED_DATA_GET)
         self._assert_child_passed(proc)
+
+    def test_late_bound_router_is_discovered_and_flagged(self):
+        # This one must FAIL (nonzero exit) naming the leak path: a router
+        # bound after this file was written, exposing an unauthenticated
+        # GET, must be visible to the audit and reported, not silently
+        # missed. A green/zero-exit result here means router discovery
+        # missed it (S-126 review finding #1).
+        proc = _run_in_subprocess(_BODY_LATE_ROUTER_IS_DISCOVERED_AND_FLAGGED)
+        self.assertNotEqual(
+            proc.returncode, 0,
+            "the audit did not flag the late-bound unguarded router at all "
+            f"(router discovery is not dynamic); stdout={proc.stdout!r}",
+        )
+        self.assertIn(
+            _LEAK_PATH, proc.stderr,
+            f"audit failed but did not name the leak path: {proc.stderr!r}",
+        )
 
     def test_named_leak_endpoints_are_guarded(self):
         proc = _run_in_subprocess(_BODY_NAMED_LEAKS_GUARDED)

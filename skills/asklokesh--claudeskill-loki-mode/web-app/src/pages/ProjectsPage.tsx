@@ -46,6 +46,16 @@ function normalizeStatus(s: string): string {
   return map[s] || s;
 }
 
+// BACKLOG 114: a failed poll used to fall through to "No projects yet", the
+// same copy as a genuine empty history. Keep the two apart.
+export function projectsListView({ hasData, count, error }: { hasData: boolean; count: number; error: string | null }): {
+  kind: 'error' | 'empty' | 'list';
+  stale: boolean;
+} {
+  if (!hasData && error) return { kind: 'error', stale: false };
+  return { kind: count === 0 ? 'empty' : 'list', stale: hasData && !!error };
+}
+
 const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'running', label: 'Running' },
@@ -62,7 +72,7 @@ export default function ProjectsPage() {
   const [notification, setNotification] = useState<string | null>(null);
 
   const fetchSessions = useCallback(() => api.getSessionsHistory(), []);
-  const { data: sessions, refresh } = usePolling(fetchSessions, 15000, true);
+  const { data: sessions, error, refresh } = usePolling(fetchSessions, 15000, true);
 
   // J99: Pull-to-refresh on project list
   const { ref: pullRef, pulling, refreshing: pullRefreshing, pullDistance } = usePullToRefresh<HTMLDivElement>({
@@ -82,6 +92,8 @@ export default function ProjectsPage() {
     }
     return list;
   }, [sessions, filter, search]);
+
+  const view = projectsListView({ hasData: sessions !== null, count: filtered.length, error });
 
   const handleCopyPath = (path: string) => {
     navigator.clipboard.writeText(path);
@@ -162,8 +174,23 @@ export default function ProjectsPage() {
         </div>
       </div>
 
+      {view.stale && (
+        <div role="status" className="flex items-center justify-between gap-3 mb-4 px-3 py-2 text-xs text-[#8A5A00] bg-[#FFF7E6] border border-[#F0D9A8] rounded-[5px]">
+          <span>Could not refresh projects ({error}). Showing the last loaded list, which may be stale.</span>
+          <button onClick={refresh} className="font-semibold underline">Retry</button>
+        </div>
+      )}
+
       {/* Grid */}
-      {filtered.length === 0 ? (
+      {view.kind === 'error' ? (
+        <div role="alert" className="flex flex-col items-center justify-center py-20 text-center">
+          <p className="text-[#36342E] text-sm mb-1">Could not load projects</p>
+          <p className="text-[#6B6960] text-xs mb-4">{error}</p>
+          <Button icon={RefreshCw} onClick={refresh}>
+            Retry
+          </Button>
+        </div>
+      ) : view.kind === 'empty' ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <p className="text-[#6B6960] text-sm mb-4">No projects yet. Start building.</p>
           <Button icon={Plus} onClick={() => navigate('/')}>

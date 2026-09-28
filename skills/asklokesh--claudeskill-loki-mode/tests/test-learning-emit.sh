@@ -35,27 +35,27 @@ run_test() {
     local expected_result="${2:-0}"
     shift 2
 
-    ((TESTS_RUN++))
+    TESTS_RUN=$((TESTS_RUN+1))
     echo -n "  Testing $test_name... "
 
     if [ "$expected_result" = "0" ]; then
         if "$@" >/dev/null 2>&1; then
             echo -e "${GREEN}PASS${NC}"
-            ((TESTS_PASSED++))
+            TESTS_PASSED=$((TESTS_PASSED+1))
             return 0
         else
             echo -e "${RED}FAIL${NC}"
-            ((TESTS_FAILED++))
+            TESTS_FAILED=$((TESTS_FAILED+1))
             return 1
         fi
     else
         if ! "$@" >/dev/null 2>&1; then
             echo -e "${GREEN}PASS (expected failure)${NC}"
-            ((TESTS_PASSED++))
+            TESTS_PASSED=$((TESTS_PASSED+1))
             return 0
         else
             echo -e "${RED}FAIL (should have failed)${NC}"
-            ((TESTS_FAILED++))
+            TESTS_FAILED=$((TESTS_FAILED+1))
             return 1
         fi
     fi
@@ -137,11 +137,11 @@ if check_signal_created; then
         echo -e "  ${GREEN}Signal type correct${NC}"
     else
         echo -e "  ${RED}Signal type incorrect${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
 else
     echo -e "  ${RED}No signal file created${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 # Test error pattern signal
@@ -158,7 +158,7 @@ if check_signal_created; then
     echo -e "  ${GREEN}Error pattern signal created${NC}"
 else
     echo -e "  ${RED}No error pattern signal created${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 # Test success pattern signal
@@ -176,7 +176,7 @@ if check_signal_created; then
     echo -e "  ${GREEN}Success pattern signal created${NC}"
 else
     echo -e "  ${RED}No success pattern signal created${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 # Test tool efficiency signal
@@ -194,7 +194,7 @@ if check_signal_created; then
     echo -e "  ${GREEN}Tool efficiency signal created${NC}"
 else
     echo -e "  ${RED}No tool efficiency signal created${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 # Test workflow pattern signal
@@ -212,7 +212,7 @@ if check_signal_created; then
     echo -e "  ${GREEN}Workflow pattern signal created${NC}"
 else
     echo -e "  ${RED}No workflow pattern signal created${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 echo ""
@@ -252,46 +252,46 @@ signal_content=$(get_latest_signal)
 echo -n "  Checking signal has ID... "
 if echo "$signal_content" | grep -q '"id": "sig-'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 echo -n "  Checking signal has timestamp... "
 if echo "$signal_content" | grep -q '"timestamp":'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 echo -n "  Checking signal has source... "
 if echo "$signal_content" | grep -q '"source": "cli"'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 echo -n "  Checking preference_key... "
 if echo "$signal_content" | grep -q '"preference_key": "provider"'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 echo -n "  Checking preference_value... "
 if echo "$signal_content" | grep -q '"preference_value": "claude"'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 
 echo ""

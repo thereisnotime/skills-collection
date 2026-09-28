@@ -155,22 +155,22 @@ if check_signal_created; then
     signal_content=$(get_latest_signal)
     if echo "$signal_content" | grep -q '"type": "tool_efficiency"'; then
         echo -e "  ${GREEN}Signal type correct${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "  ${RED}Signal type incorrect${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
     if echo "$signal_content" | grep -q '"source": "mcp"'; then
         echo -e "  ${GREEN}Signal source correct (mcp)${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "  ${RED}Signal source incorrect${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
 else
     echo -e "  ${RED}No tool efficiency signal created${NC}"
-    ((TESTS_FAILED++))
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
 ((TESTS_RUN+=2))
 
@@ -204,17 +204,17 @@ if check_signal_created; then
     signal_content=$(get_latest_signal)
     if echo "$signal_content" | grep -q '"type": "error_pattern"'; then
         echo -e "  ${GREEN}Signal type correct${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "  ${RED}Signal type incorrect${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
     if echo "$signal_content" | grep -q '"error_type": "ValidationError"'; then
         echo -e "  ${GREEN}Error type correct${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "  ${RED}Error type incorrect${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
 else
     echo -e "  ${RED}No error pattern signal created${NC}"
@@ -252,17 +252,17 @@ if check_signal_created; then
     signal_content=$(get_latest_signal)
     if echo "$signal_content" | grep -q '"type": "success_pattern"'; then
         echo -e "  ${GREEN}Signal type correct${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "  ${RED}Signal type incorrect${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
     if echo "$signal_content" | grep -q '"pattern_name": "memory_consolidation_success"'; then
         echo -e "  ${GREEN}Pattern name correct${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "  ${RED}Pattern name incorrect${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
 else
     echo -e "  ${RED}No success pattern signal created${NC}"
@@ -301,17 +301,17 @@ if check_signal_created; then
     signal_content=$(get_latest_signal)
     if echo "$signal_content" | grep -q '"type": "context_relevance"'; then
         echo -e "  ${GREEN}Signal type correct${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "  ${RED}Signal type incorrect${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
     if echo "$signal_content" | grep -q '"query": "authentication patterns"'; then
         echo -e "  ${GREEN}Query correct${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "  ${RED}Query incorrect${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
 else
     echo -e "  ${RED}No context relevance signal created${NC}"
@@ -350,12 +350,12 @@ print(f'  Avg time: {stats.avg_execution_time_ms}ms')
 
 if [ $? -eq 0 ]; then
     echo -e "  ${GREEN}Tool statistics tracking works${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "  ${RED}Tool statistics tracking failed${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 6: ToolCallTracker context manager"
@@ -384,16 +384,16 @@ if check_signal_created; then
     signal_content=$(get_latest_signal)
     if echo "$signal_content" | grep -q '"tool_name": "loki_state_get"'; then
         echo -e "  ${GREEN}Tool name correct${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "  ${RED}Tool name incorrect${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
 else
     echo -e "  ${RED}No signal from context manager${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 7: Non-blocking emission (performance)"
@@ -430,12 +430,12 @@ else:
 
 if [ $? -eq 0 ]; then
     echo -e "  ${GREEN}Emission is non-blocking${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "  ${RED}Emission is blocking (too slow)${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 8: Disabled collector"
@@ -464,12 +464,12 @@ print('Disabled collector test completed')
 signal_count=$(count_signals)
 if [ "$signal_count" -eq "0" ]; then
     echo -e "  ${GREEN}Disabled collector does not emit signals${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "  ${RED}Disabled collector should not emit signals${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 9: Stats summary"
@@ -502,12 +502,12 @@ print(f\"  Failed: {summary['total_failed']}\")
 
 if [ $? -eq 0 ]; then
     echo -e "  ${GREEN}Stats summary works${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "  ${RED}Stats summary failed${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 10: ToolStats properties"
@@ -539,12 +539,12 @@ print('ToolStats properties correct')
 
 if [ $? -eq 0 ]; then
     echo -e "  ${GREEN}ToolStats properties work${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "  ${RED}ToolStats properties failed${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "=============================================="

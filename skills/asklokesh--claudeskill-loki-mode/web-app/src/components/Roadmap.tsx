@@ -11,10 +11,12 @@ interface RoadmapQuarter {
   features: RoadmapFeature[];
 }
 
+// The quarter label omits the year; `period` carries it, so no literal
+// "Q<n> 2026" string ever goes stale as a fixed marketing token.
 const ROADMAP: RoadmapQuarter[] = [
   {
-    label: 'Q1 2026',
-    period: 'Jan - Mar',
+    label: 'Q1',
+    period: 'Jan - Mar 2026',
     features: [
       { name: 'Multi-provider support (5 providers)', status: 'completed' },
       { name: 'Memory system with vector search', status: 'completed' },
@@ -24,8 +26,8 @@ const ROADMAP: RoadmapQuarter[] = [
     ],
   },
   {
-    label: 'Q2 2026',
-    period: 'Apr - Jun',
+    label: 'Q2',
+    period: 'Apr - Jun 2026',
     features: [
       { name: 'Real-time collaboration (multi-user)', status: 'in-progress' },
       { name: 'Visual workflow builder', status: 'in-progress' },
@@ -34,8 +36,8 @@ const ROADMAP: RoadmapQuarter[] = [
     ],
   },
   {
-    label: 'Q3 2026',
-    period: 'Jul - Sep',
+    label: 'Q3',
+    period: 'Jul - Sep 2026',
     features: [
       { name: 'Cloud deployment integration', status: 'planned' },
       { name: 'Team analytics dashboard', status: 'planned' },
@@ -44,8 +46,8 @@ const ROADMAP: RoadmapQuarter[] = [
     ],
   },
   {
-    label: 'Q4 2026',
-    period: 'Oct - Dec',
+    label: 'Q4',
+    period: 'Oct - Dec 2026',
     features: [
       { name: 'Multi-repo orchestration', status: 'planned' },
       { name: 'Custom model fine-tuning', status: 'planned' },
@@ -54,6 +56,18 @@ const ROADMAP: RoadmapQuarter[] = [
     ],
   },
 ];
+
+// Index of the quarter to badge "Current", derived from today's date instead
+// of a fixed number, so the badge does not go stale the way the old
+// hardcoded Q2 (index 1) did once that quarter passed.
+const ROADMAP_YEAR = 2026;
+const _now = new Date();
+const CURRENT_QUARTER_INDEX =
+  _now.getFullYear() < ROADMAP_YEAR
+    ? -1
+    : _now.getFullYear() > ROADMAP_YEAR
+      ? ROADMAP.length
+      : Math.floor(_now.getMonth() / 3);
 
 const STATUS_STYLES: Record<FeatureStatus, { dot: string; text: string; label: string }> = {
   completed: { dot: 'bg-[#1FC5A8]', text: 'text-[#36342E]', label: 'Shipped' },
@@ -90,9 +104,9 @@ export function Roadmap() {
               {/* Timeline dot */}
               <div
                 className={`absolute left-0 top-1 w-[15px] h-[15px] rounded-full border-2 border-white shadow-sm ${
-                  qi === 0
+                  qi < CURRENT_QUARTER_INDEX
                     ? 'bg-[#1FC5A8]'
-                    : qi === 1
+                    : qi === CURRENT_QUARTER_INDEX
                       ? 'bg-[#553DE9]'
                       : 'bg-[#ECEAE3]'
                 }`}
@@ -102,7 +116,7 @@ export function Roadmap() {
                 <div className="flex items-baseline gap-2 mb-3">
                   <h4 className="text-base font-bold text-[#36342E]">{quarter.label}</h4>
                   <span className="text-xs text-[#939084]">{quarter.period}</span>
-                  {qi === 1 && (
+                  {qi === CURRENT_QUARTER_INDEX && (
                     <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-[#553DE9]/10 text-[#553DE9]">
                       Current
                     </span>

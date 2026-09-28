@@ -10,8 +10,10 @@
 #   * It is NOT the current worktree (never removes the tree you are standing in).
 #   * It is NOT locked. `git worktree lock` is how an active Claude agent marks
 #     "in use"; a locked worktree is skipped even if its branch looks merged.
-#   * Its branch tip is an ancestor of main (`git merge-base --is-ancestor`),
-#     i.e. fully merged with nothing unique left to lose.
+#   * Its branch is merged into main: the tip is an ancestor of main
+#     (`git merge-base --is-ancestor`), or every commit is patch-equivalent on
+#     main (`git cherry main <branch>` shows no "+" line, the cherry-pick case),
+#     i.e. nothing unique left to lose.
 #   * Its working tree is clean (`git -C <path> status --porcelain` empty).
 #
 # Default mode is DRY RUN: it prints what it WOULD remove and changes nothing.
@@ -88,6 +90,14 @@ CURRENT_WT=""
 WT_PATH=""; WT_BRANCH=""; WT_LOCKED=0; WT_DETACHED=0
 candidates=0; removable=0; removed=0; skipped=0
 
+branch_merged() {
+    local out
+    git merge-base --is-ancestor "refs/heads/$1" "refs/heads/$BASE" 2>/dev/null && return 0
+    out="$(git cherry "refs/heads/$BASE" "refs/heads/$1" 2>/dev/null)" || return 1
+    # Any line starting with "+" is a commit with no equivalent on base.
+    [[ $'\n'"$out" != *$'\n+'* ]]
+}
+
 process_record() {
     [ -n "$WT_PATH" ] || return 0
     local path="$WT_PATH" branch="$WT_BRANCH" locked="$WT_LOCKED" detached="$WT_DETACHED"
@@ -114,8 +124,11 @@ process_record() {
         printf '  SKIP  %-55s (detached HEAD; no branch to test)\n' "$path"
         skipped=$((skipped + 1)); return 0
     fi
-    # Branch must be fully merged into the base (its tip an ancestor of base).
-    if ! git merge-base --is-ancestor "refs/heads/$branch" "refs/heads/$BASE" 2>/dev/null; then
+    # Branch must be fully merged into the base: either its tip is an ancestor
+    # of base, or every one of its commits is patch-equivalent on base
+    # (`git cherry` prints no "+" line). The second case is how cherry-picked
+    # slices land. A failing `git cherry` counts as not merged.
+    if ! branch_merged "$branch"; then
         printf '  KEEP  %-55s (branch %s not merged into %s)\n' "$path" "$branch" "$BASE"
         skipped=$((skipped + 1)); return 0
     fi

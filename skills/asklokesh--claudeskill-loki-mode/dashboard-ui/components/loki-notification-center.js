@@ -90,10 +90,17 @@ export class LokiNotificationCenter extends LokiElement {
       const resp = await fetch(apiUrl + '/api/notifications');
       if (resp.ok) {
         const data = await resp.json();
-        this._notifications = data.notifications || [];
-        this._summary = data.summary || null;
-        this._connected = true;
-        this._loadFailed = false;
+        if (data.error) {
+          // Server read active.json but could not parse it: an honest unknown,
+          // not a genuine empty list. Render it as a load failure rather than
+          // as "no notifications".
+          this._markLoadFailed();
+        } else {
+          this._notifications = data.notifications || [];
+          this._summary = data.summary || null;
+          this._connected = true;
+          this._loadFailed = false;
+        }
       } else {
         this._markLoadFailed();
       }

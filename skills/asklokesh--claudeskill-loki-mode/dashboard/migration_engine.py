@@ -766,19 +766,29 @@ class MigrationPipeline:
                 current_phase = phase
                 overall_status = "failed"
 
-        # Feature stats
-        features_total = 0
-        features_passing = 0
+        # Feature stats. Missing/corrupt is NOT the same as a real empty
+        # plan (0 features): counts go to None with a reason so a consumer
+        # can tell "no features yet" apart from "could not read the file".
+        features_total: Optional[int] = 0
+        features_passing: Optional[int] = 0
+        features_error: Optional[str] = None
         try:
             features = self.load_features()
             features_total = len(features)
             features_passing = sum(1 for f in features if f.passes)
-        except (FileNotFoundError, json.JSONDecodeError, TypeError):
-            pass
+        except FileNotFoundError:
+            features_total = None
+            features_passing = None
+            features_error = "features.json not found"
+        except (json.JSONDecodeError, TypeError) as exc:
+            features_total = None
+            features_passing = None
+            features_error = f"features.json is corrupt: {exc}"
 
-        # Step stats
-        steps_total = 0
-        steps_completed = 0
+        # Step stats. Same missing/corrupt-vs-empty distinction as features.
+        steps_total: Optional[int] = 0
+        steps_completed: Optional[int] = 0
+        steps_error: Optional[str] = None
         current_step = None
         current_step_index = 0
         try:
@@ -790,8 +800,14 @@ class MigrationPipeline:
                 current_step = in_progress[0].id
             # Current step index: completed + 1 (1-based) or completed if all done
             current_step_index = min(steps_completed + 1, steps_total) if steps_total else 0
-        except (FileNotFoundError, json.JSONDecodeError, TypeError):
-            pass
+        except FileNotFoundError:
+            steps_total = None
+            steps_completed = None
+            steps_error = "migration-plan.json not found"
+        except (json.JSONDecodeError, TypeError) as exc:
+            steps_total = None
+            steps_completed = None
+            steps_error = f"migration-plan.json is corrupt: {exc}"
 
         # Last checkpoint metadata
         last_checkpoint_data: Optional[dict[str, Any]] = None
@@ -849,8 +865,17 @@ class MigrationPipeline:
             "source": source_path,
             "target": target_name,
             "current_step": current_step,
-            "features": {"passing": features_passing, "total": features_total},
-            "steps": {"current": current_step_index, "completed": steps_completed, "total": steps_total},
+            "features": {
+                "passing": features_passing,
+                "total": features_total,
+                **({"reason": features_error} if features_error else {}),
+            },
+            "steps": {
+                "current": current_step_index,
+                "completed": steps_completed,
+                "total": steps_total,
+                **({"reason": steps_error} if steps_error else {}),
+            },
             "last_checkpoint": last_checkpoint_data,
             "checkpoints_count": len(manifest.checkpoints),
             "seams": seams_data,

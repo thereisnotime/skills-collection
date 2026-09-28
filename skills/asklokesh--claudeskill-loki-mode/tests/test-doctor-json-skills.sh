@@ -48,6 +48,22 @@ trap cleanup EXIT
 
 TMPROOT=$(mktemp -d -t loki-doctor-skills.XXXXXX)
 
+# A fake `claude` binary on PATH, so doctor's unrelated ai_provider check
+# (shutil.which over claude/cline/codex/aider/opencode) reports found=true
+# on a bare host with no real provider CLI installed. Without this, that
+# check's genuine 'fail' status leaks into summary.failed/summary.ok on any
+# host that has no CLI at all (a fresh CI runner, or a container), and every
+# case below (BROKEN/ABSENT/HEALTHY) inherits an extra failure that has
+# nothing to do with the skill-link state this test exists to check (S-110).
+FAKE_BIN="$TMPROOT/fake-bin"
+mkdir -p "$FAKE_BIN"
+cat > "$FAKE_BIN/claude" <<'SH'
+#!/bin/sh
+echo "2.0.0 (fake, for test-doctor-json-skills.sh)"
+SH
+chmod +x "$FAKE_BIN/claude"
+export PATH="$FAKE_BIN:$PATH"
+
 # Extract one field of the Claude Code skill entry (index 0) plus the summary.
 # Reads the JSON from stdin. Tolerates leading/trailing noise the way the
 # other doctor tests do, by slicing between the outermost braces.
@@ -83,12 +99,20 @@ elif field == "count":
 
 # Run doctor --json on one route with a synthetic HOME and read one field.
 # $1 = route (bash|bun), $2 = HOME, $3 = field
+#
+# LOKI_PROVIDER=claude pins the effective provider. Both routes deliberately
+# report a broken skill link as "fail" ONLY for the provider a build would
+# actually use (autonomy/loki: "SEVERITY MIRRORS THE TEXT PATH") -- with no
+# provider selected (no claude/codex/cline/aider CLI on PATH, as on a bare
+# CI runner) every entry, including the broken one, downgrades to "warn".
+# Without this pin the BROKEN-case assertions below only passed by accident
+# on a machine that happens to have the claude CLI installed (S-110).
 probe() {
     local route="$1" home="$2" field="$3"
     if [ "$route" = "bash" ]; then
-        LOKI_LEGACY_BASH=1 HOME="$home" "$LOKI" doctor --json 2>/dev/null | read_field "$field"
+        LOKI_LEGACY_BASH=1 LOKI_PROVIDER=claude HOME="$home" "$LOKI" doctor --json 2>/dev/null | read_field "$field"
     else
-        HOME="$home" "$LOKI" doctor --json 2>/dev/null | read_field "$field"
+        LOKI_PROVIDER=claude HOME="$home" "$LOKI" doctor --json 2>/dev/null | read_field "$field"
     fi
 }
 

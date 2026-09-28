@@ -127,10 +127,13 @@ export class LokiLearningDashboard extends LokiElement {
         source: this._source !== 'all' ? this._source : undefined,
       };
 
-      // Load metrics and trends in parallel
+      // Load metrics and trends in parallel. A failed read is recorded so it
+      // does not render as "No metrics available" / "No trend data available".
+      let metricsFailed = false;
+      let trendsFailed = false;
       const [metricsRes, trendsRes, signalsRes] = await Promise.all([
-        api.getLearningMetrics(params).catch(() => null),
-        api.getLearningTrends(params).catch(() => null),
+        api.getLearningMetrics(params).catch(() => { metricsFailed = true; return null; }),
+        api.getLearningTrends(params).catch(() => { trendsFailed = true; return null; }),
         api.getLearningSignals({ ...params, limit: 50 }).catch(() => null),
       ]);
 
@@ -138,6 +141,8 @@ export class LokiLearningDashboard extends LokiElement {
       if (api !== this._api) return;
       this._metrics = metricsRes;
       this._trends = trendsRes;
+      this._metricsFailed = metricsFailed;
+      this._trendsFailed = trendsFailed;
       // null = the read failed, which must not render as "No recent signals".
       this._signals = signalsRes;
     } catch (error) {
@@ -268,6 +273,9 @@ export class LokiLearningDashboard extends LokiElement {
   }
 
   _renderSummaryCards() {
+    if (this._metricsFailed) {
+      return '<div class="empty-state">Could not load metrics</div>';
+    }
     if (!this._metrics) {
       return '<div class="empty-state">No metrics available</div>';
     }
@@ -353,6 +361,9 @@ export class LokiLearningDashboard extends LokiElement {
   }
 
   _renderTrendChart() {
+    if (this._trendsFailed) {
+      return '<div class="chart-empty">Could not load trend data</div>';
+    }
     if (!this._trends || !this._trends.dataPoints || this._trends.dataPoints.length === 0) {
       return '<div class="chart-empty">No trend data available</div>';
     }

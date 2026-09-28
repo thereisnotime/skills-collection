@@ -392,9 +392,14 @@ export class LokiOverview extends LokiElement {
   }
 
   _renderCouncilGateCard() {
+    // /api/council/gate never sends a `status` field; the field it actually
+    // sends, always, is `blocked` (true/false/null). `blocked: false` only
+    // means gate-block.json is absent, which is also true before the gate has
+    // ever run (completion-council.sh deletes the file on pass), so a plain
+    // "not blocked" reads as unevaluated rather than a false PASSED claim.
     const g = this._gateStatus;
-    if (!g || !g.status) {
-      const isRunning = this._data.status === 'running' || this._data.status === 'autonomous';
+    const isRunning = this._data.status === 'running' || this._data.status === 'autonomous';
+    if (!g || g.blocked == null) {
       const label = isRunning ? 'Pending review' : 'Not evaluated';
       return `
         <div class="overview-card">
@@ -406,7 +411,7 @@ export class LokiOverview extends LokiElement {
         </div>
       `;
     }
-    if (g.status === 'blocked') {
+    if (g.blocked === true) {
       const criticals = g.critical_failures || 0;
       return `
         <div class="overview-card">
@@ -419,14 +424,14 @@ export class LokiOverview extends LokiElement {
         </div>
       `;
     }
-    // PASSED only when the gate says so. Any other status is not a pass.
-    const passed = g.status === 'passed' || g.status === 'pass';
+    // blocked === false and a run is active or has run: no known block, but
+    // this is not the same claim as "council reviewed and passed it".
     return `
       <div class="overview-card">
         <div class="card-label">Council Gate</div>
         <div class="card-value small-text">
-          <span class="status-dot ${passed ? 'active' : 'offline'}"></span>
-          ${passed ? 'PASSED' : `Unknown (${this._escapeHtml(String(g.status))})`}
+          <span class="status-dot ${isRunning ? 'paused' : 'offline'}"></span>
+          Not blocked
         </div>
       </div>
     `;
@@ -500,7 +505,7 @@ export class LokiOverview extends LokiElement {
         <div class="journey-heading" id="journey-heading">Issue to PR</div>
         <div class="journey-steps">
           ${this._renderJourneyStep('Current phase', phaseValue, 'Live session status')}
-          ${this._renderJourneyStep('First useful result', firstValue, firstMeasured && journey.first_result_verified_patch !== true ? 'Plan only, no code change yet' : 'From the run receipt')}
+          ${this._renderJourneyStep('First useful result', firstValue, firstMeasured && journey.first_result_kind === 'proposed_solution_plan' ? 'Plan only, no code change yet' : 'From the run receipt')}
           ${this._renderJourneyStep('Gates and evidence', proofValue, proofMeta)}
           ${this._renderJourneyStep('PR readiness', prValue, prLink || 'No public PR URL recorded')}
         </div>

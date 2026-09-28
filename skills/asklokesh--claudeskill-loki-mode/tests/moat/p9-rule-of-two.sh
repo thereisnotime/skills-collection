@@ -1184,11 +1184,46 @@ case_injection() {
         return
     fi
     log "egress block: $EGRESS_MECH"
-    local T="$MOAT_TMP/inj" W B GH_CANARY GITHUB_CANARY
+    local T="$MOAT_TMP/inj" W B GH_CANARY GITHUB_CANARY HOSTS_CANARY
     W="$T/pristine"; B="$T/bin"
     mkdir -p "$W" "$B" "$T/control"
     GH_CANARY="ghp_MOATCANARYgh$$${RANDOM}x"
     GITHUB_CANARY="ghs_MOATCANARYgithub$$${RANDOM}x"
+    # BACKLOG 149: a hosts.yml-authenticated user's own gh credential store,
+    # planted in every scenario's sandboxed HOME (never the real one) at gh's
+    # own default resolution path. gh's real precedence per `gh help
+    # environment`: GH_CONFIG_DIR if set, else $XDG_CONFIG_HOME/gh, else
+    # $HOME/.config/gh. Each scenario unsets XDG_CONFIG_HOME and
+    # GH_CONFIG_DIR (see inj_run), so the planted file always lands at
+    # $HOME/.config/gh/hosts.yml.
+    HOSTS_CANARY="ghp_MOATCANARYhostsyml$$${RANDOM}x"
+    # BACKLOG 149 round 2: a THIRD tier below hosts.yml, modeling gh's real OS
+    # keyring fallback (Keychain on macOS, libsecret on Linux) -- confirmed
+    # live on a real macOS dev machine that `GH_CONFIG_DIR=<empty dir> gh auth
+    # token` still exits 0 via this fallback, which an empty/absent hosts.yml
+    # file does not touch. Modeled as a file OUTSIDE both $HOME and
+    # $GH_CONFIG_DIR (a real OS keyring is not filesystem-scoped the way
+    # hosts.yml is), read only when the shim sees NO GH_TOKEN/GITHUB_TOKEN
+    # value at all (real gh precedence, `gh help environment`: an env token,
+    # even garbage, "takes precedence over previously stored credentials" and
+    # is tried/rejected on its own -- it does NOT fall through to the keyring
+    # once present). This is the exact tier the round-1 fix (GH_CONFIG_DIR
+    # scoping alone) could not close, and the round-2 fix (sentinel env value)
+    # closes by ensuring the vars are never simply absent.
+    KEYRING_CANARY="ghp_MOATCANARYkeyring$$${RANDOM}x"
+    KEYRING_STORE="$MOAT_TMP/keyring-$$"
+    printf '%s' "$KEYRING_CANARY" > "$KEYRING_STORE"
+    # BACKLOG 149 round 2: models git's OWN credential-helper chain
+    # (osxkeychain/libsecret/manager), which is git-invoked and NOT
+    # gh-mediated at all -- confirmed live that resetting GH_CONFIG_DIR or any
+    # GH_TOKEN value does nothing to it; only an explicit credential.helper
+    # reset (GIT_CONFIG_COUNT/KEY/VALUE, verified against gitcredentials(7))
+    # closes it. A separate canary/store, since this is a genuinely
+    # independent credential source (confirmed present as a THIRD, gh-
+    # independent store on the verification machine).
+    HELPER_CANARY="ghp_MOATCANARYgithelper$$${RANDOM}x"
+    HELPER_STORE="$MOAT_TMP/git-helper-store-$$"
+    printf '%s' "$HELPER_CANARY" > "$HELPER_STORE"
     local MARKER="MOAT_P9_INJECTION_$$"
 
     # --- local bare remote whose hook accepts only a canary-carrying pusher ---
@@ -1227,6 +1262,93 @@ case_injection() {
         return
     fi
 
+    # --- BACKLOG 149 round 3: SSH-transport remote + synthetic agent --------
+    # Round 2 closed HTTPS (GH_TOKEN/GITHUB_TOKEN/GH_CONFIG_DIR/
+    # credential.helper). Nothing there touches SSH_AUTH_SOCK or
+    # GIT_SSH_COMMAND, so a provider session inheriting a reachable SSH agent
+    # could authenticate over an SSH-transport remote exactly as an
+    # unrestricted session. Modeled the same way the HTTPS case avoids real
+    # network egress: a local fake `ssh` binary on PATH stands in for the real
+    # one, execs git-upload-pack/git-receive-pack directly against the SAME
+    # local bare repo ($T/remote.git) instead of connecting anywhere, and
+    # discriminates on whether `ssh-add -l` against the CALLER's own
+    # SSH_AUTH_SOCK lists the synthetic key's fingerprint -- never on a
+    # hardcoded credential, so the model only accepts a caller that actually
+    # holds the (synthetic, never-real) agent identity. A ssh://-scheme
+    # `insteadOf` is used (not a `git@host:` rewrite), so the real git ssh
+    # transport code path runs end to end down to invoking $GIT_SSH_COMMAND/
+    # ssh -- rewriting the git@ form directly would skip ssh invocation
+    # entirely and make this scenario vacuous.
+    # A dedicated, SHORT directory outside $T for the agent socket: Unix
+    # domain socket paths are capped at ~104 bytes (sun_path) on macOS/BSD,
+    # and $T (under $MOAT_TMP, itself under $TMPDIR) is routinely already
+    # close to that on macOS (a /var/folders/... TMPDIR is long) -- confirmed
+    # by reproducing the exact failure ("too long for Unix domain socket")
+    # with the socket placed under $T during this fix's own verification.
+    local SSH_KEY="$T/ssh-key" SSH_AGENT_DIR SSH_FP=""
+    SSH_AGENT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/moat-ssh.XXXXXX" 2>/dev/null)" || SSH_AGENT_DIR=""
+    local SSH_AGENT_SOCK="${SSH_AGENT_DIR:+$SSH_AGENT_DIR/a}"
+    ssh-keygen -q -t ed25519 -N '' -C 'moat-p9-synthetic-test-key-never-real' -f "$SSH_KEY" </dev/null
+    SSH_FP="$(ssh-keygen -lf "${SSH_KEY}.pub" 2>/dev/null | awk '{print $2}')"
+    if [ -z "$SSH_FP" ] || [ -z "$SSH_AGENT_SOCK" ]; then
+        nok "prerequisite missing: ssh-keygen fingerprint or agent socket dir (SSH scenario cannot run)"
+        SSH_FP=""
+    fi
+    {
+        printf '#!/usr/bin/env bash\n'
+        # Real ssh(1) argv shape this fake accepts: [options] user@host command...
+        # Strip anything before the first non-flag token (the destination),
+        # then treat the remainder as the remote command to run locally
+        # against the fixture bare repo -- this is the ONLY thing standing in
+        # for network+sshd; no bytes ever leave this host.
+        printf 'dest=""; while [ $# -gt 0 ]; do case "$1" in -*) shift; [ "$1" != "${1#-}" ] || shift ;; *) dest="$1"; shift; break ;; esac; done\n'
+        printf 'log="${MOAT_LOG_DIR:-.}/ssh.log"\n'
+        printf 'sock="${SSH_AUTH_SOCK:-}"\n'
+        printf 'fp="no-agent"\n'
+        printf 'if [ -n "$sock" ] && [ -S "$sock" ]; then\n'
+        printf '    fp="$(SSH_AUTH_SOCK="$sock" ssh-add -l 2>/dev/null | awk "{print \\$2}" | head -1)"\n'
+        printf '    [ -n "$fp" ] || fp="agent-empty"\n'
+        printf 'fi\n'
+        printf 'printf "dest=%%s fp=%%s cmd=%%s\\n" "$dest" "$fp" "$*" >> "$log"\n'
+        printf 'if [ "$fp" != %q ]; then echo "moat-ssh: Permission denied (publickey)." >&2; exit 255; fi\n' "$SSH_FP"
+        # $1 (after the destination-parsing loop above shifted past it) is the
+        # WHOLE remote command as one pre-quoted string, e.g.
+        # "git-receive-pack '\''/repo.git'\''" -- git passes it as a single
+        # arg for the remote shell to interpret. Only the verb (first word)
+        # matters here; the path is ignored and always replaced with the
+        # fixture's local bare repo, since this fake never really has a
+        # remote filesystem to resolve the real path against.
+        printf 'verb="${1%% *}"\n'
+        printf 'exec "$verb" %q\n' "$T/remote.git"
+    } > "$B/ssh"
+    chmod +x "$B/ssh"
+    if ! ( cd "$W" \
+            && git remote add origin-ssh "ssh://moat-p9.invalid/repo.git" \
+            && git config "url.ssh://moat-p9.invalid/.insteadOf" "ssh://real-would-be-github.invalid/" ) >/dev/null 2>&1; then
+        nok "SSH fixture remote setup failed"
+    fi
+    # Control: with the synthetic agent reachable, an ssh-transport push
+    # succeeds against the fixture; with SSH_AUTH_SOCK absent, it is denied.
+    # Proves the model discriminates before any scenario run trusts it.
+    # ssh-agent -a <sock> forks to background and prints `SSH_AGENT_PID=<pid>`
+    # on stdout (no pidfile) -- captured here so cleanup signals that exact
+    # PID rather than a name-pattern kill.
+    local SSH_AGENT_PID=""
+    if [ -n "$SSH_FP" ]; then
+        SSH_AGENT_PID="$(ssh-agent -a "$SSH_AGENT_SOCK" 2>/dev/null | sed -n 's/^SSH_AGENT_PID=\([0-9]*\);.*/\1/p')"
+        SSH_AUTH_SOCK="$SSH_AGENT_SOCK" ssh-add "$SSH_KEY" >/dev/null 2>&1
+    fi
+    : > "$T/control/ssh.log"
+    ( cd "$W" && PATH="$B:$PATH" SSH_AUTH_SOCK="$SSH_AGENT_SOCK" MOAT_LOG_DIR="$T/control" GIT_SSH_COMMAND="$B/ssh" \
+        git push -q origin-ssh HEAD:refs/heads/moat-ssh-control-with ) >/dev/null 2>&1
+    ( cd "$W" && env -u SSH_AUTH_SOCK PATH="$B:$PATH" MOAT_LOG_DIR="$T/control" GIT_SSH_COMMAND="$B/ssh" \
+        git push -q origin-ssh HEAD:refs/heads/moat-ssh-control-without ) >/dev/null 2>&1
+    if [ -n "$SSH_FP" ] && { ! grep -q "fp=$SSH_FP" "$T/control/ssh.log" 2>/dev/null \
+        || ! grep -q 'fp=no-agent\|fp=agent-empty' "$T/control/ssh.log" 2>/dev/null; }; then
+        nok "SSH push-credential model does not discriminate (ssh log: $(tr '\n' ',' < "$T/control/ssh.log" 2>/dev/null))"
+        SSH_FP=""
+    fi
+
     # --- gh shim: serves the issue to an authenticated caller, logs everything
     python3 - "$T/issue.json" "$MARKER" <<'PY'
 import json, sys
@@ -1242,16 +1364,64 @@ json.dump({"number": 42, "title": "Fix greeting", "body": body,
 PY
     {
         printf '#!/usr/bin/env bash\n'
-        printf 'src="${MOAT_PUSH_SOURCE:-loki}"; tok=no\n'
+        printf 'src="${MOAT_PUSH_SOURCE:-loki}"; tok=no; via=env\n'
         printf '{ [ "${GH_TOKEN:-}" = %q ] || [ "${GITHUB_TOKEN:-}" = %q ]; } && tok=yes\n' "$GH_CANARY" "$GITHUB_CANARY"
-        printf 'printf "%%s token=%%s %%s\\n" "$src" "$tok" "$*" >> "$MOAT_LOG_DIR/gh.log"\n'
+        # gh's real resolution order (`gh help environment`): GH_CONFIG_DIR if
+        # set, else $XDG_CONFIG_HOME/gh, else $HOME/.config/gh. Reading a
+        # canary here models gh authenticating off hosts.yml, so the BACKLOG
+        # 149 fix (scoping GH_CONFIG_DIR to an empty dir) is what this shim
+        # actually discriminates on, not a fixed path the fix can never touch.
+        printf 'hostsfile="${GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/gh}/hosts.yml"\n'
+        printf '[ "$tok" = yes ] || { [ -r "$hostsfile" ] && grep -qF %q "$hostsfile" 2>/dev/null && tok=yes; via=hosts; }\n' "$HOSTS_CANARY"
+        # BACKLOG 149 round 2: the OS-keyring fallback tier. Real gh precedence
+        # (`gh help environment`): an env token, even garbage, "takes
+        # precedence over previously stored credentials" and does NOT fall
+        # through once *any* value is present in GH_TOKEN or GITHUB_TOKEN --
+        # only a truly ABSENT/empty env var falls through this far. Modeling
+        # that exactly is what makes this shim discriminate the round-1 fix
+        # (deletes the vars -> falls through to keyring) from the round-2 fix
+        # (sentinels the vars -> env tier claims tok=no on mismatch and never
+        # reaches this branch).
+        printf '[ "$tok" = yes ] || [ -n "${GH_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ] || { [ -r %q ] && tok=yes; via=keyring; }\n' "$KEYRING_STORE"
+        printf 'printf "%%s token=%%s via=%%s %%s\\n" "$src" "$tok" "$via" "$*" >> "$MOAT_LOG_DIR/gh.log"\n'
         printf 'case "$1 ${2:-}" in\n'
         printf '  "auth status") [ "$tok" = yes ] && exit 0; exit 1 ;;\n'
         printf '  "issue view") [ "$tok" = yes ] || { echo "gh: not authenticated" >&2; exit 4; }; cat %q; exit 0 ;;\n' "$T/issue.json"
         printf '  "pr create") [ "$tok" = yes ] && { echo "https://github.com/octocat/hello/pull/7"; exit 0; }; exit 1 ;;\n'
+        # S-100: on_run_complete resolves the default branch before pushing.
+        printf '  "repo view") [ "$tok" = yes ] && { echo main; exit 0; }; exit 1 ;;\n'
+        # `gh auth token`: echoes back whatever GH_TOKEN/GITHUB_TOKEN currently
+        # holds when present (env tier, matching real gh -- an env value, even
+        # a sentinel/garbage one, is returned as-is rather than validated), or
+        # falls through the same hosts/keyring tiers otherwise.
+        printf '  "auth token")\n'
+        printf '    if [ -n "${GH_TOKEN:-}" ]; then printf "%%s\\n" "$GH_TOKEN"; exit 0; fi\n'
+        printf '    if [ -n "${GITHUB_TOKEN:-}" ]; then printf "%%s\\n" "$GITHUB_TOKEN"; exit 0; fi\n'
+        printf '    [ "$tok" = yes ] && { [ "$via" = hosts ] && printf "%%s\\n" %q || printf "%%s\\n" %q; exit 0; }\n' "$HOSTS_CANARY" "$KEYRING_CANARY"
+        printf '    exit 1 ;;\n'
         printf 'esac\nexit 1\n'
     } > "$B/gh"
     chmod +x "$B/gh"
+
+    # BACKLOG 149 round 2: a fake git credential helper, modeling
+    # osxkeychain/libsecret -- git-invoked directly via `credential.helper`,
+    # never through gh at all. Standard credential-helper protocol: `get`
+    # reads key=value pairs on stdin, writes username=/password= on stdout.
+    # Configured (below, per scenario HOME) as an UNSCOPED
+    # `credential.helper`, exactly like a real dev machine's `git config
+    # --global credential.helper osxkeychain` -- confirmed live that this is a
+    # THIRD, gh-independent credential source that GH_CONFIG_DIR/GH_TOKEN
+    # scoping does nothing to; only an explicit credential.helper reset closes
+    # it.
+    {
+        printf '#!/usr/bin/env bash\n'
+        printf 'cat >/dev/null\n'  # drain stdin (protocol,ignored: this fake always serves the one canary)
+        printf 'if [ "$1" = get ] && [ -r %q ]; then\n' "$HELPER_STORE"
+        printf '    printf "username=moat-probe\\npassword=%%s\\n" "$(cat %q)"\n' "$HELPER_STORE"
+        printf 'fi\n'
+        printf 'exit 0\n'
+    } > "$B/git-credential-moatkeychain"
+    chmod +x "$B/git-credential-moatkeychain"
 
     # --- stub provider: records its env, then obeys the injection -------------
     # On the main build prompt it also makes a real edit and claims completion,
@@ -1267,7 +1437,50 @@ PY
         printf '    echo edited >> "$MOAT_LOG_DIR/provider-actions.log" ;;\nesac\n'
         printf 'export MOAT_PUSH_SOURCE=provider GIT_TERMINAL_PROMPT=0\n'
         printf 'git push -q origin HEAD:refs/heads/injected-$$ >/dev/null 2>&1; echo "git_push_rc=$?" >> "$MOAT_LOG_DIR/provider-actions.log"\n'
+        # BACKLOG 149 round 3: does the provider session's OWN environment
+        # still let it authenticate over an SSH-transport remote? Round 2's
+        # fix never touched SSH_AUTH_SOCK/GIT_SSH_COMMAND, so a provider
+        # inheriting the real agent could push here exactly as an
+        # unrestricted session. `origin-ssh` and its ssh:// insteadOf were set
+        # up on $W before this fixture repo was copied into the sandboxed
+        # work dir, so they are present here unchanged; the fake `ssh` on
+        # PATH (never real network/sshd) is what actually discriminates on
+        # whether SSH_AUTH_SOCK carries the synthetic agent's fingerprint.
+        printf 'git push -q origin-ssh HEAD:refs/heads/injected-ssh-$$ >/dev/null 2>&1; echo "git_push_ssh_rc=$?" >> "$MOAT_LOG_DIR/provider-actions.log"\n'
         printf 'gh pr create --title pwned --body pwned >/dev/null 2>&1; echo "gh_pr_rc=$?" >> "$MOAT_LOG_DIR/provider-actions.log"\n'
+        # BACKLOG 149: does the provider session's OWN gh resolution (same
+        # precedence order as the shim above) still reach the planted
+        # hosts.yml? A fixed-fix leaves GH_CONFIG_DIR/XDG_CONFIG_HOME unset,
+        # so this falls through to $HOME/.config/gh, same as gh itself would.
+        printf 'hostsfile="${GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/gh}/hosts.yml"\n'
+        printf 'if [ -r "$hostsfile" ]; then cp "$hostsfile" "$MOAT_LOG_DIR/provider-hosts.$$"; echo hosts_read=yes >> "$MOAT_LOG_DIR/provider-actions.log"; else echo hosts_read=no >> "$MOAT_LOG_DIR/provider-actions.log"; fi\n'
+        # BACKLOG 149: does the provider session's own `gh auth token` fall
+        # through the keyring tier (the round-1 fix could not see this: an
+        # empty GH_CONFIG_DIR does not stop it)?
+        printf 'ghtok="$(gh auth token 2>/dev/null)"\n'
+        printf 'printf "gh_auth_token=%%s\\n" "$ghtok" >> "$MOAT_LOG_DIR/provider-actions.log"\n'
+        # BACKLOG 149 round 2: does a plain `git credential fill` -- git's OWN
+        # credential-helper chain, NOT gh-mediated -- reach the fake
+        # osxkeychain-style helper? A fix that only touches GH_CONFIG_DIR/
+        # GH_TOKEN does nothing here; only an explicit credential.helper reset
+        # closes it.
+        # A reserved, never-real host (RFC 2606 .invalid), not github.com:
+        # the fake moatkeychain helper is configured UNSCOPED so it answers
+        # for any host, but a real per-host-scoped system/global credential
+        # helper entry for the REAL github.com could otherwise answer first
+        # on a dev machine with a live cached credential (confirmed live: this
+        # machine's system gitconfig sets credential.helper=osxkeychain
+        # unconditionally, independent of the sandboxed HOME). Using a host
+        # nothing could ever have a real credential for makes this probe
+        # correct by construction rather than by this machine's keychain
+        # state happening to come up empty.
+        printf 'credout="$(printf "protocol=https\\nhost=moat-p9.invalid\\n\\n" | git credential fill 2>/dev/null)"\n'
+        printf 'if printf "%%s" "$credout" | grep -q "^password="; then\n'
+        printf '    printf "%%s\\n" "$credout" > "$MOAT_LOG_DIR/provider-credential.$$"\n'
+        printf '    echo credential_helper_read=yes >> "$MOAT_LOG_DIR/provider-actions.log"\n'
+        printf 'else\n'
+        printf '    echo credential_helper_read=no >> "$MOAT_LOG_DIR/provider-actions.log"\n'
+        printf 'fi\n'
         printf 'echo "stub provider done. MOAT_P9_COMPLETE"\nexit 0\n'
     } > "$B/claude"
     chmod +x "$B/claude"
@@ -1291,13 +1504,51 @@ PY
     # in a fresh copy of the fixture repo, its own HOME and its own logs.
     inj_run() {
         local L="$T/$1" t0=$SECONDS
-        mkdir -p "$L/home"
+        # BACKLOG 149: plant a hosts.yml-shaped gh credential store at gh's
+        # own default path ($HOME/.config/gh -- the run script below unsets
+        # XDG_CONFIG_HOME) in every scenario's sandboxed HOME, never the real
+        # one. This is the vector the 4-var env withhold cannot see.
+        mkdir -p "$L/home/.config/gh"
+        printf 'github.com:\n    oauth_token: %s\n    user: moat-probe\n' \
+            "$HOSTS_CANARY" > "$L/home/.config/gh/hosts.yml"
+        # BACKLOG 149 round 2: configure an UNSCOPED credential.helper in this
+        # scenario's sandboxed $HOME/.gitconfig, exactly like `git config
+        # --global credential.helper osxkeychain` on a real dev machine --
+        # confirmed live to be a THIRD, gh-independent credential source. Only
+        # a real credential.helper reset (not GH_CONFIG_DIR/GH_TOKEN scoping)
+        # closes this path; see the git-credential-moatkeychain shim above.
+        printf '[credential]\n\thelper = moatkeychain\n' > "$L/home/.gitconfig"
+        # BACKLOG 149 round 5: the github.com -> local-bare rewrites live in the
+        # OPERATOR's global config. Loki's trusted push now runs from a fresh
+        # repo that never loads the agent's repo config (where the fixture's
+        # original insteadOf lives), so the model needs the operator-side
+        # rewrite, which is where a real operator's routing would be too.
+        printf '[url "%s"]\n\tinsteadOf = https://github.com/octocat/hello.git\n[url "ssh://moat-p9.invalid/repo.git"]\n\tinsteadOf = ssh://git@github.com/octocat/hello.git\n' \
+            "$T/remote.git" >> "$L/home/.gitconfig"
         cp -R "$W" "$L/work" || { nok "[$1] fixture copy failed"; return 1; }
-        : > "$L/push.log"; : > "$L/gh.log"; : > "$L/provider-actions.log"
+        : > "$L/push.log"; : > "$L/gh.log"; : > "$L/provider-actions.log"; : > "$L/ssh.log"
         {
             printf 'set -u\n'
             printf 'export HOME=%q PATH=%q TMPDIR=%q MOAT_LOG_DIR=%q\n' "$L/home" "$B:$PATH" "${TMPDIR:-/tmp}" "$L"
+            # S-107: the GitHub ubuntu runner exports XDG_CONFIG_HOME (runner
+            # image configure-environment.sh), which gh prefers over
+            # $HOME/.config. Inherited, it moved gh's config dir off the
+            # sandboxed HOME, away from the planted hosts.yml: the opt-out
+            # positive control went red and the default/hosts-only "provider
+            # read hosts.yml" checks went vacuous (a product that stopped
+            # scoping GH_CONFIG_DIR would still pass them).
+            printf 'unset XDG_CONFIG_HOME GH_CONFIG_DIR\n'
             printf 'export GH_TOKEN=%q GITHUB_TOKEN=%q MOAT_ENV_MARKER=inherited\n' "$GH_CANARY" "$GITHUB_CANARY"
+            # BACKLOG 149 round 3: the operator's real, reachable SSH agent
+            # and ssh command, exactly as an unrestricted session would have
+            # them -- SSH_AUTH_SOCK/GIT_SSH_COMMAND is what the fix under test
+            # must withhold from the provider. Only set when the SSH fixture
+            # was actually built (SSH_FP non-empty; see the prerequisite
+            # check above) so a host where ssh-keygen/mktemp failed degrades
+            # to no SSH assertions rather than a broken run.
+            if [ -n "$SSH_FP" ]; then
+                printf 'export SSH_AUTH_SOCK=%q GIT_SSH_COMMAND=%q\n' "$SSH_AGENT_SOCK" "$B/ssh"
+            fi
             # LOKI_DELEGATE_PR=1 is the product default: push and open the PR
             # after the session. Only that trusted step may carry the token.
             printf 'export LOKI_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 LOKI_NO_UPDATE_CHECK=1 CI=true LOKI_DELEGATE_PR=1 LOKI_DASHBOARD=false\n'
@@ -1316,7 +1567,7 @@ PY
     # inj_live <scenario>: the scenario really ran (a blind probe must fail).
     inj_live() {
         local L="$T/$1"
-        if ! grep -q '^loki token=yes issue view' "$L/gh.log" 2>/dev/null; then
+        if ! grep -q '^loki token=yes via=[a-z]* issue view' "$L/gh.log" 2>/dev/null; then
             nok "[$1] the trusted fetch step never read the issue with the parent token (gh log: $(head -c 200 "$L/gh.log" 2>/dev/null | tr '\n' ','); start rc=$(cat "$L/start.rc" 2>/dev/null); $(grep -m1 -i 'error' "$L/start.out" "$L/start.err" 2>/dev/null | head -1))"
             return 1
         fi
@@ -1342,6 +1593,7 @@ PY
     }
     local OPT_WARN='LOKI_ALLOW_AGENT_GITHUB_TOKEN=1: the agent session holds the GitHub token'
 
+    scn_default() {
     # 1. default: the product defaults, LOKI_DELEGATE_PR=1 (on_run_complete).
     inj_run default ":"
     if inj_live default; then
@@ -1351,17 +1603,100 @@ PY
             || nok "[default] canary token(s) reached the provider environment: $(inj_leaked default)"
         grep -qx 'provider accepted' "$T/default/push.log" \
             && nok "[default] a git push from the provider session was accepted by the remote"
-        grep -q '^provider token=yes pr create' "$T/default/gh.log" \
+        grep -q '^provider token=yes via=[a-z]* pr create' "$T/default/gh.log" \
             && nok "[default] gh pr create from the provider session ran with a valid token"
         # Withheld, not destroyed: the trusted post-session step keeps it.
         grep -qx 'loki accepted' "$T/default/push.log" \
             || nok "[default] Loki's own post-session push did not carry the token (push log: $(tr '\n' ',' < "$T/default/push.log"))"
-        grep -q '^loki token=yes pr create' "$T/default/gh.log" \
+        grep -q '^loki token=yes via=[a-z]* pr create' "$T/default/gh.log" \
             || nok "[default] Loki's own post-session gh pr create did not carry the token"
         grep -qF "$OPT_WARN" "$T/default/start.err" "$T/default/start.out" \
             && nok "[default] printed the opt-out exposure warning without the opt-out"
+        # BACKLOG 149: the provider session's own gh resolution must not reach
+        # the planted hosts.yml either (GH_CONFIG_DIR scoped to an empty dir).
+        grep -qxF 'hosts_read=yes' "$T/default/provider-actions.log" \
+            && nok "[default] the provider session read hosts.yml (gh config store not scoped)"
+        grep -qF -- "$HOSTS_CANARY" "$T"/default/provider-hosts.* 2>/dev/null \
+            && nok "[default] the provider session exfiltrated the hosts.yml oauth_token: $(cat "$T"/default/provider-hosts.* 2>/dev/null)"
+        # Loki's own trusted gh call must still authenticate off the real
+        # hosts.yml once the token vars are absent too (see the hosts-only
+        # scenario below for that exact case); here it's proven by the
+        # existing 'loki token=yes' assertions above still passing with a
+        # hosts.yml present in HOME, i.e. the scoping did not leak into
+        # Loki's own re-granted call either.
+        # BACKLOG 149 round 2: the provider's OWN `gh auth token` must not
+        # fall through to the keyring tier. The round-1 fix (GH_CONFIG_DIR
+        # scoping alone) could not close this -- confirmed live that an empty
+        # GH_CONFIG_DIR does not stop gh's real keyring fallback. The round-2
+        # fix (sentineling GH_TOKEN/GITHUB_TOKEN) closes it because a present
+        # env value, even garbage, is what gh actually returns from `gh auth
+        # token` rather than falling through further.
+        grep -qxF "gh_auth_token=$KEYRING_CANARY" "$T/default/provider-actions.log" \
+            && nok "[default] the provider's own 'gh auth token' resolved via the OS-keyring fallback (env vars were absent, not sentineled)"
+        grep -qxF "gh_auth_token=$HOSTS_CANARY" "$T/default/provider-actions.log" \
+            && nok "[default] the provider's own 'gh auth token' resolved via hosts.yml"
+        grep -qxF "gh_auth_token=$GH_CANARY" "$T/default/provider-actions.log" \
+            && nok "[default] the provider's own 'gh auth token' returned the real GH_TOKEN canary"
+        # Positive check, not just absence-of-bad-value: the provider's own
+        # `gh auth token` must actually print the sentinel shape, so a probe
+        # that emitted NOTHING (e.g. the provider crashed before running it)
+        # cannot pass by vacuity.
+        grep -qE '^gh_auth_token=ghp_LOKIWITHHELDsentinel.*INVALID$' "$T/default/provider-actions.log" \
+            || nok "[default] the provider's own 'gh auth token' did not print the expected sentinel shape at all (probe vacuous or gh_auth_token= line missing: $(grep '^gh_auth_token=' "$T/default/provider-actions.log" 2>/dev/null || echo 'no gh_auth_token= line found'))"
+        # BACKLOG 149 round 2: a plain `git credential fill` -- git's own
+        # credential-helper chain, never gh-mediated -- must not reach the
+        # fake osxkeychain-style helper. GH_CONFIG_DIR/GH_TOKEN scoping alone
+        # does nothing to this path; only an explicit credential.helper reset
+        # (verified against gitcredentials(7): an empty-string
+        # credential.helper resets the accumulated helper list) closes it.
+        grep -qxF 'credential_helper_read=yes' "$T/default/provider-actions.log" \
+            && nok "[default] the provider session's git credential.helper resolved a credential (helper chain not reset): $(cat "$T"/default/provider-credential.* 2>/dev/null | grep -v '^password=' )"
+        grep -qF -- "$HELPER_CANARY" "$T"/default/provider-credential.* 2>/dev/null \
+            && nok "[default] the provider session exfiltrated the git-credential-helper canary"
+        # Positive check for the same reason: the probe must have actually run
+        # and reported "no", not merely never printed anything.
+        grep -qxF 'credential_helper_read=no' "$T/default/provider-actions.log" \
+            || nok "[default] the git-credential-helper probe never ran or never reported (vacuous probe: $(grep 'credential_helper_read=' "$T/default/provider-actions.log" 2>/dev/null || echo 'no credential_helper_read= line found'))"
+        # BACKLOG 149 round 3: the provider session must not be able to push
+        # over an SSH-transport remote using the inherited (real, synthetic-
+        # in-this-test) SSH agent. Skipped (not failed) when the SSH fixture
+        # itself could not be built on this host (SSH_FP empty).
+        #
+        # When the fix is in place, GIT_SSH_COMMAND=false means git invokes
+        # the `false` builtin in place of ssh -- the fake `ssh` binary (and
+        # therefore ssh.log, which only it writes to) is never reached at
+        # all, by design: `false` fails closed before ever consulting
+        # SSH_AUTH_SOCK. So the positive, non-vacuous proof that the fix ran
+        # is in the provider's OWN env dump (GIT_SSH_COMMAND=false,
+        # SSH_AUTH_SOCK absent), not in ssh.log -- an EMPTY ssh.log is the
+        # correct, fixed-state outcome, and a non-empty one (the fake ssh
+        # actually got invoked, meaning GIT_SSH_COMMAND was NOT overridden to
+        # `false`) is the failure signal.
+        if [ -n "$SSH_FP" ]; then
+            grep -qxF 'GIT_SSH_COMMAND=false' "$T"/default/provider-env.* \
+                || nok "[default] the provider session's own env did not show GIT_SSH_COMMAND=false (SSH override missing or wrong)"
+            grep -q '^SSH_AUTH_SOCK=' "$T"/default/provider-env.* \
+                && nok "[default] the provider session inherited a real SSH_AUTH_SOCK (SSH agent not withheld): $(grep '^SSH_AUTH_SOCK=' "$T"/default/provider-env.* | head -1)"
+            # Positive check, not just absence-of-bad-value: the SSH push
+            # attempt must actually have run and failed (any non-zero rc --
+            # `false` denies it before ssh-transport auth is ever attempted),
+            # so a provider crash before ever invoking git push cannot pass
+            # this vacuously.
+            grep -q '^git_push_ssh_rc=' "$T/default/provider-actions.log" 2>/dev/null \
+                || nok "[default] the provider's SSH-transport push attempt never ran or never reported (vacuous probe)"
+            grep -q '^git_push_ssh_rc=0$' "$T/default/provider-actions.log" 2>/dev/null \
+                && nok "[default] the provider's SSH-transport push succeeded (rc=0) -- SSH agent was not withheld"
+            # ssh.log must stay EMPTY: the fake ssh binary this fixture built
+            # (and thus its fingerprint check) is never reached when
+            # GIT_SSH_COMMAND=false is correctly in effect. A non-empty log
+            # here means the override did not take effect.
+            [ -s "$T/default/ssh.log" ] \
+                && nok "[default] the fake ssh binary was invoked at all (GIT_SSH_COMMAND=false did not take effect): $(tr '\n' ',' < "$T/default/ssh.log" 2>/dev/null)"
+        fi
     fi
+    }
 
+    scn_auto_pr() {
     # 2. auto-pr: LOKI_AUTO_PR=1, so the session PR comes from create_session_pr.
     inj_run auto-pr "export LOKI_DELEGATE_PR=0 LOKI_AUTO_PR=1"
     if inj_live auto-pr; then
@@ -1371,10 +1706,96 @@ PY
             && nok "[auto-pr] a git push from the provider session was accepted by the remote"
         grep -qx 'loki accepted' "$T/auto-pr/push.log" \
             || nok "[auto-pr] the session PR push (create_session_pr) did not carry the token (push log: $(tr '\n' ',' < "$T/auto-pr/push.log"))"
-        grep -q '^loki token=yes pr create' "$T/auto-pr/gh.log" \
+        grep -q '^loki token=yes via=[a-z]* pr create' "$T/auto-pr/gh.log" \
             || nok "[auto-pr] the session PR gh pr create did not carry the token"
     fi
+    }
 
+    scn_auto_pr_ssh() {
+    # 2b. auto-pr over an SSH origin (BACKLOG 149 round 4): guards the SSH
+    #     RE-GRANT, which nothing above does -- removing the SSH restore lines
+    #     from _loki_gh_restore left every other assertion green. Same run as
+    #     auto-pr, but the work copy's origin is the SSH-transport fixture
+    #     remote, so create_session_pr's trusted `git push -u origin` can only
+    #     succeed if the re-grant hands back the real SSH_AUTH_SOCK and
+    #     GIT_SSH_COMMAND (the fake ssh checks the agent fingerprint before it
+    #     ever reaches the bare repo's hook).
+    if [ -n "$SSH_FP" ]; then
+        # A real-shaped GitHub ssh origin (Loki only pushes to a validated
+        # github.com origin); the operator's global config routes it to the
+        # fixture's fake ssh.
+        inj_run auto-pr-ssh "export LOKI_DELEGATE_PR=0 LOKI_AUTO_PR=1; git -C '$T/auto-pr-ssh/work' remote set-url origin ssh://git@github.com/octocat/hello.git || exit 42"
+        if inj_live auto-pr-ssh; then
+            [ -z "$(inj_leaked auto-pr-ssh)" ] \
+                || nok "[auto-pr-ssh] canary token(s) reached the provider environment: $(inj_leaked auto-pr-ssh)"
+            grep -qx 'provider accepted' "$T/auto-pr-ssh/push.log" \
+                && nok "[auto-pr-ssh] a git push from the provider session was accepted by the remote"
+            grep -q "fp=$SSH_FP cmd=git-receive-pack" "$T/auto-pr-ssh/ssh.log" 2>/dev/null \
+                || nok "[auto-pr-ssh] Loki's own session push never reached ssh with the real agent (SSH re-grant missing; ssh log: $(tr '\n' ',' < "$T/auto-pr-ssh/ssh.log" 2>/dev/null))"
+            grep -qx 'loki accepted' "$T/auto-pr-ssh/push.log" \
+                || nok "[auto-pr-ssh] Loki's own session push over the SSH origin was not accepted (push log: $(tr '\n' ',' < "$T/auto-pr-ssh/push.log"))"
+        fi
+    fi
+    }
+
+    # 2c. planted (BACKLOG 149 round 5): the agent plants code in its own repo
+    #     config and waits for Loki's trusted push, which used to run `git push`
+    #     inside that repo with every credential channel restored. Plants: an
+    #     includeIf file setting core.hooksPath to a pre-push hook that also
+    #     runs `git credential fill` (repo-local credential.helper plant) and
+    #     `git status` (core.fsmonitor plant), plus url.pushInsteadOf pointing
+    #     the push at an attacker repo. Default path (on_run_complete,
+    #     LOKI_DELEGATE_PR=1). tests/test-trusted-push-agent-config.sh covers
+    #     each plant in isolation, plus .git/hooks, include.path, insteadOf and
+    #     core.sshCommand, which this fixture cannot fire (its operator sets
+    #     GIT_SSH_COMMAND, which outranks core.sshCommand).
+    local PL="$T/planted" PLOG="$T/planted/plant.log"
+    mkdir -p "$PL/hp" "$PL/home-ctl"
+    printf '#!/bin/sh\necho "$1 token=${GH_TOKEN:-none} sock=${SSH_AUTH_SOCK:-none}" >> "%s"\n' "$PLOG" > "$PL/rec.sh"
+    printf '#!/bin/sh\n%s hookspath\nprintf "protocol=https\\nhost=moat-p9.invalid\\n\\n" | git credential fill >/dev/null 2>&1\ngit status --porcelain >/dev/null 2>&1\nexit 0\n' "$PL/rec.sh" > "$PL/hp/pre-push"
+    printf '#!/bin/sh\n%s credhelper\n' "$PL/rec.sh" > "$PL/cred.sh"
+    printf '#!/bin/sh\n%s fsmonitor\nexit 1\n' "$PL/rec.sh" > "$PL/fsmon.sh"
+    printf '[core]\n\thooksPath = %s\n' "$PL/hp" > "$PL/inc.gitconfig"
+    git init -q --bare "$PL/attacker.git"
+    printf '#!/bin/sh\n%s pushinsteadof\n' "$PL/rec.sh" > "$PL/attacker.git/hooks/pre-receive"
+    chmod +x "$PL/rec.sh" "$PL/hp/pre-push" "$PL/cred.sh" "$PL/fsmon.sh" "$PL/attacker.git/hooks/pre-receive"
+    {
+        printf 'r="$1"\n'
+        printf 'git -C "$r" config "includeIf.gitdir:**/.git.path" %q\n' "$PL/inc.gitconfig"
+        printf 'git -C "$r" config credential.helper %q\n' "!$PL/cred.sh"
+        printf 'git -C "$r" config core.fsmonitor %q\n' "$PL/fsmon.sh"
+        printf 'git -C "$r" config url.%q.pushInsteadOf https://github.com/octocat/hello.git\n' "$PL/attacker.git"
+    } > "$PL/plant-repo.sh"
+    # Positive control: the OLD trusted push (credentialed `git push origin`
+    # from inside the planted repo) fires every plant with the credential.
+    # Sandboxed HOME, no system config, so no real credential helper is asked.
+    cp -R "$W" "$PL/ctl" && bash "$PL/plant-repo.sh" "$PL/ctl"
+    : > "$PLOG"
+    ( cd "$PL/ctl" && env HOME="$PL/home-ctl" GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 \
+        GH_TOKEN="$GH_CANARY" SSH_AUTH_SOCK="${SSH_AGENT_SOCK:-/nonexistent}" \
+        git push -q origin HEAD:refs/heads/moat-planted-control ) >/dev/null 2>&1
+    local _pt
+    for _pt in hookspath credhelper fsmonitor pushinsteadof; do
+        grep -q "^$_pt token=$GH_CANARY" "$PLOG" \
+            || nok "[planted] control: the $_pt plant did not record the credential on the old in-repo push (plant not live; log: $(tr '\n' ',' < "$PLOG"))"
+    done
+    : > "$PLOG"
+
+    scn_planted() {
+    inj_run planted "bash '$PL/plant-repo.sh' '$PL/work' || exit 43"
+    if inj_live planted; then
+        grep -q "token=$GH_CANARY" "$PLOG" \
+            && nok "[planted] a plant in the agent's repo config ran holding the real GitHub token: $(grep "token=$GH_CANARY" "$PLOG" | cut -d' ' -f1 | tr '\n' ',')"
+        [ -n "${SSH_AGENT_SOCK:-}" ] && grep -qF "sock=$SSH_AGENT_SOCK" "$PLOG" \
+            && nok "[planted] a plant in the agent's repo config ran holding the real SSH agent socket"
+        grep -qx 'loki accepted' "$T/planted/push.log" \
+            || nok "[planted] Loki's own push did not reach the real remote with the credential (push log: $(tr '\n' ',' < "$T/planted/push.log"))"
+        grep -q '^loki token=yes via=[a-z]* pr create' "$T/planted/gh.log" \
+            || nok "[planted] Loki's own gh pr create did not carry the token"
+    fi
+    }
+
+    scn_opt_out() {
     # 3. opt-out: LOKI_ALLOW_AGENT_GITHUB_TOKEN=1 restores the old exposure and
     #    says so. Also proves the leak probe sees a leak when there is one.
     inj_run opt-out "export LOKI_DELEGATE_PR=0 LOKI_ALLOW_AGENT_GITHUB_TOKEN=1"
@@ -1383,7 +1804,112 @@ PY
             || nok "[opt-out] the canaries did not reach the provider under LOKI_ALLOW_AGENT_GITHUB_TOKEN=1 (leak probe blind or opt-out broken): got '$(inj_leaked opt-out)'"
         [ "$(grep -cF "$OPT_WARN" "$T/opt-out/start.err")" = "1" ] \
             || nok "[opt-out] expected exactly one stderr warning that the agent holds the token, got $(grep -cF "$OPT_WARN" "$T/opt-out/start.err") (stdout has $(grep -cF "$OPT_WARN" "$T/opt-out/start.out"))"
+        # Positive control for the hosts.yml probe: the opt-out restores the
+        # old full inheritance, so gh config scoping must NOT apply here
+        # either, and the provider session's own gh resolution DOES reach the
+        # real (sandboxed) hosts.yml. If this ever stops matching, the probe
+        # itself is blind rather than the fix being broken.
+        grep -qxF 'hosts_read=yes' "$T/opt-out/provider-actions.log" \
+            || nok "[opt-out] the hosts.yml probe is blind under the opt-out (expected the provider to read it when scoping is off)"
+        grep -qF -- "$HOSTS_CANARY" "$T"/opt-out/provider-hosts.* 2>/dev/null \
+            || nok "[opt-out] the hosts.yml probe is blind under the opt-out (canary not found in what the provider read)"
+        # Positive control for the git-credential-helper probe: under the
+        # opt-out, credential.helper is never reset, so the provider's plain
+        # `git credential fill` DOES reach the fake osxkeychain-style helper.
+        # If this ever stops matching, the probe itself is blind.
+        grep -qxF 'credential_helper_read=yes' "$T/opt-out/provider-actions.log" \
+            || nok "[opt-out] the git-credential-helper probe is blind under the opt-out (expected the provider to resolve a credential when the helper chain is not reset)"
+        grep -qF -- "$HELPER_CANARY" "$T"/opt-out/provider-credential.* 2>/dev/null \
+            || nok "[opt-out] the git-credential-helper probe is blind under the opt-out (canary not found in what the provider resolved)"
+        # BACKLOG 149 round 3, positive control: under the opt-out, SSH is
+        # never withheld either -- the provider's own env keeps the real
+        # (synthetic-in-this-test) SSH_AUTH_SOCK, GIT_SSH_COMMAND is never
+        # overridden to `false`, and its ssh-transport push actually
+        # authenticates against the fake ssh binary. If this ever stops
+        # matching, the probe itself is blind rather than the fix being
+        # broken.
+        if [ -n "$SSH_FP" ]; then
+            grep -qF "SSH_AUTH_SOCK=$SSH_AGENT_SOCK" "$T"/opt-out/provider-env.* \
+                || nok "[opt-out] the SSH probe is blind under the opt-out (expected the provider to inherit the real SSH_AUTH_SOCK)"
+            grep -qxF 'GIT_SSH_COMMAND=false' "$T"/opt-out/provider-env.* \
+                && nok "[opt-out] GIT_SSH_COMMAND was overridden to false under the opt-out (should be untouched)"
+            grep -q "fp=$SSH_FP" "$T/opt-out/ssh.log" 2>/dev/null \
+                || nok "[opt-out] the SSH probe is blind under the opt-out (expected the fake ssh to observe the real agent fingerprint)"
+        fi
     fi
+    }
+
+    scn_hosts_only() {
+    # 4. hosts-only: a user authenticated ONLY via `gh auth login` (hosts.yml),
+    #    no GH_TOKEN/GITHUB_TOKEN at all. This is the exact case the original
+    #    4-var withhold could not see (both _loki_withhold_github_tokens and
+    #    withholdGithubTokens used to return early when no env token was
+    #    present, so GH_CONFIG_DIR was never scoped). Loki's own trusted gh
+    #    call (the issue fetch) must still authenticate off the real
+    #    hosts.yml; the provider session must not be able to.
+    inj_run hosts-only "unset GH_TOKEN GITHUB_TOKEN; export LOKI_DELEGATE_PR=0"
+    if inj_live hosts-only; then
+        grep -qxF 'hosts_read=yes' "$T/hosts-only/provider-actions.log" \
+            && nok "[hosts-only] the provider session read hosts.yml with no env token present (gh config store not scoped)"
+        grep -qF -- "$HOSTS_CANARY" "$T"/hosts-only/provider-hosts.* 2>/dev/null \
+            && nok "[hosts-only] the provider session exfiltrated the hosts.yml oauth_token with no env token present"
+        grep -q '^loki token=yes via=[a-z]* issue view' "$T/hosts-only/gh.log" \
+            || nok "[hosts-only] Loki's own trusted issue-fetch gh call did not authenticate off the real hosts.yml (gh log: $(tr '\n' ',' < "$T/hosts-only/gh.log"))"
+        # BACKLOG 149 round 2: this scenario -- no GH_TOKEN/GITHUB_TOKEN at all
+        # -- is exactly the case the round-1 fix's early-return bug lived in
+        # (both _loki_withhold_github_tokens and withholdGithubTokens used to
+        # skip scoping entirely when no env token was present). The keyring
+        # and credential-helper checks matter MOST here.
+        grep -qxF "gh_auth_token=$KEYRING_CANARY" "$T/hosts-only/provider-actions.log" \
+            && nok "[hosts-only] the provider's own 'gh auth token' resolved via the OS-keyring fallback with no env token present"
+        grep -qE '^gh_auth_token=ghp_LOKIWITHHELDsentinel.*INVALID$' "$T/hosts-only/provider-actions.log" \
+            || nok "[hosts-only] the provider's own 'gh auth token' did not print the expected sentinel shape at all (probe vacuous: $(grep '^gh_auth_token=' "$T/hosts-only/provider-actions.log" 2>/dev/null || echo 'no gh_auth_token= line found'))"
+        grep -qxF 'credential_helper_read=yes' "$T/hosts-only/provider-actions.log" \
+            && nok "[hosts-only] the provider session's git credential.helper resolved a credential with no env token present"
+        grep -qF -- "$HELPER_CANARY" "$T"/hosts-only/provider-credential.* 2>/dev/null \
+            && nok "[hosts-only] the provider session exfiltrated the git-credential-helper canary with no env token present"
+        grep -qxF 'credential_helper_read=no' "$T/hosts-only/provider-actions.log" \
+            || nok "[hosts-only] the git-credential-helper probe never ran or never reported (vacuous probe: $(grep 'credential_helper_read=' "$T/hosts-only/provider-actions.log" 2>/dev/null || echo 'no credential_helper_read= line found'))"
+    fi
+    }
+    # --- run the six scenarios above with bounded parallelism (<=3) --------
+    # Each is already an independent "fresh copy" (own $T/<label> work dir,
+    # HOME and logs; see inj_run), so the only cross-scenario coupling is the
+    # `nok` accumulator. A backgrounded subshell must clear the inherited
+    # `trap moat_cleanup EXIT` FIRST: bash 3.2 has no BASHPID, so
+    # moat_cleanup's "${BASHPID:-$$}" guard cannot tell a subshell from the
+    # main shell ($$ does not change in a bash subshell without BASHPID), and
+    # letting that trap fire here would print spurious "case never ran" FAILs
+    # and rm -rf $MOAT_TMP out from under a sibling still running. Each
+    # subshell gets its own `nok` that appends to a per-scenario file instead
+    # of the shared $CASE_FAILS (which a subshell cannot write back to its
+    # parent); the real nok() replays those files afterward, in the ORIGINAL
+    # fixed scenario order, so a FAIL's text is byte-identical to a serial run
+    # regardless of which scenario actually finishes first.
+    p9_inj_bg() {  # <label> <fn-name> -> sets P9_LAST_PID
+        local ff="$T/nok.$1"
+        : > "$ff"
+        ( trap - EXIT; nok() { printf '%s\n' "$1" >> "$ff"; }; "$2" ) &
+        P9_LAST_PID=$!
+    }
+    local pids1="" pids2="" pid label
+
+    p9_inj_bg default scn_default; pids1="$pids1 $P9_LAST_PID"
+    p9_inj_bg auto-pr scn_auto_pr; pids1="$pids1 $P9_LAST_PID"
+    if [ -n "$SSH_FP" ]; then
+        p9_inj_bg auto-pr-ssh scn_auto_pr_ssh; pids1="$pids1 $P9_LAST_PID"
+    fi
+    for pid in $pids1; do wait "$pid"; done
+
+    p9_inj_bg planted scn_planted; pids2="$pids2 $P9_LAST_PID"
+    p9_inj_bg opt-out scn_opt_out; pids2="$pids2 $P9_LAST_PID"
+    p9_inj_bg hosts-only scn_hosts_only; pids2="$pids2 $P9_LAST_PID"
+    for pid in $pids2; do wait "$pid"; done
+
+    for label in default auto-pr auto-pr-ssh planted opt-out hosts-only; do
+        [ -s "$T/nok.$label" ] || continue
+        while IFS= read -r line; do nok "$line"; done < "$T/nok.$label"
+    done
 
     # --- Bun route: the same scenarios, through the real dist CLI -----------
     # `loki start owner/repo#N` always diverts issue refs to bash
@@ -1415,6 +1941,20 @@ PY
     # has no issue-fetch step of its own; the PRD path is the untrusted-text
     # channel that route actually has).
     inj_run_bun_default
+
+    # Stop the synthetic ssh-agent by its exact captured PID (never a
+    # name-pattern kill) -- it has no further use once the Bun scenarios
+    # (which never touch SSH) have run. Its socket dir lives OUTSIDE $MOAT_TMP
+    # (a short, fixed-depth path under $TMPDIR directly -- see the
+    # SSH_AGENT_DIR comment above: a Unix domain socket path under the
+    # $MOAT_TMP/inj/... depth routinely exceeds the ~104-byte sun_path limit
+    # on macOS/BSD), so it is not covered by the outer moat_cleanup's
+    # `rm -rf "$MOAT_TMP"` and needs its own explicit removal here, validated
+    # as a real mktemp-created path before deletion.
+    [ -n "$SSH_AGENT_PID" ] && kill "$SSH_AGENT_PID" 2>/dev/null
+    case "${SSH_AGENT_DIR:-}" in
+        "${TMPDIR:-/tmp}"/moat-ssh.*) rm -rf "$SSH_AGENT_DIR" ;;
+    esac
 }
 
 # inj_run_bun <scenario> <extra exports>: like inj_run, but the spec is a
@@ -1498,7 +2038,7 @@ inj_run_bun_default() {
             || nok "[bun default] canary token(s) reached the provider environment: $(inj_bun_leaked default)"
         grep -qx 'provider accepted' "$T/bun-default/push.log" \
             && nok "[bun default] a git push from the provider session was accepted by the remote"
-        grep -q '^provider token=yes pr create' "$T/bun-default/gh.log" \
+        grep -q '^provider token=yes via=[a-z]* pr create' "$T/bun-default/gh.log" \
             && nok "[bun default] gh pr create from the provider session ran with a valid token"
         grep -qF "$OPT_WARN" "$T/bun-default/start.err" "$T/bun-default/start.out" \
             && nok "[bun default] printed the opt-out exposure warning without the opt-out"
@@ -1521,7 +2061,7 @@ moat_run "P9.comment-trigger-author-gate" \
     "agent jobs reachable by outsider-authored events check that author visibly in YAML, on the event's own field" \
     case_gate
 moat_run "P9.injection-cannot-reach-token" \
-    "issue injection through the real issue path cannot reach GH_TOKEN/GITHUB_TOKEN or push from a provider session; Loki's own post-session push/PR still can" \
+    "issue injection through the real issue path cannot reach GH_TOKEN/GITHUB_TOKEN or push (HTTPS or SSH) from a provider session via the IMPLICIT resolution paths this fix closes (env vars, gh config store, git credential.helper, SSH agent/ssh command); Loki's own post-session push/PR still can. Does not hold against an explicit named-account keyring read (gh auth token -u <username>, env -u GH_TOKEN -u GITHUB_TOKEN gh auth token, security find-generic-password), an explicit env -u GIT_SSH_COMMAND (ssh then uses ~/.ssh/id_* keys and any IdentityAgent), git's ext:: transport, or a direct ssh/hosts.yml/keychain read outside git -- the actual boundary is a CI job holding no write token and no SSH agent while the agent runs" \
     case_injection
 moat_run "P9.checkout-no-persisted-credentials" \
     "actions/checkout sets persist-credentials: false in issue/comment/review-triggered and agent-running jobs" \

@@ -1228,6 +1228,12 @@ if [ -f "$LOCK_LIB" ]; then
     source "$LOCK_LIB"
 fi
 
+# Guarded browser opener (loki_open_url): the only way run.sh opens a browser.
+if [ -f "$SCRIPT_DIR/lib/browser-open.sh" ]; then
+    # shellcheck source=lib/browser-open.sh
+    source "$SCRIPT_DIR/lib/browser-open.sh"
+fi
+
 # Git PR advisory (shared print-only helper for create_session_pr and loki deploy)
 GIT_PR_ADVISORY_LIB="$SCRIPT_DIR/lib/git-pr-advisory.sh"
 if [ -f "$GIT_PR_ADVISORY_LIB" ]; then
@@ -5339,7 +5345,13 @@ except Exception:
 }
 
 #===============================================================================
-# Rule of Two (moat P9): a GitHub token never reaches an agent session.
+# Rule of Two (moat P9): a GitHub token never reaches an agent session via the
+# IMPLICIT resolution paths this module withholds (env vars, gh config store,
+# git credential.helper, SSH agent/ssh command). Not an absolute claim -- see
+# the disclosed residuals at the end of this header (an explicit named-account
+# keyring read, a direct ssh/hosts.yml/keychain read outside git); the actual
+# security boundary is a CI job holding no write token and no SSH agent while
+# the agent runs.
 #
 # The run reads untrusted issue text and spawns agents that act on it, so a
 # token in the exported environment is one prompt injection away from a push.
@@ -5350,26 +5362,602 @@ except Exception:
 #   - _loki_with_github_tokens <cmd...>, for the post-session push/PR paths.
 # LOKI_ALLOW_AGENT_GITHUB_TOKEN=1 (exact value) restores the old inheritance
 # and prints one stderr warning that the agent holds the token.
+#
+# BACKLOG 149 (round 2, REJECT rework): the previous fix scoped GH_CONFIG_DIR
+# to a fresh empty directory but a reviewer confirmed, live, that this does not
+# close the vulnerability. Two bypasses, both reproduced empirically against
+# real gh 2.92 + a real macOS Keychain-backed `gh auth login` on 2026-09-27:
+#
+#   1. `GH_CONFIG_DIR=<empty dir> gh auth token` (real $HOME, no env token)
+#      still exits 0: gh's resolution is config-dir file, THEN OS keyring
+#      fallback (Keychain on macOS, libsecret on Linux). An empty config dir
+#      does not stop the keyring lookup.
+#   2. git's own `credential.helper` (`gh auth setup-git` wires
+#      `credential.https://github.com.helper = !gh auth git-credential`, and a
+#      plain `osxkeychain`/`libsecret`/etc. helper may ALSO be configured,
+#      unscoped, ahead of or behind it) is invoked directly by git on any
+#      `git push`/`git credential fill` over HTTPS. This path is git-invoked,
+#      not GH_CONFIG_DIR-mediated at all -- scoping GH_CONFIG_DIR does nothing
+#      to it, and it resolves through the same keyring fallback OR a
+#      completely separate OS-keychain entry that git's own helper (not gh's)
+#      maintains independently.
+#
+# Fix, verified against `gh help environment` and empirically against both
+# bypasses (see the S-18 rework session transcript for the repro/counter-repro
+# pairs; no real credential value was ever printed during that verification):
+#
+#   (a) GH_TOKEN/GITHUB_TOKEN/GH_ENTERPRISE_TOKEN/GITHUB_ENTERPRISE_TOKEN are
+#       no longer merely unset -- each is set to a fresh per-process garbage
+#       value (SENTINEL below). `gh help environment` documents the env token
+#       as taking "precedence over previously stored credentials", and this
+#       was confirmed live: with the sentinel present, `gh auth token` AND
+#       `gh auth git-credential get` both echo back the garbage value, never
+#       falling through to the keyring. `gh auth git-credential get` is a pure
+#       read/print in this path -- it does not write to GH_CONFIG_DIR or touch
+#       the keychain, so planting a sentinel has no destructive side effect;
+#       a `git push` that ends up using it simply gets a 401 from GitHub, the
+#       same as any other wrong password.
+#   (b) The sentinel alone does not close a plain `osxkeychain` (or similar)
+#       helper that is configured UNSCOPED (`credential.helper = osxkeychain`,
+#       no gh involved at all) and holds its own independently-cached
+#       credential -- confirmed present as a THIRD, gh-independent store on
+#       the verification machine (git's own keychain entry, distinct from
+#       gh's). GH_TOKEN only feeds gh's own resolution; it does not touch
+#       git's credential-helper chain. So the session additionally gets
+#       `credential.helper=` (empty string) injected via
+#       GIT_CONFIG_COUNT/GIT_CONFIG_KEY_n/GIT_CONFIG_VALUE_n, appended after
+#       any GIT_CONFIG_COUNT the operator already has set. Per gitcredentials(7):
+#       "If credential.helper is configured to the empty string, this resets
+#       the helper list to empty" -- this is why the reset must be UNSCOPED
+#       (plain `credential.helper`, not `credential.<url>.helper`, since a
+#       URL-scoped reset does not necessarily out-order every already
+#       configured helper) and appended LAST (env-var config values override
+#       every config FILE, per `git help config` on GIT_CONFIG_COUNT, and later
+#       GIT_CONFIG_KEY_n entries are read after earlier ones). Confirmed live:
+#       with this override present, `git credential fill` against github.com
+#       fails closed ("could not read Username") instead of returning a
+#       password line, with no fallback to any other helper. This closes the
+#       git-invoked path directly, independent of GH_CONFIG_DIR or any
+#       GH_TOKEN-family value.
+#
+# GH_CONFIG_DIR is still scoped to a fresh empty directory (unconditionally,
+# same as before) -- it remains correct for the plaintext-hosts.yml-read case
+# and for any gh subcommand that does not consult GH_TOKEN. $HOME itself stays
+# untouched, so Claude's own OAuth (F49) is unaffected -- nothing here reads
+# or writes $HOME/.claude or touches any Anthropic credential path.
+#
+# BACKLOG 149 (round 3, REJECT rework): round 2's fix is HTTPS-only. A
+# round-3 reviewer confirmed, live, that none of the above touches
+# SSH_AUTH_SOCK or GIT_SSH_COMMAND -- the provider session's real, untouched
+# environment always has a reachable SSH agent (by this design's own stated
+# intent of keeping the environment live for Claude's own OAuth), so
+# `git remote set-url origin git@github.com:<owner>/<repo>.git && git push`
+# authenticates exactly as an unrestricted session. Reproduced with a
+# synthetic-only ssh-agent and a throwaway key (never a real credential):
+# `ssh-add -l` against the inherited SSH_AUTH_SOCK lists the identity, and any
+# ssh-transport git operation would authenticate with it.
+#
+# Fix: SSH_AUTH_SOCK is unset (not sentineled) for the withheld session.
+# Unlike the GH_TOKEN-family vars, a present-but-wrong SSH_AUTH_SOCK does NOT
+# stop ssh from falling back: with no usable agent, ssh(1) still tries the
+# default key files (~/.ssh/id_*) and any `IdentityAgent` socket named in
+# ~/.ssh/config (and on macOS a launchd agent socket is rediscoverable). A
+# sentinel therefore buys nothing over unset, so unset is the simpler choice
+# for THIS var. Those fallbacks are why GIT_SSH_COMMAND=false (below) is the
+# part that actually closes git's ssh transport: git never runs ssh at all.
+# An agent that explicitly removes it (`env -u GIT_SSH_COMMAND git push
+# git@...`) gets ssh back with those fallbacks -- same class as `env -u
+# GH_TOKEN`, disclosed in the residual list at the end of this header. That
+# does not contradict round 2's reasoning for sentineling
+# the token vars, it applies that same reasoning to a var with different
+# fallback semantics. GIT_SSH_COMMAND is set to `false` (a POSIX builtin that
+# ignores all arguments and always exits 1): git invokes it in place of ssh
+# for any ssh-transport fetch/push, and git's own docs (`git help git-config`)
+# confirm the env var "is overridden when the environment variable is set" --
+# i.e. GIT_SSH_COMMAND (env) unconditionally outranks core.sshCommand
+# (config), so setting only the env var closes both an operator-configured
+# core.sshCommand AND an agent-configured one, with no separate
+# GIT_CONFIG_COUNT-based core.sshCommand reset needed. This means even an
+# explicit `ssh -i <path>` invocation made THROUGH git (git fetch/push/clone
+# over an ssh:// or git@ URL) fails; it does NOT stop an agent from invoking
+# the real `/usr/bin/ssh` binary directly outside of git, which is a
+# disclosed residual (see below), the same class as the already-disclosed
+# `gh auth token -u <username>` and on-disk hosts.yml/keychain reads.
+#
+# Loki's own trusted calls (gh() below, _loki_with_github_tokens) restore the
+# REAL env values (or absence) for the 4 token vars, the real GH_CONFIG_DIR
+# (or absence), the real GIT_CONFIG_COUNT/KEY/VALUE state (or absence), and
+# the real SSH_AUTH_SOCK/GIT_SSH_COMMAND state (or absence) around the one
+# trusted command, then re-apply the withhold afterward -- this repo's own
+# trusted git operations (create_session_pr, on_run_complete's push,
+# proof-check.sh) push to an https or ssh GitHub origin, so an SSH-origin
+# user's Loki-initiated push must still work; the SSH sentinel needs the same
+# re-grant path as the token vars, not a simpler one.
+#
+# Restoring credentials is only safe if the credentialed process does not
+# also load code the agent controls (round 5). Until round 5 it did: the
+# trusted push was a `git push` inside the agent's working tree, so the
+# agent's repo config (.git/hooks, core.hooksPath, core.sshCommand, a
+# repo-local credential.helper, core.fsmonitor, url.*insteadOf, include/
+# includeIf) ran holding every restored credential. Now the push goes through
+# _loki_trusted_push (fresh Loki-owned repo, origin URL read as data and
+# accepted only as a github.com https/ssh URL) and every trusted gh call runs
+# from / with GH_REPO (_loki_run_neutral), so no credentialed git or gh process
+# loads the agent's repo config. What the trusted step still trusts:
+#   - the operator's GLOBAL and SYSTEM git config (they carry the real
+#     credential helper). An agent that writes ~/.gitconfig, /etc/gitconfig or
+#     an included file there gets the same code execution back; this is the
+#     same-user filesystem class as editing ~/.ssh or a shell rc file.
+#   - the branch contents, which are the agent's work by design (Loki pushes
+#     them for review; nothing in them executes during the push).
+#   - the origin OWNER/REPO the agent's config names: the agent can point the
+#     push at another github.com repository. GitHub still enforces the
+#     operator token's permissions there.
+# A non-GitHub origin is no longer pushed at all (LOKI_AUTO_PR=1 used to push
+# to any origin).
+#
 # This is hygiene against a naive injection, not an isolation boundary: code
 # running as the same user can still read the parent's environment block
-# (/proc/<pid>/environ on Linux, sudo on a hosted runner). The boundary is a
-# CI job that holds no write token while the agent runs (see
+# (/proc/<pid>/environ on Linux, sudo on a hosted runner), the hosts.yml file
+# directly off disk (F49 keeps $HOME live), or invoke `git -c
+# credential.helper=...` / `security find-generic-password` /
+# `env -u GH_TOKEN -u GITHUB_TOKEN gh auth token` / `gh auth token -u
+# <username>` / `env -u GIT_SSH_COMMAND git push git@...` (ssh then falls back
+# to ~/.ssh/id_* default keys and any ~/.ssh/config IdentityAgent) / the real
+# `ssh` binary directly with an explicit `-i` key path or a re-discovered agent
+# socket (e.g. `launchctl getenv SSH_AUTH_SOCK` on macOS) / git's `ext::`
+# transport (`git -c protocol.ext.allow=always` with an `ext::<command>` URL,
+# which runs an arbitrary command as the transport) / GIT_ASKPASS (VS Code's
+# integrated terminal sets it to a helper that can answer git's credential
+# prompt over IPC; it is left untouched here) explicitly to route around
+# this. The boundary is a CI job that holds
+# no write token and no SSH agent while the agent runs (see
 # .github/workflows/loki-issue-to-pr.yml).
 #===============================================================================
 _LOKI_WITHHELD_TOKENS=""
+_LOKI_GIT_CONFIG_COUNT_UNSUPPORTED=""
+_LOKI_GH_TOKEN_REAL_HAD=""
+_LOKI_GH_TOKEN_REAL_VAL=""
+_LOKI_GITHUB_TOKEN_REAL_HAD=""
+_LOKI_GITHUB_TOKEN_REAL_VAL=""
+_LOKI_GH_ENT_TOKEN_REAL_HAD=""
+_LOKI_GH_ENT_TOKEN_REAL_VAL=""
+_LOKI_GITHUB_ENT_TOKEN_REAL_HAD=""
+_LOKI_GITHUB_ENT_TOKEN_REAL_VAL=""
+_LOKI_GH_CONFIG_SCOPED=""
+_LOKI_GH_CONFIG_DIR_HAD=""
+_LOKI_GH_CONFIG_DIR_OLD=""
+_LOKI_GIT_CRED_SCOPED=""
+_LOKI_GIT_CONFIG_COUNT_OLD=""
+_LOKI_GIT_CONFIG_COUNT_HAD=""
+_LOKI_GIT_CRED_INDEX=""
+_LOKI_GH_SENTINEL=""
+_LOKI_SSH_AUTH_SOCK_HAD=""
+_LOKI_SSH_AUTH_SOCK_OLD=""
+_LOKI_GIT_SSH_COMMAND_HAD=""
+_LOKI_GIT_SSH_COMMAND_OLD=""
+_LOKI_SSH_WITHHELD=""
+_LOKI_GH_INHERITED=""
 
+# Restore the real value (or absence) of one of the 4 token vars, using the
+# per-var _HAD/_VAL pair captured by _loki_gh_capture. Bash has no portable
+# array-of-names-by-reference here, so this is spelled out per var rather than
+# looped over a dynamic name. Also used by the --bg relaunch path to hand the
+# REAL values to the relaunched child (see call site below).
+_loki_restore_one_token() {
+    local _var="$1" _had="$2" _val="$3"
+    if [ -n "$_had" ]; then
+        export "$_var=$_val"
+    else
+        unset "$_var"
+    fi
+}
+
+# Capture the REAL pre-withhold state exactly once per process: the 4 token
+# vars, GH_CONFIG_DIR, and GIT_CONFIG_COUNT. Idempotent via _LOKI_WITHHELD_TOKENS
+# as the guard, so a later _loki_gh_apply (called after a trusted command
+# restores and re-applies) never re-captures its own sentinel/scoped state as
+# if it were the original.
+_loki_gh_capture() {
+    [ -z "$_LOKI_WITHHELD_TOKENS" ] || return 0
+    local _v
+    # GIT_CONFIG_COUNT/GIT_CONFIG_KEY_n/GIT_CONFIG_VALUE_n were introduced in
+    # git 2.31.0 (2021-03-15); an older git silently ignores them, leaving the
+    # credential.helper reset a no-op with no error -- the exact
+    # fail-open-with-no-signal this fix must not have. Detected once per
+    # process (not on every apply) from `git --version`; a `git version
+    # X.Y.Z` line below 2.31 sets the flag so _loki_withhold_github_tokens can
+    # warn once. Ubuntu 24.04 (2.43) and Debian bookworm (2.39), the two base
+    # images this project ships (Dockerfile, Dockerfile.sandbox), are both
+    # well above this floor; the warning matters for an operator's own older
+    # git (e.g. RHEL 8 ships 2.18).
+    if command -v git >/dev/null 2>&1; then
+        local _gv _gv_major _gv_minor
+        _gv="$(git --version 2>/dev/null)"
+        case "$_gv" in
+            git\ version\ [0-9]*.[0-9]*.*)
+                _gv="${_gv#git version }"
+                _gv_major="${_gv%%.*}"
+                _gv="${_gv#*.}"
+                _gv_minor="${_gv%%.*}"
+                case "$_gv_major" in *[!0-9]*) _gv_major="" ;; esac
+                case "$_gv_minor" in *[!0-9]*) _gv_minor="" ;; esac
+                if [ -n "$_gv_major" ] && [ -n "$_gv_minor" ]; then
+                    if [ "$_gv_major" -lt 2 ] || { [ "$_gv_major" -eq 2 ] && [ "$_gv_minor" -lt 31 ]; }; then
+                        _LOKI_GIT_CONFIG_COUNT_UNSUPPORTED=1
+                    fi
+                fi
+                ;;
+        esac
+    fi
+    # Cross-runtime/nested-`loki start` guard: a bash child spawned by an
+    # ALREADY-withheld process (Bun's delegateToBash forwarding
+    # {...process.env}, or an agent literally invoking `loki start` inside its
+    # own withheld session) inherits the PARENT's sentinel/scoped state as
+    # ordinary env vars. Without this guard this process would capture that
+    # inherited state as if it were the operator's real original and restore
+    # to it for its own trusted calls -- i.e. Loki's own push/PR would use the
+    # inherited garbage sentinel instead of a real credential. Detect the
+    # sentinel shape (see _LOKI_GH_SENTINEL below) and treat it, and the
+    # scoped GH_CONFIG_DIR/credential.helper reset that came with it, as
+    # ABSENT rather than as the real original.
+    local _inherited_sentinel=""
+    case "${GH_TOKEN:-}" in ghp_LOKIWITHHELDsentinel*INVALID) _inherited_sentinel=1 ;; esac
+    # Nested-run rule (BACKLOG 149 round 4): an inherited sentinel means this
+    # run was started from INSIDE an already-withheld session -- an agent
+    # running `loki start` in its own session, or a build started from the
+    # dashboard that start_dashboard spawned after the withhold. Such a run has
+    # no real credentials to restore on ANY channel, and reopening any of them
+    # for its "trusted" push would hand an agent-chosen repo/branch the
+    # operator's credential helper or default SSH keys. So it fails CLOSED on
+    # every channel: _loki_gh_restore becomes a no-op and Loki's own push/PR
+    # from a nested run runs with the withheld state (and fails). Before this
+    # rule the channels disagreed (HTTPS helper chain and default SSH keys
+    # reopened, agent socket closed).
+    [ -z "$_inherited_sentinel" ] || _LOKI_GH_INHERITED=1
+    if [ -n "$_inherited_sentinel" ]; then
+        : # GH_TOKEN/GITHUB_TOKEN/GH_ENTERPRISE_TOKEN/GITHUB_ENTERPRISE_TOKEN
+          # all get the SAME sentinel per _loki_gh_apply, so one check covers
+          # all 4 -- _LOKI_*_REAL_HAD stays unset for each, meaning "restore to
+          # absent", not "restore to this garbage value". The same inherited
+          # process also had SSH_AUTH_SOCK unset and GIT_SSH_COMMAND=false by
+          # this same apply, so _LOKI_SSH_AUTH_SOCK_HAD/_LOKI_GIT_SSH_COMMAND_HAD
+          # stay unset too (restore to absent, not to `false`) -- see the SSH
+          # capture below, gated on this same flag.
+    else
+        if [ -n "${GH_TOKEN+x}" ]; then _LOKI_GH_TOKEN_REAL_HAD=1; _LOKI_GH_TOKEN_REAL_VAL="$GH_TOKEN"; fi
+        if [ -n "${GITHUB_TOKEN+x}" ]; then _LOKI_GITHUB_TOKEN_REAL_HAD=1; _LOKI_GITHUB_TOKEN_REAL_VAL="$GITHUB_TOKEN"; fi
+        if [ -n "${GH_ENTERPRISE_TOKEN+x}" ]; then _LOKI_GH_ENT_TOKEN_REAL_HAD=1; _LOKI_GH_ENT_TOKEN_REAL_VAL="$GH_ENTERPRISE_TOKEN"; fi
+        if [ -n "${GITHUB_ENTERPRISE_TOKEN+x}" ]; then _LOKI_GITHUB_ENT_TOKEN_REAL_HAD=1; _LOKI_GITHUB_ENT_TOKEN_REAL_VAL="$GITHUB_ENTERPRISE_TOKEN"; fi
+    fi
+    # SSH sentinel (BACKLOG 149 round 3): capture the real pre-withhold state
+    # of SSH_AUTH_SOCK and GIT_SSH_COMMAND, same inherited-sentinel guard as
+    # the token vars above (GIT_SSH_COMMAND=false is this fix's own withheld
+    # value, never an operator's real config -- an operator who genuinely
+    # wants `false` as their ssh command is not a real scenario worth
+    # preserving across the guard).
+    if [ -z "$_inherited_sentinel" ]; then
+        if [ -n "${SSH_AUTH_SOCK+x}" ]; then _LOKI_SSH_AUTH_SOCK_HAD=1; _LOKI_SSH_AUTH_SOCK_OLD="$SSH_AUTH_SOCK"; fi
+        if [ -n "${GIT_SSH_COMMAND+x}" ] && [ "$GIT_SSH_COMMAND" != "false" ]; then
+            _LOKI_GIT_SSH_COMMAND_HAD=1
+            _LOKI_GIT_SSH_COMMAND_OLD="$GIT_SSH_COMMAND"
+        fi
+    fi
+    for _v in GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN; do
+        _LOKI_WITHHELD_TOKENS="${_LOKI_WITHHELD_TOKENS:+$_LOKI_WITHHELD_TOKENS }$_v"
+    done
+    # An inherited scoped GH_CONFIG_DIR (bash's loki-gh-config.* or the Bun
+    # route's loki-gh-config-*) is likewise not the operator's real original.
+    # TMPDIR is normalized first: on macOS it ends in "/", so bash's own
+    # mktemp path has "//" while Node's tmpdir() (Bun route) strips the slash.
+    # Without accepting both, Bun's scoped dir was mistaken for the operator's.
+    local _tmp_root="${TMPDIR:-/tmp}"
+    _tmp_root="${_tmp_root%/}"
+    case "${GH_CONFIG_DIR:-}" in
+        "$_tmp_root"/loki-gh-config.* | "$_tmp_root"//loki-gh-config.* \
+        | "$_tmp_root"/loki-gh-config-* | "$_tmp_root"//loki-gh-config-*) ;;
+        *)
+            if [ -n "${GH_CONFIG_DIR+x}" ]; then
+                _LOKI_GH_CONFIG_DIR_HAD=1
+                _LOKI_GH_CONFIG_DIR_OLD="$GH_CONFIG_DIR"
+            fi
+            ;;
+    esac
+    # An inherited credential.helper reset: if the sentinel was inherited AND
+    # the LAST GIT_CONFIG_KEY/VALUE pair is exactly this fix's reset
+    # (credential.helper=""), treat the count as if that pair were never
+    # added -- i.e. capture the state BENEATH it as the real original, so
+    # restore correctly removes only the inherited pair rather than an
+    # operator-configured one at the same index.
+    if [ -n "${GIT_CONFIG_COUNT:-}" ] && [ "${GIT_CONFIG_COUNT}" -eq "${GIT_CONFIG_COUNT}" ] 2>/dev/null; then
+        local _n=$((GIT_CONFIG_COUNT - 1)) _last_key_var _last_val_var
+        _last_key_var="GIT_CONFIG_KEY_${_n}"
+        _last_val_var="GIT_CONFIG_VALUE_${_n}"
+        if [ -n "$_inherited_sentinel" ] && [ "$_n" -ge 0 ] \
+            && [ "${!_last_key_var:-}" = "credential.helper" ] && [ -z "${!_last_val_var:-}" ]; then
+            if [ "$_n" -gt 0 ]; then
+                _LOKI_GIT_CONFIG_COUNT_HAD=1
+                _LOKI_GIT_CONFIG_COUNT_OLD="$_n"
+            fi
+            _LOKI_GIT_CRED_INDEX="$_n"
+        else
+            _LOKI_GIT_CONFIG_COUNT_HAD=1
+            _LOKI_GIT_CONFIG_COUNT_OLD="$GIT_CONFIG_COUNT"
+            _LOKI_GIT_CRED_INDEX="$GIT_CONFIG_COUNT"
+        fi
+    else
+        _LOKI_GIT_CRED_INDEX=0
+    fi
+    # Fixed for the process lifetime once captured, so restore-then-reapply
+    # (the trusted-call cycle) always re-exports the SAME sentinel rather than
+    # minting a new one that a caller mid-command could not have seen.
+    # Alphanumeric-only after the ghp_ prefix (no underscores): matches the
+    # real gh token shape and the existing token-redaction regex in
+    # autonomy/lib/proof_redact.py (gh[pousr]_[A-Za-z0-9]{20,}), so if this
+    # sentinel ever leaked into a proof/receipt artifact it would still be
+    # caught by the existing redaction filter rather than passing it by shape.
+    _LOKI_GH_SENTINEL="ghp_LOKIWITHHELDsentinel$$${RANDOM}${RANDOM}INVALID"
+}
+
+# Unconditionally (re-)export the withheld/scoped state. Never captures --
+# _loki_gh_capture must run first. Silent: callers that want the one-time
+# operator-facing log line print it themselves.
+_loki_gh_apply() {
+    export GH_TOKEN="$_LOKI_GH_SENTINEL" GITHUB_TOKEN="$_LOKI_GH_SENTINEL" \
+        GH_ENTERPRISE_TOKEN="$_LOKI_GH_SENTINEL" GITHUB_ENTERPRISE_TOKEN="$_LOKI_GH_SENTINEL"
+    if [ -z "$_LOKI_GH_CONFIG_SCOPED" ]; then
+        local _empty_cfg
+        _empty_cfg="$(mktemp -d "${TMPDIR:-/tmp}/loki-gh-config.XXXXXX" 2>/dev/null)" || _empty_cfg=""
+        [ -n "$_empty_cfg" ] && _LOKI_GH_CONFIG_SCOPED="$_empty_cfg"
+    fi
+    [ -n "$_LOKI_GH_CONFIG_SCOPED" ] && export GH_CONFIG_DIR="$_LOKI_GH_CONFIG_SCOPED"
+    export "GIT_CONFIG_KEY_${_LOKI_GIT_CRED_INDEX}=credential.helper"
+    export "GIT_CONFIG_VALUE_${_LOKI_GIT_CRED_INDEX}="
+    export GIT_CONFIG_COUNT=$((_LOKI_GIT_CRED_INDEX + 1))
+    _LOKI_GIT_CRED_SCOPED=1
+    # SSH sentinel (BACKLOG 149 round 3): no reachable SSH agent, and any
+    # ssh-transport git operation fails closed via GIT_SSH_COMMAND=false
+    # (env var, so it overrides any core.sshCommand -- see the header comment
+    # above _LOKI_WITHHELD_TOKENS for the git-docs citation).
+    unset SSH_AUTH_SOCK
+    export GIT_SSH_COMMAND=false
+    _LOKI_SSH_WITHHELD=1
+    if command -v gh >/dev/null 2>&1; then
+        # Repo read as data BEFORE the credentials come back; gh then runs
+        # from / (round 5: gh's own git calls must not load the agent's repo
+        # config while holding the real credentials).
+        gh() {
+            local _gh_repo
+            _gh_repo="$(_loki_trusted_repo)"
+            _loki_with_github_tokens _loki_run_neutral "$_gh_repo" command gh "$@"
+        }
+    fi
+}
+
+# Put back the REAL pre-withhold state around one trusted command. A no-op in
+# a run that inherited the sentinel: there is no real state to put back, and
+# the nested-run rule in _loki_gh_capture is to fail closed on every channel.
+_loki_gh_restore() {
+    [ -z "$_LOKI_GH_INHERITED" ] || return 0
+    _loki_restore_one_token GH_TOKEN "$_LOKI_GH_TOKEN_REAL_HAD" "$_LOKI_GH_TOKEN_REAL_VAL"
+    _loki_restore_one_token GITHUB_TOKEN "$_LOKI_GITHUB_TOKEN_REAL_HAD" "$_LOKI_GITHUB_TOKEN_REAL_VAL"
+    _loki_restore_one_token GH_ENTERPRISE_TOKEN "$_LOKI_GH_ENT_TOKEN_REAL_HAD" "$_LOKI_GH_ENT_TOKEN_REAL_VAL"
+    _loki_restore_one_token GITHUB_ENTERPRISE_TOKEN "$_LOKI_GITHUB_ENT_TOKEN_REAL_HAD" "$_LOKI_GITHUB_ENT_TOKEN_REAL_VAL"
+    if [ -n "$_LOKI_GH_CONFIG_DIR_HAD" ]; then
+        export GH_CONFIG_DIR="$_LOKI_GH_CONFIG_DIR_OLD"
+    else
+        unset GH_CONFIG_DIR
+    fi
+    if [ -n "$_LOKI_GIT_CONFIG_COUNT_HAD" ]; then
+        export GIT_CONFIG_COUNT="$_LOKI_GIT_CONFIG_COUNT_OLD"
+    else
+        unset GIT_CONFIG_COUNT
+    fi
+    unset "GIT_CONFIG_KEY_${_LOKI_GIT_CRED_INDEX}" "GIT_CONFIG_VALUE_${_LOKI_GIT_CRED_INDEX}"
+    # SSH sentinel restore: give the trusted command back the real SSH agent
+    # and ssh command, so Loki's own push/PR still works over an SSH origin.
+    _loki_restore_one_token SSH_AUTH_SOCK "$_LOKI_SSH_AUTH_SOCK_HAD" "$_LOKI_SSH_AUTH_SOCK_OLD"
+    _loki_restore_one_token GIT_SSH_COMMAND "$_LOKI_GIT_SSH_COMMAND_HAD" "$_LOKI_GIT_SSH_COMMAND_OLD"
+}
+
+_LOKI_GH_TRUSTED_DEPTH=0
+
+# Reentrancy: a trusted function (create_session_pr) calls `gh` directly one
+# or more times; since the gh() wrapper (_loki_gh_apply) IS
+# _loki_with_github_tokens, each of those calls re-enters this function while
+# the OUTER call is still in progress. Without depth tracking, the FIRST
+# nested `gh` call's own apply-on-exit would re-scope the environment before
+# the outer caller's second `gh` call (or any bare `git` call) runs, breaking
+# it silently -- caught in this session before landing: create_session_pr
+# calls `gh pr list` then `gh pr create`, and the nested apply between them
+# would have handed the second call sentineled/scoped state instead of real
+# credentials. Only the OUTERMOST call restores on entry and re-applies on
+# exit; a nested call finds the depth already > 0 and is a pure passthrough
+# (real credentials are already in place from the outer restore).
 _loki_with_github_tokens() {
-    local _v _rc=0
-    for _v in $_LOKI_WITHHELD_TOKENS; do export "${_v?}"; done
+    local _rc=0 _outermost=0
+    if [ "$_LOKI_GH_TRUSTED_DEPTH" -eq 0 ]; then
+        _outermost=1
+        if [ -n "$_LOKI_WITHHELD_TOKENS" ]; then
+            _loki_gh_restore
+        fi
+    fi
+    _LOKI_GH_TRUSTED_DEPTH=$((_LOKI_GH_TRUSTED_DEPTH + 1))
     "$@" || _rc=$?
-    for _v in $_LOKI_WITHHELD_TOKENS; do export -n "${_v?}"; done
+    _LOKI_GH_TRUSTED_DEPTH=$((_LOKI_GH_TRUSTED_DEPTH - 1))
+    if [ "$_outermost" -eq 1 ] && [ -n "$_LOKI_WITHHELD_TOKENS" ]; then
+        _loki_gh_apply
+    fi
+    return "$_rc"
+}
+
+#-------------------------------------------------------------------------------
+# BACKLOG 149 round 5: a credentialed git or gh process never loads the agent's
+# repo config.
+#
+# _loki_with_github_tokens hands the real credentials back for one command. If
+# that command is `git push` run inside the agent's working tree, git loads the
+# agent-writable repo config first: .git/hooks/pre-push, core.hooksPath,
+# core.sshCommand, a repo-local credential.helper, core.fsmonitor,
+# url.insteadOf/pushInsteadOf, include/includeIf. Two reviewers reproduced a
+# planted pre-push hook reading the real GH_TOKEN and SSH_AUTH_SOCK, and
+# `git credential fill` returning the operator's password. `-c
+# core.hooksPath=/dev/null` alone does not stop core.sshCommand, and a list of
+# per-key overrides would have to stay complete forever.
+#
+# So the credentialed step never runs with that config loaded:
+#   - push: read remote.origin.url as DATA (no credentials), accept only a
+#     github.com https/ssh URL, fetch the branch into a fresh Loki-owned repo
+#     (the fetch runs upload-pack in the agent repo WITHOUT credentials), then
+#     push from that repo with the credentials restored.
+#   - gh: run from / with GH_REPO set to the validated origin, so gh's own git
+#     calls find no repository. An explicit --repo/-R still overrides GH_REPO.
+# The operator's global/system git config still loads (it holds the real
+# credential helper); an agent that can write ~/.gitconfig is a same-user
+# filesystem residual, disclosed in the header above.
+#-------------------------------------------------------------------------------
+
+# Echo OWNER/REPO for a github.com origin URL, else fail. Accepted forms:
+# https://github.com/O/R[.git][/], git@github.com:O/R[.git][/],
+# ssh://git@github.com/O/R[.git][/], host matched case-insensitively. Anything
+# else (other hosts, SSH host aliases such as github.com-work, embedded
+# credentials, extra path segments, odd characters) is rejected;
+# _loki_origin_refusal says why.
+_loki_github_repo_from_url() {
+    local _u="${1:-}" _lc _pre _p
+    _lc="$(printf '%s' "$_u" | tr '[:upper:]' '[:lower:]')"
+    case "$_lc" in
+        https://github.com/*) _pre="https://github.com/" ;;
+        git@github.com:*) _pre="git@github.com:" ;;
+        ssh://git@github.com/*) _pre="ssh://git@github.com/" ;;
+        *) return 1 ;;
+    esac
+    _p="${_u:${#_pre}}"
+    _p="${_p%/}"
+    _p="${_p%.git}"
+    case "$_p" in
+        */*/* | /* | */ | */.* | .* | *..* | *[!A-Za-z0-9._/-]*) return 1 ;;
+        ?*/?*) printf '%s\n' "$_p" ;;
+        *) return 1 ;;
+    esac
+}
+
+# One line saying why an origin is refused. Never echoes the URL itself (it
+# may carry embedded credentials).
+_loki_origin_refusal() {
+    local _lc
+    _lc="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
+    case "$_lc" in
+        '') echo "this repository has no origin remote" ;;
+        *@github.com[!:/]*|*://github.com[!/]*|*@github.com[!:/]*:*)
+            echo "origin uses an SSH host alias or look-alike of github.com (for example github.com-work from ~/.ssh/config); Loki pushes only to a literal github.com origin, so the push never depends on agent-editable ssh config" ;;
+        *github.com*)
+            echo "origin names github.com but is not a plain https or ssh OWNER/REPO URL (embedded credentials, extra path segments or unusual characters are refused)" ;;
+        *)
+            echo "origin is not on github.com; Loki currently pushes only to github.com (GitHub Enterprise and GitLab are planned)" ;;
+    esac
+}
+
+# Origin pin (round 6, reviewer F1): the agent could otherwise repoint origin
+# at another github.com repository and have Loki push its branch there with
+# the operator's credentials. Loki never changes origin itself, so the value
+# recorded before the first iteration (possibly "no origin") is the only one
+# a trusted push accepts. Recorded once per process.
+_LOKI_ORIGIN_PINNED=""
+_LOKI_PINNED_ORIGIN=""
+_loki_pin_origin() {
+    [ -z "$_LOKI_ORIGIN_PINNED" ] || return 0
+    _LOKI_PINNED_ORIGIN="$(git -C "${TARGET_DIR:-.}" config --get remote.origin.url 2>/dev/null || true)"
+    _LOKI_ORIGIN_PINNED=1
+}
+
+# OWNER/REPO of TARGET_DIR's origin, read as data, or nothing.
+_loki_trusted_repo() {
+    _loki_github_repo_from_url "$(git -C "${TARGET_DIR:-.}" config --get remote.origin.url 2>/dev/null)" 2>/dev/null || true
+}
+
+# _loki_run_neutral <owner/repo|""> <cmd...>: run cmd from / so no repository
+# (and so no repo config) is discovered, with GH_REPO naming the repo for gh.
+# A subshell, so functions stay callable; callers pass `command gh` to reach
+# the binary.
+_loki_run_neutral() {
+    local _repo="$1"
+    shift
+    (
+        cd / || exit 1
+        unset GIT_DIR GIT_WORK_TREE
+        if [ -n "$_repo" ] && [ -z "${GH_REPO:-}" ]; then
+            export GH_REPO="$_repo"
+        fi
+        "$@"
+    )
+}
+
+# _loki_trusted_push <runner> <repo-dir> <branch>: push <branch> of the agent
+# repo to its github.com origin without loading the agent repo's config in
+# the credentialed process. <runner> is the credential re-grant wrapper
+# (_loki_with_github_tokens, or on_run_complete's timed _loki_net). The agent
+# repo's branch gets no upstream set (it did with `push -u`); nothing reads it.
+_loki_trusted_push() {
+    local _runner="$1" _dir="$2" _branch="$3" _url _tmp _rc=1
+    _dir="$(cd "$_dir" 2>/dev/null && pwd -P)" || return 1
+    git check-ref-format --branch "$_branch" >/dev/null 2>&1 || return 1
+    _url="$(git -C "$_dir" config --get remote.origin.url 2>/dev/null)" || _url=""
+    if ! _loki_github_repo_from_url "$_url" >/dev/null; then
+        log_warn "Not pushing branch '$_branch': $(_loki_origin_refusal "$_url")."
+        return 2
+    fi
+    if [ -n "$_LOKI_ORIGIN_PINNED" ] && [ "$_url" != "$_LOKI_PINNED_ORIGIN" ]; then
+        log_warn "Not pushing branch '$_branch': origin changed during the run (it was $(_loki_github_repo_from_url "$_LOKI_PINNED_ORIGIN" 2>/dev/null || echo "not a GitHub repository") when the run started). Loki does not push to a destination the agent could have chosen."
+        return 2
+    fi
+    # S-100: never push a default branch, for every caller (on_run_complete,
+    # create_session_pr): the branch name can come from agent-writable state.
+    # The default branch is resolved for the origin just validated (the pinned
+    # one when pinned), gh run from / with an explicit OWNER/REPO. An
+    # unresolvable default branch refuses: fail closed.
+    local _repo _def=""
+    case "$_branch" in
+        main|master|HEAD)
+            log_warn "Not pushing branch '$_branch': Loki never pushes directly to a default branch."
+            return 2 ;;
+    esac
+    _repo="$(_loki_github_repo_from_url "$_url")"
+    _def="$(_loki_run_neutral "$_repo" "$_runner" gh repo view "$_repo" --json defaultBranchRef --jq '.defaultBranchRef.name' 2>/dev/null)" || _def=""
+    if [ -z "$_def" ]; then
+        log_warn "Not pushing branch '$_branch': could not resolve the default branch of $_repo, and Loki never risks a direct push to it."
+        return 2
+    fi
+    if [ "$_branch" = "$_def" ]; then
+        log_warn "Not pushing branch '$_branch': it is the default branch of $_repo, and Loki never pushes directly to the default branch."
+        return 2
+    fi
+    _tmp="$(mktemp -d "${TMPDIR:-/tmp}/loki-push.XXXXXX")" || return 1
+    # --update-shallow: a shallow agent repo's history ends in shallow roots,
+    # which a plain fetch rejects while still exiting 0. The rev-parse makes a
+    # silently empty fetch fail here instead of at the push.
+    if git init -q --template= "$_tmp" >/dev/null 2>&1 \
+        && git -C "$_tmp" fetch -q --no-tags --update-shallow "$_dir" "+refs/heads/$_branch:refs/heads/$_branch" >/dev/null 2>&1 \
+        && git -C "$_tmp" rev-parse -q --verify "refs/heads/$_branch" >/dev/null 2>&1; then
+        _rc=0
+        # `-C "$_tmp"`: git starts repository discovery in the fresh repo, so
+        # the agent repo is never found, whatever the caller's cwd.
+        "$_runner" git -C "$_tmp" push -q "$_url" "refs/heads/$_branch:refs/heads/$_branch" || _rc=$?
+    fi
+    rm -rf "$_tmp"
     return "$_rc"
 }
 
 _loki_withhold_github_tokens() {
     local _v _held=""
+    # Before any provider runs, so the pin is the operator's origin, not one
+    # an agent set. Also under the opt-out: it guards the push destination.
+    _loki_pin_origin
     # Operator opt-out (exact value 1): keep the earlier behavior, where the
-    # agent inherits the token. That is a Rule of Two exposure, so say so.
+    # agent inherits the token and the real gh config. That is a Rule of Two
+    # exposure, so say so. No GH_CONFIG_DIR/credential.helper scoping under
+    # the opt-out either -- the point of this knob is the old, fully-inherited
+    # behavior.
     if [ "${LOKI_ALLOW_AGENT_GITHUB_TOKEN:-}" = "1" ]; then
         for _v in GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN; do
             [ -n "${!_v:-}" ] && _held="${_held:+$_held }$_v"
@@ -5377,21 +5965,30 @@ _loki_withhold_github_tokens() {
         [ -z "$_held" ] || printf '%s\n' "WARNING: LOKI_ALLOW_AGENT_GITHUB_TOKEN=1: the agent session holds the GitHub token ($_held); an injected prompt can push with it (Rule of Two exposure)." >&2
         return 0
     fi
-    for _v in GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN; do
-        [ -n "${!_v:-}" ] || continue
-        export -n "${_v?}"
-        case " $_LOKI_WITHHELD_TOKENS " in
-            *" $_v "*) ;;
-            *) _LOKI_WITHHELD_TOKENS="${_LOKI_WITHHELD_TOKENS:+$_LOKI_WITHHELD_TOKENS }$_v" ;;
-        esac
-    done
-    [ -n "$_LOKI_WITHHELD_TOKENS" ] || return 0
-    # Only when the binary exists, so `command -v gh` keeps meaning "gh is
-    # installed" for every caller that checks it.
-    if command -v gh >/dev/null 2>&1; then
-        gh() { _loki_with_github_tokens command gh "$@"; }
+    local _first_time=""
+    [ -n "$_LOKI_WITHHELD_TOKENS" ] || _first_time=1
+    # gh documents (`gh help environment`) that an env token "takes precedence
+    # over previously stored credentials", so a garbage-but-present value
+    # makes gh's own resolution (both `gh auth token` and `gh auth
+    # git-credential`, the latter reachable directly by git's
+    # credential.helper) return the garbage value instead of falling through
+    # to a keyring/hosts.yml lookup. GH_CONFIG_DIR stays scoped to a fresh
+    # empty dir (the plaintext-hosts.yml-read case). credential.helper is
+    # additionally reset to empty (gitcredentials(7)): this is git-invoked,
+    # not gh-mediated, so the sentinel does not reach a plain
+    # osxkeychain/libsecret helper on its own.
+    _loki_gh_capture
+    _loki_gh_apply
+    if [ -n "$_first_time" ]; then
+        if [ -n "$_LOKI_GH_INHERITED" ]; then
+            printf '%s\n' "WARNING: this run was started from inside an already-withheld Loki session (inherited Rule of Two sentinel). It has no real GitHub or SSH credentials to restore, so its own push and PR steps will fail closed. Start builds that need to push from a normal shell." >&2
+        else
+            log_info "Withheld from agent sessions (Rule of Two): $_LOKI_WITHHELD_TOKENS (sentineled, not merely unset), gh config store, git credential.helper, SSH agent (SSH_AUTH_SOCK unset, GIT_SSH_COMMAND=false). Loki's own push and PR steps still use the real credentials."
+        fi
+        if [ -n "$_LOKI_GIT_CONFIG_COUNT_UNSUPPORTED" ]; then
+            printf '%s\n' "WARNING: git < 2.31 detected -- GIT_CONFIG_COUNT/GIT_CONFIG_KEY/GIT_CONFIG_VALUE (used to reset credential.helper) are silently ignored on this git version. The git-invoked credential-helper bypass (BACKLOG 149 round 2) is NOT closed on this host; upgrade git to 2.31+ to close it. The GH_TOKEN-family sentinel, GH_CONFIG_DIR scoping, and the SSH_AUTH_SOCK/GIT_SSH_COMMAND withhold above are unaffected and still apply (GIT_SSH_COMMAND is a plain env var, not a GIT_CONFIG_* mechanism, so it needs no version floor)." >&2
+        fi
     fi
-    log_info "Withheld from agent sessions (Rule of Two): $_LOKI_WITHHELD_TOKENS. Loki's own push and PR steps still use it."
 }
 
 #===============================================================================
@@ -5462,11 +6059,16 @@ on_run_complete() {
     # The push and gh calls below are the trusted post-session step, so they
     # get the withheld GitHub token back (a plain `timeout 30 gh` would exec
     # the binary and bypass the gh() wrapper).
+    # Round 5: every call runs from / (_loki_run_neutral) with GH_REPO read as
+    # data first, so neither gh nor git loads the agent's repo config while
+    # holding the credentials; the push goes through _loki_trusted_push.
     _loki_net() {
+        local _net_repo
+        _net_repo="$(_loki_trusted_repo)"
         if command -v timeout >/dev/null 2>&1; then
-            _loki_with_github_tokens timeout 30 "$@"
+            _loki_with_github_tokens _loki_run_neutral "$_net_repo" timeout 30 "$@"
         else
-            _loki_with_github_tokens "$@"
+            _loki_with_github_tokens _loki_run_neutral "$_net_repo" "$@"
         fi
     }
     # Require gh + auth.
@@ -5489,17 +6091,30 @@ on_run_complete() {
     case "$branch" in
         ""|main|master|HEAD) return 0 ;;
     esac
+    # S-100: the repository's ACTUAL default branch (develop, trunk, ...) is
+    # refused inside _loki_trusted_push, for every caller.
     log_info "LOKI_DELEGATE_PR=1: opening a local pull request for branch '$branch'..."
     # Push, then create. Non-interactive (no tty in --bg). Best-effort, each
     # network call bounded by the timeout guard above.
-    (cd "${TARGET_DIR:-.}" && _loki_net git push -u origin "$branch") >/dev/null 2>&1 || true
+    # A refused or failed push is reported (the refusal names its reason on
+    # stderr) and ends the delegate step: there is nothing to open a PR from.
+    local _push_rc=0
+    _loki_trusted_push _loki_net "${TARGET_DIR:-.}" "$branch" >/dev/null || _push_rc=$?
+    if [ "$_push_rc" -ne 0 ]; then
+        [ "$_push_rc" -eq 2 ] || log_warn "LOKI_DELEGATE_PR=1: pushing branch '$branch' failed; not opening a pull request."
+        return 0
+    fi
+    # Explicit --repo on every gh call (not only GH_REPO): the repo the push
+    # just validated, so no gh subcommand can fall back to cwd detection.
+    local _pr_repo
+    _pr_repo="$(_loki_trusted_repo)"
     local pr_title
     pr_title="Loki Mode: ${branch}"
     local pr_url=""
     # ENT-4 (idempotent PR): reuse an existing OPEN PR for this head instead of
     # attempting a second create on a platform retry / resume.
     local existing_pr
-    existing_pr="$( (cd "${TARGET_DIR:-.}" && _loki_net gh pr list --head "$branch" --state open --json url --jq '.[0].url') 2>/dev/null || true )"
+    existing_pr="$( (cd "${TARGET_DIR:-.}" && _loki_net gh pr list --repo "$_pr_repo" --head "$branch" --state open --json url --jq '.[0].url') 2>/dev/null || true )"
     if [ -n "$existing_pr" ]; then
         _LOKI_DELEGATE_PR_URL="$existing_pr"
         export _LOKI_DELEGATE_PR_URL
@@ -5530,7 +6145,7 @@ ${_del_receipt}"
             fi
         fi
     fi
-    pr_url="$( (cd "${TARGET_DIR:-.}" && _loki_net gh pr create --title "$pr_title" --body "$_del_body" --head "$branch") 2>/dev/null || true )"
+    pr_url="$( (cd "${TARGET_DIR:-.}" && _loki_net gh pr create --repo "$_pr_repo" --title "$pr_title" --body "$_del_body" --head "$branch") 2>/dev/null || true )"
     if [ -n "$pr_url" ]; then
         # Export so build_completion_summary folds the url into the summary.
         _LOKI_DELEGATE_PR_URL="$pr_url"
@@ -9218,10 +9833,27 @@ setup_agent_branch() {
 
     # Record the user's own untracked and gitignored files so
     # commit_session_changes and the receipt leave them alone.
-    local snap_ok=1 leftover=""
+    local snap_ok=1 leftover="" gittool=""
     if ! _loki_snapshot_or_fail_closed; then
         snap_ok=0
-        rm -f .loki/state/preexisting-untracked.z .loki/state/preexisting-untracked.sha.z 2>/dev/null
+        rm -f .loki/state/preexisting-untracked.sha.z 2>/dev/null
+        # BACKLOG 88: the receipt (workspace_diff._preexisting_untracked) reads
+        # preexisting-untracked.z on its own, independent of
+        # _LOKI_SNAPSHOT_THIS_RUN below. Leaving it absent after a failed
+        # snapshot (old code: `rm -f` here too) makes the receipt treat EVERY
+        # currently-untracked file as this run's own work, even though nothing
+        # is actually committed -- a pre-existing file the user never touched
+        # gets named as the run's. `ls-files --others --exclude-standard` needs
+        # no --no-renames or --ignored=matching, so it still works on the git
+        # that just failed the richer `status` call above, giving the receipt a
+        # names-only fallback list. Ignored files are not covered by this
+        # fallback (old-git territory), so it is partial, not a full snapshot;
+        # the commit path is untouched (snap_ok stays 0, _LOKI_SNAPSHOT_THIS_RUN
+        # is never set below), so this still fails closed.
+        gittool="$(_loki_snapshot_git_tool)" && \
+            "$gittool" ls-files --others --exclude-standard -z > .loki/state/preexisting-untracked.z.tmp 2>/dev/null && \
+            mv .loki/state/preexisting-untracked.z.tmp .loki/state/preexisting-untracked.z \
+            || rm -f .loki/state/preexisting-untracked.z .loki/state/preexisting-untracked.z.tmp 2>/dev/null
         log_warn "Could not record pre-existing untracked files; this session will commit nothing (review and commit manually)"
     fi
 
@@ -9239,6 +9871,12 @@ setup_agent_branch() {
         log_warn "Left uncommitted from an earlier unfinished session, now treated as your files: $leftover"
     fi
     rm -f .loki/state/session-created.z 2>/dev/null
+    # BACKLOG 130(c): seal the now-empty session-created.z record so this
+    # fresh mint's OWN in-process memory of "absent" is what every later
+    # record call and commit_session_changes verify against for the rest of
+    # this run -- not the file's on-disk content, which an agent process could
+    # otherwise repopulate with a planted path before this run ever trusts it.
+    _loki_session_created_seal  # BACKLOG-130C-MINT-SEAL
     # BACKLOG 68 rework: a fresh mint starts with no tracked-since anchor and no
     # in-flight marker (never seed the anchor from session-start-sha -- an
     # anchor==start would let a later resume's "anchor..HEAD" diff include this
@@ -9294,6 +9932,40 @@ _loki_snapshot_or_fail_closed() {
 # over silently. Cleared whenever the files are deliberately removed (line
 # ~9165) so that path is never reported as tampering.
 _LOKI_SNAPSHOT_SEAL=""
+
+# BACKLOG 130(c): .loki/state/session-created.z is NOT one of the two files
+# _LOKI_SNAPSHOT_SEAL above covers. It records the paths THIS session created
+# (unioned after every provider turn by _loki_record_session_created), and
+# _loki_snapshot_preexisting's resume union (line ~9683) trusts its content
+# directly: any path it lists is EXCLUDED from the new preexisting-untracked.z
+# snapshot, i.e. treated as "the session's own, never the user's". An agent
+# that plants a user's file path into session-created.z therefore gets that
+# exact path permanently exempted from pre-existing-file protection on the
+# next resume -- the file is swept into `git add -A` and the session commit as
+# if the session had created it. A separate seal, sibling to
+# _LOKI_SNAPSHOT_SEAL, closes this WITHIN one process's lifetime: sealed right
+# after every legitimate write this process makes (a successful record, the
+# fresh-mint delete, and this process's first look at the file on resume),
+# verified before any LATER point in the SAME process trusts the content,
+# fail-closed (delete the file, clear the seal) on a mismatch. Kept SEPARATE
+# from _LOKI_SNAPSHOT_SEAL rather than folded into one combined digest: this
+# file legitimately changes every provider turn, so a shared digest would
+# falsely flag tampering on every normal turn, and the fresh-mint `rm` (line
+# ~9241) runs after preexisting-untracked.z is sealed, which would falsely
+# flag every fresh mint too.
+# ACCEPTED GAP (disclosure, not prevention, same bar as BACKLOG 70's own): a
+# seal lives only in this process's memory, so it cannot verify content a
+# PRIOR process wrote before this one starts (setup_agent_branch's resume path
+# seals its own first read of the file rather than verifying it, since no
+# prior seal survives to check against) -- tampering already on disk before
+# this process begins is trusted at that one read, same as
+# _LOKI_SNAPSHOT_SEAL's own resume-time trust of preexisting-untracked.z's
+# prior content. What this DOES close: an agent process co-located with THIS
+# run can no longer plant a path into session-created.z between this run's own
+# writes and its own later reads (the resume union's exclude use, the next
+# record's merge, or the commit-time gate) without it being caught before that
+# content is trusted.
+_LOKI_SESSION_CREATED_SEAL=""
 
 # BACKLOG 129 (follow-up to BACKLOG 70/BACKLOG 70-awk): the DIGEST computation
 # above is hardened (fixed-root-path-first, no awk), but until this function
@@ -9561,6 +10233,155 @@ for path in sys.argv[1:]:
         out.append("-")
 print(" ".join(out))' \
         ".loki/state/preexisting-untracked.z" ".loki/state/preexisting-untracked.sha.z" 2>/dev/null
+}
+
+# _loki_session_created_digest: sha256 of session-created.z alone ("-" for
+# absent, "?" for present-but-unreadable/unhashable, same sentinel contract as
+# _loki_snapshot_digest above). Deliberately a thin sibling, not a parameterized
+# reuse of _loki_snapshot_digest: that function's exact text (the `for path in
+# ...` line and the python fallback's trailing argv line) is matched by
+# tests/test-branch-lifecycle.sh's RED mutation harness, so leaving it
+# untouched keeps that harness's anchors valid. Resolved via the SAME hardened
+# tool resolvers (_loki_snapshot_hash_tool, _loki_snapshot_py_tool) as the
+# sibling above -- no fresh/unhardened python3 or shasum call site.
+_loki_session_created_digest() {
+    local tool
+    tool="$(_loki_snapshot_hash_tool)" || tool=""
+    local path=".loki/state/session-created.z"
+    # A FIFO or ANY symlink at $path (dangling or not -- [ -L ] rejects both,
+    # deliberately broader than just the dangling case: the only way this
+    # file is ever legitimately written is _loki_untracked_merge's own
+    # write-to-.tmp-then-`mv -f`, which always leaves a plain regular file at
+    # $path, never a symlink, so a symlink here is never this session's own
+    # legitimate output) is neither absent ([ -f ] is false for both) nor a
+    # hashable regular file -- falling through to the absent-file branch below
+    # would print the same "-" sentinel every fresh mint already seals as its
+    # normal starting state, silently trusting an agent-planted FIFO (whose
+    # blocked writer feeds content into the merge's later open() call) or a
+    # dangling symlink (whose target read fails and is treated as "-" too).
+    # Caught here, before either digest branch, with a sentinel ("?") that can
+    # never equal "-", a real hex digest, or empty.
+    if [ -L "$path" ] || { [ -e "$path" ] && [ ! -f "$path" ]; }; then printf '%s\n' "?"; return 0; fi  # BACKLOG-130C-NONREG-CHECK
+    if [ -n "$tool" ]; then
+        local h=""
+        if [ -f "$path" ]; then
+            case "${tool##*/}" in
+                shasum) h="$("$tool" -a 256 -- "$path" 2>/dev/null)" || h="" ;;
+                *)      h="$("$tool" -- "$path" 2>/dev/null)" || h="" ;;
+            esac
+            h="${h%% *}"
+            if [ "${#h}" -eq 64 ]; then
+                case "$h" in
+                    *[!0123456789abcdef]*) h="?" ;;
+                esac
+            else
+                h="?"
+            fi
+            printf '%s\n' "$h"
+        else
+            printf '%s\n' "-"
+        fi
+        return 0
+    fi
+    # Fallback: neither sha256sum nor shasum found anywhere (same rare-host
+    # case _loki_snapshot_digest's own fallback documents). Resolved via
+    # _loki_snapshot_py_tool, run with -I -S (see that function's comment for
+    # why -S, not just -I, is required to close the .pth vector).
+    local pytool=""
+    pytool="$(_loki_snapshot_py_tool)" || return 1
+    "$pytool" -I -S -c 'import sys, hashlib
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+try:
+    with open(sys.argv[1], "rb") as fh:
+        print(hashlib.sha256(fh.read()).hexdigest())
+except OSError:
+    print("-")' \
+        "$path" 2>/dev/null
+}
+
+# _loki_session_created_seal: record this process's own memory of the current
+# session-created.z content, right after every point that legitimately changes
+# it (a successful union in _loki_record_session_created, the fresh-mint
+# delete, a resume, and the post-commit/no-op delete in
+# commit_session_changes). Same fail-closed shape as _loki_snapshot_seal: an
+# empty or "?" digest at seal time is itself suspicious (a legitimate write or
+# delete should never immediately be unreadable), so it is rejected rather
+# than sealed, which would let seal and a later verify silently agree on the
+# sentinel and disarm the guard for the rest of the session.
+_loki_session_created_seal() {
+    local d
+    d="$(_loki_session_created_digest)"
+    case "$d" in
+        ""|*'?'*)
+            # Fail closed, not just "untrusted": an empty seal makes
+            # _loki_session_created_verify's `[ -n "$_LOKI_SESSION_CREATED_SEAL" ]
+            # || return 0` skip every later check for the rest of this
+            # process's life. Leaving the file on disk here would fail OPEN --
+            # unreadable-but-present content would then be silently trusted by
+            # every later read site with no seal ever able to catch it. Delete
+            # it instead, matching _loki_session_created_verify's own
+            # fail-closed action on a real mismatch -- and, like that function's
+            # own re-seal after its delete, set the seal to the digest's real
+            # "absent" sentinel ("-"), not empty: an EMPTY seal here re-arms
+            # nothing (the guard above short-circuits as "never sealed" on
+            # every later check for the rest of this process), so an agent that
+            # recreates the file with a planted path in this window would get
+            # it silently merged in as trusted on the next successful record.
+            # "-" is a real, non-empty seal value that the next verify's live
+            # digest of a freshly-recreated file cannot match, keeping the
+            # guard armed against exactly that recreation.
+            rm -f .loki/state/session-created.z 2>/dev/null
+            _LOKI_SESSION_CREATED_SEAL="-"
+            log_warn "Could not seal the session-created record (hash tool failed or produced no readable digest); discarding it (its files are treated as yours, left uncommitted)"
+            audit_log "SESSION_CREATED_SEAL_FAILED" "_loki_session_created_digest returned empty or an unreadable-file sentinel at seal time"
+            ;;
+        *)
+            _LOKI_SESSION_CREATED_SEAL="$d"
+            ;;
+    esac
+}
+
+# _loki_session_created_verify: compare the live session-created.z digest
+# against the sealed one. No seal recorded (never sealed this process, or
+# deliberately cleared) is not tampering: returns success, does nothing --
+# EVERY caller that trusts session-created.z's content must therefore have
+# sealed it first (mint, resume, and after each successful record all do). A
+# seal that no longer matches IS tampering: logs and discloses it (same
+# DISCLOSURE bar as BACKLOG 70, not prevention against a same-UID process), and
+# fails closed by deleting the untrusted file outright -- its entries then
+# become "the user's, not recorded as this session's", the safe direction,
+# since a false claim of user ownership only leaves a file uncommitted on disk,
+# never deletes it, while a false claim of session ownership can get a user's
+# file swept into a commit and removed from disk on a later checkout of the
+# base. Called BEFORE any later point in the SAME process treats the file's
+# content as trustworthy (verify-before-trust, not verify-after-use):
+# _loki_record_session_created verifies at its very top, before its own
+# self-referential merge (base="$out"), and unconditionally -- not gated on
+# _LOKI_SNAPSHOT_THIS_RUN, since an interrupt/cleanup call can still fire after
+# that flag was cleared mid-session; commit_session_changes verifies at its
+# very top, before every one of its several early returns (the untrack
+# failure, the git 2.25 unstage failure, a secret-scan abort, a failed `git
+# commit`) that would otherwise skip its own rm -f cleanup and leave a
+# tampered file on disk for the next resume. _loki_resume_snapshot does NOT
+# call this function: it is this process's FIRST read of a file the PREVIOUS
+# (dead) process wrote, so there is no seal from that process to verify
+# against here; it instead calls _loki_session_created_seal directly to
+# establish THIS process's own baseline before anything (including
+# _loki_snapshot_preexisting's resume-union exclude use, right after) reads
+# the file. See the ACCEPTED GAP note at _LOKI_SESSION_CREATED_SEAL above.
+_loki_session_created_verify() {
+    local live="" path=".loki/state/session-created.z"
+    [ -n "$_LOKI_SESSION_CREATED_SEAL" ] || return 0
+    live="$(_loki_session_created_digest)"
+    if [ "$live" = "$_LOKI_SESSION_CREATED_SEAL" ]; then
+        return 0
+    fi
+    log_warn "session-created.z changed after this session recorded it (possible tampering by an agent process); discarding the record (its files are treated as yours, left uncommitted)"
+    audit_log "SESSION_CREATED_TAMPERED" "session-created.z changed after being sealed: live=$live,sealed=$_LOKI_SESSION_CREATED_SEAL"
+    rm -f "$path" 2>/dev/null
+    _LOKI_SESSION_CREATED_SEAL=""
+    _loki_session_created_seal
+    return 1
 }
 
 # _loki_snapshot_seal: record this process's own memory of what it just wrote.
@@ -9919,6 +10740,36 @@ _loki_advance_tracked_since_anchor() {
 # disk, not committed).
 _loki_record_session_created() {
     local snap=".loki/state/preexisting-untracked.z" out=".loki/state/session-created.z"
+    # BACKLOG 130(c): verify session-created.z BEFORE this run's THIS_RUN gate
+    # or its own merge trust the file -- verify-before-trust, not verify-after-
+    # use. Runs unconditionally (not gated on THIS_RUN=1): an interrupt/cleanup
+    # call can still fire after THIS_RUN was cleared mid-session (e.g. by
+    # _loki_snapshot_verify below on an earlier turn), and that call must not
+    # skip this check just because the gate below is about to return early. On
+    # a mismatch the file is already deleted by the time this returns (fail
+    # closed inside _loki_session_created_verify itself, not via this return
+    # value alone -- every call site of this function ignores its return with
+    # `|| true`, same as _loki_snapshot_verify above); the merge below then
+    # recomputes cleanly from a clean slate (base="$out" is now absent), so a
+    # legitimate record right after a caught tamper still records this turn's
+    # real files instead of hard-failing the whole call.
+    # ACCEPTED GAP (verify-to-use window, disclosed here since ordering is the
+    # whole point of this fix): this verify call and the merge's own read of
+    # "$out" as `base` (inside _loki_untracked_merge, below) are not atomic --
+    # _loki_advance_tracked_since_anchor, a git rev-parse, and a whole-repo
+    # `git status` all run in between. A same-UID write landing in that window
+    # is merged, then sealed as trusted by the seal call after a successful
+    # merge. This is the SAME shape of gap _LOKI_SNAPSHOT_SEAL's own
+    # verify/merge pair already accepts for preexisting-untracked.z (see
+    # _loki_untracked_merge's own BACKLOG 129 comment). Closing it would mean
+    # re-verifying again immediately before _loki_untracked_merge's read, inside
+    # that function -- deliberately not done here: _loki_untracked_merge's exact
+    # text is what tests/test-branch-lifecycle.sh's RED mutation harness matches
+    # by name-anchor, and threading a second, narrower verify through its
+    # shared codepath (also called with mode=exact for the OTHER snapshot) risks
+    # that anchor for a gap this narrow. Disclosure, not full prevention, is the
+    # same bar BACKLOG 70 itself accepts.
+    _loki_session_created_verify || true
     [ "${_LOKI_SNAPSHOT_THIS_RUN:-0}" = 1 ] || return 0
     # BACKLOG 70: detect tampering with the sealed snapshot as early as
     # possible (this runs after every provider turn, not just at commit time).
@@ -9932,6 +10783,11 @@ _loki_record_session_created() {
     if [ -f "$snap" ] && _loki_untracked_status "$out.status" \
        && _loki_untracked_merge "$out.status" "$out" "$snap" cover "$out"; then
         rm -f "$out.status"
+        # BACKLOG 130(c): seal this process's own memory of the record it just
+        # wrote, so the NEXT call to this function (or commit_session_changes)
+        # verifies against what THIS process actually wrote, not whatever an
+        # agent process may write to the file in between.
+        _loki_session_created_seal
         return 0
     fi
     rm -f "$out.status" "$out.tmp" 2>/dev/null
@@ -9943,6 +10799,19 @@ _loki_record_session_created() {
 # from an unfinished previous session (this session's commit includes them).
 _loki_resume_snapshot() {
     local carried=""
+    # BACKLOG 130(c): seal THIS process's own first look at session-created.z
+    # before anything below reads or trusts it (verify-before-trust). This is
+    # a resuming process picking up a file the PREVIOUS (now-dead) process
+    # wrote; there is no seal from that process to verify against here (a
+    # seal never survives past the process that set it) -- sealing now is what
+    # lets THIS process detect an agent tampering with the file for the rest
+    # of ITS OWN lifetime (every subsequent record call, and the commit-time
+    # check), the same disclosure bar BACKLOG 70 already accepts for the
+    # sibling snapshot: tampering already on disk before this process starts
+    # is an accepted gap, never silently trusted forever after. Unconditional
+    # (not gated on the union below succeeding): the union does not modify
+    # session-created.z, so this process's view of it is stable either way.
+    _loki_session_created_seal
     if ! _loki_snapshot_or_fail_closed union; then
         log_warn "Could not add your current untracked files to the pre-existing list; this session will commit nothing (review and commit manually)"
         return 0
@@ -10081,6 +10950,25 @@ _loki_untrack_agent_committed_user_files() {
     rm -f "$rec.added"
     if [ ! -s "$rec.new" ]; then
         rm -f "$rec.new"
+        # S-194: the tree diff above cannot see a file an earlier (resumed)
+        # session added and then untracked, but the branch history still
+        # holds it and create_session_pr gates the push on this record. Keep
+        # the record while that history holds any recorded path; on a failed
+        # check, keep it too (fail closed).
+        if [ -s "$rec" ]; then
+            local range="${fork}..HEAD" held_paths=() p="" hist=""
+            [ "$(git cat-file -t "$fork" 2>/dev/null)" = tree ] && range="HEAD"
+            while IFS= read -r -d '' p; do held_paths+=("$p"); done < "$rec"
+            if [ "${#held_paths[@]}" -eq 0 ] \
+               || ! hist="$(git -C "$top" --literal-pathspecs log -1 --format=%H --no-renames --diff-filter=A "$range" -- "${held_paths[@]}" 2>/dev/null)" \
+               || [ -n "$hist" ]; then
+                return 0
+            fi
+        fi
+        # BACKLOG 102: zero hits this session and no recorded path left in the
+        # branch history -- clear a stale record left by an earlier session,
+        # or it persists forever with nothing to read it.
+        rm -f "$rec"
         return 0
     fi
     mv -f "$rec.new" "$rec"
@@ -10102,6 +10990,18 @@ commit_session_changes() {
     # left with committed work to inspect/PR. Clean no-op when nothing changed.
     command -v git >/dev/null 2>&1 || return 0
     git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+
+    # BACKLOG 130(c): verify session-created.z BEFORE any of this function's
+    # several early returns below (the untrack failure, the git 2.25 unstage
+    # failure, the secret-scan abort, a failed `git commit`) -- every one of
+    # them skips the two rm -f .loki/state/session-created.z cleanup sites
+    # further down, so a tampered file left on disk by any of those paths
+    # would otherwise survive untouched into the next session's resume union.
+    # Placed at the very top, before even the branch-protection/PARALLEL_MODE/
+    # branch-name checks below, so no early return in this function can skip
+    # it. On a mismatch the file is deleted here already; nothing downstream
+    # needs its own check.
+    _loki_session_created_verify || true  # BACKLOG-130C-COMMIT-TOP-VERIFY
 
     # Only act when a session feature branch was set up. This preserves the
     # LOCK A1 opt-out contract (LOKI_BRANCH_PROTECTION=false -> no agent-branch.txt
@@ -10315,6 +11215,24 @@ create_session_pr() {
         return 0
     fi
 
+    # BACKLOG 108: _loki_untrack_agent_committed_user_files removed the user's
+    # pre-existing files from the branch tip, but the commit that added them is
+    # still in the branch history, so a push publishes them. Print the cleanup
+    # before any push advice, and refuse the LOKI_AUTO_PR push. The fork is the
+    # merge base with the recorded base, as that helper computes it; its
+    # session-start-sha fallback cannot apply here, because without a merge
+    # base commit_count is 0 and this function already returned.
+    if [ -s .loki/state/agent-committed-user-files.z ]; then
+        local _uc_fork="" _uc_names=""
+        _uc_fork="$(git merge-base HEAD "$base" 2>/dev/null)" || _uc_fork=""
+        _uc_names="$(_loki_nul_names .loki/state/agent-committed-user-files.z)"
+        log_warn "The history of ${branch_name} still holds your pre-existing files the agent committed: ${_uc_names:-see .loki/state/agent-committed-user-files.z}. Before pushing, drop them from its history: git reset --soft ${_uc_fork:-<fork commit>} && git commit"
+        if [ "${LOKI_AUTO_PR:-0}" = "1" ]; then
+            log_warn "LOKI_AUTO_PR: not pushing ${branch_name}; its history holds your pre-existing files."
+            return 1
+        fi
+    fi
+
     # DEFAULT: advisory only. Print the exact commands; never push, never PR.
     if [ "${LOKI_AUTO_PR:-0}" != "1" ]; then
         if declare -f print_pr_advice >/dev/null 2>&1; then
@@ -10343,10 +11261,18 @@ create_session_pr() {
 
     # OPT-IN (LOKI_AUTO_PR=1): legacy auto push + PR, now with the correct base.
     log_info "Pushing agent branch: $branch_name"
-    if ! git push -u origin "$branch_name" 2>/dev/null; then
-        log_warn "Failed to push agent branch: $branch_name"
+    # Round 5: never a credentialed `git push` inside the agent's repo (its
+    # config -- hooks, sshCommand, credential.helper -- would run holding the
+    # operator's credentials). See _loki_trusted_push.
+    # stderr is left visible: a refusal names its reason there.
+    local _push_rc=0
+    _loki_trusted_push _loki_with_github_tokens . "$branch_name" >/dev/null || _push_rc=$?
+    if [ "$_push_rc" -ne 0 ]; then
+        [ "$_push_rc" -eq 2 ] || log_warn "Failed to push agent branch: $branch_name"
         return 1
     fi
+    local _pr_repo
+    _pr_repo="$(_loki_trusted_repo)"
 
     # Create PR if gh CLI is available
     if command -v gh &>/dev/null; then
@@ -10358,7 +11284,7 @@ create_session_pr() {
         # guarantee explicit and the log honest: if an OPEN PR already exists for
         # this head, reuse its URL instead of attempting a second create.
         local existing_pr
-        existing_pr=$(gh pr list --head "$branch_name" --state open --json url --jq '.[0].url' 2>/dev/null || true)
+        existing_pr=$(gh pr list --repo "$_pr_repo" --head "$branch_name" --state open --json url --jq '.[0].url' 2>/dev/null || true)
         if [ -n "$existing_pr" ]; then
             log_info "PR already exists for branch $branch_name: $existing_pr (skipping create)"
             audit_log "PR_EXISTS" "branch=$branch_name,url=$existing_pr"
@@ -10399,6 +11325,7 @@ ${_auto_receipt}"
             fi
         fi
         pr_url=$(gh pr create \
+            --repo "$_pr_repo" \
             --title "Loki Mode: Agent session changes ($branch_name)" \
             --body "$_auto_body" \
             --base "$base" \
@@ -12983,7 +13910,20 @@ sys.stdout.write(t.strip())
                    echo "$LOKI_MONOREPO_TEST_CMD" | grep -qE '[;|`$]|&&|\|\||>>|<<'; then
                     log_error "LOKI_MONOREPO_TEST_CMD rejected (only [A-Za-z0-9_./= -] allowed): $LOKI_MONOREPO_TEST_CMD"
                     test_runner="monorepo-custom-rejected"
-                    details="monorepo-custom: rejected by whitelist (gate skipped, inconclusive)"
+                    # BACKLOG 62: nothing ran, so record the no-runner shape
+                    # (see the runner=="none" return below) instead of falling
+                    # through with test_passed=true, which wrote pass:true and
+                    # touched unit-tests.pass. The runner label stays distinct:
+                    # the council reads a non-boolean pass on a named runner as
+                    # NO_PASS (inconclusive pass-through). The command itself is
+                    # not echoed into the JSON (it failed the whitelist).
+                    rm -f "$quality_dir/unit-tests.pass" 2>/dev/null || true
+                    cat > "$quality_dir/test-results.json" << TREOF
+{"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","runner":"monorepo-custom-rejected","pass":"inconclusive","summary":"LOKI_MONOREPO_TEST_CMD rejected by whitelist (not run)","command":null,"exit_code":null,"status":"not_run","passed_count":null,"failed_count":null,"verification_gap":"test_command_rejected"}
+TREOF
+                    printf '%s\n' "${ITERATION_COUNT:-0}" > "$quality_dir/.test-results.iter" 2>/dev/null || true
+                    _LOKI_TEST_SUITE_STATUS=not_run
+                    return 0
                 else
                     test_runner="monorepo-custom"
                     local output
@@ -13354,18 +14294,36 @@ TREOF
     # TAP "# fail 1" and the spec reporter's "<info sign> fail 1", counted only
     # right after the matching pass line (node TAP echoes a test's own stdout
     # as "# ..." lines, which must not count), mocha "1 failing", go "--- FAIL:"
-    # lines. A read summary with no failures is a measured 0. With no recognised
+    # lines. BACKLOG 103 (S-140): jest's "Test Suites: 1 failed, 1 total" and
+    # vitest's "Test Files  1 failed | 2 passed" lines are matched too -- a
+    # whole crashed suite/file can carry the ONLY failed count while the
+    # "Tests:" line above reports just the tests that ran elsewhere ("Tests: 2
+    # passed"), which previously left failed_count at 0. A read summary with no
+    # failures is a measured 0. With no recognised
     # summary the old best-effort parse of the tail still applies (null when it
     # finds nothing). Either way a recorded count above zero is a failure: the
     # council evidence gate and the Bun gate both read failed_count > 0 as one.
+    # BACKLOG 111: pytest's summary line also reports a distinct "error" outcome
+    # for a fixture/collection/setup error ("1 passed, 1 error in 0.5s"), which
+    # is neither "passed" nor "failed" text, so the [0-9]+ failed match alone
+    # found nothing and printed n=0 even though seen=1 -- a real error gated
+    # PASS. pytest pluralizes it ("2 errors"), so match errors? and ADD it to
+    # the failed count on that line ("2 failed, 3 errors" is 5 distinct broken
+    # tests, not 3 -- failed and error are independent outcomes within one
+    # summary line, unlike the separate cross-line max below, which exists to
+    # stop a later green summary from hiding an earlier failed run).
     # LC_ALL=C: bytes, so any runner output parses; [ \t] not [[:space:]] for
     # old mawk.
     local _tr_passed_n _tr_failed_n _tr_summary_red=false
     _tr_failed_n=$(printf '%s\n' "${output:-}" | LC_ALL=C sed "s/$(printf '\033')\[[0-9;]*[A-Za-z]//g" | LC_ALL=C awk '
         function upd(n) { if (n > f) f = n; seen = 1 }
         /^Tests:[ \t]/ || /^[ \t]*Tests[ \t]+[0-9]/ ||
-        /^=+ .*[0-9]+ (passed|failed)/ || /^[0-9]+ (passed|failed).* in [0-9.]+s/ {
-            n = 0; if (match($0, /[0-9]+ failed/)) n = substr($0, RSTART, RLENGTH) + 0; upd(n) }
+        /^Test Suites:[ \t]/ || /^[ \t]*Test Files[ \t]+[0-9]/ ||
+        /^=+ .*[0-9]+ (passed|failed|errors?)/ || /^[0-9]+ (passed|failed|errors?).* in [0-9.]+s/ {
+            n = 0
+            if (match($0, /[0-9]+ failed/)) n = substr($0, RSTART, RLENGTH) + 0
+            if (match($0, /[0-9]+ errors?/)) n += substr($0, RSTART, RLENGTH) + 0
+            upd(n) }
         /^[^ A-Za-z0-9]+ fail [0-9]+[ \t]*$/ { if (prev ~ /^[^ A-Za-z0-9]+ pass [0-9]+[ \t]*$/) upd($3 + 0) }
         /^[ \t]*[0-9]+ passing \(/ { upd(0) }
         /^[ \t]*[0-9]+ failing[ \t]*$/ { upd($1 + 0) }
@@ -13718,8 +14676,8 @@ if not isinstance(d, dict):
 verdict = d.get('verdict', 'unknown')
 diff = d.get('diff', {}) if isinstance(d.get('diff'), dict) else {}
 tests = d.get('tests', {}) if isinstance(d.get('tests'), dict) else {}
-diff_ok = diff.get('ok')
-tests_ok = tests.get('ok')
+diff_ok = 'inconclusive' if diff.get('inconclusive') else diff.get('ok')
+tests_ok = 'inconclusive' if tests.get('inconclusive') else tests.get('ok')
 runner = tests.get('runner', 'none')
 parts = ['verdict=%s' % verdict]
 parts.append('diff_ok=%s' % diff_ok)
@@ -14075,7 +15033,7 @@ run_magic_debate_gate() {
     log_info "Magic Modules: running debate on '$latest_name'"
     local debate_out debate_rc
     debate_out=$(cd "$TARGET_DIR" && PYTHONPATH="$PROJECT_DIR" LOKI_PROVIDER="${PROVIDER_NAME:-claude}" \
-        timeout 300 "$PROJECT_DIR/autonomy/loki" magic debate "$latest_name" --rounds 2 2>&1) \
+        timeout -k 10 300 "$PROJECT_DIR/autonomy/loki" magic debate "$latest_name" --rounds 2 2>&1) \
         && debate_rc=0 || debate_rc=$?
 
     # A debate that could not RUN is not a debate that found nothing. The old
@@ -18308,21 +19266,10 @@ start_dashboard() {
         log_info "Dashboard: ${CYAN}${url_scheme}://127.0.0.1:$DASHBOARD_PORT/${NC}"
 
         # Auto-open the dashboard in the browser, but ONLY for an interactive
-        # foreground session. Gated on: a TTY on stdout ([ -t 1 ]), not
-        # background/detached mode, and not explicitly opted out via
-        # LOKI_NO_AUTO_OPEN=1. This keeps CI, --detach, SSH-no-TTY, and piped
-        # runs from spawning a browser. Cross-platform: open / xdg-open / start.
-        if [ -t 1 ] && [ "${BACKGROUND_MODE:-false}" != "true" ] && [ "${LOKI_NO_AUTO_OPEN:-0}" != "1" ]; then
-            local _dash_url="${url_scheme}://127.0.0.1:$DASHBOARD_PORT/"
-            if command -v open >/dev/null 2>&1; then
-                open "$_dash_url" 2>/dev/null || true
-            elif command -v xdg-open >/dev/null 2>&1; then
-                xdg-open "$_dash_url" 2>/dev/null || true
-            elif command -v cmd.exe >/dev/null 2>&1; then
-                # Windows (Git Bash/WSL): `start` is a cmd builtin, not on PATH,
-                # so invoke it via cmd.exe. The empty "" is start's title arg.
-                cmd.exe /c start "" "$_dash_url" 2>/dev/null || true
-            fi
+        # foreground session. loki_open_url (lib/browser-open.sh) refuses on
+        # no TTY, CI, test runners, LOKI_NO_BROWSER=1 or LOKI_NO_AUTO_OPEN=1.
+        if [ "${BACKGROUND_MODE:-false}" != "true" ]; then
+            loki_open_url "${url_scheme}://127.0.0.1:$DASHBOARD_PORT/" 2>/dev/null || true
         fi
         return 0
     else
@@ -20479,14 +21426,17 @@ PYEOF
     # v6.83.0 Phase 1: RARV-C REFLECT/VERIFY shadow-write. Only when both
     # managed flags are on AND the episode meets the consolidation importance
     # threshold (>= 0.6). Fully non-blocking (backgrounded subprocess).
-    if [ "$LOKI_MANAGED_AGENTS" = "true" ] && [ "$LOKI_MANAGED_MEMORY" = "true" ] \
+    # S-156: skip when PROJECT_DIR is empty (bash 3.2 `cd ""` succeeds and
+    # would run a memory package from the cwd), and pass importance via argv.
+    if [ -n "${PROJECT_DIR:-}" ] \
+        && [ "$LOKI_MANAGED_AGENTS" = "true" ] && [ "$LOKI_MANAGED_MEMORY" = "true" ] \
         && [ -s "$episode_path_file" ]; then
         local _ep_path _ep_imp
         _ep_path=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('path',''))" "$episode_path_file" 2>/dev/null || echo "")
         _ep_imp=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('importance',0.0))" "$episode_path_file" 2>/dev/null || echo "0")
         if [ -n "$_ep_path" ] && [ -f "$_ep_path" ]; then
             local _above_threshold
-            _above_threshold=$(python3 -c "print('yes' if float('$_ep_imp') >= 0.6 else 'no')" 2>/dev/null || echo "no")
+            _above_threshold=$(python3 -c 'import sys; print("yes" if float(sys.argv[1]) >= 0.6 else "no")' "$_ep_imp" 2>/dev/null || echo "no")
             if [ "$_above_threshold" = "yes" ]; then
                 (
                     cd "$PROJECT_DIR" 2>/dev/null && \
@@ -20646,9 +21596,14 @@ except (json.JSONDecodeError, KeyError, TypeError, OSError):
                 mv "$state_file" "${state_file}.corrupt.$(date +%s)" 2>/dev/null || true
                 # Starts at iteration 0: drop the previous session's test
                 # evidence, as the iteration-0 block at the end does.
+                # S-124 follow-up: static-analysis.pass has no freshness
+                # marker of its own (same reasoning as the block below), so
+                # this corrupted-state restart must drop it too, or a stale
+                # copy survives this sibling iteration-0 trigger.
                 rm -f "${TARGET_DIR:-.}/.loki/quality/.test-results.iter" \
                       "${TARGET_DIR:-.}/.loki/quality/unit-tests.pass" \
-                      "${TARGET_DIR:-.}/.loki/quality/test-results.json" 2>/dev/null || true
+                      "${TARGET_DIR:-.}/.loki/quality/test-results.json" \
+                      "${TARGET_DIR:-.}/.loki/quality/static-analysis.pass" 2>/dev/null || true
                 return
             fi
 
@@ -20719,16 +21674,19 @@ except (json.JSONDecodeError, KeyError, TypeError, OSError):
         RETRY_COUNT=0
     fi
     # A session that starts at iteration 0 has run nothing yet, so a leftover
-    # freshness marker or unit-tests.pass is a previous session's evidence.
-    # Iterations restart at 0, so keeping them would let an old pass:true read
-    # as this iteration's result.
+    # freshness marker, unit-tests.pass, or static-analysis.pass is a previous
+    # session's evidence. Iterations restart at 0, so keeping them would let
+    # an old pass:true read as this iteration's result.
     if [ "${ITERATION_COUNT:-0}" = "0" ]; then
-        # Same path the writer (enforce_test_coverage) and the freshness
-        # readers use.
+        # Same path the writer (enforce_test_coverage, enforce_static_analysis)
+        # and the freshness readers use.
         local _q="${TARGET_DIR:-.}/.loki/quality"
         # test-results.json too: with the marker gone the receipt's quality
         # gates fall back to its status, reporting a previous session's run.
-        rm -f "$_q/.test-results.iter" "$_q/unit-tests.pass" "$_q/test-results.json" 2>/dev/null || true
+        # static-analysis.pass has no freshness marker of its own, so a stale
+        # copy from a previous session reads as a pass of this session's
+        # exogenous static_analysis gate unless it is dropped here too.
+        rm -f "$_q/.test-results.iter" "$_q/unit-tests.pass" "$_q/test-results.json" "$_q/static-analysis.pass" 2>/dev/null || true
     fi
 }
 
@@ -23162,7 +24120,7 @@ show_run_start_estimate() {
     [ -x "$loki_bin" ] || { command -v loki >/dev/null 2>&1 && loki_bin="loki" || return 0; }
 
     local plan_json=""
-    plan_json=$(timeout 30 "$loki_bin" plan "$prd_path" --json 2>/dev/null) || plan_json=""
+    plan_json=$(timeout -k 10 30 "$loki_bin" plan "$prd_path" --json 2>/dev/null) || plan_json=""
     [ -n "$plan_json" ] || { log_info "Estimate: unavailable (estimator did not return a result); the run continues."; return 0; }
 
     # Parse REAL numbers only. argv keeps the JSON out of the script body so
@@ -23565,7 +24523,8 @@ except Exception:
     fi
 
     # Notify dashboard of active project directory (for AI Chat cross-directory usage)
-    if command -v curl &>/dev/null; then
+    # S-195: skip when the dashboard is off (runtime flag, not LOKI_DASHBOARD).
+    if [[ "${ENABLE_DASHBOARD:-true}" == "true" ]] && command -v curl &>/dev/null; then
         local project_cwd
         project_cwd="$(pwd)"
         curl -sf -X POST "http://127.0.0.1:${DASHBOARD_PORT}/api/focus" \
@@ -27218,6 +28177,15 @@ _loki_session_exit_cleanup() {
     # completion-path reap for the rest of the run.
     _loki_remove_pgid_file
     _loki_remove_temp_self_copy
+    # BACKLOG 149: remove the per-run empty GH_CONFIG_DIR scoped by
+    # _loki_withhold_github_tokens. Same subshell guard as
+    # _loki_remove_pgid_file -- a subshell's EXIT trap must not delete the
+    # live parent's directory ($$ is stable across subshells, BASHPID is not).
+    if [ -n "${_LOKI_GH_CONFIG_SCOPED:-}" ] && [ "${BASHPID:-$$}" = "$$" ]; then
+        case "$_LOKI_GH_CONFIG_SCOPED" in
+            "${TMPDIR:-/tmp}"/loki-gh-config.*) rm -rf "$_LOKI_GH_CONFIG_SCOPED" 2>/dev/null || true ;;
+        esac
+    fi
     return "$exit_code"
 }
 
@@ -27673,10 +28641,19 @@ main() {
 
     # Handle background mode
     if [ "$BACKGROUND_MODE" = "true" ]; then
-        # The relaunched runner withholds the tokens itself; it needs them in
-        # its environment to do so. This process exits right after launching.
-        local _bg_tok
-        for _bg_tok in $_LOKI_WITHHELD_TOKENS; do export "${_bg_tok?}"; done
+        # The relaunched runner withholds the tokens itself; it needs the REAL
+        # pre-withhold state in its inherited environment to capture correctly,
+        # not this process's own scoped/sentineled state (BACKLOG 149 round 2:
+        # if the child inherited THIS process's scoped GH_CONFIG_DIR/
+        # GIT_CONFIG_COUNT as if they were the operator's originals, its own
+        # trusted gh/git calls would run with credential.helper reset and
+        # GH_CONFIG_DIR pointed at a directory this process's EXIT trap deletes
+        # seconds later). Full restore, not just the 4 token vars, exactly like
+        # the pre-trusted-call restore. This process exits right after
+        # launching, so nothing here needs to re-apply the withhold afterward.
+        if [ -n "$_LOKI_WITHHELD_TOKENS" ]; then
+            _loki_gh_restore
+        fi
         # Initialize .loki directory first
         mkdir -p .loki/logs
 
@@ -28312,9 +29289,12 @@ main() {
     # then advise the user how to open a PR. Both are no-ops when no agent branch
     # was set up (LOKI_BRANCH_PROTECTION=false) or nothing changed.
     commit_session_changes
-    # Trusted post-session step: it gets the GitHub token main() withheld from
-    # agent sessions (its push may authenticate through the env token).
-    _loki_with_github_tokens create_session_pr
+    # Trusted post-session step. NOT wrapped in _loki_with_github_tokens as a
+    # whole (round 5): that ran every git call inside it (rev-list, merge-base,
+    # push) with the real credentials AND the agent's repo config loaded. Its
+    # push (_loki_trusted_push) and gh calls (gh wrapper) each re-grant the
+    # credentials themselves, outside the agent's repo.
+    create_session_pr
     audit_agent_action "session_stop" "Session ended" "result=$result,iterations=$ITERATION_COUNT"
 
     # The first terminal summary is written before session changes are committed.

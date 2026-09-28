@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FilePlus2, FileMinus2, FilePen, FileQuestion } from 'lucide-react';
 import { api } from '../api/client';
-import type { ChangedFile } from './useCockpitState';
+import { changeReviewEmptyState, type ChangedFile } from './useCockpitState';
 
 const STATUS_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
   added: FilePlus2,
@@ -23,9 +23,11 @@ interface Props {
   sessionId: string;
   files: ChangedFile[];
   clean: boolean;
+  /** Set only when the git-status fetch itself failed; distinct from a genuine clean tree. */
+  gitError?: string | null;
 }
 
-export function ChangeReview({ sessionId, files, clean }: Props) {
+export function ChangeReview({ sessionId, files, clean, gitError }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,15 +73,22 @@ export function ChangeReview({ sessionId, files, clean }: Props) {
     (el as HTMLElement | undefined)?.focus();
   }
 
-  if (clean && files.length === 0) {
+  const emptyState = changeReviewEmptyState(files.length, clean, gitError);
+  if (emptyState) {
     return (
       <section aria-label="Changed files" className="p-4 sm:p-5">
         <h2 className="text-small uppercase tracking-wide text-muted-accessible dark:text-dark-muted">
           Changes
         </h2>
-        <p className="mt-3 text-caption text-muted-accessible dark:text-dark-muted">
-          The working tree is clean. Nothing has been changed in this session.
-        </p>
+        {emptyState === 'error' ? (
+          <p className="mt-3 text-caption text-danger">
+            Could not load working tree status: {gitError}
+          </p>
+        ) : (
+          <p className="mt-3 text-caption text-muted-accessible dark:text-dark-muted">
+            The working tree is clean. Nothing has been changed in this session.
+          </p>
+        )}
       </section>
     );
   }

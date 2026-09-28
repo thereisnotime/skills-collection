@@ -62,7 +62,7 @@ export function readFreshOauthToken(env: NodeJS.ProcessEnv = process.env): strin
       const out = execFileSync(
         "security",
         ["find-generic-password", "-s", "Claude Code-credentials", "-w"],
-        { encoding: "utf8", timeout: 5000 },
+        { env: { ...process.env }, encoding: "utf8", timeout: 5000 },
       );
       const t = tokenFromBlob(out.trim());
       if (t) return t;

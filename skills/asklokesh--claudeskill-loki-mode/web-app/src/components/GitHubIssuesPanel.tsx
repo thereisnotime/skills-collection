@@ -35,6 +35,12 @@ interface FixState {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// gh `issue list --json comments` sends an array of comment objects; older
+// callers may send a count. Either way, return the number of comments.
+function commentCount(comments: GitHubIssue['comments'] | undefined): number {
+  return Array.isArray(comments) ? comments.length : Number(comments) || 0;
+}
+
 function timeAgo(dateStr: string | undefined): string {
   const now = Date.now();
   const then = new Date(dateStr ?? '').getTime();
@@ -226,10 +232,10 @@ function IssueCard({
               {issue.author.login}
             </span>
             <span>{timeAgo(issue.createdAt)}</span>
-            {issue.comments > 0 && (
+            {commentCount(issue.comments) > 0 && (
               <span className="flex items-center gap-0.5">
                 <MessageSquare size={11} />
-                {issue.comments}
+                {commentCount(issue.comments)}
               </span>
             )}
           </div>

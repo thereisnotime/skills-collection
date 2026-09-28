@@ -183,6 +183,7 @@ describe('Code Metrics MCP Server', () => {
       expect(ratio).toBeGreaterThanOrEqual(0);
       expect(ratio).toBeLessThanOrEqual(100);
     });
+
   });
 
   describe('File Discovery', () => {

@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, Pause, WifiOff, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Pause, WifiOff, CheckCircle2, HelpCircle } from 'lucide-react';
 import type { StatusResponse } from '../types/api';
 import type { ViewState } from './useCockpitState';
 
@@ -60,6 +60,13 @@ export function StatusBanner({ view, status, dataAgeMs, stale }: Props) {
         };
       case 'completed':
         return { tone: 'success', Icon: CheckCircle2, text: 'Run finished' };
+      case 'unknown':
+        return {
+          tone: 'neutral',
+          Icon: HelpCircle,
+          text: 'Status unknown',
+          detail: 'No clean-exit marker was found for this session.',
+        };
       case 'disconnected':
         return {
           tone: 'warning',

@@ -171,6 +171,7 @@ routes = {}
 for r in server.app.routes:
     if hasattr(r, "path"):
         routes.setdefault(r.path, []).append(r)
+assert routes, "server.app.routes walk found zero routes -- audit would be vacuous"
 
 # All fleet paths must define at least one dependency (the auth scope check).
 fleet_paths = [
@@ -179,6 +180,7 @@ fleet_paths = [
     "/api/fleet/runs/{identifier}",
     "/api/fleet/runs/{identifier}/cancel",
 ]
+assert len(fleet_paths) > 0, "fleet_paths is empty -- this walk would pass vacuously"
 for path in fleet_paths:
     assert path in routes, f"{path} route missing"
     has_dep = any(len(getattr(r, "dependencies", [])) >= 1 for r in routes[path])

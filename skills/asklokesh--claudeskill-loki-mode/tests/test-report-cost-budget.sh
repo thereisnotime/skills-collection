@@ -93,7 +93,8 @@ else
     fail "report cost exit code changed to $rc (breaks alias parity)"
 fi
 
-# 7. A budget file with NO recorded spend must not invent one.
+# 7. A budget file with NO recorded spend must not invent one: used is null
+#    (unknown), never 0.0, and it claims no overrun (S-179, BACKLOG 106).
 mkdir -p "$WORK/nb/metrics"
 echo '{"limit":1.0,"budget_limit":1.0}' > "$WORK/nb/metrics/budget.json"
 NB="$(LOKI_DIR="$WORK/nb" bash "$REPO_ROOT/autonomy/loki" report cost --json 2>/dev/null \
@@ -104,8 +105,8 @@ except Exception: print('PARSE_FAIL'); raise SystemExit(0)
 b=d.get('budget') or {}
 print('%s|%s' % (b.get('used'), b.get('exceeded')))
 ")"
-if [ "${NB%%|*}" = "0.0" ] || [ "${NB%%|*}" = "0" ]; then
-    pass "absent budget_used falls back without claiming an overrun"
+if [ "$NB" = "None|False" ]; then
+    pass "absent budget_used reads null without claiming an overrun"
 else
     fail "absent budget_used produced used=${NB%%|*}"
 fi

@@ -413,6 +413,68 @@ describe("budget.checkBudgetLimit circuit breaker", () => {
   });
 });
 
+// S-131: a cap is set but there is no efficiency data to measure spend from.
+// $0 must be surfaced as "unmeasured" (warn) rather than silently treated as
+// a confirmed zero cost. Never pauses, never marks exceeded.
+describe("budget.checkBudgetLimit unmeasured spend (S-131)", () => {
+  function setup(limit: number, records: Array<Record<string, unknown>>) {
+    const efficiencyDir = join(scratch, "metrics", "efficiency");
+    const budgetFile = join(scratch, "metrics", "budget.json");
+    const pauseFile = join(scratch, "PAUSE");
+    const signalsDir = join(scratch, "signals");
+    mkdirSync(efficiencyDir, { recursive: true });
+    records.forEach((r, i) => writeFileSync(join(efficiencyDir, `iter-${i}.json`), JSON.stringify(r)));
+    return { budgetLimit: limit, efficiencyDir, budgetFile, pauseFile, signalsDir };
+  }
+
+  it("warns and marks unmeasured when the efficiency dir is empty and a cap is set", () => {
+    const opts = setup(10, []);
+    const r = checkBudgetLimit(opts);
+    expect(r.measured).toBe(false);
+    expect(r.warn).toBe(true);
+    expect(r.exceeded).toBe(false);
+    expect(r.current_cost).toBe(0);
+    expect(existsSync(opts.pauseFile)).toBe(false);
+    expect(existsSync(opts.budgetFile)).toBe(false);
+  });
+
+  it("warns and marks unmeasured when the efficiency dir does not exist at all", () => {
+    const r = checkBudgetLimit({
+      budgetLimit: 10,
+      efficiencyDir: join(scratch, "no-such-dir"),
+      budgetFile: join(scratch, "metrics", "budget.json"),
+      pauseFile: join(scratch, "PAUSE"),
+      signalsDir: join(scratch, "signals"),
+    });
+    expect(r.measured).toBe(false);
+    expect(r.warn).toBe(true);
+    expect(r.exceeded).toBe(false);
+  });
+
+  it("does not warn on unmeasured spend when no cap is set", () => {
+    const r = checkBudgetLimit({ efficiencyDir: join(scratch, "no-such-dir") });
+    expect(r.limit).toBeNull();
+    expect(r.warn).toBe(false);
+  });
+
+  it("measured runs are unchanged: measured=true and normal warn/exceeded logic applies", () => {
+    const opts = setup(10, [{ cost_usd: 1.5 }]);
+    const r = checkBudgetLimit(opts);
+    expect(r.measured).toBe(true);
+    expect(r.warn).toBe(false);
+    expect(r.exceeded).toBe(false);
+    expect(r.current_cost).toBe(1.5);
+  });
+
+  it("measured runs still exceed normally (measured=true on the exceeded path)", () => {
+    const opts = setup(5, [{ cost_usd: 5.0 }]);
+    const r = checkBudgetLimit(opts);
+    expect(r.measured).toBe(true);
+    expect(r.exceeded).toBe(true);
+    expect(existsSync(opts.pauseFile)).toBe(true);
+  });
+});
+
 // R3 anti-surprise-cost warn-at-80%: warn flag must fire in [80%, 100%) of the
 // cap WITHOUT pausing, and must not fire below 80% or at/above 100% (where the
 // exceeded path owns the pause). Mirrors run.sh check_budget_limit() warn band.

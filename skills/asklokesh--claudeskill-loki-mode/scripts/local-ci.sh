@@ -35,6 +35,9 @@
 # Exit code 0 = green; nonzero = at least one check failed (printed loudly).
 
 set -uo pipefail
+# Tests always run headless: loki_open_url (autonomy/lib/browser-open.sh) and
+# proof.ts never open a browser under this (S-103).
+export LOKI_NO_BROWSER=1
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT" || exit 2
@@ -221,6 +224,12 @@ declare -a _FAST_KEEP=(
   "shell completions cover every dispatch command"
   "local-ci tiering"
   "local-ci parent-check exit isolation"
+  # E-60: gitleaks over origin/main..HEAD only (the commits THIS branch adds),
+  # not security-audit.yml's full-history "--all" scan. That scope keeps it
+  # cheap enough for the fast tier -- unlike the deferred CI-parity shellcheck
+  # run above (measured ~118s), this walks a handful of commits, not the whole
+  # repo's history, so it belongs with the other read-only structural lanes.
+  "gitleaks (secrets, origin/main..HEAD)"
   # dist freshness. CLAUDE.md names this the SHARPEST reason the fast tier
   # exists -- "CI never validates that the committed loki-ts/dist/loki.js
   # matches src, and when that slipped we shipped THREE releases reporting the
@@ -755,6 +764,24 @@ if command -v shellcheck >/dev/null 2>&1; then
   run_check_bg "shellcheck loki-ts fixtures (errors)" 'find loki-ts/tests/fixtures/build_prompt -name env.sh -print0 | xargs -0 shellcheck -S error'
 else
   skip_check "shellcheck" "shellcheck not installed (brew install shellcheck)"
+fi
+
+# ---------------------------------------------------------------------------
+# 2b. gitleaks (secrets), scoped to origin/main..HEAD (E-60)
+# ---------------------------------------------------------------------------
+# security-audit.yml's secret-scan job (a required-ci gate) runs gitleaks over
+# ALL reachable history on every PR; that is the release-blocking authority.
+# This fast-tier step is a cheap LOCAL EARLY WARNING over just the commits this
+# branch adds on top of origin/main, using the same reviewed .gitleaksignore
+# baseline, so a new secret is caught before push instead of at CI. FAIL
+# CLOSED on a missing tool: an absent binary is reported as a SKIP, never a
+# silent pass, matching the shellcheck posture above.
+# PARALLEL: read-only (reads .git objects; touches nothing).
+if command -v gitleaks >/dev/null 2>&1; then
+  run_check_bg "gitleaks (secrets, origin/main..HEAD)" \
+    'gitleaks git . --log-opts="origin/main..HEAD" --gitleaks-ignore-path .gitleaksignore --no-banner --redact'
+else
+  skip_check "gitleaks (secrets, origin/main..HEAD)" "gitleaks not installed (brew install gitleaks) -- this is a SKIP, not a pass"
 fi
 
 # ---------------------------------------------------------------------------

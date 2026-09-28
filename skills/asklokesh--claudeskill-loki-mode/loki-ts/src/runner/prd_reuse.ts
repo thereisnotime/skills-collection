@@ -161,10 +161,11 @@ function computeCodebaseSignature(dir: string): string {
     const inside = spawnSync(
       "git",
       ["rev-parse", "--is-inside-work-tree"],
-      { cwd: dir, encoding: "utf8" },
+      { env: { ...process.env }, cwd: dir, encoding: "utf8" },
     );
     if (inside.status === 0 && (inside.stdout || "").trim() === "true") {
       const headR = spawnSync("git", ["rev-parse", "HEAD"], {
+        env: { ...process.env },
         cwd: dir,
         encoding: "utf8",
       });
@@ -173,6 +174,7 @@ function computeCodebaseSignature(dir: string): string {
           ? (headR.stdout || "").trim()
           : "nohead";
       const statusR = spawnSync("git", ["status", "--porcelain"], {
+        env: { ...process.env },
         cwd: dir,
         encoding: "utf8",
       });

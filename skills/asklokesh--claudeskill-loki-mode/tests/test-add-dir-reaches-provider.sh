@@ -27,10 +27,19 @@ trap 'rmdir "$WORK/service-b" 2>/dev/null; rmdir "$WORK/service-c" 2>/dev/null; 
 mkdir -p "$WORK/service-b" "$WORK/service-c"
 
 _flags() {
+    # The stub MUST be (re)defined after sourcing providers/claude.sh, not
+    # before: that source pulls in autonomy/lib/claude-flags.sh, which
+    # unconditionally defines the real loki_claude_flag_supported() and
+    # clobbers a pre-source stub. A pre-source stub only "worked" on a
+    # machine with the real `claude` CLI on PATH (its --help lists --add-dir,
+    # so the real function also returns 0) -- on CI, with no claude CLI
+    # installed, the real function always returns 1 and every --add-dir
+    # silently vanished. This test isolates the add-dir branch from CLI
+    # detection entirely, so the stub must win.
     LOKI_ADD_DIRS="${1:-}" bash -c '
         cd "'"$REPO_ROOT"'"
-        loki_claude_flag_supported() { return 0; }
         . providers/claude.sh 2>/dev/null || true
+        loki_claude_flag_supported() { return 0; }
         _loki_build_claude_auto_flags "development" "standard" ""
         printf "%s\n" "${_LOKI_CLAUDE_AUTO_FLAGS[@]+"${_LOKI_CLAUDE_AUTO_FLAGS[@]}"}"
     ' 2>/dev/null
@@ -59,8 +68,8 @@ fi
 
 if LOKI_ADD_DIRS="/nope/does/not/exist" bash -c '
         cd "'"$REPO_ROOT"'"
-        loki_claude_flag_supported() { return 0; }
         . providers/claude.sh 2>/dev/null || true
+        loki_claude_flag_supported() { return 0; }
         _loki_build_claude_auto_flags "development" "standard" ""
    ' 2>&1 >/dev/null | grep -q 'not a directory, skipping'; then
     pass "a skipped directory is announced on stderr"

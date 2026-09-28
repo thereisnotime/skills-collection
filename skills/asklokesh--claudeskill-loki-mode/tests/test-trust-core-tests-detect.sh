@@ -29,16 +29,93 @@ failed=0
 ok() { echo "  PASS: $1"; passed=$((passed + 1)); }
 ko() { echo "  FAIL: $1"; failed=$((failed + 1)); shift; [[ $# -gt 0 ]] && echo "        $*"; }
 
-echo "TEST: trust-core tests detect their regressions"
-
 [[ -x "$PROBE" ]] || { echo "  FAIL: mutation probe missing"; exit 1; }
+
+# PARALLEL, NEVER SHARED. A probe edits a source file in place for the length of
+# a test run. Run two at once in one tree and each sees the other's breakage, so
+# every worker gets its OWN private copy of the repo under one mktemp dir. The
+# script re-runs itself once per copy in worker mode: it records every
+# probe_case, then claims cases with an atomic mkdir, so every case runs exactly
+# once, and writes each exit code. This process then walks the same calls in
+# report mode and prints them in file order. $REPO_ROOT is never mutated.
+# TRUST_CORE_PROBE_JOBS overrides the worker count; TRUST_CORE_PROBE_LIMIT runs
+# only the first N cases (used by test-trust-core-probe-isolation.sh).
+case_idx=0
+probed_files=()
+c_start=(); c_count=(); c_after=(); c_args=()
+limit="${TRUST_CORE_PROBE_LIMIT:-0}"
+mode="${TRUST_CORE_PROBE_MODE:-}"
+if [[ "$mode" != "worker" ]]; then
+    echo "TEST: trust-core tests detect their regressions"
+    jobs="${TRUST_CORE_PROBE_JOBS:-}"
+    if [[ -z "$jobs" ]]; then
+        jobs=$(( $(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2) / 2 ))
+        (( jobs > 8 )) && jobs=8
+    fi
+    (( jobs < 1 )) && jobs=1
+    # Neutral prefix: a sweep of loki-*/test-* temp names must not delete a
+    # copy while the suite runs.
+    work="$(mktemp -d "${TMPDIR:-/tmp}/tcprobe.XXXXXX")" || { echo "  FAIL: mktemp"; exit 1; }
+    main_pid=$$
+    # Guarded: an EXIT trap also fires in subshells, and one firing in a
+    # worker's subshell would delete the live copies.
+    trap '[[ "${BASHPID:-$$}" == "$main_pid" ]] && rm -rf -- "$work"' EXIT
+    trap 'exit 130' INT TERM
+    mkdir "$work/claim" "$work/rc"
+    # One read of the repo into a pristine base, then one copy of the base per
+    # worker (a copy-on-write clone where cp -c exists, 1s vs 4s per copy
+    # measured). No .git: git state is shared and contended, and no case needs
+    # it. loki-ts/node_modules is most of the bytes, so it skips the tar and is
+    # cloned straight from the repo. It is NOT linked: bun rewrites
+    # node_modules/.bin during a run (measured), so a link is shared mutable
+    # state. A failed worker copy starts no worker; the others claim its cases,
+    # and if none started every case reports red.
+    clone_dir() { cp -Rc "$1" "$2" 2>/dev/null || { rm -rf -- "$2"; cp -R "$1" "$2"; }; }
+    mkdir "$work/base" &&
+        tar -C "$REPO_ROOT" --exclude=./.git --exclude=./.claude/worktrees \
+            --exclude=./loki-ts/node_modules -cf - . | tar -C "$work/base" -xf - ||
+        { echo "  FAIL: could not copy the repo"; exit 1; }
+    w=0
+    while (( w < jobs )); do
+        ( clone_dir "$work/base" "$work/copy$w" &&
+          { [[ ! -d "$REPO_ROOT/loki-ts/node_modules" ]] ||
+            clone_dir "$REPO_ROOT/loki-ts/node_modules" "$work/copy$w/loki-ts/node_modules"; } ||
+          rm -rf -- "$work/copy$w" ) &
+        w=$((w + 1))
+    done
+    wait
+    worker_pids=()
+    w=0
+    while (( w < jobs )); do
+        if [[ -f "$work/copy$w/tests/test-trust-core-tests-detect.sh" ]]; then
+            TRUST_CORE_PROBE_MODE=worker TRUST_CORE_PROBE_WORK="$work" \
+                TRUST_CORE_PROBE_DESC=$((w % 2)) \
+                bash "$work/copy$w/tests/test-trust-core-tests-detect.sh" >/dev/null 2>&1 &
+            worker_pids+=("$!")
+        fi
+        w=$((w + 1))
+    done
+    for pid in ${worker_pids[@]+"${worker_pids[@]}"}; do wait "$pid"; done
+    mode=report
+fi
 
 # name | file | find | replace | test command
 probe_case() {
     local name="$1" file="$2" find_s="$3" repl_s="$4"; shift 4
-    ( cd "$REPO_ROOT" && MUTPROBE_AFTER="${MUTPROBE_AFTER:-}" \
-        timeout 300 bash "$PROBE" "$file" "$find_s" "$repl_s" "$@" ) >/dev/null 2>&1
-    local rc=$?
+    local i=$case_idx
+    case_idx=$((case_idx + 1))
+    (( limit > 0 && i >= limit )) && return 0
+    if [[ "$mode" == "worker" ]]; then
+        # Record only; the cases run after the whole list is known (below).
+        c_start+=("${#c_args[@]}")
+        c_count+=("$(( $# + 3 ))")
+        c_after+=("${MUTPROBE_AFTER:-}")
+        c_args+=("$file" "$find_s" "$repl_s" "$@")
+        return 0
+    fi
+    local rc
+    rc="$(cat "$work/rc/$i" 2>/dev/null)" || rc="missing"
+    probed_files+=("$file")
     case "$rc" in
         0)  ok "$name" ;;
         1)  ko "$name" "the test PASSED with the invariant broken -- it is blind" ;;
@@ -763,10 +840,38 @@ probe_case "a syntax error in the embedded stream parser is caught" \
     '                    if _turn_usage:' '                    if _turn_usage' \
     bash tests/test-context-growth-instrumentation.sh
 
+if [[ "$mode" == "worker" ]]; then
+    # Odd workers walk the list from the end so slow cases late in the file
+    # start early instead of becoming the tail. Atomic claim: exactly one
+    # worker runs case $i, whatever order it is reached in.
+    n=${#c_start[@]}
+    k=0
+    while (( k < n )); do
+        i=$k
+        [[ "${TRUST_CORE_PROBE_DESC:-0}" == 1 ]] && i=$((n - 1 - k))
+        k=$((k + 1))
+        mkdir "$TRUST_CORE_PROBE_WORK/claim/$i" 2>/dev/null || continue
+        ( cd "$REPO_ROOT" && MUTPROBE_AFTER="${c_after[$i]}" \
+            timeout 300 bash "$PROBE" "${c_args[@]:${c_start[$i]}:${c_count[$i]}}" ) >/dev/null 2>&1
+        echo "$?" > "$TRUST_CORE_PROBE_WORK/rc/$i"
+    done
+    exit 0
+fi
+
 # --- the repo must be left exactly as found ----------------------------------
 # A probe that leaves a mutation on disk is worse than no probe: it breaks the
-# product silently while reporting on test quality.
-if [[ -z "$(cd "$REPO_ROOT" && git status --porcelain autonomy/ dashboard/ providers/ loki-ts/src/ .githooks/ 2>/dev/null)" ]]; then
+# product silently while reporting on test quality. A copy is reused across
+# cases, so a leftover mutation there would corrupt every later case on that
+# worker: every probed file in every copy must match the repo byte for byte.
+unrestored=""
+for f in ${probed_files[@]+"${probed_files[@]}"}; do
+    for d in "$work"/copy*; do
+        cmp -s "$REPO_ROOT/$f" "$d/$f" || unrestored="$unrestored ${d##*/}/$f"
+    done
+done
+if [[ -n "$unrestored" ]]; then
+    ko "every probed file was restored" "left modified in a private copy:$unrestored"
+elif [[ -z "$(cd "$REPO_ROOT" && git status --porcelain autonomy/ dashboard/ providers/ loki-ts/src/ .githooks/ 2>/dev/null)" ]]; then
     ok "every probed file was restored"
 else
     ko "every probed file was restored" \

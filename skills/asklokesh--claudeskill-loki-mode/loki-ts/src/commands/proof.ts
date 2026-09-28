@@ -30,6 +30,7 @@ import { createInterface } from "node:readline";
 import { readFile } from "node:fs/promises";
 import { lokiDir, REPO_ROOT } from "../util/paths.ts";
 import { run } from "../util/shell.ts";
+import { findIsolatedPython3 } from "../util/python.ts";
 import { BOLD, CYAN, GREEN, NC, RED, YELLOW } from "../util/colors.ts";
 import { tierGate } from "../util/tier.ts";
 
@@ -161,20 +162,32 @@ async function openProof(id: string | undefined): Promise<number> {
     return 1;
   }
   process.stdout.write(`${GREEN}Opening proof: ${html}${NC}\n`);
-  // Try each opener in turn. Bun.spawn cannot run the `command -v` shell
-  // builtin, so we probe by invoking the opener directly: a missing binary
-  // surfaces as a spawn failure (caught) and we move to the next.
-  for (const opener of ["open", "xdg-open", "start"]) {
-    try {
-      const r = await run([opener, html], { timeoutMs: 5000 });
-      if (r.exitCode === 0) return 0;
-    } catch {
-      /* opener not present; try the next one */
+  // Try each opener in turn, but only when browserOpenAllowed() says so.
+  // Bun.spawn cannot run the `command -v` shell builtin, so we probe by
+  // invoking the opener directly: a missing binary surfaces as a spawn
+  // failure (caught) and we move to the next.
+  if (browserOpenAllowed()) {
+    for (const opener of ["open", "xdg-open", "start"]) {
+      try {
+        const r = await run([opener, html], { timeoutMs: 5000 });
+        if (r.exitCode === 0) return 0;
+      } catch {
+        /* opener not present; try the next one */
+      }
     }
   }
-  process.stdout.write("\nCould not detect browser opener.\n");
+  process.stdout.write("\nBrowser not opened (headless, test, or no opener).\n");
   process.stdout.write(`Please open in browser: ${html}\n`);
   return 0;
+}
+
+// Mirror of loki_browser_allowed (autonomy/lib/browser-open.sh, S-103): never
+// open a browser from tests, CI, or a non-TTY run. Keep the two in step.
+export function browserOpenAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.LOKI_NO_BROWSER === "1" || env.LOKI_NO_AUTO_OPEN === "1") return false;
+  if (env.CI) return false;
+  if (env.LOKI_TEST || env.BATS_VERSION || env.BATS_TEST_FILENAME || env.PYTEST_CURRENT_TEST) return false;
+  return process.stdout.isTTY === true;
 }
 
 function confirm(question: string): Promise<boolean> {
@@ -420,7 +433,7 @@ function mdProof(id: string | undefined): number {
   const r = spawnSync(
     "bash",
     ["-c", `source ${JSON.stringify(lib)} && render_evidence_receipt_md ${JSON.stringify(proofPath)}`],
-    { encoding: "utf8" },
+    { env: { ...process.env }, encoding: "utf8" },
   );
   if (r.stdout) process.stdout.write(r.stdout);
   if (r.status !== 0 && r.stderr) process.stderr.write(r.stderr);
@@ -587,11 +600,18 @@ async function verifyProof(id: string | undefined): Promise<number> {
   // Shell out to the verifier and pass its report + exit code through verbatim
   // (0 clean / 1 tamper-drift / 2 unusable). run() captures, so we write the
   // captured streams back out; the verifier prints a JSON report on stdout.
+  // -I -S: PYTHON* env, the cwd (the checkout under verification), a committed
+  // sitecustomize.py and a user-site .pth must not load code here (S-205).
+  const py = await findIsolatedPython3();
+  if (!py) {
+    process.stderr.write(
+      `${YELLOW}NOT CHECKED: no python3 passed the isolation probe (-I -S). Nothing was verified (exit 2).${NC}\n`,
+    );
+    return 2;
+  }
   let r: Awaited<ReturnType<typeof run>>;
   try {
-    // -E: PYTHONPATH (an empty component adds the cwd, the checkout under
-    // verification) and a committed sitecustomize.py must not load code here.
-    r = await run(["python3", "-E", verifier, pj, target], { timeoutMs: 30000 });
+    r = await run([py, "-I", "-S", verifier, pj, target], { timeoutMs: 30000 });
   } catch (e) {
     // python3 missing or unspawnable: nothing was checked, so 2, not the
     // uncaught-exception 1 that reads as "tampered".

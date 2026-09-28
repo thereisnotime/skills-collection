@@ -341,7 +341,27 @@ else
 fi
 
 echo "Test 6.2: loki memory vectors setup uses python3.12"
-output=$(timeout 60 bash "$CLI" memory vectors setup 2>&1) || true
+# The marker text this test checks for prints in the first line the command
+# emits (the python3.12 detection banner), well before it gets to checking or
+# (on a box without the ML packages already present) actually installing
+# numpy/sentence-transformers -- a real, slow, network-dependent pip install
+# this test has no need to sit through. Poll the output for that marker
+# instead of waiting for the whole command to finish, and stop it as soon as
+# either the marker shows up or the process exits on its own. Still the real
+# command, real output, no mocked python or fake modules -- just not waited
+# out to the end once its answer is already visible.
+VEC_OUT=$(mktemp -t loki-vectors-setup.XXXXXX)
+timeout 60 bash "$CLI" memory vectors setup >"$VEC_OUT" 2>&1 &
+vec_pid=$!
+for _ in $(seq 1 50); do
+    grep -qi "Python 3.12\|installed\|done\|already\|numpy\|sentence" "$VEC_OUT" 2>/dev/null && break
+    kill -0 "$vec_pid" 2>/dev/null || break
+    sleep 0.1
+done
+kill "$vec_pid" 2>/dev/null || true
+wait "$vec_pid" 2>/dev/null || true
+output=$(cat "$VEC_OUT" 2>/dev/null)
+rm -f "$VEC_OUT"
 if echo "$output" | grep -qi "Python 3.12\|installed\|done\|already\|numpy\|sentence"; then
     pass "vectors setup detects python3.12"
 else

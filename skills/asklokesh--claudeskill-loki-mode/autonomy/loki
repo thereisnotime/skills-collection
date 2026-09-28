@@ -71,6 +71,13 @@ if [ -f "$_LOKI_SCRIPT_DIR/lib/lock.sh" ]; then
     source "$_LOKI_SCRIPT_DIR/lib/lock.sh"
 fi
 
+# Guarded browser opener (loki_open_url). Every browser open goes through it
+# so tests, CI and non-TTY runs never pop a tab. If missing, nothing opens.
+if [ -f "$_LOKI_SCRIPT_DIR/lib/browser-open.sh" ]; then
+    # shellcheck source=lib/browser-open.sh
+    source "$_LOKI_SCRIPT_DIR/lib/browser-open.sh"
+fi
+
 # Crash-reporting helpers (provides loki_collection_enabled, used by
 # cmd_telemetry status and cmd_crash). Self-guarded against double-source.
 if [ -f "$_LOKI_SCRIPT_DIR/crash.sh" ]; then
@@ -849,8 +856,48 @@ PY
 # absent measurement is not evidence, and inventing a PASS here would be worse
 # than inventing a FAIL.
 loki_remote_attestation_status() {
-    local pj="$1" url="$2"
+    local pj="$1" url="$2" _jh
     [ -n "$url" ] || { printf ''; return 0; }
+    # A JWKS key set travels over the same channel as the receipt it certifies.
+    # Plain http lets anyone on the network path swap in their own key set, and
+    # the attestation would then "verify" against a forged key -- a MITM the
+    # TLS the API already uses is meant to prevent. Only https is trusted;
+    # loopback http and file:// are the exceptions, because neither one leaves
+    # this machine for anyone to sit on. Checked here, before python is even
+    # invoked, so a rejected URL is never fetched -- not "fetched and then
+    # distrusted". Same check in loki_proof_attestation_check below -- change
+    # both.
+    #
+    # The host is bounded exactly (up to the first "/", then stripped of any
+    # port) rather than matched with a trailing glob, and a userinfo "@" is
+    # rejected outright -- "http://127.0.0.1:80@evil.com" is host evil.com to
+    # any real URL parser (userinfo before the @, host after), and a loose
+    # `http://127.0.0.1:*` glob would wrongly wave that straight through.
+    case "$url" in
+        https://*|file://*) ;;
+        http://*)
+            _jh="${url#http://}"; _jh="${_jh%%/*}"
+            case "$_jh" in
+                *@*) printf ''; return 0 ;;
+            esac
+            # A bracketed IPv6 literal must be the WHOLE host: "[::1]" or
+            # "[::1]:port", never a prefix, or "[::1].evil.com" (not itself
+            # resolvable as loopback, but not rejected either) would parse as
+            # loopback "::1" with everything after the first "]" silently
+            # dropped instead of validated.
+            case "$_jh" in
+                \[*\]) _jh="${_jh#\[}"; _jh="${_jh%\]}" ;;
+                \[*\]:*) _jh="${_jh#\[}"; _jh="${_jh%%\]:*}" ;;
+                \[*) printf ''; return 0 ;;
+                *) _jh="${_jh%%:*}" ;;
+            esac
+            case "$_jh" in
+                127.0.0.1|localhost|::1) ;;
+                *) printf ''; return 0 ;;
+            esac
+            ;;
+        *) printf ''; return 0 ;;
+    esac
     command -v python3 >/dev/null 2>&1 || { printf ''; return 0; }
     local tok
     # jq's `//` treats JSON false the same as null/missing, which is exactly
@@ -947,8 +994,53 @@ PY
 # testing found exactly this: a mutation applied to the first copy left every
 # assertion of the second suite green.
 loki_proof_attestation_check() {
-    local pj="$1" src="$2"
+    local pj="$1" src="$2" _jh
     [ -n "$src" ] || { printf ''; return 0; }
+    # Same MITM guard as loki_remote_attestation_status above -- change both.
+    # Only applies to a URL source; a local file (the third-party offline case)
+    # never travels a network and needs no scheme at all. The host is bounded
+    # exactly and a userinfo "@" is rejected outright -- see the sibling
+    # function's comment for why a trailing glob is not safe here.
+    #
+    # A recognized scheme prefix is checked FIRST, before any "-f" test: the
+    # process cwd is the checkout being verified (attacker-controlled), and a
+    # repo can ship a file whose literal name IS a URL string (for example
+    # "https:/evil.example.com/.well-known/jwks.json" as a real path on disk).
+    # Testing "-f" first would treat that shadow file as the local-file form
+    # and hand its content straight to the caller with no network involved at
+    # all -- silently defeating the "only https is trusted" guarantee this
+    # function exists to provide. Scheme detection must win over the
+    # filesystem every time, not just when no file happens to collide.
+    case "$src" in
+        https://*|http://*|file://*)
+            case "$src" in
+                https://*|file://*) ;;
+                http://*)
+                    _jh="${src#http://}"; _jh="${_jh%%/*}"
+                    case "$_jh" in
+                        *@*) printf ''; return 0 ;;
+                    esac
+                    # See loki_remote_attestation_status above for why the
+                    # bracketed-IPv6 match must bound the closing bracket.
+                    case "$_jh" in
+                        \[*\]) _jh="${_jh#\[}"; _jh="${_jh%\]}" ;;
+                        \[*\]:*) _jh="${_jh#\[}"; _jh="${_jh%%\]:*}" ;;
+                        \[*) printf ''; return 0 ;;
+                        *) _jh="${_jh%%:*}" ;;
+                    esac
+                    case "$_jh" in
+                        127.0.0.1|localhost|::1) ;;
+                        *) printf ''; return 0 ;;
+                    esac
+                    ;;
+            esac
+            ;;
+        *)
+            # A plain path is decided in python below, which reports an
+            # unsigned receipt as "none" BEFORE it looks at the key file, so a
+            # missing key file on an unsigned receipt still fails (exit 1).
+            ;;
+    esac
     command -v python3 >/dev/null 2>&1 || { printf ''; return 0; }
     python3 -E - "$pj" "$src" "${_LOKI_SCRIPT_DIR}" <<'PY' 2>/dev/null || printf ''
 # The cwd is the checkout being verified: drop it from sys.path before any
@@ -977,15 +1069,20 @@ if tok is None or tok == "" or tok is False:
     print("none"); sys.exit(0)       # a FACT about the receipt, not an error
 src = sys.argv[2]
 try:
-    if os.path.isfile(src):
-        jwks = json.load(open(src))
-    else:
-        if not src.startswith(("http://", "https://")):
-            sys.exit(1)
+    # Scheme check first, same as the bash gate above -- a "-f" test run
+    # first would let a local file whose literal name IS an http(s) URL
+    # string (the process cwd is the checkout being verified) silently stand
+    # in for a real fetch. A recognized scheme always means "URL", even if a
+    # same-named file happens to exist on disk.
+    if src.startswith(("http://", "https://")):
         url = src if src.rstrip("/").endswith("jwks.json") else \
             src.rstrip("/") + "/.well-known/jwks.json"
         with urllib.request.urlopen(url, timeout=10) as r:
             jwks = json.loads(r.read())
+    elif os.path.isfile(src):
+        jwks = json.load(open(src))
+    else:
+        sys.exit(1)
 except Exception:
     sys.exit(1)                      # "" : unreachable/unreadable, no verdict
 # A key set that is not {"keys": [{...}, ...]} -- INCLUDING an empty list -- is
@@ -1170,9 +1267,12 @@ loki_remote_verify_receipt() {
     # gpg-unavailable branch above: NOT CHECKED, return 0, provenance unproven.
     if [ -z "$_attest" ] && jq -e '.verification.attestation // empty' "$pj" >/dev/null 2>&1; then
         echo -e "  ${YELLOW}NOT CHECKED${NC}: the receipt carries an attestation, but it could not be checked"
-        echo "    against ${_attest_url:-<no url>} (JWKS unreachable, or python cryptography missing)."
+        echo "    against ${_attest_url:-<no url>} (JWKS unreachable, python cryptography missing, or"
+        echo "    the JWKS URL is not https -- only loopback is allowed over plain http)."
         echo "    Its integrity hash matches. Provenance is unproven here, not disproven."
         echo "    Install python3 cryptography, or re-run where the build server is reachable."
+        echo "    The verifier runs python3 -E, so cryptography supplied through PYTHONPATH is"
+        echo "    not seen; install it where the base interpreter finds it (site or user site)."
         return 0
     fi
 
@@ -3613,8 +3713,8 @@ cmd_start() {
                 # cockpit hint is printed by _loki_start_handoff for the Both path.
                 args+=("--bg")
                 local _du="http://127.0.0.1:${LOKI_DASHBOARD_PORT:-57374}"
-                if command -v open >/dev/null 2>&1; then open "$_du" >/dev/null 2>&1 &
-                elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$_du" >/dev/null 2>&1 & fi
+                # stdout must stay unredirected: loki_open_url checks the TTY.
+                loki_open_url "$_du" 2>/dev/null &
                 ;;
             launch-bg-watch)
                 # Watch (cockpit only) detaches without opening the browser.
@@ -7693,16 +7793,10 @@ cmd_dashboard_open() {
 
     echo -e "${GREEN}Opening dashboard: $url${NC}"
 
-    # Open in browser (cross-platform)
-    if command -v open &> /dev/null; then
-        open "$url"
-    elif command -v xdg-open &> /dev/null; then
-        xdg-open "$url"
-    elif command -v start &> /dev/null; then
-        start "$url"
-    else
+    # Open in browser (cross-platform, guarded: no-op in tests/CI/non-TTY)
+    if ! loki_open_url "$url" 2>/dev/null; then
         echo ""
-        echo "Could not detect browser opener."
+        echo "Browser not opened (headless, test, or no opener)."
         echo "Please open in browser: $url"
     fi
 }
@@ -7753,6 +7847,12 @@ cmd_welcome_terminal() {
         echo -e "  ${DIM}Anonymous diagnostics on (os/arch/version/error type only -- never${NC}"
         echo -e "  ${DIM}code, prompts, or paths). Off: loki telemetry off  -  docs/PRIVACY.md${NC}"
         echo ""
+    elif [ -n "${LOKI_TELEMETRY_DISABLED:-}" ] || [ -n "${DO_NOT_TRACK:-}" ]; then
+        # Off-by-default means silence otherwise (nothing to disclose), but an
+        # EXPLICIT opt-out via env var deserves a confirmation that it took
+        # effect, distinct from the default off state nobody asked about.
+        echo -e "  ${DIM}Analytics are off (LOKI_TELEMETRY_DISABLED/DO_NOT_TRACK).${NC}"
+        echo ""
     fi
 }
 
@@ -7774,21 +7874,14 @@ cmd_welcome() {
         q="${q}&telemetry=off"
     fi
 
-    # Headless / Docker / CI / no-browser: print the terminal welcome only.
-    local has_browser=""
-    if command -v open >/dev/null 2>&1; then has_browser="open"
-    elif command -v xdg-open >/dev/null 2>&1; then has_browser="xdg-open"
-    elif command -v start >/dev/null 2>&1; then has_browser="start"
-    fi
-
-    if [ -z "$has_browser" ] || [ ! -f "$welcome_file" ] || [ -n "${CI:-}" ] || [ ! -t 1 ]; then
-        cmd_welcome_terminal "$ver"
-        [ -f "$welcome_file" ] && echo -e "  ${DIM}Full welcome page: ${welcome_file}${NC}" && echo ""
+    # Headless / Docker / CI / tests / no-browser: print the terminal welcome.
+    if [ -f "$welcome_file" ] && loki_open_url "file://${welcome_file}?${q}" 2>/dev/null; then
+        echo -e "${GREEN}Opened the Loki Mode welcome page in your browser.${NC}"
         return 0
     fi
-
-    echo -e "${GREEN}Opening the Loki Mode welcome page in your browser...${NC}"
-    "$has_browser" "file://${welcome_file}?${q}" >/dev/null 2>&1 || cmd_welcome_terminal "$ver"
+    cmd_welcome_terminal "$ver"
+    [ -f "$welcome_file" ] && echo -e "  ${DIM}Full welcome page: ${welcome_file}${NC}" && echo ""
+    return 0
 }
 
 # First-run hook: open the welcome once, then never again. Browser only when
@@ -7802,7 +7895,7 @@ cmd_welcome_maybe_firstrun() {
     # re-checks for a browser and falls back to the terminal welcome, so we
     # gate purely on interactivity + CI here (grouped to avoid &&/|| precedence
     # ambiguity). Backgrounded so it never delays the start.
-    if [ -t 1 ] && [ -z "${CI:-}" ]; then
+    if declare -F loki_browser_allowed >/dev/null 2>&1 && loki_browser_allowed; then
         (cmd_welcome >/dev/null 2>&1 &) || true
     fi
 }
@@ -8132,11 +8225,7 @@ cmd_web_start() {
             local url="http://${PURPLE_LAB_DEFAULT_HOST}:${port}/lab/"
             echo -e "Open: ${CYAN}$url${NC}"
             if [ "$open_browser" = true ]; then
-                if command -v open &> /dev/null; then
-                    open "$url"
-                elif command -v xdg-open &> /dev/null; then
-                    xdg-open "$url"
-                fi
+                loki_open_url "$url" 2>/dev/null || true
             fi
             return 0
         fi
@@ -8231,15 +8320,7 @@ cmd_web_start() {
     if [ "$open_browser" = true ]; then
         if [ "$server_ready" = true ]; then
             echo ""
-            if command -v open &> /dev/null; then
-                open "$url"
-            elif command -v xdg-open &> /dev/null; then
-                xdg-open "$url"
-            elif command -v start &> /dev/null; then
-                start "$url"
-            else
-                echo "Please open in browser: $url"
-            fi
+            loki_open_url "$url" 2>/dev/null || echo "Please open in browser: $url"
         else
             echo ""
             echo -e "${YELLOW}Browser not opened because server is not ready yet.${NC}"
@@ -8885,15 +8966,7 @@ cmd_preview() {
     echo "Served from localhost on this machine."
 
     if [ "$open_browser" = true ]; then
-        if command -v open &> /dev/null; then
-            open "$url"
-        elif command -v xdg-open &> /dev/null; then
-            xdg-open "$url"
-        elif command -v start &> /dev/null; then
-            start "$url"
-        else
-            echo "Please open in browser: $url"
-        fi
+        loki_open_url "$url" 2>/dev/null || echo "Please open in browser: $url"
     fi
 }
 
@@ -16050,16 +16123,16 @@ cmd_demo() {
         if [ "$has_web" = true ] && [ -n "$open_target" ]; then
             echo -e "${CYAN}A web frontend was generated.${NC}"
             echo ""
-            echo -n "Open in browser? [Y/n] "
-            read -r answer </dev/tty 2>/dev/null || answer="n"
-            if [[ -z "$answer" || "$answer" =~ ^[Yy] ]]; then
-                if command -v open &>/dev/null; then
-                    open "$open_target"
-                elif command -v xdg-open &>/dev/null; then
-                    xdg-open "$open_target"
-                else
-                    echo -e "Open this file in your browser: ${BLUE}$open_target${NC}"
-                fi
+            local answer="n"
+            # Ask only when a browser may open, so a test never blocks on /dev/tty.
+            if loki_browser_allowed 2>/dev/null; then
+                echo -n "Open in browser? [Y/n] "
+                read -r answer </dev/tty 2>/dev/null || answer="n"
+            fi
+            if [[ -z "$answer" || "$answer" =~ ^[Yy] ]] && loki_open_url "$open_target" 2>/dev/null; then
+                :
+            else
+                echo -e "Open this file in your browser: ${BLUE}$open_target${NC}"
             fi
         elif [ "$has_start_script" = true ]; then
             echo -e "${CYAN}A start script was found in package.json.${NC}"
@@ -17958,9 +18031,7 @@ print(json.dumps({'id': manifest.id, 'dir': str(pipeline.migration_dir)}))
                     sleep 2
                     if kill -0 "$migrate_dashboard_pid" 2>/dev/null; then
                         echo -e "  Dashboard:   ${CYAN}${url_scheme}://127.0.0.1:${dashboard_port}/${NC}"
-                        if [[ "$OSTYPE" == "darwin"* ]]; then
-                            open "${url_scheme}://127.0.0.1:${dashboard_port}/" 2>/dev/null || true
-                        fi
+                        loki_open_url "${url_scheme}://127.0.0.1:${dashboard_port}/" 2>/dev/null || true
                         echo ""
                     else
                         echo -e "  ${YELLOW}Dashboard failed to start (check logs)${NC}"
@@ -28375,16 +28446,23 @@ if budget_limit is not None:
 
 # Prefer the recorded cumulative spend; fall back to the current run only when
 # the state file carries no figure. Never silently substitute 0.0 for "unknown".
-if isinstance(budget_used_recorded, (int, float)):
+# A recorded ZERO is not a reading: run.sh check_budget_limit writes
+# "budget_used": 0 for a run it never measured. Same rule as the dashboard
+# (server.py budget readers): only a positive recorded figure counts, and a
+# measured zero comes from current_cost, which collect_efficiency leaves None
+# unless a record passes record_is_measured.
+if isinstance(budget_used_recorded, (int, float)) and budget_used_recorded > 0:
     budget_used = budget_used_recorded
 elif isinstance(current_cost, (int, float)):
     budget_used = current_cost
 else:
-    budget_used = 0.0
+    budget_used = None
 status = "none"
 percent_used = None
 remaining = None
-if budget_limit is not None and budget_limit > 0:
+if budget_limit is not None and budget_limit > 0 and budget_used is None:
+    status = "unknown"
+elif budget_limit is not None and budget_limit > 0:
     percent_used = round(budget_used / budget_limit * 100, 2)
     remaining = max(0.0, budget_limit - budget_used)
     if budget_used >= budget_limit:
@@ -28418,7 +28496,7 @@ if show_json:
         "by_model": {k: round(v, 6) for k, v in by_model.items()},
         "budget": {
             "limit": budget_limit,
-            "used": round(budget_used, 6),
+            "used": round(budget_used, 6) if budget_used is not None else None,
             "remaining": round(remaining, 6) if remaining is not None else None,
             "percent_used": percent_used,
             "status": status,
@@ -28469,13 +28547,17 @@ if budget_limit is None:
     print(DIM + "  When set, Loki warns at 80% and hard-stops at 100%." + NC)
 else:
     col = GREEN
-    if status == "warn":
+    if status in ("warn", "unknown"):
         col = YELLOW
     elif status == "exceeded":
         col = RED
     print("  Cap:       " + _fmt_usd(budget_limit))
-    print("  Used:      " + _fmt_usd(budget_used) + " (" + col + str(percent_used) + "%" + NC + ")")
-    print("  Remaining: " + _fmt_usd(remaining))
+    if budget_used is None:
+        print("  Used:      not recorded (no measured iteration cost)")
+        print("  Remaining: not recorded")
+    else:
+        print("  Used:      " + _fmt_usd(budget_used) + " (" + col + str(percent_used) + "%" + NC + ")")
+        print("  Remaining: " + _fmt_usd(remaining))
     print("  Status:    " + col + BOLD + status.upper() + NC)
     if status == "warn":
         print(YELLOW + "  Warning: at or above 80% of cap. Run continues; hard-stop at 100%." + NC)
@@ -28595,6 +28677,8 @@ def load_json(path):
         return None
 
 def fmt_number(n):
+    if n is None:
+        return "N/A"
     return f"{n:,}"
 
 def load_queue(path):
@@ -28633,7 +28717,8 @@ if os.path.isfile(checkpoint_index):
         pass
 
 # Orchestrator state
-orch = load_json(os.path.join(loki_dir, "state", "orchestrator.json")) or {}
+orch_raw = load_json(os.path.join(loki_dir, "state", "orchestrator.json"))
+orch = orch_raw or {}
 current_phase = orch.get("currentPhase", "N/A")
 orch_metrics = orch.get("metrics", {})
 tasks_completed_orch = orch_metrics.get("tasksCompleted", 0)
@@ -28652,7 +28737,19 @@ if os.path.isdir(eff_dir):
 if last_n > 0 and len(iterations) > last_n:
     iterations = iterations[-last_n:]
 
-total_iterations = len(iterations) if iterations else max(orch.get("currentIteration", 0), 0)
+# BACKLOG 118 / S-147: a fresh .loki with no efficiency files and no
+# orchestrator state has nothing to count. total_iterations (and the
+# time_saved estimate derived from it) must come back null, not a
+# fabricated 0, so callers can tell "never ran" from "ran zero".
+if iterations:
+    total_iterations = len(iterations)
+    iterations_known = True
+elif orch_raw is not None and "currentIteration" in orch:
+    total_iterations = max(orch.get("currentIteration", 0), 0)
+    iterations_known = True
+else:
+    total_iterations = None
+    iterations_known = False
 
 # Gather agent types from iterations and agents.json
 for it in iterations:
@@ -28760,19 +28857,26 @@ except Exception:
 total_cost = sum(it.get("cost_usd", 0) for it in iterations)
 total_input_tokens = sum(it.get("input_tokens", 0) for it in iterations)
 total_output_tokens = sum(it.get("output_tokens", 0) for it in iterations)
+tokens_known = bool(iterations)
 
 # Also check context tracking for cost data
 ctx_file = os.path.join(loki_dir, "context", "tracking.json")
 ctx = load_json(ctx_file)
-if ctx and total_cost == 0:
-    totals = ctx.get("totals", {})
-    total_cost = totals.get("total_cost_usd", 0)
-    total_input_tokens = totals.get("total_input", 0)
-    total_output_tokens = totals.get("total_output", 0)
+# context-tracker.py seeds tracking.json with all-zero totals, so the file
+# existing is not a measurement: only real (nonzero) totals count (S-147).
+if isinstance(ctx, dict) and not tokens_known:
+    totals = ctx.get("totals")
+    if isinstance(totals, dict) and (totals.get("total_input") or totals.get("total_output")
+                                     or totals.get("total_cost_usd") or totals.get("iterations_tracked")):
+        total_cost = totals.get("total_cost_usd") or 0
+        total_input_tokens = totals.get("total_input") or 0
+        total_output_tokens = totals.get("total_output") or 0
+        tokens_known = True
 
 # --- Time saved estimate ---
-# Each Loki iteration replaces ~15min of manual work
-time_saved_hours = round(total_iterations * 15 / 60, 2)
+# Each Loki iteration replaces ~15min of manual work. Null (not a computed
+# number) when no iteration was ever recorded (BACKLOG 118 / S-147).
+time_saved_hours = round(total_iterations * 15 / 60, 2) if iterations_known else None
 
 # --- Memory stats ---
 episodic_count = 0
@@ -28822,10 +28926,10 @@ data = {
         "tests_written": tests_written
     },
     "tokens": {
-        "input": total_input_tokens,
-        "output": total_output_tokens,
-        "total": total_input_tokens + total_output_tokens,
-        "cost_usd": round(total_cost, 2)
+        "input": total_input_tokens if tokens_known else None,
+        "output": total_output_tokens if tokens_known else None,
+        "total": (total_input_tokens + total_output_tokens) if tokens_known else None,
+        "cost_usd": round(total_cost, 2) if tokens_known else None
     },
     "time_saved": {
         "hours": time_saved_hours,
@@ -28866,15 +28970,18 @@ else:
     lines.append(f"  Commits:             {fmt_number(commits_made)}")
     lines.append(f"  Tests written:       {fmt_number(tests_written)}")
     lines.append("")
-    if total_cost > 0 or total_input_tokens > 0:
+    if tokens_known and (total_cost > 0 or total_input_tokens > 0):
         lines.append("TOKEN USAGE")
         lines.append(f"  Input tokens:        {fmt_number(total_input_tokens)}")
         lines.append(f"  Output tokens:       {fmt_number(total_output_tokens)}")
         lines.append(f"  Estimated cost:      ${total_cost:.2f}")
         lines.append("")
     lines.append("TIME SAVED")
-    lines.append(f"  Estimated:           {time_saved_hours} hours")
-    lines.append(f"  (based on {fmt_number(total_iterations)} iterations x 15min each)")
+    if iterations_known:
+        lines.append(f"  Estimated:           {time_saved_hours} hours")
+        lines.append(f"  (based on {fmt_number(total_iterations)} iterations x 15min each)")
+    else:
+        lines.append("  Estimated:           unknown (no iterations recorded)")
     lines.append("")
     if episodic_count > 0 or semantic_count > 0:
         lines.append("MEMORY")
@@ -33945,8 +34052,10 @@ except Exception:
         # Only scan added lines (starting with "+") to avoid flagging deleted code
         while IFS= read -r match; do
             [ -z "$match" ] && continue
-            local ml
-            ml=$(echo "$match" | cut -d: -f1)
+            # grep -n emits "N:content"; take the number before the first
+            # colon without forking echo+cut per line (matters at finding
+            # counts in the thousands+).
+            local ml="${match%%:*}"
             _ci_add_finding "diff" "$ml" "$sev" "$cat" "$finding" "$suggestion"
         done < <(printf '%s\n' "$diff_content" \
             | grep -n '^+' \
@@ -34089,8 +34198,11 @@ TEST_SUGGEST_PY
     # --- Tally findings ---
     local count_critical=0 count_high=0 count_medium=0 count_low=0 count_info=0
     for f in "${findings[@]+"${findings[@]}"}"; do
-        local sev
-        sev=$(echo "$f" | cut -d'|' -f3)
+        # "file|line|sev|cat|finding|suggestion" (see _ci_add_finding above).
+        # No echo+cut fork per finding -- this loop runs once per finding and
+        # dominated the runtime at the fixture's old ARG_MAX-scale sizes.
+        local sev _tally_file _tally_line _tally_cat _tally_finding _tally_suggestion
+        IFS='|' read -r _tally_file _tally_line sev _tally_cat _tally_finding _tally_suggestion <<< "$f"
         case "$sev" in
             CRITICAL) count_critical=$((count_critical + 1)) ;;
             HIGH) count_high=$((count_high + 1)) ;;
@@ -37031,7 +37143,9 @@ print(json.dumps(json.load(open(os.environ['LOKI_PROOF_JSON'])), indent=2))
                         # read as either a pass or an accusation, so it exits 2
                         # (could not check). A tamper/drift 1 from the base
                         # verifier is a finding and is never softened to 2.
-                        echo -e "${YELLOW}attestation: NOT CHECKED -- could not check against ${_pv_jwks} (key set unreadable, or verifier dependency missing).${NC}" >&2
+                        echo -e "${YELLOW}attestation: NOT CHECKED -- could not check against ${_pv_jwks} (key set unreadable,${NC}" >&2
+                        echo -e "${YELLOW}  verifier dependency missing, or the JWKS URL is not https -- only loopback is allowed over plain http).${NC}" >&2
+                        echo "  The verifier runs python3 -E, so cryptography supplied through PYTHONPATH is not seen (a site or user-site install is)." >&2
                         echo "  This is not a failure of the receipt. Nothing was proven either way (exit 2)." >&2
                         if [ "$_pv_rc" -eq 0 ]; then _pv_rc=2; fi
                         _pv_attestation_field="NOT CHECKED"
@@ -37169,15 +37283,9 @@ print(json.dumps(doc, indent=2))
                 exit 1
             fi
             echo -e "${GREEN}Opening proof: $html${NC}"
-            if command -v open &>/dev/null; then
-                open "$html"
-            elif command -v xdg-open &>/dev/null; then
-                xdg-open "$html"
-            elif command -v start &>/dev/null; then
-                start "$html"
-            else
+            if ! loki_open_url "$html" 2>/dev/null; then
                 echo ""
-                echo "Could not detect browser opener."
+                echo "Browser not opened (headless, test, or no opener)."
                 echo "Please open in browser: $html"
             fi
             exit 0

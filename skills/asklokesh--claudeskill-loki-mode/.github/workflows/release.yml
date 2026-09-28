@@ -20,8 +20,22 @@ on:
 jobs:
   # Gate: every downstream job (release, npm, docker, homebrew, ...) waits
   # for this job to pass. Prevents publishing artifacts when the test suite is red.
-  # Mirrors the checks in .github/workflows/test.yml at minimum cost (single Python
-  # version, no matrix) -- the full Tests workflow still runs separately on push.
+  #
+  # S-84 (2026-09): this job no longer runs the Python suite. It used to pip
+  # install a hand-picked subset of deps and run `python3 -m pytest -q` on
+  # 3.12 only -- a strictly WEAKER duplicate of test.yml's python-tests job,
+  # which runs the identical `python3 -m pytest` on 3.10-3.13 with the
+  # canonical requirements-test.txt. required-ci (below) still requires that
+  # workflow ("Tests") to succeed before release publishes, so deleting the
+  # duplicate here costs no coverage, only the ~3m46s it used to spend on pip
+  # installs before ever reaching the checks below.
+  #
+  # What replaced it: two no-pip version-file consistency probes. They exist
+  # because required-ci can let a version-bump-only push reuse its PARENT
+  # commit's Tests/Bun Parity verdict -- and the files that reuse allowlist
+  # covers (server.json, plugin.json, ...) are exactly the ones that drift
+  # silently if a release forgets to bump them. Running them here, at the
+  # release SHA itself, means that check is never skipped by the reuse path.
   gate:
     runs-on: ubuntu-latest
     steps:
@@ -34,12 +48,10 @@ jobs:
       # caught it was the LAST step, so the job first spent ~3m46s on pip
       # installs and the full pytest suite before tsc ran for 7 seconds and
       # failed. Measured on run 34724377951: gate 4m03s total, pip started
-      # 23:03:29, pytest ended 23:07:15, Bun step 23:07:17 -> 23:07:24.
-      #
-      # Bash syntax validation and the Bun typecheck need no Python at all, so
-      # they now run before the pip installs. A tsc or bash error fails the
-      # release in well under a minute instead of four, and nothing about what
-      # is verified changes -- only the order in which it is verified.
+      # 23:03:29, pytest ended 23:07:15, Bun step 23:07:17 -> 23:07:24. The
+      # pip/pytest steps that ran last are gone now (see above); this ordering
+      # note is kept because the bash/Bun-before-anything-slower principle
+      # still governs what gets added to this job.
       - name: Bash syntax validation
         run: |
           bash -n autonomy/run.sh
@@ -60,115 +72,402 @@ jobs:
           bun install --frozen-lockfile
           bun run typecheck
           bun test
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install minimal deps
-        # Mirror python-tests installs in test.yml exactly so the gate has the
-        # same import surface as the matrix jobs (httpx, sqlalchemy, etc.).
+      - name: Byte-compile the two version-stamped Python modules
+        # No pip install needed for a syntax/import-surface check; ubuntu-latest
+        # ships a system python3. dashboard/__init__.py and mcp/__init__.py
+        # carry __version__ = "X.Y.Z" and got zero execution here once the
+        # pytest step was removed -- this is the cheap replacement floor.
+        run: python3 -m py_compile dashboard/__init__.py mcp/__init__.py
+      - name: Version-bump file consistency (server.json, plugin.json track VERSION)
+        # Pure bash + stdlib python3 json, no pip install. These are also part
+        # of the sharded shell-tests suite inside "Tests", but running them
+        # here too means a metadata-only release is checked at ITS OWN commit
+        # even on the iteration where required-ci reuses the parent's verdict
+        # for Tests/Bun Parity.
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install pytest pytest-asyncio
-          python3 -m pip install fastapi httpx pydantic sqlalchemy[asyncio] aiosqlite uvicorn
-      - name: Python tests
-        run: python3 -m pytest -q
+          bash tests/test-server-json-current.sh
+          bash tests/test-plugin-json-current.sh
 
-  # PROPORTIONAL CI AT THE EXACT RELEASE SHA.
+  # PROPORTIONAL CI: reuse the PARENT commit's verdict for Tests/Bun Parity
+  # when this push is a version-bump-only diff against an explicit allowlist;
+  # otherwise, PROPORTIONAL CI AT THE EXACT RELEASE SHA, as before.
   #
-  # `gate` above runs the full pytest suite, but on Python 3.12 ONLY, and it
-  # never consults the security audit. Every publish job (npm, PyPI, TS SDK,
-  # Docker, Homebrew) hangs off `needs: release` -> `needs: gate`, so before
-  # this job a VERSION push could publish to every channel while the Tests
-  # matrix was still running -- or already red on 3.10, 3.11 or 3.13.
+  # S-84 (2026-09): "a release becomes a lookup". A VERSION-only bump whose
+  # parent commit already has a green Tests + Bun Parity run no longer waits
+  # ~26-34 min for those to re-run at the release SHA -- it looks up that
+  # parent's already-completed verdict instead. This job no longer `needs:
+  # gate`; the two run in parallel, since gate's own checks (bash syntax, Bun
+  # typecheck/test, the two version-file probes) are independent of this
+  # lookup. `release` still needs both.
+  #
+  # GUARANTEED, exactly: for each of Tests / Bun Parity / Security Audit,
+  # (a) any success at the release SHA wins outright; (b) else any completed
+  # run at the release SHA with conclusion exactly "failure" fails the whole
+  # job, even if another run of the same workflow is still in flight (a
+  # completed failure is never hidden behind a hopeful retry); (c) else, for
+  # Tests/Bun Parity only, reuse the parent's verdict if this push is eligible
+  # (see below) and the parent shows a success; (d) else wait for the release
+  # SHA's own result. Security Audit never reaches (c) -- it is NEVER reused,
+  # so it always resolves via (a), (b), or (d) at the release SHA, which costs
+  # about 4 min on every release regardless of what the push touched.
+  # Eligibility (the "(c)" gate) requires every file this push changed to be
+  # on the allowlist below, present as the same regular-file mode on both
+  # sides (round 3: `git diff --raw`, not `--name-only` -- a rename, add,
+  # delete, or mode/type change disqualifies even an allowlisted path), AND
+  # each changed file's own RAW BYTES normalize to identical once the old and
+  # new VERSION literal (each required to match `^\d+\.\d+\.\d+$`, round 3) is
+  # substituted for a placeholder -- CHANGELOG.md instead has to be an
+  # insert-only edit (round 3.1: exactly one new block, opening with
+  # "## v<NEW_VERSION>", inserted immediately before the parent's own first
+  # "## v<OLD_VERSION>" heading, with the shared header above it and every
+  # existing entry below it byte-for-byte unchanged -- a plain "old bytes are
+  # a suffix of new" check rejected every real release here, because this
+  # repo's CHANGELOG.md keeps one shared header above all entries rather than
+  # repeating it per release). A file that fails its check disqualifies reuse for
+  # everything, not just itself. This is a fail-closed eligibility gate, not a
+  # substitute for (b): a completed failure at the release SHA always wins
+  # over reuse, and reuse never wins over a success or failure already
+  # decided at the release SHA itself.
+  #
+  # Round 3 (two independent HIGH reviews of round 2, both reproduced):
+  #
+  # FIX 1 (byte-safe compare). Round 2's compare split each file with
+  # `str.splitlines()` (which treats \r, \x0c, U+2028 and others as line
+  # breaks) and rejoined with "\n", then substituted the version string.
+  # Reviewers reproduced hiding a Dockerfile `USER nobody` (so the built image
+  # ran as root, confirmed with `docker build`) and a Python `raise` guard in
+  # mcp/__init__.py, in both cases by swapping the `\n` before it for a `\r`
+  # or U+2028 -- the normalizer's own line reshuffle made the parent and the
+  # sabotaged release compare equal. Fixed by comparing RAW BYTES with a
+  # single substring substitution and no line splitting at all; a NUL already
+  # present on either side (which would collide with the placeholder) now
+  # disqualifies that file outright. The debugId trailer strip is scoped to
+  # loki-ts/dist/loki.js alone, matched only at the true end of the byte
+  # string (never mid-file, never on another path), so it cannot be used to
+  # smuggle a line into any other allowlisted file either.
+  #
+  # FIX 2 (release-SHA priority, corrected). Round 2 treated ANY non-success
+  # completed run at the release SHA (including cancelled/timed_out) as an
+  # immediate fail. Reviewers showed this fails an otherwise-eligible, fully
+  # green bump the moment a later push's `cancel-in-progress` concurrency
+  # group cancels the release SHA's own in-flight Tests run -- a false
+  # negative, not a safety property. The (a)-(b)-(c)-(d) order above is the
+  # fix: only an explicit completed "failure" blocks reuse; cancelled,
+  # timed_out, or skipped fall through to reuse-if-eligible or to waiting,
+  # exactly like "not resolved yet". Checking (b) before waiting on any
+  # still-in-flight retry is what closes the "hidden failure" case: a
+  # completed failure plus a still-running run no longer reports pending.
+  #
+  # loki-ts/dist/loki.js.map is back on the allowlist (round 3): round 2's
+  # diagnosis for why a real release's dist failed to reuse -- non-deterministic
+  # minifier variable naming -- was WRONG, per both reviewers' independent,
+  # measured correction. Bun's build is byte-deterministic per commit; the
+  # committed b651b98d^ dist was simply STALE relative to its own src at that
+  # commit, which a fresh rebuild in a scratch worktree confirmed (see the
+  # replay note below). The map's JSON "debugId" is derived from the bundle
+  # (which embeds VERSION), so leaving the map off the allowlist made reuse
+  # permanently dead: 39 of the last 40 release commits touch it. Fixed
+  # properly instead of exempted: parse the map as JSON, drop only the
+  # top-level "debugId" key from each side, canonically re-serialize what's
+  # left, and run the same raw version-literal compare on that. A stale or
+  # rebuilt-different parent dist still correctly makes the bump ineligible;
+  # only a genuinely fresh, matching parent dist reuses.
   #
   # That is not hypothetical for this repo: a releases test passed on a
   # developer clone and failed on 3.10-3.13 in Actions, and the operator mount
   # failed open on exactly those versions. Neither was visible to a 3.12-only
-  # gate.
+  # gate (which is why `gate` no longer runs pytest at all -- see its comment).
   #
-  # This job waits for the OTHER required workflows AT THIS COMMIT and fails
-  # closed. It deliberately polls the check-runs API for this exact SHA rather
-  # than adding matrix jobs here: re-running the matrix inside release.yml
-  # would verify a DIFFERENT execution than the one the branch was judged on,
-  # and doubles CI cost for a weaker guarantee.
+  # This job deliberately polls the check-runs API rather than adding matrix
+  # jobs here: re-running the matrix inside release.yml would verify a
+  # DIFFERENT execution than the one the branch was judged on, and doubles CI
+  # cost for a weaker guarantee.
   #
-  # FAIL-CLOSED DIRECTION IS LOAD-BEARING. A workflow that is missing, still
-  # queued, cancelled, or timed out is NOT a pass. Only an explicit success
-  # conclusion counts. An absent measurement is never evidence of health.
+  # FAIL-CLOSED DIRECTION IS LOAD-BEARING throughout: an absent measurement,
+  # a still-queued run, or an ineligible/unreadable diff never counts as a
+  # pass -- each either falls back to checking the release SHA directly or
+  # keeps the job waiting up to the poll deadline, and the deadline itself
+  # fails closed. The reuse fast path also depends on the parent's Tests/Bun
+  # Parity having actually finished before the bump was pushed -- main's
+  # `cancel-in-progress` concurrency group would otherwise cancel an in-flight
+  # parent run when the bump lands; S-80 (per-SHA concurrency, approved
+  # separately) removes that cancellation risk. It does not need to land for
+  # FIX 2 above: FIX 2 is about a cancelled run at the RELEASE SHA, a
+  # different commit than the one S-80 protects.
   required-ci:
     runs-on: ubuntu-latest
-    needs: gate
     permissions:
       checks: read
       actions: read
       contents: read
     steps:
-      - name: Require the full test matrix and audit to be green at this SHA
+      - name: Checkout (immediate parent + release commit, for the reuse-eligibility diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Require Tests / Bun Parity / Security Audit green, at the release SHA or an eligible parent
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ github.sha }}
           REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          # Workflow names that must report success at this exact commit.
-          # One name per line, NO leading whitespace: these are matched against
-          # the API's workflow names with a literal grep, so an indented entry
-          # would never match and the loop would stall until the deadline.
+
+          # -------------------------------------------------------------------
+          # STEP 1: is this a version-bump-only diff against the immediate
+          # parent? The parent must resolve and this must be a push event
+          # (workflow_dispatch republishes an already-tagged commit and always
+          # checks fresh). Everything else -- the allowlist, the raw-mode
+          # check, the VERSION shape, and the per-file byte compare -- is
+          # decided in one python3 invocation below (round 3: rewritten for
+          # BLOCKING findings A and B from two independent HIGH reviews of
+          # round 2; see the job-level comment above for what each fixes).
+          # -------------------------------------------------------------------
+          ELIGIBLE=0
+          PARENT=""
+          if [ "$EVENT_NAME" = "push" ] && PARENT="$(git rev-parse "${SHA}^" 2>/dev/null)" \
+             && git cat-file -e "${PARENT}^{commit}" 2>/dev/null; then
+            if python3 - "$PARENT" "$SHA" <<'PYEOF'
+          import json, re, subprocess, sys
+
+          parent, sha = sys.argv[1], sys.argv[2]
+
+          # One per line, NO leading whitespace (see the job comment for what
+          # each path's own check additionally requires beyond being listed
+          # here: CHANGELOG.md is prepend-only; loki.js and loki.js.map each
+          # have their own debugId handling; everything else is a plain raw
+          # version-literal byte compare).
+          ALLOWLIST = {
+              "VERSION", "package.json", "SKILL.md", "CHANGELOG.md", "CLAUDE.md",
+              "Dockerfile", "Dockerfile.sandbox", "dashboard/__init__.py",
+              "mcp/__init__.py", "server.json",
+              "plugins/loki-mode/.claude-plugin/plugin.json",
+              "loki-ts/dist/loki.js", "loki-ts/dist/loki.js.map",
+              "docs/INSTALLATION.md", "wiki/Home.md", "wiki/_Sidebar.md",
+              "wiki/API-Reference.md", "web-app/src/components/Footer.tsx",
+          }
+          REGULAR_MODES = {"100644", "100755"}
+          VERSION_RE = re.compile(rb"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+          # Anchored at the true end of the byte string ONLY (no MULTILINE):
+          # this can match at most once, at the last line, so it can never be
+          # used to splice a hidden line in anywhere else in the file.
+          DEBUG_ID_TRAILER = re.compile(rb"(?:\r\n|\r|\n)?//# debugId=[0-9A-Fa-f-]+[ \t]*(?:\r\n|\r|\n)?\Z")
+          CHANGELOG_HEADING = re.compile(rb"(?m)^## v")
+
+          def fail(msg):
+              print("normalizer: " + msg, file=sys.stderr)
+              sys.exit(1)
+
+          def show_bytes(rev, path):
+              r = subprocess.run(["git", "show", f"{rev}:{path}"], capture_output=True)
+              return r.stdout if r.returncode == 0 else None
+
+          # git diff --raw, NOT --name-only: every changed path must be a
+          # status-M, same-mode, regular-file change present on both sides.
+          # --no-renames turns a rename into a delete+add pair, which fails
+          # the "present on both sides as M" check by construction, so a
+          # rename INTO the allowlist (e.g. CHANGELOG.md -> wiki/Home.md)
+          # cannot slip through as if it were an ordinary edit.
+          raw = subprocess.run(["git", "diff", "--no-renames", "--raw", parent, sha],
+                                capture_output=True)
+          if raw.returncode != 0:
+              fail("git diff --raw failed")
+          lines = [l for l in raw.stdout.decode("utf-8", "replace").splitlines() if l]
+          if not lines:
+              fail("empty diff")
+          line_re = re.compile(r'^:(\d+) (\d+) [0-9a-f]+ [0-9a-f]+ ([A-Z])\d*\t(.+)$')
+          changed = []
+          for line in lines:
+              m = line_re.match(line)
+              if not m:
+                  fail(f"unparseable raw diff line: {line!r}")
+              old_mode, new_mode, status, path = m.groups()
+              if path not in ALLOWLIST:
+                  fail(f"not on the allowlist: {path}")
+              if status != "M":
+                  fail(f"not a modification (status {status}): {path}")
+              if old_mode != new_mode or old_mode not in REGULAR_MODES:
+                  fail(f"not a same-mode regular file: {path} ({old_mode} -> {new_mode})")
+              changed.append(path)
+
+          old_ver = show_bytes(parent, "VERSION")
+          new_ver = show_bytes(sha, "VERSION")
+          if old_ver is None or new_ver is None:
+              fail("VERSION missing on one side")
+          old_ver, new_ver = old_ver.strip(), new_ver.strip()
+          if not VERSION_RE.match(old_ver) or not VERSION_RE.match(new_ver):
+              fail("VERSION does not match ^\\d+\\.\\d+\\.\\d+$ on one side")
+
+          def version_only(old_b, new_b):
+              # A NUL already present on either side would collide with the
+              # substitution placeholder and falsely compare equal -- refuse
+              # outright rather than risk that collision.
+              if b"\x00" in old_b or b"\x00" in new_b:
+                  return False
+              return old_b.replace(old_ver, b"\x00") == new_b.replace(new_ver, b"\x00")
+
+          for path in changed:
+              old_b, new_b = show_bytes(parent, path), show_bytes(sha, path)
+              if old_b is None or new_b is None:
+                  fail(f"could not read {path} on one side")
+
+              if path == "CHANGELOG.md":
+                  # Insert-only: real entries are prepended AFTER a shared
+                  # header (title + Keep-a-Changelog blurb), not at byte 0, so
+                  # a plain "old is a suffix of new" check rejects every real
+                  # release. Instead: locate the parent's FIRST "## v" heading
+                  # (line-anchored) -- everything before it is the header,
+                  # everything from it onward is the old entries, and BOTH
+                  # must appear byte-for-byte unchanged in the new file, with
+                  # exactly one inserted block between them. That block must
+                  # itself open with "## v<NEW_VERSION>", and it is
+                  # immediately followed by the parent's old first heading
+                  # ("## v<OLD_VERSION>") by construction of the slice below.
+                  m = CHANGELOG_HEADING.search(old_b)
+                  if not m:
+                      fail("CHANGELOG.md has no '## v' heading to anchor the insert-only check")
+                  old_header, old_rest = old_b[:m.start()], old_b[m.start():]
+                  if not old_rest.startswith(b"## v" + old_ver):
+                      fail("CHANGELOG.md's first heading does not match VERSION")
+                  if not (new_b.startswith(old_header) and new_b.endswith(old_rest)
+                          and len(new_b) >= len(old_header) + len(old_rest)):
+                      fail("CHANGELOG.md is not insert-only (header or existing entries changed)")
+                  inserted = new_b[len(old_header):len(new_b) - len(old_rest)]
+                  if not inserted.startswith(b"## v" + new_ver):
+                      fail("CHANGELOG.md's inserted block does not open with the new version heading")
+                  continue
+
+              if path == "loki-ts/dist/loki.js":
+                  old_b = DEBUG_ID_TRAILER.sub(b"", old_b, count=1)
+                  new_b = DEBUG_ID_TRAILER.sub(b"", new_b, count=1)
+                  if not version_only(old_b, new_b):
+                      fail("loki.js changed beyond the version string and its debugId trailer")
+                  continue
+
+              if path == "loki-ts/dist/loki.js.map":
+                  try:
+                      old_j, new_j = json.loads(old_b), json.loads(new_b)
+                  except Exception as e:
+                      fail(f"loki.js.map is not valid JSON: {e}")
+                  if not isinstance(old_j, dict) or not isinstance(new_j, dict):
+                      fail("loki.js.map is not a JSON object")
+                  old_j.pop("debugId", None)
+                  new_j.pop("debugId", None)
+                  old_canon = json.dumps(old_j, sort_keys=True, separators=(",", ":")).encode()
+                  new_canon = json.dumps(new_j, sort_keys=True, separators=(",", ":")).encode()
+                  if not version_only(old_canon, new_canon):
+                      fail("loki.js.map changed beyond the version string (top-level debugId excluded)")
+                  continue
+
+              if not version_only(old_b, new_b):
+                  fail(f"{path} changed beyond the version string")
+
+          sys.exit(0)
+          PYEOF
+            then
+              ELIGIBLE=1
+            fi
+          fi
+
+          if [ "$ELIGIBLE" = "1" ]; then
+            echo "Version-bump-only diff against parent $PARENT (every changed file is allowlisted, same-mode, and byte-identical modulo the version string). Tests and Bun Parity may reuse that commit's verdict if it already succeeded there; Security Audit is always required fresh at $SHA (it triggers only on a VERSION-path push or a PR, and this commit is itself a VERSION push, so it always runs here anyway)."
+          else
+            echo "Not eligible for parent reuse (see 'normalizer:' diagnostic above if the eligibility check ran, or: empty diff, no resolvable parent, or a non-push event). All required workflows must succeed at $SHA unless already decided by a completed run there."
+          fi
+
+          # -------------------------------------------------------------------
+          # STEP 2: poll. Workflow names, ONE per line, NO leading whitespace:
+          # matched with an exact awk field comparison below, so an indented or
+          # partial-match entry would never match and the loop would stall
+          # until the deadline.
           #
           # "Security Audit" is required here, and security-audit.yml carries a
           # matching `push: paths: [VERSION]` trigger so it actually RUNS at a
           # release commit. Requiring a workflow that never fires at this SHA
           # would deadlock every release rather than gate it, so the trigger
           # and this list must be changed together.
+          # -------------------------------------------------------------------
           REQUIRED=$(printf '%s\n' "Tests" "Bun Parity" "Security Audit")
+
+          fetch_runs() {
+            # name<TAB>status<TAB>conclusion, one push-triggered run per line.
+            # A pull_request run at the same head_sha tested a different merge
+            # ref and must never satisfy this.
+            gh api "repos/$REPO/actions/runs?head_sha=$1&per_page=100" \
+              --jq '.workflow_runs[] | select(.event=="push") | "\(.name)\t\(.status)\t\(.conclusion)"' 2>/dev/null || true
+          }
+
+          has_conclusion() {
+            # $1 = exact workflow name, $2 = runs blob, $3 = exact conclusion.
+            # True iff some completed run of that exact name has that exact
+            # conclusion, whatever else exists for the same name (a failed run
+            # plus a later success still lets has_conclusion(..., success)
+            # come back true; a failed run plus a still-running one still lets
+            # has_conclusion(..., failure) come back true).
+            printf '%s\n' "$2" | awk -F'\t' -v w="$1" -v c="$3" \
+              '$1==w && $2=="completed" && $3==c{f=1} END{exit !f}'
+          }
+
           deadline=$(( $(date +%s) + 2400 ))
           while :; do
-            runs=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&per_page=100" \
-                     --jq '.workflow_runs[] | "\(.name)\t\(.status)\t\(.conclusion)"' || true)
-            # VACUITY GUARD. An empty API result must never satisfy the loop:
-            # "no failing runs" over zero runs is not "everything passed".
-            if [ -z "$runs" ]; then
-              if [ "$(date +%s)" -ge "$deadline" ]; then
-                echo "FAIL: no workflow runs found for $SHA before the deadline"
-                exit 1
-              fi
-              echo "no runs reported yet for $SHA; waiting"
-              sleep 30
-              continue
-            fi
+            runs_release="$(fetch_runs "$SHA")"
+            runs_parent=""
+            [ "$ELIGIBLE" = "1" ] && runs_parent="$(fetch_runs "$PARENT")"
+
             pending=0
             failed=0
             while IFS= read -r want; do
               [ -n "$want" ] || continue
-              line=$(printf '%s\n' "$runs" | grep -F "$want	" | head -1 || true)
-              if [ -z "$line" ]; then
-                echo "  $want: not reported yet"
-                pending=1
-                continue
+              # FIX 2 (round 3, reviewer-corrected priority order):
+              #   (a) any success at the release SHA wins outright;
+              #   (b) else a completed run at the release SHA with conclusion
+              #       exactly "failure" fails the job -- checked BEFORE any
+              #       wait, so a still-running retry can never hide it;
+              #   (c) else reuse the parent's success if this bump is
+              #       eligible (never for Security Audit, which is never
+              #       reused);
+              #   (d) else wait for the release SHA's own result. Cancelled,
+              #       timed_out, and skipped deliberately fall through to (c)
+              #       or (d) rather than failing here: they are not evidence
+              #       the code is broken, only that this exact run did not
+              #       finish, and treating them as a hard fail would break an
+              #       otherwise-green bump whenever a later push's
+              #       cancel-in-progress concurrency group cancels the
+              #       release SHA's own in-flight run.
+              if has_conclusion "$want" "$runs_release" success; then
+                result="success"; label="$SHA"
+              elif has_conclusion "$want" "$runs_release" failure; then
+                result="failed"; label="$SHA"
+              elif [ "$want" != "Security Audit" ] && [ "$ELIGIBLE" = "1" ] \
+                   && has_conclusion "$want" "$runs_parent" success; then
+                result="success"; label="$PARENT (reused)"
+              else
+                result="pending"; label="$SHA"
               fi
-              status=$(printf '%s' "$line" | cut -f2)
-              concl=$(printf '%s' "$line" | cut -f3)
-              echo "  $want: $status/$concl"
-              if [ "$status" != "completed" ]; then
-                pending=1
-              elif [ "$concl" != "success" ]; then
-                # cancelled, timed_out, failure, skipped: none is a pass.
-                failed=1
-              fi
-            done <<< "$REQUIRED"
+              echo "  $want @ $label: $result"
+              case "$result" in
+                success) ;;
+                pending) pending=1 ;;
+                failed) failed=1 ;;
+              esac
+            done <<<"$REQUIRED"
+
             if [ "$failed" -eq 1 ]; then
-              echo "FAIL: a required workflow did not succeed at $SHA"
+              echo "FAIL: a required workflow did not succeed"
               exit 1
             fi
             if [ "$pending" -eq 0 ]; then
-              echo "All required workflows succeeded at $SHA"
+              echo "All required workflows succeeded"
               break
             fi
             if [ "$(date +%s)" -ge "$deadline" ]; then
               echo "FAIL: required workflows did not complete before the deadline"
               exit 1
             fi
-            sleep 30
+            sleep 10
           done
 
   release:
@@ -193,15 +492,6 @@ jobs:
           VERSION=$(cat VERSION | tr -d '\n')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Check if tag exists
-        id: check_tag
-        run: |
-          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "tag_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "tag_exists=false" >> $GITHUB_OUTPUT
-          fi
 
       - name: Check if release exists
         id: check_release
@@ -332,13 +622,67 @@ jobs:
           test -s release/npm-sbom.cdx.json || { echo "FATAL: npm SBOM is empty"; exit 1; }
           echo "npm SBOM size: $(wc -c < release/npm-sbom.cdx.json) bytes"
 
+      # S-105: a release that changes workflow files cannot have its tag pushed
+      # by GITHUB_TOKEN ("refusing to allow a GitHub App to create or update
+      # workflow ... without workflows permission"). The old step echoed
+      # "continuing" and gh release create then died on "tag exists locally but
+      # has not been pushed" (run 36331009098). Now: a tag already on the remote
+      # (pre-pushed by the Release Manager) is reused only if it points at the
+      # release SHA; a rejected push with no remote tag fails HERE, loudly.
+      # Never --force, never delete a tag. Runs whenever the release is being
+      # created (not only when the tag is absent locally) so a pre-pushed tag
+      # at the wrong SHA is caught instead of silently released.
       - name: Create Git Tag
-        if: steps.check_tag.outputs.tag_exists == 'false'
+        if: steps.check_release.outputs.release_exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}" || echo "Tag push failed (may be blocked by repo rules), continuing..."
+          set -uo pipefail
+          TAG="v${VERSION}"
+          RELEASE_SHA="$(git rev-parse HEAD)"
+          # Commit the remote tag points at (peeled for an annotated tag), or empty.
+          remote_tag_sha() {
+            local out
+            out="$(git ls-remote --tags origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}")" || return 1
+            printf '%s\n' "$out" | awk -v p="refs/tags/${TAG}^{}" '$2==p{print $1; f=1} END{if(!f) exit 1}' \
+              || printf '%s\n' "$out" | awk -v r="refs/tags/${TAG}" '$2==r{print $1}'
+          }
+          reuse_or_fail() {
+            if [ "$1" = "$RELEASE_SHA" ]; then
+              echo "Tag ${TAG} already on remote at release SHA ${RELEASE_SHA}; reusing it."
+              git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null \
+                || git fetch --no-tags origin "refs/tags/${TAG}:refs/tags/${TAG}"
+              exit 0
+            fi
+            echo "ERROR: tag ${TAG} on remote points at $1, not the release SHA ${RELEASE_SHA}."
+            echo "Refusing to release. Never force-move or delete a release tag; bump the version instead."
+            exit 1
+          }
+          if LOCAL_SHA="$(git rev-parse -q --verify "refs/tags/${TAG}^{commit}")"; then
+            if [ "$LOCAL_SHA" != "$RELEASE_SHA" ]; then
+              echo "ERROR: local tag ${TAG} points at ${LOCAL_SHA}, not the release SHA ${RELEASE_SHA}."
+              exit 1
+            fi
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "${TAG}" -m "Release ${TAG}" "${RELEASE_SHA}" || exit 1
+          fi
+          if git push origin "refs/tags/${TAG}"; then
+            echo "Pushed tag ${TAG} at ${RELEASE_SHA}."
+            exit 0
+          fi
+          # Rejected. A tag already on the remote (pre-pushed by the Release
+          # Manager, before or during this run) is refused client-side, so this
+          # one check covers both; reuse it only at the release SHA.
+          REMOTE_SHA="$(remote_tag_sha)" || REMOTE_SHA=""
+          [ -n "$REMOTE_SHA" ] && reuse_or_fail "$REMOTE_SHA"
+          echo "ERROR: pushing tag ${TAG} was rejected and the tag is not on the remote."
+          echo "This happens when the release changes .github/workflows/ files: GITHUB_TOKEN lacks"
+          echo "the workflows permission. Workaround: the Release Manager pushes the tag with their"
+          echo "own credentials, then re-runs this workflow:"
+          echo "  git tag -a ${TAG} -m 'Release ${TAG}' ${RELEASE_SHA} && git push origin refs/tags/${TAG}"
+          exit 1
 
       - name: Extract changelog for this version
         if: steps.check_release.outputs.release_exists == 'false'
@@ -524,10 +868,11 @@ jobs:
           #   (cd loki-ts && bun install --production && bun run build) \
           #     || echo 'WARN: loki-ts build failed, using existing dist if present'
           # so a broken build yields exit 0 and a tarball carrying a STALE dist.
-          # publish-docker asserts `test -f dist/loki.js` after its own build,
-          # but publish-docker and publish-npm are PARALLEL siblings on
-          # `needs: release`: the channel with the assertion cannot stop the one
-          # without it, and npm has already shipped by the time Docker goes red.
+          # publish-docker-build asserts `test -f dist/loki.js` after its own
+          # build, but publish-docker-build and publish-npm are PARALLEL
+          # siblings on `needs: release`: the channel with the assertion
+          # cannot stop the one without it, and npm has already shipped by the
+          # time Docker goes red.
           set -euo pipefail
           want="$(cat VERSION)"
           # prepack's bun build writes to stdout too, so --silent is NOT
@@ -615,18 +960,31 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-docker:
+  # NATIVE PER-ARCH BUILD, NOT QEMU EMULATION (S-85).
+  #
+  # `docker/build-push-action` with `platforms: linux/amd64,linux/arm64` on a
+  # single ubuntu-latest runner built arm64 under QEMU user-mode emulation,
+  # which is slow enough to dominate this job's runtime. GitHub-hosted
+  # ubuntu-24.04-arm runners build arm64 natively, so each architecture now
+  # builds on its own native runner and pushes only its own digest (no tag);
+  # the publish-docker job below assembles the two digests into the one
+  # multi-arch manifest that carries every tag.
+  publish-docker-build:
     needs: release
     if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
-    runs-on: ubuntu-latest
-    # id-token: write is what makes cosign KEYLESS signing possible -- it mints
-    # the short-lived OIDC token that Fulcio exchanges for a signing
-    # certificate, so no private key is ever stored or rotated by us. Scoped to
-    # this job rather than the workflow: every other job here publishes
-    # artifacts and has no business minting identity tokens.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -650,7 +1008,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.13
-          # Rule of Two: this job holds a write token or publish secret, so it
+          # Rule of Two: this job holds a Docker Hub publish secret, so it
           # never restores a cache an issue-triggered job could have written.
           no-cache: true
 
@@ -662,11 +1020,12 @@ jobs:
           test -f dist/loki.js || { echo "FATAL: loki-ts/dist/loki.js not built"; exit 1; }
           ls -la dist/
 
-      - name: Set up QEMU (multi-arch)
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx (multi-arch)
+      - name: Set up Docker Buildx (native, no QEMU)
         uses: docker/setup-buildx-action@v3
+        with:
+          # Rule of Two: this job holds a Docker Hub publish secret, so it
+          # never restores a cache an issue-triggered job could have written.
+          cache-binary: false
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -674,17 +1033,90 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push (amd64 + arm64)
+      - name: Build and push by digest (${{ matrix.platform }}, native)
         id: build
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            asklokesh/loki-mode:v${{ needs.release.outputs.version }}
-            asklokesh/loki-mode:${{ needs.release.outputs.version }}
-            asklokesh/loki-mode:latest
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=asklokesh/loki-mode,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          test -n "$digest" || { echo "FATAL: build step produced no digest"; exit 1; }
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-docker:
+    needs: [release, publish-docker-build]
+    if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
+    runs-on: ubuntu-latest
+    # id-token: write is what makes cosign KEYLESS signing possible -- it mints
+    # the short-lived OIDC token that Fulcio exchanges for a signing
+    # certificate, so no private key is ever stored or rotated by us. Scoped to
+    # this job rather than the workflow: every other job here publishes
+    # artifacts and has no business minting identity tokens.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          # Rule of Two: this job holds a Docker Hub publish secret, so it
+          # never restores a cache an issue-triggered job could have written.
+          cache-binary: false
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Every tag the single-runner QEMU build used to push, unchanged.
+      - name: Create and push multi-arch manifest
+        id: build
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          tags=(
+            "asklokesh/loki-mode:v${{ needs.release.outputs.version }}"
+            "asklokesh/loki-mode:${{ needs.release.outputs.version }}"
+            "asklokesh/loki-mode:latest"
+          )
+          tag_args=()
+          for t in "${tags[@]}"; do tag_args+=(-t "$t"); done
+          sources=()
+          for d in *; do sources+=("asklokesh/loki-mode@sha256:${d}"); done
+          test "${#sources[@]}" -ge 2 || { echo "FATAL: expected 2 per-arch digests, found ${#sources[@]}"; exit 1; }
+          docker buildx imagetools create "${tag_args[@]}" "${sources[@]}"
+          # The manifest LIST's own digest (what the registry serves for the
+          # tag, and what gets signed below) is the sha256 of the exact bytes
+          # `imagetools inspect --raw` returns for it -- content-addressable,
+          # so no separate API call to resolve it can race what was just
+          # pushed.
+          digest="sha256:$(docker buildx imagetools inspect "asklokesh/loki-mode:v${{ needs.release.outputs.version }}" --raw | sha256sum | cut -d' ' -f1)"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       # SIGNING AND SBOM LIVE HERE, NOT IN provenance.yml, AND THAT IS THE POINT.
       #
@@ -706,7 +1138,8 @@ jobs:
       # We sign the DIGEST rather than a tag. Tags are mutable -- `latest` and
       # even a version tag can be repointed -- so a signature bound to a tag
       # attests to whatever that tag happens to mean today. A digest is the
-      # content itself.
+      # content itself. It is the manifest LIST digest: the same one every tag
+      # above now resolves to.
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
         with:
@@ -771,7 +1204,7 @@ jobs:
   # for details.
 
   update-homebrew:
-    needs: [release, publish-npm, publish-docker]
+    needs: [release]
     if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
     runs-on: ubuntu-latest
     permissions:

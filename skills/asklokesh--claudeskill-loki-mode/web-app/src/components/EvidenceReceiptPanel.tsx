@@ -231,18 +231,26 @@ function ReceiptRow({ proof }: { proof: ProofSummary }) {
                   label="Cost"
                   /* An absent cost reads UNKNOWN, never $0.00 -- a fabricated
                      zero in a verification surface is precisely the kind of
-                     confident wrong number this artifact exists to prevent. */
+                     confident wrong number this artifact exists to prevent.
+                     GET /api/proofs/<run_id> returns the raw proof.json, where
+                     cost is nested as cost.usd (see autonomy/lib/proof-generator.py
+                     and loki-ts/src/commands/proof.ts), not a flat cost_usd --
+                     that flat field only exists on the /api/proofs summary rows. */
                   value={
-                    typeof detail.cost_usd === 'number'
-                      ? `$${detail.cost_usd.toFixed(2)}`
+                    typeof detail.cost?.usd === 'number'
+                      ? `$${detail.cost.usd.toFixed(2)}`
                       : 'unknown'
                   }
                 />
                 <Field
                   label="Files changed"
+                  /* Same nesting: files_changed is an object with a `count`
+                     field in the raw proof.json (files_changed.count), not a
+                     flat number. ProofDetail has no typed shape for this
+                     nested object, so it is narrowed locally. */
                   value={
-                    typeof detail.files_changed === 'number'
-                      ? String(detail.files_changed)
+                    typeof (detail.files_changed as unknown as { count?: number } | null)?.count === 'number'
+                      ? String((detail.files_changed as unknown as { count: number }).count)
                       : 'unknown'
                   }
                 />

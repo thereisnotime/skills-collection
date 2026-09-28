@@ -147,6 +147,11 @@
   function orNotRecorded(v) {
     return (v === null || v === undefined) ? "not recorded" : esc(v);
   }
+  // A partly priced run's cost is a lower bound; say so only when a number prints.
+  function atLeastUsd(n, partial) {
+    var s = fmtUsd(n);
+    return (partial === true && s.charAt(0) === "$") ? "at least " + s : s;
+  }
   function badgeClass(v) {
     v = String(v || "").toUpperCase();
     if (v.indexOf("APPROVE") === 0 || v === "PASS" || v === "PASSED") return "b-approve";
@@ -296,7 +301,7 @@
         '<td class="mono">' + esc(p.model || "") + '</td>' +
         '<td class="num">' + (p.files_changed === null || p.files_changed === undefined ? "" : esc(p.files_changed)) + '</td>' +
         '<td>' + verdict + '</td>' +
-        '<td class="num mono">' + fmtUsd(p.cost_usd) + '</td></tr>';
+        '<td class="num mono">' + atLeastUsd(p.cost_usd, p.cost_partial) + '</td></tr>';
     }
     html += '<table><thead><tr>' +
       '<th>Run</th><th>When</th><th>Model</th><th class="num">Files</th>' +

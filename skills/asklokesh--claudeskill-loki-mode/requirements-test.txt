@@ -1,5 +1,7 @@
 pytest
 pytest-asyncio
+# Runs the suite across CPU cores via `pytest -n auto` (see test.yml python-tests).
+pytest-xdist
 # The MCP SDK client half (ClientSession/stdio_client), required by
 # tests/test-mcp-tool-surface-packaged.sh to handshake the packaged server.
 # Same bound as the canonical product constraint in mcp/requirements.txt --

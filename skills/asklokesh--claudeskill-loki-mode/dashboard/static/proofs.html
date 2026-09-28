@@ -114,6 +114,11 @@
     else if (s.split(".")[1].length === 1) s += "0";
     return "$" + s;
   }
+  // A partly priced run's cost is a lower bound; say so only when a number prints.
+  function atLeastUsd(n, partial) {
+    var s = fmtUsd(n);
+    return (partial === true && s.charAt(0) === "$") ? "at least " + s : s;
+  }
   function badgeClass(v) {
     v = String(v || "").toUpperCase();
     if (v.indexOf("APPROVE") === 0 || v === "PASS" || v === "PASSED") return "b-approve";
@@ -142,7 +147,7 @@
     for (var i = 0; i < proofs.length; i++) {
       var p = proofs[i];
       var rid = esc(p.run_id);
-      var usd = (p.cost_usd !== null && p.cost_usd !== undefined) ? fmtUsd(p.cost_usd) : "";
+      var usd = (p.cost_usd !== null && p.cost_usd !== undefined) ? atLeastUsd(p.cost_usd, p.cost_partial) : "";
       var fc = (p.files_changed !== null && p.files_changed !== undefined) ? (p.files_changed + " files") : "";
       var verdict = p.final_verdict ? '<span class="badge ' + badgeClass(p.final_verdict) + '" title="Recorded council vote, not a verification result">council ' + esc(p.final_verdict) + "</span>" : "";
       var ver = p.loki_version ? ("v" + esc(p.loki_version)) : "";

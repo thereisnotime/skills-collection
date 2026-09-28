@@ -48,7 +48,7 @@ const DEFAULT_STEPS: TourStep[] = [
     target: '[data-tour="deploy-tab"]',
     title: 'Deploy with one click',
     description:
-      'When you are happy with the result, head to the Deploy tab to push your project live. Supports Vercel, Netlify, Railway, and more.',
+      'When you are happy with the result, head to the Deploy tab to push your project live. Supports Vercel, Netlify, and GitHub Pages.',
     position: 'bottom',
   },
 ];

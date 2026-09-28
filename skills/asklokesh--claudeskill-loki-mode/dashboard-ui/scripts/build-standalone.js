@@ -1800,7 +1800,7 @@ function generateStandaloneHTML(bundleCode) {
              the only place that fact surfaced was a bill. Shown ALWAYS, not
              just when a cap exists, because "no cap" is the state a user most
              needs to know about. -->
-        <div id="budget-banner" style="display:none;margin-bottom:12px;padding:10px 12px;
+        <div id="cost-budget-banner" style="display:none;margin-bottom:12px;padding:10px 12px;
              border:1px solid var(--loki-border);border-radius:6px;font-size:12px;"></div>
         <loki-cost-dashboard id="cost-dashboard"></loki-cost-dashboard>
       </div>
@@ -2417,7 +2417,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // that sets one. Never invents a number: an unknown current cost reads
     // "not measured", not $0.00.
     window.loadBudget = function () {
-      var el = document.getElementById('budget-banner');
+      var el = document.getElementById('cost-budget-banner');
       if (!el) return;
       fetch('/api/budget', { headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : null; })
@@ -2468,7 +2468,8 @@ document.addEventListener('DOMContentLoaded', function() {
           if (!d) return;
           var rows = Array.isArray(d) ? d : (d.learnings || []);
           if (!rows.length) return;      // nothing learned yet: say nothing
-          rows = rows.slice().reverse().slice(0, 8);
+          // /api/learnings already returns newest first; do not re-reverse.
+          rows = rows.slice(0, 8);
           // Every field is untrusted text (written by the run) going into
           // innerHTML, so each one is escaped.
           var esc = function (v) { var e = document.createElement('div'); e.textContent = String(v); return e.innerHTML; };
@@ -2513,7 +2514,8 @@ document.addEventListener('DOMContentLoaded', function() {
           if (!d) return;                      // endpoint absent: leave hidden
           var rows = Array.isArray(d) ? d : (d.proofs || d.receipts || []);
           if (!rows.length) return;            // no receipts yet: say nothing
-          rows = rows.slice().reverse().slice(0, 10);
+          // /api/proofs already returns newest first; do not re-reverse.
+          rows = rows.slice(0, 10);
           // Every field is untrusted text (written by the run) going into
           // innerHTML, so each one is escaped.
           var esc = function (v) { var e = document.createElement('div'); e.textContent = String(v); return e.innerHTML; };

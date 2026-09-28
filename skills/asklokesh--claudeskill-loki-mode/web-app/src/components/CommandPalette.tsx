@@ -96,11 +96,21 @@ function HighlightedText({ text, indices }: { text: string; indices: number[] })
   );
 }
 
+// S-160: a failed file search must not read as "No results found". Pure (no
+// types beyond primitives) so CommandPalette.state.test.mjs can evaluate it
+// under plain `node --test`.
+export function paletteStatusMessage(totalResults: number, searching: boolean, failed: boolean): string | null {
+  if (searching) return null;
+  if (failed) return 'File search failed';
+  return totalResults === 0 ? 'No results found' : null;
+}
+
 export function CommandPalette({ isOpen, onClose, commands, sessionId, onFileSelect }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [fileResults, setFileResults] = useState<FileSearchResult[]>([]);
   const [fileSearching, setFileSearching] = useState(false);
+  const [fileSearchFailed, setFileSearchFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -116,6 +126,7 @@ export function CommandPalette({ isOpen, onClose, commands, sessionId, onFileSel
       setSelectedIndex(0);
       setFileResults([]);
       setFileSearching(false);
+      setFileSearchFailed(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -158,6 +169,7 @@ export function CommandPalette({ isOpen, onClose, commands, sessionId, onFileSel
     if (!sessionId || !query.trim()) {
       setFileResults([]);
       setFileSearching(false);
+      setFileSearchFailed(false);
       return;
     }
 
@@ -168,8 +180,10 @@ export function CommandPalette({ isOpen, onClose, commands, sessionId, onFileSel
       try {
         const results = await api.searchFiles(sessionId, query);
         setFileResults(results.filter(r => r.type === 'file'));
+        setFileSearchFailed(false);
       } catch {
         setFileResults([]);
+        setFileSearchFailed(true);
       }
       setFileSearching(false);
     }, 200);
@@ -242,6 +256,7 @@ export function CommandPalette({ isOpen, onClose, commands, sessionId, onFileSel
   const hasSettings = settingsResults.length > 0;
   const hasFiles = fileResults.length > 0;
   const showFileSearching = fileSearching && query.trim().length > 0;
+  const statusMessage = paletteStatusMessage(totalResults, showFileSearching, fileSearchFailed);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]" onClick={onClose}>
@@ -387,9 +402,9 @@ export function CommandPalette({ isOpen, onClose, commands, sessionId, onFileSel
             </div>
           )}
 
-          {/* No results */}
-          {totalResults === 0 && !showFileSearching && (
-            <div className="px-4 py-8 text-center text-sm text-muted">No results found</div>
+          {/* S-160: file-search failure or a genuine empty result */}
+          {statusMessage && (
+            <div className="px-4 py-8 text-center text-sm text-muted" role={fileSearchFailed ? 'alert' : undefined}>{statusMessage}</div>
           )}
         </div>
       </div>

@@ -604,7 +604,7 @@ export class LokiMigrationDashboard extends LokiElement {
             ${icon}
             <span class="migration-title">Migration Dashboard</span>
           </div>
-          <div class="empty-state">No migration data available</div>
+          <div class="empty-state status-failed">Could not load migrations: ${this._escapeHtml(this._error)}</div>
         </div>
       `;
       return;

@@ -1,5 +1,10 @@
-import { describe, expect, test } from "bun:test"
-import { junitCases, passthroughArgs, rerunCandidates } from "../scripts/run-tests"
+import { afterAll, describe, expect, test } from "bun:test"
+import { spawn, spawnSync } from "node:child_process"
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import path from "node:path"
+import { junitCases, passTimeoutMs, passthroughArgs, rerunCandidates } from "../scripts/run-tests"
+import { alive } from "./helpers/process"
 
 const junit = (suites: string) => `<?xml version="1.0"?>\n<testsuites name="bun test">\n${suites}\n</testsuites>`
 const ok = (file: string, n: number) => `<testcase name="t${n}" classname="g" time="0" file="${file}" line="${n}" />`
@@ -101,5 +106,132 @@ describe("run-tests: choosing files to re-run from a bun junit report", () => {
     expect(passthroughArgs(["--timeout=100", "tests/a.test.ts", "--bail"])).toEqual(["--timeout=100", "--bail"])
     expect(passthroughArgs(["--reporter", "junit", "--reporter-outfile", "/tmp/out.xml", "--timeout=5"])).toEqual(["--timeout=5"])
     expect(passthroughArgs(["--parallel", "--reporter=junit", "--reporter-outfile=/tmp/out.xml", "-t", "foo"])).toEqual(["-t", "foo"])
+  })
+})
+
+const RUNNER = path.join(__dirname, "../scripts/run-tests.ts")
+const fixtureRoots: string[] = []
+afterAll(() => fixtureRoots.forEach((dir) => rmSync(dir, { recursive: true, force: true })))
+
+function fixture(body: string): string {
+  const dir = mkdtempSync(path.join(tmpdir(), "run-tests-watchdog-"))
+  fixtureRoots.push(dir)
+  writeFileSync(path.join(dir, "fixture.test.ts"), body)
+  return dir
+}
+
+function readPid(file: string): number {
+  return Number(readFileSync(file, "utf8").trim())
+}
+
+// The worker records its own pid, leaves an orphan in its process group (the
+// shape the stalled ce-work harness runs were suspected of), then never finishes.
+const HANG = `
+import { test } from "bun:test"
+import { spawnSync } from "node:child_process"
+import { writeFileSync } from "node:fs"
+test("never finishes", async () => {
+  writeFileSync("worker.pid", String(process.pid))
+  spawnSync("sh", ["-c", "sleep 300 >/dev/null 2>&1 & echo $! > orphan.pid"])
+  writeFileSync("started", "")
+  await new Promise(() => {})
+}, 600_000)
+`
+
+describe("run-tests: stall watchdog", () => {
+  test("a pass that outlives its limit fails with a process listing and leaves nothing running", () => {
+    const dir = fixture(HANG)
+    const started = Date.now()
+    const r = spawnSync(process.execPath, [RUNNER, "./fixture.test.ts"], {
+      cwd: dir,
+      encoding: "utf8",
+      env: { ...process.env, CE_TEST_PASS_TIMEOUT_SECONDS: "3" },
+      timeout: 60_000,
+      killSignal: "SIGKILL",
+    })
+    const worker = readPid(path.join(dir, "worker.pid"))
+    const orphan = readPid(path.join(dir, "orphan.pid"))
+    try {
+      expect(r.signal).toBeNull()
+      expect(r.status).not.toBe(0)
+      expect(Date.now() - started).toBeLessThan(30_000)
+      expect(r.stderr).toContain("stalled")
+      expect(r.stderr).toContain("sleep 300")
+      expect(alive(worker)).toBe(false)
+      expect(alive(orphan)).toBe(false)
+    } finally {
+      for (const pid of [worker, orphan]) if (alive(pid)) process.kill(pid, "SIGKILL")
+    }
+  }, 90_000)
+
+  test("a pass that finishes within its limit keeps its normal result", () => {
+    const dir = fixture(`import { test, expect } from "bun:test"\ntest("ok", () => expect(1).toBe(1))\n`)
+    const r = spawnSync(process.execPath, [RUNNER, "./fixture.test.ts"], {
+      cwd: dir,
+      encoding: "utf8",
+      env: { ...process.env, CE_TEST_PASS_TIMEOUT_SECONDS: "60" },
+      timeout: 60_000,
+    })
+    expect(r.status).toBe(0)
+    expect(r.stderr).not.toContain("stalled")
+  }, 90_000)
+
+  test("a passing run leaves nothing from its pass running", () => {
+    const dir = fixture(`import { test } from "bun:test"
+import { spawnSync } from "node:child_process"
+test("leaves an orphan behind", () => { spawnSync("sh", ["-c", "sleep 300 >/dev/null 2>&1 & echo $! > orphan.pid"]) })
+`)
+    const r = spawnSync(process.execPath, [RUNNER, "./fixture.test.ts"], { cwd: dir, encoding: "utf8", timeout: 60_000 })
+    const orphan = readPid(path.join(dir, "orphan.pid"))
+    try {
+      expect(r.status).toBe(0)
+      expect(alive(orphan)).toBe(false)
+    } finally {
+      if (alive(orphan)) process.kill(orphan, "SIGKILL")
+    }
+  }, 90_000)
+
+  // Every signal a terminal or a tool sends the runner; the detached pass gets none of them directly.
+  test.each([
+    ["SIGINT", 130],
+    ["SIGTERM", 143],
+    ["SIGHUP", 129],
+    ["SIGQUIT", 131],
+  ] as const)("%s to the runner stops the pass it started", async (signal, status) => {
+    const dir = fixture(HANG)
+    const runner = spawn(process.execPath, [RUNNER, "./fixture.test.ts"], {
+      cwd: dir,
+      env: { ...process.env, CE_TEST_PASS_TIMEOUT_SECONDS: "120" },
+      stdio: "ignore",
+    })
+    const exited = new Promise<number | null>((resolve) => runner.on("exit", (code) => resolve(code)))
+    const deadline = Date.now() + 30_000
+    while (!existsSync(path.join(dir, "started")) && Date.now() < deadline) await Bun.sleep(100)
+    const worker = readPid(path.join(dir, "worker.pid"))
+    const orphan = readPid(path.join(dir, "orphan.pid"))
+    try {
+      runner.kill(signal)
+      // The signal's conventional status, so an interrupt is not mistaken for a test failure.
+      expect(await exited).toBe(status)
+      const settle = Date.now() + 5_000
+      while (alive(worker) && Date.now() < settle) await Bun.sleep(100)
+      expect(alive(worker)).toBe(false)
+      expect(alive(orphan)).toBe(false)
+    } finally {
+      for (const pid of [worker, orphan]) if (alive(pid)) process.kill(pid, "SIGKILL")
+      if (runner.exitCode === null) runner.kill("SIGKILL")
+    }
+  }, 90_000)
+
+  test("reads the limit override in seconds and ignores unusable values", () => {
+    expect(passTimeoutMs({ CE_TEST_PASS_TIMEOUT_SECONDS: "90" })).toBe(90_000)
+    expect(passTimeoutMs({})).toBe(20 * 60_000)
+    for (const bad of ["", "abc", "0", "-5"]) {
+      expect(passTimeoutMs({ CE_TEST_PASS_TIMEOUT_SECONDS: bad })).toBe(20 * 60_000)
+    }
+    // Watch and hot modes stay alive on purpose; a limit would kill a healthy session.
+    for (const flag of ["--watch", "--hot"]) {
+      expect(passTimeoutMs({ CE_TEST_PASS_TIMEOUT_SECONDS: "5" }, ["tests/a.test.ts", flag])).toBeNull()
+    }
   })
 })

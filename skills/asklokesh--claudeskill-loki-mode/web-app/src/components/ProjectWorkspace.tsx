@@ -237,20 +237,35 @@ function flattenFiles(nodes: FileNode[], prefix = ''): { path: string; name: str
 
 type WorkspaceTab = 'code' | 'preview' | 'config' | 'secrets' | 'prd' | 'dashboard' | 'deploy' | 'git' | 'cicd' | 'insights' | 'docs';
 
+// S-162: a failed fetch must not read as a genuine empty. The server returns
+// 200 with an empty body for the real empty case, so a rejection is a failure.
+function panelEmptyText(kind: 'secrets' | 'docs', loadFailed: boolean): string {
+  if (kind === 'secrets') {
+    return loadFailed
+      ? 'Could not load secrets. Check that the server is running and try again.'
+      : 'No secrets configured yet. Add your first secret below.';
+  }
+  return loadFailed
+    ? 'Could not load documentation. Check that the server is running and try again.'
+    : 'No documentation generated yet. Click "Generate Documentation" to create docs for this project.';
+}
+
 function SecretsPanel() {
   const [secrets, setSecrets] = useState<Record<string, string>>({});
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [showValues, setShowValues] = useState<Set<string>>(new Set());
 
   const fetchSecrets = useCallback(async () => {
     try {
       const data = await api.getSecrets();
       setSecrets(data);
+      setLoadFailed(false);
     } catch {
-      // ignore fetch errors
+      setLoadFailed(true);
     }
     setLoading(false);
   }, []);
@@ -365,8 +380,8 @@ function SecretsPanel() {
 
         {secretKeys.length === 0 && (
           <div className="card p-4 mb-6">
-            <p className="text-sm text-muted-accessible text-center py-4">
-              No secrets configured yet. Add your first secret below.
+            <p className={`text-sm text-center py-4 ${loadFailed ? 'text-danger' : 'text-muted-accessible'}`}>
+              {panelEmptyText('secrets', loadFailed)}
             </p>
           </div>
         )}
@@ -427,6 +442,7 @@ function DocsPanel({ sessionId }: { sessionId: string }) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -436,8 +452,9 @@ function DocsPanel({ sessionId }: { sessionId: string }) {
         const filesData = await api.getDocFiles(sessionId);
         setFiles(filesData.files);
       }
+      setLoadFailed(false);
     } catch {
-      // ignore
+      setLoadFailed(true);
     }
     setLoading(false);
   }, [sessionId]);
@@ -586,9 +603,9 @@ function DocsPanel({ sessionId }: { sessionId: string }) {
               </button>
             ))}
           </div>
-        ) : !status?.has_docs ? (
-          <p className="text-sm text-muted">
-            No documentation generated yet. Click "Generate Documentation" to create docs for this project.
+        ) : loadFailed || !status?.has_docs ? (
+          <p className={`text-sm ${loadFailed ? 'text-error' : 'text-muted'}`}>
+            {panelEmptyText('docs', loadFailed)}
           </p>
         ) : null}
 
@@ -2461,8 +2478,9 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
             <CostEstimator
               complexity={buildMode === 'quick' ? 'simple' : buildMode === 'max' ? 'complex' : 'standard'}
               provider={selectedProvider}
-              // No cap configured: 0 makes the estimator use its labelled per-complexity estimate.
-              estimatedIterations={buildStatus.maxIterations ?? 0}
+              // The iteration cap is a ceiling, not an estimate (a cap of 1000 priced
+              // 1000 iterations). 0 uses the labelled per-complexity estimate.
+              estimatedIterations={0}
               onConfirm={async () => {
                 setShowCostEstimator(false);
                 try {

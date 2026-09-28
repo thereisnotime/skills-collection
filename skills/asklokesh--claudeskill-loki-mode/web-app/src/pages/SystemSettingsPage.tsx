@@ -69,7 +69,6 @@ interface DataRetentionConfig {
 const DEFAULT_PROVIDERS: ProviderConfig[] = [
   { id: 'claude', name: 'Claude', secretKey: 'ANTHROPIC_API_KEY', model: 'claude-opus-4-7', fallbackOrder: 1, enabled: true },
   { id: 'codex', name: 'Codex', secretKey: 'OPENAI_API_KEY', model: 'gpt-5.3-codex', fallbackOrder: 2, enabled: true },
-  { id: 'gemini', name: 'Gemini', secretKey: 'GOOGLE_API_KEY', model: 'gemini-3-pro-medium', fallbackOrder: 3, enabled: false },
 ];
 
 const DEFAULT_BUILD: BuildDefaults = {

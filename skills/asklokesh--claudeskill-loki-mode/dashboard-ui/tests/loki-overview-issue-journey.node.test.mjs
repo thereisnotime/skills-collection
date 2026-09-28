@@ -38,6 +38,9 @@ before(async () => ({ LokiOverview } = await import('../components/loki-overview
 function mounted() {
   const el = new LokiOverview();
   el.attachShadow({ mode: 'open' });
+  // render() shows _renderDisconnected() unless _data.connected is true; the
+  // journey markup under test only exists in the connected branch.
+  el._data.connected = true;
   return el;
 }
 
@@ -90,6 +93,25 @@ describe('overview issue-to-PR journey', () => {
     assert.match(out, /href="https:\/\/github\.com\/owner\/repo\/pull\/43"/);
     assert.match(out, />Open PR</);
     assert.match(out, />VERIFY</);
+  });
+
+  it('labels a code_change first result "From the run receipt", never "Plan only" (BACKLOG 122)', () => {
+    const el = mounted();
+    el._journeyState = 'ready';
+    el._journeyProof = {
+      facts: { journey: {
+        issue: { ref: 'owner/repo#42' },
+        time_to_first_result_sec: 12,
+        first_result_kind: 'code_change',
+        first_result_verified_patch: false,
+      } },
+      honesty: { headline: 'NOT VERIFIED', degraded: [] },
+    };
+    el.render();
+    const out = el.shadowRoot.innerHTML;
+    assert.match(out, /12s to first code change/);
+    assert.match(out, /From the run receipt/);
+    assert.doesNotMatch(out, /Plan only, no code change yet/);
   });
 
   it('does not treat a non-issue receipt as PR-ready', () => {

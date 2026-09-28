@@ -250,7 +250,7 @@ class BuildSupervisorTests(unittest.TestCase):
             profile,
         )
         self.assertIn('(deny network-outbound (remote tcp "*:5432"))', profile)
-        self.assertIn('(deny network-bind (local tcp "*:8787"))', profile)
+        self.assertIn('(deny network-bind (local tcp4 "*:8787"))', profile)
         self.assertIn('(deny network-outbound (remote unix-socket))', profile)
         resolver_rule = (
             '(allow network-outbound '

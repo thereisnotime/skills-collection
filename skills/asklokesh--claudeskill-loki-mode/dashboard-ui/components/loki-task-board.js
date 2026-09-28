@@ -629,6 +629,15 @@ export class LokiTaskBoard extends LokiElement {
           color: var(--loki-red);
         }
 
+        .load-error-banner {
+          margin-bottom: 12px;
+          padding: 8px 12px;
+          border: 1px solid var(--loki-red);
+          border-radius: 6px;
+          color: var(--loki-red);
+          font-size: 13px;
+        }
+
         .kanban-board {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -1626,7 +1635,13 @@ export class LokiTaskBoard extends LokiElement {
         `;
       };
 
+      // The catch in _loadTasks falls back to local tasks; keep the failure visible.
+      const loadErrorBanner = this._error
+        ? `<div class="load-error-banner" role="alert">Server tasks could not be loaded; showing local tasks only (${this._escapeHtml(this._error)})</div>`
+        : '';
+
       return `
+        ${loadErrorBanner}
         <div class="filter-bar">
           <span class="filter-label">Filter:</span>
           ${filters.map(f => `

@@ -124,6 +124,7 @@ function findPython3Sync(): string | null {
   for (const cand of ["python3.12", "python3"]) {
     try {
       const r = spawnSync("sh", ["-c", `command -v ${cand}`], {
+        env: { ...process.env },
         timeout: CAPTURE_TIMEOUT_MS,
         encoding: "utf8",
       });
@@ -185,6 +186,7 @@ function captureCrashSync(opts: CrashOpts): void {
     }
     const args = buildCrashArgs(script, opts);
     spawnSync(py, args, {
+      env: { ...process.env },
       timeout: CAPTURE_TIMEOUT_MS,
       stdio: "ignore",
     });

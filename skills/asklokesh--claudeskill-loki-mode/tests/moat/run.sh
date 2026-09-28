@@ -38,7 +38,7 @@ export LC_ALL=C
 # Each property script exports these itself; set here too so one that forgets
 # still cannot phone home or wait on an update check under the gate.
 export LOKI_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 LOKI_NO_UPDATE_CHECK=1 CI=true \
-  LOKI_DELEGATE_PR=0 LOKI_DASHBOARD=false
+  LOKI_DELEGATE_PR=0 LOKI_DASHBOARD=false LOKI_NO_BROWSER=1
 # Route and fallback selectors inherited from the caller's shell would silently
 # move every unmarked call onto one route. A script that needs a route sets it
 # per call.
@@ -266,6 +266,28 @@ could_not_check() {
 RELEASE_RE='^v[0-9]+[.][0-9]+[.][0-9]+$'
 BOOTSTRAP=""
 
+# symlinked_at REFS_FILE OUT NAME...: appends one "ref:path" line (the same
+# shape git grep -l prints) to OUT per tag in REFS_FILE (bare tag names, one
+# per line) x NAME whose tests/moat/NAME blob is a symlink (mode 120000).
+# git grep -l and -L both silently SKIP a symlink blob: neither lists it as a
+# match nor as an empty file, so it is indistinguishable from a tag that never
+# had the file at all, and a real baseline parked behind a symlink drops out
+# of the ratchet with no warning. git cat-file --batch-check reports every
+# blob's mode regardless of what it points to, in one call over every
+# candidate tag x name pair (same per-tag-call cost concern as the grep
+# calls above). Never truncates OUT: read_baselines wants a fresh file,
+# unreached_release wants to add to its existing grep hits.
+symlinked_at() {
+  local refs_file="$1" out="$2" name
+  shift 2
+  [ -s "$refs_file" ] || return 0
+  { for name in "$@"; do
+      awk -v n="$name" '{ r = "refs/tags/" $1 ":tests/moat/" n; print r, r }' "$refs_file"
+    done
+  } | git -C "$top" cat-file --batch-check='%(objectmode) %(rest)' 2>> "$W/git.err" \
+    | awk '$1 == "120000" { print $2 }' >> "$out"
+}
+
 # read_baselines: tests/moat/pending.txt and cases.txt at every tag in
 # $W/cands (newest first), in two git calls. Per-tag git calls took 6.5s over
 # the repo's 842 tags. Writes $W/NAME.tags (the tags carrying NAME, newest
@@ -275,7 +297,7 @@ BOOTSTRAP=""
 # must never be taken for an absent file or a check that found nothing (a
 # bootstrap, or an empty violation list, would accept any list).
 read_baselines() {
-  local refs rc_lines rc_empty
+  local refs rc_lines rc_empty ref path
   refs="$(sed 's|^|refs/tags/|' "$W/cands")"
   # -F -e '' matches every line whatever grep.patternType says; -L lists the
   # empty (0-byte) files the first call cannot see. The explicit --no-* flags
@@ -288,6 +310,16 @@ read_baselines() {
   git -C "$top" grep -L --no-color -a -F -e '' $refs \
     -- tests/moat/pending.txt tests/moat/cases.txt > "$W/base.empty" 2>> "$W/git.err"
   rc_empty=$?
+  # A symlinked pending.txt/cases.txt (mode 120000) is invisible to both calls
+  # above (see symlinked_at): refuse it by name instead of letting it silently
+  # read as a tag that never carried the file.
+  : > "$W/base.symlink"
+  symlinked_at "$W/cands" "$W/base.symlink" pending.txt cases.txt
+  if [ -s "$W/base.symlink" ]; then
+    while IFS=: read -r ref path; do
+      echo "refusing to read a symlinked $path at ${ref#refs/tags/} (git grep silently treats a symlink blob as absent, never as a baseline)" >> "$W/git.err"
+    done < "$W/base.symlink"
+  fi
   # Exit 1 is "no match". An unreadable tree is fatal (128), but an unreadable
   # blob only prints an error and still exits 0 or 1, so any stderr counts too.
   [ "$rc_lines" -le 1 ] && [ "$rc_empty" -le 1 ] && [ ! -s "$W/git.err" ] || return 1
@@ -374,6 +406,10 @@ unreached_release() {
   git -C "$top" grep -L --no-color -a -F -e '' $refs -- "tests/moat/$name" \
     >> "$W/unreached.$name.hits" 2>> "$W/git.err"
   rc_L=$?
+  # A symlinked tests/moat/$name at an unreached tag is invisible to both
+  # calls above (see symlinked_at): treat it exactly like a grep -l hit, so
+  # the carrying-tag naming below fires instead of a silent bootstrap.
+  symlinked_at "$W/cands.unreached" "$W/unreached.$name.hits" "$name"
   [ "$rc_l" -le 1 ] && [ "$rc_L" -le 1 ] && [ ! -s "$W/git.err" ] || {
     could_not_check "cannot read tests/moat/$name at an unreached release tag"
     return 1

@@ -92,6 +92,18 @@ write_notests() {
 { "runner": "none", "pass": "inconclusive" }
 JSON
 }
+# Legacy shape: some older writers recorded runner=="none" with a literal
+# boolean pass:true (not the "inconclusive" string NEGATIVE-B uses). This is
+# still "no real suite ran" and must not fast-path. It exists separately from
+# NEGATIVE-B because a mutation that drops the `runner != 'none'` guard and
+# relies on `passed is True` alone is NOT caught by NEGATIVE-B (its pass value
+# is the string "inconclusive", never `True`, so that mutation leaves
+# NEGATIVE-B green either way -- proven by the RED run in S-142's evidence).
+write_notests_legacy_pass_true() {
+    cat > "$WORK/.loki/quality/test-results.json" <<'JSON'
+{ "runner": "none", "pass": true }
+JSON
+}
 write_red_tests() {
     cat > "$WORK/.loki/quality/test-results.json" <<'JSON'
 { "runner": "jest", "pass": false, "total": 12, "passed": 8, "failed": 4 }
@@ -155,6 +167,15 @@ write_notests
 r=$(check_now false false)
 [ "$r" = "1" ] && ok "NEGATIVE-B: runner==none (no real suite) -> does NOT fast-path (inconclusive != green)" \
                || bad "NEGATIVE-B: no-suite run fast-pathed (got $r) -- SAFETY WEAKENED"
+
+# === NEGATIVE-B2: runner==none, legacy pass:true shape -> does NOT fast-path ===
+# S-142: catches a mutation that drops the `runner != 'none'` guard and keys
+# only on `passed is True`. NEGATIVE-B alone cannot catch that mutation since
+# its pass value is the string "inconclusive", never boolean True.
+write_notests_legacy_pass_true
+r=$(check_now false false)
+[ "$r" = "1" ] && ok "NEGATIVE-B2: runner==none + legacy pass:true -> does NOT fast-path (runner guard holds)" \
+               || bad "NEGATIVE-B2: no-suite legacy-pass run fast-pathed (got $r) -- runner!='none' guard missing"
 
 # === NEGATIVE-C: red tests -> does NOT fast-path =============================
 write_red_tests

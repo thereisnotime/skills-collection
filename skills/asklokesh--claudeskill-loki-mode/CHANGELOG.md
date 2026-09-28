@@ -5,6 +5,383 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Deprecated
+- `loki legacy` (the pre-v10 engine) is deprecated as of v10.0.0 and remains fully supported; no removal date is set. Set `LOKI_ENGINE=legacy` to pin it. See docs/v10/GUIDE.md (E-35).
+
+## v10.1.0 (2026-09-28)
+
+Loki 10 engine improvements (still opt-in: `LOKI_ENGINE=v10`; the default engine is unchanged).
+
+### Added
+- Model cascade and lean small path (E-64): small tasks run one implement session on sonnet with the cached repo map and the impacted tests; fix rounds stay on the cheap model and escalate to the top model only on a real test failure, with the reason in the event log. `LOKI_E10_CASCADE=0` restores the previous behaviour. Not yet re-measured on the full 29-task arm, so the release gate numbers in v10.0.0 still describe the default configuration.
+- Every session exit is classified, including limit kills (125, 143); progress heartbeat every 30s by default (E-68).
+- Eval harness: `no_change_needed` expected outcome, for tasks where the feature already exists (EV-13).
+- `loki modernize` groundwork, not yet wired to the CLI: event types and state paths, inventory, dependency clustering with an iterative SCC that handles 100,000-node chains, up-front estimate (M-01, M-02, M-05, M-06).
+
+### Fixed
+- Cost never shows $0.00 unless the provider priced real usage; unmeasured or partial cost says so in output, receipt, status and dashboard (E-69).
+- `scripts/release.sh --bump-only` no longer rewrites dist bundles whose only change is the debugId (E-72).
+- The engine10 size check now holds the core engine under 5,000 lines and gives `loki modernize` its own 4,000-line cap; core code may not import it (D33, E-76).
+- New guard: no test may hardcode a "future" version that a real release can overtake, the cause of the blocked v10.0.0 publish (E-73).
+
+## v10.0.1 (2026-09-28)
+
+Republishes v10.0.0, which was tagged but never reached npm: its release commit failed two Tests shards because a test used 9.99.0 as a "far-future" version, which is older than 10.0.0. No product change; the v10.0.0 notes below apply in full.
+
+### Fixed
+- `tests/test-start-update-hint.sh` uses 999.0.0 as the far-future latest, so the stale-install warning test (and the trust-core baseline that runs it) stays meaningful across major versions.
+
+## v10.0.0 (2026-09-28)
+
+Loki 10: a new engine (TypeScript/Bun, under 5,000 lines, one state machine: intake, plan, Wall, one implement session, fast verify with at most 2 fix rounds, Seal, PR, async deep verify; 15-minute cap; one append-only event log per run). It ships OPT-IN: run `LOKI_ENGINE=v10 loki "<task>"` or `LOKI_ENGINE=v10 loki owner/repo#N`. The default engine is still legacy, because the release gate below was not met. Legacy is unchanged and is removed only after v10 becomes the default.
+
+### Release gate (D30), small tier, 29 tasks with hidden tests, all arms claude-opus-5-5
+
+| arm | completed | cost per completed task | p50 / p90 time to PR |
+|---|---|---|---|
+| raw `claude -p` | 27/29 (93.1%) | $0.2363 | 39s / 68s |
+| v10, default settings | 26/29 (89.7%) | $0.3946 (2 runs unmeasured) | 85.5s / 133s |
+| v10, lean configuration (`LOKI_E10_PLAN=0 LOKI_E10_WALL=0`) | 27/29 (93.1%) | $0.1616 (1 run unmeasured) | 40s / 67s |
+| legacy | 15/29 (26/29 pass the hidden tests; legacy opens no PR) | not measured | 190s / 441s |
+
+- Targets were: at least 2x fewer failures than raw (96.5% or higher), at most half raw's cost per completed task ($0.118), and no slower than raw. Not met: the default v10 settings are worse than raw on all three; the lean configuration ties raw on completion and time and is 32% cheaper, short of 2x.
+- Misses: default v10 missed aiq-52-searchbar (the feature already exists; the "no change needed" outcome is in progress), pub-click-3059 and pub-humanize-174; raw missed pub-click-3059 and pub-humanize-174.
+- Medium and large tiers are not built yet, so no multi-tier claim is made. Full numbers and sources: docs/v10/METRICS.md.
+
+### Added in this release
+- Pulse STALE_PROGRESS check (E-63); dashboard shows its own and the CLI's version and replaces an older Loki dashboard on its port (E-70); engine sessions use a lean SDK shape (6 tools, no legacy prompt append, no MCP, project settings only), cutting a session's fixed prompt from about 20.4k to 7.1k tokens (E-65); docs/v10/MODERNIZE.md, the design for `loki modernize` (Part 2).
+
+## v9.81.0 (2026-09-28)
+
+### Added
+- Loki 10 engine (opt-in, `LOKI_ENGINE=v10`): cost path for small tasks (plan call skipped, Wall on sonnet with a short brief, sized "normal" when the repo map is truncated) (E-45); first-run preflight with actionable refusals (E-36); runs from the npm package via a static module registry (E-32); `--resume` through the supervisor (E-46); detached deep verify after the PR and Slack notify (E-48); issue-ref runs create their run dir before the fetch (E-58).
+- Eval: the harness passes `LOKI_TS_ENTRY` and `LOKI_E10_*` knobs to the v10 arm (E-52) and reaps arm processes that escape the timeout group (EV-10).
+- `scripts/local-ci.sh` fast tier runs gitleaks over the push range when installed (E-60).
+
+### Fixed
+- Engine: pytest uses the repo's own virtualenv (E-53); Wall test paths normalized (E-56); a killed Wall session never copies its file (E-54); Seal flags any change to a pre-existing test file, including a symlink swap (E-55); receipts record the provider-reported model and the summary counts cache tokens once (E-59).
+- Engine preflight raises in-process and only the CLI entry exits 2, so the suites pass on hosts without the claude CLI, gh auth or a git identity.
+
+### Measured (not a release claim)
+- Small-tier eval, claude-opus-5-5: raw `claude -p` 27/29 (93.1%), $0.2363 per completed task, p50 39s; legacy 15/29 completed (26/29 hidden tests pass, no PR opened), cost not measured. v10 on 5 tasks: full design 4/5 at $0.595 per completed, Wall off 5/5 at $0.398. The v10 full arm has not run; the default stays legacy.
+
+## v9.80.1 (2026-09-28)
+
+### Fixed
+- Security Audit: three Loki 10 test fixtures (a planted AWS-shaped string for the deep-verify secret-scan test and two CANARY/WITHHELD token canaries) are baselined in `.gitleaksignore`; none is a real credential. The gitleaks step failed on the v9.79.0 and v9.80.0 release commits, so those two tags were never published to npm. This release carries their content (see the v9.80.0 and v9.79.0 entries below).
+
+## v9.80.0 (2026-09-28)
+
+### Added
+- Loki 10 engine (opt-in, `LOKI_ENGINE=v10`): the real entry runs end to end (supervisor and worker, PR opened only by the supervisor with the pinned origin); the temporary run.ts glue is deleted (E-42).
+- Eval: gate report generator and publish script for the loki10-gate marker (E-33, EV-6); legacy arm pinned to `LOKI_ENGINE=legacy` with a `--tasks` subset (E-38); eval PR path regression test (E-51).
+- Engine tests: interrupt and resume end to end (E-39); live PR smoke on a sandbox repo, skipped without `LOKI_E10_LIVE_REPO` (E-40).
+
+### Fixed
+- Agent SDK 0.3.283, so claude-opus-5-5 runs on the SDK route (0.3.267 rejected it).
+- Engine output: status column spacing; token count includes cache tokens (E-44).
+
+## v9.79.0
+
+**Loki 10 engine wave 1 and the release-gate eval harness land (still opt-in behind LOKI_ENGINE=v10).** Released from green tree e86e846a (Tests run 36357562143 and Bun Parity run 36357562160 both success before the bump).
+
+- Loki 10 engine (docs/v10/ENGINE.md): the state machine with a 15-minute cap and resume (E-02), the supervisor/worker split so the process reading issue text never holds a push token, with a tamper check and a wall-clock backstop (E-03), intake with already-done detection and no PRD (E-04), real test-runner detection (E-05), the provider session in its own process group with a heartbeat (E-07), the implement brief that forbids full-suite runs and process kills (E-08), fast verify with lint and typecheck of changed files (E-09), the signed receipt with a NOT PROVEN list where an empty diff seals FAILED (E-10), the PR step (E-11), planner (E-16), ETA (E-20), live output (E-13) and cost records the eval can read (E-06). The engine is not yet runnable end to end; with LOKI_ENGINE unset nothing changes.
+- Eval harness for the v10.0.0 gate (eval/loki10/): 29 tasks with hidden tests (1 augmentiq, 14 public issues with merged-fix tests, 14 quickstart briefs), fresh clone per run, hidden tests applied only after the arm, nonce-verified grading, pre-run invalid-task checks, provider-reported cost only, and a clean Claude config per arm.
+- Every engine spawn passes an explicit environment (spawn env guard), and the seal test no longer assumes a macOS interpreter path.
+
+## v9.78.0
+
+**First Loki 10 engine code, opt-in behind LOKI_ENGINE=v10; an ORPHAN guard for stuck runs.** Released from green tree 4aa09e07 (Tests run 36355193993 and Bun Parity run 36355193981 both success before the bump).
+
+- Loki 10 engine groundwork (CEO directive D29; design and measured stage times in docs/v10/ENGINE.md and docs/v10/ENGINE-MEASURE.md): the append-only run event log and shared engine types (E-01), provider cost capture where unknown cost stays null (E-06), the trusted push child for the engine's PR step (E-11, shell half), and the `LOKI_ENGINE=v10` entry point (E-12). With LOKI_ENGINE unset, every command routes exactly as before; with v10, multi-word tasks, issue refs, status, verify and dashboard reach the new engine, which is not complete yet in this release.
+- The pulse flags a long-running process under an agent worktree or a temp-root loki run script, and about 50 test launches of run.sh and loki now use `timeout -k 10`, so a script that ignores SIGTERM is killed (E-00). Two such orphans had been running for over 24 hours.
+- The pulse counts engine slices on the BOARD, and its unevidenced-claim check ignores a slice's Wall-check spec text.
+
+## v9.77.0
+
+**The dashboard focus notification respects a disabled dashboard.** Released from green tree a4aad86c (Tests run 36352563585 and Bun Parity run 36352563557 both success before the bump).
+
+- With the dashboard disabled, a run no longer POSTs its project directory to `/api/focus` (S-195).
+
+## v9.76.0
+
+**Council, checklist and proof readers are immune to user-site .pth files; auto-PR refuses a branch that still holds user files.** Released from green tree 800ac46e (Tests run 36351690452 and Bun Parity run 36351690372 both success before the bump).
+
+- The managed council diffs the target project instead of Loki's install tree and reads verdicts with `-I -S`; voter agents, proof-check, PRD checklist verification and Bun `loki proof verify` run the resolved isolated interpreter, so a user-site `.pth` file cannot change a verdict (S-196, S-202, S-203, S-204, S-205).
+- `LOKI_AUTO_PR` refuses to push a branch whose history still holds user files an agent committed, and the advisory path prints the cleanup step first; the record survives until the history no longer holds those files (S-194).
+- The NOT CHECKED message says the verifier runs `python3 -E`, so cryptography supplied through PYTHONPATH is not seen (S-197).
+- The cockpit evidence panel says "Could not load gate results" when the checklist request failed (S-207).
+- Bun codex, cline and aider prompts carry the commit-hygiene line, matching the bash route (S-209).
+- The P7 moat check follows nested Array.from generators (S-198); three suites that no runner executed are registered (S-211); the help-discoverability and completion-coverage probes run 8-way in parallel (S-210); GUARDS 5, 12 and 13 name their tests (S-212).
+
+## v9.75.0
+
+**Verdict readers ignore user-site .pth files; the cockpit says "not loaded".** Released from green tree 04af133a (Tests run 36349960792 and Bun Parity run 36349960827 both success before the bump).
+
+- done-recognition and council-v2 read verdicts through the resolved isolated interpreter (`-I -S`), so a user-site `.pth` file can no longer change them; an unmeasured sycophancy score on a unanimous approve now runs the devil's advocate (S-200, S-201).
+- A test compares every guarded `_loki_snapshot_py_tool` copy under autonomy/ against run.sh's (S-199).
+- The cockpit's commit, push, PR, pause, resume and stop actions say "not loaded" after a failed fetch instead of "working tree is clean" or "no run in progress" (S-206).
+- docs/exit-codes.md lists the `loki verify` codes that stay pending until v10.0.0 (S-182); the R3 cost design doc describes project totals as partial-aware (S-190).
+- The web-app status push has a test for unmeasured cost (S-192); `v10-ops worktree-budget` prints how many worktrees a batch may open (S-193); the guard blocks a glob rm in a shared temp or scratchpad root, relative paths included (S-181).
+
+## v9.74.0
+
+**Unmeasured reads as unmeasured: tests, cost and dashboards.** Released from green tree 28e62e44 (Tests run 36348570005 and Bun Parity run 36348570021 both success before the bump).
+
+- A whitelist-rejected LOKI_MONOREPO_TEST_CMD records the test run as inconclusive and not run, instead of pass true (S-175).
+- The proof headline no longer reads a stale test-results.json from an earlier iteration (S-176).
+- The Bun npm-test fallback reads jest, vitest and pytest summary failures as failed even when npm exits 0 (S-177).
+- `/api/cost` reports tokens without a USD figure as unmeasured cost, not $0, and an unknown model as unknown (S-178); `loki cost` shows unknown spend as not recorded instead of 0.0 (S-179).
+- The P7 moat check follows class-method helpers (S-180).
+- Dashboard: the migration dashboard, managed memory panel and learning dashboard surface failed loads instead of "no data"; the overview proof card wording is pinned by its own test (S-183, S-184, S-188, S-189).
+- Web app: DeployConnections rows no longer read "Not connected" under their own load error; the issue list shows comment counts; the cost estimate no longer prices the whole iteration cap (S-185..S-187).
+- run-all-tests.sh counts a malformed run_test registration as one failure and keeps running every later suite (S-174).
+
+## v9.73.0
+
+**Council votes honor failed counts; the log stream says when its API is down.** Released from green tree ec01d54b (Tests run 36346770258 and Bun Parity run 36346770129 both success before the bump).
+
+- A council member vote and the convergence floor no longer read `pass:true` as green when `failed_count` is above zero (S-157).
+- The dashboard log stream shows "Log source unreachable" after two failed polls instead of a quiet, empty log (S-169).
+- A lint flags run-written values spliced into dashboard innerHTML without the escape helper (S-171).
+- A lint refuses test code that writes the real ~/.gitconfig unless it first sources the shared isolation helper (S-138).
+- Trust-core probe mutations run in parallel, each worker on a private copy of the repo (S-135).
+
+## v9.72.0
+
+**Failures read as failures across the web app and dashboard.** Released from green tree 2a024770 (Tests run 36346150997 and Bun Parity run 36346151002 both success before the bump).
+
+- Web app: NLSearch, CommandPalette, ProjectsPage, SecretsPanel, DocsPanel and CICDPanel show a failed request as a failure instead of "No results", "No projects yet" or an empty state; CICDPanel shows unlisted conclusions as Unknown; AIChatPanel no longer prints "Done." for a task that failed with no output (S-159..S-164).
+- Web app: removed an unverified "Trusted by developers" claim and stale v6.x Recent Changes (S-165).
+- Dashboard: checkpoint viewer, council transcripts, task board and API keys panel surface a failed read instead of rendering empty or zero (S-166..S-168, S-170); the Cost page budget banner has its own id (S-146).
+- `/api/cost/timeline` and `/api/proofs` carry per-run cost_partial, so a partly priced run renders as "at least", never as a total (S-158).
+- Auto-capture shadow-write skips an empty PROJECT_DIR and passes episode importance as an argument instead of splicing it into Python source (S-156).
+- The pre-push hook refuses a push to main without the Release Manager marker and any push from an agent worktree (S-152).
+- prune-worktrees treats cherry-picked branches as merged (S-154); the reachability scan runs in about 3s instead of 47s with identical verdicts (S-155).
+- Moat P2 drives council_managed_should_stop for the cwd-shadow class (S-173); the shadow-write mutant check is red under bash 3.2 too (S-172).
+
+## v9.71.0
+
+**Honest metrics JSON and bump-commit verdict reuse for the Footer.** Released from green tree c6ed3882 (Tests run 36344585850 and Bun Parity run 36344585823 both success before the bump).
+
+- `loki metrics --json` reports null for tokens, iterations and time saved that were never recorded, instead of invented numbers; an empty tracking file no longer marks tokens as known (S-147).
+- web-app Footer.tsx joins the release workflow's version-only allowlist, so a bump commit reuses its parent's Tests verdict (S-153).
+
+## v9.70.0
+
+**Faster CI on version bumps, honest heatmap, stricter council readers.** Released from green tree b61045fd (Tests run 36343940285 and Bun Parity run 36343940266 both success before the bump).
+
+- A version-bump-only push skips the heavy Tests jobs when its parent's Tests run succeeded, using the same eligibility rules as the release workflow (S-132).
+- Shard durations rebalanced, with a drift detector so a registered suite without a duration row fails (S-134).
+- The shard-coverage test drives the real runner instead of a static count, and ignores an inherited shard setting (S-137).
+- The pulse flags slices marked released before npm has the publish (S-139).
+- jest "Test Suites N failed" and vitest "Test Files N failed" lines count as failures (S-140).
+- The remaining council gate readers use the resolved isolated Python interpreter (S-141).
+- Convergence-floor negative case for the legacy runner:none pass:true shape (S-142).
+- Stale Gemini, Railway and gate-count copy removed from the web app; the roadmap badge is current (S-143).
+- The analytics heatmap marks days before the activity window as no data instead of 0 activities (S-151).
+- tests/test-select-tests.sh runs about 5x faster and works under bash 3.2 (S-136).
+
+## v9.69.0
+
+**Trust page says when there is not enough history.** Released from green tree 7ef5ca28 (Tests run  and Bun Parity run  both success before the bump).
+
+- trust.html shows "Not enough history yet" as its headline when every trust axis is insufficient, instead of a score built from nothing (S-148).
+
+## v9.68.0
+
+**A faster release gate, honest dashboard states, and a current Footer version.** Released from green tree b7a8dd50 (Tests run 36341812369 and Bun Parity run 36341812334 both success before the bump).
+
+- The release workflow's required-ci polls every 10 seconds instead of 30, so a green commit is released sooner (S-133).
+- `scripts/release.sh --bump-only` also updates the web-app Footer version, which had been stuck at v9.55.0 (S-144).
+- GET /api/checklist/waivers returns 500 with an error when waivers.json is corrupt, instead of an empty list that looked like "no waivers" (S-145).
+- The prompt optimizer distinguishes "never ran" from a corrupt version file, and migration progress reports unknown rather than 0 of 0 when its plan is missing or corrupt (S-149, S-150).
+
+## v9.67.0
+
+**Delegate pushes never target the default branch, verdict honesty fixes, and https-only attestation keys.** Released from green tree 28926937 (Tests run 36341205226 and Bun Parity run 36341205233 both success before the bump).
+
+**Security:**
+- Loki's trusted push refuses the repository's actual default branch (and main, master and HEAD) for every caller, resolving the default from the pinned origin and refusing when it cannot be resolved (S-100).
+- JWKS attestation keys are fetched only over https (loopback http allowed); a URL-named file in the checkout can no longer stand in for a fetch. An unsigned receipt checked against a missing key file still fails (S-123).
+- The command guard closes four more bypasses: quote state carried across heredoc lines, exact terminator lines, a quoted redirect token hiding an rm target, and tool writes to BOARD.md before a commit (S-99).
+
+**Honest verdicts:**
+- A stale static-analysis pass from a previous session is dropped at iteration 0 and on a corrupted-state restart (S-124).
+- The done-recognition tests axis reads a zero-test record as unknown and a pass with failed tests as red (S-125).
+- The P7 scanner rejects empty-object, whitespace and zero-valued siblings as exemptions for a fabricated array (S-30).
+- Dashboard scope-audit tests discover /api/v2 routes dynamically, so they cannot pass vacuously on newer FastAPI (S-126).
+
+**CI:** Tier A caches its installs and its R0 step no longer times out before its job (S-96). The pulse no longer flags a claim that was later cited or retracted.
+
+## v9.66.0
+
+**Council honesty, a faster moat, and a clean quarantine list.** Released from green tree 51ae52fe (Tests run 36338540948 and Bun Parity run 36338540897 both success before the bump).
+
+- The completion council can no longer approve on its vote alone when the test evidence is inconclusive; moat case P2.council-inconclusive-cannot-exit-zero is now proven (S-116).
+- `--add-dir` directories reach the provider again, and two more CI-only test bugs are fixed, so the quarantine list is empty (S-110).
+- Moat baseline detection refuses a symlinked pending.txt or cases.txt at a release tag instead of treating it as unratcheted (S-128).
+- The P9 Rule of Two moat check runs its injection scenarios in parallel: 43s instead of about 90s, with identical verdicts (S-88).
+- The CI python suite runs with `pytest -n auto` again, now that the launch race behind the earlier failures is fixed (S-111).
+- A hard-deadline test no longer fails under load on correct behaviour (S-129).
+- The web-app Settings page drops the removed Gemini provider, adds opencode, and stops showing a stale build date (S-130).
+
+## v9.65.0
+
+**Honest proofs, a louder release tag step, and fewer vacuous tests.** Released from green tree 55521236 (Tests run 36337415795 and Bun Parity run 36337415765 both success before the bump).
+
+- A proof is never sealed VERIFIED when `.loki/quality/ablation.json` says the checks are not load-bearing; the ablation facts are copied verbatim onto the receipt (S-113, moat P8).
+- The budget breaker marks unmeasured spend as unmeasured and warns when a cap is set, instead of treating it as $0 (S-131).
+- The release workflow's tag step reuses a tag the Release Manager pre-pushed at the right commit and otherwise fails loudly, instead of printing "continuing" and failing later at the GitHub Release step (S-105).
+- Three dashboard scope-audit tests assert they actually audited routes, so a FastAPI upgrade can no longer make them pass while checking nothing (S-127).
+- The runtime-gate port test waits for its listener before the positive control, and leaves quarantine (S-106).
+- The pulse flags more than 15 worktrees (S-94).
+
+## v9.64.0
+
+**Pulse machine protection and a 10x faster pulse.** Released from green tree c2b84c36 (Tests run 36336659599 and Bun Parity run 36336659592 both success before the bump).
+
+- `scripts/v10-pulse.sh` serves npm and gh results from a 90s on-disk cache refreshed in the background, so the per-prompt hook runs in about 0.2-0.5s instead of 2s or more (and never blocks on the network). Stale values are labeled with their age; missing values stay UNKNOWN (S-104).
+- New pulse violations for D28: HIGH_LOAD (load above 2x cores), ORPHAN_TEST (a tests/* process reparented to PID 1 or running over 30 minutes), STRAY_CONTAINER (a swarm container older than 1 hour or with a restart policy) and RELEASE_ON_RED (the newest version bump sits on a red Tests run) (S-109).
+- Fixed a ShellCheck SC2155 warning in the pulse script that had turned CI red.
+
+## v9.63.0
+
+**First release under the verified-tree rule (D28): this tree passed Tests, Bun Parity and Security Audit on commit 1bc02bce before the version was bumped.** It carries trains 5 to 7 plus the P0 fixes.
+
+**Versions that were never published:** v9.58.0 was bumped but superseded by v9.59.0, which contains all of it. v9.60.0, v9.61.0 and v9.62.0 were bumped and tagged on trees whose Tests were red (a CI-only P9 harness gap and the lineage race below), so their releases were stopped before publishing. Their CHANGELOG entries below describe changes that first ship in this release.
+
+**Fixes:**
+- Provider launch race: `spawn_tracked` read the child's `/proc/<pid>/environ` before exec had finished and failed closed with "provider attempt lineage marker is unavailable" (exit 127) under load. The child now signals readiness after exec, and the launcher waits for it (30s cap, fail closed). Linux, 2x load: 20 of 20 test runs failed before, 0 of 30 after (S-102).
+- P9 Rule of Two harness: the scenarios now unset `XDG_CONFIG_HOME` and `GH_CONFIG_DIR`, so the planted `hosts.yml` is where gh actually looks. On GitHub runners two P9 checks had been passing without measuring anything (S-107).
+- Tests and agent runs never open a browser: every open site goes through one guard that declines under `LOKI_NO_BROWSER=1`, CI, a test runner or a non-TTY. `loki migrate` had opened its dashboard with an unguarded `open` (S-103).
+- `scripts/release.sh` refuses any version bump unless Tests and Bun Parity passed on that exact commit, and gains `--bump-only` (S-108).
+
+**CI:** the Python suite runs serially again (the `pytest -n auto` switch is reverted until the race fix is proven on CI). Four suites are time-boxed in `tests/quarantine.txt` until 2026-10-03 (S-106, S-110).
+
+## v9.62.0
+
+**Release train 7: test hygiene, a test quarantine, and two P7 fabricated-data scanner gaps closed.** Released on the founder's instruction to ship completed work without further review cycles.
+
+**Tests and CI:**
+- `tests/quarantine.txt` lets a listed suite run without blocking, with an owner, an issue and an expiry no more than 7 days out. Expired entries, moat suites and review suites are rejected (S-92, Part C item 14).
+- 52 test suites that no runner invoked are now registered, and 4 obsolete ones are deleted with stated reasons. The pass surfaced real fixes: `learning/suggest.sh` emitted invalid Python for its verbose flag; a dashboard hook test had aged out of its own 7-day window; a Cline e2e test hard-failed without the CLI; `loki welcome` never confirmed that the telemetry opt-out took effect. 8 suites were silently exiting under `set -e` at their first counter increment (S-93, item 15).
+- `tests/test-review-assurance-tail.sh` dispatches only the requirements verifier for its contract-only cases, about 1.9x faster per case (S-95).
+
+**Moat P7 (no fabricated data):**
+- The scanner catches a literal-rows default on a destructured binding or a function parameter (S-28, BACKLOG 125 B-2).
+- It tolerates spread, nested-call and trailing-call sinks and more helper shapes, and closes a useMemo-then-set fabrication bypass (S-31, BACKLOG 125 B-7).
+
+## v9.61.0
+
+**Release train 6: no shipped GitHub Action step runs the agent while holding a token.**
+
+**Security (S-54, BACKLOG 139):**
+- Three shipped action steps that inherited the caller's GitHub token now blank `GH_TOKEN`, `GITHUB_TOKEN`, `GH_ENTERPRISE_TOKEN` and `GITHUB_ENTERPRISE_TOKEN`: "Install loki-mode" and "Cleanup" in `action.yml`, and "Run Quality Review" in `.github/actions/review/action.yml`. None of them used a token (verified: `loki version`, `loki stop` and `loki review` without `--pr` make no GitHub call). The root action's "Post review as PR comment" step keeps its token.
+- `tests/test-action-agent-step-no-token.sh` discovers every composite action by glob and treats any step that invokes loki (bare, via npx with a version, by path, through a variable, after if/while/!/timeout/env wrappers, in a pipe or subshell, or through a repo script) as an agent step that must blank all four token variables.
+
+## v9.60.0
+
+**Release train 5: Rule of Two credential withholding closes its remaining bypasses, a release reuses its parent's CI verdict, and the pre-push hook drops to under a second.** Released on the founder's call without further review cycles on work already completed (D27).
+
+**Security (S-18, BACKLOG 149):**
+- The run withholds GitHub credentials from the agent on every channel: the GH_TOKEN family, `gh` config, the git credential helper, SSH agent and `GIT_SSH_COMMAND`.
+- Bun spawns pass an explicit environment, so a planted `core.fsmonitor` no longer sees the start-of-process credentials.
+- A nested run fails closed and cannot push.
+- Loki's own post-run push now goes from a fresh private repo, so agent-planted hooks, `core.sshCommand`, a repo-local credential helper and `insteadOf` never run with credentials. Trusted `gh` calls run from `/` with an explicit repo.
+- `LOKI_AUTO_PR` and the delegated PR push only to a github.com origin, and only to the origin the repo had when the run started. GitHub Enterprise and GitLab are planned for M9. The local branch no longer gets an upstream set.
+
+**Release (S-84, Part C items 3 and 5):**
+- `required-ci` reuses the parent's Tests and Bun Parity success when the parent-to-release diff only bumps versions. Every allowlisted file is compared byte for byte apart from the version literal. The source map is compared as JSON without `debugId`. CHANGELOG.md may only gain one inserted version entry.
+- A completed failure at the release SHA always fails.
+- `needs: gate` and gate's duplicate pytest are removed.
+
+**Tooling (D27):**
+- `.githooks/pre-push` is now an identity check, `bash -n` and the red-main warning: 0.8s instead of a full serial pytest (S-97).
+- The pulse gains TRAIN_LATE, and `scripts/v10-ops.sh push-main` pushes without a pipe and succeeds only when `git ls-remote` matches HEAD (S-98).
+
+## v9.59.0
+
+**Release train 4: council readers hardened, a Tier A fast test gate, and a release script that bumps every file.**
+
+**Security:**
+- The completion council's test-result, queue and convergence readers run the resolved interpreter with `-I -S`, so a planted user-site `.pth` can no longer forge a verdict. An unreadable count fails closed, and devil's advocate vetoes when no isolated interpreter exists. A byte-identity test keeps the council's copy of the interpreter resolver equal to run.sh's (S-49, BACKLOG 134).
+
+**CI:**
+- Tier A fast gate: `scripts/select-tests.sh` picks the tests for a diff (syntax always, the changed tests, tests that reference or import the changed source, bun/typecheck for loki-ts, dashboard and dashboard-ui suites, moat properties in both directions) and falls back to the full suite on anything it cannot classify (S-91, Part C item 13).
+- pip and bun install caches on the read-only test jobs, checked by a YAML-parsing test that no job holding a write permission or publish secret gets a cache (S-89, item 11).
+
+**Release:**
+- `scripts/release.sh` bumps every version-bearing file in the checklist and preserves file modes, with `tests/test-release-sh.sh` registered in the runner (S-16).
+
+**Docs:** a 60-line slice-card template and the dispatch-from-card rule in `docs/v10/SWARM.md` (S-77, D26 guard 6).
+
+## v9.58.0
+
+**Release train 3: the release-speed fixes from CEO Part C.** Shell tests run in 8 duration-balanced shards with a 10-minute job cap, the argmax suite drops from about 22 minutes to seconds, Homebrew no longer waits on Docker, and Docker builds arm64 natively.
+
+**CI and release:**
+- `loki ci` no longer forks `echo | cut` once per finding. The full ARG_MAX-scale argmax fixture now finishes in 4 to 9 seconds (it took 326s on the pre-fix code, which also still crashes with "Argument list too long"), so the 2400s per-suite override is gone (S-79, Part C item 1).
+- Shell tests shard 8 ways by measured duration (greedy longest-first over `tests/shard-durations.tsv`) instead of `index % 4`; a coverage test proves every suite runs exactly once (S-81, item 4).
+- Shell, Python, Node and Bun test jobs get `timeout-minutes: 10` (S-82, item 6).
+- `update-homebrew` depends only on `release`, not on the Docker publish (S-83, item 7).
+- Docker images build natively on amd64 and arm64 runners and merge by digest; QEMU and the publish-time cache restore are removed (S-85, item 8).
+
+## v9.57.0
+
+**Release train 2: the D26 guardrails go live, CI stops cancelling itself, and the Python suite runs in parallel.** 21 code commits since v9.56.0.
+
+**Guardrails (D26):**
+- `scripts/v10-guard.sh`, a PreToolUse Bash hook, blocks kill-by-name or kill-by-pattern, force-push, `reset --hard` on main, `git add -A`/`git add .`, a commit that drops a BOARD.md row, `rm -rf` outside the worktree and temp roots, and a VERSION write outside the release path. 114 fixtures; two HIGH reviewers over four rounds (S-73).
+- `scripts/v10-ops.sh` runs the orchestrator's trivial operations (clean check, status, commit-message template, BOARD row status flip) as a script instead of an agent. Atomic write, mode and symlink preserved, and it refuses rather than edit a cell it cannot place by position (S-74).
+- `scripts/v10-pulse.sh` gains AGENT_OVER_BUDGET, CI_CANCELLED_STREAK and the merged-unreleased age check, and an UNKNOWN CI state no longer hides any other violation (S-71, S-75).
+
+**CI:**
+- Push concurrency is scoped per commit SHA in the three gating workflows, so a new push no longer cancels the previous commit's run; pull requests still cancel in progress (S-80).
+- The Python suite runs under pytest-xdist: 261.9s serial to about 80s (S-86).
+- `bun=latest`, the macOS bun job and hyperfine move from the push gate to nightly (S-90).
+- Four suites lose fixed sleeps that waited without testing anything (for example 24.9s to 12.9s and 13.3s to 2.0s) (S-87).
+
+**Fixes:**
+- On git older than 2.18, a failed mint snapshot now keeps a fallback list of pre-existing untracked files, so the receipt no longer claims them as the session's work (S-67, BACKLOG 88).
+- `.loki/state/agent-committed-user-files.z` is cleared by a later session with no hits (S-68, BACKLOG 102).
+
+**Docs:** `docs/v10/OPERATING-MODEL.md` is loaded in every session; CLAUDE.md shrinks to 150 lines with the rest under `docs/dev/` (S-78).
+
+## v9.56.0
+
+**Release train 1 under the new release-train model: 157 commits since v9.55.0, verified together on one frozen commit.** Rule of Two now covers every agent workflow, the tamper seal on the session-created record closes a FIFO and symlink bypass, several dashboard panels stop showing a guess or a zero as if it were measured, and the macOS 27 sandbox profile actually blocks the ports it claims to.
+
+**Security:**
+- Rule of Two across every agent workflow: GitHub tokens are withheld from the provider environment on both the bash and Bun routes, the issue-to-PR action fetches issue text in a token-free step, jobs holding a write token or publish secret no longer restore caches, and the `claude --help` capability probe receives the live (token-withheld) environment.
+- The session-created record's tamper seal re-arms after a seal failure, and a FIFO or symlink substituted for the record is now caught instead of being read as absent.
+- The snapshot digest's python3 fallback goes through the hardened interpreter resolver, and a tamper event logs both digests.
+- macOS 27: the host sandbox profile's port deny used a filter keyword (`tcp`) that silently never matched a bind; it now uses `tcp4`, so confined builds really cannot bind Docker or dashboard ports.
+
+**Honest verdicts and receipts:**
+- `loki proof verify` distinguishes TAMPERED from FAILED using the attestation result, not only the hash.
+- `first_result_verified_patch` no longer claims a verification that never ran.
+- Receipt paths use one repo-relative base when `TARGET_DIR` is a subdirectory.
+- The evidence-gate summary prints `tests_ok=inconclusive` instead of `True` for an inconclusive test axis.
+- The pytest summary parser counts `error` outcomes as failures.
+- A pre-existing untracked file that is replaced by a directory now covers the files inside it.
+
+**Dashboard and web app:**
+- Session status reads `unknown` instead of guessing `completed` for stale or unrecorded runs; a historical session no longer shows the live project's checklist.
+- A failed git-status or checkpoint fetch says "Could not load" instead of "The working tree is clean" or "No checkpoints were recorded".
+- Council-state and notification reads no longer answer a corrupt file with a zero.
+- Fixed field misreads in the GitHub PRs panel (status checks, review state, PR state case), the evidence receipt (cost, files changed), the memory browser (snake_case keys) and the overview council gate; the PR detail endpoint now requests the status-check fields.
+- Expired rotating API keys are purged; stale version, license and gate-count copy corrected.
+
+**Moat and tests:**
+- P7 fabricated-data scanner catches reassignment fallbacks, `Array.from` generator rows and module-level fallback tables.
+- P2 shadow-import coverage extended to three more council readers; P3 prompt case gains a behavioral check; P4 catalog top model is `claude-opus-5-5`.
+- The test runner times out and names a hung suite instead of consuming the whole shard; dashboard-ui tests now exercise the shipped code.
+
+**Build:** `loki-ts/dist` rebuilt from source (the committed bundle had been built in a different environment; the only semantic difference is the version string).
+
 ## v9.55.0
 
 **A repo-wide sweep for the process-isolation bug class fixed in v9.54.1 found and closed several more real gaps: two agent-repo-code-execution paths, and two rounds of a tamper-detection seal being itself forgeable.** Plus a default-security tightening, the v9.54.1 kill-scoping fix extended to more surfaces, and several trust-core correctness fixes.

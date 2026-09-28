@@ -191,12 +191,14 @@ export class LokiAnalytics extends LokiElement {
   _computeHeatmap() {
     const counts = {};
     const items = Array.isArray(this._activity) ? this._activity : [];
+    let earliest = null;
 
     for (const entry of items) {
       const ts = entry.timestamp || entry.ts || entry.created_at;
       if (!ts) continue;
       const d = new Date(ts);
       if (isNaN(d.getTime())) continue;
+      if (earliest === null || d < earliest) earliest = d;
       const key = this._localDateKey(d);
       counts[key] = (counts[key] || 0) + 1;
     }
@@ -209,14 +211,25 @@ export class LokiAnalytics extends LokiElement {
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - (52 * 7 + dayOfWeek));
 
+    // The API returns only what it has (no separate window-start field), so
+    // the earliest returned entry IS the window start. A day before it was
+    // never reported on -- that's "no data", not "0 activities". With no
+    // usable entries at all, nothing in the grid is inside a known window.
+    let windowStart = null;
+    if (earliest !== null) {
+      windowStart = new Date(earliest);
+      windowStart.setHours(0, 0, 0, 0);
+    }
+
     const cells = [];
     const current = new Date(startDate);
     let maxCount = 0;
     while (current <= endDate) {
       const key = this._localDateKey(current);
-      const count = counts[key] || 0;
+      const noData = windowStart === null || current < windowStart;
+      const count = noData ? 0 : (counts[key] || 0);
       if (count > maxCount) maxCount = count;
-      cells.push({ date: key, count, day: current.getDay() });
+      cells.push({ date: key, count, day: current.getDay(), noData });
       current.setDate(current.getDate() + 1);
     }
 
@@ -255,6 +268,9 @@ export class LokiAnalytics extends LokiElement {
     ).join('');
 
     const cellsHTML = cells.map(c => {
+      if (c.noData) {
+        return `<div class="heatmap-cell level-no-data" title="${c.date}: no data"></div>`;
+      }
       const level = this._getHeatmapLevel(c.count, maxCount);
       return `<div class="heatmap-cell level-${level}" title="${c.date}: ${c.count} activities"></div>`;
     }).join('');
@@ -786,6 +802,7 @@ export class LokiAnalytics extends LokiElement {
         .heatmap-cell.level-2 { background: var(--loki-accent); opacity: 0.50; }
         .heatmap-cell.level-3 { background: var(--loki-accent); opacity: 0.75; }
         .heatmap-cell.level-4 { background: var(--loki-accent); opacity: 1.0; }
+        .heatmap-cell.level-no-data { background: transparent; }
 
         .heatmap-legend {
           display: flex;

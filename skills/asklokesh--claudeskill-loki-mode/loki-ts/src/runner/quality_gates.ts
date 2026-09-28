@@ -496,6 +496,7 @@ export async function zeroTestsExecuted(runner: string, output: string): Promise
     '_loki_zero_tests_executed "$2" "$(cat)"';
   try {
     const proc = Bun.spawn({
+      env: { ...process.env },
       cmd: ["bash", "-c", script, "bash", runSh, runner],
       stdin: new TextEncoder().encode(output),
       stdout: "ignore",
@@ -506,6 +507,46 @@ export async function zeroTestsExecuted(runner: string, output: string): Promise
   } catch {
     return "unknown";
   }
+}
+
+// Failed count read from a runner's summary lines, or null when no summary was
+// seen. Line-for-line port of the run.sh enforce_test_coverage `_tr_failed_n`
+// awk: jest Tests/Test Suites, vitest Tests/Test Files, pytest "failed" plus
+// "error(s)" on one line, node TAP "# pass N" then "# fail N", mocha
+// passing/failing, go "--- FAIL:". The max across lines wins, so a later green
+// summary cannot hide an earlier red one. Change both together.
+export function summaryFailedCount(output: string): number | null {
+  let f = 0;
+  let seen = false;
+  let go = 0;
+  let prev = "";
+  const upd = (n: number): void => {
+    if (n > f) f = n;
+    seen = true;
+  };
+  for (const line of output.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").split(/\r?\n/)) {
+    if (
+      /^Tests:[ \t]/.test(line) || /^[ \t]*Tests[ \t]+[0-9]/.test(line) ||
+      /^Test Suites:[ \t]/.test(line) || /^[ \t]*Test Files[ \t]+[0-9]/.test(line) ||
+      /^=+ .*[0-9]+ (passed|failed|errors?)/.test(line) || /^[0-9]+ (passed|failed|errors?).* in [0-9.]+s/.test(line)
+    ) {
+      const failed = /([0-9]+) failed/.exec(line);
+      const errors = /([0-9]+) errors?/.exec(line);
+      upd((failed ? Number(failed[1]) : 0) + (errors ? Number(errors[1]) : 0));
+    }
+    const tapFail = /^[^ A-Za-z0-9]+ fail ([0-9]+)[ \t]*$/.exec(line);
+    if (tapFail && /^[^ A-Za-z0-9]+ pass [0-9]+[ \t]*$/.test(prev)) upd(Number(tapFail[1]));
+    if (/^[ \t]*[0-9]+ passing \(/.test(line)) upd(0);
+    const failing = /^[ \t]*([0-9]+) failing[ \t]*$/.exec(line);
+    if (failing) upd(Number(failing[1]));
+    if (/^--- FAIL: /.test(line)) go++;
+    prev = line;
+  }
+  if (go > f) {
+    f = go;
+    seen = true;
+  }
+  return seen ? f : null;
 }
 
 // Phase 5 real implementation. First checks .loki/quality/test-results.json
@@ -559,6 +600,12 @@ export async function runTestCoverage(ctx?: RunnerContext): Promise<GateResult> 
 
   const r = await run(["npm", "test", "--silent"], { cwd, timeoutMs: 300_000 });
   if (r.exitCode === 0) {
+    // BACKLOG 98: an exit-0 run whose summary reports failures is a failure,
+    // as in bash enforce_test_coverage (_tr_summary_red).
+    const failedN = summaryFailedCount(`${r.stdout}\n${r.stderr}`);
+    if (failedN !== null && failedN > 0) {
+      return { passed: false, detail: `test_coverage: npm test exit 0 but its summary reports ${failedN} failed` };
+    }
     // #82 parity: exit 0 with zero tests executed proved nothing. jest prints
     // "No tests found" on stderr, so the detector sees both streams.
     const zero = await zeroTestsExecuted(declaredTestRunner(cwd), `${r.stdout}\n${r.stderr}`);

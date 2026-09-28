@@ -20,6 +20,7 @@ export type ViewState =
   | 'recovering'
   | 'failed'
   | 'completed'
+  | 'unknown'
   | 'disconnected';
 
 /** Fields the server returns but types/api.ts historically did not declare. */
@@ -36,9 +37,15 @@ export interface CockpitState {
   isLive: boolean;
   phase: MappedPhase;
   checklist: ChecklistSummary | null;
+  /** Set only when the checklist fetch itself failed; null on a genuine empty result. */
+  checklistError: string | null;
   changedFiles: ChangedFile[];
   git: GitStatus | null;
+  /** Set only when the git-status fetch itself failed; null on a genuine empty result. */
+  gitError: string | null;
   checkpoints: Checkpoint[];
+  /** Set only when the checkpoints fetch itself failed; null on a genuine empty result. */
+  checkpointsError: string | null;
   logs: string[];
   /** Seconds. Live only; null in every historical view. */
   elapsedSeconds: number | null;
@@ -61,12 +68,89 @@ export interface CockpitState {
 
 const NO_PHASE = mapPhase(null);
 
+/**
+ * /api/session/checklist has no per-session scoping -- it always reads the
+ * globally running project. Showing it for a historical (non-live) session
+ * would attribute another run's checklist to this one, so only surface it
+ * while this session IS the live one.
+ */
+export function scopeChecklistToLive<T>(checklist: T | null, isLive: boolean): T | null {
+  return isLive ? checklist : null;
+}
+
+/**
+ * View state for a session that is NOT the live one (isLive === false).
+ * Pure so it is directly testable without rendering the hook: see
+ * useCockpitState.derive-view.test.ts.
+ */
+export function deriveHistoricalView(detail: {
+  status?: string | null;
+  prd?: string | null;
+  files?: unknown[] | null;
+} | null, hasChanges: boolean): ViewState {
+  const s = (detail?.status ?? '').toLowerCase();
+  if (s === 'failed') return 'failed';
+  if (s === 'paused') return 'paused';
+  if (s === 'completed') return 'completed';
+  if (s === 'unknown') return 'unknown';
+  // "Empty" is a real state: a session directory with no spec and no changes
+  // has genuinely nothing to review.
+  const hasPrd = Boolean(detail?.prd?.trim());
+  const hasFiles = (detail?.files?.length ?? 0) > 0;
+  if (!hasPrd && !hasChanges && !hasFiles) return 'empty';
+  // The server could not determine a definitive status (e.g. an
+  // unrecognized or missing status string) -- report that honestly rather
+  // than assuming the run completed.
+  return 'unknown';
+}
+
+/**
+ * Await a fetch, splitting a genuine result from a genuine failure instead of
+ * collapsing both into the same empty value. Pure/awaitable so the actual
+ * catch-and-message wiring is testable without rendering the hook: see
+ * useCockpitState.derive-view.test.mjs.
+ */
+export async function settle<T>(
+  promise: Promise<T>,
+  fallback: T,
+  fallbackMessage: string,
+): Promise<{ data: T; error: string | null }> {
+  try {
+    return { data: await promise, error: null };
+  } catch (e) {
+    return {
+      data: fallback,
+      error: e instanceof Error ? e.message : fallbackMessage,
+    };
+  }
+}
+
+/**
+ * Which empty-state copy ChangeReview should show, if any. A failed fetch and
+ * a genuinely clean tree both leave `files` empty, but they are not the same
+ * fact and must not render the same sentence. Pure so it is directly testable:
+ * see useCockpitState.derive-view.test.mjs.
+ */
+export function changeReviewEmptyState(
+  filesLength: number,
+  clean: boolean,
+  gitError: string | null | undefined,
+): 'error' | 'clean' | null {
+  if (filesLength > 0) return null;
+  if (gitError) return 'error';
+  if (clean) return 'clean';
+  return null;
+}
+
 export function useCockpitState(sessionId: string | undefined): CockpitState {
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [status, setStatus] = useState<StatusWithExit | null>(null);
   const [checklist, setChecklist] = useState<ChecklistSummary | null>(null);
+  const [checklistError, setChecklistError] = useState<string | null>(null);
   const [git, setGit] = useState<GitStatus | null>(null);
+  const [gitError, setGitError] = useState<string | null>(null);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
+  const [checkpointsError, setCheckpointsError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,9 +166,14 @@ export function useCockpitState(sessionId: string | undefined): CockpitState {
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
-  // Initial + reload fetch. Session detail is required; everything else is
-  // best-effort, because a session with no git repo or no checkpoints is a
-  // legitimate state, not an error.
+  // Initial + reload fetch. Session detail is required; the rest is
+  // best-effort, but "best-effort" only excuses a genuinely empty result --
+  // not a failed request. The server's git-status and checkpoints endpoints
+  // both return 200 with an empty result for "no git repo" / "no checkpoints
+  // dir" (web-app/server.py git_status / _list_checkpoints); they reject only
+  // on a real failure (session not found, a git subprocess error, etc.), so
+  // any caught rejection here IS a fetch failure, tracked separately below
+  // instead of being silently swallowed into the same empty state.
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
@@ -115,12 +204,28 @@ export function useCockpitState(sessionId: string | undefined): CockpitState {
       })
       .catch(() => undefined);
 
-    api.getChecklist().then((c) => !cancelled && setChecklist(c)).catch(() => undefined);
-    api.git.status(sessionId).then((g) => !cancelled && setGit(g)).catch(() => undefined);
-    api
-      .getCheckpoints(sessionId)
-      .then((c) => !cancelled && setCheckpoints(c))
-      .catch(() => undefined);
+    settle(api.getChecklist(), null, 'request failed').then(
+      ({ data, error: clErr }) => {
+        if (cancelled) return;
+        setChecklist(data);
+        setChecklistError(clErr);
+      },
+    );
+
+    settle(api.git.status(sessionId), null, 'Could not load working tree status').then(
+      ({ data, error: gErr }) => {
+        if (cancelled) return;
+        setGit(data);
+        setGitError(gErr);
+      },
+    );
+    settle(api.getCheckpoints(sessionId), [] as Checkpoint[], 'Could not load checkpoints').then(
+      ({ data, error: cErr }) => {
+        if (cancelled) return;
+        setCheckpoints(data);
+        setCheckpointsError(cErr);
+      },
+    );
 
     return () => {
       cancelled = true;
@@ -206,16 +311,7 @@ export function useCockpitState(sessionId: string | undefined): CockpitState {
       if (!connected) return 'disconnected';
       return 'running';
     }
-    const s = (detail?.status ?? '').toLowerCase();
-    if (s === 'failed') return 'failed';
-    if (s === 'completed') return 'completed';
-    // "Empty" is a real state: a session directory with no spec and no changes
-    // has genuinely nothing to review.
-    const hasPrd = Boolean(detail?.prd?.trim());
-    const hasChanges = (git?.files?.length ?? 0) > 0;
-    const hasFiles = (detail?.files?.length ?? 0) > 0;
-    if (!hasPrd && !hasChanges && !hasFiles) return 'empty';
-    return 'completed';
+    return deriveHistoricalView(detail, (git?.files?.length ?? 0) > 0);
   }, [loading, isLive, connected, status, detail, git]);
 
   const elapsedSeconds = useMemo(() => {
@@ -238,10 +334,13 @@ export function useCockpitState(sessionId: string | undefined): CockpitState {
     status,
     isLive,
     phase: phase ?? NO_PHASE,
-    checklist,
+    checklist: scopeChecklistToLive(checklist, isLive),
+    checklistError: scopeChecklistToLive(checklistError, isLive),
     changedFiles,
     git,
+    gitError,
     checkpoints,
+    checkpointsError,
     logs,
     elapsedSeconds,
     timeToFirstSignal,

@@ -671,6 +671,14 @@ LOKI_DEADLINE_KILL_GRACE="$(review_budget 1)" LOKI_REVIEW_RETRY=1 LOKI_REVIEW_IN
 LOKI_GATE_DEVILS_ADVOCATE=false LOKI_HOST_GUARD_SETTINGS_JSON='{"hooks":{}}' \
 LOKI_SPEC_SHA256="$retry_spec_sha" LOKI_SUPERVISED_BUILD=1 LOKI_BUILD_PROFILE=simple-web \
     run_code_review >/dev/null 2>&1 || retry_review_rc=$?
+# NOT LOKI_REVIEW_REQUIREMENTS_ONLY=1 here: this case's "deadline" mode never
+# hangs the requirements-verifier (its prompt is caught by FAKE_CLAUDE's
+# earlier `You are requirements-verifier.` branch, which always answers
+# promptly). The provider timeout this case tests is produced by the GENERAL
+# reviewers hitting the bottom-level "deadline" case, so trimming the council
+# to the requirements-verifier alone would remove the only reviewer that ever
+# times out and turn this case into a false PASS. Measured: it did (see git
+# history for this file around the S-95 change).
 retry_review_dirs=$(find "$RETRY_REPO/.loki/quality/reviews" \
     -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
 if [ "$retry_review_rc" -ne 0 ] \
@@ -724,11 +732,26 @@ else
     bad "non-blocking advice made a reviewer timeout look like a repairable code defect"
 fi
 
+# These next cases (through the product-quality-spec case below) exercise the
+# requirements-verifier CONTRACT itself, not council interaction, so the
+# general reviewers (architecture-strategist, maintainer-mergeability, and any
+# keyword-selected specialist) contribute nothing any assertion checks. Each
+# full council dispatch measured ~4-5s locally (run.sh's own per-reviewer
+# python3 subprocess overhead, outside this file's scope); trimming to the one
+# reviewer under test halves that to ~2.2s. Tests that DO assert on a general
+# reviewer's verdict (the nonblocking-plus-timeout case above, and the DA /
+# nonunanimous cases below) are deliberately left at the default full council.
+REVIEW_TEST_REQUIREMENTS_ONLY=1
+export REVIEW_TEST_REQUIREMENTS_ONLY
+# Reuses retry_spec_sha (computed once above) instead of "auto", which would
+# recompute an identical sha256 of the same immutable $SPEC via a fresh python3
+# process for every case below -- measured ~30-40ms each, free to remove.
+
 # The hosted council must carry the exact immutable requirement and a supported
 # requirements miss must block even when the reviewer labels it Medium.
 REQ_REPO="$TMPROOT/requirements-repo"
 setup_repo "$REQ_REPO"
-req_rc=$(run_review_case "$REQ_REPO" 1 requirements-miss "$SPEC")
+req_rc=$(run_review_case "$REQ_REPO" 1 requirements-miss "$SPEC" "$retry_spec_sha")
 req_review="$(find "$REQ_REPO/.loki/quality/reviews" -mindepth 1 -maxdepth 1 -type d | head -1)"
 if [ "$req_rc" -ne 0 ] \
    && [ "$(requirements_call_count "$REQ_REPO")" = "1" ] \
@@ -752,7 +775,7 @@ fi
 # A contradictory PASS cannot neutralize a nonempty structured finding.
 REQ_PASS_REPO="$TMPROOT/requirements-pass-miss-repo"
 setup_repo "$REQ_PASS_REPO"
-req_pass_rc=$(run_review_case "$REQ_PASS_REPO" 1 requirements-pass-miss "$SPEC")
+req_pass_rc=$(run_review_case "$REQ_PASS_REPO" 1 requirements-pass-miss "$SPEC" "$retry_spec_sha")
 req_pass_review="$(find "$REQ_PASS_REPO/.loki/quality/reviews" -mindepth 1 -maxdepth 1 -type d | head -1)"
 if [ "$req_pass_rc" -ne 0 ] \
    && [ "$(requirements_call_count "$REQ_PASS_REPO")" = "1" ] \
@@ -778,7 +801,7 @@ fi
 # exact count, one machine PASS per criterion, evidence, and no findings.
 REQ_VALID_REPO="$TMPROOT/requirements-valid-repo"
 setup_repo "$REQ_VALID_REPO"
-req_valid_rc=$(run_review_case "$REQ_VALID_REPO" 1 requirements-valid "$SPEC")
+req_valid_rc=$(run_review_case "$REQ_VALID_REPO" 1 requirements-valid "$SPEC" "$retry_spec_sha")
 req_valid_review="$(find "$REQ_VALID_REPO/.loki/quality/reviews" -mindepth 1 -maxdepth 1 -type d | head -1)"
 if [ "$req_valid_rc" -eq 0 ] \
    && [ "$(requirements_call_count "$REQ_VALID_REPO")" = "1" ] \
@@ -1351,6 +1374,11 @@ if [ "$invalid_limit_rc" -ne 0 ] && [ "$oversized_limit_rc" -ne 0 ] \
 else
     bad "invalid requirements byte limits reached reviewer dispatch"
 fi
+
+# Restores the default full council: every case from here on asserts on a
+# general reviewer's own verdict (architecture-strategist FAIL/PASS, DA
+# overlap), so it cannot be trimmed to the requirements-verifier alone.
+unset REVIEW_TEST_REQUIREMENTS_ONLY
 
 # The hosted DA is speculative: every council reviewer waits briefly for the
 # DA's start marker, and a real DA blocker still reaches the final aggregate.

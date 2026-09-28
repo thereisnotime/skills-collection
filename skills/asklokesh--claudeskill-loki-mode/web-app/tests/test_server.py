@@ -1987,3 +1987,47 @@ class TestServiceHealthMonitor:
         assert triggered is False
         assert info["status"] == "stopped"
         assert info["auto_fix_attempts"] == 0
+
+
+# ============================================================================
+# Test GitHub PR detail endpoint: --json field list (S-65 / BACKLOG 116)
+# ============================================================================
+
+
+class TestGitHubGetPRFieldList:
+    """github_get_pr's `gh pr view --json` list must request every field
+    GitHubPRsPanel.tsx reads from the detail response (fixed reader side in
+    S-47), or those fields render empty regardless of the frontend fix."""
+
+    @pytest.mark.asyncio
+    async def test_json_field_list_includes_fields_frontend_reads(self):
+        import server
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "{}"
+
+        captured_args = {}
+
+        def fake_run_gh(args, cwd=None, timeout=30):
+            captured_args["args"] = args
+            return mock_result
+
+        with patch("server._validate_session_and_find_dir", return_value=(Path("/tmp/fake-project"), None)), \
+             patch("server._get_repo_from_remote", return_value="owner/repo"), \
+             patch("server._run_gh", side_effect=fake_run_gh):
+            await server.github_get_pr("fake-session", 42)
+
+        assert "args" in captured_args, "gh CLI was never invoked"
+        json_flag_index = captured_args["args"].index("--json")
+        fields = set(captured_args["args"][json_flag_index + 1].split(","))
+
+        required = {
+            "statusCheckRollup",
+            "reviewDecision",
+            "headRefName",
+            "baseRefName",
+            "changedFiles",
+        }
+        missing = required - fields
+        assert not missing, f"gh pr view --json is missing fields the frontend reads: {missing}"

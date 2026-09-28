@@ -38,6 +38,7 @@
 #===============================================================================
 
 set -uo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/isolated-git-home.sh" || exit 1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -61,12 +62,18 @@ fail() {
 }
 
 WORKROOT="$(mktemp -d "${TMPDIR:-/tmp}/loki-ent-resilience.XXXXXX")"
+# Test-owned global git config, exported at top level: the fixtures run
+# `git config --global` in THIS shell, where HOME is still the real one (the
+# fake HOME below is exported only inside the preamble), so without this they
+# would write the fixtures' github.com rewrites into the real ~/.gitconfig.
+export GIT_CONFIG_GLOBAL="$WORKROOT/gitconfig"
+: > "$GIT_CONFIG_GLOBAL"
 FAKE_HOME="$WORKROOT/home"
 mkdir -p "$FAKE_HOME"
 cleanup() {
     # Restore any chmod'd dir so rm -rf can remove it, then nuke WORKROOT.
     [ -d "$WORKROOT/ent1-ro" ] && chmod u+rwx "$WORKROOT/ent1-ro" 2>/dev/null || true
-    rm -rf "$WORKROOT" 2>/dev/null || true
+    rm -rf "$WORKROOT" "$ISOLATED_GIT_HOME" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
@@ -413,7 +420,12 @@ make_ahead_repo_with_remote() {
         git config user.email "test@loki.local"
         git config user.name "Loki Test"
         git config commit.gpgsign false
-        git remote add origin "$bare"
+        # GitHub-shaped origin routed to the local bare repo by the
+        # test-owned global config: Loki pushes only to a validated github.com
+        # origin, from a fresh repo that ignores this repo's config (BACKLOG
+        # 149 round 5). Never any network.
+        git remote add origin "https://github.com/loki-test/$name.git"
+        git config --global url."$bare".insteadOf "https://github.com/loki-test/$name.git"
         git checkout -q -b develop
         echo "seed" > seed.txt
         git add seed.txt
@@ -438,6 +450,7 @@ install_gh_stub() {
 #!/usr/bin/env bash
 printf '%s\n' "\$*" >> "$log"
 case "\$*" in
+    "repo view "*) echo main ;;  # S-100: default-branch lookup before the push
     *"pr list"*)
         cat "$prlist_out" 2>/dev/null || true
         ;;

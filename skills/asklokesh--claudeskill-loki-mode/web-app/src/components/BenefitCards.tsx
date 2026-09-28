@@ -22,12 +22,12 @@ const BENEFITS = [
   {
     icon: Layers,
     title: 'Multi-AI',
-    description: 'Use Claude, GPT, Gemini. Pick the best for each task.',
+    description: 'Use Claude or GPT. Pick the best for each task.',
   },
   {
     icon: ShieldCheck,
     title: 'Quality First',
-    description: '10 quality gates. 3 blind reviewers. Zero sycophancy.',
+    description: '8 quality gates. 3 blind reviewers. Zero sycophancy.',
   },
   {
     icon: HardDrive,

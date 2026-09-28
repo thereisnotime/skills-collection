@@ -25,7 +25,15 @@ if command -v cline &>/dev/null; then
     version=$(cline --version 2>/dev/null | head -1 || echo "unknown")
     pass "cline found (version: $version)"
 else
-    fail "cline not found" "Install: npm install -g @anthropic-ai/cline"
+    # Cline is an OPTIONAL Tier-2 provider. Its absence on a machine says
+    # nothing about loki's cline support, which is what the other 7
+    # assertions in this file actually verify (config sources, model default,
+    # env vars, invoke functions, worktree handling). Hard-failing here makes
+    # the whole suite red on any runner without cline installed, including
+    # CI. Same fix already applied to test-aider-cloud.sh for the identical
+    # reason. Report it as a skip so a genuine regression in the assertions
+    # below is not buried under an environment difference.
+    echo "  SKIP  cline not on PATH (optional Tier-2 provider; install: npm install -g @anthropic-ai/cline)"
 fi
 
 # Test 2: Provider config file exists

@@ -122,11 +122,17 @@ export interface EfficiencyRecord {
 
 export interface CheckBudgetResult {
   exceeded: boolean;
-  // R3 anti-surprise warn: true when spend is in [80%, 100%) of the cap. The
-  // orchestrator logs this without pausing; the hard stop is `exceeded`.
+  // R3 anti-surprise warn: true when spend is in [80%, 100%) of the cap, OR
+  // (S-131) when a cap is set but spend could not be measured at all (no
+  // efficiency records found). The orchestrator logs this without pausing;
+  // the hard stop is `exceeded`.
   warn: boolean;
   current_cost: number;
   limit: number | null;
+  // S-131: false when no efficiency records exist, so current_cost is an
+  // unmeasured $0 rather than a confirmed zero spend. A cap must never be
+  // silently treated as satisfied by an absence of data.
+  measured: boolean;
 }
 
 // Budget warn threshold: warn at 80% of the cap, before the hard stop at 100%.
@@ -330,7 +336,7 @@ export function checkBudgetLimit(opts: CheckBudgetOptions = {}): CheckBudgetResu
   const root = lokiDir();
   const limit = parseBudgetLimit(opts.budgetLimit ?? process.env["BUDGET_LIMIT"] ?? null);
   if (limit === null) {
-    return { exceeded: false, warn: false, current_cost: 0, limit: null };
+    return { exceeded: false, warn: false, current_cost: 0, limit: null, measured: false };
   }
 
   const efficiencyDir = opts.efficiencyDir ?? join(root, "metrics", "efficiency");
@@ -340,7 +346,16 @@ export function checkBudgetLimit(opts: CheckBudgetOptions = {}): CheckBudgetResu
   const now = opts.now ?? (() => new Date());
 
   const records = readEfficiencyDir(efficiencyDir);
+  const measured = records.length > 0;
   const current = calculateCostFromRecords(records);
+
+  // S-131: a cap is set but nothing has been measured yet -- there is no
+  // efficiency data to compute spend from. $0 here is an absence of
+  // measurement, not a confirmed zero cost, so never pause and never mark
+  // exceeded on it; just surface it as a warning for a human to notice.
+  if (!measured) {
+    return { exceeded: false, warn: true, current_cost: 0, limit, measured: false };
+  }
 
   // Greater-than-OR-equal (run.sh:7902).
   const exceeded = current >= limit;
@@ -369,7 +384,7 @@ export function checkBudgetLimit(opts: CheckBudgetOptions = {}): CheckBudgetResu
       },
       budgetFile,
     );
-    return { exceeded: true, warn: false, current_cost: current, limit };
+    return { exceeded: true, warn: false, current_cost: current, limit, measured: true };
   }
 
   // Update budget.json with current usage when non-zero (run.sh:7930).
@@ -387,7 +402,7 @@ export function checkBudgetLimit(opts: CheckBudgetOptions = {}): CheckBudgetResu
   // R3 anti-surprise warn: spend is in [80%, 100%) of the cap. Non-pausing;
   // the orchestrator logs it so the user sees it before the hard stop.
   const warn = current >= BUDGET_WARN_FRACTION * limit;
-  return { exceeded: false, warn, current_cost: current, limit };
+  return { exceeded: false, warn, current_cost: current, limit, measured: true };
 }
 
 // ---------------------------------------------------------------------------

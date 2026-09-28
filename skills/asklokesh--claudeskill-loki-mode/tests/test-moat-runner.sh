@@ -877,6 +877,75 @@ expect RUNNER.unreached-unreadable-blob-still-refuses 2 \
   "could not check: cannot read tests/moat/cases.txt at an unreached release tag" \
   "!ratchet: bootstrap" "!registry: bootstrap" "!moat suite: OK"
 
+# --- symlinked baseline (BACKLOG 148) --------------------------------------------
+# A symlink blob (mode 120000) is invisible to BOTH `git grep -l` and
+# `git grep -L`: neither lists it as a match nor as an empty file, so it reads
+# as if the tag never carried the file at all. Without a fix this is a false
+# bootstrap that ships unratcheted.
+
+# (a) The reachable-tag leg (read_baselines): the ONLY release tag's
+# pending.txt is a symlink. Old behavior: dropped from carry entirely, so
+# read_baselines finds nothing at v1.0.0, falls through to unreached_release
+# (which also finds no OTHER tag), and bootstraps -- exit 0, unratcheted. Fixed
+# behavior: refused by name, exit 2, never a bootstrap. HEAD restores a real
+# pending.txt after the tag (a real repo fixing the mistake): the symlink is
+# only in v1.0.0's history, which is what read_baselines must still refuse.
+N=$((N + 1)); D="$T/r$N"
+mkdir -p "$D"
+g -C "$D" init -q
+known_good "$D"
+rm "$D/tests/moat/pending.txt"
+ln -s does-not-need-to-resolve "$D/tests/moat/pending.txt"
+g -C "$D" add tests
+g -C "$D" commit -qm "v1.0.0: pending.txt is a symlink"
+g -C "$D" tag v1.0.0
+rm "$D/tests/moat/pending.txt"
+pending "$D" "P2.later M2 not built yet" "P9.later M9 not built yet"
+g -C "$D" add tests
+g -C "$D" commit -qm "after-release: pending.txt restored to a real file"
+run_in "$D"
+expect RUNNER.symlinked-baseline-refuses 2 \
+  "could not check: cannot read tests/moat at the 1 reachable release tag(s) (newest v1.0.0)" \
+  "refusing to read a symlinked tests/moat/pending.txt at v1.0.0" \
+  "moat suite: COULD NOT CHECK" "!bootstrap" "!moat suite: OK"
+
+# (b) The unreached-tag leg (unreached_release): same shape as the
+# BACKLOG-47 fixtures above, but the unreached release's pending.txt is a
+# symlink instead of a 0-byte file. Old behavior: neither grep pass sees it,
+# so it does not count as "carries a baseline" and the stale branch bootstraps
+# its own regression. Fixed: named as unreached and refused.
+N=$((N + 1)); D="$T/r$N"
+mkdir -p "$D"
+g -C "$D" init -q
+known_good "$D"
+rm "$D/tests/moat/pending.txt"
+g -C "$D" add tests
+g -C "$D" commit -qm "v1.0.0: cases.txt only, no pending.txt yet"
+g -C "$D" tag v1.0.0
+
+g -C "$D" checkout -qb stale-symlink v1.0.0
+prop "$D" 3 "CASE P3.works PASS holds" "CASE P3.new FAIL not built yet"
+pending "$D" "P2.later M2 not built yet" "P9.later M9 not built yet" "P3.new M3 parked on the stale branch, pretending v1.1.0 never happened"
+# shellcheck disable=SC2086
+cases "$D" $REGISTERED P3.new
+g -C "$D" add tests
+g -C "$D" commit -qm "stale-symlink: park a regression, never saw v1.1.0"
+
+g -C "$D" checkout -q main
+ln -s does-not-need-to-resolve "$D/tests/moat/pending.txt"
+prop "$D" 2 "CASE P2.works PASS holds" "CASE P2.later PASS built now"
+prop "$D" 9 "CASE P9.works PASS holds" "CASE P9.later PASS built now"
+g -C "$D" add tests
+g -C "$D" commit -qm "v1.1.0: pending.txt is a symlink"
+g -C "$D" tag v1.1.0
+
+g -C "$D" checkout -q stale-symlink
+run_in "$D"
+expect RUNNER.unreached-symlinked-pending-refuses 2 \
+  "could not check: v1.1.0 carries tests/moat/pending.txt but is not reachable from HEAD" \
+  "registry: checked against 1 release tag(s), newest v1.0.0" \
+  "!ratchet: bootstrap" "!moat suite: OK"
+
 echo
 echo "Passed: $PASS  Failed: $FAIL"
 [ "$FAIL" -eq 0 ]

@@ -154,10 +154,19 @@ FORGED_MATCHED_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 DEAD_PID=4000000
 while command kill -0 "$DEAD_PID" 2>/dev/null; do DEAD_PID=$((DEAD_PID + 1)); done
 
-# The refusal window in _cleanup_registry_entry_state is 10s; age well past it so
-# no case sits on the boundary. This is the only sleep in the fixture and it is
-# what makes the forgeries below forgeries.
-sleep 25
+# The refusal window in _cleanup_registry_entry_state (autonomy/loki) is a
+# SLACK=10s ctime-vs-`started` gap; age well past it so no case sits on the
+# boundary. This is the only sleep in the fixture and it is what makes the
+# forgeries below forgeries.
+#
+# This is genuinely load-bearing wall-clock aging, not a "wait for the server
+# to be ready" condition, so it is a fixed sleep rather than a poll loop --
+# there is no readiness signal to poll for; the guard under test compares real
+# elapsed seconds. 15s (5s margin over the 10s SLACK) is enough: the extra
+# work between this sleep and the FORGED_MATCHED_PID write below (five
+# sequential spawn_orphan calls) only adds further margin, never removes it,
+# since the assertion needs the gap to be ABOVE the threshold, not below one.
+sleep 15
 
 # A genuine entry is written on the line after the spawn (see register_pid in
 # autonomy/run.sh), so spawn and register each of these as a pair.

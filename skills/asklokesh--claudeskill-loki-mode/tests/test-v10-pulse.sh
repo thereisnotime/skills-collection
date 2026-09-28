@@ -72,6 +72,22 @@ for i in range(50):
     print('line %d' % i)
 " > "$CONTROL_OVERSIZE"
 
+# PROGRESS.md fixtures for STALE_PROGRESS. COMMON_ARGS' PULSE_NOW is fixed at
+# 2026-09-27T02:00:00Z below; PROGRESS_FRESH's heading is 10 minutes before
+# that (well under the 35-minute budget) so every OTHER test in this suite
+# that does not override PULSE_PROGRESS_MD never sees a stray STALE_PROGRESS
+# violation from a fixture built for something else.
+PROGRESS_FRESH="$WORK/PROGRESS-fresh.md"
+printf '# Progress\n\n## 2026-09-27T01:50Z: fresh entry\n- on track\n' > "$PROGRESS_FRESH"
+
+PROGRESS_STALE="$WORK/PROGRESS-stale.md"
+printf '# Progress\n\n## 2026-09-27T01:24Z: old entry\n- 36 minutes before PULSE_NOW\n' > "$PROGRESS_STALE"
+
+PROGRESS_UNPARSEABLE="$WORK/PROGRESS-unparseable.md"
+printf '# Progress\n\n## Current\n- no ISO timestamp heading anywhere in this file\n\n## Cycle 1\n- still no timestamp\n' > "$PROGRESS_UNPARSEABLE"
+
+PROGRESS_MISSING="$WORK/no-such-progress.md"
+
 # Real tests/moat/run.sh summary-line fixtures (finding 3): a measured PASS
 # result (7 of 9, no rule failures) and a measured FAIL result (SAME count,
 # 7 of 9, with an unlisted REGRESSION line, so only the suite-failed check
@@ -164,16 +180,42 @@ run_pulse() {
     return $rc
 }
 
+# A non-streak fixture for the CI_CANCELLED_STREAK check's default in
+# COMMON_ARGS below: a clean, completed, non-cancelled run. Using "false"
+# here (like PULSE_GH_CMD's own placeholder) would make ci_cancelled_streak
+# UNKNOWN on every test that does not explicitly override it, turning every
+# "rc = 0" clean-case assertion (T4 etc.) into rc = 2.
+GH_STREAK_OK_JSON="$WORK/gh-streak-ok.json"
+printf '[{"status":"completed","conclusion":"success"}]' > "$GH_STREAK_OK_JSON"
+
 COMMON_ARGS=(
     "PULSE_REPO_ROOT=$FAKE_REPO"
     "PULSE_MAIN_REF=main"
     "CONTROL_MD=$CONTROL_OK"
+    "PULSE_PROGRESS_MD=$PROGRESS_FRESH"
     "PULSE_NPM_CMD=false"
     "PULSE_GH_CMD=false"
+    "PULSE_GH_STREAK_CMD=cat $GH_STREAK_OK_JSON"
     "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO")"
     "PULSE_MOAT_RESULT="
     "PULSE_SWARM_START=2026-09-26T23:00Z"
     "PULSE_NOW=2026-09-27T02:00:00Z"
+    # A nonexistent directory, not the real ~/loki-ci-logs: without this,
+    # every test below would read the ACTUAL host's push-log mtimes for
+    # TRAIN_LATE, making exact-VIOLATION assertions (T2, T11) depend on real
+    # host state instead of the fixture. Dedicated TRAIN_LATE tests (T29)
+    # override this explicitly.
+    "PULSE_PUSH_LOG_DIR=$WORK/no-such-push-logs"
+    # S-109: without these, HIGH_LOAD/ORPHAN_TEST/STRAY_CONTAINER would read
+    # THIS machine's real load, process table and docker daemon, making
+    # exact-VIOLATION assertions depend on host state instead of the
+    # fixture (a real stray container or a loaded CI box would fire them
+    # unpredictably). Dedicated tests (T34-T36) override these explicitly.
+    # No PULSE_RELEASE_TESTS default needed: FAKE_REPO never touches VERSION,
+    # so RELEASE_ON_RED reads n/a rather than UNKNOWN (see resolve_version_bump_sha).
+    "PULSE_LOADAVG=1.00 1.00 1.00"
+    "PULSE_PS_OUTPUT=  PID  PPID     ELAPSED COMMAND"
+    "PULSE_DOCKER_PS="
 )
 
 assert_exact_violations() {
@@ -219,7 +261,8 @@ else
     bad "worktree age filter mismatch: output follows"
     printf '%s\n' "$OUT"
 fi
-EXPECTED_T1="VIOLATION: IDLE_BUILDERS: only 1 active builder worktree(s) while 2 ready slice(s) exist on BOARD (S-01, S-02)
+EXPECTED_T1="VIOLATION: AGENT_OVER_BUDGET: agent(s) past their role/tier time budget: S-03 building LOW (60.0 min, budget 15 min)
+VIOLATION: IDLE_BUILDERS: only 1 active builder worktree(s) while 2 ready slice(s) exist on BOARD (S-01, S-02)
 VIOLATION: LOW_READY: only 2 ready slice(s) on BOARD (want at least 8); cut 6 more"
 assert_exact_violations "T1 IDLE_BUILDERS" "$EXPECTED_T1"
 
@@ -251,7 +294,8 @@ done
 if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_UNRELEASED" \
     "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
     "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_MANY[@]}")"; then rc=0; else rc=$?; fi
-EXPECTED_T2="VIOLATION: UNRELEASED_MERGE: S-15 1 commit(s) merged but unreleased for 60.0 minutes since v1.0.0 (oldest $UNRELEASED_SHA) while CI is green"
+EXPECTED_T2="VIOLATION: UNRELEASED_MERGE: S-15 1 commit(s) merged but unreleased for 60.0 minutes since v1.0.0 (oldest $UNRELEASED_SHA) while CI is green
+VIOLATION: AGENT_OVER_BUDGET: agent(s) past their role/tier time budget: S-01 building LOW (60.0 min, budget 15 min), S-02 building LOW (60.0 min, budget 15 min), S-03 building LOW (60.0 min, budget 15 min), S-04 building LOW (60.0 min, budget 15 min), S-05 building LOW (60.0 min, budget 15 min), S-06 building LOW (60.0 min, budget 15 min)"
 assert_exact_violations "T2 UNRELEASED_MERGE" "$EXPECTED_T2"
 (cd "$FAKE_REPO" || exit 1; git reset -q --hard v1.0.0)
 
@@ -303,13 +347,17 @@ BOARD_CLEAN="$WORK/BOARD-clean.md"
     for i in 1 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
 } > "$BOARD_CLEAN"
 NPM_TIME_JSON="$WORK/npm-time.json"
+# Latest key deliberately "1.0.0", matching FAKE_REPO's v1.0.0 tag exactly
+# (S-139's tag-vs-npm-latest cross-check): every test below that reuses this
+# fixture keeps its unreleased-merge-age assertions unaffected by that check.
+# Dedicated NPM_MISMATCH_JSON below covers the disagreeing case.
 python3 -c "
 import json
 print(json.dumps({
     'created': '2020-01-01T00:00:00.000Z',
     'modified': '2026-09-27T01:55:00.000Z',
-    '9.54.0': '2026-09-27T01:00:00.000Z',
-    '9.55.0': '2026-09-27T01:50:00.000Z',
+    '0.9.0': '2026-09-27T01:00:00.000Z',
+    '1.0.0': '2026-09-27T01:50:00.000Z',
 }))
 " > "$NPM_TIME_JSON"
 WT_CLEAN=()
@@ -409,6 +457,61 @@ else
     printf '%s\n' "$OUT"
 fi
 
+echo "T5b -- STALE_PROGRESS: a fresh PROGRESS.md entry (10 min old) does not fire"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_MOAT_RESULT=$MOAT_RESULT_PASS" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: STALE_PROGRESS" \
+    && printf '%s\n' "$OUT" | grep -qF "PROGRESS.md last entry: 10 min ago"; then
+    ok "fresh PROGRESS.md entry: no STALE_PROGRESS violation"
+else
+    bad "T5b fresh-entry case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T5c -- STALE_PROGRESS: a 36-minute-old entry (over the 35-minute budget) fires"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_PROGRESS_MD=$PROGRESS_STALE" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_MOAT_RESULT=$MOAT_RESULT_PASS" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")"; then rc=0; else rc=$?; fi
+if [ "$rc" = 1 ] \
+    && printf '%s\n' "$OUT" | grep -qF "VIOLATION: STALE_PROGRESS: PROGRESS.md last updated 36 min ago (budget 35)" \
+    && printf '%s\n' "$OUT" | grep -qF "NEXT ACTION: STALE_PROGRESS: append a PROGRESS.md entry: Part 1 gate numbers, Part 2 slices done, top blocker"; then
+    ok "36-minute-old PROGRESS.md entry fires STALE_PROGRESS with the matching NEXT ACTION"
+else
+    bad "T5c stale-entry case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T5d -- STALE_PROGRESS: a missing PROGRESS.md reports UNKNOWN, never a pass"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_PROGRESS_MD=$PROGRESS_MISSING" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_MOAT_RESULT=$MOAT_RESULT_PASS" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: STALE_PROGRESS" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*progress_last_entry" \
+    && printf '%s\n' "$OUT" | grep -qF "PROGRESS.md last entry: UNKNOWN (missing $PROGRESS_MISSING or no parseable '## <timestamp>Z' heading)"; then
+    ok "missing PROGRESS.md: progress_last_entry reports UNKNOWN, never a false clean"
+else
+    bad "T5d missing-file case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T5e -- STALE_PROGRESS: a PROGRESS.md with no parseable '## <timestamp>Z' heading reports UNKNOWN"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_PROGRESS_MD=$PROGRESS_UNPARSEABLE" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_MOAT_RESULT=$MOAT_RESULT_PASS" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: STALE_PROGRESS" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*progress_last_entry" \
+    && printf '%s\n' "$OUT" | grep -qF "PROGRESS.md last entry: UNKNOWN (missing $PROGRESS_UNPARSEABLE or no parseable '## <timestamp>Z' heading)"; then
+    ok "unparseable PROGRESS.md headings: progress_last_entry reports UNKNOWN, never a false clean"
+else
+    bad "T5e unparseable-headings case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
 echo "T6 -- finding-3 exact repro: pending.txt UNCHANGED (ratchet-legal) between baseline and current,"
 echo "      but a measured/live moat result reports FAIL -- MOAT_REGRESSION must still fire, not stay clean"
 # pending.txt at HEAD is byte-identical to v1.0.0's (no widening at all, the
@@ -466,17 +569,20 @@ chmod +x "$SLOW_CMD"
 start_ts=$(date +%s)
 if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
     "PULSE_NPM_CMD=$SLOW_CMD" "PULSE_GH_CMD=$SLOW_CMD" "PULSE_WORKTREE_CMD=$SLOW_CMD" \
+    "PULSE_GH_STREAK_CMD=$SLOW_CMD" \
     "PULSE_DEADLINE_SECS=2"; then rc=0; else rc=$?; fi
 end_ts=$(date +%s)
 elapsed=$((end_ts - start_ts))
 if [ "$elapsed" -lt 10 ] \
     && printf '%s\n' "$OUT" | grep -q "^Releases (24h): UNKNOWN" \
     && printf '%s\n' "$OUT" | grep -q "^Active builder worktrees: UNKNOWN" \
+    && printf '%s\n' "$OUT" | grep -q "^CI cancelled streak (Tests, main): UNKNOWN" \
     && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: NO_RECENT_RELEASE" \
     && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: LOW_RELEASE_VOLUME" \
     && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: IDLE_BUILDERS" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_CANCELLED_STREAK" \
     && [ "$rc" = 2 ]; then
-    ok "all-hung external calls: UNKNOWN metrics, no false violation, ${elapsed}s elapsed (< 10s), exit 2"
+    ok "all-hung external calls: UNKNOWN metrics (including the new streak check), no false violation, ${elapsed}s elapsed (< 10s), exit 2"
 else
     bad "timeout case: rc=$rc elapsed=${elapsed}s output follows"
     printf '%s\n' "$OUT"
@@ -513,7 +619,7 @@ mkdir -p "$NO_GIT_REPO/tests/moat"
 printf 'P1.case-a milestone reason\n' > "$NO_GIT_REPO/tests/moat/pending.txt"
 if run_pulse "PULSE_REPO_ROOT=$NO_GIT_REPO" "PULSE_MAIN_REF=main" \
     "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
-    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" "PULSE_GH_STREAK_CMD=false" \
     "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO")" \
     "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
 # No .git at all in NO_GIT_REPO: the pending-derived informational count is
@@ -542,7 +648,7 @@ echo "      report UNKNOWN (fail closed), NOT fire MOAT_REGRESSION, even though 
 write_moat_sha "$MOAT_RESULT_FAIL" "$FAKE_REPO" main
 if run_pulse "PULSE_REPO_ROOT=$NO_GIT_REPO" "PULSE_MAIN_REF=main" \
     "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
-    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" "PULSE_GH_STREAK_CMD=false" \
     "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO")" \
     "PULSE_MOAT_RESULT=$MOAT_RESULT_FAIL" \
     "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
@@ -551,11 +657,17 @@ if run_pulse "PULSE_REPO_ROOT=$NO_GIT_REPO" "PULSE_MAIN_REF=main" \
 # from this fixture's shape. The assertion below isolates the thing this test
 # actually verifies: MOAT_REGRESSION must NOT be among the fired violations,
 # and moat_regression must be UNKNOWN with the provenance-unresolvable reason.
+# This fixture also has no resolvable main_sha (no .git at all), so main_ci
+# itself reads UNKNOWN here too -- IDLE_BUILDERS firing anyway is exactly
+# finding 3's contract: an UNKNOWN main-CI reading must never suppress an
+# unrelated violation that should still fire.
 if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: MOAT_REGRESSION" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*main_ci" \
     && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*moat_baseline" \
     && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*moat_regression" \
-    && printf '%s\n' "$OUT" | grep -qF "Moat regression check: UNKNOWN (could not verify PULSE_MOAT_RESULT's provenance: main's current HEAD could not be resolved)"; then
-    ok "with no .git anywhere, MAIN_REF's HEAD cannot be resolved either, so the measured FAIL correctly downgrades to UNKNOWN instead of firing"
+    && printf '%s\n' "$OUT" | grep -qF "Moat regression check: UNKNOWN (could not verify PULSE_MOAT_RESULT's provenance: main's current HEAD could not be resolved)" \
+    && printf '%s\n' "$OUT" | grep -q "^VIOLATION: IDLE_BUILDERS"; then
+    ok "with no .git anywhere, MAIN_REF's HEAD cannot be resolved either, so the measured FAIL correctly downgrades to UNKNOWN instead of firing, AND IDLE_BUILDERS still fires despite main_ci also being UNKNOWN (finding 3)"
 else
     bad "T9b baseline-unknown-but-measured case: rc=$rc output follows"
     printf '%s\n' "$OUT"
@@ -587,12 +699,14 @@ cat > "$BOARD_ALL" <<'EOF'
 | S-02 | a | x | LOW | ready@2026-09-27T01:00Z | |
 EOF
 NPM_OLD_JSON="$WORK/npm-old.json"
+# Same "1.0.0" convention as NPM_TIME_JSON above, matching v1.0.0 exactly so
+# S-139's tag-vs-npm-latest cross-check stays a no-op here too.
 python3 -c "
 import json
 print(json.dumps({
     'created': '2020-01-01T00:00:00.000Z',
     'modified': '2026-09-25T00:00:00.000Z',
-    '9.50.0': '2026-09-25T00:00:00.000Z',
+    '1.0.0': '2026-09-25T00:00:00.000Z',
 }))
 " > "$NPM_OLD_JSON"
 (
@@ -612,6 +726,7 @@ UNRELEASED_ALL_SHA="$(cd "$FAKE_REPO" && git rev-parse --short=8 main)"
 EXPECTED_ALL="VIOLATION: MOAT_REGRESSION: measured moat suite reports FAIL (1 rule failure(s)) -- a live suite failure is always a regression regardless of the proven count (see $MOAT_RESULT_FAIL)
 VIOLATION: UNRELEASED_MERGE: 1 commit(s) merged but unreleased for 60.0 minutes since v1.0.0 (oldest $UNRELEASED_ALL_SHA) while CI is green
 VIOLATION: REVIEW_STALE: review-pending past 45 minutes: S-01 (60.0 min)
+VIOLATION: AGENT_OVER_BUDGET: agent(s) past their role/tier time budget: S-01 review LOW (60.0 min, budget 30 min)
 VIOLATION: IDLE_BUILDERS: only 0 active builder worktree(s) while 1 ready slice(s) exist on BOARD (S-02)
 VIOLATION: LOW_READY: only 1 ready slice(s) on BOARD (want at least 8); cut 7 more
 VIOLATION: NO_RECENT_RELEASE: no release in the last 90 minutes (3000.0 minutes since last release)
@@ -620,6 +735,7 @@ assert_exact_violations "T11 all-except-CI_RED" "$EXPECTED_ALL"
 EXPECTED_NEXT_ALL="NEXT ACTION: MOAT_REGRESSION: identify which moat property regressed and revert or fix it before any further merge -- measured moat suite reports FAIL (1 rule failure(s)) -- a live suite failure is always a regression regardless of the proven count (see $MOAT_RESULT_FAIL)
 NEXT ACTION: UNRELEASED_MERGE: cut a release now, main has been unreleased past the 30-minute budget -- 1 commit(s) merged but unreleased for 60.0 minutes since v1.0.0 (oldest $UNRELEASED_ALL_SHA) while CI is green
 NEXT ACTION: REVIEW_STALE: escalate or finish review for the named slice(s), they have exceeded the 45-minute budget -- review-pending past 45 minutes: S-01 (60.0 min)
+NEXT ACTION: AGENT_OVER_BUDGET: check in on the named agent(s), they have exceeded their role/tier time budget -- agent(s) past their role/tier time budget: S-01 review LOW (60.0 min, budget 30 min)
 NEXT ACTION: IDLE_BUILDERS: dispatch more builders against the named ready slice(s) in docs/v10/BOARD.md -- only 0 active builder worktree(s) while 1 ready slice(s) exist on BOARD (S-02)
 NEXT ACTION: LOW_READY: the Product Owner should cut the named number of additional slices onto the ready queue -- only 1 ready slice(s) on BOARD (want at least 8); cut 7 more
 NEXT ACTION: NO_RECENT_RELEASE: cut a release now, none has shipped in over 90 minutes -- no release in the last 90 minutes (3000.0 minutes since last release)
@@ -874,7 +990,7 @@ mkdir -p "$NO_PENDING_REPO"
 write_moat_sha "$MOAT_RESULT_FAIL" "$NO_PENDING_REPO" main
 if run_pulse "PULSE_REPO_ROOT=$NO_PENDING_REPO" "PULSE_MAIN_REF=main" \
     "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
-    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" "PULSE_GH_STREAK_CMD=false" \
     "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO")" \
     "PULSE_MOAT_RESULT=$MOAT_RESULT_FAIL" \
     "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
@@ -885,6 +1001,1083 @@ if [ "$rc" = 1 ] \
     ok "pending-derived read AND release-baseline both UNKNOWN (no pending.txt blob anywhere) do not stop the independent, SHA-verified measured-result check from firing"
 else
     bad "T17 decoupling case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T18 -- CI_CANCELLED_STREAK: 3 consecutive cancelled Tests runs (skipping the in_progress head) fires"
+GH_STREAK_3="$WORK/gh-streak-3.json"
+python3 -c "
+import json
+print(json.dumps([
+    {'status': 'in_progress', 'conclusion': None},
+    {'status': 'completed', 'conclusion': 'cancelled'},
+    {'status': 'completed', 'conclusion': 'cancelled'},
+    {'status': 'completed', 'conclusion': 'cancelled'},
+    {'status': 'completed', 'conclusion': 'success'},
+]))
+" > "$GH_STREAK_3"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ANY" "PULSE_GH_STREAK_CMD=cat $GH_STREAK_3"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "CI cancelled streak (Tests, main): 3 consecutive" \
+    && printf '%s\n' "$OUT" | grep -qF "VIOLATION: CI_CANCELLED_STREAK: 3 consecutive cancelled Tests runs on main (threshold 3)"; then
+    ok "3 consecutive cancelled runs (in_progress head correctly skipped, not counted as a break): CI_CANCELLED_STREAK fires"
+else
+    bad "T18 streak-fires case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T18b -- CI_CANCELLED_STREAK: non-consecutive cancelled runs never fire"
+GH_STREAK_NONCONSEC="$WORK/gh-streak-nonconsec.json"
+python3 -c "
+import json
+print(json.dumps([
+    {'status': 'completed', 'conclusion': 'cancelled'},
+    {'status': 'completed', 'conclusion': 'cancelled'},
+    {'status': 'completed', 'conclusion': 'success'},
+    {'status': 'completed', 'conclusion': 'cancelled'},
+]))
+" > "$GH_STREAK_NONCONSEC"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ANY" "PULSE_GH_STREAK_CMD=cat $GH_STREAK_NONCONSEC"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "CI cancelled streak (Tests, main): 2 consecutive" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_CANCELLED_STREAK"; then
+    ok "2 consecutive (broken by an intervening success) stays under threshold, no violation"
+else
+    bad "T18b non-consecutive case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T18c -- CI_CANCELLED_STREAK: no completed runs at all (all still in progress) is UNKNOWN, not a false 0"
+GH_STREAK_NONE_COMPLETED="$WORK/gh-streak-none-completed.json"
+printf '[{"status":"in_progress","conclusion":null},{"status":"queued","conclusion":null}]' > "$GH_STREAK_NONE_COMPLETED"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ANY" "PULSE_GH_STREAK_CMD=cat $GH_STREAK_NONE_COMPLETED"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^CI cancelled streak (Tests, main): UNKNOWN" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*ci_cancelled_streak" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_CANCELLED_STREAK"; then
+    ok "no completed runs yet: UNKNOWN, never a false streak of 0"
+else
+    bad "T18c no-completed-runs case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T19 -- finding 2/3: UNRELEASED_MERGE fires past 45 minutes even when main CI is UNKNOWN"
+BOARD_UNRELEASED_UNKNOWN="$WORK/BOARD-unreleased-unknown.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    for i in 1 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_UNRELEASED_UNKNOWN"
+(
+    cd "$FAKE_REPO" || exit 1
+    echo "change" > file.txt
+    git add file.txt
+    GIT_AUTHOR_DATE="2026-09-27T01:00:00Z" GIT_COMMITTER_DATE="2026-09-27T01:00:00Z" \
+        git commit -q -m "unreleased change, CI unknown"
+)
+UNRELEASED_UNKNOWN_SHA="$(cd "$FAKE_REPO" && git rev-parse --short=8 HEAD)"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_UNRELEASED_UNKNOWN" \
+    "PULSE_GH_CMD=cat $GH_CANCELLED_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^Main CI (main @ $UNRELEASED_UNKNOWN_SHA): UNKNOWN" \
+    && printf '%s\n' "$OUT" | grep -qF "VIOLATION: UNRELEASED_MERGE: 1 commit(s) merged but unreleased for 60.0 minutes since v1.0.0 (oldest $UNRELEASED_UNKNOWN_SHA) (CI status: UNKNOWN)"; then
+    ok "60-minute unreleased-merge age fires UNRELEASED_MERGE even though main CI reads UNKNOWN (finding 2/3 fixed)"
+else
+    bad "T19 unreleased-merge-under-unknown-ci case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+(cd "$FAKE_REPO" || exit 1; git reset -q --hard v1.0.0)
+
+echo "T19b -- UNRELEASED_MERGE threshold: 40 minutes with UNKNOWN CI does NOT fire (45-min budget pinned)"
+(
+    cd "$FAKE_REPO" || exit 1
+    echo "change" > file.txt
+    git add file.txt
+    GIT_AUTHOR_DATE="2026-09-27T01:20:00Z" GIT_COMMITTER_DATE="2026-09-27T01:20:00Z" \
+        git commit -q -m "unreleased change, 40 min old"
+)
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_UNRELEASED_UNKNOWN" \
+    "PULSE_GH_CMD=cat $GH_CANCELLED_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Merged-but-unreleased age: 40.0 min" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNRELEASED_MERGE"; then
+    ok "40 minutes under UNKNOWN CI stays under the 45-minute independent budget, no violation"
+else
+    bad "T19b threshold case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+(cd "$FAKE_REPO" || exit 1; git reset -q --hard v1.0.0)
+
+echo "T20 -- finding 3: an UNKNOWN main CI reading does not suppress LOW_READY, an unrelated violation"
+BOARD_LOW_READY_ONLY="$WORK/BOARD-low-ready-only.md"
+cat > "$BOARD_LOW_READY_ONLY" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | |
+EOF
+WT_T20=()
+for i in 1 2 3 4 5 6; do
+    d="$WORK/wt20-$i"; mkdir -p "$d"; make_worktree "$d" 5 1790474400
+    WT_T20+=("$d")
+done
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_LOW_READY_ONLY" \
+    "PULSE_GH_CMD=cat $GH_CANCELLED_JSON" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_T20[@]}")"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^Main CI (main @ .*): UNKNOWN" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*main_ci" \
+    && printf '%s\n' "$OUT" | grep -qF "VIOLATION: LOW_READY: only 1 ready slice(s) on BOARD (want at least 8); cut 7 more" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: IDLE_BUILDERS"; then
+    ok "main CI UNKNOWN does not suppress LOW_READY (6 active worktrees correctly means no IDLE_BUILDERS here either)"
+else
+    bad "T20 unknown-does-not-suppress case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T21 -- AGENT_OVER_BUDGET (S-75, D26 guard 3): LOW builder at 20 min (over the 15-min budget) fires"
+BOARD_LOW_BUILDER_OVER="$WORK/BOARD-low-builder-over.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    echo "| S-01 | a | x | LOW | building@2026-09-27T01:40Z | |"
+    for i in 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_LOW_BUILDER_OVER"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_LOW_BUILDER_OVER"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: AGENT_OVER_BUDGET: agent(s) past their role/tier time budget: S-01 building LOW (20.0 min, budget 15 min)"; then
+    ok "LOW builder at 20 min (over its 15-min budget): AGENT_OVER_BUDGET fires naming the slice, elapsed time, and budget"
+else
+    bad "T21 LOW-builder-over case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T21b -- AGENT_OVER_BUDGET: the same LOW builder slice at 10 min (under budget) does NOT fire"
+BOARD_LOW_BUILDER_UNDER="$WORK/BOARD-low-builder-under.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    echo "| S-01 | a | x | LOW | building@2026-09-27T01:50Z | |"
+    for i in 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_LOW_BUILDER_UNDER"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_LOW_BUILDER_UNDER"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: AGENT_OVER_BUDGET"; then
+    ok "LOW builder at 10 min (under its 15-min budget): AGENT_OVER_BUDGET correctly does not fire"
+else
+    bad "T21b LOW-builder-under case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T21c -- AGENT_OVER_BUDGET: HIGH-tier review at 45 min (under its 60-min budget) does NOT fire"
+BOARD_HIGH_REVIEW_UNDER="$WORK/BOARD-high-review-under.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    echo "| S-01 | a | x | HIGH | review@2026-09-27T01:15Z | |"
+    for i in 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_HIGH_REVIEW_UNDER"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_HIGH_REVIEW_UNDER"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: AGENT_OVER_BUDGET"; then
+    ok "HIGH review at 45 min (under its 60-min budget): AGENT_OVER_BUDGET correctly does not fire"
+else
+    bad "T21c HIGH-review-under case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T21d -- AGENT_OVER_BUDGET: HIGH-tier review at 65 min (over its 60-min budget) fires"
+BOARD_HIGH_REVIEW_OVER="$WORK/BOARD-high-review-over.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    echo "| S-01 | a | x | HIGH | review@2026-09-27T00:55Z | |"
+    for i in 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_HIGH_REVIEW_OVER"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_HIGH_REVIEW_OVER"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "AGENT_OVER_BUDGET: agent(s) past their role/tier time budget: S-01 review HIGH (65.0 min, budget 60 min)"; then
+    ok "HIGH review at 65 min (over its 60-min budget): AGENT_OVER_BUDGET fires"
+else
+    bad "T21d HIGH-review-over case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T21e -- AGENT_OVER_BUDGET: an active row with no parseable Tier cell reports UNKNOWN, never silently skipped"
+BOARD_NO_TIER="$WORK/BOARD-no-tier.md"
+{
+    echo "| ID | Owner | File set | Status | Notes |"
+    echo "|---|---|---|---|---|"
+    echo "| S-01 | a | x | building@2026-09-27T01:00Z | |"
+    for i in 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_NO_TIER"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_NO_TIER"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Agent budget: UNKNOWN for S-01 (no parseable Tier cell on an active row)" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*agent_budget" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: AGENT_OVER_BUDGET"; then
+    ok "no Tier cell on an active building row: reported UNKNOWN, never silently treated as in-budget"
+else
+    bad "T21e no-tier case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T22 -- S-75 rework: a malformed BOARD.md building@ timestamp (month/day/hour/min all"
+echo "      out of range, matches STATUS_TOKEN_RE's digit-shape regex but not a real"
+echo "      calendar date) downgrades that row to UNKNOWN instead of crashing the script"
+BOARD_BAD_TS_BUILD="$WORK/BOARD-bad-ts-build.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    echo "| S-01 | a | x | LOW | building@2026-99-99T99:99Z | |"
+    for i in 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_BAD_TS_BUILD"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_BAD_TS_BUILD"; then rc=0; else rc=$?; fi
+if [ "$rc" = "1" ] \
+    && ! printf '%s\n' "$OUT" | grep -q "PULSE ERROR" \
+    && printf '%s\n' "$OUT" | grep -q "^=== v10-pulse status" \
+    && printf '%s\n' "$OUT" | grep -qF "Agent budget: UNKNOWN for S-01 (no parseable Status timestamp on an active row)" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*agent_budget" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: AGENT_OVER_BUDGET"; then
+    ok "malformed building@ timestamp: no PULSE ERROR, normal violation exit code (1, from LOW_READY), status block renders, row reports UNKNOWN"
+else
+    bad "T22 bad-timestamp building row: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T23 -- S-75 rework: the same malformed timestamp on a review@ row (REVIEW_STALE's"
+echo "      identical pre-existing parse_time_value call) also downgrades to UNKNOWN"
+BOARD_BAD_TS_REVIEW="$WORK/BOARD-bad-ts-review.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    echo "| S-01 | a | x | LOW | review@2026-99-99T99:99Z | |"
+    for i in 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_BAD_TS_REVIEW"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_BAD_TS_REVIEW"; then rc=0; else rc=$?; fi
+if [ "$rc" = "1" ] \
+    && ! printf '%s\n' "$OUT" | grep -q "PULSE ERROR" \
+    && printf '%s\n' "$OUT" | grep -q "^=== v10-pulse status" \
+    && printf '%s\n' "$OUT" | grep -qF "Review-pending age: UNKNOWN for S-01 (no parseable Status timestamp on a review-pending row)" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*review_pending_age" \
+    && printf '%s\n' "$OUT" | grep -qF "Agent budget: UNKNOWN for S-01 (no parseable Status timestamp on an active row)" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: REVIEW_STALE" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: AGENT_OVER_BUDGET"; then
+    ok "malformed review@ timestamp: no PULSE ERROR, normal violation exit code (1, from LOW_READY), status block renders, row reports UNKNOWN"
+else
+    bad "T23 bad-timestamp review row: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T24 -- AGENT_OVER_BUDGET: a future building@ timestamp stays 'not over budget'"
+echo "      (pins existing behavior: negative age is never > any budget)"
+BOARD_FUTURE_TS="$WORK/BOARD-future-ts.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    echo "| S-01 | a | x | LOW | building@2026-09-27T03:00Z | |"
+    for i in 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_FUTURE_TS"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_FUTURE_TS"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "PULSE ERROR" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: AGENT_OVER_BUDGET" \
+    && ! printf '%s\n' "$OUT" | grep -q "agent_budget"; then
+    ok "a building@ timestamp one hour in the future: no AGENT_OVER_BUDGET, no UNKNOWN (negative age parses fine, just never exceeds budget)"
+else
+    bad "T24 future-timestamp case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+# assert_bad_ts_row <fixture-slug> <building|review> <bad-timestamp> <description>
+# -- builds an 8-row BOARD.md with S-01 at the given token@timestamp and 7
+# ready rows, then asserts: no PULSE ERROR, normal violation exit code (1,
+# from LOW_READY), no AGENT_OVER_BUDGET violation, and the row reports
+# UNKNOWN for agent_budget; for a review@ row, also asserts no REVIEW_STALE
+# violation and the row reports UNKNOWN for review_pending_age too.
+assert_bad_ts_row() {
+    local slug="$1" token="$2" ts="$3" desc="$4"
+    local board="$WORK/BOARD-$slug.md" pass=1
+    {
+        echo "| ID | Owner | File set | Tier | Status | Notes |"
+        echo "|---|---|---|---|---|---|"
+        echo "| S-01 | a | x | LOW | ${token}@${ts} | |"
+        for i in 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+    } > "$board"
+    if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$board"; then rc=0; else rc=$?; fi
+    printf '%s\n' "$OUT" | grep -q "PULSE ERROR" && pass=0
+    [ "$rc" = "1" ] || pass=0
+    printf '%s\n' "$OUT" | grep -q "^VIOLATION: AGENT_OVER_BUDGET" && pass=0
+    printf '%s\n' "$OUT" | grep -qF "Agent budget: UNKNOWN for S-01 (no parseable Status timestamp on an active row)" || pass=0
+    printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*agent_budget" || pass=0
+    if [ "$token" = "review" ]; then
+        printf '%s\n' "$OUT" | grep -q "^VIOLATION: REVIEW_STALE" && pass=0
+        printf '%s\n' "$OUT" | grep -qF "Review-pending age: UNKNOWN for S-01 (no parseable Status timestamp on a review-pending row)" || pass=0
+        printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*review_pending_age" || pass=0
+    fi
+    if [ "$pass" = "1" ]; then
+        ok "$desc"
+    else
+        bad "$desc: rc=$rc output follows"
+        printf '%s\n' "$OUT"
+    fi
+}
+
+echo "T25 -- S-75 rework round 2 (re-review REJECT, reproduced): calendar.timegm validates the"
+echo "      MONTH via datetime.date(y, mo, 1) but adds day/hour/minute as unchecked arithmetic --"
+echo "      a valid month with an out-of-range day must still downgrade to UNKNOWN"
+assert_bad_ts_row "bad-day-build" "building" "2026-09-99T10:00Z" \
+    "building@ with day=99 (valid month, invalid day): UNKNOWN, no silent false green"
+assert_bad_ts_row "bad-day-review" "review" "2026-09-99T10:00Z" \
+    "review@ with day=99 (valid month, invalid day): UNKNOWN, no silent false green"
+
+echo "T26 -- round 2: hour=24 (calendar.timegm's unchecked arithmetic would otherwise accept it)"
+assert_bad_ts_row "bad-hour24-build" "building" "2026-09-27T24:00Z" \
+    "building@ with hour=24: UNKNOWN, no silent false green"
+assert_bad_ts_row "bad-hour24-review" "review" "2026-09-27T24:00Z" \
+    "review@ with hour=24: UNKNOWN, no silent false green"
+
+echo "T27 -- round 2: minute=61 (the exact reported repro: '2026-09-27T24:61Z' parsed with a"
+echo "      negative age and no error before this fix)"
+assert_bad_ts_row "bad-min61-build" "building" "2026-09-27T23:61Z" \
+    "building@ with minute=61: UNKNOWN, no silent false green"
+assert_bad_ts_row "bad-min61-review" "review" "2026-09-27T23:61Z" \
+    "review@ with minute=61: UNKNOWN, no silent false green"
+
+echo "T28 -- round 2: Feb 30 (day 30 does not exist in February; before this fix,"
+echo "      calendar.timegm's unchecked day arithmetic silently normalized it to March 2"
+echo "      and fabricated a real AGENT_OVER_BUDGET violation)"
+assert_bad_ts_row "feb30-build" "building" "2026-02-30T10:00Z" \
+    "building@ Feb 30: UNKNOWN, never silently normalized to March 2"
+assert_bad_ts_row "feb30-review" "review" "2026-02-30T10:00Z" \
+    "review@ Feb 30: UNKNOWN, never silently normalized to March 2"
+
+echo "T29 -- TRAIN_LATE (D27 item 6): fires only with merged-but-unreleased commits AND"
+echo "      more than 25 minutes since the last train push"
+BOARD_TRAIN="$WORK/BOARD-train.md"
+cat > "$BOARD_TRAIN" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | |
+EOF
+# PULSE_NOW (COMMON_ARGS) = 2026-09-27T02:00:00Z = epoch 1790474400 (see T1).
+# 26 min before = 1790472840, 24 min before = 1790472960.
+
+echo "T29c -- does not fire with zero merged-but-unreleased commits, even past 25 minutes"
+# Run BEFORE the unreleased commit below is added: FAKE_REPO is still clean
+# at v1.0.0 here (no test between the last reset at T20 and this one added a
+# commit), so this genuinely exercises the zero-unreleased-commits path.
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_LAST_TRAIN_PUSH=1790472840"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: TRAIN_LATE" \
+    && printf '%s\n' "$OUT" | grep -qF "Train push cadence: n/a (no merged-but-unreleased commits)"; then
+    ok "TRAIN_LATE does not fire with zero unreleased commits regardless of push age"
+else
+    bad "T29c TRAIN_LATE-none case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+(
+    cd "$FAKE_REPO" || exit 1
+    echo "train change" > train-file.txt
+    git add train-file.txt
+    GIT_AUTHOR_DATE="2026-09-27T01:00:00Z" GIT_COMMITTER_DATE="2026-09-27T01:00:00Z" \
+        git commit -q -m "unreleased train change"
+)
+
+echo "T29a -- fires at 26 minutes since last train push"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_TRAIN" "PULSE_LAST_TRAIN_PUSH=1790472840"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^VIOLATION: TRAIN_LATE: 26.0 minutes since the last train push"; then
+    ok "TRAIN_LATE fires at 26 minutes with merged-but-unreleased commits present"
+else
+    bad "T29a TRAIN_LATE-fires case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T29b -- does not fire at 24 minutes (same unreleased commits, under the 25-minute threshold)"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_TRAIN" "PULSE_LAST_TRAIN_PUSH=1790472960"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: TRAIN_LATE" \
+    && printf '%s\n' "$OUT" | grep -qF "Minutes since last train push: 24.0"; then
+    ok "TRAIN_LATE does not fire at 24 minutes"
+else
+    bad "T29b TRAIN_LATE-24min case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T29d -- UNKNOWN (never a false negative) with no override and no push-*.log directory"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_TRAIN"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*train_late" \
+    && printf '%s\n' "$OUT" | grep -qF "Train push cadence: UNKNOWN (no PULSE_LAST_TRAIN_PUSH override and no push-*.log under $WORK/no-such-push-logs)" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: TRAIN_LATE"; then
+    ok "TRAIN_LATE reports UNKNOWN, never fires, when neither source is available"
+else
+    bad "T29d TRAIN_LATE-unknown case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T29e -- PULSE_PUSH_LOG_DIR fallback: newest push-*.log mtime wins over an older one and a non-matching name"
+LOGDIR="$WORK/push-logs"
+mkdir -p "$LOGDIR"
+: > "$LOGDIR/push-old.log"
+: > "$LOGDIR/push-new.log"
+: > "$LOGDIR/not-a-push-log.txt"
+python3 -c "
+import os
+os.utime('$LOGDIR/push-old.log', (1790472000, 1790472000))
+os.utime('$LOGDIR/push-new.log', (1790472840, 1790472840))
+os.utime('$LOGDIR/not-a-push-log.txt', (1790400000, 1790400000))
+"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_TRAIN" "PULSE_PUSH_LOG_DIR=$LOGDIR"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^VIOLATION: TRAIN_LATE: 26.0 minutes"; then
+    ok "PULSE_PUSH_LOG_DIR fallback uses the NEWEST push-*.log mtime (26.0 min), ignoring an older log and a non-matching filename"
+else
+    bad "T29e push-log-dir fallback case: output follows"
+    printf '%s\n' "$OUT"
+fi
+(cd "$FAKE_REPO" || exit 1; git reset -q --hard v1.0.0)
+
+echo "T30 -- D26 guard 4: UNEVIDENCED_CLAIM fires on an added claim line with no citation"
+# A dedicated, isolated repo (its own docs/v10/BOARD.md and PROGRESS.md, like
+# NO_PENDING_REPO above) so this test never depends on or mutates FAKE_REPO's
+# shared history. One commit adds a claim word ("verified", "no fix needed")
+# to PROGRESS.md with nothing next to it that could count as a citation: no
+# backticked command, no rc=/exit, no N/N count, no SHA.
+CLAIM_REPO_FLAGGED="$WORK/claim-repo-flagged"
+mkdir -p "$CLAIM_REPO_FLAGGED/docs/v10"
+(
+    cd "$CLAIM_REPO_FLAGGED" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    printf '# Board\n' > docs/v10/BOARD.md
+    printf '# Progress\n' > docs/v10/PROGRESS.md
+    git add docs/v10/BOARD.md docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:00:00Z" GIT_COMMITTER_DATE="2026-09-27T00:00:00Z" \
+        git commit -q -m "seed docs"
+    printf 'S-99 verified and merged, no fix needed.\n' >> docs/v10/PROGRESS.md
+    git add docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:05:00Z" GIT_COMMITTER_DATE="2026-09-27T00:05:00Z" \
+        git commit -q -m "docs(v10): S-99 status (unevidenced-claim fixture)"
+)
+if run_pulse "PULSE_REPO_ROOT=$CLAIM_REPO_FLAGGED" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$CLAIM_REPO_FLAGGED")" \
+    "PULSE_MOAT_RESULT=" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if [ "$rc" = 1 ] \
+    && printf '%s\n' "$OUT" | grep -qF "Unevidenced-claim check: 2 commit(s) scanned touching BOARD.md/PROGRESS.md, 1 flagged line(s)" \
+    && printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:" \
+    && printf '%s\n' "$OUT" | grep -qF "S-99 verified and merged, no fix needed."; then
+    ok "an added claim line with no citation fires UNEVIDENCED_CLAIM and quotes the offending line"
+else
+    bad "T30 flagged case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T30b -- D26 guard 4: a claim line WITH a citation (N/N count + backticked command) is not flagged"
+CLAIM_REPO_CLEAN="$WORK/claim-repo-clean"
+mkdir -p "$CLAIM_REPO_CLEAN/docs/v10"
+(
+    cd "$CLAIM_REPO_CLEAN" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    printf '# Board\n' > docs/v10/BOARD.md
+    printf '# Progress\n' > docs/v10/PROGRESS.md
+    git add docs/v10/BOARD.md docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:00:00Z" GIT_COMMITTER_DATE="2026-09-27T00:00:00Z" \
+        git commit -q -m "seed docs"
+    printf 'S-100 verified: full suite 42/42 passing (`bash tests/run-all-tests.sh`).\n' >> docs/v10/PROGRESS.md
+    git add docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:05:00Z" GIT_COMMITTER_DATE="2026-09-27T00:05:00Z" \
+        git commit -q -m "docs(v10): S-100 status (evidenced-claim fixture)"
+)
+if run_pulse "PULSE_REPO_ROOT=$CLAIM_REPO_CLEAN" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$CLAIM_REPO_CLEAN")" \
+    "PULSE_MOAT_RESULT=" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:" \
+    && printf '%s\n' "$OUT" | grep -qF "Unevidenced-claim check: 2 commit(s) scanned touching BOARD.md/PROGRESS.md, 0 flagged line(s)"; then
+    ok "a claim line carrying an N/N count and a backticked command is not flagged"
+else
+    bad "T30b clean case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T30e -- D26 guard 4: an uncited claim later edited to carry a citation (or retracted) is no longer flagged"
+# The same uncited line as T30, then a later commit rewrites it with a SHA
+# citation, and another uncited line is added then deleted. Neither survives
+# verbatim on main, so neither is flagged; a still-present uncited line would be.
+CLAIM_REPO_FIXED="$WORK/claim-repo-fixed"
+mkdir -p "$CLAIM_REPO_FIXED/docs/v10"
+(
+    cd "$CLAIM_REPO_FIXED" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    printf '# Board\n' > docs/v10/BOARD.md
+    printf '# Progress\n' > docs/v10/PROGRESS.md
+    git add docs/v10/BOARD.md docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:00:00Z" GIT_COMMITTER_DATE="2026-09-27T00:00:00Z" git commit -q -m "seed docs"
+    printf 'S-99 verified and merged, no fix needed.\nS-98 fixed.\n' >> docs/v10/PROGRESS.md
+    git add docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:05:00Z" GIT_COMMITTER_DATE="2026-09-27T00:05:00Z" git commit -q -m "uncited claims"
+    printf '# Progress\nS-99 verified and merged in abc1234def (rc=0).\n' > docs/v10/PROGRESS.md
+    git add docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:10:00Z" GIT_COMMITTER_DATE="2026-09-27T00:10:00Z" git commit -q -m "cite S-99, retract S-98"
+)
+if run_pulse "PULSE_REPO_ROOT=$CLAIM_REPO_FIXED" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$CLAIM_REPO_FIXED")" \
+    "PULSE_MOAT_RESULT=" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:" \
+    && printf '%s\n' "$OUT" | grep -qF "Unevidenced-claim check: 3 commit(s) scanned touching BOARD.md/PROGRESS.md, 0 flagged line(s)"; then
+    ok "an uncited claim that was later cited or retracted is not flagged"
+else
+    bad "T30e cited-or-retracted case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T30f -- D26 guard 4: a BOARD row's Wall-check spec is not a claim; its notes cell still is"
+CLAIM_REPO_WALL="$WORK/claim-repo-wall"
+mkdir -p "$CLAIM_REPO_WALL/docs/v10"
+(
+    cd "$CLAIM_REPO_WALL" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    printf '# Board\n' > docs/v10/BOARD.md
+    printf '# Progress\n' > docs/v10/PROGRESS.md
+    git add docs/v10/BOARD.md docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:00:00Z" GIT_COMMITTER_DATE="2026-09-27T00:00:00Z" git commit -q -m "seed docs"
+    printf '| S-201 | spec row | a.sh | LOW | node --test a.mjs passes | ready@2026-09-27T00:05Z | Source: cut. |\n' >> docs/v10/BOARD.md
+    printf '| S-202 | claim row | b.sh | LOW | run b | merged@2026-09-27T00:05Z | Verified and fixed. |\n' >> docs/v10/BOARD.md
+    git add docs/v10/BOARD.md
+    GIT_AUTHOR_DATE="2026-09-27T00:05:00Z" GIT_COMMITTER_DATE="2026-09-27T00:05:00Z" git commit -q -m "rows"
+)
+if run_pulse "PULSE_REPO_ROOT=$CLAIM_REPO_WALL" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$CLAIM_REPO_WALL")" \
+    "PULSE_MOAT_RESULT=" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:.*S-202" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:.*S-201" \
+    && printf '%s\n' "$OUT" | grep -qF "2 commit(s) scanned touching BOARD.md/PROGRESS.md, 1 flagged line(s)"; then
+    ok "a Wall-check spec is not flagged; an uncited notes-cell claim is"
+else
+    bad "T30f wall-check case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T30g -- D26 guard 4: an M row's title/Wall-check spec cells are not a claim; its notes cell still is"
+CLAIM_REPO_MROW="$WORK/claim-repo-mrow"
+mkdir -p "$CLAIM_REPO_MROW/docs/v10"
+(
+    cd "$CLAIM_REPO_MROW" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    printf '# Board\n' > docs/v10/BOARD.md
+    printf '# Progress\n' > docs/v10/PROGRESS.md
+    git add docs/v10/BOARD.md docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:00:00Z" GIT_COMMITTER_DATE="2026-09-27T00:00:00Z" git commit -q -m "seed docs"
+    printf '| M-01 | a green base is an error until proven | a.ts | LOW | bash a.sh passes | ready@2026-09-27T00:05Z | Source: cut. |\n' >> docs/v10/BOARD.md
+    printf '| M-02 | modernize step | b.ts | LOW | run b | merged@2026-09-27T00:05Z | Verified manually. |\n' >> docs/v10/BOARD.md
+    git add docs/v10/BOARD.md
+    GIT_AUTHOR_DATE="2026-09-27T00:05:00Z" GIT_COMMITTER_DATE="2026-09-27T00:05:00Z" git commit -q -m "rows"
+)
+if run_pulse "PULSE_REPO_ROOT=$CLAIM_REPO_MROW" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$CLAIM_REPO_MROW")" \
+    "PULSE_MOAT_RESULT=" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:.*M-02" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:.*M-01" \
+    && printf '%s\n' "$OUT" | grep -qF "2 commit(s) scanned touching BOARD.md/PROGRESS.md, 1 flagged line(s)"; then
+    ok "an M row's title/Wall-check 'green' is not flagged; an uncited notes-cell 'verified' is"
+else
+    bad "T30g M-row case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T31 -- D26 guard 4: a bare 'exit' with no number, and no other citation, is not evidence"
+CLAIM_REPO_EXIT="$WORK/claim-repo-exit"
+mkdir -p "$CLAIM_REPO_EXIT/docs/v10"
+(
+    cd "$CLAIM_REPO_EXIT" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    printf '# Board\n' > docs/v10/BOARD.md
+    printf '# Progress\n' > docs/v10/PROGRESS.md
+    git add docs/v10/BOARD.md docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:00:00Z" GIT_COMMITTER_DATE="2026-09-27T00:00:00Z" \
+        git commit -q -m "seed docs"
+    printf 'S-101 fixed the login exit flow, no test run.\n' >> docs/v10/PROGRESS.md
+    git add docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:05:00Z" GIT_COMMITTER_DATE="2026-09-27T00:05:00Z" \
+        git commit -q -m "docs(v10): S-101 status (bare-exit fixture)"
+)
+if run_pulse "PULSE_REPO_ROOT=$CLAIM_REPO_EXIT" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$CLAIM_REPO_EXIT")" \
+    "PULSE_MOAT_RESULT=" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if [ "$rc" = 1 ] \
+    && printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:" \
+    && printf '%s\n' "$OUT" | grep -qF "S-101 fixed the login exit flow, no test run."; then
+    ok "a bare 'exit' with no number is not treated as a citation, claim is flagged"
+else
+    bad "T31 bare-exit case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T32 -- D26 guard 4: an N/N shape that is a date, not a test count, is not evidence"
+CLAIM_REPO_DATE="$WORK/claim-repo-date"
+mkdir -p "$CLAIM_REPO_DATE/docs/v10"
+(
+    cd "$CLAIM_REPO_DATE" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    printf '# Board\n' > docs/v10/BOARD.md
+    printf '# Progress\n' > docs/v10/PROGRESS.md
+    git add docs/v10/BOARD.md docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:00:00Z" GIT_COMMITTER_DATE="2026-09-27T00:00:00Z" \
+        git commit -q -m "seed docs"
+    printf 'S-102 verified 9/27 with the team.\n' >> docs/v10/PROGRESS.md
+    git add docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:05:00Z" GIT_COMMITTER_DATE="2026-09-27T00:05:00Z" \
+        git commit -q -m "docs(v10): S-102 status (date-shaped-N/N fixture)"
+)
+if run_pulse "PULSE_REPO_ROOT=$CLAIM_REPO_DATE" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$CLAIM_REPO_DATE")" \
+    "PULSE_MOAT_RESULT=" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if [ "$rc" = 1 ] \
+    && printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:" \
+    && printf '%s\n' "$OUT" | grep -qF "S-102 verified 9/27 with the team."; then
+    ok "a date-shaped N/N with no test word next to it is not treated as a citation, claim is flagged"
+else
+    bad "T32 date-shaped-N/N case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T33 -- network cache (S-104): real gh/npm stubbed on PATH, no *_CMD override"
+# Stub gh and npm record every invocation. With no PULSE_*_CMD override the
+# script is in cache mode: a fresh cache must mean ZERO network calls; a stale
+# one must print STALE with its age and be refreshed in the background; an
+# absent one must read UNKNOWN, never a value.
+STUB_BIN="$WORK/stub-bin"
+CALLS="$WORK/net-calls.log"
+CACHE="$WORK/pulse-cache"
+mkdir -p "$STUB_BIN"
+cat > "$STUB_BIN/gh" <<EOF
+#!/bin/sh
+echo "gh \$*" >> "$CALLS"
+printf '[{"status":"completed","conclusion":"success","workflowName":"Tests"}]'
+EOF
+cat > "$STUB_BIN/npm" <<EOF
+#!/bin/sh
+echo "npm \$*" >> "$CALLS"
+printf '{"created":"2026-01-01T00:00:00.000Z","1.0.0":"2026-09-27T01:30:00.000Z"}'
+EOF
+chmod +x "$STUB_BIN/gh" "$STUB_BIN/npm"
+T33_SHA="$(cd "$FAKE_REPO" && git rev-parse main)"
+# write_cache AGE_SECONDS: all three cache entries, written AGE seconds ago
+# (real wall clock: cache age deliberately ignores PULSE_NOW).
+write_cache() {
+    mkdir -p "$CACHE"
+    python3 - "$CACHE" "$1" "$T33_SHA" <<'PYEOF'
+import json, sys, time
+d, age, sha = sys.argv[1], float(sys.argv[2]), sys.argv[3]
+t = time.time() - age
+recs = {
+    "npm": '{"1.0.0":"2026-09-27T01:30:00.000Z"}',
+    "gh_ci": '[{"status":"completed","conclusion":"failure","workflowName":"Lint"}]',
+    "gh_streak": '[{"status":"completed","conclusion":"success"}]',
+}
+for name, out in recs.items():
+    json.dump({"t": t, "out": out, "sha": sha if name == "gh_ci" else None},
+              open("%s/%s.json" % (d, name), "w"))
+PYEOF
+}
+T33_ARGS=(
+    "PATH=$STUB_BIN:$PATH"
+    "PULSE_REPO_ROOT=$FAKE_REPO" "PULSE_MAIN_REF=main" "CONTROL_MD=$CONTROL_OK"
+    "BOARD_MD=$BOARD_CLEAN" "PULSE_NPM_CMD=" "PULSE_GH_CMD=" "PULSE_GH_STREAK_CMD="
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")" "PULSE_MOAT_RESULT="
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"
+    "PULSE_PUSH_LOG_DIR=$WORK/no-such-push-logs" "PULSE_CACHE_DIR=$CACHE"
+    "PULSE_LOADAVG=1.00 1.00 1.00" "PULSE_PS_OUTPUT=  PID  PPID     ELAPSED COMMAND"
+    "PULSE_DOCKER_PS="
+)
+# wait_refresh: poll (max ~10s) until the background refresher removed its pid file.
+wait_refresh() {
+    local i=0
+    while [ -e "$CACHE/refresh.pid" ] && [ "$i" -lt 50 ]; do
+        python3 -c "import time; time.sleep(0.2)"
+        i=$((i + 1))
+    done
+}
+
+# T33a: fresh cache -> no network call at all, cached values used, no refresh.
+rm -rf "$CACHE"; : > "$CALLS"
+write_cache 5
+run_pulse "${T33_ARGS[@]}"; rc=$?
+python3 -c "import time; time.sleep(1)"
+if [ ! -s "$CALLS" ] && [ ! -e "$CACHE/refresh.pid" ] \
+    && printf '%s\n' "$OUT" | grep -q "^Main CI (main @ .*): RED (cached [0-9]*s ago)" \
+    && printf '%s\n' "$OUT" | grep -q "^Releases (24h): 1 (cached [0-9]*s ago)" \
+    && printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_RED: main CI is RED" \
+    && ! printf '%s\n' "$OUT" | grep -q "STALE"; then
+    ok "fresh cache: zero gh/npm calls, cached values reported with their age, CI_RED still fires"
+else
+    bad "T33a fresh-cache case: rc=$rc calls=[$(cat "$CALLS")] output follows"
+    printf '%s\n' "$OUT"
+fi
+
+# T33b: stale cache -> STALE with age (never fresh), background refresh runs.
+rm -rf "$CACHE"; : > "$CALLS"
+write_cache 600
+run_pulse "${T33_ARGS[@]}"; rc=$?
+wait_refresh
+if printf '%s\n' "$OUT" | grep -q "^Main CI (main @ .*): RED (STALE: cached 6[0-9][0-9]s ago" \
+    && printf '%s\n' "$OUT" | grep -q "^STALE metrics .*main_ci (6[0-9][0-9]s)" \
+    && ! printf '%s\n' "$OUT" | grep -q "(cached 6[0-9][0-9]s ago)" \
+    && grep -q "^gh run list" "$CALLS" && grep -q "^npm view" "$CALLS" \
+    && [ ! -e "$CACHE/refresh.pid" ]; then
+    : > "$CALLS"
+    run_pulse "${T33_ARGS[@]}"
+    if [ ! -s "$CALLS" ] && printf '%s\n' "$OUT" | grep -q "^Main CI (main @ .*): GREEN (cached [0-9]*s ago)"; then
+        ok "stale cache: STALE with age, background refresh called gh+npm, next run serves the refreshed value with no call"
+    else
+        bad "T33b post-refresh run: calls=[$(cat "$CALLS")] output follows"
+        printf '%s\n' "$OUT"
+    fi
+else
+    bad "T33b stale-cache case: rc=$rc calls=[$(cat "$CALLS")] output follows"
+    printf '%s\n' "$OUT"
+fi
+
+# T33c: no cache -> UNKNOWN (exit 2), never a value; refresh started.
+rm -rf "$CACHE"; : > "$CALLS"
+run_pulse "${T33_ARGS[@]}"; rc=$?
+wait_refresh
+if [ "$rc" = 2 ] \
+    && printf '%s\n' "$OUT" | grep -q "^Main CI (main @ .*): UNKNOWN .*background refresh started" \
+    && printf '%s\n' "$OUT" | grep -q "^Releases (24h): UNKNOWN" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_RED"; then
+    ok "missing cache: UNKNOWN (exit 2), no fabricated value, background refresh started"
+else
+    bad "T33c missing-cache case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T34 -- D28 rule 3: HIGH_LOAD fires when the 1-min load average is above PULSE_LOAD_MAX (default 28)"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_LOADAVG=35.20 10.00 5.00"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: HIGH_LOAD: 1-minute load average 35.20 is above the 28 max"; then
+    ok "1-min load average above the default 28 max fires HIGH_LOAD"
+else
+    bad "T34 HIGH_LOAD-fires case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T34b -- HIGH_LOAD does not fire under a raised PULSE_LOAD_MAX (same load as T34)"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")" "PULSE_LOADAVG=35.20 10.00 5.00" "PULSE_LOAD_MAX=50"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: HIGH_LOAD"; then
+    ok "PULSE_LOAD_MAX override raises the threshold, same load no longer fires"
+else
+    bad "T34b HIGH_LOAD-no-fire case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T35 -- D28 rule 3: ORPHAN_TEST fires on a tests/*.sh|py process with PPID 1, or running past 30 min"
+ORPHAN_PS_FIRE="  PID  PPID     ELAPSED COMMAND
+  100     1      00:02:00 tests/test-a.sh --flag
+  200  6789      00:45:00 tests/test-b.py --slow"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_PS_OUTPUT=$ORPHAN_PS_FIRE"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: ORPHAN_TEST: pid 100 etime 00:02:00: tests/test-a.sh --flag" \
+    && printf '%s\n' "$OUT" | grep -qF "VIOLATION: ORPHAN_TEST: pid 200 etime 00:45:00: tests/test-b.py --slow"; then
+    ok "a parentless (PPID 1) tests/ process and a 45-minute-old one both fire ORPHAN_TEST, PID/etime/command reported, never killed"
+else
+    bad "T35 ORPHAN_TEST-fires case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T35b -- ORPHAN_TEST does not fire on a normal tests/ process, or a parentless non-tests process"
+ORPHAN_PS_CLEAN="  PID  PPID     ELAPSED COMMAND
+  300  6789      00:02:00 tests/test-c.sh
+  400     1      00:01:00 some-other-daemon --arg"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")" "PULSE_PS_OUTPUT=$ORPHAN_PS_CLEAN"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: ORPHAN_TEST"; then
+    ok "a short-lived non-parentless tests/ process, and a parentless non-tests process, neither fires ORPHAN_TEST"
+else
+    bad "T35b ORPHAN_TEST-no-fire case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T35c -- E-00: ORPHAN_WORKTREE fires on a 24h .claude/worktrees/ run.sh and a 35-minute /tmp/loki-run-*.sh, both from the SAME ps listing as ORPHAN_TEST"
+ORPHAN_WT_PS_FIRE="  PID  PPID     ELAPSED COMMAND
+  500  6789   1-00:00:00 bash /repo/.claude/worktrees/agent-afe77b46/autonomy/run.sh
+  600  6789      00:35:00 bash /tmp/loki-run-e6I21L.sh"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_PS_OUTPUT=$ORPHAN_WT_PS_FIRE" "PULSE_PROC_CWD_JSON={\"600\": \"/tmp/loki-moat-p6.X/intr/repo\"}"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: ORPHAN_WORKTREE: pid 500 etime 1-00:00:00: bash /repo/.claude/worktrees/agent-afe77b46/autonomy/run.sh" \
+    && printf '%s\n' "$OUT" | grep -qF "VIOLATION: ORPHAN_WORKTREE: pid 600 etime 00:35:00: bash /tmp/loki-run-e6I21L.sh"; then
+    ok "a 24h .claude/worktrees/ run.sh and a 35-minute /tmp/loki-run-*.sh both fire ORPHAN_WORKTREE, PID/etime/command reported, never killed"
+else
+    bad "T35c ORPHAN_WORKTREE-fires case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T35f -- a backgrounded user 'loki start' (/tmp/loki-run-*.sh, cwd in a project checkout) is not an orphan; the same script with a temp-root cwd is"
+ORPHAN_WT_PS_USER="  PID  PPID     ELAPSED COMMAND
+  610     1      01:53:00 bash /tmp/loki-run-kf6HzN.sh .loki/prd-issue-52.md --provider claude
+  620     1      01:30:00 bash /tmp/loki-run-9xdJsg.sh"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_PS_OUTPUT=$ORPHAN_WT_PS_USER" "PULSE_PROC_CWD_JSON={\"610\": \"/Users/someone/git/augmentiq\", \"620\": \"/tmp/loki-moat-p6.Y/intr/repo\"}"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: ORPHAN_WORKTREE: pid 610 " \
+    && printf '%s\n' "$OUT" | grep -qF "VIOLATION: ORPHAN_WORKTREE: pid 620 etime 01:30:00: bash /tmp/loki-run-9xdJsg.sh"; then
+    ok "a live user run in a project checkout is not flagged; a temp-root fixture run is"
+else
+    bad "T35f user-run vs fixture-run case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T35d -- ORPHAN_WORKTREE does not fire on a 5-minute worktree process, or an unrelated long-running process"
+ORPHAN_WT_PS_CLEAN="  PID  PPID     ELAPSED COMMAND
+  700  6789      00:05:00 bash /repo/.claude/worktrees/agent-fresh/autonomy/run.sh
+  800  6789      01:30:00 some-other-daemon --arg"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")" "PULSE_PS_OUTPUT=$ORPHAN_WT_PS_CLEAN"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: ORPHAN_WORKTREE"; then
+    ok "a 5-minute-old worktree process, and an unrelated long-running non-worktree process, neither fires ORPHAN_WORKTREE"
+else
+    bad "T35d ORPHAN_WORKTREE-no-fire case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T35e -- PULSE_ORPHAN_WORKTREE_MAX_MIN overrides the default 30-minute threshold"
+ORPHAN_WT_PS_15MIN="  PID  PPID     ELAPSED COMMAND
+  900  6789      00:15:00 bash /repo/.claude/worktrees/agent-x/autonomy/run.sh"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_PS_OUTPUT=$ORPHAN_WT_PS_15MIN"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: ORPHAN_WORKTREE"; then
+    ok "a 15-minute worktree process does not fire under the default 30-minute threshold"
+else
+    bad "T35e default-threshold case unexpectedly fired: output follows"
+    printf '%s\n' "$OUT"
+fi
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_PS_OUTPUT=$ORPHAN_WT_PS_15MIN" "PULSE_ORPHAN_WORKTREE_MAX_MIN=10"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: ORPHAN_WORKTREE: pid 900 etime 00:15:00: bash /repo/.claude/worktrees/agent-x/autonomy/run.sh"; then
+    ok "PULSE_ORPHAN_WORKTREE_MAX_MIN=10 makes the same 15-minute process fire"
+else
+    bad "T35e override case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T36 -- D28 rule 3: STRAY_CONTAINER fires on a swarm container over 1h old, or with a non-'no' restart policy"
+DOCKER_PS_FIRE="abc123456789	loki-build-9	90		no
+def456789abc	s1-worker	5		always"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_DOCKER_PS=$DOCKER_PS_FIRE"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: STRAY_CONTAINER: loki-build-9 (abc123456789): age 90 min" \
+    && printf '%s\n' "$OUT" | grep -qF "VIOLATION: STRAY_CONTAINER: s1-worker (def456789abc): restart policy always"; then
+    ok "a container over 1h old, and a container with a non-'no' restart policy, both fire STRAY_CONTAINER"
+else
+    bad "T36 STRAY_CONTAINER-fires case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T36b -- STRAY_CONTAINER does not fire on a recent compliant container, or a non-swarm-named one"
+DOCKER_PS_CLEAN="111122223333	loki-build-1	30		no
+444455556666	unrelated-app	200		no"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")" "PULSE_DOCKER_PS=$DOCKER_PS_CLEAN"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: STRAY_CONTAINER"; then
+    ok "a recent compliant swarm container, and an old non-swarm-named container, neither fires STRAY_CONTAINER"
+else
+    bad "T36b STRAY_CONTAINER-no-fire case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T37 -- D28 rule 2: RELEASE_ON_RED fires when the newest VERSION-bump commit's cached Tests conclusion is failure/cancelled"
+RELEASE_REPO="$WORK/release-repo"
+mkdir -p "$RELEASE_REPO"
+(
+    cd "$RELEASE_REPO" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    printf '9.0.0\n' > VERSION
+    git add VERSION
+    GIT_AUTHOR_DATE="2026-09-27T00:00:00Z" GIT_COMMITTER_DATE="2026-09-27T00:00:00Z" \
+        git commit -q -m "release: v9.0.0"
+)
+RELEASE_ARGS=(
+    "PULSE_REPO_ROOT=$RELEASE_REPO" "PULSE_MAIN_REF=main"
+    "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK"
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" "PULSE_GH_STREAK_CMD=cat $GH_STREAK_OK_JSON"
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$RELEASE_REPO" "${WT_CLEAN[@]}")" "PULSE_MOAT_RESULT="
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"
+    "PULSE_PUSH_LOG_DIR=$WORK/no-such-push-logs"
+    "PULSE_LOADAVG=1.00 1.00 1.00" "PULSE_PS_OUTPUT=  PID  PPID     ELAPSED COMMAND"
+    "PULSE_DOCKER_PS="
+)
+RELEASE_SHA="$(cd "$RELEASE_REPO" && git rev-parse HEAD)"
+if run_pulse "${RELEASE_ARGS[@]}" 'PULSE_RELEASE_TESTS=[{"status":"completed","conclusion":"failure","workflowName":"Tests"}]'; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: RELEASE_ON_RED: the newest VERSION-bump commit on main (${RELEASE_SHA:0:8}) has a failure Tests run"; then
+    ok "a failure Tests conclusion for the VERSION-bump SHA fires RELEASE_ON_RED"
+else
+    bad "T37 RELEASE_ON_RED-failure case: rc=$rc sha=$RELEASE_SHA output follows"
+    printf '%s\n' "$OUT"
+fi
+if run_pulse "${RELEASE_ARGS[@]}" 'PULSE_RELEASE_TESTS=[{"status":"completed","conclusion":"cancelled","workflowName":"Tests"}]'; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: RELEASE_ON_RED: the newest VERSION-bump commit on main (${RELEASE_SHA:0:8}) has a cancelled Tests run"; then
+    ok "a cancelled Tests conclusion for the VERSION-bump SHA also fires RELEASE_ON_RED"
+else
+    bad "T37 RELEASE_ON_RED-cancelled case: rc=$rc sha=$RELEASE_SHA output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T37b -- RELEASE_ON_RED does not fire on a success Tests conclusion, and reads n/a with no VERSION history"
+if run_pulse "${RELEASE_ARGS[@]}" 'PULSE_RELEASE_TESTS=[{"status":"completed","conclusion":"success","workflowName":"Tests"}]'; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: RELEASE_ON_RED" \
+    && printf '%s\n' "$OUT" | grep -qF "Release-on-red (newest VERSION bump on main, ${RELEASE_SHA:0:8}): Tests SUCCESS"; then
+    ok "a success Tests conclusion for the VERSION-bump SHA does not fire RELEASE_ON_RED"
+else
+    bad "T37b RELEASE_ON_RED-success case: rc=$rc sha=$RELEASE_SHA output follows"
+    printf '%s\n' "$OUT"
+fi
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Release-on-red (newest VERSION bump on main): n/a (no commit has ever touched VERSION)"; then
+    ok "FAKE_REPO has no VERSION history: RELEASE_ON_RED reads n/a, never UNKNOWN, never a false violation"
+else
+    bad "T37b no-version-history case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T38 -- S-94: WORKTREE_COUNT does not fire at exactly 15 worktrees under .claude/worktrees"
+WT15_LIST=""
+for i in $(seq 1 15); do
+    WT15_LIST="${WT15_LIST}worktree /repo/.claude/worktrees/wf-${i}
+HEAD dead
+
+"
+done
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_LIST=$WT15_LIST"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: WORKTREE_COUNT" \
+    && printf '%s\n' "$OUT" | grep -qF "Worktrees under .claude/worktrees: 15 (max 15)"; then
+    ok "exactly 15 worktrees under .claude/worktrees does not fire WORKTREE_COUNT"
+else
+    bad "T38 WORKTREE_COUNT-at-max case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T38b -- WORKTREE_COUNT fires at 16 worktrees under .claude/worktrees"
+WT16_LIST="${WT15_LIST}worktree /repo/.claude/worktrees/wf-16
+HEAD dead
+
+"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_LIST=$WT16_LIST"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: WORKTREE_COUNT: 16 worktrees under .claude/worktrees exceeds the 15 max"; then
+    ok "16 worktrees under .claude/worktrees fires WORKTREE_COUNT"
+else
+    bad "T38b WORKTREE_COUNT-fires case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T39 -- S-139/BACKLOG 136: RELEASED_AHEAD_OF_NPM fires when a released@ row is stamped"
+echo "      after npm's own newest publish time"
+BOARD_RELEASED_AHEAD="$WORK/BOARD-released-ahead.md"
+cat > "$BOARD_RELEASED_AHEAD" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | released@2026-09-27T01:54Z | |
+EOF
+# NPM_TIME_JSON's newest publish stamp is 2026-09-27T01:50Z (see its fixture
+# above); the BOARD row claims a release 4 minutes AFTER that -- npm has no
+# record of a publish that recent.
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_RELEASED_AHEAD" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: RELEASED_AHEAD_OF_NPM: S-01 (released@2026-09-27T01:54Z) marked released after npm's newest publish (2026-09-27T01:50Z); npm shows no publish that recent"; then
+    ok "released@ row stamped after npm's newest publish fires RELEASED_AHEAD_OF_NPM"
+else
+    bad "T39 RELEASED_AHEAD_OF_NPM-fires case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T39b -- RELEASED_AHEAD_OF_NPM does not fire when the released@ row is stamped"
+echo "       before (or at) npm's newest publish time"
+BOARD_RELEASED_OK="$WORK/BOARD-released-ok.md"
+cat > "$BOARD_RELEASED_OK" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | released@2026-09-27T01:40Z | |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_RELEASED_OK" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: RELEASED_AHEAD_OF_NPM"; then
+    ok "released@ row stamped before npm's newest publish does not fire RELEASED_AHEAD_OF_NPM"
+else
+    bad "T39b RELEASED_AHEAD_OF_NPM-no-fire case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T40 -- S-139/BACKLOG 136: unreleased-merge age reports UNKNOWN, not a confident"
+echo "      'N commit(s) since', when the local release tag disagrees with npm's latest version"
+# A dedicated, isolated repo (like RELEASE_REPO/CLAIM_REPO_FLAGGED above) so
+# this never touches FAKE_REPO's shared v1.0.0 tag history. Exact repro of
+# the red-case bullet: local tag v9.54.2, npm's latest published version
+# 9.55.0 (from the SAME npm_result computed above -- no second npm call).
+TAG_MISMATCH_REPO="$WORK/tag-mismatch-repo"
+mkdir -p "$TAG_MISMATCH_REPO"
+(
+    cd "$TAG_MISMATCH_REPO" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    echo "seed" > file.txt
+    git add file.txt
+    GIT_AUTHOR_DATE="2026-09-27T00:00:00Z" GIT_COMMITTER_DATE="2026-09-27T00:00:00Z" \
+        git commit -q -m "seed"
+    git tag v9.54.2
+    echo "change" > file2.txt
+    git add file2.txt
+    GIT_AUTHOR_DATE="2026-09-27T01:00:00Z" GIT_COMMITTER_DATE="2026-09-27T01:00:00Z" \
+        git commit -q -m "unreleased change after v9.54.2"
+)
+NPM_MISMATCH_JSON="$WORK/npm-mismatch.json"
+python3 -c "
+import json
+print(json.dumps({
+    'created': '2020-01-01T00:00:00.000Z',
+    'modified': '2026-09-27T01:50:00.000Z',
+    '9.55.0': '2026-09-27T01:50:00.000Z',
+}))
+" > "$NPM_MISMATCH_JSON"
+if run_pulse "${COMMON_ARGS[@]}" "PULSE_REPO_ROOT=$TAG_MISMATCH_REPO" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "PULSE_NPM_CMD=cat $NPM_MISMATCH_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$TAG_MISMATCH_REPO" "${WT_CLEAN[@]}")"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Merged-but-unreleased age: UNKNOWN (local tag v9.54.2 disagrees with npm's latest published version 9.55.0)" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*unreleased_merge_age" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNRELEASED_MERGE" \
+    && ! printf '%s\n' "$OUT" | grep -q "commit(s) since v9.54.2"; then
+    ok "tag/npm-latest disagreement reports UNKNOWN, never the confident 'N commit(s) since' line"
+else
+    bad "T40 tag-vs-npm-mismatch case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T40b -- unreleased-merge age reports normally when the local tag AGREES with npm's latest version"
+NPM_MATCH_JSON="$WORK/npm-match.json"
+python3 -c "
+import json
+print(json.dumps({
+    'created': '2020-01-01T00:00:00.000Z',
+    'modified': '2026-09-27T01:50:00.000Z',
+    '9.54.2': '2026-09-27T01:50:00.000Z',
+}))
+" > "$NPM_MATCH_JSON"
+UNRELEASED_MISMATCH_SHA="$(cd "$TAG_MISMATCH_REPO" && git rev-parse --short=8 main)"
+if run_pulse "${COMMON_ARGS[@]}" "PULSE_REPO_ROOT=$TAG_MISMATCH_REPO" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "PULSE_NPM_CMD=cat $NPM_MATCH_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$TAG_MISMATCH_REPO" "${WT_CLEAN[@]}")"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Merged-but-unreleased age: 60.0 min (1 commit(s) since v9.54.2, oldest $UNRELEASED_MISMATCH_SHA)"; then
+    ok "tag/npm-latest agreement (v9.54.2 == 9.54.2) keeps the normal confident report"
+else
+    bad "T40b tag-vs-npm-match case: rc=$rc output follows"
     printf '%s\n' "$OUT"
 fi
 

@@ -39,27 +39,27 @@ run_test() {
     local expected_result="${2:-0}"
     shift 2
 
-    ((TESTS_RUN++))
+    TESTS_RUN=$((TESTS_RUN+1))
     echo -n "  Testing $test_name... "
 
     if [ "$expected_result" = "0" ]; then
         if "$@" >/dev/null 2>&1; then
             echo -e "${GREEN}PASS${NC}"
-            ((TESTS_PASSED++))
+            TESTS_PASSED=$((TESTS_PASSED+1))
             return 0
         else
             echo -e "${RED}FAIL${NC}"
-            ((TESTS_FAILED++))
+            TESTS_FAILED=$((TESTS_FAILED+1))
             return 1
         fi
     else
         if ! "$@" >/dev/null 2>&1; then
             echo -e "${GREEN}PASS (expected failure)${NC}"
-            ((TESTS_PASSED++))
+            TESTS_PASSED=$((TESTS_PASSED+1))
             return 0
         else
             echo -e "${RED}FAIL (should have failed)${NC}"
-            ((TESTS_FAILED++))
+            TESTS_FAILED=$((TESTS_FAILED+1))
             return 1
         fi
     fi
@@ -246,12 +246,12 @@ clear_all
 result=$("$AGGREGATE_SH" 2>&1) || true
 if echo "$result" | grep -q "No patterns found\|Signals processed: 0"; then
     echo -e "  ${GREEN}Empty aggregation handled correctly${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "  ${RED}Empty aggregation not handled${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 2: Basic aggregation"
@@ -268,12 +268,12 @@ run_test "aggregation completes" 0 "$AGGREGATE_SH"
 sleep 0.5
 if check_aggregation_created; then
     echo -e "  ${GREEN}Aggregation file created${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "  ${RED}No aggregation file created${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 3: Aggregation content validation"
@@ -285,56 +285,56 @@ agg_content=$(get_latest_aggregation)
 echo -n "  Checking aggregation has ID... "
 if echo "$agg_content" | grep -q '"id": "agg-'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 # Check has timestamp
 echo -n "  Checking aggregation has timestamp... "
 if echo "$agg_content" | grep -q '"timestamp":'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 # Check has preferences array
 echo -n "  Checking has preferences array... "
 if echo "$agg_content" | grep -q '"preferences":'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 # Check has error_patterns array
 echo -n "  Checking has error_patterns array... "
 if echo "$agg_content" | grep -q '"error_patterns":'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 # Check has tool_efficiencies array
 echo -n "  Checking has tool_efficiencies array... "
 if echo "$agg_content" | grep -q '"tool_efficiencies":'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 4: User preference aggregation"
@@ -344,34 +344,34 @@ echo "----------------------------------------------"
 echo -n "  Checking preference key 'provider' detected... "
 if echo "$agg_content" | grep -q '"preference_key": "provider"'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 # Check preferred value
 echo -n "  Checking preferred value 'claude' detected... "
 if echo "$agg_content" | grep -q '"preferred_value": "claude"'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 # Check frequency is 3 (we emitted 3 preference signals)
 echo -n "  Checking frequency count... "
 if echo "$agg_content" | grep -A5 '"preference_key": "provider"' | grep -q '"frequency": 3'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 5: Error pattern aggregation"
@@ -381,23 +381,23 @@ echo "----------------------------------------------"
 echo -n "  Checking error type 'ConfigError' detected... "
 if echo "$agg_content" | grep -q '"error_type": "ConfigError"'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 # Check resolutions are collected
 echo -n "  Checking resolutions collected... "
 if echo "$agg_content" | grep -q '"resolutions":'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 6: Tool efficiency aggregation"
@@ -407,34 +407,34 @@ echo "----------------------------------------------"
 echo -n "  Checking tool 'claude' detected... "
 if echo "$agg_content" | grep -q '"tool_name": "claude"'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 # Check usage count
 echo -n "  Checking usage count... "
 if echo "$agg_content" | grep -A5 '"tool_name": "claude"' | grep -q '"usage_count": 3'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 # Check efficiency score exists
 echo -n "  Checking efficiency_score calculated... "
 if echo "$agg_content" | grep -q '"efficiency_score":'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 7: JSON output mode"
@@ -444,12 +444,12 @@ json_output=$("$AGGREGATE_SH" --json --no-save 2>&1)
 echo -n "  Checking JSON output is valid... "
 if echo "$json_output" | python3 -c "import json, sys; json.load(sys.stdin)" 2>/dev/null; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 8: List mode"
@@ -459,12 +459,12 @@ list_output=$("$AGGREGATE_SH" --list 2>&1)
 echo -n "  Checking list shows aggregations... "
 if echo "$list_output" | grep -q "agg-\|Recent Aggregations"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 9: Latest mode"
@@ -474,12 +474,12 @@ latest_output=$("$AGGREGATE_SH" --latest 2>&1)
 echo -n "  Checking latest shows summary... "
 if echo "$latest_output" | grep -q "Learning Aggregation Summary\|ID:"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 10: Custom time window"
@@ -496,18 +496,18 @@ high_freq_output=$("$AGGREGATE_SH" --min-freq 100 --no-save 2>&1)
 echo -n "  Checking high min-freq filters patterns... "
 if echo "$high_freq_output" | grep -q "No patterns found\|preferences): 0"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     # May still pass if output format is different
     if echo "$high_freq_output" | grep -qE "0 prefs|preferences.*0"; then
         echo -e "${GREEN}PASS${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED+1))
     else
         echo -e "${RED}FAIL${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED+1))
     fi
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 12: Help option"
@@ -527,12 +527,12 @@ from learning import LearningAggregator, run_aggregation
 print('OK')
 " 2>/dev/null | grep -q "OK"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo -n "  Checking aggregated types can be imported... "
 if python3 -c "
@@ -549,12 +549,12 @@ from learning import (
 print('OK')
 " 2>/dev/null | grep -q "OK"; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 14: Confidence calculation"
@@ -576,12 +576,12 @@ for tool in data.get('tool_efficiencies', []):
 print('OK')
 " 2>/dev/null; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "Test 15: Source tracking"
@@ -590,12 +590,12 @@ echo "----------------------------------------------"
 echo -n "  Checking sources are tracked in preferences... "
 if echo "$agg_content" | grep -A10 '"preference_key": "provider"' | grep -q '"sources":'; then
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED+1))
 else
     echo -e "${RED}FAIL${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED+1))
 fi
-((TESTS_RUN++))
+TESTS_RUN=$((TESTS_RUN+1))
 
 echo ""
 echo "=============================================="

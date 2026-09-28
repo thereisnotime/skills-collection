@@ -109,13 +109,16 @@ def _preexisting_untracked(repo_dir):
 
 
 def _covered(key, paths):
-    """True when ``key`` or one of its parent directories ("a/", "a/b/") is in
-    ``paths``: an ignored directory entry covers everything below it."""
+    """True when ``key`` or one of its parent directories is in ``paths``,
+    either as a directory entry ("a/", "a/b/") or a bare-path entry ("a",
+    "a/b"): an ignored directory, or a preexisting file later replaced by a
+    directory of the same name, covers everything below it."""
     if key in paths:
         return True
     cut = key.find("/")
     while cut != -1:
-        if key[:cut + 1] in paths:
+        parent = key[:cut]
+        if parent in paths or (parent + "/") in paths:
             return True
         cut = key.find("/", cut + 1)
     return False
@@ -209,7 +212,7 @@ def collect_workspace_diff(repo_dir, base, include_diffs=False):
             # not land in the receipt.
             recorded = hashes.get(key)
             if recorded and _content_hash(os.path.join(repo_dir, path)) != recorded:
-                files.append({"path": path, "insertions": 0, "deletions": 0,
+                files.append({"path": key, "insertions": 0, "deletions": 0,
                               "status": "preexisting_modified"})
             continue
         stat = _git(
@@ -219,9 +222,17 @@ def collect_workspace_diff(repo_dir, base, include_diffs=False):
         )
         parsed = _parse_numstat(stat)
         entry = parsed[0] if parsed else {
-            "path": path, "insertions": 0, "deletions": 0, "status": "untracked"
+            "path": key, "insertions": 0, "deletions": 0, "status": "untracked"
         }
-        entry["path"] = path
+        # Tracked entries come from `git diff --numstat`, which git always
+        # reports repo-top-relative regardless of -C. Untracked/preexisting
+        # paths come from `git ls-files --others`, which git reports relative
+        # to repo_dir (the caller's TARGET_DIR) instead, so without `prefix`
+        # they would stay TARGET_DIR-relative while tracked entries are
+        # repo-relative -- two path bases in the same receipt. `key` (prefix +
+        # path) normalizes both to repo-top-relative to match the tracked
+        # convention.
+        entry["path"] = key
         entry["status"] = "untracked_binary" if entry["status"] == "binary" else "untracked"
         files.append(entry)
         if diffs is not None:
@@ -231,7 +242,7 @@ def collect_workspace_diff(repo_dir, base, include_diffs=False):
                 allowed=(0, 1),
             )
             if patch:
-                diffs.append({"path": path, "patch": patch})
+                diffs.append({"path": key, "patch": patch})
 
     files.sort(key=lambda item: item["path"])
     return {

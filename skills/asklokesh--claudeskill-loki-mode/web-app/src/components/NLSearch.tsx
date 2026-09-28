@@ -94,6 +94,21 @@ function scoreResult(result: { path: string; name: string }, terms: string[]): n
   return score;
 }
 
+export type SearchView =
+  | { kind: 'hidden'; message?: undefined }
+  | { kind: 'results'; message?: undefined }
+  | { kind: 'error'; message: string }
+  | { kind: 'empty'; message: string };
+
+// Pure branch decision for the results area (S-159): a failed request is an
+// error, never "No results found".
+export function searchResultView(s: { searched: boolean; loading: boolean; error: string | null; count: number }): SearchView {
+  if (!s.searched || s.loading) return { kind: 'hidden' };
+  if (s.error !== null) return { kind: 'error', message: `Search failed: ${s.error}` };
+  if (s.count === 0) return { kind: 'empty', message: 'No results found. Try a different query.' };
+  return { kind: 'results' };
+}
+
 const EXAMPLE_QUERIES = [
   'Where is the login function?',
   'Show me all API endpoints',
@@ -108,6 +123,7 @@ export function NLSearch({ sessionId, onOpenFile, className = '' }: NLSearchProp
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -115,11 +131,13 @@ export function NLSearch({ sessionId, onOpenFile, className = '' }: NLSearchProp
     if (!searchQuery.trim() || !sessionId) {
       setResults([]);
       setSearched(false);
+      setError(null);
       return;
     }
 
     setLoading(true);
     setSearched(true);
+    setError(null);
 
     try {
       const { terms } = parseNaturalLanguage(searchQuery);
@@ -137,9 +155,9 @@ export function NLSearch({ sessionId, onOpenFile, className = '' }: NLSearchProp
 
       scored.sort((a, b) => b.relevanceScore - a.relevanceScore);
       setResults(scored.slice(0, 15));
-    } catch {
-      // If API fails, show empty results gracefully
+    } catch (err) {
       setResults([]);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -162,6 +180,7 @@ export function NLSearch({ sessionId, onOpenFile, className = '' }: NLSearchProp
     setQuery('');
     setResults([]);
     setSearched(false);
+    setError(null);
     inputRef.current?.focus();
   };
 
@@ -176,6 +195,8 @@ export function NLSearch({ sessionId, onOpenFile, className = '' }: NLSearchProp
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
+
+  const view = searchResultView({ searched, loading, error, count: results.length });
 
   const getFileIcon = (path: string) => {
     if (path.includes('.test.') || path.includes('.spec.')) return 'text-teal';
@@ -254,11 +275,15 @@ export function NLSearch({ sessionId, onOpenFile, className = '' }: NLSearchProp
       )}
 
       {/* Results */}
-      {searched && !loading && (
+      {view.kind !== 'hidden' && (
         <div className="border-t border-border">
-          {results.length === 0 ? (
+          {view.kind === 'error' ? (
+            <div role="alert" className="text-center py-6 text-xs text-danger">
+              {view.message}
+            </div>
+          ) : view.kind === 'empty' ? (
             <div className="text-center py-6 text-xs text-muted">
-              No results found. Try a different query.
+              {view.message}
             </div>
           ) : (
             <div className="max-h-[320px] overflow-y-auto terminal-scroll">

@@ -140,6 +140,49 @@ fi
 [ "$rc4" -eq 0 ] && ok "case4 rc 0 (never errors on garbage)" || bad "case4 rc!=0" "rc=$rc4"
 
 # ---------------------------------------------------------------------------
+# Case 5 (BACKLOG 71): tests.ok=true but tests.inconclusive=true must NOT print
+# tests_ok=True -- that reads as an affirmative pass next to
+# tests_inconclusive=yes in the same summary line. inconclusive must dominate
+# the raw ok value, mirroring the tests.pass tri-state convention (BACKLOG 55).
+# ---------------------------------------------------------------------------
+echo "Case 5: tests.ok=true + tests.inconclusive=true -> tests_ok=inconclusive, never True"
+D5="$WORK/inconclusive"; mkdir -p "$D5"
+write_details "$D5" '{"verdict":"pass","diff":{"ok":true},"tests":{"ok":true,"inconclusive":true,"inconclusive_reason":"no_test_runner","runner":"none"}}'
+out5="$(run_surface "$D5")"; rc5=$?
+if printf '%s' "$out5" | grep -q 'tests_ok=True'; then
+    bad "case5 inconclusive tests wrongly printed tests_ok=True" "out=[$out5]"
+else
+    ok "case5 inconclusive tests did not print tests_ok=True"
+fi
+if printf '%s' "$out5" | grep -q 'tests_ok=inconclusive'; then
+    ok "case5 inconclusive tests printed tests_ok=inconclusive"
+else
+    bad "case5 inconclusive tests missing tests_ok=inconclusive" "out=[$out5]"
+fi
+if printf '%s' "$out5" | grep -q 'tests_inconclusive=no_test_runner'; then
+    ok "case5 inconclusive reason surfaced"
+else
+    bad "case5 inconclusive reason missing" "out=[$out5]"
+fi
+[ "$rc5" -eq 0 ] && ok "case5 rc 0" || bad "case5 rc!=0" "rc=$rc5"
+
+# ---------------------------------------------------------------------------
+# Case 6: positive control -- genuine affirmative pass (ok=true, NOT
+# inconclusive) must still print tests_ok=True. Guards against a fix that
+# over-corrects and hides real passes behind "inconclusive".
+# ---------------------------------------------------------------------------
+echo "Case 6: tests.ok=true + tests.inconclusive=false -> tests_ok=True (positive control)"
+D6="$WORK/affirmative"; mkdir -p "$D6"
+write_details "$D6" '{"verdict":"pass","diff":{"ok":true,"inconclusive":false},"tests":{"ok":true,"inconclusive":false,"runner":"node-test"}}'
+out6="$(run_surface "$D6")"; rc6=$?
+if printf '%s' "$out6" | grep -q 'tests_ok=True'; then
+    ok "case6 affirmative pass still prints tests_ok=True (out: $out6)"
+else
+    bad "case6 affirmative pass lost tests_ok=True" "out=[$out6]"
+fi
+[ "$rc6" -eq 0 ] && ok "case6 rc 0" || bad "case6 rc!=0" "rc=$rc6"
+
+# ---------------------------------------------------------------------------
 echo
 echo "evidence-gate-details-consumer: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

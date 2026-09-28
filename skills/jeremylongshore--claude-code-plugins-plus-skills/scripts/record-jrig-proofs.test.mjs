@@ -85,12 +85,27 @@ function freshDb(dir) {
   return db;
 }
 
+// The recorder labels a run "github-actions:<actor>" whenever GITHUB_ACTOR is
+// set, which CI always does. Tests that assert the local-run identity must
+// not inherit that, or they pass on a laptop and fail in CI.
+function localEnv(extra = {}) {
+  const env = { ...process.env, ...extra };
+  delete env.GITHUB_ACTOR;
+  return env;
+}
+
 function record(args) {
-  return execFileSync(process.execPath, [RECORD_SCRIPT, ...args], { encoding: 'utf8' });
+  return execFileSync(process.execPath, [RECORD_SCRIPT, ...args], {
+    encoding: 'utf8',
+    env: localEnv(),
+  });
 }
 
 function recordExpectFail(args) {
-  const result = spawnSync(process.execPath, [RECORD_SCRIPT, ...args], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [RECORD_SCRIPT, ...args], {
+    encoding: 'utf8',
+    env: localEnv(),
+  });
   assert.notEqual(
     result.status,
     0,
@@ -474,8 +489,17 @@ test('(g) runner atomically retains primary JSON outside /dev/shm and records it
     assert.equal(result.status, 0, result.stderr);
 
     const artifact = path.join(artifactDir, 'retained-pack.jrig-run-55.json');
-    assert.ok(fs.existsSync(artifact), 'primary JSON is retained outside the scratch directory');
-    assert.equal(fs.statSync(artifact).mode & 0o777, 0o600);
+    // Stat and hash through one descriptor so the file checked is the file hashed.
+    const artifactFd = fs.openSync(artifact, 'r');
+    let artifactMode;
+    let artifactBytes;
+    try {
+      artifactMode = fs.fstatSync(artifactFd).mode;
+      artifactBytes = fs.readFileSync(artifactFd);
+    } finally {
+      fs.closeSync(artifactFd);
+    }
+    assert.equal(artifactMode & 0o777, 0o600, 'primary JSON is retained with owner-only mode');
     const [row] = queryRows(
       db,
       "SELECT evidence FROM forge_proofs WHERE plugin_name='retained-pack';",
@@ -484,7 +508,7 @@ test('(g) runner atomically retains primary JSON outside /dev/shm and records it
     assert.equal(evidence.artifact_uri, artifact);
     assert.equal(
       evidence.artifact_sha256,
-      createHash('sha256').update(fs.readFileSync(artifact)).digest('hex'),
+      createHash('sha256').update(artifactBytes).digest('hex'),
     );
   } finally {
     fs.rmSync(db, { force: true });

@@ -250,7 +250,7 @@ print(suggestions_gen.to_json(suggestions, context=context))
         else
             script+="
 # Output text
-verbose = ${VERBOSE,,}  # Convert to lowercase for Python bool
+verbose = ${VERBOSE^}  # Convert bash true/false to Python True/False
 print(suggestions_gen.format_suggestions_text(suggestions, verbose=verbose))
 "
         fi

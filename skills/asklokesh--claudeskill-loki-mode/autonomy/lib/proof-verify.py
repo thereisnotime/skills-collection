@@ -341,6 +341,10 @@ def _compute_headline(facts, degraded):
         and tests.get("exit_code") == 0
     )
     if tests_verified and not degraded and diff_nonempty:
+        # S-113 mirror: a not_load_bearing ablation never yields VERIFIED.
+        ablation = facts.get("ablation")
+        if isinstance(ablation, dict) and ablation.get("status") == "not_load_bearing":
+            return "VERIFIED WITH GAPS"
         return "VERIFIED"
     any_verified = (
         tests.get("status") == "verified"

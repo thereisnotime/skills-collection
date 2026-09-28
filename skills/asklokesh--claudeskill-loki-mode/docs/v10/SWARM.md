@@ -223,6 +223,30 @@ queue. Never unpublishes or deletes a version.
   agent-authored slices never combine untrusted input, an agent, and push
   rights either.
 
+## Slice card template
+
+Binding: the orchestrator dispatches every builder and reviewer from a slice
+card below, never from conversation history or its own recall of prior
+turns -- the card is the sole source of scope for that agent. While the
+swarm runs, the orchestrator's own live view stays limited to
+`docs/v10/CONTROL.md`, the pulse block, and `docs/v10/BOARD.md`; it does not
+re-derive scope from scrollback.
+
+<!-- SLICE-CARD-TEMPLATE:START -->
+Slice: S-<id>
+Goal: <one sentence, the acceptance condition for this slice>
+Tier: LOW | MEDIUM | HIGH
+Model: <pinned model, e.g. opus, sonnet -- never inherited, see D13>
+Budget: <minutes>
+Files:
+  - <path>
+  - <path>
+Wall checks:
+  - <command or assertion that must pass before review>
+Commands:
+  - <exact shell command(s) the builder runs>
+<!-- SLICE-CARD-TEMPLATE:END -->
+
 ## Metrics (appended to METRICS.md after every wave)
 
 - releases in the last 24h

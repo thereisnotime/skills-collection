@@ -65,6 +65,7 @@ P9.checkout-no-persisted-credentials
 P6.no-gate-artifacts-committed
 P2.bun-inconclusive-not-pass
 P2.council-readers-not-shadowed
+P2.council-readers-no-user-site-pth
 P6.resume-does-not-sweep
 P6.ignored-files-not-swept
 P6.preexisting-edit-disclosed

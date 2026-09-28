@@ -482,7 +482,14 @@ export interface SdkLoopExtraOptions {
   effort?: string;
   maxBudgetUsd?: number;
   fallbackModel?: string;
+  tools?: string[];
+  noAppend?: boolean;
 }
+// E-65: engine10 sessions (LOKI_E10_STAGE is set only by engine10/session.ts) run lean. Measured "OK" prefix on
+// sonnet: 20,413 tokens with the full preset tool set + loki append vs 7,136 with these 6 tools, paid on every turn.
+// The engine brief carries its own rules, so the legacy append (commits, CONTINUITY.md, design) does not apply;
+// user/local settings would pull the operator's CLAUDE.md, memory and plugins into every session.
+const ENGINE10_TOOLS = ["Bash", "Read", "Edit", "Write", "Glob", "Grep"];
 export function buildSdkLoopOptions(args: {
   tier: string | undefined;
   model: string;
@@ -491,12 +498,18 @@ export function buildSdkLoopOptions(args: {
   allowHaiku?: boolean;
 }): SdkLoopExtraOptions {
   const out: SdkLoopExtraOptions = {};
+  const engine10 = Boolean(process.env["LOKI_E10_STAGE"]);
+  if (engine10) {
+    out.tools = ENGINE10_TOOLS;
+    out.noAppend = true;
+    out.strictMcpConfig = true; // no MCP servers at all, ambient .mcp.json included
+  }
 
   // MCP tools: reuse the exact bundle the shell route writes (loki-mode server +
   // optional lsp-proxy). mcpConfigPath writes it idempotently; read its server
   // map and pass as one mcpServers array element. strictMcpConfig ignores any
   // ambient project .mcp.json (parity with the hardcoded-bundle shell behavior).
-  try {
+  if (!engine10) try {
     const cfgPath = mcpConfigPath(args.cwd);
     if (existsSync(cfgPath)) {
       const bundle = JSON.parse(readFileSync(cfgPath, "utf8")) as { mcpServers?: Record<string, unknown> };
@@ -510,7 +523,7 @@ export function buildSdkLoopOptions(args: {
   }
   // settingSources: match the shell route's claude_code preset behavior (project
   // + user settings resolved by the CLI). Explicit so the SDK does not diverge.
-  out.settingSources = ["user", "project", "local"];
+  out.settingSources = engine10 ? ["project"] : ["user", "project", "local"];
 
   // effort tier (same mapping as buildAutoFlags).
   try {
@@ -607,6 +620,9 @@ export function sdkQueryProvider(): ProviderInvoker {
         // process.env or PATH/HOME/ANTHROPIC_API_KEY vanish and query() fails.
         const env: Record<string, string> = { ...(process.env as Record<string, string>) };
         if (cavemanLvl) env["CAVEMAN_DEFAULT_MODE"] = cavemanLvl;
+        // E-65: the session's own Bash tool inherits this env; a `loki start` run inside an engine session
+        // must not pick up the lean engine10 shape. The host-guard hook runs in this process, so it is unaffected.
+        for (const k of Object.keys(env)) if (k.startsWith("LOKI_E10_")) delete env[k];
 
         // T3(b): compose the MCP/effort/budget/fallback options the loop was
         // missing vs the shell route (see buildSdkLoopOptions). Only fields that
@@ -655,7 +671,7 @@ export function sdkQueryProvider(): ProviderInvoker {
             // EXCELLENCE directive was silently dropped -- losing a measured
             // 2.8x iterations-to-done reduction on the very route v8 promotes.
             // Same text, same iteration-1 gate, same opt-out, no binary probe.
-            systemPrompt: autonomyAppendEnabled()
+            systemPrompt: autonomyAppendEnabled() && !extra.noAppend
               ? {
                   type: "preset",
                   preset: "claude_code",
@@ -664,6 +680,7 @@ export function sdkQueryProvider(): ProviderInvoker {
               : { type: "preset", preset: "claude_code" },
             env,
             // T3(b) parity: MCP tools + effort + USD budget + fallback model.
+            ...(extra.tools ? { tools: extra.tools } : {}),
             ...(extra.mcpServers ? { mcpServers: extra.mcpServers } : {}),
             ...(extra.strictMcpConfig ? { strictMcpConfig: true } : {}),
             ...(extra.settingSources ? { settingSources: extra.settingSources } : {}),
@@ -822,6 +839,18 @@ function applyCodexMaxTier(effort: string): string {
 //   codex exec resume --last (session continuity across iterations)
 //   codex mcp add/list (loki <-> codex MCP bridge)
 //   subagents parallelism
+// Commit hygiene for providers that take no system prompt (codex, cline,
+// aider). Byte-identical to PROVIDER_COMMIT_HYGIENE in providers/codex.sh,
+// cline.sh and aider.sh; claude carries it in AUTONOMY_OVERRIDE_TEXT instead,
+// so claudeProvider must NOT prefix (BACKLOG 74 and 99).
+export const PROVIDER_COMMIT_HYGIENE =
+  "Commit hygiene still applies: git checkpoints are LOCAL only. Never push or force-push. Stage files by explicit path, never `git add -A` or `git add .`, and never commit secrets, credentials, .env files, or untracked files you did not author this session.";
+
+// Mirrors bash: prompt="$PROVIDER_COMMIT_HYGIENE"$'\n\n'"$prompt".
+function withCommitHygiene(prompt: string): string {
+  return `${PROVIDER_COMMIT_HYGIENE}\n\n${prompt}`;
+}
+
 export function codexProvider(): ProviderInvoker {
   const cli = resolveCli("LOKI_CODEX_CLI", "codex");
   return {
@@ -854,7 +883,7 @@ export function codexProvider(): ProviderInvoker {
         argv.push("--output-last-message", lastMessagePath);
       }
 
-      argv.push(call.prompt);
+      argv.push(withCommitHygiene(call.prompt));
 
       // Both env vars: LOKI_-namespaced (canonical, v6.37.1+) and
       // CODEX_MODEL_REASONING_EFFORT (legacy, deprecated but supported).
@@ -907,7 +936,7 @@ export function clineProvider(): ProviderInvoker {
         argv.push("-m", model);
       }
       // cline.sh:35,114: PROVIDER_PROMPT_POSITIONAL=true -- prompt last.
-      argv.push(call.prompt);
+      argv.push(withCommitHygiene(call.prompt));
 
       const r = await shellRun(argv, { cwd: call.cwd });
       await writeCaptured(call.iterationOutputPath, r.stdout, r.stderr);
@@ -953,7 +982,7 @@ export function aiderProvider(): ProviderInvoker {
         cli,
         // aider.sh:34,116: PROVIDER_PROMPT_FLAG = --message (single-shot).
         "--message",
-        call.prompt,
+        withCommitHygiene(call.prompt),
         // aider.sh:33,117: PROVIDER_AUTONOMOUS_FLAG = --yes-always.
         "--yes-always",
         // aider.sh:118: loki owns git -- never let aider auto-commit.

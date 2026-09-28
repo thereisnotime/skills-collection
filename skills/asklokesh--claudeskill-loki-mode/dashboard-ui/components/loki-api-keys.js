@@ -569,6 +569,10 @@ export class LokiApiKeys extends LokiElement {
     let content;
     if (this._loading && keys.length === 0) {
       content = '<div class="loading">Loading API keys...</div>';
+    } else if (keys.length === 0 && (this._error || '').startsWith('Failed to load API keys')) {
+      // The list was never read: the error banner below says so. Claiming
+      // "No API keys configured" here would report an empty store we never saw.
+      content = '';
     } else if (keys.length === 0) {
       content = '<div class="empty-state">No API keys configured. Create one to get started.</div>';
     } else {

@@ -414,8 +414,10 @@ routes = {}
 for r in server.app.routes:
     if hasattr(r, "path"):
         routes.setdefault(r.path, []).append(r)
+assert routes, "server.app.routes walk found zero routes -- audit would be vacuous"
 path = "/api/fleet/runs/{identifier}/retry"
 assert path in routes, f"{path} route missing"
+assert len(routes[path]) > 0, f"{path} matched zero route objects -- audit would be vacuous"
 has_dep = any(len(getattr(r, "dependencies", [])) >= 1 for r in routes[path])
 assert has_dep, f"{path} has no auth dependency"
 print("OK")

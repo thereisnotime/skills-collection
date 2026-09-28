@@ -17,14 +17,23 @@ cd "$REPO_ROOT" || exit 1
 # Test 1: the endpoint returns ONLY claude_hook_ events under hook_events.
 RESULT=$($PY <<'PYEOF' 2>&1 | tail -1
 import sys, tempfile, shutil, os, json
+from datetime import datetime, timezone, timedelta
 sys.path.insert(0, '.')
 tmp = tempfile.mkdtemp(prefix='loki-hook-')
 try:
     loki = os.path.join(tmp, '.loki'); os.makedirs(loki)
+    # Timestamps must be "now"-relative: _read_events defaults to a 7-day
+    # rolling window, so a fixed past date ages out of the window and the
+    # endpoint correctly returns [] -- that looked like a product regression
+    # but was the fixture, not the server. Generate them at run time instead.
+    now = datetime.now(timezone.utc)
+    t0 = (now - timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    t1 = (now - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    t2 = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     with open(os.path.join(loki, 'events.jsonl'), 'w') as f:
-        f.write(json.dumps({"type":"claude_hook_PreToolUse","timestamp":"2026-05-28T14:00:00Z","tool":"Bash"})+"\n")
-        f.write(json.dumps({"type":"claude_hook_PostToolUse","timestamp":"2026-05-28T14:00:01Z","tool":"Edit"})+"\n")
-        f.write(json.dumps({"type":"iteration_start","timestamp":"2026-05-28T14:00:02Z"})+"\n")
+        f.write(json.dumps({"type":"claude_hook_PreToolUse","timestamp":t0,"tool":"Bash"})+"\n")
+        f.write(json.dumps({"type":"claude_hook_PostToolUse","timestamp":t1,"tool":"Edit"})+"\n")
+        f.write(json.dumps({"type":"iteration_start","timestamp":t2})+"\n")
     from dashboard import server
     server._active_project_dir = tmp
     from fastapi.testclient import TestClient

@@ -12,6 +12,9 @@ import { LokiElement } from '../core/loki-theme.js';
 import { getApiClient, ApiEvents } from '../core/loki-api-client.js';
 import { registerPoll } from '../core/loki-poll-registry.js';
 
+// Consecutive failed /api/logs polls before the panel says so (one blip is not an outage).
+const UNREACHABLE_AFTER = 2;
+
 /** @type {Object<string, {color: string, label: string}>} Log level display configuration */
 const LOG_LEVELS = {
   info: { color: 'var(--loki-blue)', label: 'INFO' },
@@ -57,6 +60,9 @@ export class LokiLogStream extends LokiElement {
     this._apiLastSig = null;
     this._fileLastSize = 0;
     this._fileLastSig = null;
+    // Consecutive /api/logs failures. At UNREACHABLE_AFTER the empty render
+    // says the source is unreachable instead of looking like a quiet log.
+    this._apiFailures = 0;
   }
 
   connectedCallback() {
@@ -151,6 +157,11 @@ export class LokiLogStream extends LokiElement {
   async _apiLogPollTick() {
     try {
       const entries = await this._api.getLogs(200);
+      // Any answer clears the unreachable state, before the early returns below.
+      if (this._apiFailures) {
+        this._apiFailures = 0;
+        this._renderLogs();
+      }
       if (!Array.isArray(entries)) return;
       // Duplicate-suppression: skip all work if the response is identical to
       // the last one (same count + same last-line signature). This avoids
@@ -177,7 +188,9 @@ export class LokiLogStream extends LokiElement {
       }
       this._apiLastCount = entries.length;
     } catch (error) {
-      // API not available, will retry on next poll
+      // API not available: surface it (see _renderLogs); the registry retries.
+      this._apiFailures += 1;
+      this._renderLogs();
     }
   }
 
@@ -358,7 +371,9 @@ export class LokiLogStream extends LokiElement {
     const filteredLogs = this._getFilteredLogs();
 
     if (filteredLogs.length === 0) {
-      output.innerHTML = '<div class="log-empty">No log output yet. Terminal will update when Loki Mode is running.</div>';
+      output.innerHTML = this._apiFailures >= UNREACHABLE_AFTER
+        ? '<div class="log-empty" role="status">Log source unreachable, retrying</div>'
+        : '<div class="log-empty">No log output yet. Terminal will update when Loki Mode is running.</div>';
       return;
     }
 

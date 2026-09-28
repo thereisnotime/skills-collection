@@ -254,6 +254,13 @@ def list_keys_with_details(include_rotating: bool = True) -> list[dict]:
     Returns:
         List of key detail dicts (no hashes or raw tokens).
     """
+    # Purge rotating keys past their grace period before listing. This is the
+    # only live read path over the full token store, so it doubles as the
+    # sweep for cleanup_expired_rotating_keys, which otherwise has no caller
+    # (BACKLOG 33). Lazy, not scheduled: runs on whatever cadence callers
+    # already poll this list at.
+    cleanup_expired_rotating_keys()
+
     tokens = auth._load_tokens()
     result = []
 
@@ -298,15 +305,15 @@ def cleanup_expired_rotating_keys() -> list[str]:
         List of deleted key IDs.
     """
     tokens = auth._load_tokens()
-    now = datetime.now(timezone.utc)
     to_delete = []
 
     for tid, entry in tokens["tokens"].items():
         rotation_exp = entry.get("rotation_expires_at")
-        if rotation_exp:
-            exp_dt = datetime.fromisoformat(rotation_exp)
-            if now > exp_dt:
-                to_delete.append(tid)
+        # auth._deadline_passed fails closed: an unparseable or naive
+        # timestamp counts as expired, matching what validate_token already
+        # rejects at validation time (BACKLOG 119).
+        if rotation_exp and auth._deadline_passed(rotation_exp):
+            to_delete.append(tid)
 
     for tid in to_delete:
         del tokens["tokens"][tid]

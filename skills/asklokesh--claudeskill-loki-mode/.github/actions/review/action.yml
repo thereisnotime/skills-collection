@@ -27,6 +27,13 @@ runs:
 
     - name: Run Quality Review
       shell: bash
+      env:
+        # Explicitly blanked, not merely omitted: composite steps inherit the
+        # caller's env otherwise, and this step runs the agent-capable CLI.
+        GH_TOKEN: ''
+        GITHUB_TOKEN: ''
+        GH_ENTERPRISE_TOKEN: ''
+        GITHUB_ENTERPRISE_TOKEN: ''
       run: |
         ARGS="${{ inputs.directory }}"
         if [ "${{ inputs.json }}" = "true" ]; then

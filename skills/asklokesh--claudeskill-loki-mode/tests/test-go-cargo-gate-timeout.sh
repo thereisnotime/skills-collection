@@ -134,8 +134,11 @@ run_gate() {  # $1 = repo, $2 = harness -> prints elapsed; writes test-results.j
     # `|| exit 1` is not cosmetic here: without it a failed cd leaves the
     # subshell in the CALLER's directory and the gate below runs against the
     # wrong tree, which can report a pass for a repo it never examined.
+    # 8s (not 20s): only A-RED relies on this bound firing, and its shim
+    # (sleep 60) clears 8s with enormous margin; GREEN/D return at ~2-5s,
+    # bounded by LOKI_GATE_TIMEOUT=2, well under 8s either way.
     ( cd "$repo" || exit 1; PATH="$repo/bin:$PATH" TARGET_DIR="$repo" LOKI_GATE_TIMEOUT=2 \
-        $OUTER 20s bash -c "source '$h'; enforce_test_coverage" >/dev/null 2>&1 )
+        $OUTER 8s bash -c "source '$h'; enforce_test_coverage" >/dev/null 2>&1 )
     echo $?
 }
 
@@ -158,7 +161,7 @@ RED_RC=$(run_gate "$A_RED" "$HARNESS_RED")
 RED_ELAPSED=$(( $(date +%s) - START ))
 
 if [ "$RED_RC" -eq 124 ]; then
-    _ok "A-RED: pre-fix body HANGS -- outer 20s bound fired (rc=124, ${RED_ELAPSED}s), gate never returned"
+    _ok "A-RED: pre-fix body HANGS -- outer 8s bound fired (rc=124, ${RED_ELAPSED}s), gate never returned"
 else
     _no "A-RED: expected outer timeout (124), got rc=$RED_RC after ${RED_ELAPSED}s -- defect not reproduced"
 fi
@@ -226,7 +229,17 @@ fi
 # go routes through its own arm of _loki_zero_tests_executed. A timed-out go run
 # emits no `[no test files]` marker, so it must land as pass=false rather than
 # being swept into pass="inconclusive".
-D_REPO="$TMP_ROOT/d"; mk_repo "$D_REPO" 'sleep 60' go
+# sleep 5 (not 60): this case only runs the GREEN (fixed) harness, which
+# always kills the shim at LOKI_GATE_TIMEOUT=2, so the shim only needs to
+# outlive that 2s bound with real margin -- unlike A_RED below, which relies
+# on ITS shim outliving the OUTER 8s harness bound and must stay long. `sleep
+# 2` against a 2s timeout was tried and rejected: the shim's sleep starts a
+# few ms after the timeout's own timer (env/fork/exec skew), so on a fast or
+# idle box the shim can occasionally exit on its own before the kill lands,
+# flipping go_exit to 0 and this case to a false green. 5s keeps a real
+# margin at zero cost (still killed at 2s) while avoiding a 58s-orphaned
+# `sleep` process if the kill signal is ever delayed or missed.
+D_REPO="$TMP_ROOT/d"; mk_repo "$D_REPO" 'sleep 5' go
 START=$(date +%s)
 D_RC=$(run_gate "$D_REPO" "$HARNESS")
 D_ELAPSED=$(( $(date +%s) - START ))

@@ -42,6 +42,7 @@
 #===============================================================================
 
 set -uo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib/isolated-git-home.sh" || exit 1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -66,8 +67,12 @@ fail() {
 }
 
 WORKROOT="$(mktemp -d "${TMPDIR:-/tmp}/loki-resume-idem.XXXXXX")"
+# Test-owned global git config (the fixtures' github.com -> local bare
+# rewrites live here), so the real ~/.gitconfig is never read or written.
+export GIT_CONFIG_GLOBAL="$WORKROOT/gitconfig"
+: > "$GIT_CONFIG_GLOBAL"
 cleanup() {
-    rm -rf "$WORKROOT" 2>/dev/null || true
+    rm -rf "$WORKROOT" "$ISOLATED_GIT_HOME" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
@@ -87,8 +92,17 @@ awk '
     p && /^create_session_pr\(\) \{/ { f=1 }
     f && /^}/ { exit }
 ' "$RUN_SH" > "$BRANCH_LIB"
+# create_session_pr pushes through _loki_trusted_push (BACKLOG 149 round 5),
+# defined with the Rule of Two withhold block, not in the branch block: append
+# that block (variable initializers and functions only; nothing runs on source).
+awk '
+    /^_LOKI_WITHHELD_TOKENS=""$/ { on = 1 }
+    on { print }
+    on && /^_loki_withhold_github_tokens\(\) \{$/ { last = 1 }
+    last && /^}$/ { exit }
+' "$RUN_SH" >> "$BRANCH_LIB"
 
-if ! grep -q "^create_session_pr() {" "$BRANCH_LIB"; then
+if ! grep -q "^create_session_pr() {" "$BRANCH_LIB" || ! grep -q "^_loki_trusted_push() {" "$BRANCH_LIB"; then
     fail "could not extract create_session_pr from $RUN_SH"
     echo ""
     echo "Results: $PASS/$TOTAL passed, $FAIL failed (extraction failed; aborting)"
@@ -142,7 +156,12 @@ make_repo() {
         echo "seed" > README.md
         git add README.md
         git commit -qm "seed"
-        git remote add origin "$remote"
+        # GitHub-shaped origin routed to the local bare repo by the
+        # test-owned global config: Loki pushes only to a validated github.com
+        # origin, from a fresh repo that ignores this repo's config (BACKLOG
+        # 149 round 5). Never any network.
+        git remote add origin "https://github.com/loki-test/$name.git"
+        git config --global url."$remote".insteadOf "https://github.com/loki-test/$name.git"
         mkdir -p .loki/state
         echo "main" > .loki/state/base-branch.txt
         # create_session_pr reads the agent branch from here (run.sh:8111) and
@@ -167,6 +186,7 @@ cat > "$GH_DIR/gh" <<EOF
 #!/usr/bin/env bash
 printf '%s\n' "\$*" >> "$GH_ARGV"
 case "\$1 \${2:-}" in
+    "repo view") echo main; exit 0 ;;  # S-100: default-branch lookup before the push
     "pr list")
         # Emit the existing PR url, if one has been "created".
         [ -s "$GH_STATE" ] && cat "$GH_STATE"
@@ -244,8 +264,10 @@ fi
 #------------------------------------------------------------------------------
 echo ""
 echo "Test 2: the dedupe check queries the remote for an existing open PR"
-if grep -q '^pr list --head' "$GH_ARGV"; then
-    pass "'gh pr list --head' is consulted before create"
+# --repo names the validated origin explicitly (BACKLOG 149 round 6: gh runs
+# from /, so no subcommand may fall back to cwd repo detection).
+if grep -q '^pr list --repo loki-test/repo1 --head' "$GH_ARGV"; then
+    pass "'gh pr list --repo <origin> --head' is consulted before create"
 else
     fail "no 'gh pr list --head' call recorded; dedupe cannot be remote-keyed" \
          "$(cat "$GH_ARGV")"

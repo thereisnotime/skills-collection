@@ -402,22 +402,22 @@ export class LokiMemoryBrowser extends LokiElement {
                 <span class="stats-value ${this._stats.fts_enabled ? 'enabled' : 'disabled'}">${this._stats.fts_enabled ? 'Enabled' : 'Disabled'}</span>
               </div>
             ` : ''}
-            ${this._stats.episodes_count != null ? `
+            ${this._stats.episode_count != null ? `
               <div class="stats-item">
                 <span class="stats-label">Episodes</span>
-                <span class="stats-value mono">${this._stats.episodes_count}</span>
+                <span class="stats-value mono">${this._stats.episode_count}</span>
               </div>
             ` : ''}
-            ${this._stats.patterns_count != null ? `
+            ${this._stats.pattern_count != null ? `
               <div class="stats-item">
                 <span class="stats-label">Patterns</span>
-                <span class="stats-value mono">${this._stats.patterns_count}</span>
+                <span class="stats-value mono">${this._stats.pattern_count}</span>
               </div>
             ` : ''}
-            ${this._stats.skills_count != null ? `
+            ${this._stats.skill_count != null ? `
               <div class="stats-item">
                 <span class="stats-label">Skills</span>
-                <span class="stats-value mono">${this._stats.skills_count}</span>
+                <span class="stats-value mono">${this._stats.skill_count}</span>
               </div>
             ` : ''}
           </div>
@@ -455,15 +455,15 @@ export class LokiMemoryBrowser extends LokiElement {
     return `
       <div class="item-list" role="list" aria-label="Episodes list">
         ${this._episodes.map(ep => `
-          <div class="item-card" data-id="${this._escapeHtml(ep.id)}" data-type="episode" tabindex="0" role="listitem" aria-label="Episode ${this._escapeHtml(ep.id)}: ${this._escapeHtml(ep.taskId || 'Task')}, outcome ${this._escapeHtml(ep.outcome || 'unknown')}">
+          <div class="item-card" data-id="${this._escapeHtml(ep.id)}" data-type="episode" tabindex="0" role="listitem" aria-label="Episode ${this._escapeHtml(ep.id)}: ${this._escapeHtml(ep.task_id || 'Task')}, outcome ${this._escapeHtml(ep.outcome || 'unknown')}">
             <div class="item-header">
               <span class="item-id mono">${this._escapeHtml(ep.id)}</span>
               <span class="item-outcome ${this._escapeHtml(ep.outcome?.toLowerCase())}">${this._escapeHtml(ep.outcome || 'unknown')}</span>
             </div>
-            <div class="item-title">${this._escapeHtml(ep.taskId || 'Task')}</div>
+            <div class="item-title">${this._escapeHtml(ep.task_id || 'Task')}</div>
             <div class="item-meta">
               <span>${this._escapeHtml(ep.agent || 'unknown agent')}</span>
-              <span>${this._escapeHtml(ep.phase || 'unknown phase')}</span>
+              <span>${this._escapeHtml(ep.context?.phase || 'unknown phase')}</span>
               <span>${new Date(ep.timestamp).toLocaleString()}</span>
             </div>
           </div>
@@ -526,9 +526,12 @@ export class LokiMemoryBrowser extends LokiElement {
 
     const item = this._selectedItem;
 
-    // Determine type and render accordingly
-    if (item.actionLog !== undefined) {
+    // Determine type and render accordingly. Real key names, per
+    // memory/schemas.py EpisodeTrace.to_dict(): snake_case top level, phase
+    // and goal nested under context.
+    if (item.action_log !== undefined) {
       // Episode detail
+      const goal = item.context?.goal;
       return `
         <div class="detail-panel">
           <div class="detail-header">
@@ -538,7 +541,7 @@ export class LokiMemoryBrowser extends LokiElement {
           <div class="detail-body">
             <div class="detail-row">
               <span class="detail-label">Task</span>
-              <span class="detail-value">${this._escapeHtml(item.taskId || '--')}</span>
+              <span class="detail-value">${this._escapeHtml(item.task_id || '--')}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">Agent</span>
@@ -546,7 +549,7 @@ export class LokiMemoryBrowser extends LokiElement {
             </div>
             <div class="detail-row">
               <span class="detail-label">Phase</span>
-              <span class="detail-value">${this._escapeHtml(item.phase || '--')}</span>
+              <span class="detail-value">${this._escapeHtml(item.context?.phase || '--')}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">Outcome</span>
@@ -554,23 +557,23 @@ export class LokiMemoryBrowser extends LokiElement {
             </div>
             <div class="detail-row">
               <span class="detail-label">Duration</span>
-              <span class="detail-value">${typeof item.durationSeconds === 'number' ? item.durationSeconds + 's' : '--'}</span>
+              <span class="detail-value">${typeof item.duration_seconds === 'number' ? item.duration_seconds + 's' : '--'}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">Tokens Used</span>
-              <span class="detail-value">${this._fmtCount(item.tokensUsed)}</span>
+              <span class="detail-value">${this._fmtCount(item.tokens_used)}</span>
             </div>
-            ${item.goal ? `
+            ${goal ? `
               <div class="detail-section">
                 <div class="detail-label">Goal</div>
-                <div class="detail-content">${this._escapeHtml(item.goal)}</div>
+                <div class="detail-content">${this._escapeHtml(goal)}</div>
               </div>
             ` : ''}
-            ${item.actionLog?.length ? `
+            ${item.action_log?.length ? `
               <div class="detail-section">
-                <div class="detail-label">Action Log (${item.actionLog.length})</div>
+                <div class="detail-label">Action Log (${item.action_log.length})</div>
                 <div class="action-log">
-                  ${item.actionLog.map(a => `
+                  ${item.action_log.map(a => `
                     <div class="action-entry">
                       <span class="action-time">+${this._escapeHtml(a.t)}s</span>
                       <span class="action-type">${this._escapeHtml(a.action)}</span>
@@ -616,16 +619,16 @@ export class LokiMemoryBrowser extends LokiElement {
                 </ul>
               </div>
             ` : ''}
-            ${item.correctApproach ? `
+            ${item.correct_approach ? `
               <div class="detail-section">
                 <div class="detail-label">Correct Approach</div>
-                <div class="detail-content success">${this._escapeHtml(item.correctApproach)}</div>
+                <div class="detail-content success">${this._escapeHtml(item.correct_approach)}</div>
               </div>
             ` : ''}
-            ${item.incorrectApproach ? `
+            ${item.incorrect_approach ? `
               <div class="detail-section">
                 <div class="detail-label">Incorrect Approach</div>
-                <div class="detail-content error">${this._escapeHtml(item.incorrectApproach)}</div>
+                <div class="detail-content error">${this._escapeHtml(item.incorrect_approach)}</div>
               </div>
             ` : ''}
           </div>
@@ -660,11 +663,11 @@ export class LokiMemoryBrowser extends LokiElement {
                 </ol>
               </div>
             ` : ''}
-            ${item.exitCriteria?.length ? `
+            ${item.exit_criteria?.length ? `
               <div class="detail-section">
                 <div class="detail-label">Exit Criteria</div>
                 <ul class="detail-list">
-                  ${item.exitCriteria.map(e => `<li>${this._escapeHtml(e)}</li>`).join('')}
+                  ${item.exit_criteria.map(e => `<li>${this._escapeHtml(e)}</li>`).join('')}
                 </ul>
               </div>
             ` : ''}

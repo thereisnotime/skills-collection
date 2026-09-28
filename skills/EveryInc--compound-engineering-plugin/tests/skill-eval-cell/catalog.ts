@@ -32,9 +32,15 @@ const PLAN_CONTENT_BASE_REF = "5c32ef92339b95348d6a12000e814d4877902557"
 export const CE_OPTIMIZE_BASE_REF = "b159e1fa4c70efa995742269d38269bcc7524dd2"
 /** main before annotation waits became event-driven and symptom-only notes became a question. */
 const ANNOTATION_WAIT_BASE_REF = "d1734f7ed5341b6d0b683405da82895f0a0a25f7"
+/** main before streak interpretation accounted for estimated baselines and candidate selection (#1698). */
+const RETUNE_STREAK_BASE_REF = "53af1a2eab6415be9881c1987dbc986dcb54465c"
 export const SUSTAINED_HANDOFF_BASE_REF = "153e605e1622154a0d7da095fceed13edcb68bf7"
 /** main before judgment-bound escalations were adjudicated through ce-pov instead of parking as needs-human. */
 export const ADJUDICATE_BASE_REF = "020c5e10d49aed19ee9354917780e94e665f5977"
+/** main before the resolver weighed whether an existing signal already bounds a true finding's failure. */
+export const PROPORTIONALITY_BASE_REF = "e80c5c40440b90672d78f032f6dfaedc0daeb292"
+/** main before ce-debug preferred removing a recurring bug pattern over layering runtime checks. */
+export const STRUCTURAL_FIX_BASE_REF = "2b4cacd32d3e8c19a91e1c50c318172ec1d2f160"
 /** The working tree, not HEAD — the post arm exists to grade the edit you have not committed yet. */
 export const POST_SWEEP_REF = WORKTREE_REF
 
@@ -837,6 +843,94 @@ Required lower-is-better objectives: latency (ms), memory (MB). Workload checkou
     grade: { files_read_post: ["references/wrap-up.md"], must_include: ["3.6"], actions: "none", delegates: "none" },
   },
   {
+    id: "ce-retune/selected-streak-claim",
+    skill: "ce-retune",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: RETUNE_STREAK_BASE_REF,
+    timeout_secs: 180,
+    why: "A winning streak after candidate selection does not turn an estimated baseline into an exact search-wide significance claim.",
+    pre_contract: "An independently established baseline makes p^N an exact one-armed test; changed candidates may restart their streak.",
+    task: `Use ce-retune to assess this registration and completed run ledger. The measurement gate and A/A check are complete; assess the result only, without new runs, edits, or delegation.
+Registration before edits: target model M; fixed task, runner, grader, and coverage; bar 8 consecutive complete runs on one build; stop each attempt at its first behavioral failure. An independent archive had 58 complete runs out of 100. No procedure for baseline uncertainty or repeated testing was registered.
+Ledger: builds C1 through C19 each had a clean diagnostic followed by a confirmation attempt that stopped on a behavioral failure. Those findings guided the next build. C20 had a clean diagnostic, was frozen, and then completed eight fresh confirmation runs. No infrastructure failures occurred. Each attempt used separate runs; all twenty attempts remain in the archive.
+Draft conclusion: "C20 cleared bar:8. Its 0.58^8 = 0.0128 result establishes exact significance for this search. All twenty attempts are included in the report."
+Explain what conclusion the records support and which records the report needs. End with exactly one BAR line (cleared or not-cleared) and one CLAIM line (supported or unsupported), where CLAIM assesses the entire draft conclusion.`,
+    grade: {
+      files_read_post: ["references/noise-floor.md"],
+      declared: { BAR: "cleared", CLAIM: "unsupported" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-retune/fixed-null-confirmation",
+    skill: "ce-retune",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: RETUNE_STREAK_BASE_REF,
+    timeout_secs: 180,
+    why: "Qualifying adaptive-search evidence must preserve the valid conditional probability for one planned attempt under a known fixed null.",
+    pre_contract: "One planned streak has probability p^N under an independently established null and stops at the first failure.",
+    task: `Use ce-retune to assess this registration and completed run ledger. The measurement gate and A/A check are complete; assess the result only, without new runs, edits, or delegation.
+Registration: one candidate and one planned eight-run attempt, both fixed before outcomes were seen. Under the null, each run has known success probability exactly 0.58, stipulated independently of these data rather than estimated from an archive. Runs are independent; the model, task, grader, and runner are unchanged. Stop at the first behavioral failure. There are no other candidates or attempts.
+Ledger: eight complete runs on the frozen build, with no broken runs.
+Draft conclusion: "The registered bar is cleared. Under the stipulated null and independence assumptions, the probability that this one planned attempt produces eight successes is 0.58^8, approximately 0.0128063. This does not estimate percentage improvement or the probability that the null is true."
+Explain whether the conclusion is supported. End with exactly one BAR line (cleared or not-cleared) and one CLAIM line (supported or unsupported), where CLAIM assesses the entire draft conclusion.`,
+    grade: {
+      files_read_post: ["references/noise-floor.md"],
+      declared: { BAR: "cleared", CLAIM: "supported" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-retune/fresh-operational-confirmation",
+    skill: "ce-retune",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: RETUNE_STREAK_BASE_REF,
+    timeout_secs: 180,
+    why: "Fresh confirmation can clear an operational bar after diagnostics while excluding a registered infrastructure interruption and retaining earlier attempts.",
+    pre_contract: "Diagnostics and other builds do not count toward a streak; registration defines broken runs and coverage limits.",
+    task: `Use ce-retune to assess this registration and completed run ledger. The measurement gate and A/A check are complete; assess the result only, without new runs, edits, or delegation.
+Registration before edits: eight consecutive complete runs on a frozen build, using the same model M, runner, task, and grader. A transport outage before any model output is a broken run, retained in the archive but excluded from the streak. A behavioral failure ends the attempt. The task covers planning and implementation, not publishing. The archive baseline is 58 complete runs out of 100.
+Ledger: C1's attempt failed and led to C2; C2's attempt failed and led to C3. A clean diagnostic selected C3. After C3 was frozen, confirmation records were complete, complete, transport outage before model output, complete, complete, complete, complete, complete, complete. No edits or measurement-condition changes occurred during confirmation. All records are retained.
+Draft conclusion: "C3 has eight complete confirmation runs, excluding the recorded transport interruption under the registered rule. It clears the operational bar for planning and implementation. The diagnostic and earlier builds do not contribute to that count. All attempts remain reported. This is descriptive confirmation, with no effect-size, search-wide significance, or publishing-coverage claim."
+Explain whether the conclusion is supported and how the interruption and diagnostics affect the count. End with exactly one BAR line (cleared or not-cleared) and one CLAIM line (supported or unsupported), where CLAIM assesses the entire draft conclusion.`,
+    grade: {
+      files_read_post: ["references/noise-floor.md"],
+      declared: { BAR: "cleared", CLAIM: "supported" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-retune/behavioral-failure-stops-attempt",
+    skill: "ce-retune",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: RETUNE_STREAK_BASE_REF,
+    timeout_secs: 180,
+    why: "A behavioral failure ends the current attempt; a diagnostic or queued successes cannot rescue its count.",
+    pre_contract: "The runner stops at the first failure; diagnostics and successes across edited builds never form a confirmation streak.",
+    task: `Use ce-retune to assess this registration and paused run ledger. The measurement gate and A/A check are complete; decide what the operator should do next, without executing runs, editing files, or delegating.
+Registration before edits: eight consecutive complete confirmation runs on one frozen build; stop at the first behavioral failure. Only a transport failure before model output is a broken run excluded from the streak.
+Ledger: C1 completed three runs before a failure prompted an edit. C2 had a clean diagnostic, was frozen, and then produced complete, complete, task-incomplete. The third confirmation run exited normally with a usable tool trace showing an omitted required implementation phase. Eight more runs on C2 are queued but have not started.
+The operator proposes treating the third run as broken, using the earlier C1 successes and C2 diagnostic toward the count, and continuing the queue until the bar clears.
+Explain the supported next action and what should happen to the failed record. End with exactly one BAR line (cleared or not-cleared) and one NEXT line (continue, diagnose, or report).`,
+    grade: {
+      files_read_post: ["references/noise-floor.md"],
+      declared: { BAR: "not-cleared", NEXT: "diagnose" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
     id: "ce-babysit-pr/refuse-unasked-update",
     skill: "ce-babysit-pr",
     cohort: "resized",
@@ -1088,6 +1182,44 @@ Return this tick's result to the coordinator and stop.`,
     },
   },
   {
+    id: "ce-debug/recurring-pattern-prefers-structure",
+    baseline_ref: STRUCTURAL_FIX_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/debug-recurring-date-parse`,
+    timeout_secs: 300,
+    why: "When the root-cause pattern recurs across internal files, layering runtime checks still lets the next caller write the same bug; removing the pattern is the stronger prevention.",
+    pre_contract: "The minimal fix covers the root cause only; defense-in-depth triggers on the pattern in 3+ other files or a catastrophic bug and chooses among four runtime layers.",
+    task: "Use ce-debug on this bug. Phases 1 and 2 are done: read DIAGNOSIS.md; the user chose to fix it now. Do not edit, create, or commit any file, and do not invoke another skill or dispatch. Following ce-debug's Phase 3 guidance, list every source file under src/ that this fix would change or create (tests excluded), then stop. End with exactly two lines: `OTHER_REPORTS: <changed | unchanged>`, saying whether the fix changes weekly.js, monthly.js, or export.js, and `SHARED_CODE: <yes | no>`, saying whether after the fix more than one report calls the same new function, type, or rule.",
+    grade: {
+      workspace_read: ["DIAGNOSIS.md"],
+      declared: { OTHER_REPORTS: "changed", SHARED_CODE: "yes" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-debug/one-off-bug-adds-nothing",
+    baseline_ref: STRUCTURAL_FIX_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/debug-one-off-date-parse`,
+    timeout_secs: 300,
+    why: "A one-off bug with no recurrence path gets the minimal fix and its test, with no structural change or added layers.",
+    pre_contract: "The minimal fix covers the root cause only; defense-in-depth triggers on the pattern in 3+ other files or a catastrophic bug and chooses among four runtime layers.",
+    task: "Use ce-debug on this bug. Phases 1 and 2 are done: read DIAGNOSIS.md; the user chose to fix it now. Do not edit, create, or commit any file, and do not invoke another skill or dispatch. Following ce-debug's Phase 3 guidance, list every source file under src/ that this fix would change or create (tests excluded), then stop. End with exactly one line `SRC_FILES: <count>`.",
+    grade: {
+      workspace_read: ["DIAGNOSIS.md"],
+      declared: { SRC_FILES: "1" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
     id: "ce-debug/pipeline-convergent-fix",
     skill: "ce-debug",
     cohort: "resized",
@@ -1302,6 +1434,26 @@ Include exactly one line \`FIX: asked\` or \`FIX: applied\` or \`FIX: skipped\` 
     grade: {
       files_read_post: ["references/pipeline-mode.md", "references/evaluation-rubric.md"],
       declared: { ROOT: "adjudicate" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-resolve-pr-feedback/bounded-failure-gets-no-more-code",
+    baseline_ref: PROPORTIONALITY_BASE_REF,
+    skill: "ce-resolve-pr-feedback",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/resolve-feedback-proportionality`,
+    timeout_secs: 300,
+    why: "A babysit run fixed every true, cheap bot edge case on a run-once, dry-run-first ops script, including ones the dry run or the next morning's #ops check already surfaces, and each fix added code the bots flagged again. Silent double-crediting, a human's consequence-backed ask for progress logging, and a real defect in an earlier review fix on the same script must still be fixed.",
+    pre_contract: "Default to fixing; a small real improvement is fixed because the skip bar is no benefit, not minor.",
+    task: "Use ce-resolve-pr-feedback on PR #41. The unresolved review threads are on disk at threads.json, the code is in this workspace, and git is unavailable, so the branch history is in history.txt; do not call gh or git, and do not invoke any other skill, dispatch, or edit anything. Apply the evaluation rubric to each thread in your own context and stop after judging. For each thread declare exactly one line `T<id>: <more-code | no-more-code | escalate>`, where more-code means the resolution adds or changes program logic, no-more-code means a reply or a change to docs, usage text, or message text only, and escalate means needs-human or a hand-off to ce-pov.",
+    grade: {
+      files_read_post: ["references/evaluation-rubric.md"],
+      workspace_read: ["threads.json", "history.txt", "docs/runbooks/grant-credits.md"],
+      declared: { T1: "no-more-code", T2: "more-code", T3: "more-code", T4: "no-more-code", T5: "more-code" },
       actions: "none",
       delegates: "none",
     },

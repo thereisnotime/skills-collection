@@ -1,0 +1,120 @@
+name: Nightly
+
+# S-90: bun=latest, the macOS bun job, and the hyperfine benchmark used to run
+# on every push/PR in test.yml. They're slow and their signal (upstream Bun
+# breakage, perf regressions) doesn't need push-latency, so they moved here.
+# Same steps as the pinned ubuntu/1.3.13 job in test.yml, just the other 3
+# os x bun-version combos, plus hyperfine.
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  bun-tests-nightly:
+    name: Bun tests on ${{ matrix.os }} bun=${{ matrix.bun-version }} (nightly)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        bun-version: ["1.3.13", "latest"]
+        exclude:
+          # ubuntu/1.3.13 already runs on every push/PR in test.yml.
+          - os: ubuntu-latest
+            bun-version: "1.3.13"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun ${{ matrix.bun-version }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ matrix.bun-version }}
+
+      - name: Setup Python (for bash route fallthroughs)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node.js (for shim fallthroughs to bash CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Python deps used by bash CLI tests
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pydantic httpx fastapi uvicorn
+
+      - name: Install Node deps used by bash CLI tests
+        run: npm install --no-package-lock
+
+      - name: Install loki-ts dependencies
+        working-directory: loki-ts
+        run: bun install
+
+      - name: Typecheck loki-ts
+        working-directory: loki-ts
+        run: bun run typecheck
+
+      - name: Run loki-ts unit tests
+        working-directory: loki-ts
+        run: bun test
+
+      - name: Build loki-ts bundle (for the SDK bridge tests + bin/loki)
+        working-directory: loki-ts
+        run: bun run build
+
+      # v8: the raw-SDK judge/text bridges. With bun + the built bundle present,
+      # these run the wiring / opt-in / binary-free-ordering / mocked-success
+      # assertions FOR REAL (they self-skip only when bun is absent). No API key
+      # is set, so every path is exercised fail-closed -- no billable call.
+      - name: Run v8 SDK bridge tests (fail-closed, no ANTHROPIC_API_KEY)
+        run: |
+          bash tests/test-sdk-done-recog-bridge.sh
+          bash tests/test-sdk-text-bridge.sh
+          bash tests/test-sdk-council-vote.sh
+          bash tests/test-sdk-voter-agents.sh
+          bash tests/test-sdk-loop-routing.sh
+          bash tests/test-sdk-mode.sh
+          bash tests/test-bundled-sdk-provider.sh
+          bash tests/test-sandbox-deprecation.sh
+          bash tests/test-acceptance-resume-idempotence.sh
+
+      # First-run funnel privacy. Stubs curl and asserts on the real POST body,
+      # so it observes what would actually reach the wire (the reverted attempt's
+      # test stubbed loki_telemetry itself and could never see a leak). Hermetic:
+      # fake HOME, fake curl on PATH, no real network send. It sets
+      # LOKI_TELEMETRY=on explicitly, which by the documented gate precedence
+      # overrides the CI auto-off, so the gates are genuinely open here.
+      - name: Run first-run funnel privacy tests (stubbed curl, no real egress)
+        run: bash tests/test-funnel-privacy.sh
+
+      - name: Run CLI tests via bash route (LOKI_LEGACY_BASH=1)
+        env:
+          LOKI_LEGACY_BASH: "1"
+        run: bash tests/test-cli-commands.sh
+
+      - name: Run CLI tests via Bun shim route
+        run: PATH="$PWD/bin:$PATH" bash tests/test-cli-commands.sh
+
+      - name: Install hyperfine (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y hyperfine
+
+      - name: Install hyperfine (macOS)
+        if: runner.os == 'macOS'
+        run: brew install hyperfine
+
+      - name: Sanity bench-suite (hyperfine, 5 runs, 1 warmup)
+        working-directory: loki-ts
+        run: bun run scripts/bench-suite.ts --runs 5 --warmup 1

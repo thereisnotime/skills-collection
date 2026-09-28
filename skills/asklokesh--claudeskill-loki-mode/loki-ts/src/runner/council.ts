@@ -176,6 +176,7 @@ function diffFingerprint(cwd: string): string {
   const part = (args: string[]): string => {
     try {
       const out = execFileSync("git", args, {
+        env: { ...process.env },
         cwd,
         encoding: "utf-8",
         stdio: ["ignore", "pipe", "ignore"],
@@ -188,6 +189,7 @@ function diffFingerprint(cwd: string): string {
   let commit = "unknown";
   try {
     commit = execFileSync("git", ["log", "--oneline", "-1"], {
+      env: { ...process.env },
       cwd,
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
@@ -399,6 +401,7 @@ export const defaultCouncil: CouncilHook = {
     let filesChanged = 0;
     try {
       const out = execFileSync("git", ["diff", "--name-only", "HEAD"], {
+        env: { ...process.env },
         cwd: targetDir,
         encoding: "utf-8",
         stdio: ["ignore", "pipe", "ignore"],

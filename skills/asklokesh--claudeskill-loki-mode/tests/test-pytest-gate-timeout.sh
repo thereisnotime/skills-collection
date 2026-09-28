@@ -2,13 +2,21 @@
 # Test: pytest quality gate timeout wrap (Triage #14, v7.5.15)
 #
 # Verifies _loki_run_pytest_with_timeout in autonomy/run.sh:
-#   1. With LOKI_PYTEST_TIMEOUT=2 and a 10s sleeping pytest fixture,
-#      the wrapper terminates within ~3 seconds AND returns exit 124.
+#   1. With LOKI_PYTEST_TIMEOUT=0.3 and a 1s sleeping pytest fixture,
+#      the wrapper terminates promptly AND returns exit 124.
 #   2. With LOKI_PYTEST_TIMEOUT=15, the same fixture completes normally (exit 0).
 #   3. With both `gtimeout` and `timeout` removed from PATH, the wrapper still
 #      runs (degraded), prints the warning, and runs unbounded.
 #
-# Total runtime budget: under 30s.
+# The fixture sleeps 1s so it must sit strictly between the two timeout
+# values above. 0.3s is short enough that it fires during the sleep (or, on a
+# slow/contended box, even during pytest's own startup before the sleep is
+# reached) -- either way exit 124 is the correct outcome. 15 is left as a pure
+# ceiling: a passing run only takes ~1-2s regardless of how high the ceiling
+# is, so keeping it generous costs nothing and removes any risk of a
+# contended box legitimately needing more than a tight ceiling would allow.
+#
+# Total runtime budget: under 10s.
 
 set -uo pipefail
 
@@ -79,9 +87,9 @@ source "$SOURCE_HARNESS"
 # ---------------------------------------------------------------------------
 # Test 1: short timeout fires within ~3s and returns exit 124
 # ---------------------------------------------------------------------------
-echo "Test 1: LOKI_PYTEST_TIMEOUT=2 against 10s sleeping fixture"
+echo "Test 1: LOKI_PYTEST_TIMEOUT=0.3 against 1s sleeping fixture"
 start_ts=$(date +%s)
-LOKI_PYTEST_TIMEOUT=2 _loki_run_pytest_with_timeout "$FIXTURE_DIR" sleeping_test.py >/dev/null 2>&1
+LOKI_PYTEST_TIMEOUT=0.3 _loki_run_pytest_with_timeout "$FIXTURE_DIR" sleeping_test.py >/dev/null 2>&1
 exit1=$?
 end_ts=$(date +%s)
 elapsed=$((end_ts - start_ts))
@@ -101,7 +109,7 @@ fi
 # ---------------------------------------------------------------------------
 # Test 2: long timeout allows test to complete normally
 # ---------------------------------------------------------------------------
-echo "Test 2: LOKI_PYTEST_TIMEOUT=15 against 10s sleeping fixture"
+echo "Test 2: LOKI_PYTEST_TIMEOUT=15 against 1s sleeping fixture"
 start_ts=$(date +%s)
 LOKI_PYTEST_TIMEOUT=15 _loki_run_pytest_with_timeout "$FIXTURE_DIR" sleeping_test.py >/dev/null 2>&1
 exit2=$?

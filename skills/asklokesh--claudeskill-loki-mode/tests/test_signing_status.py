@@ -108,13 +108,15 @@ exit 2
 """
 
 
-def _run(shim_dir, key=None, json_mode=False):
+def _run(shim_dir, key=None, json_mode=False, extra_env=None):
     """Run the tool as a subprocess with PATH pointed at the shim dir."""
     env = dict(os.environ)
     env["PATH"] = shim_dir if shim_dir else ""
     env.pop("LOKI_PROOF_GPG_KEY", None)
     if key is not None:
         env["LOKI_PROOF_GPG_KEY"] = key
+    if extra_env:
+        env.update(extra_env)
     argv = [sys.executable, str(_TOOL)] + (["--json"] if json_mode else [])
     return subprocess.run(argv, capture_output=True, text=True,
                           env=env, timeout=60)
@@ -332,11 +334,19 @@ class SigningStatusTest(unittest.TestCase):
             self.assertNotIn(mutating, recorded)
 
     def test_round_trip_leaves_no_scratch_files(self):
-        before = set(pathlib.Path(tempfile.gettempdir()).glob(
-            "loki-signing-status-*"))
-        _run(self.shim(_SHIM_WORKS), key="KEYID")
-        after = set(pathlib.Path(tempfile.gettempdir()).glob(
-            "loki-signing-status-*"))
+        # Under -n auto, other xdist workers run this same subprocess-spawning
+        # tool concurrently and their scratch dirs share the "loki-signing-
+        # status-*" prefix in the real system tempdir. A before/after glob over
+        # that shared directory can catch another worker's dir mid-life and
+        # flake. Point this invocation's child at a private TMPDIR instead --
+        # that removes the shared state rather than weakening what the test
+        # checks (this call's own tool run still must clean up after itself).
+        tmp_root = tempfile.mkdtemp(prefix="loki-sstatus-tmproot-")
+        self.dirs.append(tmp_root)
+        before = set(pathlib.Path(tmp_root).glob("loki-signing-status-*"))
+        _run(self.shim(_SHIM_WORKS), key="KEYID",
+             extra_env={"TMPDIR": tmp_root, "TEMP": tmp_root, "TMP": tmp_root})
+        after = set(pathlib.Path(tmp_root).glob("loki-signing-status-*"))
         self.assertEqual(before, after)
 
 

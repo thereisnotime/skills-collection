@@ -80,6 +80,20 @@ FN_FILE="$WORK/helpers.sh"
 # shellcheck disable=SC1090
 source "$FN_FILE"
 
+# Poll up to 10s for a listener to actually be bound on $1 (LISTEN state).
+# The pidfile-write loops above only prove the process was fork/exec'd, not
+# that its bind()+listen() has completed -- checking lsof right after that
+# races the child. Returns 1 (clear timeout) if nothing ever listens.
+_wait_for_listen() {
+    local port="$1" i=0
+    while [ $i -lt 100 ]; do
+        lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1 && return 0
+        sleep 0.1
+        i=$((i+1))
+    done
+    return 1
+}
+
 PORT=$((49000 + (RANDOM % 3000)))
 
 # --- Decoy A: a LISTENER with a FOREIGN cwd (NOT under TMP_ROOT) -----------
@@ -105,6 +119,8 @@ FOREIGN_PID=$(cat "$FOREIGN_PIDFILE" 2>/dev/null || true)
 
 if [ -z "$FOREIGN_PID" ] || ! kill -0 "$FOREIGN_PID" 2>/dev/null; then
     bad "foreign-cwd decoy listener did not start (test setup broken, not the function under test)"
+elif ! _wait_for_listen "$PORT"; then
+    bad "positive control failed: foreign-cwd decoy listener on port $PORT never reached LISTEN within 10s"
 elif ! lsof -ti tcp:"$PORT" -sTCP:LISTEN 2>/dev/null | grep -qx "$FOREIGN_PID"; then
     bad "positive control failed: lsof cannot enumerate the foreign-cwd decoy listener"
 else
@@ -207,6 +223,8 @@ OWN_PID=$(cat "$OWN_PIDFILE" 2>/dev/null || true)
 
 if [ -z "$OWN_PID" ] || ! kill -0 "$OWN_PID" 2>/dev/null; then
     bad "own-tree decoy listener did not start (test setup broken, not the function under test)"
+elif ! _wait_for_listen "$OWN_PORT"; then
+    bad "positive control failed: own-tree decoy listener on port $OWN_PORT never reached LISTEN within 10s"
 elif ! lsof -ti tcp:"$OWN_PORT" -sTCP:LISTEN 2>/dev/null | grep -qx "$OWN_PID"; then
     bad "positive control failed: lsof cannot enumerate the own-tree decoy listener"
 else

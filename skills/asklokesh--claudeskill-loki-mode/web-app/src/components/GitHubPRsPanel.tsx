@@ -45,6 +45,14 @@ interface GitHubPRsPanelProps {
 
 type PRStateFilter = 'open' | 'closed' | 'merged' | 'all';
 
+// gh's PR `state` comes back UPPERCASE ("OPEN", "CLOSED", "MERGED"), never
+// lowercase. Comparing it against the lowercase literals below (as this file
+// used to) never matches, so every PR always fell into the "closed" visual
+// branch and the open-PR action bar (approve/merge/close) never rendered.
+function normalizeState(state: string | undefined | null): string {
+  return String(state || '').toLowerCase();
+}
+
 function timeAgo(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
@@ -107,7 +115,21 @@ function checkStatusIcon(conclusion: string): React.ReactNode {
   }
 }
 
-function overallCheckStatus(checks: any[]): { label: string; className: string } {
+// gh's statusCheckRollup is an array, mixing two shapes: CheckRun entries
+// (name, conclusion) and StatusContext entries (context, state, no
+// conclusion). Both fields also come back UPPERCASE ("SUCCESS", "FAILURE"),
+// unlike the lowercase 'success'/'failure' this file compares against
+// elsewhere. Normalize once here so every reader gets a consistent
+// { name, conclusion } shape in lowercase.
+function normalizeChecks(raw: any): Array<{ name: string; conclusion: string }> {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((c: any) => ({
+    name: c.name ?? c.context ?? '',
+    conclusion: String(c.conclusion || c.state || '').toLowerCase(),
+  }));
+}
+
+function overallCheckStatus(checks: Array<{ name: string; conclusion: string }>): { label: string; className: string } {
   if (!checks || checks.length === 0) return { label: 'No checks', className: 'text-muted' };
   const allPassing = checks.every(c => c.conclusion === 'success');
   const someFailing = checks.some(c => c.conclusion === 'failure' || c.conclusion === 'error');
@@ -201,7 +223,7 @@ function parseDiff(raw: string): DiffFile[] {
 // ---------------------------------------------------------------------------
 
 function PRStatusCheckIcon({ pr }: { pr: GitHubPR }) {
-  const checks = ((pr.statusCheckRollup as any)?.contexts as any[] || []);
+  const checks = normalizeChecks(pr.statusCheckRollup);
   if (!checks || checks.length === 0) {
     return <span title="No status checks"><Clock size={13} className="text-muted" /></span>;
   }
@@ -219,7 +241,12 @@ function PRCard({
   pr: GitHubPR;
   onClick: () => void;
 }) {
-  const decision = reviewDecisionStyle(pr.reviewDecision || "PENDING");
+  // gh sends "" (not null) when no review decision applies. The old
+  // `|| "PENDING"` fallback masked that empty-string case into a fabricated
+  // "PENDING" state, indistinguishable from gh's real REVIEW_REQUIRED value.
+  // Passing the raw value through lets reviewDecisionStyle's own default
+  // branch render the correct "No Reviews" label for an empty decision.
+  const decision = reviewDecisionStyle(pr.reviewDecision ?? '');
 
   return (
     <button
@@ -230,8 +257,8 @@ function PRCard({
         <GitPullRequest
           size={14}
           className={`mt-0.5 flex-shrink-0 ${
-            pr.state === 'open' ? 'text-green-500' :
-            pr.state === 'merged' ? 'text-purple-500' :
+            normalizeState(pr.state) === 'open' ? 'text-green-500' :
+            normalizeState(pr.state) === 'merged' ? 'text-purple-500' :
             'text-red-400'
           }`}
         />
@@ -589,18 +616,23 @@ export function GitHubPRsPanel({ sessionId }: GitHubPRsPanelProps) {
     setMergeLoading(false);
   };
 
-  const handleClose = async () => {
+  // Named for what it actually does: there is no "close PR" API route (only
+  // review/merge), so this posts a comment. It never closes the PR on GitHub.
+  // The button label and success message below must say "comment", not
+  // "closed" -- claiming a close that did not happen is worse than not
+  // offering the action at all.
+  const handlePostCloseComment = async () => {
     if (!selectedPR) return;
     setCloseLoading(true);
     setActionMessage(null);
     try {
       await api.reviewGitHubPR(sessionId, selectedPR.number, 'comment', 'Closed via Purple Lab');
-      setActionMessage({ type: 'success', text: `PR #${selectedPR.number} closed` });
+      setActionMessage({ type: 'success', text: `Comment posted on PR #${selectedPR.number}` });
       fetchPRs();
       const detail = await api.getGitHubPR(sessionId, selectedPR.number);
       setSelectedPR(detail as any);
     } catch (e) {
-      setActionMessage({ type: 'error', text: e instanceof Error ? e.message : 'Close failed' });
+      setActionMessage({ type: 'error', text: e instanceof Error ? e.message : 'Comment failed' });
     }
     setCloseLoading(false);
   };
@@ -673,8 +705,8 @@ export function GitHubPRsPanel({ sessionId }: GitHubPRsPanelProps) {
               <h3 className="text-sm font-semibold text-ink">{selectedPR.title}</h3>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded capitalize ${
-                  selectedPR.state === 'open' ? 'bg-green-500/10 text-green-500' :
-                  selectedPR.state === 'merged' ? 'bg-purple-500/10 text-purple-500' :
+                  normalizeState(selectedPR.state) === 'open' ? 'bg-green-500/10 text-green-500' :
+                  normalizeState(selectedPR.state) === 'merged' ? 'bg-purple-500/10 text-purple-500' :
                   'bg-red-400/10 text-red-400'
                 }`}>
                   <GitPullRequest size={10} />
@@ -710,7 +742,7 @@ export function GitHubPRsPanel({ sessionId }: GitHubPRsPanelProps) {
             )}
 
             {/* Status checks */}
-            <StatusChecksSection checks={((selectedPR.statusCheckRollup as any)?.contexts as any[] || [])} />
+            <StatusChecksSection checks={normalizeChecks(selectedPR.statusCheckRollup)} />
 
             {/* Reviews */}
             <ReviewsSection reviews={selectedPR.reviews || []} />
@@ -748,7 +780,7 @@ export function GitHubPRsPanel({ sessionId }: GitHubPRsPanelProps) {
             </div>
 
             {/* Actions */}
-            {selectedPR.state === 'open' && (
+            {normalizeState(selectedPR.state) === 'open' && (
               <div className="p-3 space-y-2 border-b border-border">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Button
@@ -781,11 +813,12 @@ export function GitHubPRsPanel({ sessionId }: GitHubPRsPanelProps) {
                     size="sm"
                     variant="ghost"
                     icon={XCircle}
-                    onClick={handleClose}
+                    onClick={handlePostCloseComment}
                     loading={closeLoading}
                     disabled={closeLoading}
+                    title="Posts a comment; does not close the PR on GitHub"
                   >
-                    Close
+                    Comment
                   </Button>
                 </div>
 

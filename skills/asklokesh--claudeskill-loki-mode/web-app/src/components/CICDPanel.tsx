@@ -35,51 +35,42 @@ interface CICDPanelProps {
 // Status mapping helpers
 // ---------------------------------------------------------------------------
 
-type NormalizedStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled' | 'skipped';
+type NormalizedStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled' | 'skipped' | 'unknown';
+
+// Runs, jobs and steps share GitHub's status/conclusion vocabulary. Anything
+// not listed (neutral, action_required, stale, a null conclusion, a new
+// status) is 'unknown': never guessed as failed or running.
+function normalizeStatus(item: { status?: string | null; conclusion?: string | null }): NormalizedStatus {
+  switch (item.status) {
+    case 'completed':
+      switch (item.conclusion) {
+        case 'success': return 'success';
+        case 'failure':
+        case 'timed_out':
+        case 'startup_failure': return 'failed';
+        case 'cancelled': return 'cancelled';
+        case 'skipped': return 'skipped';
+        default: return 'unknown';
+      }
+    case 'in_progress': return 'running';
+    case 'queued':
+    case 'waiting':
+    case 'requested':
+    case 'pending': return 'pending';
+    default: return 'unknown';
+  }
+}
 
 function normalizeRunStatus(run: WorkflowRun): NormalizedStatus {
-  if (run.status === 'completed') {
-    switch (run.conclusion) {
-      case 'success': return 'success';
-      case 'failure': return 'failed';
-      case 'cancelled': return 'cancelled';
-      case 'skipped': return 'skipped';
-      case 'timed_out': return 'failed';
-      default: return 'failed';
-    }
-  }
-  if (run.status === 'in_progress') return 'running';
-  if (run.status === 'queued' || run.status === 'waiting' || run.status === 'requested' || run.status === 'pending') return 'pending';
-  return 'running';
+  return normalizeStatus(run);
 }
 
 function normalizeJobStatus(job: WorkflowJob): NormalizedStatus {
-  if (job.status === 'completed') {
-    switch (job.conclusion) {
-      case 'success': return 'success';
-      case 'failure': return 'failed';
-      case 'cancelled': return 'cancelled';
-      case 'skipped': return 'skipped';
-      default: return 'failed';
-    }
-  }
-  if (job.status === 'in_progress') return 'running';
-  if (job.status === 'queued' || job.status === 'waiting') return 'pending';
-  return 'running';
+  return normalizeStatus(job);
 }
 
 function normalizeStepStatus(step: WorkflowStep): NormalizedStatus {
-  if (step.status === 'completed') {
-    switch (step.conclusion) {
-      case 'success': return 'success';
-      case 'failure': return 'failed';
-      case 'cancelled': return 'cancelled';
-      case 'skipped': return 'skipped';
-      default: return 'failed';
-    }
-  }
-  if (step.status === 'in_progress') return 'running';
-  return 'pending';
+  return normalizeStatus(step);
 }
 
 const statusConfig: Record<NormalizedStatus, {
@@ -94,6 +85,7 @@ const statusConfig: Record<NormalizedStatus, {
   failed: { color: 'text-[#C45B5B]', bg: 'bg-[#C45B5B]/10', Icon: XCircle, label: 'Failed' },
   cancelled: { color: 'text-[#939084]', bg: 'bg-[#939084]/10', Icon: Ban, label: 'Cancelled' },
   skipped: { color: 'text-[#939084]', bg: 'bg-[#939084]/10', Icon: SkipForward, label: 'Skipped' },
+  unknown: { color: 'text-[#939084]', bg: 'bg-[#939084]/10', Icon: AlertTriangle, label: 'Unknown' },
 };
 
 // ---------------------------------------------------------------------------

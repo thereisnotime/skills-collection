@@ -61,7 +61,7 @@ The progress bar shows each phase: Plan, Build, Test, Review. You will see real-
 Switch to the Preview tab to see your running app. Use the AI chat to request changes, fixes, or new features.
 
 **5. Deploy**
-Head to the Deploy tab when you are satisfied. Purple Lab supports Vercel, Netlify, Railway, and more.
+Head to the Deploy tab when you are satisfied. Purple Lab supports Vercel, Netlify, and GitHub Pages.
 
 > Tip: Press \`Cmd+K\` (or \`Ctrl+K\`) to open the Command Palette for quick navigation.`,
   },
@@ -97,9 +97,6 @@ Full-featured provider with parallel execution, sub-agents, and the Task tool. B
 
 **Codex**
 OpenAI's code-specialized model. Runs in degraded mode (sequential only, no Task tool). Good for focused coding tasks.
-
-**Gemini**
-Google's model. Runs in degraded mode (sequential only). Suitable for general-purpose development.
 
 You can select a provider from the settings or specify it per-build in the project configuration.`,
   },
@@ -143,7 +140,7 @@ Yes. The code editor supports full editing. Your changes are preserved across bu
 Purple Lab can build projects in JavaScript, TypeScript, Python, Go, Rust, Ruby, and more. The AI adapts to whatever stack your project needs.
 
 **How do I deploy?**
-Use the Deploy tab. Purple Lab can deploy to Vercel, Netlify, Railway, or generate a Docker container. You will need to connect your deployment account in Settings.
+Use the Deploy tab. Purple Lab can deploy to Vercel, Netlify, or GitHub Pages. You will need to connect your deployment account in Settings.
 
 **Is my code private?**
 Your code stays in your project workspace. In local mode, everything runs on your machine. In hosted mode, projects are isolated per user.

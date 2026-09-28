@@ -129,13 +129,14 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# T4: open resolves the page and invokes the faked opener.
+# T4: open resolves the page but, headless (no TTY, S-103 guard), never
+# invokes the opener; it prints the path instead.
 # ---------------------------------------------------------------------------
 : > "$TMP/open-calls.log"
 out=$(run_proof open "$RUN_ID" 2>&1)
 rc=$?
-if [ $rc -eq 0 ] && grep -q "index.html" "$TMP/open-calls.log"; then
-  log_pass "proof open invokes opener for valid id"
+if [ $rc -eq 0 ] && [ ! -s "$TMP/open-calls.log" ] && echo "$out" | grep -q "Please open in browser: .*index.html"; then
+  log_pass "proof open resolves page and stays headless for valid id"
 else
   log_fail "proof open valid" "rc=$rc opener-log=$(cat "$TMP/open-calls.log"): $out"
 fi

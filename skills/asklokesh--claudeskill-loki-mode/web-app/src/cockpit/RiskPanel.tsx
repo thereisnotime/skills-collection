@@ -7,6 +7,8 @@ import type { ChangedFile } from './useCockpitState';
 interface Props {
   sessionId: string;
   checkpoints: Checkpoint[];
+  /** Set only when the checkpoints fetch itself failed; distinct from a genuine empty list. */
+  checkpointsError?: string | null;
   changedFiles: ChangedFile[];
   checklist: ChecklistSummary | null;
   isLive: boolean;
@@ -17,10 +19,11 @@ interface Props {
  * What we can honestly say about risk, from what we actually read. Every item
  * cites the observation behind it; nothing is a model's opinion.
  */
-function riskSignals(
+export function riskSignals(
   changedFiles: ChangedFile[],
   checklist: ChecklistSummary | null,
   checkpoints: Checkpoint[],
+  checkpointsError: string | null | undefined,
 ): string[] {
   const out: string[] = [];
   const failed = checklist?.items.filter((i) => i.status === 'fail') ?? [];
@@ -41,7 +44,9 @@ function riskSignals(
   if (untracked > 0) {
     out.push(`${untracked} file(s) are untracked and would not be included in a commit.`);
   }
-  if (checkpoints.length === 0) {
+  if (checkpointsError) {
+    out.push(`Could not load checkpoints: ${checkpointsError}`);
+  } else if (checkpoints.length === 0) {
     out.push('No checkpoints were recorded, so there is nothing to roll back to.');
   }
   return out;
@@ -50,6 +55,7 @@ function riskSignals(
 export function RiskPanel({
   sessionId,
   checkpoints,
+  checkpointsError,
   changedFiles,
   checklist,
   isLive,
@@ -59,7 +65,7 @@ export function RiskPanel({
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
-  const signals = riskSignals(changedFiles, checklist, checkpoints);
+  const signals = riskSignals(changedFiles, checklist, checkpoints, checkpointsError);
 
   function restore(cp: Checkpoint) {
     setBusy(true);
@@ -111,7 +117,11 @@ export function RiskPanel({
           <History size={14} aria-hidden="true" />
           Rollback
         </h3>
-        {checkpoints.length === 0 ? (
+        {checkpointsError && checkpoints.length === 0 ? (
+          <p className="mt-1 text-caption text-danger">
+            Could not load checkpoints: {checkpointsError}
+          </p>
+        ) : checkpoints.length === 0 ? (
           <p className="mt-1 text-caption text-muted-accessible dark:text-dark-muted">
             No checkpoints recorded for this session, so there is nothing to roll
             back to.
