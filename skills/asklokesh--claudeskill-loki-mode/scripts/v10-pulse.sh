@@ -39,6 +39,25 @@
 #                       PULSE_GH_CMD/main_sha on purpose -- it must still run
 #                       (and be able to fire) even when the main-CI-status
 #                       lookup above cannot resolve a SHA and reads UNKNOWN.
+#   PULSE_GOVERNOR_CMD  command producing scripts/usage-governor.py --json
+#                       output, for OPUS_SHARE/BUDGET_BURN (default: python3
+#                       scripts/usage-governor.py --json). Cached the same
+#                       90s way as PULSE_NPM_CMD/PULSE_GH_CMD below (S-104:
+#                       interactive pulse reads cache only, a stale/missing
+#                       entry starts the same detached background refresh).
+#   PULSE_GOVERNOR_DEADLINE_SECS  wall-clock cap on the governor's own call
+#                       inside that detached background refresh (default 45).
+#                       Independent of PULSE_DEADLINE_SECS/NETWORK_DEADLINE:
+#                       the governor scans every JSONL transcript under
+#                       ~/.claude/projects, which measured ~125s on this
+#                       repo's own real usage -- far slower than npm/gh, and
+#                       never awaited by the interactive hook, so it gets a
+#                       longer, separate ceiling instead of sharing npm/gh's
+#                       short one. A host slower than this ceiling reads
+#                       OPUS_SHARE/BUDGET_BURN as UNKNOWN until the governor
+#                       itself is optimized or scoped narrower (a finding for
+#                       G-01/usage-governor.py, not something this pulse
+#                       check can paper over).
 #   PULSE_WORKTREE_CMD  git worktree list command (default: git worktree list --porcelain)
 #   PULSE_MOAT_RESULT   path to a file holding the real captured stdout of a
 #                       `bash tests/moat/run.sh` run (its own summary lines
@@ -85,12 +104,20 @@
 #                       never the release tag -- a release can lag a push by
 #                       minutes (see NO_RECENT_RELEASE's separate 90-minute
 #                       budget for that). With no override, falls back to the
-#                       mtime of the newest push-*.log file under
-#                       PULSE_PUSH_LOG_DIR.
-#   PULSE_PUSH_LOG_DIR  directory to look for push-*.log files in for the
+#                       reflog time of PULSE_TRAIN_PUSH_REF (a local `git
+#                       push` moves it, and so does a `git fetch` that pulls
+#                       in someone else's push -- the real meaning of "last
+#                       train push"), then to the mtime of the newest
+#                       push-*.log file under PULSE_PUSH_LOG_DIR.
+#   PULSE_TRAIN_PUSH_REF the ref whose reflog is read for the
 #                       PULSE_LAST_TRAIN_PUSH fallback above (default:
-#                       ~/loki-ci-logs, where scripts/v10-ops.sh push-main
-#                       and the swarm's train-push tooling write their logs).
+#                       refs/remotes/origin/main). Overridable for tests
+#                       only; production never needs to change it.
+#   PULSE_PUSH_LOG_DIR  directory to look for push-*.log files in for the
+#                       reflog-less fallback above (default: ~/loki-ci-logs,
+#                       where scripts/v10-ops.sh push-main and the swarm's
+#                       train-push tooling write their logs). Only reached
+#                       when PULSE_TRAIN_PUSH_REF has no reflog.
 #   PULSE_PYTHON        python3 interpreter to use (default: python3)
 #   PULSE_DEADLINE_SECS network-call time budget in seconds for npm+gh
 #                       together (default: 3; the calls run concurrently, so
@@ -117,8 +144,9 @@
 #                       STRAY_CONTAINER (see that check's own docstring for
 #                       the tab-separated row shape).
 #   PULSE_WORKTREE_LIST overrides `git worktree list --porcelain` for
-#                       WORKTREE_COUNT (a raw porcelain listing, same shape
-#                       as PULSE_WORKTREE_CMD's default output).
+#                       WORKTREE_COUNT and STRAY_WORKTREE (a raw porcelain
+#                       listing, same shape as PULSE_WORKTREE_CMD's default
+#                       output).
 #   PULSE_RELEASE_TESTS overrides the gh-run-list JSON RELEASE_ON_RED reads
 #                       for the newest VERSION-bump commit's Tests conclusion
 #                       (default: read from S-104's gh_ci cache).
@@ -127,6 +155,29 @@
 #                       timestamp>Z" heading is the last-entry time; a
 #                       missing file or no parseable heading reports UNKNOWN,
 #                       never a false clean.
+#   PULSE_TRANSCRIPT_DIR overrides the directory of session transcript files
+#                       scanned for SESSION_STALLED (default:
+#                       ~/.claude/projects/<project-slug>, Claude Code's own
+#                       session JSONL directory; slug = the MAIN repo root's
+#                       realpath (via `git rev-parse --git-common-dir`, so a
+#                       subdirectory or a linked worktree resolves the same)
+#                       with every non-alphanumeric character replaced by
+#                       '-', the same rule autonomy/context-tracker.py's
+#                       derive_project_slug uses). The newest *.jsonl mtime
+#                       under this directory is "last assistant turn". A
+#                       missing/unreadable directory, or one with no *.jsonl
+#                       file, reports UNKNOWN, never a false clean.
+#   PULSE_LOOP_MARKER   path to the loop-active marker file for
+#                       SESSION_STALLED (default:
+#                       $PULSE_REPO_ROOT/.loki/state/loop-active). Written
+#                       with a UTC timestamp by whoever runs the /loop,
+#                       refreshed every iteration (only its mtime is read).
+#                       SESSION_STALLED only evaluates while this file's
+#                       mtime is under 24h old, so an abandoned marker from
+#                       an earlier /loop run can never keep this check firing
+#                       after the loop has actually stopped. No marker (or
+#                       one 24h+ old): reports n/a, never a violation and
+#                       never UNKNOWN.
 #
 # Network cache (S-104: this runs as a UserPromptSubmit hook on every prompt,
 # on a machine with ~16 concurrent agents, and a 15s hook timeout was being
@@ -155,16 +206,20 @@ CONTROL_MD="${CONTROL_MD:-$DEFAULT_REPO_ROOT/docs/v10/CONTROL.md}"
 PULSE_PROGRESS_MD="${PULSE_PROGRESS_MD:-$DEFAULT_REPO_ROOT/docs/v10/PROGRESS.md}"
 
 export PULSE_REPO_ROOT BOARD_MD CONTROL_MD PULSE_PROGRESS_MD
+export PULSE_TRANSCRIPT_DIR="${PULSE_TRANSCRIPT_DIR:-}"
+export PULSE_LOOP_MARKER="${PULSE_LOOP_MARKER:-}"
 export PULSE_MAIN_REF="${PULSE_MAIN_REF:-main}"
 export PULSE_NPM_CMD="${PULSE_NPM_CMD:-}"
 export PULSE_GH_CMD="${PULSE_GH_CMD:-}"
 export PULSE_GH_STREAK_CMD="${PULSE_GH_STREAK_CMD:-}"
+export PULSE_GOVERNOR_CMD="${PULSE_GOVERNOR_CMD:-}"
 export PULSE_WORKTREE_CMD="${PULSE_WORKTREE_CMD:-}"
 export PULSE_MOAT_RESULT="${PULSE_MOAT_RESULT:-}"
 export PULSE_SWARM_START="${PULSE_SWARM_START:-}"
 export PULSE_NOW="${PULSE_NOW:-}"
 export PULSE_LAST_TRAIN_PUSH="${PULSE_LAST_TRAIN_PUSH:-}"
 export PULSE_PUSH_LOG_DIR="${PULSE_PUSH_LOG_DIR:-}"
+export PULSE_TRAIN_PUSH_REF="${PULSE_TRAIN_PUSH_REF:-refs/remotes/origin/main}"
 export PULSE_DEADLINE_SECS="${PULSE_DEADLINE_SECS:-3}"
 export PULSE_CACHE="${PULSE_CACHE:-1}"
 export PULSE_CACHE_DIR="${PULSE_CACHE_DIR:-$PULSE_REPO_ROOT/.loki/pulse-cache}"
@@ -234,7 +289,8 @@ NETWORK_DEADLINE = T0 + _NET_SECS
 REFRESH_ONLY = os.environ.get("PULSE_REFRESH_ONLY") == "1"
 CACHE_MODE = (
     os.environ.get("PULSE_CACHE", "1") != "0"
-    and not any(os.environ.get(k) for k in ("PULSE_NPM_CMD", "PULSE_GH_CMD", "PULSE_GH_STREAK_CMD"))
+    and not any(os.environ.get(k) for k in (
+        "PULSE_NPM_CMD", "PULSE_GH_CMD", "PULSE_GH_STREAK_CMD", "PULSE_GH_FALLBACK_CMD"))
 )
 CACHE_DIR = os.environ.get("PULSE_CACHE_DIR") or os.path.join(REPO_ROOT, ".loki", "pulse-cache")
 CACHE_TTL = 90.0
@@ -414,12 +470,13 @@ NOW = now_epoch()
 # docs/v10/CONTROL.md's Rule says the first action of every turn addresses
 # the TOP violation -- an accidental ordering-by-discovery would misrank it.
 VIOLATION_PRIORITY = [
-    "CI_RED", "CI_CANCELLED_STREAK", "RELEASE_ON_RED", "HIGH_LOAD",
-    "MOAT_REGRESSION", "UNRELEASED_MERGE", "TRAIN_LATE", "REVIEW_STALE",
+    "SESSION_STALLED", "CI_RED", "CI_CANCELLED_STREAK", "RELEASE_ON_RED", "HIGH_LOAD",
+    "BUDGET_BURN", "OPUS_SHARE",
+    "MOAT_REGRESSION", "UNRELEASED_MERGE", "RELEASE_CADENCE", "TRAIN_LATE", "REVIEW_STALE",
     "AGENT_OVER_BUDGET", "STALE_PROGRESS", "UNEVIDENCED_CLAIM", "RELEASED_AHEAD_OF_NPM",
-    "ORPHAN_TEST", "ORPHAN_WORKTREE", "STRAY_CONTAINER",
-    "WORKTREE_COUNT", "IDLE_BUILDERS", "LOW_READY", "NO_RECENT_RELEASE",
-    "LOW_RELEASE_VOLUME", "CONTROL_OVERSIZE",
+    "ORPHAN_TEST", "ORPHAN_WORKTREE", "STRAY_CONTAINER", "STRAY_WORKTREE",
+    "WORKTREE_COUNT", "IDLE_BUILDERS", "UNDERSTAFFED", "LOW_READY", "NO_RECENT_RELEASE",
+    "LOW_RELEASE_VOLUME", "MERGED_NOT_RELEASED_STALE", "CONTROL_OVERSIZE",
 ]
 
 violations = []          # list of (code, text)
@@ -483,8 +540,54 @@ _gh_streak_argv = shlex.split(os.environ["PULSE_GH_STREAK_CMD"]) if os.environ.g
     "--json", "status,conclusion", "--limit", "10",
 ]
 
+# E-75: a second, narrower gh call for when the main-CI lookup above (multi
+# -workflow, --json status,conclusion,workflowName) comes back inconclusive
+# -- gh itself failed/timed out, OR it succeeded but returned nothing
+# clean-red/clean-green (e.g. a cancelled-only run set). That read as a bare
+# UNKNOWN for 3 consecutive pushes while Tests was actually red (see
+# docs/v10/PROGRESS.md). This rescues those two cases -- a bad/ambiguous
+# primary read -- not whatever upstream condition made the primary call
+# itself fail or time out in the first place. Scoped to just the Tests
+# workflow at this exact commit so a same-shaped-but-different call has a
+# real chance of resolving what the first one could not. Always started
+# alongside the others (same reasoning as _gh_streak_proc: cheap, and only
+# consulted if actually needed) so it never costs a second sequential
+# network round trip, and shares the same NETWORK_DEADLINE and SHA-keyed
+# cache/refresh path as the primary -- a shared-cause failure (e.g. gh
+# itself unreachable) takes both down together, by design.
+_gh_fallback_argv = None
+if main_sha is not None:
+    if os.environ.get("PULSE_GH_FALLBACK_CMD"):
+        _gh_fallback_argv = shlex.split(os.environ["PULSE_GH_FALLBACK_CMD"])
+    else:
+        _gh_fallback_argv = [
+            "gh", "run", "list", "--commit", main_sha, "--workflow", "Tests",
+            "--json", "conclusion,status,databaseId", "--limit", "5",
+        ]
+
+# Usage governor (D13/D39, G-02): local, not network, but on a host with a
+# lot of session history it is FAR from instant -- measured ~125s wall clock
+# scanning ~/.claude/projects on this repo's own real usage. It gets exactly
+# npm/gh's cache/background-refresh treatment (S-104): the interactive pulse
+# never calls it directly, only cache_read (below); a stale/missing cache
+# starts the same detached spawn_refresh() background run as npm/gh. Its own
+# finish_proc call below uses GOVERNOR_DEADLINE, not npm/gh's short
+# NETWORK_DEADLINE -- that deadline only bounds the interactive hook's own
+# network wait, and the governor is never awaited interactively, so it gets a
+# realistic ceiling to actually finish inside the detached refresh run.
+# ponytail: still a bounded cap, not unlimited -- a host slower than this
+# ceiling reads UNKNOWN forever until the governor itself is optimized or
+# scoped narrower; that is a real finding for G-01/usage-governor.py, not
+# something this pulse check can paper over.
+GOVERNOR_DEADLINE_SECS = float(os.environ.get("PULSE_GOVERNOR_DEADLINE_SECS", "45") or "45")
+GOVERNOR_DEADLINE = T0 + GOVERNOR_DEADLINE_SECS
+_governor_argv = shlex.split(os.environ["PULSE_GOVERNOR_CMD"]) if os.environ.get("PULSE_GOVERNOR_CMD") else [
+    sys.executable, os.path.join(REPO_ROOT, "scripts", "usage-governor.py"), "--json",
+]
+
+
 def run_network():
-    """Start npm + both gh calls concurrently, finish them against the one
+    """Start npm + all gh calls concurrently, finish them against the one
     shared NETWORK_DEADLINE. Returns {name: (rc, out, err)}."""
     _npm_proc = safe(start_proc, _npm_argv, REPO_ROOT)
     # gh resolves its repo through git, so it must see the same scrubbed
@@ -496,6 +599,11 @@ def run_network():
     # cannot resolve a SHA and reads UNKNOWN -- that independence is the whole
     # point of this check (see finding 3).
     _gh_streak_proc = safe(start_proc, _gh_streak_argv, REPO_ROOT, _clean_env())
+    _gh_fallback_proc = (
+        safe(start_proc, _gh_fallback_argv, REPO_ROOT, _clean_env())
+        if _gh_fallback_argv is not None else None
+    )
+    _governor_proc = safe(start_proc, _governor_argv, REPO_ROOT)
     return {
         "npm": safe(finish_proc, _npm_proc, time_left(NETWORK_DEADLINE)) or (None, "", ""),
         "gh_ci": (
@@ -503,6 +611,13 @@ def run_network():
             if _gh_proc is not None else (None, "", "")
         ),
         "gh_streak": safe(finish_proc, _gh_streak_proc, time_left(NETWORK_DEADLINE)) or (None, "", ""),
+        "gh_fallback": (
+            safe(finish_proc, _gh_fallback_proc, time_left(NETWORK_DEADLINE)) or (None, "", "")
+            if _gh_fallback_proc is not None else (None, "", "")
+        ),
+        # Its own deadline (GOVERNOR_DEADLINE), not NETWORK_DEADLINE -- see the
+        # comment above run_network's definition.
+        "governor": safe(finish_proc, _governor_proc, time_left(GOVERNOR_DEADLINE)) or (None, "", ""),
     }
 
 
@@ -606,6 +721,9 @@ if REFRESH_ONLY:
     if _gh_argv is not None:
         safe(cache_write, "gh_ci", _res["gh_ci"], main_sha)
     safe(cache_write, "gh_streak", _res["gh_streak"])
+    if _gh_fallback_argv is not None:
+        safe(cache_write, "gh_fallback", _res["gh_fallback"], main_sha)
+    safe(cache_write, "governor", _res["governor"])
     try:
         _pp = os.path.join(CACHE_DIR, "refresh.pid")
         with open(_pp, "r") as _f:
@@ -616,12 +734,13 @@ if REFRESH_ONLY:
     sys.exit(0)
 elif CACHE_MODE:
     _need_refresh = False
-    for _name in ("npm", "gh_ci", "gh_streak"):
+    for _name in ("npm", "gh_ci", "gh_streak", "gh_fallback", "governor"):
         _rec, _age = cache_read(_name)
         _usable = (
             _rec is not None and isinstance(_rec.get("out"), str)
             and -60 <= _age <= CACHE_MAX_AGE
-            and (_name != "gh_ci" or (main_sha is not None and _rec.get("sha") == main_sha))
+            and (_name not in ("gh_ci", "gh_fallback")
+                 or (main_sha is not None and _rec.get("sha") == main_sha))
         )
         if _usable:
             net[_name] = (0, _rec["out"], "")
@@ -658,6 +777,8 @@ def cache_note(name, metric=None):
 _npm_rc, _npm_out, _npm_err = net["npm"]
 _gh_rc, _gh_out, _gh_err = net["gh_ci"]
 _gh_streak_rc, _gh_streak_out, _gh_streak_err = net["gh_streak"]
+_gh_fallback_rc, _gh_fallback_out, _gh_fallback_err = net["gh_fallback"]
+_governor_rc, _governor_out, _governor_err = net["governor"]
 
 
 # --- 1. releases in the last 24h / minutes since last release -------------
@@ -755,6 +876,35 @@ def parse_main_ci(rc, out):
     return None, None
 
 
+# E-75 fallback: same red-over-pending-over-green precedence as
+# parse_main_ci above, but scoped to just the Tests workflow (the --workflow
+# filter already did that) so it returns the run id (databaseId) that
+# decided the verdict instead of a workflow name list. (None, None) on any
+# failure -- the caller then has both lookups inconclusive and reports
+# UNKNOWN, same as before this existed.
+def parse_main_ci_fallback(rc, out):
+    if rc != 0 or not out.strip():
+        return None, None
+    try:
+        runs = json.loads(out)
+    except (ValueError, TypeError):
+        return None, None
+    if not isinstance(runs, list) or not runs:
+        return None, None
+    parsed = [r for r in runs if isinstance(r, dict)]
+    if not parsed:
+        return None, None
+    failing = [r for r in parsed if r.get("conclusion") in _CI_FAILURE_CONCLUSIONS]
+    if failing:
+        return "red", failing[0].get("databaseId")
+    pending = [r for r in parsed if r.get("status") not in ("completed",)]
+    if pending:
+        return "pending", pending[0].get("databaseId")
+    if all(r.get("conclusion") in _CI_OK_CONCLUSIONS for r in parsed):
+        return "green", parsed[0].get("databaseId")
+    return None, None
+
+
 ci_status = None
 if main_sha is None:
     mark_unknown("main_ci")
@@ -762,15 +912,31 @@ if main_sha is None:
 else:
     _ci_parsed = safe(parse_main_ci, _gh_rc, _gh_out)
     ci_status, ci_failing_workflows = _ci_parsed if _ci_parsed is not None else (None, None)
+    _ci_via_fallback = False
+    _fallback_run_id = None
+    if ci_status is None:
+        _fb_parsed = safe(parse_main_ci_fallback, _gh_fallback_rc, _gh_fallback_out)
+        _fb_status, _fallback_run_id = _fb_parsed if _fb_parsed is not None else (None, None)
+        if _fb_status is not None:
+            ci_status = _fb_status
+            _ci_via_fallback = True
     if ci_status is None:
         mark_unknown("main_ci")
         emit("Main CI (%s @ %s): UNKNOWN (gh check failed, timed out, or inconclusive)%s"
              % (MAIN_REF, main_sha[:8], cache_note("gh_ci")))
     else:
-        _ci_note = cache_note("gh_ci", "main_ci")
+        if _ci_via_fallback:
+            _run_label = ("run %d" % _fallback_run_id) if isinstance(_fallback_run_id, int) else "unknown run"
+            _ci_note = "%s [fallback: gh run list --commit %s --workflow Tests, %s]" % (
+                cache_note("gh_fallback", "main_ci"), main_sha[:8], _run_label)
+            _workflows_label = "Tests (fallback)"
+        else:
+            _ci_note = cache_note("gh_ci", "main_ci")
+            _workflows_label = None
         emit("Main CI (%s @ %s): %s%s" % (MAIN_REF, main_sha[:8], ci_status.upper(), _ci_note))
         if ci_status == "red":
-            workflows = ", ".join(sorted(set(ci_failing_workflows or []))) or "unknown workflow"
+            workflows = _workflows_label or (
+                ", ".join(sorted(set(ci_failing_workflows or []))) or "unknown workflow")
             add_violation("CI_RED", "main CI is RED at %s (%s)%s" % (main_sha[:8], workflows, _ci_note))
 
 
@@ -837,13 +1003,201 @@ else:
         )
 
 
+# --- 2c. OPUS_SHARE / BUDGET_BURN: usage governor (D13, D39; G-02) ----------
+# Mirrors scripts/usage-governor.py's own WINDOW_PCT_CEILING/WEEKLY_PCT_CEILING
+# (85%/90%, D39) rather than importing the module -- the pulse only ever
+# reads the governor's --json output as an external data source, same as
+# npm/gh above.
+OPUS_SHARE_PCT_MAX = 30.0
+WINDOW_PCT_CEILING = 85.0
+WEEKLY_PCT_CEILING = 90.0
+
+
+def parse_governor(rc, out):
+    if rc != 0 or not out.strip():
+        return None
+    try:
+        data = json.loads(out)
+    except (ValueError, TypeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def compute_opus_share_pct(gov):
+    """Opus's share of active-engineer (subagent/workflow-agent) output
+    tokens in the last hour, as a percent, or None if there is no active-
+    engineer burn to measure. Derived, not read directly: the governor JSON
+    exposes a total burn and an opus-WEIGHTED burn per active engineer, not
+    a raw opus-only figure. Since opus_weighted = total + opus*(weight-1),
+    opus = (weighted - total) / (weight - 1) recovers the raw opus tokens.
+    """
+    g = gov.get("governor") or {}
+    weight = (gov.get("calibration") or {}).get("opus_weight_assumption")
+    active = g.get("active_engineers_last_hour")
+    burn_out = g.get("burn_per_engineer_output_last_hour")
+    burn_opus = g.get("burn_per_engineer_opus_weighted_last_hour")
+    if not active or not weight or weight <= 1 or burn_out is None or burn_opus is None:
+        return None
+    total_out = burn_out * active
+    if total_out <= 0:
+        return None
+    opus_out = (burn_opus * active - total_out) / (weight - 1)
+    return 100.0 * opus_out / total_out
+
+
+def project_pct(bucket, extra_tokens):
+    """D39: 'projected 5-hour window usage at or below 85% at window end;
+    weekly at or below 90% by the reset' -- projected, not merely current.
+    Scales current_pct by the token growth current_tokens_output ->
+    current_tokens_output + extra_tokens (extra_tokens being however many
+    more tokens this window/weekly total is expected to carry: last hour's
+    total burn for the window, that same rate sustained to the weekly reset
+    for weekly). Falls back to the current percent unscaled when tokens or
+    pct is missing/non-positive -- there is nothing to scale by."""
+    tokens = bucket.get("current_tokens_output")
+    pct = bucket.get("current_pct")
+    if tokens is None or pct is None or tokens <= 0 or pct <= 0 or extra_tokens is None:
+        return pct
+    return pct * (tokens + extra_tokens) / tokens
+
+
+governor_report = safe(parse_governor, _governor_rc, _governor_out)
+if governor_report is None:
+    mark_unknown("opus_share")
+    mark_unknown("budget_burn")
+    emit("Opus share (active engineers, last hour): UNKNOWN (usage governor check failed or timed out)%s"
+         % cache_note("governor"))
+    emit("Budget burn (5h window / weekly): UNKNOWN (usage governor check failed or timed out)")
+else:
+    _gov_note = cache_note("governor", "usage_governor")
+    opus_share_pct = safe(compute_opus_share_pct, governor_report)
+    if opus_share_pct is None:
+        emit("Opus share (active engineers, last hour): n/a (no active-engineer burn)%s" % _gov_note)
+    else:
+        emit("Opus share (active engineers, last hour): %.1f%%%s" % (opus_share_pct, _gov_note))
+        if opus_share_pct > OPUS_SHARE_PCT_MAX:
+            add_violation(
+                "OPUS_SHARE",
+                "opus is %.1f%% of active-engineer output tokens in the last hour "
+                "(budget %.0f%%, D13: opus is for planning/HIGH review only)"
+                % (opus_share_pct, OPUS_SHARE_PCT_MAX),
+            )
+
+    _gov_window = governor_report.get("window") or {}
+    _gov_weekly = governor_report.get("weekly") or {}
+    if _gov_window.get("source") == "uncalibrated" and _gov_weekly.get("source") == "uncalibrated":
+        mark_unknown("budget_burn")
+        emit("Budget burn (5h window / weekly): UNKNOWN (usage governor uncalibrated)%s" % _gov_note)
+    else:
+        _gov_g = governor_report.get("governor") or {}
+        _last_hour_out = _gov_g.get("last_hour_output_tokens")
+        _hours_to_weekly_reset = _gov_g.get("hours_to_weekly_reset")
+        window_pct = project_pct(_gov_window, _last_hour_out)
+        weekly_pct = project_pct(
+            _gov_weekly,
+            _last_hour_out * _hours_to_weekly_reset
+            if _last_hour_out is not None and _hours_to_weekly_reset is not None else None,
+        )
+        max_next = _gov_g.get("max_engineers_next_hour")
+        active_engineers = _gov_g.get("active_engineers_last_hour")
+        _burn_reasons = []
+        if window_pct is not None and window_pct >= WINDOW_PCT_CEILING:
+            _burn_reasons.append("5h window projected at %.1f%% (ceiling %.0f%%)" % (window_pct, WINDOW_PCT_CEILING))
+        if weekly_pct is not None and weekly_pct >= WEEKLY_PCT_CEILING:
+            _burn_reasons.append("weekly window projected at %.1f%% (ceiling %.0f%%)" % (weekly_pct, WEEKLY_PCT_CEILING))
+        if max_next is not None and active_engineers is not None and max_next < active_engineers:
+            _burn_reasons.append(
+                "max engineers for next hour (%d) is below the %d currently active" % (max_next, active_engineers)
+            )
+        if _burn_reasons:
+            add_violation("BUDGET_BURN", "; ".join(_burn_reasons) + " (D39)")
+        emit(
+            "Budget burn: 5h window projected %s, weekly projected %s, max engineers next hour %s%s"
+            % (
+                "%.1f%%" % window_pct if window_pct is not None else "uncalibrated",
+                "%.1f%%" % weekly_pct if weekly_pct is not None else "uncalibrated",
+                max_next if max_next is not None else "n/a",
+                _gov_note,
+            )
+        )
+
+
 # --- 3/4. BOARD.md status counts + review-pending age ----------------------
 STATUS_TOKEN_RE = re.compile(
     r"^(ready|building|review|review-blocked|blocked|approved|merged|released|rejected|parked)"
     r"@(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z)$"
 )
-ID_RE = re.compile(r"^(GF|PF|S|E|EV)-\d+$")
+# Any uppercase letter-run prefix, not a hardcoded whitelist (E-91): a fixed
+# (GF|PF|S|E|EV|M) list meant every row using a prefix outside it (G-02,
+# DEP-02..07) was silently invisible to parse_board -- never counted in
+# "ready"/"building", never eligible for REVIEW_STALE/AGENT_OVER_BUDGET,
+# never checked against LOW_READY. The optional trailing lowercase letter
+# covers lettered sub-slices (E-98a..E-98f). A trailing digit run in the
+# prefix (E-121: S41-01) is also allowed -- BOARD.md workstream ids are not
+# always pure letters, and a prefix-only pattern left every S41 row equally
+# invisible.
+ID_RE = re.compile(r"^[A-Z]+[0-9]*-\d+[a-z]?$")
 TIER_CELL_RE = re.compile(r"^(LOW|MEDIUM|HIGH)$")
+# LOW_READY (E-79): a "ready" row can still name un-landed dependencies in
+# its Notes cell ("Depends on M-07, E-31 merged or parked."; "Depends on
+# none." means no deps). Only the ID-shaped tokens inside that clause are
+# pulled out -- trailing prose ("merged or parked") is condition text this
+# LOW-tier parse does not need to understand, not a second dependency. Case
+# sensitive on purpose: BOARD.md's convention is always the capitalized
+# "Depends on"; several older rows' Notes cells contain unrelated lowercase
+# "depends on ... build then review." narrative prose from an earlier phase
+# writeup, which a case-insensitive match would misread as a live gate.
+# The clause ends at a lone "." (the sentence terminator). A range shorthand
+# ("E-98a..c") also contains dots, so a bare `[^.]*` up to the first "."
+# truncated the clause right after "E-98a" and lost everything past it. ".."
+# is only ever a range separator (always followed by another id character),
+# never the terminator, so it is let through; a genuine single "." is not.
+DEPENDS_ON_RE = re.compile(r"Depends on ((?:[^.]|\.\.(?=[A-Za-z0-9]))*)\.")
+DEPENDS_ON_ID_RE = re.compile(r"\b[A-Z]+[0-9]*-\d+[a-z]?\b")
+# Range shorthand (E-117): "E-98a..e" or "M-20..M-23" or "M-20..23" names a
+# contiguous run of sibling slices without spelling out each id. Expanded
+# BEFORE DEPENDS_ON_ID_RE runs, so every id in the run is captured instead of
+# just the first (letter ranges) or just the two endpoints (numeric ranges,
+# dropping the ids between them). A malformed range (backwards direction,
+# mismatched prefix) is left as-is in the clause text, so DEPENDS_ON_ID_RE
+# still picks up whatever plain ids it contains -- never guessed at.
+DEPENDS_ON_RANGE_RE = re.compile(
+    r"\b([A-Z]+[0-9]*)-(\d+)([a-z])\.\.([a-z])\b"       # E-98a..e
+    r"|\b([A-Z]+[0-9]*)-(\d+)\.\.(?:([A-Z]+[0-9]*)-)?(\d+)\b"  # M-20..M-23 / S41-01..S41-04
+)
+
+
+def _expand_depends_on_range(m):
+    letter_prefix, letter_num, letter_start, letter_end, \
+        num_prefix, num_start, num_end_prefix, num_end = m.groups()
+    if letter_prefix is not None:
+        if letter_start > letter_end:
+            return m.group(0)
+        return " ".join(
+            "%s-%s%s" % (letter_prefix, letter_num, chr(c))
+            for c in range(ord(letter_start), ord(letter_end) + 1)
+        )
+    if num_end_prefix is not None and num_end_prefix != num_prefix:
+        return m.group(0)
+    start, end = int(num_start), int(num_end)
+    # Capped at 50 (Tech Lead REJECT on E-117): an unbounded numeric span
+    # ("M-1..M-9999") would expand to thousands of ids, all landing in the
+    # pulse block injected into every turn. A span over the cap is left as
+    # literal text, same as the reversed-range fallback above.
+    if start > end or (end - start + 1) > 50:
+        return m.group(0)
+    return " ".join("%s-%d" % (num_prefix, n) for n in range(start, end + 1))
+
+
+def parse_depends_on(notes):
+    """Returns the slice IDs named in a Notes cell's "Depends on ..."
+    clause, or [] when there is no such clause (including "Depends on
+    none.")."""
+    m = DEPENDS_ON_RE.search(notes or "")
+    if not m:
+        return []
+    clause = DEPENDS_ON_RANGE_RE.sub(_expand_depends_on_range, m.group(1))
+    return DEPENDS_ON_ID_RE.findall(clause)
 
 
 def parse_board(path):
@@ -851,12 +1205,14 @@ def parse_board(path):
     omit the Acceptance-checks column, and BOARD.md has used at least four
     different header layouts), so this finds the Status cell (and the Tier
     cell) by matching their normalized content rather than trusting a fixed
-    column index."""
+    column index. Notes is always the last cell in every layout this file
+    has used, so it is read positionally."""
     with open(path, "r", encoding="utf-8") as f:
         text = f.read()
     rows = []
     unparsed = []
     tiers = {}
+    notes = {}
     for line in text.splitlines():
         line = line.strip()
         if not line.startswith("|"):
@@ -877,12 +1233,13 @@ def parse_board(path):
             unparsed.append(row_id)
             continue
         rows.append((row_id, status_cell[0], status_cell[1]))
+        notes[row_id] = cells[-1]
         for cell in cells[1:]:
             tm = TIER_CELL_RE.match(cell)
             if tm:
                 tiers[row_id] = tm.group(1)
                 break
-    return {"rows": rows, "unparsed": unparsed, "tiers": tiers}
+    return {"rows": rows, "unparsed": unparsed, "tiers": tiers, "notes": notes}
 
 
 board = safe(parse_board, BOARD_MD)
@@ -911,6 +1268,30 @@ else:
         ))
     if board["unparsed"]:
         emit("BOARD unparsed rows (no status token found): " + ", ".join(board["unparsed"]))
+
+    # LOW_READY dependency gate (E-79): a "ready" row whose Notes cell names
+    # a dependency that has not itself reached merged/released is not
+    # actually actionable yet, so it should not count toward the ready
+    # queue -- otherwise the swarm reads a full ready queue while every
+    # named engineer would immediately hit a real blocker. A dependency ID
+    # not found on the board at all is treated as unmet (never assumed
+    # done), same fail-safe default as every other UNKNOWN-leaning check in
+    # this file.
+    row_status = {row_id: token for row_id, token, _ts in board_rows}
+    board_notes = board["notes"]
+    ready_deps_met = []
+    ready_blocked_by_deps = []
+    for row_id in ready_ids:
+        deps = parse_depends_on(board_notes.get(row_id, ""))
+        unmet = [d for d in deps if row_status.get(d) not in ("merged", "released")]
+        if unmet:
+            ready_blocked_by_deps.append((row_id, unmet))
+        else:
+            ready_deps_met.append(row_id)
+    emit(
+        "Ready rows blocked by dependency: "
+        + (", ".join("%s (needs %s)" % (rid, "/".join(unmet)) for rid, unmet in ready_blocked_by_deps) or "none")
+    )
 
     # RELEASED_AHEAD_OF_NPM (S-139 / GUARDS 13 / BACKLOG 136): a `released@`
     # row stamped LATER than npm's own newest publish time claims a release
@@ -1071,12 +1452,41 @@ else:
             "agent(s) past their role/tier time budget: %s" % ids_desc,
         )
 
-    ready_count = counts.get("ready", 0)
+    ready_count = len(ready_deps_met)
     if ready_count < 8:
-        add_violation(
-            "LOW_READY",
+        _low_ready_text = (
             "only %d ready slice(s) on BOARD (want at least 8); cut %d more"
-            % (ready_count, 8 - ready_count),
+            % (ready_count, 8 - ready_count)
+        )
+        if ready_blocked_by_deps:
+            _low_ready_text += "; blocked by dependency: " + ", ".join(
+                "%s (needs %s)" % (rid, "/".join(unmet)) for rid, unmet in ready_blocked_by_deps
+            )
+        add_violation("LOW_READY", _low_ready_text)
+
+    # UNDERSTAFFED (founder 17:22Z, exact wording: "ready of 8 or more with
+    # fewer than 8 building"): plenty of dependency-gated ready work (>= 8,
+    # same floor LOW_READY already enforces) but fewer than 8 BOARD rows
+    # are actually `building` is a dispatch failure distinct from
+    # IDLE_BUILDERS -- IDLE_BUILDERS keys on real worktree activity (a
+    # `building` cell can go stale between edits, per its own comment),
+    # while this reads BOARD's own staffing count directly, so a BOARD
+    # that claims plenty of builders while the ready queue still towers
+    # over 8 is caught even if the worktree signal is itself UNKNOWN.
+    # `review` deliberately does not count: a row under review is not
+    # being built, and counting it as staffing would mask exactly the
+    # ready-queue-vs-builders gap the founder is naming. Reuses
+    # ready_deps_met (LOW_READY's own dependency-filtered ready set)
+    # rather than a raw ready_ids scan, for the same reason IDLE_BUILDERS
+    # does (E-79-81-r2): a dependency-blocked row is not actionable, so it
+    # should never count as "ready work going unstaffed" either.
+    _understaffed_ready = len(ready_deps_met)
+    _understaffed_building = counts.get("building", 0)
+    if _understaffed_ready >= 8 and _understaffed_building < 8:
+        add_violation(
+            "UNDERSTAFFED",
+            "%d ready slice(s) on BOARD but only %d building (want at least 8 staffed)"
+            % (_understaffed_ready, _understaffed_building),
         )
 
 
@@ -1205,17 +1615,28 @@ else:
 #   1. PULSE_LAST_TRAIN_PUSH override (epoch seconds or ISO8601) -- same
 #      override convention as PULSE_NOW/PULSE_SWARM_START, and what every
 #      test below uses.
-#   2. The mtime of the newest push-*.log file under PULSE_PUSH_LOG_DIR
-#      (default ~/loki-ci-logs). Simpler than resolving origin/main's real
-#      committer time, which would need this script to run its own `git
-#      fetch` -- a new, unbounded network call this script's fixed npm+gh
-#      NETWORK_DEADLINE was never sized for (see its header comment).
-# With neither source available, this reports UNKNOWN rather than silently
-# not firing, matching every other metric in this script.
+#   2. The reflog time of PULSE_TRAIN_PUSH_REF (default
+#      refs/remotes/origin/main), read with `git reflog show`. This ref
+#      moves on every plain `git push` to origin main -- how every train is
+#      actually pushed -- and on a `git fetch` that brings in someone else's
+#      push, with no network call of this script's own: reading an existing
+#      local reflog is a local git operation like every other `git()` call
+#      here, never a `git fetch`.
+#   3. The mtime of the newest push-*.log file under PULSE_PUSH_LOG_DIR
+#      (default ~/loki-ci-logs), for a repo with no such reflog (a fresh
+#      clone, a shallow checkout, or a pruned reflog).
+# With no source available, this reports UNKNOWN rather than silently not
+# firing, matching every other metric in this script.
 def last_train_push_epoch():
     override = parse_time_value(os.environ.get("PULSE_LAST_TRAIN_PUSH", ""))
     if override is not None:
         return override
+    ref = os.environ.get("PULSE_TRAIN_PUSH_REF", "") or "refs/remotes/origin/main"
+    rc, out, _ = git(["reflog", "show", "--date=unix", "--format=%gd", ref, "-n", "1"])
+    if rc == 0:
+        m = re.search(r"@\{(\d+)\}\s*$", out.strip())
+        if m:
+            return float(m.group(1))
     log_dir = os.environ.get("PULSE_PUSH_LOG_DIR", "") or os.path.expanduser("~/loki-ci-logs")
     try:
         names = os.listdir(log_dir)
@@ -1259,8 +1680,12 @@ elif not train_late["applicable"]:
 elif train_late["unknown"]:
     mark_unknown("train_late")
     emit(
-        "Train push cadence: UNKNOWN (no PULSE_LAST_TRAIN_PUSH override and no "
-        "push-*.log under %s)" % (os.environ.get("PULSE_PUSH_LOG_DIR", "") or os.path.expanduser("~/loki-ci-logs"))
+        "Train push cadence: UNKNOWN (no PULSE_LAST_TRAIN_PUSH override, no reflog "
+        "for %s, and no push-*.log under %s)"
+        % (
+            os.environ.get("PULSE_TRAIN_PUSH_REF", "") or "refs/remotes/origin/main",
+            os.environ.get("PULSE_PUSH_LOG_DIR", "") or os.path.expanduser("~/loki-ci-logs"),
+        )
     )
 else:
     _tl_age = train_late["age_min"]
@@ -1271,6 +1696,211 @@ else:
             "%.1f minutes since the last train push while merged-but-unreleased commits exist (threshold %d)"
             % (_tl_age, _TRAIN_LATE_THRESHOLD_MIN),
         )
+
+
+# --- 4d. RELEASE_CADENCE: D37 fixed cadence (E-89) --------------------------
+# D37: cut a release at :00/:20/:40 whenever main is green and at least one
+# merged-unreleased slice commit exists; never let more than 25 minutes pass
+# with both conditions true. Deliberately its own check rather than a
+# TRAIN_LATE rename: TRAIN_LATE clocks from the last actual `git push` (a
+# push-side signal, independent of CI), while RELEASE_CADENCE clocks from
+# the merged work itself (a release-readiness signal) and, per D37's own
+# text, requires CI green -- a red main with old merged commits is not a
+# cadence violation, it is CI_RED's problem (already highest priority).
+#
+# Definition of "merged-unreleased slice commit": one entry per node on
+# MAIN_REF's own --first-parent chain since the tag (same walk
+# check_unreleased_merge_age above already uses, and for the same reason --
+# without --first-parent this walks INTO a merged branch's own history and
+# picks up a side commit's pre-merge authorship time, not when it actually
+# landed on MAIN_REF; T47 reproduces the false-fire/false-n/a this caused).
+# A slice lands via a merge commit in this repo's trains workflow (D25), so
+# the merge commit itself IS the slice's landing event here, not a wrapper
+# to skip. Docs-only commits (touching only docs/, *.md, .gitleaksignore)
+# never count -- a docs commit sitting on main is not backlog pressure for
+# a release. Changed paths are read via `git diff --name-only <sha>^1
+# <sha>` (first-parent diff) rather than `git show --name-only`: for a
+# merge commit, `git show` prints a combined diff that comes back EMPTY for
+# a clean merge, which would silently misclassify a real (non-docs) slice
+# merge -- see T47b. `^1` diff works identically for an ordinary
+# non-merge commit (its only parent). Reuses `unreleased["tag"]` /
+# `_npm_tag_mismatch` (same "newest v* tag whose version equals npm's
+# latest dist-tag" definition, same npm lookup, no second network call)
+# and `ci_status` (same main-CI result, with its own Tests-run-list
+# fallback already built in) rather than re-deriving either.
+def _docs_only_path(path):
+    return path.startswith("docs/") or path.endswith(".md") or path == ".gitleaksignore"
+
+
+def check_release_cadence_d37():
+    if unreleased is None or npm_result is None or _npm_tag_mismatch is not None:
+        return None
+    tag = unreleased["tag"]
+    rc, out, _ = git(["log", "--first-parent", "--format=%H %ct", "%s..%s" % (tag, MAIN_REF)])
+    if rc != 0:
+        return None
+    commits = []
+    for line in out.splitlines():
+        parts = line.split(None, 1)
+        if len(parts) == 2:
+            commits.append((parts[0], float(parts[1])))
+    qualifying = []
+    for sha, ct in commits:
+        rc2, files_out, _ = git(["diff", "--name-only", "%s^1" % sha, sha])
+        if rc2 != 0:
+            return None
+        paths = [p for p in files_out.splitlines() if p.strip()]
+        if paths and all(_docs_only_path(p) for p in paths):
+            continue
+        qualifying.append((sha, ct))
+    rc3, tag_out, _ = git(["log", "-1", "--format=%ct", tag])
+    if rc3 != 0 or not tag_out.strip():
+        return None
+    return {"tag": tag, "tag_time": float(tag_out.strip()), "qualifying": qualifying}
+
+
+_RELEASE_CADENCE_THRESHOLD_MIN = 25
+
+release_cadence = safe(check_release_cadence_d37)
+if release_cadence is None:
+    mark_unknown("release_cadence")
+    emit("Release cadence (D37): UNKNOWN (release tag or commit history could not be read)")
+elif not release_cadence["qualifying"]:
+    emit("Release cadence (D37): n/a (no merged-unreleased slice commits since %s)" % release_cadence["tag"])
+else:
+    _rc_count = len(release_cadence["qualifying"])
+    _rc_oldest = min(ct for _, ct in release_cadence["qualifying"])
+    _rc_basis = max(_rc_oldest, release_cadence["tag_time"])
+    _rc_age = (NOW - _rc_basis) / 60.0
+    emit(
+        "Release cadence (D37): %.1f min, %d merged-unreleased slice commit(s) since %s"
+        % (_rc_age, _rc_count, release_cadence["tag"])
+    )
+    if ci_status is None:
+        mark_unknown("release_cadence")
+        emit("Release cadence (D37): CI status UNKNOWN, cannot evaluate the D37 cadence gate")
+    elif ci_status == "green" and _rc_age > _RELEASE_CADENCE_THRESHOLD_MIN:
+        add_violation(
+            "RELEASE_CADENCE",
+            "%d merged-unreleased slice commit(s) since %s, %.1f minutes since the later of the oldest "
+            "commit and the release tag while main CI is green (D37 threshold %d)"
+            % (_rc_count, release_cadence["tag"], _rc_age, _RELEASE_CADENCE_THRESHOLD_MIN),
+        )
+
+
+# --- 4e. MERGED_NOT_RELEASED_STALE: a `merged` row already shipped (E-90) --
+# A BOARD row stuck at `merged@` after its own merge commit already reached
+# the latest published tag over-reports the backlog (the D37 "found at
+# 16:20Z" incident this slice exists to stop recurring). This is narrower
+# than the informational note inside check_unreleased_merge_age above (which
+# only fires when NOTHING at all is unreleased since the tag): a single
+# stale row can hide among other commits that are genuinely still
+# unreleased, so each `merged` row's OWN merge commit is checked for
+# ancestry independently. scripts/board-mark-released.sh carries its own
+# copy of this same merge-commit lookup (no shared importable module between
+# these two standalone bash-wrapped python programs, matching how this file
+# already relates to every other scripts/*.sh here) so it can actually flip
+# the row; this check only ever reports, never writes BOARD.md.
+_MERGE_SHA_TOKEN_RE = re.compile(r"\b[0-9a-f]{7,40}\b")
+
+
+def find_merge_commit_for_id(row_id):
+    # -E + a trailing "not another digit" boundary: a plain substring grep
+    # for "slice-S-1" also matches "slice-S-10", "slice-S-11", ... (BOARD ID
+    # numbers are not fixed-width), which would silently resolve the WRONG
+    # slice's merge commit. Pinned to MAIN_REF, not the caller's own HEAD,
+    # for the same reason check_unreleased_merge_age's git describe is
+    # above. `-n 1`: the grep-filtered walk stops at the first (newest)
+    # match instead of scanning the rest of history uselessly. row_id comes
+    # straight off a BOARD.md cell with no ID_RE filter here (this check
+    # scans every row, not just the known ID shapes), so an odd ID can make
+    # `-E`'s pattern itself invalid -- git then exits non-zero and this
+    # raises rather than silently returning "no match" (see below: that
+    # distinction is the whole point of raising here instead of just
+    # returning None on any non-zero rc, which would let a git failure --
+    # timeout, malformed pattern, anything -- read as "nothing to flag").
+    rc, out, err = git(
+        ["log", MAIN_REF, "--merges", "-n", "1", "--format=%H", "-E", "--grep", "slice-%s([^0-9]|$)" % row_id]
+    )
+    if rc != 0:
+        raise RuntimeError("git log --merges failed for row %r: rc=%s: %s" % (row_id, rc, err.strip()))
+    return out.strip() or None
+
+
+def find_cited_merge_sha(row_text):
+    for tok in _MERGE_SHA_TOKEN_RE.findall(row_text):
+        # A non-zero rc here just means "not a real commit" (an all-digit
+        # run ID is valid hex and legitimately fails to resolve) -- never
+        # the kind of git-itself-broke signal find_merge_commit_for_id
+        # raises on, so this keeps skipping rather than raising.
+        rc, out, _ = git(["rev-list", "--parents", "-n", "1", tok])
+        if rc != 0 or not out.strip():
+            continue
+        parts = out.strip().split()
+        if len(parts) >= 3:  # commit sha followed by >=2 parent shas
+            return parts[0]
+    return None
+
+
+def check_merged_not_released_stale():
+    if unreleased is None or _npm_tag_mismatch is not None:
+        return None
+    tag = unreleased["tag"]
+    try:
+        with open(BOARD_MD, "r", encoding="utf-8") as f:
+            board_text = f.read()
+    except OSError:
+        return None
+    stale = []
+    for line in board_text.splitlines():
+        s = line.strip()
+        if not s.startswith("|"):
+            continue
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        row_id = cells[0]
+        status_token = None
+        for cell in cells[1:]:
+            m = STATUS_TOKEN_RE.match(cell)
+            if m:
+                status_token = m.group(1)
+                break
+        if status_token != "merged":
+            continue
+        merge_sha = find_merge_commit_for_id(row_id) or find_cited_merge_sha(line)
+        if merge_sha is None:
+            continue
+        # Only rc 0 (is an ancestor) or rc 1 (is not) are real answers;
+        # anything else (128: bad revision, a timeout under load, ...) is a
+        # git failure, not "not an ancestor", and must not be swallowed the
+        # same way -- same reasoning as find_merge_commit_for_id above.
+        rc, _, err = git(["merge-base", "--is-ancestor", merge_sha, tag])
+        if rc not in (0, 1):
+            raise RuntimeError("git merge-base --is-ancestor failed for %s (%s): rc=%s: %s"
+                                % (row_id, merge_sha, rc, err.strip()))
+        if rc == 0:
+            stale.append((row_id, merge_sha[:8]))
+    return {"tag": tag, "stale": stale}
+
+
+merged_stale = safe(check_merged_not_released_stale)
+if merged_stale is None:
+    mark_unknown("merged_not_released_stale")
+    emit(
+        "Merged rows already released (D37/E-90): UNKNOWN "
+        "(release tag, %s, or a git lookup could not be read)" % BOARD_MD
+    )
+elif not merged_stale["stale"]:
+    emit("Merged rows already released (D37/E-90): none")
+else:
+    _mns_names = ", ".join("%s (merge %s)" % (rid, sha) for rid, sha in merged_stale["stale"])
+    emit("Merged rows already released (D37/E-90): %s" % _mns_names)
+    add_violation(
+        "MERGED_NOT_RELEASED_STALE",
+        "%s marked 'merged' but its merge commit is already in %s (over-reports the backlog)"
+        % (_mns_names, merged_stale["tag"]),
+    )
 
 
 # --- 5. moat proven count vs last release ----------------------------------
@@ -1626,13 +2256,16 @@ else:
     # came back UNKNOWN, this violation simply does not fire (never a false
     # positive from a metric we could not measure).
     if board is not None:
-        ready_count = sum(1 for _rid, tok, _ts in board_rows if tok == "ready")
-        if worktrees["active"] < 6 and ready_count > 0:
-            ready_ids = [rid for rid, tok, _ts in board_rows if tok == "ready"]
+        # E-79-81-r2: reuse LOW_READY's dependency-filtered ready set
+        # (ready_deps_met) instead of a raw board_rows scan, so a
+        # dependency-blocked row (named by LOW_READY in the same run) is
+        # never also named here as a dispatch target.
+        idle_ready_count = len(ready_deps_met)
+        if worktrees["active"] < 6 and idle_ready_count > 0:
             add_violation(
                 "IDLE_BUILDERS",
                 "only %d active builder worktree(s) while %d ready slice(s) exist on BOARD (%s)"
-                % (worktrees["active"], ready_count, ", ".join(ready_ids)),
+                % (worktrees["active"], idle_ready_count, ", ".join(ready_deps_met)),
             )
 
 
@@ -1738,6 +2371,19 @@ else:
     # on a violation that looks, from its own text, like it should not have
     # fired.
     _prog_age_min = int(round((NOW - progress_entry[0]) / 60.0))
+    # E-80: a clock-skewed or hand-typed heading ahead of PULSE_NOW produced
+    # a negative age ("PROGRESS.md last entry: -12 min ago"), which is
+    # nonsensical and (since a negative age can never exceed the budget)
+    # silently hid a real staleness signal behind a heading nobody should
+    # trust. Report it by name and clamp the printed/compared age at 0
+    # rather than either trusting the bogus future timestamp as fresh in
+    # spirit or letting a negative number reach the violation text.
+    if _prog_age_min < 0:
+        emit(
+            "PROGRESS.md last entry: FUTURE_TIMESTAMP (%s is %d min ahead of now)"
+            % (progress_entry[1], -_prog_age_min)
+        )
+        _prog_age_min = 0
     emit("PROGRESS.md last entry: %d min ago" % _prog_age_min)
     if _prog_age_min > _STALE_PROGRESS_BUDGET_MIN:
         add_violation(
@@ -1817,11 +2463,17 @@ def check_unevidenced_claims():
                 continue
             added = line[1:]
             # A BOARD slice row's Wall-check cell is a spec ("... passes"), not
-            # a claim; only its status and notes cells (the last two) can claim.
+            # a claim; only its Notes cell can claim (E-91). Notes is always
+            # the last cell regardless of column layout (parse_board's own
+            # docstring: BOARD.md has used at least four), so this reads it
+            # positionally the same way parse_board does, rather than
+            # trusting a fixed column count.
             text = added
-            cells = added.split("|")
-            if re.match(r"\| (?:S|E|EV|M)-\d+ \|", added) and len(cells) >= 9:
-                text = "|".join(cells[-3:-1])
+            stripped = added.strip()
+            if stripped.startswith("|"):
+                row_cells = [c.strip() for c in stripped.strip("|").split("|")]
+                if row_cells and ID_RE.match(row_cells[0]):
+                    text = row_cells[-1]
             if _CLAIM_RE.search(text) and not _EVIDENCE_RE.search(text):
                 if current and added.strip() not in current:
                     continue
@@ -2224,6 +2876,64 @@ else:
         )
 
 
+# --- 12c. STRAY_WORKTREE: a worktree registered inside the repo root but
+# outside .claude/worktrees (E-81) ------------------------------------------
+def check_stray_worktrees():
+    """Reuses WORKTREE_COUNT's own PULSE_WORKTREE_LIST override (same raw
+    porcelain-listing shape), rather than a second env var or git call.
+    `git worktree list --porcelain` always reports the primary/main worktree
+    first (same fact metric 6's own check_worktrees relies on), so it is
+    skipped by position -- the repo root itself is never a stray entry. The
+    "repo root" for containment is THAT primary path (paths[0]), never
+    REPO_ROOT/PULSE_REPO_ROOT: this script is meant to run FROM a builder
+    worktree (metric 4b's own comment on the same fact), where REPO_ROOT is
+    that worktree's own path, not the primary one -- using it here would
+    make a real stray, sitting right next to the actual repo root, compare
+    against the wrong directory and never fire in the one place this check
+    is meant to run. Returns None only on a real listing failure; an empty
+    override (or a listing with no additional worktrees) is a real,
+    reportable "0 stray"."""
+    override = os.environ.get("PULSE_WORKTREE_LIST")
+    if override is not None:
+        text = override
+    else:
+        rc, out, _ = run_capped(
+            ["git", "worktree", "list", "--porcelain"], cwd=REPO_ROOT, env=_clean_env()
+        )
+        if rc != 0:
+            return None
+        text = out
+    paths = [line[len("worktree "):].strip() for line in text.splitlines()
+              if line.startswith("worktree ")]
+    if not paths:
+        return []
+    repo_root = os.path.normpath(paths[0])
+    stray = []
+    for path in paths[1:]:
+        norm = os.path.normpath(path)
+        inside_repo_root = norm == repo_root or norm.startswith(repo_root + os.sep)
+        if inside_repo_root and "/.claude/worktrees/" not in path:
+            stray.append(path)
+    return stray
+
+
+stray_worktrees = safe(check_stray_worktrees)
+if stray_worktrees is None:
+    mark_unknown("stray_worktrees")
+    emit("Stray worktrees (inside repo root, outside .claude/worktrees): UNKNOWN (git worktree list failed)")
+else:
+    emit(
+        "Stray worktrees (inside repo root, outside .claude/worktrees): %d"
+        % len(stray_worktrees)
+    )
+    if stray_worktrees:
+        add_violation(
+            "STRAY_WORKTREE",
+            "worktree(s) registered inside the repo root but outside .claude/worktrees: %s"
+            % ", ".join(sorted(stray_worktrees)),
+        )
+
+
 # --- 13. RELEASE_ON_RED: the newest VERSION bump on main has red Tests -----
 # (D28 rule 2 / S-108's own release-time guard; this is the pulse-side
 # early-warning companion.) Reuses S-104's gh_ci cache -- keyed by the SHA
@@ -2304,13 +3014,119 @@ else:
         )
 
 
+# --- 14. SESSION_STALLED: no assistant turn while the /loop is active ------
+# Two independent signals, each overridable for tests (see the bash header):
+#   "loop active"       -- PULSE_LOOP_MARKER (default
+#                           $PULSE_REPO_ROOT/.loki/state/loop-active) exists
+#                           and its mtime is under 24h old. Cheap: a stat
+#                           call, no parsing of the timestamp text it holds.
+#   "last assistant turn" -- the newest *.jsonl mtime under
+#                           PULSE_TRANSCRIPT_DIR (default Claude Code's own
+#                           ~/.claude/projects/<project-slug> session dir).
+# The marker is checked first: with no fresh marker the loop is not
+# considered active and this reports n/a without ever touching the
+# transcript directory, so "no marker" can never itself read as UNKNOWN.
+_SESSION_STALLED_BUDGET_MIN = 20
+_LOOP_MARKER_MAX_AGE_HOURS = 24
+
+
+def loop_marker_epoch():
+    path = os.environ.get("PULSE_LOOP_MARKER") or os.path.join(REPO_ROOT, ".loki", "state", "loop-active")
+    try:
+        return os.stat(path).st_mtime
+    except OSError:
+        return None
+
+
+def _main_repo_root():
+    # Claude Code keys its transcript directory off the MAIN checkout, not
+    # any subdirectory or linked worktree the shell happens to sit in.
+    # `git rev-parse --git-common-dir` always resolves into the main repo's
+    # .git, from a subdirectory or from a linked worktree alike; REPO_ROOT
+    # is the fallback only if git cannot answer at all.
+    rc, out, _ = git(["rev-parse", "--git-common-dir"])
+    common_dir = out.strip() if rc == 0 else ""
+    if not common_dir:
+        return REPO_ROOT
+    if not os.path.isabs(common_dir):
+        common_dir = os.path.join(REPO_ROOT, common_dir)
+    return os.path.dirname(os.path.realpath(common_dir))
+
+
+def _default_transcript_dir():
+    # Same sanitization rule as autonomy/context-tracker.py's
+    # derive_project_slug: every non-alphanumeric character in the main
+    # repo root's realpath becomes '-', prefixed with '-' for the leading
+    # slash.
+    slug = "-" + re.sub(r"[^a-zA-Z0-9]", "-", _main_repo_root().lstrip("/"))
+    return os.path.join(os.path.expanduser("~"), ".claude", "projects", slug)
+
+
+def newest_transcript_epoch(transcript_dir):
+    try:
+        names = os.listdir(transcript_dir)
+    except OSError:
+        return None
+    best = None
+    for name in names:
+        if not name.endswith(".jsonl"):
+            continue
+        try:
+            mt = os.stat(os.path.join(transcript_dir, name)).st_mtime
+        except OSError:
+            continue
+        if best is None or mt > best:
+            best = mt
+    return best
+
+
+def check_session_stalled():
+    marker_epoch = loop_marker_epoch()
+    if marker_epoch is None or (NOW - marker_epoch) / 3600.0 >= _LOOP_MARKER_MAX_AGE_HOURS:
+        return {"applicable": False}
+    transcript_dir = os.environ.get("PULSE_TRANSCRIPT_DIR") or _default_transcript_dir()
+    transcript_epoch = newest_transcript_epoch(transcript_dir)
+    if transcript_epoch is None:
+        return {"applicable": True, "unknown": True, "transcript_dir": transcript_dir}
+    return {"applicable": True, "unknown": False, "stall_min": (NOW - transcript_epoch) / 60.0}
+
+
+session_stalled = safe(check_session_stalled)
+if session_stalled is None:
+    mark_unknown("session_stalled")
+    emit("Session stall (loop active check): UNKNOWN (could not evaluate loop marker/transcript state)")
+elif not session_stalled["applicable"]:
+    emit("Session stall: n/a (no fresh .loki/state/loop-active marker; /loop not active)")
+elif session_stalled["unknown"]:
+    mark_unknown("session_stalled")
+    emit(
+        "Session stall: UNKNOWN (could not read transcript dir %s)" % session_stalled["transcript_dir"]
+    )
+else:
+    _stall_min = session_stalled["stall_min"]
+    emit(
+        "Minutes since last assistant turn: %.1f (loop active, budget %d)"
+        % (_stall_min, _SESSION_STALLED_BUDGET_MIN)
+    )
+    if _stall_min > _SESSION_STALLED_BUDGET_MIN:
+        add_violation(
+            "SESSION_STALLED",
+            "no assistant turn in %.1f minutes while the /loop is active (budget %d)"
+            % (_stall_min, _SESSION_STALLED_BUDGET_MIN),
+        )
+
+
 _NEXT_ACTION_TEXT = {
+    "SESSION_STALLED": "the /loop marker is fresh but no assistant turn has landed in over the budget; check the session is actually alive and resume it",
     "CI_RED": "investigate and fix the red main CI run before anything else",
     "CI_CANCELLED_STREAK": "investigate why Tests keeps getting cancelled on main before anything else",
     "RELEASE_ON_RED": "do not release from this VERSION-bump commit until its Tests run is green (D28 rule 2)",
     "HIGH_LOAD": "reduce load now: stop non-essential agents/containers, the machine is over 2x its core count (D28)",
+    "BUDGET_BURN": "cut active engineers now, the plan's 5h/weekly usage window or its next-hour headroom is at the D39 ceiling",
+    "OPUS_SHARE": "re-pin the named engineer(s) to sonnet, opus is over its D13 30% share of last-hour engineer output tokens",
     "MOAT_REGRESSION": "identify which moat property regressed and revert or fix it before any further merge",
     "UNRELEASED_MERGE": "cut a release now, main has been unreleased past the 30-minute budget",
+    "RELEASE_CADENCE": "cut a release now (D37 cadence)",
     "TRAIN_LATE": "push a release train now, merged-unreleased commits exist and cadence has slipped past the 25-minute budget",
     "REVIEW_STALE": "escalate or finish review for the named slice(s), they have exceeded the 45-minute budget",
     "AGENT_OVER_BUDGET": "check in on the named agent(s), they have exceeded their role/tier time budget",
@@ -2320,11 +3136,14 @@ _NEXT_ACTION_TEXT = {
     "ORPHAN_TEST": "investigate the named orphaned/long-running test process; stop by exact PID only if confirmed stale, never by name or pattern",
     "ORPHAN_WORKTREE": "investigate the named worktree/run.sh process; stop by exact PID only if confirmed stale, never by name or pattern",
     "STRAY_CONTAINER": "remove or fix the named swarm container: capped resources, restart policy 'no', removed when done (D28)",
+    "STRAY_WORKTREE": "move the named worktree(s) under .claude/worktrees or remove them (git worktree remove)",
     "WORKTREE_COUNT": "prune stale worktrees under .claude/worktrees (git worktree remove), it is over the 15 max",
     "IDLE_BUILDERS": "dispatch more builders against the named ready slice(s) in docs/v10/BOARD.md",
+    "UNDERSTAFFED": "staff more engineers now, the ready queue is deep and BOARD shows fewer than 8 rows building",
     "LOW_READY": "the Product Owner should cut the named number of additional slices onto the ready queue",
     "NO_RECENT_RELEASE": "cut a release now, none has shipped in over 90 minutes",
     "LOW_RELEASE_VOLUME": "investigate why release throughput is below the 30/day target",
+    "MERGED_NOT_RELEASED_STALE": "run scripts/board-mark-released.sh <tag> to flip the named row(s), their merge commit already shipped",
     "CONTROL_OVERSIZE": "trim docs/v10/CONTROL.md back under its 40-line budget",
 }
 

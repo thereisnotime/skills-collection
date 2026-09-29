@@ -25,6 +25,8 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { num } from "../engine10/cost.ts";
+import { partialUsagePath } from "./budget.ts";
 
 // A structural subset of the Agent SDK's SDKMessage union -- only the fields the
 // parser reads. Kept local (not imported from the SDK) so the parser is pure and
@@ -35,6 +37,10 @@ export interface StreamMsg {
   // assistant / user carry a nested message with content blocks
   message?: {
     content?: Array<Record<string, unknown>>;
+    // E-98e: per-message usage, present on real assistant turns. A streamed
+    // snapshot can repeat one id with growing usage as it fills in.
+    id?: string;
+    usage?: Record<string, unknown>;
   };
   // stream_event carries a raw streaming event
   event?: {
@@ -152,6 +158,21 @@ export async function consumeSdkStream(
   let captured = ""; // load-bearing capture (final assistant text + result.result)
   let rateLimit: { resetSeconds?: number } | undefined;
   let sawResult = false;
+  // E-98e: per-message usage, keyed by message.id so a repeated streamed
+  // snapshot of the same message is a max, not a double-count. Written to
+  // partialUsagePath after every assistant message, so a session killed
+  // before `result` (no finally runs: src/cli.ts's SIGTERM handler exits
+  // immediately) still leaves its last successful write on disk.
+  const usageById = new Map<string, Record<string, number>>();
+  let anonUsageId = 0;
+  // S41-04: the first assistant message's own input+cache_read+cache_creation
+  // sum (the "first-turn prefix" -- everything the SDK sent before any tool
+  // output came back). firstTurnId pins WHICH message counts: growing
+  // snapshots of that same id keep updating the sum (a streamed usage
+  // snapshot grows as it fills in, same as usageById above); a later message
+  // with a different id is a later turn and is never folded in.
+  let firstTurnId: string | undefined;
+  let firstTurnPromptTokens: number | undefined;
 
   for await (const data of asAsync(messages)) {
     const msgType = data.type ?? "";
@@ -178,6 +199,25 @@ export async function consumeSdkStream(
       if (err === "rate_limit" || err === "overloaded") {
         rateLimit = rateLimit ?? {};
         captured += `\n[${err}]\n`; // so the file-based rate-limit scanner fires
+      }
+      const u = data.message?.usage;
+      if (u) {
+        const id = data.message?.id ?? `#${anonUsageId++}`;
+        const prev = usageById.get(id) ?? {};
+        usageById.set(id, {
+          input_tokens: Math.max(prev["input_tokens"] ?? 0, num(u["input_tokens"])),
+          output_tokens: Math.max(prev["output_tokens"] ?? 0, num(u["output_tokens"])),
+          cache_read_input_tokens: Math.max(prev["cache_read_input_tokens"] ?? 0, num(u["cache_read_input_tokens"])),
+          cache_creation_input_tokens: Math.max(prev["cache_creation_input_tokens"] ?? 0, num(u["cache_creation_input_tokens"])),
+        });
+        writePartialUsage(lokiRoot, ctx.iteration, usageById, data.model ?? sessionModel ?? null);
+
+        if (firstTurnId === undefined) firstTurnId = id;
+        if (id === firstTurnId) {
+          const merged = usageById.get(id)!;
+          firstTurnPromptTokens =
+            merged["input_tokens"]! + merged["cache_read_input_tokens"]! + merged["cache_creation_input_tokens"]!;
+        }
       }
       const content = data.message?.content ?? [];
       for (const item of content) {
@@ -323,7 +363,7 @@ export async function consumeSdkStream(
       // authoritative per-iteration cost (best-effort; never throws to the loop)
       totalCostUsd = data.total_cost_usd ?? null;
       sessionId = data.session_id;
-      writeResultCost(lokiRoot, ctx.iteration, data, data.model ?? sessionModel);
+      writeResultCost(lokiRoot, ctx.iteration, data, data.model ?? sessionModel, firstTurnPromptTokens);
 
       exitCode = data.is_error ? 1 : 0;
       // do not break: a well-formed stream ends after result, but keep draining.
@@ -435,7 +475,13 @@ function appendHookEvent(
 // model is the provider-reported model (E-59: from system/init or the result message itself, never
 // the caller's guess); shared with the legacy SDK loop, so this only ADDS the key, never touches an
 // existing one, and omits it entirely (rather than writing null) when no session reported one.
-function writeResultCost(lokiRoot: string, iteration: string, data: StreamMsg, model?: string): void {
+function writeResultCost(
+  lokiRoot: string,
+  iteration: string,
+  data: StreamMsg,
+  model?: string,
+  firstTurnPromptTokens?: number,
+): void {
   try {
     const cost = data.total_cost_usd;
     if (cost === undefined || cost === null) return; // Python skips when None
@@ -447,6 +493,7 @@ function writeResultCost(lokiRoot: string, iteration: string, data: StreamMsg, m
       cache_read_tokens: u["cache_read_input_tokens"] ?? 0,
       cache_creation_tokens: u["cache_creation_input_tokens"] ?? 0,
       ...(model ? { model } : {}),
+      ...(firstTurnPromptTokens !== undefined ? { first_turn_prompt_tokens: firstTurnPromptTokens } : {}),
     };
     const dir = join(lokiRoot, "metrics");
     mkdirSync(dir, { recursive: true });
@@ -456,5 +503,29 @@ function writeResultCost(lokiRoot: string, iteration: string, data: StreamMsg, m
     renameSync(tmp, target); // os.replace equivalent (atomic)
   } catch {
     // best-effort, mirrors the Python try/except pass
+  }
+}
+
+// E-98e: the running SUM across all message ids seen so far, written after
+// every assistant message. Best-effort and atomic, same as writeResultCost;
+// left on disk after a normal completion too (nothing globs the
+// `partial-usage-` prefix, so a stale file is inert, same as an old
+// result-cost file already left behind today).
+function writePartialUsage(lokiRoot: string, iteration: string, usageById: Map<string, Record<string, number>>, model: string | null): void {
+  try {
+    const sum = { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, model };
+    for (const v of usageById.values()) {
+      sum.input_tokens += v["input_tokens"] ?? 0;
+      sum.output_tokens += v["output_tokens"] ?? 0;
+      sum.cache_read_tokens += v["cache_read_input_tokens"] ?? 0;
+      sum.cache_creation_tokens += v["cache_creation_input_tokens"] ?? 0;
+    }
+    const target = partialUsagePath(lokiRoot, iteration);
+    mkdirSync(dirname(target), { recursive: true });
+    const tmp = `${target}.tmp`;
+    writeFileSync(tmp, JSON.stringify(sum));
+    renameSync(tmp, target);
+  } catch {
+    // best-effort, mirrors writeResultCost's try/except pass
   }
 }

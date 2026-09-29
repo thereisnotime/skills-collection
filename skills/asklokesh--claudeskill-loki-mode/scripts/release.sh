@@ -446,6 +446,50 @@ release_restore_debugid_only_dist() {
             log_step "Restored $rel (debugId-only diff)"
         fi
     done
+
+    # E-108: a .js file left alone above (it has a REAL diff, e.g. the
+    # version literal) can still have picked up a fresh "//# debugId="
+    # trailer from the rebuild, even though its .map companion was just
+    # restored to HEAD verbatim by the loop above. Shipping that pair
+    # leaves loki.js and loki.js.map carrying two different debugIds.
+    # Whenever a .map is now byte-identical to HEAD, restore only its
+    # companion .js's trailer line to HEAD's value too (the real diff
+    # elsewhere in the .js stays untouched), so the pair matches again.
+    local map_file js_file head_id tmp_js
+    for map_file in "$dist_dir"/*.js.map; do
+        [ -f "$map_file" ] || continue
+        js_file="${map_file%.map}"
+        [ -f "$js_file" ] || continue
+
+        rel="${map_file#"$ROOT_DIR"/}"
+        head_txt="$(git -C "$ROOT_DIR" show "HEAD:$rel" 2>/dev/null)" || continue
+        work_txt="$(cat "$map_file")"
+        [ "$head_txt" = "$work_txt" ] || continue
+
+        rel="${js_file#"$ROOT_DIR"/}"
+        head_txt="$(git -C "$ROOT_DIR" show "HEAD:$rel" 2>/dev/null)" || continue
+        head_id="$(printf '%s\n' "$head_txt" | grep -E -o '^//# debugId=[0-9A-Fa-f]+$' | tail -n1)"
+        [ -n "$head_id" ] || continue
+        grep -qF "$head_id" "$js_file" && continue
+
+        tmp_js="$(mktemp "${js_file}.XXXXXX")" || continue
+        if sed -E "s|^//# debugId=[0-9A-Fa-f]+\$|${head_id}|" "$js_file" >"$tmp_js"; then
+            mv "$tmp_js" "$js_file"
+            log_step "Restored $rel debugId trailer to match HEAD (paired with restored .map)"
+        else
+            rm -f "$tmp_js"
+        fi
+    done
+}
+
+# E-103: shared by both run_bump_only failure branches below -- restores
+# loki-ts/dist from HEAD, logs why, and exits non-zero. A build that exits 0
+# without embedding the new version is the same "don't ship a stale/broken
+# dist" case as a build that fails outright, so both routes through here.
+release_bump_only_fail() {
+    log_error "$1"
+    git -C "$ROOT_DIR" checkout -- loki-ts/dist
+    exit 1
 }
 
 # --bump-only (S-108): version files + loki-ts/dist, no git side effects.
@@ -460,14 +504,21 @@ run_bump_only() {
     log_warn "Not bumped (intentionally, see script header): vscode-extension/package.json (deprecated)"
 
     if [ -d "$ROOT_DIR/loki-ts" ]; then
+        # E-102: fail fast on a missing node_modules instead of letting
+        # `bun run build` fail mid-bundle and delete tracked dist files.
+        if [ ! -d "$ROOT_DIR/loki-ts/node_modules" ]; then
+            log_error "loki-ts/node_modules missing -- run: cd loki-ts && bun install"
+            exit 1
+        fi
         log_step "Rebuilding loki-ts/dist..."
-        ( cd "$ROOT_DIR/loki-ts" && bun run build )
+        if ! ( cd "$ROOT_DIR/loki-ts" && bun run build ); then
+            release_bump_only_fail "loki-ts build failed -- restoring loki-ts/dist from HEAD"
+        fi
         if [ -f "$dist_file" ] && grep -q "$new" "$dist_file"; then
             log_success "loki-ts/dist rebuilt with $new"
             release_restore_debugid_only_dist "$ROOT_DIR/loki-ts/dist"
         else
-            log_error "loki-ts/dist rebuild did not embed $new in $dist_file"
-            exit 1
+            release_bump_only_fail "loki-ts/dist rebuild did not embed $new in $dist_file -- restoring loki-ts/dist from HEAD"
         fi
     else
         log_warn "loki-ts/ not found, skipping dist rebuild"

@@ -77,6 +77,21 @@ test('text over 10k words returns tooLong flag', () => {
   assert.equal(r.label, 'Text too long');
 });
 
+test('#234: unscored labels return stats with the same keys', () => {
+  const empty = AIDetector.analyzeText('');
+  const tooShort = AIDetector.analyzeText('Short unscorable text snippet.');
+  const tooLong = AIDetector.analyzeText('word '.repeat(10001));
+
+  const expectedKeys = Object.keys(empty.stats).sort();
+
+  assert.deepEqual(Object.keys(tooShort.stats).sort(), expectedKeys);
+  assert.deepEqual(Object.keys(tooLong.stats).sort(), expectedKeys);
+});
+
+test('#234: analyzeText throws TypeError for non-string input', () => {
+  assert.throws(() => AIDetector.analyzeText(123), TypeError);
+});
+
 test('AI-heavy paragraph scores in Strong/Heavy range', () => {
   const text = [
     "In today's ever-evolving landscape, we delve into the intricate",
@@ -2167,6 +2182,13 @@ test('v2: invalid contextMode falls back to general with stats.contextModeFallba
   assert.equal(r.stats.contextModeFallback, 'tecnical', 'fallback echoes original');
 });
 
+test('#234: falsy invalid contextMode is preserved in fallback stats', () => {
+  const r = AIDetector.analyzeText('', { contextMode: '' });
+
+  assert.equal(r.stats.contextMode, 'general');
+  assert.equal(r.stats.contextModeFallback, '');
+});
+
 test('v2: trinary fields present on tooShort / tooLong / empty as UNSCORED', () => {
   // Early-exit paths return UNSCORED (not HUMAN_ONLY) so a caller can't
   // mistake a refused scan for a confident human verdict. A 50k-word
@@ -3637,6 +3659,27 @@ test('fnword-trigram-entropy: single trigram fires at 150 words, not 149', () =>
   assert.equal(issues[0].severity, 'high');
   assert.equal(AIDetector.analyzeText('the '.repeat(149)).issues
     .filter(i => i.type === 'fnword-trigram-entropy').length, 0);
+});
+
+test('#234: non-string input reports the expected type', () => {
+  for (const input of [123, null, undefined, false, {}, []]) {
+    assert.throws(() => AIDetector.analyzeText(input), {
+      name: 'TypeError',
+      message: 'analyzeText(text): argument must be a string',
+    });
+  }
+});
+
+test('#234: empty and whitespace-only input preserve selected modes', () => {
+  for (const text of ['', ' \n\t']) {
+    const r = AIDetector.analyzeText(text, {
+      contextMode: 'technical', sourceMode: 'rendered-markdown',
+    });
+    assert.equal(r.label, 'Empty');
+    assert.equal(r.stats.wordCount, 0);
+    assert.equal(r.stats.contextMode, 'technical');
+    assert.equal(r.stats.sourceMode, 'rendered-markdown');
+  }
 });
 
 if (failed > 0) {

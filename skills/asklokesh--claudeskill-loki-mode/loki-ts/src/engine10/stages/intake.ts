@@ -5,11 +5,12 @@
 // resumed for later stages.
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import type { RunContext, Stage, StageResult } from "../types.ts";
 import { buildRepoMap } from "../repomap.ts";
 import { githubRepoFromUrl, readOriginUrl } from "../supervisor.ts";
+import { buildAlreadyDoneCommentArgv, checkAlreadyDone, renderAlreadyDoneComment } from "../already_done.ts";
+import { sha256 } from "./seal.ts";
 export interface IntakeOptions {
   taskText?: string;
   issueJsonPath?: string;
@@ -18,8 +19,9 @@ interface IssueFields {
   state: string | null;
   closed_by_merged_pr?: boolean;
 }
-function sha256(s: string): string {
-  return createHash("sha256").update(s).digest("hex");
+/** owner/repo#number, when the issue JSON carries both (GitHub); null for anything else, never guessed. */
+function issueRefOf(raw: { repo?: unknown; number?: unknown }): string | null {
+  return typeof raw.repo === "string" && raw.repo && typeof raw.number === "number" ? `${raw.repo}#${raw.number}` : null;
 }
 function git(repoDir: string, args: string[]): string {
   return execFileSync("git", args, { cwd: repoDir, encoding: "utf8", env: process.env }).trim();
@@ -74,13 +76,15 @@ export async function runIntake(ctx: RunContext, signal: AbortSignal, opts: Inta
   let taskSha256: string;
   let task = taskText ?? "";
   let alreadySatisfied = false;
+  let issueRef: string | null = null;
   if (existsSync(issueJsonPath)) {
     source = "issue";
     const raw = readFileSync(issueJsonPath, "utf8");
     taskSha256 = sha256(raw);
-    const i = JSON.parse(raw) as { title?: unknown; body?: unknown };
+    const i = JSON.parse(raw) as { title?: unknown; body?: unknown; repo?: unknown; number?: unknown };
     task = [i.title, i.body].filter((x) => typeof x === "string" && x !== "").join("\n\n");
     alreadySatisfied = isAlreadyDone(loadIssue(issueJsonPath));
+    issueRef = issueRefOf(i);
   } else if (taskText !== undefined) {
     source = "text";
     taskSha256 = sha256(taskText);
@@ -99,8 +103,32 @@ export async function runIntake(ctx: RunContext, signal: AbortSignal, opts: Inta
   }
   mkdirSync(ctx.runDir, { recursive: true });
   const repomapRef = join(ctx.runDir, "repomap.json");
-  writeFileSync(repomapRef, JSON.stringify(buildRepoMap(ctx.repoDir)));
+  const repoMap = buildRepoMap(ctx.repoDir);
+  writeFileSync(repomapRef, JSON.stringify(repoMap));
   const testmap = await ctx.tests.detect(ctx.repoDir);
+  // E-66: "already implemented" as a first-class outcome. A deterministic evidence search over
+  // repoMap/testmap/CHANGELOG, confirmed by one short cheap-model session that must cite files;
+  // no candidate evidence means no session call (checkAlreadyDone's own gate).
+  const already = await checkAlreadyDone(ctx, signal, task, repoMap, testmap);
+  if (already) {
+    // The comment always exists (there is always something to tell the operator once evidence
+    // confirms no change is needed); only an issue run has somewhere to post it, so only that case
+    // gets an argv. A text run gets the same body, but printed by the CLI (main(), below) instead --
+    // posting an issue comment for a run with no issue would be meaningless.
+    const comment = renderAlreadyDoneComment(already.evidence);
+    const bodyFile = join(ctx.runDir, "already-done-comment.md");
+    writeFileSync(bodyFile, comment, "utf8");
+    const commentArgv = source === "issue" && issueRef ? buildAlreadyDoneCommentArgv(ctx.runId, issueRef, bodyFile) : undefined;
+    return {
+      status: "completed",
+      data: {
+        ...common, task_sha256: taskSha256, source, base_sha: baseSha, tree, branch: ctx.branch,
+        already_satisfied: true, evidence: already.evidence, iteration_ids: [`${ctx.runId}-already-done`],
+        comment,
+        ...(commentArgv ? { comment_argv: commentArgv } : {}),
+      },
+    };
+  }
   return {
     status: "completed",
     data: {

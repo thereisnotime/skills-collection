@@ -569,3 +569,231 @@ previously mismarked two merged guards (S-16, S-74) as PENDING.
   old `test-start-update-hint.sh`) reproduces the incident directly: exit 1,
   reporting both `9.99.0` lines by file:line. Run:
   `bash tests/test-no-stale-future-version.sh`.
+
+## 17. `--self-test` reached the network only in CI, not locally (E-92)
+
+- **Incident:** `scripts/dep-inventory.py --self-test` passed on the
+  engineer's machine but went red on main in CI. The fixture for
+  `actions/setup-node@v4` stubbed only the `gh_release` cache bucket; ref
+  `v4` also matches the bare-major-tag pattern in `collect_actions`, which
+  resolves it through `resolve_floating_tag()` and the `floating_tag` cache
+  bucket. With that bucket unstubbed, the resolver fell through to a real
+  `gh api` call. Locally that call succeeded (a working, authenticated `gh`
+  was on PATH), so the fixture's gap was invisible; in CI (no `gh`, no auth,
+  no network) it failed, `resolve_entry["ok"]` was `False`, and the row's
+  bump fell back to `"unknown"` instead of the expected `"MAJOR"`.
+- **Root cause with evidence:** commit `81cdba4d` ("stub the floating_tag
+  cache in --self-test for actions/setup-node@v4") states it directly: the
+  self-test "passed locally only because gh happened to be authenticated
+  there." No leg of `tests/test-dep-inventory.sh` ran the self-test with
+  `gh`/network absent, so the environment gap that separates "green
+  locally" from "green in CI" was never exercised before main did it for
+  real.
+- **The guard:** `tests/test-dep-inventory.sh` T6 runs
+  `python3 scripts/dep-inventory.py --self-test` under
+  `env -i HOME=<empty temp dir> PATH=/usr/bin:/bin`, which drops
+  `GH_TOKEN`/`GITHUB_TOKEN` and every other inherited variable and wipes
+  `gh`'s own `~/.config/gh` auth store by emptying `HOME`; it also excludes
+  `gh` from PATH wherever it is installed outside `/usr/bin:/bin` (true on
+  this machine: `/opt/homebrew/bin/gh`). Either way -- `gh` absent, or
+  present but with no credentials to present -- any cache bucket a fixture
+  forgets to stub hits a `gh api` call that fails the way it failed in CI,
+  instead of a developer's real, authenticated one. This does not block
+  outbound network access; the npm/PyPI/endoflife fetchers can still reach
+  it, so an unstubbed bucket for one of those is not caught by T6.
+- **The test that proves it fires:** reproduced the incident directly by
+  removing the `floating_tag` fixture E-92 added (the
+  `cache4.data["floating_tag"] = {...}` block for
+  `actions/setup-node@v4`, `scripts/dep-inventory.py` lines 1281-1286) and
+  running `bash tests/test-dep-inventory.sh`: T1 (the script's own
+  self-test, run with the developer's normal, authenticated `gh`) still
+  showed `[PASS] dep-inventory.py --self-test passed` -- proving the
+  existing leg is blind to this class -- while T6 showed `[FAIL]
+  self-test failed unauthenticated/gh-less`; overall `Results: 5 passed, 1
+  failed`, exit 1. The fixture was then restored from a backup
+  (`git diff --quiet scripts/dep-inventory.py` exit 0, confirming an exact
+  restore) and a clean rerun showed `Results: 6 passed, 0 failed`, exit 0.
+  Run: `bash tests/test-dep-inventory.sh`.
+
+## 18. Hardcoded fixture ports raced concurrent runs of the same test (E-95)
+
+- **Incident:** commit `8f2179cd`, Tests run `36453069628`,
+  `tests/test-app-runner-watchdog-health.sh` failed with "healthy fixture
+  server never came up (cannot validate no-restart case)" and passed on an
+  unmodified rerun of the same SHA.
+- **Root cause with evidence:** the fixture hardcoded three TCP ports
+  (`CLOSED_PORT=59731`, `HEALTHY_PORT=59732`, `API_PORT=59733`) and polled
+  readiness for only ~3s (15 iterations of `sleep 0.2`). Any other process
+  bound to the same port at that moment -- another worktree running this
+  exact fixture concurrently (this swarm runs 12+ engineers in parallel
+  worktrees on one machine), or a leftover process from a prior killed
+  run -- makes the `python3 -m http.server "$HEALTHY_PORT"` bind fail (or,
+  on kernels where `SO_REUSEADDR` lets a second bind coexist with an active
+  listener, makes it non-deterministic which socket answers), so the fixed
+  3s readiness window times out with no HTTP server ever answering; a
+  rerun once the colliding process is gone passes with no code change.
+  Verified locally (Darwin): holding port 59732 with an `SO_REUSEADDR`
+  listener during a run did NOT reproduce a bind failure here -- macOS/BSD
+  `SO_REUSEADDR` allows a second bind to coexist with an active listener,
+  which Linux (the actual CI runner) does not; the hardcoded-port class is
+  confirmed by code inspection and by the incident report, not by a local
+  bind-conflict repro, which is honestly reported as platform-dependent
+  here.
+- **The guard:** `tests/test-app-runner-watchdog-health.sh` (this slice)
+  adds a `pick_free_port()` helper (binds `("127.0.0.1", 0)`, reads back the
+  OS-assigned port, closes the socket) and uses it for `CLOSED_PORT`,
+  `HEALTHY_PORT` and `API_PORT` instead of any fixed literal, so the fixture
+  can never collide with another instance of itself or a stale leftover
+  regardless of kernel `SO_REUSEADDR` semantics. Readiness polling was also
+  widened from ~3s to 10s (50 iterations), and both server fixtures now log
+  to a file (`healthy_server.log`, `api404_server.log`) whose tail is
+  included in the failure message alongside the actual port, so a genuine
+  future timeout is diagnosable instead of a bare "never came up".
+- **The test that proves it fires:** `tests/test-app-runner-watchdog-health.sh`
+  is itself the guard (fixed-port fixtures were the bug, not a separate
+  probe of them). Run 20 times back to back while 4 parallel copies of
+  `tests/test-v10-pulse.sh` provided CPU load: 20/20 passed
+  (`bash tests/test-app-runner-watchdog-health.sh`, run in a loop; all 4
+  concurrent `test-v10-pulse.sh` copies completed clean, exit 0, over the
+  same window). `bash -n` and `shellcheck` both clean on the file.
+
+## 19. A local pass depended on `gh` being authenticated on the dev Mac (E-94)
+
+- **Incident:** `tests/test-dep-inventory.sh` passed locally and failed on
+  the CI runner. Root-caused to `scripts/dep-inventory.py`'s `self_test()`:
+  one resolver path (the `actions/setup-node@v4` floating-tag lookup) had no
+  fixture in its stub cache, so a cache miss fell through to a real `gh api`
+  call. That call succeeds silently wherever `gh` happens to be authenticated
+  (this Mac) and fails wherever it is not (the CI runner, which has neither
+  `gh` nor `GH_TOKEN`/`GITHUB_TOKEN`) -- so local-ci reported green on a test
+  that was never actually hermetic, and CI became the discovery channel
+  instead of push time.
+- **Root cause with evidence:** replaying the pre-fix file directly (`git
+  show 4f7f1487^1:scripts/dep-inventory.py` extracted to a temp path, then
+  `python3 <that path> --self-test`) passes on this machine (23/23 `[PASS]`
+  lines, real `gh api` reachable) and fails under a stripped environment
+  (`env -i HOME=<fresh dir> PATH=/usr/bin:/bin:<bun+python3 only>`) with
+  exactly one failure: `[FAIL]
+  actions: Bump is measured against the release lookup` -- the same
+  resolver path, the same missing fixture, now unable to reach `gh`. E-92
+  (`4f7f1487`) fixed this specific instance by adding the missing
+  `floating_tag` cache fixture; nothing stopped the next uncached fallthrough
+  in the next test file from shipping the same way.
+- **The guard:** `scripts/local-ci.sh`'s `_lci_hermetic_scan` (fast-tier
+  step `"hermetic changed-tests (no gh/network, E-94)"`, on `_FAST_KEEP`,
+  called from the SERIAL spine AFTER section 7's `bun install` -- not right
+  after `harvest_lanes`: a fresh worktree has no `loki-ts/node_modules`
+  until section 7 installs it, so a changed `loki-ts/tests/*.test.ts` file's
+  normal `bun test` would fail for a missing-toolchain reason and the scan
+  would silently never actually check it. Like section 3's pytest gates, it
+  runs a NORMAL pass against real `HOME`/repo state, which is exactly the
+  class of check #588 pins off the concurrent background lanes). For every
+  real test file this branch changed vs `origin/main` (merge-base diff,
+  basename-anchored to `test[-_]*.sh`/`test[-_]*.py` under `tests/` or
+  `*.test.ts` under `loki-ts/tests/` -- NOT a bare extension match, so
+  `tests/run-all-tests.sh` and a `loki-ts/tests/**/fixtures/*.ts` data file
+  are never swept in as if they were runnable suites), it runs the file once
+  normally and once under `env -i` with a fresh `HOME`, and `PATH` set to a
+  private directory (listed FIRST, not last) holding ONLY symlinks to a
+  short, curated list of the real, ambient interpreter/runtime binaries a
+  test legitimately needs (`bash`, `bun`, `python3`, `node`, `timeout`) --
+  never `gh`, then `/usr/bin:/bin`. Measured, not assumed, on each point: a
+  bare-last-position PATH let `/usr/bin`'s own Xcode-stub `python3` shadow
+  the real one for any bare `python3` call (including a test's OWN internal
+  one, like `test-dep-inventory.sh`'s `python3 "$SCRIPT" --self-test`);
+  macOS's `/bin/bash` is 3.2 with no `mapfile`/`declare -A`, false-failing
+  any test written against a modern bash; `node` and `timeout` are not on
+  `/usr/bin` on this class of machine either, and real in-scope tests call
+  both directly; and a fresh `HOME` alone breaks any package installed under
+  `~/Library/Python/.../site-packages` (fastapi among them), so
+  `PYTHONUSERBASE` is preserved from the real machine to keep those
+  importable without reintroducing a credential -- all four false-positive
+  classes have nothing to do with credentials and would otherwise have
+  blocked a legitimate push. `env -i` alone already drops every inherited
+  variable, so `GH_TOKEN`/`GITHUB_TOKEN` need no separate unset;
+  `GIT_CONFIG_NOSYSTEM=1` additionally blocks the macOS system gitconfig's
+  `credential.helper=osxkeychain` (a fixed path, unrelated to `HOME`, that a
+  fresh `HOME` alone does not neutralize -- the identical leak class as
+  `gh`, just through `/usr/bin/git`). A file that passes normally but fails
+  stripped is reported by name; a file already failing (or timing out)
+  normally is counted separately and never claimed as hermetic-clean.
+  Skipped (not silently passed) when the branch changed no in-scope file, or
+  when no `timeout`
+  binary is on PATH (fail-closed, matching the gitleaks/shellcheck posture).
+  Fails closed the other way too: this is a keep-list member, so it cannot
+  be silently deferred out of the fast (pre-push) tier.
+- **The test that proves it fires:** `tests/test-local-ci-hermetic.sh`
+  (registered in `tests/run-all-tests.sh` and `tests/shard-durations.tsv`,
+  18 cases: 12 static + 6 live). Static assertions confirm the scope, the
+  stripped-env shape (bindir-first PATH, `PYTHONUSERBASE`,
+  `GIT_CONFIG_NOSYSTEM`, the curated `bash`/`bun`/`python3`/`node`/`timeout`
+  symlink list), the serial (not background-lane) call site, the keep-list
+  membership, and both skip paths. The live half awk-extracts the REAL
+  `_lci_hermetic_scan` function body out of `scripts/local-ci.sh` (never a
+  mirrored reimplementation) and runs it against disposable fixture repos: a
+  new test that calls `gh` directly passes normally and fails stripped, so
+  the scan fails and names it (gated on `gh` actually being reachable
+  normally and actually unreachable under a bare `/usr/bin:/bin`, not
+  assumed); a hermetic-clean new test, a `mapfile`/`declare -A` (bash4+-only)
+  test, and a test shelling out to `node`/`timeout` directly all pass both
+  runs; the actual pre-E-92 `scripts/dep-inventory.py` (`git show
+  4f7f1487^1:scripts/dep-inventory.py`), replayed through a copy of the real
+  test wrapper, is caught (gated on the old self-test actually passing
+  normally first); and the REAL, current (post-E-92) `dep-inventory.py` and
+  `test-dep-inventory.sh` from this repo, replayed verbatim, pass both runs
+  -- the must-not-regress case, since a scan that cannot survive the exact
+  file it was written to guard would block every future push that touches
+  it. Verified red-then-green by hand: pointed at `origin/main`'s
+  `scripts/local-ci.sh` (no `_lci_hermetic_scan` at all) the suite goes 0
+  passed / 12 failed; restored, it is 18/18 (16/16 before the node/timeout
+  scenario was added). A mutation that widens the stripped `PATH` back to
+  the ambient one (`PATH="$PATH:$spath"`) flips exactly the gh-calling
+  scenario to FAIL while every other case stays green, confirming the live
+  half is not vacuous. Dogfooded on this branch's own commit adding this
+  file: the real (non-test-harness) `_lci_hermetic_scan`, sourced and called
+  directly against this worktree, found the one real in-scope change and
+  returned `hermetic-clean` in 5.6s, well inside the 60s budget. Run:
+  `bash tests/test-local-ci-hermetic.sh`.
+
+## 20. Eval results lost when a worktree was force-removed (E-96/EV-14, E-101)
+
+- **Incident:** `eval/loki10/results/*/results.jsonl` is gitignored
+  (`eval/loki10/.gitignore`), so it exists only inside the worktree that ran
+  the eval. The 17:36Z pruning incident (guard 5's family, PROGRESS.md)
+  force-removed 7 live builder worktrees including EV-14's; that eval's
+  per-run results were destroyed with it (METRICS.md 18:00Z note) and could
+  not be re-audited.
+- **Root cause with evidence:** nothing ever copied `results.jsonl` outside
+  the worktree that produced it, and no existing prune tool checked for
+  un-copied results before removing a worktree.
+- **The guard:** `eval/loki10/harness.py` `cmd_run` now writes a redacted
+  copy of every row (`redact_row`: drops the `arm_stdout`/`arm_stderr`/etc.
+  log paths and any secret-shaped string) to both
+  `${LOKI_EVAL_ARCHIVE:-$HOME/loki-ci-logs/eval}/<run-name>/results.jsonl`
+  (outside the repo) and the committed `eval/loki10/archive/<run-name>.results.jsonl`,
+  per row inside the same lock that writes the worktree-local copy, so a
+  killed run keeps what it already archived. `scripts/prune-worktrees.sh`
+  refuses to remove a worktree that has a `results.jsonl` whose `run_id`s
+  are not all present in an archived copy, and separately refuses to remove
+  one with a live process inside it (`lsof -d cwd -Fn`) or a branch commit
+  less than 30 minutes old (`git log -1 --format=%ct`) -- any check that
+  cannot run (lsof missing/broken, unparseable JSON) REFUSES rather than
+  guessing. No file-age signal (`stat`, `find -newermt`, etc.) is used
+  anywhere in it.
+- **The test that proves it fires:** `tests/test-prune-worktrees.sh` keeps a
+  worktree with a live process inside it, keeps one whose results are not
+  yet archived, removes one whose results ARE archived (positive control),
+  and refuses everything when `lsof` is stubbed to fail. Deleting any one of
+  the three new checks from `scripts/prune-worktrees.sh` (live-process,
+  30-minute, or archived-results) turns the corresponding case red: 24
+  passed / 2 failed each time, vs. 26 passed / 0 failed with the check in
+  place. `tests/test-eval-archive.sh` plants a token
+  (`sk-ant-plantedTOKEN9999`, a GitHub-token-shaped string, and a
+  `KEY=VALUE`-shaped one) in a synthetic row and asserts none of it survives
+  `redact_row`, that the log paths are gone, that real fields (`task`,
+  `run_id`, `harness_sha`, `cost_usd`) survive intact, and that the redacted
+  rows still `summarize_rows()` correctly (an empty/over-stripped archive
+  would otherwise pass the secret check too). Replacing `redact_row` with a
+  no-op (`return dict(row)`) reproduces the incident directly: the planted
+  secret and the log paths both survive.
+  Run: `bash tests/test-prune-worktrees.sh && bash tests/test-eval-archive.sh`.

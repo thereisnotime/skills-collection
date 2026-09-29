@@ -9618,8 +9618,8 @@
       "description": "|-",
       "path": "anthropics--skills/skills/claude-api/SKILL.md",
       "remote_path": "skills/claude-api/SKILL.md",
-      "lines": 573,
-      "words": 11762,
+      "lines": 604,
+      "words": 14072,
       "code_blocks": 3,
       "languages": [
         "python"
@@ -10692,8 +10692,8 @@
       "description": "Sets up and manages Postgres using the clickhousectl CLI \u2014 runs a local Docker-backed Postgres for development, and creates and operates managed ClickHouse Cloud Postgres services (connections, TLS, r",
       "path": "ClickHouse--agent-skills/skills/infra-postgres/SKILL.md",
       "remote_path": "skills/infra-postgres/SKILL.md",
-      "lines": 52,
-      "words": 364,
+      "lines": 53,
+      "words": 412,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11993,8 +11993,8 @@
       "description": "ARS academic-paper `citation-check` mode \u2014 citation error report",
       "path": "Imbad0202--academic-research-skills/commands/ars-citation-check.md",
       "remote_path": "commands/ars-citation-check.md",
-      "lines": 16,
-      "words": 118,
+      "lines": 15,
+      "words": 116,
       "code_blocks": 0,
       "languages": []
     },
@@ -22582,7 +22582,7 @@
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
       "lines": 318,
-      "words": 4836,
+      "words": 4841,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22596,7 +22596,7 @@
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
       "lines": 1053,
-      "words": 21293,
+      "words": 21298,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22610,7 +22610,7 @@
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
       "lines": 1050,
-      "words": 21249,
+      "words": 21248,
       "code_blocks": 0,
       "languages": [],
       "version": "3.36.0",
@@ -22622,7 +22622,7 @@
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "lines": 318,
-      "words": 4836,
+      "words": 4841,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22656,7 +22656,7 @@
       "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "skills/avoid-ai-writing/SKILL.md",
       "lines": 311,
-      "words": 4820,
+      "words": 4825,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22691,8 +22691,8 @@
       "description": "Use when the user provides an original and rewritten version, asks whether a rewrite preserved protected content, or wants a deterministic check for code, frontmatter, quotes, tables, links, paths, nu",
       "path": "conorbronsdon--avoid-ai-writing/skills/preservation-verifier/SKILL.md",
       "remote_path": "skills/preservation-verifier/SKILL.md",
-      "lines": 104,
-      "words": 792,
+      "lines": 105,
+      "words": 922,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -23623,8 +23623,8 @@
       "description": "\"EAS service (paid). Run and control a user's app on a remote iOS/Android simulator hosted on EAS cloud. Read before running any `eas simulator:*` commands - it has the current syntax for this experim",
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 231,
-      "words": 3836,
+      "lines": 238,
+      "words": 3936,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -25249,11 +25249,11 @@
     },
     {
       "name": "netlify-blobs",
-      "description": "Store and retrieve unstructured data like file uploads, images, documents, JSON, and cache-like state with Netlify Blobs. It is a zero-config key/value store accessible from Functions, Edge Functions,",
+      "description": "Store and retrieve unstructured objects, files, and cache-like state on Netlify with the @netlify/blobs module. Use when persisting user file uploads (images/documents), caching computed output from f",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-blobs/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-blobs/SKILL.md",
-      "lines": 227,
-      "words": 1901,
+      "lines": 256,
+      "words": 1781,
       "code_blocks": 16,
       "languages": [
         "sh",
@@ -25303,12 +25303,12 @@
     },
     {
       "name": "netlify-image-cdn",
-      "description": "Transform, resize, crop, reformat, and optimize images on demand via Netlify Image CDN's /.netlify/images endpoint. Use when adding responsive images, generating thumbnails, converting formats (avif/w",
+      "description": "Transforms images on demand via Netlify Image CDN's /.netlify/images endpoint with query parameters for resizing/cropping/format/quality. Use when adding image optimization or responsive images, conve",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-image-cdn/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-image-cdn/SKILL.md",
-      "lines": 161,
-      "words": 1158,
-      "code_blocks": 6,
+      "lines": 181,
+      "words": 1234,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "js",
@@ -25371,12 +25371,12 @@
     },
     {
       "name": "netlify-edge-functions",
-      "description": "Write, configure, and deploy Netlify Edge Functions (Deno runtime at the network edge) in TypeScript/JavaScript. Use when adding request/response manipulation at the edge \u2014 auth middleware, geolocatio",
+      "description": "Write and configure Netlify Edge Functions \u2014 TypeScript/JavaScript handlers running in a Deno runtime at the network edge. Use when adding auth middleware or auth redirects, geolocation or localizatio",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-edge-functions/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-edge-functions/SKILL.md",
-      "lines": 267,
-      "words": 1967,
-      "code_blocks": 11,
+      "lines": 332,
+      "words": 2170,
+      "code_blocks": 15,
       "languages": [
         "bash",
         "toml",
@@ -25406,8 +25406,8 @@
       "description": "Create, configure, and manage Netlify deploys from code \u2014 reach for this when setting up Git continuous deployment, running netlify deploy or netlify deploy --prod from the CLI, writing netlify.toml d",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-deploy/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-deploy/SKILL.md",
-      "lines": 187,
-      "words": 1793,
+      "lines": 192,
+      "words": 1888,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -25469,11 +25469,11 @@
     },
     {
       "name": "netlify-blobs",
-      "description": "Store and retrieve unstructured data like file uploads, images, documents, JSON, and cache-like state with Netlify Blobs. It is a zero-config key/value store accessible from Functions, Edge Functions,",
+      "description": "Store and retrieve unstructured objects, files, and cache-like state on Netlify with the @netlify/blobs module. Use when persisting user file uploads (images/documents), caching computed output from f",
       "path": "netlify--context-and-tools/codex/skills/netlify-blobs/SKILL.md",
       "remote_path": "codex/skills/netlify-blobs/SKILL.md",
-      "lines": 227,
-      "words": 1901,
+      "lines": 256,
+      "words": 1781,
       "code_blocks": 16,
       "languages": [
         "sh",
@@ -25523,12 +25523,12 @@
     },
     {
       "name": "netlify-image-cdn",
-      "description": "Transform, resize, crop, reformat, and optimize images on demand via Netlify Image CDN's /.netlify/images endpoint. Use when adding responsive images, generating thumbnails, converting formats (avif/w",
+      "description": "Transforms images on demand via Netlify Image CDN's /.netlify/images endpoint with query parameters for resizing/cropping/format/quality. Use when adding image optimization or responsive images, conve",
       "path": "netlify--context-and-tools/codex/skills/netlify-image-cdn/SKILL.md",
       "remote_path": "codex/skills/netlify-image-cdn/SKILL.md",
-      "lines": 161,
-      "words": 1158,
-      "code_blocks": 6,
+      "lines": 181,
+      "words": 1234,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "js",
@@ -25591,12 +25591,12 @@
     },
     {
       "name": "netlify-edge-functions",
-      "description": "Write, configure, and deploy Netlify Edge Functions (Deno runtime at the network edge) in TypeScript/JavaScript. Use when adding request/response manipulation at the edge \u2014 auth middleware, geolocatio",
+      "description": "Write and configure Netlify Edge Functions \u2014 TypeScript/JavaScript handlers running in a Deno runtime at the network edge. Use when adding auth middleware or auth redirects, geolocation or localizatio",
       "path": "netlify--context-and-tools/codex/skills/netlify-edge-functions/SKILL.md",
       "remote_path": "codex/skills/netlify-edge-functions/SKILL.md",
-      "lines": 267,
-      "words": 1967,
-      "code_blocks": 11,
+      "lines": 332,
+      "words": 2170,
+      "code_blocks": 15,
       "languages": [
         "bash",
         "toml",
@@ -25626,8 +25626,8 @@
       "description": "Create, configure, and manage Netlify deploys from code \u2014 reach for this when setting up Git continuous deployment, running netlify deploy or netlify deploy --prod from the CLI, writing netlify.toml d",
       "path": "netlify--context-and-tools/codex/skills/netlify-deploy/SKILL.md",
       "remote_path": "codex/skills/netlify-deploy/SKILL.md",
-      "lines": 187,
-      "words": 1793,
+      "lines": 192,
+      "words": 1888,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -25679,11 +25679,11 @@
     },
     {
       "name": "netlify-blobs",
-      "description": "Store and retrieve unstructured data like file uploads, images, documents, JSON, and cache-like state with Netlify Blobs. It is a zero-config key/value store accessible from Functions, Edge Functions,",
+      "description": "Store and retrieve unstructured objects, files, and cache-like state on Netlify with the @netlify/blobs module. Use when persisting user file uploads (images/documents), caching computed output from f",
       "path": "netlify--context-and-tools/skills/netlify-blobs/SKILL.md",
       "remote_path": "skills/netlify-blobs/SKILL.md",
-      "lines": 227,
-      "words": 1901,
+      "lines": 256,
+      "words": 1781,
       "code_blocks": 16,
       "languages": [
         "sh",
@@ -25733,12 +25733,12 @@
     },
     {
       "name": "netlify-image-cdn",
-      "description": "Transform, resize, crop, reformat, and optimize images on demand via Netlify Image CDN's /.netlify/images endpoint. Use when adding responsive images, generating thumbnails, converting formats (avif/w",
+      "description": "Transforms images on demand via Netlify Image CDN's /.netlify/images endpoint with query parameters for resizing/cropping/format/quality. Use when adding image optimization or responsive images, conve",
       "path": "netlify--context-and-tools/skills/netlify-image-cdn/SKILL.md",
       "remote_path": "skills/netlify-image-cdn/SKILL.md",
-      "lines": 161,
-      "words": 1158,
-      "code_blocks": 6,
+      "lines": 181,
+      "words": 1234,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "js",
@@ -25801,12 +25801,12 @@
     },
     {
       "name": "netlify-edge-functions",
-      "description": "Write, configure, and deploy Netlify Edge Functions (Deno runtime at the network edge) in TypeScript/JavaScript. Use when adding request/response manipulation at the edge \u2014 auth middleware, geolocatio",
+      "description": "Write and configure Netlify Edge Functions \u2014 TypeScript/JavaScript handlers running in a Deno runtime at the network edge. Use when adding auth middleware or auth redirects, geolocation or localizatio",
       "path": "netlify--context-and-tools/skills/netlify-edge-functions/SKILL.md",
       "remote_path": "skills/netlify-edge-functions/SKILL.md",
-      "lines": 267,
-      "words": 1967,
-      "code_blocks": 11,
+      "lines": 332,
+      "words": 2170,
+      "code_blocks": 15,
       "languages": [
         "bash",
         "toml",
@@ -25836,8 +25836,8 @@
       "description": "Create, configure, and manage Netlify deploys from code \u2014 reach for this when setting up Git continuous deployment, running netlify deploy or netlify deploy --prod from the CLI, writing netlify.toml d",
       "path": "netlify--context-and-tools/skills/netlify-deploy/SKILL.md",
       "remote_path": "skills/netlify-deploy/SKILL.md",
-      "lines": 187,
-      "words": 1793,
+      "lines": 192,
+      "words": 1888,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -28896,7 +28896,7 @@
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/connect-recommend/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/connect-recommend/SKILL.md",
       "lines": 362,
-      "words": 3153,
+      "words": 3161,
       "code_blocks": 12,
       "languages": []
     },
@@ -29014,7 +29014,7 @@
       "path": "stripe--ai/providers/cursor/plugin/skills/connect-recommend/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/connect-recommend/SKILL.md",
       "lines": 362,
-      "words": 3153,
+      "words": 3161,
       "code_blocks": 12,
       "languages": []
     },
@@ -29132,7 +29132,7 @@
       "path": "stripe--ai/providers/codex/plugin/skills/connect-recommend/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/connect-recommend/SKILL.md",
       "lines": 362,
-      "words": 3153,
+      "words": 3161,
       "code_blocks": 12,
       "languages": []
     },
@@ -29260,7 +29260,7 @@
       "path": "stripe--ai/providers/claude/plugin/skills/connect-recommend/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/connect-recommend/SKILL.md",
       "lines": 362,
-      "words": 3153,
+      "words": 3161,
       "code_blocks": 12,
       "languages": []
     },
@@ -29388,7 +29388,7 @@
       "path": "stripe--ai/providers/grok/plugin/skills/connect-recommend/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/connect-recommend/SKILL.md",
       "lines": 362,
-      "words": 3153,
+      "words": 3161,
       "code_blocks": 12,
       "languages": []
     },
@@ -29506,7 +29506,7 @@
       "path": "stripe--ai/skills/connect-recommend/SKILL.md",
       "remote_path": "skills/connect-recommend/SKILL.md",
       "lines": 362,
-      "words": 3153,
+      "words": 3161,
       "code_blocks": 12,
       "languages": []
     },
@@ -29984,7 +29984,7 @@
       "path": "trailofbits--skills/plugins/culture-index/skills/interpreting-culture-index/SKILL.md",
       "remote_path": "plugins/culture-index/skills/interpreting-culture-index/SKILL.md",
       "lines": 331,
-      "words": 2033,
+      "words": 2071,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -30704,8 +30704,8 @@
       "description": ">-",
       "path": "trailofbits--skills/plugins/static-analysis/skills/semgrep/SKILL.md",
       "remote_path": "plugins/static-analysis/skills/semgrep/SKILL.md",
-      "lines": 272,
-      "words": 2124,
+      "lines": 274,
+      "words": 2147,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -157219,9 +157219,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/terraform-skill/SKILL.md",
       "remote_path": "terraform-skill/SKILL.md",
-      "lines": 292,
-      "words": 1835,
-      "code_blocks": 13,
+      "lines": 330,
+      "words": 2264,
+      "code_blocks": 14,
       "languages": [
         "bash",
         "caddy",
@@ -157626,8 +157626,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
-      "lines": 273,
-      "words": 4731,
+      "lines": 275,
+      "words": 4815,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -157905,8 +157905,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 344,
-      "words": 2721,
+      "lines": 346,
+      "words": 2810,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -158216,7 +158216,7 @@
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
       "lines": 418,
-      "words": 5695,
+      "words": 5710,
       "code_blocks": 0,
       "languages": []
     },
@@ -158306,8 +158306,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/pdf-creator/SKILL.md",
       "remote_path": "daymade-docs/pdf-creator/SKILL.md",
-      "lines": 247,
-      "words": 3626,
+      "lines": 248,
+      "words": 3687,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -158376,8 +158376,8 @@
       "description": "Overlay asset acquisition and identity disambiguation for meme-creator \u2014 how to source logos/avatars with transparency, the mandatory disambiguation gate before binding a name to an account or logo, a",
       "path": "daymade--claude-code-skills/meme-creator/references/asset-binding.md",
       "remote_path": "meme-creator/references/asset-binding.md",
-      "lines": 80,
-      "words": 681,
+      "lines": 83,
+      "words": 716,
       "code_blocks": 0,
       "languages": []
     },

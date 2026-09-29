@@ -58,6 +58,20 @@
 #      block completion, checked for v10, raw-claude and legacy; v10's own
 #      sealed Wall test file left in the tree never counts as that diff, but
 #      a real source change alongside it still does
+#  16. (D30) validate accepts tier:medium, rejects an unknown tier value; a
+#      task with no tier field defaults to small; --all --tier medium selects
+#      only the medium task
+#  17. (E-62/EV-8) v10 defaults to the repo's own bin/loki (never a global
+#      install) and the manifest records the resolved binary path plus the
+#      agent SDK version; v10 and legacy refuse (nonzero exit, no results
+#      row) when loki-ts/node_modules differs from bun.lock -- a stale
+#      installed version and a missing node_modules dir alike; raw-claude is
+#      not gated by loki-ts at all
+#  18. (D34) measure-size.py offline against the real tiered tasks -> rc=0;
+#      negative controls -> rc=1 each: a temp large fixture at 3 files / 149
+#      added lines (below both the 4-file and 150-line bars), a tiered task
+#      whose refdiff was removed (in a temp copy, real tasks untouched), and
+#      --online against an unreachable source
 #===============================================================================
 set -u
 
@@ -187,6 +201,9 @@ out="$(cd "$T/leak" && STUB_MODE=check bash "$STUB" 2>&1)"; rc=$?
 if [ "$rc" = 97 ] && printf '%s' "$out" | grep -q "HIDDEN LEAK"; then pass "stub fails loudly on a visible hidden file"; else fail "leak control rc=$rc out=$out"; fi
 
 export LOKI_EVAL_CLAUDE_BIN="$T/bin/claude-stub" LOKI_EVAL_LOKI_BIN="$T/bin/loki-stub"
+# E-101: keep the durable-archive writes this fixture triggers out of the
+# real repo and the operator's real $HOME/loki-ci-logs.
+export LOKI_EVAL_ARCHIVE_REPO_ROOT="$T/archive-repo-root" LOKI_EVAL_ARCHIVE="$T/archive-ext"
 
 # ---- 3. pass
 R="$T/out-pass"
@@ -480,6 +497,67 @@ case "$c" in *-dirty\" | null | "") cok=0 ;; *) cok=1 ;; esac
 case "$d" in *-dirty\") dok=1 ;; *) dok=0 ;; esac
 [ "$cok" = 1 ] && [ "$dok" = 1 ] && pass "Ri: harness_sha clean=$c dirty=$d" || fail "Ri: clean=$c dirty=$d"
 
+# ---- 17. (E-62/EV-8) v10 arm binary default + loki-ts lockfile refusal.
+# Reuses the Ri minirepo M (harness.py resolves REPO as its own two-parents-up,
+# so M is "the repo" for a run through M/eval/loki10/run.sh) with its own
+# bin/loki stub and a minimal loki-ts/{bun.lock,node_modules}, so this never
+# touches the real loki-ts or invokes the real claude/loki.
+mkdir -p "$M/bin"
+ln -s "$STUB" "$M/bin/loki"
+mkdir -p "$M/loki-ts/node_modules/fake-pinned-dep"
+cat > "$M/loki-ts/bun.lock" <<'EOF'
+{
+  "lockfileVersion": 1,
+  "workspaces": { "": { "dependencies": { "fake-pinned-dep": "1.2.3" } } },
+  "packages": { "fake-pinned-dep": ["fake-pinned-dep@1.2.3", "", {}, ""] }
+}
+EOF
+set_dep_version() { echo "{\"name\":\"fake-pinned-dep\",\"version\":\"$1\"}" > "$M/loki-ts/node_modules/fake-pinned-dep/package.json"; }
+set_dep_version 1.2.3
+MRUN_NOBIN() { env -u LOKI_EVAL_LOKI_BIN -u LOKI_RUN_TMP LOKI_EVAL_TASKS_DIR="$TASKS" bash "$M/eval/loki10/run.sh" "$@"; }
+
+R="$T/out-mini-v10bin"
+MRUN_NOBIN --arm v10 --task fx-greet --out "$R" >/dev/null 2>&1
+got="$(python3 -c 'import json,sys; print([json.loads(l) for l in open(sys.argv[1])][-1]["arm_binary"])' "$R/manifest.jsonl" 2>/dev/null)"
+[ "$got" = "$M/bin/loki" ] && pass "E-62: v10 arm defaults to the repo's own bin/loki, not a global install" \
+    || fail "E-62: arm_binary=$got"
+has_sdk="$(python3 -c 'import json,sys; print("agent_sdk_version" in [json.loads(l) for l in open(sys.argv[1])][-1])' "$R/manifest.jsonl" 2>/dev/null)"
+[ "$has_sdk" = True ] && pass "E-62: manifest records agent_sdk_version" \
+    || fail "E-62: manifest missing agent_sdk_version: $(cat "$R/manifest.jsonl" 2>/dev/null)"
+
+# A node_modules version that does not match bun.lock's resolved version -> refused.
+set_dep_version 9.9.9
+R="$T/out-mini-lockmismatch"
+out="$(MRUN_NOBIN --arm v10 --task fx-greet --out "$R" 2>&1)"; rc=$?
+[ "$rc" != 0 ] && [ ! -s "$R/results.jsonl" ] && printf '%s' "$out" | grep -q "node_modules differs from bun.lock" \
+    && pass "E-62: v10 refuses when loki-ts/node_modules differs from bun.lock" \
+    || fail "E-62: lockfile mismatch rc=$rc out=$out"
+set_dep_version 1.2.3
+
+# node_modules missing entirely -> also refused, for both loki arms.
+rm -rf "$M/loki-ts/node_modules"
+R="$T/out-mini-nomodules"
+out="$(MRUN_NOBIN --arm v10 --task fx-greet --out "$R" 2>&1)"; rc=$?
+[ "$rc" != 0 ] && [ ! -s "$R/results.jsonl" ] && printf '%s' "$out" | grep -q "node_modules is missing" \
+    && pass "E-62: v10 refuses when loki-ts/node_modules is missing" \
+    || fail "E-62: missing node_modules rc=$rc out=$out"
+R="$T/out-mini-legacy-nomodules"
+out="$(MRUN_NOBIN --arm legacy --task fx-greet --out "$R" 2>&1)"; rc=$?
+[ "$rc" != 0 ] && printf '%s' "$out" | grep -q "node_modules is missing" \
+    && pass "E-62: legacy arm also refuses on a missing loki-ts/node_modules" \
+    || fail "E-62: legacy missing node_modules rc=$rc out=$out"
+mkdir -p "$M/loki-ts/node_modules/fake-pinned-dep"
+set_dep_version 1.2.3
+
+# raw-claude never touches loki-ts, so it is never gated by this check.
+rm -rf "$M/loki-ts/node_modules"
+R="$T/out-mini-rawclaude-lockcheck"
+STUB_MODE=noop MRUN_NOBIN --arm raw-claude --task fx-greet --out "$R" >/dev/null 2>&1
+[ -s "$R/results.jsonl" ] && pass "E-62: raw-claude arm is not gated by the loki-ts lockfile check" \
+    || fail "E-62: raw-claude row missing: $(cat "$R/results.jsonl" 2>/dev/null)"
+mkdir -p "$M/loki-ts/node_modules/fake-pinned-dep"
+set_dep_version 1.2.3
+
 # ---- 9. --all --parallel
 R="$T/out-all"
 mkdir -p "$T/tasks-all"
@@ -735,6 +813,109 @@ J="$R/results.jsonl"
 [ "$(row "$J" no_source_diff)" = false ] && [ "$(row "$J" completed)" = false ] \
     && pass "EV-13 v10: a receipt naming a real edit as a Wall file does not exclude it" \
     || fail "EV-13 v10 fakewall row: $(tail -1 "$J")"
+# ---- 16. (D30) tier field: validate + --tier selection
+bad_case tier_bogus "t['tier']='bogus'"
+seed_task fx-medium fx-greet "t['tier']='medium'" ":"
+if H validate "$TASKS/fx-medium" >/dev/null 2>&1; then pass "validator accepts tier:medium"; else fail "validator rejected tier:medium"; fi
+if H validate "$TASKS/fx-greet" >/dev/null 2>&1; then pass "validator accepts a task with no tier (defaults small)"; else fail "validator rejected a tierless task"; fi
+
+R="$T/out-tier"
+mkdir -p "$T/tasks-tier"
+cp -R "$TASKS/fx-greet" "$TASKS/fx-medium" "$T/tasks-tier/"
+STUB_MODE=noop env -u LOKI_RUN_TMP LOKI_EVAL_TASKS_DIR="$T/tasks-tier" bash "$HERE/run.sh" \
+    --arm raw-claude --all --tier medium --out "$R" >/dev/null 2>&1
+got="$(python3 -c 'import json,sys; print(",".join(sorted(json.loads(l)["task"] for l in open(sys.argv[1]))))' "$R/results.jsonl" 2>/dev/null)"
+[ "$got" = "fx-medium" ] && pass "D30: --all --tier medium selects only the medium task" || fail "D30: --tier rows='$got'"
+
+# An invalid tier value must fail loudly under --tier selection, never be
+# silently dropped and shrink the run (E-38 contract). A valid medium task
+# sits alongside fx-bad so a selection filter that drops fx-bad (tier=None
+# no longer matching) still has fx-good to run on and would exit 0, not 2:
+# without this second task, `not tasks` alone would return 2 and mask a
+# reverted fix (found in EV-11 review).
+mkdir -p "$T/tasks-tier-bad" && cp -R "$TASKS/fx-medium" "$T/tasks-tier-bad/fx-bad"
+python3 -c "import json; p='$T/tasks-tier-bad/fx-bad/task.json'; t=json.load(open(p)); t['id']='fx-bad'; t['tier']='Medium'; json.dump(t, open(p,'w'))"
+cp -R "$TASKS/fx-medium" "$T/tasks-tier-bad/fx-good"
+python3 -c "import json; p='$T/tasks-tier-bad/fx-good/task.json'; t=json.load(open(p)); t['id']='fx-good'; json.dump(t, open(p,'w'))"
+STUB_MODE=noop env -u LOKI_RUN_TMP LOKI_EVAL_TASKS_DIR="$T/tasks-tier-bad" bash "$HERE/run.sh" \
+    --arm raw-claude --all --tier medium --out "$T/out-tier-bad" >/dev/null 2>&1
+rc=$?
+[ "$rc" = 2 ] && pass "D30: --tier medium exits 2 on a task with an invalid tier value, not a silent drop" \
+    || fail "D30: bad-tier rc=$rc"
+
+# ---- 18. (D34) measure-size.py: real-task offline pass + negative controls
+MS="$REPO_ROOT/eval/loki10/measure-size.py"
+
+python3 "$MS" >"$T/ms-real.out" 2>&1
+rc=$?
+[ "$rc" = 0 ] && pass "D34: measure-size.py offline passes on the real tiered tasks" \
+    || fail "D34: measure-size.py offline rc=$rc: $(cat "$T/ms-real.out")"
+grep -E -q "^pub-attrs-1313[[:space:]]+medium[[:space:]]+4[[:space:]]+74[[:space:]]+OK" "$T/ms-real.out" \
+    && pass "D34: pub-attrs-1313 reads 4 files, 74 lines, OK" \
+    || fail "D34: pub-attrs-1313 row missing/wrong: $(cat "$T/ms-real.out")"
+
+# fake_diff PATH N1 N2 [N3]: write a synthetic filtered diff with one block
+# per size, each block a single-file addition of that many '+' lines.
+fake_diff() {
+    local path="$1"; shift
+    python3 - "$path" "$@" <<'PY'
+import sys
+def block(idx, n):
+    p = "m%d.py" % idx
+    out = ["diff --git a/%s b/%s\n" % (p, p), "--- a/%s\n" % p, "+++ b/%s\n" % p,
+           "@@ -1,1 +1,%d @@\n" % (n + 1), " a\n"]
+    out += ["+x%d\n" % i for i in range(n)]
+    return "".join(out)
+out_path, sizes = sys.argv[1], [int(s) for s in sys.argv[2:]]
+with open(out_path, "w") as f:
+    for i, n in enumerate(sizes):
+        f.write(block(i, n))
+PY
+}
+
+# Negative control A: a large-tier fixture at 3 files / 149 added lines --
+# below both the >=4-file and >=150-line D34 bars, must MISS (rc=1).
+mkdir -p "$T/ms-large/tasks/fake-large" "$T/ms-large/refdiff"
+cat > "$T/ms-large/tasks/fake-large/task.json" <<'JSON'
+{"id": "fake-large", "tier": "large", "repo": {"source": "https://example.invalid/nope.git", "ref": "deadbeef"}}
+JSON
+fake_diff "$T/ms-large/refdiff/fake-large.diff" 50 50 49
+python3 "$MS" --tasks-dir "$T/ms-large/tasks" --refdiff-dir "$T/ms-large/refdiff" >"$T/ms-large.out" 2>&1
+rc=$?
+[ "$rc" = 1 ] && pass "D34: 3 files / 149 lines below the large bar -> rc=1" \
+    || fail "D34: large-fixture rc=$rc: $(cat "$T/ms-large.out")"
+
+# Negative control B: a tiered task with its refdiff removed, in a temp copy
+# (the real tasks/refdiff dirs are never touched).
+mkdir -p "$T/ms-norefdiff/tasks" "$T/ms-norefdiff/refdiff"
+cp -R "$REPO_ROOT/eval/loki10/tasks/pub-attrs-1313" "$T/ms-norefdiff/tasks/"
+python3 "$MS" --tasks-dir "$T/ms-norefdiff/tasks" --refdiff-dir "$T/ms-norefdiff/refdiff" >"$T/ms-norefdiff.out" 2>&1
+rc=$?
+[ "$rc" = 1 ] && grep -q "missing refdiff" "$T/ms-norefdiff.out" \
+    && pass "D34: tiered task with no refdiff -> rc=1" \
+    || fail "D34: no-refdiff rc=$rc: $(cat "$T/ms-norefdiff.out")"
+
+# Negative control C: --online against an unreachable source -> rc=1. A
+# nonexistent local path (never DNS) so this is hermetic and fast rather
+# than at the mercy of a resolver; measure-size.py's own GIT_TIMEOUT_S
+# bounds the git subprocess, so no bash-level timeout wrapper is needed
+# (and none is assumed installed). Two 1-line files so the task is
+# offline-OK on its own (files>=2); the only way this can miss is the
+# online fetch itself.
+mkdir -p "$T/ms-unreachable/tasks/fake-task" "$T/ms-unreachable/refdiff"
+cat > "$T/ms-unreachable/tasks/fake-task/task.json" <<JSON
+{"id": "fake-task", "tier": "medium", "repo": {"source": "$T/no-such-repo", "ref": "deadbeef"}}
+JSON
+cat > "$T/ms-unreachable/tasks/fake-task/NOTES.md" <<'NOTES'
+- merge_sha: cafef00d
+NOTES
+fake_diff "$T/ms-unreachable/refdiff/fake-task.diff" 1 1
+python3 "$MS" --online --tasks-dir "$T/ms-unreachable/tasks" --refdiff-dir "$T/ms-unreachable/refdiff" \
+    >"$T/ms-unreachable.out" 2>&1
+rc=$?
+[ "$rc" = 1 ] && grep -q "online fetch failed" "$T/ms-unreachable.out" \
+    && pass "D34: --online against an unreachable source -> rc=1" \
+    || fail "D34: unreachable-source rc=$rc: $(cat "$T/ms-unreachable.out")"
 
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

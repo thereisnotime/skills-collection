@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { consumeSdkStream, type StreamMsg } from "../../src/runner/sdk_stream_parser.ts";
+import { partialUsagePath, recordPartialStreamCost } from "../../src/runner/budget.ts";
 
 let scratch: string;
 const FIXED = "2026-07-13T00:00:00.000Z";
@@ -252,6 +253,28 @@ describe("consumeSdkStream (.loki parity with the bash Python parser)", () => {
       cache_read_tokens: 800,
       cache_creation_tokens: 100,
     });
+  });
+
+  test("S41-04: first_turn_prompt_tokens is the FIRST assistant message's sum, not the total", async () => {
+    const msgs: StreamMsg[] = [
+      // Turn 1 (the first-turn prefix): a streamed snapshot that grows, same id.
+      { type: "assistant", message: { id: "m1", usage: { input_tokens: 10, cache_read_input_tokens: 900, cache_creation_input_tokens: 50 }, content: [] } },
+      { type: "assistant", message: { id: "m1", usage: { input_tokens: 10, cache_read_input_tokens: 1000, cache_creation_input_tokens: 50 }, content: [] } },
+      // Turn 2: a different message id -- must NOT be folded into the first-turn sum.
+      { type: "assistant", message: { id: "m2", usage: { input_tokens: 5, cache_read_input_tokens: 2000, cache_creation_input_tokens: 0 }, content: [] } },
+      { type: "result", subtype: "success", is_error: false, total_cost_usd: 0.05, usage: { input_tokens: 15, output_tokens: 20, cache_read_input_tokens: 3000, cache_creation_input_tokens: 50 } },
+    ];
+    await consumeSdkStream(msgs, ctx("12"), clock);
+    const cost = readJson(costPath("12"));
+    // Turn 1's final snapshot: 10 + 1000 + 50 = 1060. The naive total across
+    // all messages (1060 + 2005, or the result's own 3065) must NOT appear.
+    expect(cost.first_turn_prompt_tokens).toBe(1060);
+  });
+
+  test("S41-04: no assistant message before result -> no first_turn_prompt_tokens key (never fabricated)", async () => {
+    const msgs: StreamMsg[] = [{ type: "result", subtype: "success", is_error: false, total_cost_usd: 0.01, usage: {} }];
+    await consumeSdkStream(msgs, ctx("13"), clock);
+    expect("first_turn_prompt_tokens" in readJson(costPath("13"))).toBe(false);
   });
 
   test("E-59: system/init's model is written into result-cost, never the caller's guess", async () => {
@@ -524,5 +547,33 @@ describe("consumeSdkStream: T3(a) full-shape SDK message replay (loop-flip gate)
     const r = await consumeSdkStream(msgs, ctx("8"), clock);
     expect(r.sawResult).toBe(true);
     expect(r.exitCode).not.toBe(0); // an error result must never be counted as success
+  });
+
+  // E-98e: a Wall-killed session never gets a `result` message, so
+  // writeResultCost never fires (MEDIUM-ANALYSIS.md section 4: "cost wall
+  // usd=None ... in=0 out=0" on every killed row). This drives the real
+  // consumeSdkStream with a stream that ends after 2 assistant messages --
+  // no result, exactly what a limitS kill produces -- then runs the real
+  // recordPartialStreamCost session.ts calls in that branch.
+  test("E-98e: two streamed messages, then killed (no result) -- usage is still recoverable", async () => {
+    const msgs: StreamMsg[] = [
+      { type: "system", subtype: "init", model: "sonnet" },
+      // First snapshot of message m1: a streamed usage snapshot grows as it fills in.
+      { type: "assistant", message: { id: "m1", usage: { input_tokens: 500_000, output_tokens: 0 }, content: [] } },
+      // Same id, later snapshot: dedupe must keep the max per field, not sum the two.
+      { type: "assistant", message: { id: "m1", usage: { input_tokens: 1_000_000, output_tokens: 0 }, content: [] } },
+      // A second, distinct message.
+      { type: "assistant", message: { id: "m2", usage: { input_tokens: 0, output_tokens: 1_000_000 }, content: [] } },
+    ];
+    const r = await consumeSdkStream(msgs, ctx("9"), clock);
+    expect(r.sawResult).toBe(false); // killed: the stream just ends
+    expect(existsSync(join(scratch, ".loki", "metrics", "result-cost-9.json"))).toBe(false); // the pre-fix null case
+
+    const partial = readJson(partialUsagePath(join(scratch, ".loki"), "9"));
+    expect(partial).toEqual({ input_tokens: 1_000_000, output_tokens: 1_000_000, cache_read_tokens: 0, cache_creation_tokens: 0, model: "sonnet" });
+
+    const c = recordPartialStreamCost(join(scratch, ".loki"), "9", { status: "killed", durationMs: 90_000, model: "sonnet" });
+    expect(c.usd).toBe(18); // 1M input @ $3/M + 1M output @ $15/M (data/model-pricing.json "sonnet")
+    expect(c.source).not.toBe("");
   });
 });

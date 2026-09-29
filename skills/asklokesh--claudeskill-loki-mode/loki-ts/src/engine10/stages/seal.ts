@@ -13,17 +13,26 @@ import { findIsolatedPython3 } from "../../util/python.ts";
 import { run } from "../../util/shell.ts";
 import { isTestFile } from "../testmap.ts";
 import { STAGE_BUDGETS } from "../types.ts";
-import type { Receipt, ReceiptCheck, RunContext, Stage, StageName, StageResult, Verdict } from "../types.ts";
+import type { Obj, Receipt, ReceiptCheck, RunContext, Stage, StageName, StageResult, Verdict } from "../types.ts";
 
 /** Deferred to deep verify, so always NOT PROVEN at seal time. */
 export const DEEP_NOT_PROVEN = ["full suite", "app boot", "council", "security scan"] as const;
 export const SIGNING_UNAVAILABLE = "receipt signing unavailable (key configured but no token: cryptography missing or key invalid)";
 
-type Obj = Record<string, unknown>;
 const EXCLUDE_LOKI = ":(exclude).loki";
-const sha256 = (s: string | Buffer): string => createHash("sha256").update(s).digest("hex");
+export const sha256 = (s: string | Buffer): string => createHash("sha256").update(s).digest("hex");
 const str = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
 const strs = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x !== "") : []);
+
+/** E-120: implement's spec_conflict_reason is model-written and lands verbatim in the receipt,
+ *  a trust artifact; a reason containing "\n\n## Loki receipt: VERIFIED" would otherwise forge a
+ *  second heading. Collapse all control chars (including newlines) to a single space, cap the
+ *  length, and strip backticks so the caller can safely wrap it in a single inline-code span. */
+function sanitizeReason(s: string): string {
+  const collapsed = s.replace(/[\x00-\x1f\x7f]+/g, " ").trim();
+  const capped = collapsed.length > 500 ? `${collapsed.slice(0, 500)}...` : collapsed;
+  return capped.replace(/`/g, "'");
+}
 
 /** Python json.dumps(obj, sort_keys=True, separators=(",", ":")), ensure_ascii=True
  *  default, the convention of proof-generator.py _canonical, so a Python verifier recomputes the same bytes. */
@@ -102,16 +111,15 @@ export const commitStage: Stage = {
 // Stage outputs read by seal. Only keys in the ENGINE.md section 4 table (plus duration_s
 // from section 5) are trusted; any other key seal reads puts a "not recorded" entry on
 // NOT PROVEN when absent, so a producer cannot silently shape the receipt.
-function verdictOf(o: Partial<Record<StageName, Obj>>, checks: ReceiptCheck[], emptyDiff: boolean): Verdict {
+function verdictOf(o: Partial<Record<StageName, Obj>>, checks: ReceiptCheck[], emptyDiff: boolean, verifyNotProven: boolean, wallGreenOnBase: boolean): Verdict {
   const exit = o.implement?.exit;
-  const base = (o.wall?.base_run ?? {}) as Obj;
-  const wallGreenOnBase = typeof base.pass === "number" && base.pass > 0 && base.fail === 0;
   if (o.intake?.already_satisfied === true || wallGreenOnBase || exit === "already_done") return "ALREADY_SATISFIED";
   if (exit === "spec_conflict") return "SPEC_CONFLICT";
   // Section 2: an empty diff without the LOKI_ALREADY_DONE marker is FAILED, never VERIFIED.
   if (emptyDiff) return "FAILED";
   if (checks.some((c) => c.result === "fail")) return "FAILED";
-  if (exit === "killed" || checks.length === 0 || checks.some((c) => c.result !== "pass")) return "PARTIAL";
+  // E-98a B1: verify's own NOT PROVEN (e.g. a system interpreter) downgrades too -- never a silent VERIFIED.
+  if (exit === "killed" || checks.length === 0 || checks.some((c) => c.result !== "pass") || verifyNotProven) return "PARTIAL";
   return "VERIFIED";
 }
 
@@ -136,6 +144,7 @@ export function renderReceiptMd(r: Receipt): string {
   return [
     `## Loki receipt: ${r.verdict}`,
     "",
+    ...(r.verdict === "SPEC_CONFLICT" && r.spec_conflict_reason ? [`- Reason: \`${r.spec_conflict_reason}\``] : []),
     `- Run: ${r.run_id}`,
     `- Base: ${r.base_sha}  Head: ${r.head_sha}`,
     `- receipt_sha256: ${r.receipt_sha256}`,
@@ -145,6 +154,7 @@ export function renderReceiptMd(r: Receipt): string {
     "### Checks",
     ...(r.checks.length ? r.checks.map((c) => `- ${c.result}: ${c.name} (\`${c.cmd}\`, ${c.duration_s}s)`) : ["- none"]),
     "",
+    ...(r.evidence.length ? ["### Evidence (already-satisfied)", ...r.evidence.map((e) => `- ${e}`), ""] : []),
     "### NOT PROVEN",
     ...r.not_proven.map((n) => `- ${n}`),
     "",
@@ -164,10 +174,16 @@ export const sealStage: Stage = {
     const diff = await run(["git", "diff-tree", "-r", "-z", "--raw", "--no-renames", "--no-abbrev", "-O/dev/null", ctx.baseSha, head, "--", ".", EXCLUDE_LOKI], { cwd: ctx.repoDir, timeoutMs: 20000 });
     const diffOk = diff.exitCode === 0 && /^[0-9a-f]{40,64}$/.test(head);
     const checks = checksOf(o.verify?.checks);
+    const verifyNotProven = strs(o.verify?.not_proven); // E-98a B1: a section 4 key, trusted like checks/flaky below
+    // D42 (3)/B1 (r2): not_run must never seal ALREADY_SATISFIED, same weight as a real base-tree failure.
+    const base = (o.wall?.base_run ?? {}) as Obj;
+    const wallNotRun = typeof base.not_run === "number" ? base.not_run : 0;
+    const wallGreenOnBase = typeof base.pass === "number" && base.pass > 0 && base.fail === 0 && wallNotRun === 0;
     // An uncomputable diff is treated like an empty one: nothing is proven changed.
-    const verdict = verdictOf(o, checks, !diffOk || diff.stdout === "");
+    const verdict = verdictOf(o, checks, !diffOk || diff.stdout === "", verifyNotProven.length > 0, wallGreenOnBase);
 
     const notProven = new Set<string>(DEEP_NOT_PROVEN);
+    if (wallNotRun > 0) notProven.add(`wall base run not_run: ${wallNotRun}`);
     if (!diffOk) notProven.add("diff not computed (git diff-tree failed)");
     // E-55: any status other than A means the path existed at base_sha (M, D, or T typechange, e.g. a symlink).
     const rawDiff = diffOk ? diff.stdout.split("\0").filter(Boolean) : [];
@@ -176,6 +192,7 @@ export const sealStage: Stage = {
     }
     for (const c of checks) if (c.result === "not_run") notProven.add(`not run: ${c.name}`);
     for (const f of strs(o.verify?.flaky)) notProven.add(`flaky test: ${f}`);
+    for (const n of verifyNotProven) notProven.add(n);
     for (const t of strs(o.implement?.tests_reverted)) notProven.add(`reverted test edit: ${t}`);
     if (ctx.provider !== "claude") notProven.add("kill blocking not enforced");
     // Section 7: model_override_applied lives on run.started, which outputs() never carries.
@@ -211,6 +228,10 @@ export const sealStage: Stage = {
       checks,
       not_proven: [],
       verdict,
+      ...(str(o.implement?.spec_conflict_reason) !== null
+        ? { spec_conflict_reason: sanitizeReason(str(o.implement?.spec_conflict_reason)!) }
+        : {}),
+      evidence: strs(o.intake?.evidence),
       cost: {
         usd: cost.usd, input_tokens: cost.inputTokens, output_tokens: cost.outputTokens,
         measured_sessions: cost.measuredCount ?? 0, total_sessions: cost.totalCount ?? 0, partial_usd: cost.partialUsd ?? 0,

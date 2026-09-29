@@ -191,6 +191,9 @@ lead with the directive — match the length and tone of the bullets already in
 `SKILL.md`. Drop intensifiers like "strong" or "powerful"; let the rule stand on
 its own.
 
+Quote or backtick example vocabulary in changelog entries and docs; the self-scan
+exempts quoted spans, inline code, code blocks, tables, and blockquotes.
+
 ## Changelog and versioning
 
 Add an entry under `## [Unreleased]` in `CHANGELOG.md` when a change affects

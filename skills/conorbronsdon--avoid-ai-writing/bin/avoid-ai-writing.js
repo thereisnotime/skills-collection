@@ -128,13 +128,6 @@ function main(argv) {
     sourceMode: parsed.sourceMode,
   });
 
-  // analyzeText() returns an empty stats object for empty input. Surface the
-  // selected modes anyway so the CLI's option contract holds in every case.
-  if (result.stats && Object.keys(result.stats).length === 0) {
-    result.stats.contextMode = parsed.context;
-    result.stats.sourceMode = parsed.sourceMode;
-  }
-
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   return 0;
 }

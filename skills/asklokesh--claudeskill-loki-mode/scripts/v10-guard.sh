@@ -16,7 +16,7 @@
 #     guard is supposed to make. Silence + exit 0 is the least-privilege
 #     no-op.
 #
-# Six rules, any match blocks (exit 2) naming the rule. Everything else
+# Seven rules, any match blocks (exit 2) naming the rule. Everything else
 # passes through untouched.
 #   1. Process-kill-by-pattern: pkill, killall, `kill` fed a
 #      pgrep/pkill/pidof/lsof/ps-derived target, or `xargs kill`/`xargs
@@ -29,6 +29,11 @@
 #      and `--force-with-lease=...`), or `git reset --hard` specifically on
 #      branch `main`. `-C`/`--git-dir=`/`--work-tree=` on the invocation
 #      itself (not just a preceding `cd`) are resolved to the real repo root.
+#      Also blocked, regardless of which branch is currently checked out
+#      (these move `main` without ever checking it out): `git branch -f
+#      main <ref>` / `git branch --force main <ref>`, `git update-ref
+#      refs/heads/main <ref>`, `git checkout -B main <ref>`, `git switch -C
+#      main <ref>`. `git branch -f <other-branch> <ref>` stays allowed.
 #   3. `git commit` where the result would drop a slice row that HEAD
 #      already has, or where BOARD.md would be missing from the index
 #      (staged delete/rename, including one queued by a `git rm`/`git mv` in
@@ -47,6 +52,11 @@
 #   6. `git add -A`/`--all`/`.`/`:/ ` (or a combined short flag containing
 #      `-A`), and the same for `git stage`: stage files individually by
 #      name instead (CLAUDE.md mandate).
+#   7. `git checkout <anything> -- .` / `-- :/`, bare `git checkout .` (no
+#      ref, no `--`), and `git restore --source=<ref> .` / `-s <ref> .` --
+#      these silently overwrite every tracked file in the shared tree. Only
+#      when the resolved repo root is NOT under .claude/worktrees/; a
+#      single-file `git checkout -- <file>` stays allowed everywhere.
 #
 # Wrappers (env/exec/nohup/time/sudo/nice/timeout/command) and shell control
 # keywords (do/then/else/elif/{/!) are skipped to find the real command.
@@ -683,6 +693,19 @@ def current_branch(repo_cwd):
 FORCE_PREFIX = "--force"
 
 
+def _is_force_flag(a):
+    if a in ("-f", "--force"):
+        return True
+    return a.startswith("-") and not a.startswith("--") and "f" in a[1:]
+
+
+def _first_nonflag(args):
+    for a in args:
+        if not a.startswith("-"):
+            return a
+    return None
+
+
 def rule2_git_force(words, name, idx, git_info):
     if name != "git" or git_info is None:
         return None
@@ -702,6 +725,50 @@ def rule2_git_force(words, name, idx, git_info):
         branch = current_branch(repo_root)
         if branch == "main":
             return "RULE2 (git reset --hard on main): current branch is 'main' (repo {})".format(repo_root)
+
+    # Moving `main` WITHOUT ever checking it out slips past the reset
+    # --hard check above (that one only fires when `main` IS the current
+    # branch). These forms move/replace the `main` ref directly, from any
+    # branch, and are refused unconditionally.
+    if sub == "branch" and any(_is_force_flag(a) for a in args) and _first_nonflag(args) == "main":
+        repo_root = resolve_repo_root(repo_cwd, git_dir_override)
+        return "RULE2 (git branch -f main): force-moves 'main' without a checkout (repo {})".format(repo_root)
+
+    if sub == "update-ref":
+        # `--stdin` reads the actual ref updates from stdin, which this
+        # guard never sees -- the command line alone cannot tell us
+        # whether `refs/heads/main` is among them. Fail-safe: refuse
+        # rather than silently allow what can't be verified.
+        if "--stdin" in args:
+            repo_root = resolve_repo_root(repo_cwd, git_dir_override)
+            return "RULE2 (git update-ref --stdin): ref updates read from stdin can't be verified (repo {})".format(repo_root)
+        # Target ref is the first non-option arg, skipping `-m <reason>`'s
+        # value (the only update-ref flag that takes one) -- NOT a bare
+        # membership check: that wrongly matched `refs/heads/main` used as
+        # the SOURCE ref in `update-ref refs/heads/other refs/heads/main`,
+        # or as a `-m` reason string, neither of which moves main.
+        target = None
+        i = 0
+        while i < len(args):
+            a = args[i]
+            if a == "-m":
+                i += 2
+                continue
+            if a.startswith("-"):
+                i += 1
+                continue
+            target = a
+            break
+        if target == "refs/heads/main":
+            repo_root = resolve_repo_root(repo_cwd, git_dir_override)
+            return "RULE2 (git update-ref refs/heads/main): moves 'main' without a checkout (repo {})".format(repo_root)
+
+    if sub in ("checkout", "switch"):
+        move_flags = ("-B",) if sub == "checkout" else ("-C", "--force-create")
+        for i, a in enumerate(args):
+            if a in move_flags and i + 1 < len(args) and args[i + 1] == "main":
+                repo_root = resolve_repo_root(repo_cwd, git_dir_override)
+                return "RULE2 (git {} {} main): force-resets 'main' without a review (repo {})".format(sub, a, repo_root)
     return None
 
 
@@ -999,6 +1066,72 @@ def rule6_git_add_blanket(words, name, idx, git_info):
 
 
 # ---------------------------------------------------------------------
+# Rule 7: `git checkout`/`git restore` forms that overwrite every tracked
+# file in the shared tree of the MAIN checkout -- a read-only reviewer ran
+# `git checkout slice-X -- .` then `git checkout main -- .` there and
+# silently clobbered the working tree for everyone. Blocked, only when the
+# resolved repo root is NOT under .claude/worktrees/:
+#   git checkout <anything> -- .    git checkout <anything> -- :/
+#   git checkout .  (no ref, no --)
+#   git restore --source=<ref> .    git restore -s <ref> .
+# Allowed: the same forms inside a .claude/worktrees/* checkout, and a
+# single-file `git checkout -- <file>`.
+# ---------------------------------------------------------------------
+def is_worktree_repo(repo_root):
+    return "/.claude/worktrees/" in (repo_root.rstrip("/") + "/")
+
+
+def rule7_checkout_restore_wipe(words, name, idx, git_info):
+    if name != "git" or git_info is None:
+        return None
+    sub, args_idx, repo_cwd, git_dir_override = git_info
+    if sub not in ("checkout", "restore"):
+        return None
+    args = words[args_idx:]
+
+    if sub == "checkout":
+        if "--" in args:
+            sep = args.index("--")
+            pathspecs = args[sep + 1:]
+            if not any(a in (".", ":/") for a in pathspecs):
+                return None
+        else:
+            nonflag = [a for a in args if not a.startswith("-")]
+            if nonflag != ["."]:
+                return None
+    else:  # restore
+        has_source = False
+        targets = []
+        i = 0
+        while i < len(args):
+            a = args[i]
+            if a in ("-s", "--source"):
+                has_source = True
+                i += 2
+                continue
+            if a.startswith("--source="):
+                has_source = True
+                i += 1
+                continue
+            if a.startswith("-"):
+                i += 1
+                continue
+            targets.append(a)
+            i += 1
+        if not (has_source and "." in targets):
+            return None
+
+    repo_root = resolve_repo_root(repo_cwd, git_dir_override)
+    if is_worktree_repo(repo_root):
+        return None
+    return (
+        "RULE7 (git {sub} wipes the shared tree): overwrites every tracked file in the main "
+        "checkout (repo {root}); use 'git show <ref>:<path>' into the scratchpad, or "
+        "'git worktree add', instead"
+    ).format(sub=sub, root=repo_root)
+
+
+# ---------------------------------------------------------------------
 # Evaluate all rules across all segments, tracking `cd` and a set of repos
 # with a pending BOARD.md change live as we go -- a later `cd`/`git rm`/
 # write must never affect a segment that runs BEFORE it in the command,
@@ -1072,6 +1205,11 @@ for i, words in enumerate(segs):
         raise SystemExit(0)
 
     r = rule6_git_add_blanket(words, name, idx, git_info)
+    if r:
+        print(r)
+        raise SystemExit(0)
+
+    r = rule7_checkout_restore_wipe(words, name, idx, git_info)
     if r:
         print(r)
         raise SystemExit(0)

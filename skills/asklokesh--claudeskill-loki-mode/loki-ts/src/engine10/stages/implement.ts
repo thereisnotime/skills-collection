@@ -1,19 +1,22 @@
 // E-08: Implement (ENGINE.md 4, 16). One session; the brief marks Wall tests read-only, names only the impacted tests. Afterwards any changed read-only file is restored (tests_reverted) and the exit is classified.
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { relative } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { cascadeEnabled, cascadeImplementModel, loadRepoMap, namedFiles, repoMapText } from "../sizing.ts";
+import { classifyExitCause } from "../session.ts"; // E-68 reuse: never re-classify exit codes here
 import type { ImplementExit, RunContext, Stage, StageResult, TestMap } from "../types.ts";
+import { taskBlock } from "../types.ts";
 
 /** A test file (a sealed Wall test) the implement session must not change: path is absolute, in the repo working tree; content is what to restore if it no longer matches. */
 export interface ReadOnlyFile { path: string; content: string; }
 
 /** Impacted tests: the intake test map narrowed to plan's relevant files, falling back to the task's named
- *  files when Plan was skipped (E-64's lean path), plus the sealed Wall tests. */
+ *  files when Plan was skipped or found none (E-64's lean path; E-98c), plus the sealed Wall tests. */
 export function impactedTests(ctx: RunContext): string[] {
   const o = ctx.outputs();
   const map = o.intake?.testmap as TestMap | undefined;
   const task = (o.intake?.task as string | undefined) ?? "";
-  const relevant = (o.plan?.relevant_files as string[] | undefined) ?? namedFiles(task, loadRepoMap(o.intake?.repomap_ref as string | undefined));
+  const relevantFiles = o.plan?.relevant_files as string[] | undefined;
+  const relevant = relevantFiles?.length ? relevantFiles : namedFiles(task, loadRepoMap(o.intake?.repomap_ref as string | undefined));
   const fromMap = map ? ctx.tests.impacted(map, relevant).map((t) => t.path) : [];
   const wall = ((o.wall?.readOnlyFiles as ReadOnlyFile[] | undefined) ?? []).map((f) => relative(ctx.repoDir, f.path));
   return [...new Set([...fromMap, ...wall])];
@@ -22,14 +25,11 @@ export function impactedTests(ctx: RunContext): string[] {
 export function buildImplementBrief(task: string, plan: string | null, impactedTests: string[], repoMap = ""): string {
   return [
     "You are the Loki 10 implement stage.",
-    "Task (untrusted, quoted verbatim):",
-    "<<<TASK",
-    task,
-    "TASK",
+    ...taskBlock(task),
     plan ? `Follow this plan:\n${plan}` : "No separate plan was made: plan the change yourself in this session, then implement it.",
     ...(repoMap ? [`Repository paths (repomap.txt):\n${repoMap}`] : []),
     "Rules:",
-    "- The Wall tests and any existing test files are read-only. Do not edit or delete them.",
+    "- The Wall tests are read-only: do not edit or delete them. Existing test files are append-only: you may add new test functions, but never edit or delete an existing one.",
     `- Run only these impacted tests: ${impactedTests.length ? impactedTests.join(", ") : "(none known)"}.`,
     "- Never run the full test suite, an E2E suite, or a long-lived server.",
     "- Never kill processes.",
@@ -79,31 +79,44 @@ export const implementStage: Stage = {
     });
 
     const testsReverted = restoreReadOnly(readOnly);
+    const iterationId = `${ctx.runId}-impl`;
 
-    let exit: ImplementExit;
+    // E-68 already classifies exit codes; this only adds the missing branch: a session that
+    // neither was killed nor left a marker but exited non-zero is an error, never "done"
+    // (incident: implement reported done after exit "error" in 1s with 0 tokens).
+    let exit: ImplementExit | "error";
     if (session.killed) {
       exit = "killed";
     } else if (session.markers.specConflict) {
       exit = "spec_conflict";
     } else if (session.markers.alreadyDone) {
       exit = "already_done";
+    } else if (session.exit !== 0) {
+      exit = "error";
     } else {
       exit = "done";
     }
 
-    return {
-      status: "completed",
-      data: {
-        exit,
-        already_done_evidence: session.markers.alreadyDone,
-        spec_conflict_reason: session.markers.specConflict,
-        tests_reverted: testsReverted,
-        impacted_tests: impacted,
-        cascade,
-        iteration_ids: [`${ctx.runId}-impl`],
-        duration_s: session.durationS,
-      },
+    const data: Record<string, unknown> = {
+      exit,
+      already_done_evidence: session.markers.alreadyDone,
+      spec_conflict_reason: session.markers.specConflict,
+      tests_reverted: testsReverted,
+      impacted_tests: impacted,
+      cascade,
+      iteration_ids: [iterationId],
+      duration_s: session.durationS,
     };
+
+    if (exit !== "error") return { status: "completed", data };
+
+    const stderrTail = (session as unknown as { stderrTail?: string }).stderrTail ?? "";
+    mkdirSync(ctx.runDir, { recursive: true });
+    const stderrPath = join(ctx.runDir, `${iterationId}.stderr.log`);
+    writeFileSync(stderrPath, stderrTail, "utf8");
+    data.stderr_path = stderrPath;
+
+    return { status: "failed", reason: classifyExitCause(session.exit, false), data };
   },
 };
 export const stage = implementStage;

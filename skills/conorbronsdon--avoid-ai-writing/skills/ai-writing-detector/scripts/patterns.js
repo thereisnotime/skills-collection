@@ -2073,9 +2073,45 @@ const AIDetector = (() => {
   }
 
   function analyzeText(text, options = {}) {
-    if (!text || text.trim().length === 0) {
-      return { ...buildV2Defaults('UNSCORED', 'low'), score: 0, label: 'Empty', issues: [], stats: {}, tooShort: true };
+
+    if (typeof text !== 'string') {
+      throw new TypeError('analyzeText(text): argument must be a string');
     }
+
+    const VALID_CONTEXT_MODES = new Set(['general', 'technical', 'marketing', 'personal']);
+    const requestedMode = options.contextMode === undefined ? 'general' : options.contextMode;
+    const contextMode = VALID_CONTEXT_MODES.has(requestedMode) ? requestedMode : 'general';
+    const contextModeFallback = requestedMode !== contextMode ? requestedMode : null;
+
+    // Source mode controls which parts of a Markdown file count as prose.
+    // Plain remains the compatibility default. Rendered Markdown masks only
+    // initial YAML frontmatter and HTML comments; source-hygiene checks for
+    // hidden TODO/placeholder comments remain available through plain mode.
+    const VALID_SOURCE_MODES = new Set(['plain', 'rendered-markdown']);
+    const requestedSourceMode = options.sourceMode === undefined ? 'plain' : options.sourceMode;
+    const sourceMode = VALID_SOURCE_MODES.has(requestedSourceMode) ? requestedSourceMode : 'plain';
+    const sourceModeFallback = requestedSourceMode !== sourceMode ? requestedSourceMode : undefined;
+    if (!text || text.trim().length === 0) {
+      return {
+                ...buildV2Defaults('UNSCORED', 'low'),
+                    score: 0,
+                    label: 'Empty',
+                    issues: [],
+                    stats: {
+                        wordCount: 0,
+                        contextMode,
+                        contextModeFallback,
+                        sourceMode,
+                        sourceModeFallback,
+                        maskedFrontmatter: 0,
+                        maskedHtmlComments: 0,
+                        ignoredRegions: 0,
+                        quotedLines: 0,
+                        maskedQuotes: 0,
+                    },
+                  tooShort: true,
+                };
+              }
 
     // Map each working-string code unit back to the caller's source. Every
     // length-changing preprocessing stage composes this map as it removes
@@ -2093,19 +2129,6 @@ const AIDetector = (() => {
     // Mode validation: an unknown string (e.g. typo "tecnical") would
     // otherwise silently downgrade to general-mode behavior. Coerce to
     // 'general' and surface the original value in stats for traceability.
-    const VALID_CONTEXT_MODES = new Set(['general', 'technical', 'marketing', 'personal']);
-    const requestedMode = options.contextMode || 'general';
-    const contextMode = VALID_CONTEXT_MODES.has(requestedMode) ? requestedMode : 'general';
-    const contextModeFallback = requestedMode !== contextMode ? requestedMode : null;
-
-    // Source mode controls which parts of a Markdown file count as prose.
-    // Plain remains the compatibility default. Rendered Markdown masks only
-    // initial YAML frontmatter and HTML comments; source-hygiene checks for
-    // hidden TODO/placeholder comments remain available through plain mode.
-    const VALID_SOURCE_MODES = new Set(['plain', 'rendered-markdown']);
-    const requestedSourceMode = options.sourceMode === undefined ? 'plain' : options.sourceMode;
-    const sourceMode = VALID_SOURCE_MODES.has(requestedSourceMode) ? requestedSourceMode : 'plain';
-    const sourceModeFallback = requestedSourceMode !== sourceMode ? requestedSourceMode : undefined;
     let maskedFrontmatter = 0;
     let maskedHtmlComments = 0;
 

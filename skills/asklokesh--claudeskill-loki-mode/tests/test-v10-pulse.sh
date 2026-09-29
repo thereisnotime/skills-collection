@@ -3,9 +3,10 @@
 #
 # All external data sources are overridden via env vars (BOARD_MD,
 # CONTROL_MD, PULSE_REPO_ROOT, PULSE_MAIN_REF, PULSE_NPM_CMD, PULSE_GH_CMD,
-# PULSE_WORKTREE_CMD, PULSE_MOAT_RESULT, PULSE_SWARM_START, PULSE_NOW). No
-# test here makes a real npm/gh network call or depends on real wall-clock
-# time or the real docs/v10/BOARD.md.
+# PULSE_GOVERNOR_CMD, PULSE_WORKTREE_CMD, PULSE_MOAT_RESULT, PULSE_SWARM_START, PULSE_NOW,
+# PULSE_LOOP_MARKER, PULSE_TRANSCRIPT_DIR). No test here makes a real npm/gh
+# network call or depends on real wall-clock time or the real
+# docs/v10/BOARD.md.
 #
 # PULSE_TEST_SHELL selects which shell interprets scripts/v10-pulse.sh
 # ("bash" default, or "sh" for macOS's real bash 3.2.57 in POSIX mode) so
@@ -180,6 +181,19 @@ run_pulse() {
     return $rc
 }
 
+# run_pulse_from DIR ENV_ARGS... -- same as run_pulse, but runs with the
+# shell's cwd set to DIR first (E-107: proves SESSION_STALLED's transcript
+# dir no longer depends on the invoking shell's cwd).
+run_pulse_from() {
+    local dir="$1"; shift
+    local out="$WORK/out.$$"
+    (cd "$dir" && env "$@" "$TEST_SHELL" "$PULSE_SH") > "$out" 2>"$WORK/err.$$"
+    local rc=$?
+    OUT="$(cat "$out")"
+    rm -f "$out" "$WORK/err.$$"
+    return $rc
+}
+
 # A non-streak fixture for the CI_CANCELLED_STREAK check's default in
 # COMMON_ARGS below: a clean, completed, non-cancelled run. Using "false"
 # here (like PULSE_GH_CMD's own placeholder) would make ci_cancelled_streak
@@ -188,6 +202,27 @@ run_pulse() {
 GH_STREAK_OK_JSON="$WORK/gh-streak-ok.json"
 printf '[{"status":"completed","conclusion":"success"}]' > "$GH_STREAK_OK_JSON"
 
+# Same rationale as GH_STREAK_OK_JSON above, for the G-02 usage-governor
+# checks: fully calibrated, 10%% window/weekly, no opus share, plenty of
+# next-hour headroom -- so OPUS_SHARE/BUDGET_BURN stay silent (not UNKNOWN)
+# on every test below that does not explicitly override PULSE_GOVERNOR_CMD.
+GOVERNOR_OK_JSON="$WORK/governor-ok.json"
+cat > "$GOVERNOR_OK_JSON" <<'EOF'
+{
+  "calibration": {"opus_weight_assumption": 1.4},
+  "window": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 100},
+  "weekly": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 100},
+  "governor": {
+    "active_engineers_last_hour": 2,
+    "burn_per_engineer_output_last_hour": 1000.0,
+    "burn_per_engineer_opus_weighted_last_hour": 1000.0,
+    "max_engineers_next_hour": 10,
+    "last_hour_output_tokens": 0,
+    "hours_to_weekly_reset": 100.0
+  }
+}
+EOF
+
 COMMON_ARGS=(
     "PULSE_REPO_ROOT=$FAKE_REPO"
     "PULSE_MAIN_REF=main"
@@ -195,6 +230,8 @@ COMMON_ARGS=(
     "PULSE_PROGRESS_MD=$PROGRESS_FRESH"
     "PULSE_NPM_CMD=false"
     "PULSE_GH_CMD=false"
+    "PULSE_GH_FALLBACK_CMD=false"
+    "PULSE_GOVERNOR_CMD=cat $GOVERNOR_OK_JSON"
     "PULSE_GH_STREAK_CMD=cat $GH_STREAK_OK_JSON"
     "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO")"
     "PULSE_MOAT_RESULT="
@@ -266,6 +303,29 @@ VIOLATION: IDLE_BUILDERS: only 1 active builder worktree(s) while 2 ready slice(
 VIOLATION: LOW_READY: only 2 ready slice(s) on BOARD (want at least 8); cut 6 more"
 assert_exact_violations "T1 IDLE_BUILDERS" "$EXPECTED_T1"
 
+echo "T1b -- E-91: ID_RE is not a hardcoded prefix whitelist; G-02 and E-98a rows are counted"
+# Before E-91, ID_RE = (GF|PF|S|E|EV|M)-\d+ made a G- prefix and any lettered
+# sub-slice suffix (E-98a) invisible to parse_board: never counted, never
+# budget-checked. Both rows below are 60 minutes into a 15-minute LOW budget,
+# same as T1's S-03, so a fixed AGENT_OVER_BUDGET violation naming both proves
+# they were parsed and counted, not silently skipped.
+BOARD_NEWPREFIX="$WORK/BOARD-newprefix.md"
+cat > "$BOARD_NEWPREFIX" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| G-02 | a | x | LOW | building@2026-09-27T01:00Z | |
+| E-98a | a | x | LOW | building@2026-09-27T01:00Z | |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_NEWPREFIX"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: AGENT_OVER_BUDGET:" \
+    && printf '%s\n' "$OUT" | grep -qF "G-02 building LOW (60.0 min, budget 15 min)" \
+    && printf '%s\n' "$OUT" | grep -qF "E-98a building LOW (60.0 min, budget 15 min)"; then
+    ok "a G-02 row and a lettered E-98a row are both parsed and budget-checked"
+else
+    bad "T1b new-prefix case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
 echo "T2 -- merged-but-unreleased slice older than 30 min, CI green"
 BOARD_UNRELEASED="$WORK/BOARD-unreleased.md"
 {
@@ -295,7 +355,8 @@ if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_UNRELEASED" \
     "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
     "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_MANY[@]}")"; then rc=0; else rc=$?; fi
 EXPECTED_T2="VIOLATION: UNRELEASED_MERGE: S-15 1 commit(s) merged but unreleased for 60.0 minutes since v1.0.0 (oldest $UNRELEASED_SHA) while CI is green
-VIOLATION: AGENT_OVER_BUDGET: agent(s) past their role/tier time budget: S-01 building LOW (60.0 min, budget 15 min), S-02 building LOW (60.0 min, budget 15 min), S-03 building LOW (60.0 min, budget 15 min), S-04 building LOW (60.0 min, budget 15 min), S-05 building LOW (60.0 min, budget 15 min), S-06 building LOW (60.0 min, budget 15 min)"
+VIOLATION: AGENT_OVER_BUDGET: agent(s) past their role/tier time budget: S-01 building LOW (60.0 min, budget 15 min), S-02 building LOW (60.0 min, budget 15 min), S-03 building LOW (60.0 min, budget 15 min), S-04 building LOW (60.0 min, budget 15 min), S-05 building LOW (60.0 min, budget 15 min), S-06 building LOW (60.0 min, budget 15 min)
+VIOLATION: UNDERSTAFFED: 8 ready slice(s) on BOARD but only 6 building (want at least 8 staffed)"
 assert_exact_violations "T2 UNRELEASED_MERGE" "$EXPECTED_T2"
 (cd "$FAKE_REPO" || exit 1; git reset -q --hard v1.0.0)
 
@@ -339,12 +400,91 @@ else
     printf '%s\n' "$OUT"
 fi
 
+echo "T3c -- E-75: primary gh call fails, Tests-only fallback says failure -> CI_RED"
+GH_FALLBACK_RED_JSON="$WORK/gh-fallback-red.json"
+printf '[{"status":"completed","conclusion":"failure","databaseId":4242}]' > "$GH_FALLBACK_RED_JSON"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ANY" "PULSE_GH_CMD=false" \
+    "PULSE_GH_FALLBACK_CMD=cat $GH_FALLBACK_RED_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^Main CI (main @ $head_sha_short): RED .*fallback.*run 4242" \
+    && printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_RED: main CI is RED at $head_sha_short (Tests (fallback))"; then
+    ok "primary gh check failed outright, Tests-only fallback resolved it to CI_RED with the run id"
+else
+    bad "T3c fallback-red case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T3d -- E-75: both primary and fallback fail -> still UNKNOWN, never a fabricated verdict"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ANY" "PULSE_GH_CMD=false" \
+    "PULSE_GH_FALLBACK_CMD=false"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^Main CI (main @ $head_sha_short): UNKNOWN" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_RED"; then
+    ok "primary and fallback both failed: UNKNOWN, no CI_RED violation"
+else
+    bad "T3d both-fail case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T3e -- E-75: primary fails, Tests-only fallback says success -> GREEN with the run id"
+GH_FALLBACK_GREEN_JSON="$WORK/gh-fallback-green.json"
+printf '[{"status":"completed","conclusion":"success","databaseId":7}]' > "$GH_FALLBACK_GREEN_JSON"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ANY" "PULSE_GH_CMD=false" \
+    "PULSE_GH_FALLBACK_CMD=cat $GH_FALLBACK_GREEN_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^Main CI (main @ $head_sha_short): GREEN .*fallback.*run 7" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_RED"; then
+    ok "primary failed, Tests-only fallback resolved it to GREEN with the run id"
+else
+    bad "T3e fallback-green case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T3f -- E-75: primary fails, Tests-only fallback says still running -> PENDING with the run id"
+GH_FALLBACK_PENDING_JSON="$WORK/gh-fallback-pending.json"
+printf '[{"status":"in_progress","conclusion":null,"databaseId":9}]' > "$GH_FALLBACK_PENDING_JSON"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ANY" "PULSE_GH_CMD=false" \
+    "PULSE_GH_FALLBACK_CMD=cat $GH_FALLBACK_PENDING_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^Main CI (main @ $head_sha_short): PENDING .*fallback.*run 9" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_RED"; then
+    ok "primary failed, Tests-only fallback resolved it to PENDING with the run id"
+else
+    bad "T3f fallback-pending case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T3g -- E-75: primary SUCCEEDS but is ambiguous (cancelled-only, rc=0), fallback says failure -> CI_RED"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ANY" "PULSE_GH_CMD=cat $GH_CANCELLED_JSON" \
+    "PULSE_GH_FALLBACK_CMD=cat $GH_FALLBACK_RED_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^Main CI (main @ $head_sha_short): RED .*fallback.*run 4242" \
+    && printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_RED: main CI is RED at $head_sha_short (Tests (fallback))"; then
+    ok "primary succeeded but ambiguous (cancelled-only): fallback still consulted and resolves to CI_RED"
+else
+    bad "T3g ambiguous-primary case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T3h -- E-75 precedence: primary resolves cleanly (GREEN); a failing fallback must never override it"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ANY" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_GH_FALLBACK_CMD=cat $GH_FALLBACK_RED_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^Main CI (main @ $head_sha_short): GREEN" \
+    && ! printf '%s\n' "$OUT" | grep -q "fallback" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: CI_RED"; then
+    ok "a conclusive primary result is never overridden by the fallback, whatever the fallback says"
+else
+    bad "T3h precedence case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
 echo "T4 -- clean case: no violations, full status block still prints, exact ordering"
 BOARD_CLEAN="$WORK/BOARD-clean.md"
 {
     echo "| ID | Owner | File set | Tier | Status | Notes |"
     echo "|---|---|---|---|---|---|"
     for i in 1 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+    # UNDERSTAFFED (E-89): 8 ready rows alone would now fire UNDERSTAFFED
+    # (fewer than 8 building) on every "clean" test below that reuses this
+    # fixture, so it also carries 8 fresh (5 min old, well under the
+    # 30-minute MEDIUM budget) building rows -- a genuinely staffed board,
+    # not just a ready-heavy one.
+    for i in 9 10 11 12 13 14 15 16; do echo "| S-$i | a | x | MEDIUM | building@2026-09-27T01:55:00Z | |"; done
 } > "$BOARD_CLEAN"
 NPM_TIME_JSON="$WORK/npm-time.json"
 # Latest key deliberately "1.0.0", matching FAKE_REPO's v1.0.0 tag exactly
@@ -725,6 +865,7 @@ if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ALL" \
 UNRELEASED_ALL_SHA="$(cd "$FAKE_REPO" && git rev-parse --short=8 main)"
 EXPECTED_ALL="VIOLATION: MOAT_REGRESSION: measured moat suite reports FAIL (1 rule failure(s)) -- a live suite failure is always a regression regardless of the proven count (see $MOAT_RESULT_FAIL)
 VIOLATION: UNRELEASED_MERGE: 1 commit(s) merged but unreleased for 60.0 minutes since v1.0.0 (oldest $UNRELEASED_ALL_SHA) while CI is green
+VIOLATION: RELEASE_CADENCE: 1 merged-unreleased slice commit(s) since v1.0.0, 60.0 minutes since the later of the oldest commit and the release tag while main CI is green (D37 threshold 25)
 VIOLATION: REVIEW_STALE: review-pending past 45 minutes: S-01 (60.0 min)
 VIOLATION: AGENT_OVER_BUDGET: agent(s) past their role/tier time budget: S-01 review LOW (60.0 min, budget 30 min)
 VIOLATION: IDLE_BUILDERS: only 0 active builder worktree(s) while 1 ready slice(s) exist on BOARD (S-02)
@@ -734,6 +875,7 @@ VIOLATION: LOW_RELEASE_VOLUME: only 0 release(s) in the last 24h (want at least 
 assert_exact_violations "T11 all-except-CI_RED" "$EXPECTED_ALL"
 EXPECTED_NEXT_ALL="NEXT ACTION: MOAT_REGRESSION: identify which moat property regressed and revert or fix it before any further merge -- measured moat suite reports FAIL (1 rule failure(s)) -- a live suite failure is always a regression regardless of the proven count (see $MOAT_RESULT_FAIL)
 NEXT ACTION: UNRELEASED_MERGE: cut a release now, main has been unreleased past the 30-minute budget -- 1 commit(s) merged but unreleased for 60.0 minutes since v1.0.0 (oldest $UNRELEASED_ALL_SHA) while CI is green
+NEXT ACTION: RELEASE_CADENCE: cut a release now (D37 cadence) -- 1 merged-unreleased slice commit(s) since v1.0.0, 60.0 minutes since the later of the oldest commit and the release tag while main CI is green (D37 threshold 25)
 NEXT ACTION: REVIEW_STALE: escalate or finish review for the named slice(s), they have exceeded the 45-minute budget -- review-pending past 45 minutes: S-01 (60.0 min)
 NEXT ACTION: AGENT_OVER_BUDGET: check in on the named agent(s), they have exceeded their role/tier time budget -- agent(s) past their role/tier time budget: S-01 review LOW (60.0 min, budget 30 min)
 NEXT ACTION: IDLE_BUILDERS: dispatch more builders against the named ready slice(s) in docs/v10/BOARD.md -- only 0 active builder worktree(s) while 1 ready slice(s) exist on BOARD (S-02)
@@ -1393,7 +1535,7 @@ fi
 echo "T29d -- UNKNOWN (never a false negative) with no override and no push-*.log directory"
 if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_TRAIN"; then rc=0; else rc=$?; fi
 if printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*train_late" \
-    && printf '%s\n' "$OUT" | grep -qF "Train push cadence: UNKNOWN (no PULSE_LAST_TRAIN_PUSH override and no push-*.log under $WORK/no-such-push-logs)" \
+    && printf '%s\n' "$OUT" | grep -qF "Train push cadence: UNKNOWN (no PULSE_LAST_TRAIN_PUSH override, no reflog for refs/remotes/origin/main, and no push-*.log under $WORK/no-such-push-logs)" \
     && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: TRAIN_LATE"; then
     ok "TRAIN_LATE reports UNKNOWN, never fires, when neither source is available"
 else
@@ -1421,6 +1563,70 @@ else
     printf '%s\n' "$OUT"
 fi
 (cd "$FAKE_REPO" || exit 1; git reset -q --hard v1.0.0)
+
+echo "T29f -- reflog fallback: a real \`git push\` (how every train is actually pushed,"
+echo "      and writes no push-*.log) moves refs/remotes/origin/main's reflog, and that"
+echo "      reflog time is read directly, with no override and an empty log dir"
+TRAIN_REMOTE_REPO="$WORK/train-remote-repo"
+TRAIN_REMOTE_BARE="$WORK/train-remote-bare.git"
+mkdir -p "$TRAIN_REMOTE_REPO"
+(
+    cd "$TRAIN_REMOTE_REPO" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    echo init > f.txt
+    git add f.txt
+    GIT_AUTHOR_DATE="2026-09-20T00:00:00Z" GIT_COMMITTER_DATE="2026-09-20T00:00:00Z" \
+        git commit -q -m "initial"
+    git tag v1.0.0
+    echo train > train-file.txt
+    git add train-file.txt
+    GIT_AUTHOR_DATE="2026-09-27T01:00:00Z" GIT_COMMITTER_DATE="2026-09-27T01:00:00Z" \
+        git commit -q -m "unreleased train change"
+)
+git init -q --bare "$TRAIN_REMOTE_BARE"
+(
+    cd "$TRAIN_REMOTE_REPO" || exit 1
+    git remote add origin "$TRAIN_REMOTE_BARE"
+    # PULSE_NOW (COMMON_ARGS) = 2026-09-27T02:00:00Z = epoch 1790474400 (see
+    # T1/T29). Push 30 seconds before it: GIT_COMMITTER_DATE sets the actual
+    # push's reflog timestamp (git records the reflog "when" from the
+    # committer ident in effect at push time, not any commit's own date), so
+    # the resulting age is deterministic, never a real-wall-clock race.
+    GIT_COMMITTER_DATE="2026-09-27T01:59:30Z" git push -q origin main
+)
+
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_TRAIN" "PULSE_REPO_ROOT=$TRAIN_REMOTE_REPO"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^Minutes since last train push: 0\.[0-9]" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: TRAIN_LATE"; then
+    ok "refs/remotes/origin/main's reflog (a real git push, no push-*.log written, PULSE_PUSH_LOG_DIR empty) reads under 1 minute"
+else
+    bad "T29f reflog-fallback case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T29g -- reflog wins over a stale push-*.log: an old log file must never shadow a fresh push"
+STALE_LOGDIR="$WORK/push-logs-stale"
+mkdir -p "$STALE_LOGDIR"
+: > "$STALE_LOGDIR/push-old.log"
+python3 -c "
+import os
+os.utime('$STALE_LOGDIR/push-old.log', (1790400000, 1790400000))
+"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_TRAIN" "PULSE_REPO_ROOT=$TRAIN_REMOTE_REPO" \
+    "PULSE_PUSH_LOG_DIR=$STALE_LOGDIR"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^Minutes since last train push: 0\.[0-9]" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: TRAIN_LATE"; then
+    ok "a fresh reflog wins over a stale push-old.log (~20 hours old, would have fired TRAIN_LATE if used)"
+else
+    bad "T29g reflog-over-stale-log case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+# T29d above already covers "no reflog and empty log dir yields UNKNOWN": FAKE_REPO
+# never gets an origin remote in this suite, so its refs/remotes/origin/main reflog
+# lookup fails exactly like a fresh clone with no push history.
 
 echo "T30 -- D26 guard 4: UNEVIDENCED_CLAIM fires on an added claim line with no citation"
 # A dedicated, isolated repo (its own docs/v10/BOARD.md and PROGRESS.md, like
@@ -1593,6 +1799,38 @@ else
     printf '%s\n' "$OUT"
 fi
 
+echo "T30h -- D26 guard 4: a DEP-03 row's 'green' Wall cell is not a claim; the same word in its Notes cell is"
+CLAIM_REPO_DEP="$WORK/claim-repo-dep"
+mkdir -p "$CLAIM_REPO_DEP/docs/v10"
+(
+    cd "$CLAIM_REPO_DEP" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    printf '# Board\n' > docs/v10/BOARD.md
+    printf '# Progress\n' > docs/v10/PROGRESS.md
+    git add docs/v10/BOARD.md docs/v10/PROGRESS.md
+    GIT_AUTHOR_DATE="2026-09-27T00:00:00Z" GIT_COMMITTER_DATE="2026-09-27T00:00:00Z" git commit -q -m "seed docs"
+    printf '| DEP-03 | dep row | c.sh | LOW | run green build passes | ready@2026-09-27T00:05Z | Source: cut. |\n' >> docs/v10/BOARD.md
+    printf '| DEP-05 | dep row | c.sh | LOW | run build | ready@2026-09-27T00:05Z | Deploy green, no citation. |\n' >> docs/v10/BOARD.md
+    git add docs/v10/BOARD.md
+    GIT_AUTHOR_DATE="2026-09-27T00:05:00Z" GIT_COMMITTER_DATE="2026-09-27T00:05:00Z" git commit -q -m "rows"
+)
+if run_pulse "PULSE_REPO_ROOT=$CLAIM_REPO_DEP" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$CLAIM_REPO_DEP")" \
+    "PULSE_MOAT_RESULT=" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:.*DEP-05" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNEVIDENCED_CLAIM:.*DEP-03" \
+    && printf '%s\n' "$OUT" | grep -qF "2 commit(s) scanned touching BOARD.md/PROGRESS.md, 1 flagged line(s)"; then
+    ok "'green' in a Wall cell is not flagged (and a non-whitelisted DEP- prefix is still checked); 'green' in the Notes cell with no citation is flagged"
+else
+    bad "T30h DEP- row case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
 echo "T31 -- D26 guard 4: a bare 'exit' with no number, and no other citation, is not evidence"
 CLAIM_REPO_EXIT="$WORK/claim-repo-exit"
 mkdir -p "$CLAIM_REPO_EXIT/docs/v10"
@@ -1692,9 +1930,17 @@ recs = {
     "npm": '{"1.0.0":"2026-09-27T01:30:00.000Z"}',
     "gh_ci": '[{"status":"completed","conclusion":"failure","workflowName":"Lint"}]',
     "gh_streak": '[{"status":"completed","conclusion":"success"}]',
+    # gh_ci above already resolves cleanly (RED), so the E-75 fallback is
+    # never consulted -- this entry only exists so a missing cache file for
+    # it does not itself count as a cache miss and force a spurious refresh.
+    "gh_fallback": '[{"status":"completed","conclusion":"success","databaseId":1}]',
+    # G-02: same reasoning -- without this entry, a governor cache miss alone
+    # would force a background refresh (and a real, ~125s usage-governor.py
+    # scan) even on the "everything else is fresh" T33a case.
+    "governor": '{"calibration":{"opus_weight_assumption":1.4},"window":{"source":"estimate","current_pct":10.0,"current_tokens_output":100},"weekly":{"source":"estimate","current_pct":10.0,"current_tokens_output":100},"governor":{"active_engineers_last_hour":1,"burn_per_engineer_output_last_hour":1000.0,"burn_per_engineer_opus_weighted_last_hour":1000.0,"max_engineers_next_hour":10,"last_hour_output_tokens":0,"hours_to_weekly_reset":100.0}}',
 }
 for name, out in recs.items():
-    json.dump({"t": t, "out": out, "sha": sha if name == "gh_ci" else None},
+    json.dump({"t": t, "out": out, "sha": sha if name in ("gh_ci", "gh_fallback") else None},
               open("%s/%s.json" % (d, name), "w"))
 PYEOF
 }
@@ -1702,6 +1948,13 @@ T33_ARGS=(
     "PATH=$STUB_BIN:$PATH"
     "PULSE_REPO_ROOT=$FAKE_REPO" "PULSE_MAIN_REF=main" "CONTROL_MD=$CONTROL_OK"
     "BOARD_MD=$BOARD_CLEAN" "PULSE_NPM_CMD=" "PULSE_GH_CMD=" "PULSE_GH_STREAK_CMD="
+    # Unlike npm/gh above (real binary names, intercepted via PATH stub),
+    # the governor's default argv is a real path under $PULSE_REPO_ROOT
+    # ($FAKE_REPO here, which has no scripts/usage-governor.py) -- it would
+    # fail every refresh forever and keep forcing a fresh npm/gh refresh
+    # alongside it too (one shared _need_refresh per run_network() call), so
+    # it gets its own working fixture instead, same as GH_STREAK_OK_JSON.
+    "PULSE_GOVERNOR_CMD=cat $GOVERNOR_OK_JSON"
     "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}")" "PULSE_MOAT_RESULT="
     "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"
     "PULSE_PUSH_LOG_DIR=$WORK/no-such-push-logs" "PULSE_CACHE_DIR=$CACHE"
@@ -2078,6 +2331,964 @@ if printf '%s\n' "$OUT" | grep -qF "Merged-but-unreleased age: 60.0 min (1 commi
     ok "tag/npm-latest agreement (v9.54.2 == 9.54.2) keeps the normal confident report"
 else
     bad "T40b tag-vs-npm-match case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+# touch_mtime FILE AGE_MIN NOW_EPOCH -- creates/updates FILE with an mtime
+# AGE_MIN minutes before NOW_EPOCH. Same technique as make_worktree's mtime
+# setting above: never the real wall clock, which is already past every
+# fixed PULSE_NOW this suite uses.
+touch_mtime() {
+    local file="$1" age_min="$2" now_epoch="$3"
+    mkdir -p "$(dirname "$file")"
+    : > "$file"
+    python3 -c "
+import os
+mt = int($now_epoch - $age_min * 60)
+os.utime('$file', (mt, mt))
+"
+}
+
+echo "T41 -- SESSION_STALLED: fires when the loop-active marker is fresh but the newest transcript is older than the 20-minute budget"
+# Same clean baseline as T4 (BOARD_CLEAN, NPM_TIME_JSON, GH_GREEN_JSON,
+# MOAT_RESULT_PASS, WT_CLEAN/WT_CLEAN_STALE), reused rather than rebuilt, so
+# SESSION_STALLED is provably the ONLY thing that can explain the violation.
+MARKER_FRESH="$WORK/loop-active-fresh"
+touch_mtime "$MARKER_FRESH" 1 1790474400
+TRANSCRIPT_DIR_STALE="$WORK/transcripts-stale"
+touch_mtime "$TRANSCRIPT_DIR_STALE/a.jsonl" 25 1790474400
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_MOAT_RESULT=$MOAT_RESULT_PASS" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}" "$WT_CLEAN_STALE")" \
+    "PULSE_LOOP_MARKER=$MARKER_FRESH" "PULSE_TRANSCRIPT_DIR=$TRANSCRIPT_DIR_STALE"; then rc=0; else rc=$?; fi
+EXPECTED_T41="VIOLATION: SESSION_STALLED: no assistant turn in 25.0 minutes while the /loop is active (budget 20)"
+assert_exact_violations "T41 SESSION_STALLED" "$EXPECTED_T41"
+if [ "$rc" = 1 ]; then
+    ok "T41: exit code 1"
+else
+    bad "T41: expected exit 1, got $rc"
+fi
+
+echo "T41b -- SESSION_STALLED does not fire when the newest transcript is under the 20-minute budget (marker fresh)"
+TRANSCRIPT_DIR_FRESH="$WORK/transcripts-fresh"
+touch_mtime "$TRANSCRIPT_DIR_FRESH/a.jsonl" 5 1790474400
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_MOAT_RESULT=$MOAT_RESULT_PASS" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}" "$WT_CLEAN_STALE")" \
+    "PULSE_LOOP_MARKER=$MARKER_FRESH" "PULSE_TRANSCRIPT_DIR=$TRANSCRIPT_DIR_FRESH"; then rc=0; else rc=$?; fi
+if [ "$rc" = 0 ] \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION:" \
+    && printf '%s\n' "$OUT" | grep -qF "Minutes since last assistant turn: 5.0 (loop active, budget 20)"; then
+    ok "T41b: fresh transcript, no SESSION_STALLED violation, exit 0"
+else
+    bad "T41b fresh-transcript case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T41c -- SESSION_STALLED does not fire, and is never UNKNOWN, when no loop-active marker exists (stale transcript, no marker)"
+NO_SUCH_MARKER="$WORK/no-such-loop-active"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_MOAT_RESULT=$MOAT_RESULT_PASS" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}" "$WT_CLEAN_STALE")" \
+    "PULSE_LOOP_MARKER=$NO_SUCH_MARKER" "PULSE_TRANSCRIPT_DIR=$TRANSCRIPT_DIR_STALE"; then rc=0; else rc=$?; fi
+if [ "$rc" = 0 ] \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION:" \
+    && ! printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*session_stalled" \
+    && printf '%s\n' "$OUT" | grep -qF "Session stall: n/a (no fresh .loki/state/loop-active marker; /loop not active)"; then
+    ok "T41c: no marker, loop not active, n/a, never a violation or UNKNOWN"
+else
+    bad "T41c no-marker case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T41d -- SESSION_STALLED reports UNKNOWN, not clean, when the transcript dir cannot be listed (marker fresh)"
+# Root-safe, deterministic listdir failure (a regular file, never a
+# directory) rather than chmod 000, which is a no-op for root -- CI may run
+# as root (see tests/test-branch-lifecycle.sh's own comment on this).
+NOT_A_DIR="$WORK/transcripts-not-a-dir"
+touch_mtime "$NOT_A_DIR" 5 1790474400
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_MOAT_RESULT=$MOAT_RESULT_PASS" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}" "$WT_CLEAN_STALE")" \
+    "PULSE_LOOP_MARKER=$MARKER_FRESH" "PULSE_TRANSCRIPT_DIR=$NOT_A_DIR"; then rc=0; else rc=$?; fi
+if [ "$rc" = 2 ] \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION:" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*session_stalled" \
+    && printf '%s\n' "$OUT" | grep -qF "Session stall: UNKNOWN (could not read transcript dir $NOT_A_DIR)"; then
+    ok "T41d: unreadable/non-directory transcript dir is UNKNOWN (exit 2), never a false clean"
+else
+    bad "T41d unreadable-dir case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T42 -- E-79: LOW_READY only counts a ready row toward the queue when its Depends-on slices are merged/released; blocked ready rows are named"
+BOARD_DEPS="$WORK/BOARD-deps.md"
+cat > "$BOARD_DEPS" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-02 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-03 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-04 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-05 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| M-01 | modernize step | y | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| M-02 | modernize step | y | LOW | ready@2026-09-27T01:00Z | Depends on M-01. |
+| M-03 | modernize step | y | LOW | ready@2026-09-27T01:00Z | Depends on M-02. |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DEPS"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: LOW_READY: only 6 ready slice(s) on BOARD (want at least 8); cut 2 more; blocked by dependency: M-03 (needs M-02)" \
+    && printf '%s\n' "$OUT" | grep -qF "Ready rows blocked by dependency: M-03 (needs M-02)"; then
+    ok "M-02 (deps merged) counts as ready; M-03 (deps only ready) is named as blocked, not counted"
+else
+    bad "T42 dependency-gated LOW_READY case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T42b -- E-79: 'Depends on none.' and an already-merged dependency both count the row as ready (no blocked names)"
+BOARD_DEPS_MET="$WORK/BOARD-deps-met.md"
+cat > "$BOARD_DEPS_MET" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-02 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-03 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-04 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-05 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-06 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| M-01 | modernize step | y | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| M-02 | modernize step | y | LOW | ready@2026-09-27T01:00Z | Depends on M-01. |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DEPS_MET"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qE "^VIOLATION: LOW_READY: only 7 ready slice\(s\) on BOARD \(want at least 8\); cut 1 more\$" \
+    && printf '%s\n' "$OUT" | grep -qF "Ready rows blocked by dependency: none"; then
+    ok "no unmet dependency: LOW_READY text has no blocked-by-dependency suffix, status line reads none"
+else
+    bad "T42b deps-met case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T42c -- E-79: a lowercase 'depends on' inside unrelated narrative prose is not read as a dependency clause"
+BOARD_DEPS_PROSE="$WORK/BOARD-deps-prose.md"
+cat > "$BOARD_DEPS_PROSE" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-02 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-03 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-04 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-05 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-06 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-07 | a | x | LOW | ready@2026-09-27T01:00Z | Source: wave 1; depends on S-06 Phase A, build then review. |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DEPS_PROSE"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qE "^VIOLATION: LOW_READY: only 7 ready slice\(s\) on BOARD \(want at least 8\); cut 1 more\$" \
+    && printf '%s\n' "$OUT" | grep -qF "Ready rows blocked by dependency: none"; then
+    ok "lowercase 'depends on' narrative prose (not the capitalized BOARD.md convention) does not gate S-07"
+else
+    bad "T42c lowercase-prose case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T42d -- E-79-81-r2: IDLE_BUILDERS uses the same dependency-filtered ready set as LOW_READY, so it never names a dependency-blocked row as a dispatch target"
+# Reviewer's exact reproduction: M-01 merged, M-02 ready depends-on M-01
+# (deps met), M-03 ready depends-on M-02 (deps unmet). Before this fix,
+# IDLE_BUILDERS scanned raw board_rows and named M-03 too, contradicting
+# LOW_READY's own "blocked by dependency" line in the same run.
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DEPS"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: IDLE_BUILDERS: only 0 active builder worktree(s) while 6 ready slice(s) exist on BOARD (S-01, S-02, S-03, S-04, S-05, M-02)" \
+    && ! printf '%s\n' "$OUT" | grep "^VIOLATION: IDLE_BUILDERS" | grep -qF "M-03"; then
+    ok "IDLE_BUILDERS names M-02 (deps met) but never M-03 (deps unmet, named by LOW_READY as blocked instead)"
+else
+    bad "T42d IDLE_BUILDERS dependency-filter case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T42e -- E-117: 'Depends on E-98a..c' range shorthand expands to all three ids; an unmerged middle id (E-98b) blocks the row"
+BOARD_DEPS_RANGE_LETTER_UNMET="$WORK/BOARD-deps-range-letter-unmet.md"
+cat > "$BOARD_DEPS_RANGE_LETTER_UNMET" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-02 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-03 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-04 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-05 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| E-98a | a | x | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| E-98b | a | x | LOW | ready@2026-09-27T01:00Z | Depends on none. |
+| E-98c | a | x | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| M-10 | modernize step | y | LOW | ready@2026-09-27T01:00Z | Depends on E-98a..c. |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DEPS_RANGE_LETTER_UNMET"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: LOW_READY: only 6 ready slice(s) on BOARD (want at least 8); cut 2 more; blocked by dependency: M-10 (needs E-98b)" \
+    && printf '%s\n' "$OUT" | grep -qF "Ready rows blocked by dependency: M-10 (needs E-98b)"; then
+    ok "E-98a..c expands to E-98a/E-98b/E-98c; unmerged E-98b blocks M-10 (E-98a and E-98c alone would not have)"
+else
+    bad "T42e letter-range-unmet case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T42f -- E-117: 'Depends on E-98a..c' with all three merged does not block the row"
+BOARD_DEPS_RANGE_LETTER_MET="$WORK/BOARD-deps-range-letter-met.md"
+cat > "$BOARD_DEPS_RANGE_LETTER_MET" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-02 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-03 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-04 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-05 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| E-98a | a | x | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| E-98b | a | x | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| E-98c | a | x | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| M-10 | modernize step | y | LOW | ready@2026-09-27T01:00Z | Depends on E-98a..c. |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DEPS_RANGE_LETTER_MET"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: LOW_READY: only 6 ready slice(s) on BOARD (want at least 8); cut 2 more" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: LOW_READY:.*blocked by dependency" \
+    && printf '%s\n' "$OUT" | grep -qF "Ready rows blocked by dependency: none"; then
+    ok "E-98a, E-98b, E-98c all merged: M-10 counts as ready, not blocked"
+else
+    bad "T42f letter-range-met case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T42g -- E-117: numeric range 'Depends on M-20..M-23' expands to all four ids; an unmerged middle id (M-22) blocks the row"
+BOARD_DEPS_RANGE_NUMERIC="$WORK/BOARD-deps-range-numeric.md"
+cat > "$BOARD_DEPS_RANGE_NUMERIC" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-02 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-03 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-04 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-05 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| M-20 | a | x | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| M-21 | a | x | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| M-22 | a | x | LOW | ready@2026-09-27T01:00Z | Depends on none. |
+| M-23 | a | x | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| M-99 | modernize step | y | LOW | ready@2026-09-27T01:00Z | Depends on M-20..M-23. |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DEPS_RANGE_NUMERIC"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: LOW_READY: only 6 ready slice(s) on BOARD (want at least 8); cut 2 more; blocked by dependency: M-99 (needs M-22)" \
+    && printf '%s\n' "$OUT" | grep -qF "Ready rows blocked by dependency: M-99 (needs M-22)"; then
+    ok "M-20..M-23 expands to M-20/M-21/M-22/M-23; unmerged M-22 blocks M-99 (an endpoints-only match would have missed it)"
+else
+    bad "T42g numeric-range case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T42h -- E-117: a numeric range over the 50-id cap ('M-1..M-9999') is left as literal text, not expanded"
+BOARD_DEPS_RANGE_NUMERIC_HUGE="$WORK/BOARD-deps-range-numeric-huge.md"
+cat > "$BOARD_DEPS_RANGE_NUMERIC_HUGE" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-02 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-03 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-04 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-05 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| M-1 | a | x | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| M-9999 | a | x | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| M-100 | modernize step | y | LOW | ready@2026-09-27T01:00Z | Depends on M-1..M-9999. |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DEPS_RANGE_NUMERIC_HUGE"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: LOW_READY: only 6 ready slice(s) on BOARD (want at least 8); cut 2 more" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: LOW_READY:.*blocked by dependency" \
+    && printf '%s\n' "$OUT" | grep -qF "Ready rows blocked by dependency: none"; then
+    ok "M-1..M-9999 (9999 ids, over the 50 cap) is left as literal M-1/M-9999 endpoints, not expanded; both merged so M-100 is not blocked"
+else
+    bad "T42h numeric-range-over-cap case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T43 -- E-80: PROGRESS.md age is never negative; a future entry heading reports FUTURE_TIMESTAMP"
+PROGRESS_FUTURE="$WORK/PROGRESS-future.md"
+printf '# Progress\n\n## 2026-09-27T03:30:00Z: future entry\n- clock skew or a mistyped heading\n' > "$PROGRESS_FUTURE"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_PROGRESS_MD=$PROGRESS_FUTURE"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "PROGRESS.md last entry: FUTURE_TIMESTAMP (2026-09-27T03:30:00Z is 90 min ahead of now)" \
+    && printf '%s\n' "$OUT" | grep -qF "PROGRESS.md last entry: 0 min ago" \
+    && ! printf '%s\n' "$OUT" | grep -Eq "PROGRESS\.md last entry: -[0-9]+ min ago" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: STALE_PROGRESS"; then
+    ok "a future PROGRESS.md heading reports FUTURE_TIMESTAMP, age clamped to 0, never negative"
+else
+    bad "T43 future-timestamp case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T44 -- E-81: STRAY_WORKTREE fires on a worktree registered inside the repo root but outside .claude/worktrees"
+STRAY_LIST="worktree $FAKE_REPO
+HEAD dead
+branch refs/heads/main
+
+worktree $FAKE_REPO/.claude/worktrees/wf-ok
+HEAD dead
+
+worktree $FAKE_REPO/scratch-worktree
+HEAD dead
+
+"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_LIST=$STRAY_LIST"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: STRAY_WORKTREE: worktree(s) registered inside the repo root but outside .claude/worktrees: $FAKE_REPO/scratch-worktree" \
+    && printf '%s\n' "$OUT" | grep -qF "Stray worktrees (inside repo root, outside .claude/worktrees): 1"; then
+    ok "a worktree inside the repo root but outside .claude/worktrees fires STRAY_WORKTREE, naming the path; the primary and the .claude/worktrees entry do not"
+else
+    bad "T44 STRAY_WORKTREE case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T44b -- E-81: STRAY_WORKTREE does not fire when every non-primary worktree is under .claude/worktrees, or entirely outside the repo root"
+CLEAN_LIST="worktree $FAKE_REPO
+HEAD dead
+branch refs/heads/main
+
+worktree $FAKE_REPO/.claude/worktrees/wf-ok
+HEAD dead
+
+worktree /tmp/an-unrelated-checkout-outside-the-repo
+HEAD dead
+
+"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_LIST=$CLEAN_LIST"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: STRAY_WORKTREE" \
+    && printf '%s\n' "$OUT" | grep -qF "Stray worktrees (inside repo root, outside .claude/worktrees): 0"; then
+    ok "a .claude/worktrees entry and one entirely outside the repo root both stay clean"
+else
+    bad "T44b STRAY_WORKTREE-clean case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T44c -- E-81: the repo root for containment is the listing's own primary worktree, never PULSE_REPO_ROOT (this script runs FROM a builder worktree, where those two differ)"
+OTHER_ROOT="$WORK/other-root"
+DIFFROOT_LIST="worktree $OTHER_ROOT
+HEAD dead
+branch refs/heads/main
+
+worktree $OTHER_ROOT/.claude/worktrees/wf-ok
+HEAD dead
+
+worktree $OTHER_ROOT/scratch-worktree
+HEAD dead
+
+"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_REPO_ROOT=$FAKE_REPO" "PULSE_WORKTREE_LIST=$DIFFROOT_LIST"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: STRAY_WORKTREE: worktree(s) registered inside the repo root but outside .claude/worktrees: $OTHER_ROOT/scratch-worktree" \
+    && printf '%s\n' "$OUT" | grep -qF "Stray worktrees (inside repo root, outside .claude/worktrees): 1"; then
+    ok "a stray under the listing's primary path fires even though PULSE_REPO_ROOT (this run's own worktree) points elsewhere"
+else
+    bad "T44c primary-vs-PULSE_REPO_ROOT case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T45 -- RELEASE_CADENCE (D37, E-89): fires only with a merged-unreleased slice commit AND"
+echo "      main CI green AND more than 25 minutes since the later of its commit time / the release tag"
+# PULSE_NOW (COMMON_ARGS) = 2026-09-27T02:00:00Z = epoch 1790474400 (see T1).
+# 26 min before = 2026-09-27T01:34:00Z, 24 min before = 2026-09-27T01:36:00Z.
+# FAKE_REPO is still clean at v1.0.0 here: nothing between T41d and here adds
+# a commit or a tag.
+
+echo "T45a -- fires at 26 minutes with main CI green"
+(
+    cd "$FAKE_REPO" || exit 1
+    echo "cadence change" > cadence-file.txt
+    git add cadence-file.txt
+    GIT_AUTHOR_DATE="2026-09-27T01:34:00Z" GIT_COMMITTER_DATE="2026-09-27T01:34:00Z" \
+        git commit -q -m "unreleased cadence change"
+)
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}" "$WT_CLEAN_STALE")"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Release cadence (D37): 26.0 min, 1 merged-unreleased slice commit(s) since v1.0.0" \
+    && printf '%s\n' "$OUT" | grep -q "^VIOLATION: RELEASE_CADENCE: 1 merged-unreleased slice commit(s) since v1.0.0, 26.0 minutes" \
+    && printf '%s\n' "$OUT" | grep -qF "NEXT ACTION: RELEASE_CADENCE: cut a release now (D37 cadence) --"; then
+    ok "RELEASE_CADENCE fires at 26 minutes with main CI green"
+else
+    bad "T45a RELEASE_CADENCE-fires case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+(cd "$FAKE_REPO" || exit 1; git reset -q --hard v1.0.0)
+
+echo "T45b -- does not fire at 24 minutes (same shape, under the 25-minute threshold)"
+(
+    cd "$FAKE_REPO" || exit 1
+    echo "cadence change" > cadence-file.txt
+    git add cadence-file.txt
+    GIT_AUTHOR_DATE="2026-09-27T01:36:00Z" GIT_COMMITTER_DATE="2026-09-27T01:36:00Z" \
+        git commit -q -m "unreleased cadence change"
+)
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}" "$WT_CLEAN_STALE")"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: RELEASE_CADENCE" \
+    && printf '%s\n' "$OUT" | grep -qF "Release cadence (D37): 24.0 min, 1 merged-unreleased slice commit(s) since v1.0.0"; then
+    ok "RELEASE_CADENCE does not fire at 24 minutes"
+else
+    bad "T45b RELEASE_CADENCE-24min case: output follows"
+    printf '%s\n' "$OUT"
+fi
+(cd "$FAKE_REPO" || exit 1; git reset -q --hard v1.0.0)
+
+echo "T45c -- does not fire when main CI is red, even past the threshold"
+(
+    cd "$FAKE_REPO" || exit 1
+    echo "cadence change" > cadence-file.txt
+    git add cadence-file.txt
+    GIT_AUTHOR_DATE="2026-09-27T01:34:00Z" GIT_COMMITTER_DATE="2026-09-27T01:34:00Z" \
+        git commit -q -m "unreleased cadence change"
+)
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_ANY" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_RED_JSON" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}" "$WT_CLEAN_STALE")"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: RELEASE_CADENCE" \
+    && printf '%s\n' "$OUT" | grep -qF "Release cadence (D37): 26.0 min, 1 merged-unreleased slice commit(s) since v1.0.0"; then
+    ok "RELEASE_CADENCE does not fire when main CI is red (the count/age status line is still reported)"
+else
+    bad "T45c RELEASE_CADENCE-red-main case: output follows"
+    printf '%s\n' "$OUT"
+fi
+(cd "$FAKE_REPO" || exit 1; git reset -q --hard v1.0.0)
+
+echo "T45d -- a docs-only commit never counts as a merged-unreleased slice commit"
+(
+    cd "$FAKE_REPO" || exit 1
+    mkdir -p docs
+    echo "docs change" > docs/notes.md
+    git add docs/notes.md
+    GIT_AUTHOR_DATE="2026-09-27T01:34:00Z" GIT_COMMITTER_DATE="2026-09-27T01:34:00Z" \
+        git commit -q -m "docs-only change"
+)
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}" "$WT_CLEAN_STALE")"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: RELEASE_CADENCE" \
+    && printf '%s\n' "$OUT" | grep -qF "Release cadence (D37): n/a (no merged-unreleased slice commits since v1.0.0)"; then
+    ok "a docs-only commit is excluded, RELEASE_CADENCE reads n/a"
+else
+    bad "T45d RELEASE_CADENCE-docs-only case: output follows"
+    printf '%s\n' "$OUT"
+fi
+(cd "$FAKE_REPO" || exit 1; git reset -q --hard v1.0.0)
+
+echo "T45e -- UNKNOWN, never a silent pass, when the release tag cannot be read"
+if run_pulse "PULSE_REPO_ROOT=$NO_GIT_REPO" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_CLEAN" "CONTROL_MD=$CONTROL_OK" \
+    "PULSE_NPM_CMD=false" "PULSE_GH_CMD=false" "PULSE_GH_STREAK_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO")" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Release cadence (D37): UNKNOWN (release tag or commit history could not be read)" \
+    && printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*release_cadence" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: RELEASE_CADENCE"; then
+    ok "RELEASE_CADENCE reports UNKNOWN, never fires, when the release tag cannot be read"
+else
+    bad "T45e RELEASE_CADENCE-unknown-tag case: output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T47 -- RELEASE_CADENCE walks --first-parent, not into a merged branch's own history (same finding-2 class as T15)"
+# A side branch with a commit dated WEEKS before the release tag, merged
+# into main only 22 minutes before NOW. Non-first-parent history would find
+# the side commit's own ancient timestamp reachable via tag..MAIN_REF and
+# report a huge age -- a false RELEASE_CADENCE fire well past the 25-minute
+# threshold. --first-parent must instead report the MERGE commit's own
+# (recent, under-threshold) landing time.
+(
+    cd "$FAKE_REPO" || exit 1
+    git checkout -q -b cadence-side-branch v1.0.0
+    echo "side work" > cadence-side.txt
+    git add cadence-side.txt
+    GIT_AUTHOR_DATE="2026-09-10T00:00:00Z" GIT_COMMITTER_DATE="2026-09-10T00:00:00Z" \
+        git commit -q -m "side branch work, authored weeks before the release"
+    git checkout -q main
+    GIT_AUTHOR_DATE="2026-09-27T01:38:00Z" GIT_COMMITTER_DATE="2026-09-27T01:38:00Z" \
+        git merge -q --no-ff -m "merge: cadence side branch work" cadence-side-branch
+)
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}" "$WT_CLEAN_STALE")"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Release cadence (D37): 22.0 min, 1 merged-unreleased slice commit(s) since v1.0.0" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: RELEASE_CADENCE"; then
+    ok "first-parent walk reports the MERGE commit's time (22.0 min, under threshold), not the side branch's weeks-old commit"
+else
+    bad "T47 RELEASE_CADENCE-first-parent case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+(cd "$FAKE_REPO" || exit 1; git branch -D cadence-side-branch >/dev/null; git reset -q --hard v1.0.0)
+
+echo "T47b -- RELEASE_CADENCE classifies a MERGE commit's docs-only changeset correctly (diff against first parent, not 'git show' combined diff)"
+(
+    cd "$FAKE_REPO" || exit 1
+    git checkout -q -b cadence-docs-branch v1.0.0
+    mkdir -p docs
+    echo "docs work" > docs/cadence-notes.md
+    git add docs/cadence-notes.md
+    GIT_AUTHOR_DATE="2026-09-27T01:33:00Z" GIT_COMMITTER_DATE="2026-09-27T01:33:00Z" \
+        git commit -q -m "docs-only side branch work"
+    git checkout -q main
+    GIT_AUTHOR_DATE="2026-09-27T01:34:00Z" GIT_COMMITTER_DATE="2026-09-27T01:34:00Z" \
+        git merge -q --no-ff -m "merge: cadence docs-only branch" cadence-docs-branch
+)
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=cat $GH_GREEN_JSON" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$FAKE_REPO" "${WT_CLEAN[@]}" "$WT_CLEAN_STALE")"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: RELEASE_CADENCE" \
+    && printf '%s\n' "$OUT" | grep -qF "Release cadence (D37): n/a (no merged-unreleased slice commits since v1.0.0)"; then
+    ok "a docs-only MERGE commit reads n/a, correctly excluded even though it lands 26 minutes ago"
+else
+    bad "T47b RELEASE_CADENCE-docs-only-merge case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+(cd "$FAKE_REPO" || exit 1; git branch -D cadence-docs-branch >/dev/null; git reset -q --hard v1.0.0)
+
+echo "T46 -- UNDERSTAFFED (founder 17:22Z, E-89): fires when the dependency-filtered ready count is 8 or"
+echo "       more and fewer than 8 BOARD rows are building"
+BOARD_UNDERSTAFFED="$WORK/BOARD-understaffed.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    for i in 1 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_UNDERSTAFFED"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_UNDERSTAFFED"; then rc=0; else rc=$?; fi
+if [ "$rc" = 1 ] && printf '%s\n' "$OUT" | grep -qF "VIOLATION: UNDERSTAFFED: 8 ready slice(s) on BOARD but only 0 building (want at least 8 staffed)"; then
+    ok "8 ready, 0 building fires UNDERSTAFFED naming both counts, exit 1"
+else
+    bad "T46 UNDERSTAFFED-fires case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T46b -- UNDERSTAFFED fires on 4 building + 4 review (review does NOT count as staffed, founder's exact wording is 'building'); does not fire once 8 rows are building"
+BOARD_MIXED="$WORK/BOARD-mixed-staffed.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    for i in 1 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+    for i in 9 10 11 12; do echo "| S-$i | a | x | MEDIUM | building@2026-09-27T01:55:00Z | |"; done
+    for i in 13 14 15 16; do echo "| S-$i | a | x | MEDIUM | review@2026-09-27T01:55:00Z | |"; done
+} > "$BOARD_MIXED"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_MIXED"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: UNDERSTAFFED: 8 ready slice(s) on BOARD but only 4 building (want at least 8 staffed)"; then
+    ok "8 ready, 4 building + 4 review still fires UNDERSTAFFED: review is not staffing"
+else
+    bad "T46b UNDERSTAFFED-review-not-staffed case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+BOARD_STAFFED="$WORK/BOARD-staffed.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    for i in 1 2 3 4 5 6 7 8; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+    for i in 9 10 11 12 13 14 15 16; do echo "| S-$i | a | x | MEDIUM | building@2026-09-27T01:55:00Z | |"; done
+} > "$BOARD_STAFFED"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_STAFFED"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNDERSTAFFED"; then
+    ok "8 ready, 8 building does not fire UNDERSTAFFED"
+else
+    bad "T46b UNDERSTAFFED-staffed case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T46c -- UNDERSTAFFED does not fire below the 8-ready floor, even with 0 staffed"
+BOARD_UNDERSTAFFED_LOW="$WORK/BOARD-understaffed-low.md"
+{
+    echo "| ID | Owner | File set | Tier | Status | Notes |"
+    echo "|---|---|---|---|---|---|"
+    for i in 1 2 3 4 5 6 7; do echo "| S-0$i | a | x | LOW | ready@2026-09-27T01:00Z | |"; done
+} > "$BOARD_UNDERSTAFFED_LOW"
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_UNDERSTAFFED_LOW"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNDERSTAFFED"; then
+    ok "only 7 ready, 0 staffed: UNDERSTAFFED does not fire (LOW_READY is the applicable violation instead)"
+else
+    bad "T46c UNDERSTAFFED-below-floor case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T46d -- UNDERSTAFFED reuses the dependency-filtered ready set: 8 raw ready rows but only 7 with deps met stays under the floor"
+BOARD_DEPS8="$WORK/BOARD-deps8.md"
+cat > "$BOARD_DEPS8" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-02 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-03 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-04 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-05 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-06 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| M-01 | modernize step | y | LOW | merged@2026-09-27T01:00Z | Depends on none. |
+| M-02 | modernize step | y | LOW | ready@2026-09-27T01:00Z | Depends on M-01. |
+| M-03 | modernize step | y | LOW | ready@2026-09-27T01:00Z | Depends on M-02. |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DEPS8"; then rc=0; else rc=$?; fi
+if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: UNDERSTAFFED"; then
+    ok "8 raw ready rows but M-03's dependency on M-02 is unmet: filtered count is 7, under the floor, no false UNDERSTAFFED"
+else
+    bad "T46d UNDERSTAFFED-dependency-filtered case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T48 -- OPUS_SHARE / BUDGET_BURN (D13, D39; G-02): usage governor pulse checks"
+# 1 active engineer, burn_per_engineer_output_last_hour=1000, opus_weight=1.4.
+# opus_weighted = total + opus_share_frac * total * (weight-1), so 31%% share
+# -> weighted=1124, 29%% -> weighted=1116 (see scripts/v10-pulse.sh's
+# compute_opus_share_pct comment for the derivation this fixture proves).
+GOV_OPUS_31_JSON="$WORK/governor-opus31.json"
+cat > "$GOV_OPUS_31_JSON" <<'EOF'
+{
+  "calibration": {"opus_weight_assumption": 1.4},
+  "window": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 100},
+  "weekly": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 100},
+  "governor": {
+    "active_engineers_last_hour": 1,
+    "burn_per_engineer_output_last_hour": 1000.0,
+    "burn_per_engineer_opus_weighted_last_hour": 1124.0,
+    "max_engineers_next_hour": 10,
+    "last_hour_output_tokens": 0,
+    "hours_to_weekly_reset": 100.0
+  }
+}
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_GOVERNOR_CMD=cat $GOV_OPUS_31_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Opus share (active engineers, last hour): 31.0%" \
+    && printf '%s\n' "$OUT" | grep -q "^VIOLATION: OPUS_SHARE: opus is 31.0% of active-engineer output tokens" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: BUDGET_BURN"; then
+    ok "T48a opus 31%% of last-hour active-engineer output tokens fires OPUS_SHARE"
+else
+    bad "T48a opus-31%% case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+GOV_OPUS_29_JSON="$WORK/governor-opus29.json"
+cat > "$GOV_OPUS_29_JSON" <<'EOF'
+{
+  "calibration": {"opus_weight_assumption": 1.4},
+  "window": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 100},
+  "weekly": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 100},
+  "governor": {
+    "active_engineers_last_hour": 1,
+    "burn_per_engineer_output_last_hour": 1000.0,
+    "burn_per_engineer_opus_weighted_last_hour": 1116.0,
+    "max_engineers_next_hour": 10,
+    "last_hour_output_tokens": 0,
+    "hours_to_weekly_reset": 100.0
+  }
+}
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_GOVERNOR_CMD=cat $GOV_OPUS_29_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Opus share (active engineers, last hour): 29.0%" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: OPUS_SHARE"; then
+    ok "T48b opus 29%% of last-hour active-engineer output tokens does not fire OPUS_SHARE"
+else
+    bad "T48b opus-29%% case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+GOV_WINDOW_86_JSON="$WORK/governor-window86.json"
+cat > "$GOV_WINDOW_86_JSON" <<'EOF'
+{
+  "calibration": {"opus_weight_assumption": 1.4},
+  "window": {"source": "estimate", "current_pct": 86.0, "current_tokens_output": 100},
+  "weekly": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 100},
+  "governor": {
+    "active_engineers_last_hour": 1,
+    "burn_per_engineer_output_last_hour": 1000.0,
+    "burn_per_engineer_opus_weighted_last_hour": 1000.0,
+    "max_engineers_next_hour": 10,
+    "last_hour_output_tokens": 0,
+    "hours_to_weekly_reset": 100.0
+  }
+}
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_GOVERNOR_CMD=cat $GOV_WINDOW_86_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^VIOLATION: BUDGET_BURN: 5h window projected at 86.0% (ceiling 85%)" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: OPUS_SHARE"; then
+    ok "T48c 5h window projection at 86%% fires BUDGET_BURN"
+else
+    bad "T48c window-86%% case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+GOV_WEEKLY_91_JSON="$WORK/governor-weekly91.json"
+cat > "$GOV_WEEKLY_91_JSON" <<'EOF'
+{
+  "calibration": {"opus_weight_assumption": 1.4},
+  "window": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 100},
+  "weekly": {"source": "estimate", "current_pct": 91.0, "current_tokens_output": 100},
+  "governor": {
+    "active_engineers_last_hour": 1,
+    "burn_per_engineer_output_last_hour": 1000.0,
+    "burn_per_engineer_opus_weighted_last_hour": 1000.0,
+    "max_engineers_next_hour": 10,
+    "last_hour_output_tokens": 0,
+    "hours_to_weekly_reset": 100.0
+  }
+}
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_GOVERNOR_CMD=cat $GOV_WEEKLY_91_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^VIOLATION: BUDGET_BURN: weekly window projected at 91.0% (ceiling 90%)"; then
+    ok "T48d weekly projection at 91%% fires BUDGET_BURN"
+else
+    bad "T48d weekly-91%% case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+GOV_MAX_BELOW_ACTIVE_JSON="$WORK/governor-max-below-active.json"
+cat > "$GOV_MAX_BELOW_ACTIVE_JSON" <<'EOF'
+{
+  "calibration": {"opus_weight_assumption": 1.4},
+  "window": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 100},
+  "weekly": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 100},
+  "governor": {
+    "active_engineers_last_hour": 5,
+    "burn_per_engineer_output_last_hour": 1000.0,
+    "burn_per_engineer_opus_weighted_last_hour": 1000.0,
+    "max_engineers_next_hour": 3,
+    "last_hour_output_tokens": 0,
+    "hours_to_weekly_reset": 100.0
+  }
+}
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_GOVERNOR_CMD=cat $GOV_MAX_BELOW_ACTIVE_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^VIOLATION: BUDGET_BURN: max engineers for next hour (3) is below the 5 currently active"; then
+    ok "T48e max_engineers_next_hour (3) below active engineers (5) fires BUDGET_BURN"
+else
+    bad "T48e max-below-active case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+GOV_UNCALIBRATED_JSON="$WORK/governor-uncalibrated.json"
+cat > "$GOV_UNCALIBRATED_JSON" <<'EOF'
+{
+  "calibration": {"opus_weight_assumption": 1.4},
+  "window": {"source": "uncalibrated", "current_pct": null},
+  "weekly": {"source": "uncalibrated", "current_pct": null},
+  "governor": {
+    "active_engineers_last_hour": 0,
+    "burn_per_engineer_output_last_hour": null,
+    "burn_per_engineer_opus_weighted_last_hour": null,
+    "max_engineers_next_hour": null
+  }
+}
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_GOVERNOR_CMD=cat $GOV_UNCALIBRATED_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "Budget burn (5h window / weekly): UNKNOWN (usage governor uncalibrated)" \
+    && printf '%s\n' "$OUT" | grep -q "UNKNOWN metrics:.*budget_burn" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: BUDGET_BURN" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: OPUS_SHARE"; then
+    ok "T48f uncalibrated governor: BUDGET_BURN reads UNKNOWN, raises no violation"
+else
+    bad "T48f uncalibrated case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T48g -- BUDGET_BURN projects forward (D39: 'projected... at window end'), not just current_pct: a"
+echo "        window at 50%% now that doubled in the last hour projects to 100%% and fires, though 50%% alone would not"
+GOV_WINDOW_GROWTH_JSON="$WORK/governor-window-growth.json"
+cat > "$GOV_WINDOW_GROWTH_JSON" <<'EOF'
+{
+  "calibration": {"opus_weight_assumption": 1.4},
+  "window": {"source": "estimate", "current_pct": 50.0, "current_tokens_output": 1000000},
+  "weekly": {"source": "estimate", "current_pct": 10.0, "current_tokens_output": 1000000},
+  "governor": {
+    "active_engineers_last_hour": 1,
+    "burn_per_engineer_output_last_hour": 1000.0,
+    "burn_per_engineer_opus_weighted_last_hour": 1000.0,
+    "max_engineers_next_hour": 10,
+    "last_hour_output_tokens": 1000000,
+    "hours_to_weekly_reset": 1.0
+  }
+}
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_GOVERNOR_CMD=cat $GOV_WINDOW_GROWTH_JSON"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^VIOLATION: BUDGET_BURN: 5h window projected at 100.0% (ceiling 85%)"; then
+    ok "T48g current 50%% window that doubled last hour projects to 100%% and fires BUDGET_BURN (proves this is a projection, not current_pct)"
+else
+    bad "T48g growth-projection case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+echo "T49 -- E-107: SESSION_STALLED resolves the transcript dir from the MAIN repo root (git rev-parse --git-common-dir), never the shell's cwd"
+SLUG49=$(python3 -c "
+import os, re
+root = os.path.realpath('$FAKE_REPO')
+print('-' + re.sub(r'[^a-zA-Z0-9]', '-', root.lstrip('/')))
+")
+HOME49="$WORK/home49"
+TRANSCRIPT49="$HOME49/.claude/projects/$SLUG49"
+mkdir -p "$TRANSCRIPT49"
+LOOP_MARKER49="$WORK/loop-active49"
+: > "$LOOP_MARKER49"
+: > "$TRANSCRIPT49/session.jsonl"
+python3 -c "
+import os
+now = 1790474400  # COMMON_ARGS' PULSE_NOW (2026-09-27T02:00:00Z)
+os.utime('$LOOP_MARKER49', (now - 60, now - 60))         # fresh: 1 min old
+os.utime('$TRANSCRIPT49/session.jsonl', (now - 300, now - 300))  # 5 min old
+"
+SESSION_ARGS49=("${COMMON_ARGS[@]}" "HOME=$HOME49" "PULSE_LOOP_MARKER=$LOOP_MARKER49")
+
+if run_pulse "${SESSION_ARGS49[@]}"; then rc=0; else rc=$?; fi
+ROOT_LINE49="$(printf '%s\n' "$OUT" | grep '^Minutes since last assistant turn:' || true)"
+
+SUBDIR49="$FAKE_REPO/loki-ts"
+mkdir -p "$SUBDIR49"
+if run_pulse_from "$SUBDIR49" "${SESSION_ARGS49[@]}"; then rc=0; else rc=$?; fi
+SUBDIR_LINE49="$(printf '%s\n' "$OUT" | grep '^Minutes since last assistant turn:' || true)"
+
+if [ -n "$ROOT_LINE49" ] && [ "$ROOT_LINE49" = "$SUBDIR_LINE49" ] \
+    && printf '%s\n' "$ROOT_LINE49" | grep -qF "Minutes since last assistant turn: 5.0 "; then
+    ok "T49a: running from a subdirectory reports the same minutes-since-last-turn as the repo root ($ROOT_LINE49)"
+else
+    bad "T49a subdirectory-vs-root case: root=[$ROOT_LINE49] subdir=[$SUBDIR_LINE49]"
+fi
+
+echo "T49b -- E-107: from a linked worktree, SESSION_STALLED resolves to the main checkout's transcript dir"
+WT49="$WORK/repo-wt49"
+git -C "$FAKE_REPO" worktree add -q --detach "$WT49" >/dev/null
+if run_pulse "${SESSION_ARGS49[@]}" "PULSE_REPO_ROOT=$WT49"; then rc=0; else rc=$?; fi
+WT_LINE49="$(printf '%s\n' "$OUT" | grep '^Minutes since last assistant turn:' || true)"
+if [ -n "$WT_LINE49" ] && [ "$WT_LINE49" = "$ROOT_LINE49" ]; then
+    ok "T49b: run from a linked worktree resolves the same transcript dir as the main checkout ($WT_LINE49)"
+else
+    bad "T49b linked-worktree case: rc=$rc expected=[$ROOT_LINE49] actual=[$WT_LINE49] output follows"
+    printf '%s\n' "$OUT"
+fi
+git -C "$FAKE_REPO" worktree remove --force "$WT49" >/dev/null 2>&1 || true
+
+echo "T50 -- MERGED_NOT_RELEASED_STALE (D37, E-90): a 'merged' BOARD row whose own merge"
+echo "      commit already reached the latest published tag over-reports the backlog"
+MNS_REPO="$WORK/mns-repo"
+mkdir -p "$MNS_REPO"
+(
+    cd "$MNS_REPO" || exit 1
+    git init -q -b main
+    git config user.email "test@example.com"
+    git config user.name "test"
+    echo "seed" > seed.txt
+    git add seed.txt
+    GIT_AUTHOR_DATE="2026-09-20T00:00:00Z" GIT_COMMITTER_DATE="2026-09-20T00:00:00Z" \
+        git commit -q -m "initial"
+    git checkout -q -b feature-s01
+    echo "s01" > s01.txt
+    git add s01.txt
+    GIT_AUTHOR_DATE="2026-09-20T00:05:00Z" GIT_COMMITTER_DATE="2026-09-20T00:05:00Z" \
+        git commit -q -m "S-01 work"
+    git checkout -q main
+    GIT_AUTHOR_DATE="2026-09-20T00:10:00Z" GIT_COMMITTER_DATE="2026-09-20T00:10:00Z" \
+        git merge -q --no-ff -m "merge slice-S-01" feature-s01
+    git tag v1.0.0
+    git checkout -q -b feature-s02
+    echo "s02" > s02.txt
+    git add s02.txt
+    GIT_AUTHOR_DATE="2026-09-27T01:00:00Z" GIT_COMMITTER_DATE="2026-09-27T01:00:00Z" \
+        git commit -q -m "S-02 work"
+    git checkout -q main
+    GIT_AUTHOR_DATE="2026-09-27T01:05:00Z" GIT_COMMITTER_DATE="2026-09-27T01:05:00Z" \
+        git merge -q --no-ff -m "merge slice-S-02" feature-s02
+)
+# S-01's merge commit is an ancestor of v1.0.0 (merged before the tag) --
+# its `merged@` row is stale and over-reports the backlog. S-02's merge
+# commit landed AFTER v1.0.0, so it is genuinely unreleased and must never
+# be named.
+BOARD_MNS="$WORK/BOARD-mns.md"
+cat > "$BOARD_MNS" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | merged@2026-09-20T00:10Z | |
+| S-02 | a | x | LOW | merged@2026-09-27T01:05Z | |
+EOF
+if run_pulse "PULSE_REPO_ROOT=$MNS_REPO" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_MNS" "CONTROL_MD=$CONTROL_OK" "PULSE_PROGRESS_MD=$PROGRESS_FRESH" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=false" "PULSE_GH_STREAK_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$MNS_REPO")" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^VIOLATION: MERGED_NOT_RELEASED_STALE: S-01 (merge " \
+    && ! printf '%s\n' "$OUT" | grep -q "S-02 (merge "; then
+    ok "MERGED_NOT_RELEASED_STALE names S-01 (merge commit already in v1.0.0), never S-02 (merged after the tag)"
+else
+    bad "T50 MERGED_NOT_RELEASED_STALE case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T51 -- MERGED_NOT_RELEASED_STALE reports UNKNOWN, never 'none', when a row's ID breaks the"
+echo "      underlying git lookup (a real git failure must never read as 'nothing to flag')"
+BOARD_MNS_BAD="$WORK/BOARD-mns-bad.md"
+cat > "$BOARD_MNS_BAD" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-( | a | x | LOW | merged@2026-09-20T00:10Z | |
+EOF
+if run_pulse "PULSE_REPO_ROOT=$MNS_REPO" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_MNS_BAD" "CONTROL_MD=$CONTROL_OK" "PULSE_PROGRESS_MD=$PROGRESS_FRESH" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=false" "PULSE_GH_STREAK_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$MNS_REPO")" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*merged_not_released_stale" \
+    && printf '%s\n' "$OUT" | grep -qF "Merged rows already released (D37/E-90): UNKNOWN (release tag, " \
+    && ! printf '%s\n' "$OUT" | grep -qF "Merged rows already released (D37/E-90): none" \
+    && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: MERGED_NOT_RELEASED_STALE"; then
+    ok "an ID that breaks the git --grep pattern reports UNKNOWN, never a false 'none'"
+else
+    bad "T51 MERGED_NOT_RELEASED_STALE-git-failure case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T52 -- E-121: ID_RE accepts a digit-bearing prefix (S41-01); a building S41-01 row is"
+echo "      counted and budget-checked, not silently invisible to parse_board"
+BOARD_DIGITPREFIX="$WORK/BOARD-digitprefix.md"
+cat > "$BOARD_DIGITPREFIX" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S41-01 | a | x | LOW | building@2026-09-27T01:00Z | |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DIGITPREFIX"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: AGENT_OVER_BUDGET:" \
+    && printf '%s\n' "$OUT" | grep -qF "S41-01 building LOW (60.0 min, budget 15 min)"; then
+    ok "S41-01 (digit-bearing prefix) is parsed and budget-checked"
+else
+    bad "T52 digit-prefix case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T53 -- E-121: 'Depends on S41-06' (digit-bearing prefix) blocks the ready row when S41-06 is unmerged"
+BOARD_DEPS_DIGITPREFIX="$WORK/BOARD-deps-digitprefix.md"
+cat > "$BOARD_DEPS_DIGITPREFIX" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| S-01 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-02 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-03 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-04 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S-05 | a | x | LOW | ready@2026-09-27T01:00Z | Source: cut. |
+| S41-06 | a | x | LOW | ready@2026-09-27T01:00Z | Depends on none. |
+| M-10 | modernize step | y | LOW | ready@2026-09-27T01:00Z | Depends on S41-06. |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_DEPS_DIGITPREFIX"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: LOW_READY: only 6 ready slice(s) on BOARD (want at least 8); cut 2 more; blocked by dependency: M-10 (needs S41-06)" \
+    && printf '%s\n' "$OUT" | grep -qF "Ready rows blocked by dependency: M-10 (needs S41-06)"; then
+    ok "S41-06 (ready, not merged) blocks M-10; digit-bearing prefix parses in Depends-on clause"
+else
+    bad "T53 digit-prefix dependency case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T54 -- E-121: the digit-prefix fix does not regress plain-letter ids (E-98a, G-02, DEP-03)"
+BOARD_OLDPREFIXES="$WORK/BOARD-oldprefixes.md"
+cat > "$BOARD_OLDPREFIXES" <<'EOF'
+| ID | Owner | File set | Tier | Status | Notes |
+|---|---|---|---|---|---|
+| E-98a | a | x | LOW | building@2026-09-27T01:00Z | |
+| G-02 | a | x | LOW | building@2026-09-27T01:00Z | |
+| DEP-03 | a | x | LOW | building@2026-09-27T01:00Z | |
+EOF
+if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_OLDPREFIXES"; then rc=0; else rc=$?; fi
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: AGENT_OVER_BUDGET:" \
+    && printf '%s\n' "$OUT" | grep -qF "E-98a building LOW (60.0 min, budget 15 min)" \
+    && printf '%s\n' "$OUT" | grep -qF "G-02 building LOW (60.0 min, budget 15 min)" \
+    && printf '%s\n' "$OUT" | grep -qF "DEP-03 building LOW (60.0 min, budget 15 min)"; then
+    ok "E-98a, G-02 and DEP-03 all still parse and budget-check"
+else
+    bad "T54 existing-prefix regression case: rc=$rc output follows"
     printf '%s\n' "$OUT"
 fi
 

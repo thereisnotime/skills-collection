@@ -6,12 +6,12 @@
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="10.1.0"
+LABEL version="10.5.5"
 # v7.4.5 fix (BUG-3): override the OCI-standard image.version label that
 # BuildKit auto-injects from the FROM ubuntu:24.04 base. Registries and
 # scanners read this; without the override they reported the Ubuntu version
 # (24.04) instead of the Loki Mode version.
-LABEL org.opencontainers.image.version="10.1.0"
+LABEL org.opencontainers.image.version="10.5.5"
 LABEL description="Loki Mode by Autonomi - Autonomous spec-to-product system (RARV-C closure loop). Provider-agnostic: Claude Code, Codex CLI, Cline, Aider"
 LABEL url="https://www.autonomi.dev/"
 
@@ -157,7 +157,7 @@ COPY --chown=loki:loki loki-ts/data/ ./loki-ts/data/
 # Default-off, so a base image without LOKI_SDK_LOOP never loads it; installing it
 # just makes the opt-in path work in the shipped image (the raw judge SDK is
 # already bundled and needs nothing here).
-RUN cd loki-ts && npm install --no-save --no-package-lock @anthropic-ai/claude-agent-sdk@0.3.208 \
+RUN cd loki-ts && npm install --no-save --no-package-lock @anthropic-ai/claude-agent-sdk@0.3.283 \
     && chown -R loki:loki node_modules
 
 # Install dashboard, web-app, and MCP server Python dependencies.

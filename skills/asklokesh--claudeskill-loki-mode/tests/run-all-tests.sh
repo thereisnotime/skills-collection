@@ -599,6 +599,7 @@ run_test "v8 SDK text bridge (grill + prd-enrich)" "$SCRIPT_DIR/test-sdk-text-br
 run_test "v8 SDK council VOTE (member + contrarian, trust core)" "$SCRIPT_DIR/test-sdk-council-vote.sh"
 run_test "v8 SDK voter-agents council (Epic C, finding schema)" "$SCRIPT_DIR/test-sdk-voter-agents.sh"
 run_test "v8 SDK-loop start routing (LOKI_SDK_LOOP gate, default-off)" "$SCRIPT_DIR/test-sdk-loop-routing.sh"
+run_test "SDK version sync (root package.json/lockfile/Dockerfile vs loki-ts, E-106)" "$SCRIPT_DIR/test-sdk-version-sync.sh"
 run_test "v8 Structured Review Self-Copy Asset Resolution" "$SCRIPT_DIR/test-code-review-self-copy.sh"
 run_test "Review deadline, requirements, and speculative assurance tail" "$SCRIPT_DIR/test-review-assurance-tail.sh"
 
@@ -1298,6 +1299,21 @@ run_test "parent checkout core.bare detection self-heals without green-washing" 
 # always run.
 run_test "local-ci gitleaks fast-tier step (scoped scan, skip-not-pass, literal vs concatenated fixture)" "$SCRIPT_DIR/test-local-ci-gitleaks.sh"
 
+# E-114: security-audit.yml's gitleaks CI gate never trusts a pushed
+# .gitleaks.toml -- refuses the job when the range changes it (no automatic
+# bypass), scans with the base commit's config (or gitleaks' default rules),
+# and warns (never blocks) on a .gitleaksignore addition. SKIP not pass when
+# the binary is absent.
+run_test "security-audit.yml gitleaks config isolation (refuse config change, base-config scan, gitleaksignore warning)" "$SCRIPT_DIR/test-security-audit-config.sh"
+
+# E-94: local-ci fast-tier hermetic changed-tests scan (re-runs every changed
+# tests/*.sh, tests/*.py, loki-ts/tests/** under env -i with no gh/network,
+# fails naming any file that passes normally but fails stripped). Live temp-
+# repo scenarios (a gh-calling fixture, the real pre-E-92 dep-inventory.py
+# replay) run whenever python3 and gh are on PATH; static assertions always
+# run.
+run_test "local-ci hermetic changed-tests scan (no gh/network, catches pre-E-92 dep-inventory regression)" "$SCRIPT_DIR/test-local-ci-hermetic.sh"
+
 # Linting
 run_test "Export overwrite guard (non-interactive never hangs)" "$SCRIPT_DIR/test-export-overwrite-noninteractive.sh"
 run_test "Time-to-first-preview metric (write-once, never invented)" "$SCRIPT_DIR/test-first-preview-metric.sh"
@@ -1400,6 +1416,7 @@ run_test "model catalog is a single source of truth" "$SCRIPT_DIR/test-model-cat
 run_test "MiniMax model catalog and compatible endpoints" "$SCRIPT_DIR/test-minimax-model-catalog.sh"
 run_test "model catalog staleness is advisory and route-consistent" "$SCRIPT_DIR/test-model-catalog-staleness.sh"
 run_test "pre-push hook (post-D27: identity + syntax + no pytest + speed)" "$SCRIPT_DIR/test-pre-push-hook.sh"
+run_test "pre-push hook eval-fixture gitleaks step (E-86)" "$SCRIPT_DIR/test-pre-push-gitleaks.sh"
 run_test "loki help <command> and the daily log cap" "$SCRIPT_DIR/test-help-and-log-cap.sh"
 run_test "model picker is provider-aware (no claude models on codex)" "python3 $SCRIPT_DIR/test-provider-aware-model-picker.py"
 run_test "codex capability tiers resolve to distinct real models" "$SCRIPT_DIR/test-codex-tier-models.sh"
@@ -1444,7 +1461,10 @@ run_test "web-app CommandPalette file-search failure is not no-results (node --t
 # shard checkout does not have. It runs in its own "Moat suite" job instead.
 run_test "the moat runner enforces every ratchet rule" "$SCRIPT_DIR/test-moat-runner.sh"
 run_test "v10-pulse anti-drift status/violation reporter" "$SCRIPT_DIR/test-v10-pulse.sh"
+run_test "board-mark-released flips a slice's merged row once its tag ships (E-90)" "$SCRIPT_DIR/test-board-mark-released.sh"
 run_test "release.sh --bump-only restores debugId-only dist churn (E-72)" "$SCRIPT_DIR/test-release-bump-only.sh"
+run_test "release.sh --bump-only never leaves dist deleted on build failure (E-102)" "$SCRIPT_DIR/test-release-bump-dist.sh"
+run_test "release-notes.sh extraction/validation + pre-push VERSION-bump gate (E-88)" "$SCRIPT_DIR/test-release-notes.sh"
 run_test "no hardcoded far-future latest a release can overtake (E-73)" "$SCRIPT_DIR/test-no-stale-future-version.sh"
 run_test "timeout launches of run.sh/autonomy/loki escalate with -k (E-00)" "$SCRIPT_DIR/test-timeout-escalates.sh"
 run_test "v10 drift-audit turn counter (every-6th-turn signal)" "$SCRIPT_DIR/test-v10-drift-audit-counter.sh"
@@ -1509,6 +1529,7 @@ run_test "Welcome opener (terminal + browser)" "$SCRIPT_DIR/test-welcome-opener.
 
 run_test "Browser-open guard (tests never open a browser, S-103)" "$SCRIPT_DIR/test-browser-open-guard.sh"
 run_test "prune-worktrees treats cherry-picked branches as merged (S-154)" "$SCRIPT_DIR/test-prune-worktrees.sh"
+run_test "Eval results archive: redaction and dirty-check exclude (E-101)" "$SCRIPT_DIR/test-eval-archive.sh"
 run_test "run_test missing or empty argument does not stop the runner (S-174)" "$SCRIPT_DIR/test-run-all-missing-arg.sh"
 run_test "proof headline ignores a stale test-results.json (S-176)" "python3 -m pytest -q $SCRIPT_DIR/test_proof_tests_freshness.py"
 run_test "Managed completion council flag (BACKLOG 75, S-211)" "$SCRIPT_DIR/council/test_managed_completion_flag.sh"
@@ -1527,6 +1548,13 @@ run_test "run-owned temp cleanup works when sourced under zsh" "$SCRIPT_DIR/test
 run_test "Loki 10 legacy deprecation notice (E-35)" "$SCRIPT_DIR/test-engine10-legacy-notice.sh"
 run_test "Loki 10 gate publish script (EV-6)" "$SCRIPT_DIR/../eval/loki10/test-publish-gate.sh"
 run_test "Loki 10 user docs match USAGE and the default marker (E-34)" "$SCRIPT_DIR/test-engine10-docs.sh"
+run_test "Loki modernize py2/3 capture tracer (M-09)" "$SCRIPT_DIR/test-modernize-py-capture.sh"
+run_test "Loki modernize user guide matches cli.ts flags (M-30)" "$SCRIPT_DIR/test-modernize-docs.sh"
+run_test "loki modernize always routes to engine10 (M-08)" "$SCRIPT_DIR/test-modernize-dispatch.sh"
+run_test "Dependency inventory Latest/Bump self-consistency (DEP-01)" "$SCRIPT_DIR/test-dep-inventory.sh"
+run_test "Usage governor calibration and dedup (G-01)" "$SCRIPT_DIR/test-usage-governor.sh"
+run_test "Usage governor statusLine logger (G-01)" "$SCRIPT_DIR/test-usage-statusline-logger.sh"
+run_test "CI security scanners wired, fail-closed (E-123)" "$SCRIPT_DIR/test-security-scan-coverage.sh"
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"
 
 # Summary

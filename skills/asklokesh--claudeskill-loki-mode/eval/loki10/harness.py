@@ -3,7 +3,7 @@
 
 Subcommands (run.sh and summarize are thin wrappers around these):
   validate <task_dir>...
-  run --arm <v10|raw-claude|legacy> (--task ID | --tasks A,B | --all) [--parallel N] [--out DIR] [--tasks-dir DIR]
+  run --arm <v10|raw-claude|legacy> (--task ID | --tasks A,B | --all) [--tier small|medium|large] [--parallel N] [--out DIR] [--tasks-dir DIR]
   summarize <results.jsonl> [--markdown]
 
 Honesty rules (the v10.0.0 release gate depends on them):
@@ -50,7 +50,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 ARMS = ("v10", "raw-claude", "legacy")
 KINDS = ("augmentiq", "public", "quickstart")
-TASK_KEYS = {"id", "kind", "prompt", "issue_ref", "repo", "setup", "hidden", "timeout_s", "expected_outcome"}
+TIERS = ("small", "medium", "large")
+DEFAULT_TIER = "small"
+TASK_KEYS = {"id", "kind", "prompt", "issue_ref", "repo", "setup", "hidden", "timeout_s",
+             "expected_outcome", "tier"}
 # EV-13: "already implemented" is a first-class outcome, never a pause or a
 # duplicate PR. The only value today; unknown values are rejected so a typo
 # fails validate_task instead of silently grading as a normal build task.
@@ -84,18 +87,37 @@ AUTH_ENV = ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN")
 # by exact name, never a prefix match. Includes LOKI_E10_PLAN/WALL/WALL_TIER
 # (E-45 wiring, not read yet) and the operator tunables grep finds today
 # (process.env.LOKI_E10_ in loki-ts/src/engine10: CAP_S, INVOKER,
-# DASHBOARD_PORT). Excludes run inputs an operator's leftover value could use
-# to steer or replace the eval task (TASK_TEXT, ISSUE_JSON, REPO_DIR) and
-# per-session plumbing session.ts's childEnv sets itself (BRIEF, TIER,
-# PROVIDER, STAGE). Credentials are never in this list; they stay withheld
-# exactly as SCRUB_ENV/arm_auth already handle them.
+# DASHBOARD_PORT). LOKI_E10_PREFIX (S41-09) is read in loki-ts/src/runner/
+# providers.ts's buildSdkLoopOptions, not src/engine10, so it is outside that
+# grep's scope -- added here so S41-15's rerun-with-every-flag can turn it on,
+# the same gap E-98f hit for LOKI_E10_CASCADE. Excludes run inputs an
+# operator's leftover value could use to steer or replace the eval task
+# (TASK_TEXT, ISSUE_JSON, REPO_DIR) and per-session plumbing session.ts's
+# childEnv sets itself (BRIEF, TIER, PROVIDER, STAGE). Credentials are never
+# in this list; they stay withheld exactly as SCRUB_ENV/arm_auth already
+# handle them.
 V10_ENGINE_ENV_ALLOWLIST = (
     "LOKI_E10_PLAN", "LOKI_E10_WALL", "LOKI_E10_WALL_TIER",
     "LOKI_E10_CAP_S", "LOKI_E10_INVOKER", "LOKI_E10_DASHBOARD_PORT",
+    "LOKI_E10_PREFIX",
 )
 KEYCHAIN_SERVICE = "Claude Code-credentials"
 SECURITY_BIN = "/usr/bin/security"  # absolute: never a PATH lookup
 AUTH_MARGIN_S = 120
+
+
+def _task_tier(task_dir):
+    """Read task.json's tier for --tier filtering only. A missing tier
+    defaults to small. Unreadable json or a tier outside TIERS returns None
+    (never guessed as small), so --tier keeps the id instead of silently
+    shrinking the run; validate_task then reports the real error for it."""
+    try:
+        with open(os.path.join(task_dir, "task.json"), encoding="utf-8") as f:
+            t = json.load(f)
+        tier = t.get("tier", DEFAULT_TIER)
+        return tier if tier in TIERS else None
+    except (OSError, ValueError, AttributeError):
+        return None
 
 
 # ---------------------------------------------------------------- validate
@@ -159,6 +181,8 @@ def validate_task(task_dir):
     ts = t.get("timeout_s", DEFAULT_TIMEOUT_S)
     if isinstance(ts, bool) or not isinstance(ts, int) or ts <= 0:
         errs.append("timeout_s must be a positive integer")
+    if "tier" in t and t.get("tier") not in TIERS:
+        errs.append("tier must be one of %s" % "|".join(TIERS))
     return (None if errs else t), ["%s: %s" % (task_dir, e) for e in errs]
 
 
@@ -409,6 +433,74 @@ def default_model():
         claude = json.load(f)["providers"]["claude"]
     # First planning-tier entry is the default (providers/models.sh contract).
     return next(m["id"] for m in claude["models"] if m.get("tier") == "planning"), claude.get("cli_aliases", {})
+
+
+AGENT_SDK_PKG = "@anthropic-ai/claude-agent-sdk"
+
+
+def installed_agent_sdk_version(repo):
+    """Version actually on disk in loki-ts/node_modules, or None. Ground
+    truth for the manifest: package.json/bun.lock only say what SHOULD be
+    installed (E-62/EV-8 incident: package.json had moved to 0.3.283 while
+    node_modules still held 0.3.267)."""
+    try:
+        with open(os.path.join(repo, "loki-ts", "node_modules", *AGENT_SDK_PKG.split("/"),
+                                "package.json"), encoding="utf-8") as f:
+            return json.load(f).get("version")
+    except (OSError, ValueError):
+        return None
+
+
+def lockfile_mismatch(repo):
+    """None if loki-ts/node_modules matches loki-ts/bun.lock's resolved
+    versions, else a human-readable reason. E-62/EV-8: node_modules silently
+    drifted behind bun.lock (a dep bump landed in package.json/bun.lock but
+    `bun install` was never rerun in this checkout), so the v10 arm ran an
+    old SDK build with no signal. Compares the workspace's own direct deps
+    against what bun.lock actually RESOLVED them to (the "packages" table),
+    not package.json's ranges, against what is physically on disk.
+    """
+    ts = os.path.join(repo, "loki-ts")
+    lock_path = os.path.join(ts, "bun.lock")
+    nm = os.path.join(ts, "node_modules")
+    try:
+        with open(lock_path, encoding="utf-8") as f:
+            text = f.read()
+    except OSError as e:
+        return "cannot read %s: %s" % (lock_path, e)
+    try:  # bun.lock is JSONC (trailing commas allowed); strip them to parse.
+        data = json.loads(re.sub(r",(\s*[}\]])", r"\1", text))
+    except ValueError as e:
+        return "cannot parse %s: %s" % (lock_path, e)
+    ws = (data.get("workspaces") or {}).get("", {})
+    deps = {}
+    for k in ("dependencies", "devDependencies", "optionalDependencies"):
+        d = ws.get(k)
+        if isinstance(d, dict):
+            deps.update(d)
+    if not os.path.isdir(nm):
+        return "loki-ts/node_modules is missing; run (cd loki-ts && bun install --frozen-lockfile)"
+    packages = data.get("packages") or {}
+    mismatched = []
+    for name in deps:
+        entry = packages.get(name)
+        if not isinstance(entry, list) or not entry or not isinstance(entry[0], str):
+            continue
+        at = entry[0].rfind("@")  # scoped names have a leading '@'; skip it
+        resolved = entry[0][at + 1:] if at > 0 else None
+        if not resolved:
+            continue
+        try:
+            with open(os.path.join(nm, *name.split("/"), "package.json"), encoding="utf-8") as f:
+                installed = json.load(f).get("version")
+        except (OSError, ValueError):
+            installed = None
+        if installed != resolved:
+            mismatched.append("%s (bun.lock %s, installed %s)" % (name, resolved, installed or "missing"))
+    if mismatched:
+        return ("loki-ts/node_modules differs from bun.lock: %s; "
+                "run (cd loki-ts && bun install --frozen-lockfile)" % "; ".join(mismatched))
+    return None
 
 
 def arm_env(rundir, model, alias, arm=None):
@@ -946,6 +1038,37 @@ def wall_paths(work):
     return out
 
 
+# E-101: results.jsonl lives under eval/loki10/results/ (gitignored) inside a
+# worktree, so a worktree removal loses it -- the EV-14 incident. Every row
+# also gets archived outside the worktree's gitignored tree. Archived rows
+# never carry the arm_stdout/arm_stderr/prepare/setup/grade log paths (those
+# point at raw, gitignored arm output that may itself contain secrets) or any
+# string that looks like a known secret/token shape.
+_SECRET_RE = re.compile(
+    r"sk-ant-[A-Za-z0-9_-]+"
+    r"|sk-[A-Za-z0-9]{16,}"
+    r"|gh[oprsu]?_[A-Za-z0-9]{20,}"
+    r"|AKIA[0-9A-Z]{12,}"
+    r"|xox[baprs]-[A-Za-z0-9-]+"
+    r"|Bearer\s+[A-Za-z0-9._-]+"
+    r"|\b[A-Z][A-Z0-9_]{2,}=\S+"  # KEY=VALUE-shaped env leakage
+)
+
+
+def redact_row(row):
+    """A copy of row safe to archive outside the repo/worktree: no log paths,
+    no secret-shaped strings."""
+    def scrub(v):
+        if isinstance(v, str):
+            return _SECRET_RE.sub("[REDACTED]", v)
+        if isinstance(v, dict):
+            return {k: scrub(x) for k, x in v.items()}
+        if isinstance(v, list):
+            return [scrub(x) for x in v]
+        return v
+    return scrub({k: v for k, v in row.items() if k != "logs"})
+
+
 def new_row(task, arm, cfg, slot, logs):
     return {"run_id": slot, "task": task["id"], "arm": arm, "status": "ok", "model": cfg["model"],
             "repo_ref": task["repo"]["ref"], "harness_sha": cfg["harness_sha"],
@@ -1114,6 +1237,12 @@ def cmd_run(args):
     tasks_dir = os.path.abspath(args.tasks_dir)
     if args.all:
         ids = sorted(d for d in os.listdir(tasks_dir) if os.path.isfile(os.path.join(tasks_dir, d, "task.json")))
+        if args.tier:
+            # None (unreadable json / invalid tier value) is kept, not
+            # dropped, so a bad task.json fails loudly in validate_task below
+            # instead of silently shrinking the selected set (E-38 contract).
+            ids = [d for d in ids
+                   if (tier := _task_tier(os.path.join(tasks_dir, d))) == args.tier or tier is None]
     elif args.tasks:
         ids = sorted({t.strip() for t in args.tasks.split(",") if t.strip()})
     else:
@@ -1128,6 +1257,14 @@ def cmd_run(args):
             tasks.append((t, os.path.join(tasks_dir, tid)))
     if bad or not tasks:
         return 2
+
+    # E-62/EV-8: a loki arm (v10, legacy) runs bin/loki against loki-ts's
+    # build; refuse loudly rather than silently measuring a stale SDK.
+    if args.arm in ("v10", "legacy"):
+        why = lockfile_mismatch(REPO)
+        if why:
+            print("error: %s" % why, file=sys.stderr)
+            return 2
 
     model = os.environ.get("LOKI_EVAL_MODEL", "")
     top, aliases = default_model()
@@ -1145,12 +1282,19 @@ def cmd_run(args):
     os.makedirs(out, exist_ok=True)
     CHILDREN = Children(os.path.join(tmp, "child-pids"))
     harness_sha = git_out(["rev-parse", "HEAD"], HERE) or "unknown"
-    if git_out(["status", "--porcelain"], REPO):
+    # eval/loki10/archive/ is this run's own uncommitted output (E-101); it
+    # must not make an otherwise-clean tree read as "-dirty" for the next arm
+    # run in the same checkout, which would split raw/v10 rows onto different
+    # harness_sha values and corrupt the comparison in dedupe().
+    if git_out(["status", "--porcelain", "--", ".", ":(exclude)eval/loki10/archive"], REPO):
         harness_sha += "-dirty"  # results from uncommitted code are not reproducible
     cfg = {"tmp": tmp, "out": out, "model": model, "alias": alias,
            "harness_sha": harness_sha,
            "claude_bin": os.environ.get("LOKI_EVAL_CLAUDE_BIN", "claude"),
-           "loki_bin": os.environ.get("LOKI_EVAL_LOKI_BIN", "loki")}
+           # E-62/EV-8 incident: the global `loki` on PATH silently measured
+           # the wrong build (v9.78.0). Default to this repo's own bin/loki,
+           # never a global install, unless the operator explicitly overrides.
+           "loki_bin": os.environ.get("LOKI_EVAL_LOKI_BIN", os.path.join(REPO, "bin", "loki"))}
     binary = cfg["claude_bin"] if args.arm == "raw-claude" else cfg["loki_bin"]
     version = ""
     if shutil.which(binary):
@@ -1161,6 +1305,7 @@ def cmd_run(args):
     with open(os.path.join(out, "manifest.jsonl"), "a") as f:
         f.write(json.dumps({"arm": args.arm, "model": model, "arm_binary": binary,
                             "arm_version": version, "harness_sha": cfg["harness_sha"],
+                            "agent_sdk_version": installed_agent_sdk_version(REPO),
                             "isolation": "fresh CLAUDE_CONFIG_DIR per run", "auth_source": auth_source,
                             "tasks": [t["id"] for t, _ in tasks], "started": iso(time.time())}) + "\n")
 
@@ -1174,6 +1319,25 @@ def cmd_run(args):
     start_lock = threading.Lock()
     write_lock = threading.Lock()
     results = os.path.join(out, "results.jsonl")
+
+    # E-101: durable archive, written per row (not just at the end) so a
+    # killed run still keeps what it has. run_name need only be unique enough
+    # to not collide within one --out; --apply of the archive dir is manual.
+    run_name = "%s-%s-%s" % (time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()), args.arm,
+                              os.path.basename(out.rstrip(os.sep)) or "results")
+    archive_ext_dir = os.path.join(
+        os.environ.get("LOKI_EVAL_ARCHIVE") or os.path.join(os.path.expanduser("~"), "loki-ci-logs", "eval"),
+        run_name)
+    # LOKI_EVAL_ARCHIVE_REPO_ROOT overrides the "in-repo" archive's root
+    # (default REPO itself) so a test suite can redirect it to a throwaway
+    # directory instead of writing real files into the repo it is testing.
+    archive_repo_dir = os.path.join(
+        os.environ.get("LOKI_EVAL_ARCHIVE_REPO_ROOT") or REPO, "eval", "loki10", "archive")
+    os.makedirs(archive_ext_dir, exist_ok=True)
+    os.makedirs(archive_repo_dir, exist_ok=True)
+    archive_ext_results = os.path.join(archive_ext_dir, "results.jsonl")
+    archive_ext_manifest = os.path.join(archive_ext_dir, "manifest.jsonl")
+    archive_repo_results = os.path.join(archive_repo_dir, run_name + ".results.jsonl")
 
     def job(item):
         with start_lock:  # refuse to START a run while the box is overloaded
@@ -1201,6 +1365,18 @@ def cmd_run(args):
         with write_lock:
             with open(results, "a") as f:
                 f.write(json.dumps(row) + "\n")
+            archived = json.dumps(redact_row(row)) + "\n"
+            with open(archive_ext_results, "a") as f:
+                f.write(archived)
+            with open(archive_repo_results, "a") as f:
+                f.write(archived)
+            if args.arm == "v10":
+                work = os.path.join(rundir, "work")
+                rid = _v10_run_id(work)
+                events = os.path.join(work, ".loki", "runs", rid, "events.jsonl") if rid else None
+                with open(archive_ext_manifest, "a") as f:
+                    f.write(json.dumps({"run_id": slot, "task": task["id"], "rundir": rundir,
+                                        "work_dir": work, "engine_run_id": rid, "events_path": events}) + "\n")
         print("%s %s status=%s completed=%s" % (row["task"], args.arm, row["status"], row["completed"]))
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.parallel)) as ex:
@@ -1387,6 +1563,7 @@ def main(argv=None):
     g.add_argument("--task")
     g.add_argument("--tasks", help="comma-separated task ids (e.g. a 5-task measurement)")
     g.add_argument("--all", action="store_true")
+    r.add_argument("--tier", choices=TIERS, help="with --all, run only tasks of this tier (default: all tiers)")
     r.add_argument("--parallel", type=int, default=3)
     r.add_argument("--out", default=os.path.join(HERE, "results"))
     # LOKI_EVAL_TASKS_DIR keeps the tasks path out of argv (visible in ps to

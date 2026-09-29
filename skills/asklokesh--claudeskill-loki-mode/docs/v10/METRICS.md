@@ -124,6 +124,24 @@ out of pending.txt until S-19's stricter pass bar is also in the tree, or
 the merge itself becomes a ratchet regression. S-19 promoted to the
 critical path and reviewed immediately.
 
+## Usage (hourly, from scripts/usage-governor.py)
+
+### 2026-09-28T22:19Z
+- 5h window: uncalibrated, 5,229,182 output tokens since 2026-09-28T17:19Z (uncalibrated)
+- Weekly: uncalibrated, 48,901,928 output tokens, 42.7h to reset (uncalibrated)
+- Last hour: 1,436,250 output tokens; 45 active engineers; 29,189 per engineer; Chief of Staff 124,829
+- Max engineers next hour: uncalibrated (no plan reading on file)
+- Output tokens by model (all scanned transcripts): claude-sonnet-5 31,903,763 (43.0%), claude-opus-5-5 16,991,251 (22.9%), claude-opus-4-8 14,720,953 (19.8%), claude-opus-4-7 4,678,300 (6.3%), claude-opus-5 4,489,139 (6.0%), claude-fable-5 1,254,167 (1.7%), claude-opus-4-6 203,492 (0.3%), claude-haiku-4-5-20251001 6,565 (0.0%)
+- Output tokens by role (all scanned transcripts): workflow-agent 44,503,521, chief-of-staff 29,712,444, subagent 31,665
+
+### 2026-09-28T21:15Z
+- 5h window: uncalibrated, 5,183,443 output tokens since 2026-09-28T16:15Z (uncalibrated)
+- Weekly: uncalibrated, 47,364,676 output tokens, 43.7h to reset (uncalibrated)
+- Last hour: 477,429 output tokens; 17 active engineers; 24,479 per engineer; Chief of Staff 61,285
+- Max engineers next hour: uncalibrated (no plan reading on file)
+- Output tokens by model (all scanned transcripts): claude-sonnet-5 30,642,455 (42.1%), claude-opus-5-5 16,713,247 (23.0%), claude-opus-4-8 14,720,953 (20.2%), claude-opus-4-7 4,678,300 (6.4%), claude-opus-5 4,489,139 (6.2%), claude-fable-5 1,254,167 (1.7%), claude-opus-4-6 203,492 (0.3%), claude-haiku-4-5-20251001 6,565 (0.0%)
+- Output tokens by role (all scanned transcripts): workflow-agent 43,102,887, chief-of-staff 29,573,766, subagent 31,665
+
 ## CI: Tests workflow shell-tests sharding (S-81, supersedes S-70)
 
 S-70 resharded shell-tests 4 -> 8 with a plain `idx % n` split and measured
@@ -260,3 +278,149 @@ All arms on claude-opus-5-5, 29 small tasks with hidden tests, fresh clone per r
 - Lean configuration misses: aiq-52-searchbar, pub-humanize-174. It matches raw on completion and time and is 32% cheaper; it does not meet the 2x targets and is not the default until E-64 lands and is re-measured.
 - Lean-session evidence, 5 tasks (EV-8 D/E, not the full arm): opus lean 4/5 at $0.1571 per completed, p50 28s; sonnet lean 4/5 at $0.1519, p50 27.5s; raw opus on the same 5: 5/5, $0.2161, p50 41s (~/loki-ci-logs/ev8r-{D,E}/results.jsonl). The lean small path is not the default yet (E-64 in rework).
 - Medium and large tiers: not built (EV-11 3 of 15 verified, EV-12 in rework). No "2-5x" claim.
+
+## Loki 10 gate report, medium tier (upstream tests, deletion-mutant audited, not shortcut audited) (2026-09-28, D38; EV-14)
+
+Evidence note (Chief of Staff, 18:00Z): the per-run result files (eval/loki10/results/ev14-medium-{raw,v10}-r{1,2}/results.jsonl, gitignored) were lost when the EV-14 worktree was force-removed in the 17:36Z pruning incident (PROGRESS.md, E-96). The table below is the run agent's report from those files before removal (commit 0afef9e4); it cannot be re-audited. EV-15 re-runs the tier with results kept outside any worktree.
+
+D38 permits the flip decision on small plus medium; medium is explicitly "not
+shortcut audited" (no requirements map, no independent shortcut-attempt
+review, unlike the large tier's D38 criteria). All 7 medium tasks (`pub-*`
+with `"tier": "medium"`) carry upstream-verbatim hidden tests with at least
+one deletion-mutant check recorded in their `NOTES.md` (see
+`eval/loki10/tasks/pub-attrs-1313/NOTES.md` for one worked example). Both
+arms on claude-opus-5-5 (same model as the small-tier gate), harness
+8f2179cdea1544f855eca0ec4c8a18b525cad152 (origin/main, not dirty), fresh
+clone per run, provider-sourced cost only, 2 runs per arm, `--parallel 3`,
+900s cap per task. `loki-ts/node_modules` reinstalled from `bun.lock`
+(`bun install --frozen-lockfile`) before the v10 runs per E-62.
+
+| arm | completed | rate | cost per completed | p50 / p90 time to PR | arm_unavailable | invalid |
+|---|---|---|---|---|---|---|
+| raw `claude -p` | 12/14 | 85.7% | $0.5119 | 70s / 239s | 0 | 0 |
+| v10 (default knobs, main 8f2179cd) | 10/14 | 71.4% | $0.5395 | 83s / 100s | 0 | 0 |
+
+Per-run breakdown (`eval/loki10/summarize <file> --markdown`, all under
+`eval/loki10/results/`, the harness's normal `--out` location; none of these
+are committed, see below):
+
+| run | file | completed | cost per completed | p50 / p90 |
+|---|---|---|---|---|
+| raw r1 | `eval/loki10/results/ev14-medium-raw-r1/results.jsonl` | 5/7 | $0.6194 | 102s / 149s |
+| raw r2 | `eval/loki10/results/ev14-medium-raw-r2/results.jsonl` | 7/7 | $0.4352 | 69s / 256s |
+| v10 r1 | `eval/loki10/results/ev14-medium-v10-r1/results.jsonl` | 5/7 | $0.5702 | 83s / 121s |
+| v10 r2 | `eval/loki10/results/ev14-medium-v10-r2/results.jsonl` | 5/7 | $0.5088 | 98s / 100s |
+
+The pooled row is not something `summarize` can produce directly: it dedupes
+to the newest row per `(task, arm)`, which would silently drop one of the two
+runs per task. The pooled numbers were computed by hand over the 14
+concatenated rows per arm (both runs, un-deduped), reimplementing
+`summarize`'s own rules: completion rate over evaluated runs; cost per
+completed = total `cost_usd` of every evaluated run in the pool divided by
+the number completed (this is "evaluated", not "completed only" -- confirmed
+by reproducing raw r1's own $0.6194 figure by hand); p50/p90 by nearest-rank
+over completed runs' `time_to_pr_s`. The pooling script reproduced all four
+single-run files' own `summarize --markdown` numbers exactly (completed
+count, cost per completed, p50 and p90) before its pooled output was
+trusted. All 28 task-runs (7 tasks x 2 arms x 2 runs) came back
+`status: ok`; none were `arm_unavailable`, `auth_unavailable`,
+`harness_error` or `task_invalid`.
+
+Misses: raw-claude missed `pub-faker-1817` and `pub-werkzeug-3271` (both
+hidden-test failures, r1 only; r2 was 7/7). v10 missed `pub-werkzeug-3105`
+and `pub-werkzeug-3271` in both runs (hidden-test failures both times).
+
+Verdict per axis, v10 vs raw on this tier:
+- Completions: v10 is WORSE (71.4% vs 85.7%; 10/14 vs 12/14).
+- Cost per completed task: v10 is WORSE (higher; $0.5395 vs $0.5119, about
+  5.4% more expensive).
+- p50 time to PR: v10 is WORSE (slower; 83s vs 70s, about 19% slower). v10's
+  p90 (100s) beats raw's p90 (239s, `pub-werkzeug-3271`); raw's single
+  slowest run was `pub-werkzeug-3105` r2 at 256s, rank 12 of 12, past the p90
+  cutoff so it does not set the p90 value. Neither changes the p50 verdict.
+
+v10 is not at or better than raw on any of the three axes on this tier. This
+does not by itself change the small-tier default decision (D30: default
+stays legacy, v10 opt-in); it is additional evidence for whoever rules on the
+flip under D38's small-plus-medium scope.
+
+No result file was committed: `eval/loki10/.gitignore` ignores the whole
+`results/` directory (the README also warns to treat `--out` as sensitive,
+since `arm_stdout.log` can hold env), so there are no harness result files
+tracked in git to commit, matching every earlier EV entry in this file. Only
+this METRICS.md section is committed. The raw result files above remain on
+disk in this worktree at `eval/loki10/results/ev14-medium-{raw,v10}-r{1,2}/`.
+
+## Medium tier A/B (E-98f)
+
+E-98f (2026-09-28, branch `slice-E-98f`, harness_sha
+`3abb3ac6b5cdcb84467f247c56f15eba964b5b77-dirty`, v10.4.1, `claude-opus-5-5`,
+the same 7 `pub-*` medium tasks, 900s cap, `--parallel 3`, fresh clone per
+run) measured three knob arms at n=3 (21 task-runs each) against E-98a..e
+merged: default knobs, `LOKI_E10_WALL=0` (nowall) and `LOKI_E10_CASCADE=0`
+(nocascade, via a `LOKI_EVAL_LOKI_BIN` shim since that var is not in
+`harness.py`'s `V10_ENGINE_ENV_ALLOWLIST`; see `docs/v10/MEDIUM-ANALYSIS.md`
+"After (E-98f)" for the full method and the auth-lifecycle incident that
+lost and required re-running every arm's r2). Raw was not re-run; both
+prior raw measurements are carried forward. Dedupe rule: one row per (arm,
+run-file, task), the latest `status: ok` attempt if one exists else the
+latest attempt overall, never collapsing across the 3 reps (full rule and
+per-arm rationale in MEDIUM-ANALYSIS.md). Rows dropped by this rule: 22
+(default), 15 (nowall), 15 (nocascade), all superseded `auth_unavailable`/
+`interrupted` attempts from the auth incident; each arm's pooled table below
+has exactly 21 rows (7 tasks times 3 runs).
+
+| source | arm | completed | rate | cost per completed | p50 / p90 |
+|---|---|---|---|---|---|
+| EV-14 | raw `claude -p` | 12/14 | 85.7% | $0.5119 | 70s / 239s |
+| EV-15 | raw `claude -p` | 10/14 | 71.4% | $0.5085 | 56s / 104s |
+| EV-15 | v10 default knobs | 9/14 | 64.3% | >= $0.788 (corrected lower bound) | 128s / 330s |
+| E-98f | v10 default knobs | 15/21 | 71.4% | n/a (10/21 null-cost rows; lower bound $0.6958) | 209s / 457s |
+| E-98f | v10 `LOKI_E10_WALL=0` | 16/21 | 76.2% | n/a (2/21 null-cost rows; lower bound $0.786) | 214s / 500s |
+| E-98f | v10 `LOKI_E10_CASCADE=0` | 15/21 | 71.4% | n/a (11/21 null-cost rows; lower bound $0.3233, unreliable) | 138s / 218s |
+
+Decision rule (founder, 2026-09-28): the chosen arm must complete at or
+above EV-14's 85.7% and cost at or below EV-15's $0.5085 per completed. No
+E-98f arm reaches 85.7% (nowall highest at 76.2%), and no arm's cost per
+completed is a clean number (`n/a` in all three, see the null-cost note in
+MEDIUM-ANALYSIS.md). No arm meets the rule; `sizing.ts` is unchanged.
+
+## S41-04 Per-stage token table (before-measurement)
+
+Reference for S41-09/S41-10/S41-11 to be judged against. Source: every
+`result-cost-*.json` in `~/loki-ci-logs/eval/e98f-engine/{default,nocascade,nowall}-r{1,2,3}/*/.loki/metrics/`
+(all 9 preserved E-98f run copies, no new eval spend). One row per task
+instance (result-cost files with the same stage suffix inside one task's
+`.loki` dir are summed first, e.g. two `fix1` rounds); mean/p50 taken across
+those task instances. `verify` and `seal` are deterministic (no SDK call,
+no result-cost file) so they have no token row.
+
+| stage | n (task instances) | mean input | p50 input | mean cache_read | p50 cache_read | mean cache_write | p50 cache_write | mean output | p50 output |
+|---|---|---|---|---|---|---|---|---|---|
+| intake (`already-done`) | 18 | 6 | 4 | 46,305 | 29,937 | 8,742 | 8,399 | 590 | 495 |
+| plan | 36 | 10 | 10 | 44,547 | 44,290 | 8,784 | 8,896 | 2,038 | 2,044 |
+| wall | 16 | 7 | 6 | 67,611 | 55,318 | 14,512 | 15,098 | 5,530 | 5,735 |
+| implement | 58 | 51 | 42 | 982,144 | 654,959 | 33,750 | 28,301 | 10,893 | 8,354 |
+| fix (round 1) | 10 | 13 | 10 | 116,340 | 69,232 | 10,765 | 10,668 | 2,256 | 2,004 |
+| fix (round 2) | 4 | 10 | 7 | 78,512 | 47,776 | 6,691 | 5,748 | 2,463 | 2,196 |
+| verify | n/a | - | - | - | - | - | - | - | - |
+| seal | n/a | - | - | - | - | - | - | - | - |
+
+Cache-read share of every token summed across all rows above: 94.5%
+(61,960,744 of 65,568,766 total tokens). This is a raw token-count share,
+not the dollar-weighted "76% of spend" in D41 item 2 (`docs/v10/DECISIONS.md:326`);
+cache reads price far below input/output tokens, so a lower spend share at a
+higher token share is expected, not a contradiction.
+
+First-turn prefix size (`first_turn_prompt_tokens`, added by S41-04's
+`consumeSdkStream` change): **not measurable from these preserved runs** --
+the field did not exist when E-98f ran, and only the final aggregated
+`result-cost-*.json` and cumulative `partial-usage-*.json` files were kept
+(no raw per-message stream-json), so it cannot be backfilled. It will start
+populating in the next run made with this slice merged (e.g. S41-06's
+baseline eval); no new eval was run here per the standing E-98f-only
+instruction for this slice.
+
+Command: `python3` one-off aggregation of the `result-cost-*.json` files
+under `~/loki-ci-logs/eval/e98f-engine/*/*/.loki/metrics/`, grouped by the
+stage suffix after `result-cost-e10-<ts>-<hash>-`.

@@ -17,7 +17,8 @@ set of tasks and scores each run the same way.
   "setup": "<optional shell command run in the checkout before the arm>",
   "hidden": {"files": ["<paths relative to hidden/>"], "run": "<command, see below>"},
   "timeout_s": 900,
-  "expected_outcome": "no_change_needed"
+  "expected_outcome": "no_change_needed",
+  "tier": "small | medium | large (optional, defaults to small)"
 }
 ```
 
@@ -107,6 +108,7 @@ The validator rejects any of these:
 
 ```bash
 eval/loki10/run.sh --arm raw-claude --all --parallel 3 --out eval/loki10/results
+eval/loki10/run.sh --arm raw-claude --all --tier medium --out eval/loki10/results
 eval/loki10/run.sh --arm v10 --task <id>
 eval/loki10/summarize eval/loki10/results/results.jsonl            # plain text
 eval/loki10/summarize eval/loki10/results/results.jsonl --markdown # CHANGELOG block
@@ -268,6 +270,16 @@ sensitive. The keychain is read only through `/usr/bin/security`, an absolute
 path with no PATH lookup. A keychain token whose `expiresAt` is missing or not
 a number is treated as unusable, so the check fails closed.
 
+Because `results/` is gitignored, it exists only inside whatever worktree ran
+the eval; a worktree removal loses it (E-101, GUARDS.md 18). Every row is
+also archived (via `redact_row`: no log paths, no secret-shaped string) to
+`${LOKI_EVAL_ARCHIVE:-$HOME/loki-ci-logs/eval}/<run-name>/results.jsonl`
+outside the repo, and to `eval/loki10/archive/<run-name>.results.jsonl`
+inside it. Unlike `results/`, `eval/loki10/archive/` is NOT gitignored: those
+files are meant to be committed, and `scripts/prune-worktrees.sh` treats a
+worktree's results as safe to lose only once every row's `run_id` is present
+in one of the two archive copies.
+
 This is not a sandbox. The env scrub and the fresh config dir only change what
 the arm loads by default. Every arm, setup command and hidden test runs as the
 same OS user as the operator. Any of them can still read `~/.claude`, the
@@ -326,6 +338,51 @@ CLAUDE_CONFIG_DIR="$D" CLAUDE_CODE_OAUTH_TOKEN="$TOK" env -u CLAUDECODE \
   claude -p "What global instructions do you have about committing? Answer in one line." \
   --output-format json | python3 -c 'import json,sys;print(json.load(sys.stdin)["result"])'
 ```
+
+## Scorecard arms
+
+`eval/loki10/scorecard-run.sh --tier T --n N --arms LIST --out DIR` runs the
+scorecard's pinned arms back to back, N reps each, one `--out` subdirectory
+per rep (`DIR/rep<i>/<arm>`), all with the same `--parallel`. `LIST` is a
+comma-separated subset of the four arms below (SCORECARD-PLAN.md section 3),
+each pinned to a harness `--arm` and `LOKI_EVAL_MODEL`:
+
+| arm | harness `--arm` | `LOKI_EVAL_MODEL` |
+| --- | --- | --- |
+| `raw-sonnet` | `raw-claude` | `claude-sonnet-5` |
+| `raw-opus` | `raw-claude` | `claude-opus-5-5` |
+| `loki-sonnet` | `v10` | `claude-sonnet-5` |
+| `loki-opus` | `v10` | `claude-opus-5-5` |
+
+`--dry-run` prints the exact command for each arm/rep instead of running it,
+and never touches auth. Pass `--tasks-dir DIR` to override the default
+`eval/loki10/tasks`.
+
+**Auth guard (E-98f defect c).** Claude Code refreshes its keychain OAuth
+token only close to expiry, so a long batch could otherwise lose a rep
+mid-run. Before each arm x rep, unless an operator `ANTHROPIC_API_KEY` or
+`CLAUDE_CODE_OAUTH_TOKEN` is set (which `arm_auth` already prefers and this
+guard then skips entirely), the wrapper reads only the keychain's
+`expiresAt`, never the token:
+- enough time remains for this rep (`--parallel`-batched task count x the
+  900s harness cap, plus a 600s buffer) -> proceeds silently.
+- not enough -> waits, re-reading `expiresAt` each round, until under 300s
+  remain (an early refresh call would not trigger Claude Code's own
+  near-expiry refresh), then runs one operator
+  `claude -p ok --model claude-haiku-4-5` to force it, and re-reads to
+  confirm the refresh actually extended the expiry.
+- keychain unreadable, or the refresh did not extend the token enough ->
+  stops the whole batch cleanly with a token-free message; it never burns a
+  run on an auth failure.
+
+The 300s threshold is unverified (E-98f saw no refresh at about 415s
+remaining); `LOKI_EVAL_AUTH_POLL_S` overrides the poll interval (30s default)
+and `LOKI_EVAL_AUTH_MAX_WAIT_S` bounds the wait (4200s default).
+
+`bash eval/loki10/test-scorecard-run.sh` covers `--dry-run`'s pinned output,
+the operator-credential skip, ample-time and near-expiry-then-refresh paths,
+an unreadable keychain, and a failed refresh, against stub `security` and
+`claude` binaries; it never touches the real keychain or runs a real arm.
 
 ## Tests
 

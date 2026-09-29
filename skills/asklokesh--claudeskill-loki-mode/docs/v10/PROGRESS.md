@@ -1,5 +1,117 @@
 # Progress
 
+## 2026-09-28T21:44Z: v10.5.1 published; E-98f says no flip; D41 plan and D42 rulings
+- v10.5.1: cut 21:27:45Z (d697ea4c: E-110 pre-push scans every path, METRICS usage snapshot), Release 36486250082 success, publish-npm 21:36:44Z, npm latest 10.5.1 gitHead d697ea4c, body 9 lines from release-notes.sh (no backfill).
+- E-98f (merged eca3e8ef): n=3 x 21 medium task-runs per arm. default 15/21 (71.4%) p50 209s; WALL=0 16/21 (76.2%) p50 214s; CASCADE=0 15/21 p50 138s; raw 12/14 (EV-14) and 10/14 (EV-15) at p50 56s. No arm has a clean cost (null rows 10/2/11, harness rejects partial-stream cost). E-98 fixes hold: pytest not_run 0/80, spec_conflict reaches verify, jinja-1413 9/9. No flip.
+- D41 (founder 21:22Z, 534b2a6e): balanced scorecard per model tier (completion, cost per completed, p50, all at or better than raw); flip only when green on small and medium. Architect plan docs/v10/SCORECARD-PLAN.md (7f671f5c), 16 S41 cards in 5 waves. D42 (CTO, 923648cd): e10ext/ approved with a 1,500-line cap and no verdict logic; S41-14 (Wall in parallel) deferred for lack of a speed win; S41-16 confirmed P0 (Wall red-on-base vacuous when python is missing: exit 127 counted as failed); M-13 must bind normalizers into the oracle seal.
+- Security: E-114 (CI gitleaks) rejected twice by opus on real bypasses (pushed .gitleaks.toml; then event.before chained from an ungated push); r2 takes the base from the last release tag. main has no branch protection (gh api returns 404); raised with the founder.
+- Merged since v10.5.1: DEP-05/06/07, E-90 (42 rows marked released), E-116, E-117, E-120 (reason in receipt, injection-safe). Building: S41-01, S41-02, S41-16, M-13 r4, E-114 r2.
+
+## 2026-09-28T21:18Z: founder 17:10 directives actioned
+- Usage in METRICS.md: scripts/metrics-usage-append.py (343c087b) renders scripts/usage-governor.py --json (4.6s) under "## Usage (hourly ...)"; first snapshot 21:15Z (5h window 5,183,443 output tokens, weekly 47,364,676, last hour 477,429 across 17 active engineers, 24,479 per engineer, Chief of Staff 61,285). Session cron 494e26d8 appends hourly at :07.
+- Staffing to 8: the governor cannot set a ceiling yet (max engineers "uncalibrated": no 5h or weekly plan reading on file), so the founder default of 8 applies. Building: E-98f, E-110 (r2 in opus re-review), E-114, E-90, plus DEP-05, DEP-06, DEP-07, M-13 r2 dispatched 21:18Z. Held with reasons: G-04 cloud fan-out (needs a calibrated governor), EV-9 (after E-98f), E-87 (release gate, rejected once), M-14+ (depend on M-13). E-85 parked (conflicts with fingerprint-only allowlisting).
+- E-98f: running since 20:20Z, most arms at run 3 (result files under ~/loki-ci-logs/eval/e98f-*); flip bar set to raw's best 12/14 (85.7%) and at or below $0.5085 per completed; results go to METRICS.md and MEDIUM-ANALYSIS.md.
+
+## 2026-09-28T21:01Z: v10.4.1 (30afbd07) and v10.5.0 (6498effe) published; red main a4623675 fixed forward by 024b947c in 11 min
+- v10.4.1: cut 20:14:04Z (30afbd07), publish-npm 20:19:57Z, npm latest 10.4.1 gitHead 30afbd07; body was the placeholder (E-88 not yet on origin), backfilled from CHANGELOG (release-notes.sh rc=0, 10 lines).
+- Red main: train a4623675 (pushed 20:30:47Z) failed Tests shard 4/8, tests/test-release-notes.sh T9l/T9n fixtures 34 bytes on Linux (yes piped to head under pipefail; passes 41/0 on macOS). P0 E-113 dispatched 20:39Z, Tech Lead APPROVE (fixture bytes identical: 132034/98034/224089), pushed 20:42:15Z as 024b947c; Tests and Bun Parity success 20:48:31Z.
+- v10.5.0 (minor): cut 20:49:19Z (6498effe), Release 36481891650 success, publish-npm 20:55:23Z (cut to publish 6m04s). Contents: E-98a..e medium fixes (verify on the project interpreter, seal never VERIFIED on a system interpreter, spec_conflict verified, Python repo map, killed-session cost), E-106 SDK pin drift, E-88 release-notes gate, E-108 debugId, internal guards. First release with the release-notes gate on origin; body check pending in the watcher.
+- Governor: E-109 merged (cold 12.9s, warm 4.9s from 115s); pulse now reads opus share 3.1% of output last hour. Budget burn stays UNKNOWN until a founder plan reading is recorded.
+- Next: E-98f (A/B medium eval, n=3 x 3 arms) decides the v10 small+medium flip; E-110 (pre-push scans every path) building.
+
+## 2026-09-28T20:17Z: v10.4.0 blocked by gitleaks, re-released as v10.4.1; E-98 fixes landing; drift audit (turn 576)
+- 19:40 slot, late: v10.4.0 cut 19:50:24Z (7895a698: G-01, M-08, E-101, E-102, E-103). Release 36475005937 FAILED at required-ci: Security Audit gitleaks "leaks found: 3", all in bbe83c7a:tests/test-eval-archive.sh, synthetic E-101 redaction fixtures (AKIAABCD..., sk-ant-planted..., a token string). Not published; no tag.
+- P0 response (20:02Z to 20:14Z): exact fingerprints allowlisted with a reason (6358e0a6, local gitleaks on d811e5c3..HEAD: no leaks found); Tests and Bun Parity green on it; v10.4.1 cut 20:14:04Z (30afbd07) carrying the 10.4.0 notes. Watcher on Release, npm and body. Guard E-110 (HIGH): pre-push scans every pushed commit and path, fixtures built at runtime. Root cause: pre-push ran gitleaks only for eval fixture pushes while CI scans everything.
+- Release tooling found at the cuts: release.sh left a new debugId in dist/loki.js while restoring the map (fixed by hand twice; guard E-108 merged locally 6b65aaff, 15/0).
+- E-98 medium fixes merged locally: E-98b (97b80ca4, spec_conflict verifies, opus APPROVE), E-98c (f4606246), E-98d (15859bef) (Python repo map incl. async def; offline 4/7 repos rank the upstream file top 8, was 0/7), E-98a (5cdd611d, verify interpreter plus seal: a system-interpreter pass can never seal VERIFIED; opus APPROVE r2; I re-ran the seal mutation: old seal.ts fails 2 of 14 seal tests). Combined core is 5003 lines (budget.test.ts FAIL): P0 E-111 trims it before any engine train ships. E-98e (killed-session cost) in rework: +42 core lines against +10, and 55 full-suite failures not yet baselined against main.
+- Also merged locally: E-106 P0 (claude-agent-sdk pins aligned to 0.3.283; root had 0.3.267 and Dockerfile 0.3.208 for 20h), E-88a (release body gate, opus APPROVE), E-91 (pulse ids), G-02 (OPUS_SHARE, BUDGET_BURN), E-104, E-105.
+- Drift audit: G-02 checks read UNKNOWN because the governor takes 115s (E-109 building). SESSION_STALLED misreads from a subdirectory or worktree (E-107, rework for a test-name collision). DEP-02..04 were stale "building" rows with no agent (parked). Load 2.7, 12 worktrees; headcount held per D40 while E-98f waits on E-111.
+
+## 2026-09-28T19:42Z: 19:20 slot shipped (v10.3.1); medium failure explained; 7 builders on the fixes
+- 19:20 slot: v10.3.1 cut 19:22:09Z (d811e5c3: E-99, M-30); Release 36471746478 success, publish-npm 19:30:56Z (cut to publish 8m47s), npm latest 10.3.1 gitHead d811e5c3. GitHub body came out as the placeholder "Release v10.3.1" (2 lines); backfilled from CHANGELOG (9 lines). E-88a (the enforcement) is being rebased onto E-99 now.
+- Release blocker found at the cut: release.sh --bump-only in a fresh worktree deleted 4 tracked dist files when the build failed. Guard E-102 merged (c35d3fa7, test red 3/4 first, then 7/0) and E-103 for the build-ok-but-no-version branch (cd3d3d26, 10/0).
+- EV-15 (medium re-run, durable files in ~/loki-ci-logs/eval/ev15-*): raw 10/14, $0.5085, p50 56s; v10 9/14, at least $0.788 per completed (E-98 correction), p50 128s. No flip.
+- E-98 (docs/v10/MEDIUM-ANALYSIS.md, d496db89): v10's verify stage hard-codes `python`; this host has only `python3`, so 27/27 pytest and 9/9 ruff checks were not_run and no fix round fired in any of 14 runs. The only raw-won/v10-lost task (jinja-1413 x2) broke two existing tests a working verify would have caught. Other causes: spec_conflict skips verify (5/14), empty Python repo map (0 symbols, 9/14 implement runs had no tests to run), Wall killed at 90s (5/14, all 4 null-cost rows).
+- Dispatched 19:40Z (sonnet): E-98a (verify interpreter), E-98b (spec_conflict still verifies), E-98c (append-only tests, impacted-test fallback), E-98d (Python repo map), E-98e (killed-session cost), E-88a rebase, E-91 (pulse id regex: E-98a..e and G-02 were invisible to the building count). E-98f (A/B of Wall and cascade, n=3 per arm) follows as one combined re-run.
+- Merged locally for the 19:40 train: G-01 (governor, opus APPROVE r3 fa279532), M-08 (modernize dispatch, Tech Lead APPROVE r3 766a493b, alias-forwarding 213/0), E-102, E-103, E-101 (durable eval results plus safe prune, used to remove 6 finished worktrees). Fast tier: two failures, both pre-existing on origin/main and env-conditional (E-104 gitleaks allowlists the AWS example key; E-105 heredoc checker false positive at run.sh:5548).
+
+## 2026-09-28T19:04Z: drift audit (turn 528)
+- M-08 (modernize arm in bin/loki) first build would have turned test-engine10-dispatch.sh red (it counted exactly 1 engine10 line). Fixed in-slice (7feff1f8): exactly 2 exec lines, one per named arm, red on a stray third; 35/0 and 13/0. Tech Lead review running.
+- M-30 guide: Tech Lead REJECT, the --resume example id failed MID_RE (exit 2 when copied). Rework adds a MID_RE check over every id in the guide.
+- No drift from D40: 5 building, load 2.9, no eval scaling; EV-15/E-98 still the priority.
+
+## 2026-09-28T19:00Z: 18:40 slot cut; E-99 merged; G-01 r2 rejected; drift audit (turn 522)
+- 18:40 slot: v10.3.0 cut 18:48:32Z (74821b73: E-67, M-07, M-11, E-86, E-94, E-95, E-100, E-89); Release 36467812081 success, publish-npm 18:57:05Z (cut to publish 8m33s), npm latest 10.3.0 gitHead 74821b73, GitHub body 10 lines (the extractor worked; no backfill needed). E-99 train pushed 19:00Z as 367fe73f, pre-push passed without PRE_PUSH_SKIP.
+- E-99 (pre-push scans every pushed commit with the tip's .gitleaksignore) merged locally 5ee5a630; conflict with E-100 case 20 resolved (binary guard kept, E-99 message taken). tests/test-pre-push-gitleaks.sh 43/0 with gitleaks, 19/0 plus 24 skipped without; test-pre-push-hook.sh 13/0. Held until 10.3.0 publish-npm (a push during a release cancels its Tests).
+- G-01 r2 (de8e1f76, pct 100x fix, reset-aligned window, fail-safe, projection to weekly reset, global max-per-message dedup): opus REJECT. The weekly reset is 1h off across DST, and fixes 2 and 4 have no regression test (reverting either still gives 20/0). r3 dispatched to the same engineer.
+- Drift audit: EV-12 umbrella was building for 127 min against D40 (large tier after medium); parked. E-96 duplicated E-101; parked. Headcount held per D40: 5 building (M-08, M-30 dispatched as low-risk modernize work) while EV-15/E-98 decide the medium fix. Load 3.2.
+
+## 2026-09-28T18:25Z: 14:00 slot shipped; governor numbers corrected
+- 14:00 slot: v10.2.5 cut 18:06:00Z (b72c4f7e) after Tests went green on 1f955851 at 18:05:17Z; publish-npm 18:14:09Z; npm gitHead b72c4f7e; GitHub body backfilled (5 lines).
+- Burn accounting settled (three tries): rows sharing a message id are streaming snapshots (output_tokens grows, e.g. 5, 5, 467; cache fields repeat), so the right count is the maximum per message id. Last hour 1.79M output (sonnet 84%, opus 15%), 0.726B cache read; last 5h 6.43M output. G-01 now uses max-per-message (real run: 6.53M output in 5h, 37 active agents, 45.9K output per engineer-hour) and ships usage-statusline-logger.sh: Claude Code gives a statusLine command rate_limits.five_hour and seven_day used_percentage, which is the source of truth once wired. Still uncalibrated: no plan reading yet.
+- Merged locally for the next train: E-86 (pre-push gitleaks, opus APPROVE round 4), M-11, E-67 (core 4,976 after deleting escalate.ts), M-07 (fits at 4,977 once E-67 landed). Full-suite failures seen at load 48 were timeouts that pass alone.
+
+## 2026-09-28T18:00Z: EV-14 says no flip; v10.2.4 out; governor first
+- EV-14 medium tier (7 tasks, 2 runs per arm, claude-opus-5-5, harness at 8f2179cd): raw 12/14 completed (85.7%), $0.5119 per completed, p50 70s; v10 10/14 (71.4%), $0.5395, p50 83s. v10 is worse on completions, cost and p50; the default stays legacy (D38). Per-run result files were lost in the 17:36Z worktree incident (numbers survive in METRICS.md from commit 0afef9e4); EV-15 re-runs with results kept outside worktrees and E-98 diagnoses the v10 losses.
+- EV-12 large retrofits (EV-12F-a, EV-12F-b, EV-12G): opus REJECT on every task; deprioritized behind EV-15 and E-98, since the flip is blocked by the medium result regardless of the large tier.
+- v10.2.4 (13:40 slot): cut 17:42:40Z (22730334), publish-npm done 17:51:04Z (Release run 36460058157).
+- Founder 17:44Z (D39): usage governor first. Burn counted once per API response: last hour 1.87M output (sonnet 1.62M, opus 0.24M, opus share 13%), 0.634B cache read. G-01 governor building; G-03 SCALE.md merged (Max 20x sustains about 5 to 16 engineers around the clock, ESTIMATE, uncalibrated; 50 engineers at API list price about $11.5K to $14.5K per day, ESTIMATE). New dispatch frozen until calibrated; waiting on a founder plan-percentage reading.
+
+## 2026-09-28T17:40Z: release slots measured; staffing; worktree incident
+- Slot log (cut = release commit pushed; publish = npm time). v10.2.3 detail: cut 17:27:02Z, publish-npm job done 17:34:47Z, npm time 17:40:56Z (`npm view loki-mode time`), GitHub body backfilled from CHANGELOG (placeholder until E-88a lands). 13:00 local slot: skipped, main red (8f2179cd Tests failure, rerun success at 17:05Z). v10.2.2: cut 17:07Z (9a59750d), npm 17:16Z. 13:20 slot: cut late at 17:27:02Z as v10.2.3 (d366d9de) after Tests went green on 4f6b441d at 17:26Z; publish-npm success by 17:35Z. Next train pushed 17:35:35Z (1f04c040, EV-12S) for the 13:40 slot.
+- Staffing: founder 17:22Z (keep 12 or more building). The BOARD showed 5 because rows were not flipped when waves were dispatched; now 19 rows building. E-88 (70 min) and E-89/E-90 (58 min) stopped and re-sliced; the salvaged E-89 and E-90 commits are reviewed as their own slices. RELEASE_CADENCE and UNDERSTAFFED are in E-89 (wave E27). Guards for today's red mains: E-94 (changed tests re-run without credentials, pre-merge) and E-95 (watchdog fixture readiness).
+- Incident 17:36Z: pruning worktrees with `find -newermt "-25 minutes"` (unsupported on BSD find, matched nothing) force-removed 7 live builder worktrees (M-07 r4, M-11 r3, EV-14, EV-12F-a, EV-12G, E-95, E-87). Every branch had its work committed (`git log origin/main..<branch>` shows 1 to 9 commits, the latest 3 to 48 minutes old); edits after the last commit were lost. Guard E-96 (safe prune script); memory recorded.
+
+## 2026-09-28T17:10Z: v10.2.2 cut (npm gitHead 9a59750d); two red mains handled (E-92 at 4f7f1487, flake rerun 36453069628 success); D38; drift audit (turn 486)
+- Main red at df7dc134 to 793870f3 (Tests run 36451439320): the DEP-01 self-test reached the real gh floating-tag resolver and read bump unknown on the CI runner. P0 fix E-92 (81cdba4d, TL APPROVE; stripped-env self-test rc=0 vs rc=1 on the old code), merged 4f7f1487. Guard E-93 (stripped-env leg) building.
+- 8f2179cd then failed once on "App Runner Watchdog Health" (healthy fixture server never came up); `gh run rerun 36453069628 --failed` concluded success on the same SHA, so it was a flake, not a code change.
+- v10.2.2 cut from 8f2179cd (9a59750d): DEP-01 inventory and E-92, full D36 notes; release watcher armed. The 3 E23 approvals (M-10, M-12, E-79..E-81; full `cd loki-ts && bun test` 2277 pass 0 fail, dist 18 passed, pulse 117 passed) are merged locally (dc827b80) and ride the next train.
+- D38 (CTO): large tier uses upstream-first hidden tests with a requirements map and committed shortcut fixtures; EV-14 and the E-31 flip may proceed on small plus medium with limited claims. Wave E25 runs EV-14 medium, EV-12F (2 engineers), EV-12G and E-93.
+- Rejected this hour and reworking (wave E26): M-07 (kept core under the cap by squashing a table line: gaming, not an offset), M-11 (C0 control characters raw in status.json), E-67 (backstop kills the worker at caps under about 25s). E-86 round 3 (every pushed commit scanned) and E-88 round 2 (heading-walk carry, main-only gate) are in opus review.
+- Drift audit: releases in the last 6h: v10.1.1, v10.2.1, v10.2.2 (in flight). Main red twice this hour (DEP-01 hermeticity, then a flake), both handled within the P0 window; the cadence cron skipped the red ticks as designed. Reviewers keep catching real defects in first builds (E-86 3 rounds, E-88 2, DEP-01 3), which is the main throughput cost; builders now get the prior findings file and exact reproduction in every rework card.
+
+## 2026-09-28T16:30Z: D37 release cadence in force; "20 waiting slices" were already shipped; drift audit (turn 468)
+- Founder directive 16:20Z (D37): cut at :00, :20, :40 whenever main is green and a merged-unreleased slice exists; trains overlap after publish-npm; release blockers are P0 with a guard. Session cron 0b6676af runs the Release Manager tick at :00/:20/:40.
+- Reconciliation: `git log v10.2.1..origin/main` showed only 2 docs commits (03911808, 4bbda895); every BOARD row marked merged had all its cited commits as ancestors of a published tag (`git merge-base --is-ancestor`), so the "20 merged slices waiting" were stale BOARD cells, not unreleased work. 27 rows flipped to released with their tag (E-71, E-73 corrected to v10.1.0 from their merge 172bec99). E-90 automates this after each publish; E-89 adds RELEASE_CADENCE to the pulse (building, wf_aa962a0e-002).
+- Release notes (D36): six GitHub releases (v9.80.1 to v10.2.1) had placeholder bodies because release.yml's awk never matched dated headings; backfilled from CHANGELOG with `gh release edit`; E-88 enforces it.
+- Drift audit: last 6h shipped v10.1.1 and v10.2.1 (2 releases; 10.2.0 blocked by a Security Audit false positive and a dispatch path the gate cannot count, both now guarded: E-86, E-87). Main red once in the window (9d483688, fixed by E-83). Throughput gap: releases waited on me reviewing and on hand-run bumps; the cadence cron and E-89 remove that.
+
+## 2026-09-28T16:05Z: v10.2.1 shipped (carries the unpublished 10.2.0)
+- Release run 36446416984 success; Security Audit 36446416943 success on 815640d9; `npm view loki-mode dist-tags` latest 10.2.1, gitHead 815640d9 = release commit; GitHub release v10.2.1 published 15:53:56Z; `loki --version` from a fresh prefix prints "Loki Mode v10.2.1" (rc=0).
+- In flight: wave E23 (M-07, M-10, M-11, M-12, E-67, E-79..E-81 reworks), wave E24 (EV-12S rebase, EV-12A/B/C large tasks; 2 of 5 needed large tasks passed review so far: lg-werkzeug-1513, lg-werkzeug-1680), E-86 rework (4 reproduced fail-opens in the pre-push gitleaks check), DEP-01 rework in review.
+
+## 2026-09-28T15:45Z: 10.2.0 cannot publish by dispatch; re-release as 10.2.1; drift audit (turn 456)
+- Security Audit dispatched on 8e7d21f2 (run 36442754156) completed success, but Release dispatched on main (run 36443541666) sat in required-ci: release.yml counts only event=="push" runs, and Security Audit runs on push only when VERSION changes, so a dispatched audit is never counted. Cancelled before its 40-minute deadline. Re-release follows the 10.0.1 precedent: push the train, Tests and Bun Parity green, bump to 10.2.1 so the VERSION push runs Security Audit and Release. E-87 cut for the dispatch path.
+- Gitleaks root cause: the pub-werkzeug-3271 prompt (upstream issue text) contains a sourcegraph.com URL, which arms the sourcegraph-access-token rule, which then matches the 40-hex repo.ref. Local `gitleaks git` (8.30.0 and 8.30.1) does not reproduce it; `gitleaks dir eval/loki10/tasks` with v8.30.0 does (1 finding). E-86 (pre-push check) uses dir mode with the pinned v8.30.0.
+- DEP-01 built (2cceecd2, in review): docs/v10/DEPS.md from scripts/dep-inventory.py, 98 manifests. MAJOR bumps pending: npm 24, Python 10, GitHub Actions 74 uses, Docker 8, Terraform 4. EOL: Node 20 in test.yml (EOL 2026-04-30), nginx:1.27-alpine. Homebrew formula at 10.1.1.
+- Drift audit: since 14:00Z, 3 releases (v10.1.1 shipped; v10.2.0 blocked twice: red Tests on 9d483688, then Security Audit), main red once (9d483688, fixed forward E-83), release volume 23 per 24h against a 30 target. Deviations: train checks ran only tests/engine10 (now the full loki-ts suite plus the dist test); a release dispatch path that cannot pass.
+
+## 2026-09-28T15:20Z: v10.2.0 publish blocked by Security Audit (gitleaks false positive)
+- Release run 36440534050 failed at required-ci: Security Audit 36440534022 failed with 1 new gitleaks finding (report artifact gitleaks-report): rule sourcegraph-access-token at eval/loki10/tasks/pub-werkzeug-3271/task.json:8, commit 82e39c29 (EV-11a). The value is repo.ref, a 40-hex pallets/werkzeug commit (`gh api repos/pallets/werkzeug/commits/<ref>` resolves, dated 2026-09-13). Not a credential.
+- Allowlist: that exact commit-qualified fingerprint added to .gitleaksignore in 8e7d21f2 with a justification (no path or rule suppression); Security Audit run 36446416943 on the 10.2.1 VERSION push reported zero unmatched findings. Nothing was tagged or published for 10.2.0.
+- Recurrence risk: every pub-*/lg-* task pins a 40-hex SHA; E-85 asks the CTO for a narrowly scoped rule. TRAIN_LATE read 681 min because the pulse only reads ~/loki-ci-logs/push-*.log, which plain `git push` never writes; E-84 fixes it.
+
+## 2026-09-28T14:58Z: main red on train E22, E-83 fix-forward (c5ace6e1; Tests green on 378a2e13)
+- Tests red on 9d483688 (run 36438012977): spawn env guard (M-16 codemod.ts spawn with no env) and tests/test-engine10-dist.sh "bundle contains prStage" (E-66's offset deleted the alias the dist test greps for). Both passed review because reviewers and the Chief of Staff ran only `bun test tests/engine10/`.
+- Fixed in E-83 (c5ace6e1). Rule from now: every train touching loki-ts/src runs the full `cd loki-ts && bun test` and `bash tests/test-engine10-dist.sh` before push, and slice cards say so.
+- D34 (CTO) recorded: large tier from real upstream PRs, one size gate, legacy to M-27; EV-12S and EV-12A/B/C building (wf_6aea81c7-823).
+
+## 2026-09-28T14:50Z: train E22 and drift audit (turn 444)
+- Wave E21 (28 agents, ESTIMATE 3,652,703 subagent tokens) plus E21b: 13 of 16 slices approved. Train E22 (9042e964) merges E-66, E-61, M-24, M-16, M-19, M-04, E-74, E-75, E-77, EV-11a, E-82: `bun test tests/engine10/` 547 pass 0 fail, tsc 0, pulse 107 passed, eval harness 108 passed, shard drift 6 passed. Core engine 4,998 of 5,000 (D33).
+- Held: M-07 (core would read 5,000), EV-11b and E-62 (both conflict with EV-11a in the eval harness; serialized next), E-78 (TL CONCERN).
+- EV-12 blocked for a CTO tier ruling after 4 review rounds (size bar met by deleted docstrings; uncommitted generator; untested counted code; no legacy tasks left).
+- Drift audit: the 6-hour window is mostly the 04:48Z-14:00Z access stall (no work possible). Since 14:00Z: v10.1.1 released, 2 trains, main green on each push checked (Tests on 3fb56a4b, 5f295fba). Deviation: the wave script passed "-B" as the reviewers' branch name (all reviews still cited the right SHAs); fixed in the next script.
+
+## 2026-09-28T14:30Z: v10.1.1 shipped
+- Release run 36434253412 success; `npm view loki-mode dist-tags.latest` 10.1.1, gitHead 580540f9 = release commit. Tests and Bun Parity green on 3fb56a4b before the bump; version-only bump produced no dist churn (E-72 working).
+- Wave E21 (wf_39ab3f7d-8f3) in flight: 12 builders, 4 reviews. Ready queue refilled with E-78..E-82.
+
+## 2026-09-28T14:10Z: resumed after a 9-hour stall -- read first on resume
+- Shipped before the stall: v10.0.1 (npm gitHead 76ec1c24) and v10.1.0 (Release run for b60ca0ef all jobs success; `npm view loki-mode@10.1.0 gitHead` b60ca0ef; dist-tag latest 10.1.0).
+- Stall: every model call from 04:48Z failed with "Your organization has disabled Claude subscription access for Claude Code" (workflow failures in wf_bd919989-941 and wf_1efd6e89-1f3); nothing ran until about 14:00Z. The pulse raised no violation for it; E-77 adds SESSION_STALLED.
+- Salvage: all 15 builder worktrees were clean (work committed on branches); removed them, branches kept. Approved and merged: M-03 (c90d7924), M-09 (b8d40a34); `bun test tests/engine10/` 481 pass 0 fail. E-66 (Opus APPROVE) not merged: it takes core to 5,189 against the D33 cap; back to ready with an offset requirement. Built but unreviewed (reviews died in the outage): E-61, M-16, M-19, M-24, now in review. Rejected with reproduced findings: EV-11, EV-12, M-04, E-62, back to ready.
+- Founder priorities (14:00Z): EV-11 and EV-12 first, then the v10 default flip once v10 beats raw on the measured tiers (E-31 after EV-9 over all tiers), then loki modernize CLI wiring (M-07, M-08).
+
 ## 2026-09-28T04:45Z: drift audit (turn 432, 6-hour window) and main red again
 - Releases in 6h: 6 (v9.79.0, v9.80.0, v9.80.1, v9.81.0, v10.0.0 tag only, v10.0.1), 151 commits on main. CONTROL "1 per 90 min" met; the 30/day pace is not (about 24/day).
 - Red main windows in 6h, from `gh run list --workflow Tests --branch main`: 898fa081 to d8774dd5 (about 1h, version-literal test, fixed 306b6b0c, guard E-73) and 5404b0c6 to 983dda58 (now). Cause of the second: M-05 merged after only `bun test tests/engine10/modernize/`; the full `tests/engine10/` includes the E-02 size budget, which went 5,288 against 5,000. The Chief of Staff's own merge, not a builder's.
@@ -1329,3 +1441,50 @@ sample.
 - P0 augmentiq #52 rework: E-68, E-69, EV-13 APPROVE; E-66 CONCERN; E-67 REJECT. E-64 (lean small path plus opus on failure) APPROVE on rework.
 - Part 2: 0 slices merged. M-01, M-02, M-05, M-06 built (CONCERN: recursive SCC); M-09 built (REJECT: unsupported types recorded as equal).
 - Top blocker: the 2 red Tests shards on 898fa081 block the v10.0.0 release.
+
+## 2026-09-28T22:21Z (Chief of Staff)
+- E-124 merged (8a99554c): opus r3 APPROVE at 2a3f992b; a missing normalizer hash on either side now fails verify, and a pre-D42 oracle is refused at seal (presealed_wall.ts:249, 355-356). modernize 229/0; dist loki.js unchanged (cockpit.js debugId-only noise discarded).
+- Staffed M-18 and E-125 (sonnet, worktrees); S41-05 and S41-12 corrected to building (29529670). Pruned 3 finished, merged, clean worktrees by agent state (lsof positive control read 0 on a live worktree, so lsof is not a liveness signal here).
+- S41-09 done (e5468d2c, flag-gated lean prefix, core unchanged at 4,982); sonnet TL review in flight. PO cutting 6 ready slices for LOW_READY.
+- v10.5.3 Release 36490908332 in progress (required-ci and gate success); watcher re-armed after a network error. Hourly usage snapshot 9522ae5e: governor still uncalibrated.
+- S41-01 at 37 min against a 30 min budget: stop and re-slice at 45 min if it has not committed.
+
+## 2026-09-28T22:27Z (Chief of Staff)
+- Founder directive recorded as D43 (a9f74496): medium tier to 20+ tasks, 3+ reps, 95% CIs, decide only outside them; profile stage wall-clock; auth check per rep plus resume. Cards S41-17 (CIs), S41-18 (resume), S41-19 (stage profile), S41-20a/b/c (15 medium candidates) staffed on sonnet. Auth check per rep already exists (scorecard-run.sh:174 auth_guard per arm and rep).
+- S41-01 (D43 item 1, P0) done at 68d1fc28: test-harness.sh 126/0, red vs main 119/7 (all 7 the S41-01 checks); E-98f repriced: default $1.1328/completed, nowall $0.9148, nocascade n/a (2 killed-session rows with zero usage stay null). Sonnet TL review in flight.
+- S41-05 opus REJECT (3 blocking: key-order mutations M1 to M4 survive 19/0, no early-accept predicate, import fence misses 4 forms); back to its engineer. M-15 done at a6d584fb (246/0), opus review in flight.
+- Worktree drift: removed 4 stale worktrees (E-106, E-98a, old M-14 wf, EV-12F-b) after saving their diffs and untracked files to the session scratchpad (wt-salvage/).
+- UNEVIDENCED_CLAIM on a9f74496 is the S41-17 card text defining marks ("green or red"), a spec, not a claim.
+
+## 2026-09-28T22:33Z (Chief of Staff / Release Manager)
+- v10.5.3 verified: Release 36490908332 all jobs success; npm latest 10.5.3, gitHead 2e13fca3; body 12 lines. npm 404'd the version for about 7 min after publish-npm logged "+ loki-mode@10.5.3" (22:19:55Z); propagation, not a failed publish. 6 rows flipped released.
+- Train pushed 2e13fca3..04d3ac9c (41 commits: S41-16, M-14, E-118, E-122, E-123, E-124, S41-09, dist); Tests and Bun Parity watcher armed; 10.5.4 cut on green.
+- S41-09 merged (ebb16a62, TL APPROVE, 26/0). M-15 opus REJECT (B1 missing third-party package classified red; B2 PROVEN without conformance re-run or no-op ablation), back to engineer. M-18 done (a01c6fdb, 206/0 modernize), TL review. PO cut E-126 to E-131; staffing waits on worktree slots (15/15).
+
+## 2026-09-28T22:55Z HAND-OFF: PAUSED UNTIL WEDNESDAY 2026-09-30 13:00 ET (founder: weekly usage at 77%)
+
+The swarm is stopped: .loki/V10-STOP exists, the loop has no wake-ups, and the cadence, usage-snapshot and loop-resume crons are deleted. Nothing is building or in review. Do not restart before the weekly reset.
+
+### Shipped today (tail)
+- v10.5.3 (2e13fca3): npm latest 10.5.3, gitHead 2e13fca3, body 12 lines. Carried E-114, E-119, M-13, S41-02, S41-04, E-121.
+- v10.5.4 (8ee273f6): Wall classifies a runner that never started as not_run and Seal refuses not_run above 0 (S41-16); pre-sealed Wall in modernize (M-14) with the normalizer-hash check (E-124); strict-narrowing re-slice to depth 2 (M-18); LOKI_E10_PREFIX=lean flag (S41-09); governor fix (E-118); headline cost rule (E-122); arm runner and auth guard (S41-03); CI registration (E-123). npm and body verification recorded in the next entry.
+- Red main fixed forward twice: dc392119 (S41-09 moved the SDK systemPrompt, a source-reading test followed it; 948/0) and 32c66596 (the Bun and coverage CI jobs had no pytest; reproduced locally with a pytest-less venv, 18/2 then 20/0). CI green at 7f341027 (Tests, Bun Parity, Coverage).
+- Release note: release.sh in a worktree with a node_modules symlink writes absolute /Users paths into the dist maps (133 in loki.js.map, plus cockpit.js.map). For 10.5.4 they were rewritten to ../node_modules/ and cockpit maps restored from HEAD before commit. Guard slice needed (see E-102/E-103 history).
+
+### Ready, with work on a branch (each BOARD row carries where it stopped)
+- S41-01 cost capture, 68d1fc28: TL APPROVE on content; needs rebase (harness.py allowlist conflict with S41-09 and S41-11) and an opus review (card is HIGH).
+- S41-17 scorecard 95% CIs, f3f1d985: 43/43, red-first proven; needs opus review.
+- S41-18 scorecard resume, 66cc1882: 11/11; 4 gaps listed in the row; needs TL review.
+- S41-19 stage profile, e06fa612: implement is 72 to 86% of medium wall-clock; the Wall is 23 to 29% and times out at 90s in 9 to 11 of 21 runs, clearing D42's 15% bar to reopen S41-14; needs TL review.
+- S41-11 trim flag, 8aafe341: 35/0; needs TL review and a rebase.
+- S41-20a/b/c medium tasks: 6 built (flask-6093, click-3449, attrs-1327, packaging-1162, humanize-103, httpx-2536), none reviewed; the no-op baseline is missing on the 4 from b and c. Medium tier would be 13 of the 20 D43 requires.
+- E-126 to E-131 (PO cut, unstaffed), E-132 (missing pytest reads red at Wall, found fixing red main).
+
+### In rework (fix committed, needs a re-review)
+- M-15 03b35a69 (opus r2), E-125 845c9231 (opus r2, core 4,998 of 4,999; run full engine10 first), S41-05 34c44c99 (4 key-swap mutation proofs left, then opus r3), S41-12 7a3fbe53 (opus REJECT, 5 data-loss findings, not yet reworked).
+
+### Wednesday, exact next step
+1. Remove .loki/V10-STOP, run scripts/v10-pulse.sh, and confirm main CI is green.
+2. S41-01: rebase slice-S41-01 onto main, keep one LOKI_E10_PREFIX and one LOKI_E10_TRIM in V10_ENGINE_ENV_ALLOWLIST, rerun bash eval/loki10/test-harness.sh to 0 failures, send it to an opus reviewer, and merge on APPROVE. No scorecard counts until this is merged (D43 item 1).
+3. Then merge the eval prerequisites (S41-17 CIs, S41-18 resume) and bring the medium tier to 20 tasks (review S41-20a/b/c, run their no-op baselines, append their INDEX lines, and cut 7 more).
+4. Then run the medium-tier eval per D43: raw sonnet, raw opus and loki on sonnet, at least 3 reps each, back to back, with auth checked before every rep and resume on interrupt; decide only on differences whose 95% interval excludes 0.

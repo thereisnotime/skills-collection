@@ -76,12 +76,12 @@ body = replace_once(
     """**Mechanical check (optional, recommended for edit mode).** If the repo ships the detector engine, run the preservation validator against the before and after text:
 
 ```bash
-node detector/validate.js <original> <rewritten>
+node detector/validate.js --residual-policy warn <original> <rewritten>
 ```
 
-It exits non-zero when a rewrite altered a fenced code block, YAML frontmatter, a blockquote, a table cell, inline code, a URL, a file path, or the heading structure, and when the rewrite introduced more flagged patterns than it removed. Those are the promises made above; this is what checks them. Rewording a heading to fix Title Case and stripping an AI tracking parameter from a URL are carved out, because this skill instructs both.""",
+This editorial policy keeps mechanical preservation errors blocking and reports residual pattern growth as a quality warning. Review each residual finding for applicability; a higher count alone does not establish content damage or authorize another edit. When the mechanical checks pass, report that no mechanical preservation errors were found, not that meaning was verified. Check facts, added or removed claims, quantities, uncertainty, and user-authorized changes separately. Rewording headings and stripping AI tracking parameters from URLs remain documented carve-outs.""",
     """**3. Preservation check**
-Confirm the rewrite did not alter a fenced code block, YAML frontmatter, a blockquote, a table cell, inline code, a URL, a file path, or the heading structure, and that it did not introduce more flagged patterns than it removed. Those are the promises made above. Rewording a heading to fix Title Case and stripping an AI tracking parameter from a URL are the two carve-outs, because this skill instructs both.""",
+Compare protected content and structure against the source. Review residual pattern findings for applicability; a higher count alone does not establish content damage or authorize another edit. Check facts, added or removed claims, quantities, uncertainty, and user-authorized changes separately. This standalone rule has no bundled validator: report the assessment as model-only and do not claim mechanical checks ran. Rewording headings and stripping AI tracking parameters from URLs remain documented carve-outs.""",
     "span 3 (validate.js mechanical check)",
 )
 body = replace_once(

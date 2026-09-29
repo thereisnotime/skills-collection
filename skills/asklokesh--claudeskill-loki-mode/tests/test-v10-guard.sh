@@ -260,6 +260,51 @@ assert_blocked "R2 blocked: git --git-dir=/--work-tree= targets a repo on main" 
     "git --git-dir=$REPO2/.git --work-tree=$REPO2 reset --hard HEAD~1" "$SCRIPT_DIR" "RULE2"
 
 echo ""
+echo "--- Rule 2 continued: moving 'main' without ever checking it out ---"
+# REPO2_FEATURE is checked out on feature-branch, not main -- these all move
+# the LOCAL main ref while a different branch is current, which the plain
+# reset --hard-on-main check above cannot see (it only fires when main IS
+# the current branch).
+assert_blocked "R2 blocked: git branch -f main <ref> (current branch is feature-branch)" \
+    "git branch -f main HEAD" "$REPO2_FEATURE" "RULE2"
+assert_blocked "R2 blocked: git branch --force main <ref> (long flag)" \
+    "git branch --force main HEAD" "$REPO2_FEATURE" "RULE2"
+assert_blocked "R2 blocked: git update-ref refs/heads/main <ref>" \
+    "git update-ref refs/heads/main HEAD" "$REPO2_FEATURE" "RULE2"
+assert_blocked "R2 blocked: git update-ref -m <reason> refs/heads/main <ref> (value-flag before the ref)" \
+    "git update-ref -m reason refs/heads/main HEAD" "$REPO2_FEATURE" "RULE2"
+assert_blocked "R2 blocked: git update-ref -d refs/heads/main (delete)" \
+    "git update-ref -d refs/heads/main" "$REPO2_FEATURE" "RULE2"
+assert_blocked "R2 blocked: git update-ref --stdin (can't verify ref updates read from stdin)" \
+    "git update-ref --stdin" "$REPO2_FEATURE" "RULE2"
+assert_blocked "R2 blocked: git checkout -B main <ref>" \
+    "git checkout -B main HEAD" "$REPO2_FEATURE" "RULE2"
+assert_blocked "R2 blocked: git switch -C main <ref>" \
+    "git switch -C main HEAD" "$REPO2_FEATURE" "RULE2"
+assert_blocked "R2 blocked: git switch --force-create main <ref> (long flag)" \
+    "git switch --force-create main HEAD" "$REPO2_FEATURE" "RULE2"
+assert_blocked "R2 blocked: git branch -f main <ref> (current branch IS main)" \
+    "git branch -f main HEAD~0" "$REPO2" "RULE2"
+assert_allowed "R2 allowed: git branch -f <other-branch> <ref>" \
+    "git branch -f other-branch HEAD" "$REPO2_FEATURE"
+assert_allowed "R2 allowed: git checkout -B <other-branch> <ref>" \
+    "git checkout -B other-branch HEAD" "$REPO2_FEATURE"
+assert_allowed "R2 allowed: git switch -C <other-branch> <ref>" \
+    "git switch -C other-branch HEAD" "$REPO2_FEATURE"
+assert_allowed "R2 allowed: git update-ref refs/heads/other-branch <ref>" \
+    "git update-ref refs/heads/other-branch HEAD" "$REPO2_FEATURE"
+assert_allowed "R2 allowed: git update-ref refs/heads/other-branch refs/heads/main (main only appears as the SOURCE value, not the target)" \
+    "git update-ref refs/heads/other-branch refs/heads/main" "$REPO2_FEATURE"
+assert_allowed "R2 allowed: git update-ref -m refs/heads/main refs/heads/other-branch HEAD (main only appears as the -m reason string)" \
+    "git update-ref -m refs/heads/main refs/heads/other-branch HEAD" "$REPO2_FEATURE"
+assert_allowed "R2 allowed: git switch main (plain switch, no -C)" \
+    "git switch main" "$REPO2_FEATURE"
+assert_allowed "R2 allowed: git checkout main (plain checkout, no -B)" \
+    "git checkout main" "$REPO2_FEATURE"
+assert_allowed "R2 allowed: git branch main (no force flag)" \
+    "git branch main HEAD" "$REPO2_FEATURE"
+
+echo ""
 echo "--- Rule 3: git commit dropping a BOARD.md row (isolated: index only) ---"
 board_reset
 # Stage a BOARD.md that drops S-3, but restore the WORKING COPY to the full
@@ -512,6 +557,46 @@ assert_blocked "R6 blocked: git add ./ (same as .)" \
     "git add ./" "$SCRIPT_DIR" "RULE6"
 assert_allowed "R6 allowed: git add <file> (staged individually by name)" \
     "git add scripts/v10-guard.sh" "$SCRIPT_DIR"
+
+echo ""
+echo "--- Rule 7: checkout/restore that wipes the shared tree in the main checkout ---"
+# A "main"-shaped fixture repo, plus a nested repo whose path runs through
+# .claude/worktrees/ so it reads as a worktree checkout the same way a real
+# `git worktree add .claude/worktrees/<name>` would.
+REPO7="$LOKI_RUN_TMP/repo-rule7"
+mkdir -p "$REPO7"
+git -C "$REPO7" init -q -b main
+git -C "$REPO7" config user.email test@example.com
+git -C "$REPO7" config user.name "Test"
+echo "hello" > "$REPO7/file.txt"
+git -C "$REPO7" add file.txt
+git -C "$REPO7" commit -q -m "init"
+
+REPO7_WT="$REPO7/.claude/worktrees/wt1"
+mkdir -p "$REPO7_WT"
+git -C "$REPO7_WT" init -q -b slice-x
+git -C "$REPO7_WT" config user.email test@example.com
+git -C "$REPO7_WT" config user.name "Test"
+echo "hello" > "$REPO7_WT/file.txt"
+git -C "$REPO7_WT" add file.txt
+git -C "$REPO7_WT" commit -q -m "init"
+
+assert_blocked "R7 blocked: git checkout <ref> -- . in the main checkout" \
+    "git checkout main -- ." "$REPO7" "RULE7"
+assert_blocked "R7 blocked: git checkout <ref> -- :/ in the main checkout" \
+    "git checkout HEAD -- :/" "$REPO7" "RULE7"
+assert_blocked "R7 blocked: bare git checkout . (no ref, no --) in the main checkout" \
+    "git checkout ." "$REPO7" "RULE7"
+assert_blocked "R7 blocked: git restore --source=<ref> . in the main checkout" \
+    "git restore --source=main ." "$REPO7" "RULE7"
+assert_blocked "R7 blocked: git restore -s <ref> . in the main checkout" \
+    "git restore -s main ." "$REPO7" "RULE7"
+assert_allowed "R7 allowed: git checkout <ref> -- . inside a .claude/worktrees/* worktree" \
+    "git checkout main -- ." "$REPO7_WT"
+assert_allowed "R7 allowed: single-file git checkout -- <file> in the main checkout" \
+    "git checkout -- file.txt" "$REPO7"
+assert_blocked "R7 blocked: git -C <main> checkout x -- . run from elsewhere" \
+    "git -C $REPO7 checkout x -- ." "$LOKI_RUN_TMP" "RULE7"
 
 echo ""
 echo "--- Heredocs: an apostrophe in a heredoc body must not cause a false PARSE block ---"

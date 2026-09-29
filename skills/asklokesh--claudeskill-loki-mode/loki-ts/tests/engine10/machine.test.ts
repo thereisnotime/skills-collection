@@ -139,7 +139,11 @@ describe("engine10 machine", () => {
   });
 
   it("the global cap aborts the running stage and jumps to commit and seal", async () => {
-    const { ctx, events } = fakeCtx(0.3); // fires at 14/15 of the cap: 280ms
+    // capS=25 is just above the ~24.83s threshold below which softCapS's
+    // commit+seal-tail budget goes negative (E-67 round 5), so softCapS(25)
+    // stays the small budget value (167ms) rather than being clamped to 0 --
+    // still fast, but a real nonzero delay before the cap fires.
+    const { ctx, events } = fakeCtx(25); // softCapS(25) = 0.1667s = ~167ms
     let aborted = false;
     let sealCap: boolean | undefined;
     const r = await runMachine(ctx, {
@@ -184,13 +188,32 @@ describe("engine10 machine", () => {
     expect(events.find((e) => e.type === "stage.started" && e.stage === "implement")?.data.limit_s).toBe(1800);
   });
 
-  it("already satisfied and spec conflict jump to commit and seal", async () => {
-    for (const [n, data] of [["intake", { already_satisfied: true }], ["implement", { exit: "spec_conflict" }]] as const) {
-      const { ctx, events } = fakeCtx();
-      await runMachine(ctx, { load: loaderOf(all({ [n]: stage(n, async () => ({ status: "completed", data })) })) });
-      expect(of(events, "stage.started")).not.toContain("verify");
-      expect(of(events, "stage.completed").slice(-3)).toEqual(["commit", "seal", "pr"]);
-    }
+  it("already satisfied jumps to commit and seal", async () => {
+    const { ctx, events } = fakeCtx();
+    await runMachine(ctx, { load: loaderOf(all({ intake: stage("intake", async () => ({ status: "completed", data: { already_satisfied: true } })) })) });
+    expect(of(events, "stage.started")).not.toContain("verify");
+    expect(of(events, "stage.completed").slice(-3)).toEqual(["commit", "seal", "pr"]);
+  });
+
+  it("spec_conflict still runs verify and the fix loop; seal still reports SPEC_CONFLICT (E-98b)", async () => {
+    const { ctx, events } = fakeCtx();
+    let fixRan = false;
+    await runMachine(ctx, {
+      load: loaderOf(all({
+        implement: stage("implement", async () => ({ status: "completed", data: { exit: "spec_conflict" } })),
+        verify: stage("verify", async () => ({ status: "completed", data: { failures_grouped: [{ signature: "x" }] } })),
+        fix: stage("fix", async () => { fixRan = true; return { status: "completed", data: {} }; }),
+        // Mirrors seal.ts:110 (spec_conflict checked before the checks/emptyDiff verdict logic).
+        seal: stage("seal", async (c) => {
+          const exit = (c.outputs().implement as { exit?: string } | undefined)?.exit;
+          return { status: "completed", data: { verdict: exit === "spec_conflict" ? "SPEC_CONFLICT" : "VERIFIED" } };
+        }),
+      })),
+    });
+    expect(of(events, "stage.started")).toContain("verify");
+    expect(fixRan).toBe(true);
+    const seal = events.find((e) => e.type === "stage.completed" && e.stage === "seal");
+    expect(seal?.data.verdict).toBe("SPEC_CONFLICT");
   });
 
   it("intake failure ends the run without sealing", async () => {
@@ -200,6 +223,25 @@ describe("engine10 machine", () => {
     expect(of(events, "stage.started")).toEqual(["intake"]);
     expect(r.stopped).toBe("intake failed");
   });
+
+  // E-67 r4 follow-up 3: softCapS(30) is ~5s (tightened well below intake's own 15s target so
+  // commit+seal's tail fits before the backstop). That means a cap can now fire WHILE intake is
+  // still running at this capS, and the aborted stage comes back status:"failed" just like a real
+  // intake failure -- the pre-existing "intake failed" early return could not tell the two apart
+  // and bailed before commit/seal/pr ever ran, defeating the whole point of leaving tail room. Red
+  // on the bare `results[0]?.status === "failed"` check (stopped: "intake failed", no seal); green
+  // once that check also excludes a cap-caused failure (!capHit).
+  it("a cap that fires mid-intake at a small capS still reaches seal, not an early 'intake failed' stop", async () => {
+    const { ctx, events } = fakeCtx(30);
+    const startedAtMs = Date.now() - 4000; // softCapS(30) ~= 5.0s: cap fires ~1s after intake starts (real margin under load)
+    const intakeHang = stage("intake", async (_c, signal) => { await sleep(60_000, signal); return { status: "completed", data: {} }; });
+    const r = await runMachine(ctx, { load: loaderOf(all({ intake: intakeHang })), startedAtMs });
+    expect(r.capHit).toBe(true);
+    // Pins that intake was genuinely running (not skipped pre-start): the abort must be attributed to "cap".
+    expect(events.find((e) => e.type === "stage.failed" && e.stage === "intake")?.data.reason).toBe("cap");
+    expect(r.stopped).toBeNull();
+    expect(of(events, "stage.completed")).toContain("seal");
+  }, 10_000);
 
   it("verify failures run at most two fix rounds, each followed by verify", async () => {
     const { ctx, events } = fakeCtx();
@@ -248,7 +290,7 @@ describe("engine10 machine", () => {
   });
 
   it("the cap during the parallel plan and wall group emits exactly one cap.hit", async () => {
-    const { ctx, events } = fakeCtx(0.3);
+    const { ctx, events } = fakeCtx(25); // softCapS(25) = 0.1667s = ~167ms; see comment above
     const slow = (n: StageName) => stage(n, async (_c, signal) => { await sleep(5000, signal); return { status: "completed", data: {} }; });
     const r = await runMachine(ctx, { load: loaderOf(all({ plan: slow("plan"), wall: slow("wall") })) });
     expect(r.capHit).toBe(true);

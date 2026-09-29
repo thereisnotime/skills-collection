@@ -6,9 +6,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- `/ars-citation-check` inherits the session model instead of pinning `sonnet`. On the closed-book factuality benchmark in the Sonnet 5.5 system card (§6.3.2.1, AA-Omniscience), Sonnet 5.5 gives an incorrect answer on 27% of questions, against 17% for Opus 5.5 and 21% for Mythos 5.1, which shares Fable 5.1's weights. Citation checking depends on recalling authors, years, and venues correctly. The other twelve light commands keep the `sonnet` pin. A run on a Sonnet session still runs on Sonnet; a run on another session now runs, and is billed, on that session's model. The citation-check eval cases keep `model: sonnet`; that alias moves to each new Sonnet release, so eval runs are comparable only when the resolved versions match.
+
 ### Added
 
 - `THIRD_PARTY.md` lists an OpenClaw port of the four skills, which @ChunkyPanda29 maintains in a separate repository (#910).
+
+### Fixed
+
+- `scripts/check_acronyms.py` reads two forms of one construction the same way (#906). Emphasis marks around the words inside a parenthetical are ignored, as they already were before it (`（*結構方程模型*，SEM）`). A restatement or naming lead set off as its own comma item is read as if absent, as it was at the start of the parenthetical, so `(a model, i.e., SEM)` is a use and the expansion of `(structural equation modeling, hereafter, SEM)` no longer holds the lead. A cross-reference with a target before the acronym is read as a restatement in both languages, so `randomized controlled trials (see Section 2, RCT)` defines `RCT` as `隨機對照試驗（見第二節，RCT）` already did, and the Chinese expansion is now the words before the parenthetical, not the cross-reference; `see` alone or before an example lead (`see for example`) stays an example lead, and a Chinese word that starts with `見` (`見習醫學生`) stays an expansion. Citations before the acronym are skipped as citations after it were (`(Smith, 2020; RCTs)`). After a label letter that is also a Roman numeral (C, I, L, V, X), a dash and a letter one to five after it are a range, so `Table C – D show` is prose, while `Table C – T cell counts` and `Table I – T cell counts` stay captions. `\\$RCT$` is math, because an escaped backslash leaves the dollar free. The Markdown report shows a control or bidirectional character in an unread-section heading as its `\uXXXX` escape; the JSON report keeps the heading as written. Synthetic tests pin each case and its counterpart; the pinned full-fixture reports are unchanged.
 
 ## [3.22.2] - 2026-09-25 — Run ledger and handoff check, acronym check, a wider instruction/data boundary, and routing and front-page repairs
 

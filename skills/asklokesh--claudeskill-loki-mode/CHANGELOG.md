@@ -10,6 +10,244 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 - `loki legacy` (the pre-v10 engine) is deprecated as of v10.0.0 and remains fully supported; no removal date is set. Set `LOKI_ENGINE=legacy` to pin it. See docs/v10/GUIDE.md (E-35).
 
+## v10.5.5 (2026-09-28)
+
+Ships everything prepared for v10.5.4, which never reached npm because its release gate ran the v10 Wall tests without pytest: the Wall no longer mistakes a test run that never started for a failing test, and a Seal refuses any run with tests that did not run.
+
+### Fixed
+- Release, nightly, test and coverage workflows install pytest before the Bun test suite, which runs the v10 Wall tests against real pytest. The v10.5.4 release gate failed on exactly this and published nothing.
+
+### v10.5.4 (carried): Fixed
+- Wall base run: a missing interpreter, a missing third-party package, a pytest collection error outside the repo, pytest exit 5 (no tests collected) and a timeout are now classified as not run instead of red; red requires the runner to start and at least one test to fail, per D42 (S41-16).
+- Seal refuses to mark a run VERIFIED when any Wall test did not run (not_run must be 0), so a Wall that never executed can no longer reach an already-satisfied or verified verdict (S41-16).
+- `loki modernize`: verifying a pre-sealed Wall now fails when the normalizer hash is missing on either side, and sealing refuses an oracle with no normalizer hash, so two missing values never count as a match (E-124).
+- `loki modernize` re-slicing refuses a re-slice that is not strictly smaller than its parent, so a flaky check cannot turn the depth budget into retries (M-18).
+- The usage governor no longer crashes on a live reading, and says "uncalibrated" when no plan reading is on file instead of reporting a number (E-118).
+
+### v10.5.4 (carried): Added
+- `loki modernize` pre-sealed Wall mode: the oracle and target conformance tests are sealed before any conversion exists and re-verified before use (M-14, not yet wired into the full modernize run).
+- `loki modernize` re-slices a non-equivalent unit to at most depth 2; if any child is still not equivalent the unit is NOT PROVEN, never forced to pass (M-18, not yet wired into the full modernize run).
+- `LOKI_E10_PREFIX=lean` (off by default): v10 engine sessions use a short fixed system prompt in place of the Claude Code preset, for a smaller cached prefix; tools, CLAUDE.md loading and permission hooks are unchanged (S41-09).
+
+### v10.5.4 (carried): Internal
+- Scorecard eval: an arm runner with a keychain auth guard before every rep (S41-03), and the D41 headline pair (loki-sonnet against raw-opus) is green on cost only at 0.5x raw or below (E-122).
+- CI: the security-scan coverage test runs in the Tests shards (E-123); the Bun and coverage jobs install pytest, which the v10 Wall tests run for real.
+
+### v10.5.4 (carried): Known issues
+- A project interpreter that exists but has no pytest installed still reads as red at the Wall base run instead of not run (E-132). The Seal still refuses such a run, because its Wall tests then count as not run, so it cannot produce a false VERIFIED.
+
+## v10.5.4 (2026-09-28)
+
+The v10 Wall no longer mistakes a test run that never started for a failing test, a Seal now refuses any run with tests that did not run, and `loki modernize` gains its pre-sealed Wall and depth-limited re-slicing, each refusing to call behaviour proven without a real, narrowing check.
+
+### Fixed
+- Wall base run: a missing interpreter, a missing third-party package, a pytest collection error outside the repo, pytest exit 5 (no tests collected) and a timeout are now classified as not run instead of red; red requires the runner to start and at least one test to fail, per D42 (S41-16).
+- Seal refuses to mark a run VERIFIED when any Wall test did not run (not_run must be 0), so a Wall that never executed can no longer reach an already-satisfied or verified verdict (S41-16).
+- `loki modernize`: verifying a pre-sealed Wall now fails when the normalizer hash is missing on either side, and sealing refuses an oracle with no normalizer hash, so two missing values never count as a match (E-124).
+- `loki modernize` re-slicing refuses a re-slice that is not strictly smaller than its parent, so a flaky check cannot turn the depth budget into retries (M-18).
+- The usage governor no longer crashes on a live reading, and says "uncalibrated" when no plan reading is on file instead of reporting a number (E-118).
+
+### Added
+- `loki modernize` pre-sealed Wall mode: the oracle and target conformance tests are sealed before any conversion exists and re-verified before use (M-14, not yet wired into the full modernize run).
+- `loki modernize` re-slices a non-equivalent unit to at most depth 2; if any child is still not equivalent the unit is NOT PROVEN, never forced to pass (M-18, not yet wired into the full modernize run).
+- `LOKI_E10_PREFIX=lean` (off by default): v10 engine sessions use a short fixed system prompt in place of the Claude Code preset, for a smaller cached prefix; tools, CLAUDE.md loading and permission hooks are unchanged (S41-09).
+
+### Internal
+- Scorecard eval: an arm runner with a keychain auth guard before every rep (S41-03), and the D41 headline pair (loki-sonnet against raw-opus) is green on cost only at 0.5x raw or below (E-122).
+- CI: the security-scan coverage test runs in the Tests shards (E-123); the Bun and coverage jobs install pytest, which the v10 Wall tests run for real.
+
+### Known issues
+- A project interpreter that exists but has no pytest installed still reads as red at the Wall base run instead of not run (E-132). The Seal still refuses such a run, because its Wall tests then count as not run, so it cannot produce a false VERIFIED.
+
+## v10.5.3 (2026-09-28)
+
+CI secret scanning can no longer be switched off by a pushed gitleaks configuration, and `loki modernize` gains an equivalence checker that never reports behaviour as proven when it cannot be.
+
+### Security
+- The CI secret scan takes its gitleaks configuration from the last release tag, never from the pushed commits, and fails the job when a push changes `.gitleaks.toml`; with no release tag it uses the scanner's default rules and refuses any `.gitleaks.toml` (E-114). Before, a pushed zero-rule configuration could disable the scan for that same push.
+- The pre-push hook refuses the push when its `.gitleaks.toml` change check cannot run, instead of treating the error as "unchanged" (E-119).
+
+### Added
+- `loki modernize` equivalence checker (M-13, not yet wired into the full modernize run): compares captured behaviour of the original and the converted code under normalizers sealed with the oracle before any conversion exists. A missing capture, malformed value, runner error, too few cases, or any mismatch with the sealed normalizer hash is reported as NOT PROVEN, never as equal.
+
+### Internal
+- Scorecard tool for the D41 balanced scorecard (`eval/loki10/scorecard`): per model tier completion, cost per completed and p50 time with raw alongside (S41-02); per-stage token baseline in docs/v10/METRICS.md (S41-04); the swarm pulse recognises slice ids such as S41-01 (E-121).
+
+## v10.5.2 (2026-09-28)
+
+A SPEC_CONFLICT receipt now states why the run stopped, safely, and the dashboard, web app and Python services pick up current patch and minor dependency releases, including a fix for two high-severity advisories in the web app's router.
+
+### Changed
+- Loki 10 engine (`LOKI_ENGINE=v10`): when implement stops with a specification conflict, the receipt carries the reason in receipt.json and shows it on one line in receipt.md. The text is flattened to a single line, length-capped and rendered as inline code, so a model-written reason cannot add headings or a fake verdict to the receipt; receipts without a conflict are unchanged (E-120).
+
+### Security
+- web-app: react-router-dom 7.13 to 7.18, clearing two high-severity advisories reported by `npm audit` (DEP-05).
+- All remaining tag-pinned GitHub Actions are pinned to full commit SHAs with the tag noted beside each (DEP-07).
+
+### Dependencies
+- web-app: react and react-dom 19.3, react-resizable-panels 4.14, @playwright/test 1.63, typescript-eslint 8.70, autoprefixer 10.6, postcss 8.5.28 (DEP-05).
+- dashboard-ui: @playwright/test 1.63 (DEP-05).
+- Python (dashboard, mcp, web-app, sdk): sqlalchemy 2.1.1, pydantic 2.13.5, alembic 1.20, chromadb 1.5.9, python-jose 3.5, pexpect 4.9, pyyaml 6.0.3 (DEP-06).
+
+### Internal
+- Swarm tooling: `scripts/board-mark-released.sh` marks BOARD rows released once their merge is in a published tag (E-90); the pulse expands dependency ranges such as `E-98a..e` (capped at 50 ids) (E-117); real Seal tests for the SPEC_CONFLICT verdict (E-116).
+
+## v10.5.1 (2026-09-28)
+
+A local pre-push secret scan that covers every pushed commit and file, so a secret can no longer reach the repository just because it sits outside the eval fixtures.
+
+### Fixed
+- The pre-push hook runs the pinned gitleaks over every pushed commit and path, not only eval fixture changes, matching the CI secret scan (E-110). A change to `.gitleaks.toml` in the pushed range is refused before any skip option applies unless `LOKI_ALLOW_GITLEAKS_CONFIG_CHANGE=1` is set, and even then the scan uses the previous configuration, so a pushed config cannot switch the scan off. A missing scanner refuses the push unless `LOKI_ALLOW_UNSCANNED_PUSH=1` is set, which never overrides a finding or a scanner error; a scan that times out refuses the push.
+- Test fixtures that exercise secret redaction build their sample secrets at runtime, so the repository itself contains no secret-shaped values (E-110).
+
+### Added
+- `scripts/metrics-usage-append.py` (internal swarm tooling): appends an hourly usage-governor snapshot (5-hour and weekly output tokens, per-engineer burn, output by model and role, max engineers) to docs/v10/METRICS.md.
+
+## v10.5.0 (2026-09-28)
+
+Loki 10 engine (opt-in: `LOKI_ENGINE=v10`): the verify stage now actually runs a Python project's tests and the receipt can no longer call a run verified when the tests ran against the installed package instead of the repo. Also fixes the published package resolving an older Agent SDK than the engine was built for.
+
+### Changed
+- Verify runs Python checks with the project's own interpreter (`.venv`, then `venv`, then an in-repo `$VIRTUAL_ENV`, then `python3`, then `python`) and ruff the same way (E-98a). Before, it called `python`, so on hosts with only `python3` every test check was skipped and no fix round ever ran.
+- A run whose tests ran on the system interpreter is marked NOT PROVEN ("tests ran on the system interpreter") and can no longer seal as VERIFIED, because a system interpreter imports the installed package, not the code under change (E-98a).
+- An implement stage that stops with a spec conflict still goes through verify and the fix loop; the receipt keeps the SPEC_CONFLICT verdict and its reason (E-98b).
+- The implementer may add new test functions to existing test files but may not edit or delete existing ones; when the plan names no relevant files, the tests for the files the task names are used (E-98c).
+- The repo map indexes top-level Python `def`, `async def` and `class` names, so planning finds the relevant files in Python repositories (E-98d).
+
+### Fixed
+- A session stopped at its time limit now records its cost from the usage already streamed (marked `partial-stream`), instead of leaving the run's cost unmeasured (E-98e).
+- The published package pinned `@anthropic-ai/claude-agent-sdk` 0.3.267 (and the Docker image 0.3.208) while the engine was built and evaluated on 0.3.283; all pins now match, with a test that fails on any drift (E-106).
+- Release tooling: a release is refused when its CHANGELOG section is missing, empty or a placeholder, and the GitHub release body is taken from that section (E-88); a version-only bump now changes only the version literal in the bundled engine (E-108).
+
+## v10.4.1 (2026-09-28)
+
+`loki modernize <repo> --to <target>` now runs on the v10 engine whatever your default engine is, and the release tooling can no longer publish a version without its built files. This release carries v10.4.0, which was not published: its release was blocked by the secret scan (see Fixed).
+
+### Added
+- `loki modernize <repo> --to <target>` reaches the v10 modernize command under every engine setting, including `LOKI_ENGINE=legacy` (M-08). The existing `loki modernize heal` and `loki modernize migrate` commands, and `loki modernize --help`, keep their current behaviour.
+- Usage governor (G-01, internal swarm tooling): `scripts/usage-governor.py` reads Claude Code usage from the local transcripts, counts each streamed message once, and projects the 5-hour and weekly windows to their real reset times (daylight saving aware). At 85% of the window or 90% of the week it recommends zero additional engineers.
+- Eval results are durable (E-101): every eval row is archived, with log paths and secret-shaped strings removed, to `~/loki-ci-logs/eval/<run>/` and `eval/loki10/archive/`. `scripts/prune-worktrees.sh` never removes a worktree that has a live process, a commit in the last 30 minutes, or unarchived eval results.
+
+### Fixed
+- `scripts/release.sh --bump-only` stops before building when `loki-ts/node_modules` is missing, and restores `loki-ts/dist` and exits non-zero when the build fails or does not embed the new version (E-102, E-103). Before, a failed build could leave the tracked dist files deleted.
+- Release blocked by the secret scan (v10.4.0): three synthetic values planted in a redaction test were flagged in history; they are allowlisted by exact fingerprint with the reason recorded in `.gitleaksignore`, and nothing else is suppressed.
+
+## v10.4.0 (2026-09-28)
+
+`loki modernize <repo> --to <target>` now runs on the v10 engine whatever your default engine is, and the release tooling can no longer publish a version without its built files.
+
+### Added
+- `loki modernize <repo> --to <target>` reaches the v10 modernize command under every engine setting, including `LOKI_ENGINE=legacy` (M-08). The existing `loki modernize heal` and `loki modernize migrate` commands, and `loki modernize --help`, keep their current behaviour.
+- Usage governor (G-01, internal swarm tooling): `scripts/usage-governor.py` reads Claude Code usage from the local transcripts, counts each streamed message once, and projects the 5-hour and weekly windows to their real reset times (daylight saving aware). At 85% of the window or 90% of the week it recommends zero additional engineers.
+- Eval results are durable (E-101): every eval row is archived, with log paths and secret-shaped strings removed, to `~/loki-ci-logs/eval/<run>/` and `eval/loki10/archive/`. `scripts/prune-worktrees.sh` never removes a worktree that has a live process, a commit in the last 30 minutes, or unarchived eval results.
+
+### Fixed
+- `scripts/release.sh --bump-only` stops before building when `loki-ts/node_modules` is missing, and restores `loki-ts/dist` and exits non-zero when the build fails or does not embed the new version (E-102, E-103). Before, a failed build could leave the tracked dist files deleted.
+
+## v10.3.1 (2026-09-28)
+
+A user guide for `loki modernize`, and a pre-push secret scan that can no longer be weakened by a pushed commit's own allowlist.
+
+### Added
+- User guide for `loki modernize` at docs/v10/GUIDE-MODERNIZE.md (M-30): what it does, every flag, a worked example and its current limits. A test keeps the guide in step with the CLI: it fails when the guide names a flag the CLI does not parse, omits one it does, or shows a modernization id the CLI would reject.
+
+### Fixed
+- Pre-push secret scan (E-99): every pushed commit is now scanned with the pushed tip's `.gitleaksignore`, the same way CI scans, so a push is no longer refused for an old finding that the tip already allowlists, and an earlier commit cannot carry its own allowlist past the scan. `GITLEAKS_CONFIG` from the environment is ignored, any change to `.gitleaks.toml` is refused unless `LOKI_ALLOW_GITLEAKS_CONFIG_CHANGE=1` is set, and the pinned gitleaks binary is checked against a per-platform sha256.
+
+## v10.3.0 (2026-09-28)
+
+Loki 10 engine (still opt-in: `LOKI_ENGINE=v10`): runs that cannot finish now end with a visible result instead of stalling, and the first `loki modernize` command entry point lands. Also a pre-push secret scan for eval fixtures and swarm tooling.
+
+### Added
+- No pause state (E-67): a run that cannot finish within its cap never waits for input and never ends silently. It ends as a draft PR or an issue comment that states the reason, and uncommitted or untracked work reaches that draft PR. The supervisor's backstop always leaves the worker time to seal its result, at every cap from a few seconds up to the default.
+- `loki modernize <repo> --to <target>` command and flag parsing on the v10 engine (M-07). It rejects a repo path that does not exist instead of reporting success. The conversion pipeline behind it is still being built; this release adds the entry point and its help text.
+- Java behaviour capture for modernize (M-11): JUnit under JDK 8 with JaCoCo and Randoop when available; every control character in its status output is escaped, and a missing JDK or a malformed status file is reported as not proven, never as a pass.
+- Pre-push secret scan for eval task fixtures (E-86): pushes that change `eval/loki10/tasks/` or `eval/loki10/refdiff/` run a checksum-pinned gitleaks v8.30.0 over every pushed commit and refuse on a finding, naming the file, line and rule but never the secret. Install it with `scripts/install-gitleaks.sh`.
+
+### Fixed
+- The engine's cap handling: the soft cap, backstop and kill escalation are consistent at small caps, so a run at a short cap is sealed instead of being killed before it can report (E-67).
+- Test and CI hygiene: a test for the new gitleaks step no longer assumes the scanner is installed (E-100); the app-runner watchdog test uses free ports and a readiness wait instead of fixed ports (E-95); local CI re-runs changed tests with no credentials so a test that only passes with a logged-in GitHub CLI fails before merge (E-94).
+- Swarm pulse (internal tooling): release-cadence and understaffing checks (E-89).
+
+## v10.2.5 (2026-09-28)
+
+Test guard and planning docs. No change to how `loki` runs your builds.
+
+### Added
+- `tests/test-dep-inventory.sh` now also runs the dependency inventory's self-test with no GitHub credentials, no `gh` on the path and an empty home directory, so a self-test that quietly reaches the network fails on a developer machine the same way it would on a CI runner (E-93; guard for the main-branch failure fixed in v10.2.2).
+- `docs/v10/SCALE.md`: what the Claude Max plan sustains for the engineering swarm and what larger headcounts would cost on API billing, with every figure labelled as measured or estimated (G-03).
+- `docs/v10/METRICS.md`: the medium-tier gate result for the Loki 10 engine against raw `claude -p` (EV-14): raw completed 12 of 14 runs, the v10 engine 10 of 14, so the default engine stays legacy.
+
+## v10.2.4 (2026-09-28)
+
+Eval tooling release: one size rule for the medium and large eval tiers. No change to how `loki` runs your builds.
+
+### Added
+- `eval/loki10/measure-size.py` (D34): measures every tiered eval task from its committed reference diff, counting only non-test Python product files and added non-blank lines (deletions never count), and exits 1 when a task misses its tier's bar (medium: at least 2 files; large: at least 4 files, at least 150 added lines and above the largest medium task), when a reference diff is missing, or, with `--online`, when the committed diff no longer matches upstream.
+- Reference diffs for the medium-tier tasks under `eval/loki10/refdiff/`, and a new `eval/loki10/test-harness.sh` section that runs the size gate with negative controls.
+
+### Changed
+- Medium task sizes are now reported on this rule: the largest medium task is 74 added lines across 4 files (the earlier figure of 137 counted CI and config files and deleted lines).
+
+## v10.2.3 (2026-09-28)
+
+`loki modernize` oracle groundwork and swarm tooling fixes. The modernize modules are internal and not yet reachable from the CLI; nothing changes for existing `loki` users.
+
+### Added
+- Coverage-guided input search for the modernize oracle (M-10): generates inputs that reach uncovered branches of a legacy module, stops on a coverage plateau, and ends as "capture failed" with the real cause when the seed run cannot execute, instead of reporting a plateau. It resolves the old Python runtime the same way the capture tracer does and passes an explicit environment to every child process.
+- Oracle seal for modernize (M-12): the captured cases and a held-out split are hashed and recorded before any agent session, with an 80% branch-coverage floor that reports NOT PROVEN up front. The seal is anchored in the append-only modernize log, so deleting and re-sealing a unit is refused, and verification cross-checks the hashes, the split and the verdict against that record.
+
+### Fixed
+- Swarm pulse (internal tooling): ready-slice counts skip rows whose dependencies are not merged and name what they wait for, and the idle-builder check uses the same filtered set (E-79); the PROGRESS.md age is never negative (E-80); a git worktree created inside the repo root outside `.claude/worktrees` is flagged (E-81).
+
+## v10.2.2 (2026-09-28)
+
+Tooling release: a dependency inventory for the modernization workstream, plus the fix that restored the test suite after it landed. No change to how `loki` runs your builds.
+
+### Added
+- `scripts/dep-inventory.py` and `docs/v10/DEPS.md`: an inventory of every dependency Loki Mode uses (7 npm/bun manifests, Python requirements and pyproject files, 24 GitHub Actions workflows and 2 composite actions, the Node, Python and Bun CI matrices, Docker base images, both Helm charts, Terraform providers and the Homebrew formula), each with its current and latest stable version, the bump class (patch, minor, MAJOR, or 0.x breaking), runtime end-of-life dates, and floating action tags resolved to the release they actually point at. It drives the dependency upgrade slices (DEP-01, D35).
+- Findings it surfaced: Node 20 in the CI matrix is past end of life (2026-04-30); `actions/checkout@v4` and `actions/setup-node@v4` run on the deprecated Node 20 runtime; both Helm charts carry an appVersion that no longer matches the product version.
+
+### Fixed
+- The inventory's self-test no longer reaches the network or the GitHub CLI, so it gives the same result on a CI runner as on a developer machine (E-92).
+- Release notes on GitHub now carry the full CHANGELOG section for v9.80.1, v9.81.0, v10.0.1, v10.1.0, v10.1.1 and v10.2.1, which had been published with a one-line placeholder (D36).
+
+## v10.2.1 (2026-09-28)
+
+Publishes the v10.2.0 changes below. 10.2.0 was bumped but never reached npm: its release gate stopped on a secret-scan false positive (a pinned upstream werkzeug commit in an eval task, allowlisted by exact fingerprint), and a version that is already bumped cannot be re-released by dispatch.
+
+### Added
+- Eval: the second half of the medium tier (11 upstream tasks), each audited with deletion mutants (EV-11).
+- Eval harness: the v10 arm uses this repo's `bin/loki`, records its path and the agent SDK version, and refuses to run when `loki-ts/node_modules` does not match `bun.lock` (E-62).
+
+### Fixed
+- Internal tooling: the swarm pulse reads the last train push from the `origin/main` reflog, so a plain `git push` counts (E-84); the repo guard also refuses moving `main` without a checkout (E-78).
+
+## v10.2.0 (2026-09-28)
+
+Loki 10 engine (still opt-in: `LOKI_ENGINE=v10`).
+
+### Added
+- "Already implemented" is a first-class outcome: when the requested behaviour already exists, the run cites the code and test evidence, ends as no change needed with a receipt and an issue comment, and opens no PR (E-66).
+- A session that exits with an error fails its stage instead of reporting done, and its stderr tail is kept under the run directory, with the path in the failure event (E-61).
+- `loki modernize` groundwork, not yet wired to the CLI: deterministic codemods first (futurize, OpenRewrite) or a recorded skip (M-16), strangler targets and routes.json (M-19), dashboard view (M-24), Java graph that records every unresolved import (M-04).
+- Eval: medium-tier tasks audited with deletion mutants so a feature deletion never grades as completed (EV-11, first half).
+
+### Fixed
+- The modernize codemod runner passes an explicit environment to child processes (E-83).
+- Internal tooling: the swarm pulse reads main CI from the Tests run list instead of reporting UNKNOWN (E-75) and reports a stalled session (E-77).
+
+## v10.1.1 (2026-09-28)
+
+`loki modernize` groundwork. Both modules are internal building blocks of the upcoming `loki modernize` command and are not yet reachable from the CLI; nothing changes for existing `loki` users.
+
+### Added
+- Python import graph for modernize (M-03): `autonomy/lib/modernize/py_imports.py` lexes source with `tokenize`, so it reads Python 2 files (print statements, backticks, old `except X, e` syntax) that `ast` rejects, and `loki-ts/src/engine10/modernize/lang/python.ts` turns the result into the dependency graph the planner clusters. It resolves absolute, relative and bare relative imports (`from . import X`, `from .. import X`), and records imports it cannot resolve instead of dropping them.
+- Behaviour capture tracer for modernize (M-09): `autonomy/lib/modernize/py_capture.py` runs a module's functions under Python 2 or 3 and records inputs, return values and raised exceptions as type-tagged JSON with branch coverage, so a migrated module can later be checked for identical behaviour. Supported values are tagged faithfully, including sets and frozensets (sorted), `Decimal`, the `datetime` family and `bytearray`.
+
+### Safety
+- Anything the tracer cannot tag faithfully, including custom classes and subclasses of supported types such as `namedtuple`, `IntEnum` and `OrderedDict`, is recorded as not proven with its type and call site. It never compares equal, so the equivalence oracle cannot certify behaviour it did not actually capture.
+
 ## v10.1.0 (2026-09-28)
 
 Loki 10 engine improvements (still opt-in: `LOKI_ENGINE=v10`; the default engine is unchanged).
@@ -24113,11 +24351,11 @@ versions; the new shim auto-detects Bun and falls through to bash if missing.
 
 3 blind reviewers + Devil's Advocate per phase. Reviewer 1 (Phase 2) caught
 4 doctor text-mode bugs (min-version annotation, ~ substitution, extra Skill
-repo line, disk float) — all fixed. Reviewer 3 caught a doctor JSON regression
-caused by R1's text fix (TOOL_SPECS name conflated text + JSON) — decoupled
+repo line, disk float) - all fixed. Reviewer 3 caught a doctor JSON regression
+caused by R1's text fix (TOOL_SPECS name conflated text + JSON) - decoupled
 displayName from jsonName and float vs floor disk. Devil's Advocate caught
 cost_usd integer-vs-float JSON drift (10 vs 10.0) and SIGINT orphan processes
-in the Bun process — fixed by Python-style `.0` suffix substitution and
+in the Bun process - fixed by Python-style `.0` suffix substitution and
 explicit SIGINT handler in cli.ts. Phase 3 reviewers verified npm pack ships
 loki-ts/dist (no src/tests leakage), CI YAML valid, Dockerfiles install Bun
 pinned, dist preferred over source in shim.
@@ -24136,7 +24374,7 @@ pinned, dist preferred over source in shim.
   routes directly to bash; documented gap)
 - Homebrew formula update (release.yml installs a symlink to autonomy/loki
   rather than bin/loki; future formula edit needed for Bun routes via brew)
-- Phase 4 ports (run_autonomous, build_prompt, state, checkpoint) — research
+- Phase 4 ports (run_autonomous, build_prompt, state, checkpoint) - research
   done, implementation deferred to v7.4.0+
 
 ### Rollback
@@ -24594,18 +24832,18 @@ can be computed as cache_read / (cache_read + cache_creation).
 
 ## [6.81.0] - 2026-04-23
 
-### Tier 0 deletions — stop compensating for native Claude capabilities
+### Tier 0 deletions - stop compensating for native Claude capabilities
 
 First slice of the RARV-C lean-harness upgrade plan (see /Users/lokesh/.claude/plans/polished-waddling-stardust.md):
 
 - **S0.1 Session-pinned model (cache hygiene).** Added `LOKI_SESSION_MODEL` env var (default `sonnet`); main loop no longer switches models per-iteration. `get_rarv_tier` preserved for subagent dispatch (S1.3 scope). Rollback: `LOKI_LEGACY_TIER_SWITCHING=true`. Fixes prompt-cache invalidation on every 4-iteration RARV cycle.
 - **S0.3 Removed `CONTEXT_CLEAR_REQUESTED` signal.** Claude 4.6/4.7 manages its own context natively via compaction + context editing. Deleted `check_context_clear_signal()` and signal references across run.sh, SKILL.md, skills/troubleshooting.md, autonomy/CONSTITUTION.md.
-- **S0.4 Removed PRE-ACT goal-drift scaffolding.** Documented as "Planned" with no automated enforcement — phantom feature. Deleted from SKILL.md Planned Features table and references/core-workflow.md RARV diagram.
+- **S0.4 Removed PRE-ACT goal-drift scaffolding.** Documented as "Planned" with no automated enforcement - phantom feature. Deleted from SKILL.md Planned Features table and references/core-workflow.md RARV diagram.
 - **S0.5 Removed proactive compaction reminder.** Per-iteration "PROACTIVE_CONTEXT_CHECK" block and `COMPACTION_INTERVAL` variable deleted. Claude handles compaction natively.
 
 ### Notes
 
-Dead-weight deletion only — no functional additions. `skills/quality-gates.md`, completion council, RARV-C generator-verifier loop, and all existing safety gates preserved unchanged. Next release in the plan: S0.2 (completion-tool call) + S1.1 (prompt inversion) for prompt-cache recovery.
+Dead-weight deletion only - no functional additions. `skills/quality-gates.md`, completion council, RARV-C generator-verifier loop, and all existing safety gates preserved unchanged. Next release in the plan: S0.2 (completion-tool call) + S1.1 (prompt inversion) for prompt-cache recovery.
 
 ## [6.80.1] - Shellcheck fix for benchmarks/magic-ab/run.sh
 
@@ -24814,7 +25052,7 @@ stay consistent.
   trigger a clean reload.
 
 ### Added
-- `tests/test-openspec-sentinel.sh` — 10 focused integration tests covering
+- `tests/test-openspec-sentinel.sh` - 10 focused integration tests covering
   the six state transitions (fresh run, crash-restart, change switch,
   content edit, non-OpenSpec task preservation, legacy-sentinel upgrade).
   All 10 pass.
@@ -24825,9 +25063,9 @@ stay consistent.
   is identical on macOS and Linux (no `md5sum` vs `md5 -q` fork).
 
 ### Closed
-- PR #152 (@alilxxey) — `task_json` init. Rolled into this release.
-- PR #153 (@alilxxey) — Grep branch quoting. Rolled into this release.
-- PR #151 (@vishnujayvel) — OpenSpec sentinel scope. Rolled into this release.
+- PR #152 (@alilxxey) - `task_json` init. Rolled into this release.
+- PR #153 (@alilxxey) - Grep branch quoting. Rolled into this release.
+- PR #151 (@vishnujayvel) - OpenSpec sentinel scope. Rolled into this release.
 
 ## [6.77.0] - Claude Opus 4.7 + dynamic model catalog + magic extractor fixes
 

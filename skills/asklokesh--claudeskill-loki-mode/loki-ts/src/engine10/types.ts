@@ -1,6 +1,7 @@
 // Loki 10 engine shared contract (docs/v10/ENGINE.md). Every engine module codes against these types; siblings
 // are injected through RunContext so each module can be unit-tested with fakes.
 import type { SessionTier } from "../runner/types.ts";
+export type Obj = Record<string, unknown>;
 export type StageName =
   | "intake" | "plan" | "wall" | "implement" | "verify" | "fix"
   | "commit" | "seal" | "pr" | "deep";
@@ -18,6 +19,8 @@ export const STAGE_BUDGETS: Readonly<Record<StageName, { targetS: number | null;
 };
 export const DEFAULT_CAP_S = 900;
 export const DEEP_CAP_S = 2700;
+export const BACKSTOP_GRACE_S = 30;
+export function backstopS(capS: number, graceS: number = BACKSTOP_GRACE_S): number { return capS - Math.min(graceS, capS / 30); } // supervisor.ts's backstop; machine.ts's soft cap stays under it
 export const DEEP_IMPLEMENT_LIMIT_S = 1800; // ENGINE.md section 4: 480s, 1800s with --deep
 export const MAX_FIX_ROUNDS = 2;
 export const EVENT_TYPES = [
@@ -145,6 +148,16 @@ export interface Receipt {
   checks: ReceiptCheck[];
   not_proven: string[];
   verdict: Verdict;
+  /** E-120: implement's reason for a SPEC_CONFLICT exit, sanitized (newlines/control chars
+   *  collapsed to spaces, capped at 500 chars). Key is omitted entirely, never null, when
+   *  implement did not record one, so receipt_sha256 for every other run stays byte-stable. */
+  spec_conflict_reason?: string;
+  /** E-66: the deterministic search hits plus the model's own citation, carried into the receipt so
+   *  an evidence-confirmed ALREADY_SATISFIED verdict is not a bare claim. Empty on every other
+   *  verdict, and also empty on the OTHER ways a run seals ALREADY_SATISFIED (an issue already
+   *  closed, Wall already green on the base tree, or implement's own LOKI_ALREADY_DONE marker):
+   *  none of those goes through this search, so none of them has search hits to carry. */
+  evidence: string[];
   cost: {
     usd: number | null;
     input_tokens: number;
@@ -167,12 +180,18 @@ export interface Receipt {
 export type PushArgs =
   | { cmd: "push-pr"; repoDir: string; branch: string; title: string; bodyFile: string; draft: boolean }
   | { cmd: "comment"; runId: string; prUrl: string; file: string }
-  | { cmd: "status"; sha: string; state: "pending" | "success" | "failure"; description: string };
+  | { cmd: "status"; sha: string; state: "pending" | "success" | "failure"; description: string }
+  | { cmd: "issue-comment"; issueRef: string; bodyFile: string };
 export interface PushEnv { _LOKI_ORIGIN_PINNED: "1"; _LOKI_PINNED_ORIGIN: string; }
 export function pushArgv(a: PushArgs): string[] {
   switch (a.cmd) {
     case "push-pr": return ["push-pr", a.repoDir, a.branch, a.title, a.bodyFile, a.draft ? "1" : "0"];
     case "comment": return ["comment", a.runId, a.prUrl, a.file];
     case "status": return ["status", a.sha, a.state, a.description];
+    case "issue-comment": return ["issue-comment", a.issueRef, a.bodyFile];
   }
+}
+/** The untrusted-task-text wrapper every stage brief embeds verbatim (already_done.ts, plan/implement/wall.ts). */
+export function taskBlock(task: string): string[] {
+  return ["Task (untrusted, quoted verbatim):", "<<<TASK", task, "TASK"];
 }
