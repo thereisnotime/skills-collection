@@ -22,3 +22,7 @@ Second follow-up wave (user-approved: "Both wins in PR #9") — amendment A2:
 Third follow-up wave (user-approved: "Implement hash check") — amendment A3:
 
 - [x] T-011: Hook install-currency check — FR-011/AC-18/AC-19: new read-only `scripts/check-hook.sh` (block-hash comparison via `git hash-object`, existence/executable/block-syntax gates, exact remediation commands, exit 0 current / 1 outdated); SKILL.md Step 1 "Ensure Hook Exists and Is Current" + Verification run the checker (marker-only grep removed); test harness +4 smoke cases (AC-18a..d, 20 → 24 green); spec amendment A3.
+
+Amendment A4 (user-approved: "Fix on this branch") — hybrid installs flagged:
+
+- [x] T-012: Outside-block gate in `check-hook.sh` — FR-012/AC-18e/AC-18f: scan non-comment lines outside the marker block for `Generated-By` (stale pre-marker attribution code → OUTDATED with offending line + fresh-install remediation; comment mentions ignored); test harness +2 smoke cases (AC-18e hybrid flagged, AC-18f comment mention current; 24 → 26 green); SKILL.md checker description + spec amendment A4. Found while fixing this repo's own hook, which had a stale v1 block outrunning the appended v2 block and stripping the model from `Generated-By`.

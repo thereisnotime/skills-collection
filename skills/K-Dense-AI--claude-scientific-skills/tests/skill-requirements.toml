@@ -578,6 +578,16 @@ packages = ["pytdc", "setuptools"]
 [skills.cobrapy]
 packages = ["cobra", "matplotlib", "pandas", "seaborn"]
 
+[skills.13c-metabolic-flux]
+python = "3.11"
+# mfapy is GitHub-only; pin the reviewed source, not a moving branch.
+packages = [
+    "mfapy @ git+https://github.com/fumiomatsuda/mfapy.git@a10433af16682386548b360297e2476152d46ede",
+    "numpy==2.4.6",
+    "scipy==1.17.1",
+    "nlopt==2.11.0",
+]
+
 # --- medical imaging and clinical data ------------------------------------
 
 [skills.pydicom]
@@ -696,6 +706,12 @@ packages = ["openpiv", "numpy", "scipy", "scikit-image", "matplotlib"]
 # than because the tests need it.
 python = "3.12"
 packages = ["build123d", "matplotlib"]
+
+[skills.fictiv]
+# check_cad_file.py is standard library only; the STEP fixtures are committed
+# build123d exports, so the suite needs no CAD kernel. The browser scripts are
+# syntax-checked with node when it is on PATH.
+packages = []
 
 # --- geospatial -----------------------------------------------------------
 

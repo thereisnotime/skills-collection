@@ -11,6 +11,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { arg, flag } from "./cli"
 import { REPO_ROOT, WORKTREE_REF, extractSkill, mintCellDir } from "./extract"
+import { CONVERSE_HOSTS, formatTranscript, hostTurnArgv, runUserSim, type ConversationEnd, type Turn } from "./converse"
 import { HOSTS, planHost, resolveRunHosts, wrapPrompt, type Host, type HostPlan } from "./hosts"
 import { installPathShims, type PathShim } from "./path-shim"
 import { fingerprint, prepareOutput, sealEvidence, sha256, writeJSON } from "./provenance"
@@ -86,11 +87,9 @@ process.on("exit", () => {
   for (const pid of liveHosts) killGroup(pid)
 })
 
-async function runPlan(
-  plan: HostPlan,
-  cwd: string,
-  timeoutMs: number,
-): Promise<{ exitCode: number | null; stdout: string; stderr: string; timedOut: boolean }> {
+type RunResult = { exitCode: number | null; stdout: string; stderr: string; timedOut: boolean }
+
+async function runPlan(plan: HostPlan, cwd: string, timeoutMs: number): Promise<RunResult> {
   return new Promise((resolve) => {
     const stdin = fs.openSync("/dev/null", "r")
     // detached makes the child a process-group leader so a timeout can take down
@@ -153,13 +152,74 @@ async function runPlan(
   })
 }
 
+async function converse(
+  host: Host, plan: HostPlan, cwd: string, hostDir: string,
+  opts: { prompt: string; persona: string; timeoutMs: number; maxTurns: number },
+): Promise<RunResult & { turns: number; ended: ConversationEnd; argvs: string[][] }> {
+  const sessionId = crypto.randomUUID()
+  const lastMessageFile = path.join(hostDir, "last-message.txt")
+  const deadline = Date.now() + opts.timeoutMs
+  const turns: Turn[] = []
+  const log = path.join(hostDir, "transcript.jsonl")
+  let message = opts.prompt
+  const argvs: string[][] = []
+  let stderr = ""
+  let last: RunResult = { exitCode: null, stdout: "", stderr: "", timedOut: false }
+  let ended: ConversationEnd = "max-turns"
+  // The wrapped prompt asks for trailers on every reply, so the simulated user,
+  // not the trailers, decides when the conversation is over.
+  for (let i = 0; i < opts.maxTurns; i++) {
+    const remaining = deadline - Date.now()
+    if (remaining <= 0) { ended = "timeout"; last.timedOut = true; break }
+    fs.rmSync(lastMessageFile, { force: true })
+    const argv = hostTurnArgv(host, { first: i === 0, sessionId, message, cwd, lastMessageFile })
+    argvs.push(argv)
+    last = await runPlan({ ...plan, argv }, cwd, remaining)
+    stderr += last.stderr
+    let agentText = last.stdout
+    if (host === "codex") {
+      try {
+        agentText = fs.readFileSync(lastMessageFile, "utf8")
+      } catch {
+        // codex wrote no final message; keep its stdout
+      }
+    }
+    agentText = agentText.trim()
+    turns.push({ role: "agent", text: agentText })
+    fs.appendFileSync(log, `${JSON.stringify({ role: "agent", text: agentText, exitCode: last.exitCode })}\n`)
+    if (last.timedOut) { ended = "timeout"; break }
+    if (last.exitCode !== 0) { ended = "host-error"; break }
+    const sim = runUserSim(opts.persona, turns, plan.env, deadline - Date.now())
+    if (sim.timedOut) { ended = "timeout"; last.timedOut = true; break }
+    if (sim.failed) {
+      // An unanswered question is not usable evidence, so the cell must not read as completed.
+      ended = "user-sim-error"
+      last.exitCode = last.exitCode === 0 ? 1 : last.exitCode
+      stderr += `\nsimulated user failed: ${sim.error}\n`
+      break
+    }
+    if (sim.reply === null) { ended = "user-done"; break }
+    const reply = sim.reply
+    turns.push({ role: "user", text: reply })
+    fs.appendFileSync(log, `${JSON.stringify({ role: "user", text: reply })}\n`)
+    message = reply
+  }
+  if (ended === "max-turns") {
+    // The cap cut off an exchange in progress, so the transcript is not a finished conversation.
+    last.exitCode = last.exitCode === 0 ? 1 : last.exitCode
+    stderr += `\nconversation stopped at --max-turns ${opts.maxTurns} with a reply unsent\n`
+  }
+  const stdout = formatTranscript(turns, "USER")
+  return { ...last, stdout, stderr, turns: turns.filter((t) => t.role === "agent").length, ended, argvs }
+}
+
 async function main() {
   const skill = arg("--skill")
   const task = arg("--task")
   const taskFile = arg("--task-file")
   if (!skill) {
     console.error(
-      "usage: bun run test:skill-eval-cell -- --skill <name> --task \"...\" [--task-file p] [--ref WORKTREE|<git-ref>] [--hosts claude,codex,grok] [--fixture dir] [--out dir] [--timeout-secs 600] [--with-skill name,name] [--reasoning-effort level (grok)] [--read-only] [--git-init] [--git-untracked p,p] [--git-staged p,p] [--shim-git-push] [--shim-gh-pr]\n       default --hosts is the other two harnesses from this session; missing CLIs warn and continue",
+      "usage: bun run test:skill-eval-cell -- --skill <name> --task \"...\" [--task-file p] [--ref WORKTREE|<git-ref>] [--hosts claude,codex,grok] [--fixture dir] [--out dir] [--timeout-secs 600] [--with-skill name,name] [--persona file --max-turns 20 (claude, codex)] [--reasoning-effort level (grok)] [--read-only] [--git-init] [--git-untracked p,p] [--git-staged p,p] [--shim-git-push] [--shim-gh-pr]\n       default --hosts is the other two harnesses from this session; missing CLIs warn and continue",
     )
     process.exit(2)
   }
@@ -176,6 +236,22 @@ async function main() {
   const resolution = resolveRunHosts({ explicit: parseHosts() })
   for (const line of resolution.warnings) console.error(line)
   const hosts = resolution.run
+  const personaFile = arg("--persona")
+  const personaText = personaFile ? fs.readFileSync(personaFile, "utf8") : null
+  const maxTurns = Number(arg("--max-turns", "20"))
+  if (personaText !== null) {
+    const unsupported = hosts.filter((h) => !CONVERSE_HOSTS.includes(h))
+    if (unsupported.length > 0 || readOnly) {
+      console.error(`--persona runs only on ${CONVERSE_HOSTS.join(", ")} and not with --read-only`)
+      process.exit(2)
+    }
+    // The simulated user is a claude call even when the host under test is codex.
+    if (!Bun.which("claude")) {
+      console.error("--persona needs the claude CLI on PATH for the simulated user")
+      process.exit(2)
+    }
+    if (!Number.isInteger(maxTurns) || maxTurns <= 0) throw new Error("--max-turns must be a positive integer")
+  }
   if (hosts.length === 0) {
     console.error(`error: no harness CLIs on PATH (wanted ${resolution.wanted.join(", ")})`)
     process.exit(2)
@@ -242,6 +318,8 @@ async function main() {
     skill: fingerprint(skillDir),
     initial_workspace: fingerprint(workspace),
     task_sha256: sha256(taskText),
+    persona_sha256: personaText === null ? null : sha256(personaText),
+    max_turns: personaText === null ? null : maxTurns,
     harness: fingerprint(import.meta.dir, fs.readdirSync(import.meta.dir).filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))),
     runtime: { bun: Bun.version, node: process.version, platform: process.platform, arch: process.arch },
     timeout_ms: timeoutMs,
@@ -342,7 +420,12 @@ async function main() {
       requested_model: null,
       observed_model: null,
     }, true)
-    const result = await runPlan(plan, hostWorkspace, timeoutMs)
+    const conversation = personaText !== null
+      ? await converse(host, plan, hostWorkspace, hostDir, { prompt: hostPrompt, persona: personaText, timeoutMs, maxTurns })
+      : null
+    const result = conversation ?? (await runPlan(plan, hostWorkspace, timeoutMs))
+    // A conversation runs its own per-turn commands, not the single-turn plan written above.
+    if (conversation) fs.writeFileSync(path.join(hostDir, "argv.json"), `${JSON.stringify(conversation.argvs, null, 2)}\n`)
     fs.writeFileSync(path.join(hostDir, "stdout.txt"), result.stdout)
     fs.writeFileSync(path.join(hostDir, "stderr.txt"), result.stderr)
     fs.writeFileSync(
@@ -356,11 +439,15 @@ async function main() {
       stdout_bytes: Buffer.byteLength(result.stdout),
       stderr_bytes: Buffer.byteLength(result.stderr),
       process_outcome: result.timedOut ? "timeout" : result.exitCode === 0 ? "completed" : "nonzero-or-spawn-error",
+      ...(conversation ? { turns: conversation.turns, conversation_ended: conversation.ended } : {}),
     }
     writeJSON(path.join(out, "summary.json"), summary)
   }
 
   const summaryPath = path.join(out, "summary.json")
+  // Written only after every host has exited: a host with filesystem access could
+  // otherwise read the persona's hidden needs instead of eliciting them.
+  if (personaText !== null) fs.writeFileSync(path.join(out, "persona.md"), personaText, { flag: "wx" })
   sealEvidence(out)
   console.log(summaryPath)
 }

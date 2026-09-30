@@ -31,7 +31,8 @@
   <a href="../th/README.md">ไทย</a> |
   <a href="../de-DE/README.md">Deutsch</a> |
   <a href="../es/README.md">Español</a> |
-  <a href="../uk-UA/README.md">Українська</a>
+  <a href="../uk-UA/README.md">Українська</a> |
+  <a href="../pl/README.md">Polski</a>
 </p>
 
 <p align="center">
@@ -136,13 +137,13 @@ plan -> test -> implement -> review -> verify -> remember -> improve
 
 ECC は MIT ライセンスのオープンソースです。現時点では Claude Code で最もよく機能し、サポート対象の Codex 同期パスを備え、Cursor、OpenCode、Gemini、Zed、GitHub Copilot、Antigravity、Qwen、その他のハーネス向けには機能が限定されたアダプターを提供しています。機能の同等性を前提にする前に、[サポート状況マトリクス](#プラットフォームサポート)を確認してください。
 
-68 の agents、292 の skills、95 のレガシー command シムに加えて、hooks、rules、メモリ、継続的学習、AgentShield セキュリティスキャンを利用できます。agents は計画、レビュー、ビルド修復、セキュリティ、アーキテクチャ、ドメイン作業に特化しています。
+68 の agents、293 の skills、94 のレガシー command シムに加えて、hooks、rules、メモリ、継続的学習、AgentShield セキュリティスキャンを利用できます。agents は計画、レビュー、ビルド修復、セキュリティ、アーキテクチャ、ドメイン作業に特化しています。
 
 | 含まれるもの     |        数 | 得られるもの                                                                          |
 | ---------------- | ----------: | ------------------------------------------------------------------------------------ |
 | Agents           |   68 agents | 計画、レビュー、ビルド修復、セキュリティ、アーキテクチャ、ドメイン作業                |
-| Skills           |  292 skills | TDD、リサーチ、セキュリティ、ドキュメント、フロントエンド、データ、ML、運用など       |
-| Commands         | 95 commands | ECC が skills ファーストの構成へ移行する間の便利なエントリーポイント                  |
+| Skills           |  293 skills | TDD、リサーチ、セキュリティ、ドキュメント、フロントエンド、データ、ML、運用など       |
+| Commands         | 94 commands | ECC が skills ファーストの構成へ移行する間の便利なエントリーポイント                  |
 | Hooks とメモリ   |     ランタイム | 強制、セッションサマリー、継続的学習、instincts、コンテキスト制御                  |
 | Rules            |   選択式 | 言語やプロジェクトごとに選ぶ、常時ロードされる標準                                    |
 | AgentShield      |    同梱 | プロンプト、hooks、MCP 設定、パーミッション、シークレット、agent ファイルのスキャン    |
@@ -794,7 +795,7 @@ Kimi Code はインストールされた `.kimi-code/AGENTS.md` の指示と `.k
 ```text
 ECC/
 |-- agents/           # 委譲用の 68 の専門サブエージェント
-|-- skills/           # オンデマンドで読み込まれる 292 の再利用可能なワークフロー
+|-- skills/           # オンデマンドで読み込まれる 293 の再利用可能なワークフロー
 |-- commands/         # メンテナンスされている 94 のスラッシュコマンドシム
 |-- rules/            # オプトインの共通標準と言語別標準
 |-- hooks/            # ランタイムの自動化と強制

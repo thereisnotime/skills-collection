@@ -258,3 +258,21 @@ no errors.
     CURRENT/0 (AC-18d). Covered by harness smoke tests.
   - **AC-19**: SKILL.md no longer uses the marker-only grep for currency;
     Step 1 and Verification run `check-hook.sh`.
+
+- **A4 (Sep 29 2026) — hybrid-install detection (user-approved: "Fix on
+  this branch")**: the block-hash currency gate deliberately ignores content
+  OUTSIDE the markers (appended installs must tolerate arbitrary pre-existing
+  hooks), so a hook carrying a stale pre-marker copy of the attribution
+  logic — an older full hook with the current block appended behind it —
+  reported CURRENT. At commit time the stale copy runs first, writes its
+  own less-complete trailer (no model), and the current block's dedupe
+  check then skips: the model detail is silently dropped.
+  - **FR-012 — outside-block gate**: `check-hook.sh` scans non-comment
+    lines outside the marker block for `Generated-By`; any hit →
+    OUTDATED/1 with the offending line and fresh-install remediation.
+    Comment-only prose mentions are ignored (no false positive on
+    documented appended installs).
+  - **AC-18e**: hybrid install (stale pre-marker attribution code +
+    current block) → OUTDATED/1 with "stale attribution logic" output.
+  - **AC-18f**: appended install whose pre-existing hook mentions
+    Generated-By only in a comment → CURRENT/0.

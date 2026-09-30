@@ -71,7 +71,6 @@ test('every type referenced in the tables is a real detector type', () => {
 // not proof of assertions or runtime coverage. Remove an exception when its
 // fixture lands; new types must never be added to this historical list.
 const LEGACY_UNCOVERED_TYPES = [
-  'false-concession',
   'lets-construction',
   'novelty-inflation',
   'rhetorical-question',

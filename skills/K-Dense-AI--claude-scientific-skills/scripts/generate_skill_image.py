@@ -67,96 +67,124 @@ DEFAULT_MAX_CHARS = 150_000
 
 READABLE_SUFFIXES = {".md", ".txt", ".rst", ".yaml", ".yml", ".json", ".csv", ".toml"}
 
+# The diagrams are explainers, not decoration: someone who has never opened the
+# skill should be able to read one and know what the agent does, step by step,
+# with which tool, where it stops, and what it hands back. So the text carries
+# the meaning and the motifs only support it. The earlier minimal style -- ten
+# short labels, empty tables, unlabelled cards -- looked tidy and said almost
+# nothing. What stays strict is fabrication: text comes verbatim from the
+# documentation, and no example data, identifiers or results are drawn.
 DIAGRAM_STYLE = (
-    "ART DIRECTION — render the above as a polished diagram of the kind found in "
-    "high-end product documentation. Flat vector illustration. "
-    "Background: a soft warm off-white, not stark white. "
-    "Nodes: filled cards with generously rounded corners, a pale tinted fill and a thin "
-    "border a few shades deeper in the same hue, roomy padding, and a short accent bar "
-    "along the top edge in the card's role colour. "
-    "Palette: role colours are deep indigo for processing stages, muted teal for inputs, "
-    "warm amber for outputs, and soft warm grey for supporting detail — each a pale fill "
-    "with a deeper border and matching label. "
-    "Domain motifs: draw the small scientific picture named for each stage inside its "
-    "card, above the label — flat, simplified to a few clean strokes, crisp at thumbnail "
-    "size, never a photograph and never a fully detailed chart. Motifs may use a wider "
-    "categorical palette from the same family — indigo, teal, amber, rose, sage — where "
-    "the content needs several distinguishable colours, as a cluster plot does. The hero "
-    "panel is drawn several times larger than the stage cards and carries the most detail. "
-    "Grouping regions: very light tinted panels behind related nodes, rounded, with a "
-    "small uppercase heading in letter-spaced grey. "
-    "Connectors: thin lines of uniform weight in soft slate, rounded caps, small solid "
-    "arrowheads, routed at clean right angles with rounded corners, never crossing a card. "
-    "Every connector leaves the edge of one card and lands its arrowhead on the edge of "
-    "exactly the card named as its destination; no arrow points backwards up the flow, "
-    "and no arrowhead touches a card that is not its stated destination. "
-    "Typography: one clean geometric sans-serif throughout — the title largest in a dark "
-    "warm charcoal, node labels medium weight, secondary notes a step smaller in lighter "
-    "grey. Never monospace. "
-    "Layout: a strict grid with even generous gutters, deliberate contrast between the "
-    "hero panel and the smaller cards, and a very faint dot grid across the background; "
-    "the composition fills the whole frame with balanced margins on all four sides. "
-    "Spell every label exactly as written. The quoted labels in the prompt are the "
-    "COMPLETE text inventory: render each once and add NO other text anywhere. "
-    "Scientific motifs must be schematic and unlabelled. Tables have empty cells; "
-    "plots have no numbers, ticks, axis labels, or annotations. Never invent example "
-    "identifiers, sequences, URLs, citations, code, JSON, measurements, scores, clinical "
+    "ART DIRECTION — render the above as a clear, information-rich explainer diagram of "
+    "the kind found in the best engineering documentation, where the text is the point "
+    "and every element earns its place. Flat vector illustration on a soft warm "
+    "off-white background, not stark white. "
+    "Header: the title large and bold in dark warm charcoal at the top left, the subtitle "
+    "on one line directly beneath it in medium grey. "
+    "Step cards: white cards with gently rounded corners, a thin border and roomy "
+    "padding. Each has a solid circular number badge at its top left in the step colour, "
+    "the step title in bold beside the badge, the one-line description beneath in regular "
+    "weight, and, where given, the tool chip as a small rounded pill along the bottom of "
+    "the card holding the tool name in a clean monospace face. The step's motif sits "
+    "small and simple at the card's right, never crowding the text. All step cards are "
+    "the same size so the numbered sequence reads as one system. "
+    "Roles: steps deep indigo, inputs muted teal, outputs warm amber, automatic checks "
+    "slate grey, and human approval gates rose red; each role shows as the badge or "
+    "accent colour with a pale tint of the same hue behind its area. "
+    "Checkpoints: a small diamond sitting on the connector between two steps, its label "
+    "set just beside it, never inside a card. Approval gates are rose diamonds, "
+    "automatic checks slate diamonds. If a legend is given, set it small at the bottom "
+    "right with one diamond swatch per entry. "
+    "Inputs and outputs: tinted panels at the start and end of the flow, each item on "
+    "its own line as a small file-or-document glyph followed by its name. "
+    "Watch-for strip: a full-width band along the bottom with a small uppercase heading "
+    "and its notes laid out side by side in equal columns, each note preceded by a small "
+    "caution mark. "
+    "Motifs: flat, a few clean strokes, recognisable at thumbnail size, never a "
+    "photograph and never a detailed chart. They may use a wider categorical palette "
+    "from the same family — indigo, teal, amber, rose, sage. "
+    "Connectors: thin lines of uniform weight in soft slate with small solid arrowheads, "
+    "routed at clean right angles with rounded corners, never crossing a card or any "
+    "text. The flow runs left to right along the first row, drops down at the right "
+    "edge, and runs left to right again along the second row, so the numbers always "
+    "increase in reading order. Every connector leaves the edge of one card and lands on "
+    "the edge of exactly the card it leads to. "
+    "Typography: one clean geometric sans-serif for everything except tool chips. "
+    "Every line of text must stay comfortably legible when the image is shown at half "
+    "size; when space is tight, shrink motifs, never text. "
+    "Layout: a strict grid with even gutters, balanced margins on all four sides, and "
+    "the whole frame used. "
+    "Spell every piece of text exactly as written. The quoted text in the prompt is the "
+    "COMPLETE text inventory: render each item once, where the prompt places it, and add "
+    "NO other text anywhere. Motifs are unlabelled; plots have no numbers, ticks or "
+    "annotations; tables show only the headers given. Never invent example identifiers, "
+    "sequences, URLs, citations, code, JSON, prices, measurements, scores, clinical "
     "classifications, dates, or biological relationships. "
     "No photorealism, no 3D, no isometric perspective, no people, no stock clip art, no "
-    "generic gear or screen or cloud or lightbulb icons, no gradients, no drop shadows, "
-    "no glow, no decorative background, no watermark."
+    "generic gear or cloud or lightbulb icons, no gradients, no drop shadows, no glow, no "
+    "decorative background, no watermark."
 )
 
 DISTIL_INSTRUCTIONS = """\
-You write prompts for an image model that renders technical diagrams.
+You write prompts for an image model that renders technical explainer diagrams.
 
-Read the Agent Skill documentation below and write ONE prompt describing a single clean, \
-informative diagram that shows what this skill does and the workflow it follows.
+Read the Agent Skill documentation below and write ONE prompt for a single diagram. A \
+scientist who has never seen this skill should be able to study it for thirty seconds and \
+come away knowing what the skill does, the steps an agent follows, the tool used at each \
+step, where the agent stops for a check or for the user's decision, what it hands back, and \
+the few things most likely to go wrong.
 
-Rules:
-- Open by giving the diagram a title: the skill's purpose in four words or fewer, set as \
-a heading at the top left.
-- Describe concrete visual structure: the nodes, how they are arranged, the arrows \
-between them, and which nodes sit together inside a shared labelled region. Two or three \
-such regions read better than one long undifferentiated chain.
-- Give every label verbatim in double quotes. Use at most 10 labels, each at most 20 \
-characters. Take them from the documentation's real vocabulary -- actual stage names, file \
-formats, commands, tools -- never filler like "Input", "Process", "Output".
-- The title counts toward the 10-label limit. These labels are the entire text inventory. \
-Do not describe any other text, data rows, identifiers, code, URLs, dates, numbers, \
-scientific measurements, classification labels, or example results for the image to fill in. \
-Use unlabelled abstract scientific motifs and empty table cells instead. A workflow diagram \
-must not fabricate evidence or imply that a prediction is a measured result.
-- Show only a small, coherent workflow. Independent operations must not be connected as \
-consecutive steps. Preserve any review or resolution gate before downstream retrieval.
-- If the skill offers multiple model tasks or APIs, select ONE documented scientific \
-operation. Show its input validation, that operation, and its own returned artifact with \
-provenance. Never feed one prediction type into another task's output. API discovery and \
-authentication are supporting detail only, never the operation that produces a result. \
-Use short plain-language stage labels when a full tool name exceeds the label budget; \
-never substitute a different API call or an invented abbreviated command.
-- Say which nodes are inputs, which are processing stages, which are outputs, and which \
-are supporting detail. Name the role, never a colour.
-- Give each main stage a domain motif: a small concrete picture of what the data actually \
-looks like at that point -- a scatter of clustered points, a row of violin plots, a \
-heatmap grid, a sequence track, a spectrum, a circuit fragment, a molecular skeleton, a \
-folded chain, a map tile, a waveform. Name each motif specifically. These carry the \
-science; the labels only name it. Choose motifs this particular field would recognise.
-- Vary the scale deliberately. Make one element a larger hero panel showing the \
-workflow's characteristic result at a size worth looking at, with the smaller stage cards \
-feeding into it. Equal-sized boxes in a row make a dull picture.
-- Ground the diagram in the skill's real workflow, its inputs and its outputs. Do not \
-invent a step the documentation does not describe. Motifs must depict what this skill \
-genuinely produces.
-- The canvas is wide. Compose for it: use the full height as well as the width by \
-stacking the flow into two or three rows, or by putting labelled lanes or a tier of \
-supporting detail beneath the main path. A single thin horizontal strip wastes the frame.
+Lay the diagram out as follows, and say where each element sits:
+- Header, top left: a title naming the skill's purpose in five words or fewer, and beneath \
+it a subtitle of at most 90 characters saying what the skill does and on what.
+- Inputs panel at the left of the first row: up to four things the user supplies, each \
+named concretely (file formats, identifiers, credentials, a logged-in account).
+- Main flow: five or six numbered steps in reading order, in two rows -- steps 1 to 3 on \
+the first row, left to right, and the rest on the second row, also left to right. Each \
+step card has its number, a title of at most 24 characters, one plain line of at most 60 \
+characters saying what happens or why it matters, and -- where the documentation names \
+one -- a tool chip with the exact script, command, function, file, or UI control used, at \
+most 30 characters. Give each step a small, specific motif of what the work looks like at \
+that point: a STEP solid with a bounding box, a table with header row, a sequence track, a \
+spectrum, a clustered scatter, a quote card with price tiers, a stage tracker. Choose \
+motifs this field would recognise.
+- Checkpoints: where the documented workflow validates, blocks, or needs the user's \
+explicit approval, place a checkpoint on the arrow between the two steps it guards, or on \
+the arrow from the last step into the outputs panel -- never inside a card -- labelled \
+with its condition in at most 32 characters. At most four checkpoints. Say for each whether it is an \
+automatic check or a user approval gate. If both kinds appear, add a two-entry legend \
+labelled "Automatic check" and "Needs your approval".
+- Outputs panel at the right of the second row, fed by the last step: up to four \
+artifacts the skill actually returns, named concretely.
+- A full-width strip along the bottom headed "Watch for", holding three or four of the \
+documentation's most important caveats, limits, or safety rules, each at most 60 \
+characters.
+
+Text rules:
+- Give every piece of text verbatim in double quotes. That quoted text is the entire text \
+inventory, typically 30 to 40 items. Use the documentation's real vocabulary -- actual step \
+names, scripts, commands, file formats, UI labels, rules -- never filler like "Input", \
+"Process", "Output", "Data".
+- A number may appear only as a documented fact copied exactly: a limit, a time window, a \
+standard, a version. Never ask for example data, identifiers, measurements, prices, \
+scores, dates, or results; data-bearing motifs stay schematic and unlabelled, and tables \
+show at most a header row. A diagram must not fabricate evidence or imply that a \
+prediction is a measured result.
+- Ground everything in the documentation. Do not invent a step, tool, rule, or \
+relationship it does not state, and never substitute a different command or an invented \
+abbreviation for a real one. Independent operations must not be chained as consecutive \
+steps; preserve any review or resolution gate before downstream work.
+- If the skill covers several separate operations or APIs, diagram its main end-to-end \
+workflow and give the others one supporting mention at most. API discovery and \
+authentication are supporting detail, never the step that produces the result.
+- Name each element's role (input, step, checkpoint, output, supporting note), never a \
+colour.
 - Describe structure and content only. Say nothing about colours, fonts, line weights, \
 textures, shading or rendering style -- those are art-directed separately, and anything \
 you add will fight them.
 - Reply with the prompt text only. No preamble, no markdown, no surrounding quotes.
 
-Target 90 to 160 words.\
+Target 250 to 400 words.\
 """
 
 EXTENSIONS = {

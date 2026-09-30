@@ -7,6 +7,7 @@ const { execFileSync } = require('child_process');
 const { resolveInstallPlan } = require('../install-manifests');
 const { getInstallTargetAdapter } = require('../install-targets/registry');
 const { resolveInvocationEnvironment } = require('../invocation-environment');
+const { disableUnselectedOpenCodeHooks } = require('./hook-consent');
 const { readHooksConfig } = require('../hooks-config');
 const {
   materializeManagedHooks,
@@ -315,7 +316,7 @@ function createManifestInstallPlan(options = {}) {
     source
   });
 
-  return {
+  return disableUnselectedOpenCodeHooks({
     mode: options.mode || 'manifest',
     sourceRoot,
     target,
@@ -341,7 +342,7 @@ function createManifestInstallPlan(options = {}) {
     excludedModuleIds: plan.excludedModuleIds,
     operations,
     statePreview
-  };
+  });
 }
 
 module.exports = {

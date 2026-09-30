@@ -11110,7 +11110,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-optimize/SKILL.md",
       "remote_path": "skills/ce-optimize/SKILL.md",
       "lines": 63,
-      "words": 1235,
+      "words": 1251,
       "code_blocks": 0,
       "languages": []
     },
@@ -11787,9 +11787,9 @@
       "description": "\"Universal deep research agent team. 13-agent pipeline for rigorous academic research on any topic. 8 modes: full research, quick brief, paper review, lit-review, fact-check, three-way literature scan",
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 640,
-      "words": 5259,
-      "code_blocks": 6,
+      "lines": 728,
+      "words": 6629,
+      "code_blocks": 7,
       "languages": [
         "markdown"
       ]
@@ -11837,8 +11837,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 597,
-      "words": 7278,
+      "lines": 659,
+      "words": 8262,
       "code_blocks": 4,
       "languages": []
     },
@@ -11857,8 +11857,8 @@
       "description": "ARS academic-paper `lit-review` mode \u2014 annotated bibliography in paper format",
       "path": "Imbad0202--academic-research-skills/commands/ars-lit-review.md",
       "remote_path": "commands/ars-lit-review.md",
-      "lines": 18,
-      "words": 156,
+      "lines": 20,
+      "words": 190,
       "code_blocks": 0,
       "languages": []
     },
@@ -12226,9 +12226,9 @@
       "description": "\"Systematic literature search and curation; identifies, annotates, and formats sources in APA 7.0\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/bibliography_agent.md",
       "remote_path": "deep-research/agents/bibliography_agent.md",
-      "lines": 474,
-      "words": 4360,
-      "code_blocks": 10,
+      "lines": 496,
+      "words": 4693,
+      "code_blocks": 11,
       "languages": [
         "markdown",
         "yaml"
@@ -12337,9 +12337,9 @@
       "description": "\"Designs the literature search strategy and manages source selection for the paper\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/literature_strategist_agent.md",
       "remote_path": "academic-paper/agents/literature_strategist_agent.md",
-      "lines": 643,
-      "words": 6318,
-      "code_blocks": 13,
+      "lines": 664,
+      "words": 6644,
+      "code_blocks": 14,
       "languages": [
         "markdown",
         "yaml"
@@ -12785,6 +12785,19 @@
       "languages": [
         "bash",
         "python"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "13c-metabolic-flux",
+      "description": "Estimates intracellular metabolic fluxes from steady-state carbon-13 isotope-tracing measurements using validated atom maps, mfapy isotope simulation, constrained multistart fitting, and flux-profile ",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/13c-metabolic-flux/SKILL.md",
+      "remote_path": "skills/13c-metabolic-flux/SKILL.md",
+      "lines": 209,
+      "words": 1462,
+      "code_blocks": 6,
+      "languages": [
+        "bash"
       ],
       "license": "MIT"
     },
@@ -14198,6 +14211,19 @@
       "license": "MIT"
     },
     {
+      "name": "fictiv",
+      "description": "Operate Fictiv (app.fictiv.com), the on-demand manufacturing platform, end to end in the user's browser. Covers uploading CAD parts, configuring process, material, finish, threads, tolerances and insp",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/fictiv/SKILL.md",
+      "remote_path": "skills/fictiv/SKILL.md",
+      "lines": 151,
+      "words": 1841,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "exploratory-data-analysis",
       "description": "\"Perform bounded, local exploratory analysis of explicitly supported scientific files. Use for redacted CSV/TSV/JSON profiles; optional NumPy, HDF5, FASTA/FASTQ, and basic image metadata inspection; m",
       "path": "K-Dense-AI--claude-scientific-skills/skills/exploratory-data-analysis/SKILL.md",
@@ -14762,8 +14788,8 @@
       "description": "Prepare evidence-bounded, constructive peer-review drafts and structured manuscript assessments. Use for authorized review of scientific manuscripts, protocols, preprints, or research proposals; repor",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/peer-review/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/peer-review/SKILL.md",
-      "lines": 289,
-      "words": 1422,
+      "lines": 306,
+      "words": 1557,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -14775,8 +14801,8 @@
       "description": "Write competitive research proposals for NSF, NIH, DOE, DARPA, and Taiwan NSTC. Agency-specific formatting, review criteria, budget preparation, broader impacts, significance statements, innovation na",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/research-grants/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/research-grants/SKILL.md",
-      "lines": 297,
-      "words": 1673,
+      "lines": 314,
+      "words": 1808,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -14788,8 +14814,8 @@
       "description": "Provide qualitative-first, evidence-traceable developmental review of scholarly works and audit low-stakes research-assessment rubrics with optional local quality controls. Never use for ranking peopl",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scholar-evaluation/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scholar-evaluation/SKILL.md",
-      "lines": 297,
-      "words": 1266,
+      "lines": 314,
+      "words": 1401,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -14801,8 +14827,8 @@
       "description": "Create safety-bounded draft structures and run local deterministic checks for clinical case, diagnostic, trial, safety, and aggregate research reports. Use only with synthetic, de-identified, or aggre",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/clinical-reports/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/clinical-reports/SKILL.md",
-      "lines": 249,
-      "words": 1673,
+      "lines": 266,
+      "words": 1808,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -14811,14 +14837,15 @@
     },
     {
       "name": "generate-image",
-      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, FLUX, Seedream, Recraft, GPT-Image). Use for photos, illustrations, artwork, concept art, visual assets, logos, and ima",
+      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, Seedream, Recraft, GPT-Image, Riverflow). Use for photos, illustrations, artwork, concept art, visual assets, logos, an",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/generate-image/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/generate-image/SKILL.md",
-      "lines": 216,
-      "words": 1166,
-      "code_blocks": 6,
+      "lines": 322,
+      "words": 2162,
+      "code_blocks": 7,
       "languages": [
         "bash",
+        "console",
         "json"
       ],
       "license": "MIT"
@@ -14828,8 +14855,8 @@
       "description": "Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, research presentations, thesis defense slides, or any scientific",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-slides/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-slides/SKILL.md",
-      "lines": 380,
-      "words": 2596,
+      "lines": 397,
+      "words": 2734,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -14842,8 +14869,8 @@
       "description": "Prepare journal manuscripts, conference papers, research posters, and grant documents using venue-specific formatting guidance and bundled LaTeX scaffolds. Use when selecting an official template, che",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/venue-templates/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/venue-templates/SKILL.md",
-      "lines": 270,
-      "words": 1462,
+      "lines": 287,
+      "words": 1597,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -14856,8 +14883,8 @@
       "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Integrates research-lookup and web search for accurate data. Suppo",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/infographics/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/infographics/SKILL.md",
-      "lines": 316,
-      "words": 1414,
+      "lines": 334,
+      "words": 1552,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -14868,8 +14895,8 @@
       "description": "\"Compile current scholarly evidence for a scientific manuscript or research brief. Use when the user explicitly asks to gather literature, references, background evidence, competing findings, or a man",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/research-lookup/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/research-lookup/SKILL.md",
-      "lines": 339,
-      "words": 1753,
+      "lines": 356,
+      "words": 1888,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -14882,8 +14909,8 @@
       "description": "Format and structurally validate local treatment-plan documentation after clinical decisions have already been supplied and verified by authorized licensed professionals. Use for source traceability, ",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/treatment-plans/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/treatment-plans/SKILL.md",
-      "lines": 175,
-      "words": 1197,
+      "lines": 192,
+      "words": 1332,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -14892,11 +14919,11 @@
     },
     {
       "name": "citation-management",
-      "description": "Comprehensive citation management for academic research. Search Google Scholar and PubMed for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX entries. Thi",
+      "description": "Comprehensive citation management for academic research. Search OpenAlex, PubMed, and Google Scholar for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX e",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/citation-management/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/citation-management/SKILL.md",
-      "lines": 322,
-      "words": 1638,
+      "lines": 347,
+      "words": 1881,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -14908,8 +14935,8 @@
       "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Only regenerates if quality is below threshold for your",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-schematics/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-schematics/SKILL.md",
-      "lines": 383,
-      "words": 2076,
+      "lines": 388,
+      "words": 2507,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -14921,8 +14948,8 @@
       "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/latex-posters/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/latex-posters/SKILL.md",
-      "lines": 370,
-      "words": 2111,
+      "lines": 388,
+      "words": 2249,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -14933,8 +14960,8 @@
       "description": "Conduct comprehensive, systematic literature reviews using multiple academic databases (PubMed, arXiv, bioRxiv, Semantic Scholar, etc.). This skill should be used when conducting systematic literature",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/literature-review/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/literature-review/SKILL.md",
-      "lines": 264,
-      "words": 1546,
+      "lines": 281,
+      "words": 1682,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -14946,8 +14973,8 @@
       "description": "Formulate evidence-bounded scientific questions, candidate hypotheses, rival explanations, causal or associational claims, discriminating predictions, measurements, and preregistration-ready analysis ",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/hypothesis-generation/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/hypothesis-generation/SKILL.md",
-      "lines": 265,
-      "words": 1811,
+      "lines": 282,
+      "words": 1946,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -14972,8 +14999,8 @@
       "description": "Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, applying evidence grading frameworks (GRADE, Cochrane Risk of Bias)",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-critical-thinking/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-critical-thinking/SKILL.md",
-      "lines": 181,
-      "words": 1103,
+      "lines": 198,
+      "words": 1238,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -14985,8 +15012,8 @@
       "description": "Convert heterogeneous documents and selected URIs to Markdown with Microsoft MarkItDown for text analysis, search, and LLM/RAG ingestion. Covers safe local conversion, streams, Office/PDF/data formats",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/markitdown/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/markitdown/SKILL.md",
-      "lines": 265,
-      "words": 1358,
+      "lines": 282,
+      "words": 1493,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -14999,8 +15026,8 @@
       "description": "Draft, revise, and audit scientific manuscripts or reports with explicit evidence provenance, reporting-guideline coverage, authorship accountability, confidentiality controls, and local consistency c",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-writing/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-writing/SKILL.md",
-      "lines": 357,
-      "words": 1608,
+      "lines": 374,
+      "words": 1743,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -15013,8 +15040,8 @@
       "description": "Prepare and validate research-only clinical decision-support evaluation, evidence-profile, cohort, survival, biomarker/model, privacy, and governance artifacts. Use for aggregate or synthetic research",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/clinical-decision-support/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/clinical-decision-support/SKILL.md",
-      "lines": 239,
-      "words": 1495,
+      "lines": 256,
+      "words": 1630,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -15026,8 +15053,8 @@
       "description": "\"Use Parallel CLI for web search, URL extraction, deep research, structured data enrichment, entity discovery, and recurring web monitoring. Best for requests that explicitly need current web evidence",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/parallel-web/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/parallel-web/SKILL.md",
-      "lines": 129,
-      "words": 878,
+      "lines": 146,
+      "words": 1013,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -15053,7 +15080,7 @@
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/xlsx/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/xlsx/SKILL.md",
       "lines": 111,
-      "words": 1274,
+      "words": 1276,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15065,8 +15092,8 @@
       "description": "Build evidence-traceable market research reports and assumption-driven market sizing or forecast scenarios. Use for market definition, industry and customer evidence, competitive landscapes, TAM/SAM/S",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/market-research-reports/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/market-research-reports/SKILL.md",
-      "lines": 338,
-      "words": 1605,
+      "lines": 355,
+      "words": 1740,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -15079,8 +15106,8 @@
       "description": "Create and audit editable scientific posters in macro-free PowerPoint (.pptx) from author-approved local content and assets. Use when the requested deliverable is a PowerPoint research/conference post",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/pptx-posters/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/pptx-posters/SKILL.md",
-      "lines": 259,
-      "words": 1301,
+      "lines": 276,
+      "words": 1436,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -15094,7 +15121,7 @@
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/pdf/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/pdf/SKILL.md",
       "lines": 323,
-      "words": 1046,
+      "words": 1047,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -15107,8 +15134,8 @@
       "description": "Prepare evidence-bounded, constructive peer-review drafts and structured manuscript assessments. Use for authorized review of scientific manuscripts, protocols, preprints, or research proposals; repor",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/peer-review/SKILL.md",
       "remote_path": ".claude/skills/peer-review/SKILL.md",
-      "lines": 289,
-      "words": 1422,
+      "lines": 306,
+      "words": 1557,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -15120,8 +15147,8 @@
       "description": "Write competitive research proposals for NSF, NIH, DOE, DARPA, and Taiwan NSTC. Agency-specific formatting, review criteria, budget preparation, broader impacts, significance statements, innovation na",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/research-grants/SKILL.md",
       "remote_path": ".claude/skills/research-grants/SKILL.md",
-      "lines": 297,
-      "words": 1673,
+      "lines": 314,
+      "words": 1808,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15133,8 +15160,8 @@
       "description": "Provide qualitative-first, evidence-traceable developmental review of scholarly works and audit low-stakes research-assessment rubrics with optional local quality controls. Never use for ranking peopl",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scholar-evaluation/SKILL.md",
       "remote_path": ".claude/skills/scholar-evaluation/SKILL.md",
-      "lines": 297,
-      "words": 1266,
+      "lines": 314,
+      "words": 1401,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -15146,8 +15173,8 @@
       "description": "Create safety-bounded draft structures and run local deterministic checks for clinical case, diagnostic, trial, safety, and aggregate research reports. Use only with synthetic, de-identified, or aggre",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/clinical-reports/SKILL.md",
       "remote_path": ".claude/skills/clinical-reports/SKILL.md",
-      "lines": 249,
-      "words": 1673,
+      "lines": 266,
+      "words": 1808,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -15156,14 +15183,15 @@
     },
     {
       "name": "generate-image",
-      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, FLUX, Seedream, Recraft, GPT-Image). Use for photos, illustrations, artwork, concept art, visual assets, logos, and ima",
+      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, Seedream, Recraft, GPT-Image, Riverflow). Use for photos, illustrations, artwork, concept art, visual assets, logos, an",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/generate-image/SKILL.md",
       "remote_path": ".claude/skills/generate-image/SKILL.md",
-      "lines": 216,
-      "words": 1166,
-      "code_blocks": 6,
+      "lines": 322,
+      "words": 2162,
+      "code_blocks": 7,
       "languages": [
         "bash",
+        "console",
         "json"
       ],
       "license": "MIT"
@@ -15173,8 +15201,8 @@
       "description": "Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, research presentations, thesis defense slides, or any scientific",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-slides/SKILL.md",
       "remote_path": ".claude/skills/scientific-slides/SKILL.md",
-      "lines": 380,
-      "words": 2596,
+      "lines": 397,
+      "words": 2734,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -15187,8 +15215,8 @@
       "description": "Prepare journal manuscripts, conference papers, research posters, and grant documents using venue-specific formatting guidance and bundled LaTeX scaffolds. Use when selecting an official template, che",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/venue-templates/SKILL.md",
       "remote_path": ".claude/skills/venue-templates/SKILL.md",
-      "lines": 270,
-      "words": 1462,
+      "lines": 287,
+      "words": 1597,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -15201,8 +15229,8 @@
       "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Integrates research-lookup and web search for accurate data. Suppo",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/infographics/SKILL.md",
       "remote_path": ".claude/skills/infographics/SKILL.md",
-      "lines": 316,
-      "words": 1414,
+      "lines": 334,
+      "words": 1552,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -15213,8 +15241,8 @@
       "description": "\"Compile current scholarly evidence for a scientific manuscript or research brief. Use when the user explicitly asks to gather literature, references, background evidence, competing findings, or a man",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/research-lookup/SKILL.md",
       "remote_path": ".claude/skills/research-lookup/SKILL.md",
-      "lines": 339,
-      "words": 1753,
+      "lines": 356,
+      "words": 1888,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -15227,8 +15255,8 @@
       "description": "Format and structurally validate local treatment-plan documentation after clinical decisions have already been supplied and verified by authorized licensed professionals. Use for source traceability, ",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/treatment-plans/SKILL.md",
       "remote_path": ".claude/skills/treatment-plans/SKILL.md",
-      "lines": 175,
-      "words": 1197,
+      "lines": 192,
+      "words": 1332,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -15237,11 +15265,11 @@
     },
     {
       "name": "citation-management",
-      "description": "Comprehensive citation management for academic research. Search Google Scholar and PubMed for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX entries. Thi",
+      "description": "Comprehensive citation management for academic research. Search OpenAlex, PubMed, and Google Scholar for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX e",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/citation-management/SKILL.md",
       "remote_path": ".claude/skills/citation-management/SKILL.md",
-      "lines": 322,
-      "words": 1638,
+      "lines": 347,
+      "words": 1881,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -15253,8 +15281,8 @@
       "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Only regenerates if quality is below threshold for your",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-schematics/SKILL.md",
       "remote_path": ".claude/skills/scientific-schematics/SKILL.md",
-      "lines": 383,
-      "words": 2076,
+      "lines": 388,
+      "words": 2507,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -15266,8 +15294,8 @@
       "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/latex-posters/SKILL.md",
       "remote_path": ".claude/skills/latex-posters/SKILL.md",
-      "lines": 370,
-      "words": 2111,
+      "lines": 388,
+      "words": 2249,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -15278,8 +15306,8 @@
       "description": "Conduct comprehensive, systematic literature reviews using multiple academic databases (PubMed, arXiv, bioRxiv, Semantic Scholar, etc.). This skill should be used when conducting systematic literature",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/literature-review/SKILL.md",
       "remote_path": ".claude/skills/literature-review/SKILL.md",
-      "lines": 264,
-      "words": 1546,
+      "lines": 281,
+      "words": 1682,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -15291,8 +15319,8 @@
       "description": "Formulate evidence-bounded scientific questions, candidate hypotheses, rival explanations, causal or associational claims, discriminating predictions, measurements, and preregistration-ready analysis ",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/hypothesis-generation/SKILL.md",
       "remote_path": ".claude/skills/hypothesis-generation/SKILL.md",
-      "lines": 265,
-      "words": 1811,
+      "lines": 282,
+      "words": 1946,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15317,8 +15345,8 @@
       "description": "Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, applying evidence grading frameworks (GRADE, Cochrane Risk of Bias)",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-critical-thinking/SKILL.md",
       "remote_path": ".claude/skills/scientific-critical-thinking/SKILL.md",
-      "lines": 181,
-      "words": 1103,
+      "lines": 198,
+      "words": 1238,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15330,8 +15358,8 @@
       "description": "Convert heterogeneous documents and selected URIs to Markdown with Microsoft MarkItDown for text analysis, search, and LLM/RAG ingestion. Covers safe local conversion, streams, Office/PDF/data formats",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/markitdown/SKILL.md",
       "remote_path": ".claude/skills/markitdown/SKILL.md",
-      "lines": 265,
-      "words": 1358,
+      "lines": 282,
+      "words": 1493,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -15344,8 +15372,8 @@
       "description": "Draft, revise, and audit scientific manuscripts or reports with explicit evidence provenance, reporting-guideline coverage, authorship accountability, confidentiality controls, and local consistency c",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-writing/SKILL.md",
       "remote_path": ".claude/skills/scientific-writing/SKILL.md",
-      "lines": 357,
-      "words": 1608,
+      "lines": 374,
+      "words": 1743,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -15358,8 +15386,8 @@
       "description": "Prepare and validate research-only clinical decision-support evaluation, evidence-profile, cohort, survival, biomarker/model, privacy, and governance artifacts. Use for aggregate or synthetic research",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/clinical-decision-support/SKILL.md",
       "remote_path": ".claude/skills/clinical-decision-support/SKILL.md",
-      "lines": 239,
-      "words": 1495,
+      "lines": 256,
+      "words": 1630,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -15371,8 +15399,8 @@
       "description": "\"Use Parallel CLI for web search, URL extraction, deep research, structured data enrichment, entity discovery, and recurring web monitoring. Best for requests that explicitly need current web evidence",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/parallel-web/SKILL.md",
       "remote_path": ".claude/skills/parallel-web/SKILL.md",
-      "lines": 129,
-      "words": 878,
+      "lines": 146,
+      "words": 1013,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -15398,7 +15426,7 @@
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/xlsx/SKILL.md",
       "remote_path": ".claude/skills/xlsx/SKILL.md",
       "lines": 111,
-      "words": 1274,
+      "words": 1276,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15410,8 +15438,8 @@
       "description": "Build evidence-traceable market research reports and assumption-driven market sizing or forecast scenarios. Use for market definition, industry and customer evidence, competitive landscapes, TAM/SAM/S",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/market-research-reports/SKILL.md",
       "remote_path": ".claude/skills/market-research-reports/SKILL.md",
-      "lines": 338,
-      "words": 1605,
+      "lines": 355,
+      "words": 1740,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -15424,8 +15452,8 @@
       "description": "Create and audit editable scientific posters in macro-free PowerPoint (.pptx) from author-approved local content and assets. Use when the requested deliverable is a PowerPoint research/conference post",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/pptx-posters/SKILL.md",
       "remote_path": ".claude/skills/pptx-posters/SKILL.md",
-      "lines": 259,
-      "words": 1301,
+      "lines": 276,
+      "words": 1436,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -15439,7 +15467,7 @@
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/pdf/SKILL.md",
       "remote_path": ".claude/skills/pdf/SKILL.md",
       "lines": 323,
-      "words": 1046,
+      "words": 1047,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -15452,8 +15480,8 @@
       "description": "Prepare evidence-bounded, constructive peer-review drafts and structured manuscript assessments. Use for authorized review of scientific manuscripts, protocols, preprints, or research proposals; repor",
       "path": "K-Dense-AI--claude-scientific-writer/skills/peer-review/SKILL.md",
       "remote_path": "skills/peer-review/SKILL.md",
-      "lines": 289,
-      "words": 1422,
+      "lines": 306,
+      "words": 1557,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -15465,8 +15493,8 @@
       "description": "Write competitive research proposals for NSF, NIH, DOE, DARPA, and Taiwan NSTC. Agency-specific formatting, review criteria, budget preparation, broader impacts, significance statements, innovation na",
       "path": "K-Dense-AI--claude-scientific-writer/skills/research-grants/SKILL.md",
       "remote_path": "skills/research-grants/SKILL.md",
-      "lines": 297,
-      "words": 1673,
+      "lines": 314,
+      "words": 1808,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15478,8 +15506,8 @@
       "description": "Provide qualitative-first, evidence-traceable developmental review of scholarly works and audit low-stakes research-assessment rubrics with optional local quality controls. Never use for ranking peopl",
       "path": "K-Dense-AI--claude-scientific-writer/skills/scholar-evaluation/SKILL.md",
       "remote_path": "skills/scholar-evaluation/SKILL.md",
-      "lines": 297,
-      "words": 1266,
+      "lines": 314,
+      "words": 1401,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -15491,8 +15519,8 @@
       "description": "Create safety-bounded draft structures and run local deterministic checks for clinical case, diagnostic, trial, safety, and aggregate research reports. Use only with synthetic, de-identified, or aggre",
       "path": "K-Dense-AI--claude-scientific-writer/skills/clinical-reports/SKILL.md",
       "remote_path": "skills/clinical-reports/SKILL.md",
-      "lines": 249,
-      "words": 1673,
+      "lines": 266,
+      "words": 1808,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -15501,14 +15529,15 @@
     },
     {
       "name": "generate-image",
-      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, FLUX, Seedream, Recraft, GPT-Image). Use for photos, illustrations, artwork, concept art, visual assets, logos, and ima",
+      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, Seedream, Recraft, GPT-Image, Riverflow). Use for photos, illustrations, artwork, concept art, visual assets, logos, an",
       "path": "K-Dense-AI--claude-scientific-writer/skills/generate-image/SKILL.md",
       "remote_path": "skills/generate-image/SKILL.md",
-      "lines": 216,
-      "words": 1166,
-      "code_blocks": 6,
+      "lines": 322,
+      "words": 2162,
+      "code_blocks": 7,
       "languages": [
         "bash",
+        "console",
         "json"
       ],
       "license": "MIT"
@@ -15518,8 +15547,8 @@
       "description": "Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, research presentations, thesis defense slides, or any scientific",
       "path": "K-Dense-AI--claude-scientific-writer/skills/scientific-slides/SKILL.md",
       "remote_path": "skills/scientific-slides/SKILL.md",
-      "lines": 380,
-      "words": 2596,
+      "lines": 397,
+      "words": 2734,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -15532,8 +15561,8 @@
       "description": "Prepare journal manuscripts, conference papers, research posters, and grant documents using venue-specific formatting guidance and bundled LaTeX scaffolds. Use when selecting an official template, che",
       "path": "K-Dense-AI--claude-scientific-writer/skills/venue-templates/SKILL.md",
       "remote_path": "skills/venue-templates/SKILL.md",
-      "lines": 270,
-      "words": 1462,
+      "lines": 287,
+      "words": 1597,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -15546,8 +15575,8 @@
       "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Integrates research-lookup and web search for accurate data. Suppo",
       "path": "K-Dense-AI--claude-scientific-writer/skills/infographics/SKILL.md",
       "remote_path": "skills/infographics/SKILL.md",
-      "lines": 316,
-      "words": 1414,
+      "lines": 334,
+      "words": 1552,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -15558,8 +15587,8 @@
       "description": "\"Compile current scholarly evidence for a scientific manuscript or research brief. Use when the user explicitly asks to gather literature, references, background evidence, competing findings, or a man",
       "path": "K-Dense-AI--claude-scientific-writer/skills/research-lookup/SKILL.md",
       "remote_path": "skills/research-lookup/SKILL.md",
-      "lines": 339,
-      "words": 1753,
+      "lines": 356,
+      "words": 1888,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -15572,8 +15601,8 @@
       "description": "Format and structurally validate local treatment-plan documentation after clinical decisions have already been supplied and verified by authorized licensed professionals. Use for source traceability, ",
       "path": "K-Dense-AI--claude-scientific-writer/skills/treatment-plans/SKILL.md",
       "remote_path": "skills/treatment-plans/SKILL.md",
-      "lines": 175,
-      "words": 1197,
+      "lines": 192,
+      "words": 1332,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -15582,11 +15611,11 @@
     },
     {
       "name": "citation-management",
-      "description": "Comprehensive citation management for academic research. Search Google Scholar and PubMed for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX entries. Thi",
+      "description": "Comprehensive citation management for academic research. Search OpenAlex, PubMed, and Google Scholar for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX e",
       "path": "K-Dense-AI--claude-scientific-writer/skills/citation-management/SKILL.md",
       "remote_path": "skills/citation-management/SKILL.md",
-      "lines": 322,
-      "words": 1638,
+      "lines": 347,
+      "words": 1881,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -15598,8 +15627,8 @@
       "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Only regenerates if quality is below threshold for your",
       "path": "K-Dense-AI--claude-scientific-writer/skills/scientific-schematics/SKILL.md",
       "remote_path": "skills/scientific-schematics/SKILL.md",
-      "lines": 383,
-      "words": 2076,
+      "lines": 388,
+      "words": 2507,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -15611,8 +15640,8 @@
       "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
       "path": "K-Dense-AI--claude-scientific-writer/skills/latex-posters/SKILL.md",
       "remote_path": "skills/latex-posters/SKILL.md",
-      "lines": 370,
-      "words": 2111,
+      "lines": 388,
+      "words": 2249,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -15623,8 +15652,8 @@
       "description": "Conduct comprehensive, systematic literature reviews using multiple academic databases (PubMed, arXiv, bioRxiv, Semantic Scholar, etc.). This skill should be used when conducting systematic literature",
       "path": "K-Dense-AI--claude-scientific-writer/skills/literature-review/SKILL.md",
       "remote_path": "skills/literature-review/SKILL.md",
-      "lines": 264,
-      "words": 1546,
+      "lines": 281,
+      "words": 1682,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -15636,8 +15665,8 @@
       "description": "Formulate evidence-bounded scientific questions, candidate hypotheses, rival explanations, causal or associational claims, discriminating predictions, measurements, and preregistration-ready analysis ",
       "path": "K-Dense-AI--claude-scientific-writer/skills/hypothesis-generation/SKILL.md",
       "remote_path": "skills/hypothesis-generation/SKILL.md",
-      "lines": 265,
-      "words": 1811,
+      "lines": 282,
+      "words": 1946,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15662,8 +15691,8 @@
       "description": "Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, applying evidence grading frameworks (GRADE, Cochrane Risk of Bias)",
       "path": "K-Dense-AI--claude-scientific-writer/skills/scientific-critical-thinking/SKILL.md",
       "remote_path": "skills/scientific-critical-thinking/SKILL.md",
-      "lines": 181,
-      "words": 1103,
+      "lines": 198,
+      "words": 1238,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15675,8 +15704,8 @@
       "description": "Convert heterogeneous documents and selected URIs to Markdown with Microsoft MarkItDown for text analysis, search, and LLM/RAG ingestion. Covers safe local conversion, streams, Office/PDF/data formats",
       "path": "K-Dense-AI--claude-scientific-writer/skills/markitdown/SKILL.md",
       "remote_path": "skills/markitdown/SKILL.md",
-      "lines": 265,
-      "words": 1358,
+      "lines": 282,
+      "words": 1493,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -15689,8 +15718,8 @@
       "description": "Draft, revise, and audit scientific manuscripts or reports with explicit evidence provenance, reporting-guideline coverage, authorship accountability, confidentiality controls, and local consistency c",
       "path": "K-Dense-AI--claude-scientific-writer/skills/scientific-writing/SKILL.md",
       "remote_path": "skills/scientific-writing/SKILL.md",
-      "lines": 357,
-      "words": 1608,
+      "lines": 374,
+      "words": 1743,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -15703,8 +15732,8 @@
       "description": "Prepare and validate research-only clinical decision-support evaluation, evidence-profile, cohort, survival, biomarker/model, privacy, and governance artifacts. Use for aggregate or synthetic research",
       "path": "K-Dense-AI--claude-scientific-writer/skills/clinical-decision-support/SKILL.md",
       "remote_path": "skills/clinical-decision-support/SKILL.md",
-      "lines": 239,
-      "words": 1495,
+      "lines": 256,
+      "words": 1630,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -15716,8 +15745,8 @@
       "description": "\"Use Parallel CLI for web search, URL extraction, deep research, structured data enrichment, entity discovery, and recurring web monitoring. Best for requests that explicitly need current web evidence",
       "path": "K-Dense-AI--claude-scientific-writer/skills/parallel-web/SKILL.md",
       "remote_path": "skills/parallel-web/SKILL.md",
-      "lines": 129,
-      "words": 878,
+      "lines": 146,
+      "words": 1013,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -15743,7 +15772,7 @@
       "path": "K-Dense-AI--claude-scientific-writer/skills/xlsx/SKILL.md",
       "remote_path": "skills/xlsx/SKILL.md",
       "lines": 111,
-      "words": 1274,
+      "words": 1276,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15755,8 +15784,8 @@
       "description": "Build evidence-traceable market research reports and assumption-driven market sizing or forecast scenarios. Use for market definition, industry and customer evidence, competitive landscapes, TAM/SAM/S",
       "path": "K-Dense-AI--claude-scientific-writer/skills/market-research-reports/SKILL.md",
       "remote_path": "skills/market-research-reports/SKILL.md",
-      "lines": 338,
-      "words": 1605,
+      "lines": 355,
+      "words": 1740,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -15769,8 +15798,8 @@
       "description": "Create and audit editable scientific posters in macro-free PowerPoint (.pptx) from author-approved local content and assets. Use when the requested deliverable is a PowerPoint research/conference post",
       "path": "K-Dense-AI--claude-scientific-writer/skills/pptx-posters/SKILL.md",
       "remote_path": "skills/pptx-posters/SKILL.md",
-      "lines": 259,
-      "words": 1301,
+      "lines": 276,
+      "words": 1436,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -15784,7 +15813,7 @@
       "path": "K-Dense-AI--claude-scientific-writer/skills/pdf/SKILL.md",
       "remote_path": "skills/pdf/SKILL.md",
       "lines": 323,
-      "words": 1046,
+      "words": 1047,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -26660,9 +26689,9 @@
       "description": "Defining compositions, stills, folders, default props and dynamic metadata",
       "path": "remotion-dev--skills/skills/remotion-markup/compositions.md",
       "remote_path": "skills/remotion-markup/compositions.md",
-      "lines": 124,
-      "words": 422,
-      "code_blocks": 4,
+      "lines": 176,
+      "words": 623,
+      "code_blocks": 5,
       "languages": [
         "tsx"
       ]
@@ -26747,9 +26776,9 @@
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
       "path": "remotion-dev--skills/skills/remotion-markup/audio.md",
       "remote_path": "skills/remotion-markup/audio.md",
-      "lines": 170,
-      "words": 516,
-      "code_blocks": 12,
+      "lines": 181,
+      "words": 558,
+      "code_blocks": 13,
       "languages": [
         "bash",
         "tsx"
@@ -26773,8 +26802,8 @@
       "description": "Embedding videos in Remotion - trimming, volume, speed, looping, pitch",
       "path": "remotion-dev--skills/skills/remotion-markup/embedding-videos.md",
       "remote_path": "skills/remotion-markup/embedding-videos.md",
-      "lines": 172,
-      "words": 478,
+      "lines": 176,
+      "words": 515,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -26786,13 +26815,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 359,
-      "words": 1341,
-      "code_blocks": 8,
+      "lines": 392,
+      "words": 1748,
+      "code_blocks": 10,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "transitions",
@@ -26850,8 +26879,8 @@
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
       "path": "remotion-dev--skills/skills/remotion-markup/effects.md",
       "remote_path": "skills/remotion-markup/effects.md",
-      "lines": 252,
-      "words": 974,
+      "lines": 253,
+      "words": 978,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -26904,22 +26933,22 @@
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
       "remote_path": "skills/remotion-interactivity/SKILL.md",
-      "lines": 316,
-      "words": 1262,
-      "code_blocks": 13,
+      "lines": 345,
+      "words": 1413,
+      "code_blocks": 14,
       "languages": [
         "sh",
         "tsx"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "get-audio-duration",
       "description": "Getting the duration of an audio file in seconds with Mediabunny",
       "path": "remotion-dev--skills/skills/remotion-multimedia/get-audio-duration.md",
       "remote_path": "skills/remotion-multimedia/get-audio-duration.md",
-      "lines": 57,
-      "words": 171,
+      "lines": 62,
+      "words": 196,
       "code_blocks": 4,
       "languages": [
         "tsx"
@@ -26930,8 +26959,8 @@
       "description": "Getting the duration of a video file in seconds with Mediabunny",
       "path": "remotion-dev--skills/skills/remotion-multimedia/get-video-duration.md",
       "remote_path": "skills/remotion-multimedia/get-video-duration.md",
-      "lines": 59,
-      "words": 174,
+      "lines": 62,
+      "words": 194,
       "code_blocks": 4,
       "languages": [
         "tsx"
@@ -26942,8 +26971,8 @@
       "description": "Getting the width and height of a video file with Mediabunny",
       "path": "remotion-dev--skills/skills/remotion-multimedia/get-video-dimensions.md",
       "remote_path": "skills/remotion-multimedia/get-video-dimensions.md",
-      "lines": 67,
-      "words": 196,
+      "lines": 73,
+      "words": 232,
       "code_blocks": 4,
       "languages": [
         "tsx"
@@ -26958,7 +26987,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "remotion-maps",
@@ -26969,7 +26998,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "remotion-studio",
@@ -26982,7 +27011,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "remotion-docs",
@@ -26993,29 +27022,16 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.529"
-    },
-    {
-      "name": "transcribe-captions",
-      "description": "Transcribing audio to generate captions in Remotion",
-      "path": "remotion-dev--skills/skills/remotion-captions/transcribe-captions.md",
-      "remote_path": "skills/remotion-captions/transcribe-captions.md",
-      "lines": 71,
-      "words": 211,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "ts"
-      ]
+      "version": "4.0.530"
     },
     {
       "name": "display-captions",
-      "description": "Displaying captions in Remotion with TikTok-style pages and word highlighting",
+      "description": "Displaying captions in Remotion using the Basic Captions element",
       "path": "remotion-dev--skills/skills/remotion-captions/display-captions.md",
       "remote_path": "skills/remotion-captions/display-captions.md",
-      "lines": 191,
-      "words": 684,
-      "code_blocks": 6,
+      "lines": 103,
+      "words": 405,
+      "code_blocks": 2,
       "languages": [
         "bash",
         "tsx"
@@ -27039,13 +27055,13 @@
       "description": "Transcribing, displaying and animating captions",
       "path": "remotion-dev--skills/skills/remotion-captions/SKILL.md",
       "remote_path": "skills/remotion-captions/SKILL.md",
-      "lines": 37,
-      "words": 118,
+      "lines": 43,
+      "words": 140,
       "code_blocks": 2,
       "languages": [
         "ts"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "rendering",
@@ -27078,7 +27094,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "framework",
@@ -27113,18 +27129,20 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "remotion-best-practices",
       "description": "Router for all Remotion skills",
       "path": "remotion-dev--skills/skills/remotion-best-practices/SKILL.md",
       "remote_path": "skills/remotion-best-practices/SKILL.md",
-      "lines": 60,
-      "words": 306,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "4.0.529"
+      "lines": 101,
+      "words": 505,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "version": "4.0.530"
     },
     {
       "name": "tailwind",
@@ -27141,13 +27159,13 @@
       "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-create/SKILL.md",
       "remote_path": "skills/remotion-create/SKILL.md",
-      "lines": 86,
-      "words": 376,
-      "code_blocks": 4,
+      "lines": 72,
+      "words": 341,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "remotion-upgrade",
@@ -27160,7 +27178,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "remotion-maps",
@@ -27171,7 +27189,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "maps-mapbox",
@@ -27284,13 +27302,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 359,
-      "words": 1341,
-      "code_blocks": 8,
+      "lines": 392,
+      "words": 1748,
+      "code_blocks": 10,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "text-highlights",
@@ -27310,9 +27328,9 @@
       "description": "Defining compositions, stills, folders, default props and dynamic metadata",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/compositions.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/compositions.md",
-      "lines": 124,
-      "words": 422,
-      "code_blocks": 4,
+      "lines": 176,
+      "words": 623,
+      "code_blocks": 5,
       "languages": [
         "tsx"
       ]
@@ -27397,9 +27415,9 @@
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/audio.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/audio.md",
-      "lines": 170,
-      "words": 516,
-      "code_blocks": 12,
+      "lines": 181,
+      "words": 558,
+      "code_blocks": 13,
       "languages": [
         "bash",
         "tsx"
@@ -27423,8 +27441,8 @@
       "description": "Embedding videos in Remotion - trimming, volume, speed, looping, pitch",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/embedding-videos.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/embedding-videos.md",
-      "lines": 172,
-      "words": 478,
+      "lines": 176,
+      "words": 515,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -27487,8 +27505,8 @@
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/effects.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/effects.md",
-      "lines": 252,
-      "words": 974,
+      "lines": 253,
+      "words": 978,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -27541,14 +27559,14 @@
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
-      "lines": 316,
-      "words": 1262,
-      "code_blocks": 13,
+      "lines": 345,
+      "words": 1413,
+      "code_blocks": 14,
       "languages": [
         "sh",
         "tsx"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "remotion-multimedia",
@@ -27559,15 +27577,15 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "get-audio-duration",
       "description": "Getting the duration of an audio file in seconds with Mediabunny",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-multimedia/get-audio-duration.md",
       "remote_path": "skills/remotion-best-practices/remotion-multimedia/get-audio-duration.md",
-      "lines": 57,
-      "words": 171,
+      "lines": 62,
+      "words": 196,
       "code_blocks": 4,
       "languages": [
         "tsx"
@@ -27578,8 +27596,8 @@
       "description": "Getting the duration of a video file in seconds with Mediabunny",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-multimedia/get-video-duration.md",
       "remote_path": "skills/remotion-best-practices/remotion-multimedia/get-video-duration.md",
-      "lines": 59,
-      "words": 174,
+      "lines": 62,
+      "words": 194,
       "code_blocks": 4,
       "languages": [
         "tsx"
@@ -27590,8 +27608,8 @@
       "description": "Getting the width and height of a video file with Mediabunny",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-multimedia/get-video-dimensions.md",
       "remote_path": "skills/remotion-best-practices/remotion-multimedia/get-video-dimensions.md",
-      "lines": 67,
-      "words": 196,
+      "lines": 73,
+      "words": 232,
       "code_blocks": 4,
       "languages": [
         "tsx"
@@ -27606,7 +27624,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "remotion-studio",
@@ -27619,7 +27637,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "remotion-docs",
@@ -27630,42 +27648,29 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.529"
-    },
-    {
-      "name": "transcribe-captions",
-      "description": "Transcribing audio to generate captions in Remotion",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/transcribe-captions.md",
-      "remote_path": "skills/remotion-best-practices/remotion-captions/transcribe-captions.md",
-      "lines": 71,
-      "words": 211,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "ts"
-      ]
+      "version": "4.0.530"
     },
     {
       "name": "remotion-captions",
       "description": "Transcribing, displaying and animating captions",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-captions/REFERENCE.md",
-      "lines": 37,
-      "words": 118,
+      "lines": 43,
+      "words": 140,
       "code_blocks": 2,
       "languages": [
         "ts"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "display-captions",
-      "description": "Displaying captions in Remotion with TikTok-style pages and word highlighting",
+      "description": "Displaying captions in Remotion using the Basic Captions element",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/display-captions.md",
       "remote_path": "skills/remotion-best-practices/remotion-captions/display-captions.md",
-      "lines": 191,
-      "words": 684,
-      "code_blocks": 6,
+      "lines": 103,
+      "words": 405,
+      "code_blocks": 2,
       "languages": [
         "bash",
         "tsx"
@@ -27693,7 +27698,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "rendering",
@@ -27736,7 +27741,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "transparent-videos",
@@ -27757,13 +27762,13 @@
       "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-create/REFERENCE.md",
-      "lines": 86,
-      "words": 376,
-      "code_blocks": 4,
+      "lines": 72,
+      "words": 341,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "tailwind",
@@ -27786,7 +27791,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "remotion-maps",
@@ -27797,7 +27802,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.529"
+      "version": "4.0.530"
     },
     {
       "name": "maps-mapbox",
@@ -28832,8 +28837,8 @@
       "description": "\"squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured data issues (260+ rules) and scores site health, via the squirrel CLI. Use when the user wants to c",
       "path": "squirrelscan--skills/skills/squirrelscan/SKILL.md",
       "remote_path": "skills/squirrelscan/SKILL.md",
-      "lines": 309,
-      "words": 2585,
+      "lines": 310,
+      "words": 2730,
       "code_blocks": 16,
       "languages": [
         "bash"
@@ -28929,8 +28934,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/metronome/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/metronome/SKILL.md",
-      "lines": 61,
-      "words": 1052,
+      "lines": 79,
+      "words": 1487,
       "code_blocks": 0,
       "languages": []
     },
@@ -29047,8 +29052,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/metronome/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/metronome/SKILL.md",
-      "lines": 61,
-      "words": 1052,
+      "lines": 79,
+      "words": 1487,
       "code_blocks": 0,
       "languages": []
     },
@@ -29165,8 +29170,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/metronome/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/metronome/SKILL.md",
-      "lines": 61,
-      "words": 1052,
+      "lines": 79,
+      "words": 1487,
       "code_blocks": 0,
       "languages": []
     },
@@ -29293,8 +29298,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/metronome/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/metronome/SKILL.md",
-      "lines": 61,
-      "words": 1052,
+      "lines": 79,
+      "words": 1487,
       "code_blocks": 0,
       "languages": []
     },
@@ -29421,8 +29426,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/metronome/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/metronome/SKILL.md",
-      "lines": 61,
-      "words": 1052,
+      "lines": 79,
+      "words": 1487,
       "code_blocks": 0,
       "languages": []
     },
@@ -29539,8 +29544,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/metronome/SKILL.md",
       "remote_path": "skills/metronome/SKILL.md",
-      "lines": 61,
-      "words": 1052,
+      "lines": 79,
+      "words": 1487,
       "code_blocks": 0,
       "languages": []
     },
@@ -31813,8 +31818,8 @@
       "description": ">",
       "path": "typefully--agent-skills/skills/typefully/SKILL.md",
       "remote_path": "skills/typefully/SKILL.md",
-      "lines": 321,
-      "words": 2439,
+      "lines": 320,
+      "words": 2425,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -157344,8 +157349,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ima-copilot/SKILL.md",
       "remote_path": "ima-copilot/SKILL.md",
-      "lines": 188,
-      "words": 1811,
+      "lines": 195,
+      "words": 1988,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -157356,8 +157361,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 806,
-      "words": 2841,
+      "lines": 819,
+      "words": 2930,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157713,8 +157718,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/local-conversation-history/SKILL.md",
       "remote_path": "daymade-claude-code/local-conversation-history/SKILL.md",
-      "lines": 144,
-      "words": 1467,
+      "lines": 136,
+      "words": 1374,
       "code_blocks": 0,
       "languages": []
     },
@@ -157779,8 +157784,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1330,
-      "words": 14822,
+      "lines": 1340,
+      "words": 14933,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -157905,8 +157910,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 346,
-      "words": 2810,
+      "lines": 348,
+      "words": 2831,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -159144,7 +159149,7 @@
       "path": "affaan-m--everything-claude-code/agents/gan-evaluator.md",
       "remote_path": "agents/gan-evaluator.md",
       "lines": 233,
-      "words": 1296,
+      "words": 1298,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -159243,8 +159248,8 @@
       "description": "Evaluates agent output against 5-axis quality rubric (accuracy, completeness, clarity, actionability, conciseness). Use after any non-trivial task when the user wants a quality assessment, or when the",
       "path": "affaan-m--everything-claude-code/agents/agent-evaluator.md",
       "remote_path": "agents/agent-evaluator.md",
-      "lines": 207,
-      "words": 1113,
+      "lines": 216,
+      "words": 1252,
       "code_blocks": 3,
       "languages": []
     },
@@ -159703,11 +159708,11 @@
     },
     {
       "name": "skill-health",
-      "description": "Show skill portfolio health dashboard with charts and analytics",
+      "description": "Show skill portfolio health dashboard with charts and analytics. Use for the quantitative usage/success-rate dashboard; for a qualitative compliance or quality audit use the skill-stocktake skill.",
       "path": "affaan-m--everything-claude-code/commands/skill-health.md",
       "remote_path": "commands/skill-health.md",
       "lines": 55,
-      "words": 264,
+      "words": 281,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -159715,11 +159720,11 @@
     },
     {
       "name": "prune",
-      "description": "Delete pending instincts older than 30 days that were never promoted",
+      "description": "Delete pending instincts older than 30 days that were never promoted. Thin CLI wrapper for continuous-learning-v2's instinct-cli.py prune command; use to clean up stale pending instincts that were nev",
       "path": "affaan-m--everything-claude-code/commands/prune.md",
       "remote_path": "commands/prune.md",
       "lines": 32,
-      "words": 89,
+      "words": 110,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -159788,11 +159793,11 @@
     },
     {
       "name": "skill-create",
-      "description": "Analyze local git history to extract coding patterns and generate SKILL.md files. Local version of the Skill Creator GitHub App.",
+      "description": "Analyze local git history to extract coding patterns and generate SKILL.md files. Local version of the Skill Creator GitHub App. Use to generate new skills from local git history on demand; check the ",
       "path": "affaan-m--everything-claude-code/commands/skill-create.md",
       "remote_path": "commands/skill-create.md",
       "lines": 179,
-      "words": 938,
+      "words": 964,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -159950,6 +159955,1592 @@
       "words": 122,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "blueprint",
+      "description": "\"Turn a one-line objective into a step-by-step construction plan for multi-session, multi-agent engineering projects: one-PR-sized steps with self-contained context briefs, dependency graph with paral",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/blueprint/SKILL.md",
+      "remote_path": "pi/core/skills/blueprint/SKILL.md",
+      "lines": 98,
+      "words": 756,
+      "code_blocks": 4,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "kotlin-coroutines-flows",
+      "description": "Kotlin Coroutines and Flow patterns for Android and KMP \u2014 structured concurrency, Flow operators, StateFlow, error handling, and testing. Use when writing coroutines or Flow code on Android or KMP, or",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/kotlin-coroutines-flows/SKILL.md",
+      "remote_path": "pi/core/skills/kotlin-coroutines-flows/SKILL.md",
+      "lines": 286,
+      "words": 892,
+      "code_blocks": 15,
+      "languages": [
+        "kotlin"
+      ]
+    },
+    {
+      "name": "frontend-a11y",
+      "description": "Accessibility patterns for React and Next.js \u2014 semantic HTML, ARIA attributes, form labeling, keyboard navigation, focus management, and screen reader support. Use when building or reviewing forms, mo",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/frontend-a11y/SKILL.md",
+      "remote_path": "pi/core/skills/frontend-a11y/SKILL.md",
+      "lines": 444,
+      "words": 1434,
+      "code_blocks": 16,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "springboot-verification",
+      "description": "Run the full Spring Boot verification loop \u2014 Maven or Gradle build, SpotBugs, PMD, and Checkstyle static analysis, unit and Testcontainers integration tests with JaCoCo coverage, OWASP dependency and ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/springboot-verification/SKILL.md",
+      "remote_path": "pi/core/skills/springboot-verification/SKILL.md",
+      "lines": 233,
+      "words": 626,
+      "code_blocks": 12,
+      "languages": [
+        "bash",
+        "java"
+      ]
+    },
+    {
+      "name": "code-tour",
+      "description": "Create CodeTour `.tour` files \u2014 persona-targeted, step-by-step walkthroughs with real file and line anchors. Use for onboarding tours, architecture walkthroughs, PR tours, RCA tours, and structured \"e",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/code-tour/SKILL.md",
+      "remote_path": "pi/core/skills/code-tour/SKILL.md",
+      "lines": 255,
+      "words": 1351,
+      "code_blocks": 8,
+      "languages": [
+        "json",
+        "text"
+      ]
+    },
+    {
+      "name": "springboot-patterns",
+      "description": "Spring Boot architecture patterns, REST API design, layered services, data access, caching, async processing, and logging. Use for Java Spring Boot backend work. Use when building or reviewing a Sprin",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/springboot-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/springboot-patterns/SKILL.md",
+      "lines": 316,
+      "words": 1056,
+      "code_blocks": 12,
+      "languages": [
+        "java"
+      ]
+    },
+    {
+      "name": "angular-developer",
+      "description": "Generates Angular code and provides architectural guidance. Trigger when creating projects, components, or services, or for best practices on reactivity (signals, linkedSignal, resource), forms, depen",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/angular-developer/SKILL.md",
+      "remote_path": "pi/core/skills/angular-developer/SKILL.md",
+      "lines": 156,
+      "words": 1291,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "kotlin-exposed-patterns",
+      "description": "JetBrains Exposed ORM patterns including DSL queries, DAO pattern, transactions, HikariCP connection pooling, Flyway migrations, and repository pattern. Use when working with the Exposed ORM \u2014 DSL or ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/kotlin-exposed-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/kotlin-exposed-patterns/SKILL.md",
+      "lines": 721,
+      "words": 2153,
+      "code_blocks": 21,
+      "languages": [
+        "kotlin",
+        "sql"
+      ]
+    },
+    {
+      "name": "kotlin-ktor-patterns",
+      "description": "Ktor server patterns including routing DSL, plugins, authentication, Koin DI, kotlinx.serialization, WebSockets, and testApplication testing. Use when building a Ktor server \u2014 routing, plugins, auth, ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/kotlin-ktor-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/kotlin-ktor-patterns/SKILL.md",
+      "lines": 691,
+      "words": 1723,
+      "code_blocks": 20,
+      "languages": [
+        "kotlin",
+        "text",
+        "yaml"
+      ]
+    },
+    {
+      "name": "security-review",
+      "description": "Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/security-review/SKILL.md",
+      "remote_path": "pi/core/skills/security-review/SKILL.md",
+      "lines": 512,
+      "words": 1789,
+      "code_blocks": 22,
+      "languages": [
+        "bash",
+        "sql",
+        "typescript"
+      ]
+    },
+    {
+      "name": "nestjs-patterns",
+      "description": "NestJS architecture patterns for modules, controllers, providers, DTO validation, guards, interceptors, config, and production-grade TypeScript backends. Use when building or reviewing a NestJS backen",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/nestjs-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/nestjs-patterns/SKILL.md",
+      "lines": 232,
+      "words": 767,
+      "code_blocks": 8,
+      "languages": [
+        "text",
+        "ts"
+      ]
+    },
+    {
+      "name": "quarkus-patterns",
+      "description": "Quarkus 3.x LTS architecture patterns with Camel for messaging, RESTful API design, CDI services, data access with Panache, and async processing. Use for Java Quarkus backend work with event-driven ar",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/quarkus-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/quarkus-patterns/SKILL.md",
+      "lines": 724,
+      "words": 1686,
+      "code_blocks": 19,
+      "languages": [
+        "java",
+        "xml",
+        "yaml"
+      ]
+    },
+    {
+      "name": "fastapi-patterns",
+      "description": "FastAPI best practices covering project structure, Pydantic v2 schemas, dependency injection, async handlers, authentication, authorization, transactional service layers, and testing with httpx and py",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/fastapi-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/fastapi-patterns/SKILL.md",
+      "lines": 515,
+      "words": 1450,
+      "code_blocks": 9,
+      "languages": [
+        "python",
+        "text"
+      ]
+    },
+    {
+      "name": "android-clean-architecture",
+      "description": "Clean Architecture patterns for Android and Kotlin Multiplatform projects \u2014 module structure, dependency rules, UseCases, Repositories, and data layer patterns. Use when structuring modules, layers, o",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/android-clean-architecture/SKILL.md",
+      "remote_path": "pi/core/skills/android-clean-architecture/SKILL.md",
+      "lines": 341,
+      "words": 1055,
+      "code_blocks": 15,
+      "languages": [
+        "kotlin",
+        "sql"
+      ]
+    },
+    {
+      "name": "agent-self-evaluation",
+      "description": "Use after completing any non-trivial task. The agent self-rates its output on 5 axes \u2014 accuracy, completeness, clarity, actionability, conciseness \u2014 with concrete evidence per criterion. Produces a st",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/agent-self-evaluation/SKILL.md",
+      "remote_path": "pi/core/skills/agent-self-evaluation/SKILL.md",
+      "lines": 183,
+      "words": 1178,
+      "code_blocks": 9,
+      "languages": []
+    },
+    {
+      "name": "e2e-testing",
+      "description": "Playwright E2E testing patterns, Page Object Model, configuration, CI/CD integration, artifact management, and flaky test strategies. Use when writing Playwright tests, structuring page objects, or fi",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/e2e-testing/SKILL.md",
+      "remote_path": "pi/core/skills/e2e-testing/SKILL.md",
+      "lines": 328,
+      "words": 833,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "markdown",
+        "typescript",
+        "yaml"
+      ]
+    },
+    {
+      "name": "springboot-security",
+      "description": "Spring Security best practices for authn/authz, validation, CSRF, secrets, headers, rate limiting, and dependency security in Java Spring Boot services. Use when reviewing Spring Security authn/authz,",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/springboot-security/SKILL.md",
+      "remote_path": "pi/core/skills/springboot-security/SKILL.md",
+      "lines": 274,
+      "words": 899,
+      "code_blocks": 10,
+      "languages": [
+        "java",
+        "yaml"
+      ]
+    },
+    {
+      "name": "agent-eval",
+      "description": "Head-to-head comparison of coding agents (Claude Code, Aider, Codex, etc.) on custom tasks with pass rate, cost, time, and consistency metrics. Use when choosing between coding agents, or when a chang",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/agent-eval/SKILL.md",
+      "remote_path": "pi/core/skills/agent-eval/SKILL.md",
+      "lines": 148,
+      "words": 628,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "yaml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "laravel-tdd",
+      "description": "Laravel testing strategies with PHPUnit, Pest, model factories, HTTP tests, Sanctum authentication testing, mocking, and coverage. Use when writing Laravel tests with PHPUnit or Pest, or driving a Lar",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/laravel-tdd/SKILL.md",
+      "remote_path": "pi/core/skills/laravel-tdd/SKILL.md",
+      "lines": 676,
+      "words": 1530,
+      "code_blocks": 19,
+      "languages": [
+        "bash",
+        "php",
+        "xml"
+      ]
+    },
+    {
+      "name": "laravel-security",
+      "description": "Laravel security best practices \u2014 authentication, authorization, Eloquent safety, CSRF, XSS prevention, API security, and secure deployment configurations. Use when reviewing Laravel auth, Eloquent sa",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/laravel-security/SKILL.md",
+      "remote_path": "pi/core/skills/laravel-security/SKILL.md",
+      "lines": 949,
+      "words": 2787,
+      "code_blocks": 32,
+      "languages": [
+        "bash",
+        "blade",
+        "html",
+        "php"
+      ]
+    },
+    {
+      "name": "cpp-testing",
+      "description": "Use only when writing/updating/fixing C++ tests, configuring GoogleTest/CTest, diagnosing failing or flaky tests, or adding coverage/sanitizers.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/cpp-testing/SKILL.md",
+      "remote_path": "pi/core/skills/cpp-testing/SKILL.md",
+      "lines": 326,
+      "words": 1045,
+      "code_blocks": 13,
+      "languages": [
+        "bash",
+        "cmake",
+        "cpp"
+      ]
+    },
+    {
+      "name": "bun-runtime",
+      "description": "Bun as runtime, package manager, bundler, and test runner. When to choose Bun vs Node, migration notes, and Vercel support.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/bun-runtime/SKILL.md",
+      "remote_path": "pi/core/skills/bun-runtime/SKILL.md",
+      "lines": 86,
+      "words": 387,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "typescript"
+      ]
+    },
+    {
+      "name": "swift-protocol-di-testing",
+      "description": "Protocol-based dependency injection for testable Swift code \u2014 mock file system, network, and external APIs using focused protocols and Swift Testing. Use when Swift code needs testing and file system,",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/swift-protocol-di-testing/SKILL.md",
+      "remote_path": "pi/core/skills/swift-protocol-di-testing/SKILL.md",
+      "lines": 192,
+      "words": 759,
+      "code_blocks": 5,
+      "languages": [
+        "swift"
+      ]
+    },
+    {
+      "name": "django-patterns",
+      "description": "Django architecture patterns, REST API design with DRF, ORM best practices, caching, signals, middleware, and production-grade Django apps. Use when building or reviewing Django apps, DRF APIs, ORM qu",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/django-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/django-patterns/SKILL.md",
+      "lines": 736,
+      "words": 1758,
+      "code_blocks": 18,
+      "languages": [
+        "django",
+        "python"
+      ]
+    },
+    {
+      "name": "quarkus-tdd",
+      "description": "Test-driven development for Quarkus 3.x LTS using JUnit 5, Mockito, REST Assured, Camel testing, and JaCoCo. Use when adding features, fixing bugs, or refactoring event-driven services.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/quarkus-tdd/SKILL.md",
+      "remote_path": "pi/core/skills/quarkus-tdd/SKILL.md",
+      "lines": 813,
+      "words": 1933,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "java",
+        "xml"
+      ]
+    },
+    {
+      "name": "product-capability",
+      "description": "Translate PRD intent, roadmap asks, or product discussions into an implementation-ready capability plan that exposes constraints, invariants, interfaces, and unresolved decisions before multi-service ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/product-capability/SKILL.md",
+      "remote_path": "pi/core/skills/product-capability/SKILL.md",
+      "lines": 143,
+      "words": 642,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ]
+    },
+    {
+      "name": "ecc-council",
+      "description": "Convene a four-voice council for ambiguous decisions, tradeoffs, and go/no-go calls. Use when multiple valid paths exist and you need structured disagreement before choosing.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/ecc-council/SKILL.md",
+      "remote_path": "pi/core/skills/ecc-council/SKILL.md",
+      "lines": 205,
+      "words": 1003,
+      "code_blocks": 3,
+      "languages": [
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "api-connector-builder",
+      "description": "Build a new API connector or provider by matching the target repo's existing integration pattern exactly. Use when adding one more integration without inventing a second architecture.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/api-connector-builder/SKILL.md",
+      "remote_path": "pi/core/skills/api-connector-builder/SKILL.md",
+      "lines": 122,
+      "words": 406,
+      "code_blocks": 3,
+      "languages": [
+        "text"
+      ]
+    },
+    {
+      "name": "kotlin-patterns",
+      "description": "Idiomatic Kotlin patterns, best practices, and conventions for building robust, efficient, and maintainable Kotlin applications with coroutines, null safety, and DSL builders. Use when writing or revi",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/kotlin-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/kotlin-patterns/SKILL.md",
+      "lines": 713,
+      "words": 2297,
+      "code_blocks": 25,
+      "languages": [
+        "kotlin"
+      ]
+    },
+    {
+      "name": "git-workflow",
+      "description": "Git workflow patterns including branching strategies, commit conventions, keeping history clean and readable, tidying local commits before merging, merge vs rebase, conflict resolution, and collaborat",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/git-workflow/SKILL.md",
+      "remote_path": "pi/core/skills/git-workflow/SKILL.md",
+      "lines": 717,
+      "words": 2384,
+      "code_blocks": 31,
+      "languages": [
+        "bash",
+        "gitignore",
+        "markdown"
+      ]
+    },
+    {
+      "name": "clickhouse-io",
+      "description": "ClickHouse database patterns, query optimization, analytics, and data engineering best practices for high-performance analytical workloads. Use when writing ClickHouse schemas or queries, or when an a",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/clickhouse-io/SKILL.md",
+      "remote_path": "pi/core/skills/clickhouse-io/SKILL.md",
+      "lines": 446,
+      "words": 1260,
+      "code_blocks": 16,
+      "languages": [
+        "sql",
+        "typescript"
+      ]
+    },
+    {
+      "name": "golang-testing",
+      "description": "Go testing patterns including table-driven tests, subtests, benchmarks, fuzzing, and test coverage. Follows TDD methodology with idiomatic Go practices. Use when writing Go tests \u2014 table-driven cases,",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/golang-testing/SKILL.md",
+      "remote_path": "pi/core/skills/golang-testing/SKILL.md",
+      "lines": 722,
+      "words": 2097,
+      "code_blocks": 20,
+      "languages": [
+        "bash",
+        "go",
+        "yaml"
+      ]
+    },
+    {
+      "name": "swiftui-patterns",
+      "description": "SwiftUI architecture patterns, state management with @Observable, view composition, navigation, performance optimization, and modern iOS/macOS UI best practices. Use when building or reviewing SwiftUI",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/swiftui-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/swiftui-patterns/SKILL.md",
+      "lines": 260,
+      "words": 848,
+      "code_blocks": 10,
+      "languages": [
+        "swift"
+      ]
+    },
+    {
+      "name": "nextjs-turbopack",
+      "description": "Next.js 16+ and Turbopack guidance \u2014 incremental Rust bundling, file-system caching, faster dev startup and HMR, Turbopack vs webpack tradeoffs, and the middleware.ts to proxy.ts filename change. Use ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/nextjs-turbopack/SKILL.md",
+      "remote_path": "pi/core/skills/nextjs-turbopack/SKILL.md",
+      "lines": 59,
+      "words": 462,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "agent-harness-construction",
+      "description": "Design and optimize AI agent action spaces, tool definitions, and observation formatting for higher completion rates. Use when defining or revising an agent's tool set, action space, or observation fo",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/agent-harness-construction/SKILL.md",
+      "remote_path": "pi/core/skills/agent-harness-construction/SKILL.md",
+      "lines": 75,
+      "words": 305,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "latency-critical-systems",
+      "description": "Optimize and verify latency-sensitive systems \u2014 realtime dashboards, market data feeds, streaming agents, execution gateways, queues, and caches \u2014 by tracking p50/p95/p99 latency, freshness age, and q",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/latency-critical-systems/SKILL.md",
+      "remote_path": "pi/core/skills/latency-critical-systems/SKILL.md",
+      "lines": 76,
+      "words": 381,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "pytorch-patterns",
+      "description": "PyTorch deep learning patterns and best practices for building robust, efficient, and reproducible training pipelines, model architectures, and data loading. Use when writing or reviewing PyTorch trai",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/pytorch-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/pytorch-patterns/SKILL.md",
+      "lines": 398,
+      "words": 1279,
+      "code_blocks": 15,
+      "languages": [
+        "python"
+      ]
+    },
+    {
+      "name": "mysql-patterns",
+      "description": "MySQL and MariaDB schema, query, indexing, transaction, replication, and connection-pool patterns for production backends. Use when designing MySQL or MariaDB schemas and indexes, or when a query, tra",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/mysql-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/mysql-patterns/SKILL.md",
+      "lines": 414,
+      "words": 1723,
+      "code_blocks": 19,
+      "languages": [
+        "ini",
+        "javascript",
+        "python",
+        "sql"
+      ]
+    },
+    {
+      "name": "agent-introspection-debugging",
+      "description": "Structured self-debugging workflow for AI agent failures using capture, diagnosis, contained recovery, and introspection reports. Use when an agent run fails and you need a reproducible diagnosis inst",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/agent-introspection-debugging/SKILL.md",
+      "remote_path": "pi/core/skills/agent-introspection-debugging/SKILL.md",
+      "lines": 155,
+      "words": 897,
+      "code_blocks": 3,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "content-hash-cache-pattern",
+      "description": "Cache expensive file processing results using SHA-256 content hashes \u2014 path-independent, auto-invalidating, with service layer separation. Use when repeated file processing is slow and results should ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/content-hash-cache-pattern/SKILL.md",
+      "remote_path": "pi/core/skills/content-hash-cache-pattern/SKILL.md",
+      "lines": 163,
+      "words": 726,
+      "code_blocks": 5,
+      "languages": [
+        "python"
+      ]
+    },
+    {
+      "name": "agent-architecture-audit",
+      "description": "Full-stack diagnostic for agent and LLM applications. Audits the 12-layer agent stack for wrapper regression, memory pollution, tool discipline failures, hidden repair loops, and rendering corruption.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/agent-architecture-audit/SKILL.md",
+      "remote_path": "pi/core/skills/agent-architecture-audit/SKILL.md",
+      "lines": 258,
+      "words": 1511,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "rust-testing",
+      "description": "Rust testing patterns including unit tests, integration tests, async testing, property-based testing, mocking, and coverage. Follows TDD methodology. Use when writing Rust tests \u2014 unit, integration, a",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/rust-testing/SKILL.md",
+      "remote_path": "pi/core/skills/rust-testing/SKILL.md",
+      "lines": 502,
+      "words": 1442,
+      "code_blocks": 24,
+      "languages": [
+        "bash",
+        "no_run",
+        "rust",
+        "text",
+        "toml",
+        "yaml"
+      ]
+    },
+    {
+      "name": "swift-actor-persistence",
+      "description": "Thread-safe data persistence in Swift using actors \u2014 in-memory cache with file-backed storage, eliminating data races by design. Use when persisting data in Swift and a data race or thread-safety prob",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/swift-actor-persistence/SKILL.md",
+      "remote_path": "pi/core/skills/swift-actor-persistence/SKILL.md",
+      "lines": 145,
+      "words": 658,
+      "code_blocks": 3,
+      "languages": [
+        "swift"
+      ]
+    },
+    {
+      "name": "perl-security",
+      "description": "Comprehensive Perl security covering taint mode, input validation, safe process execution, DBI parameterized queries, web security (XSS/SQLi/CSRF), and perlcritic security policies. Use when reviewing",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/perl-security/SKILL.md",
+      "remote_path": "pi/core/skills/perl-security/SKILL.md",
+      "lines": 505,
+      "words": 1821,
+      "code_blocks": 17,
+      "languages": [
+        "bash",
+        "ini",
+        "perl"
+      ]
+    },
+    {
+      "name": "living-docs-governance",
+      "description": "\"Keep a long-lived project's documentation from rotting by assigning existing project docs clear constitution, map, status, and history roles, then wiring the active agent harness to those canonical s",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/living-docs-governance/SKILL.md",
+      "remote_path": "pi/core/skills/living-docs-governance/SKILL.md",
+      "lines": 138,
+      "words": 1261,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ]
+    },
+    {
+      "name": "redis-patterns",
+      "description": "Redis data structure patterns, caching strategies, distributed locks, rate limiting, pub/sub, and connection management for production applications. Use when adding caching, a distributed lock, rate l",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/redis-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/redis-patterns/SKILL.md",
+      "lines": 405,
+      "words": 1511,
+      "code_blocks": 15,
+      "languages": [
+        "lua",
+        "python"
+      ]
+    },
+    {
+      "name": "prisma-patterns",
+      "description": "Prisma ORM patterns for TypeScript backends \u2014 schema design, query optimization, transactions, pagination, and critical traps like updateMany returning count not records, $transaction timeouts, migrat",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/prisma-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/prisma-patterns/SKILL.md",
+      "lines": 402,
+      "words": 2219,
+      "code_blocks": 21,
+      "languages": [
+        "bash",
+        "prisma",
+        "ts"
+      ]
+    },
+    {
+      "name": "error-handling",
+      "description": "Patterns for robust error handling across TypeScript, Python, and Go. Covers typed errors, error boundaries, retries, circuit breakers, and user-facing error messages. Use when designing error types, ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/error-handling/SKILL.md",
+      "remote_path": "pi/core/skills/error-handling/SKILL.md",
+      "lines": 378,
+      "words": 1366,
+      "code_blocks": 9,
+      "languages": [
+        "go",
+        "python",
+        "typescript"
+      ]
+    },
+    {
+      "name": "coding-standards",
+      "description": "Baseline cross-project coding conventions for naming, readability, immutability, and code-quality review. Use detailed frontend or backend skills for framework-specific patterns. Use when reviewing co",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/coding-standards/SKILL.md",
+      "remote_path": "pi/core/skills/coding-standards/SKILL.md",
+      "lines": 552,
+      "words": 1721,
+      "code_blocks": 26,
+      "languages": [
+        "typescript"
+      ]
+    },
+    {
+      "name": "quarkus-verification",
+      "description": "\"Verification loop for Quarkus projects: build, static analysis (Checkstyle, PMD, SpotBugs), tests with JaCoCo coverage, OWASP dependency and container security scans, GraalVM native compilation, heal",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/quarkus-verification/SKILL.md",
+      "remote_path": "pi/core/skills/quarkus-verification/SKILL.md",
+      "lines": 482,
+      "words": 1326,
+      "code_blocks": 22,
+      "languages": [
+        "bash",
+        "java",
+        "javascript",
+        "json",
+        "yaml"
+      ]
+    },
+    {
+      "name": "perl-testing",
+      "description": "Perl testing patterns using Test2::V0, Test::More, prove runner, mocking, coverage with Devel::Cover, and TDD methodology. Use when writing Perl tests with Test2::V0 or Test::More, or measuring covera",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/perl-testing/SKILL.md",
+      "remote_path": "pi/core/skills/perl-testing/SKILL.md",
+      "lines": 477,
+      "words": 1597,
+      "code_blocks": 15,
+      "languages": [
+        "bash",
+        "perl",
+        "text"
+      ]
+    },
+    {
+      "name": "accessibility",
+      "description": "Design, implement, and audit accessible UI to WCAG 2.2 Level AA across Web, iOS, and Android \u2014 semantic ARIA roles and labels, accessibility traits and hints, focus management, contrast, target size, ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/accessibility/SKILL.md",
+      "remote_path": "pi/core/skills/accessibility/SKILL.md",
+      "lines": 147,
+      "words": 810,
+      "code_blocks": 4,
+      "languages": [
+        "html",
+        "kotlin",
+        "mermaid",
+        "swift"
+      ]
+    },
+    {
+      "name": "foundation-models-on-device",
+      "description": "Apple FoundationModels framework for on-device LLM \u2014 text generation, guided generation with @Generable, tool calling, and snapshot streaming in iOS 26+. Use when adding on-device LLM features with Ap",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/foundation-models-on-device/SKILL.md",
+      "remote_path": "pi/core/skills/foundation-models-on-device/SKILL.md",
+      "lines": 244,
+      "words": 1061,
+      "code_blocks": 9,
+      "languages": [
+        "swift"
+      ]
+    },
+    {
+      "name": "kubernetes-patterns",
+      "description": "Kubernetes workload patterns, resource management, RBAC, probes, autoscaling, ConfigMap/Secret handling, and kubectl debugging for production-grade deployments. Use when writing or reviewing Kubernete",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/kubernetes-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/kubernetes-patterns/SKILL.md",
+      "lines": 757,
+      "words": 2441,
+      "code_blocks": 26,
+      "languages": [
+        "bash",
+        "yaml"
+      ]
+    },
+    {
+      "name": "architecture-decision-records",
+      "description": "Capture architectural decisions as numbered ADR markdown files in docs/adr/ with context, alternatives considered, consequences, and an index README. Use when the user says 'record this decision' or '",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/architecture-decision-records/SKILL.md",
+      "remote_path": "pi/core/skills/architecture-decision-records/SKILL.md",
+      "lines": 181,
+      "words": 1066,
+      "code_blocks": 4,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "java-coding-standards",
+      "description": "\"Java coding standards for Spring Boot and Quarkus services: naming, immutability, Optional usage, streams, exceptions, generics, CDI, reactive patterns, and project layout. Automatically applies fram",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/java-coding-standards/SKILL.md",
+      "remote_path": "pi/core/skills/java-coding-standards/SKILL.md",
+      "lines": 385,
+      "words": 1333,
+      "code_blocks": 14,
+      "languages": [
+        "java"
+      ]
+    },
+    {
+      "name": "python-testing",
+      "description": "Python testing strategies using pytest, TDD methodology, fixtures, mocking, parametrization, and coverage requirements. Use when writing pytest tests \u2014 fixtures, mocks, parametrization, or coverage.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/python-testing/SKILL.md",
+      "remote_path": "pi/core/skills/python-testing/SKILL.md",
+      "lines": 818,
+      "words": 2059,
+      "code_blocks": 41,
+      "languages": [
+        "bash",
+        "ini",
+        "python",
+        "toml"
+      ]
+    },
+    {
+      "name": "liquid-glass-design",
+      "description": "iOS 26 Liquid Glass design system \u2014 dynamic glass material with blur, reflection, and interactive morphing for SwiftUI, UIKit, and WidgetKit. Use when building iOS 26 Liquid Glass UI in SwiftUI, UIKit",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/liquid-glass-design/SKILL.md",
+      "remote_path": "pi/core/skills/liquid-glass-design/SKILL.md",
+      "lines": 280,
+      "words": 1019,
+      "code_blocks": 14,
+      "languages": [
+        "swift"
+      ]
+    },
+    {
+      "name": "django-verification",
+      "description": "Run the full Django verification loop \u2014 environment check, mypy/ruff/black linting, migration safety, pytest with coverage targets, pip-audit and bandit security scans, settings and logging review, an",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/django-verification/SKILL.md",
+      "remote_path": "pi/core/skills/django-verification/SKILL.md",
+      "lines": 471,
+      "words": 1601,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "python",
+        "yaml"
+      ]
+    },
+    {
+      "name": "flutter-dart-code-review",
+      "description": "Library-agnostic Flutter/Dart code review checklist covering widget best practices, state management patterns (BLoC, Riverpod, Provider, GetX, MobX, Signals), Dart idioms, performance, accessibility, ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/flutter-dart-code-review/SKILL.md",
+      "remote_path": "pi/core/skills/flutter-dart-code-review/SKILL.md",
+      "lines": 437,
+      "words": 3492,
+      "code_blocks": 1,
+      "languages": [
+        "dart"
+      ]
+    },
+    {
+      "name": "tdd-workflow",
+      "description": "\"Test-driven development workflow: write a failing test first, watch it fail, implement the smallest change to green, then refactor with 80%+ coverage across unit, integration, and E2E tests. Use when",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/tdd-workflow/SKILL.md",
+      "remote_path": "pi/core/skills/tdd-workflow/SKILL.md",
+      "lines": 584,
+      "words": 3064,
+      "code_blocks": 29,
+      "languages": [
+        "bash",
+        "json",
+        "markdown",
+        "text",
+        "typescript",
+        "yaml"
+      ]
+    },
+    {
+      "name": "rails-patterns",
+      "description": "Ruby on Rails framework patterns for Rails 7.1+ and 8.x apps. Covers the directory contract, skinny controllers with service objects, form objects, query objects, idiomatic ActiveRecord, background jo",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/rails-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/rails-patterns/SKILL.md",
+      "lines": 476,
+      "words": 1997,
+      "code_blocks": 17,
+      "languages": [
+        "erb",
+        "javascript",
+        "ruby"
+      ]
+    },
+    {
+      "name": "django-celery",
+      "description": "Django + Celery async task patterns \u2014 configuration, task design, beat scheduling, retries, canvas workflows, monitoring, and testing. Use when adding background jobs, scheduled tasks, or async proces",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/django-celery/SKILL.md",
+      "remote_path": "pi/core/skills/django-celery/SKILL.md",
+      "lines": 459,
+      "words": 1341,
+      "code_blocks": 20,
+      "languages": [
+        "bash",
+        "python"
+      ]
+    },
+    {
+      "name": "react-performance",
+      "description": "React and Next.js performance optimization patterns adapted from Vercel Engineering's React Best Practices (https://github.com/vercel-labs/agent-skills). Organizes 70+ rules across 8 priority categori",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/react-performance/SKILL.md",
+      "remote_path": "pi/core/skills/react-performance/SKILL.md",
+      "lines": 576,
+      "words": 2507,
+      "code_blocks": 35,
+      "languages": [
+        "css",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "design-system",
+      "description": "\"Generate a design system from an existing codebase or audit one for visual consistency: extract tokens (colors, typography, spacing, shadows) into design-tokens.json and CSS custom properties with DE",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/design-system/SKILL.md",
+      "remote_path": "pi/core/skills/design-system/SKILL.md",
+      "lines": 84,
+      "words": 423,
+      "code_blocks": 6,
+      "languages": []
+    },
+    {
+      "name": "laravel-patterns",
+      "description": "Laravel architecture patterns, routing/controllers, Eloquent ORM, service layers, queues, events, caching, and API resources for production apps. Use when building or reviewing Laravel apps \u2014 controll",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/laravel-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/laravel-patterns/SKILL.md",
+      "lines": 417,
+      "words": 1094,
+      "code_blocks": 18,
+      "languages": [
+        "php"
+      ]
+    },
+    {
+      "name": "rust-patterns",
+      "description": "Idiomatic Rust patterns, ownership, error handling, traits, concurrency, and best practices for building safe, performant applications. Use when writing or reviewing Rust code and ownership, error han",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/rust-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/rust-patterns/SKILL.md",
+      "lines": 501,
+      "words": 1764,
+      "code_blocks": 22,
+      "languages": [
+        "bash",
+        "rust",
+        "text"
+      ]
+    },
+    {
+      "name": "regex-vs-llm-structured-text",
+      "description": "Decision framework for parsing structured text (quizzes, forms, invoices, receipts, tables) with a hybrid regex-first pipeline \u2014 regex extraction handles 95%+ cheaply, a confidence scorer flags low-co",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/regex-vs-llm-structured-text/SKILL.md",
+      "remote_path": "pi/core/skills/regex-vs-llm-structured-text/SKILL.md",
+      "lines": 222,
+      "words": 824,
+      "code_blocks": 6,
+      "languages": [
+        "python"
+      ]
+    },
+    {
+      "name": "benchmark-optimization-loop",
+      "description": "Convert 'make it faster' requests into a bounded measured optimization loop \u2014 baseline first, generate one-hypothesis variants, benchmark each against a correctness gate, and promote the fastest safe ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/benchmark-optimization-loop/SKILL.md",
+      "remote_path": "pi/core/skills/benchmark-optimization-loop/SKILL.md",
+      "lines": 72,
+      "words": 430,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "kotlin-testing",
+      "description": "Kotlin testing patterns with Kotest, MockK, coroutine testing, property-based testing, and Kover coverage. Follows TDD methodology with idiomatic Kotlin practices. Use when writing Kotlin tests with K",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/kotlin-testing/SKILL.md",
+      "remote_path": "pi/core/skills/kotlin-testing/SKILL.md",
+      "lines": 826,
+      "words": 2153,
+      "code_blocks": 25,
+      "languages": [
+        "bash",
+        "kotlin",
+        "yaml"
+      ]
+    },
+    {
+      "name": "swift-concurrency-6-2",
+      "description": "Swift 6.2 Approachable Concurrency \u2014 single-threaded by default, @concurrent for explicit background offloading, isolated conformances for main actor types. Use when adopting Swift 6.2 concurrency \u2014 o",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/swift-concurrency-6-2/SKILL.md",
+      "remote_path": "pi/core/skills/swift-concurrency-6-2/SKILL.md",
+      "lines": 217,
+      "words": 1088,
+      "code_blocks": 7,
+      "languages": [
+        "swift"
+      ]
+    },
+    {
+      "name": "dashboard-builder",
+      "description": "Build monitoring dashboards that answer real operator questions for Grafana, SigNoz, and similar platforms. Use when turning metrics into a working dashboard instead of a vanity board.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/dashboard-builder/SKILL.md",
+      "remote_path": "pi/core/skills/dashboard-builder/SKILL.md",
+      "lines": 110,
+      "words": 392,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "dart-flutter-patterns",
+      "description": "Production-ready Dart and Flutter patterns covering null safety, immutable state with Freezed, async composition, widget architecture, state management (BLoC, Riverpod, Provider), GoRouter navigation ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/dart-flutter-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/dart-flutter-patterns/SKILL.md",
+      "lines": 565,
+      "words": 1803,
+      "code_blocks": 17,
+      "languages": [
+        "dart"
+      ]
+    },
+    {
+      "name": "benchmark",
+      "description": "Measure performance baselines and detect regressions across browser Core Web Vitals (LCP, INP, CLS, page weight), API endpoint latency percentiles, and build/test feedback times, with before/after com",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/benchmark/SKILL.md",
+      "remote_path": "pi/core/skills/benchmark/SKILL.md",
+      "lines": 96,
+      "words": 426,
+      "code_blocks": 5,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "react-testing",
+      "description": "React component testing with React Testing Library, Vitest/Jest, MSW for network mocking, accessibility assertions with axe, and the decision boundary between component tests and Playwright/Cypress en",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/react-testing/SKILL.md",
+      "remote_path": "pi/core/skills/react-testing/SKILL.md",
+      "lines": 425,
+      "words": 1693,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "perl-patterns",
+      "description": "Modern Perl 5.36+ idioms, best practices, and conventions for building robust, maintainable Perl applications. Use when writing or reviewing modern Perl 5.36+ code.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/perl-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/perl-patterns/SKILL.md",
+      "lines": 506,
+      "words": 1686,
+      "code_blocks": 23,
+      "languages": [
+        "bash",
+        "ini",
+        "perl",
+        "text"
+      ]
+    },
+    {
+      "name": "react-native-patterns",
+      "description": "React Native and Expo app patterns \u2014 Expo Router navigation, state separation (server/client/route/form), TanStack Query data fetching with Zod, performant lists, NativeWind/StyleSheet styling, native",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/react-native-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/react-native-patterns/SKILL.md",
+      "lines": 327,
+      "words": 1542,
+      "code_blocks": 10,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "quarkus-security",
+      "description": "\"Quarkus security implementation patterns: JWT and OIDC authentication, @RolesAllowed RBAC and SecurityIdentity checks, Bean Validation and custom validators, parameterized Panache queries, BCrypt pas",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/quarkus-security/SKILL.md",
+      "remote_path": "pi/core/skills/quarkus-security/SKILL.md",
+      "lines": 469,
+      "words": 1187,
+      "code_blocks": 17,
+      "languages": [
+        "bash",
+        "java",
+        "properties"
+      ]
+    },
+    {
+      "name": "python-patterns",
+      "description": "Pythonic idioms, PEP 8 standards, type hints, and best practices for building robust, efficient, and maintainable Python applications. Use when writing or reviewing Python code and idiomatic structure",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/python-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/python-patterns/SKILL.md",
+      "lines": 752,
+      "words": 2112,
+      "code_blocks": 34,
+      "languages": [
+        "bash",
+        "python",
+        "toml"
+      ]
+    },
+    {
+      "name": "deployment-patterns",
+      "description": "Deployment workflows, CI/CD pipeline patterns, Docker containerization, health checks, rollback strategies, and production readiness checklists for web applications. Use when setting up CI/CD, contain",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/deployment-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/deployment-patterns/SKILL.md",
+      "lines": 429,
+      "words": 1425,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "dockerfile",
+        "typescript",
+        "yaml"
+      ]
+    },
+    {
+      "name": "postgres-patterns",
+      "description": "PostgreSQL database patterns for query optimization, schema design, indexing, and security. Based on Supabase best practices. Use when designing PostgreSQL schemas, indexes, or RLS policies, or when a",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/postgres-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/postgres-patterns/SKILL.md",
+      "lines": 149,
+      "words": 608,
+      "code_blocks": 9,
+      "languages": [
+        "sql"
+      ]
+    },
+    {
+      "name": "backend-patterns",
+      "description": "Backend architecture patterns, API design, database optimization, and server-side best practices for Node.js, Express, and Next.js API routes. Use when building or reviewing Node.js, Express, or Next.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/backend-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/backend-patterns/SKILL.md",
+      "lines": 563,
+      "words": 1613,
+      "code_blocks": 15,
+      "languages": [
+        "typescript"
+      ]
+    },
+    {
+      "name": "django-security",
+      "description": "Django security best practices, authentication, authorization, CSRF protection, SQL injection prevention, XSS prevention, and secure deployment configurations. Use when reviewing Django authentication",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/django-security/SKILL.md",
+      "remote_path": "pi/core/skills/django-security/SKILL.md",
+      "lines": 645,
+      "words": 1764,
+      "code_blocks": 22,
+      "languages": [
+        "django",
+        "python"
+      ]
+    },
+    {
+      "name": "vite-patterns",
+      "description": "Vite build tool patterns including config, plugins, HMR, env variables, proxy setup, SSR, library mode, dependency pre-bundling, and build optimization. Activate when working with vite.config.ts, Vite",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/vite-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/vite-patterns/SKILL.md",
+      "lines": 451,
+      "words": 2291,
+      "code_blocks": 20,
+      "languages": [
+        "typescript"
+      ]
+    },
+    {
+      "name": "parallel-execution-optimizer",
+      "description": "Speed up a task by turning it into a dependency graph of parallel lanes with a lane matrix, batched reads and checks, write surfaces isolated by file, worktree, branch, or service, and a final verific",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/parallel-execution-optimizer/SKILL.md",
+      "remote_path": "pi/core/skills/parallel-execution-optimizer/SKILL.md",
+      "lines": 75,
+      "words": 453,
+      "code_blocks": 2,
+      "languages": [
+        "text"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "ai-first-engineering",
+      "description": "Engineering operating model for teams where AI agents generate a large share of implementation output. Use when setting team process, review gates, or ownership rules for a codebase largely written by",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/ai-first-engineering/SKILL.md",
+      "remote_path": "pi/core/skills/ai-first-engineering/SKILL.md",
+      "lines": 53,
+      "words": 204,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "ml-adoption-playbook",
+      "description": "End-to-end methodology for AI agents and software engineers to add machine learning algorithms to existing non-ML codebases. Covers problem framing, data readiness, architectural decoupling, and basel",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/ml-adoption-playbook/SKILL.md",
+      "remote_path": "pi/core/skills/ml-adoption-playbook/SKILL.md",
+      "lines": 58,
+      "words": 589,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "codebase-onboarding",
+      "description": "Analyze an unfamiliar codebase and generate a structured onboarding guide with architecture map, key entry points, conventions, and a starter CLAUDE.md. Use when joining a new project or setting up Cl",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/codebase-onboarding/SKILL.md",
+      "remote_path": "pi/core/skills/codebase-onboarding/SKILL.md",
+      "lines": 235,
+      "words": 1219,
+      "code_blocks": 4,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "verification-loop",
+      "description": "Run a six-phase verification of a Claude Code session's work \u2014 build, type check, lint, tests with coverage, security grep, and diff review \u2014 then produce a PASS/FAIL verification report. Use when ver",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/verification-loop/SKILL.md",
+      "remote_path": "pi/core/skills/verification-loop/SKILL.md",
+      "lines": 130,
+      "words": 442,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "database-migrations",
+      "description": "\"Safe, reversible database migration patterns: forward-only production changes, expand-contract zero-downtime renames, concurrent indexes, batched backfills, and per-tool workflows for PostgreSQL, Pri",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/database-migrations/SKILL.md",
+      "remote_path": "pi/core/skills/database-migrations/SKILL.md",
+      "lines": 431,
+      "words": 1565,
+      "code_blocks": 21,
+      "languages": [
+        "bash",
+        "prisma",
+        "python",
+        "sql",
+        "typescript"
+      ]
+    },
+    {
+      "name": "production-audit",
+      "description": "Local-evidence production readiness audit for shipped apps, pre-launch reviews, post-merge checks, and \"what breaks in prod?\" questions without sending repo data to an external audit service. Use when",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/production-audit/SKILL.md",
+      "remote_path": "pi/core/skills/production-audit/SKILL.md",
+      "lines": 208,
+      "words": 1183,
+      "code_blocks": 4,
+      "languages": [
+        "text"
+      ]
+    },
+    {
+      "name": "make-interfaces-feel-better",
+      "description": "Apply concrete design-engineering details that make interfaces feel polished. Use when reviewing or improving UI spacing, typography, borders, shadows, motion, hit areas, icons, text wrapping, and int",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/make-interfaces-feel-better/SKILL.md",
+      "remote_path": "pi/core/skills/make-interfaces-feel-better/SKILL.md",
+      "lines": 153,
+      "words": 708,
+      "code_blocks": 4,
+      "languages": [
+        "css",
+        "text"
+      ]
+    },
+    {
+      "name": "cpp-coding-standards",
+      "description": "C++ coding standards based on the C++ Core Guidelines (isocpp.github.io). Use when writing, reviewing, or refactoring C++ code to enforce modern, safe, and idiomatic practices.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/cpp-coding-standards/SKILL.md",
+      "remote_path": "pi/core/skills/cpp-coding-standards/SKILL.md",
+      "lines": 725,
+      "words": 3235,
+      "code_blocks": 20,
+      "languages": [
+        "cpp"
+      ]
+    },
+    {
+      "name": "mle-workflow",
+      "description": "Production machine-learning engineering workflow for data contracts, reproducible training, model evaluation, deployment, monitoring, and rollback. Use when building, reviewing, or hardening ML system",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/mle-workflow/SKILL.md",
+      "remote_path": "pi/core/skills/mle-workflow/SKILL.md",
+      "lines": 349,
+      "words": 3091,
+      "code_blocks": 4,
+      "languages": [
+        "python",
+        "text"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "springboot-tdd",
+      "description": "Test-driven development for Spring Boot using JUnit 5, Mockito, MockMvc, Testcontainers, and JaCoCo. Use when adding features, fixing bugs, or refactoring.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/springboot-tdd/SKILL.md",
+      "remote_path": "pi/core/skills/springboot-tdd/SKILL.md",
+      "lines": 160,
+      "words": 367,
+      "code_blocks": 6,
+      "languages": [
+        "java",
+        "xml"
+      ]
+    },
+    {
+      "name": "golang-patterns",
+      "description": "Idiomatic Go patterns, best practices, and conventions for building robust, efficient, and maintainable Go applications. Use when writing or reviewing Go code and idiomatic structure or conventions ar",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/golang-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/golang-patterns/SKILL.md",
+      "lines": 677,
+      "words": 1942,
+      "code_blocks": 26,
+      "languages": [
+        "bash",
+        "go",
+        "text",
+        "yaml"
+      ]
+    },
+    {
+      "name": "frontend-patterns",
+      "description": "Frontend development patterns for React, Next.js, state management, performance optimization, and UI best practices. Use when building or reviewing React or Next.js components, state, or render perfor",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/frontend-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/frontend-patterns/SKILL.md",
+      "lines": 658,
+      "words": 1692,
+      "code_blocks": 15,
+      "languages": [
+        "typescript"
+      ]
+    },
+    {
+      "name": "nuxt4-patterns",
+      "description": "Nuxt 4 app patterns for hydration safety, performance, route rules, lazy loading, and SSR-safe data fetching with useFetch and useAsyncData. Use when building or reviewing a Nuxt 4 app, or debugging h",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/nuxt4-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/nuxt4-patterns/SKILL.md",
+      "lines": 102,
+      "words": 685,
+      "code_blocks": 3,
+      "languages": [
+        "ts",
+        "vue"
+      ]
+    },
+    {
+      "name": "fsharp-testing",
+      "description": "F# testing patterns with xUnit, FsUnit, Unquote, FsCheck property-based testing, integration tests, and test organization best practices. Use when writing F# tests with xUnit, FsUnit, Unquote, or FsCh",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/fsharp-testing/SKILL.md",
+      "remote_path": "pi/core/skills/fsharp-testing/SKILL.md",
+      "lines": 282,
+      "words": 1029,
+      "code_blocks": 11,
+      "languages": [
+        "bash",
+        "fsharp"
+      ]
+    },
+    {
+      "name": "laravel-verification",
+      "description": "\"Verification loop for Laravel projects: env checks, linting, static analysis, tests with coverage, security scans, and deployment readiness. Use when verifying a Laravel project before merge or deplo",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/laravel-verification/SKILL.md",
+      "remote_path": "pi/core/skills/laravel-verification/SKILL.md",
+      "lines": 181,
+      "words": 590,
+      "code_blocks": 17,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "motion-patterns",
+      "description": "Production-ready animation patterns for React / Next.js \u2014 button, modal, toast, stagger, page transitions, exit animations, scroll, and layout \u2014 built on motion-foundations tokens and springs. Use whe",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/motion-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/motion-patterns/SKILL.md",
+      "lines": 436,
+      "words": 1646,
+      "code_blocks": 11,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "agentic-engineering",
+      "description": "Operate as an agentic engineer using eval-first execution, decomposition, and cost-aware model routing. Use when planning or executing engineering work that agents will carry out end to end.",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/agentic-engineering/SKILL.md",
+      "remote_path": "pi/core/skills/agentic-engineering/SKILL.md",
+      "lines": 65,
+      "words": 266,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "dev-team",
+      "description": "Simulate a collaborative dev team session where multiple role-based personas (PM, Architect, Developer, QA) respond to the same problem together in one session. Use when designing a feature, reviewing",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/dev-team/SKILL.md",
+      "remote_path": "pi/core/skills/dev-team/SKILL.md",
+      "lines": 204,
+      "words": 1342,
+      "code_blocks": 2,
+      "languages": [
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "vue-patterns",
+      "description": "Vue.js 3 Composition API patterns, component architecture, reactivity best practices, Pinia state management, Vue Router navigation, and Nuxt SSR patterns. Activates for Vue, Nuxt, Vite, or Pinia proj",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/vue-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/vue-patterns/SKILL.md",
+      "lines": 472,
+      "words": 1787,
+      "code_blocks": 20,
+      "languages": [
+        "ts",
+        "vue"
+      ]
+    },
+    {
+      "name": "compose-multiplatform-patterns",
+      "description": "Compose Multiplatform and Jetpack Compose patterns for KMP projects \u2014 state management, navigation, theming, performance, and platform-specific UI. Use when building Compose or Jetpack Compose UI, sta",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/compose-multiplatform-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/compose-multiplatform-patterns/SKILL.md",
+      "lines": 301,
+      "words": 971,
+      "code_blocks": 13,
+      "languages": [
+        "kotlin"
+      ]
+    },
+    {
+      "name": "motion-foundations",
+      "description": "Motion tokens, spring presets, performance rules, device adaptation, accessibility enforcement, and SSR safety for React / Next.js using motion/react. Foundation layer \u2014 all other motion skills depend",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/motion-foundations/SKILL.md",
+      "remote_path": "pi/core/skills/motion-foundations/SKILL.md",
+      "lines": 301,
+      "words": 1360,
+      "code_blocks": 7,
+      "languages": [
+        "css",
+        "html",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "cost-aware-llm-pipeline",
+      "description": "Cost optimization patterns for LLM API usage \u2014 model routing by task complexity, budget tracking, retry logic, and prompt caching. Use when LLM spend needs to come down, or when routing tasks across m",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/cost-aware-llm-pipeline/SKILL.md",
+      "remote_path": "pi/core/skills/cost-aware-llm-pipeline/SKILL.md",
+      "lines": 189,
+      "words": 768,
+      "code_blocks": 5,
+      "languages": [
+        "python"
+      ]
+    },
+    {
+      "name": "django-tdd",
+      "description": "Django testing strategies with pytest-django, TDD methodology, factory_boy, mocking, coverage, and testing Django REST Framework APIs. Use when writing Django or DRF tests with pytest-django, or drivi",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/django-tdd/SKILL.md",
+      "remote_path": "pi/core/skills/django-tdd/SKILL.md",
+      "lines": 731,
+      "words": 1886,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "ini",
+        "python"
+      ]
+    },
+    {
+      "name": "product-lens",
+      "description": "Validate the why before building through four product diagnostics \u2014 a YC-style product diagnostic that produces PRODUCT-BRIEF.md with a go/no-go recommendation, a founder review scoring product-market",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/product-lens/SKILL.md",
+      "remote_path": "pi/core/skills/product-lens/SKILL.md",
+      "lines": 94,
+      "words": 512,
+      "code_blocks": 4,
+      "languages": []
+    },
+    {
+      "name": "mcp-server-patterns",
+      "description": "Build MCP servers with Node/TypeScript SDK \u2014 tools, resources, prompts, Zod validation, stdio vs Streamable HTTP. Use Context7 or official MCP docs for latest API. Use when building or debugging an MC",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/mcp-server-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/mcp-server-patterns/SKILL.md",
+      "lines": 71,
+      "words": 590,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "typescript"
+      ]
+    },
+    {
+      "name": "data-throughput-accelerator",
+      "description": "Diagnose and accelerate large data movement \u2014 ingestion, backfill, export, ETL, warehouse loading, manifest catch-up, and table synchronization \u2014 by isolating the true bottleneck, benchmarking variant",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/data-throughput-accelerator/SKILL.md",
+      "remote_path": "pi/core/skills/data-throughput-accelerator/SKILL.md",
+      "lines": 75,
+      "words": 435,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "hexagonal-architecture",
+      "description": "Design, implement, and refactor Ports & Adapters systems with clear domain boundaries, dependency inversion, and testable use-case orchestration across TypeScript, Java, Kotlin, and Go services. Use w",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/hexagonal-architecture/SKILL.md",
+      "remote_path": "pi/core/skills/hexagonal-architecture/SKILL.md",
+      "lines": 278,
+      "words": 1389,
+      "code_blocks": 6,
+      "languages": [
+        "mermaid",
+        "text",
+        "typescript"
+      ]
+    },
+    {
+      "name": "motion-advanced",
+      "description": "Advanced motion patterns for React / Next.js \u2014 drag & drop, gestures, text animations, SVG path drawing, custom hooks, imperative sequences (useAnimate), loaders, and the full API decision tree. Requi",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/motion-advanced/SKILL.md",
+      "remote_path": "pi/core/skills/motion-advanced/SKILL.md",
+      "lines": 598,
+      "words": 2291,
+      "code_blocks": 17,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "csharp-testing",
+      "description": "C# and .NET testing patterns with xUnit, FluentAssertions, mocking, integration tests, and test organization best practices. Use when writing or reviewing xUnit tests, mocks, or integration tests in a",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/csharp-testing/SKILL.md",
+      "remote_path": "pi/core/skills/csharp-testing/SKILL.md",
+      "lines": 323,
+      "words": 841,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "csharp"
+      ]
+    },
+    {
+      "name": "dotnet-patterns",
+      "description": "Idiomatic C# and .NET patterns, conventions, dependency injection, async/await, and best practices for building robust, maintainable .NET applications. Use when writing or reviewing C# / .NET code \u2014 D",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/dotnet-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/dotnet-patterns/SKILL.md",
+      "lines": 323,
+      "words": 961,
+      "code_blocks": 11,
+      "languages": [
+        "csharp"
+      ]
+    },
+    {
+      "name": "click-path-audit",
+      "description": "\"Trace every user-facing button/touchpoint through its full state change sequence to find bugs where functions individually work but cancel each other out, produce wrong final state, or leave the UI i",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/click-path-audit/SKILL.md",
+      "remote_path": "pi/core/skills/click-path-audit/SKILL.md",
+      "lines": 246,
+      "words": 1190,
+      "code_blocks": 14,
+      "languages": []
+    },
+    {
+      "name": "contract-first",
+      "description": "Coordinate frontend/backend or service-to-service work through one authoritative machine-checkable contract (OpenAPI, AsyncAPI, Protocol Buffers, or JSON Schema), with generated consumer types and con",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/contract-first/SKILL.md",
+      "remote_path": "pi/core/skills/contract-first/SKILL.md",
+      "lines": 288,
+      "words": 1373,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "text",
+        "typescript",
+        "yaml"
+      ]
+    },
+    {
+      "name": "react-patterns",
+      "description": "React 18/19 patterns including hooks discipline, server/client component boundaries, Suspense + error boundaries, form actions, data fetching, state management decision trees, and accessibility-first ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/react-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/react-patterns/SKILL.md",
+      "lines": 343,
+      "words": 1502,
+      "code_blocks": 12,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "jpa-patterns",
+      "description": "JPA/Hibernate patterns for entity design, relationships, query optimization, transactions, auditing, indexing, pagination, and pooling in Spring Boot. Use when designing JPA entities or relationships,",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/jpa-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/jpa-patterns/SKILL.md",
+      "lines": 153,
+      "words": 530,
+      "code_blocks": 10,
+      "languages": [
+        "java"
+      ]
+    },
+    {
+      "name": "api-design",
+      "description": "REST API design patterns including resource naming, status codes, pagination, filtering, error responses, versioning, and rate limiting for production APIs. Use when designing or reviewing REST endpoi",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/api-design/SKILL.md",
+      "remote_path": "pi/core/skills/api-design/SKILL.md",
+      "lines": 525,
+      "words": 1629,
+      "code_blocks": 24,
+      "languages": [
+        "go",
+        "json",
+        "python",
+        "typescript"
+      ]
+    },
+    {
+      "name": "intent-driven-development",
+      "description": "Turn ambiguous or high-impact product and engineering changes into scoped, verifiable acceptance criteria before or alongside implementation. Use when a user asks to clarify a feature, define acceptan",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/intent-driven-development/SKILL.md",
+      "remote_path": "pi/core/skills/intent-driven-development/SKILL.md",
+      "lines": 361,
+      "words": 2481,
+      "code_blocks": 5,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "inherit-legacy-style",
+      "description": "Prevent AI style drift on legacy projects by scanning the codebase for implicit conventions, resolving conflicts with the operator one at a time, and writing an enforceable .ai-style-rules.md (Golden ",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/inherit-legacy-style/SKILL.md",
+      "remote_path": "pi/core/skills/inherit-legacy-style/SKILL.md",
+      "lines": 158,
+      "words": 1244,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "docker-patterns",
+      "description": "Docker and Docker Compose patterns for local development, hardened CLI installer harnesses, container security, networking, volumes, and multi-service orchestration. Use when creating or reviewing Doc",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/docker-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/docker-patterns/SKILL.md",
+      "lines": 521,
+      "words": 1913,
+      "code_blocks": 27,
+      "languages": [
+        "bash",
+        "dockerfile",
+        "yaml"
+      ]
     },
     {
       "name": "Copilot Task",
@@ -160846,7 +162437,7 @@
       ]
     },
     {
-      "name": "uspto-database",
+      "name": "scientific-db-uspto-database",
       "description": "USPTO patent and trademark data workflow for official record lookup, PatentSearch queries, TSDR checks, assignment data, and reproducible IP research logs. Use when a task needs official United States",
       "path": "affaan-m--everything-claude-code/skills/scientific-db-uspto-database/SKILL.md",
       "remote_path": "skills/scientific-db-uspto-database/SKILL.md",
@@ -161153,10 +162744,12 @@
       "description": "Audits Claude Code context window consumption across agents, skills, MCP servers, and rules. Identifies bloat, redundant components, and produces prioritized token-savings recommendations. Use when th",
       "path": "affaan-m--everything-claude-code/skills/context-budget/SKILL.md",
       "remote_path": "skills/context-budget/SKILL.md",
-      "lines": 137,
-      "words": 811,
-      "code_blocks": 4,
-      "languages": []
+      "lines": 187,
+      "words": 1086,
+      "code_blocks": 5,
+      "languages": [
+        "sh"
+      ]
     },
     {
       "name": "cpp-testing",
@@ -161186,7 +162779,7 @@
       ]
     },
     {
-      "name": "pubmed-database",
+      "name": "scientific-db-pubmed-database",
       "description": "Direct PubMed and NCBI E-utilities search workflows for biomedical literature, MeSH queries, PMID lookup, citation retrieval, and API-backed literature monitoring. Use when a task needs biomedical lit",
       "path": "affaan-m--everything-claude-code/skills/scientific-db-pubmed-database/SKILL.md",
       "remote_path": "skills/scientific-db-pubmed-database/SKILL.md",
@@ -162312,6 +163905,16 @@
       ]
     },
     {
+      "name": "i18n-sync",
+      "description": "\"Translate and synchronize application JSON locale files using source-key usage, project terminology, and focused validation. Use when adding keys or languages, updating source copy, or reviewing miss",
+      "path": "affaan-m--everything-claude-code/skills/i18n-sync/SKILL.md",
+      "remote_path": "skills/i18n-sync/SKILL.md",
+      "lines": 142,
+      "words": 919,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "codehealth-mcp",
       "description": "Real-time structural Code Health via CodeScene MCP \u2014 review before edits, verify score deltas after changes, gate commits and PRs. Use when reviewing code quality, refactoring, checking if AI changes ",
       "path": "affaan-m--everything-claude-code/skills/codehealth-mcp/SKILL.md",
@@ -162356,7 +163959,7 @@
       ]
     },
     {
-      "name": "literature-review",
+      "name": "scientific-thinking-literature-review",
       "description": "Systematic literature-review workflow for academic, biomedical, technical, and scientific topics, including search planning, source screening, synthesis, citation checks, and evidence logging. Use whe",
       "path": "affaan-m--everything-claude-code/skills/scientific-thinking-literature-review/SKILL.md",
       "remote_path": "skills/scientific-thinking-literature-review/SKILL.md",
@@ -162477,7 +164080,7 @@
       ]
     },
     {
-      "name": "gget",
+      "name": "scientific-pkg-gget",
       "description": "gget CLI and Python workflow for quick genomic database queries, sequence lookup, BLAST-style searches, enrichment checks, and reproducible bioinformatics evidence logs. Use when a task needs quick bi",
       "path": "affaan-m--everything-claude-code/skills/scientific-pkg-gget/SKILL.md",
       "remote_path": "skills/scientific-pkg-gget/SKILL.md",
@@ -162963,7 +164566,7 @@
       ]
     },
     {
-      "name": "scholar-evaluation",
+      "name": "scientific-thinking-scholar-evaluation",
       "description": "Structured scholarly-work evaluation for papers, proposals, literature reviews, methods sections, evidence quality, citation support, and research-writing feedback. Use when evaluating academic or sci",
       "path": "affaan-m--everything-claude-code/skills/scientific-thinking-scholar-evaluation/SKILL.md",
       "remote_path": "skills/scientific-thinking-scholar-evaluation/SKILL.md",
@@ -163446,9 +165049,9 @@
       "description": "\"Write-time code quality enforcement using Plankton \u2014 auto-formatting, linting, and Claude-powered fixes on every file edit via hooks. Use when setting up write-time formatting, linting, or auto-fix h",
       "path": "affaan-m--everything-claude-code/skills/plankton-code-quality/SKILL.md",
       "remote_path": "skills/plankton-code-quality/SKILL.md",
-      "lines": 238,
-      "words": 1159,
-      "code_blocks": 4,
+      "lines": 329,
+      "words": 1912,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "json"
@@ -164543,7 +166146,7 @@
       "path": "affaan-m--everything-claude-code/docs/zh-TW/agents/security-reviewer.md",
       "remote_path": "docs/zh-TW/agents/security-reviewer.md",
       "lines": 379,
-      "words": 884,
+      "words": 882,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -164636,7 +166239,7 @@
       "path": "affaan-m--everything-claude-code/docs/zh-TW/agents/database-reviewer.md",
       "remote_path": "docs/zh-TW/agents/database-reviewer.md",
       "lines": 379,
-      "words": 1176,
+      "words": 1174,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -165040,7 +166643,7 @@
       "path": "affaan-m--everything-claude-code/docs/zh-CN/agents/security-reviewer.md",
       "remote_path": "docs/zh-CN/agents/security-reviewer.md",
       "lines": 113,
-      "words": 314,
+      "words": 312,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -165065,7 +166668,7 @@
       "path": "affaan-m--everything-claude-code/docs/zh-CN/agents/gan-evaluator.md",
       "remote_path": "docs/zh-CN/agents/gan-evaluator.md",
       "lines": 224,
-      "words": 476,
+      "words": 484,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -165400,7 +167003,7 @@
       "path": "affaan-m--everything-claude-code/docs/zh-CN/agents/database-reviewer.md",
       "remote_path": "docs/zh-CN/agents/database-reviewer.md",
       "lines": 95,
-      "words": 333,
+      "words": 331,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -165424,7 +167027,7 @@
       "path": "affaan-m--everything-claude-code/docs/zh-CN/agents/seo-specialist.md",
       "remote_path": "docs/zh-CN/agents/seo-specialist.md",
       "lines": 64,
-      "words": 95,
+      "words": 94,
       "code_blocks": 1,
       "languages": [
         "text"
@@ -167919,7 +169522,7 @@
       "path": "affaan-m--everything-claude-code/docs/tr/agents/security-reviewer.md",
       "remote_path": "docs/tr/agents/security-reviewer.md",
       "lines": 109,
-      "words": 677,
+      "words": 675,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -168154,7 +169757,7 @@
       "path": "affaan-m--everything-claude-code/docs/tr/agents/database-reviewer.md",
       "remote_path": "docs/tr/agents/database-reviewer.md",
       "lines": 92,
-      "words": 611,
+      "words": 609,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -169004,7 +170607,7 @@
       "path": "affaan-m--everything-claude-code/docs/ja-JP/agents/security-reviewer.md",
       "remote_path": "docs/ja-JP/agents/security-reviewer.md",
       "lines": 546,
-      "words": 1232,
+      "words": 1230,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -169047,7 +170650,7 @@
       "path": "affaan-m--everything-claude-code/docs/ja-JP/agents/gan-evaluator.md",
       "remote_path": "docs/ja-JP/agents/gan-evaluator.md",
       "lines": 150,
-      "words": 322,
+      "words": 330,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -169449,7 +171052,7 @@
       "path": "affaan-m--everything-claude-code/docs/ja-JP/agents/database-reviewer.md",
       "remote_path": "docs/ja-JP/agents/database-reviewer.md",
       "lines": 655,
-      "words": 1845,
+      "words": 1843,
       "code_blocks": 30,
       "languages": [
         "bash",
@@ -169922,7 +171525,7 @@
       "languages": []
     },
     {
-      "name": "uspto-database",
+      "name": "scientific-db-uspto-database",
       "description": "\u516c\u5f0f\u8a18\u9332\u306e\u691c\u7d22\u3001PatentSearch \u30af\u30a8\u30ea\u3001TSDR \u30c1\u30a7\u30c3\u30af\u3001\u8b72\u6e21\u30c7\u30fc\u30bf\u3001\u304a\u3088\u3073\u518d\u73fe\u53ef\u80fd\u306a IP \u8abf\u67fb\u30ed\u30b0\u306e\u305f\u3081\u306e USPTO \u7279\u8a31\u30fb\u5546\u6a19\u30c7\u30fc\u30bf\u30ef\u30fc\u30af\u30d5\u30ed\u30fc\u3002",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/scientific-db-uspto-database/SKILL.md",
       "remote_path": "docs/ja-JP/skills/scientific-db-uspto-database/SKILL.md",
@@ -170168,7 +171771,7 @@
       ]
     },
     {
-      "name": "pubmed-database",
+      "name": "scientific-db-pubmed-database",
       "description": "\u751f\u7269\u533b\u5b66\u6587\u732e\u3001MeSH \u30af\u30a8\u30ea\u3001PMID \u691c\u7d22\u3001\u5f15\u7528\u53d6\u5f97\u3001\u304a\u3088\u3073 API \u3092\u5229\u7528\u3057\u305f\u6587\u732e\u30e2\u30cb\u30bf\u30ea\u30f3\u30b0\u306e\u305f\u3081\u306e PubMed \u304a\u3088\u3073 NCBI E-utilities \u306e\u76f4\u63a5\u691c\u7d22\u30ef\u30fc\u30af\u30d5\u30ed\u30fc\u3002",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/scientific-db-pubmed-database/SKILL.md",
       "remote_path": "docs/ja-JP/skills/scientific-db-pubmed-database/SKILL.md",
@@ -171067,7 +172670,7 @@
       ]
     },
     {
-      "name": "literature-review",
+      "name": "scientific-thinking-literature-review",
       "description": "\u5b66\u8853\u3001\u751f\u7269\u533b\u5b66\u3001\u6280\u8853\u3001\u79d1\u5b66\u7684\u306a\u30c8\u30d4\u30c3\u30af\u306b\u5bfe\u3059\u308b\u30b7\u30b9\u30c6\u30de\u30c6\u30a3\u30c3\u30af\u306a\u6587\u732e\u30ec\u30d3\u30e5\u30fc\u30ef\u30fc\u30af\u30d5\u30ed\u30fc\u3002\u691c\u7d22\u8a08\u753b\u3001\u30bd\u30fc\u30b9\u306e\u30b9\u30af\u30ea\u30fc\u30cb\u30f3\u30b0\u3001\u7d71\u5408\u3001\u5f15\u7528\u78ba\u8a8d\u3001\u8a3c\u62e0\u30ed\u30b0\u3092\u542b\u3080\u3002",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/scientific-thinking-literature-review/SKILL.md",
       "remote_path": "docs/ja-JP/skills/scientific-thinking-literature-review/SKILL.md",
@@ -171138,7 +172741,7 @@
       ]
     },
     {
-      "name": "gget",
+      "name": "scientific-pkg-gget",
       "description": "\u30b2\u30ce\u30e0\u30c7\u30fc\u30bf\u30d9\u30fc\u30b9\u3078\u306e\u30af\u30a4\u30c3\u30af\u691c\u7d22\u3001\u914d\u5217\u691c\u7d22\u3001BLAST \u30b9\u30bf\u30a4\u30eb\u306e\u691c\u7d22\u3001\u30a8\u30f3\u30ea\u30c3\u30c1\u30e1\u30f3\u30c8\u30c1\u30a7\u30c3\u30af\u3001\u304a\u3088\u3073\u518d\u73fe\u53ef\u80fd\u306a\u30d0\u30a4\u30aa\u30a4\u30f3\u30d5\u30a9\u30de\u30c6\u30a3\u30af\u30b9\u8a3c\u62e0\u30ed\u30b0\u306e\u305f\u3081\u306e gget CLI \u304a\u3088\u3073 Python \u30ef\u30fc\u30af\u30d5\u30ed\u30fc\u3002",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/scientific-pkg-gget/SKILL.md",
       "remote_path": "docs/ja-JP/skills/scientific-pkg-gget/SKILL.md",
@@ -171501,7 +173104,7 @@
       ]
     },
     {
-      "name": "scholar-evaluation",
+      "name": "scientific-thinking-scholar-evaluation",
       "description": "\u8ad6\u6587\u3001\u63d0\u6848\u66f8\u3001\u6587\u732e\u30ec\u30d3\u30e5\u30fc\u3001\u65b9\u6cd5\u8ad6\u30bb\u30af\u30b7\u30e7\u30f3\u3001\u8a3c\u62e0\u306e\u8cea\u3001\u5f15\u7528\u30b5\u30dd\u30fc\u30c8\u3001\u7814\u7a76\u8ad6\u6587\u30d5\u30a3\u30fc\u30c9\u30d0\u30c3\u30af\u306e\u305f\u3081\u306e\u69cb\u9020\u5316\u3055\u308c\u305f\u5b66\u8853\u7684\u4f5c\u696d\u8a55\u4fa1\u3002",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/scientific-thinking-scholar-evaluation/SKILL.md",
       "remote_path": "docs/ja-JP/skills/scientific-thinking-scholar-evaluation/SKILL.md",
@@ -172455,7 +174058,7 @@
       "path": "affaan-m--everything-claude-code/docs/es/agents/security-reviewer.md",
       "remote_path": "docs/es/agents/security-reviewer.md",
       "lines": 118,
-      "words": 928,
+      "words": 926,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -172689,7 +174292,7 @@
       "path": "affaan-m--everything-claude-code/docs/es/agents/database-reviewer.md",
       "remote_path": "docs/es/agents/database-reviewer.md",
       "lines": 101,
-      "words": 889,
+      "words": 887,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -173331,7 +174934,7 @@
       "path": "affaan-m--everything-claude-code/docs/pt-BR/agents/security-reviewer.md",
       "remote_path": "docs/pt-BR/agents/security-reviewer.md",
       "lines": 109,
-      "words": 743,
+      "words": 741,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -173418,7 +175021,7 @@
       "path": "affaan-m--everything-claude-code/docs/pt-BR/agents/database-reviewer.md",
       "remote_path": "docs/pt-BR/agents/database-reviewer.md",
       "lines": 92,
-      "words": 682,
+      "words": 680,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -173479,7 +175082,7 @@
       "path": "affaan-m--everything-claude-code/docs/ko-KR/agents/security-reviewer.md",
       "remote_path": "docs/ko-KR/agents/security-reviewer.md",
       "lines": 105,
-      "words": 589,
+      "words": 587,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -173566,7 +175169,7 @@
       "path": "affaan-m--everything-claude-code/docs/ko-KR/agents/database-reviewer.md",
       "remote_path": "docs/ko-KR/agents/database-reviewer.md",
       "lines": 88,
-      "words": 549,
+      "words": 547,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -177229,8 +178832,8 @@
       "description": "",
       "path": "shaunburdick--skills/specs/001-agent-attribution-detection/spec.md",
       "remote_path": "specs/001-agent-attribution-detection/spec.md",
-      "lines": 260,
-      "words": 1935,
+      "lines": 278,
+      "words": 2092,
       "code_blocks": 0,
       "languages": [],
       "version": "\"1.0.0\""
@@ -177268,10 +178871,12 @@
       "description": "Set up code style configuration for a project. Installs the right linting and formatting rules based on the repo's GitHub org \u2014 @shaunburdick's personal config for shaunburdick/* repos, the org's own ",
       "path": "shaunburdick--skills/skills/style/SKILL.md",
       "remote_path": "skills/style/SKILL.md",
-      "lines": 50,
-      "words": 464,
-      "code_blocks": 0,
-      "languages": [],
+      "lines": 67,
+      "words": 718,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ],
       "license": "MIT"
     },
     {
@@ -177293,8 +178898,8 @@
       "description": "Enforces safe git practices for AI coding agents. Defines branch protection rules, commit policies, amend rules, and force-push boundaries. Load this skill at the start of any session where the agent ",
       "path": "shaunburdick--skills/skills/git-safety/SKILL.md",
       "remote_path": "skills/git-safety/SKILL.md",
-      "lines": 362,
-      "words": 1896,
+      "lines": 370,
+      "words": 1973,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -177334,8 +178939,8 @@
       "description": "\"Load when creating commits, PRs, issues, or comments that need AI attribution. Standardizes the Generated-By trailer format across all surfaces \u2014 commits, PRs, issues, comments, and source code \u2014 for",
       "path": "shaunburdick--skills/skills/ai-attribution/SKILL.md",
       "remote_path": "skills/ai-attribution/SKILL.md",
-      "lines": 252,
-      "words": 1065,
+      "lines": 254,
+      "words": 1083,
       "code_blocks": 10,
       "languages": [
         "bash",

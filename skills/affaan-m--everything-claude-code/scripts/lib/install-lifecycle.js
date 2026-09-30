@@ -10,8 +10,15 @@ const { readInstallState, validateInstallState } = require('./install-state');
 const { assertWithinTrustedRoot } = require('./path-safety');
 const { createInstallPlanFromRequest } = require('./install/runtime');
 const { assertNoNewUserOwnedFile, prepareUserOwnedFileGuard } = require('./install/ownership-guard');
+const { writeFileNoFollow: guardedWriteFile } = require('./install/guarded-write');
+const { withOpenCodeInstallLocks } = require('./install/opencode-install-lock');
 const { isCodexUserConfig } = require('./install/codex-user-config');
-const { getRecordedHookConsent } = require('./install/hook-consent');
+const {
+  disableOpenCodeHookPluginRegistration,
+  getDisabledOpenCodePluginContent,
+  getRecordedHookConsent,
+  withHookConsent,
+} = require('./install/hook-consent');
 const {
   prepareClaudeSkillMigration,
 } = require('./install/claude-skill-migration');
@@ -232,6 +239,12 @@ function transformCopyFileContent(operation, content) {
   if (operation.contentTransform === 'antigravity-agent-frontmatter') {
     return adaptAntigravityAgent(content, operation.sourceRelativePath);
   }
+  if (operation.contentTransform === 'opencode-disable-ecc-hooks') {
+    return disableOpenCodeHookPluginRegistration(content, operation.sourceRelativePath);
+  }
+  if (operation.contentTransform === 'opencode-disable-plugin-entrypoint') {
+    return getDisabledOpenCodePluginContent();
+  }
   throw new Error(`Unknown install content transform: ${operation.contentTransform}`);
 }
 
@@ -450,66 +463,15 @@ function createChangedDestinationError(action) {
   );
 }
 
-function getStableParentStat(filePath, action) {
-  const parentStat = fs.lstatSync(path.dirname(filePath));
-  if (!parentStat.isDirectory() || parentStat.isSymbolicLink()) {
-    throw createChangedDestinationError(action);
-  }
-  return parentStat;
-}
-
-function assertPinnedWriteDestination(
-  filePath,
-  fileDescriptor,
-  expectedParentStat,
-  trustedRoot,
-  action
-) {
-  const liveDestination = getManagedDestination(filePath, trustedRoot, action);
-  if (path.resolve(liveDestination.managedPath) !== path.resolve(filePath)) {
-    throw createChangedDestinationError(action);
-  }
-
-  const liveParentStat = getStableParentStat(filePath, action);
-  if (!hasSameFileIdentity(expectedParentStat, liveParentStat)) {
-    throw createChangedDestinationError(action);
-  }
-
-  const descriptorStat = fs.fstatSync(fileDescriptor);
-  const livePathStat = fs.lstatSync(liveDestination.managedPath);
-  if (
-    !descriptorStat.isFile()
-    || !livePathStat.isFile()
-    || livePathStat.isSymbolicLink()
-    || !hasSameFileIdentity(descriptorStat, livePathStat)
-  ) {
-    throw createChangedDestinationError(action);
-  }
-}
-
-function writeFileNoFollow(filePath, content, mode, trustedRoot, action) {
-  const expectedParentStat = getStableParentStat(filePath, action);
-  const flags = fs.constants.O_WRONLY
-    | fs.constants.O_CREAT
-    | (fs.constants.O_NOFOLLOW || 0);
-  const fileDescriptor = fs.openSync(filePath, flags, mode);
-
-  try {
-    assertPinnedWriteDestination(
-      filePath,
-      fileDescriptor,
-      expectedParentStat,
-      trustedRoot,
-      action
-    );
-    fs.ftruncateSync(fileDescriptor, 0);
-    fs.writeFileSync(fileDescriptor, content);
-    if (mode !== undefined) {
-      fs.fchmodSync(fileDescriptor, mode);
-    }
-  } finally {
-    fs.closeSync(fileDescriptor);
-  }
+function writeFileNoFollow(filePath, content, mode, trustedRoot, action, writeOptions = {}) {
+  return guardedWriteFile(filePath, content, {
+    ...writeOptions,
+    mode,
+    action,
+    validateDestination(destinationPath) {
+      return getManagedDestination(destinationPath, trustedRoot, action).managedPath;
+    },
+  });
 }
 
 function readFileWithMetadataNoFollow(filePath, encoding) {
@@ -564,7 +526,7 @@ function assertClaudeSettingsDestination(operation, trustedRoot, target = null) 
   assertClaudeSettingsPath(operation.destinationPath, trustedRoot);
 }
 
-function writeContainedFile(destinationPath, content, trustedRoot, action, mode) {
+function writeContainedFile(destinationPath, content, trustedRoot, action, mode, writeOptions) {
   const preparedDestination = prepareContainedWriteDestination(destinationPath, trustedRoot, action);
   const finalDestination = getManagedDestination(
     preparedDestination,
@@ -576,7 +538,8 @@ function writeContainedFile(destinationPath, content, trustedRoot, action, mode)
     content,
     mode,
     trustedRoot,
-    action
+    action,
+    writeOptions
   );
   return finalDestination;
 }
@@ -782,7 +745,8 @@ function executeRepairOperation(
   trustedRoot,
   linkIndex = null,
   target = null,
-  settingsLockHeld = false
+  settingsLockHeld = false,
+  writeOptions = {}
 ) {
   // Install-state is attacker-controllable; never write/delete outside the
   // adapter-derived trusted root, regardless of what the state file claims
@@ -800,7 +764,8 @@ function executeRepairOperation(
         getExpectedCopyFileContent(operation, source.content, linkIndex),
         trustedRoot,
         'repair',
-        source.mode & 0o777
+        source.mode & 0o777,
+        writeOptions
       );
     } else {
       copyContainedFile(sourcePath, operation.destinationPath, trustedRoot, 'repair');
@@ -1179,7 +1144,11 @@ function inspectManagedOperation(repoRoot, trustedRoot, operation, linkIndex = n
 
     let contentMatches;
     try {
-      contentMatches = hasRecordedContentDigest(operation)
+      // A deactivation transform changes the desired bytes. A historical
+      // active-file digest proves ownership, not completion of that transition.
+      const deactivatesOpenCode = operation.contentTransform === 'opencode-disable-ecc-hooks'
+        || operation.contentTransform === 'opencode-disable-plugin-entrypoint';
+      contentMatches = hasRecordedContentDigest(operation) && !deactivatesOpenCode
         ? fileMatchesRecordedContent(inspectedPath, operation)
         : operation.contentTransform || isMarkdownPath(operation.destinationPath)
           ? readFileNoFollow(inspectedPath, 'utf8') === getExpectedCopyFileContent(
@@ -1629,6 +1598,24 @@ function analyzeRecord(record, context) {
     };
   }
 
+  let planningFailureReported = false;
+  if (record.adapter.target === 'opencode') {
+    let checks;
+    try {
+      checks = prepareOpenCodeHookDeactivationChecks(record, context, { requireInactive: true });
+    } catch (error) {
+      planningFailureReported = true;
+      issues.push(buildIssue('error', 'resolution-unavailable', error.message));
+    }
+    if (checks) {
+      try {
+        for (const check of checks) assertOpenCodeRepairHookDeactivation(check.plan, check.options);
+      } catch (error) {
+        issues.push(buildIssue('error', 'opencode-hook-consent-violation', error.message));
+      }
+    }
+  }
+
   if (!fs.existsSync(state.target.root)) {
     issues.push(buildIssue('error', 'missing-target-root', `Target root does not exist: ${state.target.root}`));
   }
@@ -1731,7 +1718,7 @@ function analyzeRecord(record, context) {
     issues.push(buildIssue('warning', 'repo-version-mismatch', `Recorded repo version ${state.source.repoVersion} differs from current repo version ${context.packageVersion}`));
   }
 
-  if (!state.request.legacyMode) {
+  if (!state.request.legacyMode && !planningFailureReported) {
     try {
       const desiredPlan = resolveRecordedManifestPlan(record, context);
 
@@ -1758,7 +1745,7 @@ function analyzeRecord(record, context) {
 }
 
 function buildDoctorReport(options = {}) {
-  const repoRoot = options.repoRoot || DEFAULT_REPO_ROOT;
+  const repoRoot = options.repoRoot ? path.resolve(options.repoRoot) : DEFAULT_REPO_ROOT;
   const manifests = loadInstallManifests({ repoRoot });
   const records = discoverInstalledStates({
     homeDir: options.homeDir,
@@ -1821,7 +1808,8 @@ function createRepairPlanFromRecord(record, context, options = {}) {
     );
     const statePreview = buildRecordedStatePreview(state, context, operations);
 
-    return {
+    const recordedPlan = {
+      sourceRoot: context.repoRoot,
       mode: state.request.legacyMode ? 'legacy' : 'recorded',
       target: record.adapter.target,
       adapter: record.adapter,
@@ -1830,9 +1818,13 @@ function createRepairPlanFromRecord(record, context, options = {}) {
       installStatePath: state.target.installStatePath,
       warnings: [],
       languages: Array.isArray(state.request.legacyLanguages) ? [...state.request.legacyLanguages] : [],
+      selectedModuleIds: [...(state.resolution.selectedModules || [])],
       operations,
       statePreview
     };
+    return record.adapter.target === 'opencode'
+      ? withHookConsent(recordedPlan, getRecordedHookConsent(state))
+      : recordedPlan;
   }
 
   const desiredPlan = resolveRecordedManifestPlan(record, context, options);
@@ -1882,8 +1874,11 @@ function writeRefreshedInstallState(record, statePreview, writtenPaths = []) {
         return { ...operation };
       }
       // Refreshing a ledger is not a file write. Keep the last installed digest
-      // for untouched shared configs so a concurrent user edit is never claimed.
-      if (isCodexUserConfig(record, operation)
+      // for untouched shared configs and OpenCode activations so a concurrent
+      // user edit is never claimed, even by a partial repair checkpoint.
+      if ((isCodexUserConfig(record, operation)
+        || (record.adapter.target === 'opencode'
+          && require('./install/apply').getOpenCodeActivationKind(record, operation)))
         && !writtenPaths.some(writtenPath => path.relative(writtenPath, operation.destinationPath) === '')) {
         const previousOperation = (record.state.operations || []).find(previous => (
           previous.destinationPath
@@ -1923,10 +1918,13 @@ function prepareRepairMigration(plan, record) {
     installStatePath: record.installStatePath,
     statePreview: buildAdapterDerivedStatePreview(plan.statePreview, record),
   };
-  const skillMigration = prepareClaudeSkillMigration(trustedPlan);
-  const migration = record.adapter.id === 'codex-home'
-    ? prepareUserOwnedFileGuard(trustedPlan, skillMigration)
-    : skillMigration;
+  const initialMigration = prepareClaudeSkillMigration(trustedPlan);
+  const guardedMigration = record.adapter.id === 'codex-home'
+    ? prepareUserOwnedFileGuard(trustedPlan, initialMigration)
+    : initialMigration;
+  const migration = trustedPlan.target === 'opencode'
+    ? require('./install/apply').prepareHookConsentMigration(trustedPlan, guardedMigration)
+    : guardedMigration;
   return {
     migration,
     plan: {
@@ -1941,8 +1939,58 @@ function prepareRepairMigration(plan, record) {
   };
 }
 
+function assertOpenCodeRepairHookDeactivation(plan, options = {}) {
+  if (plan.target !== 'opencode') {
+    return new Map();
+  }
+  // The installer imports lifecycle helpers. Resolve this shared read-only
+  // guard lazily so both paths enforce the same discovery/ownership boundary.
+  const { assertOpenCodeHookDeactivationReady } = require('./install/apply');
+  return assertOpenCodeHookDeactivationReady(plan, options);
+}
+
+function prepareOpenCodeHookDeactivationChecks(record, context, options = {}) {
+  if (record.adapter.target !== 'opencode') {
+    return [];
+  }
+  const rawPlan = createRepairPlanFromRecord(record, context, {
+    // Planning must reject unsafe existing activations before a repair build
+    // writes compiled files. Missing payload is still validated/built later.
+    exemptValidationCodes: [OPENCODE_PLUGIN_NOT_BUILT_CODE],
+  });
+  if (record.legacyLayout === 'opencode') {
+    const state = record.state;
+    const legacyPlan = withHookConsent({
+      sourceRoot: context.repoRoot,
+      target: 'opencode',
+      adapter: record.adapter,
+      targetRoot: record.targetRoot,
+      installRoot: record.targetRoot,
+      installStatePath: record.installStatePath,
+      selectedModuleIds: [...(state.resolution.selectedModules || [])],
+      operations: getManagedOperations(state),
+      statePreview: buildAdapterDerivedStatePreview(state, record),
+    }, getRecordedHookConsent(state));
+    // Migration does not replay operations into the old root. Inspect existing
+    // activations there, without treating historical merge-json records as new
+    // writes; the canonical destination is validated separately below.
+    return [
+      { plan: { ...legacyPlan, operations: [] }, options: { allowVerifiedLegacyRemoval: true } },
+      { plan: rawPlan, options },
+    ];
+  }
+  const { plan } = prepareRepairMigration(rawPlan, record);
+  return [{ plan, options }];
+}
+
+function preflightOpenCodeHookDeactivation(record, context, options = {}) {
+  for (const check of prepareOpenCodeHookDeactivationChecks(record, context, options)) {
+    assertOpenCodeRepairHookDeactivation(check.plan, check.options);
+  }
+}
+
 function repairInstalledStates(options = {}) {
-  const repoRoot = options.repoRoot || DEFAULT_REPO_ROOT;
+  const repoRoot = options.repoRoot ? path.resolve(options.repoRoot) : DEFAULT_REPO_ROOT;
   const manifests = loadInstallManifests({ repoRoot });
   const context = {
     repoRoot,
@@ -1965,35 +2013,130 @@ function repairInstalledStates(options = {}) {
     && (!record.legacy || record.legacyLayout === 'opencode')
   ));
 
-  const results = records.map(record => {
-    if (record.error) {
-      return {
-        adapter: record.adapter,
-        status: 'error',
-        installStatePath: record.installStatePath,
-        repairedPaths: [],
-        plannedRepairs: [],
-        error: record.error
-      };
-    }
-
-    let releaseSettingsLock = null;
-    try {
-      const settingsPathToLock = !options.dryRun
-        && getManagedOperations(record.state || {}).some(
-          operation => operation.kind === 'update-claude-settings'
-        )
-        ? getClaudeSettingsPath(record.targetRoot)
-        : null;
-      if (settingsPathToLock) {
-        releaseSettingsLock = acquireSettingsLock(settingsPathToLock);
+  const results = records.map(initialRecord => {
+    let record = initialRecord;
+    const performRepair = (opencodeLease) => {
+      if (record.error) {
+        return {
+          adapter: record.adapter,
+          status: 'error',
+          installStatePath: record.installStatePath,
+          repairedPaths: [],
+          plannedRepairs: [],
+          error: record.error
+        };
       }
-      const needsOpencodeBuild = record.adapter.target === 'opencode'
-        && hasOpencodeBuildError(getOpencodeBuildValidationIssues(context));
-      const opencodeBuildRepairPath = path.join(context.repoRoot, OPENCODE_BUILD_ARTIFACT);
 
-      if (record.legacyLayout === 'opencode') {
-        if (needsOpencodeBuild && !options.dryRun) {
+      let releaseSettingsLock = null;
+      try {
+        preflightOpenCodeHookDeactivation(record, context);
+        const settingsPathToLock = !options.dryRun
+          && getManagedOperations(record.state || {}).some(
+            operation => operation.kind === 'update-claude-settings'
+          )
+          ? getClaudeSettingsPath(record.targetRoot)
+          : null;
+        if (settingsPathToLock) {
+          releaseSettingsLock = acquireSettingsLock(settingsPathToLock);
+        }
+        const needsOpencodeBuild = record.adapter.target === 'opencode'
+          && hasOpencodeBuildError(getOpencodeBuildValidationIssues(context));
+        const opencodeBuildRepairPath = path.join(context.repoRoot, OPENCODE_BUILD_ARTIFACT);
+
+        if (record.legacyLayout === 'opencode') {
+          if (needsOpencodeBuild && !options.dryRun) {
+            try {
+              buildOpencodeRunner(context.repoRoot);
+            } catch (error) {
+              return {
+                adapter: record.adapter,
+                status: 'error',
+                installStatePath: record.installStatePath,
+                repairedPaths: [],
+                plannedRepairs: [],
+                error: formatBuildErrorMessage(error),
+              };
+            }
+          }
+
+          const canonicalPlan = createRepairPlanFromRecord(record, context, {
+            exemptValidationCodes: options.dryRun && needsOpencodeBuild
+              ? [OPENCODE_PLUGIN_NOT_BUILT_CODE]
+              : [],
+          });
+          assertOpenCodeRepairHookDeactivation(canonicalPlan);
+          const plannedRepairs = [...new Set([
+            ...(needsOpencodeBuild ? [opencodeBuildRepairPath] : []),
+            ...canonicalPlan.operations.map(operation => operation.destinationPath),
+            ...getManagedOperations(record.state).map(operation => operation.destinationPath),
+            record.installStatePath,
+          ])];
+
+          if (options.dryRun) {
+            return {
+              adapter: record.adapter,
+              status: 'planned',
+              installStatePath: canonicalPlan.installStatePath,
+              repairedPaths: [],
+              plannedRepairs,
+              stateRefreshed: false,
+              warnings: canonicalPlan.warnings,
+              error: null,
+            };
+          }
+
+          // Load lazily to avoid a module cycle during install-lifecycle startup.
+          const { applyInstallPlan } = require('./install/apply');
+          const appliedPlan = applyInstallPlan(canonicalPlan, { opencodeLease });
+          return {
+            adapter: record.adapter,
+            status: 'repaired',
+            installStatePath: canonicalPlan.installStatePath,
+            repairedPaths: [
+              ...(needsOpencodeBuild ? [opencodeBuildRepairPath] : []),
+              ...canonicalPlan.operations.map(operation => operation.destinationPath),
+            ],
+            plannedRepairs: [],
+            stateRefreshed: true,
+            warnings: appliedPlan.warnings,
+            error: null,
+          };
+        }
+
+        if (needsOpencodeBuild && options.dryRun) {
+          const rawPlan = createRepairPlanFromRecord(record, context, {
+            exemptValidationCodes: [OPENCODE_PLUGIN_NOT_BUILT_CODE],
+          });
+          const { plan: desiredPlan } = prepareRepairMigration(rawPlan, record);
+          const operationHealth = summarizeManagedOperationHealth(
+            context.repoRoot,
+            record.targetRoot,
+            desiredPlan.operations,
+            record.adapter.target
+          );
+          const unsafeOperationResult = getUnsafeOperationResult(
+            record,
+            operationHealth
+          );
+          if (unsafeOperationResult) {
+            return unsafeOperationResult;
+          }
+          const repairOperations = [...operationHealth.missing.map(entry => ({ ...entry.operation })), ...operationHealth.drifted.map(entry => ({ ...entry.operation }))];
+          const plannedRepairs = [opencodeBuildRepairPath, ...repairOperations.map(operation => operation.destinationPath)];
+
+          return {
+            adapter: record.adapter,
+            status: 'planned',
+            installStatePath: record.installStatePath,
+            repairedPaths: [],
+            plannedRepairs,
+            stateRefreshed: false,
+            warnings: desiredPlan.warnings,
+            error: null
+          };
+        }
+
+        if (needsOpencodeBuild) {
           try {
             buildOpencodeRunner(context.repoRoot);
           } catch (error) {
@@ -2003,65 +2146,24 @@ function repairInstalledStates(options = {}) {
               installStatePath: record.installStatePath,
               repairedPaths: [],
               plannedRepairs: [],
-              error: formatBuildErrorMessage(error),
+              error: formatBuildErrorMessage(error)
             };
           }
         }
 
-        const canonicalPlan = createRepairPlanFromRecord(record, context, {
-          exemptValidationCodes: options.dryRun && needsOpencodeBuild
-            ? [OPENCODE_PLUGIN_NOT_BUILT_CODE]
-            : [],
-        });
-        const plannedRepairs = [...new Set([
-          ...(needsOpencodeBuild ? [opencodeBuildRepairPath] : []),
-          ...canonicalPlan.operations.map(operation => operation.destinationPath),
-          ...getManagedOperations(record.state).map(operation => operation.destinationPath),
-          record.installStatePath,
-        ])];
-
-        if (options.dryRun) {
-          return {
-            adapter: record.adapter,
-            status: 'planned',
-            installStatePath: canonicalPlan.installStatePath,
-            repairedPaths: [],
-            plannedRepairs,
-            stateRefreshed: false,
-            warnings: canonicalPlan.warnings,
-            error: null,
-          };
-        }
-
-        // Load lazily to avoid a module cycle during install-lifecycle startup.
-        const { applyInstallPlan } = require('./install/apply');
-        const appliedPlan = applyInstallPlan(canonicalPlan);
-        return {
-          adapter: record.adapter,
-          status: 'repaired',
-          installStatePath: canonicalPlan.installStatePath,
-          repairedPaths: [
-            ...(needsOpencodeBuild ? [opencodeBuildRepairPath] : []),
-            ...canonicalPlan.operations.map(operation => operation.destinationPath),
-          ],
-          plannedRepairs: [],
-          stateRefreshed: true,
-          warnings: appliedPlan.warnings,
-          error: null,
-        };
-      }
-
-      if (needsOpencodeBuild && options.dryRun) {
-        const rawPlan = createRepairPlanFromRecord(record, context, {
-          exemptValidationCodes: [OPENCODE_PLUGIN_NOT_BUILT_CODE],
-        });
-        const { plan: desiredPlan } = prepareRepairMigration(rawPlan, record);
+        const rawPlan = createRepairPlanFromRecord(record, context);
+        const {
+          migration,
+          plan: desiredPlan,
+        } = prepareRepairMigration(rawPlan, record);
+        const activationSnapshot = assertOpenCodeRepairHookDeactivation(desiredPlan);
         const operationHealth = summarizeManagedOperationHealth(
           context.repoRoot,
           record.targetRoot,
           desiredPlan.operations,
           record.adapter.target
         );
+
         const unsafeOperationResult = getUnsafeOperationResult(
           record,
           operationHealth
@@ -2069,175 +2171,169 @@ function repairInstalledStates(options = {}) {
         if (unsafeOperationResult) {
           return unsafeOperationResult;
         }
-        const repairOperations = [...operationHealth.missing.map(entry => ({ ...entry.operation })), ...operationHealth.drifted.map(entry => ({ ...entry.operation }))];
-        const plannedRepairs = [opencodeBuildRepairPath, ...repairOperations.map(operation => operation.destinationPath)];
 
-        return {
-          adapter: record.adapter,
-          status: 'planned',
-          installStatePath: record.installStatePath,
-          repairedPaths: [],
-          plannedRepairs,
-          stateRefreshed: false,
-          warnings: desiredPlan.warnings,
-          error: null
-        };
-      }
-
-      if (needsOpencodeBuild) {
-        try {
-          buildOpencodeRunner(context.repoRoot);
-        } catch (error) {
+        if (operationHealth.missingSource.length > 0) {
           return {
             adapter: record.adapter,
             status: 'error',
             installStatePath: record.installStatePath,
             repairedPaths: [],
             plannedRepairs: [],
-            error: formatBuildErrorMessage(error)
+            warnings: desiredPlan.warnings,
+            error: `Missing source file(s): ${operationHealth.missingSource.map(entry => entry.sourcePath).join(', ')}`
           };
         }
-      }
 
-      const rawPlan = createRepairPlanFromRecord(record, context);
-      const {
-        migration,
-        plan: desiredPlan,
-      } = prepareRepairMigration(rawPlan, record);
-      const operationHealth = summarizeManagedOperationHealth(
-        context.repoRoot,
-        record.targetRoot,
-        desiredPlan.operations,
-        record.adapter.target
-      );
+        const repairOperations = [
+          ...operationHealth.missing.map(entry => ({ ...entry.operation })),
+          ...operationHealth.drifted.map(entry => ({ ...entry.operation })),
+          ...desiredPlan.operations
+            .filter(operation => (
+              operation.kind === 'update-claude-settings'
+              && operation.previousManagedHooks
+              && !isDeepStrictEqual(operation.previousManagedHooks, operation.managedHooks)
+            ))
+            .map(operation => ({ ...operation })),
+        ].filter((operation, index, items) => items.findIndex(candidate => (
+          candidate.kind === operation.kind
+          && candidate.destinationPath === operation.destinationPath
+        )) === index);
+        const repairLinkIndex = buildLinkIndexForOperations(desiredPlan.operations, record.targetRoot);
+        const legacyMigrationPaths = migration.legacyOperationsToRemove.map(
+          operation => operation.destinationPath
+        );
+        const plannedRepairs = [...new Set([
+          ...(needsOpencodeBuild ? [opencodeBuildRepairPath] : []),
+          ...repairOperations.map(operation => operation.destinationPath),
+          ...legacyMigrationPaths,
+        ])];
 
-      const unsafeOperationResult = getUnsafeOperationResult(
-        record,
-        operationHealth
-      );
-      if (unsafeOperationResult) {
-        return unsafeOperationResult;
-      }
+        if (options.dryRun) {
+          return {
+            adapter: record.adapter,
+            status: plannedRepairs.length > 0 ? 'planned' : 'ok',
+            installStatePath: record.installStatePath,
+            repairedPaths: [],
+            plannedRepairs,
+            stateRefreshed: plannedRepairs.length === 0,
+            warnings: desiredPlan.warnings,
+            error: null
+          };
+        }
 
-      if (operationHealth.missingSource.length > 0) {
+        const hasLegacyMigration = migration.legacyOperationsToRemove.length > 0;
+        const repairedPaths = needsOpencodeBuild ? [opencodeBuildRepairPath] : [];
+        if (desiredPlan.target === 'opencode') {
+          const { assertOpenCodeActivationUnchanged } = require('./install/apply');
+          // Health inspection must not let a changed activation become owned by
+          // a bridge checkpoint before the per-write check can reject it.
+          for (const destinationPath of activationSnapshot.keys()) {
+            assertOpenCodeActivationUnchanged(desiredPlan, { destinationPath }, activationSnapshot);
+          }
+        }
+        if (migration.requiresBridgeState && (repairOperations.length > 0 || hasLegacyMigration)) {
+          writeRefreshedInstallState(record, migration.bridgeState);
+        }
+
+        for (const operation of repairOperations) {
+          if (desiredPlan.target === 'opencode') {
+            const { assertOpenCodeActivationUnchanged } = require('./install/apply');
+            assertOpenCodeActivationUnchanged(desiredPlan, operation, activationSnapshot);
+          }
+          if (record.adapter.id === 'codex-home') {
+            assertNoNewUserOwnedFile(migration, operation, desiredPlan);
+          }
+          const repairedPath = executeRepairOperation(
+            context.repoRoot,
+            operation,
+            record.targetRoot,
+            repairLinkIndex,
+            record.adapter.target,
+            Boolean(releaseSettingsLock),
+            require('./install/apply').getOpenCodeActivationWriteOptions(operation, activationSnapshot)
+          );
+          if (repairedPath) {
+            repairedPaths.push(repairedPath);
+          }
+        }
+        if (hasLegacyMigration) {
+          for (const operation of migration.legacyOperationsToRemove) {
+            const removedPath = removeContainedPath(
+              operation.destinationPath,
+              record.targetRoot,
+              'migrate managed Claude skill',
+              { force: true }
+            );
+            if (removedPath) {
+              repairedPaths.push(removedPath);
+            }
+          }
+        }
+        const changedInstalledBytes = repairOperations.length > 0
+          || needsOpencodeBuild
+          || hasLegacyMigration;
+        const statePreviewToWrite = changedInstalledBytes
+          ? desiredPlan.statePreview
+          : {
+              ...desiredPlan.statePreview,
+              installedAt: record.state.installedAt,
+              source: { ...record.state.source },
+            };
+        assertOpenCodeRepairHookDeactivation(desiredPlan, { requireInactive: true });
+        writeRefreshedInstallState(record, statePreviewToWrite, repairedPaths);
+
+        return {
+          adapter: record.adapter,
+          status: (repairOperations.length > 0 || needsOpencodeBuild || hasLegacyMigration)
+            ? 'repaired'
+            : 'ok',
+          installStatePath: record.installStatePath,
+          repairedPaths,
+          plannedRepairs: [],
+          stateRefreshed: true,
+          warnings: desiredPlan.warnings,
+          error: null
+        };
+      } catch (error) {
         return {
           adapter: record.adapter,
           status: 'error',
           installStatePath: record.installStatePath,
           repairedPaths: [],
           plannedRepairs: [],
-          warnings: desiredPlan.warnings,
-          error: `Missing source file(s): ${operationHealth.missingSource.map(entry => entry.sourcePath).join(', ')}`
+          error: error.message
         };
+      } finally {
+        if (releaseSettingsLock) releaseSettingsLock();
       }
-
-      const repairOperations = [
-        ...operationHealth.missing.map(entry => ({ ...entry.operation })),
-        ...operationHealth.drifted.map(entry => ({ ...entry.operation })),
-        ...desiredPlan.operations
-          .filter(operation => (
-            operation.kind === 'update-claude-settings'
-            && operation.previousManagedHooks
-            && !isDeepStrictEqual(operation.previousManagedHooks, operation.managedHooks)
-          ))
-          .map(operation => ({ ...operation })),
-      ].filter((operation, index, items) => items.findIndex(candidate => (
-        candidate.kind === operation.kind
-        && candidate.destinationPath === operation.destinationPath
-      )) === index);
-      const repairLinkIndex = buildLinkIndexForOperations(desiredPlan.operations, record.targetRoot);
-      const legacyMigrationPaths = migration.legacyOperationsToRemove.map(
-        operation => operation.destinationPath
-      );
-      const plannedRepairs = [...new Set([
-        ...(needsOpencodeBuild ? [opencodeBuildRepairPath] : []),
-        ...repairOperations.map(operation => operation.destinationPath),
-        ...legacyMigrationPaths,
-      ])];
-
-      if (options.dryRun) {
-        return {
-          adapter: record.adapter,
-          status: plannedRepairs.length > 0 ? 'planned' : 'ok',
-          installStatePath: record.installStatePath,
-          repairedPaths: [],
-          plannedRepairs,
-          stateRefreshed: plannedRepairs.length === 0,
-          warnings: desiredPlan.warnings,
-          error: null
-        };
-      }
-
-      const hasLegacyMigration = migration.legacyOperationsToRemove.length > 0;
-      const repairedPaths = needsOpencodeBuild ? [opencodeBuildRepairPath] : [];
-      if (migration.requiresBridgeState && (repairOperations.length > 0 || hasLegacyMigration)) {
-        writeRefreshedInstallState(record, migration.bridgeState);
-      }
-
-      for (const operation of repairOperations) {
-        if (record.adapter.id === 'codex-home') {
-          assertNoNewUserOwnedFile(migration, operation, desiredPlan);
+    };
+    if (record.adapter.target !== 'opencode' || options.dryRun) return performRepair();
+    let repairResult;
+    try {
+      const adapter = getInstallTargetAdapter('opencode');
+      const targetRoot = adapter.resolveRoot({
+        homeDir: context.homeDir, projectRoot: context.projectRoot,
+        repoRoot: context.projectRoot, env: context.env,
+      });
+      const { getOpenCodeInstallRoots, assertOpenCodeLeaseCoverage } = require('./install/apply');
+      const roots = getOpenCodeInstallRoots({ adapter, targetRoot, homeDir: context.homeDir });
+      return withOpenCodeInstallLocks(roots, lease => {
+        assertOpenCodeLeaseCoverage({ adapter, targetRoot, homeDir: context.homeDir }, lease);
+        // Discovery precedes acquisition. Never repair from that stale state.
+        record = buildDiscoveryRecord(adapter, context, record.legacyLayout === 'opencode'
+          ? getLegacyOpencodeLocation(context.homeDir) : null);
+        if (!record.exists || record.error) {
+          throw new Error(record.error || 'OpenCode install-state disappeared before repair.');
         }
-        const repairedPath = executeRepairOperation(
-          context.repoRoot,
-          operation,
-          record.targetRoot,
-          repairLinkIndex,
-          record.adapter.target,
-          Boolean(releaseSettingsLock)
-        );
-        if (repairedPath) {
-          repairedPaths.push(repairedPath);
-        }
-      }
-      if (hasLegacyMigration) {
-        for (const operation of migration.legacyOperationsToRemove) {
-          const removedPath = removeContainedPath(
-            operation.destinationPath,
-            record.targetRoot,
-            'migrate managed Claude skill',
-            { force: true }
-          );
-          if (removedPath) {
-            repairedPaths.push(removedPath);
-          }
-        }
-      }
-      const changedInstalledBytes = repairOperations.length > 0
-        || needsOpencodeBuild
-        || hasLegacyMigration;
-      const statePreviewToWrite = changedInstalledBytes
-        ? desiredPlan.statePreview
-        : {
-            ...desiredPlan.statePreview,
-            installedAt: record.state.installedAt,
-            source: { ...record.state.source },
-          };
-      writeRefreshedInstallState(record, statePreviewToWrite, repairedPaths);
-
-      return {
-        adapter: record.adapter,
-        status: (repairOperations.length > 0 || needsOpencodeBuild || hasLegacyMigration)
-          ? 'repaired'
-          : 'ok',
-        installStatePath: record.installStatePath,
-        repairedPaths,
-        plannedRepairs: [],
-        stateRefreshed: true,
-        warnings: desiredPlan.warnings,
-        error: null
-      };
+        repairResult = performRepair(lease);
+        return repairResult;
+      });
     } catch (error) {
-      return {
-        adapter: record.adapter,
-        status: 'error',
-        installStatePath: record.installStatePath,
-        repairedPaths: [],
-        plannedRepairs: [],
-        error: error.message
-      };
-    } finally {
-      if (releaseSettingsLock) releaseSettingsLock();
+      if (repairResult?.status === 'error') {
+        return { ...repairResult, releaseError: error.message };
+      }
+      return { adapter: record.adapter, status: 'error', installStatePath: record.installStatePath,
+        repairedPaths: repairResult?.repairedPaths || [], plannedRepairs: [], error: error.message };
     }
   });
 

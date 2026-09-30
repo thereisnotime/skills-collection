@@ -10,6 +10,7 @@ All notable changes to this project are documented here.
 
 - Fix empty-result stats and non-string input handling (#234).
 - Cyrillic and Greek prose no longer reads as a homoglyph bypass. Script dominance is decided per sentence, and only mixed-script or fully substituted words surrounded by non-Russian text are swapped; limits are documented in `detector/patterns.js` (#352).
+- "Narrow the false-concession rule to require a vague close in the following clause, widen the subject past one word, and drop the bare despite-challenges opener" (#211).
 
 ### Added
 

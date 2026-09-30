@@ -183,6 +183,10 @@ unavailable, report an unknown inventory; do not substitute a raw rollout scan.
 Edit shared reader code in `daymade-claude-code/_conversation_core/`, then run
 `python3 daymade-claude-code/sync_core.py sync` and `check` before shipping;
 bundled `scripts/_core/` copies are generated projections.
+For Claude task-ending and cwd interpretation, enter `read-claude-code-history`
+and its [local runtime and cwd contract](daymade-claude-code/read-claude-code-history/references/session_file_format.md#local-runtime-and-working-directory-evidence).
+Use its [session-ending workflow](daymade-claude-code/read-claude-code-history/references/workflow_examples.md#inspect-session-endings)
+for candidate selection and commands; keep the detailed rules in those owners.
 
 ### Local Agent Messaging
 
@@ -219,8 +223,9 @@ reset promise or a question about missing execution signals enters the Skill's
 [monitoring route](tibo-reset-codex/SKILL.md#监测轮从信息到可行动信号) and
 [output contract](tibo-reset-codex/SKILL.md#输出合同先给结论再交代边界).
 Before using a third-party date or Yes/No as a reset signal, check its source-post
-chronology, whether it observes account quota changes or only classifies posts,
-and whether the monitor completed a plausible-time check. The Skill owns the
+chronology (an operator-entered event cites no source post), whether it observes
+account quota changes or only classifies posts, and whether the monitor completed a
+plausible-time check. The Skill owns the
 detailed procedure.
 [Next-reset forecast](tibo-reset-codex/references/next-reset-forecast.md) owns
 date judgments; [forecast feedback](tibo-reset-codex/references/forecast-feedback.md)
@@ -530,6 +535,23 @@ before anyone started editing. (2026-09-04: a bump computed from the working
 tree adopted another session's staged `peer-message` 1.1.1→1.2.0 as its own
 baseline. Every status-shaped signal stayed green; a CHANGELOG anchor assertion
 was the only thing that caught it.)
+
+**CHANGELOG.md merges as a union** (`.gitattributes`). Parallel PRs add their
+entries at the same spot under `## [Unreleased]`, so two PRs open at the same
+time conflicted there. Merging `origin/main` into a branch locally, or rebasing
+onto it, now keeps both sides' lines without stopping. Two limits:
+
+- GitHub's mergeability check ignores the attribute, so a PR can still show
+  CONFLICTING until `origin/main` is merged into it locally.
+- Git reads the attribute from the branch you are on. A branch cut before
+  `.gitattributes` existed conflicts as before: commit the file onto it first
+  (`git checkout origin/main -- .gitattributes`, then commit), then merge.
+
+Read the merged section before you push. Union keeps lines, not structure:
+lines can come out duplicated or interleaved, a blank line can go missing, and
+across a release cut an entry can land under the new version heading instead of
+`[Unreleased]`. The CHANGELOG structure check still fails a duplicated
+`[Unreleased]` heading; it cannot see a misplaced entry.
 
 ## Available Skills
 

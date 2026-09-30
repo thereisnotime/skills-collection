@@ -173,6 +173,7 @@
         "skills/fastapi-patterns",
         "skills/frontend-design-direction",
         "skills/frontend-patterns",
+        "skills/i18n-sync",
         "skills/frontend-slides",
         "skills/make-interfaces-feel-better",
         "skills/golang-patterns",
@@ -1168,6 +1169,22 @@
       "description": "Ukrainian (uk-UA) translated reference docs for agents, commands, skills, and rules.",
       "paths": [
         "docs/uk-UA"
+      ],
+      "targets": [
+        "claude",
+        "claude-project"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "docs-pl",
+      "kind": "docs",
+      "description": "Polish (pl) getting-started and core-concepts guide with a terminology glossary.",
+      "paths": [
+        "docs/pl"
       ],
       "targets": [
         "claude",

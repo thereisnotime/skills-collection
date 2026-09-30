@@ -3682,6 +3682,70 @@ test('#234: empty and whitespace-only input preserve selected modes', () => {
   }
 });
 
+test('false-concession requires the vague second half in the same sentence (#211)', () => {
+  const mustFire = [
+    'While the model is impressive, real-world deployment remains a challenge.',
+    'Although OpenAI has made strides, meaningful questions still remain unanswered.',
+    'While the model is impressive, there is still work to do.',
+    // Paired with the must-not-fire case below: moving the same vague close
+    // into the second clause, after the opening clause's own separator, is
+    // exactly the two-half structure #211 asks for.
+    'While the model is impressive, it remains a challenge to maintain, so we plan to replace it next month.',
+    // The vague close still fires when a later clause supplies a concrete action.
+    'While the model is impressive, deployment remains a challenge; we reduced p99 latency by 30 percent.',
+  ];
+  for (const text of mustFire) {
+    const r = AIDetector.analyzeText(text, { contextMode: 'technical' });
+    assert.ok(!r.tooShort, `fixture must clear the length gate (wordCount >= 10): ${text}`);
+    const types = new Set(r.issues.map((i) => i.type));
+    assert.ok(types.has('false-concession'), `expected false-concession flag: ${text}`);
+  }
+
+  const mustNotFire = [
+    'Despite these challenges, the team shipped the release on schedule and the error rate held flat through the first week of traffic.',
+    'While Postgres is impressive at this scale, our write pattern is append-only, so we moved the hot table to a log-structured store instead.',
+    // A later vague phrase cannot turn a concrete continuation into an empty frame.
+    'While the model is impressive, it reduced p99 latency by 30 percent; deployment remains a challenge.',
+    // Qodo's own example sentence for this rule, verbatim: "do" without a
+    // trailing word boundary used to match as a bare prefix of "download".
+    'While the model is impressive, there is still work to download before we can run it.',
+    // A variant of Qodo's sentence, not verbatim, covering the same
+    // trailing-word-boundary bug with a different tail after "download".
+    'While the model is impressive, there is still work to download the update.',
+    // Both phrases sit inside the opening "while" clause, with no separator
+    // between "is impressive" and the vague close; the concrete main clause
+    // ("we plan to replace it next month") is never reached. See #359.
+    'While the model is impressive and remains a challenge to maintain, we plan to replace it next month.',
+    // Known limitation (#359): a period inside an abbreviation ends the gap
+    // like a real sentence boundary, so a close past "U.S." is deliberately
+    // missed rather than risk crossing a genuine sentence.
+    'While the model is impressive, U.S. deployment remains a challenge for the team and its partners.',
+  ];
+  for (const text of mustNotFire) {
+    const r = AIDetector.analyzeText(text, { contextMode: 'technical' });
+    const types = new Set(r.issues.map((i) => i.type));
+    assert.ok(!types.has('false-concession'), `bare opener without a vague close in the same sentence must not flag: ${text}`);
+  }
+});
+
+test('#211: exact nine-word example is length-gated alone, flags within a longer input', () => {
+  // The issue's own example is nine words, one short of the ten-word
+  // scoring minimum. Padding it (e.g. adding "still") to clear that gate,
+  // as an earlier fixture did, leaves the exact reported sentence untested.
+  // This covers both outcomes without touching the minimum-word threshold.
+  const original = 'Although OpenAI has made strides, meaningful questions remain unanswered.';
+
+  const short = AIDetector.analyzeText(original, { contextMode: 'technical' });
+  assert.equal(short.stats.wordCount, 9, 'the reported example is nine words');
+  assert.equal(short.tooShort, true, 'nine words alone must stay under the length gate');
+  assert.equal(short.issues.length, 0, 'too-short input reports no issues');
+
+  const withinLongerInput = AIDetector.analyzeText(`${original} More analysis follows.`, { contextMode: 'technical' });
+  assert.ok(!withinLongerInput.tooShort, 'appending a sentence must clear the length gate');
+  const types = new Set(withinLongerInput.issues.map((i) => i.type));
+  assert.ok(types.has('false-concession'), 'the exact reported sentence must flag once the input clears the length gate');
+});
+
 if (failed > 0) {
   console.error(`\n${failed} test(s) failed`);
   process.exit(1);

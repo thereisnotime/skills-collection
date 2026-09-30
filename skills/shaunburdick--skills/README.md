@@ -45,7 +45,7 @@ Enforces non-negotiable code quality standards: zero lint suppressions (`eslint-
 
 ### [style](skills/style/)
 
-Install @shaunburdick's personal style configuration: shared `.editorconfig` for any project, plus `eslint-config-shaunburdick` for JavaScript/TypeScript projects.
+Install @shaunburdick's personal style configuration: shared `.editorconfig` for any project, plus a choice of `eslint-config-shaunburdick` or `biome-config-shaunburdick` for JavaScript/TypeScript projects, with a hand-off to those package skills for detailed setup and debugging.
 
 ### [github-actions](skills/github-actions/)
 

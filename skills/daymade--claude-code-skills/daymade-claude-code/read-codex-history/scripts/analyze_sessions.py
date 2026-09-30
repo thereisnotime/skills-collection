@@ -64,6 +64,7 @@ from _core.text import (  # noqa: E402
     files_possibly_matching,
     is_automated_title,
     is_claude_agent_prompt_record,
+    is_local_command_record,
     iter_jsonl,
     keywords_are_raw_byte_safe,
     searchable_segments,
@@ -172,7 +173,7 @@ def classify_session_tail(path: Path) -> SessionTail:
     that crashed before responding to its latest question as `done`.
 
     The interruption marker is checked the same way: `tail_is_interrupt` is
-    reset by any later user or assistant record, so it only survives to the
+    reset by any later non-local user or assistant record, so it survives to the
     end of the loop when the marker is the LAST relevant record in the file.
     A mid-session Ctrl+C that the conversation continued past is not a tail
     interruption — treating "marker appears anywhere" as equivalent to "the
@@ -192,12 +193,19 @@ def classify_session_tail(path: Path) -> SessionTail:
         content = message.get("content") if isinstance(message, dict) else None
 
         if record_type == "user" and not record.get("isMeta"):
-            if isinstance(content, str) and _INTERRUPTED_MARKER in content:
+            is_local_runtime = is_local_command_record(content)
+            if (
+                not is_local_runtime
+                and isinstance(content, str)
+                and _INTERRUPTED_MARKER in content
+            ):
                 tail_is_interrupt = True
                 continue
-            tail_is_interrupt = False
+            if not is_local_runtime:
+                tail_is_interrupt = False
             if isinstance(content, str):
-                last_user_text = content
+                if not is_local_runtime:
+                    last_user_text = content
             elif isinstance(content, list):
                 is_tool_result_only = bool(content) and all(
                     isinstance(block, dict) and block.get("type") == "tool_result"
@@ -210,7 +218,7 @@ def classify_session_tail(path: Path) -> SessionTail:
                         tool_use_id = block.get("tool_use_id")
                         if tool_use_id is not None:
                             all_resolved_tool_use_ids.add(tool_use_id)
-                if not is_tool_result_only:
+                if not is_local_runtime and not is_tool_result_only:
                     text = extract_text(content)
                     if text:
                         last_user_text = text
@@ -2086,12 +2094,11 @@ def main():
         default=200,
         help="Max sessions to print, 0 = no limit (default: 200). This is a "
         "print-time cap, not a scan-time one: every session in scope is "
-        "still classified before --limit or --kind trims the output, so "
-        "--kind does not reduce cost the way narrowing --from-date/--to-date "
-        "does. The 200 default exists specifically to stop an accidentally "
-        "unscoped `--all-projects` with no date bound from dumping tens of "
-        "thousands of lines; pass --limit 0 to explicitly opt into an "
-        "unbounded dump once you know the scope is narrow.",
+        "still classified before --limit or --kind trims the output. Date "
+        "flags filter metadata after candidate transcript bodies are read; "
+        "bound project_path before using this command. --all-projects is "
+        "not made a bounded scan by dates or output limits. Pass --limit 0 "
+        "only when the preselected scope is already narrow.",
     )
     _add_home_flags(triage_parser)
 

@@ -40,7 +40,7 @@
       {
         "id": "pre:mcp-health-check",
         "description": "Check MCP server health before MCP tool execution and block unhealthy MCP calls",
-        "fingerprint": "922686364d01"
+        "fingerprint": "a68881c27a83"
       },
       {
         "id": "pre:edit-write:gateguard-fact-force",
@@ -83,7 +83,7 @@
       {
         "id": "post:mcp-health-check",
         "description": "Track failed MCP tool calls, mark unhealthy servers, and attempt reconnect",
-        "fingerprint": "9e25549c1229"
+        "fingerprint": "edbf5346288f"
       },
       {
         "id": "post:skill:track",

@@ -12,6 +12,7 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import uuid
@@ -446,8 +447,56 @@ def snapshot(state_dir, filename, record_type, enabled=True):
         run("commit", "-m", f"tibo-reset-codex: append {record_type}", "--", filename)
     except (OSError, subprocess.SubprocessError) as error:
         detail = str(error).splitlines()[0] if str(error) else type(error).__name__
+        stderr = getattr(error, "stderr", None)
+        if isinstance(stderr, str):
+            # A commit rejected by a pre-commit hook says why only on stderr; the
+            # exception text alone is just "exit status 1".
+            # A hook may echo the matched text; the note must not carry an email
+            # into logs when the journal contract forbids one.
+            tail = [re.sub(r"\S*@\S*", "<email>",
+                           re.sub(r"\x1b\[[0-9;]*m", "", line)).strip()
+                    for line in stderr.splitlines() if line.strip()][-3:]
+            if tail:
+                detail += " | " + " | ".join(tail)[:300]
         print(json.dumps({"note": f"git snapshot skipped: {detail}"}, ensure_ascii=False),
               file=sys.stderr)
+
+
+JOURNALS = ("forecasts.jsonl", "findings.jsonl", "withdrawals.jsonl")
+
+
+def snapshot_health(state_dir, enabled=True):
+    """Report whether the best-effort git snapshots are keeping up. Read-only.
+
+    A failed snapshot prints one stderr note and never blocks the append, so a
+    journal can go on lagging for days with nothing on the read path showing it.
+    `summary` runs at the start of every round, which makes it the place to look.
+    """
+    if not enabled:
+        return {"status": "disabled"}
+    if not (state_dir / ".git").exists():
+        return {"status": "no_repo"}
+    present = [name for name in JOURNALS if (state_dir / name).exists()]
+    if not present:
+        # An empty pathspec would make `git status` cover the whole repo.
+        return {"status": "ok"}
+    try:
+        # --ignored: a journal that .gitignore hides has never been in a snapshot.
+        out = subprocess.run(
+            ["git", "--no-optional-locks", "-C", str(state_dir), "status", "--porcelain",
+             "--ignored", "--", *present], capture_output=True, text=True, timeout=15,
+            check=True).stdout
+    except (OSError, subprocess.SubprocessError) as error:
+        detail = str(error).splitlines()[0] if str(error) else type(error).__name__
+        return {"status": "unknown", "detail": detail}
+    behind = sorted({line[3:] for line in out.splitlines() if line.strip()})
+    if not behind:
+        return {"status": "ok"}
+    return {"status": "lagging", "uncommitted": behind,
+            "hint": "These journals have content the local git snapshot does not. A snapshot "
+                    "retries only the journal it was triggered for, so the next append to the "
+                    "same journal retries it and prints the reason on stderr ('git snapshot "
+                    "skipped'); appends to other journals never clear it."}
 
 
 def main():
@@ -471,6 +520,7 @@ def main():
     try:
         if args.command == "summary":
             result = summarize(path, args.kind)
+            result["snapshot"] = snapshot_health(state, enabled=not args.no_git)
         elif args.command == "findings":
             result = list_findings(state / "findings.jsonl", max(args.limit, 0))
         elif args.command == "handoff":
