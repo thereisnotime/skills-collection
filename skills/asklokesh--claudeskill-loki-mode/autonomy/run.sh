@@ -238,6 +238,47 @@ fi
 SCRIPT_DIR="${LOKI_ORIGINAL_SCRIPT_DIR:-$SCRIPT_DIR}"
 PROJECT_DIR="${LOKI_ORIGINAL_PROJECT_DIR:-$PROJECT_DIR}"
 
+# A-134: `loki quick` is quiet unless LOKI_VERBOSE=1. The run re-executes itself with
+# stdout in .loki/quick-run.log; this shell prints the inner run's compact receipt and
+# a warning count. Errors go to stderr.
+if [ -z "${LOKI_QUICK_INNER:-}" ] && [ "${LOKI_VERBOSE:-0}" != "1" ] && [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    case "${1:-}" in */quick-prd-*.md | quick-prd-*.md)
+        _qd="$(cd "$(dirname "$1")" && pwd -P)"; rm -f "$_qd/quick-receipt.txt"
+        # Async with default INT/QUIT (a bare `&` child ignores them), signals forwarded.
+        # A Node/Bun parent starts us with SIGPIPE ignored, and bash cannot reset a
+        # signal ignored on entry; every `echo big | head -1` then prints "echo: write
+        # error: Broken pipe" onto the user's terminal. Re-exec the inner run through
+        # python3 with SIGPIPE back at default (SIG_DFL survives exec).
+        _qexec=("$BASH" "$0" "$@")
+        # Env differences under python (not bash): LC_CTYPE may be set when the locale is
+        # C, macOS adds __CF_USER_TEXT_ENCODING, and SIGXFSZ stays ignored.
+        # The import probe guards a python3 that exists but is broken (CLT stub, pyenv shim).
+        if command -v python3 >/dev/null 2>&1 && python3 -c 'import os,signal' >/dev/null 2>&1; then
+            _qexec=(python3 -c 'import os,signal,sys;signal.signal(signal.SIGPIPE,signal.SIG_DFL);os.execv(sys.argv[1],sys.argv[1:])' "${_qexec[@]}")
+        fi
+        # A background job gets stdin=/dev/null. Only a TTY needs it back (pause-mode
+        # keypress resume); a pipe would block the provider, which reads inherited stdin.
+        if [ -t 0 ]; then exec 3<&0; else exec 3</dev/null; fi
+        ( trap - INT QUIT; LOKI_QUICK_DIR="$_qd" LOKI_QUICK_OUTER_PID=$$ LOKI_QUICK_INNER=1 exec "${_qexec[@]}" >"$_qd/quick-run.log" <&3 3<&- ) &
+        _qpid=$!
+        trap 'kill -INT "$_qpid" 2>/dev/null' INT
+        trap 'kill -TERM "$_qpid" 2>/dev/null' TERM HUP
+        wait "$_qpid"; _qrc=$?
+        kill -0 "$_qpid" 2>/dev/null && { wait "$_qpid"; _qrc=$?; }
+        trap - INT TERM HUP
+        _qw=$(grep -cF '[WARN]' "$_qd/quick-run.log" 2>/dev/null); _qw="${_qw:-0}"
+        if [ "$_qrc" -ne 0 ] || [ ! -s "$_qd/quick-receipt.txt" ]; then
+            # Anchored to log_error/log_warn lines (optional ANSI prefix) and capped at 200
+            # chars so a long prompt line mentioning "failed" is never dumped.
+            _qr=$(grep -E $'^(\033\\[[0-9;]*m)?\\[(ERROR|WARN)\\]' "$_qd/quick-run.log" 2>/dev/null | tail -n 3 | cut -c1-200)
+            echo "${_qr:-$(tail -n 3 "$_qd/quick-run.log" 2>/dev/null | cut -c1-200)}"
+        fi
+        [ "$_qw" -gt 0 ] && echo "Warnings: $_qw (see $_qd/quick-run.log)"
+        cat "$_qd/quick-receipt.txt" 2>/dev/null
+        exit "$_qrc" ;;
+    esac
+fi
+
 # Clean up ONLY the recorded temp copy, and ONLY if it is a real temp file.
 # Deleting BASH_SOURCE[0] here was the bug: an inherited LOKI_RUNNING_FROM_TEMP
 # made BASH_SOURCE[0] the canonical source, so run.sh deleted itself on spawned
@@ -1025,7 +1066,7 @@ _loki_invoke_argv_provider() {
 
     LOKI_DEADLINE_IDLE_TIMEOUT="${LOKI_PROVIDER_IDLE_TIMEOUT:-0}" \
     _loki_with_deadline "${LOKI_PROVIDER_CALL_TIMEOUT:-0}" \
-        "${_LOKI_INVOKE_ARGV[@]}" 2>&1 \
+        "${_LOKI_INVOKE_ARGV[@]}" < /dev/null 2>&1 \
         | tee -a "$log_file" "$agent_log" "$iter_output"
     _loki_argv_pipe_status=("${PIPESTATUS[@]}")
     return "$(_loki_provider_pipeline_exit_code \
@@ -1722,7 +1763,7 @@ if [ -f "$PROVIDERS_DIR/loader.sh" ]; then
         _detected="$(auto_detect_provider 2>/dev/null || true)"
         if [ -n "$_detected" ]; then
             LOKI_PROVIDER="$_detected"
-            echo "[loki] provider: $LOKI_PROVIDER (auto-detected)" >&2
+            [ -n "${LOKI_QUICK_INNER:-}" ] || echo "[loki] provider: $LOKI_PROVIDER (auto-detected)" >&2
         else
             # Nothing installed. Keep the historical default so the existing
             # "not installed" error path reports claude, which is the actionable
@@ -1833,7 +1874,7 @@ _loki_log_enabled() { [ "$1" -ge "$(_loki_log_threshold)" ]; }
 log_info() { _loki_log_enabled 1 && echo -e "${GREEN}[INFO]${NC} $*" || true; }
 log_warn() { _loki_log_enabled 2 && echo -e "${YELLOW}[WARN]${NC} $*" || true; }
 log_warning() { log_warn "$@"; }  # Alias for backwards compatibility
-log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
+log_error() { local _fd=1; [ -z "${LOKI_QUICK_INNER:-}" ] || _fd=2; echo -e "${RED}[ERROR]${NC} $*" >&"$_fd"; }
 log_step() { _loki_log_enabled 1 && echo -e "${CYAN}[STEP]${NC} $*" || true; }
 log_debug() { [[ "${LOKI_DEBUG:-}" == "true" ]] && echo -e "${CYAN}[DEBUG]${NC} $*" >&2 || true; }
 
@@ -6255,6 +6296,83 @@ check_parallel_support() {
     return 0
 }
 
+# E-130: npm install cache keyed on sha256(package-lock.json + package.json),
+# stored under the project's .loki/cache/install/. Hit: copy cached node_modules.
+# Miss or unusable entry: real install, then publish the entry atomically
+# (temp dir + rename) so concurrent worktrees never see a partial entry.
+# ponytail: npm only; pip installs into the active interpreter, so there is no
+# per-worktree venv to cache. No lockfile means no cache (always install).
+_loki_npm_install_cached() {
+    local cache_root="$1" wt="$2" key entry tmp aside old
+    if [ ! -f "$wt/package-lock.json" ]; then
+        (cd "$wt" && npm install --silent 2>/dev/null) || true
+        return 0
+    fi
+    # node version + platform in the key: native addons are ABI specific
+    key="$({ cat "$wt/package-lock.json" "$wt/package.json" 2>/dev/null; node -v 2>/dev/null; uname -sm; } | { shasum -a 256 2>/dev/null || sha256sum; } | cut -d' ' -f1)"
+    if [ -n "$key" ]; then
+        entry="$cache_root/$key"
+        if [ -f "$entry/.complete" ] && [ -d "$entry/node_modules" ]; then
+            rm -rf "$wt/node_modules"
+            if cp -R "$entry/node_modules" "$wt/node_modules" 2>/dev/null; then
+                return 0
+            fi
+            rm -rf "$wt/node_modules"
+        fi
+        # Evict only an unusable entry (never a complete one another creator
+        # just published), renamed aside first so the removal is not racy.
+        if [ -d "$entry" ] && { [ ! -f "$entry/.complete" ] || [ ! -d "$entry/node_modules" ]; }; then
+            aside="$cache_root/.evict.$key.$$.$RANDOM"
+            mv "$entry" "$aside" 2>/dev/null && rm -rf "$aside" 2>/dev/null
+        fi
+    fi
+    (cd "$wt" && npm install --silent 2>/dev/null) || true
+    if [ -n "$key" ] && [ -d "$wt/node_modules" ]; then
+        mkdir -p "$cache_root" 2>/dev/null || return 0
+        tmp="$(mktemp -d "$cache_root/.tmp.XXXXXX" 2>/dev/null)" || return 0
+        if cp -R "$wt/node_modules" "$tmp/node_modules" 2>/dev/null && : >"$tmp/.complete"; then
+            # mv onto an existing directory would nest tmp inside it, so
+            # publish only when absent, then clean any nesting from a lost race.
+            if [ -e "$entry" ]; then
+                rm -rf "$tmp"
+            else
+                mv "$tmp" "$entry" 2>/dev/null
+                rm -rf "${entry:?}/${tmp##*/}" "$tmp" 2>/dev/null
+            fi
+            # ponytail: keep the 3 newest entries by mtime; no LRU touch on hit
+            for old in $(ls -t "$cache_root" 2>/dev/null | tail -n +4); do
+                aside="$cache_root/.tmp.evict.$old.$$"
+                mv "$cache_root/$old" "$aside" 2>/dev/null && rm -rf "$aside"
+            done
+        else
+            rm -rf "$tmp"
+        fi
+    fi
+    return 0
+}
+
+# E-130: copy .loki into a worktree without the install cache (the cache is
+# often hundreds of MB; copy-then-delete would cost more than it saves).
+# Children are copied one by one, so no tar/rsync flavour issues (bash 3.2 safe).
+_loki_copy_state_no_install_cache() {
+    local src="$1" dst="$2" e c
+    mkdir -p "$dst" || return 1
+    for e in "$src"/* "$src"/.[!.]*; do
+        [ -e "$e" ] || [ -L "$e" ] || continue
+        if [ "${e##*/}" = "cache" ] && [ -d "$e" ] && [ ! -L "$e" ]; then
+            mkdir -p "$dst/cache"
+            for c in "$e"/* "$e"/.[!.]*; do
+                [ -e "$c" ] || [ -L "$c" ] || continue
+                [ "${c##*/}" = "install" ] && continue
+                cp -R "$c" "$dst/cache/" 2>/dev/null || true
+            done
+        else
+            cp -R "$e" "$dst/" 2>/dev/null || true
+        fi
+    done
+    return 0
+}
+
 # Create a worktree for a specific stream
 create_worktree() {
     local stream_name="$1"
@@ -6292,14 +6410,15 @@ create_worktree() {
 
         # Copy .loki state to worktree
         if [ -d "$TARGET_DIR/.loki" ]; then
-            cp -r "$TARGET_DIR/.loki" "$worktree_path/" 2>/dev/null || true
+            # E-130: never copy the install cache into the worktree
+            _loki_copy_state_no_install_cache "$TARGET_DIR/.loki" "$worktree_path/.loki"
         fi
 
         # Initialize environment (detect and run appropriate install)
         (
             cd "$worktree_path" || exit 1
             if [ -f "package.json" ]; then
-                npm install --silent 2>/dev/null || true
+                _loki_npm_install_cached "${TARGET_DIR}/.loki/cache/install" "$worktree_path"
             elif [ -f "requirements.txt" ]; then
                 pip install -r requirements.txt -q 2>/dev/null || true
             elif [ -f "Cargo.toml" ]; then
@@ -6823,7 +6942,7 @@ Output ONLY the resolved file content with no conflict markers. No explanations.
                 # the EXACT resolved file content (the shell writes it verbatim).
                 # Compressing prose into the merged source would corrupt the file,
                 # so disable caveman unconditionally here. No-op when absent.
-                resolution=$(CAVEMAN_DEFAULT_MODE=off claude "${_cr_argv[@]}" -p "$conflict_prompt" --output-format text 2>/dev/null)
+                resolution=$(CAVEMAN_DEFAULT_MODE=off claude "${_cr_argv[@]}" -p "$conflict_prompt" --output-format text < /dev/null 2>/dev/null)
                 ;;
             codex)
                 resolution=$(codex exec --sandbox workspace-write --skip-git-repo-check "$conflict_prompt" 2>/dev/null)
@@ -7326,7 +7445,22 @@ init_loki_dir() {
         fi
     fi
 
-    mkdir -p .loki/{state,queue,messages,logs,config,prompts,artifacts,scripts}
+    # crash.sh's disclosure sentinel can have left a regular FILE at .loki/config
+    # (LOKI_DIR is the project .loki); mkdir -p of the config DIRECTORY then fails
+    # with "File exists". Fold the file into the directory (back-compat sentinel only),
+    # but ONLY when it holds nothing except that sentinel, and NEVER for ~/.loki (a run
+    # started from $HOME): there config is the user's real settings FILE (telemetry opt-out).
+    if [ -f .loki/config ] && [ ! -L .loki/config ] \
+       && [ "$(cd .loki 2>/dev/null && pwd -P)" != "$(cd "${HOME:-/nonexistent}/.loki" 2>/dev/null && pwd -P)" ] \
+       && [ -z "$(grep -v -e '^DISCLOSURE_SHOWN=true$' -e '^[[:space:]]*$' .loki/config 2>/dev/null)" ]; then
+        mv .loki/config .loki/config.disclosure.tmp 2>/dev/null \
+            && mkdir -p .loki/config 2>/dev/null \
+            && mv .loki/config.disclosure.tmp .loki/config/disclosure 2>/dev/null
+    fi
+    # Retry once: a concurrent creator of the same dir can make the first mkdir -p
+    # fail with "File exists" (seen on CI, leaked to the quiet quick terminal).
+    mkdir -p .loki/{state,queue,messages,logs,config,prompts,artifacts,scripts} 2>/dev/null \
+        || mkdir -p .loki/{state,queue,messages,logs,config,prompts,artifacts,scripts}
     mkdir -p .loki/queue
     mkdir -p .loki/state/checkpoints
     mkdir -p .loki/artifacts/{releases,reports,backups}
@@ -7467,9 +7601,9 @@ invoke_cline() {
     shift
     local model="${LOKI_CLINE_MODEL:-}"
     if [[ -n "$model" ]]; then
-        cline -y -m "$model" "$prompt" "$@" 2>&1
+        cline -y -m "$model" "$prompt" "$@" < /dev/null 2>&1
     else
-        cline -y "$prompt" "$@" 2>&1
+        cline -y "$prompt" "$@" < /dev/null 2>&1
     fi
 }
 
@@ -7480,9 +7614,9 @@ invoke_cline_capture() {
     shift
     local model="${LOKI_CLINE_MODEL:-}"
     if [[ -n "$model" ]]; then
-        cline -y -m "$model" "$prompt" "$@" 2>&1
+        cline -y -m "$model" "$prompt" "$@" < /dev/null 2>&1
     else
-        cline -y "$prompt" "$@" 2>&1
+        cline -y "$prompt" "$@" < /dev/null 2>&1
     fi
 }
 
@@ -7638,68 +7772,6 @@ EOF
 # Track last known phase to detect changes
 LAST_KNOWN_PHASE=""
 
-# Set the current phase and emit event if changed
-# v7.5.12: append a log entry to the iteration-N task in in-progress.json.
-# Args: iteration, phase, level, message. All silent on failure -- this
-# must NEVER kill the run.
-append_iteration_task_log() {
-    local iteration="${1:-0}"
-    local phase="${2:-}"
-    local level="${3:-info}"
-    local message="${4:-}"
-    local in_progress_file=".loki/queue/in-progress.json"
-
-    [ -z "$iteration" ] && return 0
-    [ "$iteration" = "0" ] && return 0
-    [ ! -f "$in_progress_file" ] && return 0
-
-    local timestamp
-    timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-    ITER="$iteration" PHASE="$phase" LEVEL="$level" \
-    MESSAGE="$message" TIMESTAMP="$timestamp" \
-    python3 - "$in_progress_file" <<'PY' 2>/dev/null || true
-import json, os, sys, tempfile
-path = sys.argv[1]
-target_id = f"iteration-{os.environ['ITER']}"
-entry = {
-    "timestamp": os.environ["TIMESTAMP"],
-    "iteration": int(os.environ["ITER"]),
-    "level": os.environ.get("LEVEL", "info"),
-    "phase": os.environ.get("PHASE", ""),
-    "message": os.environ.get("MESSAGE", ""),
-}
-try:
-    with open(path) as f:
-        data = json.load(f)
-except Exception:
-    sys.exit(0)
-# Support both [...] and {tasks: [...]} shapes (matches load_queue_tasks).
-tasks = data["tasks"] if isinstance(data, dict) and isinstance(data.get("tasks"), list) else (data if isinstance(data, list) else None)
-if tasks is None:
-    sys.exit(0)
-mutated = False
-for t in tasks:
-    if not isinstance(t, dict):
-        continue
-    if t.get("id") == target_id:
-        logs = t.get("logs")
-        if not isinstance(logs, list):
-            logs = []
-        logs.append(entry)
-        t["logs"] = logs
-        mutated = True
-        break
-if not mutated:
-    sys.exit(0)
-out_dir = os.path.dirname(path) or "."
-fd, tmp = tempfile.mkstemp(dir=out_dir, suffix=".json")
-with os.fdopen(fd, "w") as f:
-    json.dump(data, f, indent=2)
-os.replace(tmp, path)
-PY
-}
-
 #===============================================================================
 # Dashboard State Writer (Real-time sync with web dashboard)
 #===============================================================================
@@ -7716,11 +7788,11 @@ write_dashboard_state() {
     local tasks_failed=0
 
     if [ -f ".loki/state/orchestrator.json" ]; then
-        current_phase=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('currentPhase', 'BOOTSTRAP'))" 2>/dev/null || echo "BOOTSTRAP")
-        version=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('version', 'unknown'))" 2>/dev/null || echo "unknown")
-        started_at=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('startedAt', ''))" 2>/dev/null || echo "")
-        tasks_completed=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('metrics', {}).get('tasksCompleted', 0))" 2>/dev/null || echo "0")
-        tasks_failed=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('metrics', {}).get('tasksFailed', 0))" 2>/dev/null || echo "0")
+        _dv=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('currentPhase', 'BOOTSTRAP'))" 2>/dev/null) && current_phase="$_dv"
+        _dv=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('version', 'unknown'))" 2>/dev/null) && version="$_dv"
+        _dv=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('startedAt', ''))" 2>/dev/null) && started_at="$_dv"
+        _dv=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('metrics', {}).get('tasksCompleted', 0))" 2>/dev/null) && tasks_completed="$_dv"
+        _dv=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('metrics', {}).get('tasksFailed', 0))" 2>/dev/null) && tasks_failed="$_dv"
     fi
 
     # Emit phase change event if phase has changed (checked in background monitor loop)
@@ -10984,6 +11056,12 @@ _loki_untrack_agent_committed_user_files() {
     return 0
 }
 
+# A-132: true for a `loki quick` run. Only cmd_quick writes .loki/quick-prd-<pid>.md.
+_loki_is_quick_prd() {
+    case "${1:-}" in */quick-prd-*.md | quick-prd-*.md) return 0 ;; esac
+    return 1
+}
+
 commit_session_changes() {
     # Squash the session's work into one honest session-end commit on the agent
     # branch (LOCK A3/A4/A8). Commit-always (incl. failed runs) so the user is
@@ -11178,6 +11256,52 @@ _loki_proof_json_for_pr() {
     return 0
 }
 
+# A-134: compact quiet-mode receipt for the outer shell (see top of file) to print.
+# A-118 / D47: a quick run that weakened its own tests exits 3. Prints the rc to use:
+# only ever RAISES a 0 (never lowers a non-zero rc); NOT VERIFIED from unproven gates alone keeps 0.
+_loki_quick_integrity_rc() {
+    local rc="${1:-0}" ld="${TARGET_DIR:-.}/.loki" rid pj
+    [ "$rc" = "0" ] || { echo "$rc"; return 0; }
+    rid="$(cat "$ld/state/last-proof-id.txt" 2>/dev/null || true)"
+    case "$rid" in '' | *[!A-Za-z0-9._-]*) echo 0; return 0 ;; esac
+    pj="$ld/proofs/$rid/proof.json"
+    if [ -f "$pj" ] && python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+import json
+d = json.load(open(sys.argv[1]))
+g = (d.get('facts') or {}).get('git') or {}
+if sys.argv[2] and g.get('head_sha') != sys.argv[2]:
+    sys.exit(1)
+sys.exit(0 if any(isinstance(x, dict) and x.get('item') == 'tests_integrity' and x.get('status') == 'failed' for x in ((d.get('honesty') or {}).get('degraded') or [])) else 1)" "$pj" "$(git -C "${TARGET_DIR:-.}" rev-parse HEAD 2>/dev/null || true)" 2>/dev/null; then
+        echo 3
+    else
+        echo 0
+    fi
+}
+
+_loki_quick_receipt_write() {
+    local ld="${TARGET_DIR:-.}/.loki" rid pj
+    rid="$(cat "$ld/state/last-proof-id.txt" 2>/dev/null || true)"
+    case "$rid" in '' | *[!A-Za-z0-9._-]*) return 0 ;; esac
+    pj="$ld/proofs/$rid/proof.json"
+    [ -f "$pj" ] || return 0
+    python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+import json
+d = json.load(open(sys.argv[1]))
+g = (d.get('facts') or {}).get('git') or {}
+v = d.get('verification') or {}
+if sys.argv[3] and g.get('head_sha') != sys.argv[3]:
+    print('Evidence Receipt: unavailable (final proof generation failed; newest proof predates the session commit)')
+    sys.exit(0)
+dg = [x for x in ((d.get('honesty') or {}).get('degraded') or []) if isinstance(x, dict)]
+tw = [str(x.get('reason') or 'tests weakened') for x in dg if x.get('item') == 'tests_integrity' and x.get('status') == 'failed']
+deg = [str(x.get('item') or '').split(':')[-1] for x in dg if x.get('item') != 'tests_integrity']
+notes = tw[:1] + ([] if (v.get('gpg_signature') or v.get('attestation')) else ['unsigned']) + (['%d not proven: %s' % (len(deg), ', '.join(deg))] if deg else [])
+print('Evidence Receipt: ' + str((d.get('honesty') or {}).get('headline') or 'unavailable') + (' (' + '; '.join(notes) + ')' if notes else ''))
+print('receipt_sha256: ' + str(v.get('hash') or ''))
+print('Head sha: ' + str(g.get('head_sha') or '') + '  Diff sha256: ' + str(g.get('diff_sha256') or ''))
+print('Check it: loki verify  (or loki proof verify ' + sys.argv[2] + ')')" "$pj" "$rid" "$(git -C "${TARGET_DIR:-.}" rev-parse HEAD 2>/dev/null || true)" > "$LOKI_QUICK_DIR/quick-receipt.txt" 2>/dev/null || rm -f "$LOKI_QUICK_DIR/quick-receipt.txt"
+}
+
 create_session_pr() {
     # Advise the user how to open a PR for the agent branch. PRINT-ONLY by
     # default (no push, no PR). LOKI_AUTO_PR=1 restores the legacy auto behavior.
@@ -11243,11 +11367,9 @@ create_session_pr() {
         # Proven PR (Loop 6): print the Evidence Receipt block AFTER the push/PR
         # advice so a user opening a manual PR can paste it into the body. This is
         # the print-PR-body fallback. Default-on; LOKI_PROVEN_PR=0 -> not invoked
-        # (advisory output byte-identical to before). Production callers pass an
-        # empty expected_head_sha: the session commit lands between proof-gen and
-        # this point, so the branch head is structurally offset from the proof's
-        # head and feeding it would false-degrade every legitimate receipt; the
-        # anti-stale guarantee is the run_id pointer (R-DET-1), not a head match.
+        # (advisory output byte-identical to before). The final proof now precedes this
+        # call, so its head is the branch head; expected_head_sha stays empty and the
+        # anti-stale guarantee is the run_id pointer (R-DET-1).
         if [ "${LOKI_PROVEN_PR:-1}" != "0" ] && declare -f render_evidence_receipt_md >/dev/null 2>&1; then
             local _pr_proof=""
             _pr_proof="$(_loki_proof_json_for_pr 2>/dev/null || true)"
@@ -16327,7 +16449,7 @@ _dispatch_reviewer() {
             fi
             _loki_with_deadline "$_codex_cap" \
                 codex exec --sandbox workspace-write --skip-git-repo-check "$prompt_text" \
-                > "$review_output"
+                < /dev/null > "$review_output"
             ;;
         cline)
             local _cline_cap="$_review_budget"
@@ -16337,7 +16459,7 @@ _dispatch_reviewer() {
             local _cline_argv=(-y)
             [ -n "${LOKI_CLINE_MODEL:-}" ] && _cline_argv+=(-m "$LOKI_CLINE_MODEL")
             _loki_with_deadline "$_cline_cap" cline "${_cline_argv[@]}" "$prompt_text" \
-                > "$review_output"
+                < /dev/null > "$review_output"
             ;;
         aider)
             local _aider_cap="$_review_budget"
@@ -20911,6 +21033,7 @@ PYEOF
 _intelligent_usage_regen() {
     local target_dir="${TARGET_DIR:-.}"
     local usage_path="$target_dir/USAGE.md"
+    _loki_is_quick_prd "${PRD_PATH:-}" && return 0  # A-132: no USAGE regen on a quick fix
     # Only the provider the operator chose may see a prompt (V10 P5): on any
     # other provider keep the agent-written USAGE.md. Policy (and the
     # LOKI_ALLOW_CLAUDE_SIDECALLS=1 opt-in) lives in providers/loader.sh,
@@ -22348,6 +22471,9 @@ build_prompt() {
     # and to the dashboard/Purple Lab UI.
     local usage_doc_instruction="USAGE_DOC_REQUIRED: Before invoking loki_complete_task (or touching .loki/signals/COMPLETION_REQUESTED), write USAGE.md at the project root. Detect the stack from package.json/requirements.txt/Cargo.toml/go.mod/etc. and include these sections: (1) Prerequisites (runtimes, ports, env vars), (2) Install (exact command, e.g. 'npm install' or 'pip install -r requirements.txt'), (3) Start (exact command, e.g. 'npm start' or 'python server.py'), (4) Verify -- 2 to 3 copy-paste commands the user can run to confirm it works (curl examples for APIs with expected output, browser URL for web UIs, command invocation for CLIs), (5) Stop (Ctrl+C or 'lsof -ti:PORT | xargs kill -9' for backgrounded servers). Keep it under 100 lines, plain Markdown, no emojis. If USAGE.md already exists and is accurate, leave it; otherwise create or update it."
 
+    # A-132: a quick fix does not ask for USAGE.md (persist_user_prd repoints $prd, so key on PRD_PATH).
+    _loki_is_quick_prd "${PRD_PATH:-}" && usage_doc_instruction=""
+
     # DOC_SCOPE instruction (F52): scale generated documentation to the detected
     # project complexity. A trivial one-file app does not warrant a nine-file
     # architecture suite (ARCHITECTURE/COMPONENTS/DECISIONS/API/SETUP/TESTING) --
@@ -23547,7 +23673,7 @@ populate_prd_queue() {
     # Prefer the original project PRD over generated quick-prd.md
     # quick-prd.md contains boilerplate that produces garbage tasks
     local effective_prd="$prd_file"
-    if [[ "$prd_file" == *"quick-prd.md" ]] || [[ "$prd_file" == *"chat-prd.md" ]]; then
+    if [[ "$prd_file" == *"quick-prd.md" ]] || _loki_is_quick_prd "$prd_file" || [[ "$prd_file" == *"chat-prd.md" ]]; then
         # Look for the real PRD in the project root
         for candidate in "PRD.md" "prd.md" "requirements.md" "REQUIREMENTS.md" "spec.md" "SPEC.md"; do
             if [[ -f "$candidate" ]]; then
@@ -23921,7 +24047,8 @@ else:
 with open(pending_path, "w") as f:
     json.dump(output, f, indent=2)
 
-print(f"Extracted {added} tasks from PRD ({len(features)} features found)", file=sys.stderr)
+if not os.environ.get("LOKI_QUICK_INNER"):
+    print(f"Extracted {added} tasks from PRD ({len(features)} features found)", file=sys.stderr)
 PRD_PARSE_EOF
 
     if [[ $? -ne 0 ]]; then
@@ -25375,12 +25502,12 @@ except Exception as exc:
                 LOKI_DEADLINE_IDLE_TIMEOUT="${LOKI_PROVIDER_IDLE_TIMEOUT:-0}" \
                 _loki_with_deadline "${LOKI_PROVIDER_CALL_TIMEOUT:-0}" \
                 claude "${_loki_claude_argv[@]}" -p "$prompt" \
-            --output-format stream-json --verbose 2>&1
+            --output-format stream-json --verbose < /dev/null 2>&1
                 else
                 LOKI_DEADLINE_IDLE_TIMEOUT="${LOKI_PROVIDER_IDLE_TIMEOUT:-0}" \
                 _loki_with_deadline "${LOKI_PROVIDER_CALL_TIMEOUT:-0}" \
                 claude "${_loki_claude_argv[@]}" -p "$prompt" \
-            --output-format stream-json --verbose 2>&1
+            --output-format stream-json --verbose < /dev/null 2>&1
                 fi | \
             tee -a "$log_file" "$agent_log" "$iter_output" | \
             python3 -u -c '
@@ -27675,7 +27802,7 @@ reap_own_process_group() {
     # Collect protected pids (dashboard, app-runner, registered children) so the
     # reap never takes down the shared dashboard if it happens to share our
     # group. Mirrors the `loki stop` / dashboard reaper protection set.
-    local _protected=" $$ "
+    local _protected=" $$ ${LOKI_QUICK_OUTER_PID:-} "  # A-134: the quiet-mode outer shell shares our group
     local _pf _p
     if [ -d "$loki_dir/pids" ]; then
         for _pf in "$loki_dir/pids"/*.json; do
@@ -29122,27 +29249,13 @@ main() {
         # learnings writers, proof generation, metrics aggregation -- runs here
         # and was never timed. Opened immediately so nothing below is missed.
         _teardown_t0=$(date +%s 2>/dev/null)
-        # PRE-EDIT SNAPSHOT: freeze the agent's raw diff HERE, the first
-        # instruction after the loop returns, because everything below this line
-        # can change the tree -- commit_session_changes commits the work (after
-        # which `git diff HEAD` is empty), and HANDOFF.md/learnings writers touch
-        # files before that. The snapshot is write-once, so capturing it late
-        # would permanently record someone else's edits as the agent's. Runs in
-        # the FOREGROUND on purpose: the entire value of this position is that
-        # the capture COMPLETES before any mutation, and backgrounding it would
-        # reintroduce exactly the race the placement exists to remove (the
-        # module bounds each git call at 60s, so the cost is bounded).
+        # PRE-EDIT SNAPSHOT: freeze the agent's raw diff HERE, the first instruction
+        # after the loop: commit, HANDOFF and learnings writers below all change the
+        # tree, and the snapshot is write-once. Foreground on purpose (each git call
+        # is bounded at 60s) so the capture completes before any mutation.
         capture_preedit_snapshot || true
-        # ZOMBIE-RECEIPT GUARD: proof generation + the COMPLETED marker live in the
-        # teardown far below. If the process is killed (Docker restart, OOM, worker
-        # reap) between here and there, a genuinely finished build (real code, exit
-        # 0) leaves NO proof.json and STATUS stuck "BUILDING" -- the build "worked"
-        # but produced no Evidence Receipt (observed on run-20260716194328). Emit
-        # the proof HERE too, right after the loop returns, so the receipt survives
-        # a late teardown death. Idempotent + fire-and-forget: the teardown's own
-        # generate_proof_of_run re-runs harmlessly (same run_id -> same proof dir),
-        # and LOKI_PROOF=0 still opts out. This closes the "nothing gets verified"
-        # gap at its highest-value point without touching run_autonomous itself.
+        # ZOMBIE-RECEIPT GUARD: emit the proof here too, so a teardown killed below
+        # (Docker restart, OOM) still leaves a receipt. Idempotent; LOKI_PROOF=0 opts out.
         if [ "${LOKI_PROOF:-1}" != "0" ] && type generate_proof_of_run &>/dev/null; then
             generate_proof_of_run "$result" || true
         fi
@@ -29266,6 +29379,11 @@ main() {
             # move, so a partial write never leaves a truncated HANDOFF.md.
             local _handoff_dir _handoff_md _handoff_tmp
             _handoff_dir="${TARGET_DIR:-.}"
+            # A-132: a quick fix keeps HANDOFF.md under .loki/, out of the repo root.
+            if _loki_is_quick_prd "${PRD_PATH:-}"; then
+                _handoff_dir="${LOKI_DIR:-${TARGET_DIR:-.}/.loki}"
+                mkdir -p "$_handoff_dir" 2>/dev/null || true
+            fi
             _handoff_md="$_handoff_dir/HANDOFF.md"
             _handoff_tmp="$_handoff_dir/.HANDOFF.md.tmp"
             if python3 "$_own_render" --loki-dir "${LOKI_DIR:-${TARGET_DIR:-.}/.loki}" --md > "$_handoff_tmp" 2>/dev/null; then
@@ -29289,13 +29407,6 @@ main() {
     # then advise the user how to open a PR. Both are no-ops when no agent branch
     # was set up (LOKI_BRANCH_PROTECTION=false) or nothing changed.
     commit_session_changes
-    # Trusted post-session step. NOT wrapped in _loki_with_github_tokens as a
-    # whole (round 5): that ran every git call inside it (rev-list, merge-base,
-    # push) with the real credentials AND the agent's repo config loaded. Its
-    # push (_loki_trusted_push) and gh calls (gh wrapper) each re-grant the
-    # credentials themselves, outside the agent's repo.
-    create_session_pr
-    audit_agent_action "session_stop" "Session ended" "result=$result,iterations=$ITERATION_COUNT"
 
     # The first terminal summary is written before session changes are committed.
     # Refresh its durable files against the final HEAD without notifying twice.
@@ -29313,35 +29424,25 @@ except Exception:
         build_completion_summary "$_completion_outcome" || true
     fi
 
-    # Final source-tree binding for server-owned terminal state. HANDOFF.md and
-    # commit_session_changes can change the worktree after the earlier receipt.
-    # Regenerate idempotently only after those writers finish, before cleanup,
-    # so proof.tree_sha256 describes the exact tree the runner returns.
+    # Final source-tree binding, AFTER HANDOFF.md and commit_session_changes (A-134),
+    # so Head and diff sha256 describe the tree the runner returns. Every receipt
+    # print follows; create_session_pr never changes HEAD or the tree.
     if [ "${LOKI_PROOF:-1}" != "0" ]; then
         generate_proof_of_run "$result" || true
     fi
+    # A-118: a quick run that weakened its tests exits 3 (quiet and verbose alike).
+    ! _loki_is_quick_prd "${PRD_PATH:-}" || result="$(_loki_quick_integrity_rc "$result")"
+    [ -z "${LOKI_QUICK_INNER:-}" ] || _loki_quick_receipt_write
+    # Trusted post-session step. NOT wrapped in _loki_with_github_tokens as a
+    # whole (round 5): its push (_loki_trusted_push) and gh calls each re-grant
+    # the credentials themselves, outside the agent's repo.
+    create_session_pr
+    audit_agent_action "session_stop" "Session ended" "result=$result,iterations=$ITERATION_COUNT"
 
-    # Evidence Receipt (#209): tell the user, on screen, that a checkable
-    # receipt exists and how to re-check it.
-    #
-    # POSITION IS LOAD-BEARING. This sits immediately after the FINAL
-    # generate_proof_of_run, which is the only point where the receipt for THIS
-    # run is guaranteed written and .loki/state/last-proof-id.txt is guaranteed
-    # to point at it. Every earlier surface is either too early (the completion
-    # card renders from inside run_autonomous, long before any proof exists) or
-    # unreachable to a foreground user (COMPLETION.txt self-heals here, but only
-    # a --bg launch is ever told to read it). Before #211 the pointer was never
-    # cleared at run start, so announcing from an earlier site printed the
-    # PREVIOUS run's receipt and verdict on a second run in the same directory.
-    # Run init now clears it (search "Same reasoning for the proof pointer"), so
-    # a stale pointer no longer survives into a new run; the position still
-    # matters because an earlier site is simply too early for THIS run's proof.
-    #
-    # TTY-gated the same way print_ttfv_next_steps is above: machine output and
-    # --bg stay byte-identical, and those readers already get the same facts
-    # from COMPLETION.txt. Fail-silent and best-effort: prints nothing at all
-    # when no receipt was written (LOKI_PROOF=0, or generation failed), and
-    # never fails the run.
+    # Evidence Receipt (#209): tell the user a checkable receipt exists. POSITION IS
+    # LOAD-BEARING: only after the final proof above does last-proof-id.txt point at
+    # THIS run's receipt (earlier sites print the previous run's). TTY-only and
+    # fail-silent; --bg and machine output read the same facts from COMPLETION.txt.
     if [ -t 1 ] && [ "${BACKGROUND_MODE:-false}" != "true" ]; then
         _rcpt="$(_loki_receipt_facts "${TARGET_DIR:-.}/.loki" 2>/dev/null || true)"
         if [ -n "${_rcpt:-}" ]; then

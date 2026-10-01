@@ -1,12 +1,6 @@
-<div align="center">
+Your agent says done. Loki proves it.
 
-# Loki Mode
-
-### The spec-driven autonomous builder with verified completion.
-
-_The free, source-available autonomous coding agent by [Autonomi](https://www.autonomi.dev/). Same Loki CLI, SDK, and MCP for everyone; the commercial editions for teams and enterprises are sold under the **Autonomi** brand (Autonomi Cloud, Autonomi Enterprise)._
-
-**Hand it a spec. It does not accept "done" on an empty diff or failing tests.**
+An autonomous software factory that knows what it is supposed to deliver, and proves it did.
 
 [![npm version](https://img.shields.io/npm/v/loki-mode?style=for-the-badge&logo=npm&logoColor=white&color=553DE9)](https://www.npmjs.com/package/loki-mode)
 [![npm downloads](https://img.shields.io/npm/dt/loki-mode?style=for-the-badge&logo=npm&logoColor=white&color=1FC5A8&label=downloads)](https://www.npmjs.com/package/loki-mode)
@@ -15,29 +9,47 @@ _The free, source-available autonomous coding agent by [Autonomi](https://www.au
 
 [Website](https://www.autonomi.dev/) | [Documentation](wiki/Home.md) | [Installation](docs/INSTALLATION.md) | [Changelog](CHANGELOG.md)
 
-</div>
+Loki Mode is a free, source-available autonomous coding agent by [Autonomi](https://www.autonomi.dev/). Hand it a PRD, GitHub issue, OpenAPI doc or one-line brief. It derives a delivery contract (the acceptance criteria), builds against it, and ends with a signed Evidence Receipt that states what was proven and what was not. If the contract cannot be derived, it stops and asks one question instead of guessing.
 
----
+Before a build counts as done, a review council selects reviewers from a specialist pool (`agents/types.json`, scored by `run.sh:FOCUS_KEYWORDS`). The bundled MCP server exposes 36 tools over stdio (`mcp/server.py`).
+
+## Contents
+
+- [Install](#install)
+- [Loki 10 engine](#loki-10-engine)
+- [Outcomes and exit codes](#outcomes-and-exit-codes)
+- [Signed receipts and loki verify](#signed-receipts-and-loki-verify)
+- [Quiet output](#quiet-output)
+- [Release channels: next and latest](#release-channels-next-and-latest)
+- [loki doctor](#loki-doctor)
+- [Modernization: status of loki modernize](#modernization-status-of-loki-modernize)
+- [Providers](#providers)
+- [Legacy engine reference](#legacy-engine-reference) (the engine `loki` runs by default today)
 
 ## Install
 
 ```bash
 bun install -g loki-mode          # recommended (npm, Homebrew, Docker below)
+loki doctor                       # checks your setup, names any blocker
 ```
-
-<details>
-<summary>Other install methods</summary>
 
 | Method | Command | Notes |
 |--------|---------|-------|
 | **Bun (recommended)** | `bun install -g loki-mode` | Fastest startup for CLI commands. |
 | **npm** | `npm install -g loki-mode` | Works without Bun (bash fallback). Migrate any time with `loki self-update --to bun`. |
-| **Homebrew** | `brew tap asklokesh/tap && brew install loki-mode` | Auto-installs Bun as a dep. |
-| **Docker** | `docker pull asklokesh/loki-mode:latest` | Bun + Claude CLI pre-installed. See [DOCKER_README.md](DOCKER_README.md). |
+| **Homebrew** | `brew tap asklokesh/tap && brew install loki-mode` | Auto-installs Bun as a dependency. |
+| **Docker** | `docker pull asklokesh/loki-mode:latest` | Bun and the Claude CLI pre-installed. See [DOCKER_README.md](DOCKER_README.md). |
+| **No install** | `npx loki-mode tour` | Prints a real Evidence Receipt from a past build. No key, no spend, no network. |
 
-Upgrade with `loki self-update`. Long form: [Installation Guide](docs/INSTALLATION.md).
+Upgrade with `loki self-update`. Long form: [Installation Guide](docs/INSTALLATION.md). `npm install -g loki-mode` installs the `latest` dist-tag; see [Release channels](#release-channels-next-and-latest) for `next`.
 
-</details>
+**Loki needs a model to drive.** An `ANTHROPIC_API_KEY` alone is enough (the Claude Agent SDK ships inside Loki; on the default engine this path needs Bun and `LOKI_SDK_MODE=full`, see Setup details below), or point it at Claude Code, Cline, Codex, Aider or opencode. `loki doctor` tells you exactly what is missing.
+
+```bash
+export ANTHROPIC_API_KEY=sk-...
+loki doctor
+loki quick "fix the login bug"   # one small task on the Loki 10 engine
+```
 
 <details>
 <summary>Claude Code plugin (adds /loki-grill, /loki-spec-status, /loki-verify)</summary>
@@ -47,12 +59,184 @@ claude plugin marketplace add asklokesh/loki-mode
 claude plugin install loki-mode@loki-mode
 ```
 
-Adds three slash commands and the Loki MCP server (memory, task queue, code
-search, build management) to Claude Code. It calls the CLI rather than bundling
-it, so install `loki-mode` above first. Verify with `claude plugin list`:
-a healthy install reports `Status: enabled`.
+Adds three slash commands and the Loki MCP server (memory, task queue, code search, build management) to Claude Code. It calls the CLI rather than bundling it, so install `loki-mode` above first. Verify with `claude plugin list`: a healthy install reports `Status: enabled`.
 
 </details>
+
+loki-seal is a Claude Code Stop hook that runs your repo's real test suite when the agent tries to finish and refuses "done" if tests newly fail or tests or CI config were deleted, skipped or weakened (details: [packages/loki-seal/README.md](packages/loki-seal/README.md)). Install it from the repository's plugin marketplace:
+
+```
+/plugin marketplace add asklokesh/loki-mode
+/plugin install loki-seal@loki-mode
+```
+
+## Loki 10 engine
+
+Default: Loki 10 engine for `loki "<task>"`, `loki owner/repo#N` and `loki quick "<task>"`. Set LOKI_ENGINE=legacy or run `loki legacy <args>` for the previous engine. <!-- loki10-default -->
+
+Loki 10 is the rewritten engine and the default for tasks, issue mode and `quick`; `status`, `verify` and `dashboard` use it when `LOKI_ENGINE=v10` is set. Guide, provider table and summary format: [docs/v10/GUIDE.md](docs/v10/GUIDE.md).
+
+```
+LOKI_ENGINE=v10 loki "fix the login redirect loop" --no-pr
+```
+
+```
+LOKI_ENGINE=v10 loki owner/repo#123
+```
+
+The router sends a quoted multi-word task, a GitHub, GitLab or Jira issue reference, and the `status`, `verify` and `dashboard` subcommands to the v10 engine. A one-word argument that is not an issue ref, or any first argument starting with `-`, stays on the legacy CLI. Flags (`loki-ts/src/engine10/cli.ts` USAGE): `--no-pr` builds and verifies without opening a pull request, `--deep` requests the deep verify pass and a longer implement budget, `--provider <name>` picks the coding provider (`--json` and `--verbose` are also parsed by the supervisor, see [Quiet output](#quiet-output)). The v10 engine needs Bun; without it the command exits 1 with a message.
+
+### The state machine
+
+Every run starts from an explicit delivery contract and is judged only against it. The stage table lives in `loki-ts/src/engine10/machine.ts` (`FLOW`), the stages in `loki-ts/src/engine10/stages/`.
+
+```mermaid
+flowchart TD
+    A[Intake: task or issue, repo map, test map] --> P[Plan]
+    A --> W[Wall: checks written from the task alone, sealed]
+    P --> G{Wall already passes on the base tree?}
+    W --> G
+    G -- yes --> C[Commit]
+    G -- no --> I[Implement]
+    I --> V[Verify]
+    V -- checks fail --> F[Fix, at most 2 rounds]
+    F --> V
+    V -- pass, stall, cap or spec conflict --> C
+    C --> S[Seal: signed receipt]
+    S --> R[PR: opened by the supervisor]
+    R --> D[Deep verify, detached: full suite, app boot, council, secret scan]
+```
+
+| Stage | What it does |
+|-------|--------------|
+| intake | Reads the task or issue, builds the repo map and the test map. |
+| plan and wall | Run in parallel. Plan decides the approach. The Wall author sees only the task and the repo map, never the code, and writes `loki_wall_*` tests that are sealed (sha256) before implement. If they already pass on the untouched base tree, the run ends early as ALREADY_SATISFIED. |
+| implement | A provider session makes the change, under a time budget (480s default, 1800s with `--deep`). |
+| verify and fix | Runs the checks. Failures feed up to 2 fix rounds (`MAX_FIX_ROUNDS`). The same failures three verifies running end the run as STALLED. |
+| commit and seal | Commits the diff, then writes `.loki/runs/<run-id>/receipt.json` and `receipt.md`, signed by default. |
+| pr | Opened by the supervisor, not the worker (the worker never holds a GitHub token). A non-VERIFIED run opens a draft PR. |
+| deep verify | Detached, started after the PR opens (so not with `--no-pr`): full suite, app-boot probe, council, secret scan. A check that is refused or unavailable is reported as NOT PROVEN, never as red. `--deep` is a separate flag that raises the implement and run budgets. |
+
+The run cap is 900s (2700s with `--deep`, `DEFAULT_CAP_S` and `DEEP_CAP_S` in `types.ts`); commit, seal and pr still run after the cap fires. A run whose cap fired and which did not verify exits BUDGET_STOP.
+
+A finished run prints a short summary (see [Quiet output](#quiet-output), which also shows an example) whose `NOT PROVEN` line is never empty by omission: deep checks deferred to the deep-verify pass are always listed there.
+
+`loki status [run-id]`, `loki verify [run-id]` and `loki dashboard` are built on the v10 path. Slack notifications are not part of the v10 engine surface yet.
+
+## Outcomes and exit codes
+
+A v10 run ends in exactly one outcome. The mapping is `EXIT` in `loki-ts/src/engine10/output.ts`.
+
+| Exit | Outcome | Meaning |
+|------|---------|---------|
+| 0 | VERIFIED | The contract's checks ran and passed. |
+| 0 | ALREADY_SATISFIED | The work was already done; evidence is recorded. |
+| 1 | FAILED | A check failed, the stage failed, or the event log was modified outside the engine. |
+| 2 | (usage) | No task given, not inside a git repository, or a preflight refusal. Nothing ran. |
+| 3 | BUDGET_STOP | The cost or time cap fired before the work finished. |
+| 4 | BLOCKED | Spec conflict: the contract cannot be satisfied as written. The summary names the conflict (`spec conflict: <reason>`); the run never guesses and calls it done. |
+| 5 | STALLED | The same failures three verifies in a row. |
+
+Severity rises with the code, so `[ $rc -ge 2 ]` always means worse than FAILED. The full table for other commands (`loki verify`, `loki proof verify`, `loki ci`, `loki doctor`, `loki start`) is in [docs/exit-codes.md](docs/exit-codes.md); that page does not yet list the v10 run ladder above, which is read from the code.
+
+Known gap: the legacy `loki verify` exit table in `docs/exit-codes.md` lists four inputs that do not yet return the documented target. They are tracked as pending moat cases.
+
+## Signed receipts and loki verify
+
+Every sealed v10 run writes a receipt to `.loki/runs/<run-id>/receipt.json`. `receipt_sha256` hashes the canonical JSON without the `verification` block, so verifying never trusts the receipt's own signature field to compute the hash it checks.
+
+Receipts are signed by default. On the first run Loki generates an Ed25519 key at `~/.loki/keys/receipt-ed25519.pem` (mode 0600, directory 0700), or you supply your own with `LOKI_RECEIPT_SIGNING_KEY` or `LOKI_RECEIPT_SIGNING_KEY_FILE`. See [docs/SIGNED-RECEIPTS.md](docs/SIGNED-RECEIPTS.md).
+
+```
+LOKI_ENGINE=v10 loki verify
+```
+
+`loki verify [run-id]` (latest run by default) re-hashes the receipt, checks the signature against your local key (and retired keys listed in `LOKI_RECEIPT_RETIRED_PUBKEYS`), and checks the receipt against the event log. Verdicts and exit codes on the v10 path (`loki-ts/src/engine10/verify_cmd.ts`):
+
+| Verdict | Exit | Meaning |
+|---------|------|---------|
+| VERIFIED | 0 | Hash and signature check out. |
+| UNSIGNED | 3 | The receipt carries no signature, so its integrity is not attested and `loki verify` refuses it. Pass `--allow-unsigned` (or set `LOKI_VERIFY_ALLOW_UNSIGNED=1`) to accept it and exit 0; the output still says UNSIGNED. A receipt whose body was edited and whose signature was stripped reads UNSIGNED. |
+| TAMPERED | 1 | The hash, the signature, or the event log does not match. |
+| UNCHECKED | 2 | The signature cannot be checked here, for example the signing key is on another machine. |
+| (no runs) | 66 | No receipt to verify. |
+
+A verified receipt is bound to the run's event log, so a receipt lifted out of its run, or a log edited after sealing, does not verify. Signing proves the receipt came from the key holder; it does not prove the generated code is bug-free. A receipt only claims what its checks ran, and states what they did not.
+
+On the legacy engine, receipts live under `.loki/proofs/<run_id>/` and are inspected with `loki proof list`, `loki proof show <id>` and `loki proof verify <id>` (exit 0 clean, 1 on tamper or drift, 2 could not check).
+
+## Quiet output
+
+The v10 run is quiet by default: no stage chatter, only the final summary. `--verbose` tails the event stream live (one line per finished stage and a heartbeat with elapsed time and the running diff size). `--json` prints one JSON object (`ok`, `outcome`, `stop`, `run_id`, `receipt_sha256`) instead of text.
+
+The summary is one outcome line, an optional reason on a non-VERIFIED run, then the PR, the receipt, what was NOT PROVEN, the cost and the time (`formatSummary` in `output.ts`):
+
+```
+Outcome:    VERIFIED
+PR:         https://github.com/owner/repo/pull/1
+Receipt:    sha256:2f9a41c7e0b3...
+NOT PROVEN: full suite, app boot, council, security scan
+Cost:       $0.42 (claude, 212k tokens)
+Time:       4m12s (intake 11s, plan 20s, implement 3m10s, verify 31s)
+```
+
+Cost is the provider-reported figure. When a provider does not report cost the line reads `not measured`, never `$0.00`. The legacy `loki quick` is also quiet by default; `--verbose` or `LOKI_VERBOSE=1` shows setup and progress.
+
+## Release channels: next and latest
+
+Releases are built in slices and shipped in trains: green slices merge, one train is pushed, and the release workflow publishes the exact tested tree to the npm `next` dist-tag. `latest` moves only through the promote workflow (`.github/workflows/promote.yml`), which installs that exact version from npm, runs the first-run gate on it (`scripts/first-run-gate.sh --installed`), and only then moves `latest`, Docker `:latest` and the Homebrew formula. A version whose commit is not an ancestor of main can never become `latest`.
+
+The first-run gate runs the README's default entry point for a new user on a throwaway repo with a throwaway HOME and a stub provider, and asserts the run is honest: the exit code matches the result, tests are green, only the fix file changed, the printed digest equals what `loki verify` checks, the receipt is signed, output stays short, and a run that skips the target test does not end VERIFIED.
+
+Policy (D49): every green release is promoted to `latest` after the automated first-run gate. The promote workflow runs automatically after Post-Release Smoke succeeds; a failed smoke or gate leaves the version on `next`. `workflow_dispatch` remains for manual runs of an exact version.
+
+```mermaid
+flowchart LR
+    S[Slice: one engineer, own tests] --> M[Merge when green]
+    M --> T[Train: batch pushed once]
+    T --> CI[Full CI on the exact SHA]
+    CI --> N[npm next]
+    N --> G[Automated first-run gate on the installed version]
+    G -- pass --> L[npm latest, Docker latest, Homebrew]
+    G -- fail --> X[Stays on next, fix-forward slice]
+```
+
+## loki doctor
+
+```bash
+loki doctor            # human-readable check of prerequisites and providers
+loki doctor --json     # machine-readable; JSON is emitted in full even on failure
+loki doctor --airgap   # audit network egress and how to disable each
+```
+
+Exit 0 when every required check passes; optional warnings (an absent provider CLI) do not fail it. It checks the required tools, the provider CLIs and your login, and says what to install for each gap. The same contract holds for `--json`, so it is usable as an init-container or CI preflight gate.
+
+## Modernization: status of loki modernize
+
+There are two different things behind the name today.
+
+- `loki modernize heal <path>` and `loki modernize migrate <path>` are the shipped legacy commands (agent-driven phases). `loki modernize heal <path> --assess` is read-only. See [Already have a codebase](#already-have-a-codebase-start-read-only).
+- `loki modernize <repo> --to <target>` is the new v10 command with behavior-captured equivalence. It is routed to the v10 engine whatever `LOKI_ENGINE` says, but it is not finished: only the `--dry-run` estimate works (inventory, dependency graph, unit clustering, cost, time and risk estimate, no model spend). A real run stops after the estimate and prints `modernize: oracle capture and execution are not built yet; use --dry-run`. Targets `python3` and `java21` exist; the Java dependency graph is not wired in yet. Nothing in v10 modernize claims a unit is proven equivalent today. Design: [docs/v10/MODERNIZE.md](docs/v10/MODERNIZE.md), user summary: [docs/v10/GUIDE-MODERNIZE.md](docs/v10/GUIDE-MODERNIZE.md).
+
+## Providers
+
+Loki's autonomy and quality loop are the product; the coding CLI is swappable. With `LOKI_PROVIDER` unset, Loki auto-detects the first installed provider in this order (`providers/loader.sh`): claude, cline, codex, aider, opencode. An explicit choice always wins and is never silently substituted. Gemini CLI is deprecated: `LOKI_PROVIDER=gemini` exits with a migration message.
+
+| Provider | Tier | Autonomous flag | Parallel | v10 engine cost and kill-blocking | Install |
+|----------|------|-----------------|:--------:|:---------------------------------:|---------|
+| **Claude Code** | 1, full support | `--dangerously-skip-permissions` | Yes | measured, enforced | `npm i -g @anthropic-ai/claude-code` |
+| **Cline CLI** | 2, reduced | `-y` | Sequential | not measured, not enforced | `npm install -g cline` |
+| **Codex CLI** | 3, degraded | `exec --sandbox workspace-write --skip-git-repo-check` | Limited (2) | not measured, not enforced | `npm i -g @openai/codex` |
+| **Aider** | 3, degraded | `--yes-always` | Sequential | not measured, not enforced | `pip install aider-chat` |
+| **opencode** | model-agnostic | `--auto` | Sequential | not supported by the v10 engine | `npm install -g opencode-ai` |
+
+Claude Code is the provider Loki is built for and the one that is run end to end by us. The others are wired in but are experimental. On a non-Claude provider the v10 summary says so: the Cost line reads `not measured` and NOT PROVEN adds `kill blocking not enforced`. See [Provider Guide](skills/providers.md).
+
+---
+
+# Legacy engine reference
+
+Everything below describes the legacy engine, which `loki` still runs by default (and which stays reachable when Loki 10 is made the default). The long-form commands, `loki start`, `loki quick`, `loki quickstart` and `loki proof` all live here.
 
 ## Use it
 
@@ -141,14 +325,6 @@ loki start prd.md                                        # build from a spec you
 loki modernize heal ./your-repo --assess                 # existing codebase, read-only
 ```
 
-**Loki needs a model to drive.** An `ANTHROPIC_API_KEY` alone is enough (the
-Claude Agent SDK ships inside Loki); or point it at Claude Code, aider, cline,
-or an open model. Run `loki doctor` and it tells you exactly what is missing.
-
-```bash
-export ANTHROPIC_API_KEY=sk-...
-loki doctor                       # checks your setup, names any blocker
-```
 
 ## Try it first, without installing
 
@@ -174,42 +350,11 @@ Headline: VERIFIED WITH GAPS
 receipt says so on its own front page. Recompute the diff hash yourself and
 check it matches -- you are not asked to trust the agent's self-report.
 
----
+## How the legacy engine works
 
-> **How it works:** Drop a spec -- a PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief. Loki Mode classifies complexity (`run.sh:detect_complexity()`), selects reviewers from a specialist pool (`agents/types.json` ships 41 role definitions; 10 are keyword-scored by the review selector at `run.sh:FOCUS_KEYWORDS`, alongside the mandatory reviewers, and the rest are role descriptions in `references/agents.md` that the orchestrator adopts per phase rather than separate processes), with parallel review (blind council) and optional worktree streams on Claude Code, sequential on other providers - and runs autonomous RARV cycles (Reason - Act - Reflect - Verify, see `run.sh:run_autonomous()`) with 8 quality gates (see `skills/quality-gates.md`). Code is not "done" until it passes automated verification. Output is a Git repo with source, tests, configs, and audit logs.
+Drop a spec: a PRD, GitHub issue, OpenAPI/JSON/YAML, or a one-line brief. Loki Mode classifies complexity (`run.sh:detect_complexity()`), selects reviewers from a specialist pool (`agents/types.json` ships the role definitions; 10 are keyword-scored by the review selector at `run.sh:FOCUS_KEYWORDS`, alongside the mandatory reviewers, and the rest are role descriptions in `references/agents.md` that the orchestrator adopts per phase rather than separate processes), with a blind review council and optional git-worktree streams on Claude Code, sequential on most other providers, and runs autonomous RARV cycles (Reason, Act, Reflect, Verify; see `run.sh:run_autonomous()`) with 8 quality gates (see `skills/quality-gates.md`). Code is not "done" until it passes automated verification. Output is a Git repo with source, tests, configs and audit logs.
 
----
-
-<details>
-<summary><b>Why verified completion matters</b> -- the failure this exists to fix</summary>
-
-Self-reported completion is the failure users actually hit. A survey of the
-open issue trackers of seven coding harnesses (OpenHands, Cline, Aider,
-SWE-agent, Roo-Code, OpenCode, Continue) found the recurring complaint is the
-agent silently not doing the work -- "always stuck at Preparing write"
-([opencode#11112](https://github.com/anomalyco/opencode/issues/11112), 76
-comments), "Continue not making changes to code"
-([continue#7143](https://github.com/continuedev/continue/issues/7143)), "Agent
-does not execute functions"
-([continue#5696](https://github.com/continuedev/continue/issues/5696)). None of
-those seven publishes a machine-checkable completion artifact.
-
-We measured every named competitor that ships a local CLI -- opencode 1.18.9,
-aider 0.86.2, codex-cli 0.146.0, Claude Code 2.1.220, cursor-agent -- and none
-exposes a command that verifies the agent's own output. Rerun it yourself with
-`bash tests/test-competitor-verify-surface.sh`.
-
-That is a measurement of the CLI surface, not of whole products: a web UI or an
-API could expose something `--help` does not, and Devin and Replit Agent ship no
-local CLI so they are not covered.
-
-**Evaluating this against something else?** [docs/EVALUATING.md](docs/EVALUATING.md)
-puts a runnable command next to every claim we make, and states plainly what we
-do not have (no enterprise case studies, no independent benchmark placement, and
-generation is not air-gapped). It ends with the one question worth asking any
-agent vendor, including us.
-
-</details>
+**Why verified completion matters.** Self-reported completion is the failure users actually hit: the agent says it is done and the work is not. Loki treats "done" as a claim to be checked. [docs/EVALUATING.md](docs/EVALUATING.md) puts a runnable command next to every claim we make, and states plainly what we do not have (no enterprise case studies, no independent benchmark placement, and generation is not air-gapped). `bash tests/test-competitor-verify-surface.sh` reruns our check of which local agent CLIs expose a command that verifies their own output.
 
 ## Already have a codebase? Start read-only.
 
@@ -232,7 +377,7 @@ Then, if you want it to act:
 ```bash
 loki modernize heal ./your-repo --strict          # block ALL behavioral change without approval
 loki modernize heal ./your-repo --phase archaeology   # extract knowledge only
-loki modernize heal ./your-repo --compliance healthcare   # or fintech | government
+loki modernize heal ./your-repo --compliance healthcare   # preset flag: healthcare, fintech or government (not a certification)
 ```
 
 The healing pipeline runs in phases -- archaeology, stabilize, isolate,
@@ -296,33 +441,24 @@ suite (`tests/test-proof-forgery-defense.sh`), and in v7.111.0 we removed our
 own earlier "non-forgeable" claim once we found it was false on that path. An
 honest boundary you can verify beats a marketing claim you cannot.
 
-To close that gap, sign your receipts: `export LOKI_PROOF_GPG_KEY=<key-id>` and
-every receipt carries a detached GPG signature that any third party with your
-public key can verify offline. See [docs/SIGNED-RECEIPTS.md](docs/SIGNED-RECEIPTS.md).
+To close that gap, receipts are signed automatically with an Ed25519 key
+generated on first run (or your own via `LOKI_RECEIPT_SIGNING_KEY_FILE`; this needs the
+Python `cryptography` package, otherwise the receipt stays unsigned). See [docs/SIGNED-RECEIPTS.md](docs/SIGNED-RECEIPTS.md).
 
-## Why Loki Mode?
+## What the legacy engine guarantees
 
-- **Spec-driven, autonomous, with a built-in trust layer** -- Hand Loki a spec, walk away, come back to working code with tests. The full RARV-C closure loop (Reason - Act - Reflect - Verify - Close) runs until the work is actually done, not just attempted. The verified-completion evidence gate (`skills/quality-gates.md`) refuses any "done" claim on an empty git diff against the run-start commit, blocks completion when tests run red, and (v8.0.0) also blocks when a serveable app is confirmed unhealthy (runtime-boot axis, opt out `LOKI_EVIDENCE_BOOT_GATE=0`) or a credential is detected in the changed files (secret-leak axis, opt out `LOKI_EVIDENCE_SECRET_GATE=0`), so "complete" means proven, not promised.
-- **A checklist verifier that is honest, not brittle** -- Each completion checklist item is checked deterministically before the completion council will accept "done". The verifier speaks extended regex (`grep -E`) so real LLM-emitted patterns match instead of erroring, and it is runner-agnostic: it runs the project's own declared test command rather than assuming a fixed runner. Crucially, a check that cannot be established is reported as inconclusive (pending), never as a false pass and never as a false failure. `rc == 0` alone is not a pass; a test check goes green only on a real "N passed" signal from the runner (v7.121.x).
-- **Production quality built in** -- 8 quality gates (`skills/quality-gates.md`), blind 3-reviewer code review (`run.sh:run_code_review()`), anti-sycophancy checks
-- **Standalone verification: `loki verify`** -- Run Loki's deterministic gates (build, tests, static analysis, secret scan, dependency audit) against any branch or PR diff, including code written by other agents or humans. CI-ready exit codes (0 VERIFIED, 1 CONCERNS, 2 BLOCKED), machine-readable evidence at `.loki/verify/evidence.json`. Inconclusive evidence is never reported as VERIFIED (v7.27.0).
-- **Living spec and pre-build interrogation** -- `loki spec` locks a spec and detects drift deterministically (`spec.lock`, `drift-report.json`, and a `SPEC_DRIFT` finding in `loki verify` with CI exit codes), so you can tell when the build diverges from what was agreed. For an OpenAPI/GraphQL/Postman contract it locks one requirement per operation with a per-operation hash, so a single changed response schema drifts exactly that operationId (v8.0.0). `loki grill` runs a Devil's-Advocate interrogation of the spec before you build, surfacing gaps and contradictions early (v7.28.0).
-- **Mid-flight model switching** -- switch the model a live run uses from the dashboard (applies at the next iteration, current run only). A Fable tier lever exists in the CLI, dashboard, and override paths, but Claude Fable 5 is not yet available at the API, so selecting Fable currently collapses to Opus at every dispatch chokepoint and the `loki plan` quote reflects Opus accordingly. For every model lever (session pin, mid-flight override, architect pass) and every `LOKI_MAX_TIER` path, the `loki plan` quote, the dashboard's reported model, and the actual dispatched model agree, with the ceiling enforced (v7.31.0; Fable-to-Opus collapse v7.39.1).
-- **A calmer CLI** -- the help surface is ~20 grouped workflow entries instead of a 70-command wall; merged commands live on as aliases that forward byte-identically with a one-line stderr pointer, so no script breaks (v7.31.0).
-- **Guided first build: `loki quickstart`** -- four quick questions (setup check, one-line idea, template pick, plan review) and your build starts; pressing Enter through every step builds the sample Todo app. The plan step quotes the real cost/time estimate before anything is spent, and `loki demo` now confirms its estimate the same way. If no AI provider CLI is installed, Loki offers to install Claude Code (consent-gated, interactive terminals only) (v7.29.0).
-- **Live App Preview** -- The dashboard embeds the locally-running app in an iframe so you can interact with it immediately during a build. Use `loki preview` (alias `loki open`) to print the URL and open it in your browser. Local-first: no hosted service, no vendor lock (v7.24.0).
-- **Compose-first fullstack** -- When a spec needs more than one service (web + database + cache) Loki generates a 12-factor `docker-compose.yml` with healthchecks, `depends_on` wiring, env-var config, and a `.env.example`. The Live App Preview surfaces the web service URL (not a database port), and health reflects the web service's Docker healthcheck so a crashed app shows as crashed even when the database stays up. Single-service apps stay on a plain run command. All local-first, no hosted service (v7.26.0).
-- **Intelligent `loki start`** -- For interactive foreground runs the dashboard auto-opens in the browser (cross-platform; skipped in CI, SSH-without-TTY, and piped runs; opt out with `LOKI_NO_AUTO_OPEN=1`). The completion summary shows "Your app is live at <url>" so you know exactly where to try what Loki just built. The autonomous loop passes Claude Code's `--effort`, `--max-budget-usd`, and `--fallback-model` on every iteration (each gated on CLI support and individual opt-out env vars) for better long-run unattended execution (v7.25.0).
-- **Confidence is not evidence** -- When the agent's self-reported confidence spikes to near-certainty, Loki forces an EXTRA verification pass before accepting a stop, rather than taking the claim at face value. Strictly additive: high confidence makes the engine look harder, never less hard, and it can never skip or satisfy a gate (v8.0.0, opt out `LOKI_CONFIDENCE_SPIKE=0`).
-- **Goals it can actually measure** -- A goal with no checkable success condition ("make it fast") gives the loop no gradient: every iteration can claim progress and none can be verified. Loki flags an un-measurable goal up front and asks for a threshold, a metric, or a concrete artifact. Advisory only, and never rewrites your goal (v8.0.0, opt out `LOKI_GOAL_SCORING=0`).
-- **Stops paying for failures that cannot succeed** -- A positively-identified permanent failure (bad credentials, unknown model, exhausted quota) exits immediately instead of burning the retry budget on guaranteed-identical failures. Fail-safe: an unrecognized error still retries exactly as before, and rate limits are never treated as permanent (v8.0.0, opt out `LOKI_SMART_RETRY=0`).
-- **Cross-project memory** -- Episodic/semantic/procedural memory with vector search; knowledge learned on one project surfaces on the next (v5.15.0+, see `memory/engine.py`)
-- **Self-hosted and private** -- Your keys, your infrastructure, no data leaves your network
-- **Legacy system healing** -- `loki modernize heal` archaeology/stabilize/isolate/modernize/validate phases (v6.67.0, see `skills/healing.md`)
-- **MCP server** -- 36 tools (including ChromaDB code search) plus 3 resources and 2 prompts (`mcp/server.py`, with magic tools registered from `mcp/magic_tools.py` and the managed-memory tool from `mcp/managed_tools.py`). Of the 36, 35 are always available; `loki_memory_redact` is registered but only succeeds when `LOKI_MANAGED_AGENTS=true` and `LOKI_MANAGED_MEMORY=true`. Launch with `loki mcp` (bootstraps the Python MCP SDK on first run).
-- **Full-stack output** -- Source code, tests, Docker Compose stacks (multi-service with healthchecks), CI/CD pipelines, audit logs
-- **Provider-agnostic** -- runs on Claude, Cline, Codex, Aider, or opencode with automatic failover (`loki-ts/src/runner/providers.ts`); no vendor lock-in. When `LOKI_PROVIDER` is unset, Loki auto-detects in that order; an explicit choice always wins and is never silently substituted. Gemini was removed as a provider in v7.5.18.
-- **Source-available (BUSL-1.1)** -- Free for personal, internal, and academic use.
+- **Verified completion** - the evidence gate (`skills/quality-gates.md`) refuses a "done" claim on an empty git diff against the run-start commit, blocks completion when tests run red, blocks when a serveable app is confirmed unhealthy (opt out `LOKI_EVIDENCE_BOOT_GATE=0`) or a credential is detected in the changed files (opt out `LOKI_EVIDENCE_SECRET_GATE=0`).
+- **An honest checklist verifier** - each completion checklist item is checked deterministically before the completion council accepts "done". A check that cannot be established is reported as inconclusive (pending), never as a false pass or a false failure. `rc == 0` alone is not a pass: a test check goes green only on a real "N passed" signal from the runner.
+- **Quality gates and review** - 8 quality gates (`skills/quality-gates.md`), blind 3-reviewer code review (`run.sh:run_code_review()`), anti-sycophancy checks.
+- **Standalone verification: `loki verify`** - runs the deterministic gates (build, tests, static analysis, secret scan, dependency audit) against any branch or PR diff, including code written by other agents or humans. Exit codes 0 VERIFIED, 1 CONCERNS, 2 BLOCKED, 3 verifier error; machine-readable evidence at `.loki/verify/evidence.json`. Inconclusive evidence is reported as CONCERNS; see [docs/exit-codes.md](docs/exit-codes.md) for the known gaps, including `--fast`, which can exit 0 when nothing was scanned.
+- **Living spec and pre-build interrogation** - `loki spec` locks a spec and detects drift; `loki grill` runs a Devil's-Advocate interrogation of the spec before you build.
+- **Confidence is not evidence** - when the agent's self-reported confidence spikes to near-certainty, Loki forces an extra verification pass (opt out `LOKI_CONFIDENCE_SPIKE=0`).
+- **Stops paying for failures that cannot succeed** - a positively identified permanent failure (bad credentials, unknown model, exhausted quota) exits instead of burning the retry budget; an unrecognized error still retries (opt out `LOKI_SMART_RETRY=0`).
+- **Cross-project memory** - episodic, semantic and procedural memory with optional vector search (`memory/engine.py`).
+- **Guided first build** - `loki quickstart` quotes the real cost and time estimate before anything is spent. `loki preview` prints the running app URL.
+- **MCP server** - 36 tools plus 3 resources and 2 prompts (`mcp/server.py`, magic tools from `mcp/magic_tools.py`, the managed-memory tool from `mcp/managed_tools.py`). Of the 36, 35 are always available; `loki_memory_redact` only succeeds when `LOKI_MANAGED_AGENTS=true` and `LOKI_MANAGED_MEMORY=true`. Launch with `loki mcp`.
+- **Legacy system healing** - `loki modernize heal` runs archaeology, stabilize, isolate, modernize and validate phases (`skills/healing.md`).
+- **Self-hosted and source-available (BUSL-1.1)** - your keys, your infrastructure. Free for personal, internal and academic use.
 
 ---
 
@@ -399,9 +535,8 @@ SHA), the verifier reports it as unverifiable rather than passing it silently.
 
 You can share a receipt as a self-contained HTML page (`loki proof open <id>`),
 or publish it as a GitHub Gist with `loki proof share <id>` (opt-in; the page is
-redacted before it leaves your machine). An optional, off-by-default GPG detached
-signature (`LOKI_PROOF_GPG_KEY`) lets a third party confirm the receipt came from
-you.
+redacted before it leaves your machine). Receipts carry an Ed25519
+attestation (`LOKI_RECEIPT_SIGNING_KEY_FILE` to use your own key).
 
 ### Proven PR
 
@@ -432,8 +567,6 @@ a merge on its own. To make verified-completion blocking, add it as a required
 status check in your repository's branch-protection settings.
 
 </details>
-
----
 
 <details>
 <summary><b>Setup details: providers, other models, what loki doctor checks</b></summary>
@@ -532,7 +665,7 @@ Either way, run `loki doctor` any time and it tells you exactly what is present 
 Required:
 
 - An agent provider CLI: [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`, Tier 1, recommended and E2E-verified - the provider Loki Mode is built for). Cline, Codex, Aider, and opencode are supported as experimental providers (wiring in place; not yet E2E-verified by us). Loki cannot run a build without one of these installed and authenticated.
-- Python 3.10+ (`python3`) for the dashboard, memory system, and orchestration helpers.
+- Python 3.8+ (`python3`) for the dashboard, memory system, and orchestration helpers.
 - Node.js 18+ (`node`) for the npm install path and the bundled runtime.
 - `jq` for the JSON that the shell flows and the quality gates parse.
 - Git 2.x (`git`) for checkpoints and worktrees.
@@ -566,56 +699,15 @@ See the [Installation Guide](docs/INSTALLATION.md) for the long form.
 ---
 
 <details>
-<summary><strong>Runtime architecture -- dual Bash/Bun runtime, rollback flag, migration cost (advanced)</strong></summary>
+<summary><strong>Runtime architecture: dual Bash/Bun runtime and the rollback flag</strong></summary>
 
-Loki Mode runs a dual runtime by deliberate design: the battle-tested Bash engine is the stable core (the autonomous loop, quality gates, and completion council stay on it; it receives bug fixes and hardening), and new product surfaces are built TypeScript/Bun-first as modules that wrap the engine rather than reimplement it. An earlier plan to make v8 Bun-only has been superseded by this stable-engine approach: rewriting the verified trust layer would risk the exact guarantees this product exists to provide, for no capability gain. Bash support is not going away.
+Loki Mode runs a dual runtime by design: the Bash engine is the stable core (the autonomous loop, quality gates and completion council), and newer product surfaces are TypeScript/Bun modules that wrap it. Bash support is not going away.
 
-**What ships today:**
+- Commands routed to the Bun runtime when `bun` is on `PATH` (the router is `bin/loki`): `version`, `--version`, `-v`, `status`, `stats`, `doctor`, `provider`, `memory`, `rollback`, `kpis`, `trust`, `proof`, `receipt`, `wiki`, `crash`, `internal`, and `report kpis`. Every other command runs on the Bash CLI (`autonomy/loki`), including the autonomous `loki start` loop (`autonomy/run.sh`), unless `LOKI_SDK_LOOP` or `LOKI_SDK_MODE=full` selects the Bun loop.
+- If `bun` is not on `PATH`, the shim falls through to Bash silently.
+- Force every command onto the Bash path with `LOKI_LEGACY_BASH=1 loki <cmd>`. This is a rollback flag for the Bun route; it is not the same as the legacy engine switch.
 
-- Commands routed to the Bun runtime when `bun` is on `PATH` (the router lives in `bin/loki`): `version`, `--version`, `-v`, `status`, `stats`, `doctor`, `provider` (covers `provider show` and `provider list`), `memory` (covers `memory list` and `memory index`), `rollback`, `kpis`, and `internal`.
-- Every other command continues to execute on the existing Bash CLI (`autonomy/loki`), including the autonomous `loki start` / `loki run` loop which remains the Bash orchestrator (`autonomy/run.sh`).
-- If `bun` is not on `PATH`, the shim falls through to Bash silently. Existing users without Bun installed see no behavior change.
-
-**Rollback flag:**
-
-Force every command to take the legacy Bash path:
-
-```bash
-LOKI_LEGACY_BASH=1 loki <cmd>
-```
-
-This is the documented escape hatch for any user who hits a regression on the Bun route. The Bash path remains the source of truth through Phase 5.
-
-**Phase 6 (planned, calendar TBD):**
-
-The next major release sunsets the Bash runtime entirely. There is no firm calendar date. Users who need to stay on the Bash route should pin the last v7.x release.
-
-**Cost:**
-
-- Adds a Bun runtime dependency (Bun 1.3.0 or newer recommended; the shim works as long as `bun` resolves).
-- Adds a Bun toolchain to the system (Bun itself is roughly 50 MB installed via `brew install` or the official curl installer). The published `loki-ts/dist/loki.js` bundle inside the npm tarball is approximately 152 KB.
-- Speedup on the ported commands is measured in `.loki/metrics/migration_bench_soak.jsonl` and analysed in [ADR-001](docs/architecture/ADR-001-runtime-migration.md). Recorded soak results show roughly 3x to 5x faster execution on the ported commands (per-command range 2.9x to 5.0x); treat as indicative, not contractual.
-
-**More:**
-
-- [UPGRADING.md](UPGRADING.md) -- per-version upgrade and rollback guidance.
-- [ADR-001: Runtime Migration](docs/architecture/ADR-001-runtime-migration.md) -- design rationale and phase definitions.
-
-</details>
-
----
-
-<details>
-<summary><strong>Other install methods</strong></summary>
-
-| Method | Command |
-|--------|---------|
-| **Homebrew** | `brew tap asklokesh/tap && brew install loki-mode` |
-| **Docker** | `docker pull asklokesh/loki-mode:latest` |
-| **Inside Claude Code** | `claude --dangerously-skip-permissions` then type "Loki Mode" |
-| **Git clone** | `git clone https://github.com/asklokesh/loki-mode.git` |
-
-See the full [Installation Guide](docs/INSTALLATION.md).
+See [UPGRADING.md](UPGRADING.md) and [ADR-001: Runtime Migration](docs/architecture/ADR-001-runtime-migration.md).
 
 </details>
 
@@ -644,136 +736,15 @@ All formats land in the same RARV pipeline and pass the same 8 quality gates (`s
 
 ---
 
-## What You Can Build
+## Internal architecture (legacy engine)
 
-| Project | Build Time | Complexity |
-|---------|:----------:|:----------:|
-| Landing page with signup form | ~10 min | Simple |
-| REST API with JWT auth | ~20 min | Simple |
-| Portfolio with animations | ~15 min | Simple |
-| SaaS dashboard with analytics | ~25 min | Standard |
-| E-commerce store with Stripe | ~45 min | Standard |
-| Task manager with kanban board | ~25 min | Standard |
-| Chat app with WebSocket | ~30 min | Standard |
-| Blog platform with MDX | ~30 min | Standard |
-| Microservice architecture | ~2 hours | Complex |
-| ML pipeline with monitoring | ~3 hours | Complex |
+- **RARV cycle** - every iteration: Reason (read state), Act (execute, commit), Reflect (update context), Verify (run tests, check spec). Failures trigger self-correction. [Core Workflow](references/core-workflow.md)
+- **8 quality gates** - static analysis, test suite (pass/fail), blind 3-reviewer code review with severity blocking, anti-sycophancy Devil's Advocate, mock-integrity detection, test-mutation detection, documentation coverage, and Magic Modules debate. Backward compatibility is a conditional healing-mode auditor, not one of the 8. [Quality Gates](skills/quality-gates.md)
+- **Memory** - episodic (interaction traces), semantic (generalized patterns), procedural (learned skills). Vector search optional. [Memory Architecture](references/memory-system.md)
+- **Dashboard** - real-time monitoring, task queue, WebSocket streaming and a Live App Preview. Starts at `localhost:57374`. [Dashboard Guide](docs/dashboard-guide.md)
+- **Enterprise layer** - TLS, OIDC bearer-token validation (the foundation for SSO; browser SAML login is roadmap), scoped RBAC, OTEL tracing and audit logs, activated via env vars. See [Enterprise Identity Roadmap](docs/ENTERPRISE-IDENTITY-ROADMAP.md) and [Enterprise Guide](docs/enterprise/architecture.md).
 
----
-
-## What To Expect
-
-| | Simple | Standard | Complex |
-|---|---|---|---|
-| **Examples** | Landing page, todo app, single API | CRUD + auth, REST API + React | Microservices, real-time, ML pipelines |
-| **Duration** | 5-30 min | 30-90 min | 2+ hours |
-| **Autonomy** | Completes independently | May need guidance on complex parts | Use as accelerator with human review |
-
----
-
-<details>
-<summary><strong>Internal architecture -- RARV cycle, agent roles, quality gates, memory, dashboard, enterprise layer (advanced)</strong></summary>
-
-<div align="center">
-<img width="100%" alt="Loki Mode Architecture" src="https://github.com/user-attachments/assets/c9798120-9587-4847-8e8d-8f421f984dfc" />
-</div>
-
-<table>
-<tr>
-<td width="33%" valign="top">
-
-### RARV Cycle
-Every iteration: **Reason** (read state) - **Act** (execute, commit) - **Reflect** (update context) - **Verify** (run tests, check spec). Failures trigger self-correction.
-
-[Core Workflow](references/core-workflow.md)
-
-</td>
-<td width="33%" valign="top">
-
-### 41 Agent Roles
-8 domains: engineering, operations, business, data, product, growth, review, orchestration. These are prompt-defined role specifications the orchestrator adopts per phase, auto-composed by PRD complexity; parallelism comes from the blind review council, the adversarial reviewer, and optional git-worktree streams on Claude Code, sequential on other providers.
-
-[Agent Types](references/agent-types.md)
-
-</td>
-<td width="33%" valign="top">
-
-### 8 Quality Gates
-Static analysis, test suite (pass/fail), blind 3-reviewer code review with severity blocking, anti-sycophancy Devil's Advocate, mock-integrity detection, test-mutation detection, documentation coverage, and Magic Modules debate. Backward-compatibility is a conditional healing-mode auditor (not one of the 8). Code does not ship until all gates pass.
-
-[Quality Gates](skills/quality-gates.md)
-
-</td>
-</tr>
-<tr>
-<td width="33%" valign="top">
-
-### Memory System
-3-tier architecture: episodic (interaction traces), semantic (generalized patterns), procedural (learned skills). Vector search optional.
-
-[Memory Architecture](references/memory-system.md)
-
-</td>
-<td width="33%" valign="top">
-
-### Dashboard
-Real-time monitoring, agent status, task queue, WebSocket streaming, and Live App Preview (embedded iframe of the running app with Refresh/Open/Restart toolbar). Auto-starts at `localhost:57374`.
-
-[Dashboard Guide](docs/dashboard-guide.md)
-
-</td>
-<td width="33%" valign="top">
-
-### Enterprise Layer
-TLS, OIDC bearer-token validation (the foundation for SSO; browser SAML login is
-roadmap), scoped RBAC, OTEL tracing, policy engine, audit trails. Activated via
-env vars. See [Enterprise Identity Roadmap](docs/ENTERPRISE-IDENTITY-ROADMAP.md).
-
-[Enterprise Guide](docs/enterprise/architecture.md)
-
-</td>
-</tr>
-</table>
-
-</details>
-
----
-
-## Loki Mode vs. Alternatives
-
-| Feature | Loki Mode | bolt.new | Replit | Lovable |
-|---------|:---------:|:--------:|:------:|:-------:|
-| Self-hosted / your keys | Yes | No | No | No |
-| Multi-provider failover (5 providers) | Yes | No | No | No |
-| 8 quality gates | Yes | No | No | No |
-| Blind code review | Yes | No | No | No |
-| Enterprise auth (OIDC token + scoped RBAC) | Yes | No | Yes | No |
-| Air-gapped deployment | Verification and the build pipeline, yes; builds need a model you host ([details](docs/air-gapped.md)) | No | No | No |
-| Docker + CI/CD generation | Yes | No | Yes | No |
-| Source-available (BUSL-1.1) | Yes | No | No | No |
-| Free tier | Source-available | Yes | Yes | Yes |
-
-Among the four tools in this table, Loki Mode is the one that is fully self-hosted, source-available (BUSL-1.1), and includes automated quality verification. Your code, your keys, your infrastructure. We have not surveyed every tool on the market, so read this as a comparison against the named three, not a claim about the whole category.
-
----
-
-<details>
-<summary><strong>Provider matrix -- per-provider status, autonomous flags, parallelism, install (includes deprecated Gemini)</strong></summary>
-
-Loki's autonomy and quality loop are the product; the underlying coding CLI is swappable. Loki runs on any of the providers below so you are never locked to one vendor. With `LOKI_PROVIDER` unset, Loki auto-detects the first installed provider in the order the table lists (claude, cline, codex, aider, opencode); setting it explicitly always wins and is never silently substituted.
-
-| Provider | Status | Autonomous Flag | Parallel Agents | Install |
-|----------|--------|:-:|:-:|---------|
-| **Claude Code** | Active (Tier 1, E2E-verified) | `--dangerously-skip-permissions` | Yes (10+) | `npm i -g @anthropic-ai/claude-code` |
-| **Cline CLI** | Experimental (Tier 2) | `-y` | Sequential | `npm install -g cline` |
-| **Codex CLI** | Experimental (Tier 3) | `exec --sandbox workspace-write --skip-git-repo-check` | Sequential | `npm i -g @openai/codex` |
-| **Aider** | Experimental (Tier 3) | `--yes-always` | Sequential | `pip install aider-chat` |
-| **opencode** | Experimental | `--auto` | Sequential | `npm install -g opencode-ai` |
-| **Google Gemini CLI** | REMOVED v7.5.18 | -- | -- | Upstream deprecated; runtime removed. `LOKI_PROVIDER=gemini` exits with a migration message. |
-
-Status legend: "E2E-verified" means we run real spec-to-code builds on it ourselves. Claude Code is the primary, fully supported provider and the one Loki Mode is built for; it gets full features (subagents, parallelization, MCP, Task tool). "Experimental" means the wiring is in place but we have not produced an end-to-end verified build ourselves; treat as community-tested. Experimental providers run sequentially. Auto-failover switches providers when rate-limited. See [Provider Guide](skills/providers.md).
-
-</details>
+For how Loki compares with other tools, see [docs/COMPARISON.md](docs/COMPARISON.md) and [docs/EVALUATING.md](docs/EVALUATING.md).
 
 ---
 
@@ -798,7 +769,7 @@ Status legend: "E2E-verified" means we run real spec-to-code builds on it oursel
 | `loki doctor` | Check environment and dependencies |
 | `loki plan [PRD]` | Pre-execution analysis: complexity, cost, iterations |
 | `loki review [--staged\|--diff]` | AI-powered code review with severity filtering |
-| `loki test [--file\|--dir\|--changed]` | AI test generation (8 languages, 9 frameworks) |
+| `loki test [--file\|--dir\|--changed]` | AI test generation |
 | `loki analyze onboard [path]` | Project analysis and CLAUDE.md generation (was: `loki onboard`) |
 | `loki import` | Import GitHub issues as tasks |
 | `loki ci` | CI/CD quality gate integration |
@@ -811,19 +782,8 @@ Status legend: "E2E-verified" means we run real spec-to-code builds on it oursel
 
 Run `loki --help` for all options. Full reference: [CLI Reference](wiki/CLI-Reference.md) | Config: [config.example.yaml](autonomy/config.example.yaml)
 
-### Configuration file
 
-Pass a config file to `loki start` with `--config <path>` (aliases: `--env-file`, `--vars`), or set `LOKI_CONFIG_FILE`. The format is detected from the extension or content: `.yaml`/`.yml`, `.json`, or `.env` (flat `LOKI_*=value` lines). Values resolve by precedence: a CLI flag beats an ambient env var, which beats the `--config` file, which beats built-in defaults. Never inline a secret; reference an env var with `${VAR}` and the loader expands it at load time (an unset reference is skipped with a warning, and a raw-looking secret literal is flagged). Generate a starter with `loki config example`.
-
-```bash
-# config.yaml
-dashboard:
-  port: 9000
-github:
-  token: ${GITHUB_TOKEN}   # expanded from the environment, never stored inline
-
-loki start --config config.yaml ./prd.md
-```
+Pass a config file to `loki start` with `--config <path>` (aliases `--env-file`, `--vars`), or set `LOKI_CONFIG_FILE`. The format is detected from the extension or content: `.yaml`/`.yml`, `.json`, or `.env` (flat `LOKI_*=value` lines). A CLI flag beats an ambient env var, which beats the `--config` file, which beats built-in defaults. Never inline a secret; reference an env var with `${VAR}`. Manage settings with `loki config show|init|edit|path|set|get`; a sample is in [autonomy/config.example.yaml](autonomy/config.example.yaml).
 
 ---
 
@@ -882,49 +842,6 @@ loki enterprise status
 
 </details>
 
-<details>
-<summary><strong>Benchmarks</strong></summary>
-
-Self-reported results from the included test harness. Verification scripts included for reproduction.
-
-| Benchmark | Result | Notes |
-|-----------|--------|-------|
-| HumanEval | 162/164 (98.78%) | Self-reported; harness + results JSON in `benchmarks/results/humaneval-loki-results.json`. Max 3 retries, RARV self-verification. |
-| SWE-bench | Not yet measured | Harness exists and generates patches, but the official SWE-bench evaluator has not been run, so there is no pass-rate to report. Run it yourself: `./benchmarks/run-benchmarks.sh swebench --execute` |
-
-See [benchmarks/](benchmarks/) for methodology.
-
-</details>
-
-<details>
-<summary><strong>Presentation</strong></summary>
-
-![Loki Mode Presentation](docs/loki-mode-presentation.gif)
-
-*11 slides: Problem, Solution, 41 Agents, RARV Cycle, 8 Quality Gates (HumanEval 98.78%), Multi-Provider, Enterprise Hardening (Live App Preview), Full Lifecycle*
-
-**[Download PPTX](docs/loki-mode-presentation.pptx)**
-
-</details>
-
----
-
-## Loki 10 engine (preview)
-
-Opt-in: set LOKI_ENGINE=v10 <!-- loki10-default -->
-
-A rewritten engine is under active development. Full guide, provider
-table and the 5-line summary format: [docs/v10/GUIDE.md](docs/v10/GUIDE.md).
-
-```
-LOKI_ENGINE=v10 loki "fix the login redirect loop" --no-pr
-```
-
-The router (bin/loki), the CLI surface (`--help`), and the run itself
-(intake, plan, wall, implement, verify, seal, PR) are on main, so the
-command above executes a real build end to end. `status`, `verify` and
-`dashboard` are also built. The guide says exactly what is still wired up
-(`--resume`, Slack) and what already runs.
 
 ---
 
@@ -933,12 +850,13 @@ command above executes a real build end to end. `status`, `verify` and
 | Area | What Works | What Doesn't (Yet) |
 |------|-----------|---------------------|
 | **Code Gen** | Full-stack apps from PRDs | Complex domain logic may need human review |
-| **Deploy** | Generates configs, Dockerfiles, CI/CD; `loki deploy` prints the exact deploy command | Does not deploy -- human runs the printed deploy command (Loki never runs a cloud CLI or git push) |
+| **Deploy** | Generates configs, Dockerfiles, CI/CD; `loki deploy` prints the exact deploy command | Does not deploy: a human runs the printed command (Loki never runs a cloud CLI or git push) |
 | **Testing** | 8 automated quality gates | Test quality depends on AI assertions |
-| **Providers** | 5 providers with auto-failover | Non-Claude providers lack parallel agents |
+| **Providers** | Claude, Cline, Codex, Aider and opencode | Non-Claude providers are experimental and mostly sequential |
 | **Dashboard** | Real-time single-machine monitoring | No multi-node clustering |
+| **Loki 10** | The v10 run, `status`, `verify`, `dashboard` | Not the default yet; `loki modernize <repo> --to` runs `--dry-run` only; Slack is not wired in |
 
-> **What "autonomous" means:** The system runs RARV cycles without prompting. It does NOT access your cloud accounts, payment systems, or external services unless you provide credentials. Human oversight is expected for deployment, API keys, and critical decisions.
+> **What "autonomous" means:** the system runs RARV cycles without prompting. It does NOT access your cloud accounts, payment systems or external services unless you provide credentials. Human oversight is expected for deployment, API keys and critical decisions.
 
 ---
 

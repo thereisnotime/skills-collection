@@ -12,6 +12,9 @@ name: Tier A (fast feedback)
 on:
   pull_request:
     branches: [main]
+  push:
+    # E-162: slice-* pushes get this instead of the 8-shard Tests matrix.
+    branches: ["train/**", "slice-*"]
 
 permissions:
   contents: read
@@ -31,6 +34,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # D44 item 3: structural checks first (shard rows, home paths, test
+      # registration, doc drift, line budgets); each under 10s, fails fast.
+      - name: Structural checks
+        run: bash scripts/structural-checks.sh
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -40,6 +48,11 @@ jobs:
 
       - name: Install Python test dependencies (for R5 dashboard/web-app pytest)
         run: python3 -m pip install -r requirements-test.txt
+
+      # E-162: the slice has no 8-shard Tests, so the partition guard runs here.
+      # After the pip install: two suites register only when pytest imports.
+      - name: Shard coverage
+        run: bash tests/test-shard-coverage.sh
 
       # oven-sh/setup-bun caches the bun install directory by default (no
       # no-cache: true set here), so bun installs are already cached; this
@@ -65,7 +78,7 @@ jobs:
 
       - name: Select suites for this diff
         run: |
-          bash scripts/select-tests.sh --base "origin/${{ github.base_ref }}"
+          bash scripts/select-tests.sh --base "origin/${{ github.base_ref || 'main' }}"
 
       # R0 (broad-blast-radius or unrecognized-path diff) runs the full,
       # unsharded, serial tests/run-all-tests.sh suite here instead of the
@@ -76,4 +89,4 @@ jobs:
       # sized generously for this path (see the file header comment).
       - name: Run selected suites
         run: |
-          bash scripts/select-tests.sh --base "origin/${{ github.base_ref }}" --run
+          bash scripts/select-tests.sh --base "origin/${{ github.base_ref || 'main' }}" --run

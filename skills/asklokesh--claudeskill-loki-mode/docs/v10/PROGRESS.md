@@ -1488,3 +1488,361 @@ The swarm is stopped: .loki/V10-STOP exists, the loop has no wake-ups, and the c
 2. S41-01: rebase slice-S41-01 onto main, keep one LOKI_E10_PREFIX and one LOKI_E10_TRIM in V10_ENGINE_ENV_ALLOWLIST, rerun bash eval/loki10/test-harness.sh to 0 failures, send it to an opus reviewer, and merge on APPROVE. No scorecard counts until this is merged (D43 item 1).
 3. Then merge the eval prerequisites (S41-17 CIs, S41-18 resume) and bring the medium tier to 20 tasks (review S41-20a/b/c, run their no-op baselines, append their INDEX lines, and cut 7 more).
 4. Then run the medium-tier eval per D43: raw sonnet, raw opus and loki on sonnet, at least 3 reps each, back to back, with auth checked before every rep and resume on interrupt; decide only on differences whose 95% interval excludes 0.
+
+## 2026-09-30T16:58Z RESUME (Chief of Staff / Release Manager)
+- v10.5.5 verified (after the 2026-09-28 hand-off): Release 21b7becd all jobs success; npm latest 10.5.5, gitHead 21b7becd; body 24 lines; Post-Release Smoke green on rerun of run 36497082408 (the first attempt timed out waiting on PyPI, now E-135). 9 rows flipped released.
+- Nightly red since 2026-09-29 is E-134 (fsmonitor test control breaks on Bun 1.4.2; product calls still do not leak).
+- Usage governor: still uncalibrated, no founder reading on file after the reset; staffing at the operating-model floor of 8 until a reading arrives.
+- Order per hand-off: S41-01 (rebase, opus), then S41-17/S41-18, S41-20a/b/c toward 20 medium tasks, then the D43 medium eval. Rework in parallel: M-15, E-125, S41-05, S41-12; fixes E-134, E-135.
+
+## 2026-09-30T17:08Z (Chief of Staff)
+- Merged and pushed (53918a30): E-135 (smoke PyPI window 21 min, TL APPROVE), S41-19 (stage profile, TL APPROVE; implement 72 to 86 percent, Wall 23 to 29 percent with 90s timeouts in 9 to 11 of 21 runs), S41-11 (trim flag, TL r2 APPROVE, 37/0), E-133 (release map path guard, TL APPROVE, 9/0, reproduced the 10.5.4 incident as a refusal). CI watcher armed; 10.5.6 on green.
+- Rejected and in rework: S41-18 (identity keys untested), E-130 (cache copied into every worktree; publish race), M-15 r2 (no ablation; conformance forgeable via conftest; classifier diverges from wall.ts, now told to reuse it), S41-17 (green from noise below the D43 floor; fixed at 3a1077c0, awaiting opus r2), S41-12 r2 (4 rollback data-loss findings; fixed at d72ac106, awaiting opus r3), S41-05 r3 (fixed at 5aae1384, awaiting opus r4).
+- Opus share 34 to 41 percent against the D13 30 percent cap: HIGH reviews queued (S41-05, S41-12, S41-17, E-134, E-125) and released two at a time as running opus reviews finish. S41-01 (P0) opus review launched despite the cap.
+- Two reviewer temp dirs without an ownership marker remain (/private/tmp/loki-run.ztK3ctuo, /private/tmp/claude-501/loki-run.42ODTAwP); the cleanup helper refused both (rc 64) and they are left in place.
+
+## 2026-09-30T17:29Z (Chief of Staff)
+- Merged: E-130 (worktree install cache, TL r2 APPROVE, 15/0; .loki copy 2.32s to 0.04s with a 71 MB cache) and S41-18 (resume, TL r3 APPROVE, 17/0). Pushed cad4615f with two red-main fix-forwards: 7f1dff57 (E-133 shard-durations row missing) and 010797b3 (E-133 fixture tripped test-no-hardcoded-paths, the real cause of Tests red on 53918a30). Local fast tier: 96 PASS, 0 FAIL before the 10 min cap. CI watcher armed; 10.5.6 on green.
+- S41-01 opus r1 REJECT (a killed session's cost silently dropped, understating loki); fixed at 5c539ee5 (129/0, 0 of 77 preserved rows change), opus r2 in flight. S41-17 opus r2 REJECT (floor counted rows not evaluated reps); fixed at 37fc78d2 (63/0), opus r3 in flight. S41-05 opus r4 REJECT (template-literal dynamic import bypasses the fence); engineer switching to Bun scanImports.
+- Medium tier: S41-20a flask-6093 reworked (click-3449 dropped); 20b/20c self-check kept attrs-1327, packaging-1162, faker-2206 (added an anti-alias test), httpx-2536 and dropped humanize-103, marshmallow-2170, pluggy-442. Medium would be 12 of the 20 D43 needs. The INDEX.md edits on the three branches will conflict at merge.
+
+## 2026-09-30T18:06Z (Chief of Staff / Release Manager, D44 in force)
+- D44 recorded (25c61932). Tier B now runs on train/** pushes (test.yml, bun-parity.yml, coverage.yml). Release clock cron b33e6870 every 10 min releases only a main commit with green Tier B at that exact SHA.
+- v10.5.6 cut from 005f7617 (Tests, Bun Parity, Coverage green) as 97faf361; Release run in progress. Carries S41-01, S41-05, S41-11, S41-18, S41-19, E-129, E-130, E-133, E-135 and the four red-main fixes.
+- Red main count today: 4 (53918a30 hardcoded path, cad4615f ShellCheck, 9e815035 duplicate TS function, plus the earlier drift row). Each was a structural check only CI ran; D44-C moves them into Tier A and pre-merge. Memory feedback-run-the-exact-gate-locally updated with the exact pre-push commands.
+- train/2 pushed at 2e22fde8 (v10.5.6 plus E-136, D44 triggers, E-126, E-128/E-131); Tier B running; main fast-forwards to it only when green, then the clock cuts 10.5.7. Local main has E-127 queued for train/3.
+- Builders (8): D44-A (promote script and pre-push), D44-C (structural checks), E-137 (orphan leak), S41-20d, S41-20e (medium tasks), plus reworks. D44-B done, TL review in flight (flag: its gh lookup is branch-scoped to main, which misses train runs).
+- Reviews: opus on E-125 r2, E-134, S41-12 r3; S41-17 r5 narrow re-check; opus share 28 percent.
+- Governor: docs/v10/usage-readings.tsv holds only its header; no calibration reading exists, so staffing stays at the operating-model floor of 8.
+
+## 2026-09-30T18:40Z (Chief of Staff and Release Manager)
+- train/3 (b984d18f) green on Tests, Bun Parity and Coverage (baseline) push runs at 18:29Z; main fast-forwarded 97faf361..b984d18f; v10.5.7 released at 5a00409f (VERSION-only bump on the green parent). Watcher armed for the Release run, npm latest and gitHead, and the release body.
+- train/3 was blocked locally first by `tests/run-shellcheck.sh` rc=1 (SC2046 in eval/loki10/test-scorecard.sh:430-431); fixed with a scoped directive, rerun rc=0 before the push.
+- train/4 staging on local main: E-137, D44-C (15c2a870), S41-20a (flask-6093), E-140 (no TMPDIR glob sweeps), E-87 (dispatch Security Audit accepted by required-ci), S41-20e (pendulum-768, isort-2646). Local gate: shellcheck rc=0, structural-checks all passed, test-structural-checks 5/5, harness 130/0, scorecard 67/0, required-ci pytest 37 passed.
+- Medium tier: 10 on local main. Rejected with reproduced one-file fixes: attrs-1327, httpx-2536, pyjwt-1147, isort-1913; S41-20b-r2 (faker-2206 fixed, packaging-1162 borderline) and S41-20d in review; S41-20f and S41-20g building 4 each with a mandatory self-written one-file-fix probe.
+- Opus reviews (share 22.6 percent at dispatch): D44-A r2, E-125 r4 (absorbs E-132), M-15 r3. E-138 held for opus capacity.
+- Sonnet: reviews of S41-20d, S41-20b-r2, E-115 plus E-142, S41-10; builders EV-12E, S41-20f, S41-20g, E-143.
+- Founder: a reviewer's failed cd left an empty pip-only venv at the repo-root .venv (gitignored); v10-guard RULE4 blocks its removal from a session. Remove with `rm -rf .venv` when convenient.
+
+## 2026-09-30T19:05Z (Chief of Staff and Release Manager)
+- v10.5.7 verified: Release run success; npm latest 10.5.7 with gitHead 5a00409f (watcher bbf3odg5x, 18:50:53Z); body written; board-mark-released flipped 17 rows.
+- train/4 (2b0d2e4d) green on its train push (Tests, Bun Parity, Coverage all success); main fast-forwarded 5a00409f..2b0d2e4d at 18:45Z. main's own Tests push run at that SHA then failed: shard 3/8 "trust-core probes never mutate the shared tree", rc=124 after 9/9 pass lines (inner `timeout 50`). Failed job rerun in flight (run 36760845105); v10.5.8 held until main is green. Guard slice E-147 staffed.
+- train/5 staging (S41-20b-r2, E-115, E-142, S41-10, dist rebuild): local bun test 2581 pass 0 fail; blocked only by an E-142 false positive (dash/emoji scan flagged a byte-exact upstream refdiff and dist sourcesContent); exclusion fix 2e541b6a in TL review.
+- Rejections this hour, each with a reproduced attack: M-15 r3 and r4 (conformance bypass via pytest.toml, then via stdlib-shadowing modules), E-125 r4 (-ra -q addopts false not_run; forgeable exit via pytest.exit), D44-A r2 (hook refused a replay of the real v10.5.7 bump; flaky fixture), EV-12E (lg- task could omit tier), S41-10 r1 (empty brief). Reworks committed: M-15 8097d44a, E-125 018a6e06, D44-A d956294f; opus re-reviews held while opus share is 38 percent (D13 cap 30).
+- Medium tier: 12 on local main. S41-20d 0/4 and S41-20f 0 kept; S41-20g markdown-1390 needs one authored test; S41-20h mining shortlisted 2 (platformdirs#540, flask#5736), being built as S41-20i.
+
+## 2026-09-30T19:20Z (Chief of Staff and Release Manager)
+- v10.5.8 released at 346577f9 from 2b0d2e4d after main's own Tests rerun passed (run 36760845105 completed success 19:07:16Z; Bun Parity and Coverage success); Release run in flight, watcher armed.
+- train/5 pushed at 1cd5feac (S41-20b-r2, E-115, E-142, S41-10, S41-20g markdown-1390, E-144/E-146, mining notes, v10.5.8 merged): shellcheck rc=0, structural all passed, test-structural-checks 11/0, harness 130/0, scorecard 67/0, typecheck rc=0. Tier B watcher armed.
+- train/6 staging on local main: E-147, E-143, S41-10b, EV-12E, S41-20j notes (validate rc=0, structural all passed).
+- Medium tier: 13 of 20 on local main (counts line and disk agree, 13 task.json with tier medium). Three mining passes (S41-20h, S41-20i, S41-20j) screened about 30 PRs and kept 0: independent reviewers keep writing one-file fixes. Kept rule: a route that works only by import-time patching or injecting another module is contrived and does not fail criterion (b) (packaging-1162, markdown-1390). The D43 decision run stays blocked on the 20-task floor; mining continues with one engineer.
+- Opus share 40 to 50 percent this hour (D13 cap 30) from the HIGH review rounds on M-15, E-125 and D44-A; their next opus re-reviews are held until the share falls.
+
+## 2026-09-30T19:45Z (Chief of Staff and Release Manager)
+- Releases this hour: v10.5.8 (346577f9, verified: npm 10.5.8 gitHead 346577f9) and v10.5.9 (2c7685b7 from green train/5 1cd5feac; Release run finishing). train/5 Coverage went red once on a timing flake (java_capture M-04 test 5169ms against bun's 5s default; rerun success 19:29:17Z); guard E-149 merged (explicit 20s timeout on the five real-JVM tests, proven by a 1 ms mutation).
+- train/6 staging on local main (E-143, E-144/146, E-145, E-147, E-148, E-149, S41-10b, EV-12E, pub-dotenv-661, dist rebuilt): local gate so far shellcheck rc=0, structural all passed, harness 150/0, scorecard 67/0, changed suites rc=0, typecheck rc=0; full bun test running.
+- DECISION NEEDED (founder or CTO) 1, medium tier: 14 of 20. Six mining passes screened about 90 merged PRs and kept 2. In small Python libraries a bug fix is almost always one source file; two-file PRs are refactors or new APIs whose tests name the new symbol. Options: (a) run a D43 pilot now on the 14 medium tasks (not decision-grade, surfaces harness cost and failures), keep mining at one engineer; (b) allow authored issue-stated tests more broadly to close natural one-file routes; (c) widen the pool beyond small Python libraries (larger apps, other languages the harness can run). Default if no answer: (a) is NOT started (it spends provider budget with an uncalibrated governor); mining continues at one engineer.
+- DECISION NEEDED 2, D34 large-over-medium rule: EV-12F-a's three werkzeug large tasks (267, 468, 509 added lines) measure below pub-faker-2206 (declared medium, 1032 added lines, mostly word-list data), so the D34 gate "large must measure above the largest medium" fails. Options: count data-only lines (string literal lists) out of measure-size, re-tier pub-faker-2206, or change the rule. EV-12F-a held until decided. Its builder also excluded eval/loki10/tasks/*/hidden/** from the emoji scan because verbatim upstream tests contain emoji and editing them breaks the sha256 freeze; that exclusion needs a TL review.
+- Opus share 57 percent over the last hour (D13 cap 30): HIGH re-reviews held: E-138 (77 min), E-125 r5, D44-A r3, M-15 r5, plus EV-12F-a when unblocked.
+
+## 2026-09-30T20:05Z ADOPTION DIRECTIVE IN FORCE (Chief of Staff and Release Manager)
+- Source: ~/git/autonomi-dev/research/2026-09-30-adoption/SWARM-PROMPT-ADOPTION.md (founder, overrides BOARD priorities; operating model, D13, governor, trains, verified-tree releases and the git exception stay in force).
+- Releases: v10.5.10 (69ebc03e) was pushed at 19:53Z, before the directive, and reaches npm `latest`; it is left in place (reverting `latest` would itself move `latest` without a gate pass). From now on every release publishes to `next`; `latest` moves only through a promote step after scripts/first-run-gate.sh passes on that exact version. Release cron b33e6870 deleted at 20:02Z; releases HELD until A-01 (`--tag next` plus promote) merges, then the cron is recreated with a next-only prompt.
+- Board: adoption rows A-01 (release to next, promote), A-02 (first-run gate plus defect repro table), A-03 (opus Architect Tier 0 split), A-04 (packages/loki-seal) staffed; M-15, E-138, D44-A, EV-12F, EV-12G parked; medium-tier mining stopped. The two 19:45Z decisions (medium yield, D34 tiering) are SUPERSEDED: Tier 2's head-to-head needs 10 or more public tasks and the eval set has 28.
+- Founder queue rows 7 to 12 appended (license, public repo and submissions, About text, tagline veto, telemetry, relaunch); none acted on.
+- train/7 (E-150, E-151, dist rebuild correcting the v10.5.10 map) is gated locally; it may land on main, but no release is cut from it until A-01 merges.
+- Gate status per defect: not yet reproduced (A-02 step 1). next releases shipped: 0. latest promoted: no. loki-seal: building. Head-to-head: not run.
+
+## 2026-09-30T20:35Z hourly report (adoption directive)
+- Gate status per defect (docs/v10/FIRST-RUN-GATE.md on slice-A-02 f2e054f1; stub mode, current main 10.5.10):
+  - (a) Wall commits Jest globals in a node:test repo: CODE BUG, root cause in code (wall.ts:76-86, testmap.ts:37); fix cards A-102, A-103, A-104.
+  - (b) red suite exits 0: CODE BUG, reproduced rc=0 with SPEC_CONFLICT (supervisor.ts:387); cards A-110, A-111.
+  - (c) verify TAMPERED on a fresh receipt: CODE BUG, reproduced rc=1 (verify_cmd.ts:21-28 vs seal.ts:39-50 non-ASCII escaping); card A-101.
+  - (d) default path slow and noisy, commits HANDOFF.md and a lockfile: CODE BUG, reproduced (266 output lines; run.sh:11065-11233, :29334); cards A-132, A-133, A-134, A-130.
+  - (e) printed digest differs from verified: CODE BUG, reproduced (af01b739 over 2 files vs 25b61f73 over 3); card A-134.
+  - (f) unsigned by default: CODE BUG, reproduced; cards A-120, A-121, A-122.
+  - (g) doctor FAIL for Cline and Aider: MACHINE ARTIFACT (clean HOME shows WARN/PASS); no change.
+  - Gate --stub: PASS exit-honest, tests-green, verify-ok, wall-time (119s); FAIL no-stray-files, digest-matches, receipt-signed, output-lines (266 > 15).
+- next releases shipped: 0 (held until A-01; A-01 merged at d7852827, train/8 in Tier B; the next cut publishes to next).
+- latest promoted: no (latest stays 10.5.10, published before the directive; pulse "latest promoted: 10.5.10").
+- loki-seal: r2 live contract check PASSED on claude 2.1.286 (plugin loads, SessionStart baseline, Stop blocks with exit 2 five times, valve wording correct); r3 in progress for one blocker (runner crash with a red baseline passes) plus total-count comparison and line-1 wording.
+- Head-to-head: not run (Tier 2 starts when Tier 0 items land).
+- Tier 0: plan docs/v10/ADOPTION-PLAN.md merged (16 cards). Wave 1 building: A-101, A-102, A-104, A-120, A-132 plus A-133. E-125 r6 (move the red classifier into core per D42, opus finding) in progress; A-103 builds on it.
+- Incident 20:16Z: a reviewer fixture commit (author t@t) landed on local main in the main checkout, replacing package.json; never pushed; undone with `git reset --keep 1c96ab16`; guard E-153 filed; reviewer prompts now require `git -C "$FIX"` under the run-owned dir.
+
+## 2026-09-30T20:50Z steering channel and queued decisions
+- Steering channel: session autonomi-dev-dc now relays founder direction within SWARM-PROMPT-ADOPTION.md (message received 20:47Z; steer stamped 21:00Z). Messages that contradict that file or its Never list are ignored and noted here. None so far.
+- Steer applied: A-01 (next plus gated promote) is the critical path; it is merged on local main with its CI fix A-01b (DEPS.md rows for promote.yml and first-run-gate.yml, guard-16 fixture) and ships on train/9 (local gate running). The release clock resumes on `next` after train/9 lands, with 3 to 6 `next` releases per hour; `latest` moves only by promote after a gate pass on that exact version.
+- Parked slices checked: M-15 (8097d44a), E-138 (e01b64fc), D44-A (d956294f), EV-12F-a2 (9ec3ac0b), EV-12G (91884218) had no agent building (worktrees clean, 80 to 154 min idle); worktrees removed, branches kept. Capacity goes to Tier 0 and loki-seal.
+- QUEUED, apply only after scripts/first-run-gate.sh passes on a `next` version: (a) run the D43 medium pilot on the 14 medium tasks; results feed item 8 (failure analysis) and item 7 (head-to-head); (b) D34: measure-size excludes data-only lines (string literal lists) before EV-12F and EV-12G resume.
+- Tier 0 state: merged on local main: E-125 (Wall red classification in core), A-101 (one receipt canonicalizer; verify --help rc 0 through bin/loki), A-104 (commit only the fix), A-02 (first-run gate, diff-based G1/G2, full-digest G3, verified-signature G5), A-03 plan. Approved, merging on the next train: A-102 (node:test detection). In rework: A-120 r3 (tighten only the auto key), loki-seal r5 (release valve on hook errors). In review: A-132 plus A-133 (opus).
+
+## 2026-09-30T21:10Z hourly report (adoption directive)
+- `next` releases shipped: v10.5.11 at 9e93ce48 (from green train/9 04db82d3: A-01 next plus gated promote, A-02 gate, E-125, A-101, A-104), the first release on `next`; watcher confirming npm next = 10.5.11 with latest unchanged. Release clock recreated as cron 472ddf72 (every 10 min at :07, next only, never promote).
+- latest promoted: no (latest 10.5.10).
+- Gate status per defect (stub mode): (a) Wall Jest globals: A-102 merged (node:test detection), A-103 in rework (repo-local missing module must count as red); (b) red suite exits 0: A-111 in rework (parse only the final summary), A-110 not started; (c) verify TAMPERED: fixed in A-101 (shipped 10.5.11), verify --help rc 0; (d) quick noise and stray files: A-132/A-133 r2 in opus review (stub gate now PASS no-stray-files), output lines still 260 > 15 (A-130/A-134 pending); (e) printed digest mismatch: A-101 prints the full digest; gate digest-matches still FAIL until A-134; (f) unsigned: A-120 merged (local key auto-generated, warning kept), A-121 native v10 signing building, A-122 GPG deletion in opus review; (g) doctor FAIL: machine artifact.
+- loki-seal: merged on local main (train/10) after a live Claude Code 2.1.286 contract check and opus approval in round 5; follow-ups A-04b and contract-aware A-04c queued.
+- README: A-09 merged on local main: 49 lines, line 1 "Your agent says done. Loki proves it." (veto pending), line 2 the D45 category line; full content moved to docs/README-FULL.md with retracted claims removed. Deviation from "same sentence in SKILL.md": the SKILL.md description is line 2 verbatim followed by one trigger sentence ("Use when the user says Loki Mode or asks to build, fix or verify software autonomously."), because dropping the trigger wording would weaken skill auto-invocation; package.json description is line 2 verbatim.
+- Head-to-head: not run.
+
+## 2026-09-30T22:05Z hourly report (adoption directive)
+- `next` releases shipped this hour: 1, v10.5.11 (9e93ce48). Verified: npm gitHead 9e93ce48, dist-tags next=10.5.11, latest=10.5.10 unchanged, release body 17 lines. No release since: train/10 (77d58f1a) Tier B red; train/11 (363c20ea) pushed 22:01Z, Tier B running.
+- latest promoted: no (10.5.10).
+- train/10 red: Tests failed on shell shards 2, 3, 5 and 6. All 4 tests assert README.md content that A-09 moved to docs/README-FULL.md (test-agent-types-loaded, test-mcp-tool-surface-packaged, test-mcp-tool-surface-guard-rejects, test-engine10-docs). Fixed forward on train/11 (79f2cfdb): README regains the reviewer-pool, 36 MCP tools and Loki 10 marker lines (57 lines). The local gate had not run the tests that name a changed file.
+- train/11 contents: README fix, A-103, A-111, A-113, A-121, A-122, spawn-env fix for A-122's doctor probe (af50a9b0), gitleaks fingerprints. Local: gate4 green, full bun test 2643/1 then 0 fail after af50a9b0, typecheck 0.
+- Gate status per defect (stub mode; A-134 branch measured 7 of 8 PASS, only receipt-signed FAIL, before A-121/A-122 merged):
+  - (a) Wall Jest globals: A-102 and A-103 merged on train/11.
+  - (b) red suite exits 0: A-111 merged (empty or skipped checks not_run); A-110 (exit ladder, PARTIAL exits 1) built, in opus review; A-112 (baseline subtract) r2 in opus review after r1 was REJECTED for a no-fix run sealing VERIFIED.
+  - (c) verify TAMPERED: fixed in 10.5.11 (A-101).
+  - (d) noise and stray files: A-132/133 merged; A-134 r2 in rework (3 opus blockers: missing --verbose, a CI test anchor deleted, NOT PROVEN/UNSIGNED hidden in quiet mode).
+  - (e) printed digest mismatch: A-134 branch PASS digest-matches; lands with A-134.
+  - (f) unsigned: A-121 (native v10 signing) and A-122 (GPG layer deleted) merged on train/11; unknown key reads UNCHECKED, not TAMPERED.
+  - (g) doctor: machine artifact; A-123 (one Ready line, selected provider only) in sonnet review.
+- loki-seal: merged on local main before train/10; not in 10.5.11; ships with the train/11 release.
+- Head-to-head: not run.
+- Incidents: 21:58Z a shell test batch run in the main checkout switched HEAD to a stale loki/session branch for 33s (main ref intact; E-155). 22:00Z pre-push gitleaks flagged the key file NAME `receipt-ed25519.pem` (false positive, fingerprinted; durable allowlist E-156 needs CTO approval). 17:14Z signing tests wrote keys to the real ~/.loki/keys (E-154). Filed: A-103c, A-111b (folded into A-112), A-121b (receipt downgrade to UNSIGNED exits 0), A-132b (uncommitted fixture-61).
+- Opus share this hour about 40 to 46% (over the 30% D13 budget) from HIGH-tier reviews; builders are sonnet.
+
+## 2026-09-30T22:18Z steer 22:17Z applied: train split
+- train/12 = train/10 (77d58f1a) plus the README fix cherry-picked (3e34837b). Contents: A-132/133, A-09, A-102, A-120, loki-seal (A-04), D45, A-01b; NO A-121/A-122 signing code, no A-103/A-111/A-113. train/10's only reds were the 4 README tests; locally 3e34837b passes all 4 plus structural and stale-version checks. Pushed 22:18Z; Tier B watcher armed; ships to `next` when green.
+- Signing and engine slices stay on the next train (local main 8d309d55: A-103, A-111, A-113, A-121, A-122, A-123, spawn-env fix) until train/11's failures are fixed at the source: P0-t11a (A-103 Linux node output, stale --resume docs, gitleaks baseline shape) building; P0-t11b (moat P1 control used the real HOME where a key now auto-generates; trigger-server test-order flake) built, in opus review. Nothing was added to tests/moat/pending.txt; the other 3 moat fails are existing pending cases with matching reasons.
+- The `ModuleNotFoundError: sqlalchemy` lines in the shard logs are printed inside passing tests, not the failures.
+- A-114 (false VERIFIED when the diff avoids the target test, reproduced on main) is Tier 0, folded into A-112 round 3 (same verify.ts, same target-test notion).
+
+## 2026-09-30T22:40Z steer 22:50Z
+- A-115 (a conftest that skips the target seals VERIFIED; on main) is Tier 0 and building: fix plus first-run gate assertion G8 (a conftest skip of the target must end NOT VERIFIED). Core room comes from deleting proven-dead code; if that falls short, a dated cap exception goes to DECISIONS.md, never a ship-around. `latest` stays unpromoted until A-115 lands, even if the gate passes.
+- Hook paths: NOT edited. `.claude/settings.json` is Claude Code configuration and a peer request cannot authorize a config change; queued as FOUNDER-QUEUE row 13 (all four hooks use relative paths, including the validate-bash.sh PreToolUse guard).
+- v10.5.12 never published (Security Audit: 3 gitleaks false positives on the key file-name string, reached through the pushed train/11 ref by `--all`); fix ships as 10.5.13 from train/13 (1f4cf0d3), local gate running in a disposable worktree.
+
+## 2026-09-30T23:15Z train/13 status
+- train/13 (3ce73a36): first-run gate stub PASS 8/8 locally (wall 27-28s, 15 lines, signed receipt, digest match); first all-green stub gate. Counts toward promote only in real-provider mode on a published `next` version and after A-115 (G8) lands.
+- Tests red on shards 0,1,2,3,4,6,7; four root causes, one P0 fix-forward (slice-P0-t13): (1) E-154 run-all-tests.sh exports LOKI_RUN_TMP via loki_run_tmp_create, so every child loki_run_tmp_create refuses ("cannot create run tmp"): EV-1, E-33, EV-6, A-02 gate logic, A-132, A-133, A-134, E-154/155 guards; (2) E-123 gitleaks baseline shape pinned 56/20, now 59/23 after three fingerprints; (3) A-123 doctor tests lack node on CI's restricted PATH, plus a bash/bun blocker wording gap; (4) A-134 log_error reroute read as gated by the env-var docs test. No rerun until green through the runner.
+- Merged since 22:40Z on local main: A-103c, A-103d, E-154b. In review: A-115 (Tier 0, core 4998 to 4940 by deleting dead parsers), A-130 r2 (also fixes a pre-existing moat bug: a tampered event log sealed Outcome VERIFIED, exit 0).
+- v10.5.12 never published; 10.5.13 ships to `next` when the fixed train is green, without waiting for A-115; `latest` waits for A-115.
+
+## 2026-10-01T00:19Z hourly report (adoption directive)
+- `next` releases this hour: 0. `next` = 10.5.11 (about 3h). 10.5.12 never published (Security Audit gitleaks: 3 file-name false positives reached via the pushed train/11 ref). latest promoted: no (10.5.10).
+- train/14 (frozen per steer 23:57Z, built from local main 0b5c5ad4 + P0-t13) is in Tier B at 30b779bd. Red runs and fixes since 22:30Z: E-154 runner exported LOKI_RUN_TMP (fixed); E-123 pinned gitleaks shape (60/24); A-123 doctor tests lacked node and a bash/bun blocker wording gap (fixed in product); doctor said "unsigned" for a not-yet-created key file (fixed: "will be signed on first run"); the E-154/155 guard test's mini-runner inherited CI's LOKI_TEST_LIST and LOKI_TEST_SHARD (fixed); A-134 quiet output is 16 lines on Linux CI vs 15 locally (diagnostic dump added; pending).
+- Gate status per defect: stub first-run gate 8/8 PASS locally on train/13 tree (first all-green) and G8 (skipped target never VERIFIED) PASS on both v10 and legacy paths with A-115. Real-provider gate on a published `next` version: not run yet (needs 10.5.13).
+- Moat bugs found and fixed today (all false-VERIFIED class): A-112/A-114 (pre-red subtract, avoided target), A-115 (skip, xfail, pytest.exit, deleted target), A-130 (tampered event log sealed VERIFIED exit 0 on main). Open: A-117 (loki verify still VERIFIED on a tampered event log), A-118 (legacy quick exits 0 on NOT VERIFIED skipped target; CTO call). `latest` stays unpromoted until A-117/A-118 and a real-provider gate pass.
+- Merged on local main for train/15: A-130. In review: A-113b r3 (provider stderr in memory), E-156 (key file name constant: removes the gitleaks trigger at the source).
+- loki-seal: merged, ships with 10.5.13. Head-to-head: not run.
+
+## 2026-10-01T00:55Z first-run gate on the PUBLISHED next build (10.5.13)
+- 10.5.13 published to npm `next`: `npm view loki-mode@10.5.13 version gitHead` = 10.5.13 / 08f46297 (watcher 00:52:36Z); dist-tags next=10.5.13, latest=10.5.10 (unchanged); release body 25 lines. Registry lag about 8 minutes (no hold).
+- `bash scripts/first-run-gate.sh --stub --installed loki-mode@10.5.13` (npm-installed package, throwaway HOME, stub provider), GATE: 0 assertion(s) failed, wall 26s:
+  - PASS exit-honest (rc=0, green=1); PASS tests-green (node --test 2/0, npm test rc=0); PASS no-stray-files (only sum.js); PASS digest-matches; PASS verify-ok (rc=0); PASS receipt-signed; PASS output-lines (15 of 15); PASS wall-time (26s).
+  - G8: PASS skip-not-verified (v10: skipped target rc=1, Outcome FAILED); PASS skip-not-verified-legacy (legacy headline NOT VERIFIED; rc=0, not asserted: that is A-118).
+- REAL-provider mode: NOT RUN. The swarm has no provider credential in its environment and does not read stored secrets; FOUNDER-QUEUE row 15 has the exact command. Cost/wall vs raw `claude -p`: pending that run.
+- `latest` NOT promoted: needs the real-provider pass plus A-117 (loki verify on a tampered log, building) and A-118 (legacy quick exits 0 on NOT VERIFIED, CTO call).
+- Trains: train/16 (bba2e5ec) in Tier B. 1 `next` release in the trailing hour vs the D46 target of 3-6.
+
+## 2026-10-01T01:14Z train/17 red (D46 tally: cut 1, red 1, dropped 0)
+- train/17 935b2766 Tests run 36799190925: shard 4 only, 49/50 passed. The one failure is tests/test-quick-receipt-order.sh "default output is 16 lines (max 15)". The 16 lines are stderr noise (mkdir .loki/config exists, 2 caveman bootstrap lines, echo broken pipe), the same main-resident failure as train/15. A-115b is not implicated, so nothing is dropped. Fix forward is slice-P0-t15, in rework (2 reviewer blockers). train/18 = train/17 + P0-t15 once approved. Bun Parity and Coverage: success.
+- v10.5.14 (2f4462b7) Release run still in progress at 01:10Z; next=10.5.13, latest=10.5.10 (npm view dist-tags).
+- Staffed 01:12Z: A-119 opus review, A-130b and A-134b builders, CTO call on A-118/A-121b.
+
+## 2026-10-01T01:20Z v10.5.14 published
+- Release run success; `npm view loki-mode@10.5.14 version gitHead` = 10.5.14 / 2f4462b7; dist-tags next=10.5.14, latest=10.5.10 (unchanged); release body 17 lines.
+- D46 tally this hour: next releases 1 (10.5.14) vs target 3-6; trains cut 1 (train/17), red 1, dropped 0. Shortfall cause: the main-resident quiet-output flake (P0-t15 in rework).
+- OPUS_SHARE 33.7% vs 30%: no new opus seats until it drops; the open opus work is the A-117 r2 builder (resumed) only.
+
+## 2026-10-01T01:32Z train/18 cut
+- train/18 = 37267ebd (local main d5d679a4: A-119 merge c41a2b83 + docs, plus dist rebuild), pushed by SHA 01:34Z (`git ls-remote origin refs/heads/train/18` = 37267ebd). Tier B watcher armed.
+- P0-t15 round 2 at 54da8960 in sonnet re-review; train/19 = train/18 + P0-t15 when approved.
+- In review: A-130b (be50510f), A-134b (3bbec935). Building: A-117 r2, A-118, A-121b, A-119b (7edf4ae0 awaiting one clean full run).
+- Seats capped by worktrees 15/15 and load about 15-25; no new seats this tick.
+
+## 2026-10-01T01:41Z train/18 green, v10.5.15 cut, train/20 cut
+- train/18 37267ebd: Tests, Bun Parity, Coverage (baseline) all success (watcher b3l054ag3, 01:38:25Z). origin/main fast-forwarded 2f4462b7..37267ebd.
+- v10.5.15 release commit a7945d67 (parent 37267ebd == origin/main; `release.sh --check-clean` rc=0), pushed by SHA. Contents: A-119, A-115b. Watcher armed for Release run, npm version/gitHead, next == 10.5.15, latest unchanged (10.5.10).
+- train/19 89bf645b (P0-t15) is superseded for main because it lacks the release commit; train/20 c57eb914 = train/19 + main (release merge c908a37f), pushed 01:43Z, Tier B watcher armed.
+- D46 tally: trains cut 3 this hour (18, 19, 20), red 0 of the finished ones.
+
+## 2026-10-01T01:51Z trains 19/20 red on one lint line; train/21 carries the fix
+- train/19 89bf645b and train/20 c57eb914: Tests failed only in "ShellCheck Linting" (SC2088, a quoted "~/.loki/config" in tests/test-quick-config-safety.sh line 71, from P0-t15). The quiet-output 16-line failure did not recur (failparse on job 110179389806 lists only ShellCheck). Fixed forward on main 1be4bbe9 (run-shellcheck.sh rc=0); train/21 2ebfa3a1 = train/20 + fix + E-157, in Tier B.
+- v10.5.15 a7945d67: Release run queued at 01:48Z.
+- Reviews: E-157 r3 APPROVE (merged), A-130b APPROVE (merged), E-159 REJECT (rework), A-117 r2 REJECT (back-compat for old receipts; key-env tests), A-118/A-119b/A-134b r2 in review.
+- D46 tally this hour: next releases 1 confirmed (10.5.14) + 1 pending (10.5.15); trains cut 18/19/20/21, red 19 and 20 (one lint line), dropped 0. OPUS_SHARE 36% (HIGH reviews only); load about 25 of 28, no new seats.
+
+## 2026-10-01T02:01Z v10.5.15 published; train/21 dropped E-157; train/22 cut
+- v10.5.15: Release run success; npm 10.5.15 gitHead a7945d67 (matches); dist-tags next=10.5.15, latest=10.5.10 (unchanged); release body carries the full CHANGELOG section.
+- train/21 2ebfa3a1 red: Shell tests shard 1, tests/test-version-bump-only.sh 28/1 (S-132 normalizer parity). Cause E-157 (release.yml STEP 1 heredoc re-indented 10 to 12 spaces). D46 drop: E-157 merge reverted on local main 7d1a0f15 (test then 29/0), back to CI-health for r4.
+- train/22 dd9842c6 = train/20 + main (SC2088 fix, A-130b, E-157 revert); release.yml identical to train/20; test-version-bump-only 29/0 and shellcheck clean locally. Tier B watcher armed.
+- D46 tally (rolling hour): next releases 2 (10.5.14 01:19Z, 10.5.15 01:54Z); trains cut 5 (18-22), red 3 (19, 20 lint; 21 E-157), dropped 1 (E-157).
+
+## 2026-10-01T02:08Z train/22 green, v10.5.16 cut
+- train/22 dd9842c6: Tests, Bun Parity, Coverage (baseline) all success (02:07:32Z). origin/main fast-forwarded a7945d67..dd9842c6 (the v10.5.15 Release run had completed success).
+- v10.5.16 release commit f522c12f (parent dd9842c6 == origin/main; --check-clean rc=0), pushed by SHA. Contents: P0-t15 (quiet quick stderr noise, sentinel-only config fold, guarded SIGPIPE re-exec), A-130b (Reason line redaction). E-157 net zero (reverted). Watcher armed; latest must stay 10.5.10.
+
+## 2026-10-01T02:25Z train/23 red, A-134b dropped
+- train/23 de366303 (A-134b): Tests red in 3 shards, all from A-134b's new tests/test-quick-quiet-tail.sh: registered in no runner (D44 guard, shard 1; D44-C structural, shard 6), and an unescalated `timeout 150` at line 53 (E-00 guard, shard 7). Bun Parity and Coverage success.
+- D46 drop: A-134b merge reverted on local main 3924bc3f; local main now has no code diff from origin/main (`git diff --stat origin/main main -- . ':!docs'` empty), so no replacement train. A-134b back to its builder (register plus shard row, timeout -k).
+- Process miss (mine): I merged A-134b on the reviewer's conditional approval without the repo-wide test-file guards. New rule in memory: any slice adding tests/*.sh runs the registration, E-00 and shellcheck guards before merge.
+- v10.5.16 Release run still in progress at 02:23Z. D46 hour 02:00Z: 0 confirmed so far (10.5.16 pending), trains cut 22 and 23, red 1 (23), dropped A-134b.
+
+## 2026-10-01T02:45Z D49: 10.5.16 promoted to latest
+- Founder confirmed D49 and the D48 engine flip directly in this session (02:42Z). First-run gate stub on the npm-installed 10.5.16: 0 assertions failed, wall 34s (scripts/first-run-gate.sh --installed loki-mode@10.5.16). promote.yml run 36807172046: completed success. npm dist-tags now {"latest":"10.5.16","next":"10.5.16"} (was latest 10.5.10).
+- Slices pushed to origin for slice CI during review: slice-A-117, slice-A-121b(-r2), slice-A-118, slice-A-134b-r4, slice-E-157-r4, slice-E-159-r2.
+- Reviews in flight (opus, HIGH): A-117 r3, A-118 r2, A-121b r2, E-157 r4 + E-159 r2. D48 wave 1 building (sonnet): gaming matrix (row 1), portable verify (row 2), doctor --fix (row 6), loki-seal marketplace (row 10).
+
+## 2026-10-01T02:47Z INCIDENT: main checkout detached by a reviewer (restored)
+- The E-157/E-159 opus reviewer ran a 7-tag `git checkout --detach` loop with a `.gitleaksignore` overwrite in the shared main checkout (reflog 02:46:04Z to 02:46:38Z): a failed `cd` into a new clone left its cwd in the main checkout. It stopped on request; nothing left running (its report). Restored: `git checkout main` gives main at fafe50dd, `git status --porcelain` shows only the pre-existing untracked .git-pulse-fix.patch; PROGRESS.md 1687 and BOARD.md 652 lines intact. Guard slice E-161. During the window the pulse misread BOARD and PROGRESS from the old tree.
+
+## 2026-10-01T03:01Z "faster" levers (founder via peer, 03:05Z)
+- Baseline (before): median opus review about 20-23 min (A-121b r1 22m46s, A-117 r3 about 39 min under load); slice CI is the full 8-shard Tests (about 12-15 min, runner-queued); train cadence: 22 to 24 cut 02:00Z-02:51Z; releases in the 02:00Z hour: 1 (10.5.16), plus a promotion to latest.
+- Applied now: (1) opus reviews only for moat, latest-moving and signing slices; sonnet, 10-min cap, for the rest; slices under 150 changed lines. (3) New builders launch as remote (cloud) agents, so local load is reviewers, gate and Release Captain only. (4) A train is cut on any green reviewed slice, every 10-15 min, even while the previous train is in CI.
+- (2) Slice CI tier-down is BOARD E-162, sequenced after E-157 r4 because both edit test.yml.
+- After-numbers go in the 03:35Z entry.
+
+## 2026-10-01T03:08Z usage governor calibrated; pacing decided; A-118 r3
+- First usage reading in docs/v10/usage-readings.tsv: 2026-10-01T03:14:00Z, window 11%, weekly 25%. Founder pacing (D39 amendment): sprint to 04:35Z, then about 0.48%/h (about 7 engineers).
+- A-118 r2 opus REJECT (4 blockers: multi-line pyproject addopts and unittest @skip bypasses; pagination `{ skip: n }` and new shared config files falsely accused); r3 with the builder.
+- Pushed for slice CI: slice-D51-A3 14ff9ae2 (backlog plus loki.yaml), slice-D51-A4 adb838b2 (Slack on v10). slice-D51-A12 and slice-D48-r6 were blocked by pre-push gitleaks on synthetic strings; a fix agent is moving both to source-level fixes.
+
+## 2026-10-01T03:25Z LEAD HANDOFF STATE (read this first on resume)
+- npm: latest=next=10.5.16 (f522c12f). origin/main=f522c12f. Release worktree: scratchpad/rel-1056; train worktree: scratchpad/t14.
+- Trains: train/24 1f3c9da1 RED (E-142 board sweep: E-161 row had a `||`, fixed in 7cfd7399); train/25 b1d2ecbd superseded (same row); train/26 6d288543 = local main d449a419+ (A-117, E-157 r4, E-159 r2, D49-auto, D51-A3, D51-A4, D48-r10, D48-r6, board fix) in CI. When green: ff origin/main to 6d288543, cut 10.5.17; D49-auto then auto-promotes later releases.
+- In review: A-118 r3 b48adeacc (opus). Rework (fresh agents): A-121b r3 (sys.path guard), A-119b r3 (diff-line asserts, scoped exclude), D51-A12 r2 (Host allowlist vs DNS rebinding). Built, unreviewed or unpushed: D48-r1 gaming matrix de71397dd (needs a CTO call on the pre-red case and a duration row), D48-r2 b073d50a (opus review pending), E-162 6b9738fdc (pushed; sonnet review pending), E-163 678f2162e (unpushed; sonnet review pending). Building: D48-flip, D50 baseline eval, DOC-01, DOC-02.
+- Rules: slice pushes go from the main checkout only (the agent pre-push guard blocks agents); cancel queued slice CI for merged slices; any slice adding tests/*.sh runs the registration, E-00, shard-coverage and shellcheck guards before merge; no `|` or `||` inside BOARD cells.
+
+## 2026-10-01T03:51Z train/26 red, drops, train/27 cut; D50 baseline
+- train/26 6d288543 red: (1) E-133 map guard, committed maps had ../../ sources from a symlinked node_modules build: dist rebuilt in main f370d9aa0 (test-release-dist-guard 13/0); (2) D48-r6 doctor: caveman unsuppressed claude subcall, spawn-env guard (spawnSync without env), --fix test fails on CI: DROPPED (reverts 14ada6db2, 1ca5abd6a). A-119b r3 merge reverted 7a2467d7f (core 5024 over cap; re-land as A-119c with code out of core and add-based weakening closed).
+- A-121b r3 merged 8714c988f (one-line write keeps core 4999; verify_cmd/log_seal/budget/roundtrip 55/0, quick-receipt-order 26/0). train/27 8714c988 pushed (guards: shellcheck 0, v10-ops 67/0, shard-coverage 19/0).
+- D50 baseline merged 871ff5dc7 (METRICS.md): raw haiku 4/10, Loki+haiku 7/10 (cost/completed -14%, 1.19x time), raw sonnet 9/10, Loki+sonnet 5/10 (LOSS). Defect E-164 (lockfile dirtied by setup blocks v10 start) building.
+- Rework: A-118 r4 (3 narrow cases), D51-A12 r3 (health exempt, deploy hosts, 27 tests). DOC-01 a13ca60be done, unreviewed.
+
+## 2026-10-01T04:29Z D48 report (deadline 04:35Z) and release state
+- Releases: v10.5.17 published (Release success; npm 10.5.17 gitHead 78d8713b) and AUTO-PROMOTED by promote.yml (event workflow_run, success): dist-tags latest=10.5.17, next=10.5.17. First D49 auto-promotion.
+- train/28 red (D51-A12 host check 403 in non-dashboard tests; E-164 spawn without env): both dropped, fixed (D51-A12 r4 af58ceead, E-164 r2 be5b70070) and re-landed on main. train/29 red on Python 3.10 only (A-118 treats any pyproject edit as config when tomllib is missing): A-118 dropped (bb9658a15), r5 in progress. train/30 bb9658a1 (D51-A12 UI, E-164, DOC-02 doc sweep) in CI.
+- D48 rows (acceptance test status, honest):
+  1 gaming matrix: NOT DONE. Test built (D48-r1 de71397dd) but not merged; 20 expected-fail cases remain (A-117 shipped; A-118 r5 and A-119c still open; pre-red case needs a CTO call).
+  2 portable receipt: PARTIAL. A-117 (tamper detection incl. tail truncation) shipped in 10.5.17; `loki keys export` + `loki verify --pubkey` built (b073d50a), not yet reviewed or merged.
+  3 quiet and fast (<=8 lines, <=1.5x raw time): NOT DONE (not measured; D50 baseline shows Loki+haiku 1.19x raw haiku time).
+  4 commits only the fix on node/pytest/go repos: NOT STARTED.
+  5 exit ladder + --json schema: NOT DONE (A-118 r5 in progress; schema not started).
+  6 doctor --fix and <2s: NOT DONE (built, dropped from train/26 on CI: unsuppressed claude subcall, spawn env, test failing on CI).
+  7-9 v10 default engine + non-null cost: NOT DONE (flip slice built? builder has not reported).
+  10 loki-seal installable from the repo marketplace: PASS (shipped in 10.5.17, on latest; clean-HOME install verified).
+- D51 Phase A on latest (10.5.17): `loki backlog` + loki.yaml + Slack (v10 path). Pending on train/30: bare `loki` opens the UI with PAT onboarding and backlog complete-all.
+- D50: baseline in METRICS.md (Loki+haiku 7/10 vs raw haiku 4/10; Loki+sonnet 5/10 vs raw sonnet 9/10, a LOSS). E-164 (setup-dirtied lockfile) fixed.
+- Pacing: from 04:35Z the governor paces to about 0.48%/h of the week (about 7 engineers).
+
+## 2026-10-01T04:33Z LEAD HANDOFF STATE (paced mode from 04:35Z, about 4 engineers)
+- npm: latest=next=10.5.17 (78d8713b, auto-promoted). origin/main=78d8713b. train/30 bb9658a1 in CI (D51-A12 UI, E-164, DOC-02); when green: ff main, cut 10.5.18 (D49 auto-promotes).
+- Local main ahead of train/30: A-118 re-landed with r5 (cdc8213df, 3.10 pyproject fallback), loki-seal README install (f8ba34a34). Next train after train/30.
+- Built, not merged: D48-r1 gaming matrix de71397dd (CTO call on pre-red), D48-r2 keys export/--pubkey b073d50a (opus review), E-162 slice CI tier-down 6b9738fdc (pushed, review), E-163 live /usage governor 678f2162e (review), DOC-01 r2 README (agent finishing), D48-r6 doctor --fix (dropped; needs: caveman suppression, spawn env, CI test fix).
+- Open rows: A-119c (add-based helper weakening, keep core under cap), A-121c (CTO), A-134c, E-160 (CTO), E-161 guard, E-165 (P0 guard: mirofish test launches a live build), E-166 Jira wiring, D48 rows 3-9, D50 harness items, D51 Phase B/C.
+- Rules this session learned: re-land a dropped slice by reverting the revert, then merging the fix; rebuild dist in the main checkout after any merge touching loki-ts (no symlinked node_modules); no `|` or `||` in BOARD cells; run the registration, shard, spawn-env, dist-guard and docs-drift checks before every train.
+
+## 2026-10-01T04:58Z P0: v10.5.18 release blocked by CodeQL
+- v10.5.18 (981d9734) Release run FAILED at required-ci: Security Audit failed on CodeQL alert 607 py/command-line-injection (critical) at dashboard/api_start.py:120, plus path-injection 604-606 (lines 69, 75), all from D51-A12 onboarding (provider name from the request reaching subprocess and a file path). Not published; npm latest/next stay 10.5.17.
+- Fix forward (main already contains it): slice-P0-codeql (constant allowlists for the provider binary and secret file names) in progress; then train with it, then re-cut the release.
+- train/31 731a335d is green on Tests/Parity/Coverage but its Security Audit fails on the same alert; it will not release until the fix lands.
+- D48-flip rejected by opus (bare loki verify still legacy after a default v10 run: FAILED run reads VERIFIED); r2 in progress.
+
+## 2026-10-01T05:22Z v10.5.19 cut (CodeQL fix forward), train/33 pushed
+- train/32 aad61f9a green: Tests, Bun Parity, Coverage (baseline), Security Audit all completed success (watcher bs3ybh02p). main fast-forwarded to aad61f9a.
+- v10.5.19 release commit 47050d65 pushed by SHA (parent == origin/main; --check-clean rc=0). It carries the unpublished 10.5.18 content plus the CodeQL 604-607 fix, A-118 r5 and DOC-01. Release run and auto-promote watcher: bqimqxkgo.
+- Merged on local main: D48-flip r3 (opus APPROVE: FAILED receipt exits 4 with or without --allow-unsigned; dispatch 56/0; gate --stub 0 failed), A-134b r4 (sonnet APPROVE; registration rc=0, shard rc=0, own test 6/0), E-162 (opus APPROVE as CTO call).
+- train/33 63db8710 pushed. Guards: registration rc=0, shard-coverage rc=0 (E2e Features row 19 -> 20 to keep the five heaviest suites in distinct shards), v10-ops rc=0, run-shellcheck rc=0, docs-cli-drift rc=0, release-dist-guard rc=0, budget.test 24 pass.
+- REJECTED, fix rounds building: E-163 (live /usage timeout has no process-group kill), D48-r2 (unsigned receipt exits 0 under --pubkey; merge conflicts with the exit-4 change).
+
+## 2026-10-01T05:34Z v10.5.19 published and auto-promoted; train/33 red, flip dropped
+- v10.5.19: Release run 47050d65 completed success; npm view loki-mode@10.5.19 gitHead 47050d6533d7 matches; dist-tags latest=10.5.19 next=10.5.19 (D49 auto-promote). Unblocks the CodeQL P0 (10.5.18 never published).
+- train/33 63db8710 RED: Tests shard 7/8, suite "first-run gate assertion logic (A-02)" (tests/test-first-run-gate.sh): "FAIL clean: gate exit 1". Reproduced locally on 63db8710, not on aad61f9a. Cause: D48-flip r3 added gate checks (engine-start-line, cost-non-null, output-lines 8, bare verify rc 4) that the test's clean fixture does not emit.
+- D46 drop: reverted c2c43fd10 on main (5d25b205; reverted paths identical to aad61f9a; local test-first-run-gate rc=0, 0 FAIL). train/34 5d25b205 pushed with E-163 r3 (haiku fix; env parse probes abc/-5/nan/inf/0 -> 20, 46/0), A-134b r4, E-162.
+- D48-flip r4 (fixture fix) building; D48-r2b (pubkey, null-jwt exits 3 under --pubkey) built, in opus re-review; it needs the flip re-landed first.
+
+## 2026-10-01T06:07Z v10.5.20 promoted; v10.5.21 (D48 engine flip) cut, Release FAILED, NOT published (see 06:30Z); train/39
+- v10.5.20 240f3285: Release success; npm gitHead 240f3285f42b matches; dist-tags latest=10.5.20 next=10.5.20 (auto-promote, watcher bybzbhat6). Contents A-134b, E-162, E-163.
+- train/35 RED (Tests shard 1/8: "1 command(s) absent from 'loki help': keys"). D46 drop of D48-r2b (76e3d25c, revert clean vs flip-r4 merge). Fix r2c 2e7c68a3 (one help line), re-landed as 3eade3d4; train/37 green on Tests, Bun Parity, Coverage, Security Audit.
+- train/36 76e3d25c green (all four); main fast-forwarded; v10.5.21 189f347e pushed (--check-clean rc=0, parent == origin/main). CHANGELOG corrected: the flip's Unreleased notes said "loki verify unchanged"; r3 routes bare verify to v10 when the newest run is a v10 run (bin/loki:296-305), exit 4 for a non-VERIFIED outcome. Watcher bpighrue2.
+- Tier A red on every train since train/33: E-162 ran tests/test-shard-coverage.sh before the Python deps install; two pytest-gated suites (run-all-tests.sh:782-787) were not registered, 666 of 668. Fix 55d559ea moves the step after pip install (train/38).
+- train/39 c34511e5 = flip + keys (D48 rows 2, 7-9) + Tier A fix + 10.5.21 merge; local help, registration, shard-coverage, docs-drift, v10-ops all rc=0.
+
+## 2026-10-01T06:29Z CORRECTION: v10.5.21 not published (P0, fix forward)
+- v10.5.21 189f347e: Release run completed failure. Tests at that SHA failed in shard 6/8: "CHANGELOG Unreleased does not record the v10 default flip" (tests/test-engine10-legacy-notice.sh). The release CHANGELOG moved the flip note from Unreleased into the v10.5.21 section. Post-Release Smoke and Promote skipped; npm dist-tags latest=next=10.5.20. The 06:07Z entry's "released" was premature and is corrected above; rows say released only once npm has the version.
+- Moat suite passed at 189f347e, so the train/39 P2.checklist-verify-not-shadowed failure did not recur on the same code (local p2 run on c34511e5 also PASS); still treated as unconfirmed until train/40.
+- Fix baf5e2c8: the test now requires 'Loki 10.*now the default' anywhere in CHANGELOG. Intent kept: a copy of CHANGELOG with that line removed fails the pattern, the real file passes. train/40 baf5e2c8 in CI; on green, fast-forward and cut 10.5.22 (flip, keys, Tier A fix), CHANGELOG stating 10.5.21 was never published.
+
+## 2026-10-01T07:03Z v10.5.22 published to next; auto-promote FAILED (P0)
+- v10.5.22 9b22a347: Release success; npm view loki-mode@10.5.22 gitHead 9b22a3477072 matches; dist-tags next=10.5.22, latest=10.5.20 (UNCHANGED). Release body 11 lines. Contents: D48 flip (rows 7-9), keys export and verify --pubkey (row 2), Tier A fix, E-35 test fix. v10.5.21 was never published.
+- promote.yml run at 07:00Z: completed failure, correctly refused to move latest. first-run-gate.sh --installed loki-mode@10.5.22 ran on ubuntu-latest WITHOUT bun; the installed CLI fell back to the legacy engine ("the Loki 10 engine needs bun"), so 7 v10 checks failed (digest-matches, verify-ok, receipt-signed, output-lines 13>8, engine-start-line, cost-non-null, skip-bare-verify) and the cost check crashed with IndexError (no v10 run dir).
+- P0 fix slice-P0-promote-bun building: setup-bun in promote (and any other gate job on an installed package), cost check fails closed instead of crashing, explicit "engine fell back to legacy" check. CTO (opus) review before merge; release-gate change.
+- train/42 73dbe61b (E-166, E-161, E-132 test, E-165) in CI.
+
+## 2026-10-01T07:21Z v10.5.23 cut (E-166, E-161, P0-promote-bun, E-132 test); E-165 on train/45
+- train/44 a3dd76e6 green on Tests, Bun Parity, Coverage, Security Audit, Tier A; main fast-forwarded; v10.5.23 0b27f4a1 pushed (--check-clean rc=0, parent == origin/main, map sources clean, version embedded once). Watcher b120po3q0 covers the Release run, npm and the promote run, which is the first promote with the bun fix; if its gate passes, latest moves to 10.5.23 and the manual 10.5.22 promote is moot.
+- E-161 false block found during the cut: a cd into the release worktree then git checkout --detach was blocked as if in the main checkout; git -C worked. Row E-161b (HIGH) added.
+- train/45 33bbdb75 (adds E-165 r3: funnel-privacy counts only off-machine egress; caller was run.sh:24659 POST to 127.0.0.1/api/focus) in CI.
+- E-168 r2 (Tier A selects only runnable test files; train/43 range replay) finishing; E-168 r1 2a83f272 rejected by me: helpers fell through to bash execution.
+
+## 2026-10-01T07:31Z P0-nobun: the D48 flip does nothing without bun (peer relay)
+- Evidence: bin/loki:329-331 falls back to legacy when bun is absent; loki-ts/scripts/build.ts:162,206 build target "bun"; node loki-ts/dist/loki.js --version gives "ReferenceError: Bun is not defined" (dist line 1569). Most npm users have no bun.
+- The bun-less gate failures on 10.5.22 (digest, verify, signed) come from scripts/first-run-gate.sh:123 forcing LOKI_ENGINE=v10 for verify, not from a legacy regression since 10.5.16; output-lines 13 is legacy quick against the new 8-line cap (legacy budget is 15). E-167 extended to a no-bun leg with legacy expectations.
+- Opus architect comparing a node-runnable engine10 with shipping bun as an npm dependency; slices follow. The flip is not described as done for npm users until this lands.
+
+## 2026-10-01T07:34Z Promote PAUSED until the two-leg gate lands
+- gh workflow disable promote.yml at 07:33Z (state disabled_manually), while 10.5.23's Post-Release Smoke ran. Reason: the promote gate now proves only the bun path; a plain npm install has no bun and gets legacy, which no gate leg checks. latest stays 10.5.20 (gate working); next 10.5.22, 10.5.23 Release success. Re-enable after E-167 (two legs, both must pass) is merged and on main.
+- Architect (opus): option B (bun@1.4.2 optionalDependency, resolver to node_modules/@oven/bun-*/bin/bun with a --version probe) over A (node build: about 14 files, 300-450 lines, breaks the engine10 budget). Install size 26.6MB to about 90-110MB: FOUNDER-QUEUE 17.
+- Building: E-167 (two-leg promote gate), P0-nobun-S2 (resolver plus plain cannot-run start line; no dependency added).
+- train/46 bb82c599 (E-165 r3, E-168 r2) in CI; train/45 was green.
+
+## 2026-10-01T07:52Z v10.5.23 on next (latest held at 10.5.20); P0-nobun and E-167 on train/48
+- v10.5.23 0b27f4a1: Release success, dist-tags next=10.5.23 latest=10.5.20, release body 10 lines. Promote did not run (workflow disabled 07:33Z).
+- Merged on main: E-167 r2 (two-leg promote gate: v10 leg with bun; legacy leg installs --omit=optional, filters bun off PATH, fails closed if bun is present, 15-line legacy budget; CTO APPROVE c494d7d2), P0-nobun S1 r2 (bun 1.4.2 optionalDependency plus regenerated lockfile; npm ci --dry-run rc 0; license audit PASS, MIT), P0-nobun S2 (_loki_bun resolver: PATH, node_modules/bun/bin/bun.exe, @oven/bun-*/bin/bun with a 2s --version probe; plain cannot-run start line; review: about 10ms per routed command, stdout clean).
+- Measured: bun adds about 62MB on macOS arm64 (published 79.5MB linux-x64, 86.1MB windows-x64); baseline builds are no smaller, so option (i).
+- train/46 red on ShellCheck (SC1083 in the new E-168 test); fixed e9121a89, on train/47. train/48 c7ef4b66 = everything; local: 14 checks rc=0 incl. run-shellcheck, npm ci --dry-run, gate --stub.
+- Next: on a green train cut 10.5.24, then re-enable promote.yml so 10.5.24 goes through both gate legs.
+
+## 2026-10-01T08:19Z v10.5.24 published; v10.5.25 (bundled bun, two-leg gate) pushed; promote RE-ENABLED
+- v10.5.24 e3b1aa6d: npm gitHead e3b1aa6dff13 matches; next=10.5.24, latest=10.5.20 (promote disabled). Contents E-165, E-168.
+- train/48 red (shard 4/8, test-modernize-dispatch.sh: stub bun exited 2 on every call, so the new _loki_bun --version probe rejected it); fix f88dd9f8 (stub answers --version); all 11 tests that stub bun rc=0. train/50 f88dd9f8 green on Tests, Bun Parity, Coverage, Security Audit, Tier A; main fast-forwarded.
+- v10.5.25 6fe04649 pushed (--check-clean rc=0, npm ci --dry-run rc=0, parent == origin/main). Ships bun 1.4.2 optionalDependency (measured 62MB macOS arm64), the _loki_bun resolver with the plain cannot-run line, and the E-167 two-leg promote gate.
+- promote.yml re-enabled at 2026-10-01T08:19Z (gh workflow list: active); origin/main promote.yml contains the --engine legacy leg. 10.5.25's own promote runs both legs. Watcher bz9g1y2jr.
+
+## 2026-10-01T08:43Z v10.5.25 on next; first two-leg promote held latest (gate text drift)
+- v10.5.25 6fe04649: npm gitHead 6fe046496abc matches; next=10.5.25, latest=10.5.20; release body 9 lines; Post-Release Smoke success.
+- promote run 36837313500 (08:35Z) failed and held latest. Leg 1 (bun): all checks PASS on the installed 10.5.25 (Loki 10 start line, 7 lines, signed receipt, skip-bare-verify rc=4). Leg 2 (no bun): every legacy check PASS (verify ok, signed, digest, 13/15 lines, skipped target rc=3 NOT VERIFIED) except legacy-fallback-line: the gate matched the pre-S2 message text. Product behaviour on both machines is correct; the gate pattern was stale.
+- Fix 4b290f31: both fallback patterns match bin/loki's current line; the gate test asserts gate and bin/loki carry the same literal (mutation red). test-first-run-gate 78/0, gate --stub rc=0. train/52 in CI with E-161b and E-169; on green cut 10.5.26, whose promote runs the fixed gate.
+- E-170 measured (slim 30,280 KB vs full 407,656 KB); slim-path docs held for the plain-line evidence.
+
+## 2026-10-01T09:15Z v10.5.26 PROMOTED to latest through both gate legs (D48 flip reaches plain npm users)
+- v10.5.26 25246946: npm gitHead 25246946c541 matches; promote run 36841179022 at 09:12Z completed success; dist-tags latest=10.5.26, next=10.5.26; release body 9 lines. First promote since 10.5.20: leg 1 with bun (Loki 10 checks) and leg 2 with no bun (installed --omit=optional, bun off PATH, legacy checks plus the exact fallback line) both passed.
+- Shipped in 10.5.26: gate text fix 4b290f31 (plus a gate/bin/loki literal-sync test), E-161b, E-169. 10.5.25 (bundled bun 1.4.2, resolver, two-leg gate) is now on latest through 10.5.26.
+- Merged since: E-153 (pre-commit foreign-author guard, main checkout), A-04b (loki-seal counter fixes, 34/0), A-134c plus r2 (provider stdin from /dev/null incl. cline; TS run.sh tests 652/0 before and after with a real install). train/53 6b1ade3a in CI.
+- A-104b (Seal: literal-pathspec reset, per-directory lockfiles, judge against baseSha) built, 935/0 engine10; in opus review because item 3 changes what Seal judges.
+
+## 2026-10-01T09:19Z A-104b REJECT (opus): pre-existing moat gap, failed commit stage still seals VERIFIED
+- Repro (opus): agent commits src.js during implement, leaves a.txt uncommitted; a lockfile recorded at intake as ../outside.txt makes the new literal-pathspecs reset fail, so the commit stage returns "failed: git reset failed"; machine.ts still advances to seal and seal.ts never checks commit success, so the receipt reads VERIFIED with a.txt left modified. Predates A-104b; the new rc check never stopped Seal.
+- Also: empty or unknown ctx.baseSha does not fail closed (nothing filtered, junk committed to the run branch; Seal then reads FAILED). Production always sets baseSha (worker.ts:47).
+- Held up: judging against baseSha never drops a real source change from the receipt diff (verifyReceipt and verifyMain VERIFIED rc 0 on the fixture); monorepo per-directory lockfiles correct; suites 94/0, gate --stub 0 failed.
+- A-104b r2 building: machine.ts routes a failed commit to the failure path; seal.ts refuses VERIFIED when commit did not complete; the commit stage fails on empty or unresolvable baseSha or a failed diff. Red-first tests plus the full moat suite.
+
+## 2026-10-01T09:32Z D50 (top engineering priority): loss classification; 3-rep rerun started
+- Baseline artifacts: ~/loki-ci-logs/d50-v10-sonnet and d50-raw-sonnet (results.jsonl, logs/<task>.<arm>.<run>/arm_stdout.log); harness eval/loki10/run.sh at c5eaddb0.
+- Loki+sonnet losses vs raw sonnet (haiku analyst, from arm_stdout.log):
+  - aiq-52-searchbar: dirty-tree refusal ("M frontend/package-lock.json", 0.7s). The baseline ran before E-164 (7b0ba412 merged after c5eaddb0), so this class may be recovered.
+  - pub-click-2877: false ALREADY_SATISFIED (no PR; hidden tests fail). Real defect in the already-done check.
+  - pub-humanize-174: implement ran 95s and produced an empty diff with no already_done marker; FAILED, no PR. Raw sonnet completed it.
+  - pub-humanize-333: PR opened and hidden tests failed; verify did not catch the wrong fix. Raw sonnet completed it.
+  - pub-click-3059: raw sonnet failed it too, so it is not a Loki-specific loss.
+- Rerun (b) started 2026-10-01T09:32Z: the 4 Loki-specific tasks x 3 reps, arms v10 and raw-claude, model claude-sonnet-5, at main 575ddebcf; out ~/loki-ci-logs/d50-rerun-*. No lift number is cited until it finishes. Then fix the top cause first and record a per-model stage profile with a lift row.
+
+## 2026-10-01T10:14Z LOKI MORNING TEST
+- See docs/v10/MORNING-BRIEF.md, section "LOKI MORNING TEST" (latest 10.5.27, both gate legs passed).
+
+## 2026-10-01T10:25Z D50 rerun complete (3 reps x 4 tasks x 2 arms, claude-sonnet-5, main 575ddebcf)
+- click-2877: v10 3/3, raw 3/3 (baseline false ALREADY_SATISFIED did not recur: noise). humanize-333: v10 1/3, raw 1/3 (parity, hard task).
+- humanize-174: v10 0/3, raw 2/3 (real). aiq-52-searchbar (expected no_change_needed): v10 0/3 (1 opened a PR, 2 no PR but not scored completed), raw 2/3 (real).
+- Data: ~/loki-ci-logs/d50-rerun-20261001T0932/*/results.jsonl. Root-cause analyst running on the two real losses; the top cause gets the first fix and a per-model profile row. Internal; not published.
+
+## 2026-10-01T10:27Z D50 root causes (haiku analyst on the rerun logs)
+- aiq-52 (no_change_needed): v10 reached ALREADY_SATISFIED in 2/3 but only after implement had already edited source (no_source_diff=false); the harness requires no PR, no source diff, no-change evidence, hidden pass, rc 0 and not capped. Raw sonnet checked first and changed nothing. Fix D50-F1 building (restore source to base on ALREADY_SATISFIED).
+- humanize-174: the spec changes rounding behaviour encoded in tests/test_time.py. Raw sonnet changed code plus assertions (684 passed). v10: rep2 BLOCKED "spec conflict ... non-editable test assertions", rep1 and rep3 hit the iteration cap (rep3 draft PR weakened tests). D50-F2: opus architect designing spec-required assertion changes without a weakening loophole.
+
+## 2026-10-01T10:45Z v10.5.29 promoted; D50-F1 rejected on data loss, r2 building
+- v10.5.28 76af09dc (A-104b Seal fail-closed): latest via both gate legs at 10:17Z (promote 36848247075). v10.5.29 ee3e4c1f (A-104c no backstop commit or PR after a failed commit stage): npm gitHead ee3e4c1fd606 matches; promote 36850763292 at 10:42Z success; latest=next=10.5.29.
+- D50-F1 (restore to base on ALREADY_SATISFIED) REJECTED by opus: intake ignores untracked files (intake.ts:31 --untracked-files=no), the commit stage stages them, and the discard git rm -f deletes them (repro: untracked notes.md removed, including with intake.already_satisfied and no agent session). Also a pre-existing dirty lockfile edited by the run is restored to base, losing the user's edits. Other checks held (base..HEAD empty after an implement commit, only ALREADY_SATISFIED discards, .loki/ kept). r2 records untracked paths at intake and restores pre-existing files to their intake content.
+- D50-F2: S1 classifier built (71997e6c, 10/10, mutation red); S2 verify and seal wiring building.

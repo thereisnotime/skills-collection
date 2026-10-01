@@ -28,7 +28,7 @@ export const EVENT_TYPES = [
   "heartbeat", "session.started", "session.ended", "cost", "wall.sealed",
   "tests.restored", "test.result", "fix.round", "already.satisfied", "spec.conflict",
   "escalated", "cap.hit", "tamper.detected", "receipt.sealed", "pr.opened",
-  "deep.started", "deep.completed", "receipt.addendum", "run.completed", "variant",
+  "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 /** One line of events.jsonl. All keys required; stage is null for run-level events; readers tolerate unknown `type` values. */
@@ -81,7 +81,7 @@ export interface SessionResult {
 export interface SessionRunner { // implemented by session.ts (E-07)
   run(opts: SessionRunOptions): Promise<SessionResult>;
 }
-export type RunnerName = "pytest" | "vitest" | "jest" | "npm" | "bun" | "go" | "cargo";
+export type RunnerName = "pytest" | "vitest" | "jest" | "npm" | "bun" | "node" | "go" | "cargo";
 /** A test file and the runner that executes it (mixed repos run each runner separately). */
 export interface TestRef {
   runner: RunnerName;
@@ -105,6 +105,7 @@ export interface CostTotals {
   measuredCount?: number;
   totalCount?: number;
   partialUsd?: number;
+  unmetered?: boolean; // D48: usd is a recorded 0 for a CLI-invoker session with no provider figure
 }
 export interface CostReader { // implemented by cost.ts (E-06)
   read(repoDir: string, iterationIds: string[]): CostTotals;
@@ -157,7 +158,7 @@ export interface Receipt {
    *  verdict, and also empty on the OTHER ways a run seals ALREADY_SATISFIED (an issue already
    *  closed, Wall already green on the base tree, or implement's own LOKI_ALREADY_DONE marker):
    *  none of those goes through this search, so none of them has search hits to carry. */
-  evidence: string[];
+  evidence: string[]; pre_existing_dirty?: string[]; // E-164: lockfiles modified at intake by setup, never attributed to the run; omitted when none
   cost: {
     usd: number | null;
     input_tokens: number;
@@ -167,12 +168,14 @@ export interface Receipt {
     measured_sessions: number;
     total_sessions: number;
     partial_usd: number;
+    source?: string; // D48: "cli-invoker-unmetered" when usd is a recorded 0, absent otherwise
   };
   time: { wall_s: number; stages: Partial<Record<StageName, number>> };
   provider: string;
   model: string;
   resumed: boolean;
   events_sha256: string;
+  log_seal?: true; // A-117: the supervisor appends a signed log.sealed line after run.completed; verify requires it only when this is set (older receipts predate it)
   receipt_sha256: string;
   verification: { jwt: string | null; kid: string | null };
 }

@@ -6,12 +6,12 @@
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="10.5.5"
+LABEL version="10.5.29"
 # v7.4.5 fix (BUG-3): override the OCI-standard image.version label that
 # BuildKit auto-injects from the FROM ubuntu:24.04 base. Registries and
 # scanners read this; without the override they reported the Ubuntu version
 # (24.04) instead of the Loki Mode version.
-LABEL org.opencontainers.image.version="10.5.5"
+LABEL org.opencontainers.image.version="10.5.29"
 LABEL description="Loki Mode by Autonomi - Autonomous spec-to-product system (RARV-C closure loop). Provider-agnostic: Claude Code, Codex CLI, Cline, Aider"
 LABEL url="https://www.autonomi.dev/"
 
@@ -53,7 +53,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
 # Install Bun runtime (pinned) for the TypeScript CLI shipped under loki-ts/.
 # bin/loki shim routes ported commands to `bun loki-ts/dist/loki.js`; unported
 # commands fall through to autonomy/loki (bash). See ADR-001.
-ARG BUN_VERSION=1.3.13
+ARG BUN_VERSION=1.4.2
 RUN apt-get update && apt-get install -y --no-install-recommends unzip \
     && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \

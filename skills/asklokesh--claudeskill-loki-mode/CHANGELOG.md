@@ -10,6 +10,341 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 - `loki legacy` (the pre-v10 engine) is deprecated as of v10.0.0 and remains fully supported; no removal date is set. Set `LOKI_ENGINE=legacy` to pin it. See docs/v10/GUIDE.md (E-35).
 
+## v10.5.29 (2026-10-01)
+
+A `next` release. A Loki 10 run whose commit stage fails no longer lands a backstop commit or opens a pull request.
+
+### Fixed
+- When the commit stage fails, the supervisor skips its backstop commit (`git add -A` with hooks off), so files that were already modified before the run, Wall files and stray lockfiles are not committed, and no pull request is opened for that run. A worker that is killed before reaching the commit stage still gets its work backstop-committed and a draft PR, as before (A-104c).
+
+## v10.5.28 (2026-10-01)
+
+A `next` release that closes a false-VERIFIED path in the Loki 10 engine's Seal: a run whose commit stage fails now ends FAILED and is never sealed VERIFIED.
+
+### Fixed
+- A run whose commit stage fails stops with outcome FAILED (exit 1) before Seal and the PR step run, and Seal itself refuses VERIFIED when the commit did not complete. Before this, a failed commit (for example, a reset that could not apply) could still produce a VERIFIED receipt that did not cover all of the agent's changes (A-104b).
+- The commit stage fails, committing nothing, when the run's base commit is empty or cannot be resolved, or when the diff against it fails, instead of committing unfiltered files (A-104b).
+- The unstage step runs with literal pathspecs and checks its exit code, so a path such as `:(top)x/file` is not read as a pathspec and committed (A-104b).
+- A new lockfile counts as explained only by a manifest change in its own directory, so in a monorepo a stray `packages/b` lockfile no longer rides along with a `packages/a` manifest change (A-104b).
+- Lockfiles and Wall files are judged against the run's base commit, so ones the agent committed during implement are also left out of the commit; real source changes the agent committed stay in the receipt's diff (A-104b).
+
+## v10.5.27 (2026-10-01)
+
+A `next` release. Provider calls can no longer hang on an open stdin, loki-seal recovers its stop-hook counter correctly, and the repository refuses commits by a foreign author in its main checkout.
+
+### Fixed
+- Provider invocations that pass the prompt as an argument (claude, codex, opencode, cline, aider, including the mainline `claude -p` calls, the merge-conflict resolver and the review calls) read stdin from `/dev/null`. A verbose run (`LOKI_VERBOSE=1`) started with a stdin pipe that never closes no longer blocks the provider. Calls that feed the prompt through stdin are unchanged (A-134c).
+- loki-seal resets its hook-error counter after a successful stop, and when the counter file cannot be written (read-only or full temp dir) a repeated stop releases instead of blocking again. The counter lives under `LOKI_RUN_TMP` when set (A-04b).
+
+### Changed
+- Repo tooling: a pre-commit hook in `.githooks` refuses a commit in the main checkout whose author email differs from the repo-local `user.email`, so a fixture commit made from the wrong directory fails loudly; `LOKI_ALLOW_FOREIGN_AUTHOR=1` overrides it (E-153).
+
+## v10.5.26 (2026-10-01)
+
+A `next` release. The promote gate now recognizes the exact message `loki` prints when the Loki 10 engine cannot run, so the two-leg gate can promote; the Docker images ship the same bun version as the npm package; and the repo hook judges a detached checkout by the directory a command actually changes into.
+
+### Fixed
+- The promote gate's no-bun leg looks for the fallback line `loki` actually prints ("the Loki 10 engine cannot run on this machine: no working bun"), and the bun leg's fallback check also catches "Running the legacy engine instead". v10.5.25's promote failed only on this text check (every other check on both legs passed), so `latest` was not moved. A test now fails if the gate and `bin/loki` stop sharing that text.
+- Docker images (`Dockerfile`, `Dockerfile.sandbox`) install bun 1.4.2, matching the npm optional dependency; a structural test keeps the two pins equal (E-169).
+
+### Changed
+- Repo tooling: the PreToolUse guard resolves a checked `cd DIR` (with `&&`, `|| exit` or `|| return`) or `git -C DIR` before judging a detached checkout, so a checkout inside a linked worktree is allowed; an unresolvable target, `cd X || true`, or a `cd` inside a subshell that has closed is judged by the session's directory and stays blocked (E-161b).
+
+## v10.5.25 (2026-10-01)
+
+A `next` release. `npm install -g loki-mode` now brings its own bun, so the Loki 10 engine (the default since v10.5.22) runs on machines that never installed bun. When it still cannot run, `loki` says so plainly on the first line instead of falling back quietly, and the release gate now checks both kinds of machine before moving `latest`.
+
+### Added
+- bun 1.4.2 ships as an optional dependency. npm installs only the one platform package that matches the machine (`@oven/bun-<os>-<arch>`). Measured cost: about 62MB on macOS arm64; published sizes are 79.5MB for linux-x64, 69.3MB for macOS x64 and 86.1MB for Windows x64. Platforms bun does not support skip it without failing the install (P0-nobun).
+
+### Changed
+- `loki` looks for a working bun on PATH, then the bundled copy (`node_modules/bun/bin/bun.exe`, or the platform package's `bin/bun` when install scripts were skipped), and accepts one only if `bun --version` succeeds within 2 seconds. A bun-less or broken machine runs the legacy engine and prints this as the first line on stderr: `loki: the Loki 10 engine cannot run on this machine: no working bun (...). Running the legacy engine instead. To fix: install bun from https://bun.sh, or reinstall loki-mode without --omit=optional.` `LOKI_ENGINE=v10` with no working bun still exits 1. The probe adds about 10ms to commands that route to the engine, and none to `loki --version` or `loki status` (P0-nobun).
+- The promote gate runs twice against the published version: once with bun (Loki 10 expectations) and once as a machine with no bun (installed without optional dependencies and bun removed from PATH, legacy expectations: legacy `loki verify`, at most 15 output lines, a skipped target test must not read VERIFIED, and the fallback line must name the reason). `latest` moves only when both pass (E-167).
+
+## v10.5.24 (2026-10-01)
+
+A `next` release of repo tooling and test fixes: no test can launch a real `loki start` against the repo root any more, the funnel-privacy test measures only off-machine traffic, and the fast CI tier stops running helper scripts as tests.
+
+### Fixed
+- Tests no longer launch `loki start` in the repository root. The MiroFish and funnel-privacy tests run `loki start` in a throwaway git fixture with a stub provider that exits at once, under `timeout -k`. A new structural guard (`tests/test-no-start-against-repo-root.sh`) fails when any test starts `loki start` or `run.sh` from the repo root, including `"$LOKI" start`, `bin/loki start`, bare `loki start` and a `cd` back to the root; an allow comment covers only the line directly below it (E-165).
+- The funnel-privacy test records only POST bodies sent to non-loopback hosts. The local dashboard focus call (`run.sh` posting `project_dir` to `127.0.0.1`) is not egress; a telemetry call with telemetry off still fails both zero-egress checks (E-165).
+- The fast CI tier (Tier A) runs a matched file as a test only if it is a runnable test (`test-*.sh`, `run-*.sh`, `run_*.sh`, `test_*.py`, `*_test.py`); helper scripts under `tests/lib` get only the syntax check (E-168).
+
+## v10.5.23 (2026-10-01)
+
+A `next` release. Jira auto-sync starts when configured, the release gate checks the Loki 10 engine the way users with bun run it, and agent sessions can no longer detach the shared main checkout.
+
+### Fixed
+- Jira auto-sync now starts: the sync subscriber passes the account email (`LOKI_JIRA_EMAIL`, new) and API token (`LOKI_JIRA_TOKEN`) to the Jira client. When only some of `LOKI_JIRA_URL`, `LOKI_JIRA_EMAIL` and `LOKI_JIRA_TOKEN` are set it logs one line naming the missing variables (never their values); with none set it stays silent. The setup docs list `LOKI_JIRA_EMAIL` and the known-issue note is removed (E-166).
+- The release promote job installs bun before the first-run gate, so the gate checks the default Loki 10 engine instead of the legacy fallback a bun-less machine gets. The gate's cost check fails with "no v10 run dir" instead of crashing, and a new check fails with "engine fell back to legacy: <reason>" when the default entry fell back. The v10.5.22 promote failed closed on this and `latest` was not moved (P0-promote-bun).
+
+### Changed
+- Repo tooling: the PreToolUse guard blocks detached checkouts (`git checkout --detach`, a tag or SHA, `git switch --detach`) in the primary checkout, and agent sessions are also blocked from other checkouts, hard resets, stash, clean and removing that checkout (E-161).
+- A regression test pins the Wall classifier reading a missing test runner as not run rather than red (E-132).
+
+## v10.5.22 (2026-10-01)
+
+A `next` release. v10.5.21 was never published: its Release run failed because a test still expected the engine-default note under Unreleased after the release moved it. This release ships everything listed under v10.5.21 (the Loki 10 engine is now the default for `loki "<task>"`, issue mode and `loki quick`, and a bare `loki verify` after a Loki 10 run uses the v10 verifier with exit 4 for a non-VERIFIED outcome), and adds third-party receipt verification.
+
+### Added
+- `loki keys export` prints the public receipt-signing key as an Ed25519 JWK (kty, crv, x, kid, alg, use). It never prints the private key (D48).
+- `loki verify --pubkey FILE <receipt.json|run-id>` (v10) checks a receipt's signature against the supplied public key (a JWK from `loki keys export`, or PEM) and never the local key set, so someone without your machine can check your receipt. Exits 0 VERIFIED, 1 TAMPERED, 2 UNCHECKED (the key's kid does not match, or the key file is unusable), 3 UNSIGNED, 4 run outcome not verified. A receipt with no signature is refused with 3 even with `--allow-unsigned`, because the caller asked for a signature check; the sealed event log is checked against the supplied key too (D48).
+- `keys export` is listed in `loki help` and in shell completions.
+
+### Changed
+- CI: the Tier A shard-coverage check runs after the Python test dependencies are installed, so the two pytest-gated suites are counted and the check passes again (E-162 follow-up).
+- The E-35 test checks that the engine-default note is recorded anywhere in CHANGELOG instead of only under Unreleased, so a release moving the note no longer fails it.
+
+## v10.5.21 (2026-10-01)
+
+A `next` release. The Loki 10 engine is now the default for `loki "<task>"`, issue mode and `loki quick`, and a bare `loki verify` after a Loki 10 run checks its receipt with the v10 verifier, exiting 4 when the run's outcome was not VERIFIED.
+
+### Changed
+- The Loki 10 (lean v10) engine is now the default for `loki "<task>"`, `loki owner/repo#N` (issue mode) and `loki quick "<task>"` (D48 rows 7-9). Each prints one start line, `Loki 10 engine (set LOKI_ENGINE=legacy or run 'loki legacy' for the previous engine)`, then Outcome, PR, Receipt, NOT PROVEN, Cost and Time (at most 8 lines). `loki quick` runs the engine's lean small-task path (E-64) and opens no PR. With no bun, or with a provider the engine has no invoker for, these entry points fall back to the legacy engine. `loki start`, `loki status` and `loki dashboard` are unchanged.
+- `loki legacy <args>` and `LOKI_ENGINE=legacy` run the previous engine exactly as before; both are now covered by routing tests.
+- A v10 run on the CLI invoker (`LOKI_E10_INVOKER=cli`, the stub provider) records cost 0 with the source marker `cli-invoker-unmetered` in the cost event, receipt and efficiency record instead of null, and lists `cost unmetered (CLI invoker; recorded as 0)` under NOT PROVEN, so every run has a non-null cost without presenting 0 as measured.
+- The first-run gate (`scripts/first-run-gate.sh`) now runs the v10 engine for `loki quick`: output budget 8 lines (was 15), a start-line check, a non-null cost check, and the legacy skipped-target check runs under `LOKI_ENGINE=legacy`.
+- When the newest run in the repo is a Loki 10 run (newer than the newest legacy proof), `loki verify` with no arguments or with a Loki 10 run id (`e10-...`) checks the sealed receipt with the v10 verifier. Any other argument or flag (`--fast`, `--pr`, `--json`, a path) keeps the legacy verify. A sealed run whose outcome is not VERIFIED exits 4, checked before the unsigned-receipt rule, so `--allow-unsigned` cannot turn a failed run into exit 0; a receipt whose outcome cannot be read also exits 4 (D48).
+
+## v10.5.20 (2026-10-01)
+
+A `next` release. Quiet `loki quick` failures show the real error lines, standalone `autonomy/verify.sh` reports its attestation status instead of staying silent, and CI spends less time on slice branches.
+
+### Fixed
+- When a quiet `loki quick` run fails, the tail it prints is the last three `[ERROR]` or `[WARN]` lines of the run log (falling back to the last three lines), each capped at 200 characters, instead of an unanchored log tail (A-134b).
+- `loki quick` hands stdin back to the inner run only when stdin is a terminal, so a run started from a pipe no longer blocks a provider that reads inherited stdin (A-134b).
+- Running `autonomy/verify.sh` on its own prints `attestation: UNCHECKED (run via loki verify)` instead of omitting the attestation line (A-134b).
+
+### Changed
+- CI: pushes to `slice-*` branches run the fast Tier A gate plus the suites selected by the diff instead of the full 8-shard Tests matrix. A newer push to the same `train/*` branch cancels the superseded Tests run. `main` and train runs still run the full matrix, and `main` runs are never cancelled (E-162).
+- The internal usage governor can calibrate from a live `/usage` reading. The read times out, kills its whole process group and falls back to the recorded readings when it cannot parse the result. This affects only the development swarm and is not part of the CLI (E-163).
+
+## v10.5.19 (2026-10-01)
+
+A `next` release. v10.5.18 was never published, because its Release run was blocked by CodeQL findings in the new `/start` onboarding API. This release fixes those findings and carries everything listed under v10.5.18. Legacy `loki quick` now exits non-zero when tests were weakened to make a run pass.
+
+### Fixed
+- The `/start` dashboard API resolves provider binaries and credential file names only from fixed allowlists, so request input can never choose the program that is run or the file that is written. This closes CodeQL alerts 604-607 (command-line and path injection) (P0).
+- Legacy `loki quick` exits 3 when the `tests_integrity` check fails: a skip was added, the test runner config was changed to deselect tests, or a test file was weakened. Before, it printed `Evidence Receipt: NOT VERIFIED` and still exited 0. Module-level `pytestmark` skips are caught. On Python 3.10, where `tomllib` is missing, only the `[tool.pytest.ini_options]` section of `pyproject.toml` is compared, so a dependency edit is not read as a test-config change (A-118, D47).
+
+### Changed
+- The README is the full v10 guide again, with Mermaid diagrams, loki-seal marketplace install, unsigned-receipt exit 3 and automatic promotion. The loki-seal README installs from the published repo marketplace (DOC-01).
+
+## v10.5.18 (2026-10-01)
+
+A `next` release. Running `loki` with no arguments opens a local dashboard to connect a provider and GitHub, pick a repo and complete its open issues; v10 runs start even when a task's setup rewrote a lockfile; and the docs were swept for stale claims.
+
+### Added
+- `loki` with no arguments starts the local dashboard and opens `/start`: choose a provider (a logged-in `claude` or `codex` CLI is detected), connect GitHub with a personal access token (stored at `~/.loki/credentials/github`, file mode 0600, never logged or returned by the API), pick a repo, then select issues and press "Complete selected" or "Complete all". Each issue runs as a v10 issue-mode run in its own worktree and branch, with live status (queued, running, PR open, BLOCKED with its question, failed). `--no-open`, `LOKI_HEADLESS=1` or a non-interactive shell print the URL instead of opening a browser; `LOKI_LANDING=1` keeps the previous landing text (D51-A12).
+- A CI check fails when a doc names a `loki` command or flag the CLI does not accept, or shows an old version as current (DOC-02).
+
+### Changed
+- The dashboard refuses requests whose Host is not `127.0.0.1`, `localhost` or `[::1]`, which blocks DNS-rebinding pages from driving it. `/health` and `/metrics` stay open for probes. A dashboard bound to a non-loopback address accepts other hosts only with enterprise auth enabled or hosts listed in `LOKI_DASHBOARD_ALLOWED_HOSTS` (wired into the Helm chart and Terraform module) (D51-A12).
+- Stale-doc sweep across docs/, wiki/, SKILL.md, deploy/ and examples/: 223 corrections, including removal of unverified benchmark, compliance and agent-count claims (DOC-02).
+
+### Fixed
+- The v10 engine no longer refuses to start when a task's own setup step modified a tracked lockfile (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lock, poetry.lock, Cargo.lock, go.sum). The change is recorded as pre-existing and is never attributed to the run or included in the PR unless the fix changes it; any other dirty tracked file still refuses (E-164).
+
+## v10.5.17 (2026-10-01)
+
+A `next` release. `loki verify` now refuses unsigned receipts and catches a tampered event log even when the end of the log is deleted, `loki backlog` runs a repo's issues headless from one `loki.yaml`, and v10 runs post to Slack.
+
+### Added
+- `loki backlog owner/repo --all | --label X | --issues 1,2,3` runs a v10 issue-mode run per issue, each in its own worktree and branch, with a concurrency cap and a daily budget stop, and prints one line per issue plus a summary. Exit 0 only when every issue ended with a PR or VERIFIED. `--dry-run` lists what would run (D51-A3).
+- `loki.yaml` (repo root, then `~/.loki/loki.yaml`) configures provider and models, the NAME of the env var holding a GitHub token, repos, concurrency, budgets, knowledge sources and notifications; `loki config validate` checks it against `schemas/loki-yaml.schema.json`. An annotated example is in `docs/loki.yaml.example` (D51-A3).
+- Slack notifications on the v10 path for PR opened, BLOCKED (with its question) and run finished, from the webhook in the env var named by `LOKI_SLACK_WEBHOOK_ENV` (default `LOKI_SLACK_WEBHOOK_URL`). The URL is never logged, and a slow or failing webhook never fails a run (D51-A4).
+- loki-seal is listed in this repo's plugin marketplace: `/plugin marketplace add asklokesh/loki-mode`, then `/plugin install loki-seal@loki-mode` (D48).
+- Every `next` release that passes Post-Release Smoke and the first-run gate on the exact npm-installed version is promoted to `latest` automatically; a lower version is never promoted (D49).
+
+### Changed
+- `loki verify` refuses a receipt with no signature: exit 3 on the v10 engine and BLOCKED on the legacy path. `--allow-unsigned` or `LOKI_VERIFY_ALLOW_UNSIGNED=1` accepts it with an explicit "integrity not attested" line. A malformed signature reads TAMPERED on both engines, and the check cannot be disabled by a `base64.py` or `json.py` committed in the verified repo (A-121b).
+- The Security Audit reuses a parent commit's passing result for a version-only release only after a clean scan of the new commits, and scans merge commits' own content (D44, E-157, E-159).
+
+### Fixed
+- v10 runs end with a signed `log.sealed` line, so deleting the end of the event log after a tamper was detected now reads TAMPERED in `loki verify` instead of VERIFIED. Receipts sealed by earlier versions still verify. A run interrupted before it completed reads UNCHECKED (exit 2) (A-117).
+- The secret scan fails closed when its git range is invalid or empty (E-159).
+
+## v10.5.16 (2026-10-01)
+
+A `next` release. Quiet `loki quick` output stays short and clean, the v10 Reason line never prints a credential, and a stray config file in your home directory is never moved.
+
+### Fixed
+- Quiet `loki quick` no longer prints stray stderr lines (the caveman output-compressor bootstrap notices, a `.loki/config` "File exists" error, and an `echo: write error: Broken pipe`), so the default output stays within its line budget. The bootstrap notices go to the quiet run log instead (P0-t15).
+- When a project's `.loki/config` is a leftover file holding only the disclosure marker (`DISCLOSURE_SHOWN=true`), it is folded into the `.loki/config/` directory instead of failing. A config file with any other setting is left untouched, and `~/.loki/config` (for example one holding `TELEMETRY_DISABLED=true`) is never moved, even when `loki quick` runs from your home directory (P0-t15).
+- The quiet inner run resets SIGPIPE through python3 only when python3 can actually import `os` and `signal`; a missing or broken python3 falls back to plain bash (P0-t15).
+- The v10 `Reason:` line redacts GitHub tokens, Anthropic, OpenAI and AWS keys, Slack tokens, JWTs, Google AI keys and Bearer tokens before it is cut to 200 characters, so a credential echoed in a failing check's output never reaches the terminal. The patterns match the receipt redactor in `autonomy/lib/proof_redact.py` (A-130b).
+
+## v10.5.15 (2026-10-01)
+
+A `next` release. A v10 run that renames or deletes an existing test file can no longer be sealed as VERIFIED, and verify counts progress on an edited relevant test file correctly.
+
+### Fixed
+- A v10 run whose diff deletes or renames a test file that existed before the run (for example renaming `sum.test.js` to `sum.spec.test.js` and weakening an expectation) now seals PARTIAL with `weakened test: <file>` under NOT PROVEN; previously the entry was listed but the verdict could still be VERIFIED (A-119).
+- Verify counts an edited relevant test file as progress when the test ids that were red on the base now pass, while the run still stays PARTIAL because the file was edited; the node test runner's base pass/fail count is read from the last summary lines, so a mid-output count no longer skews the comparison (A-115b).
+
+## v10.5.14 (2026-10-01)
+
+A `next` release. v10 is quiet by default and never reports a tampered run as verified, a run stops on a real provider authentication or credit failure, and the signing key file name no longer trips the secret scanner.
+
+### Changed
+- v10 output is quiet by default: one start line, then Outcome, PR, Receipt, NOT PROVEN, Cost and Time. `--verbose` restores the stage lines; `--json` is unchanged. Every outcome other than VERIFIED or ALREADY_SATISFIED prints a `Reason:` line (for example the failing check, the spec-conflict question, "provider credit exhausted", or "engine ended before sealing a receipt"), and NOT PROVEN is never printed empty (A-130).
+- `loki doctor` computes the model catalog age in UTC on both the bash and Bun routes, so the two routes agree at any local time of day (E-158).
+
+### Fixed
+- A v10 run whose event log was modified outside the engine (a line appended, edited, truncated or deleted) now ends FAILED with exit 1 and shows `Receipt: TAMPERED`; previously it could report VERIFIED and exit 0 (A-130).
+- Under the CLI invoker, a provider's authentication or credit failure on its own stderr now stops the run after one session; the provider's stderr is carried in memory, so text an agent prints or writes to a file cannot fake that stop. A crashed verify no longer counts toward a stall (A-113b).
+- The default signing key file name is defined once per language, so rebuilding the bundle no longer produces a secret-scanner false positive (E-156).
+
+### Internal
+- Repository hooks resolve from `CLAUDE_PROJECT_DIR`, so they run from any working directory (founder queue 13).
+- CI runs on `slice-*` branches with per-branch cancellation; main and train runs are never cancelled (D46).
+- The pulse reports a RELEASE_SLO violation when fewer than 3 `next` releases shipped in the trailing hour (D46).
+- The test-runner guards are proven active in sharded CI (E-154c).
+
+## v10.5.13 (2026-10-01)
+
+A `next` release. It carries everything in v10.5.12, whose version commit landed on main but was never tagged or published (its Release run stopped on three secret-scan false positives on the signing key's file name), plus the work below. The headline: v10 refuses more ways of claiming success it has not earned, receipts are signed natively by default, and every v10 run ends with one named outcome and an honest exit code.
+
+### Added
+- One named outcome and a fixed exit ladder for v10 runs: VERIFIED and ALREADY_SATISFIED exit 0, FAILED 1, usage or preflight errors 2, a cost or time cap 3, BLOCKED (spec conflict) 4, STALLED 5. `--json` prints one object with `ok`, `outcome`, `stop`, `run_id` and `receipt_sha256`. A BLOCKED run posts its one question, and names an opened draft PR when there is one (A-110).
+- v10 signs receipts natively with Ed25519 (no Python needed) and by default. A receipt signed by a key this machine does not know reads UNCHECKED, not TAMPERED; a retired key still verifies (A-121).
+- Legacy `loki quick` prints its Evidence Receipt after the final commit, so the printed head and digest match what `loki verify` checks; it is quiet by default, with `--verbose` (or `LOKI_VERBOSE=1`) for the setup chatter, and its headline names the unsigned state and the not-proven count. Legacy `loki verify` reports the receipt's signature as VERIFIED, UNCHECKED, TAMPERED or UNSIGNED, and a tampered receipt is BLOCKED everywhere, including `evidence.json` (A-134).
+- `loki doctor` blocks only on the selected provider and ends with one line: `Ready: <provider> (<model>), <receipt signing state>`, or the blocker (A-123).
+
+### Changed
+- The GPG receipt-signing layer is removed; both engines use one local Ed25519 key family. The deploy gate trusts the local key and reads an unknown key as UNCHECKED (A-122).
+- v10 judges only the delta against a pristine base: a test already failing before the run is listed as `pre red` in NOT PROVEN, but only when the run proves progress on the task's own target tests. The task's relevant tests are always run, whatever files the diff touched (A-112, A-114).
+- Empty, all-skipped or zero-test check runs are `not_run`, never a pass (A-111).
+- A stall is named by the failing test, a run stops on a real provider authentication or credit failure, and `--resume` is removed from v10 (exit 2) (A-113).
+- The Wall classifies node:test output on node 20, 22 and 26: a test that fails for an unrelated reason (Jest globals, a missing package at top level) is discarded, while a real red stays red, including a child-process crash, an ESM missing export, and nested subtests (A-103, A-103c, A-103d).
+
+### Fixed
+- False VERIFIED results closed: a run that fixed nothing while an unrelated test was already red; a run whose diff avoided the target test; a target test that was skipped, xfailed, deselected, cut short by `pytest.exit`, or deleted; a test-configuration change (conftest.py, pytest/jest/vitest config) is disclosed in NOT PROVEN (A-112, A-114, A-115).
+- A quick-PRD run no longer emits the USAGE_DOC_REQUIRED instruction on the Bun route (A-132b).
+- `loki doctor`: the bash and Bun routes name a missing Node.js identically, and a not-yet-created signing key reads "receipts will be signed on first run".
+
+### Internal
+- The first-run gate gains G8: a skipped target test must not seal VERIFIED, on both the v10 and the default `loki quick` path.
+- Tests never write the real `~/.loki/keys`, and the test runner fails loudly if a test switches the parent checkout's branch (E-154, E-155, E-154b).
+- The moat P1 probe's negative control runs on a throwaway HOME, since a signing key now auto-generates; trigger-server tests restore the handler's signing attributes between tests.
+
+## v10.5.12 (2026-09-30, not published)
+
+Not published to npm: the Release run stopped on three secret-scan false positives. Everything below ships in v10.5.13. `loki quick` on an existing repository now commits only the fix, receipts get a local signing key by default, the Wall detects `node:test` repositories, and the new `packages/loki-seal` Claude Code plugin blocks "done" on red or weakened tests.
+
+### Added
+- `packages/loki-seal`: a Claude Code plugin whose Stop hook blocks the agent from finishing while tests are red or were weakened (fewer tests than the session baseline, a crashed or empty run). It subtracts tests that were already red at session start, releases after repeated hook errors so a broken hook never traps a session, and ships an advisory skill and a demo. It is installed from a clone of this repository (A-04).
+- Receipt signing key: on first use Loki generates one local Ed25519 key (`~/.loki/keys/receipt-ed25519.pem`, file mode 0600) so receipts are signed by default. A failed permission change never silently downgrades a receipt to unsigned; the server path never auto-generates a key (A-120).
+
+### Changed
+- README: a short README with the delivery-contract positioning; the previous long README moved to `docs/README-FULL.md`, with retracted claims removed (A-09, D45). The package description is the same category line.
+- Legacy `loki quick` on an existing repository: HANDOFF.md is written under `.loki/`, the USAGE.md instruction and regeneration are skipped, and a lockfile that did not exist at base is not committed when no manifest changed. New-project builds are unchanged (A-132).
+- The legacy Completion Council skips its costly evidence probes on a trivial diff, and never skips the boot check (A-133).
+
+### Fixed
+- v10 Wall: a repository whose test script is a bare `node --test` is detected as `node:test`, so the Wall no longer writes Jest-style tests into it (A-102).
+
+### Internal
+- README-content tests (reviewer pool, MCP tool count, Loki 10 opt-in marker and guide link) pass against the short README.
+
+## v10.5.11 (2026-09-30)
+
+The first release on the npm `next` tag. `loki verify` no longer calls a freshly sealed receipt tampered, v10 commits only the fix, and the Wall no longer mistakes a broken test run for a failing test.
+
+### Changed
+- Releases now publish to the npm `next` dist-tag. `latest`, the Docker `:latest` image and the Homebrew formula move only through a separate promote step, and only after the first-run gate passes on that exact version and its published gitHead is on main (A-01).
+- v10 commits only the fix: Wall test files, a newly added lockfile when no manifest changed, and `.loki/` are left out of the commit (A-104).
+
+### Fixed
+- `loki verify` uses the same receipt canonicalizer as the sealer, so a receipt containing non-ASCII text no longer verifies as TAMPERED; `loki verify --help` prints usage; the full 64-character receipt digest is printed (A-101).
+- Wall red classification (pytest): a failure hidden by a repository's `-q` addopts is still seen, a `pytest.exit` banner reads as not run, and a missing pytest reads as not run instead of red; the classifier lives in the audited core (E-125, E-132).
+- The implement brief ends with the finish instruction, and says "Impacted tests: none known; run the project's full test command." when no impacted tests are known (E-150).
+
+### Internal
+- `scripts/first-run-gate.sh`: a first-run gate on a throwaway HOME that checks the default entry point on a one-line bug repo (tests fully green, only the fix changed, printed digest equals the verified one, signed receipt, at most 15 lines of output, wall time). It runs as a non-required CI job and gates promotion (A-02).
+- `scripts/release.sh --check-clean` refuses a release commit that leaves a stamped file modified, and the stage list prints `git add -f` for ignored paths (E-151, E-152).
+- The watch-command test guards its recorded process groups against its own group and PID reuse (E-150).
+- Eval: mining notes for screened medium-tier candidates; the pub-dotenv-661 notes record the reviewer's one-file probes.
+
+## v10.5.10 (2026-09-30)
+
+v10 briefs now open with a byte-identical rules block so the cacheable prefix is shared across tasks, large eval tasks must carry frozen, upstream-first hidden tests, and a set of test-reliability fixes stops tests from leaking processes, reading the host's real data or timing out under CI load.
+
+### Changed
+- v10 implement and fix briefs start with a fixed rules block that is byte-identical for every task, followed by the task-specific context; plan paths with a drive letter or a leading `~` are dropped like absolute ones (S41-10b).
+
+### Internal
+- Eval: large-tier (`lg-*`) tasks must declare tier large and carry per-file provenance, sha256-frozen hidden tests and a requirements map naming each requirement's tests; the harness applies every saved shortcut patch and requires it to still fail, and requires RED at the reference commit to be a real assertion failure (EV-12E). Medium tier adds pub-dotenv-661.
+- The watch-command test stops every process group it started when it exits or is interrupted, instead of leaving an orphaned run loop behind (E-145).
+- test-stop-process-group uses recorded PIDs instead of a pattern kill; the audit-chain test runs against a fixture home instead of the real `~/.loki`; the probe-isolation test sizes its inner timeout from a CI measurement and names the case that was running when it fires (E-147, E-148).
+- The five real-JVM modernize capture tests get an explicit 20 second timeout after one hit bun's 5 second default on a loaded CI runner (E-149).
+- The required-ci audit tie rule and the temp-sweep scan gain tests, and seven tests move their fixtures from hardcoded `/tmp` paths into a run-owned directory (E-143).
+
+## v10.5.9 (2026-09-30)
+
+v10 implement and fix briefs now name the files and impacted tests that matter instead of a raw list of repository paths, verify reports a system ruff lint separately from the system test interpreter, and the medium eval tier grows by three tasks.
+
+### Changed
+- v10 implement and fix briefs carry up to 20 relevant files (the plan's files, else a keyword selection over the cached repository map, else the first 20 mapped files) plus up to 10 impacted tests, each with one exact command on the project interpreter, instead of the first 200 repository paths. Plan paths that are absolute or climb out of the repository are dropped, and test paths with shell metacharacters are single-quoted (S41-10).
+- Verify: a passing lint on the system ruff now adds its own not-proven line ("lint ran on the system ruff") instead of reusing the system-interpreter test line, and tool lookup uses the live PATH that the spawned check also receives (E-115).
+
+### Internal
+- Structural checks scan committed changes against the merge base (not only the working tree), warn when no base ref resolves, catch added lines that start with a plus sign, print SKIP when typecheck cannot run, and exempt byte-exact vendored bytes in eval refdiffs and loki-ts/dist from the emoji and dash scan (E-142, E-146).
+- test-v10-ops sweeps a snapshot of the board instead of a hardcoded home path, so a concurrent board edit cannot fail it, and it is now registered in the runner (E-142, E-144).
+- Eval: the medium tier adds pub-faker-2206, pub-packaging-1162 and pub-markdown-1390; each was checked by an independent reviewer who tried to pass the hidden tests with a one-file fix. A one-file route that works only by patching or injecting another module at import time is treated as contrived. Mining notes for the screened and dropped candidates are in eval/loki10/tasks/CANDIDATES.md (S41-20b, S41-20g, S41-20h, S41-20i).
+
+## v10.5.8 (2026-09-30)
+
+Releases now come only from trains that pass structural checks in the fast tier, a release can publish after a dispatched security audit fix, test cleanup can no longer delete another run's temporary directory, and the medium eval tier grows by three tasks.
+
+### Fixed
+- Release gate: required-ci also accepts a completed, dispatched Security Audit run at the exact release commit (Tests and Bun Parity stay push-only), and the newest completed audit result wins, so an older success can no longer mask a newer failure (E-87).
+- `scripts/cleanup-test-processes.sh` no longer removes `loki-*`, `test-*`, `package` or `*.tgz` entries under `/tmp` or `$TMPDIR` by glob; it reports them and removes only its own run-owned directory, and only with `--aggressive`. A glob sweep had been deleting other agents' live run directories (E-140).
+
+### Internal
+- D44 structural checks (shard-durations rows, hardcoded path scan, test registration, SKILL.md version sync, line budgets, stale README version, emoji and dash scan, loki-ts typecheck) run in Tier A, on train pushes and in the local-ci fast tier, each under 10 seconds (D44-C).
+- The scorecard-run test stops every process it started on exit, interrupt or termination and asserts no survivor by run directory (E-137).
+- Guard test `tests/test-no-tmp-sweep.sh` bans glob removal of temp-root entries across scripts and tests (E-140).
+- Eval: medium tier adds pub-flask-6093, pub-pendulum-768 and pub-isort-2646, each checked by an independent reviewer who tried to pass the hidden tests with a one-file fix; pub-click-3449, pub-pyjwt-1147 and pub-isort-1913 were dropped for that reason (S41-20a, S41-20e).
+
+## v10.5.7 (2026-09-30)
+
+Main now moves only to a release train whose full test tier already passed, the eval scorecard reports 95% confidence intervals and refuses undersized samples, and the building blocks for issue intake, repo memory and parallel attempts land behind the v10 engine (not yet wired into a run).
+
+### Changed
+- Eval task sizing counts only files whose change alters executable code, so a docstring or blank-line hunk no longer makes a one-file fix look like a two-file task (E-136).
+- The eval scorecard reports seeded bootstrap 95% confidence intervals and marks a difference only when it falls outside them; red outranks inconclusive; the D43 floor requires every task at 3 evaluated reps on both arms, and one run_id appearing in two rep files under a label is refused (S41-17).
+
+### Fixed
+- The v10 tree-swap helper passes an explicit environment to every git call it spawns, so a caller's scrubbed environment is what git sees (E-141).
+
+### Internal
+- D44 release trains: Tests, Bun Parity and Coverage (baseline) run on pushes to train/N branches, and main is fast-forwarded only to a train commit whose three workflows passed (D44). The pulse reports RELEASE_CADENCE, MAIN_RED_BY_MERGE and releases per hour, and finds Tier B runs on train branches (D44-B).
+- v10 extension data layers, not yet wired into a run: a tree-swap helper that scores an attempt in the primary tree and always restores it, with a lock, exclusive undo files and a refusal on tracked changes (S41-12); repo memory recording the verified test command, flaky tests and failure causes per repo (E-126); and issue listing by label or milestone as pure data, with dash-leading and dot-dot values refused (E-127).
+- Moat P7 scanner catches fabricator calls wrapped in useMemo and bracket-indexed sinks (E-128, E-131).
+- Tests: the fsmonitor environment guard is meaningful on Bun 1.3 and 1.4, and its driver runs under process.execPath (E-134, E-139). A ShellCheck warning in the scorecard test is fixed.
+
+## v10.5.6 (2026-09-30)
+
+Parallel worktrees stop reinstalling npm dependencies from scratch, v10 sessions can trim oversized tool output behind a flag, and the eval harness now refuses to report a cost it did not fully measure.
+
+### Added
+- `LOKI_E10_TRIM=1` (off by default): v10 engine sessions shorten oversized tool results as they arrive. Bash output over 200 lines keeps its first 40 and last 120 lines, Read keeps 400 lines and Grep keeps 100 matches, and the head and thresholds halve from tool call 25 on. A Bash result always keeps its last 120 lines so a failing command's tail is never cut, because the SDK exposes no exit code to the hook (S41-11).
+
+### Changed
+- Parallel-mode worktrees reuse a cached `node_modules` keyed on the lockfile, `package.json`, Node version and platform, stored under `.loki/cache/install` and capped at the 3 newest entries. The install cache is no longer copied into each worktree's `.loki`, which removed a 2.3 second copy per worktree with a 71 MB cache (E-130).
+- The WhatsNew dialog shows the current release version and is stamped by the release script, instead of a hardcoded 9.55.0 (E-129).
+
+### Fixed
+- `scripts/release.sh --bump-only` refuses to continue when a dist source map records an absolute path or one that climbs out of the repository, which a symlinked `node_modules` produced at v10.5.4 (E-133).
+
+### Internal
+- Eval harness: v10 cost and token totals are null unless every started session recorded its cost, so a killed session can no longer understate a run's cost while still reading as measured; the engine knob allowlist gains LOKI_E10_CASCADE, TOP_MODEL, ATTEMPTS, CONTEXT and WALL_PARALLEL (S41-01).
+- Scorecard eval: an interrupted run resumes by passing the harness only tasks with no completed row, keyed on model, harness version and arm (S41-18); a per-stage wall-clock profile of the E-98f runs is in docs/v10/METRICS.md (S41-19).
+- v10 attempt selection for parallel attempts (not yet wired into a run), with an import fence that uses Bun's own import scanner (S41-05).
+- Post-release smoke waits about 21 minutes for PyPI and npm to publish instead of 10.5 (E-135).
+- CI fixes: a shard-durations row, a portable test fixture path, two ShellCheck warnings and a duplicate test helper that failed the typecheck.
+
 ## v10.5.5 (2026-09-28)
 
 Ships everything prepared for v10.5.4, which never reached npm because its release gate ran the v10 Wall tests without pytest: the Wall no longer mistakes a test run that never started for a failing test, and a Seal refuses any run with tests that did not run.

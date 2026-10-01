@@ -341,3 +341,81 @@ Raw claude -p swung 85.7% to 71.4% between two runs on the same 7 medium tasks, 
 2. The medium tier holds at least 20 tasks and every arm runs at least 3 reps. The scorecard reports 95% intervals; a mark is green or red only when the interval of the Loki minus raw difference excludes 0, otherwise it is inconclusive, and inconclusive never flips a default (S41-17, S41-20a to c).
 3. Speed is v10's worst medium axis (p50 138 to 214s against raw 56 to 70s): profile stage wall-clock per run and cut the slowest stage first (S41-19, then a cut slice named by its result).
 4. Auth is checked before every rep (S41-03 auth_guard) and an interrupted eval resumes from its out files, never re-runs from scratch (S41-18).
+
+## D44 (founder, 2026-09-30T17:51Z): green main by construction, releases on a 10-minute clock
+
+Main went red four times on 2026-09-30 from structural checks CI caught after a push. From now on:
+1. Trains. The Release Manager merges approved slices onto train/N and pushes it; Tier B (Tests, Bun Parity, Coverage) runs there. Main is fast-forwarded only to a train commit whose Tier B is green (scripts/train-promote.sh refuses otherwise). Unverified merges are never pushed to main. A red train drops or fixes the failing slice and re-runs; main stays releasable.
+2. Release clock at :00/:10/:20/:30/:40/:50: if main has a green commit newer than the last release, bump VERSION (verdict reuse through version-bump-only) and publish. Trains overlap. Target 3 or more releases per hour, stretch 6.
+3. Structural checks (shard-durations rows, hardcoded path scans, test registration, doc-drift, line budgets) run in Tier A and as a pre-merge check, each under 10 seconds. A slice is not approved while one fails.
+4. Staff 8 or more builders; clear waiting reviews with sonnet for LOW/MEDIUM; opus stays under 30 percent.
+5. Pulse gains RELEASE_CADENCE (a green unreleased commit on main older than 20 minutes) and MAIN_RED_BY_MERGE (a push to main failing Tier B). Releases per hour are reported in METRICS.md hourly.
+Bootstrap: train/1 is verified through a pull request to main (pull_request already triggers Tier B) and carries the train/** push triggers so later trains verify on push.
+
+## D45 (founder, 2026-09-30, relayed by the autonomi-dev-dc steering session): the product runs against a delivery contract
+
+Loki's definition: "autonomous software factory that runs with the knowledge of what it's supposed to deliver". Binding for Tier 0 and loki-seal:
+- Every run starts from an explicit delivery contract: the acceptance criteria derived from the issue, spec or task (intake plus the Wall).
+- A run is judged only against that contract. Done means the contract's checks ran and passed.
+- The receipt states the contract, what was proven against it, and what was not.
+- If the contract cannot be derived, the run ends BLOCKED with one question; it never guesses and calls it done.
+- loki-seal follows the same rule: it reads what the user asked for (the task or issue) and refuses "done" until the checks tied to that request pass, not only "the suite is green".
+- Wording: README line 1 stays "Your agent says done. Loki proves it." (founder queue row 10, veto pending). Line 2 is the category line "An autonomous software factory that knows what it is supposed to deliver, and proves it did.", used verbatim in package.json description and SKILL.md. The GitHub About text stays in the founder queue.
+- Competitive intel: the steering session scans rivals twice daily (list at ~/git/autonomi-dev/research/2026-09-30-adoption/COMPETITOR-WATCHLIST.md) and proposes at most 3 backlog rows per scan, each naming the metric it moves. Until the first-run gate passes on a `next` version, only threats to the moat (for example a rival shipping portable verifiable receipts) jump the queue; everything else, including enterprise asks (SSO, audit, policy), queues behind Tier 0 and never carries certification claims.
+
+## D46 Release SLO: 3 to 6 `next` releases per rolling hour (2026-10-01, founder directive relayed by the steering session at 00:20Z)
+- Founder's words, as relayed: "I WANT 3-6 releases every hour, no excuses, no push back, no compromise."
+- SLO: at least 3 `next` releases in every rolling 60 minutes, target 6. Speed comes from the pipeline, never from weaker checks: no skipped or quarantined moat tests, nothing added to tests/moat/pending.txt to get green, `latest` only via the first-run gate, every Never-list item stands.
+- Pipeline, effective immediately:
+  1. Green slices only: a slice merges into main only after its own branch passed full Tier B Tests (slice branches are pushed so CI runs in parallel). Trains only collect already-green slices.
+  2. Drop, don't fix forward: a red train is re-cut within 5 minutes without the offending slice (identified per slice or by the failing suite's owner) and shipped; the slice returns to its engineer. Fix forward only for failures that live in main.
+  3. Stacked trains every 15 minutes from the green slices merged so far, with 2 to 3 in flight; ship whichever goes green, newest first.
+  4. Release reuses the train's verdict for the identical tree (D28). E-156 removes the gitleaks key-file false positive at the source.
+  5. Roles: one Release Captain (sonnet) cuts and ships trains; one CI-health engineer (sonnet) owns red shards, environment problems and flake history; the Chief of Staff checks the SLO every 20 minutes.
+  6. A v10-pulse RELEASE_SLO alarm fires below 3 `next` releases in the trailing 60 minutes; on it, the Chief of Staff ships the newest green train or the last green tree first, then fixes the cause.
+  7. Slices stay small enough to build and pass in under 30 minutes; bigger work is split.
+- NOT applied without direct founder approval: moving the release-blocking full-history gitleaks scan (`--all`) out of the Release path (item 4 of the relay). It weakens a security gate on a relayed instruction; queued as FOUNDER-QUEUE row 14.
+
+## D47 (CTO, 2026-10-01): honest exits on the default path, and UNSIGNED is never a pass
+1. Legacy `loki quick` exits 3 when the diff weakens tests: a skip marker added, test runner config changed, or an existing test file deleted or renamed. Edited assertion lines are disclosed in the receipt and keep rc 0. A NOT VERIFIED headline from unproven gates alone keeps rc 0.
+2. The signal is a proof fact (tests_integrity in degraded[]), never the headline. It only raises an inner rc of 0, in quiet and verbose modes alike. first-run-gate G1 counts green only as pass 2 and fail 0, so a skip is not green.
+3. `loki verify` exits 3 on UNSIGNED on both engines, on any machine, with or without a local key, because a stripped receipt must never rank above UNCHECKED (rc 2).
+4. Recording the kid outside the hash and markers inside the body were rejected: verification is already unhashed and a forger can rewrite any body field.
+5. `--allow-unsigned` or LOKI_VERIFY_ALLOW_UNSIGNED=1 accepts UNSIGNED with an explicit line. It never changes TAMPERED or UNCHECKED, and verify never creates a key.
+6. Both slices (A-118, A-121b) are HIGH tier with red-first fixtures (skip, config, rename, downgrade, fresh HOME). They land before `latest` is promoted, together with A-115.
+
+## D48 (founder, relayed by autonomi-dev-dc at 02:35Z): "10/10 on everything" by 04:35Z
+1. Ten rows, each with a CI acceptance test, scored against the best competitor; 10/10 means the test passes in CI, never a claim. Quality bar and the Never list unchanged; D46 cadence continues.
+2. Rows: (1) gaming matrix on both engines ends non-VERIFIED with rc != 0; (2) portable receipt: `loki keys export` + `loki verify --pubkey`; (3) quiet default output at most 8 lines, real-mode wall within 1.5x raw `claude -p`; (4) first-run gate on node:test, pytest and go test repos, only fix files change; (5) exit ladder on legacy quick plus a --json schema validated against real output; (6) `loki doctor --fix`, doctor under 2s; (7-9) lean v10 engine default for `loki "<task>"`, issue mode and `loki quick` on next, legacy escape hatch kept, non-null cost on every gate run; (10) repo-root .claude-plugin/marketplace.json listing packages/loki-seal, tested in a clean Claude Code HOME, one README install line.
+3. Rows 7-9 flip the default only after A-117, A-118 and A-119b are merged and the gaming matrix (row 1) passes; until then they are built behind the existing flag.
+4. Staffing is bounded by machine load (max 28) and the worktree cap (15); rows run in waves, not all at once. Status per row is written to PROGRESS.md at 03:35Z and 04:35Z as pass, fail or not started, with what is missing.
+
+## D49 (founder, CONFIRMED directly in the Release Manager session at 02:42Z): promote to `latest` now and auto-promote every release
+- Relayed text: "everything should be released asap, no holding of anything done so far as well", "and going forward". Asks to promote 10.5.16 to `latest` now and trigger promote.yml automatically after every Release.
+- Not applied by the Release Manager because it contradicts the standing instruction in this session ("NEVER run promote or move `latest`") and SWARM-PROMPT-ADOPTION, and a peer relay is not the founder's direct approval for a hard-to-reverse, user-facing change. Awaiting the founder's direct confirmation in the Release Manager session. Prepared evidence: first-run gate stub against the npm-installed 10.5.16.
+- 02:42Z: the founder answered directly in the Release Manager session: "Apply D49 fully" and, for D48 rows 7-9, "Flip on next now". Applied: the first-run gate stub on the npm-installed 10.5.16 passed (0 assertions failed, wall 34s); promote.yml dispatched for 10.5.16 (run 36807172046). Auto-promotion on every green Release (stub gate plus Post-Release Smoke) is a slice. A-117, A-118, A-119b and the real-provider run are no longer `latest` blockers; they ship as they land.
+
+## D50 (founder, relayed by autonomi-dev-dc at 02:45Z): the harness is the product; proof is the floor
+1. Finish only the in-flight proof work (A-117, A-118, A-119b, gaming matrix, verify --pubkey); move most engineers to the harness.
+2. North-star metric: model lift on our own eval (hidden tests, small and medium tiers): Loki+model vs raw `claude -p` same model, and Loki+cheap vs raw stronger. Targets: Loki+haiku >= raw sonnet completion at lower cost; Loki+sonnet >= raw opus at lower cost; Loki+X never below raw X, and at most 1.2x its time. Full matrix in METRICS.md, losses included; a slice that lowers lift is dropped.
+3. Harness items, one slice each: (1) intent contract; (2) context engine (symbol retrieval, real commands, ranked pack per model budget); (3) project memory in .loki/knowledge with decay; (4) cross-repo and user knowledge sources via .loki/config.yaml, read-only; (5) model-adaptive profiles in model_catalog.json, step routing, escalate only on a failing check; (6) speed (parallel context, cached prefix, trimming, impacted tests, harness overhead under 5s); (7) cost (cascade, caps, measured cost on every provider); (8) enterprise config (allowed models and endpoints, budgets, redaction, an audit log of model calls; no certification claims).
+4. Context and memory live in loki-ts/src/engine10/context/ with their own line budget set by the CTO; the 5000-line core cap (D33) stays.
+5. Order: multi-model baseline eval first, then items 1, 2, 3 and 6 in parallel, then 5 and 4 (8 with 4). Eval runs count against the usage governor.
+
+## D51 (founder, relayed by autonomi-dev-dc at 02:55Z): the product surface the harness powers
+1. Local: install, `loki` opens a browser UI; onboarding (provider, GitHub PAT stored 0600, repo); a backlog view with complete-selected or complete-all, each issue its own worktree, branch and PR with receipt and evidence; live status, BLOCKED questions answerable in the UI.
+2. Headless parity: `loki backlog owner/repo --all|--label|--issues`, one loki.yaml driving both UI and headless (provider and models, git auth env var, repos, concurrency, budgets, knowledge sources, notifications). Slack via autonomy/notify.sh on the v10 path.
+3. 10x defined: merge-ready PRs per hour of wall clock and per hour of human attention on a 20-issue backlog vs one raw Claude Code session; target 10x on both, from parallelism, zero babysitting and attached evidence. Measured and published.
+4. Reuse dashboard/, notify.sh, deploy/helm, docker-compose, terraform, playwright-verify.sh and issue-providers.sh; delete UI and endpoints that do not serve the flow. One UI, one config file, one engine.
+5. Phase A (today): first-run UI, backlog view, headless plus loki.yaml, Slack. Phase B: workspaces, cross-repo runs, combined integration testing with evidence. Phase C: one container image, Helm and ECS, org connect, audit log.
+
+## D39 amendment (founder, relayed 03:16Z): "Sprint, then pace"
+1. Full speed until the D48 deadline at 04:35Z.
+2. From 04:35Z the governor paces to about 0.48% of the weekly limit per hour (projected <= 75% used at the 2026-10-07T17:00Z reset), about 7 concurrent engineers at today's burn; the ceiling is recomputed hourly from new /usage readings (docs/v10/usage-readings.tsv; first reading 2026-10-01T03:14Z: window 11%, weekly 25%).
+3. Priority inside the paced budget: release flow, then D50 harness and lift eval, then D51 Phase A, then docs, then the remaining D48 polish.
+4. Builders run as cloud sessions first (the 250 USD cloud credit is used before plan usage).
+5. If the 5h window passes 80%, pause new work until it resets; never let a run die mid-release.
+
+## D52 (founder, relayed 03:25Z) and overnight mandate (03:40Z): least tokens, fastest release
+1. Target about 10x less plan usage per merged slice and per release, measured from `claude -p "/usage"`. Haiku for mechanical work, sonnet to build, opus only for moat or latest-moving reviews; `model:` set explicitly on every agent; small briefs with file paths; read line ranges, not whole files; agent returns of 10 lines or fewer; fresh agent per slice; the lead session hands off at about 120k context.
+2. Overnight until about 11:00Z: sprint to 04:35Z, then pace (D39 amendment). Priority: release flow, D48 rows plus the 04:35Z report, D51 Phase A ready to test (LOKI MORNING TEST in PROGRESS), D50 lift baseline then harness slices, docs, then D51 Phase B/C as budget allows. docs/v10/MORNING-BRIEF.md (60 lines or fewer) at 10:30Z, honest about what is not done.

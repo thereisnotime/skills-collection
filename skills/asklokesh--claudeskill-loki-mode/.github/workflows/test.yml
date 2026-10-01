@@ -2,7 +2,11 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    # D44: train/N branches run Tier B before main is fast-forwarded to them.
+    # E-162: slice-* pushes do NOT run this workflow (no 8-shard matrix); the
+    # Tier A workflow runs the structural guards and diff-selected suites
+    # there, and Bun Parity still runs. The train stays the release verdict.
+    branches: [main, "train/**"]
   pull_request:
     branches: [main]
 
@@ -10,8 +14,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # E-162: train/** pushes share one group per ref, so a newer train push
+  # cancels a superseded train's in-progress Tests. main keeps a per-SHA
+  # group and is never cancelled (Tier B / release verdict).
+  group: ${{ github.workflow }}-${{ (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/train/')) && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/train/') }}
 
 jobs:
   # Runs first on every push and PR. Two jobs in one:
@@ -112,6 +119,12 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-test.txt
 
+      # E-157: tests/test_release_required_ci.py drives release.yml's PARENT..SHA
+      # secret scan with the real pinned gitleaks and FAILS (never skips) when CI
+      # lacks it.
+      - name: Install gitleaks (pinned, checksum-verified)
+        run: bash scripts/install-gitleaks.sh
+
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
@@ -170,6 +183,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # E-159: tests/test-security-audit-config.sh drives the secret-scan script with the
+      # real pinned gitleaks and FAILS (never skips) under CI when it is absent.
+      - name: Install gitleaks (pinned, checksum-verified)
+        run: bash scripts/install-gitleaks.sh
 
       - name: Setup Python
         uses: actions/setup-python@v5

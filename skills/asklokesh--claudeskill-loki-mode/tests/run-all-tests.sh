@@ -7,6 +7,24 @@ set -euo pipefail
 export LOKI_NO_BROWSER=1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# E-154 begin: no test run may write the real ~/.loki/keys. Default the signing
+# key file to a run-owned temp dir unless the caller already chose one.
+_e154_real_keys="${HOME:-/nonexistent}/.loki/keys"
+_e154_keys_before="$(ls -A "$_e154_real_keys" 2>/dev/null || true)"
+if [ -z "${LOKI_TEST_LIST:-}" ] && [ -z "${LOKI_RECEIPT_SIGNING_KEY_FILE:-}" ]; then
+    # shellcheck source=../eval/loki10/lib-tmp.sh
+    . "$REPO_ROOT/eval/loki10/lib-tmp.sh"
+    if loki_run_tmp_create; then
+        export LOKI_RECEIPT_SIGNING_KEY_FILE="$LOKI_RUN_TMP/receipt-ed25519.pem"
+        # Keep LOKI_RUN_TMP as a runner-private shell variable only: exported, it
+        # makes every child suite's own loki_run_tmp_create refuse ("already set").
+        export -n LOKI_RUN_TMP
+        trap 'loki_run_tmp_cleanup || true' EXIT
+    fi
+fi
+# E-154 end
 TOTAL_PASSED=0
 TOTAL_FAILED=0
 TESTS_RUN=0
@@ -444,6 +462,11 @@ run_test() {
     # Deliberately NOT `bash -c "$test_file"` for everything: -c execve's the
     # file, which requires the exec bit, and 46 shell suites here are committed
     # mode 100644. That swap turns every one of them into rc 126.
+    # E-155: a suite must never move the parent checkout's HEAD or branch.
+    local _e155_ref_before _e155_sha_before
+    _e155_ref_before="$(git -C "$REPO_ROOT" symbolic-ref -q HEAD 2>/dev/null || true)"
+    _e155_sha_before="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
+
     local _rc=0
     local _elapsed
     if [ -n "$_timeout_bin" ] && [ "$_suite_timeout" -gt 0 ]; then
@@ -498,6 +521,20 @@ run_test() {
             bash -c "$test_file" || _rc=$?
         fi
         _elapsed=$((SECONDS - _t0))
+    fi
+
+    local _e155_ref_after _e155_sha_after _e154_keys_after
+    _e155_ref_after="$(git -C "$REPO_ROOT" symbolic-ref -q HEAD 2>/dev/null || true)"
+    _e155_sha_after="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
+    if [ "$_e155_ref_before" != "$_e155_ref_after" ] || [ "$_e155_sha_before" != "$_e155_sha_after" ]; then
+        echo -e "${RED}$(printf '\342\234\227') ${test_name} FAILED: it changed the parent checkout HEAD (E-155): ${_e155_ref_before:-detached}@${_e155_sha_before:0:8} -> ${_e155_ref_after:-detached}@${_e155_sha_after:0:8}${NC}"
+        TOTAL_FAILED=$((TOTAL_FAILED + 1))
+    fi
+    _e154_keys_after="$(ls -A "$_e154_real_keys" 2>/dev/null || true)"
+    if [ "$_e154_keys_after" != "$_e154_keys_before" ]; then
+        echo -e "${RED}$(printf '\342\234\227') ${test_name} FAILED: it changed the real ${_e154_real_keys} (E-154)${NC}"
+        TOTAL_FAILED=$((TOTAL_FAILED + 1))
+        _e154_keys_before="$_e154_keys_after"
     fi
 
     # GNU timeout exits 124 on its own SIGTERM kill, 137 if -k's SIGKILL
@@ -591,6 +628,8 @@ run_test "Healing Friction Gate Tests" "$SCRIPT_DIR/test-healing-friction-gate.s
 
 # Parallel worktree Claude auto-flags (effort/budget/fallback/mcp parity)
 run_test "Worktree Auto-Flags Tests" "$SCRIPT_DIR/test-worktree-auto-flags.sh"
+run_test "Worktree install cache keyed on lockfile hash (E-130)" "$SCRIPT_DIR/test-worktree-install-cache.sh"
+run_test "WhatsNew CURRENT_VERSION matches VERSION (E-129)" "$SCRIPT_DIR/test-whatsnew-version-sync.sh"
 run_test "Merge-queue log-once + nested-agent parallel guard (client parallel-issue fix)" "$SCRIPT_DIR/test-merge-queue-log-once.sh"
 
 # v8: raw-SDK judge/text bridges (fail-closed, opt-in, binary-free ordering)
@@ -650,6 +689,7 @@ run_test "PAUSED.md states the pause reason" "$SCRIPT_DIR/test-paused-md-reason.
 run_test "per-outcome next-step guidance" "$SCRIPT_DIR/test-outcome-guidance.sh"
 run_test "Evidence Receipt run-level baseline (signed diff stat)" "$SCRIPT_DIR/test-receipt-run-baseline.sh"
 run_test "no hardcoded home-directory paths in tests" "$SCRIPT_DIR/test-no-hardcoded-paths.sh"
+run_test "run-all-tests guards: real key dir + parent HEAD (E-154, E-155)" "$SCRIPT_DIR/test-e154-e155-guards.sh"
 run_test "no ambient gitconfig writes without top-level isolation" "$SCRIPT_DIR/test-no-ambient-gitconfig-writes.sh"
 run_test "loki why honest reporting (gate named, diff re-derived)" "$SCRIPT_DIR/test-why-honest-report.sh"
 run_test "status surfaces agree (STATUS.txt vs COMPLETION.txt, --json staleness)" "$SCRIPT_DIR/test-status-surface-agrees.sh"
@@ -1126,6 +1166,7 @@ run_test "App Runner Wave5 W5" "$SCRIPT_DIR/test-app-runner-wave5-w5.sh"
 run_test "Apprunner Dockerfile Exec Wave8" "$SCRIPT_DIR/test-apprunner-dockerfile-exec-wave8.sh"
 run_test "Assumption Gate Brief Mode" "$SCRIPT_DIR/test-assumption-gate-brief-mode.sh"
 run_test "Auto Wiki" "$SCRIPT_DIR/test-auto-wiki.sh"
+run_test "Backlog (loki backlog + loki.yaml)" "$SCRIPT_DIR/test-backlog.sh"
 run_test "Backend Floor" "$SCRIPT_DIR/test-backend-floor.sh"
 run_test "Backend Floor port scoping (kill by recorded PID, never by port)" "$SCRIPT_DIR/test-backend-floor-port-scoping.sh"
 run_test "cmd_web_stop/start use a real process identity check (D14/D15 class)" "$SCRIPT_DIR/test-web-stop-scoping.sh"
@@ -1135,6 +1176,8 @@ run_test "Marketplace action Cleanup step scoped to this job's own loki run" "$S
 run_test "Dashboard fresh-repo/evidence harnesses kill only their own recorded PID" "$SCRIPT_DIR/test-dashboard-harness-port-scoping.sh"
 run_test "Dashboard API smoke cleanup kills only its own recorded PID" "$SCRIPT_DIR/test-dashboard-api-smoke-scoping.sh"
 run_test "cleanup-test-processes.sh scoped to LISTEN + this uid, --aggressive gated" "$SCRIPT_DIR/test-cleanup-script-scoping.sh"
+run_test "No script or test removes run-owned temp dirs by glob (E-140)" "$SCRIPT_DIR/test-no-tmp-sweep.sh"
+run_test "No test starts a build against the repo root (E-165)" "$SCRIPT_DIR/test-no-start-against-repo-root.sh"
 run_test "Runtime Gate port reclaims scoped to LISTEN + cwd ownership" "$SCRIPT_DIR/test-runtime-gate-port-scoping.sh"
 run_test "Bun Parity disk.available_gb tolerance (BACKLOG 26)" "$SCRIPT_DIR/test-bun-parity-disk-tolerance.sh"
 run_test "council_augment_from_managed_memory never falls back to cwd for PROJECT_DIR (BACKLOG 63)" "$SCRIPT_DIR/test-council-augment-managed-memory-project-dir.sh"
@@ -1187,10 +1230,12 @@ run_test "Council Write Transcript Threshold" "$SCRIPT_DIR/test-council-write-tr
 run_test "Cross Project Lift" "$SCRIPT_DIR/test-cross-project-lift.sh"
 run_test "Da Veto" "$SCRIPT_DIR/test-da-veto.sh"
 run_test "Dashboard Identity" "$SCRIPT_DIR/test-dashboard-identity.sh"
+run_test "UI bare loki" "$SCRIPT_DIR/test-ui-bare-loki.sh"
 run_test "Dashboard Json Guards" "$SCRIPT_DIR/test-dashboard-json-guards.sh"
 run_test "Dashboard Memory Endpoints" "$SCRIPT_DIR/test-dashboard-memory-endpoints.sh"
 run_test "Dashboard Multiproject" "$SCRIPT_DIR/test-dashboard-multiproject.sh"
 run_test "Design System" "$SCRIPT_DIR/test-design-system.sh"
+run_test "Docker Bun" "$SCRIPT_DIR/test-docker-bun.sh"
 run_test "Docker Helpers W4" "$SCRIPT_DIR/test-docker-helpers-w4.sh"
 run_test "Docker Run" "$SCRIPT_DIR/test-docker-run.sh"
 run_test "Doctor Ux" "$SCRIPT_DIR/test-doctor-ux.sh"
@@ -1464,6 +1509,8 @@ run_test "v10-pulse anti-drift status/violation reporter" "$SCRIPT_DIR/test-v10-
 run_test "board-mark-released flips a slice's merged row once its tag ships (E-90)" "$SCRIPT_DIR/test-board-mark-released.sh"
 run_test "release.sh --bump-only restores debugId-only dist churn (E-72)" "$SCRIPT_DIR/test-release-bump-only.sh"
 run_test "release.sh --bump-only never leaves dist deleted on build failure (E-102)" "$SCRIPT_DIR/test-release-bump-dist.sh"
+run_test "release.sh --bump-only refuses dist maps with absolute or repo-escaping sources (E-133)" "$SCRIPT_DIR/test-release-dist-guard.sh"
+run_test "release publishes to npm next; promote.yml gates latest on the first-run gate (A-01)" "python3 -m pytest -q $SCRIPT_DIR/test_release_next_tag.py"
 run_test "release-notes.sh extraction/validation + pre-push VERSION-bump gate (E-88)" "$SCRIPT_DIR/test-release-notes.sh"
 run_test "no hardcoded far-future latest a release can overtake (E-73)" "$SCRIPT_DIR/test-no-stale-future-version.sh"
 run_test "timeout launches of run.sh/autonomy/loki escalate with -k (E-00)" "$SCRIPT_DIR/test-timeout-escalates.sh"
@@ -1546,15 +1593,39 @@ run_test "Loki 10 live PR smoke on a sandbox repo (E-40)" "$SCRIPT_DIR/test-engi
 run_test "Loki 10 engine runs from dist and the npm package (E-32)" "$SCRIPT_DIR/test-engine10-dist.sh"
 run_test "run-owned temp cleanup works when sourced under zsh" "$SCRIPT_DIR/test-run-tmp-cleanup-zsh.sh"
 run_test "Loki 10 legacy deprecation notice (E-35)" "$SCRIPT_DIR/test-engine10-legacy-notice.sh"
+run_test "bin/loki bun resolver and no-bun notice (P0-nobun-S2)" "$SCRIPT_DIR/test-bin-loki-bun-resolve.sh"
 run_test "Loki 10 gate publish script (EV-6)" "$SCRIPT_DIR/../eval/loki10/test-publish-gate.sh"
 run_test "Loki 10 user docs match USAGE and the default marker (E-34)" "$SCRIPT_DIR/test-engine10-docs.sh"
 run_test "Loki modernize py2/3 capture tracer (M-09)" "$SCRIPT_DIR/test-modernize-py-capture.sh"
 run_test "Loki modernize user guide matches cli.ts flags (M-30)" "$SCRIPT_DIR/test-modernize-docs.sh"
+run_test "Docs name only CLI commands, flags and versions on main (DOC-02)" "$SCRIPT_DIR/test-docs-cli-drift.sh"
 run_test "loki modernize always routes to engine10 (M-08)" "$SCRIPT_DIR/test-modernize-dispatch.sh"
 run_test "Dependency inventory Latest/Bump self-consistency (DEP-01)" "$SCRIPT_DIR/test-dep-inventory.sh"
 run_test "Usage governor calibration and dedup (G-01)" "$SCRIPT_DIR/test-usage-governor.sh"
 run_test "Usage governor statusLine logger (G-01)" "$SCRIPT_DIR/test-usage-statusline-logger.sh"
 run_test "CI security scanners wired, fail-closed (E-123)" "$SCRIPT_DIR/test-security-scan-coverage.sh"
+run_test "Heredoc dollar-digit footgun checker (D44)" "$SCRIPT_DIR/test-check-heredoc-dollar-digit.sh"
+run_test "CI cache scope (D44)" "$SCRIPT_DIR/test-ci-cache-scope.sh"
+run_test "Engine10 push GitLab (D44)" "$SCRIPT_DIR/test-engine10-push-gitlab.sh"
+run_test "gh withhold nested (D44)" "$SCRIPT_DIR/test-gh-withhold-nested.sh"
+run_test "SettingsPage has no Gemini (D44)" "$SCRIPT_DIR/test-settingspage-no-gemini.sh"
+run_test "Trusted push agent config (D44)" "$SCRIPT_DIR/test-trusted-push-agent-config.sh"
+run_test "v10 guard rules (D44)" "$SCRIPT_DIR/test-v10-guard.sh"
+run_test "first-run gate assertion logic (A-02)" "$SCRIPT_DIR/test-first-run-gate.sh"
+run_test "json schemas validate real why and status output (D48 r5)" "$SCRIPT_DIR/test-json-schemas.sh"
+run_test "Every test suite is registered in a runner (D44)" "$SCRIPT_DIR/test-registration-coverage.sh"
+run_test "Structural checks catch planted defects (D44-C)" "$SCRIPT_DIR/test-structural-checks.sh"
+run_test "v10 ops (E-142)" "$SCRIPT_DIR/test-v10-ops.sh"
+run_test "loki-seal Stop hook (A-04)" "$SCRIPT_DIR/../packages/loki-seal/test/run.sh"
+run_test "Quick-fix artifacts (A-132)" "$SCRIPT_DIR/test-quick-artifacts.sh"
+run_test "Council trivial-diff probe skip (A-133)" "$SCRIPT_DIR/test-council-trivial-diff.sh"
+run_test "Quick receipt order and quiet output (A-134)" "$SCRIPT_DIR/test-quick-receipt-order.sh"
+run_test "Quick config safety (P0-t15)" "$SCRIPT_DIR/test-quick-config-safety.sh"
+run_test "Loki Seal marketplace (D48 r10)" "$SCRIPT_DIR/test-loki-seal-marketplace.sh"
+run_test "Quick integrity exit code (A-118)" "$SCRIPT_DIR/test-quick-integrity-rc.sh"
+run_test "Quick quiet failure tail and stdin (A-134b)" "$SCRIPT_DIR/test-quick-quiet-tail.sh"
+run_test "Pre-commit author email guard (E-153)" "$SCRIPT_DIR/test-pre-commit-author-guard.sh"
+run_test "Provider stdin closed under verbose (A-134c)" "$SCRIPT_DIR/test-provider-stdin-closed.sh"
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"
 
 # Summary

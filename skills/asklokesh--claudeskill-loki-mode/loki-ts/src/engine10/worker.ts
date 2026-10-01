@@ -55,7 +55,7 @@ export async function main(args: string[]): Promise<number> {
           const c = sumResultCosts(join(dir, ".loki"), [...new Set([...ids, ...started])]);
           return {
             usd: c.usd, inputTokens: c.input_tokens, outputTokens: c.output_tokens, cacheReadTokens: c.cache_read_tokens,
-            measuredCount: c.measuredCount, totalCount: c.totalCount, partialUsd: c.partialUsd,
+            measuredCount: c.measuredCount, totalCount: c.totalCount, partialUsd: c.partialUsd, unmetered: c.unmetered,
           };
         },
       },
@@ -63,7 +63,8 @@ export async function main(args: string[]): Promise<number> {
       outputs: () => ({}), // replaced by the machine
     };
     // Rule of Two: pr is never loaded here; the supervisor runs it after this process exits.
-    await runMachine(ctx, { flow: FLOW.filter((s) => s !== "pr") });
+    const { stopped } = await runMachine(ctx, { flow: FLOW.filter((s) => s !== "pr") });
+    if (stopped) emit("escalated", null, { stop: stopped }); // A-110: the supervisor maps the stop reason to an outcome
   });
   return 0;
 }

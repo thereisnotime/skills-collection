@@ -338,12 +338,13 @@ class TestCredentialSeparation(_JobsTestBase):
 
     def _isolate_handler_class_attrs(self):
         """main() writes onto WebhookHandler itself; undo that after the test."""
-        saved = (ts.WebhookHandler.api_token, ts.WebhookHandler.secret,
-                 ts.WebhookHandler.dispatcher, ts.WebhookHandler.dry_run)
+        names = ("api_token", "secret", "dispatcher", "dry_run",
+                 "signing_key", "signing_kid", "retired_pubkeys")
+        saved = {n: getattr(ts.WebhookHandler, n) for n in names}
 
         def restore():
-            (ts.WebhookHandler.api_token, ts.WebhookHandler.secret,
-             ts.WebhookHandler.dispatcher, ts.WebhookHandler.dry_run) = saved
+            for n, v in saved.items():
+                setattr(ts.WebhookHandler, n, v)
 
         self.addCleanup(restore)
 

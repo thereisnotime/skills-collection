@@ -1,15 +1,14 @@
 // loki-ts/src/engine10/stages/seal.ts
 //
 // E-10: commit and Seal (docs/v10/ENGINE.md sections 4, 9). Writes receipt.json
-// and receipt.md, computes receipt_sha256, and signs via autonomy/receipt_jwt.py
-// through findIsolatedPython3() as `python3 -I` (never -S, which drops
-// site-packages so cryptography fails to import and receipts go unsigned
-// silently). An empty token means UNSIGNED, never presented as attested.
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { REPO_ROOT } from "../../util/paths.ts";
-import { findIsolatedPython3 } from "../../util/python.ts";
+// and receipt.md, computes receipt_sha256, and signs natively with node:crypto Ed25519
+// (A-121; no python, no `cryptography`). The key is the A-120 local key, created on first
+// use. An empty token means UNSIGNED, never presented as attested.
+import { createHash, randomBytes, createPrivateKey, createPublicKey, generateKeyPairSync, sign, type KeyObject } from "node:crypto";
+import { chmodSync, existsSync, linkSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { discardIfSatisfied } from "../../e10ext/discard.ts"; import { untouchedSinceIntake } from "../../e10ext/preexisting_dirty.ts"; import { RECEIPT_SIGNER_BASENAME } from "../../util/receipt_signer.ts";
 import { run } from "../../util/shell.ts";
 import { isTestFile } from "../testmap.ts";
 import { STAGE_BUDGETS } from "../types.ts";
@@ -17,7 +16,7 @@ import type { Obj, Receipt, ReceiptCheck, RunContext, Stage, StageName, StageRes
 
 /** Deferred to deep verify, so always NOT PROVEN at seal time. */
 export const DEEP_NOT_PROVEN = ["full suite", "app boot", "council", "security scan"] as const;
-export const SIGNING_UNAVAILABLE = "receipt signing unavailable (key configured but no token: cryptography missing or key invalid)";
+export const SIGNING_UNAVAILABLE = "receipt signing unavailable (no usable signing key: invalid key or unwritable ~/.loki/keys)";
 
 const EXCLUDE_LOKI = ":(exclude).loki";
 export const sha256 = (s: string | Buffer): string => createHash("sha256").update(s).digest("hex");
@@ -55,32 +54,46 @@ export function receiptSha256(r: Omit<Receipt, "receipt_sha256" | "verification"
   return sha256(canonicalJson(body));
 }
 
-const SIGN_PY = [
-  "import sys, json",
-  "sys.path.insert(0, sys.argv[1])",
-  "from receipt_jwt import load_signing_key, sign_attestation",
-  "key, kid = load_signing_key()",
-  "tok = sign_attestation(key, kid, job_id=sys.argv[2], run_id=sys.argv[2], receipt_hash=sys.argv[3]) if key is not None else ''",
-  "print(json.dumps({'jwt': tok or '', 'kid': kid if tok else ''}))",
-].join("\n");
+const b64u = (b: Buffer | string): string => Buffer.from(b).toString("base64url");
+/** RFC 7638 thumbprint, the same kid receipt_jwt.compute_kid derives. */
+export const kidOf = (pub: KeyObject): string => b64u(createHash("sha256").update(`{"crv":"Ed25519","kty":"OKP","x":"${pub.export({ format: "jwk" }).x}"}`).digest());
 
-/** Signs via receipt_jwt. keyConfigured says whether an env key was set, so a configured key yielding no token is reported, not silently downgraded. */
-export async function signReceipt(runId: string, hash: string): Promise<{ jwt: string | null; kid: string | null; keyConfigured: boolean }> {
-  const keyConfigured = !!(process.env["LOKI_RECEIPT_SIGNING_KEY"]?.trim() || process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"]?.trim());
-  const none = { jwt: null, kid: null, keyConfigured };
-  if (!keyConfigured) return none;
-  const py = await findIsolatedPython3();
-  if (!py) return none;
-  const r = await run([py, "-I", "-c", SIGN_PY, resolve(REPO_ROOT, "autonomy"), runId, hash], { timeoutMs: 20000 });
-  if (r.exitCode !== 0) return none;
+/** Same precedence and file rules as receipt_jwt.load_signing_key: inline PEM, then KEY_FILE, then ~/.loki/keys/receipt-ed25519.pem
+ *  (0600 key, 0700 dir, O_EXCL temp then link, so a concurrent first run reads the winner). Never logs or returns key bytes. */
+export function loadSigningKey(generate = true): KeyObject | null {
   try {
-    const out = JSON.parse(r.stdout.trim().split("\n").pop() ?? "") as Obj;
-    const jwt = str(out.jwt);
-    const kid = str(out.kid);
-    return jwt && kid ? { jwt, kid, keyConfigured } : none;
+    const inline = process.env["LOKI_RECEIPT_SIGNING_KEY"]?.trim();
+    let pem: string | Buffer = inline ?? "";
+    if (!inline) {
+      const given = process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"]?.trim();
+      const file = given || join(process.env["HOME"] || homedir(), ".loki", "keys", RECEIPT_SIGNER_BASENAME);
+      try {
+        pem = readFileSync(file);
+        if (!given) for (const [f, m] of [[file, 0o600], [dirname(file), 0o700]] as const) if (statSync(f).mode & 0o077) chmodSync(f, m);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "ENOENT" || !generate) return null;
+        mkdirSync(dirname(dirname(file)), { recursive: true, mode: 0o700 });
+        mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+        const tmp = `${file}.${randomBytes(6).toString("hex")}.tmp`; // random, so a stale temp never blocks creation
+        writeFileSync(tmp, generateKeyPairSync("ed25519").privateKey.export({ type: "pkcs8", format: "pem" }), { flag: "wx", mode: 0o600 });
+        try { linkSync(tmp, file); } catch (l) { if ((l as NodeJS.ErrnoException).code !== "EEXIST") throw l; } finally { unlinkSync(tmp); }
+        pem = readFileSync(file);
+      }
+    }
+    const k = createPrivateKey(pem);
+    return k.asymmetricKeyType === "ed25519" ? k : null;
   } catch {
-    return none;
+    return null;
   }
+}
+
+/** Signs a compact EdDSA JWT with node:crypto, byte-compatible with receipt_jwt.sign_attestation. Null jwt means UNSIGNED. */
+export function signReceipt(runId: string, hash: string): { jwt: string | null; kid: string | null } {
+  const key = loadSigningKey();
+  if (!key) return { jwt: null, kid: null };
+  const kid = kidOf(createPublicKey(key));
+  const input = `${b64u(canonicalJson({ alg: "EdDSA", typ: "JWT", kid }))}.${b64u(canonicalJson({ job_id: runId, run_id: runId, receipt_sha256: hash, iat: Math.floor(Date.now() / 1000) }))}`;
+  return { jwt: `${input}.${b64u(sign(null, Buffer.from(input), key))}`, kid };
 }
 
 async function git(ctx: RunContext, args: string[]): Promise<{ out: string; code: number }> {
@@ -88,19 +101,20 @@ async function git(ctx: RunContext, args: string[]): Promise<{ out: string; code
   return { out: r.stdout, code: r.exitCode };
 }
 
-/** Section 4 Commit: `git add -A` minus .loki/, commit `loki: <title>` with a Loki-Run trailer. An empty diff commits nothing (head stays at base). */
+/** Section 4 Commit: `git add -A` minus .loki/, Wall files and stray lockfiles, commit `loki: <title>` with a Loki-Run trailer. An empty diff commits nothing (head stays at base). */
 export const commitStage: Stage = {
   name: "commit",
   ...STAGE_BUDGETS.commit,
   async run(ctx: RunContext): Promise<StageResult> {
-    // A ':(exclude).loki' pathspec makes git add exit 1 once .loki/ is in
-    // .git/info/exclude (intake puts it there), so add plainly, then unstage .loki.
-    const add = await git(ctx, ["add", "-A", "--", "."]);
-    if (add.code !== 0) return { status: "failed", data: {}, reason: "git add failed" };
-    if ((await git(ctx, ["diff", "--cached", "--name-only", "--", ".loki"])).out.trim() !== "") await git(ctx, ["reset", "-q", "--", ".loki"]);
-    if ((await git(ctx, ["diff", "--cached", "--quiet"])).code === 0) {
-      return { status: "completed", data: { committed: false } };
-    }
+    // A-104/G2: stage all, unstage .loki/, Wall files (sealed under runDir/wall) and a NEW lockfile with no manifest change in its own directory (judged against baseSha).
+    if (!ctx.baseSha || (await git(ctx, ["rev-parse", "--verify", "-q", `${ctx.baseSha}^{commit}`])).code !== 0) return { status: "failed", data: {}, reason: "base commit not resolvable" }; // A-104b r2: fail closed, every later reset and diff is judged against the base
+    if ((await git(ctx, ["add", "-A", "--", "."])).code !== 0) return { status: "failed", data: {}, reason: "git add failed" };
+    const sd = await git(ctx, ["diff", "--cached", "--name-status", "--no-renames", "-z", ctx.baseSha]); if (sd.code !== 0) return { status: "failed", data: {}, reason: "git diff against base failed" };
+    const staged = sd.out.split("\0").reduce<{ st: string; f: string }[]>((a, t, i, all) => (i % 2 === 0 && t ? [...a, { st: t, f: all[i + 1]! }] : a), []);
+    const drop = staged.concat(untouchedSinceIntake(ctx.repoDir, ctx.outputs().intake?.preexisting_dirty).map((f) => ({ st: "L", f }))).filter(({ st, f }) => f.startsWith(".loki/") || st === "L" || /(^|\/)loki_wall_[^/]*$/.test(f) || (st === "A" && !staged.some(({ f: m }) => /(^|\/)(package\.json|pyproject\.toml|requirements\.txt|Cargo\.toml|go\.mod)$/.test(m) && dirname(m) === dirname(f)) && /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|go\.sum)$/.test(f)));
+    const sat = await discardIfSatisfied((a) => git(ctx, a), ctx.baseSha, ctx.outputs(), staged, new Set(drop.filter(({ st }) => st === "L").map(({ f }) => f)), ctx.repoDir); if (sat) return sat; // D50-F1
+    if (drop.length > 0 && (await git(ctx, ["--literal-pathspecs", "reset", "-q", ctx.baseSha, "--", ...drop.map(({ f }) => f)])).code !== 0) return { status: "failed", data: {}, reason: "git reset failed" }; // A-104b: reset to the run base (not HEAD) so a path committed in implement leaves the diff too; literal, so ":(top)x" is a filename
+    if ((await git(ctx, ["diff", "--cached", "--quiet"])).code === 0) return { status: "completed", data: { committed: false } };
     const title = (str(ctx.outputs().intake?.title) ?? `run ${ctx.runId}`).split("\n")[0]!.slice(0, 72);
     const c = await git(ctx, ["commit", "-q", "-m", `loki: ${title}`, "-m", `Loki-Run: ${ctx.runId}`]);
     if (c.code !== 0) return { status: "failed", data: {}, reason: "git commit failed" };
@@ -113,8 +127,8 @@ export const commitStage: Stage = {
 // NOT PROVEN when absent, so a producer cannot silently shape the receipt.
 function verdictOf(o: Partial<Record<StageName, Obj>>, checks: ReceiptCheck[], emptyDiff: boolean, verifyNotProven: boolean, wallGreenOnBase: boolean): Verdict {
   const exit = o.implement?.exit;
-  if (o.intake?.already_satisfied === true || wallGreenOnBase || exit === "already_done") return "ALREADY_SATISFIED";
-  if (exit === "spec_conflict") return "SPEC_CONFLICT";
+  if (o.commit?.failed !== true && strs(o.commit?.not_proven).length === 0 && (o.intake?.already_satisfied === true || wallGreenOnBase || exit === "already_done")) return "ALREADY_SATISFIED";
+  if (exit === "spec_conflict") return "SPEC_CONFLICT"; if (o.commit?.failed === true || strs(o.commit?.not_proven).length > 0) return "FAILED"; // r3: an unrestored user file is never a clean verdict; A-104b r2: a failed commit never seals VERIFIED
   // Section 2: an empty diff without the LOKI_ALREADY_DONE marker is FAILED, never VERIFIED.
   if (emptyDiff) return "FAILED";
   if (checks.some((c) => c.result === "fail")) return "FAILED";
@@ -180,19 +194,23 @@ export const sealStage: Stage = {
     const wallNotRun = typeof base.not_run === "number" ? base.not_run : 0;
     const wallGreenOnBase = typeof base.pass === "number" && base.pass > 0 && base.fail === 0 && wallNotRun === 0;
     // An uncomputable diff is treated like an empty one: nothing is proven changed.
-    const verdict = verdictOf(o, checks, !diffOk || diff.stdout === "", verifyNotProven.length > 0, wallGreenOnBase);
+    const preRedChecks = strs(o.verify?.pre_red_checks); // A-112: recorded as fail, skipped by the verdict
+    // A-119: any edit, delete or rename (--no-renames shows D plus A) of a pre-existing test file is NOT VERIFIED, same as verify's own notes.
+    const rawDiff = diffOk ? diff.stdout.split("\0").filter(Boolean) : [];
+    const weakTests: string[] = [];
+    for (let i = 0; i + 1 < rawDiff.length; i += 2) if ((rawDiff[i]!.trim().split(" ").pop() ?? "") !== "A" && isTestFile(rawDiff[i + 1]!)) weakTests.push(rawDiff[i + 1]!);
+    const verdict = verdictOf(o, checks.filter((c) => !(c.result === "fail" && preRedChecks.includes(c.name))), !diffOk || diff.stdout === "", verifyNotProven.length > 0 || weakTests.length > 0, wallGreenOnBase);
 
     const notProven = new Set<string>(DEEP_NOT_PROVEN);
     if (wallNotRun > 0) notProven.add(`wall base run not_run: ${wallNotRun}`);
     if (!diffOk) notProven.add("diff not computed (git diff-tree failed)");
     // E-55: any status other than A means the path existed at base_sha (M, D, or T typechange, e.g. a symlink).
-    const rawDiff = diffOk ? diff.stdout.split("\0").filter(Boolean) : [];
-    for (let i = 0; i + 1 < rawDiff.length; i += 2) {
-      if ((rawDiff[i]!.trim().split(" ").pop() ?? "") !== "A" && isTestFile(rawDiff[i + 1]!)) notProven.add(`weakened test: ${rawDiff[i + 1]}`);
-    }
+    for (const t of weakTests) notProven.add(`weakened test: ${t}`);
     for (const c of checks) if (c.result === "not_run") notProven.add(`not run: ${c.name}`);
     for (const f of strs(o.verify?.flaky)) notProven.add(`flaky test: ${f}`);
     for (const n of verifyNotProven) notProven.add(n);
+    for (const n of strs(o.commit?.not_proven)) notProven.add(n);
+    for (const id of strs(o.verify?.pre_red)) notProven.add(`pre red: ${id}`); // A-112: listed, never downgrades (not via verifyNotProven)
     for (const t of strs(o.implement?.tests_reverted)) notProven.add(`reverted test edit: ${t}`);
     if (ctx.provider !== "claude") notProven.add("kill blocking not enforced");
     // Section 7: model_override_applied lives on run.started, which outputs() never carries.
@@ -209,6 +227,7 @@ export const sealStage: Stage = {
     const iterIds = Object.values(o).flatMap((d) => [...strs(d?.iteration_ids), ...strs([d?.iteration_id])]);
     if (iterIds.length === 0) notProven.add("cost not measured (no iteration ids recorded)");
     const cost = ctx.cost.read(ctx.repoDir, iterIds);
+    if (cost.unmetered) notProven.add("cost unmetered (CLI invoker; recorded as 0)");
     // ponytail: events.jsonl is supervisor-written and may lag the worker; the supervisor re-hashes at receipt.sealed if exactness matters
     const eventsPath = join(ctx.runDir, "events.jsonl");
     const wallFiles = Array.isArray(o.wall?.files) ? (o.wall.files as { path: string; sha256: string }[]) : [];
@@ -231,26 +250,27 @@ export const sealStage: Stage = {
       ...(str(o.implement?.spec_conflict_reason) !== null
         ? { spec_conflict_reason: sanitizeReason(str(o.implement?.spec_conflict_reason)!) }
         : {}),
-      evidence: strs(o.intake?.evidence),
+      evidence: strs(o.intake?.evidence), ...(o.intake?.preexisting_dirty ? { pre_existing_dirty: Object.keys(o.intake.preexisting_dirty as object) } : {}),
       cost: {
         usd: cost.usd, input_tokens: cost.inputTokens, output_tokens: cost.outputTokens,
         measured_sessions: cost.measuredCount ?? 0, total_sessions: cost.totalCount ?? 0, partial_usd: cost.partialUsd ?? 0,
+        ...(cost.unmetered ? { source: "cli-invoker-unmetered" } : {}),
       },
       time: { wall_s: Object.values(stages).reduce((a, b) => a + (b ?? 0), 0), stages },
       provider: ctx.provider,
       model: ctx.model,
       resumed: o.intake?.resumed === true,
       events_sha256: sha256(existsSync(eventsPath) ? readFileSync(eventsPath) : ""),
+      log_seal: true,
     };
 
-    // Probe signing first (hash-independent) so a configured-but-failed key lands in NOT PROVEN before hashing.
+    // Sign first so a failed key lands in NOT PROVEN before hashing.
     body.not_proven = [...notProven];
     let hash = receiptSha256(body);
-    let sig = await signReceipt(ctx.runId, hash);
-    if (!sig.jwt && sig.keyConfigured) {
+    const sig = signReceipt(ctx.runId, hash);
+    if (!sig.jwt) {
       body.not_proven = [...notProven, SIGNING_UNAVAILABLE];
       hash = receiptSha256(body);
-      sig = { jwt: null, kid: null, keyConfigured: true };
     }
     const receipt: Receipt = { ...body, receipt_sha256: hash, verification: { jwt: sig.jwt, kid: sig.kid } };
 

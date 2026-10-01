@@ -595,7 +595,7 @@ LOKI_GITHUB_PR_LABEL=automated # Label for created PRs
 
 ### `loki provider`
 
-Manage AI providers (Claude, Codex, Cline, Aider).
+Manage AI providers (Claude, Codex, Cline, Aider, opencode).
 
 ```bash
 loki provider [SUBCOMMAND]
@@ -979,6 +979,19 @@ loki sandbox stop
 
 ## Notification Commands
 
+### `loki backlog`
+
+Run a v10 issue-mode run for every matching open issue, several in parallel, each in its own git worktree and branch (`loki/backlog-N`). Run it from a checkout of the repo.
+
+```bash
+loki backlog owner/repo --all | --label X | --issues 1,2,3 [--concurrency N] [--dry-run]
+```
+
+- Prints one line per issue as it changes (`queued`, `running`, `PR <url>`, `VERIFIED`, `BLOCKED: <question>`, `FAILED: <reason>`, `BUDGET_STOP: ...`), then a summary table.
+- Exit 0 only if every issue ended VERIFIED or with a PR. Exit 3 if the only failures are budget stops, 1 for other failures, 2 for usage or config errors.
+- Stops launching new runs once `budgets.per_day_usd` is spent (tracked in `~/.loki/backlog-spend.json`).
+- Configured by `loki.yaml` (repo root, then `~/.loki/loki.yaml`); see `docs/loki.yaml.example` and `schemas/loki-yaml.schema.json`. Check it with `loki config validate`.
+
 ### `loki notify`
 
 Send notifications via Slack, Discord, or webhooks.
@@ -1160,6 +1173,17 @@ loki enterprise audit tail
 ---
 
 ## Verification Commands
+
+### `loki keys export` and `loki verify --pubkey`
+
+`loki keys export` prints the receipt-signing public key as a JWK with its kid (never the private key). A third party holding only that file verifies a v10 receipt on another machine, with no `~/.loki`:
+
+```bash
+loki keys export > pub.json
+loki verify --pubkey pub.json ./receipt.json   # or a run id
+```
+
+Exit: 0 VERIFIED, 1 TAMPERED (body or signature changed), 2 UNCHECKED (kid does not match the given key, or the key file is unusable), 3 UNSIGNED (no signature: refused under `--pubkey` even with `--allow-unsigned`), 4 run outcome not verified.
 
 ### `loki verify`
 
@@ -1947,10 +1971,10 @@ loki start ./prd.md --provider cline
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LOKI_MAX_ITERATIONS` | 1000 | Max loop iterations before exit |
-| `LOKI_PROVIDER` | claude | AI provider (claude/codex/cline/aider) |
+| `LOKI_PROVIDER` | claude | AI provider (claude/codex/cline/aider/opencode) |
 | `LOKI_DASHBOARD` | true | Enable web dashboard |
 | `LOKI_DASHBOARD_PORT` | 57374 | Dashboard port |
-| `LOKI_BUDGET` | (none) | Cost budget limit in USD |
+| `LOKI_BUDGET_LIMIT` | (none) | Cost budget limit in USD |
 | `LOKI_GITHUB_IMPORT` | false | Import GitHub issues on start |
 | `LOKI_GITHUB_SYNC` | false | Sync status back to issues |
 | `LOKI_GITHUB_PR` | false | Create PR on completion |

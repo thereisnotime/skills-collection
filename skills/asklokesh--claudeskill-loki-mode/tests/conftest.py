@@ -28,11 +28,28 @@ editor plugin).
 """
 
 import os
+import sys
 
 import pytest
 
 # Tests always run headless: loki never opens a browser under this (S-103).
 os.environ.setdefault("LOKI_NO_BROWSER", "1")
+
+# The proof generator auto-creates a signing key (A-120). Keep it out of the
+# real ~/.loki/keys: default to a throwaway key file for the whole session.
+# Tests of the default-key path set HOME / the variable explicitly.
+import tempfile  # noqa: E402
+
+if "LOKI_RECEIPT_SIGNING_KEY_FILE" not in os.environ:
+    import atexit  # noqa: E402
+    import shutil  # noqa: E402
+
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "autonomy"))
+    from receipt_jwt import RECEIPT_SIGNER_BASENAME  # noqa: E402
+
+    _key_dir = tempfile.mkdtemp(prefix="loki-test-key-")
+    atexit.register(shutil.rmtree, _key_dir, True)
+    os.environ["LOKI_RECEIPT_SIGNING_KEY_FILE"] = os.path.join(_key_dir, RECEIPT_SIGNER_BASENAME)
 
 # Every variable through which git can redirect a subprocess at a different
 # repository, index, object store, or worktree.
@@ -59,3 +76,12 @@ def _strip_inherited_git_env():
         yield
     finally:
         os.environ.update(saved)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _dashboard_testclient_host():
+    """Starlette TestClient sends Host "testserver"; the dashboard Host
+    allowlist refuses it unless listed. Default local mode stays strict."""
+    os.environ["LOKI_DASHBOARD_ALLOWED_HOSTS"] = "testserver,test"
+    yield
+    os.environ.pop("LOKI_DASHBOARD_ALLOWED_HOSTS", None)

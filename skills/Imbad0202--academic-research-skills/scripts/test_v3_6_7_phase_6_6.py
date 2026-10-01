@@ -29,10 +29,13 @@ the working tree. No mutation; no temp dir. Each test is self-contained.
 """
 from __future__ import annotations
 
+import sys
 import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from _skill_lint import heading_section  # noqa: E402
 ORCHESTRATOR_PROMPT = (
     REPO_ROOT / "academic-pipeline" / "agents" / "pipeline_orchestrator_agent.md"
 )
@@ -224,6 +227,13 @@ LINE_BUDGET_887_RUN_LEDGER = 19
 # landing: 20 lines; budget 25 leaves 5 lines of headroom.
 LINE_BUDGET_890_THIRD_PARTY_TEXT = 25
 
+# #925 adds `## Experiment Intake Question (#925)`, which says when and how
+# the orchestrator asks the scholar for the experiment intake declaration. It
+# is an independent extension, so it is subtracted from the historical v3.6.7
+# budget and receives its own bounded test. Measured at landing: 19
+# lines; budget 25 leaves 6 lines of headroom.
+LINE_BUDGET_925_EXPERIMENT_INTAKE = 25
+
 # All 24 failure phase IDs from spec §5.6 inventory (7 P-PA-* + 17 P-PB-*).
 # These must each appear at least once in the orchestrator prompt as
 # cross-references to spec §5.6 (NOT inline procedural definitions —
@@ -366,6 +376,47 @@ class Phase66HardRulesTest(unittest.TestCase):
             "check. Spec §5.6 declares this as the third hard rule "
             "(Stage 2.5 / 4.5 integrity gates remain mandatory).",
         )
+
+
+class Phase66OptInActivationTest(unittest.TestCase):
+    """#925: the gate is opt-in, off by default, and consent-gated.
+
+    It sends deliverables to an external model, so the environment
+    variable alone must not start it; the consent boundary in
+    shared/cross_model_verification.md has to be passed first. The
+    clauses are read from the §3.5 section, not anywhere in the file.
+    """
+
+    def test_activation_is_opt_in_and_consent_gated(self) -> None:
+        section = _audit_gate_section(_read_prompt())
+        self.assertIsNotNone(section, "### 3.5 Audit Artifact Gate missing")
+        self.assertEqual(_activation_gaps(section), [])
+
+    def test_activation_detects_each_removed_clause(self) -> None:
+        section = _audit_gate_section(_read_prompt())
+        for needle in ACTIVATION_CONTRACT:
+            with self.subTest(clause=needle):
+                self.assertIn(needle, _activation_gaps(section.replace(needle, "")))
+
+
+ACTIVATION_CONTRACT = (
+    "**Activation (#925): opt-in, off by default.**",
+    "The gate runs only when `ARS_AUDIT_ARTIFACT_GATE=1` is set and the user agrees",
+    "the user runs `scripts/run_codex_audit.sh` outside this session",
+    "as the consent boundary in `shared/cross_model_verification.md` requires",
+    "the variable is configuration, not consent",
+    "Unset or declined, the gate does not run",
+    "The Stage 2.5 and 4.5 integrity gates run either way.",
+    "**Trigger:** when the gate is active",
+)
+
+
+def _audit_gate_section(text: str) -> str | None:
+    return heading_section(text, "### 3.5 Audit Artifact Gate (v3.6.7 Step 6)")
+
+
+def _activation_gaps(section: str) -> list[str]:
+    return [needle for needle in ACTIVATION_CONTRACT if needle not in section]
 
 
 def _measure_finalizer_block_lines(text: str) -> int:
@@ -863,6 +914,26 @@ def _measure_890_third_party_text_lines(text: str) -> int:
     return len(text[match.start():end].splitlines())
 
 
+def _measure_925_experiment_intake_lines(text: str) -> int:
+    """Return the line count of the `## Experiment Intake Question (#925)` section.
+
+    Same convention as the other extension-section helpers above.
+    """
+    import re as _re
+
+    anchor = _re.compile(
+        r"(?m)^[ \t]*##[ \t]+Experiment Intake Question \(#925\)[ \t]*$"
+    )
+    match = anchor.search(text)
+    if match is None:
+        return 0
+    heading_end = text.find("\n", match.end())
+    search_start = heading_end + 1 if heading_end >= 0 else len(text)
+    next_heading = _re.search(r"(?m)^[ \t]*#{1,4}[ \t]+", text[search_start:])
+    end = search_start + next_heading.start() if next_heading else len(text)
+    return len(text[match.start():end].splitlines())
+
+
 class Advisory660LineBudgetTest(unittest.TestCase):
     """#660 tortured-phrase dispatch block stays independently bounded."""
 
@@ -1013,6 +1084,26 @@ class ThirdPartyText890LineBudgetTest(unittest.TestCase):
         )
 
 
+class ExperimentIntake925LineBudgetTest(unittest.TestCase):
+    """#925 experiment-intake section stays independently bounded."""
+
+    def test_925_experiment_intake_within_budget(self) -> None:
+        text = _read_prompt()
+        block_lines = _measure_925_experiment_intake_lines(text)
+        self.assertGreater(
+            block_lines,
+            0,
+            "`## Experiment Intake Question (#925)` section missing from "
+            "pipeline_orchestrator_agent.md",
+        )
+        self.assertLessEqual(
+            block_lines,
+            LINE_BUDGET_925_EXPERIMENT_INTAKE,
+            f"#925 experiment-intake section is {block_lines} lines, over "
+            f"its {LINE_BUDGET_925_EXPERIMENT_INTAKE}-line budget",
+        )
+
+
 class Dispatch576LineBudgetTest(unittest.TestCase):
     """#576 Spec B Stage 3' contract-dispatch block within
     `LINE_BUDGET_576_STAGE3P_DISPATCH` line budget.
@@ -1101,6 +1192,7 @@ class Phase66LineBudgetTest(unittest.TestCase):
         authority_g1_lines = _measure_g1_checkpoint_authority_lines(text)
         run_ledger_887_lines = _measure_887_run_ledger_lines(text)
         third_party_890_lines = _measure_890_third_party_text_lines(text)
+        experiment_intake_925_lines = _measure_925_experiment_intake_lines(text)
         # v3.6.7-only line count: total minus v3.7.1 Step 3b, v3.7.3
         # finalizer extension, v3.8 §3.6 audit-gate, v3.9.0 triangulation
         # extension, v3.10 terminal-policy extension, the #394 slice-4
@@ -1112,8 +1204,9 @@ class Phase66LineBudgetTest(unittest.TestCase):
         # adjudication-activity wiring, the #684 review-criteria binding
         # lifecycle, the #743 inquiry-ledger/sidecar extension, the
         # 2026-09 checkpoint-authority fidelity section, the #887
-        # run-ledger section, AND the #890 third-party-text dispatch
-        # section (each has its own dedicated budget test).
+        # run-ledger section, the #890 third-party-text dispatch section,
+        # AND the #925 experiment-intake section (each has its own
+        # dedicated budget test).
         v367_line_count = (
             total_lines - step_3b_lines - v3_7_3_lines - v3_8_lines
             - v3_9_0_lines - v3_10_lines - gate_394_lines - seq_390_lines
@@ -1121,6 +1214,7 @@ class Phase66LineBudgetTest(unittest.TestCase):
             - advisory_660_lines - advisory_672_lines - advisory_673_lines
             - criteria_684_lines - inquiry_743_lines - authority_g1_lines
             - run_ledger_887_lines - third_party_890_lines
+            - experiment_intake_925_lines
         )
         ceiling = BASELINE_LINE_COUNT + LINE_BUDGET_OVER_BASELINE
         self.assertLessEqual(
@@ -1148,7 +1242,8 @@ class Phase66LineBudgetTest(unittest.TestCase):
             f"the 2026-09 checkpoint-authority fidelity section, and "
             f"{run_ledger_887_lines} are in the #887 run-ledger section, and "
             f"{third_party_890_lines} are in the #890 third-party-text "
-            f"dispatch section; "
+            f"dispatch section, and {experiment_intake_925_lines} are in the "
+            f"#925 experiment-intake section; "
             f"v3.6.7-attributed lines = "
             f"{v367_line_count} exceeds {ceiling} (baseline "
             f"{BASELINE_LINE_COUNT} + Phase 6.6 budget "

@@ -1,15 +1,16 @@
 // Loki 10 supervisor (P0, docs/v10/ENGINE.md sections 5, 6, 10): eval marker first, origin pinned once, worker
-// spawned with withheld tokens; single writer of events.jsonl (seq, hash, tamper refusal); --resume reuses the run
+// spawned with withheld tokens; single writer of events.jsonl (seq, hash, tamper refusal)
 // id; post-PR: detached deep verify, then Slack notify.
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { createHash, type Hash } from "node:crypto";
+import { createHash, createPublicKey, sign, type Hash } from "node:crypto";
+import { kidOf, loadSigningKey } from "./stages/seal.ts";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { withholdGithubTokens } from "../runner/github_token.ts";
 import { EventLog, fold, partialCost, readEvents, tail, type Folded } from "./events.ts";
 import { fetchIssueToFile } from "./fetch_issue.ts";
-import { formatHeartbeatLine, formatStageLine, formatSummary, type SummaryInput } from "./output.ts";
+import { formatHeartbeatLine, formatStageLine, formatSummary, EXIT, outcomeOf, reasonOf, type Outcome, type SummaryInput } from "./output.ts";
 import { assertPreflight, PreflightError } from "./preflight.ts";
 import { resolveModel } from "./session.ts";
 import type { PrContext } from "./stages/pr.ts";
@@ -17,8 +18,10 @@ import type { EventEnvelope, PushEnv, StageName, Verdict } from "./types.ts";
 import { backstopS, BACKSTOP_GRACE_S, DEEP_CAP_S, DEFAULT_CAP_S, pushArgv, STAGE_BUDGETS } from "./types.ts";
 
 export { backstopS, BACKSTOP_GRACE_S }; // re-exported: callers import the backstop math from here, its home before r4
+export const START_LINE = "Loki 10 engine (set LOKI_ENGINE=legacy or run 'loki legacy' for the previous engine)";
 export const TAMPER_NOT_PROVEN = "event log modified outside the engine";
-const SUPERVISOR_ONLY = new Set(["run.started", "run.completed", "tamper.detected", "pr.opened"]); // types only the supervisor may write; same types from the worker are dropped
+async function slackEvent(...a: Parameters<typeof import("../e10ext/slack_events.ts").notifyEvent>): Promise<void> { try { await (await import("../e10ext/slack_events.ts")).notifyEvent(...a); } catch { /* best-effort */ } }
+const SUPERVISOR_ONLY = new Set(["run.started", "run.completed", "tamper.detected", "pr.opened", "log.sealed"]); // types only the supervisor may write; same types from the worker are dropped
 const VERDICTS = new Set<string>(["VERIFIED", "PARTIAL", "ALREADY_SATISFIED", "SPEC_CONFLICT", "FAILED"]);
 const SESSION_EXITS = new Set(["done", "already_done", "spec_conflict", "killed", "error"]);
 export const BACKSTOP_NOT_PROVEN = "worker killed by the supervisor backstop (cap minus grace)";
@@ -40,7 +43,7 @@ export type PrStep = (p: {
   notProven: string[]; // accumulated so far (backstop/tamper included): the only place the PR body learns why when a killed worker never sealed a receipt
 }) => Promise<PrOutcome | null>;
 // Backstop fallback for a FAILED run with no PR (no diff, or no remote): on an issue run, posts a comment naming the reason instead of vanishing.
-export type CommentStep = (p: { env: NodeJS.ProcessEnv; runId: string; issueRef: string; reason: string }) => Promise<{ argv: string[]; ok: boolean } | null>;
+export type CommentStep = (p: { env: NodeJS.ProcessEnv; runId: string; issueRef: string; reason: string; prUrl?: string | null }) => Promise<{ argv: string[]; ok: boolean } | null>;
 
 export interface SupervisorOptions {
   runId: string;
@@ -55,6 +58,7 @@ export interface SupervisorOptions {
 }
 export interface SupervisorResult {
   verdict: Verdict;
+  outcome: Outcome; stop: string | null; receiptSha: string | null; // A-110: the ladder input and the --json fields
   tampered: boolean;
   notProven: string[];
   prUrl: string | null;
@@ -124,6 +128,13 @@ export class SupervisorLog { // single writer with a running sha256 of the bytes
     return e;
   }
 
+  sealLog(): void { // A-117: signed line after run.completed over every earlier byte, so deleting the tail or the line itself breaks `loki verify`; unsigned runs have no key and skip it
+    const key = loadSigningKey(false);
+    if (!key) return;
+    const sha = this.hash.copy().digest("hex");
+    this.append("log.sealed", null, { kid: kidOf(createPublicKey(key)), events_sha256: sha, tampered: this.tampered, sig: sign(null, Buffer.from(`${sha}:${this.tampered}`), key).toString("base64url") });
+  }
+
   verify(): boolean { // re-hashes the file; on mismatch (once) emits tamper.detected; returns true when intact
     if (this.tampered) return false;
     const expected = this.hash.copy().digest("hex");
@@ -184,12 +195,6 @@ function spawnWorker(
 
 export async function runSupervisor(opts: SupervisorOptions): Promise<SupervisorResult> {
   const t0 = Date.now();
-  const resumeFold = fold(readEvents(join(opts.repoDir, eventsRelPath(opts.runId)))); // --resume of a finished run: report it, never re-spawn
-  const done = resumeFold.run.completed?.data;
-  // E-69: tampered must reflect the log's real state, never a hardcoded false -- a resumed,
-  // completed run whose log holds tamper.detected is exactly as untrustworthy as a freshly
-  // finished one, and callers (partialCost's tamper guard, main()'s CLI print) rely on this flag.
-  if (done) return { verdict: (done.verdict as Verdict) ?? "FAILED", tampered: resumeFold.run.tampered, workerExit: 0, prUrl: (done.pr_url as string | null) ?? null, notProven: Array.isArray(done.not_proven) ? (done.not_proven as string[]) : [] };
   const startedProvider = opts.started?.["provider"]; // E-36: provider read off opts.started, not a dedicated field (main(), below, is the only populater)
   const env = opts.env ?? process.env;
   await assertPreflight({ repoDir: opts.repoDir, provider: typeof startedProvider === "string" ? startedProvider : "claude", pr: opts.pr !== undefined, env });
@@ -222,8 +227,9 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   // intake's base_sha) sees it. No diff falls to the comment/print branch below.
   let hasDiff = false;
   if (verdict === "FAILED") {
-    backstopCommit(opts.repoDir, workerEnv, opts.runId);
-    const baseE = fold(readEvents(log.path)).stages["intake"], base = baseE?.type === "stage.completed" && typeof baseE.data.base_sha === "string" ? baseE.data.base_sha : null;
+    const stages = fold(readEvents(log.path)).stages; // A-104c: a failed commit stage already chose what to exclude (Wall files, lockfiles, pre-run dirt); a blanket `add -A` would undo it
+    if (stages["commit"]?.type !== "stage.failed") backstopCommit(opts.repoDir, workerEnv, opts.runId);
+    const baseE = stages["intake"], base = baseE?.type === "stage.completed" && typeof baseE.data.base_sha === "string" ? baseE.data.base_sha : null;
     try {
       const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: opts.repoDir, env: process.env, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
       hasDiff = base !== null && head !== base;
@@ -236,42 +242,42 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
     if (out?.url) {
       prUrl = out.url;
       log.append("pr.opened", "pr", { url: out.url, draft: out.draft, existing: out.existing });
+      await slackEvent(env, "pr_opened", { repo: githubRepoFromUrl(origin) ?? undefined, issue: String(opts.started?.["issue_ref"] ?? ""), prUrl: out.url, outcome: verdict }); // D51-A4
       // E-48: deep verify (stages/deep.ts) runs detached, never keeping the supervisor alive; deep.started records the pid so it is never orphaned untracked.
       if (opts.deepArgv) { const [cmd, ...dArgs] = [...opts.deepArgv, origin], child = cmd ? spawn(cmd, dArgs, { cwd: opts.repoDir, env: workerEnv, stdio: "ignore", detached: true }) : null; child?.on("error", () => {}); if (child?.pid) { child.unref(); log.append("deep.started", "deep", { pid: child.pid }); } else notProven.push("deep verify not spawned"); }
     }
   }
-  if (verdict === "FAILED" && prUrl === null) { // E-67: never vanish silently -- an issue run gets a comment naming the reason, anything else is printed
-    const reason = notProven.join("; ") || "run failed", issueRef = opts.started?.["issue_ref"];
+  const allEvents = readEvents(log.path), folded = fold(allEvents), costUsd = log.tampered ? null : folded.cost.usd, wallS = (Date.now() - t0) / 1000; // one read, reused for cost and the Slack summary; unknown cost stays null
+  const stopRaw = folded.run.escalated?.data.stop, stop = typeof stopRaw === "string" ? stopRaw : null;
+  const outcome = outcomeOf(verdict, allEvents.some((e) => e.type === "cap.hit"), stop, log.tampered), blocked = outcome === "BLOCKED";
+  if (blocked || (verdict === "FAILED" && prUrl === null)) { // E-67: never vanish silently -- an issue run gets a comment naming the reason, anything else is printed. A-110: BLOCKED always posts its one question
+    const why = allEvents.find((e) => e.type === "stage.completed" && e.stage === "implement")?.data.spec_conflict_reason;
+    const reason = blocked ? `spec conflict: ${String(why ?? "see the receipt").replace(/[\x00-\x1f\x7f]+/g, " ").slice(0, 500)}` : notProven.join("; ") || "run failed", issueRef = opts.started?.["issue_ref"];
+    if (blocked) await slackEvent(env, "blocked", { repo: githubRepoFromUrl(origin) ?? undefined, issue: String(opts.started?.["issue_ref"] ?? ""), question: reason }); // D51-A4
     const isIssueWithRef = opts.started?.["task_source"] === "issue" && typeof issueRef === "string" && issueRef !== "";
     if (isIssueWithRef && opts.comment) {
-      const out = await opts.comment({ env, runId: opts.runId, issueRef: issueRef as string, reason });
+      const out = await opts.comment({ env, runId: opts.runId, issueRef: issueRef as string, reason, prUrl });
       log.append("issue.commented", null, { argv: out?.argv ?? [], ok: out?.ok ?? false, reason });
-    } else process.stderr.write(`engine10: run ${opts.runId} ended FAILED with no PR: ${reason}\n`);
+    } else if (!blocked) process.stderr.write(`engine10: run ${opts.runId} ended FAILED with no PR: ${reason}\n`);
   }
-
-  const allEvents = readEvents(log.path), folded = fold(allEvents), costUsd = log.tampered ? null : folded.cost.usd, wallS = (Date.now() - t0) / 1000; // one read, reused for cost and the Slack summary; unknown cost stays null
   log.append("run.completed", null, { verdict, pr_url: prUrl, not_proven: notProven, cost_usd: costUsd, wall_s: wallS });
+  log.sealLog();
   const stages = allEvents.filter((e) => e.type === "stage.completed" && typeof e.data.duration_s === "number").map((e) => ({ label: String(e.stage), seconds: e.data.duration_s as number })), // E-48 notify: Slack when configured, no-op otherwise
     pc = partialCost(allEvents, log.tampered),
-    summary = { pr: prUrl ? { url: prUrl, draft: verdict !== "VERIFIED" } : null, verdict, notProven, flaky: [] as string[], wallS, stages, cost: { usd: costUsd, provider: String(opts.started?.provider ?? ""), tokens: allEvents.some((e) => e.type === "cost") ? folded.cost.inputTokens + folded.cost.outputTokens : null, partialUsd: pc.usd, measuredSessions: pc.measured, totalSessions: pc.total } };
-  try { const { createSlackAdapter } = await import("./adapters/slack.ts"); await Promise.race([createSlackAdapter(env.LOKI_SLACK_WEBHOOK_URL).notify?.(summary) ?? Promise.resolve(), new Promise<void>((r) => setTimeout(r, Number(env.LOKI_E10_NOTIFY_TIMEOUT_MS) || 5000).unref())]); } catch { /* best-effort: a Slack failure or hang must never affect the verdict */ }
-  return { verdict, tampered: log.tampered, notProven, prUrl, workerExit };
+    summary = { pr: prUrl ? { url: prUrl, draft: verdict !== "VERIFIED" } : null, verdict, outcome, notProven, flaky: [] as string[], wallS, stages, cost: { usd: costUsd, provider: String(opts.started?.provider ?? ""), tokens: allEvents.some((e) => e.type === "cost") ? folded.cost.inputTokens + folded.cost.outputTokens : null, partialUsd: pc.usd, measuredSessions: pc.measured, totalSessions: pc.total } };
+  await slackEvent(env, "finished", { summary: formatSummary(summary), outcome: String(outcome), cost: summary.cost.usd != null ? `$${summary.cost.usd.toFixed(2)}` : "not measured", time: `${Math.round(wallS)}s` }); // D51-A4, replaces E-48 adapters/slack.ts call
+  return { verdict, outcome, stop, receiptSha: typeof sealedData?.receipt_sha256 === "string" ? sealedData.receipt_sha256 : null, tampered: log.tampered, notProven, prUrl, workerExit };
 }
-/** E-66: a text run confirmed already-done has no issue to comment on, so there is no
- *  comment_argv (that only exists for an issue run: intake.ts, buildAlreadyDoneCommentArgv).
- *  main() prints intake's comment body instead, so the evidence-based no-change decision is not
- *  silently swallowed just because this run happened not to be linked to an issue. */
+/** E-66: a text run confirmed already-done has no issue to comment on (no comment_argv, intake.ts);
+ *  main() prints intake's comment body instead so the no-change decision is not swallowed. */
 export function alreadyDoneTextComment(events: EventEnvelope[]): string | null {
   const d = events.find((e) => e.type === "stage.completed" && e.stage === "intake")?.data;
   return d?.source === "text" && d?.already_satisfied === true && typeof d.comment === "string" ? d.comment : null;
 }
-/** The exact block main() writes to stdout once a run finishes. Pulled out as a pure function
- *  because main() cannot be driven end to end from a test process (it re-spawns process.argv[1] as
- *  the worker, which under a test runner is not cli.ts) -- this is what is tested instead. */
-export function renderMainOutput(events: EventEnvelope[], summary: SummaryInput, runId: string, model: string): string {
-  const textComment = alreadyDoneTextComment(events);
-  const prefix = textComment ? `\n${textComment}\n` : "";
-  return `${prefix}${formatSummary(summary)}\nRun:        ${runId} (${eventsRelPath(runId)})\nModel:      ${model}\n`;
+/** The block main() writes to stdout once a run finishes; pure because main() re-spawns process.argv[1] as the worker, so tests cannot drive it. */
+export function renderMainOutput(events: EventEnvelope[], summary: SummaryInput): string {
+  const c = alreadyDoneTextComment(events);
+  return `${c ? `\n${c}\n` : ""}${formatSummary(summary)}\n`;
 }
 const ISSUE_RE = /^(?:[\w.-]+\/[\w.-]+#\d+|https?:\/\/\S+\/(?:-\/)?issues\/\d+)$/;
 // E-59: every token field the provider reported, cache included (E-50 found "1k shown for 372k used" when this summed only input+output). The sole place tokens are computed for the Cost line.
@@ -281,28 +287,27 @@ export function summaryTokens(f: Folded, sawCost: boolean): number | null {
 export { partialCost }; // E-69: defined in events.ts, next to fold(); re-exported so existing callers/tests keep importing it from here
 export async function main(args: string[]): Promise<number> { // `loki "<task>"` (cli.ts routes every run here): P0 of one run, ending in the 5-line summary
   const words: string[] = [];
-  let noPr = false, deep = false, resumeId: string | null = null, provider = process.env.LOKI_PROVIDER || "claude";
+  let noPr = false, deep = false, json = false, verbose = false, provider = process.env.LOKI_PROVIDER || "claude";
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
     if (a === "--no-pr") noPr = true;
     else if (a === "--deep") deep = true;
+    else if (a === "--json") json = true;
+    else if (a === "--verbose") verbose = true;
     else if (a === "--provider") provider = args[++i] ?? provider;
-    else if (a === "--resume") resumeId = args[++i] ?? "";
+    else if (a === "--resume") { process.stderr.write("engine10: --resume was removed; start a new run\n"); return 2; }
     else words.push(a);
   }
   const task = words.join(" ").trim();
-  if (!resumeId && !task) { process.stderr.write("engine10: no task given\n"); return 2; }
+  if (!task) { process.stderr.write("engine10: no task given\n"); return 2; }
   let repoDir: string;
   try {
     repoDir = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", env: process.env, stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch { process.stderr.write("engine10: not inside a git repository\n"); return 2; }
-  if (resumeId && !existsSync(join(repoDir, eventsRelPath(resumeId)))) { process.stderr.write(`engine10: no run to resume: ${resumeId}\n`); return 2; }
-  const runId = resumeId || `e10-${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}-${Math.random().toString(16).slice(2, 6)}`;
+  const runId = `e10-${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}-${Math.random().toString(16).slice(2, 6)}`;
   const runDir = join(repoDir, ".loki", "runs", runId);
-  const isIssue = ISSUE_RE.test(task);
-  const model = resolveModel(provider);
-  const env: NodeJS.ProcessEnv = { ...process.env };
-  if (task && !isIssue) env.LOKI_E10_TASK_TEXT = task; // resume with no fresh task: intake falls back to runDir's issue.json, else its own "no task text" reason
+  const isIssue = ISSUE_RE.test(task), model = resolveModel(provider), env: NodeJS.ProcessEnv = { ...process.env };
+  if (!isIssue) env.LOKI_E10_TASK_TEXT = task;
   else if (isIssue) {
     mkdirSync(runDir, { recursive: true }); // runDir must exist before the fetch child writes issue.json
     try { fetchIssueToFile(task, join(runDir, "issue.json")); } catch (err) { // P1: deterministic, before any LLM
@@ -311,6 +316,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     }
   }
 
+  if (!json) process.stdout.write(`${START_LINE}\n`); // D48: one start line naming the engine; provider, model and run id are in the receipt
   const t0 = Date.now();
   const eventsPath = join(repoDir, eventsRelPath(runId));
   const live = (e: EventEnvelope): void => {
@@ -318,8 +324,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     const d = e.data;
     if (e.type.startsWith("stage.") && e.type !== "stage.started") {
       const status = e.type === "stage.completed" ? "done" : e.type === "stage.failed" ? "failed" : "skipped";
-      const detail = String(d.reason ?? d.summary ?? "");
-      process.stdout.write(formatStageLine({ clockS, name: String(e.stage), status, durationS: Number(d.duration_s ?? 0), detail }) + "\n");
+      process.stdout.write(formatStageLine({ clockS, name: String(e.stage), status, durationS: Number(d.duration_s ?? 0), detail: String(d.reason ?? d.summary ?? "") }) + "\n");
     } else if (e.type === "heartbeat") {
       const diff = d.diff as { files: number; insertions: number; deletions: number } | null;
       process.stdout.write(formatHeartbeatLine({ clockS, stage: String(e.stage), waitingOn: `${provider} session`, elapsedS: Number(d.elapsed_s ?? 0), diff }) + "\n");
@@ -327,7 +332,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   };
   let stopTail = (): void => {};
   const tailTimer = setInterval(() => {
-    if (existsSync(eventsPath)) { clearInterval(tailTimer); stopTail = tail(eventsPath, live, { intervalMs: 250 }); }
+    if (verbose && !json && existsSync(eventsPath)) { clearInterval(tailTimer); stopTail = tail(eventsPath, live, { intervalMs: 250 }); }
   }, 100);
 
   const capS = deep ? DEEP_CAP_S : Number(env.LOKI_E10_CAP_S) || DEFAULT_CAP_S;
@@ -352,11 +357,11 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
       if (r.status !== "completed") return { url: null, draft: false, existing: null, notProven: [`PR not opened: ${r.reason}`] };
       return { url: d.pr_url ?? null, draft: d.draft === true, existing: d.existing ?? null, notProven: d.not_proven };
     },
-    comment: noPr ? undefined : async ({ issueRef, reason }) => { // E-67: a FAILED, no-diff issue run has no PR; comment instead of vanishing
+    comment: noPr ? undefined : async ({ issueRef, reason, prUrl }) => { // E-67: a FAILED, no-diff issue run has no PR; comment instead of vanishing
       const { DEFAULT_PUSH_SH } = await import("./stages/pr.ts"); // supervisor-only, same credentialed script as pr
       mkdirSync(runDir, { recursive: true });
       const bodyFile = join(runDir, "backstop-comment.md");
-      writeFileSync(bodyFile, `Loki 10 run ${runId} ended without a PR.\n\nReason: ${reason}\n`);
+      writeFileSync(bodyFile, `Loki 10 run ${runId} ${prUrl ? `opened draft PR ${prUrl}` : "ended without a PR"}.\n\n${prUrl ? "One question" : "Reason"}: ${reason}\n`);
       const argv = pushArgv({ cmd: "issue-comment", issueRef, bodyFile });
       const r = spawnSync("bash", [DEFAULT_PUSH_SH, ...argv], { env, encoding: "utf8" });
       return { argv, ok: r.status === 0 };
@@ -367,22 +372,20 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   await new Promise((r) => setTimeout(r, 300)); // let the tail flush the last lines
   stopTail();
 
-  const events = readEvents(eventsPath);
-  const f = fold(events);
-  const sawCost = events.some((e) => e.type === "cost");
-  const cli = process.env.LOKI_E10_INVOKER === "cli";
-  const pc = partialCost(events, res.tampered);
-  const usd = res.tampered ? null : f.cost.usd; // E-69: same tamper guard as costUsd elsewhere -- a TAMPERED run never prints a trusted dollar figure
-  process.stdout.write(renderMainOutput(events, {
+  const events = readEvents(eventsPath), f = fold(events);
+  const sawCost = events.some((e) => e.type === "cost"), cli = process.env.LOKI_E10_INVOKER === "cli";
+  const pc = partialCost(events, res.tampered), usd = res.tampered ? null : f.cost.usd; // E-69: same tamper guard as costUsd elsewhere -- a TAMPERED run never prints a trusted dollar figure
+  const out = json ? `${JSON.stringify({ ok: EXIT[res.outcome] === 0, outcome: res.outcome, stop: res.stop, run_id: runId, receipt_sha256: res.receiptSha })}\n` : renderMainOutput(events, {
     pr: res.prUrl ? { url: res.prUrl, draft: res.verdict !== "VERIFIED" } : null,
-    verdict: res.verdict, notProven: res.notProven, flaky: [],
+    verdict: res.verdict, outcome: res.outcome, reason: reasonOf(events, res.tampered, res.stop, res.outcome), receipt: { sha: res.tampered ? null : res.receiptSha, tampered: res.tampered, signed: res.tampered ? null : (events.findLast((e) => e.type === "receipt.sealed")?.data.signed as boolean | undefined) ?? null }, notProven: res.notProven, flaky: [],
     cost: {
-      usd, provider, tokens: summaryTokens(f, sawCost), note: !res.tampered && usd === null && cli ? "CLI invoker records no cost" : null,
+      usd, provider, tokens: summaryTokens(f, sawCost), note: !res.tampered && cli && (usd === null || events.some((e) => e.type === "cost" && e.data.source === "cli-invoker-unmetered")) ? "CLI invoker records no cost" : null,
       partialUsd: pc.usd, measuredSessions: pc.measured, totalSessions: pc.total,
     },
     wallS: Number(f.run.completed?.data.wall_s ?? (Date.now() - t0) / 1000),
     stages: events.filter((e) => e.type === "stage.completed" && typeof e.data.duration_s === "number")
       .map((e) => ({ label: String(e.stage), seconds: e.data.duration_s as number })),
-  }, runId, model));
-  return res.verdict === "FAILED" ? 1 : 0;
+  });
+  process.stdout.write(out);
+  return EXIT[res.outcome];
 }

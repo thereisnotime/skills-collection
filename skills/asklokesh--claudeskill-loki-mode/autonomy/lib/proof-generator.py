@@ -1056,9 +1056,8 @@ def _git_diffstat(target_dir, include_diffs):
     into _diff_sha256, the receipt's integrity hash, which is written on EVERY
     run. A verifier recomputing it therefore attests to the understated stat,
     and the receipt is exactly the artifact users are told to trust. (Detached
-    GPG signing is a separate opt-in layer gated on LOKI_PROOF_GPG_KEY and
-    default OFF; when enabled it signs these same bytes, but the integrity hash
-    is the always-on path.)
+    Ed25519 signing attests to the same digest; the integrity hash is the
+    always-on path.)
 
     Order of preference:
       1. _LOKI_RUN_START_SHA -- the run's own baseline (run.sh exports it).
@@ -1114,6 +1113,230 @@ def _empty_tree_sha(repo_dir):
     except Exception:
         return ""
     return out.stdout.strip() if out.returncode == 0 else ""
+
+
+# A-118 / D47: tests_integrity. Did the run WEAKEN the tests that vouch for it?
+# CFG_ALWAYS is copied from loki-ts/src/engine10/stages/verify.ts (A-115); keep in sync.
+# The comparison is base vs the final WORKING TREE plus untracked files (like
+# collect_workspace_diff), so uncommitted work is covered.
+_TI_CFG_ALWAYS = re.compile(r"(^|/)(conftest\.py|\.?pytest\.(?:ini|toml)|tox\.ini|jest\.config\.[\w.]+|vitest\.config\.[\w.]+|\.mocharc[\w.]*)$")
+_TI_CFG_SHARED = re.compile(r"(^|/)(setup\.cfg|pyproject\.toml|package\.json)$")
+_TI_TEST_FILE = re.compile(
+    r"(^|/)(tests?|__tests__|spec|specs)/|\.(test|spec)\.[\w]+$|(^|/)test_[^/]*\.py$|_test\.(py|go|rs)$|(^|/)conftest\.py$")
+_TI_SKIP_JS = re.compile(
+    # options object only as the 2nd argument: title (string or identifier), then `, {`
+    r"\b(test|it|describe|suite|context|specify)\s*\(\s*(?:'[^'\n]*'|\"[^\"\n]*\"|`[^`\n]*`|[\w.$]+)\s*,\s*\{[^}]*\b(skip|todo)\s*:\s*(?!(?:false|0|null|undefined)\b)\S"
+    r"|\b(it|test|describe|suite|context|specify)\s*\.\s*(skip|only|todo)\b"
+    r"|\bx(it|test|describe)\s*\(|\bf(it|describe)\s*\("
+    r"|\b(t|ctx)\s*\.\s*(skip|todo)\s*\(")
+_TI_SKIP_PY = re.compile(
+    r"\b(?:pytest\.)?mark\.(skip|skipif|xfail)\b|\bpytest\.(skip|xfail|importorskip)\s*\("
+    r"|@(?:unittest\.)?(skip|skipIf|skipUnless|expectedFailure)\b|\bSkipTest\b|\bskipTest\s*\(")
+_TI_SKIP_GO = re.compile(r"\b[tb]\.Skip(f|Now)?\s*\(")
+_TI_SKIP_RS = re.compile(r"#\[ignore")
+_TI_SKIP_BY_EXT = (
+    (("js", "jsx", "ts", "tsx", "mjs", "cjs"), _TI_SKIP_JS),
+    (("py",), _TI_SKIP_PY), (("go",), _TI_SKIP_GO), (("rs",), _TI_SKIP_RS))
+_TI_ASSERT = re.compile(r"\bassert|\bexpect\(|\.should\b|\.to[A-Z]\w*\(|\bt\.(Error|Fatal)")
+_TI_PKG_KEYS = ("jest", "mocha", "vitest", "ava")
+
+
+def _ti_skip_re(path):
+    ext = path.rsplit(".", 1)[-1].lower() if "." in path else ""
+    for exts, rx in _TI_SKIP_BY_EXT:
+        if ext in exts:
+            return rx
+    return None
+
+
+def _ti_run(repo, *args):
+    """Run a read-only git command; returns text decoded from bytes (so a lone
+    CR is never a line break; callers split on \\n only), or None on failure."""
+    try:
+        r = subprocess.run(["git", "-c", "core.quotePath=false", *args], cwd=repo,
+                           capture_output=True, timeout=30)
+    except Exception:
+        return None
+    if r.returncode != 0:
+        return None
+    return r.stdout.decode("utf-8", "replace")
+
+
+def _ti_pkg_view(text, _path=""):
+    """Test-relevant slice of a package.json, or None when unparseable."""
+    try:
+        d = json.loads(text) if text.strip() else {}
+    except ValueError:
+        return None
+    if not isinstance(d, dict):
+        return None
+    scripts = d.get("scripts") if isinstance(d.get("scripts"), dict) else {}
+    view = {k: v for k, v in scripts.items() if re.match(r"^(pre|post)?test(:.*)?$", k)}
+    return {"scripts": view, **{k: d[k] for k in _TI_PKG_KEYS if k in d}}
+
+
+_TI_PYTEST_KEYS = ("addopts", "testpaths", "python_files", "python_functions",
+                   "python_classes", "norecursedirs")
+
+
+def _ti_pytest_view(text, path):
+    """The test-selection keys of a pytest config, or None when unparseable.
+    Parsed (tomllib / configparser), so a multi-line addopts edit is seen.
+    ponytail: without tomllib (python < 3.11) try tomli, else compare only the
+    whitespace-normalized [tool.pytest.ini_options] section text."""
+    if not text.strip():
+        return {}
+    if path.endswith(".toml"):
+        try:
+            try:
+                import tomllib
+            except ImportError:
+                import tomli as tomllib
+        except ImportError:
+            m = re.search(r"^\[tool\.pytest\.ini_options\][ \t]*(?:#.*)?$(.*?)(?=^\[[^\[\]\n]+\][ \t]*(?:#.*)?$|\Z)",
+                          text, re.M | re.S)
+            return {"ini_options": " ".join(m.group(1).split())} if m else {}
+        try:
+            d = tomllib.loads(text)
+        except Exception:
+            return None
+        t = d.get("tool", {}).get("pytest", {})
+        t = t.get("ini_options", t) if isinstance(t, dict) else {}
+        return {k: t[k] for k in _TI_PYTEST_KEYS if k in t}
+    import configparser
+    cp = configparser.ConfigParser(interpolation=None, strict=False)
+    try:
+        cp.read_string(text)
+    except Exception:
+        return None
+    out = {}
+    for sec in ("pytest", "tool:pytest"):
+        if cp.has_section(sec):
+            for k in _TI_PYTEST_KEYS:
+                if cp.has_option(sec, k):
+                    out[sec + "." + k] = cp.get(sec, k)
+    return out
+
+
+_TI_SELECT_PY = re.compile(r"\bcollect_ignore(?:_glob)?\b|\bpytest_collection_modifyitems\b")
+_TI_PYTEST_NAMED = re.compile(r"(^|/)(conftest\.py|\.?pytest\.ini|tox\.ini)$")
+
+
+def _ti_base_has_pytest_config(target_dir, base):
+    names = _ti_run(target_dir, "ls-tree", "-r", "--name-only", "-z", base) or ""
+    for n in names.split("\0"):
+        if _TI_PYTEST_NAMED.search(n):
+            return True
+        if n.endswith(("pyproject.toml", "setup.cfg")) and \
+                _ti_pytest_view(_ti_run(target_dir, "show", "%s:./%s" % (base, n)) or "", n):
+            return True
+    return False
+
+
+def _ti_added_config_selects(path, text):
+    """True when a newly added pytest config changes test selection (unparseable counts)."""
+    if path.endswith(".py"):
+        return bool(_TI_SELECT_PY.search(text))
+    if path.endswith((".ini", ".toml", ".cfg")):
+        v = _ti_pytest_view(text, path)
+        return v is None or bool(v)
+    return False
+
+
+def _collect_tests_integrity(target_dir, base):
+    """Return {"weakened": [...], "assertions_edited": [...], "disclosed": [...]} or None.
+
+    Derived from base vs the final working tree (committed, staged, unstaged and
+    untracked). None when there is no usable diff (no repo, no base)."""
+    if not base:
+        return None
+    names = _ti_run(target_dir, "diff", "--relative", "--name-status", "-M", "-z", base, "--")
+    if names is None:
+        return None
+    weakened, edited, disclosed = [], [], []
+    greenfield = base == _empty_tree_sha(target_dir)
+    toks = names.split("\0")
+    entries, i = [], 0  # (status, old_path, new_path)
+    while i < len(toks) and toks[i]:
+        st = toks[i][:1]
+        if st in "RC" and i + 2 < len(toks):
+            entries.append((st, toks[i + 1], toks[i + 2]))
+            i += 3
+        else:
+            entries.append((st, toks[i + 1] if i + 1 < len(toks) else "", toks[i + 1] if i + 1 < len(toks) else ""))
+            i += 2
+    untracked = _ti_run(target_dir, "ls-files", "--others", "--exclude-standard", "-z") or ""
+    for u in untracked.split("\0"):
+        if u and not u.startswith(".loki/"):
+            entries.append(("A", u, u))
+    for st, old, new in entries:
+        if st in ("D", "R") and _TI_TEST_FILE.search(old):
+            weakened.append("test file %s: %s" % ("deleted" if st == "D" else "renamed", old))
+    if not greenfield:
+        for st, old, new in entries:
+            path = new if st != "D" else old
+            is_always = bool(_TI_CFG_ALWAYS.search(path))
+            if not (is_always or _TI_CFG_SHARED.search(path)):
+                continue
+            if st == "A":  # no base version: disclose, unless it re-selects tests over a base pytest config
+                try:
+                    with open(os.path.join(target_dir, new), encoding="utf-8", errors="replace") as h:
+                        text = h.read()
+                except OSError:
+                    text = ""
+                if _ti_added_config_selects(path, text) and _ti_base_has_pytest_config(target_dir, base):
+                    weakened.append("test runner config changed: " + path)
+                else:
+                    disclosed.append("new test runner config: " + path)
+            elif is_always:
+                weakened.append("test runner config changed: " + path)
+            else:
+                before = _ti_run(target_dir, "show", "%s:./%s" % (base, old)) or ""
+                try:
+                    with open(os.path.join(target_dir, new), encoding="utf-8", errors="replace") as h:
+                        after = h.read()
+                except OSError:
+                    after = ""
+                view = _ti_pkg_view if path.endswith("package.json") else _ti_pytest_view
+                b, a = view(before, path), view(after, path)
+                if b is None or a is None or b != a:
+                    weakened.append("test runner config changed: " + path)
+    # Skip markers: added lines of tracked test files, and the content of untracked ones.
+    patch = _ti_run(target_dir, "diff", "--relative", "-U0", "-M", base, "--") or ""
+    cur, rx, removed_assert = None, None, False
+    for line in patch.split("\n") + ["diff --git a/ b/"]:
+        if line.startswith("diff --git "):
+            if cur and removed_assert and cur not in edited:
+                edited.append(cur)
+            cur, rx, removed_assert = None, None, False
+        elif line.startswith("+++ b/"):
+            cur = line[6:] if _TI_TEST_FILE.search(line[6:]) else None
+            rx = _ti_skip_re(cur) if cur else None
+        elif cur and line.startswith("+") and rx and rx.search(line):
+            weakened.append("skip added in %s" % cur)
+        elif cur and line.startswith("-") and not line.startswith("---") \
+                and _TI_ASSERT.search(line):
+            removed_assert = True
+    for u in untracked.split("\0"):
+        if not u or u.startswith(".loki/") or not _TI_TEST_FILE.search(u):
+            continue
+        rx = _ti_skip_re(u)
+        if not rx:
+            continue
+        try:
+            with open(os.path.join(target_dir, u), "rb") as h:
+                text = h.read().decode("utf-8", "replace")
+        except OSError:
+            continue
+        if any(rx.search(ln) for ln in text.split("\n")):
+            weakened.append("skip added in %s" % u)
+    uniq = []
+    for w in weakened:
+        if w not in uniq:
+            uniq.append(w)
+    if not uniq and not edited and not disclosed:
+        return None
+    return {"weakened": uniq, "assertions_edited": edited, "disclosed": disclosed}
 
 
 def _collect_iterations(loki_dir):
@@ -1303,26 +1526,6 @@ def _canonical(obj):
     return json.dumps(obj, sort_keys=True, separators=(",", ":"))
 
 
-def _gpg_detached_sign(data, key_id):
-    """Produce an ASCII-armored gpg detached signature over `data`.
-
-    Returns the armored signature string, or None on any failure (gpg missing,
-    key not found, timeout). Best-effort: signing is an optional add-on and
-    never blocks proof emission. Local-only: invokes the on-PATH gpg, no network.
-    """
-    try:
-        proc = subprocess.run(
-            ["gpg", "--batch", "--yes", "--armor", "--detach-sign",
-             "--local-user", key_id, "--output", "-"],
-            input=data, capture_output=True, timeout=30,
-        )
-        if proc.returncode != 0 or not proc.stdout:
-            return None
-        return proc.stdout.decode("utf-8", errors="replace")
-    except Exception:
-        return None
-
-
 def _build_proof(args, loki_dir, target_dir, repo_root):
     generated_at = _utc_now_iso()
     run_id = args.run_id or os.environ.get("LOKI_SESSION_ID") or _gen_run_id()
@@ -1476,6 +1679,10 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
     # only, never read by _compute_headline / _compute_degraded.
     if journey:
         facts["journey"] = journey
+    # A-118: additive, present only when the diff touched test integrity.
+    _ti = _collect_tests_integrity(target_dir, diff_base_sha)
+    if _ti:
+        facts["tests_integrity"] = _ti
     ablation = _collect_ablation(loki_dir)
     if ablation is not None:
         facts["ablation"] = ablation
@@ -1535,6 +1742,24 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
             # statuses will keep being added, and a filter keyed on one of them
             # silently breaks the next time -- which is exactly what happened
             # when the unrun-security entry landed with status "not_run".
+            "post_headline": True,
+        })
+
+    # D47: edited assertion lines are disclosed but never move the headline or rc.
+    _ae = (facts.get("tests_integrity") or {}).get("assertions_edited")
+    if _ae:
+        degraded.append({
+            "item": "tests_integrity:assertions_edited",
+            "status": "inconclusive",
+            "reason": "assertion lines edited in: " + ", ".join(_ae),
+            "post_headline": True,
+        })
+    _di = (facts.get("tests_integrity") or {}).get("disclosed")
+    if _di:
+        degraded.append({
+            "item": "tests_integrity:config_added",
+            "status": "inconclusive",
+            "reason": "; ".join(_di),
             "post_headline": True,
         })
 
@@ -1674,6 +1899,10 @@ def _compute_degraded(facts):
         out.append({"item": "security", "status": "findings",
                     "reason": "%s un-waived HIGH security finding(s)"
                               % sec.get("high_active")})
+    ti = facts.get("tests_integrity") or {}
+    if ti.get("weakened"):
+        out.append({"item": "tests_integrity", "status": "failed",
+                    "reason": "tests weakened: " + "; ".join(ti["weakened"])})
     git = facts.get("git") or {}
     if not (git.get("diff") or {}).get("count"):
         out.append({"item": "git.diff", "status": "not_run",
@@ -1769,6 +1998,7 @@ def _compute_headline(facts, degraded):
                if _is_exogenous(g))
         or sec_high
         or fn_failed
+        or bool((facts.get("tests_integrity") or {}).get("weakened"))
     )
     if any_failed:
         return "NOT VERIFIED"
@@ -1965,16 +2195,16 @@ def _render_fallback_html(proof):
     # Signing state, stated plainly. Mirrors renderProvenance in
     # proof-template.html (the primary renderer); this fallback path must not
     # be quieter about provenance than the page it stands in for.
-    if ver.get("gpg_signature"):
-        rows.append("<p>Signature: SIGNED (detached GPG over the canonical "
-                    "bytes). A verifier holding the signer public key can "
-                    "confirm provenance offline: loki proof verify &lt;id&gt;</p>")
+    if ver.get("attestation"):
+        rows.append("<p>Signature: SIGNED (Ed25519 attestation over the "
+                    "integrity hash). Confirm provenance offline: "
+                    "loki proof verify &lt;id&gt;</p>")
     else:
         rows.append("<p>Signature: UNSIGNED. The integrity hash proves the "
                     "bytes were not edited after hashing; it does NOT prove "
                     "who produced them, so this receipt trusts its generator. "
-                    "To sign future receipts, set LOKI_PROOF_GPG_KEY to a gpg "
-                    "key id (see docs/SIGNED-RECEIPTS.md).</p>")
+                    "To sign future receipts, install the cryptography "
+                    "package (see docs/SIGNED-RECEIPTS.md).</p>")
 
     # Model provenance, mirrored here for the same reason the signature row is:
     # this fallback "must not be quieter about provenance than the page it
@@ -2150,61 +2380,38 @@ def generate(args):
         "scope": "integrity",
     }
 
-    # Optional, env-gated gpg detached signature over the SAME canonical bytes
-    # that were hashed (the pre-verification form a verifier reconstructs).
-    # Default OFF: absent LOKI_PROOF_GPG_KEY -> no signature field, bytes
-    # byte-identical to the unsigned proof. Never an external service, never
-    # required, best-effort (a gpg failure is swallowed: the proof still emits).
-    gpg_key = os.environ.get("LOKI_PROOF_GPG_KEY", "").strip()
-    if gpg_key:
-        sig = _gpg_detached_sign(canonical_bytes, gpg_key)
-        if sig:
-            verification["gpg_signature"] = sig
+    if os.environ.get("LOKI_PROOF_GPG_KEY", "").strip():
+        sys.stderr.write(
+            "warn: LOKI_PROOF_GPG_KEY is no longer supported and is ignored. "
+            "Receipts are signed with Ed25519 automatically; to use your own "
+            "key set LOKI_RECEIPT_SIGNING_KEY or LOKI_RECEIPT_SIGNING_KEY_FILE "
+            "(docs/SIGNED-RECEIPTS.md).\n")
 
-    # Optional Ed25519 attestation over the SAME digest, for the case gpg
-    # cannot serve: a receipt checked by someone who does not hold the signing
-    # key. gpg proves provenance only to a verifier who already imported the
-    # public key, which a customer, auditor or CI system handed a proof.json
-    # generally has not. An attestation is checkable against a published JWKS
-    # (or a jwks.json file, offline) with no key exchange at all.
-    #
-    # Binds the DIGEST, not the body, so it attests to exactly the bytes a
-    # verifier independently recomputes. Written INSIDE `verification`, which
-    # the hash excludes -- anywhere else would change the hashed bytes and make
-    # every honest receipt read as tampered the moment it was signed.
-    #
-    # Same default-OFF discipline as gpg above: absent the key, no field, and
-    # the bytes stay identical to an unattested proof. Best-effort for the same
-    # reason -- a signing failure must not cost the user their receipt.
-    # This env check is an EARLY EXIT, not the control that enforces default-off.
-    # Mutation testing showed that removing it changes nothing observable:
-    # load_signing_key() returns (None, "") when neither variable is set, so the
-    # block below cannot attest anyway. It is kept because it skips an import
-    # and a try/except on the overwhelmingly common unconfigured path -- stated
-    # here rather than left to imply a guarantee it does not provide.
-    att_key = (os.environ.get("LOKI_RECEIPT_SIGNING_KEY_FILE", "").strip()
-               or os.environ.get("LOKI_RECEIPT_SIGNING_KEY", "").strip())
-    if att_key:
-        try:
-            sys.path.insert(0, os.path.dirname(os.path.dirname(
-                os.path.abspath(__file__))))
-            from receipt_jwt import load_signing_key, sign_attestation
-            _priv, _kid = load_signing_key()
-            if _priv is not None:
-                _tok = sign_attestation(
-                    _priv, _kid,
-                    job_id=str(redacted.get("run_id") or ""),
-                    run_id=str(redacted.get("run_id") or ""),
-                    receipt_hash=digest,
-                )
-                if _tok:
-                    verification["attestation"] = _tok
-                    verification["attestation_kid"] = _kid
-        except Exception:
-            # Swallowed deliberately, matching the gpg path: an unattested
-            # receipt is a valid state with an existing verdict. Losing the
-            # receipt entirely because signing failed would be strictly worse.
-            pass
+    # Ed25519 attestation over the SAME digest, checkable against a published
+    # JWKS (or a jwks.json file, offline) with no key exchange. Binds the
+    # DIGEST, not the body, and is written INSIDE `verification`, which the hash
+    # excludes: anywhere else would change the hashed bytes and make every
+    # honest receipt read as tampered. load_signing_key() auto-generates the
+    # default local key, so a first run signs. Best-effort: a signing failure
+    # must not cost the user their receipt (an unattested receipt has its own
+    # verdict). Missing `cryptography` yields no attestation.
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))
+        from receipt_jwt import load_signing_key, sign_attestation
+        _priv, _kid = load_signing_key()
+        if _priv is not None:
+            _tok = sign_attestation(
+                _priv, _kid,
+                job_id=str(redacted.get("run_id") or ""),
+                run_id=str(redacted.get("run_id") or ""),
+                receipt_hash=digest,
+            )
+            if _tok:
+                verification["attestation"] = _tok
+                verification["attestation_kid"] = _kid
+    except Exception:
+        pass
 
     redacted["verification"] = verification
 

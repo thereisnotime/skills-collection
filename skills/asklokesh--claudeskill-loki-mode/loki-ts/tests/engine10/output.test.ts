@@ -4,13 +4,15 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
   estimateEtaS,
-  foldCostTokens,
   formatClock,
   formatDuration,
   formatHeartbeatLine,
   formatStageLine,
   formatSummary,
   formatTokens,
+  EXIT,
+  outcomeOf,
+  reasonOf,
 } from "../../src/engine10/output.ts";
 
 describe("formatClock", () => {
@@ -125,8 +127,8 @@ describe("formatSummary (golden, ENGINE.md section 11)", () => {
       ],
     });
     expect(out).toBe(
+      "Outcome:    PARTIAL\n" +
       "PR:         https://github.com/o/r/pull/12 (draft: fix rounds exhausted)\n" +
-      "Verdict:    PARTIAL\n" +
       "NOT PROVEN: full suite, app boot, council, security scan (deep verify running); flaky tests/test_x.py::t\n" +
       "Cost:       $0.84 (claude, 212k tokens)\n" +
       "Time:       4m12s (intake 11s, plan+wall 38s, implement 2m41s, verify 29s, seal+pr 13s)",
@@ -155,8 +157,8 @@ describe("formatSummary (golden, ENGINE.md section 11)", () => {
       ],
     });
     expect(out).toBe(
+      "Outcome:    VERIFIED\n" +
       "PR:         https://github.com/o/r/pull/34\n" +
-      "Verdict:    VERIFIED\n" +
       "NOT PROVEN: full suite (deep verify running), app boot (deep verify running), council (deep verify running), security scan (deep verify running)\n" +
       "Cost:       $0.42 (claude, 98k tokens)\n" +
       "Time:       5m00s (intake 10s, plan+wall 40s, implement 3m20s, verify 35s, seal+pr 15s)",
@@ -177,6 +179,14 @@ describe("formatSummary (golden, ENGINE.md section 11)", () => {
     expect(out).not.toContain("$0.00");
     expect(out).not.toContain("$0");
     expect(out).toContain("PR:         none");
+    const base = { pr: null, verdict: "VERIFIED", notProven: [], flaky: [], cost: { usd: null, provider: "claude", tokens: null }, wallS: 1, stages: [] } as never;
+    expect(formatSummary({ ...(base as object), reason: "empty diff" } as never)).toContain("Outcome:    VERIFIED\nReason:     empty diff\n");
+    const sha = "a".repeat(64);
+    expect(formatSummary({ ...(base as object), receipt: { sha, signed: false } } as never)).toContain(`Receipt:    sha256:${sha} (UNSIGNED)`);
+    expect(formatSummary({ ...(base as object), receipt: { sha: null, signed: null } } as never)).toContain("Receipt:    none (UNCHECKED)");
+    expect(formatSummary({ ...(base as object), receipt: { sha: null, signed: null, tampered: true } } as never)).toContain("Receipt:    TAMPERED (event log modified; receipt not trustworthy)");
+    expect(outcomeOf("VERIFIED", false, null, true)).toBe("FAILED");
+    expect(formatSummary({ ...(base as object), receipt: { sha, signed: true } } as never)).toContain(`Receipt:    sha256:${sha}\n`);
   });
 
   // E-69: the three cost states a run's Cost line can be in.
@@ -213,38 +223,6 @@ describe("formatSummary (golden, ENGINE.md section 11)", () => {
   });
 });
 
-// E-44 (found by E-14): the summary's token count must fold cache read and
-// cache creation tokens from cost events, not just input/output.
-describe("foldCostTokens", () => {
-  test("sums input, output, cache read and cache creation tokens", () => {
-    const events = [
-      { type: "cost", data: { input_tokens: 1000, output_tokens: 500, cache_read_tokens: 200, cache_creation_tokens: 50 } },
-    ];
-    expect(foldCostTokens(events)).toBe(1750);
-  });
-
-  test("sums across multiple cost events", () => {
-    const events = [
-      { type: "cost", data: { input_tokens: 100, cache_read_tokens: 10 } },
-      { type: "cost", data: { output_tokens: 200, cache_creation_tokens: 20 } },
-    ];
-    expect(foldCostTokens(events)).toBe(330);
-  });
-
-  test("ignores non-cost events", () => {
-    const events = [
-      { type: "run.started", data: { input_tokens: 999 } },
-      { type: "cost", data: { input_tokens: 5 } },
-    ];
-    expect(foldCostTokens(events)).toBe(5);
-  });
-
-  test("returns null, never 0, when no cost event carries a token field", () => {
-    expect(foldCostTokens([])).toBeNull();
-    expect(foldCostTokens([{ type: "cost", data: { usd: 0.5 } }])).toBeNull();
-  });
-});
-
 describe("estimateEtaS (optional module via dynamic import, section 3)", () => {
   test("returns null when the eta module is not present", async () => {
     expect(await estimateEtaS(180, 60, "./fixtures/output/no-such-eta-module.ts")).toBeNull();
@@ -265,5 +243,61 @@ describe("estimateEtaS import errors", () => {
   test("an eta module that throws on import is surfaced, not swallowed", async () => {
     const p = join(import.meta.dir, "fixtures", "output", "throwing-eta.ts");
     await expect(estimateEtaS(180, 60, p)).rejects.toThrow("eta boom");
+  });
+});
+
+describe("outcomeOf and the exit ladder (A-110)", () => {
+  test("every verdict maps to one outcome and exit", () => {
+    const row = (v: Parameters<typeof outcomeOf>[0], cap: boolean, stop: string | null) => { const o = outcomeOf(v, cap, stop); return [o, EXIT[o]]; };
+    expect(row("VERIFIED", false, null)).toEqual(["VERIFIED", 0]);
+    expect(row("ALREADY_SATISFIED", false, null)).toEqual(["ALREADY_SATISFIED", 0]);
+    expect(row("PARTIAL", false, null)).toEqual(["FAILED", 1]);
+    expect(row("FAILED", false, "fatal:auth")).toEqual(["FAILED", 1]);
+    expect(row("PARTIAL", true, null)).toEqual(["BUDGET_STOP", 3]);
+    expect(row("SPEC_CONFLICT", false, null)).toEqual(["BLOCKED", 4]);
+    expect(row("PARTIAL", false, "stalled")).toEqual(["STALLED", 5]);
+  });
+  test("the Outcome line carries the outcome name, falling back to the verdict", () => {
+    const base = { pr: null, verdict: "PARTIAL", notProven: [], flaky: [], cost: { usd: 1, provider: "claude", tokens: 1 }, wallS: 1, stages: [] } as never;
+    expect(formatSummary({ ...(base as object), outcome: "FAILED" } as never)).toContain("Outcome:    FAILED\n");
+    expect(formatSummary(base)).toContain("Outcome:    PARTIAL\n");
+  });
+});
+
+describe("reasonOf (A-130 round 4)", () => {
+  const ev = (type: string, stage: string | null, data: Record<string, unknown> = {}) => ({ v: 1, seq: 0, ts: "t", run: "r", type, stage, data }) as never;
+  const vfy = (checks: unknown[]) => ev("stage.completed", "verify", { checks });
+  test("success has no reason", () => expect(reasonOf([], false, null, "VERIFIED")).toBeUndefined());
+  test("tamper wins over everything", () => expect(reasonOf([ev("stage.failed", "verify", { reason: "x" })], true, "stalled", "FAILED")).toBe("event log modified outside the engine"));
+  test("fatal stops are named", () => {
+    expect(reasonOf([ev("stage.failed", "implement", { reason: "exit 1 (general error)" })], false, "fatal:quota_exhausted", "FAILED")).toBe("provider credit exhausted");
+    expect(reasonOf([], false, "fatal:auth", "FAILED")).toBe("provider authentication failed");
+  });
+  test("BLOCKED prints the conflict, not the empty diff", () => {
+    const e = [ev("stage.completed", "implement", { spec_conflict_reason: "spec says A and B" }), ev("stage.failed", "verify", { reason: "empty diff without an already_done marker" })];
+    expect(reasonOf(e, false, null, "BLOCKED")).toBe("spec conflict: spec says A and B");
+  });
+  test("stalled", () => expect(reasonOf([vfy([{ name: "t", result: "fail" }])], false, "stalled", "STALLED")).toBe("stalled: same failure 3 times"));
+  test("a red suite names the failing check and first_error", () => expect(reasonOf([vfy([{ name: "bun:calc.test.ts", result: "fail", first_error: "expected 6 got 5" }])], false, null, "FAILED")).toBe("bun:calc.test.ts failed: expected 6 got 5"));
+  test("secrets in first_error are redacted before printing", () => {
+    const t = "ghp_" + "a".repeat(36), k = "sk-" + "b".repeat(30);
+    const r = reasonOf([vfy([{ name: "t", result: "fail", first_error: `auth ${t} and ${k} bad` }])], false, null, "FAILED") ?? "";
+    expect(r).not.toContain(t);
+    expect(r).not.toContain(k);
+    expect(r).toContain("[REDACTED:GITHUB_TOKEN]");
+    expect(r).toContain("[REDACTED:OPENAI_KEY]");
+  });
+  test("first stage.failed reason", () => expect(reasonOf([ev("stage.failed", "verify", { reason: "empty diff" })], false, null, "FAILED")).toBe("empty diff"));
+  test("cap hit before any stage", () => expect(reasonOf([ev("cap.hit", null)], false, null, "BUDGET_STOP")).toBe("cost/time cap reached"));
+  test("a crashed worker (no receipt.sealed) still gets a reason", () => expect(reasonOf([], false, null, "FAILED")).toBe("engine ended before sealing a receipt"));
+  test("an unsealed run never prints an empty NOT PROVEN", () => {
+    const base = { pr: null, verdict: "FAILED", notProven: [], flaky: [], cost: { usd: null, provider: "claude", tokens: null }, wallS: 1, stages: [] };
+    expect(formatSummary({ ...base, receipt: { sha: null, signed: null } } as never)).toContain("NOT PROVEN: everything (no receipt sealed)");
+  });
+  test("no tests to run", () => expect(reasonOf([vfy([])], false, null, "FAILED")).toBe("no tests to run"));
+  test("control characters are stripped and the length capped", () => {
+    const r = reasonOf([ev("stage.failed", "verify", { reason: `a\x1b[31m\nb${"x".repeat(300)}` })], false, null, "FAILED")!;
+    expect(r).not.toMatch(/[\x00-\x1f\x7f]/);
+    expect(r.length).toBe(200);
   });
 });

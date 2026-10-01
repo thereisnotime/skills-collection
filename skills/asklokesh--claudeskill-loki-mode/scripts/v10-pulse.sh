@@ -30,7 +30,7 @@
 #                       so this script gives an honest answer about the swarm's
 #                       main line even when run from a builder worktree whose
 #                       own HEAD is a feature branch.
-#   PULSE_NPM_CMD       npm command to run (default: npm view loki-mode time --json)
+#   PULSE_NPM_CMD       npm command to run (default: npm view loki-mode time dist-tags --json)
 #   PULSE_GH_CMD        gh command to run (default: gh run list --branch main
 #                       --commit <main-sha> --json status,conclusion,workflowName --limit 20)
 #   PULSE_GH_STREAK_CMD gh command for the CI_CANCELLED_STREAK check (default:
@@ -472,11 +472,11 @@ NOW = now_epoch()
 VIOLATION_PRIORITY = [
     "SESSION_STALLED", "CI_RED", "CI_CANCELLED_STREAK", "RELEASE_ON_RED", "HIGH_LOAD",
     "BUDGET_BURN", "OPUS_SHARE",
-    "MOAT_REGRESSION", "UNRELEASED_MERGE", "RELEASE_CADENCE", "TRAIN_LATE", "REVIEW_STALE",
+    "MOAT_REGRESSION", "MAIN_RED_BY_MERGE", "UNRELEASED_MERGE", "RELEASE_CADENCE", "TRAIN_LATE", "REVIEW_STALE",
     "AGENT_OVER_BUDGET", "STALE_PROGRESS", "UNEVIDENCED_CLAIM", "RELEASED_AHEAD_OF_NPM",
     "ORPHAN_TEST", "ORPHAN_WORKTREE", "STRAY_CONTAINER", "STRAY_WORKTREE",
     "WORKTREE_COUNT", "IDLE_BUILDERS", "UNDERSTAFFED", "LOW_READY", "NO_RECENT_RELEASE",
-    "LOW_RELEASE_VOLUME", "MERGED_NOT_RELEASED_STALE", "CONTROL_OVERSIZE",
+    "LOW_RELEASE_VOLUME", "RELEASE_SLO", "MERGED_NOT_RELEASED_STALE", "CONTROL_OVERSIZE",
 ]
 
 violations = []          # list of (code, text)
@@ -523,7 +523,7 @@ def resolve_main_sha():
 main_sha = safe(resolve_main_sha)
 
 _npm_argv = shlex.split(os.environ["PULSE_NPM_CMD"]) if os.environ.get("PULSE_NPM_CMD") else [
-    "npm", "view", "loki-mode", "time", "--json",
+    "npm", "view", "loki-mode", "time", "dist-tags", "--json",
 ]
 _gh_argv = None
 if main_sha is not None:
@@ -531,8 +531,10 @@ if main_sha is not None:
         _gh_argv = shlex.split(os.environ["PULSE_GH_CMD"])
     else:
         _gh_argv = [
-            "gh", "run", "list", "--branch", MAIN_REF, "--commit", main_sha,
-            "--json", "status,conclusion,workflowName", "--limit", "20",
+            # No --branch: under D44 a promoted commit's Tier B ran on train/N
+            # (headBranch train/N), so a main-only filter would hide it.
+            "gh", "run", "list", "--commit", main_sha, "--event", "push",
+            "--json", "status,conclusion,workflowName,event,updatedAt", "--limit", "20",
         ]
 
 _gh_streak_argv = shlex.split(os.environ["PULSE_GH_STREAK_CMD"]) if os.environ.get("PULSE_GH_STREAK_CMD") else [
@@ -582,7 +584,7 @@ if main_sha is not None:
 GOVERNOR_DEADLINE_SECS = float(os.environ.get("PULSE_GOVERNOR_DEADLINE_SECS", "45") or "45")
 GOVERNOR_DEADLINE = T0 + GOVERNOR_DEADLINE_SECS
 _governor_argv = shlex.split(os.environ["PULSE_GOVERNOR_CMD"]) if os.environ.get("PULSE_GOVERNOR_CMD") else [
-    sys.executable, os.path.join(REPO_ROOT, "scripts", "usage-governor.py"), "--json",
+    sys.executable, os.path.join(REPO_ROOT, "scripts", "usage-governor.py"), "--json", "--read-usage",
 ]
 
 
@@ -791,6 +793,12 @@ def parse_npm_releases(rc, out):
         return None
     if not isinstance(data, dict):
         return None
+    # A-01: `npm view <pkg> time dist-tags --json` nests both; a bare time
+    # map (older fixtures, cached output) has no "time" key.
+    dist_tags = {}
+    if isinstance(data.get("time"), dict):
+        dist_tags = data.get("dist-tags") if isinstance(data.get("dist-tags"), dict) else {}
+        data = data["time"]
     # 'created' and 'modified' are metadata, not releases; excluding them
     # matters because 'modified' updates on every publish including the
     # current one and would otherwise always read as "just released".
@@ -818,6 +826,7 @@ def parse_npm_releases(rc, out):
     stamps.sort()
     last = stamps[-1]
     count_24h = sum(1 for t in stamps if NOW - t <= 24 * 3600)
+    count_1h = sum(1 for t in stamps if NOW - t <= 3600)
     # latest_version: the version key with the newest publish stamp (S-139 /
     # BACKLOG 136) -- read from this SAME `npm view ... time --json` result,
     # never a second `npm view ... dist-tags`/`version` call, to stay inside
@@ -829,7 +838,12 @@ def parse_npm_releases(rc, out):
     return {
         "last_release_epoch": last,
         "count_24h": count_24h,
+        "count_1h": count_1h,
         "latest_version": latest_version,
+        # A-01: releases land on `next`; the newest publish is next unless
+        # the registry says otherwise. `latest` moves only via promote.yml.
+        "next_version": dist_tags.get("next") or latest_version,
+        "promoted_version": dist_tags.get("latest"),
     }
 
 
@@ -837,13 +851,16 @@ npm_result = safe(parse_npm_releases, _npm_rc, _npm_out)
 if npm_result is None:
     mark_unknown("releases_24h")
     mark_unknown("minutes_since_release")
+    emit("Releases (last hour): UNKNOWN (npm check failed or timed out)%s" % cache_note("npm"))
     emit("Releases (24h): UNKNOWN (npm check failed or timed out)%s" % cache_note("npm"))
     emit("Minutes since last release: UNKNOWN")
 else:
     mins_since = (NOW - npm_result["last_release_epoch"]) / 60.0
     _npm_note = cache_note("npm", "releases")
+    emit("Releases (last hour): %d%s" % (npm_result["count_1h"], _npm_note))
     emit("Releases (24h): %d%s" % (npm_result["count_24h"], _npm_note))
     emit("Minutes since last release: %.1f%s" % (mins_since, _npm_note))
+    emit("latest promoted: %s%s" % (npm_result.get("promoted_version") or "UNKNOWN", _npm_note))
 
 
 # --- 2. main CI status for PULSE_MAIN_REF's head SHA -----------------------
@@ -1549,7 +1566,7 @@ unreleased = safe(check_unreleased_merge_age)
 _npm_tag_mismatch = None
 if unreleased is not None and npm_result is not None:
     _local_tag_version = unreleased["tag"][1:] if unreleased["tag"].startswith("v") else unreleased["tag"]
-    _npm_latest_version = npm_result.get("latest_version")
+    _npm_latest_version = npm_result.get("next_version")
     if _npm_latest_version is not None and _local_tag_version != _npm_latest_version:
         _npm_tag_mismatch = (unreleased["tag"], _npm_latest_version)
 
@@ -1559,7 +1576,7 @@ if unreleased is None:
 elif _npm_tag_mismatch is not None:
     mark_unknown("unreleased_merge_age")
     emit(
-        "Merged-but-unreleased age: UNKNOWN (local tag %s disagrees with npm's latest published version %s)"
+        "Merged-but-unreleased age: UNKNOWN (local tag %s disagrees with npm next %s)"
         % _npm_tag_mismatch
     )
 else:
@@ -1725,7 +1742,7 @@ else:
 # merge -- see T47b. `^1` diff works identically for an ordinary
 # non-merge commit (its only parent). Reuses `unreleased["tag"]` /
 # `_npm_tag_mismatch` (same "newest v* tag whose version equals npm's
-# latest dist-tag" definition, same npm lookup, no second network call)
+# next dist-tag" definition, same npm lookup, no second network call)
 # and `ci_status` (same main-CI result, with its own Tests-run-list
 # fallback already built in) rather than re-deriving either.
 def _docs_only_path(path):
@@ -1786,6 +1803,73 @@ else:
             "commit and the release tag while main CI is green (D37 threshold %d)"
             % (_rc_count, release_cadence["tag"], _rc_age, _RELEASE_CADENCE_THRESHOLD_MIN),
         )
+
+
+# --- 4d2. D44 item 5: RELEASE_CADENCE (green-age) and MAIN_RED_BY_MERGE -------
+# Both read the SAME cached gh_ci lookup (_gh_out) as CI_RED; no new gh call.
+# Tier B = Tests, Bun Parity, Coverage, `push` event only. Time basis for
+# "green for N minutes" is the RUN COMPLETION time (gh updatedAt, latest of
+# the three runs), not the commit time: a commit can sit unbuilt for a while
+# before it turns green, and the 20-minute clock is about how long a green,
+# releasable commit has been waiting. Only the main HEAD is judged (the one
+# commit this lookup covers); a fixture/run lacking `event`/`updatedAt` reads
+# n/a, never fires. ponytail: head-only, a green non-head unreleased commit
+# is not seen; add a per-commit gh lookup if trains stop fast-forwarding.
+_TIER_B = ("Tests", "Bun Parity", "Coverage")
+_D44_GREEN_MIN = 20
+
+
+def _tier_b_push_runs():
+    try:
+        runs = json.loads(_gh_out) if _gh_rc == 0 and _gh_out.strip() else []
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(runs, list):
+        return None
+    return [r for r in runs if isinstance(r, dict) and r.get("event") == "push"
+            and r.get("workflowName") in _TIER_B]
+
+
+def _head_version_only():
+    rc, out, _ = git(["diff", "--name-only", "%s^1" % main_sha, main_sha])
+    return rc == 0 and out.split() == ["VERSION"]
+
+
+def check_d44():
+    if main_sha is None or unreleased is None:
+        return None
+    runs = _tier_b_push_runs()
+    if runs is None:
+        return None
+    return {"runs": runs, "version_only": _head_version_only()}
+
+
+_d44 = safe(check_d44)
+if _d44 is None or not _d44["runs"]:
+    emit("D44 main push checks: n/a (no Tier B push runs for %s)" % (main_sha or MAIN_REF)[:8])
+else:
+    _d44_runs = _d44["runs"]
+    _d44_failed = sorted(set(r["workflowName"] for r in _d44_runs if r.get("conclusion") in _CI_FAILURE_CONCLUSIONS))
+    if _d44_failed and not _d44["version_only"]:
+        add_violation(
+            "MAIN_RED_BY_MERGE",
+            "push to main %s failed Tier B: %s" % (main_sha[:8], ", ".join(_d44_failed)),
+        )
+    _d44_green = (
+        {r["workflowName"] for r in _d44_runs if r.get("status") == "completed" and r.get("conclusion") in _CI_OK_CONCLUSIONS}
+        >= set(_TIER_B)
+    )
+    _d44_done = [parse_time_value(r.get("updatedAt") or "") for r in _d44_runs]
+    _rc2, _tag_sha, _ = git(["rev-parse", "%s^{commit}" % unreleased["tag"]])
+    if _d44_green and None not in _d44_done and _rc2 == 0 and _tag_sha.strip() != main_sha:
+        _d44_age = (NOW - max(_d44_done)) / 60.0
+        emit("Green unreleased main %s: green for %.1f min since %s" % (main_sha[:8], _d44_age, unreleased["tag"]))
+        if _d44_age > _D44_GREEN_MIN:
+            add_violation(
+                "RELEASE_CADENCE",
+                "D44: green unreleased main commit %s has had green Tier B for %.1f minutes (by run completion time) and is newer than %s (D44 threshold %d)"
+                % (main_sha[:8], _d44_age, unreleased["tag"], _D44_GREEN_MIN),
+            )
 
 
 # --- 4e. MERGED_NOT_RELEASED_STALE: a `merged` row already shipped (E-90) --
@@ -2306,6 +2390,25 @@ def check_release_cadence():
 
 
 safe(check_release_cadence)
+
+
+# RELEASE_SLO (D46): 3-6 `next` releases per rolling hour. The npm `time`
+# map cannot tell dist-tags apart per version, so this counts EVERY publish in
+# the trailing 60 minutes; after D44 every release goes to `next`, so the two
+# are the same. Unknown npm data never reaches here (npm_result is None and
+# "Releases (last hour): UNKNOWN" is already emitted), so no false pass.
+def check_release_slo():
+    if npm_result is None:
+        return
+    n = npm_result["count_1h"]
+    if n < 3:
+        add_violation(
+            "RELEASE_SLO",
+            "%d next releases in the trailing 60 minutes (target 3-6, D46)%s" % (n, cache_note("npm")),
+        )
+
+
+safe(check_release_slo)
 
 
 # --- 8. CONTROL.md line budget ----------------------------------------------
@@ -3126,7 +3229,8 @@ _NEXT_ACTION_TEXT = {
     "OPUS_SHARE": "re-pin the named engineer(s) to sonnet, opus is over its D13 30% share of last-hour engineer output tokens",
     "MOAT_REGRESSION": "identify which moat property regressed and revert or fix it before any further merge",
     "UNRELEASED_MERGE": "cut a release now, main has been unreleased past the 30-minute budget",
-    "RELEASE_CADENCE": "cut a release now (D37 cadence)",
+    "RELEASE_CADENCE": "cut a release now (D37 cadence, or D44 green unreleased main commit)",
+    "MAIN_RED_BY_MERGE": "main's latest push failed Tier B: fix forward or revert the named SHA before any further merge (D44)",
     "TRAIN_LATE": "push a release train now, merged-unreleased commits exist and cadence has slipped past the 25-minute budget",
     "REVIEW_STALE": "escalate or finish review for the named slice(s), they have exceeded the 45-minute budget",
     "AGENT_OVER_BUDGET": "check in on the named agent(s), they have exceeded their role/tier time budget",
@@ -3142,6 +3246,7 @@ _NEXT_ACTION_TEXT = {
     "UNDERSTAFFED": "staff more engineers now, the ready queue is deep and BOARD shows fewer than 8 rows building",
     "LOW_READY": "the Product Owner should cut the named number of additional slices onto the ready queue",
     "NO_RECENT_RELEASE": "cut a release now, none has shipped in over 90 minutes",
+    "RELEASE_SLO": "cut releases now, fewer than 3 next releases shipped in the trailing 60 minutes (D46)",
     "LOW_RELEASE_VOLUME": "investigate why release throughput is below the 30/day target",
     "MERGED_NOT_RELEASED_STALE": "run scripts/board-mark-released.sh <tag> to flip the named row(s), their merge commit already shipped",
     "CONTROL_OVERSIZE": "trim docs/v10/CONTROL.md back under its 40-line budget",

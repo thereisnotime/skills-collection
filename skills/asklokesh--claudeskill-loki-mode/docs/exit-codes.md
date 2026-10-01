@@ -50,6 +50,22 @@ immediately instead of burning `backoffLimit`. Requires Kubernetes 1.31+.
 Both the bash runner and the Bun runner (`LOKI_SDK_LOOP`) implement this
 identically; a parity test asserts they agree status for status.
 
+## `loki quick`
+
+| Code | Meaning |
+|---|---|
+| 0 | The run completed and its diff did not weaken the tests |
+| 3 | The diff weakened the tests (a skip marker added in a test file, a test runner config changed, or an existing test file deleted or renamed). The receipt headline is NOT VERIFIED and names what was weakened, for example `NOT VERIFIED (tests weakened: skip added in sum.test.js)` |
+| other nonzero | The run itself failed; this code is passed through unchanged |
+
+`loki quick` has no `--json` flag; its structured result is `loki why --json`, schema: `schemas/why-result.schema.json` (`state.lastExitCode` carries the ladder above).
+
+Code 3 only ever raises an exit of 0, in quiet and `LOKI_VERBOSE=1` modes alike;
+it never lowers another nonzero code. Edited assertion lines are disclosed in
+the receipt (`tests_integrity:assertions_edited`) and keep exit 0. A NOT VERIFIED
+headline caused by unproven gates alone also keeps exit 0. The signal is the
+`tests_integrity` item in the proof's `honesty.degraded`, not the headline text.
+
 ## `loki verify`
 
 | Code | Verdict |
@@ -59,9 +75,35 @@ identically; a parity test asserts they agree status for status.
 | 2 | BLOCKED (findings at or above the block threshold) |
 | 3 | Verifier error: it could not complete, and never silently passes |
 
+`loki verify` has no `--json` flag. `loki status --json` schema: `schemas/status-result.schema.json`.
+
 Code 3 matters more than it looks. A verifier that cannot run is not a pass,
 so `[ $rc -eq 0 ]` is the only safe test for "verified" -- `[ $rc -ne 2 ]`
 would treat a broken verifier as acceptable.
+
+### UNSIGNED receipts (D47)
+
+An UNSIGNED receipt (no attestation, so its integrity is not attested) is never
+a pass, on either engine, with or without a local key. A stripped receipt must
+not rank above UNCHECKED.
+
+| Engine | UNSIGNED without the flag | With `--allow-unsigned` or `LOKI_VERIFY_ALLOW_UNSIGNED=1` |
+|---|---|---|
+| Engine10 (`loki-ts`, `verify_cmd.ts`) | exit 3, `attestation: UNSIGNED, integrity not attested; refusing (pass --allow-unsigned to accept)` | exit 0, `attestation: UNSIGNED (accepted by --allow-unsigned; integrity not attested)` |
+| Legacy shell (`autonomy/verify.sh`) | BLOCKED (non-zero) | the receipt line passes with the same accepted line |
+
+Engine10 `loki verify [run-id]` exits: 0 verified, 1 tampered, 2 unchecked,
+3 unsigned (refused), 4 run outcome not verified (a sealed receipt of a FAILED or
+otherwise unverified run), 66 no runs. The outcome check runs before the UNSIGNED
+branch, so the flag never changes exit 4, TAMPERED or UNCHECKED,
+and verify never creates a signing key.
+
+`loki verify --pubkey FILE <receipt.json|run-id>` (v10 only) checks the signature
+against the supplied Ed25519 public key (JWK from `loki keys export`, or PEM) and
+never the local JWKS. Exits: 0 VERIFIED, 1 TAMPERED, 2 UNCHECKED (kid does not
+match the key, or the key file is unusable), 3 UNSIGNED (a receipt with no
+signature is refused even with `--allow-unsigned`, because the caller asked for a
+signature check), 4 run outcome not verified (checked before UNSIGNED).
 
 An early draft spec listed `1=BLOCKED, 2=CONCERNS`. That ordering was rejected:
 it is not used anywhere, it has no consumers, and it inverts the

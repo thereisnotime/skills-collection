@@ -65,7 +65,7 @@ This reflects current vendor guidance, not a preference for terseness. [OpenAI's
 
 For Compound Engineering's multi-model skills, portable means Sol-first and Fable-acceptable. When Fable guidance to strip procedure or add a brevity block conflicts with Sol guidance to preserve a known-good command, required report content, or no blanket brevity slogan, keep the Sol form. Fable's strong instruction following tolerates a slightly thicker skill; Sol undershoots when Sol-critical determinism is omitted.
 
-For portable Sol/Fable skills, control output length by naming what shortened output must preserve. Do not paste a Fable-only brevity block or ship a blanket "be concise" / "keep it short" slogan into a cross-model skill; GPT-5.6 Sol can undershoot when broad brevity instructions stack on top of its default concision.
+For portable Sol/Fable skills, control output length by naming what shortened output must preserve. Do not paste a Fable-only brevity block or ship a blanket "be concise" / "keep it short" slogan into a cross-model skill; GPT-5.6 Sol can undershoot when broad brevity instructions stack on top of its default concision. Numeric word or bullet caps are not a length control either: when user-facing output runs long, tighten the rule that decides what goes in, such as what the reader needs to judge the result, effects rather than mechanisms, and no replay of what the user said (`confirmations-filter-by-salience-not-length-caps.md`).
 
 Write instructions in the language the agent should use with the reader. Name who acts, what they do, and why it matters when that information is needed. Replace invented labels and internal workflow jargon with the action or consequence they mean. Keep necessary technical terms and exact identifiers, explaining unfamiliar terms where the reader needs them. Clarity must preserve evidence, qualifications, and required detail; shorter text is not the goal.
 
@@ -313,7 +313,7 @@ Always-loaded skill prose remains in context throughout the workflow. Extract su
 - Do not inline a summary complete enough to suppress loading the authoritative reference.
 - Pass large context to subagents by file path plus a short gist rather than duplicating it into prompts.
 
-When delegation is used, each task needs a distinct scope, output contract, and synthesis owner. Use parallel work for genuinely independent questions, not as a reflex. A single capable model may be better when the work depends on one evolving context or requires tight synthesis.
+Dispatch a subagent only for a reason that survives better compaction. There are four: the work must read far more than it returns and the parent will not need the raw material again; independent judgment is the product (review, verification, ideation, judging), so the parent's context would anchor it; substantial units can run in parallel without shared files or state; or the harness can actually select a different model for it. Do the work in the parent when its input lives only in the parent (the conversation, decisions settled this session), when the parent will read the full output back anyway, or when it is a small change to code the parent already read. A fresh subagent sees only what its prompt carries, so a subagent told to "extract the conversation" without being handed it is a broken dispatch, not a cheap one: `ce-compound` once drafted every learning that way. Inlining is not free either. Tokens added to a long-lived parent, such as an `lfg` or `ce-babysit-pr` chain, are re-read on every later turn, and in one measured `ce-code-review` run the orchestrator's cache reads were twice those of its six subagents combined (`review-cost-is-in-entering-the-spine-not-the-findings.md`). Each delegated task still needs a distinct scope, output contract, and synthesis owner.
 
 Stable cross-skill fields, enums, and return statuses are protocols. Version or parity-test them when independently evolving skills depend on exact agreement.
 
@@ -437,6 +437,7 @@ Measure the outcome the skill exists to improve, not proxy volume:
 - [ ] Higher-priority prohibitions remain intact.
 - [ ] Inherited authority is explicit and can only narrow.
 - [ ] Delegated tasks have distinct scopes, output contracts, and a synthesis owner.
+- [ ] Each subagent dispatch names its reason (flood protection, independent judgment, parallel units, or a selectable model) and receives every input it needs; work whose input lives only in the parent stays in the parent.
 
 ### Evidence and evaluation
 

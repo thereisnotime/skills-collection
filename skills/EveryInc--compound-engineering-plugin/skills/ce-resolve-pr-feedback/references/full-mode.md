@@ -90,13 +90,19 @@ Create a task list of all new items (e.g., `TaskCreate` in Claude Code, `update_
 
 If the fix-list is empty (all verdicts are reply/needs-human), skip steps 4-6 and go to step 7.
 
-## 4. Fix (PARALLEL — fix-list only)
+## 4. Fix (fix-list only)
 
 Dispatch fixers **only** for fix-list items. Reply-list and human-list items never reach a subagent.
 
+### Where each fix runs
+
+Step 3 already read the code behind every fix-list item. Dispatch fixers when the items form a real parallel batch (two or more items on disjoint files), or for an item whose fix reaches well beyond what you read (a rename across callers, a class fix over many sites). Apply every other item in this context, with the fixer prompt below as your own instructions.
+
+Every fix-list item ends with one **per-item result** in the return format below, whether a fixer produced it or you did. The **change set** for this run is the union of those results' `files_changed`. Steps 5-7 read only per-item results and the change set, never which path produced them.
+
 ### Dispatch
 
-Read [references/agents/pr-comment-resolver.md](agents/pr-comment-resolver.md) and spawn a generic subagent seeded with that fixer prompt for each fix-list item. Do not dispatch a standalone agent by type/name. The fixer only implements: the validity judgment is already done, so it implements and returns; it does not re-judge whether the fix is worthwhile.
+Read [references/agents/pr-comment-resolver.md](agents/pr-comment-resolver.md) and spawn a generic subagent seeded with that fixer prompt for each fix-list item you are delegating. Do not dispatch a standalone agent by type/name. The fixer only implements: the validity judgment is already done, so it implements and returns; it does not re-judge whether the fix is worthwhile.
 
 Each fixer receives:
 - The feedback_id (thread ID or comment ID) and feedback type.
@@ -107,11 +113,11 @@ Each fixer receives:
 
 For `pr_comment` / `review_body` fix-list items (no file/line), the fixer identifies the relevant files from the comment text and the PR diff.
 
-**No subagent capability — apply the fixes yourself, sequentially.** When the harness exposes no way to dispatch (or a dispatch fails), work the fix-list in this context one item at a time, using the fixer prompt as your own instructions and producing the same per-item result. This is a supported path, not a shortfall to report as lost coverage: the decision about whether each item is valid already happened in step 3, and fixers only *implement* changes you approved, so running them here costs parallelism and context headroom — never correctness. Keep the dispatch path's discipline: one item at a time, re-read each file before editing it, and stop to re-evaluate if implementing reveals a contradiction (the `blocked` handling applies unchanged).
+**No subagent capability — apply the fixes yourself, sequentially.** When the harness exposes no way to dispatch (or a dispatch fails), work the fix-list in this context one item at a time, using the fixer prompt as your own instructions and producing the same per-item result. This is a supported path, not a shortfall to report as lost coverage: the decision about whether each item is valid already happened in step 3, and fixers only *implement* changes you approved, so running them here costs parallelism and context headroom — never correctness. Keep the dispatch path's discipline: one item at a time, re-read each file before editing it, and stop to re-evaluate if implementing reveals a contradiction (the `blocked` handling applies unchanged). Items you apply in this context by choice follow the same discipline.
 
 This skill therefore does not depend on agent-tool authorization to complete a review. That is deliberate: it runs unattended under `ce-babysit-pr`, where a permission prompt would stall the whole loop, so it needs few tools and can still fix without dispatch.
 
-### Fixer return format
+### Per-item result format (fixer or inline)
 
 - **verdict**: `fixed`, `fixed-differently`, or `blocked`
 - **feedback_id**, **feedback_type**
@@ -123,7 +129,7 @@ This skill therefore does not depend on agent-tool authorization to complete a r
 
 ### Batching and conflict avoidance
 
-**Batching**: If the fix-list has 1-4 items, dispatch all in parallel. For 5+, batch in groups of 4.
+**Batching**: If 1-4 items are delegated, dispatch them all in parallel. For 5+, batch in groups of 4.
 
 **Conflict avoidance**: No two fixers that touch the same file run in parallel. You already know the target files from step 3 — serialize fixers that share a file (dispatch one, wait, then the next); non-overlapping items run in parallel. For a **class item**, feed the fixer its full enumerated location set and every covered feedback ID (not a single thread), and account for **all** of its sites in this check — a class fix touching files another fixer also touches must be serialized against every one of them. When one fixer handles multiple threads on the same file, it addresses them sequentially.
 
@@ -133,29 +139,29 @@ Fixes can occasionally expand beyond their referenced file (e.g., renaming a met
 
 ## 5. Validate Combined State
 
-Aggregate `files_changed` across every fixer summary. If it's empty, skip steps 5 and 6 and proceed to step 7.
+If the change set is empty, skip steps 5 and 6 and proceed to step 7.
 
-Fixers run only targeted tests on their own changes. This step runs the project's full validation **once** against the combined diff to catch cross-agent interactions that targeted runs can't see.
+Each fix runs only targeted tests on its own change. This step runs the project's full validation **once** against the combined diff to catch interactions between fixes that targeted runs can't see.
 
 1. **Run the project's validation command** (test suite, type check, or whatever the project's active conventions specify). Run once, not per-agent.
 
 2. **Green** -> proceed to step 6.
 
-3. **Red, failures touch files fixers changed** -> one inline diagnose-and-fix pass. Re-run validation. If still red, escalate with a `needs-human` item containing the test output; do **not** commit.
+3. **Red, failures touch files in the change set** -> one inline diagnose-and-fix pass. Re-run validation. If still red, escalate with a `needs-human` item containing the test output; do **not** commit.
 
-4. **Red, failures touch only files no fixer changed** -> treat as pre-existing. Proceed to step 6, but add a footer to the commit message: `Note: pre-existing failure in <test> not addressed by this PR.`
+4. **Red, failures touch only files outside the change set** -> treat as pre-existing. Proceed to step 6, but add a footer to the commit message: `Note: pre-existing failure in <test> not addressed by this PR.`
 
 Record the validation outcome (command run, pass/fail counts, any pre-existing failures noted) for the step 9 summary.
 
 ## 6. Commit and Push
 
-1. Stage only files reported by fixers and commit with a message referencing the PR:
+1. Stage only the change set and commit with a message referencing the PR:
 
 ```bash
-git add [files from fixer summaries]
+git add [files in the change set]
 git commit -m "Address PR review feedback (#PR_NUMBER)
 
-- [list changes from fixer summaries]"
+- [list changes from per-item results]"
 ```
 
 2. Push to remote:
@@ -165,7 +171,7 @@ git push
 
 ## 7. Reply and Resolve
 
-After the push succeeds, post replies and resolve where applicable. The done condition for an ordinary review thread is one visible, submitted substantive reply plus authoritative resolution; satisfy each condition independently and never repeat a satisfied half. Post for every newly handled item: fix-list items use the fixer's `reply_text`; reply-list and human-list items use the reply text you composed in step 3. A **class item** carries multiple covered feedback IDs (`feedback_ids`/`feedback_types` from its fixer) — reply to and resolve *every* one, posting the shared `reply_text` on each thread, not just the first; a covered thread left unresolved shows up as new work again in the next `ce-babysit-pr` loop. The mechanism depends on the feedback type.
+After the push succeeds, post replies and resolve where applicable. The done condition for an ordinary review thread is one visible, submitted substantive reply plus authoritative resolution; satisfy each condition independently and never repeat a satisfied half. Post for every newly handled item: fix-list items use the `reply_text` from their per-item result; reply-list and human-list items use the reply text you composed in step 3. A **class item** carries multiple covered feedback IDs (`feedback_ids`/`feedback_types` from its fixer) — reply to and resolve *every* one, posting the shared `reply_text` on each thread, not just the first; a covered thread left unresolved shows up as new work again in the next `ce-babysit-pr` loop. The mechanism depends on the feedback type.
 
 ### Reply format
 

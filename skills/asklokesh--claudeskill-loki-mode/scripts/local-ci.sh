@@ -221,6 +221,8 @@ declare -a _FAST_KEEP=(
   # NEGATIVE control pass). Also asserts web-app/dist carries the change, since
   # dist is tracked and is what npm users receive. Measured 0.07s.
   "tests/test-verify-deploy-error-surfaced.sh"
+  # D44 item 3: structural checks run first (shard rows, home paths, registration, budgets)
+  "structural checks (D44)"
   # 1. syntax + structure (cheap, already background lanes)
   "bash -n "
   "JSON validation"
@@ -308,6 +310,7 @@ declare -a _FAST_KEEP=(
   "tests/dashboard/test_tenant_isolation.py"
   "tests/dashboard/test_oidc_rbac_mapping.py"
   "tests/cli/test-proof-command.sh"
+  "tests/test-backlog.sh"
   "tests/test-evidence-gate"
   "tests/test-evidence-boot-axis.sh"
   "tests/test-evidence-secret-axis.sh"
@@ -437,6 +440,7 @@ declare -a _FAST_KEEP=(
   # nothing else in CI can see this class. Measured 0.1s (one node graph walk).
   "tests/test-web-app-no-orphan-components.sh"
   "tests/test-release-sbom-attached.sh"       # 0.2s
+  "tests/test-release-dist-guard.sh"          # E-133, release.sh dist-map path guard
   # Guards two shipped behaviors no other suite covers: a pause must not wait
   # on a keypress that cannot arrive off a TTY (it either spun forever or was
   # falsely resumed by stray stdin bytes), and a finished run must state the
@@ -895,6 +899,12 @@ if [ "$TIER" = "fast" ]; then
 else
   echo "Tier:    FULL -- every check (the CLAUDE.md pre-push gate)"
 fi
+
+# ---------------------------------------------------------------------------
+# 0. D44 structural checks: the defects CI caught only after a push. Serial and
+# first so a structural red fails fast; each inner check is timed and < 10s.
+# ---------------------------------------------------------------------------
+run_check "structural checks (D44)" "bash scripts/structural-checks.sh 2>&1 | tail -15; exit \${PIPESTATUS[0]}"
 
 # ---------------------------------------------------------------------------
 # 1. Bash syntax (mirrors release.yml gate.bash-syntax-validation)
@@ -1572,6 +1582,7 @@ run_check "tests/test-prd-reuse-stub.sh (reuse hit = zero re-analysis provider c
 # a fixture proofs dir. Faked gh/open on PATH -> no network, no browser launch.
 # Asserts share does NOT publish without confirm and DOES with --yes.
 run_check "tests/cli/test-proof-command.sh (proof list/show/open/share)" "bash tests/cli/test-proof-command.sh 2>&1 | tail -3"
+run_check "tests/test-backlog.sh (loki backlog + loki.yaml)" "bash tests/test-backlog.sh 2>&1 | tail -3"
 
 # task 562: `loki mcp` launcher (autonomy/mcp-launch.sh) + server.py SDK
 # detection. Stub-based, ZERO real installs / ZERO real server launches: a stub
@@ -1665,6 +1676,9 @@ run_check "tests/test-web-app-no-orphan-components.sh (no unreachable web-app mo
 # badge. Static check of the workflow definition; measured 0.2s.
 run_check "tests/test-release-sbom-attached.sh (npm SBOM ships as a release asset)" \
   "bash tests/test-release-sbom-attached.sh 2>&1 | tail -3"
+
+run_check "tests/test-release-dist-guard.sh (release.sh refuses absolute or escaping dist map sources, E-133)" \
+  "bash tests/test-release-dist-guard.sh 2>&1 | tail -3"
 
 # The guard above is only a gate if it REJECTS. This mutates a copy of the tree
 # and proves it fails on a same-count rename, a deletion, absent npm and absent

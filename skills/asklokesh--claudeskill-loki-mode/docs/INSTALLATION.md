@@ -2,7 +2,7 @@
 
 The flagship product of [Autonomi](https://www.autonomi.dev/). Loki Mode is a spec-driven autonomous builder with a built-in trust layer that takes any spec to a deployed product and verifies completion with evidence (quality gates plus a completion council), not just a "done" claim. Complete installation instructions for all platforms and use cases.
 
-**Version:** v10.5.5
+**Version:** v10.5.29
 
 ---
 
@@ -135,13 +135,38 @@ opt-out model.
 
 ---
 
+## Slim install (no bundled bun)
+
+```bash
+npm install -g loki-mode --omit=optional
+```
+
+Install Loki Mode without the bundled bun binary. This reduces the package size by 62-86 MB per platform but requires you to manage the Loki 10 engine dependency separately.
+
+**What it skips:**
+- `bun` (62-86 MB binary for darwin-aarch64, darwin-x64, linux-aarch64, linux-x64)
+- Claude Agent SDK packages
+- OpenTelemetry instrumentation packages
+
+**What happens:**
+- The legacy bash engine runs when loki is invoked
+- Each `loki` command that would use the Loki 10 engine prints this as the first line on stderr: "loki: the Loki 10 engine cannot run on this machine: no working bun (none on PATH, and the bundled bun for darwin-aarch64 is missing). Running the legacy engine instead. To fix: install bun from https://bun.sh, or reinstall loki-mode without --omit=optional."
+
+**To restore Loki 10 engine access:**
+- Install bun: `curl -fsSL https://bun.sh/install | bash` or `brew install oven-sh/bun/bun`
+- Or reinstall loki-mode without the flag: `npm install -g loki-mode`
+
+---
+
 ## Homebrew
 
 ```bash
 brew tap asklokesh/tap && brew install loki-mode
 ```
 
-Installs the `loki` CLI. To also install the skill for interactive use with all providers:
+Installs the `loki` CLI. For the Loki 10 default engine the formula in `asklokesh/tap` needs bun; if bun is not installed, run `brew install oven-sh/bun/bun`. Without bun, each Loki 10 command prints the "no working bun" line and runs the legacy engine (see Slim install above).
+
+To also install the skill for interactive use with all providers:
 
 ```bash
 loki setup-skill

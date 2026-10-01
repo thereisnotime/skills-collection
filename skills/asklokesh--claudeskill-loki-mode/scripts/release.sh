@@ -59,6 +59,7 @@ log_step() { echo -e "${CYAN}[STEP]${NC} $*"; }
 
 DRY_RUN="false"
 BUMP_ONLY="false"
+CHECK_CLEAN="false"
 BUMP_TYPE=""
 
 # Parse arguments. Sets the globals DRY_RUN and BUMP_TYPE directly instead of
@@ -77,6 +78,9 @@ parse_args() {
             --bump-only)
                 BUMP_ONLY="true"
                 ;;
+            --check-clean)
+                CHECK_CLEAN="true"
+                ;;
             -h|--help)
                 usage
                 exit 0
@@ -90,7 +94,7 @@ parse_args() {
         shift
     done
 
-    if [[ -z "$BUMP_TYPE" ]]; then
+    if [[ -z "$BUMP_TYPE" && "$CHECK_CLEAN" != "true" ]]; then
         log_error "Bump type required: patch, minor, or major"
         usage
         exit 1
@@ -109,6 +113,8 @@ Arguments:
 Options:
   --dry-run    Show what would be done without making changes
   --bump-only  Bump version files + loki-ts/dist, then exit. No commit, no push.
+  --check-clean  Run after the release commit: exit 1 naming any tracked file
+               still modified (E-151: a stamped dist map left out of the commit).
   -h, --help   Show this help message
 
 Examples:
@@ -341,12 +347,17 @@ bump_all_version_files() {
         "s/^([[:space:]]*v)${digits}\$/\\1${new}/" \
         "^[[:space:]]*v${new}\$" \
         "Footer.tsx version badge"
+
+    update_version_slot "$ROOT_DIR/web-app/src/components/WhatsNew.tsx" \
+        "s/^(const CURRENT_VERSION = ')${digits}(';)\$/\\1${new}\\2/" \
+        "^const CURRENT_VERSION = '${new}';\$" \
+        "WhatsNew.tsx CURRENT_VERSION"
 }
 
 # Files staged into the release commit. Kept as its own list, sourced from
 # the same set bump_all_version_files touches, so the commit can never ship
 # a partially-bumped tree (some files updated on disk but left unstaged).
-RELEASE_COMMIT_FILES="VERSION package.json SKILL.md Dockerfile Dockerfile.sandbox plugins/loki-mode/.claude-plugin/plugin.json server.json CLAUDE.md dashboard/__init__.py mcp/__init__.py docs/INSTALLATION.md wiki/Home.md wiki/_Sidebar.md wiki/API-Reference.md CHANGELOG.md"
+RELEASE_COMMIT_FILES="VERSION package.json SKILL.md Dockerfile Dockerfile.sandbox plugins/loki-mode/.claude-plugin/plugin.json server.json CLAUDE.md dashboard/__init__.py mcp/__init__.py docs/INSTALLATION.md wiki/Home.md wiki/_Sidebar.md wiki/API-Reference.md web-app/src/components/Footer.tsx web-app/src/components/WhatsNew.tsx CHANGELOG.md"
 
 # --- Release gate (RELEASE_ON_RED, S-108) --------------------------------
 # Founder P0: a release is a lookup of an already-verified commit. Refuses
@@ -492,6 +503,40 @@ release_bump_only_fail() {
     exit 1
 }
 
+# E-133: refuse a dist whose source maps carry a machine-local path. A
+# node_modules symlink to another checkout made the v10.5.4 build write 133
+# absolute /Users/... "sources" entries. Reads the maps as JSON so comment
+# text inside sourcesContent cannot trip it. Relative entries resolve against
+# loki-ts/dist; one that lands outside the repo root counts as climbing out.
+release_dist_maps_clean() {
+    python3 - "$ROOT_DIR" "$ROOT_DIR/loki-ts/dist" <<'PY'
+import glob, json, os, sys
+root, dist = os.path.realpath(sys.argv[1]), os.path.realpath(sys.argv[2])
+bad = []
+for m in sorted(glob.glob(os.path.join(dist, "*.map"))):
+    for s in json.load(open(m)).get("sources") or []:
+        r = os.path.normpath(os.path.join(dist, s))
+        if os.path.isabs(s) or os.path.commonpath([root, r]) != root:
+            bad.append((os.path.basename(m), s))
+for f, s in bad[:5]:
+    print("  %s: %s" % (f, s), file=sys.stderr)
+if bad:
+    print("  %d bad source entries in total" % len(bad), file=sys.stderr)
+sys.exit(1 if bad else 0)
+PY
+}
+
+# E-151: after the release commit no tracked file may still differ from HEAD.
+# dist is tracked, so a plain `git add <file>` suffices for a leftover map.
+release_commit_clean() {
+    local dirty
+    dirty=$(git -C "${ROOT_DIR}" status --porcelain --untracked-files=no | sed 's/^...//')
+    [ -z "$dirty" ] && return 0
+    echo "release commit left tracked files modified (stage and amend):" >&2
+    echo "$dirty" | sed 's/^/  /' >&2
+    return 1
+}
+
 # --bump-only (S-108): version files + loki-ts/dist, no git side effects.
 run_bump_only() {
     local current new dist_file="$ROOT_DIR/loki-ts/dist/loki.js"
@@ -515,6 +560,9 @@ run_bump_only() {
             release_bump_only_fail "loki-ts build failed -- restoring loki-ts/dist from HEAD"
         fi
         if [ -f "$dist_file" ] && grep -q "$new" "$dist_file"; then
+            if ! release_dist_maps_clean; then
+                release_bump_only_fail "loki-ts/dist source maps contain absolute or repo-escaping paths (is loki-ts/node_modules a symlink to another checkout?) -- restoring loki-ts/dist from HEAD"
+            fi
             log_success "loki-ts/dist rebuilt with $new"
             release_restore_debugid_only_dist "$ROOT_DIR/loki-ts/dist"
         else
@@ -526,13 +574,21 @@ run_bump_only() {
 
     echo ""
     log_success "Bump-only complete: v$new"
-    echo "Files changed:"
+    echo "stage these files:"
+    release_stage_lines
+}
+
+# E-152: one `git add` line per modified tracked file; `-f` when the path sits
+# under an ignored directory (a tracked-but-ignored dist needs it).
+release_stage_lines() {
     local f
-    for f in $RELEASE_COMMIT_FILES; do
-        [ "$f" = "CHANGELOG.md" ] && continue
-        echo "  $f"
+    git -C "$ROOT_DIR" status --porcelain --untracked-files=no | sed 's/^...//' | while IFS= read -r f; do
+        if git -C "$ROOT_DIR" check-ignore --no-index -q -- "$f"; then
+            echo "  git add -f $f"
+        else
+            echo "  git add $f"
+        fi
     done
-    [ -d "$ROOT_DIR/loki-ts" ] && echo "  loki-ts/dist/loki.js"
 }
 
 # Check for uncommitted changes
@@ -555,6 +611,11 @@ main() {
     cd "$ROOT_DIR"
 
     parse_args "$@"
+
+    if [ "$CHECK_CLEAN" = "true" ]; then
+        release_commit_clean
+        return
+    fi
 
     # Release gate runs before ANY bump, --bump-only included. Skipped on
     # --dry-run: it makes no changes, so it never needs to pass the "that

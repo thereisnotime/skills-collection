@@ -114,11 +114,12 @@ jobs:
   # run at the release SHA with conclusion exactly "failure" fails the whole
   # job, even if another run of the same workflow is still in flight (a
   # completed failure is never hidden behind a hopeful retry); (c) else, for
-  # Tests/Bun Parity only, reuse the parent's verdict if this push is eligible
+  # Tests/Bun Parity/Security Audit, reuse the parent's verdict if this push is eligible
   # (see below) and the parent shows a success; (d) else wait for the release
-  # SHA's own result. Security Audit never reaches (c) -- it is NEVER reused,
-  # so it always resolves via (a), (b), or (d) at the release SHA, which costs
-  # about 4 min on every release regardless of what the push touched.
+  # SHA's own result. Security Audit reuses the parent's newest decisive verdict under the SAME
+  # eligibility rule (E-157), only when that verdict is success AND a pinned
+  # gitleaks scan of PARENT..SHA (second-parent commits included) is clean,
+  # because the allowlist admits bytes the parent's audit never scanned.
   # Eligibility (the "(c)" gate) requires every file this push changed to be
   # on the allowlist below, present as the same regular-file mode on both
   # sides (round 3: `git diff --raw`, not `--name-only` -- a rename, add,
@@ -210,11 +211,16 @@ jobs:
       actions: read
       contents: read
     steps:
-      - name: Checkout (immediate parent + release commit, for the reuse-eligibility diff)
+      - name: Checkout (full history for the reuse-eligibility diff and the PARENT..SHA secret scan)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Install gitleaks (pinned, checksum-verified)
+        # E-157: reusing the parent's Security Audit verdict needs a fresh scan of
+        # PARENT..SHA first (see the poll loop). Same pinned binary as the audit.
+        run: bash scripts/install-gitleaks.sh
 
       - name: Require Tests / Bun Parity / Security Audit green, at the release SHA or an eligible parent
         env:
@@ -257,6 +263,7 @@ jobs:
               "loki-ts/dist/loki.js", "loki-ts/dist/loki.js.map",
               "docs/INSTALLATION.md", "wiki/Home.md", "wiki/_Sidebar.md",
               "wiki/API-Reference.md", "web-app/src/components/Footer.tsx",
+              "web-app/src/components/WhatsNew.tsx",
           }
           REGULAR_MODES = {"100644", "100755"}
           VERSION_RE = re.compile(rb"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
@@ -363,8 +370,12 @@ jobs:
                       fail(f"loki.js.map is not valid JSON: {e}")
                   if not isinstance(old_j, dict) or not isinstance(new_j, dict):
                       fail("loki.js.map is not a JSON object")
-                  old_j.pop("debugId", None)
-                  new_j.pop("debugId", None)
+                  # E-157: the dropped debugId must be the same hex/dash shape as the
+                  # JS trailer, never free-form bytes the parent audit did not scan.
+                  for j in (old_j, new_j):
+                      d = j.pop("debugId", None)
+                      if d is not None and not (isinstance(d, str) and re.fullmatch(r"[0-9A-Fa-f-]+", d)):
+                          fail("loki.js.map debugId is not hex/dash shaped")
                   old_canon = json.dumps(old_j, sort_keys=True, separators=(",", ":")).encode()
                   new_canon = json.dumps(new_j, sort_keys=True, separators=(",", ":")).encode()
                   if not version_only(old_canon, new_canon):
@@ -382,7 +393,7 @@ jobs:
           fi
 
           if [ "$ELIGIBLE" = "1" ]; then
-            echo "Version-bump-only diff against parent $PARENT (every changed file is allowlisted, same-mode, and byte-identical modulo the version string). Tests and Bun Parity may reuse that commit's verdict if it already succeeded there; Security Audit is always required fresh at $SHA (it triggers only on a VERSION-path push or a PR, and this commit is itself a VERSION push, so it always runs here anyway)."
+            echo "Version-bump-only diff against parent $PARENT (every changed file is allowlisted, same-mode, and byte-identical modulo the version string). Tests and Bun Parity may reuse that commit's verdict if it already succeeded there; Security Audit follows the same rule (E-157): a decisive run at $SHA wins, else the parent's newest decisive audit verdict is reused only if it is success."
           else
             echo "Not eligible for parent reuse (see 'normalizer:' diagnostic above if the eligibility check ran, or: empty diff, no resolvable parent, or a non-push event). All required workflows must succeed at $SHA unless already decided by a completed run there."
           fi
@@ -393,8 +404,8 @@ jobs:
           # partial-match entry would never match and the loop would stall
           # until the deadline.
           #
-          # "Security Audit" is required here, and security-audit.yml carries a
-          # matching `push: paths: [VERSION]` trigger so it actually RUNS at a
+          # "Security Audit" is required here, and security-audit.yml runs on
+          # every push to main, train/** and slice-* (E-157), so it actually RUNS at a
           # release commit. Requiring a workflow that never fires at this SHA
           # would deadlock every release rather than gate it, so the trigger
           # and this list must be changed together.
@@ -402,11 +413,24 @@ jobs:
           REQUIRED=$(printf '%s\n' "Tests" "Bun Parity" "Security Audit")
 
           fetch_runs() {
-            # name<TAB>status<TAB>conclusion, one push-triggered run per line.
-            # A pull_request run at the same head_sha tested a different merge
-            # ref and must never satisfy this.
+            # name<TAB>status<TAB>conclusion<TAB>created_at, one run per line.
+            # Push runs only, EXCEPT Security Audit, which also accepts a
+            # workflow_dispatch run (E-87: lets a tree whose VERSION is already
+            # bumped publish after an audit fix, since a VERSION push cannot be
+            # re-created). Tests and Bun Parity stay push-only. A pull_request
+            # run at the same head_sha tested a different merge ref and must
+            # never satisfy this.
             gh api "repos/$REPO/actions/runs?head_sha=$1&per_page=100" \
-              --jq '.workflow_runs[] | select(.event=="push") | "\(.name)\t\(.status)\t\(.conclusion)"' 2>/dev/null || true
+              --jq '.workflow_runs[] | select(.event=="push" or (.event=="workflow_dispatch" and .name=="Security Audit")) | "\(.name)\t\(.status)\t\(.conclusion)\t\(.created_at)"' 2>/dev/null || true
+          }
+
+          audit_verdict() {
+            # $1 = runs blob. Prints the conclusion (success|failure) of the
+            # NEWEST decisive Security Audit run, so an older success can never
+            # mask a newer failure; prints nothing when none is decisive. A
+            # created_at tie resolves to failure (fail closed).
+            printf '%s\n' "$1" | awk -F'\t' \
+              '$1=="Security Audit" && $2=="completed" && ($3=="success"||$3=="failure"){ if ($4>t || ($4==t && $3=="failure")) {t=$4; c=$3} } END{print c}'
           }
 
           has_conclusion() {
@@ -418,6 +442,30 @@ jobs:
             # has_conclusion(..., failure) come back true).
             printf '%s\n' "$2" | awk -F'\t' -v w="$1" -v c="$3" \
               '$1==w && $2=="completed" && $3==c{f=1} END{exit !f}'
+          }
+
+          # E-157: the eligibility allowlist accepts bytes the parent's audit never
+          # scanned (the CHANGELOG block, a merge release's second-parent history).
+          # So the parent's Security Audit verdict is reused ONLY when a pinned
+          # gitleaks scan of PARENT..SHA finds nothing. Reuses
+          # scripts/security-audit-gitleaks.sh for config trust: the BASE release
+          # tag's .gitleaks.toml (or defaults), never the tip's, refusing a changed
+          # one. The scan runs at most once; any failure means "do not reuse".
+          RANGE_SCAN=""
+          range_scan_clean() {
+            if [ -z "$RANGE_SCAN" ]; then
+              RANGE_SCAN=dirty
+              if GITLEAKS_BIN="${GITLEAKS_BIN:-$HOME/.local/share/loki/bin/gitleaks-8.30.0}" \
+                 GITLEAKS_BEFORE="$PARENT" GITLEAKS_TIP="$SHA" \
+                 GITLEAKS_RANGE="${PARENT}..${SHA}" \
+                 GITLEAKS_REPORT="$(mktemp "${TMPDIR:-/tmp}/loki-range-scan.XXXXXX")" \
+                 bash "${GITHUB_WORKSPACE:-.}/scripts/security-audit-gitleaks.sh" >&2; then
+                RANGE_SCAN=clean
+              else
+                echo "  Security Audit: PARENT..SHA scan did not come back clean; not reusing the parent's verdict" >&2
+              fi
+            fi
+            [ "$RANGE_SCAN" = "clean" ]
           }
 
           deadline=$(( $(date +%s) + 2400 ))
@@ -436,8 +484,8 @@ jobs:
               #       exactly "failure" fails the job -- checked BEFORE any
               #       wait, so a still-running retry can never hide it;
               #   (c) else reuse the parent's success if this bump is
-              #       eligible (never for Security Audit, which is never
-              #       reused);
+              #       eligible (Security Audit too, E-157, via its newest
+              #       decisive parent verdict);
               #   (d) else wait for the release SHA's own result. Cancelled,
               #       timed_out, and skipped deliberately fall through to (c)
               #       or (d) rather than failing here: they are not evidence
@@ -446,11 +494,31 @@ jobs:
               #       otherwise-green bump whenever a later push's
               #       cancel-in-progress concurrency group cancels the
               #       release SHA's own in-flight run.
-              if has_conclusion "$want" "$runs_release" success; then
+              if [ "$want" = "Security Audit" ]; then
+                # E-157: same rule as Tests/Bun Parity. A decisive verdict at
+                # the release SHA always wins; only when none exists does an
+                # eligible bump reuse the parent's NEWEST decisive verdict,
+                # and only if that verdict is success (a newer parent failure
+                # masks an older parent success, so it never reuses).
+                label="$SHA"
+                case "$(audit_verdict "$runs_release")" in
+                  success) result="success" ;;
+                  failure) result="failed" ;;
+                  *)
+                    if [ "$ELIGIBLE" = "1" ] \
+                       && [ "$(audit_verdict "$runs_parent")" = "success" ] \
+                       && range_scan_clean; then
+                      result="success"; label="$PARENT (reused)"
+                    else
+                      result="pending"
+                    fi
+                    ;;
+                esac
+              elif has_conclusion "$want" "$runs_release" success; then
                 result="success"; label="$SHA"
               elif has_conclusion "$want" "$runs_release" failure; then
                 result="failed"; label="$SHA"
-              elif [ "$want" != "Security Audit" ] && [ "$ELIGIBLE" = "1" ] \
+              elif [ "$ELIGIBLE" = "1" ] \
                    && has_conclusion "$want" "$runs_parent" success; then
                 result="success"; label="$PARENT (reused)"
               else
@@ -729,8 +797,8 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           # v7.32.1: build the brew source asset HERE and attach it at release
           # creation. Releases in this repo are immutable, so a later job
-          # cannot upload assets (v7.32.0 update-homebrew failed with HTTP 422
-          # trying). update-homebrew downloads the published asset and hashes
+          # cannot upload assets (v7.32.0 the homebrew bump failed with HTTP 422
+          # trying). promote.yml (update-homebrew) downloads the published asset and hashes
           # those exact bytes for the formula.
           REF="v${VERSION}"
           git rev-parse -q --verify "refs/tags/${REF}" >/dev/null || REF="HEAD"
@@ -942,7 +1010,7 @@ jobs:
           rm -rf package "$tgz"
 
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish --access public --tag next
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -1008,7 +1076,7 @@ jobs:
 
       - name: Publish to npm
         working-directory: sdk/typescript
-        run: npm publish --access public
+        run: npm publish --access public --tag next
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -1145,7 +1213,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Every tag the single-runner QEMU build used to push, unchanged.
+      # Version tags only. `:latest` moves in promote.yml after the first-run gate.
       - name: Create and push multi-arch manifest
         id: build
         working-directory: /tmp/digests
@@ -1154,7 +1222,6 @@ jobs:
           tags=(
             "asklokesh/loki-mode:v${{ needs.release.outputs.version }}"
             "asklokesh/loki-mode:${{ needs.release.outputs.version }}"
-            "asklokesh/loki-mode:latest"
           )
           tag_args=()
           for t in "${tags[@]}"; do tag_args+=(-t "$t"); done
@@ -1254,92 +1321,3 @@ jobs:
   # receives no further updates. The vscode-extension/ source remains in the
   # repo for users who want to build locally. See vscode-extension/README.md
   # for details.
-
-  update-homebrew:
-    needs: [release]
-    if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read  # gh release download of the published brew asset
-    steps:
-      # v7.32.0: brew installs come from a GitHub Release ASSET instead of
-      # the auto-generated tag tarball. Release-asset downloads are counted by
-      # GitHub (the tag tarball is not), making brew the last install channel
-      # with visible adoption numbers.
-      # v7.32.1: the asset is attached at release CREATION (releases here are
-      # immutable; post-publish uploads fail HTTP 422). This job downloads the
-      # published asset and hashes the exact bytes brew users will get.
-      - name: Checkout tag
-        uses: actions/checkout@v4
-        with:
-          ref: v${{ needs.release.outputs.version }}
-
-      - name: Download and hash the published brew source asset
-        id: sha
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ needs.release.outputs.version }}"
-          ASSET="loki-mode-${VERSION}.tar.gz"
-          gh release download "v${VERSION}" --pattern "${ASSET}" --dir /tmp --clobber
-          # Sanity: a real gzip tarball, not an error artifact
-          if ! file "/tmp/${ASSET}" | grep -q 'gzip compressed'; then
-            echo "ERROR: downloaded asset is not a valid gzip tarball"
-            exit 1
-          fi
-          SHA=$(sha256sum "/tmp/${ASSET}" | cut -d' ' -f1)
-          rm -f "/tmp/${ASSET}"
-          echo "sha256=${SHA}" >> $GITHUB_OUTPUT
-
-      - name: Update Homebrew formula via API
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          VERSION="${{ needs.release.outputs.version }}"
-          SHA256="${{ steps.sha.outputs.sha256 }}"
-
-          # Create formula content
-          FORMULA=$(cat << 'FORMULA_EOF'
-          class LokiMode < Formula
-            desc "Autonomous coding agent platform CLI for Claude Code, Codex CLI, Cline, and Aider"
-            homepage "https://github.com/asklokesh/loki-mode"
-            url "https://github.com/asklokesh/loki-mode/releases/download/vVERSION_PLACEHOLDER/loki-mode-VERSION_PLACEHOLDER.tar.gz"
-            sha256 "SHA256_PLACEHOLDER"
-            license "BUSL-1.1"
-
-            depends_on "node"
-            depends_on "oven-sh/bun/bun"
-
-            def install
-              libexec.install Dir["*"]
-              # v7.4.2 fix (BUG-4): bin/loki is the Bun-aware shim that routes
-              # ported commands to Bun and falls through to autonomy/loki for
-              # everything else. Linking bin/loki (NOT autonomy/loki) is
-              # required for brew users to get the Phase 2/3+ Bun route.
-              bin.install_symlink libexec/"bin/loki" => "loki"
-            end
-
-            test do
-              system "#{bin}/loki", "--version"
-            end
-          end
-          FORMULA_EOF
-          )
-
-          # Replace placeholders
-          FORMULA=$(echo "$FORMULA" | sed "s/VERSION_PLACEHOLDER/${VERSION}/g" | sed "s/SHA256_PLACEHOLDER/${SHA256}/g")
-
-          # Get current file SHA
-          CURRENT_SHA=$(gh api repos/asklokesh/homebrew-tap/contents/Formula/loki-mode.rb --jq '.sha')
-
-          # Encode content as base64
-          CONTENT=$(echo "$FORMULA" | base64 | tr -d '\n')
-
-          # Update file via API
-          gh api repos/asklokesh/homebrew-tap/contents/Formula/loki-mode.rb \
-            -X PUT \
-            -f message="Update to v${VERSION}" \
-            -f content="$CONTENT" \
-            -f sha="$CURRENT_SHA"
-
-          echo "Homebrew formula updated to v${VERSION}"

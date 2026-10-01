@@ -23,6 +23,7 @@ All notable changes to this project are documented here.
 
 ### Changed
 
+- The low vocabulary diversity flag (`low-ttr`) now averages the type-token ratio over 200-token windows instead of taking it across the whole text. Whole-text TTR falls with length, so in the human control corpus the flag fired on all 13 documents longer than 1,900 tokens, including every 6,000-word public-domain slice, and it now fires on none of them. A text of exactly 200 tokens gets the same value as before (#361).
 - Word joiners (U+2060) next to URLs, spaces, or punctuation no longer raise the bypass-character flag. Show-notes editors insert them to control line breaks, and four of them pushed a plain paragraph of links to `AI_ONLY`. They are still stripped before matching, and a word joiner that splits a word still counts (#351).
 - A word joiner between two letters outside the Basic Multilingual Plane now counts as a bypass character (#353).
 - The negative-parallelism proximity gate now counts distinct reported frames. Repeating an identical plain contrast no longer produces one finding from a gate that counted two raw matches (#353).

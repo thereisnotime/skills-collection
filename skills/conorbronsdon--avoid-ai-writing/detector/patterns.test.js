@@ -1308,7 +1308,9 @@ test('low-ttr fires on a 200+ token text with narrow vocabulary', () => {
 
 test('low-ttr does not fire on natural human prose at 200+ tokens', () => {
   // 200+ tokens of varied human-style prose. TTR should comfortably
-  // exceed the 0.40 threshold even with some natural repetition.
+  // exceed the 0.40 threshold even with some natural repetition. The
+  // length assertion keeps the fixture above the rule's 200-token gate,
+  // below which the check never runs.
   const text = `When the build broke this morning, I rolled back the recent auth refactor and
 ran the integration tests again. Most of them passed cleanly, but a handful
 of edge cases around token refresh still tripped the staging environment.
@@ -1320,10 +1322,41 @@ parameter, redeployed to staging, and watched the metrics dashboard for
 twenty minutes before pushing to production. Memory usage stayed flat,
 latency held steady around forty milliseconds, and the error rate dropped
 back below baseline once the rollout completed. Closing the incident
-ticket now and writing up notes for the team retrospective tomorrow.`;
+ticket now and writing up notes for the team retrospective tomorrow.
+Two questions stay open for the retro. The staging suite never waited past
+the hour, so nothing there could have caught this, and nobody seems sure who
+owns the domain migration checklist since the platform lead moved teams. The
+mobile webview may carry the same cookie too: their crash reports spiked on
+Tuesday and nobody has looked at why. I will ask them before standup.`;
+  assert.ok((text.match(/[\w'-]+/g) || []).length >= 200, 'fixture must reach the 200-token gate');
   const r = AIDetector.analyzeText(text);
   const types = new Set(r.issues.map((i) => i.type));
   assert.ok(!types.has('low-ttr'), `low-ttr should not fire on natural prose, got types: ${[...types].join(', ')}`);
+});
+
+test('low-ttr does not fire on a long text whose every window is varied', () => {
+  // Whole-text TTR falls as a text grows, whoever wrote it: each
+  // 6,000-word public-domain slice in corpus/ sits under 0.40. The rule
+  // averages TTR over 200-token windows instead. Here 300 distinct words
+  // cycle through 3,000 tokens: plain TTR is 0.10, every window 1.0.
+  const words = Array.from({ length: 3000 }, (_, i) => `term${i % 300}`);
+  const types = new Set(AIDetector.analyzeText(`${words.join(' ')}.`).issues.map((i) => i.type));
+  assert.ok(!types.has('low-ttr'), `low-ttr should not fire on locally varied text, got types: ${[...types].join(', ')}`);
+});
+
+test('low-ttr still fires on a long text with a narrow vocabulary', () => {
+  const sentence = 'The system shows the system improves the system every iteration. ';
+  const types = new Set(AIDetector.analyzeText(sentence.repeat(200)).issues.map((i) => i.type));
+  assert.ok(types.has('low-ttr'), `expected low-ttr on 2,000 narrow tokens, got types: ${[...types].join(', ')}`);
+});
+
+test('low-ttr reports plain TTR for a text of exactly 200 tokens', () => {
+  // One window covers the whole text, so the averaged value is the plain
+  // ratio the 0.40 threshold was set against: 60 distinct words / 200.
+  const words = Array.from({ length: 200 }, (_, i) => `term${i % 60}`);
+  const issue = AIDetector.analyzeText(`${words.join(' ')}.`).issues.find((i) => i.type === 'low-ttr');
+  assert.ok(issue, 'expected low-ttr at 30% diversity');
+  assert.match(issue.text, /^Vocabulary diversity 30\.0% /);
 });
 
 test('low-ttr does not fire on short texts (<200 tokens)', () => {

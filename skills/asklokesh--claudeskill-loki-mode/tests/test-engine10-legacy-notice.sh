@@ -54,8 +54,8 @@ else
 fi
 
 if [ -f "$CHANGELOG" ]; then
-    # The Deprecated entry must sit under Unreleased, name loki legacy, and
-    # never claim v10 is the default -- pull just that block, not the whole file.
+    # The Deprecated entry must sit under Unreleased and name loki legacy.
+    # Pull just that block, not the whole file.
     block=$(awk '/^## Unreleased/{f=1} f{print} f && /^## v[0-9]/ && !/^## Unreleased/{exit}' "$CHANGELOG")
 
     if printf '%s' "$block" | grep -q '### Deprecated'; then
@@ -70,10 +70,12 @@ if [ -f "$CHANGELOG" ]; then
         fail "CHANGELOG entry does not name loki legacy"
     fi
 
-    if printf '%s' "$block" | grep -qiE 'v10 (is|as) the default|default (is|engine is) v10|now the default'; then
-        fail "CHANGELOG entry claims v10 is the default"
+    # The flip moves from Unreleased into its release section when it ships,
+    # so look for it anywhere in the changelog, not only under Unreleased.
+    if grep -qiE 'Loki 10.*now the default' "$CHANGELOG"; then
+        pass "CHANGELOG records the v10 default flip (D48)"
     else
-        pass "CHANGELOG entry does not claim v10 is the default"
+        fail "CHANGELOG does not record the v10 default flip"
     fi
 else
     fail "CHANGELOG.md missing"

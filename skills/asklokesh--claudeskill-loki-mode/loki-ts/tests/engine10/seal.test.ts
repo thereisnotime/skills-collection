@@ -5,19 +5,27 @@
 // verified in Python against the PUBLIC key only, and receipt_sha256 is
 // recomputed in Python from receipt.json, so a TS canonicalizer bug cannot
 // pass by agreeing with itself.
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { snapshotUntracked, splitDirty, untrackedAtIntake } from "../../src/e10ext/preexisting_dirty.ts";
 import { generateKeyPairSync } from "node:crypto";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { sealedLog } from "./log_fixture.ts";
+import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { commitStage, DEEP_NOT_PROVEN, renderReceiptMd, SIGNING_UNAVAILABLE, sealStage } from "../../src/engine10/stages/seal.ts";
+import { dirname, join, resolve } from "node:path";
+import { main as verifyMain, verifyReceipt } from "../../src/engine10/verify_cmd.ts";
+import { runMachine } from "../../src/engine10/machine.ts";
+import { EXIT, outcomeOf } from "../../src/engine10/output.ts";
+import { safeRestore } from "../../src/e10ext/discard.ts"; import { commitStage, DEEP_NOT_PROVEN, renderReceiptMd, SIGNING_UNAVAILABLE, sealStage } from "../../src/engine10/stages/seal.ts";
 import type { EventType, Receipt, RunContext, StageName } from "../../src/engine10/types.ts";
 import { _setIsolatedPythonFixedForTests } from "../../src/util/python.ts";
 import { REPO_ROOT } from "../../src/util/paths.ts";
+import { RECEIPT_SIGNER_BASENAME } from "../../src/util/receipt_signer.ts";
+const PRE_KEY_FILE = process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"];
 
 const AUTONOMY = resolve(REPO_ROOT, "autonomy");
 let root = "";
 let cryptoPy = "";
+const REAL_HOME = process.env["HOME"];
 
 function sh(argv: string[], cwd: string, env: Record<string, string> = {}): string {
   const p = Bun.spawnSync({ cmd: argv, cwd, env: { ...process.env, ...env }, stdout: "pipe", stderr: "pipe" });
@@ -37,7 +45,7 @@ function makeRepo(name: string): { repo: string; base: string } {
   const base = sh(["git", "rev-parse", "HEAD"], repo).trim();
   writeFileSync(join(repo, "a.txt"), "two\n");
   sh(["mkdir", "-p", ".loki/runs/r1"], repo);
-  writeFileSync(join(repo, ".loki/runs/r1/events.jsonl"), '{"v":1}\n');
+  writeFileSync(join(repo, ".loki/runs/r1/events.jsonl"), JSON.stringify({ v: 1, seq: 0, ts: "2026-01-01T00:00:00.000Z", run: "r1", type: "run.started", stage: null, data: {} }) + "\n");
   return { repo, base };
 }
 
@@ -66,15 +74,8 @@ function ctxFor(repo: string, base: string, provider = "claude", over: Partial<R
   return { ctx, events };
 }
 
-const noKey = () => { process.env["LOKI_RECEIPT_SIGNING_KEY"] = ""; process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = ""; };
+const noKey = () => { process.env["LOKI_RECEIPT_SIGNING_KEY"] = ""; process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = join(root, "nokey", "k.pem"); }; // a throwaway auto-generated key, never the real ~/.loki
 const receiptOf = (s: { data: Record<string, unknown> }) => JSON.parse(readFileSync(s.data.receipt_path as string, "utf8")) as Receipt;
-const PY_HASH = `
-import sys, json, hashlib
-r = json.load(open(sys.argv[1]))
-body = {k: v for k, v in r.items() if k not in ("verification", "receipt_sha256")}
-print(hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest())
-`;
-
 // Python recompute of receipt_sha256 plus JWT verification against the public JWK.
 const VERIFY_PY = `
 import sys, json, hashlib
@@ -99,10 +100,12 @@ beforeAll(() => {
     if (p.exitCode === 0) { cryptoPy = c; break; }
   }
 });
+beforeEach(() => noKey()); // default to a throwaway key for every test; tests override as needed
 afterAll(() => { if (root) rmSync(root, { recursive: true, force: true }); });
 afterEach(() => {
   _setIsolatedPythonFixedForTests(null);
-  delete process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"];
+  process.env["HOME"] = REAL_HOME;
+  if (PRE_KEY_FILE === undefined) delete process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"]; else process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = PRE_KEY_FILE; // restore the preload default (E-154b)
   delete process.env["LOKI_RECEIPT_SIGNING_KEY"];
 });
 
@@ -162,23 +165,127 @@ describe("engine10 seal", () => {
     expect(r.cost.partial_usd).toBe(0.125);
   }, 30000);
 
-  test("no key: signed false, summary UNSIGNED, deep checks in NOT PROVEN", async () => {
-    process.env["LOKI_RECEIPT_SIGNING_KEY"] = "";
-    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = "";
-    const { repo, base } = makeRepo("unsigned");
+  test("A-121 G5: clean HOME, no key env: seal auto-generates a 0600 key, signs, verify reports VERIFIED, one flipped byte is TAMPERED", async () => {
+    const home = join(root, "clean-home");
+    mkdirSync(home);
+    process.env["HOME"] = home; // throwaway: the real ~/.loki is never touched
+    delete process.env["LOKI_RECEIPT_SIGNING_KEY"];
+    delete process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"]; // exercises the default ~/.loki path; afterEach restores the preload default
+    const { repo, base } = makeRepo("clean-home-repo");
     const { ctx, events } = ctxFor(repo, base, "codex");
     await commitStage.run(ctx, new AbortController().signal);
     const s = await sealStage.run(ctx, new AbortController().signal);
-    expect(s.data.signed).toBe(false);
-    expect(String(s.data.summary)).toContain("UNSIGNED");
-    const r = JSON.parse(readFileSync(s.data.receipt_path as string, "utf8")) as Receipt;
-    expect(r.verification).toEqual({ jwt: null, kid: null });
-    for (const d of DEEP_NOT_PROVEN) expect(r.not_proven).toContain(d);
-    expect(r.not_proven).toContain("kill blocking not enforced");
-    expect(r.cost.usd).toBeNull();
-    const md = readFileSync(join(ctx.runDir, "receipt.md"), "utf8");
-    expect(md).toContain("UNSIGNED");
-    expect(events.find((e) => e.type === "receipt.sealed")?.data.signed).toBe(false);
+    expect(s.data.signed).toBe(true);
+    expect(String(s.data.summary)).toContain("SIGNED");
+    const keyFile = join(home, ".loki", "keys", RECEIPT_SIGNER_BASENAME);
+    expect(statSync(keyFile).mode & 0o777).toBe(0o600);
+    expect(statSync(dirname(keyFile)).mode & 0o777).toBe(0o700);
+    const path = s.data.receipt_path as string;
+    const r = JSON.parse(readFileSync(path, "utf8")) as Receipt;
+    expect(r.not_proven).not.toContain(SIGNING_UNAVAILABLE);
+    // The private key never appears in the receipt, receipt.md, the events, or the verify output.
+    const secret = readFileSync(keyFile, "utf8").split("\n").filter((l) => l && !l.startsWith("-----"))[0]!;
+    const out: string[] = [];
+    const w = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((c: string) => { out.push(String(c)); return true; }) as typeof process.stdout.write;
+    sealedLog(dirname(path), r.receipt_sha256);
+    try { expect(await verifyMain(["r1"], { runsRoot: dirname(ctx.runDir) })).toBe(0); } finally { process.stdout.write = w; }
+    expect(out.join("")).toContain("attestation: VERIFIED");
+    for (const text of [readFileSync(path, "utf8"), readFileSync(join(ctx.runDir, "receipt.md"), "utf8"), JSON.stringify(events), out.join("")]) expect(text).not.toContain(secret);
+    expect((await verifyReceipt(path)).verdict).toBe("VERIFIED");
+    // A second seal reuses the same key (same kid).
+    const s2 = await sealStage.run(ctx, new AbortController().signal);
+    expect(receiptOf(s2).verification.kid).toBe(r.verification.kid);
+    // Flip one byte of a signed field: not verified.
+    writeFileSync(path, readFileSync(path, "utf8").replace(`"provider": "codex"`, `"provider": "codey"`));
+    expect((await verifyReceipt(path)).verdict).toBe("TAMPERED");
+  }, 30000);
+
+  test("A-121: a retired public key still verifies, an unknown kid is UNCHECKED, never TAMPERED", async () => {
+    const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+    const keyFile = join(root, "rot", "k.pem");
+    mkdirSync(dirname(keyFile));
+    writeFileSync(keyFile, privateKey.export({ type: "pkcs8", format: "pem" }) as string, { mode: 0o600 });
+    const retired = join(root, "rot", "old.pub.pem");
+    writeFileSync(retired, publicKey.export({ type: "spki", format: "pem" }) as string);
+    process.env["LOKI_RECEIPT_SIGNING_KEY"] = "";
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = keyFile;
+    const { repo, base } = makeRepo("rotation");
+    const { ctx } = ctxFor(repo, base);
+    await commitStage.run(ctx, new AbortController().signal);
+    const path = (await sealStage.run(ctx, new AbortController().signal)).data.receipt_path as string;
+    sealedLog(dirname(path), (JSON.parse(readFileSync(path, "utf8")) as Receipt).receipt_sha256);
+    // Rotate: a new active key, the old one retired.
+    const rotated = join(root, "rot", "new.pem");
+    writeFileSync(rotated, generateKeyPairSync("ed25519").privateKey.export({ type: "pkcs8", format: "pem" }) as string, { mode: 0o600 });
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = rotated;
+    const other = await verifyReceipt(path); // sealed with A, verified with only B
+    expect(other.verdict).toBe("UNCHECKED");
+    expect(other.reasons.join(" ")).toContain((JSON.parse(readFileSync(path, "utf8")) as Receipt).verification.kid!);
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = join(root, "rot", "missing", "k.pem"); // no key at all
+    expect((await verifyReceipt(path)).verdict).toBe("UNCHECKED");
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = rotated;
+    // A known kid with a flipped signature byte stays TAMPERED; a non-string jwt is UNCHECKED, not a crash.
+    const good = JSON.parse(readFileSync(path, "utf8")) as Receipt;
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = keyFile;
+    copyFileSync(join(dirname(path), "events.jsonl"), join(root, "rot", "events.jsonl")); // A-117: verify reads the log beside the receipt
+    const badSig = join(root, "rot", "badsig.json");
+    const jwt = good.verification.jwt!;
+    writeFileSync(badSig, JSON.stringify({ ...good, verification: { ...good.verification, jwt: jwt.slice(0, -2) + (jwt.endsWith("AA") ? "BB" : "AA") } }));
+    expect((await verifyReceipt(badSig)).verdict).toBe("TAMPERED");
+    const numJwt = join(root, "rot", "num.json");
+    writeFileSync(numJwt, JSON.stringify({ ...good, verification: { jwt: 123, kid: null } }));
+    expect((await verifyReceipt(numJwt)).verdict).toBe("UNCHECKED");
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = rotated;
+    process.env["LOKI_RECEIPT_RETIRED_PUBKEYS"] = retired;
+    try { expect((await verifyReceipt(path)).verdict).toBe("VERIFIED"); } finally { delete process.env["LOKI_RECEIPT_RETIRED_PUBKEYS"]; }
+  }, 30000);
+
+  test("A-121 interop: a Python-generated key signs in TS and receipt_jwt.py verifies it, and TS reads the same kid", async () => {
+    if (!cryptoPy) { console.log("SKIP: no python3 with cryptography: Python interop not measured here"); return; }
+    const keyFile = join(root, "py", "k.pem");
+    const pyOut = JSON.parse(sh([cryptoPy, "-I", "-c", `
+import sys, json
+sys.path.insert(0, sys.argv[1])
+import os
+os.environ["LOKI_RECEIPT_SIGNING_KEY_FILE"] = sys.argv[2]
+from receipt_jwt import load_signing_key, public_jwk
+k, kid = load_signing_key()
+print(json.dumps({"kid": kid, "jwk": public_jwk(k.public_key())}))`, AUTONOMY, keyFile], root));
+    expect(statSync(keyFile).mode & 0o777).toBe(0o600);
+    process.env["LOKI_RECEIPT_SIGNING_KEY"] = "";
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = keyFile;
+    const { repo, base } = makeRepo("interop");
+    const { ctx } = ctxFor(repo, base);
+    await commitStage.run(ctx, new AbortController().signal);
+    const r = receiptOf(await sealStage.run(ctx, new AbortController().signal));
+    expect(r.verification.kid).toBe(pyOut.kid);
+    const v = JSON.parse(sh([cryptoPy, "-I", "-c", `
+import sys, json
+sys.path.insert(0, sys.argv[1])
+from receipt_jwt import verify_attestation
+ok, c = verify_attestation(sys.argv[2], {"keys": [json.loads(sys.argv[3])]})
+print(json.dumps({"ok": ok, "c": c}))`, AUTONOMY, r.verification.jwt!, JSON.stringify(pyOut.jwk)], root));
+    expect(v.ok).toBe(true);
+    expect(v.c.receipt_sha256).toBe(r.receipt_sha256);
+  }, 30000);
+
+  test("TS-generated key file loads in receipt_jwt.py with the same kid (same PEM format)", async () => {
+    if (!cryptoPy) { console.log("SKIP: no python3 with cryptography: Python interop not measured here"); return; }
+    const keyFile = join(root, "ts-gen", "k.pem");
+    process.env["LOKI_RECEIPT_SIGNING_KEY"] = "";
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = keyFile;
+    const { repo, base } = makeRepo("tsgen");
+    const { ctx } = ctxFor(repo, base);
+    await commitStage.run(ctx, new AbortController().signal);
+    const r = receiptOf(await sealStage.run(ctx, new AbortController().signal));
+    const kid = sh([cryptoPy, "-I", "-c", `
+import sys, os
+sys.path.insert(0, sys.argv[1])
+os.environ["LOKI_RECEIPT_SIGNING_KEY_FILE"] = sys.argv[2]
+from receipt_jwt import load_signing_key
+print(load_signing_key(auto_generate=False)[1])`, AUTONOMY, keyFile], root).trim();
+    expect(kid).toBe(r.verification.kid!);
   }, 30000);
 
   test("empty diff without the already-done marker seals FAILED, never VERIFIED", async () => {
@@ -278,6 +385,17 @@ describe("engine10 seal", () => {
     expect(r.verdict).toBe("PARTIAL");
     const noSrc = ctxFor(repo, base, "claude", { intake: { task_sha256: "ab".repeat(32) } });
     expect(receiptOf(await sealStage.run(noSrc.ctx, new AbortController().signal)).not_proven).toContain("task source not recorded by intake");
+  }, 30000);
+
+  test("A-112: verify pre_red ids list as `pre red: <id>` and do not downgrade VERIFIED", async () => {
+    noKey();
+    const { repo, base } = makeRepo("prered");
+    const { ctx } = ctxFor(repo, base, "claude", { verify: { checks: [{ name: "node:a.test.js", cmd: "node --test", result: "pass", duration_s: 1 }, { name: "node:o.test.js", cmd: "node --test", result: "fail", duration_s: 1 }], flaky: [], wall_passed: true, pre_red: ["unrelated"], pre_red_checks: ["node:o.test.js"] } });
+    await commitStage.run(ctx, new AbortController().signal);
+    const r = receiptOf(await sealStage.run(ctx, new AbortController().signal));
+    expect(r.not_proven).toContain("pre red: unrelated");
+    expect(r.verdict).toBe("VERIFIED");
+    expect(r.checks.find((c) => c.name === "node:o.test.js")?.result).toBe("fail"); // never recorded as pass
   }, 30000);
 
   // E-98a B1: verify passing every check must not seal VERIFIED when verify itself flagged a
@@ -453,14 +571,31 @@ describe("engine10 seal", () => {
     expect(r.not_proven.some((n) => n.includes("a.txt"))).toBe(false);
   }, 30000);
 
-  test("key configured but no token: signed false, SIGNING_UNAVAILABLE on NOT PROVEN", async () => {
-    // A python3 that passes the isolation probe but cannot sign (like /usr/bin/python3 without cryptography).
-    const stub = join(root, "py-nocrypto");
-    writeFileSync(stub, "#!/bin/sh\nexit 0\n");
-    chmodSync(stub, 0o755);
-    _setIsolatedPythonFixedForTests([stub]);
+  test("A-119: a renamed test file (with or without a content change) is NOT VERIFIED; an honest source-only fix stays VERIFIED", async () => {
+    noKey();
+    const seal = async (tag: string, edit: (repo: string) => void): Promise<{ verdict: string; not_proven: string[] }> => {
+      const { repo } = makeRepo("rename" + tag);
+      writeFileSync(join(repo, "sum.test.js"), "expect 6\n");
+      sh(["git", "add", "sum.test.js"], repo);
+      sh(["git", "commit", "-q", "-m", "add test"], repo);
+      const b = sh(["git", "rev-parse", "HEAD"], repo).trim();
+      edit(repo);
+      const { ctx } = ctxFor(repo, b);
+      await commitStage.run(ctx, new AbortController().signal);
+      return receiptOf(await sealStage.run(ctx, new AbortController().signal));
+    };
+    const weakened = await seal("w", (r) => { sh(["git", "mv", "sum.test.js", "sum.spec.test.js"], r); writeFileSync(join(r, "sum.spec.test.js"), "expect 5\n"); });
+    expect(weakened.not_proven).toContain("weakened test: sum.test.js");
+    expect(weakened.verdict).not.toBe("VERIFIED");
+    const pure = await seal("p", (r) => { sh(["git", "mv", "sum.test.js", "sum.spec.test.js"], r); });// a pure rename is still a test edit: PARTIAL by decision
+    expect(pure.verdict).not.toBe("VERIFIED");
+    const honest = await seal("h", (r) => { writeFileSync(join(r, "a.txt"), "fixed\n"); });
+    expect(honest.verdict).toBe("VERIFIED");
+  }, 30000);
+
+  test("an unusable key: signed false, SIGNING_UNAVAILABLE on NOT PROVEN, hash still recomputes", async () => {
     const keyFile = join(root, "k2.pem");
-    writeFileSync(keyFile, generateKeyPairSync("ed25519").privateKey.export({ type: "pkcs8", format: "pem" }) as string, { mode: 0o600 });
+    writeFileSync(keyFile, "not a pem\n", { mode: 0o600 });
     process.env["LOKI_RECEIPT_SIGNING_KEY"] = "";
     process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = keyFile;
     const { repo, base } = makeRepo("nosign");
@@ -474,8 +609,8 @@ describe("engine10 seal", () => {
     expect(r.not_proven).toContain(SIGNING_UNAVAILABLE);
     expect(readFileSync(join(ctx.runDir, "receipt.md"), "utf8")).toContain("UNSIGNED");
     expect(events.find((e) => e.type === "receipt.sealed")?.data.signed).toBe(false);
-    const py = cryptoPy || "python3";
-    expect(sh([py, "-I", "-c", PY_HASH, s.data.receipt_path as string], root).trim()).toBe(r.receipt_sha256);
+    expect((await verifyReceipt(s.data.receipt_path as string)).verdict).toBe("UNSIGNED");
+    expect(readFileSync(keyFile, "utf8")).toBe("not a pem\n"); // an invalid key is never overwritten
   }, 30000);
 });
 
@@ -508,5 +643,294 @@ describe("engine10 receipt cost line (E-69)", () => {
     const md = renderReceiptMd(receiptWithCost({ usd: null, input_tokens: 1000, output_tokens: 200, measured_sessions: 1, total_sessions: 2, partial_usd: 0.125 }));
     expect(md).toContain("Cost: partial: $0.1250 for 1 of 2 sessions");
     expect(md).not.toContain("$0.00");
+  });
+});
+
+describe("A-104 commit only the fix (G2)", () => {
+  const committed = (repo: string, base: string) => sh(["git", "-C", repo, "diff", "--name-only", base, "HEAD"], repo).trim().split("\n").filter(Boolean);
+  const dirty = (repo: string) => {
+    sh(["mkdir", "-p", join(repo, "tests")], repo);
+    writeFileSync(join(repo, "tests/loki_wall_café.js"), "// wall\n");
+    writeFileSync(join(repo, "loki_wall_top.js"), "// wall\n");
+    writeFileSync(join(repo, "package-lock.json"), "{}\n");
+  };
+
+  test("Wall files and a new lockfile are left out when no manifest changed", async () => {
+    const { repo, base } = makeRepo("a104-lock");
+    dirty(repo);
+    const { ctx } = ctxFor(repo, base);
+    expect((await commitStage.run(ctx, new AbortController().signal)).status).toBe("completed");
+    expect(committed(repo, base)).toEqual(["a.txt"]);
+    expect(existsSync(join(repo, "tests/loki_wall_café.js"))).toBe(true);
+  });
+
+  test("a lockfile that changed with its manifest is committed", async () => {
+    const { repo, base } = makeRepo("a104-manifest");
+    dirty(repo);
+    writeFileSync(join(repo, "package.json"), "{}\n");
+    const { ctx } = ctxFor(repo, base);
+    await commitStage.run(ctx, new AbortController().signal);
+    expect(committed(repo, base)).toEqual(["a.txt", "package-lock.json", "package.json"]);
+  });
+
+  test("a lockfile already at base and modified is committed", async () => {
+    const { repo } = makeRepo("a104-tracked");
+    writeFileSync(join(repo, "go.sum"), "x\n");
+    sh(["git", "-C", repo, "add", "go.sum"], repo);
+    sh(["git", "-C", repo, "commit", "-q", "-m", "lock"], repo);
+    const base = sh(["git", "-C", repo, "rev-parse", "HEAD"], repo).trim();
+    writeFileSync(join(repo, "go.sum"), "y\n");
+    const { ctx } = ctxFor(repo, base);
+    await commitStage.run(ctx, new AbortController().signal);
+    expect(committed(repo, base)).toEqual(["a.txt", "go.sum"]);
+  });
+
+  test("A-104b: a path starting with :(top) is unstaged literally, never read as a pathspec", async () => {
+    const { repo, base } = makeRepo("a104b-top");
+    sh(["mkdir", "-p", join(repo, ":(top)x")], repo);
+    writeFileSync(join(repo, ":(top)x/loki_wall_a.js"), "// wall\n");
+    const { ctx } = ctxFor(repo, base);
+    expect((await commitStage.run(ctx, new AbortController().signal)).status).toBe("completed");
+    expect(committed(repo, base)).toEqual(["a.txt"]);
+  });
+
+  test("A-104b: a stray lockfile in packages/b is not explained by a packages/a manifest change", async () => {
+    const { repo, base } = makeRepo("a104b-mono");
+    sh(["mkdir", "-p", join(repo, "packages/a"), join(repo, "packages/b")], repo);
+    writeFileSync(join(repo, "packages/a/package.json"), "{}\n");
+    writeFileSync(join(repo, "packages/a/package-lock.json"), "{}\n");
+    writeFileSync(join(repo, "packages/b/package-lock.json"), "{}\n");
+    const { ctx } = ctxFor(repo, base);
+    await commitStage.run(ctx, new AbortController().signal);
+    expect(committed(repo, base)).toEqual(["a.txt", "packages/a/package-lock.json", "packages/a/package.json"]);
+  });
+
+  test("A-104b: a lockfile and Wall file the agent committed during implement are judged against the run base", async () => {
+    const { repo, base } = makeRepo("a104b-base");
+    dirty(repo);
+    sh(["git", "-C", repo, "add", "package-lock.json", "loki_wall_top.js"], repo);
+    sh(["git", "-C", repo, "commit", "-q", "-m", "agent wip"], repo);
+    const { ctx } = ctxFor(repo, base);
+    await commitStage.run(ctx, new AbortController().signal);
+    expect(committed(repo, base)).toEqual(["a.txt"]);
+    expect(existsSync(join(repo, "package-lock.json"))).toBe(true);
+  });
+
+  test("A-104b r2: a failed reset fails the commit stage, the machine skips seal, and the run exits non-zero", async () => {
+    const { repo, base } = makeRepo("a104b-failreset");
+    writeFileSync(join(repo, "src.js"), "x\n");
+    sh(["git", "-C", repo, "add", "src.js"], repo);
+    sh(["git", "-C", repo, "commit", "-q", "-m", "agent wip"], repo);
+    writeFileSync(join(root, "outside.txt"), "o\n");
+    const h = sh(["git", "hash-object", "--", "../outside.txt"], repo).trim();
+    const { ctx } = ctxFor(repo, base, "claude", { intake: { source: "text", title: "t", preexisting_dirty: { "../outside.txt": h } } });
+    const intake = { ...commitStage, name: "intake" as const, run: async () => ({ status: "completed" as const, data: { source: "text", title: "t", preexisting_dirty: { "../outside.txt": h } } }) };
+    const stages: Record<string, typeof commitStage> = { intake, commit: commitStage, seal: sealStage };
+    const r = await runMachine(ctx as never, { flow: ["intake", "commit", "seal"], load: async (n: StageName) => stages[n] ?? null });
+    expect(r.stopped).toBe("commit failed");
+    expect(r.outputs.seal).toBeUndefined();
+    expect(outcomeOf("FAILED", false, r.stopped)).toBe("FAILED");
+    expect(EXIT[outcomeOf("FAILED", false, r.stopped)]).not.toBe(0);
+    expect(sh(["git", "-C", repo, "status", "--porcelain"], repo)).toContain("a.txt");
+    // defense in depth: a caller that seals anyway still never gets VERIFIED
+    const { ctx: c2 } = ctxFor(repo, base, "claude", { commit: { failed: true, reason: "git reset failed" } });
+    const s = await sealStage.run(c2, new AbortController().signal);
+    expect(receiptOf(s).verdict).toBe("FAILED");
+  });
+
+  for (const [label, bad] of [["empty", ""], ["unknown", "f".repeat(40)]] as const) {
+    test(`A-104b r2: ${label} baseSha fails the commit stage and commits nothing`, async () => {
+      const { repo, base } = makeRepo(`a104b-badbase-${label}`);
+      dirty(repo);
+      const { ctx } = ctxFor(repo, bad);
+      const c = await commitStage.run(ctx, new AbortController().signal);
+      expect(c.status).toBe("failed");
+      expect(sh(["git", "-C", repo, "rev-parse", "HEAD"], repo).trim()).toBe(base);
+      expect(sh(["git", "-C", repo, "diff", "--cached", "--name-only"], repo).trim()).toBe("");
+    });
+  }
+});
+
+describe("D50-F1 already-satisfied discards run changes", () => {
+  const sig = new AbortController().signal;
+  test("already_done with implement edits: no diff vs base, no commit, .loki kept", async () => {
+    const { repo, base } = makeRepo("sat-discard");
+    writeFileSync(join(repo, "new.txt"), "stray\n");
+    const { ctx } = ctxFor(repo, base, "claude", { implement: { exit: "already_done", tests_reverted: [], duration_s: 3 } });
+    const c = await commitStage.run(ctx, sig);
+    expect(c.status).toBe("completed");
+    expect(sh(["git", "rev-parse", "HEAD"], repo).trim()).toBe(base);
+    expect(sh(["git", "status", "--porcelain", "--", ".", ":(exclude).loki"], repo)).toBe("");
+    expect(sh(["git", "diff", base], repo)).toBe("");
+    expect(existsSync(join(repo, ".loki/runs/r1/events.jsonl"))).toBe(true);
+    const r = receiptOf(await sealStage.run(ctx, sig));
+    expect(r.verdict).toBe("ALREADY_SATISFIED");
+    expect(r.head_sha).toBe(base);
+  }, 30000);
+
+  test("a normal done run keeps its changes", async () => {
+    const { repo, base } = makeRepo("sat-keep");
+    const { ctx } = ctxFor(repo, base);
+    await commitStage.run(ctx, sig);
+    expect(sh(["git", "rev-parse", "HEAD"], repo).trim()).not.toBe(base);
+    expect(sh(["git", "show", "HEAD:a.txt"], repo)).toBe("two\n");
+  }, 30000);
+
+  test("a failing discard fails the stage and the verdict is FAILED, never ALREADY_SATISFIED", async () => {
+    const { repo } = makeRepo("sat-fail");
+    sh(["git", "checkout", "-q", "--", "a.txt"], repo);
+    sh(["mkdir", "-p", "d"], repo);
+    writeFileSync(join(repo, "d/b.txt"), "x\n");
+    sh(["git", "add", "d/b.txt"], repo);
+    sh(["git", "commit", "-q", "-m", "b"], repo);
+    const base = sh(["git", "rev-parse", "HEAD"], repo).trim();
+    writeFileSync(join(repo, "d/b.txt"), "y\n");
+    sh(["chmod", "555", join(repo, "d")], repo);
+    try {
+      const { ctx } = ctxFor(repo, base, "claude", { implement: { exit: "already_done", tests_reverted: [], duration_s: 3 } });
+      const c = await commitStage.run(ctx, sig);
+      expect(c.status).toBe("failed");
+      const { ctx: c2 } = ctxFor(repo, base, "claude", { implement: { exit: "already_done", tests_reverted: [], duration_s: 3 }, commit: { failed: true } });
+      expect(receiptOf(await sealStage.run(c2, sig)).verdict).toBe("FAILED");
+    } finally { sh(["chmod", "755", join(repo, "d")], repo); }
+  }, 30000);
+
+  test("r2: untracked user file survives the discard byte for byte (also with intake.already_satisfied)", async () => {
+    for (const intakeSat of [false, true]) {
+      const { repo, base } = makeRepo(`sat-untracked-${intakeSat}`);
+      writeFileSync(join(repo, "notes.md"), "my notes\n\u00e9\n");
+      const pre = untrackedAtIntake(repo);
+      expect(pre).toContain("notes.md");
+      writeFileSync(join(repo, "new.txt"), "stray\n");
+      const intake = { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", title: "t", resumed: false, preexisting_untracked: pre, ...(intakeSat ? { already_satisfied: true } : {}) };
+      const { ctx } = ctxFor(repo, base, "claude", { intake, implement: { exit: intakeSat ? "done" : "already_done", tests_reverted: [], duration_s: 3 } });
+      expect((await commitStage.run(ctx, sig)).status).toBe("completed");
+      expect(readFileSync(join(repo, "notes.md"), "utf8")).toBe("my notes\n\u00e9\n");
+      expect(sh(["git", "diff", "--cached", "--name-only"], repo)).toBe("");
+      expect(existsSync(join(repo, "new.txt"))).toBe(false);
+      expect(sh(["git", "rev-parse", "HEAD"], repo).trim()).toBe(base);
+    }
+  }, 30000);
+
+  test("r2: a pre-existing dirty lockfile edited by the run ends with its intake content", async () => {
+    const { repo, base } = makeRepo("sat-lock");
+    writeFileSync(join(repo, "package-lock.json"), "L0\n");
+    sh(["git", "add", "package-lock.json"], repo);
+    sh(["git", "commit", "-q", "-m", "lock"], repo);
+    const b2 = sh(["git", "rev-parse", "HEAD"], repo).trim();
+    writeFileSync(join(repo, "package-lock.json"), "L1 intake\n");
+    const { preexisting } = splitDirty(repo, [" M package-lock.json"]);
+    writeFileSync(join(repo, "package-lock.json"), "L2 run\n");
+    const intake = { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", title: "t", resumed: false, preexisting_dirty: preexisting };
+    const { ctx } = ctxFor(repo, b2, "claude", { intake, implement: { exit: "already_done", tests_reverted: [], duration_s: 3 } });
+    expect((await commitStage.run(ctx, sig)).status).toBe("completed");
+    expect(readFileSync(join(repo, "package-lock.json"), "utf8")).toBe("L1 intake\n");
+    expect(sh(["git", "rev-parse", "HEAD"], repo).trim()).toBe(b2);
+    expect(base).toBeTruthy();
+  }, 30000);
+
+  describe("r3: intake untracked content is snapshotted and restored", () => {
+    const mk = (name: string) => {
+      const { repo, base } = makeRepo(name);
+      writeFileSync(join(repo, "notes.md"), "USER\n"); writeFileSync(join(repo, "keep.md"), "KEEP\n");
+      const snap = snapshotUntracked(repo);
+      const intake = { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", title: "t", resumed: false, preexisting_untracked: Object.keys(snap), preexisting_untracked_blobs: snap };
+      return { repo, base, intake, mkctx: (extra: Record<string, unknown> = {}) => ctxFor(repo, base, "claude", { intake, implement: { exit: "already_done", tests_reverted: [], duration_s: 3 }, ...extra }) };
+    };
+    test("edited file restored, deleted file recreated, new file removed", async () => {
+      const { repo, mkctx } = mk("r3-a");
+      writeFileSync(join(repo, "notes.md"), "USER\nAGENT\n"); rmSync(join(repo, "keep.md")); writeFileSync(join(repo, "new.txt"), "x\n");
+      expect((await commitStage.run(mkctx().ctx, sig)).status).toBe("completed");
+      expect(readFileSync(join(repo, "notes.md"), "utf8")).toBe("USER\n");
+      expect(readFileSync(join(repo, "keep.md"), "utf8")).toBe("KEEP\n");
+      expect(existsSync(join(repo, "new.txt"))).toBe(false);
+      expect(sh(["git", "diff", "--cached", "--name-only"], repo)).toBe("");
+    }, 30000);
+    test("edit committed during implement is restored and base..HEAD is empty", async () => {
+      const { repo, base, mkctx } = mk("r3-b");
+      writeFileSync(join(repo, "notes.md"), "USER\nAGENT\n");
+      sh(["git", "add", "notes.md"], repo); sh(["git", "commit", "-q", "-m", "agent"], repo);
+      expect((await commitStage.run(mkctx().ctx, sig)).status).toBe("completed");
+      expect(readFileSync(join(repo, "notes.md"), "utf8")).toBe("USER\n");
+      expect(sh(["git", "rev-parse", "HEAD"], repo).trim()).toBe(base);
+      expect(sh(["git", "diff", `${base}..HEAD`, "--name-only"], repo)).toBe("");
+    }, 30000);
+    test("unreadable blob: path on NOT PROVEN, outcome is not ALREADY_SATISFIED", async () => {
+      const { repo, intake, mkctx } = mk("r3-c");
+      const sha = intake.preexisting_untracked_blobs["notes.md"]!.split(" ")[0]!;
+      rmSync(join(repo, ".git/objects", sha.slice(0, 2), sha.slice(2)), { force: true });
+      writeFileSync(join(repo, "notes.md"), "USER\nAGENT\n");
+      const c = await commitStage.run(mkctx().ctx, sig);
+      expect(c.status).toBe("completed");
+      const r = receiptOf(await sealStage.run(mkctx({ commit: c.data }).ctx, sig));
+      expect(r.not_proven).toContain("pre-existing file not restored: notes.md");
+      expect(r.verdict).not.toBe("ALREADY_SATISFIED");
+    }, 30000);
+    test("r4: a symlink left in place of a user file is replaced, never followed", async () => {
+      const { repo, mkctx } = mk("r4-a");
+      const out = join(repo, "..", "r4-a-outside"); mkdirSync(out, { recursive: true }); writeFileSync(join(out, "victim.txt"), "VICTIM\n");
+      rmSync(join(repo, "notes.md")); symlinkSync(join(out, "victim.txt"), join(repo, "notes.md"));
+      expect((await commitStage.run(mkctx().ctx, sig)).status).toBe("completed");
+      expect(readFileSync(join(out, "victim.txt"), "utf8")).toBe("VICTIM\n");
+      expect(lstatSync(join(repo, "notes.md")).isFile()).toBe(true);
+      expect(readFileSync(join(repo, "notes.md"), "utf8")).toBe("USER\n");
+    }, 30000);
+    test("r4: a parent dir replaced by a symlink to outside: nothing written outside", async () => {
+      const { repo, base } = mk("r4-b");
+      mkdirSync(join(repo, "sub")); writeFileSync(join(repo, "sub/deep.md"), "DEEP\n");
+      const snap = snapshotUntracked(repo);
+      const intake = { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", title: "t", resumed: false, preexisting_untracked: Object.keys(snap), preexisting_untracked_blobs: snap };
+      const out = join(repo, "..", "r4-b-outside"); mkdirSync(out, { recursive: true });
+      rmSync(join(repo, "sub"), { recursive: true }); symlinkSync(out, join(repo, "sub"));
+      const c = await commitStage.run(ctxFor(repo, base, "claude", { intake, implement: { exit: "already_done", tests_reverted: [], duration_s: 3 } }).ctx, sig);
+      // the staged symlink is removed, so the user file lands in a real dir; nothing is ever written through the link
+      expect(c.status).toBe("completed");
+      expect(readdirSync(out)).toEqual([]);
+      expect(lstatSync(join(repo, "sub")).isDirectory()).toBe(true);
+      expect(readFileSync(join(repo, "sub/deep.md"), "utf8")).toBe("DEEP\n");
+    }, 30000);
+    test("r5: a pre-existing dirty lockfile replaced by a symlink is never written through", async () => {
+      const { repo, base } = makeRepo("r5-a");
+      writeFileSync(join(repo, "package-lock.json"), "L0\n"); sh(["git", "add", "package-lock.json"], repo); sh(["git", "commit", "-q", "-m", "lock"], repo);
+      const base2 = sh(["git", "rev-parse", "HEAD"], repo).trim();
+      writeFileSync(join(repo, "package-lock.json"), "L1 intake\n");
+      const blob = sh(["git", "hash-object", "-w", "package-lock.json"], repo).trim();
+      const out = join(repo, "..", "r5-a-outside"); mkdirSync(out, { recursive: true }); writeFileSync(join(out, "victim.txt"), "VICTIM\n");
+      rmSync(join(repo, "package-lock.json")); symlinkSync(join(out, "victim.txt"), join(repo, "package-lock.json"));
+      const intake = { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", title: "t", resumed: false, preexisting_dirty: { "package-lock.json": blob } };
+      const c = await commitStage.run(ctxFor(repo, base2, "claude", { intake, implement: { exit: "already_done", tests_reverted: [], duration_s: 3 } }).ctx, sig);
+      expect(base2).not.toBe(base);
+      expect(readFileSync(join(out, "victim.txt"), "utf8")).toBe("VICTIM\n");
+      const l = lstatSync(join(repo, "package-lock.json"));
+      if (l.isFile()) expect(readFileSync(join(repo, "package-lock.json"), "utf8")).toBe("L1 intake\n");
+      else expect(JSON.stringify(c.data.not_proven ?? [])).toContain("package-lock.json");
+    }, 30000);
+    test("r5: discard.ts has no raw writeFileSync or chmodSync outside safeRestore", () => {
+      const src = readFileSync(join(import.meta.dir, "../../src/e10ext/discard.ts"), "utf8");
+      const a = src.indexOf("export function safeRestore"), b = src.indexOf("\n}\n", a);
+      const rest = src.slice(0, a) + src.slice(b);
+      expect(rest.replace(/^import .*$/gm, "")).not.toMatch(/\b(writeFileSync|chmodSync|unlinkSync|rmSync|renameSync|copyFileSync|symlinkSync|openSync|rmdirSync)\(/);
+    });
+    test("r4: safeRestore refuses a symlinked parent and writes nothing outside", () => {
+      const { repo } = makeRepo("r4-d"); const out = join(repo, "..", "r4-d-outside"); mkdirSync(out, { recursive: true });
+      symlinkSync(out, join(repo, "sub"));
+      expect(() => safeRestore(repo, "sub/deep.md", Buffer.from("DEEP\n"), 0o644)).toThrow();
+      expect(readdirSync(out)).toEqual([]);
+    });
+    test("r4: an oversize file changed with mtime restored is detected via ctime", async () => {
+      const prev = process.env.LOKI_E10_SNAPSHOT_MAX; process.env.LOKI_E10_SNAPSHOT_MAX = "8";
+      try {
+        const { repo, base } = makeRepo("r4-c");
+        writeFileSync(join(repo, "big.bin"), "0123456789ABCDEF");
+        const snap = snapshotUntracked(repo); expect(snap["big.bin"]!.startsWith("!")).toBe(true);
+        const intake = { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", title: "t", resumed: false, preexisting_untracked: Object.keys(snap), preexisting_untracked_blobs: snap };
+        const st = lstatSync(join(repo, "big.bin")); await new Promise((r) => setTimeout(r, 20));
+        writeFileSync(join(repo, "big.bin"), "XXXXXXXXXXXXXXXX"); utimesSync(join(repo, "big.bin"), st.atime, st.mtime);
+        const mk2 = (extra: Record<string, unknown> = {}) => ctxFor(repo, base, "claude", { intake, implement: { exit: "already_done", tests_reverted: [], duration_s: 3 }, ...extra });
+        const c = await commitStage.run(mk2().ctx, sig);
+        const r = receiptOf(await sealStage.run(mk2({ commit: c.data }).ctx, sig));
+        expect(r.not_proven).toContain("pre-existing file not restored: big.bin");
+      } finally { if (prev === undefined) delete process.env.LOKI_E10_SNAPSHOT_MAX; else process.env.LOKI_E10_SNAPSHOT_MAX = prev; }
+    }, 30000);
   });
 });

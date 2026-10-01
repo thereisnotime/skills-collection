@@ -1280,7 +1280,7 @@ loki_remote_verify_receipt() {
     echo "    Proven: the receipt is internally consistent with its own hash."
     echo "    NOT proven: who produced it. An unsigned receipt is forgeable -- whoever"
     echo "    controls the builder can rewrite the facts and recompute the hash."
-    echo "    For provenance, the build must set LOKI_PROOF_GPG_KEY (docs/SIGNED-RECEIPTS.md)."
+    echo "    For provenance, sign the build (docs/SIGNED-RECEIPTS.md)."
     return 0
 }
 
@@ -1606,7 +1606,9 @@ show_help() {
     echo "  loki doctor               Check your setup is ready (a few seconds)"
     echo "  loki quickstart           Guided first build from your idea (no PRD needed)"
     echo "  loki start ./prd.md       Build from a spec (PRD file, GitHub/GitLab/Jira/Azure issue, or no arg)"
-    echo "  quickstart = guided first build; quick = one small task (3 iters max)."
+    echo "  quickstart = guided first build; quick = one small task (Loki 10 engine, no PR)."
+    echo "  loki \"<task>\", loki owner/repo#N and loki quick run on the Loki 10 engine by default."
+    echo "  Previous engine: set LOKI_ENGINE=legacy or run 'loki legacy <args>'."
     echo "  Docs: https://github.com/asklokesh/loki-mode  |  Report a problem: loki crash"
     echo ""
     # CLI consolidation (Phase A): the front page presents ~17 canonical
@@ -1627,6 +1629,7 @@ show_help() {
     echo "Build:"
     echo "  start [SPEC]     Start a build (PRD file, GitHub/GitLab/Jira/Azure issue, or no arg)"
     echo "  plan <PRD-file>  Dry-run analysis: complexity, cost, execution plan"
+    echo "  backlog <owner/repo> --all|--label X|--issues N,N   Run every matching open issue, N in parallel"
     echo "  quickstart [idea]  Guided first build: setup, idea, template, plan, go"
     echo ""
     echo "Session:"
@@ -1639,6 +1642,7 @@ show_help() {
     echo ""
     echo "Verify / trust:"
     echo "  verify [base]    Deterministic PR verification (CI-gate exit codes)"
+    echo "  keys export      Print the public receipt-signing key (JWK) for third-party verify --pubkey"
     echo "  review [opts]    Standalone code review with quality gates"
     echo "  ultracode \"task\" Run a task as a native Claude Code Dynamic Workflow (opt-in, Claude-only)"
     echo "  trust [cmd]      Visible trust trajectory; 'trust detail' for metrics"
@@ -1704,7 +1708,7 @@ show_help() {
     echo "  loki start PROJ-456           # Jira issue"
     echo "  loki start --bg ./prd.md      # Start in background"
     echo "  loki start --parallel ./prd.md   # Parallel mode (git worktrees)"
-    echo "  loki quick \"add dark mode\"  # Single-task mode (3 iters max)"
+    echo "  loki quick \"add dark mode\"  # Single-task mode (Loki 10 engine; LOKI_ENGINE=legacy for 3 iters max)"
     echo "  loki tour                     # See a real sample result (no provider, no key, no spend)"
     echo "  loki demo                     # Build a sample todo app end to end"
     echo "  loki init -t saas-starter     # Scaffold from template"
@@ -1765,7 +1769,7 @@ show_help() {
     # missing from this list, so a new command cannot ship invisible.
     echo ""
     echo "All commands:"
-    echo "  agent analyze api assets audit bench checkpoint (cp) ci cleanup"
+    echo "  agent analyze api assets audit backlog bench checkpoint (cp) ci cleanup"
     echo "  cluster cockpit code compliance completions compound config context (ctx)"
     echo "  cost council crash dashboard demo deploy docker docs doctor dogfood"
     echo "  enterprise estimate explain export failover github grill heal help"
@@ -1849,6 +1853,48 @@ show_help_aliases() {
     echo "See internal/CLI-CONSOLIDATION-DESIGN.md for the full migration plan."
 }
 
+# D51: bare `loki`. Reuse a running dashboard, else start one on a free
+# loopback port, then open /start (or just print the URL when headless).
+loki_ui_free_port() {
+    python3 - "$1" <<'PY'
+import socket, sys
+for p in range(int(sys.argv[1]), int(sys.argv[1]) + 100):
+    s = socket.socket()
+    try:
+        s.bind(("127.0.0.1", p))
+    except OSError:
+        continue
+    finally:
+        s.close()
+    print(p)
+    break
+PY
+}
+
+cmd_ui() {
+    local port="" pid=""
+    if [ -f "$DASHBOARD_PID_FILE" ]; then
+        pid=$(cat "$DASHBOARD_PID_FILE" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            port=$(cat "${DASHBOARD_PID_DIR}/port" 2>/dev/null)
+        fi
+    fi
+    if [ -z "$port" ]; then
+        port=$(loki_ui_free_port "${LOKI_DASHBOARD_PORT:-$DASHBOARD_DEFAULT_PORT}")
+        [ -n "$port" ] || { echo "loki: no free local port found" >&2; return 1; }
+        # The WS-origin allowlist must name the chosen port on both loopback names.
+        LOKI_PROJECT_DIR="$PWD" \
+            LOKI_DASHBOARD_CORS="http://localhost:$port,http://127.0.0.1:$port" \
+            cmd_dashboard_start --host 127.0.0.1 --port "$port" >&2 || return 1
+    fi
+    local url="http://127.0.0.1:${port}/start"
+    if [ "${LOKI_HEADLESS:-0}" = "1" ] || [ "${1:-}" = "--no-open" ]; then
+        echo "$url"
+    else
+        loki_open_url "$url" || echo "$url"
+    fi
+}
+
 # Tight newcomer landing for the bare `loki` invocation (no args).
 # v7.28.x UX: the full 70-command table lives in `loki help`; a no-args run
 # now shows only a calm ~12-line orientation so the "what do I do first"
@@ -1873,7 +1919,7 @@ show_landing() {
     echo -e "  ${CYAN}loki doctor${NC}           Check your setup is ready (a few seconds)"
     echo -e "  ${CYAN}loki quickstart${NC}       Guided first build from your idea (no PRD needed)"
     echo -e "  ${CYAN}loki start ./prd.md${NC}   Build from a spec (PRD file, GitHub/GitLab/Jira/Azure issue, or no arg)"
-    echo "  quickstart = guided first build; quick = one small task (3 iters max)."
+    echo "  quickstart = guided first build; quick = one small task (Loki 10 engine, no PR)."
     echo ""
     echo -e "Need help? ${CYAN}loki help${NC} lists every command."
     echo "Tip: preview cost and scope before building: loki plan <your-prd.md>"
@@ -3396,7 +3442,7 @@ cmd_start() {
                         ${LOKI_MIROFISH_ROUNDS:+--max-rounds "$LOKI_MIROFISH_ROUNDS"} \
                         ${LOKI_MIROFISH_TIMEOUT:+--timeout "$LOKI_MIROFISH_TIMEOUT"}
                     # PID is tracked in .loki/mirofish/pipeline-state.json by the adapter
-                    echo -e "${CYAN}MiroFish pipeline started in background. Check status: loki mirofish status${NC}"
+                    echo -e "${CYAN}MiroFish pipeline started in background. Status: $LOKI_DIR/mirofish/pipeline-state.json${NC}"
                 else
                     echo -e "${YELLOW}Warning: PRD validation for MiroFish failed. Continuing without.${NC}"
                     unset MIROFISH_URL
@@ -9282,14 +9328,14 @@ _deploy_receipt_verdict() {
         printf '%s' "UNCHECKED"; return 0
     fi
 
-    local out hash_ok gpg_ok signed=0
+    local out hash_ok
     out="$(python3 -E "$verifier" "$pj" "${TARGET_DIR:-.}" 2>/dev/null || true)"
 
     # "The verifier did not RUN" and "the verifier says the hash is bad" are
     # different facts and must not collapse. If they do, a broken python3
     # produces the verdict TAMPERED -- an accusation of forgery for a check that
     # never executed. That is the same error the signed path is careful to avoid
-    # with NO_PUBKEY (see loki:852): it sends a user hunting a forgery that never
+    # with a missing key: it sends a user hunting a forgery that never
     # happened, and trains them to shrug at a real TAMPERED. Unparseable output
     # is UNCHECKED, which still REFUSES -- fail-closed, honestly labelled.
     if [ -z "$out" ] || ! printf '%s' "$out" | python3 -c 'import json,sys;json.load(sys.stdin)' >/dev/null 2>&1; then
@@ -9297,28 +9343,65 @@ _deploy_receipt_verdict() {
     fi
 
     hash_ok="$(printf '%s' "$out" | python3 -c 'import json,sys;print(str(json.load(sys.stdin).get("hash_ok",False)).lower())' 2>/dev/null || printf 'false')"
-    gpg_ok="$(printf '%s' "$out" | python3 -c 'import json,sys;print(str(json.load(sys.stdin).get("gpg_ok","n/a")).lower())' 2>/dev/null || printf 'n/a')"
-
-    # Whether the receipt CARRIES a signature is read from the receipt, never
-    # inferred from gpg_ok -- gpg_ok is "n/a" both for "no signature" and for
-    # "gpg missing here", and conflating those mislabels a signed receipt.
-    if python3 -c 'import json,sys;sys.exit(0 if (json.load(open(sys.argv[1])).get("verification") or {}).get("gpg_signature") else 1)' "$pj" 2>/dev/null; then
-        signed=1
-    fi
-
     if [ "$hash_ok" != "true" ]; then printf '%s' "TAMPERED"; return 0; fi
-    if [ "$signed" -eq 0 ]; then printf '%s' "UNSIGNED"; return 0; fi
-    case "$gpg_ok" in
-        true)  printf '%s' "VERIFIED" ;;
-        # Signed but the signature does not verify: contents or signature were
-        # altered. A missing PUBLIC KEY is a different fact (uncheckable, not an
-        # accusation), so it reports UNCHECKED -- which refuses here anyway.
-        false) if command -v gpg >/dev/null 2>&1 && [ "$(loki_remote_gpg_status "$pj")" = "nopubkey" ]; then
-                   printf '%s' "UNCHECKED"
-               else
-                   printf '%s' "TAMPERED"
-               fi ;;
-        *)     printf '%s' "UNCHECKED" ;;
+
+    # Provenance is the Ed25519 attestation, checked against the PUBLIC keys we
+    # hold: the local signing key plus LOKI_RECEIPT_RETIRED_PUBKEYS. A legacy
+    # gpg_signature is ignored: old receipts read UNSIGNED here. A token whose
+    # kid is not in that set (another machine, a rotated-away key) cannot be
+    # evaluated, so no key set is written and the verdict is UNCHECKED, never
+    # TAMPERED: the hash is fine, we just cannot vouch for who signed it. A
+    # local key only proves "a holder of this key", not an independent build.
+    # Token SHAPE before any key lookup (mirrors engine10 checkAttestation): a present
+    # attestation that is not a string, not a 3-part JWS, or whose header/payload are not
+    # JSON with alg EdDSA is junk, so TAMPERED, never UNCHECKED, with or without a key.
+    if ! python3 -E - "$pj" >/dev/null 2>&1 <<'PYSHAPE'
+import sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import json, base64
+def dec(x):
+    return json.loads(base64.urlsafe_b64decode(x + "=" * (-len(x) % 4)))
+v = json.load(open(sys.argv[1])).get("verification") or {}
+t = v.get("attestation")
+if t is None or t == "":
+    sys.exit(0)
+if not isinstance(t, str):
+    sys.exit(1)
+parts = t.split(".")
+if len(parts) != 3 or not all(parts):
+    sys.exit(1)
+try:
+    h = dec(parts[0]); dec(parts[1])
+except Exception:
+    sys.exit(1)
+sys.exit(0 if isinstance(h, dict) and h.get("alg") == "EdDSA" else 1)
+PYSHAPE
+    then printf '%s' "TAMPERED"; return 0; fi
+
+    local jwks att
+    jwks="$(mktemp "${TMPDIR:-/tmp}/loki-jwks.XXXXXX")" || { printf '%s' "UNCHECKED"; return 0; }
+    python3 -E - "${_LOKI_SCRIPT_DIR}" "$pj" >"$jwks" 2>/dev/null <<'PY' || true
+import sys, json
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+sys.path.insert(0, sys.argv[1])
+from receipt_jwt import load_signing_key, load_retired_public_keys, build_jwks, _b64url_decode
+k, _ = load_signing_key(auto_generate=False)
+jwks = build_jwks(k, load_retired_public_keys())
+try:
+    tok = json.load(open(sys.argv[2]))["verification"]["attestation"]
+    kid = json.loads(_b64url_decode(tok.split(".")[0])).get("kid", "")
+except Exception:
+    kid = ""          # malformed or absent: let the checker decide (none / bad)
+if not kid or kid in [j.get("kid") for j in jwks["keys"]]:
+    print(json.dumps(jwks))
+PY
+    att="$(loki_proof_attestation_check "$pj" "$jwks")"
+    rm -f "$jwks"
+    case "$att" in
+        ok)   printf '%s' "VERIFIED" ;;
+        none) printf '%s' "UNSIGNED" ;;
+        bad)  printf '%s' "TAMPERED" ;;
+        *)    printf '%s' "UNCHECKED" ;;
     esac
     return 0
 }
@@ -9680,7 +9763,7 @@ _deploy_gate() {
         verdict="$(_deploy_receipt_verdict "$pj")"
         case "$verdict" in
             VERIFIED) : ;;
-            UNSIGNED)  reasons="${reasons}receipt is UNSIGNED: integrity holds but provenance is unproven (set LOKI_PROOF_GPG_KEY; docs/SIGNED-RECEIPTS.md)
+            UNSIGNED)  reasons="${reasons}receipt is UNSIGNED: integrity holds but provenance is unproven (docs/SIGNED-RECEIPTS.md)
 " ;;
             UNCHECKED) reasons="${reasons}receipt is UNCHECKED: its signature could not be evaluated here, so nothing was proven
 " ;;
@@ -9784,7 +9867,7 @@ cmd_deploy() {
                 echo "     file alone can opt in."
                 echo ""
                 echo "It FAILS CLOSED: if a check cannot be evaluated at all (no receipt,"
-                echo "gpg unavailable, anchor unresolvable, not a git repo), that is a"
+                echo "signing key or keys unavailable, anchor unresolvable, not a git repo), that is a"
                 echo "REFUSAL, not a pass. A refusal still prints the advisory command."
                 echo ""
                 echo "Hard limits, with or without --execute:"
@@ -12582,7 +12665,7 @@ cmd_config() {
             echo "  get KEY         Get a configuration value"
             echo "  example         Print an annotated config template (for --config)"
             echo "  schema          Print the key -> env-var mapping table"
-            echo "  validate FILE   Validate a config file (--config) without applying it"
+            echo "  validate [FILE] Validate loki.yaml (no FILE: repo root, then ~/.loki) or a --config file"
             echo ""
             echo "Settable keys (v6.0.0):"
             echo "  maxTier              Cost ceiling: opus, sonnet, haiku (default: opus)"
@@ -12786,14 +12869,43 @@ cmd_config_schema() {
     loki_config_generate_schema
 }
 
+# D51: headless backlog runner. One v10 issue-mode run per open issue, each in
+# its own worktree and branch, at most N in parallel (loki.yaml concurrency).
+cmd_backlog() {
+    case "${1:-}" in
+        ""|--help|-h|help)
+            echo -e "${BOLD}loki backlog${NC} - run a v10 issue-mode run for every matching open issue"
+            echo ""
+            echo "Usage: loki backlog owner/repo (--all | --label X | --issues 1,2,3) [--concurrency N] [--dry-run]"
+            echo ""
+            echo "  --all             Every open issue"
+            echo "  --label X         Open issues with label X"
+            echo "  --issues 1,2,3    Exactly these issue numbers"
+            echo "  --concurrency N   Max runs in parallel (default: loki.yaml concurrency, else 2)"
+            echo "  --dry-run         List what would run; launch nothing"
+            echo ""
+            echo "Run from a checkout of owner/repo. Each issue runs in its own worktree on loki/backlog-N."
+            echo "Config: loki.yaml (repo root, then ~/.loki/loki.yaml); see docs/loki.yaml.example."
+            echo "Exit: 0 every issue ended VERIFIED or with a PR; 3 only budget stops; 1 otherwise; 2 usage."
+            return 0
+            ;;
+    esac
+    command -v python3 >/dev/null 2>&1 || { echo -e "${RED}loki backlog: python3 is required${NC}" >&2; return 2; }
+    python3 "$_LOKI_SCRIPT_DIR/lib/backlog.py" "$@"
+}
+
 # #691: validate a config file (--config) WITHOUT applying it. Reports
 # unresolved ${VAR} refs, raw-secret literals (error), and per-value validation
 # failures. Non-zero exit on any failure.
 cmd_config_validate() {
-    local file="${1:-}"
-    if [ -z "$file" ]; then
-        echo -e "${RED}Usage: loki config validate <file>${NC}" >&2
-        return 2
+    local file="${1:-}" _loki_yaml
+    # D51: loki.yaml (UI + headless config) has its own schema; no argument
+    # validates the discovered loki.yaml (repo root, then ~/.loki/loki.yaml).
+    case "$(basename -- "$file")" in "" | loki.yaml | loki.yml | loki.yaml.example) _loki_yaml=1 ;; *) _loki_yaml=0 ;; esac
+    if [ "$_loki_yaml" = 1 ]; then
+        command -v python3 >/dev/null 2>&1 || { echo -e "${RED}config validate: python3 is required${NC}" >&2; return 2; }
+        python3 "$_LOKI_SCRIPT_DIR/lib/loki_yaml.py" validate ${file:+"$file"}
+        return $?
     fi
     if ! declare -f loki_config_validate_file >/dev/null 2>&1; then
         echo -e "${RED}config validate: config-map.sh helper not loaded${NC}" >&2
@@ -13635,7 +13747,7 @@ cmd_doctor() {
         if ! command -v "$cmd" &> /dev/null; then
             if [ "$required" = "required" ]; then
                 echo -e "  ${RED}FAIL${NC}  $name - not found"
-                _doctor_block "$name is not installed"
+                _doctor_block "${name%% (*} is not installed"
                 fail_count=$((fail_count + 1))
             elif [ "$required" = "recommended" ]; then
                 echo -e "  ${YELLOW}WARN${NC}  $name - not found (recommended)"
@@ -13704,7 +13816,7 @@ cmd_doctor() {
                { [ "$cur_major" -eq "$min_major" ] 2>/dev/null && [ "$cur_minor" -lt "$min_minor" ] 2>/dev/null; }; then
                 if [ "$required" = "required" ]; then
                     echo -e "  ${RED}FAIL${NC}  $name$version_display - requires >= $min_version"
-                    _doctor_block "$name must be >= $min_version"
+                    _doctor_block "${name%% (*} must be >= $min_version"
                     fail_count=$((fail_count + 1))
                 else
                     echo -e "  ${YELLOW}WARN${NC}  $name$version_display - recommended >= $min_version"
@@ -13805,6 +13917,19 @@ cmd_doctor() {
         fi
     fi
     echo ""
+
+    # A-123: an EXPLICIT LOKI_PROVIDER names the CLI a build will launch, so that
+    # CLI is required even when another provider is installed. Auto-detection
+    # never reaches here: it only picks an installed provider. Bundled-SDK
+    # claude stays allowed. Mirrored in loki-ts/src/commands/doctor.ts.
+    if [ -n "${LOKI_PROVIDER:-}" ] && [ "$fail_count" -eq 0 ] \
+        && ! command -v "$LOKI_PROVIDER" >/dev/null 2>&1 \
+        && ! { [ "$LOKI_PROVIDER" = "claude" ] && [ "$_doctor_sdk_only" = "1" ]; }; then
+        _sel_install=$(doctor_provider_install_cmd "$LOKI_PROVIDER")
+        echo -e "  ${RED}FAIL${NC}  Selected provider '${LOKI_PROVIDER}' CLI not found"
+        _doctor_block "Selected provider ${LOKI_PROVIDER} CLI not found. Fix: ${_sel_install:-install ${LOKI_PROVIDER}, or unset LOKI_PROVIDER}"
+        fail_count=$((fail_count + 1))
+    fi
 
     # Provider Availability. Which provider a build would ACTUALLY pick, which
     # is decided by providers/loader.sh auto_detect_provider, not by PATH order
@@ -14092,22 +14217,14 @@ except Exception:
         echo -e "  ${YELLOW}WARN${NC}  sentrux - not installed (optional, brew install sentrux/tap/sentrux)"
         warn_count=$((warn_count + 1))
     fi
-    # Evidence Receipt signing state (optional). Unsigned receipts are the
-    # default and are still checkable (hash + diff re-derivation); what they
-    # cannot prove is PROVENANCE, so proof-verify.py reports
-    # generator_trusted: true. Surface the state here because it is otherwise
-    # invisible until someone reads a receipt. WARN (never FAIL): unsigned is
-    # a supported, documented mode, not a broken install.
+    # Receipt signing: Ed25519, auto-generated on first run. WARN only, and
+    # only when something needs attention. Byte-mirrored in doctor.ts.
     if [ -n "${LOKI_PROOF_GPG_KEY:-}" ]; then
-        if command -v gpg &>/dev/null; then
-            echo -e "  ${GREEN}PASS${NC}  Receipt signing: LOKI_PROOF_GPG_KEY set and gpg available"
-            pass_count=$((pass_count + 1))
-        else
-            echo -e "  ${YELLOW}WARN${NC}  Receipt signing: LOKI_PROOF_GPG_KEY set but gpg NOT on PATH - receipts will be UNSIGNED"
-            warn_count=$((warn_count + 1))
-        fi
-    else
-        echo -e "  ${YELLOW}WARN${NC}  Receipt signing: UNSIGNED (set LOKI_PROOF_GPG_KEY to a gpg key id; see docs/SIGNED-RECEIPTS.md)"
+        echo -e "  ${YELLOW}WARN${NC}  Receipt signing: LOKI_PROOF_GPG_KEY is no longer supported and is ignored; use LOKI_RECEIPT_SIGNING_KEY or LOKI_RECEIPT_SIGNING_KEY_FILE (docs/SIGNED-RECEIPTS.md)"
+        warn_count=$((warn_count + 1))
+    fi
+    if ! python3 -c 'import cryptography' >/dev/null 2>&1; then
+        echo -e "  ${YELLOW}WARN${NC}  Receipt signing: python3 'cryptography' package missing, receipts will be UNSIGNED (pip install cryptography)"
         warn_count=$((warn_count + 1))
     fi
     echo ""
@@ -14202,7 +14319,7 @@ STALE_DAYS = 90
 p = os.environ['LOKI_CATALOG_PATH']
 try:
     updated = json.load(open(p))['updated']
-    age = (datetime.date.today() - datetime.date.fromisoformat(updated)).days
+    age = (datetime.datetime.now(datetime.timezone.utc).date() - datetime.date.fromisoformat(updated)).days
 except Exception:
     print('warn|Catalog unreadable or missing an ISO \"updated\" date -- cannot determine age')
 else:
@@ -14394,6 +14511,8 @@ else:
             esac
             ( loki_emit_first_run_blocked "$_blk_key" >/dev/null 2>&1 </dev/null & ) 2>/dev/null || true
         fi
+        # A-123: the LAST line is the one blocking reason, exactly.
+        printf '%b' "$_doctor_blockers" | awk '/^  - /{sub(/^  - /,""); print; exit}'
         return 1
     elif [ "$warn_count" -gt 0 ]; then
         echo -e "${YELLOW}All required checks passed with some warnings.${NC}"
@@ -14416,6 +14535,46 @@ else:
         echo "Next: loki quickstart (guided first build from your idea, no PRD needed)"
         echo "      or loki demo (builds a sample todo app end to end) or loki start ./prd.md"
     fi
+    # A-123: the last stdout line. Provider and model come from the selected
+    # provider; the key state is read WITHOUT creating a key (auto_generate=False).
+    # Byte-mirrored in loki-ts/src/commands/doctor.ts.
+    local _rd_id _rd_model _rd_key _rd_state
+    _rd_id="${LOKI_PROVIDER:-}"
+    [ -n "$_rd_id" ] || _rd_id="$(effective_provider_id 2>/dev/null || true)"
+    [ -n "$_rd_id" ] || _rd_id="claude"
+    _rd_model="$(bash -c 'source "$1" >/dev/null 2>&1; printf %s "${PROVIDER_MODEL_DEVELOPMENT:-}"' _ "${_LOKI_SCRIPT_DIR}/../providers/${_rd_id}.sh" 2>/dev/null || true)"
+    [ -n "$_rd_model" ] || _rd_model="default"
+    _rd_key="$(python3 -E - "${_LOKI_SCRIPT_DIR}" 2>/dev/null <<'PY' || true
+import os, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+sys.path.insert(0, sys.argv[1])
+from receipt_jwt import load_signing_key, _CRYPTO_AVAILABLE, RECEIPT_SIGNER_BASENAME
+if not _CRYPTO_AVAILABLE:
+    print("nocrypto")
+else:
+    k, kid = load_signing_key(auto_generate=False)
+    if kid:
+        print("kid " + kid[:8])
+    elif os.environ.get("LOKI_RECEIPT_SIGNING_KEY", "").strip():
+        print("bad")
+    else:
+        # A-122: a missing key FILE is auto-generated on first use when its nearest
+        # existing ancestor directory is writable; an existing file that did not
+        # load (corrupt/unreadable) or an unwritable location is unusable.
+        f = os.environ.get("LOKI_RECEIPT_SIGNING_KEY_FILE", "").strip() or os.path.expanduser("~/.loki/keys/receipt-ed25519.pem")
+        d = os.path.dirname(os.path.abspath(f))
+        while not os.path.isdir(d) and os.path.dirname(d) != d:
+            d = os.path.dirname(d)
+        print("bad" if os.path.lexists(f) or not os.access(d, os.W_OK | os.X_OK) else "none")
+PY
+)"
+    case "$_rd_key" in
+        "kid "*) _rd_state="receipts signed (${_rd_key})" ;;
+        none)    _rd_state="receipts will be signed on first run" ;;
+        bad)     _rd_state="receipts unsigned: signing key could not be loaded" ;;
+        *)       _rd_state="receipts unsigned: python3 cryptography package missing" ;;
+    esac
+    echo "Ready: ${_rd_id} (${_rd_model}), ${_rd_state}"
     # Best-effort stale-install nudge (stderr only; never blocks; off on
     # non-TTY/CI). Reached only on the human-readable path (--json returns above).
     maybe_print_update_hint
@@ -14520,23 +14679,6 @@ sentrux = {
     'found': sentrux_found,
     'version': sentrux_version,
     'status': sentrux_status,
-    'required': 'optional'
-}
-
-# Evidence Receipt signing state. Unsigned is the DEFAULT and is a supported
-# mode, so this is never 'fail'. Exposed because signing state is otherwise
-# invisible until someone reads a receipt, and it is exactly what decides
-# whether proof-verify.py reports generator_trusted: true. Sibling of
-# checks/disk/sentrux -- deliberately NOT counted in the summary tally so
-# existing consumers see unchanged numbers.
-signing_key_set = bool(os.environ.get('LOKI_PROOF_GPG_KEY', '').strip())
-signing_gpg_available = shutil.which('gpg') is not None
-signing_enabled = signing_key_set and signing_gpg_available
-receipt_signing = {
-    'enabled': signing_enabled,
-    'key_configured': signing_key_set,
-    'gpg_available': signing_gpg_available,
-    'status': 'pass' if signing_enabled else 'warn',
     'required': 'optional'
 }
 
@@ -14693,7 +14835,7 @@ _cat_path = os.environ['LOKI_CATALOG_PATH']
 try:
     import datetime as _dt
     _cat_updated = json.load(open(_cat_path))['updated']
-    _cat_age = (_dt.date.today() - _dt.date.fromisoformat(_cat_updated)).days
+    _cat_age = (_dt.datetime.now(_dt.timezone.utc).date() - _dt.date.fromisoformat(_cat_updated)).days
     if _cat_age > CATALOG_STALE_DAYS:
         # Deliberately NOT counted. The block comment above states catalog age is
         # excluded from pass/fail/warn and from 'ok' so a stale catalog can never
@@ -14731,7 +14873,6 @@ result = {
     'ai_provider': ai_provider,
     'skills': skills,
     'sentrux': sentrux,
-    'receipt_signing': receipt_signing,
     'memory': memory,
     'model_catalog': model_catalog,
     'summary': {
@@ -16270,8 +16411,10 @@ cmd_quick() {
             echo ""
             echo "Usage: loki quick \"description of what to do\""
             echo ""
-            echo "Runs Loki with a lightweight execution profile: 3 iterations max,"
-            echo "no quality council, no completion gate. Best for tiny tasks."
+            echo "Runs the Loki 10 engine on one small task (no PR is opened). Set"
+            echo "LOKI_ENGINE=legacy or run 'loki legacy quick ...' for the previous engine:"
+            echo "a lightweight profile, 3 iterations max, no quality council, no completion"
+            echo "gate. Best for tiny tasks. The options below apply to the previous engine."
             echo ""
             echo "Examples:"
             echo "  loki quick \"add dark mode to this React app\""
@@ -16280,10 +16423,12 @@ cmd_quick() {
             echo "  loki quick \"write unit tests for the API endpoints\""
             echo ""
             echo "Options:"
-            echo "  --help, -h    Show this help and exit"
+            echo "  --help, -h       Show this help and exit"
+            echo "  --verbose, -v    Show setup and progress output (same as LOKI_VERBOSE=1)"
             echo ""
             echo "Environment:"
             echo "  LOKI_MAX_ITERATIONS    Override the default 3-iteration cap"
+            echo "  LOKI_VERBOSE=1         Show setup and progress output (default is quiet)"
             echo ""
             echo "See also: loki start (full RARV cycle), loki run (alias for start)"
             return 0
@@ -16316,19 +16461,27 @@ cmd_quick() {
     # `--config f.env` would be swept into task_desc (cmd_quick has no arg loop).
     local _quick_args=()
     local _skip_next=false
-    local _qa
+    local _qa _quick_task_seen=false
     for _qa in "$@"; do
         if [ "$_skip_next" = "true" ]; then
             _skip_next=false
             continue
         fi
         case "$_qa" in
+            # A-134: --verbose/-v before the task text is a flag, never task text.
+            --verbose|-v) if [ "$_quick_task_seen" = "false" ]; then export LOKI_VERBOSE=1; continue; fi ;;
             --config|--vars|--env-file)        _skip_next=true; continue ;;
             --config=*|--vars=*|--env-file=*)   continue ;;
         esac
+        _quick_task_seen=true
         _quick_args+=("$_qa")
     done
     set -- "${_quick_args[@]+"${_quick_args[@]}"}"
+    if [ $# -eq 0 ]; then
+        echo -e "${RED}Error: No task description provided${NC}"
+        echo "Usage: loki quick [--verbose] \"description of what to do\""
+        exit 2
+    fi
 
     local task_desc="$*"
     local version=$(get_version)
@@ -18499,6 +18652,11 @@ with open(manifest_path, 'w') as f:
 # usable.
 # ---------------------------------------------------------------------------
 cmd_verify() {
+    # D48: --pubkey verifies a receipt against a given public key (v10 engine, no ~/.loki needed).
+    local _pk_arg
+    for _pk_arg in "$@"; do
+        [ "$_pk_arg" = "--pubkey" ] && LOKI_ENGINE=v10 exec "$_LOKI_SCRIPT_DIR/../bin/loki" verify "$@"
+    done
     # --fast: deterministic checks only, in milliseconds. Measured on this repo
     # (1,932 tracked files): 298 ms cold, 87 ms warm, 19 ms diff-scoped, against
     # an 11,040 ms shell-based baseline.
@@ -21480,11 +21638,15 @@ main() {
         exit 1
     fi
 
-    if [ $# -eq 0 ]; then
-        # v7.28.x UX: bare `loki` shows a tight newcomer landing, not the full
-        # command wall. `loki help`/`--help` still print show_help unchanged.
-        show_landing
-        exit 0
+    if [ $# -eq 0 ] || { [ $# -eq 1 ] && [ "$1" = "--no-open" ]; }; then
+        # D51: bare `loki` starts the local UI. LOKI_LANDING=1 keeps the v7.28
+        # newcomer landing (tests and scripts that parse it set it).
+        if [ "${LOKI_LANDING:-0}" = "1" ]; then
+            show_landing
+            exit 0
+        fi
+        cmd_ui "$@"
+        exit $?
     fi
 
     local command="$1"
@@ -21717,6 +21879,9 @@ main() {
         assets)
             cmd_assets "$@"
             ;;
+        backlog)
+            cmd_backlog "$@"
+            ;;
         config)
             cmd_config "$@"
             ;;
@@ -21803,6 +21968,10 @@ main() {
             ;;
         verify)
             cmd_verify "$@"
+            ;;
+        keys)
+            # D48: public-key export lives in the Bun v10 engine; re-enter the shim on that route.
+            LOKI_ENGINE=v10 exec "$_LOKI_SCRIPT_DIR/../bin/loki" keys "$@"
             ;;
         spec)
             cmd_spec "$@"
@@ -36677,10 +36846,9 @@ cmd_proof() {
             echo ""
             echo "Proofs are generated automatically at run completion (LOKI_PROOF=0 to opt out)."
             echo ""
-            echo "Signing (off by default): receipts are UNSIGNED unless LOKI_PROOF_GPG_KEY is"
-            echo "set to a gpg key id. Unsigned, the integrity hash proves the bytes were not"
-            echo "edited after hashing but NOT who produced them, so verify reports"
-            echo "generator_trusted: true. Export LOKI_PROOF_GPG_KEY to close that gap."
+            echo "Signing: receipts are Ed25519-signed automatically (key auto-generated at"
+            echo "~/.loki/keys/receipt-ed25519.pem). To use your own key set"
+            echo "LOKI_RECEIPT_SIGNING_KEY or LOKI_RECEIPT_SIGNING_KEY_FILE."
             echo "See docs/SIGNED-RECEIPTS.md."
             [ "$sub" = "" ] && exit 1
             exit 0
@@ -37131,8 +37299,8 @@ print(json.dumps(json.load(open(os.environ['LOKI_PROOF_JSON'])), indent=2))
                         # verified. Exiting 0 here let a stripped signature pass
                         # any CI step that asked for provenance.
                         echo -e "${YELLOW}attestation: ABSENT -- this receipt carries no attestation.${NC}" >&2
-                        echo "  Nothing was checked against ${_pv_jwks}. The receipt may still be" >&2
-                        echo "  gpg-signed; this says only that it has no JWKS attestation." >&2
+                        echo "  Nothing was checked against ${_pv_jwks}. This says only that the" >&2
+                        echo "  receipt has no JWKS attestation." >&2
                         echo "  Not verified: a key set was supplied, but the receipt is unsigned (exit 1)." >&2
                         _pv_rc=1
                         _pv_attestation_field="ABSENT"

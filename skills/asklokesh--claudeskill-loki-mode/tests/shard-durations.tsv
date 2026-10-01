@@ -282,6 +282,7 @@ App Runner Wave5 W5	2
 Apprunner Dockerfile Exec Wave8	0
 Assumption Gate Brief Mode	0
 Auto Wiki	1
+Backlog (loki backlog + loki.yaml)	40
 Backend Floor	2
 Backend Floor port scoping (kill by recorded PID, never by port)	3
 cmd_web_stop/start use a real process identity check (D14/D15 class)	8
@@ -337,6 +338,7 @@ Council Write Transcript Threshold	0
 Cross Project Lift	0
 Da Veto	0
 Dashboard Identity	0
+UI bare loki	0
 Dashboard Json Guards	2
 Dashboard Memory Endpoints	16
 Dashboard Multiproject	17
@@ -344,7 +346,7 @@ Design System	10
 Docker Helpers W4	1
 Docker Run	0
 Doctor Ux	0
-E2e Features	19
+E2e Features	20
 Embeddings	1
 Emit Jsonl	0
 Empty Args No Prd	0
@@ -652,17 +654,49 @@ Loki 10 legacy route contract golden rows (E-30)	1
 Loki 10 live PR smoke on a sandbox repo (E-40)	1
 run-owned temp cleanup works when sourced under zsh	1
 Loki 10 legacy deprecation notice (E-35)	1
+bin/loki bun resolver and no-bun notice (P0-nobun-S2)	3
 Loki 10 gate publish script (EV-6)	2
 Loki 10 user docs match USAGE and the default marker (E-34)	1
 release.sh --bump-only restores debugId-only dist churn (E-72)	1
 release.sh --bump-only never leaves dist deleted on build failure (E-102)	1
+release.sh --bump-only refuses dist maps with absolute or repo-escaping sources (E-133)	1
 release-notes.sh extraction/validation + pre-push VERSION-bump gate (E-88)	9
 no hardcoded far-future latest a release can overtake (E-73)	1
 Loki modernize py2/3 capture tracer (M-09)	2
 Loki modernize user guide matches cli.ts flags (M-30)	1
+Docs name only CLI commands, flags and versions on main (DOC-02)	5
 loki modernize always routes to engine10 (M-08)	1
 Dependency inventory Latest/Bump self-consistency (DEP-01)	1
 Usage governor calibration and dedup (G-01)	2
 Usage governor statusLine logger (G-01)	1
 security-audit.yml gitleaks config isolation (refuse config change, base-config scan, gitleaksignore warning)	1
 CI security scanners wired, fail-closed (E-123)	1
+Worktree install cache keyed on lockfile hash (E-130)	1
+WhatsNew CURRENT_VERSION matches VERSION (E-129)	1
+Heredoc dollar-digit footgun checker (D44)	2
+CI cache scope (D44)	2
+Engine10 push GitLab (D44)	5
+gh withhold nested (D44)	2
+SettingsPage has no Gemini (D44)	2
+Trusted push agent config (D44)	15
+v10 guard rules (D44)	34
+Every test suite is registered in a runner (D44)	8
+Structural checks catch planted defects (D44-C)	45
+No script or test removes run-owned temp dirs by glob (E-140)	2
+No test starts a build against the repo root (E-165)	2
+v10 ops (E-142)	70
+first-run gate assertion logic (A-02)	12
+release publishes to npm next; promote.yml gates latest on the first-run gate (A-01)	3
+loki-seal Stop hook (A-04)	20
+Quick-fix artifacts (A-132)	60
+Council trivial-diff probe skip (A-133)	10
+run-all-tests guards: real key dir + parent HEAD (E-154, E-155)	3
+Quick receipt order and quiet output (A-134)	90
+Quick config safety (P0-t15)	35
+Loki Seal marketplace (D48 r10)	2
+Quick integrity exit code (A-118)	5
+Quick quiet failure tail and stdin (A-134b)	40
+Pre-commit author email guard (E-153)	10
+Docker Bun	0
+Provider stdin closed under verbose (A-134c)	10
+json schemas validate real why and status output (D48 r5)	60

@@ -58,18 +58,6 @@ type SentruxCheck = {
   required: "optional";
 };
 
-// Evidence Receipt signing state. Mirrors the bash cmd_doctor_json
-// receipt_signing block. Unsigned is the DEFAULT and a supported mode, so
-// status is never "fail". Sibling of checks/disk/sentrux -- NOT counted in
-// the summary tally, preserving backwards-compatible summary numbers.
-export type ReceiptSigningCheck = {
-  enabled: boolean;
-  key_configured: boolean;
-  gpg_available: boolean;
-  status: Status;
-  required: "optional";
-};
-
 // Provider availability: install state of every provider in
 // providers/loader.sh SUPPORTED_PROVIDERS, plus the one auto_detect_provider
 // would choose. Produced by autonomy/provider-offer.sh (providers-json), the
@@ -108,7 +96,6 @@ export type DoctorJson = {
   // Skill-link integrity, counted in the summary tally. See buildDoctorJson.
   skills: SkillJson[];
   sentrux: SentruxCheck;
-  receipt_signing: ReceiptSigningCheck;
   memory: MemoryHealth;
   model_catalog: CatalogFreshness;
   summary: {
@@ -322,7 +309,9 @@ export function checkSkills(selected?: string | null): SkillStatus[] {
         return {
           name,
           path: shortPath,
-          status: "fail" as const,
+          // Only the provider a build would launch blocks (A-123); a stale link
+          // for any other provider is reported as a warning.
+          status: effective !== null && effective === id ? ("fail" as const) : ("warn" as const),
           detail: `(broken symlink -> ${target})`,
           dangling: true,
         };
@@ -362,7 +351,7 @@ export function skillsForJson(): SkillJson[] {
     detail:
       s.status === "pass"
         ? null
-        : s.status === "fail"
+        : s.dangling
           // The text view can show the target interactively, but persisted JSON
           // must not disclose an absolute run root or target-derived secret.
           ? "broken symlink. Fix: loki setup-skill"
@@ -479,24 +468,6 @@ async function checkSentrux(): Promise<SentruxCheck> {
   return { found, version, status, required: "optional" };
 }
 
-// Evidence Receipt signing state for doctor --json. Mirrors the bash
-// cmd_doctor_json receipt_signing block: signing is enabled only when BOTH
-// LOKI_PROOF_GPG_KEY is set AND gpg is on PATH (proof-generator.py shells out
-// to gpg, so a key with no gpg still yields an UNSIGNED receipt). The env var
-// is checked for presence only -- the value is never read into the output.
-async function checkReceiptSigning(): Promise<ReceiptSigningCheck> {
-  const keyConfigured = (process.env["LOKI_PROOF_GPG_KEY"] ?? "").trim() !== "";
-  const gpgAvailable = (await commandExists("gpg")) !== null;
-  const enabled = keyConfigured && gpgAvailable;
-  return {
-    enabled,
-    key_configured: keyConfigured,
-    gpg_available: gpgAvailable,
-    status: enabled ? "pass" : "warn",
-    required: "optional",
-  };
-}
-
 // v7.7.17: read the memory subsystem error log surface for doctor --json.
 // Resolves the log path via LOKI_DIR env (set by loki invocations) with a
 // cwd-relative `.loki/memory/.errors.log` fallback. Never throws; returns
@@ -600,7 +571,6 @@ export async function buildDoctorJson(): Promise<DoctorJson> {
   const checks: ToolCheck[] = rows.map(({ displayName: _displayName, ...rest }) => rest);
   const disk = checkDisk();
   const sentrux = await checkSentrux();
-  const receiptSigning = await checkReceiptSigning();
   const memory = await checkMemoryHealth();
 
   let passed = 0;
@@ -656,7 +626,6 @@ export async function buildDoctorJson(): Promise<DoctorJson> {
     ai_provider: aiProvider,
     skills,
     sentrux,
-    receipt_signing: receiptSigning,
     memory,
     // Advisory only: deliberately excluded from the passed/failed/warnings
     // tally and from `ok`, so a stale catalog can never flip the exit code.
@@ -816,6 +785,7 @@ async function runText(): Promise<number> {
     opencode: "npm install -g opencode-ai",
   };
   let anyProvider = false;
+  let sdkOnly = false;
   for (const cmd of providerCmds) {
     const c = byCmd.get(cmd)!;
     process.stdout.write(formatToolLine(c) + "\n");
@@ -840,6 +810,7 @@ async function runText(): Promise<number> {
       sdkUsable = probe.status === 0;
     }
     if (sdkUsable) {
+      sdkOnly = true;
       // Byte-mirrors the bash route. "No separate CLI needed" was true for
       // `loki start` and false for demo/quick/quickstart, which stay on bash and
       // require a binary on PATH -- so a green doctor was followed by exit 2.
@@ -878,6 +849,22 @@ async function runText(): Promise<number> {
     }
   }
   process.stdout.write(`\n`);
+
+  // A-123: an EXPLICIT LOKI_PROVIDER names the CLI a build will launch, so that
+  // CLI is required even when another provider is installed. Byte-mirrors the
+  // bash route in cmd_doctor. Bundled-SDK claude stays allowed.
+  const explicitProvider = process.env["LOKI_PROVIDER"] ?? "";
+  if (
+    explicitProvider !== "" &&
+    tally.fail === 0 &&
+    (await commandExists(explicitProvider)) === null &&
+    !(explicitProvider === "claude" && sdkOnly)
+  ) {
+    const install = providerInstall[explicitProvider] ?? `install ${explicitProvider}, or unset LOKI_PROVIDER`;
+    process.stdout.write(`  ${badge("fail")}  Selected provider '${explicitProvider}' CLI not found\n`);
+    tally.fail++;
+    tally.blockers.push(`Selected provider ${explicitProvider} CLI not found. Fix: ${install}`);
+  }
 
   // Provider Availability. Rendered by the shared bash helper so these bytes
   // are the bash route bytes by construction. Empty string when loader.sh is
@@ -981,6 +968,7 @@ async function runText(): Promise<number> {
       tally.blockers.push(`${s.name} is a broken symlink. Fix: loki setup-skill`);
     } else {
       process.stdout.write(`  ${badge("warn")}  ${s.name}  ${DIM}${s.detail}${NC}\n`);
+      if (s.dangling) process.stdout.write(`         ${YELLOW}Fix: loki setup-skill${NC}\n`);
       tally.warn++;
     }
   }
@@ -1107,24 +1095,18 @@ async function runText(): Promise<number> {
     );
     tally.warn++;
   }
-  // Evidence Receipt signing state. Byte-mirrors the bash-route lines at
-  // autonomy/loki:cmd_doctor so the bun-parity matrix diff stays empty.
-  // WARN (never FAIL): unsigned is a supported, documented default.
+  // Receipt signing: Ed25519, auto-generated on first run. Byte-mirrors the
+  // bash-route lines in cmd_doctor. WARN only, and only when something needs
+  // the user's attention.
   if ((process.env["LOKI_PROOF_GPG_KEY"] ?? "").trim() !== "") {
-    if ((await commandExists("gpg")) !== null) {
-      process.stdout.write(
-        `  ${badge("pass")}  Receipt signing: LOKI_PROOF_GPG_KEY set and gpg available\n`,
-      );
-      tally.pass++;
-    } else {
-      process.stdout.write(
-        `  ${badge("warn")}  Receipt signing: LOKI_PROOF_GPG_KEY set but gpg NOT on PATH - receipts will be UNSIGNED\n`,
-      );
-      tally.warn++;
-    }
-  } else {
     process.stdout.write(
-      `  ${badge("warn")}  Receipt signing: UNSIGNED (set LOKI_PROOF_GPG_KEY to a gpg key id; see docs/SIGNED-RECEIPTS.md)\n`,
+      `  ${badge("warn")}  Receipt signing: LOKI_PROOF_GPG_KEY is no longer supported and is ignored; use LOKI_RECEIPT_SIGNING_KEY or LOKI_RECEIPT_SIGNING_KEY_FILE (docs/SIGNED-RECEIPTS.md)\n`,
+    );
+    tally.warn++;
+  }
+  if (spawnSync("python3", ["-c", "import cryptography"], { env: { ...process.env }, stdio: "ignore" }).status !== 0) {
+    process.stdout.write(
+      `  ${badge("warn")}  Receipt signing: python3 'cryptography' package missing, receipts will be UNSIGNED (pip install cryptography)\n`,
     );
     tally.warn++;
   }
@@ -1309,6 +1291,8 @@ async function runText(): Promise<number> {
     process.stdout.write(
       `Meanwhile 'loki tour' works right now -- no provider, no key, no spend.\n`,
     );
+    // A-123: the LAST line is the one blocking reason, exactly.
+    process.stdout.write(`${tally.blockers[0]}\n`);
     return 1;
   }
   if (tally.warn > 0) {
@@ -1326,8 +1310,57 @@ async function runText(): Promise<number> {
   process.stdout.write(
     `      or loki demo (builds a sample todo app end to end) or loki start ./prd.md\n`,
   );
+  // A-123: the last stdout line. Byte-mirrors cmd_doctor. The key state is read
+  // WITHOUT creating a key (auto_generate=False).
+  const id = process.env["LOKI_PROVIDER"] || readEffectiveProvider() || "claude";
+  const modelRun = spawnSync(
+    "bash",
+    ["-c", 'source "$1" >/dev/null 2>&1; printf %s "${PROVIDER_MODEL_DEVELOPMENT:-}"', "_", resolve(REPO_ROOT, "providers", `${id}.sh`)],
+    { env: { ...process.env }, encoding: "utf8" },
+  );
+  const model = (modelRun.stdout ?? "").trim() || "default";
+  const keyRun = spawnSync(
+    "python3",
+    ["-E", "-c", READY_KEY_PY, resolve(REPO_ROOT, "autonomy")],
+    { env: { ...process.env }, encoding: "utf8" },
+  );
+  const key = (keyRun.stdout ?? "").trim();
+  const keyState = key.startsWith("kid ")
+    ? `receipts signed (${key})`
+    : key === "none"
+      ? "receipts will be signed on first run"
+      : key === "bad"
+        ? "receipts unsigned: signing key could not be loaded"
+        : "receipts unsigned: python3 cryptography package missing";
+  process.stdout.write(`Ready: ${id} (${model}), ${keyState}\n`);
   return 0;
 }
+
+// Read-only signing-key probe for the Ready line. auto_generate=False: doctor
+// must never create a key. Same logic as the python block in cmd_doctor.
+const READY_KEY_PY = `
+import os, sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+sys.path.insert(0, sys.argv[1])
+from receipt_jwt import load_signing_key, _CRYPTO_AVAILABLE, RECEIPT_SIGNER_BASENAME
+if not _CRYPTO_AVAILABLE:
+    print("nocrypto")
+else:
+    k, kid = load_signing_key(auto_generate=False)
+    if kid:
+        print("kid " + kid[:8])
+    elif os.environ.get("LOKI_RECEIPT_SIGNING_KEY", "").strip():
+        print("bad")
+    else:
+        # A-122: a missing key FILE is auto-generated on first use when its nearest
+        # existing ancestor directory is writable; an existing file that did not
+        # load (corrupt/unreadable) or an unwritable location is unusable.
+        f = os.environ.get("LOKI_RECEIPT_SIGNING_KEY_FILE", "").strip() or os.path.expanduser("~/.loki/keys/receipt-ed25519.pem")
+        d = os.path.dirname(os.path.abspath(f))
+        while not os.path.isdir(d) and os.path.dirname(d) != d:
+            d = os.path.dirname(d)
+        print("bad" if os.path.lexists(f) or not os.access(d, os.W_OK | os.X_OK) else "none")
+`;
 
 // ---------- Public entry point -----------------------------------------------
 
