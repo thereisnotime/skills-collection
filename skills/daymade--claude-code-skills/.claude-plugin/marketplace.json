@@ -30,10 +30,10 @@
     },
     {
       "name": "kimi-use",
-      "description": "Drives Kimi.app via computer-use for Work/Agent data-plugin queries and Chat 深度研究 reports, using the user's logged-in session. Use for \"用 Kimi 查\" / \"操作 Kimi 客户端\" / \"Kimi 插件\" / \"Kimi 深度研究\". Not for kimi.com browser automation or direct iFinD API access.",
+      "description": "Drives Kimi.app via computer-use for Work/Agent data-plugin queries and Chat 深度研究 reports, using the user's logged-in session; also the kimi-cu macOS desktop-automation playbook (channel reliability tiers, foregrounding, AX-tree recovery, form & dialog recipes) for driving any desktop app. Use for \"用 Kimi 查\" / \"操作 Kimi 客户端\" / \"Kimi 插件\" / \"Kimi 深度研究\" / kimi-cu desktop automation. Not for kimi.com browser automation or direct iFinD API access.",
       "source": "./kimi-use",
       "strict": false,
-      "version": "1.5.1",
+      "version": "1.6.1",
       "category": "developer-tools",
       "keywords": [
         "kimi",
@@ -126,7 +126,7 @@
       "description": "Claude Code operations suite that bundles cross-project prior-work retrieval across code, docs, Skills, meetings, WeChat archives, and conversation history; provider-separated Claude Code and Codex history readers; identity- and lineage-gated continuation workflows; plugin/skill troubleshooting; CLAUDE.md progressive disclosure optimization; version-synced Lark CLI routing; statusline configuration; exported .txt repair; full claude.ai conversation extraction with tool-call rendering and file download; plugin marketplace development and suite consolidation; writing/testing/debugging Claude Code hooks; multi-provider profile isolation; personal-memory migration into tool-agnostic AGENTS.md reference docs; one-shot local timers that ping Claude right after subscription quota reset to start a fresh 5-hour usage window; working web search installed on an agent whose relayed model backend cannot execute the built-in one; and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
       "source": "./daymade-claude-code",
       "strict": false,
-      "version": "4.6.0",
+      "version": "4.7.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -766,7 +766,7 @@
       "description": "Diagnoses and designs safe Terraform releases, provisioners (remote-exec/local-exec/file, cloud-init, Compose, Caddy), multi-environment isolation, and fresh-host bootstrap. Use when writing or reviewing plan/apply wrappers or provisioners; when staging/production config may differ; when a rollout can mutate a shared gateway; or debugging drift, TLS, container restarts, DNS duplication, or snapshot contamination.",
       "source": "./terraform-skill",
       "strict": false,
-      "version": "1.5.0",
+      "version": "1.5.1",
       "category": "developer-tools",
       "keywords": [
         "terraform",

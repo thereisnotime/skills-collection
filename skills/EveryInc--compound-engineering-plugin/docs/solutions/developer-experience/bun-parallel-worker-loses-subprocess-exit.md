@@ -14,13 +14,13 @@ symptoms:
   - "The whole first `bun test --parallel` pass never exits: no 'Ran N tests' line, and GitHub cancels the job at timeout-minutes 30"
   - "The stall watchdog's process listing shows a `bun test --test-worker` whose only child is `[python3] <defunct>` or `[git] <defunct>`"
 root_cause: dependency_bug
-resolution_type: workaround
+resolution_type: tooling_addition
 severity: medium
 retire_when: "oven-sh/bun#34069 and oven-sh/bun#41024 are closed as fixed in a released bun, which CI installs through bun-version: latest; check both issues and bun's release notes"
 tags:
   - bun
   - bun-test-parallel
-  - spawnSync
+  - spawnsync
   - flaky-tests
   - ci
 ---

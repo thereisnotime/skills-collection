@@ -213,7 +213,7 @@ alignment and do not silently reconstruct a target from model memory.
 
 academic-paper pipeline runs in 8 phases (Phase 0 intake → 7 formatting). Two invocation modes:
 
-**Mode A — orchestrator-driven (default):** `pipeline_orchestrator_agent` (in `academic-pipeline` skill) runs all phases end-to-end with state tracking via Material Passport.
+**Mode A — orchestrator-driven (default):** `pipeline_orchestrator_agent` (in `academic-pipeline` skill) runs all phases end-to-end with state tracking via Material Passport. As `academic-pipeline` Stage 2, a full run stops after Phase 6; Phase 7 formatting runs at pipeline Stage 5.
 
 **Mode B — phase-by-phase (cross-session resume):** User invokes one agent per phase across sessions for long-running projects. Common pattern: write the draft in one session, return next week to citation-check / abstract / peer-review independently.
 
@@ -486,6 +486,8 @@ In revision mode, `draft_writer_agent` does NOT re-emit the complete paper. The 
 
 Orchestrated runs follow `pipeline_orchestrator_agent.md` § Revision-Round Patch Sequencing; Mode B users run the same scripts by hand — exact commands in `references/revision_patch_protocol.md`. Honest boundary: registered surfaces and exact edit authority are machine-replayed, but unregistered semantic drift still requires E6 review. `scripts/claim_strength_drift_disposition.py` closes explicit handling of reported rows only; it does not make model-mediated detection deterministic or complete. The `academic-paper full` in-pair Phase 6→4 loop is outside this standalone/pipeline revision contract.
 
+**Abstract after revision (#936).** Revision mode does not re-run `abstract_bilingual_agent`, so an abstract changes only where an author-approved target covers its blocks. A standalone revision's delivery always says the abstract was not regenerated. When the applied patch changes a finding, number, or scope that an abstract states, it also quotes each abstract sentence the patched text now contradicts, so the author can approve an abstract target in the next round or run `abstract-only`. In pipeline runs the integrity gate's C2 check also compares every abstract with the body.
+
 ---
 
 ## Plan Mode: Chapter-by-Chapter Guided Planning
@@ -586,7 +588,7 @@ Explicit prohibitions to prevent common failure modes:
 2. **Zero citation orphans** — in-text citations <-> reference list must perfectly match
 3. **Consistent register** — academic tone appropriate for the discipline
 4. **Logical flow** — clear transitions between paragraphs and sections
-5. **Word count compliance** — within +/-10% of target
+5. **Word count compliance** — within +/-10% of target, and never above the PCR `Word Ceiling` when one is set
 
 ### Bilingual Abstract Quality
 6. **Independent writing** — the two abstracts of the run's declared pair (default zh-TW and EN) are independently composed, NOT mechanical translations
@@ -638,7 +640,7 @@ When `ARS_MODEL_TIERING` is set, the dispatching session routes this skill's age
 - **Unset (default):** every agent inherits the session model — byte-equivalent pre-#517 behavior.
 - **`economy`** (frontier-tier session): execution-type agents dispatch ONE tier below the session model — floor Opus-class, never lower; judgment-type agents stay on the session model. No-op at or below the floor (announce once).
 - **`quality-boost`** (below-frontier session): judgment-type agents at the checkpoint surfaces (Stage 2.5/4.5 gates; the opt-in Stage 4→5 claim–ref audit; final review) jump UP to the frontier tier (however many tiers away — not a single increment); nothing is ever downgraded. No-op at the frontier (announce once).
-- Unknown values → warn once, behave as unset. Tiers are relative positions, never hard-pinned model ids. When a direction is active, route repeated same-stage calls to the SAME worker so its prompt cache accumulates; unset means dispatch shapes stay byte-equivalent too.
+- Unknown values → warn once, behave as unset. Tiers are relative positions, never hard-pinned model ids. When a direction is active, route repeated same-stage calls to the SAME worker so its prompt cache accumulates, where the protocol permits (never merging seats that must stay blind; `shared/model_tiering.md`); unset means dispatch shapes stay byte-equivalent too.
 
 ---
 

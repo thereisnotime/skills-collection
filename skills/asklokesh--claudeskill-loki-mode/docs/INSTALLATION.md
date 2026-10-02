@@ -2,7 +2,9 @@
 
 The flagship product of [Autonomi](https://www.autonomi.dev/). Loki Mode is a spec-driven autonomous builder with a built-in trust layer that takes any spec to a deployed product and verifies completion with evidence (quality gates plus a completion council), not just a "done" claim. Complete installation instructions for all platforms and use cases.
 
-**Version:** v10.5.29
+**Version:** v10.6.6
+
+**Engine note:** `loki "<task>"`, `loki owner/repo#N` and `loki quick` run the Loki 10 engine. `loki start` still routes to the legacy engine, which is being removed (planned work resumes 2026-10-07); prefer `loki owner/repo#N`. See [docs/v10/GUIDE.md](v10/GUIDE.md).
 
 ---
 
@@ -149,10 +151,9 @@ Install Loki Mode without the bundled bun binary. This reduces the package size 
 - OpenTelemetry instrumentation packages
 
 **What happens:**
-- The legacy bash engine runs when loki is invoked
-- Each `loki` command that would use the Loki 10 engine prints this as the first line on stderr: "loki: the Loki 10 engine cannot run on this machine: no working bun (none on PATH, and the bundled bun for darwin-aarch64 is missing). Running the legacy engine instead. To fix: install bun from https://bun.sh, or reinstall loki-mode without --omit=optional."
+- Loki 10 requires Bun. Each `loki` command prints an error on stderr if Bun is not found: "loki: the Loki 10 engine cannot run on this machine: no working bun (none on PATH, and the bundled bun for darwin-aarch64 is missing). To fix: install bun from https://bun.sh, or reinstall loki-mode without --omit=optional."
 
-**To restore Loki 10 engine access:**
+**To restore Loki access:**
 - Install bun: `curl -fsSL https://bun.sh/install | bash` or `brew install oven-sh/bun/bun`
 - Or reinstall loki-mode without the flag: `npm install -g loki-mode`
 
@@ -164,7 +165,7 @@ Install Loki Mode without the bundled bun binary. This reduces the package size 
 brew tap asklokesh/tap && brew install loki-mode
 ```
 
-Installs the `loki` CLI. For the Loki 10 default engine the formula in `asklokesh/tap` needs bun; if bun is not installed, run `brew install oven-sh/bun/bun`. Without bun, each Loki 10 command prints the "no working bun" line and runs the legacy engine (see Slim install above).
+Installs the `loki` CLI. Loki 10 requires Bun; if bun is not installed, run `brew install oven-sh/bun/bun`. Without bun, each command exits 1 with an error message.
 
 To also install the skill for interactive use with all providers:
 

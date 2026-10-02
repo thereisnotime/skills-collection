@@ -1,8 +1,9 @@
 // Loki 10 supervisor (P0, docs/v10/ENGINE.md sections 5, 6, 10): eval marker first, origin pinned once, worker
 // spawned with withheld tokens; single writer of events.jsonl (seq, hash, tamper refusal)
 // id; post-PR: detached deep verify, then Slack notify.
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process"; import { currentBranch, restoreBranch } from "../e10ext/stop_restore.ts";
 import { createHash, createPublicKey, sign, type Hash } from "node:crypto";
+import { backstopCommit } from "../e10ext/commit_filter.ts";
 import { kidOf, loadSigningKey } from "./stages/seal.ts";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -86,17 +87,6 @@ export function githubRepoFromUrl(url: string | null): string | null {
   const m = url?.match(/^(?:https:\/\/(?:[^@/]+@)?github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([^/]+\/[^/]+?)(?:\.git)?\/?$/);
   return m?.[1] ?? null;
 }
-/** Commits whatever a killed or crashed worker left uncommitted or untracked (minus .loki), so it
- *  reaches the pushed branch: `git diff` alone misses untracked files, and nothing pushes a tree
- *  that was never committed. Withheld-token env, hooks/fsmonitor off (repoDir/.git is agent-writable).
- *  A clean tree, or add/reset failing, is a no-op: best-effort, never the reason a run fails. */
-function backstopCommit(repoDir: string, workerEnv: NodeJS.ProcessEnv, runId: string): void {
-  const g = (args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", ...args], { cwd: repoDir, env: workerEnv, stdio: "ignore" });
-  try { g(["add", "-A", "--", "."]); g(["reset", "-q", "--", ".loki"]); g(["diff", "--cached", "--quiet"]); } catch (err) {
-    if ((err as { status?: number }).status !== 1) return; // add/reset failed, or truly nothing staged
-    try { g(["commit", "-q", "-m", `loki: backstop commit (${runId})`, "-m", `Loki-Run: ${runId}`]); } catch { /* best-effort */ }
-  }
-}
 export class SupervisorLog { // single writer with a running sha256 of the bytes it appended
   private readonly log: EventLog;
   private readonly hash: Hash;
@@ -154,7 +144,7 @@ function killGroup(pid: number | undefined, sig: NodeJS.Signals): void {
 // Spawns the worker in its own process group, waits for exit plus stdout drain (DRAIN_MS), and backstops at
 // backstopMs with SIGTERM then SIGKILL after escalateMs, clamped so a SIGTERM-trapping worker cannot outlive the cap.
 function spawnWorker(
-  argv: string[], env: NodeJS.ProcessEnv, cwd: string, backstopMs: number, escalateMs: number, onLine: (l: string) => void,
+  argv: string[], env: NodeJS.ProcessEnv, cwd: string, backstopMs: number, escalateMs: number, onLine: (l: string) => void, onStopped: () => void = () => {},
 ): Promise<{ code: number | null; killed: boolean }> {
   return new Promise((resolve) => {
     const [cmd, ...args] = argv;
@@ -165,7 +155,7 @@ function spawnWorker(
     let killed = false;
     let settled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    const onStop = (sig: NodeJS.Signals) => { killGroup(child.pid, "SIGKILL"); process.exit(sig === "SIGINT" ? 130 : 143); }; // the worker no longer shares the terminal's group, so forward a stop to it
+    const onStop = (sig: NodeJS.Signals) => { killGroup(child.pid, "SIGKILL"); onStopped(); process.exit(sig === "SIGINT" ? 130 : 143); }; // the worker no longer shares the terminal's group, so forward a stop to it
     process.once("SIGINT", onStop);
     process.once("SIGTERM", onStop);
     const finish = (code: number | null) => {
@@ -201,6 +191,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   writeEngineMarker(opts.repoDir, opts.runId); // first: a failing run still leaves it
   const origin = readOriginUrl(opts.repoDir); // pinned once, before any provider runs
   const log = new SupervisorLog(join(opts.repoDir, eventsRelPath(opts.runId)), opts.runId);
+  if (env.LOKI_CONTROL_URL) void import("../e10ext/ship_hook.ts").then((m) => m.startShip(opts.repoDir, log.path, env)).catch(() => {}); // CP-02: D56 shipper, off unless set
   log.append("run.started", null, { ...opts.started, origin_repo: githubRepoFromUrl(origin) });
   const workerEnv: NodeJS.ProcessEnv = { ...env }; // withholdGithubTokens mutates its argument: always a copy, never env itself
   withholdGithubTokens(workerEnv);
@@ -208,11 +199,11 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   const capS = opts.capS ?? (envCap > 0 ? envCap : DEFAULT_CAP_S);
   const backstopMs = backstopS(capS, opts.graceS ?? BACKSTOP_GRACE_S) * 1000; // hard SIGKILL safety net for a stage blocking past the worker's own soft cap
   const escalateMs = Math.max(0, Math.min(2000, capS * 1000 - backstopMs)); // SIGTERM->SIGKILL clamped so a trapping worker cannot outlive the cap
-  let sealed: Record<string, unknown> | null = null;
+  let sealed: Record<string, unknown> | null = null; const origBranch = currentBranch(opts.repoDir), sessionGroups = new Set<number>(); // session children are detached (own group), so the worker's group kill misses them
   const worker = await spawnWorker(opts.workerArgv, workerEnv, opts.repoDir, backstopMs, escalateMs, (line) => {
     const e = log.ingest(line);
-    if (e?.type === "receipt.sealed") sealed = e.data;
-  });
+    if (e?.type === "session.started" && typeof e.data.pgid === "number") sessionGroups.add(e.data.pgid); if (e?.type === "receipt.sealed") sealed = e.data;
+  }, () => { for (const g of sessionGroups) killGroup(g, "SIGKILL"); restoreBranch(opts.repoDir, origBranch); });
   const workerExit = worker.killed ? null : worker.code;
   const sealedData = sealed as Record<string, unknown> | null;
   const v = sealedData?.verdict;
@@ -228,12 +219,11 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   let hasDiff = false;
   if (verdict === "FAILED") {
     const stages = fold(readEvents(log.path)).stages; // A-104c: a failed commit stage already chose what to exclude (Wall files, lockfiles, pre-run dirt); a blanket `add -A` would undo it
-    if (stages["commit"]?.type !== "stage.failed") backstopCommit(opts.repoDir, workerEnv, opts.runId);
     const baseE = stages["intake"], base = baseE?.type === "stage.completed" && typeof baseE.data.base_sha === "string" ? baseE.data.base_sha : null;
-    try {
-      const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: opts.repoDir, env: process.env, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-      hasDiff = base !== null && head !== base;
-    } catch { /* no HEAD yet (intake never committed a base): no diff */ }
+    if (base !== null && stages["commit"]?.type !== "stage.failed") backstopCommit(opts.repoDir, workerEnv, opts.runId, base, baseE?.type === "stage.completed" ? baseE.data.preexisting_dirty : undefined); // no completed intake = no run branch: repoDir is still the user's own branch, never `add -A` there
+    try { // net diff against base (a revert commit can leave HEAD past base with nothing to publish); any failure counts as a diff
+      execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "diff", "--quiet", "--no-ext-diff", "--no-textconv", String(base), "HEAD", "--", ".", ":(exclude).loki"], { cwd: opts.repoDir, env: workerEnv, stdio: "ignore" });
+    } catch { hasDiff = base !== null; }
   }
   if (opts.pr && intact && origin && verdict !== "ALREADY_SATISFIED" && (verdict !== "FAILED" || hasDiff)) {
     const pushEnv: PushEnv = { _LOKI_ORIGIN_PINNED: "1", _LOKI_PINNED_ORIGIN: origin };

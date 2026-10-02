@@ -10,6 +10,155 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 - `loki legacy` (the pre-v10 engine) is deprecated as of v10.0.0 and remains fully supported; no removal date is set. Set `LOKI_ENGINE=legacy` to pin it. See docs/v10/GUIDE.md (E-35).
 
+## v10.6.6 (2026-10-01)
+
+A `next` release. It ships the changes prepared for v10.6.1, v10.6.3, v10.6.4 and v10.6.5, none of which was published.
+
+### Scope control
+- v10 runs stay inside the task. After a run, any edit to an existing file outside the plan's scope is restored before commit and listed in the receipt under NOT PROVEN as `unrelated edit reverted: <file>`. Test files, new files and files you had already modified are kept. When the planner produced no scope (small tasks), nothing is reverted and the receipt says so.
+
+### Loki Control Plane v0
+- First cut of the Control Plane that replaces the dashboards: a live run view fed by the engine when `LOKI_CONTROL_URL` is set, plus `loki control`. Off unless configured.
+
+### Release tooling
+- The release captain waits for a train's running checks before cutting a newer one, and no longer waits forever on a check that never started.
+
+### Docs
+- Docs updated for the v10-only direction; README keeps its Loki 10 default marker.
+
+### Not in this release
+- Dashboard bound-URL and test port-leak fix: withdrawn after it failed the bare `loki` UI test (v10.6.3); planned for next week.
+- `loki start <issue ref>` routed to v10: withdrawn after it regressed moat property P9 (v10.6.5); planned for next week.
+- Removal of the legacy commands: withdrawn after it failed the test suite (v10.6.2); planned for next week.
+
+## v10.6.5 (2026-10-01, not published)
+
+Not published. Its `loki start` routing change regressed moat property P9 and was withdrawn; everything else shipped in v10.6.6.
+
+## v10.6.4 (2026-10-01, not published)
+
+Not published. Its CI hit a transient npm registry 404 on a dependency tarball; the same content shipped in v10.6.5.
+
+## v10.6.3 (2026-10-01, not published)
+
+Not published. The dashboard port fix failed the bare `loki` UI test and was withdrawn; everything else shipped in v10.6.4.
+
+## v10.6.2 (2026-10-01, not published)
+
+Not published. Its `loki start` routing change failed the test suite, including three moat properties, and was withdrawn; it returns in a later release.
+
+## v10.6.1 (2026-10-01, not published)
+
+Not published; shipped in v10.6.2.
+
+### Scope control
+- v10 runs now stay inside the task. After a run, any edit to an existing file outside the plan's scope is restored to its original content before commit. Each reverted file is listed in the receipt under NOT PROVEN as `unrelated edit reverted: <file>`. Test files, new files and files you had already modified are kept. When the planner produced no scope (small tasks), nothing is reverted and the receipt says so.
+
+### Loki Control Plane v0
+- First cut of the Control Plane that replaces the dashboards: a live run view fed by the engine when `LOKI_CONTROL_URL` is set, plus `loki control`. Off unless configured.
+
+### Dashboard
+- The dashboard publishes the URL it actually bound to (`.loki/dashboard/url`), and the banner and browser opener use it instead of a guessed port. `loki ui` and `dashboard start` reuse a running dashboard only when it belongs to this project. Test runs no longer leave dashboards on ports 57374-57399.
+
+### Release tooling
+- The release captain waits for a train's running checks before cutting a newer train, and no longer waits forever on a check that never started.
+
+### Docs
+- Docs updated for the v10-only direction (D57 wave 1).
+
+### Release note
+- Released under the founder's D59 window, so it was published before CI finished. The handoff records the CI result for this commit.
+
+## v10.6.0 (2026-10-01)
+
+A `next` release. This minor release marks the turn to v10 only: the plan to retire the legacy engine and dashboards is set, and the install and release pipeline is hardened for it.
+
+### Install
+- Cleaner global install: `npm i -g loki-mode` now depends on the per-platform `@oven/bun-*` packages instead of the `bun` meta-package, so no postinstall script has to run. Windows resolves `bun.exe` from the `@oven` package, and the old baseline pins are gone.
+
+### Release safety
+- New real-repo acceptance gate (`scripts/real-repo-gate.sh`): a clean `npm install` of the candidate, then `loki start` against three real repositories with a 15 minute cap, before `latest` may move. Its first run against 10.5.35 failed all three repos on routing, which is the next fix.
+- A push to main reuses the verdict of a train that already verified the identical commit, so verified work reaches users without a second full CI run.
+- The release captain (`scripts/train-cycle.sh`) no longer cancels a train whose required checks are still running by cutting a newer one.
+
+### Direction (docs only)
+- Loki Control Plane design (docs/v10/CONTROL-PLANE.md): one live run view replaces the old dashboards.
+- Legacy removal plan (docs/v10/LEGACY-REMOVAL.md): v10 only, with the inventory of routes, commands and directories to retire.
+- Five basics come first: `loki start` runs v10, the dashboard prints the URL it actually bound, scope control, clean install, and the real-repo gate.
+
+### Coming in 10.6.x
+- `loki start` routed to v10 (with `--no-pr` and `loki <file.md>`), scope control, the Control Plane live view, and the dashboard port-leak fix. A first dashboard port fix was reverted from this release after it broke three test suites.
+
+### Known issues
+- `npm view` can lag a publish by up to about 30 minutes; the release pipeline waits rather than failing.
+
+## v10.5.35 (2026-10-01)
+
+A `next` release.
+
+### Changes
+- Reapply "Merge fix(py-shutdown): handle SIGPIPE and avoid daemon thread shutdown deadlock"
+- fix(py-shutdown): move SIGPIPE and os._exit to __main__ block
+- feat(release): re-land train-cycle.sh release captain (RC-AUTO2)
+
+## v10.5.34 (2026-10-01)
+
+A `next` release. `loki start` now always opens a working dashboard instead of a "dashboard_frontend_not_found" error page.
+
+### Fixed
+- `loki start` could open the browser on a page showing `{"error":"dashboard_frontend_not_found", ...}`. A dashboard left running from another install (or from a test run) was reused because it answered its health check, even though it could not serve the UI. Now a running dashboard is reused only when its `/health` reports the same version and the same install path as this `loki`, and its home page actually returns HTML; otherwise a fresh dashboard starts on a free port (P0-DASH-STATIC).
+- The dashboard picks its UI from the first location that actually contains the built frontend (`index.html`): the installed package, then `LOKI_SKILL_DIR`, then `~/.claude/skills/loki-mode`, then a local `dashboard-ui/dist` build. Before this, an empty or partial directory earlier in that list was chosen and the UI could not load (P0-DASH-STATIC).
+- If no frontend is found anywhere, the dashboard home page shows a plain HTML status page with the version, a link to the API docs and the reinstall command (`npm install -g loki-mode@latest`), instead of developer JSON (P0-DASH-STATIC).
+- `loki dashboard start` no longer reports "port already in use" just because a browser still holds a closed connection to that port; only a listening process counts (P0-DASH-STATIC).
+- `/health` now reports the dashboard's version and install path.
+- A Loki 10 run on a task whose feature already exists under a compound name (for example "searchbar" against an existing `search-command` module with a test that imports it) now finds that evidence and can stop as already satisfied, instead of re-implementing the feature (D50-F5).
+
+### Changed
+- Docs and the web app no longer mention pricing, paid editions or commercial plans. Loki Mode is free, and the FAQ lists the full feature set, including multi-repo workspaces, the container with Helm and ECS, the audit log, budgets and Slack (D54).
+- Repo tooling: test suites that start a dashboard run with a throwaway HOME and stop their own dashboard by PID, a guard test fails if a suite touches the real dashboard registry or leaves a dashboard running, and the first-run gate checks that the dashboard home page returns HTML.
+- Loki 10's internal label for a changed test value is now an honest note next to "weakened test", and the classifier behind it runs Python in isolated mode outside the repository (D50-F2r). Verdicts are unchanged: any edit to an existing test still ends PARTIAL.
+
+## v10.5.33 (2026-10-01)
+
+A `next` release. A Loki 10 run that fails no longer opens a pull request made of files you had already changed before the run.
+
+### Fixed
+- When a Loki 10 run ends FAILED, the supervisor's backstop commit now applies the same exclusions as the normal commit stage: files that were already modified before the run and that the run did not touch, Wall test files, new lockfiles with no manifest change in their directory (including `bun.lock`), and `.loki/`. If nothing of the run's own work is left, no commit is made and no pull request opens. Before this, the backstop ran `git add -A`, so leftover setup changes (for example `npm install` output in tracked files) could be committed and pushed in a pull request for a run that changed nothing. A worker that is stopped mid-run still gets its own edits committed, as before (D50-F4).
+- Whether a failed run has a diff is now measured as the net difference between the run's base and the final commit, so a run whose commits cancel out opens no pull request (D50-F4).
+- The backstop runs git with the worker's environment and with filters off (`git hash-object --no-filters`), so a clean filter configured in the repository can never see the supervisor's GitHub token (D50-F4).
+
+## v10.5.32 (2026-10-01)
+
+A `next` release. Stopping a Loki 10 run with Ctrl-C or SIGTERM now returns your checkout to the branch you started on.
+
+### Fixed
+- When a Loki 10 run is stopped with SIGINT (Ctrl-C) or SIGTERM, the supervisor stops the worker and its session processes, then switches the checkout back to the branch that was checked out when the run started. Before this, the checkout was left on the run's `loki/e10-...` branch and a session process could keep running after the supervisor exited. The run branch and its commits are kept. If the run left uncommitted edits to tracked files, the checkout stays on the run branch, so those edits are never carried onto your branch, and one line names the run branch and the `git checkout` command to return. Nothing is reset or discarded (D50-F1c).
+
+### Changed
+- Repo tooling: the Loki 10 eval harness ignores its `eval/loki10/archive/` output directory and its test checks that the directory is created when absent; a test harness for the planned workspaces feature (D51 Phase B, behind `LOKI_WORKSPACES`) is registered with the test runner. No user-facing behaviour changes.
+
+## v10.5.31 (2026-10-01)
+
+A `next` release. A Loki 10 run that refuses to start in a checkout with uncommitted changes no longer commits anything to the user's branch.
+
+### Fixed
+- When intake refused a run because tracked files had uncommitted changes, the supervisor still ran its backstop commit (`git add -A` and a "loki: backstop commit") in the repository. No run branch had been created yet, so the user's modified and untracked files were committed onto the branch they were on, usually `main`. The backstop now runs only after intake has completed and the run's own branch exists. A worker killed after intake still gets its work backstop-committed, as before (P0-backstop-refused).
+
+## v10.5.30 (2026-10-01)
+
+A `next` release. A Loki 10 run that finds the task already satisfied now leaves the repository as it found it, and `loki why --json` and `loki status --json` have published JSON Schemas.
+
+### Fixed
+- When a Loki 10 run ends ALREADY_SATISFIED, the commit stage discards the edits the run's implement step made, restoring those paths to the run's base and resetting HEAD and the index, so no source diff, commit or pull request is left behind. Before this, a run could report the task as already satisfied while still leaving implement's source changes in the working tree (D50-F1).
+- The discard restores only what the run changed. Files that were untracked or already modified when the run started keep their content, including a lockfile that was dirty at intake. A file it cannot restore safely makes the outcome NOT PROVEN instead of being overwritten. A failed discard fails the commit stage and seals FAILED (D50-F1).
+- The restore never writes through a symbolic link: every write checks the target and each parent directory with lstat first, stays inside the repository and creates files exclusively, so a link planted by the agent cannot redirect a write outside the repository. A test fails if a raw file write reappears in the discard path (D50-F1).
+
+### Added
+- JSON Schemas for `loki why --json` (`schemas/why-result.schema.json`) and `loki status --json` (`schemas/status-result.schema.json`), validated in tests against real command output, each with a sample that must be rejected (D48 row 5).
+
+### Documentation
+- docs/INSTALLATION.md documents the slim install (`npm install -g loki-mode --omit=optional`, without the bundled bun): every Loki 10 command then prints the "cannot run on this machine: no working bun" line and runs the legacy engine. Homebrew installs need bun installed separately (`brew install oven-sh/bun/bun`) (E-170).
+
 ## v10.5.29 (2026-10-01)
 
 A `next` release. A Loki 10 run whose commit stage fails no longer lands a backstop commit or opens a pull request.

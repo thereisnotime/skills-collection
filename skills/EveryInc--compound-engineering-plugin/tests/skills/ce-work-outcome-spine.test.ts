@@ -686,6 +686,23 @@ describe("ce-work cross-model engine contract", () => {
 })
 
 describe("ce-work implementation evidence characterization", () => {
+  test("incremental commits honor project message conventions instead of imposing a conventional prefix", async () => {
+    const implementationLoop = await readRepoFile("skills/ce-work/references/implementation-loop.md")
+    const incremental = sliceSection(implementationLoop, "2. **Incremental Commits**", "3. **Simplify as You Go**")
+    const commit = await readRepoFile("skills/ce-commit/SKILL.md")
+    const precedence = commit.match(/\*\*Convention\*\* — (.*?\.) When/)?.[1]
+
+    expect(precedence).toBeDefined()
+    expect(incremental).toContain(precedence!)
+    expect(incremental).toContain("User override wins.")
+    expect(incremental).not.toMatch(/Commit with conventional message|use clean conventional messages|git commit -m "feat\(scope\):/)
+    expect(incremental).toContain("git commit -F <message-file> -- <files related to this logical unit>")
+    expect(incremental).toContain("**Native Git commit workflow:**")
+    expect(incremental).not.toContain("git commit -m")
+    expect(incremental).toContain("Incremental commits add no plugin-generated attribution.")
+    expect(incremental).not.toContain("Incremental commits omit attribution footers.")
+  })
+
   test("loads the extracted protocol only at the implementation gate", async () => {
     const skill = await readRepoFile("skills/ce-work/SKILL.md")
     const implementationLoop = await readRepoFile("skills/ce-work/references/implementation-loop.md")

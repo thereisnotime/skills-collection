@@ -14,8 +14,8 @@ Current versions of all skills. Agents can compare against local versions to che
 | co-marketing | 2.0.1 | 2026-08-23 |
 | cold-email | 2.0.0 | 2026-05-05 |
 | community-marketing | 2.0.1 | 2026-08-23 |
-| competitor-profiling | 2.0.1 | 2026-08-19 |
-| competitors | 2.0.1 | 2026-07-09 |
+| competitor-profiling | 2.1.0 | 2026-10-01 |
+| competitors | 2.3.0 | 2026-10-01 |
 | content-strategy | 2.1.1 | 2026-08-23 |
 | copy-editing | 2.0.0 | 2026-05-05 |
 | copywriting | 2.0.2 | 2026-08-23 |
@@ -36,7 +36,7 @@ Current versions of all skills. Agents can compare against local versions to che
 | marketing-psychology | 2.0.0 | 2026-05-05 |
 | offers | 1.0.1 | 2026-08-23 |
 | onboarding | 2.0.1 | 2026-08-23 |
-| ads | 2.3.2 | 2026-08-23 |
+| ads | 2.4.1 | 2026-10-01 |
 | paywalls | 2.0.0 | 2026-05-05 |
 | popups | 2.0.0 | 2026-05-05 |
 | pricing | 2.1.1 | 2026-08-23 |
@@ -46,7 +46,7 @@ Current versions of all skills. Agents can compare against local versions to che
 | public-relations | 1.1.1 | 2026-08-23 |
 | referrals | 2.0.1 | 2026-08-23 |
 | revops | 2.0.0 | 2026-05-05 |
-| sales-enablement | 2.0.1 | 2026-06-16 |
+| sales-enablement | 2.3.1 | 2026-10-01 |
 | schema | 2.0.0 | 2026-05-05 |
 | seo-audit | 2.0.1 | 2026-08-19 |
 | signup | 2.0.0 | 2026-05-05 |
@@ -56,6 +56,41 @@ Current versions of all skills. Agents can compare against local versions to che
 | video | 2.1.0 | 2026-07-14 |
 
 ## Recent Changes
+
+### 2.11.6 (2026-10-01)
+
+Post-merge review fixes. Closes #611.
+
+- **ads** (2.4.0 → 2.4.1): `reading-google-ads-data.md` corrections. The 30-day limit is `change_event`'s; `change_status` covers 90 days without field detail. `metrics.conversions` can include secondary actions a custom goal pulls in. `client_type` names the client, not who or why, and Editor changes aren't returned. Learning phase blocks optimizing, not fixing verified breakage.
+- **sales-enablement** (2.3.0 → 2.3.1): Battle Cards points single live objections at Live Deal Objection.
+- **tools/google-ads**: computed date ranges use the local calendar date (UTC shifted them a day late in US evenings), and invalid `--days` values are rejected.
+- **CI**: `check-versions.mjs` requires skill and repo versions to increase, and the repo version to match the newest changelog block.
+
+### 2.11.5 (2026-10-01)
+
+Three competitive-PMM jobs added to existing skills instead of new ones, so the evidence rules from 2.11.3 apply to all of them. Closes #604.
+
+- **sales-enablement** (2.2.0 → 2.3.0): new **Live Deal Objection** subsection: one objection from a live deal gets a deal-specific answer (pin down who said what, name the likely concern and a question that separates readings, one say-as-written response, only proof the rep can stand behind, when to qualify out). New **Win-Loss Analysis** section and `references/win-loss-analysis.md`: source bias table (rep-entered CRM reasons skew to price/timing), segment before counting, one primary reason per deal with a source, counts with sample sizes, under ~5 deals is a signal not a finding, report format, and where findings feed battle cards and the objection library. New triggers: 'win-loss analysis,' 'why are we losing deals,' 'loss reasons,' 'how do I respond to this objection,' 'prospect just said.' New evals (ids 9, 10).
+- **competitors** (2.2.0 → 2.3.0): new **Competitive Asset Audit** under Research Process: inventory every competitor claim across vs pages, battle cards, talk tracks, and decks; re-verify with a check date; mark current / changed / unverifiable / overclaimed; fix public pages first; report with replacement wording. New Asset Audit Report output. New triggers: 'audit our competitor pages,' 'are our comparison pages out of date,' 'competitive asset audit.' New eval (id 8).
+
+### 2.11.4 (2026-10-01)
+
+- **sales-enablement** (2.1.0 → 2.2.0): new **Battle Cards** section, which had no home before. `competitors` claimed the trigger with no guidance and `sales-enablement` pointed back at it. Covers an 8-part structure (when you'll see them, why buyers consider them, where they're strong, where we win and for whom, discovery questions, top objections, when to walk away, last verified) and a refresh cadence. Asks which competitor rather than guessing. New triggers: 'battle card,' 'battlecard,' 'competitive one-pager.' New eval (id 8).
+- **competitors** (2.1.0 → 2.2.0): 'battle card' trigger moved to sales-enablement; description and related skills point there. Closes #608.
+
+### 2.11.3 (2026-10-01)
+
+Evidence discipline for the three skills that make claims about competitors. Comparison pages and battle cards are claims a competitor's team, or a buyer, can check in a minute.
+
+- **competitors** (2.0.1 → 2.1.0): new **Evidence Discipline** principle. "Not observed" is not "doesn't have": a feature missing from a pricing page gets "not listed (as of date)" or no row, and ✗ only when docs or a trial confirm it. Date competitor facts, treat one visit as a snapshot (no "hasn't changed" without dated history), state what changed but never guess why, and keep fact, interpretation, and recommendation separate. Ask instead of guessing when no competitor is named. `templates.md` gains a "not listed" table row; the competitor data template gains `last_verified` + `sources`.
+- **competitor-profiling** (2.0.1 → 2.1.0): Facts Over Opinions now separates **observed / inferred / implication**, adds not-observed ≠ absent (including "no public pricing" ≠ free) and no-motive rules; Current Data notes a single scrape can't support "hasn't changed"; "where we're strong" requires customer, win/loss, or review evidence or is labeled a hypothesis.
+- **sales-enablement** (2.0.1 → 2.1.0): new **Claims Reps Can Defend** principle. "Why we win" needs win/loss, CRM, call, or customer evidence; without it, advantages are hypotheses with the evidence that would confirm them. Competitor claims follow the competitors evidence rules, and competitive docs say where you lose.
+- One new eval per skill. Closes #602.
+
+### 2.11.2 (2026-10-01)
+
+- **ads** (2.3.2 → 2.4.0): new `references/reading-google-ads-data.md`, covering how Google Ads data misleads before an audit even starts. **Search terms are a sample**: on small accounts 50–65% of clicks have no disclosed query, so every claim states disclosed vs total clicks, the report is pulled unfiltered first, and nothing (GA4, CRM) recovers the withheld queries. Data traps: `conversions` vs `all_conversions`, several final URLs per ad group, click-date attribution, expired experiment arms that look like duplicate campaigns, the 30-day change-history limit, and `client_type` for who else changes the account. **Window vs lifetime** and no pooling across config changes. **Small numbers**: a zero-conversions-in-N-clicks table (what each sample size rules out) plus break-even CVR = CPC ÷ target CPA, and "let it run" only with a date. **Stating findings** as verified / inferred / stale, the "can the client disprove this in a minute?" test, and a "conclusions that sound right" table. Fixed the `audit-guardrails.md` Fail example that treated disclosed search terms as a share of all spend. Two new evals (ids 12–13). New triggers: 'search terms report,' 'wasted spend,' 'is this campaign working.'
+- **tools/google-ads**: API URLs moved from the long-sunset v14 to v24 (guide and CLI); added analysis GAQL recipes (campaign inventory, monthly since launch, conversions by action, unfiltered search terms, ads by final URL, change history) and a gotchas table. Closes #601.
 
 ### 2.11.1 (2026-09-04)
 

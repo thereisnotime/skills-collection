@@ -244,8 +244,8 @@ if [ "${LOKI_LEGACY_BASH:-0}" = "1" ] || [ "${LOKI_LEGACY_BASH:-}" = "true" ]; t
 fi
 
 # Loki 10 bun resolver: bun on PATH, then an npm-installed @oven/bun-* optional
-# dependency under REPO_ROOT (postinstall moves it to node_modules/bun/bin/bun.exe;
-# under --ignore-scripts it stays in @oven/bun-<os>-<arch>). A candidate counts only if `--version` exits 0
+# dependency under REPO_ROOT (the per-platform packages ship the binary and have no
+# install scripts; node_modules/bun/bin/bun.exe is a legacy fallback). A candidate counts only if `--version` exits 0
 # within 2s. Prints the path, or nothing.
 _loki_bun_probe() {
     local c="$1" t p w rc
@@ -263,7 +263,7 @@ _loki_bun() {
     local c
     c=$(command -v bun 2>/dev/null || true)
     if [ -n "$c" ] && _loki_bun_probe "$c"; then printf '%s\n' "$c"; return 0; fi
-    for c in "$REPO_ROOT/node_modules/bun/bin/bun.exe" "$REPO_ROOT"/node_modules/@oven/bun-*/bin/bun; do
+    for c in "$REPO_ROOT"/node_modules/@oven/bun-*/bin/bun "$REPO_ROOT"/node_modules/@oven/bun-*/bin/bun.exe "$REPO_ROOT/node_modules/bun/bin/bun.exe"; do
         [ -x "$c" ] && _loki_bun_probe "$c" && { printf '%s\n' "$c"; return 0; }
     done
     return 0
@@ -271,7 +271,7 @@ _loki_bun() {
 # Reason text for the fallback notice: missing, or failed to start, exit N.
 _loki_bun_why() {
     local c rc
-    for c in "$REPO_ROOT/node_modules/bun/bin/bun.exe" "$REPO_ROOT"/node_modules/@oven/bun-*/bin/bun; do
+    for c in "$REPO_ROOT"/node_modules/@oven/bun-*/bin/bun "$REPO_ROOT"/node_modules/@oven/bun-*/bin/bun.exe "$REPO_ROOT/node_modules/bun/bin/bun.exe"; do
         [ -x "$c" ] || continue
         _loki_bun_probe "$c"; rc=$?
         echo "failed to start, exit $rc"; return 0
@@ -559,7 +559,7 @@ fi
 # Two-token routes (provider show/list, memory list/index) match on the first
 # token only; the Bun dispatcher handles subcommand routing internally.
 case "${1:-}" in
-    version|--version|-v|status|stats|doctor|provider|memory|rollback|internal|kpis|trust|proof|receipt|wiki|crash)
+    version|--version|-v|status|stats|doctor|provider|memory|rollback|internal|kpis|trust|proof|receipt|wiki|crash|control)
         # v7.5.2: rollback added (wires loki-ts/src/commands/rollback.ts).
         # v7.5.3: internal added for autonomy/run.sh phase1-hooks calls.
         # v7.5.28: kpis added (Phase K MVP: read-only KPI snapshot).

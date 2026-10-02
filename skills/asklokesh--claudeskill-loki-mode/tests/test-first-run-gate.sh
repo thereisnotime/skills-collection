@@ -114,6 +114,24 @@ run_gate skipbare;   expect skipbare skip-bare-verify FAIL;  [ "$RC" -ne 0 ] && 
 run_gate skiprc0;    expect skiprc0 skip-not-verified-legacy FAIL;  [ "$RC" -ne 0 ] && ok "skiprc0: 9b needs rc 3" || bad "skiprc0: exit 0"
 run_gate skipver;    expect skipver skip-not-verified FAIL;  expect skipver skip-not-verified-legacy FAIL;  [ "$RC" -ne 0 ] && ok "skipver: exits non-zero" || bad "skipver: exit 0"
 
+# P0-DASH-STATIC: dashboard-root assertion (needs fastapi+uvicorn; otherwise the gate prints SKIP, never FAIL)
+DPY=""
+for p in "$HOME/.loki/dashboard-venv/bin/python" python3; do
+    if command -v "$p" >/dev/null 2>&1 && "$p" -c 'import fastapi, uvicorn' >/dev/null 2>&1; then DPY="$p"; break; fi
+done
+run_gate clean
+if [ -n "$DPY" ]; then
+    expect clean dashboard-root PASS
+    # a package whose dashboard/static is EMPTY must fail the assertion (the "frontend not found" regression)
+    NOFE="$T/nofe"; mkdir -p "$NOFE/dashboard/static"
+    for e in "$SCRIPT_DIR"/../*; do b="$(basename "$e")"; case "$b" in dashboard|dashboard-ui) ;; *) ln -s "$e" "$NOFE/$b" ;; esac; done
+    for e in "$SCRIPT_DIR"/../dashboard/*; do b="$(basename "$e")"; [ "$b" = static ] || ln -s "$e" "$NOFE/dashboard/$b"; done
+    OUT=$(env -u LOKI_RUN_TMP FAKE_MODE=clean FRG_LOKI="$T/fake-loki" FRG_DASH_PKG="$NOFE" FRG_REPORT="$T/report-nofe.txt" bash "$GATE" --stub 2>&1); RC=$?
+    expect nofe dashboard-root FAIL; [ "$RC" -ne 0 ] && ok "nofe: exits non-zero" || bad "nofe: exit 0"
+else
+    printf '%s\n' "$OUT" | grep -q '^SKIP dashboard-root' && ok "dashboard-root: skipped without fastapi" || bad "dashboard-root: neither ran nor skipped"
+fi
+
 # legacy (no-bun) leg
 run_legacy clean
 for a in exit-honest tests-green no-stray-files digest-matches verify-ok receipt-signed output-lines legacy-fallback-line skip-not-verified-legacy; do expect legacy-clean $a PASS; done
@@ -132,6 +150,7 @@ cat > "$T/fakebin/npm" <<'NPM'
 echo "$*" >> "$FAKE_NPM_ARGS"
 while [ $# -gt 0 ]; do [ "$1" = --prefix ] && P="$2"; shift; done
 mkdir -p "$P/node_modules/.bin"; cp "$FAKE_LOKI_SRC" "$P/node_modules/.bin/loki"
+[ -n "${FAKE_NPM_WARN:-}" ] && echo "npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts: bun@1.4.2 (postinstall: node install.js)"
 [ -n "${FAKE_NPM_BUN:-}" ] && mkdir -p "$P/node_modules/bun"
 exit 0
 NPM
@@ -144,6 +163,12 @@ rm -f "$T/npm-args"; run_inst nobun
 grep -q -- '--omit=optional' "$T/npm-args" && ok "installed legacy: omits optional deps" || bad "installed legacy: no --omit=optional"
 run_inst withbun withbun
 [ "$RC" -ne 0 ] && printf '%s\n' "$OUT" | grep -q 'FAIL legacy-no-bun: bun is installed at' && ok "installed legacy: bun in install dir fails closed" || bad "installed legacy: bun not rejected"
+
+# an allow-scripts/postinstall warning in the install output fails the installed legs
+OUT=$(env -u LOKI_RUN_TMP PATH="$T/fakebin:$PATH" FAKE_NPM_ARGS="$T/npm-args" FAKE_LOKI_SRC="$T/fake-loki" FAKE_LEGACY=1 FAKE_MODE=clean \
+    FAKE_NPM_WARN=1 FRG_REPORT="$T/report-inst.txt" bash "$GATE" --stub --engine legacy --installed loki-mode@x 2>&1); RC=$?
+[ "$RC" -ne 0 ] && printf '%s\n' "$OUT" | grep -q 'FAIL install-clean' && ok "installed: allow-scripts warning fails the gate" || bad "installed: allow-scripts warning not rejected"
+run_inst nobun; [ "$RC" -eq 0 ] && ok "installed: clean install output passes" || bad "installed: clean install rc=$RC"
 
 # The gate matches bin/loki's fallback text literally; the two must not drift
 # (promote of 10.5.25 failed when the message changed and the gate did not).

@@ -33,16 +33,16 @@ Consuming agents should validate input and request re-generation if schema viola
 |-------|------|-------------|
 | `research_question` | string | The finalized research question (single sentence, interrogative form) |
 | `sub_questions` | list[string] | 2-5 decomposed sub-questions |
-| `finer_scores` | object | `{feasible: 1-10, interesting: 1-10, novel: 1-10, ethical: 1-10, relevant: 1-10}` |
+| `finer_scores` | object | `{feasible: 1-5, interesting: 1-5, novel: 1-5, ethical: 1-5, relevant: 1-5}`, the producer's scale (#938); threshold: average >= 3.0, no criterion below 2 |
 | `scope` | object | `{in_scope: list[string], out_of_scope: list[string], domain: string, timeframe: string, geography: string, population: string}` |
-| `methodology_type` | enum | `"qualitative"` / `"quantitative"` / `"mixed"` |
-| `theoretical_framework` | string | Name of the selected or emergent theoretical framework |
-| `keywords` | list[string] | 5-10 search terms for literature search |
 
 ### Optional Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `methodology_type` | enum | `"qualitative"` / `"quantitative"` / `"mixed"`. Optional since #938: the RQ Brief producer does not emit it; `research_architect_agent`'s Methodology Blueprint carries the method decision |
+| `theoretical_framework` | string | Name of the selected or emergent theoretical framework. Optional since #938: the RQ Brief producer does not emit it |
+| `keywords` | list[string] | 5-10 search terms for literature search. Optional since #938: the RQ Brief producer does not emit it; the search keywords live in Schema 2 `search_strategy.keywords` |
 | `socratic_insights` | list[string] | Key insights from Socratic dialogue (if socratic mode) |
 | `hypothesis` | string | Preliminary hypothesis (if applicable) |
 | `exclusion_criteria` | list[string] | What is explicitly out of scope |
@@ -67,7 +67,7 @@ Consuming agents should validate input and request re-generation if schema viola
 2. inherits: same as parent scope — deviations: none
 3. inherits: same as parent scope — deviations: extends population to faculty (user-approved)
 
-**FINER Scores**: Feasible: 8, Interesting: 9, Novel: 7, Ethical: 9, Relevant: 10
+**FINER Scores**: Feasible: 4, Interesting: 5, Novel: 4, Ethical: 5, Relevant: 5
 
 **Scope**:
 - In scope: AI-assisted formative assessment, STEM undergraduate courses, Taiwan HEIs, 2018-2025
@@ -733,6 +733,8 @@ conformance, not a manuscript verdict or integrity/checkpoint input. See
 | `experiment_intake_declaration` | object | Passport-level intake decision (#260, D7). `status` ∈ `{experiments_declared, no_experiments_declared, legacy_unknown}` + `declared_at` + `declared_by: scholar` + optional `scholar_answer` (the scholar's words, unchanged; a non-empty string when present, #925). Set at intake by the intake/orchestrator layer for that entry path, NOT by the three manifest writers; in pipeline runs the orchestrator asks the scholar after Stage 1 or at a later entry point (`academic-pipeline/agents/pipeline_orchestrator_agent.md` § Experiment Intake Question (#925)). **Fail-closed**: a passport treated-as-post-#260 (the default — only a `repro_lock.ars_version` proven `< the #260 constant` is `legacy_unknown`) with this field ABSENT is a gate FAIL. Even a literature-only run must carry `{status: no_experiments_declared}`. EP-INV-4 enforces declaration↔provenance symmetry. See [Experiment Provenance Intake (#260)](#experiment-provenance-intake-260) below. |
 | `experiment_provenance` | list[object] | Optional scholar-entered ledger of experiments run EXTERNALLY (#260, D1). Each entry conforms to [`shared/contracts/passport/experiment_provenance_entry.schema.json`](contracts/passport/experiment_provenance_entry.schema.json) — `experiment_id` (passport-flat, frozen at intake) + nested `repro_lock` + `planned_vs_executed[]` + `negative_results[]` + `known_limitations[]`. ARS does not run experiments, does not auto-fill provenance, does not judge experiment correctness. Joined from claims via `claim_intent_manifest.planned_experiment_ids[]`. Gated at the integrity verification stage (Stage 2.5/4.5, D6). Added #260. |
 | `experiment_alignment_results` | list[object] | Optional aggregate of claim→experiment alignment verdicts (#260, D4) — the FOURTH ref_slug-less claim-finding aggregate (alongside `uncited_assertions` / `claim_drifts` / `constraint_violations`). Each entry conforms to [`shared/contracts/passport/experiment_alignment_result.schema.json`](contracts/passport/experiment_alignment_result.schema.json); `alignment_verdict` ∈ `{ALIGNED, OVERSTATED, NOT_SUPPORTED_BY_PROVENANCE, PROVENANCE_INSUFFICIENT}`. **Produced by the integrity verification agent AT the gate** (mirrors #261 C3), NOT by the claim-alignment audit agent. EA-INV-1/2 enforce id-uniqueness + reference resolution. Carried forward by `pipeline_orchestrator_agent`'s aggregate hand-off. Added #260. |
+| `standing_constraints` | list[object] | Optional (#927). Run-wide constraints the user stated in their own turn (a word ceiling, a prohibition, a scope narrowing, or other), in the user's words. Entry shape: [`shared/contracts/passport/standing_constraint_entry.schema.json`](contracts/passport/standing_constraint_entry.schema.json); how entries are confirmed and carried: `academic-pipeline/agents/pipeline_orchestrator_agent.md` § Standing Constraints (#927). |
+| `excluded_sources` | list[object] | Optional (#936). References an integrity gate judged `NOT_FOUND`, kept off every later writer dispatch so a revision cannot cite them again; `literature_corpus[]` is not mutated. Entry shape: [`shared/contracts/passport/excluded_source_entry.schema.json`](contracts/passport/excluded_source_entry.schema.json); how entries are recorded, carried, and restored: `academic-pipeline/agents/pipeline_orchestrator_agent.md` § Integrity-Excluded Sources (#936). |
 
 ### Example
 

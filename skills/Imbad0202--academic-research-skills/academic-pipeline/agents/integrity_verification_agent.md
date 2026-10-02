@@ -221,6 +221,12 @@ Check internal data consistency within the report:
 - Is the same data point consistent across different paragraphs?
 - Are calculations correct (percentages, ratios, totals)?
 - Are tables consistent with body text descriptions?
+- Does each abstract (every language of the declared pair) state only findings,
+  numbers, and scope that the body states? An abstract sentence the body
+  contradicts, or one stating a finding the body no longer contains, is a
+  MEDIUM issue located at that abstract's block. An abstract that leaves out
+  a body finding is not an issue. (#936: revision mode does not regenerate
+  the abstract.)
 ```
 
 #### C3. Figure/Table Caption Fidelity (#261)
@@ -580,7 +586,7 @@ infer `human_read_log` state.
 | MINOR_DISTORTION     | MINOR    | Claim paraphrases source but meaning is preserved        |
 | MAJOR_DISTORTION     | SERIOUS  | Claim oversimplifies, exaggerates, or misrepresents      |
 | UNVERIFIABLE         | SERIOUS  | Source doesn't contain the claimed information            |
-| UNVERIFIABLE_ACCESS  | MEDIUM   | Source exists but full text not accessible                |
+| UNVERIFIABLE_ACCESS  | NOTE     | Source exists but full text not accessible                |
 ```
 
 #### Sampling Strategy (#549 — risk-stratified)
@@ -610,6 +616,10 @@ Persist the complete ordered result in the companion artifact validated by `shar
 
 E6 detection is semantic and may be model-mediated. The disposition runtime recomputes exact raw-event byte bindings at build and replay, while the durable sidecar retains only event id, digest, and honest provenance—not the transient path or raw message. Byte binding does not authenticate the source, interpret the event content, or prove who produced it. The finding and disposition contracts prove artifact bindings, internal one-to-one event-id references, and explicit handling only for rows actually reported; they do not certify detection completeness, semantic correctness, author identity, or the scientific warrant of an authorization. Missing raw event bytes fail replay closed. Render an empty completed set as “none detected by the recorded semantic review,” not as a deterministic no-drift result.
 
+### AI Research Failure Mode Checklist (v3.2)
+
+This agent runs the 7-mode checklist at Stage 2.5 and Stage 4.5 and reports one outcome per mode (CLEAR / NOT APPLICABLE / SUSPECTED / INSUFFICIENT EVIDENCE) with its evidence. The modes, the NOT APPLICABLE rule for a scholar who declared no experiments, the block condition, and the user's options are in `references/ai_research_failure_modes.md` (authority). A blocking outcome is not a Phase A-E issue and does not change the verdict; the MANDATORY checkpoint shows it, and the pipeline does not advance until the user answers it.
+
 ---
 
 ## Two Operating Modes
@@ -636,7 +646,7 @@ E6 detection is semantic and may be model-mediated. The disposition runtime reco
 - Special focus: Citations, data, and claims added or modified during the revision process
 - ADDITIONALLY: Compare with Stage 2.5 verification results to confirm all previous issues are resolved (this is a supplementary check, not a replacement for fresh verification)
 - **Input (#576 §8): the Stage 3' traceability sidecar's frozen `previously_missed` AND `indeterminate` new-issue records** — forwarded on both routes (Stage 3' → 4.5 direct on Accept/Minor; through 4' with the roadmap on Major). Consume both attributions as integrity-check input, not just cargo. Current #576 1.1 hard-requires the original manuscript, so `indeterminate` cannot be manufactured by omitting that evidence; it remains available for comparisons that are genuinely non-resolving. Each record is assessed during the relevant phase and its disposition appears in the report. A `[LEGACY-NO-CONTRACT]` run may legitimately produce no sidecar; note that legacy boundary without treating it as current contract success.
-- **Stage 5 (FINALIZE) entry requires PASS with zero issues, or — after the 3-round Integrity Check FAIL Loop — an explicit, recorded user decision on the listed unresolved items**
+- **Stage 5 (FINALIZE) entry requires PASS with zero issues (notes are not issues; see § Verdict Criteria), or — after the 3-round Integrity Check FAIL Loop — an explicit, recorded user decision on the listed unresolved items**
 
 ---
 
@@ -645,8 +655,10 @@ E6 detection is semantic and may be model-mediated. The disposition runtime reco
 | Verdict | Condition | Follow-up Action |
 |---------|-----------|-----------------|
 | **PASS** | Zero SERIOUS issues + zero MEDIUM issues + zero MAJOR_DISTORTION + zero UNVERIFIABLE | Release to next stage |
-| **PASS WITH NOTES** | Zero SERIOUS + zero MEDIUM + zero MAJOR_DISTORTION + zero UNVERIFIABLE + has MINOR or MINOR_DISTORTION or UNVERIFIABLE_ACCESS | Release, with MINOR issues and notes list attached |
-| **FAIL** | Any SERIOUS or MEDIUM issues, or any MAJOR_DISTORTION, or any UNVERIFIABLE | Block; produce correction list; re-verify after corrections |
+| **PASS WITH NOTES** | Zero SERIOUS + zero MEDIUM + zero MAJOR_DISTORTION + zero UNVERIFIABLE + has MINOR or MINOR_DISTORTION or a note | Release, with MINOR issues and notes list attached |
+| **FAIL** | Any SERIOUS or MEDIUM issues, or any MAJOR_DISTORTION, or any UNVERIFIABLE; at Stage 4.5 also any MINOR or MINOR_DISTORTION | Block; produce correction list; re-verify after corrections |
+
+**Issues and notes.** SERIOUS, MEDIUM, and MINOR items (including MAJOR_DISTORTION, UNVERIFIABLE, and MINOR_DISTORTION) are issues. UNVERIFIABLE_ACCESS claims, the advisory notes and rows defined above, and cross-model disagreements and `NOT_SEARCHED` results (until the user's resolution at the checkpoint confirms the reference or claim is wrong) are notes, except E6 claim-strength drift rows, which close the checkpoint as E6 states. In pipeline mode the orchestrator's final-output pre-check items also count as Stage 4.5 issues (`pipeline_orchestrator_agent.md` § Final-Output Pre-Check at Stage 4.5 (#929)). Notes never block, and "zero issues" anywhere in the pipeline allows them. At Stage 4.5, PASS WITH NOTES therefore carries notes only and clears the gate.
 
 ### Gray-Zone Prevention Rule
 
@@ -663,7 +675,8 @@ The following patterns are PROHIBITED in integrity reports:
 ```
 1. Produce correction list (sorted by severity)
 2. Fix item by item (use WebSearch to confirm correct information)
-3. After corrections complete, re-verify only the corrected items
+3. After corrections complete, re-verify only the corrected items, plus the
+   whole C2 check when a correction changed the body's findings, numbers, or scope
 4. All pass -> PASS
 5. Still issues -> fix again (max 3 rounds)
 6. Still not passed after 3 rounds -> notify user, list unverifiable items
@@ -799,9 +812,15 @@ After the author responds, attach the validated
 | ID | # | Category | Location | Issue Description | Correct Information | Source |
 |----|---|----------|----------|------------------|--------------------|----|
 
-### MINOR (Recommended Fix)
+### MINOR (Recommended Fix at Stage 2.5; Must Fix at Stage 4.5)
 | ID | # | Category | Location | Issue Description | Suggestion |
 |----|---|----------|----------|------------------|----|
+
+## AI Research Failure Mode Checklist
+
+| Mode | Outcome (CLEAR / NOT APPLICABLE / SUSPECTED / INSUFFICIENT EVIDENCE) | Evidence | Blocks? |
+|------|---------|----------|---------|
+| 1-7 | [one row per mode] | [evidence, or the declaration that makes the mode NOT APPLICABLE] | [yes / no] |
 
 ## Tool Limitation Disclaimer
 

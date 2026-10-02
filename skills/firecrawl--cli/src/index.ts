@@ -925,6 +925,11 @@ function createSearchCommand(): Command {
     )
     .argument('<query>', 'Search query, or alexandria for semantic tool search')
     .argument('[tool-query]', 'Query for search alexandria')
+    .option('--objective <goal>', 'Broader task goal behind this search')
+    .option(
+      '--client-model <model>',
+      'Model issuing and consuming the results, if known'
+    )
     .option(
       '--limit <number>',
       'Maximum number of results (default: 5, max: 100)',
@@ -1060,6 +1065,8 @@ function createSearchCommand(): Command {
 
       const searchOptions = {
         query,
+        objective: options.objective,
+        clientModel: options.clientModel,
         toolDetail: options.toolDetail,
         domainTools:
           options.domainTools ??
@@ -1583,7 +1590,7 @@ function createAgentCommand(): Command {
     .option('--urls <urls>', 'Comma-separated URLs to focus extraction on')
     .option(
       '--model <model>',
-      'Model to use: spark-2 (default), spark-1-mini, or spark-1-pro'
+      'Model to use: spark-2 (default). spark-1-mini and spark-1-pro are deprecated and run spark-2'
     )
     .option(
       '--schema <json>',
