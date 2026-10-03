@@ -1,6 +1,14 @@
 # Skill Evaluation Checklist
 
-Complete checklist for evaluating Claude Code skills against best practices.
+Use this checklist as an advisory inspection aid for the intended host. For scored design review, load `references/quality_rubric.json` through the batch workflow. A checklist match is not a quality score or proof of task benefit.
+
+## Delivery review (only when explicitly requested)
+
+- [ ] Read the original user requirement, declared scope and source ownership; independently check the private contract against them.
+- [ ] Run `review_skill.py --delivery-contract <private-contract.json> --json`; inspect source ownership, registration and installed route separately.
+- [ ] Treat execution/tests/discovery green with a wrong source as delivery failure.
+- [ ] Record missing install or current host loading evidence as unknown; use the fresh-host checks from `skill-governance` for current availability.
+- [ ] Without a contract, report quality coverage only, not completed delivery review; third-party reviews require no owned-marketplace contract.
 
 ## YAML Frontmatter
 
@@ -12,7 +20,7 @@ Complete checklist for evaluating Claude Code skills against best practices.
   - Non-empty
   - Max 1024 characters
   - Third-person voice
-  - Includes trigger conditions ("Use when...")
+  - Expresses triggering situations in the skill's language; no mandatory English phrase
 
 ## Description Quality
 
@@ -56,7 +64,7 @@ Description should include:
 
 ## Progressive Disclosure
 
-- [ ] SKILL.md body under 500 lines
+- [ ] SKILL.md carries necessary detail; length alone is not a defect
 - [ ] Detailed content in `references/`
 - [ ] Large files include grep patterns
 - [ ] No duplication between SKILL.md and references
@@ -64,7 +72,7 @@ Description should include:
 ## Bundled Resources
 
 ### Scripts (`scripts/`)
-- [ ] Executable with proper shebang
+- [ ] Executable entry points have the declared invocation; imported helpers need no shebang
 - [ ] Explicit error handling (no bare except)
 - [ ] Clear documentation
 - [ ] No hardcoded secrets
@@ -81,9 +89,9 @@ Description should include:
 ## Privacy and Paths
 
 - [ ] No machine-specific user-home paths
-- [ ] No personal/company names
+- [ ] Public-release material contains no unintended private identities; public entities and necessary private-environment contracts have context
 - [ ] No hardcoded secrets
-- [ ] Relative paths only
+- [ ] Required paths resolve in the bundle or declared host; do not test preinstalled host paths on the evaluator machine
 
 ## Workflow Pattern
 

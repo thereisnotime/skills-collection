@@ -2,40 +2,20 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { RepoMap } from "../repomap.ts";
+import { selectRelevantFiles } from "../relevant_files.ts";
 import { classifyExitCause } from "../session.ts"; // E-68 reuse: never re-classify exit codes here
 import { cascadeEnabled, hasRelevantTests, loadRepoMap, planMode, sizeTask, smallTaskPath, wallEnabled, wallModel } from "../sizing.ts";
 import type { RunContext, Stage, StageResult, TestMap } from "../types.ts";
+import { withStagePrefix } from "../../features/lean_prefix.ts";
 import { taskBlock } from "../types.ts";
 import { loadTaskText } from "./wall.ts";
 
-const MAX_RELEVANT_FILES = 8;
 const MAX_PLAN_LINES = 10;
 const PLAN_OUTPUT_FILENAME = "plan-output.txt";
 
 function planOutputPath(runDir: string): string { return join(runDir, PLAN_OUTPUT_FILENAME); }
 
-function keywords(task: string): string[] {
-  const words = task.toLowerCase().match(/[a-z0-9_]+/g) ?? [];
-  return Array.from(new Set(words.filter((w) => w.length > 2)));
-}
-
-/** Keyword overlap between task and repo map entry (path plus symbols); zero-score files are dropped, ties keep repo map order. */
-export function selectRelevantFiles(task: string, repoMap: RepoMap, max: number = MAX_RELEVANT_FILES): string[] {
-  const words = keywords(task);
-  if (words.length === 0) return [];
-
-  const scored = repoMap.entries.map((entry, idx) => {
-    const haystack = `${entry.path} ${entry.symbols.join(" ")}`.toLowerCase();
-    const score = words.reduce((n, w) => n + (haystack.includes(w) ? 1 : 0), 0);
-    return { path: entry.path, score, idx };
-  });
-
-  return scored
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score || a.idx - b.idx)
-    .slice(0, max)
-    .map((s) => s.path);
-}
+export { selectRelevantFiles };
 
 /** Truncates the planner's output to at most `max` non-empty lines: engine-side enforcement, since nothing stops a session from writing more. */
 export function truncatePlan(raw: string, max: number = MAX_PLAN_LINES): string {
@@ -44,7 +24,7 @@ export function truncatePlan(raw: string, max: number = MAX_PLAN_LINES): string 
 }
 
 export function buildPlanBrief(task: string, relevantFiles: string[], outputPath: string): string {
-  return [
+  return withStagePrefix([
     "You are the Loki 10 plan stage.",
     ...taskBlock(task),
     relevantFiles.length
@@ -52,7 +32,7 @@ export function buildPlanBrief(task: string, relevantFiles: string[], outputPath
       : "No relevant files were found by keyword overlap; use your own judgement.",
     `Write a plan of at most ${MAX_PLAN_LINES} short lines, no other prose, to this exact file path: ${outputPath}`,
     "Do not edit any other file. Do not run tests. Do not commit.",
-  ].join("\n\n");
+  ].join("\n\n"));
 }
 
 export const planStage: Stage = {
@@ -98,11 +78,7 @@ export const planStage: Stage = {
       mkdirSync(ctx.runDir, { recursive: true });
       const stderrPath = join(ctx.runDir, `${iterationId}.stderr.log`);
       writeFileSync(stderrPath, stderrTail, "utf8");
-      return {
-        status: "failed",
-        reason: classifyExitCause(session.exit, false),
-        data: { iteration_ids: [iterationId], duration_s: session.durationS, stderr_path: stderrPath },
-      };
+      return { status: "failed", reason: classifyExitCause(session.exit, false), data: { iteration_ids: [iterationId], duration_s: session.durationS, stderr_path: stderrPath } };
     }
 
     const rawPlan = existsSync(outputPath) ? readFileSync(outputPath, "utf8") : "";

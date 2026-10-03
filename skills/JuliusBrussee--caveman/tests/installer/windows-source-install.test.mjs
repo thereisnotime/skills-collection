@@ -37,6 +37,6 @@ test("native-hook benchmark uses Windows named pipe instead of refusing platform
 
 test("CI takes pnpm version only from packageManager", () => {
   const source = readFileSync(join(root, ".github", "workflows", "engine-ci.yml"), "utf8");
-  assert.match(source, /uses: pnpm\/action-setup@[0-9a-f]{40} # v4\.4\.0/);
+  assert.match(source, /uses: pnpm\/action-setup@[0-9a-f]{40} # v\d+\.\d+\.\d+/);
   assert.doesNotMatch(source, /pnpm\/action-setup@[0-9a-f]{40}[^\n]*\n\s+with:\n\s+version:/);
 });

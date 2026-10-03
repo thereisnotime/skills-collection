@@ -9,9 +9,10 @@ import { chmodSync, existsSync, linkSync, mkdirSync, readFileSync, statSync, unl
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { assertDeltaNotes } from "../../e10ext/assert_delta.ts"; import { discardIfSatisfied } from "../../e10ext/discard.ts"; import { dropSet, parseStaged } from "../../e10ext/commit_filter.ts"; import { revertUnrelated } from "../../e10ext/scope.ts"; import { RECEIPT_SIGNER_BASENAME } from "../../util/receipt_signer.ts";
-import { run } from "../../util/shell.ts";
+import { run } from "../../util/shell.ts"; import { sealEvidence } from "../../features/visual_evidence.ts";
 import { isTestFile } from "../testmap.ts";
 import { STAGE_BUDGETS } from "../types.ts";
+import { type ContractSnapshot, sealContract } from "../../features/contract.ts"; import { capGroupVerdict, sealGroup } from "../../features/speed/seal_group.ts";
 import type { Obj, Receipt, ReceiptCheck, RunContext, Stage, StageName, StageResult, Verdict } from "../types.ts";
 
 /** Deferred to deep verify, so always NOT PROVEN at seal time. */
@@ -179,7 +180,7 @@ export function renderReceiptMd(r: Receipt): string {
 export const sealStage: Stage = {
   name: "seal",
   ...STAGE_BUDGETS.seal,
-  async run(ctx: RunContext): Promise<StageResult> {
+  async run(ctx: RunContext, signal?: AbortSignal): Promise<StageResult> {
     const o = ctx.outputs();
     const head = (await git(ctx, ["rev-parse", "HEAD"])).out.trim();
     const tree = (await git(ctx, ["rev-parse", "HEAD^{tree}"])).out.trim();
@@ -200,9 +201,10 @@ export const sealStage: Stage = {
     const rawDiff = diffOk ? diff.stdout.split("\0").filter(Boolean) : [];
     const weakTests: string[] = [];
     for (let i = 0; i + 1 < rawDiff.length; i += 2) if ((rawDiff[i]!.trim().split(" ").pop() ?? "") !== "A" && isTestFile(rawDiff[i + 1]!)) weakTests.push(rawDiff[i + 1]!);
-    const verdict = verdictOf(o, checks.filter((c) => !(c.result === "fail" && preRedChecks.includes(c.name))), !diffOk || diff.stdout === "", verifyNotProven.length > 0 || weakTests.length > 0, wallGreenOnBase);
+    const grp = sealGroup(ctx.runDir, receiptSha256 as never); // D61-13: inert without group/manifest.json
+    const verdict = capGroupVerdict(verdictOf(o, checks.filter((c) => !(c.result === "fail" && preRedChecks.includes(c.name))), !diffOk || diff.stdout === "", verifyNotProven.length > 0 || weakTests.length > 0, wallGreenOnBase), grp);
 
-    const notProven = new Set<string>(DEEP_NOT_PROVEN);
+    const notProven = new Set<string>([...DEEP_NOT_PROVEN, ...grp.notProven]);
     if (wallNotRun > 0) notProven.add(`wall base run not_run: ${wallNotRun}`);
     if (!diffOk) notProven.add("diff not computed (git diff-tree failed)");
     // E-55: any status other than A means the path existed at base_sha (M, D, or T typechange, e.g. a symlink).
@@ -255,7 +257,7 @@ export const sealStage: Stage = {
       wall: { files: wallFiles.map((f) => ({ path: String(f.path), sha256: String(f.sha256) })), passed: wallPassed },
       checks,
       not_proven: [],
-      verdict,
+      verdict, ...(grp.section ? { group: grp.section } : {}),
       ...(str(o.implement?.spec_conflict_reason) !== null
         ? { spec_conflict_reason: sanitizeReason(str(o.implement?.spec_conflict_reason)!) }
         : {}),
@@ -270,9 +272,11 @@ export const sealStage: Stage = {
       model: ctx.model,
       resumed: o.intake?.resumed === true,
       events_sha256: sha256(existsSync(eventsPath) ? readFileSync(eventsPath) : ""),
+      ...(await sealEvidence(ctx.repoDir, ctx.runDir, o, notProven, signal)),
       log_seal: true,
     };
 
+    for (const l of sealContract(ctx.repoDir, body, rawDiff, checks, process.env, o.intake?.contract_snapshot as ContractSnapshot | undefined)) notProven.add(l); // D65-SPEC: additive receipt.contract, LOKI_CONTRACT=1 only
     // Sign first so a failed key lands in NOT PROVEN before hashing.
     body.not_proven = [...notProven];
     let hash = receiptSha256(body);

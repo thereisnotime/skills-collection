@@ -33,7 +33,7 @@ const USAGE = `Usage (LOKI_ENGINE=v10):
   loki keys export                print the receipt-signing public key (JWK + kid)
   loki dashboard                  serve the local dashboard
   loki modernize <repo> --to <target>  convert a codebase (loki modernize --help)
-Flags: --deep, --provider <name>, --no-pr
+Flags: --deep, --provider <name>, --no-pr, --max-cost <usd> (per-run cap, default $20, or loki.yaml budgets.per_run)
 `;
 // Returns null for an empty or help invocation.
 export function route(args: string[]): Route | null {
@@ -67,6 +67,7 @@ export async function runEngine10(args: string[], load: Loader = defaultLoader):
     (help ? process.stdout : process.stderr).write(USAGE);
     return help ? 0 : 2;
   }
+  if (r.module === "supervisor.ts") await (await import("../features/warm_client.ts")).tryWarmSafe(process.cwd());
   const spec = `./${r.module}`;
   let mod: Record<string, unknown>;
   try {

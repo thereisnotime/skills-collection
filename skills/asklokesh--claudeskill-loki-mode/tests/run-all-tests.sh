@@ -4,7 +4,7 @@
 
 set -euo pipefail
 # Tests always run headless: no suite may open a browser (S-103).
-export LOKI_NO_BROWSER=1
+export LOKI_NO_BROWSER=1 LOKI_CONTROL=0 # tests never ship to a developer's live Control Plane
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -638,6 +638,7 @@ run_test "v8 SDK text bridge (grill + prd-enrich)" "$SCRIPT_DIR/test-sdk-text-br
 run_test "v8 SDK council VOTE (member + contrarian, trust core)" "$SCRIPT_DIR/test-sdk-council-vote.sh"
 run_test "v8 SDK voter-agents council (Epic C, finding schema)" "$SCRIPT_DIR/test-sdk-voter-agents.sh"
 run_test "v8 SDK-loop start routing (LOKI_SDK_LOOP gate, default-off)" "$SCRIPT_DIR/test-sdk-loop-routing.sh"
+run_test "D65 shim routing (slack, answer, jira, linear)" "$SCRIPT_DIR/test-d65-routing.sh"
 run_test "SDK version sync (root package.json/lockfile/Dockerfile vs loki-ts, E-106)" "$SCRIPT_DIR/test-sdk-version-sync.sh"
 run_test "v8 Structured Review Self-Copy Asset Resolution" "$SCRIPT_DIR/test-code-review-self-copy.sh"
 run_test "Review deadline, requirements, and speculative assurance tail" "$SCRIPT_DIR/test-review-assurance-tail.sh"
@@ -1167,6 +1168,7 @@ run_test "Apprunner Dockerfile Exec Wave8" "$SCRIPT_DIR/test-apprunner-dockerfil
 run_test "Assumption Gate Brief Mode" "$SCRIPT_DIR/test-assumption-gate-brief-mode.sh"
 run_test "Auto Wiki" "$SCRIPT_DIR/test-auto-wiki.sh"
 run_test "Backlog (loki backlog + loki.yaml)" "$SCRIPT_DIR/test-backlog.sh"
+run_test "Backlog units (loki backlog --dag, D61)" "$SCRIPT_DIR/test-backlog-units.sh"
 run_test "Backend Floor" "$SCRIPT_DIR/test-backend-floor.sh"
 run_test "Backend Floor port scoping (kill by recorded PID, never by port)" "$SCRIPT_DIR/test-backend-floor-port-scoping.sh"
 run_test "cmd_web_stop/start use a real process identity check (D14/D15 class)" "$SCRIPT_DIR/test-web-stop-scoping.sh"
@@ -1527,6 +1529,7 @@ run_test "Delegate PR refuses the repo default branch" "$SCRIPT_DIR/test-delegat
 run_test "Dashboard port ownership" "$SCRIPT_DIR/test-dashboard-port-ownership.sh"
 run_test "Dashboard static fallback and reuse" "$SCRIPT_DIR/test-dashboard-static-fallback.sh"
 run_test "No dashboard leak from suites" "$SCRIPT_DIR/test-no-dashboard-leak.sh"
+run_test "Dashboard leak2: fail-closed reuse and bound-port URL" "$SCRIPT_DIR/test-dashboard-leak2.sh"
 run_test "Doctor --json skills section" "$SCRIPT_DIR/test-doctor-json-skills.sh"
 run_test "Emit hang forensics" "$SCRIPT_DIR/test-emit-hang-forensics.sh"
 run_test "Issue PRD honesty" "$SCRIPT_DIR/test-issue-prd-is-honest.sh"
@@ -1591,6 +1594,7 @@ run_test "Loki 10 eval harness runner and scorer (EV-1)" "$SCRIPT_DIR/../eval/lo
 run_test "Loki 10 gate report generator (E-33)" "$SCRIPT_DIR/../eval/loki10/test-gate-report.sh"
 run_test "Loki 10 engine trusted push and PR (E-11)" "$SCRIPT_DIR/test-engine10-push.sh"
 run_test "Loki 10 engine dispatch hook (E-12)" "$SCRIPT_DIR/test-engine10-dispatch.sh"
+run_test "loki verify --pubkey=FILE routes to v10 through bin/loki (P0-VERIFY-ARG)" "$SCRIPT_DIR/test-verify-pubkey-cli.sh"
 run_test "Loki 10 legacy route contract golden rows (E-30)" "$SCRIPT_DIR/test-engine10-legacy-contract.sh"
 run_test "Loki 10 live PR smoke on a sandbox repo (E-40)" "$SCRIPT_DIR/test-engine10-live-pr.sh"
 run_test "Loki control plane wiring: serve, backfill, UI (CP-04)" "$SCRIPT_DIR/test-control-plane.sh"

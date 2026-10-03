@@ -6,7 +6,8 @@ Loki 10 is the rewritten engine (docs/v10/ENGINE.md). Since the D48 flip it
 is the default for three entry points: `loki "<task>"`, `loki owner/repo#N`
 (issue mode) and `loki quick "<task>"`. Each prints one start line,
 `Loki 10 engine (set LOKI_ENGINE=legacy or run 'loki legacy' for the previous
-engine)`, then the summary below. Everything else (`loki start`, `loki
+engine)`, then the summary below. `loki start <issue ref | issue URL | "multi-word task">` takes the same
+v10 path as `loki <ref>`. Everything else (`loki start ./prd.md`, `loki
 status`, `loki dashboard` and the rest) is unchanged unless you set
 LOKI_ENGINE=v10 explicitly, which also routes status, verify and dashboard
 to the v10 commands. Bare `loki verify` (no LOKI_ENGINE) follows the newest
@@ -16,8 +17,10 @@ missing or LOKI_PROVIDER is unsupported, the default mode falls back to the
 legacy engine and prints one stderr line saying why. The previous engine stays one step away:
 `loki legacy <args>` and LOKI_ENGINE=legacy.
 
-`loki start owner/repo#N` still routes to the legacy engine, not Loki 10. Use
-`loki owner/repo#N` instead. The legacy engine is being removed (planned work
+`loki start owner/repo#N`, `loki start <issue URL>` and `loki start "<multi-word
+task>"` run Loki 10, the same as `loki owner/repo#N` and `loki "<task>"`. A PRD
+file, a flag-first call (`loki start --simple prd.md`) and a one-word start stay
+on the legacy engine. The legacy engine is being removed (planned work
 resumes 2026-10-07, see docs/v10/LEGACY-REMOVAL.md).
 
 Some pieces named in this guide are still being built. Each one below says
@@ -70,6 +73,14 @@ Flags, from the engine's own `--help`:
   from 480s to 1800s (`loki-ts/src/engine10/types.ts`).
 - `--provider <name>`: pick the coding provider for this run. See the
   provider table below.
+- `--max-cost <usd>`: per-run cost cap in dollars. Without the flag the cap is
+  `budgets.per_run` in the repo's `loki.yaml` (for example
+  `budgets:` then `  per_run: 5`), else the default of $20.00. The flag wins over
+  the file. The start line shows the cap in force, for example
+  `... previous engine), cap $20.00 (default)`. Once priced cost reaches the cap
+  the running stage is stopped, no later stage starts, and the run ends
+  BUDGET_STOP with exit code 3. Sessions with no provider price never count
+  toward the cap.
 
 `--no-pr`, `--deep` and `--provider` are parsed by the supervisor
 (`loki-ts/src/engine10/supervisor.ts`) and take effect on a real run.
@@ -106,6 +117,36 @@ Time:       4m12s (intake 11s, plan 20s, implement 3m10s, verify 31s)
 - **PR**: the opened pull request URL, or `none` when the run used
   `--no-pr` or never got that far. A draft PR adds the draft reason in
   parentheses.
+
+The PR body is reviewable in 60 seconds. It leads with what the issue asked,
+then what changed and why, how it was tested, NOT PROVEN, and the receipt digest
+with the `loki verify` command. A field the run did not record reads "not
+recorded", never a number:
+
+```
+## What the issue asked
+- handles empty input
+- rejects bad tokens
+
+## What changed and why
+- Why: Fix the parser
+- src/parser.ts
+- tests/parser.test.ts
+
+## How it was tested
+- Verdict: VERIFIED
+- Checks: 2 passed, 0 failed, 0 not run, 0 flaky (4 individual tests counted)
+- Command: `bun test tests/parser.test.ts` -> pass
+- Target tests (written before the fix): parser.test.ts
+- Before the fix: 2 failing, 0 passing on base; after: pass
+
+## NOT PROVEN
+- none
+
+## Receipt
+- Digest: sha256:ab12... (signed)
+- Verify: `loki verify run-1`
+```
 - **Verdict**: one of VERIFIED, PARTIAL, ALREADY_SATISFIED, SPEC_CONFLICT or
   FAILED.
 - **NOT PROVEN**: everything the run did not check, comma-joined. Never
@@ -127,6 +168,23 @@ This formatter (`loki-ts/src/engine10/output.ts`, `formatSummary`) is
 called by the supervisor at the end of every run, so a real `loki "<task>"`
 or `loki <issue-ref>` run prints this block on completion. The block above
 is that function's real output, not a mockup.
+
+## Triggers without a cloud
+
+Both run on your own GitHub Actions minutes; there is no hosted service.
+
+- Issue to PR: copy `.github/workflows/loki-issue-to-pr.yml` into your repository. Label an issue `loki`, or comment `/loki` as an owner, member or collaborator, and it runs `loki owner/repo#N` (the Loki 10 engine) and opens a pull request with an evidence receipt. The agent job holds a read-only token; a separate publish job opens the PR. Set `ANTHROPIC_API_KEY` in repository secrets.
+- Nightly backlog: copy `examples/loki-nightly-backlog.yml` into `.github/workflows/`. Its `schedule:` trigger runs `loki backlog owner/repo --label loki`, one Loki 10 run per labeled open issue:
+
+```yaml
+on:
+  schedule:
+    - cron: '17 3 * * *'   # nightly, 03:17 UTC
+# ...
+      - run: loki backlog "${GITHUB_REPOSITORY}" --label loki --concurrency 2
+```
+
+`loki backlog` also takes `--all`, `--issues 1,2,3` and `--dry-run`. The nightly job runs the agent and a write token together, so label only issues you trust.
 
 ## NOT PROVEN
 

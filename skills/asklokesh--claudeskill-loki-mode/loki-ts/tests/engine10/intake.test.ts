@@ -4,10 +4,11 @@
 // the slice's contract: machine.ts (E-02) and testmap.ts (E-05) do not exist
 // yet on main, and this stage codes against types.ts's interfaces only.
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { commitStage } from "../../src/engine10/stages/seal.ts";
 import { runIntake } from "../../src/engine10/stages/intake.ts";
 import { RealTestMapProvider } from "../../src/engine10/testmap.ts";
@@ -156,6 +157,16 @@ describe("engine10 intake", () => {
     const ctx = makeCtx(repoDir, runDir, provider);
     const result = await runIntake(ctx, new AbortController().signal, { taskText: "do a thing" });
     expect(result.status).toBe("completed");
+  });
+
+  test("D65-BUG7: a linked worktree (.git is a file) starts the run and excludes .loki/ in the common git dir", async () => {
+    const wt = join(runDir, "linked-wt");
+    git(repoDir, ["worktree", "add", "-q", "-b", "ws-branch", wt]);
+    const ctx = makeCtx(wt, runDir, fakeTests());
+    const result = await runIntake(ctx, new AbortController().signal, { taskText: "add a widget" });
+    expect(result.status).toBe("completed");
+    const common = gitOut(wt, ["rev-parse", "--git-path", "info/exclude"]).trim();
+    expect(readFileSync(resolve(wt, common), "utf8")).toContain(".loki/");
   });
 
   test("clean repo with literal task text: creates the branch, excludes .loki/, builds maps", async () => {
@@ -320,5 +331,48 @@ describe("engine10 intake: already-implemented (E-66)", () => {
     ctx.sessions = noLlmSessions;
     const result = await runIntake(ctx, new AbortController().signal, { taskText: "add a widget" });
     expect(result.data.already_satisfied).toBe(false);
+  });
+});
+
+// D65-SPEC-F2: intake freezes .loki/contract.json; the wiring itself (not just the seal side) is tested here.
+describe("engine10 intake: contract snapshot (D65-SPEC-F2)", () => {
+  let repoDir: string;
+  let runDir: string;
+  let prev: string | undefined;
+  const CONTRACT = JSON.stringify({ source: "s", criteria: [{ id: "AC-1", text: "export csv files", source_line: 1 }] }, null, 2) + "\n";
+  const want = createHash("sha256").update(CONTRACT).digest("hex");
+  const snapOf = (d: Record<string, unknown>) => d.contract_snapshot as { sha256: string | null; contract: { criteria: unknown[] } | null } | undefined;
+  beforeEach(() => {
+    prev = process.env["LOKI_CONTRACT"];
+    delete process.env["LOKI_CONTRACT"];
+    repoDir = freshRepo();
+    runDir = mkdtempSync(join(tmpdir(), "e10-intake-run-"));
+    mkdirSync(join(repoDir, ".loki"), { recursive: true });
+    writeFileSync(join(repoDir, ".loki", "contract.json"), CONTRACT);
+  });
+  afterEach(() => {
+    if (prev === undefined) delete process.env["LOKI_CONTRACT"]; else process.env["LOKI_CONTRACT"] = prev;
+    rmSync(repoDir, { recursive: true, force: true });
+    rmSync(runDir, { recursive: true, force: true });
+  });
+  test("normal path records the sha256 of the file bytes and the parsed contract", async () => {
+    const result = await runIntake(makeCtx(repoDir, runDir, fakeTests()), new AbortController().signal, { taskText: "add a widget" });
+    expect(result.status).toBe("completed");
+    expect(result.data.already_satisfied).toBe(false);
+    expect(snapOf(result.data)?.sha256).toBe(want);
+    expect(snapOf(result.data)?.contract?.criteria).toHaveLength(1);
+  });
+  test("already_satisfied early return records it too", async () => {
+    const result = await runIntake(makeCtx(repoDir, runDir, fakeTests()), new AbortController().signal, { issueJsonPath: join(FIX, "issue-closed.json") });
+    expect(result.data.already_satisfied).toBe(true);
+    expect(snapOf(result.data)?.sha256).toBe(want);
+  });
+  test("LOKI_CONTRACT=0 records no snapshot on either path", async () => {
+    process.env["LOKI_CONTRACT"] = "0";
+    const a = await runIntake(makeCtx(repoDir, runDir, fakeTests()), new AbortController().signal, { taskText: "add a widget" });
+    expect(a.data.contract_snapshot).toBeUndefined();
+    const b = await runIntake(makeCtx(repoDir, runDir, fakeTests()), new AbortController().signal, { issueJsonPath: join(FIX, "issue-closed.json") });
+    expect(b.data.already_satisfied).toBe(true);
+    expect(b.data.contract_snapshot).toBeUndefined();
   });
 });

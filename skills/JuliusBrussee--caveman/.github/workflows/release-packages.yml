@@ -32,7 +32,7 @@ jobs:
       dist-sha256: ${{ steps.python-build.outputs.sha256 }}
       release-sha256: ${{ steps.release-files.outputs.sha256 }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -49,10 +49,10 @@ jobs:
           target="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_ref" --jq .object.sha)"
           git cat-file -e "$target^{commit}"
           git merge-base --is-ancestor "$target" origin/main
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24.16.0"
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
       - name: Resolve package and require tag/version parity
@@ -183,11 +183,11 @@ jobs:
             curl -fsSL -r 0-0 -o /dev/null "$base/$asset" || { echo "missing release asset: $base/$asset" >&2; exit 1; }
           done
       # The CLI suite drives the real proxy (conformance tests).
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v5
         if: startsWith(github.ref_name, 'cli-v')
         with:
           go-version-file: go.mod
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         if: steps.package.outputs.packager == 'pnpm'
       - name: Build and test pnpm workspace package
         if: steps.package.outputs.packager == 'pnpm'
@@ -352,7 +352,7 @@ jobs:
             (cd "$RUNNER_TEMP/github-release" && sha256sum -- *)
             echo "SHA256SUMS"
           } >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: package-dist
           path: ${{ runner.temp }}/package-dist/*
@@ -360,7 +360,7 @@ jobs:
           retention-days: 1
       # Separate from package-dist: the PyPI publisher uploads every file in its
       # dist directory, and an SBOM there would fail the upload.
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: github-release
           path: ${{ runner.temp }}/github-release/*
@@ -381,13 +381,13 @@ jobs:
       NAME: ${{ needs.build.outputs.name }}
       VERSION: ${{ needs.build.outputs.version }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: package-dist
           path: ${{ runner.temp }}/package-dist
@@ -448,11 +448,11 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: package-dist
           path: dist
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24.16.0"
           registry-url: https://registry.npmjs.org
@@ -506,7 +506,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: package-dist
           path: dist
@@ -521,7 +521,7 @@ jobs:
           sha256sum --strict -c "$RUNNER_TEMP/SHA256SUMS"
           [[ "$(find . -type f | wc -l)" == "$(wc -l < "$RUNNER_TEMP/SHA256SUMS")" ]] || { echo "unexpected files in dist" >&2; exit 1; }
       - name: Publish with PyPI trusted publishing
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
 
   # Runs only after a registry publish succeeded, so a release page never
   # advertises a version the registry does not have. No checkout: notes and
@@ -537,7 +537,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: github-release
           path: release

@@ -5,11 +5,13 @@
 // resumed for later stages.
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { RunContext, Stage, StageResult } from "../types.ts";
 import { buildRepoMap } from "../repomap.ts";
 import { githubRepoFromUrl, readOriginUrl } from "../supervisor.ts";
-import { buildAlreadyDoneCommentArgv, checkAlreadyDone, renderAlreadyDoneComment } from "../already_done.ts";
+import { type AlreadyDoneResult, buildAlreadyDoneCommentArgv, checkAlreadyDone, renderAlreadyDoneComment } from "../already_done.ts";
+import { deferAlreadyDone, speedEnabled } from "../../features/speed/already_done_async.ts";
+import { snapshotContract } from "../../features/contract.ts";
 import { sha256 } from "./seal.ts"; import { splitDirty, untrackedAtIntake, snapshotUntracked } from "../../e10ext/preexisting_dirty.ts";
 export interface IntakeOptions {
   taskText?: string;
@@ -41,7 +43,11 @@ function ensureBranch(repoDir: string, branch: string): void {
 }
 /** Appends ".loki/" to .git/info/exclude, once. Not .gitignore, so it adds no diff. */
 function excludeLokiDir(repoDir: string): void {
-  const path = join(repoDir, ".git", "info", "exclude");
+  // A linked worktree has a .git FILE; ask git where info/exclude lives (the common dir).
+  let path = join(repoDir, ".git", "info", "exclude");
+  try {
+    path = resolve(repoDir, git(repoDir, ["rev-parse", "--git-path", "info/exclude"]));
+  } catch { /* keep the plain-checkout path */ }
   const existing = existsSync(path) ? readFileSync(path, "utf8") : "";
   if (existing.split("\n").some((l) => l.trim() === ".loki/")) return;
   mkdirSync(dirname(path), { recursive: true });
@@ -50,10 +56,7 @@ function excludeLokiDir(repoDir: string): void {
 }
 function loadIssue(path: string): IssueFields {
   const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
-  return {
-    state: typeof raw.state === "string" ? raw.state.toLowerCase() : null,
-    closed_by_merged_pr: raw.closed_by_merged_pr === true,
-  };
+  return { state: typeof raw.state === "string" ? raw.state.toLowerCase() : null, closed_by_merged_pr: raw.closed_by_merged_pr === true };
 }
 /** True only on a deterministic, positive signal: a false negative (state
  *  unknown) must never claim already-done. */
@@ -93,13 +96,10 @@ export async function runIntake(ctx: RunContext, signal: AbortSignal, opts: Inta
   }
   const origin = readOriginUrl(ctx.repoDir);
   // resumed is constant false: the engine has no resume.
-  const common = { task, title: task.split("\n")[0]!.slice(0, 72), repo: githubRepoFromUrl(origin) ?? origin, resumed: false, preexisting_untracked: untrackedAtIntake(ctx.repoDir), preexisting_untracked_blobs: snapshotUntracked(ctx.repoDir), ...(Object.keys(preexisting).length > 0 ? { preexisting_dirty: preexisting } : {}) };
+  const common = { task, title: task.split("\n")[0]!.slice(0, 72), repo: githubRepoFromUrl(origin) ?? origin, resumed: false, contract_snapshot: snapshotContract(ctx.repoDir), preexisting_untracked: untrackedAtIntake(ctx.repoDir), preexisting_untracked_blobs: snapshotUntracked(ctx.repoDir), ...(Object.keys(preexisting).length > 0 ? { preexisting_dirty: preexisting } : {}) };
   if (alreadySatisfied) {
     // Deterministic exit: no repo/test map needed, and never a session/LLM call.
-    return {
-      status: "completed",
-      data: { ...common, task_sha256: taskSha256, source, base_sha: baseSha, tree, branch: ctx.branch, already_satisfied: true },
-    };
+    return { status: "completed", data: { ...common, task_sha256: taskSha256, source, base_sha: baseSha, tree, branch: ctx.branch, already_satisfied: true } };
   }
   mkdirSync(ctx.runDir, { recursive: true });
   const repomapRef = join(ctx.runDir, "repomap.json");
@@ -109,8 +109,8 @@ export async function runIntake(ctx: RunContext, signal: AbortSignal, opts: Inta
   // E-66: "already implemented" as a first-class outcome. A deterministic evidence search over
   // repoMap/testmap/CHANGELOG, confirmed by one short cheap-model session that must cite files;
   // no candidate evidence means no session call (checkAlreadyDone's own gate).
-  const already = await checkAlreadyDone(ctx, signal, task, repoMap, testmap);
-  if (already) {
+  const already = speedEnabled() ? null : await checkAlreadyDone(ctx, signal, task, repoMap, testmap); // D61-04: LOKI_SPEED=1 defers it past intake
+  const alreadyData = (already: AlreadyDoneResult): Record<string, unknown> => {
     // The comment always exists (there is always something to tell the operator once evidence
     // confirms no change is needed); only an issue run has somewhere to post it, so only that case
     // gets an argv. A text run gets the same body, but printed by the CLI (main(), below) instead --
@@ -119,30 +119,13 @@ export async function runIntake(ctx: RunContext, signal: AbortSignal, opts: Inta
     const bodyFile = join(ctx.runDir, "already-done-comment.md");
     writeFileSync(bodyFile, comment, "utf8");
     const commentArgv = source === "issue" && issueRef ? buildAlreadyDoneCommentArgv(ctx.runId, issueRef, bodyFile) : undefined;
-    return {
-      status: "completed",
-      data: {
-        ...common, task_sha256: taskSha256, source, base_sha: baseSha, tree, branch: ctx.branch,
-        already_satisfied: true, evidence: already.evidence, iteration_ids: [`${ctx.runId}-already-done`],
-        comment,
-        ...(commentArgv ? { comment_argv: commentArgv } : {}),
-      },
-    };
-  }
-  return {
-    status: "completed",
-    data: {
-      ...common,
-      task_sha256: taskSha256,
-      source,
-      base_sha: baseSha,
-      tree,
-      branch: ctx.branch,
-      repomap_ref: repomapRef,
-      testmap,
-      already_satisfied: false,
-    },
+    return { already_satisfied: true, evidence: already.evidence, iteration_ids: [`${ctx.runId}-already-done`], comment, ...(commentArgv ? { comment_argv: commentArgv } : {}) };
   };
+  const base = { ...common, task_sha256: taskSha256, source, base_sha: baseSha, tree, branch: ctx.branch };
+  if (already) return { status: "completed", data: { ...base, ...alreadyData(already) } };
+  const data = { ...base, repomap_ref: repomapRef, testmap, already_satisfied: false };
+  if (speedEnabled()) deferAlreadyDone(ctx, signal, task, repoMap, testmap, (a) => { Object.assign(data, alreadyData(a)); });
+  return { status: "completed", data };
 }
 export const intakeStage: Stage = {
   name: "intake",

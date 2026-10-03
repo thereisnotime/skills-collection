@@ -63,6 +63,11 @@ Use [skill-creator](daymade-skill/skill-creator/SKILL.md) before creating or
 changing a skill. It owns change classification, evidence selection, regression
 review, validation, initialization, and packaging.
 
+For proxy-selection or disruptive VPN recovery changes, enter `tunnel-doctor` and its
+proxy-conflict and network-recovery references. For automatic WeCom integration,
+enter `setup-notifications-via-wecom`; its receipt contract owns accepted/rejected/unknown
+handling, while the worker owns event identity and delivery state.
+
 For Terraform environment isolation or initialization-cache changes, enter
 [`terraform-skill`](terraform-skill/SKILL.md); its bundled reference owns backend/workspace
 identity and fresh-state validation.
@@ -141,6 +146,11 @@ deterministic, Linux-verified) and the runner types (`python-unittest` via
 check the registry before assuming otherwise, and note `unittest discover`
 only collects `unittest.TestCase` subclasses, not bare pytest-style functions.
 
+For browser-backed recurring jobs, enter
+[macos-watchdog](daymade-macos/macos-watchdog/SKILL.md) and apply its deployment
+acceptance before shipping. That Skill owns resource-budget and focus evidence;
+keep the detailed procedure there.
+
 ### Transcript Correction
 
 Use [transcript-fixer](daymade-audio/transcript-fixer/SKILL.md) for transcript
@@ -183,6 +193,14 @@ the delivered artifact. Detailed retrieval mechanics remain in
 
 For recent unfinished-request inventories, follow
 [`local-conversation-history`](daymade-claude-code/local-conversation-history/SKILL.md).
+
+For remembered facts or a repeated search request, use that router's evidence
+selection contract. The provider readers own original-record retrieval;
+[`read-codex-history`](daymade-claude-code/read-codex-history/SKILL.md#original-tool-and-record-evidence)
+owns complete Codex tool evidence, and
+[`hybrid history recall`](daymade-claude-code/read-claude-code-history/references/hybrid_history_recall.md#query)
+owns indexed role/phrase filters. Keep commands and source-attribution rules in
+those owners rather than copying them here.
 
 Codex inventory must use the index-only command in
 `daymade-claude-code/read-codex-history/SKILL.md`. If its state database is
@@ -291,41 +309,17 @@ aligned. That reference owns the request fields and probe commands.
 
 In Claude Code, use `/plugin ...` slash commands. In your terminal, use `claude plugin ...`.
 
-### Source Location Guard for Skill Edits
+### Source Location Guard for Skill Creation and Edits
 
-Before editing an existing skill, verify the **source** path, not just the path currently loaded by Codex / Claude Code.
+Load [skill-creator](daymade-skill/skill-creator/SKILL.md) and follow its canonical
+source preflight before the first write. Its shared source-contract checker owns
+repository identity, marketplace registration and project-local placement; use
+[skill-governance](daymade-skill/skill-governance/SKILL.md) for installation and
+fresh-host readback. Keep source, installed entry and private review archive distinct.
 
-Treat these as installed copies unless proven otherwise:
-- `~/.codex/skills/<skill-name>`
-- `~/.claude/skills/<skill-name>`
-- `~/.agents/skills/<skill-name>`
-- `~/.claude/plugins/cache/...`
-- `~/.codex/plugins/cache/...`
-
-The source for this marketplace is this repository. For single-skill plugins, edit:
-```bash
-<repo-root>/<skill-name>/SKILL.md
-```
-
-For suite skills, edit:
-```bash
-<repo-root>/<suite-name>/<skill-name>/SKILL.md
-```
-
-Required workflow before any skill edit:
-```bash
-pwd
-git rev-parse --show-toplevel
-rg -n '"name": "<skill-or-suite-name>"' .claude-plugin/marketplace.json
-find . -path '*/SKILL.md' -maxdepth 4 | rg '(^|/)<skill-name>/SKILL.md$'
-```
-
-After editing, commit and run `scripts/ci/validate_changed_skills.sh origin/main` (it examines the committed
-diff, so it sees nothing until you commit). It runs the same per-skill `quick_validate` the CI uses;
-repo-level `claude plugin validate --strict .` passes even when a description exceeds the 1024-character
-cap, so a green repo-level validate is not evidence the touched skill will pass.
-
-If the user gives a source path, use that path. If the available skill list points to a different installed copy, update the source first, then sync the installed copy only if the user explicitly needs the current session to use the new version immediately.
+After committing, run `scripts/ci/validate_changed_skills.sh origin/main`; it checks
+the committed diff. A repository-level plugin validation does not replace per-Skill
+validation.
 
 ### Git Operations
 
@@ -352,6 +346,10 @@ For GitHub-hosted state — PRs, issues, Actions, repository or organization set
 and API/UI mutations — treat `github-ops/SKILL.md` as the canonical operating contract. A command
 receipt is not completion; use that Skill's operation-specific independent readback. Keep detailed
 GitHub SOPs there rather than copying them into this repository-level instruction file.
+For hosted-state writes through `gh`, follow its
+[identity, host and target binding](github-ops/SKILL.md#2-bind-identity-host-and-target)
+before using an operation recipe. For historical account or connector attribution,
+use the [identity-source contract](tibo-reset-codex/references/account-usage.md#区分身份来源与观察时刻).
 
 **Closing a PR unmerged (declined, or superseded by another PR) → delete its head
 branch in the same action.** `gh pr merge --delete-branch` only covers merged PRs.

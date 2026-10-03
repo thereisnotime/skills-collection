@@ -7,8 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **tibo-reset-codex** (`tibo-reset-codex` v1.20.0 → v1.20.1): Add frozen v1.19 writer/reader compatibility tests, established-state isolation and persisted unknown-evidence readback. The new regressions detect the prior faulty implementation; runtime behavior is unchanged.
+
+- **skill-creator** (`daymade-skill` v1.55.0 → v1.56.0): Add verification recipes for mixed-version persisted formats, partial updates from established state, evidence readback and bounded output capture. Workflow redesign; existing capabilities remain available.
+
+- **tibo-reset-codex** (`tibo-reset-codex` v1.19.0 → v1.20.0): Preserve the local-time and literal-PST interpretations of ambiguous announcements. Record official point ETAs without fabricated forecast windows; separate event completion, per-account arrival and forecast scoring, including legacy completion reviews. Add a read-only follow-up plan for overdue evidence checks and keep confirmed but unscored events out of the arrival queue.
+
+- **macos-watchdog** (`daymade-macos` v1.14.2 → v1.14.3): remove derived contract counts and route recurring browser-job acceptance from the repository guide to its owning Skill.
+- **macos-watchdog** (`daymade-macos` v1.14.1 → v1.14.2): require browser resource and focus evidence across repeated watchdog runs and initialization/cleanup failures; preserve protected user pages.
+- **github-ops** (v1.8.0 → v1.9.0): align operation recipes with the checked actor/host invocation, resolve the helper from its Skill directory, and use an explicit API target for repository rename. Keep one runtime contract and remove hand-maintained heading summaries.
+- **read-claude-code-history** (`daymade-claude-code` v4.9.0 → v4.10.0): correct the recall guide's obsolete live raw-search claim, make script path resolution explicit, and remove mutable corpus-size aggregates and obsolete POC narration. Route original tool evidence and account attribution from the repository guide to their existing owners.
+### Fixed
+
+- **skill-creator** (`daymade-skill` v1.57.0 → v1.57.1): Treat missing, null, blank and unqualified source-inventory paths as unknown evidence. These paths previously borrowed the caller's current directory and could falsely validate source ownership; valid registered sources remain unchanged.
+
+- **bilibili-source** (v1.4.0 → v1.4.1): Preserve HTTP failure status and safe error categories in access reports, distinguishing HTTP refusal from network errors, timeouts and invalid JSON without exposing exception text. Healthy access decisions remain unchanged; synthetic tests cover capture and emitted reports.
+
 ### Added
 
+- **skill-creator, skill-reviewer, skill-governance** (`daymade-skill` v1.56.0 → v1.57.0): add a shared read-only source contract, checked initialization before the first write, and optional delivery review that separates source ownership, registration, source-backed installation and current runtime evidence. This workflow and safety redesign rejects implicit user-global or knowledge-archive source locations while retaining repository-local project Skills and external quality reviews.
+
+- **tunnel-doctor** (v1.15.2 → v1.16.0): Document macOS urllib proxy fallback and client-specific bypass matching; verify OnDemand VPN recovery through lifecycle and normal-domain requests.
+- **setup-notifications-via-wecom** (v1.0.1 → v1.1.0): Define strict automatic-worker receipt classification and single-attempt event handling; route proxy diagnosis to tunnel-doctor.
+
+- **bilibili-source** (v1.3.0 → v1.4.0): Add a shared read-only access diagnostic and captured-response replay for account identity, target entitlement, subtitle shape, source span and actual audio completeness. Preserve unknown fields, distinguish paid previews from incomplete local downloads, and limit subtitle/self-test success statements to verified coverage.
+- **daymade-claude-code** (v4.8.0 → v4.9.0): Distinguish Lark command transport success from per-item business success; reconcile batch identities, errors and expected artifacts before reporting completion.
+- **report-with-html** (v1.0.2 → v1.0.3): require semantic information-point and current-consumer evidence for merges and state updates; distinguish source preservation from synthesis and adoption, and reject obsolete or empty acceptance slots while retaining existing visual checks.
+
+- **read-codex-history, read-claude-code-history, local-conversation-history** (`daymade-claude-code` v4.7.0 → v4.8.0): recover complete tool records from an explicitly selected Codex session, retaining original values and call/result coordinates; add literal-phrase and stored-role filters to both recall ranking legs and label source provenance. Route retries across evidence lanes instead of substituting neighboring facts.
+- **github-ops** (v1.7.2 → v1.8.0): check the expected actor in the actual write channel; add a checked `gh` invocation that pins the credential used for authenticated-user lookup through command execution. Keep connector identity and historical ChatGPT account attribution separate.
+- **tibo-reset-codex** (v1.18.2 → v1.19.0): separate creation, execution, CLI, browser and external connector identities by source and observation time; pause browser account switching on concurrent interference and keep unverified restoration explicit.
+- **skill-reviewer** (`daymade-skill` v1.54.3 → v1.55.0): add read-only collection inventory, host-aware source packets, six-dimension design scoring with verified citations, and JSON/CSV/Markdown exports; preserve unknowns and quarantine evaluation faults while keeping design quality separate from measured task benefit. Retain the existing reviewer CLI and three review modes.
 - **local-conversation-history** (`daymade-claude-code` v4.6.0 → v4.7.0): route recent unfinished-request inventories through bounded indexed discovery and exact-session readers, then reconcile current project evidence; keep completed, paused, externally blocked, and awaiting-acceptance work distinct without resuming or migrating it.
 - **kimi-use** (`kimi-use` v1.6.0 → v1.6.1): `kimi-cu-desktop-automation.md` 投递验证节补上执行层兜底——PreToolUse hook `kimi-cu-repeat-guard` 在同一动作签名连续 3 次（观测透明）时拦一次并注入换通道指引；真实 616 调用语料重放标定（4 触发全真阳性零误报）。
 - **kimi-use** (`kimi-use` v1.5.1 → v1.6.0): new `references/kimi-cu-desktop-automation.md` — the kimi-cu macOS desktop-automation playbook distilled from a full day driving WeChat DevTools (Electron + webview console): channel reliability tiers (set_value > keyboard > click), foregrounding vs "control doesn't respond" misdiagnosis, AX-tree death recovery via window reopen, Tab-Tab-Space add-row recipe, auth-dialog SOP, and the delivery-verification rule (ok:true means posted, not landed). SKILL.md + marketplace description widened to scope (2) general kimi-cu desktop automation.

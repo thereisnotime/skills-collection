@@ -147,6 +147,8 @@ It's OK to briefly explain terms if you're in doubt, and feel free to clarify te
 
 ### Capture Intent
 
+Before the first write, select the canonical source repository and Skill subdirectory separately from the installed entry and private review archive. Run `scripts/source_contract.py check-path <skill-dir> --phase create --repo <source-repo> --scope marketplace` (use `--scope project` for that project's `.claude/skills` or `.agents/skills`). A declared repository cannot override an existing owner in the local source inventory; use `--inventory <frozen-owner-inventory.json>` when checking an exported inventory. Stop on `invalid` or `unknown`; do not use the PKM review archive or a user-global installation root as an implicit source. The initializer performs this same check before making directories. New marketplace members must be registered before delivery; an allowed draft location is not a completed install.
+
 Start by understanding the user's intent. The current conversation might already contain a workflow the user wants to capture (e.g., they say "turn this into a skill"). If so, extract answers from the live conversation first — the tools used, the sequence of steps, corrections the user made, input/output formats observed. The user may need to fill the gaps, and should confirm before proceeding to the next step.
 
 **Source inventory — always before drafting, with consent boundaries.** Inventory the live conversation and existing docs/skills that overlap (see Prior Art Research below). Earlier local session JSONL files are a separate private source: do not open or parse them unless the user explicitly asks to mine history or affirmatively approves that source after you explain what will be read. If approved, fold only relevant prior sessions in through the conversation-mining workflow's redacted extraction; never load raw transcripts into your own context. If not approved, continue from the live conversation and existing project sources without treating the missing history as a blocker.
@@ -277,6 +279,11 @@ Choose the **lowest tier that can falsify the changed behavior** before taking a
 | **1 — Targeted** | This is an existing skill; no capability, trigger family, workflow branch, output contract, dependency, permission, or external-write behavior is added or materially changed; and the edit is exactly one of: (a) spelling/format-only with no behavior change, (b) a factual doc/config correction whose truth a direct authority decides, or (c) a bounded implementation repair that restores an explicit existing contract **and** whose repaired behavior a deterministic regression check covers. A clarification that can change agent behavior is not Tier 1. **Adding or materially rewriting `references/` content is not Tier 1 either, even when the SKILL.md diff is one line**: it changes the runtime loading surface — what an executing agent is told to open, and when — which is exactly the axis the deterministic gates cannot see (they check that references are *reachable*, never that their pointers are *acted on*). Start it at Tier 2, and escalate to Tier 3 when the change itself hits a Tier-3 trigger (it is a methodology expansion, or spans 3+ prompt classes). Tier 2's evidence for this shape: 1–2 with-skill replays whose acceptance criteria are **output-level** (did the new content shape the output — a literal "was the file opened" assertion is the literal-tool-path failure mode this skill's own guidance forbids); where the reference-load ledger hook is installed, its record of whether the file was opened is mechanical corroboration, not the criterion | For all three: run `quick_validate`, inspect the diff, and complete the existing-skill migration gate. Then use the matching evidence only: (a) exact readback/format check; (b) authoritative fact plus its narrow check; (c) explicit existing contract plus deterministic regression. Add discipline #5's one fresh reviewer only when its rule/contract/number threshold is crossed | Agent behavior replays, paired runs, baselines, graders, benchmark, viewer, eval files |
 | **2 — Sampled behavior** | This is an existing skill; the change affects agent behavior but adds no capability, trigger family, output contract, script behavior, dependency, permission, or external write; and 1–2 named examples with explicit acceptance criteria can exercise the whole changed behavior. A bounded correction to one existing routing or evidence-selection rule stays here even when it changes the chosen path | Run only those 1–2 representative with-skill replays plus the narrow deterministic checks and the one fresh-context review required by discipline #5 | Baselines, paired fan-out, variance analysis, benchmark, viewer, or eval files by default. An explicit request for them goes through the separate evidence-budget gate and does not reclassify the change |
 | **3 — Broad / high-risk** | Any of these is true: any new skill; any new or materially changed capability; broad cross-branch rewrite or methodology expansion; trigger/description optimization (running the optimizer loop, or adding or removing trigger families — shortening a description under the frontmatter rule with every old clause cited by the regression gate is not this); a new workflow branch or materially changed output contract, script capability, dependency, or permission; high-risk automation or external writes; or the changed behavior itself spans 3+ distinct prompt classes, repeated trials, or materially different approaches | Run deterministic gates first, then add only the evidence needed for the named failure axes. The full paired pipeline below is available only after the separate heavy-eval authorization gate passes; Tier 3 by itself does not start it, and the same gate can authorize extra evidence at another tier | Automatic paired fan-out, graders, benchmark, or viewer based only on the Tier 3 label |
+
+For changes to persisted formats or partial state updates, and commands whose output
+may exceed the tool response, load
+[stateful-script-verification.md](references/stateful-script-verification.md).
+Select its affected recipes as narrow deterministic evidence within the chosen tier.
 
 #### Heavy-eval authorization gate — separate from tier classification
 
@@ -1263,14 +1270,23 @@ Editing installed copies first causes changes to be:
 <repo-root>/my-skill/SKILL.md
 ```
 
-**Before any edit**, run a source-location check and say which path is source:
+**Before any creation or edit**, run the source-owner check and say which path is source. This is separate from the private review archive and the runtime installation path:
 
 ```bash
-pwd
-git rev-parse --show-toplevel
-rg -n '"name": "<skill-or-suite-name>"' .claude-plugin/marketplace.json
-find . -path '*/SKILL.md' -maxdepth 4 | rg '(^|/)<skill-name>/SKILL.md$'
+python3 <skill-creator-dir>/scripts/source_contract.py check-path <skill-dir> \
+  --phase create --repo <source-repo> --scope marketplace
 ```
+
+For managed local sources, omit `--repo` only when the source-sync owner's inventory can establish the repository identity. An unavailable inventory is `unknown`, not permission to guess. Linked worktrees are checked by their Git common directory. Project-local Skills use `--scope project`; reviewing or installing third-party packages does not make their cache an authored source.
+
+At delivery, run the read-only check against the requested Skill name and declared source owner, not merely whatever happens to appear in a catalog:
+
+```bash
+python3 <skill-creator-dir>/scripts/source_contract.py audit <skill-dir> \
+  --repo <source-repo> --scope marketplace --install-path <installed-skill-entry>
+```
+
+This checks source containment, exact registration and source-backed installation identity. It never proves a current session loaded the Skill. Pass the original user outcome and separate source/install paths to `skill-reviewer`'s delivery contract; a runnable Skill, green tests and catalog visibility cannot substitute for ownership validation. Keep the contract private when it contains local paths. Missing runtime observations remain `unknown`.
 
 If the available-skills list points at `~/.codex/skills`, `~/.claude/skills`, or a plugin cache, do not assume that path is source. Locate the repository-backed source first, edit it, validate it, and only then sync the installed copy when the user needs immediate local runtime use.
 
@@ -1350,10 +1366,12 @@ Analyze each example by:
 
 Skip this step if the skill already exists.
 
-When creating a new skill from scratch, always run the `init_skill.py` script:
+When creating a new skill from scratch, run [scripts/init_skill.py](scripts/init_skill.py)
+from the locked skill-creator project:
 
 ```bash
-scripts/init_skill.py <skill-name> --path <output-directory>
+uv run --frozen python -m scripts.init_skill <skill-name> \
+  --path <source-parent> --repo <source-repo> --scope marketplace
 ```
 
 The script creates a template skill directory with proper frontmatter, resource directories, and example files.

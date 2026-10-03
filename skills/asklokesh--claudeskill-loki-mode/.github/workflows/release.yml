@@ -417,11 +417,14 @@ jobs:
             # Push runs only, EXCEPT Security Audit, which also accepts a
             # workflow_dispatch run (E-87: lets a tree whose VERSION is already
             # bumped publish after an audit fix, since a VERSION push cannot be
-            # re-created). Tests and Bun Parity stay push-only. A pull_request
+            # re-created). Tests and Bun Parity stay push-only. D75: a Security
+            # Audit run counts only if head_branch is main or it was a dispatch,
+            # because a train/** run scans only its range and must never stand
+            # in for the full-history scan (also covers the parent reuse path). A pull_request
             # run at the same head_sha tested a different merge ref and must
             # never satisfy this.
             gh api "repos/$REPO/actions/runs?head_sha=$1&per_page=100" \
-              --jq '.workflow_runs[] | select(.event=="push" or (.event=="workflow_dispatch" and .name=="Security Audit")) | "\(.name)\t\(.status)\t\(.conclusion)\t\(.created_at)"' 2>/dev/null || true
+              --jq '.workflow_runs[] | select(.event=="push" or (.event=="workflow_dispatch" and .name=="Security Audit")) | select(.name!="Security Audit" or .head_branch=="main" or .event=="workflow_dispatch") | "\(.name)\t\(.status)\t\(.conclusion)\t\(.created_at)"' 2>/dev/null || true
           }
 
           audit_verdict() {
@@ -467,6 +470,94 @@ jobs:
             fi
             [ "$RANGE_SCAN" = "clean" ]
           }
+
+          # D75: the daily scheduled Security Audit run is the full-history
+          # authority for what train/** pushes only scanned by range. The newest
+          # COMPLETED scheduled run on main blocks the release when it is not a
+          # success (failure, cancelled, timed_out, null: a cancelled or
+          # timed-out daily scan covered nothing and must be reviewed, never
+          # ignored), UNLESS a SUCCESSFUL full-history run on main (event push
+          # or workflow_dispatch, head_branch main) was created after it: a main
+          # push always runs the full scan, so that success supersedes the stale
+          # scheduled verdict and a fixed tree can release. A main push can clear
+          # the red even when its npm and python audits were reused via E-160,
+          # because secret-scan on main never reuses (D75). A success on a
+          # train/** branch never clears it (range scan only).
+          # D75b: two queries, never one page of mixed events. (a) the newest
+          # scheduled run is fetched on its own (event=schedule, per_page=1), so
+          # it cannot fall off a page crowded by main pushes; "no scheduled run"
+          # passes ONLY when that query's total_count is 0. (b) newer successes
+          # come from status=success, created>=the scheduled run; if none of the
+          # fetched ones qualifies but total_count says more exist, the verdict is
+          # indeterminate and blocks.
+          # Fail closed: a gh error (retried 3 times, e.g. a 404 after a
+          # workflow rename) blocks the release.
+          sched_audit_api() {
+            # $1 = query string, $2 = jq program. Retries; returns 1 on persistent error.
+            local i out
+            for i in 1 2 3; do
+              if out="$(gh api "repos/$REPO/actions/workflows/security-audit.yml/runs?$1" --jq "$2" 2>/dev/null)"; then
+                printf '%s\n' "$out"
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+          sched_audit_fetch() {
+            # One line: none | indeterminate | green|cleared|red|indeterminate<TAB>conclusion<TAB>url<TAB>created_at
+            local s concl created found
+            s="$(sched_audit_api 'event=schedule&branch=main&status=completed&per_page=1' \
+              'if (.total_count // 0) == 0 then "none"
+               else ((.workflow_runs // []) | map(select(.event=="schedule" and .head_branch=="main" and .status=="completed")) | first) as $s
+                 | if $s == null then "indeterminate" else "\($s.conclusion)\t\($s.html_url)\t\($s.created_at)" end
+               end')" || return 1
+            case "$s" in
+              none | indeterminate) printf '%s\n' "$s"; return 0 ;;
+            esac
+            concl="$(printf '%s' "$s" | cut -f1)"
+            if [ "$concl" = "success" ]; then
+              printf 'green\t%s\n' "$s"
+              return 0
+            fi
+            created="$(printf '%s' "$s" | cut -f3)"
+            found="$(sched_audit_api "branch=main&status=success&created=%3E%3D${created}&per_page=100" \
+              '([(.workflow_runs // [])[] | select(.conclusion=="success" and (.event=="push" or .event=="workflow_dispatch") and .head_branch=="main" and .created_at > "'"$created"'")] | length) as $n
+               | if $n > 0 then "cleared"
+                 elif (.total_count // 0) > ((.workflow_runs // []) | length) then "indeterminate"
+                 else "red" end')" || return 1
+            printf '%s\t%s\n' "$found" "$s"
+          }
+          sched_audit_ok() {
+            # $1 = line from sched_audit_fetch. Prints the reason; returns 0 to pass.
+            local state concl url created
+            state="$(printf '%s' "$1" | cut -f1)"
+            concl="$(printf '%s' "$1" | cut -f2)"
+            url="$(printf '%s' "$1" | cut -f3)"
+            created="$(printf '%s' "$1" | cut -f4)"
+            case "$state" in
+              none) echo "no completed scheduled run on main (total_count 0); not blocking"; return 0 ;;
+              green) echo "newest scheduled run succeeded ($created)"; return 0 ;;
+              cleared) echo "newest scheduled run concluded '$concl' ($created, $url) but a newer successful full-history run on main supersedes it"; return 0 ;;
+              red) echo "newest scheduled run on main concluded '$concl' ($created, $url) and no newer successful main run supersedes it; review it before releasing"; return 1 ;;
+              indeterminate) echo "indeterminate: the scheduled run or the newer successes could not be fully read ($url); blocking"; return 1 ;;
+              *) echo "unreadable scheduled Security Audit verdict '$state'"; return 1 ;;
+            esac
+          }
+          sched_audit_gate() {
+            local line
+            if ! line="$(sched_audit_fetch)"; then
+              echo "cannot read scheduled Security Audit runs (API error)"
+              return 1
+            fi
+            sched_audit_ok "$line"
+          }
+          sched_reason="$(sched_audit_gate)" && sched_rc=0 || sched_rc=$?
+          echo "  Security Audit (daily schedule): $sched_reason"
+          if [ "$sched_rc" -ne 0 ]; then
+            echo "FAIL: the daily scheduled Security Audit is not green"
+            exit 1
+          fi
 
           deadline=$(( $(date +%s) + 2400 ))
           while :; do

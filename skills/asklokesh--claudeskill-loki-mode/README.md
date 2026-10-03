@@ -11,7 +11,7 @@ An autonomous software factory that knows what it is supposed to deliver, and pr
 
 Loki Mode is a free, source-available autonomous coding agent by [Autonomi](https://www.autonomi.dev/). Hand it a PRD, GitHub issue, OpenAPI doc or one-line brief. It derives a delivery contract (the acceptance criteria), builds against it, and ends with a signed Evidence Receipt that states what was proven and what was not. If the contract cannot be derived, it stops and asks one question instead of guessing.
 
-Before a build counts as done, a review council selects reviewers from a specialist pool (`agents/types.json`, scored by `run.sh:FOCUS_KEYWORDS`). The bundled MCP server exposes 36 tools over stdio (`mcp/server.py`).
+Before a build counts as done, a review council selects reviewers from a specialist pool (`agents/types.json`, scored by `run.sh:FOCUS_KEYWORDS`). The bundled MCP server exposes 39 tools over stdio (`mcp/server.py`), including `loki_v10_run`, `loki_v10_status` and `loki_v10_verify` to start a Loki 10 run in the background, read its phase, verdict and cost, and verify its receipt (`BLOCKED` runs report their question). Add it with `claude mcp add loki-mode -- python3 -m mcp.server` from the install directory.
 
 ## Contents
 
@@ -85,9 +85,9 @@ loki "fix the login redirect loop" --no-pr
 loki owner/repo#123
 ```
 
-The v10 engine accepts a quoted multi-word task, a GitHub, GitLab or Jira issue reference, `status`, `verify`, `dashboard`, and other subcommands. Flags (`loki-ts/src/engine10/cli.ts` USAGE): `--no-pr` builds and verifies without opening a pull request, `--deep` requests the deep verify pass and a longer implement budget, `--provider <name>` picks the coding provider (`--json` and `--verbose` are also parsed by the supervisor, see [Quiet output](#quiet-output)). The engine needs Bun; without it the command exits 1 with a message and installation instructions.
+The v10 engine accepts a quoted multi-word task, a GitHub, GitLab or Jira issue reference, `status`, `verify`, `dashboard`, and other subcommands. Flags (`loki-ts/src/engine10/cli.ts` USAGE): `--no-pr` builds and verifies without opening a pull request, `--deep` requests the deep verify pass and a longer implement budget, `--provider <name>` picks the coding provider, `--max-cost <usd>` sets the per-run cost cap (default $20.00, or `budgets.per_run` in `loki.yaml`; the flag wins; the start line prints it as `cap $20.00 (default)`; reaching it ends the run BUDGET_STOP, exit 3) (`--json` and `--verbose` are also parsed by the supervisor, see [Quiet output](#quiet-output)). The engine needs Bun; without it the command exits 1 with a message and installation instructions.
 
-**Legacy engine (being removed).** The previous engine still ships in 10.6.6 and is reachable with `LOKI_ENGINE=legacy` or `loki legacy <args>`. `loki start owner/repo#N` still routes to it, not to Loki 10. Use `loki owner/repo#N` (one issue) or `loki backlog owner/repo --all|--label X|--issues N,N` (many issues, N in parallel, each on a `loki/backlog-N` worktree branch) instead. Legacy removal is planned and resumes on 2026-10-07; see [docs/v10/LEGACY-REMOVAL.md](docs/v10/LEGACY-REMOVAL.md). Sections below marked "legacy" describe features that run only on that engine.
+**Legacy engine (being removed).** The previous engine still ships in 10.6.6 and is reachable with `LOKI_ENGINE=legacy` or `loki legacy <args>`. `loki start owner/repo#N`, `loki start <issue URL>` and `loki start "<multi-word task>"` run on Loki 10, the same as `loki owner/repo#N` and `loki "<task>"`; `loki start ./prd.md`, a flag-first call and a one-word start stay on the legacy engine. For many issues use `loki backlog owner/repo --all|--label X|--issues N,N` (many issues, N in parallel, each on a `loki/backlog-N` worktree branch) instead. Legacy removal is planned and resumes on 2026-10-07; see [docs/v10/LEGACY-REMOVAL.md](docs/v10/LEGACY-REMOVAL.md). Sections below marked "legacy" describe features that run only on that engine.
 
 ### The state machine
 
@@ -117,14 +117,82 @@ flowchart TD
 | implement | A provider session makes the change, under a time budget (480s default, 1800s with `--deep`). |
 | verify and fix | Runs the checks. Failures feed up to 2 fix rounds (`MAX_FIX_ROUNDS`). The same failures three verifies running end the run as STALLED. |
 | commit and seal | Commits the diff, then writes `.loki/runs/<run-id>/receipt.json` and `receipt.md`, signed by default. |
-| pr | Opened by the supervisor, not the worker (the worker never holds a GitHub token). A non-VERIFIED run opens a draft PR. |
+| pr | Opened by the supervisor, not the worker (the worker never holds a GitHub token). A non-VERIFIED run opens a draft PR. The body is written for a 60-second review: what the issue asked, what changed, how it was tested, NOT PROVEN, then the receipt digest and `loki verify`. Data the run did not record prints "not recorded". |
 | deep verify | Detached, started after the PR opens (so not with `--no-pr`): full suite, app-boot probe, council, secret scan. A check that is refused or unavailable is reported as NOT PROVEN, never as red. `--deep` is a separate flag that raises the implement and run budgets. |
+
+Warm start (experimental, `LOKI_SPEED=1`, off by default): `loki engine10 dashboard` also serves a unix socket at `~/.loki/run/engine.sock` (override with `LOKI_WARM_SOCK`) that keeps the repo map and test map in memory, keyed by the tree SHA plus a hash of dirty files, so an edit invalidates them. A run tries the socket for 50ms and prints `warm in Xs` when it answers; with no daemon it runs the cold path with identical events.
+
+PR body sample (`loki-ts/src/e10ext/reviewer_body.ts`):
+
+```
+## What the issue asked
+- handles empty input
+- rejects bad tokens
+
+## What changed and why
+- Why: Fix the parser
+- src/parser.ts
+- tests/parser.test.ts
+
+## How it was tested
+- Verdict: VERIFIED
+- Checks: 2 passed, 0 failed, 0 not run, 0 flaky (4 individual tests counted)
+- Command: `bun test tests/parser.test.ts` -> pass
+- Target tests (written before the fix): parser.test.ts
+- Before the fix: 2 failing, 0 passing on base; after: pass
+
+## NOT PROVEN
+- none
+
+## Receipt
+- Digest: sha256:ab12... (signed)
+- Verify: `loki verify run-1`
+```
 
 The run cap is 900s (2700s with `--deep`, `DEFAULT_CAP_S` and `DEEP_CAP_S` in `types.ts`); commit, seal and pr still run after the cap fires. A run whose cap fired and which did not verify exits BUDGET_STOP.
 
 A finished run prints a short summary (see [Quiet output](#quiet-output), which also shows an example) whose `NOT PROVEN` line is never empty by omission: deep checks deferred to the deep-verify pass are always listed there.
 
-`loki status [run-id]` and `loki verify [run-id]` are built on the v10 path (bare `loki verify` follows the newest run, v10 or legacy). `loki dashboard` and `loki status` reach the v10 commands with `LOKI_ENGINE=v10`. Slack notifications are not part of the v10 engine surface yet.
+`loki status [run-id]` and `loki verify [run-id]` are built on the v10 path (bare `loki verify` follows the newest run, v10 or legacy). `loki dashboard` and `loki status` reach the v10 commands with `LOKI_ENGINE=v10`. Two-way Slack (`loki slack serve`) is on by default and documented in [docs/slack.md](docs/slack.md); outbound notifications use `LOKI_SLACK_WEBHOOK_URL`.
+
+## Run from Jira or Linear
+
+Loki 10 can start from a Jira or Linear issue the same way it starts from a GitHub issue: same run, same receipt. The issue is fetched deterministically before any model runs and normalized into the same `issue.json`, with a `source` field of `jira` or `linear`.
+
+```bash
+loki jira:PROJ-123     # or https://<site>.atlassian.net/browse/PROJ-123
+loki linear:ENG-42     # or a linear.app issue URL
+```
+
+- Jira needs `JIRA_EMAIL` and `JIRA_API_TOKEN`, plus `JIRA_BASE_URL` (for example `https://acme.atlassian.net`) unless you pass the full browse URL. The ADF description is converted to plain text.
+- Linear needs `LINEAR_API_KEY`.
+- A missing variable stops the run before any work with an error naming it (exit code 2, like other intake errors). GitHub refs are unchanged.
+- Self-hosted Jira: `<JIRA_BASE_URL>/browse/KEY` is accepted when its origin matches `JIRA_BASE_URL`. `LOKI_TRACKER_INTAKE=0` turns tracker intake off. Intake only, no sync. Details: [docs/trackers.md](docs/trackers.md).
+
+## Two-way Slack
+
+Two-way Slack is on by default. With `SLACK_BOT_TOKEN` and `SLACK_SIGNING_SECRET` in the environment, `loki slack serve --port N` (127.0.0.1 by default) lets you mention `@loki <issue ref or task>` in a Slack thread to start a run, and a BLOCKED question is answered in the same thread. With either variable missing it prints one line naming both and exits 2 without binding a port. Set `LOKI_SLACK_INBOUND=0` to disable it. See [docs/slack.md](docs/slack.md) for the scopes.
+
+## Spec to contract
+
+On by default; set `LOKI_CONTRACT=0` to turn it off. It does nothing unless `.loki/contract.json` exists. `loki contract <spec.md>` parses a spec or PRD into numbered acceptance criteria (AC-1, AC-2, up to 50) from checklist items (`- [ ]`) and from bullets and numbered lists under headings such as "Acceptance criteria", "Requirements" or "Must", prints them, and writes `.loki/contract.json` at the repo root. When a run seals with a contract present, each criterion is matched to changed files and checks by keyword overlap and recorded in an optional `contract` field on the receipt (`keyword_match` or `no_match`). Unmatched criteria are listed under NOT PROVEN in the receipt and the PR body (advisory only, the verdict is unchanged). Keyword overlap is a heuristic: `keyword_match` means a changed file plausibly relates to the criterion, not that the criterion is proven. The legacy PRD path is unchanged.
+
+## Triggers without a cloud
+
+Both run on your own GitHub Actions minutes; there is no hosted service.
+
+- Issue to PR: copy `.github/workflows/loki-issue-to-pr.yml` into your repository. Label an issue `loki`, or comment `/loki` as an owner, member or collaborator, and it runs `loki owner/repo#N` (the Loki 10 engine) and opens a pull request with an evidence receipt. The agent job holds a read-only token; a separate publish job opens the PR. Set `ANTHROPIC_API_KEY` in repository secrets.
+- Nightly backlog: copy `examples/loki-nightly-backlog.yml` into `.github/workflows/`. Its `schedule:` trigger runs `loki backlog owner/repo --label loki`, one Loki 10 run per labeled open issue:
+
+```yaml
+on:
+  schedule:
+    - cron: '17 3 * * *'   # nightly, 03:17 UTC
+# ...
+      - run: loki backlog "${GITHUB_REPOSITORY}" --label loki --concurrency 2
+```
+
+`loki backlog` also takes `--all`, `--issues 1,2,3` and `--dry-run`. The nightly job runs the agent and a write token together, so label only issues you trust.
 
 ## Outcomes and exit codes
 
@@ -136,7 +204,7 @@ A v10 run ends in exactly one outcome. The mapping is `EXIT` in `loki-ts/src/eng
 | 0 | ALREADY_SATISFIED | The work was already done; evidence is recorded. |
 | 1 | FAILED | A check failed, the stage failed, or the event log was modified outside the engine. |
 | 2 | (usage) | No task given, not inside a git repository, or a preflight refusal. Nothing ran. |
-| 3 | BUDGET_STOP | The cost or time cap fired before the work finished. |
+| 3 | BUDGET_STOP | The cost cap (`--max-cost`, `budgets.per_run`, default $20.00) or the time cap fired before the work finished. |
 | 4 | BLOCKED | Spec conflict: the contract cannot be satisfied as written. The summary names the conflict (`spec conflict: <reason>`); the run never guesses and calls it done. |
 | 5 | STALLED | The same failures three verifies in a row. |
 
@@ -165,6 +233,10 @@ loki verify
 | (no runs) | 66 | No receipt to verify. |
 
 A verified receipt is bound to the run's event log, so a receipt lifted out of its run, or a log edited after sealing, does not verify. Signing proves the receipt came from the key holder; it does not prove the generated code is bug-free. A receipt only claims what its checks ran, and states what they did not.
+
+### Visual evidence (opt-in)
+
+With `LOKI_VISUAL_EVIDENCE=1`, a v10 run that changed web page files (html, jsx, tsx, vue, svelte under app/, pages/, src/ or public/) starts the repo's dev, preview or start script and screenshots each changed route with the repo's own Playwright (nothing is downloaded) into a fresh per-run directory `.loki/runs/<run_id>/evidence/<random>/` (at most 5 routes, total capture budget 25s, aborted with the seal stage). API-only repos with an openapi file get an HTTP transcript at `.loki/runs/<run_id>/evidence/<random>/http.json` (not hashed into the receipt). Each screenshot's sha256 is recorded in the receipt as `evidence_screens`, the PR body gets an Evidence section, and `loki verify` reports TAMPERED if a recorded screenshot is altered, missing or a symlink. Capture never fails the run; a skip is listed in NOT PROVEN. Off by default.
 
 ## Quiet output
 
@@ -205,17 +277,23 @@ Exit 0 when every required check passes; optional warnings (an absent provider C
 
 Migration: `loki modernize heal <repo> --assess` was a legacy command for read-only analysis. The v10 path `loki modernize <repo> --to <target>` is not yet finished: only `--dry-run` works (inventory, dependency graph, unit clustering, cost, time and risk estimate). A real run stops after the estimate and prints `modernize: oracle capture and execution are not built yet; use --dry-run`. Targets `python3` and `java21` exist; the Java dependency graph is not wired in yet. Design: [docs/v10/MODERNIZE.md](docs/v10/MODERNIZE.md), user summary: [docs/v10/GUIDE-MODERNIZE.md](docs/v10/GUIDE-MODERNIZE.md).
 
-## Control Plane v0 (preview)
+## Control Plane v0
 
-A local control plane and UI for many runs, off by default. Enable it with `LOKI_CONTROL=1`:
+A local control plane and UI for many runs, on by default. Turn it off with `LOKI_CONTROL=0`:
 
 ```bash
-LOKI_CONTROL=1 loki control serve        # 127.0.0.1, default port 47821 (--port N, --db PATH)
-LOKI_CONTROL=1 loki control backfill .   # ship ./.loki/runs to the control plane
-LOKI_CONTROL=1 loki control status       # reachable? how many runs held?
+loki control serve                       # 127.0.0.1, default port 47821 (--port N, --db PATH)
+loki control backfill .                  # ship ./.loki/runs to the control plane
+loki control status                      # reachable? how many runs held?
 ```
 
-The URL comes from `LOKI_CONTROL_URL`, else `http://127.0.0.1:${LOKI_CONTROL_PORT:-47821}`. Set `LOKI_CONTROL_URL` on a run to ship it live. See [docs/v10/CONTROL-PLANE.md](docs/v10/CONTROL-PLANE.md).
+The URL comes from `LOKI_CONTROL_URL`, else `http://127.0.0.1:${LOKI_CONTROL_PORT:-47821}`. While `loki control serve` is running, runs on this machine ship to it automatically (it publishes `~/.loki/control/instance.json`, mode 0600, removed on exit); a run never starts the server. Set `LOKI_CONTROL_URL` to ship elsewhere. See [docs/v10/CONTROL-PLANE.md](docs/v10/CONTROL-PLANE.md).
+
+Answering a BLOCKED run: when a run stops on a spec conflict, its run page shows the question and an answer box. Submitting posts to `POST /v1/runs/<source>/<run>/answer` (JSON `{"answer": "..."}`, up to 4000 characters, loopback only) and writes `~/.loki/control/answers/<source>/<run>.answer.txt` (override the directory with `LOKI_CONTROL_ANSWER_DIR`). The page prints the resume command, `loki answer <run>`, which starts a fresh run carrying the task, the question and that file's text (or pass `--text "..."` yourself; with no run id it picks the newest BLOCKED run). A run that is not BLOCKED exits 2.
+
+Set `LOKI_CONTROL_DEFAULT=1` (off by default) to make `loki dashboard`, `loki dashboard start` and `loki dashboard open` start the Control Plane instead of the old dashboard. The old dashboard is unchanged when the flag is unset.
+
+Container, Helm and ECS deployment: [docs/control-plane-container.md](docs/control-plane-container.md).
 
 ## Providers
 
@@ -287,13 +365,13 @@ completion claim is backed by deterministic evidence and is independently
 re-checkable; it does not claim the generated code is bug-free.
 
 <details>
-<summary><b>Setup details: providers, other models, what loki doctor checks (examples use the legacy `loki start`)</b></summary>
+<summary><b>Setup details: providers, other models, what loki doctor checks (PRD-file examples use the legacy `loki start`)</b></summary>
 
-The `loki start` examples below run on the legacy engine (being removed). For a Loki 10 run, replace them with `loki "<task>"` or `loki owner/repo#N`; the provider and model variables apply to both engines. Other spec sources on the legacy engine:
+The `loki start <file>` examples below run on the legacy engine (being removed). A `loki start` call with an issue ref, an issue URL or a quoted multi-word task runs on Loki 10; the provider and model variables apply to both engines. Other spec sources on the legacy engine:
 
 ```bash
 loki init my-app --template simple-todo-app    # scaffold a starter PRD
-loki start owner/repo#123                      # a GitHub issue (legacy route; prefer: loki owner/repo#123)
+loki start owner/repo#123                      # a GitHub issue (Loki 10; same as: loki owner/repo#123)
 loki start ./openapi.yaml                      # an OpenAPI/YAML spec
 loki demo --offline                            # replay a sample receipt, no key, no spend
 ```
@@ -432,7 +510,7 @@ See [UPGRADING.md](UPGRADING.md) and [ADR-001: Runtime Migration](docs/architect
 <details>
 <summary><strong>Supported spec formats (legacy engine, being removed)</strong></summary>
 
-Loki 10 takes a quoted task or an issue reference (GitHub, GitLab or Jira). The table below describes the legacy `loki start`, which accepts files too. A "spec" is whatever you hand `loki start`. Loki auto-detects the format and normalises it before the RARV loop. A Markdown PRD is one form of spec; the table below lists every input the CLI accepts.
+Loki 10 takes a quoted task or an issue reference (GitHub, GitLab or Jira), also through `loki start`. The table below describes the legacy `loki start`, which accepts files too; rows for an issue ref or an issue URL run on Loki 10. A "spec" is whatever you hand `loki start`. Loki auto-detects the format and normalises it before the RARV loop. A Markdown PRD is one form of spec; the table below lists every input the CLI accepts.
 
 | Format | Example | Notes |
 |--------|---------|-------|
@@ -467,14 +545,15 @@ Loki 10 engine:
 
 | Command | Description |
 |---------|-------------|
-| `loki "<task>" [--no-pr] [--deep] [--provider NAME]` | Build a task, verify it, seal a signed receipt, open a PR |
+| `loki "<task>" [--no-pr] [--deep] [--provider NAME] [--max-cost USD]` | Build a task, verify it, seal a signed receipt, open a PR |
 | `loki owner/repo#N` | Same, from a GitHub, GitLab or Jira issue |
 | `loki quick "<task>"` | Small task, lean path, no PR |
 | `loki backlog owner/repo --all\|--label X\|--issues N,N` | Run every matching open issue, N in parallel (`--concurrency N`, `--dry-run`) |
+| `loki workspace list \| run <name> <ref>` | Experimental (`LOKI_WORKSPACES=1`): run one issue across the repos of a `loki.yaml` workspace; see [docs/WORKSPACES.md](docs/WORKSPACES.md) |
 | `loki status [--json]` | Current status |
 | `loki verify [run-id]` | Re-check a sealed receipt (exit codes above) |
 | `loki doctor [--json] [--airgap]` | Check environment and providers |
-| `LOKI_CONTROL=1 loki control serve\|backfill\|status` | Control Plane v0 preview |
+| `loki control serve\|backfill\|status` | Control Plane server, ship existing runs, reachability check (on by default; `LOKI_CONTROL=0` turns it off) |
 | `loki modernize <repo> --to <target> --dry-run` | Estimate only |
 | `loki plan [PRD]` | Dry-run analysis: complexity, cost, execution plan |
 | `loki version` | Show version |
@@ -483,7 +562,7 @@ Legacy engine, being removed (these run on the previous engine; `loki --help` st
 
 | Command | Description |
 |---------|-------------|
-| `loki start [PRD\|ISSUE-REF]` | Legacy build from a PRD file or issue ref; prefer `loki owner/repo#N` |
+| `loki start [PRD\|ISSUE-REF\|"TASK"]` | An issue ref, an issue URL or a quoted multi-word task runs on Loki 10 (same as `loki owner/repo#N`); a PRD file, a flag-first call or a one-word start runs the legacy build |
 | `loki stop`, `pause`, `resume` | Control a legacy run |
 | `loki steer "<note>"` | Nudge a legacy run (needs `LOKI_PROMPT_INJECTION=1`) |
 | `loki why`, `loki next` | Explain or continue a legacy run |
@@ -567,7 +646,7 @@ loki enterprise status
 | **Testing** | 8 automated quality gates | Test quality depends on AI assertions |
 | **Providers** | Claude, Cline, Codex, Aider and opencode | Non-Claude providers are experimental and mostly sequential |
 | **Dashboard** | Real-time single-machine monitoring | No multi-node clustering |
-| **Loki 10** | The v10 run (`loki "<task>"`, `loki owner/repo#N`, `loki quick`), `status`, `verify`, `backlog` | `loki start` still runs the legacy engine; `loki modernize <repo> --to` runs `--dry-run` only; Slack is not wired in; Control Plane v0 is a preview |
+| **Loki 10** | The v10 run (`loki "<task>"`, `loki owner/repo#N`, `loki quick`), `status`, `verify`, `backlog` | `loki start <issue ref|issue URL|"task">` runs Loki 10, `loki start <file>` stays legacy; `loki modernize <repo> --to` runs `--dry-run` only; two-way Slack is on by default (`loki slack serve`, `LOKI_SLACK_INBOUND=0` disables); Control Plane v0 is a preview |
 
 > **What "autonomous" means:** the system runs RARV cycles without prompting. It does NOT access your cloud accounts, payment systems or external services unless you provide credentials. Human oversight is expected for deployment, API keys and critical decisions.
 

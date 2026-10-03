@@ -243,3 +243,12 @@ LIMIT 200
 - ads
 - analytics
 - cro
+
+### Manager account access in the CLI
+
+When OAuth credentials access a client through a manager account, set
+`GOOGLE_ADS_LOGIN_CUSTOMER_ID` to that manager ID. The CLI removes display hyphens
+and sends `login-customer-id` on both report and mutation requests. Keep
+`GOOGLE_ADS_CUSTOMER_ID` set to the target client account. Direct client access
+does not require the manager variable. See
+[Google Ads REST authorization](https://developers.google.com/google-ads/api/rest/auth).

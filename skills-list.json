@@ -11788,7 +11788,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
       "lines": 728,
-      "words": 6629,
+      "words": 6633,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -11838,7 +11838,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
       "lines": 661,
-      "words": 8392,
+      "words": 8396,
       "code_blocks": 4,
       "languages": []
     },
@@ -12013,8 +12013,8 @@
       "description": "\"Runs coverage-bounded checks on registered references, citation contexts, data surfaces, and claims before review and after revision\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/integrity_verification_agent.md",
       "remote_path": "academic-pipeline/agents/integrity_verification_agent.md",
-      "lines": 906,
-      "words": 9946,
+      "lines": 923,
+      "words": 10147,
       "code_blocks": 19,
       "languages": [
         "markdown"
@@ -12058,8 +12058,8 @@
       "description": "\"Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
-      "lines": 1497,
-      "words": 23709,
+      "lines": 1503,
+      "words": 23858,
       "code_blocks": 19,
       "languages": [
         "text"
@@ -22955,11 +22955,11 @@
     },
     {
       "name": "social",
-      "description": "\"When the user wants help creating, scheduling, or optimizing social media content for LinkedIn, Twitter/X, Instagram, TikTok, Facebook, or other platforms, or wants to do social listening and engagem",
+      "description": "\"When the user wants help creating, scheduling, or optimizing social media content for LinkedIn, Twitter/X, Instagram, TikTok, or Facebook, or wants to do social listening and engagement triage. Also ",
       "path": "coreyhaines31--marketingskills/skills/social/SKILL.md",
       "remote_path": "skills/social/SKILL.md",
-      "lines": 414,
-      "words": 2248,
+      "lines": 457,
+      "words": 2748,
       "code_blocks": 4,
       "languages": []
     },
@@ -22975,11 +22975,11 @@
     },
     {
       "name": "sms",
-      "description": "When the user wants to plan, build, or optimize SMS or MMS marketing \u2014 including welcome flows, abandoned cart texts, post-purchase, win-back, promotional sends, or transactional/auth SMS. Also use wh",
+      "description": "When the user wants to plan, build, or optimize SMS, MMS, or WhatsApp marketing \u2014 including welcome flows, abandoned cart texts, post-purchase, win-back, promotional sends, or transactional/auth SMS. ",
       "path": "coreyhaines31--marketingskills/skills/sms/SKILL.md",
       "remote_path": "skills/sms/SKILL.md",
-      "lines": 339,
-      "words": 2549,
+      "lines": 353,
+      "words": 2702,
       "code_blocks": 0,
       "languages": []
     },
@@ -22988,8 +22988,8 @@
       "description": "When the user wants to conduct, analyze, or synthesize customer research. Use when the user mentions \"customer research,\" \"ICP research,\" \"talk to customers,\" \"analyze transcripts,\" \"customer intervie",
       "path": "coreyhaines31--marketingskills/skills/customer-research/SKILL.md",
       "remote_path": "skills/customer-research/SKILL.md",
-      "lines": 306,
-      "words": 2253,
+      "lines": 309,
+      "words": 2293,
       "code_blocks": 2,
       "languages": []
     },
@@ -23028,8 +23028,8 @@
       "description": "When the user wants to submit their product to startup, SaaS, AI, agent, MCP, no-code, or review directories for backlinks, domain rating, and discovery. Also use when the user mentions \"directory sub",
       "path": "coreyhaines31--marketingskills/skills/directory-submissions/SKILL.md",
       "remote_path": "skills/directory-submissions/SKILL.md",
-      "lines": 382,
-      "words": 3582,
+      "lines": 393,
+      "words": 3925,
       "code_blocks": 0,
       "languages": []
     },
@@ -23038,8 +23038,8 @@
       "description": "Write B2B cold emails and follow-up sequences that get replies. Use when the user wants to write cold outreach emails, prospecting emails, cold email campaigns, sales development emails, or SDR emails",
       "path": "coreyhaines31--marketingskills/skills/cold-email/SKILL.md",
       "remote_path": "skills/cold-email/SKILL.md",
-      "lines": 160,
-      "words": 1108,
+      "lines": 167,
+      "words": 1228,
       "code_blocks": 0,
       "languages": []
     },
@@ -23049,7 +23049,7 @@
       "path": "coreyhaines31--marketingskills/skills/image/SKILL.md",
       "remote_path": "skills/image/SKILL.md",
       "lines": 341,
-      "words": 2359,
+      "words": 2382,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -23061,8 +23061,8 @@
       "description": "\"When the user wants to generate, iterate, or scale ad creative \u2014 headlines, descriptions, primary text, or full ad variations \u2014 for any paid advertising platform. Also use when the user mentions 'ad ",
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
-      "lines": 426,
-      "words": 3252,
+      "lines": 445,
+      "words": 3539,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -23086,8 +23086,8 @@
       "description": "When the user wants to create or optimize an email sequence, drip campaign, automated email flow, or lifecycle email program. Also use when the user mentions \"email sequence,\" \"drip campaign,\" \"nurtur",
       "path": "coreyhaines31--marketingskills/skills/emails/SKILL.md",
       "remote_path": "skills/emails/SKILL.md",
-      "lines": 312,
-      "words": 1239,
+      "lines": 331,
+      "words": 1499,
       "code_blocks": 2,
       "languages": []
     },
@@ -23156,8 +23156,8 @@
       "description": "\"When the user wants help with paid advertising campaigns on Google Ads, Meta (Facebook/Instagram), LinkedIn, Twitter/X, or other ad platforms. Also use when the user mentions 'PPC,' 'paid media,' 'RO",
       "path": "coreyhaines31--marketingskills/skills/ads/SKILL.md",
       "remote_path": "skills/ads/SKILL.md",
-      "lines": 500,
-      "words": 4170,
+      "lines": 508,
+      "words": 4414,
       "code_blocks": 2,
       "languages": []
     },
@@ -23196,8 +23196,8 @@
       "description": "\"When the user wants to run influencer, creator, or ambassador partnerships to promote their product \u2014 finding and vetting partners, structuring deals, briefing creators, disclosure compliance, and me",
       "path": "coreyhaines31--marketingskills/skills/influencer-marketing/SKILL.md",
       "remote_path": "skills/influencer-marketing/SKILL.md",
-      "lines": 200,
-      "words": 2683,
+      "lines": 203,
+      "words": 2737,
       "code_blocks": 0,
       "languages": []
     },
@@ -23235,11 +23235,11 @@
     },
     {
       "name": "public-relations",
-      "description": "\"When the user wants help with public relations, earned media, press coverage, journalist outreach, or media strategy (not pull requests). Also use when the user mentions 'PR,' 'public relations,' 'pr",
+      "description": "\"When the user wants help with public relations, earned media, press coverage, journalist outreach, or media strategy (not pull requests). Also use when the user mentions 'PR,' 'press,' 'press release",
       "path": "coreyhaines31--marketingskills/skills/public-relations/SKILL.md",
       "remote_path": "skills/public-relations/SKILL.md",
-      "lines": 143,
-      "words": 1323,
+      "lines": 155,
+      "words": 1415,
       "code_blocks": 0,
       "languages": []
     },
@@ -23248,8 +23248,8 @@
       "description": "\"When the user wants to optimize content for AI search engines, get cited by LLMs, or appear in AI-generated answers. Also use when the user mentions 'AI SEO,' 'AEO,' 'GEO,' 'LLMO,' 'answer engine opt",
       "path": "coreyhaines31--marketingskills/skills/ai-seo/SKILL.md",
       "remote_path": "skills/ai-seo/SKILL.md",
-      "lines": 489,
-      "words": 4290,
+      "lines": 487,
+      "words": 4458,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -23270,8 +23270,8 @@
       "description": "\"When the user wants to research, profile, or analyze competitors from their URLs. Also use when the user mentions 'competitor profile,' 'competitor research,' 'competitor analysis,' 'profile this com",
       "path": "coreyhaines31--marketingskills/skills/competitor-profiling/SKILL.md",
       "remote_path": "skills/competitor-profiling/SKILL.md",
-      "lines": 423,
-      "words": 2205,
+      "lines": 441,
+      "words": 2452,
       "code_blocks": 4,
       "languages": [
         "markdown"
@@ -23302,8 +23302,8 @@
       "description": "When the user wants to figure out which marketing actually drives conversions and revenue, choose or interpret an attribution model, or reconcile conflicting numbers across tools. Also use when the us",
       "path": "coreyhaines31--marketingskills/skills/attribution/SKILL.md",
       "remote_path": "skills/attribution/SKILL.md",
-      "lines": 225,
-      "words": 3093,
+      "lines": 228,
+      "words": 3314,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -23356,8 +23356,8 @@
       "description": "When the user needs a comprehensive marketing plan for a client, a company they advise, or their own product. Also use when the user mentions \"marketing plan,\" \"growth plan,\" \"GTM plan,\" \"go-to-market",
       "path": "coreyhaines31--marketingskills/skills/marketing-plan/SKILL.md",
       "remote_path": "skills/marketing-plan/SKILL.md",
-      "lines": 301,
-      "words": 3642,
+      "lines": 305,
+      "words": 3736,
       "code_blocks": 2,
       "languages": []
     },
@@ -23366,18 +23366,18 @@
       "description": "\"When the user wants to edit, review, or improve existing marketing copy, or refresh outdated content. Also use when the user mentions 'edit this copy,' 'review my copy,' 'copy feedback,' 'proofread,'",
       "path": "coreyhaines31--marketingskills/skills/copy-editing/SKILL.md",
       "remote_path": "skills/copy-editing/SKILL.md",
-      "lines": 458,
-      "words": 2296,
+      "lines": 490,
+      "words": 2797,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "copywriting",
-      "description": "When the user wants to write, rewrite, or improve marketing copy for any page \u2014 including homepage, landing pages, pricing pages, feature pages, about pages, or product pages. Also use when the user s",
+      "description": "When the user wants to write, rewrite, or improve marketing copy for any page, including homepage, landing pages, pricing pages, feature pages, about pages, or product pages. Also use when the user sa",
       "path": "coreyhaines31--marketingskills/skills/copywriting/SKILL.md",
       "remote_path": "skills/copywriting/SKILL.md",
-      "lines": 257,
-      "words": 1257,
+      "lines": 287,
+      "words": 1677,
       "code_blocks": 0,
       "languages": []
     },
@@ -23408,13 +23408,12 @@
       "description": "\"When the user wants to create, generate, or produce video content using AI tools or programmatic frameworks. Also use when the user mentions 'video production,' 'AI video,' 'Remotion,' 'Hyperframes,'",
       "path": "coreyhaines31--marketingskills/skills/video/SKILL.md",
       "remote_path": "skills/video/SKILL.md",
-      "lines": 347,
-      "words": 2130,
-      "code_blocks": 7,
+      "lines": 335,
+      "words": 2174,
+      "code_blocks": 6,
       "languages": [
         "bash",
-        "tsx",
-        "typescript"
+        "tsx"
       ]
     },
     {
@@ -157395,8 +157394,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/report-with-html/SKILL.md",
       "remote_path": "report-with-html/SKILL.md",
-      "lines": 627,
-      "words": 6641,
+      "lines": 636,
+      "words": 6712,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -157421,9 +157420,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-ops/SKILL.md",
       "remote_path": "github-ops/SKILL.md",
-      "lines": 206,
-      "words": 1545,
-      "code_blocks": 4,
+      "lines": 254,
+      "words": 1976,
+      "code_blocks": 5,
       "languages": [
         "bash",
         "text"
@@ -157480,8 +157479,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/setup-notifications-via-wecom/SKILL.md",
       "remote_path": "setup-notifications-via-wecom/SKILL.md",
-      "lines": 275,
-      "words": 1390,
+      "lines": 289,
+      "words": 1633,
       "code_blocks": 15,
       "languages": [
         "bash"
@@ -157504,8 +157503,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 819,
-      "words": 2930,
+      "lines": 840,
+      "words": 2987,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157517,8 +157516,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/bilibili-source/SKILL.md",
       "remote_path": "bilibili-source/SKILL.md",
-      "lines": 99,
-      "words": 1013,
+      "lines": 108,
+      "words": 1230,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -157764,8 +157763,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 100,
-      "words": 1501,
+      "lines": 101,
+      "words": 1627,
       "code_blocks": 0,
       "languages": []
     },
@@ -157861,8 +157860,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/local-conversation-history/SKILL.md",
       "remote_path": "daymade-claude-code/local-conversation-history/SKILL.md",
-      "lines": 150,
-      "words": 1546,
+      "lines": 166,
+      "words": 1701,
       "code_blocks": 0,
       "languages": []
     },
@@ -157979,8 +157978,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/lark-cli-router/SKILL.md",
       "remote_path": "daymade-claude-code/lark-cli-router/SKILL.md",
-      "lines": 125,
-      "words": 849,
+      "lines": 136,
+      "words": 965,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -157991,9 +157990,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 261,
-      "words": 2270,
-      "code_blocks": 7,
+      "lines": 286,
+      "words": 2478,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "text"
@@ -158053,8 +158052,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 348,
-      "words": 2831,
+      "lines": 358,
+      "words": 2923,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -158546,8 +158545,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-governance/SKILL.md",
       "remote_path": "daymade-skill/skill-governance/SKILL.md",
-      "lines": 171,
-      "words": 1067,
+      "lines": 176,
+      "words": 1131,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -158568,12 +158567,12 @@
     },
     {
       "name": "skill-reviewer",
-      "description": "Reviews and improves Claude Code skills against official best practices. Supports three modes - self-review (validate your own skills), external review (evaluate others' skills), and auto-PR (fork, im",
+      "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-reviewer/SKILL.md",
       "remote_path": "daymade-skill/skill-reviewer/SKILL.md",
-      "lines": 198,
-      "words": 760,
-      "code_blocks": 11,
+      "lines": 224,
+      "words": 1158,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "markdown",
@@ -158585,9 +158584,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1917,
-      "words": 32823,
-      "code_blocks": 55,
+      "lines": 1935,
+      "words": 33132,
+      "code_blocks": 56,
       "languages": [
         "bash",
         "json",
@@ -158595,6 +158594,29 @@
         "yaml"
       ],
       "license": "Complete terms in LICENSE.txt"
+    },
+    {
+      "name": "batch-quality-review",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-skill/skill-reviewer/references/batch_quality_review.md",
+      "remote_path": "daymade-skill/skill-reviewer/references/batch_quality_review.md",
+      "lines": 93,
+      "words": 1448,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "quality-method-sources",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-skill/skill-reviewer/references/quality_method_sources.md",
+      "remote_path": "daymade-skill/skill-reviewer/references/quality_method_sources.md",
+      "lines": 25,
+      "words": 472,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "<unique-kebab-name>",
@@ -179861,7 +179883,7 @@
       "path": "JuliusBrussee--caveman/agents/cavecrew-builder.md",
       "remote_path": "agents/cavecrew-builder.md",
       "lines": 47,
-      "words": 201,
+      "words": 212,
       "code_blocks": 1,
       "languages": []
     },
@@ -179871,7 +179893,7 @@
       "path": "JuliusBrussee--caveman/agents/cavecrew-reviewer.md",
       "remote_path": "agents/cavecrew-reviewer.md",
       "lines": 48,
-      "words": 241,
+      "words": 254,
       "code_blocks": 1,
       "languages": []
     },
@@ -179881,7 +179903,7 @@
       "path": "JuliusBrussee--caveman/agents/cavecrew-investigator.md",
       "remote_path": "agents/cavecrew-investigator.md",
       "lines": 57,
-      "words": 224,
+      "words": 237,
       "code_blocks": 2,
       "languages": []
     },
@@ -179891,7 +179913,7 @@
       "path": "JuliusBrussee--caveman/plugins/caveman/agents/cavecrew-builder.md",
       "remote_path": "plugins/caveman/agents/cavecrew-builder.md",
       "lines": 47,
-      "words": 201,
+      "words": 212,
       "code_blocks": 1,
       "languages": []
     },
@@ -179901,7 +179923,7 @@
       "path": "JuliusBrussee--caveman/plugins/caveman/agents/cavecrew-reviewer.md",
       "remote_path": "plugins/caveman/agents/cavecrew-reviewer.md",
       "lines": 48,
-      "words": 241,
+      "words": 254,
       "code_blocks": 1,
       "languages": []
     },
@@ -179911,7 +179933,7 @@
       "path": "JuliusBrussee--caveman/plugins/caveman/agents/cavecrew-investigator.md",
       "remote_path": "plugins/caveman/agents/cavecrew-investigator.md",
       "lines": 57,
-      "words": 224,
+      "words": 237,
       "code_blocks": 2,
       "languages": []
     },
@@ -179920,12 +179942,20 @@
       "description": ">",
       "path": "JuliusBrussee--caveman/plugins/caveman/skills/caveman/SKILL.md",
       "remote_path": "plugins/caveman/skills/caveman/SKILL.md",
-      "lines": 90,
-      "words": 984,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ]
+      "lines": 89,
+      "words": 628,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "ultracave",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/plugins/caveman/skills/ultracave/SKILL.md",
+      "remote_path": "plugins/caveman/skills/ultracave/SKILL.md",
+      "lines": 64,
+      "words": 340,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "cavecrew",
@@ -179933,8 +179963,18 @@
       "path": "JuliusBrussee--caveman/plugins/caveman/skills/cavecrew/SKILL.md",
       "remote_path": "plugins/caveman/skills/cavecrew/SKILL.md",
       "lines": 78,
-      "words": 522,
+      "words": 544,
       "code_blocks": 3,
+      "languages": []
+    },
+    {
+      "name": "megacave",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/plugins/caveman/skills/megacave/SKILL.md",
+      "remote_path": "plugins/caveman/skills/megacave/SKILL.md",
+      "lines": 64,
+      "words": 320,
+      "code_blocks": 0,
       "languages": []
     },
     {
@@ -180002,12 +180042,20 @@
       "description": ">",
       "path": "JuliusBrussee--caveman/skills/caveman/SKILL.md",
       "remote_path": "skills/caveman/SKILL.md",
-      "lines": 90,
-      "words": 984,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ]
+      "lines": 89,
+      "words": 628,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "ultracave",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/ultracave/SKILL.md",
+      "remote_path": "skills/ultracave/SKILL.md",
+      "lines": 64,
+      "words": 340,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "investigate-first",
@@ -180045,7 +180093,7 @@
       "path": "JuliusBrussee--caveman/skills/cavecrew/SKILL.md",
       "remote_path": "skills/cavecrew/SKILL.md",
       "lines": 78,
-      "words": 522,
+      "words": 544,
       "code_blocks": 3,
       "languages": []
     },
@@ -180079,6 +180127,16 @@
       "remote_path": "skills/lean-build/SKILL.md",
       "lines": 19,
       "words": 152,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "megacave",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/megacave/SKILL.md",
+      "remote_path": "skills/megacave/SKILL.md",
+      "lines": 64,
+      "words": 320,
       "code_blocks": 0,
       "languages": []
     },
@@ -180161,7 +180219,7 @@
       "path": "JuliusBrussee--caveman/skills/caveman-help/SKILL.md",
       "remote_path": "skills/caveman-help/SKILL.md",
       "lines": 63,
-      "words": 319,
+      "words": 386,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -180225,7 +180283,7 @@
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-debt/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-debt/SKILL.md",
       "lines": 42,
-      "words": 224,
+      "words": 228,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -180235,8 +180293,8 @@
       "description": "\"Audit the whole repo for over-engineering. A ranked list of what to delete, simplify, or replace with stdlib or native features.\"",
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-audit/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-audit/SKILL.md",
-      "lines": 38,
-      "words": 201,
+      "lines": 42,
+      "words": 243,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -180247,7 +180305,7 @@
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-help/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-help/SKILL.md",
       "lines": 71,
-      "words": 365,
+      "words": 373,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -180260,8 +180318,8 @@
       "description": "\"Review a diff for over-engineering. Finds what to delete: reinvented stdlib, needless deps, speculative abstractions. One line per finding.\"",
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-review/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-review/SKILL.md",
-      "lines": 53,
-      "words": 303,
+      "lines": 57,
+      "words": 331,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -180305,7 +180363,7 @@
       "path": "dietrichgebert--ponytail/skills/ponytail-debt/SKILL.md",
       "remote_path": "skills/ponytail-debt/SKILL.md",
       "lines": 45,
-      "words": 261,
+      "words": 265,
       "code_blocks": 0,
       "languages": []
     },
@@ -180314,8 +180372,8 @@
       "description": ">",
       "path": "dietrichgebert--ponytail/skills/ponytail-audit/SKILL.md",
       "remote_path": "skills/ponytail-audit/SKILL.md",
-      "lines": 42,
-      "words": 234,
+      "lines": 46,
+      "words": 276,
       "code_blocks": 0,
       "languages": []
     },
@@ -180325,7 +180383,7 @@
       "path": "dietrichgebert--ponytail/skills/ponytail-help/SKILL.md",
       "remote_path": "skills/ponytail-help/SKILL.md",
       "lines": 72,
-      "words": 379,
+      "words": 387,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -180337,8 +180395,8 @@
       "description": ">",
       "path": "dietrichgebert--ponytail/skills/ponytail-review/SKILL.md",
       "remote_path": "skills/ponytail-review/SKILL.md",
-      "lines": 58,
-      "words": 339,
+      "lines": 62,
+      "words": 367,
       "code_blocks": 0,
       "languages": []
     }

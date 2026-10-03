@@ -1,0 +1,69 @@
+# Loki Control Plane chart. Build the image from Dockerfile.control-plane.
+image:
+  repository: asklokesh/loki-control-plane
+  tag: ""            # empty = Chart appVersion
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+replicas: 1          # SQLite on one volume: keep at 1
+
+service:
+  type: ClusterIP
+  port: 47821
+
+# The pod binds 0.0.0.0, so the server requires LOKI_CONTROL_TOKEN or it exits 2.
+# Create the Secret yourself: kubectl create secret generic loki-control-token --from-literal=LOKI_CONTROL_TOKEN=...
+controlToken:
+  existingSecret: ""           # required unless allowInsecureBind is true
+  key: LOKI_CONTROL_TOKEN
+# Opt-out only for a trusted private network: sets LOKI_CONTROL_ALLOW_INSECURE_BIND=1 and drops the token.
+allowInsecureBind: false
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: loki-control.example.com
+  tls: []
+
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: ""
+  existingClaim: ""
+
+# Optional: reference an existing Secret (for example the autonomi chart's
+# secrets.existingSecret) to expose provider keys as env.
+existingSecret: ""
+secretKeys: []       # e.g. [ANTHROPIC_API_KEY]; the token is wired via controlToken
+
+extraEnv: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+probes:
+  readiness:
+    path: /ready
+  liveness:
+    path: /health
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

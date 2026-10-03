@@ -7,8 +7,200 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- `loki workspace run` posts one PR comment per repo PR with the integration status and head SHAs when a PR exists on the run branch (no LLM, best effort, opt out with `LOKI_WORKSPACE_COMMENT=0`) (D51-B11).
+- Loki 10 runs show their per-run cost cap on the start line (default $20.00, or `budgets.per_run` in loki.yaml, or `--max-cost`); a run that reaches the cap ends BUDGET_STOP with exit code 3 (INTEL-2).
+- `loki answer` resumes a BLOCKED run with the answer typed in the Control Plane (or `--text`).
+- `loki backlog` and dashboard starts reuse the shared worktree prep (per-repo lock, clean start point, node_modules copy) unless LOKI_WORKSPACES=0 (D51-B05, D51-B06).
+- With `LOKI_SPEED=1`, the already-done check runs off the critical path: implement starts at once, and a run only stops as ALREADY_SATISFIED when a confirmation session, run in a pinned copy of the base tree outside the repo, cites files unchanged since base (D61-04).
+
+### Changed
+- CI: train/** pushes run a range-only secret scan (merge-base with origin/main to the pushed SHA); main pushes always run the full-history scan, the Security Audit cron is daily instead of weekly, and release required-ci counts only main or dispatch Security Audit runs (D75).
+- `loki serve --help` and the docs now point to `loki` or `loki control serve` for the UI; `loki serve` stays a deprecated alias of `loki api start` (the dashboard API, not the Control Plane) (D65-UI-NAMING).
+- `loki control` help and the bash fallback now match the bun route: the Control Plane is on by default, `LOKI_CONTROL=0` turns it off, and the fallback names bun as required instead of demanding `LOKI_CONTROL=1` (D65-UI-NAMING-2).
+- `loki` with no arguments now opens the Control Plane (set `LOKI_CONTROL_DEFAULT=0` for the previous dashboard).
+- Spec contracts are on by default: criteria in .loki/contract.json are traced in the receipt, and unmatched ones are listed as NOT PROVEN (set LOKI_CONTRACT=0 to turn off).
+
+### Fixed
+- Loki 10 intake no longer fails with ENOTDIR in a linked git worktree (where .git is a file), so `loki workspace run` per-repo runs start (D65-BUG7).
+- The delivery contract (`.loki/contract.json`) is frozen at intake: seal traces only that copy, records its sha256 in `receipt.contract.sha256`, and an edit, deletion or late creation after intake shows as a NOT PROVEN line; the verdict never changes (D65-SPEC-F2).
+- The Control Plane container image now builds from the repo Dockerfile.control-plane (it copies the loki-ts files ingest.ts imports; `docker build` no longer fails with Could not resolve).
+- The deferred already-done check no longer leaks its pinned base-tree copy (loki-already-done-*) on SIGTERM, process.exit or a failed setup (D61-04-F).
+- The deferred already-done check passes its spawn env inline so the spawn env guard test (no spawn omits env) passes again (P0-SPAWN-ENV-SPEED).
+- Installed packages now ship the loki.yaml schema (`schemas/`) so `loki workspace run` works outside a source checkout (D65-BUG5).
+- `loki control serve` from a source checkout no longer dies with "Cannot find package 'hono'" when any parent directory has a node_modules but packages/control-plane does not (bun switched auto-install off); it now starts with `bun --install=fallback` (P0-CONTROL-LINUX).
+- `loki verify <run>` now verifies the run you name instead of silently verifying the latest one when `--pubkey` is not given. `--pubkey` with no file is now a usage error. `--pubkey=FILE` is accepted as the same as `--pubkey FILE`, including through the `loki` command on the default engine (it was silently ignored, or sent to the legacy verifier, so a signed receipt verified against the local JWKS or exited 3), and `loki verify` now exits 2 for an empty `--pubkey=`, a repeated `--pubkey`, any unknown option, or more than one run-id.
+- The supervisor commit backstop validates the worker-written base as a full object id (40-64 hex) before any git call, and is skipped (recorded as not proven) when the event log fails verification.
+
+### Security
+- The Control Plane API now requires `LOKI_CONTROL_TOKEN` (bearer) on every /v1 route, refuses to bind beyond localhost without a token (set `LOKI_CONTROL_ALLOW_INSECURE_BIND=1` to override), and rejects DNS-rebinding Host headers.
+- The Control Plane container, Helm chart and ECS task now require an access token whenever the service is exposed beyond localhost.
+
+- Two-way Slack: `LOKI_SLACK_ALLOWED_USERS` (comma-separated Slack user IDs) restricts who can start a run, and `loki slack serve` warns at startup when it is unset (D63-C6-F).
+- Two-way Slack caps task text at 64 KB ("task too long", no spawn) and no longer posts spawn errors, which can hold local paths, back to the thread; the detail goes to stderr. `loki slack serve --port ""` now exits 2 instead of binding port 0 (D63-C6-F).
+- Fixed: an already-satisfied run no longer leaves files named like object prototype members (constructor, toString, valueOf, hasOwnProperty, __proto__) behind in the working tree (P1-DISCARD-PROTO).
+
 ### Deprecated
 - `loki legacy` (the pre-v10 engine) is deprecated as of v10.0.0 and remains fully supported; no removal date is set. Set `LOKI_ENGINE=legacy` to pin it. See docs/v10/GUIDE.md (E-35).
+
+## v10.6.11 (2026-10-03)
+
+loki workspace run now works across linked git worktrees (all 9 D65 stub E2E legs pass from a clean install), the delivery contract is frozen at intake so a later edit cannot change what the receipt proves, and train pushes scan only their own range for secrets while main keeps the full scan and a red daily scan halts releases.
+
+### Changes
+- fix(engine10): intake finds info/exclude via git in linked worktrees (D65-BUG7)
+- ci(security): D75 range-only secret scan on train pushes, full scan authority on main, daily cron
+- ci(release): block releases on a red daily scheduled Security Audit (D75 condition)
+- ci(release): scheduled-audit gate supersedes on newer main success, fails closed on API error (D75)
+- ci(release): D75b scheduled-audit gate reads the newest scheduled run and newer successes with separate queries
+- fix(contract): freeze .loki/contract.json at intake, flag post-intake changes (D65-SPEC-F2)
+- test(contract): cover the intake snapshot wiring, flag late replacement of an unreadable contract (D65-SPEC-F2)
+- build(dist): rebuild loki-ts dist after D65-SPEC-F2 cherry-pick (keeps D65-BUG7)
+- test(ci): P0-D75-PINS update required-ci harness and E-123 pins for the D75 scheduled-audit gate
+
+## v10.6.10 (2026-10-03)
+
+Loki 10.6.10 ships the loki.yaml schema in the npm package so loki workspace run works from an install, fixes the Control Plane container build, and makes help text agree on one UI command: loki opens the Control Plane.
+
+### Changes
+- test(e2e): D63-C11b legs 5-9 and the stub E2E results doc
+- fix(control-plane): copy the loki-ts files ingest.ts imports so the container image builds (D65-BUG6)
+- fix(package): ship schemas/ so loki workspace run works from an installed package (D65-BUG5)
+- test(control-plane): guard Dockerfile COPYs of loki-ts/src value imports (D65-BUG6-G)
+- fix(train-cycle): promote a green train before superseding it (P0-TC-SUPERSEDE)
+- docs(cli): point loki serve help and docs at the Control Plane UI command (D65-UI-NAMING)
+- fix(control): help and bash fallback say the Control Plane is on by default (D65-UI-NAMING-2)
+- ci(security): gitleaks full-history scan timeout 15 -> 30 min (D74)
+
+## v10.6.9 (2026-10-03)
+
+Loki 10 makes the Control Plane the default, adds per-run cost caps, signed-receipt verification by key, workspace PR comments, and an off-path already-done check under LOKI_SPEED=1.
+
+### Changes
+- feat(speed): lean eligibility without a named file behind LOKI_SPEED (D61-03)
+- feat(speed): decomposability check with injectable strict-schema model confirm (D61 slice 9)
+- fix(contract): harden contract.json reader (lstat, size cap, invalid JSON, malformed count) D65-SPEC-F1
+- feat(contract): LOKI_CONTRACT on by default, LOKI_CONTRACT=0 turns it off (D70)
+- build(dist): rebuild loki-ts dist for train 83
+- feat(speed): live unit grid on dashboard /g/<group> and Control Plane group_id (D61-15)
+- fix(speed): 400 on malformed percent-encoding in /g/<group> (D61-15)
+- feat(backlog): D61-10 unit runner, --dag runs decomposer units on loki/unit-<g>-<n>
+- feat(speed): D61-14 group events and terminal unit table
+- fix(speed): move pure selectRelevantFiles out of stages/ so lean_select respects the D66 fence (P0-D66-FENCE)
+- build(dist): rebuild loki-ts dist for train 84
+- fix(docs): allowlist D63 card mentions of planned loki answer so docs drift stays green
+- feat(routing): shim routes slack/answer to Bun and jira/linear refs to engine10 (D63-C5)
+- feat(mcp): v10 tools tested in CI, BLOCKED question in status, secret-free child env (D63-C9)
+- feat(trackers): Jira/Linear intake kill switch, self-hosted Jira, variable-naming errors (C7)
+- fix(backlog): harden --dag unit runner (D61-10-F1)
+- feat(speed): route free-text tasks and spec files through the decomposer behind LOKI_SPEED (D61-16)
+- build(dist): rebuild loki-ts dist for train 85
+- feat(answer): loki answer resumes a BLOCKED run with the answer (D63-C4)
+- fix(answer): validate run ids and cap the answer file read (D63-C4)
+- build(dist): rebuild loki-ts dist for train 85 with C4
+- feat(control): Control Plane on by default; local runs ship to a discovered instance (C2 CP-DEFAULT)
+- fix(control): C2-F sandbox tests from a live instance, loopback-only discovery, 0600/0700 modes
+- test(control): guard the preload LOKI_CONTROL=0 default with a spawned probe (D63-C2-F2)
+- feat(control): bare loki opens the Control Plane by default; workspaces on unless LOKI_WORKSPACES=0 (D63-C3)
+- fix(ui): require a bare loopback origin for the Control Plane url (D63-C3-F)
+- test(e2e): hermetic npm-pack E2E harness, legs 1-4 (C11a)
+- build(dist): rebuild loki-ts dist for train 85 with C2, C3 and C11a
+- fix(speed): harden the D61-16 group route (spec path rules, caps, no fallback after start)
+- fix(speed): cap fallback task at 64 KB to avoid E2BIG, open specs with O_NOFOLLOW (D61-16-F B1)
+- fix(speed): open spec non-blocking so a FIFO cannot hang readSpec (D61-16-F round 3)
+- feat(workspaces): parallel repos, show/status, budget exit 3, default on (D63 C8)
+- build(dist): rebuild loki-ts dist for train 85 with D61-16-F and C8
+- feat(control-plane): enforce LOKI_CONTROL_TOKEN, refuse insecure bind, block rebinding Hosts (D63 C1)
+- fix(control): guard /v1 by decoded route so encoded paths cannot skip the token (D63-C1 round 2)
+- feat(deploy): require control-plane token in image docs, Helm and ECS (D63 C10)
+- test(budget): loki.yaml and --max-cost override e2e for the per-run cap (INTEL-2)
+- feat(slack): two-way Slack on by default, bin/loki launcher with stripped secrets, redacted post failures (D63 C6)
+- fix(slack): resolve the real repo root from dist and never route one-word mentions to legacy commands (D63-C6 round 2)
+- build(dist): rebuild loki-ts dist for train 86 with D63-C6
+- fix(slack): sender allowlist, 64 KB task cap, no local paths in replies, strict --port (D63-C6-F)
+- feat(speed): D61-13 one Seal and combined receipt with per-unit sub-receipts
+- fix(seal): a failed unit caps ALREADY_SATISFIED too, and sub-receipts verify with the caller's key (D61-13 round 2)
+- fix(verify): hold an UNCHECKED group result until the combined signature and log seal pass (D61-13 round 2 B2)
+- build(dist): rebuild loki-ts dist for train 86 with D63-C6-F and D61-13
+- feat(workspace): post integration result as a PR comment per repo (D51-B11)
+- fix(workspace): single CHANGELOG line, 0600 self-removing comment body, git timeout (D51-B11)
+- feat(workspaces): backlog and dashboard starts adopt shared worktree_prep (D51-B05, D51-B06)
+- fix(control): serve starts with bun --install=fallback so a repo-root node_modules no longer disables auto-install (P0-CONTROL-LINUX)
+- build(dist): rebuild after P0-CONTROL-LINUX
+- fix(verify): loki verify <run> verifies the named run when --pubkey is absent (P0-VERIFY-ARG)
+- fix(verify): accept --pubkey=FILE and fail closed on repeated, empty, unknown or extra arguments (P0-VERIFY-ARG round 2)
+- fix(verify): --pubkey= routes to v10 from the loki CLI, smaller arg parser, unknown-option assertions (P0-VERIFY-ARG round 2)
+- build(dist): rebuild after P0-VERIFY-ARG
+- fix(e10ext): discard treats prototype-named paths as new, not pre-existing (P1-DISCARD-PROTO)
+- build(dist): rebuild after P1-DISCARD-PROTO
+- fix(supervisor): validate backstop base and skip backstop on a failed log verify (D50-F4b)
+- build(dist): rebuild after D50-F4b
+- feat(speed): D61-04 already-done check off the critical path behind LOKI_SPEED=1
+- fix(speed): deferred already-done hit must cite base-unchanged files (D61-04 round 2)
+- fix(speed): deferred already-done gate checks every hit file against base (D61-04 round 3)
+- fix(speed): confirm already-done in a base-pinned tree so in-flight edits cannot satisfy it (D61-04 round 3 B2)
+- fix(speed): pin the already-done base tree outside the repo and fail closed on archive errors (D61-04 round 4 B1 B2)
+- build(dist): rebuild after D61-04
+- chore(gitleaks): baseline the D51-B11 synthetic GitHub token fixture
+- fix(speed): remove the pinned base-tree copy on exit, failed mkdir and in race tests (D61-04-F)
+- build(dist): rebuild after D61-04-F
+- fix(speed): pass spawn env inline in already_done_async so the spawn env guard passes (P0-SPAWN-ENV-SPEED)
+- build(dist): rebuild after P0-SPAWN-ENV-SPEED
+- test(security): pin gitleaks baseline shape 74 74 36 38 0 after the D51-B11 fixture fingerprint
+
+## v10.6.8 (2026-10-03)
+
+Loki 10 adds opt-in visual evidence in receipts and PR bodies (LOKI_VISUAL_EVIDENCE=1), Jira and Linear issue intake, two-way Slack and multi-repo workspaces behind flags, spec-to-contract (LOKI_CONTRACT=1), MCP run/status/verify tools, a Control Plane container with Helm and ECS examples, and the root GitHub Action now runs Loki 10.
+
+### Changes
+- feat(speed): D61-02 byte-identical stage prefix behind LOKI_SPEED=1
+- feat(worktree): add shared worktree_prep substrate (D61-07)
+- build(loki-ts): rebuild dist for D61 slice 2 lean prefix
+- feat(intake): Jira and Linear issue refs as the same v10 run (D62-JIRA)
+- feat(engine10): warm engine socket and CLI client behind LOKI_SPEED=1 (D61 slices 5 and 6)
+- refactor(features): move warm engine and client to src/features per D66; 2-line hooks in engine10
+- feat(control-plane): BLOCKED answer box and LOKI_CONTROL_DEFAULT entry (D65-CP)
+- feat(slack): two-way Slack inbound handler behind LOKI_SLACK_INBOUND=1
+- feat(engine10): deterministic decomposer for D61 slice 8
+- refactor(features): move decomposer to src/features per D66; add features budget fence
+- feat(v10): opt-in visual evidence in receipts and PR bodies (LOKI_VISUAL_EVIDENCE=1)
+- feat(control-plane): container image, Helm chart and ECS example (D65-CONT)
+- feat(workspaces): multi-repo loki workspace run behind LOKI_WORKSPACES=1 (D65-MULTI)
+- feat(contract): spec to delivery contract behind LOKI_CONTRACT=1 (D65-SPEC)
+- feat(mcp): add loki_v10_run, loki_v10_status, loki_v10_verify tools (39 tools)
+- fix(action): route root action.yml to Loki 10; add budget stop e2e (D62-FIX)
+- feat(gate): opt-in LOKI_E2E_ENV_FILE loading and D65 phase 2 e2e plan with stub-leg results
+- fix(loki-ts): move lean_prefix to features, trim engine10 lines, silent warm client
+- feat(v10): D61-1 pre-model stage timer in run.completed, shown under LOKI_SPEED=1
+- fix(gate): run corpus rows through Loki 10 routing; classify "Not logged in" as auth (D65 BUG-1, BUG-3)
+- fix(loki-ts): pass explicit env to warm git and visual_evidence screenshot spawns
+- build(dist): rebuild loki-ts dist for train 81
+- fix(contract): harden LOKI_CONTRACT per D12 review (C1 malformed contract, receipt NOT PROVEN, sanitize, repo root)
+- feat(eval): large tier with 8 lg tasks and v10-parallel/v10-seq arms (D61 slice 17)
+- refactor(eval): move the authored large tasks to a separate speed tier (D67)
+- fix(visual-evidence): bound capture, per-run screens dir, refuse symlinks (D12 B1-B3)
+- fix(contract): pass explicit env to the repoRoot git spawn
+- fix(ci): completions for new commands, MCP count docs, MCP event balance, DEPS control-plane rows
+- test(moat): print start rc, stdout and stderr in P9 auto-pr failure messages
+- build(dist): rebuild loki-ts dist for train 82
+
+## v10.6.7 (2026-10-02)
+
+`loki start owner/repo#N` (or an issue URL or a quoted task) now runs Loki 10, every Loki 10 run shows and enforces a cost cap ($20 default, `--max-cost`, loki.yaml `budgets.per_run`, exit 3 on BUDGET_STOP), PRs open with a reviewer-first body, the dashboard prints the port it actually bound, and the issue-to-PR Action runs Loki 10 with a nightly `loki backlog` example.
+
+### Changes
+- docs: replace docs/walkthrough with one v10 overview page
+- fix(cli): D58 loki start <issue ref|issue URL|"task"> takes the v10 path, minimal routing only
+- fix(dashboard): P0-DASH-LEAK2 never open or print a guessed port, isolate test dashboards, fail-closed registry reuse
+- feat(actions): issue-to-pr runs the Loki 10 issue entry; add nightly backlog example
+- fix(actions): run Loki 10 with --no-pr, route explicitly, render the v10 receipt
+- test(ui-bare): assert the printed URL carries the port actually bound, document bound-port behavior
+- feat(engine10): visible per-run cost cap, --max-cost and loki.yaml budgets.per_run (D60-5)
+- feat(engine10): reviewer-first PR body (INTEL-3)
+- fix(moat): port P9 injection probe to the v10 issue path, document loki start as v10
+- chore(release): optional LOKI_TC_LEAD changelog lead sentence; record the D60-5 $20 default cap
+- chore(e10ext): drop blank lines in assert_delta.ts to keep e10ext under the 1,500-line budget after D60-3 and D60-5
+- test(engine10): assert the no-dash PR body with unicode escapes so the dash guard does not fire on the test itself
 
 ## v10.6.6 (2026-10-01)
 

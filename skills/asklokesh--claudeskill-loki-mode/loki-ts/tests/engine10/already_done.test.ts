@@ -1,8 +1,8 @@
 // loki-ts/tests/engine10/already_done.test.ts -- E-66 unit + mutation-proof tests for the
 // deterministic evidence search and its confirmation gate.
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -12,9 +12,12 @@ import {
   findEvidence,
   renderAlreadyDoneComment,
 } from "../../src/engine10/already_done.ts";
+import { runIntake, intakeStage } from "../../src/engine10/stages/intake.ts";
+import { runMachine } from "../../src/engine10/machine.ts";
+import { hitsUnchangedFromBase } from "../../src/features/speed/already_done_async.ts";
 import { buildRepoMap, listRepoFiles } from "../../src/engine10/repomap.ts";
 import { buildTestMap, isTestFile } from "../../src/engine10/testmap.ts";
-import type { CostReader, RunContext, SessionRunner, TestMap } from "../../src/engine10/types.ts";
+import type { CostReader, RunContext, SessionRunner, Stage, StageName, TestMap } from "../../src/engine10/types.ts";
 import { REPO_ROOT } from "../../src/util/paths.ts";
 
 const FIX = join(import.meta.dir, "fixtures", "intake", "already-done-repo");
@@ -364,4 +367,361 @@ describe("comment building (no PR)", () => {
     const argv = buildAlreadyDoneCommentArgv("e10-run-1", "acme/widgets#303", "/tmp/body.md");
     expect(argv).toEqual(["comment", "e10-run-1", "acme/widgets#303", "/tmp/body.md"]);
   });
+});
+
+// D61-04: LOKI_SPEED=1 moves the confirmation off the critical path (src/features/speed/already_done_async.ts).
+describe("deferred already-done check (LOKI_SPEED=1)", () => {
+  const CITE = "search-command.ts:1 already implemented";
+  type Opts = Parameters<SessionRunner["run"]>[0];
+  const ok = (alreadyDone: string | null) => ({ exit: 0, durationS: 0.1, killed: false, markers: { done: alreadyDone === null, alreadyDone, specConflict: null } });
+  const killed = { exit: null, durationS: 0, killed: true, markers: { done: false, alreadyDone: null, specConflict: null } };
+  /** Fake sessions: the intake confirmation resolves via release(); implement resolves via finishImpl() or when aborted. */
+  function rig(confirm: string | null) {
+    const calls: { stage: string; aborted: boolean }[] = [];
+    let release: () => void = () => {};
+    let finishImpl: () => void = () => {};
+    let implSignal: AbortSignal | null = null;
+    const gate = new Promise<void>((r) => { release = r; });
+    const sessions: SessionRunner = {
+      run: async (o: Opts) => {
+        calls.push({ stage: o.stage, aborted: o.signal.aborted });
+        if (o.stage === "intake") { await gate; return ok(confirm); }
+        implSignal = o.signal;
+        if (o.signal.aborted) return killed;
+        await new Promise<void>((res) => { finishImpl = res; o.signal.addEventListener("abort", () => res(), { once: true }); });
+        return o.signal.aborted ? killed : ok(null);
+      },
+    };
+    return { sessions, calls, release: () => release(), finishImpl: () => finishImpl(), implAborted: () => implSignal?.aborted === true };
+  }
+  const tick = () => new Promise<void>((r) => setTimeout(r, 20));
+  async function intakeWith(r: ReturnType<typeof rig>, task: string, dir: string) {
+    const ctx = ctxWith(r.sessions, dir);
+    ctx.runDir = mkdtempSync(join(tmpdir(), "e10-already-done-run-"));
+    ctx.baseSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).trim();
+    const res = await runIntake(ctx, new AbortController().signal, { taskText: task });
+    return { ctx, res };
+  }
+  const runImpl = (ctx: RunContext) =>
+    ctx.sessions.run({ stage: "implement", brief: "b", tier: "development", iterationId: "i-impl", limitS: 60, signal: new AbortController().signal });
+
+  test("LOKI_SPEED unset: confirmation stays inline on the critical path, sessions untouched", async () => {
+    const dir = freshRepo();
+    const r = rig(CITE);
+    r.release();
+    const { ctx, res } = await intakeWith(r, TASK, dir);
+    expect(res.data.already_satisfied).toBe(true);
+    expect(ctx.sessions).toBe(r.sessions);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  describe("with LOKI_SPEED=1", () => {
+    const prev = process.env["LOKI_SPEED"];
+    beforeEach(() => { process.env["LOKI_SPEED"] = "1"; });
+    afterEach(() => { if (prev === undefined) delete process.env["LOKI_SPEED"]; else process.env["LOKI_SPEED"] = prev; });
+
+    test("no deterministic hit: zero cheap-model calls, sessions not wrapped", async () => {
+      const dir = freshRepo();
+      const r = rig(CITE);
+      const { ctx, res } = await intakeWith(r, "unrelated zebra migration", dir);
+      expect(res.data.already_satisfied).toBe(false);
+      expect(r.calls).toEqual([]);
+      expect(ctx.sessions).toBe(r.sessions);
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    test("hit: intake returns without waiting for the model; confirmation lands during implement and stops it", async () => {
+      const dir = freshRepo();
+      const r = rig(CITE);
+      const { ctx, res } = await intakeWith(r, TASK, dir); // gate still closed: intake did not await the check
+      expect(res.data.already_satisfied).toBe(false);
+      expect(res.data.repomap_ref).toBeDefined();
+      const impl = runImpl(ctx);
+      await tick(); await tick();
+      expect(r.calls.map((c) => c.stage).sort()).toEqual(["implement", "intake"]); // concurrent (the pinned tree is built first)
+      r.release();
+      const out = await impl;
+      expect(r.implAborted()).toBe(true);
+      expect(out.markers.alreadyDone).toBe(CITE);
+      expect(out.killed).toBe(false);
+      expect(res.data.already_satisfied).toBe(true);
+      expect((res.data.evidence as string[])[0]).toBe(CITE);
+      expect(typeof res.data.comment).toBe("string");
+      expect(res.data.iteration_ids).toEqual(["e10-already-done-run-already-done"]);
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    test("confirmed before implement starts: implement is never spawned live and still reports already done", async () => {
+      const dir = freshRepo();
+      const r = rig(CITE);
+      const { ctx, res } = await intakeWith(r, TASK, dir);
+      r.release();
+      await tick();
+      expect(res.data.already_satisfied).toBe(false); // nothing changes until implement is in flight
+      const out = await runImpl(ctx);
+      expect(r.calls[1]).toEqual({ stage: "implement", aborted: true });
+      expect(out.markers.alreadyDone).toBe(CITE);
+      expect(res.data.already_satisfied).toBe(true);
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    test("not confirmed: implement runs to completion, verdict untouched", async () => {
+      const dir = freshRepo();
+      const r = rig(null);
+      const { ctx, res } = await intakeWith(r, TASK, dir);
+      const impl = runImpl(ctx);
+      r.release();
+      await tick();
+      r.finishImpl();
+      const out = await impl;
+      expect(out.exit).toBe(0);
+      expect(out.markers.alreadyDone).toBeNull();
+      expect(r.implAborted()).toBe(false);
+      expect(res.data.already_satisfied).toBe(false);
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    test("cancelled check (implement finished first) never changes the verdict", async () => {
+      const dir = freshRepo();
+      const r = rig(CITE);
+      const { ctx, res } = await intakeWith(r, TASK, dir);
+      const impl = runImpl(ctx);
+      await tick();
+      r.finishImpl();
+      const out = await impl;
+      expect(out.markers.alreadyDone).toBeNull();
+      r.release(); // the check answers after implement is done: late, discarded
+      await tick();
+      expect(res.data.already_satisfied).toBe(false);
+      expect(res.data.evidence).toBeUndefined();
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    // D61-04 round 2 (Opus B1): the check reads the live tree implement is editing; an honest "feature present"
+    // that rests on a file implement already changed must never become ALREADY_SATISFIED.
+    describe("race with implement's own edits", () => {
+      /** Releases the intake gate the deferred check waits on so its finally removes the pinned tree copy. */
+      const settle = async (g: ReturnType<typeof rig>) => { g.release(); await new Promise<void>((r) => setTimeout(r, 300)); };
+      const SENTINEL = "// FEATURE_IMPLEMENTED_BY_THIS_RUN";
+      const cited = "src/search-command.ts";
+      const impl = (ctx: RunContext) => ctx.sessions.run({ stage: "implement", brief: "b", tier: "development", iterationId: "i-impl", limitS: 60, signal: new AbortController().signal, cwd: ctx.repoDir });
+      function raceRig(dir: string, edit: () => void) {
+        const target = join(dir, cited);
+        let wrote: () => void = () => {};
+        const w = new Promise<void>((r) => { wrote = r; });
+        const sessions: SessionRunner = {
+          run: async (o: Opts) => {
+            if (o.stage === "intake") {
+              await w;
+              const done = readFileSync(target, "utf8").includes(SENTINEL);
+              return ok(done ? `${cited}:1 feature present` : null);
+            }
+            edit(); wrote();
+            await new Promise<void>((res) => { o.signal.addEventListener("abort", () => res(), { once: true }); setTimeout(res, 300); });
+            return o.signal.aborted ? killed : ok(null);
+          },
+        };
+        return sessions;
+      }
+      test("cited file edited by implement: hit discarded, implement not aborted, verdict untouched", async () => {
+        const dir = freshRepo();
+        const target = join(dir, cited);
+        const gated = rig(null);
+        const { ctx, res } = await intakeWith(gated, TASK, dir);
+        ctx.sessions = raceRig(dir, () => appendFileSync(target, `\n${SENTINEL}\n`));
+        // re-arm the deferral on the race sessions
+        const events: string[] = [];
+        ctx.emit = (t) => { events.push(t); };
+        const res2 = await runIntake(ctx, new AbortController().signal, { taskText: TASK });
+        const out = await impl(ctx);
+        expect(res2.data.already_satisfied).toBe(false);
+        expect(out.killed).toBe(false);
+        expect(out.markers.alreadyDone).toBeNull();
+        expect(events).not.toContain("already.satisfied");
+        expect(res.data.already_satisfied).toBe(false);
+        await settle(gated);
+        rmSync(dir, { recursive: true, force: true });
+      });
+      /** Race rig where the model cites `cite(dir)` after implement ran `edit`. */
+      async function uncited(edit: (dir: string) => void, cite: (dir: string) => string | null) {
+        const dir = freshRepo();
+        let wrote: () => void = () => {};
+        const w = new Promise<void>((r) => { wrote = r; });
+        const sessions: SessionRunner = {
+          run: async (o: Opts) => {
+            if (o.stage === "intake") { await w; return ok(cite(dir)); }
+            edit(dir); wrote();
+            await new Promise<void>((res) => { o.signal.addEventListener("abort", () => res(), { once: true }); setTimeout(res, 300); });
+            return o.signal.aborted ? killed : ok(null);
+          },
+        };
+        const gated = rig(null);
+        const { ctx } = await intakeWith(gated, TASK, dir);
+        ctx.sessions = sessions;
+        const events: string[] = [];
+        ctx.emit = (t) => { events.push(t); };
+        const res2 = await runIntake(ctx, new AbortController().signal, { taskText: TASK });
+        const out = await impl(ctx);
+        await settle(gated);
+        rmSync(dir, { recursive: true, force: true });
+        return { res2, out, events };
+      }
+      test("implement edits a hit file, model cites only an unchanged sibling hit: not already satisfied", async () => {
+        const r = await uncited(
+          (d) => appendFileSync(join(d, cited), `\n${SENTINEL}\n`),
+          (d) => readFileSync(join(d, cited), "utf8").includes(SENTINEL) ? "tests/search.test.ts:1 covers global search; implementation present" : null,
+        );
+        expect(r.res2.data.already_satisfied).toBe(false);
+        expect(r.out.killed).toBe(false);
+        expect(r.events).not.toContain("already.satisfied");
+      });
+      test("implement deletes a cited hit file: not already satisfied", async () => {
+        const r = await uncited(
+          (d) => unlinkSync(join(d, "tests/search.test.ts")),
+          () => `${cited}:1 and tests/search.test.ts:1 prove it`,
+        );
+        expect(r.res2.data.already_satisfied).toBe(false);
+        expect(r.events).not.toContain("already.satisfied");
+      });
+      test("hitsUnchangedFromBase fails closed on an empty baseSha and on no paths", () => {
+        const dir = freshRepo();
+        const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).trim();
+        expect(hitsUnchangedFromBase(dir, sha, [cited])).toBe(true);
+        expect(hitsUnchangedFromBase(dir, "", [cited])).toBe(false);
+        expect(hitsUnchangedFromBase(dir, sha, [])).toBe(false);
+        rmSync(dir, { recursive: true, force: true });
+      });
+      test("machine: a deferred hit makes implement jump to the tail, verify never runs", async () => {
+        const dir = freshRepo();
+        const prevTask = process.env["LOKI_E10_TASK_TEXT"];
+        process.env["LOKI_E10_TASK_TEXT"] = TASK;
+        const r = rig(CITE);
+        const ctx = ctxWith(r.sessions, dir);
+        ctx.runDir = mkdtempSync(join(tmpdir(), "e10-already-done-run-"));
+        ctx.baseSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).trim();
+        const ran: string[] = [];
+        const st = (name: StageName, run: Stage["run"]): Stage => ({ name, targetS: 1, limitS: 30, run });
+        const stages: Partial<Record<StageName, Stage>> = {
+          intake: intakeStage,
+          implement: st("implement", async (c) => {
+            setTimeout(() => r.release(), 20);
+            await c.sessions.run({ stage: "implement", brief: "b", tier: "development", iterationId: "i-impl", limitS: 60, signal: new AbortController().signal });
+            return { status: "completed", data: {} };
+          }),
+          verify: st("verify", async () => { ran.push("verify"); return { status: "completed", data: {} }; }),
+          commit: st("commit", async () => { ran.push("commit"); return { status: "completed", data: {} }; }),
+        };
+        try {
+          const out = await runMachine(ctx, { flow: ["intake", "implement", "verify", "commit"], load: async (n) => stages[n] ?? null });
+          expect(out.outputs.intake?.already_satisfied).toBe(true);
+          expect(ran).toEqual(["commit"]);
+        } finally {
+          if (prevTask === undefined) delete process.env["LOKI_E10_TASK_TEXT"]; else process.env["LOKI_E10_TASK_TEXT"] = prevTask;
+          rmSync(dir, { recursive: true, force: true });
+        }
+      });
+      test("cited file untouched at base: confirmed hit fires and emits already.satisfied", async () => {
+        const dir = freshRepo();
+        const target = join(dir, cited);
+        appendFileSync(target, `\n${SENTINEL}\n`);
+        git(dir, ["commit", "-q", "-am", "feature at base"]);
+        const gated = rig(null);
+        const { ctx } = await intakeWith(gated, TASK, dir);
+        ctx.sessions = raceRig(dir, () => {});
+        const events: string[] = [];
+        ctx.emit = (t) => { events.push(t); };
+        const res2 = await runIntake(ctx, new AbortController().signal, { taskText: TASK });
+        const out = await impl(ctx);
+        expect(out.markers.alreadyDone).toBe(`${cited}:1 feature present`);
+        expect(res2.data.already_satisfied).toBe(true);
+        expect(events).toContain("already.satisfied");
+        await settle(gated);
+        rmSync(dir, { recursive: true, force: true });
+      });
+    });
+  });
+});
+
+// D61-04 round 3 B2: the deferred confirmation runs in a tree pinned at baseSha, never the live tree implement edits.
+describe("deferred confirmation reads a base-pinned tree (D61-04 r3 B2)", () => {
+  const TASK = "Add global search (Cmd+K)";
+  const gitOut = (d: string, a: string[]) => execFileSync("git", ["-C", d, ...a], { encoding: "utf8" });
+  function baseRepo(): string {
+    const dir = freshRepo();
+    writeFileSync(join(dir, "src/search-command.ts"), `import { runQuery } from "./engine";\nexport function search(query: string): string[] {\n  return runQuery(query);\n}\n`);
+    writeFileSync(join(dir, "src/engine.ts"), `export function runQuery(q: string): string[] { throw new Error("TODO"); }\n`);
+    git(dir, ["add", "."]); git(dir, ["commit", "-q", "-m", "base"]);
+    return dir;
+  }
+  const okRes = (a: string | null) => ({ exit: 0, durationS: 0.1, killed: false, markers: { done: a === null, alreadyDone: a, specConflict: null } });
+  const killedRes = { exit: null, durationS: 0, killed: true, markers: { done: false, alreadyDone: null, specConflict: null } };
+  async function scenario(edit: (d: string) => void, model: (cwd: string) => string | null, inRepo = false, baseSha?: string) {
+    process.env.LOKI_SPEED = "1";
+    const dir = baseRepo();
+    let wrote: () => void = () => {};
+    const w = new Promise<void>((r) => { wrote = r; });
+    let cwdSeen = "", calls = 0;
+    const sessions = { run: async (o: any) => {
+      if (o.stage === "intake") { calls++; if (baseSha === undefined) await w; cwdSeen = o.cwd; return okRes(model(o.cwd)); }
+      edit(dir); wrote();
+      await new Promise<void>((res) => { o.signal.addEventListener("abort", () => res(), { once: true }); setTimeout(res, 300); });
+      return o.signal.aborted ? killedRes : okRes(null);
+    } };
+    const runDir = inRepo ? join(dir, ".loki", "runs", "r") : mkdtempSync(join(tmpdir(), "e10-already-done-run-"));
+    mkdirSync(runDir, { recursive: true });
+    const ctx: any = { repoDir: dir, runDir, runId: "r", branch: "loki/r", sessions, baseSha: baseSha ?? gitOut(dir, ["rev-parse", "HEAD"]).trim(),
+      emit: () => {}, tests: { detect: async (d: string) => buildTestMap(d) }, outputs: () => ({}) };
+    const res: any = await runIntake(ctx, new AbortController().signal, { taskText: TASK });
+    await ctx.sessions.run({ stage: "implement", brief: "b", tier: "development", iterationId: "i", limitS: 60, signal: new AbortController().signal, cwd: dir });
+    await new Promise((r) => setTimeout(r, 100));
+    const out = { already: res.data.already_satisfied, cwdSeen, dir, calls, leftover: cwdSeen !== "" && existsSync(dirname(cwdSeen)) };
+    rmSync(dir, { recursive: true, force: true }); rmSync(runDir, { recursive: true, force: true });
+    delete process.env.LOKI_SPEED;
+    return out;
+  }
+  test("C: an in-flight edit to a NON-hit import cannot satisfy the check", async () => {
+    const r = await scenario(
+      (d) => writeFileSync(join(d, "src/engine.ts"), `export function runQuery(q: string): string[] { return [q]; } // REAL IMPL\n`),
+      (cwd) => readFileSync(join(cwd, "src/engine.ts"), "utf8").includes("REAL IMPL") ? "src/search-command.ts:1 global search implemented" : null,
+    );
+    expect(r.already).toBe(false);
+    expect(r.cwdSeen).not.toBe(r.dir);
+    expect(r.leftover).toBe(false);
+  });
+  test("D: an in-flight UNTRACKED new file cannot satisfy the check", async () => {
+    const r = await scenario(
+      (d) => writeFileSync(join(d, "src/global-search-palette.ts"), `export const cmdK = true;\n`),
+      (cwd) => existsSync(join(cwd, "src/global-search-palette.ts")) ? "src/search-command.ts:1 and Cmd+K palette present" : null,
+    );
+    expect(r.already).toBe(false);
+  });
+  const implEngine = (d: string) => writeFileSync(join(d, "src/engine.ts"), `export function runQuery(q: string): string[] { return [q]; } // REAL IMPL\n`);
+  test("F: with runDir inside the repo, `git diff` from the session cwd cannot see in-flight edits", async () => {
+    const r = await scenario(implEngine, (c) => {
+      let o = ""; try { o = execFileSync("git", ["diff"], { cwd: c, encoding: "utf8", stdio: "pipe" }); } catch { /* not a repo */ }
+      return o.includes("REAL IMPL") ? "src/search-command.ts:1 done" : null;
+    }, true);
+    expect(r.already).toBe(false);
+    expect(r.leftover).toBe(false);
+  });
+  test("G: with runDir inside the repo, a ../ relative read cannot reach the live tree", async () => {
+    const r = await scenario(implEngine, (c) => {
+      try { return readFileSync(join(c, "../../../../src/engine.ts"), "utf8").includes("REAL IMPL") ? "src/search-command.ts:1 done" : null; } catch { return null; }
+    }, true);
+    expect(r.already).toBe(false);
+  });
+  test("H: with runDir inside the repo, `git status` from the session cwd cannot see an untracked in-flight file", async () => {
+    const r = await scenario((d) => writeFileSync(join(d, "src/global-search-palette.ts"), "export const cmdK = true;\n"), (c) => {
+      let o = ""; try { o = execFileSync("git", ["status", "--short", "--untracked-files=all"], { cwd: c, encoding: "utf8", stdio: "pipe" }); } catch { /* not a repo */ }
+      return o.includes("global-search-palette") ? "src/search-command.ts:1 palette present" : null;
+    }, true);
+    expect(r.already).toBe(false);
+  });
+  for (const [name, sha] of [["empty", ""], ["bogus", "0".repeat(40)]] as const) {
+    test(`B2: ${name} baseSha runs no confirmation session and is not already satisfied`, async () => {
+      const r = await scenario(() => {}, () => "src/search-command.ts:1 done", false, sha);
+      expect(r.calls).toBe(0);
+      expect(r.already).toBe(false);
+    });
+  }
 });

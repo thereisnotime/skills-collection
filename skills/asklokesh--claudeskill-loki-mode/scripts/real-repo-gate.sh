@@ -15,6 +15,8 @@
 # --entry bare is diagnostic only (runs `loki <spec>`); the gate proper always uses `loki start`.
 #
 # Test hooks: RRG_LOKI (a loki binary, skips npm install), RRG_REPOS (expectations file),
+# LOKI_E2E_ENV_FILE (opt-in, default unset): a credentials file owned by the current user with mode
+# 0600, loaded with `set -a; . file; set +a` inside this process only; values are never echoed.
 # RRG_CLONE_BASE (clone owner/repo from <base>/owner/repo instead of GitHub),
 # RRG_CORPUS (task corpus dir), RRG_TIMEOUT (hard cap seconds, default 900).
 set -uo pipefail
@@ -53,6 +55,24 @@ trap 'loki_run_tmp_cleanup' EXIT
 T="$LOKI_RUN_TMP"
 mkdir -p "$T/home" "$T/w" "$T/p"
 
+# Opt-in credential file (LOKI_E2E_ENV_FILE). Refuse unless a regular, non-symlink file owned by this
+# user with mode 0600. Loaded with tracing off so values never reach a log; never printed.
+if [ -n "${LOKI_E2E_ENV_FILE:-}" ]; then
+    _ef="$LOKI_E2E_ENV_FILE"
+    [ -f "$_ef" ] && [ ! -L "$_ef" ] || die "LOKI_E2E_ENV_FILE is not a regular file"
+    _ef_uid="$(loki_run_tmp_stat_field '%u' '%u' "$_ef")" || die "cannot stat LOKI_E2E_ENV_FILE"
+    _ef_mode="$(loki_run_tmp_stat_field '%a' '%Lp' "$_ef")" || die "cannot stat LOKI_E2E_ENV_FILE"
+    [ "$_ef_uid" = "$(id -u)" ] || die "LOKI_E2E_ENV_FILE must be owned by the current user"
+    _ef_mode="00${_ef_mode}"
+    [ "${_ef_mode#"${_ef_mode%???}"}" = "600" ] || die "LOKI_E2E_ENV_FILE must have mode 0600"
+    { set +x; } 2>/dev/null
+    set -a
+    # shellcheck disable=SC1090
+    . "$_ef" >/dev/null 2>&1 || { set +a; die "LOKI_E2E_ENV_FILE failed to load"; }
+    set +a
+    unset _ef _ef_uid _ef_mode
+fi
+
 # gh auth lives under the real HOME; capture a token before HOME is swapped, never write it anywhere.
 if [ -z "${GH_TOKEN:-}" ] && command -v gh >/dev/null; then GH_TOKEN="$(gh auth token 2>/dev/null || true)"; fi
 export GH_TOKEN
@@ -85,7 +105,8 @@ import json,sys
 t=json.load(open(sys.argv[1]))
 print(t["repo"]["source"]); print(t["repo"]["ref"]); print(t.get("setup","")); print(t.get("gate_test",""))' "$tj")
         python3 -c 'import json,sys;sys.stdout.write(json.load(open(sys.argv[1]))["prompt"]+"\n")' "$tj" > "$T/issue-$name.md"
-        arg="$T/issue-$name.md"
+        # the prompt text itself is the task: a multi-word argument is what bin/loki routes to Loki 10 (a file path stays legacy, which rejects --no-pr)
+        arg="$(cat "$T/issue-$name.md")"
         if ! git clone -q "$source" "$d" 2>/dev/null || ! git -C "$d" checkout -q "$ref" 2>/dev/null; then DETAIL="clone of $source at $ref failed"; return; fi
     else
         slug="${spec%%#*}"; arg="$spec"

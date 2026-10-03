@@ -1630,6 +1630,7 @@ show_help() {
     echo "  start [SPEC]     Start a build (PRD file, GitHub/GitLab/Jira/Azure issue, or no arg)"
     echo "  plan <PRD-file>  Dry-run analysis: complexity, cost, execution plan"
     echo "  backlog <owner/repo> --all|--label X|--issues N,N   Run every matching open issue, N in parallel"
+    echo "  workspace list | run <name> <ref>   Multi-repo runs from loki.yaml workspaces (LOKI_WORKSPACES=0 disables)"
     echo "  quickstart [idea]  Guided first build: setup, idea, template, plan, go"
     echo ""
     echo "Session:"
@@ -1782,7 +1783,7 @@ show_help() {
     echo "  syslog telemetry template test tour trigger trust trust-metrics"
     echo "  ultracode update verify version voice watch watchdog web welcome why"
     echo "  wiki worktree (wt)"
-    echo "  control (preview, needs LOKI_CONTROL=1)"
+    echo "  control"
     echo ""
     echo "Any command: loki <command> --help"
     echo ""
@@ -1872,12 +1873,106 @@ for p in range(int(sys.argv[1]), int(sys.argv[1]) + 100):
 PY
 }
 
+# Fail-closed reuse check for a dashboard found via the ~/.loki/dashboard
+# registry or a busy port: reusable only if /health reports THIS package's
+# version AND realpath, and GET / is 200 text/html. Any missing field, curl
+# error or mismatch means "not ours". Mirrors _loki_dashboard_reusable in run.sh.
+_loki_dashboard_port_is_ours() {
+    local port="$1" want want_pkg health probe
+    case "$port" in ''|*[!0-9]*) return 1 ;; esac
+    want="$(tr -d '[:space:]' <"$SKILL_DIR/VERSION" 2>/dev/null)" || return 1
+    [ -n "$want" ] || return 1
+    want_pkg="$(cd "$SKILL_DIR" 2>/dev/null && pwd -P)" || return 1
+    health="$(curl -s --max-time 2 "http://127.0.0.1:${port}/health" 2>/dev/null)" || return 1
+    case "$health" in
+        *"\"version\":\"${want}\""* | *"\"version\": \"${want}\""*) ;;
+        *) return 1 ;;
+    esac
+    case "$health" in
+        *"\"package\":\"${want_pkg}\""* | *"\"package\": \"${want_pkg}\""*) ;;
+        *) return 1 ;;
+    esac
+    probe="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' --max-time 2 "http://127.0.0.1:${port}/" 2>/dev/null)" || return 1
+    case "$probe" in "200 text/html"*) return 0 ;; esac
+    return 1
+}
+
+# C3: the Control Plane is the default UI. Prints a live loopback URL from
+# ~/.loki/control/instance.json (pid alive, http loopback only, /health says
+# service=loki-control), or starts `loki control serve` detached and waits for
+# it to publish one. Returns 1 when the caller should fall back to the old
+# dashboard (LOKI_CONTROL_DEFAULT=0, no bun, no python3, server did not start).
+_loki_control_live_url() {
+    local inst="${HOME}/.loki/control/instance.json" fields pid url health
+    [ -f "$inst" ] || return 1
+    fields=$(python3 - "$inst" 2>/dev/null <<'PY'
+import json, sys, urllib.parse
+d = json.load(open(sys.argv[1]))
+pid, url = d.get("pid"), d.get("url")
+if not isinstance(pid, int) or isinstance(pid, bool) or not isinstance(url, str):
+    sys.exit(1)
+u = urllib.parse.urlparse(url)
+if u.scheme != "http" or u.hostname not in ("127.0.0.1", "localhost", "::1"):
+    sys.exit(1)
+if u.path not in ("", "/") or u.query or u.fragment or u.params or "@" in u.netloc or "?" in url or "#" in url:
+    sys.exit(1)
+print(pid, url.rstrip("/"))
+PY
+) || return 1
+    pid="${fields%% *}"; url="${fields#* }"
+    kill -0 "$pid" 2>/dev/null || return 1
+    health=$(curl -g -s --max-time 2 "${url}/health" 2>/dev/null) || return 1
+    case "$health" in *'"service"'*'"loki-control"'*) ;; *) return 1 ;; esac
+    printf '%s\n' "$url"
+}
+
+_loki_control_ui() {
+    [ "${LOKI_CONTROL_DEFAULT:-1}" = "0" ] && return 1
+    local url="" open_it=1 arg i
+    for arg in "$@"; do [ "$arg" = "--no-open" ] && open_it=0; done
+    if [ "${LOKI_HEADLESS:-0}" = "1" ] || [ "${LOKI_NO_BROWSER:-0}" = "1" ]; then open_it=0; fi
+    command -v python3 >/dev/null 2>&1 || return 1
+    url=$(_loki_control_live_url) || url=""
+    if [ -z "$url" ]; then
+        if ! command -v bun >/dev/null 2>&1; then
+            echo "loki: the Control Plane needs bun (https://bun.sh); using the classic dashboard." >&2
+            return 1
+        fi
+        local cli="$SKILL_DIR/loki-ts/dist/loki.js" cdir="${HOME}/.loki/control" spid
+        [ -f "$cli" ] || cli="$SKILL_DIR/loki-ts/src/cli.ts"
+        mkdir -p "$cdir" && chmod 700 "$cdir" 2>/dev/null || true
+        LOKI_CONTROL=1 LOKI_NO_BROWSER=1 nohup bun "$cli" control serve >"$cdir/serve.log" 2>&1 </dev/null &
+        spid=$!
+        echo "$spid" > "$cdir/serve.pid" 2>/dev/null || true
+        for i in $(seq 1 100); do
+            url=$(_loki_control_live_url) && break
+            url=""
+            kill -0 "$spid" 2>/dev/null || break
+            sleep 0.1
+        done
+        if [ -z "$url" ]; then
+            echo "loki: the Control Plane did not start (see $cdir/serve.log); using the classic dashboard." >&2
+            return 1
+        fi
+    fi
+    if [ "$open_it" = "1" ]; then
+        loki_open_url "$url" || echo "$url"
+    else
+        echo "$url"
+    fi
+    return 0
+}
+
 cmd_ui() {
+    _loki_control_ui "$@" && return 0
     local port="" pid=""
     if [ -f "$DASHBOARD_PID_FILE" ]; then
         pid=$(cat "$DASHBOARD_PID_FILE" 2>/dev/null)
         if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
             port=$(cat "${DASHBOARD_PID_DIR}/port" 2>/dev/null)
+            # A registry entry whose live server is not this package's dashboard
+            # (stale, foreign worktree, other version) is never reused.
+            _loki_dashboard_port_is_ours "$port" || port=""
         fi
     fi
     if [ -z "$port" ]; then
@@ -3759,9 +3854,18 @@ cmd_start() {
                 # + cockpit, honoring the card's "open dashboard" promise. The
                 # cockpit hint is printed by _loki_start_handoff for the Both path.
                 args+=("--bg")
-                local _du="http://127.0.0.1:${LOKI_DASHBOARD_PORT:-57374}"
-                # stdout must stay unredirected: loki_open_url checks the TTY.
-                loki_open_url "$_du" 2>/dev/null &
+                # Open the URL the runner PUBLISHES for the port it actually bound
+                # or reused (it walks past refused ports); never guess the default
+                # 57374, which may be a foreign or stale dashboard. stdout must
+                # stay unredirected: loki_open_url checks the TTY.
+                local _dfile="${PWD}/.loki/dashboard/url"
+                rm -f "$_dfile" 2>/dev/null
+                (
+                    for _ in $(seq 1 120); do
+                        if [ -s "$_dfile" ]; then loki_open_url "$(head -1 "$_dfile")" 2>/dev/null; exit 0; fi
+                        sleep 0.5
+                    done
+                ) &
                 ;;
             launch-bg-watch)
                 # Watch (cockpit only) detaches without opening the browser.
@@ -7288,6 +7392,16 @@ _loki_dashboard_bind_is_safe() {
 cmd_dashboard() {
     local subcommand="${1:-}"
 
+    # The Control Plane is the default UI; LOKI_CONTROL_DEFAULT=0 restores the classic dashboard.
+    # Only the bare forms are taken over; `start --port ...` and friends keep the classic server.
+    case "$subcommand" in
+        ""|start|open)
+            if [ $# -le 1 ] || { [ $# -eq 2 ] && [ "$2" = "--no-open" ]; }; then
+                _loki_control_ui "${@:2}" && return 0
+            fi
+            ;;
+    esac
+
     # If no subcommand provided, show help (backward compatible with old behavior)
     if [ -z "$subcommand" ]; then
         cmd_dashboard_help
@@ -7482,13 +7596,15 @@ cmd_dashboard_start() {
     if [ -f "$DASHBOARD_PID_FILE" ]; then
         local existing_pid
         existing_pid=$(cat "$DASHBOARD_PID_FILE" 2>/dev/null)
-        if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+        if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null \
+            && _loki_dashboard_port_is_ours "$(cat "${DASHBOARD_PID_DIR}/port" 2>/dev/null)"; then
             echo -e "${YELLOW}Dashboard server already running (PID: $existing_pid)${NC}"
             echo ""
             cmd_dashboard_status
             exit 0
         fi
-        # Stale PID file, remove it
+        # Stale PID file, or a live server that is not this package's dashboard
+        # (never killed here, just not reused): remove the registry entry.
         rm -f "$DASHBOARD_PID_FILE"
     fi
 
@@ -12869,6 +12985,16 @@ cmd_config_schema() {
         return 1
     fi
     loki_config_generate_schema
+}
+
+# D65: multi-repo workspaces (D51 Phase B). On by default; LOKI_WORKSPACES=0 disables.
+cmd_workspace() {
+    if [ "${LOKI_WORKSPACES:-}" = "0" ]; then
+        echo -e "${RED}loki workspace is disabled.${NC} Unset LOKI_WORKSPACES (it is set to 0)." >&2
+        return 2
+    fi
+    command -v python3 >/dev/null 2>&1 || { echo -e "${RED}loki workspace: python3 is required${NC}" >&2; return 2; }
+    python3 "$_LOKI_SCRIPT_DIR/lib/workspace.py" "$@"
 }
 
 # D51: headless backlog runner. One v10 issue-mode run per open issue, each in
@@ -18654,10 +18780,12 @@ with open(manifest_path, 'w') as f:
 # usable.
 # ---------------------------------------------------------------------------
 cmd_verify() {
-    # D48: --pubkey verifies a receipt against a given public key (v10 engine, no ~/.loki needed).
+    # D48: --pubkey FILE or --pubkey=FILE (any position) verifies a receipt against a given public key (v10 engine, no ~/.loki needed).
     local _pk_arg
     for _pk_arg in "$@"; do
-        [ "$_pk_arg" = "--pubkey" ] && LOKI_ENGINE=v10 exec "$_LOKI_SCRIPT_DIR/../bin/loki" verify "$@"
+        case "$_pk_arg" in
+            --pubkey|--pubkey=*) LOKI_ENGINE=v10 exec "$_LOKI_SCRIPT_DIR/../bin/loki" verify "$@" ;;
+        esac
     done
     # --fast: deterministic checks only, in milliseconds. Measured on this repo
     # (1,932 tracked files): 298 ms cold, 87 ms warm, 19 ms diff-scoped, against
@@ -21837,6 +21965,8 @@ main() {
                     echo "Alias for 'loki api start'. Starts the dashboard HTTP API"
                     echo "server (FastAPI, port 57374 by default)."
                     echo ""
+                    echo "For the UI, run 'loki' (opens the Control Plane) or 'loki control serve'."
+                    echo ""
                     echo "Options:"
                     echo "  --host HOST    Bind host (default: 127.0.0.1)"
                     echo "  --port PORT    Bind port (default: 57374)"
@@ -21883,6 +22013,9 @@ main() {
             ;;
         backlog)
             cmd_backlog "$@"
+            ;;
+        workspace)
+            cmd_workspace "$@"
             ;;
         config)
             cmd_config "$@"
@@ -33807,14 +33940,14 @@ cmd_outcomes() {
     LOKI_DIR="${LOKI_DIR:-.loki}" python3 "$lib" "$@"
 }
 
-# loki control -- D56 control plane (preview). The live route is the Bun CLI
+# loki control -- D56 control plane (on by default). The live route is the Bun CLI
 # (loki-ts/src/commands/control.ts); this is the LOKI_LEGACY_BASH / no-shim
-# fallback. It keeps the gate and help in bash and hands the work to Bun.
+# fallback. It keeps the off switch and help in bash and hands the work to Bun.
 cmd_control() {
     local sub="${1:-}"
     case "$sub" in
         ""|-h|--help|help)
-            echo "Usage: loki control <command> [options]   (preview, requires LOKI_CONTROL=1)"
+            echo "Usage: loki control <command> [options]   (on by default; LOKI_CONTROL=0 turns it off; requires bun)"
             echo ""
             echo "Commands:"
             echo "  serve [--port N] [--db PATH]   Run the control plane + UI on 127.0.0.1"
@@ -33823,8 +33956,8 @@ cmd_control() {
             return 0
             ;;
     esac
-    if [ "${LOKI_CONTROL:-}" != "1" ]; then
-        echo "loki control is in preview. Enable it with: export LOKI_CONTROL=1"
+    if [ "${LOKI_CONTROL:-}" = "0" ]; then
+        echo "loki control is off (LOKI_CONTROL=0). Unset it to turn the Control Plane back on."
         return 0
     fi
     local cli="$SKILL_DIR/loki-ts/dist/loki.js"

@@ -34,7 +34,8 @@ Phase 2 ported (Bun-native, fast):
                          (subcmds: list | show <id> | open <id> | share <id>)
   wiki <subcmd>          Auto-generated, cited codebase wiki + Q&A
                          (subcmds: generate | show [section] | ask "<question>")
-  control <subcmd>       Control plane (preview, needs LOKI_CONTROL=1)
+  answer [run] [--text]  Resume a BLOCKED run with an answer (--text, or the Control Plane answer file)
+  control <subcmd>       Control plane (on by default; LOKI_CONTROL=0 turns it off)
                          (subcmds: serve [--port N] [--db PATH] | backfill [DIR] | status)
 
 All other commands fall through to the bash CLI (autonomy/loki).
@@ -207,8 +208,14 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       return runWiki(rest);
     }
 
+    case "contract": {
+      // D65-SPEC: spec to delivery contract (gated by LOKI_CONTRACT=1 inside main).
+      const { main: contractMain } = await import("./features/contract.ts");
+      return contractMain(rest);
+    }
+
     case "control": {
-      // D56 control plane (preview, gated by LOKI_CONTROL=1 inside runControl).
+      // D56 control plane (on by default; LOKI_CONTROL=0 disables, handled inside runControl).
       // bash cmd_control (autonomy/loki) is the LOKI_LEGACY_BASH fallback.
       const { runControl } = await import("./commands/control.ts");
       return runControl(rest);
@@ -307,6 +314,16 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       // the bash cmd_start). Parses the supported flag subset -> runAutonomous.
       const { runStart } = await import("./commands/start.ts");
       return runStart(rest);
+    }
+
+    case "slack": {
+      const { runSlackCli } = await import("./features/slack_inbound.ts");
+      return runSlackCli(rest);
+    }
+
+    case "answer": {
+      const { runAnswerCli } = await import("./features/blocked_answer.ts");
+      return runAnswerCli(rest);
     }
 
     case "engine10": {

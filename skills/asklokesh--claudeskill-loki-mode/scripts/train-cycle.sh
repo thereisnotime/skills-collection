@@ -188,13 +188,20 @@ EOF
     # ever finishes. LOKI_TC_NO_HOLD=1 overrides.
     if [ -n "$n_max_sha" ] && [ "${LOKI_TC_NO_HOLD:-0}" != 1 ] && is_ancestor "$REMOTE/main" "$n_max_sha"; then
         runs="$(runs_json "$n_max_sha")"
+        local all_green=1
         for name in "${REQUIRED_TRAIN[@]}"; do
             st="$(check_state "$runs" "$name")"
             # ponytail: only pending holds; a check that never starts (missing) must not wedge phase A forever.
             if [ "$st" = pending ]; then
                 log A "$local_main" "HOLD train/$n_max still running ($name:$st)"; return 0
             fi
+            [ "$st" = success ] || all_green=0
         done
+        # A green, unpromoted train must be promoted (phase B) before a newer
+        # train supersedes it; phase B only evaluates the newest train.
+        if [ "$all_green" = 1 ] && ! is_ancestor "$n_max_sha" "$REMOTE/main"; then
+            log A "$local_main" "HOLD train/$n_max green, awaiting promote"; return 0
+        fi
     fi
     n=$((n_max + 1))
     if [ "$DRY_RUN" = 1 ]; then
@@ -370,7 +377,8 @@ release_in_worktree() {
     sec="$(mktemp "${TMPDIR:-/tmp}/train-cycle-changelog.XXXXXXXX")" || return 1
     {
         # shellcheck disable=SC2016 # literal backticks
-        printf '## v%s (%s)\n\nA `next` release.\n\n### Changes\n' "$ver" "$date_s"
+        # LOKI_TC_LEAD: one sentence naming the user-visible change (D60); default unchanged
+        printf '## v%s (%s)\n\n%s\n\n### Changes\n' "$ver" "$date_s" "${LOKI_TC_LEAD:-A \`next\` release.}"
         w log --no-merges --reverse --format='%H' "${tag:+$tag..}$head" | while IFS= read -r c; do
             subj="$(w log -1 --format=%s "$c")"
             case "$subj" in "release: v"*) continue ;; esac

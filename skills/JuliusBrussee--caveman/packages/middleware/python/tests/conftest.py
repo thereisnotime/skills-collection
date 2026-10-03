@@ -85,7 +85,7 @@ def peer_runtime(**options):
     """
     from caveman_cloud.middleware import MiddlewareRuntime, sha256
 
-    fixture = json.loads((Path(__file__).parents[3] / "sdk/parity/middleware.fixtures.json").read_text())
+    fixture = json.loads((Path(__file__).parents[3] / "sdk/parity/middleware.fixtures.json").read_text(encoding="utf-8"))
     reports, receipts, requests, retrievals = [], [], [], []
     runtime = MiddlewareRuntime(on_report=reports.append, **options)
     runtime.reports, runtime.receipts, runtime.requests, runtime.retrievals = reports, receipts, requests, retrievals

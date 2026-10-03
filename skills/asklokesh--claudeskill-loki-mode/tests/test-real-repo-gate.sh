@@ -30,7 +30,10 @@ cat > "$T/loki" <<'STUB'
 case "$1" in
 verify) [ -s ".loki/runs/$2/receipt.json" ] && { echo "VERDICT: VERIFIED"; exit 0; }; echo "no receipt"; exit 4 ;;
 start)
-    corpus=0; case "$2" in *.md) corpus=1 ;; esac
+    # mirror bin/loki start routing: only an issue ref, issue URL or multi-word task reaches Loki 10;
+    # anything else (a file path, one word) is legacy, which rejects --no-pr
+    case "$2" in */*\#[0-9]*|http*://*/issues/*|http*://*/browse/*|*" "*) ;; *) echo "Unknown option: --no-pr" >&2; exit 1 ;; esac
+    corpus=0; case "$2" in */*\#[0-9]*) ;; *) corpus=1 ;; esac
     [ "$FAKE_MODE" = timeout ] && sleep 30
     mkdir -p .loki/runs/r1; echo '{"type":"run.started"}' > .loki/runs/r1/events.jsonl
     [ "$FAKE_MODE" = norecept ] || echo '{"outcome":"x"}' > .loki/runs/r1/receipt.json
@@ -96,6 +99,22 @@ OUT=$(env -u LOKI_RUN_TMP RRG_LOKI="$T/loki" bash "$GATE" 2>&1); RC=$?
 expect "missing --version is a setup error (exit 2)" 2 'version'
 run_gate pass "$AQ"
 if git -C "$T/remote/owner/ok" status --porcelain | grep -q .; then bad "stub remote was modified"; else ok "stub remote untouched"; fi
+
+# LOKI_E2E_ENV_FILE: refuse 0644, load 0600, never leak the dummy value
+DUMMY="dummy-secret-value-$$-zzz"
+printf 'ANTHROPIC_API_KEY=%s\n' "$DUMMY" > "$T/e2e.env"
+chmod 644 "$T/e2e.env"
+run_gate pass "$AQ" LOKI_E2E_ENV_FILE="$T/e2e.env"
+expect "env file with mode 0644 is refused (exit 2)" 2 'must have mode 0600'
+if printf '%s' "$OUT" | grep -q -F "$DUMMY"; then bad "dummy leaked on refusal"; else ok "no leak on refusal"; fi
+chmod 600 "$T/e2e.env"
+run_gate pass "$AQ" LOKI_E2E_ENV_FILE="$T/e2e.env"
+expect "env file with mode 0600 loads and the gate passes" 0 'GATE PASS'
+if printf '%s' "$OUT" | grep -q -F "$DUMMY" || grep -rqF -- "$DUMMY" "$T/res" 2>/dev/null; then bad "dummy leaked in output or logs"; else ok "dummy absent from output and logs"; fi
+run_gate pass "$AQ" LOKI_E2E_ENV_FILE="$T/nonexistent.env"
+expect "missing env file is a setup error (exit 2)" 2 'not a regular file'
+run_gate pass "$AQ"
+expect "unset LOKI_E2E_ENV_FILE keeps current behaviour" 0 'GATE PASS'
 
 echo "passed=$PASS failed=$FAIL"
 [ "$FAIL" -eq 0 ]

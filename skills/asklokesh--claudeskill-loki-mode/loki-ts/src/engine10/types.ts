@@ -120,7 +120,7 @@ export interface RunContext {
   provider: string;
   model: string;
   deep: boolean;
-  capS: number;
+  capS: number; overCap?: () => boolean; // D60-5: priced cost reached the per-run dollar cap
   emit(type: EventType, stage: StageName | null, data: Record<string, unknown>): void;
   sessions: SessionRunner;
   tests: TestMapProvider;
@@ -175,6 +175,7 @@ export interface Receipt {
   model: string;
   resumed: boolean;
   events_sha256: string;
+  group?: import("../features/speed/seal_group.ts").ReceiptGroup; // D61-13: omitted for a single run
   log_seal?: true; // A-117: the supervisor appends a signed log.sealed line after run.completed; verify requires it only when this is set (older receipts predate it)
   receipt_sha256: string;
   verification: { jwt: string | null; kid: string | null };

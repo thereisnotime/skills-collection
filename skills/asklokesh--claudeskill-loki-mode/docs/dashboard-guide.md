@@ -26,6 +26,8 @@ The dashboard automatically syncs with Loki Mode when it's running, polling `das
 
 **Ports:** The dashboard and API run on unified port **57374** (FastAPI serves both). See [INSTALLATION.md](INSTALLATION.md#ports) for details.
 
+**Bound port:** if 57374 is held by something that is not this install's dashboard (another project, an older version, a foreign process), Loki walks to the next free port and never reuses or opens the foreign one. `loki start` and `loki dashboard` open and print the URL of the port actually bound; `loki start` publishes it to `.loki/dashboard/url`. A running dashboard is reused only when its `/health` reports the same version and install path.
+
 ---
 
 ## UI Components
@@ -480,3 +482,7 @@ Useful for:
 - [Agent Types](../references/agent-types.md) - Agent role definitions
 - [Quality Control](../references/quality-control.md) - Quality gates system
 - [Memory System](../references/memory-system.md) - Memory architecture
+
+## Control Plane by default
+
+Bare `loki` and `loki dashboard` (also `start` or `open` with no other flags) open the Control Plane. If `~/.loki/control/instance.json` names a live loopback server whose `/health` reports `service=loki-control`, that URL is reused; otherwise `loki control serve` is started detached and its PID is recorded in `~/.loki/control/serve.pid`. With `LOKI_HEADLESS=1`, `LOKI_NO_BROWSER=1` or `--no-open` the URL is printed and no browser is opened. Without bun, Loki prints one line naming bun and uses the classic dashboard. Set `LOKI_CONTROL_DEFAULT=0` to always use the classic dashboard. Multi-repo `loki workspace` is on by default; `LOKI_WORKSPACES=0` disables it.

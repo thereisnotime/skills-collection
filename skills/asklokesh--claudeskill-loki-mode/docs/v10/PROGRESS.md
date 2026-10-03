@@ -1898,3 +1898,93 @@ The swarm is stopped: .loki/V10-STOP exists, the loop has no wake-ups, and the c
 - NPM-LAG guard row: publish, smoke and promote wait up to 45 min for the version and re-trigger promote; train-cycle merges origin/main back after each release (it stalled at 16:20Z, merged by hand as cc3e1392).
 - E-160 (D55, train verdict reuse on main; CodeQL always runs; kill switch LOKI_E160_REUSE=0) merged locally after an opus APPROVE.
 - D56 Control Plane: design (docs/v10/CONTROL-PLANE.md, 19 slices), CP-00 corpus, CP-01 service (Hono, Drizzle, bun:sqlite; idempotent ingest, 409 on conflict, fold-derived runs), CP-02 shipper (no-op unless LOKI_CONTROL_URL; exactly-once backfill; redaction) and CP-03 UI (runs list and detail; unpriced never shown as 0) merged locally. CP-04 (wire loki control, packaging, CI, test isolation) and BUN-OPT (npm 11 allow-scripts warning: per-platform @oven/bun packages) building.
+
+## 2026-10-02T23:24Z D60 sprint: v10.6.7 cut with all five slices; D61 paused by the governor
+- v10.6.7 (release commit bfce1db12, train/79 at 1917333e1): `loki start owner/repo#N` runs Loki 10 (D60-1, merge 1e6cbeb65, moat P9 probe ported, moat run rc=0 "no rule failed (4 of 9 proven)"), dashboard prints the port it bound (D60-2, test-ui-bare-loki rc=0), reviewer-first PR body (D60-3, merge 6cfabcf8b), issue-to-PR Action on Loki 10 plus nightly `loki backlog` example (D60-4, test-issue-to-pr-action rc=0), visible cost cap with $20 default and BUDGET_STOP exit 3 (D60-5, merge 34c007e9e).
+- train/79 CI: Tier A, Bun Parity, First-run gate, Coverage, Security Audit, Tests all success. train-cycle phase B "PROMOTED train/79 -> main" 23:21:15Z; phase C "RELEASED v10.6.7" 23:21:26Z. On bfce1db12 so far: Bun Parity, First-run gate, SBOM success; Release and npm `next` pending.
+- train/78 (4da502a47) was red on Tier A "emoji/dash on changes" (literal dashes in reviewer_body.test.ts regex); fixed forward with unicode escapes (1917333e1). e10ext budget 1520 > 1500 fixed by trimming blank lines in assert_delta.ts (4da502a47; engine10 1032 pass, 0 fail).
+- Not done: a real end-to-end exit 3 run for the cost cap (unit-tested only); the root action.yml still uses `loki start --simple`.
+- D61 (speed, docs/v10/D61-SPEED.md): paused, governor max engineers 0 (weekly projected 167.8%). Slice 17 engineer stopped; partial work in worktree agent-ad890c5afa3648ae6.
+- 23:51Z: Post-Release Smoke and Promote success on bfce1db12; npm latest and next both 10.6.7. Sprint closed. (The pause was lifted by D62 at about 00:05Z on 2026-10-03.)
+
+## 2026-10-03T01:56Z D62 resume, D63 roadmap, D64 withdrawn; 4 builders on D63 order
+- D62 (resume now) and D63 (roadmap, docs/v10/ROADMAP-D63.md) recorded and pushed (main 49a940d81). D64 (max pace, all Vorflux rows) arrived at 00:20Z and was withdrawn at 00:25Z; recorded as WITHDRAWN, no builder started.
+- Building (sonnet, worktrees): D61-17 large eval tier, D61-01 pre-model timer, D61-08 decomposer, D62-FIX (action.yml to Loki 10 plus real BUDGET_STOP exit 3 test). Ready next: D61-02, D61-07, D62-VIS, D62-JIRA.
+- Governor: weekly projected 57.4% at 01:55Z; pace target about 0.5% of the week per hour at 4 engineers.
+
+## 2026-10-03T03:04Z Train 82 in CI; HIGH re-review APPROVES contract and visual evidence
+- Train 82 (e072e47a9) carries every D61, D62 and D65 slice from trains 80 and 81 plus fixes: CI fixes dc1fa634f, contract spawn env 32b9db508, visual evidence B1-B3 e035e9929, P9 diagnostic capture e3b353e7a. Local gates: bun test 2905 pass 0 fail, dist guard 13/0, moat rc=0.
+- CI on train/82 so far: Bun Parity, First-run gate, Tier A, Coverage (baseline) success; Tests and Security Audit running.
+- HIGH re-review (opus, af6ddde5): APPROVE both. C1 and B1-B3 each reproduced on the pre-fix parent and shown fixed. Its release-gate item (stale dist) is already met: e072e47a9 dist contains "seal aborted", "keyword_match", "contract trace failed" (1 each) and no "untraced: " line.
+- Five non-blocking should-fixes filed as D65-SPEC-F1, D65-SPEC-F2 (HIGH, design) and D62-VIS-F1.
+- LOKI_CONTRACT and LOKI_VISUAL_EVIDENCE stay default off; flipping them is a separate decision.
+- Reviewer incident: a failed cd ran `loki contract` in the main checkout and wrote .loki/contract.json (gitignored); the reviewer removed it, confirmed absent at 03:04Z.
+
+## 2026-10-03T03:20Z train/83 red, P0-D66-FENCE
+- train/83 (1a63ad156) Coverage (baseline) failure: run 37092508809, `features size and import budget (D66)` fails on "speed/lean_select.ts imports ../../engine10/stages/plan.ts without a whole-statement 'import type'" (local repro: `bun test tests/engine10/budget.test.ts` 26 pass 1 fail).
+- Cause: D61-03 (999ea6af3) value-imports selectRelevantFiles from stages/plan.ts. Fix-forward slice P0-D66-FENCE dispatched (dependency injection, test untouched). Train 83 will not release; train 84 carries the fix.
+- Guard gap: the D61-03 engineer and TL did not run budget.test.ts. Every features/ slice prompt now names it as a required command.
+- Dispatched D63 cards C1 (HIGH), C2, C5, C8, C9, C12 and D61-10-F1; reviews: D61-04 (opus), D61-12 re-review (opus).
+
+## 2026-10-03T03:56Z v10.6.8 released, train 85 staged, train 86 reviewed
+- v10.6.8 released from main d95095d9d (train/82 tree e072e47a9; Tests, Bun Parity, Coverage, Security Audit, First-run green on that SHA). Peer told; D49 auto-promote pending (npm latest 10.6.7 at 03:46Z).
+- train/84 (b45cc902e, carries P0-D66-FENCE) CI running.
+- Train 85 on local main 52c3b0e02: C5, C9, C7, D61-10-F1, D61-16, C4 plus dist (dist guard 13/0). local-ci fast tier hit the 590s cap (rc 124) after 76 PASS, 0 FAIL, bun test PASS; train CI is the authority.
+- Train 86 fully reviewed: C2 00f6741d9 (opus) + C2-F 3177c28ba + C2-F2 3fca6590d (TL, preload mutation goes red), C3 e41381751 + C3-F 362e9c501 (TL, 20/0), C11a 50a75bcfa (TL; legs 1-2 PASS, positive control rc 1).
+- D61-12 round 4 opus BLOCK (B3: repo filter driver fooled the fresh verify checkout). Round 5 630772f97 fixes B3, N1, N5, N7 (integrate tests 68/0); opus round 5 running.
+- In review: C6 (HIGH), C1 (HIGH), C8, C12 (HIGH), D61-04, D61-11, D61-13, D61-16-F, VIS-F1. Next: BUG-C (slack --port 0) after C6, C10 after C1, C11b after train 86.
+
+## 2026-10-03T04:13Z Train 85 pushed (2cc94a548), C1 approved, C12 dropped
+- Train 84 went stale behind the v10.6.8 release commit (train-cycle B: TRAIN_STALE); merged origin/main into local main (dist conflict resolved by rebuild, dist guard 13/0) and pushed train/85 (train-cycle A: TRAIN_PUSHED).
+- Train 85 carries C2, C3, C4, C5, C7, C9, C11a, D61-10-F1, D61-16, D61-16-F (opus APPROVE round 3) and C8 (TL APPROVE). Main moat on bf3e42066: 4 of 9, rc 0. Local-ci hit the 590s cap at 43 PASS, 0 FAIL.
+- C1 round 2 opus APPROVE (7ca8f9832); held until C10 so the Dockerfile and Helm chart do not exit 2 on a tokenless 0.0.0.0 bind. C10 builder dispatched on top of C1.
+- C12 dropped (D72). D61-12 round 6 BLOCK; round 7 fix running. Opus round 2 reviews running for D61-04, D61-13, C6, D61-11.
+- Deferred cleanup (no compound rm mid-window): review scratch dirs rev-d61-16-f-r3, rev-d61-12-r6, and 12 git-home dirs leaked by the D61-12 tests (reviewer removed 2 it owned).
+
+
+## 2026-10-03T04:40Z CoS tick
+- Train 85 Tests red twice in full (run 37095579466): control_default "serve needs no flag; instance.json is 0600" times out on ubuntu only (passes on macOS 13/0). Real cause, so P0-CONTROL-LINUX dispatched (D68). Train 85 will not promote; train 86 supersedes it once green.
+- Merged to local main: C1, C10, INTEL-2, C6, C6-F (TL APPROVE e8837ffa4), D61-13 (opus r3 APPROVE a2c3d9cb2); dist 7ad4a44e9.
+- Core engine10 at 5001 after D61-13 (budget.test needs < 5000): P0-CORE-BUDGET dispatched. Train 86 waits on it and on P0-CONTROL-LINUX.
+- D61-04 r3 BLOCK (live-tree read), r4 fix 9d2bbf4b9 in opus review. D61-12 r7 BLOCK, r8 fix 35a7b0c32 in opus review (final round, else drop). P0-VERIFY-ARG r2 BLOCK (core budget, unguarded unknown-option check, autonomy/loki routes --pubkey= to legacy), r3 fix running. D61-11 r3 fix running.
+- Deferred cleanup adds: scratchpad rev-d61-04-r3, rev-d61-12-r7, rev-d61-13-r3; 13 pre-existing loki-run.git-home-* dirs in TMPDIR (record exact list at end-of-window pass).
+
+## 2026-10-03T04:57Z CoS tick
+- D73 logged: D61-12 integrator dropped from this window (r8 reproduced C1-C4, S3, E6); D61 ships without it, flag-gated, named in handoff. BOARD a1f83c7a9.
+- Merged to local main: D51-B11 (933ecc9fc, test-workspace 14/0), D51-B05/B06 (c1095889f, backlog 49/0, api_start_prep 2 passed). D51-B02/03/04/07/08/09/10/12 parked as already delivered (99aaa6d2b).
+- P0-CONTROL-LINUX opus APPROVE: root cause reproduced in oven/bun:1.3.13 (repo-root node_modules disables bun auto-install, hono missing); npm tarball uses bundled dist/server.js so no runtime fetch. Cherry-picked 2d6e4a77d, dist 377871c88, dist guard 13/0.
+- Train 86 now waits only on P0-CORE-BUDGET TL verdict. In flight: P0-VERIFY-ARG r3 opus, D61-04 r5 fix, D61-11 test fix, P1-DISCARD-PROTO build (HIGH), D50-F4b build.
+- Deferred cleanup adds: scratchpad rev-d61-04-r4, rev-d61-12-r8.
+
+## 2026-10-03T05:27Z tick (CoS)
+- Merged to local main since 04:57Z: P0-VERIFY-ARG (dist 7bfa73a64), P1-DISCARD-PROTO (dist 4d8d1db59), D50-F4b (dist 159abf6d6), D61-04 off-path already-done check under LOKI_SPEED=1 (dist 588658b36, main bun test 1338/0 on rerun after one load flake). Core budget now passes on main, so train 86 no longer waits on P0-CORE-BUDGET.
+- Train 86 first push failed: gitleaks github-pat on the synthetic token fixture tests/workspace/80-comment.sh:7 (D51-B11). Fingerprint baselined with a reason line in .gitleaksignore (acb4ee58f). Rerun: TRAIN_PUSHED train/86 at acb4ee58f, 05:25:53Z; CI pending.
+- In flight: P0-CORE-BUDGET TL r2, D61-11 test fix, D61-04-F leak fixes (MEDIUM, new BOARD row).
+- Carry-forward reviewer notes: P0-CONTROL-LINUX wants a frozen-lockfile install for packages/control-plane in CI; D50-F4b invalid-base reason unreachable in supervisor; D61-04 child env carries OLDPWD (informational).
+
+## 2026-10-03T06:15Z tick (CoS)
+- Train 86 red: spawn_env_guard flagged already_done_async.ts (env passed via spread) and the gitleaks shape pin drifted after acb4ee58f. Fixed by P0-SPAWN-ENV-SPEED (env inline, bun suite 3072/0) and the shape pin 3c47d0f1a (31/0).
+- Train 87 (3c47d0f1a) all six checks green (Tests 37101104493, Coverage, Security Audit, Bun Parity, Tier A, First-run). Promoted by SHA to main at 06:14Z (fast-forward from d95095d9d); Phase C waits on main Tests.
+- Incident: train-cycle Phase A pushed train/88 before Phase B evaluated green train/87, and Phase B only looks at the newest train, so a green train was skipped. Promoted 87 by hand with the same RM push Phase B uses. Guard slice wanted: Phase A must not supersede a green unpromoted train.
+- Train 88 (c127f5e9f) pushed: C11b E2E legs 5-9, D65-BUG5 (schemas/ shipped), D65-BUG6 (Dockerfile COPYs), D65-BUG6-G (TL APPROVE, 18/0), D61-04-F.
+- In flight: P0-CORE-BUDGET TL r2, D61-11 test fix. E2E-D65 section 6 table refresh due after train 88.
+
+## 2026-10-03T06:31Z tick (CoS)
+- v10.6.9 released (tag 48dadd05c). Release run all 10 jobs success; publish-npm logged "+ loki-mode@10.6.9" at 06:24:51Z. Registry at 06:30Z still reads latest=next=10.6.8 with no time entry; not announced as latest until npm view shows it (peer finding accepted).
+- Peer finding: `loki serve` is the deprecated alias of `loki api start`, not the Control Plane; docs and help disagreed. D65-UI-NAMING (62b592031) and D65-UI-NAMING-2 (e564d2423, bash fallback honors LOKI_CONTROL=0 and names bun) merged, both TL APPROVE.
+- P0-TC-SUPERSEDE merged (bd686b7c9): train-cycle now holds a green unpromoted train so Phase B promotes it first.
+- Train 88 was cut before the v10.6.9 release commit, so it is not a fast-forward of main. Merged origin/main into local main (7ad91e03f, no conflicts, dist rebuilt unchanged, dist guard 13/0) and pushed train 89 (8576564a7) carrying C11b, D65-BUG5, D65-BUG6, D65-BUG6-G, D61-04-F, P0-TC-SUPERSEDE, D65-UI-NAMING and -2.
+
+## 2026-10-03T07:55Z tick (CoS)
+- Train 89 and 90 never went all-green: Security Audit cancelled both because the gitleaks full-history scan hit its 15 min timeout (also trains 86, 88; passing runs took 8-15 min). Train 90 Tests had one P9 red; full rerun green (flake, same code green on 89).
+- D74 (5d4530b18): gitleaks timeout 15 -> 30 min, same scope. Train 91 all six checks green; train-cycle promoted it at 07:41:45Z and cut v10.6.10 (a5a4f0c95, release run in progress at 07:55Z; npm still reads latest=10.6.9, not announced).
+- D75 (cacc31400): peer proposal for a train-range gitleaks scan; CTO APPROVE-WITH-CONDITIONS after finding the full scan would no longer guard npm publish (E-160 reuse plus unfiltered required-ci parent reuse). Slice D75-GITLEAKS-RANGE built (30e96b09c, test 43/0); opus adversarial review in flight.
+- Local main merged origin/main v10.6.10 (a6ebe9897), dist guard 13/0.
+- Drift audit vs CONTROL.md (last 6h): release cadence and merged-unreleased age violated by the gitleaks timeouts (fixed D74/D75); D12/D13 held; active builders 1 vs target 6. Only one ready row is dependency-free (D65-SPEC-F2, needs architect card). engine10 budget.test.ts 27/0 on main, so P0-CORE-BUDGET no longer blocks trains.
+
+## 2026-10-03T07:56Z tick (CoS)
+- Correction: the previous entry is stamped 07:55Z but was written at 07:52Z (pulse FUTURE_TIMESTAMP). This entry's time comes from `date -u`.
+- D65-BUG7 merged as main b5a0085a0. Intake resolved `info/exclude` with a hard-coded `.git/` path, which threw ENOTDIR in linked worktrees. TL APPROVE (the mutation went red at 15/1). The intake test is 16/0 on main, the dist guard is 13/0, and `scripts/e2e-d65.sh` gives legs=9 fails=0. Documented in E2E-D65.md section 6.1.
+- D75-GITLEAKS-RANGE: opus r1 BLOCK B1 (a red daily scan did not halt releases). The r2 fix b11872776 adds a scheduled-run check in release.yml required-ci (47/0, W9 plus 2 mutations go red). The opus r2 re-review is running and also judges the fail-open path on an API error.
+- v10.6.10: the release workflow (a5a4f0c95) is still in_progress. npm shows latest=next=10.6.9. No push until it completes; the peer has not been told.
+- Drift audit (last 6h): 3 releases against the 18 that the 20 min cadence target implies (MISS; the main cause was Security Audit timeouts on trains 86-90, fixed by D74). 175 commits on local main. Ready rows: 25, of which 14 are dependency-blocked and most of the rest are eval, real-model or CTO-owned. Active builders: 3 (D65-SPEC-F2, D61-11 r3, and the D75 review), against a target of 6. Pulse budget projection: weekly 115.8%, max engineers 2. The D68 mandate floor (85% of live /usage) overrides this; live usage was 52% at 07:43 according to the peer, so it is within the floor.

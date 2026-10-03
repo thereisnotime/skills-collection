@@ -17,6 +17,7 @@
 # built at runtime by string concatenation so gitleaks never sees a literal
 # in this file's own committed bytes.
 
+# shellcheck disable=SC2015,SC2016
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,6 +33,286 @@ echo "=== security-audit.yml gitleaks config isolation (E-114) ==="
 
 [ -f "$SCRIPT" ] || { echo "  FAIL: $SCRIPT missing"; exit 1; }
 [ -x "$SCRIPT" ] || { echo "  FAIL: $SCRIPT is not executable"; exit 1; }
+
+TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/loki-e114-test.XXXXXX")"
+cleanup() { rm -rf -- "$TMP_ROOT"; }
+trap cleanup EXIT
+
+SA_YML="$REPO_ROOT/.github/workflows/security-audit.yml"
+REL_YML="$REPO_ROOT/.github/workflows/release.yml"
+
+# --- D75 workflow-text checks (W7, W8): need no gitleaks binary -------------
+# Extract the real text from the workflow files so the test exercises it, not a copy.
+cat > "$TMP_ROOT/extract.py" <<'PYEOF'
+import re, sys, yaml
+kind, out = sys.argv[1], sys.argv[2]
+sa = open(sys.argv[3]).read()
+rel = open(sys.argv[4]).read()
+if kind == "step":
+    d = yaml.safe_load(sa)
+    steps = d["jobs"]["secret-scan"]["steps"]
+    run = [s["run"] for s in steps if s.get("name", "").startswith("Select gitleaks scan mode")]
+    assert len(run) == 1, "expected exactly one scan-mode step"
+    open(out, "w").write(run[0])
+elif kind == "jq":
+    m = re.findall(r"--jq '(\.workflow_runs\[\][^\n]*)' 2>/dev/null", rel)
+    assert len(m) == 1, "expected exactly one fetch_runs jq filter"
+    open(out, "w").write(m[0])
+elif kind == "sfn":
+    out_s = ""
+    for fn in ("sched_audit_api", "sched_audit_fetch", "sched_audit_ok", "sched_audit_gate"):
+        m = re.findall(r"^ {10}" + fn + r"\(\) \{\n(.*?\n) {10}\}\n", rel, re.S | re.M)
+        assert len(m) == 1, "expected exactly one " + fn
+        out_s += fn + "() {\n" + m[0] + "}\n"
+    open(out, "w").write(out_s)
+elif kind == "awk":
+    m = re.findall(r"'(\$1==\"Security Audit\"[^\n]*END\{print c\})'", rel)
+    assert len(m) == 1, "expected exactly one audit_verdict awk program"
+    open(out, "w").write(m[0])
+elif kind == "if":
+    d = yaml.safe_load(sa)
+    job = sys.argv[5]
+    open(out, "w").write(d["jobs"][job]["if"])
+PYEOF
+_extract() { python3 "$TMP_ROOT/extract.py" "$1" "$2" "$SA_YML" "$REL_YML" "${3:-}"; }
+
+# W7: release.yml required-ci counts a Security Audit run only from main or a dispatch.
+if command -v jq >/dev/null 2>&1; then
+  _extract jq "$TMP_ROOT/fetch.jq" && _extract awk "$TMP_ROOT/verdict.awk"
+  _w7() { # _w7 <jq-prog-file> ; 0 = filter behaves per D75
+    local prog parent_train parent_main parent_disp tests_train
+    prog="$(cat "$1")"
+    _mk_blob() { # branch event conclusion name
+      printf '{"workflow_runs":[{"name":"%s","status":"completed","conclusion":"%s","created_at":"2026-10-03T00:00:00Z","event":"%s","head_branch":"%s"}]}' "$4" "$3" "$2" "$1"
+    }
+    _verdict() { jq -r "$prog" | awk -F'\t' "$(cat "$TMP_ROOT/verdict.awk")"; }
+    parent_train="$(_mk_blob train/x push success 'Security Audit' | _verdict)"
+    parent_main="$(_mk_blob main push success 'Security Audit' | _verdict)"
+    parent_disp="$(_mk_blob train/x workflow_dispatch success 'Security Audit' | _verdict)"
+    tests_train="$(_mk_blob train/x push success 'Tests' | jq -r "$prog" | awk -F'\t' '$1=="Tests"&&$3=="success"{print "kept"}')"
+    [ -z "$parent_train" ] && [ "$parent_main" = "success" ] && [ "$parent_disp" = "success" ] && [ "$tests_train" = "kept" ]
+  }
+  if _w7 "$TMP_ROOT/fetch.jq"; then
+    ok "W7: a train/** push Security Audit success is not reused; main push and dispatch successes are; Tests on a train branch is untouched"
+  else
+    bad "W7: required-ci Security Audit filter does not match D75"
+  fi
+  # mutation: drop the D75 select clause -> the train success is reused -> must go red
+  python3 - "$TMP_ROOT/fetch.jq" "$TMP_ROOT/fetch.mut.jq" <<'PYEOF'
+import sys
+s = open(sys.argv[1]).read()
+m = ' | select(.name!="Security Audit" or .head_branch=="main" or .event=="workflow_dispatch")'
+assert m in s
+open(sys.argv[2], "w").write(s.replace(m, ""))
+PYEOF
+  if _w7 "$TMP_ROOT/fetch.mut.jq"; then
+    bad "W7 mutation (filter removed) stayed green: the check cannot see the guard"
+  else
+    ok "W7 mutation (filter removed) goes red"
+  fi
+else
+  bad "W7: jq is required for this test"
+fi
+
+# W9: a red daily scheduled scan halts releases unless a newer successful main run
+# supersedes it; an API error blocks; paging cannot hide the scheduled run (release.yml
+# required-ci, D75/D75b). The stub gh below emulates the Actions API filters
+# (event, branch, status=success, created>=, per_page, total_count, newest first)
+# so the REAL extracted gate functions run unchanged.
+if command -v jq >/dev/null 2>&1; then
+  _extract sfn "$TMP_ROOT/sched.fn.sh"
+  cat > "$TMP_ROOT/gh-stub.sh" <<'STUBEOF'
+gh() {
+  local url="$2" p="" kv q ev="" br="" st="" cr="" pp=100 n
+  shift 2
+  while [ $# -gt 0 ]; do [ "$1" = --jq ] && p="$2"; shift; done
+  if [ -n "${W9_FLAKY:-}" ]; then
+    n="$(cat "$W9_FLAKY" 2>/dev/null || echo 0)"; echo $((n + 1)) > "$W9_FLAKY"
+    [ "$n" -ge 2 ] || return 1
+  fi
+  q="${url#*\?}"
+  local IFS='&'
+  for kv in $q; do
+    case "$kv" in
+      event=*) ev="${kv#event=}" ;;
+      branch=*) br="${kv#branch=}" ;;
+      status=*) st="${kv#status=}" ;;
+      created=*) cr="${kv#created=%3E%3D}" ;;
+      per_page=*) pp="${kv#per_page=}" ;;
+    esac
+  done
+  if [ -n "${W9_RAW_SCHED:-}" ] && [ "$ev" = schedule ]; then
+    printf '%s' "$W9_RAW_SCHED" | jq -r "$p"
+    return
+  fi
+  printf '%s' "$BLOB" | jq --arg ev "$ev" --arg br "$br" --arg st "$st" --arg cr "$cr" --argjson pp "$pp" '
+    ([.workflow_runs[] | select(.status=="completed")
+      | select($ev=="" or .event==$ev) | select($br=="" or .head_branch==$br)
+      | select($st!="success" or .conclusion=="success") | select($cr=="" or .created_at >= $cr)]
+     | sort_by(.created_at) | reverse) as $all
+    | {total_count: ($all|length), workflow_runs: $all[:$pp]}' | jq -r "$p"
+}
+STUBEOF
+  _sched_run() { # _sched_run <fn-file> <runs-json | FAIL> -> prints "<rc>|<output>"
+    local out rc=0
+    out="$(BLOB="$2" bash -c '
+      source "$1"; REPO=x/y; sleep() { :; }
+      if [ "$BLOB" = FAIL ]; then gh() { return 1; }; else source "$2"; fi
+      sched_audit_gate' _ "$1" "$TMP_ROOT/gh-stub.sh" 2>&1)" || rc=$?
+    printf '%s|%s' "$rc" "$out"
+  }
+  _r() { # name event conclusion created [branch]
+    local c="\"$3\""
+    [ "$3" = null ] && c=null
+    printf '{"name":"Security Audit","status":"completed","conclusion":%s,"created_at":"%s","event":"%s","head_branch":"%s","html_url":"https://example.invalid/runs/%s"}' "$c" "$4" "$2" "${5:-main}" "$1"
+  }
+  _many() { # _many <count> <event> <conclusion>: <count> main runs all newer than 2026-10-01
+    local i out=""
+    for i in $(seq 1 "$1"); do
+      out="${out:+$out,}$(_r "m$i" "$2" "$3" "$(printf '2026-10-03T%02d:%02d:00Z' $((i / 60)) $((i % 60)))" "${4:-main}")"
+    done
+    printf '%s' "$out"
+  }
+  _blob() { local IFS=,; printf '{"workflow_runs":[%s]}' "$*"; }
+  _expect() { # _expect <fn> <rc> <substring> <runs-json|FAIL>
+    local o
+    o="$(_sched_run "$1" "$4")"
+    [ "${o%%|*}" = "$2" ] && case "$o" in *"$3"*) true ;; *) false ;; esac
+  }
+  _w9() { # _w9 <fn-file> ; 0 = every case behaves per D75/D75b
+    local f="$1" o
+    _expect "$f" 1 "runs/s" "$(_blob "$(_r s schedule failure 2026-10-03T08:00:00Z)" "$(_r p push success 2026-10-03T07:00:00Z)")" || return 1
+    _expect "$f" 1 "'cancelled'" "$(_blob "$(_r c schedule cancelled 2026-10-03T08:00:00Z)")" || return 1
+    _expect "$f" 1 "'timed_out'" "$(_blob "$(_r t schedule timed_out 2026-10-03T08:00:00Z)")" || return 1
+    _expect "$f" 1 "'null'" "$(_blob "$(_r n schedule null 2026-10-03T08:00:00Z)")" || return 1
+    _expect "$f" 0 "supersedes" "$(_blob "$(_r p push success 2026-10-03T07:00:00Z)" "$(_r s schedule failure 2026-09-28T07:00:00Z)")" || return 1
+    _expect "$f" 0 "supersedes" "$(_blob "$(_r d workflow_dispatch success 2026-10-03T07:00:00Z)" "$(_r s schedule failure 2026-09-28T07:00:00Z)")" || return 1
+    # a newer success on a train/** branch does NOT clear it
+    _expect "$f" 1 "runs/s" "$(_blob "$(_r tr push success 2026-10-03T09:00:00Z train/x)" "$(_r s schedule failure 2026-10-03T08:00:00Z)")" || return 1
+    # a success OLDER than the scheduled failure does not clear it
+    _expect "$f" 1 "runs/s" "$(_blob "$(_r s schedule failure 2026-10-03T08:00:00Z)" "$(_r p push success 2026-10-02T07:00:00Z)")" || return 1
+    _expect "$f" 0 "succeeded" "$(_blob "$(_r s schedule success 2026-10-03T08:00:00Z)")" || return 1
+    # newest scheduled run is the one that counts
+    _expect "$f" 0 "succeeded" "$(_blob "$(_r s2 schedule success 2026-10-03T08:00:00Z)" "$(_r s1 schedule failure 2026-10-02T08:00:00Z)")" || return 1
+    _expect "$f" 1 "runs/s2" "$(_blob "$(_r s2 schedule failure 2026-10-03T08:00:00Z)" "$(_r s1 schedule success 2026-10-02T08:00:00Z)")" || return 1
+    # a non-main scheduled failure (newer) is ignored
+    _expect "$f" 0 "succeeded" "$(_blob "$(_r x schedule failure 2026-10-03T09:00:00Z feature)" "$(_r s schedule success 2026-10-03T08:00:00Z)")" || return 1
+    # runs exist but none scheduled: passes (the schedule query has total_count 0)
+    _expect "$f" 0 "no completed scheduled run" "$(_blob "$(_r p push success 2026-10-03T07:00:00Z)")" || return 1
+    _expect "$f" 0 "no completed scheduled run" '{"workflow_runs":[]}' || return 1
+    # PAGE-OVERFLOW: 120 newer main push failures push the scheduled failure off any single
+    # 100-run page. The old one-page gate passed this as "no scheduled run"; it must block.
+    _expect "$f" 1 "runs/s" "$(_blob "$(_r s schedule failure 2026-09-28T07:00:00Z)" "$(_many 120 push failure)")" || return 1
+    # same overflow, but 120 newer push successes: the success beyond the old page clears it
+    _expect "$f" 0 "supersedes" "$(_blob "$(_r s schedule failure 2026-09-28T07:00:00Z)" "$(_many 120 push success)")" || return 1
+    # 120 newer successes on a train branch must not inflate the main total_count: plain red
+    _expect "$f" 1 "no newer successful main run" "$(_blob "$(_r s schedule failure 2026-09-28T07:00:00Z)" "$(_many 120 push success train/x)")" || return 1
+    # more successes exist than were fetched and none qualifies: indeterminate blocks
+    _expect "$f" 1 "indeterminate" "$(_blob "$(_r s schedule failure 2026-09-28T07:00:00Z)" "$(_many 120 pull_request success)")" || return 1
+    # schedule query says total_count 5 but returns no run: indeterminate, never "none"
+    o="$(W9_RAW_SCHED='{"total_count":5,"workflow_runs":[]}' _sched_run "$f" "$(_blob "$(_r p push success 2026-10-03T07:00:00Z)")")"
+    [ "${o%%|*}" = "1" ] && case "$o" in *indeterminate*) true ;; *) false ;; esac || return 1
+    # two transient gh errors then success: the retry reads the verdict
+    : > "$TMP_ROOT/w9.flaky"
+    o="$(W9_FLAKY="$TMP_ROOT/w9.flaky" _sched_run "$f" "$(_blob "$(_r s schedule success 2026-10-03T08:00:00Z)")")"
+    [ "${o%%|*}" = "0" ] || return 1
+    # a failing gh (404, outage) blocks after retries
+    _expect "$f" 1 "cannot read scheduled Security Audit runs (API error)" FAIL
+  }
+  if _w9 "$TMP_ROOT/sched.fn.sh"; then
+    ok "W9: scheduled red blocks unless a newer main push or dispatch success supersedes it (including past 100 runs); train success does not; >100 runs, indeterminate and API error block; green, no schedule and zero runs pass with a reason"
+  else
+    bad "W9: scheduled-audit gate does not match D75/D75b"
+  fi
+  _w9_mut() { # _w9_mut <name> <old> <new> [<old2> <new2>]
+    python3 - "$TMP_ROOT/sched.fn.sh" "$TMP_ROOT/sched.fn.$1.sh" "$2" "$3" "${4:-}" "${5:-}" <<'PYEOF'
+import sys
+s = open(sys.argv[1]).read()
+for old, new in ((sys.argv[3], sys.argv[4]), (sys.argv[5], sys.argv[6])):
+    if not old:
+        continue
+    assert s.count(old) == 1, old
+    s = s.replace(old, new)
+open(sys.argv[2], "w").write(s)
+PYEOF
+    if _w9 "$TMP_ROOT/sched.fn.$1.sh"; then bad "W9 mutation ($1) stayed green"; else ok "W9 mutation ($1) goes red"; fi
+  }
+  _w9_mut noblock 'review it before releasing"; return 1' 'review it before releasing"; return 0'
+  _w9_mut nobranchsched 'event=schedule&branch=main&status=completed' 'event=schedule&status=completed'
+  _w9_mut nobranchsucc 'branch=main&status=success' 'status=success'
+  _w9_mut noclear 'if $n > 0 then "cleared"' 'if false then "cleared"'
+  _w9_mut oldsuccess '&created=%3E%3D${created}' '' '.created_at > "'"'"'"$created"'"'"'")' '.created_at > "0")'
+  _w9_mut noindet 'elif (.total_count // 0) > ((.workflow_runs // []) | length) then "indeterminate"' 'elif false then "indeterminate"'
+  _w9_mut indetpass 'could not be fully read ($url); blocking"; return 1' 'could not be fully read ($url); blocking"; return 0'
+  _w9_mut nototalcheck 'if (.total_count // 0) == 0 then "none"' 'if ((.workflow_runs // []) | length) == 0 then "none"'
+  _w9_mut mixedpage 'event=schedule&branch=main&status=completed&per_page=1' 'branch=main&status=completed&per_page=100'
+  _w9_mut failopen '(API error)"
+    return 1' '(API error)"
+    return 0'
+  _w9_mut noretry 'for i in 1 2 3; do' 'for i in 1; do'
+  # the gate must actually be called from required-ci and must fail the job
+  if grep -qF 'sched_reason="$(sched_audit_gate)"' "$REL_YML" \
+     && grep -qF 'FAIL: the daily scheduled Security Audit is not green' "$REL_YML"; then
+    ok "W9: required-ci calls the scheduled-audit gate and exits 1 when it blocks"
+  else
+    bad "W9: required-ci does not call the scheduled-audit gate"
+  fi
+  grep -vF 'sched_reason="$(sched_audit_gate)"' "$REL_YML" > "$TMP_ROOT/release.nocall.yml"
+  if grep -qF 'sched_reason="$(sched_audit_gate)"' "$TMP_ROOT/release.nocall.yml"; then
+    bad "W9 mutation (call dropped) stayed green"
+  else
+    ok "W9 mutation (call dropped) goes red"
+  fi
+else
+  bad "W9: jq is required for this test"
+fi
+
+# W8: a main push runs secret-scan even when train-reuse=true; other jobs keep E-160 reuse.
+_eval_if() { # _eval_if <if-file> <event> <ref> <reuse> -> prints True/False
+  python3 - "$1" "$2" "$3" "$4" <<'PYEOF'
+import re, sys
+e = open(sys.argv[1]).read().strip()
+e = re.sub(r"^\$\{\{\s*|\s*\}\}$", "", e)
+ev, ref, reuse = sys.argv[2:5]
+e = e.replace("!cancelled()", "True").replace("&&", " and ").replace("||", " or ")
+e = e.replace("!=", " __NE__ ")
+e = e.replace("github.event_name", repr(ev)).replace("github.ref", repr(ref))
+e = e.replace("needs.train-reuse.outputs.reuse", repr(reuse)).replace("__NE__", "!=")
+print(bool(eval(e)))
+PYEOF
+}
+_w8() { # _w8 <if-file>
+  [ "$(_eval_if "$1" push refs/heads/main true)" = "True" ] \
+    && [ "$(_eval_if "$1" push refs/heads/train/x true)" = "False" ] \
+    && [ "$(_eval_if "$1" push refs/heads/main false)" = "True" ] \
+    && [ "$(_eval_if "$1" push refs/heads/train/x false)" = "True" ]
+}
+_extract if "$TMP_ROOT/if.secret" secret-scan
+if _w8 "$TMP_ROOT/if.secret"; then
+  ok "W8: secret-scan runs on a main push even when train-reuse=true, and still skips for a train push with reuse=true"
+else
+  bad "W8: secret-scan if: does not ignore train reuse on a main push"
+fi
+printf "%s" "\${{ !cancelled() && needs.train-reuse.outputs.reuse != 'true' }}" > "$TMP_ROOT/if.old"
+if _w8 "$TMP_ROOT/if.old"; then
+  bad "W8 mutation (pre-D75 if:) stayed green: the check cannot see the guard"
+else
+  ok "W8 mutation (pre-D75 if:) goes red"
+fi
+_w8_others=1
+for _j in npm-audit python-audit bun-audit; do
+  _extract if "$TMP_ROOT/if.$_j" "$_j"
+  [ "$(cat "$TMP_ROOT/if.$_j")" = "\${{ !cancelled() && needs.train-reuse.outputs.reuse != 'true' }}" ] || _w8_others=0
+done
+[ "$_w8_others" -eq 1 ] && ok "W8: npm-audit and bun-audit keep the E-160 reuse condition unchanged" \
+  || bad "W8: another job's if: changed"
+
+# D75: the cron is daily
+if grep -qF "cron: '0 7 * * *'" "$SA_YML" && ! grep -qF "cron: '0 7 * * 1'" "$SA_YML"; then
+  ok "D75: the schedule is daily"
+else
+  bad "D75: the schedule is not '0 7 * * *'"
+fi
 
 # Prefer the pinned binary scripts/install-gitleaks.sh puts on disk, then PATH.
 GITLEAKS_BIN=""
@@ -53,10 +334,6 @@ fi
 _installed_version="$("$GITLEAKS_BIN" version 2>&1 | tr -d '[:space:]')"
 echo "  NOTE: using installed gitleaks ($GITLEAKS_BIN, $_installed_version)."
 echo "        security-audit.yml pins v8.30.0; this host has ${_installed_version#Version} -- close enough to exercise the same --config precedence, not a substitute for the pinned CI binary."
-
-TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/loki-e114-test.XXXXXX")"
-cleanup() { rm -rf -- "$TMP_ROOT"; }
-trap cleanup EXIT
 
 _new_repo() {
   local repo="$1"
@@ -290,6 +567,7 @@ git -C "$REPO_F" commit -qm "baseline, untagged repo (no release tag exists at a
 printf 'title = "x"\n' > "$REPO_F/.gitleaks.toml"
 git -C "$REPO_F" add .gitleaks.toml
 git -C "$REPO_F" commit -qm "push A: zero-rule config, no VERSION change, no audit" --no-gpg-sign --no-verify
+# shellcheck disable=SC2034
 B1_F="$(git -C "$REPO_F" rev-parse HEAD)"
 printf '%s\n' "const key = \"${_akia_prefix}${_akia_rest}\";" > "$REPO_F/secret.js"
 git -C "$REPO_F" add secret.js
@@ -380,6 +658,217 @@ if _run_script "$REPO_H" "$TMP_ROOT/report-h2.json"; then
 else
   bad "E-159b: a clean --all scan failed"; cat "$TMP_ROOT/report-h2.json.out"
 fi
+
+# --- D75 Wall checks W1-W6: range mode on train/** pushes -------------------
+# The scan-mode step is extracted from security-audit.yml and run as written
+# against scratch repos that have a real origin; every check runs against the real
+# text first and then against a mutated copy that must go red.
+_extract step "$TMP_ROOT/mode-step.sh"
+_secret_line="const key = \"${_akia_prefix}${_akia_rest}\";"
+
+_mutate_file() { # _mutate_file <src> <dst> <old> <new>   (exactly one occurrence)
+  python3 - "$1" "$2" "$3" "$4" <<'PYEOF'
+import sys
+s = open(sys.argv[1]).read()
+assert s.count(sys.argv[3]) == 1, "mutation anchor not found exactly once: " + sys.argv[3]
+open(sys.argv[2], "w").write(s.replace(sys.argv[3], sys.argv[4]))
+PYEOF
+}
+
+_mk_train() { # _mk_train <name> [stale]  -> T_REPO, T_ORIGIN; train/x checked out
+  T_REPO="$TMP_ROOT/$1"; T_ORIGIN="$TMP_ROOT/$1.origin.git"
+  _new_repo "$T_REPO"
+  if [ "${2:-}" = "stale" ]; then
+    git clone -q --bare "$T_REPO" "$T_ORIGIN"
+  fi
+  printf 'main1\n' > "$T_REPO/main1.txt"
+  git -C "$T_REPO" add main1.txt
+  git -C "$T_REPO" commit -qm "main tip" --no-gpg-sign --no-verify
+  [ "${2:-}" = "stale" ] || git clone -q --bare "$T_REPO" "$T_ORIGIN"
+  git -C "$T_REPO" remote add origin "$T_ORIGIN"
+  git -C "$T_REPO" checkout -q -b train/x
+}
+_commit_file() { # _commit_file <repo> <path> <content>
+  printf '%s\n' "$3" > "$1/$2"
+  git -C "$1" add "$2"
+  git -C "$1" commit -qm "add $2" --no-gpg-sign --no-verify
+}
+_run_step() { # _run_step <step-file> <repo> [ref] [event] -> prints the selected range
+  local ref="${3:-refs/heads/train/x}" event="${4:-push}"
+  : > "$2.env"
+  (cd "$2" && env GITHUB_REF="$ref" GITHUB_EVENT_NAME="$event" GITHUB_SHA="$(git rev-parse HEAD)" \
+    GITHUB_ENV="$2.env" bash "$1" > "$2.stepout" 2>&1)
+  sed -n 's/^GITLEAKS_RANGE=//p' "$2.env" | tail -1
+}
+_scan_range() { # _scan_range <script> <repo> <range> -> rc; report at <repo>.report.json
+  (cd "$2" && env GITLEAKS_BIN="$GITLEAKS_BIN" GITLEAKS_BEFORE="" GITLEAKS_RANGE="$3" \
+    GITLEAKS_TIP="$(git rev-parse HEAD)" GITLEAKS_REPORT="$2.report.json" "$1" > "$2.scanout" 2>&1)
+}
+_findings() { python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))))" "$1.report.json" 2>/dev/null || echo 0; }
+# _caught <step> <script> <repo>: the range-mode pipeline reports the secret
+_caught() {
+  local r
+  r="$(_run_step "$1" "$3")"
+  grep -q '^gitleaks mode: range ' "$3.stepout" || return 1
+  [ -n "$r" ] || return 1
+  _scan_range "$2" "$3" "$r" && return 1
+  [ "$(_findings "$3")" -ge 1 ]
+}
+
+_STEP_REAL="$TMP_ROOT/mode-step.sh"
+_STEP_M1="$TMP_ROOT/mode-step.m1.sh"   # base = parent of the tip: range loses earlier train commits
+_mutate_file "$_STEP_REAL" "$_STEP_M1" 'base="$(git merge-base origin/main "$GITHUB_SHA" 2>/dev/null || true)"' 'base="$(git rev-parse "${GITHUB_SHA}^")"'
+
+# W1: secret in an early train-only commit, clean commit on top
+_w1() { # _w1 <step> <name>
+  _mk_train "$2"
+  _commit_file "$T_REPO" secret.js "$_secret_line"
+  _commit_file "$T_REPO" clean.txt "clean"
+  _caught "$1" "$SCRIPT" "$T_REPO"
+}
+if _w1 "$_STEP_REAL" w1; then ok "W1: a secret in a train-only commit is caught in range mode"; else bad "W1: train-only secret not caught in range mode"; fi
+if _w1 "$_STEP_M1" w1m; then bad "W1 mutation (range base = tip parent) stayed green"; else ok "W1 mutation (range base = tip parent) goes red"; fi
+
+# W2: evil merges
+_w2() { # _w2 <step> <script> <name>
+  _mk_train "$3a"
+  local r="$T_REPO"
+  git -C "$r" branch side main
+  git -C "$r" checkout -q side
+  _commit_file "$r" side.txt side
+  git -C "$r" checkout -q train/x
+  _commit_file "$r" t.txt t
+  git -C "$r" merge -q --no-ff --no-commit -s ours side >/dev/null 2>&1
+  printf '%s\n' "$_secret_line" > "$r/CHANGELOG.md"
+  git -C "$r" add CHANGELOG.md
+  git -C "$r" commit -qm "evil merge" --no-gpg-sign --no-verify
+  _caught "$1" "$2" "$r" || return 1
+  # conflict resolution that adds a token
+  _mk_train "$3b"
+  r="$T_REPO"
+  _commit_file "$r" f.txt base
+  git -C "$r" branch side
+  git -C "$r" checkout -q side
+  _commit_file "$r" f.txt side
+  git -C "$r" checkout -q train/x
+  _commit_file "$r" f.txt train
+  git -C "$r" merge --no-ff --no-commit side >/dev/null 2>&1
+  printf '%s\n' "$_secret_line" > "$r/f.txt"
+  git -C "$r" add f.txt
+  git -C "$r" commit -qm "resolve conflict" --no-gpg-sign --no-verify
+  _caught "$1" "$2" "$r"
+}
+_SCRIPT_M2="$TMP_ROOT/script.m2.sh"
+python3 - "$SCRIPT" "$_SCRIPT_M2" <<'PYEOF'
+import sys
+s = open(sys.argv[1]).read()
+n = s.count("--diff-merges=first-parent")
+assert n >= 2, n
+open(sys.argv[2], "w").write(s.replace(" --diff-merges=first-parent", ""))
+PYEOF
+chmod +x "$_SCRIPT_M2"
+if _w2 "$_STEP_REAL" "$SCRIPT" w2; then ok "W2: an evil merge (-s ours plus a token) and a conflict resolution adding a token are caught in range mode"; else bad "W2: an evil merge was not caught in range mode"; fi
+if _w2 "$_STEP_REAL" "$_SCRIPT_M2" w2m; then bad "W2 mutation (--diff-merges removed from the script) stayed green"; else ok "W2 mutation (--diff-merges removed from the script) goes red"; fi
+
+# W3: a .gitleaks.toml added inside the range is refused (exit 1), no secret needed
+_w3() { # _w3 <script> <name>
+  _mk_train "$2"
+  _commit_file "$T_REPO" .gitleaks.toml 'title = "x"'
+  local r rc=0
+  r="$(_run_step "$_STEP_REAL" "$T_REPO")"
+  _scan_range "$1" "$T_REPO" "$r" || rc=$?
+  [ "$rc" -eq 1 ] && grep -q 'founder review' "$T_REPO.scanout"
+}
+_SCRIPT_M3="$TMP_ROOT/script.m3.sh"
+_mutate_file "$SCRIPT" "$_SCRIPT_M3" 'if [ "$_config_touched" -eq 1 ]; then' 'if [ "$_config_touched" -eq 99 ]; then'
+chmod +x "$_SCRIPT_M3"
+if _w3 "$SCRIPT" w3; then ok "W3: a .gitleaks.toml added inside the range is refused with exit 1"; else bad "W3: config added in range was not refused"; fi
+if _w3 "$_SCRIPT_M3" w3m; then bad "W3 mutation (refusal disabled) stayed green"; else ok "W3 mutation (refusal disabled) goes red"; fi
+
+# W4: stale origin/main (older than the real main tip) -> larger range, still catches
+_w4() { # _w4 <step> <name>
+  _mk_train "$2" stale
+  _commit_file "$T_REPO" secret.js "$_secret_line"
+  _commit_file "$T_REPO" clean.txt "clean"
+  _caught "$1" "$SCRIPT" "$T_REPO" || return 1
+  local r base
+  r="$(sed -n 's/^GITLEAKS_RANGE=//p' "$T_REPO.env" | tail -1)"
+  base="${r%%..*}"
+  # stale origin/main is the baseline commit, so main1 is inside the range: 3 commits
+  [ "$(git -C "$T_REPO" rev-list --count "$r")" -eq 3 ] && [ "$base" = "$(git -C "$T_REPO" rev-parse "origin/main")" ]
+}
+if _w4 "$_STEP_REAL" w4; then ok "W4: a stale origin/main gives the larger range (3 commits) and still catches the secret"; else bad "W4: stale origin/main case failed"; fi
+if _w4 "$_STEP_M1" w4m; then bad "W4 mutation stayed green"; else ok "W4 mutation (range base = tip parent) goes red"; fi
+
+# W5: fallback to the full scan, proven by the logged mode
+_w5() { # _w5 <step> <name> -> 0 iff all three doubt cases log full and export an empty range
+  local r
+  # (a) origin unreachable (stale origin/main ref exists, fetch fails)
+  _mk_train "${2}a"
+  _commit_file "$T_REPO" t.txt t
+  git -C "$T_REPO" fetch -q origin main
+  git -C "$T_REPO" remote set-url origin "$TMP_ROOT/does-not-exist.git"
+  r="$(_run_step "$1" "$T_REPO")"
+  [ -z "$r" ] && grep -q '^gitleaks mode: full$' "$T_REPO.stepout" || return 1
+  # (b) no origin at all: empty base
+  _mk_train "${2}b"
+  _commit_file "$T_REPO" t.txt t
+  git -C "$T_REPO" remote remove origin
+  r="$(_run_step "$1" "$T_REPO")"
+  [ -z "$r" ] && grep -q '^gitleaks mode: full$' "$T_REPO.stepout" || return 1
+  # (c) zero commits between merge-base and SHA (train tip equals main tip)
+  _mk_train "${2}c"
+  r="$(_run_step "$1" "$T_REPO")"
+  [ -z "$r" ] && grep -q '^gitleaks mode: full$' "$T_REPO.stepout" || return 1
+  # (d) not a train ref, and a train ref on a non-push event
+  _mk_train "${2}d"
+  _commit_file "$T_REPO" t.txt t
+  r="$(_run_step "$1" "$T_REPO" refs/heads/main push)"
+  [ -z "$r" ] && grep -q '^gitleaks mode: full$' "$T_REPO.stepout" || return 1
+  r="$(_run_step "$1" "$T_REPO" refs/heads/train/x workflow_dispatch)"
+  [ -z "$r" ] && grep -q '^gitleaks mode: full$' "$T_REPO.stepout"
+}
+_STEP_M5A="$TMP_ROOT/mode-step.m5a.sh"; _STEP_M5C="$TMP_ROOT/mode-step.m5c.sh"; _STEP_M5D="$TMP_ROOT/mode-step.m5d.sh"
+_mutate_file "$_STEP_REAL" "$_STEP_M5A" 'if git fetch --no-tags origin main >/dev/null 2>&1; then' 'if true; then'
+_mutate_file "$_STEP_REAL" "$_STEP_M5C" "'' | *[!0-9]* | 0) ;;" "'' | *[!0-9]*) ;;"
+_mutate_file "$_STEP_REAL" "$_STEP_M5D" 'if [ "${GITHUB_EVENT_NAME:-}" = "push" ]; then' 'if true; then'
+if _w5 "$_STEP_REAL" w5; then ok "W5: unreachable origin, no origin, an empty range, a non-train ref and a non-push event all log 'gitleaks mode: full' with an empty range"; else bad "W5: a doubt case did not fall back to the full scan"; fi
+if _w5 "$_STEP_M5A" w5a; then bad "W5 mutation (fetch result ignored) stayed green"; else ok "W5 mutation (fetch result ignored) goes red"; fi
+if _w5 "$_STEP_M5C" w5c; then bad "W5 mutation (empty-range check removed) stayed green"; else ok "W5 mutation (empty-range check removed) goes red"; fi
+if _w5 "$_STEP_M5D" w5d; then bad "W5 mutation (event check removed) stayed green"; else ok "W5 mutation (event check removed) goes red"; fi
+
+# W6: range mode never reads the tip's or the merge-base's config
+_w6() { # _w6 <script> <name>
+  # (a) zero-rule tip config + secret in the range
+  _mk_train "${2}a"
+  printf 'title = "x"\n' > "$T_REPO/.gitleaks.toml"
+  git -C "$T_REPO" add .gitleaks.toml
+  _commit_file "$T_REPO" secret.js "$_secret_line"
+  local r
+  r="$(_run_step "$_STEP_REAL" "$T_REPO")"
+  _scan_range "$1" "$T_REPO" "$r" && return 1
+  [ "$(_findings "$T_REPO")" -ge 1 ] || return 1
+  # (b) zero-rule config committed on main (the merge-base), secret on the train
+  _mk_train "${2}b"
+  git -C "$T_REPO" checkout -q main
+  printf 'title = "x"\n' > "$T_REPO/.gitleaks.toml"
+  git -C "$T_REPO" add .gitleaks.toml
+  git -C "$T_REPO" commit -qm "main adds zero-rule config" --no-gpg-sign --no-verify
+  git -C "$T_REPO" push -q origin main
+  git -C "$T_REPO" checkout -q train/x
+  git -C "$T_REPO" merge -q --no-edit main >/dev/null 2>&1
+  _commit_file "$T_REPO" secret.js "$_secret_line"
+  r="$(_run_step "$_STEP_REAL" "$T_REPO")"
+  _scan_range "$1" "$T_REPO" "$r" && return 1
+  [ "$(_findings "$T_REPO")" -ge 1 ]
+}
+_SCRIPT_M6A="$TMP_ROOT/script.m6a.sh"; _SCRIPT_M6B="$TMP_ROOT/script.m6b.sh"
+_mutate_file "$SCRIPT" "$_SCRIPT_M6A" 'mv ./.gitleaks.toml "$_tip_config_backup"' 'true'
+_mutate_file "$SCRIPT" "$_SCRIPT_M6B" "_base=\"\$(git describe --tags --abbrev=0 --match 'v[0-9]*' \"\$_describe_from\" 2>/dev/null || true)\"" '_base="$(git merge-base origin/main "$_tip" 2>/dev/null || true)"'
+chmod +x "$_SCRIPT_M6A" "$_SCRIPT_M6B"
+if _w6 "$SCRIPT" w6; then ok "W6: a zero-rule tip config and a zero-rule merge-base config never hide a secret in range mode"; else bad "W6: range mode trusted a tip or merge-base config"; fi
+if _w6 "$_SCRIPT_M6A" w6a; then bad "W6 mutation (tip config left in place) stayed green"; else ok "W6 mutation (tip config left in place) goes red"; fi
+if _w6 "$_SCRIPT_M6B" w6b; then bad "W6 mutation (merge-base config trusted) stayed green"; else ok "W6 mutation (merge-base config trusted) goes red"; fi
 
 echo
 echo "=== $PASS passed, $FAIL failed ==="
