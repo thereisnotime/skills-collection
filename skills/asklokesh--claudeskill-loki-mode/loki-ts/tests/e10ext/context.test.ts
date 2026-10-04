@@ -79,10 +79,16 @@ describe("briefContext", () => {
 });
 
 describe("S41-10b static-first brief", () => {
+  // D82 made LOKI_SPEED default-on; this block pins the unprefixed brief.
+  const prevSpeed = process.env["LOKI_SPEED"];
+  process.env["LOKI_SPEED"] = "0";
   const a = buildImplementBrief("add foo to src/a.ts", "plan A text", ["tests/a.test.ts"], "Relevant files:\nsrc/a.ts");
   const b = buildImplementBrief("rename bar in lib/b.py", "plan B text", ["tests/b.py"], "Relevant files:\nlib/b.py");
+  if (prevSpeed === undefined) delete process.env["LOKI_SPEED"]; else process.env["LOKI_SPEED"] = prevSpeed;
   test("leading fixed block is byte-identical and free of task text", () => {
     expect(FIXED_RULES.length).toBeGreaterThan(200);
+    expect(FIXED_RULES).toContain("states the new expected value of an existing assertion");
+    expect(FIXED_RULES).toContain("never remove, skip or loosen an assertion");
     expect(a.startsWith(FIXED_RULES)).toBe(true);
     expect(b.startsWith(FIXED_RULES)).toBe(true);
     for (const v of ["foo", "bar", "plan A", "plan B", "src/a.ts", "lib/b.py", "tests/"]) expect(FIXED_RULES).not.toContain(v);
@@ -94,7 +100,7 @@ describe("S41-10b static-first brief", () => {
     expect(b.endsWith(finish)).toBe(true);
     const none = buildImplementBrief("t", null, []);
     expect(none.endsWith(finish)).toBe(true);
-    expect(none).toContain("Impacted tests: none known; run the project's full test command.");
+    expect(none).toContain("Impacted tests: none known; run the project's full test command (a starting hint, not a limit).");
     expect(none).not.toContain("(none known)");
   });
   test("plan paths with drive letters, ~ and backslash traversal are dropped", () => {

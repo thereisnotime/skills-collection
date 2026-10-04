@@ -11767,8 +11767,8 @@
       "description": "\"Orchestrator for the full academic research pipeline: research -> write -> integrity check -> review -> revise -> re-review -> re-revise -> final integrity check -> finalize. Coordinates deep-researc",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
-      "lines": 776,
-      "words": 7887,
+      "lines": 778,
+      "words": 7976,
       "code_blocks": 11,
       "languages": []
     },
@@ -11777,8 +11777,8 @@
       "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Runs a 5-seat, role-separated review panel (Journal-Fit Reviewer + 3 peer-review roles + Devil's Advocate) with field-specific ",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
-      "lines": 537,
-      "words": 5675,
+      "lines": 539,
+      "words": 5764,
       "code_blocks": 4,
       "languages": []
     },
@@ -11787,8 +11787,8 @@
       "description": "\"Universal deep research agent team. 13-agent pipeline for rigorous academic research on any topic. 8 modes: full research, quick brief, paper review, lit-review, fact-check, three-way literature scan",
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 728,
-      "words": 6633,
+      "lines": 730,
+      "words": 6722,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -11821,6 +11821,16 @@
       ]
     },
     {
+      "name": "screening_reviewer_agent",
+      "description": "\"Blinded screening reviewer for sr-screener: applies a confirmed protocol to one batch of records or one full-text report and returns one decision per record\"",
+      "path": "Imbad0202--academic-research-skills/agents/screening_reviewer_agent.md",
+      "remote_path": "agents/screening_reviewer_agent.md",
+      "lines": 90,
+      "words": 731,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "report_compiler_agent",
       "description": "\"Transforms research findings into polished APA 7.0 academic reports; activated in Phase 4 and Phase 6\"",
       "path": "Imbad0202--academic-research-skills/agents/report_compiler_agent.md",
@@ -11837,10 +11847,23 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 661,
-      "words": 8396,
+      "lines": 663,
+      "words": 8485,
       "code_blocks": 4,
       "languages": []
+    },
+    {
+      "name": "sr-screener",
+      "description": "\"Protocol-driven study screening for systematic, scoping and rapid reviews. Turns a proposal or PROSPERO protocol into confirmed eligibility rules, then screens titles/abstracts and full texts with tw",
+      "path": "Imbad0202--academic-research-skills/sr-screener/SKILL.md",
+      "remote_path": "sr-screener/SKILL.md",
+      "lines": 517,
+      "words": 4778,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "json"
+      ]
     },
     {
       "name": "ars-format-convert",
@@ -12484,6 +12507,46 @@
       "languages": [
         "markdown"
       ]
+    },
+    {
+      "name": "qc_auditor_agent",
+      "description": "\"Reports seeds, agreement, conflicts and recheck results after the pilot and the full run, and proposes protocol clarifications\"",
+      "path": "Imbad0202--academic-research-skills/sr-screener/agents/qc_auditor_agent.md",
+      "remote_path": "sr-screener/agents/qc_auditor_agent.md",
+      "lines": 73,
+      "words": 691,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "screening_reviewer_agent",
+      "description": "\"Blinded screening reviewer for sr-screener: applies a confirmed protocol to one batch of records or one full-text report and returns one decision per record\"",
+      "path": "Imbad0202--academic-research-skills/sr-screener/agents/screening_reviewer_agent.md",
+      "remote_path": "sr-screener/agents/screening_reviewer_agent.md",
+      "lines": 90,
+      "words": 731,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "reporter_agent",
+      "description": "\"Builds the screening deliverables (log, RIS groups, PRISMA counts, methods draft, corpus handoff) from complete decisions\"",
+      "path": "Imbad0202--academic-research-skills/sr-screener/agents/reporter_agent.md",
+      "remote_path": "sr-screener/agents/reporter_agent.md",
+      "lines": 54,
+      "words": 444,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "protocol_architect_agent",
+      "description": "\"Turns a proposal or protocol into confirmed, stage-split screening rules and a screening config before any record is screened\"",
+      "path": "Imbad0202--academic-research-skills/sr-screener/agents/protocol_architect_agent.md",
+      "remote_path": "sr-screener/agents/protocol_architect_agent.md",
+      "lines": 106,
+      "words": 879,
+      "code_blocks": 0,
+      "languages": []
     }
   ],
   "K-Dense-AI--claude-scientific-skills": [
@@ -22770,7 +22833,7 @@
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
       "lines": 1053,
-      "words": 21340,
+      "words": 21429,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22784,7 +22847,7 @@
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
       "lines": 1050,
-      "words": 21290,
+      "words": 21302,
       "code_blocks": 0,
       "languages": [],
       "version": "3.36.0",
@@ -22809,20 +22872,24 @@
       "description": "Use when a request combines AI-writing audit, rewrite, file editing, voice preservation, false-positive interpretation, verification, or when the user invokes Avoid AI Writing without naming a mode.",
       "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing-router/SKILL.md",
       "remote_path": "skills/avoid-ai-writing-router/SKILL.md",
-      "lines": 119,
-      "words": 993,
+      "lines": 121,
+      "words": 997,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "3.36.0",
+      "license": "MIT"
     },
     {
       "name": "voice-preserving-rewriter",
       "description": "Use when the user asks to rewrite, humanize, clean up, or remove AI-isms from text while preserving the writer's voice, facts, intent, structure, register, and protected material.",
       "path": "conorbronsdon--avoid-ai-writing/skills/voice-preserving-rewriter/SKILL.md",
       "remote_path": "skills/voice-preserving-rewriter/SKILL.md",
-      "lines": 107,
-      "words": 1056,
+      "lines": 109,
+      "words": 1060,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "3.36.0",
+      "license": "MIT"
     },
     {
       "name": "avoid-ai-writing",
@@ -22843,45 +22910,53 @@
       "description": "Use when a user asks what AI-writing flags mean, whether detector output proves AI authorship, or wants a careful interpretation of possible false positives, especially for academic, hiring, publicati",
       "path": "conorbronsdon--avoid-ai-writing/skills/false-positive-reviewer/SKILL.md",
       "remote_path": "skills/false-positive-reviewer/SKILL.md",
-      "lines": 80,
-      "words": 588,
+      "lines": 82,
+      "words": 592,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "3.36.0",
+      "license": "MIT"
     },
     {
       "name": "ai-writing-detector",
       "description": "Use when the user asks to detect, scan, audit, score, or flag AI-writing patterns without rewriting the text, including requests for a deterministic local detector result when the host can execute Nod",
       "path": "conorbronsdon--avoid-ai-writing/skills/ai-writing-detector/SKILL.md",
       "remote_path": "skills/ai-writing-detector/SKILL.md",
-      "lines": 100,
-      "words": 672,
+      "lines": 102,
+      "words": 676,
       "code_blocks": 3,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "3.36.0",
+      "license": "MIT"
     },
     {
       "name": "preservation-verifier",
       "description": "Use when the user provides an original and rewritten version, asks whether a rewrite preserved protected content, or wants a deterministic check for code, frontmatter, quotes, tables, links, paths, nu",
       "path": "conorbronsdon--avoid-ai-writing/skills/preservation-verifier/SKILL.md",
       "remote_path": "skills/preservation-verifier/SKILL.md",
-      "lines": 105,
-      "words": 922,
+      "lines": 107,
+      "words": 926,
       "code_blocks": 2,
       "languages": [
         "bash",
         "js"
-      ]
+      ],
+      "version": "3.36.0",
+      "license": "MIT"
     },
     {
       "name": "file-edit-in-place",
       "description": "Use when the user names a local file and explicitly asks to clean, rewrite, humanize, or remove AI-writing patterns in that file itself, with minimal targeted edits and post-edit verification.",
       "path": "conorbronsdon--avoid-ai-writing/skills/file-edit-in-place/SKILL.md",
       "remote_path": "skills/file-edit-in-place/SKILL.md",
-      "lines": 106,
-      "words": 805,
+      "lines": 108,
+      "words": 809,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "3.36.0",
+      "license": "MIT"
     }
   ],
   "conorluddy--ios-simulator-skill": [
@@ -25166,9 +25241,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 475,
-      "words": 4670,
-      "code_blocks": 22,
+      "lines": 487,
+      "words": 4767,
+      "code_blocks": 23,
       "languages": [
         "bash",
         "typescript"
@@ -25318,9 +25393,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 475,
-      "words": 4670,
-      "code_blocks": 22,
+      "lines": 487,
+      "words": 4767,
+      "code_blocks": 23,
       "languages": [
         "bash",
         "typescript"
@@ -33199,8 +33274,8 @@
       "description": "An autonomous software factory that knows what it is supposed to deliver, and proves it did. Use when the user says Loki Mode or asks to build, fix or verify software autonomously.",
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 477,
-      "words": 3916,
+      "lines": 487,
+      "words": 4075,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -33280,8 +33355,8 @@
       "description": "Use when finishing any coding task in a repo with tests. Loki Seal runs the repo's real test suite and refuses to let you declare done while tests newly fail, or while tests or CI config were deleted,",
       "path": "asklokesh--claudeskill-loki-mode/packages/loki-seal/skills/loki-seal/SKILL.md",
       "remote_path": "packages/loki-seal/skills/loki-seal/SKILL.md",
-      "lines": 23,
-      "words": 267,
+      "lines": 24,
+      "words": 419,
       "code_blocks": 0,
       "languages": []
     }
@@ -82665,7 +82740,7 @@
         "bash",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -82682,7 +82757,7 @@
         "python",
         "sql"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -82697,7 +82772,7 @@
         "bash",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -82712,7 +82787,7 @@
         "bash",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -82728,7 +82803,7 @@
         "json",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -82744,7 +82819,7 @@
         "json",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -82760,7 +82835,7 @@
         "json",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -82776,7 +82851,7 @@
         "json",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -82791,7 +82866,7 @@
         "bash",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -82806,7 +82881,7 @@
         "bash",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -99021,7 +99096,7 @@
       "words": 891,
       "code_blocks": 0,
       "languages": [],
-      "version": "0.16.0",
+      "version": "0.17.0",
       "license": "MIT"
     },
     {
@@ -99575,7 +99650,7 @@
       "words": 629,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -99599,7 +99674,7 @@
       "words": 647,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -101535,7 +101610,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -113929,7 +114004,7 @@
         "bash",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -114007,7 +114082,7 @@
         "python",
         "sql"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -115556,7 +115631,7 @@
         "bash",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -122213,7 +122288,7 @@
         "bash",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -122550,7 +122625,7 @@
         "json",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -128193,7 +128268,7 @@
       "words": 891,
       "code_blocks": 0,
       "languages": [],
-      "version": "0.16.0",
+      "version": "0.17.0",
       "license": "MIT"
     },
     {
@@ -131454,7 +131529,7 @@
       "words": 647,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -131835,7 +131910,7 @@
         "json",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -136833,7 +136908,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -139092,7 +139167,7 @@
         "json",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -141314,7 +141389,7 @@
         "json",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -145510,7 +145585,7 @@
         "bash",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -146209,7 +146284,7 @@
         "bash",
         "python"
       ],
-      "version": "2.10.0",
+      "version": "2.11.0",
       "license": "MIT"
     },
     {
@@ -148091,7 +148166,7 @@
       "words": 629,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -157288,8 +157363,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1328,
-      "words": 12699,
+      "lines": 1329,
+      "words": 12763,
       "code_blocks": 71,
       "languages": [
         "bash",
@@ -157503,8 +157578,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 840,
-      "words": 2987,
+      "lines": 848,
+      "words": 3036,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157574,8 +157649,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 496,
-      "words": 8174,
+      "lines": 502,
+      "words": 8557,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -157763,8 +157838,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 101,
-      "words": 1627,
+      "lines": 106,
+      "words": 1683,
       "code_blocks": 0,
       "languages": []
     },
@@ -157773,8 +157848,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
-      "lines": 275,
-      "words": 4815,
+      "lines": 283,
+      "words": 5166,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -157791,6 +157866,16 @@
       "languages": [
         "bash"
       ]
+    },
+    {
+      "name": "periodic-observation-cost",
+      "description": "Check cold, warm and incremental work before deploying or integrating a periodic health observer.",
+      "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/references/probe-cost.md",
+      "remote_path": "daymade-macos/macos-watchdog/references/probe-cost.md",
+      "lines": 54,
+      "words": 455,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "design-style-picker",
@@ -157926,9 +158011,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1340,
-      "words": 14933,
-      "code_blocks": 12,
+      "lines": 1368,
+      "words": 15078,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "text"
@@ -157978,9 +158063,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/lark-cli-router/SKILL.md",
       "remote_path": "daymade-claude-code/lark-cli-router/SKILL.md",
-      "lines": 136,
-      "words": 965,
-      "code_blocks": 2,
+      "lines": 158,
+      "words": 1149,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -157990,11 +158075,12 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 286,
-      "words": 2478,
-      "code_blocks": 8,
+      "lines": 330,
+      "words": 2846,
+      "code_blocks": 9,
       "languages": [
         "bash",
+        "sql",
         "text"
       ]
     },
@@ -158052,8 +158138,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 358,
-      "words": 2923,
+      "lines": 361,
+      "words": 3019,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -158571,7 +158657,7 @@
       "path": "daymade--claude-code-skills/daymade-skill/skill-reviewer/SKILL.md",
       "remote_path": "daymade-skill/skill-reviewer/SKILL.md",
       "lines": 224,
-      "words": 1158,
+      "words": 1123,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -158584,9 +158670,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1935,
-      "words": 33132,
-      "code_blocks": 56,
+      "lines": 1945,
+      "words": 33114,
+      "code_blocks": 54,
       "languages": [
         "bash",
         "json",
@@ -158630,6 +158716,28 @@
         "bash",
         "json"
       ]
+    },
+    {
+      "name": "materialization-budget",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/materialization-budget.md",
+      "remote_path": "daymade-skill/skill-creator/references/materialization-budget.md",
+      "lines": 199,
+      "words": 1458,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "first-use-and-resume",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/first-use-and-resume.md",
+      "remote_path": "daymade-skill/skill-creator/references/first-use-and-resume.md",
+      "lines": 100,
+      "words": 919,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "mining-target",
@@ -178997,23 +179105,37 @@
       "description": "",
       "path": "shaunburdick--skills/specs/001-agent-attribution-detection/spec.md",
       "remote_path": "specs/001-agent-attribution-detection/spec.md",
-      "lines": 278,
-      "words": 2092,
+      "lines": 274,
+      "words": 1892,
       "code_blocks": 0,
       "languages": [],
-      "version": "\"1.0.0\""
+      "version": "\"1.5.0\""
     },
     {
       "name": "spec-driven-development",
       "description": "Structured spec-driven development workflow. Load this skill whenever starting a new feature, building a system from scratch, requirements are unclear, or a user asks to \"plan\", \"spec out\", \"design\", ",
       "path": "shaunburdick--skills/skills/spec-driven-development/SKILL.md",
       "remote_path": "skills/spec-driven-development/SKILL.md",
-      "lines": 219,
-      "words": 1340,
+      "lines": 314,
+      "words": 2265,
       "code_blocks": 4,
       "languages": [
         "bash",
         "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "project-health",
+      "description": "\"Quantify repository composition and documentation drag \u2014 comment vs code lines, test lines with test and assertion counts, spec and doc prose, and agent instruction surface. Load when reviewing a cha",
+      "path": "shaunburdick--skills/skills/project-health/SKILL.md",
+      "remote_path": "skills/project-health/SKILL.md",
+      "lines": 267,
+      "words": 1913,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "json"
       ],
       "license": "MIT"
     },
@@ -179077,8 +179199,8 @@
       "description": "\"Enforces non-negotiable code quality standards for AI coding agents. Covers linting rules (no suppressions \u2014 ever), type safety (no `any` in TypeScript, no `# type: ignore` in Python), tooling discip",
       "path": "shaunburdick--skills/skills/code-quality/SKILL.md",
       "remote_path": "skills/code-quality/SKILL.md",
-      "lines": 173,
-      "words": 1229,
+      "lines": 176,
+      "words": 1261,
       "code_blocks": 2,
       "languages": [
         "python",

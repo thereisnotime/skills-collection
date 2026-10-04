@@ -5,13 +5,28 @@
 // while the script takes "--draft" (translated below); it cannot say whether the PR already
 // existed, so `existing` is null, never fabricated.
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PushArgs, RunContext, Stage, StageResult, Verdict } from "../types.ts";
 import { pushArgv } from "../types.ts";
 import { renderReviewerBody } from "../../e10ext/reviewer_body.ts";
 import { draftReason } from "../pr_body.ts"; import { evidenceSection } from "../../features/visual_evidence.ts";
 import { REPO_ROOT } from "../../util/paths.ts";
+import { safeGit } from "../../util/safe_git.ts";
+import { yamlKey } from "../../util/yaml_key.ts";
+/** B7: who opens the PR. LOKI_PR_AUTHOR beats loki.yaml pr.author; anything but "bot" is "me". */
+export function resolvePrAuthor(repoDir: string, environ: NodeJS.ProcessEnv = process.env): "me" | "bot" {
+  let v: string | null = (environ.LOKI_PR_AUTHOR ?? "").trim() || null;
+  if (v === null) {
+    for (const f of ["loki.yaml", "loki.yml"]) {
+      const p = join(repoDir, f);
+      if (!existsSync(p)) continue;
+      try { v = yamlKey(readFileSync(p, "utf8"), "pr", "author"); } catch { /* unreadable */ }
+      break;
+    }
+  }
+  return (v ?? "").toLowerCase() === "bot" ? "bot" : "me";
+}
 /** RunContext plus the pinned origin and the cap signal from the supervisor. */
 export type PrContext = RunContext & {
   /** remote.origin.url, read once by the supervisor before any provider ran. */
@@ -56,7 +71,12 @@ export async function runPr(ctx: PrContext, signal: AbortSignal, opts: PrOptions
   const title = `Loki 10: ${verdict} (${ctx.runId})`;
   const pushShellArgs = toPushShellArgs({ cmd: "push-pr", repoDir: ctx.repoDir, branch: ctx.branch, title, bodyFile, draft });
   const scriptPath = opts.pushScriptPath ?? DEFAULT_PUSH_SH;
-  const env = { ...process.env, _LOKI_ORIGIN_PINNED: "1", _LOKI_PINNED_ORIGIN: pinnedOrigin };
+  const env: NodeJS.ProcessEnv = { ...process.env, _LOKI_ORIGIN_PINNED: "1", _LOKI_PINNED_ORIGIN: pinnedOrigin };
+  if (resolvePrAuthor(ctx.repoDir) === "bot") {
+    const botToken = process.env.LOKI_PR_BOT_TOKEN;
+    if (botToken) env.GH_TOKEN = botToken; // child env only; never logged
+    else process.stderr.write("loki: pr.author is bot but LOKI_PR_BOT_TOKEN is not set; opening the PR as me\n");
+  }
   const pushResult = spawnSync("bash", [scriptPath, ...pushShellArgs], { env, encoding: "utf8" });
   if (pushResult.status !== 0) {
     return { status: "failed", data: {}, reason: `engine10-push.sh push-pr failed (exit ${pushResult.status}): ${(pushResult.stderr ?? "").trim()}` };
@@ -71,7 +91,7 @@ export async function runPr(ctx: PrContext, signal: AbortSignal, opts: PrOptions
   // Unknown, not fabricated: see the contract-gap note above.
   const existing: boolean | null = null;
   ctx.emit("pr.opened", "pr", { url, draft, existing });
-  const headSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ctx.repoDir, encoding: "utf8", env: process.env }).trim();
+  const headSha = safeGit(ctx.repoDir, ["rev-parse", "HEAD"]).trim();
   const notProvenOut: string[] = [];
   if (localOk) {
     // A local bare origin (the eval harness) has no commit status API.
@@ -84,6 +104,7 @@ export async function runPr(ctx: PrContext, signal: AbortSignal, opts: PrOptions
   } else {
     notProvenOut.push("commit status loki/deep-verify not set (HEAD sha not resolvable)");
   }
+  await (await import("../../integrations/writeback.ts")).writeBack({ verdict, prUrl: url, receiptSha256: seal.receipt_sha256 ?? null, task: String((ctx.outputs().intake as { task?: unknown } | undefined)?.task ?? "") }); // B6: opt-in, never throws
   return { status: "completed", data: { pr_url: url, draft, existing, ...(notProvenOut.length ? { not_proven: notProvenOut } : {}) } };
 }
 export const stage: Stage = {
@@ -92,4 +113,3 @@ export const stage: Stage = {
   limitS: 60,
   run: (ctx, signal) => runPr(ctx as PrContext, signal),
 };
-export const prStage = stage;

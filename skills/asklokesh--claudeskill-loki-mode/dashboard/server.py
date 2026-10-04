@@ -108,6 +108,20 @@ def _safe_json_read(path: _Path, default: Any = None) -> Any:
     return default
 
 
+def _read_json_or_503(path: _Path, what: str) -> Any:
+    """Read JSON; a missing file is the caller's empty case, anything else is a 503.
+
+    An unreadable (denied) or corrupt file must never read as "no data": the
+    caller would render an empty list as a healthy empty store.
+    """
+    try:
+        return json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except FileNotFoundError:
+        raise
+    except (OSError, ValueError) as e:
+        raise HTTPException(status_code=503, detail=f"{what} unreadable: {type(e).__name__}")
+
+
 def _safe_read_text(path: _Path) -> str:
     """Read a text file with UTF-8 encoding, replacing non-UTF-8 bytes.
 
@@ -1039,7 +1053,9 @@ async def _push_loki_state_loop() -> None:
                                     "complexity": _sk_complexity,
                                     "mode": "autonomous",
                                     "provider": _sd.get("provider", "claude"),
-                                    "running_agents": 0,
+                                    # Unmeasured: no skill-session file counts
+                                    # agents, so send null, never a claimed 0.
+                                    "running_agents": None,
                                     "pending_tasks": _sk_pending,
                                     "current_task": _sk_current_task,
                                     "version": _sk_version,
@@ -1133,14 +1149,8 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
-# RESPONSE COMPRESSION. Measured, not assumed: the served dashboard bundle
-# (dashboard/static/index.html) is 779,725 bytes raw and 150,341 gzipped --
-# an 81% reduction. Until now only CORS and the collab WS auth middleware were
-# registered, so every dashboard load shipped the full 780KB.
-#
-# That single fact is the most plausible cause of "the dashboard feels slow":
-# it is not a rendering problem, it is 630KB of avoidable transfer on first
-# paint, and it costs one middleware to fix.
+# RESPONSE COMPRESSION. Large JSON API payloads compress well, and it costs one
+# middleware. (The legacy single-file UI bundle that motivated it was removed.)
 #
 # minimum_size=1024 leaves small JSON responses uncompressed, where the CPU
 # round-trip outweighs the saving. GZipMiddleware is stdlib-backed and does
@@ -1344,13 +1354,11 @@ else:
     app.include_router(api_operator_router)
 
 # D51 Phase A: first-run onboarding + backlog API and its /start page.
-from .api_start import router as api_start_router, START_HTML as _START_HTML
+from .api_start import router as api_start_router
 app.include_router(api_start_router)
+from .api_runs_v1 import router as api_runs_v1_router
+app.include_router(api_runs_v1_router)
 
-
-@app.get("/start", include_in_schema=False, dependencies=[Depends(auth.require_scope("read"))])
-async def serve_start_page():
-    return FileResponse(_START_HTML, media_type="text/html")
 
 
 # Phase Merge-4: Mount Purple Lab FastAPI app under /lab/ so it appears as a
@@ -6431,8 +6439,8 @@ async def list_episodes(limit: int = Query(default=50, ge=1, le=1000)):
         if ep_dir.exists():
             for f in _memory_episode_files(ep_dir):
                 try:
-                    loaded.append(json.loads(f.read_text()))
-                except Exception:
+                    loaded.append(_read_json_or_503(f, "episode"))
+                except FileNotFoundError:
                     pass
         loaded.sort(key=lambda e: e.get("timestamp", "") if isinstance(e, dict) else "", reverse=True)
         return loaded[:limit]
@@ -6492,13 +6500,11 @@ async def list_patterns():
     # Fallback to JSON
     sem_dir = _get_loki_dir() / "memory" / "semantic"
     patterns_file = sem_dir / "patterns.json"
-    if patterns_file.exists():
-        try:
-            data = json.loads(patterns_file.read_text())
-            return data if isinstance(data, list) else data.get("patterns", [])
-        except Exception:
-            pass
-    return []
+    try:
+        data = _read_json_or_503(patterns_file, "patterns")
+    except FileNotFoundError:
+        return []
+    return data if isinstance(data, list) else data.get("patterns", [])
 
 
 @app.get("/api/memory/patterns/{pattern_id}", dependencies=[Depends(auth.require_scope("read"))])
@@ -6537,8 +6543,8 @@ async def list_skills():
         if skills_dir.exists():
             for f in _memory_skill_files(skills_dir):
                 try:
-                    skills.append(json.loads(f.read_text()))
-                except Exception:
+                    skills.append(_read_json_or_503(f, "skill"))
+                except FileNotFoundError:
                     pass
         return skills
 
@@ -6749,12 +6755,10 @@ async def retrieve_memory(query: dict = None):
 async def get_memory_index():
     """Get memory index (Layer 1 - lightweight discovery)."""
     index_file = _get_loki_dir() / "memory" / "index.json"
-    if index_file.exists():
-        try:
-            return json.loads(index_file.read_text())
-        except Exception:
-            pass
-    return {"topics": [], "lastUpdated": None}
+    try:
+        return _read_json_or_503(index_file, "memory index")
+    except FileNotFoundError:
+        return {"topics": [], "lastUpdated": None}
 
 
 @app.get("/api/memory/timeline", dependencies=[Depends(auth.require_scope("read"))])
@@ -7738,7 +7742,7 @@ _DEFAULT_PRICING = {
     "fable":  {"input": 10.00, "output": 50.00},
     "claude-fable-5": {"input": 10.00, "output": 50.00},
     "opus":   {"input": 5.00, "output": 25.00},
-    "sonnet": {"input": 3.00, "output": 15.00},
+    "sonnet": {"input": 2.00, "output": 10.00},
     "haiku":  {"input": 1.00, "output": 5.00},
     # OpenAI Codex
     "gpt-5.3-codex": {"input": 1.50, "output": 12.00},
@@ -8573,18 +8577,16 @@ _PROVIDER_LABELS = {
 }
 
 # Display-only pricing notes, keyed by model. These annotate the pricing table in
-# the UI WITHOUT changing any computed cost number. The Sonnet 5 launch carries an
-# intro price ($2/$10 per MTok through Aug 31 2026), but the cost estimator keeps
-# quoting the standard $3/$15 rate: over-estimating the display is the safe
-# direction (a bill can only come in lower than quoted, never higher). This note
-# tells the user why the quote is conservative during the intro window.
+# the UI WITHOUT changing any computed cost number. The Sonnet 5 intro price
+# ($2/$10 per MTok) became the standard price, so the 2026-09-01 increase to
+# $3/$15 will not occur (platform.claude.com pricing page, read 2026-10-03).
 _UNVERIFIED_RATE_NOTE = (
     "Unverified placeholder rate, scaled from gpt-5.3; not from OpenAI's pricing page."
 )
 _MODEL_PRICING_NOTES = {
     "sonnet": (
-        "Intro pricing: $2 / $10 per MTok through Aug 31 2026. "
-        "Estimates use the standard $3 / $15 rate (conservative)."
+        "Standard pricing: $2 / $10 per MTok. "
+        "The intro price became the standard price; no increase to $3 / $15."
     ),
     # See the UNVERIFIED RATES comment on the pricing table: shown, not hidden.
     "gpt-5.6-sol": _UNVERIFIED_RATE_NOTE,
@@ -8985,7 +8987,8 @@ async def get_notification_triggers():
     try:
         return json.loads(triggers_file.read_text())
     except (json.JSONDecodeError, OSError):
-        return {"triggers": []}
+        # Unreadable is unknown, not empty: null plus an error, never [].
+        return {"triggers": None, "error": "triggers.json unreadable"}
 
 
 @app.put("/api/notifications/triggers", dependencies=[Depends(auth.require_scope("control"))])
@@ -11566,49 +11569,11 @@ def optimize_prompts(sessions: int = 10, dry_run: bool = True):
 
 from fastapi.responses import FileResponse, HTMLResponse
 
-# Find static files in multiple possible locations
 DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(DASHBOARD_DIR)
 
-# Possible static file locations (in order of preference)
-# Resolves correctly regardless of PYTHONPATH, symlinks, or install method
-def _static_candidates(skill_dir=None, home=None):
-    """Static dirs in preference order: package, LOKI_SKILL_DIR, ~/.claude skill, dev build."""
-    skill_dir = os.environ.get("LOKI_SKILL_DIR", "") if skill_dir is None else skill_dir
-    home_skill = os.path.join(home or os.path.expanduser("~"), ".claude", "skills", "loki-mode")
-    cands = [os.path.join(DASHBOARD_DIR, "static")]
-    if skill_dir:
-        cands.append(os.path.join(skill_dir, "dashboard", "static"))
-    cands.append(os.path.join(home_skill, "dashboard", "static"))
-    cands.append(os.path.join(PROJECT_ROOT, "dashboard-ui", "dist"))
-    if skill_dir:
-        cands.append(os.path.join(skill_dir, "dashboard-ui", "dist"))
-    cands.append(os.path.join(home_skill, "dashboard-ui", "dist"))
-    return cands
-
-
-def _pick_static_dir(candidates):
-    """First candidate that CONTAINS index.html; an empty or partial dir must not win."""
-    for loc in candidates:
-        if os.path.isfile(os.path.join(loc, "index.html")):
-            return loc
-    return None
-
-
-STATIC_LOCATIONS = _static_candidates()
-STATIC_DIR = _pick_static_dir(STATIC_LOCATIONS)
-if STATIC_DIR:
-    logger.info("Dashboard frontend served from: %s", STATIC_DIR)
-else:
-    logger.warning("Dashboard frontend NOT found (looked in %s); serving built-in fallback page", STATIC_LOCATIONS)
-
-if STATIC_DIR:
-    from fastapi.staticfiles import StaticFiles
-
-    # Check if assets directory exists (built frontend)
-    ASSETS_DIR = os.path.join(STATIC_DIR, "assets")
-    if os.path.isdir(ASSETS_DIR):
-        app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(DASHBOARD_DIR)
 
 # ---------------------------------------------------------------------------
 # Activity Logger & Session Diff
@@ -11669,75 +11634,29 @@ async def log_activity(entry: dict):
     return result
 
 
-# Serve favicon.svg from static directory
-@app.get("/favicon.svg", include_in_schema=False)
-async def serve_favicon():
-    """Serve the dashboard favicon."""
-    if STATIC_DIR:
-        favicon_path = os.path.join(STATIC_DIR, "favicon.svg")
-        if os.path.isfile(favicon_path):
-            return FileResponse(favicon_path, media_type="image/svg+xml")
-    return Response(status_code=404)
-
-
-# Serve the self-contained cost + observability panel (R3). Zero-build
-# standalone page that fetches /api/cost/timeline. Mirrors the proofs.html
-# pattern: works without the SPA build.
-@app.get("/cost", include_in_schema=False, dependencies=[Depends(auth.require_scope("read"))])
-async def serve_cost_panel():
-    """Serve the standalone cost + observability HTML panel."""
-    if STATIC_DIR:
-        cost_path = os.path.join(STATIC_DIR, "cost.html")
-        if os.path.isfile(cost_path):
-            return FileResponse(cost_path, media_type="text/html")
-    return Response(status_code=404)
-
-
-# R4: standalone trust-trajectory page that fetches /api/trust/trajectory.
-# Mirrors the cost.html / /cost pattern: works without the SPA build.
-@app.get("/trust", include_in_schema=False, dependencies=[Depends(auth.require_scope("read"))])
-async def serve_trust_panel():
-    """Serve the standalone trust-trajectory HTML panel."""
-    if STATIC_DIR:
-        trust_path = os.path.join(STATIC_DIR, "trust.html")
-        if os.path.isfile(trust_path):
-            return FileResponse(trust_path, media_type="text/html")
-    return Response(status_code=404)
-
-
-# Serve index.html or standalone HTML for root
+# The legacy dashboard UI was removed (CPE-24). The Control Plane serves the UI;
+# this server keeps only the /api/* routes that have no Control Plane home yet.
 @app.get("/", include_in_schema=False, dependencies=[Depends(auth.require_scope("read"))])
 async def serve_index():
-    """Serve the frontend SPA or standalone HTML."""
-    # Try multiple index file locations
-    index_candidates = []
-    if STATIC_DIR:
-        index_candidates.append(os.path.join(STATIC_DIR, "index.html"))
-        index_candidates.append(os.path.join(STATIC_DIR, "loki-dashboard-standalone.html"))
-
-    # Also check dashboard-ui directly for standalone
-    standalone_path = os.path.join(PROJECT_ROOT, "dashboard-ui", "dist", "loki-dashboard-standalone.html")
-    if standalone_path not in index_candidates:
-        index_candidates.append(standalone_path)
-
-    for index_path in index_candidates:
-        if os.path.isfile(index_path):
-            return FileResponse(index_path, media_type="text/html")
-
-    # No frontend anywhere: a browser must never see developer JSON.
-    return HTMLResponse(content=_fallback_page(), status_code=503)
+    """Tell a browser where the UI moved; never serve developer JSON to it."""
+    return HTMLResponse(content=_moved_page(), status_code=410)
 
 
-def _fallback_page() -> str:
+def _moved_page() -> str:
     import html as _html
+    cp = os.environ.get("LOKI_CONTROL_PLANE_URL", "").strip()
+    where = (
+        f'<p>Control Plane: <a href="{_html.escape(cp, quote=True)}">{_html.escape(cp)}</a></p>'
+        if cp.startswith(("http://", "https://"))
+        else "<p>Run <code>loki ui</code> to open the Control Plane.</p>"
+    )
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-        "<title>Loki Mode Dashboard</title></head>"
+        "<title>Loki Mode API</title></head>"
         '<body style="font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem">'
-        "<h1>Loki Mode dashboard UI is not installed</h1>"
-        f"<p>The dashboard API is running (version {_html.escape(str(_version))}) "
-        "but this install has no frontend files.</p>"
-        "<p>Reinstall to fix it:</p><pre>npm install -g loki-mode@latest</pre>"
+        "<h1>The dashboard UI moved to the Control Plane</h1>"
+        f"<p>This server (version {_html.escape(str(_version))}) now serves the /api routes only.</p>"
+        f"{where}"
         '<p><a href="/docs">API docs</a> | <a href="/health">Health</a></p>'
         "</body></html>"
     )
@@ -12568,16 +12487,24 @@ async def list_proofs():
     items: list[dict] = []
     try:
         entries = sorted(proofs_dir.iterdir())
-    except (OSError, FileNotFoundError):
+    except FileNotFoundError:
         return {"proofs": []}
+    except OSError as e:
+        raise HTTPException(status_code=503, detail=f"proofs unreadable: {type(e).__name__}")
     for entry in entries:
         if not entry.is_dir():
             continue
         proof_json = entry / "proof.json"
         if not proof_json.is_file():
             continue
-        data = _safe_json_read(proof_json, default=None)
+        try:
+            data = _read_json_or_503(proof_json, "proof")
+        except HTTPException as e:
+            # One bad receipt is an error row, never a silently dropped run.
+            items.append({"run_id": entry.name, "error": e.detail})
+            continue
         if not isinstance(data, dict):
+            items.append({"run_id": entry.name, "error": "proof unreadable: not an object"})
             continue
         # Deterministic honesty headline (single source of truth, same access as
         # proofs_summary's bucketing). Read, never recomputed. The list endpoint
@@ -13078,40 +13005,18 @@ async def post_wiki_ask(req: WikiAskRequest):
 
 
 # ---------------------------------------------------------------------------
-# SPA catch-all: serve index.html for any path not matched by API routes
-# or static asset mounts.  This lets the dashboard UI handle client-side routing.
+# Catch-all: unknown paths are real 404s (the SPA was removed, CPE-24).
 # Must be registered LAST so it never shadows an API endpoint.
 # ---------------------------------------------------------------------------
 @app.get("/{full_path:path}", include_in_schema=False, dependencies=[Depends(auth.require_scope("read"))])
 async def serve_spa_catchall(full_path: str):
-    """Serve static files or fall back to index.html for SPA routing.
-
-    v7.6.1 B-10 fix: requests under /api/, /lab/api/, or /ws/ that fall through
-    here are missing routes, not SPA navigation. Returning index.html (text/html)
-    silently masks 404s and breaks JSON clients (the dashboard UI's loki-memory-browser
-    pinged /api/learning/metrics expecting JSON and got an HTML SPA on prior
-    failures). Return a JSON 404 instead so clients fail loud.
-    """
-    # API paths that fell through are real 404s, not SPA routes.
+    """Return a JSON 404 for API-like paths so JSON clients fail loud, else a bare 404."""
     api_like = full_path.startswith("api/") or full_path.startswith("lab/api/") or full_path.startswith("ws/")
     if api_like:
         return JSONResponse(
             status_code=404,
             content={"error": "Not Found", "path": f"/{full_path}"},
         )
-    if STATIC_DIR:
-        static_root = os.path.realpath(STATIC_DIR)
-        # Try to serve the exact file first (e.g. /vite.svg, /manifest.json)
-        # Use realpath to prevent path traversal attacks
-        candidate = os.path.realpath(os.path.join(STATIC_DIR, full_path))
-        if not candidate.startswith(static_root + os.sep) and candidate != static_root:
-            return Response(status_code=404)
-        if os.path.isfile(candidate):
-            return FileResponse(candidate)
-        # Fall back to index.html for client-side routes
-        index_path = os.path.join(STATIC_DIR, "index.html")
-        if os.path.isfile(index_path):
-            return FileResponse(index_path, media_type="text/html")
     return Response(status_code=404)
 
 

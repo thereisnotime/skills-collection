@@ -92,6 +92,32 @@ not rank above UNCHECKED.
 | Engine10 (`loki-ts`, `verify_cmd.ts`) | exit 3, `attestation: UNSIGNED, integrity not attested; refusing (pass --allow-unsigned to accept)` | exit 0, `attestation: UNSIGNED (accepted by --allow-unsigned; integrity not attested)` |
 | Legacy shell (`autonomy/verify.sh`) | BLOCKED (non-zero) | the receipt line passes with the same accepted line |
 
+### UNCHECKED attestations and a missing run-id pointer on legacy (D76)
+
+Legacy `loki verify` (`autonomy/verify.sh`) no longer passes a receipt whose
+attestation it cannot evaluate. A well-formed token whose kid matches no local key
+(and no `LOKI_RECEIPT_RETIRED_PUBKEYS` entry) prints `attestation: UNCHECKED`,
+exits 2 (BLOCKED) and the `VERDICT:` line is not VERIFIED, matching engine10.
+Anyone can mint a token with a foreign kid, so exit 0 was a downgrade path. The
+output names the honest cross-machine path: `loki verify --pubkey FILE <run-id>`
+checks a Loki 10 run receipt against the signer's public key, but it does not read
+a legacy `.loki/proofs/<id>/proof.json`; for a legacy receipt signed elsewhere, add
+the signer's public key (PEM) to `LOKI_RECEIPT_RETIRED_PUBKEYS`. A token signed by
+the local key still verifies with exit 0.
+
+Run standalone (`bash autonomy/verify.sh`, outside the `loki` CLI), the script
+has no attestation verdict helper, so every receipt prints
+`attestation: UNCHECKED (run via loki verify)` and the receipt check fails. This
+holds even with `--allow-unsigned`, which accepts only a receipt the CLI has
+classified as UNSIGNED. Run `loki verify` to evaluate the attestation.
+
+A missing `.loki/state/last-proof-id.txt` no longer skips the receipt check. If
+proofs exist under `.loki/proofs` the run is `receipt: NOT VERIFIED` (exit 2); a
+pointer naming a missing proof is the same. A tree that never recorded a proof
+prints `receipt: NONE (no proof was recorded in this tree; no receipt was checked)`
+and is not failed for it, because there is nothing to verify; that line is not a
+receipt pass.
+
 Engine10 `loki verify [run-id]` exits: 0 verified, 1 tampered, 2 unchecked,
 3 unsigned (refused), 4 run outcome not verified (a sealed receipt of a FAILED or
 otherwise unverified run), 66 no runs. The outcome check runs before the UNSIGNED
@@ -104,6 +130,12 @@ never the local JWKS. Exits: 0 VERIFIED, 1 TAMPERED, 2 UNCHECKED (kid does not
 match the key, or the key file is unusable), 3 UNSIGNED (a receipt with no
 signature is refused even with `--allow-unsigned`, because the caller asked for a
 signature check), 4 run outcome not verified (checked before UNSIGNED).
+
+`loki verify <run-id|receipt.json> --export-dsse` (v10 only) exits 0 after
+printing the envelope, 1 TAMPERED, an envelope given as input, or an envelope
+under a run id whose `predicate.run_id` differs, 2 UNSIGNED, UNCHECKED or an
+unreadable receipt, 4 a verified receipt whose run outcome is not VERIFIED or
+ALREADY_SATISFIED, 66 no signing key (or no runs). Refusals print nothing on stdout.
 `--pubkey` may come before or after the run-id and may be written `--pubkey=FILE`; `--pubkey` with no file or an empty `--pubkey=`, a repeated `--pubkey`, an unknown option, or more than one run-id exits 2.
 
 An early draft spec listed `1=BLOCKED, 2=CONCERNS`. That ordering was rejected:
@@ -112,7 +144,7 @@ severity-rises-with-the-code rule that every other command follows.
 
 ### Known gaps until v10.0.0
 
-The table above is the target. On the current release, four inputs do not
+The table above is the target. On the current release, three inputs do not
 return what it implies. Measured on this checkout:
 
 | Input | Command | Exit today | Target |
@@ -120,16 +152,19 @@ return what it implies. Measured on this checkout:
 | Empty diff (a git repo with no changes vs base) | `loki verify` | 1 (CONCERNS) | 3 |
 | Not a git directory | `loki verify` | 1 (CONCERNS) | 2 |
 | Unknown flag | `loki verify --no-such-flag` | 3 | 64 |
-| `--fast` with nothing scanned (0 files) | `loki verify --fast <empty-dir> --no-cache` | 0 | nonzero |
 
-`loki verify --fast` (`autonomy/lib/fast_verify.py`) also exits 0 for a
-nonexistent root and silently ignores unknown flags. Until v10.0.0, do not
-trust exit 0 from `--fast` alone: check stdout for `INCONCLUSIVE`, which it
-prints when nothing was scanned.
+The gap is tracked as the pending moat case P2.verify-exit-contract,
+milestone v10.0.0, in `tests/moat/pending.txt`.
 
-Both gaps are tracked as pending moat cases, milestone v10.0.0, in
-`tests/moat/pending.txt`: P2.verify-exit-contract (the first three rows)
-and P2.fast-verify-inconclusive-not-zero (the `--fast` row).
+### `loki verify --fast`
+
+| Code | Meaning |
+|---|---|
+| 0 | PASS: files were scanned and nothing blocking was found |
+| 1 | FAIL: a blocking finding |
+| 2 | The root directory does not exist |
+| 3 | INCONCLUSIVE: nothing was scanned (0 files) |
+| 64 | Unknown option (`--path DIR` and `--help` are supported; `--help` exits 0) |
 
 ## `loki proof verify <id>`
 

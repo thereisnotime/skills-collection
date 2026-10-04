@@ -3,12 +3,13 @@
  * Embeds the Loki Mode dashboard Web Components in a VS Code sidebar panel
  * Provides task board, session control, log stream, memory browser, and learning dashboard
  *
- * Refactored in v5.19.0 to use dashboard-ui Web Components
+ * Refactored in v5.19.0 to use prebuilt dashboard Web Components (media/loki-dashboard.js)
  * Reduced from 1,339 lines to ~390 lines (71% reduction) by delegating UI to reusable components
  */
 
 import * as vscode from 'vscode';
 import { LokiApiClient } from '../api/client';
+import { isNotAvailableStatus, NOT_AVAILABLE_TEXT } from '../api/availability';
 import { logger } from '../utils/logger';
 import { getNonce } from '../utils/webview';
 
@@ -166,6 +167,10 @@ export class DashboardWebviewProvider implements vscode.WebviewViewProvider, vsc
         try {
             const baseUrl = this._apiClient.baseUrl;
             const response = await fetch(`${baseUrl}/api/tasks/${taskId}`);
+            if (isNotAvailableStatus(response.status)) {
+                vscode.window.showInformationMessage(`Task details are ${NOT_AVAILABLE_TEXT}`);
+                return;
+            }
             if (response.ok) {
                 const task = await response.json();
                 const content = JSON.stringify(task, null, 2);
@@ -184,6 +189,10 @@ export class DashboardWebviewProvider implements vscode.WebviewViewProvider, vsc
         try {
             const baseUrl = this._apiClient.baseUrl;
             const response = await fetch(`${baseUrl}/api/memory/patterns/${patternId}`);
+            if (isNotAvailableStatus(response.status)) {
+                vscode.window.showInformationMessage(`Pattern details are ${NOT_AVAILABLE_TEXT}`);
+                return;
+            }
             if (response.ok) {
                 const pattern = await response.json();
                 const content = JSON.stringify(pattern, null, 2);
@@ -202,6 +211,10 @@ export class DashboardWebviewProvider implements vscode.WebviewViewProvider, vsc
         try {
             const baseUrl = this._apiClient.baseUrl;
             const response = await fetch(`${baseUrl}/api/memory/episodes/${episodeId}`);
+            if (isNotAvailableStatus(response.status)) {
+                vscode.window.showInformationMessage(`Episode details are ${NOT_AVAILABLE_TEXT}`);
+                return;
+            }
             if (response.ok) {
                 const episode = await response.json();
                 const content = JSON.stringify(episode, null, 2);

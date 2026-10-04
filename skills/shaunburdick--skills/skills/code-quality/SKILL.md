@@ -4,7 +4,7 @@ description: "Enforces non-negotiable code quality standards for AI coding agent
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Code Quality Standards
@@ -145,7 +145,10 @@ A task isn't done until it's ready to commit. Run through this once before every
 
 **Code correctness:**
 - [ ] Latest stable versions of all dependencies are used
-- [ ] All public methods have doc comments
+- [ ] Comments explain **why**, never **what**. A comment that restates the
+      next line of code is deletion-worthy; delete it. Document the non-obvious
+      invariant, the rejected alternative, the reasoning a reader would
+      otherwise have to re-derive — not the signature.
 - [ ] Automated tests implemented with adequate coverage (per project constitution)
 - [ ] Code passes all linting rules — **zero suppressions in any language**
 - [ ] Type safety fully enforced — **no `any` / untyped signatures**

@@ -6,23 +6,24 @@ import { readRepoMapCache, repoCacheDir, repoKey } from "../engine10/cache.ts";
 import type { RepoMap } from "../engine10/repomap.ts";
 import { loadRepoMap } from "../engine10/sizing.ts";
 import type { RunContext, TestMap, TestRef } from "../engine10/types.ts";
+import { unitBrief } from "../features/speed/unit_mode.ts";
 import { readVerifiedCommand } from "./repomemory.ts";
 
 export interface ContextDeps {
   select: (task: string, map: RepoMap, max: number) => string[];
-  cmd: (t: TestRef, repoDir: string) => [string, string[], unknown?];
+  cmd: (t: TestRef, repoDir: string) => [string, string[], unknown?, string?]; // 4th: package dir the command runs in (FC-01); absent or "." = repo root
 }
 
 // S41-10b: the implement/fix brief's leading block. A plain constant, no task text or interpolation, so
-// every brief starts with the same bytes (cache-stable prefix). Per-task context is appended after it.
-// E-150: repeated verbatim as the brief's last line (recency); same bytes every task.
+// every brief starts with the same bytes (cache-stable prefix). Per-task context is appended after it. E-150: repeated verbatim as the brief's last line (recency); same bytes every task.
 export const FINISH_LINE = "Finish with exactly one line: LOKI_DONE, or LOKI_ALREADY_DONE: <file:line evidence>, or LOKI_SPEC_CONFLICT: <reason>.";
 export const FIXED_RULES = [
-  "You are the Loki 10 implement stage.",
+  "You are the Loki 10 implement stage, doing the complete task described below in this repository. Do whatever a senior engineer would do to finish it correctly: read, change and test as needed across any files the task requires.",
   "Rules:",
   "- The Wall tests are read-only: do not edit or delete them. Existing test files are append-only: you may add new test functions, but never edit or delete an existing one.",
-  "- Run only the impacted tests named below.",
-  "- Never run the full test suite, an E2E suite, or a long-lived server.",
+  "- Exception: when the task text itself states the new expected value of an existing assertion, change only that literal in that assertion; never remove, skip or loosen an assertion, and never edit one the task text does not name.",
+  "- Run any tests you need, including the package's full suite (the Project Model commands below say how). The impacted tests named below are a starting hint, not a limit.",
+  "- Never leave a long-lived server running.",
   "- Never kill processes.",
   "- Write no documentation unless the task explicitly asks for it.",
   "- Do not commit or push.",
@@ -35,6 +36,8 @@ const MAX_TESTS = 10;
 const shq = (w: string): string => (/^[\w@%+=:,./-]+$/.test(w) ? w : `'${w.replace(/'/g, "'\\''")}'`);
 
 export function briefContext(ctx: RunContext, d: ContextDeps): string {
+  const unit = unitBrief(); // D61-11: a unit brief is its pack files only
+  if (unit !== null) return unit;
   const o = ctx.outputs();
   const tree = o.intake?.tree as string | undefined;
   const task = (o.intake?.task as string | undefined) ?? "";
@@ -47,7 +50,7 @@ export function briefContext(ctx: RunContext, d: ContextDeps): string {
   const tm = o.intake?.testmap as TestMap | undefined;
   const refs = tm && files.length ? ctx.tests.impacted(tm, files).slice(0, MAX_TESTS) : [];
   const rel = (p: string): string => (p.startsWith(`${ctx.repoDir}/`) ? p.slice(ctx.repoDir.length + 1) : p);
-  const cmds = refs.map((t) => { const [c, a] = d.cmd(t, ctx.repoDir); return [rel(c), ...a].map(shq).join(" "); });
+  const cmds = refs.map((t) => { const [c, a, , dir] = d.cmd(t, ctx.repoDir); return `${dir && dir !== "." ? `cd ${shq(dir)} && ` : ""}${[rel(c), ...a].map(shq).join(" ")}`; });
   const verified = readVerifiedCommand(repoCacheDir(repoKey(null, ctx.repoDir)));
   return [
     files.length ? `Relevant files:\n${files.join("\n")}` : "",

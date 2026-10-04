@@ -32,7 +32,7 @@ jobs:
   #
   # What replaced it: two no-pip version-file consistency probes. They exist
   # because required-ci can let a version-bump-only push reuse its PARENT
-  # commit's Tests/Bun Parity verdict -- and the files that reuse allowlist
+  # commit's Tests verdict -- and the files that reuse allowlist
   # covers (server.json, plugin.json, ...) are exactly the ones that drift
   # silently if a release forgets to bump them. Running them here, at the
   # release SHA itself, means that check is never skipped by the reuse path.
@@ -59,7 +59,7 @@ jobs:
       - name: Setup Bun
         # publish-npm and publish-docker ship the loki-ts Bun dist. Gate the
         # release on a clean TS build + passing bun test so a broken Bun
-        # artifact cannot reach npm/Docker. Mirrors bun-parity.yml setup.
+        # artifact cannot reach npm/Docker.
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.13
@@ -92,29 +92,29 @@ jobs:
         # of the sharded shell-tests suite inside "Tests", but running them
         # here too means a metadata-only release is checked at ITS OWN commit
         # even on the iteration where required-ci reuses the parent's verdict
-        # for Tests/Bun Parity.
+        # for Tests.
         run: |
           bash tests/test-server-json-current.sh
           bash tests/test-plugin-json-current.sh
 
-  # PROPORTIONAL CI: reuse the PARENT commit's verdict for Tests/Bun Parity
+  # PROPORTIONAL CI: reuse the PARENT commit's verdict for Tests
   # when this push is a version-bump-only diff against an explicit allowlist;
   # otherwise, PROPORTIONAL CI AT THE EXACT RELEASE SHA, as before.
   #
   # S-84 (2026-09): "a release becomes a lookup". A VERSION-only bump whose
-  # parent commit already has a green Tests + Bun Parity run no longer waits
+  # parent commit already has a green Tests run no longer waits
   # ~26-34 min for those to re-run at the release SHA -- it looks up that
   # parent's already-completed verdict instead. This job no longer `needs:
   # gate`; the two run in parallel, since gate's own checks (bash syntax, Bun
   # typecheck/test, the two version-file probes) are independent of this
   # lookup. `release` still needs both.
   #
-  # GUARANTEED, exactly: for each of Tests / Bun Parity / Security Audit,
+  # GUARANTEED, exactly: for each of Tests / Security Audit,
   # (a) any success at the release SHA wins outright; (b) else any completed
   # run at the release SHA with conclusion exactly "failure" fails the whole
   # job, even if another run of the same workflow is still in flight (a
   # completed failure is never hidden behind a hopeful retry); (c) else, for
-  # Tests/Bun Parity/Security Audit, reuse the parent's verdict if this push is eligible
+  # Tests/Security Audit, reuse the parent's verdict if this push is eligible
   # (see below) and the parent shows a success; (d) else wait for the release
   # SHA's own result. Security Audit reuses the parent's newest decisive verdict under the SAME
   # eligibility rule (E-157), only when that verdict is success AND a pinned
@@ -222,14 +222,42 @@ jobs:
         # PARENT..SHA first (see the poll loop). Same pinned binary as the audit.
         run: bash scripts/install-gitleaks.sh
 
-      - name: Require Tests / Bun Parity / Security Audit green, at the release SHA or an eligible parent
+      - name: Require Tests / Security Audit green, at the release SHA or an eligible parent
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ github.sha }}
           REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
+          WAIVER_FROM: ${{ vars.LOKI_CI_WAIVER_FROM }}
+          WAIVER_COUNT: ${{ vars.LOKI_CI_WAIVER_COUNT }}
         run: |
           set -euo pipefail
+
+          # D88 CI waiver (founder, 2026-10-03: "skip all CIs for next 10
+          # releases"). Active only while both repo variables are set: the
+          # release does not wait for Tests / Security Audit when
+          # fewer than WAIVER_COUNT release tags exist above WAIVER_FROM. It
+          # expires by itself after WAIVER_COUNT releases; unset the variables
+          # to end it early.
+          if [ -n "${WAIVER_FROM:-}" ] && [ -n "${WAIVER_COUNT:-}" ]; then
+            CUR="$(tr -d '[:space:]' < VERSION)"
+            if [ "$CUR" != "$WAIVER_FROM" ] && [ "$(printf '%s\n%s\n' "$WAIVER_FROM" "$CUR" | sort -V | tail -1)" = "$CUR" ]; then
+              USED=0
+              for t in $(git tag --list 'v[0-9]*'); do
+                v="${t#v}"
+                [ "$v" = "$WAIVER_FROM" ] && continue
+                [ "$v" = "$CUR" ] && continue
+                [ "$(printf '%s\n%s\n' "$WAIVER_FROM" "$v" | sort -V | tail -1)" = "$v" ] || continue
+                [ "$(printf '%s\n%s\n' "$v" "$CUR" | sort -V | tail -1)" = "$CUR" ] || continue
+                USED=$((USED + 1))
+              done
+              if [ "$USED" -lt "$WAIVER_COUNT" ]; then
+                echo "D88 CI WAIVER: v$CUR is waived release $((USED + 1)) of $WAIVER_COUNT after v$WAIVER_FROM; not waiting for Tests / Security Audit."
+                exit 0
+              fi
+              echo "D88 CI waiver exhausted ($USED of $WAIVER_COUNT used); full required-ci applies."
+            fi
+          fi
 
           # -------------------------------------------------------------------
           # STEP 1: is this a version-bump-only diff against the immediate
@@ -393,7 +421,7 @@ jobs:
           fi
 
           if [ "$ELIGIBLE" = "1" ]; then
-            echo "Version-bump-only diff against parent $PARENT (every changed file is allowlisted, same-mode, and byte-identical modulo the version string). Tests and Bun Parity may reuse that commit's verdict if it already succeeded there; Security Audit follows the same rule (E-157): a decisive run at $SHA wins, else the parent's newest decisive audit verdict is reused only if it is success."
+            echo "Version-bump-only diff against parent $PARENT (every changed file is allowlisted, same-mode, and byte-identical modulo the version string). Tests may reuse that commit's verdict if it already succeeded there; Security Audit follows the same rule (E-157): a decisive run at $SHA wins, else the parent's newest decisive audit verdict is reused only if it is success."
           else
             echo "Not eligible for parent reuse (see 'normalizer:' diagnostic above if the eligibility check ran, or: empty diff, no resolvable parent, or a non-push event). All required workflows must succeed at $SHA unless already decided by a completed run there."
           fi
@@ -410,14 +438,14 @@ jobs:
           # would deadlock every release rather than gate it, so the trigger
           # and this list must be changed together.
           # -------------------------------------------------------------------
-          REQUIRED=$(printf '%s\n' "Tests" "Bun Parity" "Security Audit")
+          REQUIRED=$(printf '%s\n' "Tests" "Security Audit")
 
           fetch_runs() {
             # name<TAB>status<TAB>conclusion<TAB>created_at, one run per line.
             # Push runs only, EXCEPT Security Audit, which also accepts a
             # workflow_dispatch run (E-87: lets a tree whose VERSION is already
             # bumped publish after an audit fix, since a VERSION push cannot be
-            # re-created). Tests and Bun Parity stay push-only. D75: a Security
+            # re-created). Tests stays push-only. D75: a Security
             # Audit run counts only if head_branch is main or it was a dispatch,
             # because a train/** run scans only its range and must never stand
             # in for the full-history scan (also covers the parent reuse path). A pull_request
@@ -506,9 +534,10 @@ jobs:
           }
           sched_audit_fetch() {
             # One line: none | indeterminate | green|cleared|red|indeterminate<TAB>conclusion<TAB>url<TAB>created_at
+            # "none" needs an explicit total_count of 0 AND no runs; a response without total_count is never read as zero runs. per_page=1 relies on GitHub returning workflow runs newest first (verified live 2026-10-03).
             local s concl created found
             s="$(sched_audit_api 'event=schedule&branch=main&status=completed&per_page=1' \
-              'if (.total_count // 0) == 0 then "none"
+              'if (.total_count == 0 and ((.workflow_runs // []) | length) == 0) then "none"
                else ((.workflow_runs // []) | map(select(.event=="schedule" and .head_branch=="main" and .status=="completed")) | first) as $s
                  | if $s == null then "indeterminate" else "\($s.conclusion)\t\($s.html_url)\t\($s.created_at)" end
                end')" || return 1
@@ -586,7 +615,7 @@ jobs:
               #       cancel-in-progress concurrency group cancels the
               #       release SHA's own in-flight run.
               if [ "$want" = "Security Audit" ]; then
-                # E-157: same rule as Tests/Bun Parity. A decisive verdict at
+                # E-157: same rule as Tests. A decisive verdict at
                 # the release SHA always wins; only when none exists does an
                 # eligible bump reuse the parent's NEWEST decisive verdict,
                 # and only if that verdict is success (a newer parent failure
@@ -1054,16 +1083,6 @@ jobs:
           # never restores a cache an issue-triggered job could have written.
           no-cache: true
 
-      - name: Build dashboard frontend
-        working-directory: dashboard-ui
-        run: |
-          npm ci
-          npm run build:all
-
-      - name: Verify dashboard static exists
-        run: |
-          test -f dashboard/static/index.html || { echo "FATAL: dashboard/static/index.html not found after build"; exit 1; }
-
       - name: Verify the PACKED tarball carries a fresh dist
         run: |
           # WHY PACK AND NOT THE WORKTREE. package.json's prepack rebuilds
@@ -1104,6 +1123,48 @@ jobs:
         run: npm publish --access public --tag next
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Wait until npm serves the published version
+        # NPM-LAG: npm can take 30+ minutes to serve a version it just accepted
+        # (10.5.34 smoke failed ETARGET during a 29 minute lag and skipped
+        # promote). Post-Release Smoke and Promote both trigger on this workflow
+        # finishing successfully, so holding THIS job until the registry serves
+        # the exact version gates both on visibility: neither can run against a
+        # version npm does not serve yet. Three states, never conflated:
+        #   visible: npm view prints exactly VERSION, so pass
+        #   lagging: empty output, E404 or a transient error, so keep polling;
+        #            this is neither a failure nor a pass
+        #   timeout: still not visible at the deadline, so fail with the
+        #            distinct NPM-LAG-TIMEOUT message
+        # --prefer-online bypasses the local packument cache. The smoke and
+        # promote retry windows stay as they are; this wait only adds the
+        # guarantee in front of them.
+        env:
+          NPM_WAIT_TIMEOUT_S: '2700'
+          NPM_WAIT_BASE_S: '5'
+          NPM_WAIT_CAP_S: '60'
+        run: |
+          set -uo pipefail
+          VERSION="$(tr -d '\n' < VERSION)"
+          deadline=$(( $(date +%s) + NPM_WAIT_TIMEOUT_S ))
+          delay="$NPM_WAIT_BASE_S"
+          polls=0
+          while :; do
+            polls=$(( polls + 1 ))
+            FOUND="$(npm view "loki-mode@${VERSION}" version --prefer-online 2>/dev/null || true)"
+            if [ "$FOUND" = "$VERSION" ]; then
+              echo "OK: npm serves loki-mode@${VERSION} (poll ${polls})"
+              exit 0
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "NPM-LAG-TIMEOUT: loki-mode@${VERSION} still not served by npm after ${NPM_WAIT_TIMEOUT_S}s (${polls} polls); the publish step succeeded but the registry never listed it"
+              exit 1
+            fi
+            echo "poll ${polls}: loki-mode@${VERSION} not visible on npm yet (registry lag, not a failure); sleeping ${delay}s"
+            sleep "$delay"
+            delay=$(( delay * 2 ))
+            [ "$delay" -gt "$NPM_WAIT_CAP_S" ] && delay="$NPM_WAIT_CAP_S"
+          done
 
   publish-python-sdk:
     needs: release
@@ -1204,16 +1265,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Build dashboard frontend
-        working-directory: dashboard-ui
-        run: |
-          npm ci
-          npm run build:all
-
-      - name: Verify dashboard static exists
-        run: |
-          test -f dashboard/static/index.html || { echo "FATAL: dashboard/static/index.html not found after build"; exit 1; }
 
       - name: Setup Bun (for loki-ts build before docker context)
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2

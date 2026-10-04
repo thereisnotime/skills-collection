@@ -68,6 +68,46 @@ VERIFY_EXIT_BLOCKED=2
 VERIFY_EXIT_ERROR=3
 VERIFY_SCHEMA_VERSION="1.0"
 
+# S-216: verify runs from the tree under review (tree="."), and a bare
+# `python3 -c` / `python3 -` puts that cwd first on sys.path, so a planted
+# json.py in the reviewed tree replaced the stdlib module and forged recorded
+# gates (a dependency_audit with high CVEs read as pass). The inline readers
+# run through _verify_py, which resolves the interpreter with
+# _loki_snapshot_py_tool and runs it -I -S. When none resolves it exits 127
+# with no output, exactly as a missing python3 did, so no reader reads as pass.
+# This module does not source run.sh, so it carries a guarded copy; run.sh is
+# the source of truth: keep it byte-identical. Pinned by
+# tests/test-verify-no-cwd-shadow.sh and tests/test-council-py-tool-identity.sh.
+# Only the unittest run stays on bare python3: it runs the reviewed tree's own
+# tests on purpose. py_compile is a stdlib verdict, so it runs isolated too.
+declare -F _loki_snapshot_py_tool >/dev/null 2>&1 || \
+_loki_snapshot_py_tool() {
+    local c
+    for c in /usr/bin/python3 /bin/python3; do
+        [ -x "$c" ] && [ ! -d "$c" ] && "$c" -I -S -c '' >/dev/null 2>&1 && { printf '%s\n' "$c"; return 0; }
+    done
+    local dir
+    local IFS=:
+    for dir in $PATH; do
+        case "$dir" in
+            /*) ;;
+            *) continue ;;
+        esac
+        if [ -x "$dir/python3" ] && [ ! -d "$dir/python3" ] \
+           && "$dir/python3" -I -S -c '' >/dev/null 2>&1; then
+            printf '%s\n' "$dir/python3"
+            return 0
+        fi
+    done
+    return 1
+}
+
+_verify_py() {
+    local py
+    py="$(_loki_snapshot_py_tool)" || return 127
+    "$py" -I -S "$@"
+}
+
 # Resolve tool version from the VERSION file shipped alongside the repo.
 # ---------------------------------------------------------------------------
 # LLM review stage (v9.26.0). Phase 2 of the spec; the deterministic MVP shipped
@@ -187,7 +227,7 @@ SCHEMA
 
     # Parse defensively: a malformed payload is "unavailable", never a pass.
     local parsed
-    parsed="$(printf '%s' "$out" | python3 -c '
+    parsed="$(printf '%s' "$out" | _verify_py -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
@@ -588,7 +628,7 @@ ZT_MATCHES_EOF
 _verify_pkg_test_script() {
     local tree="$1"
     [ -f "$tree/package.json" ] || return 0
-    python3 -c '
+    _verify_py -c '
 import json,sys
 try:
     with open(sys.argv[1]) as fh:
@@ -918,7 +958,7 @@ verify_gate_static() {
             [ -z "$f" ] && continue
             [ -f "$tree/$f" ] || continue
             checked=$((checked + 1))
-            python3 -m py_compile "$tree/$f" >/dev/null 2>&1 || {
+            _verify_py -m py_compile "$tree/$f" >/dev/null 2>&1 || {
                 findings=$((findings + 1))
                 details="${details}Python syntax error: $f. "
                 _verify_add_finding "Medium" "lint" "deterministic:py_compile" "$f" "null" \
@@ -1266,9 +1306,9 @@ verify_gate_dependency_audit() {
             out="$(cd "$tree" && npm audit --json 2>/dev/null)" || rc=$?
             # npm audit exits nonzero when vulns are found; rc alone is not an
             # error. Distinguish "ran and found vulns" from "could not run".
-            if printf '%s' "$out" | python3 -c "import sys,json; json.load(sys.stdin)" >/dev/null 2>&1; then
+            if printf '%s' "$out" | _verify_py -c "import sys,json; json.load(sys.stdin)" >/dev/null 2>&1; then
                 local sev
-                sev="$(printf '%s' "$out" | python3 -c '
+                sev="$(printf '%s' "$out" | _verify_py -c '
 import sys, json
 d = json.load(sys.stdin)
 v = d.get("metadata", {}).get("vulnerabilities", {})
@@ -1292,7 +1332,7 @@ print("%d %d %d %d" % (crit, high, mod, low))
                     # count different dependency graphs, so arithmetic on the
                     # totals would not be sound.
                     local _prod_hc=""
-                    _prod_hc="$(cd "$tree" && npm audit --omit=dev --json 2>/dev/null | python3 -c '
+                    _prod_hc="$(cd "$tree" && npm audit --omit=dev --json 2>/dev/null | _verify_py -c '
 import sys, json
 try:
     v = json.load(sys.stdin).get("metadata", {}).get("vulnerabilities", {})
@@ -1334,9 +1374,9 @@ print(v.get("critical", 0) + v.get("high", 0))
         if command -v pip-audit >/dev/null 2>&1; then
             local out rc=0
             out="$(cd "$tree" && pip-audit --format json 2>/dev/null)" || rc=$?
-            if printf '%s' "$out" | python3 -c "import sys,json; json.load(sys.stdin)" >/dev/null 2>&1; then
+            if printf '%s' "$out" | _verify_py -c "import sys,json; json.load(sys.stdin)" >/dev/null 2>&1; then
                 local count
-                count="$(printf '%s' "$out" | python3 -c '
+                count="$(printf '%s' "$out" | _verify_py -c '
 import sys, json
 d = json.load(sys.stdin)
 deps = d.get("dependencies", d if isinstance(d, list) else [])
@@ -1438,7 +1478,7 @@ _verify_runtime_detect() {
     # 0b. Rank 9 setup recipe (opportunistic; NOT yet built -- absence is normal).
     if [ -z "$method" ] && [ -f "$dir/.loki/setup-recipe.json" ] && command -v python3 >/dev/null 2>&1; then
         local recipe
-        recipe="$(python3 - "$dir/.loki/setup-recipe.json" <<'PYEOF' 2>/dev/null || true
+        recipe="$(_verify_py - "$dir/.loki/setup-recipe.json" <<'PYEOF' 2>/dev/null || true
 import json, sys
 try:
     with open(sys.argv[1]) as f:
@@ -1611,7 +1651,7 @@ _verify_write_setup_recipe() {
     _SR_DIR="$tree/.loki" _SR_INSTALL="$install" _SR_SEED="$seed" \
     _SR_START="$start" _SR_HEALTH="$health_path" _SR_PORT="$port" \
     _SR_ENVSRC="$env_src" \
-    python3 - <<'PYEOF' 2>/dev/null || return 0
+    _verify_py - <<'PYEOF' 2>/dev/null || return 0
 import json, os, re
 
 out_dir = os.environ["_SR_DIR"]
@@ -1815,7 +1855,7 @@ verify_gate_runtime() {
     # reproducible (command + url + status + artifact are all captured).
     _VR_DIR="$artifact_dir" _VR_METHOD="$method" _VR_URL="$url" \
     _VR_STATUS="$http_status" _VR_ART="$artifact_field" _VR_TO="$boot_timeout" \
-    python3 - <<'PYEOF' 2>/dev/null || true
+    _verify_py - <<'PYEOF' 2>/dev/null || true
 import json, os
 rec = {
     "start_command": os.environ.get("_VR_METHOD", ""),
@@ -2213,7 +2253,7 @@ verify_emit_evidence() {
     _V_SCOPE_SOFT_NET="${VERIFY_SCOPE_SOFT_NET_LINES:-}" \
     _V_SCOPE_MAX_FILES="${VERIFY_SCOPE_MAX_FILES:-}" \
     _V_SCOPE_MAX_NET="${VERIFY_SCOPE_MAX_NET_LINES:-}" \
-    python3 - <<'PYEOF'
+    _verify_py - <<'PYEOF'
 import json, os, hashlib, sys
 
 out_dir = os.environ["_VERIFY_OUT_DIR"]
@@ -2671,7 +2711,7 @@ verify_expectation_ledger_gate() {
         _LK_ITER="$iter" \
         _LK_OBSERVED="$observed_file" \
         _LK_MOD="$mod" \
-        python3 - <<'PYEOF' 2>/dev/null
+        _verify_py - <<'PYEOF' 2>/dev/null
 import importlib.util, json, os, sys
 
 mod_path = os.environ["_LK_MOD"]
@@ -2856,7 +2896,7 @@ verify_hosted_enrich() {
 
     # Fold the engine payload into evidence.json under "hosted". A parse failure
     # at any step leaves the file byte-for-byte unchanged.
-    _V_EV="$ev_path" _V_ENGINE="$engine_out" python3 - <<'PYEOF' || {
+    _V_EV="$ev_path" _V_ENGINE="$engine_out" _verify_py - <<'PYEOF' || {
 import json, os, sys
 
 ev_path = os.environ["_V_EV"]
@@ -2906,7 +2946,7 @@ PYEOF
     # Built from the engine payload via python3 (already a precondition above);
     # any parse hiccup leaves the summary empty and the banner simply omits the
     # line -- never a fabricated summary.
-    VERIFY_HOSTED_SUMMARY="$(_V_ENGINE="$engine_out" _V_VERDICT="${VERIFY_VERDICT:-}" python3 - <<'PYEOF' 2>/dev/null || true
+    VERIFY_HOSTED_SUMMARY="$(_V_ENGINE="$engine_out" _V_VERDICT="${VERIFY_VERDICT:-}" _verify_py - <<'PYEOF' 2>/dev/null || true
 import json, os
 try:
     e = json.loads(os.environ["_V_ENGINE"])
@@ -3002,7 +3042,7 @@ _verify_check_fresh() {
     # Parse the graded head_sha out of the evidence document. python3 is the same
     # dependency the emitter uses; a parse failure is fail-closed (ERROR).
     local graded_head parse_rc
-    graded_head="$(_VF_EV="$ev_path" python3 - <<'PYEOF' 2>/dev/null
+    graded_head="$(_VF_EV="$ev_path" _verify_py - <<'PYEOF' 2>/dev/null
 import json, os, sys
 try:
     doc = json.load(open(os.environ["_VF_EV"]))
@@ -3053,9 +3093,26 @@ PYEOF
 _verify_receipt_digest() {
     local rid pj lib rc=0
     rid="$(cat .loki/state/last-proof-id.txt 2>/dev/null || true)"
-    case "$rid" in '' | *[!A-Za-z0-9._-]*) return 0 ;; esac
+    # D76: a missing or unusable run-id pointer must not silently skip the receipt check.
+    # Proofs on disk with no pointer to one is NOT VERIFIED; a tree that never recorded a
+    # proof (nothing to verify) says so aloud and does not claim a receipt check.
+    if [ -z "$rid" ]; then
+        if compgen -G ".loki/proofs/*/proof.json" >/dev/null 2>&1; then
+            echo "receipt: NOT VERIFIED (no last-proof-id.txt pointer, but proofs exist under .loki/proofs; the receipt was not checked)"
+            return 1
+        fi
+        echo "receipt: NONE (no proof was recorded in this tree; no receipt was checked)"
+        return 0
+    fi
+    case "$rid" in *[!A-Za-z0-9._-]*)
+        echo "receipt: NOT VERIFIED (last-proof-id.txt holds an unusable id; the receipt was not checked)"
+        return 1 ;;
+    esac
     pj=".loki/proofs/$rid/proof.json"
-    [ -f "$pj" ] || return 0
+    if [ ! -f "$pj" ]; then
+        echo "receipt: NOT VERIFIED (last-proof-id.txt names ${rid} but .loki/proofs/${rid}/proof.json is missing; the receipt was not checked)"
+        return 1
+    fi
     lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
     python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import importlib.util, json
@@ -3069,9 +3126,9 @@ print('receipt_sha256: ' + h if ok else 'receipt: TAMPERED (integrity hash does 
 sys.exit(0 if ok else 3)" "$lib" "$pj" 2>/dev/null || rc=$?
     [ "$rc" -ne 3 ] || return 1
     # Provenance: the deploy gate's own verdict (Ed25519 attestation against the local
-    # key plus LOKI_RECEIPT_RETIRED_PUBKEYS; unknown kid or no key is UNCHECKED).
+    # key plus LOKI_RECEIPT_RETIRED_PUBKEYS; unknown kid or no key is UNCHECKED, which fails per D76).
     # Defined in autonomy/loki, so it is absent when verify.sh runs standalone.
-    declare -f _deploy_receipt_verdict >/dev/null 2>&1 || { echo "attestation: UNCHECKED (run via loki verify)"; return 0; }
+    declare -f _deploy_receipt_verdict >/dev/null 2>&1 || { echo "attestation: UNCHECKED (run via loki verify)"; return 1; }
     local att
     att="$(_deploy_receipt_verdict "$pj")"
     # D47: UNSIGNED is never a pass; --allow-unsigned / LOKI_VERIFY_ALLOW_UNSIGNED=1 accepts it, said aloud.
@@ -3084,6 +3141,16 @@ sys.exit(0 if ok else 3)" "$lib" "$pj" 2>/dev/null || rc=$?
         return 1
     fi
     printf 'attestation: %s\n' "$att"
+    # D76: UNCHECKED (a well-formed token whose kid no local key matches, or a check that
+    # could not run) is not a pass: anyone can mint a foreign-kid token. rc 2, VERDICT not VERIFIED.
+    if [ "$att" = "UNCHECKED" ]; then
+        echo "  Not verified: no local key matches this attestation, so who signed it is unproven."
+        echo "  Cross-machine path: loki verify --pubkey FILE <run-id> checks a Loki 10 run receipt"
+        echo "  (.loki/runs/<run-id>/receipt.json) against the signer's public key (JWK or PEM)."
+        echo "  It does not read a legacy .loki/proofs proof.json; for that, add the signer's public"
+        echo "  key to LOKI_RECEIPT_RETIRED_PUBKEYS on this machine."
+        return 1
+    fi
     [ "$att" != "TAMPERED" ]
 }
 

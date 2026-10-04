@@ -84,11 +84,14 @@ def ledger_path():
 
 
 def spent_today():
+    """USD spent today, 0.0 if no ledger yet, None if the ledger is unreadable (fail closed)."""
     try:
         with open(ledger_path()) as f:
             return float(json.load(f).get(datetime.date.today().isoformat(), 0))
-    except (OSError, ValueError):
+    except FileNotFoundError:
         return 0.0
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None
 
 
 def add_spend(usd):
@@ -96,7 +99,16 @@ def add_spend(usd):
     try:
         with open(p) as f:
             data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("ledger is not an object")
+    except FileNotFoundError:
+        data = {}
     except (OSError, ValueError):
+        # Keep the unreadable bytes; never overwrite history.
+        try:
+            os.replace(p, "%s.corrupt-%d" % (p, int(time.time())))
+        except OSError:
+            pass
         data = {}
     k = datetime.date.today().isoformat()
     data[k] = round(float(data.get(k, 0)) + usd, 6)
@@ -267,7 +279,7 @@ def main(argv):
     wt_root = top.rstrip("/") + "-backlog"
     os.makedirs(os.path.join(wt_root, "logs"), exist_ok=True)
     launcher = os.environ.get("LOKI_BACKLOG_LAUNCHER") or os.path.join(REPO_ROOT, "bin", "loki")
-    child_env = dict(env, LOKI_ENGINE="v10", LOKI_NO_BROWSER="1")
+    child_env = dict(env, LOKI_NO_BROWSER="1")
     for key, var in (("models.default", "LOKI_MODEL_DEVELOPMENT"), ("models.cheap", "LOKI_MODEL_FAST")):
         sect, name = key.split(".")
         if cfg.get(sect, {}).get(name):
@@ -380,9 +392,13 @@ def main(argv):
         for k in [k for k, (p, _l, _w) in running.items() if p.poll() is not None]:
             finish(k)
         while pending and len(running) < conc:
-            if day_cap and spent_today() >= day_cap:
+            spent = spent_today() if day_cap else 0.0
+            if day_cap and (spent is None or spent >= day_cap):
                 for k in pending:
-                    state[k].update(status="BUDGET_STOP: daily budget $%.2f reached ($%.2f spent)" % (day_cap, spent_today()), ok=False)
+                    if spent is None:
+                        state[k].update(status="BUDGET_STOP: daily budget $%.2f set but spend ledger unreadable (ledger unreadable)" % day_cap, ok=False)
+                    else:
+                        state[k].update(status="BUDGET_STOP: daily budget $%.2f reached ($%.2f spent)" % (day_cap, spent), ok=False)
                     say("backlog: %s %s" % (spec[k]["label"], state[k]["status"]))
                 pending = []
                 break

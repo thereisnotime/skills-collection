@@ -3,7 +3,7 @@
 Architect design, 2026-10-01, base 1dfc87103. Design only. Flag: `LOKI_CONTROL=1` until acceptance (slice CP-17).
 
 ## 1. Goal
-1. One service plus one UI, `loki control`, replaces dashboard/, dashboard-ui/ and engine10/dashboard. Zero config locally; deployed once for hundreds of runs.
+1. One service plus one UI, `loki control`, replaces dashboard/, legacy-ui/ and engine10/dashboard. Zero config locally; deployed once for hundreds of runs.
 2. Stateless processes, all state in one DB (SQLite by default, Postgres via DATABASE_URL), self-healing, horizontally scalable on Postgres.
 3. Every number is folded from ingested run events. A panel with no data says "no data ingested", never 0.
 
@@ -22,7 +22,7 @@ Architect design, 2026-10-01, base 1dfc87103. Design only. Flag: `LOKI_CONTROL=1
 | engine10 dashboard | engine10/dashboard/server.ts:30-57 (fold-based), routes :116-125 | REAL, but one repo, one process, 127.0.0.1 |
 | Python dashboard, 168 routes | dashboard/server.py (13,171 lines); cost reads `.loki/metrics/efficiency` server.py:7869 | REAL but legacy: reads run.sh state that v10 runs never write |
 | Pricing table | dashboard/server.py:7748, :8582 ("Unverified placeholder rate") | INVENTED |
-| dashboard-ui /api/v2 activity, agents/leaderboard, cost/breakdown, memory/graph, pipeline/status, providers/health | dashboard-ui/index.js:100-105, issue #203 | INVENTED (no server route) |
+| legacy-ui /api/v2 activity, agents/leaderboard, cost/breakdown, memory/graph, pipeline/status, providers/health | legacy-ui/index.js:100-105, issue #203 | INVENTED (no server route) |
 | Secret redaction | util/redact.ts:4-14 `redactSecrets`; seal.ts:30 `sanitizeReason`; output.ts:79 Reason line | REAL. Reuse. |
 
 ## 3. Data model (Drizzle, one schema for SQLite and Postgres)
@@ -46,6 +46,7 @@ Architect design, 2026-10-01, base 1dfc87103. Design only. Flag: `LOKI_CONTROL=1
 - events.jsonl is the spool. The shipper never writes to it (the supervisor treats outside writes as tamper). Its acked cursor lives in `.loki/runs/<id>/ship.json {acked_seq, url}`, written atomically.
 - Started by the supervisor next to the log (one hook line, skipped when `LOKI_CONTROL=0`; the url comes from `LOKI_CONTROL_URL` or local discovery, section 6), it uses `tail()` (events.ts:155), batches up to 200 events or 1 s, and POSTs. Backoff 1, 2, 4 ... 60 s with jitter. It never blocks or fails the run: on supervisor exit it flushes for at most 5 s, then leaves the rest for replay.
 - Every string in `data` goes through `redactSecrets` before sending.
+- Cleanup: `loki control prune --repo OWNER/NAME` and/or `--before ISO_DATE` (`--dry-run` previews) deletes matching runs, their events and orphaned sources in one transaction, direct on the SQLite file (WAL, 5 s busy timeout), so it works with the server up or down. `DELETE /v1/runs/:source/:run` (JSON content type, same-host Origin, bearer when a token is set) removes one run and writes an `audit` row first; the UI Run detail page has a Remove button with a confirm step.
 - Replay: `loki control backfill [--repo DIR]` and every `loki` start ship each run whose ship.json acked_seq is below its last seq. Backfill of old .loki/runs uses the same code path.
 
 ## 6. Local discovery (on by default)
@@ -62,7 +63,7 @@ Architect design, 2026-10-01, base 1dfc87103. Design only. Flag: `LOKI_CONTROL=1
 ## 8. Migration and deletion
 1. Build in packages/control-plane/ behind LOKI_CONTROL=1. The old UIs keep running; old-dashboard bug work is retired (D56.6).
 2. Acceptance (CP-17): real runs in, correct counts out, on SQLite and Postgres; first-run gate passes with the flag on.
-3. Flip the default. One release later, delete dashboard/, dashboard-ui/, engine10/dashboard/ (and its registry.ts:19 line), `loki dashboard` becomes an alias of `loki control`, and the dashboard tests are removed (CP-18).
+3. Flip the default. One release later, delete dashboard/, legacy-ui/, engine10/dashboard/ (and its registry.ts:19 line), `loki dashboard` becomes an alias of `loki control`, and the dashboard tests are removed (CP-18).
 
 ## 9. v0 (ships in 1 to 2 hours on a D46 train)
 CP-00 corpus, then CP-01, CP-02 and CP-03 in parallel, then CP-04 to wire them: SQLite service with ingest, the shipper with backfill, and a UI with the Runs list and detail, all behind the flag.
@@ -90,7 +91,7 @@ Rules for every card: file sets do not overlap; only CP-02 touches supervisor.ts
 | CP-15 | Deploy: `packages/control-plane/Dockerfile`, `deploy/helm/loki-control/` | image boots, /ready 200 after migrations; `helm template` renders probes; replicas>1 without DATABASE_URL fails render | MEDIUM | CP-07 |
 | CP-16 | Self-heal: /ready gating, stale-run derivation, replay on boot | DB file removed while up: /ready 503, recovers; stale run flagged after heartbeat gap | LOW | 01,05 |
 | CP-17 | Acceptance + flag flip | full corpus and one real first-run demo run on SQLite and Postgres: every view's counts equal EXPECTED.json | HIGH | all above |
-| CP-18 | Delete dashboard/, dashboard-ui/, engine10/dashboard/, their tests and references | `rg` finds no imports; local-ci fast tier green; first-run gate opens the control UI | HIGH | CP-17 + 1 release |
+| CP-18 | Delete dashboard/, legacy-ui/, engine10/dashboard/, their tests and references | `rg` finds no imports; local-ci fast tier green; first-run gate opens the control UI | HIGH | CP-17 + 1 release |
 
 Dependencies to add (none present today; web-app/package.json pins react 19, vite 6, tailwind 3, so align): hono, drizzle-orm, drizzle-kit (dev), react, react-dom, vite, @vitejs/plugin-react, tailwindcss. SQLite uses built-in `bun:sqlite`. Postgres uses drizzle's `bun-sql` driver if the pinned drizzle-orm exports it, otherwise `postgres` is the one extra. No hard blocker found: Bun is already the runtime (bin/loki:94).
 
@@ -111,3 +112,9 @@ A run blocked on a spec conflict shows its question in the run view with an answ
 `loki answer [<run-id>] [--text "..."]` reads the run's task and question from `.loki/runs/<run>/events.jsonl` and the answer from `--text` or the answer file above, then launches `bin/loki "<task>\n\nClarification answering \"<question>\": <answer>"` and prints the new run id. The default run is the newest BLOCKED run in the current repo. The child env drops every `SLACK_*` variable and `LOKI_CONTROL_TOKEN` and sets `LOKI_NO_BROWSER=1`. A run that is not BLOCKED, or has no answer, exits 2 with the reason.
 
 `LOKI_CONTROL_DEFAULT=1` (off by default) makes `loki dashboard` open the Control Plane.
+
+### Integrity and the display verdict (D86, FC-08)
+
+Ingest runs a pure verifier (`src/server/integrity.ts`) over every stored run and persists `tampered`, `attested`, `sig_checked` and `integrity_reasons`. Only the sealed prefix (events through `log.sealed`) supplies the verdict; a second `run.completed`, or any verdict-bearing event after `log.sealed`, is TAMPERED. The `log.sealed` kid must equal the signed receipt kid, and with keys configured an unknown kid is TAMPERED.
+
+Display verdicts (`effective_verdict`, mirrored by `ui/src/api.ts`): TAMPERED; UNVERIFIED (a VERIFIED claim that is not attested, or a log redacted before ingest); "VERIFIED (signature not checked)" (attested, but no key in `LOKI_CP_RECEIPT_PUBKEYS` checked the seal signature); VERIFIED (attested and signature-checked). With no keys configured nothing can be plain VERIFIED. Choice for the list filter: `?verdict=VERIFIED` lists signature-checked runs only; `?verdict=VERIFIED (signature not checked)` lists the rest. ALREADY_SATISFIED is a success outcome and needs a seal exactly like VERIFIED (same UNVERIFIED and signature-not-checked rules). Any other verdict on an unattested run shows `<verdict> (unattested)`, so an edited or redacted FAILED or PARTIAL never reads as plain. The Overview VERIFIED tile counts only plain VERIFIED; a separate tile counts signature-not-checked runs. Rows are recomputed at boot in chunks (one transaction each) when attested is NULL or the stored key-set fingerprint (`integrity_key_fp`) differs from the configured one; rows whose events are gone are marked unattested once and not retried.

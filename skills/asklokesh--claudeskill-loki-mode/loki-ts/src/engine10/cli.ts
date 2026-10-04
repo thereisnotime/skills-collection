@@ -1,6 +1,6 @@
 // Loki 10 engine subcommand router (ENGINE.md section 11, slice E-12).
 // Reached only through `loki-ts/src/cli.ts` case "engine10", which bin/loki
-// selects when LOKI_ENGINE=v10. Every target module is loaded lazily, and no
+// selects. Every target module is loaded lazily, and no
 // sibling module (types.ts included) is imported statically, so this file
 // works before its siblings exist: a missing module prints
 // "engine10: <module> not built yet" and exits 2.
@@ -25,7 +25,7 @@ const TABLE: Record<string, { module: string; fn: string }> = {
   "deep-supervise": { module: "stages/deep.ts", fn: "deepSupervise" },
   "deep-worker": { module: "stages/deep.ts", fn: "deepWorker" },
 };
-const USAGE = `Usage (LOKI_ENGINE=v10):
+const USAGE = `Usage:
   loki "<task>"                   run the engine on a free-text task
   loki <issue-url|owner/repo#N>   run on an issue
   loki status [run-id]            latest run by default
@@ -33,7 +33,7 @@ const USAGE = `Usage (LOKI_ENGINE=v10):
   loki keys export                print the receipt-signing public key (JWK + kid)
   loki dashboard                  serve the local dashboard
   loki modernize <repo> --to <target>  convert a codebase (loki modernize --help)
-Flags: --deep, --provider <name>, --no-pr, --max-cost <usd> (per-run cap, default $20, or loki.yaml budgets.per_run)
+Flags: --deep, --provider <name>, --no-pr, --max-cost <usd> (per-run cap; default $100 with an API key, none on a subscription; or loki.yaml budgets.per_run)
 `;
 // Returns null for an empty or help invocation.
 export function route(args: string[]): Route | null {

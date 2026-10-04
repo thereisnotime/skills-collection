@@ -63,12 +63,38 @@ The more concrete, the better — architects and implementers should not have to
 ## Open Questions
 
 - [ ] <Unresolved question — must be resolved before planning begins>
-
-## Clarifications Applied
-
-> Populated during Phase 3. Each entry documents a question asked and the requirement it produced.
-
-| # | Question | Answer | Requirement Added |
-|---|----------|--------|-------------------|
-| 1 | <question> | <answer> | FR-007a |
 ```
+
+---
+
+## Companion file: `changelog.md`
+
+Create alongside `spec.md` when the spec is amended. Provenance lives here, not
+in the spec — the spec describes what is currently required, and the changelog
+explains why it came to require that.
+
+```markdown
+# Changelog: <Feature Name>
+
+<!-- One entry per amendment. Newest first. -->
+
+## v1.1 — <date>
+
+**Why**: <requirement-level decision — chosen approach, and the alternative it
+was chosen over>
+
+**Changed**: FR-008 (added); FR-003 (rewritten — <what changed and what it
+replaced>)
+```
+
+**Record**: requirement-level rationale, superseded approaches worth
+remembering, decisions that would otherwise look arbitrary.
+
+**Do not record**: file names, line counts, sections moved, script internals,
+verification commands, test mechanics. Git already has those, in the commit
+that made the change. A changelog entry that does not change what a
+requirement *means* belongs in the commit body.
+
+Phase 3's clarification Q&A is resolved history: the answers belong in the
+requirements they produced (in `spec.md`), the questions and reasoning behind
+them belong here.

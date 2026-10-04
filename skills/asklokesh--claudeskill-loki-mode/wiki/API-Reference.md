@@ -66,7 +66,7 @@ Get detailed session status. Reads from `.loki/` flat files (dashboard-state.jso
 ```json
 {
   "status": "running",
-  "version": "10.6.11",
+  "version": "11.0.1",
   "uptime_seconds": 1234.5,
   "active_sessions": 1,
   "running_agents": 3,
@@ -512,7 +512,7 @@ curl -X POST http://localhost:57374/api/checkpoints \
 }
 ```
 
-See [[Checkpoints]] for CLI usage, directory structure, and retention policy.
+
 
 ---
 
@@ -1272,7 +1272,6 @@ No endpoints documented in this page were found missing from `dashboard/server.p
 
 ## See Also
 
-- [[Checkpoints]] - Checkpoint system documentation
 - [[CLI Reference]] - Command-line interface
 - [[Configuration]] - Configuration options
 - [[Enterprise Features]] - Enterprise authentication and audit

@@ -22,8 +22,8 @@ cd loki-mode
 # loki-ts (TypeScript runner; Bun)
 cd loki-ts && bun install && cd ..
 
-# Dashboard frontend (npm)
-cd dashboard-ui && npm install && cd ..
+# Web app frontend (npm)
+cd web-app && npm install && cd ..
 
 # Dashboard backend + memory system (Python; optional unless touching those areas)
 pip install -r dashboard/requirements.txt
@@ -75,7 +75,7 @@ python3.12 -m pytest -q
 
 ```bash
 loki dashboard start   # boots on http://127.0.0.1:57374
-cd dashboard-ui && npx playwright test
+cd packages/control-plane && bun test ./test/
 ```
 
 ## Adding a new ported command
@@ -85,8 +85,7 @@ If you are porting a bash command to the Bun route:
 1. Implement under `loki-ts/src/commands/<name>.ts` mirroring an existing command (e.g. `version.ts`, `status.ts`).
 2. Wire it into the dispatcher at `loki-ts/src/cli.ts`.
 3. Add the route token to `bin/loki:80` (the case statement).
-4. Add a parity entry to `.github/workflows/bun-parity.yml` matrix (`<label>|<args>|<text|json>`).
-5. Add a unit test under `loki-ts/tests/commands/<name>.test.ts`.
+4. Add a unit test under `loki-ts/tests/commands/<name>.test.ts`.
 6. Verify both routes produce the same output (the parity matrix enforces this on every PR).
 
 ## Adding a build_prompt parity fixture
@@ -149,7 +148,7 @@ skills/               # On-demand skill modules
 references/           # Detailed documentation
 memory/               # Memory system (Python)
 dashboard/            # Dashboard backend (FastAPI)
-dashboard-ui/         # Dashboard frontend (web components)
+packages/control-plane/ # Control Plane (browser UI)
 events/               # Event bus (Python, TypeScript, Bash)
 tests/                # Test suites
 benchmarks/           # SWE-bench and HumanEval benchmarks

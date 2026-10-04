@@ -24,25 +24,86 @@ When a new piece of work is requested:
 
 ## How to Amend an Existing Spec
 
-When triage determines work belongs to an existing spec:
+An amendment **rewrites the spec to describe the current intended behaviour.** It
+is an edit, not an append. A spec is not a record of how it got here — it is a
+description of what it now requires.
 
-1. **Open the existing spec** and bump the version (`v1.0` → `v1.1`).
-2. **Add new FRs** in sequence (`FR-010`, `FR-011`, …) — never renumber existing ones.
-3. **Update Acceptance Criteria** — add new ACs, modify existing ones if the behavior changes.
-4. **Update the Problem Statement** if the scope has shifted materially.
-5. **Add a "Change Log" section** at the bottom of the spec:
+1. **Edit the body.** A changed requirement is rewritten in place. A removed
+   behaviour is deleted. Never leave superseded text behind with a "superseded
+   by FR-0xx" note: a reader who trusts `## Functional Requirements` must get
+   correct behaviour from that section alone.
+2. **Renumber and regroup freely.** Order requirements by concern, not by the
+   order they arrived. An identifier is only load-bearing if something outside
+   the spec cites it.
+3. **Update Acceptance Criteria in the same pass.** Every FR should have at
+   least one AC, and no AC may describe behaviour that no FR requires.
+4. **Update the Problem Statement** only when the *problem* changed — not merely
+   the solution.
+5. **Add one entry to `changelog.md`** (below). Do not create a new spec
+   directory.
+
+## Where Provenance Lives: `changelog.md`
+
+Provenance belongs in `changelog.md`, beside the spec — **not** inside
+`spec.md`. Two reasons: the spec stays short enough to read in one pass, and
+history becomes opt-in context that nobody pays for unless they ask why the
+spec looks like this way.
+
+Division of labour:
+
+| File | Holds |
+|---|---|
+| `spec.md` | Current intended behaviour and its acceptance test. Nothing else. |
+| `changelog.md` | Requirement-level **why** — what was chosen, and what it was chosen over. |
+| commit / PR body | **What** — the diff, the file list, line counts, verification commands. |
 
 ```markdown
-## Change Log
+# Changelog: <Feature Name>
 
-| Version | Date | Change | Reason |
-|---------|------|--------|--------|
-| v1.1 | 2025-01-15 | Added FR-010, FR-011; updated AC-003 | Improve combat per user request |
-| v1.0 | 2025-01-01 | Initial spec | — |
+## v1.2 — 2026-10-03
+
+**Why**: <the requirement-level decision — chosen approach, and the alternative
+it was chosen over>
+
+**Changed**: FR-007, FR-012 (added); FR-003 (rewritten — the agent name now
+comes from the claim value, superseding the harness-name default)
 ```
 
-6. **Re-run triage** on the amended spec to confirm no further splitting is needed.
-7. Proceed to Phase 3 (Clarification) or Phase 4 (Plan) as appropriate — **do not** create a new spec directory.
+Banned from `changelog.md`, because git already stores it: file names, line
+counts, which section moved where, script internals, verification commands,
+test-case mechanics. **If it does not change what a requirement means, it
+belongs in the commit body.**
+
+Never use a changelog entry as a substitute for editing the body. If an entry
+has to explain that the body is wrong, the body needs fixing.
+
+## When to Stop Amending
+
+Amending is right while the spec still models one coherent thing. Two triggers
+mean it no longer does:
+
+- **The FR list passes ~15.** Past that, one pass over `## Functional
+  Requirements` stops being a way to understand the system.
+- **A single amendment rewrites more than a third of the FRs.** That is not a
+  change to the spec; it is evidence the spec's model of the domain was wrong.
+
+Cheap test, before either: **can you still state the Problem Statement in one
+paragraph without "and also"?** If not, the spec is two features — split it into
+two specs that reference each other.
+
+Rewriting a spec to fix its model is not spec sprawl. The test is whether one
+Problem Statement still describes the work.
+
+## The WHAT / WHERE Line
+
+`spec.md` says **what** is required and how it is verified. `plan.md` and
+`research.md` say **why**, plus rejected alternatives and trade-offs.
+
+Recording a rejected design *inside the spec* is the most common source of spec
+bloat: the reasoning already lives in `research.md`, and restating it in the
+requirement document makes every future reader re-derive a decision that was
+made once. `## Out of Scope` states what is excluded, and points at
+`changelog.md` for why.
 
 ## Anti-Patterns
 
@@ -51,37 +112,81 @@ When triage determines work belongs to an existing spec:
 | "Improve X" as a new spec | Fragments related work, creates orphaned specs | Amend the X spec |
 | "Add feature Y to Z" as a new spec | The Z spec already owns this domain | Add FRs to Z's spec |
 | "Fix bug in X" as a new spec | Bugs are part of the spec's scope | Update ACs in X's spec |
-| Never amending specs | Specs become stale snapshots, not living documents | Bump version and add change log |
-| Amending without versioning | Impossible to track what changed and when | Always bump version + add change log |
+| Never amending specs | Specs become stale snapshots, not living documents | Rewrite the body; log to `changelog.md` |
+| **Append-only amendment** | Requirements accumulate in arrival order and superseded text stays authoritative-looking, so a reader of the FR section implements the old behaviour | Edit the requirement in place; delete what it replaced |
+| **Changelog inside `spec.md`** | Every read of the spec pays for history it did not ask for, and the tail is the part readers skim | Separate `changelog.md` |
+| **Changelog recording implementation detail** | Duplicates git; the document bloats without gaining information | Requirement-level why only — `what` goes to the commit |
+| **Never renumbering** | FRs accumulate in arrival order, so no read-through builds a mental model | Regroup by concern; git preserves the diff |
 
 ## Examples
 
-### Example 1: Combat Improvement (Your Reported Case)
+### Example 1: Combat Improvement
 
 **Request:** "Improve the combat system"
 
 **Wrong:** Create `specs/005-improve-combat/spec.md`
-**Right:** Open the existing combat spec, add new FRs for the improvements, bump version, add change log entry.
+**Right:** Open the existing combat spec and edit it — new FRs for the
+improvements, existing ACs updated, one `changelog.md` entry.
 
 ### Example 2: New Weapon Type
 
 **Request:** "Add ranged weapons to the game"
 
 **Wrong:** Create `specs/006-ranged-weapons/spec.md`
-**Right:** Amend the combat spec with new FRs for ranged mechanics, or if weapons are a separate domain, create a new spec that explicitly references the combat spec.
+**Right:** Amend the combat spec with the ranged mechanics. If weapons are
+genuinely a separate domain, create a new spec that references the combat spec
+— and check the Problem Statement test first.
 
 ### Example 3: Bug Fix
 
 **Request:** "Fix the dodge mechanic not working"
 
 **Wrong:** Create `specs/007-fix-dodge/spec.md`
-**Right:** Update the combat spec's ACs to include the dodge behavior, bump version.
+**Right:** Update the combat spec's ACs in place. The bug was always inside the
+spec's scope; a fix closes a gap rather than opening a feature.
 
 ### Example 4: Genuinely New Feature
 
 **Request:** "Add an inventory system"
 
-**Right:** Create `specs/005-inventory-system/spec.md` — this is a new domain not covered by any existing spec.
+**Right:** Create `specs/005-inventory-system/spec.md` — a new domain no existing
+spec covers.
+
+### Example 5: A Requirement That Changed (the case append-only gets wrong)
+
+**Request:** "The agent name should come from whatever the claim says, not from
+the harness."
+
+FR-003 currently reads: *"the trailer defaults to the harness name that triggered
+detection."*
+
+**Wrong** — append FR-013 and add a note that FR-003 is superseded:
+
+```markdown
+### FR-013 — Agent name from claim value
+... (see A2 for precedence)
+> FR-003's default-attribution clause is superseded by FR-013.
+```
+
+Now the FR section contradicts its own entry, and a reader who stops at FR-003
+implements the old behaviour.
+
+**Right** — rewrite FR-003 to state the new rule, and record the decision in
+`changelog.md`:
+
+```markdown
+### FR-003 — Agent name from the claim value
+When `AI_AGENT`/`AGENT` is set to a non-boolean, non-canonical value, that
+value **is** the agent name (`goose`, `amp`, `custom-architect`). ...
+```
+
+```markdown
+## v1.2 — 2026-09-25
+**Why**: The harness-name default was wrong for tools that set `AI_AGENT` to
+their own name; they were being reported as a generic agent. Chosen over
+keeping the harness default plus an override, which left two rules to reconcile.
+**Changed**: FR-003 (rewritten), FR-010 (added), AC-12…AC-17 (added)
+```
 
 ## What "Scanning Existing Specs" Means in Practice
 

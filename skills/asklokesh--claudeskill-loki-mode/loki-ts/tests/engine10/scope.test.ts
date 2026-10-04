@@ -27,7 +27,7 @@ function runEngine(mode: string, plan: "1" | "0") {
   git(repo, "init", "-q", "-b", "main"); git(repo, "config", "user.name", "e2e"); git(repo, "config", "user.email", "e2e@example.invalid");
   git(repo, "add", "calc.ts", "calc.test.ts", "bunfig.toml", "settings.py"); git(repo, "commit", "-q", "-m", "base");
   const base = git(repo, "rev-parse", "HEAD");
-  const env: Record<string, string | undefined> = { ...process.env, LOKI_ENGINE: "v10", LOKI_TS_ENTRY: ENTRY, LOKI_E10_INVOKER: "cli", LOKI_CLAUDE_CLI: join(STUB_DIR, "claude"), PATH: `${STUB_DIR}:${process.env.PATH ?? ""}`, E2E_STUB_MODE: mode, LOKI_NO_BROWSER: "1", LOKI_E10_PLAN: plan, LOKI_RECEIPT_SIGNING_KEY_FILE: join(keyDir, "k.pem") };
+  const env: Record<string, string | undefined> = { ...process.env, LOKI_TS_ENTRY: ENTRY, LOKI_E10_INVOKER: "cli", LOKI_CLAUDE_CLI: join(STUB_DIR, "claude"), PATH: `${STUB_DIR}:${process.env.PATH ?? ""}`, E2E_STUB_MODE: mode, LOKI_NO_BROWSER: "1", LOKI_E10_PLAN: plan, LOKI_RECEIPT_SIGNING_KEY_FILE: join(keyDir, "k.pem") };
   delete env.LOKI_LEGACY_BASH; delete env.LOKI_RECEIPT_SIGNING_KEY; delete env.LOKI_MODEL_OVERRIDE;
   const r = Bun.spawnSync(["bash", BIN_LOKI, "add a multiply(a, b) function to calc.ts", "--no-pr"], { cwd: repo, env, timeout: 60_000 });
   const m = JSON.parse(readFileSync(join(repo, ".loki", "engine.json"), "utf8")) as { run_id: string };
@@ -36,12 +36,12 @@ function runEngine(mode: string, plan: "1" | "0") {
   return { repo, receipt, committed, out: r.stdout.toString() + r.stderr.toString() };
 }
 
-describe("D58 scope control", () => {
-  test("planned file kept, unrelated settings.py reverted on disk and listed in NOT PROVEN", () => {
+describe("D58/D76 scope control (advisory: flag, never revert)", () => {
+  test("planned file kept, unrelated settings.py KEPT and flagged outside stated scope in NOT PROVEN", () => {
     const r = runEngine("scope", "1");
-    expect(r.committed).toEqual(["calc.ts"]);
-    expect(readFileSync(join(r.repo, "settings.py"), "utf8")).toBe(SETTINGS);
-    expect(r.receipt.not_proven).toContain("unrelated edit reverted: settings.py");
+    expect(r.committed.sort()).toEqual(["calc.ts", "settings.py"]);
+    expect(readFileSync(join(r.repo, "settings.py"), "utf8")).toBe(`${SETTINGS}DEBUG = False\n`);
+    expect(r.receipt.not_proven).toContain("outside stated scope: settings.py");
     expect(r.receipt.not_proven).not.toContain("scope not determined; all edits committed");
   }, 120_000);
   test("no plan file list: all edits committed, with the scope note", () => {
@@ -49,11 +49,11 @@ describe("D58 scope control", () => {
     expect(r.committed.sort()).toEqual(["calc.ts", "settings.py"]);
     expect(r.receipt.not_proven).toContain("scope not determined; all edits committed");
   }, 120_000);
-  test("only unrelated edits: empty diff, never VERIFIED", () => {
+  test("only unrelated edits: committed and flagged, never VERIFIED", () => {
     const r = runEngine("unrelated", "1");
-    expect(r.committed).toEqual([]);
-    expect(readFileSync(join(r.repo, "settings.py"), "utf8")).toBe(SETTINGS);
+    expect(r.committed).toEqual(["settings.py"]);
+    expect(readFileSync(join(r.repo, "settings.py"), "utf8")).toBe(`${SETTINGS}DEBUG = False\n`);
     expect(r.receipt.verdict).not.toBe("VERIFIED");
-    expect(r.receipt.not_proven).toContain("unrelated edit reverted: settings.py");
+    expect(r.receipt.not_proven).toContain("outside stated scope: settings.py");
   }, 120_000);
 });

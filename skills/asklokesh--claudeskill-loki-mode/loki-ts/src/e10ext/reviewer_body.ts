@@ -1,6 +1,6 @@
-// INTEL-3: reviewer-first PR body, pure rendering from data the engine already holds.
-// Order: what was asked, what changed, how it was tested, NOT PROVEN, receipt. Absent data
+// INTEL-3: reviewer-first PR body, pure rendering from data the engine already holds. Order: what was asked, what changed, how it was tested, NOT PROVEN, receipt. Absent data
 // prints "not recorded", never a number. Task text is untrusted: truncated, never executed.
+import { noteOf } from "../util/base_guard.ts";
 export interface ReviewerBodyInput {
   verdict: string; draftReason: string | null; notProven: string[];
   receiptPath: string | null; receiptSha256: string | null; signed: boolean | null; runId: string;
@@ -10,8 +10,14 @@ const MAX_CRITERIA = 8, MAX_FILES = 10, MAX_CMDS = 5, W = 160;
 const clip = (s: string): string => (s.length > W ? `${s.slice(0, W - 3)}...` : s);
 const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const more = (all: string[], max: number): string[] => [...all.slice(0, max), ...(all.length > max ? [`(+${all.length - max} more)`] : [])];
+const isItem = (l: string): boolean => /^([-*+]|\d+[.)])\s+/.test(l);
+function acceptance(all: string[]): string[] {
+  const at = all.findIndex((l) => /^#+\s*acceptance criteria/i.test(l));
+  const rest = all.slice(at + 1), end = rest.findIndex((l) => /^#+\s/.test(l)), sect = end < 0 ? rest : rest.slice(0, end);
+  return at >= 0 && sect.some(isItem) ? sect : all; // the issue's own acceptance section is the contract when it has items
+}
 function criteria(task: string): string[] {
-  const lines = task.split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines = acceptance(task.split("\n").map((l) => l.trim()).filter(Boolean));
   const items = lines.filter((l) => /^([-*+]|\d+[.)])\s+/.test(l)).map((l) => l.replace(/^([-*+]|\d+[.)])\s+(\[[ xX]\]\s*)?/, ""));
   return more((items.length > 0 ? items : lines.slice(0, 1)).map(clip), MAX_CRITERIA);
 }
@@ -33,11 +39,14 @@ function tested(o: ReviewerBodyInput["outputs"]): string[] {
 }
 export function renderReviewerBody(i: ReviewerBodyInput): string {
   const task = typeof i.outputs.intake?.["task"] === "string" ? (i.outputs.intake["task"] as string) : "";
-  const files = arr<string>(i.outputs.verify?.["changed_files"]);
+  const title = typeof i.outputs.intake?.["title"] === "string" ? (i.outputs.intake["title"] as string) : "";
+  const changed = arr<string>(i.outputs.verify?.["changed_files"]), planned = arr<string>(i.outputs.plan?.["relevant_files"]);
+  const files = changed.length > 0 ? changed.map((f) => `- ${f}`) : planned.length > 0 ? [`- Files in scope (planned, no diff recorded): ${planned.slice(0, MAX_FILES).join(", ")}${planned.length > MAX_FILES ? ` (+${planned.length - MAX_FILES} more)` : ""}`] : [], planText = i.outputs.plan?.["plan"];
+  const why = title || (task.split("\n")[0] ?? "") || (typeof planText === "string" ? (planText.split("\n").find((l) => l.trim()) ?? "") : "");
   const L = ["## What the issue asked", ...(task ? criteria(task).map((c) => `- ${c}`) : ["- not recorded"]), ""];
-  L.push("## What changed and why", `- Why: ${task ? clip(task.split("\n")[0] ?? "") : "not recorded"}`);
-  L.push(...(files.length > 0 ? more(files.map((f) => `- ${f}`), MAX_FILES) : ["- Files in scope: not recorded"]), "");
-  L.push("## How it was tested", `- Verdict: ${i.verdict}${i.draftReason ? ` (DRAFT: ${i.draftReason})` : ""}`, ...tested(i.outputs), "");
+  L.push("## What changed and why", `- Why: ${why ? clip(why) : "not recorded"}`);
+  L.push(...(files.length > 0 ? more(files, MAX_FILES) : ["- Files in scope: not recorded"]), "");
+  L.push("## How it was tested", `- Verdict: ${i.verdict}${i.draftReason ? ` (DRAFT: ${i.draftReason})` : ""}`, ...(noteOf(i.outputs.intake) ? [`- Note: ${noteOf(i.outputs.intake)}`] : []), ...tested(i.outputs), ""); // FC-15: unclipped, the evidence paths are the point
   L.push("## NOT PROVEN", ...(i.notProven.length > 0 ? i.notProven.map((p) => `- ${p}`) : ["- none"]), "");
   L.push("## Receipt", `- Digest: ${i.receiptSha256 ? `sha256:${i.receiptSha256}` : "not recorded"}${i.signed === null ? "" : i.signed ? " (signed)" : " (UNSIGNED)"}`);
   if (i.receiptPath) L.push(`- File: ${i.receiptPath}`);

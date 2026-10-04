@@ -7,7 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **debugging-network-issues** (`debugging-network-issues` v1.11.0 → v1.11.1): drop the persisted derived count from the case-studies intro ("Five canonical cases" → "The canonical cases below") — the number is computable from the numbered list it introduces and only ever drifts.
+
+### Added
+
+- **debugging-network-issues** (`debugging-network-issues` v1.10.0 → v1.11.0): add case `references/case-iot-router-migration-wpa3.md` — an IoT group outage three weeks after a clone-the-SSID router swap, root-caused to the new AP's WPA2/WPA3 transition mode against legacy Wi-Fi silicon. The falsification chain runs passively from one laptop: an mDNS service census falsifies AP isolation, an ARP+OUI census shows the hub's OUI absent (a hub is itself a Wi-Fi client; its children cast N shadows of one failure), and beacon parameters identify the mode; the decisive measurement is intervention→effect (WPA2-only restored, twelve devices back within minutes). The case contributes the router-replacement alignment checklist (SSID / password / security mode / band-PHY — validate with the oldest client, not the newest), passive IoT census probes, hub-first decomposition for group outages, and cognitive trap 20 (validating a network change on the newest client and the nearest physical evidence). SKILL.md gains a triage row for IoT group outages and the case-studies and reference-file listings.
+
+### Fixed
+
+- **daymade-audio** (v1.44.2 → v1.44.3): transcript-fixer rejects explicitly denied authority citations while preserving independent obtained citations.
+
 ### Changed
+
+- **claude-code-hooks** (`daymade-claude-code` v4.19.0 → v4.19.1): Remove the remaining derived event-table count from the hook-types introduction; preserve its teaching scope and official-documentation route.
+
+- **claude-code-hooks** (`daymade-claude-code` v4.18.0 → v4.19.0): Align creation, installation and recovery with in-process rule modules and installer-owned active entries. Preserve event-specific authorization handlers, avoid resurrecting retired aliases, and require observed activation rather than universal restart/hot-reload claims. Restrict startup to declared bounded offline liveness modes, retaining unknown coverage instead of falling back to selftests. Add the repository route and remove duplicated navigation and derived prose counts; keep historical measurements and runtime budgets. Bounded workflow correction.
+
+- **macos-cleaner** (`daymade-macos` v1.16.0 → v1.16.1): Align cleanup plans and target guidance with existing scoped authorization; document the copy-budget option and route necessary-copy capacity checks to their owning contract. Remove duplicated gate counts and obsolete universal backup/confirmation requirements.
+
+- **skill-creator** (`daymade-skill` v1.59.1 → v1.59.2): Correct the materialization SOP's retry/finish ordering: finish closes the whole root, and run rejects its finished state. Keep the CLI as lifecycle authority; no runtime behavior changes.
+
+- **skill-creator** (`daymade-skill` v1.59.0 → v1.59.1): Handle ordinary child-file and directory removal during budget measurement without aborting healthy runs. Preserve cumulative high-water charges and unknown outcomes for missing/replaced roots, permission/I/O errors and unsupported files. Bounded bug correction, with regression coverage.
+- **macos-cleaner** (`daymade-macos` v1.16.0): Reuse scoped safe-cleanup authorization, retire disposable test builds without compulsory backups, and check necessary-copy peak allocation against live destination capacity.
+
+- **claude-code-hooks** (`daymade-claude-code` v4.17.0 → v4.18.0): Prefer compatible in-process rule modules over one registration per rule. Preserve tool coverage, per-rule authorization/state/failure semantics, lifecycle writers and independent human-wait budgets; verify native handler and child-process counts. Replace pitfall #22's blanket recommendation to retain the fleet. Bounded routing correction.
+
+- **skill-creator** (`daymade-skill` v1.58.1 → v1.59.0): Add a first-use and recovery contract for operational Skills: assign software preparation to the agent, check identity and privilege context across human handoffs, and distinguish dependency readiness from the requested task's verified result. Preserve existing installers, reference-only workflows and evaluation budgets.
+
+- **skill-creator** (`daymade-skill` v1.58.0 → v1.58.1): Index the materialization SOP from CLAUDE.md, clarify direct immutable reads and CI coverage, and leave the polling default in the CLI authority.
+
+- **macos-watchdog** (`daymade-macos` v1.14.4 → v1.15.0): Add a bounded periodic-observation cost check before deploy/integration: preserve business predicates, separate cold/warm/delta/audit work, calibrate parsing/query growth and require a completed native launchd round. Keep sleep/wake continuity and power outcomes separate. Workflow verification correction; preserve existing watchdog contracts.
+- **skill-creator** (`daymade-skill` v1.57.2 → v1.58.0): Add selected-ref materialization with explicit input paths, a cumulative disk budget across evaluation arms, monitored subprocess execution and conservative input retirement. Keep modified files and evidence on successful, failed or interrupted runs.
+- **macos-cleaner** (`daymade-macos` v1.14.3 → v1.14.4): Preserve unknown measurements when `du` fails, times out or returns malformed output. Show diagnostics and known lower bounds, and return an incomplete-scan exit status instead of reporting failed probes as zero.
+
+- **read-claude-code-history** (`daymade-claude-code` v4.14.0 → v4.15.0): Add the `hook-events` subcommand to `analyze_sessions.py` — bounded-window hook-run search across sessions (outcome, duration, exit code per run), with the same candidate-first metadata narrowing as `tool-calls`, `--pattern`/`--event` filters and forked-run deduplication. Advertise hook runs in the description ("commands, tool calls and hook runs") and add the route-table row. Deterministic tests cover window/pattern/event filtering, the run-identity rule and outcome mapping; a live replay against the real corpus answered "which sessions ran hook-health-check and how slow" in one query.
+- **claude-code-hooks** (`daymade-claude-code` v4.15.0 → v4.16.0): Correct the PreToolUse exit-2/JSON precedence to the current official contract and require checking compatible existing engines before another hook entry. Preserve separate entries for incompatible event, matcher, decision or state/authorization boundaries. Factual correction and bounded routing redesign.
+
+- **read-codex-history** (`daymade-claude-code` v4.13.0 → v4.14.0): Add the fourth history surface `logs_*.sqlite` (runtime event log with `process_uuid` embedding the OS pid) for error attribution — error-shape bucketing and per-hour distribution separate episodic transport windows from standing or per-process causes. Document two measured pitfalls: a logs `thread_id` is not a resumable rollout until `state_*.sqlite` `threads.id` confirms it, and `strftime('%s', '<local wall time>', 'localtime')` double-converts into empty results. All previous surfaces, routes and contracts unchanged.
+- **local-codex** (`daymade-codex` v1.3.0 → v1.4.0): Document that long-lived Codex TUI processes keep the refresh token in memory and never re-read `auth.json`, so a server-side revocation (same account signing in elsewhere) makes only the old processes spam `Failed to refresh token` every ~30–70 s — the fix is restarting those processes, not a global re-login. Includes the `logs_*.sqlite` query that names the offending pids, and a troubleshooting-table row.
+- **tibo-reset-codex** (`tibo-reset-codex` v1.20.1 → v1.21.0): Note the side effect of account login/restore operations in the multi-account section: signing in revokes refresh tokens held elsewhere for that account, and only long-lived processes report it (measured 2026-10-03: 2 of 25+ running processes, 164 errors each, stopped by restarting them).
+- **tunnel-doctor** (`tunnel-doctor` v1.16.0 → v1.17.0): Add a diagnosis-discipline row for agent CLIs reporting reconnects: bucket the client's own runtime log by error shape and hour before probing the network (Codex: `logs` table in the newest `~/.codex/logs_*.sqlite`); clustered windows point at episodic transport, a lone failing `process_uuid` points at a per-process cause instead.
+- **claude-code-hooks** (`daymade-claude-code` v4.16.0 → v4.17.0): Add pitfall #57 — bash 3.2 scans a quoted heredoc inside `$( )` for quote characters (sibling of #56's pipe-capacity block, opposite phase: the parser miscounting quotes before anything runs), so one stray backtick in a body comment kills the whole file and every guard in it dies silently; the structural fix is to hoist the program out of the command substitution (top-level `read -rd ''` + `python3 -c 'exec'` via the environment, never `python3 -c "$VAR"`). Add the measured cost evidence to the probe/full split contract (full battery 1m44s on a 61-hook fleet, amplified to 5–10 minutes by concurrent session starts) and require the build/commit gate to scope selftests to staged files, so an unrelated broken guard cannot deadlock the commit that fixes another one.
+
+- **read-claude-code-history** (`daymade-claude-code` v4.11.0 → v4.12.0): Advertise the existing `analyze_sessions.py tool-calls` time-window query in the skill description ("which session ran a given command in a known time window", "past-session runtime evidence about command and tool-call activity — query this index instead of raw-scanning transcript files"). All previous description clauses survive; the route table is unchanged. Description passes 420 characters because the skill is a cross-suite router and the new routing clause is the point of the change.
+- **claude-code-hooks** (`daymade-claude-code` v4.12.0 → v4.13.0): Correct hook timing guidance to preserve event/hook identity, cancellation and error outcomes, and single-run latency outliers. Move full validation to build/commit checks, keep startup probes bounded, bind caches to dependencies and runtime, and document GNU Bash's macOS heredoc pipe fix. Targeted factual corrections and workflow redesign; retain existing hook capabilities.
 
 - **tibo-reset-codex** (`tibo-reset-codex` v1.20.0 → v1.20.1): Add frozen v1.19 writer/reader compatibility tests, established-state isolation and persisted unknown-evidence readback. The new regressions detect the prior faulty implementation; runtime behavior is unchanged.
 
@@ -21,11 +66,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **read-claude-code-history** (`daymade-claude-code` v4.9.0 → v4.10.0): correct the recall guide's obsolete live raw-search claim, make script path resolution explicit, and remove mutable corpus-size aggregates and obsolete POC narration. Route original tool evidence and account attribution from the repository guide to their existing owners.
 ### Fixed
 
+- **skill-creator, skill-reviewer, skill-governance** (`daymade-skill` v1.57.1 → v1.57.2): Align source and delivery instructions with the locked runtime and actual consumed-file checks; distinguish source-backed aliases from versioned plugin copies. Correct bilingual initialization and installation guidance and remove derived catalog and checklist summaries.
+
 - **skill-creator** (`daymade-skill` v1.57.0 → v1.57.1): Treat missing, null, blank and unqualified source-inventory paths as unknown evidence. These paths previously borrowed the caller's current directory and could falsely validate source ownership; valid registered sources remain unchanged.
 
 - **bilibili-source** (v1.4.0 → v1.4.1): Preserve HTTP failure status and safe error categories in access reports, distinguishing HTTP refusal from network errors, timeouts and invalid JSON without exposing exception text. Healthy access decisions remain unchanged; synthetic tests cover capture and emitted reports.
 
 ### Added
+
+- **lark-cli-router** (`daymade-claude-code` v4.10.0 → v4.11.0): Interpret refreshable user authentication through the installed CLI, retain target/profile/identity scope for read denials, and verify existing owner-authorized profiles without changing login, grants or credentials.
 
 - **skill-creator, skill-reviewer, skill-governance** (`daymade-skill` v1.56.0 → v1.57.0): add a shared read-only source contract, checked initialization before the first write, and optional delivery review that separates source ownership, registration, source-backed installation and current runtime evidence. This workflow and safety redesign rejects implicit user-global or knowledge-archive source locations while retaining repository-local project Skills and external quality reviews.
 

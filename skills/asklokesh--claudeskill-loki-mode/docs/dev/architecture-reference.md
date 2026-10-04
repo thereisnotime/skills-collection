@@ -25,10 +25,10 @@ model explicitly rather than inherit the session model.
 - **Inspired by**: Amazon AGI Lab's "How Agentic AI Helps Heal Systems We Can't Replace"
 - **CLI**: `loki heal <path> [--phase archaeology|stabilize|isolate|modernize|validate]` (`autonomy/loki` `cmd_heal`)
 - **Principles**: Friction-as-semantics, failure-first learning, universal adapters, incremental healing, institutional knowledge preservation
-- **Artifacts**: `.loki/healing/` (friction-map.json, failure-modes.json, institutional-knowledge.md)
+- **Artifacts**: `.loki/healing/` (friction-map.json, failure-modes.json, institutional-knowledge.md). `loki heal` seeds failure-modes.json as `{"modes":[]}` and the prompt asks the agent to fill it; no code appends to it (NOT WIRED, issue #200)
 - **Review**: `legacy-healing-auditor` specialist added to code review pool (gated)
 - **Gate**: backward-compatibility / legacy-healing auditor (healing mode; not one of the 8 numbered gates) blocks removal of unclassified friction
-- **Hooks**: `hook_pre_healing_modify()` (`autonomy/hooks/migration-hooks.sh:283`), `hook_post_healing_modify()` (`:328`), `hook_healing_phase_gate()` (`:386`)
+- **Hooks**: `hook_pre_healing_modify()` (`autonomy/hooks/migration-hooks.sh:348`), `hook_post_healing_modify()` (`:576`), `hook_healing_phase_gate()`. NOT WIRED (issue #200): the pre/post modify hooks are defined and unit-tested but have no production caller, so the snapshot/revert pairing contract and the failure-modes.json append inside them are not enforced in a real heal run
 - **Memory**: `FrictionPoint` and `FailureMode` schemas for healing-specific memory entries
 - **Skill**: `skills/healing.md` | **Reference**: `references/legacy-healing-patterns.md`
 
@@ -101,3 +101,7 @@ These knobs together implement the RARV-C (closure) loop: findings -> override c
 ## Worktree substrate (autonomy/lib/worktree_prep.py)
 
 `prepare_worktree(source_repo, dest, branch, setup=None, base=None)` creates an isolated git worktree and returns `{path, base_sha, deps, left_out_changes}`. The start point is `origin/HEAD` after a fetch (when a remote exists), else HEAD. Uncommitted edits in the source checkout are never carried or stashed; their count is reported as `left_out_changes`. An fcntl lock at `~/.loki/repos/<slug>.lock` covers fetch and worktree add. Dependencies: a `setup` command run in the worktree, else a copy-on-write copy of ignored top-level `node_modules`, `.venv`, `venv`, `vendor` (refused as "copy unsafe, declare setup" if it holds absolute symlinks or editable finders), else `none`. CLI: `python3 autonomy/lib/worktree_prep.py SRC DEST BRANCH [--setup CMD] [--base REF]` prints the result as JSON. Not yet wired into backlog or the UI.
+
+## Project memory across runs
+
+extract_learnings_from_session (autonomy/run.sh) mirrors learnings and decisions into .loki/memory/learnings/project-*.jsonl. get_relevant_learnings adds a bounded newest-first project_memory list (15 entries, LOKI_PROJECT_MEMORY_MAX_CHARS, default 2000) to .loki/state/relevant-learnings.json at run start. LOKI_PROJECT_MEMORY=0 disables both. Test: tests/test-project-memory.sh.

@@ -3,25 +3,32 @@
 // id; post-PR: detached deep verify, then Slack notify.
 import { execFileSync, spawn, spawnSync } from "node:child_process"; import { currentBranch, restoreBranch } from "../e10ext/stop_restore.ts";
 import { createHash, createPublicKey, sign, type Hash } from "node:crypto";
+import { resolveRunCapS } from "../util/run_cap.ts"; import { safeGit } from "../util/safe_git.ts";
+import { terminalWidth } from "../util/term_width.ts";
 import { guardedBackstop, validBase } from "../e10ext/commit_filter.ts";
 import { kidOf, loadSigningKey } from "./stages/seal.ts";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { eventsRelPath, githubRepoFromUrl, readOriginUrl, writeEngineMarker } from "../util/engine_origin.ts";
+export { eventsRelPath, githubRepoFromUrl, readOriginUrl, writeEngineMarker }; // re-exported: callers and tests import these from here
 import { createInterface } from "node:readline";
-import { withholdGithubTokens } from "../runner/github_token.ts";
+import { withholdGithubTokens } from "../runner/github_token.ts"; import { writeRunPid } from "../util/run_pid.ts";
 import { EventLog, fold, partialCost, readEvents, tail, type Folded } from "./events.ts";
-import { capNote, resolveCap } from "../e10ext/budget_cap.ts";
+import { capNote, parseCapUsd, resolveCap, SUBSCRIPTION_NOTE } from "../e10ext/budget_cap.ts";
 import { fetchIssueToFile } from "./fetch_issue.ts";
 import { fetchTrackerIssueToFile, parseTrackerRef } from "../features/tracker_intake.ts";
 import { formatHeartbeatLine, formatStageLine, formatSummary, formatPreModelLine, preModelTiming, type PreModelTiming, EXIT, outcomeOf, reasonOf, type Outcome, type SummaryInput } from "./output.ts";
+import { LiveLine } from "../e10ext/liveline.ts";
 import { assertPreflight, PreflightError } from "./preflight.ts";
 import { resolveModel } from "./session.ts";
+import { modelDowngrades } from "../runner/model_downgrades.ts";
 import type { PrContext } from "./stages/pr.ts";
 import type { EventEnvelope, PushEnv, StageName, Verdict } from "./types.ts";
 import { backstopS, BACKSTOP_GRACE_S, DEEP_CAP_S, DEFAULT_CAP_S, pushArgv, STAGE_BUDGETS } from "./types.ts";
+import { baseLine, noteOf } from "../util/base_guard.ts";
 
 export { backstopS, BACKSTOP_GRACE_S }; // re-exported: callers import the backstop math from here, its home before r4
-export const START_LINE = "Loki 10 engine (set LOKI_ENGINE=legacy or run 'loki legacy' for the previous engine)";
+export const START_LINE = "Loki 10 engine";
 export const TAMPER_NOT_PROVEN = "event log modified outside the engine";
 async function slackEvent(...a: Parameters<typeof import("../e10ext/slack_events.ts").notifyEvent>): Promise<void> { try { await (await import("../e10ext/slack_events.ts")).notifyEvent(...a); } catch { /* best-effort */ } }
 const SUPERVISOR_ONLY = new Set(["run.started", "run.completed", "tamper.detected", "pr.opened", "log.sealed"]); // types only the supervisor may write; same types from the worker are dropped
@@ -56,6 +63,7 @@ export interface SupervisorOptions {
   started?: Record<string, unknown>; // extra run.started data (task_source, provider, model, issue_ref, ...)
   pr?: PrStep; deepArgv?: string[]; // pr absent means no PR; deepArgv absent means no detached deep verify after pr.opened
   comment?: CommentStep; // absent means no issue-comment fallback (a FAILED, no-diff issue run then only prints)
+  capCeilingS?: number; // FC-21b: the backstop is set here (the most the worker's resized cap can reach), not at the initial cap
   capS?: number; // global cap in seconds (default LOKI_E10_CAP_S, else DEFAULT_CAP_S); the backstop fires at cap minus grace
   graceS?: number; // default BACKSTOP_GRACE_S
 }
@@ -66,28 +74,6 @@ export interface SupervisorResult {
   notProven: string[];
   prUrl: string | null;
   workerExit: number | null;
-}
-export function eventsRelPath(runId: string): string {
-  return `.loki/runs/${runId}/events.jsonl`;
-}
-export function writeEngineMarker(repoDir: string, runId: string): void { // EV-1 marker, atomic (temp file in the same dir, then rename)
-  const dir = join(repoDir, ".loki");
-  mkdirSync(dir, { recursive: true });
-  const tmp = join(dir, `.engine.json.${process.pid}.tmp`);
-  writeFileSync(tmp, JSON.stringify({ engine: "v10", run_id: runId, events: eventsRelPath(runId) }) + "\n");
-  renameSync(tmp, join(dir, "engine.json"));
-}
-export function readOriginUrl(repoDir: string): string | null {
-  try {
-    const url = execFileSync("git", ["-C", repoDir, "config", "--get", "remote.origin.url"], { encoding: "utf8", env: process.env }).trim();
-    return url || null;
-  } catch {
-    return null;
-  }
-}
-export function githubRepoFromUrl(url: string | null): string | null {
-  const m = url?.match(/^(?:https:\/\/(?:[^@/]+@)?github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([^/]+\/[^/]+?)(?:\.git)?\/?$/);
-  return m?.[1] ?? null;
 }
 export class SupervisorLog { // single writer with a running sha256 of the bytes it appended
   private readonly log: EventLog;
@@ -140,7 +126,7 @@ function killGroup(pid: number | undefined, sig: NodeJS.Signals): void {
 // Spawns the worker in its own process group, waits for exit plus stdout drain (DRAIN_MS), and backstops at
 // backstopMs with SIGTERM then SIGKILL after escalateMs, clamped so a SIGTERM-trapping worker cannot outlive the cap.
 function spawnWorker(
-  argv: string[], env: NodeJS.ProcessEnv, cwd: string, backstopMs: number, escalateMs: number, onLine: (l: string) => void, onStopped: () => void = () => {},
+  argv: string[], env: NodeJS.ProcessEnv, cwd: string, backstopMs: number, escalateMs: number, onLine: (l: string) => void, onStopped: (stopped: boolean) => void = () => {},
 ): Promise<{ code: number | null; killed: boolean }> {
   return new Promise((resolve) => {
     const [cmd, ...args] = argv;
@@ -151,7 +137,7 @@ function spawnWorker(
     let killed = false;
     let settled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    const onStop = (sig: NodeJS.Signals) => { killGroup(child.pid, "SIGKILL"); onStopped(); process.exit(sig === "SIGINT" ? 130 : 143); }; // the worker no longer shares the terminal's group, so forward a stop to it
+    const onStop = (sig: NodeJS.Signals) => { killGroup(child.pid, "SIGKILL"); onStopped(true); process.exit(sig === "SIGINT" ? 130 : 143); }; // the worker no longer shares the terminal's group, so forward a stop to it
     process.once("SIGINT", onStop);
     process.once("SIGTERM", onStop);
     const finish = (code: number | null) => {
@@ -162,7 +148,7 @@ function spawnWorker(
       for (const t of timers) clearTimeout(t);
       rl.close();
       child.stdout?.destroy();
-      killGroup(child.pid, "SIGKILL"); // reap anything the worker left in its group
+      killGroup(child.pid, "SIGKILL"); onStopped(false); // reap anything the worker left in its group, and every announced session group (backstop and worker-exit paths too)
       resolve({ code, killed });
     };
     timers.push(setTimeout(() => {
@@ -184,25 +170,27 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   const env = opts.env ?? process.env;
   await assertPreflight({ repoDir: opts.repoDir, provider: typeof startedProvider === "string" ? startedProvider : "claude", pr: opts.pr !== undefined, env });
   writeEngineMarker(opts.repoDir, opts.runId); // first: a failing run still leaves it
-  const origin = readOriginUrl(opts.repoDir); // pinned once, before any provider runs
+  const origin = readOriginUrl(opts.repoDir); const rmRunPid = writeRunPid(join(opts.repoDir, ".loki", "runs", opts.runId), opts.runId); process.once("exit", rmRunPid); // origin pinned once, before any provider runs; CPE-09 run.pid for Control Plane Stop, removed on every exit path
   const log = new SupervisorLog(join(opts.repoDir, eventsRelPath(opts.runId)), opts.runId);
-  if (env.LOKI_CONTROL !== "0") void import("../e10ext/ship_hook.ts").then((m) => m.startShip(opts.repoDir, log.path, env)).catch(() => {}); // CP-02: D56 shipper, off with LOKI_CONTROL=0
+  // P0: a caller-built env (tests pass a minimal one) that omits LOKI_CONTROL inherits the process-level off switch the test preload sets.
+  if ((env.LOKI_CONTROL ?? process.env.LOKI_CONTROL) !== "0") void import("../e10ext/ship_hook.ts").then((m) => m.startShip(opts.repoDir, log.path, env)).catch(() => {}); // CP-02: D56 shipper, off with LOKI_CONTROL=0
   log.append("run.started", null, { ...opts.started, origin_repo: githubRepoFromUrl(origin) });
   const workerEnv: NodeJS.ProcessEnv = { ...env }; // withholdGithubTokens mutates its argument: always a copy, never env itself
   withholdGithubTokens(workerEnv);
   const envCap = Number(env.LOKI_E10_CAP_S);
   const capS = opts.capS ?? (envCap > 0 ? envCap : DEFAULT_CAP_S);
-  const backstopMs = backstopS(capS, opts.graceS ?? BACKSTOP_GRACE_S) * 1000; // hard SIGKILL safety net for a stage blocking past the worker's own soft cap
-  const escalateMs = Math.max(0, Math.min(2000, capS * 1000 - backstopMs)); // SIGTERM->SIGKILL clamped so a trapping worker cannot outlive the cap
+  const ceilingS = Math.max(capS, opts.capCeilingS ?? capS);
+  const backstopMs = backstopS(ceilingS, opts.graceS ?? BACKSTOP_GRACE_S) * 1000; // hard SIGKILL safety net for a stage blocking past the worker's own soft cap
+  const escalateMs = Math.max(0, Math.min(2000, ceilingS * 1000 - backstopMs)); // SIGTERM->SIGKILL clamped so a trapping worker cannot outlive the cap
   let sealed: Record<string, unknown> | null = null; const origBranch = currentBranch(opts.repoDir), sessionGroups = new Set<number>(); // session children are detached (own group), so the worker's group kill misses them
   const worker = await spawnWorker(opts.workerArgv, workerEnv, opts.repoDir, backstopMs, escalateMs, (line) => {
     const e = log.ingest(line);
     if (e?.type === "session.started" && typeof e.data.pgid === "number") sessionGroups.add(e.data.pgid); if (e?.type === "receipt.sealed") sealed = e.data;
-  }, () => { for (const g of sessionGroups) killGroup(g, "SIGKILL"); restoreBranch(opts.repoDir, origBranch); });
+  }, (stopped) => { for (const g of sessionGroups) killGroup(g, "SIGKILL"); if (stopped) restoreBranch(opts.repoDir, origBranch); });
   const workerExit = worker.killed ? null : worker.code;
   const sealedData = sealed as Record<string, unknown> | null;
   const v = sealedData?.verdict;
-  const verdict: Verdict = workerExit === 0 && typeof v === "string" && VERDICTS.has(v) ? (v as Verdict) : "FAILED";
+  const receiptVerdict = workerExit === 0 && typeof v === "string" && VERDICTS.has(v), verdict: Verdict = receiptVerdict ? (v as Verdict) : "FAILED"; // FC-21b (3): a sealed receipt is the one source of truth for the outcome
   const notProven = Array.isArray(sealedData?.not_proven) ? (sealedData.not_proven as unknown[]).map(String) : [];
   if (worker.killed) notProven.push(BACKSTOP_NOT_PROVEN);
   let prUrl: string | null = null;
@@ -217,7 +205,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
     const baseE = stages["intake"], base = validBase(baseE?.type === "stage.completed" ? baseE.data.base_sha : null); // D50-F4b: a worker-written base is never an option or ref
     if (stages["commit"]?.type !== "stage.failed") { const why = guardedBackstop(intact, opts.repoDir, workerEnv, opts.runId, base, baseE?.type === "stage.completed" ? baseE.data.preexisting_dirty : undefined); if (why) notProven.push(why); } // no completed intake = no run branch: repoDir is still the user's own branch, never `add -A` there
     try { // net diff against base (a revert commit can leave HEAD past base with nothing to publish); any failure counts as a diff
-      execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "diff", "--quiet", "--no-ext-diff", "--no-textconv", String(base), "HEAD", "--", ".", ":(exclude).loki"], { cwd: opts.repoDir, env: workerEnv, stdio: "ignore" });
+      safeGit(opts.repoDir, ["diff", "--quiet", "--no-ext-diff", "--no-textconv", String(base), "HEAD", "--", ".", ":(exclude).loki"], { env: workerEnv, stdio: "ignore" });
     } catch { hasDiff = base !== null; }
   }
   if (opts.pr && intact && origin && verdict !== "ALREADY_SATISFIED" && (verdict !== "FAILED" || hasDiff)) {
@@ -234,7 +222,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   }
   const allEvents = readEvents(log.path), folded = fold(allEvents), costUsd = log.tampered ? null : folded.cost.usd, wallS = (Date.now() - t0) / 1000; // one read, reused for cost and the Slack summary; unknown cost stays null
   const stopRaw = folded.run.escalated?.data.stop, stop = typeof stopRaw === "string" ? stopRaw : null;
-  const outcome = outcomeOf(verdict, allEvents.some((e) => e.type === "cap.hit"), stop, log.tampered), blocked = outcome === "BLOCKED";
+  const outcome = outcomeOf(verdict, allEvents.some((e) => e.type === "cap.hit"), stop, log.tampered, receiptVerdict), blocked = outcome === "BLOCKED";
   if (blocked || (verdict === "FAILED" && prUrl === null)) { // E-67: never vanish silently -- an issue run gets a comment naming the reason, anything else is printed. A-110: BLOCKED always posts its one question
     const why = allEvents.find((e) => e.type === "stage.completed" && e.stage === "implement")?.data.spec_conflict_reason;
     const reason = blocked ? `spec conflict: ${String(why ?? "see the receipt").replace(/[\x00-\x1f\x7f]+/g, " ").slice(0, 500)}` : notProven.join("; ") || "run failed", issueRef = opts.started?.["issue_ref"];
@@ -250,8 +238,8 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   const stages = allEvents.filter((e) => e.type === "stage.completed" && typeof e.data.duration_s === "number").map((e) => ({ label: String(e.stage), seconds: e.data.duration_s as number })), // E-48 notify: Slack when configured, no-op otherwise
     pc = partialCost(allEvents, log.tampered),
     summary = { pr: prUrl ? { url: prUrl, draft: verdict !== "VERIFIED" } : null, verdict, outcome, notProven, flaky: [] as string[], wallS, stages, cost: { usd: costUsd, provider: String(opts.started?.provider ?? ""), tokens: allEvents.some((e) => e.type === "cost") ? folded.cost.inputTokens + folded.cost.outputTokens : null, partialUsd: pc.usd, measuredSessions: pc.measured, totalSessions: pc.total } };
-  await slackEvent(env, "finished", { summary: formatSummary(summary), outcome: String(outcome), cost: summary.cost.usd != null ? `$${summary.cost.usd.toFixed(2)}` : "not measured", time: `${Math.round(wallS)}s` }); // D51-A4, replaces E-48 adapters/slack.ts call
-  return { verdict, outcome, stop, receiptSha: typeof sealedData?.receipt_sha256 === "string" ? sealedData.receipt_sha256 : null, tampered: log.tampered, notProven, prUrl, workerExit };
+  await slackEvent(env, "finished", { summary: formatSummary(summary), outcome: String(outcome), cost: summary.cost.usd != null ? `$${summary.cost.usd.toFixed(2)}` : "not measured", time: `${Math.round(wallS)}s` }); rmRunPid(); process.off("exit", rmRunPid); // D51-A4, replaces E-48 adapters/slack.ts call
+  return { verdict, outcome, stop: stop ?? (receiptVerdict && allEvents.some((e) => e.type === "cap.hit") ? "cap" : null), receiptSha: typeof sealedData?.receipt_sha256 === "string" ? sealedData.receipt_sha256 : null, tampered: log.tampered, notProven, prUrl, workerExit };
 }
 /** E-66: a text run confirmed already-done has no issue to comment on (no comment_argv, intake.ts);
  *  main() prints intake's comment body instead so the no-change decision is not swallowed. */
@@ -259,11 +247,15 @@ export function alreadyDoneTextComment(events: EventEnvelope[]): string | null {
   const d = events.find((e) => e.type === "stage.completed" && e.stage === "intake")?.data;
   return d?.source === "text" && d?.already_satisfied === true && typeof d.comment === "string" ? d.comment : null;
 }
+/** FC-15 (L5/L6): intake's harness-owned "work exists on <branch>, not on <target>" note, null when absent. */
+export function unmergedLokiWorkNote(events: EventEnvelope[]): string | null {
+  return noteOf(events.find((e) => e.type === "stage.completed" && e.stage === "intake")?.data);
+}
 /** The block main() writes to stdout once a run finishes; pure because main() re-spawns process.argv[1] as the worker, so tests cannot drive it. */
-export function renderMainOutput(events: EventEnvelope[], summary: SummaryInput): string {
-  const c = alreadyDoneTextComment(events);
+export function renderMainOutput(events: EventEnvelope[], summary: SummaryInput, verbose = true): string {
+  const c = alreadyDoneTextComment(events), un = unmergedLokiWorkNote(events);
   const pm = (events.findLast((e) => e.type === "run.completed")?.data.pre_model ?? null) as PreModelTiming | null;
-  return `${c ? `\n${c}\n` : ""}${formatPreModelLine(pm)}${formatSummary(summary)}\n`;
+  return `${c ? `\n${c}\n` : ""}${un ? `\n${un}\n` : ""}${verbose ? formatPreModelLine(pm) : ""}${formatSummary(summary)}\n`;
 }
 const ISSUE_RE = /^(?:[\w.-]+\/[\w.-]+#\d+|https?:\/\/\S+\/(?:-\/)?issues\/\d+)$/;
 // E-59: every token field the provider reported, cache included (E-50 found "1k shown for 372k used" when this summed only input+output). The sole place tokens are computed for the Cost line.
@@ -289,13 +281,18 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   if (!task) { process.stderr.write("engine10: no task given\n"); return 2; }
   let repoDir: string;
   try {
-    repoDir = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", env: process.env, stdio: ["ignore", "pipe", "ignore"] }).trim();
+    repoDir = safeGit(process.cwd(), ["rev-parse", "--show-toplevel"]).trim();
   } catch { process.stderr.write("engine10: not inside a git repository\n"); return 2; }
   const runId = `e10-${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}-${Math.random().toString(16).slice(2, 6)}`;
   const runDir = join(repoDir, ".loki", "runs", runId);
   const cap = resolveCap(maxCost, repoDir); if ("error" in cap) { process.stderr.write(`engine10: ${cap.error}\n`); return 2; }
   const trackerRef = parseTrackerRef(task), isIssue = ISSUE_RE.test(task) || trackerRef !== null, model = resolveModel(provider), env: NodeJS.ProcessEnv = { ...process.env };
-  if (process.env.LOKI_SPEED === "1" && !isIssue) { const g = await (await import("../features/speed/route.ts")).maybeRunGroup(task, repoDir, process.env); if (g.code !== null) return g.code; task = g.task; } // D61-16: group entry; fallback runs on the text the group saw
+  { // D61-11b: unit intake first (fails closed, so a unit is never split into a group); its frozen spec and cost cap reach the worker env
+    const u = (await import("../features/speed/unit_mode.ts")).unitIntake(process.env, repoDir, cap.usd);
+    if (u && !u.ok) { process.stderr.write(`engine10: ${u.note}\n`); return 2; }
+    if (u) { Object.assign(env, u.env); cap.usd = parseCapUsd(env.LOKI_E10_MAX_COST_USD) ?? cap.usd; }
+  }
+  if (process.env.LOKI_SPEED !== "0" && !isIssue) { const g = await (await import("../features/speed/route.ts")).maybeRunGroup(task, repoDir, process.env); if (g.code !== null) return g.code; task = g.task; } // D61-16: group entry; fallback runs on the text the group saw
   env.LOKI_E10_MAX_COST_USD = String(cap.usd); if (!isIssue) env.LOKI_E10_TASK_TEXT = task;
   else if (isIssue) {
     mkdirSync(runDir, { recursive: true }); // runDir must exist before the fetch child writes issue.json
@@ -305,7 +302,8 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     }
   }
 
-  if (!json) process.stdout.write(`${START_LINE}, ${capNote(cap.usd, cap.source)}\n`); // D48: one start line naming the engine; provider, model and run id are in the receipt
+  const downgrades = modelDowngrades(provider); // D86 L1: any downgrade is printed here and recorded on run.started (key only when non-empty, receipt hashes stay stable)
+  if (!json) process.stdout.write(`${START_LINE}, ${baseLine(repoDir)}, ${capNote(cap.usd, cap.source)}${downgrades.length ? `; downgrade: ${downgrades.map((d) => `${d.stage} ${d.model} (${d.reason})`).join(", ")}` : ""}\n`); if (verbose && !json && cap.source === "subscription") process.stdout.write(`${SUBSCRIPTION_NOTE}\n`); // D48: one start line naming the engine; provider, model and run id are in the receipt
   const t0 = Date.now();
   const eventsPath = join(repoDir, eventsRelPath(runId));
   const live = (e: EventEnvelope): void => {
@@ -323,21 +321,31 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   const tailTimer = setInterval(() => {
     if (verbose && !json && existsSync(eventsPath)) { clearInterval(tailTimer); stopTail = tail(eventsPath, live, { intervalMs: 250 }); }
   }, 100);
-  const capS = deep ? DEEP_CAP_S : Number(env.LOKI_E10_CAP_S) || DEFAULT_CAP_S;
+  let liveStop = (): void => {}; // D82: quiet-mode progress (verbose already prints stage lines)
+  const liveLine = !verbose && !json ? new LiveLine({ tty: !!process.stdout.isTTY, write: (x) => { process.stdout.write(x); }, columns: terminalWidth(), graceS: 3 }) : null;
+  if (liveLine) {
+    if (process.env.LOKI_CONTROL_PLANE_URL) liveLine.setUrl(process.env.LOKI_CONTROL_PLANE_URL);
+    let stopLiveTail = (): void => {}; const tick = setInterval(() => liveLine.tick(), 1000);
+    const wait = setInterval(() => { if (existsSync(eventsPath)) { clearInterval(wait); stopLiveTail = tail(eventsPath, (e) => liveLine.onEvent(e), { intervalMs: 250 }); } }, 100);
+    liveStop = () => { clearInterval(wait); clearInterval(tick); stopLiveTail(); liveLine.clear(); };
+  }
+  const sized = deep ? null : resolveRunCapS(repoDir, cap.usd <= 0, env), capS = sized?.capS ?? DEEP_CAP_S;
+  if (sized) { env.LOKI_E10_CAP_S = String(capS); if (sized.fixedS) env.LOKI_E10_CAP_FIXED_S = String(sized.fixedS); else delete env.LOKI_E10_CAP_FIXED_S; } // FC-21b: starts at DEFAULT_CAP_S; the worker resizes once after plan from plan-scope.json unless the cap is fixed
   const res = await runSupervisor({
-    runId, repoDir, env, capS,
+    runId, repoDir, env, capS, capCeilingS: sized?.ceilingS,
     workerArgv: [process.execPath, resolve(process.argv[1]!), "engine10", "worker", runId, provider, model, deep ? "deep" : "fast"], deepArgv: noPr ? undefined : [process.execPath, resolve(process.argv[1]!), "engine10", "deep-worker", runId, provider, model],
     started: {
-      task_source: isIssue ? "issue" : "text", issue_ref: isIssue ? task : null, provider, model, deep, cap_s: capS, max_cost_usd: cap.usd,
+      task_source: isIssue ? "issue" : "text", issue_ref: isIssue ? task : null, provider, model, deep, cap_s: capS, cap_ceiling_s: sized?.ceilingS ?? capS, max_cost_usd: cap.usd,
       model_override_applied: !!process.env.LOKI_MODEL_OVERRIDE && provider === "claude", branch: `loki/${runId}`,
+      ...(downgrades.length ? { downgrades } : {}),
     },
     pr: noPr ? undefined : async ({ pushEnv, verdict, notProven }) => {
-      const { runPr } = await import("./stages/pr.ts"); // supervisor-only: the worker never loads pr.ts
+      const { loadRunOutputs } = await import("../util/run_outputs.ts"), { runPr } = await import("./stages/pr.ts"); // supervisor-only: the worker never loads pr.ts
       const events = readEvents(eventsPath);
       const sealed: Record<string, unknown> = { ...((events.findLast((e) => e.type === "receipt.sealed")?.data ?? {}) as Record<string, unknown>), not_proven: notProven }; // notProven (backstop/tamper included): a killed worker never sealed a receipt; explicit Record annotation keeps sealed.path typed instead of narrowing to the {} branch of the ?? union (TS2339, E-67 round 5 REJECT finding 2)
       const r = await runPr({
         runId, repoDir, runDir, branch: `loki/${runId}`, pinnedOrigin: pushEnv._LOKI_PINNED_ORIGIN,
-        outputs: () => ({ seal: { ...sealed, verdict, receipt_path: sealed.path } }),
+        outputs: () => ({ ...loadRunOutputs(runDir, events), seal: { ...sealed, verdict, receipt_path: sealed.path } }), // L7: the PR body reads recorded intake, plan and verify data, not only seal
         capHit: () => events.some((e) => e.type === "cap.hit"),
         emit: () => {}, // pr.opened is appended by runSupervisor from the outcome
       } as unknown as PrContext, new AbortController().signal);
@@ -356,9 +364,9 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     },
   }).catch((e) => { if (!(e instanceof PreflightError)) throw e; process.stderr.write(`${e.message}\n`); return null; });
   clearInterval(tailTimer);
-  if (!res) { stopTail(); return 2; } // preflight refused: exit 2 with the fatal line, before any run state
+  if (!res) { stopTail(); liveStop(); return 2; } // preflight refused: exit 2 with the fatal line, before any run state
   await new Promise((r) => setTimeout(r, 300)); // let the tail flush the last lines
-  stopTail();
+  stopTail(); liveStop();
 
   const events = readEvents(eventsPath), f = fold(events);
   const sawCost = events.some((e) => e.type === "cost"), cli = process.env.LOKI_E10_INVOKER === "cli";
@@ -373,7 +381,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     wallS: Number(f.run.completed?.data.wall_s ?? (Date.now() - t0) / 1000),
     stages: events.filter((e) => e.type === "stage.completed" && typeof e.data.duration_s === "number")
       .map((e) => ({ label: String(e.stage), seconds: e.data.duration_s as number })),
-  });
+  }, verbose);
   process.stdout.write(out);
   return EXIT[res.outcome];
 }

@@ -3,10 +3,11 @@
 // calling this stage again after each failure; MAX_FIX_ROUNDS caps rounds itself (a 3rd call is a no-op
 // stage.skipped, moving to Seal/PARTIAL). Depends on session.ts/verify.ts only through types.ts shapes.
 import { briefCtx, buildImplementBrief, impactedTests } from "./implement.ts";
-import { cascadeEnabled, cascadeImplementModel, resolveModelAlias } from "../sizing.ts";
+import { cascadeDowngrade, escalationModel } from "../sizing.ts";
 import { MAX_FIX_ROUNDS } from "../types.ts";
 import type { RunContext, Stage, StageResult } from "../types.ts";
 import type { FailureGroup } from "../failures.ts";
+import { buildFixResumeBrief, runFixSession } from "../../runner/session_resume.ts";
 
 /** A wall/impacted-test signature, never lint/select-tests (verify.ts's names): E-64 escalates only "on a test failure". */
 function isTestFailure(g: FailureGroup): boolean {
@@ -20,6 +21,7 @@ export function buildFixBrief(
   groups: FailureGroup[],
   diffStat: string | null,
   repoMap = "",
+  escalation?: { priorDiagnosis: string | null },
 ): string {
   const base = buildImplementBrief(task, plan, impactedTests, repoMap);
   const groupsText = groups.length
@@ -31,6 +33,7 @@ export function buildFixBrief(
     "The previous Fast verify run failed. Fix these grouped failures:",
     groupsText,
     `Diff so far:\n${diffText}`,
+    ...(escalation ? [`ESCALATED ROUND: the same failure repeated after your previous fix. Re-read the full failure output above, find the root cause, and do not repeat the earlier approach.\nYour previous diagnosis: ${escalation.priorDiagnosis ?? "(none was recorded)"}`] : []),
   ].join("\n\n");
 }
 
@@ -52,45 +55,35 @@ export const fixStage: Stage = {
     const groups = (prior.verify?.failures_grouped as FailureGroup[] | undefined) ?? [];
     const diffStat = (prior.implement?.diff_stat as string | undefined) ?? null;
     const repoMap = briefCtx(ctx);
-    // E-64/D31: escalate to the top model only on a genuine test failure, and only when the run has a
-    // configured top model to escalate to (never a phantom "sonnet escalates to sonnet"). A round that does
-    // NOT escalate must still run on the cheap model, not silently inherit the run's configured model (which
-    // may be the top model via LOKI_MODEL_OVERRIDE): D31 gives an unescalated fix round to the cheap model.
+    // L1: escalation only goes up: a repeated test failure gets the strongest model (never below the run's) plus the prior diagnosis, before STALLED.
     const testFailures = groups.filter(isTestFailure);
-    // resolveModelAlias on both sides: ctx.model may be an unresolved alias (e.g. LOKI_MODEL_OVERRIDE=sonnet)
-    // while cascadeImplementModel() always resolves through the catalog, so a bare string compare would
-    // count "sonnet" vs its own resolved id as an escalation.
-    const cascade = cascadeEnabled() && testFailures.length > 0 && resolveModelAlias(ctx.model) !== cascadeImplementModel();
+    const signatures = groups.map((g) => g.signature).sort().join("|");
+    const repeated = testFailures.length > 0 && prior.fix?.signatures === signatures;
+    const downgrade = cascadeDowngrade(ctx.model);
     const reason = testFailures.map((g) => g.signature).join(", ");
-    const pinnedModel = cascade ? ctx.model : cascadeEnabled() ? cascadeImplementModel() : undefined;
-    // The model this round actually runs on, matching session.ts's own opts.model ?? cfg.model precedence:
-    // fix.round must report the model the session was really given, in both the escalated and cheap case.
+    const pinnedModel = repeated ? escalationModel(ctx.model) : downgrade && testFailures.length === 0 ? downgrade.to : undefined;
     const actualModel = pinnedModel ?? ctx.model;
-
-    const session = await ctx.sessions.run({
-      stage: "fix",
-      brief: buildFixBrief(task, plan, impactedTests(ctx), groups, diffStat, repoMap),
-      tier: "development",
-      iterationId: `${ctx.runId}-fix${round}`,
-      limitS: fixStage.limitS,
-      signal,
-      cwd: ctx.repoDir,
-      ...(pinnedModel ? { model: pinnedModel } : {}),
-    });
-
+    if (downgrade && pinnedModel === downgrade.to) process.stderr.write(`${downgrade.note}\n`);
+    const prevDiag = (prior.fix?.diagnosis as string | undefined) ?? null; const chain = { sessionId: (prior.fix?.session_id ?? prior.implement?.session_id ?? null) as string | null, model: (prior.fix?.model ?? prior.implement?.model ?? ctx.model) as string };
+    const r = await runFixSession(ctx, { stage: "fix", tier: "development", limitS: fixStage.limitS, signal, cwd: ctx.repoDir,
+      ...(pinnedModel ? { model: pinnedModel } : {}) },
+      `${ctx.runId}-fix${round}`, (prior.fix?.iteration_ids as string[] | undefined) ?? [], chain, actualModel,
+      buildFixBrief(task, plan, impactedTests(ctx), groups, diffStat, repoMap, repeated ? { priorDiagnosis: prevDiag } : undefined), buildFixResumeBrief(groups, diffStat, prevDiag));
     ctx.emit("fix.round", "fix", {
       round,
       groups: groups.map((g) => ({ signature: g.signature, count: g.count, sample: g.sample })),
       model: actualModel,
-      escalated: cascade,
-      ...(cascade ? { escalation_reason: reason, escalation_model: actualModel } : {}),
+      escalated: repeated, fix_resume: r.mode, cache_read_tokens: r.cacheRead,
+      ...(downgrade && pinnedModel === downgrade.to ? { model_downgrade: downgrade.note } : {}),
+      ...(repeated ? { escalation_reason: reason, escalation_model: actualModel } : {}),
     });
 
     return {
       status: "completed",
       // Every round's session id, since each round replaces this stage's output.
-      data: { round, groups_fed: groups.length, diff_stat: diffStat, killed: session.killed, cascade, model: actualModel,
-        iteration_ids: [...((prior.fix?.iteration_ids as string[] | undefined) ?? []), `${ctx.runId}-fix${round}`] },
+      data: { round, signatures, diagnosis: r.session.summary ?? null, groups_fed: groups.length, diff_stat: diffStat, killed: r.session.killed, cascade: repeated, model: actualModel,
+        iteration_ids: r.ids, session_id: r.sessionId, fix_resume: r.mode, ...(r.why ? { fix_resume_why: r.why } : {}),
+        fix_rounds: [...((prior.fix?.fix_rounds as unknown[] | undefined) ?? []), { round, fix_resume: r.mode, cache_read_tokens: r.cacheRead }] },
     };
   },
 };

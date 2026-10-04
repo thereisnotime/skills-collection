@@ -189,8 +189,7 @@ export async function ensureClaudeHelpCache(): Promise<void> {
     // process.env earlier would never reach this spawn and the real token
     // could leak to this literal `claude` invocation. Pass a fresh copy
     // explicitly, matching the convention every other claude/agent spawn in
-    // this codebase already uses (shell.ts run(), voter_agents.ts,
-    // bash_delegate.ts).
+    // this codebase already uses (shell.ts run(), voter_agents.ts).
     const proc = Bun.spawn(["claude", "--help"], {
       stdout: "pipe",
       stderr: "pipe",
@@ -219,7 +218,7 @@ export function buildAutoFlags(args: AutoFlagsArgs): string[] {
   const out: string[] = [];
 
   if (claudeFlagSupported("--effort")) {
-    const e = effortForTier(args.tier, args.complexity);
+    const e = process.env["LOKI_E10_EFFORT"] || effortForTier(args.tier, args.complexity); // EL-W0-06: engine10 SessionRunOptions.effort
     out.push("--effort", e);
   }
   if (claudeFlagSupported("--max-budget-usd")) {

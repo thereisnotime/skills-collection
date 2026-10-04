@@ -5,43 +5,661 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## v11.0.1 (2026-10-04)
+
+Patch release. No product behavior changes: this release brings the Tests workflow on main back to green after 11.0.0 (run 37172048345) and ships the Control Plane container closure fix.
+
+### Fixed
+- Control Plane container: `Dockerfile.control-plane` now copies `engine10/stages/xreview.ts`, which the CP routes import since 11.0.0. Without it the image build missed a value import (CP-04).
+- Control Plane UI tests assert the plain-language outcome labels (`Verified`, `Needs your answer`, `Tampered`) and the dash shown for stages that ran no model session, matching the 11.0.0 display contract (bun 515 pass, 0 fail).
+- Engine timing test (FC-19 deep limit) asserts the session limit rather than the call count or elapsed milliseconds, so a resumed implement session with 1799.999s left no longer fails on CI (run 37171623026).
+- Test guards updated for the `loki legacy` removal: shard duration rows for the removed legacy suites are dropped (S-134), the historical `loki legacy` mentions in GUIDE, LEGACY-REMOVAL and RELEASE-11 are allowlisted (DOC-02), and the gitleaks fingerprint file is allowlisted for the legacy dashboard guard (CPE24-L7).
+- Dependency inventory lists the `receipt-check` composite action (docs/v10/DEPS.md).
+- CI: the Bun tests job cap is 20 minutes instead of 10. With coverage on, the unit tests take about 6 minutes and the job hit the cap mid-suite (run 37173354311).
+
+## v11.0.0 (2026-10-04)
+
+Major release. The legacy engine is gone: every `loki` run uses the Loki 10 engine, and the signed receipt is the single source of truth for a run's outcome. The Control Plane gets a new information architecture, truthful run detail and an opt-in Ask Loki page. Per the founder's 02:08Z directive, the tests and reviews for this release were deferred; each is listed under "Tests owed after Oct 7" in docs/v10/RELEASE-11.md. tsc, the dist build and the dist guard ran; moat P9 runs in CI.
+
+### Removed (BREAKING)
+- `loki legacy` and the `LOKI_ENGINE` variable. `loki legacy` now exits with a removal message, and the issue-to-PR Action no longer pins `LOKI_ENGINE` (A6b).
+
+### Changed (BREAKING)
+- When a receipt is sealed, the CLI outcome equals the receipt verdict and the exit code follows that verdict. Exit code 3 (BUDGET_STOP) is returned only when no receipt was sealed; a cap stop is shown on the Reason line and as `stop: "cap"` in `--json` (A2b, FC-21b L7). Scripts keyed on exit code 3 should read the verdict instead.
+- A run stopped by its time limit can seal VERIFIED only when every check passed and a Wall or task-named test passed with at least one test run; otherwise it is PARTIAL. The receipt records `implement_limit` (A2b).
+- The per-run cap is sized from the plan's file scope and package count instead of task-text length (A2a, FC-22 S5).
 
 ### Added
-- `loki workspace run` posts one PR comment per repo PR with the integration status and head SHAs when a PR exists on the run branch (no LLM, best effort, opt out with `LOKI_WORKSPACE_COMMENT=0`) (D51-B11).
-- Loki 10 runs show their per-run cost cap on the start line (default $20.00, or `budgets.per_run` in loki.yaml, or `--max-cost`); a run that reaches the cap ends BUDGET_STOP with exit code 3 (INTEL-2).
-- `loki answer` resumes a BLOCKED run with the answer typed in the Control Plane (or `--text`).
-- `loki backlog` and dashboard starts reuse the shared worktree prep (per-repo lock, clean start point, node_modules copy) unless LOKI_WORKSPACES=0 (D51-B05, D51-B06).
-- With `LOKI_SPEED=1`, the already-done check runs off the critical path: implement starts at once, and a run only stops as ALREADY_SATISFIED when a confirmation session, run in a pinned copy of the base tree outside the repo, cites files unchanged since base (D61-04).
+- Control Plane information architecture: navigation-only sidebar, Overview with KPI tiles and a NEEDS YOU inbox, Runs grouped by issue, a New run picker backed by real gh issues with explicit confirm (A4a).
+- Ask Loki (behind `LOKI_CP_ASK=1`): a read-only, asynchronous chat over runs, receipts and repos on the user's provider, with threads stored in control.db, SSE streaming and run-id citations. It never starts a build; it can only offer a confirm dialog (A4-ASK-1, A4-ASK-2).
+- First-run onboarding checklist in the Control Plane showing each real `loki doctor` check (A5).
+- "Loki Receipt" GitHub check: the existing Action runs `loki verify --pubkey` and posts success or failure (B2).
+- Opt-in `gh attestation` of the receipt, plus the Agent Change Receipt spec in docs/AGENT-CHANGE-RECEIPT.md (B3).
+- Opt-in cross-lab review before seal (`review: codex` or `claude`, or `LOKI_REVIEW_PROVIDER`). The second provider can only downgrade a verdict, never upgrade it (B4).
+- A committed `.loki/project.json` is loaded as the shared Project Model and is part of the cache key; Loki never overwrites the tracked file (B5).
+- Opt-in Jira and Linear write-back after a PR, carrying the outcome, PR and receipt digest (B6).
+- `pr.author: me` or `bot` (`LOKI_PR_AUTHOR`); bot mode uses `LOKI_PR_BOT_TOKEN` only in the push child (B7).
+- Per-repo cost analytics: `GET /v1/cost/repos` aggregates real run rows by origin repo (B8).
+- Design notes for the deferred Tier C items in docs/v11/.
+
+### Fixed
+- Run detail tells the truth: one shared display mapping for verdicts, the Why line comes from the terminal stop reason with raw output behind "Show raw", receipt.json is the source of truth with an adapter for older receipts, and "unmeasured" appears only when the receipt lacks the field (A4b).
+- A stale Control Plane is restarted when the installed version differs, and the UI says so (A3a).
+- Fixture and test-run ingest is refused, and test rows are cleaned at startup (A3b).
+- Run summaries show the real stop reason for runs that die before verify (A3c).
+- `/v1/start` refuses HOME, `/` and non-git or unregistered repos; a dead-PID reconciler marks orphaned runs STOPPED (A3d-f).
+- `safeGit` blanks filter, textconv and gpg configuration (A1b, FC-25b).
+- `loki status` prints the URL the running Control Plane actually listens on (A6a).
+
+### Not in this release
+- `--attempts N` best-of-N (B1) is deferred: the selector has no caller yet, and wiring it untested would risk Seal accuracy.
+- Scoreboard v1 (B9): numbers pending, run by the CoS after release against raw `claude -p` on the same bases.
+
+## v10.11.2 (2026-10-04)
+
+This republishes the v10.11.1 fixes. The v10.11.1 publish never reached npm because its release gate timed out on a cold Go compile, so FC-25 (safeGit hardening, moat P9 green) and FC-16b ship here.
+
+### Fixed
+- The real-go RealBaseTestRunner tests in fc16b.test.ts now have a 60s timeout. Release run 37168233387 timed out at 8.7s against the 5s default, which skipped the publish.
+- Dockerfile.control-plane now copies project_model/graph.ts, project_model/scope.ts, util/check_result.ts and util/safe_git.ts. The control plane image imports all four (CP-04).
+- docs/v10/DEPS.md now lists the monorepo-fc22 test fixture manifests (DEP-01).
+
+### Added (off by default)
+- Ask Loki read-only data tools and a stdio MCP server in TypeScript (`packages/control-plane/src/ask/tools_server.ts`): runs_search, run_get, run_events, run_artifact, runs_compare, stats, cost and repos_list. There is no write tool, and artifact reads are allowlisted. Nothing calls it until LOKI_CP_ASK ships.
+
+## v10.11.1 (2026-10-04)
+
+Moat P9 is green again, and Go and unittest passes can no longer be forged. FC-25 routes every git call that the token-holding supervisor and CLI make inside the agent's repo through one hardened helper, so a planted fsmonitor, hook, sshCommand, ext:: transport or credential helper no longer runs with the real GitHub token. This closes the P9 regression open since v10.10.4. FC-16b stops reporting a Go exit 0 or a forged unittest trailer as a pass. FC-22 S2 and S3 land package-scoped test selection, which is opt-in behind `LOKI_E10_SCOPE=1`, and the install pre-step library, which S4 will wire into verify.
+
+### Added
+- FC-22 S2: impacted-test selection can be scoped to the touched packages plus their declared dependents (`project_model/scope.ts`). It is opt-in with `LOKI_E10_SCOPE=1` (default off). A test owned by the root package, or one that imports a changed file, is always kept, and the tests scoped out are emitted as a `test.scoped_out` verify event.
+- FC-22 S3: install pre-step library (`project_model/install.ts`, not yet wired into verify). It runs the Project Model's own install command once per package per run, records the result as a check with its cwd, restores tracked files the install changed that were clean before it ran, and lists everything else it could not restore. Every destructive git path in loki-ts is now listed, with a trust or work class, in a static L2 registry test.
+
+### Fixed
+- FC-16b: the Go `-json` first-error line now also reads `build-output` events, so a compile failure reports the compiler line instead of "FAIL pkg [build failed]".
+- FC-25: the FC-22 install library runs its git calls through `safeGit` too.
+- FC-16b (D86, L2/L3): Go test passes are reported as not run (they cannot be confirmed). A Go `test` check that exits 0 is never a pass: its output, including the `go test -json` event stream, is produced by the code under test, which can print the test2json framing marker (or exit early with `os.Exit(0)`) and forge run and pass events for any name, so no static check can confirm that a test executed. The reason recorded is "go test output is produced by the code under test and cannot confirm execution". `go test -json` is now used only for fail evidence (a fail event, failed test names in firstError) on a red run.
+- FC-16b: Go runner detection is one shared helper (`goRunner` in util/check_result.ts) used by verify, deep and the per-package suites; a wrapped command (`env X=1 go test`, `GOFLAGS=x go test`, a path to go) no longer falls to the generic path.
+- FC-16b: python unittest counts are never taken from the trailer alone: more than one "Ran" block (an atexit handler printing a forged `OK` after a real `FAILED` or after an all-skipped `OK (skipped=N)`) or a verdict contradicting the exit code makes the count unknown; `OK (skipped=N)` subtracts the skipped tests.
+- FC-16b: the load-owner base run is spawned in its own process group and killed as a group on a cut (only when the pid is an integer greater than 1; pgrep walk kept as fallback), so a descendant reparented to init no longer outlives the cut.
+- FC-25 (moat P9): git calls made by the token-holding supervisor and CLI inside the agent's repo no longer run a planted `core.fsmonitor` or hook with the real GitHub token in the environment. A new `safeGit()` helper (`loki-ts/src/util/safe_git.ts`) disables fsmonitor, hooks, `core.sshCommand`, `ext::` and the credential helper, sets `GIT_CONFIG_NOSYSTEM=1`, and strips the token family and `SSH_AUTH_SOCK` unless a call opts in (authenticated fetch). `resolveRunCapS` (the regression since v10.10.4), repomap, stop-restore, preflight, base resolution, the backstop commit, PR head lookup, load-owner and warm/contract lookups use it. A static guard fails on any new raw git spawn outside an allowlist with a reason.
+
+### Known issues
+- FC-25b: under safeGit, repo-configured filter drivers, diff textconv and gpg.program still execute, although without the token in their env. The fix is in review for 10.11.2.
+
+## v10.11.0 (2026-10-04)
+
+Engine honesty and Ask Loki foundations. FC-23 makes Wall compile failures harness-owned and matches Wall tests to the package's module system; FC-22 S1 adds the package graph and cited install command to the Project Model (not yet used for selection); CP-ASK slices 1, 4 and 8 land the read-only MCP mode, the Ask schema and the stream parser, all inert until `LOKI_CP_ASK` is enabled.
+
+### Added
+- MCP server read-only mode (CP-ASK slice 1): `mcp/server.py --read-only` (or `LOKI_MCP_READ_ONLY=1`) registers only the 16-tool read allowlist (`READ_ONLY_TOOL_ALLOWLIST`); every other tool is absent, so a tool added later fails closed until classified. In this mode the event and learning-signal emitters, code-search auto-reindex, the StateManager and the memory store (new `MemoryStorage.READ_ONLY`: no directories, no init, no lock files, writes raise) do no filesystem work, and code search refuses a non-loopback `LOKI_CHROMA_HOST`. `LOKI_MCP_READ_ONLY` accepts 1, true, yes. Default mode is unchanged.
+- Project Model (FC-22a/FC-22b, S1): each package may declare `dependsOn` (roots of the packages it builds on) and `install` (its cited dependency-install command), both decided by the discovery model from manifests (no import parsing). An unknown `dependsOn` root is rejected; an absent field means edges are unknown. New `project_model/graph.ts` (`dependentsOf`, transitive and cycle-safe) and `util/yaml_key.ts` (a two-level yaml key reader that ignores deeper same-named keys and reads CRLF). The cache key is salted with `model-rev:2`, so a cached older model is rediscovered once.
+- Control-plane Ask schema (CP-ASK slice 4): new `ask_threads`, `ask_messages` and `ask_events` tables (migration `0005_ask`) for the coming async Ask Loki box. Existing `runs` rows migrate byte-equal. Nothing reads or writes them yet; the feature stays behind `LOKI_CP_ASK` (default off).
+- Control-plane Ask stream parser (CP-ASK slice 8): a pure parser for the provider's streamed output (claude stream-json, codex degraded) that joins text deltas, captures tool calls as citations, takes cost from the result line, and marks a truncated stream failed, never done. Not wired yet; behind `LOKI_CP_ASK`.
+
+### Fixed
+- Read-only MCP mode follow-ups: every public `MemoryStorage` mutator now calls one shared `_check_writable()` and raises `PermissionError` under `MemoryStorage.READ_ONLY` (previously save_pattern, update_pattern, update_timeline, set_active_context, delete_episode, delete_file, ensure_directory and the namespace copy/merge wrote unguarded); the code-search auto-reindex gate is now covered by a test that arms `LOKI_CODE_INDEX_AUTOREINDEX=1` against a stale manifest and asserts no spawn.
+- FC-23: the Wall now matches the package it writes for. The Wall brief states the package's module system (package.json "type" and the tsconfig "module", read with a JSONC-aware parser, relative "extends" followed), so a CommonJS package is told never to use import.meta. A generated Wall file that the package's own compiler would reject (import.meta under CommonJS) is discarded and listed in NOT PROVEN instead of entering the tree. A lint or type error whose every location is inside a Wall file (tsc and eslint output parsed) is harness-owned: the check is not_run with "wall test did not compile under the package config", never a fix round. A real failure in the user's code, or any mix with user code, still gets fix rounds (FireLater#17 on 10.10.5 spent fix round 1 on a read-only Wall file).
+
+## v10.10.5 (2026-10-03)
+
+Release-gate fix for 10.10.4: the 10.10.4 publish was blocked at its gate (release run 37160286619, spawn env guard), so nothing reached npm as 10.10.4. 10.10.5 ships everything listed under v10.10.4 below, plus the fix here.
+
+### Fixed
+- Spawn env guard: the run-cap file count (`loki-ts/src/util/run_cap.ts`, `git ls-files`) and the load-owner process-tree walk (`loki-ts/src/runner/load_owner.ts`, `pgrep -P`) now pass an explicit env, so they see the current environment rather than the one captured at process start.
+
+## v10.10.4 (2026-10-03)
+
+Engine honesty train for the FireLater#17 gate: three failure classes (FC-15, FC-16, FC-21) plus FC-02 ship together. A success verdict now needs at least one Loki-executed test with a confirmed count, a run is never refused for its starting branch, and an implement time limit no longer skips verify. Behavior change: runs that previously ended VERIFIED or ALREADY_SATISFIED on unconfirmed test output (for example any Go run that exits 0, since go test output cannot be confirmed) now end PARTIAL with "test count could not be confirmed" in NOT PROVEN, and the CLI `--json` outcome reads PARTIAL where it read FAILED for a PARTIAL receipt (exit code stays 1).
 
 ### Changed
+- engine10 (D86, FC-15, L4/L2): a run is never refused for starting on a branch with commits that are not on the PR target; the guard moved from the run to the ALREADY_SATISFIED claim. The claim is checked against the PR target (LOKI_E10_BASE or the origin default branch): evidence that exists only in commits not on the target voids it and the run implements. When those commits are really Loki's (a "Loki-Run:" commit trailer, or a local receipt with commits of its own) the note "work exists on <branch>, not on <target>; open or resume it" is printed on stderr, in the run summary and in the PR body, and recorded as unmerged_loki_work in the intake data. The start line now prints the PR target and the base.
+
+### Fixed
+- engine10 (FC-21): an implement time limit no longer skips verify and fix; the work that exists is verified (the receipt can only be PARTIAL), the run cap scales with task size (about 45 minutes for large subscription tasks; loki.yaml budgets.run_cap_s or LOKI_E10_CAP_S override), implement is told its remaining time, and the CLI Outcome line names the receipt verdict (PARTIAL, not FAILED).
+- FC-02: a test runner that cannot load or collect (import error, missing module) is judged by one shared owner check (`loki-ts/src/runner/load_owner.ts`): when the same command also fails to load on the base commit and no changed file is named in the error, the check is NOT PROVEN (harness-owned, no fix rounds) instead of a code failure. Applies to the per-file checks, the deep full suite and per-package suites; lint, typecheck and selector checks (`kind: static`) never go through it.
+- FC-16 follow-ups: go test runs with -v (per package and in the deep full suite) and the count sums top-level `--- PASS|FAIL` across every package, with `[no test files]` zero only when no package ran tests; a non-verbose go summary is reported as unmeasured, never as "no tests executed". Runner summaries are read only from the last 12 output lines (a testless file printing "Tests: 5 passed" no longer counts), ANSI colour codes are stripped, and `python -m unittest` and Playwright summaries parse. User-visible: intake's closed-issue / already-done short-circuit now always ends PARTIAL (NOT PROVEN) because it has no Loki-executed check.
+
+## v10.10.3 (2026-10-03)
+
+### Fixed
+- Fix (FC-19 R1): if the single resume after a spec conflict fails, is killed, or ends without a marker, the run keeps the first session's question and ends BLOCKED instead of PARTIAL or FAILED; duration_s counts both sessions.
+- Fix (D86, FC-19, L0, L1): the implement stage does the full job. The implement brief (FIXED_RULES) no longer limits the model to named files or impacted tests and allows the full suite; STAGE_PREFIX and LEAN_PREFIX are role-neutral so the plan and Wall briefs keep their roles; the implement limit comes from the run budget instead of a fixed 480s. A LOKI_SPEC_CONFLICT from implement now gets one resume with a correction (Loki imposes no limits) before it is believed; a persisting conflict is the normal BLOCKED with its question. Side effect: deep-mode implement now gets its 1800s session limit (session.ts used to kill it at 480s).
+
+### Changed
+- Control Plane run page follow-ups: changed files are taken from the receipt shas, a "why" line, structured evidence rows, a summary grid and a default repo chip.
+
+### Docs
+- CP parity matrix against the legacy dashboard: 101 rows (57 wired, 37 backend-missing, 7 drop).
+
+## v10.10.2 (2026-10-03)
+
+### Added
+- Control Plane redesign (CP-REDESIGN): the run page uses the autonomi.dev design tokens, the home page is composer-first, and sessions show as a card grid. The receipt badge reads "Receipt signed" only when the signature was actually checked (`sig_checked` true), "Receipt unchecked" when it was not, and "receipt unmeasured" when the receipt carries no check result.
+- Project Model on by default (FC-01): Loki detects the packages in a repo and runs each package's checks from that package's own directory, through one shared command resolver.
+
+### Changed
+- Engine core size: the already-done evidence search, the engine origin helpers and the dashboard page renderer moved out of `loki-ts/src/engine10` into `loki-ts/src/util`. Behavior is unchanged; the engine core is back under its 5,000-line cap (4,719 lines).
+
+### CI
+- The bun unit-test job in `test.yml` prints the coverage table (`bun test --coverage`). It replaces the removed `coverage.yml` and enforces no floor.
+- New guard on `docs/v10/cp-redesign` images: only files listed in `ALLOWED-IMAGES.txt` may be committed there, and the pre-commit hook rejects an unlisted staged image (tests/test-cp-redesign-images.sh).
+
+## v10.10.1 (2026-10-03)
+
+Release-gate fix for 10.10.0: the 10.10.0 publish was blocked at its gate (spawn env guard and the MCP status contract test), and ten CI checks were red on its commit, so nothing reached npm as 10.10.0. 10.10.1 ships everything listed under v10.10.0 below, plus the items here.
+
+### Added
+- Moat P1 seal.v2: receipts now sign the verification metadata (verdict, checks run, not-proven list); a v2 receipt is never downgraded to v1 verification. P1.verification-metadata-signed promoted out of tests/moat/pending.txt.
+- Control Plane polish (CPE items 1 to 7): signature checked by default, one cost formatter, sidebar and theme toggle, verified rate, stage timeline, skip reasons shown, CP D1 (a finished run page loads its stored events, FC-06b) and D2 (one-time startup cleanup of leaked fixture runs, FC-07b).
+
+### Fixed
+- Release gate: loki-ts/src/cli/completions.ts spawn calls pass an explicit env (spawn env guard); the MCP-through-shim status test asserts the schemas/status-result.schema.json keys and accepts a null control_plane_url.
+- CI shard reds on 10.10.0: README no longer hand-carries a version line (generate-stale-zero writes it without a literal); release.sh skips generate-stale-zero.sh when it is not executable (fixture exit 127); UI bare-loki test expects the API-only URL; E-32 expects the Loki 10 status output; S-132 job floor matches the pruned test.yml; two SC2043 single-item loops in the moat suite replaced by assignments.
+
+### CI
+- Removed workflows: bun-parity (dist vs source drift is covered by the release dist guard), parity-drift, coverage (its 70% floor was never enforced), sentrux-real, soak-monitor and the example review workflow; tests/test-bun-parity-disk-tolerance.sh removed with them.
+- Required checks for release (release.yml, scripts/release.sh, scripts/train-cycle.sh, scripts/v10-pulse.sh) are now Tests and Security Audit only; the local-ci.sh bun-parity matrix (section 9) is removed.
+- Docs updated: TESTING.md, ARCHITECTURE.md, COMPONENTS.md, CONTRIBUTING.md, docs/SLO.md, docs/dev/release-checklist.md, skills/release-cadence.md.
+
+## v10.10.0 (2026-10-03, not published)
+
+### Added
+- CLI registry (loki-ts/src/cli/registry.ts) is the single source for help, docs/v10/CLI-MODERN.md and shell completions. Completions install themselves on postinstall and on the first interactive run per version, into auto-load locations only (never rc files); skipped on CI, non-TTY or LOKI_NO_COMPLETIONS=1.
+- `loki status` shows the current or latest Loki 10 run through one renderer shared with `loki engine10 status`; schemas/status-result.schema.json rewritten to match.
+- STALE-ZERO: scripts/generate-stale-zero.sh regenerates the SKILL.md command list, the README facts block, docs/CLI-REFERENCE.md and Helm appVersion on every release bump. tests/test-no-stale-facts.sh reports dead commands, dead env vars and old versions in docs (advisory unless LOKI_STALE_ZERO_STRICT=1).
+
+### Changed
+- loki-ts cli.ts: bash fall-through wording, the LOKI_LEGACY_BASH warning and util/bash_delegate.ts are removed; `loki report` serves kpis only and exits 2 on anything else (LEGACY-ZERO W1-02).
+- Superseded plans moved to docs/history/ with dated headers; four obsolete plan and wiki pages deleted.
+- Helm appVersion in all three charts now tracks VERSION (was 9.19.1, 10.6.7 and 7.93.0).
+
+### Fixed
+- Moat: P7.dashboard-client-routes-exist restored as a real check that every Control Plane UI /v1 call resolves to a createApp() route (registry ratchet red).
+- E-123 gitleaks baseline shape derived from .gitleaksignore; E-86 pre-push hook test sees the real HOME; leak2 opener check retargeted to the Control Plane opener; CP integrations test no longer leaks /usr/bin/gh.
+- tests/shard-durations.tsv: 30 orphan rows pruned; docs/v10/DEPS.md regenerated.
+- test(FC-18): legacy-shim route and doc counts, control-plane route module count and doctor JSON check count now derive from their source of truth instead of pinned literals.
+
+### CI
+- Removed dead workflows loki-enterprise, mutation-testing, check-phase6-ready, arm64-runtime and provenance (release.yml already signs and attests the image); loki-issue-to-pr and loki-ci-example moved to docs/examples/*.yml.example.
+- test.yml jobs before: version-bump-gate, node-tests (20, 22, 24), python-tests (3.10, 3.11, 3.12, 3.13), shell-tests (8 shards), moat-suite, helm-lint, bun-tests, sdk-loop-e2e, sdk-tarball-no-binary.
+- test.yml jobs after: version-bump-gate, node-tests (20, 24), python-tests (3.10, 3.13), shell-tests (8 shards), moat-suite, helm-lint, bun-tests.
+
+## v10.9.1 (2026-10-03)
+
+Release-gate fix for 10.9.0: the 10.9.0 publish was blocked at its gate by one loki-ts type error and an engine10 size budget overrun, so nothing reached npm as 10.9.0. 10.9.1 ships everything listed under v10.9.0 below, plus these fixes.
+
+### Fixed
+
+- Fix: the 10.9.0 release gate (loki-ts typecheck plus bun test) failed on tests/engine10/e2e.test.ts TS2532 and the engine10 core size budget (5000 of a strict < 5000 after the merges); both are fixed, so nothing was published as 10.9.0. tests/dashboard/test_cost_partial_surfaced.py drops its two render checks of the deleted legacy cost.html and proofs.html (CPE-24 L6).
+
+## v10.9.0 (2026-10-03)
+
+Legacy dashboard removal release: the classic dashboard UI is deleted (the browser UI is the Control Plane), two guards keep it gone, and the Control Plane now serves the audit, checkpoint, memory, context, focus, tasks, session control and Completion Council routes the legacy dashboard answered. Also fixes the Python 3.10 pricing pin that turned 10.8.0 Tests red. Shipped under the founder CI waiver (D88); new tests for these slices are owed after the Oct 7 reset. It also fixes forward every 10.8.0 CI and Docker red (10.8.0 reached npm `next` only), retires 34 more legacy routes with named replacements (CPE24-P6), adds Project Model discovery behind a flag (EL-W1-01) with the L0 guard (EL-W1-00), and folds in FC-10, MW-2, L5, L8 and the opt-in fix-round resume.
+
+### Fixed
+
+- Fix forward for the 10.8.0 CI reds: the dash guard no longer trips on design.test.tsx (escaped codepoints); the audit PVC test scopes its keep check to the audit PVC (the control token Secret keeps itself by design); the E-35 Deprecated check reads every Deprecated block instead of pinning Unreleased; test-hermetic-home.sh sources the isolated-git-home helper; the gitleaks tests find the pinned binary under the real HOME behind the FC-07 hermetic HOME; Dockerfile.control-plane copies the widened loki-ts closure and schemas/ (CP-04); legacy-mount expects 410 for retired tenants (CPE24-P6).
+- Fix: the Docker image build copies schemas/ into the Control Plane build stage; 10.8.0 docker builds failed with `Could not resolve: "../../../../../schemas/loki-yaml.schema.json"`.
+- Fix (D86, FC-10, L7): the quiet-mode live status line no longer truncates to about 20 columns on a pty with no size (script -q, CI, tmux before a resize, IDE terminals). One terminalWidth() helper (columns >= 40, else $COLUMNS, else 80) now backs the live line, the cockpit and autonomy/tui.sh, and a guard test fails on any raw terminal width read in loki-ts/src.
+- engine10 never runs below raw `claude -p` (D86, FC-04, L1): with no model configured the claude session is invoked with no `--model` flag (the SDK path sets no model), so the provider default runs instead of a pinned sonnet; `SessionRunOptions` gains an optional `effort` passed to the provider only when set; an explicit sonnet or haiku pin (`LOKI_MODEL_OVERRIDE`, `LOKI_CLAUDE_MODEL_DEVELOPMENT`) is printed on the start line and recorded as `downgrades` on run.started (key only when non-empty). receipt.model reads "claude (provider default)" when unpinned. The label is never passed as a model: fix escalation goes up from the provider default (opus), and the cheap auxiliary stages that stay pinned (plan fast tier, Wall, already-done check) are listed in `downgrades` and printed on the start line. Known FC-04 sibling: `loki start prd.md` still goes to the legacy run.sh route, whose default is sonnet (not changed here).
+- Fix: tests/test-control-plane.sh runs the control-plane suite from the package so its bunfig ignores the Playwright specs (10.8.0 shard 6 red).
+- tests/test_estimate_run.py derives the sonnet price from loki-ts/data/model-pricing.json instead of pinning 3/15, so the Sonnet 5.5 price move (2/10) no longer turns Python 3.10 CI red (FC-13 class, same fix as the bun pricing tests).
+
+### Added
+
+- Opt-in `LOKI_E10_FIX_RESUME=1` (default off): in the Loki 10 engine on the Agent SDK, a fix round resumes the previous session (implement, then each fix round) with the failure output and prior diagnosis as the new turn, keeping the agent's context and prompt cache. It resumes only on the same model; escalation (Engine Law L1), a missing session id, a non-SDK provider or the CLI invoker, or a resume error starts a fresh session as before and records `fix_resume: fresh|fallback (<reason>)`. The stage data and the receipt cost block record `fix_rounds` with per-round `fix_resume` and cache-read tokens for the Parity Gate A/B. Verdicts are unchanged: seal reads only execution evidence and the engine-recorded mode, never the resumed transcript.
+- Project Model discovery (L0, L4, EL-W1-01): intake runs one model session that reads the repo like a senior engineer (loki.yaml, AGENTS.md, CLAUDE.md, CONTRIBUTING, README, CI workflows, manifests and configs) and returns a schema-checked Project Model: workspace kind, every package root, its runner, and its test, lint, build and start commands with the cwd of each, plus whether there is a UI and how to boot it. Every answer must cite repo files that exist; an answer with no citation or a citation to a missing file is sent back to the model once with the errors, and a second rejection yields a typed "unknown" model (never invented; cached for one hour so a repeat run does not respend the session). The harness only gathers candidate file contents with a bounded generic walk (depth 3, 60 files, 16KB each, 96KB total) and holds no language or layout knowledge. The result is cached in `.loki/project.json`, keyed by a hash of the model-named manifest and lockfiles plus the shallow directory set, and the key is recorded in the intake stage data (`project_model`). New typed API in `loki-ts/src/project_model/api.ts` (packageRootOf, commandFor, hasUI, uiBoot); consumers are wired in EL-W1-03. Default OFF until a consumer exists: `LOKI_E10_PROJECT_MODEL=1` enables it. A cached file is re-validated on every load, fingerprint files must be regular files inside the repo, a provider failure is reported as owner=provider, and the session limit is the remaining intake budget so discovery fails open.
+- Added (EL-W1-00, L0): loki-ts/tests/engine10/l0_guard.test.ts fails when a file under loki-ts/src probes a manifest name or embeds a runner command outside l0_guard.allowlist; the allowlist equals the current inventory and may only shrink.
+- Two guards for the legacy dashboard removal: `tests/test-legacy-dashboard-removed.sh` fails if the old UI directories exist, are listed in package.json "files", would ship in `npm pack`, or are still referenced outside CHANGELOG.md, docs/ and a shrink-only allowlist (with a `--self-test` mode), and `tests/test-cp-fresh-install-smoke.sh` installs a fresh `npm pack` tarball, starts the Control Plane on a loopback port and checks /health and its UI.
+
+### Changed
+
+- Legacy dashboard shim (CPE24-P6): 34 more legacy routes that the Control Plane retires (tenants, api-keys, task writes, /ws, agents, quality scan, wiki ask and others) now answer 410 Gone naming their Control Plane replacement; 21 routes with no /v1 equivalent yet still answer 501.
+- The Control Plane now serves the audit and checkpoint routes of the legacy dashboard: `/v1/audit/summary`, `/v1/checkpoints`, `/v1/checkpoints/{id}` and, on the loopback-only action path, `POST /v1/checkpoints` and `POST /v1/checkpoints/{id}/rollback` (loopback peer, loopback Host and JSON required, a pre-rollback snapshot taken first, every call audited); audit data stays read-only, unmeasured summary fields are null, and the legacy `/api/enterprise/audit*` and `/api/checkpoints*` paths now map onto them (the legacy POSTs now also require a loopback JSON request, a CP token alone does not reach a restore).
+- The Control Plane now serves tasks, memory, context and focus that the legacy dashboard answered on port 57374: `/v1/tasks`, `/v1/memory/{episodes,patterns,skills,economics}`, `/v1/context` and `/v1/focus` read the same `.loki/` files, return null instead of a zero when unmeasured, and the legacy `/api/tasks`, `/api/memory/*`, `/api/context` and `POST /api/focus` paths map onto them (focus only accepts this checkout or a registered project, and only from a loopback JSON same-origin caller). Task create/update/delete, memory consolidate/retrieve and the SQLite memory backend stay 501.
+- The Control Plane now serves session control and the Completion Council that the legacy dashboard answered on port 57374: `POST /v1/control/{pause,resume,stop,council-review}` (a fixed action list that only writes the `.loki/PAUSE`, `STOP` and council-review signal files `run.sh` already reads, never a command, loopback JSON plus same-origin, audited) and read-only `/v1/council/{state,verdicts,convergence,report,transcripts}`; the legacy `/api/control/*` and `/api/council/*` paths map onto them (stop now writes the STOP signal only and no longer signals the process).
+
+### Removed
+
+- Removed (CPE-24, L6): the legacy dashboard UI. dashboard-ui/ and dashboard/static/ are deleted (107 files), along with the tests, harnesses and build steps that only served them. dashboard/server.py keeps every /api/* route; its `/` now returns a 410 page naming the Control Plane, and `loki dashboard open` prints the Control Plane hint instead of opening a browser. The browser UI is the Control Plane (`loki ui`).
+
+## v10.8.0 (2026-10-03)
+
+Enterprise Control Plane release: the new Control Plane UI replaces the classic dashboard UI, the legacy /api shim is mounted, metrics, cost and fleet routes are ported, and test runs use a hermetic HOME. Shipped under the founder CI waiver (D88, "skip all CIs for next 10 releases"): this release did not wait for the Tests, Bun Parity or Security Audit workflows, and new tests for these slices are owed after the Oct 7 reset.
+
+- The Control Plane now serves metrics, cost and fleet spend that the legacy dashboard answered on port 57374: `/v1/metrics`, `/v1/cost/snapshot`, `/v1/cost/timeline`, `/v1/fleet/runs` and `/v1/fleet/summary` read the same `.loki/` and registry files, return null with a "not measured" marker instead of a zero, and the legacy `/metrics`, `/api/cost`, `/api/cost/timeline` and `/api/fleet/*` paths now map onto them (the legacy `/metrics` now requires the same auth as other legacy routes).
+- The Control Plane server now mounts the legacy dashboard shim ahead of its SPA fallback, so old dashboard paths on the Control Plane port get the shim's 308, 501 or 410 answer (or a mapped response) instead of the single-page app.
+- Agent SDK 0.3.288 (Claude Code 2.1.288) with Sonnet 5.5 cost rates of $2 input and $10 output per MTok, and CLAUDE_CODE_DISABLE_STRUCTURED_OUTPUTS now verified to reach SDK sessions.
+- Deploy hardening for the Control Plane: Helm now generates a stable random token (or reads `secrets.controlTokenKey` from your `existingSecret`), compose requires `LOKI_CONTROL_TOKEN` and publishes on 127.0.0.1, and the ECS module requires `control_token_secret_arn` unless `allow_insecure_bind` is set, so no deploy path runs the Control Plane open; the image now builds the Control Plane in its own stage and ships only the bundle, UI and migrations, workers ship to it with the same token, and `persistence.controlDb.enabled` keeps its database across restarts.
+- The Helm chart, the docker-compose stack and the AWS ECS module now run the Control Plane (`loki control serve`, probed on /health and /ready) instead of the legacy dashboard; the Service and compose host port stay 57374, `config.dashboardPort` and `dashboard_port` remain as deprecated aliases of the new `config.controlPort` and `control_port`.
+- Control Plane ingest now verifies the event log it stores (D86, FC-08, L2, EL-FC08b): a seq gap, a sealing-line hash mismatch, a malformed or missing receipt.sealed under a VERIFIED claim, a bad or unknown-kid log seal signature, a kid mismatch between receipt and log seal, or a second run.completed or any verdict after log.sealed marks the run tampered, and the display verdict (effective_verdict, shared by every UI view) is TAMPERED. The CP verdict now comes from the sealed prefix only. A VERIFIED claim with no signed seal, or a log redacted before ingest (reason: log redacted before ingest; seal not checkable), shows UNVERIFIED. Plain VERIFIED needs a signature check against LOKI_CP_RECEIPT_PUBKEYS (colon-separated PEM files); without keys an attested run shows VERIFIED (signature not checked) and ?verdict=VERIFIED lists signature-checked runs only. New runs columns attested, sig_checked and integrity_reasons ship as migration 0003 (legacy rows are recomputed at boot). ALREADY_SATISFIED needs a seal like VERIFIED; unattested non-success verdicts read `<verdict> (unattested)`; the Overview VERIFIED tile counts plain VERIFIED only, with a separate signature-not-checked tile; the boot recompute is chunked and re-runs when the key set changes. A parity test, including signed cases, keeps the CP checks aligned with `loki verify`.
+- Scope control is advisory only (D86) and never reverts an edit (FireLater#17: "validate across routes" had backend/src/routes/*.ts reverted). Files named by the plan, task or contract, matching a noun of the issue ("routes"), or beside a planned file are in scope; any other edit is kept and listed in NOT PROVEN, the receipt and the PR body as `outside stated scope: <file>`. The unit-mode write set flags the same way. Secrets, lockfile, `.loki/` and Wall-file drops are unchanged.
+- `loki control prune --repo OWNER/NAME | --before ISO_DATE [--dry-run]` removes fixture or unwanted runs (with their events and orphaned sources) from the local Control Plane DB in one transaction, with or without the server running; `DELETE /v1/runs/:source/:run` and a confirmed Remove button on the run page do the same for one run, each recorded in a new `audit` table. Clean up leaked fixture runs with `loki control prune --repo acme/widget`.
+- P0 fix: test suites no longer flood a developer's live Control Plane with fixture runs (acme/widget, e10-t*, e10-dw*). The run supervisor honors the process-level LOKI_CONTROL=0 when a caller passes a minimal env, local-ci.sh exports it, and auto-discovered shipping (not an explicit LOKI_CONTROL_URL) now refuses repos under the OS temp dir or with an acme/widget origin (opt-in for sandboxed harnesses: LOKI_CONTROL_ALLOW_TMP=1); zero-setup ingest skips such registry repos. The Control Plane UI now shows a tampered run as a red TAMPERED verdict badge in the list, detail, receipt, live and overview views instead of VERIFIED with a small note.
+- Engine Law L1 "Never below raw" (supersedes the D31 sonnet-first cascade): the engine10 cascade is now OFF by default, so implement and fix run on the run's own model like a raw session. `LOKI_E10_CASCADE=1` opts in to the sonnet downgrade, prints `model downgraded by cascade: X -> Y (opt-in)` and records it in the implement and fix stage data. A repeated fix failure escalates up to the strongest model (never below the run model) with the full failure output and the prior diagnosis before STALLED. A static guard test fails if any stage pins a weaker model without the opt-in.
+- L7 (outputs are contracts): the PR body no longer prints "not recorded" for what the issue asked, why, files in scope or tests when the run recorded them. The supervisor opened the PR with only the seal output, so the body's reader never saw intake, plan or verify; it now rebuilds stage outputs from the run's events (with issue.json and plan-output.txt as fallbacks) in one shared module (`util/run_outputs.ts`), prefers the issue's own acceptance criteria, and a genuinely absent source still reads "not recorded". A golden test built from the FireLater#17 recording and a guard test pin both directions.
+- Control plane UI (CPE-27): a tampered run now renders a red TAMPERED verdict on every page and is never counted as verified; one shared `effectiveVerdict` and `VerdictBadge` in the design primitives derive it (also in /v1/stats), with a guard test against hard-coded verdict strings.
+- Control Plane Workspaces page (CPE-19): page "workspaces" (/workspaces) lists loki.yaml workspaces from GET /v1/config with each repo's latest run from GET /v1/runs and a group status that reads "not measured" unless every repo has a run. Run a workspace through POST /v1/runs with body.workspace (already accepted by the server); workspaces holding shell commands are read-only.
+- Control Plane Integrations (CPE-20): page "integrations" (/integrations, in settings) and GET /v1/integrations probe GitHub (gh auth status or git.token_env), GitLab, Slack (notifications.slack_webhook_env), Jira, Linear, Sentry and MCP by presence only (env var NAME plus a boolean, never a value); unprobeable reads "not measured". Connect writes only the env var NAME through PUT /v1/config with If-Match.
+- Control Plane merge queue and PR risk (CPE-25, CPE-26): pages "merge" (/merge) and "risk" (/risk) wrap `loki merge list|add|run [--dry-run]` and `loki review --risk --json`. Server routes GET/POST /v1/merge/queue, POST /v1/merge/run ({dryRun} required boolean) and GET /v1/review/risk (pr, staged=1 or since) run the CLI with execFile and a fixed argv, allowlisted arguments, a timeout and an output cap; every mutation and refusal is audited. A real merge needs an explicit confirm; an unparseable or failed risk run reads "not measured", never 0.
+- Control Plane contrast and test hardening (CPE-27): the five CPE-23 WCAG AA failures are fixed by lightness-only token companions (`--cp-accent-solid`, `--cp-accent-ink`, `--cp-error-ink`, dark `--cp-info-ink`) used by Button, Badge and NavItem, plus the legacy Settings button on sky-700; `KNOWN_CONTRAST` is now empty (33/33 e2e). Receipts tests pin the Badge tone per verdict, and the copied-envelope test now uses a real engine `--export-dsse` envelope, so removing runIdGuard turns it VERIFIED rather than UNCHECKED.
+- Control Plane run controls (CPE-10): `ui/src/pages/run-controls` exports `RunControls` ({source, run, status}) for the run header slot. Stop asks for confirmation and is shown only for a running run; Resume only for a BLOCKED run; Retry for a finished one. Actions update optimistically, roll back on failure and show the server refusal text as returned (409 busy, 501 retry unavailable, pid refused).
+- Control Plane Plans and traceability (CPE-17): `ui/src/pages/plans` renders a matrix per run (requirement from issue.json, plan step, files changed from diff.patch and the receipt, linked checks, verdict) at `#/plans/<source>/<run>` with a run picker at `#/plans`. A criterion with no passing linked check, or any non-VERIFIED receipt, reads NOT PROVEN, never green.
+- Control Plane UI end-to-end tests (CPE-23): `packages/control-plane/test/e2e/cp-ui.spec.ts` runs headless Playwright against a loopback stub API built from the CP-00 fixtures (axe WCAG A/AA scan of 8 pages in light and dark, Cmd+K, nav, Cmd+Enter keyboard path, 375 px drawer and no horizontal scroll, element captures, computed-token parity against a committed legacy dashboard baseline in `test/e2e/legacy-baseline/`). The scan found real dark-theme contrast failures (primary Button, error and info Badge, active NavItem) and a legacy Settings button; they are annotated `known-a11y`, not suppressed. `bunfig.toml` keeps `bun test` off the e2e specs.
+
+- Control Plane Work board (CPE-18): `ui/src/pages/board` is a kanban derived from `GET /v1/runs` with Issue, Running, PR open and Verified / Not proven columns (a verdict decides first, then a PR url, then a live or started run); each card links to `#/runs/<source>/<run>`. It replaces the old Work page at `#/work` once registered.
+- Control Plane models and providers (CPE-15): `GET /v1/providers` reports each provider CLI (claude, codex, cline, aider, opencode, plus deprecated gemini) as installed or not with its version from a timeout-bounded `--version` probe, which auth env var NAMES are set (never values), and the model tiers from `providers/model_catalog.json`; behind the token guard. New Models and providers page (settings area).
+- Control Plane new run composer (CPE-08, D83): one input accepting owner/repo#N, a GitHub issue URL, a PRD path or a plain task, with repo, model, provider, budget and workspace chips that send only the fields `POST /v1/runs` accepts; Cmd+Enter starts the run, an optimistic row shows while it starts, and 400, 403 and 409 answers are worded plainly.
+- Control Plane command palette (CPE-22): Cmd+K (Ctrl+K) opens a combobox palette that searches registered pages, recent runs from `GET /v1/runs` and actions (New run, Toggle theme), with arrow-key navigation and ARIA combobox/listbox semantics. Shortcuts: Cmd+N opens a new run, Cmd+Shift+D toggles the theme, Esc closes, and Cmd+Enter dispatches the `loki:composer-submit` window event for the composer to handle. Mounted in `App.tsx` through the CPE-02 `setCommandPaletteHandler` hook.
+- Control Plane Settings (CPE-14, D83): `GET` and `PUT /v1/config` read and edit the repo `loki.yaml` on the loopback-only router (real-peer check, token guard, Origin check, audited). Input is validated against `schemas/loki-yaml.schema.json`, values that look like secrets are refused (env var names only), writes keep comments (`yaml` Document API), are atomic (temp file plus rename) with a `loki.yaml.bak` backup, use a sha256 ETag with `If-Match` (stale gets 409), and a symlink resolving outside the repo is refused. The Configuration settings page has one form card per schema section.
+- Control Plane lean shell (CPE-02, D83): the UI is now a left sidebar (Loki Mode brand with the mascot, New run, sessions grouped Today / Yesterday / Earlier from `GET /v1/runs` and refreshed from the runs-list stream, one Settings entry) plus a hash-routed outlet, built only from the CPE-01 tokens and primitives with a mobile drawer. Pages register through `ui/src/pages/registry.ts` (`inSettings` pages appear behind Settings); the import-repo empty state and Live run view stay reachable, and Cmd+K is left as a hook for the command palette.
+- Control Plane cost and usage (CPE-13): `GET /v1/stats/cost?group=day,model,repo,provider` aggregates the runs table with measured, partial and unmeasured runs kept separate (unmeasured never counts as $0) plus token totals, and a Cost and usage page with bars and a budget banner ("no cap" for subscription runs, the $100 default per-run cap for API-key runs, per D82).
+- Control Plane run thread (CPE-06): `ui/src/pages/run` shows a run as a chat-like thread with stage messages, a live log (events page plus the `/v1/runs/:s/:r/stream` SSE), diff and receipt from the artifacts API, NOT PROVEN reasons, cost (a missing cost reads "not measured"), PR link, a BLOCKED reply prompt, a Details drawer and a header slot for the run controls.
+- Control Plane Home and stats (CPE-12): `GET /v1/stats?since=` returns run counts, VERIFIED rate, cost with measured and partial kept apart (an unpriced run is never summed as zero) and the receipts count, behind the token guard; the Home page shows KPI tiles (runs today, verified rate and cost over 7 days, BLOCKED waiting), recent runs and a BLOCKED inbox, with unmeasured values reading "not measured".
+- Control Plane receipts (CPE-16): `POST /v1/runs/:source/:run/verify` runs the engine's own receipt verifier in process, read-only, and returns VERIFIED, UNSIGNED, TAMPERED or UNCHECKED with the reasons; `GET /v1/keys` returns the public signing key (JWK) only. Both are loopback-only (real peer check, JSON, token guard) and verify writes an audit row. The Receipts page lists finished runs with an in-place Verify, the public key and the verified-rate trend.
+- Control Plane runs table (CPE-11): a dense runs page with status, verdict, repo and source filters, free-text search, sortable columns (unmeasured values sort last), a per-repo rollup that sums only priced cost, rows linking to `#/runs/<source>/<run>`, and live refresh from the `/v1/stream` SSE feed.
+- Control Plane live streams (CPE-05): `GET /v1/runs/:source/:run/stream` and `GET /v1/stream` are Server-Sent Events fed from the store (so events shipped by the watcher appear within a second), with a 15s heartbeat, `Last-Event-ID` resume, a cap of 32 concurrent streams (429 beyond it), slots freed on disconnect, and the existing bearer token guard.
+- Control Plane notifications and audit API (CPE-21): `GET /v1/notifications` derives BLOCKED runs awaiting an answer, finished runs with their verdict, tampered logs, ingest conflicts and cap hits straight from stored runs and events (each links to its run, nothing is invented), and `GET /v1/audit` lists the actions table newest first, paged. Both sit behind the existing token guard.
+- Control Plane run artifacts API (CPE-04): `GET /v1/runs/:source/:run/events?after=&limit=` pages a run's events, and `GET /v1/runs/:source/:run/artifact/<name>` serves a fixed allowlist (issue.json, plan.json, receipt.json, receipt.md, report.md, task.md, diff.patch, evidence/*.png) from `.loki/runs/<run>/`. It is loopback-only and behind the token guard; the run and source must be a known ingested run with a discovered local repo, the realpath must stay inside the run directory (traversal, absolute names and symlink escapes are refused), and files over 5 MB are refused.
+- Control Plane start endpoint (CPE-07): `POST /v1/runs` (with `/v1/start` kept as an alias) moves into `routes/start.ts` and `spawn.ts`, keeps every loopback, Host, JSON, 409 and env-scrub guard, adds an Origin check, and accepts optional `provider` and `budget` (mapped to `loki start --provider/--budget`), `model` (sent as `LOKI_SESSION_MODEL`) and `workspace` (runs `loki workspace run`), each validated against an allowlist; every start is recorded in the audit table.
+- Run control (CPE-09): the supervisor writes `<run dir>/run.pid` (pid, process start time, argv) and removes it on exit; the loopback-only, audited `POST /v1/runs/:source/:run/stop|retry|resume` endpoints SIGTERM only a pid whose file belongs to that run, is alive and has the recorded start time (PID-reuse guard, never by name), retry re-starts the recorded issue ref, resume spawns `loki answer <run>`, and an unsupported retry returns 501 with a reason.
+- Control Plane server scaffold (CPE-03): a route registry with a stub per planned route file, new `local_repos` and `actions` tables with a migration, an audit helper, and local discovery that fills `local_repos` (never `/v1/ingest`). `GET /v1/repos` now returns project display names only (no home paths) behind the same loopback guard, and `/v1/start` accepts a unique display name as well as a known path.
+- Control Plane design system (CPE-01, D83): `packages/control-plane/ui/src/design/` ships the light and dark `--cp-*` tokens extracted from the legacy dashboard (light-grey ground, Fraunces/Inter/JetBrains Mono, Tailwind preset) and 19 primitives (Card, KpiTile, Badge, Pill, StatusDot, Button, Input, Chip, Table, NavItem, GroupHead, Timeline, Message, EmptyState, Spinner, Toast, Dialog, Drawer, Kbd). Text uses AA-safe `-ink` and `text-subtle` companions where the legacy light status and muted hex fall below 4.5:1.
+
+- Tests now run under a run-owned hermetic HOME (D86, FC-07): `tests/run-all-tests.sh`, `scripts/local-ci.sh` and the bun preload (`loki-ts/tests/preload.ts`, also used by `packages/control-plane`) export HOME as a temp dir via `tests/lib/hermetic-home.sh` (real HOME kept as `LOKI_REAL_HOME`, toolchain homes pinned, `LOKI_RUN_TMP` never exported), so no suite can write the real `~/.loki` (control, dashboard registry, answers, keys) or `~/.gitconfig`. `_loki_control_ui` now honors `LOKI_CONTROL=0` and never starts a detached `control serve` under it. New guard `tests/test-hermetic-home.sh`.
+- Control Plane UI is now branded Loki Mode with Runs, Work, Cost and Settings navigation; the empty state has one "Import runs from this folder" button and the `loki start owner/repo#N` line (no env-var instructions), and a Start form (owner/repo#N or a plain task, repo picker from the project registry) posts to a loopback-only, strictly validated endpoint that spawns `loki start` with an argv array. BLOCKED runs were already answerable inline.
+- The Control Plane now ingests with zero setup: on start it backfills the current repo and every registered project, then tails each `.loki/runs/*/events.jsonl`, so live and already-running runs appear without `LOKI_CONTROL_URL` or `loki control backfill` (set `LOKI_CONTROL_AUTOINGEST=0` to opt out).
+- CP-LEGACY (D57): `loki dashboard start|open` (with or without flags), `loki web`, the host side of `loki docker start` and the run.sh auto-open now open the Control Plane instead of the legacy Python dashboard. The legacy server is reachable only with `LOKI_LEGACY_DASHBOARD=1` (or `LOKI_CONTROL_DEFAULT=0`, or `--host`/`--tls-*` flags); `LOKI_NO_BROWSER=1` is respected everywhere.
+- Control Plane UI: a live run view (stage timeline with elapsed time, heartbeat file count, cost, model, and outcome with PR and receipt links) is now the landing page while a run is active, and an Overview page (runs today and this week, VERIFIED/PARTIAL/FAILED counts, total cost, PRs opened, last 10 runs) otherwise. Values the events do not carry (stage limits, diff +/-, merged PRs, unpriced cost) read "unmeasured".
+
+- Fixed the loki-seal r7 honest-run test failing on Node 22, whose runner rejects `--test-isolation=none`; the fixture now uses that flag only where Node supports it (test-only, product fail-closed behaviour unchanged).
+### Changed
+- Cost cap defaults: subscription runs (no API key in the environment) get no dollar cap and print "subscription: no dollar cap; usage counts against your plan limits"; runs with an API key default to $100. `--max-cost` and `budgets.per_run` in loki.yaml override both, and a cap hit still ends the run BUDGET_STOP (exit 3).
+### Changed
+- On by default now: the D61 speed path (decomposer routing, warm engine, stage prefix, deferred already-done check) joins visual evidence, spec-to-contract, two-way Slack (inert until a Slack credential is set), the Control Plane and workspaces. Opt out per feature with LOKI_SPEED=0, LOKI_VISUAL_EVIDENCE=0, LOKI_CONTRACT=0, LOKI_SLACK_INBOUND=0, LOKI_CONTROL=0 or LOKI_WORKSPACES=0.
+### Added
+- When a build has a web UI and Playwright (`@playwright/test`) is installed in the repo, visual evidence now also records a video and a trace of the changed pages; both are hashed into the receipt and listed as "video:" and "trace:" lines in the PR body Evidence section. When it is absent the run records "playwright e2e video and trace skipped: ..." under NOT PROVEN and continues (docs/visual-evidence.md).
+### Added
+- `loki merge add <pr>...`, `loki merge run [--dry-run]`, `list`, `clear`: a serial PR merge queue that merges a PR only when `gh pr checks` is green, rebases the next PR onto the new base (`gh pr update-branch --rebase`) and re-checks it before merging; red or unrebasable PRs stay queued and the exit code is nonzero. `--dry-run` lists what would happen and changes nothing (docs/merge-queue.md).
+### Added
+- `loki review --risk` (or `loki review <pr-number> --risk`) prints a deterministic 0-100 diff risk score with a per-factor breakdown (files touched, sensitive paths, size, test delta, deleted tests); `--json` for machine output. Same diff always gives the same score.
+### Added
+- Project memory across runs: learnings and architecture decisions a run records in CONTINUITY.md are now also saved per project (.loki/memory/learnings/project-*.jsonl), and the next run in that project gets a bounded newest-first summary (15 entries, 2000 chars, LOKI_PROJECT_MEMORY_MAX_CHARS) under project_memory in .loki/state/relevant-learnings.json. Disable with LOKI_PROJECT_MEMORY=0.
+### Added
+- Control Plane UI is now usable at 375px: the sidebar becomes a top bar, filters and panels stack, the runs table drops its Repo and Started columns below the md breakpoint so the page never scrolls sideways, and buttons, links and inputs have 44px tap targets. Layout only; auth is untouched.
+### Added
+- `autonomy/mobile-verify.sh [dir]`: when the product is a React Native, Expo or Flutter app, runs its e2e tests on a booted Android emulator or iOS simulator. With no device it prints a "mobile tests: NOT VERIFIED" line and exits 3; it never prints PASS without a run (see docs/mobile-verify.md).
+### Added
+- REST API for runs on the local dashboard: GET /api/v1/runs, GET /api/v1/runs/{id}, POST /api/v1/runs (start) and POST /api/v1/runs/{id}/stop, reusing the dashboard scope checks (docs/api-runs-v1.md).
+### Added
+- `loki acp` runs Loki as an Agent Client Protocol agent over stdio, so ACP-capable editors (VS Code, JetBrains, Zed) can drive `loki quick` and stream its output; a non-zero exit is reported as NOT VERIFIED. Setup in docs/acp-editors.md.
+### Changed
+- Sonnet first-pass lift (D50-F2-S3): the implement brief now lets the agent update a single existing assertion literal when the task text itself states the new expected value, so spec-required test updates are no longer blocked by the append-only rule; removing, skipping or loosening assertions stays forbidden and the verdict is still decided by the D53 checks. See docs/v10/DECISIONS.md D53.
+### Added
+- Quiet mode no longer looks stuck: on a terminal, `loki start` shows one live status line (for example `[wall] writing acceptance checks  1m02s  (plan done 14s)`) that rewrites in place and is cleared before the summary; piped output gets one plain line per stage that runs longer than 3 seconds.
+
+### Fixed
+- tests/test-cloud-dispatch.sh: the G-04 duplicated-row hook no longer appends with `grep ROW >> SAME_FILE`, which GNU grep refuses ("input file is also the output", rc 2, nothing appended), so the writer saw an unduplicated row on Linux and the R2-3 duplicate-refusal check failed; the hook now copies through a side file. The writer in scripts/cloud-dispatch.sh was already fail-closed (T101-G04-DUPROW).
+- tests/test-engine10-push.sh now covers the run.sh region guard on its own: a run.sh that keeps the region anchors but lacks a required trusted-push function is refused with rc 3 ("region lacks"), no gh call and no push, even when a same-named function is exported from the parent environment (ADV-PUSH-RC3).
+- loki-seal: end-to-end tests (ADV-SEAL-JEST-E2E) drive the hook against a fixture whose test script is jest or vitest with a stub node_modules/.bin runner: a failing run is BLOCKED, a passing run is NOT VERIFIED with the project-resolved-runner reason and never PASS or covered (test only, no product change).
+- Intermittent P9.injection-cannot-reach-token failure (Loki's post-session push and PR silently skipped on CI): autonomy/lib/engine10-push.sh checked for the run.sh trusted-push functions with `printf | grep -q` under pipefail, so grep exiting on its first match SIGPIPEd printf and read as "region lacks _loki_with_github_tokens" under CPU load (32 of 12000 checks failed at --cpus=1 with busy loops); it now matches with a bash pattern and no pipe. The P9 [default] and [planted] failure messages also carry the start rc and a tail of start.out and start.err.
+- issue-parser.sh no longer uses GNU-only regex in sed and grep (ADV-T99-SED): every `\s` is now `[[:space:]]` and the problem, acceptance-criteria and technical section extractors use `sed -E` alternation instead of BSD-unsupported `\|`, so macOS no longer silently falls back to first-paragraph and grep heuristics; GNU output is unchanged and pinned by a new case in tests/cli/test-issue-to-pr.sh.
+- `loki docker start owner/repo#N` no longer exits immediately on macOS Docker Desktop: the container now trusts /workspace despite the bind-mount ownership, and a non-zero container exit prints the last error line plus a fix hint and propagates the exit code.
+- Train 99 CI red (shards 3, 4, 7): acceptance-criteria import (_gp_criteria_lines) now keeps only real list items, so GNU sed no longer leaks "## Acceptance Criteria" and "## Notes" heading lines into issue-context.json and the journey plan on Linux; tests/cli/test_start_run_unified.sh and test-start-repo-directory.sh now stub a provider CLI instead of silently requiring one on PATH (both were orphaned until registered in train 99).
+- Unit run mode (D61-11b) now fails closed and enforces its cost cap: engine10 main() reads and freezes LOKI_UNIT_SPEC at intake (never re-read), rejects a spec inside the worktree, stops with a NOT PROVEN note and exit 2 when the spec is missing or invalid instead of running unfenced, and applies unitCapEnv over the run cap (never loosened) to the env the worker meters.
+- Loki 10 Wall session time cap is now tied to task size: 90s for small tasks, 180s for normal, overridable with LOKI_E10_WALL_LIMIT_S (clamped to 300s; garbage, zero or negative falls back to the size default). A timed-out Wall session still copies nothing into the repo and is never recorded as already_satisfied.
+- loki heal --assess no longer under-reports debt: TODO/FIXME/HACK/XXX markers count plurals (TODOs, FIXMEs), and largest_file_loc is tracked across every file instead of reading 0 for repos with no file of 500 LOC or more.
+- tests/test-registration-coverage.sh now matches runner registrations as whole path tokens (registered_in), so a runner line for xcli/test-x.sh no longer registers cli/test-x.sh, and test-x.sh.bak or mytest-x.sh no longer register test-x.sh; self-tests added.
+- The trust-core probe anchors pre-check (TRUST_CORE_PROBE_MODE=anchors) now records the replacement string and reports NOOP and fails when a case has find equal to replace, which scripts/mutation-probe.sh would otherwise reject with exit 65 only in CI.
+- scripts/release-notes.sh and scripts/clean-test-branches.sh now accept -h and --help (usage on stdout, exit 0, no side effects) instead of treating the flag as a version or a repo path; unknown flags to release-notes.sh still exit 1.
+- scripts/dogfood-stats.sh now labels its figure as keyword-matched (text and a "method" key in JSON), supports -h/--help without computing stats, and rejects unknown flags with exit 2 (PO5-DOGFOOD-HONEST).
+- tests/test-workspace.sh now fails with "no assertions ran" when the parts directory is missing or empty (it used to exit 0 with 0 passed, 0 failed) and honors LOKI_WORKSPACE_PARTS_DIR; its header no longer claims a 1/0 self-check.
+- Orphan suites now run in CI: tests/cli/test_status_empty_state.sh, test_stale_pid_cleanup.sh, test_start_run_unified.sh, the council transcripts pytest wrapper and integration/test_sigint_propagation.sh are registered, and tests/test-registration-nonstandard.sh guards the tests/cli, tests/dashboard and tests/integration families (PO5-ORPHAN-SUITES).
+- scripts/measure-run.sh and scripts/guard-changed.sh accept -h/--help (Usage on stdout, exit 0, no side effects) instead of reading --help as a workspace path or a git base and running suites; tests/test-help-readonly-scripts.sh pins it.
+- Completion council TODO marker count now matches plurals (TODOs, FIXMEs, HACKs, XXXs) at all three sites in autonomy/completion-council.sh, still rejecting identifiers such as TODOs_count, TODOS_LIST, XXXL and HACKATHON.
+- Docs honesty for issue #200: skills/healing.md and docs/dev/architecture-reference.md no longer claim failure-modes.json is written or that the healing snapshot/revert pairing is enforced, because hook_pre_healing_modify and hook_post_healing_modify have no production caller; tests/test-heal-docs-honesty.sh fails if a caller appears while the docs still say so.
+
+### Added
+- `loki start` accepts a Sentry issue: an exported Sentry JSON file (works offline) or a Sentry issue URL becomes a task spec with the error, stack trace and breadcrumbs. The API is contacted only when SENTRY_AUTH_TOKEN is set, and the token is never printed (docs/sentry-intake.md).
+- tests/test-no-dashes-tree.sh: whole-tree guard that no tracked text file contains U+2013, U+2014 or emoji codepoints (explicit exclusion list with reasons); fixed the two em dashes in benchmarks/magic-ab/README.md.
+- scripts/install-hooks.sh now supports -h/--help (usage, exit 0) and rejects unknown arguments with exit 2; neither writes core.hooksPath (previously every argument was ignored and git config was always mutated).
+- `TRUST_CORE_PROBE_MODE=anchors` for tests/test-trust-core-tests-detect.sh checks in about 0.1s that every probe_case find-string still matches its file, naming each stale anchor, and local-ci fast tier now runs it (issue #214 option 3).
+- tests/test-registration-coverage.sh now also scans tests/*/test-*.sh, and the four orphaned tests/cli suites (hub-install, start-repo-directory, wiki-command, issue-to-pr) are registered in tests/run-all-tests.sh with shard-duration rows.
+- The engine10 Wall now places a wall_manifest.txt (signatures, runner config, test layout and test-style examples, built from the intake base tree) in its cwd and records its sha256 as manifest_sha256 on wall.sealed when LOKI_E10_WALL_MANIFEST=1 (off by default, fails closed to the old behaviour), and the manifest builder now rejects a reserved keyword right after a decorator (D77, W1-S2). Known gaps of the example exclusion: a test that reaches a named module only through an index re-export, a task that names only a function, and a tsconfig alias whose name shares no token with the target, string-concatenated specifiers, and import.meta.glob. Relative specifiers are resolved against the test directory, tests inside a target directory are excluded by location, and a content backstop excludes any example mentioning a target stem as a whole token, and a specifier resolving to an ancestor directory of a target (including the repo root) is treated as naming it. Also not handled: workspace package-name imports (import from "p5"), a literal dynamic reference to a generic stem such as subprocess.run([..., 'main.py']), and CommonJS module.exports = function (empty signatures section).
+- `scripts/cloud-dispatch.sh` (G-04): dry-run-by-default dispatcher that prints the exact `claude --cloud` command and BOARD row for a ready slice, and refuses on file-set overlap with in-flight rows, a reached or unknown usage governor max, or a not-ready or dependency-blocked row; `--live` is explicit and unexercised.
+- Signatures-only Wall manifest builder for engine10 (D77, W1-S1): turns a base tree into exported names and signatures with every body, default value and decorator argument masked, and omits any file or class it cannot mask with certainty. It is a library only in this release; nothing calls it until the LOKI_E10_WALL_MANIFEST flag is wired in a later slice.
+- Read-only workspace runs API: GET /api/operator/workspaces/runs and /workspaces/runs/{ws}/{run_id} list integration.json evidence, show unreadable files as rows, and report per-repo stale heads (D51-B13r).
+### Fixed
+- `loki help` now lists `keys` and `workspace` in its "All commands:" block, and the discoverability test checks membership in that block instead of anywhere in the help text.
+- The Bun route's `.loki/PAUSED.md` no longer says "Press Enter in terminal" when stdin is not a TTY; it now uses the bash no-TTY wording "(no TTY: keypress resume unavailable)" (issue #212).
+- `loki memory index rebuild` now calls MemoryEngine.rebuild_index, prints the real count of indexed memories, and exits nonzero with the error on failure instead of emptying the index and printing "Index rebuilt" (#204).
+- The completion council now counts only real TODO/FIXME/HACK/XXX marker words in project source, skipping node_modules, .git, .loki, dist, build and vendor, so dependency content and identifiers like XXXLarge no longer trigger a false block while real project TODOs still block.
+- Removed em and en dashes from the Proof Passport Markdown summary and six tracked docs (PO4-DASH-SWEEP); a test now pins the passport output as dash-free.
+- `loki --help` on the Bun route now lists every routed command (kpis, report, trust, crash, contract, start, slack, engine10) and the stale "8 highest-traffic" header is gone, guarded by cli_help_routes.test.ts.
+- `loki quickstart` no longer reports simple-todo-app as the "top match" for briefs that match no template (for example "a URL shortener with click stats"): it prints the match score, adds url, shortener and stats keywords, and falls back to a plain-spec build from the brief when nothing matches (#217).
+- MCP loki run now returns the exit code and log tail when loki exits before a run starts.
+- loki-seal: forged runner pass lines that contradict the runner summary now give NOT VERIFIED; TAP is checked exactly, while the node:test spec/default reporter fails closed (coverage is withheld unless every line reconciles exactly with the summary, so honest todo or failing-describe runs may be NOT VERIFIED; use --test-reporter=tap); only the last summary block counts, including for the receipt counts and the test-count-dropped check; a result-mark line that does not parse, or a test or describe name containing a carriage return, U+2028, U+2029 or another control character, is ambiguous and gives NOT VERIFIED, as is any spec line with a result mark that is not first after the indent (unterminated test output before the runner's own line); a runner summary key that is not at the start of its line, a summary block that does not end the output, and output truncated at the 64 MiB capture limit are NOT VERIFIED too; coverage is granted only from `node --test` with process isolation, so coverage comes only from a `node --test` run that loki-seal launches itself (D80 amendment 2): the test script must be `node --test` plus allowlisted flags (built-in reporters spec, tap, dot, junit, lcov only) and plain relative file paths, and loki-seal spawns the node binary directly with NODE_OPTIONS, NODE_PATH, NODE_TEST_CONTEXT and npm_* removed and no npm config read, so a PATH shim, a package or node_modules reporter, npm_config_node_options, a user ~/.npmrc or a quoted project .npmrc key cannot forge a pass; any other script, a pretest or posttest script, jest and vitest are NOT VERIFIED with a stated reason (red and green still count), and a test file calling process.exit, reallyExit, abort or kill is NOT VERIFIED (D80) (an unterminated write cannot hide the real summary behind a forged one, and a flood cannot drop it); not caught: a child that writes forged runner-protocol messages, a forged complete summary printed after the runner exits, go test, and runners with no summary line.
+- A workspace run stopped by SIGTERM or SIGINT now records integration.json with status "interrupted" (running repos marked INTERRUPTED), and `loki workspace status` lists an unreadable run as "unreadable" instead of hiding it (WS-INTERRUPT).
+### Fixed
+- Dashboard runs view reports unreadable or corrupt run records instead of claiming none were recorded.
+- `loki stats` and `loki status` print "unmeasured" instead of $0.00 when no iteration records cost_usd or budget.json has no budget_used, on both the bash and bun routes (S-226r).
+### Dashboard
+- The start page gains a "Workspace runs" card: per-repo rows, an integration row and a stale badge; an unreadable run or a failed read shows an error, never an empty card (D51-B14r).
+
+### Docs
+- docs/WORKSPACES.md gains a "Verify a workspace run" section, backed by an end-to-end test that drives `loki workspace run`, `status`, metrics and PR comments through both `autonomy/loki` and `bin/loki` (D51-B16r).
+- loki-seal README Known limits now names four coverage limits: empty or early-return tests still count, assertions in later helpers still count, same-name or keyword matches collide across files, and a test can forge a pass by printing runner-format lines (A-04d).
+
+### Fixed
+- Worktree prep now fails with "lock contention" after 120s instead of waiting forever on the repo lock, and refuses dependency copies with relative symlinks that escape the dep dir or bin scripts whose shebang names the source path (WS-PREP-BOUND).
+- The PR body Evidence Receipt renderer now runs an isolated Python (`-I -S`), so a `json.py` committed in the repo being built can no longer make a NOT VERIFIED proof render as "Headline: VERIFIED".
+- The dashboard no longer shows an empty list when a file is corrupt or denied: `/api/proofs` returns an error row for a bad proof.json and a 503 for an unreadable proofs directory, and the memory patterns, episodes, skills and index endpoints return 503 instead of `[]` (HONEST-READ-1).
+- `loki verify --fast` no longer exits 0 when it cannot give a verdict: nothing scanned (INCONCLUSIVE) exits 3, an unknown flag exits 64, and a missing root directory exits 2 (P2-FV-EXIT).
+- `loki verify` no longer lets a planted `json.py` in the reviewed tree forge its recorded gates (a dependency audit with high CVEs could read as pass); every inline Python call site in verify.sh runs isolated (-I -S, or -E with the cwd stripped from sys.path), and the syntax gate's py_compile runs isolated too (S-216r).
+- The pre-run snapshot's `git status` call now ignores a repo-local `core.fsmonitor`, the untracked cache, any configured `filter.*` clean/smudge/process driver (including names containing "=" or non-UTF-8 bytes), and partial-clone lazy fetch, and returns non-zero without running status when git is older than 2.44 or does not honor its config overrides, so an agent-written `.git/config` cannot run a command inside the snapshot step (S-218r).
+- When `loki start` refuses to resume the recorded agent branch because checking it out would overwrite one of your gitignored files, the warning now names that file and the branch where the earlier commits stay, instead of only saying the branch "could not be checked out" (S-233).
+- The standalone dashboard receipts list now shows a partly priced run's cost as "at least $X.XX" (only when `/api/proofs` reports `cost_partial: true`) instead of presenting a lower bound as a complete total (PO-STANDALONE-COST-1).
+
+### Added
+- `loki help answer` documents `loki answer [<run-id>] [--text "..."]`, and `loki help verify` now describes `--export-dsse` with its exit codes (0, 1, 2, 4, 66) (PO-HELP-1).
+- Web workspace: the preview says "Could not detect project type" (with the error) after a failed preview-info fetch instead of "Detecting project type..." forever, and a finished session shows Replay Build while an unrecognized build phase is no longer labelled building (S-229, S-230).
+- release.yml publish-npm now waits up to 45 min (backoff, `npm view --prefer-online`) until npm serves the published version before the Release run can succeed, so Post-Release Smoke and Promote never run against a version npm does not serve yet; a never-listed version fails with NPM-LAG-TIMEOUT. The scheduled-audit gate also no longer reads a response without total_count as zero runs (NPM-LAG-b, D75b).
+- `scripts/train-cycle.sh` refuses to cut a release while the previous `release: vX` is not visible on npm (logs `PREV_NOT_ON_NPM`, then `PREV_NOT_ON_NPM_STALE` after `LOKI_TC_NPM_WAIT_MIN`, default 45; an unreachable registry fails closed) and fast-forwards local main to origin/main after each release (NPM-LAG-a).
+- `renderPrBody` (library renderer, not yet wired into the live PR stage, which still uses `renderReviewerBody`) can render a reviewer-first body: contract, criteria with files and passing check only, NOT PROVEN last, capped at 60 lines with a "+N more" line when cut; criteria files and checks are shared run-wide, not mapped per criterion (INTEL-3).
+- `loki verify <run> --export-dsse` exports a verified v10 receipt as an in-toto Statement v1 in a DSSE envelope signed with the receipt Ed25519 key, and `loki verify` accepts that envelope (INTEL-1).
+- A Loki 10 receipt lists each Wall test discarded for having no real base result in NOT PROVEN as "wall test discarded: <file name> (not_run)" (the sealed copy is under .loki/runs/<run-id>/wall/), beside the existing count (A-103b).
+- DSSE receipt export and verify hardening (INTEL-1b): an envelope whose signatures all have unknown keyids is UNCHECKED (exit 2), export refuses a run outcome other than VERIFIED or ALREADY_SATISFIED, an envelope under a run id must carry that run id, export signs the exact bytes it verified (one read), and after rotation the envelope keyid is the signing key with a note that the receipt kid differs. The README, docs/SIGNED-RECEIPTS.md and docs/exit-codes.md now describe the export exit codes (4 for a non-VERIFIED outcome), the envelope-input refusal and the run id check (DOC-INTEL-1b).
+- `loki workspace run` records per-repo `started_at` and `finished_at` in integration.json, and `autonomy/lib/workspace_metrics.py <run-dir> [--attention-min N]` reports PRs per wall-clock hour and per attention minute; runs without timestamps (and a missing attention figure) print `unmeasured`, never zero (D51-B15, PO-WS-METRICS-1).
+- loki-seal reads the delivery contract from the first user message (plus a spec file only when the request marks it, such as "spec: docs/x.md"), maps each must/bullet item of 2+ keywords to tests that contain an assertion, and refuses done with "NOT VERIFIED" naming an item no test covers; no contract or an unreadable transcript is reported as NOT VERIFIED, and contract blocks use their own release counter so they never drain the integrity valve (A-04c, D45). Round 4 closes four false greens: the chat filter now drops only first-person, tool-version and status sentences and reports what it filtered, any failing matched test blocks an item, skipped tests never cover one, and block comments and docstrings are not assertions. Round 5 makes coverage require a runner-reported pass (a test in a file the runner never ran, or skipped by class, ctx.skip(), an options variable or an unindented describe.skip, never covers an item), keeps You, Our, My and Please modal sentences as items, and stops multi-line template literals and regex literals from hiding or faking assertions.
+- Jira intake: a browse URL whose site differs from JIRA_BASE_URL is refused instead of silently fetched from the configured site.
+- The CI moat job (`moat-suite`) is renamed "Moat rules (no regression)" so a green check reads as "no moat rule regressed", not "moat proven" (S-231r).
+- `loki workspace run` posts one PR comment per repo PR with the integration status and head SHAs when a PR exists on the run branch (no LLM, best effort, opt out with `LOKI_WORKSPACE_COMMENT=0`) (D51-B11).
+- Loki 10 runs show their per-run cost cap on the start line (default $20.00, or `budgets.per_run` in loki.yaml, or `--max-cost`); a run that reaches the cap ends BUDGET_STOP with exit code 3 (INTEL-2).
+
+### Changed
+- Security: legacy `loki verify` now exits 2 with `attestation: UNCHECKED` and a VERDICT that is not VERIFIED when a well-formed attestation carries a kid no local key matches (it used to exit 0), matching engine10; a missing or unusable `.loki/state/last-proof-id.txt` with proofs present reports `receipt: NOT VERIFIED` instead of skipping the check. Cross-machine check: `loki verify --pubkey FILE <run-id>` for a Loki 10 run receipt (it does not read a legacy proof.json; for that, put the signer's public key in `LOKI_RECEIPT_RETIRED_PUBKEYS`). A tree with no proofs prints `receipt: NONE` and is not failed for it (D76, A-121c). Standalone `bash autonomy/verify.sh` (no `_deploy_receipt_verdict`) now fails the same way (rc non-zero, never VERIFIED) for a forged or unsigned attestation instead of printing UNCHECKED and passing.
 - CI: train/** pushes run a range-only secret scan (merge-base with origin/main to the pushed SHA); main pushes always run the full-history scan, the Security Audit cron is daily instead of weekly, and release required-ci counts only main or dispatch Security Audit runs (D75).
 - `loki serve --help` and the docs now point to `loki` or `loki control serve` for the UI; `loki serve` stays a deprecated alias of `loki api start` (the dashboard API, not the Control Plane) (D65-UI-NAMING).
 - `loki control` help and the bash fallback now match the bun route: the Control Plane is on by default, `LOKI_CONTROL=0` turns it off, and the fallback names bun as required instead of demanding `LOKI_CONTROL=1` (D65-UI-NAMING-2).
 - `loki` with no arguments now opens the Control Plane (set `LOKI_CONTROL_DEFAULT=0` for the previous dashboard).
-- Spec contracts are on by default: criteria in .loki/contract.json are traced in the receipt, and unmatched ones are listed as NOT PROVEN (set LOKI_CONTRACT=0 to turn off).
+- PRs now include screenshots of changed pages, hashed into the receipt so `loki verify` catches an altered image (needs Playwright and changed pages; set LOKI_VISUAL_EVIDENCE=0 to turn off; the API HTTP transcript for openapi repos needs an explicit LOKI_VISUAL_EVIDENCE=1).
 
 ### Fixed
+- `python3 dashboard/audit.py verify <dir>` now exits 2 (status `nothing_checked`) when it checked no files, instead of exiting 0 like a verified chain; a valid chain still exits 0, a tampered one 1, and `tip` is unchanged (PO-AUDIT-CLI-1).
+- The web-app Evidence Receipt Cost field reads "at least $X.XX" and the Metrics cost trend labels a run "(partial)" when the run was only partly priced (cost_partial true), instead of showing a lower bound as the exact cost (PO-WEB-COST-1).
+- Dashboard deploy connections: connecting or disconnecting a platform after a failed status fetch no longer reports invented "not connected" statuses for the other platforms to the rest of the app (PO-WEB-DEPLOY-1).
+- The skill-session WebSocket status push sends `running_agents: null` (unmeasured) instead of a claimed 0, and the notification triggers panel shows "Could not load triggers" instead of "No triggers configured" when the triggers file is unreadable (`GET /api/notifications/triggers` returns `triggers: null` plus `error`; a missing file is still an empty list) (PO-DASH-HONEST-1).
+- Legacy `run.sh` session commit no longer swallows a failed `git add -A` (it now warns "Left uncommitted" and commits nothing, instead of the silent clean no-op; git's benign exit 1 for an ignored `.loki` is still tolerated), and `_loki_untrack_agent_committed_user_files` now keeps files the agent force-staged instead of dropping them with a global `git reset -q` (S-219, S-220, PO-SESSION-COMMIT-1).
+- loki backlog: a corrupt spend ledger now stops new units when a daily budget is set, instead of reading as $0 spent.
+- `loki control status` shows runs as unknown when the control plane cannot be read.
+- control plane: malformed URL encoding returns 400.
+- Grouped speed output no longer keeps the process alive after a command finishes.
 - Loki 10 intake no longer fails with ENOTDIR in a linked git worktree (where .git is a file), so `loki workspace run` per-repo runs start (D65-BUG7).
 - The delivery contract (`.loki/contract.json`) is frozen at intake: seal traces only that copy, records its sha256 in `receipt.contract.sha256`, and an edit, deletion or late creation after intake shows as a NOT PROVEN line; the verdict never changes (D65-SPEC-F2).
 - The Control Plane container image now builds from the repo Dockerfile.control-plane (it copies the loki-ts files ingest.ts imports; `docker build` no longer fails with Could not resolve).
-- The deferred already-done check no longer leaks its pinned base-tree copy (loki-already-done-*) on SIGTERM, process.exit or a failed setup (D61-04-F).
-- The deferred already-done check passes its spawn env inline so the spawn env guard test (no spawn omits env) passes again (P0-SPAWN-ENV-SPEED).
-- Installed packages now ship the loki.yaml schema (`schemas/`) so `loki workspace run` works outside a source checkout (D65-BUG5).
-- `loki control serve` from a source checkout no longer dies with "Cannot find package 'hono'" when any parent directory has a node_modules but packages/control-plane does not (bun switched auto-install off); it now starts with `bun --install=fallback` (P0-CONTROL-LINUX).
-- `loki verify <run>` now verifies the run you name instead of silently verifying the latest one when `--pubkey` is not given. `--pubkey` with no file is now a usage error. `--pubkey=FILE` is accepted as the same as `--pubkey FILE`, including through the `loki` command on the default engine (it was silently ignored, or sent to the legacy verifier, so a signed receipt verified against the local JWKS or exited 3), and `loki verify` now exits 2 for an empty `--pubkey=`, a repeated `--pubkey`, any unknown option, or more than one run-id.
 - The supervisor commit backstop validates the worker-written base as a full object id (40-64 hex) before any git call, and is skipped (recorded as not proven) when the event log fails verification.
 
 ### Security
-- The Control Plane API now requires `LOKI_CONTROL_TOKEN` (bearer) on every /v1 route, refuses to bind beyond localhost without a token (set `LOKI_CONTROL_ALLOW_INSECURE_BIND=1` to override), and rejects DNS-rebinding Host headers.
-- The Control Plane container, Helm chart and ECS task now require an access token whenever the service is exposed beyond localhost.
-
-- Two-way Slack: `LOKI_SLACK_ALLOWED_USERS` (comma-separated Slack user IDs) restricts who can start a run, and `loki slack serve` warns at startup when it is unset (D63-C6-F).
-- Two-way Slack caps task text at 64 KB ("task too long", no spawn) and no longer posts spawn errors, which can hold local paths, back to the thread; the detail goes to stderr. `loki slack serve --port ""` now exits 2 instead of binding port 0 (D63-C6-F).
 - Fixed: an already-satisfied run no longer leaves files named like object prototype members (constructor, toString, valueOf, hasOwnProperty, __proto__) behind in the working tree (P1-DISCARD-PROTO).
 
 ### Deprecated
 - `loki legacy` (the pre-v10 engine) is deprecated as of v10.0.0 and remains fully supported; no removal date is set. Set `LOKI_ENGINE=legacy` to pin it. See docs/v10/GUIDE.md (E-35).
+
+## v10.7.1 (2026-10-03)
+
+Loki Mode 10.7.1 is a fix-forward train. Test suites no longer flood a developer's live Control Plane with fixture runs (acme/widget), and `loki control prune --repo acme/widget` removes any that already leaked (add --dry-run to preview). Control Plane ingest now verifies the sealed event log and shows tampered runs as TAMPERED. Engine Law L1: implement and fix run on the run's own model by default (LOKI_E10_CASCADE=1 opts in to the sonnet downgrade). Scope control is advisory and never reverts an edit; out-of-scope files are listed in NOT PROVEN, the receipt and the PR body. The PR body now carries what the issue asked, files in scope and tests from the run's recorded stage outputs instead of "not recorded".
+
+### Changes
+- fix(scope): keep edits on the issue's stated surface, disclose as kept outside stated scope
+- feat(control): loki control prune, DELETE /v1/runs/:source/:run and UI Remove
+- fix(scope): D76 advisory scope control, flag outside stated scope and never revert
+- fix(control): stop test fixtures flooding the live Control Plane; tampered runs show TAMPERED
+- fix(control): prune works from the bundled CLI, read-only dry run, loopback-only DELETE
+- engine10: Engine Law L1 never below raw, cascade default off, escalation only up
+- fix(control-plane): verify ingested event log, forged VERIFIED renders TAMPERED (EL-FC08b, D86, FC-08)
+- build(dist): rebuild loki.js after merging the scope, prune and leak slices
+- fix(pr-body): fill PR body fields from the recorded run (L7)
+- engine10: L1 review fix, session writes summary, guard covers pinnedModel
+- fix(pr-body): label planned files, drop reverted files, widen guard (L7)
+- fix(control-plane): round 3 integrity display, ALREADY_SATISFIED seal, boot recompute (D86, FC-08, EL-FC08b)
+- fix(e10ext): thread env into origin lookup and move ship loop out of e10ext
+- build(dist): rebuild loki.js after merging the guard fix-forward
+- chore(e10ext): tighten comments to get under the 1,500-line cap
+- build(dist): rebuild loki.js after the e10ext comment trim
+- fix(build): loki-ts postinstall installs control-plane deps (FC-12)
+
+## v10.7.0 (2026-10-03)
+
+Loki Mode 10.7.0 turns on the fast path and new defaults. Runs start faster with the speed path on by default (LOKI_SPEED=0 opts out), and quiet mode shows one live status line. A cost cap is on by default: no dollar cap on a subscription, $100 on an API key. New in this release: Playwright end-to-end checks with video, the loki merge queue, loki review --risk, project memory, mobile emulator tests, a REST runs API, ACP for VS Code and JetBrains, and Sentry intake. The Control Plane now ingests runs with zero setup, the legacy dashboard entry points open it, and runs stream live. Default-on listeners bind loopback only.
+
+### Changes
+- feat(G-04): cloud-dispatch.sh dry-run-first cloud fan-out dispatcher
+- fix(G-04): cloud-dispatch round 2, fail-safe parsing and live preflight
+- fix(G-04): cloud-dispatch round 3, parenthesised paths, ancestor leader, live tests
+- fix(loki-seal): forged runner pass lines that contradict the runner summary give NOT VERIFIED (SEAL-FORGED-LINES)
+- fix(loki-seal): cross-check summary against leaf tests only so node describe() and nested t.test() stay VERIFIED (SEAL-FORGED-LINES r2)
+- fix(loki-seal): coverage and summary cross-check share one parsed record set; suite and header-shaped forged lines never cover an item (SEAL-FORGED-LINES r3)
+- fix(loki-seal): exact spec-path reconciliation, last summary block only, empty and skipped describe handled (SEAL-FORGED-LINES r4)
+- fix(loki-seal): spec reporter fails closed, counts() uses the last summary block (SEAL-FORGED-LINES r5)
+- fix(loki-seal): result lines with line separators or control characters in names fail closed (SEAL-FORGED-LINES r6)
+- fix(loki-seal): a result mark not first on its spec line is ambiguous, closing the unterminated-output prefix forgery (SEAL-FORGED-LINES r7)
+- fix(loki-seal): summary keys off the line start and truncated output are NOT VERIFIED (SEAL-FORGED-LINES r8)
+- fix(loki-seal): coverage only from node --test with process isolation, process.exit is an integrity finding (SEAL-FORGED-LINES r9, D80)
+- fix(loki-seal): coverage only when the whole test script is node --test plus allowlisted flags (SEAL-FORGED-LINES r10, D80 amended)
+- fix(loki-seal): launch node --test directly with a scrubbed env, never npm, for coverage (SEAL-FORGED-LINES r11, D80 amendment 2)
+- test(loki-seal): childEnv extracted and unit-tested, NODE_OPTIONS e2e forge guarded (SEAL-FORGED-LINES r12)
+- fix(loki-seal): escape runner check marks so the emoji scan stays green (SEAL-FORGED-LINES r13)
+- fix(engine10): stop SIGPIPE from skipping the post-session push under load (P9 flake)
+- test(engine10-push): cover the run.sh region guard on its own (rc 3, no gh, no push, exported-function bypass)
+- fix(issue-parser): replace GNU-only sed/grep regex with POSIX classes and sed -E (ADV-T99-SED)
+- test(cloud-dispatch): make G-04 duplicated-row hook GNU-safe (T101-G04-DUPROW)
+- test(loki-seal): use --test-isolation=none in the r7 honest-run fixture only where Node supports it
+- test(loki-seal): jest and vitest runs are BLOCKED when red and NOT VERIFIED when green, end to end (ADV-SEAL-JEST-E2E)
+- feat(cost-cap): subscription runs get no dollar cap, API-key runs default to $100 (D82-COSTCAP)
+- feat(speed): D61 speed path on by default, LOKI_SPEED=0 opts out (D82-FLAGS)
+- feat(visual-evidence): record Playwright e2e video and trace, list both in the PR Evidence section
+- feat(cli): loki merge queue, green-only serial merges with rebase-next and --dry-run
+- feat(review): loki review --risk deterministic 0-100 diff risk score with per-factor breakdown
+- feat(memory): project memory across runs, bounded summary injected at start
+- feat(control-plane): mobile layout usable at 375px (stacked shell, collapsing columns, 44px tap targets)
+- feat(verify): mobile emulator tests with honest NOT VERIFIED when no device
+- feat(dashboard): REST API for runs at /api/v1/runs (list, detail, start, stop)
+- feat(acp): loki acp exposes Loki as an Agent Client Protocol agent over stdio
+- feat(start): Sentry issue intake from exported JSON or URL (token-gated API)
+- feat(engine10): implement brief may update one spec-stated assertion literal (D50-F2-S3)
+- build(loki-ts): rebuild dist on main after the D82 slices
+- test(engine10): pin LOKI_SPEED=0 in the S41-10b static-first brief block after the D82 default flip
+- fix(docker): trust /workspace via env safe.directory and report container failures (D82-DOCKER)
+- feat(engine10): quiet-mode live status line, one rewritten line on a TTY (D82-LIVELINE)
+- build(loki-ts): rebuild dist after D82-LIVELINE
+- feat(control-plane): auto-backfill and tail .loki/runs on start, zero setup (CP-INGEST)
+- feat(control): route legacy dashboard user paths to the Control Plane (CP-LEGACY)
+- feat(control-plane): live run view and Overview landing (CP-UI-LIVE)
+- build(loki-ts): rebuild dist after the CP slices
+- feat(control-plane): Loki Mode UI shell, import button, start-a-run endpoint (CP-UI-SHELL)
+- fix(engine10): empty Wall seal is NOT PROVEN, collect nested Wall files (D82-WALL0)
+- test(control-plane): one shared happy-dom per bun process so the UI files pass together
+- build(loki-ts): rebuild dist after D82-WALL0
+- fix(speed): quiet output keeps the 8 line cap with speed on; pin old-default tests (D82-FIXREDS)
+- refactor(engine10): move the quiet-mode LiveLine into e10ext so core stays under the D29 budget
+- revert(engine10): back out D82-WALL0 for 10.7.0, it fails the engine e2e done run (moves to 10.7.1)
+- chore(security): allowlist the fake Sentry fixture token in test-issue-providers.sh for gitleaks
+- test(ci): shard-duration rows for the five suites added in the 10.7.0 train
+- fix(train-102): register acp/merge in help and completions, keep web --port validation, type CP-INGEST env, pin gitleaks baseline 75
+
+## v10.6.14 (2026-10-03)
+
+train/100 green after full Tests rerun
+
+### Changes
+- fix(help): list keys and workspace in All commands, tighten discoverability matcher
+- docs(heal): disclose unwired healing modify hooks, add honesty guard (issue #200)
+- fix(loki-ts): PAUSED.md uses no-TTY resume wording when stdout is not a TTY (#212)
+- fix(loki-ts): PAUSED.md TTY default follows stdin for bash parity (#212)
+- build(loki-ts): rebuild dist for PO3-PAUSED-TTY
+- build(loki-ts): rebuild dist on v10.6.13
+- fix(memory): loki memory index rebuild runs the real scanner and surfaces errors (#204)
+- docs(skill): correct Runtime migration paragraph to match bin/loki routing
+- fix(council): scope TODO marker count to project source and real marker words
+- test(council): todo-scope test uses the run-owned temp helper
+- test(heal): scan all tracked files for hook callers in docs-honesty guard
+- docs: remove em and en dashes from passport output and tracked docs
+- fix(cli): list every Bun-routed command in loki-ts HELP and drop stale route count
+- fix(cli): correct contract, slack and engine10 HELP lines
+- build(loki-ts): rebuild dist for PO4-CLI-TS-HELP
+- test(trust): cover runTrust help, unknown arg, json, cache and trajectory contracts
+- test(cli): start-repo-directory uses run-owned physical tmp, per-condition diagnostics
+- test(trust-core): fast anchors pre-check for mutation probe find-strings (#214)
+- test(cli): register 4 orphaned tests/cli suites and scan subdirs in registration guard
+- fix(council): TODO marker count matches plurals (TODOs, FIXMEs)
+- test(engine10): cli.ts static-shape pin ignores the documented HELP row
+- test(engine10): dispatch shell pin ignores the documented HELP row
+- fix(quickstart): report match confidence, plain-spec fallback when no template matches (#217)
+- fix(assess): count plural debt markers and track largest file LOC for every file
+- test(registration): match runner registrations as whole path tokens
+- test(trust-core): anchors pre-check fails on find == replace cases
+- fix(scripts): -h/--help for release-notes.sh and clean-test-branches.sh
+- fix(dogfood): label the autonomous figure keyword-matched, add --help, reject unknown flags
+- test(dash): whole-tree guard for U+2013/U+2014 and emoji, fix magic-ab README
+- fix(tests): test-workspace.sh fails when no assertions ran
+- test(registration): register orphan cli/dashboard/integration suites and guard them
+- fix(hooks): install-hooks.sh supports --help and rejects unknown args without writing git config
+- fix(scripts): measure-run and guard-changed accept -h/--help read-only
+- feat(speed): D61-11 unit run mode with write-set scope fence and pack-only brief
+- fix(speed): unit spec reader is bounded and non-blocking, unit cap never loosens or disables the run cap (D61-11 round 2)
+- fix(speed): unit fence and scope use Object.hasOwn for preexisting_dirty, cap keeps existing value unchanged (D61-11 round 3)
+- test(speed): cover prototype-named tracked edits in unrelatedEdits (D61-11 round 3)
+- build(loki-ts): rebuild dist for D61-11; BOARD D61-11 merged, D61-11b cap-wiring card
+- feat(engine10): wire the Wall manifest into the Wall cwd and brief, seal manifest_sha256 (D77, W1-S2)
+- fix(engine10): Wall manifest reader fetches blobs by sha, fails closed, no replace refs, brief only references the file (W1-S2 r2)
+- fix(engine10): Wall manifest style examples need a test filename and source extension, never task-named (W1-S2 r3)
+- fix(engine10): Wall manifest example exclusion takes every task match before the cap, whole-token stems (W1-S2 r4)
+- fix(engine10): Wall manifest whole-stem naming, exact-path ranking, case-insensitive match (W1-S2 r5)
+- fix(wall): W1-S2 r6 directory-module stems, left-bounded exact paths, mock specifiers, separator-insensitive stems
+- fix(wall): W1-S2 r7 path-wrapper exact rank, content backstop for example exclusion
+- fix(wall): W1-S2 r8 resolve relative specifiers, location backstop, absolute-path exact rank
+- fix(wall): W1-S2 r9 treat ancestor-directory specifiers as naming the target
+- fix(wall): W1-S2 r10 python imports tolerate comments, semicolons, compound prefixes, dots-before-import
+- fix(wall): W1-S2 r11 python quote tracker honors backslash escapes and triple quotes, plus uncommented statement view
+- fix(wall): W1-S2 r12 plain import list accepts non-ascii names and form feed
+- fix(wall): W1-S2 r13 python import patterns accept form feed and NFKC-normalise names
+- fix(wall): W1-S2 r14 strip UTF-8 BOM and fail closed on non-ascii PEP 263 coding cookies
+- fix(wall): W1-S2 r15 fail closed on U+FFFD and non utf-8/ascii coding cookies, cookie regex immune to U+2028
+- build(loki-ts): rebuild dist for W1-S2, collapse superseded W1-S2 CHANGELOG lines
+- chore(budget): trim e10ext and features under their line caps, no behaviour change
+- fix(speed): unit mode fails closed, freezes its spec at intake, and applies the unit cost cap (D61-11b)
+- fix(speed): unit spec containment uses the route.ts outside predicate, intake runs before the group split (D61-11b round 2)
+- build(loki-ts): rebuild dist for D61-11b
+- feat(wall): W1-S3 size-tied Wall time cap, 90s small / 180s normal, env override clamped to 300s
+- test(wall): W1-S3 non-null assert optional session cwd so typecheck passes
+- test(wall): W1-S3 wiring test uses a normal task (limitS 180) and an env override case (240)
+- build(loki-ts): rebuild dist for W1-S3
+- fix(ci): train 99 shards 3/4/7, criteria import drops headings on GNU sed, tests stub a provider CLI
+
+## v10.6.13 (2026-10-03)
+
+The P7 no-fabricated-data moat check now pins its scalar-read exclusion with isolating honest and negative fixtures, so a regression that starts fabricating scalar values fails the moat suite instead of passing unnoticed.
+
+### Changes
+- test(moat): pin P7 SCALAR_READ exclusion with isolating honest and negative fixtures
+
+## v10.6.12 (2026-10-03)
+
+Workspace runs API and E2E, interrupt handling, a bounded prep lock, honest dashboard and api runs reads, unmeasured cost shown as unmeasured, fast_verify exit codes, loki verify hardened against planted Python modules, a Jira site check for the tracker, a fail-closed backlog ledger, control-plane 400 on bad encoding, a speed spinner that no longer holds the process open, the Wall manifest library for engine10, an MCP run that reports an early crash with its exit code, the pre-run git status snapshot that refuses to run repo-configured fsmonitor or filter drivers, and the CI moat job renamed to Moat rules (no regression).
+
+### Changes
+- ci(release): wait for npm to serve the published version; scheduled-audit none needs total_count 0 (NPM-LAG-b, D75b)
+- ci(train-cycle): refuse release while previous version is not on npm; sync local main after release (NPM-LAG-a)
+- feat(engine10): reviewer-first PR body, contract then criteria with files and check then NOT PROVEN last, 60-line budget (INTEL-3)
+- fix(engine10): PR body shows only passing checks as proof, legacy bytes preserved, docs say renderPrBody is not wired (INTEL-3 r2)
+- build(dist): rebuild after INTEL-3 merge; drop superseded r1 CHANGELOG line
+- feat(v10): export the Seal receipt as an in-toto Statement in a DSSE envelope (INTEL-1)
+- build(dist): rebuild after INTEL-1 merge
+- feat(seal): list each discarded Wall test by path in not_proven (A-103b)
+- build(dist): rebuild after A-103b merge; CHANGELOG says file name and sealed copy location
+- fix(v10): DSSE export and verify hardening, five review follow-ups (INTEL-1b)
+- fix(v10): scope the export read override, refuse envelope input, move export out of core (INTEL-1b round 2)
+- build(dist): rebuild after INTEL-1b merge
+- test: cover scripts/metrics-usage-append.py
+- test: cover scripts/check-inline-scripts.js
+- test: cover scripts/clean-test-branches.sh safety rules
+- test(v10): find bash 4+ via PATH, no hardcoded paths; timeout -k on registration (PO-TEST-3 fix-forward)
+- fix(verify): legacy loki verify refuses an unknown-kid attestation and a missing run-id pointer (D76, A-121c)
+- fix(v10): standalone verify.sh UNCHECKED fails per D76 (A-121c round 2)
+- fix(v10): secret-scan test fixture used a gitleaks-allowlisted AWS example key (SEC-SCAN-1)
+- feat(cli): loki help answer and --export-dsse in help verify (PO-HELP-1)
+- fix(dashboard): standalone receipts list marks a partly priced cost as at least (PO-STANDALONE-COST-1)
+- fix(audit): verify CLI exits 2 when it checked nothing (PO-AUDIT-CLI-1)
+- fix(web-app): receipt and cost trend mark a partly priced run (PO-WEB-COST-1)
+- fix(tests): drop cherry-pick conflict markers in shard-durations.tsv, keep both rows
+- fix(web-app): failed preview-info fetch and finished-session phase labels (PO-WEB-WORKSPACE-1)
+- fix(web-app): DeployConnections handlers stop pushing synthesized statuses after a failed fetch (PO-WEB-DEPLOY-1)
+- fix(dashboard): unmeasured running_agents and unreadable triggers are not shown as 0 or empty (PO-DASH-HONEST-1)
+- feat(workspaces): per-repo run timing and PRs-per-hour metric (PO-WS-METRICS-1)
+- test(dashboard): council vote label guard (PO-COUNCIL-LABEL-TEST-1)
+- fix(run): session commit warns on a failed git add and the untrack keeps force-staged files (PO-SESSION-COMMIT-1)
+- feat(loki-seal): refuse done until the request's acceptance items have passing tests (A-04c, D45)
+- fix(loki-seal): contract blocks use their own valve, under-derive items, require assertions (A-04c round 2)
+- fix(loki-seal): block any failing item test, filter chat sentences from contract (A-04c r3)
+- fix(v10): seal coverage closes four false greens (A-04c round 4)
+- fix(loki-seal): coverage requires runner-passing ids, close N1-N7 (A-04c round 5)
+- fix(run): refused resume warning names the blocking ignored file and the recorded branch (S-233)
+- test(moat): P7 catches optional-call sinks and one-hop aliases (PO-P7-SINKS-1)
+- test(loki-seal): escape spec-reporter marks in a fixture so the emoji scan stays green
+- feat: read-only workspace runs API over integration.json (D51-B13r)
+- test: workspace E2E through autonomy/loki and bin/loki, plus verify-a-run doc (D51-B16r)
+- fix: workspace SIGTERM records interrupted run, status shows unreadable runs (WS-INTERRUPT)
+- fix: bound worktree prep lock and refuse relative-symlink and shebang escapes (WS-PREP-BOUND)
+- fix: PR receipt renderer runs isolated python3 -I -S, ignores cwd json.py (S-215r)
+- fix: corrupt or denied proofs and memory files give 503 or an error row, never empty (HONEST-READ-1)
+- fix: unmeasured cost reads unmeasured in stats and status on both routes (S-226r)
+- fix(visual-evidence): SIGKILL stubborn dev server, reject non-file evidence paths, default on (D62-VIS-F1, D70)
+- fix(visual-evidence): default-on never starts a server without changed pages; supervisor reaps the dev server group (D62-VIS-F1 r2)
+- fix(visual-evidence): reap announced session groups on every exit path; harness ignores pgid announcements (D62-VIS-F1 r3)
+- build: rebuild loki-ts dist for D62-VIS-F1
+- fix: fast_verify exits 3 on INCONCLUSIVE, 64 on unknown flag, 2 on missing root (P2-FV-EXIT)
+- fix: fast_verify accepts --path DIR and --help exits 0, unknown options stay 64 (P2-FV-EXIT r2)
+- fix: loki verify inline python readers run -I -S, ignore a planted json.py (S-216r)
+- fix: verify_emit_evidence and every remaining inline python3 site run -I -S, static guard against bare python3 (S-216r)
+- fix: verify syntax gate runs py_compile isolated, static guard also bans bare python3 -m (S-216r)
+- test: verify cwd-shadow suite flags only a provider file created during the run (S-216r)
+- refactor(engine10): remove dead core code to restore the 5,000-line budget (P0-CORE-BUDGET)
+- test: repin engine10 dist and already_done tests to the renamed intake and pr stage exports (P0-CORE-BUDGET)
+- build: rebuild loki-ts dist for P0-CORE-BUDGET
+- chore: gitleaks-ignore the planted fake AWS key in the secret-scan test fixture (SEC-SCAN-1)
+- fix: Jira intake refuses a browse URL whose site differs from JIRA_BASE_URL (TRACKER-SITE-1)
+- fix: /api runs report unreadable or corrupt events and iteration records, not none recorded (HONEST-READ-2)
+- fix: loki backlog daily cap fails closed on a corrupt spend ledger (BACKLOG-LEDGER-FAILCLOSED)
+- fix: loki control status shows runs as unknown when /v1/runs cannot be read (CTRL-STATUS-RUNS)
+- fix: control plane returns 400 for malformed URL percent-encoding (CP-BAD-ENCODING)
+- fix: add missing drizzle 0001 snapshot so db:generate on an unchanged schema yields no spurious migration (CP-DRIZZLE-SNAP)
+- test: control-plane COPY guard catches dynamic import(), same-line imports and transitive loki-ts value imports (CP-COPY-GUARD-2)
+- fix: grouped speed output spinner interval is unref'd so it never keeps the process alive (SPEED-TIMER-UNREF)
+- test: warning-level shellcheck count ratchet for autonomy/loki (SC-LOKI-RATCHET)
+- test(S-191): run review-assurance-tail case groups concurrently, budgets unchanged
+- test(S-191): serial groups at scale 1, clean up on timeout kill, rebalance
+- test(S-191): signal only live child groups; gate concurrency on the shard
+- test(S-191): bounded concurrency (LOKI_TEST_JOBS, default 3), shard case runs alone, row 116 to 45
+- feat: start page Workspace runs card with stale badge and honest errors (D51-B14r)
+- fix: start page workspace card reads the real B13r row shape (D51-B14r r2)
+- feat(engine10): D77 signatures-only Wall manifest builder (W1-S1)
+- fix(engine10): W1-S1 r2 Wall manifest leaks (B1-B7) and advisories A1/A5/A6
+- fix(engine10): W1-S1 r3 Wall manifest fails closed (regex prefix, python escapes, generic defaults)
+- fix(engine10): W1-S1 r4 Wall manifest: python via ast, whole-file fail-closed TS, masked defaults
+- fix(engine10): W1-S1 r5 Wall manifest allowlists decorators, annotations, bases and defaults
+- fix(wall-manifest): fail closed on any non-allowlisted decorator shape (W1-S1 r6)
+- fix(wall-manifest): allowlist the token after a decorator, discriminating PATH test (W1-S1 r7)
+- build: rebuild loki-ts dist for TRACKER-SITE-1, CTRL-STATUS-RUNS and SPEED-TIMER-UNREF
+- fix(mcp): v10_run reports an early loki crash with exit code and log tail (MCP-RUN-EXIT)
+- fix(tests): train/94 red shards: secret-scan fixture quoting, stale gitleaks ignore, help verify DSSE suffix
+- fix: snapshot git status ignores repo-local core.fsmonitor (S-218r)
+- fix: snapshot git status also blanks filter clean/smudge/process drivers (S-218r r2)
+- fix: snapshot git status passes filter overrides via GIT_CONFIG_KEY/VALUE, no lazy fetch (S-218r r3)
+- fix: snapshot git status byte-exact driver lookup, fail closed without GIT_CONFIG_COUNT (S-218r r4)
+- fix: snapshot git status needs git >= 2.44 and a per-call nonce sentinel (S-218r r5)
+- ci: rename Moat suite job display name to Moat rules (no regression)
+- fix(snapshot): drop process substitution from _loki_untracked_status
 
 ## v10.6.11 (2026-10-03)
 
@@ -12735,10 +13353,6 @@ chain). Both suites green.
 - **chore(hooks): pre-push identity guard.** Aborts a github.com push unless the repo identity
   is asklokesh <lokeshmure@live.com> (github.disney.com/murel002 exempt). Prevents the Disney
   identity leaking onto github.com. Skippable with PRE_PUSH_SKIP=1.
-
-## [Unreleased]
-
-(none)
 
 ## [7.117.1] - 2026-07-02
 

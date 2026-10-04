@@ -159,8 +159,8 @@ shrink for pending), `CHANGELOG.md`, `docs/v10/BACKLOG.md`,
 
 **Generated bundles** (never edited by hand by a builder; the Captain
 rebuilds all three after every merge that could touch their sources):
-`loki-ts/dist/loki.js` (from `loki-ts/src`), `dashboard/static/index.html`
-and `dashboard-ui/dist` (from `dashboard-ui/scripts/build-standalone.js` and
+`loki-ts/dist/loki.js` (from `loki-ts/src`), `legacy-ui-static/index.html`
+and `legacy-ui/dist` (from `legacy-ui/scripts/build-standalone.js` and
 components), `web-app/dist` (from `web-app/src`).
 
 **Cross-wave exclusion:** a promise chain only serializes within one
@@ -203,6 +203,38 @@ queue. Never unpublishes or deletes a version.
    at merge.
 6. Flaky tests: rerun once, record it in `BACKLOG.md`, open a slice. Never
    pass a flake silently (BACKLOG 93).
+
+## Cloud dispatch (G-04)
+
+`scripts/cloud-dispatch.sh SLICE-ID` fans one ready slice out to a Claude
+Code cloud session that works on `cloud/<slice-id>` and opens its own PR; the
+Release Manager still merges only PRs whose checks concluded success.
+
+- Default is `--dry-run`: it prints the exact `claude --cloud "<description>"`
+  command and the exact BOARD row it would write (status `building`, a
+  dispatch note with the session id), and changes nothing. Only an explicit
+  `--live` dispatches. `--live` has never been run; the first live use is a
+  founder-run probe.
+- Refusals, each non-zero with a message: not ready or dependency-blocked
+  (exit 12); file set overlaps a building, review or review-blocked row
+  (11); the G-01 governor max is reached, unknown or unreadable (10; same
+  `usage-governor.py --json` source as the pulse); `--live` with no
+  `--cloud` option in the installed CLI (13). Fail-safe rules: an in-flight
+  row that cannot be parsed, or has no concrete file set, refuses (11); a
+  ready slice with an elided or path-less file set refuses (12); a row with a
+  tab, escaped pipe or a row not starting with `| ID |` refuses (17, also in
+  dry-run); path-shaped tokens inside parentheses in a file set still count
+  toward overlap; `--live` needs a live `.loki/v10-leader` PID that is an
+  ancestor of the caller (16) and re-checks the row just before launching; the
+  BOARD write keeps the file's mode; the governor call is
+  capped at 180s and a timeout refuses; the dry-run governor runs with
+  `--no-cache`.
+- Verified CLI surface (claude 2.1.288): only the top-level option
+  `--cloud [description|session_id|url]` exists. `--help` documents no repo,
+  branch, PR or non-interactive flag for it, so the branch and the PR
+  instruction travel in the description text, and `--live` refuses to write
+  the BOARD row unless the output contains a session id or claude.ai/code
+  URL (exit 14).
 
 ## Guardrails (restated; speed pressure erodes them first)
 

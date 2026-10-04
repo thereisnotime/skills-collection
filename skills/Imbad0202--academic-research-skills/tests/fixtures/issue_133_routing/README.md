@@ -44,6 +44,13 @@ If you cannot reach 100% on the current primary model, the routing prose in CLAU
 | 14 | `14_lit_review_request_effect_question/` | Same request on an effect question (#921, content-independence pair of 13) | **Proceed** → same as 13; same note |
 | 15 | `15_systematic_review_named/` | "Run a systematic review" on the question of 14 (#921) | **Proceed** → `deep-research:systematic-review`; review-form note not shown |
 | 16 | `16_broader_synthesis_not_systematic/` | After a three-way scan, "a broader evidence matrix and a thematic synthesis" (#921) | **Proceed** → a `lit-review` mode, not `systematic-review`; review-form note shown |
+| 17 | `17_screening_abstracts_to_sr_screener/` | Pasted abstracts + criteria, "screen these" | **Proceed** → `sr-screener:quick` |
+| 18 | `18_persian_screening_to_sr_screener/` | Persian screening request + exports + proposal | **Proceed** → `sr-screener` (protocol step first) |
+| 19 | `19_literature_review_not_screening/` | "Write a literature review" + collected papers | **Proceed** → `academic-paper:lit-review` (not sr-screener) |
+| 20 | `20_systematic_review_not_screening/` | "Do a systematic review with PRISMA" | **Proceed** → `deep-research:systematic-review` (not sr-screener) |
+| 21 | `21_no_automatic_handover_to_screening/` | Finished search exports, "what next?" | **Clarify** (no automatic handover to sr-screener) |
+
+Fixtures 17-21 (sr-screener, #919) were added with the skill and have not been run in a calibration session yet; record their first run in `CALIBRATION_LOG.md`.
 
 ## Fixture file format
 

@@ -106,13 +106,18 @@ fi
 
 # -------------------------------------------------------------------------
 # Scenario 1: real-format AWS access key -> secret_scan=fail, BLOCKED.
-# AKIAIOSFODNN7EXAMPLE is the AWS documentation example value (tier-1 format
-# match flags unconditionally even though it contains "EXAMPLE").
+# The fixture must NOT be AKIAIOSFODNN7EXAMPLE: gitleaks allowlists that AWS
+# documentation value, so with gitleaks on PATH the scan correctly passes it
+# (host-dependent false red). This is a fake, non-allowlisted AKIA-format key;
+# both gitleaks and the tier-1 regex fallback flag it.
 # -------------------------------------------------------------------------
 S1="$TMP_ROOT/s1-aws"
 init_repo "$S1"
-commit_file "$S1" "config.py" '# planted test value, not a live credential
-AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"'
+# Assembled from two halves so no scanner-matching literal sits in this file (D78).
+_s1_key='AKIAQYLP'
+_s1_key="${_s1_key}MN5HHHFPZAM2"
+commit_file "$S1" "config.py" "# planted test value, not a live credential
+AWS_ACCESS_KEY_ID = \"${_s1_key}\""
 run_verify "$S1" main
 if [ "$RC" -eq 2 ] && [ "$VERDICT" = "BLOCKED" ] && [ "$SECRET_STATUS" = "fail" ]; then
     _ok "real AWS key -> secret_scan=fail, BLOCKED (exit 2)"
@@ -142,7 +147,7 @@ fi
 # -------------------------------------------------------------------------
 S3="$TMP_ROOT/s3-generic"
 init_repo "$S3"
-commit_file "$S3" "settings.js" 'const api_key = "ab12CD34ef56GH78ij90KL12mn34OP56qr78ST90";'
+commit_file "$S3" "settings.js" 'const api_key = "ab12CD34''ef56GH78ij90KL12mn34OP56qr78ST90";'
 run_verify "$S3" main
 if [ "$RC" -eq 2 ] && [ "$VERDICT" = "BLOCKED" ] && [ "$SECRET_STATUS" = "fail" ]; then
     _ok "generic api_key literal -> secret_scan=fail, BLOCKED (exit 2)"

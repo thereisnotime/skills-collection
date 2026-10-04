@@ -1,5 +1,7 @@
 # Loki Mode Enterprise Performance Tuning
 
+> **Control Plane migration:** the classic dashboard UI and port 57374 are removed in Loki Mode 10.8; the UI is the Control Plane (`loki dashboard`, default port 47821). Examples below that use port 57374 or `/api/*` describe the legacy API server. See [control-plane-migration.md](../control-plane-migration.md) for the `/v1/*` mapping and what is not yet available.
+
 ## Overview
 
 Enterprise features are designed for minimal overhead. When disabled (no env vars set), every enterprise subsystem returns no-op responses with zero I/O. This guide covers tuning for production environments where enterprise features are actively used.
@@ -238,7 +240,7 @@ Rate limits are built into the API layer (10 requests/min on control endpoints,
 
 ### Static Asset Caching
 
-The dashboard frontend (`dashboard/static/index.html`) is a single-page application built as an IIFE bundle. Configure your reverse proxy to cache static assets:
+The dashboard frontend (`legacy-ui-static/index.html`) is a single-page application built as an IIFE bundle. Configure your reverse proxy to cache static assets:
 
 ```nginx
 location /static/ {

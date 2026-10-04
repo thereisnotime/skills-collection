@@ -1,7 +1,8 @@
 // E-14/E-42: thin-path end to end (docs/v10/ENGINE.md section 16). Runs the real
-// engine from the real entry (bin/loki, LOKI_ENGINE=v10, LOKI_TS_ENTRY=src/cli.ts,
+// engine from the real entry (bin/loki, LOKI_TS_ENTRY=src/cli.ts,
 // stub claude CLI via LOKI_E10_INVOKER=cli) on a fresh copy of a tiny bun repo:
 // with --no-pr, and with a local bare origin plus a canary GH_TOKEN (Rule of Two).
+import { hasApiKey } from "../../src/e10ext/budget_cap.ts";
 import { afterAll, describe, expect, test } from "bun:test";
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -52,7 +53,6 @@ function runEngine(mode: "done" | "already" | "tamper" | "nochange", withPr = fa
   const stubEnvLog = join(tmp, "stub-env.log");
   const env: Record<string, string | undefined> = {
     ...process.env,
-    LOKI_ENGINE: "v10",
     LOKI_TS_ENTRY: ENTRY,
     LOKI_E10_INVOKER: "cli",
     LOKI_CLAUDE_CLI: join(STUB_DIR, "claude"),
@@ -128,7 +128,7 @@ describe("engine10 e2e (stub claude)", () => {
     const q = runEngine("done");
     const lines = q.out.trim().split("\n");
     expect(lines.length).toBeLessThanOrEqual(8);
-    expect(lines[0]).toBe("Loki 10 engine (set LOKI_ENGINE=legacy or run 'loki legacy' for the previous engine), cap $20.00 (default)");
+    expect((lines[0] ?? "").split("; downgrade: ")[0]).toBe(`Loki 10 engine, PR target: main, base: main, ${hasApiKey(process.env) ? "cap $100.00 (default)" : "no dollar cap (subscription)"}`); // D82-COSTCAP: the cap follows whether the env holds an API key
     expect(q.out).not.toMatch(/^\[\d\d:\d\d\]/m);
     expect(q.out).toMatch(/^Receipt:\s+sha256:[0-9a-f]{64}/m);
     expect(q.out).toContain("NOT PROVEN:");
@@ -169,17 +169,17 @@ describe("engine10 e2e (stub claude)", () => {
     expect(r.events.some((e) => e.type === "cost")).toBe(true);
     // Seal priced the run from the stages' iteration ids (never "no iteration ids recorded").
     expect(receipt.not_proven.some((n: string) => n.startsWith("cost not measured"))).toBe(false);
-    expect(receipt.model).toBe("sonnet");
+    expect(receipt.model).toBe("claude (provider default)"); // EL-W0-06: no model configured, the provider default runs
     expect(r.out).toContain("Outcome:    VERIFIED");
     expect(r.out).toContain("PR:         none");
   }, 90_000);
 
-  test("already-done run seals ALREADY_SATISFIED with no second implement session", () => {
+  test("already-done run with no executed check is NOT PROVEN (FC-16), with no second implement session", () => {
     const r = runEngine("already");
-    if (r.code !== 0) console.error(r.out);
-    expect(r.code).toBe(0);
     const receipt = JSON.parse(readFileSync(join(r.runDir, "receipt.json"), "utf8"));
-    expect(receipt.verdict).toBe("ALREADY_SATISFIED");
+    expect(receipt.verdict).toBe("PARTIAL");
+    expect(receipt.not_proven).toContain("no tests executed");
+    expect(r.out).not.toContain("Outcome:    ALREADY_SATISFIED");
     expect(receipt.head_sha).toBe(receipt.base_sha);
     expect(r.stubCalls.filter((s) => s === "implement")).toEqual(["implement"]);
     expect(r.events.some((e) => e.stage === "fix" && e.type === "stage.started")).toBe(false);

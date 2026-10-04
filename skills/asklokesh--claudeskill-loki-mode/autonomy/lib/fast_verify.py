@@ -314,6 +314,10 @@ def verify(root: str = ".", diff_base: str = "", use_cache: bool = True) -> Resu
     )
 
 
+USAGE = """usage: fast_verify.py [ROOT] [--path DIR] [--diff-base REF] [--no-cache] [--json] [-h|--help]
+exit codes: 0 PASS, 1 FAIL, 2 root not found, 3 INCONCLUSIVE, 64 unknown option"""
+
+
 def main(argv: list) -> int:
     root, base, use_cache, as_json = ".", "", True, False
     i = 0
@@ -321,13 +325,25 @@ def main(argv: list) -> int:
         a = argv[i]
         if a == "--diff-base" and i + 1 < len(argv):
             base = argv[i + 1]; i += 1
+        elif a == "--path" and i + 1 < len(argv):
+            root = argv[i + 1]; i += 1
+        elif a in ("-h", "--help"):
+            print(USAGE)
+            return 0
         elif a == "--no-cache":
             use_cache = False
         elif a == "--json":
             as_json = True
         elif not a.startswith("-"):
             root = a
+        else:
+            print(f"fast_verify: unknown option: {a}", file=sys.stderr)
+            return 64
         i += 1
+
+    if not os.path.isdir(root):
+        print(f"fast_verify: root not found: {root}", file=sys.stderr)
+        return 2
 
     r = verify(root, base, use_cache)
     if as_json:
@@ -339,7 +355,9 @@ def main(argv: list) -> int:
             print(f"  [{f['severity']}] {f['rule']} {f['path']}:{f['line']} - {f['message']}")
         if len(r.findings) > 20:
             print(f"  ... and {len(r.findings) - 20} more")
-    return 1 if r.verdict == "FAIL" else 0
+    if r.verdict == "FAIL":
+        return 1
+    return 3 if r.verdict == "INCONCLUSIVE" else 0
 
 
 if __name__ == "__main__":

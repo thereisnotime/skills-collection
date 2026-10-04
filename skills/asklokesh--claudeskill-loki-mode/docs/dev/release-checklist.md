@@ -82,13 +82,13 @@ context (the v9.22.13 bug: its body says "v9.24.0 is the next version on
 npm") or over-carry on a stale npm read, so auto-detect was removed
 entirely rather than patched again.
 
-### 2. Build Dashboard Frontend
+### 2. Build Web App
 
 ```bash
-cd dashboard-ui && npm ci && npm run build:all && cd ..
-ls -la dashboard/static/index.html   # verify >100KB
+cd web-app && npm ci && npm run build && cd ..
+ls -la web-app/dist/index.html
 ```
-`npm publish`'s `prepublishOnly` also triggers this build automatically.
+`npm publish`'s `prepublishOnly` also triggers this build automatically. The legacy dashboard UI was removed; the browser UI is the Control Plane (`packages/control-plane`).
 
 ### 3. Run Tests
 
@@ -97,15 +97,13 @@ bash -n autonomy/run.sh
 bash -n autonomy/loki
 python3 -c "import ast, os; [ast.parse(open(f'dashboard/{f}').read()) for f in os.listdir('dashboard') if f.endswith('.py')]"
 python3 -c "import json; json.load(open('package.json')); print('JSON OK')"
-cd dashboard-ui && npx playwright test && cd ..   # requires dashboard on 57374
 ```
 
 ### 3a. Pre-Publish Validation (MANDATORY)
 
 ```bash
-npm pack --dry-run 2>&1 | grep -E "web-app/dist|dashboard/static" || echo "FAIL: expected files missing"
+npm pack --dry-run 2>&1 | grep -E "web-app/dist" || echo "FAIL: expected files missing"
 git ls-files web-app/dist/index.html | grep -q . || echo "FAIL: web-app/dist/ not tracked"
-git ls-files dashboard/static/index.html | grep -q . || echo "FAIL: dashboard/static/ not tracked"
 npm pack && npm install -g ./loki-mode-*.tgz
 loki --version
 loki web --no-open &
@@ -122,7 +120,7 @@ If any check fails, do not release; fix the root cause first.
 
 Stage files by name (never `git add -A` or `git add .`), commit with the
 repo-local `asklokesh` identity, no co-author. Batch approved merges locally;
-push once per train (`git push origin main`); wait for Tests, Bun Parity and
+push once per train (`git push origin main`); wait for Tests and
 Security Audit to go green on that exact SHA before bumping VERSION and
 releasing. GitHub Actions then creates the tag, the GitHub Release, publishes
 npm, builds/pushes Docker, and updates the Homebrew tap. Do not manually
@@ -135,18 +133,23 @@ Before pushing the release commit, run `bash scripts/release.sh --check-clean` (
 ```bash
 gh run list --limit 1 && gh run watch <run-id>
 npm view loki-mode version
-npm pack loki-mode --dry-run 2>&1 | grep dashboard/static
+npm pack loki-mode --dry-run 2>&1 | grep web-app/dist
 docker pull asklokesh/loki-mode:X.Y.Z && docker run --rm asklokesh/loki-mode:X.Y.Z loki version
 brew update && brew info loki-mode
 gh release view vX.Y.Z
 ```
 
+### Train cycle: previous release must be on npm
+`scripts/train-cycle.sh` (phase C) refuses to cut release N+1 until the previous `release: vX` version is visible on npm (`npm_has_version`). While it is missing, the cycle logs `PREV_NOT_ON_NPM X` and returns 0 (waiting is not a failure). An unreachable registry fails closed and adds `reason=NPM_UNREACHABLE`. After `LOKI_TC_NPM_WAIT_MIN` minutes (default 45) since the previous release commit the log becomes `PREV_NOT_ON_NPM_STALE ... refusing release, needs a human`; the release stays refused either way.
+
+Operator action: wait for the Release workflow publish to land and for the D49 auto-promote to run. Never manually promote or move the `latest` dist-tag, and never unpublish. If the STALE line appears, investigate the failed or stuck publish run rather than bypassing the check.
+
 ### Distribution Channel Checklist
 
-| Channel | Dashboard API | Dashboard Frontend | Memory System | Skills/References |
+| Channel | Dashboard API | Web App | Memory System | Skills/References |
 |---------|--------------------------|------------------------------|---------------|-------------------|
-| npm     | `dashboard/*.py`         | `dashboard/static/index.html`| `memory/`     | `skills/`, `references/` |
-| Docker  | `COPY dashboard/`        | Built in Dockerfile or committed | `memory/` | `skills/`, `references/` |
+| npm     | `dashboard/*.py`         | `web-app/dist/index.html` | `memory/`     | `skills/`, `references/` |
+| Docker  | `COPY dashboard/`        | Built in Dockerfile | `memory/` | `skills/`, `references/` |
 | Homebrew| Full tarball             | Full tarball                 | Full tarball  | Full tarball |
 | VSCode  | DEPRECATED v7.2.0 -- no longer published | -- | -- | -- |
 | Release | Skill-only zip           | N/A                          | N/A           | `references/` |

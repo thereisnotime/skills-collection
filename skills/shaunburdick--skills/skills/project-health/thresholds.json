@@ -1,0 +1,28 @@
+{
+  "_about": "Ceilings and floors for advisory warnings. Each rule states what the number means and what crossing it signals - not the project it was seeded from, which is recorded in the commit that introduced it and in git history. Seeded values are starting points, not laws: run the tool for a few weeks, read the direction of travel, then set the limits where your project actually sits. Every edit here is a diff, which is the point. Delete any rule to silence it.",
+
+  "commentRatio": {
+    "max": 0.35,
+    "why": "Comment share of product source. Approaching parity means maintenance effort is shifting from changing behaviour to changing prose, and prose that must be re-derived on every change is a tax on small changes. Watch the direction of travel more than the level."
+  },
+
+  "docProseToCode": {
+    "max": 1.0,
+    "why": "Documentation prose per line of product code. At 1.0 the repository carries a prose line for every code line, so prose must be updated at least as often as behaviour - the condition under which documentation becomes the thing that makes a small change expensive."
+  },
+
+  "agentContextLines": {
+    "max": 5000,
+    "why": "Repo-local instruction text: AGENTS.md, repo-local skills, repo-local agent definitions. Every line enters context on every session, so this is a tax paid before any work starts. Global skills and the user's harness agents are reported separately and never ratcheted, because a repository cannot gate what it does not own."
+  },
+
+  "assertsPerTestCase": {
+    "min": 1.0,
+    "why": "Assertions per test case. A floor above zero catches tests that execute code without checking anything. Kept deliberately low: assertion density is a style choice rather than a health signal, so any higher floor encodes a preference and produces false alarms on healthy suites."
+  },
+
+  "linesPerTestCase": {
+    "max": 200,
+    "why": "Test lines per test case. A very high figure suggests fixtures or setup dominating rather than assertions. Deliberately loose and ambiguous in sign - heavy tests are sometimes the correct choice - so treat a warning here as a prompt to look, not a defect."
+  }
+}

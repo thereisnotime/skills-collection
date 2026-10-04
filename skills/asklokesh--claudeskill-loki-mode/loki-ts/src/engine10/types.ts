@@ -26,8 +26,8 @@ export const MAX_FIX_ROUNDS = 2;
 export const EVENT_TYPES = [
   "run.started", "stage.started", "stage.completed", "stage.failed", "stage.skipped",
   "heartbeat", "session.started", "session.ended", "cost", "wall.sealed",
-  "tests.restored", "test.result", "fix.round", "already.satisfied", "spec.conflict",
-  "escalated", "cap.hit", "tamper.detected", "receipt.sealed", "pr.opened",
+  "tests.restored", "test.result", "test.scoped_out", "fix.round", "already.satisfied", "spec.conflict",
+  "escalated", "cap.hit", "cap.sized", "tamper.detected", "receipt.sealed", "pr.opened",
   "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -71,12 +71,16 @@ export interface SessionRunOptions {
   cwd?: string;
   /** Pins this session's model for its tier (E-45 Wall on sonnet); unset inherits the run model. */
   model?: string;
+  resumeSessionId?: string; // MW-2: provider session to resume (LOKI_E10_FIX_RESUME); unset starts fresh
+  effort?: string; // EL-W0-06, L1: provider reasoning effort; omitted when unset so the provider default applies
 }
 export interface SessionResult {
   exit: number | null; // null when killed before exiting
   markers: SessionMarkers;
   durationS: number;
   killed: boolean;
+  /** Optional tail of the agent's own final message (its diagnosis), fed to an escalated fix round. */
+  summary?: string;
 }
 export interface SessionRunner { // implemented by session.ts (E-07)
   run(opts: SessionRunOptions): Promise<SessionResult>;
@@ -149,6 +153,8 @@ export interface Receipt {
   checks: ReceiptCheck[];
   not_proven: string[];
   verdict: Verdict;
+  /** FC-21b: set only when implement was stopped at its time limit; omitted otherwise so other receipts stay byte-stable. */
+  implement_limit?: { limit_s: number; elapsed_s: number };
   /** E-120: implement's reason for a SPEC_CONFLICT exit, sanitized (newlines/control chars
    *  collapsed to spaces, capped at 500 chars). Key is omitted entirely, never null, when
    *  implement did not record one, so receipt_sha256 for every other run stays byte-stable. */

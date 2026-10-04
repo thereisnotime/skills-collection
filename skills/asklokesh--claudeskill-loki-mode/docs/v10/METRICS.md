@@ -579,3 +579,19 @@ Raw rows: ~/loki-ci-logs/d50-{raw-haiku,raw-sonnet,v10-haiku,v10-sonnet}/results
 | pub-humanize-174 | 0/3 | 2/3 |
 | aiq-52-searchbar (no_change_needed) | 0/3 | 2/3 |
 Two of the four baseline losses were noise; two are real. Internal measurement, not for publication until the fixes are re-measured.
+
+## Cost rate re-baseline (MW-1)
+| Date | Model | Input $/MTok | Output $/MTok | Cache read | Cache write 5m | Context | Source |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-03 | claude-sonnet-5-5 (and claude-sonnet-5, now the standard price) | 2 (was 3 in loki-ts/data/model-pricing.json) | 10 (was 15) | 0.20 | 2.50 | 1M, standard pricing | platform.claude.com/docs/en/about-claude/pricing, read 2026-10-03 |
+Cost per completed task for sonnet arms measured before this date used the old 3/15 table; they overstate by 1.5x and are not comparable without rescaling.
+
+
+## FireLater#17 rerun gate (real repo, fresh clone, --no-pr)
+| Version | Outcome | Cost | Notes |
+| --- | --- | --- | --- |
+| 10.6.14 | STALLED | $2.66 | |
+| 10.7.1 | false ALREADY_SATISFIED, then FAILED | $2.69 | FC-15 class |
+| 10.9.1 | BLOCKED | $0.75 | brief handicap, FC-19 class |
+| 10.10.3 | PARTIAL | $2.27 | 12m; full migration (83 files); backend 5855/5858 green; implement stopped at a 900s run cap and verify was skipped (FC-21); run e10-20261003T220847Z-78fa, main be0799f, reported by steering 22:08Z |
+| 10.10.5 | PARTIAL (CLI and receipt match) | $1.73 | run e10-20261003T233414Z-30ca, defaults, cap_s 2700, 12m05s, 2.42M tokens; implement 6m36s finished with no limit; verify, fix, verify ran; 77 files +4325/-2006; independent check: backend 5914 pass 0 fail 29 skip, tsc 0 errors; PARTIAL only from FC-22 (4 frontend tests over-selected, deps absent, honestly NOT PROVEN) and FC-23 (a Wall file failed the package tsc, TS1470); integration request-approval-race NOT PROVEN (needs DB). Zero false claims. |

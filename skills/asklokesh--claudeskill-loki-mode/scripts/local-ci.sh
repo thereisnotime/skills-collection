@@ -38,9 +38,20 @@ set -uo pipefail
 # Tests always run headless: loki_open_url (autonomy/lib/browser-open.sh) and
 # proof.ts never open a browser under this (S-103).
 export LOKI_NO_BROWSER=1
+export LOKI_CONTROL="${LOKI_CONTROL:-0}" # tests never ship to a developer's live Control Plane
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT" || exit 2
+
+# FC-07 / D86: the whole gate runs under a run-owned hermetic HOME (real HOME is
+# kept as LOKI_REAL_HOME; toolchain homes are pinned). Not LOKI_RUN_TMP: that
+# name stays free for every suite's own loki_run_tmp_create (E-154).
+# shellcheck source=../eval/loki10/lib-tmp.sh
+. "$REPO_ROOT/eval/loki10/lib-tmp.sh"
+# shellcheck source=../tests/lib/hermetic-home.sh
+. "$REPO_ROOT/tests/lib/hermetic-home.sh"
+loki_hermetic_home_enter || { echo "local-ci: cannot create the hermetic HOME" >&2; exit 2; }
+_lci_hh_owner="$$"
 
 FAST=0
 VERBOSE=0
@@ -111,8 +122,10 @@ if [ "${LOCAL_CI_ALLOW_CONCURRENT:-0}" != "1" ]; then
     # child test deleted the parent's lock, after which the next invocation saw
     # no lock and started concurrently. Observed live: lock held 33475 while a
     # second parent (70402) was running anyway.
-    trap '[ "$$" = "$_lci_owner" ] && rm -f "$_lci_lock" 2>/dev/null || true' EXIT
 fi
+# One EXIT trap: release the lock (if this process took it) and remove the
+# hermetic HOME (only the process that created it).
+trap 'if [ "$$" = "$_lci_hh_owner" ]; then [ "${_lci_owner:-}" = "$$" ] && rm -f "$_lci_lock" 2>/dev/null; loki_hermetic_home_leave; fi' EXIT
 
 # ---------------------------------------------------------------------------
 # FAST-tier KEEP list (allowlist)
@@ -173,6 +186,8 @@ declare -a _FAST_KEEP=(
   # the gate cannot catch what it does not run.
   "tests/test-doctor-optional-skill-not-blocking.sh"
   "tests/test-multi-repo-orchestrates.sh"
+  # Issue #214 option 3: stale mutation-probe anchors exit 65 only in CI; this is the 0.1s pre-check.
+  "tests/test-trust-core-tests-detect.sh (probe anchors)"
   # Guards the founder-reported quickstart defect: typing a brief in an EMPTY
   # directory and answering "none" produced a spec asserting "This is an
   # EXISTING codebase... Do NOT scaffold a new project" -- telling the build not
@@ -1075,7 +1090,7 @@ run_check_bg 'local-ci parent-check exit isolation' 'bash tests/test-local-ci-pa
 # ---------------------------------------------------------------------------
 # Harvest the read-only parallel pool BEFORE the serial-sensitive spine. The
 # spine below spawns loki processes (cli-commands, alias-forwarding,
-# bun-parity), kills processes machine-wide (the stop block), and runs the
+# test-cli-commands), kills processes machine-wide (the stop block), and runs the
 # network/doctor probes (bun test). The prior parallelization flaked precisely
 # because those ran under concurrent CPU + lane load. Draining the pool here
 # means the serial tail runs with nothing else live, which is the determinism
@@ -1755,6 +1770,7 @@ run_check "tests/test-verify-client-routes.sh (web-app client paths resolve to r
 # Both added this session and run by CI but not by this gate, which is how two
 # releases reached CI carrying a failure never executed locally.
 run_check "tests/test-doctor-optional-skill-not-blocking.sh (optional-provider skill severity)" "bash tests/test-doctor-optional-skill-not-blocking.sh 2>&1 | tail -4"
+run_check "tests/test-trust-core-tests-detect.sh (probe anchors)" "TRUST_CORE_PROBE_MODE=anchors bash tests/test-trust-core-tests-detect.sh 2>&1 | tail -6"
 # tail -40, not -4: this suite prints 10 per-assertion lines plus a summary, so
 # a 4-line window holds the last two PASSes and the count -- it can only ever
 # contain the `FAIL:` line when the failure is among the final assertions. It
@@ -1896,151 +1912,6 @@ run_check "moat suite (tests/moat/run.sh: nine properties + pending ratchet)" "b
 run_check "tests/test-moat-runner.sh (every moat runner rule fires)" "bash tests/test-moat-runner.sh 2>&1 | tail -25"
 
 # ---------------------------------------------------------------------------
-# 9. bun-parity local equivalent (mirrors bun-parity.yml matrix)
-# ---------------------------------------------------------------------------
-if command -v bun >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-  # v7.7.5 follow-up: retry-on-flake. Empirically the matrix has a
-  # first-run failure mode immediately after step 8 (test-cli-commands.sh)
-  # that does not reproduce in isolation -- pass on the second attempt
-  # with identical code. Cause hypothesized as state cooldown in the
-  # shared cwd .loki/ dir from the test-cli-commands run; root cause
-  # not yet found. The retry below makes the gate deterministic so
-  # local-ci ergonomics are not blocked while the deeper investigation
-  # continues (tracked in UT2-10).
-  run_check "bun-parity matrix (local)" '
-    set -uo pipefail
-    PARITY_TMP=$(mktemp -d)
-    trap "rm -rf $PARITY_TMP" EXIT
-    # Flake-capture: when a parity attempt fails we copy the offending
-    # bash/bun pair (raw + normalized + unified diff) into a persistent
-    # directory under .loki/local-ci-flake/<UTC-timestamp>/ BEFORE the
-    # tmp trap wipes them. This converts the next real flake into root
-    # cause evidence instead of another lost data point (tracked in
-    # UT2-10 -- v7.7.6 added retry, root cause still unknown after 100
-    # tight-loop reproductions failed to trigger).
-    FLAKE_DIR=".loki/local-ci-flake/$(date -u +%Y%m%dT%H%M%SZ)"
-    MATRIX=("version|--version|text" "provider-show|provider show|text" "provider-list|provider list|text" "memory-list|memory list|text" "status|status|text" "status-json|status --json|json" "stats|stats|text" "stats-json|stats --json|json" "doctor|doctor|text" "doctor-json|doctor --json|json")
-    ATTEMPT=0
-    while [ "$ATTEMPT" -lt 2 ]; do
-      ATTEMPT=$((ATTEMPT + 1))
-      BAD=0
-    for entry in "${MATRIX[@]}"; do
-      label="${entry%%|*}"; rest="${entry#*|}"; args="${rest%|*}"; mode="${rest##*|}"
-      LOKI_LEGACY_BASH=1 bash bin/loki $args > "$PARITY_TMP/$label.bash" 2>&1 || true
-      # v7.7.11 root-cause fix for the recurring first-attempt flake:
-      # bin/loki resolves to loki-ts/dist/loki.js when present, which has
-      # __LOKI_BUILD_VERSION__ baked in at build time. Whenever VERSION is
-      # bumped locally but dist not rebuilt, the bun route reports the
-      # stale build-time version, producing a doctor-json / version diff
-      # vs bash (which reads VERSION live). BUN_FROM_SOURCE=1 forces the
-      # shim to use src/cli.ts which calls readFileSync(VERSION) live so
-      # both routes see the same value. Safe: src/ is always present in
-      # the repo, and CI never runs local-ci.sh from an npm install.
-      BUN_FROM_SOURCE=1 bash bin/loki $args > "$PARITY_TMP/$label.bun" 2>&1 || true
-      if [ "$mode" = "json" ]; then
-        # BACKLOG 26 (matches the BACKLOG-26-DISK-TOLERANCE block in
-        # .github/workflows/bun-parity.yml): a v7.4.12 floor only absorbed
-        # the Python-float-vs-JS-int formatting difference (58.0 vs 58); it
-        # did nothing for a genuine 1GB integer drift between two
-        # near-simultaneous df reads (94 vs 95), which is a real, common
-        # flake here too. Check the two readings are within a small
-        # absolute tolerance, then drop the key from both sides before the
-        # structural diff -- a real divergence (tens of GB off, or present
-        # on only one side) still fails.
-        DISK_TOLERANCE_GB=3
-        bash_disk="$(jq -r ".disk.available_gb // \"null\"" "$PARITY_TMP/$label.bash" 2>/dev/null || echo null)"
-        bun_disk="$(jq -r ".disk.available_gb // \"null\"" "$PARITY_TMP/$label.bun" 2>/dev/null || echo null)"
-        disk_ok=1
-        if [ "$bash_disk" != "null" ] && [ "$bun_disk" != "null" ]; then
-          if ! jq -n --argjson a "$bash_disk" --argjson b "$bun_disk" --argjson tol "$DISK_TOLERANCE_GB" \
-               -e "((\$a - \$b) | if . < 0 then -. else . end) <= \$tol" >/dev/null 2>&1; then
-            disk_ok=0
-          fi
-        elif [ "$bash_disk" != "$bun_disk" ]; then
-          disk_ok=0
-        fi
-        jq -S "if .disk?.available_gb? != null then del(.disk.available_gb) else . end" "$PARITY_TMP/$label.bash" > "$PARITY_TMP/$label.bash.s" 2>/dev/null || true
-        jq -S "if .disk?.available_gb? != null then del(.disk.available_gb) else . end" "$PARITY_TMP/$label.bun"  > "$PARITY_TMP/$label.bun.s"  2>/dev/null || true
-        if [ "$disk_ok" -eq 0 ] || ! diff -q "$PARITY_TMP/$label.bash.s" "$PARITY_TMP/$label.bun.s" >/dev/null 2>&1; then
-          echo "DIFF: $label (attempt $ATTEMPT)"
-          BAD=$((BAD+1))
-          mkdir -p "$FLAKE_DIR" 2>/dev/null || true
-          cp "$PARITY_TMP/$label.bash"   "$FLAKE_DIR/$label.bash.raw"  2>/dev/null || true
-          cp "$PARITY_TMP/$label.bun"    "$FLAKE_DIR/$label.bun.raw"   2>/dev/null || true
-          cp "$PARITY_TMP/$label.bash.s" "$FLAKE_DIR/$label.bash.norm" 2>/dev/null || true
-          cp "$PARITY_TMP/$label.bun.s"  "$FLAKE_DIR/$label.bun.norm"  2>/dev/null || true
-          diff -u "$PARITY_TMP/$label.bash.s" "$PARITY_TMP/$label.bun.s" > "$FLAKE_DIR/$label.attempt${ATTEMPT}.diff" 2>/dev/null || true
-        fi
-      else
-        # v7.4.12: normalize jittery disk-space values (1GB drift can
-        # happen between bash and Bun reads on busy systems).
-        # v7.5.1: also strip the Runtime route block (added in v7.5.1 fix
-        # B23). The block is intentionally environment-dependent (reports
-        # "Bash" on the bash route and "Bun" on the Bun route, plus any
-        # active LOKI_LEGACY_BASH / LOKI_TS_ENTRY / BUN_FROM_SOURCE env)
-        # so it can never be byte-identical across the two routes. We
-        # use sed range deletion: from the Runtime route header line to
-        # the next empty line. Substring match handles ANSI color codes.
-        # Also normalize doctor Summary counts which shift slightly when
-        # LOKI_LEGACY_BASH is set vs not.
-        # v7.31: strip the optional "Dashboard:" status line. It is
-        # environment-dependent, not route-dependent: loki status (text mode)
-        # prints it only when a dashboard pid file holds a LIVE pid. The bash
-        # text path checks only the project-local pid file while the Bun path
-        # (and the bash --json path) also check ~/.loki/dashboard/dashboard.pid,
-        # so when the operator standalone dashboard is up the line appears on
-        # the Bun side and not the bash side -- a deterministic, environment-
-        # induced diff that has nothing to do with route logic. Deleting the
-        # line on both sides keeps the matrix honest (it never hides a real
-        # route divergence: presence of the line is governed by external
-        # dashboard state, not by the two routes formatting status differently).
-        for src in "$PARITY_TMP/$label.bash" "$PARITY_TMP/$label.bun"; do
-          dst="${src}.norm"
-          # Cockpit block: route-dependent (the bash doctor probes the cockpit
-          # renderer; the Bun doctor does not emit this section), so strip it on
-          # both sides -- parity with .github/workflows/bun-parity.yml:182 which
-          # already deletes it. Without this, local-ci flagged a diff the CI gate
-          # does not (the CI normalizer strips it), a local-ci-only false failure.
-          sed -E "s/Disk space: [0-9]+GB/Disk space: NGB/g" "$src" \
-            | sed -E "/Runtime route:/,/^$/d" \
-            | sed -E "/Phase 1 artifacts:/,/^$/d" \
-            | sed -E "/Cockpit:/,/^$/d" \
-            | sed -E "/Dashboard:.*http/d" \
-            | sed -E "s/[0-9]+ passed/N passed/g; s/[0-9]+ failed/N failed/g; s/[0-9]+ warnings/N warnings/g" \
-            > "$dst"
-        done
-        if ! diff -q "$PARITY_TMP/$label.bash.norm" "$PARITY_TMP/$label.bun.norm" >/dev/null 2>&1; then
-          echo "DIFF: $label (attempt $ATTEMPT)"
-          BAD=$((BAD+1))
-          mkdir -p "$FLAKE_DIR" 2>/dev/null || true
-          cp "$PARITY_TMP/$label.bash"      "$FLAKE_DIR/$label.bash.raw"  2>/dev/null || true
-          cp "$PARITY_TMP/$label.bun"       "$FLAKE_DIR/$label.bun.raw"   2>/dev/null || true
-          cp "$PARITY_TMP/$label.bash.norm" "$FLAKE_DIR/$label.bash.norm" 2>/dev/null || true
-          cp "$PARITY_TMP/$label.bun.norm"  "$FLAKE_DIR/$label.bun.norm"  2>/dev/null || true
-          diff -u "$PARITY_TMP/$label.bash.norm" "$PARITY_TMP/$label.bun.norm" > "$FLAKE_DIR/$label.attempt${ATTEMPT}.diff" 2>/dev/null || true
-        fi
-      fi
-    done
-      if [ "$BAD" = "0" ]; then
-        break
-      fi
-      if [ "$ATTEMPT" -lt 2 ]; then
-        echo "bun-parity attempt $ATTEMPT had $BAD mismatch(es); flake artifacts in $FLAKE_DIR; retrying once after 1s cooldown..."
-        sleep 1
-      fi
-    done
-    if [ "$BAD" != "0" ]; then
-      echo "bun-parity both attempts failed; investigate $FLAKE_DIR/*.diff" >&2
-    elif [ "$ATTEMPT" -gt 1 ]; then
-      echo "bun-parity passed on attempt $ATTEMPT; first-attempt flake artifacts preserved in $FLAKE_DIR for root cause analysis"
-    fi
-    [ "$BAD" = "0" ]
-  '
-else
-  skip_check "bun-parity matrix" "bun or jq missing"
-fi
-
-# ---------------------------------------------------------------------------
 # 10. Pre-publish 3a: npm pack tarball includes expected files
 # ---------------------------------------------------------------------------
 # Asserts each required artifact INDIVIDUALLY. The previous form counted
@@ -2068,7 +1939,7 @@ run_check "npm pack tarball contents" '
   # only because files[] happens to hold a broad "autonomy/" entry; narrowing it
   # would drop them silently, surfacing as a receipt that cannot be verified
   # rather than as an error.
-  for _f in loki-ts/dist/loki.js bin/loki dashboard/static/index.html \
+  for _f in loki-ts/dist/loki.js bin/loki \
             web-app/dist/index.html autonomy/provider-offer.sh \
             autonomy/quickstart.sh autonomy/lib/proof-verify.py \
             autonomy/lib/efficiency_cost.py autonomy/lib/cost-summary.py; do
@@ -2104,65 +1975,21 @@ run_check_bg "web-app dist baked with /lab/ base" 'test -f web-app/dist/index.ht
 run_check_bg "no hardcoded /api/ or /ws literals in web-app/src/" '! grep -rnE "['"'"'\"]/(api|ws|proxy)/" web-app/src/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "\.test\." | grep -q .'
 
 # ---------------------------------------------------------------------------
-# 10c. Dashboard SPA inline JavaScript must PARSE (no SyntaxError)
+# 10d. web-app honesty harnesses (real browser)
 # ---------------------------------------------------------------------------
-# A prior build regression (build-standalone.js corrupting backslash escapes)
-# shipped a dashboard/static/index.html whose inline <script> blocks threw a
-# SyntaxError in the browser. The file still served HTTP 200 and contained the
-# expected markers, so every existing presence/compose check passed while the
-# SPA was dead. This gate extracts each INLINE <script> block (skips src=,
-# importmap/json data islands) and parses it via Node's vm. FAIL on any
-# SyntaxError. Proven to FAIL on the old broken build and PASS on the fixed one.
-if command -v node >/dev/null 2>&1; then
-  run_check_bg "dashboard SPA inline scripts parse (node)" "node scripts/check-inline-scripts.js dashboard/static/index.html"
-else
-  skip_check "dashboard SPA inline scripts parse" "node not installed"
-fi
-
-# ---------------------------------------------------------------------------
-# 10c2. Moat P7 at the pixel: an unmeasured cost never renders as $0.00
-# ---------------------------------------------------------------------------
-# dashboard-ui/tests/loki-unmeasured-cost-never-zero.node.test.mjs drives the
-# real cost components and cost.html's own functions. It was registered in no
-# runner, so its waterfall mocks drifted to a response shape the component no
-# longer reads and 2 of 11 cases failed with nobody seeing it. Node is REQUIRED
-# here, not skipped (as in tests/test-audit-js-suites.sh): a missing runtime is
-# an unmeasured result, never a pass. Needs no npm install (relative imports).
-run_check "dashboard unmeasured cost never renders as zero (node --test)" \
-  'command -v node >/dev/null 2>&1 || { echo "node not installed: the suite did not run (unmeasured, not clean)"; exit 1; }; node --test dashboard-ui/tests/loki-unmeasured-cost-never-zero.node.test.mjs 2>&1 | tail -12'
-# The rest of the shipped panels (context tracker, learning, memory, analytics,
-# overview, fleet, council, gates, notifications ...): unmeasured renders as
-# unknown, a failed read as an error, a measured zero as 0.
-run_check "dashboard panels render unmeasured as unknown (node --test)" \
-  'command -v node >/dev/null 2>&1 || { echo "node not installed: the suite did not run (unmeasured, not clean)"; exit 1; }; node --test dashboard-ui/tests/loki-unmeasured-panels-honesty.node.test.mjs 2>&1 | tail -12'
-
-# ---------------------------------------------------------------------------
-# 10d. Dashboard fresh-repo integrated UX harness (v7.18.0)
-# ---------------------------------------------------------------------------
-# The v7.17.x verification ran the dashboard SEEDED + in isolation and shipped a
-# cold-repo 404 flood, an early-abort timeout, and iframe theme clashes. This
-# harness boots the server against a FRESH repo (no .loki) and drives the real
-# browser: asserts no cold-load console 404s/AbortErrors and that the trust
-# iframe matches the SPA theme in light AND after the Dark toggle. Requires
-# python3.12 (fastapi) + the dashboard-ui playwright + chromium; skips cleanly
-# when absent so the gate never blocks an environment that lacks them.
+# Drives the web-app Evidence Receipt panel and Admin console in a real
+# browser. Requires python3.12 (fastapi) + web-app's playwright-core + chromium;
+# skips cleanly when absent so the gate never blocks an environment without them.
 _DASH_PY=""
 command -v python3.12 >/dev/null 2>&1 && _DASH_PY=python3.12
 if [ -n "$_DASH_PY" ] && command -v node >/dev/null 2>&1 \
-   && [ -d dashboard-ui/node_modules/playwright ] \
-   && { [ -d "$HOME/Library/Caches/ms-playwright" ] || [ -d "$HOME/.cache/ms-playwright" ]; }; then
-  run_check "dashboard fresh-repo integrated UX harness" 'bash scripts/run-dashboard-fresh-repo-harness.sh'
-  # Inverse fixture: the cold harness above would pass against panels that
-  # never render anything at all. This one seeds receipts + learnings and
-  # asserts they reach the pixel WITHOUT fabricating an unmeasured cost.
-  run_check "dashboard evidence panels render honestly" 'bash scripts/run-dashboard-evidence-panels-harness.sh'
+   && [ -d web-app/node_modules/playwright-core ] \
+   && { [ -d "${LOKI_REAL_HOME:-$HOME}/Library/Caches/ms-playwright" ] || [ -d "${LOKI_REAL_HOME:-$HOME}/.cache/ms-playwright" ]; }; then
   run_check "webapp receipt panel renders honestly" 'bash scripts/run-webapp-receipt-panel.sh'
   run_check "webapp admin console renders honestly" 'bash scripts/run-webapp-admin-honesty.sh'
 else
-  skip_check "dashboard fresh-repo integrated UX harness" "needs python3.12 + dashboard-ui playwright + chromium"
-  skip_check "dashboard evidence panels render honestly" "needs python3.12 + dashboard-ui playwright + chromium"
-  skip_check "webapp receipt panel renders honestly" "needs python3.12 + dashboard-ui playwright + chromium"
-  skip_check "webapp admin console renders honestly" "needs python3.12 + dashboard-ui playwright + chromium"
+  skip_check "webapp receipt panel renders honestly" "needs python3.12 + web-app playwright-core + chromium"
+  skip_check "webapp admin console renders honestly" "needs python3.12 + web-app playwright-core + chromium"
 fi
 
 # ---------------------------------------------------------------------------
@@ -2287,7 +2114,7 @@ if [ "$TIER" = "fast" ]; then
   echo "  - tests/run-all-tests.sh   282 shell suites   (~10+ min, measured)"
   echo "  - blanket pytest -q        1793 tests         (128s, measured)"
   echo "  - tests/run-shellcheck.sh  repo-wide lint     (118s, measured)"
-  echo "  - SBOM / npm audit / license-audit / bun-parity / MCP handshakes"
+  echo "  - SBOM / npm audit / license-audit / MCP handshakes"
   echo "FAST covers syntax, structure and the full trust core (proof, receipt,"
   echo "council, verify, evidence) -- nothing else. Before push or release:"
   echo "    LOCAL_CI_TIER=full bash scripts/local-ci.sh"

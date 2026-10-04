@@ -1,5 +1,7 @@
 # Audit Logging
 
+> **Control Plane migration:** the classic dashboard UI and port 57374 are removed in Loki Mode 10.8; the UI is the Control Plane (`loki dashboard`, default port 47821). Examples below that use port 57374 or `/api/*` describe the legacy API server. See [control-plane-migration.md](control-plane-migration.md) for the `/v1/*` mapping and what is not yet available.
+
 Audit trails for Loki Mode operations.
 
 ## Overview
@@ -303,6 +305,19 @@ print(f"Entries checked: {result['entries_checked']}")
 if not result['valid']:
     print(f"First tampered line: {result['first_tampered_line']}")
 ```
+
+You can also verify a whole audit directory from the command line:
+
+```bash
+python3 dashboard/audit.py verify ~/.loki/dashboard/audit
+```
+
+It prints one JSON object and exits 0 for a verified chain, 1 for a tampered
+chain, and 2 on a usage error or when it checked nothing (a missing or empty
+directory, or only files with no integrity hashes; the JSON then carries
+`"status": "nothing_checked"`). Nothing checked is not a verified chain.
+`python3 dashboard/audit.py tip <dir>` is unchanged and still exits 0 on an
+empty chain.
 
 ### Disabling Chain Hashing
 

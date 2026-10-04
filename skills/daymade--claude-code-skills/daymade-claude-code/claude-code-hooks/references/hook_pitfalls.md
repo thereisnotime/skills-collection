@@ -755,10 +755,14 @@ unresolvable path means **block**.
      irrelevant call now cost ~6 (independently re-measured at 4.7 ms on
      the heaviest one), and that is the entire win — the
      blocking path is intentionally unchanged.
-- **Why not a dispatcher instead:** merging N guards into one process saves
-  the same forks but couples their blast radius (one corrupted shared file
-  poisons every Bash call) and breaks per-guard SSOT/test ownership. Slim
-  each guard; keep the fleet.
+- **Consolidate compatible mechanisms:** use in-process rule modules with shared
+  input parsing and lazy queries; preserve each module's SSOT, tests, selectors,
+  state and authorization evidence. Keep failure identities observable and
+  calibrate parse/import failures so one broken module cannot silently disable
+  the other rules. Follow the Skill's Build order for protocol and wait-budget
+  boundaries. Launching the old scripts behind one dispatcher hides the fleet
+  without removing its process cost; measure child processes as well as native
+  handler count.
 
 ---
 
@@ -2115,8 +2119,10 @@ this list and describe defects you reach by asking a different question):
   ```
   Then close the observability hole rather than trusting the next author to read
   this entry: run the real JSON through it before registering (rule 2), and give
-  it a `--selftest` (build order step 4) so the SessionStart health check can tell
-  a live hook from a dead one. A `--selftest` that has never been watched failing
+  it bidirectional editing/maintenance selftests. Use only an owner-declared
+  bounded offline `--liveness` mode at SessionStart (build order step 4); without
+  one, retain unknown/incomplete logic coverage instead of running the selftest
+  battery at startup. A `--selftest` that has never been watched failing
   proves nothing — calibrate it by injecting this exact defect (swap stdin parsing
   back for the env var) and confirming the must-fire fixture goes red.
 
@@ -2204,8 +2210,8 @@ this list and describe defects you reach by asking a different question):
   like it is working: the cheap path runs, the stamp file exists, nothing warns.
 - **Cause:** BSD `stat -f '%m %z'` does **not** follow symlinks — it reports the
   link's own mtime (when the link was made) and size (the length of the target
-  path string). And rule 3 of this skill *requires* `~/.claude/hooks/` to be
-  symlinks into a version-controlled SSOT. So the two prescriptions compose into a
+  path string). In the symlink installation layout described by rule 3,
+  `~/.claude/hooks/` points into a version-controlled SSOT. These choices compose into a
   guaranteed defect: editing the SSOT leaves the link untouched, the signature
   never moves, and the full battery never re-fires. Measured: the stamp held
   `1787620496 61` — a 61-byte "file" that is really the target path string, and
@@ -2229,15 +2235,14 @@ this list and describe defects you reach by asking a different question):
   on every session. Nothing else is wrong: `bash -n` is clean, the detector blocks
   and allows correctly, the registration is present. Only the health check disagrees,
   and only ever in one direction.
-- **Precondition (or you will not see this at all):** the health check has to actually
-  run the selftest. Pattern C as printed in `hook_patterns.md` does **not** — it does
-  `bash -n` plus a registration `grep`. It is SKILL.md's **build order step 4** that
-  extends that same loop with `bash "$h" "$mode"` over the registered-hooks path. So
-  this pitfall bites the design this skill prescribes in full, not the compact skeleton
-  alone; if your health check only syntax-checks, a broken sibling lookup stays invisible
-  until the day you need the battery.
-- **Cause:** the same two prescriptions as #41, composing through a different
-  mechanism. Rule 3 requires `~/.claude/hooks/<name>.sh` to be a **symlink** into the
+- **Precondition (or you will not see this at all):** the selected check must
+  exercise the sibling lookup. Pattern C's compact syntax/registration scan
+  does not. SKILL.md's **build order step 4** keeps editing/maintenance selftests
+  separate from owner-declared offline startup liveness; exercise each supported
+  mode through its registered path. A syntax-only scan leaves sibling lookup
+  unverified; it is not a reason to run the full battery at startup.
+- **Cause:** the same choices as #41, composing through a different
+  mechanism. In rule 3's symlink layout, `~/.claude/hooks/<name>.sh` links into the
   SSOT; that build-order health check invokes hooks by that path. `${BASH_SOURCE[0]}` is the path
   bash was **invoked with**, not the resolved file — so inside the hook
   `dirname "${BASH_SOURCE[0]}"` is `~/.claude/hooks`, and a sibling lookup such as
@@ -2268,9 +2273,10 @@ this list and describe defects you reach by asking a different question):
   ```
 - **The calibration that catches it, and the reason it shipped:** the author tests
   the hook the way the author invokes it — by the SSOT path, where `dirname` is
-  accidentally right. **Run the selftest through the registered path too**
+  accidentally right. **During editing/maintenance, run the selftest through the registered path too**
   (`bash ~/.claude/hooks/<name>.sh --selftest-full`), because that is the path the
-  harness will use. The general form: a hook reached through more than one path is a
+  maintenance harness will use. Startup follows build order step 4's declared
+  offline liveness contract. The general form: a hook reached through more than one path is a
   hook that must be exercised through each of them. Same lesson as #41's
   "the regression test has to exercise the link".
 - **Diagnosing it from the outside** (you see only `selftest failed`): run the two
@@ -2652,8 +2658,11 @@ this list and describe defects you reach by asking a different question):
 
   Resolve the hook's symlink before walking (#41), so dependencies are found
   next to the target rather than the link (#42). Keep the failure direction: a
-  hook that is missing or cannot be read (`chmod 000`) gets an empty signature,
-  and the caller runs the full battery.
+  hook that is missing or cannot be read (`chmod 000`) gets an empty signature.
+  Treat that as unknown, not a cached pass. Make full validation due in the owning
+  build/commit check; keep SessionStart limited to bounded deployment and liveness
+  probes even when a full-pass stamp is absent or stale. Select only the owner's
+  declared offline liveness mode; otherwise keep logic coverage unknown/incomplete.
 
   Sign every hook in **one** process before the scheduling loop. Shelling out per
   hook (`realpath`, `grep`, `stat` and a hash for each file) cost 1.3 s at every
@@ -2713,16 +2722,21 @@ this list and describe defects you reach by asking a different question):
       print(f"{hook}\t{','.join(stamps)} {len(files)}")
   ```
   Compare the signature as one string; its first field is a list, not an mtime.
-  Old stamps stop matching once, so the first session after the change runs every
-  battery.
+  Use this walk to discover local dependencies, not as a complete validation
+  identity: its mtime/size stamps can miss same-size edits within a timestamp
+  tick. Include dependency contents, the resolved runtime and its version, test
+  harness and relevant configuration in the full-pass cache key. A changed key
+  invalidates the pass at build/commit time; it does not schedule a full battery
+  during startup.
 - **Regression cases** (each has to go red when its rule is mutated away): edit
-  the sibling `.py` and not the wrapper → the full battery runs; edit a module
-  that `.py` imports → it runs; edit a file named only in a comment, written in
-  the path-joined form the walk does follow on code lines → it does **not** run
+  the sibling `.py` and not the wrapper → full validation becomes due; edit a module
+  that `.py` imports → it becomes due; edit a file named only in a comment, written in
+  the path-joined form the walk does follow on code lines → it does **not** become due
   (this is the case that catches a walk that stopped skipping comments); reach
-  the hook through a symlink and edit the target's sibling → it runs; delete a
-  dependency → it runs; `import a, b` and edit `b` → it runs; make the hook
-  unreadable → its signature is empty.
+  the hook through a symlink and edit the target's sibling → it becomes due;
+  delete a dependency → it becomes due; `import a, b` and edit `b` → it becomes
+  due; make the hook unreadable → its signature is empty and status unknown;
+  change the registered runtime or test harness → the cached pass is invalid.
 - **Real case (2026-09-29, a private hooks repository):** a guard's classifier
   and a newly extracted shared module were edited and pushed. The health check's
   stamps, keyed on the wrapper, stayed valid, so neither the probe nor the full
@@ -2743,17 +2757,26 @@ this list and describe defects you reach by asking a different question):
      files under the host's projects directory. A successful hook run is a record
      `{"type": "attachment", "attachment": {"type": "hook_success", …}}`, and the
      fields are inside `attachment`: `hookEvent`, `hookName`, `toolUseID`,
-     `command`, `exitCode`, `stdout`, `stderr`, `content`, `durationMs`. Blocked runs
-     (`hook_blocking_error`) and injected context (`hook_additional_context`) records
-     carry no duration. Group by event and by the script's file stem; for a binary
+     `command`, `exitCode`, `stdout`, `stderr`, `content`, `durationMs`. Also count
+     `hook_cancelled` (retain `timedOut` separately) and `hook_non_blocking_error`;
+     read each record's actual fields before aggregating. Preserve cancellations,
+     timeouts, runtime errors and guard refusals as distinct outcomes. Missing
+     duration is unknown cost, not zero. Blocked runs (`hook_blocking_error`) and
+     injected context (`hook_additional_context`) may carry no duration. Group by
+     event and by the script's file stem; for a binary
      use its file name, and for a hook with no executable (a prompt) use the text.
      Parse `command` with Python's `shlex.split` rather than `str.split` (a path
      containing a space breaks the latter). Deduplicate forked or resumed
-     transcripts by `(toolUseID, command)`. Report count, median, p95 and max per
-     hook, and set the alert threshold from the observed distribution rather than a
-     guess: in one week's data most hooks had a median far below a second, and the
-     few worth reading were those with a median of 1 s or more, or a p95 of 5 s or
-     more.
+     transcripts using a proved per-invocation record identity. When using
+     `toolUseID`, include `hookEvent`, `hookName` and command identity; identical
+     commands on different events or hooks are distinct runs. Missing or empty
+     identifiers do not prove duplication. Keep provenance so copied records can
+     be reconciled without collapsing separate invocations. Report count, median,
+     p95 and max per hook. Keep a minimum sample size for distribution alerts,
+     but add a separate single-run maximum alert so one extreme successful run
+     is not suppressed for lack of samples. Choose both thresholds from measured
+     cost and the runtime's latency budget; do not describe a singleton's p95 as
+     a reliable distribution.
      **Not every run leaves a record.** Probe: count one hook's records in a
      transcript and compare with the session's tool calls it matches. In one session
      (682 Bash calls, 2026-09-30) each PreToolUse advisor of ours had between 2 and
@@ -2777,19 +2800,19 @@ this list and describe defects you reach by asking a different question):
      the case below), so no background process is needed. That threshold is one
      run's seconds; the median and p95 lines in step 1 describe a hook's whole
      distribution. Set them separately.
-  4. A health check that runs every hook's self-test at session start is a common
-     slow pass. Keep a stamp per hook, for example `<hash of the hook path>.pass`
-     holding the signature and the epoch seconds of the last pass. The signature is
-     the file's modification time and size, read through symlinks
-     (`stat -L -f '%m %z'` on BSD and macOS, `stat -L -c '%Y %s'` on GNU), so an edit
-     made through a symlink counts. Skip the self-test when the signature is
-     unchanged and the last pass is younger than a TTL, a day being a workable
-     default. A failure, a changed file, and a missing, corrupt or unreadable stamp
-     all still run the self-test, and a failed run writes no stamp. The signature
-     covers the hook file only: an edit to a helper it sources goes unseen until the
-     TTL expires, so include those files in the signature if the TTL is long.
-     Measure the change by alternating old and new on one machine: machine load
-     moves the number more than the code does.
+  4. A health check that runs every hook's full self-test at session start is a
+     common slow pass. Put the full battery in the owning build/commit check;
+     startup may run bounded deployment and owner-declared offline bidirectional
+     liveness probes. A missing mode leaves logic coverage unknown/incomplete;
+     never fall back to a selftest battery or machine audit. Use
+     #49's dependency and runtime identity for any pass cache, with separate probe
+     and full-pass stamps. A failed, timed-out, cancelled or unexamined test writes
+     no pass stamp (#53). Give individual probes and the entire startup scan their
+     own deadlines and clean up only their own descendants. Keep failed diagnostic
+     output and report the checked and unexamined boundary when the total budget
+     ends. Measure startup and full-validation costs separately: a changed helper,
+     missing stamp or expired cache must not move the full battery back to startup.
+     Compare old and new on one machine under similar load.
 - **Real case (2026-09-29, one hooks repository):** adding per-hook timing to a
   weekly hook report showed a SessionStart health check at a median of 65 s over 257
   runs in a week. A trace (`bash -x` with `PS4='+T$SECONDS '`, then the largest gaps
@@ -2978,3 +3001,76 @@ this list and describe defects you reach by asking a different question):
   instead of believing the plausible explanation (see #52's two corrections).
   The incident facts were all reproducible; only the generalization was
   wrong.
+
+## 56. A medium heredoc can block Bash before its reader starts on macOS
+
+- **Symptom:** a hook stops during heredoc setup, before its intended child
+  produces output; syntax checks pass and the same script may work under another
+  shell or system load.
+- **Cause:** an affected Bash build chooses a pipe using a capacity measured at
+  compile time. macOS can reduce the available pipe capacity with system-wide
+  pipe usage. Writing the heredoc before a reader starts can then block. This is
+  a shell redirection failure, not evidence that the child or its service hung.
+  GNU Bash's [bash53-016 patch](https://ftp.gnu.org/gnu/bash/bash-5.3-patches/bash53-016)
+  uses a nonblocking write and falls back to a temporary file on capacity errors.
+- **Diagnose and repair:** identify the exact registered Bash executable and
+  patch level. Use a bounded harmless reproduction and process evidence to
+  distinguish shell setup from a running child; retain unknown when that evidence
+  is missing. Verify the patched build or use a tested file-backed input under
+  the hook's existing contract. Re-run through the registered executable, not
+  whichever `bash` happens to resolve in an interactive shell. Do not turn an
+  observed capacity into a constant for every macOS machine, or stress the live
+  host by exhausting its pipes to reproduce it. Keep the startup deadline from
+  #50 even after fixing this particular cause.
+## 57. bash 3.2 scans a quoted heredoc *inside `$( )`* for quote characters — one stray backtick in a body comment kills the whole file, and every guard in it dies silently
+
+  Sibling of #56, same macOS heredoc family, opposite phase: #56 is the
+  *writer* blocking before the reader starts; this one is the *parser*
+  miscounting quotes before anything runs.
+
+- **Symptom:** `bash -n file` fails with
+  `unexpected EOF while looking for matching '`'`, and the line it names is deep
+  inside a quoted heredoc body — an innocent Python line, or even a comment — far
+  from any real quoting error. Several hook files fail at once after one routine
+  edit. The file is dead *in toto*: the shell cannot parse it, so the hook never
+  runs at all, and a hook whose contract is "always exit 0" (an injector, a
+  reminder) gives no signal that it has stopped running.
+- **Cause and fix:** on macOS, `#!/usr/bin/env bash` resolves to the stock
+  **bash 3.2** (it stays first in PATH even after a newer bash is installed), and
+  bash 3.2 parses the body of a quoted heredoc that sits **inside a command
+  substitution** with quote awareness: every `'`, `"`, and `` ` `` in the body —
+  including inside comments and example code — toggles parser quote state. One
+  line with an odd count (a markdown-ish `` `) ))"` `` in a comment is enough)
+  poisons everything after it; the error then surfaces at EOF or at a random
+  later line. The same bytes at top level parse fine — identical body outside
+  `$( )`, different verdict — which sends you hunting in the wrong place. The
+  fix is structural, not quote-whack-a-mole: **hoist the heredoc out of the
+  command substitution.** Read the program into a variable at top level (top-level
+  quoted heredocs are immune — verified against the failing bytes), then execute
+  it *through the environment*, not the command line:
+  `IFS= read -rd '' PROG <<'EOF' … EOF || true`, then
+  `PROG="$PROG" python3 -c 'import os;exec(os.environ["PROG"])'` — env values are
+  never re-parsed by the shell, so `$`, backticks, and backslashes pass through
+  byte-exact. Do **not** reach for `python3 -c "$PROG"`: inside double quotes the
+  program text is re-expanded — a regex like `$((…))` in a comment becomes
+  arithmetic expansion and `$(…)` becomes command substitution, the same bug
+  class in a new costume (and a cousin of #9). Do not "fix" it by rebalancing
+  quotes in the comments either — the next comment re-breaks it; the hoisted
+  form makes the body permanently inert to the shell parser.
+- **Real case (2026-10-03/04, a 61-hook guard fleet):** a routine commit edited
+  four hook files whose Python bodies lived in `$(python3 - <<'EOF' …)` blocks.
+  Comment edits left a stray backtick in one body and an escaped `\"` in another;
+  all four files failed `bash -n` whole-file, so four production guards — among
+  them a push *injector* whose contract is to always exit 0 — silently stopped
+  running. Nothing fired for hours: exit codes stayed green by design, and the
+  only detector that caught it was the SessionStart health check's *syntax*
+  pass (its selftest stamps happily re-validated the other hooks). The first
+  repair attempt then demonstrated the second half of the trap: editing the
+  body to please the *shell* parser (dropping a backslash before a quote inside
+  a Python raw string) converted the shell syntax error into a *Python* syntax
+  error that only fired at runtime under `2>/dev/null` — invisible to
+  `bash -n`, caught only because the bidirectional selftest asserted both a
+  must-fire and a must-quiet row. Two confirmations in one incident: whole-file
+  parse failure is the failure mode that turns one stray character into a dead
+  fleet, and only a two-sided selftest sees a guard that dies in ways exit
+  codes cannot show.

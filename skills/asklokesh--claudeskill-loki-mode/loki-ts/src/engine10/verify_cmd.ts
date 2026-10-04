@@ -8,6 +8,7 @@ import { createHash, createPublicKey, verify, type KeyObject } from "node:crypto
 import { lokiDir } from "../util/paths.ts";
 import { readEvents } from "./events.ts";
 import { kidOf, loadSigningKey, receiptSha256 } from "./stages/seal.ts";
+import { exportDsseReceipt, isEnvelope, outcomeOf, runIdGuard, verifyDsseReceipt } from "../features/receipt_dsse.ts";
 import { verifyGroup } from "../features/speed/seal_group.ts"; import { takePubkey } from "./keys_cmd.ts"; import { receiptScreensProblem } from "../features/visual_evidence.ts";
 export type Verdict = "VERIFIED" | "UNSIGNED" | "TAMPERED" | "UNCHECKED";
 export interface VerifyResult {
@@ -20,6 +21,7 @@ export const computeReceiptHash = (receipt: Record<string, unknown>): string => 
 export interface VerifyDeps {
   runsRoot?: string; // overrides lokiDir()/runs, for tests
   pubkey?: KeyObject; // --pubkey: check against this key only, never the local JWKS
+  read?: (path: string) => string; // reads the receipt file (tests count reads); default readFileSync utf8
 }
 interface AttestationOutcome { status: "verified" | "tampered" | "unchecked"; reason: string | null }
 /** The public key for a kid: the local key's public half, or a retired one from LOKI_RECEIPT_RETIRED_PUBKEYS (colon-separated PEM paths). Never creates a key. */
@@ -76,7 +78,8 @@ function checkLogSeal(receiptPath: string, hash: string, kid: unknown, given?: K
 export async function verifyReceipt(receiptPath: string, deps: VerifyDeps = {}): Promise<VerifyResult> {
   if (!existsSync(receiptPath)) return { verdict: "UNCHECKED", reasons: [`receipt not found: ${receiptPath}`] };
   let receipt: Record<string, unknown>;
-  try { receipt = JSON.parse(readFileSync(receiptPath, "utf8")); } catch { return { verdict: "UNCHECKED", reasons: ["receipt.json is not valid JSON"] }; }
+  try { receipt = JSON.parse((deps.read ?? ((p) => readFileSync(p, "utf8")))(receiptPath)); } catch { return { verdict: "UNCHECKED", reasons: ["receipt.json is not valid JSON"] }; }
+  if (isEnvelope(receipt)) return verifyDsseReceipt(receipt, { pubFor: (kid) => pubFor(kid, deps.pubkey), hash: computeReceiptHash, attest: (j, h) => checkAttestation(j, h, deps.pubkey) }); // INTEL-1: DSSE envelope
   const recorded = receipt["receipt_sha256"];
   const computed = computeReceiptHash(receipt);
   if (typeof recorded !== "string" || recorded !== computed) {
@@ -95,6 +98,9 @@ export async function verifyReceipt(receiptPath: string, deps: VerifyDeps = {}):
   const outcome = checkAttestation(jwt, computed, deps.pubkey);
   if (outcome.status === "unchecked") return { verdict: "UNCHECKED", reasons: [outcome.reason ?? "attestation not checked"] };
   if (outcome.status === "tampered") return { verdict: "TAMPERED", reasons: [outcome.reason ?? "attestation invalid"] };
+  // verification.kid is shown to readers but sits outside receipt_sha256; the signed JWT header kid is the truth, so a forged display kid is TAMPERED.
+  const shownKid = (verification as { kid?: unknown }).kid, signedKid = (JSON.parse(Buffer.from(jwt.split(".")[0]!, "base64url").toString()) as { kid?: unknown }).kid;
+  if (shownKid !== undefined && shownKid !== signedKid) return { verdict: "TAMPERED", reasons: ["verification.kid differs from the signing kid in the attestation header (metadata outside the signed digest was edited)"] };
   const seal = receipt["log_seal"] !== true ? null : checkLogSeal(receiptPath, computed, (JSON.parse(Buffer.from(jwt.split(".")[0]!, "base64url").toString()) as { kid?: unknown }).kid, deps.pubkey);
   if (seal) return { verdict: seal.verdict, reasons: [seal.reason] };
   if (gp) return { verdict: gp.verdict, reasons: [gp.reason] };
@@ -109,9 +115,10 @@ function latestRunId(runsRoot: string): string | null {
 const EXIT_BY_VERDICT: Record<Verdict, number> = { VERIFIED: 0, UNSIGNED: 3, TAMPERED: 1, UNCHECKED: 2 };
 export async function main(args: readonly string[], deps: VerifyDeps = {}): Promise<number> {
   const allowUnsigned = args.includes("--allow-unsigned") || process.env["LOKI_VERIFY_ALLOW_UNSIGNED"] === "1";
-  args = args.filter((a) => a !== "--allow-unsigned");
+  const exportDsse = args.includes("--export-dsse");
+  args = args.filter((a) => a !== "--allow-unsigned" && a !== "--export-dsse");
   if (args[0] === "--help" || args[0] === "-h") {
-    process.stdout.write("Usage: loki verify [run-id]\nVerify .loki/runs/<run-id>/receipt.json (default: latest run).\nExit: 0 verified, 1 tampered, 2 unchecked, 3 unsigned (refused), 4 run outcome not verified, 66 no runs.\nOptions: --allow-unsigned (or LOKI_VERIFY_ALLOW_UNSIGNED=1) accepts an UNSIGNED receipt; never changes tampered/unchecked.\n         --pubkey FILE (or --pubkey=FILE, once) checks the signature against that Ed25519 JWK/PEM public key only, never the local JWKS.\nUnknown flags and more than one run-id exit 2.\n");
+    process.stdout.write("Usage: loki verify [run-id]\nVerify .loki/runs/<run-id>/receipt.json (default: latest run).\nExit: 0 verified, 1 tampered, 2 unchecked, 3 unsigned (refused), 4 run outcome not verified, 66 no runs.\nOptions: --allow-unsigned (or LOKI_VERIFY_ALLOW_UNSIGNED=1) accepts an UNSIGNED receipt; never changes tampered/unchecked.\n         --pubkey FILE (or --pubkey=FILE, once) checks the signature against that Ed25519 JWK/PEM public key only, never the local JWKS.\n         --export-dsse prints a VERIFIED or ALREADY_SATISFIED run receipt as an in-toto Statement v1 in a DSSE envelope (Ed25519 over PAE); verify accepts that file too.\nUnknown flags and more than one run-id exit 2.\n");
     return 0;
   }
   const pk = takePubkey(args);
@@ -122,10 +129,14 @@ export async function main(args: readonly string[], deps: VerifyDeps = {}): Prom
   const runId = args[0] ?? latestRunId(runsRoot) ?? undefined;
   if (!runId) return (process.stderr.write("loki verify: no runs found\n"), 66);
   const receiptPath = existsSync(runId) && statSync(runId).isFile() ? runId : join(runsRoot, runId, "receipt.json"); // a receipt file path works directly
+  const byRunId = !(existsSync(runId) && statSync(runId).isFile());
+  if (exportDsse) return exportDsseReceipt({ receiptPath, runId: byRunId ? runId : null, deps, verify: verifyReceipt, key: loadSigningKey(false), kidOf }); // INTEL-1 / INTEL-1b
+  const bad = byRunId ? runIdGuard(receiptPath, runId) : null; // INTEL-1b: an envelope found under a run id must be for that run
+  if (bad) return (process.stdout.write(`run: ${runId}\nverdict: TAMPERED\n  ${bad}\n`), 1);
   const result = await verifyReceipt(receiptPath, deps);
   // An intact (VERIFIED or UNSIGNED) receipt of a run that did not verify is never exit 0 and no flag changes that; unreadable fails closed.
   if (result.verdict === "VERIFIED" || result.verdict === "UNSIGNED") {
-    const outcome = (() => { try { return String(JSON.parse(readFileSync(receiptPath, "utf8")).verdict); } catch { return "UNREADABLE"; } })();
+    const outcome = (() => { try { return outcomeOf(JSON.parse(readFileSync(receiptPath, "utf8"))); } catch { return "UNREADABLE"; } })();
     if (outcome !== "VERIFIED" && outcome !== "ALREADY_SATISFIED") { process.stdout.write(`run: ${runId}\nverdict: NOT VERIFIED (run outcome ${outcome}; receipt integrity ${result.verdict === "UNSIGNED" ? "unattested" : "intact"})\n`); return 4; }
   }
   process.stdout.write(`run: ${runId}\nverdict: ${result.verdict}\n`);

@@ -205,9 +205,10 @@ def run_workspace(name, ref, workspaces, base_dir=None, launcher=None):
     run_dir = os.path.join(base_dir, ".loki", "workspaces", name, run_id)
     os.makedirs(run_dir, exist_ok=True)
     launcher = launcher or os.environ.get("LOKI_WORKSPACE_LAUNCHER") or os.path.join(REPO_ROOT, "bin", "loki")
-    child_env_base = dict(os.environ, LOKI_ENGINE="v10", LOKI_NO_BROWSER="1")
+    child_env_base = dict(os.environ, LOKI_NO_BROWSER="1")
 
     outcome, worktrees, heads, kind = {}, {}, {}, {}
+    timing = {}  # repo -> {started_at, finished_at} epoch seconds
     running = {}  # repo -> (Popen, log file handle)
     try:
         conc = max(1, int(os.environ.get("LOKI_WORKSPACE_CONCURRENCY") or ws.get("concurrency") or 2))
@@ -220,6 +221,22 @@ def run_workspace(name, ref, workspaces, base_dir=None, launcher=None):
                 os.killpg(p.pid, signal.SIGTERM)
             except OSError:
                 pass
+        now = time.time()
+        for r in list(running):
+            outcome[r] = "INTERRUPTED"
+            kind[r] = "fail"
+            timing[r]["finished_at"] = now
+        for e in pending:
+            outcome.setdefault(e["repo"], "INTERRUPTED (not started)")
+        try:
+            ev_i = {"status": "interrupted", "outcomes": outcome,
+                    "timing": {r: t for r, t in timing.items() if "finished_at" in t}}
+            ip = os.path.join(run_dir, "integration.json")
+            with open(ip + ".tmp", "w") as f:
+                json.dump(ev_i, f, indent=2, sort_keys=True)
+            os.replace(ip + ".tmp", ip)
+        except OSError:
+            pass
         sys.exit(130)
     if threading.current_thread() is threading.main_thread():
         signal.signal(signal.SIGTERM, stop)
@@ -260,12 +277,14 @@ def run_workspace(name, ref, workspaces, base_dir=None, launcher=None):
             p = subprocess.Popen([launcher, arg], cwd=wt, env=dict(child_env_base, **extra), stdout=lf,
                                  stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
             running[repo] = (p, lf)
+            timing[repo] = {"started_at": time.time()}
         for repo, (p, lf) in list(running.items()):
             rc = p.poll()
             if rc is None:
                 continue
             lf.close()
             running.pop(repo)
+            timing[repo]["finished_at"] = time.time()
             if rc == 0:
                 outcome[repo], kind[repo] = "ok", "ok"
             else:
@@ -281,6 +300,7 @@ def run_workspace(name, ref, workspaces, base_dir=None, launcher=None):
 
     ev = run_integration(ws, run_dir, worktrees, heads)
     ev["outcomes"] = outcome
+    ev["timing"] = {r: t for r, t in timing.items() if "finished_at" in t}
     ev_path = os.path.join(run_dir, "integration.json")
     tmp = ev_path + ".tmp"
     with open(tmp, "w") as f:
@@ -314,8 +334,11 @@ def _runs(base_dir):
             try:
                 with open(path) as f:
                     yield name, run_id, json.load(f)
-            except (OSError, ValueError):
+            except FileNotFoundError:
                 continue
+            except (OSError, ValueError) as e:
+                yield name, run_id, {"state": "unreadable", "status": "unreadable",
+                                     "error": "%s: %s" % (type(e).__name__, e)}
 
 
 def status(base_dir, run_id=None, say=say):
@@ -328,6 +351,9 @@ def status(base_dir, run_id=None, say=say):
         say("%s %s" % (name, rid))
         for repo, res in sorted((ev.get("outcomes") or {}).items()):
             say("%-30s %s" % (repo, res))
+        if ev.get("state") == "unreadable":
+            say("%-30s %s (%s)" % ("integration", "unreadable", ev.get("error")))
+            continue
         say("%-30s %s" % ("integration", ev.get("status")))
     return 0
 

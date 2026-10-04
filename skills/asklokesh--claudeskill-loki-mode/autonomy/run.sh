@@ -5553,7 +5553,7 @@ except Exception:
 # prompt over IPC; it is left untouched here) explicitly to route around
 # this. The boundary is a CI job that holds
 # no write token and no SSH agent while the agent runs (see
-# .github/workflows/loki-issue-to-pr.yml).
+# docs/examples/loki-issue-to-pr.yml.example).
 #===============================================================================
 _LOKI_WITHHELD_TOKENS=""
 _LOKI_GIT_CONFIG_COUNT_UNSUPPORTED=""
@@ -7581,7 +7581,7 @@ _write_pricing_json() {
     "fable":           {"input": 10.00, "output": 50.00, "label": "Fable 5 (top, 2x Opus)", "provider": "claude"},
     "claude-fable-5":  {"input": 10.00, "output": 50.00, "label": "Fable 5 (top, 2x Opus)", "provider": "claude"},
     "opus":            {"input": 5.00,  "output": 25.00, "label": "Opus (latest)",   "provider": "claude"},
-    "sonnet":          {"input": 3.00,  "output": 15.00, "label": "Sonnet (latest)", "provider": "claude"},
+    "sonnet":          {"input": 2.00,  "output": 10.00, "label": "Sonnet (latest)", "provider": "claude"},
     "haiku":           {"input": 1.00,  "output": 5.00,  "label": "Haiku (latest)",  "provider": "claude"},
     "gpt-5.3-codex":   {"input": 1.75,  "output": 14.00, "label": "GPT-5.3 Codex", "provider": "codex"}
   }
@@ -9884,12 +9884,19 @@ setup_agent_branch() {
             # file is gone when the user switches back. On conflict the resume
             # is refused and a fresh session branch (with a fresh snapshot) is
             # minted below.
-            if git checkout --no-overwrite-ignore "$recorded" >/dev/null 2>&1; then
+            local resume_err="" resume_files=""
+            if resume_err="$(git checkout --no-overwrite-ignore "$recorded" 2>&1 >/dev/null)"; then
                 log_info "Resuming on recorded agent branch: ${recorded}"
                 _loki_resume_snapshot
                 return 0
             fi
-            log_warn "Recorded agent branch ${recorded} could not be checked out - creating a new one"
+            # git lists the blocking paths as tab-indented lines.
+            resume_files="$(printf '%s\n' "$resume_err" | sed -n 's/^[[:space:]][[:space:]]*//p' | head -5 | paste -sd, - | sed 's/,/, /g')"
+            if [ -n "$resume_files" ]; then
+                log_warn "Recorded agent branch ${recorded} could not be checked out because it would overwrite your ignored file(s): ${resume_files} - creating a new one; the earlier commits stay on ${recorded}"
+            else
+                log_warn "Recorded agent branch ${recorded} could not be checked out - creating a new one; the earlier commits stay on ${recorded}"
+            fi
         fi
     fi
 
@@ -10640,10 +10647,70 @@ _loki_snapshot_preexisting() {
 # entirely absent from the sealed snapshot this function ultimately feeds.
 _loki_untracked_status() {
     local top="" prefix="" gittool=""
+    local genv=() fk="" fn="" n=0
     gittool="$(_loki_snapshot_git_tool)" || return 1
-    top="$("$gittool" rev-parse --show-toplevel 2>/dev/null)" || return 1
-    prefix="$("$gittool" rev-parse --show-prefix 2>/dev/null)" || return 1
-    "$gittool" -C "$top" --no-optional-locks status --porcelain -z --no-renames -uall \
+    # Version floor: GIT_CONFIG_COUNT needs git >= 2.31 and GIT_NO_LAZY_FETCH
+    # (no hook-running lazy fetch) needs git >= 2.44. Unparseable also refuses.
+    local gver="" gmaj="" gmin=""
+    gver="$(LC_ALL=C "$gittool" --version 2>/dev/null)" || gver=""
+    gver="${gver#git version }"
+    gmaj="${gver%%.*}"
+    gmin="${gver#*.}"
+    gmin="${gmin%%.*}"
+    case "${gmaj}${gmin}" in
+        '' | *[!0-9]*) gmaj="" ;;
+    esac
+    if [ -z "$gmaj" ] || [ -z "$gmin" ] || [ "$gmaj" -lt 2 ] || { [ "$gmaj" -eq 2 ] && [ "$gmin" -lt 44 ]; }; then
+        echo "snapshot: git >= 2.44 required (got '${gver:-unknown}'); refusing to run status unprotected" >&2
+        return 1
+    fi
+    # Inherited GIT_DIR / GIT_WORK_TREE would repoint every call below.
+    top="$(env -u GIT_DIR -u GIT_WORK_TREE "$gittool" rev-parse --show-toplevel 2>/dev/null)" || return 1
+    prefix="$(env -u GIT_DIR -u GIT_WORK_TREE "$gittool" rev-parse --show-prefix 2>/dev/null)" || return 1
+    # BACKLOG 131c: a repo-local core.fsmonitor is a command git runs on
+    # status; the agent can write .git/config, so disable it (and the
+    # untracked cache it could have poisoned) for this one call.
+    # A filter driver named by attributes (clean/smudge/process) is also a
+    # command git runs when status compares a stat-dirty tracked file, so every
+    # configured driver is blanked: clean/smudge/process become empty (never
+    # `cat`, which resolves from PATH) and required is false.
+    # The overrides travel as GIT_CONFIG_KEY_n / GIT_CONFIG_VALUE_n, never as
+    # `-c key=value`: git splits -c at the first "=", so a driver named "x=y"
+    # would be missed. GIT_NO_LAZY_FETCH stops a partial-clone status from
+    # fetching a missing blob over an agent-written core.sshCommand. Inherited
+    # GIT_DIR, GIT_WORK_TREE, GIT_CONFIG_PARAMETERS and GIT_CONFIG_GLOBAL are
+    # dropped and GIT_CONFIG_COUNT is overwritten, never appended to. LC_ALL=C
+    # keeps the name lookup byte-exact for non-UTF-8 driver names.
+    genv=(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_CONFIG_PARAMETERS -u GIT_CONFIG_GLOBAL
+        LC_ALL=C GIT_NO_LAZY_FETCH=1)
+    # The NUL-delimited listing goes to a file beside the output path, read by
+    # a loop in this shell (it appends to genv and n); removed right after the
+    # loop, before any later return path.
+    : > "${1}.filters" || return 1
+    "${genv[@]}" "$gittool" -C "$top" config -z --name-only --get-regexp \
+        '^filter\..*\.(clean|smudge|process)$' > "${1}.filters" 2>/dev/null || true
+    while IFS= read -r -d '' fk; do
+        fn="${fk%.*}"
+        genv+=("GIT_CONFIG_KEY_${n}=${fk}" "GIT_CONFIG_VALUE_${n}=")
+        n=$((n + 1))
+        genv+=("GIT_CONFIG_KEY_${n}=${fn}.required" "GIT_CONFIG_VALUE_${n}=false")
+        n=$((n + 1))
+    done < "${1}.filters"
+    rm -f "${1}.filters"
+    # Prove the overrides are visible with a per-call random nonce (a constant
+    # could be planted in .git/config by the agent), or refuse to run.
+    local nonce=""
+    nonce="$(od -An -tx8 -N8 /dev/urandom 2>/dev/null | tr -d ' \n')"
+    [ -n "$nonce" ] || return 1
+    genv+=("GIT_CONFIG_KEY_${n}=loki.snapshot.sentinel" "GIT_CONFIG_VALUE_${n}=${nonce}")
+    n=$((n + 1))
+    genv+=("GIT_CONFIG_COUNT=${n}")
+    if [ "$("${genv[@]}" "$gittool" -C "$top" config --get loki.snapshot.sentinel 2>/dev/null)" != "$nonce" ]; then
+        echo "snapshot: git does not honor GIT_CONFIG_COUNT; refusing to run status unprotected" >&2
+        return 1
+    fi
+    "${genv[@]}" "$gittool" -C "$top" -c core.fsmonitor=false -c core.untrackedCache=false \
+        --no-optional-locks status --porcelain -z --no-renames -uall \
         --ignored=matching --ignore-submodules=all -- ":(exclude,literal)${prefix}.loki" \
         > "$1" 2>/dev/null && return 0
     rm -f "$1"
@@ -11045,11 +11112,22 @@ _loki_untrack_agent_committed_user_files() {
     fi
     mv -f "$rec.new" "$rec"
     names="$(_loki_nul_names "$rec")"
+    # S-220: keep what the agent force-staged. Save the index as a tree, make the
+    # removal commit from the branch tip alone, then restore the saved index minus
+    # the removed paths. A global `git reset -q` here dropped those staged files
+    # from the session commit that follows. No saved tree (unmerged index): the
+    # old full reset still applies.
+    local saved_tree=""
+    saved_tree="$(git write-tree 2>/dev/null)" || saved_tree=""
     git reset -q >/dev/null 2>&1 || true
     if ! git -C "$top" update-index -z --force-remove --stdin < "$rec" >/dev/null 2>&1 \
        || ! git commit -q -m "Loki Mode: untrack pre-existing user files the agent committed" >/dev/null 2>&1; then
         log_warn "The agent committed your pre-existing files on $1 and Loki could not remove them from the branch: ${names}. They are on disk. Before switching branches, run git rm --cached on each and commit, or a checkout of the base deletes them. Left uncommitted: no session commit."
         return 1
+    fi
+    if [ -n "$saved_tree" ]; then
+        { git read-tree "$saved_tree" \
+            && git -C "$top" update-index -z --force-remove --stdin < "$rec"; } >/dev/null 2>&1 || true
     fi
     log_warn "The agent committed your pre-existing untracked or ignored files on $1: ${names}. Loki removed them from the branch tip; they stay on disk, untracked. The branch history still holds them: do not push $1 as-is. To drop them from its history: git reset --soft ${fork} && git commit"
     audit_agent_action "git_untrack_user_files" "Removed pre-existing user files the agent committed" "files=${names}" || true
@@ -11156,11 +11234,22 @@ commit_session_changes() {
     # (_commit_path_looks_secret + _commit_scan_secret_file over EVERY staged
     # file) is the actual guarantee for nested/weak secrets; these excludes are a
     # cheap first cut for the obvious top-level files only.
+    # S-219: a failed add must not fall through to the "nothing staged" no-op,
+    # which would silently commit nothing. Unstage any partial result and say so.
+    # rc 1 is benign: git exits 1 after staging everything else when a pathspec
+    # (':!.loki') names an ignored path, which is the normal case. A real
+    # failure (unreadable file, lock) exits 128.
+    local add_rc=0
     git add -A \
         ':!.loki' ':!.loki/' \
         ':!.env' ':!.env.*' ':!*.env' \
         ':!*.key' ':!*.pem' ':!*.p12' ':!*.keystore' \
-        ':!id_rsa*' ':!*.token' ':!credentials*' 2>/dev/null || true
+        ':!id_rsa*' ':!*.token' ':!credentials*' 2>/dev/null || add_rc=$?
+    if [ "$add_rc" -gt 1 ]; then
+        git reset -q >/dev/null 2>&1 || true
+        log_warn "Left uncommitted: could not stage the session's changes (git add failed). Review and commit manually."
+        return 0
+    fi
 
     # Unstage exactly the paths recorded as untracked or gitignored when the
     # session started (setup_agent_branch; a "dir/" entry covers its subtree):
@@ -11715,6 +11804,26 @@ result = {
     "successes": filter_relevant(successes, context)
 }
 
+# Project memory: learnings and decisions persisted by earlier runs in THIS
+# project, newest first, bounded by entry count and total characters.
+if os.environ.get("LOKI_PROJECT_MEMORY", "1") != "0":
+    try:
+        max_chars = int(os.environ.get("LOKI_PROJECT_MEMORY_MAX_CHARS", "2000"))
+    except ValueError:
+        max_chars = 2000
+    mem, used = [], 0
+    for kind in ("mistakes", "patterns", "successes"):
+        for e in reversed(load_jsonl(f".loki/memory/learnings/project-{kind}.jsonl")):
+            d = e.get("description", "").strip()[:300]
+            if not d or used + len(d) > max_chars:
+                continue
+            used += len(d)
+            mem.append({"kind": kind[:-1] if kind != "successes" else "success", "description": d})
+            if len(mem) >= 15:
+                break
+    if mem:
+        result["project_memory"] = mem
+
 with open(".loki/state/relevant-learnings.json", 'w') as f:
     json.dump(result, f, indent=2)
 LEARNINGS_SCRIPT
@@ -11774,7 +11883,23 @@ def get_existing_hashes(filepath):
     return hashes
 
 def save_entries(filepath, entries, category):
-    """Save entries avoiding duplicates (case-insensitive)"""
+    """Save entries avoiding duplicates (case-insensitive).
+
+    Also mirrors into the project-scoped memory (.loki/memory/learnings/
+    project-<kind>.jsonl) so the next run in this project reads them back.
+    """
+    if os.environ.get("LOKI_PROJECT_MEMORY", "1") != "0":
+        try:
+            pdir = ".loki/memory/learnings"
+            os.makedirs(pdir, exist_ok=True)
+            pfile = os.path.join(pdir, "project-" + os.path.basename(filepath))
+            if pfile != filepath:
+                save_entries_to(pfile, entries, category)
+        except Exception:
+            pass
+    return save_entries_to(filepath, entries, category)
+
+def save_entries_to(filepath, entries, category):
     existing = get_existing_hashes(filepath)
     saved = 0
     with open(filepath, 'a') as f:
@@ -19433,8 +19558,14 @@ start_dashboard() {
         # Auto-open the dashboard in the browser, but ONLY for an interactive
         # foreground session. loki_open_url (lib/browser-open.sh) refuses on
         # no TTY, CI, test runners, LOKI_NO_BROWSER=1 or LOKI_NO_AUTO_OPEN=1.
+        # CP-LEGACY (D57): open the Control Plane, not this legacy server,
+        # unless LOKI_LEGACY_DASHBOARD=1 opts back in.
         if [ "${BACKGROUND_MODE:-false}" != "true" ]; then
-            loki_open_url "${url_scheme}://127.0.0.1:$DASHBOARD_PORT/" 2>/dev/null || true
+            if [ "${LOKI_LEGACY_DASHBOARD:-0}" = "1" ]; then
+                loki_open_url "${url_scheme}://127.0.0.1:$DASHBOARD_PORT/" 2>/dev/null || true
+            elif [ -t 1 ] && [ "${LOKI_NO_AUTO_OPEN:-0}" != "1" ] && [ -x "${skill_dir}/autonomy/loki" ]; then
+                LOKI_UI_NO_CLASSIC=1 "${skill_dir}/autonomy/loki" ui >/dev/null 2>&1 || true
+            fi
         fi
         return 0
     else
@@ -20119,7 +20250,7 @@ pricing = {
     'fable': {'input': 10.00, 'output': 50.00},
     'claude-fable-5': {'input': 10.00, 'output': 50.00},
     'opus': {'input': 5.00, 'output': 25.00},
-    'sonnet': {'input': 3.00, 'output': 15.00},
+    'sonnet': {'input': 2.00, 'output': 10.00},
     'haiku': {'input': 1.00, 'output': 5.00},
     'gpt-5.3-codex': {'input': 1.75, 'output': 14.00},
     'gpt-5.6-sol': {'input': 2.50, 'output': 20.00},
@@ -24697,10 +24828,14 @@ except Exception:
     if [[ "${ENABLE_DASHBOARD:-true}" == "true" ]] && command -v curl &>/dev/null; then
         local project_cwd
         project_cwd="$(pwd)"
-        curl -sf -X POST "http://127.0.0.1:${DASHBOARD_PORT}/api/focus" \
+        # CPE-24: the Control Plane answers 501 (no focus API). Best-effort; say so
+        # honestly in debug output rather than treating the miss as an error.
+        _focus_code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:${DASHBOARD_PORT}/api/focus" \
             -H "Content-Type: application/json" \
-            -d "{\"project_dir\": \"${project_cwd}\"}" \
-            >/dev/null 2>&1 || true
+            -d "{\"project_dir\": \"${project_cwd}\"}" 2>/dev/null || true)"
+        case "$_focus_code" in
+            501|410) type log_debug >/dev/null 2>&1 && log_debug "project focus: not available on the Control Plane (HTTP ${_focus_code})" ;;
+        esac
     fi
 
     # Initialize Cross-Provider Failover (v6.19.0)

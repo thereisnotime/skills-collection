@@ -7,12 +7,11 @@ dashboard/telemetry.py:generic-api-key:28
 # Reviewed product/configuration prose; these values are feature flags and
 # iteration settings, not credentials.
 SKILL.md:generic-api-key:10
-docs/CONFIG-FILE-PLAN.md:generic-api-key:362
+docs/history/v8-config-plan.md:generic-api-key:368
 
 # Reviewed synthetic test and fixture values. Each is deliberately secret-shaped
 # so the corresponding scanner, redaction, policy, or lifecycle test is
 # non-vacuous. Exact fingerprints ensure a changed line is reviewed again.
-dashboard-ui/tests/ui-components.test.js:stripe-access-token:322
 loki-ts/tests/runner/quality_gates.test.ts:aws-access-token:1213
 tests/fixtures/project-graph/acme/ui/.loki/state/project-graph.json:generic-api-key:2
 tests/crash/test_crash_redact.py:jwt:58
@@ -115,3 +114,20 @@ ff2f4719c34fa391ad1dd664c217d7337d6e5fac:loki-ts/dist/loki.js:generic-api-key:12
 21df7d4a26b6bceff654c6686cd1beca47e3927f:tests/test-eval-archive.sh:aws-access-token:88
 # D51-B11 test fixture: ghp_FAKEtokenVALUE... is a synthetic token the test asserts never leaks into run output; not a credential.
 c09dfd1eb6f2f2cc1f81b2be0d7ddee717141d66:tests/workspace/80-comment.sh:github-pat:7
+# Reviewed fake fixture token (Sentry intake test asserts it is never printed); not a credential.
+00d12afea485ed91ff77ef0a2d8a91b408377bf3:tests/test-issue-providers.sh:generic-api-key:294
+# CPE-POLISH integrity.ts: generic-api-key matched env["LOKI_RECEIPT_SIGNING_KEY"] / _FILE env-var name lookups (public key derivation); no key material in source.
+449db8f56fce87ef05510b5ae8634ce6438a696d:packages/control-plane/src/server/integrity.ts:generic-api-key:46
+b4775bede0a04a021c89e366500ecae8ce1ae609:packages/control-plane/src/server/integrity.ts:generic-api-key:55
+# 10.11.2 full-history scan (Security Audit run 37168919918), reviewed 2026-10-04:
+# integrity.ts:55 is the default public PEM path join(..., ".loki", "keys", "receipt-ed25519.pem"), a file path, not key material.
+0eea5800ee41e01360207eb12c7fb9b7808eb62b:packages/control-plane/src/server/integrity.ts:generic-api-key:55
+39ea73011a04ddd3178b800198e6f25e90186dc7:packages/control-plane/src/server/integrity.ts:generic-api-key:55
+b5b1c30009d7a19ad37ae2856bacd93179a5f194:packages/control-plane/src/server/integrity.ts:generic-api-key:55
+# CONFIG-FILE-PLAN.md:362 is doc prose naming a config key, not a credential.
+acb76a1913ee5bb0f725832db3f192ea52a1ddb2:docs/CONFIG-FILE-PLAN.md:generic-api-key:362
+# Deleted legacy dashboard-ui maskToken test fixture: sk_live_ followed by the sequential alphabet (16 chars), a synthetic value, never a real Stripe key.
+f1aac14d33fe4bef7622848b24bb721e4800ad1d:dashboard-ui/tests/ui-components.test.js:stripe-access-token:322
+dcca5ebb5ca767b4b1358c66fc7d5d724f82251b:dashboard-ui/tests/ui-components.test.js:stripe-access-token:322
+# .gitleaksignore:123 is the comment above naming a public PEM file path; no key material.
+dd61901dc34ca13c107c7f9800171f6cec2efe45:.gitleaksignore:generic-api-key:123

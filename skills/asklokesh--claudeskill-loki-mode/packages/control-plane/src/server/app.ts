@@ -1,11 +1,19 @@
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import { cleanupLeakedFixtures } from "../db/fixture-cleanup.ts";
 import { openDb } from "../db/migrate.ts";
 import { ingest } from "./ingest.ts";
 import { defaultAnswerDir, writeAnswer } from "./answer.ts";
-import { listRuns, runDetail } from "./runs.ts";
-import { hostGuard, tokenGuard } from "./auth.ts";
+import { listRuns, recomputeLegacy, runDetail } from "./runs.ts";
+import { hostGuard, isLoopbackHost, peerIsLoopback, tokenGuard } from "./auth.ts";
+import { backfill } from "../shipper/backfill.ts";
+import { removeRun } from "../db/prune.ts";
+import type { spawnStart } from "./spawn.ts";
+import { reconcileDeadRuns } from "./reconcile.ts";
+import { syncLocalRepos, type GhRunner } from "./repos.ts";
+import { registerRoutes } from "./routes/index.ts";
+import { legacyShim } from "./legacy/shim.ts";
 
 const MAX_BODY = 1_000_000;
 
@@ -13,17 +21,30 @@ const MAX_BODY = 1_000_000;
 const defaultUiDir = () => [join(import.meta.dir, "../../ui/dist"), join(import.meta.dir, "../ui/dist")].find((d) => existsSync(join(d, "index.html")));
 
 /** dbPath ":memory:" for tests. Migrations run here, so /ready is true as soon as this returns. uiDir overrides the built-UI location. */
-export function createApp(opts: { dbPath: string; uiDir?: string; answerDir?: string; token?: string; loopbackOnly?: boolean }) {
+export function createApp(opts: { dbPath: string; uiDir?: string; answerDir?: string; token?: string; loopbackOnly?: boolean; repoDir?: string; startBin?: string; spawnImpl?: typeof spawnStart; ghImpl?: GhRunner }) {
   const uiDir = opts.uiDir ?? defaultUiDir();
   const { db, sqlite } = openDb(opts.dbPath);
+  cleanupLeakedFixtures(sqlite);
+  recomputeLegacy(db);
+  reconcileDeadRuns(db);
+  const reconciler = setInterval(() => { try { reconcileDeadRuns(db); } catch { /* best effort */ } }, 60_000);
+  reconciler.unref();
   let ready = true;
   const answerDir = opts.answerDir ?? defaultAnswerDir();
   const app = new Hono();
   // token: bearer required on /v1/*. loopbackOnly: reject a non-loopback Host (DNS rebinding). Both off by default; serve.ts sets them from env.
   if (opts.loopbackOnly) app.use("*", hostGuard());
   if (opts.token) app.use("/v1/*", tokenGuard(opts.token));
+  // Malformed percent-encoding is a client error on every route, not a 500 (or a misleading 404).
+  app.use("*", async (c, next) => {
+    try { decodeURIComponent(new URL(c.req.url).pathname); } catch { return c.json({ error: "malformed URL encoding" }, 400); }
+    await next();
+  });
 
-  app.get("/health", (c) => c.json({ service: "loki-control", pid: process.pid, install_path: import.meta.dir }));
+  // version = what this process started as; installed_version = what is on disk now. They differ after an upgrade while the CP kept running.
+  const readInstalled = (): string => { for (const f of [process.env.LOKI_VERSION_FILE, join(import.meta.dir, "../../../../VERSION")]) { try { if (f) return readFileSync(f, "utf8").trim() || "unknown"; } catch { /* next */ } } return "unknown"; };
+  const startVersion = process.env.LOKI_CONTROL_VERSION || readInstalled();
+  app.get("/health", (c) => c.json({ service: "loki-control", pid: process.pid, install_path: import.meta.dir, version: startVersion, installed_version: readInstalled() }));
   app.get("/ready", (c) => {
     try { sqlite.query("select 1").get(); } catch { ready = false; }
     return ready ? c.json({ ready: true }) : c.json({ ready: false }, 503);
@@ -61,6 +82,40 @@ export function createApp(opts: { dbPath: string; uiDir?: string; answerDir?: st
     const r = writeAnswer(answerDir, source, run, body?.answer);
     return c.json(r.body, r.status);
   });
+  // Machine-touching actions exist ONLY on a loopback-bound server (otherwise they are never registered: 404).
+  // Each request must also come from a loopback peer (the real socket address, not the spoofable Host header; unknown peer fails closed) and carry JSON (blocks cross-site form posts).
+  const act = opts.loopbackOnly ? app : new Hono();
+  const local = (c: Context) => peerIsLoopback(c) && isLoopbackHost(c.req.header("host")) && (c.req.header("content-type") ?? "").toLowerCase().startsWith("application/json");
+  const repoDir = opts.repoDir ?? process.cwd();
+  act.post("/v1/import", async (c) => {
+    if (!local(c)) return c.json({ error: "loopback JSON requests only" }, 403);
+    const r = await backfill({
+      repoDir,
+      env: { LOKI_CONTROL_URL: "http://127.0.0.1", LOKI_CONTROL_TOKEN: opts.token },
+      fetchImpl: ((u: string, init: RequestInit) => app.fetch(new Request(u, { ...init, headers: { ...(init.headers as Record<string, string>), host: "127.0.0.1" } }))) as unknown as typeof fetch,
+    });
+    return c.json({ runs: r.runs, sent: r.sent, failed: r.failed });
+  });
+  // Remove one run (and its events). Loopback-only like /v1/start (never registered on a non-loopback server); bearer via tokenGuard when a token is set. JSON content type blocks cross-site form posts;
+  // a browser Origin must match the host this server is served on. Absent Origin (curl, the CLI) is allowed. The audit row is written inside the delete transaction, before the rows go.
+  act.delete("/v1/runs/:source/:run", async (c) => {
+    if (!peerIsLoopback(c) || !isLoopbackHost(c.req.header("host"))) return c.json({ error: "loopback only" }, 403);
+    if (!(c.req.header("content-type") ?? "").toLowerCase().startsWith("application/json")) return c.json({ error: "content-type must be application/json" }, 400);
+    const origin = c.req.header("origin");
+    if (origin !== undefined) {
+      let oh = "";
+      try { oh = new URL(origin).host.toLowerCase(); } catch { /* refused below */ }
+      if (!oh || oh !== (c.req.header("host") ?? "").toLowerCase()) return c.json({ error: "origin not allowed" }, 403);
+    }
+    const source = c.req.param("source"), run = c.req.param("run");
+    const r = removeRun(sqlite, source, run);
+    if (!r) return c.json({ error: "run not found" }, 404);
+    const left = (sqlite.query("select count(*) n from runs").get() as { n: number }).n;
+    return c.json({ ok: true, removed: r, remaining_runs: left });
+  });
+  // Local discovery fills local_repos (never /v1/ingest). GET /v1/repos (names only, loopback guard) is mounted by routes/index.ts.
+  syncLocalRepos(db, repoDir);
+  registerRoutes({ app, act, db, repoDir, token: opts.token, peerIsLoopback, local, startBin: opts.startBin, spawnImpl: opts.spawnImpl, ghImpl: opts.ghImpl, answerDir });
   // :id is `source:run` (run ids never contain a colon)
   app.get("/v1/runs/:id", (c) => {
     const id = c.req.param("id");
@@ -68,9 +123,13 @@ export function createApp(opts: { dbPath: string; uiDir?: string; answerDir?: st
     return i < 0 ? c.json({ error: "id must be source:run" }, 404) : detail(c, id.slice(0, i), id.slice(i + 1));
   });
 
+  // Legacy dashboard paths (CPE-24) are answered by the shim; mounted before the SPA fallback so index.html never shadows them.
+  app.route("/", legacyShim({ db, token: opts.token, repoDir }));
+
   // Static UI with SPA fallback. Registered last so /v1, /health and /ready always win.
   app.get("*", (c) => {
-    const p = decodeURIComponent(new URL(c.req.url).pathname);
+    let p: string;
+    try { p = decodeURIComponent(new URL(c.req.url).pathname); } catch { return c.json({ error: "malformed URL encoding" }, 400); }
     if (!uiDir || p.startsWith("/v1/")) return c.json({ error: "not found" }, 404);
     const root = resolve(uiDir);
     const f = resolve(root, `.${p}`);
@@ -79,5 +138,5 @@ export function createApp(opts: { dbPath: string; uiDir?: string; answerDir?: st
     return new Response(Bun.file(join(root, "index.html")));
   });
 
-  return { app, db, close: () => sqlite.close() };
+  return { app, db, close: () => { clearInterval(reconciler); sqlite.close(); } };
 }

@@ -10,10 +10,13 @@ import type { RunContext, RunnerName, Stage, StageResult, TestMap, TestRef } fro
 import { taskBlock } from "../types.ts";
 import type { ReadOnlyFile } from "./implement.ts";
 import { withStagePrefix } from "../../features/lean_prefix.ts";
-import { RUNNER_HINT } from "../../e10ext/wall_hints.ts";
-import { hasRelevantTests, loadRepoMap, planMode, repoMapText, sizeTask, smallTaskPath, wallEnabled, wallModel } from "../sizing.ts";
+import { RUNNER_HINT, wallManifestFor } from "../../e10ext/wall_hints.ts";
+import { hasRelevantTests, loadRepoMap, planMode, repoMapText, sizeTask, smallTaskPath, wallEnabled, wallLimitS, wallModel } from "../sizing.ts";
 import { sha256 } from "./seal.ts";
-import { runnerCmd } from "./verify.ts";
+import { commandFor } from "./verify.ts";
+import type { ProjectApi } from "../../project_model/api.ts"; import { loadProjectApi } from "../../project_model/resolve.ts";
+import { classifyCheck } from "../../util/check_result.ts";
+import { conventionViolation, conventionsBrief, readPackageConventions } from "../../project_model/conventions.ts"; // FC-23
 
 const WALL_PREFIX = "loki_wall_";
 
@@ -68,7 +71,7 @@ function nodeIsRed(f: TestRef, raw: string): boolean {
 // Red: pytest exit 1/resolved 2; jest/vitest/bun a parsed failed count>0. npm/go/cargo (B2, coarse): never fail.
 export function classify(f: TestRef, status: number | null, output: string, repoDir: string, interpreter?: "project" | "system"): "pass" | "fail" | "not_run" {
   if (interpreter === "system") return "not_run";
-  if (status === null || status === 126 || status === 127) return "not_run"; if (status === 0) return "pass";
+  if (status === null || status === 126 || status === 127) return "not_run"; if (status === 0) return classifyCheck({ kind: "test", ok: true, out: output, path: f.path, ...(f.runner === "go" ? { runner: "go" as const } : {}) }).result === "pass" ? "pass" : "not_run"; // FC-16: exit 0 with zero or unknown executed tests is not a pass
   if (f.runner === "pytest") return status === 1 ? (pytestExit1IsRed(output) ? "fail" : "not_run") : status === 2 ? (pytestCollectionIsRed(output, repoDir) ? "fail" : "not_run") : "not_run";
   if (f.runner === "jest" || f.runner === "vitest" || f.runner === "bun") return parsedFailCount(f.runner, output) > 0 ? "fail" : "not_run";
   return f.runner === "node" && nodeIsRed(f, output) ? "fail" : "not_run"; // npm/go/cargo: coarse (B2), never a per-file red
@@ -77,10 +80,11 @@ export function classify(f: TestRef, status: number | null, output: string, repo
 // misread as a failing test. env is explicit, matching verify.ts's runOnce (its default PATH lookup can
 // otherwise resolve a snapshot from process start, not the live env).
 export class RealBaseTestRunner implements BaseTestRunner {
+  constructor(private readonly api?: ProjectApi | null) {} // FC-01: undefined = load the repo's cached Project Model per run
   run(repoDir: string, files: TestRef[]): { pass: number; fail: number; not_run: number } {
-    let pass = 0, fail = 0, not_run = 0; for (const f of files) {
-      const [cmd, args, interpreter] = runnerCmd(f, repoDir);
-      const r = spawnSync(cmd, f.runner === "pytest" ? [...args, "-rfE"] : args, { cwd: repoDir, encoding: "utf8", timeout: BASE_RUN_TIMEOUT_MS, env: process.env });
+    let pass = 0, fail = 0, not_run = 0; const api = this.api === undefined ? loadProjectApi(repoDir) : this.api; for (const f of files) {
+      const { cmd, args, interpreter, cwd } = commandFor(f, repoDir, api);
+      const r = spawnSync(cmd, f.runner === "pytest" ? [...args, "-rfE"] : args, { cwd, encoding: "utf8", timeout: BASE_RUN_TIMEOUT_MS, env: process.env });
       const status = r.error ? null : r.status;
       const result = classify(f, status, `${r.stdout ?? ""}\n${r.stderr ?? ""}`, repoDir, interpreter);
       if (result === "pass") pass++; else if (result === "fail") fail++; else not_run++;
@@ -93,14 +97,15 @@ export interface WallOptions { baseRunner?: BaseTestRunner; }
 /** E-45: the Wall repo map is paths only, capped, so the (sonnet) brief stays short. */
 export const WALL_MAP_MAX_LINES = 200;
 
-export function buildWallBrief(task: string, repomapText = "", runners: RunnerName[] = []): string {
+export function buildWallBrief(task: string, repomapText = "", runners: RunnerName[] = [], hasManifest = false, conventions = ""): string {
   return withStagePrefix([
     "You are the Loki 10 Wall author.",
-    "You cannot see the repository. This directory holds only task.md and repomap.txt.",
+    `You cannot see the repository. This directory holds only task.md and repomap.txt${hasManifest ? " and wall_manifest.txt (signatures, runner config, test layout and test-style examples)" : ""}.`,
     ...(repomapText ? [`Repository paths (repomap.txt):\n${repomapText}`] : []),
     ...taskBlock(task),
     "Write behavioral acceptance tests that prove the task is done. A test that errors on import, uses another framework's globals, or fails for a reason unrelated to the task is discarded.",
     `Test runner: ${runners.map((r) => RUNNER_HINT[r]).find(Boolean) ?? "the framework named in repomap.txt"}`,
+    ...(conventions ? [conventions] : []),
     `Name every file you write starting with "${WALL_PREFIX}". Write nothing else.`,
   ].join("\n\n"));
 }
@@ -151,44 +156,49 @@ export async function runWall(ctx: RunContext, signal: AbortSignal, opts: WallOp
     return { status: "skipped", data: { size: sz.size }, reason: "small task with a relevant test: cascade skips Wall" };
   }
 
+  if (testMap && runners.length === 0 && !(repoMap?.files ?? []).some((p) => /\.(py|go)$/.test(p))) return { status: "skipped", data: { size: sz.size, files: [], no_runner: true }, reason: "no runnable test command detected: the Wall cannot write a runnable check" }; // FC-17: decided before any model session
+
   const tree = prior.intake?.tree as string | undefined;
   const repomapText = repoMapText(ctx.repoDir, tree, repomapRef, WALL_MAP_MAX_LINES);
 
+  const targetDir = wallTargetDir(ctx.repoDir, existingTests), pkg = loadProjectApi(ctx.repoDir)?.packageOf(`${relative(ctx.repoDir, targetDir)}/x`); // FC-23: the target package's own module system, read by a parser
+  const conv = readPackageConventions(join(ctx.repoDir, pkg?.root ?? "."), pkg?.runner ?? null);
   const cwd = mkdtempSync(join(tmpdir(), "loki-e15-wall-"));
-  writeFileSync(join(cwd, "task.md"), task, "utf8");
-  writeFileSync(join(cwd, "repomap.txt"), repomapText, "utf8");
+  const wm = wallManifestFor(ctx.repoDir, tree, task); // D77: flag-gated, null (as if off) on any failure
+  for (const [n, c] of [["task.md", task], ["repomap.txt", repomapText], ...(wm ? [["wall_manifest.txt", wm.text]] : [])] as [string, string][]) writeFileSync(join(cwd, n), c, "utf8");
 
   const session = await ctx.sessions.run({
     stage: "wall",
-    brief: buildWallBrief(task, repomapText, runners),
+    brief: buildWallBrief(task, repomapText, runners, !!wm, conventionsBrief(conv)),
     // E-45: pinned cheaper model; development tier because the planning tier yields to the LOKI_SESSION_MODEL=opus pin.
     tier: "development",
     model: wallModel(),
     iterationId: `${ctx.runId}-wall`,
-    limitS: wallStage.limitS,
+    limitS: wallLimitS(sz.size), // W1-S3
     signal,
     cwd,
   });
   if (session.killed || session.exit === null) { rmSync(cwd, { recursive: true, force: true }); return { status: "failed", data: {}, reason: "wall session aborted, killed, or timed out", killed: true }; } // E-54: also covers killed-from-outside (exit:null, "killed before exiting" per types.ts)
 
   const generated = readdirSync(cwd).filter((f) => f.startsWith(WALL_PREFIX));
-  const targetDir = wallTargetDir(ctx.repoDir, existingTests);
   const sealedDir = join(ctx.runDir, "wall");
   if (generated.length > 0) { mkdirSync(targetDir, { recursive: true }); mkdirSync(sealedDir, { recursive: true }); }
 
   const sealedFiles: WallSealedFile[] = [];
   const readOnlyFiles: ReadOnlyFile[] = [];
   const wallTests: TestRef[] = [];
+  const discarded: { file: string; reason: string }[] = []; // FC-23: a file the package's own compiler would reject is harness-owned: sealed copy only, never in the tree
 
   for (const name of generated) {
-    const content = readFileSync(join(cwd, name), "utf8"), dest = join(targetDir, name), runner = guessRunner(name, runners);
+    const content = readFileSync(join(cwd, name), "utf8"), dest = join(targetDir, name), runner = guessRunner(name, runners), bad = conventionViolation(conv, name, content);
+    if (bad) { writeFileSync(join(sealedDir, name), content, "utf8"); discarded.push({ file: name, reason: `${bad}; wall test did not compile under the package config` }); continue; }
     writeFileSync(dest, content, "utf8"); writeFileSync(join(sealedDir, name), content, "utf8");
     sealedFiles.push({ path: dest, sha256: sha256(content) }); readOnlyFiles.push({ path: dest, content });
     if (runner) wallTests.push({ runner, path: relative(ctx.repoDir, dest) });
   }
   rmSync(cwd, { recursive: true, force: true });
-  ctx.emit("wall.sealed", "wall", { files: sealedFiles });
-  const baseRunner = opts.baseRunner ?? new RealBaseTestRunner(), baseRun = { pass: 0, fail: 0, not_run: 0 }; // A-103: one file at a time; a file with no real result (not_run) proves nothing, so it leaves the tree and Implement's read-only set. Its sealed copy stays under runDir/wall; base_run.not_run lets Seal list it.
+  ctx.emit("wall.sealed", "wall", { files: sealedFiles, ...(wm ? { manifest_sha256: wm.sha256 } : {}) });
+  const baseRunner = opts.baseRunner ?? new RealBaseTestRunner(), baseRun = { pass: 0, fail: 0, not_run: discarded.length }; // A-103: one file at a time; a file with no real result (not_run) proves nothing, so it leaves the tree and Implement's read-only set. Its sealed copy stays under runDir/wall; base_run.not_run lets Seal list it.
   for (const t of wallTests) {
     const r = baseRunner.run(ctx.repoDir, [t]), abs = join(ctx.repoDir, t.path); baseRun.pass += r.pass; baseRun.fail += r.fail; baseRun.not_run += r.not_run ?? 0; if (r.pass + r.fail === 0) { rmSync(abs, { force: true }); for (const l of [sealedFiles, readOnlyFiles] as { path: string }[][]) l.splice(0, l.length, ...l.filter((f) => f.path !== abs)); }
   }
@@ -205,6 +215,7 @@ export async function runWall(ctx: RunContext, signal: AbortSignal, opts: WallOp
       base_run: baseRun,
       iteration_ids: [`${ctx.runId}-wall`],
       already_satisfied: alreadySatisfied,
+      ...(discarded.length ? { discarded } : {}),
     },
   };
 }
@@ -212,7 +223,7 @@ export async function runWall(ctx: RunContext, signal: AbortSignal, opts: WallOp
 export const wallStage: Stage = {
   name: "wall",
   targetS: 45,
-  limitS: 90,
+  limitS: 300, // outer ceiling = the max session cap (sizing.ts wallLimitS)
   run: (ctx, signal) => runWall(ctx, signal),
 };
 export const stage = wallStage;

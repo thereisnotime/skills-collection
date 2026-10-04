@@ -1,10 +1,10 @@
 /**
  * Loki Mode TypeScript CLI dispatcher (Bun runtime).
  *
- * Phase 2 of the bash->Bun migration. Routes the 8 highest-traffic
- * read-only commands (version, status, provider show/list, stats,
- * memory list/index, doctor) to TypeScript ports; everything else
- * falls through to autonomy/loki (bash) via the bin/loki shim.
+ * Phase 2 of the bash->Bun migration. Routes the commands listed in HELP
+ * (and the internal/help/version plumbing) to TypeScript ports; commands
+ * that are still bash-owned are routed by name in the bin/loki shim. Keep
+ * HELP in step with the dispatch() case labels (tests/commands/cli_help_routes.test.ts).
  *
  * See docs/architecture/ADR-001-runtime-migration.md and
  * /Users/lokesh/.claude/plans/polished-waddling-stardust.md.
@@ -19,7 +19,7 @@ const HELP = `Loki Mode (TypeScript port, Phase 2 of bash->Bun migration)
 
 Usage: loki <command> [args...]
 
-Phase 2 ported (Bun-native, fast):
+Bun-native commands:
   version                Print Loki Mode version
   status [--json]        Show current orchestrator status
   stats [--json] [--efficiency]   Session statistics
@@ -37,35 +37,19 @@ Phase 2 ported (Bun-native, fast):
   answer [run] [--text]  Resume a BLOCKED run with an answer (--text, or the Control Plane answer file)
   control <subcmd>       Control plane (on by default; LOKI_CONTROL=0 turns it off)
                          (subcmds: serve [--port N] [--db PATH] | backfill [DIR] | status)
+  kpis [--json]          KPI snapshot (alias of: report kpis)
+  report kpis            Canonical KPI snapshot report
+  trust <subcmd>         Trust trajectory derived from proof-of-run history
+  crash <subcmd>         Inspect or submit scrubbed local crash reports
+  contract <spec.md>     Print the spec delivery contract and write .loki/contract.json
+  start [flags]          Run the RARV autonomous loop (Bun route, LOKI_SDK_LOOP)
+  slack serve [--port N] [--host H]   Serve the Slack inbound handler (needs SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET)
+  engine10 <subcmd>      v10 engine router (run, status, verify, keys, dashboard, modernize)
 
-All other commands fall through to the bash CLI (autonomy/loki).
-Set LOKI_LEGACY_BASH=1 to force the bash CLI for every command.
+Unknown commands exit 2 with a suggestion; run 'loki help' for the full list.
 `;
 
-// Defense-in-depth: LOKI_LEGACY_BASH is interpreted by the bin/loki shim
-// (which decides between Bun and bash routes). If we are already running
-// inside Bun, the env var is a no-op -- the shim is bypassed. Warn so the
-// operator does not assume the legacy route is active. We do NOT change
-// behavior; this is purely an observability aid. Mirrors the truthy
-// convention used elsewhere ("1"/"true"/"yes"/"on", case-insensitive).
-function warnIfLegacyBashSetUnderBun(): void {
-  const raw = process.env["LOKI_LEGACY_BASH"];
-  if (raw === undefined) return;
-  const v = raw.trim().toLowerCase();
-  if (v !== "1" && v !== "true" && v !== "yes" && v !== "on") return;
-  // Allow tests / tooling to suppress the noise when they intentionally
-  // invoke the Bun entrypoint directly.
-  if (process.env["LOKI_SUPPRESS_BUN_DIRECT_WARN"] === "1") return;
-  process.stderr.write(
-    "warning: LOKI_LEGACY_BASH is set, but you are running the Bun runtime " +
-      "directly (src/cli.ts). The env var only takes effect via the " +
-      "bin/loki shim, which dispatches between Bun and bash. Behavior is " +
-      "unchanged; this message is informational.\n",
-  );
-}
-
 async function dispatch(argv: readonly string[]): Promise<number> {
-  warnIfLegacyBashSetUnderBun();
   // v8.1: resolve the one-switch SDK mode (LOKI_SDK_MODE=off|judges|full) into
   // the per-site LOKI_SDK_* flags before any Bun SDK site reads them. Mirror of
   // the bash resolver (run.sh sources autonomy/lib/sdk-mode.sh). No-op when the
@@ -94,8 +78,9 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       return runMemory(rest);
 
     case "status": {
-      const { runStatus } = await import("./commands/status.ts");
-      return runStatus(rest);
+      // CLI-MODERN-2: `loki status` shows Loki 10 runs only; the legacy box is gone from this path.
+      const { runModernStatus } = await import("./commands/run_status.ts");
+      return runModernStatus(rest);
     }
 
     case "stats": {
@@ -149,8 +134,10 @@ async function dispatch(argv: readonly string[]): Promise<number> {
         });
         return runKpis(kpisArgs);
       }
-      const { delegateToBash } = await import("./util/bash_delegate.ts");
-      return delegateToBash(["report", ...rest]);
+      process.stderr.write(
+        `Unknown report subcommand: ${firstSub ?? "(none)"}. Available: kpis\n`,
+      );
+      return 2;
     }
 
     case "trust": {
@@ -159,7 +146,7 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       // on THIS repo over time (council pass-rate up, interventions down...).
       // Complements `kpis` (single-run snapshot); does not duplicate it. The
       // bin/loki shim allowlist includes "trust" so this is the live Bun route;
-      // bash cmd_trust is the no-bun / LOKI_LEGACY_BASH fallback.
+      // bash cmd_trust is the no-bun fallback.
       const { runTrust } = await import("./commands/trust.ts");
       return runTrust(rest);
     }
@@ -178,7 +165,7 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       // shim allowlist (line ~119) DOES include "proof", so when bun is
       // installed a real `loki proof` invocation routes here -- this is the
       // live route. The bash cmd_proof (autonomy/loki) is the fallback for
-      // no-bun systems and the LOKI_LEGACY_BASH=1 escape hatch, kept at parity
+      // no-bun systems kept at parity
       // (see loki-ts/tests/commands/proof.test.ts). `loki receipt` is a friendly
       // alias for `loki proof` (parity with the bash proof|receipt dispatch).
       const { runProof } = await import("./commands/proof.ts");
@@ -216,7 +203,7 @@ async function dispatch(argv: readonly string[]): Promise<number> {
 
     case "control": {
       // D56 control plane (on by default; LOKI_CONTROL=0 disables, handled inside runControl).
-      // bash cmd_control (autonomy/loki) is the LOKI_LEGACY_BASH fallback.
+      // bash cmd_control (autonomy/loki) is the no-bun fallback.
       const { runControl } = await import("./commands/control.ts");
       return runControl(rest);
     }
@@ -326,6 +313,17 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       return runAnswerCli(rest);
     }
 
+    case "completion": {
+      // Hidden plumbing (not in HELP): generated completions; installs run automatically.
+      const { runCompletion } = await import("./commands/completion.ts");
+      return runCompletion(rest);
+    }
+
+    case "__complete": {
+      const { runDynComplete } = await import("./commands/completion.ts");
+      return runDynComplete(rest);
+    }
+
     case "engine10": {
       const { runEngine10 } = await import("./engine10/cli.ts");
       const { registryLoader } = await import("./engine10/registry.ts");
@@ -333,12 +331,14 @@ async function dispatch(argv: readonly string[]): Promise<number> {
     }
 
     default:
-      // Unknown to Bun -- shim falls through to bash. If invoked directly
-      // via `bun src/cli.ts <unknown>`, print help and exit 2.
-      // NOTE (R2): `loki bench` is intentionally NOT a Bun command. It falls
-      // through here to the bash route (cmd_bench -> benchmarks/bench/run.sh).
-      // Bun parity is free via this fall-through; do not add a Bun bench command.
+      // Unknown command: print help and exit 2. Bash-owned commands are
+      // routed by name in bin/loki and never reach this dispatcher.
       process.stderr.write(`Unknown command: ${cmd}\n`);
+      {
+        const { suggestCommand } = await import("./cli/registry.ts");
+        const hint = cmd === undefined ? undefined : suggestCommand(cmd);
+        if (hint) process.stderr.write(`Did you mean 'loki ${hint}'?\n`);
+      }
       process.stderr.write(HELP);
       return 2;
   }

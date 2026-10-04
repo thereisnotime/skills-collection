@@ -43,7 +43,7 @@ function ctxFor(repo: string, base: string, intake: Record<string, unknown> = {}
     intake: { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", title: "group task", resumed: false, ...intake },
     wall: { files: [] },
     implement: { exit: "done", tests_reverted: [], duration_s: 3, iteration_id: "e10-r1-impl" },
-    verify: { checks: [{ name: "pytest", cmd: "pytest -q", result: "pass", duration_s: 1.5 }], flaky: [], wall_passed: true, duration_s: 2 },
+    verify: { checks: [{ name: "pytest", cmd: "pytest -q", result: "pass", n: 1, duration_s: 1.5 }], flaky: [], wall_passed: true, duration_s: 2 },
   };
   return {
     runId: "r1", repoDir: repo, runDir: join(repo, ".loki/runs/r1"), baseSha: base, branch: "loki/r1",
@@ -247,6 +247,24 @@ describe("D61-13 group seal and verify", () => {
     writeFileSync(pub, createPublicKey(loadSigningKey(false)!).export({ type: "spki", format: "pem" }));
     process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = join(root, "absent", "nokey.pem");
     expect(await verifyMain(["--pubkey", pub, path])).toBe(0);
+  }, 60000);
+
+  test("INTEL-1b B1: a verified signed two-unit group exports as a DSSE envelope (sub-receipts read their own bytes)", async () => {
+    const { path } = await sealGroupRun("dsse-group", [{ id: "u1" }, { id: "u2" }]);
+    expect((await verifyReceipt(path)).verdict).toBe("VERIFIED");
+    let out = "", err = "";
+    const w = process.stdout.write.bind(process.stdout), e = process.stderr.write.bind(process.stderr);
+    process.stdout.write = ((x: string) => ((out += x), true)) as never;
+    process.stderr.write = ((x: string) => ((err += x), true)) as never;
+    let rc = -1;
+    try { rc = await verifyMain([path, "--export-dsse"]); } finally { process.stdout.write = w; process.stderr.write = e; }
+    expect(err).toBe("");
+    expect(rc).toBe(0);
+    const env = JSON.parse(out);
+    expect(JSON.parse(Buffer.from(env.payload, "base64").toString()).predicate.receipt_sha256).toBe((JSON.parse(readFileSync(path, "utf8")) as Receipt).receipt_sha256);
+    const ep = join(root, "dsse-group.env.json");
+    writeFileSync(ep, out);
+    expect(await verifyMain([ep])).toBe(0);
   }, 60000);
 
   test("verify side rejects case-colliding unit ids in the group section", async () => {

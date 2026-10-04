@@ -1,5 +1,4 @@
-// D61-16: LOKI_SPEED group entry. Called from engine10/supervisor.ts main() for free-text tasks and
-// spec files only (never issue refs).
+// D61-16: LOKI_SPEED group entry. Called from engine10/supervisor.ts main() for free-text tasks and spec files only (never issue refs).
 //
 // Spec files: a task is read as a file ONLY when it is explicitly a path (contains "/" or ends in
 // .md .txt .yaml .yml .json, no whitespace). A relative path resolves against process.cwd(). The real path
@@ -62,7 +61,7 @@ function readSpec(task: string, repoDir: string, cwd: string): SpecRead {
 }
 
 export async function maybeRunGroup(task: string, repoDir: string, env: NodeJS.ProcessEnv, deps: RouteDeps = {}): Promise<RouteResult> {
-  if (env.LOKI_SPEED !== "1") return { code: null, task };
+  if (env.LOKI_SPEED === "0") return { code: null, task };
   const say = deps.stderr ?? ((s: string): void => { process.stderr.write(s); });
   const seq = (t: string): string => {
     if (Buffer.byteLength(t) <= MAX_SEQ_TASK_BYTES) return t;

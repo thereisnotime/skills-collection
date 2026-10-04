@@ -113,6 +113,22 @@ describe("E-67 rework: supervisor backstop", () => {
     expect(r.prUrl).toBe("https://github.com/acme/widget/pull/1");
   }, 10_000);
 
+  test("FC-19: a sealed PARTIAL after a failed implement stage, with a diff, still opens the PR (never vanishes)", async () => {
+    const { dir, baseSha } = repoWithCommit();
+    const code = `
+      ${intakeLine(baseSha)}
+      ${COMMIT_A_CHANGE}
+      console.log(JSON.stringify({ type: "stage.failed", stage: "implement", data: { reason: "limit" } }));
+      console.log(JSON.stringify({ type: "receipt.sealed", stage: "seal", data: { verdict: "PARTIAL", not_proven: ["implement failed"] } }));
+      process.exit(0);
+    `;
+    const pr = prSpy();
+    const r = await runSupervisor({ runId: "e10-fc19", repoDir: dir, env: ENV, workerArgv: worker(code), capS: 20, graceS: 5, pr: pr.step, started: { task_source: "issue", issue_ref: "acme/widget#42" }, comment: commentSpy().step });
+    expect(r.verdict).toBe("PARTIAL");
+    expect(pr.calls.length).toBe(1);
+    expect(r.prUrl).toBe("https://github.com/acme/widget/pull/1");
+  }, 15_000);
+
   test("hung worker with no diff, on an issue run: posts an issue comment with the exact reason", async () => {
     const { dir } = repoWithCommit(); // no extra commit: base_sha stays HEAD, so there is no diff
     const code = `setInterval(() => {}, 1000);`;
@@ -313,7 +329,7 @@ describe("A-110 exit ladder", () => {
   test("a red suite that ends PARTIAL exits 1 (was 0: only FAILED exited non-zero)", async () => {
     const { r, exit } = await ladder(() => `${verifyRed("t::a")}${sealedAs("PARTIAL")}`);
     expect(r.verdict).toBe("PARTIAL");
-    expect(r.outcome).toBe("FAILED");
+    expect(r.outcome).toBe("PARTIAL"); // FC-21 (d): the outcome is the receipt verdict
     expect(exit).toBe(1);
     expect(r.receiptSha).toBe("ab".repeat(32));
   });
@@ -321,8 +337,14 @@ describe("A-110 exit ladder", () => {
     expect((await ladder(() => sealedAs("VERIFIED"))).exit).toBe(0);
     expect((await ladder(() => sealedAs("ALREADY_SATISFIED"))).exit).toBe(0);
   });
-  test("a cap.hit run exits 3 as BUDGET_STOP", async () => {
+  test("a cap.hit run with a sealed receipt keeps the receipt verdict (L7), exit 1, and reports stop cap", async () => {
     const { r, exit } = await ladder(() => `${ev("cap.hit", "implement", {})}${sealedAs("PARTIAL")}`);
+    expect(r.outcome).toBe("PARTIAL");
+    expect(r.stop).toBe("cap");
+    expect(exit).toBe(1);
+  });
+  test("a cap.hit run with no sealed receipt is still BUDGET_STOP, exit 3", async () => {
+    const { r, exit } = await ladder(() => `${ev("cap.hit", "implement", {})}`);
     expect(r.outcome).toBe("BUDGET_STOP");
     expect(exit).toBe(3);
   });

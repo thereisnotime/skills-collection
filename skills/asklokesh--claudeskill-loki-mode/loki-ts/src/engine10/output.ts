@@ -62,16 +62,16 @@ export function formatHeartbeatLine(h: HeartbeatLine): string {
   return `[${formatClock(h.clockS)}] ${h.stage.padEnd(NAME_WIDTH)}${bits.join("  ")}`;
 }
 // A-110: one outcome name and a fixed exit ladder, mapped at the edge (the receipt keeps its verdict strings). 2 is usage/preflight, returned by main().
-export type Outcome = "VERIFIED" | "ALREADY_SATISFIED" | "BUDGET_STOP" | "BLOCKED" | "STALLED" | "FAILED";
-export const EXIT: Record<Outcome, number> = { VERIFIED: 0, ALREADY_SATISFIED: 0, FAILED: 1, BUDGET_STOP: 3, BLOCKED: 4, STALLED: 5 };
-export function outcomeOf(verdict: Verdict, capHit: boolean, stop: string | null, tampered = false): Outcome {
+export type Outcome = "VERIFIED" | "ALREADY_SATISFIED" | "BUDGET_STOP" | "BLOCKED" | "STALLED" | "PARTIAL" | "FAILED";
+export const EXIT: Record<Outcome, number> = { VERIFIED: 0, ALREADY_SATISFIED: 0, FAILED: 1, PARTIAL: 1, BUDGET_STOP: 3, BLOCKED: 4, STALLED: 5 };
+export function outcomeOf(verdict: Verdict, capHit: boolean, stop: string | null, tampered = false, sealed = false): Outcome {
   if (tampered) return "FAILED"; // a run whose event log was modified is never VERIFIED, whatever the receipt says
   if (verdict === "VERIFIED" || verdict === "ALREADY_SATISFIED") return verdict;
-  return capHit ? "BUDGET_STOP" : verdict === "SPEC_CONFLICT" ? "BLOCKED" : stop === "stalled" ? "STALLED" : "FAILED";
+  return capHit && !sealed ? "BUDGET_STOP" : verdict === "SPEC_CONFLICT" ? "BLOCKED" : stop === "stalled" ? "STALLED" : verdict === "PARTIAL" ? "PARTIAL" : "FAILED"; // FC-21 (d): the Outcome line names the receipt verdict; BUDGET_STOP/STALLED/BLOCKED stay the explicit stop reasons
 }
 export function reasonOf(ev: EventEnvelope[], tampered: boolean, stop: string | null, outcome: Outcome): string | undefined { // A-130: one-line cause, first match wins
   const done = (s: string) => ev.findLast((e) => e.type === "stage.completed" && e.stage === s)?.data, v = done("verify"), checks = (v?.checks ?? []) as { name: string; result: string; first_error?: string }[], bad = checks.find((c) => c.result === "fail");
-  const r = EXIT[outcome] === 0 ? "" : tampered ? "event log modified outside the engine" : stop?.startsWith("fatal:") ? ({ "fatal:quota_exhausted": "provider credit exhausted", "fatal:auth": "provider authentication failed" } as Record<string, string>)[stop] ?? stop : outcome === "BLOCKED" ? `spec conflict: ${done("implement")?.spec_conflict_reason ?? "see the receipt"}` : stop === "stalled" ? "stalled: same failure 3 times" : bad ? `${bad.name} failed${bad.first_error ? `: ${bad.first_error}` : ""}` : ev.find((e) => e.type === "stage.failed")?.data.reason ?? (ev.some((e) => e.type === "cap.hit") ? "cost/time cap reached" : v && !checks.length ? "no tests to run" : stop ?? (ev.some((e) => e.type === "receipt.sealed") ? "" : "engine ended before sealing a receipt"));
+  const r = EXIT[outcome] === 0 ? "" : tampered ? "event log modified outside the engine" : stop?.startsWith("fatal:") ? ({ "fatal:quota_exhausted": "provider credit exhausted", "fatal:auth": "provider authentication failed" } as Record<string, string>)[stop] ?? stop : outcome === "BLOCKED" ? `spec conflict: ${done("implement")?.spec_conflict_reason ?? "see the receipt"}` : stop === "stalled" ? "stalled: same failure 3 times" : bad ? `${bad.name} failed${bad.first_error ? `: ${bad.first_error}` : ""}` : (ev.some((e) => e.type === "cap.hit") ? "cost/time cap reached" : undefined) ?? ev.find((e) => e.type === "stage.failed")?.data.reason ?? (v && !checks.length ? "no tests to run" : stop ?? (ev.some((e) => e.type === "receipt.sealed") ? "" : "engine ended before sealing a receipt"));
   return redactSecrets(String(r ?? "").replace(/[\x00-\x1f\x7f]+/g, " ").trim()).slice(0, 200) || undefined;
 }
 export interface PreModelTiming { span_s: number; stages: Record<string, number> } // D61-1: startMs to first session.started, self-time per stage ("setup" = none open); sums to span_s
@@ -82,7 +82,7 @@ export function preModelTiming(events: EventEnvelope[], startMs: number): PreMod
   for (const e of events.slice(0, events.indexOf(cut))) { charge(Math.min(Math.max(Date.parse(e.ts), prev), cutMs)); if (e.type === "stage.started" && e.stage) open.push(e.stage); else if (/^stage\.(completed|failed|skipped)$/.test(e.type)) { const i = open.lastIndexOf(String(e.stage)); if (i >= 0) open.splice(i, 1); } }
   charge(cutMs); return { span_s: (cutMs - startMs) / 1000, stages };
 }
-export const formatPreModelLine = (t: PreModelTiming | null, env: NodeJS.ProcessEnv = process.env): string => env.LOKI_SPEED !== "1" || !t ? "" : `pre-model ${t.span_s.toFixed(1)}s (${Object.entries(t.stages).filter(([, v]) => v >= 0.05).map(([k, v]) => `${k} ${v.toFixed(1)}s`).join(", ")})\n`; // flag off: byte-identical output
+export const formatPreModelLine = (t: PreModelTiming | null, env: NodeJS.ProcessEnv = process.env): string => env.LOKI_SPEED === "0" || !t ? "" : `pre-model ${t.span_s.toFixed(1)}s (${Object.entries(t.stages).filter(([, v]) => v >= 0.05).map(([k, v]) => `${k} ${v.toFixed(1)}s`).join(", ")})\n`; // flag off: byte-identical output
 export interface SummaryInput {
   pr: { url: string; draft: boolean; draftReason?: string | null } | null;
   verdict: Verdict;

@@ -18,6 +18,13 @@
 #
 # Adding a case: pick a line whose removal MUST break something a user relies
 # on, not a line that merely exists.
+#
+# TRUST_CORE_PROBE_MODE=anchors is the FAST pre-check (issue #214, option 3): it
+# exits before the repo clone and runs no probe. It only verifies that every
+# probe_case find-string still occurs in its file (and after its MUTPROBE_AFTER
+# marker, when set), with the same substring semantics as scripts/mutation-probe.sh,
+# and fails naming every stale anchor. A stale anchor otherwise exits 65 in the
+# probe and surfaces only in CI. scripts/local-ci.sh runs this mode.
 
 set -uo pipefail
 
@@ -45,7 +52,8 @@ probed_files=()
 c_start=(); c_count=(); c_after=(); c_args=()
 limit="${TRUST_CORE_PROBE_LIMIT:-0}"
 mode="${TRUST_CORE_PROBE_MODE:-}"
-if [[ "$mode" != "worker" ]]; then
+a_args=()
+if [[ "$mode" != "worker" && "$mode" != "anchors" ]]; then
     echo "TEST: trust-core tests detect their regressions"
     jobs="${TRUST_CORE_PROBE_JOBS:-}"
     if [[ -z "$jobs" ]]; then
@@ -104,6 +112,10 @@ probe_case() {
     local name="$1" file="$2" find_s="$3" repl_s="$4"; shift 4
     local i=$case_idx
     case_idx=$((case_idx + 1))
+    if [[ "$mode" == "anchors" ]]; then
+        a_args+=("$name" "$file" "$find_s" "$repl_s" "${MUTPROBE_AFTER:-}")
+        return 0
+    fi
     (( limit > 0 && i >= limit )) && return 0
     if [[ "$mode" == "worker" ]]; then
         # Record only; the cases run after the whole list is known (below).
@@ -839,6 +851,49 @@ probe_case "a syntax error in the embedded stream parser is caught" \
     "autonomy/run.sh" \
     '                    if _turn_usage:' '                    if _turn_usage' \
     bash tests/test-context-growth-instrumentation.sh
+
+if [[ "$mode" == "anchors" ]]; then
+    echo "TEST: trust-core probe anchors still match their files"
+    # Fixture hook for the wall checks: append one synthetic case. "noop" has
+    # find == repl (must be reported NOOP); "real" has find != repl (must pass).
+    case "${TRUST_CORE_ANCHORS_SELFTEST:-}" in
+        noop) a_args+=("selftest noop" "tests/test-trust-core-tests-detect.sh" "set -uo pipefail" "set -uo pipefail" "") ;;
+        real) a_args+=("selftest real" "tests/test-trust-core-tests-detect.sh" "set -uo pipefail" "set -u" "") ;;
+    esac
+    python3 - "$REPO_ROOT" ${a_args[@]+"${a_args[@]}"} <<'PY'
+import sys
+root, rest = sys.argv[1], sys.argv[2:]
+stale = []
+noop = []
+total = len(rest) // 5
+for name, file, find, repl, after in (rest[i:i + 5] for i in range(0, len(rest), 5)):
+    try:
+        with open(root + "/" + file, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError as err:
+        stale.append((name, file, "unreadable: %s" % err))
+        continue
+    if after:
+        idx = text.find(after)
+        if idx == -1:
+            stale.append((name, file, "MUTPROBE_AFTER marker missing: %r" % after))
+            continue
+        text = text[idx:]
+    if find not in text:
+        stale.append((name, file, "find-string missing: %r" % find))
+    elif find == repl:
+        noop.append((name, file))
+for name, file, why in stale:
+    print("  STALE: %s" % name)
+    print("        %s: %s" % (file, why))
+for name, file in noop:
+    print("  NOOP: %s" % name)
+    print("        %s: find == replace, scripts/mutation-probe.sh would exit 65" % file)
+print("  %d anchors checked, %d stale anchors, %d no-op cases" % (total, len(stale), len(noop)))
+sys.exit(1 if stale or noop else 0)
+PY
+    exit $?
+fi
 
 if [[ "$mode" == "worker" ]]; then
     # Odd workers walk the list from the end so slow cases late in the file

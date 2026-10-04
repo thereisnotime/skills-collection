@@ -1,13 +1,13 @@
 // E-45 wall check: small tasks make 2 sessions (wall on sonnet, implement), normal 3;
 // the wall brief stays under a fixed size; the variant is recorded.
 import { afterAll, afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runMachine } from "../../src/engine10/machine.ts";
 import { createSessionRunner } from "../../src/engine10/session.ts";
 import { readFileSync } from "node:fs";
-import { cascadeImplementModel, planMode, resolveModelAlias, sizeTask, wallModel } from "../../src/engine10/sizing.ts";
+import { loadRepoMap, cascadeImplementModel, modelRank, planMode, wallLimitS, resolveModelAlias, sizeTask, wallModel } from "../../src/engine10/sizing.ts";
 import { planStage } from "../../src/engine10/stages/plan.ts";
 import { wallStage, buildWallBrief, WALL_MAP_MAX_LINES } from "../../src/engine10/stages/wall.ts";
 import { implementStage } from "../../src/engine10/stages/implement.ts";
@@ -16,7 +16,7 @@ import type { RunContext, SessionRunOptions, Stage, StageName, TestMap, TestRef 
 
 const dirs: string[] = [];
 const saved = { ...process.env };
-afterEach(() => { for (const k of ["LOKI_E10_PLAN", "LOKI_E10_WALL", "LOKI_E10_WALL_TIER", "LOKI_E10_CASCADE", "LOKI_MODEL_OVERRIDE"]) delete process.env[k]; });
+afterEach(() => { for (const k of ["LOKI_E10_PLAN", "LOKI_E10_WALL", "LOKI_E10_WALL_TIER", "LOKI_E10_WALL_LIMIT_S", "LOKI_E10_CASCADE", "LOKI_MODEL_OVERRIDE"]) delete process.env[k]; });
 afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }); process.env = saved; });
 
 const TM: TestMap = { runners: ["bun"], tests: [{ runner: "bun", path: "tests/a.test.ts" }] };
@@ -49,6 +49,7 @@ async function run(task: string, repoFiles: string[], opts: { impacted?: (m: Tes
 
 describe("engine10 E-45 sizing", () => {
   it("a small task makes exactly 2 sessions: wall pinned to sonnet, then implement", async () => {
+    process.env.LOKI_E10_CASCADE = "1"; // L1: the downgrade is opt-in
     const { calls, events } = await run("fix the off-by-one in mod1.ts", files(10));
     expect(calls.map((c) => c.stage).sort()).toEqual(["implement", "wall"]);
     const wall = calls.find((c) => c.stage === "wall")!;
@@ -64,6 +65,7 @@ describe("engine10 E-45 sizing", () => {
   });
 
   it("E-64: a small task with a relevant test takes the lean path: one session, no Plan or Wall call", async () => {
+    process.env.LOKI_E10_CASCADE = "1"; // L1: the downgrade is opt-in
     const { calls, events } = await run("fix the off-by-one in mod1.ts", files(10), { impacted: impactedOne });
     expect(calls.map((c) => c.stage)).toEqual(["implement"]);
     expect(calls[0]!.model).toBe(cascadeImplementModel());
@@ -72,7 +74,7 @@ describe("engine10 E-45 sizing", () => {
     expect(events.find((e) => e.type === "variant")!.data).toMatchObject({ small_task_path: "lean" });
   });
 
-  it("E-64: LOKI_E10_CASCADE=0 leaves implement on the run's configured model, as before E-64", async () => {
+  it("L1: LOKI_E10_CASCADE=0 and the default both leave implement on the run's configured model", async () => {
     process.env.LOKI_E10_CASCADE = "0";
     const { calls, events } = await run("fix the off-by-one in mod1.ts", files(10), { impacted: impactedOne });
     expect(calls[0]!.model).toBeUndefined();
@@ -117,7 +119,8 @@ describe("engine10 E-45 sizing", () => {
     const brief = calls.find((c) => c.stage === "wall")!.brief;
     expect(brief.split("\n").filter((l) => l.startsWith("src/mod")).length).toBe(WALL_MAP_MAX_LINES);
     expect(brief.length).toBeLessThan(task.length + 9000);
-    expect(buildWallBrief(task).length).toBeLessThan(task.length + 600);
+    const prevSpeed = process.env.LOKI_SPEED; process.env.LOKI_SPEED = "0"; // the speed stage prefix adds a fixed ~200 bytes; this pins the bare brief
+    try { expect(buildWallBrief(task).length).toBeLessThan(task.length + 600); } finally { if (prevSpeed === undefined) delete process.env.LOKI_SPEED; else process.env.LOKI_SPEED = prevSpeed; }
   });
 
   it("missing inputs never size small", () => {
@@ -165,16 +168,33 @@ describe("engine10 E-45 sizing", () => {
     };
   }
 
-  it("E-64: a fix round only escalates after a fast-verify failure, to the run's configured model, with the reason event", async () => {
+  it("L1: a first fix round runs on the run's model (no pin); a repeated failure escalates up with the prior diagnosis", async () => {
     const calls: SessionRunOptions[] = [];
     const events: { type: string; stage: string | null; data: Record<string, unknown> }[] = [];
-    const result = await fixStage.run(fixCtx(calls, events), new AbortController().signal);
-    expect(calls[0]!.model).toBe("claude-opus-5-5");
-    expect(events.find((e) => e.type === "fix.round")!.data).toMatchObject({
-      escalated: true, model: "claude-opus-5-5", escalation_reason: "bun:a.test.ts", escalation_model: "claude-opus-5-5",
-    });
-    expect(result.data.cascade).toBe(true);
-    expect(result.data.model).toBe("claude-opus-5-5");
+    const first = await fixStage.run(fixCtx(calls, events), new AbortController().signal);
+    expect(calls[0]!.model).toBeUndefined();
+    expect(events.find((e) => e.type === "fix.round")!.data).toMatchObject({ escalated: false, model: "claude-opus-5-5" });
+    const ctx = fixCtx(calls, events);
+    ctx.model = "claude-sonnet-5";
+    const base = ctx.outputs();
+    ctx.outputs = () => ({ ...base, fix: { round: 1, signatures: first.data.signatures, diagnosis: "off by one in a.ts" } });
+    const second = await fixStage.run(ctx, new AbortController().signal);
+    expect(calls[1]!.model).toBe("claude-opus-5-5");
+    expect(modelRank(calls[1]!.model!)).toBeGreaterThanOrEqual(modelRank("claude-sonnet-5"));
+    expect(calls[1]!.brief).toContain("off by one in a.ts");
+    expect(second.data.cascade).toBe(true);
+    expect(events.filter((e) => e.type === "fix.round")[1]!.data).toMatchObject({ escalated: true, escalation_model: "claude-opus-5-5" });
+  });
+
+  it("L1: an escalated round is never below the run model, even when the run model outranks the catalog opus", async () => {
+    const calls: SessionRunOptions[] = [];
+    const events: { type: string; stage: string | null; data: Record<string, unknown> }[] = [];
+    const ctx = fixCtx(calls, events);
+    ctx.model = "claude-fable-5-1";
+    const base = ctx.outputs();
+    ctx.outputs = () => ({ ...base, fix: { round: 1, signatures: "bun:a.test.ts" } });
+    await fixStage.run(ctx, new AbortController().signal);
+    expect(calls[0]!.model).toBe("claude-fable-5-1");
   });
 
   it("D31/blocking: LOKI_E10_CASCADE=0 leaves the fix round on the run's configured model with no escalation event", async () => {
@@ -191,6 +211,7 @@ describe("engine10 E-45 sizing", () => {
   });
 
   it("D31/blocking: a lint-only failure never escalates, and the round runs on the cheap model, never the run's top model", async () => {
+    process.env.LOKI_E10_CASCADE = "1"; // opt-in: a non-test round may use the cheap model, and says so
     const calls: SessionRunOptions[] = [];
     const events: { type: string; stage: string | null; data: Record<string, unknown> }[] = [];
     const ctx = fixCtx(calls, events);
@@ -213,7 +234,7 @@ describe("engine10 E-45 sizing", () => {
     const ctx = fixCtx(calls, events);
     ctx.model = cascadeImplementModel(); // no LOKI_MODEL_OVERRIDE: the run's model IS the cascade pin already
     const result = await fixStage.run(ctx, new AbortController().signal);
-    expect(calls[0]!.model).toBe(cascadeImplementModel());
+    expect(calls[0]!.model).toBeUndefined(); // L1: nothing weaker to pin, the run's model is used
     const round = events.find((e) => e.type === "fix.round")!.data;
     expect(round.escalated).toBe(false);
     expect(round.model).toBe(cascadeImplementModel());
@@ -231,7 +252,7 @@ describe("engine10 E-45 sizing", () => {
     expect(result.data.cascade).toBe(false);
   });
 
-  it("E-64: the machine escalates fix only after a fast-verify failure; a pass-first run never escalates", async () => {
+  it("L1: the machine runs fix on the run model after a fast-verify failure; a pass-first run never escalates", async () => {
     let verifyCalls = 0;
     const verify: Stage = {
       name: "verify", targetS: 1, limitS: 5,
@@ -260,9 +281,9 @@ describe("engine10 E-45 sizing", () => {
       outputs: () => ({}),
     };
     await runMachine(ctx, { load: async (n) => stages[n] ?? null });
-    expect(calls.find((c) => c.stage === "implement")!.model).toBe(cascadeImplementModel());
-    expect(calls.find((c) => c.stage === "fix")!.model).toBe("claude-opus-5-5");
-    expect(events.find((e) => e.type === "fix.round")!.data).toMatchObject({ escalated: true, escalation_reason: "bun:a.test.ts", escalation_model: "claude-opus-5-5" });
+    expect(calls.find((c) => c.stage === "implement")!.model).toBeUndefined();
+    expect(calls.find((c) => c.stage === "fix")!.model).toBeUndefined();
+    expect(events.find((e) => e.type === "fix.round")!.data).toMatchObject({ escalated: false, model: "claude-opus-5-5" });
   });
 
   it("E-64: a pass-first run has zero fix sessions and no escalation event", async () => {
@@ -288,5 +309,45 @@ describe("engine10 E-45 sizing", () => {
     await runMachine(ctx, { load: async (n) => stages[n] ?? null });
     expect(calls.some((c) => c.stage === "fix")).toBe(false);
     expect(events.some((e) => e.type === "fix.round")).toBe(false);
+  });
+});
+
+describe("W1-S3 size-tied Wall time cap", () => {
+  it("small 90, normal 180, override clamps to 300, garbage falls back", () => {
+    expect(wallLimitS("small", {})).toBe(90);
+    expect(wallLimitS("normal", {})).toBe(180);
+    expect(wallLimitS("normal", { LOKI_E10_WALL_LIMIT_S: "999" })).toBe(300);
+    expect(wallLimitS("small", { LOKI_E10_WALL_LIMIT_S: "120" })).toBe(120);
+    for (const g of ["abc", "-5", "", "0", "NaN"]) expect(wallLimitS("small", { LOKI_E10_WALL_LIMIT_S: g })).toBe(90);
+  });
+
+  const LONG = "refactor the module layout and keep behavior identical. ".repeat(12); // 660 chars: sizes normal
+  async function wallRun(task: string) {
+    const dir = mkdtempSync(join(tmpdir(), "loki-w1s3-")); dirs.push(dir);
+    const ref = join(dir, "repomap.json"); writeFileSync(ref, JSON.stringify({ files: Array.from({ length: 30 }, (_, i) => `src/m${i}.ts`), entries: [], truncated: false }));
+    const seen: SessionRunOptions[] = [];
+    const ctx: RunContext = {
+      runId: "w1s3", repoDir: dir, runDir: dir, baseSha: "abc", branch: "b", provider: "claude", model: "m", deep: false, capS: 900,
+      emit: () => {},
+      sessions: { run: async (o) => { seen.push(o); writeFileSync(join(o.cwd!, "loki_wall_x.test.ts"), "x"); return { exit: null, markers: { done: false, alreadyDone: null, specConflict: null }, durationS: 0, killed: true }; } },
+      tests: { detect: async () => TM, impacted: () => [] }, cost: { read: () => ({ usd: null, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 }) },
+      clock: { now: () => Date.now() }, outputs: () => ({ intake: { task, repomap_ref: ref, testmap: TM } }),
+    };
+    const r = await wallStage.run(ctx, new AbortController().signal);
+    return { r, seen, dir, size: sizeTask(task, loadRepoMap(ref), TM).size };
+  }
+
+  it("a normal task reaches the Wall session with limitS 180; a timed-out session copies nothing and is never already_satisfied", async () => {
+    const { r, seen, dir, size } = await wallRun(LONG);
+    expect(size).toBe("normal");
+    expect(seen[0]!.limitS).toBe(180);
+    expect(r.status).toBe("failed");
+    expect(r.data.already_satisfied).toBeUndefined();
+    expect(existsSync(join(dir, "tests", "loki_wall_x.test.ts"))).toBe(false);
+  });
+
+  it("LOKI_E10_WALL_LIMIT_S=240 reaches the Wall session as 240", async () => {
+    process.env.LOKI_E10_WALL_LIMIT_S = "240";
+    expect((await wallRun(LONG)).seen[0]!.limitS).toBe(240);
   });
 });

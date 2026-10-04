@@ -99,6 +99,45 @@ is required rather than optional: with a single unlabeled key, the first
 rotation would make every previously-issued receipt fail verification -- and a
 receipt that stops verifying is indistinguishable from a tampered one.
 
+### Export as an in-toto Statement (DSSE)
+
+`loki verify <run-id> --export-dsse > receipt.dsse.json` prints a verified v10
+receipt as an in-toto Statement v1 (`_type` `https://in-toto.io/Statement/v1`)
+inside a DSSE envelope (`payloadType` `application/vnd.in-toto+json`). The
+subject is the commit and tree the receipt covers (`gitCommit`, `gitTree`), the
+`predicateType` is `https://autonomi.dev/loki/receipt/v10`, and the predicate is
+the receipt body unchanged. It is signed with the same Ed25519 receipt key (the
+`keyid` is the receipt `kid`) over the DSSE PAE bytes, so any DSSE verifier given
+the public key (`loki keys export`) can check it. `loki verify receipt.dsse.json`
+accepts the envelope too (add `--pubkey FILE` on another machine).
+
+Export rules:
+
+- Only a receipt that verifies AND whose run outcome is `VERIFIED` or
+  `ALREADY_SATISFIED` is exported. A tampered, unsigned, unchecked or
+  failed-run receipt is refused: non-zero exit, empty stdout, reason on stderr.
+  Exit codes: 1 tampered, 2 unsigned or unchecked (also an unreadable or non-JSON
+  receipt), 4 verified receipt of a run whose outcome is not `VERIFIED` or
+  `ALREADY_SATISFIED`, 66 no signing key found.
+- The input must be a receipt, not an envelope: `--export-dsse` on a DSSE envelope
+  exits 1 ("the input is already a DSSE envelope"). When the receipt is found by
+  run id, an envelope under that id whose `predicate.run_id` differs is refused
+  with exit 1 before export.
+- Group (multi-repo) receipts export too: the single-read override applies only
+  to the top-level receipt path, so each sub-receipt is read from its own file.
+- The receipt file is read once; the bytes that were verified are the bytes signed.
+- After a key rotation the envelope is signed by the current key and its `keyid`
+  is that key (the retired private key is not available); the predicate keeps the
+  receipt's own `verification.kid`, and `loki verify` checks it against the active
+  plus `LOKI_RECEIPT_RETIRED_PUBKEYS` keys. The export prints a note when the two differ.
+- Verification uses a threshold of one: a single good signature whose keyid is
+  known verifies the envelope. If no signature has a known keyid the result is
+  UNCHECKED (exit 2), however many signatures there are; a known key with a bad
+  signature is TAMPERED (exit 1).
+- An envelope found by run id (`.loki/runs/<run-id>/receipt.json`) must carry
+  `predicate.run_id` equal to that run id, otherwise exit 1. Verifying an explicit
+  file path does not apply this check.
+
 ### In a Kubernetes cluster
 
 The Helm chart wires this for you. Generate a key and pass it as a file:

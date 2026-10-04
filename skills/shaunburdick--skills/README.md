@@ -43,6 +43,10 @@ Standardizes `Generated-By` attribution for AI-assisted commits, pull requests, 
 
 Enforces non-negotiable code quality standards: zero lint suppressions (`eslint-disable`, `@ts-ignore`, etc.), strict TypeScript type safety (no `any`), and a mandatory pre-commit verification protocol. Use when any agent writes, edits, or reviews code.
 
+### [project-health](skills/project-health/)
+
+Quantifies where a repository's lines actually go, so documentation and comment bloat becomes a number in a diff rather than a surprise a year later. Reports comment-vs-code share, test lines with test and assertion counts, spec and doc prose (both gathered and scattered), and agent instruction surface. Ships a dependency-free script with calibrated threshold warnings and an opposing-direction ratchet whose bands mean reducing documentation has to be a deliberate baseline change rather than something achieved by deletion. Composition only — no metric here is a quality score.
+
 ### [style](skills/style/)
 
 Install @shaunburdick's personal style configuration: shared `.editorconfig` for any project, plus a choice of `eslint-config-shaunburdick` or `biome-config-shaunburdick` for JavaScript/TypeScript projects, with a hand-off to those package skills for detailed setup and debugging.

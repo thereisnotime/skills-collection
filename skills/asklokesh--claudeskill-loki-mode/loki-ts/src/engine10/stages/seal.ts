@@ -5,13 +5,14 @@
 // (A-121; no python, no `cryptography`). The key is the A-120 local key, created on first
 // use. An empty token means UNSIGNED, never presented as attested.
 import { createHash, randomBytes, createPrivateKey, createPublicKey, generateKeyPairSync, sign, type KeyObject } from "node:crypto";
-import { chmodSync, existsSync, linkSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readdirSync, linkSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import { assertDeltaNotes } from "../../e10ext/assert_delta.ts"; import { discardIfSatisfied } from "../../e10ext/discard.ts"; import { dropSet, parseStaged } from "../../e10ext/commit_filter.ts"; import { revertUnrelated } from "../../e10ext/scope.ts"; import { RECEIPT_SIGNER_BASENAME } from "../../util/receipt_signer.ts";
+import { basename, dirname, join } from "node:path";
+import { assertDeltaNotes } from "../../e10ext/assert_delta.ts"; import { discardIfSatisfied } from "../../e10ext/discard.ts"; import { dropSet, parseStaged } from "../../e10ext/commit_filter.ts"; import { flagOutsideScope } from "../../e10ext/scope.ts"; import { RECEIPT_SIGNER_BASENAME } from "../../util/receipt_signer.ts";
 import { run } from "../../util/shell.ts"; import { sealEvidence } from "../../features/visual_evidence.ts";
-import { isTestFile } from "../testmap.ts";
+import { isTestFile } from "../testmap.ts"; import { crossReview, minVerdict } from "./xreview.ts";
 import { STAGE_BUDGETS } from "../types.ts";
+import { hasExecutedProof, NO_TESTS_REASON, UNCONFIRMED_REASON, UNMEASURED_REASON } from "../../util/check_result.ts";
 import { type ContractSnapshot, sealContract } from "../../features/contract.ts"; import { capGroupVerdict, sealGroup } from "../../features/speed/seal_group.ts";
 import type { Obj, Receipt, ReceiptCheck, RunContext, Stage, StageName, StageResult, Verdict } from "../types.ts";
 
@@ -115,7 +116,7 @@ export const commitStage: Stage = {
     const drop = dropSet(ctx.repoDir, staged, ctx.outputs().intake?.preexisting_dirty);
     const sat = await discardIfSatisfied((a) => git(ctx, a), ctx.baseSha, ctx.outputs(), staged, new Set(drop.filter(({ st }) => st === "L").map(({ f }) => f)), ctx.repoDir); if (sat) return sat; // D50-F1
     if (drop.length > 0 && (await git(ctx, ["--literal-pathspecs", "reset", "-q", ctx.baseSha, "--", ...drop.map(({ f }) => f)])).code !== 0) return { status: "failed", data: {}, reason: "git reset failed" }; // A-104b: reset to the run base (not HEAD) so a path committed in implement leaves the diff too; literal, so ":(top)x" is a filename
-    const dropped = new Set(drop.map(({ f }) => f)), notes = await revertUnrelated((a) => git(ctx, a), ctx.baseSha, ctx.outputs(), staged.filter(({ f }) => !dropped.has(f))); if (!notes) return { status: "failed", data: {}, reason: "git restore of unrelated edits failed" };
+    const dropped = new Set(drop.map(({ f }) => f)), notes = flagOutsideScope(ctx.outputs(), staged.filter(({ f }) => !dropped.has(f))); // D76: advisory, nothing is reverted
     if ((await git(ctx, ["diff", "--cached", "--quiet"])).code === 0) return { status: "completed", data: { committed: false, scope_notes: notes } };
     const title = (str(ctx.outputs().intake?.title) ?? `run ${ctx.runId}`).split("\n")[0]!.slice(0, 72);
     const c = await git(ctx, ["commit", "-q", "-m", `loki: ${title}`, "-m", `Loki-Run: ${ctx.runId}`]);
@@ -127,16 +128,26 @@ export const commitStage: Stage = {
 // Stage outputs read by seal. Only keys in the ENGINE.md section 4 table (plus duration_s
 // from section 5) are trusted; any other key seal reads puts a "not recorded" entry on
 // NOT PROVEN when absent, so a producer cannot silently shape the receipt.
-function verdictOf(o: Partial<Record<StageName, Obj>>, checks: ReceiptCheck[], emptyDiff: boolean, verifyNotProven: boolean, wallGreenOnBase: boolean): Verdict {
+export function verdictOf(o: Partial<Record<StageName, Obj>>, checks: ReceiptCheck[], emptyDiff: boolean, verifyNotProven: boolean, wallGreenOnBase: boolean, proof: boolean, targetProof = false, uncovered: string[] = []): Verdict {
   const exit = o.implement?.exit;
-  if (o.commit?.failed !== true && strs(o.commit?.not_proven).length === 0 && (o.intake?.already_satisfied === true || wallGreenOnBase || exit === "already_done")) return "ALREADY_SATISFIED";
+  // FC-16: no success verdict without a Loki-executed check with n>0 and a pass; otherwise PARTIAL (NOT PROVEN, "no tests executed").
+  if (o.commit?.failed !== true && strs(o.commit?.not_proven).length === 0 && (o.intake?.already_satisfied === true || wallGreenOnBase || exit === "already_done")) return proof ? "ALREADY_SATISFIED" : "PARTIAL";
   if (exit === "spec_conflict") return "SPEC_CONFLICT"; if (o.commit?.failed === true || strs(o.commit?.not_proven).length > 0) return "FAILED"; // r3: an unrestored user file is never a clean verdict; A-104b r2: a failed commit never seals VERIFIED
   // Section 2: an empty diff without the LOKI_ALREADY_DONE marker is FAILED, never VERIFIED.
   if (emptyDiff) return "FAILED";
+  // FC-21b (1): a limit-killed implement is VERIFIED only when the harness itself ran every check green, a Wall or task-named test passed with n>0 (targetProof), and the limit was recorded.
+  if (exit === "killed") return typeof o.implement?.limit_s === "number" && targetProof && uncovered.length === 0 && proof && !verifyNotProven && checks.length > 0 && checks.every((c) => c.result === "pass") ? "VERIFIED" : "PARTIAL";
+  if (typeof o.implement?.limit_s === "number") return "PARTIAL"; // A1: a limit that did not kill the session (an error or a throw) is never a clean verdict
   if (checks.some((c) => c.result === "fail")) return "FAILED";
   // E-98a B1: verify's own NOT PROVEN (e.g. a system interpreter) downgrades too -- never a silent VERIFIED.
-  if (exit === "killed" || checks.length === 0 || checks.some((c) => c.result !== "pass") || verifyNotProven) return "PARTIAL";
+  if (exit === "killed" || checks.length === 0 || checks.some((c) => c.result !== "pass") || verifyNotProven || !proof) return "PARTIAL";
   return "VERIFIED";
+}
+
+/** FC-21b: verify's target_checks (Wall and task-named relevant tests) names a test that ran n>0 and passed; read from verify's raw checks, never from prose. */
+export function targetProofOf(v: Obj | undefined): boolean {
+  const names = new Set(strs(v?.target_checks)), raw = Array.isArray(v?.checks) ? (v.checks as Obj[]) : [];
+  return raw.some((c) => names.has(String(c.name)) && hasExecutedProof([c]));
 }
 
 function checksOf(v: unknown): ReceiptCheck[] {
@@ -202,10 +213,18 @@ export const sealStage: Stage = {
     const weakTests: string[] = [];
     for (let i = 0; i + 1 < rawDiff.length; i += 2) if ((rawDiff[i]!.trim().split(" ").pop() ?? "") !== "A" && isTestFile(rawDiff[i + 1]!)) weakTests.push(rawDiff[i + 1]!);
     const grp = sealGroup(ctx.runDir, receiptSha256 as never); // D61-13: inert without group/manifest.json
-    const verdict = capGroupVerdict(verdictOf(o, checks.filter((c) => !(c.result === "fail" && preRedChecks.includes(c.name))), !diffOk || diff.stdout === "", verifyNotProven.length > 0 || weakTests.length > 0, wallGreenOnBase), grp);
+    const proof = wallGreenOnBase || hasExecutedProof(Array.isArray(o.verify?.checks) ? (o.verify.checks as Obj[]) : []); // FC-16: executed n>0 pass, from verify's raw checks or the Wall base run
+    const uncoveredAfterLimit = o.implement?.exit === "killed" ? strs(o.verify?.uncovered_changed) : []; // FC-21b: changed code no passing impacted check covered; limit path only
+    const verdict0 = capGroupVerdict(verdictOf(o, checks.filter((c) => !(c.result === "fail" && preRedChecks.includes(c.name))), !diffOk || diff.stdout === "", verifyNotProven.length > 0 || weakTests.length > 0, wallGreenOnBase, proof, targetProofOf(o.verify), uncoveredAfterLimit), grp);
 
-    const notProven = new Set<string>([...DEEP_NOT_PROVEN, ...grp.notProven]);
+    const xr = await crossReview(ctx, verdict0, head), verdict = minVerdict(verdict0, xr); // B4: opt-in second-provider review, downgrade only
+    const notProven = new Set<string>([...DEEP_NOT_PROVEN, ...grp.notProven, ...(xr?.notes ?? [])]);
+    if (!proof && (verdict === "PARTIAL" || verdict === "VERIFIED" || verdict === "ALREADY_SATISFIED")) { const vc = Array.isArray(o.verify?.checks) ? (o.verify.checks as Obj[]) : []; notProven.add(vc.length > 0 && vc.every((c) => c.n !== 0 && String(c.reason ?? "").startsWith(UNMEASURED_REASON)) ? UNMEASURED_REASON : vc.length > 0 && vc.every((c) => c.n !== 0 && String(c.reason ?? "").startsWith(UNCONFIRMED_REASON)) ? UNCONFIRMED_REASON : NO_TESTS_REASON); } // an unparsed count is never reported as "no tests executed"
     if (wallNotRun > 0) notProven.add(`wall base run not_run: ${wallNotRun}`);
+    for (const d of Array.isArray(o.wall?.discarded) ? (o.wall!.discarded as Obj[]) : []) notProven.add(`wall test discarded: ${String(d.file)} (${String(d.reason)})`); // FC-23
+    if (wallNotRun > 0) { // A-103b: wall.ts keeps each sealed copy under runDir/wall; a copy absent from wall.files was discarded (class not_run: no real base result)
+      try { const kept = new Set((Array.isArray(o.wall?.files) ? (o.wall!.files as Obj[]) : []).map((f) => basename(String(f.path)))); for (const n of readdirSync(join(ctx.runDir, "wall")).sort()) if (!kept.has(n)) notProven.add(`wall test discarded: ${n} (not_run)`); } catch { /* no sealed wall dir: count line only */ }
+    }
     if (!diffOk) notProven.add("diff not computed (git diff-tree failed)");
     // E-55: any status other than A means the path existed at base_sha (M, D, or T typechange, e.g. a symlink).
     // D50-F2r3: re-run the classifier on the COMMITTED blob (clean filters run at commit) with verify's counts; any mismatch drops verify's labels, "weakened test" stays.
@@ -217,10 +236,11 @@ export const sealStage: Stage = {
       const tc = tcs?.[t] as Obj | undefined; const mine = assertDeltaNotes(ctx.repoDir, ctx.baseSha, head, t, str(o.intake?.task) ?? "", cnt(tc?.b), cnt(tc?.h));
       if (!mine || mine.length !== vl.length || mine.some((n) => !vl.includes(n))) for (const v of vl) dropped.add(v);
     }
+    if (verdict !== "VERIFIED") for (const f of uncoveredAfterLimit) notProven.add(`changed, untested after limit: ${f}`);
     for (const c of checks) if (c.result === "not_run") notProven.add(`not run: ${c.name}`);
     for (const f of strs(o.verify?.flaky)) notProven.add(`flaky test: ${f}`);
     for (const n of verifyNotProven) if (!dropped.has(n)) notProven.add(n);
-    for (const n of [...strs(o.commit?.not_proven), ...strs(o.commit?.scope_notes)]) notProven.add(n); // D58: scope_notes = reverted unrelated edits or scope undetermined; separate key so they never force FAILED
+    for (const n of [...strs(o.commit?.not_proven), ...strs(o.commit?.scope_notes)]) notProven.add(n); // D58: scope_notes = edits flagged outside stated scope (never reverted) or scope undetermined; separate key so they never force FAILED
     for (const id of strs(o.verify?.pre_red)) notProven.add(`pre red: ${id}`); // A-112: listed, never downgrades (not via verifyNotProven)
     for (const t of strs(o.implement?.tests_reverted)) notProven.add(`reverted test edit: ${t}`);
     if (ctx.provider !== "claude") notProven.add("kill blocking not enforced");
@@ -257,7 +277,7 @@ export const sealStage: Stage = {
       wall: { files: wallFiles.map((f) => ({ path: String(f.path), sha256: String(f.sha256) })), passed: wallPassed },
       checks,
       not_proven: [],
-      verdict, ...(grp.section ? { group: grp.section } : {}),
+      verdict, ...(typeof o.implement?.limit_s === "number" ? { implement_limit: { limit_s: o.implement.limit_s, elapsed_s: typeof o.implement.elapsed_s === "number" ? o.implement.elapsed_s : 0 } } : {}), ...(grp.section ? { group: grp.section } : {}),
       ...(str(o.implement?.spec_conflict_reason) !== null
         ? { spec_conflict_reason: sanitizeReason(str(o.implement?.spec_conflict_reason)!) }
         : {}),
@@ -266,13 +286,14 @@ export const sealStage: Stage = {
         usd: cost.usd, input_tokens: cost.inputTokens, output_tokens: cost.outputTokens,
         measured_sessions: cost.measuredCount ?? 0, total_sessions: cost.totalCount ?? 0, partial_usd: cost.partialUsd ?? 0,
         ...(cost.unmetered ? { source: "cli-invoker-unmetered" } : {}),
+        ...(Array.isArray(o.fix?.fix_rounds) ? { fix_rounds: o.fix.fix_rounds } : {}), // MW-2: engine-recorded per-round fix_resume + cache_read_tokens, never read from a transcript
       },
       time: { wall_s: Object.values(stages).reduce((a, b) => a + (b ?? 0), 0), stages },
       provider: ctx.provider,
       model: ctx.model,
       resumed: o.intake?.resumed === true,
       events_sha256: sha256(existsSync(eventsPath) ? readFileSync(eventsPath) : ""),
-      ...(await sealEvidence(ctx.repoDir, ctx.runDir, o, notProven, signal)),
+      ...(await sealEvidence(ctx.repoDir, ctx.runDir, o, notProven, signal, ctx.emit)),
       log_seal: true,
     };
 

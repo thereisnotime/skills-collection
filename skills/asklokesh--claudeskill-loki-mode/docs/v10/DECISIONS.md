@@ -451,18 +451,18 @@ Loki's definition: "autonomous software factory that runs with the knowledge of 
 4. Order: P0 first-run bugs, first run end to end with a recorded demo, PR body and cost cap, D51 Phase B, D51 Phase C. D50 continues only where it raises completion or merge rate. Every release note leads with the user-visible v1 change.
 
 ## D55 (CTO, 2026-10-01; reversible via repo variable LOKI_E160_REUSE=0): a push to main reuses a train's verdict for the identical SHA
-1. Rule (E-160, scripts/ci/train-verdict-reuse.sh). A push to refs/heads/main skips the heavy jobs only when ALL hold: LOKI_E160_REUSE is not 0; the workflow-runs listing for the SHA has total_count of 100 or less; among completed push runs of the same workflow file, other than this run, whose head_branch starts with train/, there is at least one success and no failure, timed_out or startup_failure (cancelled, skipped and neutral count for nothing); and, for Tests only, BEFORE is not all zeros and the BEFORE...SHA compare succeeded, lists fewer than 300 files and touches none of loki-ts/bun.lock, requirements-test.txt, dashboard-ui/package-lock.json. Any parse or API error means reuse=false and the full suite runs. The newest success by created_at is recorded (run id, attempt, branch) in the step summary and a notice; attempts above 1 are accepted.
+1. Rule (E-160, scripts/ci/train-verdict-reuse.sh). A push to refs/heads/main skips the heavy jobs only when ALL hold: LOKI_E160_REUSE is not 0; the workflow-runs listing for the SHA has total_count of 100 or less; among completed push runs of the same workflow file, other than this run, whose head_branch starts with train/, there is at least one success and no failure, timed_out or startup_failure (cancelled, skipped and neutral count for nothing); and, for Tests only, BEFORE is not all zeros and the BEFORE...SHA compare succeeded, lists fewer than 300 files and touches none of loki-ts/bun.lock, requirements-test.txt, legacy-ui/package-lock.json. Any parse or API error means reuse=false and the full suite runs. The newest success by created_at is recorded (run id, attempt, branch) in the step summary and a notice; attempts above 1 are accepted.
 2. Wiring. test.yml: the version-bump-gate skip output is true when either the S-132 gate or the reuse step says so. bun-parity, coverage, first-run-gate and security-audit get a first job train-reuse; every other job needs it and runs under `!cancelled() && needs.train-reuse.outputs.reuse != 'true'`. security-audit sast (CodeQL) is never gated: it always runs on main. coverage and first-run-gate take test.yml's concurrency block (per-ref with cancel for pull_request and train/**, per-SHA without cancel on main).
 3. Rationale: D28 and D46 item 4 (same SHA means same tree means same workflow YAML). required-ci, train-cycle, the pulse and the version-bump gate already read the train run by head_sha, so no gate gains new trust. Dependency lockfiles are excluded because a fast-forward from an older main can change resolved dependencies that the train run did not see.
 ## D56 (founder, relayed 15:40Z; numbered D56 because D55 is the E-160 CTO ruling): the Loki Control Plane replaces the dashboards
-1. One service plus one UI, `loki control`, replaces dashboard/, dashboard-ui/ and engine10/dashboard. It runs locally with zero config or is deployed once for many runs. It is stateless and horizontally scalable, keeps all state in a DB (SQLite locally, Postgres via DATABASE_URL), and is self-healing (/health, /ready, migrations on boot, spool replay, CLI restart of a dead local instance, k8s probes, version-checked reuse).
+1. One service plus one UI, `loki control`, replaces dashboard/, legacy-ui/ and engine10/dashboard. It runs locally with zero config or is deployed once for many runs. It is stateless and horizontally scalable, keeps all state in a DB (SQLite locally, Postgres via DATABASE_URL), and is self-healing (/health, /ready, migrations on boot, spool replay, CLI restart of a dead local instance, k8s probes, version-checked reuse).
 2. Stack: TypeScript on Bun with Hono and Drizzle; React, Vite and Tailwind built into static assets served by the same service; one container image.
 3. Ingest: engine10 ships batched events with idempotent ids to LOKI_CONTROL_URL, with retry; the run's own events.jsonl is the spool. `loki control backfill` imports existing runs.
 4. Every number comes from ingested events; no placeholders or invented data; an empty panel says so. Localhost-only by default, token auth when bound non-local, no secrets in events.
 5. Built in packages/control-plane/ behind LOKI_CONTROL=1 until it passes its acceptance tests (real runs in, correct counts out), then the default flips and the old UIs are deleted. v0 (service, SQLite, ingest, shipper, Runs list and detail) ships on D46 trains first; the other views follow train by train.
 6. Design: docs/v10/CONTROL-PLANE.md (architect slice in progress). Old-dashboard bug work is retired, except the P0 that shipped in 10.5.34.
 ## D55 (CTO, 2026-10-01; reversible via repo variable LOKI_E160_REUSE=0): a push to main reuses a train's verdict for the identical SHA
-1. Rule (E-160, scripts/ci/train-verdict-reuse.sh). A push to refs/heads/main skips the heavy jobs only when ALL hold: LOKI_E160_REUSE is not 0; the workflow-runs listing for the SHA has total_count of 100 or less; among completed push runs of the same workflow file, other than this run, whose head_branch starts with train/, there is at least one success and no failure, timed_out or startup_failure (cancelled, skipped and neutral count for nothing); and, for Tests only, BEFORE is not all zeros and the BEFORE...SHA compare succeeded, lists fewer than 300 files and touches none of loki-ts/bun.lock, requirements-test.txt, dashboard-ui/package-lock.json. Any parse or API error means reuse=false and the full suite runs. The newest success by created_at is recorded (run id, attempt, branch) in the step summary and a notice; attempts above 1 are accepted.
+1. Rule (E-160, scripts/ci/train-verdict-reuse.sh). A push to refs/heads/main skips the heavy jobs only when ALL hold: LOKI_E160_REUSE is not 0; the workflow-runs listing for the SHA has total_count of 100 or less; among completed push runs of the same workflow file, other than this run, whose head_branch starts with train/, there is at least one success and no failure, timed_out or startup_failure (cancelled, skipped and neutral count for nothing); and, for Tests only, BEFORE is not all zeros and the BEFORE...SHA compare succeeded, lists fewer than 300 files and touches none of loki-ts/bun.lock, requirements-test.txt, legacy-ui/package-lock.json. Any parse or API error means reuse=false and the full suite runs. The newest success by created_at is recorded (run id, attempt, branch) in the step summary and a notice; attempts above 1 are accepted.
 2. Wiring. test.yml: the version-bump-gate skip output is true when either the S-132 gate or the reuse step says so. bun-parity, coverage, first-run-gate and security-audit get a first job train-reuse; every other job needs it and runs under `!cancelled() && needs.train-reuse.outputs.reuse != 'true'`. security-audit sast (CodeQL) is never gated: it always runs on main. coverage and first-run-gate take test.yml's concurrency block (per-ref with cancel for pull_request and train/**, per-SHA without cancel on main).
 3. Rationale: D28 and D46 item 4 (same SHA means same tree means same workflow YAML). required-ci, train-cycle, the pulse and the version-bump gate already read the train run by head_sha, so no gate gains new trust. Dependency lockfiles are excluded because a fast-forward from an older main can change resolved dependencies that the train run did not see.
 
@@ -566,3 +566,151 @@ The $20.00 default per-run cap stays. It is a hard stop on priced sessions only;
 - Conditions: secret-scan on main always runs full (no E-160 skip); required-ci reuses only main-branch or dispatch audit verdicts; the weekly cron becomes daily and a red daily scan halts releases.
 - No base-config fallback (r3 class). PR, slice-*, main, schedule and dispatch stay full. HIGH tier, unanimous opus review. Proposed by peer autonomi-dev-76; decided by the CTO advisor.
 - Saves about 15 min per promotion; release latency may still include the main full scan, accepted (moat over speed). Unmeasured hypothesis for a later CTO pass: --all on a fetch-depth 0 checkout also scans stale remote slice branches.
+
+## D76: legacy `loki verify` treats an unknown-kid attestation as not verified (CoS under D69, 08:32Z 2026-10-03)
+- Decision: on legacy, a well-formed token whose kid matches no local key and no `--pubkey` exits rc 2 with `attestation: UNCHECKED` and a VERDICT that is not VERIFIED, matching engine10. This supersedes the D47 carve-out for legacy UNCHECKED.
+- Why: anyone can mint a token with a foreign kid, so rc 0 is a downgrade forgery path. Moat order puts Seal accuracy above convenience, and D48 row 2 gives honest cross-machine verification an explicit path (`loki verify --pubkey`).
+- Also in scope: a missing .loki/state/last-proof-id.txt must not skip the receipt check silently; it reports not verified (A-134 class).
+- Users who relied on rc 0 for foreign tokens must pass `--pubkey`; the error message names that flag. CHANGELOG and docs say so. HIGH tier, unanimous opus review.
+
+## D77 (CTO, reversible; amends the D50-W1 ruling): the Wall gets a sealed base-tree manifest, never the repo; its cap scales with task size
+1. Rejected: read-only repo access for the Wall. A read-only mount still exposes function bodies to Read and Grep, and that cannot be blocked the same way across five provider CLIs, so "never bodies" would be unenforceable.
+2. Rejected on its own: a longer cap. The two 90s kills came from blind exploration; more time alone buys more blind tests.
+3. Adopted: core code builds wall_manifest.txt from the intake base tree before the Wall session starts and places it in the empty temp cwd next to task.md and repomap.txt. It holds only the detected runner and its config file, the test directory layout, at most 2 existing test files as style examples, and the public signatures and exports of the modules the task names. Capped at 400 lines; its sha256 is emitted on wall.sealed and listed in the receipt.
+4. The Wall never sees function or method bodies, the run diff or implement-worktree content, plan output, the implement transcript, git history, any .loki/ run directory, or prior Wall files. A style-example test must not import a module the task names (keeps D53-Q1 sound).
+5. Ordering is unchanged from D42(2): manifest from the base tree only, Wall sealed and red-on-base before implement runs.
+6. Cap: 90s small, 180s normal, LOKI_E10_WALL_LIMIT_S may override up to 300s, fixed before the session. A Wall timeout stays not_run, never red or already_satisfied, and Seal discloses it.
+7. Ships behind LOKI_E10_WALL_MANIFEST with a lift row (augmentiq#52 plus 2 brownfield tasks, manifest off versus on). Lower lift drops the change. Slices W1-S1..W1-S4 on BOARD; S1 to S3 touch the engine10 core and wait for core budget room.
+
+
+## D78
+2026-10-03T10:39Z, CoS (D69). GitHub push protection rejected train/94 because commit 04f62ff4e (SEC-SCAN-1) carried planted fake AWS key literals in tests/test-secret-scan.sh. Nothing in the range was on origin, so the 124 unpushed main commits were rewritten locally (filter-branch index-filter on that one file): each literal is split with an adjacent empty single-quoted string, so bash builds the same value and the scanner test still blocks it (6/0). The tree diff from the old head was that file only. This was not a force-push, and no protection bypass was requested. Commit SHAs cited on BOARD and PROGRESS for 10:25Z and earlier today, after a185ce16, are pre-rewrite and resolve only through the reflog. Rule: a test fixture never holds a scanner-matching secret literal, split it at write time.
+
+## D79
+2026-10-03T10:48Z, CoS (D69). S-218r round 5: the untracked-status snapshot needs git 2.44 or newer. On an older or unparseable version it refuses, returns 1 and prints a clear message; the callers already treat a failed snapshot as no snapshot. Why: on older git the repo's own config can fake the GIT_CONFIG_COUNT sentinel, and GIT_NO_LAZY_FETCH does not exist, so a hostile repo could run a filter driver or an ssh command (both reproduced by opus). Apple git on current macOS is 2.54; Ubuntu 22.04 (2.34) and Debian 12 (2.39) degrade to no untracked snapshot rather than an unprotected one.
+
+## D80
+2026-10-03T12:54Z, CoS (D69), moat change pending CTO ratification in the SEAL r9 opus review. SEAL r8 BLOCK: in a single-process run (`node --test --test-isolation=none`, or a test file run directly with `node file.js`) a test can write a complete fake summary block and call process.exit(0) before the runner prints its own, so a failing test that never ran is reported VERIFIED. No output parsing can tell the difference, because the test wrote the whole output. Decision: (1) loki-seal grants test coverage only when the npm test script is `node --test` with process isolation (the default), where the parent runner always prints its own summary after the child exits; isolation=none, a direct `node file.js` script, or any script it cannot classify as that gives NOT VERIFIED with a stated reason. (2) As a second layer, a test file that calls process.exit, process.reallyExit, process.abort or process.kill is an integrity finding (NOT VERIFIED). (3) The truncation check gets its own unit test that does not rely on the end-of-output rule. Over-refusing honest single-process setups is accepted (fail closed).
+
+## D80 amendment (2026-10-03T13:14Z, CoS per D69, from the SEAL r9 opus review)
+The r9 reviewer amended D80 and the CoS adopts the amendment as binding. The reason is a reproduced finding: the classifier matched `node\s+--test` anywhere in the script, so "node --test-reporter=spec t.js", "node --test-only t.js", "node --test && node fake.js" and "echo node --test; node t.js" were all classified as node --test (a node -e run at 13:13Z). Amended rule:
+- loki-seal grants coverage from npm test only when the whole trimmed script is exactly `node --test` plus allowlisted flags (--test-reporter=<name>, --test-reporter-destination=stdout, --test-isolation=process, --test-concurrency=<n>, --test-timeout=<n>) and plain path arguments.
+- NOT VERIFIED, with a stated reason, applies on: any other token or a shell metacharacter (; & | $ ` quotes # < >); a pretest or posttest script; a project .npmrc setting node-options or script-shell; or NODE_OPTIONS set in the hook environment.
+- The exit/abort/kill scan remains as defense in depth and is not the trust boundary.
+- The truncation check keeps its own unit test.
+The CTO ratifies this in the r10 HIGH review.
+
+## D80 amendment 2 (2026-10-03T13:26Z, CoS per D69, from the SEAL r10 opus HIGH review)
+The r10 reviewer reproduced four forged PASS results ("Verified by Loki" on a repo with broken code) under the 13:14Z amendment. Each one used an npm test script that passed the allowlist:
+- a node_modules/.bin/node shim
+- `--test-reporter=<the package's own name>`
+- a reporter in node_modules
+- npm_config_node_options, a user ~/.npmrc, or a quoted .npmrc key
+That amendment is NOT ratified. It is replaced by this rule, which the CoS adopts as binding:
+1. Coverage is granted only from a runner that loki-seal launches itself. The npm test script must be exactly `node --test` plus allowlisted flags and plain relative file paths. loki-seal then does NOT run `npm test`. It spawns `process.execPath` (an absolute path, no PATH lookup) with those exact arguments, with cwd set to the project root and NODE_OPTIONS, NODE_PATH, NODE_TEST_CONTEXT and every `npm_*` variable removed from the environment. No npm config file (project, user or global) is consulted.
+2. Allowlisted flags:
+   - `--test-reporter=` one of spec, tap, dot, junit or lcov (built-ins only, so a bare package name gives NOT VERIFIED)
+   - `--test-reporter-destination=stdout`
+   - `--test-isolation=process`
+   - `--test-concurrency=<n>`
+   - `--test-timeout=<n>`
+3. A pretest or posttest script, any other token, or any shell metacharacter gives NOT VERIFIED, with a stated reason.
+4. jest, vitest and any other runner resolved from the project (node_modules/.bin, or reporters and setup files defined in config) does not grant coverage. It gives NOT VERIFIED with a stated reason, and its red/green result still counts. Over-refusing is accepted (fail closed).
+5. The exit/abort/kill scan stays as defense in depth; it is not the trust boundary. The truncation check keeps its own unit test.
+6. Every case in 1 to 4 has a negative test that asserts its specific reason. That includes the six reproduced forges above.
+
+## D81 (2026-10-03T14:43Z, CoS per D68/D69): train/101 red is fixed forward with a revert deadline
+- train/101 (e14834e53) Tests run 37129766523 failed on two reproducible, deterministic causes. Neither is the P9 flake.
+  - Shard 2: seal.test.js:1031 runs `node --test-isolation=none`, which the CI Node rejects ("bad option").
+  - Shard 3: cloud-dispatch R2-3. On GNU the writer overwrote a duplicated BOARD row (rc 0, want 15).
+- Decision: two sonnet builders fix them forward on main, with a deadline of about 15:05Z.
+  - Any slice not fixed and TL-approved by then is reverted for train/102, and the rest ships as v10.6.15. This is the D68 rule "drop red slices".
+  - A failed rerun is not attempted, because both failures are deterministic.
+- Each fix must keep fail-closed semantics: no skip, no weakened assertion, and nothing added to tests/moat/pending.txt.
+
+## D82 (2026-10-03T14:54Z, CoS per D69): founder directive 14:55Z, all features on by default, cost-cap rework, 10/10 program
+Source: the founder's words, relayed by the peer session (autonomi-dev-76) at 14:55Z. Recorded as given; executed without founder waits.
+1. Default-on: visual evidence, spec-to-contract, D61 parallel/speed, Slack two-way, MCP tools, Control Plane and workspaces become default-on in the next train. Each env var stays as an opt-out (=0).
+   - A feature still in D12 review ships the same day its review passes.
+   - CTO guardrails, from security, which outranks speed:
+     - A default-on network listener binds loopback only.
+     - Anything that sends data off the machine (for example a Slack webhook) stays inert until its credential is configured. Default-on means "on when configured", never "prompt for or read stored secrets".
+2. Cost cap: the $20 default is removed.
+   - Subscription runs (CLI login, no API key) have no dollar cap and print one info line: "subscription: no dollar cap; usage counts against your plan limits".
+   - API-key runs default to a $100 cap.
+   - --max-cost and loki.yaml budgets.per_run override both. BUDGET_STOP stays exit 3.
+   - The start line, docs and tests are updated.
+3. 10/10 program, built in order (a) to (j):
+   - (a) browser e2e with a Playwright video and trace
+   - (b) loki merge queue
+   - (c) loki review with a deterministic risk score
+   - (d) project memory across runs
+   - (e) Control Plane mobile layout, roles and sign-in (single-admin token, then OIDC)
+   - (f) mobile emulator tests when the tools are installed
+   - (g) a REST API for runs
+   - (h) VS Code and JetBrains via ACP
+   - (i) Sentry intake
+   - (j) the D50 Sonnet lift fixes
+   - Plus a fresh gap-research pass (Devin, Factory, 8090, Vorflux, Claude Code). New items join the queue.
+   - An architect slices each item into small slices that keep CI green.
+4. Amended by the founder at 15:00Z and 15:02Z, relayed by the peer: "no testing", "10 releases every hour", "use least tokens".
+   - Until about 17:00Z, LOW and MEDIUM slices merge as built, with no agent-side review round. CI Tier A and Tier B are the gate, because nothing reaches npm without a green Tier B on its exact tree (D55).
+   - HIGH slices (moat, Seal, verifier, auth/sign-in, security) keep one opus D12 review. A peer relay cannot waive it.
+   - Models (D52): haiku for docs, flag flips, pins and mechanical edits; sonnet for feature code; opus only for HIGH review. Fresh agents get small briefs and return short results.
+   - Trains: cut one from whatever has merged as soon as the previous train's push has registered its CI runs. Never push while a release is running: a push during a release cancels its Tests (GUARD, memory "Pushing during a release cancels its Tests"). Never cancel a releasing train.
+   - The real ceiling is about 12 min per Tests run plus the release, so roughly 4 releases per hour. The achieved rate is reported honestly.
+5. Usage: the 85% weekly floor stands. At the floor, stop starting new work and record what is left in the handoff.
+
+## D83 (2026-10-03 15:20Z, founder via peer relay): enterprise-grade Control Plane UI
+1. Founder words: "i want enterprise grade UI, not just a dummy simple page ... make sure the previous UI design is used, I meant fonts, colors, UI looks and design ... even if it's a rewrite, I like Old UI".
+2. Supersedes the minimal CP-UI-SHELL look. The Control Plane reuses the legacy dashboard design system (fonts, serif wordmark, purple palette, light and dark themes, sidebar and right panel, card, KPI, badge, table and timeline components).
+3. Step 1: an opus architect writes docs/v10/CP-ENTERPRISE-UI.md (legacy inventory with KEEP/REWORK/DROP, design tokens, feature set drawn from Devin, Factory, 8090, Vorflux and Claude.ai, and the v10 API each page needs). Step 2: parallel sonnet builders, one per page, on a shared token package. Every number from real ingested data. Start-run and stop endpoints get an opus security review. Ships as 10.8.0; legacy dashboard code is deleted at parity.
+4. Does not hold 10.7.0, which ships at its cutoff. D82 also waived the D61 gate E evidence for the LOKI_SPEED default flip.
+5. Addendum (15:24Z, founder via peer relay): "i want fully controllable loki mode of sessions, configurations and anything from UI, but keep it super clean and lean like claude.ai UI and chatgpt UI, but with loki mode's old dashboard look, should feel amazing for users". Guiding principle of CP-ENTERPRISE-UI.md: full CLI parity in the UI, a lean conversation-style structure (session list plus one main pane, one New run input, run as a thread, everything else behind one settings entry), the legacy look on top, and no placeholder panels. loki.yaml write-back and the run control endpoints are HIGH.
+6. Spec open questions decided by the CoS under D69 (15:28Z): ground color is the shell light grey #F1F2F6, the mascot stays beside the wordmark (both are the old look the founder asked for; one screenshot pair goes to FOUNDER-QUEUE for a later veto). Merge queue (`loki merge`) and PR risk review (`loki review --risk --json`) DO have backends as of 10.7.0, so they get UI slices CPE-25 and CPE-26 wrapping those commands instead of staying hidden; schedules, memory and modernize stay hidden until a v10 backend exists.
+
+## D84 (2026-10-03 16:14Z, CoS per D68/D69): 10.7.0 re-cut content, CP shell fields read-only
+1. 10.7.0 ships the LOKI_SPEED default flip with the D82-FIXREDS fix. D82-WALL0 is reverted for 10.7.0 because it fails the engine e2e done run (the stub writes no Wall file, so the run seals FAILED); it returns in 10.7.1 with the e2e stub writing a Wall check.
+2. The quiet-mode LiveLine moves from engine10/output.ts to e10ext/liveline.ts: it is presentation, and core was 5026 lines against the D29 5,000 cap. The cap is unchanged.
+3. Control Plane settings API (CPE-14): shell command fields (workspaces.*.integration.command, workspaces.*.repos[].setup) are read-only over HTTP and return 422; they are edited in loki.yaml directly. A browser must never be able to plant a command the engine later runs.
+
+## D85 (2026-10-03 16:30Z, CoS per D68/D69): train/102 reds fixed in place, not dropped
+1. train/102 Tests failed on registration and pin defects only: acp missing from help and completions, merge missing from zsh completion, `loki web --port` skipping the port validator after CP-LEGACY, a ProcessEnv type lost in CP-INGEST watch.ts, and the E-123 gitleaks baseline count after the reviewed Sentry fixture fingerprint.
+2. Dropping ACP, merge, CP-LEGACY and CP-INGEST would remove four headline 10.7.0 features and needs four reverts plus a dist rebuild, which is slower and riskier than five one-line registration fixes. The peer's "drop, do not fix forward" rule targets behaviour regressions; these are wiring gaps. Fixed in d9704dfc4 and every failing suite was rerun locally green before train/103.
+3. `loki web` routes to the Control Plane only in its bare form (optionally --no-open); any other flag reaches the classic validator.
+
+## D86 (2026-10-03 17:00Z, founder via the steering session, CoS records): Engine Laws are the engine constitution
+1. Merges the steering session's earlier "D76" message (harness never worse than raw) with its later "ENGINE LAWS" directive. The label clashed with our D76, so both are recorded here under one number.
+2. Trigger: FireLater#17. Plain claude took about 2 min; Loki took 11 min and $2.66 and ended in a FAILED draft. Root causes are classes, not one-offs:
+   - testmap runs fixed commands from repoDir;
+   - scope.ts reverts edits on keyword overlap;
+   - sizing.ts cascade pins implement to sonnet;
+   - verify has no ERROR versus FAIL split;
+   - pr_body prints "not recorded" over real data;
+   - there is no terminal-state invariant across sinks.
+3. docs/v10/ENGINE-LAWS.md (L1 to L7) is binding for every stage, present and future:
+   - L1 never below raw;
+   - L2 fail closed on trust, fail open on work;
+   - L3 the authority ladder;
+   - L4 the Project Model;
+   - L5 every failure has an owner;
+   - L6 every run terminates everywhere;
+   - L7 outputs are contracts.
+4. Steering rule, added to OPERATING-MODEL.md: no bug becomes a fix slice until it has a row in docs/v10/FAILURE-CLASSES.md. Each row answers what the user saw against raw, the law broken, a sibling sweep, the one shared mechanism, and a regression fixture. Reviewers reject stage-only patches when siblings exist.
+5. Sequencing:
+   - Wave 0 ships in 10.7.1, with five builders in flight plus a cascade-off builder and a PR-body golden builder:
+     - scope becomes advisory;
+     - the cascade is off and escalation goes up only;
+     - a load error or zero tests collected becomes harness ERROR, with no fix rounds and a ready PR;
+     - a golden PR body;
+     - run.completed ingest plus a reconciler.
+   - Waves 1 and 2 go to the next train. Wave 1 covers the Project Model, the result classifier, the authority ladder in seal, a lifecycle e2e and static checks. Wave 2 covers the Repo Shape Matrix and the Parity Gate against raw `claude -p`, gating latest.
+   - An opus Architect is checking the plan against the code and slicing it into EL-W0/W1/W2 rows.
+6. Acceptance: a FireLater#17 rerun ends VERIFIED with a ready PR, the route edits kept, within raw plus 30s and at most 1.2x raw cost. The real-model legs stay parked until the founder provides keys (FOUNDER-QUEUE 15/16). The parity leg runs once keys exist; until then, recorded replays gate.
+
+## D87 (2026-10-03 19:00Z, founder via the steering session, CoS records): parallel lanes today, usage stop raised to 95%
+1. For today this supersedes the one-lane governor, the 81% weekly stop and the 85% floor. Up to 4 sonnet builders run in separate worktrees, and opus D12 reviews only HIGH slices.
+2. Hard stop: no new dispatch at 95% of the weekly limit. The last 5% is reserved for releases, smoke checks and steering, because 100% stops everything, this session included, until Oct 7 12:59 ET.
+3. Never hold completed work. Every green slice ships on the next train, and nobody pushes during a running release.
+4. Usage readings are logged hourly in usage-readings.tsv from direct /usage readings. The pulse weekly projection is not used as a governor input while it reads 450%+.
+5. Order: 10.7.1, then 10.8.0 (UI, CPE-24 if green, else 10.8.1), then MW-1 to MW-3, which replace mods M0 to M3 per the research in autonomi-dev/research/2026-10-03-claude-mods, then EL-W1.

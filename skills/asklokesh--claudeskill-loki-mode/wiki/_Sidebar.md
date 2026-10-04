@@ -18,10 +18,8 @@
 - [[Notifications]]
 - [[Dashboard]]
 - [[Completion Council]]
-- [[Quality Gates]]
 - [[Cross-Project Learning]]
 - [[Knowledge Compounding]]
-- [[Checkpoints]]
 - [[GitHub Integration]]
 
 ### Enterprise
@@ -43,6 +41,6 @@
 
 ---
 
-**Version:** 10.6.11
+**Version:** 11.0.1
 
 [Autonomi](https://www.autonomi.dev/) | [GitHub](https://github.com/asklokesh/loki-mode) | [npm](https://www.npmjs.com/package/loki-mode)

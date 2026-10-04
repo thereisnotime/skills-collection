@@ -22,11 +22,11 @@ const withDir = async (fn: (d: string) => Promise<void>): Promise<void> => {
 const ON = { LOKI_SPEED: "1" };
 
 describe("flag off is byte-identical", () => {
-  test("route result and no group call for flag unset, LOKI_SPEED=0 and empty", async () => {
+  test("route result and no group call for LOKI_SPEED=0", async () => {
     const before = route(["fix x"]);
     let calls = 0;
     const g: GroupRunner = async () => { calls++; return 0; };
-    for (const env of [{}, { LOKI_SPEED: "0" }, { LOKI_SPEED: "" }]) {
+    for (const env of [{ LOKI_SPEED: "0" }]) {
       const { r, err } = await run(SPEC, env, g);
       expect(r).toBeNull();
       expect(err).toBe("");
@@ -40,7 +40,7 @@ describe("flag off is byte-identical", () => {
   });
   test("supervisor gates the import on LOKI_SPEED=1 and skips issue refs", () => {
     const s = readFileSync(join(import.meta.dir, "../../src/engine10/supervisor.ts"), "utf8");
-    expect(s).toMatch(/LOKI_SPEED === "1" && !isIssue[^\n]*speed\/route\.ts/);
+    expect(s).toMatch(/LOKI_SPEED !== "0" && !isIssue[^\n]*speed\/route\.ts/);
   });
 });
 
@@ -155,9 +155,9 @@ describe("flag on", () => {
     const { task } = await run("big.md", ON, async () => 0, d, d);
     expect(Buffer.byteLength(task)).toBeLessThanOrEqual(MAX_SEQ_TASK_BYTES);
   }));
-  test("flag unset returns the task unchanged even for an existing spec path", () => withDir(async (d) => {
+  test("LOKI_SPEED=0 returns the task unchanged even for an existing spec path", () => withDir(async (d) => {
     writeFileSync(join(d, "spec.md"), SPEC);
-    const { r, task, err } = await run("spec.md", {}, async () => 0, d, d);
+    const { r, task, err } = await run("spec.md", { LOKI_SPEED: "0" }, async () => 0, d, d);
     expect(r).toBeNull();
     expect(task).toBe("spec.md");
     expect(err).toBe("");

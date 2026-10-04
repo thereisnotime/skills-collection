@@ -49,7 +49,7 @@ mk_bugrepo "$T/repo"
 BASE=$(git -C "$T/repo" rev-parse HEAD)
 
 # Throwaway HOME first: npm must not read ~/.npmrc or ~/.npm.
-ORIG_HOME="$HOME"
+ORIG_HOME="${LOKI_REAL_HOME:-$HOME}" # FC-07: under the hermetic test HOME the real dashboard venv is still read (read-only)
 # Ports are machine-global: the legacy runs below start run.sh's dashboard, which would bind the
 # user's REAL default 57374 and outlive the gate (P0-DASH-LEAK2). Disable it and, belt and braces,
 # point any dashboard at a free high port.
@@ -79,7 +79,7 @@ if [ -n "$SPEC" ]; then
 fi
 
 # --- provider -----------------------------------------------------------------
-unset LOKI_PROVIDER LOKI_ENGINE
+unset LOKI_PROVIDER
 if [ "$MODE" = stub ]; then
     cat > "$T/bin/claude" <<'STUB'
 #!/usr/bin/env bash
@@ -143,7 +143,7 @@ else res FAIL no-stray-files "unexpected changes: $(echo "$BAD" | tr '\t\n' '  '
 VOUT="$T/verify.log"
 # D48: bare `loki verify` stays the legacy deterministic verify; the receipt a v10 run seals is checked by the v10 verify.
 if [ "$ENGINE" = legacy ]; then "$LOKI" verify < /dev/null > "$VOUT" 2>&1; VRC=$?
-else LOKI_ENGINE=v10 "$LOKI" verify < /dev/null > "$VOUT" 2>&1; VRC=$?; fi
+else "$LOKI" verify < /dev/null > "$VOUT" 2>&1; VRC=$?; fi
 PRINTED=$(sed 's/\x1b\[[0-9;]*m//g' "$T/out.log" | grep -Eio '(receipt_sha256|sha256|receipt)[^0-9a-f]*[0-9a-f]{64}' \
     | head -1 | grep -Eo '[0-9a-f]{64}$')
 VERIFIED_D=$(sed -n 's/^.*receipt_sha256[^0-9a-f]*\([0-9a-f]\{64\}\).*$/\1/p' "$VOUT" | head -1)
@@ -177,7 +177,7 @@ if [ "$ENGINE" = legacy ]; then
 else
 # 7b. D48: the default entry is the Loki 10 engine: one start line naming it, then Outcome, PR, Receipt, NOT PROVEN, Cost, Time
 MISSL=""; for l in Outcome PR Receipt 'NOT PROVEN' Cost Time; do grep -q "^$l:" <<<"$OUTC" || MISSL="$MISSL $l"; done
-if head -1 <<<"$OUTC" | grep -q '^Loki 10 engine (set LOKI_ENGINE=legacy' && [ -z "$MISSL" ]; then
+if head -1 <<<"$OUTC" | grep -q '^Loki 10 engine' && [ -z "$MISSL" ]; then
     res PASS engine-start-line "start line names Loki 10; Outcome/PR/Receipt/NOT PROVEN/Cost/Time present"
 else res FAIL engine-start-line "missing start line or summary label(s):${MISSL:- none}: $(head -2 <<<"$OUTC" | tr '\n' '|')"; fi
 
@@ -206,7 +206,7 @@ case "$CJ" in ok*) res PASS cost-non-null "$CJ" ;; *) res FAIL cost-non-null "$C
 fi
 
 # 9. G8 (stub only): an agent that skips the target test (node { skip: true } on the target) must not end VERIFIED. Runs the v10 engine,
-#    whose verify stage judges skips and test configuration (A-115); since D48 this IS the default engine, so no LOKI_ENGINE is set.
+#    whose verify stage judges skips and test configuration (A-115); since D48 this IS the only engine.
 if [ "$MODE" = stub ]; then
   if [ "$ENGINE" = v10 ]; then
     mkdir -p "$T/skip" && mk_bugrepo "$T/skip"
@@ -220,23 +220,13 @@ if [ "$MODE" = stub ]; then
         res PASS skip-bare-verify "bare verify after a failed default run: rc=$VRC, $(head -1 "$T/skipv.log")"
     else res FAIL skip-bare-verify "bare verify after a failed default run: rc=$VRC, $(head -1 "$T/skipv.log")"; fi
   fi
-    # 9b. the same skip under the escape hatch (LOKI_ENGINE=legacy `loki quick`, D48): the headline must not be a verified verdict. Its rc is reported, not
-    #     asserted: legacy prints NOT VERIFIED but can exit 0 (exit-honest policy, G1's domain).
-    mkdir -p "$T/skipl" && mk_bugrepo "$T/skipl"
-    ( cd "$T/skipl" && FRG_SKIP=1 LOKI_ENGINE=legacy "$LOKI" quick "$TASK" ) < /dev/null > "$T/skipl.log" 2>&1; LRC=$?
-    HH=$(sed 's/\x1b\[[0-9;]*m//g' "$T/out.log" | grep -Ei '^Outcome:' | head -1)
-    if [ "$ENGINE" = legacy ]; then HH="main run headline not checked in legacy mode; 9b checked only the legacy skipped-target run above"; fi
-    LH=$(sed 's/\x1b\[[0-9;]*m//g' "$T/skipl.log" | grep -Ei 'Evidence Receipt' | head -1)
-    if [ "$LRC" -eq 3 ] && grep -Eqi 'NOT VERIFIED' <<<"$LH" && ! sed 's/\x1b\[[0-9;]*m//g' "$T/skipl.log" | grep -Eqi 'verdict: *verified|Evidence Receipt:? *VERIFIED'; then
-        res PASS skip-not-verified-legacy "legacy skipped target: rc=3, headline: ${LH:-none} (honest run: ${HH:-none})"
-    else res FAIL skip-not-verified-legacy "legacy skipped target: rc=$LRC, headline: ${LH:-none}"; fi
 fi
 
-# 10. P0-DASH-STATIC: the dashboard of the package under test serves the real UI at GET /: 200 text/html carrying the
-#     app element (<loki-overview>), not the "frontend not found" page. Runs in both legs (the package is the installed
+# 10. P0-DASH-STATIC: the dashboard of the package under test starts and answers GET / honestly: 410 text/html naming the
+#     Control Plane (the legacy UI was removed, CPE-24), never a blank page. Runs in both legs (the package is the installed
 #     one with --installed). Needs fastapi+uvicorn from the caller's HOME venv or python3; otherwise SKIP (not a FAIL).
 PKG="$REPO_ROOT"; [ -n "$SPEC" ] && PKG="$T/prefix/node_modules/loki-mode"
-PKG="${FRG_DASH_PKG:-$PKG}" # test hook: point at a package copy whose frontend is missing
+PKG="${FRG_DASH_PKG:-$PKG}" # test hook: point at another package copy
 DPY=""
 for p in "$ORIG_HOME/.loki/dashboard-venv/bin/python" python3; do
     if command -v "$p" >/dev/null 2>&1 && "$p" -c 'import fastapi, uvicorn' >/dev/null 2>&1; then DPY="$p"; break; fi
@@ -258,9 +248,9 @@ else
         res FAIL dashboard-root "dashboard did not start: $(tail -2 "$T/dashboard.log" | tr '\n' ' ')"
     else
         DCODE=$(curl -s -o "$T/dash-index.html" -w '%{http_code} %{content_type}' --max-time 5 "http://127.0.0.1:$DPORT/")
-        if [[ "$DCODE" == "200 text/html"* ]] && python3 -c 'import sys;sys.exit(0 if "<loki-overview" in open(sys.argv[1]).read() else 1)' "$T/dash-index.html"; then
-            res PASS dashboard-root "GET / = $DCODE with the app element"
-        else res FAIL dashboard-root "GET / = $DCODE (expected 200 text/html with <loki-overview>)"; fi
+        if [[ "$DCODE" == "410 text/html"* ]] && python3 -c 'import sys;sys.exit(0 if "Control Plane" in open(sys.argv[1]).read() else 1)' "$T/dash-index.html"; then
+            res PASS dashboard-root "GET / = $DCODE naming the Control Plane"
+        else res FAIL dashboard-root "GET / = $DCODE (expected 410 text/html naming the Control Plane)"; fi
     fi
     kill "$DPID" 2>/dev/null
     wait "$DPID" 2>/dev/null

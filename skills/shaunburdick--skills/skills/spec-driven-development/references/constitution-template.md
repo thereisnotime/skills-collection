@@ -38,7 +38,8 @@ These are the minimum bars — not targets to aim for, but floors to never go be
 - **Test coverage**: ≥ <X>% line coverage for all new code
 - **Linting**: Zero errors, zero warnings — no suppression comments ever
 - **Type safety**: Strict mode enabled, no `any` types without documented justification
-- **Documentation**: All public APIs must have doc comments
+- **Documentation**: Public APIs document the non-obvious — the invariant they
+  uphold, the alternatives rejected. Comments explain why, not what
 - **Commits**: Feature branches only (`001-feature-name`), conventional commit messages
 
 ## Anti-Patterns to Avoid

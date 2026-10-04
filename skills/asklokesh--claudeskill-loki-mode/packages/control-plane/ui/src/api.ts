@@ -1,5 +1,17 @@
 // The only file that talks to the control service. Shapes mirror packages/control-plane/src/server/runs.ts (parseRun, listRuns, runDetail).
 
+/** FC-08: the one display verdict. Mirrors src/server/integrity.ts effectiveVerdict (parity-tested). Plain VERIFIED only for an attested, signature-checked run. */
+export const UNCHECKED_SIG = "VERIFIED (signature not checked)";
+const SUCCESS = new Set(["VERIFIED", "ALREADY_SATISFIED"]);
+export const effectiveVerdict = (r: { verdict: string | null; tampered: boolean; attested?: boolean; sig_checked?: boolean }): string | null => {
+  if (r.tampered) return "TAMPERED";
+  if (typeof r.verdict !== "string") return r.verdict;
+  const v = r.verdict.trim().toUpperCase();
+  if (r.attested === false) return SUCCESS.has(v) ? "UNVERIFIED" : `${r.verdict} (unattested)`;
+  if (SUCCESS.has(v)) return r.sig_checked === false ? `${v} (signature not checked)` : v;
+  return r.verdict;
+};
+
 export type Verdict = "VERIFIED" | "PARTIAL" | "FAILED" | "SPEC_CONFLICT" | string;
 
 export interface RunRow {
@@ -7,6 +19,7 @@ export interface RunRow {
   run_id: string;
   origin_repo: string | null;
   issue_ref: string | null;
+  title?: string | null; // intake task title (or issue title); null until intake completes
   task_source: string | null;
   provider: string | null;
   model: string | null;
@@ -26,18 +39,25 @@ export interface RunRow {
   last_event_at: string | null;
   tampered: boolean;
   conflict: boolean;
+  // EL-FC08b: integrity verified at ingest. Optional so older captures still type-check; absent attested reads as the raw verdict.
+  attested?: boolean;
+  sig_checked?: boolean;
+  integrity_reasons?: string[];
+  effective_verdict?: string | null;
   // Live view: status is "running" until run.completed arrives. Optional so older captures still type-check.
   status?: "running" | "completed";
   elapsed_s?: number | null;
   current_stage?: string | null;
   files_touched?: string[];
+  /** Receipt base..head numstat (server-side git); null when unmeasurable or the run is still running. */
+  diff_stat?: { base: string; head: string; files: { path: string; added: number | null; removed: number | null }[]; added: number; removed: number } | null;
 }
 
 /** GET /v1/runs: total is the filtered count, next_cursor an opaque offset. */
 export interface RunsResponse { runs: RunRow[]; total: number; next_cursor: string | null }
 
 /** status is the stage event suffix: "started" while open, else "completed" / "failed" / ... */
-export interface TimelineStage { stage: string; started_at: string | null; ended_at: string | null; status: string }
+export interface TimelineStage { stage: string; started_at: string | null; ended_at: string | null; status: string; reason?: string | null }
 
 /** GET /v1/runs/:source/:run: the summary row, flat, plus the folded detail. */
 export interface RunDetailResponse extends RunRow {
@@ -79,6 +99,9 @@ async function get<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+export interface Health { service?: string; version?: string; installed_version?: string }
+export const getHealth = (): Promise<Health> => get<Health>("/health");
+
 export function listRuns(f: RunFilters = {}): Promise<RunsResponse> {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(f)) if (v) q.set(k, v);
@@ -97,3 +120,55 @@ export async function postAnswer(source: string, run: string, answer: string): P
   if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
   return { path: j.path ?? "", resume: j.resume ?? "" };
 }
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${base()}${path}`, { method: "POST", headers: authHeaders({ "content-type": "application/json" }), body: JSON.stringify(body) });
+  const j = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
+  return j;
+}
+
+/** Import the server's own repo (.loki/runs) through the existing backfill. */
+export const importRuns = (): Promise<{ runs: number; sent: number; failed: string[] }> => postJson("/v1/import", {});
+export const listRepos = (): Promise<{ repos: string[]; default_repo?: string | null }> => get("/v1/repos");
+
+/** Subscribe to the runs-list SSE stream (GET /v1/stream). Uses fetch so the bearer header can be sent; reconnects until stop() is called. */
+export function watchRuns(onChange: () => void, retryMs = 3000): () => void {
+  const ctl = new AbortController();
+  const wait = (ms: number) => new Promise<void>((res) => { const t = setTimeout(res, ms); ctl.signal.addEventListener("abort", () => { clearTimeout(t); res(); }, { once: true }); });
+  void (async () => {
+    while (!ctl.signal.aborted) {
+      try {
+        const res = await fetch(`${base()}/v1/stream`, { headers: authHeaders({ accept: "text/event-stream" }), signal: ctl.signal });
+        if (res.ok && res.body) {
+          const reader = res.body.getReader();
+          const dec = new TextDecoder();
+          let buf = "";
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const frames = buf.split("\n\n");
+            buf = frames.pop() ?? "";
+            if (frames.some((f) => /^event: run$/m.test(f))) onChange();
+          }
+        }
+      } catch { /* dropped or aborted: retry below */ }
+      await wait(retryMs);
+    }
+  })();
+  return () => ctl.abort();
+}
+/** Start a run: target is owner/repo#N or a plain task. */
+export const startRun = (target: string, repo: string): Promise<{ ok: true; pid: number; command: string }> => postJson("/v1/start", { target, repo });
+
+/** Remove one run and its events. Resolves with what the server says was removed; rejects with the server's own error text. */
+export async function deleteRun(source: string, run: string): Promise<{ ok: true; removed: { runs: number; events: number; sources: number }; remaining_runs: number }> {
+  const res = await fetch(`${base()}/v1/runs/${encodeURIComponent(source)}/${encodeURIComponent(run)}`, { method: "DELETE", headers: authHeaders({ "content-type": "application/json" }) });
+  const j = (await res.json().catch(() => ({}))) as { error?: string; removed?: { runs: number; events: number; sources: number }; remaining_runs?: number };
+  if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
+  return { ok: true, removed: j.removed ?? { runs: 0, events: 0, sources: 0 }, remaining_runs: j.remaining_runs ?? 0 };
+}
+
+export interface DoctorCheck { name: string; status: "pass" | "warn" | "fail"; detail: string }
+export const getDoctor = (): Promise<{ checks: DoctorCheck[] }> => get("/v1/doctor");

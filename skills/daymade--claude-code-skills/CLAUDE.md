@@ -63,6 +63,10 @@ Use [skill-creator](daymade-skill/skill-creator/SKILL.md) before creating or
 changing a skill. It owns change classification, evidence selection, regression
 review, validation, initialization, and packaging.
 
+When creating or changing an operational Skill's first-use setup or recovery
+workflow, enter `skill-creator` and load its
+[first-use and recovery contract](daymade-skill/skill-creator/references/first-use-and-resume.md).
+
 For proxy-selection or disruptive VPN recovery changes, enter `tunnel-doctor` and its
 proxy-conflict and network-recovery references. For automatic WeCom integration,
 enter `setup-notifications-via-wecom`; its receipt contract owns accepted/rejected/unknown
@@ -88,14 +92,11 @@ when verifying an existing baseline; consult
 [source snapshot archives](daymade-skill/skill-creator/references/source-snapshot-archives.md)
 before archiving or restoring it.
 
-For hook loop and reminder semantics, load
-`daymade-claude-code:claude-code-hooks` and follow rule 7. Keep recurring
-advisory injectors available for the whole session, using cadence/hysteresis
-and reset semantics to limit frequency; never add a lifetime session cap.
-Reserve repetition budgets for blocking remediation loops whose capped exit is
-explicitly blocked, unshipped, or pending. Test advisory liveness across later
-fully-due windows, and leave current thresholds in the owning implementation
-rather than copying them into this file.
+For hook creation, consolidation, registration or recovery, load
+[`daymade-claude-code:claude-code-hooks`](daymade-claude-code/claude-code-hooks/SKILL.md)
+and follow its Build order and installer-owned recovery contract. Follow that
+Skill's rule 7 for loop and reminder semantics; keep current thresholds in the
+owning implementation.
 
 Python entry points registered as synchronous Claude Code/Codex lifecycle hooks or
 background services (LaunchAgents included) must call a fixed direct interpreter
@@ -134,16 +135,28 @@ cd daymade-skill/skill-creator
 uv run --frozen python -m scripts.quick_validate <skill-path> --audience public
 ```
 
+### Review and evaluation input preparation
+
+When review, replay or evaluation needs input copies, follow
+[the materialization SOP](daymade-skill/skill-creator/references/materialization-budget.md)
+from the locked skill-creator project above. Its
+[CLI](daymade-skill/skill-creator/scripts/materialize.py) owns argument parsing,
+accounting, retry eligibility and cleanup behavior. For disk diagnosis, cleanup
+recovery, or capacity checks before necessary backup/copy/extraction, use
+[macos-cleaner](daymade-macos/macos-cleaner/SKILL.md) and its
+[necessary-copy capacity preflight](daymade-macos/macos-cleaner/references/safety_rules.md#necessary-copy-capacity-preflight).
+When changing measurement, run the SOP's targeted regression suite before shipping.
+
 ### Automated Test Suites (CI)
 
 A `tests/` directory under a skill does **not** automatically run in CI. The
-"Registered test suites (Linux)" GitHub Actions job only runs directories
-explicitly listed in `scripts/ci/test-suites.txt` — that file's header is the
+registered-suite runner uses `scripts/ci/test-suites.txt` — that file's header is the
 SSOT for the admission criteria (stdlib-only, no network/credentials,
 deterministic, Linux-verified) and the runner types (`python-unittest` via
 `unittest discover`, `node-test`). Adding a test file to an unregistered
-`tests/` directory gives you a suite you can run locally, not CI coverage —
-check the registry before assuming otherwise, and note `unittest discover`
+`tests/` directory does not establish CI coverage. Check the registry and the
+explicit test steps in [.github/workflows/ci.yml](.github/workflows/ci.yml),
+which also runs selected suites directly. Note that `unittest discover`
 only collects `unittest.TestCase` subclasses, not bare pytest-style functions.
 
 For browser-backed recurring jobs, enter
@@ -316,6 +329,8 @@ source preflight before the first write. Its shared source-contract checker owns
 repository identity, marketplace registration and project-local placement; use
 [skill-governance](daymade-skill/skill-governance/SKILL.md) for installation and
 fresh-host readback. Keep source, installed entry and private review archive distinct.
+A registered marketplace source does not prove the installed copy or current host advanced;
+follow the consumed-file checks in that governance reference before claiming activation.
 
 After committing, run `scripts/ci/validate_changed_skills.sh origin/main`; it checks
 the committed diff. A repository-level plugin validation does not replace per-Skill

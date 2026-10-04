@@ -55,7 +55,7 @@ ALLOWLIST = {
         "UNREACHABLE at runtime; loaded only by the CI import smoke test.",
 
     "src/integrations/github/action-handler.js":
-        "Reachable ONLY from .github/workflows/loki-enterprise.yml, which is "
+        "Formerly reachable only from the removed loki-enterprise workflow, which was "
         "this repo's own CI, not the shipped product. It ships to npm users "
         "who have no path to it. Retained because the workflow genuinely uses "
         "it; the honest statement is that it is CI tooling that happens to "
@@ -101,7 +101,7 @@ def referenced_from_runtime(module_path, corpus):
     """Is module_path required or spawned from a file that actually runs?
 
     Matches REQUIRE/IMPORT/SPAWN SYNTAX, not a bare substring. A bare substring
-    match reported api-client.js as reachable from a dashboard-ui component and
+    match reported api-client.js as reachable from a legacy UI component and
     from package-lock.json, neither of which calls it. Proximity is not a
     caller, and a guard built on proximity picks up slack it was never meant to
     have.

@@ -12,7 +12,16 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # E-154 begin: no test run may write the real ~/.loki/keys. Default the signing
 # key file to a run-owned temp dir unless the caller already chose one.
 _e154_real_keys="${HOME:-/nonexistent}/.loki/keys"
-_e154_keys_before="$(ls -A "$_e154_real_keys" 2>/dev/null || true)"
+# Names alone miss truncating an existing key: fingerprint name, size and mtime (stat only).
+_e154_keys_fp() {
+    local f
+    [ -d "$_e154_real_keys" ] || return 0
+    for f in "$_e154_real_keys"/* "$_e154_real_keys"/.[!.]*; do
+        [ -e "$f" ] || continue
+        printf '%s %s\n' "$f" "$(stat -c '%s %Y' -- "$f" 2>/dev/null || stat -f '%z %m' -- "$f" 2>/dev/null)"
+    done
+}
+_e154_keys_before="$(_e154_keys_fp)"
 if [ -z "${LOKI_TEST_LIST:-}" ] && [ -z "${LOKI_RECEIPT_SIGNING_KEY_FILE:-}" ]; then
     # shellcheck source=../eval/loki10/lib-tmp.sh
     . "$REPO_ROOT/eval/loki10/lib-tmp.sh"
@@ -25,6 +34,25 @@ if [ -z "${LOKI_TEST_LIST:-}" ] && [ -z "${LOKI_RECEIPT_SIGNING_KEY_FILE:-}" ]; 
     fi
 fi
 # E-154 end
+
+# FC-07 / D86: every suite runs under a run-owned hermetic HOME so no test can
+# write the real ~/.loki (control, dashboard registry, keys, answers) or
+# ~/.gitconfig. The real HOME stays readable as LOKI_REAL_HOME for guards.
+# Listing mode (LOKI_TEST_LIST) runs no suite and needs no isolation.
+if [ -z "${LOKI_TEST_LIST:-}" ]; then
+    if [ ! -f "$REPO_ROOT/tests/lib/hermetic-home.sh" ]; then
+        echo "run-all-tests: tests/lib/hermetic-home.sh missing; refusing to run tests against the real HOME" >&2
+        exit 2
+    fi
+    # shellcheck source=lib/hermetic-home.sh
+    . "$REPO_ROOT/tests/lib/hermetic-home.sh"
+    if ! type loki_run_tmp_create >/dev/null 2>&1; then
+        # shellcheck source=../eval/loki10/lib-tmp.sh
+        . "$REPO_ROOT/eval/loki10/lib-tmp.sh"
+    fi
+    loki_hermetic_home_enter || { echo "run-all-tests: cannot create the hermetic HOME" >&2; exit 2; }
+    trap 'loki_hermetic_home_leave; loki_run_tmp_cleanup || true' EXIT
+fi
 TOTAL_PASSED=0
 TOTAL_FAILED=0
 TESTS_RUN=0
@@ -530,7 +558,7 @@ run_test() {
         echo -e "${RED}$(printf '\342\234\227') ${test_name} FAILED: it changed the parent checkout HEAD (E-155): ${_e155_ref_before:-detached}@${_e155_sha_before:0:8} -> ${_e155_ref_after:-detached}@${_e155_sha_after:0:8}${NC}"
         TOTAL_FAILED=$((TOTAL_FAILED + 1))
     fi
-    _e154_keys_after="$(ls -A "$_e154_real_keys" 2>/dev/null || true)"
+    _e154_keys_after="$(_e154_keys_fp)"
     if [ "$_e154_keys_after" != "$_e154_keys_before" ]; then
         echo -e "${RED}$(printf '\342\234\227') ${test_name} FAILED: it changed the real ${_e154_real_keys} (E-154)${NC}"
         TOTAL_FAILED=$((TOTAL_FAILED + 1))
@@ -631,6 +659,7 @@ run_test "Worktree Auto-Flags Tests" "$SCRIPT_DIR/test-worktree-auto-flags.sh"
 run_test "Worktree install cache keyed on lockfile hash (E-130)" "$SCRIPT_DIR/test-worktree-install-cache.sh"
 run_test "WhatsNew CURRENT_VERSION matches VERSION (E-129)" "$SCRIPT_DIR/test-whatsnew-version-sync.sh"
 run_test "Merge-queue log-once + nested-agent parallel guard (client parallel-issue fix)" "$SCRIPT_DIR/test-merge-queue-log-once.sh"
+run_test "loki merge queue: green-only serial merge, rebase next, dry-run" "timeout -k 10 120 $SCRIPT_DIR/test-loki-merge-queue.sh"
 
 # v8: raw-SDK judge/text bridges (fail-closed, opt-in, binary-free ordering)
 run_test "v8 SDK judge bridge (done-recognition + council-v2)" "$SCRIPT_DIR/test-sdk-done-recog-bridge.sh"
@@ -640,6 +669,7 @@ run_test "v8 SDK voter-agents council (Epic C, finding schema)" "$SCRIPT_DIR/tes
 run_test "v8 SDK-loop start routing (LOKI_SDK_LOOP gate, default-off)" "$SCRIPT_DIR/test-sdk-loop-routing.sh"
 run_test "D65 shim routing (slack, answer, jira, linear)" "$SCRIPT_DIR/test-d65-routing.sh"
 run_test "SDK version sync (root package.json/lockfile/Dockerfile vs loki-ts, E-106)" "$SCRIPT_DIR/test-sdk-version-sync.sh"
+run_test "Pricing parity across six tables (MW-1)" "timeout -k 10 120 $SCRIPT_DIR/test-pricing-parity.sh"
 run_test "v8 Structured Review Self-Copy Asset Resolution" "$SCRIPT_DIR/test-code-review-self-copy.sh"
 run_test "Review deadline, requirements, and speculative assurance tail" "$SCRIPT_DIR/test-review-assurance-tail.sh"
 
@@ -692,6 +722,7 @@ run_test "Evidence Receipt run-level baseline (signed diff stat)" "$SCRIPT_DIR/t
 run_test "no hardcoded home-directory paths in tests" "$SCRIPT_DIR/test-no-hardcoded-paths.sh"
 run_test "run-all-tests guards: real key dir + parent HEAD (E-154, E-155)" "$SCRIPT_DIR/test-e154-e155-guards.sh"
 run_test "no ambient gitconfig writes without top-level isolation" "$SCRIPT_DIR/test-no-ambient-gitconfig-writes.sh"
+run_test "hermetic HOME: no test touches the real ~/.loki (FC-07, D86)" "$SCRIPT_DIR/test-hermetic-home.sh"
 run_test "loki why honest reporting (gate named, diff re-derived)" "$SCRIPT_DIR/test-why-honest-report.sh"
 run_test "status surfaces agree (STATUS.txt vs COMPLETION.txt, --json staleness)" "$SCRIPT_DIR/test-status-surface-agrees.sh"
 run_test "emit.sh append lock never hangs (telemetry must not outlive the run)" "$SCRIPT_DIR/test-emit-lock-no-hang.sh"
@@ -753,8 +784,6 @@ run_test "Sentrux Iteration Wireup (Dev1)" "$SCRIPT_DIR/test-sentrux-iteration-w
 run_test "Sentrux Init-Rules (Dev3)" "$SCRIPT_DIR/test-sentrux-init-rules.sh"
 run_test "Doctor JSON Sentrux Parity (Dev4)" "$SCRIPT_DIR/test-doctor-json-sentrux.sh"
 run_test "Receipt Signing Discoverability" "$SCRIPT_DIR/test-receipt-signing-discoverability.sh"
-run_test "Dashboard Nav UAT (Dev5)" "$SCRIPT_DIR/test-dashboard-nav-uat.sh"
-run_test "dashboard bundle stays within its measured budget" "$SCRIPT_DIR/test-dashboard-bundle-budget.sh"
 run_test "exposed dashboard bind requires auth (#188)" "$SCRIPT_DIR/test-dashboard-bind-auth-guard.sh"
 run_test "per-job receipt attestation (signed JWT + JWKS)" "$SCRIPT_DIR/test-receipt-jwt-attestation.sh"
 run_test "remote receipt attestation verdict (JWKS)" "$SCRIPT_DIR/test-remote-attestation-verdict.sh"
@@ -785,6 +814,8 @@ if command -v python3 >/dev/null 2>&1 && python3 -c "import pytest" >/dev/null 2
         "$SCRIPT_DIR/dashboard/run_quality_architecture_tests.sh"
     run_test "Episode Load Resilience (Dev7 pytest)" \
         "$SCRIPT_DIR/memory/run_episode_load_resilience_tests.sh"
+    run_test "Council Transcripts Endpoint (pytest)" \
+        "$SCRIPT_DIR/dashboard/run_council_transcripts_tests.sh"
 fi
 
 # Crash Reporting Phase 0 (local-only, zero egress) -- bash CLI/helper tests.
@@ -950,6 +981,7 @@ run_test "Public Preview Tunnel (--public consent + tunnel wrap)" "$SCRIPT_DIR/t
 # the advisory prints push+PR commands and does NOT push (real bare remote, zero
 # refs after), with a mutation check proving that assertion is non-vacuous.
 run_test "Branch Lifecycle (default-on, base!=main, commit, advisory no-push)" "$SCRIPT_DIR/test-branch-lifecycle.sh"
+run_test "Refused resume warning names the blocking ignored file and the recorded branch (S-233)" "timeout -k 10 120 $SCRIPT_DIR/test-refused-resume-warning.sh"
 
 # Telemetry disclosure-before-egress under a REAL pty (council cH_r1 AC7). The
 # on-by-default gate resolves interactivity ONCE at the entry point (exported
@@ -991,6 +1023,7 @@ run_test "Deploy receipt gate (--execute authorization)" "$SCRIPT_DIR/test-deplo
 run_test "Unified config-file (--config precedence + formats)" "$SCRIPT_DIR/test-config-file.sh"
 run_test "Config validate unknown-key detection (JSON/YAML parity)" "$SCRIPT_DIR/test-config-unknown-keys.sh"
 run_test "Enforcement claims in buyer-facing docs are scoped" "$SCRIPT_DIR/test-enforcement-doc-honesty.sh"
+run_test "Healing docs disclose unwired modify hooks (issue 200)" "timeout -k 10 120 $SCRIPT_DIR/test-heal-docs-honesty.sh"
 run_test "loki logs reads the log the runner writes" "$SCRIPT_DIR/test-logs-command.sh"
 run_test "report cost agrees with its own budget state file" "$SCRIPT_DIR/test-report-cost-budget.sh"
 run_test "loki stop is bounded regardless of provider timeout" "$SCRIPT_DIR/test-stop-latency.sh"
@@ -998,38 +1031,24 @@ run_test "kill_provider_child never signals outside its own process group" "$SCR
 run_test "resource monitor reaps its sleep child on shutdown (BACKLOG 22)" "$SCRIPT_DIR/test-resource-monitor-sleep-reaped.sh"
 run_test "audit chain claims match what the chain proves" "$SCRIPT_DIR/test-audit-chain-honesty.sh"
 run_test "audit subsystem Node suites (witness, manifest, crosslink)" "$SCRIPT_DIR/test-audit-js-suites.sh"
-# Moat P7 at the pixel: the real cost components and cost.html render an
-# unmeasured cost as unknown, never $0.00, and a measured zero as $0.00. Node is
-# required, not skipped (as in the audit suites above): no runtime means the
-# suite did not run, which is unmeasured, not clean.
-run_test "dashboard unmeasured cost never renders as zero (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-unmeasured-cost-never-zero.node.test.mjs"
-run_test "dashboard panels render unmeasured as unknown (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-unmeasured-panels-honesty.node.test.mjs"
-run_test "dashboard UI component utilities match shipped code (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/ui-components.test.js"
-run_test "dashboard overview issue-to-PR journey (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-overview-issue-journey.node.test.mjs"
-run_test "dashboard overview proof card wording (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-overview-proof-card.node.test.mjs"
 run_test "web-app NLSearch failed request is not no-results (S-159)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/NLSearch.state.test.mjs"
 run_test "web-app DeployConnections failed load is not Not connected (S-185)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/DeployConnections.state.test.mjs"
+run_test "web-app DeployConnections handlers do not push synthesized statuses (PO-WEB-DEPLOY-1)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/DeployConnections.propagate.test.mjs"
 run_test "web-app ProjectsPage poll error is not an empty list (S-161)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/pages/ProjectsPage.state.test.mjs"
 run_test "web-app workspace panels surface fetch failures (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/ProjectWorkspace.panels.test.mjs"
+run_test "web-app preview says could not detect after a failed preview-info fetch (S-229)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/ProjectWorkspace.preview.test.mjs"
+run_test "web-app workspace phase: completed shows Replay Build, unknown phase is not building (S-230)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/ProjectWorkspace.phase.test.mjs"
 run_test "web-app CI/CD panel shows unknown status as unknown (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/CICDPanel.status.test.mjs"
 run_test "web-app cost estimate ignores the iteration cap (S-187)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/CostEstimator.estimate.test.mjs"
+run_test "web-app receipt and cost trend mark a partly priced run (S-224)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/EvidenceReceiptPanel.cost.test.mjs"
 run_test "web-app chat completion never says Done. for a silent failure (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/AIChatPanel.result.test.mjs"
 run_test "web-app issue list shows the gh comment count (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/components/GitHubIssuesPanel.comments.test.mjs"
 run_test "web-app cockpit actions say not loaded after a failed fetch (S-206)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/cockpit/FinalActions.reasons.test.mjs"
 run_test "web-app cockpit evidence says could not load after a failed checklist fetch (S-207)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../web-app/src/cockpit/EvidencePanel.state.test.mjs"
-run_test "dashboard checkpoint viewer shows a failed read, not empty (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-checkpoint-viewer-fetch-error.node.test.mjs"
-run_test "dashboard council transcripts show a failed hook-events read (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-council-transcripts-fetch-error.node.test.mjs"
-run_test "dashboard task board keeps a server load error visible (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-task-board-fetch-error.node.test.mjs"
-run_test "dashboard API keys load error hides the empty state (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-api-keys-fetch-error.node.test.mjs"
-run_test "dashboard log stream shows an unreachable API, not a quiet log (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-log-stream-fetch-error.node.test.mjs"
-run_test "dashboard migration view shows a failed load, not an empty state (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-migration-dashboard-fetch-error.node.test.mjs"
-run_test "dashboard managed memory events error payload hides the empty state (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-managed-memory-events-error.node.test.mjs"
-run_test "dashboard learning metrics and trends show a failed read, not no data (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-learning-dashboard-fetch-error.node.test.mjs"
 run_test "shipped agent roles reach the review pool" "$SCRIPT_DIR/test-agent-types-loaded.sh"
 run_test "policy present but unevaluable refuses fail-closed" "$SCRIPT_DIR/test-policy-node-failclosed.sh"
 run_test "audit entries attribute an actor honestly" "$SCRIPT_DIR/test-audit-actor-attribution.sh"
 run_test "shipped modules have a recorded reachability verdict" "$SCRIPT_DIR/test-no-unreachable-shipped.sh"
-run_test "dashboard HTML strings escape run-written values" "$SCRIPT_DIR/test-no-unescaped-innerhtml.sh"
 run_test "loki proof chain fronts the buyer verifier" "$SCRIPT_DIR/test-proof-chain-command.sh"
 run_test "workflow RC handlers are reachable under bash -e" "$SCRIPT_DIR/test-workflow-rc-capture.sh"
 run_test "issue-to-PR action and workflow ship, gate and split agent from publish" "$SCRIPT_DIR/test-issue-to-pr-action.sh"
@@ -1042,6 +1061,7 @@ run_test "a gate that scanned nothing is not a pass" "$SCRIPT_DIR/test-static-an
 # printed a result (set -e killed it on its first pass()). Each passes now.
 run_test "Cluster workflow templates and swarm classes" "$SCRIPT_DIR/test-cluster-workflow.sh"
 run_test "Cross-project learning surface" "$SCRIPT_DIR/test-cross-project-learning.sh"
+run_test "Project memory persists across runs and injects a bounded summary" "timeout -k 10 120 $SCRIPT_DIR/test-project-memory.sh"
 run_test "Cross-provider auto-failover" "$SCRIPT_DIR/test-failover.sh"
 
 # Config-map no-yq YAML fallback: regression for same-last-segment key collision
@@ -1175,13 +1195,12 @@ run_test "cmd_web_stop/start use a real process identity check (D14/D15 class)" 
 run_test "cmd_web_start port-conflict path scoped by identity" "$SCRIPT_DIR/test-web-start-port-scoping.sh"
 run_test "autonomy/verify.sh runtime teardown scoped to LISTEN + ownership" "$SCRIPT_DIR/test-verify-runtime-teardown-scoping.sh"
 run_test "Marketplace action Cleanup step scoped to this job's own loki run" "$SCRIPT_DIR/test-action-yml-cleanup-scoping.sh"
-run_test "Dashboard fresh-repo/evidence harnesses kill only their own recorded PID" "$SCRIPT_DIR/test-dashboard-harness-port-scoping.sh"
 run_test "Dashboard API smoke cleanup kills only its own recorded PID" "$SCRIPT_DIR/test-dashboard-api-smoke-scoping.sh"
 run_test "cleanup-test-processes.sh scoped to LISTEN + this uid, --aggressive gated" "$SCRIPT_DIR/test-cleanup-script-scoping.sh"
+run_test "clean-test-branches.sh refuses own repo, spares protected branches, deletes only debris" "timeout -k 10 120 $SCRIPT_DIR/test-clean-test-branches.sh"
 run_test "No script or test removes run-owned temp dirs by glob (E-140)" "$SCRIPT_DIR/test-no-tmp-sweep.sh"
 run_test "No test starts a build against the repo root (E-165)" "$SCRIPT_DIR/test-no-start-against-repo-root.sh"
 run_test "Runtime Gate port reclaims scoped to LISTEN + cwd ownership" "$SCRIPT_DIR/test-runtime-gate-port-scoping.sh"
-run_test "Bun Parity disk.available_gb tolerance (BACKLOG 26)" "$SCRIPT_DIR/test-bun-parity-disk-tolerance.sh"
 run_test "council_augment_from_managed_memory never falls back to cwd for PROJECT_DIR (BACKLOG 63)" "$SCRIPT_DIR/test-council-augment-managed-memory-project-dir.sh"
 run_test "council_should_stop's shadow-write never falls back to cwd for PROJECT_DIR (BACKLOG 63/127)" "$SCRIPT_DIR/test-council-shadow-write-project-dir.sh"
 run_test "council_managed_should_stop diffs the target project, not the install tree (S-196)" "$SCRIPT_DIR/test-council-managed-diff-target.sh"
@@ -1224,6 +1243,7 @@ run_test "Council Force Stop Wave7" "$SCRIPT_DIR/test-council-force-stop-wave7.s
 run_test "Council Healing Audit Fixes" "$SCRIPT_DIR/test-council-healing-audit-fixes.sh"
 run_test "Council Member Timeout Wave10" "$SCRIPT_DIR/test-council-member-timeout-wave10.sh"
 run_test "Council Scope Honesty" "$SCRIPT_DIR/test-council-scope-honesty.sh"
+run_test "Council TODO marker scope (PO3-COUNCIL-TODO)" "$SCRIPT_DIR/test-council-todo-scope.sh"
 run_test "Council Transcripts Api" "$SCRIPT_DIR/test-council-transcripts-api.sh"
 run_test "Council V2 Quorum" "$SCRIPT_DIR/test-council-v2-quorum.sh"
 run_test "council-v2 readers run -I -S and challenge an unmeasured score (S-201)" "$SCRIPT_DIR/test-council-v2-no-user-site-pth.sh"
@@ -1231,7 +1251,6 @@ run_test "Council Vote Parse" "$SCRIPT_DIR/test-council-vote-parse.sh"
 run_test "Council Write Transcript Threshold" "$SCRIPT_DIR/test-council-write-transcript-threshold.sh"
 run_test "Cross Project Lift" "$SCRIPT_DIR/test-cross-project-lift.sh"
 run_test "Da Veto" "$SCRIPT_DIR/test-da-veto.sh"
-run_test "Dashboard Identity" "$SCRIPT_DIR/test-dashboard-identity.sh"
 run_test "UI bare loki" "$SCRIPT_DIR/test-ui-bare-loki.sh"
 run_test "Dashboard Json Guards" "$SCRIPT_DIR/test-dashboard-json-guards.sh"
 run_test "Dashboard Memory Endpoints" "$SCRIPT_DIR/test-dashboard-memory-endpoints.sh"
@@ -1267,6 +1286,7 @@ run_test "Lsp Proxy Http" "$SCRIPT_DIR/test-lsp-proxy-http.sh"
 run_test "Lsp Proxy" "$SCRIPT_DIR/test-lsp-proxy.sh"
 run_test "Magic" "$SCRIPT_DIR/test-magic.sh"
 run_test "Mcp Config" "$SCRIPT_DIR/test-mcp-config.sh"
+run_test "Acp Agent" "$SCRIPT_DIR/test-acp-agent.sh"
 run_test "Mcp Http Auth" "$SCRIPT_DIR/test-mcp-http-auth.sh"
 run_test "Memory Audit Fixes" "$SCRIPT_DIR/test-memory-audit-fixes.sh"
 run_test "Memory Capture Wedge" "$SCRIPT_DIR/test-memory-capture-wedge.sh"
@@ -1295,7 +1315,6 @@ run_test "Prd Reuse Bash W4" "$SCRIPT_DIR/test-prd-reuse-bash-w4.sh"
 run_test "Proof Forgery Defense" "$SCRIPT_DIR/test-proof-forgery-defense.sh"
 run_test "Provider Degraded Reasons Honesty" "$SCRIPT_DIR/test-provider-degraded-reasons-honesty.sh"
 run_test "Provider Flags" "$SCRIPT_DIR/test-provider-flags.sh"
-run_test "Provider Source Cli" "$SCRIPT_DIR/test-provider-source-cli.sh"
 run_test "Rarv Tier Mapping" "$SCRIPT_DIR/test-rarv-tier-mapping.sh"
 run_test "Rate Limit Octal" "$SCRIPT_DIR/test-rate-limit-octal.sh"
 run_test "Ratelimit Debug Clean" "$SCRIPT_DIR/test-ratelimit-debug-clean.sh"
@@ -1315,6 +1334,7 @@ run_test "Secure-by-Default Gate (engine precision + wiring + waiver CLI)" "$SCR
 run_test "Proven PR Receipt (PR-body honesty + no false green)" "$SCRIPT_DIR/test-proven-pr-receipt.sh"
 run_test "Proven PR Check-Run (advisory, opt-in, cannot block merge)" "$SCRIPT_DIR/test-proven-pr-check.sh"
 run_test "proof-check readers ignore user-site .pth (-I -S, S-203)" "$SCRIPT_DIR/test-proof-check-no-user-site-pth.sh"
+run_test "PR receipt renderer ignores cwd json.py (-I -S, S-215)" "timeout -k 10 120 $SCRIPT_DIR/test-proof-pr-no-cwd-shadow.sh"
 run_test "Proven PR Installed-Layout (verify-yourself works on shipped routes)" "$SCRIPT_DIR/test-proven-pr-installed-layout.sh"
 run_test "Proven PR Detached Path (cmd_run --pr/--ship -d carries receipt)" "$SCRIPT_DIR/test-proven-pr-detached.sh"
 
@@ -1486,17 +1506,13 @@ run_test "the founder-decisions document is accurate" "$SCRIPT_DIR/test-founder-
 run_test "entry-document pointers resolve" "$SCRIPT_DIR/test-entry-doc-pointers-resolve.sh"
 run_test "a pause needs no TTY, and a run names its receipt" "$SCRIPT_DIR/test-pause-tty-and-receipt-surface.sh"
 run_test "the mutation probe cannot silently no-op" "$SCRIPT_DIR/test-mutation-probe.sh"
-run_test "the Quality page shows which gates block" "$SCRIPT_DIR/test-gate-policy-ui-line.sh"
-run_test "the evidence receipt is reachable from the dashboard" "$SCRIPT_DIR/test-receipts-panel.sh"
-run_test "the build's learnings are visible" "$SCRIPT_DIR/test-learnings-panel.sh"
-run_test "the spend-cap state is visible" "$SCRIPT_DIR/test-budget-banner.sh"
-run_test "the Cost page budget banner has its own id" "$SCRIPT_DIR/test-budget-banner-dedup.sh"
 run_test "trust-core tests detect their regressions" "$SCRIPT_DIR/test-trust-core-tests-detect.sh"
 run_test "trust-core probes never mutate the shared tree" "$SCRIPT_DIR/test-trust-core-probe-isolation.sh"
 run_test "a user-installed reviewer takes part in a run" "$SCRIPT_DIR/test-installed-agent-reviewer.sh"
 # Skill modules are loaded INTO the agent's context and acted on, so a false
 # claim there is worse than no claim. Asserts the load-bearing ones against source.
 run_test "skill docs match source (gate flags, providers, tiers, index routing, seam)" "$SCRIPT_DIR/test-skill-doc-accuracy.sh"
+run_test "SKILL.md runtime-migration paragraph does not understate the Bun route" "timeout -k 10 120 $SCRIPT_DIR/test-skill-md-runtime-claim.sh"
 run_test "proof md (paste-able receipt, one renderer)" "$SCRIPT_DIR/test-proof-md.sh"
 run_test "air-gapped read-only path (egress severed)" "$SCRIPT_DIR/test-airgap-commands.sh"
 run_test "doctor --airgap judges OLLAMA_HOST locality from the host, not a substring match" "$SCRIPT_DIR/test-airgap-ollama-host.sh"
@@ -1506,9 +1522,11 @@ run_test "web-app CommandPalette file-search failure is not no-results (node --t
 # The moat runner's self-test builds and tags its own throwaway repos, so it is
 # safe in a depth-1 shard. The runner itself (tests/moat/run.sh) is NOT
 # registered here: it ratchets against the last release tag, which a depth-1
-# shard checkout does not have. It runs in its own "Moat suite" job instead.
+# shard checkout does not have. It runs in its own "Moat rules (no regression)" job instead.
 run_test "the moat runner enforces every ratchet rule" "$SCRIPT_DIR/test-moat-runner.sh"
 run_test "v10-pulse anti-drift status/violation reporter" "$SCRIPT_DIR/test-v10-pulse.sh"
+run_test "legacy dashboard stays deleted: dirs, package files, npm pack, references (CPE24-L7)" "$SCRIPT_DIR/test-legacy-dashboard-removed.sh && $SCRIPT_DIR/test-legacy-dashboard-removed.sh --self-test"
+run_test "Control Plane starts from a fresh npm pack install and serves /health and its UI (CPE24-L7)" "$SCRIPT_DIR/test-cp-fresh-install-smoke.sh"
 run_test "board-mark-released flips a slice's merged row once its tag ships (E-90)" "$SCRIPT_DIR/test-board-mark-released.sh"
 run_test "release.sh --bump-only restores debugId-only dist churn (E-72)" "$SCRIPT_DIR/test-release-bump-only.sh"
 run_test "release.sh --bump-only never leaves dist deleted on build failure (E-102)" "$SCRIPT_DIR/test-release-bump-dist.sh"
@@ -1527,7 +1545,6 @@ run_test "Add-dir reaches provider" "$SCRIPT_DIR/test-add-dir-reaches-provider.s
 run_test "Auto-PR default on" "$SCRIPT_DIR/test-auto-pr-default-on.sh"
 run_test "Delegate PR refuses the repo default branch" "$SCRIPT_DIR/test-delegate-default-branch.sh"
 run_test "Dashboard port ownership" "$SCRIPT_DIR/test-dashboard-port-ownership.sh"
-run_test "Dashboard static fallback and reuse" "$SCRIPT_DIR/test-dashboard-static-fallback.sh"
 run_test "No dashboard leak from suites" "$SCRIPT_DIR/test-no-dashboard-leak.sh"
 run_test "Dashboard leak2: fail-closed reuse and bound-port URL" "$SCRIPT_DIR/test-dashboard-leak2.sh"
 run_test "Doctor --json skills section" "$SCRIPT_DIR/test-doctor-json-skills.sh"
@@ -1535,7 +1552,6 @@ run_test "Emit hang forensics" "$SCRIPT_DIR/test-emit-hang-forensics.sh"
 run_test "Issue PRD honesty" "$SCRIPT_DIR/test-issue-prd-is-honest.sh"
 run_test "Next/resume agreement" "$SCRIPT_DIR/test-next-resume-agree.sh"
 run_test "PGID stale reap" "$SCRIPT_DIR/test-pgid-stale-reap.sh"
-run_test "Pipeline panel" "$SCRIPT_DIR/test-pipeline-panel.sh"
 run_test "Provider arm coverage" "$SCRIPT_DIR/test-provider-arm-coverage.sh"
 run_test "Queue tasks not truncated" "$SCRIPT_DIR/test-queue-tasks-not-truncated.sh"
 run_test "Rate limiting" "$SCRIPT_DIR/test-rate-limiting.sh"
@@ -1552,7 +1568,6 @@ run_test "Start handoff" "$SCRIPT_DIR/test-start-handoff.sh"
 run_test "State notifications" "$SCRIPT_DIR/test-state-notifications.sh"
 run_test "Static analysis iteration baseline" "$SCRIPT_DIR/test-static-analysis-iteration-baseline.sh"
 run_test "Static analysis tsconfig" "$SCRIPT_DIR/test-static-analysis-tsconfig.sh"
-run_test "Status CLI/provider parity" "$SCRIPT_DIR/test-status-cli-provider-parity.sh"
 run_test "Status --explain heal injection (wave 8)" "$SCRIPT_DIR/test-status-explain-heal-injection-wave8.sh"
 run_test "Supervised dependency setup" "$SCRIPT_DIR/test-supervised-dependency-setup.sh"
 run_test "Supervised disclosure scope" "$SCRIPT_DIR/test-supervised-disclosure-scope.sh"
@@ -1563,7 +1578,6 @@ run_test "Test provenance gate" "$SCRIPT_DIR/test-test-provenance-gate.sh"
 run_test "Tier harness policy" "$SCRIPT_DIR/test-tier-harness-policy.sh"
 run_test "Ultracode command" "$SCRIPT_DIR/test-ultracode-command.sh"
 run_test "Unified memory" "$SCRIPT_DIR/test-unified-memory.sh"
-run_test "Usage markdown render" "$SCRIPT_DIR/test-usage-markdown-render.sh"
 run_test "Verification gap" "$SCRIPT_DIR/test-verification-gap.sh"
 run_test "Vibe-kanban export" "$SCRIPT_DIR/test-vibe-kanban-export.sh"
 run_test "Voter agents JSON" "$SCRIPT_DIR/test-voter-agents-json.sh"
@@ -1571,6 +1585,8 @@ run_test "Web redirects to dashboard" "$SCRIPT_DIR/test-web-redirects-to-dashboa
 run_test "Audit chain cross-file verification" "$SCRIPT_DIR/test-audit-chain-cross-file.sh"
 run_test "Cline provider E2E" "$SCRIPT_DIR/test-cline-e2e.sh"
 run_test "Dashboard hook events (Live Tool Activity)" "$SCRIPT_DIR/test-dashboard-hook-events.sh"
+run_test "Dashboard api_runs unreadable reads (HONEST-READ-2)" "timeout -k 10 120 python3 -m pytest -q $SCRIPT_DIR/dashboard/test_api_runs_unreadable.py"
+run_test "Dashboard /api/v1/runs REST API" "timeout -k 10 120 python3 -m pytest -q $SCRIPT_DIR/dashboard/test_api_runs_v1.py"
 run_test "Learning aggregator" "$SCRIPT_DIR/test-learning-aggregator.sh"
 run_test "Learning signal emission" "$SCRIPT_DIR/test-learning-emit.sh"
 run_test "Learning suggestions" "$SCRIPT_DIR/test-learning-suggestions.sh"
@@ -1589,28 +1605,32 @@ run_test "Managed completion council flag (BACKLOG 75, S-211)" "$SCRIPT_DIR/coun
 run_test "Managed review flag (BACKLOG 75, S-211)" "$SCRIPT_DIR/council/test_managed_review_flag.sh"
 run_test "Evidence gate with no tests (BACKLOG 75, S-211)" "$SCRIPT_DIR/test-evidence-gate-no-tests.sh"
 run_test "LOKI_AUTO_PR refuses a branch whose history holds user files (S-194)" "$SCRIPT_DIR/test-auto-pr-agent-committed-refuse.sh"
+run_test "Session commit warns on a failed git add (S-219)" "timeout -k 10 120 $SCRIPT_DIR/test-session-commit-add-failure.sh"
+run_test "Untrack keeps force-staged agent files (S-220)" "timeout -k 10 120 $SCRIPT_DIR/test-untrack-keeps-force-staged.sh"
 run_test "focus POST skipped when the dashboard is disabled (S-195)" "$SCRIPT_DIR/test-focus-post-dashboard-off.sh"
 run_test "Loki 10 eval harness runner and scorer (EV-1)" "$SCRIPT_DIR/../eval/loki10/test-harness.sh"
 run_test "Loki 10 gate report generator (E-33)" "$SCRIPT_DIR/../eval/loki10/test-gate-report.sh"
 run_test "Loki 10 engine trusted push and PR (E-11)" "$SCRIPT_DIR/test-engine10-push.sh"
 run_test "Loki 10 engine dispatch hook (E-12)" "$SCRIPT_DIR/test-engine10-dispatch.sh"
 run_test "loki verify --pubkey=FILE routes to v10 through bin/loki (P0-VERIFY-ARG)" "$SCRIPT_DIR/test-verify-pubkey-cli.sh"
-run_test "Loki 10 legacy route contract golden rows (E-30)" "$SCRIPT_DIR/test-engine10-legacy-contract.sh"
+run_test "Loki Receipt check action posts success for a valid receipt and failure for a tampered one (B2)" "timeout -k 10 300 bash $SCRIPT_DIR/test-receipt-check-action.sh"
+run_test "metrics-usage-append arg parsing, block format, repeat append (PO-TEST-1)" "timeout -k 10 120 $SCRIPT_DIR/test-metrics-usage-append.sh"
 run_test "Loki 10 live PR smoke on a sandbox repo (E-40)" "$SCRIPT_DIR/test-engine10-live-pr.sh"
 run_test "Loki control plane wiring: serve, backfill, UI (CP-04)" "$SCRIPT_DIR/test-control-plane.sh"
 run_test "Loki 10 engine runs from dist and the npm package (E-32)" "$SCRIPT_DIR/test-engine10-dist.sh"
 run_test "run-owned temp cleanup works when sourced under zsh" "$SCRIPT_DIR/test-run-tmp-cleanup-zsh.sh"
-run_test "Loki 10 legacy deprecation notice (E-35)" "$SCRIPT_DIR/test-engine10-legacy-notice.sh"
 run_test "bin/loki bun resolver and no-bun notice (P0-nobun-S2)" "$SCRIPT_DIR/test-bin-loki-bun-resolve.sh"
 run_test "Loki 10 gate publish script (EV-6)" "$SCRIPT_DIR/../eval/loki10/test-publish-gate.sh"
 run_test "Loki 10 user docs match USAGE and the default marker (E-34)" "$SCRIPT_DIR/test-engine10-docs.sh"
 run_test "Loki modernize py2/3 capture tracer (M-09)" "$SCRIPT_DIR/test-modernize-py-capture.sh"
 run_test "Loki modernize user guide matches cli.ts flags (M-30)" "$SCRIPT_DIR/test-modernize-docs.sh"
 run_test "Docs name only CLI commands, flags and versions on main (DOC-02)" "$SCRIPT_DIR/test-docs-cli-drift.sh"
+run_test "Docs carry no stale commands, dead env vars or old versions (SZ-03, advisory)" "timeout -k 10 120 bash $SCRIPT_DIR/test-no-stale-facts.sh"
 run_test "loki modernize always routes to engine10 (M-08)" "$SCRIPT_DIR/test-modernize-dispatch.sh"
 run_test "Dependency inventory Latest/Bump self-consistency (DEP-01)" "$SCRIPT_DIR/test-dep-inventory.sh"
 run_test "Usage governor calibration and dedup (G-01)" "$SCRIPT_DIR/test-usage-governor.sh"
 run_test "Usage governor statusLine logger (G-01)" "$SCRIPT_DIR/test-usage-statusline-logger.sh"
+run_test "cloud-dispatch dry-run refuses on overlap, governor max, not-ready (G-04)" "timeout -k 10 120 $SCRIPT_DIR/test-cloud-dispatch.sh"
 run_test "CI security scanners wired, fail-closed (E-123)" "$SCRIPT_DIR/test-security-scan-coverage.sh"
 run_test "Heredoc dollar-digit footgun checker (D44)" "$SCRIPT_DIR/test-check-heredoc-dollar-digit.sh"
 run_test "CI cache scope (D44)" "$SCRIPT_DIR/test-ci-cache-scope.sh"
@@ -1638,6 +1658,27 @@ run_test "Provider stdin closed under verbose (A-134c)" "$SCRIPT_DIR/test-provid
 run_test "D51 Phase B workspaces (B01)" "$SCRIPT_DIR/test-workspace.sh"
 run_test "train-cycle.sh release captain: train, promote, release, locks, dry-run (RC-AUTO)" "$SCRIPT_DIR/test-train-cycle.sh"
 run_test "Python shutdown SIGABRT with piped output (PY-ABORT)" "$SCRIPT_DIR/test-py-shutdown-abort.sh"
+run_test "audit.py verify exits 2 when it checked nothing (PO-AUDIT-CLI-1)" "timeout -k 10 120 python3 -m pytest -q $SCRIPT_DIR/dashboard/test_audit_verify_cli_nothing_checked.py"
+run_test "skill-session status push sends null running_agents (S-222)" "timeout -k 10 120 python3 -m pytest -q -p no:cacheprovider $SCRIPT_DIR/dashboard/test_skill_session_ws_running_agents.py"
+run_test "notification triggers unreadable is not empty (PO-DASH-HONEST-1)" "timeout -k 10 120 python3 -m pytest -q -p no:cacheprovider $SCRIPT_DIR/dashboard/test_notification_triggers_unreadable.py"
+run_test "corrupt or denied proofs and memory files give 503 or an error row, never empty (HONEST-READ-1)" "timeout -k 10 120 python3 -m pytest -q -p no:cacheprovider $SCRIPT_DIR/dashboard/test_unreadable_not_empty.py"
+run_test "Stats unmeasured cost reads unmeasured (S-226r)" "timeout -k 10 120 bash $SCRIPT_DIR/test-stats-unmeasured-cost.sh"
+run_test "verify readers ignore a planted json.py in the reviewed tree (-I -S, S-216)" "timeout -k 10 120 bash $SCRIPT_DIR/test-verify-no-cwd-shadow.sh"
+run_test "Untracked status ignores core.fsmonitor (S-218r)" "timeout -k 10 120 bash $SCRIPT_DIR/test-untracked-status-fsmonitor.sh"
+run_test "install-hooks.sh --help and unknown args never write git config (PO5)" "timeout -k 10 120 bash $SCRIPT_DIR/test-install-hooks.sh"
+run_test "loki hub install (manifest fetch and verify)" "timeout -k 10 120 bash $SCRIPT_DIR/cli/test-hub-install.sh"
+run_test "Whole-tree no dash or emoji codepoint guard (PO5-DASH-BENCH)" "timeout -k 10 120 bash $SCRIPT_DIR/test-no-dashes-tree.sh"
+run_test "loki start repo directory routes as repository target (PO4)" "timeout -k 10 120 bash $SCRIPT_DIR/cli/test-start-repo-directory.sh"
+run_test "loki wiki command (build, ask, grounded citation)" "timeout -k 10 120 bash $SCRIPT_DIR/cli/test-wiki-command.sh"
+run_test "issue-to-PR flow (--prepare-pr, issue-mode)" "timeout -k 10 120 bash $SCRIPT_DIR/cli/test-issue-to-pr.sh"
+run_test "dogfood-stats honest labeling and flags (PO5)" "timeout -k 10 120 bash $SCRIPT_DIR/test-dogfood-stats.sh"
+run_test "loki status empty state files (cli)" "timeout -k 10 120 bash $SCRIPT_DIR/cli/test_status_empty_state.sh"
+run_test "loki start stale PID cleanup (cli)" "timeout -k 10 120 bash $SCRIPT_DIR/cli/test_stale_pid_cleanup.sh"
+run_test "loki start/run unified dispatch (cli)" "timeout -k 10 120 bash $SCRIPT_DIR/cli/test_start_run_unified.sh"
+run_test "non-standard suite registration guard (cli, dashboard, integration)" "timeout -k 10 120 bash $SCRIPT_DIR/test-registration-nonstandard.sh"
+run_test "measure-run and guard-changed help is read-only (PO5)" "timeout -k 10 120 bash $SCRIPT_DIR/test-help-readonly-scripts.sh"
+run_test "cp-redesign image allowlist guard (D26)" "timeout -k 10 120 bash $SCRIPT_DIR/test-cp-redesign-images.sh"
+run_test "mobile emulator tests: NOT VERIFIED without a device" "timeout -k 10 120 bash $SCRIPT_DIR/test-mobile-verify.sh"
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"
 
 # Summary

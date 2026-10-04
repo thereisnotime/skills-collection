@@ -249,7 +249,7 @@ describe("engine10 machine", () => {
     expect(sealCap).toBe(true);
   });
 
-  it("a stage over its limit is aborted and failed with reason limit", async () => {
+  it("a stage over its limit is aborted and failed with reason limit, then verify still runs", async () => {
     const { ctx, events } = fakeCtx();
     const r = await runMachine(ctx, {
       load: loaderOf(all({
@@ -257,7 +257,7 @@ describe("engine10 machine", () => {
       })),
     });
     expect(events.find((e) => e.type === "stage.failed" && e.stage === "implement")?.data.reason).toBe("limit");
-    expect(of(events, "stage.started")).not.toContain("verify");
+    expect(of(events, "stage.started")).toContain("verify"); // FC-21 (a): a limit still verifies the work that exists
     expect(of(events, "stage.completed")).toContain("seal");
     expect(r.capHit).toBe(false);
   });
@@ -267,6 +267,27 @@ describe("engine10 machine", () => {
     ctx.deep = true;
     await runMachine(ctx, { load: loaderOf(all({ implement: { name: "implement", targetS: 180, limitS: 480, run: async () => ({ status: "completed", data: {} }) } })) });
     expect(events.find((e) => e.type === "stage.started" && e.stage === "implement")?.data.limit_s).toBe(1800);
+  });
+
+  it("FC-19: deep-mode implement session gets the 1800s limit, not the stage's 480s", async () => {
+    const { ctx } = fakeCtx();
+    ctx.deep = true;
+    const seen: number[] = [];
+    ctx.sessions = { run: async (o) => { seen.push(o.limitS); return { exit: 0, markers: { done: true, alreadyDone: null, specConflict: null }, durationS: 0, killed: false }; } };
+    const impl: Stage = { name: "implement", targetS: 180, limitS: 480, run: async (c, _s) => { await c.sessions.run({ stage: "implement", brief: "b", tier: "development", iterationId: "i", limitS: 480, signal: new AbortController().signal }); return { status: "completed", data: {} }; } };
+    await runMachine(ctx, { load: loaderOf(all({ implement: impl })) });
+    expect(seen[0]).toBeGreaterThan(1799); // runs 37171623026 and 37173985482: the budget-left limit (FC-21b A2) can read 1799.999 after 1ms elapsed; assert the deep limit, not the elapsed ms
+    expect(seen[0]).toBeLessThanOrEqual(1800);
+    expect(seen.every((s) => s > 480 && s <= 1800)).toBe(true);
+  });
+
+  it("FC-19: implement limit comes from the run budget, not a fixed 480s", async () => {
+    const { ctx, events } = fakeCtx();
+    ctx.capS = 900;
+    await runMachine(ctx, { load: loaderOf(all({ implement: { name: "implement", targetS: 180, limitS: 480, run: async () => ({ status: "completed", data: {} }) } })) });
+    const lim = events.find((e) => e.type === "stage.started" && e.stage === "implement")?.data.limit_s as number;
+    expect(lim).toBeGreaterThan(480);
+    expect(lim).toBeLessThan(900);
   });
 
   it("already satisfied jumps to commit and seal", async () => {

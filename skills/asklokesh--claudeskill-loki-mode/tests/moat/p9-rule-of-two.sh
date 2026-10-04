@@ -8,7 +8,8 @@ set -uo pipefail
 # push or open PRs. Untrusted text may reach an agent only in a session that
 # cannot reach a push credential.
 #
-#   Scope of the three static cases: every .github/workflows/*.yml|yaml, and
+#   Scope of the three static cases: every .github/workflows/*.yml|yaml, every
+#   docs/examples/*.yml.example (workflows users copy), and
 #   every composite action Loki ships (action.yml at the root, which is the
 #   Marketplace action, and .github/actions/*/action.yml). A unit is one job,
 #   or one whole action; an action's caller is unknown, so it is judged as if
@@ -250,7 +251,7 @@ UNTRUSTED_EXPR = re.compile(
 UNTRUSTED_RUN = re.compile(r"\bgh\s+(issue|pr)\s+view\b|\bloki\s+(start|run)\b")
 AGENT_ACTIONS = ("anthropics/claude-code-action", "asklokesh/loki-mode", "openai/codex-action")
 PUSH_RUN = re.compile(r"\bgit\s+push\b|\bgh\s+pr\s+(create|merge)\b")
-LOKI_START = re.compile(r"\bloki\s+(start|run)\b")
+LOKI_START = re.compile(r"\bloki\s+(start|run\b|\"\$\{?GITHUB_REPOSITORY)")
 SECRET = re.compile(r"secrets\.|github\.token\b|inputs\.[A-Za-z0-9_-]*token")
 NEEDS_OUT = re.compile(r"\$\{\{\s*needs\.([A-Za-z0-9_-]+)\.outputs\.")
 EVENT_NAME = re.compile(r"github\.event_name\s*==\s*'([a-z_]+)'")
@@ -390,7 +391,9 @@ def cache_restores(steps):
 
 units, errors, scanned_files = [], [], set()
 wfdir = os.path.join(root, ".github", "workflows")
-for wf in sorted(glob.glob(os.path.join(wfdir, "*.yml")) + glob.glob(os.path.join(wfdir, "*.yaml"))):
+exdir = os.path.join(root, "docs", "examples")
+for wf in sorted(glob.glob(os.path.join(wfdir, "*.yml")) + glob.glob(os.path.join(wfdir, "*.yaml"))
+                 + glob.glob(os.path.join(exdir, "*.yml.example"))):
     rel = os.path.relpath(wf, root)
     try:
         doc = load(wf)
@@ -1601,6 +1604,14 @@ PY
         grep -qF -- "$GITHUB_CANARY" "$L"/provider-env.* "$L"/provider-argv.* 2>/dev/null && out="${out:+$out,}GITHUB_TOKEN"
         printf '%s' "$out"
     }
+    # inj_diag <scenario>: start rc plus a tail of start.out/start.err, so a
+    # post-session step that never ran says why in the failure message.
+    inj_diag() {
+        local L="$T/$1"
+        printf 'start rc=%s; stdout: %s; stderr: %s' "$(cat "$L/start.rc" 2>/dev/null)" \
+            "$(tail -c 600 "$L/start.out" 2>/dev/null | tr '\n' '~')" \
+            "$(tail -c 400 "$L/start.err" 2>/dev/null | tr '\n' '~')"
+    }
     local OPT_WARN='LOKI_ALLOW_AGENT_GITHUB_TOKEN=1: the agent session holds the GitHub token'
 
     scn_default() {
@@ -1617,9 +1628,9 @@ PY
             && nok "[default] gh pr create from the provider session ran with a valid token"
         # Withheld, not destroyed: the trusted post-session step keeps it.
         grep -qx 'loki accepted' "$T/default/push.log" \
-            || nok "[default] Loki's own post-session push did not carry the token (push log: $(tr '\n' ',' < "$T/default/push.log"))"
+            || nok "[default] Loki's own post-session push did not carry the token (push log: $(tr '\n' ',' < "$T/default/push.log"); $(inj_diag default))"
         grep -q '^loki token=yes via=[a-z]* pr create' "$T/default/gh.log" \
-            || nok "[default] Loki's own post-session gh pr create did not carry the token"
+            || nok "[default] Loki's own post-session gh pr create did not carry the token (gh log: $(tr '\n' ',' < "$T/default/gh.log" 2>/dev/null); $(inj_diag default))"
         grep -qF "$OPT_WARN" "$T/default/start.err" "$T/default/start.out" \
             && nok "[default] printed the opt-out exposure warning without the opt-out"
         # BACKLOG 149: the provider session's own gh resolution must not reach
@@ -1799,9 +1810,9 @@ PY
         [ -n "${SSH_AGENT_SOCK:-}" ] && grep -qF "sock=$SSH_AGENT_SOCK" "$PLOG" \
             && nok "[planted] a plant in the agent's repo config ran holding the real SSH agent socket"
         grep -qx 'loki accepted' "$T/planted/push.log" \
-            || nok "[planted] Loki's own push did not reach the real remote with the credential (push log: $(tr '\n' ',' < "$T/planted/push.log"))"
+            || nok "[planted] Loki's own push did not reach the real remote with the credential (push log: $(tr '\n' ',' < "$T/planted/push.log"); $(inj_diag planted))"
         grep -q '^loki token=yes via=[a-z]* pr create' "$T/planted/gh.log" \
-            || nok "[planted] Loki's own gh pr create did not carry the token"
+            || nok "[planted] Loki's own gh pr create did not carry the token (gh log: $(tr '\n' ',' < "$T/planted/gh.log" 2>/dev/null); $(inj_diag planted))"
     fi
     }
 

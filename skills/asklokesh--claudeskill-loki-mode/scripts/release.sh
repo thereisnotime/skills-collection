@@ -20,8 +20,8 @@
 #
 # RELEASE GATE (S-108, founder P0): a release is a lookup of an already-
 # verified commit, never a bump on an unverified tree. Before ANY bump (this
-# includes --bump-only) the script requires a completed/success run of both
-# the "Tests" and "Bun Parity" GitHub Actions workflows at HEAD's exact SHA.
+# includes --bump-only) the script requires a completed/success run of the
+# "Tests" GitHub Actions workflow at HEAD's exact SHA.
 # No matching run -> refuse, exit 3 (RELEASE_ON_RED). --dry-run skips the
 # gate since it writes nothing. LOKI_RELEASE_ALLOW_RED=1 bypasses the gate
 # for tests only -- never set it for a real release.
@@ -352,18 +352,26 @@ bump_all_version_files() {
         "s/^(const CURRENT_VERSION = ')${digits}(';)\$/\\1${new}\\2/" \
         "^const CURRENT_VERSION = '${new}';\$" \
         "WhatsNew.tsx CURRENT_VERSION"
+
+    # STALE-ZERO SZ-01: regenerate README facts, SKILL.md command list, Helm
+    # appVersion and the CLI reference from VERSION and the command registry.
+    if [ -x "$ROOT_DIR/scripts/generate-stale-zero.sh" ]; then
+        (cd "$ROOT_DIR" && "$ROOT_DIR/scripts/generate-stale-zero.sh")
+    else
+        log_warn "scripts/generate-stale-zero.sh not found under $ROOT_DIR; skipping generated facts"
+    fi
 }
 
 # Files staged into the release commit. Kept as its own list, sourced from
 # the same set bump_all_version_files touches, so the commit can never ship
 # a partially-bumped tree (some files updated on disk but left unstaged).
-RELEASE_COMMIT_FILES="VERSION package.json SKILL.md Dockerfile Dockerfile.sandbox plugins/loki-mode/.claude-plugin/plugin.json server.json CLAUDE.md dashboard/__init__.py mcp/__init__.py docs/INSTALLATION.md wiki/Home.md wiki/_Sidebar.md wiki/API-Reference.md web-app/src/components/Footer.tsx web-app/src/components/WhatsNew.tsx CHANGELOG.md"
+RELEASE_COMMIT_FILES="VERSION package.json SKILL.md Dockerfile Dockerfile.sandbox plugins/loki-mode/.claude-plugin/plugin.json server.json CLAUDE.md dashboard/__init__.py mcp/__init__.py docs/INSTALLATION.md wiki/Home.md wiki/_Sidebar.md wiki/API-Reference.md web-app/src/components/Footer.tsx web-app/src/components/WhatsNew.tsx README.md helm/loki-mode/Chart.yaml deploy/helm/autonomi/Chart.yaml deploy/helm/control-plane/Chart.yaml docs/CLI-REFERENCE.md docs/v10/CLI-MODERN.md CHANGELOG.md"
 
 # --- Release gate (RELEASE_ON_RED, S-108) --------------------------------
 # Founder P0: a release is a lookup of an already-verified commit. Refuses
 # (exit 3) unless HEAD's exact SHA has a completed/success run of every
 # workflow below. Runs before ANY bump, --bump-only included.
-RELEASE_REQUIRED_WORKFLOWS=("Tests" "Bun Parity")
+RELEASE_REQUIRED_WORKFLOWS=("Tests")
 
 # True (exit 0) iff `gh run list` for $1 at commit $2 contains at least one
 # run whose status/conclusion/headSha all match. Parsed with python3 (already
@@ -427,7 +435,7 @@ require_green_release_gate() {
         exit 3
     fi
 
-    log_success "Release gate: green Tests + Bun Parity run found at $sha"
+    log_success "Release gate: green Tests run found at $sha"
 }
 
 # E-72: loki-ts/dist rebuilds are content-hashed (writeDeterministicDebugId

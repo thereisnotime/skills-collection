@@ -11,12 +11,20 @@ export LOKI_DASHBOARD_ALLOWED_HOSTS=testserver,test  # TestClient Host; keeps de
 # Cases (IDs are permanent):
 #   P7.webapp-client-routes-exist     every web-app client path resolves to a
 #                                     real route in web-app/server.py
-#   P7.dashboard-client-routes-exist  every /api/ path in dashboard-ui source
-#                                     resolves to a real route in dashboard/server.py
+#   P7.dashboard-client-routes-exist  every /v1 path the Control Plane UI source
+#                                     (packages/control-plane/ui/src) calls resolves
+#                                     to a real route on the createApp() Hono app
 #   P7.no-sample-data-panels          no production page reaches a panel that
 #                                     falls back to hardcoded or generated sample
 #                                     data, no Math.random() feeds a metric, and
 #                                     no metric prop is fed a hardcoded number
+#   P7.cp-unmeasured-never-fabricated the Control Plane (loki control serve) never
+#                                     invents spend or run data: see the CP leg
+#                                     block (case_cp_unmeasured) for the route map
+#
+# cost_server_leg still drives dashboard/server.py (port 57374), which keeps
+# serving /api/*; case_cp_unmeasured proves the property on the Control Plane.
+#
 #   P7.unmeasured-cost-never-zero     no cost rendering path turns an unmeasured
 #                                     (null/undefined) cost into 0 or "$0.00",
 #                                     and the budget, cost-timeline and fleet
@@ -37,8 +45,8 @@ export LOKI_DASHBOARD_ALLOWED_HOSTS=testserver,test  # TestClient Host; keeps de
 # The cost case's server leg starts the real dashboard app in-process
 # (fastapi TestClient, which needs httpx; requirements-test.txt has both).
 #
-# SOURCE, NEVER THE BUNDLE. dashboard/static/index.html is the built bundle and
-# is never scanned: a bundle scan measures the last build, not the code.
+# SOURCE, NEVER THE BUNDLE. Only source is scanned: a bundle scan measures the
+# last build, not the code.
 #
 # ROUTES ARE MATCHED, NOT GREPPED. Both route cases import the real FastAPI
 # app and ask its own router whether each client path reaches a route, the same
@@ -48,7 +56,7 @@ export LOKI_DASHBOARD_ALLOWED_HOSTS=testserver,test  # TestClient Host; keeps de
 # with a line regex.
 #
 # Prerequisites: python3 with fastapi (the route tables), node, and
-# web-app/node_modules/typescript or dashboard-ui/node_modules/typescript
+# web-app/node_modules/typescript
 # inside THIS checkout (npm ci in web-app provides it). The two static-scan
 # cases need only python3.
 set -uo pipefail
@@ -63,6 +71,7 @@ MOAT_MAIN_PID=$$
 moat_cleanup() {
     # Only the top-level shell removes the directory, never a subshell.
     [ "${BASHPID:-$$}" = "$MOAT_MAIN_PID" ] || return 0
+    cp_stop
     rm -rf -- "$MOAT_TMP"
 }
 trap moat_cleanup EXIT
@@ -369,14 +378,9 @@ PY
 
 # Resolve the typescript module from THIS checkout only (never a sibling tree).
 find_typescript() {
-    local d
-    for d in web-app dashboard-ui; do
-        if [ -f "$REPO_ROOT/$d/node_modules/typescript/lib/typescript.js" ]; then
-            printf '%s\n' "$REPO_ROOT/$d/node_modules/typescript/lib/typescript.js"
-            return 0
-        fi
-    done
-    return 1
+    local ts="$REPO_ROOT/web-app/node_modules/typescript/lib/typescript.js"
+    [ -f "$ts" ] || return 1
+    printf '%s\n' "$ts"
 }
 
 # Common prerequisite gate for the two route cases. Prints a reason on failure.
@@ -384,7 +388,7 @@ route_prereqs() {
     command -v node >/dev/null 2>&1 || { echo "prerequisite missing: node"; return 1; }
     command -v python3 >/dev/null 2>&1 || { echo "prerequisite missing: python3"; return 1; }
     py_server -c 'import fastapi' >/dev/null 2>&1 || { echo "prerequisite missing: python fastapi"; return 1; }
-    find_typescript >/dev/null || { echo "prerequisite missing: typescript (npm ci in web-app or dashboard-ui of this checkout)"; return 1; }
+    find_typescript >/dev/null || { echo "prerequisite missing: typescript (npm ci in web-app of this checkout)"; return 1; }
     return 0
 }
 
@@ -505,21 +509,175 @@ case_webapp_routes() {
 }
 
 # ---------------------------------------------------------------------------
-# P7.dashboard-client-routes-exist
+# P7.dashboard-client-routes-exist (retargeted at the Control Plane UI, CPE24-L6)
+#
+# The ID is permanent (case IDs only grow). The legacy dashboard UI it once
+# measured is deleted; the same property now holds for the Control Plane UI:
+# every /v1 path the UI source (packages/control-plane/ui/src, never ui/dist)
+# calls must reach a real route on the Hono app createApp() builds. The probe
+# extracts call paths with the TypeScript AST (a literal that is an argument of
+# a call, never an Error message or a comment) and asks the app's OWN router
+# (app.router.match) whether a non-wildcard route answers that method and path;
+# it does not grep route strings. The app is built loopback-only so the act
+# routes (/v1/start, /v1/import, ...) are registered, as on `loki control serve`.
+# Controls: a known-good path resolves, a wrong verb on a real path and a made-up
+# path are flagged, a planted client file with a bogus path is flagged by the
+# same pipeline, and the extractor must read exact paths from a known fixture.
 # ---------------------------------------------------------------------------
+cp_routes_probe_script() { cat <<'EOF'
+import { createRequire } from "node:module";
+import fs from "node:fs";
+import path from "node:path";
+const [tsPath, repo, srcDir] = process.argv.slice(2);
+const ts = createRequire(import.meta.url)(tsPath);
+const { createApp } = await import(path.join(repo, "packages/control-plane/src/server/app.ts"));
+
+const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
+  const p = path.join(d, e.name);
+  if (e.isDirectory()) return e.name === "node_modules" || e.name === "dist" ? [] : walk(p);
+  return /\.(ts|tsx)$/.test(e.name) && !/\.d\.ts$/.test(e.name) ? [p] : [];
+});
+
+const PATH_OK = /^\/v1\/[A-Za-z0-9_\-{}\/.:%]*$/;
+const NOT_CALL = new Set(["Error", "TypeError", "RangeError"]);
+function extract(file, text) {
+  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const calls = [], unresolved = [];
+  const where = (n) => `${path.relative(repo, file)}:${sf.getLineAndCharacterOfPosition(n.getStart()).line + 1}`;
+  const enclosingCall = (n) => { for (let p = n.parent; p; p = p.parent) if (ts.isCallExpression(p) || ts.isNewExpression(p)) return p; return null; };
+  const methodOf = (n) => {
+    const c = enclosingCall(n);
+    if (!c) return "GET";
+    const callee = c.expression.getText(sf);
+    for (const a of c.arguments ?? []) if (ts.isObjectLiteralExpression(a)) for (const pr of a.properties)
+      if (ts.isPropertyAssignment(pr) && pr.name.getText(sf) === "method" && ts.isStringLiteralLike(pr.initializer)) return pr.initializer.text.toUpperCase();
+    return /^postJson$/.test(callee) ? "POST" : "GET";
+  };
+  // The members of a same-file string-literal union type that an identifier parameter is declared with, else null.
+  const unionOf = (e) => {
+    if (!ts.isIdentifier(e)) return null;
+    for (let f = e.parent; f; f = f.parent) {
+      if (!ts.isFunctionLike(f)) continue;
+      const prm = f.parameters.find((x) => x.name.getText(sf) === e.text);
+      if (!prm) continue;
+      if (!prm.type || !ts.isTypeReferenceNode(prm.type)) return null;
+      const alias = sf.statements.find((x) => ts.isTypeAliasDeclaration(x) && x.name.text === prm.type.typeName.getText(sf));
+      const members = alias && ts.isUnionTypeNode(alias.type) ? alias.type.types : null;
+      return members && members.every((t) => ts.isLiteralTypeNode(t) && ts.isStringLiteral(t.literal)) ? members.map((t) => t.literal.text) : null;
+    }
+    return null;
+  };
+  const visit = (n) => {
+    let parts = null; // [{text}|{expr}]
+    if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) parts = [{ text: n.text }];
+    else if (ts.isTemplateExpression(n)) parts = [{ text: n.head.text }, ...n.templateSpans.flatMap((s) => [{ expr: s.expression.getText(sf), node: s.expression }, { text: s.literal.text }])];
+    if (parts) {
+      const c = enclosingCall(n);
+      const errish = c && NOT_CALL.has(c.expression.getText(sf));
+      // drop leading base expressions (`${base()}`), then the path must start at /v1/
+      let i = 0;
+      while (i < parts.length && (parts[i].expr !== undefined || !parts[i].text) && !(parts[i].text ?? "").startsWith("/v1/") && i < parts.length - 1) i++;
+      const first = parts[i]?.text ?? "";
+      if (!errish && first.startsWith("/v1/")) {
+        let outs = [""], bad = null, cut = false;
+        const add = (t) => { outs = outs.map((o) => o + t); };
+        for (let k = i; k < parts.length && !cut && !bad; k++) {
+          const p = parts[k];
+          const here = outs[0];
+          if (p.text !== undefined) {
+            const q = p.text.indexOf("?");
+            if (q >= 0) { add(p.text.slice(0, q)); cut = true; } else add(p.text);
+          } else if (here.endsWith("/")) {
+            const nxt = parts[k + 1]?.text ?? "";
+            if (!(nxt === "" || nxt.startsWith("/") || nxt.startsWith("?"))) bad = "interpolation glued to a segment";
+            else {
+              const u = unionOf(p.node); // a param typed as a string-literal union is every member, not a wildcard
+              if (u) outs = outs.flatMap((o) => u.map((v) => o + v)); else add("{p}");
+            }
+          } else if (/[`'"]\?/.test(p.expr)) { cut = true; } // `${s ? `?${s}` : ""}`: a query suffix, not a path part
+          else bad = "interpolation glued to a segment";
+        }
+        for (const out of outs) {
+          let b = bad;
+          if (!b && !PATH_OK.test(out)) b = `unparseable path ${JSON.stringify(out)}`;
+          if (b) unresolved.push(`${where(n)} ${b}`); else calls.push({ where: where(n), path: out, method: methodOf(n) });
+        }
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return { calls, unresolved };
+}
+
+const { app, close } = createApp({ dbPath: ":memory:", loopbackOnly: true, uiDir: "/nonexistent-ui-dir", repoDir: repo });
+const real = app.routes.filter((r) => !/\*/.test(r.path) && r.method !== "ALL");
+// router.match yields [[handler, route], params] entries; middleware and the SPA fallback are '*' or ALL routes and never vouch for a path.
+const reach = (method, p) => {
+  const concrete = p.replace(/\{p\}/g, "1");
+  const m = method === "HEAD" ? "GET" : method;
+  const [hs] = app.router.match(m, concrete);
+  return (hs ?? []).some((h) => { const r = h[0]?.[1]; return !!r?.path && !/\*/.test(r.path) && r.method !== "ALL"; });
+};
+const bad = [];
+
+// Controls (a probe that cannot see a bug proves nothing).
+if (real.length < 5) bad.push(`control: only ${real.length} concrete routes on the app`);
+if (!reach("GET", "/v1/runs")) bad.push("control: known-good GET /v1/runs did not resolve");
+if (!reach("GET", "/v1/runs/{p}/{p}")) bad.push("control: known-good GET /v1/runs/:source/:run did not resolve");
+if (reach("GET", "/v1/moat-made-up-route-7f3a")) bad.push("control: a made-up path resolved");
+if (reach("PATCH", "/v1/runs")) bad.push("control: a wrong verb on a real path resolved");
+if (reach("GET", "/health-not-v1/x/y")) bad.push("control: an unrelated path resolved");
+const fx = extract("fixture.tsx", [
+  'const base = () => ""; const postJson = (p, b) => fetch(p);',
+  'get(`/v1/runs${s ? `?${s}` : ""}`);',
+  'get(`/v1/runs/${encodeURIComponent(a)}/${encodeURIComponent(b)}`);',
+  'fetch(`${base()}/v1/runs/${a}/${b}`, { method: "DELETE" });',
+  'postJson("/v1/import", {});',
+  'throw new Error(`/v1/keys: HTTP ${r.status}`);',
+  '// get("/v1/in-a-comment")',
+  'get(`/v1/x${glued}`);',
+  'type K = "stop" | "go"; export function f(k: K) { return fetch(`/v1/runs/${a}/${k}`, { method: "POST" }); }',
+].join("\n"));
+const got = fx.calls.map((c) => `${c.method}:${c.path}`).join(" ");
+if (got !== "GET:/v1/runs GET:/v1/runs/{p}/{p} DELETE:/v1/runs/{p}/{p} POST:/v1/import POST:/v1/runs/{p}/stop POST:/v1/runs/{p}/go" || fx.unresolved.length !== 1)
+  bad.push(`control: extractor fixture mismatch: '${got}' unresolved=${fx.unresolved.length}`);
+const planted = extract("planted.ts", 'get("/v1/moat-planted-bogus-path-9c1d");');
+if (planted.calls.length !== 1 || reach(planted.calls[0].method, planted.calls[0].path)) bad.push("control: a planted bogus client path was not flagged");
+
+const files = walk(srcDir);
+let n = 0;
+for (const f of files) {
+  const r = extract(f, fs.readFileSync(f, "utf8"));
+  for (const u of r.unresolved) bad.push(`UNRESOLVED ${u}`);
+  for (const c of r.calls) { n++; if (!reach(c.method, c.path)) bad.push(`NO ROUTE ${c.where} ${c.method} ${c.path}`); }
+}
+if (n === 0) bad.push(`zero /v1 calls captured from ${files.length} files; the check would be vacuous`);
+console.log(`ROUTES ${real.length} CALLS ${n} FILES ${files.length}`);
+for (const b of bad) console.log("BAD " + b);
+console.log("CHECKED");
+close();
+process.exit(bad.length ? 1 : 0);
+EOF
+}
 case_dashboard_routes() {
-    local why
-    why="$(route_prereqs)" || { echo "FAIL|$why"; return 0; }
-    [ -f "$REPO_ROOT/dashboard-ui/core/loki-api-client.js" ] \
-        || { echo "FAIL|dashboard-ui/core/loki-api-client.js missing; nothing to measure"; return 0; }
-    why="$(route_control dashboard /api/status)" || { echo "FAIL|positive control failed: $why"; return 0; }
-    python3 -c '
-import sys; sys.path.insert(0, sys.argv[1]); import moatlib
-fs = moatlib.walk(sys.argv[2], (".js", ".mjs")) + moatlib.walk(sys.argv[3], (".js", ".mjs"))
-print("\n".join(fs))' "$MOAT_TMP" "$REPO_ROOT/dashboard-ui/core" "$REPO_ROOT/dashboard-ui/components" > "$MOAT_TMP/dashboard.files"
-    grep -q 'dashboard-ui/core/loki-api-client.js$' "$MOAT_TMP/dashboard.files" \
-        || { echo "FAIL|loki-api-client.js was not in the scanned file list; the check would miss the main client"; return 0; }
-    extract_and_match dashboard dashboard "$MOAT_TMP/dashboard.files"
+    local ts d="$MOAT_TMP/cproutes" out rc
+    command -v bun >/dev/null 2>&1 || { echo "FAIL|prerequisite missing: bun"; return 0; }
+    ts="$(find_typescript)" || { echo "FAIL|prerequisite missing: typescript (npm ci in web-app of this checkout)"; return 0; }
+    [ -d "$REPO_ROOT/packages/control-plane/node_modules/hono" ] \
+        || { echo "FAIL|prerequisite missing: packages/control-plane node_modules (cd packages/control-plane && bun install --frozen-lockfile)"; return 0; }
+    [ -f "$REPO_ROOT/packages/control-plane/ui/src/api.ts" ] \
+        || { echo "FAIL|packages/control-plane/ui/src/api.ts missing; nothing to measure"; return 0; }
+    mkdir -p "$d"
+    cp_routes_probe_script > "$d/probe.ts"
+    rc=0
+    out="$(cd "$d" && HOME="$MOAT_TMP/home" LOKI_NO_BROWSER=1 LOKI_CONTROL_AUTOINGEST=0 bun "$d/probe.ts" "$ts" "$REPO_ROOT" "$REPO_ROOT/packages/control-plane/ui/src" 2> "$d/probe.err")" || rc=$?
+    printf '%s\n' "$out" | sed 's/^/  cp[routes] /' >&2
+    grep -qx 'CHECKED' <<<"$out" || { echo "FAIL|probe did not run (rc=$rc): $(tail -c 240 "$d/probe.err" | tr '\n' ' ')"; return 0; }
+    if [ "$rc" != 0 ]; then
+        echo "FAIL|$(grep -c '^BAD ' <<<"$out") problem(s): $(grep '^BAD ' <<<"$out" | head -4 | sed 's/^BAD //' | tr '\n' ';')"; return 0
+    fi
+    echo "PASS|$(grep '^ROUTES' <<<"$out" | sed 's/ROUTES \([0-9]*\) CALLS \([0-9]*\) FILES \([0-9]*\)/\2 UI client calls in \3 files resolve to \1 real CP routes/')"
 }
 
 # ---------------------------------------------------------------------------
@@ -553,7 +711,7 @@ print("\n".join(fs))' "$MOAT_TMP" "$REPO_ROOT/dashboard-ui/core" "$REPO_ROOT/das
 #      so the mount graph cannot see it.
 # Rules 6-9 read the WHOLE file with a bracket matcher, never one line at a
 # time: every fabrication they target spans lines. Like rules 3 and 5 they apply
-# to every web-app source file and every dashboard-ui file, reachable or not.
+# to every web-app source file, reachable or not.
 #   6. No array of literal rows is passed to a set*() setter or useState()
 #      (anywhere in the argument list, not only as the first argument), or
 #      appears anywhere in a catch body (`catch {`, `.catch(() => {...})`), or
@@ -599,8 +757,6 @@ print("\n".join(fs))' "$MOAT_TMP" "$REPO_ROOT/dashboard-ui/core" "$REPO_ROOT/das
 #      `(x ?? 0).toLocaleString()`, `(x || 0).toFixed(1)`,
 #      `x?.toLocaleString() || 0`, `formatPercent(x || 0)`. That renders an
 #      unmeasured value as a measured 0; the fix renders "--" for null.
-# dashboard-ui web components are all shipped in the bundle, so rules 1, 3 and
-# 5-9 apply to every dashboard-ui component file directly.
 cat > "$MOAT_TMP/sample-panels.py" <<'PY'
 import os, re, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -773,8 +929,33 @@ line_of = lambda s, i: s.count('\n', 0, i) + 1
 # on a global-ish receiver (`window[sinkName](rows)`, `this[key](rows)`) as a
 # sink. Receiver-restricted (window/globalThis/self/this) so an ordinary
 # `handlers[kind](x)` or `items[i](x)` call is not swept in.
-BRACKET_SINK = r'(?:window|globalThis|self|this)\s*\[[^\]\n]+\]'
-SETTER = re.compile(r'\b(set[A-Z]\w*|useState|' + BRACKET_SINK + r')\s*(?=[(<])')
+# PO-P7-SINKS-1 (E-138): OPT_CALL lets every sink head accept an optional call
+# (`setRows?.([...])`, `window[k]?.(rows)`) and an optional receiver access
+# (`globalThis?.[k]`), which a bare `\s*(?=[(<])` lookahead never matched.
+OPT_CALL = r'(?:\?\.\s*)?'
+BRACKET_SINK = r'(?:window|globalThis|self|this)\s*' + OPT_CALL + r'\[[^\]\n]+\]'
+# One-hop sink aliases (`const push = setRows; push(rows)`, `const emit =
+# window[k]; emit(rows)`): SINK_ALIAS_DECL finds a plain rename of a sink, and
+# the sink regexes are rebuilt per file with the alias names appended (see
+# alias_alt/whole_file_findings). One hop only: an alias of an alias is not
+# followed. File-wide by name, like every other flow check here, so an alias
+# name reused for something else elsewhere in the same file is also treated as
+# the sink (over-flag only when that other use is fed literal rows).
+SINK_ALIAS_DECL = re.compile(r'\b(?:const|let|var)\s+([A-Za-z_]\w*)\s*(?::[^=;{}]*)?=(?![=>])\s*'
+                             r'(set[A-Z]\w*|useState|' + BRACKET_SINK + r')\s*(?=[;\n,)}]|$)')
+def sink_alias_alt(s):
+    """Regex alternation (leading `|`, or empty) matching the names bound by a
+    one-hop rename of a sink in s. A timer (`const later = setTimeout`) is not a
+    data sink and is never aliased."""
+    names = sorted({m.group(1) for m in SINK_ALIAS_DECL.finditer(s)
+                    if not TIMER_RENAME.match(m.group(2))})
+    if not names:
+        return ''
+    return r'|(?<![\w$.])(?:' + '|'.join(re.escape(n) for n in names) + r')\b'
+TIMER_RENAME = re.compile(r'^(?:setTimeout|setInterval|setImmediate|setAttribute|setItem|setProperty)$')
+def make_setter(alias_alt):
+    return re.compile(r'\b(set[A-Z]\w*|useState|' + BRACKET_SINK + alias_alt + r')\s*' + OPT_CALL + r'(?=[(<])')
+SETTER = make_setter('')
 CATCH = re.compile(r'\bcatch\s*(?:\([^()]*\))?\s*\{|\.catch\s*\(')
 ARRAY_CTX = re.compile(r'(?:[=(,:?\[|&]|\breturn)\s*$')
 def expr_end(s):
@@ -1065,8 +1246,10 @@ def is_block_open(s, i):
     while j >= 0 and s[j].isspace():
         j -= 1
     return j >= 0 and s[j] in ')>'
-FLOWS_TO_STATE_TMPL = (r'\b(?:set[A-Z]\w*|useState|' + BRACKET_SINK + r')\s*(?:<[^()]*?>)?\s*\(\s*(?:\(\s*\)\s*=>\s*)?'
-                       r'{name}\s*[,)]|\bthis\.\w+\s*=\s*{name}\b')
+def make_flows_tmpl(alias_alt):
+    return (r'\b(?:set[A-Z]\w*|useState|' + BRACKET_SINK + alias_alt + r')\s*' + OPT_CALL + r'(?:<[^()]*?>)?\s*\(\s*(?:\(\s*\)\s*=>\s*)?'
+            r'{name}\s*[,)]|\bthis\.\w+\s*=\s*{name}\b')
+FLOWS_TO_STATE_TMPL = make_flows_tmpl('')
 # Rule 6, function-return extension (BACKLOG 125 B-7): `function getRows(d){
 # if(!d) return [{...}]; return d; } setRows(getRows(d))` has no literal array
 # at the call site, so every arm above (which all look at the call site)
@@ -1170,7 +1353,50 @@ NESTED_FN_HEAD = re.compile(r'\bfunction\b[^{}();]*\([^()]*\)\s*\{'
 # exclude a spread's three dots (`[...getRows(...)]`): `(?:(?<![\w$.])|
 # (?<=\.\.\.))` reads as "not preceded by a word char or a single dot, UNLESS
 # the three characters immediately before are exactly '...'".
-HELPER_CALL_SINK_HEAD = re.compile(r'\b(?:set[A-Z]\w*|useState|' + BRACKET_SINK + r')\s*(?:<[^()]*?>)?\s*\(')
+def make_helper_sink_head(alias_alt):
+    return re.compile(r'\b(?:set[A-Z]\w*|useState|' + BRACKET_SINK + alias_alt + r')\s*' + OPT_CALL + r'(?:<[^()]*?>)?\s*\(')
+HELPER_CALL_SINK_HEAD = make_helper_sink_head('')
+# PO-P7-SINKS-1 (E-138): a local that FORWARDS a fabricator's result rather
+# than binding the bare call: `const rows = useMemo(() => normalize(getRows(d)),
+# deps)`, `const rows = [...getRows(d)]`, `const all = getRows(d).slice()`.
+# local_init_end isolates the initializer expression; the fabricator call must
+# appear in it and not only as a scalar read (`getRows(d).length`, `[0]`,
+# `.find(...)`), which carries no rows forward.
+LOCAL_INIT_DECL = re.compile(r'\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;{}]*)?=(?![=>])\s*')
+SCALAR_READ = re.compile(r'\s*(?:\?\.|\.)\s*(?:length|size|find|findIndex|some|every|includes|indexOf|join|at|reduce)\b|\s*\[')
+NEXT_NONSPACE = re.compile(r'\s*(\S)')
+def local_init_end(s, a):
+    """Index one past the initializer expression starting at s[a]: up to the
+    first top-level `,`, `;` or unmatched closer, or a newline that does not
+    continue the expression (an ASI-style statement end)."""
+    j = a
+    while j < len(s):
+        c = s[j]
+        if c in '\'"`':
+            j = skip_quoted(s, j)
+        elif c in OPEN:
+            k = close_of(s, j)
+            if k < 0:
+                return j
+            j = k
+        elif c in ')]},;':
+            return j
+        elif c == '\n':
+            nx = NEXT_NONSPACE.match(s, j + 1)
+            prev = s[a:j].rstrip()[-1:]
+            if not (nx and (nx.group(1) in '.?:|&' or prev == '' or prev in '=?:|&(>+,')):
+                return j
+        j += 1
+    return j
+def forwards_call(init, call_re):
+    """True when init contains a call matching call_re (its `(` is the match's
+    last char) that is not just a scalar read of the result."""
+    for m in re.finditer(call_re, init):
+        close = close_of(init, m.end() - 1)
+        tail = init[close + 1:close + 40] if close >= 0 else ''
+        if not SCALAR_READ.match(tail):
+            return True
+    return False
 HELPER_CALL_IN_SPAN_TMPL = r'{pre}{name}\s*\('
 # useState's lazy-initializer form passes the bare function reference, never
 # calling it at the sink at all (`useState(getRows)`, React calls it once on
@@ -1229,6 +1455,13 @@ def obj_pairs(o):
 def whole_file_findings(s):
     """(line, message) for rules 6-9; nested arrays inside a hit are not re-reported."""
     out, spans = [], []
+    # PO-P7-SINKS-1 (E-138): rebind the three sink regexes for this file so a
+    # one-hop sink alias (`const push = setRows`) is a sink everywhere they are
+    # used below.
+    alias_alt = sink_alias_alt(s)
+    SETTER = make_setter(alias_alt)
+    FLOWS_TO_STATE_TMPL = make_flows_tmpl(alias_alt)
+    HELPER_CALL_SINK_HEAD = make_helper_sink_head(alias_alt)
     # Built once, up front, so the FALLBACK_ARR/TERNARY inline-array checks
     # below (not only the later module-table-fallback block) can resolve a
     # `[...NAME]` spread element back to a known column-0 table's own
@@ -2211,6 +2444,15 @@ def whole_file_findings(s):
                 if re.search(FLOWS_TO_STATE_TMPL.format(name=re.escape(local)), s):
                     hit = lm
                     break
+        if not hit:
+            call_re = HELPER_CALL_IN_SPAN_TMPL.format(pre=pre, name=name_re)
+            for lm in LOCAL_INIT_DECL.finditer(s):
+                local = lm.group(1)
+                init = s[lm.end():local_init_end(s, lm.end())]
+                if forwards_call(init, call_re) \
+                        and re.search(FLOWS_TO_STATE_TMPL.format(name=re.escape(local)), s):
+                    hit = lm
+                    break
         if hit:
             out.append((line_of(s, decl_at), f"'{name}' returns fabricated literal rows reaching a data sink"))
     return sorted(set(out))
@@ -3103,8 +3345,8 @@ export function HST({ records }) {
 TSX
     # CONCERN fix, head side (3): a bare single-param arrow with no parens, a
     # `let` declaration (not `const`), and a `useCallback`-wrapped arrow (the
-    # highest-value gap: a mainstream React idiom, and both dashboard-ui and
-    # web-app use hooks extensively).
+    # highest-value gap: a mainstream React idiom, and
+    # web-app uses hooks extensively).
     cat > "$d/src/components/HelperReturnBareParamArrow.tsx" <<'TSX'
 export function HBP({ records }) {
   const buildRowsY = records => {
@@ -3279,6 +3521,273 @@ export function BSN({ sinkName, data }) {
   this[sinkName](rows);
   const first = window[sinkName] ? 1 : 0;
   return first;
+}
+TSX
+    # PO-P7-SINKS-1 (E-138): optional-call sinks and one-hop aliases. The three
+    # sink heads (SETTER, FLOWS_TO_STATE_TMPL, HELPER_CALL_SINK_HEAD) required a
+    # bare `(` after the sink name, so `setRows?.([...])` and
+    # `window[k]?.(rows)` reached no arm, and a one-hop rename of a sink
+    # (`const push = setRows; push([...])`) was invisible. Each form has a red
+    # fixture (must be flagged exactly once) and a green look-alike (must stay
+    # clean).
+    cat > "$d/src/components/OptCallSinkFabricated.tsx" <<'TSX'
+export function OCF({ setRows }) {
+  setRows?.([{ id: 1, name: 'Sample User', action: 'Deployed' }]);
+  return null;
+}
+TSX
+    cat > "$d/src/components/OptCallSinkHelperFabricated.tsx" <<'TSX'
+export function OCH({ d, setRows }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  setRows?.(getRows(d));
+  return null;
+}
+TSX
+    cat > "$d/src/components/OptCallSinkLocalFabricated.tsx" <<'TSX'
+export function OCL({ setRows }) {
+  const rows = [{ id: 1, name: 'Sample User', action: 'Deployed' }];
+  setRows?.(rows);
+  return null;
+}
+TSX
+    cat > "$d/src/components/OptCallSinkHonest.tsx" <<'TSX'
+export function OCN({ data, setRows, onPick }) {
+  setRows?.(data.rows);
+  setRows?.([]);
+  const rows = data.items;
+  setRows?.(rows);
+  const first = data.rows?.[0];
+  onPick?.([{ id: 1, name: 'Sample User' }]);
+  return first;
+}
+TSX
+    cat > "$d/src/components/BracketOptSinkFabricated.tsx" <<'TSX'
+export function BOF({ sinkName }) {
+  window[sinkName]?.([{ id: 1, name: 'Sample User', action: 'Deployed' }]);
+  return null;
+}
+TSX
+    cat > "$d/src/components/BracketOptSinkLocalFabricated.tsx" <<'TSX'
+export function BOL({ sinkName }) {
+  const rows = [{ id: 1, name: 'Sample User', action: 'Deployed' }];
+  globalThis?.[sinkName]?.(rows);
+  return null;
+}
+TSX
+    cat > "$d/src/components/BracketOptSinkHonest.tsx" <<'TSX'
+export function BON({ sinkName, data }) {
+  window[sinkName]?.(data.rows);
+  window[sinkName]?.([]);
+  const rows = data.items;
+  this[sinkName]?.(rows);
+  const first = window[sinkName]?.name;
+  const handlers = { a: 1 };
+  handlers[sinkName]?.([{ id: 1, name: 'Sample User' }]);
+  return first;
+}
+TSX
+    cat > "$d/src/components/AliasSinkFabricated.tsx" <<'TSX'
+export function ASF() {
+  const push = setRows;
+  push([{ id: 1, name: 'Sample User', action: 'Deployed' }]);
+  return null;
+}
+TSX
+    cat > "$d/src/components/AliasSinkOptCallFabricated.tsx" <<'TSX'
+export function ASO({ setRows }) {
+  const push = setRows;
+  push?.([{ id: 1, name: 'Sample User', action: 'Deployed' }]);
+  return null;
+}
+TSX
+    cat > "$d/src/components/AliasSinkLocalFabricated.tsx" <<'TSX'
+export function ASL() {
+  const rows = [{ id: 1, name: 'Sample User', action: 'Deployed' }];
+  const push = setRows;
+  push(rows);
+  return null;
+}
+TSX
+    cat > "$d/src/components/AliasBracketSinkFabricated.tsx" <<'TSX'
+export function ABF({ sinkName }) {
+  const emit = window[sinkName];
+  emit([{ id: 1, name: 'Sample User', action: 'Deployed' }]);
+  return null;
+}
+TSX
+    cat > "$d/src/components/AliasSinkHelperFabricated.tsx" <<'TSX'
+export function ASH({ d }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  const push = setRows;
+  push(getRows(d));
+  return null;
+}
+TSX
+    cat > "$d/src/components/AliasSinkHonest.tsx" <<'TSX'
+export function ASN({ data, sinkName }) {
+  const push = setRows;
+  push(data.rows);
+  push([]);
+  const emit = window[sinkName];
+  emit(data.items);
+  const later = setTimeout;
+  later(() => [{ id: 1, name: 'tick' }], 5);
+  const fmt = formatRows;
+  fmt([{ id: 1, name: 'Sample User' }]);
+  return null;
+}
+TSX
+    cat > "$d/src/components/MemoForwardNestedFabricated.tsx" <<'TSX'
+export function MFN({ d, deps }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  const rows = useMemo(() => normalize(getRows(d)), [deps]);
+  setRows(rows);
+  return null;
+}
+TSX
+    cat > "$d/src/components/MemoForwardChainFabricated.tsx" <<'TSX'
+export function MFC({ d, deps }) {
+  const getRows = (d) => {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  };
+  const rows = React.useMemo(() => {
+    const all = getRows(d).slice();
+    return all;
+  }, [deps]);
+  setRows?.(rows);
+  return null;
+}
+TSX
+    cat > "$d/src/components/LocalForwardSpreadFabricated.tsx" <<'TSX'
+export function LFS({ d }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  const rows = [...getRows(d)];
+  setRows(rows);
+  return null;
+}
+TSX
+    cat > "$d/src/components/MemoForwardHonest.tsx" <<'TSX'
+export function MFH({ d, deps }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  function loadRows(d) {
+    if (!d) return [];
+    return d.rows;
+  }
+  const real = useMemo(() => normalize(loadRows(d)), [deps]);
+  setRows(real);
+  const copy = [...loadRows(d)];
+  setRows(copy);
+  const count = useMemo(() => getRows(d).length, [deps]);
+  const label = count > 1 ? 'many' : 'few';
+  const shown = useMemo(() => normalize(getRows(d)), [deps]);
+  return shown.map((r) => <i key={r.id}>{label}</i>);
+}
+TSX
+    # P7-SCALAR-PIN: pin forwards_call's SCALAR_READ exclusion. HELPER_LOCAL_DECL
+    # flags any `const x = getRows(` regardless of the tail, so each fixture
+    # keeps the call off the `=` (`0 + call`, `pick || call`) to reach only
+    # forwards_call, then feeds the local, a scalar, to a sink. Each fixture
+    # binds the fabricator's result through an intermediate local and feeds
+    # only a SCALAR to a sink, so the sole arm that can see it is the
+    # `if not SCALAR_READ.match(tail): return True` branch (direct-sink forms
+    # such as setFirst(getRows(d)[0]) are flagged by other arms, so they would
+    # not isolate the line). Honest: .length, [0], .find( and ?.length carry
+    # no rows forward. A SCALAR_READ that stops matching flips these to 1.
+    cat > "$d/src/components/ScalarPinLengthHonest.tsx" <<'TSX'
+export function SPL({ d, pick }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  const n = 0 + getRows(d).length;
+  setCount(n);
+  return null;
+}
+TSX
+    cat > "$d/src/components/ScalarPinIndexHonest.tsx" <<'TSX'
+export function SPI({ d, pick }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  const first = pick || getRows(d)[0];
+  setFirst(first);
+  return null;
+}
+TSX
+    cat > "$d/src/components/ScalarPinFindHonest.tsx" <<'TSX'
+export function SPF({ d, pick }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  const hit = pick || getRows(d).find((r) => r.id === 1);
+  setHit(hit);
+  return null;
+}
+TSX
+    cat > "$d/src/components/ScalarPinOptLengthHonest.tsx" <<'TSX'
+export function SPO({ d, pick }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  const n = 0 + getRows(d)?.length;
+  setCount(n);
+  return null;
+}
+TSX
+    # P7-SCALAR-PIN negatives: the same intermediate-local path, but the tail
+    # after the call is NOT a scalar read, so the array is forwarded to a
+    # sink and must be flagged. A SCALAR_READ widened to match anything (or to
+    # include array-returning methods) turns these to 0.
+    cat > "$d/src/components/ScalarPinFilterFabricated.tsx" <<'TSX'
+export function SPFF({ d, pick }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  const kept = pick || getRows(d).filter((r) => r.id);
+  setRows(kept);
+  return null;
+}
+TSX
+    cat > "$d/src/components/ScalarPinMapFabricated.tsx" <<'TSX'
+export function SPMF({ d, pick }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  const mapped = pick || getRows(d).map((r) => r);
+  setRows(mapped);
+  return null;
+}
+TSX
+    cat > "$d/src/components/ScalarPinWrapFabricated.tsx" <<'TSX'
+export function SPWF({ d, pick }) {
+  function getRows(d) {
+    if (!d) return [{ id: 1, action: 'Deployed', user: 'Admin', timestamp: 'now' }];
+    return d;
+  }
+  const wrapped = normalize(getRows(d));
+  setRows(wrapped);
+  return null;
 }
 TSX
     # Honest look-alikes for the same arm: an empty-array fallback (a genuine
@@ -3984,6 +4493,15 @@ EOF
         UseMemoCallsFabricatorRenderOnly.tsx:0 \
         BracketSinkFabricated.tsx:1 BracketSinkLocalFabricated.tsx:1 BracketSinkHelperFabricated.tsx:1 \
         BracketSinkHonest.tsx:0 \
+        OptCallSinkFabricated.tsx:1 OptCallSinkHelperFabricated.tsx:1 OptCallSinkLocalFabricated.tsx:1 \
+        OptCallSinkHonest.tsx:0 \
+        BracketOptSinkFabricated.tsx:1 BracketOptSinkLocalFabricated.tsx:1 BracketOptSinkHonest.tsx:0 \
+        AliasSinkFabricated.tsx:1 AliasSinkOptCallFabricated.tsx:1 AliasSinkLocalFabricated.tsx:1 \
+        AliasBracketSinkFabricated.tsx:1 AliasSinkHelperFabricated.tsx:1 AliasSinkHonest.tsx:0 \
+        MemoForwardNestedFabricated.tsx:1 MemoForwardChainFabricated.tsx:1 LocalForwardSpreadFabricated.tsx:1 \
+        MemoForwardHonest.tsx:0 \
+        ScalarPinLengthHonest.tsx:0 ScalarPinIndexHonest.tsx:0 ScalarPinFindHonest.tsx:0 ScalarPinOptLengthHonest.tsx:0 \
+        ScalarPinFilterFabricated.tsx:1 ScalarPinMapFabricated.tsx:1 ScalarPinWrapFabricated.tsx:1 \
         HelperReturnEmptyHonest.tsx:0 HelperReturnRenderOnlyHonest.tsx:0 HelperReturnNestedCallbackHonest.tsx:0 \
         HelperReturnSinkSpreadHonest.tsx:0 HelperReturnSinkNestedCallHonest.tsx:0 \
         HelperReturnSinkTrailingCallHonest.tsx:0 HelperReturnUseCallbackHonest.tsx:0 \
@@ -4121,11 +4639,7 @@ JS
         || { echo "FAIL|positive control: the old waterfall catch-block demo fallback was not flagged exactly once (rc=$rc): $(grep '^FINDING' <<<"$out" | tr '\n' ' ' | head -c 200)"; return 0; }
 
     rc=0
-    # The shell of the shipped dashboard (its inline script lives in
-    # build-standalone.js) and the standalone cost/proofs/trust pages ship too.
-    python3 "$MOAT_TMP/sample-panels.py" "$REPO_ROOT/web-app/src" \
-        "$REPO_ROOT/dashboard-ui/components" "$REPO_ROOT/dashboard-ui/core" \
-        "$REPO_ROOT/dashboard-ui/scripts/build-standalone.js" "$REPO_ROOT/dashboard/static" > "$MOAT_TMP/sample.txt" 2>&1 || rc=$?
+    python3 "$MOAT_TMP/sample-panels.py" "$REPO_ROOT/web-app/src" > "$MOAT_TMP/sample.txt" 2>&1 || rc=$?
     grep -v '^REACH ' "$MOAT_TMP/sample.txt" | sed 's/^/  /' >&2
     # The workspace is where rule 4's defect lived; a scan that never reached it
     # would pass without looking.
@@ -4538,20 +5052,15 @@ PY
         [ "$rc" = 0 ] || { echo "FAIL|known-correct formatter $f $fn flagged (probe too broad): $(grep '^HIT' <<<"$out" | head -1)"; return 0; }
         good=$((good + 1))
     done <<'EOF'
-dashboard-ui/components/loki-context-tracker.js|_formatUSD\(amount\)|toFixed\(
-dashboard-ui/components/loki-cost-dashboard.js|^  constructor\(\)|estimated_cost_usd: null
-dashboard/static/cost.html|function fmtUsd\(|toFixed\(
 web-app/src/pages/MetricsPage.tsx|function formatUsd\(|toFixed\(
-dashboard-ui/core/loki-unified-styles.js|export function formatUSD\(|toFixed\(
 EOF
-    [ "$good" = 5 ] || { echo "FAIL|only $good of 5 known-correct formatters were checked"; return 0; }
+    [ "$good" = 1 ] || { echo "FAIL|only $good of 1 known-correct formatters were checked"; return 0; }
 
     local srv="" srv_fail=""
     srv="$(cost_server_leg)" || srv_fail="${srv:-server leg failed with no reason}"
 
     rc=0
-    python3 "$MOAT_TMP/cost-zero.py" "$REPO_ROOT/dashboard-ui/components" "$REPO_ROOT/dashboard-ui/core" \
-        "$REPO_ROOT/web-app/src" "$REPO_ROOT/dashboard/static" > "$MOAT_TMP/cost.txt" 2>&1 || rc=$?
+    python3 "$MOAT_TMP/cost-zero.py" "$REPO_ROOT/web-app/src" > "$MOAT_TMP/cost.txt" 2>&1 || rc=$?
     sed "s#$REPO_ROOT/##; s/^/  /" "$MOAT_TMP/cost.txt" >&2
     case "$rc" in
         0) if [ -n "$srv_fail" ]; then echo "FAIL|$srv_fail"
@@ -4559,6 +5068,146 @@ EOF
         1) echo "FAIL|$(grep -c '^HIT' "$MOAT_TMP/cost.txt") unmeasured-cost-as-zero site(s): $(grep '^HIT' "$MOAT_TMP/cost.txt" | sed "s#^HIT $REPO_ROOT/##; s/: .*//" | tr '\n' ' ')${srv_fail:+; $srv_fail}" ;;
         *) echo "FAIL|scanner refused (rc=$rc)${srv_fail:+; $srv_fail}" ;;
     esac
+}
+
+# ---------------------------------------------------------------------------
+# Control Plane leg (CPE24-L5): P7.cp-unmeasured-never-fabricated
+#
+# The same property as P7.unmeasured-cost-never-zero, proven on the Control Plane
+# (packages/control-plane, `loki control serve`) that replaces the legacy
+# dashboard. The CP has no cost, budget, fleet, context, token-economics,
+# learning or gate routes of its own; its whole data surface is the run
+# projection, so the route mapping is:
+#   legacy /api/cost, /api/budget, /api/cost/timeline, /api/fleet/runs,
+#   /api/fleet/summary (spend per run and in total)
+#       -> CP GET /v1/runs and GET /v1/runs/:source/:run: cost_usd, partial_usd,
+#          measured_sessions, total_sessions, input_tokens, output_tokens
+#   legacy "no run data yet" (an empty fleet, no cost files)
+#       -> CP GET /v1/runs on an empty database: {runs: [], total: 0}
+#   legacy honest-null metadata (model, wall time, verdict not yet known)
+#       -> the same CP rows: origin_repo, provider, model, wall_s, verdict,
+#          effective_verdict are null when no event carried them
+# NO CP EQUIVALENT today (blockers for the legacy delete slice, never faked here):
+#   /metrics, /api/audit, /api/context, /api/memory/economics,
+#   /api/learning/metrics, /api/council/gate, /api/session/status|memory,
+#   /api/fleet/summary totals (the CP exposes a run count, no spend total).
+# Scenarios mirror the legacy leg: unmeasured (no cost event, and a cost event
+# with no usd), measured, measured-zero (the control that a real 0 is not nulled)
+# and mixed (a lower bound that must not read as a total). A fix that nulls
+# every zero, or reads a lower bound as a total, fails.
+# Server: a real `loki control serve` with a run-owned HOME, a free port and
+# LOKI_NO_BROWSER=1; only the recorded PID is stopped (pid file, so the EXIT
+# trap can reap it even when the case subshell died).
+cp_free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()'; }
+cp_stop() { # stops only the PID recorded in $MOAT_TMP/cp.pid, then waits for it
+    local pid
+    pid="$(cat "$MOAT_TMP/cp.pid" 2>/dev/null || true)"
+    [ -n "$pid" ] || return 0
+    kill "$pid" 2>/dev/null || true
+    local i=0
+    while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+    if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid" 2>/dev/null || true; fi
+    rm -f "$MOAT_TMP/cp.pid"
+}
+cp_p7_script() {
+    cat <<'EOF'
+const [base] = process.argv.slice(2);
+const SRC = "abcdef0123456789";
+const ev = (run: string, seq: number, type: string, data: object, stage: string | null = null) => ({ v: 1, seq, ts: `2026-10-03T00:00:${String(seq).padStart(2, "0")}.000Z`, run, type, stage, data });
+const mk = (run: string, cost: object[], done = true) => {
+  const evs: any[] = [ev(run, 0, "run.started", {})];
+  for (const c of cost) evs.push(ev(run, evs.length, "cost", c, "build"));
+  if (done) evs.push(ev(run, evs.length, "run.completed", { verdict: "FAILED", not_proven: [] }));
+  return evs;
+};
+const runs: Record<string, any[]> = {
+  "c-nocost": mk("c-nocost", []),
+  "c-unpriced": mk("c-unpriced", [{ model: "x" }]),
+  "c-measured": mk("c-measured", [{ usd: 2.5, input_tokens: 1000, output_tokens: 500 }]),
+  "c-zero": mk("c-zero", [{ usd: 0, input_tokens: 9412, output_tokens: 11008 }]),
+  "c-mixed": mk("c-mixed", [{ usd: 2.5, input_tokens: 1000, output_tokens: 500 }, { model: "x" }]),
+  "c-running": mk("c-running", [], false),
+};
+// scenario -> [cost_usd, partial_usd, measured_sessions, total_sessions, input_tokens, output_tokens]
+const WANT: Record<string, (number | null)[]> = {
+  "c-nocost": [null, 0, 0, 0, 0, 0],
+  "c-unpriced": [null, 0, 0, 1, 0, 0],
+  "c-measured": [2.5, 2.5, 1, 1, 1000, 500],
+  "c-zero": [0, 0, 1, 1, 9412, 11008],
+  "c-mixed": [null, 2.5, 1, 2, 1000, 500],
+  "c-running": [null, 0, 0, 0, 0, 0],
+};
+const bad: string[] = [];
+const get = async (p: string) => { const r = await fetch(base + p); return { status: r.status, body: (await r.json()) as any }; };
+const e0 = await get("/v1/runs");
+console.log("EMPTY " + JSON.stringify(e0.body));
+if (e0.status !== 200 || !Array.isArray(e0.body.runs) || e0.body.runs.length !== 0 || e0.body.total !== 0 || e0.body.next_cursor !== null) bad.push(`empty database: /v1/runs = ${JSON.stringify(e0.body)}, want {runs: [], total: 0, next_cursor: null}`);
+const e1 = await get(`/v1/runs/${SRC}/nothing`);
+if (e1.status !== 404) bad.push(`empty database: an unknown run answered HTTP ${e1.status}, want 404 (no invented row)`);
+for (const [n, evs] of Object.entries(runs)) {
+  const r = await fetch(base + "/v1/ingest", { method: "POST", body: JSON.stringify({ source: SRC, run_id: n, events: evs }) });
+  if (r.status !== 200) bad.push(`ingest ${n} -> HTTP ${r.status}`);
+}
+const list = await get("/v1/runs?limit=200");
+if (list.body.total !== Object.keys(runs).length) bad.push(`/v1/runs total = ${list.body.total}, want ${Object.keys(runs).length}`);
+const KEYS = ["cost_usd", "partial_usd", "measured_sessions", "total_sessions", "input_tokens", "output_tokens"];
+const NULLS = ["origin_repo", "issue_ref", "task_source", "group_id", "unit_id", "provider", "model", "pr_url", "pr_draft", "wall_s"];
+for (const n of Object.keys(runs)) {
+  const d = (await get(`/v1/runs/${SRC}/${n}`)).body, l = list.body.runs?.find((x: any) => x.run_id === n);
+  console.log(`ROW ${n} ` + JSON.stringify(KEYS.map((k) => d[k])));
+  for (const [where, row] of [["detail", d], ["list", l]] as const) {
+    if (!row) { bad.push(`${n}: missing from ${where}`); continue; }
+    KEYS.forEach((k, i) => { if (row[k] !== WANT[n]![i]) bad.push(`${n} ${where} ${k} = ${JSON.stringify(row[k])}, want ${JSON.stringify(WANT[n]![i])}`); });
+    for (const k of NULLS) if (row[k] !== null) bad.push(`${n} ${where} ${k} = ${JSON.stringify(row[k])}, want null (no event carried it)`);
+    // internal consistency: a number is never a claim the counts do not back
+    if (row.cost_usd !== null && !(row.measured_sessions > 0 && row.measured_sessions === row.total_sessions)) bad.push(`${n} ${where}: cost_usd ${row.cost_usd} without every session measured`);
+    if (row.measured_sessions === 0 && (row.partial_usd !== 0 || row.cost_usd !== null)) bad.push(`${n} ${where}: nothing measured but spend is ${row.cost_usd}/${row.partial_usd}`);
+    if (row.partial_usd > 0 && !(row.measured_sessions > 0)) bad.push(`${n} ${where}: partial_usd ${row.partial_usd} with no measured session`);
+  }
+}
+const run = (await get(`/v1/runs/${SRC}/c-running`)).body;
+for (const k of ["ended_at", "verdict", "effective_verdict"]) if (run[k] !== null) bad.push(`c-running ${k} = ${JSON.stringify(run[k])}, want null (not finished)`);
+if (run.status !== "running") bad.push(`c-running status = ${run.status}`);
+for (const b of bad) console.log("BAD " + b);
+console.log("CHECKED");
+process.exit(bad.length ? 1 : 0);
+EOF
+}
+case_cp_unmeasured() {
+    if ! command -v bun >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then echo "FAIL|prerequisite missing: bun and curl"; return 0; fi
+    [ -f "$REPO_ROOT/loki-ts/dist/loki.js" ] || { echo "FAIL|prerequisite missing: loki-ts/dist/loki.js (cd loki-ts && bun run build)"; return 0; }
+    if [ ! -d "$REPO_ROOT/packages/control-plane/node_modules/hono" ] && [ ! -f "$REPO_ROOT/packages/control-plane/dist/server.js" ]; then
+        echo "FAIL|prerequisite missing: packages/control-plane node_modules (cd packages/control-plane && bun install --frozen-lockfile)"; return 0
+    fi
+    local d="$MOAT_TMP/cp" port pid i out rc
+    mkdir -p "$d/home" "$d/cwd"
+    cp_p7_script > "$d/cp-p7.ts"
+    port="$(cp_free_port)"
+    (cd "$d/cwd" && exec env -u LOKI_CONTROL HOME="$d/home" LOKI_NO_BROWSER=1 LOKI_CONTROL_AUTOINGEST=0 \
+        bun "$REPO_ROOT/loki-ts/dist/loki.js" control serve --port "$port" > "$d/serve.out" 2> "$d/serve.err") &
+    pid=$!
+    printf '%s\n' "$pid" > "$MOAT_TMP/cp.pid"
+    i=0
+    while [ "$i" -lt 150 ]; do
+        curl -fsS "http://127.0.0.1:$port/ready" >/dev/null 2>&1 && break
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.2; i=$((i + 1))
+    done
+    if ! curl -fsS "http://127.0.0.1:$port/ready" >/dev/null 2>&1; then
+        cp_stop
+        echo "FAIL|control plane did not become ready: $(tail -c 200 "$d/serve.err" "$d/serve.out" 2>/dev/null | tr '\n' ' ')"; return 0
+    fi
+    rc=0
+    out="$(bun "$d/cp-p7.ts" "http://127.0.0.1:$port" 2> "$d/probe.err")" || rc=$?
+    cp_stop
+    printf '%s\n' "$out" | sed 's/^/  cp[unmeasured] /' >&2
+    if ! grep -qx 'CHECKED' <<<"$out"; then
+        echo "FAIL|probe did not run (rc=$rc): $(tail -c 200 "$d/probe.err" | tr '\n' ' ')"; return 0
+    fi
+    if [ "$rc" != 0 ]; then
+        echo "FAIL|$(grep '^BAD ' <<<"$out" | head -6 | sed 's/^BAD //' | tr '\n' ';')"; return 0
+    fi
+    echo "PASS|empty database answers an empty list and total 0 (an unknown run is 404); unmeasured runs read cost_usd null with 0 measured sessions, measured-zero reads 0 (not null), measured reads the number, mixed reads cost_usd null with a measured lower bound (1 of 2 sessions), absent metadata and an unfinished run's verdict are null; no CP route exists for /metrics, /api/audit, context, token economics, learning or gate rows (blockers for the legacy delete)"
 }
 
 # ---------------------------------------------------------------------------
@@ -4589,11 +5238,12 @@ run_case() {
 
 START_S=$SECONDS
 run_case P7.webapp-client-routes-exist "web-app client paths resolve to real web-app/server.py routes" case_webapp_routes
-run_case P7.dashboard-client-routes-exist "dashboard-ui /api paths resolve to real dashboard/server.py routes" case_dashboard_routes
+run_case P7.dashboard-client-routes-exist "Control Plane UI /v1 paths resolve to real createApp() routes" case_dashboard_routes
 run_case P7.no-sample-data-panels "no production page reaches sample, random or hardcoded-metric data panels" case_sample_panels
 run_case P7.unmeasured-cost-never-zero "no cost path, client or server, turns unmeasured cost into 0 or \$0.00" case_cost_zero
+run_case P7.cp-unmeasured-never-fabricated "Control Plane (loki control serve): an empty database and unmeasured runs read null, 0 with zero measured sessions or an empty list, never an invented number; measured-zero stays 0 and a mixed run is a lower bound, not a total" case_cp_unmeasured
 
-for id in P7.webapp-client-routes-exist P7.dashboard-client-routes-exist P7.no-sample-data-panels P7.unmeasured-cost-never-zero; do
+for id in P7.webapp-client-routes-exist P7.dashboard-client-routes-exist P7.no-sample-data-panels P7.unmeasured-cost-never-zero P7.cp-unmeasured-never-fabricated; do
     case " $EMITTED " in *" $id "*) ;; *) printf 'CASE %s FAIL runner did not emit this case\n' "$id" ;; esac
 done
 diag "runtime $((SECONDS - START_S))s"

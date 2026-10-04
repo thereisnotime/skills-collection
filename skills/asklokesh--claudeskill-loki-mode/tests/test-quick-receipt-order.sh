@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# D48: runs under LOKI_ENGINE=legacy (the legacy quick receipt order); the default `loki quick` is the Loki 10 engine.
+# D48: runs under (the legacy quick receipt order); the default `loki quick` is the Loki 10 engine.
 # A-134: `loki quick` prints its Evidence Receipt only after the session commit, so
 # the printed Head equals git HEAD and the printed diff sha equals proof.json; the
 # printed receipt_sha256 equals what `loki verify` reports; default stdout is at most
@@ -42,8 +42,8 @@ mk_fix() { # mk_fix <dir>
 }
 run_quick() { # run_quick <dir> <stdout-file> [extra env assignment] [loki quick flag]
     ( cd "$1" || exit 2
-      env ${3:+"$3"} HOME="$T/home" PATH="$T/bin:$PATH" LOKI_NO_BROWSER=1 LOKI_SKIP_AUTH_PREFLIGHT=1 LOKI_ENGINE=legacy \
-          "$REPO_ROOT/bin/loki" quick ${4:+"$4"} "fix the bug that makes the failing test in sum.test.js fail" \
+      env ${3:+"$3"} HOME="$T/home" PATH="$T/bin:$PATH" LOKI_NO_BROWSER=1 LOKI_SKIP_AUTH_PREFLIGHT=1 \
+          "$REPO_ROOT/autonomy/loki" quick ${4:+"$4"} "fix the bug that makes the failing test in sum.test.js fail" \
           < /dev/null > "$2" 2> "$2.err" )
 }
 
@@ -121,6 +121,51 @@ junk_case "int 0" '0'
 junk_case "two-part" '"aaaa.bbbb"'
 junk_case "non-base64 header" '"!!!.e30.sig"'
 cp "$PJ.orig" "$PJ"
+
+# D76 / A-121c: a well-formed token with a kid no local key matches is UNCHECKED and must
+# exit 2 with a VERDICT that is not VERIFIED, with or without the local key; the message
+# names `loki verify --pubkey FILE`. Only the header kid is changed: the hash excludes
+# `verification`, so the integrity check still passes and only provenance is unknown.
+if [ "$SIGNED" = yes ]; then
+    python3 - "$PJ.orig" "$PJ" <<'PYK'
+import sys, json, base64
+d = json.load(open(sys.argv[1]))
+v = d["verification"]
+h, p, sg = v["attestation"].split(".")
+hd = json.loads(base64.urlsafe_b64decode(h + "=" * (-len(h) % 4)))
+hd["kid"] = "foreign-kid-not-held-locally"
+h2 = base64.urlsafe_b64encode(json.dumps(hd).encode()).decode().rstrip("=")
+v["attestation"] = ".".join([h2, p, sg])
+json.dump(d, open(sys.argv[2], "w"))
+PYK
+    for h in "$T/home2" "$T/home"; do
+        KOUT="$( cd "$FIX" && HOME="$h" "$REPO_ROOT/bin/loki" verify < /dev/null 2>&1 )"; KRC=$?
+        [ "$KRC" -eq 2 ] && printf '%s\n' "$KOUT" | grep -q '^attestation: UNCHECKED' \
+            && ! printf '%s\n' "$KOUT" | grep -q '^VERDICT: VERIFIED' \
+            && printf '%s\n' "$KOUT" | grep -q 'loki verify --pubkey FILE' \
+            && ok "unknown-kid attestation exits 2, UNCHECKED, not VERIFIED, names --pubkey (HOME=${h##*/})" \
+            || bad "unknown-kid attestation not refused" "rc=$KRC HOME=${h##*/} $(printf '%s\n' "$KOUT" | grep -E 'attestation|VERDICT' | tr '\n' ' ')"
+    done
+    cp "$PJ.orig" "$PJ"
+    GOUT="$( cd "$FIX" && HOME="$T/home" "$REPO_ROOT/bin/loki" verify < /dev/null 2>&1 )"; GRC=$?
+    [ "$GRC" -eq 0 ] && printf '%s\n' "$GOUT" | grep -q '^attestation: VERIFIED$' \
+        && ok "locally signed receipt still verifies rc 0" || bad "locally signed receipt no longer passes" "rc=$GRC"
+fi
+
+# D76 / A-121c: a missing run-id pointer must not silently skip the receipt check. With
+# proofs present it is NOT VERIFIED (rc 2); with no proofs at all (a tree that never ran a
+# build) it says so aloud and the receipt check is not claimed.
+mv "$FIX/.loki/state/last-proof-id.txt" "$T/pointer.bak"
+MOUT="$( cd "$FIX" && HOME="$T/home" "$REPO_ROOT/bin/loki" verify < /dev/null 2>&1 )"; MRC=$?
+[ "$MRC" -eq 2 ] && ! printf '%s\n' "$MOUT" | grep -q '^VERDICT: VERIFIED' \
+    && printf '%s\n' "$MOUT" | grep -q '^receipt: NOT VERIFIED (no last-proof-id.txt' \
+    && ok "missing run-id pointer with proofs present: rc 2, NOT VERIFIED with reason" \
+    || bad "missing run-id pointer silently passed" "rc=$MRC $(printf '%s\n' "$MOUT" | grep -E 'receipt|VERDICT' | tr '\n' ' ')"
+mv "$T/pointer.bak" "$FIX/.loki/state/last-proof-id.txt"
+NFIX="$T/noproof"; mkdir -p "$NFIX"; git -C "$NFIX" init -q
+NOUT="$( cd "$NFIX" && HOME="$T/home" "$REPO_ROOT/bin/loki" verify < /dev/null 2>&1 )"
+printf '%s\n' "$NOUT" | grep -q '^receipt: NONE (no proof was recorded in this tree' \
+    && ok "tree with no proofs says no receipt was checked" || bad "no-proof tree not honest about the receipt" "$(printf '%s\n' "$NOUT" | tail -5 | tr '\n' ' ')"
 
 # Tamper: edit proof.json, verify must exit non-zero, say BLOCKED and TAMPERED, and
 # evidence.json must not record VERIFIED.
@@ -200,6 +245,38 @@ SVFIX="$T/skipv"; mk_fix "$SVFIX"
 STUB_SKIP=reason run_quick "$SVFIX" "$T/svout.log" LOKI_VERBOSE=1
 SVRC=$?
 [ "$SVRC" -eq 3 ] && ok "verbose run that adds a skip exits 3" || bad "verbose skip run rc=$SVRC (want 3)"
+
+# A-121c round 2 / D76: standalone `bash autonomy/verify.sh` (no _deploy_receipt_verdict) must
+# never print VERDICT: VERIFIED for a forged-kid or unsigned proof.
+mk_sa() { # mk_sa <dir> <forged|unsigned|none>
+    local d="$1" mode="$2"
+    mk_fix "$d"
+    git -C "$d" branch -M main; git -C "$d" checkout -qb feat
+    sed -i.bak 's/i = 1/i = 0/' "$d/sum.js"; rm -f "$d/sum.js.bak"  # passing tests, so only the attestation decides
+    printf 'module.exports=1;\n' > "$d/x.js"; git -C "$d" add x.js sum.js; git -C "$d" commit -qm f
+    [ "$mode" = none ] && return 0
+    mkdir -p "$d/.loki/proofs/p1" "$d/.loki/state"; echo p1 > "$d/.loki/state/last-proof-id.txt"
+    python3 - "$d/.loki/proofs/p1/proof.json" "$REPO_ROOT/autonomy/lib" "$mode" <<'PY'
+import sys, json, hashlib, base64, importlib.util
+sp = importlib.util.spec_from_file_location('pv', sys.argv[2] + '/proof-verify.py')
+m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m)
+b = lambda o: base64.urlsafe_b64encode(json.dumps(o).encode()).decode().rstrip("=")
+p = {"facts": {}, "iterations": 1}
+v = {"hash": hashlib.sha256(m._canonical(p).encode()).hexdigest()}
+if sys.argv[3] == "forged":
+    v["attestation"] = b({"alg": "EdDSA", "kid": "attacker"}) + "." + b({"x": 1}) + ".c2ln"
+p["verification"] = v
+json.dump(p, open(sys.argv[1], "w"))
+PY
+}
+for SAMODE in forged unsigned; do
+    SA="$T/sa-$SAMODE"; mk_sa "$SA" "$SAMODE"
+    ( cd "$SA" && HOME="$T/home" LOKI_NO_BROWSER=1 bash "$REPO_ROOT/autonomy/verify.sh" < /dev/null > "$T/sa-$SAMODE.log" 2>&1 ); SARC=$?
+    sed 's/\x1b\[[0-9;]*m//g' "$T/sa-$SAMODE.log" > "$T/sa-$SAMODE.plain"
+    { [ "$SARC" -ne 0 ] && ! grep -q 'VERDICT: VERIFIED' "$T/sa-$SAMODE.plain"; } \
+        && ok "standalone verify.sh on a $SAMODE proof is not VERIFIED (rc=$SARC)" \
+        || bad "standalone verify.sh on a $SAMODE proof" "rc=$SARC $(grep -E 'VERDICT|attestation' "$T/sa-$SAMODE.plain" | tr '\n' '|')"
+done
 
 echo "passed=$PASS failed=$FAIL"
 [ "$FAIL" -eq 0 ]

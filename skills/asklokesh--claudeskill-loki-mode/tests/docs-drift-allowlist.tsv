@@ -1,12 +1,12 @@
 # DOC-02 allowlist for tests/test-docs-cli-drift.sh: intentional historical mentions.
 # Format: path<TAB>token<TAB>reason. token is exactly what the scanner prints.
-docs/BUG-AUDIT-v6.61.0.md	--csv	historical v6.61.0 bug audit
+docs/history/v6.61.0-audit.md	--csv	historical v6.61.0 bug audit
 docs/COMPETITIVE-SCORECARD.md	v9.8	dated 2026-08-03 scorecard generated against v9.8.1
 docs/DASHBOARD_V2_CHECKLIST.md	v6.0	historical planning checklist (target v6.0.0)
 docs/DEPLOY-PLAN.md	--deploy	plan text rejecting the loki preview --deploy alternative
 docs/R3-COST-OBSERVABILITY-DESIGN.md	--cost	design text rejecting the loki metrics --cost alternative
 docs/UNCERTAINTY-ESCALATION-PLAN.md	v7.19	dated plan titled for v7.19.2
-docs/V8-AGENT-SDK-PLAN.md	--reviewers-file	historical v8 plan, proposed flag
+docs/history/v8-agent-sdk-plan.md	--reviewers-file	historical v8 plan, proposed flag
 docs/architecture/ADR-001-runtime-migration.md	loki ts-version	ADR phase 1 history, scaffold command
 docs/architecture/DASHBOARD_V2_ARCHITECTURE.md	--db	draft design (Status: Design Phase), never built
 docs/architecture/bmad-integration-validation.md	v6.0	dated 2026-02-25 validation report against v6.0.0
@@ -42,3 +42,6 @@ docs/certification/certification-exam.md	--new-token	wrong-answer distractor in 
 docs/certification/certification-exam.md	--enterprise	wrong-answer distractor in the exam
 docs/certification/certification-exam.md	--max-cost	wrong-answer distractor in the exam
 docs/v10/D63-CARDS.md	loki foo	D63 card C5 routing example of an unknown one-word arg, not a command
+docs/v10/GUIDE.md	loki legacy	states that 11.0.0 removed the command
+docs/v10/LEGACY-REMOVAL.md	loki legacy	the removal plan for the command
+docs/v10/RELEASE-11.md	loki legacy	11.0.0 release record of the removal

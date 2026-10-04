@@ -1,5 +1,7 @@
 # Loki Cockpit (rec #6) - build spec
 
+> **Historical:** this describes the classic dashboard, removed in Loki Mode 10.8. The Control Plane is the only UI; see [control-plane-migration.md](control-plane-migration.md).
+
 Status: IN BUILD (v7.126.0 target). Design approved via mockup
 (scratchpad/loki-cockpit.html). Grounded in real engine state + Autonomi identity.
 
@@ -59,7 +61,7 @@ No chafa / no headless Chrome hard dependency. Pipeline:
 - S3 (render pipeline): SVG-from-state builder + SVG->PNG + terminal-image
   encoder + capability detection + fallback. Tests (encoder byte-shape, detection).
 - S4 (dashboard identity redesign): apply logo/purple/fonts/multi-repo switcher to
-  dashboard-ui; rebuild dist. Lightweight gate.
+  legacy-ui; rebuild dist. Lightweight gate.
 - S5 (docs + wiki + release): help text, README, wiki, CHANGELOG, 14 version files.
 
 ## Constraints

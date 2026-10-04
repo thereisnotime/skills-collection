@@ -52,8 +52,9 @@ v8 SDK council VOTE (member + contrarian, trust core)	0
 v8 SDK voter-agents council (Epic C, finding schema)	0
 v8 SDK-loop start routing (LOKI_SDK_LOOP gate, default-off)	0
 SDK version sync (root package.json/lockfile/Dockerfile vs loki-ts, E-106)	0
+Pricing parity across six tables (MW-1)	0
 v8 Structured Review Self-Copy Asset Resolution	2
-Review deadline, requirements, and speculative assurance tail	116
+Review deadline, requirements, and speculative assurance tail	45
 Council Threshold Tests	0
 Healing Test Gate Tests	0
 RARV mode-aware + PARALLEL_TOOL_CALLS build_prompt (rank 16+8)	7
@@ -130,8 +131,6 @@ Sentrux Iteration Wireup (Dev1)	1
 Sentrux Init-Rules (Dev3)	42
 Doctor JSON Sentrux Parity (Dev4)	3
 Receipt Signing Discoverability	3
-Dashboard Nav UAT (Dev5)	0
-dashboard bundle stays within its measured budget	0
 exposed dashboard bind requires auth (#188)	3
 per-job receipt attestation (signed JWT + JWKS)	0
 remote receipt attestation verdict (JWKS)	1
@@ -207,17 +206,10 @@ resource monitor reaps its sleep child on shutdown (BACKLOG 22)	0
 Python shutdown SIGABRT with piped output (PY-ABORT)	1
 audit chain claims match what the chain proves	1
 audit subsystem Node suites (witness, manifest, crosslink)	2
-dashboard unmeasured cost never renders as zero (node --test)	0
-dashboard panels render unmeasured as unknown (node --test)	0
-dashboard UI component utilities match shipped code (node --test)	0
-dashboard overview issue-to-PR journey (node --test)	1
-dashboard overview proof card wording (node --test)	0
-dashboard log stream shows an unreachable API, not a quiet log (node --test)	0
 shipped agent roles reach the review pool	0
 policy present but unevaluable refuses fail-closed	0
 audit entries attribute an actor honestly	0
 shipped modules have a recorded reachability verdict	95
-dashboard HTML strings escape run-written values	1
 loki proof chain fronts the buyer verifier	1
 workflow RC handlers are reachable under bash -e	0
 issue-to-PR action and workflow ship, gate and split agent from publish	0
@@ -291,11 +283,9 @@ cmd_web_stop/start use a real process identity check (D14/D15 class)	8
 cmd_web_start port-conflict path scoped by identity	1
 autonomy/verify.sh runtime teardown scoped to LISTEN + ownership	5
 Marketplace action Cleanup step scoped to this job's own loki run	0
-Dashboard fresh-repo/evidence harnesses kill only their own recorded PID	1
 Dashboard API smoke cleanup kills only its own recorded PID	1
 cleanup-test-processes.sh scoped to LISTEN + this uid, --aggressive gated	1
 Runtime Gate port reclaims scoped to LISTEN + cwd ownership	2
-Bun Parity disk.available_gb tolerance (BACKLOG 26)	0
 council_augment_from_managed_memory never falls back to cwd for PROJECT_DIR (BACKLOG 63)	1
 council_should_stop's shadow-write never falls back to cwd for PROJECT_DIR (BACKLOG 63/127)	11
 Bench Haschanges	0
@@ -339,7 +329,6 @@ Council Vote Parse	0
 Council Write Transcript Threshold	0
 Cross Project Lift	0
 Da Veto	0
-Dashboard Identity	0
 UI bare loki	0
 Dashboard Json Guards	2
 Dashboard Memory Endpoints	16
@@ -396,7 +385,6 @@ Prd Reuse Bash W4	1
 Proof Forgery Defense	1
 Provider Degraded Reasons Honesty	0
 Provider Flags	0
-Provider Source Cli	1
 Rarv Tier Mapping	0
 Rate Limit Octal	0
 Ratelimit Debug Clean	0
@@ -531,10 +519,6 @@ the founder-decisions document is accurate	0
 entry-document pointers resolve	0
 a pause needs no TTY, and a run names its receipt	6
 the mutation probe cannot silently no-op	0
-the Quality page shows which gates block	0
-the evidence receipt is reachable from the dashboard	0
-the build's learnings are visible	1
-the spend-cap state is visible	1
 trust-core tests detect their regressions	130
 trust-core probes never mutate the shared tree	21
 a user-installed reviewer takes part in a run	1
@@ -554,14 +538,12 @@ Add-dir reaches provider	1
 Auto-PR default on	0
 Delegate PR refuses the repo default branch	2
 Dashboard port ownership	0
-Dashboard static fallback and reuse	15
 No dashboard leak from suites	20
 Doctor --json skills section	7
 Emit hang forensics	2
 Issue PRD honesty	0
 Next/resume agreement	3
 PGID stale reap	2
-Pipeline panel	1
 Provider arm coverage	0
 Queue tasks not truncated	0
 Rate limiting	0
@@ -578,7 +560,6 @@ Start handoff	0
 State notifications	0
 Static analysis iteration baseline	6
 Static analysis tsconfig	2
-Status CLI/provider parity	0
 Status --explain heal injection (wave 8)	1
 Supervised dependency setup	1
 Supervised disclosure scope	0
@@ -589,7 +570,6 @@ Test provenance gate	1
 Tier harness policy	0
 Ultracode command	0
 Unified memory	1
-Usage markdown render	0
 Verification gap	2
 Vibe-kanban export	1
 Voter agents JSON	1
@@ -614,18 +594,14 @@ Metrics JSON Unmeasured	1
 web-app workspace panels surface fetch failures (node --test)	1
 web-app chat completion never says Done. for a silent failure (node --test)	1
 web-app issue list shows the gh comment count (node --test)	1
-dashboard checkpoint viewer shows a failed read, not empty (node --test)	0
-dashboard council transcripts show a failed hook-events read (node --test)	0
-dashboard task board keeps a server load error visible (node --test)	1
-dashboard API keys load error hides the empty state (node --test)	0
 a partly priced run renders as at least, never a total	1
 web-app CommandPalette file-search failure is not no-results (node --test)	1
-the Cost page budget banner has its own id	1
 prune-worktrees treats cherry-picked branches as merged (S-154)	3
 Eval results archive: redaction and dirty-check exclude (E-101)	1
 auto-capture shadow-write skips empty PROJECT_DIR and never splices importance (S-156)	32
 web-app NLSearch failed request is not no-results (S-159)	1
 web-app DeployConnections failed load is not Not connected (S-185)	1
+web-app DeployConnections handlers do not push synthesized statuses (PO-WEB-DEPLOY-1)	1
 web-app ProjectsPage poll error is not an empty list (S-161)	1
 web-app CI/CD panel shows unknown status as unknown (node --test)	1
 web-app cost estimate ignores the iteration cap (S-187)	1
@@ -633,9 +609,6 @@ Council failed_count honesty (S-157 member vote + convergence)	2
 run_test missing or empty argument does not stop the runner (S-174)	3
 Monorepo rejected test cmd is inconclusive (S-175)	3
 proof headline ignores a stale test-results.json (S-176)	3
-dashboard migration view shows a failed load, not an empty state (node --test)	0
-dashboard managed memory events error payload hides the empty state (node --test)	0
-dashboard learning metrics and trends show a failed read, not no data (node --test)	0
 done-recognition readers ignore user-site .pth (-I -S, S-200)	2
 voter-agents readers ignore user-site .pth (-I -S, S-202)	2
 web-app cockpit actions say not loaded after a failed fetch (S-206)	1
@@ -647,6 +620,8 @@ Evidence gate with no tests (BACKLOG 75, S-211)	13
 proof-check readers ignore user-site .pth (-I -S, S-203)	1
 council_managed_should_stop diffs the target project, not the install tree (S-196)	1
 LOKI_AUTO_PR refuses a branch whose history holds user files (S-194)	1
+Session commit warns on a failed git add (S-219)	2
+Untrack keeps force-staged agent files (S-220)	2
 prd-checklist readers ignore user-site .pth (-I -S, S-204)	3
 focus POST skipped when the dashboard is disabled (S-195)	1
 Loki 10 eval harness runner and scorer (EV-1)	40
@@ -654,10 +629,8 @@ Loki 10 gate report generator (E-33)	1
 Loki 10 engine trusted push and PR (E-11)	2
 Loki 10 engine dispatch hook (E-12)	2
 Loki 10 engine runs from dist and the npm package (E-32)	5
-Loki 10 legacy route contract golden rows (E-30)	1
 Loki 10 live PR smoke on a sandbox repo (E-40)	1
 run-owned temp cleanup works when sourced under zsh	1
-Loki 10 legacy deprecation notice (E-35)	1
 bin/loki bun resolver and no-bun notice (P0-nobun-S2)	3
 Loki 10 gate publish script (EV-6)	2
 Loki 10 user docs match USAGE and the default marker (E-34)	1
@@ -673,6 +646,7 @@ loki modernize always routes to engine10 (M-08)	1
 Dependency inventory Latest/Bump self-consistency (DEP-01)	1
 Usage governor calibration and dedup (G-01)	2
 Usage governor statusLine logger (G-01)	1
+cloud-dispatch dry-run refuses on overlap, governor max, not-ready (G-04)	3
 security-audit.yml gitleaks config isolation (refuse config change, base-config scan, gitleaksignore warning)	1
 CI security scanners wired, fail-closed (E-123)	1
 Worktree install cache keyed on lockfile hash (E-130)	1
@@ -712,3 +686,46 @@ Loki control plane wiring: serve, backfill, UI (CP-04)	60
 Dashboard leak2: fail-closed reuse and bound-port URL	5
 D65 shim routing (slack, answer, jira, linear)	3
 loki verify --pubkey=FILE routes to v10 through bin/loki (P0-VERIFY-ARG)	10
+metrics-usage-append arg parsing, block format, repeat append (PO-TEST-1)	5
+clean-test-branches.sh refuses own repo, spares protected branches, deletes only debris	2
+audit.py verify exits 2 when it checked nothing (PO-AUDIT-CLI-1)	3
+web-app receipt and cost trend mark a partly priced run (S-224)	1
+web-app workspace phase: completed shows Replay Build, unknown phase is not building (S-230)	1
+web-app preview says could not detect after a failed preview-info fetch (S-229)	1
+skill-session status push sends null running_agents (S-222)	2
+notification triggers unreadable is not empty (PO-DASH-HONEST-1)	2
+Refused resume warning names the blocking ignored file and the recorded branch (S-233)	3
+PR receipt renderer ignores cwd json.py (-I -S, S-215)	1
+corrupt or denied proofs and memory files give 503 or an error row, never empty (HONEST-READ-1)	2
+Stats unmeasured cost reads unmeasured (S-226r)	6
+verify readers ignore a planted json.py in the reviewed tree (-I -S, S-216)	2
+Dashboard api_runs unreadable reads (HONEST-READ-2)	5
+Untracked status ignores core.fsmonitor (S-218r)	1
+Healing docs disclose unwired modify hooks (issue 200)	1
+SKILL.md runtime-migration paragraph does not understate the Bun route	1
+Council TODO marker scope (PO3-COUNCIL-TODO)	0
+loki hub install (manifest fetch and verify)	2
+loki start repo directory routes as repository target (PO4)	1
+loki wiki command (build, ask, grounded citation)	1
+issue-to-PR flow (--prepare-pr, issue-mode)	2
+dogfood-stats honest labeling and flags (PO5)	2
+Whole-tree no dash or emoji codepoint guard (PO5-DASH-BENCH)	5
+Council Transcripts Endpoint (pytest)	2
+loki status empty state files (cli)	2
+loki start stale PID cleanup (cli)	2
+loki start/run unified dispatch (cli)	3
+non-standard suite registration guard (cli, dashboard, integration)	1
+install-hooks.sh --help and unknown args never write git config (PO5)	1
+measure-run and guard-changed help is read-only (PO5)	1
+# 10.7.0 train (2026-10-03): five suites registered after the measured run, timed locally.
+Acp Agent	1
+Dashboard /api/v1/runs REST API	1
+Project memory persists across runs and injects a bounded summary	1
+loki merge queue: green-only serial merge, rebase next, dry-run	1
+mobile emulator tests: NOT VERIFIED without a device	1
+hermetic HOME: no test touches the real ~/.loki (FC-07, D86)	1
+legacy dashboard stays deleted: dirs, package files, npm pack, references (CPE24-L7)	15
+Control Plane starts from a fresh npm pack install and serves /health and its UI (CPE24-L7)	20
+Docs carry no stale commands, dead env vars or old versions (SZ-03, advisory)	3
+cp-redesign image allowlist guard (D26)	2
+Loki Receipt check action posts success for a valid receipt and failure for a tampered one (B2)	10

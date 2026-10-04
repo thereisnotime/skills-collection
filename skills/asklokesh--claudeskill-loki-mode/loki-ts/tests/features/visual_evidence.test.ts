@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { computeReceiptHash, verifyReceipt } from "../../src/engine10/verify_cmd.ts";
-import { captureVisualEvidence, evidenceSection, hashScreens, isPageFile, routeFor, sealEvidence } from "../../src/features/visual_evidence.ts";
+import { captureVisualEvidence, e2eSpecSource, evidenceSection, playwrightTestPkg, hashScreens, isPageFile, routeFor, sealEvidence } from "../../src/features/visual_evidence.ts";
 
 let root = "";
 let RUN = "";
@@ -68,9 +68,27 @@ test("evidence section lists screens from the receipt, empty otherwise", () => {
   expect(evidenceSection(undefined)).toBe("");
 });
 
-test("sealEvidence is a no-op when the flag is off", async () => {
+test("sealEvidence is a no-op when LOKI_VISUAL_EVIDENCE=0", async () => {
+  process.env["LOKI_VISUAL_EVIDENCE"] = "0";
+  try {
+    const np = new Set<string>();
+    expect(await sealEvidence(root, join(root, "runs", "r1"), {}, np)).toEqual({});
+    expect(np.size).toBe(0);
+  } finally { delete process.env["LOKI_VISUAL_EVIDENCE"]; }
+});
+
+test("unset flag is on: a repo with no web pages spawns nothing, creates no evidence dir, records one NOT PROVEN line", async () => {
   delete process.env["LOKI_VISUAL_EVIDENCE"];
-  expect(await sealEvidence(root, join(root, "runs", "r1"), {}, new Set())).toEqual({});
+  const repo = join(root, "plain");
+  mkdirSync(repo, { recursive: true });
+  writeFileSync(join(repo, "package.json"), JSON.stringify({ scripts: { dev: "touch spawned.marker" } }));
+  const run = join(root, "runs", "r2");
+  mkdirSync(run, { recursive: true });
+  const np = new Set<string>();
+  expect(await sealEvidence(repo, run, { verify: { changed_files: ["lib/util.ts"] } }, np)).toEqual({});
+  expect(np.size).toBe(1);
+  expect(existsSync(join(run, "evidence"))).toBe(false);
+  expect(existsSync(join(repo, "spawned.marker"))).toBe(false);
 });
 
 function slowRepo(): string {
@@ -149,4 +167,106 @@ test("capture refuses a symlinked evidence dir", async () => {
     expect(ev.skipped).toContain("symlink");
     expect(readdirSync(outsideDir)).toEqual([]);
   } finally { delete process.env["LOKI_VISUAL_EVIDENCE"]; }
+});
+
+test("verify returns a verdict, never throws, for a directory evidence path", async () => {
+  for (const path of [".", "evidence", "evidence/screens"]) {
+    const r = await verifyReceipt(writeReceipt([{ path, sha256: "0".repeat(64) }]));
+    expect(r.verdict).toBe("TAMPERED");
+    expect(r.reasons[0]).toContain("regular file");
+  }
+});
+
+test("a SIGTERM-ignoring dev server is dead after capture (recorded pid and group only)", async () => {
+  const repo = join(root, "stubborn");
+  mkdirSync(repo, { recursive: true });
+  const pidFile = join(root, "server.pid");
+  writeFileSync(join(repo, "server.js"), [
+    "process.on('SIGTERM', () => {});",
+    `require('fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));`,
+    "require('http').createServer((q, r) => r.end('ok')).listen(Number(process.env.PORT), '127.0.0.1');",
+  ].join("\n"));
+  writeFileSync(join(repo, "package.json"), JSON.stringify({ scripts: { dev: "node server.js" } }));
+  writeFileSync(join(repo, "openapi.json"), JSON.stringify({ paths: { "/a": {} } }));
+  const alive = (pid: number): boolean => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  let pid = 0;
+  try {
+    const ev = await captureVisualEvidence(repo, RUN, [], { env: { ...process.env, LOKI_VISUAL_EVIDENCE: "1", LOKI_NO_BROWSER: "1" } });
+    expect(ev.http).toBe(true);
+    pid = Number(readFileSync(pidFile, "utf8"));
+    expect(pid).toBeGreaterThan(1);
+    for (let i = 0; i < 20 && alive(pid); i++) await new Promise((r) => setTimeout(r, 50));
+    expect(alive(pid)).toBe(false);
+  } finally {
+    if (pid > 1 && alive(pid)) { try { process.kill(pid, "SIGKILL"); } catch { /* gone */ } }
+  }
+}, 20000);
+
+function apiRepo(name: string, dev: string): string {
+  const repo = join(root, name);
+  mkdirSync(repo, { recursive: true });
+  writeFileSync(join(repo, "package.json"), JSON.stringify({ scripts: { dev } }));
+  writeFileSync(join(repo, "openapi.json"), JSON.stringify({ paths: { "/a": {} } }));
+  return repo;
+}
+const SERVER = "node -e \"require('fs').writeFileSync('spawned.marker','1');require('http').createServer((q,r)=>r.end('ok')).listen(process.env.PORT,'127.0.0.1')\"";
+
+test("default (flag unset): a non-page change never spawns the start script even with openapi and a start script", async () => {
+  const repo = apiRepo("dflt", SERVER);
+  const env = { ...process.env }; delete env["LOKI_VISUAL_EVIDENCE"];
+  const ev = await captureVisualEvidence(repo, RUN, ["lib/util.py"], { env, budgetMs: 3000 });
+  expect(ev.http).toBe(false);
+  expect(ev.skipped).toContain("no changed page files");
+  expect(existsSync(join(repo, "spawned.marker"))).toBe(false);
+  expect(readdirSync(join(RUN, "evidence")).filter((n) => n !== "screens")).toEqual([]);
+});
+
+test("explicit =1 keeps the API transcript path", async () => {
+  const repo = apiRepo("explicit", SERVER);
+  const ev = await captureVisualEvidence(repo, RUN, ["lib/util.py"], { env: { ...process.env, LOKI_VISUAL_EVIDENCE: "1" }, budgetMs: 10_000 });
+  expect(ev.http).toBe(true);
+  expect(existsSync(join(repo, "spawned.marker"))).toBe(true);
+});
+
+test("the dev server process group is announced via onServer and sealEvidence emits session.started with that pgid", async () => {
+  const repo = apiRepo("announce", SERVER);
+  const seen: number[] = [];
+  await captureVisualEvidence(repo, RUN, [], { env: { ...process.env, LOKI_VISUAL_EVIDENCE: "1" }, budgetMs: 10_000, onServer: (g) => seen.push(g) });
+  expect(seen.length).toBe(1);
+  expect(seen[0]!).toBeGreaterThan(1);
+  process.env["LOKI_VISUAL_EVIDENCE"] = "1";
+  try {
+    const events: { type: string; stage: string; data: Record<string, unknown> }[] = [];
+    await sealEvidence(apiRepo("announce2", SERVER), RUN, { verify: { changed_files: [] } }, new Set<string>(), undefined, (type, stage, data) => events.push({ type, stage, data }));
+    expect(events.length).toBe(1);
+    expect(events[0]!.type).toBe("session.started");
+    expect(typeof events[0]!.data["pgid"]).toBe("number");
+  } finally { delete process.env["LOKI_VISUAL_EVIDENCE"]; }
+});
+
+test("verify fails closed on a FIFO evidence path and does not hang", async () => {
+  const fifo = join(RUN, "evidence", "screens", "pipe.png");
+  const mk = Bun.spawnSync(["mkfifo", fifo]);
+  expect(mk.exitCode).toBe(0);
+  const r = await Promise.race([
+    verifyReceipt(writeReceipt([{ path: "evidence/screens/pipe.png", sha256: "0".repeat(64) }])),
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error("verify hung on FIFO")), 5000)),
+  ]);
+  expect(r.verdict).toBe("TAMPERED");
+  expect(r.reasons[0]).toContain("not a regular file");
+});
+
+test("seal.ts still passes ctx.emit to sealEvidence so the dev server group is announced (D62-VIS-F1 A1)", () => {
+  const src = readFileSync(join(import.meta.dir, "../../src/engine10/stages/seal.ts"), "utf8");
+  expect(src).toMatch(/sealEvidence\([^)]*ctx\.emit\)/);
+});
+
+test("e2e video and trace: spec encodes routes safely, PR section labels media, absent Playwright test lib is a clean skip", () => {
+  const src = e2eSpecSource("/x/@playwright/test", "http://127.0.0.1:1", ['/a"b']);
+  expect(src).toContain('["/a\\"b"]');
+  expect(playwrightTestPkg(root)).toBeNull();
+  const p = writeReceipt([{ path: "evidence/ab/e2e/out/v.webm", sha256: "a".repeat(64) }, { path: "evidence/ab/e2e/out/trace.zip", sha256: "b".repeat(64) }]);
+  const sec = evidenceSection(p);
+  expect(sec).toContain("- video: evidence/ab/e2e/out/v.webm");
+  expect(sec).toContain("- trace: evidence/ab/e2e/out/trace.zip");
 });
