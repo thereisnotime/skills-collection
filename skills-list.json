@@ -10775,7 +10775,7 @@
       "path": "EveryInc--compound-engineering-plugin/.agents/skills/ce-skill-work/SKILL.md",
       "remote_path": ".agents/skills/ce-skill-work/SKILL.md",
       "lines": 55,
-      "words": 1726,
+      "words": 1747,
       "code_blocks": 0,
       "languages": []
     },
@@ -22824,7 +22824,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     },
     {
@@ -22838,7 +22838,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     },
     {
@@ -22850,7 +22850,7 @@
       "words": 21302,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     },
     {
@@ -22864,7 +22864,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     },
     {
@@ -22876,7 +22876,7 @@
       "words": 997,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     },
     {
@@ -22888,7 +22888,7 @@
       "words": 1060,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     },
     {
@@ -22902,7 +22902,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     },
     {
@@ -22914,7 +22914,7 @@
       "words": 592,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     },
     {
@@ -22928,7 +22928,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     },
     {
@@ -22943,7 +22943,7 @@
         "bash",
         "js"
       ],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     },
     {
@@ -22955,7 +22955,7 @@
       "words": 809,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.36.0",
+      "version": "3.37.0",
       "license": "MIT"
     }
   ],
@@ -26959,7 +26959,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-markup/sequencing.md",
       "lines": 68,
-      "words": 311,
+      "words": 313,
       "code_blocks": 3,
       "languages": [
         "tsx"
@@ -26995,8 +26995,8 @@
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
       "path": "remotion-dev--skills/skills/remotion-markup/audio.md",
       "remote_path": "skills/remotion-markup/audio.md",
-      "lines": 183,
-      "words": 576,
+      "lines": 202,
+      "words": 636,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -27034,13 +27034,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 434,
-      "words": 1695,
+      "lines": 443,
+      "words": 1762,
       "code_blocks": 7,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "transitions",
@@ -27138,8 +27138,8 @@
       "description": "Adding AI-generated voiceover to Remotion compositions using TTS",
       "path": "remotion-dev--skills/skills/remotion-markup/voiceover.md",
       "remote_path": "skills/remotion-markup/voiceover.md",
-      "lines": 100,
-      "words": 361,
+      "lines": 104,
+      "words": 396,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -27152,14 +27152,14 @@
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
       "remote_path": "skills/remotion-interactivity/SKILL.md",
-      "lines": 494,
-      "words": 2163,
+      "lines": 498,
+      "words": 2181,
       "code_blocks": 17,
       "languages": [
         "sh",
         "tsx"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "get-audio-duration",
@@ -27206,7 +27206,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-maps",
@@ -27217,7 +27217,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-studio",
@@ -27230,7 +27230,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-docs",
@@ -27241,7 +27241,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "display-captions",
@@ -27262,7 +27262,7 @@
       "path": "remotion-dev--skills/skills/remotion-captions/import-srt-captions.md",
       "remote_path": "skills/remotion-captions/import-srt-captions.md",
       "lines": 74,
-      "words": 302,
+      "words": 301,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -27280,7 +27280,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "rendering",
@@ -27313,7 +27313,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "framework",
@@ -27348,7 +27348,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-best-practices",
@@ -27361,7 +27361,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "tailwind",
@@ -27384,7 +27384,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-upgrade",
@@ -27397,7 +27397,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-maps",
@@ -27408,7 +27408,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "maps-mapbox",
@@ -27416,7 +27416,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "remote_path": "skills/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "lines": 450,
-      "words": 1548,
+      "words": 1547,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -27430,7 +27430,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "remote_path": "skills/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "lines": 485,
-      "words": 1544,
+      "words": 1543,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -27456,7 +27456,7 @@
       "path": "remotion-dev--skills/skills/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "remote_path": "skills/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "lines": 450,
-      "words": 1548,
+      "words": 1547,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -27470,7 +27470,7 @@
       "path": "remotion-dev--skills/skills/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "remote_path": "skills/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "lines": 485,
-      "words": 1544,
+      "words": 1543,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -27521,13 +27521,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 434,
-      "words": 1695,
+      "lines": 443,
+      "words": 1762,
       "code_blocks": 7,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "text-highlights",
@@ -27598,7 +27598,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/sequencing.md",
       "lines": 68,
-      "words": 311,
+      "words": 313,
       "code_blocks": 3,
       "languages": [
         "tsx"
@@ -27634,8 +27634,8 @@
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/audio.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/audio.md",
-      "lines": 183,
-      "words": 576,
+      "lines": 202,
+      "words": 636,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -27764,8 +27764,8 @@
       "description": "Adding AI-generated voiceover to Remotion compositions using TTS",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/voiceover.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/voiceover.md",
-      "lines": 100,
-      "words": 361,
+      "lines": 104,
+      "words": 396,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -27778,14 +27778,14 @@
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
-      "lines": 494,
-      "words": 2163,
+      "lines": 498,
+      "words": 2181,
       "code_blocks": 17,
       "languages": [
         "sh",
         "tsx"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-multimedia",
@@ -27796,7 +27796,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "get-audio-duration",
@@ -27843,7 +27843,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-studio",
@@ -27856,7 +27856,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-docs",
@@ -27867,7 +27867,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-captions",
@@ -27880,7 +27880,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "display-captions",
@@ -27901,7 +27901,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/import-srt-captions.md",
       "remote_path": "skills/remotion-best-practices/remotion-captions/import-srt-captions.md",
       "lines": 74,
-      "words": 302,
+      "words": 301,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -27917,7 +27917,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "rendering",
@@ -27960,7 +27960,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "transparent-videos",
@@ -27987,7 +27987,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "tailwind",
@@ -28010,7 +28010,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "remotion-maps",
@@ -28021,7 +28021,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.532"
+      "version": "4.0.533"
     },
     {
       "name": "maps-mapbox",
@@ -28029,7 +28029,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "lines": 450,
-      "words": 1548,
+      "words": 1547,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -28043,7 +28043,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "lines": 485,
-      "words": 1544,
+      "words": 1543,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -28069,7 +28069,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "remote_path": "skills/remotion-best-practices/remotion-maps/techniques/mapbox/TECHNIQUE.md",
       "lines": 450,
-      "words": 1548,
+      "words": 1547,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -28083,7 +28083,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "remote_path": "skills/remotion-best-practices/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "lines": 485,
-      "words": 1544,
+      "words": 1543,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -82740,7 +82740,7 @@
         "bash",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -82757,7 +82757,7 @@
         "python",
         "sql"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -82772,7 +82772,7 @@
         "bash",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -82787,7 +82787,7 @@
         "bash",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -82803,7 +82803,7 @@
         "json",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -82819,7 +82819,7 @@
         "json",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -82835,7 +82835,7 @@
         "json",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -82851,7 +82851,7 @@
         "json",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -82866,7 +82866,7 @@
         "bash",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -82881,7 +82881,7 @@
         "bash",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -114004,7 +114004,7 @@
         "bash",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -114082,7 +114082,7 @@
         "python",
         "sql"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -115631,7 +115631,7 @@
         "bash",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -122288,7 +122288,7 @@
         "bash",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -122625,7 +122625,7 @@
         "json",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -131910,7 +131910,7 @@
         "json",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -139167,7 +139167,7 @@
         "json",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -141389,7 +141389,7 @@
         "json",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -145585,7 +145585,7 @@
         "bash",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -146284,7 +146284,7 @@
         "bash",
         "python"
       ],
-      "version": "2.11.0",
+      "version": "2.12.0",
       "license": "MIT"
     },
     {
@@ -157238,6 +157238,19 @@
       ]
     },
     {
+      "name": "ghostty-use",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
+      "remote_path": "ghostty-use/SKILL.md",
+      "lines": 108,
+      "words": 823,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
       "name": "marketplace-health-check",
       "description": ">-",
       "path": "daymade--claude-code-skills/marketplace-health-check/SKILL.md",
@@ -157364,7 +157377,7 @@
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
       "lines": 1329,
-      "words": 12763,
+      "words": 12772,
       "code_blocks": 71,
       "languages": [
         "bash",
@@ -157428,9 +157441,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-sensitive-data-cleanup/SKILL.md",
       "remote_path": "github-sensitive-data-cleanup/SKILL.md",
-      "lines": 349,
-      "words": 1786,
-      "code_blocks": 13,
+      "lines": 431,
+      "words": 2457,
+      "code_blocks": 15,
       "languages": [
         "bash",
         "text"
@@ -157442,7 +157455,7 @@
       "path": "daymade--claude-code-skills/terraform-skill/SKILL.md",
       "remote_path": "terraform-skill/SKILL.md",
       "lines": 363,
-      "words": 2623,
+      "words": 2619,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -157495,8 +157508,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-ops/SKILL.md",
       "remote_path": "github-ops/SKILL.md",
-      "lines": 254,
-      "words": 1976,
+      "lines": 256,
+      "words": 2008,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -157530,8 +157543,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 544,
-      "words": 4044,
+      "lines": 552,
+      "words": 4097,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -157979,8 +157992,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/continue-codex-work/SKILL.md",
       "remote_path": "daymade-claude-code/continue-codex-work/SKILL.md",
-      "lines": 95,
-      "words": 727,
+      "lines": 104,
+      "words": 841,
       "code_blocks": 0,
       "languages": []
     },
@@ -158075,8 +158088,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 330,
-      "words": 2846,
+      "lines": 341,
+      "words": 2934,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -158476,6 +158489,19 @@
       ]
     },
     {
+      "name": "multi-account-repository-sync",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/github-ops/references/multi_account_repository_sync.md",
+      "remote_path": "github-ops/references/multi_account_repository_sync.md",
+      "lines": 190,
+      "words": 1337,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "sshconfig"
+      ]
+    },
+    {
       "name": "excel-automation",
       "description": "Create, parse, and control Excel files on macOS. Professional formatting with openpyxl, complex xlsm parsing with stdlib zipfile+xml for investment bank financial models, and Excel window control via ",
       "path": "daymade--claude-code-skills/daymade-docs/excel-automation/SKILL.md",
@@ -158490,11 +158516,11 @@
     },
     {
       "name": "doc-to-markdown",
-      "description": "Converts DOCX/PDF/PPTX to high-quality Markdown with automatic post-processing. Fixes pandoc grid tables, simple tables, image paths, CJK bold spacing, attribute noise, and code blocks; for PDFs also ",
+      "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/SKILL.md",
       "remote_path": "daymade-docs/doc-to-markdown/SKILL.md",
-      "lines": 207,
-      "words": 1192,
+      "lines": 228,
+      "words": 1359,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -158563,8 +158589,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/docs-router/SKILL.md",
       "remote_path": "daymade-docs/docs-router/SKILL.md",
-      "lines": 67,
-      "words": 655,
+      "lines": 71,
+      "words": 694,
       "code_blocks": 0,
       "languages": []
     },
@@ -158599,6 +158625,52 @@
       "remote_path": "daymade-docs/docx-creator/SKILL.md",
       "lines": 193,
       "words": 1670,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "html-conversion",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/references/html-conversion.md",
+      "remote_path": "daymade-docs/doc-to-markdown/references/html-conversion.md",
+      "lines": 105,
+      "words": 819,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "obsidian-link-examples",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/references/obsidian-link-examples.md",
+      "remote_path": "daymade-docs/doc-to-markdown/references/obsidian-link-examples.md",
+      "lines": 65,
+      "words": 514,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "markdown-reader-handoff",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/frontend-visual-qa/references/markdown-reader-handoff.md",
+      "remote_path": "frontend-visual-qa/references/markdown-reader-handoff.md",
+      "lines": 75,
+      "words": 601,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "markdown-reader-pilot",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/frontend-visual-qa/references/markdown-reader-pilot.md",
+      "remote_path": "frontend-visual-qa/references/markdown-reader-pilot.md",
+      "lines": 102,
+      "words": 754,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -158670,8 +158742,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1945,
-      "words": 33114,
+      "lines": 1954,
+      "words": 33185,
       "code_blocks": 54,
       "languages": [
         "bash",
@@ -180390,11 +180462,11 @@
     },
     {
       "name": "ponytail-gain",
-      "description": "\"Show ponytail measured impact as a scoreboard: less code, less cost, more speed, from the benchmark medians. One-shot display.\"",
+      "description": "\"Show ponytail measured impact as a scoreboard: less code, less cost, more speed, from the agentic benchmark averages. One-shot display.\"",
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-gain/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-gain/SKILL.md",
-      "lines": 48,
-      "words": 226,
+      "lines": 50,
+      "words": 258,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -180415,8 +180487,8 @@
       "description": "\"Audit the whole repo for over-engineering. A ranked list of what to delete, simplify, or replace with stdlib or native features.\"",
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-audit/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-audit/SKILL.md",
-      "lines": 42,
-      "words": 243,
+      "lines": 43,
+      "words": 255,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -180440,8 +180512,8 @@
       "description": "\"Review a diff for over-engineering. Finds what to delete: reinvented stdlib, needless deps, speculative abstractions. One line per finding.\"",
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-review/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-review/SKILL.md",
-      "lines": 57,
-      "words": 331,
+      "lines": 58,
+      "words": 357,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -180474,8 +180546,8 @@
       "description": ">",
       "path": "dietrichgebert--ponytail/skills/ponytail-gain/SKILL.md",
       "remote_path": "skills/ponytail-gain/SKILL.md",
-      "lines": 51,
-      "words": 246,
+      "lines": 53,
+      "words": 278,
       "code_blocks": 1,
       "languages": []
     },
@@ -180494,8 +180566,8 @@
       "description": ">",
       "path": "dietrichgebert--ponytail/skills/ponytail-audit/SKILL.md",
       "remote_path": "skills/ponytail-audit/SKILL.md",
-      "lines": 46,
-      "words": 276,
+      "lines": 47,
+      "words": 288,
       "code_blocks": 0,
       "languages": []
     },
@@ -180517,8 +180589,8 @@
       "description": ">",
       "path": "dietrichgebert--ponytail/skills/ponytail-review/SKILL.md",
       "remote_path": "skills/ponytail-review/SKILL.md",
-      "lines": 62,
-      "words": 367,
+      "lines": 63,
+      "words": 393,
       "code_blocks": 0,
       "languages": []
     }

@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Professional Claude Code and Codex skills marketplace — production-ready skills spanning GitHub and git operations (including current-base contributor PR review), document conversion and generation (Markdown, PDF, PPTX, DOCX), diagram and UI-design extraction, the full audio pipeline (ASR transcription, TTS, transcript correction, meeting minutes), financial and investment-research data, web scraping and content capture, security/PII tooling and secure repomix packaging, macOS and iOS development, CLI demo and terminal automation, evidence-backed HTML reports and data-visualization judgment, prompt and skill engineering, deep research and fact-checking, QA and LLM-evaluation infrastructure, internationalization, network/Tailscale and remote-desktop diagnostics, local inter-agent messaging, Claude Code operations, technology selection and build-vs-buy decisions, and model-aware Codex workstation setup. Suite plugins bundle related skills under shared namespaces, including the StepFun StepAudio 2.5 audio family. See the Available Skills list in the README for the authoritative per-skill breakdown.",
-    "version": "3.19.0"
+    "version": "3.20.0"
   },
   "plugins": [
     {
@@ -33,7 +33,7 @@
       "description": "Drives Kimi.app via computer-use for Work/Agent data-plugin queries and Chat 深度研究 reports, using the user's logged-in session; also the kimi-cu macOS desktop-automation playbook (channel reliability tiers, foregrounding, AX-tree recovery, form & dialog recipes) for driving any desktop app. Use for \"用 Kimi 查\" / \"操作 Kimi 客户端\" / \"Kimi 插件\" / \"Kimi 深度研究\" / kimi-cu desktop automation. Not for kimi.com browser automation or direct iFinD API access.",
       "source": "./kimi-use",
       "strict": false,
-      "version": "1.6.1",
+      "version": "1.6.2",
       "category": "developer-tools",
       "keywords": [
         "kimi",
@@ -126,7 +126,7 @@
       "description": "Claude Code operations suite that bundles cross-project prior-work retrieval across code, docs, Skills, meetings, WeChat archives, and conversation history; provider-separated Claude Code and Codex history readers; identity- and lineage-gated continuation workflows; plugin/skill troubleshooting; CLAUDE.md progressive disclosure optimization; version-synced Lark CLI routing; statusline configuration; exported .txt repair; full claude.ai conversation extraction with tool-call rendering and file download; plugin marketplace development and suite consolidation; writing/testing/debugging Claude Code hooks; multi-provider profile isolation; personal-memory migration into tool-agnostic AGENTS.md reference docs; one-shot local timers that ping Claude right after subscription quota reset to start a fresh 5-hour usage window; working web search installed on an agent whose relayed model backend cannot execute the built-in one; and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
       "source": "./daymade-claude-code",
       "strict": false,
-      "version": "4.19.1",
+      "version": "4.19.3",
       "category": "suite",
       "keywords": [
         "suite",
@@ -207,10 +207,10 @@
     },
     {
       "name": "daymade-docs",
-      "description": "Routes docs: Word/PDF/PPTX→Markdown; MD/Word→PDF; create Word; PDF HTML/translate; Excel/xlsm/macOS; photo/signed scans; Mermaid; DOCX review; post-change docs. Reads one bundled Daymade specialist. New slide decks use deck-creator when installed; generic PDF reading/editing and spreadsheet analysis stay with their own Skills. Retired ppt-creator stays manual-only.",
+      "description": "Routes docs: Word/PDF/PPTX/saved HTML→Markdown; MD/Word→PDF; create Word; PDF HTML/translate; Excel/xlsm/macOS; photo/signed scans; Mermaid; DOCX review; post-change docs. Reads one bundled Daymade specialist. New slide decks use deck-creator when installed; generic PDF reading/editing and spreadsheet analysis stay with their own Skills. Retired ppt-creator stays manual-only.",
       "source": "./daymade-docs",
       "strict": false,
-      "version": "1.20.1",
+      "version": "1.22.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -338,7 +338,7 @@
       "description": "Daymade skills core suite. Bundles skill creation, quality review, real Claude/Codex Skill-surface governance, suite-migration reconciliation, and marketplace development tooling under one shared namespace. Skill governance separates canonical source, installed inventory, discovery policy, the fresh model-visible catalog, and router-resolved cold resources instead of optimizing cache counts; it preserves Claude's official versioned-cache lifecycle and verifies selected entries in the real host prompt. Skill verification separates risk classification from evaluation spend: bounded fixes use targeted checks, narrow behavior changes use sampled replays, and paired baselines, graders, benchmarks, or a viewer run only after explicit user authorization or a decision-bearing evidence plan plus opt-in; that authorization does not change the risk tier. Existing-skill edits retain an old-vs-new capability audit and content-bound packaging attestation so prompt compression cannot silently delete runtime contracts. When the official skill-creator plugin is also installed, skill-creator detects the coexistence and offers a consent-based, reversible SessionStart routing hook so the daymade edition wins deterministically; on machines without the official plugin nothing is ever installed.",
       "source": "./daymade-skill",
       "strict": false,
-      "version": "1.59.2",
+      "version": "1.60.2",
       "category": "suite",
       "keywords": [
         "suite",
@@ -464,7 +464,7 @@
       "description": "Operates GitHub via gh CLI and REST/GraphQL — PRs, issues, Actions, repos, collaborators, org permissions, 2FA — with explicit target, authorization, and independent readback. Use when a write reports success but state didn't change, or choosing gh/REST/GraphQL/UI-only. Not for local Git recovery (use git-safety-net), maintainer PR review (use github-review-pr), or upstream contribution (use github-contributor).",
       "source": "./github-ops",
       "strict": false,
-      "version": "1.9.0",
+      "version": "1.10.1",
       "category": "developer-tools",
       "keywords": [
         "github",
@@ -766,7 +766,7 @@
       "description": "Diagnoses and designs safe Terraform releases, provisioners (remote-exec/local-exec/file, cloud-init, Compose, Caddy), multi-environment isolation, and fresh-host bootstrap. Use when writing or reviewing plan/apply wrappers or provisioners; when staging/production config may differ; when a rollout can mutate a shared gateway; or debugging drift, TLS, container restarts, DNS duplication, or snapshot contamination.",
       "source": "./terraform-skill",
       "strict": false,
-      "version": "1.5.1",
+      "version": "1.5.2",
       "category": "developer-tools",
       "keywords": [
         "terraform",
@@ -784,7 +784,7 @@
       "description": "MUST be used first for tunnel / proxy-path connectivity failures or slow throughput (网络故障 / 连不上 / 代理或隧道下超时). Diagnoses Tailscale, proxy, TUN, DNS and SSH-tunnel problems on macOS and Windows/WSL, e.g. Tailscale ping works but SSH fails, curl works but browser gets 503, Git/Docker fails behind the proxy, or downloads crawl despite a reachable proxy. Not for application-layer bugs (use debugging-network-issues).",
       "source": "./tunnel-doctor",
       "strict": false,
-      "version": "1.17.0",
+      "version": "1.17.1",
       "category": "developer-tools",
       "keywords": [
         "tailscale",
@@ -1037,7 +1037,7 @@
       "description": "Scan and remove sensitive data (secrets, API keys, private domains/IPs, PII) from GitHub repository history. Use this skill whenever the user says scan sensitive data, clean git history, remove secrets from repo, sanitize GitHub history, 清理敏感数据, 历史重写, force push, 泄露, or needs to repair a public repo after accidental secret/private context leakage. Also use before any force push to a public repository to verify visibility, backup, and scan results.",
       "source": "./github-sensitive-data-cleanup",
       "strict": false,
-      "version": "1.3.0",
+      "version": "2.0.0",
       "category": "security",
       "keywords": [
         "github",
@@ -1057,7 +1057,7 @@
       "description": "Audits already-rendered web, landing-page, HTML deck/slide, browser tool/game, dashboard/admin, design-system, and desktop UIs with real-browser or native-app journeys, inspected screenshots, DOM geometry, responsive or projection viewports, and a Playwright sweep. Use after implementation to find typography, wrapping, overlap, overflow, responsive, route, authorization-state, overlay, map, transient-state, data-visualization, runtime-label, browser-output, file-dialog, PDF/print, or Electron-shell defects, or to compare a rendered artifact with a visual reference. Not for greenfield UI design, design-system extraction, general QA-program setup, or nonvisual debugging.",
       "source": "./frontend-visual-qa",
       "strict": false,
-      "version": "1.15.1",
+      "version": "1.17.0",
       "category": "design",
       "keywords": [
         "frontend",
@@ -1277,6 +1277,26 @@
         "归档浏览器",
         "审核工作台",
         "review workbench"
+      ]
+    },
+    {
+      "name": "ghostty-use",
+      "description": "Snapshots, restores and reconciles Claude Code / Codex sessions inside Ghostty tabs across reboots. Use when quitting the Mac for an update (保存终端会话 / 重启前备份终端), after restart to reopen tabs with their original session IDs (恢复之前的窗口 / restore my ghostty tabs), or to audit which sessions survived. Not for resuming one conversation via its own --resume, terminal screenshots, or tmux state.",
+      "source": "./ghostty-use",
+      "strict": false,
+      "version": "1.0.2",
+      "category": "developer-tools",
+      "keywords": [
+        "ghostty",
+        "terminal",
+        "session-restore",
+        "reboot",
+        "snapshot",
+        "claude-code",
+        "codex",
+        "终端会话",
+        "会话恢复",
+        "重启恢复"
       ]
     }
   ]

@@ -675,12 +675,13 @@ describe("ce-prototype light-webserver.js", () => {
     expect(note).toContain("CE local web")
 
     // A script fetching the same files gets them raw: a partial is not a screen.
-    for (const headers of [
+    const headerSets: Record<string, string>[] = [
       { "Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "cors", Accept: "*/*" },
       { "Sec-Fetch-Dest": "iframe", "Sec-Fetch-Mode": "navigate", Accept: "text/html" },
       { Accept: "*/*" },
       {},
-    ]) {
+    ]
+    for (const headers of headerSets) {
       const raw = await fetch(`${origin}/pages/part.html`, { headers })
       expect(raw.headers.get("cache-control"), JSON.stringify(headers)).toBe("no-store")
       expect(await raw.text(), JSON.stringify(headers)).toBe("<h2>Part</h2>")
@@ -961,7 +962,7 @@ describe("ce-prototype light-webserver.js", () => {
     const decoder = new TextDecoder()
     let text = ""
     const timedOut = Symbol("timed out")
-    let pendingRead: Promise<ReadableStreamReadResult<Uint8Array>> | null = null
+    let pendingRead: ReturnType<typeof reader.read> | null = null
     const readUntil = async (predicate: () => boolean, ms: number) => {
       const deadline = Date.now() + ms
       while (Date.now() < deadline && !predicate()) {
@@ -1017,7 +1018,7 @@ describe("ce-prototype light-webserver.js", () => {
     const decoder = new TextDecoder()
     let text = ""
     const timedOut = Symbol("timed out")
-    let pendingRead: Promise<ReadableStreamReadResult<Uint8Array>> | null = null
+    let pendingRead: ReturnType<typeof reader.read> | null = null
     const readUntil = async (predicate: () => boolean, ms: number) => {
       const deadline = Date.now() + ms
       while (Date.now() < deadline && !predicate()) {
@@ -1048,7 +1049,7 @@ describe("ce-prototype light-webserver.js", () => {
     expect(followUp.status).toBe(200)
     const followReader = followUp.body!.getReader()
     let followText = ""
-    let followPending: Promise<ReadableStreamReadResult<Uint8Array>> | null = null
+    let followPending: ReturnType<typeof followReader.read> | null = null
     const followUntil = async (predicate: () => boolean, ms: number) => {
       const deadline = Date.now() + ms
       while (Date.now() < deadline && !predicate()) {
@@ -1234,9 +1235,42 @@ describe("ce-prototype light-webserver.js", () => {
     const info = await startServer(root, ["--annotate"], {
       CE_LIGHT_WEB_WAIT_TIMEOUT_MS: "8000",
     })
+    const origin = `http://localhost:${info.port}`
+    await fs.writeFile(path.join(String(info.screen_dir), "001-screen.html"), "<h1>Stop</h1>")
+    const { id } = await (await postAnnotation(origin, info.token, { comment: "served", selector: "h1" })).json()
+    expect((await flushAnnotations(origin, info.token)).status).toBe(200)
+    expect((await fetch(`${origin}/wait?token=${info.token}`)).status).toBe(200)
+
+    // /wait marks the served annotation done in the same tick it parks, so
+    // that SSE frame proves the CLI's request is parked before stop runs.
+    const controller = new AbortController()
+    const events = await fetch(eventsUrl(origin, info.token), { signal: controller.signal })
+    const reader = events.body!.getReader()
+    const decoder = new TextDecoder()
+    let text = ""
+    const latestState = () => {
+      const frames = [...text.matchAll(/event: annotations\ndata: (\{[^\n]*\})\n\n/g)]
+      return frames.length ? JSON.parse(frames.at(-1)![1])[id] : undefined
+    }
+    const readUntilState = async (state: string) => {
+      const deadline = Date.now() + 5000
+      while (latestState() !== state) {
+        const remaining = deadline - Date.now()
+        const chunk = remaining > 0
+          ? await Promise.race([reader.read(), Bun.sleep(remaining).then(() => null)])
+          : null
+        if (!chunk || chunk.done) {
+          throw new Error(`/events ended or timed out before annotation ${id} became ${state}. Received: ${text}`)
+        }
+        text += decoder.decode(chunk.value, { stream: true })
+      }
+    }
+    await readUntilState("working")
+
     const waiting = runServerCommand(["wait", "--root", root])
-    await fetch(String(info.url))
+    await readUntilState("done")
     const stopped = await runServerCommand(["stop", "--root", root])
+    controller.abort()
     expect(stopped.exitCode, stopped.stderr).toBe(0)
     const ended = await waiting
     expect(ended.exitCode, ended.stderr).toBe(1)

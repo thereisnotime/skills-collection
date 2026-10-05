@@ -12,6 +12,7 @@ const root = path.join(__dirname, '..');
 // paths pass, paths carrying shell metacharacters are rejected so they never get
 // embedded in a shell command.
 const { DEFAULT_MODE, getDefaultMode, isShellSafe, writeDefaultMode } = require('../hooks/ponytail-config');
+const { getPonytailInstructions } = require('../hooks/ponytail-instructions');
 assert.equal(isShellSafe('C:\\Users\\x\\.claude\\plugins\\ponytail\\hooks\\ponytail-statusline.ps1'), true);
 assert.equal(isShellSafe('/home/u/.claude/plugins/ponytail/hooks/ponytail-statusline.sh'), true);
 assert.equal(isShellSafe('/tmp/a"&calc.exe&"/x.sh'), false);
@@ -44,6 +45,9 @@ delete process.env.CLAUDE_PROJECT_DIR;
 // hook would otherwise steer every case into the Cursor JSON branch (#817).
 delete process.env.CURSOR_VERSION;
 delete process.env.CURSOR_PROJECT_DIR;
+// Same for CodeBuddy (#854), which sets these only for its plugin hook processes.
+delete process.env.CODEBUDDY_PLUGIN_ROOT;
+delete process.env.CODEBUDDY_CONFIG_DIR;
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ponytail-hooks-'));
 // Runs on normal exit and on assertion-throw exit; force makes it idempotent.
@@ -52,6 +56,43 @@ process.on('exit', () => fs.rmSync(temp, { recursive: true, force: true }));
 const home = path.join(temp, 'home');
 const pluginData = path.join(temp, 'plugin-data');
 fs.mkdirSync(home, { recursive: true });
+
+// Off-mode SessionStart must clear stale state without emitting model-visible
+// output on any harness.
+for (const { label, env, statePath } of [
+  {
+    label: 'Claude',
+    env: { HOME: home, USERPROFILE: home, PONYTAIL_DEFAULT_MODE: 'off' },
+    statePath: path.join(home, '.claude', '.ponytail-active'),
+  },
+  {
+    label: 'Codex',
+    env: {
+      HOME: home,
+      USERPROFILE: home,
+      PLUGIN_DATA: pluginData,
+      PONYTAIL_DEFAULT_MODE: 'off',
+    },
+    statePath: path.join(pluginData, '.ponytail-active'),
+  },
+  {
+    label: 'Copilot',
+    env: {
+      HOME: home,
+      USERPROFILE: home,
+      COPILOT_PLUGIN_DATA: path.join(temp, 'copilot-off-data'),
+      PONYTAIL_DEFAULT_MODE: 'off',
+    },
+    statePath: path.join(temp, 'copilot-off-data', '.ponytail-active'),
+  },
+]) {
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
+  fs.writeFileSync(statePath, 'full');
+  const offResult = run('ponytail-activate.js', env);
+  assert.equal(offResult.status, 0, offResult.stderr);
+  assert.equal(offResult.stdout, '', `${label} SessionStart must stay silent when ponytail is off`);
+  assert.equal(fs.existsSync(statePath), false, `${label} stale mode state must be cleared`);
+}
 
 function collectManifestCommands(file, field) {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
@@ -80,32 +121,36 @@ function runShell(command, env, input = '') {
 
 let result;
 
-// The shared Claude/Codex command must stay guard-free: VS Code runs it in
-// Windows PowerShell, which cannot parse `||` (see hooks-windows.test.js), so
-// it only has to run clean with node.
-// WSL2 can hand hooks a backslashed root (\home\user\...); the commands turn it
-// back into a POSIX path, so both shapes must load the script (#646).
-const roots = [root, root.split(path.sep).join('\\')];
+// These run the manifest commands through /bin/sh, which native Windows lacks
+// (#774); skip them there so the rest of this file still runs.
+if (fs.existsSync('/bin/sh')) {
+  // The shared Claude/Codex command must stay guard-free: VS Code runs it in
+  // Windows PowerShell, which cannot parse `||` (see hooks-windows.test.js), so
+  // it only has to run clean with node.
+  // WSL2 can hand hooks a backslashed root (\home\user\...); the commands turn it
+  // back into a POSIX path, so both shapes must load the script (#646).
+  const roots = [root, root.split(path.sep).join('\\')];
 
-for (const command of collectManifestCommands('hooks/claude-codex-hooks.json', 'command')) {
-  for (const pluginRoot of roots) {
-    result = runShell(command, { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_PLUGIN_ROOT: pluginRoot });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stderr, '', command);
+  for (const command of collectManifestCommands('hooks/claude-codex-hooks.json', 'command')) {
+    for (const pluginRoot of roots) {
+      result = runShell(command, { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_PLUGIN_ROOT: pluginRoot });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stderr, '', command);
+    }
   }
-}
 
-// Copilot CLI has a separate bash field, so it can exit 0 without node (#645).
-// `|| exit 0` also hides a broken hook, so the with-node run must leave stderr empty.
-for (const command of collectManifestCommands('hooks/copilot-hooks.json', 'bash')) {
-  for (const pluginRoot of roots) {
-    const env = { HOME: home, USERPROFILE: home, PLUGIN_ROOT: pluginRoot, COPILOT_PLUGIN_DATA: path.join(temp, 'copilot-manifest-data') };
-    result = runShell(command, { ...process.env, ...env });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stderr, '', command);
+  // Copilot CLI has a separate bash field, so it can exit 0 without node (#645).
+  // `|| exit 0` also hides a broken hook, so the with-node run must leave stderr empty.
+  for (const command of collectManifestCommands('hooks/copilot-hooks.json', 'bash')) {
+    for (const pluginRoot of roots) {
+      const env = { HOME: home, USERPROFILE: home, PLUGIN_ROOT: pluginRoot, COPILOT_PLUGIN_DATA: path.join(temp, 'copilot-manifest-data') };
+      result = runShell(command, { ...process.env, ...env });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stderr, '', command);
 
-    result = runShell(command, { ...env, PATH: '' });
-    assert.equal(result.status, 0, result.stderr);
+      result = runShell(command, { ...env, PATH: '' });
+      assert.equal(result.status, 0, result.stderr);
+    }
   }
 }
 
@@ -144,6 +189,22 @@ assert.match(
   /level: lite/,
   'mode still surfaces via the hook context line',
 );
+// The switch carries the new level's ruleset: the SessionStart one is filtered
+// to the start level, and `$ponytail lite` does not load the skill body.
+assert.ok(output.hookSpecificOutput.additionalContext.endsWith(getPonytailInstructions('lite')));
+
+for (const [prompt, mode] of [
+  ['$ponytail full', 'full'],
+  ['@ponytail ultra', 'ultra'],
+  ['/ponytail:ponytail lite', 'lite'],
+]) {
+  result = run('ponytail-mode-tracker.js', codexEnv, JSON.stringify({ prompt }));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.readFileSync(codexState, 'utf8'), mode);
+  output = JSON.parse(result.stdout);
+  assert.equal(output.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
+  assert.ok(output.hookSpecificOutput.additionalContext.endsWith(getPonytailInstructions(mode)));
+}
 
 // Querying bare @ponytail should report the active level ('lite') without resetting it to default ('ultra')
 result = run(
@@ -468,6 +529,23 @@ assert.match(
   /PONYTAIL MODE ACTIVE — level: full/,
 );
 
+// Bare `/ponytail` on Qoder is report-only: there's no SessionStart, so the
+// double-duty block below emits the full ruleset as the report. A second
+// confirmation here would push two JSON objects to stdout. The point is that
+// the user still gets the ruleset back as one object.
+result = run(
+  'ponytail-mode-tracker.js',
+  qoderEnv,
+  JSON.stringify({ prompt: '/ponytail' }),
+);
+assert.equal(result.status, 0, result.stderr);
+output = JSON.parse(result.stdout);
+assert.equal(output.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
+assert.match(
+  output.hookSpecificOutput.additionalContext,
+  /PONYTAIL MODE ACTIVE — level: full/,
+);
+
 // /ponytail ultra: mode tracker updates flag and injects ultra ruleset.
 result = run(
   'ponytail-mode-tracker.js',
@@ -482,16 +560,26 @@ assert.match(
   /PONYTAIL MODE CHANGED — level: ultra/,
 );
 
-// "stop ponytail": deactivates, clears flag, no ruleset output.
+// "stop ponytail": deactivates and persists off so a later prompt does
+// not mistake the missing flag for first-run initialization.
 result = run(
   'ponytail-mode-tracker.js',
   qoderEnv,
   JSON.stringify({ prompt: 'stop ponytail' }),
 );
 assert.equal(result.status, 0, result.stderr);
-assert.equal(fs.existsSync(qoderState), false, 'flag must be cleared after stop ponytail');
+assert.equal(fs.readFileSync(qoderState, 'utf8'), 'off');
 output = JSON.parse(result.stdout);
 assert.equal(output.hookSpecificOutput.additionalContext, 'PONYTAIL MODE OFF');
+
+result = run(
+  'ponytail-mode-tracker.js',
+  qoderEnv,
+  JSON.stringify({ prompt: 'write another function' }),
+);
+assert.equal(result.status, 0, result.stderr);
+assert.equal(result.stdout, '', 'Qoder must stay off on later prompts');
+assert.equal(fs.readFileSync(qoderState, 'utf8'), 'off');
 
 // Subagent injection via PreToolUse (task|Task matcher): when ponytail is
 // active, the subagent hook injects the ruleset. Qoder shares the same
@@ -506,6 +594,48 @@ assert.match(
   output.hookSpecificOutput.additionalContext,
   /PONYTAIL MODE ACTIVE — level: full/,
 );
+
+// CodeBuddy (#854): installs the Claude-format plugin as-is and runs its hooks
+// with CODEBUDDY_PLUGIN_ROOT set. The mode flag must live in ~/.codebuddy, not
+// ~/.claude, so a CodeBuddy session can't flip a Claude Code session's mode,
+// and output is hookSpecificOutput JSON with no Claude statusline nudge.
+const codebuddyHome = path.join(temp, 'codebuddy-home');
+const codebuddyState = path.join(codebuddyHome, '.codebuddy', '.ponytail-active');
+fs.mkdirSync(codebuddyHome, { recursive: true });
+const codebuddyEnv = {
+  HOME: codebuddyHome,
+  USERPROFILE: codebuddyHome,
+  CODEBUDDY_PLUGIN_ROOT: root,
+  CLAUDE_PLUGIN_ROOT: root,
+  PONYTAIL_DEFAULT_MODE: 'lite',
+};
+
+result = run('ponytail-activate.js', codebuddyEnv);
+assert.equal(result.status, 0, result.stderr);
+assert.equal(fs.readFileSync(codebuddyState, 'utf8'), 'lite');
+assert.equal(fs.existsSync(path.join(codebuddyHome, '.claude', '.ponytail-active')), false,
+  'CodeBuddy must not write the Claude Code mode flag');
+output = JSON.parse(result.stdout);
+assert.equal(output.hookSpecificOutput.hookEventName, 'SessionStart');
+assert.match(output.hookSpecificOutput.additionalContext, /PONYTAIL MODE ACTIVE — level: lite/);
+assert.doesNotMatch(output.hookSpecificOutput.additionalContext, /STATUSLINE SETUP NEEDED/);
+
+// Plugin skills are namespaced in CodeBuddy, so the switch arrives as /ponytail:ponytail.
+result = run(
+  'ponytail-mode-tracker.js',
+  codebuddyEnv,
+  JSON.stringify({ prompt: '/ponytail:ponytail ultra' }),
+);
+assert.equal(result.status, 0, result.stderr);
+assert.equal(fs.readFileSync(codebuddyState, 'utf8'), 'ultra');
+output = JSON.parse(result.stdout);
+assert.equal(output.hookSpecificOutput.additionalContext, 'PONYTAIL MODE CHANGED — level: ultra');
+
+// CODEBUDDY_CONFIG_DIR moves CodeBuddy's home, and the flag moves with it.
+const codebuddyConfigDir = path.join(temp, 'codebuddy-config');
+result = run('ponytail-activate.js', { ...codebuddyEnv, CODEBUDDY_CONFIG_DIR: codebuddyConfigDir });
+assert.equal(result.status, 0, result.stderr);
+assert.equal(fs.readFileSync(path.join(codebuddyConfigDir, '.ponytail-active'), 'utf8'), 'lite');
 
 // Zcode: parses hook stdout as strict JSON, so the native-Claude raw-text
 // SessionStart output is silently discarded (#798). Same hookSpecificOutput
@@ -595,6 +725,13 @@ result = run('ponytail-mode-tracker.js', defEnv, JSON.stringify({ prompt: '/pony
 assert.equal(result.status, 0, result.stderr);
 assert.equal(fs.readFileSync(defFlag, 'utf8'), 'ultra', 'plain switch must set the session mode');
 assert.equal(JSON.parse(fs.readFileSync(defConfig, 'utf8')).defaultMode, 'lite', 'plain switch must not persist the default');
+
+// An unsupported mode is a no-op: it must not reset the active session mode
+// to the configured default.
+result = run('ponytail-mode-tracker.js', defEnv, JSON.stringify({ prompt: '/ponytail ulta' }));
+assert.equal(result.status, 0, result.stderr);
+assert.equal(result.stdout, '');
+assert.equal(fs.readFileSync(defFlag, 'utf8'), 'ultra', 'invalid mode must preserve the active session mode');
 
 // review is not a valid default (#377) — the command is ignored, config unchanged.
 result = run('ponytail-mode-tracker.js', defEnv, JSON.stringify({ prompt: '/ponytail default review' }));

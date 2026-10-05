@@ -67,6 +67,15 @@ account identifiers; do not copy live secrets into fixtures.
 
 ## Large command output
 
+When the host returns a running-session or cell identifier, the executing agent
+preserves the complete result: output, identifier and available status fields.
+Forwarding only the text field discards the handle needed to observe completion.
+Resume through that host's documented wait/poll API until a terminal exit status
+is received. Partial output without terminal status remains running or unknown.
+If the handle is lost, recover the existing run through the host's supported
+status/artifact query; leave its outcome unknown when that evidence is unavailable.
+Do not repeat a write to replace missing completion evidence.
+
 Before a command expected to produce large output, choose a scratch output path
 outside the shipped Skill. Capture raw stdout/stderr and the exit status, then
 return a small summary and the path. For example, this stdlib recipe runs an
@@ -91,3 +100,22 @@ already truncated, read the missing evidence from the saved output; if nothing
 was saved, rerun only a safe read-only command or retrieve its existing artifact.
 Do not rerun a write merely to recapture its output. Truncated responses cannot
 establish completeness. File length alone does not justify reorganizing the Skill.
+
+## Complete file reads
+
+Prefer the host's Skill/Read loader. For a shell fallback, first run:
+
+```bash
+python3 <skill-creator-path>/scripts/skill_read_plan.py <file> --max-chunk-bytes 12000
+```
+
+Choose the byte budget below both the inner tool and outer response limits; 12000
+is a starting choice, not a universal safe limit. The plan reports a content hash
+and contiguous, nonoverlapping line ranges covering the entire file. Read each
+range with a separate literal `sed -n '<start>,<end>p' <file>` or native Read call;
+do not aggregate all ranges into one capped response. Track successfully received
+ranges against that hash. If either layer truncates, reduce the budget and read
+the missing range again. If the file changes, regenerate the plan and load the new
+content. An oversized single line requires a byte-range reader or a larger safe
+budget. The planner never sets a loaded marker. Reuse verified loading in the same
+session instead of repeatedly rereading unchanged text.

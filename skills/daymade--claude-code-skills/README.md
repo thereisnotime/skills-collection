@@ -282,6 +282,9 @@ claude plugin install teams-channel-post-writer@daymade-skills
 # Local Claude/Codex agent messaging
 claude plugin install peer-message@daymade-skills
 
+# Ghostty terminal session snapshot/restore
+claude plugin install ghostty-use@daymade-skills
+
 # Repomix extraction
 claude plugin install repomix-unmixer@daymade-skills
 
@@ -427,6 +430,7 @@ Converts documents to markdown with Windows/WSL path handling and PDF image extr
 
 **When to use:**
 - Converting .doc/.docx/PDF/PPTX to markdown
+- Converting saved HTML/HTM with source-link checks and explicit heading offsets
 - Extracting images from PDF files
 - Processing Confluence exports
 - Handling Windows/WSL path conversions
@@ -2810,6 +2814,39 @@ claude plugin install bilibili-source@daymade-skills
 
 ---
 
+### **ghostty-use** - Ghostty Terminal Session Snapshot & Restore
+
+Snapshot every live Claude Code / Codex session in Ghostty before a reboot, reopen all worthwhile tabs with their original session IDs after restart, and prove nothing was silently dropped. Liveness is graded from the last in-file event timestamp (never the file mtime), channel health keys on structured error flags, and restore finishes with a mandatory auto-reconciliation that surfaces any paste that silently failed.
+
+**When to use:**
+- Quitting the Mac for a macOS update and wanting every working session back afterwards
+- After a restart: reopen 40 tabs with their original `--resume` / `codex resume` session IDs in one command
+- Auditing which sessions are still running versus lost after an interruption
+- Telling dead-provider sessions (stops at `/login`) apart from healthy ones before restoring
+
+**Key features:**
+- `snapshot` / `restore` / `check` loop with liveness grading (active / stale / dead-channel / no-artifact)
+- Session anchor is the command-line UUID, immune to argv[0] bare-vs-qualified instability
+- Auto-reconciliation after restore: every missed tab prints its manual reopen command
+- Optional profile-env mapping (`~/.ghostty-session/profile-env.json`) so profile-bootstrapped sessions restore with the same environment
+- Synthetic-fixture self-test suite registered in CI (stdlib-only)
+
+**Example usage:**
+```bash
+# Install the skill
+claude plugin install ghostty-use@daymade-skills
+
+# Then ask Claude naturally
+"我要重启电脑更新，把终端会话都保存一下"
+"恢复之前的 ghostty 窗口和会话"
+"restore my ghostty tabs after the update"
+"检查一下有没有会话丢了"
+```
+
+**Requirements**: macOS with Ghostty; Accessibility permission for the restore keystrokes; `python3` (stdlib-only). Snapshot state lives in `~/.ghostty-session/`.
+
+---
+
 ### **claude-usage-analyst** - Explain Claude Code Token Usage & Quota Burn
 
 > **Install**: `claude plugin install daymade-claude-code@daymade-skills` (suite-only — invoked as `daymade-claude-code:claude-usage-analyst`)
@@ -3069,6 +3106,7 @@ Audit the UI users can actually see, with explicit evidence levels and no source
 - Auditing an already-rendered web or desktop UI after implementation
 - Diagnosing typography, wrapping, clipping, overflow, responsive, route/state, overlay, map, or transient-state defects
 - Comparing a rendered artifact with a named visual reference or design-system SSOT
+- Checking converted Markdown figures inside the actual Obsidian or other recipient reading view
 - Verifying export, download, share, popup, print/PDF, or Electron-shell behavior at the evidence level the claim requires
 - Complementing `ui-designer`/design work and the broader process managed by `qa-expert`
 

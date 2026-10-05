@@ -23,6 +23,7 @@
 ![Skills Count](https://img.shields.io/badge/Skills-1497+-blue?style=flat-square)
 ![Last Update](https://img.shields.io/github/last-commit/VoltAgent/awesome-agent-skills?label=Last%20update&style=flat-square)
 [![Discord](https://img.shields.io/discord/1361559153780195478.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://s.voltagent.dev/discord)
+[![Official MCP Servers](https://img.shields.io/badge/Official-MCP%20Servers-c2410c?style=flat-square&logo=github&logoColor=white&labelColor=24292f)](https://github.com/VoltAgent/official-mcp-servers)
 
 
 </div>
@@ -1597,6 +1598,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[wgwtest/novel-writing](https://github.com/wgwtest/novel-writing)** - Plans and revises fiction with viewpoint, dialogue, and style checks.
 - **[cyperx84/claude-skills-mental-models](https://github.com/cyperx84/claude-skills-mental-models)** - Drop your own mental models in as files; 21 included
 - **[manavmishra/zero-slop](https://github.com/manavmishra/ZeroSlop/blob/main/SKILL.md)** - Edits AI-sounding prose while preserving facts, voice, and formatting
+- **[forjd/better-writing](https://github.com/forjd/better-writing)** - Rewrites AI-sounding prose without inventing facts; eval-tested
 - **[OneWave-AI/claude-skills](https://github.com/OneWave-AI/claude-skills)** - 225 business, everyday-life, and coding skills, many with scripts
 - **[GiaSip/giasip-research](https://github.com/GiaSip/giasip-skills/tree/main/skills/giasip-research)** - Source-linked research reports with explicit unresolved checks
 - **[tronghieu/agent-skills](https://github.com/tronghieu/agent-skills)** - 18 method-driven skills for knowledge work: strategy, research, writing

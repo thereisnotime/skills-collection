@@ -7,11 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **continue-codex-work** (`daymade-claude-code` v4.19.2 → v4.19.3): Reconcile what was in flight when the interrupted session died — a foreground long task's unpersisted output dies with the pipe, so treat it as not done, probe for a surviving remote process or output file, and give any rerun a detached result-to-disk channel before re-executing.
+- **doc-to-markdown** (`daymade-docs` v1.21.0 → v1.22.0): Add synthetic Obsidian controls for arbitrary HTML anchors, bracketed source labels, healthy heading/wiki links and code. Exercise reader-specific repairs in a one-page actual-reader handoff while retaining the existing Pandoc conversion path.
+- **frontend-visual-qa** (v1.16.0 → v1.17.0): Add a complete HTML/CSS figure control and an exercised element-capture recipe with source/PNG readback. Require a one-page reader pilot before batch conversion, with separate source checks and representative visual coverage.
+
+- **doc-to-markdown, docs-router** (`daymade-docs` v1.20.1 → v1.21.0): Route saved HTML/HTM through Pandoc, retain source hyperlinks with Markdown AST checks, and provide an explicit content selector and parsed heading offset for manual assembly. Add source-link reconciliation after cleanup and book/chapter/lesson guidance without changing Office conversion paths.
+- **frontend-visual-qa** (v1.15.1 → v1.16.0): Add the Markdown reader handoff for complete figures, including HTML captions and SVG/CSS dependencies. Compare the source with the actual document reading canvas; keep unavailable consumer evidence partial and preserve original SVGs when an authorized PNG repair is needed.
+
+### Changed
+
+- **github-sensitive-data-cleanup** (v1.3.1 → v2.0.0): require saved repository identity, the remote SHA before rewriting and the verified local SHA before a single explicitly leased push; remove the force fallback and preserve named-remote hooks while pinning the destination. Reject shared or unverified rewrite state and retain git-filter-repo's fresh-clone guard. Read-only scan/verify now recognize ordinary, linked and bare Git roots. Existing push callers must supply the new preconditions; the workflow guide documents the migration.
+
 ### Fixed
+
+- **read-codex-history** (`daymade-claude-code` v4.19.1 → v4.19.2): distinguish Codex 0.160 logical threads from physical rollout segments. Follow immutable history-base references with exact byte and stored ordinal validation; export complete logical tool history with source coordinates and cross-segment call pairing. Preserve divergent-copy rejection and selected-rollout `--record` semantics. Synthetic regressions cover three segments, prefix cutoffs, malformed history, and CLI selectors.
+
+- **skill-creator** (`daymade-skill` v1.60.1 → v1.60.2): require public-example provenance and distributed dependency evidence in the existing review, and retain asynchronous command handles through terminal status.
+- **github-sensitive-data-cleanup** (v1.3.0 → v1.3.1): propagate scan and verification failures instead of treating partial results as clean; continue semantic review when pattern scans report zero findings.
+- **github-ops** (v1.10.0 → v1.10.1): bind public source files, PR title/body, changelog entries and new commit messages to the reviewed publication; independently read back hosted text and the exact landed commit while retaining separate history-rewrite authorization.
+
+- **skill-creator** (`daymade-skill` v1.60.0 → v1.60.1): align release instructions with branch-only version checks and local private-review verification. Classify combined commit/landing results through their owning exit contract and require independent archive readback before dependent publication; correct the project CI description. Documentation correction to observed behavior.
+
+### Changed
+
+- **skill-creator** (`daymade-skill` v1.59.2 → v1.60.0): add bounded complete-file read plans and a local publication check that binds an exact Skill commit to committed private review evidence. Integrate with the existing marketplace pre-push dispatcher; retain explicit typo/format exemptions and the existing version/PII checks.
+
+### Fixed
+
+- **terraform-skill** (v1.5.1 → v1.5.2): Generalize the deployment port-collision example while preserving its diagnosis and retry procedure.
+- **ghostty-use** (v1.0.1 → v1.0.2): Replace the session filename example with an explicitly synthetic UUID.
+- **kimi-use** (v1.6.1 → v1.6.2): Correct the repeat-action hook's distribution boundary: local integration is optional; readback and retry limits still apply without it.
+- **tunnel-doctor** (v1.17.0 → v1.17.1): Keep the configuration update recipe and clarify that replay helpers and subscription protection are local integrations, outside this bundle.
 
 - **debugging-network-issues** (`debugging-network-issues` v1.11.0 → v1.11.1): drop the persisted derived count from the case-studies intro ("Five canonical cases" → "The canonical cases below") — the number is computable from the numbered list it introduces and only ever drifts.
 
 ### Added
+
+- **ghostty-use** (`ghostty-use` v1.0.0): new skill — snapshot, restore and reconcile Claude Code / Codex sessions across Ghostty restarts. Liveness is graded from the last in-file event timestamp, never the file mtime (idle TUIs touch files; one "active this afternoon" read was contradicted by in-file events that stopped at 03:21); channel health keys on the structured `isApiErrorMessage` flag, because a healthy session that merely discussed "Login expired" misclassified as dead. Restore reopens tabs by clipboard-paste and finishes with a mandatory auto-reconciliation — paste failures are timing-sensitive and were invisible until one interrupted tab out of 40 surfaced only through reconciliation. Anchor is the command-line session UUID, not the process name (bare vs fully-qualified argv[0] produced two false "all sessions gone" reports). Bundles `scripts/ghostty_session.py` (snapshot/check/restore) with a synthetic-fixture suite registered in CI, plus `references/session_liveness.md` and `references/restore_mechanics.md` for the storage layouts and macOS Ghostty limits.
+- **ghostty-use** (`ghostty-use` v1.0.0 → v1.0.1): apply independent fresh-context review findings before first release — `restore --only` now accepts the truncated id prefixes all output prints and fails loudly (stderr + exit 2) on an empty match; reopen command quotes cwd so space-containing paths no longer break both the paste and the printed manual fallback; snapshot schema enum gains `active+api-error`; session_liveness.md terminology corrected from "ULID" to the hyphenated-hex-UUID shape real rollouts carry; codex detection uses token-boundary matching in both directions. Test suite grows to cover each fix.
+- **github-ops** (v1.9.0 → v1.10.0): Add a multi-account private-copy and upstream-sync workflow. Keep the default account active, bind SSH identities per remote, preserve discovered branches/history, and provide a guarded repository-local sync alias. Distinguish initial copies from daily branch/tag sync and resume interrupted setup without recreating completed steps. Capability addition; existing operation and checked-write contracts remain unchanged.
 
 - **debugging-network-issues** (`debugging-network-issues` v1.10.0 → v1.11.0): add case `references/case-iot-router-migration-wpa3.md` — an IoT group outage three weeks after a clone-the-SSID router swap, root-caused to the new AP's WPA2/WPA3 transition mode against legacy Wi-Fi silicon. The falsification chain runs passively from one laptop: an mDNS service census falsifies AP isolation, an ARP+OUI census shows the hub's OUI absent (a hub is itself a Wi-Fi client; its children cast N shadows of one failure), and beacon parameters identify the mode; the decisive measurement is intervention→effect (WPA2-only restored, twelve devices back within minutes). The case contributes the router-replacement alignment checklist (SSID / password / security mode / band-PHY — validate with the oldest client, not the newest), passive IoT census probes, hub-first decomposition for group outages, and cognitive trap 20 (validating a network change on the newest client and the nearest physical evidence). SKILL.md gains a triage row for IoT group outages and the case-studies and reference-file listings.
 
@@ -90,7 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **tibo-reset-codex** (v1.18.2 → v1.19.0): separate creation, execution, CLI, browser and external connector identities by source and observation time; pause browser account switching on concurrent interference and keep unverified restoration explicit.
 - **skill-reviewer** (`daymade-skill` v1.54.3 → v1.55.0): add read-only collection inventory, host-aware source packets, six-dimension design scoring with verified citations, and JSON/CSV/Markdown exports; preserve unknowns and quarantine evaluation faults while keeping design quality separate from measured task benefit. Retain the existing reviewer CLI and three review modes.
 - **local-conversation-history** (`daymade-claude-code` v4.6.0 → v4.7.0): route recent unfinished-request inventories through bounded indexed discovery and exact-session readers, then reconcile current project evidence; keep completed, paused, externally blocked, and awaiting-acceptance work distinct without resuming or migrating it.
-- **kimi-use** (`kimi-use` v1.6.0 → v1.6.1): `kimi-cu-desktop-automation.md` 投递验证节补上执行层兜底——PreToolUse hook `kimi-cu-repeat-guard` 在同一动作签名连续 3 次（观测透明）时拦一次并注入换通道指引；真实 616 调用语料重放标定（4 触发全真阳性零误报）。
+- **kimi-use** (`kimi-use` v1.6.0 → v1.6.1): Document the author's locally installed repeat-action detector as a delivery-verification reminder. The hook was not distributed with this Skill; automatic enforcement depends on the host installation.
 - **kimi-use** (`kimi-use` v1.5.1 → v1.6.0): new `references/kimi-cu-desktop-automation.md` — the kimi-cu macOS desktop-automation playbook distilled from a full day driving WeChat DevTools (Electron + webview console): channel reliability tiers (set_value > keyboard > click), foregrounding vs "control doesn't respond" misdiagnosis, AX-tree death recovery via window reopen, Tab-Tab-Space add-row recipe, auth-dialog SOP, and the delivery-verification rule (ok:true means posted, not landed). SKILL.md + marketplace description widened to scope (2) general kimi-cu desktop automation.
 - **terraform-skill** (`terraform-skill` v1.5.0 → v1.5.1): Document the staging-green/production-port-collision provisioner trap: parity covers configuration, not host port allocation — check the exact bind on the target host, and keep host-local probe targets out of containers.
 

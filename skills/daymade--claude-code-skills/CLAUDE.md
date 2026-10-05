@@ -247,6 +247,13 @@ them instead of restating volatile protocol facts. The repository-wide
 local-source activation contract below still applies—never hand-create Codex
 Skill links.
 
+### Ghostty Terminal Sessions
+
+For snapshotting, restoring or reconciling Claude Code / Codex sessions in Ghostty
+across reboots, enter [`ghostty-use`](ghostty-use/SKILL.md). Its bundled script owns
+liveness classification and the paste-restore + auto-reconciliation loop; keep the
+storage-layout facts and macOS Ghostty limits in its references rather than here.
+
 ### Codex Quota and Account Checks
 
 For Codex reset announcements or account quota questions, enter
@@ -386,6 +393,10 @@ Squash-merged PRs rewrite commits under new SHAs, so every direct commit to
 local `main` guarantees divergence the moment its PR merges. These rules keep
 `main` clean:
 
+Before pushing shipped Skill changes, follow
+[skill release readiness](daymade-skill/skill-creator/references/release-readiness.md).
+The existing pre-push entry checks committed current-review evidence for the exact head.
+
 `.githooks/pre-commit` and `.githooks/pre-push` dispatch to
 `scripts/git-mainline-guard.mjs`, which rejects direct local-main work and stale
 marketplace manifests or reused plugin versions against current main. The
@@ -394,7 +405,8 @@ repository **from the canonical primary main checkout** with
 `git config core.hooksPath "$(pwd -P)/.githooks"`. The absolute path matters:
 `core.hooksPath` is shared by linked worktrees, so a relative path would let a
 stale feature worktree select its own stale dispatcher. CI and the GitHub main
-ruleset independently require the same release checks on every PR.
+ruleset independently enforce version progression on PRs; private review
+evidence is checked locally by pre-push, as defined in the linked release SOP.
 
 **Push through the remote name, never a bare URL.** The guard resolves the
 remote from its argument (`process.argv[3]`) and then fetches

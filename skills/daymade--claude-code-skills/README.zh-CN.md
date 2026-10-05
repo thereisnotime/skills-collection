@@ -443,6 +443,7 @@ CC-Switch 支持以下中国 AI 服务提供商：
 
 **使用场景：**
 - 转换 .doc/.docx/PDF/PPTX 为 markdown
+- 转换已保存的 HTML/HTM，核对源链接并显式调整标题层级
 - 从 PDF 文件中提取图片
 - 处理 Confluence 导出
 - 处理 Windows/WSL 路径转换
@@ -559,6 +560,39 @@ CC-Switch 支持以下中国 AI 服务提供商：
 - 向经过确认的目标清单广播同一条协调消息
 
 📚 **文档与命令**：[peer-message/SKILL.md](./peer-message/SKILL.md) 拥有路由、稳定运行前置与“peer 不得代替用户授权”的边界；`peer-message/scripts/peer.py --help` 拥有 CLI 语法；[protocol-and-discovery.md](./peer-message/references/protocol-and-discovery.md) 拥有寻址、信封与送达证据；[official-feature.md](./peer-message/references/official-feature.md) 拥有会随产品变化的运行要求与具体机制；[coordination-and-learning-loop.md](./peer-message/references/coordination-and-learning-loop.md) 拥有回传寻址、正文与送达状态措辞、发现共享资源上有别人在制品时怎么核实、怎么开口、等多久、等不到怎么继续，判定一条 peer 断言与一组 peer 否认各值多少的两份核验合同，以及证据闸门下的改进循环。
+
+---
+
+### **ghostty-use** - Ghostty 终端会话快照与恢复
+
+重启前快照 Ghostty 里所有活跃的 Claude Code / Codex 会话，重启后用原始 session ID 一键重开所有值得保留的 tab，并证明没有任何会话被静默丢失。活性等级按会话文件内容里的最后事件时间判定（不用文件 mtime——空闲 TUI 会持续 touch 文件），渠道健康按结构化错误标志识别，恢复结束强制自动对账，粘贴失败的 tab 会显式报告并给出手动补开命令。
+
+**使用场景：**
+- 要重启电脑更新系统，希望重启后每个还在干的会话都原样回来
+- 重启后一条命令重开几十个 tab，各自带上原来的 `--resume` / `codex resume` session ID
+- 中断后盘点哪些会话还在、哪些丢了
+- 恢复前分辨死渠道会话（停在 `/login`）与健康会话
+
+**核心特性：**
+- `snapshot` / `restore` / `check` 三命令闭环，活性分级（active / stale / dead-channel / no-artifact）
+- 会话锚点用命令行 UUID，不受 argv[0] 全路径/裸名形态影响
+- 恢复后自动对账：漏开的 tab 逐个打印手动补开命令
+- 可选 profile 环境映射（`~/.ghostty-session/profile-env.json`），带环境启动的 profile 会话按原环境恢复
+- 合成 fixture 自测套件已注册 CI（纯标准库）
+
+**示例：**
+```bash
+# 安装
+claude plugin install ghostty-use@daymade-skills
+
+# 然后自然对话
+"我要重启电脑更新，把终端会话都保存一下"
+"恢复之前的 ghostty 窗口和会话"
+"restore my ghostty tabs after the update"
+"检查一下有没有会话丢了"
+```
+
+**依赖**：macOS + Ghostty；恢复键击需辅助功能权限；`python3`（纯标准库）。快照状态存于 `~/.ghostty-session/`。
 
 ---
 
@@ -3074,6 +3108,7 @@ claude plugin install frontend-visual-qa@daymade-skills
 - 实现后审计已经渲染的 Web 或桌面 UI
 - 排查字体、换行、裁切、溢出、响应式、route/state、overlay、地图或瞬时状态缺陷
 - 将渲染结果与指定参考图或设计系统 SSOT 做实证对比
+- 在 Obsidian 或其他实际接收方阅读器的正文视图中核对转换后的 Markdown 图文
 - 按结论所需证据等级验证导出、下载、分享、popup、打印/PDF 或 Electron shell
 - 补足 `ui-designer`/设计阶段与 `qa-expert` 全局 QA 流程之间的渲染验收
 

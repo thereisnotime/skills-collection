@@ -1,6 +1,10 @@
 # Contributing
 
-Thanks for helping. There are two kinds of changes, with different bars.
+Thanks for helping. Here is what gets merged, and what needs to come with it.
+
+## New skills come from me
+
+I add new skills myself, so please open an issue with the idea instead of a PR.
 
 ## Changes to the ruleset need a benchmark
 
@@ -53,3 +57,16 @@ node scripts/check-versions.js
 ```
 
 Keep the PR to one change and link the issue it fixes.
+
+## Development
+
+When changing the compact rule text, keep the agent copies aligned:
+
+```bash
+node scripts/check-rule-copies.js
+npm test
+```
+
+The OpenClaw skill package (`.openclaw/skills/`) is generated from `skills/`; rerun `node scripts/build-openclaw-skills.js` after changing a skill, the test suite fails if it is stale. To publish the skills to ClawHub, run `clawhub login` once, then `node scripts/publish-openclaw-skills.js` (it publishes all six at the `package.json` version; pass `--dry-run` to preview).
+
+The correctness benchmark spawns Python for email and CSV checks; `python3` is tried before `python`. CSV checks need `pandas` installed locally.
