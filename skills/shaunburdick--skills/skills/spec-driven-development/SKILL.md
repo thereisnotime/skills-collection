@@ -4,7 +4,7 @@ description: Structured spec-driven development workflow. Load this skill whenev
 license: MIT
 metadata:
   author: shaunburdick
-  version: "2.3.0"
+  version: "2.4.0"
 ---
 
 # Spec-Driven Development
@@ -205,12 +205,16 @@ Before handing off to planning, eliminate every ambiguity.
 
 **Process:**
 
-1. Ask 3–5 targeted questions at a time (not a wall of 20)
-2. For each question, explain _why_ the answer matters
-3. Give an example of what a complete answer looks like
-4. Document every answer as a requirement in the body — an existing FR edited
+1. Write the questions into your message text **first**, then call the
+   `question` tool with the same content. A `question` call that times out ends
+   the turn as an error and leaves nothing on screen — a gate the user cannot
+   see is a gate that silently stalls until they happen to notice.
+2. Ask 3–5 targeted questions at a time (not a wall of 20)
+3. For each question, explain _why_ the answer matters
+4. Give an example of what a complete answer looks like
+5. Document every answer as a requirement in the body — an existing FR edited
    to the clarified behaviour, or a new one added alongside it
-5. Bump the spec version and record the question, answer, and resulting
+6. Bump the spec version and record the question, answer, and resulting
    requirement change in `changelog.md` — not in `spec.md`
 
 **Exit criteria:** Zero `[NEEDS CLARIFICATION]` markers remain. Every question has been answered and documented as a requirement. A developer could implement from this spec without asking further questions.

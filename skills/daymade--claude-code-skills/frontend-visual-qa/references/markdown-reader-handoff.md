@@ -72,3 +72,9 @@ bytes, caption relationship and every affected figure in that same reading view.
 Keep relative links valid when the delivered folder moves as a unit. Report the
 actual-reader result separately from source/asset conversion success. This guide
 is a manual visual protocol; no bundled sweep certifies Markdown-reader parity.
+
+For automated HTML expansion through installed doc-to-markdown, load that owner's
+`references/html-conversion.md` for the batch workflow and evidence contract.
+Keep authorized figure/reference repairs in prepared HTML/assets so expansion
+reproduces the visually tested note. Continue the whole-figure and real-canvas
+checks here; the owner's byte/evidence gate does not establish their visual result.

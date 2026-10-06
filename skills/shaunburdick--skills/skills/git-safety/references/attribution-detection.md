@@ -38,13 +38,13 @@ the human's interactive TUI terminal. It never sets `OPENCODE`, `AGENT`,
 
 - `OPENCODE_TERMINAL` is **not** an AI signal. The hook never attributes from
   it alone, so human commits in the TUI terminal are never misattributed.
-- Agent commits must carry an explicit claim, because each bash tool call
+- Agent commits must carry an explicit claim, because each `shell` call
   spawns a **fresh login shell** — env vars exported at session start do
   **not** persist to a later `git commit` call.
 
 ### Why session-start exports don't work on v2
 
-Each `bash` tool invocation runs as a new login shell (`bash -lc "..."`), so
+Each `shell` tool invocation runs as a new login shell (`bash -lc "..."`), so
 the process environment is rebuilt from the server's env plus `TERM` and
 `OPENCODE_TERMINAL`. An `export` performed by one tool call is gone by the
 next. The claim must therefore ride on the same command line as the commit.

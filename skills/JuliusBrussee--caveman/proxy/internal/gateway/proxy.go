@@ -118,6 +118,14 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		s.rejectUnauthorized(w, r)
 		return
 	}
+	// Read-only provider metadata (GET /v1/models) forwards unchanged on its own
+	// path: the pipeline below is built around an inference body this request
+	// does not have. Checked after Authenticate for the same route-oracle reason,
+	// and before matchAdapter because that allowlist is POST-only (issue #1187).
+	if adapter := s.matchMetadataAdapter(r); adapter != nil {
+		s.metadataPassthrough(w, r, adapter, s.creds.Resolve(adapter.Name(), r), requestID)
+		return
+	}
 	adapter := s.matchAdapter(r)
 	if adapter == nil {
 		// fail-closed routing: an unrecognized path is a 404, never a blind pass-through.

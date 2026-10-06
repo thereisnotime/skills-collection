@@ -4,7 +4,7 @@ description: "Enforces non-negotiable code quality standards for AI coding agent
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # Code Quality Standards
@@ -114,6 +114,29 @@ A single missing argument can produce over a kilobyte of diagnostics.
 - Do not let an error payload stand in for a re-read of the file — the file you
   saw before the call is not necessarily the file on disk now
 
+### Edit from a fresh read, and never repeat an edit
+
+`edit` failed **4.11%** (389 of 9,468 calls) in one measured window — above its
+≤3.1% hold target. The failures are dominated by two self-inflicted classes:
+270 edits against a region that had moved since the last read, and 52 re-sends
+of a pair already on disk. Neither is retryable, so the protocol below is about
+not producing them.
+
+- **Re-read the exact target lines in the turn immediately before you edit.**
+  Line numbers and surrounding context from many messages back — or from before
+  a compaction — are a guess about the file. A fresh read costs one call; a
+  failed `edit` costs that call plus the round trip to recover from it.
+- **Never re-send an identical `oldString`/`newString` pair.** If the edit is
+  already on disk, the file is correct and the second call can only fail. Say
+  the change landed and move on.
+- **The argument names are `path`, `oldString`, `newString`.** Other harnesses
+  name them `file_path` or `file_name`; those keys are invalid here, and 49
+  calls in that window died on exactly that guess.
+- **`oldString` must match exactly one place.** If it is ambiguous, widen the
+  surrounding context until it is not.
+- **If the change is most of the file, use `write`.** An `edit` replacing 80% of
+  a file is a whole-file write paying for content matching it does not need.
+
 ### Know what the tool surface actually is
 
 Tool names are versioned and do get renamed. A directive written against an
@@ -128,11 +151,12 @@ exists in the current version.
 | --- | --- | --- |
 | `apply_patch` | `edit`, `write`, `patch` | `edit` 3.1% error rate, `patch` 20.6% |
 | `task` | `subagent` | `subagent(agent=, description=, prompt=)`; `description` is required, `prompt` is no longer positional. Adds `sessionID` and `background`. |
-| `bash` | `shell` | `bash` still resolves, but `shell` is current |
+| `bash` | `shell` | `bash` is **gone**, not aliased — `No tool named "bash" is currently available` |
 
-`edit` was the best-behaved write tool measured (25 errors in 818 calls, 95%
-CI [2.1%, 4.5%]). `patch` was 7 in 34, but that interval is [10.3%, 36.8%] —
-too wide to call better or worse than v1's `apply_patch`, which sat at 26.8%.
+`edit` is still the best-behaved write tool, but its residual failures are a
+protocol problem rather than a schema problem — see *Edit from a fresh read*
+above. `patch` was 7 in 34, but that interval is [10.3%, 36.8%] — too wide to
+call better or worse than v1's `apply_patch`, which sat at 26.8%.
 
 `edit` errors arrive as a JSON envelope that echoes the full argument object
 back, including file content. Read `message` only.

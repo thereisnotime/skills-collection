@@ -65,7 +65,7 @@ jobs:
           - id: aider
             install: python -m pip install aider-chat==0.86.2
           - id: claude
-            install: npm install -g @anthropic-ai/claude-code@2.1.288
+            install: npm install -g @anthropic-ai/claude-code@2.1.289
           - id: codex
             install: npm install -g @openai/codex@0.160.0
           - id: gemini
@@ -79,7 +79,7 @@ jobs:
           - id: opencode
             install: npm install -g opencode-ai@1.18.34
           - id: pi
-            install: npm install -g --ignore-scripts @earendil-works/pi-coding-agent@1.0.0
+            install: npm install -g --ignore-scripts @earendil-works/pi-coding-agent@1.0.2
           - id: qwen
             install: npm install -g @qwen-code/qwen-code@0.24.7
     steps:

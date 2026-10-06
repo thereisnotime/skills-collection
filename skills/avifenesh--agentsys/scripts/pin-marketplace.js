@@ -4,10 +4,16 @@
  * defense in depth). Falls back to pinning current default-branch HEAD when a
  * release tag for the declared `version` does not exist on the remote.
  *
- * Rationale: unpinned `source: "url"` entries let `claude plugin install`
+ * Rationale: unpinned `url` and `git-subdir` entries let `claude plugin install`
  * track the default branch, which is a supply-chain compromise vector. Pinning
  * to a tag (for humans) AND the tag's resolved commit SHA (for integrity)
  * ensures the exact bytes we ship are the exact bytes users get.
+ *
+ * The SHA is written twice. Claude Code's `url` and `git-subdir` sources read
+ * the commit pin from `sha` and ignore `commit`, so `sha` is the pin Claude
+ * Code installs. A `git-subdir` entry keeps its `path`.
+ * `bin/cli.js` reads `sha` first and falls back to `commit`, so both carry the
+ * same SHA.
  *
  * Usage: node scripts/pin-marketplace.js [--dry-run]
  *
@@ -54,12 +60,13 @@ function setGhRunner(fn) {
 }
 
 function parseOrgRepo(gitUrl) {
+  // agent-sh/<name> (git-subdir shorthand)    -> ["agent-sh", "<name>"]
   // https://github.com/agent-sh/<name>.git    -> ["agent-sh", "<name>"]
   // https://github.com/agent-sh/<name>        -> ["agent-sh", "<name>"]
   // https://github.com/agent-sh/<name>/       -> ["agent-sh", "<name>"]
   // https://github.com/agent-sh/<name>/.git   -> ["agent-sh", "<name>"]
   // git@github.com:agent-sh/<name>.git        -> ["agent-sh", "<name>"]
-  const m = gitUrl.match(
+  const m = gitUrl.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/) || gitUrl.match(
     /github\.com[:/]+([^/]+)\/([^/]+?)\/?(?:\.git)?\/?$/,
   );
   if (!m) throw new Error(`Cannot parse org/repo from ${gitUrl}`);
@@ -114,9 +121,12 @@ function defaultBranchHeadSha(owner, repo) {
   ]);
 }
 
+// Git sources that Claude Code pins with `ref` and `sha`
+const PINNABLE_SOURCES = new Set(['url', 'git-subdir']);
+
 function pinPlugin(plugin) {
   const src = plugin.source;
-  if (!src || src.source !== 'url' || !src.url) {
+  if (!src || !PINNABLE_SOURCES.has(src.source) || !src.url) {
     return { status: 'skipped', name: plugin.name };
   }
 
@@ -132,6 +142,7 @@ function pinPlugin(plugin) {
   if (sha) {
     src.ref = tag;
     src.commit = sha;
+    src.sha = sha;
     return { status: 'pinned', name: plugin.name, tag, sha };
   }
 
@@ -142,6 +153,7 @@ function pinPlugin(plugin) {
   // `ref` would otherwise ignore the new commit pin.
   delete src.ref;
   src.commit = head;
+  src.sha = head;
   return { status: 'fallback', name: plugin.name, wantedTag: tag, sha: head };
 }
 

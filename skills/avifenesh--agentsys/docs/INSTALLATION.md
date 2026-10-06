@@ -95,6 +95,12 @@ agentsys --tools claude,opencode,codex
 | `--version`, `-v` | Show version |
 | `--help`, `-h` | Show help |
 
+### Plugin Versions
+
+The installer downloads each plugin into `~/.agentsys/plugins/<name>/` at the commit pinned in `.claude-plugin/marketplace.json`, the same commit Claude Code installs. The pin is the entry's `sha`, the key Claude Code reads, or its `commit` when it has no `sha`; every entry carries both with the same value. A pin is a full 40-character SHA. Each plugin directory records the fetched commit in `.commit`. A download is extracted beside the cache and moved into `plugins/` only when it is complete and from the pinned commit, so a failed download leaves no plugin directory. A full `agentsys` run starts from an empty `~/.agentsys` and downloads every plugin again; `agentsys install <plugin>` reuses a cached plugin whose `.commit` matches the pin. `agentsys install <plugin>@<version>` for a version other than the marketplace one is not pinned: it tries the `v<version>` tag, then `<version>`, `main` and `master`. Set `GITHUB_TOKEN` if GitHub rate-limits the downloads.
+
+The plugin directory holds what Claude Code installs for the marketplace entry: the repo root, or for a `git-subdir` source the folder its `path` names (agnix: `plugin/`, which holds its `/agnix` command, agnix-agent and skill), and records that folder in `.path`. A plugin that ships no `.claude-plugin/plugin.json` there (can-i-help and onboard at their pins) gets one made from its marketplace entry, so OpenCode, Codex, Cursor and Kiro install its commands, agents and skills.
+
 ### Model Stripping
 
 By default, model specifications (sonnet/opus/haiku) are stripped from agents when installing for OpenCode. This prevents errors when the target platform doesn't have the same model mappings configured.
@@ -164,7 +170,7 @@ Select your platform when prompted. The installer configures:
 | Claude Code | Marketplace | `.claude/` |
 | OpenCode | `~/.config/opencode/` | `.opencode/` |
 | Codex CLI | `~/.codex/` | `.codex/` |
-| Kiro | `.kiro/` (project-scoped) | `.kiro/` |
+| Kiro | `~/.kiro/` | `.kiro/` |
 
 > **Note:** Codex uses `$` prefix for skills (e.g., `$next-task` instead of `/next-task`).
 
@@ -349,20 +355,28 @@ gh auth login
 ### OpenCode
 - MCP server provides workflow tools
 - Slash commands defined in `~/.config/opencode/commands/`
+- Each skill directory is copied whole to `~/.config/opencode/skills/<name>/`
 - State stored in `.opencode/`
 
 ### Codex CLI
 - Uses `$` prefix instead of `/` for commands
-- Skills defined in `~/.codex/skills/`
+- Skills defined in `~/.codex/skills/`: one per command, plus each plugin skill directory copied whole unless a command has its name
 - State stored in `.codex/`
 
 ### Kiro
-- Project-scoped: installs to `.kiro/` in your project root
-- Commands become steering files in `.kiro/steering/` with `inclusion: manual`
-- Skills use standard SKILL.md format in `.kiro/skills/`
-- Agents converted to JSON in `.kiro/agents/`
+- Global: installs to `~/.kiro/`
+- Commands become prompts in `~/.kiro/prompts/` (invoke with `@name` in kiro-cli)
+- Each skill directory is copied whole to `~/.kiro/skills/<name>/`, references and scripts included; paths that pointed at the plugin root point at `~/.agentsys/plugins/<plugin>/`
+- Agents converted to JSON in `~/.kiro/agents/`
 - Reads AGENTS.md and `.kiro/steering/*.md` for instructions
 - **Note**: Kiro's subagent spawning is experimental (max 4). Workflows with parallel Task() calls (e.g., next-task Phase 9 with 4-10 reviewers) automatically fall back to 2 sequential combined reviewers (`reviewer-quality-security`, `reviewer-perf-test`)
+
+### Skill directories on OpenCode, Codex, Cursor and Kiro
+- Each skill directory agentsys installs has a `.agentsys-skill` marker file. A reinstall replaces a marked directory, so a file you add inside one is removed.
+- Skill directories from agentsys versions before the marker have none. A reinstall replaces and marks such a directory when every file in it is one the skill ships, which is what those versions wrote (`SKILL.md` alone), so upgrading needs no manual step. Your own skill at a plugin skill's name that is only a `SKILL.md` looks the same, so on OpenCode, Cursor and Kiro, and for Codex command skills, it is replaced too. Add any other file to it to keep it.
+- Codex plugin skills are the exception: no version before the marker installed them, so an unmarked directory at a Codex plugin skill's name is never replaced, whatever it holds, unless it is empty.
+- Any other directory with the name of a skill agentsys installs (one that holds a file the skill does not ship, an unmarked Codex plugin skill directory, or a symlink) is never deleted or written to: the install skips that skill and prints a warning with the path. To install the skill, move your files out and remove the directory.
+- To keep a directory agentsys installed as your own, delete its marker and add a file of your own to it.
 
 ---
 

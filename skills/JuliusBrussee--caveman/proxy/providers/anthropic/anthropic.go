@@ -31,5 +31,9 @@ func New(baseURL string) providers.Adapter {
 		// proxy unprefixed; ResolveUpstreamURL has no /anthropic prefix to trim, so
 		// it forwards to {base}/v1/messages unchanged.
 		Routes: []string{"/anthropic/v1/messages", "/anthropic/v1/messages/count_tokens", "/v1/messages", "/v1/messages/count_tokens"},
+		// GET /v1/models and /v1/models/{id} are part of the Anthropic wire
+		// protocol, so the bare and prefixed mounts carry them for the same
+		// reason the inference routes are doubled up.
+		MetadataRoutes: []string{"/anthropic/v1/models", "/v1/models"},
 	}}
 }

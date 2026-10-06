@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <b>24 plugins · 49 agents · 44 skills (across all repos) · 30k lines of lib code · 3,518 tests · 5 platforms</b><br>
+  <b>24 plugins · 50 agents · 44 skills (across all repos) · 30k lines of lib code · tests on Linux and Windows · 5 platforms</b><br>
   <em>Plugins distributed as standalone repos under <a href="https://github.com/agent-sh">agent-sh</a> org - agentsys is the marketplace &amp; installer</em>
 </p>
 
@@ -43,18 +43,18 @@
 AI models can write code. That's not the hard part anymore. The hard part is everything around it - task selection, branch management, code review, artifact cleanup, CI, PR comments, deployment. **AgentSys is the runtime that orchestrates agents to handle all of it** - structured pipelines, gated phases, specialized agents, and persistent state that survives session boundaries.
 
 ---
-> Building custom skills, agents, hooks, or MCP tools? [agnix](https://github.com/agent-sh/agnix) is the CLI + LSP linter that catches config errors before they fail silently - real-time IDE validation, auto suggestions, auto-fix, and 423 rules for Claude Code, Codex, OpenCode, Cursor, Kiro, Copilot, Gemini CLI, Cline, Windsurf, Roo Code, Amp, and more.
+> Building custom skills, agents, hooks, or MCP tools? [agnix](https://github.com/agent-sh/agnix) is the CLI + LSP linter that catches config errors before they fail silently - real-time IDE validation, auto suggestions, auto-fix, and 457 rules for Claude Code, Codex, OpenCode, Cursor, Kiro, Copilot, Gemini CLI, Cline, Windsurf, Roo Code, Amp, and more.
 
-## What's New in 6.0.2
+## What's New in 6.1.1
 
-- Fixes Windows installs: the Claude Code executable is resolved with `where.exe` instead of an assumed `claude.cmd`, and `.cmd` shims are launched through `cmd.exe` at every spawn site.
-- `agentsys install` reports failures instead of printing success when Claude Code rejected a plugin, and exits non-zero.
-- Deletes the two adapter `install.sh` scripts, which deleted a working install and reported success; `agentsys --tool codex` / `--tool opencode` is the install path.
-- CI now runs the suite on Windows as well as Linux.
+- OpenCode, Codex, Cursor and Kiro installs get onboard and can-i-help. The installer fetched both plugins and installed nothing from them, because neither ships a `.claude-plugin/plugin.json` at its pin. It now makes one from the marketplace entry, as Claude Code does.
+- agnix installs its `/agnix` command, agent and skill on every platform. Claude Code installed only its skill before, and the other platforms nothing. The marketplace entry is now a `git-subdir` source for the plugin's `plugin/` folder.
+- The installer fetches a `git-subdir` source as that folder, pinned by `sha` or `commit`.
+- Contributor docs: every change reaches main through a PR, and a release commit merges through a PR with only the tag pushed.
 
 ## What This Is
 
-An agent orchestration system - 24 plugins, 49 agents (39 file-based + 10 role-based specialists in audit-project), and 44 skills that compose into structured pipelines for software development. Each plugin lives in its own standalone repo under the [agent-sh](https://github.com/agent-sh) org. agentsys is the marketplace and installer that ties them together.
+An agent orchestration system - 24 plugins, 50 agents (40 file-based + 10 role-based specialists in audit-project), and 44 skills that compose into structured pipelines for software development. Each plugin lives in its own standalone repo under the [agent-sh](https://github.com/agent-sh) org. agentsys is the marketplace and installer that ties them together.
 
 Each agent has a single responsibility, a specific model assignment, and defined inputs/outputs. Pipelines enforce phase gates so agents can't skip steps. State persists across sessions so work survives interruptions.
 
@@ -128,7 +128,7 @@ The investment shifts from model spend to pipeline design. Better prompts, riche
 | [`/prepare-delivery`](#prepare-delivery) | Pre-ship quality gates: deslop, review, validation, docs sync |
 | [`/gate-and-ship`](#gate-and-ship) | Quality gates then ship (/prepare-delivery + /ship) |
 | [`/banthis`](#banthis) | Durable negative memory: persist banned agent behaviors |
-| [`/agnix`](#agnix) | Lint agent configurations (423 rules) |
+| [`/agnix`](#agnix) | Lint agent configurations (457 rules) |
 | [`/ship`](#ship) | PR creation, CI monitoring, merge |
 | [`/deslop`](#deslop) | Clean AI slop patterns |
 | [`/perf`](#perf) | Performance investigation with baselines and profiling |
@@ -368,7 +368,7 @@ agnix catches these issues before they cause problems.
 | **Best Practices** | Tool restrictions, model selection, trigger phrase quality |
 | **Cross-Platform** | Compatibility across Claude Code, Codex, OpenCode, Cursor, Kiro, Copilot, Gemini CLI, Cline, Windsurf, Roo Code, Amp, and more |
 
-**423 validation rules** (129 auto-fixable) derived from:
+**457 validation rules** derived from:
 - Official tool specifications (Claude Code, Codex CLI, OpenCode, Cursor, Kiro, GitHub Copilot, Gemini CLI, Cline, Windsurf, Roo Code, Amp, and more)
 - Research papers on agent reliability and prompt injection
 - Real-world testing across 500+ repositories
@@ -440,15 +440,14 @@ brew install agnix           # Install via Homebrew (macOS)
 
 **What happens when you run it:**
 
-1. **Pre-flight** - Detects CI platform, deployment platform, branch strategy
-2. **Commit** - Stages and commits with generated message (if uncommitted changes)
-3. **Push & PR** - Pushes branch, creates pull request
-4. **CI Monitor** - Waits for CI, retries on transient failures
-5. **Review Wait** - Waits 3 minutes for auto-reviewers (Copilot, Claude, Gemini, Codex)
-6. **Address Comments** - Handles every comment from every reviewer
-7. **Merge** - Merges when all comments resolved and CI passes
-8. **Deploy** - Deploys and validates (if multi-branch workflow)
-9. **Cleanup** - Removes worktree, closes issue, deletes branch
+1. **Pre-flight** - Detects CI platform, deployment platform, branch strategy, and whether you can merge
+2. **Commit** - Runs the tests, then stages and commits with a generated message (if uncommitted changes)
+3. **Push & PR** - Pushes the branch, opens a pull request or reuses the open one
+4. **CI and reviews** - Waits on CI with `gh pr checks --watch` instead of polling and fixes failures. Waits only for review bots that recent PRs show, and only for their review of the current commit (at most 15 minutes per wait). Fixes or answers every comment, up to 5 rounds
+5. **Review** - One review pass over the diff (standalone runs only)
+6. **Merge** - Merges when checks are green and no thread is unresolved. Without write access it stops at ready for review
+7. **Deploy** - Deploys, validates, and rolls back with `git revert` on failure (multi-branch workflow only)
+8. **Cleanup** - Removes the worktree and branch the run created, closes the issue for a /next-task GitHub task
 
 **Platform Detection:**
 
@@ -460,13 +459,13 @@ brew install agnix           # Install via Homebrew (macOS)
 
 **Review Comment Handling:**
 
-Every comment gets addressed. No exceptions. The workflow categorizes comments and handles each:
-- Code fixes get implemented
-- Style suggestions get applied
+Every comment gets fixed or answered:
+- Correct comments get fixed, nits included when the fix is cheap
+- Wrong or already-handled comments get one reply with the reason, and no code change
+- Out-of-scope comments get a reply saying so
 - Questions get answered
-- False positives get explained
 
-If something can't be fixed, the workflow replies explaining why and resolves the thread.
+On your own repo it resolves each thread it handled. On a repo you cannot merge to, it leaves threads to the maintainers and replies only where they asked.
 
 **Usage:**
 
@@ -474,6 +473,7 @@ If something can't be fixed, the workflow replies explaining why and resolves th
 /ship                       # Full workflow
 /ship --dry-run             # Preview without executing
 /ship --strategy rebase     # Use rebase instead of squash
+/ship --base develop        # Target a non-default branch
 ```
 
 [Full workflow documentation →](./docs/workflows/SHIP.md)
@@ -1231,7 +1231,7 @@ The system is built on research, not guesswork.
 - Instruction following reliability
 
 **Testing:**
-- 3,518 tests passing
+- Jest suite runs on Linux and Windows in CI
 - Drift-detect validated on 1,000+ repositories
 - E2E workflow testing across all commands
 - Cross-platform validation (Claude Code, OpenCode, Codex CLI, Cursor, Kiro)

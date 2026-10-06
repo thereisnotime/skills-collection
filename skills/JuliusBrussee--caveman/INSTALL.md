@@ -38,6 +38,8 @@ curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/v3.1.0/instal
 
 If you want to install for one agent (or want to know exactly what command runs under the hood), use the table below. Every row also works as `--only <id>` to the unified installer.
 
+> **On npm 12 or newer, add `--allow-git=root` to any bare `npx -y github:...` command below.** npm 12 turns off git package fetches by default, so a plain `npx -y github:JuliusBrussee/caveman` stops with `npm error code EALLOWGIT`. The flag opts in just the one package you asked for: `npx --allow-git=root -y github:JuliusBrussee/caveman -- --only <id>`. Check with `npx --version`. `install.sh` and `install.ps1` detect the npm major and add the flag themselves, but the one-liners above download the shims from the pinned `v3.1.0` tag, which predates that change — so **on npm 12 they will keep failing until a release carrying the new shims is cut.** Until then, install with the flag directly, keeping the same release pin the shim would have used: `npx --allow-git=root -y github:JuliusBrussee/caveman#v3.1.0 -- --only <id>`.
+
 > **Choose the install scope your agent reads.** `-g` installs into the agent's user skill directory. Without it, skills belong to the current project. The unified installer uses user scope except for Replit, whose documented filesystem location is the project's `.agents/skills`. Run Replit's command from that project's Shell. Replit workspace-wide skills are managed in Workspace Settings.
 
 | Agent | Install command | Auto-activates? |

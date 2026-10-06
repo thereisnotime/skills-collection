@@ -284,8 +284,8 @@ Choose the **lowest tier that can falsify the changed behavior** before taking a
 | **2 — Sampled behavior** | This is an existing skill; the change affects agent behavior but adds no capability, trigger family, output contract, script behavior, dependency, permission, or external write; and 1–2 named examples with explicit acceptance criteria can exercise the whole changed behavior. A bounded correction to one existing routing or evidence-selection rule stays here even when it changes the chosen path | Run only those 1–2 representative with-skill replays plus the narrow deterministic checks and the one fresh-context review required by discipline #5 | Baselines, paired fan-out, variance analysis, benchmark, viewer, or eval files by default. An explicit request for them goes through the separate evidence-budget gate and does not reclassify the change |
 | **3 — Broad / high-risk** | Any of these is true: any new skill; any new or materially changed capability; broad cross-branch rewrite or methodology expansion; trigger/description optimization (running the optimizer loop, or adding or removing trigger families — shortening a description under the frontmatter rule with every old clause cited by the regression gate is not this); a new workflow branch or materially changed output contract, script capability, dependency, or permission; high-risk automation or external writes; or the changed behavior itself spans 3+ distinct prompt classes, repeated trials, or materially different approaches | Run deterministic gates first, then add only the evidence needed for the named failure axes. The full paired pipeline below is available only after the separate heavy-eval authorization gate passes; Tier 3 by itself does not start it, and the same gate can authorize extra evidence at another tier | Automatic paired fan-out, graders, benchmark, or viewer based only on the Tier 3 label |
 
-For changes to persisted formats or partial state updates, and commands whose output
-may exceed the tool response, load
+For changes to persisted formats or partial state updates, permission-sensitive
+checks, and commands whose output may exceed the tool response, load
 [stateful-script-verification.md](references/stateful-script-verification.md).
 Select its affected recipes as narrow deterministic evidence within the chosen tier.
 
@@ -1339,6 +1339,11 @@ Power users run several Claude sessions at once, and skill repos are exactly whe
 When creating or updating a skill, follow these steps in order. Skip steps only when clearly not applicable.
 
 ### Step 0: Prerequisites Check
+
+For `audit_skill_regression`, `release_readiness`, `source_contract` and
+`materialize`, use the [fixed command entry](references/fixed-command-entry.md)
+when calling from another working directory. Supply absolute artifact paths;
+retain each owning tool's subcommands, flags and direct invocation.
 
 Before starting any skill work, auto-detect all dependencies and proactively install anything missing. Discovering a missing tool mid-workflow (e.g., gitleaks at packaging time, PyYAML at validation) wastes time and breaks flow.
 

@@ -12,7 +12,7 @@ func New(baseURL string) providers.Adapter {
 	return Adapter{Base: providers.Base{Provider: "openai", BaseURL: baseURL, Routes: []string{
 		"/v1/chat/completions", "/v1/responses", "/v1/responses/input_tokens", "/v1/embeddings",
 		"/openai/v1/chat/completions", "/openai/v1/responses", "/openai/v1/responses/input_tokens", "/openai/v1/embeddings",
-	}}}
+	}, MetadataRoutes: []string{"/v1/models", "/openai/v1/models"}}}
 }
 
 func isInputTokenCountEndpoint(endpoint string) bool {

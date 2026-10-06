@@ -9618,8 +9618,8 @@
       "description": "|-",
       "path": "anthropics--skills/skills/claude-api/SKILL.md",
       "remote_path": "skills/claude-api/SKILL.md",
-      "lines": 604,
-      "words": 14072,
+      "lines": 606,
+      "words": 14308,
       "code_blocks": 3,
       "languages": [
         "python"
@@ -11214,7 +11214,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
       "lines": 60,
-      "words": 1206,
+      "words": 1203,
       "code_blocks": 0,
       "languages": []
     },
@@ -21804,391 +21804,15 @@
   "avifenesh--agentsys": [
     {
       "name": "maintain-cross-platform",
-      "description": "\"Use when preparing releases, validating cross-platform compatibility, or updating installation infrastructure. Meta-skill for maintaining AgentSys's 3-platform architecture.\"",
+      "description": "\"Use when preparing an AgentSys release, checking cross-platform compatibility, or changing the installer, transforms, adapters or marketplace pins. Maintainer skill for this repo only.\"",
       "path": "avifenesh--agentsys/meta/skills/maintain-cross-platform/SKILL.md",
       "remote_path": "meta/skills/maintain-cross-platform/SKILL.md",
-      "lines": 1024,
-      "words": 3623,
-      "code_blocks": 54,
+      "lines": 71,
+      "words": 638,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "javascript",
-        "json",
-        "markdown",
-        "regex",
-        "yaml"
+        "markdown"
       ]
-    },
-    {
-      "name": "discover-tasks",
-      "description": "\"Use when user asks to \\\"discover tasks\\\", \\\"find next task\\\", \\\"prioritize issues\\\", \\\"what should I work on\\\", or \\\"list open issues\\\". Discovers and ranks tasks from GitHub, GitLab, local files, an",
-      "path": "avifenesh--agentsys/.kiro/skills/discover-tasks/SKILL.md",
-      "remote_path": ".kiro/skills/discover-tasks/SKILL.md",
-      "lines": 298,
-      "words": 1195,
-      "code_blocks": 19,
-      "languages": [
-        "bash",
-        "javascript",
-        "markdown"
-      ],
-      "version": "5.1.1"
-    },
-    {
-      "name": "perf-baseline-manager",
-      "description": "\"Use when managing perf baselines, consolidating results, or comparing versions. Ensures one baseline JSON per version.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/perf-baseline-manager/SKILL.md",
-      "remote_path": ".kiro/skills/perf-baseline-manager/SKILL.md",
-      "lines": 31,
-      "words": 85,
-      "code_blocks": 1,
-      "languages": [],
-      "version": "5.1.0"
-    },
-    {
-      "name": "deslop",
-      "description": "\"Use when user wants to clean AI slop from code. Use for cleanup, remove debug statements, find ghost code, repo hygiene.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/deslop/SKILL.md",
-      "remote_path": ".kiro/skills/deslop/SKILL.md",
-      "lines": 205,
-      "words": 718,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "javascript"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "perf-theory-tester",
-      "description": "\"Use when running controlled perf experiments to validate hypotheses.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/perf-theory-tester/SKILL.md",
-      "remote_path": ".kiro/skills/perf-theory-tester/SKILL.md",
-      "lines": 37,
-      "words": 98,
-      "code_blocks": 1,
-      "languages": [],
-      "version": "5.1.0"
-    },
-    {
-      "name": "enhance-plugins",
-      "description": "\"Use when analyzing plugin structures, MCP tools, and plugin security patterns.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/enhance-plugins/SKILL.md",
-      "remote_path": ".kiro/skills/enhance-plugins/SKILL.md",
-      "lines": 320,
-      "words": 1092,
-      "code_blocks": 16,
-      "languages": [
-        "javascript",
-        "json",
-        "markdown",
-        "yaml"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "enhance-prompts",
-      "description": "\"Use when improving general prompts for structure, examples, and constraints.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/enhance-prompts/SKILL.md",
-      "remote_path": ".kiro/skills/enhance-prompts/SKILL.md",
-      "lines": 341,
-      "words": 1187,
-      "code_blocks": 15,
-      "languages": [
-        "bash",
-        "javascript",
-        "markdown",
-        "xml"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "perf-analyzer",
-      "description": "\"Use when synthesizing perf findings into evidence-backed recommendations and decisions.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/perf-analyzer/SKILL.md",
-      "remote_path": ".kiro/skills/perf-analyzer/SKILL.md",
-      "lines": 38,
-      "words": 105,
-      "code_blocks": 1,
-      "languages": [],
-      "version": "5.1.0"
-    },
-    {
-      "name": "enhance-claude-memory",
-      "description": "\"Use when improving CLAUDE.md or AGENTS.md project memory files.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/enhance-claude-memory/SKILL.md",
-      "remote_path": ".kiro/skills/enhance-claude-memory/SKILL.md",
-      "lines": 388,
-      "words": 1476,
-      "code_blocks": 15,
-      "languages": [
-        "markdown"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "orchestrate-review",
-      "description": "\"Use when user asks to \\\"deep review the code\\\", \\\"thorough code review\\\", \\\"multi-pass review\\\", or when orchestrating the Phase 9 review loop. Provides review pass definitions (code quality, securit",
-      "path": "avifenesh--agentsys/.kiro/skills/orchestrate-review/SKILL.md",
-      "remote_path": ".kiro/skills/orchestrate-review/SKILL.md",
-      "lines": 261,
-      "words": 1146,
-      "code_blocks": 7,
-      "languages": [
-        "javascript",
-        "json"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "perf-investigation-logger",
-      "description": "\"Use when appending structured perf investigation notes and evidence.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/perf-investigation-logger/SKILL.md",
-      "remote_path": ".kiro/skills/perf-investigation-logger/SKILL.md",
-      "lines": 42,
-      "words": 94,
-      "code_blocks": 1,
-      "languages": [],
-      "version": "5.1.0"
-    },
-    {
-      "name": "repo-intel",
-      "description": "\"Use when user asks to \\\"run repo intel\\\", \\\"generate repo map\\\", \\\"analyze repo\\\", \\\"query hotspots\\\", \\\"check ownership\\\", or \\\"bus factor\\\". Unified static analysis - git history, AST symbols, proj",
-      "path": "avifenesh--agentsys/.kiro/skills/repo-intel/SKILL.md",
-      "remote_path": ".kiro/skills/repo-intel/SKILL.md",
-      "lines": 64,
-      "words": 256,
-      "code_blocks": 2,
-      "languages": [
-        "javascript"
-      ]
-    },
-    {
-      "name": "enhance-orchestrator",
-      "description": "\"Use when coordinating multiple enhancers for /enhance command. Runs analyzers in parallel and produces unified report.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/enhance-orchestrator/SKILL.md",
-      "remote_path": ".kiro/skills/enhance-orchestrator/SKILL.md",
-      "lines": 256,
-      "words": 934,
-      "code_blocks": 9,
-      "languages": [
-        "javascript",
-        "markdown"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "sync-docs",
-      "description": "\"Sync documentation with code. Use when user asks to update docs, check docs, fix stale documentation, update changelog, or after code changes.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/sync-docs/SKILL.md",
-      "remote_path": ".kiro/skills/sync-docs/SKILL.md",
-      "lines": 352,
-      "words": 1294,
-      "code_blocks": 12,
-      "languages": [
-        "bash",
-        "javascript",
-        "json"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "enhance-docs",
-      "description": "\"Use when improving documentation structure, accuracy, and RAG readiness.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/enhance-docs/SKILL.md",
-      "remote_path": ".kiro/skills/enhance-docs/SKILL.md",
-      "lines": 299,
-      "words": 1105,
-      "code_blocks": 13,
-      "languages": [
-        "javascript",
-        "markdown"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "enhance-agent-prompts",
-      "description": "\"Use when improving agent prompts, frontmatter, and tool restrictions.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/enhance-agent-prompts/SKILL.md",
-      "remote_path": ".kiro/skills/enhance-agent-prompts/SKILL.md",
-      "lines": 278,
-      "words": 971,
-      "code_blocks": 17,
-      "languages": [
-        "javascript",
-        "markdown",
-        "xml",
-        "yaml"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "debate",
-      "description": "\"Structured AI debate templates and synthesis. Use when orchestrating multi-round debates between AI tools, 'debate topic', 'argue about', 'stress test idea', 'devil advocate'.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/debate/SKILL.md",
-      "remote_path": ".kiro/skills/debate/SKILL.md",
-      "lines": 317,
-      "words": 1883,
-      "code_blocks": 8,
-      "languages": [
-        "json"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "perf-profiler",
-      "description": "\"Use when profiling CPU/memory hot paths, generating flame graphs, or capturing JFR/perf evidence.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/perf-profiler/SKILL.md",
-      "remote_path": ".kiro/skills/perf-profiler/SKILL.md",
-      "lines": 42,
-      "words": 120,
-      "code_blocks": 2,
-      "languages": [
-        "javascript"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "drift-analysis",
-      "description": "Use when the user asks about plan drift, reality check, comparing docs to code, project state analysis, roadmap alignment, implementation gaps, or needs guidance on identifying discrepancies between d",
-      "path": "avifenesh--agentsys/.kiro/skills/drift-analysis/SKILL.md",
-      "remote_path": ".kiro/skills/drift-analysis/SKILL.md",
-      "lines": 325,
-      "words": 1094,
-      "code_blocks": 10,
-      "languages": [
-        "javascript",
-        "json",
-        "markdown",
-        "yaml"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "perf-benchmarker",
-      "description": "\"Use when running performance benchmarks, establishing baselines, or validating regressions with sequential runs. Enforces 60s minimum runs (30s only for binary search) and no parallel benchmarks.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/perf-benchmarker/SKILL.md",
-      "remote_path": ".kiro/skills/perf-benchmarker/SKILL.md",
-      "lines": 52,
-      "words": 160,
-      "code_blocks": 3,
-      "languages": [
-        "javascript"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "perf-theory-gatherer",
-      "description": "\"Use when generating performance hypotheses backed by git history and code evidence.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/perf-theory-gatherer/SKILL.md",
-      "remote_path": ".kiro/skills/perf-theory-gatherer/SKILL.md",
-      "lines": 36,
-      "words": 113,
-      "code_blocks": 1,
-      "languages": [],
-      "version": "5.1.0"
-    },
-    {
-      "name": "consult",
-      "description": "\"Cross-tool AI consultation. Use when user asks to 'consult gemini', 'ask codex', 'get second opinion', 'cross-check with claude', 'consult another AI', 'ask opencode', 'copilot opinion', or wants a s",
-      "path": "avifenesh--agentsys/.kiro/skills/consult/SKILL.md",
-      "remote_path": ".kiro/skills/consult/SKILL.md",
-      "lines": 426,
-      "words": 2735,
-      "code_blocks": 12,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "enhance-cross-file",
-      "description": "\"Use when checking cross-file consistency: tools vs frontmatter, agent references, duplicate rules, contradictions.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/enhance-cross-file/SKILL.md",
-      "remote_path": ".kiro/skills/enhance-cross-file/SKILL.md",
-      "lines": 111,
-      "words": 473,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "javascript",
-        "markdown",
-        "yaml"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "perf-code-paths",
-      "description": "\"Use when mapping code paths, entrypoints, and likely hot files before profiling.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/perf-code-paths/SKILL.md",
-      "remote_path": ".kiro/skills/perf-code-paths/SKILL.md",
-      "lines": 33,
-      "words": 106,
-      "code_blocks": 1,
-      "languages": [],
-      "version": "5.1.0"
-    },
-    {
-      "name": "validate-delivery",
-      "description": "\"Use when user asks to \\\"validate delivery\\\", \\\"check readiness\\\", or \\\"verify completion\\\". Runs tests, build, and requirement checks with pass/fail instructions.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/validate-delivery/SKILL.md",
-      "remote_path": ".kiro/skills/validate-delivery/SKILL.md",
-      "lines": 187,
-      "words": 572,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "javascript",
-        "json"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "learn",
-      "description": "\"Research any topic online and create learning guides. Use when user asks to 'learn about', 'research topic', 'create learning guide', 'build knowledge base', or 'study subject'.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/learn/SKILL.md",
-      "remote_path": ".kiro/skills/learn/SKILL.md",
-      "lines": 349,
-      "words": 1107,
-      "code_blocks": 12,
-      "languages": [
-        "javascript",
-        "json",
-        "markdown"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "enhance-hooks",
-      "description": "\"Use when reviewing hooks for safety, timeouts, and correct frontmatter.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/enhance-hooks/SKILL.md",
-      "remote_path": ".kiro/skills/enhance-hooks/SKILL.md",
-      "lines": 555,
-      "words": 1862,
-      "code_blocks": 22,
-      "languages": [
-        "bash",
-        "javascript",
-        "json",
-        "markdown",
-        "yaml"
-      ],
-      "version": "5.1.0"
-    },
-    {
-      "name": "enhance-skills",
-      "description": "\"Use when reviewing SKILL.md files for structure and trigger quality.\"",
-      "path": "avifenesh--agentsys/.kiro/skills/enhance-skills/SKILL.md",
-      "remote_path": ".kiro/skills/enhance-skills/SKILL.md",
-      "lines": 437,
-      "words": 1458,
-      "code_blocks": 19,
-      "languages": [
-        "markdown",
-        "yaml"
-      ],
-      "version": "5.1.0"
     },
     {
       "name": "complete-agent",
@@ -23872,7 +23496,7 @@
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
       "lines": 238,
-      "words": 3933,
+      "words": 4071,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -157242,9 +156866,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 108,
-      "words": 823,
-      "code_blocks": 2,
+      "lines": 177,
+      "words": 1398,
+      "code_blocks": 3,
       "languages": [
         "bash",
         "json"
@@ -157441,8 +157065,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-sensitive-data-cleanup/SKILL.md",
       "remote_path": "github-sensitive-data-cleanup/SKILL.md",
-      "lines": 431,
-      "words": 2457,
+      "lines": 468,
+      "words": 2934,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -157454,9 +157078,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/terraform-skill/SKILL.md",
       "remote_path": "terraform-skill/SKILL.md",
-      "lines": 363,
-      "words": 2619,
-      "code_blocks": 16,
+      "lines": 367,
+      "words": 2673,
+      "code_blocks": 15,
       "languages": [
         "bash",
         "caddy",
@@ -157509,7 +157133,7 @@
       "path": "daymade--claude-code-skills/github-ops/SKILL.md",
       "remote_path": "github-ops/SKILL.md",
       "lines": 256,
-      "words": 2008,
+      "words": 2013,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -157567,8 +157191,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/setup-notifications-via-wecom/SKILL.md",
       "remote_path": "setup-notifications-via-wecom/SKILL.md",
-      "lines": 289,
-      "words": 1633,
+      "lines": 304,
+      "words": 1777,
       "code_blocks": 15,
       "languages": [
         "bash"
@@ -157819,6 +157443,18 @@
       ]
     },
     {
+      "name": "automatic-ghostty-snapshots",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/ghostty-use/references/automatic-snapshots.md",
+      "remote_path": "ghostty-use/references/automatic-snapshots.md",
+      "lines": 139,
+      "words": 1075,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "developing-ios-apps",
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/developing-ios-apps/SKILL.md",
@@ -157885,8 +157521,8 @@
       "description": "Check cold, warm and incremental work before deploying or integrating a periodic health observer.",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/references/probe-cost.md",
       "remote_path": "daymade-macos/macos-watchdog/references/probe-cost.md",
-      "lines": 54,
-      "words": 455,
+      "lines": 70,
+      "words": 585,
       "code_blocks": 0,
       "languages": []
     },
@@ -157992,8 +157628,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/continue-codex-work/SKILL.md",
       "remote_path": "daymade-claude-code/continue-codex-work/SKILL.md",
-      "lines": 104,
-      "words": 841,
+      "lines": 116,
+      "words": 980,
       "code_blocks": 0,
       "languages": []
     },
@@ -158178,9 +157814,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 493,
-      "words": 5460,
-      "code_blocks": 11,
+      "lines": 545,
+      "words": 5995,
+      "code_blocks": 13,
       "languages": [
         "bash",
         "json"
@@ -158611,8 +158247,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/docs-cleaner/SKILL.md",
       "remote_path": "daymade-docs/docs-cleaner/SKILL.md",
-      "lines": 814,
-      "words": 8189,
+      "lines": 779,
+      "words": 7682,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -158635,11 +158271,12 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/references/html-conversion.md",
       "remote_path": "daymade-docs/doc-to-markdown/references/html-conversion.md",
-      "lines": 105,
-      "words": 819,
-      "code_blocks": 2,
+      "lines": 171,
+      "words": 1283,
+      "code_blocks": 4,
       "languages": [
-        "bash"
+        "bash",
+        "json"
       ]
     },
     {
@@ -158647,8 +158284,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/references/obsidian-link-examples.md",
       "remote_path": "daymade-docs/doc-to-markdown/references/obsidian-link-examples.md",
-      "lines": 65,
-      "words": 514,
+      "lines": 89,
+      "words": 712,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -158659,8 +158296,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/references/markdown-reader-handoff.md",
       "remote_path": "frontend-visual-qa/references/markdown-reader-handoff.md",
-      "lines": 75,
-      "words": 601,
+      "lines": 81,
+      "words": 650,
       "code_blocks": 0,
       "languages": []
     },
@@ -158669,8 +158306,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/references/markdown-reader-pilot.md",
       "remote_path": "frontend-visual-qa/references/markdown-reader-pilot.md",
-      "lines": 102,
-      "words": 754,
+      "lines": 111,
+      "words": 842,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -158696,6 +158333,18 @@
       "code_blocks": 1,
       "languages": [
         "bash"
+      ]
+    },
+    {
+      "name": "sls-recurring-notifications",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/setup-notifications-via-wecom/references/sls-recurring-notifications.md",
+      "remote_path": "setup-notifications-via-wecom/references/sls-recurring-notifications.md",
+      "lines": 79,
+      "words": 532,
+      "code_blocks": 1,
+      "languages": [
+        "jinja"
       ]
     },
     {
@@ -158742,8 +158391,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1954,
-      "words": 33185,
+      "lines": 1959,
+      "words": 33217,
       "code_blocks": 54,
       "languages": [
         "bash",
@@ -158787,6 +158436,18 @@
       "languages": [
         "bash",
         "json"
+      ]
+    },
+    {
+      "name": "fixed-command-entry",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/fixed-command-entry.md",
+      "remote_path": "daymade-skill/skill-creator/references/fixed-command-entry.md",
+      "lines": 50,
+      "words": 309,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -179188,8 +178849,8 @@
       "description": "Structured spec-driven development workflow. Load this skill whenever starting a new feature, building a system from scratch, requirements are unclear, or a user asks to \"plan\", \"spec out\", \"design\", ",
       "path": "shaunburdick--skills/skills/spec-driven-development/SKILL.md",
       "remote_path": "skills/spec-driven-development/SKILL.md",
-      "lines": 314,
-      "words": 2265,
+      "lines": 318,
+      "words": 2318,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -179258,7 +178919,7 @@
       "path": "shaunburdick--skills/skills/git-safety/SKILL.md",
       "remote_path": "skills/git-safety/SKILL.md",
       "lines": 370,
-      "words": 1973,
+      "words": 1972,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -179271,8 +178932,8 @@
       "description": "\"Enforces non-negotiable code quality standards for AI coding agents. Covers linting rules (no suppressions \u2014 ever), type safety (no `any` in TypeScript, no `# type: ignore` in Python), tooling discip",
       "path": "shaunburdick--skills/skills/code-quality/SKILL.md",
       "remote_path": "skills/code-quality/SKILL.md",
-      "lines": 176,
-      "words": 1261,
+      "lines": 200,
+      "words": 1515,
       "code_blocks": 2,
       "languages": [
         "python",

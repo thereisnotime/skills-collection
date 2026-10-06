@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { createHash } = require('crypto');
 const { getClaudeDir, getConfigDir } = require('./ponytail-config');
 
 const STATE_FILE = '.ponytail-active';
@@ -30,9 +31,6 @@ const isCodeBuddy = !isCopilot && !isCodex && !isQoder && Boolean(process.env.CO
 // hooks next to CLAUDE_PLUGIN_ROOT, and it needs Cursor-shaped JSON either
 // way, so this check comes after the hosts with their own data dirs.
 const isCursor = !isCopilot && !isCodex && !isQoder && !isCodeBuddy && Boolean(process.env.CURSOR_VERSION);
-// ZCode injects ZCODE_APP_VERSION into every child process, hooks included.
-const isZcode = !isCopilot && !isCodex && !isQoder && !isCursor &&
-  Boolean(process.env.ZCODE_APP_VERSION);
 
 let stateDir = getClaudeDir();
 if (isCodex) stateDir = process.env.PLUGIN_DATA;
@@ -51,8 +49,11 @@ const statePath = path.join(stateDir, STATE_FILE);
 // ponytail: sessions in the SAME repo still share one mode, and the statusline
 // scripts read the shared flag (last write wins); key by session_id if either matters.
 const projectDir = (process.env.CLAUDE_PROJECT_DIR || '').trim();
+// Replacing separators with '_' aliases e.g. /work/a/b and /work/a_b (#662).
+// Do not read old sanitized keys: they cannot be assigned to one project safely.
 const projectStatePath = projectDir
-  ? path.join(stateDir, 'ponytail-modes', projectDir.replace(/[^A-Za-z0-9._-]/g, '_'))
+  ? path.join(stateDir, 'ponytail-modes',
+    createHash('sha256').update(path.normalize(projectDir)).digest('hex'))
   : null;
 
 // The shared flag is still written, for the statusline and project-less hosts.
@@ -124,13 +125,9 @@ function writeHookOutput(event, mode, context = '') {
     process.stdout.write(JSON.stringify(output));
     return;
   }
-  if (isQoder || isZcode || isCodeBuddy) {
+  if (isQoder || isCodeBuddy) {
     // Qoder: hookSpecificOutput JSON, same shape as Codex minus systemMessage.
     // UserPromptSubmit additionalContext is injected into the Agent's conversation.
-    // ZCode parses hook stdout as strict JSON too — raw text fails validation
-    // and is silently discarded (#798). Unlike Qoder it has SessionStart, so
-    // activate.js handles startup injection and only the output shape differs
-    // from Claude Code.
     // CodeBuddy would take raw stdout too, but also echoes it into the chat.
     const output = {};
     if (context) {
@@ -173,7 +170,6 @@ module.exports = {
   isCopilot,
   isCursor,
   isQoder,
-  isZcode,
   readMode,
   setMode,
   writeHookOutput,

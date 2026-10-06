@@ -270,11 +270,39 @@ function loadMarketplace() {
  * - string URL/path (legacy)
  * - object: { source: "url", url: "..." } (current)
  * - object: { source: "path", path: "..." } (local/bundled)
+ * - object: { source: "git-subdir", url: "...", path: "..." } (a plugin in a
+ *   folder of its repo, as Claude Code reads it; `url` may be owner/repo)
+ *
+ * A remote object source keeps its commit and `ref` pins, so the fetch
+ * downloads exactly what the marketplace pins. The commit pin is `sha`, the
+ * key Claude Code installs from, or `commit` when there is no `sha`. A
+ * git-subdir source also keeps its `path`, the plugin's folder in the repo.
  *
  * @param {string|Object} source
- * @returns {{type: 'remote'|'local', value: string}|null}
+ * @returns {{type: 'remote'|'local', value: string, commit?: string, ref?: string, path?: string}|null}
  */
 function resolvePluginSource(source) {
+  const normalized = normalizePluginSource(source);
+  if (!normalized || normalized.type !== 'remote' || !source || typeof source !== 'object') {
+    return normalized;
+  }
+  const pin = (value) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+  const commit = pin(source.sha) || pin(source.commit);
+  if (commit) normalized.commit = commit;
+  const ref = pin(source.ref);
+  if (ref) normalized.ref = ref;
+  if (isGitSubdirSource(source) && source.path.trim()) {
+    normalized.path = source.path.trim();
+  }
+  return normalized;
+}
+
+function isGitSubdirSource(source) {
+  return typeof source.source === 'string' && source.source.toLowerCase() === 'git-subdir' &&
+    typeof source.url === 'string' && typeof source.path === 'string';
+}
+
+function normalizePluginSource(source) {
   if (typeof source === 'string') {
     const value = source.trim();
     if (!value) return null;
@@ -294,6 +322,13 @@ function resolvePluginSource(source) {
 
   if (sourceType === 'url' && typeof source.url === 'string') {
     return { type: 'remote', value: source.url };
+  }
+
+  // Checked before the fallbacks: its `path` is a folder in the repo, not a local plugin
+  if (isGitSubdirSource(source)) {
+    const url = source.url.trim();
+    const shorthand = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(url);
+    return { type: 'remote', value: shorthand ? `https://github.com/${url}` : url };
   }
 
   // Backward/forward-compatible fallbacks
@@ -368,66 +403,253 @@ function resolvePluginDeps(names, marketplace) {
 }
 
 /**
+ * Read a marker file (`.version`, `.ref`, `.commit`) from a cached plugin.
+ *
+ * @param {string} pluginDir
+ * @param {string} marker
+ * @returns {string|null}
+ */
+function readPluginMarker(pluginDir, marker) {
+  try {
+    return fs.readFileSync(path.join(pluginDir, marker), 'utf8').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Commit the cached copy of a plugin was fetched at.
+ *
+ * @param {string} name - Plugin name
+ * @returns {string|null}
+ */
+function readCachedCommit(name) {
+  return readPluginMarker(path.join(getPluginCacheDir(), name), '.commit');
+}
+
+// A pin is a full SHA and must equal the commit the archive or cache names.
+function sameCommit(resolved, pinned) {
+  return Boolean(resolved && pinned) && resolved.toLowerCase() === pinned.toLowerCase();
+}
+
+const COMMIT_PIN = /^[0-9a-f]{40}$/i;
+
+/**
+ * Refs to request, in order, for one plugin fetch.
+ *
+ * A marketplace `commit` pin is fetched exactly, then a `ref` pin, then a
+ * `#ref` in the source URL. Only an entry with none of them tries
+ * `v<version>`, `<version>`, `main` and `master`.
+ *
+ * @param {{ref: string, explicitRef: boolean}} parsedSource - From parseGitHubSource
+ * @param {string} version
+ * @param {{commit?: string, ref?: string}} [pin]
+ * @returns {{refs: string[], exact: boolean}} exact: a 404 is final, no fallback
+ */
+function pluginFetchRefs(parsedSource, version, pin = {}) {
+  if (pin.commit) return { refs: [pin.commit], exact: true };
+  if (pin.ref) return { refs: [pin.ref], exact: true };
+  if (parsedSource.explicitRef) return { refs: [parsedSource.ref], exact: true };
+  return { refs: [...new Set([parsedSource.ref, version, 'main', 'master'].filter(Boolean))], exact: false };
+}
+
+/**
+ * Whether the cached copy of a plugin is what this fetch would download.
+ * A commit pin needs a matching `.commit` and a ref pin a matching `.ref`, so
+ * a cache written before pins were honored is fetched again. A plugin in a
+ * repo folder needs a matching `.path`; one at the repo root has none.
+ */
+function isPluginCacheCurrent(pluginDir, version, pin = {}, subdir = null) {
+  if (readPluginMarker(pluginDir, '.version') !== version) return false;
+  if (readPluginMarker(pluginDir, '.path') !== subdir) return false;
+  if (pin.commit) return sameCommit(readPluginMarker(pluginDir, '.commit'), pin.commit);
+  if (pin.ref) return readPluginMarker(pluginDir, '.ref') === pin.ref;
+  return true;
+}
+
+/**
+ * The plugin's folder in its repo, from a git-subdir source's `path`, as a
+ * '/'-separated relative path, or null for the repo root.
+ *
+ * @param {string} name - Plugin name
+ * @param {string} [subdir]
+ * @returns {string|null}
+ */
+function pluginSubdir(name, subdir) {
+  if (!subdir) return null;
+  const parts = subdir.replace(/\\/g, '/').split('/').filter(part => part && part !== '.');
+  if (/^([/\\]|[A-Za-z]:)/.test(subdir) || parts.includes('..')) {
+    throw new Error(`Invalid plugin path for ${name}: ${subdir} (a path is a folder inside the repo)`);
+  }
+  return parts.length > 0 ? parts.join('/') : null;
+}
+
+/**
+ * Give a plugin that ships no `.claude-plugin/plugin.json` one made from its
+ * marketplace entry.
+ *
+ * Claude Code installs such a plugin from the entry and loads commands/,
+ * agents/ and skills/ from the plugin root (can-i-help and onboard at their
+ * pins). Discovery for
+ * OpenCode, Codex, Cursor and Kiro lists only directories with a plugin.json,
+ * so without one they got nothing from the plugin. A shipped plugin.json is
+ * left as it is; a `.claude-plugin` or `plugin.json` that is a symlink is an
+ * error, since reading or writing through it could reach outside the plugin.
+ *
+ * @param {string} pluginDir - The plugin root in the cache or staging dir
+ * @param {string} name - Marketplace name
+ * @param {string} version
+ * @param {string} [description] - Marketplace description
+ */
+function ensurePluginManifest(pluginDir, name, version, description) {
+  const manifestDir = path.join(pluginDir, '.claude-plugin');
+  const manifestPath = path.join(manifestDir, 'plugin.json');
+  // Check for symlinks before anything follows them: the archive could point either one
+  // out of the plugin, and a manifest found there must not be read or written
+  for (const [target, rel] of [[manifestDir, '.claude-plugin'], [manifestPath, '.claude-plugin/plugin.json']]) {
+    let stat = null;
+    try {
+      stat = fs.lstatSync(target);
+    } catch {
+      continue;
+    }
+    if (stat.isSymbolicLink() || (target === manifestDir && !stat.isDirectory())) {
+      throw new Error(`Not using a plugin.json for ${name}: ${rel} is ${stat.isSymbolicLink() ? 'a symlink' : 'not a directory'}`);
+    }
+  }
+  if (fs.existsSync(manifestPath)) return;
+  const manifest = { name, version };
+  if (description) manifest.description = description;
+  fs.mkdirSync(manifestDir, { recursive: true });
+  // 'wx' fails instead of following a symlink created since the check
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx' });
+}
+
+/**
  * Download a GitHub repo tarball and extract to cache directory.
+ *
+ * Next to the plugin files it writes `.ref` (the ref requested), `.commit`
+ * (the commit the archive was built from), `.version` and, for a plugin in a
+ * repo folder, `.path`, so a reinstall at the same pin reuses the cache.
+ *
+ * The cache holds what Claude Code installs for the marketplace entry: the
+ * `listing.path` folder of the repo when the source names one, else the repo
+ * root, with a plugin.json from the entry when the plugin ships none
+ * (ensurePluginManifest).
  *
  * @param {string} name - Plugin name
  * @param {string} source - GitHub source URL (e.g. "github:agent-sh/agentsys-plugin-next-task")
  * @param {string} version - Expected version string
+ * @param {{commit?: string, ref?: string}} [pin] - Marketplace pins from resolvePluginSource
+ * @param {{path?: string, description?: string}} [listing] - From the marketplace
+ *   entry: the plugin's folder in the repo (resolvePluginSource) and its description
  * @returns {Promise<string>} Path to extracted plugin directory
  */
-// TODO(agentsys-security): this local dev installer currently honors only
-// `source.url` + `plugin.version` and ignores `source.ref` / `source.commit`
-// from marketplace.json. Claude Code's plugin installer (the primary install
-// path for end users) DOES honor `ref` and `commit` per the marketplace
-// schema, so the pins added by scripts/pin-marketplace.js are authoritative
-// for real users. This dev CLI should be updated to prefer `source.commit`
-// (then `source.ref`, then `plugin.version`) when resolving the fetch ref,
-// so local dev gets the same supply-chain guarantees as production installs.
-// Tracked as a follow-up; not fixed in PR #347 to keep that PR scoped.
-async function fetchPlugin(name, source, version) {
+async function fetchPlugin(name, source, version, pin = {}, listing = {}) {
   const cacheDir = getPluginCacheDir();
   const pluginDir = path.join(cacheDir, name);
-  const versionFile = path.join(pluginDir, '.version');
 
-  // Check cache
-  if (fs.existsSync(versionFile)) {
-    const cached = fs.readFileSync(versionFile, 'utf8').trim();
-    if (cached === version) {
-      return pluginDir;
-    }
+  if (pin.commit && !COMMIT_PIN.test(pin.commit)) {
+    throw new Error(`Invalid commit pin for ${name}: ${pin.commit} (a pin is a full 40-character commit SHA)`);
+  }
+  const subdir = pluginSubdir(name, listing.path);
+
+  if (isPluginCacheCurrent(pluginDir, version, pin, subdir)) {
+    // a cache from before the installer wrote missing manifests gets one now
+    ensurePluginManifest(pluginDir, name, version, listing.description);
+    return pluginDir;
   }
 
   const parsedSource = parseGitHubSource(source, version, name);
   const owner = parsedSource.owner;
   const repo = parsedSource.repo;
+  const { refs, exact } = pluginFetchRefs(parsedSource, version, pin);
 
-  const refCandidates = parsedSource.explicitRef
-    ? [parsedSource.ref]
-    : [parsedSource.ref, version, 'main', 'master'];
+  // The archive is extracted beside the cache, outside the plugins/ dir that
+  // discovery scans, and moves into place only once it is complete and its
+  // commit checks out. A failed fetch leaves no tree behind to be installed.
+  const stagingDir = path.join(path.dirname(cacheDir), `.fetch-${name}`);
 
   let lastError = null;
-  for (const ref of [...new Set(refCandidates.filter(Boolean))]) {
+  for (const ref of refs) {
     const tarballUrl = `https://api.github.com/repos/${owner}/${repo}/tarball/${ref}`;
 
     try {
       console.log(`  Fetching ${name}@${version} from ${owner}/${repo} (${ref})...`);
 
-      // Clean and recreate
-      if (fs.existsSync(pluginDir)) {
-        fs.rmSync(pluginDir, { recursive: true, force: true });
+      fs.rmSync(pluginDir, { recursive: true, force: true });
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+      fs.mkdirSync(stagingDir, { recursive: true });
+
+      const archiveCommit = await downloadAndExtractTarball(tarballUrl, stagingDir);
+      // A pinned fetch is cached only when the archive names the pinned commit
+      if (pin.commit && !sameCommit(archiveCommit, pin.commit)) {
+        throw new Error(archiveCommit
+          ? `${owner}/${repo} returned commit ${archiveCommit} for pinned commit ${pin.commit}`
+          : `${owner}/${repo} archive for pinned commit ${pin.commit} does not name its commit`);
       }
-      fs.mkdirSync(pluginDir, { recursive: true });
 
-      // Download and extract tarball
-      await downloadAndExtractTarball(tarballUrl, pluginDir);
+      // The plugin root: the source's repo folder, when it names one
+      const rootDir = subdir ? path.join(stagingDir, ...subdir.split('/')) : stagingDir;
+      let rootStat = null;
+      try {
+        rootStat = fs.lstatSync(rootDir);
+      } catch {
+        // reported below
+      }
+      if (rootStat && rootStat.isSymbolicLink()) {
+        throw new Error(`${owner}/${repo} at ${ref}: folder ${subdir} is a symlink`);
+      }
+      if (!rootStat || !rootStat.isDirectory()) {
+        throw new Error(`${owner}/${repo} at ${ref} has no folder ${subdir}`);
+      }
+      // A symlinked folder on the way could lead out of the archive
+      const fromStaging = path.relative(fs.realpathSync(stagingDir), fs.realpathSync(rootDir));
+      if (fromStaging === '..' || fromStaging.startsWith(`..${path.sep}`) || path.isAbsolute(fromStaging)) {
+        throw new Error(`${owner}/${repo} at ${ref}: folder ${subdir} leads out of the repo`);
+      }
 
-      // Write version marker
-      fs.writeFileSync(versionFile, version);
+      // The markers describe this fetch. A file of the same name shipped in
+      // the archive is removed first, so the cache check never trusts it.
+      for (const marker of ['.ref', '.commit', '.version', '.path']) {
+        fs.rmSync(path.join(rootDir, marker), { recursive: true, force: true });
+      }
+      fs.writeFileSync(path.join(rootDir, '.ref'), ref);
+      if (archiveCommit) {
+        fs.writeFileSync(path.join(rootDir, '.commit'), archiveCommit.toLowerCase());
+      }
+      fs.writeFileSync(path.join(rootDir, '.version'), version);
+      if (subdir) {
+        fs.writeFileSync(path.join(rootDir, '.path'), subdir);
+      }
+      ensurePluginManifest(rootDir, name, version, listing.description);
+
+      fs.mkdirSync(cacheDir, { recursive: true });
+      try {
+        fs.renameSync(rootDir, pluginDir);
+      } catch {
+        // Windows can refuse to rename a tree a virus scanner holds open
+        fs.cpSync(rootDir, pluginDir, { recursive: true, verbatimSymlinks: true });
+      }
+      // What is left: the staging dir after a copy, or the repo around a plugin folder
+      try {
+        fs.rmSync(stagingDir, { recursive: true, force: true });
+      } catch {
+        // the cache is complete; a leftover staging dir is replaced on the next fetch
+      }
       return pluginDir;
     } catch (err) {
+      // remove the plugin dir first: a partial tree there would pass the cache check
+      for (const dir of [pluginDir, stagingDir]) {
+        try {
+          fs.rmSync(dir, { recursive: true, force: true });
+        } catch {
+          // keep going; the other dir still gets removed
+        }
+      }
       lastError = err;
       const isNotFound = /HTTP 404/.test(err.message);
-      if (isNotFound && !parsedSource.explicitRef) {
+      if (isNotFound && !exact) {
         continue;
       }
       throw err;
@@ -435,7 +657,7 @@ async function fetchPlugin(name, source, version) {
   }
 
   throw new Error(
-    `Unable to fetch ${name} from ${owner}/${repo}. Tried refs: ${[...new Set(refCandidates.filter(Boolean))].join(', ')}. Last error: ${lastError ? lastError.message : 'unknown error'}`
+    `Unable to fetch ${name} from ${owner}/${repo}. Tried refs: ${refs.join(', ')}. Last error: ${lastError ? lastError.message : 'unknown error'}`
   );
 }
 
@@ -465,9 +687,31 @@ function parseGitHubSource(source, version, name = 'plugin') {
   return { owner, repo, ref, explicitRef };
 }
 
+// Uncompressed bytes kept from the start of a tarball to find its commit.
+const TAR_HEAD_BYTES = 4096;
+
+/**
+ * Commit id from the pax global header that `git archive`, and so GitHub's
+ * tarball endpoint, writes as the first entry of an archive.
+ *
+ * @param {Buffer} head - Start of the uncompressed tar stream
+ * @returns {string|null} Full commit SHA, or null when there is no such header
+ */
+function archiveCommitFromTarHead(head) {
+  // typeflag 'g' at offset 156 marks a pax global header
+  if (!head || head.length < 512 || head[156] !== 0x67) return null;
+  const size = parseInt(head.toString('latin1', 124, 136), 8);
+  if (!Number.isFinite(size) || size <= 0) return null;
+  const records = head.toString('latin1', 512, Math.min(head.length, 512 + size));
+  const match = records.match(/(?:^|\n)\d+ comment=([0-9a-f]{40})\n/);
+  return match ? match[1] : null;
+}
+
 /**
  * Download a tarball from URL and extract to dest directory.
  * Strips the top-level directory from the tarball (GitHub tarballs have owner-repo-sha/).
+ *
+ * @returns {Promise<string|null>} Commit the archive was built from, when it says
  */
 function downloadAndExtractTarball(url, dest) {
   return new Promise((resolve, reject) => {
@@ -506,14 +750,49 @@ function downloadAndExtractTarball(url, dest) {
 
         let stderr = '';
         tar.stderr.on('data', (d) => { stderr += d; });
+        // EPIPE or EOF on tar's stdin means tar stopped early; its exit code reports the failure
+        tar.stdin.on('error', () => {});
 
+        // Decompress only the start of the stream, beside tar, to read the
+        // commit from the archive's pax header.
+        const gunzip = createGunzip();
+        let head = Buffer.alloc(0);
+        let headDone = false;
+        let tarDone = false;
+        const settle = () => {
+          if (headDone && tarDone) resolve(archiveCommitFromTarHead(head));
+        };
+        const finishHead = () => {
+          if (headDone) return;
+          headDone = true;
+          res.unpipe(gunzip);
+          gunzip.destroy();
+          settle();
+        };
+        gunzip.on('data', (chunk) => {
+          if (headDone) return;
+          head = Buffer.concat([head, chunk]);
+          if (head.length >= TAR_HEAD_BYTES) finishHead();
+        });
+        gunzip.on('end', finishHead);
+        gunzip.on('error', finishHead);
+
+        res.on('error', (err) => {
+          reject(err);
+          res.unpipe(tar.stdin);
+          res.unpipe(gunzip);
+          tar.kill();
+        });
         res.pipe(tar.stdin);
+        res.pipe(gunzip);
 
         tar.on('close', (code) => {
           if (code !== 0) {
+            finishHead();
             reject(new Error(`tar extraction failed (code ${code}): ${stderr}`));
           } else {
-            resolve();
+            tarDone = true;
+            settle();
           }
         });
 
@@ -591,7 +870,8 @@ async function fetchExternalPlugins(pluginNames, marketplace) {
     }
 
     try {
-      await fetchPlugin(name, source.value, plugin.version);
+      await fetchPlugin(name, source.value, plugin.version, { commit: source.commit, ref: source.ref },
+        { path: source.path, description: plugin.description });
       fetched.push(name);
     } catch (err) {
       failed.push(name);
@@ -825,7 +1105,7 @@ function recordedPlatforms(platforms, claudeFailures, depName, recordedBefore) {
   return platforms.filter(platform => platform !== 'claude');
 }
 
-function recordInstall(name, version, platforms, granular) {
+function recordInstall(name, version, platforms, granular, commit) {
   const data = loadInstalledJson();
   const entry = {
     version,
@@ -833,6 +1113,7 @@ function recordInstall(name, version, platforms, granular) {
     platforms,
     scope: 'full'
   };
+  if (commit) entry.commit = commit;
   if (granular && granular.scope === 'partial') {
     entry.scope = 'partial';
     entry.agents = granular.agents || [];
@@ -1052,23 +1333,6 @@ async function installPlugin(nameWithVersion, args) {
   const toFetch = resolvePluginDeps([name], marketplace);
   console.log(`\nInstalling ${name} (+ deps: ${toFetch.filter(n => n !== name).join(', ') || 'none'})\n`);
 
-  // Fetch all
-  for (const depName of toFetch) {
-    const dep = pluginMap[depName];
-    if (!dep) continue;
-
-    const source = resolvePluginSource(dep.source);
-    if (!source || source.type === 'local') continue;
-
-    checkCoreCompat(dep);
-    const ver = depName === name && requestedVersion ? requestedVersion : dep.version;
-    try {
-      await fetchPlugin(depName, source.value, ver);
-    } catch (err) {
-      console.error(`  [ERROR] Failed to fetch ${depName}: ${err.message}`);
-    }
-  }
-
   // Determine platforms
   let platforms;
   if (args.tool) {
@@ -1081,6 +1345,49 @@ async function installPlugin(nameWithVersion, args) {
   }
 
   console.log(`Installing for platforms: ${platforms.join(', ')}`);
+
+  // Set up ~/.agentsys before fetching: a first local install replaces the
+  // whole directory, plugin cache included.
+  const installDir = getInstallDir();
+  const needsLocal = platforms.includes('opencode') || platforms.includes('codex') || platforms.includes('cursor') || platforms.includes('kiro');
+  if (needsLocal && !fs.existsSync(path.join(installDir, 'lib'))) {
+    // Need local install for transforms. Copy over what is there: removing
+    // ~/.agentsys first would drop installed.json and the other plugins' records.
+    copyFromPackage(installDir);
+  }
+
+  // Fetch all
+  const failedFetches = [];
+  for (const depName of toFetch) {
+    const dep = pluginMap[depName];
+    if (!dep) continue;
+
+    const source = resolvePluginSource(dep.source);
+    if (!source || source.type === 'local') continue;
+
+    checkCoreCompat(dep);
+    const ver = depName === name && requestedVersion ? requestedVersion : dep.version;
+    // The marketplace pins belong to the marketplace version; another
+    // requested version is fetched without them.
+    let pin = { commit: source.commit, ref: source.ref };
+    if (ver !== dep.version) {
+      if (pin.commit || pin.ref) {
+        console.log(`  [WARN] ${depName}@${ver} is not the marketplace version (${dep.version}), so its pin does not apply`);
+      }
+      pin = {};
+    }
+    try {
+      await fetchPlugin(depName, source.value, ver, pin, { path: source.path, description: dep.description });
+    } catch (err) {
+      failedFetches.push(depName);
+      console.error(`  [ERROR] Failed to fetch ${depName}: ${err.message}`);
+    }
+  }
+  // Installing or recording a plugin that did not arrive would report an
+  // install that never happened.
+  if (failedFetches.length > 0) {
+    throw new Error(`Not installing ${name}: failed to fetch ${failedFetches.join(', ')}`);
+  }
 
   // Resolve component filter if a specific component was requested
   let filter = null;
@@ -1107,15 +1414,6 @@ async function installPlugin(nameWithVersion, args) {
     }
     filter = buildFilterFromComponent(resolved);
     console.log(`  Installing ${resolved.type}: ${resolved.name}`);
-  }
-
-  // Use cache as install source
-  const installDir = getInstallDir();
-  const needsLocal = platforms.includes('opencode') || platforms.includes('codex') || platforms.includes('cursor') || platforms.includes('kiro');
-  if (needsLocal && !fs.existsSync(path.join(installDir, 'lib'))) {
-    // Need local install for transforms
-    cleanOldInstallation(installDir);
-    copyFromPackage(installDir);
   }
 
   // depName -> errno, or null when Claude Code itself rejected the plugin
@@ -1178,15 +1476,16 @@ async function installPlugin(nameWithVersion, args) {
     const ver = depName === name && requestedVersion ? requestedVersion : (dep ? dep.version : 'unknown');
     const previous = recordedBefore[depName] && recordedBefore[depName].platforms;
     const recorded = recordedPlatforms(platforms, claudeFailures, depName, previous);
+    const commit = readCachedCommit(depName);
     if (depName === name && filter) {
       recordInstall(depName, ver, recorded, {
         scope: 'partial',
         agents: filter.agents,
         skills: filter.skills,
         commands: filter.commands
-      });
+      }, commit);
     } else {
-      recordInstall(depName, ver, recorded);
+      recordInstall(depName, ver, recorded, null, commit);
     }
   }
 
@@ -1577,7 +1876,7 @@ function installForOpenCode(installDir, options = {}) {
     console.log(`  [OK] Installed lib to ${libDestDir}`);
   }
 
-  // Install skills to the OpenCode global skills directory (~/.config/opencode/skills/<skill-name>/SKILL.md)
+  // Install skills to the OpenCode global skills directory (~/.config/opencode/skills/<skill-name>/)
   const skillsDestDir = path.join(opencodeConfigDir, 'skills');
   fs.mkdirSync(skillsDestDir, { recursive: true });
   console.log('  Installing skills...');
@@ -1594,14 +1893,13 @@ function installForOpenCode(installDir, options = {}) {
         if (filter && filter.skills.length > 0) {
           if (!filter.skills.includes(skillName)) continue;
         }
-        const srcSkillPath = path.join(srcSkillsDir, skillName, 'SKILL.md');
-        if (fs.existsSync(srcSkillPath)) {
-          const destSkillDir = path.join(skillsDestDir, skillName);
-          fs.mkdirSync(destSkillDir, { recursive: true });
-          let content = fs.readFileSync(srcSkillPath, 'utf8');
-          content = transforms.transformSkillBodyForOpenCode(content, installDir);
-          fs.writeFileSync(path.join(destSkillDir, 'SKILL.md'), content);
-          skillCount++;
+        const srcSkillDir = path.join(srcSkillsDir, skillName);
+        if (fs.existsSync(path.join(srcSkillDir, 'SKILL.md'))) {
+          const pluginInstallPath = path.join(installDir, 'plugins', pluginName);
+          if (installSkillDir(srcSkillDir, path.join(skillsDestDir, skillName), pluginInstallPath,
+            (content) => transforms.transformSkillBodyForOpenCode(content, installDir, { pluginInstallPath }))) {
+            skillCount++;
+          }
         }
       }
     }
@@ -1643,11 +1941,13 @@ function installForCodex(installDir, options = {}) {
     }
   }
 
-  // Remove old/deprecated skills
+  // Remove old/deprecated skills. agentsys wrote each as one SKILL.md, so only
+  // a marked directory or one holding nothing but SKILL.md goes; anything else
+  // may be the user's.
   const oldSkillDirs = ['deslop', 'review', 'drift-detect-set', 'pr-merge'];
   for (const dir of oldSkillDirs) {
     const oldPath = path.join(skillsDir, dir);
-    if (fs.existsSync(oldPath)) {
+    if (isReplaceableSkillDir(oldPath, COMMAND_SKILL_FILES)) {
       fs.rmSync(oldPath, { recursive: true, force: true });
       console.log(`  Removed deprecated skill: ${dir}`);
     }
@@ -1661,6 +1961,12 @@ function installForCodex(installDir, options = {}) {
     if (filter && filter.commands.length > 0) {
       if (!filter.commands.includes(skillName)) continue;
     }
+    // The name becomes a directory under skillsDir; `.` or `..` would be
+    // skillsDir itself or its parent.
+    if (!/^[a-zA-Z0-9_-]+$/.test(skillName)) {
+      console.log(`  [WARN] Skipping skill ${skillName}: a skill name may hold only letters, digits, - and _`);
+      continue;
+    }
     if (!description) {
       console.log(`  [WARN] Skipping skill ${skillName}: missing description`);
       continue;
@@ -1670,15 +1976,11 @@ function installForCodex(installDir, options = {}) {
     const destPath = path.join(skillDir, 'SKILL.md');
 
     if (fs.existsSync(srcPath)) {
-      if (fs.existsSync(skillDir)) {
-        fs.rmSync(skillDir, { recursive: true, force: true });
-      }
-      // Create skill directory
-      fs.mkdirSync(skillDir, { recursive: true });
+      const pluginInstallPath = path.join(installDir, 'plugins', plugin);
+      if (!claimSkillDir(skillDir, pluginInstallPath, COMMAND_SKILL_FILES)) continue;
 
       // Read source file and transform using shared transforms
       let content = fs.readFileSync(srcPath, 'utf8');
-      const pluginInstallPath = path.join(installDir, 'plugins', plugin);
       content = transforms.transformForCodex(content, {
         skillName,
         description,
@@ -1687,6 +1989,32 @@ function installForCodex(installDir, options = {}) {
 
       fs.writeFileSync(destPath, content);
       console.log(`  [OK] Installed skill: ${skillName}`);
+    }
+  }
+
+  // Install plugin skills as whole directories. A command keeps its skill
+  // name, so `$deslop` stays the deslop command; the deslop plugin skill stays
+  // in the plugin's install directory.
+  const commandSkillNames = new Set(skillMappings.map(([skillName]) => skillName));
+  for (const skill of discovery.discoverSkills(installDir)) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(skill.name) || commandSkillNames.has(skill.name)) continue;
+    if (filter && !(filter.skills || []).includes(skill.name)) continue;
+    if (!skill.frontmatter.description) {
+      console.log(`  [WARN] Skipping skill ${skill.name}: missing description`);
+      continue;
+    }
+    const pluginInstallPath = path.join(installDir, 'plugins', skill.plugin);
+    // No agentsys release before the marker installed Codex plugin skills, so
+    // an unmarked directory at a plugin skill's name is the user's, whatever
+    // it holds. Only a marked or empty directory is replaced.
+    if (installSkillDir(
+      path.join(installDir, 'plugins', skill.plugin, 'skills', skill.dir),
+      path.join(skillsDir, skill.name),
+      pluginInstallPath,
+      (content) => transforms.transformSkillForCodex(content, { pluginInstallPath }),
+      new Map()
+    )) {
+      console.log(`  [OK] Installed skill: ${skill.name}`);
     }
   }
 
@@ -1725,20 +2053,15 @@ function installForCursor(installDir, options = {}) {
     }
   }
 
-  // Collect known skill names from discovery before cleanup
+  // Collect the known skills from discovery before cleanup
   const pluginDirs = discovery.discoverPlugins(installDir);
-  const knownSkillNames = new Set();
-  for (const pluginName of pluginDirs) {
-    const srcSkillsDir = path.join(installDir, 'plugins', pluginName, 'skills');
-    if (!fs.existsSync(srcSkillsDir)) continue;
-    for (const d of fs.readdirSync(srcSkillsDir, { withFileTypes: true })) {
-      if (d.isDirectory() && /^[a-zA-Z0-9_-]+$/.test(d.name)) knownSkillNames.add(d.name);
-    }
-  }
+  const knownSkills = listKnownSkills(installDir, pluginDirs);
 
-  // Cleanup old agentsys skill dirs (only known names, preserve user-created skills)
+  // Cleanup old agentsys skill dirs: known names that carry the agentsys
+  // marker or hold only files the skill ships. A user's skill is kept.
   for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-    if (entry.isDirectory() && knownSkillNames.has(entry.name)) {
+    const shipped = knownSkills.get(entry.name);
+    if (shipped && isReplaceableSkillDir(path.join(skillsDir, entry.name), shipped)) {
       fs.rmSync(path.join(skillsDir, entry.name), { recursive: true, force: true });
     }
   }
@@ -1752,16 +2075,13 @@ function installForCursor(installDir, options = {}) {
     for (const entry of entries) {
       if (!/^[a-zA-Z0-9_-]+$/.test(entry.name)) continue;
       if (filter && filter.skills && filter.skills.length > 0 && !filter.skills.includes(entry.name)) continue;
-      const srcPath = path.join(srcSkillsDir, entry.name, 'SKILL.md');
-      if (!fs.existsSync(srcPath)) continue;
-      const destDir = path.join(skillsDir, entry.name);
-      fs.mkdirSync(destDir, { recursive: true });
-      let content = fs.readFileSync(srcPath, 'utf8');
-      content = transforms.transformSkillForCursor(content, {
-        pluginInstallPath: path.join(installDir, 'plugins', pluginName)
-      });
-      fs.writeFileSync(path.join(destDir, 'SKILL.md'), content);
-      skillCount++;
+      const srcSkillDir = path.join(srcSkillsDir, entry.name);
+      if (!fs.existsSync(path.join(srcSkillDir, 'SKILL.md'))) continue;
+      const pluginInstallPath = path.join(installDir, 'plugins', pluginName);
+      if (installSkillDir(srcSkillDir, path.join(skillsDir, entry.name), pluginInstallPath,
+        (content) => transforms.transformSkillForCursor(content, { pluginInstallPath }))) {
+        skillCount++;
+      }
     }
   }
 
@@ -1790,6 +2110,244 @@ function installForCursor(installDir, options = {}) {
   console.log(`   Skills: ${skillCount} installed to ${skillsDir}`);
   console.log(`   Commands: ${cmdCount} installed to ${commandsDir}`);
   console.log(`   Global install: ${cursorHome}\n`);
+  return true;
+}
+
+/**
+ * Point relative markdown links that leave a skill directory at the plugin's
+ * install path, and the link text too when it repeats the target. Links inside
+ * the skill directory, URLs, anchors and absolute paths are left alone, and so
+ * is a link that leaves the plugin too.
+ *
+ * @param {string} content - Markdown content of one file in the skill
+ * @param {string} fileDir - Source directory of that file
+ * @param {string} skillDir - Source skill directory (<plugin>/skills/<name>)
+ * @param {string} pluginInstallPath - Where the plugin is installed
+ * @returns {string}
+ */
+function pointEscapingLinksAtPlugin(content, fileDir, skillDir, pluginInstallPath) {
+  const pluginRoot = path.dirname(path.dirname(skillDir));
+  const isOutside = (rel) => rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel);
+  return content.replace(/\[([^\]\n]*)\]\(([^)\s]+)\)/g, (match, text, target) => {
+    if (/^(?:[a-z][a-z0-9+.-]*:|[/\\#$~])/i.test(target)) return match;
+    const hashAt = target.indexOf('#');
+    const file = hashAt === -1 ? target : target.slice(0, hashAt);
+    const anchor = hashAt === -1 ? '' : target.slice(hashAt);
+    const resolved = path.resolve(fileDir, file);
+    if (!isOutside(path.relative(skillDir, resolved))) return match;
+    const fromPlugin = path.relative(pluginRoot, resolved);
+    if (isOutside(fromPlugin)) return match;
+    const installed = `${pluginInstallPath}/${fromPlugin.split(path.sep).join('/')}${anchor}`;
+    return `[${text === target ? installed : text}](${installed})`;
+  });
+}
+
+// Written into every skill directory agentsys installs. A reinstall replaces
+// directories that carry it, and unmarked ones that hold nothing but files an
+// earlier agentsys version wrote there (isLegacyAgentsysSkillDir). Any other
+// directory with the skill's name is left alone. A user's own skill that holds
+// only those files (`SKILL.md` alone, say) cannot be told apart from an
+// earlier install, so it is replaced, except where no earlier version wrote
+// that skill (Codex plugin skills).
+const SKILL_MARKER = '.agentsys-skill';
+
+// A Codex command skill is one generated SKILL.md, and so were the Codex
+// skills agentsys has since renamed or dropped.
+const COMMAND_SKILL_FILES = new Map([['SKILL.md', 'file']]);
+
+/**
+ * Whether `dir` is a skill directory agentsys installed: a real directory (not
+ * a symlink) with the marker file in it.
+ *
+ * @param {string} dir
+ * @returns {boolean}
+ */
+function isAgentsysSkillDir(dir) {
+  try {
+    return fs.lstatSync(dir).isDirectory() && fs.lstatSync(path.join(dir, SKILL_MARKER)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The files and directories installSkillDir copies from a plugin skill
+ * directory, by path relative to it ('/' separated). Symlinks are left out,
+ * as the copy skips them.
+ *
+ * @param {string} srcSkillDir - <plugin>/skills/<name>
+ * @returns {Map<string, 'file'|'dir'>}
+ */
+function listSkillFiles(srcSkillDir) {
+  const shipped = new Map();
+  const walk = (dir, rel) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const entryRel = rel ? `${rel}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        shipped.set(entryRel, 'dir');
+        walk(path.join(dir, entry.name), entryRel);
+      } else if (entry.isFile()) {
+        shipped.set(entryRel, 'file');
+      }
+    }
+  };
+  walk(srcSkillDir, '');
+  return shipped;
+}
+
+/**
+ * Whether `dir` is an unmarked skill directory from an agentsys version that
+ * wrote no marker: a real directory in which every file and directory, at any
+ * depth, has a path in `legacyFiles`, what those versions wrote there (the
+ * files the skill ships, from listSkillFiles, or SKILL.md alone). Anything
+ * else (another file, a symlink) means the directory may be the user's. An
+ * empty `legacyFiles` matches only an empty directory.
+ *
+ * @param {string} dir
+ * @param {Map<string, 'file'|'dir'>} legacyFiles
+ * @returns {boolean}
+ */
+function isLegacyAgentsysSkillDir(dir, legacyFiles) {
+  const onlyLegacy = (absDir, rel) => fs.readdirSync(absDir, { withFileTypes: true }).every((entry) => {
+    const entryRel = rel ? `${rel}/${entry.name}` : entry.name;
+    const kind = entry.isDirectory() ? 'dir' : entry.isFile() ? 'file' : null;
+    if (!kind || legacyFiles.get(entryRel) !== kind) return false;
+    return kind === 'file' || onlyLegacy(path.join(absDir, entry.name), entryRel);
+  });
+  try {
+    return fs.lstatSync(dir).isDirectory() && onlyLegacy(dir, '');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether agentsys may delete or replace `dir`: it carries the marker, or it
+ * is a legacy agentsys copy of the skill (isLegacyAgentsysSkillDir).
+ *
+ * @param {string} dir
+ * @param {Map<string, 'file'|'dir'>} legacyFiles - What an earlier agentsys
+ *   version without the marker wrote there
+ * @returns {boolean}
+ */
+function isReplaceableSkillDir(dir, legacyFiles) {
+  return isAgentsysSkillDir(dir) || isLegacyAgentsysSkillDir(dir, legacyFiles);
+}
+
+/**
+ * The skills the plugins ship, by directory name, with the files each ships
+ * (listSkillFiles). A name two plugins share holds the files of both.
+ *
+ * @param {string} installDir
+ * @param {string[]} pluginDirs
+ * @returns {Map<string, Map<string, 'file'|'dir'>>}
+ */
+function listKnownSkills(installDir, pluginDirs) {
+  const known = new Map();
+  for (const pluginName of pluginDirs) {
+    const srcSkillsDir = path.join(installDir, 'plugins', pluginName, 'skills');
+    if (!fs.existsSync(srcSkillsDir)) continue;
+    for (const d of fs.readdirSync(srcSkillsDir, { withFileTypes: true })) {
+      if (!d.isDirectory() || !/^[a-zA-Z0-9_-]+$/.test(d.name)) continue;
+      const files = known.get(d.name) || new Map();
+      for (const [rel, kind] of listSkillFiles(path.join(srcSkillsDir, d.name))) files.set(rel, kind);
+      known.set(d.name, files);
+    }
+  }
+  return known;
+}
+
+/**
+ * Make `destSkillDir` an empty, marked directory for agentsys to fill.
+ *
+ * A directory from an earlier agentsys install (it has the marker, or holds
+ * only files from `legacyFiles`) is removed first, so files the plugin dropped
+ * do not linger. Anything else at that path is left alone with a warning, and
+ * false is returned.
+ *
+ * @param {string} destSkillDir - <platform skills dir>/<name>
+ * @param {string} pluginInstallPath - Where the plugin is installed
+ * @param {Map<string, 'file'|'dir'>} legacyFiles - What an earlier agentsys
+ *   version without the marker wrote there (isLegacyAgentsysSkillDir)
+ * @returns {boolean} Whether the directory is ready to fill
+ */
+function claimSkillDir(destSkillDir, pluginInstallPath, legacyFiles) {
+  let stat = null;
+  try {
+    stat = fs.lstatSync(destSkillDir);
+  } catch {
+    // Nothing there yet.
+  }
+  if (stat) {
+    if (!isReplaceableSkillDir(destSkillDir, legacyFiles)) {
+      const why = stat.isSymbolicLink() ? 'is a symlink'
+        : !stat.isDirectory() ? 'is not a directory'
+          : 'may be yours';
+      console.log(`  [WARN] Skipped skill ${path.basename(destSkillDir)}: ${destSkillDir} has no ${SKILL_MARKER} marker and ${why}, so agentsys leaves it alone. To install the skill, move your files out and remove it.`);
+      return false;
+    }
+    fs.rmSync(destSkillDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(destSkillDir, { recursive: true });
+  let plugin = { name: path.basename(pluginInstallPath), version: 'unknown' };
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(pluginInstallPath, '.claude-plugin', 'plugin.json'), 'utf8'));
+    plugin = { name: manifest.name || plugin.name, version: manifest.version || plugin.version };
+  } catch {
+    // No readable plugin.json: keep the directory name and 'unknown'.
+  }
+  fs.writeFileSync(path.join(destSkillDir, SKILL_MARKER), JSON.stringify({
+    installedBy: 'agentsys',
+    plugin: plugin.name,
+    version: plugin.version,
+    note: 'agentsys replaces this directory on reinstall. To keep it as your own, delete this file and add a file of your own to the directory.'
+  }, null, 2) + '\n');
+  return true;
+}
+
+/**
+ * Copy one plugin skill directory into a platform's skills directory.
+ *
+ * OpenCode, Codex, Cursor and Kiro load a skill from their own skills
+ * directory, away from its plugin, so the whole directory goes (references,
+ * scripts, assets), every markdown file goes through the platform's skill
+ * transform, and links that leave the skill directory are pointed at the
+ * plugin's install path. A previous agentsys copy (marked, or holding only
+ * files from `legacyFiles`) is replaced, so a file the plugin dropped does not
+ * linger; any other directory with the skill's name is left alone
+ * (claimSkillDir). Symlinks are skipped.
+ *
+ * @param {string} srcSkillDir - <plugin>/skills/<name>
+ * @param {string} destSkillDir - <platform skills dir>/<name>
+ * @param {string} pluginInstallPath - Where the plugin is installed
+ * @param {(content: string) => string} transformMarkdown - The platform's skill transform
+ * @param {Map<string, 'file'|'dir'>} [legacyFiles] - What an earlier agentsys
+ *   version without the marker wrote there, so an unmarked directory holding
+ *   only these is replaced. Defaults to what the skill ships; an empty Map
+ *   means no earlier version wrote the skill, so only a marked or empty
+ *   directory is replaced.
+ * @returns {boolean} Whether the skill was installed
+ */
+function installSkillDir(srcSkillDir, destSkillDir, pluginInstallPath, transformMarkdown,
+  legacyFiles = listSkillFiles(srcSkillDir)) {
+  if (!claimSkillDir(destSkillDir, pluginInstallPath, legacyFiles)) return false;
+  const copy = (srcDir, destDir) => {
+    fs.mkdirSync(destDir, { recursive: true });
+    for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+      const srcPath = path.join(srcDir, entry.name);
+      const destPath = path.join(destDir, entry.name);
+      if (entry.isDirectory()) {
+        copy(srcPath, destPath);
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        let content = transformMarkdown(fs.readFileSync(srcPath, 'utf8'));
+        content = pointEscapingLinksAtPlugin(content, srcDir, srcSkillDir, pluginInstallPath);
+        fs.writeFileSync(destPath, content);
+      } else if (entry.isFile()) {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  };
+  copy(srcSkillDir, destSkillDir);
   return true;
 }
 
@@ -1828,20 +2386,15 @@ function installForKiro(installDir, options = {}) {
     }
   }
 
-  // Collect known skill names from discovery before cleanup
+  // Collect the known skills from discovery before cleanup
   const pluginDirs = discovery.discoverPlugins(installDir);
-  const knownSkillNames = new Set();
-  for (const pluginName of pluginDirs) {
-    const srcSkillsDir = path.join(installDir, 'plugins', pluginName, 'skills');
-    if (!fs.existsSync(srcSkillsDir)) continue;
-    for (const d of fs.readdirSync(srcSkillsDir, { withFileTypes: true })) {
-      if (d.isDirectory() && /^[a-zA-Z0-9_-]+$/.test(d.name)) knownSkillNames.add(d.name);
-    }
-  }
+  const knownSkills = listKnownSkills(installDir, pluginDirs);
 
-  // Cleanup old agentsys skill dirs (only known names, preserve user-created skills)
+  // Cleanup old agentsys skill dirs: known names that carry the agentsys
+  // marker or hold only files the skill ships. A user's skill is kept.
   for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-    if (entry.isDirectory() && knownSkillNames.has(entry.name)) {
+    const shipped = knownSkills.get(entry.name);
+    if (shipped && isReplaceableSkillDir(path.join(skillsDir, entry.name), shipped)) {
       fs.rmSync(path.join(skillsDir, entry.name), { recursive: true, force: true });
     }
   }
@@ -1870,16 +2423,13 @@ function installForKiro(installDir, options = {}) {
     for (const entry of entries) {
       if (!/^[a-zA-Z0-9_-]+$/.test(entry.name)) continue;
       if (filter && filter.skills && filter.skills.length > 0 && !filter.skills.includes(entry.name)) continue;
-      const srcPath = path.join(srcSkillsDir, entry.name, 'SKILL.md');
-      if (!fs.existsSync(srcPath)) continue;
-      const destDir = path.join(skillsDir, entry.name);
-      fs.mkdirSync(destDir, { recursive: true });
-      let content = fs.readFileSync(srcPath, 'utf8');
-      content = transforms.transformSkillForKiro(content, {
-        pluginInstallPath: path.join(installDir, 'plugins', pluginName)
-      });
-      fs.writeFileSync(path.join(destDir, 'SKILL.md'), content);
-      skillCount++;
+      const srcSkillDir = path.join(srcSkillsDir, entry.name);
+      if (!fs.existsSync(path.join(srcSkillDir, 'SKILL.md'))) continue;
+      const pluginInstallPath = path.join(installDir, 'plugins', pluginName);
+      if (installSkillDir(srcSkillDir, path.join(skillsDir, entry.name), pluginInstallPath,
+        (content) => transforms.transformSkillForKiro(content, { pluginInstallPath }))) {
+        skillCount++;
+      }
     }
   }
 
@@ -1972,10 +2522,11 @@ function removeInstallation() {
   console.log('\n[OK] Removed ~/.agentsys');
   console.log('\nTo fully uninstall, also remove:');
   console.log('  - Claude: /plugin marketplace remove agentsys');
-  console.log('  - OpenCode: Remove files under ~/.config/opencode/ (commands/*.md, agents/*.md, skills/*/SKILL.md) and ~/.config/opencode/plugins/agentsys.ts');
-  console.log('  - Codex: Remove ~/.codex/skills/*/');
-  console.log('  - Cursor: Remove ~/.cursor/skills/, ~/.cursor/commands/, and ~/.cursor/rules/agentsys-*.mdc');
-  console.log('  - Kiro: Remove ~/.kiro/skills/, ~/.kiro/prompts/, and ~/.kiro/agents/');
+  console.log('  - Skills on every platform: remove only the skill directories that contain a .agentsys-skill file; your own skills have none.');
+  console.log('  - OpenCode: agentsys commands/*.md and agents/*.md under ~/.config/opencode/, and ~/.config/opencode/plugins/agentsys.ts');
+  console.log('  - Codex: the marked directories under ~/.codex/skills/');
+  console.log('  - Cursor: the marked directories under ~/.cursor/skills/, agentsys commands in ~/.cursor/commands/, and ~/.cursor/rules/agentsys-*.mdc');
+  console.log('  - Kiro: the marked directories under ~/.kiro/skills/, and agentsys files in ~/.kiro/prompts/ and ~/.kiro/agents/');
 }
 
 function printSubcommandHelp(subcommand) {
@@ -2374,7 +2925,17 @@ module.exports = {
   buildFilterFromComponent,
   resolvePluginSource,
   parseGitHubSource,
+  pluginFetchRefs,
+  archiveCommitFromTarHead,
+  readCachedCommit,
+  installForOpenCode,
+  installForCodex,
   installForCursor,
   installForKiro,
+  installSkillDir,
+  claimSkillDir,
+  isReplaceableSkillDir,
+  listKnownSkills,
+  COMMAND_SKILL_FILES,
   claudeSpawnPlan
 };

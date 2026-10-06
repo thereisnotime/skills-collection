@@ -4,7 +4,7 @@ description: Enforces safe git practices for AI coding agents. Defines branch pr
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.3.0"
+  version: "1.3.1"
 ---
 
 # Git Safety
@@ -196,7 +196,7 @@ per-harness table and notes live in
 
 OpenCode v2 (anomalyco/opencode) sets no AI-session marker — only
 `OPENCODE_TERMINAL=1`, on agent tool shells AND the human TUI terminal — and
-each bash tool call spawns a fresh login shell, so session-start exports do
+each `shell` call spawns a fresh login shell, so session-start exports do
 not persist. Claim each commit explicitly (full reasoning:
 [references/attribution-detection.md](references/attribution-detection.md)):
 
