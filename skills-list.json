@@ -22456,8 +22456,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
-      "lines": 1053,
-      "words": 21429,
+      "lines": 1054,
+      "words": 21588,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22470,8 +22470,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
-      "lines": 1050,
-      "words": 21302,
+      "lines": 1051,
+      "words": 21461,
       "code_blocks": 0,
       "languages": [],
       "version": "3.37.0",
@@ -22707,8 +22707,8 @@
       "description": "\"When the user wants to plan a product launch, feature announcement, or release strategy. Also use when the user mentions 'launch,' 'Product Hunt,' 'feature release,' 'announcement,' 'go-to-market,' '",
       "path": "coreyhaines31--marketingskills/skills/launch/SKILL.md",
       "remote_path": "skills/launch/SKILL.md",
-      "lines": 382,
-      "words": 2298,
+      "lines": 383,
+      "words": 2322,
       "code_blocks": 0,
       "languages": []
     },
@@ -22773,8 +22773,8 @@
       "description": "When the user wants to find, qualify, and build a list of prospects to reach out to \u2014 across B2B SaaS, general B2B, or local small businesses. Also use when the user mentions \"prospecting,\" \"build a p",
       "path": "coreyhaines31--marketingskills/skills/prospecting/SKILL.md",
       "remote_path": "skills/prospecting/SKILL.md",
-      "lines": 263,
-      "words": 2433,
+      "lines": 264,
+      "words": 2454,
       "code_blocks": 4,
       "languages": [
         "csv"
@@ -22981,8 +22981,8 @@
       "description": "When the user wants to create SEO-driven pages at scale using templates and data. Also use when the user mentions \"programmatic SEO,\" \"template pages,\" \"pages at scale,\" \"directory pages,\" \"location p",
       "path": "coreyhaines31--marketingskills/skills/programmatic-seo/SKILL.md",
       "remote_path": "skills/programmatic-seo/SKILL.md",
-      "lines": 239,
-      "words": 1070,
+      "lines": 243,
+      "words": 1129,
       "code_blocks": 0,
       "languages": []
     },
@@ -23033,8 +23033,8 @@
       "description": "When the user wants to plan, map, or restructure their website's page hierarchy, navigation, URL structure, or internal linking. Also use when the user mentions \"sitemap,\" \"site map,\" \"visual sitemap,",
       "path": "coreyhaines31--marketingskills/skills/site-architecture/SKILL.md",
       "remote_path": "skills/site-architecture/SKILL.md",
-      "lines": 358,
-      "words": 1992,
+      "lines": 360,
+      "words": 2052,
       "code_blocks": 5,
       "languages": [
         "mermaid"
@@ -23607,7 +23607,7 @@
       "path": "firecrawl--cli/skills/firecrawl-search/SKILL.md",
       "remote_path": "skills/firecrawl-search/SKILL.md",
       "lines": 139,
-      "words": 1495,
+      "words": 1531,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -23630,9 +23630,9 @@
       "description": "Autonomously navigate websites and extract structured data across pages. Use when the task requires navigation or no suitable ready-made workflow or data provider covers it.",
       "path": "firecrawl--cli/skills/firecrawl-agent/SKILL.md",
       "remote_path": "skills/firecrawl-agent/SKILL.md",
-      "lines": 64,
-      "words": 478,
-      "code_blocks": 2,
+      "lines": 74,
+      "words": 654,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -23655,7 +23655,7 @@
       "path": "firecrawl--cli/skills/firecrawl/SKILL.md",
       "remote_path": "skills/firecrawl/SKILL.md",
       "lines": 158,
-      "words": 1365,
+      "words": 1381,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -23712,8 +23712,8 @@
       "description": "Find a direct path to structured data through ready-made workflows, data APIs, and indexes. Follow the search skill to discover and inspect tools, then the scrape skill to execute them.",
       "path": "firecrawl--cli/skills/firecrawl-alexandria/SKILL.md",
       "remote_path": "skills/firecrawl-alexandria/SKILL.md",
-      "lines": 54,
-      "words": 777,
+      "lines": 57,
+      "words": 899,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -24865,9 +24865,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 487,
-      "words": 4767,
-      "code_blocks": 23,
+      "lines": 503,
+      "words": 5037,
+      "code_blocks": 24,
       "languages": [
         "bash",
         "typescript"
@@ -25017,9 +25017,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 487,
-      "words": 4767,
-      "code_blocks": 23,
+      "lines": 503,
+      "words": 5037,
+      "code_blocks": 24,
       "languages": [
         "bash",
         "typescript"
@@ -26619,9 +26619,9 @@
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
       "path": "remotion-dev--skills/skills/remotion-markup/audio.md",
       "remote_path": "skills/remotion-markup/audio.md",
-      "lines": 202,
-      "words": 636,
-      "code_blocks": 13,
+      "lines": 191,
+      "words": 573,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "tsx"
@@ -26645,8 +26645,8 @@
       "description": "Embedding videos in Remotion - trimming, volume, speed, looping, pitch",
       "path": "remotion-dev--skills/skills/remotion-markup/embedding-videos.md",
       "remote_path": "skills/remotion-markup/embedding-videos.md",
-      "lines": 176,
-      "words": 522,
+      "lines": 179,
+      "words": 497,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -26658,13 +26658,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 443,
-      "words": 1762,
+      "lines": 474,
+      "words": 1988,
       "code_blocks": 7,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "transitions",
@@ -26722,8 +26722,8 @@
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
       "path": "remotion-dev--skills/skills/remotion-markup/effects.md",
       "remote_path": "skills/remotion-markup/effects.md",
-      "lines": 253,
-      "words": 978,
+      "lines": 278,
+      "words": 1105,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -26783,7 +26783,7 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "get-audio-duration",
@@ -26830,7 +26830,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-maps",
@@ -26841,7 +26841,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-studio",
@@ -26854,7 +26854,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-docs",
@@ -26865,15 +26865,15 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "display-captions",
       "description": "Displaying captions in Remotion using the Basic Captions element",
       "path": "remotion-dev--skills/skills/remotion-captions/display-captions.md",
       "remote_path": "skills/remotion-captions/display-captions.md",
-      "lines": 103,
-      "words": 405,
+      "lines": 170,
+      "words": 644,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -26904,7 +26904,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "rendering",
@@ -26937,7 +26937,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "framework",
@@ -26972,7 +26972,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-best-practices",
@@ -26985,7 +26985,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "tailwind",
@@ -27008,7 +27008,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-upgrade",
@@ -27021,7 +27021,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-maps",
@@ -27032,7 +27032,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "maps-mapbox",
@@ -27145,13 +27145,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 443,
-      "words": 1762,
+      "lines": 474,
+      "words": 1988,
       "code_blocks": 7,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "text-highlights",
@@ -27258,9 +27258,9 @@
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/audio.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/audio.md",
-      "lines": 202,
-      "words": 636,
-      "code_blocks": 13,
+      "lines": 191,
+      "words": 573,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "tsx"
@@ -27284,8 +27284,8 @@
       "description": "Embedding videos in Remotion - trimming, volume, speed, looping, pitch",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/embedding-videos.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/embedding-videos.md",
-      "lines": 176,
-      "words": 522,
+      "lines": 179,
+      "words": 497,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -27348,8 +27348,8 @@
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/effects.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/effects.md",
-      "lines": 253,
-      "words": 978,
+      "lines": 278,
+      "words": 1105,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -27409,7 +27409,7 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-multimedia",
@@ -27420,7 +27420,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "get-audio-duration",
@@ -27467,7 +27467,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-studio",
@@ -27480,7 +27480,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-docs",
@@ -27491,7 +27491,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-captions",
@@ -27504,15 +27504,15 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "display-captions",
       "description": "Displaying captions in Remotion using the Basic Captions element",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/display-captions.md",
       "remote_path": "skills/remotion-best-practices/remotion-captions/display-captions.md",
-      "lines": 103,
-      "words": 405,
+      "lines": 170,
+      "words": 644,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -27541,7 +27541,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "rendering",
@@ -27584,7 +27584,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "transparent-videos",
@@ -27611,7 +27611,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "tailwind",
@@ -27634,7 +27634,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "remotion-maps",
@@ -27645,7 +27645,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.533"
+      "version": "4.0.534"
     },
     {
       "name": "maps-mapbox",
@@ -28731,9 +28731,9 @@
       "description": ">",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 175,
-      "words": 1239,
-      "code_blocks": 12,
+      "lines": 168,
+      "words": 1145,
+      "code_blocks": 11,
       "languages": [
         "bash"
       ]
@@ -28847,9 +28847,9 @@
       "description": ">",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 175,
-      "words": 1239,
-      "code_blocks": 12,
+      "lines": 168,
+      "words": 1145,
+      "code_blocks": 11,
       "languages": [
         "bash"
       ]
@@ -28963,9 +28963,9 @@
       "description": ">",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 175,
-      "words": 1239,
-      "code_blocks": 12,
+      "lines": 168,
+      "words": 1145,
+      "code_blocks": 11,
       "languages": [
         "bash"
       ]
@@ -29089,9 +29089,9 @@
       "description": ">",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 175,
-      "words": 1239,
-      "code_blocks": 12,
+      "lines": 168,
+      "words": 1145,
+      "code_blocks": 11,
       "languages": [
         "bash"
       ]
@@ -29215,9 +29215,9 @@
       "description": ">",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 175,
-      "words": 1239,
-      "code_blocks": 12,
+      "lines": 168,
+      "words": 1145,
+      "code_blocks": 11,
       "languages": [
         "bash"
       ]
@@ -29331,9 +29331,9 @@
       "description": ">",
       "path": "stripe--ai/skills/stripe-projects/SKILL.md",
       "remote_path": "skills/stripe-projects/SKILL.md",
-      "lines": 175,
-      "words": 1239,
-      "code_blocks": 12,
+      "lines": 168,
+      "words": 1145,
+      "code_blocks": 11,
       "languages": [
         "bash"
       ]
@@ -156866,8 +156866,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 177,
-      "words": 1398,
+      "lines": 191,
+      "words": 1593,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -157015,8 +157015,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 568,
-      "words": 4405,
+      "lines": 572,
+      "words": 4547,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -157145,8 +157145,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/data-visualization-discipline/SKILL.md",
       "remote_path": "data-visualization-discipline/SKILL.md",
-      "lines": 738,
-      "words": 2803,
+      "lines": 741,
+      "words": 2815,
       "code_blocks": 1,
       "languages": []
     },
@@ -157215,8 +157215,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 848,
-      "words": 3036,
+      "lines": 854,
+      "words": 3071,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157253,8 +157253,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/SKILL.md",
       "remote_path": "peer-message/SKILL.md",
-      "lines": 93,
-      "words": 452,
+      "lines": 97,
+      "words": 501,
       "code_blocks": 0,
       "languages": []
     },
@@ -157264,7 +157264,7 @@
       "path": "daymade--claude-code-skills/kimi-use/SKILL.md",
       "remote_path": "kimi-use/SKILL.md",
       "lines": 91,
-      "words": 574,
+      "words": 563,
       "code_blocks": 0,
       "languages": []
     },
@@ -157447,8 +157447,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/references/automatic-snapshots.md",
       "remote_path": "ghostty-use/references/automatic-snapshots.md",
-      "lines": 139,
-      "words": 1075,
+      "lines": 145,
+      "words": 1141,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -157497,9 +157497,21 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
-      "lines": 283,
-      "words": 5166,
-      "code_blocks": 6,
+      "lines": 303,
+      "words": 5627,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "macos-load-doctor",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-macos/macos-load-doctor/SKILL.md",
+      "remote_path": "daymade-macos/macos-load-doctor/SKILL.md",
+      "lines": 143,
+      "words": 1115,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -157827,8 +157839,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/SKILL.md",
       "remote_path": "daymade-claude-code/tech-selection/SKILL.md",
-      "lines": 180,
-      "words": 2110,
+      "lines": 183,
+      "words": 2147,
       "code_blocks": 0,
       "languages": []
     },
@@ -158138,6 +158150,16 @@
       ]
     },
     {
+      "name": "transaction-status-colors",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/data-visualization-discipline/references/transaction-status-colors.md",
+      "remote_path": "data-visualization-discipline/references/transaction-status-colors.md",
+      "lines": 50,
+      "words": 122,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "excel-automation",
       "description": "Create, parse, and control Excel files on macOS. Professional formatting with openpyxl, complex xlsm parsing with stdlib zipfile+xml for investment bank financial models, and Excel window control via ",
       "path": "daymade--claude-code-skills/daymade-docs/excel-automation/SKILL.md",
@@ -158340,8 +158362,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/setup-notifications-via-wecom/references/sls-recurring-notifications.md",
       "remote_path": "setup-notifications-via-wecom/references/sls-recurring-notifications.md",
-      "lines": 79,
-      "words": 532,
+      "lines": 113,
+      "words": 847,
       "code_blocks": 1,
       "languages": [
         "jinja"
@@ -158391,8 +158413,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1959,
-      "words": 33217,
+      "lines": 1965,
+      "words": 33259,
       "code_blocks": 54,
       "languages": [
         "bash",
@@ -158439,12 +158461,24 @@
       ]
     },
     {
+      "name": "delivery-identity",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/delivery-identity.md",
+      "remote_path": "daymade-skill/skill-creator/references/delivery-identity.md",
+      "lines": 84,
+      "words": 596,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "fixed-command-entry",
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/fixed-command-entry.md",
       "remote_path": "daymade-skill/skill-creator/references/fixed-command-entry.md",
-      "lines": 50,
-      "words": 309,
+      "lines": 51,
+      "words": 314,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -158497,8 +158531,8 @@
       "description": "Parent/worker reply addressing, payload design, delivery-language discipline, evidence that stays valid while its subject is still changing, verifying inbound peer assertions before acting or replying",
       "path": "daymade--claude-code-skills/peer-message/references/coordination-and-learning-loop.md",
       "remote_path": "peer-message/references/coordination-and-learning-loop.md",
-      "lines": 252,
-      "words": 1443,
+      "lines": 280,
+      "words": 1707,
       "code_blocks": 2,
       "languages": [
         "text"
@@ -158509,8 +158543,8 @@
       "description": "Transport-neutral addressing, Claude UDS and Codex queue contracts, message envelopes, and receiver-side verification.",
       "path": "daymade--claude-code-skills/peer-message/references/protocol-and-discovery.md",
       "remote_path": "peer-message/references/protocol-and-discovery.md",
-      "lines": 223,
-      "words": 997,
+      "lines": 227,
+      "words": 1045,
       "code_blocks": 6,
       "languages": [
         "bash",

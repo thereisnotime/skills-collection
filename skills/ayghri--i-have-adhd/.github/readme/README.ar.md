@@ -50,7 +50,7 @@ Install the i-have-adhd skill/plugin from https://github.com/ayghri/i-have-adhd,
 
 ## بعد
 
-> شغّل `npm install jsonwebtoken@latest`، ثم عدّل `src/auth.ts:42`.
+> عدّل `src/auth.ts:42` لتحديث التحقق من الرمز.
 >
 > 1. افتح `src/auth.ts`
 > 2. استبدل `verifyToken` (الأسطر 42–58) بالمقتطف أدناه

@@ -53,7 +53,7 @@ Install the i-have-adhd skill/plugin from https://github.com/ayghri/i-have-adhd,
 
 ## بعد
 
-> اجرا کن `npm install jsonwebtoken@latest`، بعد `src/auth.ts:42` رو ویرایش کن.
+> `src/auth.ts:42` رو ویرایش کن تا اعتبارسنجی توکن به‌روزرسانی بشه.
 >
 > 1. فایل `src/auth.ts` رو باز کن
 > 2. تابع `verifyToken` (خط ۴۲–۵۸) رو با قطعه‌کد زیر جایگزین کن

@@ -38,7 +38,9 @@ python3 <skill-dir>/scripts/ghostty_watch.py stop
 Expected install result: `installed: true`, with the verified runtime and schedule.
 The installer creates its owned environment once with `uv` and registers the
 fixed interpreter directly. Reinstall updates the owned script copies and enables
-the same job without creating another label.
+the same job without creating another label. The observer runs those byte-copies,
+not the skill source — re-run `install --apply` after any skill update, or the
+loaded job keeps the pre-update scripts.
 
 Use the read-only `install` plan for the currently requested definition and
 `status` for the loaded schedule. Install independently compares calendarinterval
@@ -122,8 +124,12 @@ not resumable sessions; use explicit indexed reconstruction and identity
 verification if their session IDs must be recovered. Partial snapshots may retain
 already-closed sessions conservatively; inspect the manifest or use `--only` when
 that distinction matters. Window grouping and UUID-less tab identity remain
-unavailable. Calendar observation also cannot capture a change that occurs and
-vanishes between scheduled rounds.
+unavailable in automatic manifests. Manual snapshot/check/restore resolve
+UUID-less TUIs from transcript storage (session file born after process start,
+same cwd, identity verified); the watcher deliberately keeps its argv-only,
+transcript-free scan to stay bounded — install-round manifests therefore keep
+their explicitly partial coverage. Calendar observation also cannot capture a
+change that occurs and vanishes between scheduled rounds.
 
 ## Recover observation failures
 

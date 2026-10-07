@@ -51,7 +51,7 @@ Install the i-have-adhd skill/plugin from https://github.com/ayghri/i-have-adhd,
 
 ## 適用後
 
-> `npm install jsonwebtoken@latest` を実行後、`src/auth.ts:42` を編集する。
+> `src/auth.ts:42` を編集して、トークンの検証処理を更新する。
 >
 > 1. `src/auth.ts` を開く
 > 2. `verifyToken`（42〜58行目）を以下のスニペットに置き換える

@@ -244,7 +244,7 @@ const AIDetector = (() => {
   // ─── Tier 1: Always flag ───────────────────────────────────────────
   const TIER1 = {
     'delve': 'explore, dig into, look at',
-    'tapestry': 'describe the actual complexity',
+    'tapestry': 'complex structure, rich history',
     'paradigm': 'model, approach, framework',
     'beacon': 'rewrite entirely',
     'robust': 'strong, reliable, solid',
@@ -255,10 +255,10 @@ const AIDetector = (() => {
     'meticulously': 'carefully, precisely',
     'seamless': 'smooth, easy, without friction',
     'seamlessly': 'smoothly, easily',
-    'game-changer': 'describe what changed',
-    'game-changing': 'describe what changed',
+    'game-changer': 'breakthrough, turning point, changes how [X] works',
+    'game-changing': 'breakthrough, turning point, changes how [X] works',
     'nestled': 'is located, sits',
-    'vibrant': 'describe what makes it active',
+    'vibrant': 'lively, active',
     'thriving': 'growing, active',
     'bustling': 'busy, active',
     'intricate': 'complex, detailed',
@@ -271,10 +271,10 @@ const AIDetector = (() => {
     'actionable': 'practical, useful, concrete',
     'impactful': 'effective, significant',
     'learnings': 'lessons, findings, takeaways',
-    'synergy': 'describe the combined effect',
-    'synergies': 'describe the combined effect',
+    'synergy': 'combined effect, benefit of working together',
+    'synergies': 'combined effect, benefit of working together',
     'interplay': 'relationship, connection',
-    'symphony': 'describe the coordination',
+    'symphony': 'coordination, balance',
     'embrace': 'adopt, accept, use',
   };
 
@@ -286,14 +286,14 @@ const AIDetector = (() => {
     { pattern: /\btestament\s+to\b/gi, replace: 'shows, proves' },
     { pattern: /\bleverag(?:e|es|ing|ed)\b/gi, replace: 'use' },
     { pattern: /\bwatershed\s+moment\b/gi, replace: 'turning point, shift' },
-    { pattern: /\bmarking\s+a\s+pivotal\s+moment\b/gi, replace: 'state what happened' },
+    { pattern: /\bmarking\s+a\s+pivotal\s+moment\b/gi, replace: 'changing [X], leading to [Y]' },
     { pattern: /\bthe\s+future\s+looks\s+bright\b/gi, replace: 'cut or say something specific' },
     { pattern: /\bonly\s+time\s+will\s+tell\b/gi, replace: 'cut or say something specific' },
-    { pattern: /\bdespite\s+challenges[^.]*continues?\s+to\s+thrive\b/gi, replace: 'name the challenge and response' },
+    { pattern: /\bdespite\s+challenges[^.]*continues?\s+to\s+thrive\b/gi, replace: 'keeps growing despite [named difficulty], continues to succeed despite [named difficulty]' },
     { pattern: /\bdeep\s+dive\b/gi, replace: 'look at, examine' },
     { pattern: /\bdive\s+into\b/gi, replace: 'look at, examine' },
     { pattern: /\bunpack(?:ing)?\b/gi, replace: 'explain, break down' },
-    { pattern: /\bcomplexities\b/gi, replace: 'name the actual problems' },
+    { pattern: /\bcomplexities\b/gi, replace: 'problems, details' },
     { pattern: /\bthought\s+leader(?:ship)?\b/gi, replace: 'expert, authority' },
     { pattern: /\bbest\s+practices\b/gi, replace: 'what works, proven methods' },
     { pattern: /\bat\s+its\s+core\b/gi, replace: 'cut, just state it' },
@@ -339,7 +339,7 @@ const AIDetector = (() => {
     'underpin': 'support, form the basis of',
     'nuanced': 'specific, subtle, detailed',
     'crucial': 'important, key, necessary',
-    'multifaceted': 'describe the actual facets',
+    'multifaceted': 'having several parts, with several aspects',
     'ecosystem': 'system, community, network',
     'myriad': 'many, numerous',
     'plethora': 'many, a lot of',
@@ -352,8 +352,8 @@ const AIDetector = (() => {
     'illuminate': 'clarify, explain, show',
     'elucidate': 'explain, clarify',
     'juxtapose': 'compare, contrast',
-    'transformative': 'describe what changed',
-    'transformation': 'describe what changed',
+    'transformative': 'changes how [X] works',
+    'transformation': 'major change, overhaul',
     'cornerstone': 'foundation, basis, key part',
     'paramount': 'most important, top priority',
     'poised': 'ready, set, about to',
@@ -364,7 +364,7 @@ const AIDetector = (() => {
     'quietly': 'cut, or name the concrete contrast',
     'underpinning': 'basis, foundation',
     'underpinnings': 'basis, foundations',
-    'paradigm-shifting': 'describe what shifted',
+    'paradigm-shifting': 'changes the basic model, changes how [X] is understood',
   };
 
   // Conditional Tier 2 entries: everyday words whose AI tell is a specific
@@ -616,7 +616,10 @@ const AIDetector = (() => {
   const SIGNIFICANCE_INFLATION = [
     /\bmarking\s+a\s+(?:pivotal|significant|important)\s+moment\b/gi,
     /\ba\s+watershed\s+moment\s+for\b/gi,
-    /\bin\s+the\s+evolution\s+of\b/gi,
+    // Require an inflating word before "in the evolution of" (the bare phrase
+    // is allowed for literal uses like "a key stage in the evolution of the
+    // vertebrate eye"). See issue #212.
+    /\b(?:moment|milestone|chapter|era|turning\s+point|watershed|inflection\s+point|leap|role|new\s+phase)\s+in\s+the\s+evolution\s+of\b/gi,
     /\ba\s+(?:pivotal|defining)\s+moment\s+in\b/gi,
   ];
 
@@ -758,7 +761,9 @@ const AIDetector = (() => {
 
   // ─── Template phrases ──────────────────────────────────────────────
   const TEMPLATE_PHRASES = [
-    /\ba\s+\w+\s+step\s+(?:towards?|forward\s+for)\b/gi,
+    // template-phrase: only vague-praise adjectives. "a first step towards the full API",
+    // "a small step towards cutting our storage bill" stay clean.
+    /\ban?\s+(?:meaningful|significant|major|crucial|important|big|huge|bold|giant|monumental|pivotal|critical|key|vital|massive|tremendous|substantial|decisive|landmark|historic|exciting|transformative)\s+step\s+(?:towards?|forward)\b/gi,
     /\bwhether\s+you'?re\s+\w+\s+or\s+\w+/gi,
     /\bi\s+recently\s+had\s+the\s+pleasure\s+of\b/gi,
   ];

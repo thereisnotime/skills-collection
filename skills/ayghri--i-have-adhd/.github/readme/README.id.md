@@ -45,7 +45,7 @@ Sebuah skill untuk asisten coding-mu yang mencegahnya mengubur jawaban di tengah
 
 ## Sesudahnya
 
-> Jalankan `npm install jsonwebtoken@latest` lalu edit `src/auth.ts:42`.
+> Edit `src/auth.ts:42` untuk memperbarui validasi token.
 >
 > 1. Buka `src/auth.ts`
 > 2. Ganti `verifyToken` (baris 42–58) dengan cuplikan di bawah ini

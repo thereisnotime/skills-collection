@@ -53,7 +53,7 @@ Una *skill* para tu asistente de código que evita que entierre la respuesta. Ac
 
 ## Después
 
-> Ejecuta `npm install jsonwebtoken@latest`, luego edita `src/auth.ts:42`.
+> Edita `src/auth.ts:42` para actualizar la validación del token.
 >
 > 1. Abre `src/auth.ts`
 > 2. Reemplaza `verifyToken` (líneas 42–58) con el fragmento a continuación

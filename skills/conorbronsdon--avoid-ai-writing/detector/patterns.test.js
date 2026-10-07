@@ -3881,6 +3881,55 @@ test('#216: separately listed Tier 3 inflections do not share a density bucket',
   assert.ok(!result.issues.some((i) => i.type === 'tier3'), 'two uses of each listed form must stay below the three-use floor');
 });
 
+// #212: Literal-sense carve-outs for significance-inflation and template-phrase.
+
+test('#212: significance-inflation fires when inflating word precedes evolution-of', () => {
+  const cases = [
+    'This is a new chapter in the evolution of artificial intelligence.',
+    'We are proud to play a role in the evolution of modern software development.',
+    'It represents a turning point in the evolution of how teams build products.',
+  ];
+  for (const text of cases) {
+    const hits = AIDetector.analyzeText(text).issues.filter((i) => i.type === 'significance-inflation');
+    assert.ok(hits.length >= 1, `expected significance-inflation hit on: "${text}"`);
+  }
+});
+
+test('#212: significance-inflation stays clean on literal evolution-of', () => {
+  const cases = [
+    'The lens represents a key stage in the evolution of the vertebrate eye, and the fossil record shows the transition happened more than once.',
+    'Modula-2 occupies an odd place in the evolution of systems languages.',
+  ];
+  for (const text of cases) {
+    const hits = AIDetector.analyzeText(text).issues.filter((i) => i.type === 'significance-inflation');
+    assert.equal(hits.length, 0, `false positive on: "${text}" — hits: ${JSON.stringify(hits.map((i) => i.text))}`);
+  }
+});
+
+test('#212: template-phrase fires on vague-praise adjective before step', () => {
+  const cases = [
+    'This is a crucial step towards democratizing AI for everyone.',
+    'The launch is a major step forward for developers everywhere.',
+    'It is a significant step towards building a more trustworthy web.',
+  ];
+  for (const text of cases) {
+    const hits = AIDetector.analyzeText(text).issues.filter((i) => i.type === 'template-phrase');
+    assert.ok(hits.length >= 1, `expected template-phrase hit on: "${text}"`);
+  }
+});
+
+test('#212: template-phrase stays clean on concrete adjectives before step', () => {
+  const cases = [
+    'Shipping the read-only endpoint was a first step towards the full API.',
+    'That was a small step towards cutting our storage bill.',
+  ];
+  for (const text of cases) {
+    const hits = AIDetector.analyzeText(text).issues.filter((i) => i.type === 'template-phrase');
+    assert.equal(hits.length, 0, `false positive on: "${text}" — hits: ${JSON.stringify(hits.map((i) => i.text))}`);
+  }
+});
+
+
 if (failed > 0) {
   console.error(`\n${failed} test(s) failed`);
   process.exit(1);
