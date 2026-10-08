@@ -140,7 +140,6 @@ council cannot approve inconclusive evidence on the vote alone (S-116)	1
 done-recognition tests_axis: zero-test is unknown, failed_count is red (S-125)	2
 iteration 0 drops a stale static-analysis.pass (S-124)	1
 JWKS attestation fetch requires https, loopback http only (S-123)	1
-tier-a R0 step has no timeout tighter than its job (S-96)	1
 verify-path python3 hardening (canary verify, proof share/show)	0
 worker autoscaling on queue depth	3
 helm receipt signing (receiver only)	4
@@ -406,6 +405,7 @@ Time-to-first-preview metric (write-once, never invented)	0
 Session knobs stay default-OFF (gates the v8 SDK-flip audit)	0
 shards partition the suite list (no silently dropped suite)	8
 Tier A test selector (S-91 rules R0-R7)	45
+impacted gate fails closed and survives suites that clean LOKI_RUN_TMP (FC-31)	12
 quarantine (non-blocking listed failure, rejects expired/moat/review/>7d)	0
 quickstart scorer works on macOS bash 3.2 (first-run path)	1
 first-run path works on macOS bash 3.2 (welcome, tour, quickstart)	0
@@ -482,15 +482,14 @@ quickstart names the provider that will run	0
 explicit provider preflight	1
 doctor shows provider availability	3
 interrupted runs surface how to resume	1
-install integrity is checked on both doctor routes	2
 model catalog: no tier points at a superseded flagship	0
 model catalog staleness is advisory in doctor	3
-doctor blocker parity (both routes name blockers + offer loki tour)	2
 stale skill link for an optional provider does not block doctor	1
 first_run_blocked signal (opt-out silent, enum-clamped)	3
 a green doctor never recommends a command that exits 2	0
 analytics opt-in has a writer (the funnel can fire)	0
 help discoverability (every command reachable)	29
+no help topic names a removed surface or a version stamp	10
 assess runtime detection (declared, never guessed)	0
 provider model scoping (global tier var must not leak)	0
 model catalog is a single source of truth	2
@@ -551,6 +550,7 @@ Remote receipt verify	2
 Remote submit	7
 Reviewer persona reaches prompt	0
 Setup skill conflicts	0
+Skill link heal follows the running install (FC-30)	1
 Simple prompt ablation	1
 Skills/references copied	0
 Spec interrogation bughunt (wave 4)	1
@@ -645,6 +645,7 @@ Docs name only CLI commands, flags and versions on main (DOC-02)	5
 loki modernize always routes to engine10 (M-08)	1
 Dependency inventory Latest/Bump self-consistency (DEP-01)	1
 Usage governor calibration and dedup (G-01)	2
+Usage governor measured /usage cap and fallback label (GOV-MEASURE)	1
 Usage governor statusLine logger (G-01)	1
 cloud-dispatch dry-run refuses on overlap, governor max, not-ready (G-04)	3
 security-audit.yml gitleaks config isolation (refuse config change, base-config scan, gitleaksignore warning)	1
@@ -729,3 +730,11 @@ Control Plane starts from a fresh npm pack install and serves /health and its UI
 Docs carry no stale commands, dead env vars or old versions (SZ-03, advisory)	3
 cp-redesign image allowlist guard (D26)	2
 Loki Receipt check action posts success for a valid receipt and failure for a tampered one (B2)	10
+tests that spawn the verifier pin TARGET_DIR (FC-29)	2
+b9 scoreboard dry-run rows and shape defaults (R1-17)	8
+b9 trivial-sum fixture generator	3
+the verifier never defaults to the caller cwd (FC-29 sweep)	5
+goal_score bash vs Bun behavioral parity (RC-DOCTOR-ONE S5)	6
+doctor has one implementation (FC-DUP delegator and minimal fallback)	3
+fast gate planner selects the suites that guard a diff (D90)	20
+real-run harness scenarios, dry install, doctored receipt	17

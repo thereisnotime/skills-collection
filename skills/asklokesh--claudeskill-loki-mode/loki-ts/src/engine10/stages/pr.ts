@@ -9,8 +9,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PushArgs, RunContext, Stage, StageResult, Verdict } from "../types.ts";
 import { pushArgv } from "../types.ts";
+import { renderBrief, reviewerBriefEnabled } from "../../util/reviewer_brief.ts";
 import { renderReviewerBody } from "../../e10ext/reviewer_body.ts";
-import { draftReason } from "../pr_body.ts"; import { evidenceSection } from "../../features/visual_evidence.ts";
+import { withSealRoute } from "../../runner/router/route_block.ts"; import { draftReason } from "../pr_body.ts"; import { evidenceSection } from "../../features/visual_evidence.ts"; import { beforeAfterBlock } from "../../integrations/before_after.ts";
+import { intentSection } from "../../util/intent_card.ts";
 import { REPO_ROOT } from "../../util/paths.ts";
 import { safeGit } from "../../util/safe_git.ts";
 import { yamlKey } from "../../util/yaml_key.ts";
@@ -54,20 +56,27 @@ function toPushShellArgs(args: PushArgs): string[] {
   if (flag === "1") built.push("--draft");
   return built;
 }
+function briefSection(ctx: PrContext): string {
+  if (!reviewerBriefEnabled()) return "";
+  const o = ctx.outputs();
+  const base = String((o.intake as { base_sha?: unknown } | undefined)?.base_sha ?? ctx.baseSha ?? "");
+  try { return "\n" + renderBrief({ repoDir: ctx.repoDir, baseSha: base, plan: (o.plan as { plan?: string } | undefined)?.plan ?? null }); } catch { return ""; }
+}
 export async function runPr(ctx: PrContext, signal: AbortSignal, opts: PrOptions = {}): Promise<StageResult> {
   if (signal.aborted) return { status: "failed", data: {}, reason: "aborted before pr started" };
   const pinnedOrigin = ctx.pinnedOrigin;
   if (!pinnedOrigin) {
     return { status: "failed", data: {}, reason: "no pinned origin: refusing to push (Rule of Two)" };
   }
-  const seal = (ctx.outputs().seal ?? {}) as { verdict?: Verdict; not_proven?: string[]; receipt_path?: string; receipt_sha256?: string; signed?: boolean };
+  const seal = (ctx.outputs().seal ?? {}) as { verdict?: Verdict; not_proven?: string[]; receipt_path?: string; receipt_sha256?: string; signed?: boolean; route_line?: string; mutation_line?: string };
   const verdict = seal.verdict ?? "PARTIAL"; // fail-safe: an unknown verdict is never treated as VERIFIED
   const notProven = [...(seal.not_proven ?? [])];
   const capHit = ctx.capHit?.() ?? false;
   const draft = verdict !== "VERIFIED" || capHit;
   mkdirSync(ctx.runDir, { recursive: true });
   const bodyFile = join(ctx.runDir, "pr-body.md");
-  writeFileSync(bodyFile, renderReviewerBody({ verdict, draftReason: draftReason(verdict, capHit), notProven, receiptPath: seal.receipt_path ?? null, receiptSha256: seal.receipt_sha256 ?? null, signed: typeof seal.signed === "boolean" ? seal.signed : null, runId: ctx.runId, outputs: ctx.outputs() }) + evidenceSection(seal.receipt_path), "utf8");
+  const beforeAfter = await beforeAfterBlock(ctx.repoDir, ctx.runDir, ((ctx.outputs().verify?.["changed_files"] ?? []) as unknown[]).map(String), ctx.baseSha, { signal });
+  writeFileSync(bodyFile, withSealRoute(renderReviewerBody({ verdict, draftReason: draftReason(verdict, capHit), notProven, receiptPath: seal.receipt_path ?? null, receiptSha256: seal.receipt_sha256 ?? null, signed: typeof seal.signed === "boolean" ? seal.signed : null, runId: ctx.runId, outputs: ctx.outputs() }), process.env, seal) + intentSection(ctx.outputs().plan) + evidenceSection(seal.receipt_path) + briefSection(ctx) + beforeAfter + (seal.mutation_line ? `\n${seal.mutation_line}\n` : ""), "utf8");
   const title = `Loki 10: ${verdict} (${ctx.runId})`;
   const pushShellArgs = toPushShellArgs({ cmd: "push-pr", repoDir: ctx.repoDir, branch: ctx.branch, title, bodyFile, draft });
   const scriptPath = opts.pushScriptPath ?? DEFAULT_PUSH_SH;

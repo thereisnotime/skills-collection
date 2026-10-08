@@ -41,6 +41,7 @@ body:
         - "Start Here"
         - "Documentation, Knowledge & Learning"
         - "Documentation, Knowledge & Learning > Obsidian"
+        - "Documentation, Knowledge & Learning > Data Visualization"
         - "Open Source Software"
         - "Research & Scientific Inquiry"
         - "Providers, Runtime & Integration Infrastructure"
@@ -65,6 +66,7 @@ body:
         - "Testing"
         - "Linting"
         - "Multi-Purpose"
+        - "Lists & Collections"
     validations:
       required: true
 

@@ -2,12 +2,16 @@
 # prepare-commit-msg — auto-append Generated-By trailer for AI commits
 #
 # Install:
-#   HOOK_DIR=$(git config core.hooksPath 2>/dev/null || echo .git/hooks)
+#   HOOK_DIR=$(git config core.hooksPath 2>/dev/null || true)
+#   HOOK_DIR="${HOOK_DIR:-$(git rev-parse --git-path hooks 2>/dev/null || echo .git/hooks)}"
 #   cp .agents/skills/git-safety/scripts/prepare-commit-msg "$HOOK_DIR/prepare-commit-msg"
 #   chmod +x "$HOOK_DIR/prepare-commit-msg"
 #
 # Note: If core.hooksPath is set (e.g., Husky sets it to .husky/_/),
-# install there instead of .git/hooks/. Check with:
+# install there instead. When unset, `git rev-parse --git-path hooks`
+# resolves the default hooks dir — including in a linked worktree, where
+# `.git` is a file pointing at the parent repo rather than a directory.
+# Check with:
 #   git config core.hooksPath
 #
 # Detection model (full matrix: references/attribution-detection.md):

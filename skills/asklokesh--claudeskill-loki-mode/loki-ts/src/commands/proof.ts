@@ -22,14 +22,15 @@
 // LOKI_LEGACY_BASH=1 escape hatch, so this port is kept parity-correct with
 // it (see loki-ts/tests/commands/proof.test.ts for the bash-vs-Bun gate).
 
-import { existsSync, readdirSync, readFileSync, mkdtempSync, copyFileSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readdirSync, realpathSync, statSync, readFileSync, mkdtempSync, copyFileSync, rmSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { readFile } from "node:fs/promises";
 import { lokiDir, REPO_ROOT } from "../util/paths.ts";
 import { run } from "../util/shell.ts";
+import { safeGit } from "../util/safe_git.ts";
 import { findIsolatedPython3 } from "../util/python.ts";
 import { BOLD, CYAN, GREEN, NC, RED, YELLOW } from "../util/colors.ts";
 import { tierGate } from "../util/tier.ts";
@@ -569,6 +570,54 @@ async function shareProof(argv: readonly string[]): Promise<number> {
   return 0;
 }
 
+/**
+ * FC-29: the one place the Bun route decides which tree the verifier digests.
+ * Mirrors loki_verify_root in autonomy/loki: TARGET_DIR, then the parent of an
+ * absolute LOKI_DIR, then the cwd or repo top-level holding .loki. Returns null
+ * (caller reports NOT CHECKED) for anything else, and for HOME or "/".
+ */
+export function resolveVerifyRoot(
+  env: Record<string, string | undefined> = process.env,
+  cwd: string = process.cwd(),
+): string | null {
+  const trim = (p: string): string => (p.length > 1 ? p.replace(/\/+$/, "") || "/" : p);
+  const canon = (p: string): string => {
+    const t = trim(p);
+    try {
+      return t ? realpathSync(t) : t;
+    } catch {
+      return t;
+    }
+  };
+  const isDir = (p: string): boolean => {
+    try {
+      return statSync(p).isDirectory();
+    } catch {
+      return false;
+    }
+  };
+  let d = env["TARGET_DIR"] ? trim(env["TARGET_DIR"] as string) : "";
+  const ld = env["LOKI_DIR"] ?? "";
+  if (!d && ld.startsWith("/") && existsSync(ld)) d = dirname(trim(ld));
+  if (!d) {
+    if (isDir(join(cwd, ".loki"))) {
+      d = cwd;
+    } else {
+      let top = "";
+      try {
+        top = safeGit(cwd, ["rev-parse", "--show-toplevel"]).trim();
+      } catch {
+        top = "";
+      }
+      if (top && isDir(join(top, ".loki"))) d = top;
+    }
+  }
+  const home = env["HOME"] ? canon(env["HOME"] as string) : "";
+  const cd = d ? canon(d) : "";
+  if (!d || cd === "/" || (home && cd === home)) return null;
+  return d;
+}
+
 // verifyProof - deterministic re-check of a receipt (tamper + drift), Bun parity
 // for the bash `proof verify`. Both routes shell out to the SAME verifier
 // (autonomy/lib/proof-verify.py) so there is one source of truth: it re-hashes
@@ -596,7 +645,13 @@ async function verifyProof(id: string | undefined): Promise<number> {
     process.stderr.write(`${RED}Verifier not found (autonomy/lib/proof-verify.py).${NC}\n`);
     return 2;
   }
-  const target = process.env["TARGET_DIR"] || ".";
+  const target = resolveVerifyRoot();
+  if (target === null) {
+    process.stderr.write(
+      `${YELLOW}NOT CHECKED${NC}: no project tree to verify against (exit 2).\n`,
+    );
+    return 2;
+  }
   // Shell out to the verifier and pass its report + exit code through verbatim
   // (0 clean / 1 tamper-drift / 2 unusable). run() captures, so we write the
   // captured streams back out; the verifier prints a JSON report on stdout.

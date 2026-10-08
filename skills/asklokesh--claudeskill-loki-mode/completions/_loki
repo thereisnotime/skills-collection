@@ -209,6 +209,7 @@ function _loki_commands {
         'otel:OpenTelemetry management'
         'wiki:Wiki commands'
         'answer:Resume a BLOCKED run with an answer'
+        'queue:Overnight issue queue with a morning digest'
         'control:Control plane (preview, LOKI_CONTROL=1)'
         'workspace:Multi-project workspaces (preview, LOKI_WORKSPACES=1)'
         'backlog:Run every matching open issue, N in parallel'
@@ -264,6 +265,7 @@ function _loki_start {
         '-y[Skip confirmation prompts]' \
         '--budget[Cost budget limit in USD]:amount:' \
         '--max-iterations[Max iterations]:number:' \
+        '--attempts[Independent attempts in worktrees, 1-5]:number:(1 2 3 4 5)' \
         '*:spec file:_loki_spec_files'
 }
 

@@ -31,6 +31,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -311,7 +312,7 @@ UNIT_BYTES = {
 
 # --- destructive commands ---------------------------------------------------
 # A conservative list: a command that is not matched here is not checked, which
-# is the safe direction (a missed command cannot produce a false FAIL).
+# is a coverage limitation, not evidence that the command is safe.
 #
 # Each entry: (owning tools, compiled destructive pattern, category-wide?,
 #              versioned?) — `versioned` is False for system controls and
@@ -319,6 +320,12 @@ UNIT_BYTES = {
 #              application or service" instead of a version number.
 
 DESTRUCTIVE_PATTERNS = (
+    (('safe_delete.py',), re.compile(
+        r'^\s*`?(?:(?:\S*/)?uv\s+run\s+(?:--script\s+)?|'
+        r'(?:\S*/)?python(?:\d+(?:\.\d+)*)?\s+)?'
+        r'(?:"[^"]*/safe_delete\.py"|\'[^\']*/safe_delete\.py\'|'
+        r'[^\s`"\']*\bsafe_delete\.py)(?:\s+|$)'),
+     False, False),
     (('rm',), re.compile(r'\brm\s+(?:-\w+[=\w]*\s+)*[/~$"\']'), False, True),
     (('osascript', 'Finder'), re.compile(r'\bosascript\b'), False, False),
     # Not category-wide on its own: the gate names `brew cleanup --prune`
@@ -348,6 +355,25 @@ DESTRUCTIVE_PATTERNS = (
     (('diskutil',), re.compile(r'\bdiskutil\s+(?:secureErase|eraseDisk|eraseVolume)\b'),
      False, False),
     (('xattr',), re.compile(r'\bxattr\s+(?:-[a-zA-Z]+\s+)*-d\b'), False, False),
+    # The quarantine fallback SKILL.md prescribes for ssh/headless targets:
+    # `mv <exact-target> <dir>/_quarantine-<date>/`. It is a recoverable move,
+    # not a permanent delete, so it is not versioned and not category-wide; but
+    # it IS a state-changing command on an approved target, so it deserves the
+    # same mechanical target-coverage binding as the osascript Trash form. The
+    # pattern is deliberately narrow, on three axes at once:
+    #   - anchored to a leading `mv` (so `git mv`, `sudo mv`, and an `mv` after
+    #     a command separator do not match);
+    #   - the first argument must be a quoted string or a path-ish token
+    #     (`/`, `~`, `.`, `$`), so a prose sentence that happens to start with
+    #     the word "mv" ("mv each approved target to ...") is not gated as an
+    #     unbound command;
+    #   - the `_quarantine-` marker must appear later in the same command, so an
+    #     ordinary rename or build-script `mv` is never pulled in.
+    # A leading backtick is tolerated because command-table cells keep their
+    # markdown quoting (unlike prose spans, which command_chunks strips).
+    (('mv',), re.compile(r'^\s*`?\s*mv\s+(?:-[a-zA-Z]+\s+)*'
+                         r'(?:"[^"]*"|\'[^\']*\'|[/~$.][^\s|;]*)[^|;]*_quarantine-'),
+     False, False),
 )
 
 # A command that itself carries a dry-run flag is a read-only probe.
@@ -862,13 +888,90 @@ def command_chunks(plan_text):
 
 
 class Command(object):
-    def __init__(self, lineno, text, tools, category_wide, versioned, origin='prose'):
+    def __init__(self, lineno, text, tools, category_wide, versioned, origin='prose',
+                 exact_target=None):
         self.lineno = lineno
         self.text = text
         self.origin = origin
         self.tools = tools
         self.category_wide = category_wide
         self.versioned = versioned
+        self.exact_target = exact_target
+
+
+def helper_targets(text):
+    """Read literal helper arguments without opening a batch file or running code.
+
+    A batch, expansion, or compound shell form cannot prove its target set from
+    the plan alone. Keep it visible but unresolved so the coverage gate rejects it.
+    """
+    source = text.strip().strip('`')
+    try:
+        parts = shlex.split(source)
+    except ValueError:
+        return [None]
+    # shlex returns values, discarding the quote context that decides whether
+    # brackets, braces or '&' are filename characters or shell syntax. Track
+    # that context separately; never expand or execute the words.
+    unsafe_words = []
+    values = []
+    value = ''
+    quote = None
+    active = False
+    unsafe = False
+    index = 0
+    while index < len(source):
+        char = source[index]
+        if quote == "'":
+            if char == "'":
+                quote = None
+            else:
+                value += char
+        elif char == '\\' and (quote is None or
+                                source[index + 1:index + 2] in ('$', '`', '"', '\\', '\n')):
+            index += 1
+            active = True
+            if source[index:index + 1] != '\n':
+                value += source[index:index + 1]
+        elif quote == '"':
+            if char == '"':
+                quote = None
+            elif char in '$`':
+                unsafe = True
+                value += char
+            else:
+                value += char
+        elif char in "'\"":
+            quote = char
+            active = True
+        elif char.isspace():
+            if active:
+                unsafe_words.append(unsafe)
+                values.append(value)
+            active = unsafe = False
+            value = ''
+        else:
+            active = True
+            value += char
+            if char in '$*?[]{};|&<>()`#':
+                unsafe = True
+        index += 1
+    if active:
+        unsafe_words.append(unsafe)
+        values.append(value)
+    if len(unsafe_words) != len(parts):
+        return [None]
+    parts = values
+    for index, part in enumerate(parts):
+        if part.rsplit('/', 1)[-1] != 'safe_delete.py':
+            continue
+        targets = parts[index + 1:]
+        if (not targets or any(target.startswith('-') or not target
+                               for target in targets) or
+                any(unsafe_words[index + 1:])):
+            return [None]
+        return targets
+    return [None]
 
 
 # A command the plan declares it did NOT run and will not propose is not a
@@ -908,16 +1011,35 @@ def find_destructive_commands(plan_text):
     for lineno, origin, chunk in command_chunks(plan_text):
         per_line[lineno] = per_line.get(lineno, 0) + 1
     for lineno, origin, chunk in command_chunks(plan_text):
-        if DRY_RUN_RE.search(chunk) or HELP_INVOCATION_RE.search(chunk):
+        helper_match = DESTRUCTIVE_PATTERNS[0][1].search(chunk)
+        if helper_match:
+            try:
+                helper_words = shlex.split(chunk.strip().strip('`'))
+            except ValueError:
+                helper_words = []
+            if ('--help' in helper_words and
+                    '--' not in helper_words[:helper_words.index('--help')]):
+                continue
+        elif DRY_RUN_RE.search(chunk) or HELP_INVOCATION_RE.search(chunk):
             continue
         if READ_ONLY_PROBE_RE.match(chunk) and not re.search(r'\brm\b', chunk):
             continue
-        if declared_unused(lineno, origin, chunk, lines, per_line.get(lineno, 1)):
+        if helper_match:
+            # A filename such as '/tmp/not used/item' is not a prose exclusion.
+            # For an inline command, only its surrounding sentence can retract it.
+            scope = chunk if origin == 'cell' else lines[lineno - 1]
+            if (per_line.get(lineno, 1) == 1 and
+                    DECLARED_UNUSED_RE.search(scope.replace(chunk, '', 1))):
+                continue
+        elif declared_unused(lineno, origin, chunk, lines, per_line.get(lineno, 1)):
             continue
         for tools, pattern, category_wide, versioned in DESTRUCTIVE_PATTERNS:
             match = pattern.search(chunk)
             if not match:
                 continue
+            if (tools == ('safe_delete.py',) and chunk.strip('` ') == 'safe_delete.py'
+                    and lines[lineno - 1].strip() != 'safe_delete.py'):
+                continue  # a filename citation, not an executable invocation
             if category_wide:
                 # An explicit object argument narrows the scope.
                 if any(narrow.search(chunk) for narrow in EXPLICIT_OBJECT_RES):
@@ -928,8 +1050,10 @@ def find_destructive_commands(plan_text):
             if key in seen:
                 continue
             seen.add(key)
-            commands.append(Command(lineno, chunk, tools, category_wide, versioned,
-                                    origin))
+            targets = helper_targets(chunk) if tools == ('safe_delete.py',) else [None]
+            for target in targets:
+                commands.append(Command(lineno, chunk, tools, category_wide, versioned,
+                                        origin, target))
     commands.sort(key=lambda command: command.lineno)
     return commands
 
@@ -949,6 +1073,8 @@ def resolve_target(command, plan_tables):
     A table row's target column wins when there is one: it is where the agent
     states the exact object, and the command cell alone often holds only IDs.
     """
+    if command.tools == ('safe_delete.py',):
+        return command.exact_target or '', None, command.exact_target is not None
     for table in plan_tables:
         for row in table.rows:
             if row.lineno != command.lineno:
@@ -1023,6 +1149,10 @@ def attribute(command, gate_rows, plan_tables):
     identifier, because for a package-manager cache it *is* the target.
     """
     target, _row, resolvable = resolve_target(command, plan_tables)
+    if command.tools == ('safe_delete.py',):
+        row = next((row for row in gate_rows
+                    if normalize(row.target).strip('\'"') == target), None)
+        return row, resolvable, target
     identifiers = target_identifiers(command, target)
     if not identifiers:
         return None, resolvable, target
@@ -1318,7 +1448,7 @@ def check_target_coverage(commands, gate_rows, plan_tables, plan_text=''):
         row, resolvable, target = attribute(command, gate_rows, plan_tables)
         if row is not None:
             continue
-        if not resolvable and gate_rows:
+        if not resolvable and gate_rows and command.tools != ('safe_delete.py',):
             unattributed.append('line %d: %s (no stated target to match)'
                                 % (command.lineno, command.text[:90]))
             continue

@@ -64,7 +64,7 @@ Caveat worth keeping visible: the "appears far more often in AI text" claim behi
 | underscores | highlights, shows |
 | meticulous / meticulously | careful, detailed, precise |
 | seamless / seamlessly | smooth, easy, without friction |
-| game-changer / game-changing | breakthrough, turning point, changes how [X] works (or describe what specifically changed) |
+| game-changer / game-changing | changes how [X] works (or describe what specifically changed) |
 | hit differently / hits different | feels different, affects [me/us] differently (or cut) |
 | watershed moment | turning point, shift (or describe what changed) |
 | marking a pivotal moment | changing [X], leading to [Y] (or state what happened) |
@@ -73,7 +73,7 @@ Caveat worth keeping visible: the "appears far more often in AI text" claim behi
 | nestled | is located, sits, is in |
 | vibrant | lively, active (or describe what makes it active) |
 | thriving | growing, active (or cite a number) |
-| despite challenges… continues to thrive | keeps growing despite [named difficulty], continues to succeed despite [named difficulty] |
+| despite challenges… continues to thrive | keeps growing despite [named difficulty], continues to succeed despite [named difficulty] (or name the challenge and the response, or cut) |
 | showcasing | showing, demonstrating (or cut the clause) |
 | deep dive / dive into | look at, examine, explore |
 | unpack / unpacking | explain, break down, walk through |
@@ -153,8 +153,8 @@ These words are legitimate on their own. When two or more show up together, the 
 | illuminate | clarify, explain, show |
 | elucidate | explain, clarify, spell out |
 | juxtapose | compare, contrast, set side by side |
-| paradigm-shifting | changes the basic model, changes how [X] is understood |
-| transformative / transformation | changes how [X] works, major change, overhaul |
+| paradigm-shifting | changes the basic model, changes how [X] is understood (or describe what actually shifted) |
+| transformative / transformation | changes how [X] works (adj.); major change, overhaul where it fits (noun) (or describe what changed and how) |
 | cornerstone | foundation, basis, key part |
 | paramount | most important, top priority |
 | poised (to) | ready, set, about to |

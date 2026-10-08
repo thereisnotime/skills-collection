@@ -29,6 +29,8 @@
 # Hybrid installs:
 #   AC-18e..f stale attribution code outside the block flagged;
 #             comment-only mentions not flagged
+# Linked worktrees (check-hook.sh path resolution):
+#   AC-20  shared hooks dir resolved from a linked worktree
 # Message-file edge cases:
 #   AC-19  no trailing newline before the trailer → git still parses it
 #
@@ -44,7 +46,8 @@ WRAPPER="$HERE/git-agent-commit"
 CHECK="$HERE/check-hook.sh"
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# AC-20 places a linked worktree next to the temp repo, not inside it.
+trap 'rm -rf "$TMP" "${TMP}-wt"' EXIT
 
 pass=0
 fail=0
@@ -191,8 +194,12 @@ else
   report no "AC-18a full-copy install current" "check-hook.sh rejected a byte-copy install"
 fi
 
-# b: a tampered attribution block is flagged OUTDATED (exit 1)
-awk 'NR!=45' "$TMP/.git/hooks/prepare-commit-msg" > "$TMP/tampered-hook"
+# b: a tampered attribution block is flagged OUTDATED (exit 1).
+#    Anchor the edit to the marker block: a hardcoded line number drifts
+#    outside the block whenever the script header changes length, which
+#    would silently stop tampering the block at all.
+sed '/^# --- AI Commit Attribution/,/^# --- end AI Commit Attribution/{/^commit_msg_file=/d;}' \
+  "$TMP/.git/hooks/prepare-commit-msg" > "$TMP/tampered-hook"
 chmod +x "$TMP/tampered-hook"
 tamper_out="$("$CHECK" "$TMP/tampered-hook" 2>&1)"
 tamper_rc=$?
@@ -250,6 +257,25 @@ if comment_out="$("$CHECK" "$TMP/comment-hook" 2>&1)"; then
   report ok "AC-18f comment mention still current"
 else
   report no "AC-18f comment mention still current" "check-hook.sh flagged a comment-only mention: $comment_out"
+fi
+
+# AC-20: a linked worktree's .git is a file pointing at the parent repo, so a
+# literal `.git/hooks` path does not exist there. check-hook must resolve the
+# shared hooks dir (where git runs the hook for every worktree) and report the
+# install current — the pre-worktree default printed a relative path that only
+# resolves in the parent repo's own working tree.
+WT="${TMP}-wt"
+if ! git worktree add -b worktree-case "$WT" >/dev/null 2>&1; then
+  report no "AC-20 worktree hooks-dir resolution" "git worktree add failed"
+else
+  main_hooks="$(cd "$TMP" && git rev-parse --git-path hooks)/prepare-commit-msg"
+  wt_out="$(cd "$WT" && "$CHECK" 2>&1)"
+  wt_rc=$?
+  if [[ $wt_rc -eq 0 ]] && grep -qF "$main_hooks" <<<"$wt_out"; then
+    report ok "AC-20 worktree hooks-dir resolution"
+  else
+    report no "AC-20 worktree hooks-dir resolution" "rc=$wt_rc; wanted '$main_hooks' in: $wt_out"
+  fi
 fi
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"

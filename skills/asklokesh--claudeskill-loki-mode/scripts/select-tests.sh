@@ -327,6 +327,25 @@ grep_and_emit() {
     done < <(printf '%s\n' "$candidates" | xargs -I{} grep -lF -- "$needle" {} 2>/dev/null)
 }
 
+# FC-32 / RC-SLICE-SHELL-GATE: the loki-ts/src files the control plane bundles (import closure of
+# packages/control-plane/src, any import form, conservative). CP-04 builds exactly that closure, so a change
+# to any of these must select tests/test-control-plane.sh. Computed once; python3 missing => treat every
+# loki-ts/src file as reached (fail safe, never a miss).
+CP_CLOSURE_CACHE=""
+CP_CLOSURE_DONE=0
+cp_closure_load() {
+    if [ "$CP_CLOSURE_DONE" -eq 0 ]; then
+        CP_CLOSURE_DONE=1
+        if command -v python3 >/dev/null 2>&1 && [ -d packages/control-plane/src ]; then
+            CP_CLOSURE_CACHE="$(python3 "$SCRIPT_DIR/cp-closure.py" 2>/dev/null)" || CP_CLOSURE_CACHE=""
+            # An empty closure is never legitimate: python3 failing or printing nothing fails safe to ALL.
+            [ -n "$CP_CLOSURE_CACHE" ] || CP_CLOSURE_CACHE="ALL"
+        else
+            CP_CLOSURE_CACHE="ALL"
+        fi
+    fi
+}
+
 BUN_TYPECHECK_EMITTED=0
 
 for f in "${CHANGED[@]}"; do
@@ -351,6 +370,17 @@ for f in "${CHANGED[@]}"; do
                                 ;;
                         esac
                     fi
+                    # Meta guards over tests/ itself (home-directory paths, D44-C structural checks):
+                    # any changed shell test must run them, not just itself.
+                    case "$f" in
+                        *.sh)
+                            for meta in tests/test-no-hardcoded-paths.sh tests/test-structural-checks.sh; do
+                                if [ -f "$meta" ]; then
+                                    already_seen "shell_test:$meta" || { mark_seen "shell_test:$meta"; emit R3 shell_test "$meta"; }
+                                fi
+                            done
+                            ;;
+                    esac
                     continue
                     ;;
             esac
@@ -381,6 +411,26 @@ for f in "${CHANGED[@]}"; do
                 emit R4 bun_typecheck "loki-ts"
                 BUN_TYPECHECK_EMITTED=1
             fi
+            # FC-31: shell suites guard loki-ts/src files too. Select any shell
+            # suite that names the file's full path, or (for a command module,
+            # loki-ts/src/commands/X.ts) that runs it as "loki X". A bun-only
+            # selection let a doctor.ts slice skip tests/test-doctor-blocker-
+            # parity.sh and go red in Tier B.
+            grep_and_emit R3 shell_test "$f" "$(all_test_files)"
+            # FC-32: CP-04 builds the control-plane server from what its Dockerfile copies.
+            cp_closure_load
+            if { grep -qxF -- "$f" <<<"$CP_CLOSURE_CACHE" || [ "$CP_CLOSURE_CACHE" = "ALL" ]; } && [ -f tests/test-control-plane.sh ]; then
+                already_seen "shell_test:tests/test-control-plane.sh" || { mark_seen "shell_test:tests/test-control-plane.sh"; emit R3 shell_test "tests/test-control-plane.sh"; }
+            fi
+            case "$rel" in
+                commands/*.ts)
+                    cmd="${stem##*/}"
+                    case "$cmd" in
+                        *[!A-Za-z0-9_-]* | "") ;;
+                        *) grep_word_and_emit R3 shell_test "loki\"? +${cmd}" "$(all_test_files)" ;;
+                    esac
+                    ;;
+            esac
             continue
             ;;
     esac

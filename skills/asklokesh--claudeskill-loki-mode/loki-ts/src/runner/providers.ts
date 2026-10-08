@@ -43,6 +43,8 @@ import { mcpConfigPath } from "../providers/mcp_config.ts";
 import { LEAN_PREFIX } from "../features/lean_prefix.ts";
 import { consumeSdkStream, type StreamMsg } from "./sdk_stream_parser.ts";
 import { createTrimHook } from "./trim.ts";
+import { probeAdvisor } from "./router/advisor_probe.ts";
+import { routerEnabled } from "./router/flag.ts";
 import type {
   ProviderInvocation,
   ProviderInvoker,
@@ -50,6 +52,7 @@ import type {
   ProviderResult,
   SessionTier,
 } from "./types.ts";
+import { resolveClaudeModel } from "../util/claude_model.ts";
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -306,6 +309,86 @@ function hostGuardSettingsJson(): string {
   });
 }
 
+// ---------------------------------------------------------------------------
+// ROUTER-1 R1-07 (docs/v11/ROUTER-1.md 4.4, 4.5). Under LOKI_ROUTER=1 a routed
+// session carries the Opus advisor and a 100K auto-compact window. In SDK 0.3.293
+// both are fields of `interface Settings` (sdk.d.ts), reached via Options.settings,
+// not top-level Options. Flag off (the default until R1-19) adds nothing, so the
+// options and argv stay byte-identical to the pre-router build.
+// ---------------------------------------------------------------------------
+const ROUTER_ADVISOR_MODEL = "opus";
+const ROUTER_AUTO_COMPACT_WINDOW = 100000; // SDK minimum; keeps requests under the 100K price cliff
+// Only Haiku 5.5 has the cliff. Sonnet/Opus 5.5 have a 1M window at flat price, so compacting them at 100K only
+// loses context. Unknown models fail safe to the ceiling.
+const hasNoPriceCliff = (m: string): boolean => /sonnet|opus/i.test(m) && !/haiku/i.test(m);
+
+// Claude Code version bundled in the pinned Agent SDK. A test (providers_advisor.test.ts) asserts this equals the
+// installed SDK's claudeCodeVersion, so an SDK bump that forgets it fails CI instead of silently mis-probing.
+export const SDK_BUNDLED_CLAUDE_CODE = "2.1.293";
+function bundledClaudeCodeVersion(): string {
+  return SDK_BUNDLED_CLAUDE_CODE;
+}
+
+// Claude Code version for advisor probing: the installed CLI when the engine10 CLI invoker is selected, else the SDK bundle.
+export async function claudeCodeVersionForRoute(env: Record<string, string | undefined>): Promise<string> {
+  return env["LOKI_E10_INVOKER"] === "cli" ? installedClaudeCodeVersion(resolveCli("LOKI_CLAUDE_CLI", "claude")) : bundledClaudeCodeVersion();
+}
+
+// Any haiku id ("haiku", "claude-haiku-5-5", ...) is a haiku executor.
+const isHaikuModel = (m: string): boolean => /haiku/i.test(m);
+
+// Cached per process and CLI path; only a successful read is cached so a transient failure is retried.
+const _installedVersionCache = new Map<string, string>();
+async function installedClaudeCodeVersion(cli: string): Promise<string> {
+  const hit = _installedVersionCache.get(cli);
+  if (hit !== undefined) return hit;
+  try {
+    const r = await shellRun([cli, "--version"], { timeoutMs: 10000 });
+    const v = r.exitCode === 0 ? r.stdout.trim() : "";
+    if (v) _installedVersionCache.set(cli, v);
+    return v;
+  } catch {
+    return "";
+  }
+}
+
+export interface RouterSessionPlan {
+  settings?: { advisorModel: string; autoCompactWindow?: number };
+  model: string;
+  advisorReason?: string;
+}
+
+// Pure: flag off -> null (caller adds nothing). Flag on -> advisor settings when the probe says available;
+// otherwise the executor is Sonnet, never Haiku (L1 amendment, 4.4: Haiku runs only with the advisor attached).
+export function planRouterSession(args: {
+  model: string;
+  runDir: string;
+  claudeCodeVersion: string;
+  env?: Record<string, string | undefined>;
+}): RouterSessionPlan | null {
+  const env = args.env ?? process.env;
+  if (!routerEnabled(env)) return null;
+  const probe = probeAdvisor(env, "claude", args.claudeCodeVersion, args.runDir);
+  if (probe.available) {
+    return {
+      model: args.model,
+      settings: {
+        advisorModel: ROUTER_ADVISOR_MODEL,
+        ...(hasNoPriceCliff(args.model) ? {} : { autoCompactWindow: ROUTER_AUTO_COMPACT_WINDOW }),
+      },
+    };
+  }
+  return { model: isHaikuModel(args.model) ? "sonnet" : args.model, advisorReason: probe.reason };
+}
+
+// One --settings JSON for the CLI route: the host guard hooks (when required) merged with the router's
+// advisor settings (when the router is on and the advisor is available).
+function cliSettingsJson(hostGuard: boolean, router: RouterSessionPlan["settings"]): string {
+  if (!router) return hostGuardSettingsJson();
+  const guard = hostGuard ? (JSON.parse(hostGuardSettingsJson()) as Record<string, unknown>) : {};
+  return JSON.stringify({ ...guard, ...router });
+}
+
 // Write captured output to disk. Used by every provider to honor the
 // `iterationOutputPath` contract from types.ts:87 -- the runner reads the
 // captured file for completion-promise / rate-limit detection.
@@ -336,7 +419,15 @@ export function claudeProvider(): ProviderInvoker {
   const cli = resolveCli("LOKI_CLAUDE_CLI", "claude");
   return {
     async invoke(call: ProviderInvocation): Promise<ProviderResult> {
-      const model = claudeModelFor(call);
+      const baseModel = claudeModelFor(call);
+      const routed = routerEnabled()
+        ? planRouterSession({
+            model: baseModel,
+            runDir: process.env["LOKI_DIR"] ?? resolve(call.cwd, ".loki"),
+            claudeCodeVersion: await installedClaudeCodeVersion(cli),
+          })
+        : null;
+      const model = routed ? routed.model : baseModel;
       const modelArgv = useProviderDefaultModel(call) ? [] : ["--model", model];
 
       // v7.5.19 Phase B: prime the claude --help cache once, then compose
@@ -386,7 +477,9 @@ export function claudeProvider(): ProviderInvoker {
         ...modelArgv,
         ...autoFlags,
         ...sessionArgv,
-        ...(hostGuard ? ["--settings", hostGuardSettingsJson()] : []),
+        ...(hostGuard || routed?.settings
+          ? ["--settings", cliSettingsJson(hostGuard, routed?.settings)]
+          : []),
         // claude.sh:32 PROVIDER_PROMPT_FLAG
         "-p",
         call.prompt,
@@ -496,6 +589,8 @@ export interface SdkLoopExtraOptions {
   maxBudgetUsd?: number;
   fallbackModel?: string;
   tools?: string[];
+  model?: string;
+  settings?: { advisorModel: string; autoCompactWindow?: number };
   noAppend?: boolean;
   systemPrompt?: string;
 }
@@ -510,8 +605,21 @@ export function buildSdkLoopOptions(args: {
   cwd: string;
   complexity?: string;
   allowHaiku?: boolean;
+  runDir?: string;
+  claudeCodeVersion?: string;
 }): SdkLoopExtraOptions {
   const out: SdkLoopExtraOptions = {};
+  const router = routerEnabled()
+    ? planRouterSession({
+        model: args.model,
+        runDir: args.runDir ?? process.env["LOKI_DIR"] ?? resolve(args.cwd, ".loki"),
+        claudeCodeVersion: args.claudeCodeVersion ?? bundledClaudeCodeVersion(),
+      })
+    : null;
+  if (router) {
+    out.model = router.model;
+    if (router.settings) out.settings = router.settings;
+  }
   const engine10 = Boolean(process.env["LOKI_E10_STAGE"]);
   if (engine10) {
     out.tools = ENGINE10_TOOLS;
@@ -561,7 +669,8 @@ export function buildSdkLoopOptions(args: {
   }
   // fallback model (rate-limit resilience), same derivation as the shell route.
   try {
-    const fb = fallbackForPrimary(args.model, args.allowHaiku);
+    // fallbackForPrimary has no haiku arm; under the router a haiku 429 falls to sonnet.
+    const fb = router && isHaikuModel(router.model) ? "sonnet" : fallbackForPrimary(args.model, args.allowHaiku);
     if (fb) out.fallbackModel = fb;
   } catch {
     // omit
@@ -683,7 +792,7 @@ export function sdkQueryProvider(): ProviderInvoker {
           prompt: call.prompt,
           options: {
             ...(resumeId ? { resume: resumeId } : {}),
-            ...(defaultModel ? {} : { model }),
+            ...(defaultModel ? {} : { model: extra.model ?? model }),
             cwd: call.cwd,
             // fully autonomous, like --dangerously-skip-permissions. bypassPermissions
             // REQUIRES the allowDangerouslySkipPermissions companion or it throws.
@@ -731,6 +840,7 @@ export function sdkQueryProvider(): ProviderInvoker {
             ...(extra.effort ? { effort: extra.effort } : {}),
             ...(extra.maxBudgetUsd ? { maxBudgetUsd: extra.maxBudgetUsd } : {}),
             ...(extra.fallbackModel ? { fallbackModel: extra.fallbackModel } : {}),
+            ...(extra.settings ? { settings: extra.settings } : {}),
           },
           // biome-ignore lint/suspicious/noExplicitAny: SDK Options type is broader than our subset
         } as any);
@@ -1017,7 +1127,7 @@ export function clineProvider(): ProviderInvoker {
 //     (aider.sh:88-94). Multi-agent callers must serialize.
 //   - --no-auto-commits is mandatory: loki manages git itself, including
 //     branch state for healing mode (aider.sh:108-109,118).
-//   - Default model falls back to "claude-opus-4-7" hard-coded here. The
+//   - Default model falls back to the catalog opus alias (util/claude_model.ts). The
 //     bash side reads from providers/model_catalog.json via models.sh; we
 //     keep the TS provider hermetic and let LOKI_AIDER_MODEL override.
 //   - LOKI_AIDER_FLAGS is whitespace-split pass-through, mirroring bash
@@ -1027,7 +1137,7 @@ export function aiderProvider(): ProviderInvoker {
   const cli = resolveCli("LOKI_AIDER_CLI", "aider");
   return {
     async invoke(call: ProviderInvocation): Promise<ProviderResult> {
-      const model = process.env["LOKI_AIDER_MODEL"] ?? "claude-opus-4-7";
+      const model = process.env["LOKI_AIDER_MODEL"] ?? resolveClaudeModel("opus");
 
       const argv: string[] = [
         cli,

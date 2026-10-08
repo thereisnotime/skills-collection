@@ -9,11 +9,21 @@
 // autonomy/lib/cost-summary.py read (not ours to change). Unlike the legacy bash writer (autonomy/run.sh), which
 // always writes cost_usd (defaulting to 0 when unknown), this omits cost_usd when there is no dollar figure.
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join } from "node:path"; import { routerEnabled } from "../runner/router/flag.ts";
 
 /** D48: marker on a result-cost file and the cost event/receipt for a CLI-invoker session (LOKI_E10_INVOKER=cli, e.g. the
  *  stub provider) that has no provider-reported dollars. Recorded as 0, never null, and always disclosed in NOT PROVEN. */
 export const UNMETERED = "cli-invoker-unmetered";
+
+export interface RouterUsage {
+  requests_total: number;
+  requests_over_100k: number;
+  over_100k_input_tokens: number;
+  over_100k_output_tokens: number;
+  advisor_calls: number;
+  advisor_input_tokens: number;
+  advisor_output_tokens: number;
+}
 
 export interface CostResult {
   unmetered?: boolean; // some session in this sum carried the UNMETERED marker
@@ -27,9 +37,19 @@ export interface CostResult {
   output_tokens: number;
   cache_read_tokens: number;
   cache_creation_tokens: number;
+  // R1-08: summed router telemetry. over_100k_* are the input/output tokens of requests strictly over
+  // 100K prompt tokens, so a caller can apply the pricing over_100k tier (budget.ts); not applied here.
+  // Optional so other CostResult producers (budget.ts) need no change; sumResultCosts always sets it.
+  router?: RouterUsage;
   model: string | null; // E-50: provider-reported model from the result-cost file itself, never a guess
   source: string; // comma-joined result-cost file paths that were read
   missing: string[]; // iterations with no dollar figure: no file, a file with no total_cost_usd, or all-zero usage (see noUsage below)
+}
+
+/** R1-08: router telemetry is recorded only when the router flag is on (1/true/on, same as the router flag readers), so LOKI_ROUTER unset or 0
+ *  leaves the result-cost file and CostResult byte-identical to pre-router. Shared by the stream parser. */
+export function routerTelemetryOn(env: Record<string, string | undefined> = process.env): boolean {
+  return routerEnabled(env);
 }
 
 export function num(v: unknown): number {
@@ -46,6 +66,8 @@ export function sumResultCosts(lokiRoot: string, iterations: string[]): CostResu
   const out: CostResult = {
     usd: null, partialUsd: 0, measuredCount: 0, totalCount: iterations.length,
     input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0,
+    ...(routerTelemetryOn() ? { router: { requests_total: 0, requests_over_100k: 0, over_100k_input_tokens: 0, over_100k_output_tokens: 0,
+      advisor_calls: 0, advisor_input_tokens: 0, advisor_output_tokens: 0 } } : {}),
     model: null, source: "", missing: [],
   };
   const sources: string[] = [];
@@ -69,6 +91,13 @@ export function sumResultCosts(lokiRoot: string, iterations: string[]): CostResu
     out.output_tokens += outTok;
     out.cache_read_tokens += cacheR;
     out.cache_creation_tokens += cacheC;
+    if (out.router) out.router["requests_total"] += num(rec["requests_total"]);
+    if (out.router) out.router["requests_over_100k"] += num(rec["requests_over_100k"]);
+    if (out.router) out.router["over_100k_input_tokens"] += num(rec["over_100k_input_tokens"]);
+    if (out.router) out.router["over_100k_output_tokens"] += num(rec["over_100k_output_tokens"]);
+    if (out.router) out.router["advisor_calls"] += num(rec["advisor_calls"]);
+    if (out.router) out.router["advisor_input_tokens"] += num(rec["advisor_input_tokens"]);
+    if (out.router) out.router["advisor_output_tokens"] += num(rec["advisor_output_tokens"]);
     if (typeof rec["model"] === "string" && rec["model"]) out.model = rec["model"];
     sources.push(path);
     const c = rec["total_cost_usd"];

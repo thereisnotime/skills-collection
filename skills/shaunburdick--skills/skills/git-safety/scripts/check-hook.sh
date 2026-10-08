@@ -18,7 +18,8 @@
 # pre-existing hook that merely mentions Generated-By in prose is fine.
 #
 # Usage:
-#   check-hook.sh [HOOK_PATH]   # default: resolve via core.hooksPath
+#   check-hook.sh [HOOK_PATH]   # default: resolve via core.hooksPath, else
+#                               # `git rev-parse --git-path hooks` (worktree-safe)
 #
 # Exit codes:
 #   0  hook installed, executable, attribution block current
@@ -35,9 +36,16 @@ BLOCK_START='^# --- AI Commit Attribution'
 BLOCK_END='^# --- end AI Commit Attribution'
 
 # Resolve the hook path the same way the SKILL.md setup steps do.
+# core.hooksPath wins when set; otherwise ask git rather than assuming a
+# `.git/hooks` directory: in a linked worktree `.git` is a gitfile pointing
+# at the parent repo, and the hooks live in that parent's shared hooks dir
+# (git runs them for the worktree too, so one install covers all worktrees).
 resolve_hook_path() {
   local dir
   dir="$(git config core.hooksPath 2>/dev/null || true)"
+  if [[ -z "$dir" ]]; then
+    dir="$(git rev-parse --git-path hooks 2>/dev/null || true)"
+  fi
   dir="${dir:-.git/hooks}"
   printf '%s\n' "${dir%/}/prepare-commit-msg"
 }

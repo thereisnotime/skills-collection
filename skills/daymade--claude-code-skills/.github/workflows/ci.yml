@@ -1,9 +1,8 @@
 name: CI
 
-# Every job here was measured against main before being turned on, so a red result means
-# "this pull request broke something", never "this repo has always been like that". A gate
-# that fails for reasons the author did not cause is worse than no gate: people learn to
-# ignore it, and then it also stops catching the real thing.
+# Diagnose the failed step and compare the same check on main before attributing a red
+# result to a pull request. Installation, assertion and fixture-cleanup failures have
+# different recovery paths; see references/ci-operations.md.
 #
 # The logic lives in scripts/ci/, not inline here, so contributors can run exactly what CI
 # runs before pushing — and so the checks themselves are reviewable.
@@ -84,6 +83,9 @@ jobs:
 
       - name: Install validator dependency
         run: python3 -m pip install --quiet pyyaml
+
+      - name: Configured local Skill repository search
+        run: python3 -m unittest discover -s daymade-skill/skills-search/tests -v
 
       - name: Source ownership and initialization contract
         run: python3 -m unittest discover -s daymade-skill/skill-creator/tests -p test_source_contract.py
@@ -184,8 +186,11 @@ jobs:
       - name: Install registered-suite runtime tools
         run: |
           if ! command -v rg >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y ripgrep
+            # Bound mirror retries on runner images that still carry apt defaults.
+            apt_options=(-o Acquire::Retries=1 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15)
+            apt-config "${apt_options[@]}" dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+            sudo apt-get "${apt_options[@]}" update
+            sudo apt-get "${apt_options[@]}" install -y ripgrep
           fi
           rg --version
 

@@ -1295,6 +1295,192 @@ test('hashtag-stuff still fires on tags spread inline through a post', () => {
   assert.ok(types.has('hashtag-stuff'), 'expected hashtag-stuff on 6 inline tags');
 });
 
+const featuresHit = (text) =>
+  AIDetector.analyzeText(text).issues.find((i) => i.type === 'tier1-clarity' && /^features$/i.test(i.text));
+
+test('tier1-clarity flags "features" used as a verb', () => {
+  // Copula avoidance: "X features Y" stands in for "X has Y".
+  for (const text of [
+    'The new app features a clean dashboard and a fast search bar that most users liked.',
+    'The album features guest vocals from three artists who toured with the band last year.',
+    'The cake, which also features blueberries and a bit of chocolate, takes about an hour.',
+  ]) {
+    assert.ok(featuresHit(text), `expected tier1-clarity on: ${text}`);
+  }
+});
+
+test('features: residual precision checks from #384', () => {
+  // Indirect questions: "which/what features" is a noun after a question verb or at sentence start.
+  for (const text of [
+    'Decide which features matter most to our users this quarter, before choosing a plan.',
+    'Decide what features matter most to our users this quarter, before choosing a plan.',
+    'Decide which features apply to your team before you choose a plan for the year.',
+    'Check which features rely on the API before you migrate any of the older workspaces.',
+    'Find out which features family members can share on the plan before you upgrade it.',
+    'Check which features also work offline before we choose a plan for the whole team.',
+    'Check which features regularly fail when customers upload large files from home.',
+    'Decide which features the team should prioritize before the next release ships to users.',
+    'Tell me what features a customer can disable from the settings page in the app.',
+    'Identify which features two teams requested during the planning meeting last week.',
+    'Which features matter most depends on the size of the team and the plan you choose.',
+    'Pick a phone whose features fit your budget and the apps you need every single day.',
+  ]) {
+    assert.equal(featuresHit(text), undefined, `question noun read as a verb: ${text}`);
+  }
+  // Any other lead keeps the pre-#384 behaviour: relative clauses stay verb findings...
+  for (const text of [
+    'The new enterprise service, which features a dashboard, serves teams everywhere in the world.',
+    'This is what features prominently in every review over the past year.',
+    'This is the one dish which features heavily in every review we read over the past year.',
+    'We tested a library which features dashboards and reports for every department in the company.',
+    'We tested a library which features occasionally updated dashboards for every department.',
+    'We listened to a track which features guest vocals from two local artists on the chorus.',
+    'We listened to the bonus track which features guest vocals from two local artists on the chorus.',
+    'Read the review which features detailed comparisons of every plan we tested this year.',
+    'Read our detailed review which features comparisons of every plan we tested this year.',
+    'We completed a security check which features detailed diagnostics for each device in the network.',
+    "We listened to the editor's pick which features guest vocals from two local artists on the chorus.",
+    'The library (which features a dashboard and report builder) serves every department in the company.',
+  ]) {
+    assert.ok(featuresHit(text), `relative-clause verb missed: ${text}`);
+  }
+  // ...and existing noun evidence still applies.
+  for (const text of [
+    'We discussed which features we should remove from the next release of the app.',
+    'I asked the team which features they want most before we plan the next quarter.',
+    'Before we choose a plan, which features can we use offline when we travel for work?',
+    'Security features support for older protocols on devices without hardware acceleration.',
+    'The scripting features support for loops but reject while loops in the embedded language.',
+    'The experimental features support for loops but reject while loops in the embedded language.',
+    'The accessibility features support for-profit organizations that assist people with disabilities.',
+  ]) {
+    assert.equal(featuresHit(text), undefined, `noun read as a verb: ${text}`);
+  }
+  // Known limit: when "what" is itself the subject ("Check what features a dashboard and
+  // export tools"), a question lead still reads "features" as a noun; tracked as a follow-up.
+  // Deferred: "The library features support for..." as a verb is ambiguous with plural-noun
+  // subjects ("The experimental features support for loops"), so it stays out of this fix.
+});
+
+test('tier1-clarity leaves "features" alone as a plural noun', () => {
+  // #351: on a product site, every hit was the software noun.
+  for (const text of [
+    'The release adds three features: offline sync, export and search for every plan.',
+    'We shipped the features on Monday after two weeks of testing with the beta group.',
+    'Key features include dark mode, export and a command palette for power users.',
+    'Features include dark mode, export and a command palette for power users today.',
+    '## Features\n\n- Offline sync and export for every plan, including the free tier.',
+    "The product's features are limited, but the export works and sync has never failed.",
+  ]) {
+    assert.equal(featuresHit(text), undefined, `"features" read as a verb in: ${text}`);
+  }
+});
+
+test('features: noun findings never inherit verb highlight regions', () => {
+  const noun = 'We shipped the features on Monday.';
+  const verb = 'The app features a dashboard for our team to review.';
+  const source = noun + ' ' + verb;
+  const result = AIDetector.analyzeText(source);
+  assert.ok(featuresHit(source));
+  assert.equal(result.highlight_sentence_for_ai.length, 1);
+  assert.equal(result.highlight_sentence_for_ai[0].startSentence, 1);
+  assert.equal(result.highlight_sentence_for_ai[0].hitCount, 1);
+  assert.ok(result.highlight_sentence_for_ai[0].start >= noun.length);
+  const twice = AIDetector.analyzeText(verb + ' ' + verb);
+  assert.equal(twice.issues.filter((i) => i.text === 'features').length, 1);
+  assert.equal(twice.highlight_sentence_for_ai[0].hitCount, 2);
+  const markdown = AIDetector.analyzeText('<!-- hidden -->' + source, { sourceMode: 'rendered-markdown' });
+  assert.equal(markdown.highlight_sentence_for_ai[0].hitCount, 1);
+  assert.ok(markdown.highlight_sentence_for_ai[0].start >= '<!-- hidden -->'.length + noun.length);
+});
+
+test('features: product subjects, added objects, quantifiers and curly possessives remain nouns', () => {
+  for (const text of [
+    'Product features help teams manage projects and keep every task moving on schedule.',
+    'The release added features available offline, and customers use them every day.',
+    'Only 3 features a customer requested shipped last week to our users.',
+    'Notion’s features helped teams ship faster in 2026 after the update.',
+    'These features, among other tools, are available for our staff every day.',
+  ]) assert.equal(featuresHit(text), undefined, `expected noun context: ${text}`);
+  const verb = 'The package features, among other tools, a parser that our team uses every day.';
+  assert.ok(featuresHit(verb), 'parenthetical before the verb object must retain the finding');
+});
+
+test('features: plural subjects followed by base-form verbs remain nouns', () => {
+  const complements = {
+    help: 'teams manage projects and keep every task moving on schedule',
+    let: 'teams edit the same document while reviewers leave comments',
+    allow: 'teams to edit the same document while reviewers leave comments',
+    make: 'backups easier for staff who need to recover their files',
+    keep: 'your data safe across every device that we support today',
+    give: 'managers a clear view of every project across the team',
+    provide: 'context for staff who need to review the latest requests',
+    enable: 'staff to review the latest requests from their own devices',
+    offer: 'a clear view of every project across the entire team',
+    save: 'time for staff who review the latest requests every day',
+    protect: 'files that staff share across their devices during the week',
+    ensure: 'that staff can review requests from all their devices today',
+    improve: 'the way staff review requests from all their devices today',
+    reduce: 'the time staff spend reviewing requests from their own devices',
+    support: 'staff who review requests from all their devices every day',
+    remain: 'available for staff who review requests across all their devices',
+    vary: 'by plan for staff who review requests across different teams',
+    need: 'no setup for staff who review requests across their devices',
+    unlock: 'access for staff who review requests from all their devices',
+    bring: 'new options to staff who review requests across their devices',
+  };
+  for (const [verb, complement] of Object.entries(complements)) {
+    const noun = `Our security features ${verb} ${complement}.`;
+    assert.ok(!AIDetector.analyzeText(noun).tooShort);
+    assert.equal(featuresHit(noun), undefined, `plural subject: ${noun}`);
+    const verbal = `The app features a ${verb} button for staff who review requests every day.`;
+    assert.ok(featuresHit(verbal), `article-led verb object: ${verbal}`);
+  }
+  for (const noun of [
+    'The collaboration features let teams edit the same document in real time.',
+    'Advanced reporting features give managers a clear view of every project.',
+  ]) assert.equal(featuresHit(noun), undefined, `modifier noun: ${noun}`);
+  assert.ok(featuresHit('The app features keep-alive connections for staff who review requests every day.'),
+    'a hyphenated object modifier is not the base-form verb keep');
+});
+
+test('features: relative subjects, object compounds and product versions retain verb findings', () => {
+  for (const text of [
+    'The new app that features a clean dashboard and a fast search bar was liked.',
+    'Each features a clean dashboard and a fast search bar for staff.',
+    'This features a clean dashboard and a fast search bar for staff.',
+    'That features a clean dashboard and a fast search bar for staff.',
+    'The phone features on-device AI processing for every request from our test team.',
+    'The guide features in-depth examples of queue failures and retry strategies for operators.',
+    'The app features to-do lists and calendar reminders for staff working from home.',
+    'GPT-5 features a longer context window for our document review workflow.',
+    'Windows 11 features a new Start menu for employees working in our office.',
+    'The X-200 features a six-inch screen and a camera for remote inspections.',
+    'The ship features a clean dining room and cabins for twelve passengers.',
+    'The new build features a clean dashboard and search tools for staff.',
+  ]) {
+    assert.ok(!AIDetector.analyzeText(text).tooShort, `fixture must clear the length gate: ${text}`);
+    assert.ok(featuresHit(text), `expected verb finding: ${text}`);
+  }
+});
+
+test('features: bare objects and product/count modifiers remain ordinary nouns', () => {
+  for (const text of [
+    'We ship features faster than competitors do every quarter in production.',
+    'Teams build features users actually want to keep after onboarding.',
+    'We can build features faster than competitors do every quarter in production.',
+    'We ship GPT-5 features a customer requested for their document review workflow.',
+    'These 3 features a customer requested were released after our final review.',
+    'The platform-specific features helped our operators finish their daily work before lunch.',
+    'We shipped three features that users requested during last month\'s beta test.',
+  ]) {
+    assert.ok(!AIDetector.analyzeText(text).tooShort, `fixture must clear the length gate: ${text}`);
+    assert.equal(featuresHit(text), undefined, `unexpected noun finding: ${text}`);
+  }
+  assert.ok(featuresHit('We ship features faster every quarter. The new app features a clean dashboard for staff.'),
+    'a skipped noun must not consume the later verb finding');
+});
+
 test('low-ttr fires on a 200+ token text with narrow vocabulary', () => {
   // Vocabulary-poor synthetic sample: same 11-word sentence repeated.
   // ~200 tokens, ~11 unique = ~5% TTR. Well under the 40% threshold.

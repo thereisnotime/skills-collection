@@ -151,9 +151,16 @@ Inventory only. No dependency, lockfile, workflow or image was changed to produc
 | `.github/workflows/coverage.yml` | `oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6` | `0c5077e51419868618aeaa5fe8019c62421857d6  # v2` | `v2.2.0` | minor | SHA-pinned |
 | `.github/workflows/coverage.yml` | `actions/setup-python@v5` | `v5 (resolves to v5.6.0)` | `v7.0.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v5 resolves to v5.6.0 (commit a26af69be951), behind latest release v7.0.0 (commit 5fda3b95a4ea); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
 | `.github/workflows/coverage.yml` | `actions/upload-artifact@v4` | `v4 (resolves to v4.6.2)` | `v7.0.1` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.6.2 (commit ea165f8d65b6), behind latest release v7.0.1 (commit 043fb46d1a93); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
-| `.github/workflows/first-run-gate.yml` | `actions/checkout@v4` | `v4 (resolves to v4.4.0)` | `v7.0.1` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.4.0 (commit 11d5960a3267), behind latest release v7.0.1 (commit 3d3c42e5aac5); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
-| `.github/workflows/first-run-gate.yml` | `oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6` | `0c5077e51419868618aeaa5fe8019c62421857d6  # v2` | `v2.2.0` | minor | SHA-pinned |
-| `.github/workflows/first-run-gate.yml` | `actions/upload-artifact@v4` | `v4 (resolves to v4.6.2)` | `v7.0.1` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.6.2 (commit ea165f8d65b6), behind latest release v7.0.1 (commit 043fb46d1a93); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
+| `.github/workflows/docker-build-check.yml` | `actions/checkout@v4` | `v4 (resolves to v4.4.0)` | `v7.0.1` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.4.0 (commit 11d5960a3267), behind latest release v7.0.1 (commit 3d3c42e5aac5); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
+| `.github/workflows/docker-build-check.yml` | `oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6` | `0c5077e51419868618aeaa5fe8019c62421857d6  # v2` | `v2.2.0` | minor | SHA-pinned |
+| `.github/workflows/docker-build-check.yml` | `docker/setup-buildx-action@v3` | `v3 (resolves to v3.12.0)` | `v4.4.1` | MAJOR | tag-pinned (not SHA-pinned); floating tag v3 resolves to v3.12.0 (commit 8d2750c68a42), behind latest release v4.4.1 (commit f87e5991a6d7); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
+| `.github/workflows/docker-build-check.yml` | `docker/build-push-action@v5` | `v5 (resolves to v5.4.0)` | `v7.4.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v5 resolves to v5.4.0 (commit ca052bb54ab0), behind latest release v7.4.0 (commit c3c9e263c25d); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
+| `.github/workflows/full-suite.yml` | `actions/checkout@v4` | `v4 (resolves to v4.4.0)` | `v7.0.1` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.4.0 (commit 11d5960a3267), behind latest release v7.0.1 (commit 3d3c42e5aac5); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
+| `.github/workflows/full-suite.yml` | `actions/setup-node@v4` | `v4 (resolves to v4.4.0)` | `v7.0.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.4.0 (commit 49933ea5288c), behind latest release v7.0.0 (commit 820762786026); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
+| `.github/workflows/full-suite.yml` | `actions/setup-python@v5` | `v5 (resolves to v5.6.0)` | `v7.0.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v5 resolves to v5.6.0 (commit a26af69be951), behind latest release v7.0.0 (commit 5fda3b95a4ea); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
+| `.github/workflows/full-suite.yml` | `oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6` | `0c5077e51419868618aeaa5fe8019c62421857d6  # v2` | `v2.2.0` | minor | SHA-pinned |
+| `.github/workflows/full-suite.yml` | `actions/cache@v4` | `v4 (resolves to v4.3.0)` | `v6.1.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.3.0 (commit 0057852bfaa8), behind latest release v6.1.0 (commit 55cc8345863c); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
+| `.github/workflows/full-suite.yml` | `azure/setup-helm@v4` | `v4 (resolves to v4.3.1)` | `v5.0.1` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.3.1 (commit 1a275c3b6953), behind latest release v5.0.1 (commit 9bc31f4ebc9c); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
 | `.github/workflows/integrity-audit.yml` | `actions/checkout@v4` | `v4 (resolves to v4.4.0)` | `v7.0.1` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.4.0 (commit 11d5960a3267), behind latest release v7.0.1 (commit 3d3c42e5aac5); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
 | `.github/workflows/integrity-audit.yml` | `actions/setup-node@v4` | `v4 (resolves to v4.4.0)` | `v7.0.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.4.0 (commit 49933ea5288c), behind latest release v7.0.0 (commit 820762786026); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
 | `.github/workflows/integrity-audit.yml` | `actions/setup-python@v5` | `v5 (resolves to v5.6.0)` | `v7.0.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v5 resolves to v5.6.0 (commit a26af69be951), behind latest release v7.0.0 (commit 5fda3b95a4ea); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
@@ -210,10 +217,6 @@ Inventory only. No dependency, lockfile, workflow or image was changed to produc
 | `.github/workflows/test.yml` | `oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6` | `0c5077e51419868618aeaa5fe8019c62421857d6  # v2` | `v2.2.0` | minor | SHA-pinned |
 | `.github/workflows/test.yml` | `actions/cache@v4` | `v4 (resolves to v4.3.0)` | `v6.1.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.3.0 (commit 0057852bfaa8), behind latest release v6.1.0 (commit 55cc8345863c); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
 | `.github/workflows/test.yml` | `azure/setup-helm@v4` | `v4 (resolves to v4.3.1)` | `v5.0.1` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.3.1 (commit 1a275c3b6953), behind latest release v5.0.1 (commit 9bc31f4ebc9c); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
-| `.github/workflows/tier-a.yml` | `actions/checkout@v4` | `v4 (resolves to v4.4.0)` | `v7.0.1` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.4.0 (commit 11d5960a3267), behind latest release v7.0.1 (commit 3d3c42e5aac5); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
-| `.github/workflows/tier-a.yml` | `actions/setup-python@v5` | `v5 (resolves to v5.6.0)` | `v7.0.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v5 resolves to v5.6.0 (commit a26af69be951), behind latest release v7.0.0 (commit 5fda3b95a4ea); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
-| `.github/workflows/tier-a.yml` | `oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6` | `0c5077e51419868618aeaa5fe8019c62421857d6  # v2` | `v2.2.0` | minor | SHA-pinned |
-| `.github/workflows/tier-a.yml` | `actions/setup-node@v4` | `v4 (resolves to v4.4.0)` | `v7.0.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.4.0 (commit 49933ea5288c), behind latest release v7.0.0 (commit 820762786026); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
 | `action.yml` | `actions/setup-node@v4` | `v4 (resolves to v4.4.0)` | `v7.0.0` | MAJOR | tag-pinned (not SHA-pinned); floating tag v4 resolves to v4.4.0 (commit 49933ea5288c), behind latest release v7.0.0 (commit 820762786026); action.yml declares `using: node20` -- this action IS the deprecated Node 20 runtime |
 | `.github/actions/issue-to-pr/action.yml` | `(none found)` | `` | `-` | n/a | no `uses:` step found in this workflow/action file |
 | `.github/actions/receipt-check/action.yml` | `(none found)` | `` | `-` | n/a | no `uses:` step found in this workflow/action file |
@@ -243,14 +246,12 @@ Node.js current stable: 26.10.0 (cycle 26); Python current stable: 3.14.8 (cycle
 
 | File | Name | Current | Latest stable | Bump | Note |
 |---|---|---|---|---|---|
-| `Dockerfile` | `oven/bun:${BUN_VERSION}` | `oven/bun:${BUN_VERSION}` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
-| `Dockerfile` | `ubuntu:24.04` | `ubuntu:24.04` | `24.04.5 (newest line 26.04.1)` | MAJOR | EOL 2029-05-31 (not yet); patch in line; MAJOR to newest line |
-| `Dockerfile.control-plane` | `oven/bun:${BUN_VERSION}` | `oven/bun:${BUN_VERSION}` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
-| `Dockerfile.control-plane` | `oven/bun:${BUN_VERSION}-slim` | `oven/bun:${BUN_VERSION}-slim` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
-| `Dockerfile.purplelab-test` | `node:22-slim` | `node:22-slim` | `22.23.3 (newest line 26.10.0)` | MAJOR | EOL 2027-04-30 (not yet); minor in line; MAJOR to newest line |
-| `Dockerfile.sandbox` | `debian:bookworm-slim` | `debian:bookworm-slim` | `12.15 (newest line 13.7)` | MAJOR | EOL 2028-06-30 (not yet); minor in line; MAJOR to newest line |
-| `Dockerfile.sandbox` | `debian:bookworm-slim` | `debian:bookworm-slim` | `12.15 (newest line 13.7)` | MAJOR | EOL 2028-06-30 (not yet); minor in line; MAJOR to newest line |
-| `Dockerfile.test-runner` | `python:3.12-slim` | `python:3.12-slim` | `3.12.15 (newest line 3.14.8)` | minor | EOL 2028-10-31 (not yet); patch in line; minor to newest line |
+| `docker/Dockerfile` | `oven/bun:${BUN_VERSION}` | `oven/bun:${BUN_VERSION}` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
+| `docker/Dockerfile` | `ubuntu:24.04` | `ubuntu:24.04` | `24.04.5 (newest line 26.04.1)` | MAJOR | EOL 2029-05-31 (not yet); patch in line; MAJOR to newest line |
+| `docker/Dockerfile.control-plane` | `oven/bun:${BUN_VERSION}` | `oven/bun:${BUN_VERSION}` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
+| `docker/Dockerfile.control-plane` | `oven/bun:${BUN_VERSION}-slim` | `oven/bun:${BUN_VERSION}-slim` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
+| `docker/Dockerfile.sandbox` | `debian:bookworm-slim` | `debian:bookworm-slim` | `12.15 (newest line 13.7)` | MAJOR | EOL 2028-06-30 (not yet); minor in line; MAJOR to newest line |
+| `docker/Dockerfile.sandbox` | `debian:bookworm-slim` | `debian:bookworm-slim` | `12.15 (newest line 13.7)` | MAJOR | EOL 2028-06-30 (not yet); minor in line; MAJOR to newest line |
 | `artifacts/observability/Dockerfile` | `nginx:1.27-alpine` | `nginx:1.27-alpine` | `1.27.5 (newest line 1.31.6)` | EOL | EOL 2025-06-24 (past); EOL in current line; newest line is 1.31.6 |
 | `dashboard/Dockerfile` | `python:3.11-slim-bookworm` | `python:3.11-slim-bookworm` | `3.11.17 (newest line 3.14.8)` | minor | EOL 2027-10-31 (not yet); patch in line; minor to newest line |
 | `web-app/Dockerfile` | `node:22-alpine` | `node:22-alpine` | `22.23.3 (newest line 26.10.0)` | MAJOR | EOL 2027-04-30 (not yet); minor in line; MAJOR to newest line |
@@ -259,14 +260,13 @@ Node.js current stable: 26.10.0 (cycle 26); Python current stable: 3.14.8 (cycle
 | `deploy/docker-compose/docker-compose.yml` | `asklokesh/loki-mode:latest` | `asklokesh/loki-mode:latest` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
 | `deploy/docker-compose/docker-compose.yml` | `otel/opentelemetry-collector-contrib:0.96.0` | `otel/opentelemetry-collector-contrib:0.96.0` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
 | `deploy/docker-compose/docker-compose.yml` | `jaegertracing/all-in-one:1.54` | `jaegertracing/all-in-one:1.54` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
-| `docker-compose.yml` | `loki-mode:latest` | `loki-mode:latest` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
-| `docker-compose.yml` | `chromadb/chroma:latest` | `chromadb/chroma:latest` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
-| `docker-compose.yml` | `loki-mode:latest` | `loki-mode:latest` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
-| `docker-compose.yml` | `loki-mode:latest` | `loki-mode:latest` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
-| `docker-compose.yml` | `redis:7-alpine` | `redis:7-alpine` | `7.4.11 (newest line 8.10.2)` | MAJOR | EOL 2029-12-01 (not yet); resolved floating tag '7' to cycle 7.4; minor in line; MAJOR to newest line |
+| `docker/docker-compose.yml` | `loki-mode:latest` | `loki-mode:latest` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
+| `docker/docker-compose.yml` | `chromadb/chroma:latest` | `chromadb/chroma:latest` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
+| `docker/docker-compose.yml` | `loki-mode:latest` | `loki-mode:latest` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
+| `docker/docker-compose.yml` | `loki-mode:latest` | `loki-mode:latest` | `-` | unknown | floating tag or no endoflife.date product mapped for this image (own product image, or an unmapped base) |
+| `docker/docker-compose.yml` | `redis:7-alpine` | `redis:7-alpine` | `7.4.11 (newest line 8.10.2)` | MAJOR | EOL 2029-12-01 (not yet); resolved floating tag '7' to cycle 7.4; minor in line; MAJOR to newest line |
 | `web-app/docker-compose.purple-lab.yml` | `postgres:16-alpine` | `postgres:16-alpine` | `16.15 (newest line 18.6)` | MAJOR | EOL 2028-11-09 (not yet); minor in line; MAJOR to newest line |
 | `web-app/docker-compose.purple-lab.yml` | `redis:7-alpine` | `redis:7-alpine` | `7.4.11 (newest line 8.10.2)` | MAJOR | EOL 2029-12-01 (not yet); resolved floating tag '7' to cycle 7.4; minor in line; MAJOR to newest line |
-| `docker-compose.test.yml` | `(none found)` | `` | `-` | n/a | no `FROM` / `image:` line found (build-context-only service, or a multi-stage FROM this pass did not match) |
 
 ## Helm (every `Chart.yaml` found via `git ls-files`, any directory)
 
@@ -367,7 +367,7 @@ Counts are all from the single `Bump` column (current line vs newest line in the
 | Python (pyproject) | 0 | 0 | 1 | 1 | 0 | 0 | 1 | 1 | 0 |
 | GitHub Actions | 0 | 11 | 0 | 59 | 0 | 0 | 2 | 2 | 2 |
 | Runtimes | 0 | 4 | 0 | 2 | 2 | 0 | 1 | 0 | 0 |
-| Docker/Compose | 0 | 3 | 0 | 8 | 1 | 0 | 11 | 0 | 1 |
+| Docker/Compose | 0 | 2 | 0 | 7 | 1 | 0 | 11 | 0 | 0 |
 | Helm | 0 | 0 | 0 | 0 | 0 | 3 | 5 | 0 | 42 |
 | Terraform | 0 | 0 | 0 | 4 | 0 | 0 | 0 | 0 | 15 |
 | Homebrew | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |

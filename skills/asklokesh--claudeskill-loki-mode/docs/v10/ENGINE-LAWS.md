@@ -29,11 +29,12 @@ Each class has a law. Each law has one mechanism, plus one enforcement check tha
 - Review rule: reject any change that adds an `if` or a regex about the user's repo shape, language, framework or task wording. The fix is a prompt or schema change plus an execution check. Hardcoded tables are deleted once the model path is green on the Repo Shape Matrix. Slices: docs/v10/L0-WAVE1.md.
 
 ### L1. Never below raw
-A Loki run never gives the user less intelligence, a worse result or a meaningfully slower one than the same provider run raw.
-- The default implement model and effort are the provider's best default for the user's account (what bare `claude` would use), or higher. Cheap models are only for mechanical sub-steps (repo map summaries, PR body prose, docs).
-- Any downgrade (model, effort, context, time limit) is printed on the start line and recorded in the receipt. Nothing is silently reduced.
-- Escalation goes UP: a repeated code failure escalates to the strongest model and effort the provider offers, with the full failure output and the agent's own diagnosis. This happens before STALLED, for every provider.
-- Enforcement: the Parity Gate (section 4) blocks promotion to `latest` when Loki is below raw on the corpus.
+A Loki run never gives the user a worse result, or a meaningfully slower or costlier one, than the same provider run raw, as measured by the Parity Gate thresholds in section 4 (correctness at least raw; time within raw + 30s for small tasks and raw x 1.3 otherwise; cost at most raw x 1.2). "Never below raw" means OUTCOME parity (solve rate, wall time and cost on the B9 corpus and the Parity Gate). It does not mean model identity (amended by D89, 2026-10-07).
+- On the Claude engine10 path with the router on, the default implement model and effort are chosen by the router (Opus decides, per ROUTER-1). Everywhere else, and with `LOKI_ROUTER=0`, they are the provider's best default for the user's account (what the bare CLI would use), or higher.
+- A Haiku executor runs only in a configuration with Parity Gate evidence: with the Opus advisor attached, or without it only if the no-advisor arm also meets the Parity Gate. Otherwise the executor is Sonnet 5.5 and the reason is printed on the start line and recorded in the receipt. A shape where Haiku fails the Parity Gate runs on Sonnet 5.5. A shape where Sonnet also fails runs on the pre-router default (the `LOKI_ROUTER=0` behavior) until a Parity Gate row shows the routed executor at parity.
+- Any downgrade (model, effort, context, time limit) is printed on the start line and recorded in the receipt, including the routed executor and the advisor status. Nothing is silently reduced.
+- Escalation goes UP, always before STALLED, for every provider: a repeated code-owned failure escalates to a stronger model, ending at the strongest model and effort the provider offers, with the full failure output and the agent's own diagnosis. On the router path the ladder is Haiku -> Sonnet 5.5 for the rest of the run -> Opus for a repeated failure on Sonnet.
+- Enforcement: the Parity Gate (section 4) blocks promotion to `latest` when Loki is below raw on the corpus. The router is default-on only after this gate passes on the release candidate (D89 item 9).
 
 ### L2. Fail closed on trust, fail open on work
 - Trust surfaces fail CLOSED and may block: signing, receipt integrity, secrets, sandbox and permission boundaries, policy the user configured, and tests or CI config being deleted or weakened.
@@ -79,6 +80,13 @@ Every sink reaches the same terminal state: events, receipt, PR, Control Plane, 
 ### L7. Outputs are contracts
 The PR body, receipt, `--json` envelope and CLI summary have schemas. "not recorded" when the data exists is a test failure.
 - Golden tests are built from real recorded runs (FireLater#17 included), not hand-made stubs.
+
+### H4. Self-improving routing (per repo, per shape; D89)
+An H-law is a harness learning rule: it lets recorded outcome evidence improve a decision over time, and it never overrides L0 to L7.
+- Every sealed run writes a per-repo, per-shape outcome record: executor, verdict, escalated (yes or no), cost in USD and wall time. Records are executed outcome data (L3 rung 1), never a heuristic about repo shape or task wording (L0).
+- The shape key comes from the Project Model (workspaceKind plus the package runner labels, L4), never from a file pattern or regex (L0). It is used only as a lookup key into executed outcome evidence (the per-repo history, or the shipped router-shape-defaults.json seeded from B9 rows), and it may only move the executor up, never down.
+- The history is fed to the Opus routing prompt. As an evidence floor, a shape where Haiku lost 2 of the last 3 runs (a code-owned FAIL or an escalation; harness, env and provider ERRORs and NOT PROVEN outcomes do not count, L5) defaults to Sonnet 5.5 until a B9 row shows Haiku at parity on that shape.
+- History only changes the starting executor. It never removes the advisor requirement, never disables escalation, and a missing or unreadable history yields the router default with a NOT PROVEN line (L2, fail open on work).
 
 ## 3. The learning system (how every future issue is handled at 100k feet)
 

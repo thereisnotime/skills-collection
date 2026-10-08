@@ -63,6 +63,22 @@ expect "start issue URL -> engine10" "BUN $ENTRY engine10 https://github.com/o/r
 expect "start 'fix x' -> engine10" "BUN $ENTRY engine10 fix x" "$(run_loki "$WITH_BUN" -- start "fix x")"
 expect "start prd.md stays legacy" "BASH start prd.md" "$(run_loki "$WITH_BUN" -- start prd.md)"
 expect "start --help stays legacy" "BASH start --help" "$(run_loki "$WITH_BUN" -- start --help)"
+# FC-38 (scoped): plain start stays on bash as in 11.3.0; only --attempts is pinned to the engine10 path.
+expect "start --attempts 2 --no-pr -> Bun start, never bash" "BUN $ENTRY start --attempts 2 --no-pr" "$(run_loki "$WITH_BUN" -- start --attempts 2 --no-pr)"
+expect "start --attempts=3 -> Bun start" "BUN $ENTRY start --attempts=3" "$(run_loki "$WITH_BUN" -- start --attempts=3)"
+expect "start --attempts 2 without bun is refused, no bash" "" "$(run_loki "$NO_BUN" -- start --attempts 2 --no-pr)"
+expect "start --attempts 2 without bun exits 1" "1" "$(cat "$T/rc")"
+# The bun resolver probes `bun --version`; only a start/autonomy route counts as reaching a loop.
+route_of() { printf '%s' "$1" | grep -v -e '^BUN --version$' || true; }
+expect "start --attempts 2 --no-pr with opencode is refused, no route" "" "$(route_of "$(run_loki "$WITH_BUN" LOKI_PROVIDER=opencode -- start --attempts 2 --no-pr)")"
+expect "start --attempts 2 --no-pr with opencode exits 2" "2" "$(cat "$T/rc")"
+expect "start --attempts 2 --parallel is refused, no route" "" "$(route_of "$(run_loki "$WITH_BUN" -- start --attempts 2 --no-pr --parallel)")"
+expect "start --attempts 2 --parallel exits 2" "2" "$(cat "$T/rc")"
+expect "start --attempts 2 bad provider is refused" "" "$(run_loki "$WITH_BUN" LOKI_PROVIDER=gemini -- start --attempts 2 --no-pr)"
+expect "start --attempts with missing TS entry is refused, no bash" "" "$(run_loki "$WITH_BUN" LOKI_TS_ENTRY="$T/nope.ts" -- start --attempts 2 --no-pr)"
+expect "start 'fix x' --budget 5 stays as typed (11.3.0)" "BUN $ENTRY engine10 fix x --budget 5" "$(run_loki "$WITH_BUN" -- start "fix x" --budget 5)"
+expect "start 'fix x' --attempts 1 --budget 5 -> --max-cost" "BUN $ENTRY engine10 fix x --max-cost 5" "$(run_loki "$WITH_BUN" -- start "fix x" --attempts 1 --budget 5)"
+expect "plain start with opencode stays bash (11.3.0)" "BASH start prd.md" "$(run_loki "$WITH_BUN" LOKI_PROVIDER=opencode -- start prd.md)"
 expect "no bun falls back to legacy, no error" "BASH fix x" "$(run_loki "$NO_BUN" -- "fix x")"
 expect "provider without an invoker -> legacy" "BASH fix x" "$(run_loki "$WITH_BUN" LOKI_PROVIDER=opencode -- "fix x")"
 expect "LOKI_LEGACY_BASH=1 -> bash" "BASH quick fix x" "$(run_loki "$WITH_BUN" LOKI_LEGACY_BASH=1 -- quick "fix x")"
@@ -121,6 +137,47 @@ else
     # A task without bun keeps today's silent bash fallback.
     expect "[no bun] 'fix x' -> bash" "BASH fix x" "$(run_loki "$NO_BUN" -- "fix x")"
 fi
+
+# 4b. T5-D2: --attempts never reaches the legacy loop through quick, run, demo, tour, or a direct
+#     cmd_start / run.sh entry. Each is refused with exit 2 and no route, no provider call, no .loki.
+for cmd in quick run demo; do
+    for form in "--attempts 2" "--attempts=2" "--attempts 1"; do
+        # shellcheck disable=SC2086
+        got="$(route_of "$(run_loki "$WITH_BUN" -- $cmd "fix x" $form)")"
+        expect "bin/loki $cmd $form: no route" "" "$got"
+        expect "bin/loki $cmd $form: exit 2" "2" "$(cat "$T/rc")"
+    done
+done
+# Real autonomy/loki and run.sh, a provider stub that leaves a marker if it is ever invoked.
+mkdir -p "$T/stubbin" "$T/real"
+printf '#!/usr/bin/env bash\n: >"%s/provider-called"\n' "$T" >"$T/stubbin/claude"
+chmod +x "$T/stubbin/claude"
+real_run() { # real_run <script> <args...>
+    local script="$1"; shift
+    rm -f "$T/provider-called"
+    (cd "$T/real" && env -i HOME="$T/home" PATH="$T/stubbin:/usr/bin:/bin" LOKI_TELEMETRY_DISABLED=1 \
+        LOKI_NO_BROWSER=1 LOKI_NO_SKILL_LINK_HEAL=1 ${TO[@]+"${TO[@]}"} bash "$script" "$@") >"$T/stdout" 2>"$T/stderr"
+    echo "$?" >"$T/rc"
+}
+for cmd in start quick run demo tour; do
+    for form in "--attempts 2" "--attempts 1" "--attempts=2"; do
+        # shellcheck disable=SC2086
+        real_run "$REPO/autonomy/loki" $cmd prd.md $form
+        expect "autonomy/loki $cmd $form: exit 2" "2" "$(cat "$T/rc")"
+        if grep -q -- "--attempts" "$T/stderr" && grep -q "loki start --attempts" "$T/stderr"; then ok "autonomy/loki $cmd $form: message"; else bad "autonomy/loki $cmd $form: message missing: $(cat "$T/stderr")"; fi
+        if [ -e "$T/provider-called" ] || [ -d "$T/real/.loki" ]; then bad "autonomy/loki $cmd $form: legacy loop ran"; else ok "autonomy/loki $cmd $form: legacy loop never ran"; fi
+    done
+done
+# run.sh is the dashboard spawn target (control.py, server.py) and the cmd_start exec target.
+for form in "--attempts 2" "--attempts=2" "--attempts 1"; do
+    # shellcheck disable=SC2086
+    real_run "$REPO/autonomy/run.sh" $form prd.md
+    expect "run.sh $form: exit 2" "2" "$(cat "$T/rc")"
+    # run.sh creates .loki scaffolding at source time; the loop is proven not run by the provider marker and the state files.
+    if [ -e "$T/provider-called" ] || [ -e "$T/real/.loki/loki.pid" ] || [ -e "$T/real/.loki/state/orchestrator.json" ]; then bad "run.sh $form: legacy loop ran"; else ok "run.sh $form: legacy loop never ran"; fi
+done
+# Plain invocations keep their route.
+expect "plain quick 'fix x' unchanged" "BUN $ENTRY engine10 --no-pr fix x" "$(run_loki "$WITH_BUN" -- quick "fix x")"
 
 # 5. engine10 appears only in the one cli.ts arm (and the one bin/loki block):
 #    the case line plus its two lazy imports (cli.ts, and E-32's registry.ts).

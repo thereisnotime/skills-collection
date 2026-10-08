@@ -2268,3 +2268,32 @@ The swarm is stopped: .loki/V10-STOP exists, the loop has no wake-ups, and the c
 - Tests run 37173985482 on 22a5701e1: the cap held but FC-19 read 1799.999 on the first session; 559d3e604 asserts 1799 < limit <= 1800. Tests run 37174422458 on 559d3e604: success (all jobs).
 - 11.0.1 = the bump commit on top of 559d3e604 (release.sh patch --bump-only rc=0). Check `gh run list --workflow release.yml --limit 1` and `npm view loki-mode dist-tags` on resume.
 - Branch and worktree cleanup (founder ask, one agent): 177 merged worktrees removed (187 kept: 150 unmerged, 25 dirty, 8 locked, live, protected), 1015 merged local branches deleted (338 kept), 119 merged remote branches deleted. Unmerged remote branches left for the founder: auto/model-catalog-probe (1 ahead), dep-wave1 (5), slice-A-121b (1), train/66 (1).
+
+## 2026-10-08T05:35Z (CoS) 11.3.1 held on SEC-FSMON; local main 743d7ee2f unpushed
+- origin/main = bee8ac363 = v11.3.0 (npm latest). 11.3.1 is held ONLY on SEC-FSMON: since bee8ac363, the cost preview runs in the supervisor and spawns raw git (project_model/gather.ts listShallow/isGitTracked) with the token, so the P9 fsmonitor plant ran holding GH_TOKEN. v11.3.0 is not affected (P9 PASS on bee8ac363).
+- SEC-FSMON fix 464c6d4a6 (41 git spawn sites routed through util/safe_git.ts, zero-allowlist fc25 guard, canary fixture, red then green). It conflicts with main in safe_git.ts and xreview.ts; the engineer is rebasing onto the main tip. HIGH review (high-sec-fsmon, opus) is in flight. Open ruling: worker git now runs with hooks off and gpgSign off, including the seal commit.
+- Merged locally since bee8ac363 (unpushed): FC38-SCOPE2, COST-HALF rev 3 docs (D93), COMPACT-ONLY-HAIKU, CH-02, FINDING-GUARDS (reverted at fbcde1dcf for start-flag parity, re-landed rebased with start-flags.txt fixed; tests/util 99/0), MCP-A (node protocol tests rc=0, test-mcp-server rc=0).
+- Hermeticity defect: attempts-dispatch "no bun on PATH" fails only in the main checkout; git-archive of the same SHA passes 14/0. Queued as TEST-HERMETIC.
+- In review or rework: MASS-1 250940c67 (only the SDK route runs triage; HIGH re-review), RECEIPT-TRUTH (HIGH BLOCK B1-B5 plus modelUsage scope; uncommitted), JUDGE-DEFAULTS 5d7ab2b9d (rebase plus tsc gaps, then TL re-review), WC-01a 8c528d66b (TL), EVAL-LOSSES (aiq-52 dirty-tree class, humanize-174; CTO accuracy directive).
+- Ship steps after SEC-FSMON approves: merge, rebuild dist in the main checkout, run moat P5/P9/full on the final SHA, push (fetch plus ancestry check, no active release), Tests green, release.sh patch --bump-only plus the CHANGELOG from scratchpad changelog-1131.md (add the SEC-FSMON and FINDING-GUARDS/MCP-A lines).
+
+## 2026-10-08T07:10Z (CoS) 11.3.1 train: FULL-DRIFT merged; PRICE-TRUTH-2 and PLAN-TIMEOUT pending
+- origin/main = 7e6692a8b. Tests on it was cancelled: the D90 plan job hit its 5-min cap before `|| true`, and the full fallback was red on six drift suites plus 7 budget tests.
+- FULL-DRIFT merged locally as cdbec7679 at the approved SHA 0382cad94 (TL APPROVE 9d5c0350e plus delta APPROVE 0382cad94; tree equal to 0382cad94; tests/util 110/0). An earlier merge by branch name picked up the unreviewed 0382cad94 and was undone with `git reset --keep` before any push; lesson saved: merge the approved SHA.
+- PRICE-TRUTH-2 884d22be1 (claude-haiku-4-5 at $1/$5 on every exact-id table; bash check_budget_limit also priced claude-haiku-5-5 as sonnet; parity test runs the real function; FC-45): TL review with tl-fix1131, selector output required (CTO rule).
+- PLAN-TIMEOUT (sec-fsmonitor): building under the CTO conditions (fail-safe full=true, never cancelled, under 30s for 100 commits, cheap drift checks always-run under 60s). FC-47 reserved.
+- RECEIPT-TRUTH 66931a217 (11.3.2): HIGH round 5 with high-receipt-truth; branch frozen.
+- Next: merge PRICE-TRUTH-2 and PLAN-TIMEOUT by SHA, dist rebuild if needed, moat on the final SHA, push, Tests green on that SHA, then release.sh patch --bump-only with scratchpad changelog-1131.md.
+
+## 2026-10-08 07:43Z CoS
+- PRICE-TRUTH-2 merged by SHA 884d22be1 as 82eb1ad31 (FC-45/FC-46 rows conflict resolved, both kept); post-merge util+budget 175/0, test-pricing-parity rc 0; git diff 884d22be1 HEAD^2 empty.
+- 11.3.1 now blocked only on PLAN-TIMEOUT: high-cifast parity byte-identical (236s->2s, 455s->4s), 169-commit plan 15s; P1 timeout-minutes 8, P2 timing test, P3 always-run set, P4 rebase onto 82eb1ad31 sent to sec-fsmonitor.
+- 11.3.2 approved queue (hold until 11.3.1 cut, merge by SHA): 132-E2 057b332e9, 132-B4 36284ebb5, 132-F1 82837ec9f. In review: 132-E3, 132-F3, 133-E2, GOV-FORMULA 76afb31a8. 132-E4 31b5c304b built, target missed (4x 23.7s vs 12s at load 20-26), TL deferred until load drops.
+- Found: tests/cli/test-alias-forwarding.sh fails 3 cases on cdbec7679 (help count 27 vs [12,23], local-ci parity rule missing, report export json kpis exit parity); check in the FULL tier run before the cut.
+
+## 2026-10-08 08:17Z CoS
+- RECEIPT-TRUTH round 6 APPROVED by HIGH at 1b5bbaef5 (R5-1/2/4 mutations red, moat rc 0 with P9 PROVEN, CP 519/0); queued for 11.3.2.
+- FC-47 (CTO ruling): select-tests --run is a no-op on R0 and docs diffs (early exits before DO_RUN). Interim rule: TLs on R0 diffs name and run suites explicitly and report the number of suites executed. Fix slice SEL-RUN-FC47 goes after PLAN-TIMEOUT, then a one-shot audit of the R0 merges since v11.3.0.
+- PLAN-TIMEOUT engineer had no edits from 07:40Z to 08:14Z; re-pinged with a commit-now instruction.
+
+- 2026-10-08T10:27Z CoS: PLAN-TIMEOUT-1 merged by SHA b43536756 (TL APPROVE: fast-gate 10, train-verdict-reuse 40, select-tests 42, rc 0; git diff approved..HEAD^2 empty). Full local tier on 82eb1ad31 hit the 45-min cap (rc 124); reds classified env-only (receipt_attest needs cryptography; indexer + typecheck worktree-path only, green in main). bun 2004/0, util 175/0, moat rc 0 5/9. Lost ~1h: TL verdict sat in an idle teammate; next time read the subagent transcript after 10 min instead of waiting. Pushing the 11.3.1 train now.

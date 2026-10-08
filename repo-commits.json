@@ -691,6 +691,12 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "67035e9",
+      "message": "fix(cross-model): reach every peer through one pinned acpx transport (#1843)",
+      "date": "2026-10-07",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "cef001f",
       "message": "fix(ce-code-review): fall back when a started peer never reviewed the diff (#1842)",
       "date": "2026-10-07",
@@ -743,12 +749,6 @@
       "message": "chore: release main (#1819)",
       "date": "2026-10-01",
       "author": "github-actions[bot]"
-    },
-    {
-      "sha": "7fe624d",
-      "message": "fix(ce-resolve-pr-feedback): resume after caller publication (#1820)",
-      "date": "2026-10-01",
-      "author": "Trevin Chow"
     }
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
@@ -1741,6 +1741,42 @@
   ],
   "brunoasm--my_claude_skills": [
     {
+      "sha": "9ad289c",
+      "message": "chore: bump to v1.9.0",
+      "date": "2026-10-08",
+      "author": "Bruno de Medeiros"
+    },
+    {
+      "sha": "06775a3",
+      "message": "feat(grant-proposal-workflow): revision from an NSF cycle",
+      "date": "2026-10-08",
+      "author": "Bruno de Medeiros"
+    },
+    {
+      "sha": "000ba27",
+      "message": "chore: bump to v1.8.1",
+      "date": "2026-10-08",
+      "author": "Bruno de Medeiros"
+    },
+    {
+      "sha": "fbb4fd1",
+      "message": "fix(extract-from-pdfs): validate fields inside records in step 05",
+      "date": "2026-10-08",
+      "author": "Bruno de Medeiros"
+    },
+    {
+      "sha": "60494e4",
+      "message": "docs: rewrite README",
+      "date": "2026-10-08",
+      "author": "Bruno de Medeiros"
+    },
+    {
+      "sha": "b35bc53",
+      "message": "Add grant-proposal-workflow skill",
+      "date": "2026-10-08",
+      "author": "Bruno de Medeiros"
+    },
+    {
       "sha": "5bdff99",
       "message": "docs(secure-raw-data-backup): freeze folders before hashing, not after",
       "date": "2026-08-28",
@@ -1762,42 +1798,6 @@
       "sha": "39e7d07",
       "message": "chore: bump to v1.6.0 and note accounting's SmartData capability",
       "date": "2026-08-10",
-      "author": "Bruno de Medeiros"
-    },
-    {
-      "sha": "1ec416f",
-      "message": "docs(accounting): close the three parked prose gaps",
-      "date": "2026-08-10",
-      "author": "Bruno de Medeiros"
-    },
-    {
-      "sha": "2318ded",
-      "message": "docs(accounting): align non-p-card and validation-policy wording across documents",
-      "date": "2026-08-07",
-      "author": "Bruno de Medeiros"
-    },
-    {
-      "sha": "1857a36",
-      "message": "docs(accounting): correct two spec defects found by the whole-branch review",
-      "date": "2026-08-07",
-      "author": "Bruno de Medeiros"
-    },
-    {
-      "sha": "bd789b3",
-      "message": "docs(accounting): surface orphan fees, fix path split, and settle validation policy",
-      "date": "2026-08-07",
-      "author": "Bruno de Medeiros"
-    },
-    {
-      "sha": "0a42369",
-      "message": "fix(accounting): stop fee lines matching unrelated fee rows; survive Summary variance",
-      "date": "2026-08-07",
-      "author": "Bruno de Medeiros"
-    },
-    {
-      "sha": "9a55ee4",
-      "message": "fix(accounting): scope missing-charge check to XLSX and strengthen limits note",
-      "date": "2026-08-07",
       "author": "Bruno de Medeiros"
     }
   ],
@@ -1943,64 +1943,64 @@
   ],
   "conorbronsdon--avoid-ai-writing": [
     {
-      "sha": "2e1ec15",
-      "message": "Provide concrete alternatives to word table rows (#378)",
+      "sha": "905aca7",
+      "message": "Merge pull request #386 from karthikeya1220/fix/384-features-noun-verb-precision",
+      "date": "2026-10-08",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "83fd9bb",
+      "message": "Count a question lead only when it opens its clause; no '(' sentence start (#384)",
+      "date": "2026-10-08",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "d6d5beb",
+      "message": "Narrow #384 to indirect-question nouns; defer 'features support for' (review round 3)",
+      "date": "2026-10-08",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "a48befe",
+      "message": "Keep pre-#384 noun evidence for unlisted leads; guard noun-like leads and -ing/-ity modifiers (#384, review round 2)",
+      "date": "2026-10-08",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "307b552",
+      "message": "Read which/what features as a noun only in indirect questions (#384, review round 2)",
+      "date": "2026-10-08",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "9639470",
+      "message": "Narrow the relative-clause adverb check to an explicit list (#384 follow-up)",
+      "date": "2026-10-08",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "36dc831",
+      "message": "Fix Qodo review issues for #384",
+      "date": "2026-10-08",
+      "author": "Darshan Karthikeya"
+    },
+    {
+      "sha": "2540286",
+      "message": "Fix residual noun/verb precision for features (#384)",
+      "date": "2026-10-08",
+      "author": "Darshan Karthikeya"
+    },
+    {
+      "sha": "635e957",
+      "message": "Merge pull request #385 from karthikeya1220/fix/380-word-table-follow-ups",
       "date": "2026-10-07",
-      "author": "R Darshan Karthikeya"
-    },
-    {
-      "sha": "0469c97",
-      "message": "Add structured bug-report issue form (#379)",
-      "date": "2026-10-06",
-      "author": "R Darshan Karthikeya"
-    },
-    {
-      "sha": "1f187c0",
-      "message": "fix: add literal-sense carve-outs for significance-inflation and template-phrase (#212) (#376)",
-      "date": "2026-10-06",
-      "author": "R Darshan Karthikeya"
-    },
-    {
-      "sha": "5503df8",
-      "message": "docs(readme): clarify skill invocation and Option 3 alias naming (#377)",
-      "date": "2026-10-06",
-      "author": "kckil"
-    },
-    {
-      "sha": "db82bc8",
-      "message": "chore(release): prepare v3.37.0 (#375)",
-      "date": "2026-10-04",
       "author": "Conor Bronsdon"
     },
     {
-      "sha": "42e4f76",
-      "message": "Merge pull request #373 from conorbronsdon/hermes/issue-216",
-      "date": "2026-10-04",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "a98e3d3",
-      "message": "Merge remote-tracking branch 'origin/main' into codex/land-373",
-      "date": "2026-10-04",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "2a2f026",
-      "message": "Merge pull request #371 from conorbronsdon/hermes/issue-246",
-      "date": "2026-10-04",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "c66199a",
-      "message": "Merge remote-tracking branch 'origin/main' into codex/land-371",
-      "date": "2026-10-04",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "39b3f29",
-      "message": "Merge pull request #370 from conorbronsdon/hermes/issue-218",
-      "date": "2026-10-04",
-      "author": "Conor Bronsdon"
+      "sha": "e25f2fe",
+      "message": "fix: update word table fallbacks and game-changer suggestion (#380)",
+      "date": "2026-10-07",
+      "author": "Darshan Karthikeya"
     }
   ],
   "conorluddy--ios-simulator-skill": [
@@ -2067,63 +2067,63 @@
   ],
   "coreyhaines31--marketingskills": [
     {
-      "sha": "5e721d7",
-      "message": "Merge pull request #654 from coreyhaines31/feature/653-ploy-partner-content",
+      "sha": "b9ba399",
+      "message": "chore: sync skills with marketplace.json, plugin.json, and README",
+      "date": "2026-10-08",
+      "author": "coreyhaines31"
+    },
+    {
+      "sha": "607f50c",
+      "message": "Merge pull request #792 from coreyhaines31/feature/789-outbound-playbook",
+      "date": "2026-10-08",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "895f373",
+      "message": "Merge pull request #791 from coreyhaines31/feature/790-outbound-tools",
+      "date": "2026-10-08",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "dfb8225",
+      "message": "fix(prospecting): make the description valid YAML",
       "date": "2026-10-07",
       "author": "Corey Haines"
     },
     {
-      "sha": "c696351",
-      "message": "Merge main into feature/653-ploy-partner-content",
-      "date": "2026-10-06",
+      "sha": "74025fb",
+      "message": "chore: release 2.11.20 (modern outbound playbook)",
+      "date": "2026-10-07",
       "author": "Corey Haines"
     },
     {
-      "sha": "a71b5ae",
-      "message": "docs(ploy): CLI is at 0.16.x and OIDC SSO is live on Enterprise",
-      "date": "2026-10-06",
+      "sha": "6ef74e0",
+      "message": "fix: replace legacy Clearbit references and sync tool tables with verified MCP status",
+      "date": "2026-10-07",
       "author": "Corey Haines"
     },
     {
-      "sha": "dda3841",
-      "message": "Merge pull request #667 from coreyhaines31/fix/600-592-hyperframes-review-template",
-      "date": "2026-10-03",
+      "sha": "082976d",
+      "message": "docs(registry): add a sales outbound quick start",
+      "date": "2026-10-07",
       "author": "Corey Haines"
     },
     {
-      "sha": "5e4f7f9",
-      "message": "chore: release 2.11.17 (Hyperframes example, creative-review template fixes)",
-      "date": "2026-10-03",
+      "sha": "e773b44",
+      "message": "docs(tools): reframe lemlist and Hunter guides for sales outbound",
+      "date": "2026-10-07",
       "author": "Corey Haines"
     },
     {
-      "sha": "ab24d20",
-      "message": "fix(ad-creative): validate review data shape, use aria-pressed concept buttons, make likes data-driven",
-      "date": "2026-10-03",
+      "sha": "b13ee05",
+      "message": "feat(linkedin-ads): move the CLI and guide to the versioned REST API",
+      "date": "2026-10-07",
       "author": "Corey Haines"
     },
     {
-      "sha": "6e5ef94",
-      "message": "fix(video): replace invalid Hyperframes example with the working CLI flow",
-      "date": "2026-10-03",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "23d1e06",
-      "message": "docs(hyperframes): rewrite guide around the real CLI and composition format",
-      "date": "2026-10-03",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "af7dbf9",
-      "message": "Merge pull request #660 from coreyhaines31/community/install-docs-codex",
-      "date": "2026-10-03",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "8a21613",
-      "message": "ci: sync the Codex plugin version alongside plugin.json",
-      "date": "2026-10-03",
+      "sha": "e7ed110",
+      "message": "docs(apollo): replace links to skills that don't exist",
+      "date": "2026-10-07",
       "author": "Corey Haines"
     }
   ],
@@ -3707,6 +3707,12 @@
   ],
   "stripe--ai": [
     {
+      "sha": "08d371a",
+      "message": "sync skills",
+      "date": "2026-10-08",
+      "author": "stripe-ai-sync[bot]"
+    },
+    {
       "sha": "9b91884",
       "message": "Opt out of CLI telemetry for Claude startup checks (#567)",
       "date": "2026-10-07",
@@ -3759,12 +3765,6 @@
       "message": "pinning specific commit hashes per security guidance (#552)",
       "date": "2026-09-30",
       "author": "John O'Sullivan"
-    },
-    {
-      "sha": "a188b0d",
-      "message": "sync skills",
-      "date": "2026-09-30",
-      "author": "stripe-ai-sync[bot]"
     }
   ],
   "supabase--agent-skills": [
@@ -4527,63 +4527,63 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
-      "sha": "dee1553",
-      "message": "release: v11.0.3",
-      "date": "2026-10-04",
+      "sha": "604145b",
+      "message": "release: v11.3.1",
+      "date": "2026-10-08",
       "author": "asklokesh"
     },
     {
-      "sha": "e07cf27",
-      "message": "ci: give shell shards 15 minutes so ShellCheck can finish",
-      "date": "2026-10-04",
+      "sha": "7d51e37",
+      "message": "Merge PLAN-BOUND (plan step bounded by timeout -k 10 240 with a FULL plan on any nonzero rc; diffs above 150 files go st",
+      "date": "2026-10-08",
       "author": "asklokesh"
     },
     {
-      "sha": "a99c238",
-      "message": "fix(engine10): a word inside a longer name is not a relevant test (FC-28)",
-      "date": "2026-10-04",
+      "sha": "bb21fb1",
+      "message": "fix(plan-bound): quote empty BASE_REF in test-fast-gate (SC1007)",
+      "date": "2026-10-08",
       "author": "asklokesh"
     },
     {
-      "sha": "bc7d342",
-      "message": "release: v11.0.2",
-      "date": "2026-10-04",
+      "sha": "bfc89d1",
+      "message": "ci(plan-bound): bound the plan step; go FULL above 150 changed files",
+      "date": "2026-10-08",
       "author": "asklokesh"
     },
     {
-      "sha": "f02cd68",
-      "message": "fix(engine10): a tree-wide keyword is not a relevant test (FC-27)",
-      "date": "2026-10-04",
+      "sha": "dc218d8",
+      "message": "docs(progress): CoS 10:27Z, PLAN-TIMEOUT-1 merged, 11.3.1 train push",
+      "date": "2026-10-08",
       "author": "asklokesh"
     },
     {
-      "sha": "1dda5cc",
-      "message": "release: v11.0.1",
-      "date": "2026-10-04",
+      "sha": "e89a198",
+      "message": "Merge PLAN-TIMEOUT-1 (fast-gate plan job timeout 5 -> 15 min; a timeout already fails toward FULL; TL APPROVE at b435367",
+      "date": "2026-10-08",
       "author": "asklokesh"
     },
     {
-      "sha": "559d3e6",
-      "message": "fix(test): FC-19 deep-limit assertion tolerates 1ms of elapsed budget (run 37173985482)",
-      "date": "2026-10-04",
+      "sha": "b435367",
+      "message": "ci(plan-timeout-1): plan job timeout 5 -> 15 min; a timeout already fails toward FULL",
+      "date": "2026-10-08",
       "author": "asklokesh"
     },
     {
-      "sha": "22a5701",
-      "message": "ci(test): bun-tests job cap 20 min (run 37173354311 hit the 10-min cap)",
-      "date": "2026-10-04",
+      "sha": "82eb1ad",
+      "message": "Merge PRICE-TRUTH-2 (claude-haiku-4-5 priced at its own 1/5 rate on Bun and bash routes; bash budget prices claude-haiku",
+      "date": "2026-10-08",
       "author": "asklokesh"
     },
     {
-      "sha": "31efd8b",
-      "message": "fix(tests): green the 11.0.0 Tests guards (run 37172048345)",
-      "date": "2026-10-04",
+      "sha": "cdbec76",
+      "message": "Merge FULL-DRIFT (six full-tier drift reds from the 11.3.1 train fixed: DEP-01 DEPS.md rows, DOC-02 allowlist for unship",
+      "date": "2026-10-08",
       "author": "asklokesh"
     },
     {
-      "sha": "1ab85c7",
-      "message": "docs(v10): RELEASE-11 records the stopped rev-a2b partial",
-      "date": "2026-10-04",
+      "sha": "0382cad",
+      "message": "test(full-drift): assert the test.yml reuse step still runs train-verdict-reuse.sh gate",
+      "date": "2026-10-08",
       "author": "asklokesh"
     }
   ],
@@ -5017,6 +5017,18 @@
   ],
   "VoltAgent--awesome-agent-skills": [
     {
+      "sha": "3682636",
+      "message": "Merge pull request #1117 from half144/add-cutaway",
+      "date": "2026-10-08",
+      "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "93d79a3",
+      "message": "Merge branch 'main' into add-cutaway",
+      "date": "2026-10-07",
+      "author": "Necati \u00d6zmen"
+    },
+    {
       "sha": "1e6abbf",
       "message": "Merge pull request #1129 from kulchankas/add-paranoid",
       "date": "2026-10-07",
@@ -5025,6 +5037,12 @@
     {
       "sha": "dff3e7b",
       "message": "Merge branch 'main' into add-paranoid",
+      "date": "2026-10-07",
+      "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "6dd3a53",
+      "message": "Merge branch 'main' into add-cutaway",
       "date": "2026-10-07",
       "author": "Necati \u00d6zmen"
     },
@@ -5056,24 +5074,6 @@
       "sha": "8d30e9b",
       "message": "Merge pull request #1112 from victorcavero14/add-upload-post-skill",
       "date": "2026-10-06",
-      "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "244ccbe",
-      "message": "Merge pull request #1096 from ivklgn/archcore/add",
-      "date": "2026-10-06",
-      "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "4236d53",
-      "message": "Merge branch 'main' into add-skill-unbrowse-ai-unbrowse",
-      "date": "2026-10-05",
-      "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "94819ad",
-      "message": "Merge pull request #1108 from danjdewhurst/add-better-writing",
-      "date": "2026-10-05",
       "author": "Necati \u00d6zmen"
     }
   ],
@@ -5203,63 +5203,63 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
-      "sha": "e4f392d",
-      "message": "content(blog): dual-publish name-the-single-authority-in-a-daily-pipeline to tonsofskills.com/blog",
-      "date": "2026-10-07",
+      "sha": "80f86df",
+      "message": "content(blog): dual-publish three-pass-settlement-recurring-ai-pipeline-contract to tonsofskills.com/blog",
+      "date": "2026-10-08",
       "author": "Jeremy Longshore"
     },
     {
-      "sha": "96f143d",
-      "message": "Merge pull request #1623 from jeremylongshore/fix/skill-relative-reference-links",
-      "date": "2026-10-07",
+      "sha": "23ea8d4",
+      "message": "fix(deps): patch source-map-js in the tests/e2e lockfile (#1639)",
+      "date": "2026-10-08",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "4e00bf4",
-      "message": "fix(marketplace): resolve relative skill reference links to their GitHub source",
-      "date": "2026-10-07",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "d2750cd",
-      "message": "content(blog): dual-publish the-sidecar-must-never-block-the-deliverable to tonsofskills.com/blog",
-      "date": "2026-10-06",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "97b26ff",
-      "message": "docs(docs-governance): remove Discord community links from first-party docs (#1619)",
-      "date": "2026-10-05",
+      "sha": "93806a7",
+      "message": "fix(deps): upgrade the remaining Vitest 3 suites to Vitest 4.1.11 (#1638)",
+      "date": "2026-10-08",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "64fe396",
-      "message": "content(blog): dual-publish rank-current-truth-with-the-rerank-not-the-clock to tonsofskills.com/blog",
-      "date": "2026-10-05",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "0471728",
-      "message": "fix(deps): patch vulnerable hono, qs, ip-address and fast-uri in shipped MCP bundles (#1618)",
-      "date": "2026-10-05",
+      "sha": "de1afe0",
+      "message": "ci(ci-infra): upgrade download-artifact to v8 and the last pnpm/action-setup v4 pin to v6 (#1637)",
+      "date": "2026-10-08",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "b47f153",
-      "message": "docs(blog): mark the JRig-Verified badge post as withdrawn and fix a stale Freshie reference",
-      "date": "2026-10-05",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "f33271a",
-      "message": "chore(marketplace-site): refresh daily npm download stats (#1607)",
-      "date": "2026-10-04",
+      "sha": "414d3f7",
+      "message": "ci(ci-infra): upgrade the cosign installer to v4 while keeping cosign v2.5.2 (#1636)",
+      "date": "2026-10-08",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "ad630db",
-      "message": "fix(ci-infra): harden the CLI identity tripwire against decoys and escape hatches [skip auto-bump] (#1612)",
-      "date": "2026-10-04",
+      "sha": "3c597e3",
+      "message": "ci(ci-infra): upgrade codecov/codecov-action from v6 to v7 (#1635)",
+      "date": "2026-10-08",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "e74de7d",
+      "message": "ci(ci-infra): upgrade actions/cache from v5 to v6 (#1634)",
+      "date": "2026-10-08",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "4b4acde",
+      "message": "ci(ci-infra): upgrade actions/github-script from v8 to v9 (#1633)",
+      "date": "2026-10-08",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "3b40cb3",
+      "message": "fix(deps): patch sharp, smol-toml and source-map-js advisories in build tooling (#1632)",
+      "date": "2026-10-08",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "086f77d",
+      "message": "fix(deps): patch critical simple-git and high MCP SDK advisories in shipped MCP servers (#1631)",
+      "date": "2026-10-08",
       "author": "intentsolutions.io"
     }
   ],
@@ -5327,62 +5327,62 @@
   ],
   "daymade--claude-code-skills": [
     {
-      "sha": "6e754fc",
-      "message": "docs(macos-load-doctor): remove persisted derived counts and the hand-maintained Contents block (v1.19.1) (#859)",
+      "sha": "d8d8528",
+      "message": "fix(prior-work): bound retrieval enforcement to completed batches (#890)",
+      "date": "2026-10-08",
+      "author": "daymade"
+    },
+    {
+      "sha": "91bed2b",
+      "message": "fix(macos-cleaner): cover permanent helper targets and clarify disk diagnosis (#889)",
+      "date": "2026-10-08",
+      "author": "daymade"
+    },
+    {
+      "sha": "e2daf9b",
+      "message": "docs(frontend-visual-qa): align launch metadata and delivery routes (#888)",
+      "date": "2026-10-08",
+      "author": "daymade"
+    },
+    {
+      "sha": "966f819",
+      "message": "feat(frontend-visual-qa): verify consumed web components (#887)",
       "date": "2026-10-07",
       "author": "daymade"
     },
     {
-      "sha": "9d49021",
-      "message": "feat(skill-creator): verify formal identity in actual delivery replies (#861)",
+      "sha": "a754d90",
+      "message": "docs: bind CI diagnosis and release ownership to current sources (#886)",
       "date": "2026-10-07",
       "author": "daymade"
     },
     {
-      "sha": "34a5750",
-      "message": "feat(macos-cleaner): add Git/TCC/quarantine/gate-plan operational increments (#860)",
+      "sha": "f278d0e",
+      "message": "docs(skill-creator): pin the reviewer's delivery artifact in the prompt (#885)",
       "date": "2026-10-07",
       "author": "daymade"
     },
     {
-      "sha": "27e06ab",
-      "message": "fix: enforce research mode coverage and file handoff (#858)",
+      "sha": "b786bef",
+      "message": "docs(github-ops): disambiguate the two senses of \"revert\" in the probe (#884)",
       "date": "2026-10-07",
       "author": "daymade"
     },
     {
-      "sha": "e94195d",
-      "message": "docs(wecom): guide grouped changes and quiet heartbeats (#857)",
+      "sha": "d3c56a9",
+      "message": "fix(github-ops): repair fleet inventory command + probe prerequisites (#883)",
       "date": "2026-10-07",
       "author": "daymade"
     },
     {
-      "sha": "6e84250",
-      "message": "docs(CLAUDE.md): recovery SOP for the pre-commit \"marketplace release state is stale\" block (#856)",
+      "sha": "0c14ab8",
+      "message": "docs(github-ops): add fleet protection lifecycle to branch_protection (#882)",
       "date": "2026-10-07",
       "author": "daymade"
     },
     {
-      "sha": "a8eb228",
-      "message": "feat(daymade-macos): add macos-load-doctor \u2014 system-level load/leak diagnosis with shared-machine boundary (v1.19.0) (#8",
-      "date": "2026-10-07",
-      "author": "daymade"
-    },
-    {
-      "sha": "585e744",
-      "message": "docs(data-viz): add transaction status decoding example (#853)",
-      "date": "2026-10-07",
-      "author": "daymade"
-    },
-    {
-      "sha": "c91ce2e",
-      "message": "docs(claude-code-hooks): pitfall #62 \u2014 fleet-wide hook timeouts were machine overload, not broken hooks (v4.24.0) (#854)",
-      "date": "2026-10-07",
-      "author": "daymade"
-    },
-    {
-      "sha": "7560401",
-      "message": "docs(claude-code-hooks): pitfall #61 \u2014 advisory delivery timing misread as post-hoc (v4.23.1) (#852)",
+      "sha": "cab8149",
+      "message": "docs(feishu-doc-scraper): align archive workflow documentation and authorities (#881)",
       "date": "2026-10-07",
       "author": "daymade"
     }
@@ -5513,6 +5513,12 @@
   ],
   "glebis--claude-skills": [
     {
+      "sha": "3b88261",
+      "message": "feat: publish Open Knowledge Vault agent plugin",
+      "date": "2026-10-08",
+      "author": "glebis"
+    },
+    {
       "sha": "7524dff",
       "message": "fix(google-image-search): export OPENROUTER_KEY so llm-openrouter registers models",
       "date": "2026-09-26",
@@ -5565,73 +5571,67 @@
       "message": "Add MIT LICENSE file",
       "date": "2026-07-29",
       "author": "glebis"
-    },
-    {
-      "sha": "d46b52a",
-      "message": "nano-banana: add linkedin-carousel platform preset (1080x1350)",
-      "date": "2026-07-29",
-      "author": "glebis"
     }
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "b869324",
-      "message": "chore(subagents-report): update Last Updated badge to Oct 07, 2026 v2.1.292",
-      "date": "2026-10-07",
+      "sha": "52afbed",
+      "message": "chore(badge): update subagents report badge to v2.1.294 / Oct 08 2026",
+      "date": "2026-10-08",
       "author": "Claude"
     },
     {
-      "sha": "a628146",
-      "message": "chore(subagents-changelog): add 2026-10-07 drift audit entry for v2.1.292",
-      "date": "2026-10-07",
+      "sha": "106fca1",
+      "message": "chore(changelog): add 2026-10-08 subagents drift entry for v2.1.294",
+      "date": "2026-10-08",
       "author": "Claude"
     },
     {
-      "sha": "e4ba153",
-      "message": "docs(commands): bump Last Updated badge to Oct 07, 2026 and version to v2.1.292",
-      "date": "2026-10-07",
+      "sha": "7764342",
+      "message": "docs(commands): bump Last Updated badge to Oct 08, 2026 and version to v2.1.294",
+      "date": "2026-10-08",
       "author": "Claude"
     },
     {
-      "sha": "215807e",
-      "message": "changelog(commands): append 2026-10-07 no-drift run entry for v2.1.292",
-      "date": "2026-10-07",
+      "sha": "2f1fbb8",
+      "message": "changelog(commands): append 2026-10-08 drift-check entry for v2.1.294",
+      "date": "2026-10-08",
       "author": "Claude"
     },
     {
-      "sha": "bccf92e",
-      "message": "docs(claude-skills): bump Last Updated badge to Oct 07, 2026 and version to v2.1.292",
-      "date": "2026-10-07",
+      "sha": "b3fa0b7",
+      "message": "docs(claude-skills): update Last Updated badge to Oct 08 2026 v2.1.294",
+      "date": "2026-10-08",
       "author": "Claude"
     },
     {
-      "sha": "a421686",
-      "message": "changelog(claude-skills): add 2026-10-07 entry for v2.1.292",
-      "date": "2026-10-07",
+      "sha": "00094a1",
+      "message": "changelog(claude-skills): append 2026-10-08 no-drift entry for v2.1.294",
+      "date": "2026-10-08",
       "author": "Claude"
     },
     {
-      "sha": "d4fc8de",
-      "message": "chore(readme): bump Last Updated badge to Oct 07 9:45 AM PKT",
-      "date": "2026-10-07",
+      "sha": "d68ac64",
+      "message": "chore(readme): update Last Updated badge to Oct 08, 2026 9:43 AM PKT",
+      "date": "2026-10-08",
       "author": "Claude"
     },
     {
-      "sha": "4056c1a",
-      "message": "chore(changelog): append concepts drift-check entry for v2.1.292",
-      "date": "2026-10-07",
+      "sha": "c15941f",
+      "message": "chore(concepts-changelog): add 2026-10-08 drift-check entry (v2.1.293)",
+      "date": "2026-10-08",
       "author": "Claude"
     },
     {
-      "sha": "dbca5a7",
-      "message": "Append [2026-10-07 09:16 AM PKT] development workflows update entry",
-      "date": "2026-10-07",
+      "sha": "cd00798",
+      "message": "chore(changelog): add development workflows entry Oct 8, 2026",
+      "date": "2026-10-08",
       "author": "Claude Routine"
     },
     {
-      "sha": "5c8ea1f",
-      "message": "Update DEVELOPMENT WORKFLOWS table \u2014 star drift Oct 07 2026",
-      "date": "2026-10-07",
+      "sha": "fb0820a",
+      "message": "chore(workflows): update development workflows table Oct 8, 2026",
+      "date": "2026-10-08",
       "author": "Claude Routine"
     }
   ],
@@ -5699,67 +5699,79 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
-      "sha": "955dd3d",
+      "sha": "0377f95",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-10-07",
+      "date": "2026-10-08",
       "author": "github-actions[bot]"
     },
     {
-      "sha": "eb899cf",
+      "sha": "6e8dd63",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-10-07",
+      "date": "2026-10-08",
       "author": "github-actions[bot]"
     },
     {
-      "sha": "ded987b",
+      "sha": "eed26f4",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-10-07",
+      "date": "2026-10-08",
       "author": "github-actions[bot]"
     },
     {
-      "sha": "9685211",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-10-07",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "eba2484",
+      "sha": "5988fcb",
       "message": "chore: regenerate README + carousel from CSV [skip ci]",
-      "date": "2026-10-06",
+      "date": "2026-10-08",
       "author": "github-actions[bot]"
     },
     {
-      "sha": "8064a75",
-      "message": "Add resource: pwa2play (#3097)",
-      "date": "2026-10-06",
+      "sha": "bd2dd47",
+      "message": "Add resource: clausona (#3122)",
+      "date": "2026-10-08",
       "author": "github-actions[bot]"
     },
     {
-      "sha": "fd39ed9",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-10-06",
+      "sha": "b7ae681",
+      "message": "chore: regenerate README + carousel from CSV [skip ci]",
+      "date": "2026-10-08",
       "author": "github-actions[bot]"
     },
     {
-      "sha": "6825107",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-10-06",
+      "sha": "e1fee93",
+      "message": "Add resource: OpenRig (#3121)",
+      "date": "2026-10-08",
       "author": "github-actions[bot]"
     },
     {
-      "sha": "f2c8fab",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-10-06",
+      "sha": "c61fd67",
+      "message": "chore: regenerate README + carousel from CSV [skip ci]",
+      "date": "2026-10-08",
       "author": "github-actions[bot]"
     },
     {
-      "sha": "fa32dbc",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-10-06",
+      "sha": "68af8ac",
+      "message": "Add resource: Archify (#3120)",
+      "date": "2026-10-08",
       "author": "github-actions[bot]"
+    },
+    {
+      "sha": "3382aaa",
+      "message": "add sub-category - Data Visualization (#3119)",
+      "date": "2026-10-08",
+      "author": "Really Him"
     }
   ],
   "jqueryscript--awesome-claude-code": [
+    {
+      "sha": "458de1d",
+      "message": "Move README changelog below resource list",
+      "date": "2026-10-07",
+      "author": "jqueryscript"
+    },
+    {
+      "sha": "e9a271b",
+      "message": "Add Claude Code resources from September and October",
+      "date": "2026-10-07",
+      "author": "jqueryscript"
+    },
     {
       "sha": "e5390aa",
       "message": "Update Claude Code resource list",
@@ -5807,21 +5819,15 @@
       "message": "Update README.md",
       "date": "2026-06-29",
       "author": "jQueryScript"
-    },
-    {
-      "sha": "49aa4ff",
-      "message": "Update README.md",
-      "date": "2026-06-26",
-      "author": "jQueryScript"
-    },
-    {
-      "sha": "bd35a3f",
-      "message": "Update README.md",
-      "date": "2026-06-25",
-      "author": "jQueryScript"
     }
   ],
   "shaunburdick--skills": [
+    {
+      "sha": "7fc3088",
+      "message": "fix(git-safety): resolve hook path via git so worktrees work (#18)",
+      "date": "2026-10-07",
+      "author": "Shaun Burdick"
+    },
     {
       "sha": "6356e06",
       "message": "fix(skills): retire the bash tool name, add edit and gate-question rules (#17)",
@@ -5874,12 +5880,6 @@
       "sha": "85b64b0",
       "message": "feat: add ai-attribution skill (#7)",
       "date": "2026-09-19",
-      "author": "Shaun Burdick"
-    },
-    {
-      "sha": "a8550f6",
-      "message": "feat: add spec triage gate to prevent spec sprawl (#5)",
-      "date": "2026-09-04",
       "author": "Shaun Burdick"
     }
   ],
@@ -6009,67 +6009,79 @@
   ],
   "JuliusBrussee--caveman": [
     {
-      "sha": "99aafe1",
-      "message": "Merge pull request #1184 from JuliusBrussee/daily-triage/2026-10-04",
-      "date": "2026-10-06",
+      "sha": "2e08b91",
+      "message": "chore: finalize Caveman 3.2.0 release metadata",
+      "date": "2026-10-08",
       "author": "Julius Brussee"
     },
     {
-      "sha": "98d3577",
-      "message": "fix(proxy): keep Gemini method calls out of the models metadata route",
-      "date": "2026-10-05",
-      "author": "Claude"
+      "sha": "d924ecd",
+      "message": "docs: record published Caveman 3.2.0",
+      "date": "2026-10-08",
+      "author": "Julius Brussee"
     },
     {
-      "sha": "24dcf17",
-      "message": "fix(ccr): support filesystems without hard links",
-      "date": "2026-10-05",
-      "author": "quy"
+      "sha": "7ad678c",
+      "message": "test: require wrap endpoint injection in smoke",
+      "date": "2026-10-08",
+      "author": "Julius Brussee"
     },
     {
-      "sha": "8446baa",
-      "message": "fix(proxy): forward read-only GET /v1/models instead of 404ing it",
-      "date": "2026-10-05",
-      "author": "Claude"
+      "sha": "5504d34",
+      "message": "chore: pin runtime and add release smoke",
+      "date": "2026-10-08",
+      "author": "Julius Brussee"
     },
     {
-      "sha": "7511749",
-      "message": "fix(pi): resync the pi-extension npm lockfile; correct the npm 12 install claim",
-      "date": "2026-10-04",
-      "author": "Claude"
+      "sha": "23beaec",
+      "message": "Merge pull request #1230 from JuliusBrussee/release/v3.2.0-shell-fixture",
+      "date": "2026-10-08",
+      "author": "Julius Brussee"
     },
     {
-      "sha": "f59bef5",
-      "message": "fix(install): discard npx stderr in the PowerShell shim too",
-      "date": "2026-10-04",
-      "author": "Claude"
+      "sha": "594ad83",
+      "message": "test: use Windows paths in no-node hook fixture",
+      "date": "2026-10-08",
+      "author": "Julius Brussee"
     },
     {
-      "sha": "ce17c92",
-      "message": "docs(install): say how to install on npm 12 where the shims cannot help",
-      "date": "2026-10-04",
-      "author": "Claude"
+      "sha": "e20f07e",
+      "message": "Merge pull request #1229 from JuliusBrussee/release/v3.2.0-gates",
+      "date": "2026-10-08",
+      "author": "Julius Brussee"
     },
     {
-      "sha": "2603de3",
-      "message": "fix(install): opt the root package into git fetching on npm 12+",
-      "date": "2026-10-04",
-      "author": "Claude"
+      "sha": "bdb1aa4",
+      "message": "test: fix Windows release gate fixtures",
+      "date": "2026-10-08",
+      "author": "Julius Brussee"
     },
     {
-      "sha": "e722757",
-      "message": "fix(middleware): widen @anthropic-ai/sdk range to <0.132 after testing each release",
-      "date": "2026-10-04",
-      "author": "Claude"
+      "sha": "13c02ce",
+      "message": "Merge pull request #1228 from JuliusBrussee/fix/disable-keeps-voice-skills",
+      "date": "2026-10-08",
+      "author": "Julius Brussee"
     },
     {
-      "sha": "ddf6e40",
-      "message": "chore(agents): bump verified pins to claude 2.1.289 and pi 1.0.2",
-      "date": "2026-10-04",
-      "author": "Claude"
+      "sha": "9d8632a",
+      "message": "fix(cli): keep the voice skills on disable",
+      "date": "2026-10-08",
+      "author": "Julius Brussee"
     }
   ],
   "dietrichgebert--ponytail": [
+    {
+      "sha": "b088b2d",
+      "message": "chore: release v5.0.0 (#1062)",
+      "date": "2026-10-08",
+      "author": "DietrichGebert"
+    },
+    {
+      "sha": "01cbf81",
+      "message": "feat: Ponytail 5, rebuilt rules, review and audit (#1061)",
+      "date": "2026-10-08",
+      "author": "DietrichGebert"
+    },
     {
       "sha": "552acd5",
       "message": "chore: move translations, CONTRIBUTING and .env.example out of the repo root (#1044)",
@@ -6117,18 +6129,6 @@
       "message": "fix(grok): make Ponytail discoverable through its marketplace (#913)",
       "date": "2026-10-05",
       "author": "Stephen Benjamin"
-    },
-    {
-      "sha": "3d459e4",
-      "message": "docs: translate the current README into Spanish, Korean, Simplified Chinese and Japanese (#1039)",
-      "date": "2026-10-05",
-      "author": "DietrichGebert"
-    },
-    {
-      "sha": "3bffa48",
-      "message": "docs(install): document opencode plugin add for OpenCode 2 (#1034)",
-      "date": "2026-10-05",
-      "author": "amnesia"
     }
   ]
 }

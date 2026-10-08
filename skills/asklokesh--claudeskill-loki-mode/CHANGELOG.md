@@ -5,6 +5,155 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.3.1 (2026-10-08)
+
+Patch release that ships the ten v1 features of the 11.3 program: cost preview, mutation proof, intent card, reviewer brief, attempts, memory with proof, overnight queue, before/after proof, provider failover and the supply-chain guard. It also adds the CI-FAST gate, a docs cleanup and help-text truth fixes. The router still ships OFF, and so does the T2 downgrade.
+
+### Added
+- Cost preview v1 (T1): the start line prints an estimate built from per-shape history, and the receipt compares estimate with actual. A shape with no history prints "estimate: NOT AVAILABLE".
+- Mutation proof (T2): the seal records a mutation proof line for behavior-changing diffs, and that line reaches the PR body. Under LOKI_MUTATION_STRICT=1 a surviving mutation on a behavior change downgrades VERIFIED to PARTIAL; the downgrade is OFF by default.
+- Intent card v1 (T3): plan prints a parsed intent card and the PR carries an intent section. LOKI_CONFIRM asks for confirmation; LOKI_INTENT_CARD=0 turns the card off.
+- Reviewer brief (T4): the PR body gains a Reviewer brief section.
+- Attempts v1 (T5): `loki start --attempts N` runs N engine10 worktree attempts and scores each one by the executed passing checks in its verified receipt. The winner is applied, every sealed receipt is kept after its worktree is removed, and the run is BLOCKED when no attempt sealed. In 11.3.1 it requires --no-pr (PR support ships in 11.3.2), and no start path reaches the legacy loop (FC-37, FC-38).
+- Memory with proof (T6): lessons are learned from merged PR review comments, with use tags and outcomes. Quoted lessons are fenced as untrusted data, with every angle bracket stripped.
+- Overnight queue (T7): `loki queue add|list|run` runs queued issues overnight and writes a morning digest. It reads engine10 runs/<id>/receipt.json, and unmetered cost is reported as NOT RECORDED.
+- Before/After proof (T8): the PR gets a Before / After section with screenshots of the base and changed trees. The section is left out when no UI route changed.
+- Provider failover (T9): after a classified rate limit or outage, a stage retries once on the next provider.
+- Supply-chain guard (T10): the model declares the new registry dependencies it adds, and the harness proves each one with the ecosystem resolver. A hallucinated package on the default registry FAILS the seal. User config alone decides the registry (never the model's text), a scoped npm registry applies only to its own scope, and the declaration is cleared on every run (FC-36).
+- Warm resume (CH-03, opt-in): with LOKI_E10_FIX_RESUME=1, implement resumes the plan session (and each fix round the session before it) instead of starting cold, but only on the Claude SDK route, on the same model, and when the first turn stayed under 100K prompt tokens; otherwise it starts fresh and records why. A conflict or empty-done resume never inherits the plan session. The default is OFF, so with the flag unset every stage starts fresh as in 11.3.0.
+- CI-FAST (D90): a blocking fast gate that finishes in under 2 minutes; the full suites move to a nightly run.
+- B9 fixture: a shared, deterministic trivial-sum fixture generator wired into the B9 scoreboard.
+
+### Changed
+- MCP (MCP-A): the MCP server and client speak protocol 2025-11-25. An older client still gets its own version echoed back, and the client sends notifications/initialized (the server accepts the legacy name too).
+- Router cost (COMPACT-ONLY-HAIKU, CH-02): under LOKI_ROUTER=1, sonnet and opus sessions no longer get the 100k auto-compact ceiling, and the advisor is off outside plan and fix. With the router off, nothing changes.
+- implement brief asks the model to declare new registry dependencies.
+- The engine10 core is now under its 5000-line cap: worker process control moved to runner/worker_proc.ts (CAP-1131) and the dashboard server moved to runner/engine10_dashboard.ts (CAP2).
+- Router (R-A/R-B/R-C, FC-35): one route record feeds the start line, the receipt and the plan. With the router OFF, no route.json is written; overrides win; and the sonnet fallback happens only after a real opus failure.
+- Docs (DOCS-ZERO, DOCS-HELP): the repo root is slimmer, the README is rewritten, docs cover the current version only, help text matches current behavior (with a guard against listing removed surfaces), and SECURITY.md is added.
+- Wall (WC-01a): the Wall stage is split into an authoring step and an install step. Behavior is unchanged; this prepares the Wall to run before implement.
+- Repo root (ROOT-ZERO): the docker files moved under docker/, and the stale purplelab-test and test-runner entries were removed from DEPS.md.
+
+### Fixed
+- Control-plane CP-04 (FC-32, FC-39): the image copies the whole loki-ts/src tree and CP-04 builds the server. The legacy copy list is derived from the import closure, which follows .js/.mjs specifiers and fails loudly on an unresolvable import.
+- select-tests: the CP closure python was moved out of a $( ) heredoc, and a python failure now fails safe to ALL.
+- `loki doctor`: the failure count is derived from a single result list, and an inconclusive login probe reports UNKNOWN (FC-DOCTOR-COUNT).
+- The golden test compares the start line without the cost-preview estimate, and the joined imports in seal.ts are split back onto separate lines.
+- Before/After proof (BA-SPAWN, FC-25): its git call goes through safeGit, and the package.json script probe is consolidated in visual_evidence.ts.
+- Attempts token scope (FC-25): each attempt engine10 child is spawned with a token-free env (GH_TOKEN, GITHUB_TOKEN and SSH_AUTH_SOCK are stripped). Every attempt git call goes through safeGit. In 11.3.1, `--attempts` without `--no-pr` exits 2, so the attempts path never uses a credential; PR support ships in 11.3.2.
+- Start scoping (FC38-SCOPE, FC38-SCOPE2): the --attempts refusals apply only when --attempts is given. Plain `loki start`, on both the bash and Bun routes, behaves exactly as in 11.3.0.
+- Attempts sweep (T5-D2): quick, run, demo, tour, every cmd_start caller and the run.sh parser refuse --attempts with exit 2 and point to `loki start --attempts N --no-pr`.
+- safeGit (SAFEGIT-EXTDIFF, FC-41): patch-producing git calls pass --no-ext-diff and --no-textconv, so a repo-configured external diff or textconv driver cannot run.
+- Pre-existing dirt (EVAL-LOSSES, FC-42): every lockfile in the lockfile family (Gemfile.lock, uv.lock, *.lockb, go.sum and others) that was already dirty at intake is now treated as pre-existing, not as the agent's change, so the run is no longer refused for it.
+- Empty done (EVAL-LOSSES, FC-43): when implement reports done but changed nothing, the session is resumed once with a pointer at the empty tree, instead of failing verify straight away.
+- Pricing (PRICE-TRUTH): the haiku alias is priced as Haiku 5.5 ($0.10/$0.50 per MTok up to 100K prompt tokens) in every cost table: the budget, run.sh, the dashboard, the CLI and the TUI. A parity test keeps those tables in agreement. The OpenAI rows match OpenAI's published prices, the dashboard no longer marks them as unverified placeholders, and the model labels name the current Opus 5.5, Sonnet 5.5 and Haiku 5.5.
+- Pricing (PRICE-TRUTH-2, FC-45): the exact id claude-haiku-4-5 is priced at its own $1/$5 per MTok rate on both the Bun and bash routes. Before this fix, the Bun route priced it as the haiku alias (ten times too low) and the bash budget check priced it as Sonnet. The bash budget check also priced claude-haiku-5-5 as Sonnet (twenty times too high); it now uses the $0.10/$0.50 Haiku 5.5 rate, and a parity test runs the real budget function for both ids.
+- Model defaults (JUDGE-DEFAULTS): judge and text model aliases resolve to current catalog ids from one shared helper, including in the packaged dist, and a guard rejects new hardcoded model ids outside its allowlist.
+- Security (SEC-FSMON, FC-25d): every git call under loki-ts/src goes through safe_git with a token-free env, so a repo-configured fsmonitor or hook can no longer run holding the GitHub token. This closes a regression in unreleased code; v11.3.0 was not affected. Loki's own git calls run with hooks and commit signing off, and reads blank any repo-configured filter or textconv driver. The seal commit, which runs worker-side without the token, keeps your hooks, commit signing and attributes, so signed-commit branch protection still accepts sealed commits.
+- Guards (FINDING-GUARDS): counted per-site guards for full-env spawns, model-output regexes, raw gh and push calls, start-flag parity, registration lists, and swarm reads.
+- CI (PLAN-TIMEOUT-1): the fast gate's plan job gets 15 minutes instead of 5. A plan that times out or fails still runs the full suite, so a slow plan never skips tests.
+- CI (PLAN-BOUND): the plan step itself is bounded by a 4-minute timeout, and a change touching more than 150 files goes straight to the full suite instead of per-file selection. A plan that times out or fails always produces a FULL plan, so a large release diff can no longer hang the Tests workflow into a cancelled run that blocks the release.
+- Test drift (FULL-DRIFT, FC-46): six full-tier suites that had drifted from the 11.3.1 train are green again (dependency inventory, docs CLI drift, the reviewer-selection line in the README, the analytics funnel anchor, ShellCheck on the real-run scenarios, and train verdict reuse).
+
+### Known issues
+- Cost on resumed sessions: when a run resumes its Claude session after a spec conflict (as in 11.3.0) or after an empty done (new in this release), the receipt's cost and token totals for that run can count the resumed session's usage twice. The 11.3.2 fix (RECEIPT-TRUTH) reports such runs as cost NOT RECORDED with partial tokens instead.
+
+### Build
+- Rebuilt `loki-ts/dist` for this release.
+
+### Measured
+- B9 router delta: +11.1% cost (n=3, not significant; the CI spans -115% to +138%) and +21.3% tokens. A rerun at n>=8 is queued for 11.3.2.
+
+## v11.3.0 (2026-10-08)
+
+Minor release. Adds the model router's escalation chain and plan-time routing, both shipped OFF by default (LOKI_ROUTER unset or 0 is byte-identical to v11.2.2 across the 156-scenario differential), and hardens skill-link healing so it only heals from a durable global install. The remaining v1 features of the 11.3 program (cost preview, mutation proof, intent card, reviewer brief, attempts, memory with proof, overnight queue, before/after proof, provider failover, supply-chain guard) and the CI-FAST gate roll to 11.3.1.
+
+### Added
+- Router escalation chain (R1-09, R1-11, R1-12, R1-13): when LOKI_ROUTER=1, a failing unit climbs the model ladder with a recorded reason; plan-time per-unit routes (R1-10) are read through the bounded `readScopeText` reader, and any rejected scope file (symlink, oversized, missing, unreadable) records NOT PROVEN and defaults to sonnet, never haiku.
+- Semantic L1 guard and user override bypass: LOKI_MODEL_OVERRIDE and LOKI_CLAUDE_MODEL_DEVELOPMENT drop only router pins, so an override user sees identical behavior with the router on or off.
+
+### Changed
+- Session, implement and stall routing moved out of the engine10 core into `loki-ts/src/runner/router/` (session_route.ts, implement_route.ts, unit_model.stallClimb); the non-modernize engine10 core goes from 5010 to 4948 lines, under its 5000-line cap.
+
+### Fixed
+- Skill-link healing (FC-30 amendment, FC30-DURABLE): heals only from a durable global install and refuses npx cache, temp and arbitrary-prefix installs with one stderr line; `npm root -g` is bounded to 3s and fails closed.
+- Coverage run crash on Linux (FC-34): the route-matrix mutation test imported one temp copy of src per mutation (30) of src in-process, so `bun test --coverage` died after loading them; the mutations now run in a child bun process, a crashed child fails the test loudly, and a guard test asserts no temp src copy is ever imported in-process.
+
+## v11.2.2 (2026-10-07)
+
+Patch release. Adds measured fields to the B9 router scoreboard, derives the usage-governor seat cap from a measured `claude -p /usage` read, collapses `loki doctor` onto a single implementation, and gives the router one guarded plan-scope reader. The router still ships off; with `LOKI_ROUTER` unset, run behavior is unchanged from 11.2.1.
+
+### Added
+- B9 scoreboard (`scripts/b9-scoreboard.sh`): per-run cache-read, cache-creation, fresh input and output tokens, dollars, wall seconds and advisor calls, read from result-cost files (arms 2-4) or the claude JSON usage (arm 1). Per-arm mean/min/max summary, `router_cost_ratio` and `gate_1_05` (requires n>=3 recorded runs per arm, else FAIL). New `--repeat` and `--summarize FILE` flags. Missing data prints NOT RECORDED, never 0.
+- Usage governor (GOV-MEASURE): the seat cap is now derived from real session and weekly percentages read via `claude -p /usage` (40s timeout, cached 15 min, failures cached 3 min under `~/.claude/usage-governor`). Up to 8 seats, hold above 70% session, zero at the 85/90 ceilings. The projection is only the fallback, and the pulse labels the basis as measured or projected with the failure reason.
+
+### Changed
+- `loki doctor` has one implementation, `loki-ts/src/commands/doctor.ts` (FC-33). The bash `cmd_doctor` and `cmd_doctor_json` are thin delegators through `_loki_bun_delegate`, with a minimal "bun route unavailable" fallback whose last line is the single reason (`--json` reports route "unavailable"). `--airgap` stays on bash. The Cockpit block, install-integrity wording, PATH shadowing blocker, `first_run_blocked` telemetry and the SDK-only Next recommendation were ported into doctor.ts. Under `LOKI_LEGACY_BASH=1`, doctor prints "Active runtime: Bash (autonomy/loki)" plus the existing WARN, matching 11.2.0.
+- Usage governor runtime readings append to the untracked `.loki/state/usage-readings.tsv`; `docs/v10/usage-readings.tsv` stays founder-only. One `/usage` read per refresh (no second claude call for `--read-usage`).
+- Rebuilt `loki-ts/dist` for this release.
+
+### Fixed
+- B9 scoreboard: a recorded usd of 0 is NOT RECORDED, so a missing cost can no longer read as a free router and green-wash `gate_1_05`.
+- Router (R1-10b): one guarded `plan-scope.json` reader (`readScopeText`) shared by run_cap and plan. It rejects symlinks and non-regular files and caps reads at 256 KB; a rejected file behaves as no scope file.
+
+## v11.2.1 (2026-10-07)
+
+Patch release. Adds per-unit plan routing and the route line on receipts and PRs (both active only when `LOKI_ROUTER` is on), fixes the router telemetry flag known issue from 11.2.0, and ships four failure-class fixes. With the router flag unset, run behavior is unchanged from 11.2.0.
+
+### Added
+- Plan-time per-unit routing (R1-10): with `LOKI_ROUTER` on, Opus assigns an executor to each plan unit. `resolveExecutor` takes an explicit env. The advisor probe is provider-aware, units are capped, duplicate ids are rejected, and an invalid unit id gets a placeholder that cannot collide with a real id. `plan-scope.json` must be a regular file.
+- Route visibility (R1-15): a route start line, a typed route block on the receipt and a per-unit route line in the real PR body. A route that was not recorded is reported as not recorded.
+
+### Fixed
+- The router telemetry gate now accepts only `1`, `true` and `on`, matching the single flag reader (R1-08c). This resolves the 11.2.0 known issue where `LOKI_ROUTER=yes` added telemetry fields while the router stayed off.
+- Verification resolves the verified tree through one resolver on both the bash and Bun proof routes, never the ambient working directory, and compares HOME canonically (FC-29).
+- Install, upgrade and first run repoint a stale Loki skill link instead of leaving it broken (FC-30).
+- The goal score in `run.sh` no longer trims the completion promise globally and detects comparator symbols the Bun route already detected. A behavioral bash/Bun parity guard covers 187 goals (RC-DOCTOR-ONE S5).
+- The impacted gate: changes under `loki-ts/src` now select the shell suites that guard them. A new `scripts/impacted-gate.sh` keeps its own run directory, fails closed and handles the bash 3.2 `wait` status (FC-31).
+
+## v11.2.0 (2026-10-07)
+
+Minor release. Ships the model router core, off by default. With no flag set, behavior is byte-identical to 11.1.0. Set `LOKI_ROUTER=1` to opt in. Opus plans and assigns, Sonnet is the default executor, and Haiku runs a unit only when Opus assigns it and the shape history has earned it.
+
+### Added
+- Router core (R1-05): the route decision, the escalation state machine and a single flag reader (`flag.ts`; `1`, `true` and `on` opt in, `0`, `false` and `off` opt out). No routing by task type or path pattern.
+- Per-unit route schema (R1-05 step 2): `units: [{id, kind, executor, reason}]`. A missing or invalid unit runs on Sonnet and is marked NOT PROVEN. A Haiku unit whose failure is code-owned is redone on Sonnet. A Wall unit assigned to Haiku is flagged for Opus review.
+- Advisor wiring (R1-07): `advisorModel` and `autoCompactWindow` pass into both SDK and CLI sessions. Any Haiku id without a reachable advisor is raised to Sonnet. The bundled Claude Code version probe is cached.
+- Router telemetry (R1-08): per-request size and advisor usage are recorded in the result-cost file. They are written only when the router flag is on, so flag-off output is byte-identical (R1-08b).
+- `scripts/b9-scoreboard.sh` (R1-17): a B9 comparison harness with `--emit-shape-defaults` and `--emit-seed`, which writes a provisional loss-shape seed. It runs an auth preflight, reports BLOCKED instead of solved=0 when it cannot run, requires a confirm rerun, guards the arm env and keeps HOME in real mode.
+- `loki doctor` now prints the advisor status and the bundled Claude Code version when `LOKI_ROUTER` is on (R1-20). With the flag unset the doctor output is unchanged from 11.1.0 (R1-20b).
+- MCP Control Plane data tools (CP-ASK slice 2): 8 read-only `cp_*` tools that issue GET requests against the Control Plane API. That brings the server to 47 tools. Id, artifact and filter checks use full matches.
+- A "Model routing" section in the guide (R1-18), and the routing decision record: CTO default plus the founder refinement, Sonnet by default, Haiku per unit when Opus assigns it (R1-19, D89).
+
+### Changed
+- `LOKI_ROUTER_EXECUTOR` is now treated as a route input that must pass every floor, not as a bypass. `LOKI_MODEL_OVERRIDE` and `LOKI_CLAUDE_MODEL_DEVELOPMENT` remain the user bypass and are recorded with source `override` (R1-05 B1). `LOKI_ROUTER_EXECUTOR` is scheduled for removal in a following patch release.
+- The CLAUDE.md MCP tool count is updated from 39 to 47.
+
+### Fixed
+- The shape-history key is computed fresh each time, and the history file is written atomically (R1-16b).
+
+### Known issues
+- `LOKI_ROUTER=yes` leaves the router off but still adds the router telemetry fields to the result-cost file, because the telemetry gate reads the flag with its own word list. Only `1`, `true` and `on` are documented values. A following patch release moves the telemetry gate onto the single flag reader.
+
+## v11.1.0 (2026-10-07)
+
+Minor release. Prepares the model catalog, pricing and plumbing for model routing: the Agent SDK moves to 0.3.293, Haiku 5.5 and Sonnet 5.5 join the catalog, and the groundwork for the advisor probe and per-shape outcome memory lands. The router itself is not switched on by this release.
+
+### Added
+- Agent SDK 0.3.293, which bundles Claude Code 2.1.293, pinned in package.json and in every Dockerfile, with a version-floor guard test so a lower SDK fails the build.
+- Catalog entries for `claude-haiku-5-5` and `claude-sonnet-5-5` (ids verified by real calls on Claude Code 2.1.293). The `haiku` and `sonnet` CLI aliases and the fast and development tier defaults now point at the 5-5 ids; the previous ids stay catalogued as legacy (R1-03).
+- Claude Haiku 5.5 pricing on the exact model id: $0.10 in / $0.50 out per MTok up to 100K tokens, and $0.50 / $2.50 over 100K, with matching cache rates. The budget code resolves exact versioned ids, including dated suffixes, before the family match. The `haiku` family alias row stays at the Haiku 4.5 price of $1 / $5 (R1-02).
+- Advisor availability probe: the advisor is unavailable on a non-Claude provider, on Bedrock, Vertex or Foundry, on a non-Anthropic `ANTHROPIC_BASE_URL`, below Claude Code 2.1.293, or after an advisor tool error, which is remembered for the rest of the run. Unavailable never fails a run (R1-06).
+- Per-repo-shape outcome history. The shape key is the workspace kind plus the sorted runners. The haiku floor moves a shape to Sonnet after 2 code-owned losses in the last 3 Haiku runs; harness, environment and provider errors and NOT PROVEN outcomes never count. A shipped shape-defaults file starts empty and a corrupt or missing file is a cold read, never a crash (R1-16).
+- Opt-out golden test: with the router off, the models, session options, start line and run.started keys match 11.0.3 exactly (R1-21).
+
+### Fixed
+- Verifier spawns pin `TARGET_DIR`, and `scripts/local-ci.sh` installs dependencies in a fresh worktree (FC-29).
+- The local-ci install step no longer names the deleted legacy dashboard directory, which the removal guard rejected (Tests run 37690949221).
+- The dashboard tenant isolation suite accepts its TestClient Host under unittest.
+- Nightly deferred already-done tests wait on events instead of fixed sleeps.
+- Lockfile bumps the MCP SDK and proxy-addr for new security advisories.
+
 ## v11.0.3 (2026-10-04)
 
 Patch release. A one-line product brief no longer skips the Wall because a common word sits inside a longer name.

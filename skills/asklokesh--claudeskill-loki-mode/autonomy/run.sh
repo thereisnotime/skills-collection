@@ -7578,11 +7578,13 @@ _write_pricing_json() {
   "updated": "${updated}",
   "source": "static",
   "models": {
-    "fable":           {"input": 10.00, "output": 50.00, "label": "Fable 5 (top, 2x Opus)", "provider": "claude"},
-    "claude-fable-5":  {"input": 10.00, "output": 50.00, "label": "Fable 5 (top, 2x Opus)", "provider": "claude"},
-    "opus":            {"input": 5.00,  "output": 25.00, "label": "Opus (latest)",   "provider": "claude"},
-    "sonnet":          {"input": 2.00,  "output": 10.00, "label": "Sonnet (latest)", "provider": "claude"},
-    "haiku":           {"input": 1.00,  "output": 5.00,  "label": "Haiku (latest)",  "provider": "claude"},
+    "fable":           {"input": 10.00, "output": 50.00, "cache_read": 0.25, "cache_write": 12.5, "cache_write_1h": 20, "label": "Fable 5 (top tier)", "provider": "claude"},
+    "claude-fable-5":  {"input": 10.00, "output": 50.00, "cache_read": 0.25, "cache_write": 12.5, "cache_write_1h": 20, "label": "Fable 5 (top tier)", "provider": "claude"},
+    "opus":            {"input": 4.00,  "output": 20.00, "cache_read": 0.2, "cache_write": 5, "cache_write_1h": 8, "label": "Opus (latest)",   "provider": "claude"},
+    "sonnet":          {"input": 2.00,  "output": 10.00, "cache_read": 0.1, "cache_write": 2.5, "cache_write_1h": 4, "label": "Sonnet (latest)", "provider": "claude"},
+    "haiku":           {"input": 0.10,  "output": 0.50, "cache_read": 0.01, "cache_write": 0.125, "cache_write_1h": 0.2, "over_100k": {"input": 0.50, "output": 2.50}, "label": "Haiku 5.5 (latest)",  "provider": "claude"},
+    "claude-haiku-4-5": {"input": 1.00, "output": 5.00, "cache_read": 0.1, "cache_write": 1.25, "cache_write_1h": 2, "label": "Haiku 4.5", "provider": "claude"},
+    "claude-haiku-5-5": {"input": 0.10, "output": 0.50, "cache_read": 0.01, "cache_write": 0.125, "cache_write_1h": 0.2, "over_100k": {"input": 0.50, "output": 2.50}, "label": "Haiku 5.5", "provider": "claude"},
     "gpt-5.3-codex":   {"input": 1.75,  "output": 14.00, "label": "GPT-5.3 Codex", "provider": "codex"}
   }
 }
@@ -16424,7 +16426,7 @@ _dispatch_reviewer() {
                         _crs_out="$(_loki_with_deadline "$_crs_cap" \
                             "${_cr_provider_env[@]}" "$_crs_loki" internal sdk-judge \
                             --prompt-file "$_crs_pf" --schema-file "$_crs_schema_file" \
-                            --model "${LOKI_SDK_REVIEW_MODEL:-claude-sonnet-5}" --effort high \
+                            --model "${LOKI_SDK_REVIEW_MODEL:-sonnet}" --effort high \
                             --timeout-ms "$(( _crs_to_s * 1000 ))")" || _crs_rc=$?
                         _crs_invoked=true
                         rm -f "$_crs_pf" 2>/dev/null || true
@@ -20247,15 +20249,20 @@ check_budget_limit() {
 import json, glob
 total = 0.0
 pricing = {
-    'fable': {'input': 10.00, 'output': 50.00},
-    'claude-fable-5': {'input': 10.00, 'output': 50.00},
-    'opus': {'input': 5.00, 'output': 25.00},
-    'sonnet': {'input': 2.00, 'output': 10.00},
-    'haiku': {'input': 1.00, 'output': 5.00},
+    'fable': {'input': 10.00, 'output': 50.00, 'cache_read': 0.25, 'cache_write': 12.5, 'cache_write_1h': 20},
+    'claude-fable-5': {'input': 10.00, 'output': 50.00, 'cache_read': 0.25, 'cache_write': 12.5, 'cache_write_1h': 20},
+    'opus': {'input': 4.00, 'output': 20.00, 'cache_read': 0.2, 'cache_write': 5, 'cache_write_1h': 8},
+    'sonnet': {'input': 2.00, 'output': 10.00, 'cache_read': 0.1, 'cache_write': 2.5, 'cache_write_1h': 4},
+    # haiku = Haiku 5.5 up to 100K prompt tokens (no over-100K tier in this gate)
+    'haiku': {'input': 0.10, 'output': 0.50, 'cache_read': 0.01, 'cache_write': 0.125, 'cache_write_1h': 0.2},
+    # Exact ids: this dict is keyed by the recorded model string with a sonnet
+    # fallback, so an id missing here is priced at sonnet (20x for Haiku 5.5).
+    'claude-haiku-4-5': {'input': 1.00, 'output': 5.00, 'cache_read': 0.1, 'cache_write': 1.25, 'cache_write_1h': 2},
+    'claude-haiku-5-5': {'input': 0.10, 'output': 0.50, 'cache_read': 0.01, 'cache_write': 0.125, 'cache_write_1h': 0.2},
     'gpt-5.3-codex': {'input': 1.75, 'output': 14.00},
-    'gpt-5.6-sol': {'input': 2.50, 'output': 20.00},
-    'gpt-5.6-terra': {'input': 1.50, 'output': 12.00},
-    'gpt-5.6-luna': {'input': 0.50, 'output': 4.00},
+    'gpt-5.6-sol': {'input': 4.00, 'output': 20.00},
+    'gpt-5.6-terra': {'input': 2.00, 'output': 12.00},
+    'gpt-5.6-luna': {'input': 0.20, 'output': 1.20},
 }
 for f in glob.glob('${efficiency_dir}/*.json'):
     try:
@@ -20272,8 +20279,9 @@ for f in glob.glob('${efficiency_dir}/*.json'):
             # DOMINATE real traffic: a measured iteration carried 797,496
             # cache-read tokens against 10,272 of plain input. Pricing them at
             # zero under-counted a real iteration 5.4x, so a breaker set to
-            # stop a runaway let it run far past the cap. Published multipliers:
-            # cache read 0.1x input, cache write 1.25x input.
+            # stop a runaway let it run far past the cap. Rates come from the
+            # table row (cache read is 0.05x on Opus 5.5 / Sonnet 5.5, 0.025x
+            # on Fable 5.1, 0.1x elsewhere); rows without them use 0.1x / 1.25x.
             #
             # This mirrors the TS route's calculateCostFromRecords
             # (loki-ts/src/runner/budget.ts). Both routes must agree or the
@@ -20281,7 +20289,7 @@ for f in glob.glob('${efficiency_dir}/*.json'):
             cr = d.get('cache_read_tokens', 0) or 0
             cw = d.get('cache_creation_tokens', 0) or 0
             total += (inp / 1_000_000) * p['input'] + (out / 1_000_000) * p['output']
-            total += (cr / 1_000_000) * (p['input'] * 0.1) + (cw / 1_000_000) * (p['input'] * 1.25)
+            total += (cr / 1_000_000) * p.get('cache_read', p['input'] * 0.1) + (cw / 1_000_000) * p.get('cache_write', p['input'] * 1.25)
     except: pass
 print(round(total, 4))
 " 2>/dev/null || echo "0")
@@ -22697,16 +22705,24 @@ build_prompt() {
     # configuration there), or LOKI_GOAL_SCORING=0. Advisory only: it never
     # blocks a build and never rewrites the user's goal.
     local goal_sharpening_instruction=""
-    if [ -n "${COMPLETION_PROMISE:-}" ] \
+    # Bash-native trim, matching (goal ?? "").trim() in goal_score.ts: a
+    # whitespace-only promise is an absent goal, not an unmeasurable one.
+    local _goal_trim="${COMPLETION_PROMISE:-}"
+    _goal_trim="${_goal_trim#"${_goal_trim%%[![:space:]]*}"}"
+    _goal_trim="${_goal_trim%"${_goal_trim##*[![:space:]]}"}"
+    if [ -n "$_goal_trim" ] \
        && [ "${LOKI_GOAL_SCORING:-}" != "0" ] \
        && [ "${AUTONOMY_MODE:-}" != "perpetual" ] \
        && [ "${PERPETUAL_MODE:-}" != "true" ] && [ "${PERPETUAL_MODE:-}" != "1" ]; then
         local _goal_lc _goal_dims
-        _goal_lc="$(printf '%s' "$COMPLETION_PROMISE" | tr '[:upper:]' '[:lower:]')"
+        _goal_lc="$(printf '%s' "$_goal_trim" | tr '[:upper:]' '[:lower:]')"
         _goal_dims=0
         # Mirrors the four DIMENSIONS regexes in goal_score.ts, in the same order.
         printf '%s' "$_goal_lc" | grep -qE '[0-9]+(\.[0-9]+)?[[:space:]]*(%|ms|s\b|sec|second|min|minute|hour|day|kb|mb|gb|rps|qps|req|x\b|users?|items?|rows?)' && _goal_dims=$((_goal_dims + 1))
-        printf '%s' "$_goal_lc" | grep -qE '\b(under|below|less than|no more than|at most|over|above|greater than|at least|within|between|<=?|>=?)\b' && _goal_dims=$((_goal_dims + 1))
+        # The symbol alternatives (<, <=, >, >=) cannot use grep's \b: BSD and GNU
+        # disagree on it next to a non-word character. TS \b(<=?)\b means a word
+        # character on BOTH sides of the symbol, so spell that out explicitly.
+        printf '%s' "$_goal_lc" | grep -qE -e '\b(under|below|less than|no more than|at most|over|above|greater than|at least|within|between)\b' -e '[A-Za-z0-9_](<=?|>=?)[A-Za-z0-9_]' && _goal_dims=$((_goal_dims + 1))
         printf '%s' "$_goal_lc" | grep -qE '\b(latency|throughput|p50|p95|p99|uptime|error rate|conversion|coverage|score|accuracy|precision|recall|bundle size|load time|response time|memory|cpu|cost)\b' && _goal_dims=$((_goal_dims + 1))
         printf '%s' "$_goal_lc" | grep -qE '\b(tests? pass|builds? clean|endpoint|returns? [0-9]{3}|exit code|schema|migration|deploys?|renders?|compiles?)\b' && _goal_dims=$((_goal_dims + 1))
         # Only a goal with ZERO measurable dimensions is flagged (score == 0),
@@ -28808,6 +28824,11 @@ main() {
     REMAINING_ARGS=()
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --attempts|--attempts=*)
+                # T5-D2: run.sh is the legacy loop; attempts run only on the engine10 path.
+                echo "run.sh: --attempts is only supported by 'loki start --attempts N --no-pr' (the Loki 10 engine), not the legacy loop." >&2
+                exit 2
+                ;;
             --parallel)
                 PARALLEL_MODE=true
                 shift

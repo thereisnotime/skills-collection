@@ -60,10 +60,10 @@ type Emitted = { type: string; stage: string | null; data: Record<string, unknow
 function makeCtx(
   repoDir: string,
   runDir: string,
-  opts: { verdict?: Verdict; notProven?: string[]; pinnedOrigin?: string | null; capHit?: boolean } = {},
+  opts: { verdict?: Verdict; notProven?: string[]; pinnedOrigin?: string | null; capHit?: boolean; routeLine?: string; mutationLine?: string } = {},
 ): { ctx: RunContext & { pinnedOrigin?: string; capHit?(): boolean }; emitted: Emitted[] } {
   const emitted: Emitted[] = [];
-  const seal = { verdict: opts.verdict ?? "VERIFIED", not_proven: opts.notProven ?? [], receipt_path: `${runDir}/receipt.json` };
+  const seal = { verdict: opts.verdict ?? "VERIFIED", not_proven: opts.notProven ?? [], receipt_path: `${runDir}/receipt.json`, ...(opts.routeLine ? { route_line: opts.routeLine } : {}), ...(opts.mutationLine ? { mutation_line: opts.mutationLine } : {}) };
   const ctx: RunContext & { pinnedOrigin?: string; capHit?(): boolean } = {
     runId: "e10-test-run",
     repoDir,
@@ -253,5 +253,57 @@ describe("engine10 pr stage", () => {
     expect(stage.name).toBe("pr");
     expect(stage.targetS).toBe(15);
     expect(stage.limitS).toBe(60);
+  });
+
+  test("R1-15: the sealed route line lands under the verdict in the real PR body only while LOKI_ROUTER is on", async () => {
+    const line = "Route: executor haiku-5.5, advisor opus-5.5; advisor tokens 30000 in / 700 out; over 100K: 1 of 2 requests (50.0%)";
+    const prev = process.env.LOKI_ROUTER;
+    try {
+      process.env.LOKI_ROUTER = "1";
+      const on = makeCtx(repoDir, runDir, { verdict: "VERIFIED", routeLine: line });
+      await runPr(on.ctx, new AbortController().signal, { pushScriptPath: writeStub(stubDir, logPath) });
+      const body = readFileSync(join(runDir, "pr-body.md"), "utf8").split("\n");
+      const v = body.findIndex((l) => /^- Verdict:/.test(l));
+      expect(v).toBeGreaterThan(-1);
+      expect(body[v + 1]).toBe(line);
+      delete process.env.LOKI_ROUTER;
+      const off = makeCtx(repoDir, runDir, { verdict: "VERIFIED", routeLine: line });
+      await runPr(off.ctx, new AbortController().signal, { pushScriptPath: writeStub(stubDir, logPath) });
+      expect(readFileSync(join(runDir, "pr-body.md"), "utf8")).not.toContain("Route:");
+    } finally {
+      if (prev === undefined) delete process.env.LOKI_ROUTER; else process.env.LOKI_ROUTER = prev;
+    }
+  });
+
+  test("T2: the sealed mutation_line (the key seal.ts writes) lands in the PR body, and is absent when seal wrote none", async () => {
+    const line = "test fails without the fix: yes";
+    const on = makeCtx(repoDir, runDir, { verdict: "VERIFIED", mutationLine: line });
+    await runPr(on.ctx, new AbortController().signal, { pushScriptPath: writeStub(stubDir, logPath) });
+    expect(readFileSync(join(runDir, "pr-body.md"), "utf8")).toContain(`\n${line}\n`);
+    const off = makeCtx(repoDir, runDir, { verdict: "VERIFIED" });
+    await runPr(off.ctx, new AbortController().signal, { pushScriptPath: writeStub(stubDir, logPath) });
+    expect(readFileSync(join(runDir, "pr-body.md"), "utf8")).not.toContain(line);
+  });
+});
+
+describe("engine10 pr stage reviewer brief (T4)", () => {
+  async function body(env: string | undefined): Promise<string> {
+    const prev = process.env.LOKI_REVIEWER_BRIEF;
+    if (env === undefined) delete process.env.LOKI_REVIEWER_BRIEF; else process.env.LOKI_REVIEWER_BRIEF = env;
+    try {
+      const script = writeStub(stubDir, logPath);
+      const { ctx } = makeCtx(repoDir, runDir, { verdict: "VERIFIED" });
+      await runPr(ctx, new AbortController().signal, { pushScriptPath: script });
+      return readFileSync(join(runDir, "pr-body.md"), "utf8");
+    } finally {
+      if (prev === undefined) delete process.env.LOKI_REVIEWER_BRIEF; else process.env.LOKI_REVIEWER_BRIEF = prev;
+    }
+  }
+  test("on by default; LOKI_REVIEWER_BRIEF=0 body is the brief-free prefix, byte for byte", async () => {
+    const on = await body(undefined);
+    const off = await body("0");
+    expect(on).toContain("## Reviewer brief");
+    expect(off).not.toContain("Reviewer brief");
+    expect(on.startsWith(off + "\n## Reviewer brief")).toBe(true);
   });
 });

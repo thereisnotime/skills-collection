@@ -4,7 +4,7 @@ description: Enforces safe git practices for AI coding agents. Defines branch pr
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.3.1"
+  version: "1.4.0"
 ---
 
 # Git Safety
@@ -231,17 +231,21 @@ steps **once**. Do not repeat them on every commit.
 #### Step 1: Ensure Hook Exists and Is Current
 
 First, resolve the hook directory. Git uses `core.hooksPath` when set (e.g.,
-Husky sets it to `.husky/_/`). When unset, it defaults to `.git/hooks/`.
+Husky sets it to `.husky/_/`). When unset, ask git for the default — never
+hardcode `.git/hooks`, because in a linked worktree `.git` is a *file*
+pointing at the parent repo, not a directory:
 
 ```bash
 HOOK_DIR=$(git config core.hooksPath 2>/dev/null || true)
-HOOK_DIR="${HOOK_DIR:-.git/hooks}"
+HOOK_DIR="${HOOK_DIR:-$(git rev-parse --git-path hooks 2>/dev/null || echo .git/hooks)}"
 HOOK_PATH="${HOOK_DIR}/prepare-commit-msg"
 ```
 
 > **Note**: Hook directories are not tracked by git. The hook must be
 > installed per-repo. If you clone the repo fresh, you'll need to run this
-> step again.
+> step again. Hooks are **shared across linked worktrees** — git resolves
+> them from the parent repo, so one install covers every worktree (and a
+> worktree's own `.git/hooks` path does not exist).
 
 Verify the hook is installed **and current** — the bundled checker compares
 the installed hook's attribution block byte-for-byte against the shipped
@@ -307,7 +311,7 @@ After setup, verify the hook is installed:
 ```bash
 # Resolve hook path (same as setup)
 HOOK_DIR=$(git config core.hooksPath 2>/dev/null || true)
-HOOK_DIR="${HOOK_DIR:-.git/hooks}"
+HOOK_DIR="${HOOK_DIR:-$(git rev-parse --git-path hooks 2>/dev/null || echo .git/hooks)}"
 HOOK_PATH="${HOOK_DIR}/prepare-commit-msg"
 
 # Check hook exists and is executable
@@ -321,8 +325,8 @@ echo "AI_AGENT=${AI_AGENT:-unset} OPENCODE_AGENT=${OPENCODE_AGENT:-unset} OPENCO
 ```
 
 Run the skill's functional tests (detection matrix, cross-harness
-agent/model attribution, hook install-currency smoke tests, and
-hybrid-install detection — 27 cases):
+agent/model attribution, hook install-currency smoke tests,
+hybrid-install detection, and linked-worktree hook resolution — 28 cases):
 
 ```bash
 bash .agents/skills/git-safety/scripts/test-prepare-commit-msg.sh
@@ -335,7 +339,7 @@ To remove AI attribution from a repo:
 ```bash
 # Resolve hook path
 HOOK_DIR=$(git config core.hooksPath 2>/dev/null || true)
-HOOK_DIR="${HOOK_DIR:-.git/hooks}"
+HOOK_DIR="${HOOK_DIR:-$(git rev-parse --git-path hooks 2>/dev/null || echo .git/hooks)}"
 HOOK_PATH="${HOOK_DIR}/prepare-commit-msg"
 
 # Remove the hook (only if it was installed by this skill)

@@ -313,6 +313,8 @@ def _codex_candidates(cwd, started):
             meta = _codex_first_meta(path)
             if not meta or meta.get("id") != sid:
                 continue  # filename claim must match internal identity
+            if _codex_is_subagent(meta):
+                continue  # a spawned agent is not a separate terminal session
             meta_cwd = meta.get("cwd")
             if not meta_cwd or meta_cwd.lower() != cwd.lower():
                 continue
@@ -329,6 +331,46 @@ def _codex_first_meta(path):
     if isinstance(rec, dict) and rec.get("type") == "session_meta":
         return rec.get("payload") or {}
     return None
+
+
+def _codex_is_subagent(meta):
+    """Use explicit Codex metadata, never originator or filename heuristics."""
+    def has_subagent(value):
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                return False
+        if isinstance(value, dict):
+            return "subagent" in value or any(has_subagent(v) for v in value.values())
+        if isinstance(value, list):
+            return any(has_subagent(v) for v in value)
+        return False
+
+    return (bool(meta.get("agent_role"))
+            or str(meta.get("thread_source") or "").casefold() == "subagent"
+            or has_subagent(meta.get("source")))
+
+
+def _codex_parent_thread_id(meta):
+    """Read Codex's top-level and structured spawn parent, rejecting disagreement."""
+    source = meta.get("source")
+    if isinstance(source, str):
+        try:
+            source = json.loads(source)
+        except ValueError:
+            source = None
+    nested = None
+    if isinstance(source, dict):
+        agent = source.get("subagent")
+        if isinstance(agent, dict):
+            spawn = agent.get("thread_spawn")
+            if isinstance(spawn, dict):
+                nested = spawn.get("parent_thread_id")
+    parents = {p for p in (meta.get("parent_thread_id"), nested) if isinstance(p, str) and p}
+    if len(parents) > 1:
+        raise ValueError("sub-agent metadata contains conflicting parent thread IDs")
+    return next(iter(parents), None)
 
 
 def _transcript_candidates(tool, cwd, started):
@@ -774,7 +816,7 @@ def cmd_restore(args):
     return 0 if not still_missing else 1
 
 
-def _paste_tab(cmd):
+def _paste_tab(cmd, *, layout="tabs"):
     """Activate Ghostty, open a tab (Cmd+T), paste `cmd`, press Return.
 
     Keystroke paste is timing-sensitive: an interruption between Cmd+T and the
@@ -782,11 +824,14 @@ def _paste_tab(cmd):
     after the loop is what makes such failures visible — never skip it.
     Requires Accessibility permission (System Events keystroke).
     """
+    if layout not in ("tabs", "windows"):
+        raise RecoveryError("layout must be tabs or windows")
+    key = "n" if layout == "windows" else "t"
     cmd = cmd.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r')
     script = (
         'tell application "Ghostty" to activate\n'
         "delay 0.8\n"
-        'tell application "System Events" to keystroke "t" using command down\n'
+        f'tell application "System Events" to keystroke "{key}" using command down\n'
         "delay 1.2\n"
         f'tell application "System Events"\n'
         f'  set the clipboard to "{cmd}"\n'
@@ -851,7 +896,16 @@ def main(argv=None):
     p4.add_argument("--limit", type=positive, default=100)
     p4.add_argument("--terminal-source", type=nonempty, action="append", help="verified session_meta.source (default cli)")
     p4.add_argument("--terminal-originator", type=nonempty, action="append", help="verified originator (default codex-tui)")
-    for parser in (p1, p4):
+    p5 = sub.add_parser("switch-prepare", help="freeze all Ghostty Codex sessions before a manual account switch")
+    p5.add_argument("--out", type=nonempty, help="new exclusive manifest path; never replaces an existing file")
+    p6 = sub.add_parser("switch-restore", help="restore the fixed Codex switch manifest after manual login")
+    p6.add_argument("--snapshot", type=nonempty)
+    p6.add_argument("--only", nargs="+", type=nonempty, metavar="ID")
+    p6.add_argument("--dry-run", action="store_true", help="read-only readiness and command preview")
+    p6.add_argument("--check", action="store_true", help="read-only account/process reconciliation")
+    p6.add_argument("--layout", choices=("windows", "tabs"), default="tabs")
+    p6.add_argument("--reconcile-seconds", type=bounded_seconds, default=10)
+    for parser in (p1, p4, p5):
         parser.add_argument("--history-reader", type=nonempty, help="installed read-codex-history Skill directory")
         parser.add_argument("--codex-home", type=nonempty)
     args = ap.parse_args(argv)
@@ -860,6 +914,9 @@ def main(argv=None):
     HISTORY_READER = getattr(args, "history_reader", None)
     CODEX_HOME_OVERRIDE = getattr(args, "codex_home", None)
     try:
+        if args.cmd.startswith("switch-"):
+            import ghostty_switch
+            return ghostty_switch.run(args, sys.modules[__name__])
         return {"snapshot": cmd_snapshot, "check": cmd_check, "restore": cmd_restore,
                 "reconstruct": cmd_reconstruct}[args.cmd](args)
     except (RecoveryError, ValueError, OSError, RuntimeError) as error:

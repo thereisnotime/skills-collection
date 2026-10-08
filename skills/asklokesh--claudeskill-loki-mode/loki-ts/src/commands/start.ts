@@ -14,6 +14,7 @@
 // artifacts/ITER1-FLAG-RECONCILE.md.
 
 import type { ProviderName, SessionTier } from "../runner/types.ts";
+import { tokenFreeEnv } from "../util/safe_git.ts";
 
 function argVal(args: readonly string[], flag: string): string | undefined {
   const i = args.indexOf(flag);
@@ -56,6 +57,26 @@ const BOOL_ENV_FLAGS = new Map<string, [string, string]>([
 // route). Accepted so scripts passing them do not hard-fail; they take no action.
 const NOOP_BOOL_FLAGS = new Set(["--yes", "-y", "--no-plan", "--no-mirofish", "--no-dashboard"]);
 
+// FC-38, scoped to `start --attempts` (CTO ruling A): attempts run only engine10, so a flag is accepted
+// there only if engine10 honors it: --provider / --budget(-limit) / --no-pr are forwarded as child argv,
+// --session-model reaches the child through LOKI_SESSION_MODEL, --attempts drives the attempts runner,
+// --prd / --brief pick the spec. Every other runner flag is refused with exit 2, never dropped.
+// Without --attempts the 11.3.0 surface above applies unchanged.
+const ATTEMPTS_VALUE_FLAGS = new Set([
+  "--budget-limit",
+  "--budget",
+  "--provider",
+  "--session-model",
+  "--prd",
+  "--brief",
+  "--attempts", // N independent attempts in separate worktrees (1-5)
+]);
+const ATTEMPTS_NOOP_BOOL_FLAGS = new Set(["--yes", "-y", "--no-plan", "--no-mirofish", "--no-dashboard", "--no-pr"]);
+
+function hasAttemptsFlag(args: readonly string[]): boolean {
+  return args.some((a) => a === "--attempts" || a.startsWith("--attempts="));
+}
+
 const VALID_PROVIDERS = new Set(["claude", "codex", "cline", "aider"]);
 // The session-pin values run.sh's LOKI_SESSION_MODEL case accepts: the three
 // tier names plus the Claude aliases (opus is the top-only setting; bash
@@ -74,10 +95,10 @@ const GENERIC_TIERS: Record<string, string> = {
 
 // The full set of flag names this route ACCEPTS (value + bool-env + no-op).
 // Anything else is rejected loudly (fail-closed: no silent capability loss).
-function acceptedFlags(): Set<string> {
-  const s = new Set<string>(VALUE_FLAGS);
-  for (const k of BOOL_ENV_FLAGS.keys()) s.add(k);
-  for (const k of NOOP_BOOL_FLAGS) s.add(k);
+function acceptedFlags(attemptsMode: boolean): Set<string> {
+  const s = new Set<string>(attemptsMode ? ATTEMPTS_VALUE_FLAGS : VALUE_FLAGS);
+  if (!attemptsMode) for (const k of BOOL_ENV_FLAGS.keys()) s.add(k);
+  for (const k of attemptsMode ? ATTEMPTS_NOOP_BOOL_FLAGS : NOOP_BOOL_FLAGS) s.add(k);
   s.add("--help");
   s.add("-h");
   return s;
@@ -99,6 +120,8 @@ export interface ParsedStartOpts {
   completionPromise?: string;
   baseWaitSeconds?: number;
   maxWaitSeconds?: number;
+  attempts?: number; // set only by --attempts; selects the engine10 attempts path
+  noPr?: boolean; // --attempts only: forwarded to engine10; absent = normal PR behavior
 }
 
 const START_USAGE =
@@ -108,7 +131,11 @@ const START_USAGE =
   "                        [--prd FILE | --brief TEXT] [--simple|--complex] [--allow-haiku]\n" +
   "                        [--regen-prd] [--skip-memory]\n" +
   "  <spec> = a PRD path, or a one-line brief. (Issue refs / --github / --parallel /\n" +
-  "  --sandbox, opencode, and other shell-adapter paths run on the bash route automatically.)\n";
+  "  --sandbox, opencode, and other shell-adapter paths run on the bash route automatically.)\n" +
+  "       loki start <spec> --attempts N [--no-pr] [--provider P] [--budget USD] [--session-model T]\n" +
+  "  --attempts N  run N (1-5) independent Loki 10 engine attempts in separate git worktrees; the one with\n" +
+  "                the most executed passing checks is applied and every loser is recorded on the attempts\n" +
+  "                receipt. N > 1 requires --no-pr in 11.3.1. Runner-only flags are refused with --attempts.\n";
 
 // Parse the reconciled flag surface into RunnerOpts (+ apply env-mapping flags to
 // process.env), or return an error/terminal exit code. Value 0 = handled+exit
@@ -128,7 +155,8 @@ export function parseStartArgs(
     return 0;
   }
 
-  const accepted = acceptedFlags();
+  const attemptsMode = hasAttemptsFlag(args);
+  const accepted = acceptedFlags(attemptsMode);
 
   // Single pass: validate flag names, collect the spec, apply bool/env flags.
   // `--` ends options: the next token is the spec regardless of leading dashes.
@@ -148,6 +176,11 @@ export function parseStartArgs(
     if (a.startsWith("-") && a !== "-") {
       const name = a.includes("=") ? a.slice(0, a.indexOf("=")) : a;
       if (!accepted.has(name)) {
+        if (attemptsMode) {
+          err(`start: flag ${name} is not supported by loki start --attempts (attempts run only the Loki 10 engine).\n`);
+          err("Runner and orchestration flags were only honored by the legacy loop; remove them or drop --attempts.\n");
+          return 2;
+        }
         err(`start: flag ${name} is not supported by the Bun (LOKI_SDK_LOOP) runner.\n`);
         err(
           "Orchestration flags (--parallel, --github, --issue, --sandbox, --api, --bg, mirofish) run on the bash route automatically; if you reached this, run without LOKI_SDK_LOOP.\n",
@@ -159,9 +192,9 @@ export function parseStartArgs(
         applyEnv(boolEnv[0], boolEnv[1]);
         continue;
       }
-      if (NOOP_BOOL_FLAGS.has(name)) continue;
+      if ((attemptsMode ? ATTEMPTS_NOOP_BOOL_FLAGS : NOOP_BOOL_FLAGS).has(name)) continue;
       // value-flag: skip its value token (unless inline --flag=value)
-      if (VALUE_FLAGS.has(name) && !a.includes("=")) i++;
+      if ((attemptsMode ? ATTEMPTS_VALUE_FLAGS : VALUE_FLAGS).has(name) && !a.includes("=")) i++;
       continue;
     }
     // bare token: the spec (first one wins)
@@ -210,7 +243,19 @@ export function parseStartArgs(
   // --budget is an alias of --budget-limit (bash divergence closed).
   const budget = posNum(argVal(args, "--budget-limit") ?? argVal(args, "--budget"));
 
+  let attempts: number | undefined;
+  if (attemptsMode) {
+    const attemptsRaw = argVal(args, "--attempts") ?? args.find((a) => a.startsWith("--attempts="))?.slice("--attempts=".length);
+    if (attemptsRaw === undefined || !/^[1-5]$/.test(attemptsRaw)) {
+      err(`start: --attempts must be an integer from 1 to 5, got '${attemptsRaw ?? ""}'\n`);
+      return 2;
+    }
+    attempts = Number(attemptsRaw);
+  }
+
   return {
+    ...(attempts !== undefined ? { attempts } : {}),
+    ...(attemptsMode && args.includes("--no-pr") ? { noPr: true } : {}),
     prdPath: resolvedSpec,
     provider: providerRaw as ProviderName | undefined,
     maxIterations: posNum(argVal(args, "--max-iterations")),
@@ -223,9 +268,54 @@ export function parseStartArgs(
   };
 }
 
+/** Which engine a parsed start runs: the 11.3.0 runner, unless --attempts was given (FC-38 scoped). */
+export function startEngine(o: ParsedStartOpts): "runner" | "attempts" {
+  return o.attempts === undefined ? "runner" : "attempts";
+}
+
+/** One engine10 run (FC-38: the only engine `start --attempts` may reach; it seals a receipt). */
+async function runEngine10(cwd: string, o: ParsedStartOpts, env: NodeJS.ProcessEnv, forceNoPr: boolean): Promise<number> {
+  const { spawn } = await import("node:child_process");
+  const { existsSync, readFileSync, statSync } = await import("node:fs");
+  const spec = o.prdPath;
+  const task = existsSync(spec) && statSync(spec).isFile() ? readFileSync(spec, "utf8") : spec;
+  const argv = [process.argv[1] ?? "", "engine10", task];
+  if (forceNoPr || o.noPr) argv.push("--no-pr");
+  if (o.provider) argv.push("--provider", o.provider);
+  if (o.budgetLimit !== undefined) argv.push("--max-cost", String(o.budgetLimit)); // FC-37: per-run cap, never dropped
+  return await new Promise<number>((resolveExit) => {
+    const child = spawn(process.execPath, argv, { cwd, env, stdio: ["ignore", "inherit", "inherit"] });
+    child.on("error", () => resolveExit(1));
+    child.on("close", (code) => resolveExit(code ?? 1));
+  });
+}
+
 export async function runStart(args: readonly string[]): Promise<number> {
   const parsed = parseStartArgs(args);
   if (typeof parsed === "number") return parsed;
-  const { runAutonomous } = await import("../runner/autonomous.ts");
-  return runAutonomous(parsed);
+  if (startEngine(parsed) === "runner") {
+    const { runAutonomous } = await import("../runner/autonomous.ts");
+    return runAutonomous(parsed);
+  }
+  const { attempts, ...runnerOpts } = parsed;
+  if ((attempts ?? 1) > 1 && runnerOpts.noPr !== true) {
+    // The credentialed winner push is not safe against a hostile attempt rewriting the shared .git/config yet (FC-40).
+    process.stderr.write("--attempts opens no PR yet in 11.3.1; rerun with --no-pr, PR support ships in 11.3.2\n");
+    return 2;
+  }
+  const { runAttempts, productionDeps } = await import("../runner/attempts.ts");
+  const deps = productionDeps(
+    process.cwd(),
+    () => runEngine10(process.cwd(), runnerOpts, process.env, false),
+    async (_id, wt) => {
+      // Each attempt is one engine10 run in its own worktree: only engine10 seals the receipt the scorer reads.
+      // Attempts never open PRs themselves; the winner alone follows normal PR behavior (see productionDeps.openPr).
+      // Token-free: attempts never push (forced --no-pr), so no attempt process needs GH_TOKEN or SSH_AUTH_SOCK.
+      const env = tokenFreeEnv({ ...process.env, LOKI_DIR: `${wt}/.loki` });
+      delete env["LOKI_RUN_TMP"];
+      return runEngine10(wt, runnerOpts, env, true);
+    },
+    { noPr: runnerOpts.noPr === true },
+  );
+  return runAttempts(attempts ?? 1, deps);
 }

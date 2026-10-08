@@ -4,7 +4,7 @@
 // LOKI_SDK_LOOP=1). The runAutonomous delegation itself is covered by the
 // existing loki_start_e2e.test.ts.
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
-import { parseStartArgs } from "../../src/commands/start.ts";
+import { parseStartArgs, startEngine } from "../../src/commands/start.ts";
 
 // E2E-shaped: drives the real loop, which writes state files and spawns
 // processes. Bun's 5000ms default is fine idle and NOT fine inside a full CI
@@ -174,5 +174,77 @@ describe("parseStartArgs (Bun start flag subset)", () => {
     const opts = r as Exclude<typeof r, number>;
     expect(opts.prdPath).toBe("owner/repo#123");
     expect(opts.maxIterations).toBe(2);
+  });
+});
+
+// FC-38 scoped (CTO ruling A): only `start --attempts` is engine10-only. Every other start keeps the
+// exact 11.3.0 flag surface and runner route; the moat P9 harness runs `start prd.md --max-iterations 2`.
+describe("FC-38 scope: plain start is 11.3.0, --attempts is engine10-only", () => {
+  const legacy: string[][] = [
+    ["--max-iterations", "5"], ["--max-retries", "2"], ["--completion-promise", "x"], ["--base-wait", "1"],
+    ["--max-wait", "1"], ["--aider-model", "m"], ["--aider-flags", "f"], ["--cline-model", "m"],
+    ["--allow-haiku"], ["--simple"], ["--complex"], ["--regen-prd"], ["--regenerate-prd"], ["--regen"],
+    ["--fresh-prd"], ["--skip-memory"],
+  ];
+
+  it("plain start prd.md --max-iterations 2 parses as in 11.3.0 and routes to the runner", () => {
+    errs.length = 0;
+    const r = parseStartArgs(["prd.md", "--max-iterations", "2"], collect, () => {}, () => {});
+    expect(typeof r).not.toBe("number");
+    const opts = r as Exclude<typeof r, number>;
+    expect(opts.prdPath).toBe("prd.md");
+    expect(opts.maxIterations).toBe(2);
+    expect(opts.attempts).toBeUndefined();
+    expect(startEngine(opts)).toBe("runner");
+    expect(errs.join("")).toBe("");
+  });
+
+  it("every legacy runner flag is accepted on plain start (11.3.0) and routes to the runner", () => {
+    for (const f of legacy) {
+      errs.length = 0;
+      const r = parseStartArgs(["./prd.md", ...f], collect, () => {}, () => {});
+      expect(typeof r).not.toBe("number");
+      expect(startEngine(r as Exclude<typeof r, number>)).toBe("runner");
+      expect(errs.join("")).toBe("");
+    }
+  });
+
+  it("plain start keeps the 11.3.0 refusal text for unsupported flags", () => {
+    errs.length = 0;
+    expect(parseStartArgs(["./prd.md", "--no-pr"], collect)).toBe(2);
+    expect(errs.join("")).toContain("not supported by the Bun (LOKI_SDK_LOOP) runner");
+  });
+
+  it("with --attempts every legacy-only runner flag is refused with exit 2, never accepted and dropped", () => {
+    for (const f of legacy) {
+      errs.length = 0;
+      expect(parseStartArgs(["./prd.md", "--attempts", "2", "--no-pr", ...f], collect, () => {}, () => {})).toBe(2);
+      expect(errs.join("")).toContain(`flag ${f[0]} is not supported by loki start --attempts`);
+    }
+  });
+
+  it("with --attempts every accepted flag reaches engine10 (child argv, child env, or the attempts runner)", () => {
+    const env: Record<string, string> = {};
+    const r = parseStartArgs(
+      ["./prd.md", "--provider", "codex", "--budget", "4", "--session-model", "opus", "--attempts", "3", "--no-pr", "--yes", "--no-plan"],
+      collect, () => {}, (k, v) => (env[k] = v),
+    ) as Exclude<ReturnType<typeof parseStartArgs>, number>;
+    expect(r.provider).toBe("codex");
+    expect(r.budgetLimit).toBe(4);
+    expect(r.noPr).toBe(true);
+    expect(r.attempts).toBe(3);
+    expect(env["LOKI_SESSION_MODEL"]).toBe("opus");
+    expect(startEngine(r)).toBe("attempts");
+  });
+
+  it("--attempts=1 still takes the attempts (engine10) path", () => {
+    const r = parseStartArgs(["./prd.md", "--attempts=1"], collect, () => {}, () => {});
+    expect(startEngine(r as Exclude<typeof r, number>)).toBe("attempts");
+  });
+
+  it("--attempts out of range -> exit 2", () => {
+    errs.length = 0;
+    expect(parseStartArgs(["./prd.md", "--attempts", "9"], collect)).toBe(2);
+    expect(errs.join("")).toContain("--attempts must be an integer from 1 to 5");
   });
 });

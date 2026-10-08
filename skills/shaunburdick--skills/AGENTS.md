@@ -64,6 +64,7 @@ Instructions for the agent...
 - **Prefer live sources over duplicated content.** If install instructions live in an external repo or URL, instruct the agent to fetch them at runtime rather than copying them here. This keeps the skill evergreen without maintenance overhead.
 - **`allowed-tools`** can pre-approve specific tools (e.g. `Bash(git:*) Read`) — use sparingly and only when the skill has a well-defined, safe set of operations.
 - **`compatibility`** is optional — only include it if the skill has genuine environment requirements (e.g. needs Python 3.14+, requires internet access).
+- **Bump `metadata.version` whenever you modify a skill.** Any change to a skill's `SKILL.md`, `scripts/`, `references/`, or `assets/` must bump the `metadata.version` in its frontmatter **in the same commit** — the version is the only signal that two copies of the same skill differ, so a stale number makes a changed skill look unchanged. New skills start at `"1.0.0"`.
 
 ## README Conventions
 

@@ -46,6 +46,7 @@ categories:
     prefix: docs
     subcategories:
       - name: "Obsidian"
+      - name: "Data Visualization"
   - name: "Open Source Software"
     prefix: open
   - name: "Research & Scientific Inquiry"
@@ -91,3 +92,5 @@ categories:
     prefix: lint
   - name: "Multi-Purpose"
     prefix: multi
+  - name: "Lists & Collections"
+    prefix: lists

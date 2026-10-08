@@ -255,8 +255,8 @@ const AIDetector = (() => {
     'meticulously': 'carefully, precisely',
     'seamless': 'smooth, easy, without friction',
     'seamlessly': 'smoothly, easily',
-    'game-changer': 'breakthrough, turning point, changes how [X] works',
-    'game-changing': 'breakthrough, turning point, changes how [X] works',
+    'game-changer': 'changes how [X] works',
+    'game-changing': 'changes how [X] works',
     'nestled': 'is located, sits',
     'vibrant': 'lively, active',
     'thriving': 'growing, active',
@@ -279,6 +279,61 @@ const AIDetector = (() => {
   };
 
   // Multi-word tier 1 phrases
+  // "features" is copula avoidance only as a verb: "the app features a
+  // dashboard". The plural noun ("three new features", a "Features" heading,
+  // "the features we shipped") is ordinary product and technical writing, and
+  // it is most of what the word does in corpus/ (#351). A verb needs a subject
+  // before it and an object after it, so the word counts as a noun when it
+  // opens a sentence, line or list item; follows a determiner, number,
+  // possessive, quantifier, "of", "or" or a compound modifier; or comes
+  // before punctuation, a line break, a preposition, a conjunction, a pronoun
+  // or a verb.
+  // Singular "this", "that" and "each" cannot determine the plural noun:
+  // here they are subjects ("each features a...") or a relative pronoun.
+  const FEATURES_NOUN_BEFORE_RE = /(?:^|[.!?:;(]\s*|(?:^|\n)[ \t]*(?:[-*+>#]+[ \t]*)?|\b(?:the|a|an|these|those|its|their|our|your|my|his|her|of|or|new|key|main|core|top|other|more|most|many|several|some|all|any|few|no|both|only|about|over|just|free|similar|common|specific|distinct|additional|extra|premium|advanced|basic|best|unique|missing|upcoming|existing|latest|major|minor|useful|important|various|different|certain|such|\d+|two|three|four|five|six|seven|eight|nine|ten|whose)\s+|\w['’]s\s+|\w[-/]\w+\s+)$/i;
+  // "on-device" is an object modifier, not the preposition "on".
+  const FEATURES_NOUN_AFTER_RE = /^(?:[ \t]*(?:[.,;:!?()[\]"'’”\n]|$)|\s+(?:of|for|in|on|at|into|and|or|but|nor|are|were|is|was|be|been|being|that|which|who|whose|like|such|to|from|with|without|than|help|helps|helped|let|allow|make|keep|give|provide|enable|offer|save|protect|ensure|improve|reduce|support|remain|vary|need|unlock|bring|include|includes|included|work|works|worked|will|can|could|should|would|may|might|must|do|did|does|have|has|had|we|you|they|i|it)(?![\w-]))/i;
+  // Bare product objects: "we ship features", "teams build features".
+  // A subject is required so noun subjects such as "the ship"/"the build"
+  // still flag. One optional modifier preserves "we ship GPT-5 features".
+  const FEATURES_NOUN_OBJECT_RE = /\b(?:i|we|you|they|teams?|developers?|engineers?|users?|companies|vendors|the\s+(?:release|update))\s+(?:(?:can|could|will|would|should|must)\s+)?(?:ship|ships|shipped|shipping|build|builds|built|building|add|adds|added|adding)\s+(?:[\w./-]+\s+)?$/i;
+  // Leads that make "which/what features" an indirect question (#384): a question
+  // verb that opens its clause ("Decide which...", "we should check which..."),
+  // or which/what at the start of a sentence or list item. A lead word inside a
+  // noun phrase ("a security check which features...") does not count.
+  const FEATURES_QUESTION_LEAD_RE = /(?:^|[.!?:;]\s*|(?:^|\n)[ \t]*(?:[-*+>#]+[ \t]*)?|(?:^|[.!?:;,]\s*|(?:^|\n)[ \t]*(?:[-*+>#]+[ \t]*)?|\b(?:i|we|you|they|he|she|let['’]?s|to|can|could|should|must|will|would|please|just|then|first|now|and|or|but|so)\s+)(?:decide|decides|deciding|choose|choosing|pick|check|checking|see|know|knowing|learn|find\s+out|figure\s+out|work\s+out|identify|determine|ask|asking|asked|tell\s+(?:me|us|them|you)|show\s+(?:me|us|them|you)|understand|explain|wonder|discover|confirm|consider|evaluate|prioritize|about)\s+)(?:which|what)\s+$/i;
+
+  // A lead word after a determiner is a noun ("a track which features...",
+  // "the review which features..."), not a question verb.
+  const FEATURES_LEAD_AS_NOUN_RE = /\b(?:a|an|the|this|that|these|those|my|our|your|their|its|his|her|each|every)\s+[\w-]+\s+(?:which|what)\s+$/i;
+
+  function featuresIsNoun(text, index) {
+    const end = index + 'features'.length;
+    const before = text.slice(Math.max(0, index - 40), index);
+    const after = text.slice(end, end + 40);
+    if (FEATURES_NOUN_OBJECT_RE.test(before)) return true;
+    // A recognizable model/version followed by an object article is a
+    // subject: "GPT-5 features a...", "Windows 11 features a...".
+    // Determiner-led counts ("These 3 features a customer requested") and
+    // the explicit object contexts above remain nouns. This is a bounded
+    // context heuristic, not a grammatical parse of every use of the word.
+    const product = /\b([A-Z][\w]*)(?:[-/]\d[\w.-]*|[ \t]+\d+(?:\.\d+)*)[ \t]+$/.exec(before);
+    if (product && !FEATURES_NOUN_BEFORE_RE.test(`${product[1]} `)
+        && /^\s+(?:a|an|the)(?![\w-])/i.test(after)) return false;
+    // A short comma-delimited aside can precede the verb's article-led
+    // object. Strong noun contexts still take priority over punctuation.
+    if (!FEATURES_NOUN_BEFORE_RE.test(before)
+        && /^[ \t]*,[^,\n]{1,80},\s*(?:a|an|the)(?![\w-])/i.test(text.slice(end, end + 110))) return false;
+
+    // "which/what features" is a noun in an indirect question: right after a
+    // question verb ("Decide which features matter") or at the start of a
+    // sentence ("Which features matter most..."). Every other context falls
+    // through to the checks below unchanged, so relative clauses ("a library
+    // which features dashboards") keep their verb finding (#384).
+    if (FEATURES_QUESTION_LEAD_RE.test(before) && !FEATURES_LEAD_AS_NOUN_RE.test(before)) return true;
+    return FEATURES_NOUN_BEFORE_RE.test(before) || FEATURES_NOUN_AFTER_RE.test(after);
+  }
+
   const TIER1_PHRASES = [
     { pattern: /\bdelve\s+into\b/gi, replace: 'explore, dig into' },
     { pattern: /\blandscape\b/gi, replace: 'field, space, industry', filter: true },
@@ -300,7 +355,7 @@ const AIDetector = (() => {
     { pattern: /\bin\s+order\s+to\b/gi, replace: 'to', clarity: true },
     { pattern: /\bdue\s+to\s+the\s+fact\s+that\b/gi, replace: 'because', clarity: true },
     { pattern: /\bserves\s+as\b/gi, replace: 'is', clarity: true },
-    { pattern: /\bfeatures\b/gi, replace: 'has, includes', filter: true, clarity: true },
+    { pattern: /\bfeatures\b/gi, replace: 'has, includes', filter: true, clarity: true, skip: featuresIsNoun },
     { pattern: /\bboasts\b/gi, replace: 'has', clarity: true },
     { pattern: /\butiliz(?:e|es|ing|ed)\b/gi, replace: 'use', clarity: true },
     { pattern: /\bshowcas(?:e|es|ing|ed)\b/gi, replace: 'show, demonstrate' },
@@ -2326,6 +2381,7 @@ const AIDetector = (() => {
       while ((match = regex.exec(text)) !== null) {
         const lower = match[0].toLowerCase();
         if (contextMode === 'technical' && TECHNICAL_EXEMPT.has(lower)) continue;
+        if (phrase.skip && phrase.skip(text, match.index)) continue;
         if (tier1Found.has(lower)) continue;
         tier1Found.add(lower);
         issues.push({
@@ -3193,6 +3249,12 @@ const AIDetector = (() => {
       let idx = 0;
       let matched = false;
       while ((idx = lowerText.indexOf(needle, idx)) !== -1) {
+        // Deduplicated verb issues must not highlight skipped noun matches.
+        // Reuse the same predicate and retain all qualifying verb locations.
+        if (issue.type === 'tier1-clarity' && needle === 'features' && featuresIsNoun(text, idx)) {
+          idx += needle.length;
+          continue;
+        }
         matched = true;
         for (let i = 0; i < sentences.length; i++) {
           if (idx >= sentences[i].start && idx < sentences[i].end) {
