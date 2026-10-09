@@ -34,7 +34,7 @@ const GEMINI_AUTO_HOOKS = 'hooks/hooks.json';
 const RULE_INVARIANTS = [
   'lazy senior',
   'validation at trust boundaries',
-  'names the limit and when to upgrade',
+  'shortcut: <the limit>, <when to upgrade>',
 ];
 
 function read(relPath) {

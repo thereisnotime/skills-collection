@@ -45,7 +45,7 @@ const INVARIANTS = [
   'in this codebase',                      // ladder rung: reuse what already exists (#217)
   'grep every caller',                     // root-cause bug fix (#245)
   'never about the change itself',         // scope: callers, tests and fixtures the change breaks
-  'names the limit and when to upgrade',   // ponytail: shortcut comment
+  'shortcut: <the limit>, <when to upgrade>',   // shortcut marker comment
   'correct on edge cases',                 // robust-variant rule
   'Lazy code without its check is unfinished', // test reflex
   // the "never cut" carve-outs: pin each so a reword in either file can't silently drop one.

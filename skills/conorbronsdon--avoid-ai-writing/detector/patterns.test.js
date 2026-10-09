@@ -1321,11 +1321,23 @@ test('features: residual precision checks from #384', () => {
     'Check which features regularly fail when customers upload large files from home.',
     'Decide which features the team should prioritize before the next release ships to users.',
     'Tell me what features a customer can disable from the settings page in the app.',
+    'Tell me what features a customer ordered from the catalog last year.',
+    'Tell me which features a dashboard and export tools can disable for our users.',
     'Identify which features two teams requested during the planning meeting last week.',
     'Which features matter most depends on the size of the team and the plan you choose.',
     'Pick a phone whose features fit your budget and the apps you need every single day.',
+    'Tell me which features a customer, with administrator access, can disable.',
+    'Tell me which features a customer, with administrator access, actually can disable.',
+    'Tell me what features a dashboard, which users can customize, includes.',
+    'Tell me which features a dashboard, which we customized yesterday, supports.',
   ]) {
     assert.equal(featuresHit(text), undefined, `question noun read as a verb: ${text}`);
+  }
+  for (const text of [
+    'Check what features a dashboard and export tools, before you proceed to the next step.',
+    'Tell me which features a dashboard, before we close the project and go home.',
+  ]) {
+    assert.ok(featuresHit(text), `question verb skipped: ${text}`);
   }
   // Any other lead keeps the pre-#384 behaviour: relative clauses stay verb findings...
   for (const text of [
@@ -1356,10 +1368,31 @@ test('features: residual precision checks from #384', () => {
   ]) {
     assert.equal(featuresHit(text), undefined, `noun read as a verb: ${text}`);
   }
-  // Known limit: when "what" is itself the subject ("Check what features a dashboard and
-  // export tools"), a question lead still reads "features" as a noun; tracked as a follow-up.
-  // Deferred: "The library features support for..." as a verb is ambiguous with plural-noun
-  // subjects ("The experimental features support for loops"), so it stays out of this fix.
+  // Deferred cases from #384: singular verb subjects for "support for".
+  // The plural-noun subject cases (like "The experimental features support for loops") 
+  // continue to correctly read as nouns because of their determiner/adjective context.
+  for (const text of [
+    'A library features support for asynchronous requests when the device goes offline.',
+    'This library features support for asynchronous requests across every supported device in our network.',
+    'That JavaScript library features support for rendering interactive charts in real time.',
+    'We tested a library which features support for both protocols seamlessly.',
+    'We tested a library that features support for both protocols on older devices.',
+  ]) {
+    assert.ok(featuresHit(text), `verb skipped: ${text}`);
+  }
+  for (const text of [
+    'Check which features support for-profit organizations that assist people with disabilities.',
+    'These system features support for older protocols on devices without hardware acceleration.',
+    'Decide which features support for-profit organizations that assist people with disabilities.',
+    'The library features support for loops but reject while loops in the embedded language.',
+    'Both system features support for older protocols on devices without hardware acceleration.',
+    'The system features support for older protocols and remain enabled by default.',
+    'We compare a suite of system features support for legacy applications.',
+    'We confirmed that features support for-profit organizations that assist people with disabilities.',
+    'We discussed which features support for-profit organizations that assist people with disabilities.',
+  ]) {
+    assert.equal(featuresHit(text), undefined, `noun read as a verb: ${text}`);
+  }
 });
 
 test('tier1-clarity leaves "features" alone as a plural noun', () => {
@@ -1759,6 +1792,7 @@ test('fully substituted words beside Russian words are a documented limit', () =
   assert.equal(AIDetector.normalizeText(inside).flags.homoglyph, 0);
   const beside = 'Your account is at risk. пароль: аст now to secure it immediately through this form before it expires.';
   assert.equal(AIDetector.normalizeText(beside).flags.homoglyph, 0);
+  assert.equal(AIDetector.normalizeText('Позвоните в поддержку\nаст now to secure it.').flags.homoglyph, 0);
 });
 
 test('bilingual technical sentences keep Russian words and one-letter prepositions intact', () => {
@@ -1766,6 +1800,85 @@ test('bilingual technical sentences keep Russian words and one-letter prepositio
   const normalized = AIDetector.normalizeText(text);
   assert.equal(normalized.text, text);
   assert.equal(normalized.flags.homoglyph, 0);
+});
+
+test('Russian technical prose keeps short Russian words next to English terms', () => {
+  const text = 'Задача взята: issue #9194 и PR #9195 (RecursionError в `make_json_safe()` на Enum, найдено в Discussions #9189).';
+  const normalized = AIDetector.normalizeText(text);
+  assert.equal(normalized.text, text);
+  assert.equal(normalized.flags.homoglyph, 0);
+  assert.notEqual(AIDetector.analyzeText(text).document_classification, 'AI_ONLY');
+});
+
+test('dates and hard line wraps do not cut a Russian sentence into Latin-looking pieces', () => {
+  const text = 'Ответы со ссылкой на stageload там, где обсуждают нехватку памяти на Mac. Охват\n'
+    + '   поста в r/StableDiffusion от 07.10 снимем в понедельник.';
+  const normalized = AIDetector.normalizeText(text);
+  assert.equal(normalized.text, text);
+  assert.equal(normalized.flags.homoglyph, 0);
+});
+
+test('a hard-wrapped English sentence still swaps a fully substituted word', () => {
+  const normalized = AIDetector.normalizeText('Your account is at risk. аст now\nto secure it.');
+  assert.equal(normalized.text, 'Your account is at risk. act now\nto secure it.');
+  assert.equal(normalized.flags.homoglyph, 3);
+});
+
+test('closing quotes and brackets keep separate sentences from sharing script evidence', () => {
+  for (const [open, close] of [['«', '»'], ['"', '"'], ['“', '”'], ['‘', '’'], ['(', ')'], ['[', ']'], ['{', '}']]) {
+    const text = `${open}Задача закрыта.${close} аст now to secure it.`;
+    const normalized = AIDetector.normalizeText(text);
+    assert.equal(normalized.text, `${open}Задача закрыта.${close} act now to secure it.`, close);
+    assert.equal(normalized.flags.homoglyph, 3, close);
+  }
+});
+
+test('Markdown blocks do not share script evidence across an unterminated line', () => {
+  for (const start of ['- ', '* ', '+ ', '1. ', '2) ', '# ', '### ', '> ', '>', '>>', '| ', '```', '~~~']) {
+    for (const newline of ['\n', '\r\n']) {
+      const text = `- аст now to secure it${newline}${start}Позвоните в поддержку`;
+      const normalized = AIDetector.normalizeText(text);
+      assert.equal(normalized.text, `- act now to secure it${newline}${start}Позвоните в поддержку`, start);
+      assert.equal(normalized.flags.homoglyph, 3, start);
+    }
+  }
+});
+
+test('Markdown separators, table delimiters and HTML starts keep script evidence separate', () => {
+  for (const newline of ['\n', '\r\n']) {
+    for (const separator of ['---', '***', '___', '===', '=', '- - -', '* * *', '_ _ _', '  ---  ']) {
+      const text = `аст now to secure it${newline}${separator}${newline}Позвоните в поддержку`;
+      const normalized = AIDetector.normalizeText(text);
+      assert.equal(normalized.text, text.replace('аст', 'act'), separator);
+      assert.equal(normalized.flags.homoglyph, 3, separator);
+    }
+    for (const text of [
+      `Позвоните | поддержку${newline}--- | ---${newline}аст now | to secure it`,
+      `Позвоните | поддержку${newline}:--- | ---: |${newline}аст now | to secure it`,
+      `<p>Позвоните в поддержку</p>${newline}<p>аст now to secure it</p>`,
+    ]) {
+      assert.equal(AIDetector.normalizeText(text).text, text.replace('аст', 'act'));
+      assert.equal(AIDetector.normalizeText(text).flags.homoglyph, 3);
+    }
+    const prose = `Ответы со ссылкой на docker v1.2${newline}от 07.10 снимем в понедельник.`;
+    assert.equal(AIDetector.normalizeText(prose).text, prose);
+    assert.equal(AIDetector.normalizeText(prose).flags.homoglyph, 0);
+  }
+});
+
+test('unspaced sentence punctuation does not hide a fully substituted English word', () => {
+  for (const ending of ['.', '!', '?', '.(', '.«', '!“']) {
+    const text = `Позвоните сейчас${ending}аст now to secure it.`;
+    const normalized = AIDetector.normalizeText(text);
+    assert.equal(normalized.text, `Позвоните сейчас${ending}act now to secure it.`, ending);
+    assert.equal(normalized.flags.homoglyph, 3, ending);
+  }
+});
+
+test('indented CRLF prose continues across a hard wrap and keeps version dots', () => {
+  const text = 'Ответы на вопросы о docker v1.2 и report.pdf\r\n    там, где обсуждают настройку памяти на Mac.';
+  assert.equal(AIDetector.normalizeText(text).text, text);
+  assert.equal(AIDetector.normalizeText(text).flags.homoglyph, 0);
 });
 
 test('equal Latin and Cyrillic counts keep the Cyrillic-dominant tie rule', () => {

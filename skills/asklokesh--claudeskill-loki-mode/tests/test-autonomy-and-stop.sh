@@ -103,8 +103,26 @@ echo "$BASH_OV" | grep -q 'AskUserQuestion' \
 
 # --- Fix #2: opt-out behavioral test (Bun route buildAutoFlags) ------------
 # Assert the flag is PRESENT by default and ABSENT when LOKI_AUTONOMY_OVERRIDE=off.
+# buildAutoFlags only emits --append-system-prompt when the claude CLI help advertises it
+# (claudeFlagSupported), so the case needs the claude binary as well as bun.
+# CI installs no claude, so when it is absent a hermetic stub (per-test mktemp
+# dir, prepended to PATH for the bun child only) answers --help/--version.
+OPTOUT_STUB_DIR=""
+OPTOUT_PATH="$PATH"
+if command -v bun >/dev/null 2>&1 && ! command -v claude >/dev/null 2>&1; then
+    OPTOUT_STUB_DIR=$(mktemp -d "${TMPDIR:-/tmp}/optout-claude-stub.XXXXXXXX")
+    cat >"$OPTOUT_STUB_DIR/claude" <<'STUB'
+#!/bin/sh
+case "$1" in
+  --version) echo "2.0.0 (stub)" ;;
+  *) printf 'Usage: claude [options]\n  --append-system-prompt <prompt>  Append to the system prompt\n' ;;
+esac
+STUB
+    chmod 755 "$OPTOUT_STUB_DIR/claude"
+    OPTOUT_PATH="$OPTOUT_STUB_DIR:$PATH"
+fi
 if command -v bun >/dev/null 2>&1; then
-    T_OPTOUT=$(cd "$REPO_ROOT/loki-ts" && bun -e '
+    T_OPTOUT=$(cd "$REPO_ROOT/loki-ts" && PATH="$OPTOUT_PATH" bun -e '
 import { buildAutoFlags, ensureClaudeHelpCache } from "./src/providers/claude_flags.ts";
 await ensureClaudeHelpCache();
 const has = () => buildAutoFlags({tier:"development",complexity:"standard",primary:"opus",targetDir:"."}).includes("--append-system-prompt");
@@ -120,6 +138,7 @@ console.log(onDefault && offDisabled && onExplicit ? "OPTOUT_OK" : `OPTOUT_FAIL 
 else
     ok "opt-out behavioral test skipped (bun not on PATH)"
 fi
+[ -n "$OPTOUT_STUB_DIR" ] && [ -f "$OPTOUT_STUB_DIR/claude" ] && rm -rf -- "$OPTOUT_STUB_DIR"
 
 # the override must keep commit hygiene + categorical safety language (council fix)
 echo "$BASH_OV" | grep -qi 'never push or force-push' \

@@ -38,7 +38,7 @@ load_scenario() { # sets SC_* in the current shell; returns 2 on any defect
     local f="$SC_DIR/$NAME.sh" a
     case "$NAME" in *[!A-Za-z0-9_-]*|'') echo "bad scenario name: $NAME" >&2; return 2 ;; esac
     [ -f "$f" ] || { echo "no such scenario: $f" >&2; return 2; }
-    SC_DESC="" SC_BILLED="" SC_FIXTURE="" SC_ARGS=() SC_ENV=() SC_RECEIPT=() SC_CONSOLE=()
+    SC_DESC="" SC_BILLED="" SC_FIXTURE="" SC_ARGS=() SC_ENV=() SC_RECEIPT=() SC_CONSOLE=() SC_WALL_EXECUTED=""
     # shellcheck source=/dev/null
     . "$f" || { echo "scenario failed to load: $f" >&2; return 2; }
     [ -n "$SC_DESC" ] && [ -n "$SC_FIXTURE" ] && [ "${#SC_ARGS[@]}" -gt 0 ] || { echo "scenario $NAME: SC_DESC, SC_FIXTURE and SC_ARGS are required" >&2; return 2; }
@@ -78,6 +78,13 @@ check_receipt() { # check_receipt FILE
                 else fail "receipt: $a (got $got)"; fi ;;
         esac
     done
+    # FC-68: SC_WALL_EXECUTED=1 also requires >= 2 executed checks and an executed, non-discarded Wall test.
+    if [ "${SC_WALL_EXECUTED:-}" = 1 ]; then
+        local wl wrc=0
+        wl="$(bash "$REPO_ROOT/scripts/assert-wall-executed.sh" "$file" 2 2>&1)" || wrc=$?
+        printf '%s\n' "$wl"
+        if [ "$wrc" -ne 0 ]; then FAILS=$((FAILS + 1)); fi
+    fi
 }
 
 load_scenario || exit 2
@@ -140,7 +147,10 @@ done
 if [ -n "$RCPT" ]; then
     # Receipt fields give the record; they are not recomputed. Missing fields print as NA, never 0.
     f() { v="$(receipt_get "$RCPT" "$1" 2>/dev/null)"; case "$v" in ''|__ABSENT__|null) echo NA ;; *) echo "$v" ;; esac; }
-    ROW="$(printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$NAME" "$(f verdict)" "$(f time.wall_s)" "$(f cost.usd)" "$(f cost.input_tokens)" "$(f cost.output_tokens)" "$([ "$FAILS" -eq 0 ] && echo PASS || echo FAIL)")"
+    # A receipt that left a session out of the token sums carries cost.tokens_measured; those tokens are partial, so NA, never a total.
+    TOK_IN="$(f cost.input_tokens)"; TOK_OUT="$(f cost.output_tokens)"
+    [ "$(f cost.tokens_measured.k)" = NA ] || { TOK_IN=NA; TOK_OUT=NA; }
+    ROW="$(printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$NAME" "$(f verdict)" "$(f time.wall_s)" "$(f cost.usd)" "$TOK_IN" "$TOK_OUT" "$([ "$FAILS" -eq 0 ] && echo PASS || echo FAIL)")"
 else
     ROW="$(printf '%s\t%s\tNA\t%s\tNA\tNA\tNA\t%s' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$NAME" "$WALL" "$([ "$FAILS" -eq 0 ] && echo PASS || echo FAIL)")"
 fi

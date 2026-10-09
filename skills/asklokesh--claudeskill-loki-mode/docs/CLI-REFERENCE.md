@@ -1,6 +1,6 @@
 # CLI reference
 
-Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.3.1. Do not edit by hand.
+Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.3.9. Do not edit by hand.
 Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for the full inventory.
 
 | Command | Description |
@@ -61,6 +61,10 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki queue add` | Queue issue refs |
 | `loki queue list` | Show the queue |
 | `loki queue run` | Process the queue |
+| `loki issues` | Run every open issue in a repo and open PRs |
+| `loki issues run` | Triage and run open issues; split too-large ones into stacked PRs |
+| `loki undo` | Plan or apply an undo of a run |
+| `loki verify-pr` | Verify a PR against its linked issue in a sandbox |
 | `loki answer` | Resume a BLOCKED run with an answer |
 | `loki engine10` | v10 engine router |
 | `loki engine10 run` | Run the v10 engine |

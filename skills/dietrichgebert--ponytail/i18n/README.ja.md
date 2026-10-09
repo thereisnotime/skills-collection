@@ -159,7 +159,7 @@ ponytail は GitHub の `DietrichGebert/ponytail` か npm の `@dietrichgebert/p
 | `/ponytail [lite \| full \| ultra \| off]` | 強度を設定するか、オフにする。引数なしの場合、オフならデフォルトのレベルでオンにし、オンなら現在のレベルを表示する。 |
 | `/ponytail-review` | 壊れたときに呼び出されるシニア開発者のように、現在の diff をレビューする：バグ、セキュリティ、実際の負荷、テストのない危険なコード、遅い処理、削れるもの。各指摘には、そのコードが何をするか、何が問題か、直し方、直さないと何が起きるかが書かれる。範囲を狭めたり広げたりするには、対象を普通の言葉で書く：`uncommitted`、`staged`、`branch`、または PR のリンク。 |
 | `/ponytail-audit` | 同じチェックをリポジトリ全体に対して行い、重要な順に並べる。 |
-| `/ponytail-debt` | 後回しにした `ponytail:` の近道を一覧にまとめ、「あとで」が「永遠にやらない」にならないようにする。 |
+| `/ponytail-debt` | 後回しにした `shortcut:` の近道を一覧にまとめ、「あとで」が「永遠にやらない」にならないようにする。 |
 | `/ponytail-gain` | ベンチマークで測定した効果（コード削減、コスト削減、速度向上）をスコアボードで表示する。 |
 | `/ponytail-help` | 上記コマンドのクイックリファレンス。 |
 
@@ -169,6 +169,9 @@ ponytail は GitHub の `DietrichGebert/ponytail` か npm の `@dietrichgebert/p
 
 **設定ファイルは必要？**
 いらない。任意の `~/.config/ponytail/config.json` か環境変数 `PONYTAIL_DEFAULT_MODE` でデフォルトのレベルを設定できるが、必須のものはない。
+
+**なぜ `shortcut:` コメントを書くの？**
+意図的な近道と、いつ見直すかを示すため。`/ponytail-debt` がそれを一覧にまとめる。別の単語にしたい、あるいは書かせたくない？ プロジェクトの `CLAUDE.md` か `AGENTS.md` にそう書いて、`/ponytail-debt <好きな単語>` を実行すればいい。
 
 **120 行のキャッシュクラスが本当に必要だったら？**
 必要ない。それでも言い張れば作ってくれる。ゆっくり。正確に。あなたを見つめながら。

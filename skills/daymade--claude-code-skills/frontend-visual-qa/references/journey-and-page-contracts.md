@@ -2,12 +2,13 @@
 
 Load this reference only when the audit includes state transitions, routes,
 overlays, browser-owned output, native shells, complex page types, maps, or
-review/annotation workflows.
+review/annotation workflows, including summary-to-detail disclosure.
 
 ## Contents
 
 - Evidence Boundary
 - Journey And State Matrix
+- Summary-To-Detail Disclosure
 - Authorization, Mode, And Runtime Truth
 - Route And Addressability
 - Transient UI
@@ -69,6 +70,111 @@ Before closing a nontrivial journey audit, repeat the main path without
 developer context and ask what a tired or first-time user will misunderstand
 first. Check trigger ownership, return-to-default, recovery, runtime truth,
 internal language, manual burden, and which regression guard catches the miss.
+
+### Delayed Completion And Reopened Work
+
+Use these recipes when an affected editor or batch workflow can outlive a
+selection, navigation, or component instance. Cover the affected journey, not
+every asynchronous operation in the product. Use an authorized isolated project
+fixture with synthetic objects A and B and the existing response-holding harness.
+Hold delivery of a response without cancelling or replaying the submitted write;
+record its original target, request identity, and server result. If that harness
+or write authority is unavailable, specify the missing prerequisite and leave
+execution unverified. Do not manufacture races in production.
+
+**Editor save, leave, and reopen**
+
+1. Open A through the visible control, enter a recognizable first draft, and
+   submit once. Hold its success response after the fixture server accepts the
+   write. Record the original object target and submitted value.
+2. Before releasing it, navigate A -> B -> A, reopen the editor, and enter a
+   distinct second draft for the same A. Separately exercise browser Back out
+   of the pending editor and reopening that same object; matching object IDs
+   alone must not make the old editor own the new draft.
+3. Release the old response. Inspect the actual current page: its selected
+   object, route, editor, and second draft must remain the newer state. Close
+   and reopen through the product's draft-preserving path and verify the second
+   draft is still visible. Do not use an explicit discard action for this check.
+   Read the fixture server independently: the already submitted write may
+   finish on its original A, but must not target B or be submitted again.
+4. Repeat the late-response branch with a real fixture failure or conflict.
+   Its stale error must not replace the new editor or erase its draft. Confirm
+   a normal, still-current save succeeds and clears only its own accepted draft;
+   a current failure retains editable input and an actionable recovery path.
+
+**Batch preparation, leave, and recover**
+
+1. Start maintenance of a selected synthetic batch and hold its preparatory
+   GET. Leave that workflow, reopen it, and enter a new batch. Submit the new
+   batch once, capturing its text, request identity, and real server result;
+   hold its response as needed to keep recovery pending.
+2. Release the old GET. It must not initiate a POST for the retired preparation,
+   overwrite the new batch text, or replace the new pending request identity.
+   Observe emitted requests as well as the current page; an unchanged draft
+   can hide an unintended server write.
+3. Leave and reopen while the new POST is pending, then release its response.
+   Inspect the displayed batch and resume through the normal recovery control.
+   Read back the original request identity from the fixture server and verify
+   its result belongs to the submitted new batch. Recovery must not create a
+   fresh identity or duplicate an already submitted POST.
+4. Exercise ordinary batch preparation and recovery without delayed responses
+   as a healthy control. Where the component runs under React StrictMode,
+   also use its actual setup -> cleanup -> setup lifecycle and confirm the
+   second live setup still permits a current save or preparation. A permanently
+   retired guard that blocks all writes does not pass either recipe.
+
+Retain a compact map of `held response -> navigation/new input -> release ->
+current visible state -> reopened draft -> server readback`. Handler tests,
+storage contents, DOM flags, and request counts support this map; none alone
+proves that the user's reopened editor displays the correct work. For fix
+closure, use the same bounded recipe against saved old evidence or an isolated
+old implementation as a negative control. Keep server-side object-period/version
+write contracts in the project's own specification and tests.
+
+## Summary-To-Detail Disclosure
+
+When an affected control reveals an explanation, breakdown, inspector, or other
+detail, audit the questions each state lets the actor answer. The auditor executes
+this through the authorized Level A/B interaction and the project's independent
+reference; no bundled text-count or DOM-node metric decides whether detail is useful.
+
+1. Freeze the actor's question for the collapsed view and the question promised
+   by the expanded view from the user/task contract, before clicking. Keep facts
+   needed for the ordinary task visible initially; a concise disclosure label
+   should identify what the secondary view adds.
+2. Inspect the collapsed render and answer its question from that render alone.
+   Record the visible values, relationships, or evidence used. A correct grand
+   total cannot establish that a requested contribution breakdown is visible.
+3. Trigger the actual control, then read and extract the newly visible granular
+   rows, relationships, explanations, or supporting evidence. Answer the expanded
+   question using that evidence, naming what was unavailable while collapsed.
+   An open flag, changed text, extra nodes, or more pixels cannot supply the answer.
+   Nonfinancial detail may supply an explanation or source evidence rather than a table.
+4. Reconcile the observed answers against an independent project-authoritative
+   fixture, record, or calculation. For quantitative breakdowns, check component
+   identities, exact quantities, units, inclusion rules, and time ranges/cutoff,
+   as well as their relationship to the summary. Distinguish each period's value
+   from a cumulative value and an unfinished period from a complete one. Agreement
+   between two UI states is not independent evidence; unavailable reference
+   leaves that claim unverified.
+5. Close and reopen as relevant, and retain a compact evidence map:
+   `state -> actor question -> observed answer/evidence -> reference -> verdict`.
+   Fail the promised detail when it merely repeats the summary and leaves its
+   question unanswered. Retain a repeated summary/total when it anchors the new
+   breakdown or permits reconciliation; repetition alone is not a defect.
+
+For fix closure, exercise the rejected old state as a negative control and a
+healthy near-boundary case: a real breakdown that also repeats its total should
+pass. Use saved old evidence or an authorized isolated fixture when needed, label
+synthetic evidence, and do not mutate the live target to manufacture the defect.
+Stop after the affected questions and relevant existing journey regressions are
+resolved; do not turn this check into a whole-page redesign.
+
+The split and expectation checks apply
+[NN/g's progressive-disclosure guidance](https://www.nngroup.com/articles/progressive-disclosure/).
+The essential-content boundary follows
+[GOV.UK's details guidance](https://design-system.service.gov.uk/components/details/).
+These sources do not prescribe one detail format or prove this target's correctness.
 
 ## Authorization, Mode, And Runtime Truth
 

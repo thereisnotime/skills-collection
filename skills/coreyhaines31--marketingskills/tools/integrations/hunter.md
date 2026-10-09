@@ -18,6 +18,10 @@ Email finding and verification: domain search (everyone with a public email at a
 - **Env var**: `HUNTER_API_KEY`
 - **Get key**: [Hunter dashboard > API](https://hunter.io/api-keys)
 
+The CLI URL-encodes the credential and redacts the `api_key` parameter in
+`--dry-run` previews, preserving the other query values. Previews do not make
+API requests. See [Hunter's authentication reference](https://hunter.io/api-documentation/v2#authentication).
+
 ## Common Agent Operations
 
 ### Find emails for a domain
@@ -92,6 +96,17 @@ node tools/clis/hunter.js account info
 - **Link building and PR**: find editors and site owners at target domains
 
 Hunter's confidence score is a guide, not a guarantee. Verify every address before it reaches a sending tool, and keep hard bounces under 2%.
+
+### Reading complete domain and lead-list results
+
+The CLI accepts `--offset` and `--limit` on `domain search` and `leads-lists get`. Fetch each page explicitly, advancing the offset by the returned page size until the provider returns no further records. Existing omitted pagination retains the provider default; these commands do not automatically spend credits on subsequent pages.
+
+```bash
+node tools/clis/hunter.js domain search --domain example.com --limit 100 --offset 100
+node tools/clis/hunter.js leads-lists get --id 123 --limit 100 --offset 100
+```
+
+The flags require nonnegative whole-number offsets and limits from 1 to 100. Provider entitlement and total-result limits still apply. See [Hunter’s V2 API reference](https://hunter.io/api-documentation).
 
 ## Relevant Skills
 

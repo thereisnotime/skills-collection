@@ -26,18 +26,23 @@ Bun-native commands:
   provider show [name]   Show current provider
   provider list          List available providers and install status
   memory list            Cross-project learnings counts
-  memory lessons         PR review lessons with their uses and outcomes
+  memory lessons [--json] PR review lessons with their uses and outcomes
+  memory forget <prl-id> Delete one PR lesson and print its text
   memory learn <o/r#PR>  Learn lessons from a merged PR's review comments
   memory index [rebuild] Show or rebuild memory index
   doctor [--json]        System prerequisites health check
   rollback <subcmd>      Restore .loki/ state from a checkpoint
                          (subcmds: list | show <id> | to <id> | latest)
+  undo <run-id> [--plan] Plan or apply (LOKI_UNDO=1) an undo of a run; verifies the receipt first
   proof <subcmd>         Inspect/share proof-of-run artifacts
                          (subcmds: list | show <id> | open <id> | share <id>)
   wiki <subcmd>          Auto-generated, cited codebase wiki + Q&A
                          (subcmds: generate | show [section] | ask "<question>")
   queue <subcmd>         Overnight issue queue with a morning digest
                          (subcmds: add <issue...> | list | run [--no-pr])
+  issues run [owner/repo] Triage every open issue and run the actionable ones; too-large ones become stacked PRs
+                         (flags: --label L --limit N --parallel K --draft --dry-run --yes --comment --no-split)
+  verify-pr <url|o/r#N>  Verify a PR against its linked issue in a sandbox (LOKI_VERIFY_PR=1)
   answer [run] [--text]  Resume a BLOCKED run with an answer (--text, or the Control Plane answer file)
   control <subcmd>       Control plane (on by default; LOKI_CONTROL=0 turns it off)
                          (subcmds: serve [--port N] [--db PATH] | backfill [DIR] | status)
@@ -47,6 +52,8 @@ Bun-native commands:
   crash <subcmd>         Inspect or submit scrubbed local crash reports
   contract <spec.md>     Print the spec delivery contract and write .loki/contract.json
   start [flags]          Run the RARV autonomous loop (Bun route, LOKI_SDK_LOOP)
+                         (--spec-first writes .loki/specs/<slug>.md and stops; --spec FILE runs against the edited spec)
+  plan <task> --spec     Write the acceptance criteria to .loki/specs/<slug>.md for you to edit
   slack serve [--port N] [--host H]   Serve the Slack inbound handler (needs SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET)
   engine10 <subcmd>      v10 engine router (run, status, verify, keys, dashboard, modernize)
 
@@ -159,6 +166,12 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       // v7.5.2: wire the checkpoint rollback API (was dead code per H4).
       const { runRollback } = await import("./commands/rollback.ts");
       return runRollback(rest);
+    }
+
+    case "undo": {
+      // UNDO-1/2: --plan is read-only; apply is behind LOKI_UNDO=1.
+      const { runUndo } = await import("./commands/undo.ts");
+      return runUndo(rest);
     }
 
     case "proof":
@@ -308,13 +321,25 @@ async function dispatch(argv: readonly string[]): Promise<number> {
     }
 
     case "slack": {
-      const { runSlackCli } = await import("./features/slack_inbound.ts");
+      const { runSlackCli } = await import("./contrib/slack_inbound.ts");
       return runSlackCli(rest);
     }
 
     case "queue": {
       const { runQueue } = await import("./commands/queue.ts");
       return runQueue(rest);
+    }
+
+    case "issues": {
+      const { runIssues } = await import("./commands/issues_run.ts");
+      (await import("./contrib/index.ts")).registerContrib();
+      return runIssues(rest);
+    }
+
+    case "verify-pr": {
+      // VPR-2: PR code runs only through the VPR-1 container sandbox; gated by LOKI_VERIFY_PR=1 inside runVerifyPr.
+      const { runVerifyPr } = await import("./commands/verify_pr.ts");
+      return runVerifyPr(rest);
     }
 
     case "answer": {
@@ -336,6 +361,7 @@ async function dispatch(argv: readonly string[]): Promise<number> {
     case "engine10": {
       const { runEngine10 } = await import("./engine10/cli.ts");
       const { registryLoader } = await import("./engine10/registry.ts");
+      (await import("./contrib/index.ts")).registerContrib();
       return runEngine10(rest, registryLoader);
     }
 

@@ -8,6 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { REPO_ROOT } from "../util/paths.ts";
+import { printForecast, readingFromGovernorJson, recordWindowDelta, type UsageReading } from "../contrib/forecast.ts";
 
 export interface QueueItem {
   ref: string;
@@ -19,22 +20,46 @@ export interface RunResult {
   output: string;
   verdict?: string | null;
   costUsd?: number | null;
+  runId?: string | null; // the engine10 run id (.loki/runs/<id>), so `loki issues run` can stack on loki/<id> (MASS-2)
 }
 
 export interface GovernorReading {
   ok: boolean; // false when the governor could not be read
   hold: boolean;
   reason: string;
+  usage?: UsageReading | null; // measured window reading, when the governor had one (advisory forecast only)
 }
 
 export interface QueueDeps {
   lokiDir: string;
-  runner: (ref: string, opts: { pr: boolean }) => Promise<RunResult>;
+  runner: (ref: string, opts: RunOpts) => Promise<RunResult>;
   governor: () => Promise<GovernorReading>;
   now: () => Date;
   out: (s: string) => void;
   err: (s: string) => void;
+  parallel?: number; // items in flight at once (default 1, capped at MAX_PARALLEL); `loki issues run --parallel`
+  draft?: boolean; // every PR opened as a draft; passed to the runner, which hands it to the existing PR path
+  onResult?: (r: ItemResult) => void; // called as each item finishes (live progress lines)
 }
+
+export interface RunOpts {
+  pr: boolean;
+  draft?: boolean;
+  cwd?: string; // run in this checkout (a per-issue worktree) with its own .loki
+  env?: NodeJS.ProcessEnv;
+  prBase?: string; // MASS-2: the PR targets this branch (a stacked slice's parent), via LOKI_PR_BASE to the run's PR stage
+  prRefs?: string; // MASS-2: owner/repo#N the PR body refers to (the epic), via LOKI_PR_REFS
+  logName?: string; // queue-logs file name when the ref is long task text
+}
+
+export interface ItemResult {
+  ref: string;
+  res: RunResult;
+  row: DigestRow;
+  seconds: number;
+}
+
+export const MAX_PARALLEL = 4;
 
 const REF_RE = /^(?:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#\d+|#?\d+)$/;
 const URL_RE = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\/issues\/(\d+)\/?$/;
@@ -109,7 +134,7 @@ export function queueList(d: QueueDeps): number {
   return 0;
 }
 
-interface DigestRow {
+export interface DigestRow {
   ref: string;
   verdict: string;
   pr: string | null;
@@ -117,7 +142,7 @@ interface DigestRow {
   note: string;
 }
 
-interface Skipped {
+export interface Skipped {
   ref: string;
   reason: string;
 }
@@ -157,31 +182,54 @@ export async function queueRun(args: readonly string[], d: QueueDeps): Promise<n
     d.out("queue is empty\n");
     return 0;
   }
-  for (const item of [...remaining]) {
-    const g = await d.governor();
-    if (g.hold) {
-      stopReason = `governor hold: ${g.reason}`;
-      break;
+  let forecastShown = false;
+  const pending = [...remaining];
+  const width = Math.max(1, Math.min(MAX_PARALLEL, Math.floor(d.parallel ?? 1)));
+  const lane = async (): Promise<void> => {
+    while (stopReason === null) {
+      const item = pending.shift();
+      if (!item) return;
+      const g = await d.governor();
+      if (g.hold) {
+        stopReason = `governor hold: ${g.reason}`;
+        return;
+      }
+      if (!forecastShown) {
+        forecastShown = true;
+        await printForecast(d.lokiDir, async () => g.usage ?? null, d.err);
+      }
+      const t0 = Date.now();
+      let res: RunResult;
+      try {
+        res = await d.runner(item.ref, { pr, ...(d.draft ? { draft: true } : {}) });
+      } catch (e) {
+        res = { rc: 1, output: `runner threw: ${e instanceof Error ? e.message : String(e)}` };
+      }
+      const prUrl = PR_RE.exec(res.output)?.[0] ?? null;
+      const verdict = res.verdict || (res.rc === 0 ? "COMPLETED (no proof verdict)" : `FAILED (exit ${res.rc})`);
+      const row: DigestRow = {
+        ref: item.ref,
+        verdict,
+        pr: prUrl,
+        cost: typeof res.costUsd === "number" ? `$${res.costUsd.toFixed(2)}` : "NOT RECORDED",
+        note: g.ok ? "" : `governor unreadable (${g.reason}); proceeded`,
+      };
+      rows.push(row);
+      // Advisory history: window consumed by this item, from two cached governor readings (best effort).
+      if (g.usage) {
+        try {
+          recordWindowDelta(d.lokiDir, g.usage, (await d.governor()).usage ?? null);
+        } catch {
+          /* forecast history is best effort */
+        }
+      }
+      // Processed items leave the queue whether they passed or failed; the digest keeps the record.
+      remaining = remaining.filter((r) => r.ref !== item.ref);
+      writeQueue(d.lokiDir, remaining);
+      d.onResult?.({ ref: item.ref, res, row, seconds: (Date.now() - t0) / 1000 });
     }
-    let res: RunResult;
-    try {
-      res = await d.runner(item.ref, { pr });
-    } catch (e) {
-      res = { rc: 1, output: `runner threw: ${e instanceof Error ? e.message : String(e)}` };
-    }
-    const prUrl = PR_RE.exec(res.output)?.[0] ?? null;
-    const verdict = res.verdict || (res.rc === 0 ? "COMPLETED (no proof verdict)" : `FAILED (exit ${res.rc})`);
-    rows.push({
-      ref: item.ref,
-      verdict,
-      pr: prUrl,
-      cost: typeof res.costUsd === "number" ? `$${res.costUsd.toFixed(2)}` : "NOT RECORDED",
-      note: g.ok ? "" : `governor unreadable (${g.reason}); proceeded`,
-    });
-    // Processed items leave the queue whether they passed or failed; the digest keeps the record.
-    remaining = remaining.filter((r) => r.ref !== item.ref);
-    writeQueue(d.lokiDir, remaining);
-  }
+  };
+  await Promise.all(Array.from({ length: width }, lane));
   for (const r of remaining) skipped.push({ ref: r.ref, reason: stopReason ?? "not reached" });
   const finished = d.now();
   const text = renderDigest(started, finished, rows, skipped, stopReason);
@@ -198,29 +246,49 @@ export async function queueRun(args: readonly string[], d: QueueDeps): Promise<n
 }
 
 // Governor: reuse scripts/usage-governor.py (cached 15 min `claude -p /usage` read).
+async function governorReport(timeoutMs: number): Promise<unknown> {
+  const proc = Bun.spawn(["python3", resolve(REPO_ROOT, "scripts", "usage-governor.py"), "--json"], {
+    stdout: "pipe",
+    stderr: "pipe",
+    stdin: "ignore",
+    env: { ...process.env },
+  });
+  const timer = setTimeout(() => proc.kill(), timeoutMs);
+  const text = await new Response(proc.stdout).text();
+  await proc.exited;
+  clearTimeout(timer);
+  return JSON.parse(text);
+}
+
+// Same cached script read, bounded shorter, for the advisory forecast (QF-2). Null when unreadable.
+export async function defaultUsageReading(): Promise<UsageReading | null> {
+  try {
+    return readingFromGovernorJson(await governorReport(20_000));
+  } catch {
+    return null;
+  }
+}
+
+type GovernorReport = {
+  governor?: { max_engineers_reason?: string; cap_basis?: string };
+  measured?: { status?: string; session_pct?: number; week_pct?: number } | null;
+};
+
+// Pure mapping from the usage-governor `--json` report to a queue reading (kept separate so it is testable without a spawn).
+export function governorReadingFromReport(rep: GovernorReport): GovernorReading {
+  const usage = readingFromGovernorJson(rep);
+  const reason = rep.governor?.max_engineers_reason ?? "";
+  const m = rep.measured;
+  const sess = m?.status === "ok" && typeof m.session_pct === "number" ? `${m.session_pct}% session` : "session unmeasured";
+  if (reason === "hold_above_70_session" || reason === "over_ceiling") {
+    return { ok: true, hold: true, reason: `${reason} (${sess})`, usage };
+  }
+  return { ok: rep.governor?.cap_basis === "measured", hold: false, reason: `${reason || "ok"} (${sess})`, usage };
+}
+
 export async function defaultGovernor(): Promise<GovernorReading> {
   try {
-    const proc = Bun.spawn(["python3", resolve(REPO_ROOT, "scripts", "usage-governor.py"), "--json"], {
-      stdout: "pipe",
-      stderr: "pipe",
-      stdin: "ignore",
-      env: { ...process.env },
-    });
-    const timer = setTimeout(() => proc.kill(), 90_000);
-    const text = await new Response(proc.stdout).text();
-    await proc.exited;
-    clearTimeout(timer);
-    const rep = JSON.parse(text) as {
-      governor?: { max_engineers_reason?: string; cap_basis?: string };
-      measured?: { status?: string; session_pct?: number; week_pct?: number } | null;
-    };
-    const reason = rep.governor?.max_engineers_reason ?? "";
-    const m = rep.measured;
-    const sess = m?.status === "ok" && typeof m.session_pct === "number" ? `${m.session_pct}% session` : "session unmeasured";
-    if (reason === "hold_above_70_session" || reason === "over_ceiling") {
-      return { ok: true, hold: true, reason: `${reason} (${sess})` };
-    }
-    return { ok: rep.governor?.cap_basis === "measured", hold: false, reason: `${reason || "ok"} (${sess})` };
+    return governorReadingFromReport((await governorReport(90_000)) as GovernorReport);
   } catch (e) {
     return { ok: false, hold: false, reason: e instanceof Error ? e.message : "unreadable" };
   }
@@ -228,16 +296,16 @@ export async function defaultGovernor(): Promise<GovernorReading> {
 
 // Engine10 writes .loki/runs/<id>/receipt.json; the legacy loops write .loki/proofs/<id>/proof.json.
 // Both carry a top-level verdict and cost.usd. Newest file modified since `since` wins; runs/ first.
-export function newestRecord(lokiDir: string, since: number): { verdict: string | null; costUsd: number | null } {
+export function newestRecord(lokiDir: string, since: number): { verdict: string | null; costUsd: number | null; runId?: string | null } {
   for (const [sub, file] of [["runs", "receipt.json"], ["proofs", "proof.json"]] as const) {
     const dir = join(lokiDir, sub);
-    let best: { t: number; p: string } | null = null;
+    let best: { t: number; p: string; name: string } | null = null;
     try {
       for (const name of readdirSync(dir)) {
         const p = join(dir, name, file);
         if (!existsSync(p)) continue;
         const t = statSync(p).mtimeMs;
-        if (t >= since && (!best || t > best.t)) best = { t, p };
+        if (t >= since && (!best || t > best.t)) best = { t, p, name };
       }
       if (!best) continue;
       const d = JSON.parse(readFileSync(best.p, "utf8")) as { verdict?: unknown; cost?: { usd?: unknown; source?: unknown } };
@@ -246,6 +314,7 @@ export function newestRecord(lokiDir: string, since: number): { verdict: string 
       return {
         verdict: typeof d.verdict === "string" ? d.verdict : null,
         costUsd: !unmetered && typeof usd === "number" && Number.isFinite(usd) ? usd : null,
+        ...(sub === "runs" ? { runId: best.name } : {}),
       };
     } catch {
       continue;
@@ -254,11 +323,19 @@ export function newestRecord(lokiDir: string, since: number): { verdict: string 
   return { verdict: null, costUsd: null };
 }
 
+/** The child `loki start` env: the run's own .loki for a worktree, and the PR asks (draft, stacked base, epic ref). */
+export function runnerEnv(opts: RunOpts, runLoki: string): NodeJS.ProcessEnv {
+  return { ...(opts.env ?? process.env), LOKI_NO_BROWSER: "1", ...(opts.cwd ? { LOKI_DIR: runLoki } : {}), ...(opts.draft ? { LOKI_PR_DRAFT: "1" } : {}), ...(opts.prBase ? { LOKI_PR_BASE: opts.prBase } : {}), ...(opts.prRefs ? { LOKI_PR_REFS: opts.prRefs } : {}) };
+}
+
 export function makeDefaultRunner(lokiDir: string): QueueDeps["runner"] {
   return async (ref, opts) => {
     const since = Date.now();
     const argv = [resolve(REPO_ROOT, "bin", "loki"), "start", ref, ...(opts.pr ? ["--pr"] : [])];
-    const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", stdin: "ignore", env: { ...process.env, LOKI_NO_BROWSER: "1" } });
+    // A per-issue worktree gets its own .loki so parallel runs never share run state (autonomy/loki refuses that).
+    const runLoki = opts.cwd ? join(opts.cwd, ".loki") : lokiDir;
+    const env = runnerEnv(opts, runLoki);
+    const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", stdin: "ignore", env, ...(opts.cwd ? { cwd: opts.cwd } : {}) });
     const mins = Number(process.env["LOKI_QUEUE_ITEM_TIMEOUT_MIN"]) || 120;
     const timer = setTimeout(() => proc.kill(), mins * 60_000);
     const [so, se] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
@@ -268,12 +345,12 @@ export function makeDefaultRunner(lokiDir: string): QueueDeps["runner"] {
     try {
       const logDir = join(lokiDir, "queue-logs");
       mkdirSync(logDir, { recursive: true });
-      writeFileSync(join(logDir, `${ref.replace(/[^A-Za-z0-9_.-]/g, "_")}.log`), output);
+      writeFileSync(join(logDir, `${(opts.logName ?? ref).replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 120)}.log`), output);
     } catch {
       /* log is best effort */
     }
-    const proof = newestRecord(lokiDir, since);
-    return { rc, output, verdict: proof.verdict, costUsd: proof.costUsd };
+    const proof = newestRecord(runLoki, since);
+    return { rc, output, verdict: proof.verdict, costUsd: proof.costUsd, runId: proof.runId ?? null };
   };
 }
 

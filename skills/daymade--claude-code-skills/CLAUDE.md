@@ -8,17 +8,6 @@ This repository is a Claude Code skills marketplace.
 
 ## Skills Architecture
 
-### Directory Structure
-
-Each skill follows a standard structure:
-```
-skill-name/
-├── SKILL.md (required)          # Core skill instructions with YAML frontmatter
-├── scripts/ (optional)          # Executable Python/Bash scripts
-├── references/ (optional)       # Documentation loaded as needed
-└── assets/ (optional)           # Update-owned templates and resources for output
-```
-
 ### Progressive Disclosure Pattern
 
 Skills use progressive loading:
@@ -60,6 +49,21 @@ claude plugin install daymade-skill@daymade-skills
 Use [skill-creator](daymade-skill/skill-creator/SKILL.md) before creating or
 changing a skill. It owns change classification, evidence selection, regression
 review, validation, initialization, and packaging.
+
+Operational or code-bearing Skill edits complete directly affected document alignment
+before the first candidate freeze; follow skill-creator's Edit workflow.
+For project instruction-entry maintenance, enter
+[claude-md-progressive-disclosurer](daymade-claude-code/claude-md-progressive-disclosurer/SKILL.md).
+Its verification reference owns dual-entry reconciliation and native-host readback;
+keep the detailed procedure there.
+For a valid check that emits warnings, follow its
+[warning interpretation](daymade-skill/skill-creator/references/knowledge-skill-grounding.md#interpret-validation-warnings).
+For local/remote ASR selection, speed comparison and speech-content acceptance, enter
+[asr-transcribe-to-text](daymade-audio/asr-transcribe-to-text/SKILL.md) and its
+[execution SOP](daymade-audio/asr-transcribe-to-text/references/execution_location_and_comparison.md).
+For competitor claims, citations and existing-product learning, enter
+[competitors-analysis](competitors-analysis/SKILL.md) and its
+[citation readback checklist](competitors-analysis/references/analysis_checklist.md#citation-readback-and-counterevidence).
 
 For permission-sensitive fixtures, use its
 [execution-context verification recipe](daymade-skill/skill-creator/references/stateful-script-verification.md#execution-identity-and-permission-fixtures).
@@ -140,9 +144,17 @@ Python hooks.
 
 ### Rendered UI delivery acceptance
 
-For rendered UI freshness or deployment acceptance, enter
+For rendered UI freshness, delayed editor/batch responses or deployment acceptance, enter
 [frontend-visual-qa](frontend-visual-qa/SKILL.md). Keep its manifest, launcher,
 result semantics and rendered-journey procedure in that owner.
+Before designing or judging monitoring, availability or certificate matrices, enter
+[data-visualization-discipline](data-visualization-discipline/SKILL.md).
+Keep observation and risk semantics in its data-validation route, not a second checklist here.
+
+For oversized images or figure readability in a Markdown note or transcript, use
+[frontend-visual-qa's actual-reader handoff](frontend-visual-qa/references/markdown-reader-handoff.md).
+It owns reader-specific sizing and the representative pilot; keep display values
+and verification details there.
 
 ### Background Full Disk Access repair
 
@@ -185,6 +197,12 @@ A `tests/` directory under a Skill does **not** automatically run in CI.
 timeouts and additional test steps. For required-check readback, installation stalls,
 test failures and temporary-Git cleanup, follow [CI operations](references/ci-operations.md).
 
+For CI demand, notification overload, exhausted allowance or repeated validation,
+enter [github-ops' CI demand workflow](github-ops/references/ci-demand-and-notifications.md).
+For self-hosted routing, resource limits or cache persistence, follow its
+[runner acceptance](github-ops/references/workflow_operations.md#self-hosted-runner-capacity-and-acceptance).
+Keep demand selection, validation-reuse and capacity acceptance in those owners.
+
 For browser-backed recurring jobs, enter
 [macos-watchdog](daymade-macos/macos-watchdog/SKILL.md) and apply its deployment
 acceptance before shipping. That Skill owns resource-budget and focus evidence;
@@ -192,6 +210,10 @@ keep the detailed procedure there.
 
 Before choosing or changing any periodic observer's cadence, follow
 [macos-watchdog's observation contract](daymade-macos/macos-watchdog/references/probe-cost.md).
+For named macOS load/runaway alerts, follow
+[macos-load-doctor's intervention and diagnosis-completion contract](daymade-macos/macos-load-doctor/SKILL.md#5-act-within-the-boundary).
+The observation contract above owns delayed-sampling acceptance; keep its tests
+and the diagnostic stop conditions in those Skills.
 For changed operating defaults or thresholds in an already-required review, use
 [skill-creator's independent-review protocol](daymade-skill/skill-creator/references/independent-review-protocol.md).
 Keep decision criteria and verification details in those owners.
@@ -207,12 +229,19 @@ validation behavior in
 [native_review.py](daymade-audio/transcript-fixer/scripts/native_review.py), and
 queue anchor behavior in
 [review_queue.py](daymade-audio/transcript-fixer/scripts/core/review_queue.py).
+For a received user answer or an existing correction-ledger update, follow
+[cited answers and ledger writes](daymade-audio/transcript-fixer/references/review_queue_dashboard.md#cited-answers-and-ledger-writes).
+That guide owns source binding, supported answer syntax and interrupted-write recovery;
+keep its schema and commands there.
 For batch audio checks, use [verify_queue_audio.py](daymade-audio/transcript-fixer/scripts/verify_queue_audio.py)
 and its [adjudication guide](daymade-audio/transcript-fixer/references/advanced_correction_evidence.md):
 audio verification may add evidence but never resolves a review row or proves
 whole-transcript completion.
 When changing these paths, update their owning instructions together; keep
 review coverage, unresolved verdicts, and repository publication distinct.
+For local correction tests and repository CI ownership, follow the
+[testing strategy](daymade-audio/transcript-fixer/references/architecture.md#testing-strategy);
+keep maintainer-only repository resources distinct from installed Skill paths.
 
 ### Feishu Document Capture
 
@@ -384,6 +413,11 @@ validation.
 
 ### Git Operations
 
+For already-authorized delivery in a shared checkout, enter
+[auto-repo-setup's scoped delivery route](auto-repo-setup/references/git_safety.md#authorized-shared-checkout-delivery).
+It owns the authorization/tool gate, bounded coordination and partial-result recovery;
+keep ordinary sync, publication and recovery boundaries with their existing owners.
+
 This repository uses standard git workflow, but **always stage files by name**,
 never `git add -A` / `git add .`. Multiple agents may have unstaged changes in
 the same worktree — a blanket stage piggybacks their work into your commit:
@@ -407,6 +441,8 @@ For GitHub-hosted state — PRs, issues, Actions, repository or organization set
 and API/UI mutations — treat `github-ops/SKILL.md` as the canonical operating contract. A command
 receipt is not completion; use that Skill's operation-specific independent readback. Keep detailed
 GitHub SOPs there rather than copying them into this repository-level instruction file.
+Before expensive checks on a concurrently edited base, follow its
+[publication coordination](github-ops/references/pr_operations.md#coordinate-publication-before-expensive-checks).
 For hosted-state writes through `gh`, follow its
 [identity, host and target binding](github-ops/SKILL.md#2-bind-identity-host-and-target)
 before using an operation recipe. For historical account or connector attribution,
@@ -415,6 +451,9 @@ use the [identity-source contract](tibo-reset-codex/references/account-usage.md#
 **Closing a PR unmerged (declined, or superseded by another PR) → delete its head
 branch in the same action.** `gh pr merge --delete-branch` only covers merged PRs.
 Use `github-ops`'s [exact-tip branch retirement workflow](github-ops/references/pr_operations.md#converging-parallel-prs-and-retiring-remote-branches).
+Apply that same owning workflow after merge-adjacent cleanup failures or a strict
+up-to-date refusal; it owns exact-tip preservation, independent absence readback
+and history-policy recovery.
 For sensitive publication residuals, first enter `github-sensitive-data-cleanup`'s
 [surface selection](github-sensitive-data-cleanup/SKILL.md#step-05-bind-each-exposed-surface);
 approved PR body revision removal follows `github-ops`'s
@@ -491,9 +530,17 @@ git -C <worktree> \
    SHA, who was asked, and that the ff is still outstanding — do not stash,
    `checkout --`, or `restore` it.
 
+For an already-authorized task with declared scoped tools, use the scoped delivery
+route above before treating another writer's unrelated changes as a reason to
+leave the task waiting. This does not permit overwriting that writer's files or
+claiming the whole checkout is current.
+
 For divergent local `main` or branch/worktree retirement, follow
 [git-safety-net](git-safety-net/SKILL.md) and its
 [content-containment proof](git-safety-net/references/merge_verification.md).
+When current content differs from an older published review, use that reference's
+[historical publication example](git-safety-net/references/merge_verification.md#worked-example--old-review-content-landed-through-another-ref)
+before deciding supersession; historical equality alone does not establish current intent.
 Resolving conflicts toward upstream can erase the very delta being checked;
 an empty result after that resolution does not prove it shipped.
 
@@ -660,6 +707,9 @@ For changes to scripts, configuration, or operating procedures, use
 [docs-cleaner](daymade-docs/docs-cleaner/SKILL.md) for scoped documentation delivery:
 resolve implementation intent and authorization before updating the owning SOP,
 and validate the delivered command examples. Keep detailed governance in that Skill.
+After moving a procedure or renaming an anchor, use its
+[delivery-entry replay](daymade-docs/docs-cleaner/references/delivery-entry-replay.md)
+against the consuming instruction-file entry.
 When a changed workflow affects stable rules or entry routes, update this file's
 rules and indices; retain implementation values and detailed procedures in their SSOT.
 

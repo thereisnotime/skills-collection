@@ -21,12 +21,12 @@ RUN bun run build:all
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="11.3.1"
+LABEL version="11.3.9"
 # v7.4.5 fix (BUG-3): override the OCI-standard image.version label that
 # BuildKit auto-injects from the FROM ubuntu:24.04 base. Registries and
 # scanners read this; without the override they reported the Ubuntu version
 # (24.04) instead of the Loki Mode version.
-LABEL org.opencontainers.image.version="11.3.1"
+LABEL org.opencontainers.image.version="11.3.9"
 LABEL description="Loki Mode by Autonomi - Autonomous spec-to-product system (RARV-C closure loop). Provider-agnostic: Claude Code, Codex CLI, Cline, Aider"
 LABEL url="https://www.autonomi.dev/"
 
@@ -143,7 +143,7 @@ COPY --chown=loki:loki mcp/ ./mcp/
 # Purple Lab (web-app/): React UI + FastAPI backend. Pre-built dist/ ships in
 # the image so `loki web` works out of the box; Phase Merge-4 mounts the same
 # app under /lab/ in the dashboard. Backend Python deps installed below.
-COPY --chown=loki:loki web-app/server.py web-app/auth.py web-app/models.py web-app/crypto.py web-app/requirements.txt ./web-app/
+COPY --chown=loki:loki web-app/*.py web-app/requirements.txt ./web-app/
 COPY --chown=loki:loki web-app/migrations/ ./web-app/migrations/
 COPY --chown=loki:loki web-app/dist/ ./web-app/dist/
 COPY --chown=loki:loki learning/ ./learning/

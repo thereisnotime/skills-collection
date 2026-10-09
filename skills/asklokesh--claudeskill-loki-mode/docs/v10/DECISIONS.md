@@ -777,3 +777,23 @@ Amends FC-35 (the router-on plan no longer skips small tasks) and D89 Amendment 
 4. FC-35 R-B holds unchanged: always emit a route or a recorded reason. A failed, timed-out or malformed routing call writes routed:false with the reason to route.json and runs the full plan as before (fail-safe toward more planning, never less). Wall, verify, commit, seal and pr never skip.
 5. Measurement gate: the B9 row on trivial-sum shows the routing call below 10% of total run cost (n>=3), and router-on cost at most 1.05x router-off (D89 Amendment 2). Router-off output stays byte-identical with the flags off.
 6. Slices: COST-HALF LD-01 (gate plus routing call) and LD-02 (marker as a late input), HIGH tier.
+
+## D94 (2026-10-08, CTO ruling relayed by the CoS): main holds the last pushed release until npm has it; RG-06 contrib cap
+1. Main stays at the last pushed release commit until that version is on npm. Later approved slices merge onto a train branch (train-<version>), which fast-forwards or merges into main only after the cut is published. Origin: 11.3.2 train merges sat on main while 11.3.1 was blocked on a red nightly (NIGHTLY-BLOCK), which forced a cherry-pick-only push.
+2. Line budgets are never raised to admit a feature. Overflow is extracted along docs/v11/REGISTRIES.md.
+3. RG-06 approved: loki-ts/src/contrib/ with a 1200-line cap and the D66 import rules. Binding guards: core (engine10) never imports contrib; each contrib module is optional (deleting one leaves core compiling and flag-off goldens unchanged); no verdict logic in contrib (D42); the cap failure lists per-file line counts.
+
+## D96 (2026-10-08, founder directive relayed by steering at 17:45Z, CoS records): every approved slice is a release; next by merge, latest by promotion
+Founder: "you are taking hours long for releases, I wanted 3 releases to 10 releases per hour ... release asap to accommodate that many". Supersedes D94 point 1 (trains) and the D91 clock cut; D90 moves from publish to promotion. D94 points 2 and 3 stand.
+1. A slice that passes merge-gate merges straight to main, and main publishes a PATCH to npm `next` within 15 minutes. There are no trains and no batching. Target: 3 or more releases per hour, 10 when the queue allows.
+2. `next` gate (budget 10 min from push to npm): tsc, impacted tests plus always-run guards, moat P9 (never waived), dist guard, pack smoke.
+3. `latest` is promotion only, never a separate build. promote.yml moves `latest` to the newest `next` version whose SHA, or a descendant of it, has a green full-suite backstop and a green Post-Release Smoke. The backstop runs on main HEAD every 60 minutes. A red backstop blocks promotion, not publishing, and opens a P0 fix slice within the hour.
+4. Pipeline: the workflow bumps the version on push to main (no human bump), CHANGELOG lines come from slice cards and verdicts, the backstop runs hourly, and promotion is driven by a green backstop. Every existing release guard stays: never-backwards, the gitHead stamp, the release-actor tag check. First slice: D96-GATE (move the red-nightly block from release.yml to promote.yml).
+5. Slices are 20-40 minutes of build, one concern, with a user-visible line on the card. Large features ship as a sequence of small flag-gated slices.
+6. HIGH reviews run in pair mode. A TL reviews LOW and MEDIUM with the machine gate, and merge-gate is the hard check. There is no serial review queue.
+7. Every tick reports merge-to-`next` minutes for each release and releases per hour.
+
+## D98 (2026-10-08, CTO ruling relayed by steering at 19:22Z, RM records): guard review standard and the HIGH review round limit
+1. A guard (a test that fails a build on a shape it detects) blocks a merge only on findings that a realistic change would trigger: an ordinary workflow edit or an ordinary contributor mistake. A realistic finding always blocks.
+2. Contrived adversarial bypasses (exit 256, eval rc=0, writes hidden in arithmetic or through an indirect name, deliberately obfuscated shell) are logged as LOW follow-up rows in FAILURE-CLASSES.md and do not block. These guards protect against our own mistakes; an attacker who controls workflow files is covered by branch protection and review.
+3. HIGH reviews have a 2-round limit. Round 3 escalates to the CTO with the finding list, and the CTO decides. Reason: opus share was about 50% against the 30% budget (D13).

@@ -112,6 +112,19 @@ describe("static shape", () => {
     expect(lines[hits[1]!]!.trim()).toBe('const { runEngine10 } = await import("./engine10/cli.ts");');
     expect(lines[hits[2]!]!.trim()).toBe('const { registryLoader } = await import("./engine10/registry.ts");');
     expect(hits).toEqual([hits[0]!, hits[0]! + 1, hits[0]! + 2]);
-    expect(lines[hits[0]! + 3]!.trim()).toBe("return runEngine10(rest, registryLoader);");
+    // D91: contrib/index.ts fills core's hook slots before the engine runs; core never imports contrib.
+    expect(lines[hits[0]! + 3]!.trim()).toBe('(await import("./contrib/index.ts")).registerContrib();');
+    expect(lines[hits[0]! + 4]!.trim()).toBe("return runEngine10(rest, registryLoader);");
+  });
+
+  test("the issues arm registers contrib before its planning sessions run", () => {
+    const lines = readFileSync(join(SRC, "cli.ts"), "utf8").split("\n");
+    const at = lines.findIndex((l) => l.trim() === 'case "issues": {');
+    expect(at).toBeGreaterThan(-1);
+    const end = lines.findIndex((l, i) => i > at && l.trim() === "}");
+    const arm = lines.slice(at, end + 1).map((l) => l.trim());
+    const reg = arm.indexOf('(await import("./contrib/index.ts")).registerContrib();');
+    expect(reg).toBeGreaterThan(-1);
+    expect(reg).toBeLessThan(arm.indexOf("return runIssues(rest);"));
   });
 });

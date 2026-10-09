@@ -28,7 +28,7 @@ export const EVENT_TYPES = [
   "heartbeat", "session.started", "session.ended", "cost", "wall.sealed",
   "tests.restored", "test.result", "test.scoped_out", "fix.round", "already.satisfied", "spec.conflict",
   "escalated", "cap.hit", "cap.sized", "tamper.detected", "receipt.sealed", "pr.opened",
-  "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant", "route", "route.escalated", "provider.failover",
+  "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant", "route", "route.escalated", "provider.failover", "project_model.fallback",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 /** One line of events.jsonl. All keys required; stage is null for run-level events; readers tolerate unknown `type` values. */
@@ -108,6 +108,11 @@ export interface CostTotals {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
+  tokensMeasured?: { k: number; n: number }; // set only when some session was left out of the token sums (R3-2 follow-up)
+  cacheReadSeen?: boolean; cacheCreationSeen?: boolean; // false = no measured file carried the key (NOT RECORDED); undefined = a fake reader, its numbers are taken as measured
+  records?: CostRecords; // COST-RECORDS / FIX-RESUME
+  durationMs?: number; // SDK result-line duration_ms, summed
+  cacheCreationTokens?: number; // optional so existing CostReader fakes still typecheck; absent reads NOT RECORDED in the receipt
   // E-69: optional so every existing CostReader test fake (only usd/tokens) still typechecks;
   // seal.ts falls back to 0 when a fake omits them. See cost.ts's CostResult for the real ones.
   measuredCount?: number;
@@ -120,6 +125,8 @@ export interface CostReader { // implemented by cost.ts (E-06)
 }
 export interface Clock { now(): number; } // epoch ms
 export interface RunContext {
+  timeline?: { stage: StageName; startMs: number; endMs: number }[]; // every stage the machine ran (any outcome), for the receipt's time buckets
+  startedAtMs?: number; // set by the machine at run start (epoch ms); seal falls back to it for time.total_s
   runId: string;
   repoDir: string;
   runDir: string;
@@ -131,6 +138,7 @@ export interface RunContext {
   capS: number; overCap?: () => boolean; // D60-5: priced cost reached the per-run dollar cap
   emit(type: EventType, stage: StageName | null, data: Record<string, unknown>): void;
   sessions: SessionRunner;
+  implementLeftS?: () => number; // FC-19b: seconds left in the implement window; absent outside the machine
   failovers?: () => import("../runner/provider_failover.ts").FailoverRecord[]; // T9: read by seal
   tests: TestMapProvider;
   cost: CostReader;
@@ -157,12 +165,15 @@ export interface Receipt {
   wall: { files: { path: string; sha256: string }[]; passed: boolean | null };
   checks: ReceiptCheck[];
   not_proven: string[];
+  spec?: { path: string; sha256: string }; // SPEC-FIRST-INTENT: present only when a user spec file drove the run
   supply?: import("../supply/supply_guard.ts").SupplyBlock; // T10: present only when the guard found newly added dependencies
   route?: import("../runner/router/route_block.ts").RouteBlock; // R1-15: present only while the router is on
   cost_preview?: Record<string, unknown>; // 11.3.0 T1: absent under LOKI_COST_PREVIEW=0
   verdict: Verdict;
   /** T2: "test fails without the fix: yes | no | inconclusive (reason)"; omitted when LOKI_MUTATION_PROOF=0 or the verdict was not VERIFIED. */
   mutation_proof?: string;
+  /** XV-1: cross-review judge and whether it is a different vendor than the builder (LOKI_XVENDOR_DEFAULT=1 only). */
+  review?: { provider: string | null; vendor_differs: boolean };
   /** T2: the counted outcome for METRICS: "yes" | "no" | "inconclusive". */
   mutation_outcome?: "yes" | "no" | "inconclusive";
   /** FC-21b: set only when implement was stopped at its time limit; omitted otherwise so other receipts stay byte-stable. */
@@ -183,6 +194,12 @@ export interface Receipt {
     usd: number | null;
     input_tokens: number;
     output_tokens: number;
+    // RECEIPT-TRUTH: additive; absent (older receipts, fake readers) means NOT RECORDED, never 0.
+    cache_read_tokens?: number;
+    cache_creation_tokens?: number;
+    tokens_scope?: "all-models" | "main-loop"; per_model?: Record<string, ModelRecord>; turns?: number; cache_creation_main_loop?: { ephemeral_5m_tokens: number; ephemeral_1h_tokens: number }; resume?: "ambiguous" | "separate"; // COST-RECORDS / FIX-RESUME, additive
+    sdk_duration_ms?: number; // SDK result line duration_ms, summed; absent = NOT RECORDED
+    tokens_measured?: { k: number; n: number }; // present only when k < n: input_tokens/output_tokens sum k of n sessions (a missing or ambiguous-resume session is left out), so they are partial
     // E-69: sessions with a provider-sourced dollar figure, out of the sessions this run recorded;
     // partial_usd is their dollar sum even when usd above is null (some sessions unpriced).
     measured_sessions: number;
@@ -190,7 +207,8 @@ export interface Receipt {
     partial_usd: number;
     source?: string; // D48: "cli-invoker-unmetered" when usd is a recorded 0, absent otherwise
   };
-  time: { wall_s: number; stages: Partial<Record<StageName, number>> };
+  /** RECEIPT-TRUTH (receipt_time.ts): stages is a disjoint partition of total_s (first event to seal; a parallel group is one "a+b" bucket); wall_s = the stage buckets without setup, orchestration and seal. Additive; consumers read it through reconciledTotalS. */
+  time: ReceiptTime;
   provider: string;
   model: string;
   resumed: boolean;
@@ -219,3 +237,8 @@ export function pushArgv(a: PushArgs): string[] {
 export function taskBlock(task: string): string[] {
   return ["Task (untrusted, quoted verbatim):", "<<<TASK", task, "TASK"];
 }
+
+// Shapes produced by extension modules (receipt time, cost records); defined here so core never imports them.
+export interface ModelRecord { input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; cost_usd: number }
+export interface CostRecords { tokens_scope?: "all-models" | "main-loop"; per_model?: Record<string, ModelRecord>; turns?: number; cache_creation_main_loop?: { ephemeral_5m_tokens: number; ephemeral_1h_tokens: number }; resume?: "ambiguous" | "separate" }
+export interface ReceiptTime { wall_s: number; total_s?: number; stages: Record<string, number>; stage_s?: Record<string, number> }

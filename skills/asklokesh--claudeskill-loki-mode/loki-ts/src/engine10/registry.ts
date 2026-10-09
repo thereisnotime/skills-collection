@@ -13,7 +13,6 @@ export const REGISTRY: Readonly<Record<string, () => Promise<Mod>>> = {
   "./stages/seal.ts": () => import("./stages/seal.ts"),
   "./stages/pr.ts": () => import("./stages/pr.ts"),
   "./stages/deep.ts": () => import("./stages/deep.ts"),
-  "./status.ts": () => import("./status.ts"),
   "./verify_cmd.ts": () => import("./verify_cmd.ts"),
   "./keys_cmd.ts": () => import("./keys_cmd.ts"),
   "./../runner/engine10_dashboard.ts": () => import("../runner/engine10_dashboard.ts"),
@@ -21,12 +20,15 @@ export const REGISTRY: Readonly<Record<string, () => Promise<Mod>>> = {
   "./worker.ts": () => import("./worker.ts"),
   "./session.ts": () => import("./session.ts"),
   "./supervisor.ts": () => import("./supervisor.ts"),
-  "./eta.ts": () => import("./eta.ts"),
+  "./../commands/export_sarif.ts": () => import("../commands/export_sarif.ts"),
   "../e10ext/ship_hook.ts": () => import("../e10ext/ship_hook.ts"),
 };
+/** the extension layer adds its lazy modules here at startup; core never imports it. */
+const EXTRA: Record<string, () => Promise<Mod>> = {};
+export const registerModule = (spec: string, load: () => Promise<Mod>): void => { EXTRA[spec] = load; };
 /** An unregistered specifier rejects like a missing file, so "not built yet" still works. */
 export function registryLoader(spec: string): Promise<Mod> {
-  const hit = REGISTRY[spec];
+  const hit = REGISTRY[spec] ?? EXTRA[spec];
   if (hit) return hit();
   return Promise.reject(Object.assign(new Error(`Cannot find module '${spec}'`), { code: "ERR_MODULE_NOT_FOUND" }));
 }

@@ -389,6 +389,11 @@ gh api repos/{owner}/{repo}/actions/runs/{run_id}/jobs | \
 
 ## Best Practices
 
+For overloaded CI email, exhausted allowance or unrelated/repeated jobs, first
+use [CI demand and notification delivery](ci-demand-and-notifications.md).
+The options below follow the repository's purpose and change risk; enabling
+every option is not a default operating policy.
+
 ### Workflow Organization
 
 1. **Use descriptive names** - Make workflow purpose clear
@@ -442,6 +447,10 @@ operator procedure; no bundled tool enforces its deployment or process boundarie
    separately. Multiple registrations or guests can share a host; label matching
    does not prove independent CPU, memory or storage capacity. Match every required
    label and group/access restriction ([GitHub routing rules](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/use-in-a-workflow)).
+   When no registration matches, inspect authorized owned hosts through their
+   deployment inventory. Reuse a compatible profile or prepare a separate one
+   within existing setup authorization; do not treat missing registration as
+   unavailable hardware or borrow another repository's production listener.
 2. **Reuse the deployment owner.** Locate the project's current IaC, runner
    profiles and runbook, then read a successful run of the actual target job.
    Preserve its supported OS, architecture, isolation, resource budget and network
@@ -455,6 +464,70 @@ operator procedure; no bundled tool enforces its deployment or process boundarie
    digests/bytes and required completion markers; do not copy registration state,
    job workspaces, cloud state or personal credentials. Missing downloads remain
    failures; do not fabricate cache markers or add an unverified network fallback.
+   On persistent runners, provision system packages and browser OS dependencies
+   through the deployment owner before jobs, rather than running system APT
+   installation on every check. Keep tool/browser caches outside disposable job
+   workspaces and within the approved trust boundary; verify them as the service
+   account. A cache marker does not prove the matching executable works.
+
+   Check minutes and hosted artifact/storage budgets separately: changing
+   `runs-on` does not remove a workflow's GitHub upload/download dependencies
+   ([GitHub billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)).
+   If storage blocks required build handoff or evidence, preserve those outputs
+   through an already-authorized deployment-owner store, outside disposable
+   workspaces. Bind producer and consumer to repository, run ID/attempt and full SHA,
+   verify content hashes and actual downstream tests, and retain the owner's
+   retention/access contract. Do not silently drop outputs, ignore upload failures
+   or delete historical artifacts to make the migration pass.
+
+   Inventory optional cache backends separately from required artifacts.
+   `actions/cache` and BuildKit `type=gha` still call remote cache services on a
+   self-hosted runner ([Docker GitHub cache backend](https://docs.docker.com/build/cache/backends/gha/)).
+   Compare measured restore/export cost, hit rate and storage/network limits
+   with the existing persistent runner cache. Prefer that existing cache when
+   its ownership, keying and cleanup contract fit; do not add a second cache
+   merely because an action supports it. Preserve cold-cache correctness.
+   Only an explicitly optional cache may degrade on cache-only failure, with a
+   visible diagnostic; installation, tests, builds and required artifact handoff
+   retain their failure behavior. The deployment owner and job logs verify this
+   distinction; no bundled tool in this Skill chooses a cache backend.
+
+   Resolve the actual package-store directory as the job's service account after
+   setup, and keep the persistent store outside installation directories that
+   the selected setup action removes ([pnpm setup installer](https://github.com/pnpm/action-setup/blob/v4/src/install-pnpm/run.ts)).
+   Configure the same explicit store location in each consuming job. Accept
+   persistence from a later job's positive cache-hit evidence while preserving
+   installation and test checks; a configured path or existing directory alone
+   is not proof. A cold-cache miss still performs normal installation and checks.
+
+   For jobs running directly on a shared Linux runner host, use per-job service
+   containers with free host ports and read the assigned port from
+   `job.services.<service>.ports[<container-port>]`;
+   fixed host ports can collide across listeners ([GitHub service networking](https://docs.github.com/en/actions/tutorials/use-containerized-services/use-docker-service-containers)).
+   Read effective CPU, memory and task limits through the cgroup ancestors, not
+   only the listener unit. Parent limits constrain children ([cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)).
+   Budget service and build containers created by a shared Docker daemon separately;
+   a listener's limit does not automatically cap those containers. Read back the
+   container/builder limits and reconcile their combined demand with the physical
+   host budget ([Docker resource constraints](https://docs.docker.com/engine/containers/resource_constraints/)).
+
+   Set test-worker concurrency from the effective CPU allocation, including
+   ancestor quota/period and cpuset/affinity bounds, rather than the host's
+   advertised core count or a runtime's parallelism default. Shared-parent
+   capacity is an upper bound, not an exclusive reservation. Use the existing
+   test runner's worker controls and verify the original suite under the real
+   service limits before increasing timeouts. Keep assertions and timeout
+   failure semantics; a lower worker count cannot excuse a genuine regression.
+   The repository executor owns worker settings; read cgroup/runtime observations
+   and actual suite results to accept the change.
+
+   Configure job hooks with the supported `.sh` or `.ps1` entry point: GitHub runs
+   Bash with `-e <path>` or PowerShell with `-command ". '<path>'"`. A Python
+   shebang is not a supported hook launcher; use an owned shell wrapper invoking
+   the intended interpreter. Keep hooks outside job-writable directories, bound
+   their synchronous work, and verify execution in the actual job's **Set up runner**
+   or **Complete runner** log. A direct script smoke test cannot prove the runner
+   invokes it ([GitHub job hooks](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/run-scripts)).
 4. **Keep checks and production routing separate.** Add capacity only to the
    authorized workload. Preserve a production deployment's single-writer labels,
    credentials and controller when expanding a checks pool. A new registration

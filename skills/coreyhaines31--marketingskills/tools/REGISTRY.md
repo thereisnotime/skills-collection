@@ -7,6 +7,7 @@ Quick reference for AI agents to discover tool capabilities and integration meth
 1. **Find tools by category** - Browse sections below for tools in each domain
 2. **Check integration methods** - See what APIs, MCPs, CLIs, or SDKs are available
 3. **Read integration guides** - Detailed setup and common operations in `integrations/`
+4. **Connect selected accounts** - Use [guided setup](SETUP.md) for local credentials, approval gates, and a first read-only check
 
 ---
 
@@ -385,7 +386,7 @@ Programmatic page extraction for **individual public business sites** — not fo
 
 ### Reviews
 
-Review management and social proof platforms.
+Review management and social proof platforms. For honest invitation programs, response triage, and permissioned testimonial reuse, use the referrals skill's [review programs reference](https://github.com/coreyhaines31/marketingskills/blob/main/skills/referrals/references/review-programs.md). Platform incentive and collection rules differ; consult its conditional policy reference before a campaign.
 
 | Tool | Best For | Notes |
 |------|----------|-------|

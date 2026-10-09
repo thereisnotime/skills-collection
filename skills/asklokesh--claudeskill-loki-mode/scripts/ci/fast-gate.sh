@@ -16,6 +16,9 @@
 # plan.tsv columns: kind, target, estimated seconds, shard. Estimated seconds
 # come from tests/shard-durations.tsv (measured), default 8s for an unknown
 # suite. The shard count is chosen so each shard targets <= 60s of estimate.
+# A plan whose total estimate cannot fit MAX_SHARDS shards at that target
+# (ceil(total/target) > MAX_SHARDS) would overflow every shard's job timeout, so
+# it fails safe to FULL (plan-over-capacity) instead of packing.
 # Anything the fast gate skips is covered by the nightly full run (D90).
 set -uo pipefail
 
@@ -50,17 +53,50 @@ is_r0_path() {
     return 0
 }
 
+# has_baseline: stdin test paths -> those the full suite also runs (so they have a green
+# baseline). pytest files are collected by the python runners and always pass through.
+has_baseline() {
+    local t b re
+    while IFS= read -r t; do
+        case "$t" in
+            *.py) printf '%s\n' "$t"; continue ;;
+        esac
+        b="${t##*/}"
+        # whole-entry match: the name must not be embedded in a longer name (xtest-a.sh, test-a.sh.bak)
+        re="(^|[^A-Za-z0-9_.-])$(printf '%s' "$b" | sed 's/[][\.*^$+?(){}|]/\\&/g')($|[^A-Za-z0-9_.-])"
+        if grep -qE -- "$re" tests/run-all-tests.sh scripts/local-ci.sh tests/shard-durations.tsv 2>/dev/null \
+            || grep -qE -- "$re" .github/workflows/full-suite.yml .github/workflows/nightly.yml 2>/dev/null; then
+            printf '%s\n' "$t"
+        fi
+    done
+}
+
 # guards_for FILE: print test files that guard that R0-class path.
 guards_for() {
     local f="$1" base
     base="${f##*/}"
+    # FC-54: options BEFORE `--`; after it --include is a file operand and the filter is silently dropped.
     # tests that name the exact path or the basename (docker/Dockerfile.control-plane
     # selects tests/test-control-plane.sh this way)
-    grep -rlF -- "$f" tests --include='test-*.sh' --include='test_*.py' 2>/dev/null
-    grep -rlF -- "$base" tests --include='test-*.sh' --include='test_*.py' 2>/dev/null
+    # FC-73: the grep result is only a candidate set. VERSION and the root manifest names are mentioned by hundreds of
+    # tests (fixtures, prose) that do not guard the file (their guards are the explicit lists below), and a
+    # candidate with no green baseline (not run by the full suite) fails here for reasons
+    # unrelated to the change. Keep only baseline-registered .sh candidates.
+    case "$f" in
+        VERSION | package.json) ;;
+        */package.json | requirements*.txt | requirements*.in | */requirements*.txt | */requirements*.in)
+            # nested manifest or root requirements: the basename is shared by every manifest, so only the exact path selects
+            grep -rlF --include='test-*.sh' --include='test_*.py' -- "$f" tests 2>/dev/null | has_baseline
+            ;;
+        *)
+        { grep -rlF --include='test-*.sh' --include='test_*.py' -- "$f" tests 2>/dev/null
+          grep -rlF --include='test-*.sh' --include='test_*.py' -- "$base" tests 2>/dev/null
+        } | has_baseline
+        ;;
+    esac
     case "$f" in
         .github/workflows/*)
-            grep -rlF -- ".github/workflows" tests --include='test-*.sh' --include='test_*.py' 2>/dev/null
+            grep -rlF --include='test-*.sh' --include='test_*.py' -- ".github/workflows" tests 2>/dev/null
             printf '%s\n' tests/test-shard-coverage.sh tests/test-registration-coverage.sh
             ;;
         docker/Dockerfile*)
@@ -137,12 +173,17 @@ cmd_plan() {
         write_matrix "$out"
         return 0
     fi
+    # R8: the global guard set (scripts/global-guards.tsv) runs on every plan, even when every changed
+    # path was R0-class and rest.txt is empty. The python step below dedups against the selector's own R8 rows.
+    bash scripts/select-tests.sh --guards-only >>"$out/raw.tsv" || {
+        printf 'FULL\tglobal-guards-unreadable\t0\t0\n' >"$out/plan.tsv"; write_matrix "$out"; return 0; }
     while IFS= read -r f; do
         [ -n "$f" ] || continue
         guards_for "$f" | sort -u | while IFS= read -r t; do
             [ -f "$t" ] || continue
             case "$t" in
                 *.py) printf 'G\tpy_test\t%s\n' "$t" ;;
+                *.js) printf 'G\tnode_test\t%s\n' "$t" ;;
                 *) printf 'G\tshell_test\t%s\n' "$t" ;;
             esac
         done >>"$out/raw.tsv"
@@ -195,12 +236,15 @@ for line in open(os.path.join(out, "raw.tsv")):
     # A suite estimated over 80s cannot fit a 90s job. It is deferred to the
     # nightly full run (D90) unless its own file changed (R2) or a path guard
     # selected it (G); the deferral is listed, never silent.
-    if cost > 80 and p[0] not in ("R2", "G"):
+    if cost > 80 and p[0] not in ("R2", "G", "R8"):
         deferred.append("%s\t%s\t%g\n" % (kind, target_, cost))
         continue
     rows.append([kind, target_, cost])
 rows.sort(key=lambda r: -r[2])
 total = sum(r[2] for r in rows)
+over = bool(rows) and math.ceil(total / target) > maxs
+if over:
+    sys.stderr.write("fast-gate: plan over capacity: total=%gs target=%gs maxs=%d: failing safe to the FULL set\n" % (total, target, maxs))
 n = 0 if not rows else min(maxs, max(1, math.ceil(total / target)))
 loads = [0.0] * n
 for r in rows:
@@ -209,8 +253,11 @@ for r in rows:
     r.append(i)
 open(os.path.join(out, "deferred.tsv"), "w").writelines(deferred)
 with open(os.path.join(out, "plan.tsv"), "w") as f:
-    for r in rows:
-        f.write("%s\t%s\t%g\t%d\n" % tuple(r))
+    if over:
+        f.write("FULL\tplan-over-capacity\t0\t0\n")
+    else:
+        for r in rows:
+            f.write("%s\t%s\t%g\t%d\n" % tuple(r))
 PYEOF
     write_matrix "$out"
     echo "fast-gate: base=$base head=$head files=$(wc -l <"$out/changed.txt" | tr -d ' ') planned=$(wc -l <"$out/plan.tsv" | tr -d ' ')"
@@ -251,7 +298,13 @@ cmd_run() {
             py_test | pytest) timeout -k 10 "$SUITE_LIMIT" python3 -m pytest -q "$target"; rc=$? ;;
             bun_test) (cd loki-ts && timeout -k 10 "$SUITE_LIMIT" bun test "${target#loki-ts/}"); rc=$? ;;
             node_test) timeout -k 10 "$SUITE_LIMIT" node --test "$target"; rc=$? ;;
-            node_lint) (cd "$target" && timeout -k 10 "$SUITE_LIMIT" npm run lint); rc=$? ;;
+            node_lint)
+                # The shard installs only the root and loki-ts deps; install the target's own
+                # locked deps so the linter binary exists (FC-73), instead of failing rc=127.
+                if [ ! -x "$target/node_modules/.bin/eslint" ]; then
+                    (cd "$target" && timeout -k 10 "${FAST_GATE_INSTALL_LIMIT:-300}" npm ci --ignore-scripts --no-audit --no-fund) || echo "fast-gate: npm ci failed in $target"
+                fi
+                (cd "$target" && timeout -k 10 "$SUITE_LIMIT" npm run lint); rc=$? ;;
             *) echo "unknown kind: $kind" >&2; rc=2 ;;
         esac
         if [ "$rc" -ne 0 ]; then echo "FAIL rc=$rc: $kind $target"; fail=1; else echo "ok: $kind $target"; fi

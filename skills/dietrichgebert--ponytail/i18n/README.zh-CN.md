@@ -159,7 +159,7 @@ codex plugin add ponytail@ponytail
 | `/ponytail [lite \| full \| ultra \| off]` | 设置强度或关闭。不带参数时：如果已关闭，就以默认级别打开；否则显示当前级别。 |
 | `/ponytail-review` | 像出了故障会被叫醒的资深开发者那样审查当前 diff：bug、安全、真实负载、没有测试的高风险代码、慢的地方，以及可以删掉的东西。每条发现都写清这段代码做什么、哪里出错、怎么修、不修会怎样。用普通的话指定目标来缩小或扩大范围：`uncommitted`、`staged`、`branch`，或一个 PR 链接。 |
 | `/ponytail-audit` | 对整个仓库做同样的检查，最重要的排在前面。 |
-| `/ponytail-debt` | 把你推迟处理的 `ponytail:` 捷径收集成一份清单，免得"以后再说"变成"永远不做"。 |
+| `/ponytail-debt` | 把你推迟处理的 `shortcut:` 捷径收集成一份清单，免得"以后再说"变成"永远不做"。 |
 | `/ponytail-gain` | 以计分板形式显示基准测试测得的效果（更少代码、更低成本、更快速度）。 |
 | `/ponytail-help` | 上述命令的速查表。 |
 
@@ -169,6 +169,9 @@ codex plugin add ponytail@ponytail
 
 **需要配置文件吗？**
 不需要。可选的 `~/.config/ponytail/config.json` 或环境变量 `PONYTAIL_DEFAULT_MODE` 可以设置默认级别，但什么都不是必需的。
+
+**为什么它会写 `shortcut:` 注释？**
+它标记一个有意的捷径以及何时该回头处理，`/ponytail-debt` 会把它们收集成一份清单。想换个词，或者完全不要？在项目的 `CLAUDE.md` 或 `AGENTS.md` 里写明，然后运行 `/ponytail-debt <你的词>`。
 
 **如果我真的需要那个 120 行的缓存类呢？**
 你不需要。非要的话，他也会写。慢慢地。正确地。一边看着你。

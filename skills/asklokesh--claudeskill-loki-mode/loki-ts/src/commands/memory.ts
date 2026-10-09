@@ -8,7 +8,7 @@ import { BOLD, GREEN, YELLOW, CYAN, NC } from "../util/colors.ts";
 import { homeLokiDir, lokiDir, REPO_ROOT } from "../util/paths.ts";
 import { runInline } from "../util/python.ts";
 import { run } from "../util/shell.ts";
-import { GhError, formatLessonList, learnFromPr, loadLessons } from "../util/pr_lessons.ts";
+import { GhError, type Lesson, formatLessonList, learnFromPr, loadLessons, removeLesson } from "../util/pr_lessons.ts";
 
 const LEARNINGS_DIR = resolve(homeLokiDir(), "learnings");
 
@@ -48,20 +48,30 @@ export async function runMemoryList(): Promise<number> {
 
 export async function runMemoryIndex(rebuild: boolean): Promise<number> {
   if (rebuild) {
-    // Mirror autonomy/loki:13399 -- import memory.layers, build, print.
+    // Mirror autonomy/loki memory index rebuild: MemoryEngine.rebuild_index()
+    // against the caller's .loki/memory, non-zero on failure.
     const py = `
+import sys
 try:
-    from memory.layers import IndexLayer
-    layer = IndexLayer('.loki/memory')
-    layer.update([])
-    print('Index rebuilt')
-except ImportError:
-    print('Error: memory.layers module not found')
+    from memory.engine import MemoryEngine
+    engine = MemoryEngine(base_path='.loki/memory')
+    engine.rebuild_index()
+    total = (engine.get_index() or {}).get('total_memories', 0)
 except Exception as e:
-    print(f'Error: {e}')
+    print(f'Error: index rebuild failed: {type(e).__name__}: {e}', file=sys.stderr)
+    sys.exit(1)
+print(f'Index rebuilt: {total} memories indexed')
 `.trim();
-    const r = await runInline(py, { cwd: REPO_ROOT });
+    const existing = process.env["PYTHONPATH"];
+    const r = await runInline(py, {
+      cwd: process.cwd(),
+      env: { PYTHONPATH: existing ? `${REPO_ROOT}:${existing}` : REPO_ROOT },
+    });
     process.stdout.write(r.stdout);
+    if (r.exitCode !== 0) {
+      process.stderr.write(r.stderr || `Error: index rebuild failed (exit ${r.exitCode})\n`);
+      return r.exitCode || 1;
+    }
     return 0;
   }
 
@@ -82,6 +92,13 @@ except Exception as e:
   return 0;
 }
 
+// verified_ratio is VERIFIED uses over uses with a settled verdict; null while none has settled.
+function lessonJson(l: Lesson): Record<string, unknown> {
+  const settled = l.uses.filter((u) => u.verdict !== null);
+  const verified = settled.filter((u) => u.verdict === "VERIFIED").length;
+  return { id: l.id, text: l.text, source: l.source, uses: l.uses.length, verified_ratio: settled.length ? verified / settled.length : null };
+}
+
 export async function runMemory(argv: readonly string[]): Promise<number> {
   if (argv.length === 0) {
     // Bare `loki memory`: the learnings summary followed by this repo's PR lessons.
@@ -91,9 +108,23 @@ export async function runMemory(argv: readonly string[]): Promise<number> {
   }
   const sub = argv[0] ?? "list";
   switch (sub) {
-    case "lessons":
-      process.stdout.write(formatLessonList(loadLessons(process.cwd())));
+    case "lessons": {
+      const lessons = loadLessons(process.cwd());
+      if (argv.slice(1).includes("--json")) {
+        process.stdout.write(`${JSON.stringify(lessons.map(lessonJson), null, 2)}\n`);
+        return 0;
+      }
+      process.stdout.write(formatLessonList(lessons));
       return 0;
+    }
+    case "forget": {
+      const id = argv[1];
+      if (!id) { process.stderr.write("Usage: loki memory forget <prl-id>\n"); return 2; }
+      const gone = removeLesson(process.cwd(), id);
+      if (!gone) { process.stderr.write(`Error: no such lesson '${id}'\n`); return 1; }
+      process.stdout.write(`Forgot ${gone.id}: ${gone.text}\n`);
+      return 0;
+    }
     case "list":
     case "ls":
       return runMemoryList();
@@ -101,6 +132,7 @@ export async function runMemory(argv: readonly string[]): Promise<number> {
       if (!argv[1]) { process.stderr.write("Usage: loki memory learn <owner/repo#PR>\n"); return 2; }
       try {
         const r = await learnFromPr(process.cwd(), argv[1]);
+        if (r.reason) process.stdout.write(`${r.reason}\n`);
         process.stdout.write(`Learned from ${argv[1]}: ${r.added} added, ${r.duplicates} already known, ${r.skipped} skipped (empty)\n`);
         return 0;
       } catch (e) {

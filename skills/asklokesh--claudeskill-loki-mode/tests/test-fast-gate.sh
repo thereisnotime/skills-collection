@@ -50,6 +50,17 @@ if has wf tests/test-ci-cache-scope.sh && has wf tests/test-registration-coverag
     ok "a workflow edit selects the workflow guards, not the full set"
 else bad "a workflow edit did not select the workflow guards"; fi
 
+# FC-54: a path guard may only select runnable tests (tests/test-*.sh, tests/test_*.py). The old
+# `grep ... -- PATTERN tests --include=...` put --include after `--`, so it was a file operand and
+# every file under tests/ (helpers, tsv, the suite runner) was selected and run as a test.
+plan_for wfrun .github/workflows/release.yml tests/run-all-tests.sh tests/test-promote-head-stamp.sh
+bad_rows="$(awk -F'\t' '$1=="shell_test" || $1=="py_test" {print $2}' "$T/wfrun/plan.tsv" \
+    | grep -vE '^tests/(.*/)?(test-[^/]*\.sh|test_[^/]*\.py|run[-_][^/]*\.sh)$' || true)"
+bad_rows="$bad_rows$(awk -F'\t' '$2=="tests/run-all-tests.sh"' "$T/wfrun/plan.tsv")"
+if [ -z "$bad_rows" ]; then
+    ok "FC-54: a workflow/runner edit plans only runnable test files, no helpers, tsv or run-all-tests.sh"
+else bad "FC-54: non-test rows planned: $(printf '%s' "$bad_rows" | tr '\n' ' ')"; fi
+
 plan_for docs docs/v10/DECISIONS.md
 if ! has docs tests/test-doctor-single-impl.sh && ! grep -q '^FULL' "$T/docs/plan.tsv"; then
     ok "mutation: an unrelated docs edit selects no doctor suite"
@@ -100,20 +111,19 @@ for n in ('packages/control-plane/dist/server.js', 'packages/control-plane/dist/
     assert n in seg, n
 assert 'tar -tzf' in seg
 PY
-then ok "publish-npm runs prepublishOnly before npm pack and asserts the four dist files"
-else bad "publish-npm does not run prepublishOnly before pack or lacks the dist assertions"; fi
+then ok "pack-npm runs prepublishOnly before npm pack and asserts the four dist files"
+else bad "pack-npm does not run prepublishOnly before pack or lacks the dist assertions"; fi
 
-# B2: the nightly block does not depend on the nightly being newer than the release
+# B2 (D96): a red nightly no longer blocks the release; it blocks promotion.
 if python3 - "$rel" <<'PY'
 import sys
 s = open(sys.argv[1]).read()
-a = s.index('Block the release on a red nightly')
-seg = s[a:a + 4000]
-assert 'NEWER' not in seg, 'NEWER clause still present'
-assert 'if [ "$CONC" != "success" ]; then' in seg
+assert 'Block the release on a red nightly' not in s, 'release.yml still has the red-nightly block'
+assert 'NIGHTLY-BLOCK' not in s, 'NIGHTLY-BLOCK still present in release.yml'
+assert 'workflows/nightly.yml' not in s, 'release.yml still reads nightly runs'
 PY
-then ok "any non-success latest nightly blocks (overlap case: red nightly older than the release still blocks)"
-else bad "the nightly block still has a newer-than-release clause"; fi
+then ok "release.yml no longer blocks on a red nightly (D96: the gate moved to promote.yml)"
+else bad "release.yml still blocks the release on a red nightly"; fi
 
 # PLAN-BOUND: the plan step is bounded and a nonzero planner rc forces FULL.
 if python3 - <<'PY'
@@ -145,6 +155,19 @@ if [ -e "$T/edge/raw.tsv" ] && ! grep -q 'too-many-files' "$T/edge/plan.tsv"; th
     ok "150 changed files go through normal selection"
 else bad "150 changed files were short-circuited"; fi
 
+# PLAN-OVERFLOW: a plan whose estimate exceeds MAX_SHARDS * SHARD_TARGET_S fails safe to FULL.
+printf '%s\n' VERSION package.json loki-ts/dist/loki.js >"$T/ovf.files"
+FAST_GATE_TEST_MODE=1 FAST_GATE_FILES_FILE="$T/ovf.files" FAST_GATE_MAX_SHARDS=1 FAST_GATE_SHARD_TARGET_S=1 \
+    bash scripts/ci/fast-gate.sh plan test "$T/ovf" >"$T/ovf.log" 2>&1
+if [ "$(grep -c . "$T/ovf/raw.tsv" 2>/dev/null)" -ge 2 ] && grep -q '^FULL	plan-over-capacity	0	0$' "$T/ovf/plan.tsv" \
+    && grep -q '^full=true$' "$T/ovf/outputs.txt" && grep -q 'plan over capacity: total=.*target=1s maxs=1' "$T/ovf.log"; then
+    ok "PLAN-OVERFLOW: an estimate above the shard cap fails safe to FULL (full=true) and logs total/target/maxs"
+else bad "PLAN-OVERFLOW: over-capacity plan did not write FULL plan-over-capacity"; fi
+FAST_GATE_TEST_MODE=1 FAST_GATE_FILES_FILE="$T/ovf.files" bash scripts/ci/fast-gate.sh plan test "$T/ovf2" >"$T/ovf2.log" 2>&1
+if [ -s "$T/ovf2/plan.tsv" ] && ! grep -q '^FULL' "$T/ovf2/plan.tsv" && grep -q '^full=false$' "$T/ovf2/outputs.txt"; then
+    ok "PLAN-OVERFLOW: an under-capacity plan is packed normally (no FULL)"
+else bad "PLAN-OVERFLOW: under-capacity plan wrongly went FULL or was empty"; fi
+
 # PLAN-BOUND: force a hang. Run the real step script with a stub planner that
 # sleeps and a 1s timeout; the step must exit 0 under bash -e with full=true.
 mkdir -p "$T/hang/scripts/ci" "$T/hang/rt"
@@ -166,6 +189,68 @@ if [ "$hang_rc" -eq 0 ] && grep -q '^full=true$' "$T/hang/gh_out" && ! grep -q '
     && [ -s "$T/hang/rt/plan/plan.tsv" ]; then
     ok "a hung planner is cut by the timeout: step exits 0 under bash -e with full=true and a plan.tsv"
 else bad "a hung planner did not yield full=true with exit 0 (rc=$hang_rc)"; fi
+
+# FC-73: a release-commit plan (VERSION, package.json, dist, workflows) must not select suites that
+# have no green baseline, and VERSION must not pull in every test that merely mentions the word.
+printf '%s\n' VERSION package.json loki-ts/dist/loki.js >"$T/rel.files"
+FAST_GATE_TEST_MODE=1 FAST_GATE_FILES_FILE="$T/rel.files" bash scripts/ci/fast-gate.sh plan test "$T/rel" >"$T/rel.log" 2>&1
+fc67_bad=""
+while IFS=$'\t' read -r _k kind target _rest; do
+    [ "$_k" = "G" ] || continue
+    case "$target" in *.py | *.js) continue ;; esac
+    b="${target##*/}"
+    grep -qF -- "$b" tests/run-all-tests.sh scripts/local-ci.sh tests/shard-durations.tsv .github/workflows/full-suite.yml .github/workflows/nightly.yml \
+        || fc67_bad="$fc67_bad $target"
+done <"$T/rel/raw.tsv"
+if [ -s "$T/rel/raw.tsv" ] && [ -z "$fc67_bad" ]; then
+    ok "FC-73: every path-guard suite a release-commit plan selects has a full-suite baseline"
+else bad "FC-73: release plan selected suites with no baseline:$fc67_bad"; fi
+if grep -q 'tests/test-quick-receipt-order.sh' "$T/rel/plan.tsv" 2>/dev/null; then
+    bad "FC-73: VERSION/package.json selected a suite that only mentions the word"
+else ok "FC-73: VERSION/package.json guards are the explicit list, not every test that mentions them"; fi
+if grep -q 'tests/test-release-dist-guard.sh' "$T/rel/raw.tsv"; then
+    ok "FC-73: the explicit VERSION/dist guards are still selected"
+else bad "FC-73: explicit release guards were dropped"; fi
+
+# FC-73 (B1): a nested manifest keeps its exact-path guards (only the shared basename grep is dropped).
+printf '%s\n' loki-ts/package.json >"$T/nest.files"
+FAST_GATE_TEST_MODE=1 FAST_GATE_FILES_FILE="$T/nest.files" bash scripts/ci/fast-gate.sh plan test "$T/nest" >"$T/nest.log" 2>&1
+if grep -q 'tests/test-sdk-version-sync.sh' "$T/nest/raw.tsv"; then
+    ok "FC-73: loki-ts/package.json still selects test-sdk-version-sync.sh"
+else bad "FC-73: loki-ts/package.json lost its exact-path guard test-sdk-version-sync.sh"; fi
+
+# FC-73 (B2): drive guards_for/has_baseline in a fixture tree. An unregistered suite that names the
+# path must NOT be selected; a registered one must be; a suite that only names a nested manifest's
+# basename must NOT be selected.
+mkdir -p "$T/fx/tests"
+printf 'run_test "reg" "$SCRIPT_DIR/test-fx-reg.sh"\n' >"$T/fx/tests/run-all-tests.sh"
+printf '# docker/Dockerfile.fx loki-ts/package.json\n' >"$T/fx/tests/test-fx-reg.sh"
+printf '# docker/Dockerfile.fx loki-ts/package.json\n' >"$T/fx/tests/test-fx-unreg.sh"
+printf '# package.json only\n' >"$T/fx/tests/test-fx-basename.sh"
+printf 'run_test "b" "$SCRIPT_DIR/test-fx-basename.sh"\n' >>"$T/fx/tests/run-all-tests.sh"
+sed -n '/^has_baseline()/,/^}/p;/^guards_for()/,/^}/p' scripts/ci/fast-gate.sh >"$T/fx/fns.sh"
+fx_out="$( cd "$T/fx" && . ./fns.sh && guards_for docker/Dockerfile.fx; guards_for loki-ts/package.json )"
+if printf '%s\n' "$fx_out" | grep -q 'test-fx-reg.sh' && ! printf '%s\n' "$fx_out" | grep -q 'test-fx-unreg.sh'; then
+    ok "FC-73: guards_for selects the registered suite and drops the unregistered one"
+else bad "FC-73: guards_for baseline filter wrong: $(printf '%s' "$fx_out" | tr '\n' ' ')"; fi
+if printf '%s\n' "$fx_out" | grep -q 'test-fx-basename.sh'; then
+    bad "FC-73: a suite naming only the basename package.json was selected for a nested manifest"
+else ok "FC-73: nested manifest selects by exact path only"; fi
+
+# FC-75 (L4): a root requirements-test.txt must still select suites that name its exact path (only root VERSION
+# and package.json skip the grep); L3: a candidate whose name is only a substring of a registered suite's name
+# (xtest-fx-sub.sh registered, test-fx-sub.sh not) has no baseline and must be dropped.
+printf '# requirements-test.txt\n' >"$T/fx/tests/test-fx-req.sh"
+printf 'run_test "r" "$SCRIPT_DIR/test-fx-req.sh"\n' >>"$T/fx/tests/run-all-tests.sh"
+printf '# requirements-test.txt\n' >"$T/fx/tests/test-fx-sub.sh"
+printf 'run_test "s" "$SCRIPT_DIR/xtest-fx-sub.sh"\n' >>"$T/fx/tests/run-all-tests.sh"
+fx_req="$( cd "$T/fx" && . ./fns.sh && guards_for requirements-test.txt )"
+if grep -q 'test-fx-req.sh' <<<"$fx_req"; then
+    ok "FC-75: root requirements-test.txt selects the suite naming its exact path"
+else bad "FC-75: root requirements-test.txt skipped its exact-path grep: $(printf '%s' "$fx_req" | tr '\n' ' ')"; fi
+if grep -qx 'tests/test-fx-sub.sh' <<<"$fx_req"; then
+    bad "FC-75: substring-of-registered suite name was treated as registered"
+else ok "FC-75: has_baseline matches whole entries, not substrings"; fi
 
 echo "fast-gate tests: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

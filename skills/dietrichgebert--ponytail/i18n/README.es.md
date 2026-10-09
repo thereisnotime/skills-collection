@@ -159,7 +159,7 @@ Instala ponytail solo desde `DietrichGebert/ponytail` en GitHub o `@dietrichgebe
 | `/ponytail [lite \| full \| ultra \| off]` | Ajusta la intensidad o lo apaga. Sin argumento enciende ponytail en el nivel por defecto si está apagado; si no, muestra el nivel actual. |
 | `/ponytail-review` | Revisa el diff actual como el dev senior al que llaman cuando algo se rompe: bugs, seguridad, carga real, código arriesgado sin test, partes lentas y lo que sobra. Cada hallazgo dice qué hace el código, qué falla, cómo arreglarlo y qué pasa si no se arregla. Indica un objetivo con palabras normales para acotarlo o ampliarlo: `uncommitted`, `staged`, `branch` o un enlace a un PR. |
 | `/ponytail-audit` | La misma revisión para todo el repo, lo más importante primero. |
-| `/ponytail-debt` | Reúne los atajos `ponytail:` que dejaste para después en un registro, para que "luego" no se convierta en "nunca". |
+| `/ponytail-debt` | Reúne los atajos `shortcut:` que dejaste para después en un registro, para que "luego" no se convierta en "nunca". |
 | `/ponytail-gain` | Muestra el marcador de impacto medido (menos código, menos coste, más velocidad) del benchmark. |
 | `/ponytail-help` | Referencia rápida de los comandos anteriores. |
 
@@ -169,6 +169,9 @@ Los comandos necesitan un host con soporte de skills (Claude Code, Codex, Devin 
 
 **¿Necesita un archivo de configuración?**
 No. Un `~/.config/ponytail/config.json` opcional o la variable de entorno `PONYTAIL_DEFAULT_MODE` pueden fijar el nivel por defecto, pero no hace falta nada.
+
+**¿Por qué escribe comentarios `shortcut:`?**
+Marcan un atajo deliberado y cuándo revisarlo, y `/ponytail-debt` los reúne en un registro. ¿Quieres otra palabra, o ninguna? Dilo en el `CLAUDE.md` o `AGENTS.md` de tu proyecto y luego ejecuta `/ponytail-debt <tu palabra>`.
 
 **¿Y si de verdad necesito la clase de caché de 120 líneas?**
 No la necesitas. Insiste de todos modos y te la construye. Despacio. Correctamente. Mirándote.

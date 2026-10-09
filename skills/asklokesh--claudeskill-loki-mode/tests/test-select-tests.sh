@@ -281,9 +281,12 @@ expect_contains "R3 python match uses py_test kind" "$out" "$(printf 'R3\tpy_tes
 expect_not_contains "R3 python match is never shell_test" "$out" "$(printf 'shell_test\ttests/dashboard/test_api_runs.py')"
 
 # R7: docs-only diff (outside skills/ and not SKILL.md) runs R1 only. A .md
-# change carries no shell/py syntax to check, so the selector emits nothing.
+# change carries no shell/py syntax to check, so the selector emits nothing
+# beyond the always-on R8 global guard rows (GATE-GUARDS).
 out="$(sel 'docs/some-notes.md')"
-expect_empty "R7 docs-only is silent (nothing to R1-check)" "$out"
+expect_not_contains "R7 docs-only selects no R1 check" "$out" "$(printf 'R1\t')"
+expect_not_contains "R7 docs-only selects no R3 suite" "$out" "$(printf 'R3\t')"
+expect_contains "R8 docs-only diff still selects the spawn guard" "$out" "$(printf 'R8\tbun_test\tloki-ts/tests/util\n')"
 
 # R7 does not apply to skills/ or SKILL.md -- those still get full selection.
 out="$(files_result "$(printf 'skills/testing.md\nautonomy/hooks/migration-hooks.sh\n')")"
@@ -425,6 +428,85 @@ chmod +x "$stub_dir/python3"
 out="$(cd "$REPO_ROOT" && PATH="$stub_dir:$PATH" bash "$SELECT" --files - <<<'loki-ts/src/commands/doctor.ts')"
 rm -rf "$stub_dir"
 expect_contains "FC-32 failing python3 still selects test-control-plane" "$out" "tests/test-control-plane.sh"
+
+# GATE-GUARDS R8: the global guard set (scripts/global-guards.tsv, the one declared list) is selected on
+# every non-empty diff regardless of what changed. A diff touching only runner/attempts.ts must select the
+# FC-25 raw-spawn guard and its siblings; a docs-only diff must too.
+out="$(cd "$REPO_ROOT" && bash "$SELECT" --files - <<<'loki-ts/src/runner/attempts.ts')"
+while IFS=$'\t' read -r gk gt; do
+    case "$gk" in '' | '#'*) continue ;; esac
+    expect_contains "R8 attempts.ts diff selects declared guard $gt" "$out" "$(printf 'R8\t%s\t%s' "$gk" "$gt")"
+done <"$REPO_ROOT/scripts/global-guards.tsv"
+expect_contains "R8 attempts.ts diff selects the fc25 raw spawn guard dir (tests/util)" "$out" "$(printf 'R8\tbun_test\tloki-ts/tests/util\n')"
+expect_contains "R8 attempts.ts diff selects spawn_env_guard" "$out" "loki-ts/tests/runner/spawn_env_guard.test.ts"
+expect_contains "R8 attempts.ts diff selects never_below_raw" "$out" "loki-ts/tests/engine10/never_below_raw.test.ts"
+expect_contains "R8 attempts.ts diff selects l0_guard" "$out" "loki-ts/tests/engine10/l0_guard.test.ts"
+expect_contains "R8 attempts.ts diff selects structural checks" "$out" "tests/test-structural-checks.sh"
+[ -f "$REPO_ROOT/loki-ts/tests/util/fc25_raw_spawn_guard.test.ts" ] && PASS=$((PASS + 1)) || { FAIL=$((FAIL + 1)); echo "FAIL: fc25_raw_spawn_guard.test.ts is not under the selected loki-ts/tests/util"; }
+out="$(cd "$REPO_ROOT" && bash "$SELECT" --guards-only)"
+expect_contains "R8 --guards-only lists the guards with no diff" "$out" "$(printf 'R8\tmoat\ttests/moat/p9-rule-of-two.sh')"
+
+# FASTGATE-GLOBAL-GUARDS (FC-89): a bun test that walks the whole loki-ts/src tree names no src stem, so R4 never
+# selected it (WALL-COLOR, FC-69, shipped a red). Such tests carry the marker `// select: walk-all-src` and the
+# selector picks every marked file up for any diff, no hard-coded list. A diff touching only
+# loki-ts/src/engine10/stages/wall.ts must select all of them.
+out="$(cd "$REPO_ROOT" && bash "$SELECT" --files - <<<'loki-ts/src/engine10/stages/wall.ts')"
+for g in loki-ts/tests/util/full_env_spawn_guard.test.ts loki-ts/tests/util/fc25_raw_spawn_guard.test.ts \
+    loki-ts/tests/engine10/l0_guard.test.ts loki-ts/tests/runner/spawn_env_guard.test.ts \
+    loki-ts/tests/engine10/budget.test.ts loki-ts/tests/engine10/l2_destructive_registry.test.ts \
+    loki-ts/tests/engine10/never_below_raw.test.ts; do
+    case "$g" in
+        loki-ts/tests/util/*) want="$(printf 'R8\tbun_test\tloki-ts/tests/util\n')" ;;
+        *) want="$(printf 'R8\tbun_test\t%s' "$g")" ;;
+    esac
+    expect_contains "FC-89 wall.ts diff selects the src-walking guard $g" "$out" "$want"
+done
+# Every marked file is covered (directly, or by a declared directory row) on a src diff.
+while IFS= read -r mk; do
+    [ -n "$mk" ] || continue
+    if printf '%s\n' "$out" | grep -qxF -- "$(printf 'R8\tbun_test\t%s' "$mk")" || printf '%s\n' "$out" | grep -qxF -- "$(printf 'R8\tbun_test\t%s' "$(dirname "$mk")")"; then
+        PASS=$((PASS + 1))
+    else
+        FAIL=$((FAIL + 1)); echo "FAIL: FC-89 marked walker $mk is not selected for a loki-ts/src diff"
+    fi
+done < <(cd "$REPO_ROOT" && grep -rlF 'select: walk-all-src' loki-ts/tests --include='*.test.ts' | sort)
+
+# Completeness: a test that walks the src tree but carries neither marker fails here, so a new walker cannot ship
+# unselected. `// select: not-src-walker (reason)` is the audited opt-out for a false positive.
+unmarked="$(cd "$REPO_ROOT" && python3 -I - <<'PYEOF'
+import glob, re
+for f in sorted(glob.glob('loki-ts/tests/**/*.test.ts', recursive=True)):
+    t = open(f).read()
+    if 'select: walk-all-src' in t or 'select: not-src-walker' in t:
+        continue
+    src = (re.search(r'(?:const|let)\s+\w+\s*=\s*(?:resolve|join)\([^;\n]*?(?:"src"|\.\./src\b)[^;\n]*?\)', t)
+           or 'loki-ts/src"' in t or ('from "./_guard_lib' in t and re.search(r'\bSRC\b', t)))
+    rec = re.search(r'isDirectory\(\)|recursive:\s*true|\bwalk\w*\(', t) and re.search(r'\breaddirSync\(|\bwalk\w*\(', t)
+    if src and rec:
+        print(f)
+PYEOF
+)"
+if [ -z "$unmarked" ]; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1)); echo "FAIL: FC-89 src-walking tests missing '// select: walk-all-src' (or an audited '// select: not-src-walker (reason)'):"
+    printf '%s\n' "$unmarked"
+fi
+
+# SEL-XARGS: the per-needle candidate scan must batch files into few grep calls, not spawn one grep per
+# candidate file (that made a 100-150 file diff take minutes).
+cnt_dir="$(mktemp -d "${LOKI_RUN_TMP:-${TMPDIR:-/tmp}}/select-cnt.XXXXXX")"
+real_grep="$(command -v grep)"
+printf '#!/bin/sh\necho x >> "%s/n"\nexec "%s" "$@"\n' "$cnt_dir" "$real_grep" > "$cnt_dir/grep"
+chmod +x "$cnt_dir/grep"
+(cd "$REPO_ROOT" && PATH="$cnt_dir:$PATH" bash "$SELECT" --files - <<<'providers/claude.sh' >/dev/null)
+ncalls="$(wc -l < "$cnt_dir/n" 2>/dev/null | tr -d ' ')"
+rm -rf "$cnt_dir"
+if [ "${ncalls:-9999}" -lt 60 ]; then
+    PASS=$((PASS + 1)); echo "PASS: SEL-XARGS candidate scan batched ($ncalls grep calls)"
+else
+    FAIL=$((FAIL + 1)); echo "FAIL: SEL-XARGS candidate scan spawned $ncalls grep calls (expected < 60)"
+fi
 
 echo ""
 echo "select-tests fixtures: $PASS passed, $FAIL failed"

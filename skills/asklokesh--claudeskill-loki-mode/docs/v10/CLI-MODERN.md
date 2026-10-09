@@ -6,12 +6,12 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 
 ## Counts
 
-- KEEP-MODERN: 61
+- KEEP-MODERN: 64
 - UPDATE: 22
 - DROP-LEGACY: 31
 - DELETE: 14
-- Total rows: 128
-- Registry paths (commands and nested subcommands): 177
+- Total rows: 131
+- Registry paths (commands and nested subcommands): 181
 
 ## Commands
 
@@ -36,6 +36,9 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 | start | bun route, bash fallthrough | UPDATE | Forks between v10 and the SDK loop; flags still legacy-shaped |
 | slack | loki-ts/src/cli.ts | KEEP-MODERN | Bun-native integration |
 | queue | loki-ts/src/cli.ts | KEEP-MODERN | Governor-aware batch of issue-mode runs |
+| issues | loki-ts/src/cli.ts | KEEP-MODERN | Mass issue pickup on the T7 queue |
+| undo | loki-ts/src/cli.ts | KEEP-MODERN | UNDO-1/2: --plan is read-only, apply behind LOKI_UNDO=1 |
+| verify-pr | loki-ts/src/cli.ts | KEEP-MODERN | VPR-2: fail-to-pass check, LOKI_VERIFY_PR=1 |
 | answer | loki-ts/src/cli.ts | KEEP-MODERN | v10 blocked-run flow |
 | engine10 | loki-ts/src/cli.ts | KEEP-MODERN | The v10 engine |
 | internal (hidden) | loki-ts/src/cli.ts | KEEP-MODERN | Hidden plumbing |

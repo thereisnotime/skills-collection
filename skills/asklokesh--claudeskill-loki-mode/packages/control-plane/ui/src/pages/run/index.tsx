@@ -24,6 +24,11 @@ function OutcomeBadge({ verdict, label, tone, testid }: { verdict?: string | nul
   return <Badge tone={TONE[o.tone]} pulse={o.label === "Running"} data-testid={testid} style={{ textTransform: "none", letterSpacing: 0 }}>{o.label}</Badge>;
 }
 
+/** "partial: k of n sessions" when some session recorded no usage (FC-44); null on a complete run or an old row. */
+export function tokensPartialLabel(r: Pick<RunDetailResponse, "total_sessions"> & { token_sessions?: number | null }): string | null {
+  return r.token_sessions != null && r.total_sessions > 0 && r.token_sessions < r.total_sessions ? `partial: ${r.token_sessions} of ${r.total_sessions} sessions` : null;
+}
+
 export function costLabel(r: Pick<RunDetailResponse, "cost_usd" | "partial_usd" | "measured_sessions" | "total_sessions">): string {
   if (r.cost_usd !== null && r.cost_usd !== undefined) return fmtUsd(r.cost_usd);
   if (r.partial_usd) return `at least ${fmtUsd(r.partial_usd)} (${r.measured_sessions} of ${r.total_sessions} sessions measured)`;
@@ -270,8 +275,9 @@ export function RunThread({ source, run, slot, renderSlot }: { source: string; r
   const [retry, setRetry] = useState<{ busy: boolean; msg?: string; error?: boolean }>({ busy: false });
   const events = useEvents(source, run);
   const patch = useArtifact(source, run, "diff.patch");
-  const receipt = useArtifact(source, run, "receipt.md");
+  const receiptMd = useArtifact(source, run, "receipt.md");
   const receiptJson = useArtifact(source, run, "receipt.json");
+  const receipt = receiptMd === undefined || receiptJson === undefined ? undefined : (receiptMd ?? receiptJson);
   const load = useCallback(() => { getRun(source, run).then((x) => { setD(x); setErr(null); }, (e: Error) => setErr(e.message)); }, [source, run]);
   const inProgress = !d || d.status === "running" || d.verdict === null;
   useEffect(() => {
@@ -307,12 +313,13 @@ export function RunThread({ source, run, slot, renderSlot }: { source: string; r
     <section data-testid="run-thread" style={{ maxWidth: 1100, margin: "0 auto", padding: "8px 0 32px", display: "flex", flexDirection: "column", gap: 20 }}>
       <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
         <div style={{ flex: "1 1 320px", minWidth: 0 }}>
-          <div className="cp-eyebrow">{d.origin_repo ?? `repo ${UNMEASURED}`}{d.issue_ref && d.title ? ` / ${d.issue_ref}` : ""}</div>
+          <div className="cp-eyebrow">{d.origin_repo ?? d.source_id}{d.issue_ref && d.title ? ` / ${d.issue_ref}` : ""}</div>
           <h1 data-testid="run-title" className="cp-display" style={{ margin: "4px 0 0", fontSize: 30, overflowWrap: "anywhere" }}>{title}</h1>
         </div>
         {blocked ? <OutcomeBadge verdict="BLOCKED" testid="run-outcome" /> : d.verdict ? <OutcomeBadge label={runOutcome(d).label} tone={runOutcome(d).tone} testid="run-outcome" /> : <OutcomeBadge verdict={null} testid="run-outcome" />}
         <span data-testid="run-elapsed" style={{ fontFamily: "var(--cp-font-mono)", fontSize: "var(--cp-text-base)" }}>{elapsedLabel(d.elapsed_s ?? d.wall_s)}</span>
         <span data-testid="run-cost" style={{ fontFamily: "var(--cp-font-mono)", fontSize: "var(--cp-text-base)" }}>{costLabel(d)}</span>
+        {tokensPartialLabel(d) && <span data-testid="run-tokens-partial" style={{ fontFamily: "var(--cp-font-mono)", fontSize: "var(--cp-text-sm, 12px)" }}>tokens {tokensPartialLabel(d)}</span>}
         <span data-testid="run-header-slot" style={{ display: "inline-flex", gap: 8 }}>{slot}{renderSlot ? renderSlot(ownRules ? { ...d, blocked_question: null } : d, load) : null}</span>
         {renderSlot ? null : <Button variant={ownRules ? "primary" : "secondary"} size="sm" data-testid="run-retry" disabled={!canRetry || retry.busy} title={running ? "The run is still in progress" : d.issue_ref ? "Start this issue again" : `No issue reference recorded ${UNMEASURED}`} onClick={() => void doRetry()}><RotateCcw size={13} aria-hidden="true" /> Retry</Button>}
         {retry.msg ? <span role={retry.error ? "alert" : "status"} data-testid="run-retry-msg" style={{ color: retry.error ? "var(--cp-error-ink)" : "var(--cp-text-2)", fontSize: "var(--cp-text-base)" }}>{retry.msg}</span> : null}

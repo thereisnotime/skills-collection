@@ -1,7 +1,7 @@
 {
   "name": "loki-mode",
   "mcpName": "io.github.asklokesh/loki-mode",
-  "version": "11.3.1",
+  "version": "11.3.9",
   "description": "An autonomous software factory that knows what it is supposed to deliver, and proves it did.",
   "keywords": [
     "agent",
@@ -106,10 +106,7 @@
     "completions/",
     "src/",
     "web-app/dist/",
-    "web-app/server.py",
-    "web-app/auth.py",
-    "web-app/models.py",
-    "web-app/crypto.py",
+    "web-app/*.py",
     "web-app/requirements.txt",
     "web-app/alembic.ini",
     "web-app/migrations/",

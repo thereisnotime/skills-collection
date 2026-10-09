@@ -1600,6 +1600,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[wgwtest/novel-writing](https://github.com/wgwtest/novel-writing)** - Plans and revises fiction with viewpoint, dialogue, and style checks.
 - **[cyperx84/claude-skills-mental-models](https://github.com/cyperx84/claude-skills-mental-models)** - Drop your own mental models in as files; 21 included
 - **[manavmishra/zero-slop](https://github.com/manavmishra/ZeroSlop/blob/main/SKILL.md)** - Edits AI-sounding prose while preserving facts, voice, and formatting
+- **[Atomic-Mail/atomicmail](https://github.com/Atomic-Mail/atomic-mail-agentic/tree/main/integrations/skill/atomicmail)** - Agent registers its own inbox, then sends and reads mail
 - **[forjd/better-writing](https://github.com/forjd/better-writing)** - Rewrites AI-sounding prose without inventing facts; eval-tested
 - **[OneWave-AI/claude-skills](https://github.com/OneWave-AI/claude-skills)** - 225 business, everyday-life, and coding skills, many with scripts
 - **[GiaSip/giasip-research](https://github.com/GiaSip/giasip-skills/tree/main/skills/giasip-research)** - Source-linked research reports with explicit unresolved checks

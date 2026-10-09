@@ -5,6 +5,162 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.3.9 (2026-10-09)
+
+Security follow-up to v11.3.6 plus a release-pipeline fix that lets verified releases reach the `latest` tag sooner.
+
+### Security
+- Credential isolation follow-ups (FC-90, GH-KEYRING). The git credential.helper reset is now also appended to an inherited GIT_CONFIG_PARAMETERS so it is read last, and the per-process empty gh config directory is removed on SIGTERM as well as on normal exit; the SIGTERM cleanup is registered first so a host process's own shutdown handler keeps control. The seal check now records only the token variable names and fails if the token canary value appears under any other variable name.
+- The FC-90 wording no longer overclaims: code running as your own user can still reach your credentials. This is default-path hardening, not a sandbox; process isolation remains the opt-in P9 work (LOKI_P9_ISOLATION=1).
+
+### Changed
+- Release backstop (BACKSTOP-TRIGGER): a completed Release now triggers the Nightly full-suite backstop on that exact commit (deduplicated by SHA), and promotion to `latest` accepts that run. Previously only the hourly schedule ran the backstop, so a release could wait up to an hour, or longer under steady releases, before it was eligible for `latest`.
+
+### Upgrade
+- Confirm the installed version with `loki version`.
+
+## v11.3.8 (2026-10-09)
+
+Release pipeline speed patch. Nothing changes in what Loki builds or verifies for users; this release changes only how Loki itself is packaged and published.
+
+### Changed
+- Release workflow (WF-2MIN-3): the npm tarball is packed once in a new `pack-npm` job (read-only permissions, no secrets) and the `release` job publishes those exact bytes. The sha256 is verified after download and again immediately before `npm publish`, and publish still refuses unless the release tag exists on the remote. The separate `publish-npm` job is absorbed into `release`, which removes one job start from the path between dispatch and npm publish.
+- `npm-visible` (registry propagation poll) is now non-blocking: Docker, the SDKs and Slack no longer wait on it. Registry lag is reported separately in docs/v10/METRICS.md.
+- Post-Release Smoke now polls for up to 15 minutes of registry lag before failing.
+
+### Behaviour notes
+- A failed `npm publish` now fails the `release` job, so the Docker, SDK and Slack jobs are skipped for that run instead of running independently. A rerun after the tag and GitHub release exist skips publish; use `workflow_dispatch` with `force_republish` to recover.
+
+## v11.3.7 (2026-10-09)
+
+Maintenance patch release for contributors running many parallel worktrees. Nothing changes in what Loki builds or verifies for users.
+
+### Added
+- Worktree reaper for parallel development (FC-99, AUTO-REAP). `scripts/v10-worktree-reap.sh` removes `.claude/worktrees` entries that are merged or idle, after saving any uncommitted work to a local `wt-save/<name>` branch. It runs from the train cycle and from a post-merge hook (under a 120s timeout), and `scripts/v10-worktree-add.sh` refuses to create a worktree below 40G of free disk until a reap frees space. The pulse reports a WORKTREE_SPRAWL violation above 20 worktrees.
+- The reaper never deletes work it cannot save: a worktree holding ignored files outside a fixed regenerable list (node_modules, caches, the built loki-ts dist) is kept and listed, never committed, and so is any worktree mid-merge, mid-rebase, cherry-pick, revert or bisect, or with a file changed in the last 6 hours. Removal is by exact path, non-force, inside `.claude/worktrees` only; the main checkout and the calling worktree are never touched.
+
+### Fixed
+- Tests: the repo-wide counting and ceiling guards now run in every pre-push guard pass, and 47 more checks in the compound CLI test use here-strings in place of `echo | grep -q`, which could fail intermittently with a broken pipe under load (FC-64). The legacy pipe-to-grep ceiling drops from 1789 to 1742.
+
+## v11.3.6 (2026-10-09)
+
+Security patch release. Removing the GitHub token variables from a child environment did not remove the user's other GitHub credentials: the gh CLI could still read its login from its config directory or the OS keyring, and git could still call the user's credential helpers. Every token-free environment Loki builds now closes those paths through one shared mechanism.
+
+### Security
+- Project test, lint and typecheck commands and the agent worker no longer reach your gh login or git credential helpers (FC-90, GH-KEYRING). The GitHub token variables become a non-working sentinel, gh gets an empty per-process config directory, and git's credential.helper is reset through GIT_CONFIG_COUNT entries appended after your own configuration, so your gitconfig file is never edited and your commit identity is kept. Git terminal prompts and Git Credential Manager prompts are disabled in those environments. The empty config directory is created once per process and removed by exact path at exit.
+- Known limits: SSH keys under ~/.ssh remain reachable from project test commands (the agent worker already withholds the SSH agent), and code running as your user can still undo these variables and call gh directly. This change closes accidental and default credential reach; it is not a sandbox. Process isolation is the opt-in P9 work (LOKI_P9_ISOLATION=1).
+
+### Changed
+- The release gate no longer repeats the typecheck and bun test run that the Tests workflow already does on the same tree, which took about 6m40s per release, so a patch reaches npm sooner (FC-88, WF-GATE-DEDUP). Publishing still waits for a green Tests verdict on that tree, and the gate still checks that the committed dist matches a fresh build.
+
+### Fixed
+- Tests: the GH-KEYRING suites now run on CI runners that have no gh login, and 12 checks in the release-gate and help-changelog tests use here-strings in place of `echo | grep -q`, which could fail intermittently with a broken pipe under load (FC-64).
+
+## v11.3.5 (2026-10-08)
+
+Patch release that makes the fast gate always run the guard tests that scan the whole source tree, and corrects a public isolation claim to what the code actually guarantees.
+
+### Changed
+- Public wording for GitHub token isolation: the environment-variable reference, code comments and test descriptions now say "Loki never passes the GitHub token into the agent's environment" instead of claiming the token never reaches the agent, and the reference states the remaining limit (the agent runs as your user, so the OS keychain and credential files are not yet isolated). The stronger claim stays withdrawn until full process isolation ships (P9-WORDING).
+
+### Fixed
+- The fast gate selected guard tests by the files a diff touched, so a guard that scans all of `loki-ts/src` (raw spawn, full-env spawn, credentialed push, hardcoded model IDs, regex and registration guards) could be skipped on a diff that added a new violation in a file it did not name. Every guard that walks the source tree now carries a content marker, and the fast gate selects all marked guards on any diff (FC-89, FASTGATE-GLOBAL-GUARDS).
+
+## v11.3.4 (2026-10-08)
+
+Patch release that hardens the release path and clears every red on main. A release-only commit now reuses its parent's CI verdict, the fast gate selects only guards with a green baseline while keeping exact-path guards for nested manifests, Post-Release Smoke fails when a release drops a check or the Wall test, the promote gate recognizes a legacy-titled smoke run by its head SHA, and a dedupe-gated hourly full-suite backstop now measures main between releases. The Wall base run no longer misreads colored test output, and spec intake decides single-directory layout from the full tracked file list. Seven CI reds are fixed at their cause, and a test plan too large for its shard cap now falls back to the full suite. v11.3.3 was never published (its release run failed), so this is the first npm release since v11.3.2 and it also ships the v11.3.3 changes listed below that section.
+
+### Changed (behavior): project tests run without your GitHub token or SSH agent
+- The test, lint and typecheck commands that Loki runs for the Wall, verify and package-suite checks no longer receive GH_TOKEN, GITHUB_TOKEN, the enterprise token variables or SSH_AUTH_SOCK, even with `LOKI_ALLOW_AGENT_GITHUB_TOKEN=1`. Untrusted repo test code never receives your credentials. A project whose tests fetch private dependencies over the SSH agent or a token will now fail those fetches. An explicit opt-in that passes named variables to project tests only is coming in the next release (FC-87).
+
+### Added
+- Hourly full-suite backstop (D96-BACKSTOP): the nightly workflow also runs hourly, and a dedupe job skips the full suite, first-run gate, pinned Bun legs and full-history gitleaks scan when main has not moved since the last measured run. Promotion still counts only a non-skipped `Full suite (backstop)` job as a measurement.
+- Wall smoke guard (FC-68, WALL-SMOKE-GUARD): real-run scenarios and Post-Release Smoke fail when a release silently drops a check or the Wall test does not execute.
+- Help drift guard (FC-72, HELP-DRIFT): a test fails when a command named in the newest CHANGELOG sections is missing from help output or shell completion.
+
+### Fixed
+- Wall base run parsed ANSI-colored test output as failures: the base run now forces no-color and strips ANSI, and an unexecuted Wall test is disclosed without capping the verdict (FC-69, WALL-COLOR).
+- Spec intake decided single-directory layout from a truncated tracked-file list, and a rejected intake could leave a stale session behind: the decision now uses the full list and the session race is cleaned up on rejection (FC-55, INTAKE-FAST).
+- Release-only commits re-ran the full suite: the bump-only allowlist now includes the Helm charts and the CLI reference, so a VERSION bump reuses its parent's green verdict (FC-70, BUMP-REUSE).
+- Promote gate rejected a valid smoke run whose title predated the head-SHA title format: a Release-triggered smoke run is now matched by head_sha too (FC-71, PROMOTE-SMOKE-SHA), and the release-tag tests now assert that contract (FC-85).
+- Help and completion were missing `loki plan --spec`, `loki start --spec` and `loki memory forget` (HELP-DRIFT).
+- Fast gate on a release commit selected guard suites that were already red on the base. Guard selection now runs only suites with a green baseline, nested package manifests and the root requirements file keep their exact-path guards, and the baseline match is whole-entry (FC-73, FC-75, RELGATE-REDS, RELGATE-L4).
+- `tests/test-verify-runner-selection.sh` could report a false failure from SIGPIPE under pipefail: its pipe-to-grep checks are now here-strings, enforced by the SIGPIPE guard (FC-74).
+- The Bun opt-out case in the autonomy-and-stop suite was skipped on CI because no `claude` was installed: it now runs against a stub (FC-76).
+- Shard coverage failed because a guessed duration row moved two watched suites into one shard: the row now holds the measured time (FC-80).
+- The no-mock data-render test inherited the CI runner's stdin and scanned the wrong file list: it now passes its files explicitly (FC-81).
+- The Purple Lab live-server suite failed collection on runners without its client libraries or server: it now skips each test with a stated reason, so pytest still collects them and exits 0 (FC-82).
+- The funnel-privacy suite timed out on Linux CI because `loki start` cases entered the real runner: the stub provider now refuses login and the suite runs in about 20 seconds with every privacy assertion intact (FC-83).
+- The demo non-TTY test depended on a provider CLI being installed: it now uses a stub provider (FC-84).
+- The fast gate packed a plan larger than its shard cap into shards that hit the 6-minute job timeout, so Tests ended cancelled: a plan over capacity now selects the full-suite fallback (FC-86, PLAN-OVERFLOW).
+- The env-spawn guard stopped counting test-command spawns after the Wall color fix routed them through a helper, so main went red: test-command environments now drop GitHub tokens and the SSH agent socket whatever the parent env holds, the guard recognizes the helper as token-free, and its allowlist shrinks to the one remaining full-env spawn (FC-87, ENVGUARD-PLAINENV).
+
+## v11.3.3 (2026-10-08)
+
+Patch release that tightens the release path itself. Promotion of `latest` now requires a green nightly and a green Post-Release Smoke tied to the exact release, a new guard fails any workflow that masks a test failure, and a SIGPIPE guard keeps `| grep -q` from turning large output into a false red. No product behavior changes; `loki doctor` gets a test fix only.
+
+### Added
+- Security Audit scans only the new range (last tag to the pushed SHA) on main pushes, cutting the release gate from about 15 minutes; a nightly full-history gitleaks backstop keeps whole-history coverage (GITLEAKS-INCR).
+- Promote gate (D96-GATE): `latest` moves only when the newest covering nightly is green and a Post-Release Smoke run for the same release is green. Smoke runs are matched by their run title, which carries the Release run's head SHA (workflow_run) or `v<VERSION>` (dispatch), so a smoke for another release can never satisfy the gate.
+- Masked-failure guard (FC-57): `tests/test-workflow-no-masked-failures.sh` fails when a workflow step runs a test and then hides its failure (`|| true`, a capture that is reset before `exit`, a grouped test followed by `|| true`, `continue-on-error`). Common error idioms such as `echo "::error::..." >&2; exit 1` stay allowed. Contrived bypasses are logged as a LOW follow-up (FC-65).
+- SIGPIPE guard ratchet (FC-64): `tests/test-sigpipe-guard.sh` blocks new `<large output> | grep -q` shapes under pipefail, which die of SIGPIPE on large input and report a false failure.
+- D98: guard review standard (realistic findings block, contrived bypasses become LOW rows) and a 2-round limit on HIGH reviews.
+
+### Fixed
+- Pre-push gitleaks test failed on main: three fixtures copied the real `.gitleaksignore`, whose comment text matched a rule; fixtures now drop comment lines and a guard scans the real file with the pinned gitleaks (FC-66, PP-GITLEAKS-FIXTURE).
+- `loki doctor` nightly red: a subprocess test pinned PATH so tightly that the product under test never ran, and its host-dependent counter had no host-independent fixture (FC-63, NR-DOCTOR).
+- Post-Release Smoke run title strips a leading `v` from a dispatched version, so `v11.3.3` and `11.3.3` produce the same title.
+
+## v11.3.2 (2026-10-08)
+
+Patch release that builds on the 11.3.1 feature set: `loki start --attempts N` can now open a PR, `loki undo`, `loki verify-pr`, `loki issues run` and `loki export --sarif` are added, receipts stop reporting unmeasured usage as zero, and the engine10 core is split so optional features live under contrib/. Most new behavior ships behind a flag that is OFF by default (LOKI_UNDO, LOKI_XVENDOR_DEFAULT, LOKI_AI_MARKING, LOKI_MCP_TASKS, LOKI_MCP_2026_07, LOKI_OTEL_GENAI, LOKI_E10_WALL_CONCURRENT, LOKI_LESSONS_REJECTED), and ER-01 effort right-sizing is off unless LOKI_E10_EFFORT_POLICY=rerun. Only opencode remains on the bash loop; the docs now say so.
+
+### Added
+- Attempts with PR (T5): the winning attempt's PR goes through `engine10-push.sh push-pr`, so the 11.3.1 `--no-pr` requirement is dropped. Preflight uses push-pr's own origin validation and is pinned before attempt 1, the winner branch name is trusted-derived, and identity falls back per field.
+- `loki undo <run-id>`: UNDO-1 adds a read-only plan (`--plan`) that validates receipt refs as hex object ids and ends option parsing. UNDO-2 applies the undo behind LOKI_UNDO=1, refuses hostile receipt refs before touching git, and closes PRs with an allowlisted env. The command is registered in the CLI registry and generated docs.
+- `loki verify-pr` (VPR-1, VPR-2): a fail-closed sandbox runner and contract, and a core that runs the fail-to-pass check through that sandbox. Issue checks are trust-gated, base and head suites are compared, and issue author association is read from the REST API with a failed trust lookup reported.
+- `loki issues run` (MASS-1, MASS-2): triages open issues and runs them through the T7 queue. MASS-2 splits a too-large issue into stacked slices (`--no-split` opts out) with a stacked PR base.
+- `loki export --sarif` (SARIF-1, SARIF-2): converts findings to SARIF 2.1.0 and writes findings.sarif per run, with repo-relative encoded artifact URIs and paths outside the repo omitted.
+- Per-change AI-BOM (MARK-2) as a CycloneDX 1.7 ML-BOM document, and AI commit trailers plus a PR marker behind LOKI_AI_MARKING (MARK-1).
+- Spec-first intent: `loki plan --spec` writes an editable .loki/specs/<slug>.md and `loki start --spec` runs against it. The intent card gains an optional "Out of scope" line, truncated to 200 characters (132-F1).
+- Reviewer brief v2: the brief gains a decision block.
+- Quota forecast (QF-1, QF-2): a reset-time parser and usage window model, and an advisory forecast line before `loki start` and `loki queue run`, shown only on an interactive stderr.
+- Memory: `loki memory forget <prl-id>` and `lessons --json` (133-F3); lessons are demoted after 3 or more decided uses with no VERIFIED run (132-F3); a lesson cites the receipt of its PR's run (MC-1); lessons can be learned from closed-unmerged Loki PRs behind LOKI_LESSONS_REJECTED (MC-2).
+- `loki status` shows the last run's sealed verdict (133-F4).
+- Cross-vendor review default (XV-1): with LOKI_XVENDOR_DEFAULT=1, cross-review uses the other vendor when installed. A review that was not run does not count as cross-vendor.
+- Effort right-sizing policy (ER-01): per-stage reasoning effort, enabled only with LOKI_E10_EFFORT_POLICY=rerun.
+- MCP: the Tasks extension for verify/run with traceparent propagation behind LOKI_MCP_TASKS (MCP-D), where tasks over HTTP need a token, a JSON content type and a loopback Origin; server/discover and the 2026-07-28 stateless profile behind LOKI_MCP_2026_07 (MCP-C); a handshake guard for the negotiated protocol version (MCP-B).
+- OpenTelemetry: engine10 events become gen_ai spans in the OTel bridge with LOKI_OTEL_GENAI=1 (OTEL-1), and a collector config for Grafana, Honeycomb and Datadog with a deterministic fixture (OTEL-2b).
+- Wall: LOKI_E10_WALL_CONCURRENT authors the Wall alongside plan and implement (WC-01b, flag off). The base run uses a pre-implement tree snapshot, fails closed, and reads as unproven to every consumer.
+- Receipt (RECEIPT-TRUTH): carries total_s, the stage partition, cache tokens, per-model cost, a resume verdict, and cost.tokens_measured to mark sessions left out of the input/output token totals.
+- Governor: shows the seat formula inputs and calibrates per-seat burn from readings (GOV-FORMULA).
+- B9 scoreboard: raw and loki arms with cost, correctness and wall ratios, a 40x scoreboard with a labelled human-review floor (`--human-floor-min`), a raw-codex arm with an `--arms` selector, claimed-done extraction for each arm, and an FCR task-set validator.
+- CI and release: a pinned gitleaks install in the weekly integrity audit (FC-49); gitHead stamped into the packed manifest with a verified tag fallback in Promote, which requires a Release run and a matching VERSION (FC-51); a flake tracker for the nightly run (FC-53).
+- Docs: a cited MCP 2026-07-28 conformance table and SDK probe (MCP-0), a draft in-toto agent-change predicate (SIGS-DOC), D94 train-branch release policy and the contrib cap (RG-06), and D96 (every approved slice releases to `next`, `latest` by backstop-green promotion).
+
+### Changed
+- Engine10 structure (EXT-CORE-2, EXT-FEAT): forecast, receipt time, cost records, plan command, effort policy, eta, wall snapshot, brief facts, verify_pr_f2p, status, sarif, ai_bom and slack_inbound moved out of core into contrib/. Core dependencies are inverted through typed hook slots filled by contrib/index.ts. Behavior is unchanged; the core is under its 5000-line cap (core 4933, features 2782).
+- Receipt cost reporting: unrecorded token usage reaches every reader as NOT RECORDED, never zero or a partial sum. A session without usage emits no token keys on its cost event, a killed session with no usage is NOT RECORDED, and an ambiguous resume leaves every summed figure out (FC-44).
+- B9 counts only VERIFIED and solved loki runs as delivered, and reads cost and time only from SDK totals and RECEIPT-TRUTH fields.
+- Gate: the global guard set is selected on every diff (FC-48). `select-tests --run` exits 1 with NOTHING RUN when zero suites executed (FC-47), and batches candidate greps with xargs -0.
+- Packaging: web-app/*.py ships by glob in the npm package and Docker image (132-E2).
+- Docs: the 7.5x cost-parity evidence moved to docs/ROUTING-EVIDENCE.md. Engine wording is corrected: PRD-file starts and local-model providers still run the previous loop, and only the opencode provider is named (DOCS-ENGINE-TRUTH).
+- Help: `loki help start` no longer advertises refused flags (133-E3), and start help no longer claims attempts N>1 requires `--no-pr`.
+- Tests: alias-forwarding runs independent checks as parallel units (issue 183).
+
+### Fixed
+- safe_git: caller `--no-ext-diff` and `--no-textconv` are deduplicated in central injection, with acceptance and canary tests (132-B1).
+- Token-free env: the Wall snapshot spawn and the verify_pr tar extract use tokenFreeEnv instead of bare process.env (FC-40).
+- Wall completion outputs are pinned exactly, and `duration_s` must be a number (WC-01b).
+- Memory: the Bun memory index rebuild calls MemoryEngine.rebuild_index (issue 204).
+- Engine10: spec-conflict resume is skipped with under 60s of the implement window left (FC-19b).
+- OTel: editing only the exporters list is true under inert defaults (OTEL-2b).
+- `loki onboard` survives a failing find under pipefail, and the doctor install-hint test counts only provider hints (FC-53).
+- Nightly: the cockpit wasm is warmed and real-render tests get an explicit timeout (FC-50); the caveman test normalises a trailing slash in its temp root (FC-62); nightly-flake fixture glyphs are stored as placeholders and materialised at test time (FC-53).
+- Fast gate: path guards no longer select non-test files under tests/ (FC-54); train guards for verify_pr, the help bound and structural test names are green (FC-60, FC-61).
+- Control plane: run page nits (Wall row text, folder name, receipt.json fallback) (CP-NITS1).
+- Quota forecast: the QF-2 forecast line no longer breaks A-130's failure-output line budget.
+
 ## v11.3.1 (2026-10-08)
 
 Patch release that ships the ten v1 features of the 11.3 program: cost preview, mutation proof, intent card, reviewer brief, attempts, memory with proof, overnight queue, before/after proof, provider failover and the supply-chain guard. It also adds the CI-FAST gate, a docs cleanup and help-text truth fixes. The router still ships OFF, and so does the T2 downgrade.

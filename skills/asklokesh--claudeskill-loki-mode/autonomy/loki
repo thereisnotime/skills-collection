@@ -1691,6 +1691,22 @@ _help_answer() {
     echo "and sets LOKI_NO_BROWSER=1."
 }
 
+# `loki help verify-pr`: a Bun-only command (loki-ts), so its help lives here.
+_help_verify_pr() {
+    echo -e "${BOLD}loki verify-pr${NC} - Verify a PR against its linked issue (experimental, LOKI_VERIFY_PR=1)"
+    echo ""
+    echo "Usage: loki verify-pr <https://github.com/o/r/pull/N | o/r#N> [--out DIR]"
+    echo ""
+    echo "Derives a check from the PR's linked issue (Check: \`cmd\` or a loki-check fence)."
+    echo "VERIFIED only if the check fails on the PR base, passes on its head, and the"
+    echo "touched packages' suites pass. A PR with no linked issue, no check, a removed"
+    echo "test or a non-discriminating check is NOT PROVEN. Writes verify-pr-result.json."
+    echo "PR code runs only in the container sandbox (scripts/verify-pr-sandbox.sh); set"
+    echo "LOKI_VPR_IMAGE to a locally present image."
+    echo ""
+    echo "Exit codes: 0 verified, 2 usage or sandbox blocked, 4 not proven."
+}
+
 # Appended to `loki help verify`: the v10 DSSE export flag (docs/exit-codes.md).
 _help_verify_dsse() {
     echo ""
@@ -1763,6 +1779,7 @@ show_help() {
     echo "  review [opts]    Standalone code review with quality gates"
     echo "  ultracode \"task\" Run a task as a native Claude Code Dynamic Workflow (opt-in, Claude-only)"
     echo "  trust [cmd]      Visible trust trajectory; 'trust detail' for metrics"
+    echo "  undo <run> [--plan]  Plan or apply (LOKI_UNDO=1) an undo of a run; verifies the receipt"
     echo ""
     echo "Observe:"
     echo "  dashboard [cmd]  Operations UI server (start|stop|status|url|open)"
@@ -1798,15 +1815,12 @@ show_help() {
     echo ""
     echo "Options for 'start':"
     echo "  --provider NAME  AI provider: claude (default), codex, cline, aider, opencode"
-    echo "  --parallel       Enable parallel mode with git worktrees"
-    echo "  --bg, --background  Run in background mode"
     echo "  --simple         Force simple complexity tier (3 phases)"
     echo "  --complex        Force complex complexity tier (8 phases)"
-    echo "  --github         Enable GitHub issue import"
     echo "  --no-dashboard   Disable web dashboard"
-    echo "  --sandbox        Run in Docker sandbox for isolation (default: off; requires Docker)"
     echo "  --isolation LVL  Per-run isolation dial: none (default) | worktree | docker"
     echo "  --skip-memory    Skip loading memory context at startup"
+    echo "  --spec FILE      Run against an edited spec (written by 'loki plan <task> --spec'; see also --spec-first)"
     echo "  --fresh-prd      Regenerate the PRD from the codebase (no-PRD runs; ignores the reusable generated PRD)"
     echo "  --compliance PRESET  Enable compliance mode (default|healthcare|fintech|government)"
     echo "  --budget USD     Set cost budget limit (display in dashboard/status)"
@@ -1824,8 +1838,6 @@ show_help() {
     echo "  loki start ./prd.md           # Start with PRD file"
     echo "  loki start owner/repo#123     # GitHub issue (auto-fetches)"
     echo "  loki start PROJ-456           # Jira issue"
-    echo "  loki start --bg ./prd.md      # Start in background"
-    echo "  loki start --parallel ./prd.md   # Parallel mode (git worktrees)"
     echo "  loki quick \"add dark mode\"  # Single-task mode (Loki 10 engine)"
     echo "  loki tour                     # See a real sample result (no provider, no key, no spend)"
     echo "  loki demo                     # Build a sample todo app end to end"
@@ -1898,7 +1910,7 @@ show_help() {
     echo "  merge resume review rollback run sandbox secrets secure self-update sentrux"
     echo "  serve setup-skill share ship spec start state stats status steer stop"
     echo "  syslog telemetry template test tour trigger trust trust-metrics"
-    echo "  ultracode update verify version voice watch watchdog web welcome why"
+    echo "  ultracode undo update verify version voice watch watchdog web welcome why"
     echo "  wiki workspace worktree (wt)"
     echo "  control"
     echo ""
@@ -2563,20 +2575,18 @@ cmd_start() {
                 echo "                        Token from LOKI_REMOTE_TOKEN / LOKI_REMOTE_TOKEN_FILE"
                 echo "                        (never an argument). Env: LOKI_REMOTE_URL."
                 echo "  --provider NAME       AI provider: claude (default), codex, cline, aider, opencode"
-                echo "  --parallel            Enable parallel mode with git worktrees"
                 echo "  --allow-haiku         Enable Haiku model for the fast tier (default: disabled)"
-                echo "  --bg, --background    Run in background mode"
                 echo "  --simple              Force simple complexity tier (3 phases)"
                 echo "  --complex             Force complex complexity tier (8 phases)"
-                echo "  --github              Enable GitHub issue import"
                 echo "  --no-dashboard        Disable web dashboard"
                 echo "  --api                 Start dashboard API server alongside the build"
-                echo "  --sandbox             Run in Docker sandbox (default: off; requires Docker)"
                 echo "  --isolation LEVEL     Per-run isolation: none (default) | worktree | docker."
-                echo "                        Unified dial; --parallel = worktree, --sandbox = docker."
+                echo "                        Unified dial."
                 echo "  --attempts N          Run N (1-5, default 1) independent attempts in separate git worktrees;"
                 echo "                        the most executed passing checks wins, losers are recorded on the receipt"
                 echo "  --skip-memory         Skip loading memory context at startup"
+                echo "  --spec FILE           Run against an edited .loki/specs/<slug>.md (from 'loki plan <task> --spec')"
+                echo "  --spec-first          Write .loki/specs/<slug>.md for you to edit, then stop"
                 echo "  --fresh-prd           Regenerate the PRD from the codebase on a no-PRD run"
                 echo "                        (ignores the reusable generated PRD; aliases: --regen-prd,"
                 echo "                        --regenerate-prd, --regen, or LOKI_PRD_REGEN=1)"
@@ -2608,7 +2618,6 @@ cmd_start() {
                 echo "  --worktree, -w        Git worktree isolation (separate branch)"
                 echo "  --pr                  Worktree + auto-create PR"
                 echo "  --ship                Worktree + PR + auto-merge"
-                echo "  --detach, -d          Run in background"
                 echo ""
                 echo "Preview without spending (any input mode):"
                 echo "  loki plan <PRD>       Analyze a spec WITHOUT executing: complexity,"
@@ -2637,7 +2646,6 @@ cmd_start() {
                 echo "  loki start 123                          # ISSUE mode (current repo GitHub issue)"
                 echo "  loki start PROJ-456                     # ISSUE mode (Jira)"
                 echo "  loki start owner/repo#789               # ISSUE mode (GitHub specific repo)"
-                echo "  loki start --prd ./prd.md --parallel    # Explicit PRD, parallel mode"
                 echo "  loki start --issue 123 --ship           # Explicit issue, full automation"
                 echo "  loki start --provider codex             # Use OpenAI Codex CLI"
                 echo "  loki start --bmad-project ./my-project  # Start from BMAD artifacts"
@@ -6424,22 +6432,35 @@ except Exception:
         fi
     fi
 
-    # v7.82: completion-aware one-liner. When a finished run left a completion
-    # record, show its outcome and point at \`loki why\` for the full story. Reads
-    # the persisted completion.json (no recompute); silent when absent.
-    if [ -f "$LOKI_DIR/state/completion.json" ]; then
-        local last_outcome
-        last_outcome=$(_LOKI_CJ="$LOKI_DIR/state/completion.json" python3 -c "
-import json, os
+    # 133-F4: newest sealed receipt's verdict, read from the receipt field only
+    # (never recomputed). Missing, empty or unparseable receipts never read as
+    # VERIFIED. This replaces the old completion.json one-liner (Bun never had it).
+    local receipt_line
+    receipt_line=$(_LOKI_RUNS="$LOKI_DIR/runs" python3 -c "
+import json, os, re
+runs = os.environ['_LOKI_RUNS']
 try:
-    d = json.load(open(os.environ['_LOKI_CJ']))
-    print(d.get('outcome', '') or '')
+    ids = sorted(d for d in os.listdir(runs) if os.path.isdir(os.path.join(runs, d)))
 except Exception:
-    print('')" 2>/dev/null)
-        if [ -n "$last_outcome" ]; then
-            echo -e "${DIM}Last run: ${last_outcome} - run 'loki why' for details${NC}"
-        fi
-    fi
+    ids = []
+if not ids:
+    print('Last run: no receipt (verdict NOT AVAILABLE)')
+else:
+    try:
+        d = json.load(open(os.path.join(runs, ids[-1], 'receipt.json')))
+        v = d['verdict']
+        h = d['receipt_sha256']
+        if not (isinstance(v, str) and re.fullmatch(r'[A-Z_]+', v) and isinstance(h, str)):
+            raise ValueError
+        h = h[7:] if h.startswith('sha256:') else h
+        if not re.fullmatch(r'[0-9a-f]{12,}', h):
+            raise ValueError
+        print('Last run: %s (receipt sha256:%s)' % (v, h[:12]))
+    except Exception:
+        print('Last run: receipt unreadable')
+" 2>/dev/null)
+    [ -n "$receipt_line" ] || receipt_line="Last run: receipt unreadable"
+    echo -e "${DIM}${receipt_line}${NC}"
 
     echo ""
     echo -e "${DIM}  Tip: loki analyze context show   - detailed token breakdown${NC}"
@@ -12394,6 +12415,9 @@ cmd_export() {
             echo "  csv        Task queue as CSV"
             echo "  timeline   Iteration timeline as JSON"
             echo ""
+            echo "Flags:"
+            echo "  --sarif [run-id]   Write .loki/runs/<id>/findings.sarif (SARIF 2.1.0; needs bun)"
+            echo ""
             echo "Examples:"
             echo "  loki export json                         # Print to stdout"
             echo "  loki export json session-export.json     # Save to file"
@@ -12415,6 +12439,10 @@ cmd_export() {
         timeline)
             require_jq || return 1
             _export_timeline "$output_path"
+            ;;
+        --sarif)
+            echo -e "${RED}loki export --sarif needs bun (https://bun.sh).${NC}" >&2
+            return 1
             ;;
         *)
             echo -e "${RED}Unknown format: $format${NC}"
@@ -20666,6 +20694,7 @@ cmd_plan() {
                 echo ""
                 echo "Options:"
                 echo "  --json        Machine-readable JSON output"
+                echo "  --spec        With a task: write the acceptance criteria to .loki/specs/<slug>.md for you to edit"
                 echo "  --verbose     Show detailed per-iteration breakdown"
                 echo "  --help, -h    Show this help"
                 echo ""
@@ -21201,6 +21230,11 @@ main() {
         mcp)
             cmd_mcp "$@"
             ;;
+        undo)
+            # UNDO-1: Bun-only (verifies the receipt with the Bun verifier); bin/loki routes here only when bun is absent.
+            echo "loki undo needs the Bun runtime (install bun, then re-run: loki undo <run-id> --plan)" >&2
+            exit 2
+            ;;
         acp)
             # ACP agent over stdio; stdout is protocol-only. See docs/acp-editors.md.
             LOKI_ACP_LOKI="${LOKI_ACP_LOKI:-$_LOKI_SCRIPT_DIR/loki}" exec python3 "$_LOKI_SCRIPT_DIR/acp-agent.py"
@@ -21413,6 +21447,8 @@ main() {
                             show_help
                         elif [ "$_help_target" = "answer" ]; then
                             _help_answer
+                        elif [ "$_help_target" = "verify-pr" ]; then
+                            _help_verify_pr
                         else
                             LOKI_HELP_ONLY=1 "$0" "$_help_target" --help "$@"
                             local _help_rc=$?
@@ -24366,6 +24402,9 @@ except Exception as e:
             echo "  dedupe            Remove duplicate entries"
             echo "  clear [type]      Clear learnings (all or specific type)"
             echo "  compound [cmd]    Compound-solutions knowledge store (was: loki compound)"
+            echo "  lessons [--json]  PR review lessons with their uses and outcomes"
+            echo "  learn <o/r#PR>    Learn lessons from a merged PR's review comments"
+            echo "  forget <prl-id>   Delete one PR lesson and print its text"
             echo ""
             echo "Memory System Commands:"
             echo "  index [rebuild]   Show or rebuild the memory index layer"
@@ -30164,7 +30203,7 @@ except: pass
 
     # Detect shell scripts
     local shell_count=0
-    shell_count=$(find "$target_path" -maxdepth 2 -name "*.sh" -type f 2>/dev/null | wc -l | tr -d ' ')
+    shell_count=$(find "$target_path" -maxdepth 2 -name "*.sh" -type f 2>/dev/null | wc -l | tr -d ' ' || true)
     if [ "$shell_count" -gt 0 ]; then
         languages="$languages Bash"
     fi
@@ -30602,7 +30641,7 @@ Files: $src_count source, $test_count test, $doc_count docs"
                 if [ -d "$target_path/$dir" ]; then
                     # Count files in directory
                     local dir_count
-                    dir_count=$(echo "$tree_output" | grep "^${dir}/" | wc -l | tr -d ' ')
+                    dir_count=$(echo "$tree_output" | grep "^${dir}/" | wc -l | tr -d ' ' || true)
                     output="$output
 $dir/    ($dir_count files)"
                 else

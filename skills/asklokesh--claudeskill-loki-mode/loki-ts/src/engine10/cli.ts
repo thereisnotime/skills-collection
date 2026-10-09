@@ -17,8 +17,10 @@ const TABLE: Record<string, { module: string; fn: string }> = {
   status: { module: "status.ts", fn: "main" },
   verify: { module: "verify_cmd.ts", fn: "main" },
   keys: { module: "keys_cmd.ts", fn: "main" },
+  "export-sarif": { module: "../commands/export_sarif.ts", fn: "main" },
   dashboard: { module: "../runner/engine10_dashboard.ts", fn: "main" },
   modernize: { module: "modernize/cli.ts", fn: "main" },
+  plan: { module: "plan_cmd.ts", fn: "main" },
   // Hidden subcommands spawned by the supervisor.
   worker: { module: "worker.ts", fn: "main" },
   session: { module: "session.ts", fn: "main" },
@@ -31,9 +33,12 @@ const USAGE = `Usage:
   loki status [run-id]            latest run by default
   loki verify [--pubkey <file>] [run-id|receipt.json]  check receipt hashes and signature
   loki keys export                print the receipt-signing public key (JWK + kid)
+  loki export --sarif [run-id]    write .loki/runs/<id>/findings.sarif (SARIF 2.1.0)
   loki dashboard                  serve the local dashboard
   loki modernize <repo> --to <target>  convert a codebase (loki modernize --help)
-Flags: --deep, --provider <name>, --no-pr, --max-cost <usd> (per-run cap; default $100 with an API key, none on a subscription; or loki.yaml budgets.per_run)
+  loki plan <task> --spec         write the acceptance criteria to .loki/specs/<slug>.md for you to edit
+  loki start --spec <file>        run against an edited spec as the authoritative intent (receipt records its sha256)
+Flags: --spec <file>, --deep, --provider <name>, --no-pr, --max-cost <usd> (per-run cap; default $100 with an API key, none on a subscription; or loki.yaml budgets.per_run)
 `;
 // Returns null for an empty or help invocation.
 export function route(args: string[]): Route | null {
@@ -68,6 +73,12 @@ export async function runEngine10(args: string[], load: Loader = defaultLoader):
     return help ? 0 : 2;
   }
   if (r.module === "supervisor.ts") await (await import("../features/warm_client.ts")).tryWarmSafe(process.cwd());
+  if (r.module === "supervisor.ts" && process.stderr.isTTY && !r.args.includes("--help") && !r.args.includes("-h")) {
+    const { registryLoader } = await import("./registry.ts");
+    const fc = (await registryLoader("./forecast.ts").catch(() => null)) as { printForecast: (d: string, r: unknown, w: (s: string) => void) => Promise<void> } | null;
+    const { defaultUsageReading } = await import("../commands/queue.ts");
+    await fc?.printForecast(process.env["LOKI_DIR"] ?? `${process.cwd()}/.loki`, defaultUsageReading, (s) => void process.stderr.write(s));
+  }
   const spec = `./${r.module}`;
   let mod: Record<string, unknown>;
   try {

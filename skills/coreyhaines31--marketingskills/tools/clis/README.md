@@ -32,6 +32,8 @@ export PATH="$PATH:/path/to/marketingskills/tools/clis"
 
 ## Authentication
 
+For step-by-step account setup and private credential loading, see [guided tool connections](../SETUP.md).
+
 Every CLI reads credentials from environment variables:
 
 | CLI | Environment Variable |

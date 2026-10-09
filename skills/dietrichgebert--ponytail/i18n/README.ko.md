@@ -159,7 +159,7 @@ ponytail은 GitHub의 `DietrichGebert/ponytail`이나 npm의 `@dietrichgebert/po
 | `/ponytail [lite \| full \| ultra \| off]` | 강도를 정하거나 끈다. 인자 없이 쓰면, 꺼져 있을 때는 기본 레벨로 켜고, 켜져 있을 때는 현재 레벨을 알려 준다. |
 | `/ponytail-review` | 장애가 나면 호출되는 시니어 개발자처럼 현재 diff를 리뷰한다: 버그, 보안, 실제 부하, 테스트 없는 위험한 코드, 느린 부분, 지울 수 있는 것. 지적마다 그 코드가 하는 일, 무엇이 잘못되는지, 고치는 방법, 고치지 않으면 생기는 일을 적는다. 범위를 좁히거나 넓히려면 대상을 평범한 말로 적는다: `uncommitted`, `staged`, `branch`, 또는 PR 링크. |
 | `/ponytail-audit` | 같은 점검을 저장소 전체에 하고, 중요한 것부터 보여 준다. |
-| `/ponytail-debt` | 미뤄 둔 `ponytail:` 지름길을 목록으로 모아, "나중에"가 "절대 안 함"이 되지 않게 한다. |
+| `/ponytail-debt` | 미뤄 둔 `shortcut:` 지름길을 목록으로 모아, "나중에"가 "절대 안 함"이 되지 않게 한다. |
 | `/ponytail-gain` | 벤치마크에서 측정한 효과(코드 감소, 비용 감소, 속도 향상)를 점수판으로 보여 준다. |
 | `/ponytail-help` | 위 명령어들의 빠른 참고. |
 
@@ -169,6 +169,9 @@ ponytail은 GitHub의 `DietrichGebert/ponytail`이나 npm의 `@dietrichgebert/po
 
 **설정 파일이 필요한가?**
 아니다. 선택 사항인 `~/.config/ponytail/config.json`이나 `PONYTAIL_DEFAULT_MODE` 환경 변수로 기본 레벨을 정할 수 있지만, 필요한 것은 없다.
+
+**왜 `shortcut:` 주석을 쓰나?**
+의도한 지름길과 언제 다시 볼지를 표시하고, `/ponytail-debt`가 이를 목록으로 모은다. 다른 단어를 쓰거나 아예 빼고 싶다면? 프로젝트의 `CLAUDE.md`나 `AGENTS.md`에 그렇게 적고, `/ponytail-debt <원하는 단어>`를 실행하면 된다.
 
 **120줄짜리 캐시 클래스가 정말 필요하면?**
 필요 없다. 그래도 고집하면 만들어 준다. 천천히. 정확하게. 당신을 쳐다보면서.
