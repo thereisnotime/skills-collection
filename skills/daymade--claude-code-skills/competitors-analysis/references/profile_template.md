@@ -2,14 +2,22 @@
 
 ## Source Register
 
+Keep the applicable carrier's fields. Omit Git-only fields for supplied packages
+and package-only fields for Git; retain `unknown` for unevidenced origin, edition
+or version. Bind each requested edition separately using the entry's Preflight.
+
 | Field | Value |
 |---|---|
+| Carrier / edition | {Git repository / archive / app bundle; evidenced edition and version, or unknown} |
 | Repository | {GitHub URL} |
 | Local path | `$COMPETITORS_BASE/{product-slug}/{owner-repo}` |
 | Remote | `{git remote get-url origin}` |
 | Branch | `{git branch --show-current}` |
 | Commit | `{git log -1 --format='%H'}` |
 | Commit date | `{git log -1 --format='%cI'}` |
+| Package origin | {download/source authority, or unknown} |
+| Package / member path | {exact archive or bundle path and analyzed member path} |
+| Content digest | {digest of analyzed package/member; identify which bytes were hashed} |
 | Retrieved | {YYYY-MM-DD} |
 | License | {license source} |
 
@@ -17,10 +25,15 @@
 
 This profile separates:
 
-- **Repository facts**: verified from local cloned source code and cited as
+- **Code facts**: verified from the bound local source and cited as
   `file:line`.
 - **Market facts**: sourced from GitHub/API/official pages with retrieval date.
 - **Judgment**: synthesis based on cited evidence, labeled with confidence.
+
+For material mechanisms, record the bound source, implementation reading scope,
+exercised behavior and actual consumption/adoption separately, with evidence or
+`unknown` for each. Follow [mechanism evidence](mechanism_evidence.md) during
+source reading; note unread lifecycle paths and the next decision-bearing check.
 
 ## Positioning
 
@@ -95,6 +108,9 @@ or protocol messages.
 
 ## Strengths
 
+Record sourced strengths even when no current failure needs repair. Their presence
+does not prove that every material opportunity has been considered or adopted.
+
 | Strength | Evidence | Why it matters |
 |---|---|---|
 | {strength} | `{file}:{line}` | {product implication} |
@@ -114,7 +130,9 @@ request or unresolved our-product context; complete the repository profile anywa
 
 Comparison baseline: {link to our product's contract and named acceptance
 scenario}; {link to the existing artifact/workflow that could meet it};
-{evidence of implemented and actually used behavior, or explicit unknown}.
+{actual entry point and source/runtime version, or explicit unknown};
+{evidence of intended, implemented and actually used behavior, kept separate}.
+Trace that entry before using a helper or legacy path to declare a product gap.
 
 | Dimension | Competitor | Source | Our product | Source |
 |---|---|---|---|---|
@@ -128,6 +146,12 @@ scenario}; {link to the existing artifact/workflow that could meet it};
 | Active issues | {value or 待验证} | {GitHub API, retrieved YYYY-MM-DD} |
 
 ## Opportunities
+
+Give each material mechanism a stable key or existing source/claim locator and
+link its disposition in the existing current-analysis entry. Follow
+[opportunity coverage and disposition](landscape_synthesis.md#account-for-material-opportunities).
+For a standalone Profile, keep repository-specific judgments and omit our-product
+adoption decisions rather than requiring missing comparison context.
 
 For each material opportunity, fill the decision chain in
 [landscape_synthesis.md](landscape_synthesis.md#build-a-small-number-of-decision-bearing-judgments):

@@ -547,6 +547,10 @@ CC-Switch 支持以下中国 AI 服务提供商：
 
 ### **peer-message** - 本机 Claude/Codex Agent 通讯
 
+内置本机共享协调记录，维护任务与资源声明、重复请求抑制和短时窗口有效期。
+首次调用自动初始化，不依赖 Agent Fleet 或常驻进程；原生通信仍走原生工具，
+按[协调流程](peer-message/references/local-coordination.md)执行发送前检查与收件分流。
+
 实验性的[配对网络入口](peer-message/references/network-preview.md)支持邀请、联系人和获准文档问答，通过现有 Claude/Codex 宿主返回带引用的答案。预览需要操作者提供 relay，不代表公共托管网络已经上线或用户采用已获验证。
 
 > **安装**：`claude plugin install peer-message@daymade-skills`
@@ -1011,21 +1015,8 @@ python3 scripts/calculate_metrics.py tests/TEST-EXECUTION-TRACKING.csv
 
 > **安装**：`claude plugin install daymade-claude-code@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-claude-code:local-conversation-history`）
 
-四个「平台 × 动作」历史 Skill 之上的入口层。它按平台（Claude Code / OpenAI Codex /
-Kimi CLI）和动作（取证 vs 续做）把请求分流给真正拥有它的那一个，并独占一件谁都不单独
-拥有的事：**一次列出全部三家 provider 的会话清单**。
-
-**使用场景：**
-- provider 未知或不止一个——「我们的历史」「我最近都在忙什么」
-- 列 Kimi CLI 会话，它没有专属 Skill
-- 分不清要的是取证还是续做
-- 你记得的就是这个入口名
-
-**不适用**：平台和动作**都**已经明确时，直接加载对应的执行 Skill——此时路由只多一跳，
-不提供额外信息。
-
-**设计**：薄路由层。不含解析逻辑、不含 `--source` 以外的 provider 专属参数、不复制执行
-Skill 的命令，因此不会漂移成教一条过期的调用方式。
+历史检索、中断续做和对话备份体检的用法与路由，见
+[Skill 的执行合同](daymade-claude-code/local-conversation-history/SKILL.md)。
 
 ---
 

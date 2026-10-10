@@ -65,7 +65,7 @@ Where the history lives depends on whether you are in the same session that prod
 
 - **Same session (most common)**: scroll your own message history upward. Start from the most recent messages and walk back until you find the first mention of the tool being installed. Everything between that point and now is your source material. You already have this in context — you do not need any tool to "fetch" it.
 
-- **Follow-up session (the user came back later)**: use the `read-claude-code-history` skill if it is installed, or read the session JSONL directly from `~/.claude/projects/<escaped-cwd>/<session-id>.jsonl`. The escaped cwd is the working directory with `/` replaced by `-` (for example, `<workspace>/claude-code-skills` becomes `<escaped-cwd>`). Grep the JSONL for literal error fragments (`"error"`, `"Traceback"`, shell prompt characters), extracted shell commands, and file paths the user edited. The JSONL is newline-delimited JSON with one record per message.
+- **Follow-up session (the user came back later)**: establish explicit approval of the earlier sessions and their time/scope boundaries, then follow the [conversation-mining workflow](../conversation-mining/workflow.md). Complete its deterministic discovery, redaction and chunking before extracting knowledge or handing content to agents. Use the provider history reader for approved, bounded discovery; do not directly grep raw JSONL or load raw transcripts into this context. If that source is unavailable, use relevant logs the user provides in the current conversation rather than inventing fixes.
 
 - **Neither available**: stop the workflow and tell the user. Do **not** proceed by inventing plausible install commands or plausible bug fixes — that violates the workflow's entire reason to exist. Say "I cannot find the session history this workflow needs. Can you paste the relevant install log, error messages, and fix commands directly into this conversation so I can work from them?" and wait. Fabricated content is worse than no wrapper skill.
 
@@ -151,13 +151,15 @@ What **not** to put in the distilled skill:
 
 ## Step 3 — Scaffold the skeleton
 
-Run the scaffolding script:
+Substitute the absolute creator owner and canonical wrapper parent verified by
+the source preflight, then run the scaffolding script:
 
 ```bash
-uv run --project skill-creator --frozen python skill-creator/workflows/wrapper-skill/scripts/init_wrapper_skill.py \
+uv run --project "<skill-creator-path>" --frozen python \
+  "<skill-creator-path>/workflows/wrapper-skill/scripts/init_wrapper_skill.py" \
   <wrapper-skill-name> \
   --tool "<tool-display-name>" \
-  --target-dir <path/to/repo>
+  --target-dir "<canonical-wrapper-parent>"
 ```
 
 This creates the directory layout and writes stub files with `<!-- FILL FROM STEP 2X -->` placeholders. The layout matches `ima-copilot/` for consistency and to take advantage of the shared validation tooling.
@@ -298,8 +300,9 @@ See `verification_protocol.md` for the full verification procedure. The short ve
 1. Run `quick_validate.py` against the generated directory
 2. Run `security_scan.py` against the generated directory
 3. Run the generated `diagnose.sh` against the actual state the session left you in, and confirm it reports the issues that were present and the fixes that were applied — this closes the loop between the session's real work and the skill's description of that work
-4. Update the relevant marketplace `marketplace.json` with a new plugin entry and bump versions
-5. Update `CHANGELOG.md` / `README.md` / `README.zh-CN.md` / repo `CLAUDE.md` per the hosting repo's release guide
+4. Complete the authorized release through
+   [publishing and packaging](../../references/publishing-and-packaging.md#step-8-update-marketplace)
+   and the verification protocol's exact-source registration check.
 
 ## Step 11 — Commit
 

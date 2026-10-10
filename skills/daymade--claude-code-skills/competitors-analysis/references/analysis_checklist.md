@@ -11,9 +11,10 @@ is to keep repository evidence, market evidence, and judgment separate.
 - [ ] Missing comparison context does not block independent repository profiles; no-target/no-project requests stop without inventing a market.
 - [ ] Competitor base directory is explicit:
   `COMPETITORS_BASE="${COMPETITORS_BASE:-$HOME/workspace/competitors}"`.
-- [ ] Product directory exists under `$COMPETITORS_BASE/{product-slug}/`; standalone profiles use the `standalone` namespace.
-- [ ] Repository directory uses the `owner-repo` convention.
+- [ ] Git product directory exists under `$COMPETITORS_BASE/{product-slug}/`; standalone profiles use the `standalone` namespace.
+- [ ] Git repository directory uses the `owner-repo` convention; supplied packages retain their bound location.
 - [ ] Any existing local clone is reused instead of cloning into a second path.
+- [ ] Carrier and edition match the request; separately distributed editions are individually found or unresolved, following the entry's Preflight.
 
 ## 2. Discovery Checks
 
@@ -32,7 +33,7 @@ gh search repos "primary keywords" --limit 30 --archived=false \
 
 ## 3. Repository Preparation
 
-Use the fetch recipe for first ingestion or requested freshness. Synthesis and
+Apply this recipe only to Git sources. Use it for first ingestion or requested freshness. Synthesis and
 continuation reuse verified profiles at pinned commits; confirm remote/object
 availability locally and refresh only for changed inputs or unresolved evidence.
 
@@ -56,6 +57,12 @@ git -C "$repo" log -1 --format='%H%x09%cI%x09%s'
 - [ ] Config files are read for language, framework, scripts, and dependencies.
 - [ ] Entry points are identified from config or file layout.
 - [ ] Core implementation files are read directly.
+- [ ] Apply [mechanism evidence](mechanism_evidence.md): trace the decisive entry
+  through relevant normal, failure, cancellation, recovery and cleanup paths;
+  unresolved paths have a decision-bearing next check. Before execution, identify
+  its effects under the current authorization, including status/observe commands.
+- [ ] Bound source, implementation reading scope, exercised behavior and actual
+  consumption/adoption are distinct; untested outcomes are not promoted from code.
 - [ ] Tests or fixtures are checked when the competitor handles structured data.
 - [ ] Changelog/releases are checked when the user asks for "latest".
 
@@ -89,12 +96,15 @@ Check claims in context, not with a banned-word pass/fail rule:
 
 For multi-competitor reports:
 
-- [ ] Source register lists local path, remote, commit, and retrieval date.
+- [ ] Source register lists carrier, edition and retrieval date, with Git local path/remote/commit or package origin/member/digest; unknown version or origin stays unknown.
 - [ ] Positioning table distinguishes user segment from technical implementation.
 - [ ] Strengths are tied to user-visible behavior or code evidence.
 - [ ] Weaknesses/gaps cite evidence or are labeled as `待验证`.
 - [ ] Read `landscape_synthesis.md`; a correct feature table alone does not pass.
 - [ ] The baseline includes the user's actual adopted workflow or substitute, when evidenced.
+- [ ] The comparison scenario's actual entry and version are bound or unknown;
+  a helper/legacy path alone does not establish a whole-product gap. Missing
+  our-product evidence does not block a standalone Profile.
 - [ ] Each material judgment connects evidence, causal explanation, a concrete choice and cost, a counterexample/alternative explanation, and a falsifying check.
 - [ ] Claims of differentiation include current native/platform capabilities when relevant; absence in our sample is not proof of market uniqueness.
 - [ ] Technical acknowledgement, delivery, adoption and qualified outcome are distinguished when relevant.
@@ -138,8 +148,8 @@ Source register: demo-source-a = frozen demonstration transcript.
 | "The extractor never misses a frame" / demo-7 | demo-source-a | segment 7 | Original: "Each sampled frame was processed." Next sentence: "Frames between samples were not inspected." The answer overstates the source. | Authorized local snapshot readable at this check; public endpoint no longer readable at a separate later check. |
 
 Comparison baseline: the product authority's existing passage-reading acceptance;
-existing asset: its already-authorized transcript archive; actual reuse in the
-target reader untested.
+existing asset: its already-authorized transcript archive; target reader entry
+and runtime version unknown; actual reuse in that reader untested.
 
 Choice: reuse the existing transcript and expose its passages for that acceptance
 scenario. This avoids another transcription, but needs a consumer readback.

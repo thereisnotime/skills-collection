@@ -1,7 +1,7 @@
 {
   "name": "cloudflare",
   "description": "Build, test, and deploy applications on Cloudflare with platform guidance Skills and the Cloudflare MCP server.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "mcpServers": "./.mcp.json",
   "author": {
     "name": "Cloudflare",

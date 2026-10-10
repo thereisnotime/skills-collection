@@ -487,6 +487,7 @@ def measure(start, config=None):
     metrics["linesPerTestCase"] = round(test_lines / test_cases, 1) if test_cases else None
     metrics["assertsPerTestCase"] = round(test_asserts / test_cases, 1) if test_cases else None
     metrics["docProseToCode"] = round(all_doc_prose / product_code, 2) if product_code else None
+    metrics["testRatio"] = round(test_lines / product_code, 2) if product_code else None
     metrics["scatteredDocShare"] = (
         round((all_doc_prose - doc_dir_prose) / all_doc_prose, 4) if all_doc_prose else None
     )
@@ -527,6 +528,7 @@ GROUPS = (
         ("testAsserts", "assertions"),
         ("linesPerTestCase", "test lines per case"),
         ("assertsPerTestCase", "assertions per case"),
+        ("testRatio", "test lines per product line"),
     )),
     ("documentation", (
         ("specProseLines", "prose in docs/ and specs/"),
@@ -861,6 +863,8 @@ agentContextLines    Lines in AGENTS.md / CLAUDE.md, harness agent
 commentRatio         productCommentLines / (productCommentLines + productCodeLines)
 linesPerTestCase     testLines / testCases
 docProseToCode       allDocProseLines / productCodeLines
+testRatio            testLines / productCodeLines (inherits test-discovery's
+                     naming limits; unconventionally-named suites under-report)
 
 Deliberately not measured
 -------------------------

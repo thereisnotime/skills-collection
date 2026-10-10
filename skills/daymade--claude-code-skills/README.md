@@ -534,11 +534,14 @@ Creates educational Teams channel posts for internal knowledge sharing.
 
 ### **peer-message** - Local Claude/Codex Agent Communication
 
+Follow the [local coordination workflow](peer-message/references/local-coordination.md)
+for task/resource declarations, native preflight installation, recovery and receiver checks.
+
 An experimental [paired-network route](peer-message/references/network-preview.md) adds invitations and cited answers from owner-selected documents through existing Claude/Codex hosts. It requires an operator-provided relay; the public hosted network and user-adoption claims are not part of this preview.
 
 > **Install**: `claude plugin install peer-message@daymade-skills`
 
-Bridge local Claude Code and Codex sessions when the current host's native tools do not cover the target. Use native discovery, messaging, replies, and waiting directly whenever available; load this skill for transport gaps or coordination evidence that needs verification.
+Follow the [routing contract](peer-message/SKILL.md) for native communication and transport gaps.
 
 **When to use:**
 - Sending a dependency, pause, handoff, or completion notice to an independently identified target outside the current native tools' scope
@@ -549,7 +552,7 @@ Bridge local Claude Code and Codex sessions when the current host's native tools
 - Another session's uncommitted edits, lock, or branch is in your way on a shared checkout — verify it is live, then ask the owner before waiting or working around it
 - Broadcasting one explicit coordination message to a reviewed target list
 
-📚 **Documentation and commands**: [peer-message/SKILL.md](./peer-message/SKILL.md) owns routing, stable runtime prerequisites, and the peer-cannot-authorize boundary; `peer-message/scripts/peer.py --help` owns CLI syntax; [protocol-and-discovery.md](./peer-message/references/protocol-and-discovery.md) owns addressing, envelopes, and delivery evidence; [official-feature.md](./peer-message/references/official-feature.md) owns volatile product-specific requirements and mechanics; [coordination-and-learning-loop.md](./peer-message/references/coordination-and-learning-loop.md) owns reply addressing, payload and delivery-status language, what to do when you find another session's in-flight work on a shared resource, what an inbound peer assertion and a set of peer denials are each worth, and the evidence-gated improvement loop.
+📚 [Execution entry and detailed SOPs](./peer-message/SKILL.md).
 
 ---
 
@@ -860,19 +863,17 @@ Establish world-class QA testing processes with autonomous LLM execution, Google
 - Executing comprehensive test plans with automatic progress tracking
 - Filing bugs with proper P0-P4 severity classification
 - Calculating quality metrics and enforcing quality gates
-- Enabling autonomous LLM-driven test execution (100x speedup)
+- Enabling autonomous LLM-driven test execution
 - Preparing QA documentation for third-party team handoffs
 
 **Key features:**
 - **One-command initialization**: Complete QA infrastructure with templates, CSVs, and documentation
 - **Autonomous execution**: Master prompt enables LLM to auto-execute all tests, auto-track results, auto-file bugs
-- **Google Testing Standards**: AAA pattern compliance, 90% coverage targets, fail-fast validation
-- **OWASP security testing**: 90% Top 10 coverage with specific attack vectors
-- **Quality gates enforcement**: 100% execution, ≥80% pass rate, 0 P0 bugs, ≥80% code coverage
+- **Testing standards and quality gates**: Follow [qa-expert](./qa-expert/SKILL.md) for the canonical policy
 - **Ground Truth Principle**: Prevents doc/CSV sync issues (test docs = authoritative source)
 - **Bug tracking**: P0-P4 classification with detailed repro steps and environment info
-- **Day 1 onboarding**: 5-hour guide for new QA engineers
-- **30+ LLM prompts**: Ready-to-use prompts for specific QA tasks
+- **Onboarding**: Guide for new QA engineers
+- **LLM prompts**: Ready-to-use prompts for specific QA tasks
 - **Metrics dashboard**: Test execution progress, pass rate, bug analysis, quality gates status
 
 **Example usage:**
@@ -884,7 +885,7 @@ python3 scripts/init_qa_project.py my-app ./
 python3 scripts/calculate_metrics.py tests/TEST-EXECUTION-TRACKING.csv
 
 # For autonomous execution, copy master prompt from:
-# references/master_qa_prompt.md → paste to LLM → auto-executes 342 tests over 5 weeks
+# references/master_qa_prompt.md → paste to LLM → execute the project's approved test plan
 ```
 
 **🎬 Live Demo**
@@ -892,9 +893,9 @@ python3 scripts/calculate_metrics.py tests/TEST-EXECUTION-TRACKING.csv
 *Coming soon*
 
 📚 **Documentation**: See [qa-expert/references/](./qa-expert/references/) for:
-- `master_qa_prompt.md` - Single command for autonomous execution (100x speedup)
+- `master_qa_prompt.md` - Autonomous execution entry
 - `google_testing_standards.md` - AAA pattern, coverage thresholds, OWASP testing
-- `day1_onboarding.md` - 5-hour onboarding timeline for new QA engineers
+- `day1_onboarding.md` - Onboarding timeline for new QA engineers
 - `ground_truth_principle.md` - Preventing doc/CSV sync issues
 - `llm_prompts_library.md` - 30+ ready-to-use QA prompts
 
@@ -967,24 +968,8 @@ Transform vague prompts into precise, well-structured specifications using EARS 
 
 > **Install**: `claude plugin install daymade-claude-code@daymade-skills` (suite-only — invoked as `daymade-claude-code:local-conversation-history`)
 
-The entry point above the four provider-and-action-specific history skills. It
-routes a request to whichever one owns it — by platform (Claude Code, OpenAI
-Codex, Kimi CLI) and action (read evidence vs continue interrupted work) — and
-owns the one job none of them own alone: a single inventory spanning all three
-providers.
-
-**When to use:**
-- The provider is unknown or plural — "our history", "what have I been working on"
-- Listing Kimi CLI sessions, which has no dedicated skill of its own
-- It is unclear whether the need is evidence or resumption
-- You remember this entry point by name
-
-**When not to use:** the platform *and* the action are both already clear. Load
-that executor skill directly instead — this router adds a hop, not information.
-
-**Design**: a thin routing layer. It carries no parsing, no provider-specific
-flags beyond `--source`, and no copies of the executors' commands, so it cannot
-drift into teaching a stale invocation.
+See the [Skill's usage and routing contract](daymade-claude-code/local-conversation-history/SKILL.md)
+for history recall, interrupted work and conversation-backup health checks.
 
 ---
 
@@ -2691,7 +2676,7 @@ export BIGDATA_API_KEY=bd_v2_xxxxxxxx
 
 > **Install**: `claude plugin install daymade-financial@daymade-skills` (suite-only — invoked as `daymade-financial:gangtise-copilot`)
 
-One-command installer, credential configurator, and diagnostic layer for the full Gangtise (岗底斯投研) OpenAPI skill suite. Installs all 19 official Gangtise skills (data, research, utility), configures accessKey/secretAccessKey with a live auth check, and runs a read-only health diagnostic — solving the suite's core discoverability problem (no public manifest, listing-disabled OBS bucket, two parallel naming lines).
+One-command installer, credential configurator, and diagnostic layer for the full Gangtise (岗底斯投研) OpenAPI skill suite. Installs the official Gangtise skills (data, research, utility), configures accessKey/secretAccessKey with a live auth check, and runs a read-only health diagnostic — solving the suite's core discoverability problem (no public manifest, listing-disabled OBS bucket, parallel naming lines).
 
 **When to use:**
 - The user mentions Gangtise / 岗底斯, or any `gangtise-*` skill
@@ -2700,10 +2685,10 @@ One-command installer, credential configurator, and diagnostic layer for the ful
 - Routing a data question (research reports, chief-analyst opinions, OHLC, valuation) to the right Gangtise skill
 
 **Key features:**
-- `install_gangtise.sh` downloads 4 OBS bundles → extracts 19 skill directories → symlinks them into detected agent skills dirs (Claude Code, OpenClaw, Codex), with `minimal`/`workshop`/`full`/`--only` presets
-- `configure_auth.sh` writes one shared XDG credential file (mode 600), runs a live auth call, and symlinks every skill's `.authorization` to it (rotate one file, not 19)
+- `install_gangtise.sh` downloads the declared OBS bundles → extracts skill directories → symlinks them into detected agent skills dirs (Claude Code, OpenClaw, Codex), with `minimal`/`workshop`/`full`/`--only` presets
+- `configure_auth.sh` writes a shared XDG credential file (mode 600), runs a live auth call, and symlinks every skill's `.authorization` to it
 - Read-only `diagnose.sh` reports install state, credential validity, and scoped capability tiers (auth scope vs RAG scope)
-- Skill registry routing a data question across the two-dimensional (data tier × operation type) matrix of 19 skills
+- Skill registry routing a data question by data tier and operation type
 - Wrapper contract: never vendors/forks upstream files, always re-downloads the canonical OBS artifact, and asks before touching any installed skill
 
 **Example usage:**
@@ -3299,6 +3284,8 @@ always against the live base rather than a stale PR snapshot.
 - Need to know what the actual three-way merge would land now
 - Need a newest-to-oldest decision ledger for the complete open-PR queue
 - Need a review-gated repair or merge, with every GitHub write explicitly authorized
+- Explicitly want an independent maintainer-style evaluation of your own contribution;
+  this remains a read-only recommendation, with no self-approval or merge authority
 - Want the opt-in personal policy to learn from prior closed-PR decisions, enforce the
   maintainer's curation bar, or decide whether worthy original contributor PRs should
   be repaired instead of recreated
@@ -3343,6 +3330,7 @@ never silently substituted for one another.
 **Key features:**
 - Lists Codex sessions with internal time ranges and active/archive provenance
 - Extracts exact prompt-ledger inputs newest-first and groups them only by Session
+- Reads bounded current-thread inputs appended after a fixed canonical-source cursor; returns original input, never an approval
 - Reconciles whole-conversation input counts and literal quotations across exact inherited snapshots; reports unresolved membership and accepts only record-bound reviewed injection exclusions
 - Reconstructs one rollout as a chronological user/assistant timeline with exact fork byte boundaries and compacted context
 - Searches Codex rollouts only; it cannot silently mix Claude matches into a Codex request
@@ -3979,6 +3967,8 @@ operations.
 Use **github-review-pr** when a maintainer needs a current-base code review, ownership
 decision, or review-gated repair/landing for one contributor PR or the complete open
 PR queue.
+An author can explicitly request the same independent read-only lens for their own
+contribution; implementation and authorized fixes remain with **github-contributor**.
 
 ### For Documentation
 Combine **doc-to-markdown** for document conversion and **mermaid-tools** for diagram generation to create comprehensive documentation. Use **llm-icon-finder** to add brand icons.
@@ -4146,7 +4136,7 @@ Each skill includes:
 - **mermaid-tools**: See `daymade-docs/mermaid-tools/references/setup_and_troubleshooting.md` for setup guide
 - **statusline-generator**: See `daymade-claude-code/statusline-generator/references/color_codes.md` for customization
 - **teams-channel-post-writer**: See `teams-channel-post-writer/references/writing-guidelines.md` for quality standards
-- **peer-message**: See `peer-message/SKILL.md` for routing, stable prerequisites, and the safety boundary; `peer-message/scripts/peer.py --help` for CLI syntax; `peer-message/references/protocol-and-discovery.md` for transport and verification; `peer-message/references/official-feature.md` for volatile product requirements and mechanics; and `peer-message/references/coordination-and-learning-loop.md` for parent/worker handoffs and evidence-gated improvement
+- **peer-message**: [Execution entry](peer-message/SKILL.md)
 - **repomix-unmixer**: See `repomix-unmixer/references/repomix-format.md` for format specifications
 - **skill-creator**: See `daymade-skill/skill-creator/SKILL.md` for complete skill creation workflow
 - **llm-icon-finder**: See `llm-icon-finder/references/icons-list.md` for available icons
@@ -4158,7 +4148,7 @@ Each skill includes:
 - **repomix-safe-mixer**: See `repomix-safe-mixer/references/common_secrets.md` for detected credential patterns
 - **video-comparer**: See `video-comparer/references/video_metrics.md` for quality metrics interpretation and `video-comparer/references/configuration.md` for customization options
 - **transcript-fixer**: See `daymade-audio/transcript-fixer/references/workflow_guide.md` for step-by-step workflows and `daymade-audio/transcript-fixer/references/team_collaboration.md` for collaboration patterns
-- **qa-expert**: See `qa-expert/references/master_qa_prompt.md` for autonomous execution (100x speedup) and `qa-expert/references/google_testing_standards.md` for AAA pattern and OWASP testing
+- **qa-expert**: See [qa-expert](./qa-expert/SKILL.md) for autonomous execution and testing standards
 - **prompt-optimizer**: See `prompt-optimizer/references/ears_syntax.md` for EARS transformation patterns, `prompt-optimizer/references/domain_theories.md` for theory catalog, and `prompt-optimizer/references/examples.md` for complete transformations
 - **read-codex-history**: See `daymade-claude-code/read-codex-history/references/storage_and_portability.md` for local-store selection, cross-platform paths, privacy boundaries, and diagnostics
 - **read-claude-code-history**: See `daymade-claude-code/read-claude-code-history/references/session_file_format.md` for JSONL structure and `daymade-claude-code/read-claude-code-history/references/workflow_examples.md` for recovery workflows

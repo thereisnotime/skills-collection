@@ -4,7 +4,7 @@ description: "Quantify repository composition and documentation drag — comment
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # Project Health
@@ -71,6 +71,7 @@ tests
   assertions                                            8,034
   test lines per case                                   19.30
   assertions per case                                   1.9000
+  test lines per product line                            2.5500
 
 documentation
   prose in docs/ and specs/                            17,603
@@ -130,6 +131,7 @@ ones. Watch for:
 - `prose in every doc file` growing faster than `product code lines`
 - `all doc prose per code line` above 1.0 — a doc line per code line
 - `repo-local instruction lines` climbing; every line is loaded every session
+- `test lines per product line` above ~1.0 — a suite as large as the code it protects. A ratio climbing while `productCodeLines` falls means tests are being added to tests, not to behaviour
 - `assertions per case` falling while `test cases` holds steady — tests asserting less
 
 Trajectory matters more than any single reading. One snapshot cannot tell you

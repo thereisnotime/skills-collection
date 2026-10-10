@@ -4,7 +4,7 @@ description: Structured spec-driven development workflow. Load this skill whenev
 license: MIT
 metadata:
   author: shaunburdick
-  version: "2.4.0"
+  version: "2.6.0"
 ---
 
 # Spec-Driven Development
@@ -160,7 +160,11 @@ Before creating any new spec, **scan all existing specs** to determine whether t
    intended behaviour, update the matching ACs, and add one entry to
    `changelog.md`. Never append a new FR and leave the old one standing with a
    "superseded by" note — a reader of `## Functional Requirements` must get
-   correct behaviour from that section alone.
+   correct behaviour from that section alone. **Trim before you add:** each
+   new FR must name the FR(s) it replaces, generalizes, or merges with, and a
+   change that would net-add more than ~3 FRs — or lands on a spec already
+   past ~15 FRs — goes through the Amendment Gate in the triage guide, not
+   append.
 5. **If no** → create a new spec as described below.
 6. **If ambiguous** → ask the user before proceeding.
 
@@ -168,7 +172,7 @@ Before creating any new spec, **scan all existing specs** to determine whether t
 
 The other failure is over-correcting into sprawl: a spec that has accreted a
 hundred lines of amendments has stopped being readable, and the fix is to
-**rewrite it**, not to split it. See "When to Stop Amending" in the triage guide.
+**rewrite it**, not to split it. See "Amendment Gate" in the triage guide.
 
 ### Create the Spec
 
@@ -180,9 +184,22 @@ Key sections:
 - **User Stories** — `As a <role>, I want <action> so that <benefit>`
 - **Functional Requirements** — `FR-001`, `FR-002`, … (WHAT, not HOW)
 - **Non-Functional Requirements** — performance, security, compatibility
-- **Acceptance Criteria** — specific, measurable, binary pass/fail
+- **Acceptance Criteria** — specific, measurable, binary pass/fail — observable behaviour, not inventory of controls or closed string sets
 - **Out of Scope** — explicitly named exclusions, pointing at `changelog.md` for the reasoning
 - **Edge Cases** — documented with expected behavior
+
+**Two shape rules, enforced at creation as much as at amendment:**
+
+1. **The spec is a live document.** It describes the application's entire
+   intended feature set at this moment. Reading `## Functional Requirements`
+   alone must produce correct behaviour — no superseded entries, no
+   contradictions, nothing the code no longer does. History lives in
+   `changelog.md`; behavioural detail lives in ACs and Edge Cases.
+2. **One FR = one capability.** One implementation task could deliver it.
+   Field-level behaviour, error messages, and edge cases are ACs, not FRs.
+   The FR list fits on one screen — past ~15 FRs the spec is enumerating
+   behaviour instead of capability, and the fix is to consolidate or split,
+   never to keep adding.
 
 **What makes a requirement "executable":**
 
@@ -302,6 +319,7 @@ For all code quality rules, lint suppression policy, type safety requirements, a
 Key reminders:
 - ✅ TDD preferred — write tests before or alongside implementation
 - ✅ Check off tasks in `tasks.md` as you complete them
+- ✅ When implementation changes what a requirement means, the spec edit lands in the same change — a spec that drifts from the code is a bug
 - ❌ No lint suppressions of any kind — fix the code instead
 
 ---

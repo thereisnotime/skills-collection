@@ -21,6 +21,12 @@ SPEC.loader.exec_module(peer)
 
 
 class PeerMessageTests(unittest.TestCase):
+    def setUp(self):
+        state = tempfile.TemporaryDirectory()
+        self.addCleanup(state.cleanup)
+        env = mock.patch.dict(peer.os.environ, {"XDG_STATE_HOME": state.name})
+        env.start()
+        self.addCleanup(env.stop)
     def test_reply_lookup_rejects_blank_correlation_before_reading(self):
         for value in ("", " ", "id with spaces", "id\n"):
             with self.subTest(value=value), mock.patch.object(peer, "replies") as read:
@@ -485,6 +491,7 @@ class PeerMessageTests(unittest.TestCase):
                 "claude:coordinator",
                 "55555555-5555-4555-8555-555555555555",
                 home,
+                delivery="queued",
             )
             command = run.call_args.args[0]
             self.assertEqual(command[:4], ["codex", "queue", "--thread", receipt["target_id"]])
@@ -581,6 +588,29 @@ class PeerMessageTests(unittest.TestCase):
                 "codex_thread_history",
             )
             self.assertIn("advisory metadata", result["trust_boundary"])
+
+    def test_live_tool_output_verification_and_reply_lookup(self):
+        with tempfile.TemporaryDirectory() as raw:
+            home = self.make_codex_state(Path(raw))
+            thread_id = "22222222-2222-4222-8222-222222222222"
+            original_id = "11111111-aaaa-4111-8111-111111111111"
+            reply_id = "22222222-aaaa-4222-8222-222222222222"
+            envelope = self.codex_reply_envelope(reply_id, original_id)
+            rows = []
+            for index, namespace in enumerate(("another_tool", "peer_message")):
+                payload = json.dumps({"type": "functionCallOutput", "name": "delivery",
+                                      "namespace": namespace, "output": envelope})
+                rows.append((thread_id, "active-turn", f"output-{index}", index + 1,
+                             100 + index, payload, "functionCallOutput", index + 1))
+            self.make_codex_reply_stores(home, history_rows=rows)
+            self.assertIsNone(peer.verify_codex(f"codex:{thread_id}", "absent", home))
+            verified = peer.verify_codex(f"codex:{thread_id}", reply_id, home)
+            self.assertEqual(verified["item_id"], "output-1")
+            self.assertEqual(verified["delivery_status"], "verified_in_thread_history")
+            result = peer.codex_replies(f"codex:{thread_id}", original_id, 20, home)
+            self.assertEqual(result["reply_count"], 1)
+            self.assertEqual(result["replies"][0]["envelope"], envelope)
+            self.assertEqual(result["evidence_stores"][1]["candidate_records_examined"], 1)
 
     def test_replies_scope_to_named_inbox_and_ignore_quoted_correlation(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -1167,7 +1197,7 @@ class PeerMessageTests(unittest.TestCase):
             root = Path(raw)
             with mock.patch.object(
                 peer, "send_one", side_effect=lambda target, *a, **k: self.stub_receipt(target)
-            ) as send:
+            ) as send, mock.patch.object(peer, "canonical_address", side_effect=lambda value, args: value):
                 exit_code = peer.main(
                     self.broadcast_argv(
                         root,
@@ -1181,7 +1211,7 @@ class PeerMessageTests(unittest.TestCase):
             self.assertEqual(send.call_count, 2)
             for call in send.call_args_list:
                 body = call.args[1]
-                self.assertTrue(body.startswith("[fan-out:"))
+                self.assertIn("[fan-out:", body)
                 self.assertIn("2 个 session", body)
                 self.assertIn("不是你的无需回复", body)
                 self.assertTrue(body.rstrip().endswith("谁的锁？"))
@@ -1191,7 +1221,7 @@ class PeerMessageTests(unittest.TestCase):
             root = Path(raw)
             with mock.patch.object(
                 peer, "send_one", return_value=self.stub_receipt("claude:a")
-            ) as send:
+            ) as send, mock.patch.object(peer, "canonical_address", side_effect=lambda value, args: value):
                 exit_code = peer.main(
                     [
                         "--claude-home", str(root / ".claude"),
@@ -1200,7 +1230,8 @@ class PeerMessageTests(unittest.TestCase):
                     ]
                 )
             self.assertEqual(exit_code, 0)
-            self.assertEqual(send.call_args.args[1], "定向问题")
+            self.assertTrue(send.call_args.args[1].rstrip().endswith("定向问题"))
+            self.assertNotIn("[fan-out:", send.call_args.args[1])
 
     def test_broadcast_over_cap_refused_without_contract_sends_nothing(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -1230,7 +1261,7 @@ class PeerMessageTests(unittest.TestCase):
             stderr = io.StringIO()
             with mock.patch.object(
                 peer, "send_one", side_effect=lambda target, *a, **k: self.stub_receipt(target)
-            ) as send:
+            ) as send, mock.patch.object(peer, "canonical_address", side_effect=lambda value, args: value):
                 with contextlib.redirect_stderr(stderr):
                     exit_code = peer.main(
                         self.broadcast_argv(

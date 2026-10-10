@@ -3,18 +3,6 @@
 Load this reference only after the user explicitly authorizes an external write. Keep
 the review workflow's immutable snapshot ledger active throughout every mutation.
 
-## Contents
-
-- [Interpret Authorization Narrowly](#interpret-authorization-narrowly)
-- [Revalidate Before Every Write](#revalidate-before-every-write)
-- [Submit a Commit-Anchored Formal Review](#submit-a-commit-anchored-formal-review)
-- [Repair the Contributor Branch](#repair-the-contributor-branch)
-- [Update the PR Branch Only When Requested](#update-the-pr-branch-only-when-requested)
-- [Close a Superseded PR Safely](#close-a-superseded-pr-safely)
-- [Close a Declined PR Safely](#close-a-declined-pr-safely)
-- [Land the PR](#land-the-pr)
-- [Complete an Authorized Maintainer Follow-Up](#complete-an-authorized-maintainer-follow-up)
-
 ## Interpret Authorization Narrowly
 
 Treat these as separate actions:
@@ -34,6 +22,13 @@ Treat these as separate actions:
 Interpret "fix and merge" as authorization to push the necessary repair and merge
 after all gates pass. Do not infer permission to comment, force-push, auto-merge,
 admin-bypass, or delete a branch.
+
+Keep PR authorship and bypass authority separate. A maintainer repair or branch
+takeover does not change the original PR author and does not make a collaborator
+PR eligible for a standing grant limited to the maintainer's own submissions.
+Match any bypass grant to this PR, actor and action before using it. Otherwise
+satisfy the required reviews through the authorized review workflow; a normal
+comment or local agent review is not itself a GitHub approval.
 
 The personal-maintainer profile narrows this rule. When a repair changes the head,
 merge authorization bound to the old head expires; finish the repair, re-review, and
@@ -86,6 +81,27 @@ pretend the old statement was never published.
 
 ## Repair the Contributor Branch
 
+### Expose an authorized small repair
+
+When the user authorizes comments and a bounded maintainer repair, group the
+verified problems in a PR comment with their impact and the intended correction.
+Fix unambiguous links or additive bookkeeping conflicts directly within that
+scope; do not require the contributor to perform the same mechanical edits.
+Retain contributor intent and ask only for an unresolved product choice or
+authority boundary.
+
+After the repair, add or update the comment with the repair commit, what changed,
+and the relevant verification before merging. Preserve useful review history.
+Use [behavioral impact review](behavioral-impact-review.md#reopen-affected-relationships-after-a-repair)
+to check the repair's consumers and preservation contract before closing the finding.
+Reuse unchanged source/content evidence and focus new inspection on the repair,
+while still rechecking the exact head, current base, three-way result and required
+checks. Stop when those gates and the authorized repair are complete; do not make
+an optional source-document polish or new checking system a landing prerequisite.
+
+This path grants no comment, push, review, bypass or merge authority beyond the
+user's current request and applicable standing contract.
+
 ### Establish push authority
 
 Query the PR and both repositories again. Verify all of these:
@@ -123,7 +139,10 @@ After pushing:
 1. Verify the remote head ref equals the new local commit.
 2. Verify the PR now reports that same head SHA.
 3. Wait for required checks or report their pending state accurately.
-4. Re-run the entire review against the new head and current base.
+4. Re-evaluate the review against the new head and current base. For a bounded
+   repair, follow [Expose an authorized small repair](#expose-an-authorized-small-repair)
+   to reuse unchanged evidence; inspect new or affected claims and the fresh
+   three-way result.
 5. Reclassify all previous findings before considering merge.
 6. Compare the live-base/head OIDs directly. If the PR files endpoint still uses a
    stale recorded base, report that discrepancy and keep the OID-bound comparison as

@@ -32,6 +32,13 @@ You receive these parameters in your prompt:
 
 ### Step 3: Evaluate Each Assertion
 
+Grade exactly the canonical eval-directory `eval_metadata.json.assertions` once it
+is populated. Preserve every original text and its multiplicity; do not replace,
+omit or add assertions in the grade. Keep proposed improvements in `eval_feedback`.
+Do not let run/config prompt metadata override that target. Missing or empty
+canonical assertions remain unbound preparation/legacy data; reject malformed
+present targets instead of treating them as absent.
+
 For each expectation:
 
 1. **Search for evidence** in the transcript and outputs
@@ -102,6 +109,14 @@ Save results to `{outputs_dir}/../grading.json` (sibling to outputs_dir).
 
 1. If `{outputs_dir}/metrics.json` exists, read it and include in grading output
 2. If `{outputs_dir}/../timing.json` exists, read it and include timing data
+3. Copy real token counts and recorded durations independently; retain their measurement
+   scopes. Leave absent measurements absent or null. Keep `output_chars` as characters.
+4. Recompute summary counts from the non-empty expectations and check that `pass_rate`
+   agrees (two-decimal rounding is accepted). Record a failed assertion as false; do not
+   turn an interrupted execution or missing evidence into an empty successful grade.
+   The shared validator rejects mismatched canonical assertion coverage as well as
+   inconsistent grades. Both readers show missing/invalid grades as unknown. The
+   aggregator keeps measured costs and attempt coverage.
 
 ## Output Format
 
@@ -145,6 +160,9 @@ Write a JSON file with this structure:
     "transcript_chars": 3200
   },
   "timing": {
+    "total_tokens": 84852,
+    "time_scope": "executor_and_grader",
+    "token_scope": "executor",
     "executor_duration_seconds": 165.0,
     "grader_duration_seconds": 26.0,
     "total_duration_seconds": 191.0
@@ -195,9 +213,12 @@ Write a JSON file with this structure:
   - **total**: Total expectations evaluated
   - **pass_rate**: Fraction passed (0.0 to 1.0)
 - **execution_metrics**: Copied from executor's metrics.json (if available)
-  - **output_chars**: Total character count of output files (proxy for tokens)
+  - **output_chars**: Total character count of output files; not token usage
   - **transcript_chars**: Character count of transcript
 - **timing**: Wall clock timing from timing.json (if available)
+  - **total_tokens**: Actual host-reported token usage, if available; never estimate from characters
+  - **time_scope** / **token_scope**: Recorded measurement boundaries, when available;
+    see [the timing schema](../references/eval_pipeline_schemas.md#timingjson)
   - **executor_duration_seconds**: Time spent in executor subagent
   - **total_duration_seconds**: Total elapsed time for the run
 - **claims**: Extracted and verified claims from the output

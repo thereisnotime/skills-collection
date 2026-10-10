@@ -16,7 +16,8 @@ When a new piece of work is requested:
 | Condition | Action | Example |
 |-----------|--------|---------|
 | Work modifies existing FRs or ACs | **Amend existing spec** | "Improve combat damage calculation" → update FR-003 in the combat spec |
-| Work adds new FRs to an existing domain | **Amend existing spec** | "Add ranged weapons to combat" → add FR-010 to the combat spec |
+| Work adds new FRs to an existing domain | **Amend existing spec** — after consolidating what the change replaces (see [How to Amend](#how-to-amend-an-existing-spec)) | "Add ranged weapons to combat" → generalize the weapon FRs rather than appending a sibling |
+| Work would net-add ≈3+ FRs, or the spec is already past ~15 | **Run the [Amendment Gate](#amendment-gate-run-before-writing-the-amendment)** — do not grow | "Add a subsystem to a 100-FR spec" → merge, generalize, or split first |
 | Work fixes bugs in existing spec's scope | **Amend existing spec** | "Fix combat hit detection" → update ACs in the combat spec |
 | Work is a genuinely new, unrelated feature | **Create new spec** | "Add inventory system" → new spec (first time this domain appears) |
 | Work spans multiple existing specs | **Create new spec** with explicit references | "Crafting system that uses inventory + combat" → new spec that cites both |
@@ -28,18 +29,24 @@ An amendment **rewrites the spec to describe the current intended behaviour.** I
 is an edit, not an append. A spec is not a record of how it got here — it is a
 description of what it now requires.
 
-1. **Edit the body.** A changed requirement is rewritten in place. A removed
+1. **Consolidate before adding.** Read the existing FRs in the affected area
+   first. A merge candidate (a sibling FR sharing the subject), a
+   generalization (an existing FR that stretches to cover the new case), or an
+   invalidation (the change kills an existing FR) all beat a new FR. Every FR
+   that survives as genuinely new must name, in the changelog entry, the FR(s)
+   it replaces or generalizes.
+2. **Edit the body.** A changed requirement is rewritten in place. A removed
    behaviour is deleted. Never leave superseded text behind with a "superseded
    by FR-0xx" note: a reader who trusts `## Functional Requirements` must get
    correct behaviour from that section alone.
-2. **Renumber and regroup freely.** Order requirements by concern, not by the
+3. **Renumber and regroup freely.** Order requirements by concern, not by the
    order they arrived. An identifier is only load-bearing if something outside
    the spec cites it.
-3. **Update Acceptance Criteria in the same pass.** Every FR should have at
+4. **Update Acceptance Criteria in the same pass.** Every FR should have at
    least one AC, and no AC may describe behaviour that no FR requires.
-4. **Update the Problem Statement** only when the *problem* changed — not merely
+5. **Update the Problem Statement** only when the *problem* changed — not merely
    the solution.
-5. **Add one entry to `changelog.md`** (below). Do not create a new spec
+6. **Add one entry to `changelog.md`** (below). Do not create a new spec
    directory.
 
 ## Where Provenance Lives: `changelog.md`
@@ -65,9 +72,14 @@ Division of labour:
 **Why**: <the requirement-level decision — chosen approach, and the alternative
 it was chosen over>
 
-**Changed**: FR-007, FR-012 (added); FR-003 (rewritten — the agent name now
-comes from the claim value, superseding the harness-name default)
+**Changed**: +2 / ~1 / −0 FRs — FR-007, FR-012 (added); FR-003 (rewritten —
+the agent name now comes from the claim value, superseding the harness-name
+default)
 ```
+
+Every `Changed:` line opens with the `+ / ~ / −` FR counts, so growth is
+visible at a glance. An entry reading `+N / ~0 / −0` is not an amendment — it
+is an append; go back to the Amendment Gate.
 
 Banned from `changelog.md`, because git already stores it: file names, line
 counts, which section moved where, script internals, verification commands,
@@ -77,22 +89,27 @@ belongs in the commit body.**
 Never use a changelog entry as a substitute for editing the body. If an entry
 has to explain that the body is wrong, the body needs fixing.
 
-## When to Stop Amending
+## Amendment Gate (run before writing the amendment)
 
-Amending is right while the spec still models one coherent thing. Two triggers
-mean it no longer does:
+Amending is right while the spec still models one coherent thing. Run this gate
+**before** drafting — after the draft is after the damage. Three checks, in
+order:
 
-- **The FR list passes ~15.** Past that, one pass over `## Functional
-  Requirements` stops being a way to understand the system.
-- **A single amendment rewrites more than a third of the FRs.** That is not a
-  change to the spec; it is evidence the spec's model of the domain was wrong.
+1. **Net addition under control?** More than ~3 new FRs, or a spec already
+   past ~15 FRs, means *do not add*: consolidate first. Merge FRs that share a
+   subject, generalize an existing FR to cover the new case, or rewrite the
+   model at a coarser granularity where one FR absorbs what were several.
+2. **Rewrite share sane?** A draft that would rewrite more than a third of
+   the FRs is not a change to the spec — it is evidence the spec's model of
+   the domain was wrong. Rewrite it, or split it into two specs that reference
+   each other.
+3. **One-paragraph test:** can you still state the Problem Statement in one
+   paragraph without "and also"? If not, the spec is two features — split it
+   into two specs that reference each other.
 
-Cheap test, before either: **can you still state the Problem Statement in one
-paragraph without "and also"?** If not, the spec is two features — split it into
-two specs that reference each other.
-
-Rewriting a spec to fix its model is not spec sprawl. The test is whether one
-Problem Statement still describes the work.
+Growing an oversized spec further is always the wrong default. Rewriting a
+spec to fix its model is not spec sprawl. The test is whether one Problem
+Statement still describes the work.
 
 ## The WHAT / WHERE Line
 
@@ -114,6 +131,7 @@ made once. `## Out of Scope` states what is excluded, and points at
 | "Fix bug in X" as a new spec | Bugs are part of the spec's scope | Update ACs in X's spec |
 | Never amending specs | Specs become stale snapshots, not living documents | Rewrite the body; log to `changelog.md` |
 | **Append-only amendment** | Requirements accumulate in arrival order and superseded text stays authoritative-looking, so a reader of the FR section implements the old behaviour | Edit the requirement in place; delete what it replaced |
+| **Additive-only amendment** (`+N / ~0 / −0`) | The change nets nothing out — no merge, no generalization, nothing invalidated. The spec grows past the point where one pass describes the system and the new feature hides in the tail | Run the Amendment Gate: merge, generalize, or split before adding |
 | **Changelog inside `spec.md`** | Every read of the spec pays for history it did not ask for, and the tail is the part readers skim | Separate `changelog.md` |
 | **Changelog recording implementation detail** | Duplicates git; the document bloats without gaining information | Requirement-level why only — `what` goes to the commit |
 | **Never renumbering** | FRs accumulate in arrival order, so no read-through builds a mental model | Regroup by concern; git preserves the diff |
@@ -185,8 +203,24 @@ value **is** the agent name (`goose`, `amp`, `custom-architect`). ...
 **Why**: The harness-name default was wrong for tools that set `AI_AGENT` to
 their own name; they were being reported as a generic agent. Chosen over
 keeping the harness default plus an override, which left two rules to reconcile.
-**Changed**: FR-003 (rewritten), FR-010 (added), AC-12…AC-17 (added)
+**Changed**: +1 / ~1 / −0 FRs — FR-003 (rewritten), FR-010 (added),
+AC-12…AC-17 (added)
 ```
+
+### Example 6: The Amendment That Would Add 25 FRs
+
+**Request:** "Add ship combat to the mecha-turk spec 002 (already 100+ FRs)."
+
+**Wrong:** append FR-101…FR-125. The FR list is already past unreadable, the
+new feature hides in the tail, and a reader of `## Functional Requirements`
+now has a hundred-plus entries to reconcile with the code.
+
+**Right:** run the Amendment Gate. Past ~15 FRs, do not add: open the existing
+FRs and consolidate — the movement, targeting, and damage requirements usually
+generalize to cover ships. If the feature genuinely outgrows the spec, split:
+extract `specs/006-ship-combat/spec.md` for the new domain and amend spec 002
+to reference it. Either way the changelog records `+2 / ~6 / −1 FRs` — not
+`+25`.
 
 ## What "Scanning Existing Specs" Means in Practice
 

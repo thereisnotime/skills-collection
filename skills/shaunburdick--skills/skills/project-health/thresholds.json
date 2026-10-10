@@ -24,5 +24,10 @@
   "linesPerTestCase": {
     "max": 200,
     "why": "Test lines per test case. A very high figure suggests fixtures or setup dominating rather than assertions. Deliberately loose and ambiguous in sign - heavy tests are sometimes the correct choice - so treat a warning here as a prompt to look, not a defect."
+  },
+
+  "testRatio": {
+    "max": 2.0,
+    "why": "Test lines per line of product code. Above parity the suite costs more to keep compiling than the behaviour it protects, and every structural change pays for all of it. Watch the direction of travel: a ratio climbing while code shrinks means tests are being added to tests."
   }
 }

@@ -36,6 +36,7 @@ Document the stack with rationale. Future decisions must align with these or exp
 These are the minimum bars — not targets to aim for, but floors to never go below.
 
 - **Test coverage**: ≥ <X>% line coverage for all new code
+- **A test is a liability with a yield.** It earns its place only by failing when behaviour regresses and passing when only shape changes. A suite materially larger than the code it protects, or one that enumerates UI inventory (control counts, closed string sets, "byte-for-byte unchanged" lists), is a signal to delete — not an achievement.
 - **Linting**: Zero errors, zero warnings — no suppression comments ever
 - **Type safety**: Strict mode enabled, no `any` types without documented justification
 - **Documentation**: Public APIs document the non-obvious — the invariant they

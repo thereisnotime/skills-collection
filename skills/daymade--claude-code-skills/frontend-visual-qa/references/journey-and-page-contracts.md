@@ -4,23 +4,6 @@ Load this reference only when the audit includes state transitions, routes,
 overlays, browser-owned output, native shells, complex page types, maps, or
 review/annotation workflows, including summary-to-detail disclosure.
 
-## Contents
-
-- Evidence Boundary
-- Journey And State Matrix
-- Summary-To-Detail Disclosure
-- Authorization, Mode, And Runtime Truth
-- Route And Addressability
-- Transient UI
-- Drawers, Modals, Popovers, And Focus
-- Browser-Integrated Outputs
-- Electron And Native Shells
-- Landing, Deck, And Browser Tool/Game Artifacts
-- Dashboard And Enterprise Admin
-- Design-System Artifacts
-- Map And GIS Workbenches
-- Review And Annotation Tools
-
 ## Evidence Boundary
 
 Use the visible surface that owns the behavior.
@@ -59,6 +42,38 @@ For each relevant state, verify:
 Do not require every possible state for a local visual-only change. Cover the
 states affected by the implementation or explicitly requested by the user.
 
+For a changed multi-item read or batch result, the executing auditor uses the
+authorized project harness to fail one known item while the enclosing request
+succeeds. Reconcile the expected identities with the visible successes, failures
+and unread items; failed items must not disappear or be labelled complete. Read
+the failure and its safe next action from the ordinary render, not a hidden DOM
+node. If the product permits retry, trigger it and verify it targets the original
+failed selection, replaces the failure with the correct content, and preserves
+successful work. Keep uncertain writes behind the project's existing recovery
+contract; this recipe does not authorize resubmission. Exercise an all-success
+control as well. No generic sweep determines per-item completeness or safe retry;
+retain the exact selection, visible outcome and recovery observations in the audit.
+
+For nested zoomable workspaces, the executing auditor treats the ordinary entry,
+enlarged mode, affected zoom levels and return-to-ordinary as separate states.
+An enlarged canvas cannot certify the shallow ordinary pane. Record its rendered
+node set, pane dimensions and settled viewport before judging fit; an empty or
+transient canvas leaves that state unobserved. When sizing or fit changed, resize
+the pane itself, including a resize that keeps the same column count.
+
+For fixed cards with inverse-scaled text, inspect every visible title, date and
+preview field. A contained box can still paint half a line. The sweep's
+`paintedText` observation detects substantial vertical fragment clipping; whole
+omitted lines, horizontal ellipsis, scroll windows and clip-paths need separate
+pixel/journey judgement. Transparent captions can cover control icons while
+clicks succeed: compare painted bounds, inspect the crop, then trigger the real
+control. These checks support geometry, not comprehension or semantic fidelity.
+
+Keep each state's verdict and limitations when composing the result. A passed
+child return or enlarged view does not upgrade another state's partial verdict.
+No automatic tool enforces this scope comparison; the executing auditor must
+apply SKILL.md's completion gate to the original user contract.
+
 Treat these as Major unless the project taxonomy says otherwise:
 
 - a primary action blocks indefinitely with no recovery;
@@ -70,6 +85,50 @@ Before closing a nontrivial journey audit, repeat the main path without
 developer context and ask what a tired or first-time user will misunderstand
 first. Check trigger ownership, return-to-default, recovery, runtime truth,
 internal language, manual burden, and which regression guard catches the miss.
+
+### Refactor Preservation
+
+Apply this recipe only to affected UI refactors, category splits, or navigation
+changes. The auditor performs it through the existing project harness and
+authorized Level A/B journeys; the bundled layout sweep does not inventory old
+capabilities or decide data preservation. A copy-only edit does not require it.
+
+1. Resolve a full immutable pre-change commit or release and read its relevant
+   routes, controls, and consumers, for example with `git show <commit>:<path>`.
+   List the original user operations and outputs in the existing audit contract.
+   Compare product names and labels with the latest approved naming authority
+   outside the refactor's write scope; neither old implementation labels nor new
+   defaults can overturn an approved rename. An unavailable baseline leaves
+   preservation unverified rather than letting the new UI define the old scope.
+2. For each affected consumer, name its inclusion rule and expected record IDs
+   from independent project data. A browsing list, source review, domain check,
+   and relationship lookup may consume different sets. Trace a changed shared
+   filter to each of those consumers; hiding a category from one list does not
+   authorize removing its records from every check or query. Verify default and
+   affected combined filters with a representative included/excluded record.
+   For paginated or bounded views, include a known required record outside the
+   initial or newest window and exercise its normal read path. Derive the expected
+   set from the selected scope's authoritative record, not the returned page or
+   visible list. A missing body may remain unknown only after its read coverage is
+   established; inability to read is not evidence that the body does not exist.
+3. Map each original operation to its current visible entry and exercise it.
+   Confirm the resulting answer or output and reconcile record identities,
+   relevant fields, relationships, and retained drafts through the ordinary
+   read/reopen path. Compare IDs and values, not only counts or label matches.
+   Mark approved retirements with their authority; an unreachable old action or
+   an omitted record remains a regression even when the new screen looks clean.
+4. For a confirmed regression, run the smallest project probe against saved old
+   evidence or an authorized isolated faulty version, then the repair. Include a
+   healthy near-boundary control. Inspect the same affected journey on the real
+   current page at Level A/B; source, build, and handler assertions alone cannot
+   close the rendered finding. Leave unavailable page or write evidence explicit.
+
+Retain a compact map in the existing report:
+`old operation -> current entry -> expected IDs/values -> observed result -> evidence/verdict`.
+Reuse unchanged passing checks bound to the same content and inputs; rerun only
+changed or failed checks, unresolved cases, and repository-required checks. Stop
+when the affected operations, consumer sets, and retained work are accounted for;
+this recipe does not require a full-product regression on every edit.
 
 ### Delayed Completion And Reopened Work
 
@@ -145,6 +204,10 @@ reference; no bundled text-count or DOM-node metric decides whether detail is us
 2. Inspect the collapsed render and answer its question from that render alone.
    Record the visible values, relationships, or evidence used. A correct grand
    total cannot establish that a requested contribution breakdown is visible.
+   For contribution views, quote the visible work or result that answers who did
+   what. Names, lifecycle events and repeated missing-content warnings cannot
+   establish that answer. A verified source gap may be shown with an actionable
+   coverage state; record the unanswered question rather than granting a pass.
 3. Trigger the actual control, then read and extract the newly visible granular
    rows, relationships, explanations, or supporting evidence. Answer the expanded
    question using that evidence, naming what was unavailable while collapsed.
@@ -284,6 +347,33 @@ Use rendered geometry, not wrapper props, as evidence. Sticky headers, footers,
 notifications, and non-modal dialogs must not entirely hide focused controls.
 
 ## Browser-Integrated Outputs
+
+### Cited Source Inspection
+
+When a citation marker promises original evidence, inspect what the reader can
+actually read after opening it. Compare the displayed source with the citation's
+bound identity and locator; a visible surface or loaded frame alone is insufficient.
+
+- Text: read the cited original wording and surrounding context at the promised
+  speaker, timestamp, clause or message locator.
+- Image: inspect the bound original or explicitly named quality variant, original
+  message/batch/ordinal and proportions. A filtered gallery's first item must not
+  silently become the original's first image.
+- PDF: read the actual cited document and page, including the relevant words or
+  marks at usable size. A filename, iframe chrome, matching bytes or a page-count
+  label does not prove the page content is readable. Exercise the preview's scroll
+  or zoom when the whole page does not fit.
+
+Close the source and verify focus returns to its marker and the page and scrolling
+ancestors retain the reading position. For hover/focus previews, exercise pointer
+movement into the card, Escape dismissal without immediate reopening, activation
+that hides the preview, and a fresh focus that can reopen it. If an adapter partly
+opens and fails, verify its surface and background lock are cleaned up before
+reporting the failure.
+
+Use a synthetic empty or wrong source to prove this inspection can reject a
+misbinding. Run only affected source types. Mark unavailable original-content or
+native-viewer evidence unverified; a successful DOM sweep cannot replace it.
 
 Review the recipient artifact, not only the event handler.
 Unless the product explicitly promises a technical audit artifact, the exported
