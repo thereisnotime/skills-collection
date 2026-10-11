@@ -13,6 +13,7 @@ skills:
   - agent-eval
   - agent-harness-construction
   - agent-payment-x402
+  - agent-runtime-gateway-smoke-test
   - agentic-engineering
   - agentic-os
   - ai-first-engineering
@@ -30,15 +31,18 @@ skills:
   - bun-runtime
   - canary-watch
   - carrier-relationship-management
+  - change-impact
   - ck
   - claude-devfleet
   - click-path-audit
   - clickhouse-io
+  - brownfield-retrospective
   - codebase-onboarding
   - coding-standards
   - compose-multiplatform-patterns
   - configure-ecc
   - contract-first
+  - context-and-decisions
   - content-engine
   - content-hash-cache-pattern
   - context-budget
@@ -103,6 +107,7 @@ skills:
   - market-research
   - mcp-dependency-review
   - mcp-server-patterns
+  - module-regression
   - mybatis-patterns
   - motion-advanced
   - motion-foundations
@@ -147,6 +152,7 @@ skills:
   - security-review
   - security-scan
   - skill-comply
+  - skill-host-compat
   - skill-stocktake
   - springboot-patterns
   - springboot-security
@@ -162,6 +168,7 @@ skills:
   - tasteforge-video
   - tdd-workflow
   - team-builder
+  - test-collaboration
   - token-budget-advisor
   - token-card
   - unified-memory
@@ -172,6 +179,7 @@ skills:
   - x-api
 commands:
   - aside
+  - astra-review
   - auto-update
   - build-fix
   - checkpoint
@@ -261,6 +269,7 @@ commands:
   - setup-pm
   - skill-create
   - skill-health
+  - skill-host-compat
   - test-coverage
   - token-card
   - update-codemaps

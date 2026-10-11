@@ -293,7 +293,8 @@ function runTests() {
         'commands-core',
         'platform-configs',
         'skill-unified-memory',
-        'workflow-quality'
+        'workflow-quality',
+        'shared-script-utils'
       ]
     );
     assert.ok(plan.skippedModuleIds.includes('hooks-runtime'));
@@ -318,7 +319,8 @@ function runTests() {
         'commands-core',
         'platform-configs',
         'skill-unified-memory',
-        'workflow-quality'
+        'workflow-quality',
+        'shared-script-utils'
       ]
     );
     assert.ok(!plan.selectedModuleIds.includes('hooks-runtime'),
@@ -342,7 +344,8 @@ function runTests() {
         'commands-core',
         'platform-configs',
         'skill-unified-memory',
-        'workflow-quality'
+        'workflow-quality',
+        'shared-script-utils'
       ]
     );
     assert.deepStrictEqual(plan.skippedModuleIds, []);
@@ -374,7 +377,8 @@ function runTests() {
         'commands-core',
         'platform-configs',
         'skill-unified-memory',
-        'workflow-quality'
+        'workflow-quality',
+        'shared-script-utils'
       ]
     );
     assert.deepStrictEqual(plan.skippedModuleIds, []);

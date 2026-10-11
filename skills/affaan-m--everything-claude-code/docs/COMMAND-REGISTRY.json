@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "totalCommands": 95,
+  "totalCommands": 97,
   "commands": [
     {
       "command": "aside",
@@ -10,6 +10,15 @@
       "allAgents": [],
       "skills": [],
       "path": "commands/aside.md"
+    },
+    {
+      "command": "astra-review",
+      "description": "Send Claude-written code to GPT-6-Astra (ChatGPT, via Codex CLI) for an independent cross-provider review, then fix what it finds.",
+      "type": "orchestration",
+      "primaryAgents": [],
+      "allAgents": [],
+      "skills": [],
+      "path": "commands/astra-review.md"
     },
     {
       "command": "auto-update",
@@ -982,6 +991,17 @@
       "path": "commands/skill-health.md"
     },
     {
+      "command": "skill-host-compat",
+      "description": "Lint ECC skills for Codex/Cursor-safe frontmatter and Claude-only substitutions before a skill PR.",
+      "type": "general",
+      "primaryAgents": [],
+      "allAgents": [],
+      "skills": [
+        "skill-host-compat"
+      ],
+      "path": "commands/skill-host-compat.md"
+    },
+    {
       "command": "test-coverage",
       "description": "Analyze coverage, identify gaps, and generate missing tests toward the target threshold.",
       "type": "testing",
@@ -1040,8 +1060,8 @@
   "statistics": {
     "byType": {
       "build": 2,
-      "general": 11,
-      "orchestration": 11,
+      "general": 12,
+      "orchestration": 12,
       "planning": 2,
       "refactoring": 1,
       "review": 15,

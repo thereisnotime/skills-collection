@@ -1727,6 +1727,7 @@ function repairInstalledStates(options = {}) {
         }
 
         const rawPlan = createRepairPlanFromRecord(record, context);
+        require('./install/apply').assertOpenCodeScriptBoundary(rawPlan);
         const {
           migration,
           plan: desiredPlan,
@@ -1811,6 +1812,9 @@ function repairInstalledStates(options = {}) {
         }
 
         for (const operation of repairOperations) {
+          if (operation.sourceRelativePath === 'manifests/install-assets/commonjs-scripts-package.json') {
+            require('./install/apply').assertOpenCodeScriptBoundary(desiredPlan, new Set(repairedPaths));
+          }
           if (desiredPlan.target === 'opencode') {
             const { assertOpenCodeActivationUnchanged } = require('./install/apply');
             assertOpenCodeActivationUnchanged(desiredPlan, operation, activationSnapshot);
@@ -1996,7 +2000,18 @@ function uninstallInstalledStates(options = {}) {
         );
       }
 
-      for (const operation of operations) {
+      const { isScriptBoundary, retainScriptBoundary } = require('./install/opencode-script-boundary');
+      // Remove owned script bodies first. Keep their CommonJS scope while any
+      // retained or user-created JavaScript still relies on that boundary.
+      const orderedOperations = [
+        ...operations.filter(operation => !isScriptBoundary(operation, record.targetRoot)),
+        ...operations.filter(operation => isScriptBoundary(operation, record.targetRoot)),
+      ];
+      for (const operation of orderedOperations) {
+        if (retainScriptBoundary(operation, record.targetRoot)) {
+          retainedPaths.push(operation.destinationPath);
+          continue;
+        }
         const outcome = executeUninstallOperation(operation, record.targetRoot, {
           preserveDriftedCopies: true,
           target: record.adapter.target,

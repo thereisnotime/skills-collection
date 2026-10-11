@@ -1,6 +1,6 @@
 # Curation
 
-pi/core includes 128 of 302 skills and 24 of 95 commands from the root of ECC.
+pi/core includes 132 of 311 skills and 24 of 97 commands from the root of ECC.
 Everything excluded is listed here with its reason.
 
 ## Rules
@@ -163,6 +163,7 @@ Exclude anything that:
 | `security-scan` | wraps AgentShield commercial product |
 | `seo` | SEO/marketing |
 | `skill-comply` | runs agent rosters for compliance checks |
+| `skill-host-compat` | runs an ECC repo CI script (scripts/ci/validate-skill-host-compat.js) |
 | `skill-scout` | network searches of skill marketplaces |
 | `skill-stocktake` | subagent-based Claude skill audit |
 | `social-graph-ranker` | social graph (X and LinkedIn) |
@@ -193,6 +194,10 @@ Exclude anything that:
 | `osint-investigation` | External source investigation and evidence collection are outside the curated offline Pi core. |
 | `mcp-dependency-review` | MCP server configuration and selector review are outside the curated Pi core. |
 | `token-card` | Requires a downloaded tokenchit CLI and reads provider session logs. |
+| `agent-runtime-gateway-smoke-test` | requires authenticated network gateways and remote sandbox callbacks at runtime |
+| `brownfield-retrospective` | depends on the ECC specialist agent roster and spec-miner dispatch workflow; not a compact portable Pi prompt |
+| `deepseek-harness-setup` | configures an external DeepSeek provider and Claude-Code-specific credentials and hook integration |
+| `story-lifecycle` | Requires ECC agent workflow handoffs and a local Node ledger; native Pi delivery has not been validated. |
 
 ## Excluded commands
 
@@ -267,8 +272,10 @@ Exclude anything that:
 | `setup-pm` | runs an ECC repo script (scripts/setup-package-manager.js) |
 | `skill-create` | Claude Code skill authoring plus instincts |
 | `skill-health` | ECC skill analytics dashboard |
+| `skill-host-compat` | runs an ECC repo CI script (scripts/ci/validate-skill-host-compat.js) |
 | `vue-review` | invokes ECC agent roster (vue-reviewer) |
 | `token-card` | Requires the tokenchit CLI and provider session logs via the token-card skill. |
+| `astra-review` | requires an external Codex CLI and cross-provider review authorization at runtime |
 
 ## Renames
 

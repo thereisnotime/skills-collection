@@ -162,6 +162,7 @@ function writeManifestSourceFixture(root) {
   writeFile(root, path.join('src', 'stray.pyd'), 'ignored\n');
   writeFile(root, path.join('src', 'nested', 'ecc-install-state.json'), '{}\n');
   writeFile(root, path.join('rules', 'common', 'coding-style.md'), '# Common\n');
+  writeFile(root, path.join('rules', 'common', 'agents.md'), 'Use the `ecc:planner` agent.\n');
   writeFile(root, path.join('skills', 'demo', 'SKILL.md'), '# Demo\n');
   writeFile(root, 'standalone.txt', 'standalone\n');
   writeFile(root, path.join('runtime', 'ecc', 'install-state.json'), '{}\n');
@@ -684,6 +685,11 @@ function runTests() {
       assert.ok(fs.existsSync(path.join(homeDir, '.claude', 'src', 'app.js')));
       assert.ok(fs.existsSync(path.join(homeDir, '.claude', 'standalone.txt')));
       assert.ok(fs.existsSync(path.join(homeDir, '.claude', 'plugin.json')));
+      const installedAgentsRule = fs.readFileSync(
+        path.join(homeDir, '.claude', 'rules', 'ecc', 'common', 'agents.md'),
+        'utf8'
+      );
+      assert.strictEqual(installedAgentsRule, 'Use the `planner` agent.\n');
       const state = JSON.parse(fs.readFileSync(path.join(homeDir, '.claude', 'ecc', 'install-state.json'), 'utf8'));
       assert.strictEqual(state.request.profile, 'minimal');
       assert.deepStrictEqual(state.resolution.selectedModules, ['fixture-core']);
@@ -897,15 +903,30 @@ function runTests() {
           assert.strictEqual(fs.readFileSync(userPath, 'utf8'), 'Keep my settings.\n');
         }
 
-        const modifiedContent = `${fs.readFileSync(toolPath, 'utf8')}\n// User test customisation.\n`;
-        fs.writeFileSync(toolPath, modifiedContent, 'utf8');
+        const toolFd = fs.openSync(toolPath, fs.constants.O_RDWR | (fs.constants.O_NOFOLLOW || 0));
+        let modifiedContent;
+        try {
+          assert.ok(fs.fstatSync(toolFd).isFile());
+          modifiedContent = `${fs.readFileSync(toolFd, 'utf8')}\n// User test customisation.\n`;
+          const modifiedBytes = Buffer.from(modifiedContent);
+          assert.strictEqual(fs.writeSync(toolFd, modifiedBytes, 0, modifiedBytes.length, 0), modifiedBytes.length);
+          fs.ftruncateSync(toolFd, modifiedBytes.length);
+        } finally {
+          fs.closeSync(toolFd);
+        }
         const uninstalled = uninstallInstalledStates(lifecycleOptions);
         assert.strictEqual(uninstalled.results.length, 1);
         assert.strictEqual(uninstalled.results[0].status, 'partial', JSON.stringify(uninstalled));
         assert.ok(uninstalled.results[0].removedPaths.includes(barrelPath));
         assert.ok(!fs.existsSync(barrelPath), 'both legacy and repaired managed barrels are recognised');
         assert.deepStrictEqual(uninstalled.results[0].retainedPaths, [toolPath]);
-        assert.strictEqual(fs.readFileSync(toolPath, 'utf8'), modifiedContent);
+        const retainedFd = fs.openSync(toolPath, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+        try {
+          assert.ok(fs.fstatSync(retainedFd).isFile());
+          assert.strictEqual(fs.readFileSync(retainedFd, 'utf8'), modifiedContent);
+        } finally {
+          fs.closeSync(retainedFd);
+        }
         assert.strictEqual(fs.readFileSync(userPath, 'utf8'), 'Keep my settings.\n');
         assert.ok(fs.existsSync(plan.installStatePath), 'modified managed content retains its ownership record');
       }
@@ -1161,9 +1182,13 @@ function runTests() {
       for (const name of OPENCODE_ENTRYPOINTS) {
         assert.strictEqual(
           fs.readFileSync(path.join(homeDir, '.config', 'opencode', 'plugins', name), 'utf8'),
-          fs.readFileSync(path.join(REPO_ROOT, '.opencode', 'plugins', name), 'utf8')
+          name === 'index.ts' ? INERT_OPENCODE_PLUGIN : fs.readFileSync(path.join(REPO_ROOT, '.opencode', 'plugins', name), 'utf8')
         );
       }
+      assert.strictEqual(
+        enabledPlan.statePreview.operations.find(operation => operation.sourceRelativePath.split(path.sep).join('/') === '.opencode/plugins/index.ts').contentTransform,
+        'opencode-disable-plugin-entrypoint'
+      );
       applyInstallPlanDirect(declinedPlan);
       const declinedState = JSON.parse(fs.readFileSync(declinedPlan.installStatePath, 'utf8'));
       assert.strictEqual(declinedState.request.hookConsent, 'declined');

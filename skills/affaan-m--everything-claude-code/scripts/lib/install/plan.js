@@ -287,7 +287,17 @@ function createManifestInstallPlan(options = {}) {
   const adapter = getInstallTargetAdapter(target);
   const materializedOperations = plan.operations.flatMap(operation => (
     materializeScaffoldOperation(sourceRoot, operation)
-  ));
+  )).map(operation => {
+    // Persist this projection so install, doctor and repair compare the same
+    // native component names rather than restoring plugin-only references.
+    if (['claude', 'claude-project'].includes(target)
+      && operation.kind === 'copy-file'
+      && /\.(md|mdx|markdown)$/i.test(operation.destinationPath)
+      && !operation.contentTransform) {
+      return { ...operation, contentTransform: 'claude-manual-plugin-namespace' };
+    }
+    return operation;
+  });
   const ruleLanguages = Array.isArray(options.ruleLanguages) ? [...options.ruleLanguages] : [];
   const operations = dedupeCopyFileOperations(
     options.legacyMode && target === 'antigravity'

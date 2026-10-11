@@ -17,8 +17,10 @@ const codexAdapter = require('../../scripts/lib/install-targets/codex-home');
 
 const USER_REFERENCE = 'user-config.example.toml';
 const PROJECT_CONFIG = '# Project-only configuration\n[features]\nmulti_agent = true\n';
-const SHARED_FILES = ['config.toml', 'AGENTS.md'];
+const SHARED_FILES = ['config.toml', 'AGENTS.md', 'strict.config.toml', 'yolo.config.toml'];
 const TEMPLATES = {
+  'strict.config.toml': 'sandbox_mode = "read-only"\n',
+  'yolo.config.toml': 'sandbox_mode = "workspace-write"\n',
   'config.toml': '# ECC defaults\nmodel = "example-model"\n',
   'AGENTS.md': '# ECC instructions\n\nFollow the project conventions.\n',
 };

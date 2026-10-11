@@ -17,6 +17,7 @@
 | `/build-fix` | Detect and fix build errors — delegates to the right build-resolver agent automatically |
 | `/quality-gate` | Quality gate check against project standards |
 | `/santa-loop` | Adversarial dual-review convergence loop — two independent model reviewers must both approve before code ships |
+| `/astra-review` | Send Claude-written code to GPT-6-Astra (ChatGPT, via Codex CLI) for an independent cross-provider review, then fix what it finds |
 
 ---
 
@@ -180,6 +181,7 @@ These lifecycle commands are also available through the `ecc` CLI.
 | `/instinct-import` | Import instincts from a file or URL |
 | `/skill-create` | Analyse local git history → generate a reusable skill |
 | `/skill-health` | Skill portfolio health dashboard with analytics |
+| `/skill-host-compat` | Lint skills for Codex-safe frontmatter and Claude substitutions |
 
 ---
 

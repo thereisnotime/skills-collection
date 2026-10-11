@@ -140,6 +140,13 @@ function printHumanPlan(plan, dryRun) {
     }
   }
 
+  if (Array.isArray(plan.reconciledStalePaths) && plan.reconciledStalePaths.length > 0) {
+    console.log('\nRemoved files no longer in the install plan:');
+    for (const removedPath of plan.reconciledStalePaths) {
+      console.log(`- removed ${removedPath}`);
+    }
+  }
+
   if (!dryRun) {
     console.log(`\nDone. Install-state written to ${plan.installStatePath}`);
   }

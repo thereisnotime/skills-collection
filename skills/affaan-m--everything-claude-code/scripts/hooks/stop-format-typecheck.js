@@ -23,6 +23,7 @@ const os = require('os');
 const path = require('path');
 
 const { findProjectRoot, detectFormatter, resolveFormatterBin } = require('../lib/resolve-formatter');
+const { resolveHookSessionId } = require('../lib/hook-session');
 
 const MAX_STDIN = 1024 * 1024;
 // Total ms budget reserved for all batches (leaves headroom below the 300s Stop timeout)
@@ -76,9 +77,9 @@ function isPluginClonePath(filePath, cwd = process.cwd(), homeDir = os.homedir()
   });
 }
 
-function getAccumFile() {
+function getAccumFile(rawSessionId) {
   const raw =
-    process.env.CLAUDE_SESSION_ID ||
+    rawSessionId ||
     crypto.createHash('sha1').update(process.cwd()).digest('hex').slice(0, 12);
   const sessionId = raw.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
   return path.join(os.tmpdir(), `ecc-edited-${sessionId}.txt`);
@@ -127,6 +128,14 @@ function findTsConfigDir(filePath) {
   return null;
 }
 
+function diagnosticMatchesFile(line, paths) {
+  const normalizedLine = line.replace(/\\/g, '/');
+  for (const candidate of paths) {
+    if (normalizedLine.includes(candidate.replace(/\\/g, '/'))) return true;
+  }
+  return false;
+}
+
 function typecheckBatch(tsConfigDir, editedFiles, timeoutMs) {
   const isWin = process.platform === 'win32';
   const npxBin = isWin ? 'npx.cmd' : 'npx';
@@ -163,7 +172,7 @@ function typecheckBatch(tsConfigDir, editedFiles, timeoutMs) {
     const relPath = path.relative(tsConfigDir, filePath);
     const candidates = new Set([filePath, relPath]);
     const relevantLines = lines
-      .filter(line => { for (const c of candidates) { if (line.includes(c)) return true; } return false; })
+      .filter(line => diagnosticMatchesFile(line, candidates))
       .slice(0, 10);
     if (relevantLines.length > 0) {
       process.stderr.write(`[Hook] TypeScript errors in ${path.basename(filePath)}:\n`);
@@ -172,8 +181,8 @@ function typecheckBatch(tsConfigDir, editedFiles, timeoutMs) {
   }
 }
 
-function main() {
-  const accumFile = getAccumFile();
+function main(sessionId) {
+  const accumFile = getAccumFile(sessionId);
 
   let raw;
   try {
@@ -229,7 +238,7 @@ function main() {
  */
 function run(rawInput) {
   try {
-    main();
+    main(resolveHookSessionId(rawInput));
   } catch (err) {
     process.stderr.write(`[Hook] stop-format-typecheck error: ${err.message}\n`);
   }
@@ -266,6 +275,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  diagnosticMatchesFile,
   run,
   parseAccumulator,
   isPluginClonePath,

@@ -64,8 +64,13 @@
       "description": "Core slash-command library and command docs.",
       "paths": [
         "commands",
+        "scripts/astra-review.js",
         "scripts/harness-audit.js",
-        "scripts/skills-health.js"
+        "scripts/skills-health.js",
+        "scripts/lib/skill-evolution",
+        "scripts/lib/astra-review",
+        "scripts/ci/validate-skill-host-compat.js",
+        "scripts/ci/validate-skills.js"
       ],
       "targets": [
         "claude",
@@ -83,7 +88,9 @@
         "kimi",
         "adal"
       ],
-      "dependencies": [],
+      "dependencies": [
+        "shared-script-utils"
+      ],
       "defaultInstall": true,
       "cost": "medium",
       "stability": "stable"
@@ -143,9 +150,6 @@
         "scripts/auto-update.js",
         "scripts/setup-package-manager.js",
         "scripts/lib/package-manager.js",
-        "scripts/lib/utils.js",
-        "scripts/lib/agent-data-home.js",
-        "scripts/lib/path-safety.js",
         ".hermes",
         ".openclaw",
         ".kimi",
@@ -169,7 +173,9 @@
         "kimi",
         "adal"
       ],
-      "dependencies": [],
+      "dependencies": [
+        "shared-script-utils"
+      ],
       "defaultInstall": true,
       "cost": "light",
       "stability": "stable"
@@ -346,6 +352,36 @@
       "stability": "stable"
     },
     {
+      "id": "documentation-context",
+      "kind": "skills",
+      "description": "Optional durable domain-context and ADR handoff workflow.",
+      "paths": [
+        "skills/context-and-decisions"
+      ],
+      "targets": [
+        "claude",
+        "claude-project",
+        "cursor",
+        "antigravity",
+        "codex",
+        "opencode",
+        "codebuddy",
+        "joycode",
+        "qwen",
+        "zed",
+        "hermes",
+        "openclaw",
+        "kimi",
+        "adal"
+      ],
+      "dependencies": [
+        "workflow-quality"
+      ],
+      "defaultInstall": false,
+      "cost": "light",
+      "stability": "beta"
+    },
+    {
       "id": "workflow-quality",
       "kind": "skills",
       "description": "Evaluation, TDD, verification, compaction, learning, and cross-harness memory skills, including the legacy continuous-learning v1 path. The unified-memory workflow requires the separately installed ecc-universal CLI runtime.",
@@ -354,6 +390,7 @@
         "skills/agent-introspection-debugging",
         "skills/ai-regression-testing",
         "skills/configure-ecc",
+        "skills/deepseek-harness-setup",
         "skills/code-tour",
         "skills/continuous-learning",
         "skills/continuous-learning-v2",
@@ -369,14 +406,17 @@
         "skills/plankton-code-quality",
         "skills/production-audit",
         "skills/skill-comply",
+        "skills/skill-host-compat",
         "skills/skill-scout",
         "skills/skill-stocktake",
+        "skills/story-lifecycle",
         "skills/strategic-compact",
         "skills/tdd-workflow",
         "skills/verification-loop",
         "skills/windows-desktop-e2e",
         "skills/agent-self-evaluation",
         "skills/architecture-decision-records",
+        "skills/brownfield-retrospective",
         "skills/browser-qa",
         "skills/ck",
         "skills/click-path-audit",
@@ -941,6 +981,7 @@
         "skills/autonomous-agent-harness",
         "skills/gan-style-harness",
         "skills/hermes-imports",
+        "skills/agent-runtime-gateway-smoke-test",
         "skills/openclaw-persona-forge",
         "skills/opensource-pipeline",
         "skills/orch-add-feature",
@@ -1300,6 +1341,115 @@
       "dependencies": [],
       "defaultInstall": false,
       "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "docs-ar",
+      "kind": "docs",
+      "description": "Arabic (ar) getting-started and core-concepts guide with a terminology glossary.",
+      "paths": [
+        "docs/ar"
+      ],
+      "targets": [
+        "claude",
+        "claude-project"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "documentation-change-impact",
+      "kind": "skills",
+      "description": "Optional read-only change-impact analysis workflow.",
+      "paths": [
+        "skills/change-impact"
+      ],
+      "targets": [
+        "claude",
+        "claude-project",
+        "cursor",
+        "antigravity",
+        "codex",
+        "opencode",
+        "codebuddy",
+        "joycode",
+        "qwen",
+        "zed",
+        "hermes",
+        "openclaw",
+        "kimi",
+        "adal"
+      ],
+      "dependencies": [
+        "workflow-quality"
+      ],
+      "defaultInstall": false,
+      "cost": "light",
+      "stability": "beta"
+    },
+    {
+      "id": "documentation-test-regression",
+      "kind": "skills",
+      "description": "Optional test-collaboration and module-regression workflow.",
+      "paths": [
+        "skills/test-collaboration",
+        "skills/module-regression"
+      ],
+      "targets": [
+        "claude",
+        "claude-project",
+        "cursor",
+        "antigravity",
+        "codex",
+        "opencode",
+        "codebuddy",
+        "joycode",
+        "qwen",
+        "zed",
+        "hermes",
+        "openclaw",
+        "kimi",
+        "adal"
+      ],
+      "dependencies": [
+        "workflow-quality"
+      ],
+      "defaultInstall": false,
+      "cost": "light",
+      "stability": "beta"
+    },
+    {
+      "id": "shared-script-utils",
+      "kind": "platform",
+      "description": "Shared utility files required by installed commands and platform tools.",
+      "paths": [
+        "scripts/lib/utils.js",
+        "scripts/lib/agent-data-home.js",
+        "scripts/lib/path-safety.js"
+      ],
+      "targets": [
+        "claude",
+        "claude-project",
+        "cursor",
+        "copilot",
+        "antigravity",
+        "opencode",
+        "codebuddy",
+        "joycode",
+        "qwen",
+        "zed",
+        "hermes",
+        "openclaw",
+        "kimi",
+        "adal",
+        "codex",
+        "gemini"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "light",
       "stability": "stable"
     }
   ]

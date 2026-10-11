@@ -1,5 +1,6 @@
 'use strict';
 
+const { stripPluginNamespace } = require('./plugin-namespace');
 const { adaptAntigravityAgent } = require('./antigravity-agent');
 const { adaptCopilotAgent } = require('./copilot-agent');
 const { disableOpenCodeHookPluginRegistration, getDisabledOpenCodePluginContent } = require('./hook-consent');
@@ -15,6 +16,12 @@ function rewriteCopilotWorkflowPaths(content, sourceRelativePath) {
 function transformInstallContent(operation, content) {
   if (!operation.contentTransform) {
     return content;
+  }
+  if (operation.contentTransform === 'claude-manual-plugin-namespace') {
+    return stripPluginNamespace(content);
+  }
+  if (operation.contentTransform === 'qwen-agent-frontmatter') {
+    return require('../../qwen-adapt-agents').adaptFrontmatter(content).text;
   }
   if (operation.contentTransform === 'antigravity-agent-frontmatter') {
     return adaptAntigravityAgent(content, operation.sourceRelativePath);

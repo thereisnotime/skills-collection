@@ -94,7 +94,7 @@ module.exports = createInstallTargetAdapter({
     const modules = Array.isArray(input.modules)
       ? input.modules
       : (input.module ? [input.module] : []);
-    return modules.flatMap(module => (Array.isArray(module.paths) ? module.paths : [])
+    const operations = modules.flatMap(module => (Array.isArray(module.paths) ? module.paths : [])
       .filter(sourcePath => !isForeignPlatformPath(sourcePath, adapter.target))
       .flatMap(sourcePath => {
         const operation = adapter.createScaffoldOperation(module.id, sourcePath, input);
@@ -111,6 +111,18 @@ module.exports = createInstallTargetAdapter({
           contentTransform: 'opencode-home-skills-path',
         })];
       }));
+    const scriptOperation = operations.find(operation => (
+      String(operation.sourceRelativePath).replace(/\\/g, '/').startsWith('scripts/')
+    ));
+    if (!scriptOperation) return operations;
+    // OpenCode's root is ESM, while ECC runtime scripts remain CommonJS.
+    // Record this boundary so install, repair and uninstall share ownership.
+    return [...operations, createManagedOperation({
+      moduleId: scriptOperation.moduleId,
+      sourceRelativePath: 'manifests/install-assets/commonjs-scripts-package.json',
+      destinationPath: path.join(adapter.resolveRoot(input), 'scripts', 'package.json'),
+      strategy: 'preserve-relative-path',
+    })];
   },
   validate: defaultValidateOpencodeHome,
 });

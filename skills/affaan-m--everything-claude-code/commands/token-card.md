@@ -1,6 +1,6 @@
 ---
 description: Render a token-usage stat card from local agent session logs and commit it to the repo. Invokes the token-card skill.
-argument-hint: [--out PATH] [--theme auto|light|dark] [--dry-run]
+argument-hint: "[--out PATH] [--theme auto|light|dark] [--dry-run]"
 ---
 
 # Token Card

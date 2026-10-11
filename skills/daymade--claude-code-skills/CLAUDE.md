@@ -49,6 +49,9 @@ claude plugin install daymade-skill@daymade-skills
 Use [skill-creator](daymade-skill/skill-creator/SKILL.md) before creating or
 changing a skill. Before selecting evidence or reporting completion, follow its
 [required-acceptance owner](daymade-skill/skill-creator/references/change-verification.md#fix-required-acceptance-before-selecting-evidence).
+For executable handoffs, including instruction-only cross-owner workflows, bind its
+[intended-consumer boundary](daymade-skill/skill-creator/references/change-verification.md#bind-the-intended-consumer-before-verification)
+and follow its [first-use route](daymade-skill/skill-creator/references/first-use-and-resume.md).
 Use its selected workflow for regression review, validation, initialization, and packaging.
 
 Operational or code-bearing Skill edits complete directly affected document alignment
@@ -66,7 +69,16 @@ For competitor source-carrier/edition binding, claims, citations and existing-pr
 [competitors-analysis](competitors-analysis/SKILL.md) and its
 [citation readback checklist](competitors-analysis/references/analysis_checklist.md#citation-readback-and-counterevidence).
 
-For permission-sensitive fixtures, use its
+For choosing or reviewing a library, framework, storage, data format, model,
+build-vs-buy or architecture — including 用哪个 / 选什么框架 / 要不要自建 / A 还是 B /
+这个方案行不行 — enter [tech-selection](daymade-claude-code/tech-selection/SKILL.md).
+Follow its full or lightweight route and linked execution owners.
+
+For research-driven evolution of a specified existing Skill, start at
+[skill-evolver](skill-evolver/SKILL.md) and follow its public stage routes; use
+local private adapters only when available.
+
+For permission-sensitive fixtures, use Skill Creator's
 [execution-context verification recipe](daymade-skill/skill-creator/references/stateful-script-verification.md#execution-identity-and-permission-fixtures).
 
 For its audit, release, source-contract or materialization commands from another
@@ -192,6 +204,11 @@ uv run --frozen python -m scripts.quick_validate <skill-path> --audience public
 ```
 
 ### Review and evaluation input preparation
+
+For Skill eval grading, aggregation or previous-iteration review, follow
+[the eval schemas](daymade-skill/skill-creator/references/eval_pipeline_schemas.md)
+and [the viewer workflow](daymade-skill/skill-creator/references/paired-evaluation.md#step-4-grade-aggregate-and-launch-the-viewer).
+Keep assertion identity, missing-data semantics and viewer startup instructions in those owners.
 
 When review, replay or evaluation needs input copies, follow
 [the materialization SOP](daymade-skill/skill-creator/references/materialization-budget.md)

@@ -383,6 +383,7 @@ function runTests() {
           'platform-configs',
           'skill-unified-memory',
           'workflow-quality',
+          'shared-script-utils',
         ]
       );
       assert.ok(
@@ -803,6 +804,31 @@ function runTests() {
     }
   })) passed++; else failed++;
 
+  if (test('commands-only install can execute skill health without hook automation', () => {
+    const homeDir = createTempDir('install-health-home-');
+    const projectDir = createTempDir('install-health-project-');
+    try {
+      const env = { CLAUDE_CONFIG_DIR: path.join(homeDir, '.claude') };
+      const installed = run(['--target', 'claude', '--modules', 'commands-core', '--no-hooks', '--json'], {
+        cwd: projectDir, homeDir, env,
+      });
+      assert.strictEqual(installed.code, 0, installed.stderr);
+      const health = spawnSync(process.execPath, [
+        path.join(homeDir, '.claude', 'scripts', 'skills-health.js'), '--json',
+        '--home', homeDir, '--skills-root', path.join(homeDir, 'empty-curated'),
+        '--learned-root', path.join(homeDir, 'empty-learned'),
+        '--imported-root', path.join(homeDir, 'empty-imported'),
+      ], { cwd: projectDir, env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir, ...env }, encoding: 'utf8' });
+      assert.strictEqual(health.status, 0, health.stderr);
+      assert.deepStrictEqual(JSON.parse(health.stdout).skills, []);
+      const state = readJson(path.join(homeDir, '.claude', 'ecc', 'install-state.json'));
+      assert.ok(!state.operations.some(operation => operation.sourceRelativePath.startsWith('scripts/hooks/')));
+    } finally {
+      cleanup(homeDir);
+      cleanup(projectDir);
+    }
+  })) passed++; else failed++;
+
   if (test('preserves existing top-level Claude rules and skills during managed install', () => {
     const homeDir = createTempDir('install-apply-home-');
     const projectDir = createTempDir('install-apply-project-');
@@ -947,7 +973,8 @@ function runTests() {
           'commands-core',
           'platform-configs',
           'skill-unified-memory',
-          'workflow-quality'
+          'workflow-quality',
+          'shared-script-utils'
         ]
       );
       assert.ok(state.resolution.skippedModules.includes('hooks-runtime'));
@@ -1111,7 +1138,7 @@ function runTests() {
       fs.writeFileSync(scriptsPackagePath, userScriptsPackage);
 
       const firstInstall = run(
-        ['--target', 'claude-project', '--profile', 'core', '--enable-hooks'],
+        ['--target', 'claude-project', '--modules', 'hooks-runtime', '--enable-hooks'],
         { cwd: projectDir, homeDir }
       );
       assert.strictEqual(firstInstall.code, 0, firstInstall.stderr);
@@ -1133,7 +1160,7 @@ function runTests() {
       assert.match(hookResult.stderr, /no-verify/i);
 
       const secondInstall = run(
-        ['--target', 'claude-project', '--profile', 'core', '--enable-hooks'],
+        ['--target', 'claude-project', '--modules', 'hooks-runtime', '--enable-hooks'],
         { cwd: projectDir, homeDir }
       );
       assert.strictEqual(secondInstall.code, 0, secondInstall.stderr);

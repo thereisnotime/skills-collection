@@ -26,8 +26,6 @@ try {
 const ROOT_KEYS = ['approval_policy', 'sandbox_mode', 'web_search', 'notify', 'persistent_instructions'];
 const TABLE_PATHS = [
   'features',
-  'profiles.strict',
-  'profiles.yolo',
   'agents',
   'agents.explorer',
   'agents.reviewer',

@@ -11130,7 +11130,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-noslop/SKILL.md",
       "remote_path": "skills/ce-noslop/SKILL.md",
       "lines": 46,
-      "words": 676,
+      "words": 679,
       "code_blocks": 0,
       "languages": []
     },
@@ -22293,8 +22293,8 @@
       "description": "Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security. Use for architecture and product selection, including when the user describes a need without namin",
       "path": "cloudflare--skills/skills/cloudflare/SKILL.md",
       "remote_path": "skills/cloudflare/SKILL.md",
-      "lines": 149,
-      "words": 3275,
+      "lines": 150,
+      "words": 3308,
       "code_blocks": 0,
       "languages": []
     },
@@ -22320,6 +22320,16 @@
         "jsonc",
         "typescript"
       ]
+    },
+    {
+      "name": "workers-profiling",
+      "description": "Profile or debug CPU usage and memory allocation in deployed Cloudflare Workers and Durable Objects. Then use this information to optimize your code.",
+      "path": "cloudflare--skills/skills/workers-profiling/SKILL.md",
+      "remote_path": "skills/workers-profiling/SKILL.md",
+      "lines": 45,
+      "words": 291,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "sandbox-migrate-to-next",
@@ -28672,11 +28682,11 @@
   "squirrelscan--skills": [
     {
       "name": "audit-website",
-      "description": "Audit a website with the squirrelscan CLI and fix the findings in code. Runs SEO, performance, security, technical, content, accessibility, and 15 other rule categories (260+ rules), returns an LLM-op",
+      "description": "Audit a website with the squirrelscan CLI and fix the findings in code. Runs SEO, performance, security, technical, content, accessibility, and 15 other rule categories (300+ rules), returns an LLM-op",
       "path": "squirrelscan--skills/skills/audit-website/SKILL.md",
       "remote_path": "skills/audit-website/SKILL.md",
-      "lines": 92,
-      "words": 806,
+      "lines": 94,
+      "words": 864,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -28685,11 +28695,11 @@
     },
     {
       "name": "squirrelscan",
-      "description": "\"squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured data issues (260+ rules) and scores site health, via the squirrel CLI. Use when the user wants to c",
+      "description": "\"squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured data issues (300+ rules) and scores site health, via the squirrel CLI. Use when the user wants to c",
       "path": "squirrelscan--skills/skills/squirrelscan/SKILL.md",
       "remote_path": "skills/squirrelscan/SKILL.md",
-      "lines": 361,
-      "words": 3391,
+      "lines": 377,
+      "words": 3933,
       "code_blocks": 17,
       "languages": [
         "bash"
@@ -157149,6 +157159,16 @@
       ]
     },
     {
+      "name": "skill-evolver",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/skill-evolver/SKILL.md",
+      "remote_path": "skill-evolver/SKILL.md",
+      "lines": 184,
+      "words": 1500,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "data-visualization-discipline",
       "description": ">-",
       "path": "daymade--claude-code-skills/data-visualization-discipline/SKILL.md",
@@ -157223,8 +157243,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 854,
-      "words": 3071,
+      "lines": 862,
+      "words": 3133,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157262,7 +157282,7 @@
       "path": "daymade--claude-code-skills/peer-message/SKILL.md",
       "remote_path": "peer-message/SKILL.md",
       "lines": 126,
-      "words": 623,
+      "words": 625,
       "code_blocks": 0,
       "languages": []
     },
@@ -157883,8 +157903,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/SKILL.md",
       "remote_path": "daymade-claude-code/tech-selection/SKILL.md",
-      "lines": 183,
-      "words": 2147,
+      "lines": 203,
+      "words": 1915,
       "code_blocks": 0,
       "languages": []
     },
@@ -157941,8 +157961,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/references/decision-axes.md",
       "remote_path": "daymade-claude-code/tech-selection/references/decision-axes.md",
-      "lines": 201,
-      "words": 2545,
+      "lines": 196,
+      "words": 2428,
       "code_blocks": 0,
       "languages": []
     },
@@ -157951,8 +157971,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/references/scoped-criteria.md",
       "remote_path": "daymade-claude-code/tech-selection/references/scoped-criteria.md",
-      "lines": 311,
-      "words": 2334,
+      "lines": 308,
+      "words": 2228,
       "code_blocks": 0,
       "languages": []
     },
@@ -157961,8 +157981,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/references/delegation-contract.md",
       "remote_path": "daymade-claude-code/tech-selection/references/delegation-contract.md",
-      "lines": 143,
-      "words": 1158,
+      "lines": 152,
+      "words": 1229,
       "code_blocks": 0,
       "languages": []
     },
@@ -157971,8 +157991,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/references/rejection-modes.md",
       "remote_path": "daymade-claude-code/tech-selection/references/rejection-modes.md",
-      "lines": 261,
-      "words": 1515,
+      "lines": 256,
+      "words": 1462,
       "code_blocks": 0,
       "languages": []
     },
@@ -158551,8 +158571,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 257,
-      "words": 2135,
+      "lines": 263,
+      "words": 2187,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -158612,8 +158632,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/paired-evaluation.md",
       "remote_path": "daymade-skill/skill-creator/references/paired-evaluation.md",
-      "lines": 328,
-      "words": 3794,
+      "lines": 316,
+      "words": 3763,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -158663,8 +158683,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/change-verification.md",
       "remote_path": "daymade-skill/skill-creator/references/change-verification.md",
-      "lines": 157,
-      "words": 3909,
+      "lines": 184,
+      "words": 4141,
       "code_blocks": 0,
       "languages": []
     },
@@ -158730,8 +158750,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/first-use-and-resume.md",
       "remote_path": "daymade-skill/skill-creator/references/first-use-and-resume.md",
-      "lines": 100,
-      "words": 919,
+      "lines": 106,
+      "words": 958,
       "code_blocks": 0,
       "languages": []
     },
@@ -158740,8 +158760,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/publishing-and-packaging.md",
       "remote_path": "daymade-skill/skill-creator/references/publishing-and-packaging.md",
-      "lines": 273,
-      "words": 3088,
+      "lines": 285,
+      "words": 3188,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -159846,9 +159866,9 @@
       "description": "Verify an open-source fork is fully sanitized before release. Scans for leaked secrets, PII, internal references, and dangerous files using 20+ regex patterns. Generates a PASS/FAIL/PASS-WITH-WARNINGS",
       "path": "affaan-m--everything-claude-code/agents/opensource-sanitizer.md",
       "remote_path": "agents/opensource-sanitizer.md",
-      "lines": 198,
-      "words": 907,
-      "code_blocks": 7,
+      "lines": 401,
+      "words": 2494,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "markdown"
@@ -160051,7 +160071,7 @@
       "path": "affaan-m--everything-claude-code/commands/skill-health.md",
       "remote_path": "commands/skill-health.md",
       "lines": 55,
-      "words": 281,
+      "words": 284,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -160076,6 +160096,18 @@
       "remote_path": "commands/promote.md",
       "lines": 42,
       "words": 143,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "skill-host-compat",
+      "description": "Lint ECC skills for Codex/Cursor-safe frontmatter and Claude-only substitutions before a skill PR.",
+      "path": "affaan-m--everything-claude-code/commands/skill-host-compat.md",
+      "remote_path": "commands/skill-host-compat.md",
+      "lines": 41,
+      "words": 181,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -160112,7 +160144,7 @@
       "path": "affaan-m--everything-claude-code/commands/instinct-status.md",
       "remote_path": "commands/instinct-status.md",
       "lines": 60,
-      "words": 224,
+      "words": 225,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -161054,6 +161086,16 @@
       ]
     },
     {
+      "name": "test-collaboration",
+      "description": "\"Inventory and govern a project's test assets. Connect requirements, business rules, risks, bugs, and cross-boundary contracts to stable TEST-IDs and executable evidence in the repository's existing t",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/test-collaboration/SKILL.md",
+      "remote_path": "pi/core/skills/test-collaboration/SKILL.md",
+      "lines": 171,
+      "words": 1577,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "architecture-decision-records",
       "description": "Capture architectural decisions as numbered ADR markdown files in docs/adr/ with context, alternatives considered, consequences, and an index README. Use when the user says 'record this decision' or '",
       "path": "affaan-m--everything-claude-code/pi/core/skills/architecture-decision-records/SKILL.md",
@@ -161091,6 +161133,16 @@
         "python",
         "toml"
       ]
+    },
+    {
+      "name": "change-impact",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/change-impact/SKILL.md",
+      "remote_path": "pi/core/skills/change-impact/SKILL.md",
+      "lines": 87,
+      "words": 833,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "liquid-glass-design",
@@ -161350,6 +161402,16 @@
       ]
     },
     {
+      "name": "context-and-decisions",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/context-and-decisions/SKILL.md",
+      "remote_path": "pi/core/skills/context-and-decisions/SKILL.md",
+      "lines": 73,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "quarkus-security",
       "description": "\"Quarkus security implementation patterns: JWT and OIDC authentication, @RolesAllowed RBAC and SecurityIdentity checks, Bean Validation and custom validators, parameterized Panache queries, BCrypt pas",
       "path": "affaan-m--everything-claude-code/pi/core/skills/quarkus-security/SKILL.md",
@@ -161503,8 +161565,8 @@
       "description": "Run a six-phase verification of a Claude Code session's work \u2014 build, type check, lint, tests with coverage, security grep, and diff review \u2014 then produce a PASS/FAIL verification report. Use when ver",
       "path": "affaan-m--everything-claude-code/pi/core/skills/verification-loop/SKILL.md",
       "remote_path": "pi/core/skills/verification-loop/SKILL.md",
-      "lines": 130,
-      "words": 442,
+      "lines": 136,
+      "words": 487,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -161655,6 +161717,18 @@
       "code_blocks": 17,
       "languages": [
         "bash"
+      ]
+    },
+    {
+      "name": "module-regression",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/module-regression/SKILL.md",
+      "remote_path": "pi/core/skills/module-regression/SKILL.md",
+      "lines": 100,
+      "words": 1132,
+      "code_blocks": 2,
+      "languages": [
+        "markdown"
       ]
     },
     {
@@ -161948,9 +162022,9 @@
       "description": "Docker and Docker Compose patterns for local development, hardened CLI installer harnesses, container security, networking, volumes, and multi-service orchestration. Use when creating or reviewing Doc",
       "path": "affaan-m--everything-claude-code/pi/core/skills/docker-patterns/SKILL.md",
       "remote_path": "pi/core/skills/docker-patterns/SKILL.md",
-      "lines": 521,
-      "words": 1913,
-      "code_blocks": 27,
+      "lines": 556,
+      "words": 2161,
+      "code_blocks": 28,
       "languages": [
         "bash",
         "dockerfile",
@@ -162221,6 +162295,16 @@
       "license": "MIT"
     },
     {
+      "name": "test-collaboration",
+      "description": "\"Inventory and govern a project's test assets. Connect requirements, business rules, risks, bugs, and cross-boundary contracts to stable TEST-IDs and executable evidence in the repository's existing t",
+      "path": "affaan-m--everything-claude-code/.agents/skills/test-collaboration/SKILL.md",
+      "remote_path": ".agents/skills/test-collaboration/SKILL.md",
+      "lines": 171,
+      "words": 1577,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "frontend-slides",
       "description": "Create stunning, animation-rich HTML presentations from scratch or by converting PowerPoint files. Use when the user wants to build a presentation, convert a PPT/PPTX to web, or create slides for a ta",
       "path": "affaan-m--everything-claude-code/.agents/skills/frontend-slides/SKILL.md",
@@ -162243,6 +162327,16 @@
         "json"
       ],
       "license": "MIT"
+    },
+    {
+      "name": "change-impact",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/.agents/skills/change-impact/SKILL.md",
+      "remote_path": ".agents/skills/change-impact/SKILL.md",
+      "lines": 87,
+      "words": 833,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "benchmark-methodology",
@@ -162317,6 +162411,16 @@
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
+    },
+    {
+      "name": "context-and-decisions",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/.agents/skills/context-and-decisions/SKILL.md",
+      "remote_path": ".agents/skills/context-and-decisions/SKILL.md",
+      "lines": 73,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "backend-patterns",
@@ -162402,6 +162506,18 @@
       "license": "MIT"
     },
     {
+      "name": "module-regression",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/.agents/skills/module-regression/SKILL.md",
+      "remote_path": ".agents/skills/module-regression/SKILL.md",
+      "lines": 100,
+      "words": 1132,
+      "code_blocks": 2,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
       "name": "investor-materials",
       "description": "Create and update pitch decks, one-pagers, investor memos, accelerator applications, financial models, and fundraising materials. Use when the user needs investor-facing documents, projections, use-of",
       "path": "affaan-m--everything-claude-code/.agents/skills/investor-materials/SKILL.md",
@@ -162411,6 +162527,18 @@
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
+    },
+    {
+      "name": "skill-host-compat",
+      "description": "Lint ECC skills for Codex/Cursor-safe frontmatter and Claude-only substitutions before a skill PR.",
+      "path": "affaan-m--everything-claude-code/.agents/skills/skill-host-compat/SKILL.md",
+      "remote_path": ".agents/skills/skill-host-compat/SKILL.md",
+      "lines": 102,
+      "words": 496,
+      "code_blocks": 5,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "documentation-lookup",
@@ -162809,6 +162937,19 @@
       ]
     },
     {
+      "name": "brownfield-retrospective",
+      "description": "Run the ECC engineering process retroactively against an existing project slice. Audit current state, reconstruct past decisions, produce a four-axis gap register (thinking, coding practice, missing f",
+      "path": "affaan-m--everything-claude-code/skills/brownfield-retrospective/SKILL.md",
+      "remote_path": "skills/brownfield-retrospective/SKILL.md",
+      "lines": 178,
+      "words": 1780,
+      "code_blocks": 2,
+      "languages": [
+        "markdown",
+        "text"
+      ]
+    },
+    {
       "name": "hookify-rules",
       "description": "Create and configure hookify rules \u2014 markdown files with YAML frontmatter that match bash, file, prompt, or stop events by regex or conditions and show warn/block messages to the agent. Use when creat",
       "path": "affaan-m--everything-claude-code/skills/hookify-rules/SKILL.md",
@@ -163106,10 +163247,12 @@
       "description": "Set an ECC-specific frontend design direction for production UI work. Use when building or improving websites, dashboards, applications, components, landing pages, visual tools, or any web UI that nee",
       "path": "affaan-m--everything-claude-code/skills/frontend-design-direction/SKILL.md",
       "remote_path": "skills/frontend-design-direction/SKILL.md",
-      "lines": 94,
-      "words": 649,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 173,
+      "words": 1275,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "ui-to-vue",
@@ -163209,12 +163352,12 @@
     },
     {
       "name": "context-budget",
-      "description": "Audits Claude Code context window consumption across agents, skills, MCP servers, and rules. Identifies bloat, redundant components, and produces prioritized token-savings recommendations. Use when th",
+      "description": "Routes live context checks to the native Codex or Claude Code meter without scanning files, and performs a bounded static component audit only when explicitly requested. Use for context-budget request",
       "path": "affaan-m--everything-claude-code/skills/context-budget/SKILL.md",
       "remote_path": "skills/context-budget/SKILL.md",
-      "lines": 187,
-      "words": 1086,
-      "code_blocks": 5,
+      "lines": 134,
+      "words": 882,
+      "code_blocks": 1,
       "languages": [
         "sh"
       ]
@@ -164139,6 +164282,16 @@
       ]
     },
     {
+      "name": "test-collaboration",
+      "description": "\"Inventory and govern a project's test assets. Connect requirements, business rules, risks, bugs, and cross-boundary contracts to stable TEST-IDs and executable evidence in the repository's existing t",
+      "path": "affaan-m--everything-claude-code/skills/test-collaboration/SKILL.md",
+      "remote_path": "skills/test-collaboration/SKILL.md",
+      "lines": 171,
+      "words": 1577,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "frontend-slides",
       "description": "Create stunning, animation-rich HTML presentations from scratch or by converting PowerPoint files. Use when the user wants to build a presentation, convert a PPT/PPTX to web, or create slides for a ta",
       "path": "affaan-m--everything-claude-code/skills/frontend-slides/SKILL.md",
@@ -164257,12 +164410,12 @@
     },
     {
       "name": "gateguard",
-      "description": "\"PreToolUse fact-forcing gate that denies the first Edit/Write/Bash (including MultiEdit) attempt until the agent presents concrete facts (importers, data schemas, verbatim user instruction), then all",
+      "description": "\"PreToolUse fact-forcing gate that denies the first Edit/Write/Bash (including MultiEdit and NotebookEdit) attempt until the agent presents concrete facts (importers, data schemas, verbatim user instr",
       "path": "affaan-m--everything-claude-code/skills/gateguard/SKILL.md",
       "remote_path": "skills/gateguard/SKILL.md",
-      "lines": 208,
-      "words": 1487,
-      "code_blocks": 7,
+      "lines": 712,
+      "words": 6241,
+      "code_blocks": 9,
       "languages": [
         "bash",
         "json"
@@ -164292,6 +164445,16 @@
       "languages": [
         "markdown"
       ]
+    },
+    {
+      "name": "change-impact",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/skills/change-impact/SKILL.md",
+      "remote_path": "skills/change-impact/SKILL.md",
+      "lines": 87,
+      "words": 833,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "liquid-glass-design",
@@ -164954,6 +165117,16 @@
       "languages": []
     },
     {
+      "name": "context-and-decisions",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/skills/context-and-decisions/SKILL.md",
+      "remote_path": "skills/context-and-decisions/SKILL.md",
+      "lines": 73,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "quarkus-security",
       "description": "\"Quarkus security implementation patterns: JWT and OIDC authentication, @RolesAllowed RBAC and SecurityIdentity checks, Bean Validation and custom validators, parameterized Panache queries, BCrypt pas",
       "path": "affaan-m--everything-claude-code/skills/quarkus-security/SKILL.md",
@@ -165057,6 +165230,18 @@
       "code_blocks": 3,
       "languages": [
         "python"
+      ]
+    },
+    {
+      "name": "story-lifecycle",
+      "description": "Manage a file-based epic \u2192 story \u2192 sprint development loop without requiring an external project management tool. Creates and tracks epics, breaks them into user stories, assigns them to sprints, and ",
+      "path": "affaan-m--everything-claude-code/skills/story-lifecycle/SKILL.md",
+      "remote_path": "skills/story-lifecycle/SKILL.md",
+      "lines": 386,
+      "words": 2736,
+      "code_blocks": 6,
+      "languages": [
+        "markdown"
       ]
     },
     {
@@ -165179,8 +165364,8 @@
       "description": "\"Open-source pipeline: fork, sanitize, and package private projects for safe public release. Chains 3 agents (forker, sanitizer, packager). Triggers: '/opensource', 'open source this', 'make this publ",
       "path": "affaan-m--everything-claude-code/skills/opensource-pipeline/SKILL.md",
       "remote_path": "skills/opensource-pipeline/SKILL.md",
-      "lines": 257,
-      "words": 898,
+      "lines": 285,
+      "words": 1222,
       "code_blocks": 12,
       "languages": [
         "bash"
@@ -165324,8 +165509,8 @@
       "description": "Run a six-phase verification of a Claude Code session's work \u2014 build, type check, lint, tests with coverage, security grep, and diff review \u2014 then produce a PASS/FAIL verification report. Use when ver",
       "path": "affaan-m--everything-claude-code/skills/verification-loop/SKILL.md",
       "remote_path": "skills/verification-loop/SKILL.md",
-      "lines": 130,
-      "words": 442,
+      "lines": 136,
+      "words": 487,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -165575,6 +165760,18 @@
       ]
     },
     {
+      "name": "module-regression",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/skills/module-regression/SKILL.md",
+      "remote_path": "skills/module-regression/SKILL.md",
+      "lines": 100,
+      "words": 1132,
+      "code_blocks": 2,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
       "name": "agentic-os",
       "description": "Build persistent multi-agent operating systems on Claude Code. Covers kernel architecture, specialist agents, slash commands, file-based memory, scheduled automation, and state management without exte",
       "path": "affaan-m--everything-claude-code/skills/agentic-os/SKILL.md",
@@ -165627,6 +165824,19 @@
       "languages": []
     },
     {
+      "name": "deepseek-harness-setup",
+      "description": "\"Install and operate Everything Claude Code (ECC) on the DeepSeek Harness (DSH): native skill roots (~/.dsh/skills, .agents/skills), the @deepseek-ai/dsh-hooks-claude-code bridge for command hooks, ba",
+      "path": "affaan-m--everything-claude-code/skills/deepseek-harness-setup/SKILL.md",
+      "remote_path": "skills/deepseek-harness-setup/SKILL.md",
+      "lines": 90,
+      "words": 508,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "yaml"
+      ]
+    },
+    {
       "name": "search-first",
       "description": "\"Research-before-coding workflow: search npm/PyPI, MCP servers, skills, and GitHub for existing tools before writing custom code, then adopt, extend, or build. Launches the researcher agent for non-tr",
       "path": "affaan-m--everything-claude-code/skills/search-first/SKILL.md",
@@ -165659,6 +165869,18 @@
       "languages": [
         "bash",
         "python"
+      ]
+    },
+    {
+      "name": "skill-host-compat",
+      "description": "Lint ECC skills for Codex/Cursor-safe frontmatter and Claude-only substitutions before a skill PR.",
+      "path": "affaan-m--everything-claude-code/skills/skill-host-compat/SKILL.md",
+      "remote_path": "skills/skill-host-compat/SKILL.md",
+      "lines": 103,
+      "words": 494,
+      "code_blocks": 5,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -166141,6 +166363,18 @@
       ]
     },
     {
+      "name": "agent-runtime-gateway-smoke-test",
+      "description": "Verify a local agent API, temporary gateway tunnel, and remote sandbox callback with a tool-free task, then restore the original app connection.",
+      "path": "affaan-m--everything-claude-code/skills/agent-runtime-gateway-smoke-test/SKILL.md",
+      "remote_path": "skills/agent-runtime-gateway-smoke-test/SKILL.md",
+      "lines": 84,
+      "words": 907,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
+    },
+    {
       "name": "competitive-platform-analysis",
       "description": "Use when scoping a competitive landscape \u2014 identifying, categorising, and score-filtering a competitor set before any benchmarking begins. Decides who counts as a competitor, which tier they belong to",
       "path": "affaan-m--everything-claude-code/skills/competitive-platform-analysis/SKILL.md",
@@ -166245,9 +166479,9 @@
       "description": "Docker and Docker Compose patterns for local development, hardened CLI installer harnesses, container security, networking, volumes, and multi-service orchestration. Use when creating or reviewing Doc",
       "path": "affaan-m--everything-claude-code/skills/docker-patterns/SKILL.md",
       "remote_path": "skills/docker-patterns/SKILL.md",
-      "lines": 521,
-      "words": 1913,
-      "code_blocks": 27,
+      "lines": 556,
+      "words": 2161,
+      "code_blocks": 28,
       "languages": [
         "bash",
         "dockerfile",
@@ -168799,8 +169033,8 @@
       "description": "\u5f3a\u5236\u4e8b\u5b9e\u7684\u95e8\u63a7\uff0c\u963b\u6b62\u7f16\u8f91/\u5199\u5165/Bash\uff08\u5305\u62ecMultiEdit\uff09\uff0c\u5e76\u8981\u6c42\u5728\u5141\u8bb8\u64cd\u4f5c\u4e4b\u524d\u8fdb\u884c\u5177\u4f53\u8c03\u67e5\uff08\u5bfc\u5165\u5668\u3001\u6570\u636e\u6a21\u5f0f\u3001\u7528\u6237\u6307\u4ee4\uff09\u3002\u4e0e\u65e0\u95e8\u63a7\u4ee3\u7406\u76f8\u6bd4\uff0c\u53ef\u6d4b\u91cf\u5730\u5c06\u8f93\u51fa\u8d28\u91cf\u63d0\u9ad82.25\u5206\u3002",
       "path": "affaan-m--everything-claude-code/docs/zh-CN/skills/gateguard/SKILL.md",
       "remote_path": "docs/zh-CN/skills/gateguard/SKILL.md",
-      "lines": 124,
-      "words": 259,
+      "lines": 142,
+      "words": 498,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -173072,8 +173306,8 @@
       "description": "API\u3001\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3001\u304a\u3088\u3073LLM\u30a8\u30f3\u30c9\u30dd\u30a4\u30f3\u30c8\u306e\u30a2\u30af\u30bb\u30b9\u5236\u5fa1\u3068\u8a8d\u53ef\u30d1\u30bf\u30fc\u30f3\u3002",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/gateguard/SKILL.md",
       "remote_path": "docs/ja-JP/skills/gateguard/SKILL.md",
-      "lines": 126,
-      "words": 709,
+      "lines": 183,
+      "words": 1287,
       "code_blocks": 6,
       "languages": [
         "bash"

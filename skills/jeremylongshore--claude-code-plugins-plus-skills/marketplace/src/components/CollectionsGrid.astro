@@ -129,7 +129,6 @@ if (limit) {
         <button
           class="install-btn"
           data-plugins={collection.plugins.join(',')}
-          onclick={`copyInstallCommand('${collection.plugins.join(',')}')`}
         >
           Copy Install
         </button>
@@ -138,7 +137,7 @@ if (limit) {
   ))}
 </div>
 
-<script is:inline>
+<script>
   function copyInstallCommand(plugins) {
     const pluginList = plugins.split(',');
     const command = pluginList.map(p =>
@@ -167,6 +166,13 @@ if (limit) {
       setTimeout(() => toast.remove(), 2500);
     });
   }
+
+  // Astro bundles this script once per page even though collections renders
+  // the grid twice, so the delegated listener binds exactly once.
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.collection-card .install-btn[data-plugins]');
+    if (btn) copyInstallCommand(btn.dataset.plugins);
+  });
 </script>
 
 <style is:global>
