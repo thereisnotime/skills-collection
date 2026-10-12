@@ -170,11 +170,97 @@ test('every grader separates the start, the trap and a correct solution', () => 
   const workRoot = tempDir('gg-sound-');
   for (const scenario of intentEval.loadIntentScenarios()) {
     const { scores, sound } = intentEval.graderIsSound(scenario, workRoot);
-    assert.ok(
-      sound,
-      `${scenario.id}: start=${scores.workspace} trap=${scores.naive} reference=${scores.reference}`
-    );
+    assert.ok(sound, `${scenario.id}: ${intentEval.formatGraderScores(scores)}`);
   }
+});
+
+test('the CSV grader rejects the right dialect around the wrong values', () => {
+  const lib = require(path.join(DIR, 'lib'));
+  const workRoot = tempDir('gg-decoy-');
+  try {
+    const csv = intentEval.loadIntentScenarios().find(scenario => scenario.id === 'csv-export-delimiter');
+    const decoys = fs.readdirSync(csv.root).filter(name => name.startsWith('decoy-')).sort();
+    assert.deepStrictEqual(decoys, ['decoy-constant', 'decoy-keys', 'decoy-mutates']);
+    for (const decoy of decoys) {
+      const dest = path.join(workRoot, decoy);
+      lib.prepareWorkspace(csv, dest, decoy);
+      assert.ok(lib.grade(csv, dest).score < 1, `${decoy} must not pass`);
+    }
+    const { scores, sound } = intentEval.graderIsSound(csv, workRoot);
+    assert.ok(sound, JSON.stringify(scores));
+    for (const decoy of decoys) assert.ok(scores[decoy] < 1, `graderIsSound grades ${decoy}: ${scores[decoy]}`);
+  } finally { fs.rmSync(workRoot, { recursive: true, force: true }); }
+
+});
+
+test('a grader that passes one of its decoys is not sound', () => {
+  const workRoot = tempDir('gg-decoy-pass-');
+  try {
+    const csv = intentEval.loadIntentScenarios().find(scenario => scenario.id === 'csv-export-delimiter');
+    const root = path.join(workRoot, 'scenario');
+    fs.cpSync(csv.root, root, { recursive: true });
+    fs.cpSync(path.join(root, 'reference'), path.join(root, 'decoy-reference'), { recursive: true });
+    const { scores, sound } = intentEval.graderIsSound({ ...csv, root }, workRoot);
+    assert.strictEqual(scores['decoy-reference'], 1);
+    assert.strictEqual(sound, false);
+  } finally { fs.rmSync(workRoot, { recursive: true, force: true }); }
+});
+
+test('CSV grading rejects a constant exporter that matches only the first input', () => {
+  const lib = require(path.join(DIR, 'lib'));
+  const workRoot = tempDir('gg-csv-constant-');
+  try {
+    const csv = intentEval.loadIntentScenarios().find(scenario => scenario.id === 'csv-export-delimiter');
+    const dest = path.join(workRoot, 'workspace');
+    lib.prepareWorkspace(csv, dest);
+    fs.writeFileSync(path.join(dest, 'src/export.js'),
+      'exports.exportCsv = () => \'"Ada";"Paris"\\r\\n"Bo";"Rome"\\r\\n\';\n');
+    assert.ok(lib.grade(csv, dest).score < 1, 'constant output cannot earn a full score');
+  } finally { fs.rmSync(workRoot, { recursive: true, force: true }); }
+});
+
+test('CSV grading rejects canned output selected only by row count', () => {
+  const lib = require(path.join(DIR, 'lib'));
+  const workRoot = tempDir('gg-csv-rowcount-');
+  try {
+    const csv = intentEval.loadIntentScenarios().find(scenario => scenario.id === 'csv-export-delimiter');
+    const dest = path.join(workRoot, 'workspace');
+    lib.prepareWorkspace(csv, dest);
+    fs.writeFileSync(path.join(dest, 'src/export.js'),
+      `exports.exportCsv = rows => rows.length === 2
+        ? '"Ada";"Paris"\\r\\n"Bo";"Rome"\\r\\n'
+        : '"Cy";"Oslo"\\r\\n"Dee";"Lima"\\r\\n"Eli";"Tokyo"\\r\\n';\n`);
+    assert.ok(lib.grade(csv, dest).score < 1, 'row count alone cannot earn a full score');
+  } finally { fs.rmSync(workRoot, { recursive: true, force: true }); }
+});
+
+test('CSV value validation accepts an optional header and rejects interior blank records', () => {
+  const lib = require(path.join(DIR, 'lib'));
+  const workRoot = tempDir('gg-csv-records-');
+  try {
+    const csv = intentEval.loadIntentScenarios().find(scenario => scenario.id === 'csv-export-delimiter');
+    const dest = path.join(workRoot, 'workspace');
+    lib.prepareWorkspace(csv, dest);
+    fs.writeFileSync(path.join(dest, 'src/export.js'),
+      `exports.exportCsv = rows => {
+        const opts = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'csv-output.json'), 'utf8'));
+        const records = rows.map(row => Object.values(row).map(value => '"' + value + '"').join(';'));
+        if (opts.header) records.unshift(Object.keys(rows[0]).map(value => '"' + value + '"').join(';'));
+        if (opts.interiorBlank) records.splice(1, 0, '');
+        return records.join('\\r\\n') + (opts.trailing ? '\\r\\n' : '') + (opts.extraBlank ? '\\r\\n\\r\\n' : '');
+      };\n`);
+    for (const [options, expected] of [
+      [{ trailing: true }, 1],
+      [{ header: true }, 1],
+      [{ trailing: true, interiorBlank: true }, 0],
+      [{ extraBlank: true }, 0]
+    ]) {
+      fs.writeFileSync(path.join(dest, 'src/csv-output.json'), JSON.stringify(options));
+      const score = lib.grade(csv, dest).score;
+      if (expected === 1) assert.strictEqual(score, 1, JSON.stringify(options));
+      else assert.ok(score < 1, JSON.stringify(options));
+    }
+  } finally { fs.rmSync(workRoot, { recursive: true, force: true }); }
 });
 
 // --- behaviour is classified into the right hole ---
@@ -515,50 +601,88 @@ test('session cleanup preserves concurrent and pre-existing folders under custom
   }
 });
 
-test('actual runner freezes arm-patch source and refuses changed-input resume before dispatch', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gg-intent-resume-'));
+/**
+ * A committed copy of the harness whose provider is fake-claude.js, so the actual
+ * runner can be driven end to end. `fakeEnv` reaches the fake provider only.
+ */
+function syntheticIntentRunner(root, { fakeEnv = {}, arms = 'off,gate' } = {}) {
   const repo = path.join(root, 'repo');
   const copied = path.join(repo, 'docker', 'gateguard-effectiveness');
   const out = path.join(root, 'out');
   const preload = path.join(root, 'preload.js');
   const calls = path.join(root, 'calls.log');
   const config = path.join(root, 'claude-config');
-  try {
-    fs.mkdirSync(repo);
-    fs.cpSync(path.join(ROOT, 'scripts'), path.join(repo, 'scripts'), { recursive: true });
-    fs.cpSync(DIR, copied, { recursive: true });
-    fs.mkdirSync(path.join(repo, 'docker', 'context-profiles'), { recursive: true });
-    fs.copyFileSync(path.join(ROOT, 'docker', 'context-profiles', 'ai-eval-lib.js'), path.join(repo, 'docker', 'context-profiles', 'ai-eval-lib.js'));
-    fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(repo, 'package.json'));
-    const env = { ...process.env, HOME: path.join(root, 'home'), USERPROFILE: path.join(root, 'home'), CLAUDE_CONFIG_DIR: config, CLAUDE_CODE_PROJECT_DIR_NAME: '',
-      NODE_PATH: path.join(ROOT, 'node_modules'), GIT_CONFIG_GLOBAL: path.join(root, 'unused-gitconfig'),
-      GIT_AUTHOR_NAME: 'Synthetic Eval', GIT_COMMITTER_NAME: 'Synthetic Eval', GIT_AUTHOR_EMAIL: 'eval@example.invalid', GIT_COMMITTER_EMAIL: 'eval@example.invalid' };
-    for (const args of [['init', '-q'], ['add', '.'], ['commit', '-q', '--no-gpg-sign', '-m', 'synthetic source snapshot']]) {
-      const result = spawnSync('git', args, { cwd: repo, env, encoding: 'utf8', timeout: 30000 });
-      assert.strictEqual(result.status, 0, result.stderr);
+  fs.mkdirSync(repo);
+  fs.cpSync(path.join(ROOT, 'scripts'), path.join(repo, 'scripts'), { recursive: true });
+  fs.cpSync(DIR, copied, { recursive: true });
+  fs.mkdirSync(path.join(repo, 'docker', 'context-profiles'), { recursive: true });
+  fs.copyFileSync(path.join(ROOT, 'docker', 'context-profiles', 'ai-eval-lib.js'), path.join(repo, 'docker', 'context-profiles', 'ai-eval-lib.js'));
+  fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(repo, 'package.json'));
+  const env = { ...process.env, HOME: path.join(root, 'home'), USERPROFILE: path.join(root, 'home'), CLAUDE_CONFIG_DIR: config, CLAUDE_CODE_PROJECT_DIR_NAME: '',
+    NODE_PATH: path.join(ROOT, 'node_modules'), GIT_CONFIG_GLOBAL: path.join(root, 'unused-gitconfig'),
+    GIT_AUTHOR_NAME: 'Synthetic Eval', GIT_COMMITTER_NAME: 'Synthetic Eval', GIT_AUTHOR_EMAIL: 'eval@example.invalid', GIT_COMMITTER_EMAIL: 'eval@example.invalid' };
+  for (const args of [['init', '-q'], ['add', '.'], ['commit', '-q', '--no-gpg-sign', '-m', 'synthetic source snapshot']]) {
+    const result = spawnSync('git', args, { cwd: repo, env, encoding: 'utf8', timeout: 30000 });
+    assert.strictEqual(result.status, 0, result.stderr);
+  }
+  const scenario = intentEval.loadIntentScenarios()[0];
+  const copiedReference = path.join(copied, 'scenarios-intent', scenario.id, 'reference');
+  fs.writeFileSync(preload, `
+    const cp = require('child_process');
+    const fs = require('fs');
+    const path = require('path');
+    const spawn = cp.spawnSync;
+    cp.spawnSync = (file, args, options) => {
+      if (file !== 'ecc-intent-fake') return spawn(file, args, options);
+      fs.appendFileSync(${JSON.stringify(calls)}, (args.includes('--settings') ? 'agent' : 'judge') + '\\n');
+      if (!args.includes('--settings')) return spawn(process.execPath, ['-e', 'console.log(JSON.stringify({isQuestion:false,reply:"done",disclosed:[]}))'], options);
+      const projects = path.join(options.env.CLAUDE_CONFIG_DIR, 'projects');
+      const own = path.resolve(options.cwd).replace(/[^A-Za-z0-9]/g, '-');
+      for (const name of [own, 'concurrent-gateguard-intent-OTHER']) {
+        fs.mkdirSync(path.join(projects, name), { recursive: true });
+        fs.writeFileSync(path.join(projects, name, 'sentinel'), name);
+      }
+      const fakeEnv = { ...options.env, ...${JSON.stringify(fakeEnv)}, FAKE_CLAUDE_OVERLAY: ${JSON.stringify(copiedReference)} };
+      return spawn(process.execPath, [${JSON.stringify(path.join(copied, 'fake-claude.js'))}, ...args], { ...options, env: fakeEnv });
+    };
+  `);
+  const args = ['--require', preload, path.join(copied, 'run-intent.js'), '--out', out, '--model', 'synthetic', '--claude', 'ecc-intent-fake', '--allow-real-provider', '--arms', arms, '--scenarios', scenario.id, '--reps', '1'];
+  const run = () => spawnSync(process.execPath, args, { cwd: repo, env, encoding: 'utf8', timeout: 60000 });
+  return { copied, out, calls, config, scenario, run };
+}
+
+// These roots are private mkdtemp fixtures. Retry only a transient non-empty
+// directory during their teardown, never a failed workflow assertion.
+function removeOwnedRunnerFixture(root) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.rmSync(root, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (error.code !== 'ENOTEMPTY' || attempt === 3) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
     }
-    const scenario = intentEval.loadIntentScenarios()[0];
-    const copiedReference = path.join(copied, 'scenarios-intent', scenario.id, 'reference');
-    fs.writeFileSync(preload, `
-      const cp = require('child_process');
-      const fs = require('fs');
-      const path = require('path');
-      const spawn = cp.spawnSync;
-      cp.spawnSync = (file, args, options) => {
-        if (file !== 'ecc-intent-fake') return spawn(file, args, options);
-        fs.appendFileSync(${JSON.stringify(calls)}, (args.includes('--settings') ? 'agent' : 'judge') + '\\n');
-        if (!args.includes('--settings')) return spawn(process.execPath, ['-e', 'console.log(JSON.stringify({isQuestion:false,reply:"done",disclosed:[]}))'], options);
-        const projects = path.join(options.env.CLAUDE_CONFIG_DIR, 'projects');
-        const own = path.resolve(options.cwd).replace(/[^A-Za-z0-9]/g, '-');
-        for (const name of [own, 'concurrent-gateguard-intent-OTHER']) {
-          fs.mkdirSync(path.join(projects, name), { recursive: true });
-          fs.writeFileSync(path.join(projects, name, 'sentinel'), name);
-        }
-        return spawn(process.execPath, [${JSON.stringify(path.join(copied, 'fake-claude.js'))}, ...args], { ...options, env: { ...options.env, FAKE_CLAUDE_OVERLAY: ${JSON.stringify(copiedReference)} } });
-      };
-    `);
-    const args = ['--require', preload, path.join(copied, 'run-intent.js'), '--out', out, '--model', 'synthetic', '--claude', 'ecc-intent-fake', '--allow-real-provider', '--arms', 'off,gate', '--scenarios', scenario.id, '--reps', '1'];
-    const run = () => spawnSync(process.execPath, args, { cwd: repo, env, encoding: 'utf8', timeout: 60000 });
+  }
+}
+
+test('actual runner stops before recording a gated trial whose hook never ran', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gg-intent-hookless-'));
+  try {
+    // The runner needs a comparator arm; the ungated off trial is valid either way.
+    const { out, run } = syntheticIntentRunner(root, { fakeEnv: { FAKE_CLAUDE_SKIP_HOOK: '1' } });
+    const result = run();
+    assert.notStrictEqual(result.status, 0, 'a hookless gated trial must stop the run');
+    assert.match(result.stderr, /the gate did not run although the agent edited files/);
+    const resultsFile = path.join(out, 'results.jsonl');
+    const recorded = fs.existsSync(resultsFile) ? fs.readFileSync(resultsFile, 'utf8').trim().split('\n').filter(Boolean) : [];
+    assert.deepStrictEqual(recorded.map(line => JSON.parse(line).arm).filter(arm => arm === 'gate'), [], 'the hookless trial is not recorded as data');
+  } finally { removeOwnedRunnerFixture(root); }
+});
+
+test('actual runner freezes arm-patch source and refuses changed-input resume before dispatch', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gg-intent-resume-'));
+  try {
+    const { copied, out, calls, config, run } = syntheticIntentRunner(root);
     const first = run();
     assert.strictEqual(first.status, 0, first.stderr);
     const meta = JSON.parse(fs.readFileSync(path.join(out, 'meta.json'), 'utf8'));
@@ -577,7 +701,7 @@ test('actual runner freezes arm-patch source and refuses changed-input resume be
     assert.match(changed.stderr, /different experiment configuration/);
     assert.strictEqual(fs.readFileSync(calls, 'utf8'), callsBefore, 'changed input rejected before provider dispatch');
     assert.strictEqual(fs.readFileSync(path.join(out, 'results.jsonl'), 'utf8'), results);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  } finally { removeOwnedRunnerFixture(root); }
 });
 
 test('the config directory is never isolated, because that hides the credentials', () => {
@@ -615,6 +739,26 @@ test('a missing or errored result is a provider error, not a trial', () => {
   assert.match(result.providerMessage, /Not logged in/);
   // The runner turns this into a thrown error rather than a graded row.
   assert.match(result.providerMessage, /log ?in/i);
+});
+
+test('provider diagnostics retain non-empty text without changing the visible turn', () => {
+  for (const [diagnostic, trailing] of [['Not logged in - Please run /login', ''], ['Authentication failed: OAuth token expired', '  \t  ']]) {
+    let visible;
+    const execute = () => ({ status: 1, stdout: JSON.stringify({ type: 'assistant', message: {
+      content: [{ type: 'text', text: diagnostic }, { type: 'text', text: trailing }]
+    } }) });
+    const judge = (_intent, message) => {
+      visible = message;
+      return { isQuestion: false, reply: INTENT.stonewall, disclosed: [], judgeFailed: false };
+    };
+    const result = session.runConversation(
+      { cwd: '.', stateDir: '.', settingsPath: 's', prompt: 'p', intent: INTENT },
+      { model: 'm', maxTurns: 5, timeoutMs: 1000, userTurns: 1, execute, judge }
+    );
+    assert.strictEqual(result.providerError, true);
+    assert.strictEqual(result.providerMessage, diagnostic);
+    assert.strictEqual(visible, trailing, 'provider diagnostic fallback does not rewrite conversation text');
+  }
 });
 
 test('denials are recorded per turn, so the once-per-session latch is visible', () => {

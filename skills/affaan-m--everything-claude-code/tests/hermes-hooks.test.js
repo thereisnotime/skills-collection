@@ -16,10 +16,15 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { resolvePython } = require('./lib/helpers/windows-test-env');
 
 const repoRoot = path.resolve(__dirname, '..');
 const GUARD = path.join(repoRoot, 'hooks', 'hermes', 'config-protection.py');
 const LOGGER = path.join(repoRoot, 'hooks', 'hermes', 'check-console-log.py');
+// A working Python 3, not the Windows Store `python3` stub; with none found the
+// spawns use python3 as before and fail loudly rather than skip.
+const PYTHON = resolvePython() || { command: 'python3', prefix: [] };
+const runPython = (script, options) => spawnSync(PYTHON.command, [...PYTHON.prefix, script], options);
 
 function test(name, fn) {
   try {
@@ -35,7 +40,7 @@ function test(name, fn) {
 
 /** Run a hook with a payload; return {rc, stdout, stderr} and assert clean spawn. */
 function runHook(script, payload) {
-  const res = spawnSync('python3', [script], {
+  const res = runPython(script, {
     input: JSON.stringify(payload),
     encoding: 'utf8',
     timeout: 15000,
@@ -181,7 +186,7 @@ run('allows non-editing tools (read/search)', () => {
 // ─── config-protection: fail-open + diagnostics ────────────────────────────
 
 run('malformed payload: allows AND reports on stderr', () => {
-  const res = spawnSync('python3', [GUARD], { input: 'not-json{{', encoding: 'utf8', timeout: 15000 });
+  const res = runPython(GUARD, { input: 'not-json{{', encoding: 'utf8', timeout: 15000 });
   assert.strictEqual(res.status, 0, 'must exit 0 (fail-open)');
   assert.strictEqual(res.stdout.trim(), '', 'no decision emitted');
   assert.ok(res.stderr.includes('unparseable payload'), 'diagnostic required');
@@ -250,13 +255,13 @@ run('hermes-hooks module installs via the real installer and the landed guard bl
   const t = fs.mkdtempSync(path.join(os.tmpdir(), 'ecc-guard-'));
   const target = path.join(t, 'ESLINT.CONFIG.MJS');
   fs.writeFileSync(target, 'export default {}\n');
-  const g = spawnSync('python3', [landed], {
+  const g = runPython(landed, {
     input: JSON.stringify({ hook_event_name: 'pre_tool_call', tool_name: 'patch', tool_input: { path: target, old_string: 'a', new_string: 'b' } }),
     encoding: 'utf8', timeout: 15000,
   });
   assert.ok((g.stdout || '').includes('"decision": "block"'), 'landed guard must block');
   fs.unlinkSync(target);
-  const bootstrap = spawnSync('python3', [landed], {
+  const bootstrap = runPython(landed, {
     input: JSON.stringify({ hook_event_name: 'pre_tool_call', tool_name: 'patch', tool_input: { path: target } }),
     encoding: 'utf8', timeout: 15000,
   });

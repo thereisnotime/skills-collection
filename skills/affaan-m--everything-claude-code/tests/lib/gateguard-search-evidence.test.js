@@ -233,6 +233,22 @@ test('a search confined to the target file name is a lookup, not a search', () =
   assert.strictEqual((findClosestMiss(lookupOfModule, testTarget, false, data) || {}).reason, 'excluded');
 });
 
+test('PowerShell single-quoted backslash filters preserve inclusion and exclusion scope', () => {
+  const { findCreditingSearch, findClosestMiss } = loadHook();
+  const target = String.raw`C:\repo\src\lexer\handler.py`;
+  const data = { cwd: String.raw`C:\repo` };
+  for (const command of [String.raw`rg -g 'src\lexer\*.py' handler .`, String.raw`rg handler src\lexer`]) {
+    assert.ok(findCreditingSearch(filterScan([filterSearch('PowerShell', { command })]), target, false, data), command);
+  }
+  const command = String.raw`rg -g '!src\lexer\*.py' handler .`;
+  const scan = filterScan([filterSearch('PowerShell', { command })]);
+  assert.equal(findCreditingSearch(scan, target, false, data), null);
+  assert.equal(findClosestMiss(scan, target, false, data).reason, 'excluded');
+  const ambiguous = String.raw`rg -g 'src''\lexer\*.py' handler .`;
+  assert.equal(findCreditingSearch(filterScan([filterSearch('PowerShell', { command: ambiguous })]), target, false, data), null,
+    'unsupported PowerShell literal-apostrophe syntax must never credit a different path');
+});
+
 fs.rmSync(transcriptDir, { recursive: true, force: true });
 
 console.log(`\nResults: Passed: ${passed}, Failed: ${failed}`);

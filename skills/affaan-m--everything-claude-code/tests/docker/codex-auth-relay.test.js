@@ -70,3 +70,21 @@ for (const port of ['1455', '24567']) {
     assert.equal(child.stdout, '');
   });
 }
+
+test('occupied listener reports a bounded relay diagnostic without a startup banner', { timeout: 5000 }, async t => {
+  const occupied = net.createServer();
+  occupied.listen(0, '0.0.0.0');
+  await once(occupied, 'listening');
+  t.after(() => new Promise(resolve => occupied.close(resolve)));
+  const port = occupied.address().port;
+  const child = spawn(process.execPath, [script], { env: { ...process.env,
+    ECC_RELAY_LISTEN: String(port), ECC_RELAY_TARGET: String(port === 1455 ? 1456 : 1455) } });
+  let stderr = '';let stdout = '';
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  child.stdout.on('data', chunk => { stdout += chunk; });
+  const [code] = await once(child, 'close');
+  assert.equal(code, 1);
+  assert.match(stderr, /^codex-auth-relay: .*EADDRINUSE/m);
+  assert.doesNotMatch(stderr, /Unhandled 'error' event/);
+  assert.equal(stdout, '');
+});

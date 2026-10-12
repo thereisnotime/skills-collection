@@ -374,11 +374,28 @@ function createSearchEvidence({ quoteAwareSegments, commandBasename, SHELL_SEGME
     return flags;
   }
 
+  function powershellPathInput(rawCommand) {
+    let quote = null;
+    let command = '';
+    for (let i = 0; i < rawCommand.length; i += 1) {
+      const ch = rawCommand[i];
+      // The shared shell tokenizer concatenates adjacent quoted spans. In
+      // PowerShell doubled apostrophes represent a literal apostrophe instead.
+      // Refuse that unsupported form rather than crediting a different scope.
+      if (ch === "'" && quote === "'" && rawCommand[i + 1] === "'") return null;
+      if (ch === "'" && quote !== '"') quote = quote === "'" ? null : "'";
+      else if (ch === '"' && quote !== "'") quote = quote === '"' ? null : '"';
+      command += ch === '\\' && quote !== "'" ? '\\\\' : ch;
+    }
+    return command;
+  }
+
   function shellSearchEvidence(rawCommand, toolName, dirsTrusted, misses) {
     if (typeof rawCommand !== 'string' || !rawCommand || rawCommand.length > MAX_SEARCH_COMMAND_CHARS) return [];
     if (AMBIGUOUS_SHELL_PATTERN.test(rawCommand)) return [];
     // PowerShell escapes with a backtick, so a backslash there is a path separator, not an escape.
-    const command = toolName === 'PowerShell' ? rawCommand.replace(/\\/g, '\\\\') : rawCommand;
+    const command = toolName === 'PowerShell' ? powershellPathInput(rawCommand) : rawCommand;
+    if (command === null) return [];
     const pipeFlags = segmentPipeFlags(command);
     const evidence = [];
     let trusted = dirsTrusted;

@@ -646,6 +646,7 @@ test('migration JSON failures retain phase, scopes, and exact recovery', () => {
     assert.strictEqual(payload.error.phase, 'source-uninstall');
     assert.deepStrictEqual([...payload.error.observedScopes].sort(), ['project', 'user']);
     assert.deepStrictEqual(payload.error.recovery, [
+      'claude plugin list --json',
       'claude plugin uninstall ecc@ecc --scope user --keep-data',
       'ecc setup --mode claude-plugin --scope project --move-scope --yes',
     ]);

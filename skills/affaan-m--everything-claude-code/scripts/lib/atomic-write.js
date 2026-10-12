@@ -26,7 +26,9 @@ function readFileWithSharingRetry(filePath, options) {
 }
 
 function renameAtomic(tempPath, resolvedPath, options) {
-  const deadline = performance.now() + 750;
+  // Concurrent Windows installers can hold replacement sharing locks beyond
+  // the reader's shorter retry budget. Keep publication bounded to two seconds.
+  const deadline = performance.now() + 2000;
   let attempts = 0;
   let sleeper;
   while (true) {
@@ -42,7 +44,7 @@ function renameAtomic(tempPath, resolvedPath, options) {
       const remaining = deadline - performance.now();
       if (process.platform !== 'win32'
         || !['EPERM', 'EACCES', 'EBUSY'].includes(error.code)
-        || attempts >= 21 || remaining <= 0) throw error;
+        || attempts >= 81 || remaining <= 0) throw error;
       sleeper ||= new Int32Array(new SharedArrayBuffer(4));
       Atomics.wait(sleeper, 0, 0, Math.min(25, remaining));
     }

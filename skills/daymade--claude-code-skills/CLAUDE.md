@@ -68,15 +68,27 @@ For local/remote ASR selection, speed comparison and speech-content acceptance, 
 For competitor source-carrier/edition binding, claims, citations and existing-product learning, enter
 [competitors-analysis](competitors-analysis/SKILL.md) and its
 [citation readback checklist](competitors-analysis/references/analysis_checklist.md#citation-readback-and-counterevidence).
+For user-selected collection destinations, load the
+[collection destination route](competitors-analysis/references/collection_destination.md).
 
 For choosing or reviewing a library, framework, storage, data format, model,
 build-vs-buy or architecture — including 用哪个 / 选什么框架 / 要不要自建 / A 还是 B /
 这个方案行不行 — enter [tech-selection](daymade-claude-code/tech-selection/SKILL.md).
 Follow its full or lightweight route and linked execution owners.
+Before delegation, follow its [public orchestration route](daymade-claude-code/tech-selection/references/delegation-contract.md#agent-orchestration)
+within the current user/host contract.
+
+For research asset discovery, follow [deep-research's catalog contract](deep-research/references/research-asset-contract.md#start-before-external-retrieval);
+keep discovery observations separate from final result checks.
 
 For research-driven evolution of a specified existing Skill, start at
 [skill-evolver](skill-evolver/SKILL.md) and follow its public stage routes; use
 local private adapters only when available.
+
+For evidence-based improvement of an existing application, enter
+[app-evolver](app-evolver/SKILL.md). For released-artifact or runtime evidence,
+load its [Skill composition route](app-evolver/references/skill-composition.md);
+keep specialist selection and handoff boundaries in that owner.
 
 For permission-sensitive fixtures, use Skill Creator's
 [execution-context verification recipe](daymade-skill/skill-creator/references/stateful-script-verification.md#execution-identity-and-permission-fixtures).
@@ -91,10 +103,6 @@ and [delivery identity](daymade-skill/skill-creator/references/delivery-identity
 For saved HTML batches, follow [the conversion owner](daymade-docs/doc-to-markdown/references/html-conversion.md#gate-a-batch-through-the-existing-recipe)
 and its actual-reader pilot before expansion. Keep conversion evidence and reader
 observations separate; this file does not define another batch recipe.
-
-When creating or changing an operational Skill's first-use setup or recovery
-workflow, enter `skill-creator` and load its
-[first-use and recovery contract](daymade-skill/skill-creator/references/first-use-and-resume.md).
 
 For proxy-selection or disruptive VPN recovery changes, enter `tunnel-doctor` and its
 proxy-conflict and network-recovery references. For automatic WeCom integration,
@@ -169,8 +177,12 @@ For rendered UI freshness, delayed editor/batch responses or deployment acceptan
 [frontend-visual-qa](frontend-visual-qa/SKILL.md). Keep its manifest, launcher,
 result semantics and rendered-journey procedure in that owner.
 For nested zoomable workspaces, use its
-[mode-specific acceptance](frontend-visual-qa/references/journey-and-page-contracts.md#journey-and-state-matrix);
-ordinary and enlarged evidence remain separate.
+[journey and state matrix](frontend-visual-qa/references/journey-and-page-contracts.md#journey-and-state-matrix).
+For embedded-reader zoom, return, focus or filtered-selection changes, use its
+[reader journey](frontend-visual-qa/references/journey-and-page-contracts.md#embedded-readers-and-semantic-zoom).
+For browser visibility or long JSONL input problems, load its
+[browser-driving and observation traps](frontend-visual-qa/references/browser-driving-and-observation-traps.md);
+keep adapter requirements and invocation examples in that reference.
 For changed contribution views or multi-item reads, use that same journey contract
 for source-derived coverage and partial-result recovery; keep the detailed recipe
 with the Skill.
@@ -188,10 +200,9 @@ and verification details there.
 When a LaunchAgent cannot read protected data, enter
 [`macos-permissions`](daymade-macos/macos-permissions/SKILL.md) and its
 [automated repair SOP](daymade-macos/macos-permissions/references/automated-full-disk-access.md).
-Identify the actual permission subject and reuse an existing usable grant when
-the owning installer supports it. After repair, restart the job and verify a
-protected read in its real background context; a GUI switch or foreground read
-alone is not completion.
+For a reported denial that may no longer occur, start at its
+[reproduction step](daymade-macos/macos-permissions/SKILL.md#reproduce-the-reported-denial-first).
+Keep attribution, repair and actual-context verification with those owners.
 
 Treat `daymade-skill/skill-creator` as a locked uv project. Run its bundled Python tools from that directory with `uv run --frozen`; the project-local `.venv` is isolated from caller projects while uv's shared cache supplies the pinned packages. Do not reintroduce per-call `--with` overlays for dependencies already in its `pyproject.toml`.
 
@@ -254,6 +265,9 @@ For changed operating defaults or thresholds in an already-required review, use
 Keep decision criteria and verification details in those owners.
 
 ### Transcript Correction
+
+For explicit single-task speaker-inference requests, load
+[scoped speaker inference](daymade-audio/transcript-fixer/references/scoped_speaker_inference.md).
 
 Use [transcript-fixer](daymade-audio/transcript-fixer/SKILL.md) for transcript
 correction. Its Native workflow owns evidence selection, selective human escalation,
@@ -331,9 +345,8 @@ for candidate selection and commands; keep the detailed rules in those owners.
 
 ### Local Agent Messaging
 
-For both Claude Code and Codex, use current native discovery, messaging, replies,
-and waiting whenever those tools cover the target. Keep parent/subagent and current-team
-messages on their native relationship; for independent sessions, enter the
+For local transport selection or accepted/consumed delivery interpretation, enter
+[peer-message](peer-message/SKILL.md). For independent sessions, enter the
 [local coordination workflow](peer-message/references/local-coordination.md#原生跨会话通信)
 before sending. Use its routing guidance for uncovered local targets
 or coordination evidence that needs verification, never to bypass denied or Held messages.
@@ -404,7 +417,7 @@ receipt, and an automatic outbox path gets one non-retrying HTTP attempt.
 
 ### Testing Skills Locally
 
-Test from the canonical checkout, not from a mutable direct copy. Use the current
+For installed-Skill and fresh-host acceptance, test the canonical source route. Use the current
 `claude-switch-models-setup` local-source workflow for this maintainer machine,
 and use `daymade-skill:skill-governance` to verify source, installed state,
 discovery policy, and the fresh model-visible catalog. Do not blindly remove and
@@ -421,6 +434,8 @@ not establish that policy. Do not hand-create user Skill links.
 For intentional same-name source variants, use the owner's explicit source-selection
 contract; retain every candidate and reject undeclared collisions. Audit tools must
 consume the owner's selected inventory rather than choose a source independently.
+For Skill authoring in an approved independent Fleet clone, follow the
+[leased-authoring owner procedure](daymade-claude-code/claude-switch-models-setup/references/local-source-sync-architecture.md#leased-fleet-authoring-clones).
 
 When delivery includes local availability, finish the source owner's dry-run/apply
 and the [newly registered Skill gate](daymade-skill/skill-governance/references/skill-surface-governance.md#14-verify-a-newly-registered-skill).
@@ -507,6 +522,8 @@ For behavioral changes and review-led repairs, the review Skill's
 consumer tracing, preservation evidence and finding closure.
 Before expensive checks on a concurrently edited base, follow its
 [publication coordination](github-ops/references/pr_operations.md#coordinate-publication-before-expensive-checks).
+Before a merge or selecting `--auto`, enter its
+[merge preflight](github-ops/references/pr_operations.md#merging-prs).
 For hosted-state writes through `gh`, follow its
 [identity, host and target binding](github-ops/SKILL.md#2-bind-identity-host-and-target)
 before using an operation recipe. For historical account or connector attribution,

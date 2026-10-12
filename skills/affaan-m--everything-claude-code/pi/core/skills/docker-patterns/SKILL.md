@@ -428,11 +428,14 @@ without a bridge. The `real-cli-networked` service publishes host
 logging in:
 
 ```bash
-npm install --global @openai/codex@0.162.0   # the harness image does not ship codex
-node /ecc/docker/plugin-setup/codex-auth-relay.js &
-relay_pid=$!
-codex login
-kill "$relay_pid"
+(
+  set -e
+  npm install --global @openai/codex@0.162.0   # the harness image does not ship codex
+  node /ecc/docker/plugin-setup/codex-auth-relay.js &
+  relay_pid=$!
+  trap 'kill "$relay_pid" 2>/dev/null || true; wait "$relay_pid" 2>/dev/null || true' EXIT
+  codex login
+)
 ```
 
 The networked service sets `NPM_CONFIG_PREFIX=/tmp/ecc-npm` and adds its `bin`
@@ -442,7 +445,8 @@ on the executable `/tmp` mount while the root filesystem remains read-only.
 Complete the sign-in in the host browser. Each attempt mints a fresh
 `state`/`code`, so always follow the newest printed link. The token stays in
 the disposable container's `~/.codex/auth.json`; removing the named container
-deletes that credential copy. Stop the relay after the login attempt. Only one container can hold host port 1455 at a time
+deletes that credential copy. The login block stops the relay on success or failure.
+Only one container can hold host port 1455 at a time
 because the OAuth redirect targets a fixed port.
 
 The host publish is restricted to loopback. Inside the container, the relay

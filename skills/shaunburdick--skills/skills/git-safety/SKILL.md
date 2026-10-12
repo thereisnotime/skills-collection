@@ -44,7 +44,7 @@ If you are authoring an agent definition (e.g., an OpenCode `.md` agent file), a
 
 ```yaml
 permission:
-  bash:
+  shell:
     "git commit *": ask
     "git push": deny
     "git push *": deny

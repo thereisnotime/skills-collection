@@ -258,6 +258,35 @@ class TestSelectedModel:
 
         assert get_provider().get_default_model() == "claude-sonnet-4-6"
 
+    @pytest.mark.parametrize("saved_provider", [None, "", "   ", '""', "'  '"])
+    def test_missing_or_blank_saved_provider_ignores_unpaired_model(
+        self, tmp_path: Path, saved_provider: str | None,
+    ) -> None:
+        provider_line = "" if saved_provider is None else f"LLM_PROVIDER={saved_provider}\n"
+        tmp_path.joinpath(".llm.env").write_text(provider_line + "LLM_MODEL=orphan-model\n")
+
+        provider = get_provider()
+
+        assert provider.provider_type == ProviderType.CLAUDE
+        assert provider.get_default_model() == "claude-sonnet-4-6"
+
+    @pytest.mark.parametrize("explicit", [False, True])
+    def test_blank_saved_provider_preserves_provider_and_model_overrides(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, explicit: bool,
+    ) -> None:
+        tmp_path.joinpath(".llm.env").write_text('LLM_PROVIDER=""\nLLM_MODEL=orphan-model\n')
+        if explicit:
+            provider = get_provider("ollama", default_model="explicit-model")
+            expected_model = "explicit-model"
+        else:
+            monkeypatch.setenv("LLM_PROVIDER", "ollama")
+            monkeypatch.setenv("LLM_MODEL", "environment-model")
+            provider = get_provider()
+            expected_model = "environment-model"
+
+        assert provider.provider_type == ProviderType.OLLAMA
+        assert provider.get_default_model() == expected_model
+
     @pytest.mark.parametrize("explicit", [False, True])
     def test_provider_override_does_not_read_invalid_saved_file(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, explicit: bool,

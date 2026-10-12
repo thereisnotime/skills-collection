@@ -280,7 +280,7 @@ function runTests() {
     assert.strictEqual(summary.disabledCount, 2);
   });
 
-  console.log(`\nResults: ${passed} passed, ${failed} failed\n`);
+  console.log(`\nResults: Passed: ${passed}, Failed: ${failed}\n`);
   return { passed, failed };
 }
 

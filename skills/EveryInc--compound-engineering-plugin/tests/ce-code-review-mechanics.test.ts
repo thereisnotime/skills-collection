@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync } from "fs"
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync } from "fs"
 import { tmpdir } from "os"
 import path from "path"
 import { spawnSync } from "node:child_process"
@@ -34,6 +34,13 @@ function fixtureRepo() {
 }
 
 describe("ce-code-review deterministic mechanics", () => {
+  test("Stage 4 never joins dispatch assets into one shell output", () => {
+    const dispatch = readFileSync(path.join(SKILL_DIR, "references", "dispatch-reviewers.md"), "utf8")
+    const instruction = dispatch.split("Before assembling any spawn prompt,")[1]?.split("\n\n")[0] ?? ""
+
+    expect(instruction).toMatch(/never join files into one shell output/i)
+  })
+
   test("scope helper counts structured text toward changed_lines and does not hard-block on markdown", () => {
     const { dir, base } = fixtureRepo()
     mkdirSync(path.join(dir, "docs"))

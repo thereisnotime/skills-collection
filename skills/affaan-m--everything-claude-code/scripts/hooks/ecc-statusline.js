@@ -147,7 +147,7 @@ function buildUsageLines(data, bridge, task) {
     task,
   });
 
-  const plugins = render.readInstalledPlugins();
+  const plugins = render.readInstalledPlugins(undefined, data.workspace?.current_dir || process.cwd());
   const eccLine = render.buildEccLine({
     eccVersion: getEccVersion(plugins),
     hooks: render.getHooksSummary(),

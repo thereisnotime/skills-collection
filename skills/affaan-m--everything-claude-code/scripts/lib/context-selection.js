@@ -1,8 +1,8 @@
 'use strict';
 
 const yaml = require('js-yaml');
-const { loadContextRegistry, loadSkillTriggers } = require('./context-pack-registry');
-const { compileContextProfile } = require('./context-profiles');
+const { loadSkillTriggers } = require('./context-pack-registry');
+const { compileContextProfileWithRegistry } = require('./context-profiles');
 const { buildRetrievalIndex, searchRetrieval } = require('./context-retrieval');
 const { DEFAULT_REPO_ROOT, createSourceReader, digestObject } = require('./context-profile-support');
 
@@ -310,10 +310,9 @@ function admissibility(byId, excluded, reader) {
  * without explicit selection. Metadata only; bodies are never returned. */
 function routingEntries({ repoRoot = DEFAULT_REPO_ROOT, profileId = 'lean@1', target = 'codex',
   selectionMode = 'auto', include = [], exclude = [] } = {}) {
-  const plan = compileContextProfile({ repoRoot, profileId, target, selectionMode, include, exclude });
-  const registry = loadContextRegistry({ repoRoot });
+  // One registry load serves the plan and the routing entries.
+  const { registry, plan } = compileContextProfileWithRegistry({ repoRoot, profileId, target, selectionMode, include, exclude });
   const { triggers } = loadSkillTriggers({ repoRoot });
-  if (registry.registryDigest !== plan.registryDigest) throw new Error('Registry changed during routing index build');
   const byId = new Map(registry.entries.map(entry => [entry.id, entry]));
   const excluded = new Set(plan.excludedIds);
   const admissible = admissibility(byId, excluded, createSourceReader(repoRoot));
@@ -335,10 +334,10 @@ function resolveTaskContext({ repoRoot = DEFAULT_REPO_ROOT, task, profileId = 'l
   selectionMode = 'auto', include = [], exclude = [], load = false, previous = null, expectedDigest = null } = {}) {
   validateTask(task);
   validatePrevious(previous);
-  const plan = compileContextProfile({ repoRoot, profileId, target, selectionMode, include, exclude });
-  const registry = loadContextRegistry({ repoRoot });
+  // One registry load serves the plan and the selection; skill bytes are
+  // still verified against it when they are read.
+  const { registry, plan } = compileContextProfileWithRegistry({ repoRoot, profileId, target, selectionMode, include, exclude });
   const { triggers } = loadSkillTriggers({ repoRoot });
-  if (registry.registryDigest !== plan.registryDigest) throw new Error('Registry changed during task selection');
   const reader = createSourceReader(repoRoot);
   const byId = new Map(registry.entries.map(entry => [entry.id, entry]));
   const excluded = new Set(plan.excludedIds);

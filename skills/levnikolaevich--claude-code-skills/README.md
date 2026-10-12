@@ -1,36 +1,24 @@
 # Claude-Codex Skills
 
-**Give your AI agent a clear finish line.**
-
-You ask for a fix and get a new abstraction. A review lists generic advice. The agent says “done,” but you still have to work out what it checked.
-
-These skills give Claude Code and Codex a concrete way to finish the task: establish the intended outcome, work within scope, verify the result, and make remaining gaps explicit. Choose the skill for the problem in front of you.
+Open-source standalone agent skills, distributed as plugins for Claude Code and OpenAI Codex, help turn product ideas, code fixes, architecture reviews and deployments into scoped work with a verifiable result. Each workflow defines what to check, what it may change, and how to report evidence and remaining gaps.
 
 [Project page](https://levnikolaevich.com/projects/claude-code-skills) · [Install](#install) · [Full catalog](#lifecycle-and-plugins)
 
-## What changes in your workflow
-
-- **A clearer target.** Turn an idea, bug report, or incident into an outcome the agent can check.
-- **Focused work.** Reuse existing capabilities, fix the owning cause, and remove what the change makes obsolete.
-- **A result you can assess.** See the evidence, failed or unavailable checks, and remaining risks behind the verdict.
-- **Control over consequential actions.** Reviews report findings; implementation stays within the agreed scope; publication and deployment follow their authorization boundaries.
-
 ## Choose a route
 
-Start where you need help. Each skill works independently; a small fix does not require a full lifecycle or audit.
+Choose by the result you need. Each skill works independently.
 
-| Your problem | Plugin to install | Useful result |
+| Your task | Plugin | Result |
 |---|---|---|
-| Is this idea worth building? | `product-discovery-suite` | A reasoned opportunity decision, clear requirements, or a usable interaction design. |
-| How should this system change? | `architecture-suite` | An evidence-backed system map, design decision, or migration approach. |
-| Is this plan ready to implement? | `delivery-planning-suite` | Missing decisions exposed, work sequenced, and verification planned. |
-| Fix, upgrade, simplify, or speed up this code. | `implementation-suite` | A bounded change checked against the intended behavior and benefit. |
-| What could go wrong with this delivery or codebase? | `quality-assurance-suite` | Prioritized findings tied to evidence, or acceptance tests for the agreed scope. |
-| Get this change published or deployed. | `delivery-suite` | The authorized destination updated and the observed result checked. |
-| Why did this fail, or did the feature help? | `operations-suite` | An evidence-backed diagnosis or product outcome assessment. |
-| Can I trust the instructions in this skill? | `skill-maintenance-suite` | A review of its boundaries, consistency, and distribution readiness. |
-
-For a larger task, combine only the steps needed to resolve decisions and produce evidence. Supplied requirements, existing designs, and current tests are valid starting points. Implementation includes its own verification; a separate test-building or review skill is optional.
+| Is this idea worth building? | `product-discovery-suite` | Opportunity assessment, requirements, or interaction design. |
+| How should this system change? | `architecture-suite` | System map, design decision, or migration plan. |
+| Is this plan ready to implement? | `delivery-planning-suite` | Reviewed plan, ordered work, and test strategy. |
+| Fix, upgrade, simplify, or speed up this code. | `implementation-suite` | Scoped change with behavior and benefit checks. |
+| What could go wrong with this delivery or codebase? | `quality-assurance-suite` | Evidence-backed findings or scoped acceptance tests. |
+| Get this change published or deployed. | `delivery-suite` | Authorized publication or deployment, verified at its destination. |
+| Why did this fail, or did the feature help? | `operations-suite` | Incident diagnosis or product outcome assessment. |
+| Can I trust the instructions in this skill? | `skill-maintenance-suite` | Skill boundaries, consistency, and distribution review. |
+| Prepare Docker containers, configuration, access control or recovery. | `engineering-foundation-suite` | Native technical contracts and verified changes. |
 
 ## Install
 
@@ -53,19 +41,9 @@ codex plugin add implementation-suite@levnikolaevich-skills-marketplace
 
 Invoke a skill by its full name: `/implementation-suite:ln-41-surgical-change-implementer` in Claude Code or `$ln-41-surgical-change-implementer` in Codex, followed by your task. For example: “Fix the total calculation when an item has a discount. Preserve the current rounding rules.”
 
+For personal defaults shared by Claude Code and Codex, use the optional [user instructions template and connection guide](templates/user-instructions/README.md). Personalize and merge it into your existing configuration; plugin installation does not change global instructions.
+
 ## Lifecycle and plugins
-
-Standalone skills for Claude Code and Codex, grouped by the work you need to do. Browse the outcomes below to find the right skill for your task.
-
-```text
-1 Product discovery → 2 Architecture → 3 Delivery planning
- → 4 Implementation → 5 Quality assurance → 6 Delivery → 7 Operations
- ↑ Product feedback / architecture changes / operational remediation ↵
-
-8 Skill maintenance supports the collection itself.
-```
-
-The numbers group skills by task. Install one family or combine the capabilities you need.
 
 ### Product Discovery Suite
 
@@ -106,7 +84,7 @@ Fix the cause, reuse what already works, and keep changes focused on a verified 
 
 | Index | Skill | Purpose |
 |---:|---|---|
-| 41 | [Surgical Change Implementer](plugins/implementation-suite/skills/ln-41-surgical-change-implementer/SKILL.md) | Implements one scoped feature or fix through the smallest complete solution; not upgrades or performance tuning. |
+| 41 | [Surgical Change Implementer](plugins/implementation-suite/skills/ln-41-surgical-change-implementer/SKILL.md) | Implements one scoped product feature or fix using existing contracts; not upgrades, performance tuning or establishing cross-cutting technical foundations. |
 | 42 | [Dependency Upgrader](plugins/implementation-suite/skills/ln-42-dependency-upgrader/SKILL.md) | Upgrades dependencies in reversible batches with version-specific compatibility and regression checks. |
 | 43 | [Code Modernizer](plugins/implementation-suite/skills/ln-43-code-modernizer/SKILL.md) | Modernizes a bounded capability to reduce demonstrated maintenance cost; not routine upgrades or performance tuning. |
 | 44 | [Performance Optimizer](plugins/implementation-suite/skills/ln-44-performance-optimizer/SKILL.md) | Profiles and improves a measured performance bottleneck; retains only verified improvements. |
@@ -134,7 +112,7 @@ Publish the intended changes and verify what reached the remote repository or ta
 |---:|---|---|
 | 61 | [Repository Publisher](plugins/delivery-suite/skills/ln-61-repository-publisher/SKILL.md) | Commits, pushes and remotely verifies authorized repository changes; does not create releases. |
 | 62 | [Release Publisher](plugins/delivery-suite/skills/ln-62-release-publisher/SKILL.md) | Prepares and publishes an explicitly requested tagged GitHub release; does not deploy applications. |
-| 63 | [Deployment Engineer](plugins/delivery-suite/skills/ln-63-deployment-engineer/SKILL.md) | Prepares CI/CD and infrastructure, then executes authorized deployments with health and recovery checks. |
+| 63 | [Deployment Engineer](plugins/delivery-suite/skills/ln-63-deployment-engineer/SKILL.md) | Prepares CI/CD and remote infrastructure, then executes authorized rollouts with health and recovery checks; not standalone local container packaging. |
 | 64 | [Community Announcer](plugins/delivery-suite/skills/ln-64-community-announcer/SKILL.md) | Drafts or publishes authorized, fact-checked GitHub Discussions announcements; does not create releases. |
 
 ### Operations Suite
@@ -153,6 +131,36 @@ Make skills easier to invoke correctly, follow consistently, and verify before d
 | Index | Skill | Purpose |
 |---:|---|---|
 | 81 | [Skill Reviewer](plugins/skill-maintenance-suite/skills/ln-81-skill-reviewer/SKILL.md) | Reviews skill instructions, trigger boundaries and distribution contracts; not product code. |
+
+### Engineering Foundation Suite
+
+Establish and verify project technical foundations using native stack mechanisms, explicit contracts and safe recovery.
+
+| Index | Skill | Purpose |
+|---:|---|---|
+| 91 | [Engineering Baseline Builder](plugins/engineering-foundation-suite/skills/ln-91-engineering-baseline-builder/SKILL.md) | Creates project technical rules and recurring local procedures from the actual stack; edits guidance only, not architecture targets or application code. |
+| 92 | [Container Engineer](plugins/engineering-foundation-suite/skills/ln-92-container-engineer/SKILL.md) | Builds, hardens or reviews container images and local runtime packaging with startup and shutdown evidence; not remote deployment or host administration. |
+| 93 | [Configuration Engineer](plugins/engineering-foundation-suite/skills/ln-93-configuration-engineer/SKILL.md) | Establishes configuration ownership, validation, secret boundaries and environment isolation; not credential identity policy or live deployment. |
+| 94 | [Authentication Engineer](plugins/engineering-foundation-suite/skills/ln-94-authentication-engineer/SKILL.md) | Implements or repairs identity verification and session or credential lifecycle; not operation permissions, resource access policy or a new identity provider by default. |
+| 95 | [Resource Authorization Engineer](plugins/engineering-foundation-suite/skills/ln-95-resource-authorization-engineer/SKILL.md) | Implements permissions and tenant or owner scoped resource access while preserving approved grants; not authentication or role redesign. |
+| 96 | [Error Handling Engineer](plugins/engineering-foundation-suite/skills/ln-96-error-handling-engineer/SKILL.md) | Implements safe error boundaries, cancellation and user recovery contracts; not telemetry pipelines or durable retry machinery. |
+| 97 | [Observability Engineer](plugins/engineering-foundation-suite/skills/ln-97-observability-engineer/SKILL.md) | Implements structured diagnostics, correlation and justified metrics or traces; not incident investigation or a mandatory telemetry platform. |
+| 98 | [Mutation Reliability Engineer](plugins/engineering-foundation-suite/skills/ln-98-mutation-reliability-engineer/SKILL.md) | Implements transactions, idempotency and interrupted-operation recovery; not schema migration or a mandatory background-job platform. |
+| 99 | [Database Lifecycle Engineer](plugins/engineering-foundation-suite/skills/ln-99-database-lifecycle-engineer/SKILL.md) | Prepares and verifies schema migrations, database roles and isolated recovery or test resources; not query tuning or runtime mutation orchestration. |
+
+## Update an installed plugin
+
+For a Git-backed marketplace, refresh the catalog, then update your plugin:
+
+```text
+claude plugin marketplace update levnikolaevich-skills-marketplace
+claude plugin update implementation-suite@levnikolaevich-skills-marketplace
+
+codex plugin marketplace upgrade levnikolaevich-skills-marketplace
+codex plugin add implementation-suite@levnikolaevich-skills-marketplace
+```
+
+For a local-directory marketplace, update its checkout first, then refresh the installed plugin; Codex marketplace upgrade supports Git sources only. Follow Claude's reload/restart instruction and start a new Codex session. Source edits alone do not refresh the installed cache or an existing session.
 
 ## License
 

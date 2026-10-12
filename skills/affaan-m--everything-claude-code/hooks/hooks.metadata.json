@@ -5,151 +5,151 @@
       {
         "id": "pre:bash:dispatcher",
         "description": "Consolidated Bash preflight dispatcher for quality, tmux, push, and GateGuard checks",
-        "fingerprint": "9a50c65f5d6e"
+        "fingerprint": "7cb7b18bf466"
       },
       {
         "id": "pre:powershell:gateguard-fact-force",
         "description": "PowerShell fact-forcing gate: inspect destructive commands without running unrelated Bash-only preflight hooks",
-        "fingerprint": "3a739322d2f0"
+        "fingerprint": "d050a53aacaa"
       },
       {
         "id": "pre:write:doc-file-warning",
         "description": "Doc file warning: warn about non-standard documentation files (exit code 0; warns only)",
-        "fingerprint": "b4ee50b3ae20"
+        "fingerprint": "b5d423c0a802"
       },
       {
         "id": "pre:edit-write:suggest-compact",
         "description": "Suggest manual compaction at logical intervals",
-        "fingerprint": "8d20a036f849"
+        "fingerprint": "fe20553467a1"
       },
       {
         "id": "pre:observe:continuous-learning",
         "description": "Capture tool use observations for continuous learning",
-        "fingerprint": "9e04bd8aad54"
+        "fingerprint": "50e21a8e420d"
       },
       {
         "id": "pre:governance-capture",
         "description": "Capture governance events (secrets, policy violations, approval requests). Enable with ECC_GOVERNANCE_CAPTURE=1",
-        "fingerprint": "63baf2b9fafb"
+        "fingerprint": "59da397f1c62"
       },
       {
         "id": "pre:config-protection",
         "description": "Block modifications to linter/formatter config files. Steers agent to fix code instead of weakening configs.",
-        "fingerprint": "eadf1eab4bbe"
+        "fingerprint": "a0259d293ded"
       },
       {
         "id": "pre:mcp-health-check",
         "description": "Check MCP server health before MCP tool execution and block unhealthy MCP calls",
-        "fingerprint": "528a8f0db9aa"
+        "fingerprint": "d521e2361b09"
       },
       {
         "id": "pre:edit-write:gateguard-fact-force",
         "description": "Fact-forcing gate: deny the first Edit/Write/MultiEdit/NotebookEdit of each file with questions chosen by target class and by what the change touches; a completed search naming the file in the current turn, a comment or whitespace-only edit, or a same-turn sibling of a new file already gated passes with a note instead; sensitive targets (secrets, keys, auth/payment code, migrations, CI workflows) and hard-linked files are always gated, also in subagents",
-        "fingerprint": "24f44188c270"
+        "fingerprint": "e29e628410ff"
       },
       {
         "id": "pre:hookify-runtime",
         "description": "Evaluate project-local Hookify rules before Bash, PowerShell, and file tools run",
-        "fingerprint": "9884fa1b1922"
+        "fingerprint": "00070ba8af1f"
       }
     ],
     "UserPromptSubmit": [
       {
         "id": "prompt:hookify-runtime",
         "description": "Evaluate project-local Hookify prompt rules before a user prompt is processed",
-        "fingerprint": "4a4b03994ca6"
+        "fingerprint": "90a043fa3531"
       }
     ],
     "PreCompact": [
       {
         "id": "pre:compact",
         "description": "Save state before context compaction",
-        "fingerprint": "5cbc98764e2a"
+        "fingerprint": "19bf2c230878"
       }
     ],
     "SessionStart": [
       {
         "id": "session:start",
         "description": "Load previous context and detect package manager on new session",
-        "fingerprint": "f3a5146c6e20"
+        "fingerprint": "bba15355d598"
       },
       {
         "id": "session-start:plan-canvas-sessions",
         "description": "Surface open Plan Canvas review sessions so a fresh session can resume the loop",
-        "fingerprint": "f0d8fb9f501d"
+        "fingerprint": "77c7cba86b78"
       }
     ],
     "PostToolUse": [
       {
         "id": "post:dispatcher:sync",
         "description": "Run synchronous PostToolUse hooks in one process while preserving per-hook controls",
-        "fingerprint": "95baea900633"
+        "fingerprint": "c717dcc9b73b"
       },
       {
         "id": "post:dispatcher:async",
         "description": "Run background PostToolUse hooks in one process while preserving per-hook controls",
-        "fingerprint": "c172360c77a8"
+        "fingerprint": "deb48a18b282"
       }
     ],
     "PostToolUseFailure": [
       {
         "id": "post:mcp-health-check",
         "description": "Track failed MCP tool calls, mark unhealthy servers, and attempt reconnect",
-        "fingerprint": "71cecd9453d1"
+        "fingerprint": "3bd2f771b362"
       },
       {
         "id": "post:skill:track",
         "description": "Record hard Skill tool failures for skill-health telemetry",
-        "fingerprint": "71dc8ea83b8c"
+        "fingerprint": "4faf4e303862"
       }
     ],
     "Stop": [
       {
         "id": "stop:hookify-runtime",
         "description": "Evaluate project-local Hookify completion rules before Claude stops",
-        "fingerprint": "ab84e5f1891d"
+        "fingerprint": "7c63366a0501"
       },
       {
         "id": "stop:plan-canvas-pending",
         "description": "Deliver undelivered Plan Canvas browser feedback before the agent stops",
-        "fingerprint": "c4ed2e0504b6"
+        "fingerprint": "39f62c67249a"
       },
       {
         "id": "stop:format-typecheck",
         "description": "Batch format (Biome/Prettier) and typecheck (tsc) all JS/TS files edited this response — runs once at Stop instead of after every Edit",
-        "fingerprint": "e744203d2cf7"
+        "fingerprint": "4d1e44223b8a"
       },
       {
         "id": "stop:check-console-log",
         "description": "Check for console.log in modified files after each response",
-        "fingerprint": "269e6b8689be"
+        "fingerprint": "1f3b47f79452"
       },
       {
         "id": "stop:session-end",
         "description": "Persist session state after each response (Stop carries transcript_path)",
-        "fingerprint": "1ded7b46e713"
+        "fingerprint": "e6ce566612a8"
       },
       {
         "id": "stop:evaluate-session",
         "description": "Evaluate session for extractable patterns",
-        "fingerprint": "e03e0924a593"
+        "fingerprint": "5fb61666ab84"
       },
       {
         "id": "stop:cost-tracker",
         "description": "Track token and cost metrics per session",
-        "fingerprint": "7a073287a429"
+        "fingerprint": "e9ede0496acc"
       },
       {
         "id": "stop:desktop-notify",
         "description": "Send desktop notification (macOS/WSL) with task summary when Claude responds",
-        "fingerprint": "6053b7a3f3ed"
+        "fingerprint": "f98005a071bc"
       }
     ],
     "SessionEnd": [
       {
         "id": "session:end:marker",
         "description": "Session end lifecycle marker (non-blocking)",
-        "fingerprint": "effc14a939a6"
+        "fingerprint": "4ab026fcc7fc"
       }
     ]
   }

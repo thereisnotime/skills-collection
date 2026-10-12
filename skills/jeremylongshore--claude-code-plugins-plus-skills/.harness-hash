@@ -1,5 +1,5 @@
 181ad71536c6b751af173e89a4335812442b01c3c6b54c48b4b9303bab2c49cf  .github/workflows/actionlint.yml
-12606cb4af8fd7992fe65e95345abefe12a5e198dd05c437d4197de464b6e60d  .github/workflows/auto-bump-on-pr.yml
+9d1f357bc96ef19cc89912b60abedcc8e0975d9c770695036e97e05be59cb2e7  .github/workflows/auto-bump-on-pr.yml
 f96a2f1699adfdfc38cd15852d717c6fc262da90dbb85142f46e6ce68e916f6a  .github/workflows/auto-bump-test.yml
 c4650d44f0941289f7e470469dd4a2ee4dd0c4770414a86bed25ac456f588a80  .github/workflows/capture-marketplace-compliance-baseline.yml
 ea15a17c3286d8d06923aa4b7c8e2696320c2399d9a3d2cfc89bde20a7c17bbd  .github/workflows/certification-expiry.yml
@@ -34,7 +34,7 @@ e3be91d21ca2ced0740fa073b9837a8423fb81b16ef27e65f3c0cb219bce9c4d  .github/workfl
 22cc4a4648f03d3b80d9e37379dffbb546440ddc0bdd82e8bab70473571cb0c9  .github/workflows/sync-external.yml
 df1b6f8b8806721317ff0c4fc2630c3b7189a9d26861a2e0ebad35da83e7686d  .github/workflows/sync-lockfile-test.yml
 076fc9701c23997886f6c7037d791cc7b6b26244d07c6c726983f8e474b193e9  .github/workflows/update-npm-stats.yml
-cd91bca67e4c80e3aa4640012655d535cbacf677c50baf08cff45842a628037c  .github/workflows/validate-plugins.yml
+f9b84c02e551a9797f3355024cdf1238e45515dae787a9209e6aae1dae442b3d  .github/workflows/validate-plugins.yml
 f7b81d302dacd600eabfc35666b0c283b3b23b36262a8321c620c503ae56e964  .github/workflows/verify-npm-production-credential.yml
 21fa7e1a6d1e2220e2c73bda29481ebfde7e30648f50f9602ddb7ed1fb8b65f0  .github/workflows/windows-path-contract.yml
 3bb38cf7d231a25eeb5587e33142c07653be4400dcae204ebe43011f0f0b9e2c  .harness-hash-extra-patterns

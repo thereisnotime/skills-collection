@@ -177,7 +177,8 @@ Findings (source: anomalyco/opencode source at tag `v2.0.15` vs `dev`):
   `AI_AGENT=opencode` (plus `OPENCODE_AGENT`/`OPENCODE_MODEL` when derivable)
   on `invocation.env` and restore after — no `process.env` mutation, no
   cross-session races.
-- **Not via `ctx.tool.transform`.** The v2.0.15/bash tool input schema is
+- **Not via `ctx.tool.transform`.** The retired `bash` tool (now `shell`;
+  v2.0.15 input schema is
   `{ command, workdir, timeout }` — there is no `env` input field to inject
   through, and wrapping the executor to mutate `process.env` would be global
   mutable server state with cross-session races. The transform API is the

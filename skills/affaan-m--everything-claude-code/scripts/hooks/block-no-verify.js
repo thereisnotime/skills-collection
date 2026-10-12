@@ -579,10 +579,21 @@ function readSedExecute(script, i, budget) {
   return { end: j, parts: [], stdinExec: true };
 }
 
-// Text, label and filename operands run to end of line; all are data.
+// Text and filename operands run to end of line; all are data.
 function readSedLineOperand(script, i, budget) {
   let end = i + 1;
   while (end < script.length && script[end] !== '\n') { budget.spend(); end++; }
+  return { end, parts: [], stdinExec: false };
+}
+
+// Branch and label commands (b, t, T, :) take a label that ends at `;` or
+// newline, verified against GNU sed 4.9: ':a;e cmd' and 'ba;e cmd' both
+// parse the label up to `;` and still run the following `e`. Commands after
+// the label therefore continue to be scanned, so return the label end and
+// let the caller resume command parsing there.
+function readSedLabel(script, i, budget) {
+  let end = i + 1;
+  while (end < script.length && script[end] !== ';' && script[end] !== '\n') { budget.spend(); end++; }
   return { end, parts: [], stdinExec: false };
 }
 
@@ -602,7 +613,8 @@ function readSedCommand(script, i, budget) {
     return sub ? { end: sub.end, parts: [], stdinExec: false } : null;
   }
   if (letter === 'e') return readSedExecute(script, i, budget);
-  if ('acirwWb:tTqQ'.includes(letter)) return readSedLineOperand(script, i, budget);
+  if ('btT:'.includes(letter)) return readSedLabel(script, i, budget);
+  if ('acirwWqQ'.includes(letter)) return readSedLineOperand(script, i, budget);
   if ('dDgGhHlnNpPxFzv='.includes(letter)) return { end: i + 1, parts: [], stdinExec: false };
   return null; // unmodeled command letter: keep the opaque default
 }

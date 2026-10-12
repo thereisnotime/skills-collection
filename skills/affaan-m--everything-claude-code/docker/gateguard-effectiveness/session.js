@@ -115,7 +115,8 @@ function runConversation({ cwd, stateDir, settingsPath, prompt, intent }, option
     // conversation rather than being graded as a finding.
     if (!stream.result || stream.result.is_error === true) {
       providerError = true;
-      providerMessage = String((stream.result && stream.result.result) || finalText(stream) || '').slice(0, 200) || null;
+      providerMessage = String((stream.result && stream.result.result)
+        || [...stream.texts].reverse().find(text => text.trim() !== '') || '').slice(0, 200) || null;
     }
     addUsage(usage, stream.result);
     denialsPerTurn.push(stream.gateDenials);

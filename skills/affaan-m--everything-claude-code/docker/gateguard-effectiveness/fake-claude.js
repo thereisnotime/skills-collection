@@ -39,9 +39,11 @@ const input = fs.existsSync(target)
 const toolName = 'old_string' in input ? 'Edit' : 'Write';
 emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'Checking report.js, invoice.js and csv.js first.' }, { type: 'tool_use', id: 't1', name: toolName, input }] } });
 
+// FAKE_CLAUDE_SKIP_HOOK=1 edits without running the hook (a broken hook setup);
+// FAKE_CLAUDE_PROVIDER_ERROR=1 ends the session in a non-authentication provider error.
 let denial = '';
 const group = (settings.hooks && settings.hooks.PreToolUse || []).find(entry => new RegExp(`^(${entry.matcher})$`).test(toolName));
-if (group) {
+if (group && process.env.FAKE_CLAUDE_SKIP_HOOK !== '1') {
   const env = { ...process.env, CLAUDE_PROJECT_DIR: process.cwd() };
   const payload = { session_id: 'fake', cwd: process.cwd(), hook_event_name: 'PreToolUse', tool_name: toolName, tool_input: input, tool_use_id: 't1' };
   const result = spawnSync(group.hooks[0].command, { shell: true, input: JSON.stringify(payload), env, encoding: 'utf8' });
@@ -50,4 +52,8 @@ if (group) {
 }
 emit({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't1', is_error: Boolean(denial), content: denial || 'ok' }] } });
 copyTree(overlay, process.cwd());
+if (process.env.FAKE_CLAUDE_PROVIDER_ERROR === '1') {
+  emit({ type: 'result', is_error: true, result: 'API Error: 529 overloaded', num_turns: 1, duration_ms: 100, total_cost_usd: 0, usage: {}, modelUsage: {} });
+  process.exit(0);
+}
 emit({ type: 'result', is_error: false, result: 'done', num_turns: 3, duration_ms: 1200, total_cost_usd: 0.01, usage: { input_tokens: 100, cache_creation_input_tokens: 50, cache_read_input_tokens: 400, output_tokens: 80 }, modelUsage: { 'fake-model': {} } });

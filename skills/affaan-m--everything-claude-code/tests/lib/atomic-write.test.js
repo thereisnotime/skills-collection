@@ -69,9 +69,32 @@ for (const code of ['EPERM', 'EACCES', 'EBUSY']) {
       throw expected;
     });
     assert.throws(() => helper.writeFileAtomic(destination, 'new'), error => error === expected);
-    assert.strictEqual(attempts, 21, 'Hard attempt bound applies even before the deadline');
-    assert.strictEqual(helper.waits(), 20);
+    assert.strictEqual(attempts, 81, 'Hard attempt bound applies even before the deadline');
+    assert.strictEqual(helper.waits(), 80);
     assert.strictEqual(fs.readFileSync(destination, 'utf8'), 'old');
+    assert.deepStrictEqual(fs.readdirSync(root), ['state.json']);
+  });
+
+  test(`Windows ${code} recovers sustained sharing contention with ownership rechecked`, ({ root, destination }) => {
+    let attempts = 0;
+    let parents = 0;
+    let guards = 0;
+    const helper = loadHelper('win32', (temporary, target) => {
+      attempts++;
+      assert.strictEqual(fs.readFileSync(target, 'utf8'), 'old');
+      assert.strictEqual(fs.readFileSync(temporary, 'utf8'), 'new');
+      if (attempts <= 50) throw sharingError(code);
+      fs.renameSync(temporary, target);
+    });
+    helper.writeFileAtomic(destination, 'new', {
+      validateParent: () => { parents++; },
+      beforeRename: () => { guards++; },
+    });
+    assert.strictEqual(attempts, 51);
+    assert.strictEqual(guards, attempts);
+    assert.ok(parents >= attempts);
+    assert.strictEqual(helper.waits(), 50);
+    assert.strictEqual(fs.readFileSync(destination, 'utf8'), 'new');
     assert.deepStrictEqual(fs.readdirSync(root), ['state.json']);
   });
 }
@@ -81,7 +104,7 @@ test('Windows retries also stop at the elapsed deadline', ({ root, destination }
   const expected = sharingError('EPERM');
   const helper = loadHelper('win32', () => { attempts++; throw expected; }, { clockStep: 250 });
   assert.throws(() => helper.writeFileAtomic(destination, 'new'), error => error === expected);
-  assert.strictEqual(attempts, 4);
+  assert.strictEqual(attempts, 9);
   assert.deepStrictEqual(fs.readdirSync(root), ['state.json']);
 });
 
@@ -120,6 +143,21 @@ test('ownership revocation between sharing failures prevents another rename', ({
   }), error => error === revoked);
   assert.strictEqual(attempts, 1);
   assert.strictEqual(guards, 2);
+  assert.strictEqual(fs.readFileSync(destination, 'utf8'), 'old');
+  assert.deepStrictEqual(fs.readdirSync(root), ['state.json']);
+});
+
+test('late ownership revocation stops sustained contention without publication', ({ root, destination }) => {
+  let attempts = 0;
+  let guards = 0;
+  const revoked = new Error('Destination ownership revoked after sustained contention');
+  const helper = loadHelper('win32', () => { attempts++; throw sharingError('EPERM'); });
+  assert.throws(() => helper.writeFileAtomic(destination, 'new', {
+    beforeRename() { if (++guards === 26) throw revoked; },
+  }), error => error === revoked);
+  assert.strictEqual(attempts, 25);
+  assert.strictEqual(guards, 26);
+  assert.strictEqual(helper.waits(), 25);
   assert.strictEqual(fs.readFileSync(destination, 'utf8'), 'old');
   assert.deepStrictEqual(fs.readdirSync(root), ['state.json']);
 });

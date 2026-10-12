@@ -713,6 +713,8 @@ Create persuasive, audience-ready slide decks from topics or documents with data
 
 Download YouTube videos and audio using yt-dlp with robust error handling and automatic workarounds for common issues.
 
+For spoken-content text, reuse existing transcripts first, then fetch original subtitles; download audio for ASR only when those checked routes miss. File-download requests keep the existing workflow.
+
 **When to use:**
 - Downloading YouTube videos or playlists
 - Extracting audio from YouTube videos as MP3
@@ -3987,6 +3989,29 @@ report its supported install package from the [public catalog](#-other-available
 or an explicit fallback with its evidence limits.
 
 📚 **Documentation**: [skill-evolver](./skill-evolver/SKILL.md).
+
+---
+
+### **app-evolver** - Evidence-Based Application Improvement
+
+> **Install**: `claude plugin install app-evolver@daymade-skills`
+
+Improve an existing application from its current code and product contract,
+authorized successful/failed work, and competitor mechanisms. Decide what fits,
+implement the authorized increment and verify the actual user result.
+
+**When to use:** Take the useful parts of a competitor, improve an app from past
+experience, or coordinate improvements across apps with separate contracts.
+Use `skill-evolver` when the target is a Skill.
+
+```text
+Use app-evolver to improve my document app from this competitor. Preserve source
+provenance, implement the justified improvement and verify failure recovery.
+```
+
+📚 **Documentation**: [app-evolver](./app-evolver/SKILL.md).
+
+**Reverse Skill composition:** [Specialist selection and handoff](./app-evolver/references/skill-composition.md).
 
 ---
 

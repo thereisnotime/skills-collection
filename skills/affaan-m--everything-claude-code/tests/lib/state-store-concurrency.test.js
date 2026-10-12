@@ -127,12 +127,17 @@ async function run() {
     await withWorkers(3, async workers => {
       // IPC acknowledgements form a barrier: every handle exists before any write.
       await Promise.all(workers.map(worker => worker.request('open', { dbPath })));
-      await Promise.all(workers.map((worker, index) => worker.request('write', { worker: `worker-${index}`, count: 4 })));
+      // One operation per request retains contention without assuming lock fairness
+      // for greedy batches beyond the documented five-second acquisition budget.
+      for (let round = 0; round < 4; round += 1) {
+        await Promise.all(workers.map((worker, index) =>
+          worker.request('write', { worker: `worker-${index}-${round}`, count: 1 })));
+      }
       await Promise.all(workers.map(worker => worker.request('close')));
     });
     const actual = (await readItems(dbPath)).map(item => item.id).sort();
     const expected = Array.from({ length: 3 }, (_, worker) =>
-      Array.from({ length: 4 }, (_, item) => `worker-${worker}-${item}`)).flat().sort();
+      Array.from({ length: 4 }, (_, item) => `worker-${worker}-${item}-0`)).flat().sort();
     assert.deepStrictEqual(actual, expected, 'Every acknowledged task must survive all worker exits');
   });
 

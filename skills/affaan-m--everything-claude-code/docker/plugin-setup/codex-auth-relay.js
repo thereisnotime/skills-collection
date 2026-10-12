@@ -34,7 +34,7 @@ if (listenPort === targetPort) {
   throw new Error('ECC_RELAY_LISTEN and ECC_RELAY_TARGET must differ');
 }
 
-net.createServer(client => {
+const server = net.createServer(client => {
   const upstream = net.connect(targetPort, '127.0.0.1');
   client.pipe(upstream).pipe(client);
   const drop = () => {
@@ -47,6 +47,11 @@ net.createServer(client => {
   upstream.on('close', drop);
   client.setTimeout(30000, drop);
   upstream.setTimeout(30000, drop);
-}).listen(listenPort, '0.0.0.0', () => {
+});
+server.on('error', error => {
+  console.error(`codex-auth-relay: ${error.code}: ${error.message}`);
+  process.exit(1);
+});
+server.listen(listenPort, '0.0.0.0', () => {
   console.log(`codex-auth-relay: 0.0.0.0:${listenPort} -> 127.0.0.1:${targetPort}`);
 });

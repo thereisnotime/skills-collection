@@ -2183,7 +2183,18 @@ const sedCases = [
   ['unknown escape decoding bypass is conservatively blocked', "printf x | sed 's/x/\\git commit --no-verify/e'", 2],
   ['escaped-newline continued e operand is conservatively blocked', "printf x | sed -e 'e git commit \\\n--no-verify'", 2],
   ['octal escape decoding bypass is conservatively blocked', "printf x | sed 's/x/\\147it commit --no-verify/e'", 2],
-  ['backslash in a non-executing script stays data', "sed 's/a\\/b/c/' 'git commit --no-verify'", 0]
+  ['backslash in a non-executing script stays data', "sed 's/a\\/b/c/' 'git commit --no-verify'", 0],
+  // Labels end at `;` and following commands still execute (GNU sed 4.9
+  // verified: ':a;e cmd' runs cmd). Reading label operands to end of line
+  // let an e command hide behind a label (CodeRabbit finding, landed via
+  // #3495). The label reader must stop at `;` so the rest is scanned.
+  ['e command after a label is scanned', "sed ':a;e git commit --no-verify'", 2],
+  ['e command after a b branch is scanned', "printf x | sed 'ba;e git commit --no-verify'", 2],
+  ['e command after a T branch is scanned', "printf x | sed 'TX;e git commit --no-verify'", 2],
+  ['e command after a newline label is scanned', "sed ':a\ne git commit --no-verify'", 2],
+  ['e command after a t branch is scanned', "printf x | sed 'tX;e git commit --no-verify'", 2],
+  ['plain label without following commands stays data', "sed ':a' 'git commit --no-verify'", 0],
+  ['b branch alone stays data', "sed 'bx' 'git commit --no-verify'", 0]
 ];
 for (const [name, command, expected] of sedCases) {
   if (test(`sed model ${name}`, () => {

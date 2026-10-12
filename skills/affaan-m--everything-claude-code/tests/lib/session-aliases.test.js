@@ -1240,7 +1240,8 @@ function runTests() {
       assert.strictEqual(fs.readFileSync(aliasesPath, 'utf8'), before);
       const stagingPaths = [...new Set(staged)];
       assert.strictEqual(stagingPaths.length, 2, 'Each write retains one private staging file across retries');
-      assert.ok(staged.length >= 2 && staged.length <= 42, 'Publication attempts remain bounded for both writes');
+      const maxAttempts = process.platform === 'win32' ? 162 : 2;
+      assert.ok(staged.length >= 2 && staged.length <= maxAttempts, 'Publication attempts remain bounded for both writes');
       assert.deepStrictEqual(fs.readdirSync(path.dirname(aliasesPath)), ['session-aliases.json']);
     } finally {
       fs.renameSync = originalRename;

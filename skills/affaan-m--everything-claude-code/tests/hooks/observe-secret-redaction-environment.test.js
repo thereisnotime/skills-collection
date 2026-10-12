@@ -6,6 +6,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
+let passed = 0;
+let failed = 0;
 if (process.platform === 'win32') {
   console.log('Skipping non-Windows Python availability control.');
 } else {
@@ -19,7 +21,14 @@ if (process.platform === 'win32') {
     assert.match(result.stdout, /Passed: 0\nFailed: 1/);
     assert.doesNotMatch(result.stdout, /Skipping shell fixtures/);
     console.log('PASS missing Python fails the actual non-Windows redaction gate');
+    passed += 1;
+  } catch (error) {
+    console.log(`FAIL ${error.message}`);
+    failed += 1;
   } finally {
     fs.rmSync(emptyPath, { recursive: true, force: true });
   }
 }
+console.log(`Passed: ${passed}`);
+console.log(`Failed: ${failed}`);
+process.exitCode = failed ? 1 : 0;

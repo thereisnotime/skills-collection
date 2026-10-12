@@ -754,6 +754,8 @@ claude plugin install ghostty-use@daymade-skills
 
 使用 yt-dlp 下载 YouTube 视频和音频，具有强大的错误处理功能。
 
+要视频文字时，先复用现成稿，再取原字幕；已检查的文字路线未取得结果时才下载音轨转录。原视频文件下载仍沿原流程。
+
 **使用场景：**
 - 下载 YouTube 视频和播放列表
 - 提取音频并转换为 MP3
@@ -3944,6 +3946,27 @@ Daymade Skill Evolver 组装已有 Skills，为指定现有 Skill 完成一轮�
 告知对应插件包的安装入口，或说明替代执行路径及其证据边界。
 
 📚 **文档**：[skill-evolver](./skill-evolver/SKILL.md)。
+
+---
+
+### **app-evolver** - 有证据的应用优化
+
+> **安装**：`claude plugin install app-evolver@daymade-skills`
+
+结合应用当前代码与产品合同、已授权的成功和失败经验、竞品机制，判断哪些
+值得借鉴，落实授权范围内的改进，并通过实际用户结果验证。
+
+**适用场景**：参考竞品取长补短、从历史经验优化应用，或在分别核对产品合同后
+协调多个应用的改进。目标是 Skill 时使用 `skill-evolver`。
+
+```text
+用 app-evolver 参考这个竞品优化我的文档应用。保留来源证据，落实有依据的改进，
+验证失败后的恢复路径。
+```
+
+📚 **文档**：[app-evolver](./app-evolver/SKILL.md)。
+
+**逆向 Skill 组合**：[专项选择与交接](./app-evolver/references/skill-composition.md)。
 
 ---
 

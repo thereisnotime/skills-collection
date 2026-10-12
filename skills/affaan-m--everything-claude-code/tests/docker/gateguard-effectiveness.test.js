@@ -317,7 +317,179 @@ if (gnuTarDir) {
   });
 }
 
+test('authentication abort recognizes failure diagnostics rather than ordinary discussion', () => {
+  const failures = [
+    'Not logged in - Please run /login', 'Authentication failed: OAuth token expired',
+    'OAuth authentication failed', 'OAuth token expired; sign in again',
+    'Authentication is required', 'Login failed', 'Error: Not signed in.',
+    'Invalid API key · Please run /login', 'Please run /login', 'Must sign in'
+  ];
+  const ordinary = [
+    'Payment API key authentication uses the Authorization header.',
+    'OAuth tokens authorize payment API requests.', 'Login routes use OAuth.',
+    'Authentication uses a bearer token.', 'How to use OAuth login',
+    'Please explain login flows', 'Authentication failed examples belong in docs',
+    'Not logged in errors are covered in tests', '', null
+  ];
+  for (const text of failures) assert.strictEqual(lib.isAuthenticationFailure(text), true, text);
+  for (const text of ordinary) assert.strictEqual(lib.isAuthenticationFailure(text), false, String(text));
+});
+
+test('pilot summaries count valid trials only and report provider errors apart', () => {
+  const row = (arm, rep, passed, extra = {}) => ({
+    key: `s/${arm}/${rep}`, arm, scenario: 's', rep, question: 'q', passed, score: passed ? 1 : 0, evidenceRecall: 0, gateDenials: 0,
+    inputTokens: 1, cachedInputTokens: 0, outputTokens: 1, costUsd: null, turns: 1, wallMs: 1, providerError: false, timedOut: false, ...extra
+  });
+  const rows = [
+    row('gate', 1, true),
+    row('gate', 2, false, { providerError: true }),
+    row('gate', 2, true),
+    row('gate', 3, false, { timedOut: true }),
+    row('gate', 4, false, { judgeFailed: true }),
+    row('off', 1, true)
+  ];
+  const gate = lib.summarize(rows, ['gate', 'off']).arms.find(arm => arm.arm === 'gate');
+  assert.strictEqual(gate.trials, 2, 'a provider error or timeout is not a trial');
+  assert.strictEqual(gate.passes, 2);
+  assert.strictEqual(gate.meanScore, 1);
+  assert.strictEqual(gate.providerErrors, 2);
+  assert.deepStrictEqual([...lib.completedTrialKeys(rows)].sort(), ['s/gate/1', 's/gate/2', 's/off/1']);
+});
+
+/** The pilot runner driven end to end with fake-claude.js as the provider. */
+function syntheticPilotRunner(root, scenario, arms, streamEvents = null) {
+  const out = path.join(root, 'out');
+  const preload = path.join(root, 'preload.js');
+  fs.writeFileSync(preload, `
+    const cp = require('child_process');
+    const originalSpawn = cp.spawnSync;
+    cp.spawnSync = (file, args, options) => file === 'ecc-fake-claude'
+      ? ${streamEvents === null
+        ? `originalSpawn(process.execPath, [${JSON.stringify(path.join(DIR, 'fake-claude.js'))}, ...args], options)`
+        : JSON.stringify({ status: 0, stdout: streamEvents.map(event => JSON.stringify(event)).join('\n') + '\n', stderr: '' })}
+      : originalSpawn(file, args, options);
+  `);
+  const args = ['--require', preload, path.join(DIR, 'run.js'), '--out', out, '--model', 'fake', '--claude', 'ecc-fake-claude', '--allow-real-provider', '--arms', arms, '--reps', '1', '--scenarios', scenario.id];
+  const env = { ...process.env, FAKE_CLAUDE_OVERLAY: path.join(scenario.root, 'reference') };
+  const run = extraEnv => spawnSync(process.execPath, args, { env: { ...env, ...extraEnv }, encoding: 'utf8', timeout: 60000 });
+  const results = () => {
+    const file = path.join(out, 'results.jsonl');
+    return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line)) : [];
+  };
+  return { out, run, results };
+}
+
 if (gitAvailable()) {
+  test('a pilot trial that ended in a provider error is retried on resume', () => {
+    const root = tempDir('gg-eff-retry-');
+    try {
+      const scenario = scenarios.find(item => item.id === 'importers-date-shape');
+      const { out, run, results } = syntheticPilotRunner(root, scenario, 'off');
+      const failed = run({ FAKE_CLAUDE_PROVIDER_ERROR: '1' });
+      assert.strictEqual(failed.status, 0, failed.stderr);
+      assert.deepStrictEqual(results().map(row => row.providerError), [true]);
+      const retried = run({});
+      assert.strictEqual(retried.status, 0, retried.stderr);
+      assert.ok(retried.stderr.includes('1 trials to run'), retried.stderr);
+      const rows = results();
+      assert.deepStrictEqual(rows.map(row => row.providerError), [true, false], 'the failed attempt stays for audit');
+      assert.strictEqual(rows[1].passed, true);
+      assert.notStrictEqual(rows[0].transcript, rows[1].transcript, 'each attempt keeps its own transcript');
+      const { summary } = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+      const off = summary.arms.find(arm => arm.arm === 'off');
+      assert.deepStrictEqual([off.trials, off.passes, off.providerErrors], [1, 1, 1]);
+      const again = run({});
+      assert.ok(again.stderr.includes('0 trials to run'), again.stderr);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  test('assistant-only authentication failures retain transcripts and abort before pilot rows', () => {
+    for (const [text, trailing] of [
+      ['Not logged in - Please run /login', null], ['Authentication failed: OAuth token expired', null],
+      ['Not logged in - Please run /login', ''], ['Authentication failed: OAuth token expired', '  \t  ']
+    ]) {
+      const root = tempDir('gg-eff-auth-');
+      try {
+        const scenario = scenarios.find(item => item.id === 'importers-date-shape');
+        const events = [{ type: 'assistant', message: { content: [{ type: 'text', text: 'Preparing' }, { type: 'text', text }] } }];
+        if (trailing !== null) events.push({ type: 'assistant', message: { content: [{ type: 'text', text: trailing }] } });
+        const { out, run, results } = syntheticPilotRunner(root, scenario, 'off', events);
+        const auth = run({});
+        assert.strictEqual(auth.status, 2, auth.stderr);
+        assert.match(auth.stderr, /not signed in/);
+        assert.deepStrictEqual(results(), [], 'authentication is not recorded as a completed or failed trial row');
+        const files = fs.readdirSync(path.join(out, 'transcripts'));
+        assert.strictEqual(files.length, 1);
+        const retained = fs.readFileSync(path.join(out, 'transcripts', files[0]), 'utf8');
+        assert.ok(retained.includes(text));
+        assert.ok(!fs.existsSync(path.join(out, '.run.lock')));
+        const resumed = syntheticPilotRunner(root, scenario, 'off').run({});
+        assert.strictEqual(resumed.status, 0, resumed.stderr);
+        assert.strictEqual(results().length, 1);
+        assert.strictEqual(results()[0].providerError, false);
+        assert.strictEqual(fs.readdirSync(path.join(out, 'transcripts')).length, 2);
+        assert.strictEqual(fs.readFileSync(path.join(out, 'transcripts', files[0]), 'utf8'), retained);
+      } finally { fs.rmSync(root, { recursive: true, force: true }); }
+    }
+  });
+
+  test('missing-result messages preserve ordinary failures, empty text and result mapping', () => {
+    const root = tempDir('gg-eff-messages-');
+    try {
+      const scenario = scenarios.find(item => item.id === 'importers-date-shape');
+      const text = value => ({ type: 'assistant', message: { content: [{ type: 'text', text: value }] } });
+      const cases = [
+        [[text('Provider connection closed')], true, 'Provider connection closed'],
+        [[text('old'), text('')], true, 'old'],
+        [[], true, null],
+        [[text('  \t  ')], true, null],
+        [[text('old'), text('   '), text('Latest diagnostic'), text('')], true, 'Latest diagnostic'],
+        [[text('x'.repeat(250))], true, 'x'.repeat(200)],
+        [[text('Not logged in'), { type: 'result', is_error: false, result: 'Done' }], false, null],
+        [[text('Ignored'), { type: 'result', is_error: true, result: 'Result error' }], true, 'Result error']
+      ];
+      for (const [events, error, message] of cases) {
+        const row = lib.runTrial({ key: 'mapping/off/1', scenario, arm: 'off', rep: 1 }, {
+          workRoot: root, armSettingsByName: { off: arms.armSettings(null) }, executable: 'controlled',
+          model: 'fake', maxTurns: 1, timeoutMs: 1000,
+          execute: () => ({ status: 0, stdout: events.map(event => JSON.stringify(event)).join('\n'), stderr: '' })
+        });
+        assert.strictEqual(row.providerError, error);
+        assert.strictEqual(row.providerMessage, message);
+      }
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  test('ordinary authentication discussion remains a failed-attempt row on missing result', () => {
+    for (const text of ['Payment API key authentication uses the Authorization header.', 'OAuth tokens authorize payment API requests.']) {
+      const root = tempDir('gg-eff-auth-discussion-');
+      try {
+        const scenario = scenarios.find(item => item.id === 'importers-date-shape');
+        const events = [{ type: 'assistant', message: { content: [{ type: 'text', text }] } }];
+        const { out, run, results } = syntheticPilotRunner(root, scenario, 'off', events);
+        const result = run({});
+        assert.strictEqual(result.status, 0, result.stderr);
+        assert.strictEqual(results().length, 1);
+        assert.strictEqual(results()[0].providerError, true);
+        assert.strictEqual(results()[0].providerMessage, text);
+        assert.strictEqual(fs.readdirSync(path.join(out, 'transcripts')).length, 1);
+        assert.ok(!fs.existsSync(path.join(out, '.run.lock')));
+      } finally { fs.rmSync(root, { recursive: true, force: true }); }
+    }
+  });
+
+  test('the pilot runner stops before recording a gated trial whose hook never ran', () => {
+    const root = tempDir('gg-eff-hookless-');
+    try {
+      const scenario = scenarios.find(item => item.id === 'importers-date-shape');
+      const { run, results } = syntheticPilotRunner(root, scenario, 'gate');
+      const result = run({ FAKE_CLAUDE_SKIP_HOOK: '1' });
+      assert.notStrictEqual(result.status, 0, 'a hookless gated trial must stop the run');
+      assert.match(result.stderr, /the gate did not run although the agent edited files/);
+      assert.deepStrictEqual(results(), [], 'the hookless trial is not recorded as data');
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
   test('actual fake-provider CLI resumes identity and resists a metadata publication symlink race', () => {
     const root = tempDir('gg-eff-cli-');
     const out = path.join(root, 'out');

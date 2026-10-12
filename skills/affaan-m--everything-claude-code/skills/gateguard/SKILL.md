@@ -400,8 +400,8 @@ An Edit, Write, NotebookEdit, or MultiEdit entry is allowed, with an
   characters, never credit.
 - **Shell scope:** a shell segment only credits a target equal to or inside
   one of its path operands (resolved against the tool `cwd`; a glob operand
-  must match the target or a directory above it, and a git pathspec's `*`
-  also matches `/`), or inside the `cwd` when it has none:
+  must match the target or a directory above it, and a default git pathspec's
+  `*` also matches `/`), or inside the `cwd` when it has none:
   `rg payment docs` or `grep -rn payment /usr/share/doc` never credit
   `src/payment.py`. An input redirection before any operand
   (`rg payment < file`) or a `<` inside a word reads stdin and never counts.

@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { withFixture, write, update } = require('./helpers/context-fixture');
-const { resolveTaskContext, resolveDeclinedFallback } = require('../../scripts/lib/context-selection');
+const { resolveTaskContext, resolveDeclinedFallback, routingEntries } = require('../../scripts/lib/context-selection');
 
 const task = (values = {}) => ({ sessionId: 'session-1', taskId: 'task-1', revision: 1,
   phase: 'implement', query: '', explicitIds: [], proposedIds: [], ...values });
@@ -71,9 +71,9 @@ for (const load of [false, true]) {
     let alteredReads = 0;
     context.mock.method(fs, 'openSync', (filename, ...args) => {
       const descriptor = originalOpen(filename, ...args);
-      // First compile the profile, then reload the canonical registry. Only
-      // the subsequent policy read observes replacement bytes.
-      if (filename === policyPath && ++policyOpens === 3) changedDescriptor = descriptor;
+      // The canonical registry is loaded once and shared with the profile
+      // compiler. Only the subsequent policy read observes replacement bytes.
+      if (filename === policyPath && ++policyOpens === 2) changedDescriptor = descriptor;
       return descriptor;
     });
     context.mock.method(fs, 'readSync', (descriptor, buffer, offset, length, position) => {
@@ -90,11 +90,31 @@ for (const load of [false, true]) {
     try {
       assert.throws(() => resolve(repoRoot, { proposedIds: ['skill:feature'] }, { load }),
         /Context source changed during selection/);
-      assert.equal(policyOpens, 3);
+      assert.equal(policyOpens, 2);
       assert.equal(alteredReads, 1);
     } finally { context.mock.restoreAll(); }
   }));
 }
+
+test('resolution and the routing index hash the registry sources once per call', context => withFixture(repoRoot => {
+  const relative = 'skills/feature/agents/openai.yaml';
+  write(repoRoot, relative, 'policy:\n  allow_implicit_invocation: true\n');
+  const policyPath = path.join(fs.realpathSync(repoRoot), relative);
+  const originalOpen = fs.openSync;
+  let opens = 0;
+  context.mock.method(fs, 'openSync', (filename, ...args) => {
+    if (filename === policyPath) opens++;
+    return originalOpen(filename, ...args);
+  });
+  try {
+    // One open hashes the policy into the registry; one reads it for admission.
+    resolve(repoRoot, { query: 'use the feature skill for this change' });
+    assert.equal(opens, 2, 'resolveTaskContext');
+    opens = 0;
+    routingEntries({ repoRoot });
+    assert.equal(opens, 2, 'routingEntries');
+  } finally { context.mock.restoreAll(); }
+}));
 
 test('authority-bearing metadata cannot become automatic invocation', () => withFixture(repoRoot => {
   write(repoRoot, 'skills/feature/SKILL.md', '---\nname: feature\ndescription: Feature work\nallowed-tools: Bash\n---\nRun !`touch /tmp/never-run`');
@@ -726,4 +746,12 @@ test('singular forms do not create exact directive admission', () => {
   const result = resolveTaskContext({ task: task({ query: 'Use the database migration skill.' }), load: true });
   assert.ok(result.candidates.some(candidate => candidate.id === 'skill:database-migrations'));
   assert.ok(!result.receipt.autoSelection || !result.receipt.autoSelection.exact);
+});
+
+test('invalid resolution and routing options are rejected before reading a missing registry', () => {
+  const repoRoot = path.join(__dirname, 'missing-registry');
+  const values = { repoRoot, target: 'unknown-host' };
+  assert.throws(() => resolveTaskContext({ ...values, task: task() }), /target/i);
+  assert.throws(() => routingEntries(values), /target/i);
+  assert.throws(() => routingEntries({ repoRoot, selectionMode: 'invalid' }), /Unknown selection mode/);
 });

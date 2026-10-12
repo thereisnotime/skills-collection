@@ -13,16 +13,12 @@
 // declared and asserted.
 
 const { wilson } = require('../context-profiles/ai-eval-lib');
-const { pairedComparison } = require('./lib');
+const { pairedComparison, isValidTrial } = require('./lib');
 
 // Rough floor for 80% power on a 40-point pass-rate difference at a two-sided
 // 5% level. Below it the report refuses to let counts stand as evidence.
 const MIN_PAIRS_FOR_A_CLAIM = 20;
 const MAX_INVALID_TRIAL_FRACTION = 0.1;
-
-function isValidTrial(row) {
-  return !row.providerError && !row.timedOut && !row.judgeFailed;
-}
 
 /** Outcome classes. The four ending in -hole are the improvable cases. */
 const CLASSES = Object.freeze({

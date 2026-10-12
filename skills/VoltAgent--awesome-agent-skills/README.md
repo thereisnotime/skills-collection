@@ -1703,7 +1703,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[Continuum-AI-Corp/orca-replay](https://github.com/Continuum-AI-Corp/OrcaReplay/tree/main/skills/orca-replay)** - Answer questions about past agent runs from their recordings
 - **[tt-a1i/archify](https://github.com/tt-a1i/archify/tree/main/archify)** - Generate validated interactive architecture diagrams from codebases or system descriptions
 - **[d1vai/d1v](https://github.com/d1vai/d1v-cli/blob/main/skills/d1v/SKILL.md)** - Deploy web projects with verified previews and confirmed production releases
-- **[kensaurus/cursor-kenji](https://github.com/kensaurus/cursor-kenji)** - Ready-made playbooks your coding agent auto-triggers
+- **[kensaurus/skills](https://github.com/kensaurus/skills)** - Ready-made playbooks your coding agent auto-triggers
 - **[saleh-alhaddad/itqan-engineering](https://github.com/saleh-alhaddad/itqan-engineering)** - Full software-engineering lifecycle in 12 skills: a resumable orchestrator plus spec, plan, TDD build, verify, five-axis review, security, and release — with approval gates before code and evidence before "done"
 - **[hermes-labs-ai/lintlang](https://github.com/hermes-labs-ai/lintlang/blob/main/.agents/skills/lintlang/SKILL.md)** - Lint agent instructions for ambiguous tools and missing bounds
 - **[fishzjp/qa-skills](https://github.com/fishzjp/qa-skills)** - QA engineering for AI coding agents: full lifecycle, measured gains
@@ -1712,11 +1712,14 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[unbrowse-ai/unbrowse](https://github.com/unbrowse-ai/unbrowse/tree/main/skill)** - Search, call, and read websites via hosted API or MCP
 - **[fujibee/agmsg](https://github.com/fujibee/agmsg)** - Message passing between Claude Code, Codex and Gemini CLI sessions
 - **[exadel-inc/agentic-readiness-assessment](https://github.com/exadel-inc/agentic-readiness-assessment/tree/main/skills/agentic-readiness-assessment)** - Assess repository readiness for AI coding agents and prioritize fixes.
+- **[hermes-labs-ai/little-canary](https://github.com/hermes-labs-ai/little-canary/blob/main/.agents/skills/little-canary/SKILL.md)** - Screen inbound text with a sacrificial canary
+- **[allxsmith/bestax](https://github.com/allxsmith/bestax/tree/main/skills)** - Build Bulma React pages, forms, and themes with Bestax
 - **[marvkr/better-design](https://github.com/marvkr/better-design/tree/main/skills/better-design)** - Build and review interfaces with Better Design design systems
 - **[UiPath/task](https://github.com/UiPath/coder_eval/tree/main/plugins/coder-eval/skills/task)** - Turns plain English into validated eval tasks for coding agents
 - **[half144/cutaway](https://github.com/half144/cutaway)** - Record polished demo videos of web flows with Playwright
 - **[kulchankas/paranoid](https://github.com/kulchankas/paranoid)** - Pentests your running app: find, prove, patch, re-verify
 - **[gal-a/qikly](https://github.com/gal-a/qikly/tree/main/.claude/skills/qikly)** - Writes pytest suites from criteria the coding agent never sees
+- **[prisma/skills](https://github.com/prisma/skills)** - Official Prisma skills: ORM, Postgres, Compute and migrations
 
 </details>
 

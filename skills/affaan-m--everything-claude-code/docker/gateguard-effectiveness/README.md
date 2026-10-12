@@ -33,6 +33,17 @@ scenario and harness inputs and hashes the output artifacts. Verify an output
 directory with `--verify`; this detects later file changes but is not a
 cryptographic signature or proof of who ran the experiment.
 
+`run-intent.js --check-graders`, and each intent run before it bills a session, requires each
+grader to score `reference` 1 and the start workspace, the `naive` trap and every
+`decoy-*` overlay below 1. A decoy has the right shape and the wrong content, so
+a grader that checks only the form fails the check. Both runners count only valid
+trials: authentication-related provider errors stop the run before the attempt
+is appended to `results.jsonl`. The transcript is retained, but there is no
+attempt record. Other provider-error or timeout attempts stay in `results.jsonl`
+with their own transcripts, are reported apart, and are retried on resume.
+A gated trial whose hook never ran also stops the run without a `results.jsonl`
+record.
+
 ```bash
 node docker/gateguard-effectiveness/run-intent.js --check-graders
 node docker/gateguard-effectiveness/run-intent.js --out gg-intent --arms off,gate --dry-run

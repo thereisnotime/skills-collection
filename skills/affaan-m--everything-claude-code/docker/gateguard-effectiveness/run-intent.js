@@ -13,9 +13,9 @@ const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { schedule } = require('./lib');
+const { schedule, completedTrialKeys, isAuthenticationFailure } = require('./lib');
 const { ARMS, armSettings, resolveRef, materializeTree } = require('./arms');
-const { loadIntentScenarios, graderIsSound, runIntentTrial, SUPPORTED_ARMS } = require('./intent-eval');
+const { loadIntentScenarios, graderIsSound, formatGraderScores, runIntentTrial, SUPPORTED_ARMS } = require('./intent-eval');
 const { renderHoles, difficulty, isValidTrial } = require('./coverage');
 const evidence = require('./evidence');
 
@@ -118,10 +118,6 @@ function writeAtomic(file, contents) {
   }
 }
 
-function completedTrialKeys(rows) {
-  return new Set(rows.filter(isValidTrial).map(row => row.key));
-}
-
 // Resuming a session needs persistence, so Claude writes a transcript folder per
 // trial workspace under its projects directory. A per-trial CLAUDE_CONFIG_DIR
 // would isolate those but also hides the credentials, so they are removed here
@@ -208,10 +204,10 @@ function checkGraders(scenarios) {
     for (const scenario of scenarios) {
       const { scores, sound } = graderIsSound(scenario, workRoot);
       const mark = sound ? 'ok  ' : 'BAD ';
-      process.stdout.write(`${mark} ${scenario.id}: start=${scores.workspace} trap=${scores.naive} reference=${scores.reference}\n`);
+      process.stdout.write(`${mark} ${scenario.id}: ${formatGraderScores(scores)}\n`);
       if (!sound) bad++;
     }
-    if (bad) throw new Error(`${bad} grader(s) do not separate start, trap and reference`);
+    if (bad) throw new Error(`${bad} grader(s) do not separate start, trap and reference, or pass a decoy`);
   } finally {
     fs.rmSync(workRoot, { recursive: true, force: true });
   }
@@ -295,7 +291,7 @@ function main() {
     for (const scenario of scenarios) {
       const { scores, sound } = graderIsSound(scenario, workRoot);
       if (!sound) {
-        throw new Error(`${scenario.id}: grader scores start=${scores.workspace} trap=${scores.naive} reference=${scores.reference}; fix it before spending sessions`);
+        throw new Error(`${scenario.id}: grader scores ${formatGraderScores(scores)}; fix it before spending sessions`);
       }
     }
     const treeRoots = {};
@@ -360,7 +356,7 @@ function main() {
       fs.rmSync(path.join(workRoot, trial.key.replace(/\//g, '__')), { recursive: true, force: true });
       // An unauthenticated or hookless run must not be recorded: graded as data it
       // looks like a finding (the first such trial was filed as a coverage hole).
-      if (row.providerError && /authenticat|log ?in|oauth/i.test(row.providerMessage || '')) {
+      if (row.providerError && isAuthenticationFailure(row.providerMessage)) {
         throw new Error(`${trial.key}: Claude is not signed in (${row.providerMessage}); sign in with the claude CLI and rerun with the same --out`);
       }
       if (!row.hookObserved) {

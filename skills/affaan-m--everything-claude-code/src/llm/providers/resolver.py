@@ -69,10 +69,10 @@ def _resolve_provider_config(
         return _strip_env_value(env_provider).lower(), None
 
     saved_config = _read_saved_llm_config()
-    saved_provider = saved_config.get("LLM_PROVIDER", "claude").lower()
+    saved_provider = saved_config.get("LLM_PROVIDER", "").lower()
     # A saved model belongs to its saved provider, never to an override.
-    saved_model = saved_config.get("LLM_MODEL") if saved_config.get("LLM_PROVIDER") else None
-    return saved_provider, saved_model
+    saved_model = saved_config.get("LLM_MODEL") if saved_provider else None
+    return saved_provider or "claude", saved_model
 
 
 def _resolve_default_model(

@@ -217,30 +217,55 @@ function buildEccLine(info) {
   return parts.join(SEP);
 }
 
+function pluginProjectRoot(workspace) {
+  const cwd = path.resolve(workspace || process.cwd());
+  for (let candidate = cwd; ; candidate = path.dirname(candidate)) {
+    if (fs.existsSync(path.join(candidate, '.git'))) return candidate;
+    if (candidate === path.dirname(candidate)) return cwd;
+  }
+}
+
+function pluginEnablement(files) {
+  return files.reduce((enabled, file) => {
+    try {
+      const value = JSON.parse(fs.readFileSync(file, 'utf8')).enabledPlugins;
+      return value && typeof value === 'object' && !Array.isArray(value) ? { ...enabled, ...value } : enabled;
+    } catch { return enabled; /* Missing or malformed optional display settings. */ }
+  }, {});
+}
+
 /**
- * Enabled plugins with versions, ecc first.
- * Reads installed_plugins.json (v2) and settings.json enabledPlugins.
- * @param {string} [claudeDir] - defaults to CLAUDE_CONFIG_DIR or ~/.claude
+ * User and applicable project/local plugin metadata for the current Git root.
+ * Project-local enablement overrides shared-project and selected user settings.
+ * This display helper does not reproduce managed or per-session host policy.
+ * @param {string} [claudeDir] selected profile root
+ * @param {string} [workspace] current working directory
  * @returns {Array<{name: string, version: string}>}
  */
-function readInstalledPlugins(claudeDir) {
+function readInstalledPlugins(claudeDir, workspace) {
   try {
     const dir = claudeDir || process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
     const installed = JSON.parse(
       fs.readFileSync(path.join(dir, 'plugins', 'installed_plugins.json'), 'utf8')
     );
-    let enabled = null;
-    try {
-      const settings = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf8'));
-      if (settings.enabledPlugins && typeof settings.enabledPlugins === 'object') {
-        enabled = settings.enabledPlugins;
-      }
-    } catch { /* no settings \u2014 show all installed */ }
+    const project = pluginProjectRoot(workspace);
+    const normalized = value => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
+    const enabled = pluginEnablement([path.join(dir, 'settings.json'),
+      path.join(project, '.claude', 'settings.json'), path.join(project, '.claude', 'settings.local.json')]);
+    const ranks = { user: 0, project: 1, local: 2 };
+    const applicable = entry => entry && typeof entry === 'object' &&
+      ((!entry.scope || entry.scope === 'user') ||
+        (['project', 'local'].includes(entry.scope) && typeof entry.projectPath === 'string' &&
+          normalized(entry.projectPath) === normalized(project)));
 
     const plugins = [];
     for (const [id, entries] of Object.entries(installed?.plugins || {})) {
-      if (enabled && enabled[id] === false) continue;
-      const entry = Array.isArray(entries) ? entries[0] : entries;
+      if (enabled[id] === false) continue;
+      const entry = (Array.isArray(entries) ? entries : [entries]).filter(applicable).sort((a, b) =>
+        (ranks[b.scope || 'user'] - ranks[a.scope || 'user']) ||
+        String(b.lastUpdated || b.installedAt || '').localeCompare(String(a.lastUpdated || a.installedAt || '')) ||
+        String(b.version || '').localeCompare(String(a.version || '')))[0];
+      if (!entry) continue;
       plugins.push({ name: id.split('@')[0], version: entry?.version || '' });
     }
     plugins.sort((a, b) => (a.name === 'ecc' ? -1 : b.name === 'ecc' ? 1 : a.name.localeCompare(b.name)));

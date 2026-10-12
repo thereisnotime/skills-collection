@@ -187,6 +187,7 @@ function runHermeticPreCommit({ content = 'safe text\n', filename = 'sample.txt'
       const staged = spawnSync('git', ['add', '--', filename], { cwd: tempDir, env: hookEnv });
       assert.strictEqual(staged.status, 0, staged.stderr?.toString());
     }
+    // Synthetic scanners drain staged input before returning so pipefail sees their intended status.
     // Keep real Git/awk available, while hiding every installed ripgrep binary.
     fs.writeFileSync(bashEnv, `
 git_path="$(command -v git)"
@@ -206,7 +207,7 @@ unset -f rg
 ${scanner === 'real' ? '# Preserve dependencies used by an actual scanner executable or wrapper.' : `PATH="${toBashPath(binDir)}"`}
 ${scanner ? `rg() {
 printf '%s\\n' "$*" >> "${toBashPath(callsPath)}"
-${scanner === 'real' ? '"$rg_path" "$@"' : scanner === 'finding' ? "printf '1:synthetic-scanner-finding\\n'; return 0;" : scanner === 'error' ? 'return 2;' : 'return 1;'}
+${scanner === 'real' ? '' : 'cat >/dev/null; '}${scanner === 'real' ? '"$rg_path" "$@"' : scanner === 'finding' ? "printf '1:synthetic-scanner-finding\\n'; return 0;" : scanner === 'error' ? 'return 2;' : 'return 1;'}
 }` : ''}
 `);
     const result = runBash(preCommitHook, {

@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **transcript-fixer** (`daymade-audio` v1.48.1 → v1.48.2): Document that deferral adjudication must first locate the exact in-text match, because a queue row's context snippet can mask a cross-word-boundary substring hit; deferrals whose only verbatim matches sit inside larger words resolve as kept_original instead of accepting the suggested direction. Change type: reviewer guidance hardening; runtime unchanged.
+
+- **transcript-fixer** (`daymade-audio` v1.48.1): Preserve separate occurrences of the same word on one line in the review queue, support explicit offsets inside ambiguous context, and retain existing decisions during anchor repair. Change type: occurrence-level correction repair.
+
+- **prior-work-retrieval** (`daymade-claude-code` v4.27.10): Ignore explicit declarations that no asset needs reuse while preserving reuse questions, uncertain statements and later positive recall clauses. Retain pending requirements and the existing read-only and prompt-scope boundaries. Change type: bounded false-trigger repair.
+
+- **asr-transcribe-to-text** (`daymade-audio` v1.48.0): Restore GPU-only VAD and ASR with a pinned isolated Metal runtime, reject unsupported CPU/DTW paths before inference, and preserve source-time chunks and verified checkpoint recovery. Fix speech-checkpoint reopening and subprocess pipe draining.
+- **youtube-downloader** (v1.2.0): Route transcript requests through existing drafts and original subtitles before strict audio-only ASR; retain file downloads and distinguish uploaded tracks from reviewed text.
+- **lark-cli-router** (`daymade-claude-code` v4.27.9) and **feishu-doc-scraper** (v1.8.2): Reconcile linked archive materials from roots and complete thread replies, and replace a missing comments reference with current read-side guides.
+
+- **claude-switch-models-setup** (`daymade-claude-code` v4.27.8) and **skill-creator** (`daymade-skill` v1.69.5): Align leased Fleet authoring routes with the existing source owner, distinguish authoring from canonical installation, and remove derived summaries and obsolete editing narratives while preserving operating boundaries. Change type: factual documentation alignment; runtime unchanged.
+- **app-evolver** (v1.1.0): Compose public REA and reverse-skill instructions for evidence gaps while preserving the existing source-analysis, product-fit, implementation and acceptance workflow. Personal favorites and local recovery Skills remain optional. Reference-only integration neither bundles external frameworks nor configures MCP or installs engines. Change type: bounded workflow extension.
+
+- **continue-codex-work** (`daymade-claude-code` v4.27.7): reconcile explicit user recovery with the current native Goal schema and existing host transport, preserving task identity and budget boundaries.
+
+- **app-evolver** (v1.0.0; catalog v3.23.0): Add an application improvement orchestrator that binds current product contracts, authorized work history and competitor mechanisms to engineering changes and consumer-level acceptance. Keep analysis-only scope, protected behavior and evidence limits explicit.
+- **transcript-fixer** (`daymade-audio` v1.47.0): Add speaker inference for an explicitly authorized single task in a separately labeled reader copy. Preserve raw speaker lines, human mappings, ASR name-correction gates and final quality checks. Change type: conditional workflow addition.
+- **competitors-analysis** (v1.6.1): Route explicitly selected team-collection sources and profiles through the existing producer and human review. Keep product adoption judgments in the project entry and preserve captured material when collection access is unavailable. Change type: bounded destination-routing clarification.
+
+- **github-ops** (v1.14.8): Clarify that server auto-merge follows configured requirements and can merge immediately while other CI is queued. Preserve exact-candidate check verification and route the repository entry to the merge preflight. Change type: factual operating-procedure correction.
+
+- **report-with-html** (v1.4.1 → v1.4.2): Give the existing acceptance reviewer original requirements and corrections; verify requested answers before closing delivery. Preserve sample-only scope and report missing original requirements as unknown. Change type: bounded acceptance repair.
+- **claude-switch-models-setup** (`daymade-claude-code` v4.27.6): Emit authoring candidates for explicitly enrolled Fleet pools with verified active leases and exact registered repository identities. Preserve canonical source selection and installation. Change type: bounded source-ownership repair.
+- **frontend-visual-qa** (v1.20.8 → v1.20.9): Remove the derived contents list and narrative counts while preserving diagnostic conditions. Correct Range diagnosis to inspect a GET response and use a caller-selected preview port in the serving example. Route repository instructions to the canonical reader, browser and messaging procedures. Change type: documentation correction, deduplication and entry alignment.
+
+- **frontend-visual-qa** (v1.20.7 → v1.20.8): Measure headless visibility and frame progress before judging animation; add a non-TTY JSONL journey input helper with fail-fast dispatch and recording. Cover embedded-reader focus, filtered selection, reversible zoom and stale completion in journey guidance and additive evals. Change type: bounded verification workflow repair.
+- **peer-message** (v1.21.4 → v1.21.5): Add eval-only cases for discovery-before-routing and avoiding duplicate delivery after an accepted fallback; shipped runtime unchanged. Version advances under the repository content-change gate.
+
+- **macos-permissions** (`daymade-macos` v1.22.5): Reproduce a reported denial in its actual reader context before changing permissions. Stop when the required read succeeds, preserving an unknown historical cause instead of claiming a root-cause repair. Keep existing attribution and repair routes. Change type: bounded diagnostic clarification.
+
+- **tech-selection** (`daymade-claude-code` v4.27.5): Use the public delegation questions under the current user/host contract, loading an applicable local adapter when available. Preserve explicit team and adapter requirements; a missing required adapter blocks only its dependent action. Change type: public delegation dependency repair.
+
+- **deep-research** (v2.13.0): Search current study, source and claim records without reregistering metadata edits. Persist explicit registration facts while preserving legacy rows and predecessor bindings. Report discovery as recorded-only or unknown; final integrity checks remain required. Change type: research catalog format and output redesign.
 - **skill-creator** (`daymade-skill` v1.69.4): Bind verification to the intended consumer's available Skills, data and permissions; include instruction-only handoffs in early first-use checks and keep installation within existing authorization. Keep review-harness capabilities outside consumer execution. Change type: consumer-boundary and first-use routing repair.
 - **skill-creator** (`daymade-skill` v1.69.3): Align the viewer launch SOP with actual port selection, retain unbuffered startup logs, distinguish empty comments from task acceptance, and route project eval instructions to their canonical owners. Remove the hand-maintained paired-evaluation contents list. Change type: operational documentation alignment.
 

@@ -121,6 +121,9 @@ function getFailureTrend(successRate7d, successRate30d, warnThreshold) {
   }
 
   const delta = roundRate(successRate7d - successRate30d);
+  if (delta === 0) {
+    return 'stable';
+  }
   if (delta <= (-1 * warnThreshold)) {
     return 'worsening';
   }

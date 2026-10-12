@@ -62,16 +62,33 @@ function loadIntentScenarios(dir = SCENARIO_DIR, ids = null) {
   return scenarios.filter(scenario => ids.includes(scenario.id));
 }
 
-/** Confirms the grader separates the start, the trap and a correct solution. */
+/**
+ * Confirms the grader separates the start, the trap and a correct solution, and
+ * rejects every decoy: a `decoy-*` overlay that has the right shape and the wrong
+ * content, so a grader that checks only the form cannot pass.
+ */
 function graderIsSound(scenario, workRoot) {
+  const decoys = fs.readdirSync(scenario.root, { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && entry.name.startsWith('decoy-'))
+    .map(entry => entry.name)
+    .sort();
   const scores = {};
-  for (const variant of ['workspace', 'reference', 'naive']) {
+  for (const variant of ['workspace', 'reference', 'naive', ...decoys]) {
     const dest = path.join(workRoot, `check-${scenario.id}-${variant}`);
     fs.rmSync(dest, { recursive: true, force: true });
     prepareWorkspace(scenario, dest, variant === 'workspace' ? null : variant);
     scores[variant] = grade(scenario, dest).score;
   }
-  return { scores, sound: scores.reference === 1 && scores.workspace < 1 && scores.naive < 1 };
+  const sound = scores.reference === 1 && scores.workspace < 1 && scores.naive < 1 && decoys.every(decoy => scores[decoy] < 1);
+  return { scores, sound };
+}
+
+/** One line of grader scores: start, trap, reference, then each decoy. */
+function formatGraderScores(scores) {
+  const { workspace, naive, reference, ...decoys } = scores;
+  return [`start=${workspace}`, `trap=${naive}`, `reference=${reference}`]
+    .concat(Object.entries(decoys).map(([name, score]) => `${name}=${score}`))
+    .join(' ');
 }
 
 /** One trial: fresh workspace, a conversation with the simulated user, then the hidden grader. */
@@ -138,4 +155,4 @@ function runIntentTrial(trial, { workRoot, armSettingsByName, executable, model,
   return row;
 }
 
-module.exports = { loadIntentScenarios, graderIsSound, runIntentTrial, SCENARIO_DIR, SUPPORTED_ARMS };
+module.exports = { loadIntentScenarios, graderIsSound, formatGraderScores, runIntentTrial, SCENARIO_DIR, SUPPORTED_ARMS };

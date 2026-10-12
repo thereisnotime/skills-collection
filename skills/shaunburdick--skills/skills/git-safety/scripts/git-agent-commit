@@ -2,7 +2,7 @@
 # git-agent-commit — commit with an explicit AI attribution claim.
 #
 # OpenCode v2 (anomalyco/opencode) sets no AI-session env marker, and each
-# bash tool call spawns a fresh login shell, so session-start exports do not
+# shell tool call spawns a fresh login shell, so session-start exports do not
 # persist to a later `git commit`. Use this wrapper (or the inline env form)
 # so the prepare-commit-msg hook can attribute the commit:
 #
