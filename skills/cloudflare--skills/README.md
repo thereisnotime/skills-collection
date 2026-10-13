@@ -75,6 +75,7 @@ Skills are contextual and auto-loaded based on your conversation. When a request
 | sandbox-next | Sandbox on `@cloudflare/sandbox@next` (1.0 preview); recommended for new projects |
 | sandbox-stable | Sandbox on the current stable `@cloudflare/sandbox` package |
 | sandbox-migrate-to-next | Port a stable Sandbox app to `@cloudflare/sandbox@next` |
+| cf-cli | Finding and running Cloudflare CLI (`cf`) commands, and choosing between `cf` and Wrangler |
 | wrangler | Deploying and managing Workers, KV, R2, D1, Vectorize, Queues, Workflows |
 | workers-best-practices | Writing, reviewing, or configuring production Workers |
 | workers-profiling | Profiling CPU usage and allocation hotspots in deployed Workers and Durable Objects |

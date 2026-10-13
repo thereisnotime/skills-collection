@@ -5,9 +5,9 @@ Current versions of all skills. Agents can compare against local versions to che
 | Skill | Version | Last Updated |
 |-------|---------|--------------|
 | ab-testing | 2.0.1 | 2026-10-08 |
-| ad-creative | 2.10.0 | 2026-10-08 |
+| ad-creative | 2.11.0 | 2026-10-12 |
 | ai-seo | 2.7.6 | 2026-10-08 |
-| analytics | 2.0.3 | 2026-10-08 |
+| analytics | 2.1.0 | 2026-10-12 |
 | aso | 2.0.2 | 2026-10-08 |
 | attribution | 1.1.4 | 2026-10-08 |
 | churn-prevention | 2.0.2 | 2026-10-08 |
@@ -18,7 +18,7 @@ Current versions of all skills. Agents can compare against local versions to che
 | competitors | 2.3.0 | 2026-10-01 |
 | content-strategy | 2.1.3 | 2026-10-07 |
 | copy-editing | 2.1.1 | 2026-10-07 |
-| copywriting | 2.1.0 | 2026-10-02 |
+| copywriting | 2.2.0 | 2026-10-12 |
 | cro | 2.0.3 | 2026-10-08 |
 | customer-research | 2.0.4 | 2026-10-02 |
 | directory-submissions | 2.1.1 | 2026-10-08 |
@@ -26,13 +26,13 @@ Current versions of all skills. Agents can compare against local versions to che
 | events | 1.0.0 | 2026-08-23 |
 | free-tools | 2.0.1 | 2026-08-23 |
 | image | 2.0.2 | 2026-10-02 |
-| influencer-marketing | 1.1.2 | 2026-10-02 |
+| influencer-marketing | 1.2.0 | 2026-10-12 |
 | launch | 2.2.0 | 2026-10-07 |
 | lead-magnets | 2.1.0 | 2026-10-08 |
 | marketing-council | 1.0.0 | 2026-07-06 |
 | marketing-ideas | 2.0.1 | 2026-08-23 |
 | marketing-loops | 1.4.0 | 2026-10-07 |
-| marketing-plan | 1.2.1 | 2026-10-08 |
+| marketing-plan | 1.2.2 | 2026-10-12 |
 | marketing-psychology | 2.0.0 | 2026-05-05 |
 | offers | 1.0.1 | 2026-08-23 |
 | onboarding | 2.0.1 | 2026-08-23 |
@@ -52,10 +52,25 @@ Current versions of all skills. Agents can compare against local versions to che
 | signup | 2.0.1 | 2026-10-08 |
 | site-architecture | 2.1.0 | 2026-10-06 |
 | sms | 1.1.0 | 2026-10-02 |
-| social | 2.3.3 | 2026-10-07 |
+| social | 2.3.4 | 2026-10-12 |
 | video | 2.2.1 | 2026-10-02 |
 
 ## Recent Changes
+
+### 2.11.27 (2026-10-12)
+
+- **Analysis rules from the Magister benchmark** (#573). Four rules, each written into the skill and mirrored in its description so hosted agents see them before opening the file:
+  - **ad-creative** (2.10.0 → 2.11.0): a new Test Hypotheses That Can Lose section. A hypothesis names the metric, the comparison, and the expected direction.
+  - **copywriting** (2.1.0 → 2.2.0): claims must be supportable, and a declined claim names the evidence that would unlock it.
+  - **analytics** (2.0.3 → 2.1.0): compute metrics from row-level data, and divide rates only over matching closed windows.
+  - **marketing-plan** (1.2.1 → 1.2.2): AARRR stage metrics count only cohorts whose window has closed.
+
+  ad-creative also notes that Magister can run its data-pull step (#567), with a disclosure that Magister is the maintainer's product and alternatives for running the pull yourself.
+- **influencer-marketing** (1.1.2 → 1.2.0) and **social** (2.3.3 → 2.3.4): Telegram channel ads (#785 by @Courier-Britva). The new `references/telegram-channels.md` covers how placements are bought, a seven-check vetting routine based on views per subscriber, and pricing by CPM and deletion window. Contributed by the team behind TGScope, which is disclosed; its benchmarks come from TGScope's own studies and are labeled as directional.
+- **Tools:**
+  - **rowbound** guide (#500, closes #498): an open-source, self-hosted alternative to Clay that runs enrichment waterfalls from a Google Sheet, with a CLI and MCP.
+  - **AIsa** joins as a ◆ Skill Partner in SEO tools (#783).
+  - Across the CLIs, rejected HTTP requests now exit 1 (#713), and invalid flags fail with structured errors before any request is sent (#732), both by @rudycelekli.
 
 ### 2.11.26 (2026-10-08)
 

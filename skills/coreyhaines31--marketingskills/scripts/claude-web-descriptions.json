@@ -4,8 +4,8 @@
     "description": "Plan A/B tests and growth experiments: hypotheses, variants, measurement, sample size, duration, and an experiment backlog."
   },
   "ad-creative": {
-    "source_description_sha256": "2c7bec0e5a8bc2a502c97fa65b59882221b56e3b1f27514ddffd87dc9df25404",
-    "description": "Create and iterate paid ad copy, hooks, headlines, and visual or video concepts; prepare creative tests and approval-ready variations."
+    "source_description_sha256": "1f86fb30dc97cfe9b2edc4451b4d780a614d1656b2658a95654f09d9ba3a8336",
+    "description": "Create and iterate paid ad copy, hooks, headlines, and visual or video concepts. Prepares creative tests with falsifiable hypotheses and approval-ready variations."
   },
   "ads": {
     "source_description_sha256": "3d91c40e9118a679edc321891c036f3a8695d49b4db5e9e44f6f5d7c6b1df595",
@@ -16,8 +16,8 @@
     "description": "Improve AI search visibility, LLM citations, AEO/GEO, AI Overviews, and agent-readable site content; audit why AI answers overlook your brand."
   },
   "analytics": {
-    "source_description_sha256": "9e250e350c76e7b65b357cd879bb9f1f49523d890ff15bad21faae9942e9e5e7",
-    "description": "Set up or audit GA4, conversion events, UTMs, tag managers, and tracking plans; diagnose missing events and measure marketing results."
+    "source_description_sha256": "49d1b69d88b7e7ca12afe19a254e6c70874c1112a420e5eea06632a273e889be",
+    "description": "Set up or audit GA4, conversion events, UTMs, and tracking plans. Computes metrics from row-level data and compares rates only over matching closed windows."
   },
   "aso": {
     "source_description_sha256": "3e5d0a3c81b0b2b73d05dbef76c8bc33079b540ca9c5027c1328d7b0610cdf7c",
@@ -60,8 +60,8 @@
     "description": "Review, polish, tighten, or refresh existing marketing copy; remove awkward wording, stale content, and AI writing patterns."
   },
   "copywriting": {
-    "source_description_sha256": "06ba577db7b71de51b580bea992d10c319c3e76e9f2014bb63ee9c7faacd28c3",
-    "description": "Write or rewrite website marketing copy: homepages, landing pages, product pages, headlines, CTAs, and value propositions."
+    "source_description_sha256": "83204d7fc89cbd16a32dbb659afe5b1431ad8b7b75d96a030075a914272665a3",
+    "description": "Write or rewrite website marketing copy: homepages, landing pages, product pages, headlines, CTAs, and value propositions, with only claims you can support."
   },
   "cro": {
     "source_description_sha256": "3e28de53a48fe9dbacc1437567c19ce5185b5f175e7b0141eb2117c83f4366e2",
@@ -92,8 +92,8 @@
     "description": "Create or optimize marketing images: blog heroes, product mockups, social graphics, banners, listing visuals, and brand assets."
   },
   "influencer-marketing": {
-    "source_description_sha256": "dd23e66e3271ae2ee37065ef4a684cfb75e56037e05122db97f97b638b2988d3",
-    "description": "Find and vet creators, influencers, and ambassadors; plan sponsorship deals, briefs, disclosure, UGC partnerships, and ROI measurement."
+    "source_description_sha256": "26bf257280ecea95cf0b04294b9ed059ab2c770a9db98b73991207f832e46414",
+    "description": "Find and vet creators, influencers, and ambassadors, including Telegram channels; plan sponsorship deals, briefs, disclosure, UGC partnerships, and ROI."
   },
   "launch": {
     "source_description_sha256": "4f9e8b4197efa11516acf70a82a62f063ee2931783026e0559d57a9118061f4d",

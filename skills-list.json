@@ -22247,6 +22247,19 @@
   ],
   "cloudflare--skills": [
     {
+      "name": "cf-cli",
+      "description": "Cloudflare's official cf CLI (beta) for the public Cloudflare API and Workers projects. Use for finding and running Cloudflare commands from the terminal \u2014 sign-in and profiles, cf cli search, cf sche",
+      "path": "cloudflare--skills/skills/cf-cli/SKILL.md",
+      "remote_path": "skills/cf-cli/SKILL.md",
+      "lines": 90,
+      "words": 902,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "md"
+      ]
+    },
+    {
       "name": "k2",
       "description": "Build and troubleshoot Cloudflare K2 or K2 Streams durable logs. Use for stream setup, producing from Workers or HTTP, configuring retention and inputs, and consuming through subscriptions.",
       "path": "cloudflare--skills/skills/k2/SKILL.md",
@@ -22258,11 +22271,11 @@
     },
     {
       "name": "wrangler",
-      "description": "Run or troubleshoot Wrangler CLI commands and configure Worker projects for local development, Previews, deployment, and Cloudflare resource management.",
+      "description": "Run or troubleshoot Wrangler CLI commands in projects that have a wrangler.jsonc, wrangler.json, or wrangler.toml file, including local development, Previews, deployment, and resource management. For ",
       "path": "cloudflare--skills/skills/wrangler/SKILL.md",
       "remote_path": "skills/wrangler/SKILL.md",
       "lines": 72,
-      "words": 1263,
+      "words": 1327,
       "code_blocks": 0,
       "languages": []
     },
@@ -22293,8 +22306,8 @@
       "description": "Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security. Use for architecture and product selection, including when the user describes a need without namin",
       "path": "cloudflare--skills/skills/cloudflare/SKILL.md",
       "remote_path": "skills/cloudflare/SKILL.md",
-      "lines": 150,
-      "words": 3308,
+      "lines": 151,
+      "words": 3296,
       "code_blocks": 0,
       "languages": []
     },
@@ -22380,7 +22393,7 @@
       "path": "cloudflare--skills/skills/workers-best-practices/SKILL.md",
       "remote_path": "skills/workers-best-practices/SKILL.md",
       "lines": 61,
-      "words": 665,
+      "words": 676,
       "code_blocks": 0,
       "languages": []
     },
@@ -22624,8 +22637,8 @@
       "description": "When the user wants to set up, improve, or audit analytics tracking and measurement. Also use when the user mentions \"set up tracking,\" \"GA4,\" \"Google Analytics,\" \"conversion tracking,\" \"event trackin",
       "path": "coreyhaines31--marketingskills/skills/analytics/SKILL.md",
       "remote_path": "skills/analytics/SKILL.md",
-      "lines": 312,
-      "words": 1254,
+      "lines": 339,
+      "words": 1531,
       "code_blocks": 5,
       "languages": [
         "javascript",
@@ -22678,7 +22691,7 @@
       "path": "coreyhaines31--marketingskills/skills/social/SKILL.md",
       "remote_path": "skills/social/SKILL.md",
       "lines": 457,
-      "words": 2767,
+      "words": 2773,
       "code_blocks": 4,
       "languages": []
     },
@@ -22780,8 +22793,8 @@
       "description": "\"When the user wants to generate, iterate, or scale ad creative \u2014 headlines, descriptions, primary text, or full ad variations \u2014 for any paid advertising platform. Also use when the user mentions 'ad ",
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
-      "lines": 447,
-      "words": 3573,
+      "lines": 475,
+      "words": 3823,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -22915,8 +22928,8 @@
       "description": "\"When the user wants to run influencer, creator, or ambassador partnerships to promote their product \u2014 finding and vetting partners, structuring deals, briefing creators, disclosure compliance, and me",
       "path": "coreyhaines31--marketingskills/skills/influencer-marketing/SKILL.md",
       "remote_path": "skills/influencer-marketing/SKILL.md",
-      "lines": 203,
-      "words": 2737,
+      "lines": 206,
+      "words": 2840,
       "code_blocks": 0,
       "languages": []
     },
@@ -23075,8 +23088,8 @@
       "description": "When the user needs a comprehensive marketing plan for a client, a company they advise, or their own product. Also use when the user mentions \"marketing plan,\" \"growth plan,\" \"GTM plan,\" \"go-to-market",
       "path": "coreyhaines31--marketingskills/skills/marketing-plan/SKILL.md",
       "remote_path": "skills/marketing-plan/SKILL.md",
-      "lines": 305,
-      "words": 3736,
+      "lines": 310,
+      "words": 3780,
       "code_blocks": 2,
       "languages": []
     },
@@ -23095,8 +23108,8 @@
       "description": "When the user wants to write, rewrite, or improve marketing copy for any page, including homepage, landing pages, pricing pages, feature pages, about pages, or product pages. Also use when the user sa",
       "path": "coreyhaines31--marketingskills/skills/copywriting/SKILL.md",
       "remote_path": "skills/copywriting/SKILL.md",
-      "lines": 287,
-      "words": 1677,
+      "lines": 296,
+      "words": 1774,
       "code_blocks": 0,
       "languages": []
     },
@@ -28327,6 +28340,18 @@
       ]
     },
     {
+      "name": "sanity-singletons",
+      "description": "Configure singleton documents in a Sanity Studio using the document.singletons registry. Use when a developer wants a fixed-id document (settings, navigation, footer) edited in place, hidden from the ",
+      "path": "sanity-io--agent-toolkit/skills/sanity-singletons/SKILL.md",
+      "remote_path": "skills/sanity-singletons/SKILL.md",
+      "lines": 200,
+      "words": 2243,
+      "code_blocks": 5,
+      "languages": [
+        "ts"
+      ]
+    },
+    {
       "name": "portable-text-serialization",
       "description": "Render and serialize Portable Text to React, Svelte, Vue, Astro, HTML, Markdown, and plain text. Use when implementing Portable Text rendering in any frontend framework, building custom serializers fo",
       "path": "sanity-io--agent-toolkit/skills/portable-text-serialization/SKILL.md",
@@ -28682,7 +28707,7 @@
   "squirrelscan--skills": [
     {
       "name": "audit-website",
-      "description": "Audit a website with the squirrelscan CLI and fix the findings in code. Runs SEO, performance, security, technical, content, accessibility, and 15 other rule categories (300+ rules), returns an LLM-op",
+      "description": "Audit a website with the squirrelscan CLI and fix the findings in code. Runs SEO, performance, security, technical, content, accessibility, and 16 other rule categories (300+ rules), returns an LLM-op",
       "path": "squirrelscan--skills/skills/audit-website/SKILL.md",
       "remote_path": "skills/audit-website/SKILL.md",
       "lines": 94,
@@ -59343,8 +59368,8 @@
       "description": "\"Reviews skill instructions, trigger boundaries and distribution contracts; not product code.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/skill-maintenance-suite/skills/ln-81-skill-reviewer/SKILL.md",
       "remote_path": "plugins/skill-maintenance-suite/skills/ln-81-skill-reviewer/SKILL.md",
-      "lines": 124,
-      "words": 2213,
+      "lines": 111,
+      "words": 1874,
       "code_blocks": 0,
       "languages": []
     },
@@ -59354,7 +59379,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-suite/skills/ln-63-deployment-engineer/SKILL.md",
       "remote_path": "plugins/delivery-suite/skills/ln-63-deployment-engineer/SKILL.md",
       "lines": 95,
-      "words": 1398,
+      "words": 1352,
       "code_blocks": 0,
       "languages": []
     },
@@ -59364,7 +59389,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-suite/skills/ln-64-community-announcer/SKILL.md",
       "remote_path": "plugins/delivery-suite/skills/ln-64-community-announcer/SKILL.md",
       "lines": 114,
-      "words": 1762,
+      "words": 1716,
       "code_blocks": 0,
       "languages": []
     },
@@ -59374,7 +59399,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-suite/skills/ln-61-repository-publisher/SKILL.md",
       "remote_path": "plugins/delivery-suite/skills/ln-61-repository-publisher/SKILL.md",
       "lines": 112,
-      "words": 1704,
+      "words": 1658,
       "code_blocks": 0,
       "languages": []
     },
@@ -59384,7 +59409,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-suite/skills/ln-62-release-publisher/SKILL.md",
       "remote_path": "plugins/delivery-suite/skills/ln-62-release-publisher/SKILL.md",
       "lines": 125,
-      "words": 1898,
+      "words": 1852,
       "code_blocks": 0,
       "languages": []
     },
@@ -59394,7 +59419,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/operations-suite/skills/ln-72-product-outcome-evaluator/SKILL.md",
       "remote_path": "plugins/operations-suite/skills/ln-72-product-outcome-evaluator/SKILL.md",
       "lines": 87,
-      "words": 1167,
+      "words": 1121,
       "code_blocks": 0,
       "languages": []
     },
@@ -59404,7 +59429,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/operations-suite/skills/ln-71-operations-investigator/SKILL.md",
       "remote_path": "plugins/operations-suite/skills/ln-71-operations-investigator/SKILL.md",
       "lines": 90,
-      "words": 1199,
+      "words": 1153,
       "code_blocks": 0,
       "languages": []
     },
@@ -59414,7 +59439,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-24-architecture-decision-recorder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-24-architecture-decision-recorder/SKILL.md",
       "lines": 106,
-      "words": 1482,
+      "words": 1436,
       "code_blocks": 0,
       "languages": []
     },
@@ -59424,7 +59449,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-26-architecture-migration-planner/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-26-architecture-migration-planner/SKILL.md",
       "lines": 109,
-      "words": 1639,
+      "words": 1618,
       "code_blocks": 0,
       "languages": []
     },
@@ -59434,7 +59459,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-25-architecture-diagram-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-25-architecture-diagram-builder/SKILL.md",
       "lines": 101,
-      "words": 1427,
+      "words": 1381,
       "code_blocks": 0,
       "languages": []
     },
@@ -59444,7 +59469,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-22-current-architecture-documenter/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-22-current-architecture-documenter/SKILL.md",
       "lines": 101,
-      "words": 1444,
+      "words": 1398,
       "code_blocks": 0,
       "languages": []
     },
@@ -59454,7 +59479,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-21-system-design-baseline-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-21-system-design-baseline-builder/SKILL.md",
       "lines": 108,
-      "words": 1589,
+      "words": 1543,
       "code_blocks": 0,
       "languages": []
     },
@@ -59464,7 +59489,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-23-system-design-proposal-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-23-system-design-proposal-builder/SKILL.md",
       "lines": 109,
-      "words": 1603,
+      "words": 1557,
       "code_blocks": 0,
       "languages": []
     },
@@ -59474,7 +59499,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-planning-suite/skills/ln-33-plan-reviewer/SKILL.md",
       "remote_path": "plugins/delivery-planning-suite/skills/ln-33-plan-reviewer/SKILL.md",
       "lines": 139,
-      "words": 3485,
+      "words": 3502,
       "code_blocks": 0,
       "languages": []
     },
@@ -59484,7 +59509,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-planning-suite/skills/ln-31-delivery-plan-builder/SKILL.md",
       "remote_path": "plugins/delivery-planning-suite/skills/ln-31-delivery-plan-builder/SKILL.md",
       "lines": 88,
-      "words": 1264,
+      "words": 1218,
       "code_blocks": 0,
       "languages": []
     },
@@ -59494,7 +59519,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-planning-suite/skills/ln-32-test-strategy-planner/SKILL.md",
       "remote_path": "plugins/delivery-planning-suite/skills/ln-32-test-strategy-planner/SKILL.md",
       "lines": 107,
-      "words": 2071,
+      "words": 2047,
       "code_blocks": 0,
       "languages": []
     },
@@ -59504,7 +59529,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/engineering-foundation-suite/skills/ln-99-database-lifecycle-engineer/SKILL.md",
       "remote_path": "plugins/engineering-foundation-suite/skills/ln-99-database-lifecycle-engineer/SKILL.md",
       "lines": 86,
-      "words": 1216,
+      "words": 1170,
       "code_blocks": 0,
       "languages": []
     },
@@ -59514,7 +59539,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/engineering-foundation-suite/skills/ln-95-resource-authorization-engineer/SKILL.md",
       "remote_path": "plugins/engineering-foundation-suite/skills/ln-95-resource-authorization-engineer/SKILL.md",
       "lines": 86,
-      "words": 1217,
+      "words": 1171,
       "code_blocks": 0,
       "languages": []
     },
@@ -59524,7 +59549,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/engineering-foundation-suite/skills/ln-98-mutation-reliability-engineer/SKILL.md",
       "remote_path": "plugins/engineering-foundation-suite/skills/ln-98-mutation-reliability-engineer/SKILL.md",
       "lines": 86,
-      "words": 1220,
+      "words": 1174,
       "code_blocks": 0,
       "languages": []
     },
@@ -59534,7 +59559,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/engineering-foundation-suite/skills/ln-94-authentication-engineer/SKILL.md",
       "remote_path": "plugins/engineering-foundation-suite/skills/ln-94-authentication-engineer/SKILL.md",
       "lines": 83,
-      "words": 1156,
+      "words": 1110,
       "code_blocks": 0,
       "languages": []
     },
@@ -59544,7 +59569,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/engineering-foundation-suite/skills/ln-96-error-handling-engineer/SKILL.md",
       "remote_path": "plugins/engineering-foundation-suite/skills/ln-96-error-handling-engineer/SKILL.md",
       "lines": 87,
-      "words": 1237,
+      "words": 1191,
       "code_blocks": 0,
       "languages": []
     },
@@ -59554,7 +59579,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/engineering-foundation-suite/skills/ln-92-container-engineer/SKILL.md",
       "remote_path": "plugins/engineering-foundation-suite/skills/ln-92-container-engineer/SKILL.md",
       "lines": 89,
-      "words": 1314,
+      "words": 1268,
       "code_blocks": 0,
       "languages": []
     },
@@ -59564,7 +59589,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/engineering-foundation-suite/skills/ln-91-engineering-baseline-builder/SKILL.md",
       "remote_path": "plugins/engineering-foundation-suite/skills/ln-91-engineering-baseline-builder/SKILL.md",
       "lines": 81,
-      "words": 1211,
+      "words": 1165,
       "code_blocks": 0,
       "languages": []
     },
@@ -59574,7 +59599,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/engineering-foundation-suite/skills/ln-97-observability-engineer/SKILL.md",
       "remote_path": "plugins/engineering-foundation-suite/skills/ln-97-observability-engineer/SKILL.md",
       "lines": 86,
-      "words": 1233,
+      "words": 1187,
       "code_blocks": 0,
       "languages": []
     },
@@ -59584,7 +59609,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/engineering-foundation-suite/skills/ln-93-configuration-engineer/SKILL.md",
       "remote_path": "plugins/engineering-foundation-suite/skills/ln-93-configuration-engineer/SKILL.md",
       "lines": 83,
-      "words": 1143,
+      "words": 1097,
       "code_blocks": 0,
       "languages": []
     },
@@ -59594,7 +59619,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-11-opportunity-evaluator/SKILL.md",
       "remote_path": "plugins/product-discovery-suite/skills/ln-11-opportunity-evaluator/SKILL.md",
       "lines": 106,
-      "words": 1821,
+      "words": 1775,
       "code_blocks": 0,
       "languages": []
     },
@@ -59604,7 +59629,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-12-product-requirements-builder/SKILL.md",
       "remote_path": "plugins/product-discovery-suite/skills/ln-12-product-requirements-builder/SKILL.md",
       "lines": 86,
-      "words": 1188,
+      "words": 1142,
       "code_blocks": 0,
       "languages": []
     },
@@ -59614,7 +59639,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-13-interaction-design-builder/SKILL.md",
       "remote_path": "plugins/product-discovery-suite/skills/ln-13-interaction-design-builder/SKILL.md",
       "lines": 86,
-      "words": 1167,
+      "words": 1121,
       "code_blocks": 0,
       "languages": []
     },
@@ -59624,7 +59649,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-53-documentation-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-53-documentation-auditor/SKILL.md",
       "lines": 128,
-      "words": 2313,
+      "words": 2267,
       "code_blocks": 0,
       "languages": []
     },
@@ -59634,7 +59659,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-54-codebase-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-54-codebase-auditor/SKILL.md",
       "lines": 124,
-      "words": 2282,
+      "words": 2236,
       "code_blocks": 0,
       "languages": []
     },
@@ -59644,7 +59669,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-55-test-suite-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-55-test-suite-auditor/SKILL.md",
       "lines": 124,
-      "words": 2570,
+      "words": 2524,
       "code_blocks": 0,
       "languages": []
     },
@@ -59654,7 +59679,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-52-delivery-reviewer/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-52-delivery-reviewer/SKILL.md",
       "lines": 134,
-      "words": 3301,
+      "words": 3255,
       "code_blocks": 0,
       "languages": []
     },
@@ -59664,7 +59689,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-56-architecture-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-56-architecture-auditor/SKILL.md",
       "lines": 122,
-      "words": 2223,
+      "words": 2177,
       "code_blocks": 0,
       "languages": []
     },
@@ -59674,7 +59699,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-57-persistence-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-57-persistence-auditor/SKILL.md",
       "lines": 119,
-      "words": 2115,
+      "words": 2069,
       "code_blocks": 0,
       "languages": []
     },
@@ -59684,7 +59709,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-51-acceptance-test-builder/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-51-acceptance-test-builder/SKILL.md",
       "lines": 117,
-      "words": 2165,
+      "words": 2119,
       "code_blocks": 0,
       "languages": []
     },
@@ -59694,7 +59719,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/implementation-suite/skills/ln-45-benchmark-comparator/SKILL.md",
       "remote_path": "plugins/implementation-suite/skills/ln-45-benchmark-comparator/SKILL.md",
       "lines": 122,
-      "words": 2215,
+      "words": 2213,
       "code_blocks": 0,
       "languages": []
     },
@@ -59704,7 +59729,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/implementation-suite/skills/ln-42-dependency-upgrader/SKILL.md",
       "remote_path": "plugins/implementation-suite/skills/ln-42-dependency-upgrader/SKILL.md",
       "lines": 119,
-      "words": 2162,
+      "words": 2116,
       "code_blocks": 0,
       "languages": []
     },
@@ -59714,7 +59739,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/implementation-suite/skills/ln-44-performance-optimizer/SKILL.md",
       "remote_path": "plugins/implementation-suite/skills/ln-44-performance-optimizer/SKILL.md",
       "lines": 114,
-      "words": 2134,
+      "words": 2127,
       "code_blocks": 0,
       "languages": []
     },
@@ -59724,7 +59749,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/implementation-suite/skills/ln-43-code-modernizer/SKILL.md",
       "remote_path": "plugins/implementation-suite/skills/ln-43-code-modernizer/SKILL.md",
       "lines": 123,
-      "words": 2349,
+      "words": 2303,
       "code_blocks": 0,
       "languages": []
     },
@@ -59734,7 +59759,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/implementation-suite/skills/ln-41-surgical-change-implementer/SKILL.md",
       "remote_path": "plugins/implementation-suite/skills/ln-41-surgical-change-implementer/SKILL.md",
       "lines": 121,
-      "words": 2373,
+      "words": 2327,
       "code_blocks": 0,
       "languages": []
     }
@@ -158273,8 +158298,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 438,
-      "words": 6019,
+      "lines": 442,
+      "words": 6067,
       "code_blocks": 0,
       "languages": []
     },
@@ -179778,9 +179803,9 @@
       "description": "Structured spec-driven development workflow. Load this skill whenever starting a new feature, building a system from scratch, requirements are unclear, or a user asks to \"plan\", \"spec out\", \"design\", ",
       "path": "shaunburdick--skills/skills/spec-driven-development/SKILL.md",
       "remote_path": "skills/spec-driven-development/SKILL.md",
-      "lines": 336,
-      "words": 2520,
-      "code_blocks": 4,
+      "lines": 306,
+      "words": 2352,
+      "code_blocks": 3,
       "languages": [
         "bash",
         "markdown"
@@ -179792,9 +179817,9 @@
       "description": "\"Quantify repository composition and documentation drag \u2014 comment vs code lines, test lines with test and assertion counts, spec and doc prose, and agent instruction surface. Load when reviewing a cha",
       "path": "shaunburdick--skills/skills/project-health/SKILL.md",
       "remote_path": "skills/project-health/SKILL.md",
-      "lines": 269,
-      "words": 1953,
-      "code_blocks": 4,
+      "lines": 286,
+      "words": 2088,
+      "code_blocks": 5,
       "languages": [
         "bash",
         "json"
@@ -179847,12 +179872,11 @@
       "description": "Enforces safe git practices for AI coding agents. Defines branch protection rules, commit policies, amend rules, and force-push boundaries. Load this skill at the start of any session where the agent ",
       "path": "shaunburdick--skills/skills/git-safety/SKILL.md",
       "remote_path": "skills/git-safety/SKILL.md",
-      "lines": 374,
-      "words": 2049,
-      "code_blocks": 16,
+      "lines": 171,
+      "words": 973,
+      "code_blocks": 6,
       "languages": [
-        "bash",
-        "yaml"
+        "bash"
       ],
       "license": "MIT"
     },
@@ -179861,8 +179885,8 @@
       "description": "\"Enforces non-negotiable code quality standards for AI coding agents. Covers linting rules (no suppressions \u2014 ever), type safety (no `any` in TypeScript, no `# type: ignore` in Python), tooling discip",
       "path": "shaunburdick--skills/skills/code-quality/SKILL.md",
       "remote_path": "skills/code-quality/SKILL.md",
-      "lines": 200,
-      "words": 1515,
+      "lines": 148,
+      "words": 1026,
       "code_blocks": 2,
       "languages": [
         "python",
@@ -179875,9 +179899,9 @@
       "description": "\"Practical guide for setting up and using the spec-kit CLI on a project. Covers installation, project initialization (--integration flag) for Claude, OpenCode, Copilot, Cursor, Codex and more, the spe",
       "path": "shaunburdick--skills/skills/spec-kit/SKILL.md",
       "remote_path": "skills/spec-kit/SKILL.md",
-      "lines": 376,
-      "words": 1955,
-      "code_blocks": 18,
+      "lines": 135,
+      "words": 763,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
@@ -181067,7 +181091,7 @@
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-debt/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-debt/SKILL.md",
       "lines": 45,
-      "words": 261,
+      "words": 268,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -181147,7 +181171,7 @@
       "path": "dietrichgebert--ponytail/skills/ponytail-debt/SKILL.md",
       "remote_path": "skills/ponytail-debt/SKILL.md",
       "lines": 46,
-      "words": 269,
+      "words": 276,
       "code_blocks": 0,
       "languages": []
     },

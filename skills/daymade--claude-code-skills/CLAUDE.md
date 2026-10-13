@@ -278,14 +278,16 @@ validation behavior in
 [native_review.py](daymade-audio/transcript-fixer/scripts/native_review.py), and
 queue anchor behavior in
 [review_queue.py](daymade-audio/transcript-fixer/scripts/core/review_queue.py).
-For a received user answer or an existing correction-ledger update, follow
-[cited answers and ledger writes](daymade-audio/transcript-fixer/references/review_queue_dashboard.md#cited-answers-and-ledger-writes).
-That guide owns source binding, supported answer syntax and interrupted-write recovery;
-keep its schema and commands there.
-For batch audio checks, use [verify_queue_audio.py](daymade-audio/transcript-fixer/scripts/verify_queue_audio.py)
-and its [adjudication guide](daymade-audio/transcript-fixer/references/advanced_correction_evidence.md):
-audio verification may add evidence but never resolves a review row or proves
-whole-transcript completion.
+For remaining pending rows or a received human verdict on an already reviewed file, enter
+[pending continuation](daymade-audio/transcript-fixer/references/pending-continuation.md).
+For source-audio export, identity and timeline pairing, follow
+[the audio setup SOP](daymade-audio/transcript-fixer/references/review_queue_dashboard.md#source-audio-and-timeline-pairing)
+and its [audio helper](daymade-audio/transcript-fixer/scripts/fetch_minute_audio.py).
+For batch audio checks, follow
+[queue-level clip cross-check](daymade-audio/transcript-fixer/references/advanced_correction_evidence.md#batch-pending-adjudication--queue-level-clip-cross-check).
+[verify_queue_audio.py](daymade-audio/transcript-fixer/scripts/verify_queue_audio.py)
+owns executable anchor, duration and attachment validation; keep its CLI and
+adjudication details in that SOP.
 When changing these paths, update their owning instructions together; keep
 review coverage, unresolved verdicts, and repository publication distinct.
 For local correction tests and repository CI ownership, follow the

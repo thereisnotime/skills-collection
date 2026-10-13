@@ -27,6 +27,7 @@ Anyone — including tool makers and partners — may contribute content that na
 |---------|----------|-------|
 | ◆ Converly | Conversion tracking / attribution | [converly.md](integrations/converly.md) |
 | ◆ Ploy | AI website & growth platform | [ploy.md](integrations/ploy.md) |
+| ◆ AIsa | SEO, search & social data | [aisa.md](integrations/aisa.md) |
 <!-- PARTNERS:END -->
 
 <!-- The table above is generated from partners.json — run `node scripts/sync-partners.mjs`. -->
@@ -39,6 +40,7 @@ Anyone — including tool makers and partners — may contribute content that na
 |------|----------|:---:|:---:|:---:|:---:|-------|
 | ◆ converly | Conversion Tracking | ✓ | ✓ | ✓ | - | [converly.md](integrations/converly.md) |
 | ◆ ploy | Website | ✓ | - | ✓ | - | [ploy.md](integrations/ploy.md) |
+| ◆ aisa | SEO / Data APIs | ✓ | ✓ | ✓ | - | [aisa.md](integrations/aisa.md) |
 | ga4 | Analytics | ✓ | ✓ | [✓](clis/ga4.js) | ✓ | [ga4.md](integrations/ga4.md) |
 | mixpanel | Analytics | ✓ | - | [✓](clis/mixpanel.js) | ✓ | [mixpanel.md](integrations/mixpanel.md) |
 | amplitude | Analytics | ✓ | - | [✓](clis/amplitude.js) | ✓ | [amplitude.md](integrations/amplitude.md) |
@@ -58,6 +60,7 @@ Anyone — including tool makers and partners — may contribute content that na
 | clay | Data Enrichment | ✓ | ✓ | [✓](clis/clay.js) | - | [clay.md](integrations/clay.md) |
 | fullenrich | Data Enrichment | ✓ | ✓ | - | - | [fullenrich.md](integrations/fullenrich.md) |
 | leadmagic | Data Enrichment | ✓ | ✓ | ✓ | - | [leadmagic.md](integrations/leadmagic.md) |
+| rowbound | Data Enrichment | - | ✓ | ✓ | - | [rowbound.md](integrations/rowbound.md) |
 | supermetrics | Data Aggregation | ✓ | ✓ | [✓](clis/supermetrics.js) | - | [supermetrics.md](integrations/supermetrics.md) |
 | coupler | Data Aggregation | ✓ | ✓ | [✓](clis/coupler.js) | - | [coupler.md](integrations/coupler.md) |
 | hubspot | CRM | ✓ | ✓ | ✓ | ✓ | [hubspot.md](integrations/hubspot.md) |
@@ -349,8 +352,9 @@ Company and person data enrichment for sales and marketing.
 | **clay** | Waterfall enrichment, outbound | 75+ data providers |
 | **fullenrich** | Waterfall email + mobile finding | Many providers per lookup; charges only on a hit; verify its catch-all results |
 | **leadmagic** | Email finding, job changes, technographics, lookalikes | Credit-based API; charges only on a hit |
+| **rowbound** | Open-source Sheets enrichment, waterfalls | MIT · CLI + MCP · self-hosted/BYOK Clay alternative |
 
-**Agent recommendation**: Apollo for prospecting and outbound. Clearbit only if you already hold a legacy API key (otherwise Breeze Intelligence inside HubSpot). ZoomInfo for enterprise B2B data with intent signals. Clay for waterfall enrichment across multiple providers.
+**Agent recommendation**: Apollo for prospecting and outbound. Clearbit only if you already hold a legacy API key (otherwise Breeze Intelligence inside HubSpot). ZoomInfo for enterprise B2B data with intent signals. Clay for waterfall enrichment across multiple providers. Rowbound is the open-source, self-hosted alternative to Clay: native waterfalls from a Google Sheet, driven by CLI or MCP with your own provider keys.
 
 ### Email Verification
 
@@ -610,6 +614,7 @@ These tools have Model Context Protocol servers available, enabling direct agent
 - **truelist** - Email verification and batches
 - **fullenrich** - Waterfall email and mobile enrichment
 - **leadmagic** - Enrichment, job changes, technographics
+- **rowbound** - Open-source Sheets enrichment with waterfalls (stdio MCP)
 - **theirstack** - Hiring and technographic signals
 - **apify** - Ready-made scrapers (Actors)
 - **firecrawl** - Page scraping and crawling

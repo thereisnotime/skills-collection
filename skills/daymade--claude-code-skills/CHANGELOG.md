@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **transcript-fixer** (`daymade-audio` v1.48.7): remove derived counts, duplicate exit summaries and obsolete cause attribution from source-audio helper commentary; keep executable behavior and CLI output unchanged.
+
+- **transcript-fixer** (`daymade-audio` v1.48.6): Align audio examples with verified media positions and a required stdout engine, complete the Stage 1 JSON example, and limit ledger writes to supported verdicts. Route reviewed-file continuation from project instructions and remove derived CLI navigation and counts.
+- **transcript-fixer** (`daymade-audio` v1.48.5): share finite media-duration validation, reject HTTP download failures, and align source-audio/clip-review instructions with their executable owners. Retire the duplicate shell download parser and derived section summaries; preserve verified positions and pending-verdict continuation.
+
+- **transcript-fixer** (`daymade-audio` v1.48.4): Support verified media-time overrides for queue clips, separate missing neighbour coverage from recognizer disagreement, and use real media duration for final-turn estimates. Add a pending/human-verdict continuation entry while preserving occurrence selection, complete readings, identity and verdict boundaries. Change type: bounded audio-evidence repair and continuation routing.
+- **transcript-fixer** (`daymade-audio` v1.48.3): preserve selected occurrence anchors during audio checks, retain complete recognizer output, and pass explicit Feishu export identity with accurate error reporting.
+
 - **transcript-fixer** (`daymade-audio` v1.48.1 → v1.48.2): Document that deferral adjudication must first locate the exact in-text match, because a queue row's context snippet can mask a cross-word-boundary substring hit; deferrals whose only verbatim matches sit inside larger words resolve as kept_original instead of accepting the suggested direction. Change type: reviewer guidance hardening; runtime unchanged.
 
 - **transcript-fixer** (`daymade-audio` v1.48.1): Preserve separate occurrences of the same word on one line in the review queue, support explicit offsets inside ambiguous context, and retain existing decisions during anchor repair. Change type: occurrence-level correction repair.

@@ -184,7 +184,7 @@ To submit your app for marketplace review:
 
 ### Final step — Submit feedback (after a build session)
 
-If you ran toolchain commands this session, submit one `stripe feedback` report summarizing what worked and what got in the way, then print the returned id. See `references/feedback.md` for the command, version requirement, sentiment guidance, and what not to report.
+If you weren’t able to accomplish the user’s goal on the first try and the build process wasn’t clear, send feedback. See `references/feedback.md` for details on how to share feedback with Stripe.
 
 **Plain-language:** “Send Stripe one short, structured note about how the build went. It’s not support, and it never blocks your work.”
 

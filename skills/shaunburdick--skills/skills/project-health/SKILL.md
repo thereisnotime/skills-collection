@@ -4,7 +4,7 @@ description: "Quantify repository composition and documentation drag — comment
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # Project Health
@@ -38,6 +38,23 @@ baseline inside the skill; every `--update` in every repo overwrote it, and a
 later `--check` compared against whichever repo ran last.
 
 Exit codes: `0` no violations · `1` violation · `2` unbaselined, nothing compared.
+
+## Per change, not per quarter
+
+The numbers are most useful on a branch, before the PR, where a rising ratio
+is still one commit's decision:
+
+```bash
+git diff --shortstat main...HEAD                   # diff size; ~100 changed lines is a comfortable review, ~1,000 is not
+python3 scripts/project_health.py --check          # has comment share, test ratio, or instruction surface moved against the baseline?
+```
+
+The `spec-challenger` runs both at the diff gate and cites the number once. A
+rising `commentRatio` or `testRatio` without a stated reason in the PR body is
+a cut-list item, not a threshold violation; the ratchet reports the movement,
+a person decides. Nothing here is a count target: a PR that adds 46 comment
+lines to 33 code lines fails on reading, and the number is only what makes it
+visible before the reading.
 
 ## Tests
 

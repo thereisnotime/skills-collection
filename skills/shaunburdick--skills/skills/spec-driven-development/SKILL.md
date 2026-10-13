@@ -4,7 +4,7 @@ description: Structured spec-driven development workflow. Load this skill whenev
 license: MIT
 metadata:
   author: shaunburdick
-  version: "2.6.0"
+  version: "2.8.0"
 ---
 
 # Spec-Driven Development
@@ -15,19 +15,9 @@ The most common failure mode of AI-assisted coding is jumping straight to implem
 
 ## Tooling: spec-kit
 
-This workflow is powered by the [spec-kit CLI](https://github.com/github/spec-kit). For installation, initialization, slash commands, and project state detection, load the **`spec-kit` skill**.
-
-Quick reference for the impatient — initialize a project with `uvx` (no install required):
-
-```bash
-# New project
-uvx --from git+https://github.com/github/spec-kit.git specify init <project-name> --integration opencode
-
-# Existing project
-uvx --from git+https://github.com/github/spec-kit.git specify init . --here --integration opencode
-```
-
-Supported `--integration` values include `opencode`, `claude`, `copilot`, `cursor-agent`, `codex`, `gemini`, and many others — run `specify integration list` from an initialized project for the full catalog.
+The [spec-kit CLI](https://github.com/github/spec-kit) scaffolds and drives
+this workflow; the **`spec-kit` skill** covers installation, the slash
+commands, and state detection.
 
 ## Directory Structure
 
@@ -60,8 +50,7 @@ project/
 | 1   | Constitution  | Planner   | `.specify/memory/constitution.md`          | User approves                        |
 | 2   | Specification | Planner   | `specs/###-name/spec.md`                   | User approves                        |
 | 3   | Clarification | Planner   | Updated specs, zero ambiguities            | Zero `[NEEDS CLARIFICATION]` markers |
-| 4   | Plan          | Architect | `specs/###-name/plan.md` + supporting docs | User approves                        |
-| 5   | Tasks         | Architect | `specs/###-name/tasks.md`                  | User approves                        |
+| 4–5 | Plan + Tasks  | Architect | `specs/###-name/plan.md` and `tasks.md`, one handoff | One gate: user approves both |
 | 6   | Implement     | Architect | Working, tested code                       | All acceptance criteria met          |
 
 **Size gate — check this first.**
@@ -87,26 +76,8 @@ no decisions to resolve gains nothing from it.
 3. **One `git revert` undoes it.** No data migration, no external coordination,
    no published artifact to recall. A wrong guess should cost one commit.
 
-**Worked examples:**
-
-| Change | 1 · ACs unaided | 2 · Breaks a consumed contract | 3 · One revert | Lane |
-|---|---|---|---|---|
-| Add a display name to an existing field | yes | no — additive | yes | **Small** |
-| Typo fix in a doc | yes | no | yes | **Small** |
-| Add an optional field to a public response | yes | no — additive | yes | **Small** |
-| Change what an existing field means | yes | yes | yes | **Full** |
-| New feature reaching 40% of the work | no — open questions | yes | no | **Full** |
-
-Answer check 1 by trying: draft the criteria. It takes seconds and cannot be
-argued with, which is the point — a change with ten open questions does not pass
-by asserting it has none.
-
-**Scale is not the gate.** A 40-file mechanical refactor with no open questions
-and no contract change is Small: its spec would contain no information, and what
-it actually needs is better tests. Conversely a 5-line change that breaks a
-consumed API is Full. If the checks pass but the diff is enormous, that is a
-large *diff*, not a complex *change*. File and line counts make a reasonable
-"this is probably not Small" nag; they are not the gate.
+Worked examples, and why scale is not the gate:
+[references/size-gate-examples.md](references/size-gate-examples.md).
 
 "Never skip a phase" applies to the Full lane. Over-specifying a small change
 costs more than it prevents: the process artifacts get re-read by every later
@@ -136,9 +107,12 @@ Include:
 
 - **Core principles** (5–7 max — more dilutes them)
 - **Technical decisions** (stack, deployment, storage) with rationale for each
-- **Quality standards** (test coverage target, linting, type safety)
+- **Quality standards** (linting, type safety, what a test must earn)
 - **Anti-patterns to avoid** with examples
-- **Success metrics** (product, technical, operational)
+
+A constitution clause that demands artifacts (examples, tests, docs, schemas)
+for every change is itself an anti-pattern: it multiplies every downstream
+spec. Clauses demand evidence of behaviour, not inventory.
 
 The constitution must be approved before writing any feature specs. All subsequent decisions must reference it. If a requirement conflicts with the constitution, resolve the conflict explicitly — don't silently ignore either.
 
@@ -150,29 +124,17 @@ The constitution must be approved before writing any feature specs. All subseque
 
 Before creating any new spec, **scan all existing specs** to determine whether this work belongs to an existing spec. See [references/spec-triage-guide.md](references/spec-triage-guide.md) for the full decision matrix and examples.
 
-**Process:**
-
-1. Run `ls specs/` to list all existing spec directories.
-2. For each spec, read the title, problem statement, and functional requirements (first ~30 lines of `spec.md`).
-3. Ask: "Does this work modify, extend, or fix something described in an existing spec?"
-4. **If yes** → amend the existing spec. **Amend means edit:** rewrite the
-   changed requirements in place so the body describes only the current
-   intended behaviour, update the matching ACs, and add one entry to
-   `changelog.md`. Never append a new FR and leave the old one standing with a
-   "superseded by" note — a reader of `## Functional Requirements` must get
-   correct behaviour from that section alone. **Trim before you add:** each
-   new FR must name the FR(s) it replaces, generalizes, or merges with, and a
-   change that would net-add more than ~3 FRs — or lands on a spec already
-   past ~15 FRs — goes through the Amendment Gate in the triage guide, not
-   append.
-5. **If no** → create a new spec as described below.
-6. **If ambiguous** → ask the user before proceeding.
-
-**Common mistake to avoid:** "Improve combat" is not a new feature — it's an amendment to the combat spec. "Add inventory system" is a new feature. When in doubt, check.
-
-The other failure is over-correcting into sprawl: a spec that has accreted a
-hundred lines of amendments has stopped being readable, and the fix is to
-**rewrite it**, not to split it. See "Amendment Gate" in the triage guide.
+**Process:** list `specs/`, read each spec's title, problem statement and
+first FRs, and ask whether this work modifies, extends, or fixes something
+already described. If yes, **amend by editing**: rewrite the changed
+requirements in place so the body describes only current behaviour, update the
+matching ACs, and add one `changelog.md` entry; never leave a superseded FR
+standing with a "superseded by" note. Each new FR names what it replaces, and
+a change that would net-add more than ~3 FRs, or lands on a spec past ~15,
+goes through the Amendment Gate in the triage guide. If no, create a new
+spec. If ambiguous, ask. "Improve combat" is an amendment; "add inventory
+system" is new. A spec that has accreted a hundred lines of amendments is
+rewritten, not split.
 
 ### Create the Spec
 
@@ -180,13 +142,19 @@ Create `specs/###-feature-name/spec.md` for each feature (the `/speckit.specify`
 
 Key sections:
 
-- **Problem Statement** — one paragraph, what and why
-- **User Stories** — `As a <role>, I want <action> so that <benefit>`
+- **Problem Statement** — one paragraph, what and why, in the user's words
+- **Done when** — one sentence an operator could check
 - **Functional Requirements** — `FR-001`, `FR-002`, … (WHAT, not HOW)
-- **Non-Functional Requirements** — performance, security, compatibility
-- **Acceptance Criteria** — specific, measurable, binary pass/fail — observable behaviour, not inventory of controls or closed string sets
-- **Out of Scope** — explicitly named exclusions, pointing at `changelog.md` for the reasoning
-- **Edge Cases** — documented with expected behavior
+- **Acceptance Criteria** — observable behaviour, binary pass/fail, not inventory of controls or closed string sets
+- **Not doing** — explicitly named exclusions, so nobody downstream adds them back
+- **Edge Cases** — only those the request names or that would plausibly break
+
+**If the request does not say it, do not specify it.** No documentation,
+comment, logging, coverage, performance, or observability requirements unless
+the user asked for them by name. A missing section is a question for the user
+(Phase 3), not a slot to fill with a reasonable default. A spec that says more
+than the request is the most expensive bug in this workflow: every later agent
+treats it as settled.
 
 **Two shape rules, enforced at creation as much as at amendment:**
 
@@ -204,9 +172,9 @@ Key sections:
 **What makes a requirement "executable":**
 
 - Concrete, not abstract: "respond within 500ms" not "respond quickly"
-- Measurable: "≥80% test coverage" not "good test coverage"
-- Explicit error handling: document 404, 500, timeout, empty state behavior
-- Example inputs/outputs for all user-facing elements
+- Observable: "a second submit within 5s returns the first order" not "handles double submits"
+- Error behaviour only where the request names it or a user would hit it
+- Example inputs/outputs where the words are ambiguous
 
 **What does not belong in `spec.md`:** provenance, rejected alternatives, and
 implementation mechanics. Those go to `changelog.md` (requirement-level why)
@@ -250,13 +218,9 @@ If a premise cannot be verified, do not specify on it. An unverified premise
 encodes a guess into the spec, and every FR derived from it multiplies the cost
 of the guess.
 
-Read the response shape, not just the field list. A real example: GitHub's
-issue-event object does carry `actor` ("the person who generated the event"),
-so a design that assumed issue history could not be attributed was wrong — but
-`commented` events do *not* use that common shape and carry `user` instead. An
-implementation reading `event.actor.login` would work on most events and return
-null on every comment. One API read surfaces both halves; a memory-only
-assumption surfaces neither.
+Read the response shape, not just the field list; a worked example of a
+premise that was half right is in
+[references/size-gate-examples.md](references/size-gate-examples.md#a-premise-that-was-half-right).
 
 Create a feature branch and run the planning setup:
 
@@ -265,48 +229,50 @@ git checkout -b 001-feature-name   # see git-safety skill for branch rules
 .specify/scripts/bash/setup-plan.sh --json
 ```
 
-Produce the following files in `specs/###-feature-name/`:
+Produce `plan.md` in `specs/###-feature-name/`: technical context the
+implementer cannot infer from the repository, constitution check, concrete
+project structure (no "Option A / Option B"), and key decisions with the
+alternative each was chosen over. A planned comment, doc, or test appears only
+with the reader question or regression it answers.
 
-**`plan.md`** — Technical context, constitution alignment check, concrete project structure (no "Option A / Option B"), architecture overview, key decisions with rationale.
+Supporting artifacts only when earned, never by default:
 
-**`research.md`** — Technology choices with specific versions, rationale, and alternatives considered and rejected.
+- **`research.md`** — a premise about a third party had to be verified; record the response shape.
+- **`data-model.md`** — a persisted entity is added or changed. See [references/data-model-guide.md](references/data-model-guide.md).
+- **`contracts/`** — the spec names a contract consumed outside this repo.
+- **`quickstart.md`** — verification needs steps a reader cannot infer from the test command.
 
-**`data-model.md`** — Complete entity definitions: fields with types and constraints, relationships, validation rules, state transitions. See [references/data-model-guide.md](references/data-model-guide.md).
-
-**`contracts/`** — API/event schemas (OpenAPI, GraphQL, or event definitions).
-
-**`quickstart.md`** — Setup instructions, how to run tests, key flows to validate manually, expected outputs.
+Say which you skipped.
 
 After planning, agent context files are managed by the integrations system — if you changed agents or upgraded spec-kit, refresh with `specify integration upgrade`.
 
-**Gate:** Present the plan. Do not proceed until approved.
-
----
+Phases 4 and 5 are **one handoff**: the architect returns `plan.md` and
+`tasks.md` together, and one gate covers both. Splitting them doubled the hops
+for no extra decision; the task list is the plan made concrete, and a reader
+can only judge one against the other.
 
 ## Phase 5: Tasks
 
-Create `specs/###-feature-name/tasks.md`:
+Create `specs/###-feature-name/tasks.md` in the same handoff:
 
 ```markdown
 # Tasks: <Feature Name>
 
-- [ ] T-001: Set up project scaffold and install dependencies
-- [ ] T-002: Implement data model / database schema
-- [ ] T-003: [P] Write unit tests for core logic
-- [ ] T-004: Implement core business logic
-- [ ] T-005: Implement API layer
-- [ ] T-006: Integration tests
-- [ ] T-007: Update documentation
+- [ ] T001 Add the Order entity in src/models/order.py (FR-001)
+- [ ] T002 Implement order placement in src/services/orders.py (FR-001, depends on T001)
+- [ ] T003 Expose POST /orders in src/api/orders.py (AC-001)
+- [ ] T004 Test: a second submit within 5s returns the first order, fails without T002 (AC-002)
 ```
 
 Rules:
 
-- Each task completable in one sitting
-- Mark parallel-safe tasks with `[P]`
-- Order by dependency — foundational tasks first
-- Test tasks sit alongside (not after) implementation tasks
+- Every task names the FR or AC it serves. A task with nothing behind it is cut.
+- Each task completable in one sitting; mark parallel-safe tasks with `[P]`
+- Order by dependency, riskiest first where dependencies allow
+- A test task exists only when the spec names a behaviour this project's own logic would otherwise leave unprotected, and names the regression it catches
+- No documentation, logging, validation, hardening, cleanup, or optimization tasks unless an FR asks for them
 
-**Gate:** Present tasks. Do not proceed until approved.
+**Gate:** Present the plan and tasks together. Do not proceed until approved.
 
 ---
 
@@ -317,10 +283,13 @@ Execute tasks in order, following the approved plan and referencing the constitu
 For all code quality rules, lint suppression policy, type safety requirements, and the pre-commit verification protocol, load and follow the **`code-quality` skill**.
 
 Key reminders:
-- ✅ TDD preferred — write tests before or alongside implementation
+- ✅ Make the smallest change that satisfies the task, then remove anything in the diff that does not contribute
+- ✅ A new test must fail without the source change; if it cannot, do not add it
 - ✅ Check off tasks in `tasks.md` as you complete them
 - ✅ When implementation changes what a requirement means, the spec edit lands in the same change — a spec that drifts from the code is a bug
+- ✅ Three acceptable outcomes: done; done with less than the task implied, with the reason; nothing needed
 - ❌ No lint suppressions of any kind — fix the code instead
+- ❌ Nothing from `Not doing` comes back, and no comments, docs, or tests appear that no task asked for
 
 ---
 
@@ -330,6 +299,7 @@ Key reminders:
 - [references/constitution-template.md](references/constitution-template.md) — Constitution template
 - [references/data-model-guide.md](references/data-model-guide.md) — Data model authoring guide
 - [references/spec-triage-guide.md](references/spec-triage-guide.md) — When to amend existing specs vs. create new ones
+- [references/size-gate-examples.md](references/size-gate-examples.md) — Size-gate worked examples and the premise-check example
 - **`spec-kit` skill** — CLI installation, slash commands, project state detection
 - [SDD philosophy](https://github.com/github/spec-kit/blob/main/spec-driven.md) — The full spec-driven development manifesto
 - [spec-kit repo](https://github.com/github/spec-kit) — Tooling source and docs

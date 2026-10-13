@@ -9,6 +9,12 @@ Copy this template to `specs/###-feature-name/spec.md`. Replace all `<placeholde
 > companion `changelog.md`; behavioural detail lives in ACs and Edge Cases,
 > not in the FR list.
 
+**If the request does not say it, do not specify it.** Leave the section out
+and list the gap under Open Questions. A missing section is a question for the
+user, not a slot to fill with a reasonable default. In particular: no
+documentation, comment, logging, coverage, performance, or observability
+requirements unless the user asked for them by name.
+
 ---
 
 ```markdown
@@ -21,18 +27,16 @@ Copy this template to `specs/###-feature-name/spec.md`. Replace all `<placeholde
 
 ## Problem Statement
 
-<One to three paragraphs. What problem are we solving? Who experiences it? Why does it matter now?>
+<One paragraph. What problem are we solving, for whom, and why now. Use the user's words where possible.>
 
-## User Stories
+## Done when
 
-- As a **<role>**, I want to **<action>** so that **<benefit>**.
-- As a **<role>**, I want to **<action>** so that **<benefit>**.
+<One sentence an operator could check. This is the whole feature's exit criterion.>
 
 ## Functional Requirements
 
 - **FR-001**: <Specific, testable requirement — WHAT, not HOW>
 - **FR-002**: <Specific, testable requirement>
-- **FR-003**: <Specific, testable requirement>
 
 **Granularity**: one FR = one capability a single implementation task could
 deliver. Field-level behaviour, error messages, and edge cases are ACs and
@@ -40,43 +44,33 @@ Edge Cases, not FRs. Keep the list to one screen — past ~15 FRs the spec is
 enumerating behaviour instead of capability; consolidate or split before
 adding.
 
-## Non-Functional Requirements
-
-- **Performance**: <Concrete targets — e.g., "p95 latency < 200ms under 100 concurrent users">
-- **Security**: <Auth requirements, data sensitivity, threat model>
-- **Reliability**: <Uptime target, error handling, retry behavior>
-- **Compatibility**: <Browser support, OS, runtime versions>
-- **Observability**: <Logging, metrics, tracing requirements>
-
 ## Acceptance Criteria
 
 - [ ] **AC-001**: <Behaviour the operator can observe, falsifiable by a change in behaviour — not inventory: no counts of controls, no closed-string sets asserted by equality, no "byte-for-byte unchanged" lists (a diff review covers those). Note what verifying it will cost: if it needs N files touched, the criterion is too structural>
 - [ ] **AC-002**: <Verifiable, binary criterion>
-- [ ] **AC-003**: <Verifiable, binary criterion>
 
-## Out of Scope
+## Not doing
 
-The following are explicitly **not** part of this feature:
+Explicitly excluded, so nobody downstream adds it back:
 
 - <Item 1>
 - <Item 2>
 
 ## Edge Cases
 
-- <Edge case 1>: <Expected behavior>
-- <Edge case 2>: <Expected behavior>
-- Empty state: <What the user sees when there is no data>
-- Error state: <What happens on 4xx/5xx/timeout>
+<Only the cases the request names or that would plausibly break. Do not enumerate empty/null/error states mechanically.>
 
-## Examples
-
-<For user-facing features: show example messages, UI states, or API request/response pairs.
-The more concrete, the better — architects and implementers should not have to guess.>
+- <Edge case>: <Expected behavior>
 
 ## Open Questions
 
 - [ ] <Unresolved question — must be resolved before planning begins>
 ```
+
+Optional sections, included only when the request names the concern: **User
+Stories** (`As a <role>, I want <action> so that <benefit>`), a single named
+**Non-Functional Requirement** (one concrete target, e.g. "p95 < 200ms"), and
+**Examples** (request/response pairs or UI states when the words are ambiguous).
 
 ---
 
