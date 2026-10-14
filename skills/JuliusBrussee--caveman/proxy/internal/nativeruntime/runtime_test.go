@@ -1608,3 +1608,31 @@ func TestAbandonedSessionRepositoryRefsPrunedAfterIdleWindow(t *testing.T) {
 		t.Fatal("repositorySessionRefs pruned for a session still inside the idle window")
 	}
 }
+
+// A session or prompt start runs OnTurnStart (the Cloud link warms its route
+// path before the model request); no other event does.
+func TestTurnStartsRunOnTurnStart(t *testing.T) {
+	store, err := ccr.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	runtime := New(store)
+	var starts []string
+	event := ""
+	runtime.OnTurnStart = func() { starts = append(starts, event) }
+	for _, event = range []string{"session.start", "tool.before", "prompt.submit", "turn.stop", "session.end"} {
+		if _, err := runtime.Handle(context.Background(), Request{
+			ProtocolVersion: 1, PolicyMode: "record",
+			Agent:   Agent{ID: "codex", Version: "1.0", Surface: "cli"},
+			Session: Session{ID: "s1", CWD: "/repo"},
+			Event:   Event{Type: event},
+			Tool:    &Tool{Name: "Bash"},
+		}); err != nil {
+			t.Fatalf("%s: %v", event, err)
+		}
+	}
+	if got := strings.Join(starts, ","); got != "session.start,prompt.submit" {
+		t.Fatalf("OnTurnStart ran on %q", got)
+	}
+}

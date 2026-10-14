@@ -25,13 +25,28 @@ function cavemanHome(): string {
   return process.env.CAVEMAN_HOME || join(homedir(), ".caveman");
 }
 
+// The CLI's config is $CAVEMAN_HOME/cloud.json; the pre-v4
+// ~/.caveman-cloud/config.json counts only while the new file does not exist.
+// Its gatewayUrl is the traffic target only when chosen at login
+// (managedGateway); signing in alone keeps the local proxy, on the port setup
+// moved it to (localPort) when another program held 8787.
 function gatewayUrl(): string {
   const env = process.env.CAVE_GATEWAY_URL?.trim();
   if (env) return env;
-  try {
-    const config = JSON.parse(readFileSync(join(homedir(), ".caveman-cloud", "config.json"), "utf8"));
-    if (typeof config.gatewayUrl === "string" && config.gatewayUrl) return config.gatewayUrl;
-  } catch { /* no config — default below */ }
+  for (const path of [join(cavemanHome(), "cloud.json"), join(homedir(), ".caveman-cloud", "config.json")]) {
+    let raw: string;
+    try {
+      raw = readFileSync(path, "utf8");
+    } catch {
+      continue;
+    }
+    try {
+      const config = JSON.parse(raw);
+      if (config.managedGateway === true && typeof config.gatewayUrl === "string" && config.gatewayUrl) return config.gatewayUrl;
+      if (Number.isInteger(config.localPort) && config.localPort >= 1024 && config.localPort <= 65535) return `http://127.0.0.1:${config.localPort}`;
+    } catch { /* unreadable config — default below */ }
+    break;
+  }
   return "http://127.0.0.1:8787";
 }
 
@@ -209,18 +224,20 @@ export default function (pi: ExtensionAPI) {
     if (gateDone) await router?.apply(event.model, ctx);
   }));
 
-  pi.on("before_agent_start", GUARD_before_agent_start(async (event: { prompt: string; systemPrompt: string }, ctx: ExtensionContext) => {
+  pi.on("before_agent_start", GUARD_before_agent_start(async (event: { prompt?: string; systemPrompt: string }, ctx: ExtensionContext) => {
     // Provider registration changes can refresh Pi's active model without a
     // model_select event. Recheck that current object before every new turn.
     if (gateDone) await router?.apply(ctx.model, ctx);
+    // Pi 1.1+ also fires this for extension-sent custom messages, which carry no prompt.
+    const prompt = event.prompt ?? "";
     const response = await bridge.call("UserPromptSubmit", {
       session_id: sessionId,
       model: ctx.model?.id,
       provider: ctx.model?.provider,
-      prompt: promptDigest(event.prompt),
-      task_type: taskType(event.prompt),
-      task_terms: taskTerms(event.prompt),
-      task_continuation: taskContinuation(event.prompt),
+      prompt: promptDigest(prompt),
+      task_type: taskType(prompt),
+      task_terms: taskTerms(prompt),
+      task_continuation: taskContinuation(prompt),
     });
     const dynamic = [additionalContextOf(response), ...pendingContext].filter(Boolean) as string[];
     pendingContext = [];
@@ -260,8 +277,38 @@ export default function (pi: ExtensionAPI) {
   // ObjectCommandResult and masks anything past ~448 bytes), so recovery loops
   // instead of terminating — and registering this tool disabled the proxy's
   // server-side retrieve loop, so nothing else would strip it.
+  // A shrink hands the model a ccr:// handle plus an instruction to call
+  // caveman_retrieve, so it is only ever compression when this session can
+  // actually make that call. `pi --tools read,bash` and a subagent with its own
+  // `tools:` list both replace the active set, dropping caveman_retrieve out of
+  // it — and the model then sees a placeholder it has no tool to redeem, which
+  // loses the original output rather than compressing it (issue #1211).
+  //
+  // This is the same rule the proxy enforces for every other host in
+  // mcpRecoveryAvailable ("compression must never outrun recovery"); this
+  // extension is the one path that shrinks in-process, so the proxy's body
+  // inspection never sees these results and it has to check for itself. The
+  // session_start gate above is not enough: it proves the MACHINE published MCP
+  // recovery, not that THIS session declares the tool to the model.
+  //
+  // Checked per result, not cached: setActiveTools() can change the set mid-
+  // session. caveman_retrieve registers with the default `direct` exposure,
+  // which Pi declares to the model and makes callable only WHILE ACTIVE, so
+  // active-set membership is exactly callability for this tool (a codemode or
+  // deferred tool would stay callable while inactive; this one is neither).
+  //
+  // A host that cannot answer fails CLOSED. Skipping a shrink costs this turn's
+  // compression; shrinking without recovery destroys the user's tool output.
+  const recoveryCallable = (): boolean => {
+    try {
+      return typeof pi.getActiveTools === "function" && pi.getActiveTools().includes(RECOVERY_TOOL);
+    } catch {
+      return false;
+    }
+  };
+
   pi.on("tool_result", GUARD_tool_result((event: Parameters<typeof shrinkToolResult>[2]) =>
-    event.toolName === RECOVERY_TOOL ? undefined : shrinkToolResult(bridge, sessionId, event, recovery)));
+    event.toolName === RECOVERY_TOOL || !recoveryCallable() ? undefined : shrinkToolResult(bridge, sessionId, event, recovery)));
 
   pi.on("session_before_compact", GUARD_session_before_compact(() => { void bridge.call("PreCompact", { session_id: sessionId }); }));
 

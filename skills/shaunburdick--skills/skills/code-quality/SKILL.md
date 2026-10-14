@@ -4,7 +4,7 @@ description: "Enforces non-negotiable code quality standards for AI coding agent
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.5.0"
+  version: "1.6.0"
 ---
 
 # Code Quality Standards
@@ -142,6 +142,10 @@ A task isn't done until it's ready to commit. Run through this once before every
 - [ ] Every changed line contributes to the task; anything else is removed
 - [ ] Nothing was added that no task asked for: no dependency bumps, no
       drive-by refactors, no comments or tests beyond the rule above
+- [ ] **Refactor: comment count down or level.** Moved or merged code
+      keeps its original comment volume or less — count every directory
+      the diff touches, including ones no ratio metric reports. New
+      behaviour may add its own why-comments; a refactor may not.
 - [ ] Can clearly explain what changed, what was removed, and why
 
 > 🚫 If any item above is unchecked — don't commit. Fix it first.

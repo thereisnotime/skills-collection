@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.1 — 2026-10-13
+
+- Read Caveman 4's config home (`$CAVEMAN_HOME/cloud.json`), its `localPort`,
+  and skip a login-only gateway URL, so the npm-installed extension finds the
+  proxy that `caveman setup` started instead of staying in direct mode.
+- Keep the session's thinking level when routing or restoring a model. Pi's
+  `setModel` re-derives it from settings, which dropped `--thinking high` and a
+  resumed session's level.
+- Accept Pi 1.1+ `before_agent_start` events for extension-sent custom
+  messages, which carry no prompt.
+- Windows: launch npm `.cmd` shims that forward to a native `.exe`, and hide the
+  console window each hook child opened.
+- Do not install this package alongside `caveman enable pi`: both register
+  `caveman_retrieve`, and Pi refuses to start on the conflict. Pick one.
+
 ## 0.3.0 — 2026-10-05
 
 - Route Pi's built-in `openai-codex` ChatGPT OAuth traffic through Caveman's

@@ -9,11 +9,20 @@ if ((!API_KEY) && rawArgs.length > 0) {
   process.exit(1)
 }
 
+function requestSignal() {
+  const raw = args['timeout-ms'] ?? '120000'
+  const ms = Number(raw)
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw) || !Number.isSafeInteger(ms) || ms < 1 || ms > 600000) {
+    throw new Error('--timeout-ms must be an integer from 1 to 600000')
+  }
+  return AbortSignal.timeout(ms)
+}
+
 async function api(method, path, body, extraHeaders = {}) {
   if (args['dry-run']) {
     return { _dry_run: true, method, url: `${BASE_URL}${path}`, headers: { Authorization: '***', 'Content-Type': 'application/json', ...extraHeaders }, body: body || undefined }
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${BASE_URL}${path}`, { signal: requestSignal(),
     method,
     headers: {
       'Authorization': `Bearer ${API_KEY}`,
@@ -267,6 +276,9 @@ async function main() {
       } catch (e) {
         result = { error: 'Invalid JSON for --emails: ' + e.message }; break
       }
+      if (!Array.isArray(emails) || emails.length < 1 || emails.length > 100 || emails.some(email => email === null || typeof email !== 'object' || Array.isArray(email))) {
+        throw new Error('--emails must be a JSON array of 1–100 email objects')
+      }
       result = await api('POST', '/emails/batch', emails, idempotencyHeaders())
       break
     }
@@ -290,6 +302,10 @@ async function main() {
           if (args.text) body.text = args.text
           if (args.variables) {
             try { body.variables = JSON.parse(args.variables) } catch (e) { result = { error: 'Invalid JSON for --variables: ' + e.message }; break }
+            if (!Array.isArray(body.variables) || body.variables.length > 50 ||
+                body.variables.some(variable => !variable || typeof variable !== 'object' || Array.isArray(variable))) {
+              throw new Error('--variables must be an array of up to 50 variable objects')
+            }
           }
           result = await api('POST', '/templates', body)
           break
@@ -305,6 +321,10 @@ async function main() {
           if (args.text) body.text = args.text
           if (args.variables) {
             try { body.variables = JSON.parse(args.variables) } catch (e) { result = { error: 'Invalid JSON for --variables: ' + e.message }; break }
+            if (!Array.isArray(body.variables) || body.variables.length > 50 ||
+                body.variables.some(variable => !variable || typeof variable !== 'object' || Array.isArray(variable))) {
+              throw new Error('--variables must be an array of up to 50 variable objects')
+            }
           }
           result = await api('PATCH', `/templates/${rest[0]}`, body)
           break

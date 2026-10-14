@@ -6,7 +6,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { unforwardedProviderHeaders } from "../../cli/src/provider-routing.ts";
 import { compatForRoutedModel, unpreservedAttributionHeaders } from "./provider-compat.ts";
-import { MAX_MESSAGE_BYTES, boundedString, compatUpstreamFor, hostOf, isLoopbackUrl, routeForApi, upstreamHostFor } from "./protocol.ts";
+import { MAX_MESSAGE_BYTES, boundedString, compatUpstreamFor, hostOf, isLoopbackUrl, routeForApi, targetsGateway, upstreamHostFor } from "./protocol.ts";
 
 type Notify = (message: string, kind: "warning" | "info") => void;
 
@@ -137,11 +137,21 @@ export class ProviderRouter {
         this.warnedModels.add(key);
         const mount = compatUpstreamFor(model.provider, this.compatUpstreams);
         const expected = mount !== undefined ? hostOf(mount) : upstreamHostFor(model.provider);
-        const reason = authIssue ?? compatibilityIssue ?? headerIssue ?? (expected === undefined
-            ? `no compat mount named "${model.provider}" in the local proxy; add compat.${model.provider}.base_url to caveman.yaml to route it`
-            : hostOf(original) !== expected
-              ? `provider endpoint ${hostOf(original) ?? original} is not ${expected}`
-              : `provider endpoint path or API "${model.provider}/${model.api}" is not verified by the running proxy`);
+        // A provider that answers in-process — a host subprocess bridge — publishes
+        // a sentinel baseUrl rather than a URL. Nothing leaves over HTTP, so no mount
+        // can carry it, and pointing compat.<provider>.base_url at the sentinel would
+        // rewrite the value the provider dispatches on and disable it. Never offer
+        // that remedy for an endpoint with no host.
+        const host = hostOf(original);
+        const reason = authIssue ?? compatibilityIssue ?? headerIssue ?? (!host
+            ? `provider endpoint "${original}" is not an HTTP URL; this provider sends no routable request`
+            : targetsGateway(this.gateway, original)
+              ? `provider baseUrl ${original} points at the Caveman proxy itself, so no mount can carry it; set it to the real upstream and add compat.${model.provider}.base_url to caveman.yaml to route it`
+            : expected === undefined
+              ? `no compat mount named "${model.provider}" in the local proxy; add compat.${model.provider}.base_url to caveman.yaml to route it`
+              : host !== expected
+                ? `provider endpoint ${host} is not ${expected}`
+                : `provider endpoint path or API "${model.provider}/${model.api}" is not verified by the running proxy`);
         this.notify(boundedString(`Caveman: pass-through for ${key} (${reason}); no compression`, MAX_MESSAGE_BYTES), "warning");
       }
       return;
@@ -157,7 +167,7 @@ export class ProviderRouter {
       // only provider/id are persisted to session/settings. No provider-wide
       // override or replacement model catalogue is needed.
       const compat = compatForRoutedModel(model);
-      if (!(await this.pi.setModel({ ...model, baseUrl: route, ...(compat === undefined ? {} : { compat }) }))) {
+      if (!(await this.setModelKeepingThinking({ ...model, baseUrl: route, ...(compat === undefined ? {} : { compat }) }))) {
         if (await this.restoreCurrentModel(ctx)) {
           this.notify("Caveman: direct mode, no compression this session (model selection failed)", "warning");
         }
@@ -178,6 +188,16 @@ export class ProviderRouter {
       && model.baseUrl === this.routed.route;
   }
 
+  // Pi's setModel re-derives the thinking level from settings, which would drop
+  // a `--thinking high` or a resumed session's level every time we re-point the
+  // model. Same model, so the level the user had is still valid: put it back.
+  private async setModelKeepingThinking(model: NonNullable<ExtensionContext["model"]>): Promise<boolean> {
+    const level = this.pi.getThinkingLevel?.();
+    const ok = await this.pi.setModel(model);
+    if (ok && level !== undefined) this.pi.setThinkingLevel?.(level);
+    return ok;
+  }
+
   private async restoreCurrentModel(ctx: ExtensionContext): Promise<boolean> {
     const current = ctx.model;
     if (!this.isOwnedRoute(current)) {
@@ -191,7 +211,7 @@ export class ProviderRouter {
     const wasApplying = this.applying;
     this.applying = true;
     try {
-      if (await this.pi.setModel(direct)) {
+      if (await this.setModelKeepingThinking(direct)) {
         this.routed = undefined;
         return true;
       }

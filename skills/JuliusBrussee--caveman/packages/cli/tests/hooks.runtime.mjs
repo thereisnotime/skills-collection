@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { connect as netConnect, createServer } from "node:net";
 import { createHmac } from "node:crypto";
+import { assertHidesChildWindows, assertHidesChildWindowsPython } from "./harness/hidden-window.mjs";
 
 const cli = join(dirname(fileURLToPath(import.meta.url)), "..", "dist", "index.js");
 const fastNativeHook = join(dirname(fileURLToPath(import.meta.url)), "..", "dist", "native-hook-fast.js");
@@ -865,6 +866,7 @@ test("hooks install opencode writes a plugin, uninstall removes it", async () =>
   const src = readFileSync(plugin, "utf8");
   assert.match(src, /tool\.execute\.before/, "the plugin must hook tool.execute.before");
   assert.match(src, /caveman:shrink-plugin/, "the plugin must carry our marker");
+  assertHidesChildWindows(src, "opencode shrink plugin");
   assert.ok(existsSync(join(caveDir, "hooks", "opencode.json")), "a marker must be written");
 
   await runCli(["hooks", "uninstall", "opencode"], env);
@@ -902,6 +904,7 @@ test("hooks install hermes writes marker-fenced plugin files, idempotent, and un
   assert.match(init, /# >>> caveman:shrink-plugin/, "plugin code must carry begin marker");
   assert.match(init, /# <<< caveman:shrink-plugin/, "plugin code must carry end marker");
   assert.match(init, /register_hook\("transform_terminal_output"/, "plugin must register Hermes terminal-output hook");
+  assertHidesChildWindowsPython(init, "hermes shrink plugin");
   assert.match(init, /"shrink", "--stdin"/, "plugin must pipe output through caveman shrink --stdin");
   assert.match(manifest, /# >>> caveman:shrink-plugin/, "manifest must carry marker");
   assert.match(manifest, /provides_hooks:\n  - transform_terminal_output/, "manifest must declare the hook");
@@ -944,6 +947,7 @@ test("hooks install openclaw writes plugin package and config; uninstall removes
   const source = readFileSync(join(pluginDir, "index.mjs"), "utf8");
   assert.match(source, /tool_result_persist/, "OpenClaw plugin must use the verified persist hook");
   assert.match(source, /caveman:openclaw-shrink-plugin/, "plugin source must carry the Caveman ownership marker");
+  assertHidesChildWindows(source, "openclaw shrink plugin");
 
   const cfg = JSON.parse(readFileSync(configPath, "utf8"));
   assert.equal(cfg.theme, "midnight", "unrelated config must be preserved");
@@ -1462,6 +1466,43 @@ server.listen(Number(port), host, () => fs.writeFileSync(${JSON.stringify(pidFil
     });
   } finally {
     try { process.kill(Number(readFileSync(pidFile, "utf8"))); } catch { /* already gone */ }
+  }
+});
+
+// Signing in stores the Cloud's gateway for Cloud calls; only an explicit
+// choice (managedGateway) makes it the agent traffic target the hook guards.
+test("fast native-hook ignores a gateway stored by login alone", { skip: process.platform === "win32" }, async () => {
+  for (const managed of [false, true]) {
+    const caveHome = mkdtempSync(join(tmpdir(), "cave-native-login-gw-"));
+    const probe = createServer(() => {});
+    await new Promise((resolve, reject) => {
+      probe.once("error", reject);
+      probe.listen(0, "127.0.0.1", resolve);
+    });
+    const port = probe.address().port;
+    await new Promise((resolve) => probe.close(resolve));
+    const log = join(caveHome, "listen.log");
+    const pidFile = join(caveHome, "stub-proxy.pid");
+    const stub = join(caveHome, "caveman-proxy");
+    writeFileSync(stub, `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(${JSON.stringify(log)}, process.env.CAVEMAN_LISTEN + "\\n");
+const [host, port] = process.env.CAVEMAN_LISTEN.split(":");
+require("node:net").createServer(() => {}).listen(Number(port), host, () => fs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)));
+`, { mode: 0o755 });
+    writeFileSync(join(caveHome, "cloud.json"), JSON.stringify({ gatewayUrl: `http://127.0.0.1:${port}`, ...(managed ? { managedGateway: true } : {}) }));
+    const env = { ...process.env, HOME: caveHome, CAVEMAN_HOME: caveHome, CAVEMAN_TELEMETRY: "0", CAVEMAN_PROXY_BIN: stub, CAVEMAN_MCP_BIN: join(caveHome, "missing-mcp") };
+    delete env.CAVE_GATEWAY_URL;
+    try {
+      const out = await runFastNativeHook("claude", { hook_event_name: "UserPromptSubmit", session_id: `login-gw-${managed}`, prompt: "hi" }, env);
+      assert.equal(out.code, 0, out.stderr);
+      for (let i = 0; managed && i < 20 && !existsSync(log); i++) await new Promise((resolve) => setTimeout(resolve, 50));
+      const listened = existsSync(log) ? readFileSync(log, "utf8") : "";
+      if (managed) assert.match(listened, new RegExp(`127\\.0\\.0\\.1:${port}`), "a chosen loopback gateway is the one revived");
+      else assert.doesNotMatch(listened, new RegExp(`:${port}\\b`), "a login-only gatewayUrl is not the traffic target");
+    } finally {
+      try { process.kill(Number(readFileSync(pidFile, "utf8"))); } catch { /* never started */ }
+    }
   }
 });
 

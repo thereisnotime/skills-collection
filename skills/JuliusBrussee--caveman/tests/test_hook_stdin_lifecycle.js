@@ -100,6 +100,14 @@ console.log('hook stdin lifecycle — must not wait on a lagging pipe close\n');
     assert.match(r.stdout, /CAVEMAN MODE ACTIVE/, 'must activate rather than forfeit the session');
   });
 
+  await test('tracker: gives up when no complete payload ever arrives', async (dir) => {
+    for (const payload of [null, '{"prompt": "hel']) {
+      const r = await runHoldingPipeOpen(TRACKER, payload, dir);
+      assert.strictEqual(r.code, 0, `expected clean exit, got ${r.code}`);
+      assert.strictEqual(r.stdout, '', 'nothing to say about a prompt that never arrived');
+    }
+  });
+
   await test('tracker: exits after a complete payload without waiting for EOF', async (dir) => {
     fs.writeFileSync(path.join(dir, '.caveman-active'), 'caveman');
     const payload = JSON.stringify({ prompt: 'hello there', cwd: process.cwd() });

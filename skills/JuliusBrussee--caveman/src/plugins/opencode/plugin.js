@@ -303,7 +303,11 @@ export const CavemanPlugin = async (_ctx) => {
   // here means the flag is rewritten on every new session, not just once when
   // the plugin module loads. See https://opencode.ai/docs/plugins#events.
   event: async ({ event } = {}) => {
-    if (event && event.type === 'session.created') handleSessionCreated();
+    // A subagent is a session too (opencode 2: data.parentID, 1.x:
+    // properties.info.parentID). Resetting the flag for one would undo the
+    // user's "stop caveman" or /ultracave every time the model delegates.
+    const parentID = event?.data?.parentID ?? event?.properties?.info?.parentID;
+    if (event && event.type === 'session.created' && !parentID) handleSessionCreated();
   },
 
   // Intercept user messages to detect /caveman commands and natural-language

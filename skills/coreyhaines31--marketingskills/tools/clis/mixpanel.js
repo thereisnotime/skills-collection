@@ -5,14 +5,32 @@ const TOKEN = process.env.MIXPANEL_TOKEN
 const API_KEY = process.env.MIXPANEL_API_KEY
 const SECRET = process.env.MIXPANEL_SECRET
 const PROJECT_SECRET = process.env.MIXPANEL_PROJECT_SECRET
-const INGESTION_URL = 'https://api.mixpanel.com'
-const QUERY_URL = 'https://mixpanel.com/api/2.0'
-const EXPORT_URL = 'https://data.mixpanel.com/api/2.0'
+const REGION = process.env.MIXPANEL_REGION ?? 'us'
+const REGION_HOSTS = {
+  us: ['api.mixpanel.com', 'mixpanel.com', 'data.mixpanel.com'],
+  eu: ['api-eu.mixpanel.com', 'eu.mixpanel.com', 'data-eu.mixpanel.com'],
+  in: ['api-in.mixpanel.com', 'in.mixpanel.com', 'data-in.mixpanel.com'],
+}
+const hosts = Object.hasOwn(REGION_HOSTS, REGION) ? REGION_HOSTS[REGION] : REGION_HOSTS.us
+const INGESTION_URL = `https://${hosts[0]}`
+const QUERY_URL = `https://${hosts[1]}/api/2.0`
+const EXPORT_URL = `https://${hosts[2]}/api/2.0`
 
 if ((!TOKEN && !API_KEY && !SECRET && !PROJECT_SECRET) && rawArgs.length > 0) {
   console.error(JSON.stringify({ error: 'MIXPANEL_TOKEN (ingestion), MIXPANEL_API_KEY + MIXPANEL_SECRET (service account), or MIXPANEL_PROJECT_SECRET (legacy project auth) required' }))
   process.exit(1)
 }
+
+
+function requestSignal() {
+  const raw = args['timeout-ms'] ?? '120000'
+  const ms = Number(raw)
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw) || !Number.isSafeInteger(ms) || ms < 1 || ms > 600000) {
+    throw new Error('--timeout-ms must be an integer from 1 to 600000')
+  }
+  return AbortSignal.timeout(ms)
+}
+
 
 async function ingestApi(method, path, body) {
   const headers = { 'Content-Type': 'application/json' }
@@ -24,7 +42,7 @@ async function ingestApi(method, path, body) {
     })
     return { _dry_run: true, method, url: `${INGESTION_URL}${path}`, headers, body: maskedBody }
   }
-  const res = await fetch(`${INGESTION_URL}${path}`, {
+  const res = await fetch(`${INGESTION_URL}${path}`, { signal: requestSignal(),
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
@@ -63,7 +81,7 @@ async function queryApi(method, baseUrl, path, params) {
   if (args['dry-run']) {
     return { _dry_run: true, method, url, headers: { ...headers, Authorization: '***' } }
   }
-  const res = await fetch(url, {
+  const res = await fetch(url, { signal: requestSignal(),
     method,
     headers,
   })
@@ -84,7 +102,7 @@ async function queryApiPost(path, body) {
   if (args['dry-run']) {
     return { _dry_run: true, method: 'POST', url: `${QUERY_URL}${path}`, headers: { ...headers, Authorization: '***' }, body: body || undefined }
   }
-  const res = await fetch(`${QUERY_URL}${path}`, {
+  const res = await fetch(`${QUERY_URL}${path}`, { signal: requestSignal(),
     method: 'POST',
     headers,
     body: JSON.stringify(body),
@@ -121,6 +139,7 @@ const args = parseArgs(rawArgs)
 const [cmd, sub, ...rest] = args._
 
 async function main() {
+  if (rawArgs.length > 0 && !Object.hasOwn(REGION_HOSTS, REGION)) throw new Error('MIXPANEL_REGION must be us, eu, or in')
   let result
 
   switch (cmd) {
@@ -132,6 +151,9 @@ async function main() {
           if (!args.event) { result = { error: '--event required' }; break }
           let properties
           try { properties = args.properties ? JSON.parse(args.properties) : {} } catch { result = { error: 'Invalid JSON in --properties' }; break }
+          if (properties === null || typeof properties !== 'object' || Array.isArray(properties)) {
+            throw new Error('--properties must be a JSON object')
+          }
           properties.token = TOKEN
           properties.distinct_id = args['distinct-id']
           result = await ingestApi('POST', '/track', [{
@@ -152,6 +174,9 @@ async function main() {
           if (!args['distinct-id']) { result = { error: '--distinct-id required' }; break }
           let properties
           try { properties = args.properties ? JSON.parse(args.properties) : {} } catch { result = { error: 'Invalid JSON in --properties' }; break }
+          if (properties === null || typeof properties !== 'object' || Array.isArray(properties)) {
+            throw new Error('--properties must be a JSON object')
+          }
           result = await ingestApi('POST', '/engage', [{
             $token: TOKEN,
             $distinct_id: args['distinct-id'],

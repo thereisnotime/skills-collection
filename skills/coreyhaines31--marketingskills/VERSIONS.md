@@ -4,14 +4,14 @@ Current versions of all skills. Agents can compare against local versions to che
 
 | Skill | Version | Last Updated |
 |-------|---------|--------------|
-| ab-testing | 2.0.1 | 2026-10-08 |
+| ab-testing | 2.0.2 | 2026-10-12 |
 | ad-creative | 2.11.0 | 2026-10-12 |
 | ai-seo | 2.7.6 | 2026-10-08 |
 | analytics | 2.1.0 | 2026-10-12 |
 | aso | 2.0.2 | 2026-10-08 |
-| attribution | 1.1.4 | 2026-10-08 |
-| churn-prevention | 2.0.2 | 2026-10-08 |
-| co-marketing | 2.0.2 | 2026-10-02 |
+| attribution | 1.1.5 | 2026-10-12 |
+| churn-prevention | 2.0.3 | 2026-10-12 |
+| co-marketing | 2.0.3 | 2026-10-12 |
 | cold-email | 2.2.0 | 2026-10-07 |
 | community-marketing | 2.0.1 | 2026-08-23 |
 | competitor-profiling | 2.1.3 | 2026-10-07 |
@@ -34,21 +34,21 @@ Current versions of all skills. Agents can compare against local versions to che
 | marketing-loops | 1.4.0 | 2026-10-07 |
 | marketing-plan | 1.2.2 | 2026-10-12 |
 | marketing-psychology | 2.0.0 | 2026-05-05 |
-| offers | 1.0.1 | 2026-08-23 |
-| onboarding | 2.0.1 | 2026-08-23 |
-| ads | 2.4.6 | 2026-10-08 |
+| offers | 1.0.2 | 2026-10-12 |
+| onboarding | 2.0.2 | 2026-10-12 |
+| ads | 2.4.7 | 2026-10-12 |
 | paywalls | 2.0.0 | 2026-05-05 |
 | popups | 2.0.0 | 2026-05-05 |
-| pricing | 2.1.3 | 2026-10-08 |
+| pricing | 2.1.4 | 2026-10-12 |
 | product-marketing | 2.1.0 | 2026-07-16 |
 | programmatic-seo | 2.1.0 | 2026-10-06 |
 | prospecting | 1.3.0 | 2026-10-08 |
 | public-relations | 1.2.0 | 2026-10-02 |
-| referrals | 2.2.0 | 2026-10-08 |
-| revops | 2.2.0 | 2026-10-08 |
+| referrals | 2.2.1 | 2026-10-12 |
+| revops | 2.2.1 | 2026-10-12 |
 | sales-enablement | 2.4.0 | 2026-10-07 |
 | schema | 2.0.2 | 2026-10-08 |
-| seo-audit | 2.2.0 | 2026-10-08 |
+| seo-audit | 2.2.1 | 2026-10-12 |
 | signup | 2.0.1 | 2026-10-08 |
 | site-architecture | 2.1.0 | 2026-10-06 |
 | sms | 1.1.0 | 2026-10-02 |
@@ -56,6 +56,50 @@ Current versions of all skills. Agents can compare against local versions to che
 | video | 2.2.1 | 2026-10-02 |
 
 ## Recent Changes
+
+### 2.11.29 (2026-10-13)
+
+CLI and tooling fixes from @rudycelekli, each checked against the vendor's current docs.
+
+- **Request deadlines** (#751): HTTP calls in 65 CLIs now time out instead of hanging. The default is 120 seconds, raised from #751's 30 so long scrapes and exports aren't cut off; override it with `--timeout-ms`.
+- **Mixpanel regions** (#744): US, EU, and India ingestion, query, and export hosts.
+- **Payload validation before sending:** the CLIs now reject inputs the vendor's API would refuse anyway. Valid empty and nested values still pass.
+  - Amplitude event properties (#801)
+  - SendGrid dynamic template data (#803)
+  - Kit custom fields (#806)
+  - Segment properties and traits (#808)
+  - Customer.io data objects (#811)
+  - Mixpanel properties (#813)
+  - Resend batch size (#816) and template variables (#828)
+  - OneSignal conflicting audiences (#818)
+  - Intercom event metadata (#822)
+  - Dub bulk link limits (#824)
+  - Pendo aggregation envelopes (#830)
+- **Correctness:** Close opportunity amounts keep exact integers instead of truncating (#831).
+  - Interface change: `amplitude --properties ''` now errors instead of being ignored (#801).
+- **Tooling:**
+  - Packaging checks file sizes before loading them (#804).
+  - The README sync handles Windows line endings (#805).
+  - `check-versions` catches orphaned nested references and broken sibling links (#807).
+
+### 2.11.28 (2026-10-12)
+
+Skill fixes from @rudycelekli. A reviewer recomputed every calculation, and the guidance stays firm where a change would otherwise have hedged it.
+
+- **Math:**
+  - **offers** (1.0.1 → 1.0.2): multiply sequential lifts rather than adding them (#809).
+  - **churn-prevention** (2.0.2 → 2.0.3): dunning ROI stated net of tooling, at 5–14x (#810). Health scores put every signal on one 0–100 scale and handle missing signals explicitly (#829).
+  - **co-marketing** (2.0.2 → 2.0.3): marketplace fees are recurring costs, not CAC, and Arrows is listed on the HubSpot Marketplace (#812).
+  - **referrals** (2.2.0 → 2.2.1): program return measured after serving costs (#820).
+  - **ab-testing** (2.0.1 → 2.0.2): test duration accounts for the number of arms and exposure (#819).
+- **Methods:**
+  - **attribution** (1.1.4 → 1.1.5): intent-to-treat analysis vs. on-off tests, and an interval that includes zero is not a win (#815).
+  - **revops** (2.2.0 → 2.2.1): calibrate scoring on snapshots taken at decision time and on holdouts (#817).
+  - **pricing** (2.1.3 → 2.1.4): the direction of the Van Westendorp "too cheap" curves (#821).
+  - **onboarding** (2.0.1 → 2.0.2): early activation measured separately from mature retention (#826). Card-required trials judged on visitor→paid, with ChartMogul's ~30% trial→paid (over 5x no-card) as context (#827).
+- **Platform facts:**
+  - **seo-audit** (2.2.0 → 2.2.1): hreflang findings scoped to the affected pairs, and x-default treated as optional (#823).
+  - **ads** (2.4.6 → 2.4.7): screen headlines in Meta, then prove the winner with a landing-page test, without the made-up lift thresholds (#825).
 
 ### 2.11.27 (2026-10-12)
 

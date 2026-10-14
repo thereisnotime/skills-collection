@@ -19,13 +19,11 @@ function makeToken({ org = "org-1", exp = Math.floor(Date.now() / 1000) + 3600 }
 function isolatedEnv() {
   const home = mkdtempSync(join(tmpdir(), "cave-credentials-home-"));
   const caveHome = mkdtempSync(join(tmpdir(), "cave-credentials-store-"));
-  const configDir = join(home, ".caveman-cloud");
-  mkdirSync(configDir, { recursive: true });
   const env = { ...process.env, HOME: home, CAVEMAN_HOME: caveHome, CAVE_NO_KEYCHAIN: "1", NO_COLOR: "1" };
   delete env.CAVE_TOKEN;
   delete env.CAVE_API_KEY;
   delete env.CAVE_GATEWAY_URL;
-  return { env, home, caveHome, configPath: join(configDir, "config.json"), credentialsPath: join(caveHome, "credentials") };
+  return { env, home, caveHome, configPath: join(caveHome, "cloud.json"), credentialsPath: join(caveHome, "credentials") };
 }
 
 function installFakeSecurity(paths, secret, deleteExit = 0) {
@@ -179,7 +177,7 @@ test("stored gateway key reaches every managed-agent injection without entering 
   }
 });
 
-test("device login stores the complete grant only in a mode-0600 credential envelope", { skip: "Cloud login disabled during beta" }, async () => {
+test("device login stores the complete grant only in a mode-0600 credential envelope", async () => {
   const paths = isolatedEnv();
   const accessToken = makeToken({ org: "org-device" });
   mkdirSync(dirname(paths.credentialsPath), { recursive: true });
@@ -249,7 +247,32 @@ test("device login stores the complete grant only in a mode-0600 credential enve
   }
 });
 
-test("device login does not acknowledge until config persistence succeeds", { skip: "Cloud login disabled during beta" }, async () => {
+test("device login with no default keychain stores the 0600 file and never opens the macOS keychain dialog", async () => {
+  const paths = isolatedEnv();
+  // The fake security exits non-zero for default-keychain, as in a sudo or remote shell.
+  const securityLog = installFakeSecurity(paths, "");
+  const accessToken = makeToken({ org: "org-nokeychain" });
+  const server = createServer(async (req, res) => {
+    await requestBody(req);
+    if (req.url === "/api/v1/auth/device/code") return send(res, 200, { device_code: "device-nk", user_code: "ABCD-2345", verification_uri: "https://app.caveman.cloud/activate", expires_in: 60, interval: 0 });
+    if (req.url === "/api/v1/auth/device/token") return send(res, 200, { access_token: accessToken, refresh_token: "refresh-nk", gateway_api_key: "cave_live_nk", gateway_key_id: "key-nk", project_id: "project-nk", delivery_ack_token: "ack-nk" });
+    if (req.url === "/api/v1/auth/device/ack") return send(res, 200, { acknowledged: true });
+    send(res, 404, {});
+  });
+  const port = await listen(server);
+  try {
+    const result = await runCli(["login", "--base-url", `http://127.0.0.1:${port}`], paths.env);
+    assert.equal(result.code, 0, result.stderr);
+    const calls = existsSync(securityLog) ? readFileSync(securityLog, "utf8") : "";
+    assert.doesNotMatch(calls, /add-generic-password/);
+    assert.equal(JSON.parse(readFileSync(paths.credentialsPath, "utf8")).access_token, accessToken);
+    assert.equal(JSON.parse(readFileSync(paths.configPath, "utf8")).tokenStore, "file");
+  } finally {
+    closeServer(server);
+  }
+});
+
+test("device login does not acknowledge until config persistence succeeds", async () => {
   const paths = isolatedEnv();
   const accessToken = makeToken({ org: "org-device-config-failure" });
   mkdirSync(dirname(paths.credentialsPath), { recursive: true });
@@ -287,7 +310,7 @@ test("device login does not acknowledge until config persistence succeeds", { sk
   }
 });
 
-test("device login keeps credentials but prints no success when ACK is rejected", { skip: "Cloud login disabled during beta" }, async () => {
+test("device login keeps credentials but prints no success when ACK is rejected", async () => {
   const paths = isolatedEnv();
   const accessToken = makeToken({ org: "org-device-ack-failure" });
   mkdirSync(dirname(paths.credentialsPath), { recursive: true });

@@ -118,6 +118,19 @@ func TestRequestAccountingAllowsMediaNamesInTextToolSchemas(t *testing.T) {
 	}
 }
 
+// gpt-6.1-sol is two o200k tokens longer than gpt-6-sol: without the guard a
+// routed turn would book them as a compression saving.
+func TestRequestAccountingIgnoresTheRoutedModelSwap(t *testing.T) {
+	original := []byte(`{"model":"gpt-6.1-sol","input":"fix the bug"}`)
+	accepted := []byte(`{"model":"gpt-6-sol","input":"fix the bug"}`)
+	row := RequestRecord{StatusCode: 200, AuthMode: "subscription", Model: "gpt-6-sol", RouteFrom: "gpt-6.1-sol", RouteOutcome: "routed"}
+	requestAccounting(&row, providers.RequestMetadata{Provider: "chatgpt-subscription", Model: "gpt-6-sol"}, completeStatsUsage(), original, accepted, false)
+	if row.RequestMeasurementStatus != "measured" || row.RequestTokensBefore != row.RequestTokensAfter ||
+		row.RequestEstimatedInputDeltaUSD != nil && *row.RequestEstimatedInputDeltaUSD != 0 {
+		t.Fatalf("the routed model swap minted a saving: %+v", row)
+	}
+}
+
 func TestRequestAccountingKeepsSubscriptionEquivalentSeparate(t *testing.T) {
 	original := []byte(chatReqBody)
 	accepted := []byte(`{"model":"gpt-5.5","messages":[{"role":"user","content":"X"}]}`)
@@ -367,7 +380,7 @@ func TestStatsChatGPTRecordsFinalBytesAndSeparateEquivalent(t *testing.T) {
 			_, _ = responseCapture.Write([]byte(chatRespBody))
 			rawHash, acceptedHash := sha256.Sum256(original), sha256.Sum256(test.accepted)
 			request := httptest.NewRequest(http.MethodPost, "/chatgpt/responses", nil)
-			srv.recordChatGPT(RequestContext{}, request, "request", "trace", "/responses", time.Now(), 200, "", requestCapture, rawHash[:], acceptedHash[:], test.complete, responseCapture, int64(len(chatRespBody)), false, nil, nil, true, test.accepted, "")
+			srv.recordChatGPT(RequestContext{}, request, "request", "trace", "/responses", time.Now(), 200, "", requestCapture, rawHash[:], acceptedHash[:], test.complete, responseCapture, int64(len(chatRespBody)), false, nil, nil, true, test.accepted, "", nil)
 			row := sink.last(t)
 			if !test.complete {
 				if row.RequestTokenBasis != "" || row.RequestEstimatedInputDeltaUSD != nil {

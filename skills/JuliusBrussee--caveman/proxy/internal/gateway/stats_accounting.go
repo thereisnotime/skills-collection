@@ -45,13 +45,21 @@ func requestAccounting(row *RequestRecord, meta providers.RequestMetadata, usage
 		return
 	}
 	row.RequestMeasurementStatus = "unsupported_payload"
+	if row.RouteOutcome == "routed" {
+		// The route stage swapped only the model string. Count both sides on the
+		// model that served, so routing never reads as a compression saving.
+		original, _ = setModel(original, row.Model)
+	}
 	beforeJSON, ok := compactTextRequest(original)
 	if !ok {
 		return
 	}
-	afterJSON, ok := compactTextRequest(accepted)
-	if !ok {
-		return
+	// Unchanged bytes canonicalize to the same JSON: decode them once.
+	afterJSON := beforeJSON
+	if !bytes.Equal(original, accepted) {
+		if afterJSON, ok = compactTextRequest(accepted); !ok {
+			return
+		}
 	}
 	codec, err := requestTokenCodec()
 	if err != nil {

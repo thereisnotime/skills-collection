@@ -25,6 +25,48 @@ test('C3: LangGraph without configurable.thread_id passes through instead of fai
   assert.ok(f.reports.some(report => report.reason === 'recovery_unbound'), JSON.stringify(f.reports));
 });
 
+// #1206: `@mastra/core` vendors its own copy of the `@ai-sdk/provider` types, and that copy lags the real package
+// (4.0.26 added `reasoning: 'max'`, which @mastra/core 1.75.0 omits). `src/mastra.ts` forwards the inbound call
+// options to the native method through one `native()` type assertion rather than reshaping them to fit the narrower
+// vendored spelling. That assertion is only honest while the value really is forwarded verbatim, so pin it: every
+// call option the proxy receives reaches the native model unchanged apart from the two the adapter exists to change
+// — `prompt`, which compression rewrites, and `tools`/`toolChoice`, which carry the recovery executor and the
+// `auto` choice that binding one implies. A later fix that narrows,
+// clones or drops an option it does not recognise fails here instead of quietly dropping a field the two type
+// spellings disagree about.
+test('TS-2/#1206: the Mastra proxy forwards native call options verbatim apart from prompt and the recovery tool', async t => {
+  if (!requirePeers(t, 'mastra')) return;
+  const { Agent } = await import('@mastra/core/agent'), { MockLanguageModelV4 } = await import('ai/test');
+  const { withCavemanMastra } = await import('../dist/mastra.js');
+  const messages = [{ role: 'user', content: 'go' }, ...toolTurn('read-1', original)];
+  const call = async wrap => {
+    const model = new MockLanguageModelV4({ doGenerate: { content: [{ type: 'text', text: 'done' }], finishReason: finish, usage, warnings: [] } });
+    const agent = new Agent({ id: 'agent', name: 'agent', instructions: 'Be brief.', model });
+    const f = runtimeFixture(); t.after(() => f.runtime.close());
+    await (wrap ? withCavemanMastra(agent, { runtime: f.runtime, scope }) : agent).generate(structuredClone(messages));
+    const options = model.doGenerateCalls[0];
+    return { options, sent: options.prompt.findLast(m => m.role === 'tool').content[0].output.value };
+  };
+  const bare = await call(false), wrapped = await call(true);
+  // The wrapper is doing its job on this call, so `prompt` genuinely differs: without this, "everything else is
+  // equal" would pass just as happily on a wrapper that did nothing at all.
+  assert.equal(bare.sent, original);
+  assert.equal(wrapped.sent, shortened, 'the wrapped call is one the adapter actually compressed');
+  const changed = ['prompt', 'tools', 'toolChoice'];
+  assert.deepEqual(Object.keys(wrapped.options).sort(), Object.keys(bare.options).sort(),
+    'the proxy neither introduces nor drops a call option');
+  for (const key of Object.keys(bare.options).filter(key => !changed.includes(key))) {
+    assert.deepEqual(wrapped.options[key], bare.options[key], `call option ${key} reached the native model unchanged`);
+  }
+  // And `tools` differs by exactly the recovery executor, not by a reshape of whatever the caller sent.
+  const names = list => (list ?? []).map(tool => tool.name);
+  assert.deepEqual(names(wrapped.options.tools).filter(name => !names(bare.options.tools).includes(name)), ['caveman_retrieve']);
+  assert.deepEqual(names(bare.options.tools).filter(name => !names(wrapped.options.tools).includes(name)), []);
+  // toolChoice moves only because a tool was bound, and only to the value that leaves the choice with the model.
+  assert.equal(bare.options.toolChoice, undefined);
+  assert.deepEqual(wrapped.options.toolChoice, { type: 'auto' });
+});
+
 test('C4/TS-8: a Mastra thread too large to scan skips compression for that thread and turn only', async t => {
   if (!requirePeers(t, 'mastra')) return;
   const { Agent } = await import('@mastra/core/agent'), { MockLanguageModelV4 } = await import('ai/test'), { withCavemanMastra } = await import('../dist/mastra.js');

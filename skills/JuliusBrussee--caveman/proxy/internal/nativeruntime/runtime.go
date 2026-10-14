@@ -116,6 +116,10 @@ type Runtime struct {
 	// engine could do with it. Deterministic, local, no store and no network. A
 	// nil detect means "cannot classify", which masks — see maskWouldDiscardFacts.
 	detect func([]byte) string
+	// OnTurnStart, when set, runs on every session.start and prompt.submit,
+	// before the model request they announce (the Cloud link warms its route
+	// path). It must not block.
+	OnTurnStart func()
 }
 
 type sessionActivity struct {
@@ -285,6 +289,9 @@ func (r *Runtime) Handle(_ context.Context, request Request) (Response, error) {
 		DecisionID:      decisionID(request, request.Event.Type),
 	}
 	err = nil
+	if r.OnTurnStart != nil && (request.Event.Type == "session.start" || request.Event.Type == "prompt.submit") {
+		r.OnTurnStart()
+	}
 	switch request.Event.Type {
 	case "session.start":
 		if features.repository {

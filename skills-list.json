@@ -9830,8 +9830,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/agents/blog-reviewer.md",
       "remote_path": "agents/blog-reviewer.md",
-      "lines": 225,
-      "words": 1706,
+      "lines": 278,
+      "words": 2314,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -9842,8 +9842,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/agents/blog-writer.md",
       "remote_path": "agents/blog-writer.md",
-      "lines": 200,
-      "words": 1351,
+      "lines": 255,
+      "words": 1832,
       "code_blocks": 1,
       "languages": []
     },
@@ -9852,8 +9852,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/agents/blog-translator.md",
       "remote_path": "agents/blog-translator.md",
-      "lines": 173,
-      "words": 961,
+      "lines": 187,
+      "words": 1053,
       "code_blocks": 2,
       "languages": [
         "markdown",
@@ -9865,8 +9865,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/agents/blog-researcher.md",
       "remote_path": "agents/blog-researcher.md",
-      "lines": 277,
-      "words": 1833,
+      "lines": 282,
+      "words": 1988,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -9877,8 +9877,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/agents/blog-seo.md",
       "remote_path": "agents/blog-seo.md",
-      "lines": 130,
-      "words": 757,
+      "lines": 147,
+      "words": 952,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -9898,13 +9898,29 @@
       "license": "Custom license"
     },
     {
+      "name": "blog-write",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/tests/fixtures/legacy-blog-write-v2.2.0.md",
+      "remote_path": "tests/fixtures/legacy-blog-write-v2.2.0.md",
+      "lines": 498,
+      "words": 3105,
+      "code_blocks": 15,
+      "languages": [
+        "html",
+        "markdown",
+        "mdx",
+        "yaml"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "blog-audio",
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-audio/SKILL.md",
       "remote_path": "skills/blog-audio/SKILL.md",
-      "lines": 252,
-      "words": 1257,
-      "code_blocks": 7,
+      "lines": 338,
+      "words": 2082,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "html",
@@ -9918,10 +9934,11 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-analyze/SKILL.md",
       "remote_path": "skills/blog-analyze/SKILL.md",
-      "lines": 340,
-      "words": 2222,
-      "code_blocks": 5,
+      "lines": 397,
+      "words": 2713,
+      "code_blocks": 6,
       "languages": [
+        "bash",
         "json"
       ],
       "license": "MIT"
@@ -9931,9 +9948,9 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-notebooklm/SKILL.md",
       "remote_path": "skills/blog-notebooklm/SKILL.md",
-      "lines": 260,
-      "words": 1325,
-      "code_blocks": 8,
+      "lines": 334,
+      "words": 2043,
+      "code_blocks": 9,
       "languages": [
         "bash",
         "markdown"
@@ -9945,8 +9962,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-seo-check/SKILL.md",
       "remote_path": "skills/blog-seo-check/SKILL.md",
-      "lines": 237,
-      "words": 1721,
+      "lines": 268,
+      "words": 1949,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -9956,9 +9973,9 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog/SKILL.md",
       "remote_path": "skills/blog/SKILL.md",
-      "lines": 348,
-      "words": 3237,
-      "code_blocks": 3,
+      "lines": 382,
+      "words": 3649,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
@@ -9969,8 +9986,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-geo/SKILL.md",
       "remote_path": "skills/blog-geo/SKILL.md",
-      "lines": 312,
-      "words": 1774,
+      "lines": 357,
+      "words": 2130,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -9982,8 +9999,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-cannibalization/SKILL.md",
       "remote_path": "skills/blog-cannibalization/SKILL.md",
-      "lines": 224,
-      "words": 1288,
+      "lines": 253,
+      "words": 1575,
       "code_blocks": 4,
       "languages": [],
       "license": "MIT"
@@ -9993,8 +10010,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-strategy/SKILL.md",
       "remote_path": "skills/blog-strategy/SKILL.md",
-      "lines": 379,
-      "words": 2390,
+      "lines": 386,
+      "words": 2521,
       "code_blocks": 8,
       "languages": [],
       "license": "MIT"
@@ -10004,9 +10021,9 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-image/SKILL.md",
       "remote_path": "skills/blog-image/SKILL.md",
-      "lines": 306,
-      "words": 1888,
-      "code_blocks": 5,
+      "lines": 392,
+      "words": 2633,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "markdown",
@@ -10019,8 +10036,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-persona/SKILL.md",
       "remote_path": "skills/blog-persona/SKILL.md",
-      "lines": 227,
-      "words": 1317,
+      "lines": 255,
+      "words": 1637,
       "code_blocks": 1,
       "languages": [
         "json"
@@ -10032,8 +10049,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-audit/SKILL.md",
       "remote_path": "skills/blog-audit/SKILL.md",
-      "lines": 255,
-      "words": 1407,
+      "lines": 282,
+      "words": 1645,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -10045,8 +10062,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-brief/SKILL.md",
       "remote_path": "skills/blog-brief/SKILL.md",
-      "lines": 282,
-      "words": 1865,
+      "lines": 291,
+      "words": 2025,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -10056,11 +10073,11 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-write/SKILL.md",
       "remote_path": "skills/blog-write/SKILL.md",
-      "lines": 498,
-      "words": 3105,
-      "code_blocks": 15,
+      "lines": 430,
+      "words": 3322,
+      "code_blocks": 7,
       "languages": [
-        "html",
+        "bash",
         "markdown",
         "mdx",
         "yaml"
@@ -10072,8 +10089,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-repurpose/SKILL.md",
       "remote_path": "skills/blog-repurpose/SKILL.md",
-      "lines": 296,
-      "words": 1758,
+      "lines": 337,
+      "words": 2180,
       "code_blocks": 2,
       "languages": [],
       "license": "MIT"
@@ -10083,8 +10100,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-outline/SKILL.md",
       "remote_path": "skills/blog-outline/SKILL.md",
-      "lines": 149,
-      "words": 901,
+      "lines": 157,
+      "words": 958,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -10094,8 +10111,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-cluster/SKILL.md",
       "remote_path": "skills/blog-cluster/SKILL.md",
-      "lines": 340,
-      "words": 2720,
+      "lines": 395,
+      "words": 3256,
       "code_blocks": 2,
       "languages": [
         "json"
@@ -10107,10 +10124,11 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-rewrite/SKILL.md",
       "remote_path": "skills/blog-rewrite/SKILL.md",
-      "lines": 365,
-      "words": 2672,
-      "code_blocks": 3,
+      "lines": 396,
+      "words": 3089,
+      "code_blocks": 4,
       "languages": [
+        "bash",
         "markdown"
       ],
       "license": "MIT"
@@ -10120,8 +10138,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-discourse/SKILL.md",
       "remote_path": "skills/blog-discourse/SKILL.md",
-      "lines": 223,
-      "words": 1907,
+      "lines": 247,
+      "words": 2127,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -10135,8 +10153,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-localize/SKILL.md",
       "remote_path": "skills/blog-localize/SKILL.md",
-      "lines": 219,
-      "words": 1354,
+      "lines": 274,
+      "words": 1859,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -10146,8 +10164,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-calendar/SKILL.md",
       "remote_path": "skills/blog-calendar/SKILL.md",
-      "lines": 307,
-      "words": 1792,
+      "lines": 317,
+      "words": 1916,
       "code_blocks": 7,
       "languages": [],
       "license": "MIT"
@@ -10157,8 +10175,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-multilingual/SKILL.md",
       "remote_path": "skills/blog-multilingual/SKILL.md",
-      "lines": 343,
-      "words": 1597,
+      "lines": 407,
+      "words": 2247,
       "code_blocks": 7,
       "languages": [
         "html",
@@ -10169,11 +10187,11 @@
     },
     {
       "name": "blog-decay",
-      "description": "Detect content decay from Google Search Console exports by comparing current and previous page performance, flagging quarter-over-quarter traffic drops, dropped pages, and refresh, consolidate, prune,",
+      "description": "Compare two Google Search Console page exports (current vs previous period) to flag pages whose clicks or impressions fell by a chosen threshold, with a triage hint (refresh, query shift, consolidate,",
       "path": "AgriciDaniel--claude-blog/skills/blog-decay/SKILL.md",
       "remote_path": "skills/blog-decay/SKILL.md",
-      "lines": 89,
-      "words": 526,
+      "lines": 132,
+      "words": 975,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -10182,11 +10200,11 @@
     },
     {
       "name": "blog-style",
-      "description": "Learn author writing style from 5 to 10 existing blog posts and generate a voice profile for /blog style learn, VOICE.md, blog-persona, and blog-write when users ask to infer tone, analyze author voic",
+      "description": "Measure writing-style statistics (sentence length, vocabulary, transitions, phrasing) from 5 to 10 posts you or your client wrote, and produce a voice profile for VOICE.md, blog-persona, and blog-writ",
       "path": "AgriciDaniel--claude-blog/skills/blog-style/SKILL.md",
       "remote_path": "skills/blog-style/SKILL.md",
-      "lines": 89,
-      "words": 465,
+      "lines": 113,
+      "words": 714,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -10198,8 +10216,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-factcheck/SKILL.md",
       "remote_path": "skills/blog-factcheck/SKILL.md",
-      "lines": 192,
-      "words": 1348,
+      "lines": 224,
+      "words": 1693,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -10209,9 +10227,9 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-google/SKILL.md",
       "remote_path": "skills/blog-google/SKILL.md",
-      "lines": 323,
-      "words": 1824,
-      "code_blocks": 2,
+      "lines": 409,
+      "words": 2663,
+      "code_blocks": 3,
       "languages": [
         "bash",
         "json"
@@ -10223,8 +10241,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-chart/SKILL.md",
       "remote_path": "skills/blog-chart/SKILL.md",
-      "lines": 275,
-      "words": 1328,
+      "lines": 298,
+      "words": 1554,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -10240,8 +10258,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-schema/SKILL.md",
       "remote_path": "skills/blog-schema/SKILL.md",
-      "lines": 308,
-      "words": 1379,
+      "lines": 349,
+      "words": 1831,
       "code_blocks": 8,
       "languages": [
         "html",
@@ -10254,8 +10272,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-brand/SKILL.md",
       "remote_path": "skills/blog-brand/SKILL.md",
-      "lines": 241,
-      "words": 1404,
+      "lines": 264,
+      "words": 1682,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -10267,8 +10285,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-flow/SKILL.md",
       "remote_path": "skills/blog-flow/SKILL.md",
-      "lines": 194,
-      "words": 1138,
+      "lines": 250,
+      "words": 1768,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -10278,9 +10296,9 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-translate/SKILL.md",
       "remote_path": "skills/blog-translate/SKILL.md",
-      "lines": 218,
-      "words": 1149,
-      "code_blocks": 3,
+      "lines": 268,
+      "words": 1596,
+      "code_blocks": 2,
       "languages": [
         "yaml"
       ],
@@ -10291,8 +10309,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-taxonomy/SKILL.md",
       "remote_path": "skills/blog-taxonomy/SKILL.md",
-      "lines": 288,
-      "words": 1432,
+      "lines": 366,
+      "words": 2197,
       "code_blocks": 14,
       "languages": [
         "graphql"
@@ -10304,8 +10322,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-locale-audit/SKILL.md",
       "remote_path": "skills/blog-locale-audit/SKILL.md",
-      "lines": 211,
-      "words": 1231,
+      "lines": 240,
+      "words": 1526,
       "code_blocks": 3,
       "languages": [],
       "license": "MIT"
@@ -10376,7 +10394,7 @@
       "path": "AgriciDaniel--claude-blog/brain/agents/claude-blog-secretary.md",
       "remote_path": "brain/agents/claude-blog-secretary.md",
       "lines": 65,
-      "words": 686,
+      "words": 691,
       "code_blocks": 0,
       "languages": []
     },
@@ -10449,6 +10467,478 @@
       "words": 297,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "blog-reviewer",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-reviewer.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-reviewer.md",
+      "lines": 231,
+      "words": 1742,
+      "code_blocks": 2,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "blog-writer",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-writer.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-writer.md",
+      "lines": 200,
+      "words": 1210,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "blog-translator",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-translator.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-translator.md",
+      "lines": 172,
+      "words": 948,
+      "code_blocks": 2,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "blog-researcher",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-researcher.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-researcher.md",
+      "lines": 272,
+      "words": 1832,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "blog-seo",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-seo.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-seo.md",
+      "lines": 131,
+      "words": 744,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "blog-audio",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-audio/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-audio/SKILL.md",
+      "lines": 252,
+      "words": 1255,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "html",
+        "jsx",
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-analyze",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-analyze/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-analyze/SKILL.md",
+      "lines": 332,
+      "words": 2145,
+      "code_blocks": 5,
+      "languages": [
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-notebooklm",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-notebooklm/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-notebooklm/SKILL.md",
+      "lines": 255,
+      "words": 1289,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-seo-check",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-seo-check/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-seo-check/SKILL.md",
+      "lines": 237,
+      "words": 1781,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog/SKILL.md",
+      "lines": 471,
+      "words": 4576,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-geo",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-geo/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-geo/SKILL.md",
+      "lines": 313,
+      "words": 1726,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-cannibalization",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-cannibalization/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-cannibalization/SKILL.md",
+      "lines": 224,
+      "words": 1288,
+      "code_blocks": 4,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-strategy",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-strategy/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-strategy/SKILL.md",
+      "lines": 374,
+      "words": 2354,
+      "code_blocks": 8,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-image",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-image/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-image/SKILL.md",
+      "lines": 309,
+      "words": 1932,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "markdown",
+        "yaml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-persona",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-persona/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-persona/SKILL.md",
+      "lines": 227,
+      "words": 1317,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-audit",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-audit/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-audit/SKILL.md",
+      "lines": 255,
+      "words": 1398,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-brief",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-brief/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-brief/SKILL.md",
+      "lines": 275,
+      "words": 1816,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-write",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-write/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-write/SKILL.md",
+      "lines": 499,
+      "words": 3112,
+      "code_blocks": 15,
+      "languages": [
+        "html",
+        "markdown",
+        "mdx",
+        "yaml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-repurpose",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-repurpose/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-repurpose/SKILL.md",
+      "lines": 290,
+      "words": 1703,
+      "code_blocks": 2,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-outline",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-outline/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-outline/SKILL.md",
+      "lines": 147,
+      "words": 886,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-cluster",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-cluster/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-cluster/SKILL.md",
+      "lines": 333,
+      "words": 2725,
+      "code_blocks": 2,
+      "languages": [
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-rewrite",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-rewrite/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-rewrite/SKILL.md",
+      "lines": 376,
+      "words": 2769,
+      "code_blocks": 3,
+      "languages": [
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-discourse",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-discourse/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-discourse/SKILL.md",
+      "lines": 223,
+      "words": 1894,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "json",
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-localize",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-localize/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-localize/SKILL.md",
+      "lines": 224,
+      "words": 1390,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-calendar",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-calendar/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-calendar/SKILL.md",
+      "lines": 305,
+      "words": 1746,
+      "code_blocks": 7,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-multilingual",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-multilingual/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-multilingual/SKILL.md",
+      "lines": 343,
+      "words": 1596,
+      "code_blocks": 7,
+      "languages": [
+        "html",
+        "json",
+        "xml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-decay",
+      "description": "Detect content decay from Google Search Console exports by comparing current and previous page performance, flagging quarter-over-quarter traffic drops, dropped pages, and refresh, consolidate, prune,",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-decay/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-decay/SKILL.md",
+      "lines": 89,
+      "words": 526,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-style",
+      "description": "Learn author writing style from 5 to 10 existing blog posts and generate a voice profile for /blog style learn, VOICE.md, blog-persona, and blog-write when users ask to infer tone, analyze author voic",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-style/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-style/SKILL.md",
+      "lines": 89,
+      "words": 465,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-factcheck",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-factcheck/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-factcheck/SKILL.md",
+      "lines": 187,
+      "words": 1328,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-google",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-google/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-google/SKILL.md",
+      "lines": 277,
+      "words": 1452,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-chart",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-chart/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-chart/SKILL.md",
+      "lines": 279,
+      "words": 1376,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "html",
+        "jsx",
+        "mdx",
+        "xml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-schema",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-schema/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-schema/SKILL.md",
+      "lines": 288,
+      "words": 1160,
+      "code_blocks": 8,
+      "languages": [
+        "html",
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-brand",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-brand/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-brand/SKILL.md",
+      "lines": 240,
+      "words": 1404,
+      "code_blocks": 2,
+      "languages": [
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-flow",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-flow/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-flow/SKILL.md",
+      "lines": 190,
+      "words": 1113,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-translate",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-translate/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-translate/SKILL.md",
+      "lines": 218,
+      "words": 1146,
+      "code_blocks": 3,
+      "languages": [
+        "yaml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-taxonomy",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-taxonomy/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-taxonomy/SKILL.md",
+      "lines": 288,
+      "words": 1432,
+      "code_blocks": 14,
+      "languages": [
+        "graphql"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-locale-audit",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-locale-audit/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-locale-audit/SKILL.md",
+      "lines": 211,
+      "words": 1238,
+      "code_blocks": 3,
+      "languages": [],
+      "license": "MIT"
     }
   ],
   "AgriciDaniel--claude-email": [
@@ -11768,7 +12258,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
       "lines": 778,
-      "words": 8015,
+      "words": 8053,
       "code_blocks": 11,
       "languages": []
     },
@@ -11778,7 +12268,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
       "lines": 539,
-      "words": 5803,
+      "words": 5841,
       "code_blocks": 4,
       "languages": []
     },
@@ -11788,7 +12278,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
       "lines": 730,
-      "words": 6761,
+      "words": 6799,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -11800,7 +12290,7 @@
       "path": "Imbad0202--academic-research-skills/agents/research_architect_agent.md",
       "remote_path": "agents/research_architect_agent.md",
       "lines": 299,
-      "words": 3157,
+      "words": 3191,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -11812,7 +12302,7 @@
       "path": "Imbad0202--academic-research-skills/agents/synthesis_agent.md",
       "remote_path": "agents/synthesis_agent.md",
       "lines": 373,
-      "words": 3939,
+      "words": 3973,
       "code_blocks": 6,
       "languages": [
         "json",
@@ -11848,7 +12338,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
       "lines": 663,
-      "words": 8524,
+      "words": 8562,
       "code_blocks": 4,
       "languages": []
     },
@@ -12108,7 +12598,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "lines": 450,
-      "words": 6143,
+      "words": 6177,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12120,7 +12610,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "lines": 444,
-      "words": 6124,
+      "words": 6186,
       "code_blocks": 12,
       "languages": [
         "markdown"
@@ -12132,7 +12622,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "lines": 413,
-      "words": 4641,
+      "words": 4675,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12144,7 +12634,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
       "lines": 495,
-      "words": 6001,
+      "words": 6064,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -12156,7 +12646,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/eic_agent.md",
       "remote_path": "academic-paper-reviewer/agents/eic_agent.md",
       "lines": 340,
-      "words": 4078,
+      "words": 4112,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12180,7 +12670,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "lines": 428,
-      "words": 4656,
+      "words": 4690,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12192,7 +12682,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/research_architect_agent.md",
       "remote_path": "deep-research/agents/research_architect_agent.md",
       "lines": 299,
-      "words": 3157,
+      "words": 3191,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12204,7 +12694,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/timeline_extraction_agent.md",
       "remote_path": "deep-research/agents/timeline_extraction_agent.md",
       "lines": 116,
-      "words": 1154,
+      "words": 1188,
       "code_blocks": 0,
       "languages": []
     },
@@ -12214,7 +12704,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/editor_in_chief_agent.md",
       "remote_path": "deep-research/agents/editor_in_chief_agent.md",
       "lines": 184,
-      "words": 1173,
+      "words": 1207,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -12238,7 +12728,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/research_question_agent.md",
       "remote_path": "deep-research/agents/research_question_agent.md",
       "lines": 224,
-      "words": 1509,
+      "words": 1543,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -12250,7 +12740,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/bibliography_agent.md",
       "remote_path": "deep-research/agents/bibliography_agent.md",
       "lines": 496,
-      "words": 4693,
+      "words": 4727,
       "code_blocks": 11,
       "languages": [
         "markdown",
@@ -12275,7 +12765,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/synthesis_agent.md",
       "remote_path": "deep-research/agents/synthesis_agent.md",
       "lines": 373,
-      "words": 3939,
+      "words": 3973,
       "code_blocks": 6,
       "languages": [
         "json",
@@ -12289,7 +12779,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/meta_analysis_agent.md",
       "remote_path": "deep-research/agents/meta_analysis_agent.md",
       "lines": 326,
-      "words": 2461,
+      "words": 2495,
       "code_blocks": 4,
       "languages": [
         "markdown"
@@ -12301,7 +12791,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/ethics_review_agent.md",
       "remote_path": "deep-research/agents/ethics_review_agent.md",
       "lines": 284,
-      "words": 2846,
+      "words": 2880,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -12325,7 +12815,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/source_verification_agent.md",
       "remote_path": "deep-research/agents/source_verification_agent.md",
       "lines": 220,
-      "words": 1540,
+      "words": 1574,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -12349,7 +12839,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/risk_of_bias_agent.md",
       "remote_path": "deep-research/agents/risk_of_bias_agent.md",
       "lines": 248,
-      "words": 1849,
+      "words": 1883,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -12361,7 +12851,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/literature_strategist_agent.md",
       "remote_path": "academic-paper/agents/literature_strategist_agent.md",
       "lines": 664,
-      "words": 6644,
+      "words": 6678,
       "code_blocks": 14,
       "languages": [
         "markdown",
@@ -12374,7 +12864,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/draft_writer_agent.md",
       "remote_path": "academic-paper/agents/draft_writer_agent.md",
       "lines": 686,
-      "words": 7958,
+      "words": 8030,
       "code_blocks": 10,
       "languages": [
         "json",
@@ -12440,7 +12930,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/formatter_agent.md",
       "remote_path": "academic-paper/agents/formatter_agent.md",
       "lines": 1023,
-      "words": 8963,
+      "words": 8997,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -12454,7 +12944,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/peer_reviewer_agent.md",
       "remote_path": "academic-paper/agents/peer_reviewer_agent.md",
       "lines": 517,
-      "words": 4127,
+      "words": 4161,
       "code_blocks": 9,
       "languages": [
         "markdown"
@@ -12466,7 +12956,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/abstract_bilingual_agent.md",
       "remote_path": "academic-paper/agents/abstract_bilingual_agent.md",
       "lines": 198,
-      "words": 1732,
+      "words": 1766,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -12490,7 +12980,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/structure_architect_agent.md",
       "remote_path": "academic-paper/agents/structure_architect_agent.md",
       "lines": 404,
-      "words": 2918,
+      "words": 2952,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -12502,7 +12992,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/citation_compliance_agent.md",
       "remote_path": "academic-paper/agents/citation_compliance_agent.md",
       "lines": 455,
-      "words": 3707,
+      "words": 3741,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -22476,7 +22966,7 @@
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
       "lines": 318,
-      "words": 4841,
+      "words": 4938,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22489,8 +22979,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
-      "lines": 1054,
-      "words": 21610,
+      "lines": 1056,
+      "words": 21788,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22503,8 +22993,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
-      "lines": 1051,
-      "words": 21483,
+      "lines": 1053,
+      "words": 21661,
       "code_blocks": 0,
       "languages": [],
       "version": "3.37.0",
@@ -22516,7 +23006,7 @@
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "lines": 318,
-      "words": 4841,
+      "words": 4938,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22554,7 +23044,7 @@
       "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "skills/avoid-ai-writing/SKILL.md",
       "lines": 311,
-      "words": 4825,
+      "words": 4922,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22651,7 +23141,7 @@
       "path": "coreyhaines31--marketingskills/skills/offers/SKILL.md",
       "remote_path": "skills/offers/SKILL.md",
       "lines": 156,
-      "words": 1434,
+      "words": 1461,
       "code_blocks": 1,
       "languages": []
     },
@@ -22750,8 +23240,8 @@
       "description": "\"When the user wants to reduce churn, build cancellation flows, set up save offers, recover failed payments, or implement retention strategies. Also use when the user mentions 'churn,' 'cancel flow,' ",
       "path": "coreyhaines31--marketingskills/skills/churn-prevention/SKILL.md",
       "remote_path": "skills/churn-prevention/SKILL.md",
-      "lines": 425,
-      "words": 2796,
+      "lines": 435,
+      "words": 2987,
       "code_blocks": 4,
       "languages": []
     },
@@ -22838,8 +23328,8 @@
       "description": "When the user wants to optimize post-signup onboarding, user activation, first-run experience, or time-to-value. Also use when the user mentions \"onboarding flow,\" \"activation rate,\" \"user activation,",
       "path": "coreyhaines31--marketingskills/skills/onboarding/SKILL.md",
       "remote_path": "skills/onboarding/SKILL.md",
-      "lines": 262,
-      "words": 1520,
+      "lines": 268,
+      "words": 1688,
       "code_blocks": 1,
       "languages": []
     },
@@ -22888,8 +23378,8 @@
       "description": "\"When the user wants help with paid advertising campaigns on Google Ads, Meta (Facebook/Instagram), LinkedIn, Twitter/X, or other ad platforms. Also use when the user mentions 'PPC,' 'paid media,' 'RO",
       "path": "coreyhaines31--marketingskills/skills/ads/SKILL.md",
       "remote_path": "skills/ads/SKILL.md",
-      "lines": 469,
-      "words": 3907,
+      "lines": 473,
+      "words": 4012,
       "code_blocks": 2,
       "languages": []
     },
@@ -23047,7 +23537,7 @@
       "path": "coreyhaines31--marketingskills/skills/seo-audit/SKILL.md",
       "remote_path": "skills/seo-audit/SKILL.md",
       "lines": 497,
-      "words": 2540,
+      "words": 2585,
       "code_blocks": 0,
       "languages": []
     },
@@ -23057,7 +23547,7 @@
       "path": "coreyhaines31--marketingskills/skills/revops/SKILL.md",
       "remote_path": "skills/revops/SKILL.md",
       "lines": 350,
-      "words": 2306,
+      "words": 2343,
       "code_blocks": 0,
       "languages": []
     },
@@ -24871,9 +25361,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
-      "lines": 314,
-      "words": 2727,
-      "code_blocks": 12,
+      "lines": 343,
+      "words": 2914,
+      "code_blocks": 13,
       "languages": [
         "bash",
         "jsonc",
@@ -24886,7 +25376,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "lines": 281,
-      "words": 2192,
+      "words": 2200,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -25023,9 +25513,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
-      "lines": 314,
-      "words": 2727,
-      "code_blocks": 12,
+      "lines": 343,
+      "words": 2914,
+      "code_blocks": 13,
       "languages": [
         "bash",
         "jsonc",
@@ -25038,7 +25528,7 @@
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
       "lines": 281,
-      "words": 2192,
+      "words": 2200,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -31439,8 +31929,8 @@
       "description": "Draw the 12 Houses of the Zodiac Tarot spread and return a concise structured reading. Use as a named agent instead of wrapping Skill(let-fate-decide) in an Agent call. Callers get just the verdict te",
       "path": "trailofbits--skills/plugins/let-fate-decide/agents/draw.md",
       "remote_path": "plugins/let-fate-decide/agents/draw.md",
-      "lines": 49,
-      "words": 271,
+      "lines": 53,
+      "words": 290,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -31451,8 +31941,8 @@
       "description": "\"Draws the 12 Houses of the Zodiac Tarot spread to inject entropy into planning when prompts are vague, ambiguous, or casually delegated. Interprets the spread to guide next steps. Use when the user s",
       "path": "trailofbits--skills/plugins/let-fate-decide/skills/let-fate-decide/SKILL.md",
       "remote_path": "plugins/let-fate-decide/skills/let-fate-decide/SKILL.md",
-      "lines": 191,
-      "words": 1489,
+      "lines": 196,
+      "words": 1536,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -45457,8 +45947,8 @@
       "description": ">",
       "path": "pitimon--claude-cybersecurity-skill/skills/cybersecurity-pro/SKILL.md",
       "remote_path": "skills/cybersecurity-pro/SKILL.md",
-      "lines": 516,
-      "words": 3634,
+      "lines": 529,
+      "words": 3859,
       "code_blocks": 2,
       "languages": []
     }
@@ -158285,9 +158775,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/asr-transcribe-to-text/SKILL.md",
       "remote_path": "daymade-audio/asr-transcribe-to-text/SKILL.md",
-      "lines": 986,
-      "words": 7285,
-      "code_blocks": 40,
+      "lines": 988,
+      "words": 7397,
+      "code_blocks": 39,
       "languages": [
         "bash",
         "text"
@@ -158298,8 +158788,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 442,
-      "words": 6067,
+      "lines": 451,
+      "words": 6155,
       "code_blocks": 0,
       "languages": []
     },
@@ -158447,11 +158937,11 @@
     },
     {
       "name": "excel-automation",
-      "description": "Create, parse, and control Excel files on macOS. Professional formatting with openpyxl, complex xlsm parsing with stdlib zipfile+xml for investment bank financial models, and Excel window control via ",
+      "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/excel-automation/SKILL.md",
       "remote_path": "daymade-docs/excel-automation/SKILL.md",
-      "lines": 315,
-      "words": 1288,
+      "lines": 330,
+      "words": 1393,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -158726,8 +159216,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 263,
-      "words": 2187,
+      "lines": 266,
+      "words": 2201,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -158800,8 +159290,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/fixed-command-entry.md",
       "remote_path": "daymade-skill/skill-creator/references/fixed-command-entry.md",
-      "lines": 51,
-      "words": 314,
+      "lines": 54,
+      "words": 336,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -179885,8 +180375,8 @@
       "description": "\"Enforces non-negotiable code quality standards for AI coding agents. Covers linting rules (no suppressions \u2014 ever), type safety (no `any` in TypeScript, no `# type: ignore` in Python), tooling discip",
       "path": "shaunburdick--skills/skills/code-quality/SKILL.md",
       "remote_path": "skills/code-quality/SKILL.md",
-      "lines": 148,
-      "words": 1026,
+      "lines": 152,
+      "words": 1070,
       "code_blocks": 2,
       "languages": [
         "python",
@@ -180800,8 +181290,8 @@
       "description": ">",
       "path": "JuliusBrussee--caveman/plugins/caveman/skills/caveman-compress/SKILL.md",
       "remote_path": "plugins/caveman/skills/caveman-compress/SKILL.md",
-      "lines": 110,
-      "words": 703,
+      "lines": 115,
+      "words": 842,
       "code_blocks": 1,
       "languages": []
     },
@@ -181016,8 +181506,8 @@
       "description": ">",
       "path": "JuliusBrussee--caveman/skills/caveman-compress/SKILL.md",
       "remote_path": "skills/caveman-compress/SKILL.md",
-      "lines": 110,
-      "words": 703,
+      "lines": 115,
+      "words": 842,
       "code_blocks": 1,
       "languages": []
     },

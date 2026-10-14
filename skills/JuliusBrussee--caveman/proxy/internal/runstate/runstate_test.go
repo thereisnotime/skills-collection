@@ -192,6 +192,9 @@ func TestNewUsesUTCAnd128BitToken(t *testing.T) {
 	if len(state.InstanceToken) != 32 {
 		t.Fatalf("token chars = %d, want 32", len(state.InstanceToken))
 	}
+	if len(state.ShutdownToken) != 32 || state.ShutdownToken == state.InstanceToken {
+		t.Fatalf("shutdown token %q must be its own 128-bit secret", state.ShutdownToken)
+	}
 	if state.StartedAt.Location() != time.UTC {
 		t.Fatalf("started_at location = %v", state.StartedAt.Location())
 	}
@@ -210,6 +213,30 @@ func TestProcessProbes(t *testing.T) {
 	executable, err := processExecutable(os.Getpid())
 	if err != nil || strings.TrimSpace(executable) == "" {
 		t.Fatalf("current executable = %q, %v", executable, err)
+	}
+}
+
+// A proxy built on Termux carries GOOS=android and must still resolve its own
+// executable identity through /proc; when this probe errors, validate() refuses
+// the listener and `caveman wrap` reports the proxy it just started as a
+// foreign process. The parameter keeps both branches reachable from one host.
+func TestProcessExecutableIdentityCoversAndroidAndFailsClosedElsewhere(t *testing.T) {
+	if runtime.GOOS == "linux" || runtime.GOOS == "android" {
+		var first string
+		for _, goos := range []string{"linux", "android"} {
+			exe, err := processExecutableFor(goos, os.Getpid())
+			if err != nil || strings.TrimSpace(exe) == "" {
+				t.Fatalf("processExecutableFor(%q) = %q, %v", goos, exe, err)
+			}
+			if first == "" {
+				first = exe
+			} else if exe != first {
+				t.Fatalf("android and linux identity disagree: %q vs %q", exe, first)
+			}
+		}
+	}
+	if _, err := processExecutableFor("plan9", os.Getpid()); err == nil {
+		t.Fatal("an unsupported platform must fail closed instead of certifying the listener")
 	}
 }
 

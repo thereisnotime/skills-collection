@@ -1,6 +1,6 @@
 {
   "name": "caveman",
-  "version": "3.2.0",
+  "version": "4.0.1",
   "description": "Ultra-compressed communication mode. Shortens prose while preserving technical terms, code, commands, and exact errors.",
   "author": {
     "name": "Julius Brussee",

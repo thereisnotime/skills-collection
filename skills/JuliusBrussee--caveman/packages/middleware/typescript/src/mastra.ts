@@ -143,6 +143,23 @@ function createProcessor(options: CavemanMastraOptions, enforcedFinalStep: boole
     return { processor: { id: options.id ?? 'caveman', processInputStep(args) { return { model: passiveModel(args.model, options, blocked) }; } }, attest() { return false; } };
   }
   type Model = Extract<ProcessInputStepArgs['model'], { specificationVersion: 'v4' }>;
+  /** The call options Mastra's own model type accepts — its vendored `@ai-sdk/provider` spelling. */
+  type NativeCallOptions = Parameters<Model['doGenerate']>[0];
+  /**
+   * `@mastra/core` ships a private copy of the `@ai-sdk/provider` types (`dist/_types/@ai-sdk_provider-v7`).
+   * When the real package gains a value the vendored copy has not resynced — `@ai-sdk/provider` 4.0.26 added
+   * `reasoning: 'max'`, which `@mastra/core` 1.75.0 still omits — `exactOptionalPropertyTypes` makes the
+   * inbound options unassignable to the native method's narrower parameter, so `tsc` fails on two types that
+   * differ in no runtime respect and no test in the canary ever runs (#1206).
+   *
+   * The proxy below hands the native method the very object it received, so the mismatch is a spelling
+   * difference at a vendored-copy boundary, not a value to convert. The assertion is total, which is why it
+   * is one named helper used only on the forwarded options rather than a cast sprinkled at each call site:
+   * `tests/hardening.test.mjs` pins that the native method receives the same call options field for field, apart
+   * from the `prompt`/`tools`/`toolChoice` this adapter exists to change, so a future change that reshapes the
+   * options instead of forwarding them fails there rather than passing silently here.
+   */
+  const native = (params: LanguageModelV4CallOptions): NativeCallOptions => params as unknown as NativeCallOptions;
   interface Step {
     scope: Scope;
     binding: RecoveryBinding | null;
@@ -240,17 +257,17 @@ function createProcessor(options: CavemanMastraOptions, enforcedFinalStep: boole
         get(target, key) {
           if (key === 'doGenerate' || key === 'doStream') return async (params: LanguageModelV4CallOptions) => {
             params.abortSignal?.throwIfAborted();
-            if (currentOwner()) return target[key](params);
+            if (currentOwner()) return target[key](native(params));
             if (!step.outbound) {
               const attempt = passiveAttempt(options, 'unsupported_request'); observe(attempt, 'dispatch_intent');
-              return withOwner(attempt, () => target[key](params));
+              return withOwner(attempt, () => target[key](native(params)));
             }
             const prepared = await guard(options.runtime, 'mastra', params.abortSignal, () => prepare(params, nativeModel, step),
               () => ({ params, attempt: passive(options.runtime, 'mastra', 'adapter_error', step.logicalCallId) }));
             params.abortSignal?.throwIfAborted();
             observe(prepared.attempt, 'dispatch_intent');
             try {
-              const result = await withOwner(prepared.attempt, () => target[key](prepared.params));
+              const result = await withOwner(prepared.attempt, () => target[key](native(prepared.params)));
               // Mastra normalizes both native methods to a stream result.
               return { ...result, stream: observeStream(result.stream, prepared.attempt, event => event.type === 'finish' ? usage(event.usage) : null, params.abortSignal) };
             } catch (error) { observe(prepared.attempt, params.abortSignal?.aborted ? 'cancelled' : 'failed'); throw error; }

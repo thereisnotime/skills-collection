@@ -16,17 +16,17 @@ provenance and PyPI attestations automatically.
 Tags must be annotated, GitHub-verified, and point to a commit on `main`. The
 workflow rejects a tag whose version differs from the package metadata.
 
-| Tag | Artifact | Latest published (2026-10-07) | Version in main (Caveman 3.2.0) | GitHub Release |
+| Tag | Artifact | Latest published (2026-10-07) | Version in main (Caveman 4.0.1) | GitHub Release |
 |---|---|---|---|---|
 | `sdk-ts-v*` | npm `@caveman-ai/sdk` | `1.2.0` | `1.2.0` | Yes |
 | `sdk-python-v*` | PyPI `caveman-sdk` | `1.2.0` | `1.2.0` | Yes |
 | `middleware-ts-v*` | npm `@caveman-ai/middleware` | `1.0.1` | `1.0.1` | Yes |
 | `middleware-python-v*` | PyPI `caveman-middleware` | `1.0.0` | `1.0.0` | Yes |
-| `contracts-v*` | npm `@caveman-ai/contracts` | `2.0.0` | `2.0.0` | Yes |
-| `pi-v*` | npm `@caveman-ai/pi` | `0.3.0` | `0.3.0` | No |
-| `bin-v*` | Go binaries and container image | `bin-v2.1.0` | `bin-v2.1.0` (pinned in `packages/cli/BINARY_RELEASE`) | Yes, with the binaries |
-| `cli-v*` | npm `@caveman-ai/cli` | `2.1.0` | `2.1.0` | No |
-| `v*` | Caveman product (installer, plugin, skills) | `v3.2.0` | `v3.2.0` | Yes, "Latest" |
+| `contracts-v*` | npm `@caveman-ai/contracts` | `2.0.0` | `2.1.0` | Yes |
+| `pi-v*` | npm `@caveman-ai/pi` | `0.3.0` | `0.3.1` | No |
+| `bin-v*` | Go binaries and container image | `bin-v2.1.0` | `bin-v4.0.1` (pinned in `packages/cli/BINARY_RELEASE`) | Yes, with the binaries |
+| `cli-v*` | npm `@caveman-ai/cli` | `2.1.0` | `4.0.1` | No |
+| `v*` | Caveman product (installer, plugin, skills) | `v3.2.0` | `v4.0.1` | Yes, "Latest" |
 
 `tests/verify_repo.py` checks that each SDK and middleware package's version,
 version constant (`SDK_VERSION`, `MIDDLEWARE_VERSION`), and top `CHANGELOG.md`
@@ -201,6 +201,21 @@ unconditionally), so a release page serving an older signed manifest and
 binaries fails the install. CLIs pinned to earlier runtimes accept a manifest
 without the entry.
 
+The release also carries the `caveman-blocks` binaries of the `scripts` module
+and `modules.json`, the module index. The workflow downloads the
+[caveman-ai/blocks](https://github.com/caveman-ai/blocks) release pinned in
+`packages/cli/BLOCKS_RELEASE`, which holds the tag and the SHA-256 of that
+release's `checksums.txt` (release pages are mutable). The workflow refuses a
+`checksums.txt` with another digest, downloads only the archives it lists for
+targets the hub builds, checks each against its listed digest, and attaches
+each binary as `caveman-blocks_<os>_<arch>` (targets Blocks does not list are
+left out). Bumping Blocks means a new tag and its `checksums.txt` digest:
+`gh release download <tag> -R caveman-ai/blocks -p checksums.txt -O - | shasum -a 256`. `packages/cli/scripts/gen-modules-index.mjs` then
+writes `modules.json` from the module registry and the manifest: per module
+its kind, defaults and every platform build's SHA-256. Both are listed in
+`checksums.txt` before it is signed. The CLI (`src/modules/index-file.ts`)
+refuses a `modules.json` the signed manifest does not list byte for byte.
+
 The container image carries OCI labels (`org.opencontainers.image.source`,
 `version`, `revision`, `licenses` = `Apache-2.0`, `title`, `description`), ships the
 license texts under `/licenses/` (third-party Go modules under
@@ -244,6 +259,7 @@ release layout unchanged:
 $CAVE_BINARY_RELEASE_BASE/<bin-vX.Y.Z>/checksums.txt
 $CAVE_BINARY_RELEASE_BASE/<bin-vX.Y.Z>/checksums.txt.keysig
 $CAVE_BINARY_RELEASE_BASE/<bin-vX.Y.Z>/<binary>_<darwin|linux|win32>_<amd64|arm64>
+$CAVE_BINARY_RELEASE_BASE/<bin-vX.Y.Z>/modules.json
 ```
 
 The release tag is the one pinned in the installed CLI or launcher, not one the

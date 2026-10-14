@@ -7,7 +7,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { hardenedGitArgs, hardenedGitEnv } from "./git-safe.js";
+import { nativePipePath } from "./native-pipe.js";
 import { confirmLearnNudge, maybeSpawnAutopilot } from "./learn-autopilot.js";
+import { cloudConfigPath } from "./modules/config-home.js";
 
 type NativeAgent = "claude" | "codex" | "hermes" | "gemini" | "opencode" | "pi";
 type NativePolicyMode = "record" | "safe" | "max";
@@ -44,13 +46,19 @@ function caveHome(): string {
 
 // localGatewayEndpoint resolves the gateway target and returns its host/port
 // only when it is a loopback proxy — the only case where a dead port means
-// "the local proxy needs restarting". Managed gateways (CAVE_GATEWAY_URL /
-// persisted gatewayUrl off-loopback) return undefined and never pay a
-// per-prompt delegate spawn. Default mirrors the full CLI's PROXY_ADDR.
+// "the local proxy needs restarting". Managed gateways (CAVE_GATEWAY_URL, or a
+// gatewayUrl chosen at login, managedGateway) off-loopback return undefined and
+// never pay a per-prompt delegate spawn. Signing in alone keeps the local
+// proxy. Default mirrors the full CLI's PROXY_ADDR, as does `localPort`.
 function localGatewayEndpoint(): { host: string; port: number } | undefined {
   let gw: unknown = process.env.CAVE_GATEWAY_URL;
   if (typeof gw !== "string" || !gw.trim()) {
-    try { gw = object(JSON.parse(readFileSync(join(homedir(), ".caveman-cloud", "config.json"), "utf8"))).gatewayUrl; } catch { /* local default */ }
+    try {
+      const config = object(JSON.parse(readFileSync(cloudConfigPath(), "utf8")));
+      if (config.managedGateway === true) gw = config.gatewayUrl;
+      // The port setup moved the runtime to (index.ts gatewayUrlFromConfigFile).
+      else if (typeof config.localPort === "number" && Number.isInteger(config.localPort) && config.localPort >= 1024 && config.localPort <= 65535) gw = `http://127.0.0.1:${config.localPort}`;
+    } catch { /* local default */ }
   }
   if (typeof gw !== "string" || !gw.trim()) return { host: "127.0.0.1", port: 8787 };
   try {
@@ -83,7 +91,7 @@ function configuredMode(): "compress" | "record" | "pixel" {
   const explicit = process.env.CAVEMAN_WRAP_MODE;
   if (explicit !== undefined) return explicit === "compress" || explicit === "pixel" || explicit === "record" ? explicit : "record";
   try {
-    const config = object(JSON.parse(readFileSync(join(homedir(), ".caveman-cloud", "config.json"), "utf8")));
+    const config = object(JSON.parse(readFileSync(cloudConfigPath(), "utf8")));
     const legacy = object(config.wrap).mode;
     const current = object(config.think).mode;
     const value = current ?? legacy;
@@ -103,7 +111,7 @@ function configuredCore(): boolean {
   };
   let configured = true;
   try {
-    const config = object(JSON.parse(readFileSync(join(homedir(), ".caveman-cloud", "config.json"), "utf8")));
+    const config = object(JSON.parse(readFileSync(cloudConfigPath(), "utf8")));
     configured = parse(object(config.think).core) ?? true;
   } catch { /* default above */ }
   const env = process.env.CAVEMAN_CORE;
@@ -364,7 +372,7 @@ function callRuntime(value: Record<string, unknown>): Promise<RuntimeResponse | 
     let bytes = 0;
     const chunks: Buffer[] = [];
     const endpoint = process.platform === "win32"
-      ? `\\\\.\\pipe\\caveman-native-${createHash("sha256").update(resolve(caveHome()).replaceAll("/", "\\").toLowerCase()).digest("hex").slice(0, 16)}`
+      ? nativePipePath(caveHome())
       : join(caveHome(), "run", "native.sock");
     const socket = netConnect({ path: endpoint });
     const finish = (response?: RuntimeResponse) => {

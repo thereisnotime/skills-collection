@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -62,7 +63,7 @@ func (s *Server) chatgpt(w http.ResponseWriter, r *http.Request) {
 		s.rejectUnauthorized(w, r)
 		return
 	}
-	rc.AgentSlug = labelOrDefault(r.Header.Get("x-cave-agent"), "unlabeled-agent")
+	rc.AgentSlug = chatGPTAgent(r.Header)
 	evidence := requestEvidenceFromHeaders(r.Header)
 	lockedRoutes, compiledPlanAllowed := compiledPlanRoutes(r.Header)
 
@@ -73,6 +74,25 @@ func (s *Server) chatgpt(w http.ResponseWriter, r *http.Request) {
 	upstreamURL := s.chatGPTUpstream + suffix
 	if r.URL.RawQuery != "" {
 		upstreamURL += "?" + r.URL.RawQuery
+	}
+	if r.Method == http.MethodGet && suffix == "/models" && s.autoOffered() {
+		s.chatGPTAutoModels(w, r, upstreamURL)
+		return
+	}
+	if r.Method == http.MethodPost {
+		// A POST whose head names Auto goes to chatgpt_auto.go, whatever its
+		// path (Codex compaction too); any other streams on as before, with
+		// the head put back in front.
+		original := r.Body
+		head, _ := io.ReadAll(io.LimitReader(original, autoSniffRaw))
+		r.Body = struct {
+			io.Reader
+			io.Closer
+		}{io.MultiReader(bytes.NewReader(head), original), original}
+		if namesAutoHead(head, r.Header.Get("Content-Encoding")) {
+			s.chatGPTAutoDoor(w, r, rc, requestID, traceID, upstreamURL, suffix, start, evidence)
+			return
+		}
 	}
 
 	// Compression needs a complete request. Keep the existing bounded behavior:
@@ -243,7 +263,7 @@ func (s *Server) chatgpt(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.Error(w, r, http.StatusBadGateway, "cave_upstream_unreachable", "ChatGPT upstream is unreachable.")
 		requestHashComplete := chatGPTRequestHashComplete(requestBodyFullyRead, r.ContentLength, reqCapture, requestBodyTracker)
-		s.recordChatGPT(rc, r, requestID, traceID, suffix, start, 0, "cave_upstream_unreachable", reqCapture, reqHash.Sum(nil), transformedChatGPTHash(reqHash.Sum(nil), transform.Body), requestHashComplete, nil, 0, false, transform.OptimizerIDs, comp, compressEligible, transform.Body, "")
+		s.recordChatGPT(rc, r, requestID, traceID, suffix, start, 0, "cave_upstream_unreachable", reqCapture, reqHash.Sum(nil), transformedChatGPTHash(reqHash.Sum(nil), transform.Body), requestHashComplete, nil, 0, false, transform.OptimizerIDs, comp, compressEligible, transform.Body, "", nil)
 		return
 	}
 	// OAuth backends can reject byte-modified requests for undocumented reasons.
@@ -264,7 +284,7 @@ func (s *Server) chatgpt(w http.ResponseWriter, r *http.Request) {
 		})
 		if doErr != nil {
 			httpx.Error(w, r, http.StatusBadGateway, "cave_upstream_unreachable", "ChatGPT upstream is unreachable.")
-			s.recordChatGPT(rc, r, requestID, traceID, suffix, start, 0, "cave_upstream_unreachable", reqCapture, reqHash.Sum(nil), reqHash.Sum(nil), true, nil, 0, false, nil, nil, compressEligible, originalBody, "")
+			s.recordChatGPT(rc, r, requestID, traceID, suffix, start, 0, "cave_upstream_unreachable", reqCapture, reqHash.Sum(nil), reqHash.Sum(nil), true, nil, 0, false, nil, nil, compressEligible, originalBody, "", nil)
 			return
 		}
 		if retryResp.StatusCode >= 200 && retryResp.StatusCode < 300 {
@@ -343,7 +363,7 @@ func (s *Server) chatgpt(w http.ResponseWriter, r *http.Request) {
 			rawRetry: rawRetried, sent: sentSeq, session: evidence.SessionID, requestID: requestID,
 		})
 	}
-	s.recordChatGPT(rc, r, requestID, traceID, suffix, start, resp.StatusCode, errCode, reqCapture, reqHash.Sum(nil), transformedChatGPTHash(reqHash.Sum(nil), transform.Body), requestHashComplete, respCapture, respBytes, stream, transform.OptimizerIDs, comp, compressEligible, transform.Body, cacheBustCause)
+	s.recordChatGPT(rc, r, requestID, traceID, suffix, start, resp.StatusCode, errCode, reqCapture, reqHash.Sum(nil), transformedChatGPTHash(reqHash.Sum(nil), transform.Body), requestHashComplete, respCapture, respBytes, stream, transform.OptimizerIDs, comp, compressEligible, transform.Body, cacheBustCause, nil)
 
 	// Path, status, and timing only — request headers carry the operator's
 	// OAuth credential and are never logged on this route.
@@ -367,7 +387,7 @@ func transformedChatGPTHash(raw []byte, transformed []byte) []byte {
 	return sum[:]
 }
 
-func (s *Server) recordChatGPT(rc RequestContext, r *http.Request, requestID, traceID, endpoint string, start time.Time, status int, errCode string, reqCapture *cappedBuffer, reqHash, transformedHash []byte, requestHashComplete bool, respCapture *cappedBuffer, respBytes int64, stream bool, optimizers []string, comp *compressionOutcome, compressionEligible bool, acceptedBody []byte, cacheBustCause string) {
+func (s *Server) recordChatGPT(rc RequestContext, r *http.Request, requestID, traceID, endpoint string, start time.Time, status int, errCode string, reqCapture *cappedBuffer, reqHash, transformedHash []byte, requestHashComplete bool, respCapture *cappedBuffer, respBytes int64, stream bool, optimizers []string, comp *compressionOutcome, compressionEligible bool, acceptedBody []byte, cacheBustCause string, route *chatGPTRoute) {
 	if s.sink == nil {
 		return
 	}
@@ -383,7 +403,10 @@ func (s *Server) recordChatGPT(rc RequestContext, r *http.Request, requestID, tr
 			originalLogicalBody = decoded
 		}
 	}
-	model := "unknown"
+	// Empty when unread (over the capture limit, not JSON, or an encoding
+	// this side cannot decode): Cloud never gets "unknown" as a model id; the
+	// local row still says unknown.
+	model := ""
 	if originalLogicalBody != nil {
 		var body struct {
 			Model string `json:"model"`
@@ -391,6 +414,9 @@ func (s *Server) recordChatGPT(rc RequestContext, r *http.Request, requestID, tr
 		if json.Unmarshal(originalLogicalBody, &body) == nil && body.Model != "" {
 			model = body.Model
 		}
+	}
+	if route != nil && route.model != "" {
+		model = route.model
 	}
 	rawHash, transformedHashHex := "", ""
 	if requestHashComplete {
@@ -414,17 +440,20 @@ func (s *Server) recordChatGPT(rc RequestContext, r *http.Request, requestID, tr
 		// The route reached the compression candidate path; counted whether or not
 		// bytes shrank, so the CLI can tell "routing never applied" from "nothing
 		// to compress" (the generic route records the same denominator).
-		CompressionEligible:      compressionEligible,
-		CacheBust:                cacheBustCause != "",
-		CacheBustCause:           cacheBustCause,
-		RequestID:                requestID,
-		TraceID:                  traceID,
-		Label:                    labelOrDefault(rc.Label, "local"),
-		AgentSlug:                rc.AgentSlug,
-		Provider:                 "chatgpt-subscription",
-		Model:                    model,
-		RouteFrom:                r.URL.Path,
-		RouteTo:                  s.chatGPTUpstream + endpoint,
+		CompressionEligible: compressionEligible,
+		CacheBust:           cacheBustCause != "",
+		CacheBustCause:      cacheBustCause,
+		RequestID:           requestID,
+		TraceID:             traceID,
+		Label:               labelOrDefault(rc.Label, "local"),
+		AgentSlug:           rc.AgentSlug,
+		Provider:            "chatgpt-subscription",
+		Model:               labelOrDefault(model, "unknown"),
+		// Model ids, as provider rows carry them: Cloud reads route_from as the
+		// model requested.
+		RouteFrom:                model,
+		RouteTo:                  model,
+		ProviderOriginKnown:      s.chatGPTUpstream == DefaultChatGPTUpstream && model != "",
 		Endpoint:                 endpoint,
 		Stream:                   stream,
 		StatusCode:               status,
@@ -456,17 +485,8 @@ func (s *Server) recordChatGPT(rc RequestContext, r *http.Request, requestID, tr
 		CompressionTokenCountBasis: compBasis,
 		RecoveryHandle:             compHandle,
 	}
-	meta := providers.RequestMetadata{Provider: "chatgpt-subscription", Model: model}
-	if originalLogicalBody != nil {
-		headersForInspect := r.Header.Clone()
-		headersForInspect.Del("Content-Encoding")
-		if inspected, err := openai.New("").InspectRequest(r.Context(), bytes.NewReader(originalLogicalBody), headersForInspect); err == nil {
-			meta = inspected
-			meta.Provider = "chatgpt-subscription"
-		}
-	}
-	if s.chatGPTUpstream != DefaultChatGPTUpstream {
-		meta.PricingUnsupportedReason = "custom_subscription_origin"
+	if route != nil {
+		row.RouteFrom, row.RouteTo, row.RouteOutcome, row.RouteReason, row.RouteDecisionID = route.from, model, route.answer.Outcome, route.answer.Reason, route.answer.DecisionID
 	}
 	var acceptedLogicalBody []byte
 	if acceptedBody == nil {
@@ -474,8 +494,27 @@ func (s *Server) recordChatGPT(rc RequestContext, r *http.Request, requestID, tr
 	} else if decoded, _, err := decodeChatGPTRequestBody(acceptedBody, r.Header.Get("Content-Encoding"), chatGPTCaptureLimit); err == nil {
 		acceptedLogicalBody = decoded
 	}
-	requestAccounting(&row, meta, usage, originalLogicalBody, acceptedLogicalBody, false)
-	s.sink.Record(row)
+	var headersForInspect http.Header
+	if originalLogicalBody != nil {
+		headersForInspect = r.Header.Clone()
+		headersForInspect.Del("Content-Encoding")
+	}
+	customOrigin := s.chatGPTUpstream != DefaultChatGPTUpstream
+	// Offered to Cloud like every other row (ADR 0110: ChatGPT-login turns
+	// count as their agent's).
+	s.finishRecord(row, true, func(row *RequestRecord) {
+		meta := providers.RequestMetadata{Provider: "chatgpt-subscription", Model: row.Model}
+		if originalLogicalBody != nil {
+			if inspected, err := openai.New("").InspectRequest(context.Background(), bytes.NewReader(originalLogicalBody), headersForInspect); err == nil {
+				meta = inspected
+				meta.Provider = "chatgpt-subscription"
+			}
+		}
+		if customOrigin {
+			meta.PricingUnsupportedReason = "custom_subscription_origin"
+		}
+		requestAccounting(row, meta, usage, originalLogicalBody, acceptedLogicalBody, false)
+	})
 }
 
 type eofTrackingReader struct {
@@ -750,4 +789,29 @@ func (c *cappedBuffer) Write(p []byte) (int, error) {
 	}
 	c.buf.Write(p)
 	return len(p), nil
+}
+
+// chatGPTAgent is the agent behind a /chatgpt request: its x-cave-agent label
+// (Pi, OpenCode), else Codex by its own originator or User-Agent
+// (codex_cli_rs, codex_exec, codex_vscode), which its ChatGPT-login route
+// sends without a label: its rows then count as Codex's in Cloud.
+func chatGPTAgent(h http.Header) string {
+	if agent := h.Get("x-cave-agent"); agent != "" {
+		return agent
+	}
+	for _, id := range []string{h.Get("originator"), h.Get("User-Agent")} {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(id)), "codex") {
+			return "codex"
+		}
+	}
+	return "unlabeled-agent"
+}
+
+// chatGPTRoute is what the route stage did for an Auto request on this route.
+// model is the model the request went upstream on: the capture there is the
+// decoded body under the agent's (zstd) Content-Encoding, so it is not read back.
+type chatGPTRoute struct {
+	from   string
+	answer RouteAnswer
+	model  string
 }

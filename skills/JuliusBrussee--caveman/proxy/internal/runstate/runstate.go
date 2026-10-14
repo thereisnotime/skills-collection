@@ -28,6 +28,9 @@ const Schema = "caveman.proxy.run.v1"
 // file. Probes never send the expected token to the listener.
 const InstanceHeader = "X-Caveman-Instance"
 
+// ShutdownHeader carries State.ShutdownToken on POST /caveman/shutdown.
+const ShutdownHeader = "X-Caveman-Shutdown"
+
 type State struct {
 	Schema         string    `json:"schema"`
 	PID            int       `json:"pid"`
@@ -48,6 +51,10 @@ type State struct {
 	// Missing entries cannot certify a wrapper's original provider endpoint.
 	ProviderUpstreams    map[string]string   `json:"provider_upstreams,omitempty"`
 	CompatForwardHeaders map[string][]string `json:"compat_forward_headers,omitempty"`
+	// ShutdownToken stops this proxy. Unlike InstanceToken, which /health/live
+	// publishes, it lives only in this 0600 file: never in a response header,
+	// PublicState or status output.
+	ShutdownToken string `json:"shutdown_token,omitempty"`
 }
 
 type PublicState struct {
@@ -111,8 +118,11 @@ func New(listen, mode, owner, version string) (State, error) {
 	if owner != "wrap" && owner != "start" {
 		owner = "start"
 	}
-	var token [16]byte
+	var token, shutdown [16]byte
 	if _, err := rand.Read(token[:]); err != nil {
+		return State{}, err
+	}
+	if _, err := rand.Read(shutdown[:]); err != nil {
 		return State{}, err
 	}
 	return State{
@@ -123,6 +133,7 @@ func New(listen, mode, owner, version string) (State, error) {
 		Mode:          mode,
 		Owner:         owner,
 		InstanceToken: hex.EncodeToString(token[:]),
+		ShutdownToken: hex.EncodeToString(shutdown[:]),
 		StartedAt:     time.Now().UTC(),
 		Version:       version,
 	}, nil
@@ -264,17 +275,32 @@ func processAlive(pid int) bool {
 }
 
 func processExecutable(pid int) (string, error) {
-	if runtime.GOOS == "linux" {
+	return processExecutableFor(runtime.GOOS, pid)
+}
+
+// processExecutableFor resolves the executable backing pid for the platform's
+// own GOOS. The goos is a parameter so every branch is reachable from a test on
+// one host; processExecutable feeds it the real one. An unsupported platform
+// fails CLOSED: validate() then refuses to certify the listener and the CLI
+// treats it as foreign rather than routing operator keys into it (#945).
+func processExecutableFor(goos string, pid int) (string, error) {
+	// android is the GOOS a Termux-built proxy carries (install-local-cli.sh
+	// runs plain `go build`), and it is Linux underneath: /proc/<pid>/exe
+	// reads there exactly as it does on linux for every process sharing this
+	// UID — which is every proxy this CLI could own. Missing android here
+	// made `caveman-proxy status` answer owner unknown for a proxy wrap had
+	// just started, so every local session reported a foreign listener.
+	if goos == "linux" || goos == "android" {
 		return os.Readlink(filepath.Join("/proc", strconv.Itoa(pid), "exe"))
 	}
-	if runtime.GOOS == "darwin" {
+	if goos == "darwin" {
 		out, err := exec.Command("ps", "-o", "comm=", "-p", strconv.Itoa(pid)).Output()
 		return strings.TrimSpace(string(out)), err
 	}
-	if runtime.GOOS == "windows" {
+	if goos == "windows" {
 		return processExecutableWindows(pid)
 	}
-	return "", fmt.Errorf("executable identity unsupported on %s", runtime.GOOS)
+	return "", fmt.Errorf("executable identity unsupported on %s", goos)
 }
 
 func instanceMatches(listen, token string) bool {

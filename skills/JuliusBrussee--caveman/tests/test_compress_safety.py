@@ -533,6 +533,19 @@ class CompressSafetyTests(unittest.TestCase):
                     compress_mod.call_claude(PROMPT_TEXT)
                 run.assert_not_called()
 
+    def test_opencode_non_object_agent_config_is_named(self):
+        # A truthy non-object `agent` used to blow up in the dict merge with a
+        # bare TypeError instead of the named RuntimeError used for other bad
+        # inline configs.
+        for bad in ('{"agent": "x"}', '{"agent": [1]}', '{"agent": 5}'):
+            with self.subTest(bad=bad), \
+                 llm_env(CAVEMAN_COMPRESS_PROVIDER=OPENCODE_PROVIDER), \
+                 mock.patch.dict(os.environ, {"OPENCODE_CONFIG_CONTENT": bad}), \
+                 mock.patch.object(compress_mod.subprocess, "run") as run:
+                with self.assertRaisesRegex(RuntimeError, "OPENCODE_CONFIG_CONTENT"):
+                    compress_mod.call_claude(PROMPT_TEXT)
+                run.assert_not_called()
+
     def test_compression_status_names_configured_provider(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = self._file_with(

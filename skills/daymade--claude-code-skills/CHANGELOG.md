@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **skill-creator** (`daymade-skill` v1.70.1): Use the fixed entry's help for its current command list and selected-tool arguments; retain executable examples and invocation boundaries. Change type: documentation deduplication; runtime unchanged.
+
+- **skill-creator** (`daymade-skill` v1.70.0): Add source-bound reading and scalar JSON selection with a final output-byte limit. Expose validation and reading through the fixed command entry; preserve direct invocation and distinguish selected content from complete loading.
+
+- **asr-transcribe-to-text** (`daymade-audio` v1.49.1): Keep unreliable recognizer output as a draft with speech content unknown; require independent source-audio evidence for no-speech claims. Treat density and repetition as inspection clues and recover only when conditions address the observed failure. Align the timing-leg warning while preserving its condition and timestamp payload. Change type: bounded transcript-admission correction.
+
+- **excel-automation** (`daymade-docs` v1.25.1): Route paper-form reconstruction from the repository entry to the existing workflow and remove derived capability and step counts. Change type: documentation alignment; workbook creation and control behavior unchanged.
+
+- **excel-automation** (`daymade-docs` v1.25.0): Add a workflow for reconstructing paper-form images or scans as editable XLSX files. Check source fields, prefill confirmed facts, preserve identifier and date types, and inspect printed pages with the actual print engine named. Change type: bounded form-reconstruction workflow.
+
+- **transcript-fixer** (`daymade-audio` v1.49.0): Accept the existing local MLX runner's file outputs with source, text, producer, pinned-model and GPU receipt checks; retain logs and separate audio evidence from verdicts. Add occurrence-specific Native/cold-review contrasts for standard-term normalization, address forms and homophonic spelling. Change type: bounded audio-intake capability and review clarification.
+
+- **terraform-skill** (v1.5.7): Require real release-entry wiring checks, authenticated promotion evidence and measured preservation on no-op plans; distinguish unordered runtime inventory from configuration changes and read live state before retrying a failed release. Change type: bounded release-verification extension.
+
 - **transcript-fixer** (`daymade-audio` v1.48.7): remove derived counts, duplicate exit summaries and obsolete cause attribution from source-audio helper commentary; keep executable behavior and CLI output unchanged.
 
 - **transcript-fixer** (`daymade-audio` v1.48.6): Align audio examples with verified media positions and a required stdout engine, complete the Stage 1 JSON example, and limit ledger writes to supported verdicts. Route reviewed-file continuation from project instructions and remove derived CLI navigation and counts.
