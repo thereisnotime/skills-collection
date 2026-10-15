@@ -14,7 +14,7 @@
       "description": "Improves an existing application using its code, product contract, authorized work history and competitor evidence. Use for 取长补短、取其精华去其糟粕、参考竞品优化应用 or evolving an app from successful and failed work. Carries authorized changes through implementation and user-result verification, including REA and reverse Skill composition; use skill-evolver for Skills.",
       "source": "./app-evolver",
       "strict": false,
-      "version": "1.1.0",
+      "version": "1.1.1",
       "category": "developer-tools",
       "keywords": ["app-improvement", "competitor-analysis", "work-history", "product-contract", "取长补短", "应用优化"]
     },
@@ -134,7 +134,7 @@
       "description": "Discover, clone, update, and analyze competitor repositories with evidence-based competitive intelligence. Use when tracking competitors, reviewing competitor source code, adding a competitor repository, comparing product capabilities, building a competitor landscape, checking latest competitor code, or when the user says 竞品分析, competitor scan, analyze competitor, or compare with X. Repository-backed findings must come from local cloned code with file:line citations; market-landscape claims must cite their source and volatility.",
       "source": "./competitors-analysis",
       "strict": false,
-      "version": "1.6.1",
+      "version": "1.6.4",
       "category": "productivity",
       "keywords": [
         "competitors",
@@ -151,7 +151,7 @@
       "description": "Claude Code operations suite that bundles cross-project prior-work retrieval across code, docs, Skills, meetings, WeChat archives, and conversation history; provider-separated Claude Code and Codex history readers; identity- and lineage-gated continuation workflows; plugin/skill troubleshooting; CLAUDE.md progressive disclosure optimization; version-synced Lark CLI routing; statusline configuration; exported .txt repair; full claude.ai conversation extraction with tool-call rendering and file download; plugin marketplace development and suite consolidation; writing/testing/debugging Claude Code hooks; multi-provider profile isolation; personal-memory migration into tool-agnostic AGENTS.md reference docs; one-shot local timers that ping Claude right after subscription quota reset to start a fresh 5-hour usage window; working web search installed on an agent whose relayed model backend cannot execute the built-in one; and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
       "source": "./daymade-claude-code",
       "strict": false,
-      "version": "4.27.10",
+      "version": "4.29.1",
       "category": "suite",
       "keywords": [
         "suite",
@@ -205,7 +205,7 @@
       "description": "OpenAI Codex operations and design exploration suite bundling model-aware long-context workstation setup, local Codex delegation, generated-image review, static visual-direction selection, and runnable HTML interaction Design Boards under one shared namespace.",
       "source": "./daymade-codex",
       "strict": false,
-      "version": "1.4.1",
+      "version": "1.4.2",
       "category": "suite",
       "keywords": [
         "suite",
@@ -310,7 +310,7 @@
       "description": "Apple-platform development and operations suite for macOS window capture, TCC permission diagnosis and Full Disk Access repair, iOS/macOS app development, disk cleanup, and launchd watchdogs.",
       "source": "./daymade-macos",
       "strict": false,
-      "version": "1.22.5",
+      "version": "1.22.6",
       "category": "suite",
       "keywords": [
         "suite",
@@ -490,7 +490,7 @@
       "description": "Operates GitHub via gh CLI and REST/GraphQL — PRs, issues, Actions, repos, collaborators, org permissions, 2FA — with explicit target, authorization, and independent readback. Use when a write reports success but state didn't change, or choosing gh/REST/GraphQL/UI-only. Not for local Git recovery (use git-safety-net), maintainer PR review (use github-review-pr), or upstream contribution (use github-contributor).",
       "source": "./github-ops",
       "strict": false,
-      "version": "1.14.8",
+      "version": "1.14.11",
       "category": "developer-tools",
       "keywords": [
         "github",
@@ -509,7 +509,7 @@
       "description": "Reviews PRs against the live base with immutable objects and three-way merges. Use for PR review/merge readiness, main changed, closed-PR reconsideration, open-PR sweeps, review-led repair, or explicitly requested independent review of your own contribution. Not for GitHub CRUD (use github-ops), authoring/maintaining your PR (use github-contributor), or merging without fresh review.",
       "source": "./github-review-pr",
       "strict": false,
-      "version": "1.4.4",
+      "version": "1.4.5",
       "category": "developer-tools",
       "keywords": [
         "github",
@@ -529,7 +529,7 @@
       "description": "Audits, preserves and recovers local Git state before cleanup: unpushed or wrong-branch commits, dirty worktrees, duplicate clones, stashes, dangling commits, squash-merge uncertainty. Use when the user fears lost work, wants to recover a commit, asks if a branch is actually merged, asks whether a branch, worktree or clone is safe to delete, or wants one clean main (误删分支 / 还有没有丢的东西). Not for GitHub PR operations.",
       "source": "./git-safety-net",
       "strict": false,
-      "version": "1.22.5",
+      "version": "1.22.6",
       "category": "developer-tools",
       "keywords": [
         "git",
@@ -687,10 +687,10 @@
     },
     {
       "name": "qa-expert",
-      "description": "Comprehensive QA testing infrastructure with autonomous LLM execution, Google Testing Standards (AAA pattern), and OWASP security testing. Use when establishing QA processes, writing test cases, executing test plans, tracking bugs with P0-P4 classification, calculating quality metrics, enforcing quality gates, or preparing third-party QA handoffs. Enables 100x faster test execution via master prompts",
+      "description": "QA process setup with AAA test cases, P0-P4 bug tracking, metrics reports, OWASP security testing and third-party handoffs. Use for test planning, approved-batch execution and checkpoint recovery through the bundled master prompt.",
       "source": "./qa-expert",
       "strict": false,
-      "version": "1.1.0",
+      "version": "1.1.2",
       "category": "developer-tools",
       "keywords": [
         "qa",
@@ -792,7 +792,7 @@
       "description": "Diagnoses and designs safe Terraform releases, provisioners (remote-exec/local-exec/file, cloud-init, Compose, Caddy), multi-environment isolation, and fresh-host bootstrap. Use when writing or reviewing plan/apply wrappers or provisioners; when staging/production config may differ; when a rollout can mutate a shared gateway; or debugging drift, TLS, container restarts, DNS duplication, or snapshot contamination.",
       "source": "./terraform-skill",
       "strict": false,
-      "version": "1.5.7",
+      "version": "1.5.8",
       "category": "developer-tools",
       "keywords": [
         "terraform",
@@ -810,7 +810,7 @@
       "description": "MUST be used first for tunnel / proxy-path connectivity failures or slow throughput (网络故障 / 连不上 / 代理或隧道下超时). Diagnoses Tailscale, proxy, TUN, DNS and SSH-tunnel problems on macOS and Windows/WSL, e.g. Tailscale ping works but SSH fails, curl works but browser gets 503, Git/Docker fails behind the proxy, or downloads crawl despite a reachable proxy. Not for application-layer bugs (use debugging-network-issues).",
       "source": "./tunnel-doctor",
       "strict": false,
-      "version": "1.17.1",
+      "version": "1.17.2",
       "category": "developer-tools",
       "keywords": [
         "tailscale",
@@ -1080,10 +1080,10 @@
     },
     {
       "name": "frontend-visual-qa",
-      "description": "Audits already-rendered UI and Markdown/Obsidian image layout — web app, deck/slide, dashboard, design-system, or Electron/native app — via real-browser/native-app journeys and a Playwright sweep. Use after UI implementation to find typography, overflow, responsive, routing, data-viz, browser-output, or native-shell defects, or to compare a render against a reference. Not for greenfield UI design (use ui-designer) or QA-program setup (use qa-expert).",
+      "description": "Audits rendered UI and specific task/object-link handoffs; excludes ordinary source citations alone. Audits already-rendered UI and Markdown/Obsidian image layout — web app, deck/slide, dashboard, design-system, or Electron/native app — via real-browser/native-app journeys and a Playwright sweep. Use after UI implementation to find typography, overflow, responsive, routing, data-viz, browser-output, or native-shell defects, or to compare a render against a reference. Not for greenfield UI design (use ui-designer) or QA-program setup (use qa-expert).",
       "source": "./frontend-visual-qa",
       "strict": false,
-      "version": "1.20.9",
+      "version": "1.21.1",
       "category": "design",
       "keywords": [
         "frontend",

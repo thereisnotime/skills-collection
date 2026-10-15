@@ -5,8 +5,8 @@ Current versions of all skills. Agents can compare against local versions to che
 | Skill | Version | Last Updated |
 |-------|---------|--------------|
 | ab-testing | 2.0.2 | 2026-10-12 |
-| ad-creative | 2.11.0 | 2026-10-12 |
-| ai-seo | 2.7.6 | 2026-10-08 |
+| ad-creative | 2.12.0 | 2026-10-14 |
+| ai-seo | 2.8.0 | 2026-10-14 |
 | analytics | 2.1.0 | 2026-10-12 |
 | aso | 2.0.2 | 2026-10-08 |
 | attribution | 1.1.5 | 2026-10-12 |
@@ -26,17 +26,17 @@ Current versions of all skills. Agents can compare against local versions to che
 | events | 1.0.0 | 2026-08-23 |
 | free-tools | 2.0.1 | 2026-08-23 |
 | image | 2.0.2 | 2026-10-02 |
-| influencer-marketing | 1.2.0 | 2026-10-12 |
+| influencer-marketing | 1.3.0 | 2026-10-14 |
 | launch | 2.2.0 | 2026-10-07 |
 | lead-magnets | 2.1.0 | 2026-10-08 |
 | marketing-council | 1.0.0 | 2026-07-06 |
 | marketing-ideas | 2.0.1 | 2026-08-23 |
-| marketing-loops | 1.4.0 | 2026-10-07 |
+| marketing-loops | 1.5.0 | 2026-10-14 |
 | marketing-plan | 1.2.2 | 2026-10-12 |
 | marketing-psychology | 2.0.0 | 2026-05-05 |
 | offers | 1.0.2 | 2026-10-12 |
 | onboarding | 2.0.2 | 2026-10-12 |
-| ads | 2.4.7 | 2026-10-12 |
+| ads | 2.5.0 | 2026-10-14 |
 | paywalls | 2.0.0 | 2026-05-05 |
 | popups | 2.0.0 | 2026-05-05 |
 | pricing | 2.1.4 | 2026-10-12 |
@@ -52,10 +52,21 @@ Current versions of all skills. Agents can compare against local versions to che
 | signup | 2.0.1 | 2026-10-08 |
 | site-architecture | 2.1.0 | 2026-10-06 |
 | sms | 1.1.0 | 2026-10-02 |
-| social | 2.3.4 | 2026-10-12 |
+| social | 2.4.0 | 2026-10-14 |
 | video | 2.2.1 | 2026-10-02 |
 
 ## Recent Changes
+
+### 2.11.30 (2026-10-14)
+
+Lessons from Railway's agent-first growth, Wispr Flow's creator ad program, and recent hook and X-listening threads, added to existing skills.
+
+- **ai-seo** (2.7.6 → 2.8.0): `references/agent-defaults.md` covers products an agent installs mid-task. It explains how to measure which vendor Claude Code, Cursor, and Codex pick per stack, which stall points to fix, and the levers that move the default (no-signup provisioning, agent setup, per-stack task pages, migration guides). It also rules out agent-facing instructions that tell agents to choose you.
+- **influencer-marketing** (1.2.0 → 1.3.0): `references/paid-ads-creator-program.md` covers creators paid a share of the ad spend behind their videos. It includes rate math, the guaranteed monthly minimum, recruiting a small cohort, staged growth with a cap, coaching, and four-part briefs.
+- **ads** (2.4.7 → 2.5.0): the Meta playbook adds creator ads at volume. Near-identical ads get clustered, so plan by concept, angle, and awareness level, optimize for a quality event, and test the funnel in Instagram's in-app browser. AI variant farming now notes that close variants count as one concept. LinkedIn retargeting is now sequenced by behavior.
+- **ad-creative** (2.11.0 → 2.12.0): the hook system adds the contrast family (choice, old vs. new, us vs. them, false assumption, declaration then question) and how it differs from the "it's not X, it's Y" AI tell.
+- **social** (2.3.4 → 2.4.0): contrast hooks in the short-form library, and X-through-Grok jobs in the listening reference.
+- **marketing-loops** (1.4.0 → 1.5.0): agent-default check, niche-outlier, creator-scouting, and launch-reaction loops. The catalog now has 56 loops.
 
 ### 2.11.29 (2026-10-13)
 

@@ -1,8 +1,8 @@
 {
   "name": "neon-postgres",
   "displayName": "Neon Postgres",
-  "version": "2.1.2",
-  "description": "Manage your Neon backend with the Neon agent skills and the Neon MCP Server: Lakebase Postgres, branching, Object Storage, Functions, and the AI Gateway",
+  "version": "2.2.0",
+  "description": "Manage your Neon backend with the Neon agent skills and the Neon MCP Server: Lakebase Postgres, Managed Better Auth, Realtime, Object Storage, Functions, the Data API, and AI Gateway",
   "author": {
     "name": "Neon",
     "email": "andre@neon.tech"

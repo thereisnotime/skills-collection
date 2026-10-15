@@ -10,15 +10,51 @@ in [operating and checked-invocation contract](../SKILL.md#universal-operating-c
 
 ### Basic PR Creation
 
-Prepare the local branch under the repository's Git safety rules, verify the remote's live
-visibility, then push the exact branch before creating the PR:
+Prepare the local branch under the repository's Git safety rules. Before the first
+push, verify the remote's live visibility and read the repository's publication
+policy and applicable branch rules. A PR-required base uses an authorized feature
+branch/PR; do not discover that rule by attempting a direct base push. A dry-run
+push does not exercise server-side protection. Unknown policy or a rejected push
+requires inspection and readback before any retry, not a bypass.
 
 ```bash
 git checkout -b feature/new-feature
 # Make, review, test, and commit the authorized changes.
-gh repo view OWNER/REPO --json nameWithOwner,visibility,isPrivate,url
-git push -u origin feature/new-feature
+gh repo view OWNER/REPO --json nameWithOwner,visibility,isPrivate,stargazerCount,forkCount,url
+gh api repos/OWNER/REPO/rules/branches/main
 ```
+
+Publish only after the repository's checks pass, including any required release
+evidence. When the user's existing Git publishing tools provide
+`push-and-verify.sh`, resolve its approved absolute path and check its header for
+the push interface. It is an optional separately maintained tool, not bundled in
+this Skill. The ordinary form resolves the source to a full commit before
+transport and requires independent remote equality:
+
+```bash
+<absolute-push-and-verify-helper> <absolute-repo> origin \
+  'feature/new-feature:refs/heads/feature/new-feature'
+```
+
+If no approved helper is available, use native Git with the same pinned source
+and checked readback. Read the full SHA with `rev-parse`; do not compose it from
+displayed fragments. Brace shell variables in refspecs so Zsh cannot interpret
+the colon as a variable modifier:
+
+```bash
+publish_sha=$(git -C "<absolute-repo>" rev-parse --verify 'feature/new-feature^{commit}') || exit 1
+git -C "<absolute-repo>" push origin "${publish_sha}:refs/heads/feature/new-feature" || exit 1
+remote_line=$(git -C "<absolute-repo>" ls-remote --exit-code origin refs/heads/feature/new-feature) || exit 1
+read -r remote_sha remote_ref <<< "$remote_line"
+test "$remote_sha" = "$publish_sha" &&
+  test "$remote_ref" = refs/heads/feature/new-feature || exit 1
+```
+
+Require the helper's positive `MATCH`/all-refs-verified result, or the native
+sequence's successful exact comparison, before creating the PR. A failed query,
+empty output or push receipt alone leaves publication unverified.
+If the branch needs upstream tracking, configure it after verified publication
+with `git -C "<absolute-repo>" branch --set-upstream-to=origin/feature/new-feature feature/new-feature`.
 
 ```bash
 # Create a PR against an explicit repository, base, and head
@@ -53,6 +89,14 @@ Use the owning sanitization workflow for content decisions; this reference binds
 inputs and hosted result. A clean source-file scan leaves PR text and commit messages
 unchecked unless they were also supplied. Do not add a separate reviewer for metadata.
 
+Include each candidate commit's author and committer name/email in that same private
+publication evidence. Inspect the committed Git object before pushing; a private or
+empty profile email does not hide the email stored in a Git commit. Compare these fields
+with the approved Git identity, and separately with a known prior public commit when
+distinguishing new exposure from existing public metadata. Keep a missing baseline or
+unread field unknown. Preserve configured identities and history unless changing them
+is explicitly authorized; an audit finding alone does not authorize either change.
+
 Create or edit the PR from the reviewed text, then use a fresh read to compare its exact
 title/body and head SHA with that reviewed input:
 
@@ -66,8 +110,16 @@ reviewed input. After landing, read the PR's merge commit and its hosted message
 
 ```bash
 gh pr view NUMBER -R OWNER/REPO --json state,mergeCommit,url
-gh api repos/OWNER/REPO/commits/MERGE_SHA --jq '{sha,message:.commit.message}'
+gh api repos/OWNER/REPO/commits/MERGE_SHA \
+  --jq '{sha,message:.commit.message,author:{name:.commit.author.name,email:.commit.author.email},committer:{name:.commit.committer.name,email:.commit.committer.email}}' \
+  > '<private-commit-evidence.json>'
 ```
+
+Apply this projection to every original pushed candidate SHA as well as the actual
+merge SHA. Read the captured fields privately, verify both roles, and compare them
+with the frozen identity evidence; squash/rebase or a hosted merge can change metadata.
+Report the inspected scope and whether a field is newly exposed without repeating
+private identity values in a public PR, changelog or audit summary.
 
 Set `MERGE_SHA` from that fresh PR read. Compare the published message with the intended
 landing text, and read the frozen source paths and changelog from that exact fetched

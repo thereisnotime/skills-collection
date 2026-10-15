@@ -10467,478 +10467,6 @@
       "words": 297,
       "code_blocks": 0,
       "languages": []
-    },
-    {
-      "name": "blog-reviewer",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-reviewer.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-reviewer.md",
-      "lines": 231,
-      "words": 1742,
-      "code_blocks": 2,
-      "languages": [
-        "markdown"
-      ]
-    },
-    {
-      "name": "blog-writer",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-writer.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-writer.md",
-      "lines": 200,
-      "words": 1210,
-      "code_blocks": 1,
-      "languages": []
-    },
-    {
-      "name": "blog-translator",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-translator.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-translator.md",
-      "lines": 172,
-      "words": 948,
-      "code_blocks": 2,
-      "languages": [
-        "markdown",
-        "yaml"
-      ]
-    },
-    {
-      "name": "blog-researcher",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-researcher.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-researcher.md",
-      "lines": 272,
-      "words": 1832,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
-    },
-    {
-      "name": "blog-seo",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-seo.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-seo.md",
-      "lines": 131,
-      "words": 744,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
-    },
-    {
-      "name": "blog-audio",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-audio/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-audio/SKILL.md",
-      "lines": 252,
-      "words": 1255,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "html",
-        "jsx",
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-analyze",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-analyze/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-analyze/SKILL.md",
-      "lines": 332,
-      "words": 2145,
-      "code_blocks": 5,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-notebooklm",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-notebooklm/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-notebooklm/SKILL.md",
-      "lines": 255,
-      "words": 1289,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-seo-check",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-seo-check/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-seo-check/SKILL.md",
-      "lines": 237,
-      "words": 1781,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog/SKILL.md",
-      "lines": 471,
-      "words": 4576,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-geo",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-geo/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-geo/SKILL.md",
-      "lines": 313,
-      "words": 1726,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-cannibalization",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-cannibalization/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-cannibalization/SKILL.md",
-      "lines": 224,
-      "words": 1288,
-      "code_blocks": 4,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-strategy",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-strategy/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-strategy/SKILL.md",
-      "lines": 374,
-      "words": 2354,
-      "code_blocks": 8,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-image",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-image/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-image/SKILL.md",
-      "lines": 309,
-      "words": 1932,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "markdown",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-persona",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-persona/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-persona/SKILL.md",
-      "lines": 227,
-      "words": 1317,
-      "code_blocks": 1,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-audit",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-audit/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-audit/SKILL.md",
-      "lines": 255,
-      "words": 1398,
-      "code_blocks": 7,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-brief",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-brief/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-brief/SKILL.md",
-      "lines": 275,
-      "words": 1816,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-write",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-write/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-write/SKILL.md",
-      "lines": 499,
-      "words": 3112,
-      "code_blocks": 15,
-      "languages": [
-        "html",
-        "markdown",
-        "mdx",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-repurpose",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-repurpose/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-repurpose/SKILL.md",
-      "lines": 290,
-      "words": 1703,
-      "code_blocks": 2,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-outline",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-outline/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-outline/SKILL.md",
-      "lines": 147,
-      "words": 886,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-cluster",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-cluster/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-cluster/SKILL.md",
-      "lines": 333,
-      "words": 2725,
-      "code_blocks": 2,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-rewrite",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-rewrite/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-rewrite/SKILL.md",
-      "lines": 376,
-      "words": 2769,
-      "code_blocks": 3,
-      "languages": [
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-discourse",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-discourse/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-discourse/SKILL.md",
-      "lines": 223,
-      "words": 1894,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "json",
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-localize",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-localize/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-localize/SKILL.md",
-      "lines": 224,
-      "words": 1390,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-calendar",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-calendar/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-calendar/SKILL.md",
-      "lines": 305,
-      "words": 1746,
-      "code_blocks": 7,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-multilingual",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-multilingual/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-multilingual/SKILL.md",
-      "lines": 343,
-      "words": 1596,
-      "code_blocks": 7,
-      "languages": [
-        "html",
-        "json",
-        "xml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-decay",
-      "description": "Detect content decay from Google Search Console exports by comparing current and previous page performance, flagging quarter-over-quarter traffic drops, dropped pages, and refresh, consolidate, prune,",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-decay/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-decay/SKILL.md",
-      "lines": 89,
-      "words": 526,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-style",
-      "description": "Learn author writing style from 5 to 10 existing blog posts and generate a voice profile for /blog style learn, VOICE.md, blog-persona, and blog-write when users ask to infer tone, analyze author voic",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-style/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-style/SKILL.md",
-      "lines": 89,
-      "words": 465,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-factcheck",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-factcheck/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-factcheck/SKILL.md",
-      "lines": 187,
-      "words": 1328,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-google",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-google/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-google/SKILL.md",
-      "lines": 277,
-      "words": 1452,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-chart",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-chart/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-chart/SKILL.md",
-      "lines": 279,
-      "words": 1376,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "html",
-        "jsx",
-        "mdx",
-        "xml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-schema",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-schema/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-schema/SKILL.md",
-      "lines": 288,
-      "words": 1160,
-      "code_blocks": 8,
-      "languages": [
-        "html",
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-brand",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-brand/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-brand/SKILL.md",
-      "lines": 240,
-      "words": 1404,
-      "code_blocks": 2,
-      "languages": [
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-flow",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-flow/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-flow/SKILL.md",
-      "lines": 190,
-      "words": 1113,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-translate",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-translate/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-translate/SKILL.md",
-      "lines": 218,
-      "words": 1146,
-      "code_blocks": 3,
-      "languages": [
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-taxonomy",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-taxonomy/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-taxonomy/SKILL.md",
-      "lines": 288,
-      "words": 1432,
-      "code_blocks": 14,
-      "languages": [
-        "graphql"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-locale-audit",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-locale-audit/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-locale-audit/SKILL.md",
-      "lines": 211,
-      "words": 1238,
-      "code_blocks": 3,
-      "languages": [],
-      "license": "MIT"
     }
   ],
   "AgriciDaniel--claude-email": [
@@ -11481,11 +11009,11 @@
     },
     {
       "name": "ce-simplify-code",
-      "description": "\"Simplify settled, recently changed code for clarity, reuse, quality, and efficiency while preserving behavior. Use after implementation and before review; use ce-debug for bugs.\"",
+      "description": "\"Simplify code for clarity, reuse, quality, and efficiency while preserving behavior, and prune tests and comments that carry no value. Use after implementation and before review, or to audit tests or",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-simplify-code/SKILL.md",
       "remote_path": "skills/ce-simplify-code/SKILL.md",
-      "lines": 67,
-      "words": 1003,
+      "lines": 75,
+      "words": 1149,
       "code_blocks": 0,
       "languages": []
     },
@@ -11704,7 +11232,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
       "lines": 60,
-      "words": 1203,
+      "words": 1205,
       "code_blocks": 0,
       "languages": []
     },
@@ -22797,7 +22325,7 @@
       "path": "cloudflare--skills/skills/cloudflare/SKILL.md",
       "remote_path": "skills/cloudflare/SKILL.md",
       "lines": 151,
-      "words": 3296,
+      "words": 3301,
       "code_blocks": 0,
       "languages": []
     },
@@ -23379,7 +22907,7 @@
       "path": "coreyhaines31--marketingskills/skills/ads/SKILL.md",
       "remote_path": "skills/ads/SKILL.md",
       "lines": 473,
-      "words": 4012,
+      "words": 4024,
       "code_blocks": 2,
       "languages": []
     },
@@ -23418,8 +22946,8 @@
       "description": "\"When the user wants to run influencer, creator, or ambassador partnerships to promote their product \u2014 finding and vetting partners, structuring deals, briefing creators, disclosure compliance, and me",
       "path": "coreyhaines31--marketingskills/skills/influencer-marketing/SKILL.md",
       "remote_path": "skills/influencer-marketing/SKILL.md",
-      "lines": 206,
-      "words": 2840,
+      "lines": 208,
+      "words": 2918,
       "code_blocks": 0,
       "languages": []
     },
@@ -23470,8 +22998,8 @@
       "description": "\"When the user wants to optimize content for AI search engines, get cited by LLMs, or appear in AI-generated answers. Also use when the user mentions 'AI SEO,' 'AEO,' 'GEO,' 'LLMO,' 'answer engine opt",
       "path": "coreyhaines31--marketingskills/skills/ai-seo/SKILL.md",
       "remote_path": "skills/ai-seo/SKILL.md",
-      "lines": 499,
-      "words": 4843,
+      "lines": 500,
+      "words": 4872,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -25375,8 +24903,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres/SKILL.md",
-      "lines": 281,
-      "words": 2200,
+      "lines": 284,
+      "words": 2220,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -25388,8 +24916,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 503,
-      "words": 5037,
+      "lines": 508,
+      "words": 5156,
       "code_blocks": 24,
       "languages": [
         "bash",
@@ -25414,8 +24942,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
-      "lines": 228,
-      "words": 2021,
+      "lines": 229,
+      "words": 2025,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25437,12 +24965,26 @@
       ]
     },
     {
+      "name": "neon-realtime",
+      "description": ">-",
+      "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-realtime/SKILL.md",
+      "remote_path": "plugins/neon-postgres/skills/neon-realtime/SKILL.md",
+      "lines": 207,
+      "words": 1909,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
       "name": "neon-functions",
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
-      "lines": 667,
-      "words": 6666,
+      "lines": 668,
+      "words": 6756,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25527,8 +25069,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
-      "lines": 281,
-      "words": 2200,
+      "lines": 284,
+      "words": 2220,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -25540,8 +25082,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 503,
-      "words": 5037,
+      "lines": 508,
+      "words": 5156,
       "code_blocks": 24,
       "languages": [
         "bash",
@@ -25566,8 +25108,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-object-storage/SKILL.md",
       "remote_path": "skills/neon-object-storage/SKILL.md",
-      "lines": 228,
-      "words": 2021,
+      "lines": 229,
+      "words": 2025,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25589,12 +25131,26 @@
       ]
     },
     {
+      "name": "neon-realtime",
+      "description": ">-",
+      "path": "neondatabase--agent-skills/skills/neon-realtime/SKILL.md",
+      "remote_path": "skills/neon-realtime/SKILL.md",
+      "lines": 207,
+      "words": 1909,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
       "name": "neon-functions",
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
-      "lines": 667,
-      "words": 6666,
+      "lines": 668,
+      "words": 6756,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -29286,8 +28842,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 76,
-      "words": 958,
+      "lines": 79,
+      "words": 990,
       "code_blocks": 0,
       "languages": []
     },
@@ -29402,8 +28958,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 76,
-      "words": 958,
+      "lines": 79,
+      "words": 990,
       "code_blocks": 0,
       "languages": []
     },
@@ -29518,8 +29074,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 76,
-      "words": 958,
+      "lines": 79,
+      "words": 990,
       "code_blocks": 0,
       "languages": []
     },
@@ -29644,8 +29200,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 76,
-      "words": 958,
+      "lines": 79,
+      "words": 990,
       "code_blocks": 0,
       "languages": []
     },
@@ -29770,8 +29326,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 76,
-      "words": 958,
+      "lines": 79,
+      "words": 990,
       "code_blocks": 0,
       "languages": []
     },
@@ -29886,8 +29442,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-apps/SKILL.md",
       "remote_path": "skills/stripe-apps/SKILL.md",
-      "lines": 76,
-      "words": 958,
+      "lines": 79,
+      "words": 990,
       "code_blocks": 0,
       "languages": []
     },
@@ -30175,8 +29731,8 @@
       "description": ">",
       "path": "trailofbits--skills/plugins/yara-authoring/skills/yara-rule-authoring/SKILL.md",
       "remote_path": "plugins/yara-authoring/skills/yara-rule-authoring/SKILL.md",
-      "lines": 437,
-      "words": 3372,
+      "lines": 452,
+      "words": 3509,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -30538,14 +30094,13 @@
       "description": ">",
       "path": "trailofbits--skills/plugins/trailmark/skills/diagramming-code/SKILL.md",
       "remote_path": "plugins/trailmark/skills/diagramming-code/SKILL.md",
-      "lines": 213,
-      "words": 970,
-      "code_blocks": 11,
+      "lines": 206,
+      "words": 983,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "markdown",
-        "mermaid",
-        "python"
+        "mermaid"
       ]
     },
     {
@@ -30566,8 +30121,8 @@
       "description": "\"Translates Mermaid sequenceDiagrams describing cryptographic protocols into ProVerif formal verification models (.pv files). Use when generating a ProVerif model, formally verifying a protocol, conve",
       "path": "trailofbits--skills/plugins/trailmark/skills/mermaid-to-proverif/SKILL.md",
       "remote_path": "plugins/trailmark/skills/mermaid-to-proverif/SKILL.md",
-      "lines": 462,
-      "words": 2634,
+      "lines": 466,
+      "words": 2686,
       "code_blocks": 16,
       "languages": [
         "proverif"
@@ -30590,8 +30145,8 @@
       "description": "\"Builds and queries multi-language source and binary code graphs for security analysis. Includes pre-analysis passes for blast radius, taint propagation, privilege boundaries, entry point enumeration,",
       "path": "trailofbits--skills/plugins/trailmark/skills/trailmark/SKILL.md",
       "remote_path": "plugins/trailmark/skills/trailmark/SKILL.md",
-      "lines": 387,
-      "words": 2051,
+      "lines": 388,
+      "words": 2060,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -30652,10 +30207,12 @@
       "description": "\"Performs graph-assisted triage of a single security finding, SARIF result, weAudit annotation, suspicious function, or report excerpt using Trailmark reachability, entrypoint paths, taint, privilege-",
       "path": "trailofbits--skills/plugins/trailmark/skills/trailmark-finding-triage/SKILL.md",
       "remote_path": "plugins/trailmark/skills/trailmark-finding-triage/SKILL.md",
-      "lines": 139,
-      "words": 875,
-      "code_blocks": 1,
-      "languages": []
+      "lines": 170,
+      "words": 1154,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "trailmark-structural",
@@ -30688,9 +30245,9 @@
       "description": "Scans Android APKs for Firebase security misconfigurations including open databases, storage buckets, authentication issues, and exposed cloud functions. Use when analyzing APK files for Firebase vuln",
       "path": "trailofbits--skills/plugins/firebase-apk-scanner/skills/firebase-apk-scanner/SKILL.md",
       "remote_path": "plugins/firebase-apk-scanner/skills/firebase-apk-scanner/SKILL.md",
-      "lines": 207,
-      "words": 988,
-      "code_blocks": 8,
+      "lines": 161,
+      "words": 973,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -30748,7 +30305,7 @@
       "path": "trailofbits--skills/plugins/zeroize-audit/agents/4-report-assembler.md",
       "remote_path": "plugins/zeroize-audit/agents/4-report-assembler.md",
       "lines": 294,
-      "words": 1889,
+      "words": 1891,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -30762,7 +30319,7 @@
       "path": "trailofbits--skills/plugins/zeroize-audit/agents/3b-rust-compiler-analyzer.md",
       "remote_path": "plugins/zeroize-audit/agents/3b-rust-compiler-analyzer.md",
       "lines": 313,
-      "words": 2145,
+      "words": 2147,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -30775,7 +30332,7 @@
       "path": "trailofbits--skills/plugins/zeroize-audit/agents/2b-rust-source-analyzer.md",
       "remote_path": "plugins/zeroize-audit/agents/2b-rust-source-analyzer.md",
       "lines": 228,
-      "words": 1281,
+      "words": 1283,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -30788,7 +30345,7 @@
       "path": "trailofbits--skills/plugins/zeroize-audit/agents/0-preflight.md",
       "remote_path": "plugins/zeroize-audit/agents/0-preflight.md",
       "lines": 163,
-      "words": 796,
+      "words": 798,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -30813,7 +30370,7 @@
       "path": "trailofbits--skills/plugins/zeroize-audit/agents/6-test-generator.md",
       "remote_path": "plugins/zeroize-audit/agents/6-test-generator.md",
       "lines": 76,
-      "words": 416,
+      "words": 418,
       "code_blocks": 0,
       "languages": []
     },
@@ -30823,7 +30380,7 @@
       "path": "trailofbits--skills/plugins/zeroize-audit/agents/5-poc-generator.md",
       "remote_path": "plugins/zeroize-audit/agents/5-poc-generator.md",
       "lines": 327,
-      "words": 2254,
+      "words": 2256,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -30848,7 +30405,7 @@
       "path": "trailofbits--skills/plugins/zeroize-audit/agents/3-tu-compiler-analyzer.md",
       "remote_path": "plugins/zeroize-audit/agents/3-tu-compiler-analyzer.md",
       "lines": 208,
-      "words": 1077,
+      "words": 1079,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -30872,8 +30429,8 @@
       "description": "\"Detects missing zeroization of sensitive data in source code and identifies zeroization removed by compiler optimizations, with assembly-level analysis, and control-flow verification. Use for auditin",
       "path": "trailofbits--skills/plugins/zeroize-audit/skills/zeroize-audit/SKILL.md",
       "remote_path": "plugins/zeroize-audit/skills/zeroize-audit/SKILL.md",
-      "lines": 378,
-      "words": 3209,
+      "lines": 388,
+      "words": 3564,
       "code_blocks": 2,
       "languages": [
         "json"
@@ -30896,12 +30453,11 @@
       "description": "Discovers dimensional vocabulary for codebases by analyzing naming conventions and protocol patterns",
       "path": "trailofbits--skills/plugins/dimensional-analysis/agents/dimension-discoverer.md",
       "remote_path": "plugins/dimensional-analysis/agents/dimension-discoverer.md",
-      "lines": 257,
-      "words": 1214,
-      "code_blocks": 8,
+      "lines": 222,
+      "words": 982,
+      "code_blocks": 7,
       "languages": [
         "json",
-        "markdown",
         "rust",
         "solidity"
       ]
@@ -30911,8 +30467,8 @@
       "description": "Adds dimensional annotations to source code at anchor points using Reserve Protocol's format",
       "path": "trailofbits--skills/plugins/dimensional-analysis/agents/dimension-annotator.md",
       "remote_path": "plugins/dimensional-analysis/agents/dimension-annotator.md",
-      "lines": 303,
-      "words": 1286,
+      "lines": 301,
+      "words": 1282,
       "code_blocks": 11,
       "languages": [
         "solidity"
@@ -30923,9 +30479,9 @@
       "description": "Scans repo for files with dimensional arithmetic to scope discovery",
       "path": "trailofbits--skills/plugins/dimensional-analysis/agents/arithmetic-scanner.md",
       "remote_path": "plugins/dimensional-analysis/agents/arithmetic-scanner.md",
-      "lines": 268,
-      "words": 1632,
-      "code_blocks": 3,
+      "lines": 211,
+      "words": 1357,
+      "code_blocks": 2,
       "languages": [
         "json"
       ]
@@ -30935,8 +30491,8 @@
       "description": "Validates dimensional consistency and detects dimensional bugs in annotated code",
       "path": "trailofbits--skills/plugins/dimensional-analysis/agents/dimension-validator.md",
       "remote_path": "plugins/dimensional-analysis/agents/dimension-validator.md",
-      "lines": 422,
-      "words": 1549,
+      "lines": 429,
+      "words": 1660,
       "code_blocks": 19,
       "languages": [
         "json",
@@ -30950,8 +30506,8 @@
       "description": "Propagates dimensional annotations through arithmetic and call chains, reporting mismatches found during propagation",
       "path": "trailofbits--skills/plugins/dimensional-analysis/agents/dimension-propagator.md",
       "remote_path": "plugins/dimensional-analysis/agents/dimension-propagator.md",
-      "lines": 219,
-      "words": 1405,
+      "lines": 217,
+      "words": 1402,
       "code_blocks": 4,
       "languages": [
         "solidity"
@@ -30959,11 +30515,11 @@
     },
     {
       "name": "dimensional-analysis",
-      "description": "\"Annotates codebases with dimensional analysis comments documenting units, dimensions, and decimal scaling. Use when someone asks to annotate units in a codebase, perform a dimensional analysis, or fi",
+      "description": "\"Audits code for unit and decimal-scaling bugs and annotates it with dimensional comments recording the units of each value. Use when someone asks to audit or review code for unit confusion, decimals ",
       "path": "trailofbits--skills/plugins/dimensional-analysis/skills/dimensional-analysis/SKILL.md",
       "remote_path": "plugins/dimensional-analysis/skills/dimensional-analysis/SKILL.md",
-      "lines": 267,
-      "words": 2404,
+      "lines": 178,
+      "words": 1308,
       "code_blocks": 2,
       "languages": [
         "json",
@@ -157536,8 +157092,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/competitors-analysis/SKILL.md",
       "remote_path": "competitors-analysis/SKILL.md",
-      "lines": 324,
-      "words": 2075,
+      "lines": 330,
+      "words": 2113,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -157562,8 +157118,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 829,
-      "words": 9848,
+      "lines": 834,
+      "words": 9887,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -157611,8 +157167,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/qa-expert/SKILL.md",
       "remote_path": "qa-expert/SKILL.md",
-      "lines": 294,
-      "words": 1379,
+      "lines": 309,
+      "words": 1563,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -157623,8 +157179,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1329,
-      "words": 12772,
+      "lines": 1332,
+      "words": 12857,
       "code_blocks": 71,
       "languages": [
         "bash",
@@ -157650,8 +157206,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-review-pr/SKILL.md",
       "remote_path": "github-review-pr/SKILL.md",
-      "lines": 545,
-      "words": 4009,
+      "lines": 562,
+      "words": 4172,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -157810,8 +157366,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 586,
-      "words": 4510,
+      "lines": 595,
+      "words": 4578,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -158165,7 +157721,7 @@
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
       "lines": 308,
-      "words": 5954,
+      "words": 5908,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -158273,8 +157829,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-codex/local-codex/SKILL.md",
       "remote_path": "daymade-codex/local-codex/SKILL.md",
-      "lines": 144,
-      "words": 978,
+      "lines": 143,
+      "words": 996,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -158415,8 +157971,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 345,
-      "words": 3055,
+      "lines": 344,
+      "words": 2982,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -158478,9 +158034,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 361,
-      "words": 3019,
-      "code_blocks": 6,
+      "lines": 420,
+      "words": 3539,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "text"
@@ -158842,8 +158398,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/references/evidence-and-fit.md",
       "remote_path": "app-evolver/references/evidence-and-fit.md",
-      "lines": 82,
-      "words": 587,
+      "lines": 97,
+      "words": 784,
       "code_blocks": 0,
       "languages": []
     },
@@ -159106,8 +158662,8 @@
       "description": "Compare selected deployed HTTP resources with a frozen release when freshness or deployment is part of a UI acceptance claim.",
       "path": "daymade--claude-code-skills/frontend-visual-qa/references/delivery-verification.md",
       "remote_path": "frontend-visual-qa/references/delivery-verification.md",
-      "lines": 79,
-      "words": 508,
+      "lines": 99,
+      "words": 704,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -181569,8 +181125,8 @@
       "description": "\"Show ponytail measured impact as a scoreboard: less code, less cost, more speed, from the agentic benchmark averages. One-shot display.\"",
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-gain/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-gain/SKILL.md",
-      "lines": 53,
-      "words": 294,
+      "lines": 52,
+      "words": 288,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -181580,8 +181136,8 @@
       "description": "\"Harvest every shortcut: comment into one debt ledger, so deferrals get tracked instead of forgotten. One-shot report.\"",
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-debt/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-debt/SKILL.md",
-      "lines": 45,
-      "words": 268,
+      "lines": 44,
+      "words": 261,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -181650,8 +181206,8 @@
       "description": ">",
       "path": "dietrichgebert--ponytail/skills/ponytail-gain/SKILL.md",
       "remote_path": "skills/ponytail-gain/SKILL.md",
-      "lines": 54,
-      "words": 292,
+      "lines": 53,
+      "words": 286,
       "code_blocks": 1,
       "languages": []
     },
@@ -181660,8 +181216,8 @@
       "description": ">",
       "path": "dietrichgebert--ponytail/skills/ponytail-debt/SKILL.md",
       "remote_path": "skills/ponytail-debt/SKILL.md",
-      "lines": 46,
-      "words": 276,
+      "lines": 45,
+      "words": 269,
       "code_blocks": 0,
       "languages": []
     },

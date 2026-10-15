@@ -872,9 +872,9 @@ Establish world-class QA testing processes with autonomous LLM execution, Google
 - Preparing QA documentation for third-party team handoffs
 
 **Key features:**
-- **One-command initialization**: Complete QA infrastructure with templates, CSVs, and documentation
-- **Autonomous execution**: Master prompt enables LLM to auto-execute all tests, auto-track results, auto-file bugs
-- **Testing standards and quality gates**: Follow [qa-expert](./qa-expert/SKILL.md) for the canonical policy
+- **One-command initialization**: QA directories, templates and example CSVs
+- **Autonomous execution**: Follow the approved project plan with result tracking and bug reports
+- **Testing standards and quality gates**: Follow [qa-expert](./qa-expert/SKILL.md) for execution; the target project owns release policy
 - **Ground Truth Principle**: Prevents doc/CSV sync issues (test docs = authoritative source)
 - **Bug tracking**: P0-P4 classification with detailed repro steps and environment info
 - **Onboarding**: Guide for new QA engineers
@@ -883,11 +883,11 @@ Establish world-class QA testing processes with autonomous LLM execution, Google
 
 **Example usage:**
 ```bash
-# Initialize QA project (creates full infrastructure)
-python3 scripts/init_qa_project.py my-app ./
+# Resolve qa-expert-dir from the loaded Skill; use a fresh project root
+uv run <qa-expert-dir>/scripts/init_qa_project.py my-app <project-root>
 
 # Calculate quality metrics and gates status
-python3 scripts/calculate_metrics.py tests/TEST-EXECUTION-TRACKING.csv
+uv run <qa-expert-dir>/scripts/calculate_metrics.py <project-root>/tests/docs/templates/TEST-EXECUTION-TRACKING.csv
 
 # For autonomous execution, copy master prompt from:
 # references/master_qa_prompt.md → paste to LLM → execute the project's approved test plan
@@ -902,11 +902,11 @@ python3 scripts/calculate_metrics.py tests/TEST-EXECUTION-TRACKING.csv
 - `google_testing_standards.md` - AAA pattern, coverage thresholds, OWASP testing
 - `day1_onboarding.md` - Onboarding timeline for new QA engineers
 - `ground_truth_principle.md` - Preventing doc/CSV sync issues
-- `llm_prompts_library.md` - 30+ ready-to-use QA prompts
+- `llm_prompts_library.md` - Task-specific QA prompts
 
 **Requirements**: Python 3.8+
 
-**💡 Innovation**: The autonomous execution capability (via master prompt) enables LLM to execute entire test suites 100x faster than manual execution, with zero human error in tracking. Perfect for third-party QA handoffs - just provide the master prompt and they can start testing immediately.
+Initialization creates templates. Before execution, replace example rows, supply test specifications and verify the project harness. Follow [the execution SOP](./qa-expert/references/master_qa_prompt.md) for recovery and handoff.
 
 ---
 
@@ -982,68 +982,19 @@ for history recall, interrupted work and conversation-backup health checks.
 
 > **Install**: `claude plugin install daymade-claude-code@daymade-skills` (suite-only — invoked as `daymade-claude-code:read-claude-code-history`)
 
-Read, search, and export Claude Code history across all active config homes and
-the long-term archives registered in `~/.claude/history-sources.json`, without
-resuming or modifying the old task.
+Inspect prior work without resuming the old task. Start with the
+[result router](./daymade-claude-code/read-claude-code-history/SKILL.md#route-by-the-requested-result)
+for the current workflow, prerequisites and coverage limits.
 
-**When to use:**
-- Recovering deleted or lost files from previous Claude Code sessions
-- Reconstructing one known Session as a chronological user/assistant handoff
-- Listing what the human actually typed, including queued mid-turn corrections
-- Searching for specific code across conversation history
-- Tracking file modifications across multiple sessions
-- Finding sessions containing specific keywords or implementations
-- Finding which session ran a given command or tool call in a known time window, or when hook runs happened (outcome, duration, exit code)
-- Verifying date-bounded topics after a machine migration without trusting mtime
+**Choose the requested result:**
 
-**Key features:**
-- **Complete source set**: Search active homes and registered archives by default
-- **Provider boundary**: Claude-only by default; Codex requests route to `read-codex-history`
-- **Cross-project sweep**: `--all-projects` searches every Claude project when the project is unknown; `--exclude-session` skips self-matches
-- **Copy-safe union**: Search distinct records from every copy of a session ID without double-counting identical records
-- **Internal-time search**: Filter matching records by JSONL timestamps, never file mtime
-- **Structured search**: Cover messages, thinking, tools, results, queues, attachments, summaries, and original file-history paths
-- **Exact checkpoint recovery**: Union same-session copies and companion roots, then restore captured bytes after Write/Edit/shell changes, including binaries and pre-deletion checkpoints
-- **Fail-visible fidelity**: Label Write-only checkpoints as lower fidelity and abort when exact metadata points to missing bytes instead of silently guessing
-- **Statistics analysis**: Message counts, tool usage breakdown, file operations
-- **Batch operations**: Process multiple sessions with keyword filtering
-- **Streaming processing**: Handle large session files (>100MB) efficiently
-- **Read/continue separation**: Produces an evidence receipt and never resumes work itself
+- Unknown Session or remembered topic: [indexed discovery](./daymade-claude-code/read-claude-code-history/SKILL.md#indexed-content-search)
+- Known Session: [chronological evidence](./daymade-claude-code/read-claude-code-history/SKILL.md#exact-session-evidence)
+- Original command and its receipt: [tool call/result evidence](./daymade-claude-code/read-claude-code-history/SKILL.md#original-tool-callresult-evidence)
+- Verbatim human wording: [human-input export](./daymade-claude-code/read-claude-code-history/SKILL.md#human-input-export)
+- Deleted or overwritten files: [recovery workflow](./daymade-claude-code/read-claude-code-history/SKILL.md#deleted-content-recovery)
 
-**Example usage:**
-```bash
-# List recent sessions for a project
-python3 scripts/analyze_sessions.py list /path/to/project
-
-# Read one Session chronologically, preserving queued human input
-python3 scripts/read_claude_session.py --session <session-id> --project /path/to/project --full
-
-# Export recent human wording grouped by Session
-python3 scripts/extract_user_messages.py ./user-words --days 7 --group-by session
-
-# Search sessions for keywords
-python3 scripts/analyze_sessions.py search /path/to/project \
-  "ComponentName" "featureX" --from-date 2026-03-01 --to-date 2026-04-30
-
-# Recover deleted files from the exact path printed by search
-python3 scripts/recover_content.py <printed-session-path> -k DeletedComponent -o ./recovered/
-
-# Search every project for multiple vanished job artifacts
-python3 scripts/analyze_sessions.py search --all-projects \
-  artifact-a.html artifact-b.html \
-  --exclude-session <current-session-id>
-
-# Get session statistics
-python3 scripts/analyze_sessions.py stats /path/to/session.jsonl --show-files
-```
-
-**🎬 Live Demo**
-
-*Coming soon*
-
-📚 **Documentation**: See [daymade-claude-code/read-claude-code-history/references/](./daymade-claude-code/read-claude-code-history/references/) for:
-- `session_file_format.md` - JSONL structure and extraction patterns
-- `workflow_examples.md` - Detailed recovery and analysis workflows
+Use the commands in those entries rather than a separate README recipe.
 
 ---
 
@@ -4084,7 +4035,7 @@ Use **capture-screen** to script repeatable app-window screenshots. Combine with
 Use **meeting-minutes-taker** to transform raw meeting transcripts into structured, evidence-based minutes. Combine with **transcript-fixer** to clean up ASR errors before generating minutes. Features multi-pass generation with UNION merge to avoid content loss.
 
 ### For QA Testing & Quality Assurance
-Use **qa-expert** to establish comprehensive QA testing infrastructure with autonomous LLM execution, Google Testing Standards, and OWASP security testing. Perfect for project launches, third-party QA handoffs, and enforcing quality gates (100% execution, ≥80% pass rate, 0 P0 bugs). The master prompt enables 100x faster test execution with zero tracking errors.
+Use [qa-expert](./qa-expert/SKILL.md) for QA setup, test cases, execution tracking, reporting and third-party handoffs.
 
 ### For Prompt Engineering & Requirements Engineering
 Use **prompt-optimizer** to transform vague feature requests into precise EARS specifications with domain theory grounding. Perfect for product requirements documents, AI-assisted coding, and learning prompt engineering best practices. Combine with **skill-creator** to create well-structured skill prompts, or with **ppt-creator** to ensure presentation content requirements are clearly specified.

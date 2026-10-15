@@ -1,0 +1,6 @@
+# Prettier also reads .gitignore. Add only paths to leave unformatted here.
+
+# Generated from the Neon docs by scripts/sync-skill-docs.mjs. Reformatting
+# would break their sha256 headers; regenerate with npm run sync:docs instead.
+skills/neon-realtime/references/
+plugins/*/skills/neon-realtime/references/

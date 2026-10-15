@@ -27,7 +27,10 @@ Use these existing product documents to determine which capability fits and whet
 | Task | Read |
 | --- | --- |
 | Select an extension interface and its supported implementation types | [Extension points](https://docs.stripe.com/extensions/extension-points.md) and [how extensions work](https://docs.stripe.com/extensions/how-extensions-work.md) |
+| Change how items are included on subscription invoices | [Item handling extensions](https://docs.stripe.com/billing/scripts/item-handling.md) |
 | Customize prorations | [Native proration behavior](https://docs.stripe.com/billing/subscriptions/prorations.md) and [prorations extensions](https://docs.stripe.com/billing/scripts/prorations.md) |
+| Apply customer balances | [Customer balance extensions](https://docs.stripe.com/billing/scripts/customer-balance.md) |
+| Calculate discount amounts | [Discount calculation extensions](https://docs.stripe.com/billing/scripts/discount-calculation.md) |
 | Add an action to Stripe Workflows | [Existing workflow actions](https://docs.stripe.com/workflows/define-workflows.md#actions), [existing custom actions](https://docs.stripe.com/workflows/custom-actions.md), and [how custom actions work](https://docs.stripe.com/extensions/custom-actions/how-custom-actions-work.md) |
 | Customize another product’s behavior | Follow the selected interface’s product documentation from the extension-point catalog |
 
