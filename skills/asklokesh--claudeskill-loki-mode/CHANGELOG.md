@@ -5,6 +5,428 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.15.0 (2026-10-16)
+
+v11.13.0 and v11.14.0 were written into this changelog but never published to npm: both failed required CI. This release fixes those failures and is the first to publish everything listed under v11.13.0 and v11.14.0, plus the modernize work below. `loki start` with Claude remains the primary path.
+
+### Added
+- `loki modernize` now drives waves end to end through a coordinator: each wave is scheduled (or resumed from the unit log), verified, gated, and shipped as one pull request. A real run still exits 2 before doing any work, and names each missing piece: oracle capture, unit merge operations, the ablation runner and the wave verify commands. It never reports a partial run as done.
+- `loki modernize unit` now runs a unit instead of exiting 2. The implement step runs as an engine session child whose environment never holds a GitHub token. New-tree cases replay through the Python capture runner for `python3` targets; other targets fail closed.
+- Modernize writes a sealed final report with a COMPLETE or INCOMPLETE verdict (M-25). The verdict fails closed on an empty wave, a gap between waves, a PROVEN unit with impure evidence, a recorded failed step, or a malformed token field.
+
+### Fixed
+- Modernize resume adopts a merge only when it already landed before the crash. It never merges an in-flight unit outside the verify stage, never ships a NOT_PROVEN unit as PROVEN, and fails closed when the merge check itself errors.
+- Under `--budget`, a non-finite unit cost (NaN or Infinity) now stops the run instead of slipping past the cap.
+- `loki verify-pr respond` re-checks the branch after each fix and requires every recorded commit to be an ancestor of the PR branch before it pushes. Repository names are compared case-insensitively.
+- The trigger server's steer reply now uses the revision printed by `loki steer` and is posted only after the steer is confirmed. If the revision cannot be parsed, the reply says "Steer received" without guessing a number. Live-run lookup honors `LOKI_DIR`.
+- The CI failures that blocked v11.14.0: the route matrix mutation test resolves the control-plane package from its temporary copy, the merge-queue suite no longer depends on a real `gh` and uses portable `stat` ordering, and the modernize CLI test carries the Tier A walk-all-src marker.
+- A modernize test that compared a token against the stringified process environment now asserts a boolean, so a failing run can no longer print environment secrets into logs.
+
+### Changed
+- The modernize engine was trimmed from 4107 to 3792 lines to stay under its line budget. Behavior is unchanged.
+
+## v11.14.0 (2026-10-16)
+
+v11.13.0 was tagged in the changelog but never published to npm: its required CI failed on the credentialed push guard, because `loki verify-pr respond` pushed with credentials outside the trusted push path. This release fixes that and ships everything listed under v11.13.0, plus the modernize and GitHub loop work below. `loki start` with Claude remains the primary path.
+
+### Added
+- Modernize waves now ship as one pull request per wave (M-21). The PR body lists every unit with its run id, verdict, pass rate, branch coverage and receipt path, and the PR is opened as a draft unless every unit is PROVEN. A reused PR that should be a draft is reported as a failure ("existing PR reused; draft state not applied") instead of being claimed as a draft, and table cells are escaped so a unit name or reason cannot forge rows.
+- Modernize now resumes at unit granularity after a coordinator crash (M-22). The log is read strictly (a torn last line is truncated and tolerated, any corruption elsewhere fails closed), finished units are skipped, and a merge that landed just before the crash is adopted instead of repeated through an idempotent `mergeOnce`. In-flight units reattach their worktree and hand the recorded run id to the runner, or restart cleanly with a logged reason.
+- New `loki modernize unit --repo --ref --unit [--mid] [--target]` runs one modernize unit (M-23). It fetches repo@ref into a run-owned temp directory, runs the unit there and exits 0 only on PROVEN. The trigger server accepts `POST /jobs` with kind `unit` using the same validation as the CLI, and the Helm job worker runs units with `worker.engine: v10` in job mode. Bash completion now covers `loki modernize` (heal, migrate, unit and the unit flags).
+- `loki merge pr` and `loki merge watch` now record the merge gate's outcome (merged, waiting, or blocked at a named gate) and the last checks state in `.loki/state/pr.json` for the matching PR (by branch, PR number, #N or URL), so the review handoff reports the real result and a blocked merge never reads as merged.
+- After an authorized GitHub issue comment steers a live run, the trigger server replies on the issue with "Steer rev N received: applies at next plan/implement stage", matching what `loki steer` prints. Comments Loki posts itself (the status comment and the end-of-run backstop comment) carry a hidden marker and are never treated as steers. Unauthorized, bot and failed steers, and runs with prompt injection off, get no reply.
+
+### Fixed
+- `loki verify-pr respond` now pushes only through the trusted push script (pinned origin, credentials scoped to the push), never with its own credentialed `git push`. It refuses before making any change when the PR is closed or the checkout's origin is a different repository than the PR (for example a fork), the origin is read once before the fix and the push refuses if it changed during the fix, and if a push would ever open a new PR the error names that PR's URL.
+- `loki verify-pr respond` no longer treats Loki's own `.loki` run files as uncommitted changes or stages them into fix commits. Only the repository-root `.loki` is excluded; a nested `.loki` directory belonging to the project is handled normally.
+- Runs started from a Jira or Linear ref now set the writeback target described under v11.13.0: a source comment had swallowed the statement that exports `LOKI_WRITEBACK_ISSUE` and `LOKI_WRITEBACK_KIND`.
+- The readiness fold used by `loki start` is now tracked per intake call, so one run's folded readiness line can no longer leak into another intake in the same process.
+- The modernize PR stage prints the bot-token fallback warning once instead of twice.
+
+## v11.13.0 (2026-10-16)
+
+The factory-parity release: twelve lanes that close the gaps called out in the Factory comparison, from pull request repair and tracker writeback to a per-run cost cap that holds in every start mode and cheaper default effort. `loki start` with Claude remains the primary path, and every change below applies to it.
+
+### Added
+- loki doctor --repo now prints a 0-100 readiness score with a grade and a concrete Fix list (missing test, lint, typecheck or build commands, a red or unusable baseline, commands that cannot run, a machine that cannot run a first task), and the same readiness object is included in its --json output. loki doctor --repo builds the repo profile on demand when none exists, and --repo --fix refreshes it instead of being rejected with exit 64.
+- loki start shows the Readiness score after it profiles the repo (folded into the last summary line so default output stays within eight lines), and loki chat gains /doctor (alias /ready) to show the full readiness report without leaving the session.
+- `loki start --ship` auto-merge now goes through the same gate as `loki merge`: it refuses to merge a draft PR, a PR whose checks are not green after polling, or a run whose verdict is not VERIFIED, prints the exact blocking gate, and leaves the PR open. A new `loki merge pr <pr|branch>` merges one PR through that gate.
+- New `loki merge watch <pr>` repairs red CI: it hands the failed-run log to a bounded repair session on the PR branch (LOKI_PR_REPAIR_MAX, default 2), pushes, re-checks, merges only when green, and returns the PR to draft with the failure evidence if attempts run out. `--ship` uses it after opening the PR, and `/merge` works inside `loki chat`.
+- New `loki verify-pr respond <owner/repo#N>` fixes open review comments on the PR branch with one commit per comment (up to LOKI_PR_RESPOND_MAX, default 5), pushes, and replies to each thread with the commit sha. Resolved or already-answered threads are skipped and threads are never resolved. It refuses to run unless the PR's head branch is checked out and the working tree is clean, pushes only to that branch, and runs its fix sessions in the token-free environment.
+- Jira and Linear tickets now get phase-aware updates. A run started from a jira: or linear: ref comments on the ticket when it finishes, is blocked or fails, using the same credentials as intake. Set LOKI_JIRA_DONE_TRANSITION or LOKI_LINEAR_DONE_STATE to also move the ticket on completion. loki start (and a direct loki jira:KEY run) exports LOKI_WRITEBACK_ISSUE from the ref so the comment goes to the right ticket.
+- Jira tickets delivered through the trigger server now get a completion comment, like Linear and Slack, when JIRA_BASE_URL (https), JIRA_EMAIL and JIRA_API_TOKEN are set. Nothing is posted without them, a failed post never fails the job, and JIRA_API_TOKEN is kept out of the child run environment.
+- The trigger server now handles GitHub issue comments: a comment from an owner, member or collaborator on an issue with a live run steers that run, while strangers, bots, edits and issues without a live run are ignored.
+- Issue runs now keep a single, updating status comment on the GitHub issue showing plan readiness, operator steers applied, the pull request link and the final outcome or blocking question, instead of only commenting on failure.
+- Sentry-triggered fix runs now start with more context: the brief includes the event's release and environment, the project's most recent deploy (short SHA, finish time, health status) and, when the culprit file is in the repo, who last changed it. It is sanitized to one line and length-capped, and still opens a PR only.
+- loki deploy and loki start --deploy accept --health-match STR, so the health response body must contain a version or commit string. The signed deploy record now stores health_match and the deployed tree_sha.
+- loki deploy --auto-rollback now re-checks the service after a rollback, records post_rollback_health and the HTTP code in the signed deploy record, and exits 5 when the rolled-back service is still unhealthy.
+- loki status now shows the most recent deploy (target, commit, health, rollback outcome, and whether its signed record verifies) and flags an unhealthy deploy.
+- Runs that pause for a person now record what kind of help was needed (steer, input, authorization or repair) and how long the run waited. loki trust gains an Outcome effort block showing accepted outcomes, the misleading-completion rate, cost per accepted outcome (blank when spend is unmeasured), interventions by type and waited time. The review handoff shows interventions by type, the time spent waiting, and a Merge line (merged, or waiting at the named gate; a blocked merge is never shown as merged).
+- The bench report and loki trust now share one documented set of metric definitions (accepted outcome, misleading completion, cost per accepted, waited vs active minutes) in docs/EVALUATING.md.
+- Each run now records who asked for it, the policy revision in force, and which blocked run an answer resolved. loki steer numbers each directive as a revision with its author and source, and every consumed revision is logged (without its text) to .loki/intent-revisions.jsonl.
+- Modernize wave verification (M-20): after each wave merges, the full build, the integration checks and the legacy repo's original test suite all run. A wave is verified only when all three pass, and the first failure blocks the next wave with a fixed reason naming the step.
+
+### Changed
+- Cost: implement and Wall sessions now default to medium reasoning effort, while fix rounds still escalate to high and then xhigh. Set LOKI_E10_EFFORT_POLICY=off to restore the old behavior.
+- Cost: the implement stage now resumes the plan stage's session by default instead of starting cold, saving a repeated context prefix. It falls back to a fresh session if the resume fails, and LOKI_E10_FIX_RESUME=0 opts out.
+- Cost: the optional cross-vendor review now runs only for medium and high risk changes. Low risk changes record 'cross-review skipped: low risk' as not run in the receipt, never as a pass, and only a risk classification written during the current run can skip it.
+- The per-run cost cap now holds everywhere. Parallel units from a decomposed spec share one cap and the backlog runner stops launching once spend reaches it. Each provider call receives the remaining budget as its own limit and guarded providers are stopped mid-call at the cap. The legacy runner uses the default cap when an API key is set, spec-first runs honor --max-cost, and --attempts N splits the cap across attempts instead of multiplying spend. budgets.per_run in loki.yaml works as an alias of per_run_usd.
+- A run stopped on its cost cap records the cap, spend and source in budget.json, shows it in loki status, and suggests raising --max-cost. Rerunning the same task counts the earlier spend so the cap cannot be reset, and start warns when the provider reports no cost and the cap cannot be enforced.
+- A signed workspace composite can no longer attest a failed, interrupted or nonzero-exit integration run, and it now pins every repo head SHA and the integration log hash, so a swapped log, an edited status or a stale head is reported as TAMPERED when you verify offline. loki verify on a composite.json, and loki verify --seal-composite, print the integration status, exit code, log hash and each repo's attested head SHA; the misleading seal:false note in integration.json is gone.
+- Slack inbound is now fail closed: with LOKI_SLACK_ALLOWED_USERS unset, every mention and the trigger server /slack command is rejected. Set user IDs, or * to allow anyone.
+- New GitHub issues only start a build when opened by an owner, member or collaborator (LOKI_TRIGGER_ALLOW_ANY_ISSUE_AUTHOR=1 opts out).
+- loki status and loki status --json now report one consistent state name per run (received, prepared, planned, executing, validating, ready_to_ship, completed, waiting_for_input, budget_stopped, failed, cancelled, stalled); text output shows the verdict in parentheses as detail.
+- The PR stage now says whether the pull request was reused or newly created, and resuming an interrupted run prints 'PR reused' when it found one already open.
+- Verify caps the verdict to NOT PROVEN for more Cargo edits that can steer how tests run: harness, required-features, path, test and doctest on any lib, bin, test, bench or example target; package.workspace; and dependency source changes (git, package, registry, rev, branch, tag, workspace) in every dependency table. Escaped keys are decoded, strings and comments are scanned correctly, and an added or deleted Cargo.toml is compared against an empty document. Version bumps and [[bin]] name changes do not cap. Known false positives fail closed: criterion's `[[bench]] harness = false` and keywords such as "jest-like".
+- Docs: the loki answer command, help, README, completions and Slack docs now say it starts a follow-up run from a BLOCKED run with your answer, instead of claiming to resume it. The wiki Providers table matches the provider definitions (context windows, Codex parallel max 2 and MCP, Cline MCP, a new Degraded column). README and the installation guide state Node.js 20+ as the minimum. Wiki pages are stamped with the release version on every bump, and the workspace guide states exactly what the composite Seal covers and that deployed-SHA binding is not implemented. Tracker writeback docs describe phases, transitions, env vars and opt-in.
+
+### Fixed
+- Trigger server webhook deduplication now survives restarts, and a redelivered issue or pull request event under a new delivery id no longer starts a second build while the first run is still live.
+- The trigger server no longer treats a dead run as live when its process id was reused by an unrelated process: it compares the recorded start time and run id from run.pid.
+- Issue status comments now actually post: the status updater was missing the pinned repository origin and silently failed before reaching GitHub. The same fix restores the failure comment on issue runs that end with no PR.
+- Tracker writeback now posts only to the tracker the run came from: a Linear ref no longer comments on a Jira ticket with the same key when both sets of credentials are present, and vice versa.
+- loki deploy keeps the failed health check's HTTP code in the signed deploy record when an automatic rollback restores the service, instead of recording the rollback probe's 200.
+- Guarded providers (codex, cline, aider) are no longer killed mid-run by the live budget watcher because of spend from earlier runs; the per-run cap counts only spend added since the session started.
+- The unused doctor-fix.py helper was removed.
+
+## v11.12.1 (2026-10-16)
+
+v11.12.0 was tagged in the changelog but never published: its CI run failed three guards on Linux. This patch carries all of v11.12.0 plus the fixes below, so upgrade straight from v11.10.1 to v11.12.1.
+
+### Fixed
+- The modernize unit runner no longer hands GitHub tokens to repository code. Its pytest run and its Python import probe now start from the token-free environment every other agent child uses, so a test file in the repo being modernized cannot read GITHUB_TOKEN or similar secrets.
+- When a modernize run refuses a change because a sealed conformance file was added, changed or removed, the reason now names the same file on every platform. Before, Linux and macOS could name different files for the same change, because directory listing order differs.
+
+## v11.12.0 (2026-10-15)
+
+The legacy modernization unit runner (M-15). `loki start` with Claude remains the primary path; this is a building block for the modernize program and is not yet wired to a user command.
+
+### Added
+- The modernize unit runner takes one unit card through a v10 run against a sealed oracle Wall and an equivalence check. The oracle is sealed with the card normalizers before implement runs, the failing module is derived from the traceback path under the target runtime, and the pre-sealed Wall and its seal are verified before the Wall is trusted.
+- A unit is PROVEN only when every sealed test, identified by its own pytest node id, passes after the change. Runs that exit early, skip, mark tests xfail, print a footer without a matching junit report, or add new passing test ids do not count. Every file and bytecode under the unit, including symlinks, conftest variants and pytest config files (pyproject.toml, setup.cfg, tox.ini, pytest.ini, pytest.toml, .pytest.toml), is bound to the Wall seal, and any drift is refused.
+- Known limit, stated in the result: PROVEN carries conformance { trust: "runner_reported", limit: "FC-24" } and a unit.conformance_passed log event. The pytest process runs the unit code, so code that deliberately forges pytest's own report from inside that process is not detected (docs/v10/FAILURE-CLASSES.md FC-24). Tests document the two reproduced forgeries as this limit.
+- The modernize scheduler (M-17) runs a plan wave by wave with N workers (1 to 32, default 4). Each attempt gets a fresh git worktree created through the hardened safeGit helper, so a hook planted in the shared git directory by one unit never runs in the coordinator. Units start on sonnet (high-risk units go straight to opus); a failed check gets two fresh opus variants, and a unit that fails all three attempts is reported for re-slicing, never force-passed. A --budget stops dispatch when spent plus in-flight estimates would exceed it, and also once spend passes the budget when no estimate exists. Not yet wired to a user command.
+
+### Changed
+- Verify caps the verdict to NOT PROVEN for more edits that can steer how tests run: Cargo.toml top-level dotted patch and replace keys, [[test]] harness = false and dev-dependencies with path =; go.work replace directives; and babel.config.*, .babelrc and .pnpmfile.cjs. A plain dependency version bump still does not cap.
+
+### Fixed
+- v11.11.0 was committed to main but its CI failed, so it was never tagged or published to npm; this release carries all of its changes. The cause was help and completion drift: `loki memory learn --recent` was missing from `loki help`, and `--recent`, `--repo` and `--explain-match` were missing from the bash completions. All three are now listed, and `loki quickstart` has its own flag completions.
+
+## v11.11.0 (2026-10-15)
+
+Four new operator commands and options. `loki start` with Claude remains the primary path.
+
+### Added
+- `loki intent show <run>` prints a past run's intent card (the header and Acceptance lines recorded by the plan stage), followed by "answered: y" or "answered: n" when the run has an intent answer. A run whose plan produced no card prints the "Intent: NOT STATED by plan" line, and an unknown run id exits 1 with "no such run". It is read-only and listed in help and completions.
+- `loki quickstart --explain-match` (with `--dry-run`) prints the top three template scores for the brief and a match confidence label (high, medium or low). When the best score is below 2 it adds "no strong match, using a plain spec". Without the flag the output is unchanged; the flag is refused with exit 2 without `--dry-run` and cannot be combined with `--json`.
+- `loki memory learn --recent N` (1 to 20, optional `--repo owner/repo`) learns from the newest N merged pull requests in one command and prints one summary line per PR plus a total. An already-learned PR is reported as duplicates without adding anything; N outside 1 to 20 exits 2, and a missing gh exits 1 with the install hint. The single-PR path is unchanged.
+
+### Changed
+- The PR reviewer brief has a "Tests that import the changed files" section naming up to three repo tests per changed file, with a "+N more" suffix. A file no test imports reads "no test imports this file", and when no test runner or test files are detected the section says "not measured". It runs no tests and no provider, and is skipped with the rest of the brief under LOKI_REVIEWER_BRIEF=0.
+
+## v11.10.1 (2026-10-15)
+
+Fix-forward release. v11.10.0 was cut but failed CI and was never published to npm. v11.10.1 carries every v11.10.0 change listed below, plus this fix.
+
+### Fixed
+- The router mutation proof test anchors on the implement session line as it now reads with the two-attempt path, so its haiku-pin mutations are applied and caught again.
+
+## v11.10.0 (2026-10-15)
+
+Two concurrent implement attempts behind a flag, plus fixes for the advisories left open by the v11.9.0 train. `loki start` with Claude remains the primary path.
+
+### Added
+- Two concurrent implement attempts, behind LOKI_E10_ATTEMPTS=2 (off by default), for normal-size tasks with a predicted test set. Attempt A runs in the repo and attempt B runs in a detached worktree; both are scored in the primary tree and the better one wins. If A passes every check first, B is stopped and its cost is still recorded. An attempt that changes or deletes a Wall test is disqualified; a Wall test counts as weakened only when its contents change or it is deleted.
+
+### Changed
+- Internal readability cleanup of the verify stage base-run subtraction code, with no change in behaviour.
+
+### Fixed
+- `loki start --brief` with `--ship` no longer tries to close a nonexistent GitHub issue, auto-merge now works for brief runs in the foreground path, and `loki run --help` marks `--brief-text` as internal.
+- Microsoft Teams intake dedup now keys on conversation id, serviceUrl and tenant plus the activity id, so identical activity ids from different conversations are no longer dropped as duplicates.
+- `loki backlog` now resolves a ref-name base in a DAG unit to its commit SHA and exits with an error when the base cannot be resolved, instead of silently starting from origin/HEAD.
+
+## v11.9.1 (2026-10-15)
+
+Fix-forward release. v11.9.0 was tagged but failed CI and was never published to npm. v11.9.1 carries every v11.9.0 change listed below, plus these fixes for the guards that failed.
+
+### Fixed
+- `loki estimate` resolves its model inside the cost preview module, so the CLI's estimate arm no longer reaches into engine10 and the single-arm dispatch shape holds again. The dispatch test now asserts that `loki estimate` routes to the Bun runtime.
+- The L0 harness guard allowlist lists the new test-runner config classifier and drops two stale entries for code that moved there.
+- The Sentry intake doc no longer names a `loki job` command; it describes the "Queued" reply the trigger server actually sends.
+- A trigger server test no longer assumes a provider CLI is installed on the host.
+
+## v11.9.0 (2026-10-15)
+
+Factory parity, phase 3. Work can now be delegated from Jira and Microsoft Teams, deploys carry a signed record bound to the receipt that authorized them, rollouts can be staged, and the workspace graph learns dependencies from code. Every capability extends the module that already owned its concern. `loki start` with Claude remains the primary path, and `loki chat` reaches the same code.
+
+### Added
+- Jira and Teams delegation on the trigger server. Jira Cloud (POST /jira) verifies the X-Hub-Signature HMAC and queues a run when an issue is assigned to a configured user or gets a configured label; rich-text (ADF) descriptions are included in the brief, and a replayed signed body is rejected even if the delivery-id header is changed or dropped. Microsoft Teams (POST /teams) verifies the Authorization HMAC and a fresh timestamp, then replies with the job id. A missing secret returns 503. See docs/sentry-intake.md.
+- Delegated Jira, Teams and Sentry runs now run as isolated, detached, receipt-gated PR runs: `loki start --brief "<text>" --pr --detach` honors the isolation flags in brief mode and uses the same worktree and PR machinery as `loki start <issue>`. Delegation never passes a deploy argument.
+- Signed deploy records. `loki deploy --execute` writes a `loki.deploy/1` record bound to the receipt that authorized it, signed with the existing receipt signer. `loki verify <record>` re-checks it offline, also with `--pubkey`. Tampering gives TAMPERED; an unsigned record, a missing or non-Ed25519 key, or a cited receipt that is not VERIFIED is never VERIFIED. `--max-age` on a deploy record is refused with UNCHECKED and exit 2, because the record carries no signed issue time. The receipt itself is unchanged.
+- Staged rollout: `loki deploy --execute --canary` uses only documented provider verbs (Vercel preview deploy, health check, then `vercel promote`; Fly `--strategy canary`). A failed health check never promotes, and providers with no staged path refuse `--canary` with the reason.
+- `loki workspace infer` also suggests `after:` edges from source imports of a sibling repo's package or module name (TS/JS, Python, Go; bounded to 400 files per repo) and from OpenAPI client generator configs whose input spec lives in a sibling repo. Each edge prints its evidence as file:line. Output stays print-only and cycle-checked.
+- When a parallel group hits a merge conflict or a failing suite during integration, Loki now runs one bounded fix unit (max one per conflict, two per group) through the same unit launcher and re-integrates once; the verdict still requires the suite to pass and the group Seal; a fix unit is accepted only if its branch contains the conflicting unit's branch; LOKI_GROUP_FIX_UNITS=0 turns it off.
+### Changed
+- `loki estimate` prints the same estimate `loki start` shows (run history for this repo's shape, a per-model prior, or NOT AVAILABLE), replacing the old iteration-based projection. One estimator now serves both. `--iterations` is removed and rejected with an explanation; `--json`, `--model` and `--provider` are supported.
+- Removed the unused memory/rag_injector.py module and its tests. Lessons and learnings already reach engine10 briefs through the existing injection path, and nothing in the product called it.
+
+### Fixed
+- Control Plane checkpoint rollback restores only an allowlist of state files and refuses nested or destination symlinks, so a planted audit directory in a checkpoint can no longer overwrite the audit log. Legacy session-control and council force-review calls now require a loopback peer and a loopback Host, matching the /v1 routes.
+- Control Plane Start no longer shows a bare "HTTP 404": it explains the problem in a sentence and, when the running service is older than the installed version, says to restart it with `loki control serve`. The New run picker gained a Browse repos link and a model choice that shows a muted note for haiku without blocking, and failed diff-stat lookups are cached briefly.
+- Visual evidence on a monorepo with backend/ and frontend/ packages but no root package.json now names the sub-packages that lack a dev, preview or start script (and which one has one) instead of the misleading "no package.json".
+- Test-runner config changes cap the verdict: any package.json script (pretest, posttest, test:*), runner dependency swaps to local or aliased stubs, overrides and imports, mocha/vitest/ava/c8/nyc keys, pytest/jest lines in pyproject.toml or setup.cfg, go.mod replace, Cargo.toml [patch], and tsconfig paths/extends/rootDirs/moduleSuffixes/customConditions.
+
+## v11.8.1 (2026-10-15)
+
+Fix-forward release. v11.8.0 was tagged but failed CI and was never published to npm. v11.8.1 carries every v11.8.0 change listed below, plus these fixes for the guards that failed.
+
+### Fixed
+- Group Seal no longer value-imports engine10 Seal and verify code from `features/` (D66 fence). Seal dependencies are injected through `GroupCtx.seal`, supplied by the supervisor; a group run with no Seal dependencies exits 4 before any unit starts.
+- Line budgets restored: the TypeScript signature lexer moved to `loki-ts/src/util/ts_signatures.ts`, and the `--max-age` parsing and age check moved to `loki-ts/src/util/receipt_signer.ts`. features is 2692 lines (cap 3000) and core engine10 is 4985 (cap 5000).
+- The two `git checkout` calls in group resume are classified in the L2 destructive registry. Neither uses `--force`.
+- `tests/test-backlog-units.sh` reads file modes GNU-first, matching the stat portability rule.
+- `loki help verify` matches `loki verify --help` again.
+
+## v11.8.0 (2026-10-15)
+
+Phase 2 of the multi-repo company operating system. Parallel group runs on `loki start` can now be proven, interrupted groups resume without redoing verified work, multi-milestone specs run as missions, and work can be delegated from Slack and Linear. Every capability extends the module that already owned its concern. `loki start` with Claude remains the primary path, and `loki chat` reaches the same code.
+
+### Added
+- Group Seal. A parallel unit group run on `loki start` now composes one signed group receipt over its unit receipts after integration, using the existing receipt sealer. The run exits 0 only when every unit is VERIFIED and the group receipt verifies offline with `loki verify`; any other outcome keeps the honest non-zero exit.
+- Group resume. Rerunning the same spec resumes the group: units already VERIFIED are skipped and reported as resumed, the rest run again, and the group is integrated and sealed. The resume short-circuit requires every recorded unit verdict to be VERIFIED and fails closed when the unit list is missing. `LOKI_GROUP_RESUME=0` forces a fresh run. The backlog runner harvests each unit's receipt and events (copy then rename, symlinks refused) before its worktree is removed, and forwards the frozen acceptance contract to each unit through `LOKI_UNIT_SPEC`.
+- Missions. A spec with two or more `## Milestone N` sections runs milestone by milestone, each as its own unit group with its own acceptance contract. The run stops at the first milestone that is not VERIFIED, returns that exit code, and names the milestone. Resume applies per milestone. Format and exit semantics are documented in docs/v10/D61-SPEED.md.
+- Slack and Linear delegation on the trigger server. `POST /slack` verifies the Slack signing secret (v0 HMAC-SHA256, 300 second replay window, constant-time compare) and `POST /linear` verifies the Linear-Signature HMAC and webhook timestamp. Both enqueue through the same job path as `/jobs`, reply with the job id, and post a completion summary back (Slack response_url on hooks.slack.com only; a Linear comment when `LINEAR_API_KEY` is set). A missing secret returns 503 naming the variable. The new secrets are denied to child runs. See docs/sentry-intake.md.
+- `loki verify --max-age DUR` (for example `30m`, `24h`, `7d`) refuses a receipt whose signed issue time is older, has no signed issue time, or is more than 300 seconds in the future, with UNCHECKED (exit 2) and a named reason. Invalid values exit 2. Group receipts under `.loki/groups/` are verified by engine10, and chat `/verify` passes its arguments through.
+
+### Fixed
+- Bash completion for `loki deploy` now offers `--dir`, `--no-clip` and `--allow-unanchored`, and `loki verify` offers `--max-age`.
+- A precedence test now pins `LOKI_GROUP_TEST_CMD` over the discovered test command for group runs.
+
+### Not in this release
+- Hosted Company OS, cloud compute, Jira and Teams delegation, and a measured comparison against Factory. Slack and Linear delegation has not yet been exercised against live Slack or Linear workspaces.
+
+## v11.7.1 (2026-10-15)
+
+Patch for v11.7.0, which was pushed but never published: its CI Tests run failed, so npm did not receive it. This release ships everything listed under v11.7.0 together with the fixes below.
+
+### Fixed
+- `loki verify --help` now documents `--seal-composite <run-dir>`. Bash completion now offers the `loki deploy` flags (`--execute`, `--health-url`, `--auto-rollback`), the `loki verify` flags including `--seal-composite`, and `loki memory brief --task`.
+- The new deploy and workspace tests use here-strings instead of piping output into `grep -q`, which kept the repo under its FC-64 ceiling for that form.
+
+## v11.7.0 (2026-10-15)
+
+Phase 1 of the multi-repo company operating system. Workspaces become reachable from `loki start` and `loki chat`, a whole multi-repo change set can be sealed into one signed composite receipt, autonomy is set by policy, and verified deploys gain a health check with automatic rollback. Every capability is an extension of an existing module; no parallel implementation was added. `loki start` with Claude remains the primary path.
+
+### Added
+- `loki start --workspace <name>` and `loki start --deploy`, plus `/workspace` and `/deploy` in `loki chat`. The workspace path now forwards every value-taking `loki start` flag (isolation, model, max cost, provider, budget and the rest) and `--brief TEXT`. The bash divert passes an allowlisted environment, so unrelated secrets such as `DATABASE_PASSWORD` are not forwarded.
+- Signed composite receipts. `loki verify --seal-composite <run dir>` seals a workspace run, and `loki verify` checks it offline. Verification requires every repo in the integration order to be present once, with outcome `ok`, a receipt path inside its own worktree, and a recorded integrated head; a missing head gives UNCHECKED. A workspace run seals the composite once after integration, and refuses with a named reason when integration failed or a repo has no receipt.
+- Workspace planner. With `plan: true` (or `LOKI_WORKSPACE_PLAN=1`) one planner call writes a per-repo task plan. A plan that is malformed or names unknown repos is not used; the run says why and falls back to the generic task text.
+- `loki workspace infer <name>` reads package.json, go.mod and pyproject.toml of local checkouts and prints a proposed `after:` graph. It never writes `loki.yaml`, never clones, and rejects a cyclic graph.
+- `integration.per_stage: true` runs the integration command after each dependency layer and holds later layers until the earlier gate passes. A failed stage marks later repos SKIPPED and the run exits non-zero.
+- Deploy health check and automatic rollback for `loki deploy --execute`, still gated on a VERIFIED receipt. Deploy also requires a policy that explicitly grants deploy (autonomy level or `actions.deploy`); an empty policy or a missing node refuses.
+- `loki trust` graduation advice: only VERIFIED runs count toward the 10 needed before execute is suggested. Other recorded verdicts are listed as missing evidence.
+- Lessons with provenance and confidence. Reviewer comments and facts from earlier sealed runs carry their source (PR, receipt, ticket or rejection), and confidence is computed from the verdict only when a well-formed receipt hash is present. `loki memory brief --task TEXT` prints the brief, and the engine10 implement stage and chat inject it.
+- Per-unit acceptance contracts. A unit spec may carry `acceptance` criteria, which seed that unit's Wall; the group contract is frozen before workers start, and an unowned criterion fails the group closed.
+- Parallel units on `loki start`. The integrator merges unit branches in dependency order, refuses a dirty tree or an existing group branch, and never discards user edits. The selected provider now reaches every unit, and the group test command comes from the repo's own detected commands (npm, pytest, make, go, cargo and others) unless `LOKI_GROUP_TEST_CMD` is set. Honest limit: the group Seal is not wired yet, so a parallel group run exits 4 (NOT PROVEN, Group Seal receipt UNCHECKED) rather than 0.
+- HMAC-verified Sentry webhook on the trigger server. Child runs no longer inherit the server's webhook secrets or API token.
+- Factory-vs-Loki attribution bench task set (`coord-1-api-web`, `longspec-1-three-units`). The Factory arm is reported as UNMEASURED: no droid run has been measured headless, and unmeasured runs are excluded from every rate rather than shown as zero.
+
+### Changed
+- Autonomy policy: propose, execute and operate levels now govern engine10 PR egress through one shared decision. Propose opens no PR, require-approval opens a draft, and an unknown level cannot be rescued by an action allow. With `LOKI_COST_CONFIRM=1` on a terminal, a run shows its cost estimate and asks once before spending.
+- Workspace config fails closed. A typo or wrong type under `workspaces:` (for example `afer`) exits 2 and names the key. The schema gains `concurrency`, `plan` and `integration.per_stage`.
+
+### Documentation
+- README exit table for `loki verify` matches engine10 (0 VERIFIED, 1 TAMPERED, 2 UNCHECKED, 3 UNSIGNED, 4 run outcome not verified, 66 no runs). Workspaces docs and CLI reference cover the new flags and verbs.
+
+### Not in this release
+- Hosted Company OS, Slack and Linear delegation, cloud compute, multi-milestone missions, group resume and the group Seal. No claim is made of a measured advantage over Factory.
+
+## v11.6.0 (2026-10-15)
+
+The consolidation release. Under the binding rule "extend existing code, never duplicate", every duplicate module, parallel implementation and copied document was found, then merged into the owner of its concern or deleted. The result is 3,354 fewer lines net (5,984 removed, 2,630 added, mostly restored spec and ported tests) with no lost behaviour. Each removal was ported to its owner, with the owner's tests extended to cover it. `loki start` behaves exactly as before; it now runs on one implementation per concern.
+
+### Changed
+- One `loki status` renderer. `contrib/status.ts` and its duplicate run-dir helpers and `latestRunId` copies are gone; `commands/run_status.ts` owns them. The group grid, blocked answer and dashboard now honour `LOKI_DIR`.
+- One `loki.yaml` reader. `lokiYamlTexts` now serves the run cap, budget cap, PR and install settings, replacing four separate readers.
+- One atomic writer. Council, checkpoint, failure history and engine origin all write through `util/atomic.ts` `atomicWriteText`. It gained a `durable` option so the non-fsync callers keep their cost. The bytes written to disk are unchanged.
+- One PR body renderer. `renderReviewerBody` is canonical. The never-used `renderPrBody`, `pr_criteria.ts` and `unitTableLines` are deleted.
+- One GitHub issues path. `loki issues` now validates the repo, refuses dash-leading labels and milestones, enforces the issue row shape, and accepts `--milestone`. The uncalled `e10ext/issues.ts` is deleted.
+- One worktree reaper. The checks from `prune-worktrees.sh` (open cwd, 30-minute commit age, eval archive run ids, `git cherry` merge detection) are now an opt-in `v10-worktree-reap --strict` mode. That mode is a dry run unless `--apply` is given. The default behaviour is unchanged, and `prune-worktrees.sh` is deleted.
+- One dashboard app. `dashboard/server.py` is the only dashboard server. The standalone FastAPI control app and `dashboard/run.py` are deleted, and their auth assertions now run against the server.
+
+### Removed
+- Dead code: the unused `usage_window` parser (the usage governor owns usage parsing) and the unused MCP `tools.py` and `resources.py` (`mcp/server.py` owns tools and resources).
+- Duplicate skill text: the three `.claude/commands` files are now symlinks to the plugin's commands. Copied skill doc blocks now point to their canonical references.
+- Suffixed test siblings (`*_v2`, `*_mc1`, `*_haiku55` and similar) are merged into their base test files as describe blocks. The test case count is unchanged.
+
+### Documentation
+- Exit codes are documented in one place, `docs/exit-codes.md`. Key rotation and OIDC claim mapping now live only in `docs/authentication.md`. That page no longer claims that OIDC users get full access by default.
+- `docs/v10/ENGINE.md` is restored to the engine specification. A cut log had overwritten it; that log now lives in `ARCHITECT-CUTS.md`. The OpenClaw integration page is folded into `integrations/openclaw/README.md`.
+- Release model wording in CLAUDE.md and the release checklist now follows D96: every approved slice is a release. D25 (trains) is marked superseded. Four stale snapshot docs are folded into PROGRESS.md and deleted.
+
+## v11.5.1 (2026-10-15)
+
+Patch for v11.5.0, which was pushed but never published: its CI Tests run failed, so npm did not receive it. This release ships everything listed under v11.5.0 together with the fixes below.
+
+### Fixed
+- Pre-existing failures no longer block the full-suite run on medium and high risk tiers. In v11.5.0, a check that already failed at baseline was excused only on the targeted checks. Now the full-suite run applies the same baseline attribution, so the v11.5.0 claim holds on every tier. The attribution fails closed. A full-suite failure is excused only when all of these hold:
+  - the baseline was recorded at the same base commit, with the same command;
+  - every failing test id can be extracted from the run that failed (there is no retry, so a flaky new failure cannot hide);
+  - no failing id is new;
+  - no failing id names a file the diff changed;
+  - no failing id already failed a targeted check.
+  Anything else still blocks. The logic lives in the existing `runner/repo_profile.ts`.
+- `loki quick` with an unknown option now exits 64 even on a host with no provider installed. Usage is validated before the provider check.
+- The core engine is back under its 5,000-line budget. Receipt signing helpers moved into the existing `util/receipt_signer.ts`, and run-output notes moved into `util/run_outputs.ts`. Both keep their old import paths. `scripts/structural-checks.sh` now counts lines the same way as the budget test.
+- Test fixes for the v11.5.0 CI failures:
+  - the verify demo fixture now links the shared proof verifier;
+  - the docs extractor now reads `export const USAGE`;
+  - the impacted-gate fixture now uses a file that is truly outside the control-plane closure;
+  - two pipe-to-grep forms are now here-strings;
+  - the efficiency pipeline test now asserts the documented contract: an unmeasured iteration omits `cost_usd` and records `cost_unmeasured_reason`.
+
+## v11.5.0 (2026-10-15)
+
+Less human attention per accepted task. Loki now discovers your repo and runs a baseline on its own, maps acceptance criteria to checks, verifies according to risk, recovers interrupted runs without double-publishing, and ends every run with a review handoff you can act on in under two minutes. Each feature extends a module, test file or doc that already owned its concern; no parallel duplicates were added. `loki start` is still the primary path, and `loki chat` reuses the same pieces.
+
+### Added
+- Repo discovery and baseline: `loki start` now discovers each repo's test, lint, typecheck and build commands and records a baseline test run in `.loki/state/repo-profile.json`, reusing it until the manifests or HEAD change. This lives in the existing `runner/repo_profile.ts`. A check that already failed at baseline, with the same failing ids and outside the files the diff touched, is reported as pre-existing and does not block; every other failure blocks as before. `loki doctor --repo` prints the profile; combined with `--requirements` it prints both. Set `LOKI_REPO_BASELINE=0` to skip the baseline run.
+- Risk-based verification: the verify stage classifies risk from the diff (never from the prompt) as low, medium or high and records it in `.loki/state/risk-tier.json`. High covers sensitive paths (auth, crypto, payments, migrations, CI config, lockfiles, infra, `.env`), deleted tests, public API surface, or large diffs. A lower tier runs targeted checks, and every check it skips is recorded as not run, never as passed. The run summary shows the tier. `LOKI_RISK_TIER` can raise the tier; lowering it requires `LOKI_RISK_OVERRIDE_REASON`, which is recorded. The logic lives in `util/check_result.ts`; see `docs/environment-variables.md`.
+- Review handoff: every engine10 `loki start` run writes `.loki/review/HANDOFF.md` (about 30 lines) and `.loki/review/handoff.json`. Both list the outcome, spend, the risk tier, the change, what was demonstrated, failures, what was not checked, and the exact accept and reject commands. The PR body includes the same handoff, `loki chat` `/run` prints it, and the final summary line points to it.
+- Requirement tracing: acceptance criteria from the task are mapped to the checks that cover them in `.loki/state/requirements-map.json`. Uncovered requirements are counted in the run summary and listed in the handoff and PR body. A run with no requirements removes any map left by an earlier run, so it never reports another run's requirements. This is built into the existing `features/contract.ts`.
+- Recovery of an interrupted run: a run that was interrupted after push or PR creation resumes from its recorded phase and does not push or open a PR twice. This is built into `util/run_outputs.ts`, `util/run_pid.ts` and `engine10/events.ts`, and documented in `docs/v10/ENGINE.md`.
+- Claude Code plugin: a Stop hook (`loki-stop-verify.sh`) runs Loki's fast verification when a Claude Code session ends, and the `/loki-mode:start` and `/loki-mode:handoff` commands are new. `/loki-mode:verify` accepts `--fast`. Install with `loki setup-skill --claude-code`.
+- Setup requirements: `loki doctor --requirements` lists what each execution path needs, whether each item is required or optional, whether it is present, and a one-line fix. `loki doctor --json` includes the same data. The table is shared by bash and TypeScript through `autonomy/lib/setup-requirements.json` and documented in `docs/alternative-installations.md`.
+- Backend capability disclosure: `loki route --json` reports the adapter and its capability differences from Claude Code. The capability table lives in the existing `providers/provider_guard.ts` and is documented in `docs/cost-controls.md`.
+- Attribution benchmark: `benchmarks/bench/attribution.py` and six tasks compare Loki against a well-configured Claude Code on accepted tasks, human interventions and cost. It reuses the existing bench fixture hash and Wilson interval code.
+
+### Changed
+- One default budget: the default cost cap is $100. It is read by both the bash and TypeScript engines from `loki-ts/data/model-pricing.json`. Precedence is `--max-cost`, then `LOKI_BUDGET_LIMIT`, then `loki.yaml`, then the default. Unmeasured cost is reported as unknown with a reason, never as $0.00. See `docs/cost-controls.md`.
+- Cancel is a recorded outcome: Ctrl-C ends a run as CANCELLED with exit 130 (SIGTERM exits 143), and the receipt says so.
+- Proof verification records its outcome in the existing `autonomy/lib/proof-verify.py` and shares its git and JSON helpers. No second verifier was added.
+- `loki quick` with an unknown option now exits 64. The routing contract and exit-code cases are documented in `docs/exit-codes.md` and checked by the existing `tests/test-engine10-dispatch.sh` and `tests/test-exit-codes-documented.sh`.
+
+### Process
+- New binding rule in CLAUDE.md: extend existing code and docs, never duplicate. Before this train, every slice was consolidated under that rule. The per-slice `docs/contracts/*.md` files were folded into the docs that own each topic, and the parallel modules were merged into their owners.
+
+## v11.4.2 (2026-10-15)
+
+Fix-forward for v11.4.1, which was tagged on main but never reached npm. The full Bun test job on the release commit had 13 failures, so `required-ci` stopped the publish. v11.4.2 contains everything listed under v11.4.1 and v11.4.0 below, plus these fixes.
+
+### Fixed
+
+- Default `loki start` output on the v10 engine stays within the 8-line cap (D48). The unified run summary added a six-line block after the engine output. A default run now gets a single `Next:` line, and when the output already has seven lines that line is folded into the last one. `--verbose` and `--quiet` still print the full summary.
+- `loki doctor --fix` now passes a scoped environment (PATH only) to its `command -v` probe. It no longer lets the child process inherit the full parent environment, which the spawn environment guards forbid.
+- The CLI command registry now lists `chat`, `edit`, `diff`, `models` and `setup`, plus the `config list` subcommand. `docs/v10/CLI-MODERN.md` was regenerated from the registry.
+- The file restore in the provider revert guard (`providers/provider_guard.ts`) is now classified in the destructive git call registry. The reviewer stage's user-configured `--model` is vetted in the model-pin guard, so a cascade or cost downgrade still cannot pin a weaker model.
+- Tests that still expected opencode to be refused now match the v11.4 contract: opencode is a supported engine10 provider. The refusal tests now use a provider that really is unsupported, so the exit-code-2 refusal path is still covered.
+
+## v11.4.1 (2026-10-15)
+
+Fix-forward for v11.4.0, which was tagged on main but never reached npm. Its release run stopped at `required-ci` because the Tests run on the release commit was red. v11.4.1 contains everything listed under v11.4.0 below, plus these fixes and the remaining parity gaps.
+
+### Added
+- `loki steer "<guidance>"` and `/steer` in `loki chat` now take effect on Loki 10 runs. Before each plan and implement session the engine reads `.loki/HUMAN_INPUT.md` and adds it to the next brief as a delimited operator-guidance block, outside the cache-stable prefix. It then archives the file to `.loki/logs/human-input-<ts>.md`, so the guidance applies once. The engine rejects symlinks, and archives files over 1 MB without injecting them. Set `LOKI_PROMPT_INJECTION=0` to turn this off.
+- Custom agents now apply on the default Loki 10 review path, not only through `LOKI_REVIEW_PROVIDER`. An agent named `reviewer.md` or `council.md`, or any agent with `role: reviewer` or `role: council` in `.loki/agents/` or `~/.config/loki/agents/`, sets the review stage's prompt, provider and model. The agents loader accepts the new optional `role` key.
+- `loki edit "<change>"` ends with the unified run summary. `--quiet` prints only the summary, `--json` prints one JSON object, and NO_COLOR is honored.
+- `loki diff` is a real command. It shows uncommitted changes, or the last commit if the tree is clean. Run summaries already suggest it as a next step.
+- Bash and zsh completion now cover chat, route, edit, setup, models, agents and diff, plus the new `start` flags (`--model`, `--isolation`, `--max-cost`, `--no-pr`, `--explain-route`).
+
+### Changed
+- Plan mode in `loki chat` is read-only for every provider. Each provider runs with its own read-only flags:
+
+  | Provider | Plan-mode flags |
+  |---|---|
+  | codex | `exec --sandbox read-only` |
+  | opencode | `--agent plan` |
+  | aider | `--dry-run --no-auto-commits` |
+  | cline | `--plan` |
+
+  A post-turn guard also reverts any tracked or untracked file a plan turn changed anyway.
+- `loki chat --attach` finds running sessions the same way `loki status` does. It reads the session and run pid files, PAUSE, STOP and session.json, and the Loki 10 run pid. It no longer guesses from the event log.
+- `loki help` keeps the short core-verbs page with `start` first. It now also lists:
+  - examples
+  - how to resume an interrupted run
+  - the `--isolation` dial
+  - `cost` and `estimate`
+  - where exit codes are documented (docs/exit-codes.md)
+
+  `loki help <command>` once again shows that command's own `--help`. `loki help all` lists agents, chat, edit and models.
+- README's `loki verify` exit codes now match docs/exit-codes.md:
+
+  | Exit code | Meaning |
+  |---|---|
+  | 0 | VERIFIED |
+  | 1 | CONCERNS |
+  | 2 | BLOCKED |
+  | 3 | verifier error |
+  | 64 | usage error |
+
+  Treat only exit 0 as verified.
+
+### Fixed
+- `loki verify --json` once again prints only the evidence JSON on stdout. A generic JSON wrapper had captured it.
+- With opencode selected through the CLI, the environment or a saved provider, `loki start` routes to the Bun engine, which has an opencode invoker.
+- TypeScript build error in the Loki 10 supervisor ("'res' is possibly 'null'").
+- Line budgets: the v11.4.0 modules moved out of the size-capped engine10, e10ext and features trees. Run summary and steer moved to util/, role agents to council/, and provider cost and guard to providers/. Behavior is unchanged.
+- `autonomy/route.sh` is shellcheck clean.
+- Docs that mention `loki route` and `loki diff` now pass the docs-drift check, which reads route.sh's dispatch.
+- The P5 egress-blocked moat case pins the legacy engine for its stub provider, because a PRD start now routes to Loki 10 by default. The seal and verify assertions are unchanged.
+
+
+Usability release: Loki now matches or beats opencode on everyday use, onboarding, interactive work, small changes, provider and local-model flexibility, multi-agent setup, docs consistency and predictability. Loki stays autonomous. The RARV-C loop, receipts, Seal and council are unchanged, `loki start` is still the primary path, and Claude Code is still the default provider. Plan and scorecard: docs/v10/OPENCODE-PARITY-PLAN.md. Comparison: docs/COMPARE-OPENCODE.md.
+
+This release was built and shipped without running the test suites, on the founder's direct instruction (velocity first). Report anything that misbehaves and it will be fixed forward.
+
+### Added
+- Model routes on `loki start` (and `loki quick`): `loki start ./prd.md --model ollama/qwen3-coder` runs OpenRouter (`openrouter/<id>`, key from OPENROUTER_API_KEY), Ollama, LM Studio, llama.cpp, vLLM or any Anthropic-compatible endpoint (`custom/<id>` with LOKI_MODEL_BASE_URL) through the Claude Code harness. Cost tracking, the spend cap, kill-blocking and receipts keep working. The route env is set only on the provider child process, and the token is never logged. `--model` also accepts a tier (small, medium, high) or a model id on both engines, and LOKI_MODEL_ROUTE is the env form.
+- `loki models --local` finds running local runtimes (Ollama :11434, LM Studio :1234, llama.cpp :8080, vLLM :8000) and prints ready-to-paste `--model` values. `--json` is supported.
+- opencode is a supported Loki 10 provider: `loki start ./prd.md --provider opencode` runs `opencode run`, passing the model through with LOKI_OPENCODE_MODEL=provider/model. These runs no longer fall back to the previous loop.
+- Configurable child agents: markdown files with YAML frontmatter (model, provider, tools, deny, permission, prompt) in `.loki/agents/<name>.md` or `~/.config/loki/agents/`. Manage them with `loki agents list|new|show` and export them as Claude Code subagents with `loki agents export --claude`. Council reviewers and the Loki 10 cross-review use a matching agent's prompt and model; nothing changes when no agents are configured. Templates for reviewer, planner and tester ship in templates/agents/.
+- `loki edit "<change>"` is the lightest path for small changes. It makes one Claude pass on the current repo, with no PRD, plan, council, PR, receipt or branch switch. It then prints the diff stat, the diff, and the cost and elapsed time. Opt-ins: `--verify`, `--receipt`, `--commit` and `--dry-run`. Scope it with a path: `loki edit src/foo.ts "rename X to Y"`.
+- `loki chat`, an interactive alternative to `loki start`, with Plan mode (read-only) and Build mode:
+  - Slash commands: /plan, /build, /run, /quick, /edit, /verify, /receipt, /model, /provider, /cost, /diff, /undo, /help and /exit.
+  - `/run <prd|brief>` starts a normal `loki start` run with the chat's provider and model, and the chat stays open afterwards.
+  - `loki chat --attach` (or `/attach` inside chat) joins the current or most recent `loki start` run, with /status, /steer, /diff, /verify, /receipt and /stop, and answers questions about the run.
+  - `loki chat --tui` opens Claude Code's own interface with Loki context added.
+  - Bare `loki` is unchanged and does not open chat.
+- `loki route start ./prd.md` and `--explain-route` show which engine, provider, model and input type a command would use, and why, without running it. `--json` is supported.
+- Onboarding: `loki setup` is one wizard that covers required tools, Claude Code install and login, an optional provider, a model route and a spend cap. `loki setup --yes` runs it non-interactively. `loki doctor --fix` applies the safe fixes and prints the exact command for each remaining one. `loki config list [--json]` completes `loki config get|set|list|path`.
+- A unified end-of-run summary on both engines: result, files changed, cost (marked when estimated), elapsed time, receipt and a `next:` step that suggests `loki chat --attach`. NO_COLOR is honored, `--quiet` prints only the summary and `--json` adds a summary object.
+- New docs: docs/QUICKSTART.md (5 minutes from install to first run), docs/COMPARE-OPENCODE.md and a rewritten core CLI reference (docs/CLI-CORE-VERBS.md).
+
+### Changed
+- One predictable execution path. Flag order and input form (PRD file, issue ref, multi-word task, one-word brief, flag-first call) no longer change the engine. The previous loop runs only in two cases:
+  - On `--engine legacy` or `LOKI_ENGINE=legacy`.
+  - For a single call that uses a flag Loki 10 cannot honor (such as --simple or --parallel). One stderr line names the flag.
+  `--engine engine10` forces Loki 10 and refuses unsupported flags.
+- Provider parity in Loki 10:
+  - Codex, Cline, Aider and opencode now get cost measurement. Cost comes from CLI token output where the CLI prints it, and is otherwise estimated from a per-model price table and marked as estimated. The spend cap therefore applies to every provider.
+  - They also get the same guardrails: a budget-stop kill, and a check after each iteration that reverts and fails the iteration on mass deletes, edits to .git internals or writes outside the project (a `guard.violation` event). Each CLI's native sandbox flags are used where it has them.
+- `loki help` shows the core verbs, with `loki start` first as the primary command and `loki chat` as the interactive alternative. `loki help all` lists every command. `loki help <topic>` covers start, models, providers, agents, verify, exit-codes and config. Unknown commands get a "did you mean" hint.
+- The docs now agree with each other and with the code:
+  - Spend cap: the default is $100 when ANTHROPIC_API_KEY or OPENAI_API_KEY is set, and there is no dollar cap on a subscription. The guide's old $20 figure was wrong.
+  - Prerequisites are stated the same way everywhere.
+  - Routing and providers are described the same way everywhere.
+  - Stale claims are removed: that PRD, flag-first or opencode runs use the legacy engine, and that LOKI_ENGINE is ignored.
+
+### Breaking
+- The exit-code contract is enforced from 11.4.0 and closes the three `loki verify` gaps in docs/KNOWN-ISSUES.md:
+  - `loki verify` exits 3 on an empty diff (was 1).
+  - It exits 2 outside a git repository (was 1).
+  - It exits 64 on an unknown option (was 3).
+  - `loki quick` with no task, and `loki start` with an unknown option, exit 64.
+  See docs/exit-codes.md. Scripts that matched the old codes need updating.
+
+### Known gaps
+- `/steer` from chat takes effect on the previous loop only (with LOKI_PROMPT_INJECTION=1). On a Loki 10 run it records the note in .loki/HUMAN_INPUT.md.
+- Plan mode in chat is enforced for Claude only. Other providers get a read-only instruction in the prompt.
+
+### Upgrade
+- `npm install -g loki-mode@latest`, then `loki setup` and `loki start "<brief>"`. Check the version with `loki version`.
+
 ## v11.3.9 (2026-10-09)
 
 Security follow-up to v11.3.6 plus a release-pipeline fix that lets verified releases reach the `latest` tag sooner.

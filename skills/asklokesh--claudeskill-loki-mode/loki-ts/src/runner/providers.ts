@@ -53,6 +53,8 @@ import type {
   SessionTier,
 } from "./types.ts";
 import { resolveClaudeModel } from "../util/claude_model.ts";
+import { modelRouteEnv, modelRouteModel } from "../providers/model_routes.ts";
+import { opencodeProvider } from "./provider_opencode.ts";
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -90,6 +92,8 @@ export async function resolveProvider(
       return clineProvider();
     case "aider":
       return aiderProvider();
+    case "opencode":
+      return opencodeProvider();
     default: {
       // Defensive: TS exhaustiveness should make this unreachable, but a
       // bad cast at the call site (e.g. user-supplied name) lands here.
@@ -206,6 +210,8 @@ function useProviderDefaultModel(call: ProviderInvocation): boolean {
 }
 
 function claudeModelFor(call: ProviderInvocation): string {
+  const routedModel = modelRouteModel(process.env); // OC-MODELS: openrouter/ollama/... route wins
+  if (routedModel) return routedModel;
   const opusPin =
     call.mainLoop === true &&
     call.tier === "planning" &&
@@ -322,7 +328,7 @@ const ROUTER_AUTO_COMPACT_WINDOW = 100000; // SDK minimum; keeps requests under 
 // loses context. Unknown models fail safe to the ceiling.
 const hasNoPriceCliff = (m: string): boolean => /sonnet|opus/i.test(m) && !/haiku/i.test(m);
 
-// Claude Code version bundled in the pinned Agent SDK. A test (providers_advisor.test.ts) asserts this equals the
+// Claude Code version bundled in the pinned Agent SDK. A test (providers.test.ts, "providers advisor" block) asserts this equals the
 // installed SDK's claudeCodeVersion, so an SDK bump that forgets it fails CI instead of silently mis-probing.
 export const SDK_BUNDLED_CLAUDE_CODE = "2.1.293";
 function bundledClaudeCodeVersion(): string {
@@ -522,7 +528,7 @@ export function claudeProvider(): ProviderInvoker {
           : undefined;
       const r = await shellRun(argv, {
         cwd: call.cwd,
-        env: cavemanEnv,
+        env: { ...cavemanEnv, ...modelRouteEnv(process.env) },
         timeoutMs: _callTimeoutMs,
       });
       await writeCaptured(call.iterationOutputPath, r.stdout, r.stderr);
@@ -763,6 +769,7 @@ export function sdkQueryProvider(): ProviderInvoker {
         // process.env or PATH/HOME/ANTHROPIC_API_KEY vanish and query() fails.
         const env: Record<string, string> = { ...(process.env as Record<string, string>) };
         if (cavemanLvl) env["CAVEMAN_DEFAULT_MODE"] = cavemanLvl;
+        Object.assign(env, modelRouteEnv(process.env)); // OC-MODELS: child-only route env
         // E-65: the session's own Bash tool inherits this env; a `loki start` run inside an engine session
         // must not pick up the lean engine10 shape. The host-guard hook runs in this process, so it is unaffected.
         for (const k of Object.keys(env)) if (k.startsWith("LOKI_E10_")) delete env[k];

@@ -1,8 +1,11 @@
 // E-07: SessionRunner. Runs one provider session in its own OS process group so the whole tree can be
 // killed together at limitS (ENGINE.md 10). E-32: the child re-enters via cli.ts's `engine10 session` route.
 import { spawn, type ChildProcess } from "node:child_process";
+import { cancelSessions, sessionsCancelled, trackSession } from "../util/run_pid.ts"; export { cancelSessions }; // one registry covers every provider child (docs/cost-controls.md)
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { writeProviderCost } from "../providers/provider_cost.ts";
+import { modelRouteModel } from "../providers/model_routes.ts";
 import { recordSessionCost, resultCostPath, tokensUnmeasured, UNMETERED } from "./cost.ts";
 import { partialUsagePath, recordPartialStreamCost } from "../runner/budget.ts";
 import { hooks } from "./hooks.ts";
@@ -10,6 +13,8 @@ import { routerEnabled } from "../runner/router/flag.ts";
 import { routedCostFields, routerMarkers, routerSessionPin } from "../runner/router/session_route.ts";
 import type { ImplementExit, SessionMarkers, SessionResult, SessionRunner, SessionRunOptions } from "./types.ts";
 import { safeGit } from "../util/safe_git.ts";
+import { beginGuard, finishGuard, isGuarded, watchBudget } from "../providers/provider_guard.ts"; // PARITY-ENFORCE: non-Claude guardrails
+import { calculateCostFromRecords, readEfficiencyDir } from "../runner/budget.ts"; import { childBudgetLimit, parseCapUsd } from "../e10ext/budget_cap.ts";
 const KILL_GRACE_MS = 2000; // ENGINE.md section 10: SIGKILL 2s after SIGTERM
 const STDERR_TAIL_BYTES = 64 * 1024; // E-61: kept for stage.failed diagnostics, tail only
 export const HEARTBEAT_MS_DEFAULT = 30_000; // E-68 (augmentiq #52 P0): a provider call emits progress at least every 30s
@@ -23,7 +28,7 @@ export interface SessionRunnerConfig {
   emit?: EmitFn; // ENGINE.md section 5: heartbeat, session.started, session.ended
   heartbeatMs?: number; // default 30_000 (E-68: at least every 30s); tests use a smaller value
   childCommand?: [string, string[]]; // test-only: replaces the self-respawn
-  lokiRoot?: string; // where efficiency records and result-cost files live (the repo's .loki)
+  lokiRoot?: string; remaining?: () => number | null; // lokiRoot: where efficiency records and result-cost files live (the repo's .loki); remaining: dollars left under the run cap, null or absent = no cap
   /** ROUTER-1 R1-09: advisor availability for this run (R1-06 probe). Only read under LOKI_ROUTER=1. */
   advisor?: { available: boolean; reason?: string };
 }
@@ -33,10 +38,12 @@ export const PROVIDER_DEFAULT_MODEL = "claude (provider default)";
 export function resolveModel(provider: string): string {
   const e = process.env;
   if (e.LOKI_MODEL_OVERRIDE) return e.LOKI_MODEL_OVERRIDE;
+  const routed = provider === "claude" ? modelRouteModel(e) : null; // OC-MODELS: a model route names the real model
+  if (routed) return routed;
   if (provider !== "claude") return `${provider} (model not recorded)`;
   return e.LOKI_CLAUDE_MODEL_DEVELOPMENT || e.LOKI_MODEL_DEVELOPMENT || PROVIDER_DEFAULT_MODEL;
 }
-function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): NodeJS.ProcessEnv {
+export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
   env["LOKI_ITERATION"] = opts.iterationId;
   env["LOKI_E10_STAGE"] = opts.stage;
@@ -59,7 +66,7 @@ function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): NodeJS.Pro
   }
   if (cfg.provider === "claude" && (!opts.model || opts.model === PROVIDER_DEFAULT_MODEL) && resolveModel("claude") === PROVIDER_DEFAULT_MODEL) env["LOKI_E10_MODEL_DEFAULT"] = "1"; // providers.ts then omits --model
   const effort = (hooks.effort?.resolve(opts.stage, opts.effort) ?? opts.effort); // ER-01: a user LOKI_E10_EFFORT (already in env) wins over opts and the policy
-  if (effort) env["LOKI_E10_EFFORT"] = effort;
+  const lim = childBudgetLimit(cfg.remaining?.() ?? null); if (lim !== null) env["LOKI_BUDGET_LIMIT"] = lim; if (effort) env["LOKI_E10_EFFORT"] = effort; // lim: the SDK maxBudgetUsd (claude_flags.ts) then caps this one call at what is left
   if (routerEnabled() && !ADVISOR_MARKED_STAGES.has(opts.stage)) env["LOKI_ADVISOR_SCOPE"] = "off"; else delete env["LOKI_ADVISOR_SCOPE"]; // CH-02: only with the router on, so router-off envs stay byte-identical
   const pin = routerSessionPin(env, cfg.provider, cfg.advisor, opts); // ROUTER-1 (runner/router/session_route.ts): identical to opts.model with the router off or a user override set
   if (pin && pin !== PROVIDER_DEFAULT_MODEL) { // the label is a record, never a --model value
@@ -121,7 +128,7 @@ function killGroupWithGrace(pgid: number | undefined): void {
   setTimeout(() => send("SIGKILL"), KILL_GRACE_MS);
 }
 /** Efficiency record plus cost event for one session; a run in another cwd (wall's temp dir) has its result-cost file copied into lokiRoot first, so seal can price it after that dir is gone. */
-function recordCost(cfg: SessionRunnerConfig, opts: SessionRunOptions, status: string, durationS: number): void {
+function recordCost(cfg: SessionRunnerConfig, opts: SessionRunOptions, status: string, durationS: number, outText = ""): void {
   if (!cfg.lokiRoot) return;
   const ownRoot = join(opts.cwd ?? process.cwd(), ".loki");
   const own = resultCostPath(ownRoot, opts.iterationId), dest = resultCostPath(cfg.lokiRoot, opts.iterationId);
@@ -133,6 +140,7 @@ function recordCost(cfg: SessionRunnerConfig, opts: SessionRunOptions, status: s
     mkdirSync(dirname(dest), { recursive: true });
     writeFileSync(dest, JSON.stringify({ total_cost_usd: 0, input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, model, source: UNMETERED }));
   }
+  const pcost = existsSync(dest) ? null : writeProviderCost(dest, cfg.provider, model, opts.brief, outText); // PARITY-COST: codex/cline/aider priced from output usage or sizes, estimated=true; feeds the same cap path
   const effort = (hooks.effort?.resolve(opts.stage, opts.effort) ?? opts.effort);
   const info = { status, durationMs: Math.round(durationS * 1000), model };
   // No `result` ever arrived: price streamed usage instead of leaving cost_usd null.
@@ -141,7 +149,7 @@ function recordCost(cfg: SessionRunnerConfig, opts: SessionRunOptions, status: s
   const unmeasured = tokensUnmeasured(c); // the predicate writeEfficiencyRecord shares: a session without usage emits no token keys, so the control plane never reads a missing session as 0
   cfg.emit?.("cost", opts.stage, {
     session_id: opts.iterationId, model, usd: c.usd, ...(ambiguous ? { resume: "ambiguous" } : {}), ...(unmeasured ? {} : { input_tokens: c.input_tokens, output_tokens: c.output_tokens,
-    cache_read_tokens: c.cache_read_tokens, cache_creation_tokens: c.cache_creation_tokens }), source: c.unmetered ? UNMETERED : c.source || "not measured", ...(effort ? { effort } : {}), ...routedCostFields(dest),
+    cache_read_tokens: c.cache_read_tokens, cache_creation_tokens: c.cache_creation_tokens }), source: c.unmetered ? UNMETERED : c.source || "not measured", ...(pcost?.estimated ? { estimated: true, cost_basis: pcost.cost_basis } : {}), ...(pcost?.unmeasured_reason ? { unmeasured_reason: pcost.unmeasured_reason, cost_basis: pcost.cost_basis } : {}), ...(effort ? { effort } : {}), ...routedCostFields(dest),
   });
 }
 export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
@@ -149,7 +157,7 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
     run(opts: SessionRunOptions): Promise<SessionResult & { stderrTail: string }> {
       const start = Date.now();
       // A signal aborted before run() never fires the listener below, so it never spawns.
-      if (opts.signal.aborted) return Promise.resolve({ exit: null, markers: { done: false, alreadyDone: null, specConflict: null }, durationS: 0, killed: true, stderrTail: "" });
+      if (opts.signal.aborted || sessionsCancelled()) return Promise.resolve({ exit: null, markers: { done: false, alreadyDone: null, specConflict: null }, durationS: 0, killed: true, stderrTail: "" });
       const env = childEnv(opts, cfg);
       const [cmd, args] = cfg.childCommand ?? [
         process.execPath,
@@ -159,6 +167,7 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
       const sessionId = opts.iterationId;
       // stderr is piped and kept (tail only, E-61) for stage.failed diagnostics; always drained
       // via the "data" listener below so a full pipe can never stall the child.
+      const guardSnap = isGuarded(cfg.provider) && cfg.lokiRoot ? beginGuard(opts.cwd ?? process.cwd(), cfg.lokiRoot) : null; // PARITY-ENFORCE
       const child: ChildProcess = spawn(cmd, args, { cwd: opts.cwd, env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
       const pgid = child.pid;
       let stdout = "";
@@ -183,25 +192,31 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
       cfg.emit?.("session.started", opts.stage, { session_id: sessionId, provider: cfg.provider, model: opts.model ?? cfg.model ?? null, pgid: pgid ?? null });
       const onAbort = () => kill("aborted");
       const limitTimer = setTimeout(() => kill("limit"), opts.limitS * 1000);
+      const capUsd = parseCapUsd(process.env["LOKI_E10_MAX_COST_USD"]), effDir = cfg.lokiRoot ? join(cfg.lokiRoot, "metrics", "efficiency") : null, effBase = effDir !== null && capUsd !== null ? calculateCostFromRecords(readEfficiencyDir(effDir)) : 0; const stopBudgetWatch = isGuarded(cfg.provider) && capUsd !== null ? watchBudget(() => (cfg.remaining?.() ?? 1) <= 0 || (effDir !== null && calculateCostFromRecords(readEfficiencyDir(effDir)) - effBase >= capUsd), () => { cfg.emit?.("guard.budget_stop", opts.stage, { provider: cfg.provider }); kill("limit"); }) : () => {}; // PARITY-ENFORCE: live kill on the run cap (LOKI_E10_MAX_COST_USD), not the unset BUDGET_LIMIT
       const heartbeatTimer = setInterval(() => {
         cfg.emit?.("heartbeat", opts.stage, { waiting_on: opts.stage, elapsed_s: (Date.now() - start) / 1000, diff: diffShortstat(opts.cwd) });
       }, cfg.heartbeatMs ?? HEARTBEAT_MS_DEFAULT);
       opts.signal.addEventListener("abort", onAbort, { once: true });
+      const untrack = trackSession(() => kill("aborted"));
       return new Promise<SessionResult & { stderrTail: string }>((resolve) => {
         // "close", not "exit": stdout may still be draining, and the marker is usually last.
         child.on("close", (code) => {
           clearTimeout(limitTimer);
           clearInterval(heartbeatTimer);
+          stopBudgetWatch();
+          const guard = finishGuard(guardSnap); // PARITY-ENFORCE: revert destructive changes, fail the iteration
+          if (!guard.ok) cfg.emit?.("guard.violation", opts.stage, { provider: cfg.provider, violations: guard.violations, reverted: guard.reverted });
           opts.signal.removeEventListener("abort", onAbort);
           // The CLI invoker writes only to its iteration log, never stdout.
           const log = join(opts.cwd ?? process.cwd(), ".loki", `iteration-${sessionId}.log`);
           const logText = existsSync(log) ? readFileSync(log, "utf8") : ""; const markers = parseMarkers(stdout + logText);
           const durationS = (Date.now() - start) / 1000;
           cfg.emit?.("session.ended", opts.stage, {
-            session_id: sessionId, exit: exitKind(code, killed, markers), cause: classifyExitCause(code, killed, killCause ?? undefined), duration_s: durationS,
+            session_id: sessionId, exit: exitKind(guard.ok ? code : 1, killed, markers), cause: classifyExitCause(code, killed, killCause ?? undefined), duration_s: durationS,
           });
-          recordCost(cfg, opts, killed ? "killed" : code === 0 ? "completed" : "failed", durationS);
-          resolve({ exit: code, markers, durationS, killed, summary: (stdout + logText).trim().slice(-4096), stderrTail: stderrTail.toString("utf8") + (logText.match(/^\[sdk-loop error: .*\]$/gm) ?? []).join("\n") }); // only provider-written text is classified: child stderr and the SDK error line, never the agent transcript (A-113). The child echoes the provider's in-memory stderr (A-113b); only the claude CLI invoker returns one, since codex/cline/aider may print session activity on stderr (unmeasured)
+          recordCost(cfg, opts, killed ? "killed" : code === 0 ? "completed" : "failed", durationS, stdout + logText);
+          untrack();
+          resolve({ exit: guard.ok ? code : 1, markers, durationS, killed, summary: (stdout + logText).trim().slice(-4096), stderrTail: (guard.ok ? "" : `guard violation: ${guard.violations.map((v) => v.detail).join("; ")}\n`) + stderrTail.toString("utf8") + (logText.match(/^\[sdk-loop error: .*\]$/gm) ?? []).join("\n") }); // only provider-written text is classified: child stderr and the SDK error line, never the agent transcript (A-113). The child echoes the provider's in-memory stderr (A-113b); only the claude CLI invoker returns one, since codex/cline/aider may print session activity on stderr (unmeasured)
         });
       });
     },

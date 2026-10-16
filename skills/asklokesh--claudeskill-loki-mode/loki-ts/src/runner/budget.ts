@@ -11,11 +11,26 @@
 // fields and ordering here match the heredoc layout in run.sh:7913-7921 and
 // run.sh:7931-7938.
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { atomicWriteText } from "../util/atomic.ts";
 import { lokiDir } from "../util/paths.ts";
 import { type CostResult, type EfficiencySessionInfo, num, writeEfficiencyRecord } from "../engine10/cost.ts";
+
+// LM-002: the default per-run cap (default_max_cost_usd) lives in loki-ts/data/model-pricing.json, also read by autonomy/run.sh and autonomy/loki.
+// The data dir is ../../data from src/runner (this file) and ../data from the bundled dist; the literal is only the last-resort fallback, and a test pins it to the file.
+const DEFAULT_FALLBACK_USD = 100;
+export function loadDefaultMaxCostUsd(): number {
+  const here = dirname(fileURLToPath(import.meta.url));
+  for (const rel of [["..", "..", "data"], ["..", "data"]]) {
+    try {
+      const j = JSON.parse(readFileSync(resolve(here, ...rel, "model-pricing.json"), "utf8")) as { default_max_cost_usd?: unknown };
+      if (typeof j.default_max_cost_usd === "number" && Number.isFinite(j.default_max_cost_usd) && j.default_max_cost_usd > 0) return j.default_max_cost_usd;
+    } catch { /* try the next location */ }
+  }
+  return DEFAULT_FALLBACK_USD;
+}
 
 // Phase J (v7.5.26): rolling pricing table extracted to
 // loki-ts/data/model-pricing.json so the pricing dict can be updated
@@ -323,9 +338,7 @@ export function writeBudgetState(state: BudgetState, file?: string): void {
   const body = lines.join("\n") + "\n";
   // Atomic: write tmp then rename. Bash uses cat-heredoc directly (not atomic),
   // but rename is safer for concurrent reads from dashboard.
-  const tmp = `${fp}.tmp.${process.pid}`;
-  writeFileSync(tmp, body);
-  renameSync(tmp, fp);
+  atomicWriteText(fp, body);
 }
 
 // Format a number to match bash heredoc output. Integers stay integers.

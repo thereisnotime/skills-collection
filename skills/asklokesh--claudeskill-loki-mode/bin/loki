@@ -245,6 +245,48 @@ if [ "${LOKI_PROVIDER:-}" = "gemini" ]; then
     exit 1
 fi
 
+# OC-MODELS: `loki start|quick ... --model <id>` (also flag-first). One place maps the flag to
+# env before ANY engine/route decision, so engine10, the Bun start command and the legacy
+# loop all see the same thing. Route specs (openrouter|ollama|lmstudio|llamacpp|vllm|custom/<id>)
+# set LOKI_MODEL_ROUTE (claude child only); tier names and Claude aliases become --session-model;
+# any other id sets LOKI_OPENCODE_MODEL for opencode or LOKI_MODEL_OVERRIDE otherwise.
+case "${1:-}" in
+    start|quick|--model|--model=*)
+        _lm_has=0
+        for _lm_a in "$@"; do case "$_lm_a" in --model|--model=*) _lm_has=1 ;; esac; done
+        if [ "$_lm_has" = "1" ]; then
+            _lm_out=(); _lm_model=""; _lm_prov=""; _lm_skip=0; _lm_pnext=0
+            for _lm_a in "$@"; do
+                if [ "$_lm_skip" = "1" ]; then case "$_lm_a" in -*) _lm_model=""; break ;; esac; _lm_model="$_lm_a"; _lm_skip=0; continue; fi
+                if [ "$_lm_pnext" = "1" ]; then _lm_prov="$_lm_a"; _lm_pnext=0; fi
+                case "$_lm_a" in
+                    --model) _lm_skip=1; continue ;;
+                    --model=*) _lm_model="${_lm_a#--model=}"; continue ;;
+                    --provider) _lm_pnext=1 ;;
+                    --provider=*) _lm_prov="${_lm_a#--provider=}" ;;
+                esac
+                _lm_out+=("$_lm_a")
+            done
+            if [ -n "$_lm_model" ]; then
+                [ -n "$_lm_prov" ] || _lm_prov="${LOKI_PROVIDER:-claude}"
+                case "$_lm_model" in
+                    openrouter/*|ollama/*|lmstudio/*|llamacpp/*|vllm/*|custom/*) export LOKI_MODEL_ROUTE="$_lm_model" ;;
+                    small|medium|high|opus|sonnet|haiku) _lm_out+=(--session-model "$_lm_model") ;;
+                    *)
+                        if [ "$_lm_prov" = "opencode" ]; then export LOKI_OPENCODE_MODEL="$_lm_model"
+                        else export LOKI_MODEL_OVERRIDE="$_lm_model"; fi
+                        ;;
+                esac
+            else
+                echo "loki: --model requires a value (for example ollama/qwen3-coder or openrouter/<id>)." >&2
+                exit 2
+            fi
+            set -- ${_lm_out[@]+"${_lm_out[@]}"}
+        fi
+        unset _lm_has _lm_out _lm_model _lm_prov _lm_skip _lm_pnext _lm_a
+        ;;
+esac
+
 # First-run funnel, stage C: the activation ATTEMPT (first `loki start`).
 #
 # WHY HERE. This shim runs for BOTH routes before any exec, so one emit at this
@@ -349,9 +391,12 @@ _loki_bun_why() {
 # them to the legacy CLI today. (`--help`'s own content -- whether it should
 # also mention heal/migrate -- is modernize/cli.ts's USAGE text, outside this
 # arm's file set; left unchanged.)
+# M-23: `loki modernize unit ...` (the remote unit worker) is the second routing
+# signal. It takes no --to, and the legacy cmd_modernize has no `unit` subcommand,
+# so routing it to Bun changes nothing for heal/migrate.
 if [ "${1:-}" = "modernize" ]; then
     for _loki_mod_a in "$@"; do
-        if [ "$_loki_mod_a" = "--to" ]; then
+        if [ "$_loki_mod_a" = "--to" ] || [ "${2:-}" = "unit" ]; then
             _lb=$(_loki_bun)
             [ -n "$_lb" ] || { echo "Error: loki modernize needs bun." >&2; exit 1; }
             exec "$_lb" "$BUN_CLI" engine10 "$@"
@@ -406,29 +451,16 @@ _loki_start_needs_bash() {
         esac
     done
     unset _loki_iso_next
-
-    # The Bun RARV loop has not ported the opencode invoker yet. Keep the
-    # released, autonomous shell adapter reachable when SDK mode is enabled
-    # instead of accepting the selection and then failing after intake. CLI
-    # selection wins over env, which wins over the project-level saved choice.
-    local effective_provider="$explicit_provider"
-    if [ -z "$effective_provider" ] && [ -n "${LOKI_PROVIDER:-}" ]; then
-        effective_provider="$LOKI_PROVIDER"
-    fi
-    if [ -z "$effective_provider" ] && [ -f "${PWD}/.loki/state/provider" ]; then
-        effective_provider="$(sed -n '1p' "${PWD}/.loki/state/provider" 2>/dev/null || true)"
-    fi
-    [ "$effective_provider" = "opencode" ] && return 0
     return 1
 }
 _loki_attempts_refuse() {
     if _loki_start_needs_bash "$@"; then
-        echo "loki: 'loki start --attempts' runs only the Loki 10 engine; an option or provider in this command (for example --parallel, --github, --sandbox, --issue, --dry-run, --detach, or opencode) was only honored by the removed legacy loop. Remove it, or use a task string, an issue ref or a PRD path." >&2
+        echo "loki: 'loki start --attempts' runs only the Loki 10 engine; an option or provider in this command (for example --parallel, --github, --sandbox, --issue, --dry-run, or --detach) was only honored by the removed legacy loop. Remove it, or use a task string, an issue ref or a PRD path." >&2
         exit 2
     fi
     case "${LOKI_PROVIDER:-claude}" in
-        claude|codex|cline|aider) ;;
-        *) echo "loki: the Loki 10 engine does not support LOKI_PROVIDER=${LOKI_PROVIDER:-}; use claude, codex, cline or aider." >&2; exit 2 ;;
+        claude|codex|cline|aider|opencode) ;;
+        *) echo "loki: the Loki 10 engine does not support LOKI_PROVIDER=${LOKI_PROVIDER:-}; use claude, codex, cline, aider or opencode." >&2; exit 2 ;;
     esac
 }
 
@@ -480,6 +512,28 @@ if [ "${1:-}" = "start" ]; then
         esac
     done
     unset _loki_sp_a
+fi
+
+# OC-ROUTE: normalize flags before the engine decision so argument order and input form
+# never change the engine (autonomy/route.sh; `loki route ...` and --explain-route print it).
+_R_APPLIED=0
+if [ -f "$REPO_ROOT/autonomy/route.sh" ] && { [ "$_LOKI_START_ATTEMPTS" != "1" ] || case " $* " in *" --explain-route "*) true ;; *) false ;; esac; }; then
+    # shellcheck source=/dev/null
+    . "$REPO_ROOT/autonomy/route.sh"
+    _r_rc=0
+    loki_route_dispatch "$@" || _r_rc=$?
+    case "$_r_rc" in 7) exit 0 ;; 8) exit 2 ;; esac
+    if [ "$R_DECIDED" = "1" ]; then
+        _R_APPLIED=1
+        if [ -n "$R_SESSION_MODEL" ]; then
+            case "$R_SESSION_MODEL" in small) R_SESSION_MODEL=fast ;; medium) R_SESSION_MODEL=development ;; high) R_SESSION_MODEL=planning ;; esac
+            export LOKI_SESSION_MODEL="$R_SESSION_MODEL"
+        fi
+        if [ "$R_E10" != "1" ]; then
+            set -- "$([ "$R_VERB" = "bare" ] && echo start || echo "$R_VERB")" ${R_CLEAN[@]+"${R_CLEAN[@]}"}
+        fi
+    fi
+    unset _r_rc
 fi
 
 # Loki 10 engine (D29, the only engine from 11.0.0). Routes `loki "<task>"`,
@@ -566,14 +620,18 @@ case "v10" in
             # issue refs reach v10.
             *) _e10=0 ;;
         esac
+        if [ "$_R_APPLIED" = "1" ]; then
+            _e10="$R_E10"; _e10_hard="$R_HARD"
+            if [ "$R_E10" = "1" ]; then _e10_args=("${R_E10_ARGS[@]}"); fi
+        fi
         # Default (unset) mode never breaks a host: no bun, or a provider engine10 has no
         # invoker for, falls through to the legacy engine. Explicit v10 keeps its hard error.
         if [ "$_e10" = "1" ] && [ "$_e10_hard" = "0" ]; then
             case "${LOKI_PROVIDER:-claude}" in
-                claude|codex|cline|aider) ;;
+                claude|codex|cline|aider|opencode) ;;
                 *)
                     _e10=0
-                    echo "loki: using the legacy engine (the Loki 10 engine does not support LOKI_PROVIDER=${LOKI_PROVIDER:-}; use claude, codex, cline or aider)." >&2
+                    echo "loki: using the legacy engine (the Loki 10 engine does not support LOKI_PROVIDER=${LOKI_PROVIDER:-}; use claude, codex, cline, aider or opencode)." >&2
                     ;;
             esac
             if [ "$_e10" = "1" ]; then
@@ -739,7 +797,7 @@ fi
 # Two-token routes (provider show/list, memory list/index) match on the first
 # token only; the Bun dispatcher handles subcommand routing internally.
 case "${1:-}" in
-    version|--version|-v|status|stats|doctor|provider|memory|rollback|internal|kpis|trust|proof|receipt|wiki|crash|control|contract|slack|queue|issues|answer|undo|verify-pr|completion|__complete)
+    version|--version|-v|status|stats|doctor|provider|memory|rollback|internal|kpis|estimate|trust|proof|receipt|wiki|crash|control|contract|slack|queue|issues|answer|undo|verify-pr|completion|__complete)
         # v7.5.2: rollback added (wires loki-ts/src/commands/rollback.ts).
         # v7.5.3: internal added for autonomy/run.sh phase1-hooks calls.
         # v7.5.28: kpis added (Phase K MVP: read-only KPI snapshot).

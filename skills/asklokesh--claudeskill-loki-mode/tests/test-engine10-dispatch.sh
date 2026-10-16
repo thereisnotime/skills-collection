@@ -70,8 +70,8 @@ expect "start --attempts 2 without bun is refused, no bash" "" "$(run_loki "$NO_
 expect "start --attempts 2 without bun exits 1" "1" "$(cat "$T/rc")"
 # The bun resolver probes `bun --version`; only a start/autonomy route counts as reaching a loop.
 route_of() { printf '%s' "$1" | grep -v -e '^BUN --version$' || true; }
-expect "start --attempts 2 --no-pr with opencode is refused, no route" "" "$(route_of "$(run_loki "$WITH_BUN" LOKI_PROVIDER=opencode -- start --attempts 2 --no-pr)")"
-expect "start --attempts 2 --no-pr with opencode exits 2" "2" "$(cat "$T/rc")"
+expect "start --attempts 2 --no-pr with opencode -> Bun start (engine10 supports opencode)" "BUN $ENTRY start --attempts 2 --no-pr" "$(route_of "$(run_loki "$WITH_BUN" LOKI_PROVIDER=opencode -- start --attempts 2 --no-pr)")"
+expect "start --attempts 2 --no-pr with opencode exits 0" "0" "$(cat "$T/rc")"
 expect "start --attempts 2 --parallel is refused, no route" "" "$(route_of "$(run_loki "$WITH_BUN" -- start --attempts 2 --no-pr --parallel)")"
 expect "start --attempts 2 --parallel exits 2" "2" "$(cat "$T/rc")"
 expect "start --attempts 2 bad provider is refused" "" "$(run_loki "$WITH_BUN" LOKI_PROVIDER=gemini -- start --attempts 2 --no-pr)"
@@ -80,7 +80,8 @@ expect "start 'fix x' --budget 5 stays as typed (11.3.0)" "BUN $ENTRY engine10 f
 expect "start 'fix x' --attempts 1 --budget 5 -> --max-cost" "BUN $ENTRY engine10 fix x --max-cost 5" "$(run_loki "$WITH_BUN" -- start "fix x" --attempts 1 --budget 5)"
 expect "plain start with opencode stays bash (11.3.0)" "BASH start prd.md" "$(run_loki "$WITH_BUN" LOKI_PROVIDER=opencode -- start prd.md)"
 expect "no bun falls back to legacy, no error" "BASH fix x" "$(run_loki "$NO_BUN" -- "fix x")"
-expect "provider without an invoker -> legacy" "BASH fix x" "$(run_loki "$WITH_BUN" LOKI_PROVIDER=opencode -- "fix x")"
+expect "opencode has an engine10 invoker -> engine10" "BUN $ENTRY engine10 fix x" "$(run_loki "$WITH_BUN" LOKI_PROVIDER=opencode -- "fix x")"
+expect "provider without an invoker is refused, no route" "" "$(run_loki "$WITH_BUN" LOKI_PROVIDER=gemini -- "fix x")"
 expect "LOKI_LEGACY_BASH=1 -> bash" "BASH quick fix x" "$(run_loki "$WITH_BUN" LOKI_LEGACY_BASH=1 -- quick "fix x")"
 
 # 1b. `loki legacy` is removed (11.0.0): a removal message, exit 2, nothing ran. LOKI_ENGINE is no longer read, whatever its value.
@@ -115,9 +116,11 @@ done
 rm -rf "$T/cwd/.loki"
 
 # Legacy commands and existing paths fall through unchanged.
-for w in estimate intent outcomes; do
+for w in intent outcomes; do
     expect "legacy $w stays legacy" "BASH $w" "$(run_loki "$WITH_BUN" -- "$w")"
 done
+# 11.9.0 ESTIMATE-ONE: `loki estimate` runs the Bun estimate, the same one `loki start` shows.
+expect "estimate routes to bun" "BUN $ENTRY estimate" "$(run_loki "$WITH_BUN" -- estimate)"
 expect "--help -> bash" "BASH --help" "$(run_loki "$WITH_BUN" -- --help)"
 : >"$T/cwd/prd.md"
 expect "existing file prd.md -> bash" "BASH prd.md" "$(run_loki "$WITH_BUN" -- prd.md)"
@@ -229,6 +232,182 @@ if [ -n "$mod_start" ] && [ -n "$v10_start" ]; then
     expect "bin/loki: engine block has its own engine10 exec" "1" "$v10_hits"
 else
     bad "bin/loki: could not locate the modernize) arm or the engine block"
+fi
+
+# Routing contract (LM-003): every supported start/quick invocation form goes
+# through `loki route --json` and is asserted against a table. Equivalent forms
+# must land on the same engine and adapter, and any compatibility route must
+# list capability_differences. The "Routing contract" table in docs/exit-codes.md
+# is rendered from the live output; this fails if it drifts.
+# Regenerate it with: bash tests/test-engine10-dispatch.sh --update-doc
+UPDATE=0
+[ "${1:-}" = "--update-doc" ] && UPDATE=1
+if command -v python3 >/dev/null 2>&1; then
+RC_LOKI="$REPO/bin/loki"
+DOC="$REPO/docs/exit-codes.md"
+RC_TMP="$T/route"
+WORK="$RC_TMP/work"
+mkdir -p "$WORK"
+printf '# Spec\nBuild a thing.\n' >"$WORK/p.md"
+printf '{"title":"x"}\n' >"$WORK/p.json"
+printf 'title: x\n' >"$WORK/p.yaml"
+head -c 100100 /dev/zero | tr '\0' 'a' >"$WORK/big.md"
+
+# Table: id|group|env assignments (space separated, may be empty)|args
+# Fields are split on '|'. Args are split on spaces; "_" inside an arg is a space.
+TABLE='
+prd-md|prd-claude||start p.md
+prd-md-flag-last|prd-claude||start p.md --provider claude
+prd-md-flag-first|prd-claude||start --provider claude p.md
+prd-md-prd-flag|prd-claude||start --prd p.md
+prd-json|prd-json||start p.json
+prd-yaml|prd-yaml||start p.yaml
+task-rc_words|task-claude||start fix_the_bug
+task-multi-arg|task-claude||start fix the bug
+task-bare-flag-first|task-claude||--explain-route --json fix_the_bug
+quick-task|quick-claude||quick fix_the_bug
+quick-task-multi-arg|quick-claude||quick fix the bug
+issue-ref|issue-claude||start owner/repo#5
+issue-ref-flag-last|issue-claude||start owner/repo#5 --provider claude
+issue-url|issue-claude||start https://github.com/owner/repo/issues/5
+brief-one-word|brief-claude||start hello
+provider-codex|codex||start p.md --provider codex
+provider-codex-first|codex||start --provider codex p.md
+provider-codex-env|codex|LOKI_PROVIDER=codex|start p.md
+provider-cline|cline||start p.md --provider cline
+provider-aider|aider||start p.md --provider aider
+provider-opencode|opencode||start p.md --provider opencode
+provider-gemini|gemini||start p.md --provider gemini
+engine-legacy-flag|legacy-explicit||start p.md --engine legacy
+engine-legacy-flag-first|legacy-explicit||start --engine legacy p.md
+engine-legacy-env|legacy-explicit|LOKI_ENGINE=legacy|start p.md
+engine-engine10-flag|engine10-explicit||start p.md --engine engine10
+engine-engine10-env|engine10-explicit|LOKI_ENGINE=engine10|start p.md
+unsupported-flag|legacy-flag||start p.md --parallel
+unsupported-flag-first|legacy-flag||start --parallel p.md
+prd-too-large|legacy-size||start big.md
+'
+
+# Expected per group: engine|adapter|compat (1 = capability_differences must be non-empty)
+expect_for() {
+    case "$1" in
+        prd-claude|prd-json|prd-yaml|task-claude|quick-claude|issue-claude|brief-claude|engine10-explicit)
+            echo "engine10|engine10:claude|0" ;;
+        codex|cline|aider|opencode) echo "engine10|engine10:$1|1" ;;
+        gemini) echo "legacy|legacy-bash:gemini|1" ;;
+        legacy-explicit|legacy-flag|legacy-size) echo "legacy|legacy-bash:claude|1" ;;
+        *) echo "?|?|?" ;;
+    esac
+}
+
+route_json() {
+    local rc_env="$1"; shift
+    local -a args=()
+    local a
+    for a in "$@"; do args+=("${a//_/ }"); done
+    # Explicit scoped env: no inherited provider or engine selection.
+    ( cd "$WORK" && env -u LOKI_PROVIDER -u LOKI_ENGINE -u LOKI_MODEL_ROUTE -u LOKI_SESSION_MODEL \
+        -u LOKI_MODEL_OVERRIDE -u LOKI_LEGACY_BASH LOKI_NO_BROWSER=1 HOME="$RC_TMP" \
+        ${rc_env:+$rc_env} "$RC_LOKI" route "${args[@]}" --json 2>/dev/null )
+}
+
+# Bare flag-first rows use --explain-route (route verb would swallow them).
+route_row() {
+    local rc_env="$1" argstr="$2"
+    local -a rc_words
+    read -r -a rc_words <<<"$argstr"
+    if [ "${rc_words[0]}" = "--explain-route" ]; then
+        local -a args=()
+        local a
+        for a in "${rc_words[@]}"; do args+=("${a//_/ }"); done
+        ( cd "$WORK" && env -u LOKI_PROVIDER -u LOKI_ENGINE -u LOKI_MODEL_ROUTE -u LOKI_SESSION_MODEL \
+            -u LOKI_MODEL_OVERRIDE -u LOKI_LEGACY_BASH LOKI_NO_BROWSER=1 HOME="$RC_TMP" \
+            ${rc_env:+$rc_env} "$RC_LOKI" "${args[@]}" 2>/dev/null )
+    else
+        route_json "$rc_env" "${rc_words[@]}"
+    fi
+}
+
+field() { python3 -I -c 'import json,sys; d=json.loads(sys.stdin.read()); v=d[sys.argv[1]]; print(len(v) if isinstance(v,list) else v)' "$1"; }
+
+ROWS_TSV="$RC_TMP/rows.tsv"
+: >"$ROWS_TSV"
+while IFS='|' read -r id group rc_env argstr; do
+    [ -n "$id" ] || continue
+    out="$(route_row "$rc_env" "$argstr")"
+    if [ -z "$out" ]; then bad "$id: no route output"; continue; fi
+    eng="$(printf '%s' "$out" | field engine 2>/dev/null)"
+    adp="$(printf '%s' "$out" | field adapter 2>/dev/null)"
+    ncd="$(printf '%s' "$out" | field capability_differences 2>/dev/null)"
+    rsn="$(printf '%s' "$out" | field reason 2>/dev/null)"
+    IFS='|' read -r want_eng want_adp compat <<<"$(expect_for "$group")"
+    if [ "$eng" = "$want_eng" ] && [ "$adp" = "$want_adp" ]; then
+        ok "$id: $eng / $adp"
+    else
+        bad "$id: got $eng / $adp, want $want_eng / $want_adp"
+    fi
+    if [ "$compat" = "1" ]; then
+        if [ "${ncd:-0}" -gt 0 ]; then ok "$id: compatibility route lists capability differences"
+        else bad "$id: compatibility route has empty capability_differences"; fi
+    else
+        if [ "${ncd:-1}" = "0" ]; then ok "$id: full Claude path has no capability differences"
+        else bad "$id: full path lists capability differences ($ncd)"; fi
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$rc_env" "$argstr" "$eng" "$adp" "$ncd" "$rsn" >>"$ROWS_TSV"
+done <<<"$TABLE"
+
+# Error forms: missing PRD file is a usage error (exit 2), never a silent route.
+( cd "$WORK" && env -u LOKI_PROVIDER -u LOKI_ENGINE LOKI_NO_BROWSER=1 HOME="$RC_TMP" "$RC_LOKI" route start nope.md --json >/dev/null 2>&1 )
+rc=$?
+if [ "$rc" = "2" ]; then ok "missing PRD file: exit 2"; else bad "missing PRD file: exit $rc, want 2"; fi
+( cd "$WORK" && env -u LOKI_PROVIDER -u LOKI_ENGINE LOKI_NO_BROWSER=1 HOME="$RC_TMP" "$RC_LOKI" route start p.md --engine engine10 --parallel --json >/dev/null 2>&1 )
+rc=$?
+if [ "$rc" = "2" ]; then ok "--engine engine10 with an unsupported flag: exit 2"; else bad "--engine engine10 + --parallel: exit $rc, want 2"; fi
+
+# Render the contract table from the live results.
+RENDER="$RC_TMP/render.md"
+python3 -I - "$ROWS_TSV" >"$RENDER" <<'PY'
+import sys
+print("| Invocation (after `loki route`, unless it starts with `loki` or an env var) | Engine | Adapter | Capability differences | Reason |")
+print("|---|---|---|---|---|")
+for line in open(sys.argv[1]):
+    id_, rc_env, args, eng, adp, ncd, rsn = line.rstrip("\n").split("\t")
+    args = " ".join('"%s"' % w.replace("_", " ") if "_" in w else w for w in args.split(" "))
+    inv = "`" + (rc_env + " " if rc_env else "") + ("loki " if args.startswith("--explain-route") else "") + args + "`"
+    cd = "none" if ncd == "0" else "%s listed" % ncd
+    print("| %s | %s | %s | %s | %s |" % (inv, eng, adp, cd, rsn.replace("|", "/")))
+PY
+
+BEGIN='<!-- route-table:begin (generated by tests/test-engine10-dispatch.sh --update-doc) -->'
+END='<!-- route-table:end -->'
+if [ "$UPDATE" = "1" ]; then
+    python3 -I - "$DOC" "$RENDER" "$BEGIN" "$END" <<'PY'
+import sys
+doc, render, begin, end = sys.argv[1:5]
+s = open(doc).read()
+a = s.index(begin) + len(begin)
+b = s.index(end)
+s = s[:a] + "\n" + open(render).read() + s[b:]
+open(doc, "w").write(s)
+PY
+    echo "updated $DOC"
+fi
+current="$(python3 -I - "$DOC" "$BEGIN" "$END" <<'PY'
+import sys
+doc, begin, end = sys.argv[1:4]
+s = open(doc).read()
+a = s.index(begin) + len(begin)
+b = s.index(end)
+sys.stdout.write(s[a:b].strip("\n") + "\n")
+PY
+)"
+if [ "$current" = "$(cat "$RENDER")" ]; then
+    ok "docs/exit-codes.md table matches live route output"
+else
+    bad "docs/exit-codes.md table drifted; run: bash tests/test-engine10-dispatch.sh --update-doc"
+fi
+else
+    echo "SKIP: route contract needs python3"
 fi
 
 echo "Results: $PASS passed, $FAIL failed"

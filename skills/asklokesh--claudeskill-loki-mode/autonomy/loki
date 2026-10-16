@@ -71,6 +71,15 @@ if [ -f "$_LOKI_SCRIPT_DIR/lib/lock.sh" ]; then
     source "$_LOKI_SCRIPT_DIR/lib/lock.sh"
 fi
 
+# Default per-run spend cap (single source: default_max_cost_usd in loki-ts/data/model-pricing.json,
+# also read by loki-ts/src/e10ext/budget_cap.ts and autonomy/run.sh). Prints a plain number; 100 only if the file is unreadable.
+loki_budget_default_usd() {
+    local v=""
+    [ -f "$_LOKI_SCRIPT_DIR/../loki-ts/data/model-pricing.json" ] && \
+        v="$(sed -n 's/.*"default_max_cost_usd"[[:space:]]*:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' "$_LOKI_SCRIPT_DIR/../loki-ts/data/model-pricing.json" | head -1)"
+    printf '%s\n' "${v:-100}"
+}
+
 # Guarded browser opener (loki_open_url). Every browser open goes through it
 # so tests, CI and non-TTY runs never pop a tab. If missing, nothing opens.
 if [ -f "$_LOKI_SCRIPT_DIR/lib/browser-open.sh" ]; then
@@ -122,6 +131,12 @@ _loki_caveman_narration_level() {
         loki_caveman_activate_env
     fi
 }
+
+# loki edit: one-pass small change fast path (functions-only, self-guarded).
+if [ -f "$_LOKI_SCRIPT_DIR/edit.sh" ]; then
+    # shellcheck source=edit.sh
+    source "$_LOKI_SCRIPT_DIR/edit.sh"
+fi
 
 # Quickstart guided interview (v7.29.0): provides cmd_quickstart and its
 # deterministic offline template matcher. Functions-only file (no top-level
@@ -1667,7 +1682,7 @@ PYEOF
 # `loki help answer`: `loki answer` is a v10 (loki-ts) command with no bash
 # implementation, so its help lives here rather than behind delegation.
 _help_answer() {
-    echo -e "${BOLD}loki answer${NC} - Resume a BLOCKED run with an answer"
+    echo -e "${BOLD}loki answer${NC} - Start a follow-up run from a BLOCKED run with your answer"
     echo ""
     echo "Usage: loki answer [<run-id>] [--text \"...\"]"
     echo ""
@@ -1696,6 +1711,8 @@ _help_verify_pr() {
     echo -e "${BOLD}loki verify-pr${NC} - Verify a PR against its linked issue (experimental, LOKI_VERIFY_PR=1)"
     echo ""
     echo "Usage: loki verify-pr <https://github.com/o/r/pull/N | o/r#N> [--out DIR]"
+    echo "       loki verify-pr respond <o/r#N>   fix open review comments (one commit each, on the PR"
+    echo "                                        branch), push, reply with the sha; never resolves threads"
     echo ""
     echo "Derives a check from the PR's linked issue (Check: \`cmd\` or a loki-check fence)."
     echo "VERIFIED only if the check fails on the PR base, passes on its head, and the"
@@ -1722,7 +1739,14 @@ _help_verify_dsse() {
     echo "          66  no signing key, or no runs"
 }
 
+# Default help screen: core verbs only. `loki help all` prints show_help_all.
 show_help() {
+    # shellcheck source=/dev/null
+    source "$_LOKI_SCRIPT_DIR/lib/help-core.sh"
+    help_core_screen "$(get_version)"
+}
+
+show_help_all() {
     local version=$(get_version)
     # Strip color when stdout is not a TTY (piped/redirected) so captured help
     # output is clean, matching the bare-loki welcome path. Local overrides only.
@@ -1735,6 +1759,7 @@ show_help() {
     echo "Usage: loki <command> [options]"
     echo ""
     echo "New here? Try these in order:"
+    echo "  loki setup                One-step wizard: tools, provider login, model route, spend cap (--yes for defaults)"
     echo "  loki welcome              Friendly first-run opener (what Loki is, next steps)"
     echo "  loki doctor               Check your setup is ready (a few seconds)"
     echo "  loki quickstart           Guided first build from your idea (no PRD needed)"
@@ -1762,7 +1787,8 @@ show_help() {
     echo "  start [SPEC]     Start a build (PRD file, GitHub/GitLab/Jira/Azure issue, or no arg)"
     echo "  plan <PRD-file>  Dry-run analysis: complexity, cost, execution plan"
     echo "  backlog <owner/repo> --all|--label X|--issues N,N   Run every matching open issue, N in parallel"
-    echo "  workspace list | run <name> <ref>   Multi-repo runs from loki.yaml workspaces (LOKI_WORKSPACES=0 disables)"
+    echo "  workspace list | infer <name> | run <name> <ref>   Multi-repo runs from loki.yaml workspaces (LOKI_WORKSPACES=0 disables)"
+    echo "  start --workspace <name> \"<brief>\"   Run a workspace; start --deploy [--health-url U] deploys after a VERIFIED run"
     echo "  quickstart [idea]  Guided first build: setup, idea, template, plan, go"
     echo ""
     echo "Session:"
@@ -1775,7 +1801,8 @@ show_help() {
     echo ""
     echo "Verify / trust:"
     echo "  verify [base]    Deterministic PR verification (CI-gate exit codes)"
-    echo "  keys export      Print the public receipt-signing key (JWK) for third-party verify --pubkey"
+    echo "  verify-pr <pr>   Verify a PR against its linked issue; 'verify-pr respond <pr>' fixes review comments"
+    echo "  keys export     Print the public receipt-signing key (JWK) for third-party verify --pubkey"
     echo "  review [opts]    Standalone code review with quality gates"
     echo "  ultracode \"task\" Run a task as a native Claude Code Dynamic Workflow (opt-in, Claude-only)"
     echo "  trust [cmd]      Visible trust trajectory; 'trust detail' for metrics"
@@ -1815,6 +1842,7 @@ show_help() {
     echo ""
     echo "Options for 'start':"
     echo "  --provider NAME  AI provider: claude (default), codex, cline, aider, opencode"
+    echo "  --model ID       Model tier or route (e.g. ollama/qwen3-coder)"
     echo "  --simple         Force simple complexity tier (3 phases)"
     echo "  --complex        Force complex complexity tier (8 phases)"
     echo "  --no-dashboard   Disable web dashboard"
@@ -1823,7 +1851,7 @@ show_help() {
     echo "  --spec FILE      Run against an edited spec (written by 'loki plan <task> --spec'; see also --spec-first)"
     echo "  --fresh-prd      Regenerate the PRD from the codebase (no-PRD runs; ignores the reusable generated PRD)"
     echo "  --compliance PRESET  Enable compliance mode (default|healthcare|fintech|government)"
-    echo "  --budget USD     Set cost budget limit (display in dashboard/status)"
+    echo "  --budget USD     Per-run cost cap in USD (default $(loki_budget_default_usd); auto-pause when exceeded; see docs/cost-controls.md)"
     echo "  --bmad-project PATH  Use BMAD Method project artifacts as input"
     echo "  --openspec PATH      Use OpenSpec change directory as input"
     echo "  --config PATH    Load settings from a config file (.yaml/.json/.env). Alias: --env-file, --vars"
@@ -1880,6 +1908,7 @@ show_help() {
     echo "  loki memory list              # All learnings"
     echo "  loki memory search <query>    # Search across learnings"
     echo "  loki memory consolidate       # Run episodic-to-semantic pipeline"
+    echo "  loki memory learn --recent N  # Learn from the newest N merged PRs"
     echo ""
     echo "  # Config + dashboard"
     echo "  loki config set maxTier sonnet   # Cap model cost"
@@ -1899,6 +1928,7 @@ show_help() {
     # missing from this list, so a new command cannot ship invisible.
     echo ""
     echo "All commands:"
+    echo "  agents chat diff edit models route"
     echo "  acp agent analyze api assets audit backlog bench checkpoint (cp) ci cleanup"
     echo "  cluster cockpit code compliance completions compound config context (ctx)"
     echo "  cost council crash dashboard demo deploy docker docs doctor dogfood"
@@ -1908,7 +1938,7 @@ show_help() {
     echo "  next notify onboard open optimize otel outcomes own (handoff) pause plan preview"
     echo "  projects proof (receipt) provider quick quickstart rc remote report reset"
     echo "  merge resume review rollback run sandbox secrets secure self-update sentrux"
-    echo "  serve setup-skill share ship spec start state stats status steer stop"
+    echo "  serve setup setup-skill share ship spec start state stats status steer stop"
     echo "  syslog telemetry template test tour trigger trust trust-metrics"
     echo "  ultracode undo update verify version voice watch watchdog web welcome why"
     echo "  wiki workspace worktree (wt)"
@@ -2517,6 +2547,76 @@ cmd_start() {
     # version all return 0 without output), so no guard is needed here.
     maybe_print_update_hint || true
 
+    # PATH slice: --workspace NAME runs a multi-repo workspace through the one
+    # workspace runner (no new logic here), and --deploy [--health-url U]
+    # [--auto-rollback] chains the gated `loki deploy --execute` after a start
+    # that ended 0. cmd_deploy owns every gate: no VERIFIED HEAD-anchored
+    # receipt means a refusal, never a deploy.
+    local _ps_ws="" _ps_deploy=0 _ps_health="" _ps_hmatch="" _ps_rb=0 _ps_rest=() _ps_brief=() _ps_a
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --workspace)
+                [ -n "${2:-}" ] && [ "${2#-}" = "$2" ] || { echo -e "${RED}--workspace requires a workspace name${NC}" >&2; exit 2; }
+                _ps_ws="$2"; shift 2 ;;
+            --workspace=*) _ps_ws="${1#*=}"; shift ;;
+            --deploy) _ps_deploy=1; shift ;;
+            --health-url)
+                [ -n "${2:-}" ] && [ "${2#-}" = "$2" ] || { echo -e "${RED}--health-url requires a URL${NC}" >&2; exit 2; }
+                _ps_health="$2"; shift 2 ;;
+            --health-url=*) _ps_health="${1#*=}"; shift ;;
+            --health-match)
+                [ -n "${2:-}" ] && [ "${2#-}" = "$2" ] || { echo -e "${RED}--health-match requires a string${NC}" >&2; exit 2; }
+                _ps_hmatch="$2"; shift 2 ;;
+            --health-match=*) _ps_hmatch="${1#*=}"; shift ;;
+            --auto-rollback) _ps_rb=1; shift ;;
+            *) _ps_rest+=("$1"); shift ;;
+        esac
+    done
+    if { [ -n "$_ps_health" ] || [ -n "$_ps_hmatch" ] || [ "$_ps_rb" = 1 ]; } && [ "$_ps_deploy" != 1 ]; then
+        echo -e "${RED}--health-url, --health-match and --auto-rollback apply only with --deploy${NC}" >&2
+        exit 2
+    fi
+    if [ -n "$_ps_ws" ]; then
+        if [ "$_ps_deploy" = 1 ]; then
+            echo -e "${RED}--workspace and --deploy cannot be combined: deploy each repo with loki deploy${NC}" >&2
+            exit 2
+        fi
+        local _ps_skip=0
+        for _ps_a in ${_ps_rest[@]+"${_ps_rest[@]}"}; do
+            if [ "$_ps_skip" = 1 ]; then _ps_skip=0; continue; fi
+            if [ "$_ps_skip" = 2 ]; then _ps_skip=0; _ps_brief+=("$_ps_a"); continue; fi
+            case "$_ps_a" in
+                --brief=*) _ps_brief+=("${_ps_a#*=}") ;;
+                --brief) _ps_skip=2 ;;
+                # Every value-taking cmd_start flag: its value is never brief text.
+                --provider|--budget|--prd|--issue|--model|--max-cost|--isolation|--aider-model|--aider-flags|--cline-model|--compliance|--max-duration|--log-level|--bmad-project|--openspec|--mirofish-rounds|--mirofish-timeout|--output|--config|--vars|--env-file|--remote|--attempts|--max-wait) _ps_skip=1 ;;
+                -*) ;;
+                *) _ps_brief+=("$_ps_a") ;;
+            esac
+        done
+        if [ "${#_ps_brief[@]}" -eq 0 ]; then
+            echo -e "${RED}loki start --workspace $_ps_ws needs a brief or an issue ref${NC}" >&2
+            exit 2
+        fi
+        cmd_workspace run "$_ps_ws" "${_ps_brief[*]}"
+        return $?
+    fi
+    if [ "$_ps_deploy" = 1 ]; then
+        local _ps_rc=0
+        ( cmd_start ${_ps_rest[@]+"${_ps_rest[@]}"} ) || _ps_rc=$?
+        if [ "$_ps_rc" -ne 0 ]; then
+            echo -e "${RED}start exited $_ps_rc: not deploying${NC}" >&2
+            return "$_ps_rc"
+        fi
+        local _ps_dargs=(--execute)
+        [ -n "$_ps_health" ] && _ps_dargs+=(--health-url "$_ps_health")
+        [ -n "$_ps_hmatch" ] && _ps_dargs+=(--health-match "$_ps_hmatch")
+        [ "$_ps_rb" = 1 ] && _ps_dargs+=(--auto-rollback)
+        cmd_deploy "${_ps_dargs[@]}"
+        return $?
+    fi
+    set -- ${_ps_rest[@]+"${_ps_rest[@]}"}
+
     local args=()
     local prd_file=""
     local provider=""
@@ -2575,7 +2675,8 @@ cmd_start() {
                 echo "                        Token from LOKI_REMOTE_TOKEN / LOKI_REMOTE_TOKEN_FILE"
                 echo "                        (never an argument). Env: LOKI_REMOTE_URL."
                 echo "  --provider NAME       AI provider: claude (default), codex, cline, aider, opencode"
-                echo "  --allow-haiku         Enable Haiku model for the fast tier (default: disabled)"
+                echo "  --model NAME          Model or route override (for example ollama/qwen3-coder)"
+                echo "  --allow-haiku        Enable Haiku model for the fast tier (default: disabled)"
                 echo "  --simple              Force simple complexity tier (3 phases)"
                 echo "  --complex             Force complex complexity tier (8 phases)"
                 echo "  --no-dashboard        Disable web dashboard"
@@ -2591,7 +2692,7 @@ cmd_start() {
                 echo "                        (ignores the reusable generated PRD; aliases: --regen-prd,"
                 echo "                        --regenerate-prd, --regen, or LOKI_PRD_REGEN=1)"
                 echo "  --compliance PRESET   Enable compliance mode (default|healthcare|fintech|government)"
-                echo "  --budget USD          Cost budget limit (auto-pause when exceeded)"
+                echo "  --budget USD          Per-run cost cap (default $(loki_budget_default_usd); auto-pause when exceeded)"
                 echo "  --bmad-project PATH   Use BMAD Method project artifacts as input"
                 echo "  --openspec PATH       Use OpenSpec change directory as input"
                 echo "  --mirofish [URL]      Enable MiroFish market validation (default: localhost:5001)"
@@ -2611,13 +2712,14 @@ cmd_start() {
                 echo "  --log-level LEVEL     debug | info | warn | error (default: info)"
                 echo "  --max-duration DUR    Wall-clock cap: seconds, or 90m / 2h (default: none)"
                 echo ""
-                echo "Issue-mode options (only used when input is an ISSUE-REF):"
+                echo "Issue-mode options (used when input is an ISSUE-REF or a --brief):"
                 echo "  --dry-run             Preview generated PRD without starting"
                 echo "  --no-start            Generate PRD but don't start execution"
                 echo "  --output FILE         Save generated PRD to custom path"
                 echo "  --worktree, -w        Git worktree isolation (separate branch)"
                 echo "  --pr                  Worktree + auto-create PR"
                 echo "  --ship                Worktree + PR + auto-merge"
+                echo "  --detach, -d          Run in background (implies --worktree)"
                 echo ""
                 echo "Preview without spending (any input mode):"
                 echo "  loki plan <PRD>       Analyze a spec WITHOUT executing: complexity,"
@@ -2634,7 +2736,7 @@ cmd_start() {
                 echo "  LOKI_AUTO_CONFIRM     Set to 'true'/'false' to control prompts (takes precedence over CI)"
                 echo "  CI                    Fallback: auto-confirms when 'true' and LOKI_AUTO_CONFIRM is unset"
                 echo "  LOKI_MAX_ITERATIONS   Max iteration count"
-                echo "  LOKI_BUDGET_LIMIT     Cost budget limit in USD"
+                echo "  LOKI_BUDGET_LIMIT     Cost cap in USD (default $(loki_budget_default_usd); empty means unlimited)"
                 echo ""
                 echo "Examples:"
                 echo "  loki start                              # Interactive, analyze current dir"
@@ -3032,7 +3134,7 @@ cmd_start() {
                         echo -e "${RED}--budget must be greater than 0 (a 0 budget pauses before any work)${NC}" >&2
                         exit 1
                     fi
-                    export LOKI_BUDGET_LIMIT="$2"
+                    export LOKI_BUDGET_LIMIT="$2" LOKI_BUDGET_SOURCE=flag
                     shift 2
                 else
                     echo -e "${RED}--budget requires a USD amount (e.g., --budget 5.00)${NC}"
@@ -3050,7 +3152,7 @@ cmd_start() {
                     echo -e "${RED}--budget must be greater than 0 (a 0 budget pauses before any work)${NC}" >&2
                     exit 1
                 fi
-                export LOKI_BUDGET_LIMIT="$budget_val"
+                export LOKI_BUDGET_LIMIT="$budget_val" LOKI_BUDGET_SOURCE=flag
                 shift
                 ;;
             # v6.84.0: explicit mode flags (override auto-detection)
@@ -3184,7 +3286,7 @@ cmd_start() {
                 ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}"
-                exit 1
+                exit 64
                 ;;
             *)
                 # Capture first positional arg for unified mode detection.
@@ -3348,6 +3450,24 @@ cmd_start() {
         # Mark this invocation as unified (so cmd_run skips deprecation notice)
         export LOKI_UNIFIED_START=1
         cmd_run "${run_args[@]}"
+        return $?
+    fi
+
+    # BRIEF + isolation flags (--pr/--worktree/--detach/--prepare-pr/--ship):
+    # the flags were collected above but only the issue path consumed them, so a
+    # delegated brief ran in the caller's checkout with no PR. Route it through
+    # cmd_run (worktree, detach, receipt-bearing PR) as a tracker-less issue.
+    if [ "$detected_type" = "brief" ] && [ "$issue_use_worktree" = "true" ]; then
+        local brief_run_args=("--brief-text" "$brief_text")
+        for a in "${issue_mode_args[@]+"${issue_mode_args[@]}"}"; do
+            brief_run_args+=("$a")
+        done
+        for a in "${args[@]+"${args[@]}"}"; do
+            brief_run_args+=("$a")
+        done
+        brief_run_args+=("--no-plan")
+        export LOKI_UNIFIED_START=1
+        cmd_run "${brief_run_args[@]}"
         return $?
     fi
 
@@ -3939,15 +4059,8 @@ cmd_start() {
     if ! command -v "$effective_provider" &>/dev/null; then
         echo -e "${RED}Error: Provider CLI '$effective_provider' is not installed.${NC}"
         echo ""
-        echo "Install it first:"
-        case "$effective_provider" in
-            claude) echo "  npm install -g @anthropic-ai/claude-code" ;;
-            codex)  echo "  npm install -g @openai/codex" ;;
-            cline)  echo "  npm install -g cline" ;;
-            aider)  echo "  pip install aider-chat" ;;
-            opencode) echo "  npm install -g opencode-ai" ;;
-            *)      echo "  Check the provider documentation for installation." ;;
-        esac
+        echo "Install it first (same fix as loki doctor):"
+        _loki_req_fix_line "$effective_provider"
         echo ""
         echo "Check your environment: loki doctor"
         exit 1
@@ -4956,11 +5069,14 @@ cmd_pause() {
 }
 
 # RUN-25 iter 22 (Wave D #3): `loki steer "<note>"` writes an operator directive
-# the running loop actually reads (.loki/HUMAN_INPUT.md), replacing the dead
-# steering.md hint the cockpit used to advertise (nothing read it). The loop only
-# INJECTS the note when LOKI_PROMPT_INJECTION=1 (default off, for safety), so we
-# write the note and tell the operator the exact flag -- honest: the control now
-# genuinely persists the directive instead of silently no-op'ing.
+# to .loki/HUMAN_INPUT.md. engine10 reads it before the next plan or implement
+# session (default on; only LOKI_PROMPT_INJECTION=0/false opts out, steer.ts).
+# The legacy loop injects it only when LOKI_PROMPT_INJECTION=1.
+# Each steer is a numbered revision: `## Operator directive rev N (ts) actor=A source=S`.
+# engine10 (util/steer.ts) archives the file and appends the revisions to
+# .loki/intent-revisions.jsonl. Actor and source come from LOKI_STEER_ACTOR
+# (default: git user.name, then $USER) and LOKI_STEER_SOURCE (cli, chat or an
+# https comment URL; default cli). Both are reduced to a safe character set.
 cmd_steer() {
     case "${1:-}" in
         --help|-h|help|"")
@@ -4968,13 +5084,14 @@ cmd_steer() {
             echo ""
             echo "Usage: loki steer \"<guidance>\""
             echo ""
-            echo "Writes your guidance to .loki/HUMAN_INPUT.md, which the running"
-            echo "loop reads at the next iteration boundary (when LOKI_PROMPT_INJECTION=1)."
+            echo "Writes your guidance to .loki/HUMAN_INPUT.md as a numbered revision"
+            echo "(rev N, actor, source). The Loki 10 engine applies it once, before the"
+            echo "next plan or implement session, and records it in .loki/intent-revisions.jsonl."
             echo ""
             echo "  loki steer \"focus on the auth flow, skip the docs for now\""
             echo ""
-            echo "The loop injects the note only when prompt injection is enabled:"
-            echo "  LOKI_PROMPT_INJECTION=1 loki start ...   (or export it before starting)"
+            echo "Opt out with LOKI_PROMPT_INJECTION=0. The legacy loop reads the note"
+            echo "only when LOKI_PROMPT_INJECTION=1."
             [ -z "${1:-}" ] && return 2
             return 0
             ;;
@@ -4984,20 +5101,34 @@ cmd_steer() {
         return 1
     fi
     local note="$*"
-    # Append with a timestamp so multiple steers accumulate; the reader consumes
-    # and clears the file each iteration, so this is the pending-directive buffer.
+    local actor source rev pending archived
+    actor="${LOKI_STEER_ACTOR:-$(git config user.name 2>/dev/null || true)}"
+    actor="${actor:-${USER:-unknown}}"
+    actor="$(printf '%s' "$actor" | tr -c 'A-Za-z0-9._@-' '-' | cut -c1-64)"
+    source="$(printf '%s' "${LOKI_STEER_SOURCE:-cli}" | tr -c 'A-Za-z0-9:/._#?=&%-' '-' | cut -c1-300)"
+    # rev = consumed revisions + steers still pending in the buffer + 1
+    archived=0; pending=0
+    [ -f "$LOKI_DIR/intent-revisions.jsonl" ] && archived="$(wc -l < "$LOKI_DIR/intent-revisions.jsonl" | tr -d ' ')"
+    [ -f "$LOKI_DIR/HUMAN_INPUT.md" ] && pending="$(grep -c '^## Operator directive rev ' "$LOKI_DIR/HUMAN_INPUT.md" 2>/dev/null || true)"
+    rev=$(( ${archived:-0} + ${pending:-0} + 1 ))
+    # Append so multiple steers accumulate; the reader consumes and clears the
+    # file, so this is the pending-directive buffer.
     {
-        printf '## Operator directive (%s)\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        printf '## Operator directive rev %s (%s) actor=%s source=%s\n' "$rev" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$actor" "$source"
         printf '%s\n\n' "$note"
     } >> "$LOKI_DIR/HUMAN_INPUT.md"
     emit_event session cli steer "chars=${#note}" 2>/dev/null || true
-    echo -e "${GREEN}Steering note written to .loki/HUMAN_INPUT.md${NC}"
-    if [ "${LOKI_PROMPT_INJECTION:-false}" != "1" ] && [ "${LOKI_PROMPT_INJECTION:-false}" != "true" ]; then
-        echo -e "${YELLOW}Note: prompt injection is OFF, so the loop will NOT read this yet.${NC}"
-        echo -e "${DIM}Enable it: export LOKI_PROMPT_INJECTION=1 (then the next iteration ingests the note).${NC}"
-    else
-        echo -e "${DIM}The next iteration will read and apply it.${NC}"
-    fi
+    echo -e "${GREEN}Steering note (rev $rev) written to .loki/HUMAN_INPUT.md${NC}"
+    case "${LOKI_PROMPT_INJECTION:-}" in
+        0|false|FALSE|False)
+            echo -e "${YELLOW}Note: LOKI_PROMPT_INJECTION is off, so the run will NOT read this.${NC}"
+            ;;
+        *)
+            echo -e "${DIM}The Loki 10 engine applies it before the next plan or implement session.${NC}"
+            # Same text the issue comment ack posts (trigger-server.py steer_ack_text).
+            echo "Steer rev $rev received: applies at next plan/implement stage."
+            ;;
+    esac
     return 0
 }
 
@@ -5151,6 +5282,17 @@ cmd_resume() {
         echo -e "${YELLOW}No .loki directory found.${NC}"
         echo "No session to resume. Start a session with: loki start"
         exit 0
+    fi
+
+    # RECOVERY: an interrupted engine10 run is resumed at its phase by loki-ts/src/util/run_outputs.ts
+    # (exit 0 resumed, 4 phase reported, 5 publish failed, anything else: nothing for it, fall through).
+    if ls "$LOKI_DIR"/runs/e10-*/events.jsonl >/dev/null 2>&1; then
+        local _e10_rc=0
+        ( _loki_bun_delegate engine10 resume "$@" ) || _e10_rc=$?
+        case "$_e10_rc" in
+            0 | 4) return 0 ;;
+            5) return 1 ;;
+        esac
     fi
 
     # Check if there is anything to resume before touching signal files
@@ -7102,7 +7244,13 @@ cmd_provider() {
             cmd_provider_list
             ;;
         info)
+            case " $* " in
+                *" --json "*) _loki_bun_delegate provider info "$@" || { echo "loki provider info --json needs bun: ${_LOKI_DELEGATE_WHY}" >&2; return 1; } ;;
+            esac
             cmd_provider_info "$@"
+            ;;
+        matrix)
+            _loki_bun_delegate provider matrix "$@" || { echo "loki provider matrix needs bun: ${_LOKI_DELEGATE_WHY}" >&2; return 1; }
             ;;
         models)
             cmd_provider_models
@@ -7116,7 +7264,8 @@ cmd_provider() {
             echo "  show     Show current provider (default)"
             echo "  set      Set provider for this project"
             echo "  list     List available providers"
-            echo "  info     Show provider details"
+            echo "  info     Show provider details (--json: capability contract)"
+            echo "  matrix   Show the capability matrix per provider and engine"
             echo "  models   Show resolved model configuration for all providers"
             echo ""
             echo "Precedence (highest wins):"
@@ -8256,7 +8405,7 @@ PURPLE_LAB_STATE_DIR="${HOME}/.loki/purple-lab"
 PURPLE_LAB_PID_FILE="${PURPLE_LAB_STATE_DIR}/purple-lab.pid"
 
 # Is this pid positively identified as THIS installation's Purple Lab server
-# (cmd_web_start launches exactly `$DASHBOARD_PYTHON $SKILL_DIR/web-app/server.py`
+# (a server started before the web deprecation launched exactly `$DASHBOARD_PYTHON $SKILL_DIR/web-app/server.py`
 # at :8078), rather than a recycled pid, a decoy that merely mentions the path
 # in an argument, or another installation's server.py at a different SKILL_DIR?
 #
@@ -8467,205 +8616,6 @@ cmd_web_help() {
     echo "  loki web                  Launch the Control Plane"
     echo "  loki web --no-open        Same (--no-open is a no-op)"
     echo "  loki web stop             Stop a standalone web server started the old way"
-}
-
-cmd_web_start() {
-    local open_browser=true
-    local port="${PURPLE_LAB_DEFAULT_PORT}"
-    local prd_file=""
-
-    # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --no-open)
-                open_browser=false
-                shift
-                ;;
-            --port)
-                if [[ -z "${2:-}" ]]; then
-                    echo -e "${RED}--port requires a port number${NC}"
-                    exit 1
-                fi
-                port="$2"
-                shift 2
-                ;;
-            --prd)
-                if [[ -z "${2:-}" ]]; then
-                    echo -e "${RED}--prd requires a file path${NC}"
-                    exit 1
-                fi
-                prd_file="$2"
-                shift 2
-                ;;
-            --help|-h)
-                cmd_web_help
-                exit 0
-                ;;
-            *)
-                echo -e "${RED}Unknown option: $1${NC}"
-                echo "Run 'loki web --help' for usage."
-                exit 1
-                ;;
-        esac
-    done
-
-    # Validate port: must be numeric and in valid range
-    if [[ ! "$port" =~ ^[0-9]+$ ]]; then
-        echo -e "${RED}Error: Port must be a number, got '$port'${NC}"
-        exit 1
-    fi
-    if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
-        echo -e "${RED}Error: Port must be between 1 and 65535, got $port${NC}"
-        exit 1
-    fi
-    # Port validation moved below (after PID file check) so we can offer to kill orphans
-
-    # Validate --prd file if provided
-    if [ -n "$prd_file" ]; then
-        if [ ! -f "$prd_file" ]; then
-            echo -e "${RED}Error: PRD file not found: $prd_file${NC}"
-            exit 1
-        fi
-        export PURPLE_LAB_PRD
-        PURPLE_LAB_PRD=$(cat "$prd_file")
-    fi
-
-    # Check that web-app dist exists
-    local web_dist="${SKILL_DIR}/web-app/dist"
-    if [ ! -d "$web_dist" ] || [ ! -f "$web_dist/index.html" ]; then
-        echo -e "${RED}Error: Web app not built${NC}"
-        echo "Expected files at: $web_dist"
-        echo ""
-        echo "Build the web app first:"
-        echo "  cd web-app && npm install && npm run build"
-        exit 1
-    fi
-
-    # Check that server.py exists
-    local server_py="${SKILL_DIR}/web-app/server.py"
-    if [ ! -f "$server_py" ]; then
-        echo -e "${RED}Error: Purple Lab server not found at $server_py${NC}"
-        exit 1
-    fi
-
-    # Ensure Python venv with FastAPI is available
-    if ! ensure_dashboard_venv; then
-        echo -e "${RED}Error: Failed to set up Python environment${NC}"
-        exit 1
-    fi
-
-    # Check if already running
-    mkdir -p "${LOKI_DIR}/purple-lab"
-    if [ -f "$PURPLE_LAB_PID_FILE" ]; then
-        local existing_pid
-        existing_pid=$(cat "$PURPLE_LAB_PID_FILE" 2>/dev/null)
-        if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
-            echo -e "${GREEN}Purple Lab already running (PID: $existing_pid)${NC}"
-            local url="http://${PURPLE_LAB_DEFAULT_HOST}:${port}/lab/"
-            echo -e "Open: ${CYAN}$url${NC}"
-            if [ "$open_browser" = true ]; then
-                loki_open_url "$url" 2>/dev/null || true
-            fi
-            return 0
-        fi
-    fi
-
-    # Check if port is already in use -- try to clean up orphaned processes.
-    # Only kill it if it is positively identified as THIS installation's own
-    # Purple Lab server (never a bare "it's listening on our port" guess): an
-    # unrelated process bound to the same port, or another installation's
-    # server, must never be signaled.
-    if lsof -i:"$port" -sTCP:LISTEN &> /dev/null; then
-        local blocking_pid
-        blocking_pid=$(lsof -ti:"$port" -sTCP:LISTEN 2>/dev/null | head -1)
-        if [ -n "$blocking_pid" ]; then
-            if _loki_pid_looks_like_purplelab "$blocking_pid"; then
-                echo -e "${YELLOW}Port $port in use by PID $blocking_pid -- stopping it...${NC}"
-                kill "$blocking_pid" 2>/dev/null
-                sleep 1
-                if kill -0 "$blocking_pid" 2>/dev/null; then
-                    kill -9 "$blocking_pid" 2>/dev/null
-                    sleep 1
-                fi
-                # Verify port is now free
-                if lsof -i:"$port" -sTCP:LISTEN &> /dev/null; then
-                    echo -e "${RED}Error: Could not free port $port${NC}"
-                    echo "Use --port to specify a different port, or manually kill the process."
-                    exit 1
-                fi
-                echo -e "${GREEN}Port $port freed.${NC}"
-            else
-                echo -e "${RED}Error: Port $port is in use by PID $blocking_pid, which is not this installation's Purple Lab server.${NC}"
-                echo "Use --port to specify a different port, or manually stop that process."
-                exit 1
-            fi
-        fi
-    fi
-
-    # Start the server
-    local log_dir="${LOKI_DIR}/purple-lab/logs"
-    mkdir -p "$log_dir"
-    local log_file="$log_dir/purple-lab.log"
-
-    echo -e "${CYAN}Starting Purple Lab...${NC}"
-
-    PURPLE_LAB_PORT="$port" PURPLE_LAB_HOST="${PURPLE_LAB_DEFAULT_HOST}" \
-    LOKI_DIR="$LOKI_DIR" LOKI_SKILL_DIR="$SKILL_DIR" PYTHONPATH="$SKILL_DIR" \
-    nohup "$DASHBOARD_PYTHON" "$server_py" > "$log_file" 2>&1 &
-    local pid=$!
-
-    mkdir -p "$PURPLE_LAB_STATE_DIR"
-    echo "$pid" > "$PURPLE_LAB_PID_FILE"
-    echo "$port" > "${PURPLE_LAB_STATE_DIR}/port"
-    # Also write to local .loki for backward compat
-    mkdir -p "${LOKI_DIR}/purple-lab"
-    echo "$pid" > "${LOKI_DIR}/purple-lab/purple-lab.pid"
-    echo "$port" > "${LOKI_DIR}/purple-lab/port"
-
-    # Wait for server to be ready
-    local retries=0
-    local server_ready=false
-    while [ $retries -lt 15 ]; do
-        if curl -s "http://${PURPLE_LAB_DEFAULT_HOST}:${port}/lab/api/session/status" > /dev/null 2>&1; then
-            server_ready=true
-            break
-        fi
-        sleep 0.5
-        retries=$((retries + 1))
-    done
-
-    if ! kill -0 "$pid" 2>/dev/null; then
-        echo -e "${RED}Error: Purple Lab failed to start${NC}"
-        echo "Check logs at: $log_file"
-        rm -f "$PURPLE_LAB_PID_FILE"
-        exit 1
-    fi
-
-    local url="http://${PURPLE_LAB_DEFAULT_HOST}:${port}/lab/"
-
-    if [ "$server_ready" = true ]; then
-        echo -e "${GREEN}Purple Lab (project web UI) running at: $url${NC} (PID: $pid)"
-    else
-        echo -e "${YELLOW}Purple Lab (project web UI) starting at: $url${NC} (PID: $pid)"
-        echo "Server may still be loading. Refresh the browser if it does not load immediately."
-    fi
-    echo -e "Logs: $log_file"
-    # v7.28.x UX #5: distinguish the two browser UIs so the ops monitor and the
-    # spec-input web UI are never confused for each other.
-    echo -e "${DIM}Looking for the live run monitor? loki dashboard (:${DASHBOARD_DEFAULT_PORT:-57374})${NC}"
-    echo -e "Stop with: ${CYAN}loki web stop${NC}"
-
-    # Open browser only after server is confirmed ready
-    if [ "$open_browser" = true ]; then
-        if [ "$server_ready" = true ]; then
-            echo ""
-            loki_open_url "$url" 2>/dev/null || echo "Please open in browser: $url"
-        else
-            echo ""
-            echo -e "${YELLOW}Browser not opened because server is not ready yet.${NC}"
-            echo "Open manually when ready: $url"
-        fi
-    fi
 }
 
 cmd_web_stop() {
@@ -9400,33 +9350,36 @@ _deploy_detect_type() {
 # paraphrase). Project-dependent dirs stay as `<...>` placeholders the user fills.
 # Note: the Fly CLI binary is `flyctl` but the canonical deploy verb is
 # `fly deploy` -- "fly" not "flyctl" here is CORRECT, intentional, not a typo.
+# Row format: provider|cli|command|docs|rollback. rollback is a documented verb
+# (vercel rollback, fly releases rollback <captured-version>) or `manual:<note>`
+# when the provider documents no CLI rollback.
 _deploy_options_for_type() {
     local type="${1:-}"
     case "$type" in
         nextjs)
-            printf '%s\n' "Vercel|vercel|vercel --prod|https://vercel.com/docs/cli"
-            printf '%s\n' "Netlify|netlify|netlify deploy --prod|https://docs.netlify.com/cli/get-started/"
+            printf '%s\n' "Vercel|vercel|vercel --prod|https://vercel.com/docs/cli|vercel rollback"
+            printf '%s\n' "Netlify|netlify|netlify deploy --prod|https://docs.netlify.com/cli/get-started/|manual:Netlify documents no CLI rollback; restore the previous deploy from the Netlify dashboard"
             # fly not flyctl - correct: binary is flyctl, deploy verb is `fly deploy`.
-            printf '%s\n' "Fly.io|flyctl|fly deploy|https://fly.io/docs/flyctl/install/"
+            printf '%s\n' "Fly.io|flyctl|fly deploy|https://fly.io/docs/flyctl/install/|fly releases rollback <captured-version>"
             ;;
         static)
-            printf '%s\n' "Netlify|netlify|netlify deploy --prod --dir=<build-output>|https://docs.netlify.com/cli/get-started/"
-            printf '%s\n' "Cloudflare Pages|wrangler|wrangler pages deploy <build-output>|https://developers.cloudflare.com/workers/wrangler/install-and-update/"
-            printf '%s\n' "Vercel|vercel|vercel --prod|https://vercel.com/docs/cli"
+            printf '%s\n' "Netlify|netlify|netlify deploy --prod --dir=<build-output>|https://docs.netlify.com/cli/get-started/|manual:Netlify documents no CLI rollback; restore the previous deploy from the Netlify dashboard"
+            printf '%s\n' "Cloudflare Pages|wrangler|wrangler pages deploy <build-output>|https://developers.cloudflare.com/workers/wrangler/install-and-update/|manual:Cloudflare rollback is not automated here; roll back from the dashboard or with the provider CLI yourself"
+            printf '%s\n' "Vercel|vercel|vercel --prod|https://vercel.com/docs/cli|vercel rollback"
             ;;
         docker)
             # fly not flyctl - correct (see note above).
-            printf '%s\n' "Fly.io|flyctl|fly deploy|https://fly.io/docs/flyctl/install/"
-            printf '%s\n' "Cloudflare|wrangler|wrangler deploy|https://developers.cloudflare.com/workers/wrangler/install-and-update/"
+            printf '%s\n' "Fly.io|flyctl|fly deploy|https://fly.io/docs/flyctl/install/|fly releases rollback <captured-version>"
+            printf '%s\n' "Cloudflare|wrangler|wrangler deploy|https://developers.cloudflare.com/workers/wrangler/install-and-update/|manual:Cloudflare rollback is not automated here; roll back from the dashboard or with the provider CLI yourself"
             ;;
         node)
             # fly not flyctl - correct (see note above).
-            printf '%s\n' "Fly.io|flyctl|fly deploy|https://fly.io/docs/flyctl/install/"
-            printf '%s\n' "Vercel|vercel|vercel --prod|https://vercel.com/docs/cli"
+            printf '%s\n' "Fly.io|flyctl|fly deploy|https://fly.io/docs/flyctl/install/|fly releases rollback <captured-version>"
+            printf '%s\n' "Vercel|vercel|vercel --prod|https://vercel.com/docs/cli|vercel rollback"
             ;;
         python)
             # fly not flyctl - correct (see note above).
-            printf '%s\n' "Fly.io|flyctl|fly deploy|https://fly.io/docs/flyctl/install/"
+            printf '%s\n' "Fly.io|flyctl|fly deploy|https://fly.io/docs/flyctl/install/|fly releases rollback <captured-version>"
             ;;
     esac
     return 0
@@ -9501,9 +9454,9 @@ _deploy_print_install_hint() {
     echo "Loki never accesses your cloud account or runs deploy for you -- you run"
     echo "the printed command. Install one of the following, then re-run 'loki deploy':"
     echo ""
-    local options provider cli command docs
+    local options provider cli command docs _rb
     options="$(_deploy_options_for_type "$type")"
-    while IFS='|' read -r provider cli command docs; do
+    while IFS='|' read -r provider cli command docs _rb; do
         [ -n "$provider" ] || continue
         case "$cli" in
             vercel)   echo "  Vercel:      brew install vercel       |  ${docs}" ;;
@@ -9535,8 +9488,8 @@ _deploy_print_cloud_options() {
 
     local printed=false
     local first_cmd=""
-    local provider cli command docs
-    while IFS='|' read -r provider cli command docs; do
+    local provider cli command docs _rb
+    while IFS='|' read -r provider cli command docs _rb; do
         [ -n "$cli" ] || continue
         if command -v "$cli" >/dev/null 2>&1; then
             if [ "$printed" != true ]; then
@@ -9798,6 +9751,9 @@ PYANCHOR
 # verified tree, never tearing an environment down. Word-boundary matched so
 # "wrangler pages deploy dist" is not caught by "destroy" appearing in a path.
 _deploy_is_destructive() {
+    # Allowlisted rollback verbs (the only ones auto-rollback may run) are never
+    # destructive: they restore a prior release rather than tear anything down.
+    printf '%s' "${1:-}" | grep -Eq '^(vercel rollback|fly releases rollback [0-9]+)$' && return 1
     printf '%s' "${1:-}" | grep -Eqi '(^|[^[:alnum:]_-])(delete|destroy|teardown|down|drop|rm|remove|purge|prune|wipe|scale-down)([^[:alnum:]_-]|$)'
 }
 
@@ -9841,7 +9797,11 @@ _deploy_latest_receipt() {
     return 0
 }
 
-# _deploy_record <dir> <command> <exit_code> <run_id> <anchor_sha>
+# _deploy_record <dir> <command> <exit_code> <run_id> <anchor_sha> [state] [health_status] [health_url] [rb_attempted] [rb_exit] [receipt_sha256] [started_at] [finished_at] [target] [canary] [post_rollback_health] [health_http_code] [health_match] [tree_sha]
+# Writes the executed deploy's own record, then signs it (loki.deploy/1, Ed25519 via the
+# receipt signer in loki-ts/src/util/receipt_signer.ts) so it is bound to the receipt that
+# authorized it; `loki verify <record>` re-checks it offline. An unsigned record is reported
+# loudly and verifies as UNCHECKED, never VERIFIED.
 # Writes the executed deploy's own record. A deploy with no record of itself
 # defeats the entire premise of gating on evidence.
 #
@@ -9856,16 +9816,31 @@ _deploy_record() {
     # "refused" needs no value: a refusal never reaches this function, so the
     # existence of a record already means one of the two above.
     local anchor_state="${6:-anchored}"
+    # Post-deploy health and rollback facts. "unchecked" never implies healthy.
+    local health_status="${7:-unchecked}" health_url="${8:-}"
+    local rb_attempted="${9:-false}" rb_exit="${10:-}"
+    local receipt_sha="${11:-}" started_at="${12:-}" finished_at="${13:-}" target="${14:-}" canary="${15:-false}"
+    local post_rb="${16:-unchecked}" hcode_rec="${17:-}" hmatch="${18:-}" tree_sha="${19:-}"
     local ddir="$dir/.loki/deploys"
     [ -d "${LOKI_DIR:-}" ] && ddir="${LOKI_DIR}/deploys"
     mkdir -p "$ddir" 2>/dev/null || return 0
     local f="$ddir/$(date -u +%Y%m%dT%H%M%SZ)-$$.json"
     DR_CMD="$command" DR_RC="$rc" DR_RUN="$run_id" DR_ANCHOR="$anchor" DR_OUT="$f" \
-    DR_STATE="$anchor_state" \
+    DR_STATE="$anchor_state" DR_HS="$health_status" DR_HU="$health_url" \
+    DR_RBA="$rb_attempted" DR_RBX="$rb_exit" DR_RSHA="$receipt_sha" DR_T0="$started_at" \
+    DR_T1="$finished_at" DR_TGT="$target" DR_CAN="$canary" DR_PRB="$post_rb" DR_HC="$hcode_rec" DR_HM="$hmatch" DR_TREE="$tree_sha" \
         python3 -c '
 import json, os, datetime
 state = os.environ.get("DR_STATE") or "anchored"
+now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 json.dump({
+    "schema": "loki.deploy/1",
+    "receipt_sha256": os.environ.get("DR_RSHA", ""),
+    "head_sha": os.environ["DR_ANCHOR"],
+    "target": os.environ.get("DR_TGT", ""),
+    "started_at": os.environ.get("DR_T0") or now,
+    "finished_at": os.environ.get("DR_T1") or now,
+    "canary": os.environ.get("DR_CAN") == "true",
     "recorded_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "command": os.environ["DR_CMD"],
     "exit_code": int(os.environ["DR_RC"]),
@@ -9875,8 +9850,20 @@ json.dump({
     # Spelled out so a reader months later does not have to know the vocabulary
     # to judge how strong the authorization was.
     "anchor_proven": state == "anchored",
+    "health_status": os.environ.get("DR_HS") or "unchecked",
+    "health_url": os.environ.get("DR_HU") or "",
+    "rollback_attempted": os.environ.get("DR_RBA") == "true",
+    "rollback_exit": int(os.environ["DR_RBX"]) if os.environ.get("DR_RBX", "") != "" else None,
+    "post_rollback_health": os.environ.get("DR_PRB") or "unchecked",
+    "health_match": os.environ.get("DR_HM", ""),
+    "tree_sha": os.environ.get("DR_TREE", ""),
+    "health_http_code": int(os.environ["DR_HC"]) if os.environ.get("DR_HC", "").isdigit() else None,
 }, open(os.environ["DR_OUT"], "w"), indent=2)
 ' 2>/dev/null || return 0
+    # Sign through the one Bun implementation. A subshell, because the delegate execs.
+    if ! ( _loki_bun_delegate engine10 verify --sign-deploy "$f" ) >/dev/null 2>&1; then
+        echo -e "${YELLOW}WARNING: the deploy record is UNSIGNED (no signing key or Bun route); it verifies as UNCHECKED.${NC}" >&2
+    fi
     printf '%s' "$f"
     return 0
 }
@@ -9888,9 +9875,9 @@ json.dump({
 # differs from the one the advisory showed. `command -v` only; no CLI is run.
 _deploy_first_installed_command() {
     local dir="${1:-.}" type="${2:-}"
-    local options provider cli command docs
+    local options provider cli command docs _rb
     options="$(_deploy_options_for_type "$type")"
-    while IFS='|' read -r provider cli command docs; do
+    while IFS='|' read -r provider cli command docs _rb; do
         [ -n "$cli" ] || continue
         if command -v "$cli" >/dev/null 2>&1; then
             printf '%s' "$command"
@@ -9903,6 +9890,121 @@ EOF
     return 0
 }
 
+# _deploy_rollback_for <type> <command>
+# Echoes the rollback column of the first option row whose deploy command is
+# <command>, or "" when none. Pure table lookup; runs nothing.
+_deploy_rollback_for() {
+    local type="${1:-}" want="${2:-}" provider cli command docs rb
+    while IFS='|' read -r provider cli command docs rb; do
+        [ -n "$cli" ] || continue
+        if [ "$command" = "$want" ]; then
+            printf '%s' "$rb"
+            return 0
+        fi
+    done <<EOF
+$(_deploy_options_for_type "$type")
+EOF
+    printf '%s' ""
+    return 0
+}
+
+# _deploy_fly_capture_version <dir>
+# Echoes the newest Fly release version BEFORE a deploy so a rollback has a real
+# target, or "" when it cannot be read (then no rollback is attempted).
+_deploy_fly_capture_version() {
+    local dir="${1:-.}" out
+    out="$( cd "$dir" && fly releases --json 2>/dev/null )" || { printf '%s' ""; return 0; }
+    printf '%s' "$out" | python3 -c '
+import json, sys
+try:
+    rel = json.load(sys.stdin)
+    v = rel[0].get("Version") if rel else None
+    print(int(v) if v is not None else "", end="")
+except Exception:
+    print("", end="")
+' 2>/dev/null || printf '%s' ""
+    return 0
+}
+
+# _deploy_probe_health <url> [match]
+# Bounded poll: echoes the last HTTP status, returns 0 on any 2xx. With a match
+# string the 2xx body must also contain it (fixed-string), else the attempt fails
+# and the status is still echoed. Attempts and
+# spacing are env-tunable (LOKI_DEPLOY_HEALTH_ATTEMPTS / _INTERVAL) for tests.
+_deploy_probe_health() {
+    local url="${1:-}" match="${2:-}" attempts="${LOKI_DEPLOY_HEALTH_ATTEMPTS:-5}" interval="${LOKI_DEPLOY_HEALTH_INTERVAL:-3}"
+    local i=0 code="000" body="/dev/null"
+    if [ -n "$match" ]; then body="$(mktemp 2>/dev/null)" || body="/dev/null"; fi
+    case "$attempts" in ''|*[!0-9]*) attempts=5 ;; esac
+    case "$interval" in ''|*[!0-9]*) interval=3 ;; esac
+    while [ "$i" -lt "$attempts" ]; do
+        i=$((i + 1))
+        code="$(curl -s -o "$body" -w '%{http_code}' --max-time 10 "$url" 2>/dev/null)" || code="000"
+        case "$code" in
+            2??)
+                if [ -z "$match" ] || grep -qF -- "$match" "$body" 2>/dev/null; then
+                    [ "$body" = /dev/null ] || rm -f "$body"
+                    printf '%s' "$code"; return 0
+                fi
+                ;;
+        esac
+        [ "$i" -lt "$attempts" ] && [ "$interval" -gt 0 ] && sleep "$interval"
+    done
+    [ "$body" = /dev/null ] || rm -f "$body"
+    printf '%s' "$code"
+    return 1
+}
+
+# _deploy_policy_refusal <dir>
+# Echoes a refusal reason when the policy file does not permit a deploy, else "".
+# No policy file: "" (unchanged behaviour). File present and node or check.js
+# unavailable: refuse (fail-closed, mirrors run.sh check_policy). Exit 0 allows;
+# 2 (approval needed) and anything else refuse. Scoped env, no secrets forwarded.
+_deploy_policy_refusal() {
+    local dir="${1:-.}" gdir="${LOKI_DATA_DIR:-$HOME/.loki}"
+    if [ ! -f "$dir/.loki/policies.json" ] && [ ! -f "$dir/.loki/policies.yaml" ] \
+       && [ ! -f "$gdir/policies.json" ] && [ ! -f "$gdir/policies.yaml" ]; then
+        printf '%s' ""
+        return 0
+    fi
+    local checkjs="${SKILL_DIR:-}/src/policies/check.js"
+    [ -f "$checkjs" ] || checkjs="${PROJECT_DIR:-.}/src/policies/check.js"
+    if ! command -v node >/dev/null 2>&1; then
+        printf '%s' "policy file present but node is unavailable: cannot evaluate policy (fail-closed)"
+        return 0
+    fi
+    if [ ! -f "$checkjs" ]; then
+        printf '%s' "policy file present but check.js is missing (fail-closed)"
+        return 0
+    fi
+    local out rc=0
+    out="$(env -i PATH="$PATH" HOME="$HOME" LOKI_PROJECT_DIR="$dir" \
+        ${LOKI_DATA_DIR:+LOKI_DATA_DIR="$LOKI_DATA_DIR"} \
+        node "$checkjs" pre_deployment '{"action":"deploy"}' 2>/dev/null)" || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        # Exit 0 also means "nothing to evaluate". Deploy needs explicit permission:
+        # the policy must set autonomy or actions.deploy, else refuse.
+        local setsperm=""
+        setsperm="$(env -i PATH="$PATH" HOME="$HOME" LOKI_PROJECT_DIR="$dir" \
+            ${LOKI_DATA_DIR:+LOKI_DATA_DIR="$LOKI_DATA_DIR"} \
+            node -e 'var E=require(process.argv[1].replace(/check\.js$/,"engine.js")).PolicyEngine;var e=new E(process.env.LOKI_PROJECT_DIR);var p=e._policies;p=p&&(p.policies||p);var a=p&&p.actions&&typeof p.actions==="object"?p.actions.deploy:undefined;process.stdout.write(p&&(p.autonomy!==undefined||a!==undefined)?"yes":"");try{e.destroy()}catch(x){}process.exit(0)' "$checkjs" 2>/dev/null)" || setsperm=""
+        if [ "$setsperm" != "yes" ]; then
+            printf '%s' "policy file sets no autonomy/actions.deploy for deploy (no policy permission)"
+        else
+            printf '%s' ""
+        fi
+        return 0
+    fi
+    local why
+    why="$(printf '%s' "$out" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("reason",""),end="")' 2>/dev/null || printf '')"
+    if [ "$rc" -eq 2 ]; then
+        printf '%s' "policy requires approval for deploy: ${why:-no reason given}"
+    else
+        printf '%s' "policy denied deploy: ${why:-policy check failed (fail-closed)}"
+    fi
+    return 0
+}
+
 # _deploy_try_execute <dir> <type>
 # The ONLY place a deploy command is ever run. Evaluates the gate, and either
 # executes + records, or REFUSES naming every failed check. Returns the deploy
@@ -9912,6 +10014,9 @@ EOF
 # refusal still leaves the user with exactly the output they get today.
 _deploy_try_execute() {
     local dir="${1:-.}" type="${2:-}"
+    # Set by cmd_deploy (dynamic scope); empty/false when called any other way.
+    local health_url="${_LOKI_DEPLOY_HEALTH_URL:-}" auto_rollback="${_LOKI_DEPLOY_AUTO_ROLLBACK:-false}"
+    local health_match="${_LOKI_DEPLOY_HEALTH_MATCH:-}"
 
     local command
     command="$(_deploy_first_installed_command "$dir" "$type")"
@@ -9920,6 +10025,20 @@ _deploy_try_execute() {
         echo -e "${RED}REFUSED: --execute found no installed deploy CLI for this ${type} project.${NC}" >&2
         echo "  Nothing was run. Install one of the CLIs listed above and re-run." >&2
         return 1
+    fi
+
+    # --canary uses only documented staged verbs; anything else refuses, naming why.
+    local canary="${_LOKI_DEPLOY_CANARY:-false}" exec_cmd="$command" canary_kind=""
+    if [ "$canary" = true ]; then
+        case "$command" in
+            "vercel --prod") canary_kind="vercel"; exec_cmd="vercel" ;;
+            "fly deploy") canary_kind="fly"; exec_cmd="fly deploy --strategy canary" ;;
+            *)
+                echo -e "${RED}REFUSED: --canary is not supported for: ${command}${NC}" >&2
+                echo "  This provider documents no staged rollout verb (Vercel: deploy then 'vercel promote'; Fly: 'fly deploy --strategy canary'). Nothing was run." >&2
+                return 1
+                ;;
+        esac
     fi
 
     local reasons
@@ -9978,7 +10097,7 @@ _deploy_try_execute() {
     else
         echo -e "${GREEN}Evidence gate PASSED.${NC} Receipt ${run_id:-unknown} VERIFIED this tree (${anchor:0:12})."
     fi
-    echo "Running: ${command}"
+    if [ "$canary" = true ]; then echo "Running (canary): ${exec_cmd}"; else echo "Running: ${command}"; fi
     echo ""
 
     # Run in the project dir. No credential env var is read, set, or forwarded:
@@ -9989,17 +10108,109 @@ _deploy_try_execute() {
     # The string is NOT user input: it comes from the hardcoded
     # _deploy_options_for_type table, and the only path here has already passed
     # the destructive-operation check in _deploy_gate.
-    local rc=0
-    ( cd "$dir" && eval "$command" ) || rc=$?
+    # Resolve the rollback target BEFORE deploying: after it, the previous Fly
+    # release is no longer the newest one and cannot be recovered.
+    local rb_cmd="" rb_note=""
+    if [ -n "$health_url" ]; then
+        local rb_raw
+        rb_raw="$(_deploy_rollback_for "$type" "$command")"
+        case "$rb_raw" in
+            manual:*) rb_note="${rb_raw#manual:}" ;;
+            *"<captured-version>"*)
+                local fv
+                fv="$(_deploy_fly_capture_version "$dir")"
+                if [ -n "$fv" ]; then rb_cmd="${rb_raw//<captured-version>/$fv}"
+                else rb_note="could not read the current Fly release before deploying, so no rollback target is known"; fi
+                ;;
+            "") rb_note="no rollback verb is documented for this command" ;;
+            *) rb_cmd="$rb_raw" ;;
+        esac
+    fi
 
-    local rec
-    rec="$(_deploy_record "$dir" "$command" "$rc" "${run_id:-unknown}" "${anchor:-unknown}" \
-        "$anchor_state")"
+    local rc=0 started_at finished_at purl="" canary_out=""
+    started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    local health_status="unchecked" rb_attempted=false rb_exit="" hcode="" rb_hcode="" post_rb="unchecked"
+    if [ "$canary_kind" = vercel ]; then
+        # Staged: a preview deploy (no --prod), probe the preview URL, promote only if healthy.
+        # Nothing reaches production before the probe, so there is nothing to roll back.
+        rb_cmd=""; auto_rollback=false
+        exec_cmd="vercel"
+        canary_out="$( cd "$dir" && eval "$exec_cmd" )" || rc=$?
+        printf '%s\n' "$canary_out"
+        purl="$(grep -Eo 'https?://[^[:space:]]+' <<<"$canary_out" | tail -n 1)"
+        if [ "$rc" -eq 0 ] && [ -n "$purl" ]; then
+            health_url="$purl"
+            echo "Probing canary health: ${health_url}"
+            if hcode="$(_deploy_probe_health "$health_url" "$health_match")"; then
+                health_status="healthy"
+                echo "Promoting: vercel promote ${purl}"
+                exec_cmd="vercel; vercel promote ${purl}"
+                ( cd "$dir" && vercel promote "$purl" ) || rc=$?
+            else
+                health_status="FAILED_HEALTH"
+                echo "  The canary was NOT promoted. Production is unchanged." >&2
+            fi
+        elif [ "$rc" -eq 0 ]; then
+            echo "  The preview deploy printed no URL, so it cannot be health-checked and is NOT promoted." >&2
+            rc=4
+        fi
+    else
+        ( cd "$dir" && eval "$exec_cmd" ) || rc=$?
+    fi
+
+    # Health probe only after a deploy that exited 0. Without a URL, or after a
+    # failed deploy, status is "unchecked": never a claim the service is healthy.
+    if [ "$canary_kind" != vercel ] && [ "$rc" -eq 0 ] && [ -n "$health_url" ]; then
+        echo "Probing health: ${health_url}"
+        if hcode="$(_deploy_probe_health "$health_url" "$health_match")"; then
+            health_status="healthy"
+        else
+            health_status="FAILED_HEALTH"
+        fi
+    fi
+
+    if [ "$health_status" = "FAILED_HEALTH" ]; then
+        echo -e "${RED}FAILED_HEALTH: ${health_url} did not return 2xx${health_match:+ containing \"${health_match}\"} (last status ${hcode:-000}).${NC}" >&2
+        if [ "$auto_rollback" = true ] && [ -n "$rb_cmd" ] && ! _deploy_is_destructive "$rb_cmd"; then
+            echo "Rolling back: ${rb_cmd}" >&2
+            rb_attempted=true
+            rb_exit=0
+            ( cd "$dir" && eval "$rb_cmd" ) || rb_exit=$?
+            if [ "$rb_exit" -eq 0 ]; then
+                echo "Rollback command exited 0. Re-checking health: ${health_url}" >&2
+                if rb_hcode="$(_deploy_probe_health "$health_url")"; then
+                    post_rb="healthy"
+                    echo -e "${GREEN}Rolled-back service is healthy${NC} (HTTP ${rb_hcode})." >&2
+                else
+                    post_rb="FAILED_HEALTH"
+                    echo -e "${RED}Rolled-back service is STILL unhealthy (last status ${rb_hcode:-000}).${NC}" >&2
+                fi
+            else
+                echo -e "${RED}Rollback command exited ${rb_exit}.${NC}" >&2
+            fi
+        elif [ "$auto_rollback" = true ]; then
+            echo "  No automatic rollback ran: ${rb_note:-no allowlisted rollback command}." >&2
+        elif [ -n "$rb_cmd" ]; then
+            echo "  Re-run with --auto-rollback to roll back automatically, or run: ${rb_cmd}" >&2
+        fi
+    fi
+
+    local rec rsha
+    finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    rsha="$(python3 -c 'import json,sys;print((json.load(open(sys.argv[1])).get("verification") or {}).get("hash") or "")' "$pj" 2>/dev/null || printf '')"
+    rec="$(_deploy_record "$dir" "$exec_cmd" "$rc" "${run_id:-unknown}" "${anchor:-unknown}" \
+        "$anchor_state" "$health_status" "$health_url" "$rb_attempted" "$rb_exit" \
+        "$rsha" "$started_at" "$finished_at" "${command%% *}" "$canary" "$post_rb" "$hcode" "$health_match" "$(git -C "$dir" rev-parse 'HEAD^{tree}' 2>/dev/null || true)")"
     echo ""
     if [ "$rc" -eq 0 ]; then
         echo -e "${GREEN}Deploy command exited 0.${NC}"
     else
         echo -e "${RED}Deploy command exited ${rc}.${NC}" >&2
+    fi
+    if [ "$health_status" = "healthy" ]; then
+        echo -e "${GREEN}Health check passed${NC} (HTTP ${hcode})."
+    elif [ "$health_status" = "unchecked" ]; then
+        echo "Health: unchecked (no --health-url, or the deploy did not exit 0). Not a claim the service is healthy."
     fi
     if [ -n "$rec" ]; then
         echo "Deploy record: ${rec}"
@@ -10013,6 +10224,12 @@ _deploy_try_execute() {
         echo "  Command: ${command}" >&2
         echo "  Authorizing receipt run_id: ${run_id:-unknown}; anchor: ${anchor:-unknown}" >&2
         echo "  Record this yourself: a deploy with no record of itself is unevidenced." >&2
+    fi
+    # A deploy that exited 0 but failed its health probe is a failed deploy.
+    if [ "$rc" -eq 0 ] && [ "$health_status" = "FAILED_HEALTH" ]; then
+        # 5: the rollback ran and the service is still down.
+        [ "$post_rb" = "FAILED_HEALTH" ] && return 5
+        return 4
     fi
     return "$rc"
 }
@@ -10099,6 +10316,11 @@ _deploy_gate() {
     [ -n "$dirty" ] && reasons="${reasons}${dirty}
 "
 
+    local pol
+    pol="$(_deploy_policy_refusal "$dir")"
+    [ -n "$pol" ] && reasons="${reasons}${pol}
+"
+
     printf '%s' "$reasons"
     return 0
 }
@@ -10119,6 +10341,8 @@ cmd_deploy() {
     # below sets it. Same rule --execute already follows -- no env var or config
     # file alone weakens this gate.
     local LOKI_DEPLOY_ALLOW_UNANCHORED=false
+    # Per-invocation like --execute; local so an ambient env var cannot set them.
+    local _LOKI_DEPLOY_HEALTH_URL="" _LOKI_DEPLOY_HEALTH_MATCH="" _LOKI_DEPLOY_AUTO_ROLLBACK=false _LOKI_DEPLOY_CANARY=false
 
     # Arg parse (mirror cmd_preview: lenient on unknown args -> no behavior drift).
     while [ $# -gt 0 ]; do
@@ -10126,7 +10350,7 @@ cmd_deploy() {
             --help|-h|help)
                 echo -e "${BOLD}Loki Mode -- deploy command advisory (print-only by default)${NC}"
                 echo ""
-                echo "Usage: loki deploy [--dir <path>] [--no-clip] [--execute]"
+                echo "Usage: loki deploy [--dir <path>] [--no-clip] [--execute [--canary]] [--health-url URL [--health-match STR] [--auto-rollback]]"
                 echo ""
                 echo "Detects your project type and your installed cloud CLI (and any"
                 echo "CI/CD pipeline), then PRINTS the exact deploy command for YOU to run."
@@ -10159,6 +10383,10 @@ cmd_deploy() {
                 echo "                   --allow-unanchored does NOT bypass it."
                 echo "  4. You passed --execute on THIS invocation. No env var or config"
                 echo "     file alone can opt in."
+                echo "  5. Policy permits it. If .loki/policies.json (or the global one) exists,"
+                echo "     deploy needs autonomy 'operate' or actions.deploy 'allow'. An"
+                echo "     approval-required, denied, unevaluable or permission-less (neither key set) policy REFUSES. No policy"
+                echo "     file leaves the gate unchanged."
                 echo ""
                 echo "It FAILS CLOSED: if a check cannot be evaluated at all (no receipt,"
                 echo "signing key or keys unavailable, anchor unresolvable, not a git repo), that is a"
@@ -10177,6 +10405,32 @@ cmd_deploy() {
                 echo "the command, its exit code, the authorizing receipt's run_id, the"
                 echo "resolved anchor, and anchor_state -- so a reader can tell later"
                 echo "whether the anchor was proven or explicitly overridden."
+                echo ""
+                echo "Health check and rollback (only with --execute):"
+                echo "  --health-url URL  After a deploy that exits 0, poll URL (bounded). Any"
+                echo "                    non-2xx marks the deploy FAILED_HEALTH and exits 4."
+                echo "                    Without a URL, health is recorded as 'unchecked',"
+                echo "                    never as healthy."
+                echo "  --health-match S  The 2xx body must also contain S (for example the HEAD sha"
+                echo "                    or version), else FAILED_HEALTH. Needs --health-url."
+                echo "  --auto-rollback   On FAILED_HEALTH run the provider's documented rollback:"
+                echo "                    'vercel rollback' or 'fly releases rollback <version"
+                echo "                    captured before the deploy>'. Netlify and Cloudflare"
+                echo "                    print a manual note. Needs --health-url. The rolled-back"
+                echo "                    service is re-probed and recorded as post_rollback_health;"
+                echo "                    still unhealthy exits 5."
+                echo ""
+                echo "Staged rollout (only with --execute):"
+                echo "  --canary          Vercel: deploy without --prod, health-check the preview"
+                echo "                    URL, then run 'vercel promote <url>'; a failed probe never"
+                echo "                    promotes. Fly: 'fly deploy --strategy canary'. Other"
+                echo "                    providers document no staged path and refuse --canary."
+                echo ""
+                echo "The executed deploy's record in .loki/deploys/ is a signed loki.deploy/1"
+                echo "attestation bound to the receipt (receipt_sha256). Re-check it offline with"
+                echo "'loki verify <record.json>' (add --pubkey FILE to use a given key). It fails"
+                echo "closed: a tampered, unsigned or unkeyed record, or a cited receipt that is not"
+                echo "VERIFIED, is never reported as VERIFIED."
                 echo ""
                 echo "Options:"
                 echo "  --dir <path>   Project directory to scan (default: current dir)"
@@ -10197,6 +10451,22 @@ cmd_deploy() {
                 # never persisted and never settable by config alone.
                 LOKI_DEPLOY_ALLOW_UNANCHORED=true
                 ;;
+            --health-url)
+                case "${2:-}" in
+                    http://*|https://*) _LOKI_DEPLOY_HEALTH_URL="$2"; shift ;;
+                    *) echo "loki deploy --health-url requires an http(s) URL" >&2; return 1 ;;
+                esac
+                ;;
+            --health-match)
+                [ -n "${2:-}" ] && [ "${2#-}" = "$2" ] || { echo "loki deploy --health-match requires a string" >&2; return 1; }
+                _LOKI_DEPLOY_HEALTH_MATCH="$2"; shift
+                ;;
+            --auto-rollback)
+                _LOKI_DEPLOY_AUTO_ROLLBACK=true
+                ;;
+            --canary)
+                _LOKI_DEPLOY_CANARY=true
+                ;;
             --dir)
                 # Guard against a missing OR flag-shaped value: an unguarded
                 # shift when --dir is the last arg underflows under set -e, and a
@@ -10213,6 +10483,22 @@ cmd_deploy() {
         esac
         shift
     done
+
+    if [ "$_LOKI_DEPLOY_AUTO_ROLLBACK" = true ] && [ -z "$_LOKI_DEPLOY_HEALTH_URL" ]; then
+        echo "loki deploy --auto-rollback requires --health-url (no health signal, no rollback)" >&2
+        return 1
+    fi
+    if [ -n "$_LOKI_DEPLOY_HEALTH_MATCH" ] && [ -z "$_LOKI_DEPLOY_HEALTH_URL" ]; then
+        echo "loki deploy --health-match requires --health-url" >&2
+        return 1
+    fi
+    if [ "$_LOKI_DEPLOY_CANARY" = true ] && [ "$do_execute" != true ]; then
+        echo "loki deploy --canary requires --execute" >&2
+        return 1
+    fi
+    if [ "$do_execute" != true ] && [ -n "$_LOKI_DEPLOY_HEALTH_URL" ]; then
+        echo "Note: --health-url and --auto-rollback only apply with --execute; ignored on this advisory run." >&2
+    fi
 
     # Resolve to '.' if the chosen dir does not exist (honest, no crash).
     [ -d "$dir" ] || dir="."
@@ -10817,6 +11103,10 @@ cmd_run() {
     local prepare_pr=false
     local auto_merge=false
     local run_detached=false
+    # Internal: set by cmd_start when a one-line brief carries --pr/--worktree/
+    # --detach. The brief is treated as a tracker-less issue so it reuses the
+    # worktree, detach and PR machinery below instead of a parallel copy.
+    local brief_in=""
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -10848,7 +11138,8 @@ cmd_run() {
                 echo "  --no-dashboard     Disable web dashboard"
                 echo "  --sandbox          Run in Docker sandbox (default: off; requires Docker)"
                 echo "  --no-plan          Skip auto-shown PRD analysis at startup"
-                echo "  --budget USD       Set cost budget limit"
+                echo "  --budget USD       Per-run cost cap (default $(loki_budget_default_usd))"
+                echo "  --brief-text TEXT  (internal) set by 'loki start --brief'; not for direct use"
                 echo ""
                 echo "Progressive Isolation:"
                 echo "  --worktree, -w     Git worktree isolation (separate branch)"
@@ -11006,6 +11297,15 @@ cmd_run() {
             --config=*|--vars=*|--env-file=*)
                 shift
                 ;;
+            --brief-text)
+                if [ "$#" -ge 2 ]; then
+                    brief_in="$2"
+                    shift 2
+                else
+                    echo -e "${RED}--brief-text requires text${NC}"
+                    exit 1
+                fi
+                ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}"
                 echo "Run 'loki run --help' for usage."
@@ -11039,6 +11339,10 @@ cmd_run() {
     # Add --parallel once if worktree mode is enabled (not per-flag)
     if $use_worktree; then
         start_args+=("--parallel")
+    fi
+
+    if [[ -n "$brief_in" ]]; then
+        issue_ref="brief"
     fi
 
     if [[ -z "$issue_ref" ]]; then
@@ -11080,16 +11384,33 @@ cmd_run() {
 
     # Detect provider
     local issue_provider
-    issue_provider=$(detect_issue_provider "$issue_ref")
-    echo -e "${CYAN}Issue provider:${NC} ${issue_provider}"
-
-    # Fetch the issue
-    echo -e "${CYAN}Fetching issue...${NC}"
     local issue_json
-    issue_json=$(fetch_issue "$issue_ref") || {
-        echo -e "${RED}Failed to fetch issue${NC}"
-        exit 1
-    }
+    if [[ -n "$brief_in" ]]; then
+        # Brief: no tracker to fetch from. The text travels in env so quoting in
+        # the brief can never reach the shell or python source.
+        issue_provider="brief"
+        echo -e "${CYAN}Source:${NC} one-line brief"
+        issue_json=$(LOKI_BRIEF_IN="$brief_in" LOKI_BRIEF_TS="$(date +%s)" python3 -c "
+import json, os
+t = os.environ['LOKI_BRIEF_IN']
+first = t.strip().splitlines()[0] if t.strip() else 'brief'
+print(json.dumps({'provider': 'brief', 'number': 'b' + os.environ['LOKI_BRIEF_TS'],
+    'title': first[:80], 'body': t, 'labels': [], 'url': '', 'repo': ''}))
+") || {
+            echo -e "${RED}Failed to build brief${NC}"
+            exit 1
+        }
+    else
+        issue_provider=$(detect_issue_provider "$issue_ref")
+        echo -e "${CYAN}Issue provider:${NC} ${issue_provider}"
+
+        # Fetch the issue
+        echo -e "${CYAN}Fetching issue...${NC}"
+        issue_json=$(fetch_issue "$issue_ref") || {
+            echo -e "${RED}Failed to fetch issue${NC}"
+            exit 1
+        }
+    fi
 
     # Extract fields for display
     local title number url
@@ -11234,8 +11555,9 @@ fi
 # Post-completion: auto-merge if requested
 if [[ "$LOKI_AUTO_MERGE" == "true" ]]; then
     branch_current=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-    if gh pr merge "$branch_current" --squash --delete-branch 2>/dev/null; then
-        if [[ -n "${LOKI_ISSUE_NUMBER:-}" ]]; then
+    if "$LOKI_CMD" merge watch "$branch_current" --require-verified --delete-branch; then
+        # A brief run carries a synthetic ref (b<epoch>), not a real issue: close only numeric refs.
+        if [[ "${LOKI_ISSUE_NUMBER:-}" =~ ^[0-9]+$ ]]; then
             gh issue close "$LOKI_ISSUE_NUMBER" --comment "Resolved by Loki Mode" 2>/dev/null || true
         fi
     fi
@@ -11435,7 +11757,7 @@ ${_gh_receipt}"
             fi
 
             case "${issue_provider:-github}" in
-                github)
+                github|brief)
                     if command -v gh &>/dev/null; then
                         local branch_current
                         branch_current=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
@@ -11451,7 +11773,8 @@ ${_gh_receipt}"
                                 if command -v jq >/dev/null 2>&1; then
                                     jq -n --arg url "$(printf '%s' "$_pr_out" | grep -Eo 'https://[^[:space:]]+' | head -1)" \
                                           --arg branch "$branch_current" \
-                                        '{state:"created", url:$url, branch:$branch}' \
+                                        '{state:"created", url:$url, branch:$branch,
+                                          merge:{outcome:"waiting", gate:"human_review", checks:"not recorded"}}' \
                                         > .loki/state/pr.json 2>/dev/null || true
                                 fi
                             else
@@ -11482,12 +11805,12 @@ ${_gh_receipt}"
         if $auto_merge; then
             echo -e "${GREEN}Auto-merging...${NC}"
             case "${issue_provider:-github}" in
-                github)
+                github|brief)
                     local branch_current
                     branch_current=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-                    if gh pr merge "$branch_current" --squash --delete-branch 2>/dev/null; then
+                    if _merge_pr_watch "$branch_current" --require-verified --delete-branch; then
                         echo -e "${GREEN}PR merged and branch deleted${NC}"
-                        if [[ -n "${number:-}" ]]; then
+                        if [[ "${number:-}" =~ ^[0-9]+$ ]]; then
                             gh issue close "$number" --comment "Resolved by Loki Mode" 2>/dev/null || true
                         fi
                     else
@@ -12414,6 +12737,7 @@ cmd_export() {
             echo "  markdown   Human-readable session summary"
             echo "  csv        Task queue as CSV"
             echo "  timeline   Iteration timeline as JSON"
+            echo "  vibe-kanban  Sync .loki/queue tasks into the Vibe Kanban SQLite DB"
             echo ""
             echo "Flags:"
             echo "  --sarif [run-id]   Write .loki/runs/<id>/findings.sarif (SARIF 2.1.0; needs bun)"
@@ -12424,6 +12748,7 @@ cmd_export() {
             echo "  loki export markdown                     # Readable summary"
             echo "  loki export csv tasks.csv                # Task queue CSV"
             echo "  loki export timeline                     # Iteration timeline"
+            echo "  loki export vibe-kanban                  # Sync tasks to Vibe Kanban"
             exit 0
             ;;
         json)
@@ -12440,13 +12765,21 @@ cmd_export() {
             require_jq || return 1
             _export_timeline "$output_path"
             ;;
+        vibe-kanban)
+            local vk_script="${SKILL_DIR:-}/scripts/sync-to-vibe-kanban.sh"
+            if [ ! -f "$vk_script" ]; then
+                echo -e "${RED}Error: sync-to-vibe-kanban.sh not found at $vk_script${NC}" >&2
+                return 1
+            fi
+            bash "$vk_script"
+            ;;
         --sarif)
             echo -e "${RED}loki export --sarif needs bun (https://bun.sh).${NC}" >&2
             return 1
             ;;
         *)
             echo -e "${RED}Unknown format: $format${NC}"
-            echo "Supported: json, markdown, csv, timeline"
+            echo "Supported: json, markdown, csv, timeline, vibe-kanban"
             exit 1
             ;;
     esac
@@ -12931,6 +13264,16 @@ cmd_config() {
         show)
             cmd_config_show
             ;;
+        list)
+            # HELP slice: `config list [--json]` is `config show` (json: wrapped).
+            # shellcheck source=/dev/null
+            source "$_LOKI_SCRIPT_DIR/lib/json-output.sh"
+            if loki_json_requested "$@"; then
+                loki_json_wrap config-list cmd_config_show
+            else
+                cmd_config_show
+            fi
+            ;;
         init)
             cmd_config_init
             ;;
@@ -12956,9 +13299,10 @@ cmd_config() {
             cmd_config_validate "$@"
             ;;
         *)
-            echo -e "${YELLOW}Usage: loki config [show|init|edit|path|set|get|example|schema|validate]${NC}"
+            echo -e "${YELLOW}Usage: loki config [show|list|init|edit|path|set|get|example|schema|validate]${NC}"
             echo ""
             echo "  show            Show current configuration (default)"
+            echo "  list [--json]   Same as show; --json emits one JSON object"
             echo "  init            Create a config file from template"
             echo "  edit            Open config file in editor"
             echo "  path            Show config file paths"
@@ -13447,6 +13791,100 @@ cmd_config_path() {
     echo "Create a config file with: loki config init"
 }
 
+# Merge the Loki plugin into a Claude Code settings.json (loki setup-skill --claude-code).
+# Existing keys are never overwritten, invalid JSON is refused (rc 3), writes are atomic.
+_setup_skill_claude_code() {
+    local print_only=0 project=0 stop=0 settings=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --print) print_only=1 ;;
+            --project) project=1 ;;
+            --stop-hook) stop=1 ;;
+            --settings) settings="${2:-}"; shift ;;
+            --help|-h)
+                echo "Usage: loki setup-skill --claude-code [--print] [--project] [--stop-hook] [--settings FILE]"
+                echo ""
+                echo "Registers the Loki plugin marketplace and enables the plugin in Claude Code"
+                echo "settings (default ~/.claude/settings.json; --project uses ./.claude/settings.json)."
+                echo "Merges only: existing keys are kept, invalid JSON is refused."
+                echo ""
+                echo "  --print       Print the settings snippet and change nothing"
+                echo "  --stop-hook   Also opt in to the Stop-hook fast verifier (LOKI_STOP_VERIFY=1)"
+                return 0
+                ;;
+            *) echo "Unknown option: $1" >&2; return 2 ;;
+        esac
+        shift
+    done
+    command -v python3 >/dev/null 2>&1 || { echo "python3 is required" >&2; return 1; }
+    if [ -z "$settings" ] && [ "$print_only" -eq 0 ]; then
+        if [ "$project" -eq 1 ]; then
+            settings="${TARGET_DIR:-.}/.claude/settings.json"
+        else
+            settings="$HOME/.claude/settings.json"
+        fi
+    fi
+    local out rc
+    out="$(python3 - "$settings" "$stop" "$print_only" <<'PY'
+import json, os, sys, tempfile
+path, stop, print_only = sys.argv[1], sys.argv[2] == "1", sys.argv[3] == "1"
+want = {
+    "extraKnownMarketplaces": {
+        "loki-mode": {"source": {"source": "github", "repo": "asklokesh/loki-mode"}}
+    },
+    "enabledPlugins": {"loki-mode@loki-mode": True},
+}
+if stop:
+    want["env"] = {"LOKI_STOP_VERIFY": "1"}
+if print_only:
+    print(json.dumps(want, indent=2))
+    sys.exit(0)
+cur = {}
+if os.path.exists(path):
+    try:
+        raw = open(path).read()
+        cur = json.loads(raw) if raw.strip() else {}
+    except Exception as e:
+        print("REFUSED %s is not valid JSON (%s); fix or move it aside" % (path, e))
+        sys.exit(3)
+    if not isinstance(cur, dict):
+        print("REFUSED %s top level is not an object" % path)
+        sys.exit(3)
+added = []
+for top, kv in want.items():
+    node = cur.get(top)
+    if node is None:
+        cur[top] = {}
+        node = cur[top]
+    elif not isinstance(node, dict):
+        print("KEPT %s (existing value is not an object)" % top)
+        continue
+    for k, v in kv.items():
+        if k in node:
+            print("KEPT %s.%s" % (top, k))
+        else:
+            node[k] = v
+            added.append("%s.%s" % (top, k))
+            print("ADDED %s.%s" % (top, k))
+if added:
+    d = os.path.dirname(os.path.abspath(path))
+    os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".settings.", suffix=".tmp")
+    with os.fdopen(fd, "w") as f:
+        json.dump(cur, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, path)
+else:
+    print("UNCHANGED %s" % path)
+PY
+)"
+    rc=$?
+    printf '%s\n' "$out"
+    [ "$rc" -eq 0 ] || return "$rc"
+    [ "$print_only" -eq 1 ] || echo "Next: in Claude Code run /reload-plugins, then try /loki-mode:start, /loki-mode:loki-verify, /loki-mode:handoff."
+    return 0
+}
+
 # Set up skill symlinks for all providers
 cmd_setup_skill() {
     # v7.6.2 B-13 fix: --help must print help, not install skills.
@@ -13460,10 +13898,16 @@ cmd_setup_skill() {
             echo "skills directory: ~/.claude/skills/, ~/.codex/skills/, etc."
             echo ""
             echo "Options:"
+            echo "  --claude-code  Merge the Loki plugin into Claude Code settings (see --claude-code --help)"
             echo "  --help, -h   Show this help and exit"
             echo ""
             echo "Side effects: writes symlinks/files under ~/.<provider>/skills/loki-mode/."
             return 0
+            ;;
+        --claude-code)
+            shift
+            _setup_skill_claude_code "$@"
+            return $?
             ;;
     esac
     echo -e "${BOLD}Loki Mode Skill Setup${NC}"
@@ -14052,6 +14496,18 @@ _loki_bun_delegate() {
     exec "$bun_bin" "$cli" "$cmd" "$@"
 }
 
+# One-line fix for a requirement id (a provider name is an id), read from the shared
+# table autonomy/lib/setup-requirements.json so runtime errors match loki doctor.
+_loki_req_fix_line() {
+    local _id="$1" _fix=""
+    _fix="$(jq -r --arg id "$_id" '.requirements[] | select(.id == $id) | .fix' "${SKILL_DIR}/autonomy/lib/setup-requirements.json" 2>/dev/null | head -n 1)" || _fix=""
+    if [ -n "$_fix" ]; then
+        echo "  $_fix"
+    else
+        echo "  Check the provider documentation for installation."
+    fi
+}
+
 # loki doctor. The one implementation is loki-ts/src/commands/doctor.ts; this is a
 # delegator. Only --airgap stays in bash (_loki_airgap_audit). If the Bun route is
 # unavailable we print a minimal diagnostic (never a second copy of the checks).
@@ -14097,7 +14553,12 @@ cmd_doctor_json() {
     why="${why//\\/\\\\}"; why="${why//\"/\\\"}"
     fix="${fix//\\/\\\\}"; fix="${fix//\"/\\\"}"
     ver="${ver//\\/\\\\}"; ver="${ver//\"/\\\"}"
-    printf '{"loki_mode_version":"%s","checks":[],"provider_availability":null,"disk":null,"ai_provider":null,"skills":[],"sentrux":null,"memory":null,"model_catalog":null,"summary":{"passed":0,"failed":1,"warnings":0,"ok":false},"route":"unavailable","reason":"%s","fix":"%s"}\n' "$ver" "$why" "$fix"
+    local reqs=null
+    if declare -F loki_requirements_json >/dev/null 2>&1; then
+        reqs="$(loki_requirements_json 2>/dev/null | jq -c . 2>/dev/null)" || reqs=null
+        [ -n "$reqs" ] || reqs=null
+    fi
+    printf '{"loki_mode_version":"%s","checks":[],"provider_availability":null,"disk":null,"ai_provider":null,"skills":[],"sentrux":null,"memory":null,"model_catalog":null,"requirements":%s,"summary":{"passed":0,"failed":1,"warnings":0,"ok":false},"route":"unavailable","reason":"%s","fix":"%s"}\n' "$ver" "$reqs" "$why" "$fix"
 }
 
 # Architectural-drift gate (v7.5.14, opt-in).
@@ -15625,6 +16086,7 @@ cmd_quick() {
             echo ""
             echo "Runs the Loki 10 engine on one small task (no PR is opened). Best for"
             echo "tiny tasks."
+            echo "quick = small task with the verify loop. For a single pass with no loop, use loki edit."
             echo ""
             echo "Examples:"
             echo "  loki quick \"add dark mode to this React app\""
@@ -15654,16 +16116,7 @@ cmd_quick() {
         echo "  loki quick \"fix the login bug in auth.js\""
         echo "  loki quick \"add input validation to the signup form\""
         echo "  loki quick \"write unit tests for the API endpoints\""
-        exit 2
-    fi
-
-    # v7.29.0: provider pre-flight gate. Offer install on a TTY; print honest
-    # manual instructions and exit 2 on non-TTY/CI, before any spend. --help and
-    # the no-args usage path already returned/exited above.
-    if declare -f provider_offer_gate >/dev/null 2>&1; then
-        if ! provider_offer_gate; then
-            exit 2
-        fi
+        exit 64
     fi
 
     # #691: drop the unified config-file aliases from the task description. The
@@ -15682,6 +16135,12 @@ cmd_quick() {
             --verbose|-v) if [ "$_quick_task_seen" = "false" ]; then export LOKI_VERBOSE=1; continue; fi ;;
             --config|--vars|--env-file)        _skip_next=true; continue ;;
             --config=*|--vars=*|--env-file=*)   continue ;;
+            # LM-006: a leading unknown --flag is a usage error, never task text (a typo must not start a paid run).
+            --?*) if [ "$_quick_task_seen" = "false" ] &&[[ "$_qa" != *" "* ]]; then
+                    echo -e "${RED}Error: unknown option: $_qa${NC}" >&2
+                    echo "Usage: loki quick [--verbose] \"description of what to do\"" >&2
+                    exit 64
+                 fi ;;
         esac
         _quick_task_seen=true
         _quick_args+=("$_qa")
@@ -15690,7 +16149,17 @@ cmd_quick() {
     if [ $# -eq 0 ]; then
         echo -e "${RED}Error: No task description provided${NC}"
         echo "Usage: loki quick [--verbose] \"description of what to do\""
-        exit 2
+        exit 64
+    fi
+
+    # v7.29.0: provider pre-flight gate. Offer install on a TTY; print honest
+    # manual instructions and exit 2 on non-TTY/CI, before any spend. --help and
+    # every usage error (no task, unknown option, exit 64) is decided above,
+    # so a host with no provider still reports a typo as 64, not 2.
+    if declare -f provider_offer_gate >/dev/null 2>&1; then
+        if ! provider_offer_gate; then
+            exit 2
+        fi
     fi
 
     local task_desc="$*"
@@ -15757,14 +16226,8 @@ QPRDEOF
     if ! command -v "$_quick_provider" &>/dev/null; then
         echo -e "${RED}Error: Provider CLI '$_quick_provider' is not installed.${NC}"
         echo ""
-        echo "Install your AI provider CLI first:"
-        case "$_quick_provider" in
-            claude) echo "  npm install -g @anthropic-ai/claude-code" ;;
-            codex)  echo "  npm install -g @openai/codex" ;;
-            cline)  echo "  npm install -g cline" ;;
-            aider)  echo "  pip install aider-chat" ;;
-            *)      echo "  Check the provider documentation for installation." ;;
-        esac
+        echo "Install your AI provider CLI first (same fix as loki doctor):"
+        _loki_req_fix_line "$_quick_provider"
         echo ""
         echo "Then verify: loki doctor"
         exit 1
@@ -17868,6 +18331,21 @@ cmd_verify() {
             --pubkey|--pubkey=*) exec "$_LOKI_SCRIPT_DIR/../bin/loki" verify "$@" ;;
         esac
     done
+    # PATH slice: a workspace composite (composite.json, or --seal-composite RUN_DIR) is
+    # verified by the engine10 verifier directly; bin/loki sends a bare verify back here.
+    for _pk_arg in "$@"; do
+        case "$_pk_arg" in
+            --sign-deploy|--receipt|composite.json|*/composite.json|--seal-composite|--seal-composite=*|--max-age|--max-age=*|.loki/groups/*/receipt.json|*/.loki/groups/*/receipt.json)
+                _loki_bun_delegate engine10 verify "$@"
+                return $? ;;
+            # A signed deploy record (.loki/deploys/*.json, schema loki.deploy/1) is re-checked by the same verifier.
+            *.json)
+                if [ -f "$_pk_arg" ] && grep -q 'loki\.deploy/1' "$_pk_arg" 2>/dev/null; then
+                    _loki_bun_delegate engine10 verify "$@"
+                    return $?
+                fi ;;
+        esac
+    done
     # --fast: deterministic checks only, in milliseconds. Measured on this repo
     # (1,932 tracked files): 298 ms cold, 87 ms warm, 19 ms diff-scoped, against
     # an 11,040 ms shell-based baseline.
@@ -17902,6 +18380,8 @@ cmd_verify() {
     fi
     # shellcheck source=/dev/null
     source "$verify_mod"
+    # verify_main handles --json natively (evidence document on stdout, banner
+    # on stderr); the generic json-output.sh wrapper must not intercept it.
     verify_main "$@"
     return $?
 }
@@ -18057,6 +18537,7 @@ cmd_modernize() {
             echo "Subcommands (grouped modernization surface):"
             echo "  heal <path>      Legacy system healing in phases (was: loki heal)"
             echo "  migrate <path>   Codebase migration in phases (was: loki migrate)"
+            echo "  unit --repo <owner/name> --ref <ref> --unit <id>   Run one unit (remote unit job worker)"
             echo ""
             echo "Run 'loki modernize <subcommand> --help' for each. The old"
             echo "top-level names still work; see 'loki help aliases'."
@@ -20677,8 +21158,33 @@ print()
 # Dry-run PRD analysis and cost estimation (v6.18.0; refactored v6.81.1)
 # Thin wrapper around show_prd_plan() so the same analysis is reusable from
 # `loki start`, `loki run`, and other commands without duplicated code.
+# Read-only view of .loki/state/requirements-map.json (REQTRACE; contract: docs/spec-first-intent.md).
+_plan_show_requirements() {
+    local as_json="${1:-false}" map="${LOKI_DIR:-.loki}/state/requirements-map.json"
+    if [ ! -s "$map" ]; then
+        if [ "$as_json" = true ]; then printf '{"error":"no requirements map","path":"%s"}\n' "$map"; return 1; fi
+        echo "No requirements map at $map (written after a run that had a PRD checklist, a spec, or a multi-requirement PRD)."
+        return 1
+    fi
+    if [ "$as_json" = true ]; then cat "$map"; return 0; fi
+    LOKI_RM="$map" python3 -I -c "
+import json, os, sys
+try:
+    m = json.load(open(os.environ['LOKI_RM']))
+    reqs = m['requirements']
+except Exception:
+    print('requirements map is unreadable: ' + os.environ['LOKI_RM']); sys.exit(1)
+cov = sum(1 for r in reqs if r.get('status') == 'covered')
+print('Requirements: %d/%d covered (revision %s)' % (cov, len(reqs), str(m.get('revision', ''))[:12]))
+for r in reqs:
+    chk = ('  <- ' + ', '.join(r.get('checks', []))) if r.get('checks') else ''
+    print('  %s %-9s %-9s %s%s' % (r.get('id'), r.get('status'), r.get('method'), str(r.get('text', ''))[:80], chk))
+"
+}
+
 cmd_plan() {
     local prd_file=""
+    local show_requirements=false
     local show_json=false
     local show_verbose=false
 
@@ -20695,6 +21201,7 @@ cmd_plan() {
                 echo "Options:"
                 echo "  --json        Machine-readable JSON output"
                 echo "  --spec        With a task: write the acceptance criteria to .loki/specs/<slug>.md for you to edit"
+                echo "  --requirements  Print the last run's requirement-to-check map (.loki/state/requirements-map.json), read-only"
                 echo "  --verbose     Show detailed per-iteration breakdown"
                 echo "  --help, -h    Show this help"
                 echo ""
@@ -20712,6 +21219,7 @@ cmd_plan() {
                 ;;
             --json) show_json=true; shift ;;
             --verbose) show_verbose=true; shift ;;
+            --requirements) show_requirements=true; shift ;;
             *)
                 if [ -z "$prd_file" ]; then
                     prd_file="$1"
@@ -20720,6 +21228,11 @@ cmd_plan() {
                 ;;
         esac
     done
+
+    if [ "$show_requirements" = true ]; then
+        _plan_show_requirements "$show_json"
+        return $?
+    fi
 
     if [ -z "$prd_file" ]; then
         # Under --json, a machine consumer expects JSON on every path, including
@@ -20794,13 +21307,14 @@ _suggest_command() {
 ultracode council demo dogfood heal modernize import issue github init template \
 status stop pause resume monitor watch watchdog dashboard web open preview share \
 memory context ctx checkpoint state report kpis cost metrics stats logs otel \
-syslog telemetry crash config provider doctor setup-skill onboard quickstart \
+syslog telemetry crash config provider doctor setup setup-skill onboard quickstart \
 welcome update self-update rollback merge failover cluster enterprise remote deploy docker \
 sandbox api mcp magic compound assets export wiki control docs explain why audit compliance \
 welcome update self-update rollback failover cluster enterprise remote deploy docker \
 sandbox api mcp acp magic compound assets export wiki control docs explain why audit compliance \
 secrets analyze optimize bench ci reset cleanup notify trigger voice sentrux \
-worktree wt projects cp rc trust-metrics serve agent code self_update test help version"
+worktree wt projects cp rc trust-metrics serve agent code self_update test help version \
+chat route agents models edit receipt setup diff undo"
     local best
     best=$(printf '%s\n' $known | awk -v t="$typo" '
         function min3(a, b, c) { if (a < b) { if (a < c) return a; return c } if (b < c) return b; return c }
@@ -20968,6 +21482,32 @@ main() {
         quick)
             cmd_quick "$@"
             ;;
+        chat)
+            # shellcheck disable=SC1091
+            source "$_LOKI_SCRIPT_DIR/lib/chat.sh"
+            cmd_chat "$@"
+            ;;
+        edit)
+            cmd_edit "$@"
+            ;;
+        diff)
+            # Show what the last run changed: uncommitted changes, else the HEAD commit.
+            # Extra args pass through to git (for example --stat or a path).
+            if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+                echo "Usage: loki diff [git diff args]"
+                echo "Show uncommitted changes; if there are none, show the latest commit."
+                exit 0
+            fi
+            if ! git rev-parse --git-dir >/dev/null 2>&1; then
+                echo "loki diff: not inside a git repository" >&2
+                exit 1
+            fi
+            if git diff --quiet HEAD -- 2>/dev/null; then
+                git show --format='%h %s' "$@" HEAD
+            else
+                git diff "$@" HEAD
+            fi
+            ;;
         monitor)
             cmd_monitor "$@"
             ;;
@@ -20990,6 +21530,11 @@ main() {
             ;;
         welcome)
             cmd_welcome "$@"
+            ;;
+        setup)
+            # shellcheck disable=SC1091
+            . "${SKILL_DIR}/autonomy/setup-wizard.sh"
+            cmd_setup "$@"
             ;;
         init)
             cmd_init "$@"
@@ -21174,6 +21719,9 @@ main() {
         doctor)
             cmd_doctor "$@"
             ;;
+        models)
+            bash "$SKILL_DIR/providers/model_routes.sh" "$@"
+            ;;
         sentrux)
             cmd_sentrux "$@"
             ;;
@@ -21254,6 +21802,9 @@ main() {
             ;;
         agent)
             cmd_agent "$@"
+            ;;
+        agents)
+            cmd_agents "$@"
             ;;
         template)
             cmd_template "$@"
@@ -21401,6 +21952,10 @@ main() {
             # deprecated-alias table; bare help prints the grouped front page.
             if [ "${1:-}" = "aliases" ]; then
                 show_help_aliases
+            elif [ "${1:-}" = "all" ]; then
+                show_help_all
+            elif [ -n "${1:-}" ] && case "${1:-}" in providers|exit-codes) true ;; *) false ;; esac && { source "$_LOKI_SCRIPT_DIR/lib/help-core.sh"; help_topic_text "$1"; }; then
+                :
             elif [ -n "${1:-}" ]; then
                 # `loki help <command>` reaches the command's own help. Before
                 # this, $1 was read only for the literal "aliases" and otherwise
@@ -21470,8 +22025,8 @@ main() {
                 echo "Did you mean 'loki ${_suggestion}'?" >&2
             fi
             # Always point to the full command list, even with no near-miss match.
-            echo "Run 'loki help' to see every command." >&2
-            exit 1
+            echo "Run 'loki help' for the core commands, 'loki help all' for every command." >&2
+            exit 2
             ;;
     esac
 }
@@ -24405,6 +24960,7 @@ except Exception as e:
             echo "  lessons [--json]  PR review lessons with their uses and outcomes"
             echo "  learn <o/r#PR>    Learn lessons from a merged PR's review comments"
             echo "  forget <prl-id>   Delete one PR lesson and print its text"
+            echo "  brief [--task T]  Print the lessons and learnings block injected into a run"
             echo ""
             echo "Memory System Commands:"
             echo "  index [rebuild]   Show or rebuild the memory index layer"
@@ -25391,6 +25947,142 @@ SHOW_EOF
     esac
 }
 
+# Poll `gh pr checks` while pending (rc=8); returns the final rc (0 = green).
+_pr_checks_wait() {
+    local pr="$1" poll="${LOKI_MERGE_POLL_S:-20}" tries="${LOKI_MERGE_MAX_POLLS:-90}" rc=8 i=0
+    while [ "$rc" = "8" ] && [ "$i" -lt "$tries" ]; do
+        rc=0; gh pr checks "$pr" >/dev/null 2>&1 || rc=$?
+        [ "$rc" = "8" ] && { sleep "$poll"; i=$((i+1)); }
+    done
+    return "$rc"
+}
+
+# CI repair loop. Waits for checks; on red, hands the failed-run log tail to one
+# bounded repair session on the PR branch (LOKI_PR_REPAIR_CMD, default: a
+# `loki start` of a generated brief; it receives the evidence file path as its last argument), pushes,
+# and re-checks, up to LOKI_PR_REPAIR_MAX attempts (default 2). Green goes through
+# _merge_pr_gated (extra args pass through). Exhausted: the PR is returned to
+# draft, nothing merges, and the last failure evidence is printed.
+# Usage: _merge_pr_watch <pr> [--require-verified] [--delete-branch]
+_merge_pr_watch() {
+    local pr="$1" max="${LOKI_PR_REPAIR_MAX:-2}" attempt=0 rc branch cur rid evid tmp
+    shift
+    case "$max" in ''|*[!0-9]*) max=2 ;; esac
+    command -v gh >/dev/null 2>&1 || { echo "$pr: not merged, gate: gh (gh CLI is required)" >&2; return 1; }
+    branch="$(gh pr view "$pr" --json headRefName -q .headRefName 2>/dev/null)" || branch=""
+    tmp="$(mktemp -d)" || return 1
+    evid="$tmp/ci-failure.md"
+    while true; do
+        rc=0; _pr_checks_wait "$pr" || rc=$?
+        if [ "$rc" = "0" ]; then
+            rm -rf "$tmp"
+            _merge_pr_gated "$pr" "$@"
+            return $?
+        fi
+        rid="$(gh run list --branch "$branch" --status failure --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null)" || rid=""
+        {
+            echo "# CI failed for PR $pr (branch ${branch:-unknown}); fix the failing checks, keep the change minimal"
+            [ -n "$rid" ] && gh run view "$rid" --log-failed 2>/dev/null | tail -n 120
+        } > "$evid"
+        if [ "$attempt" -ge "$max" ]; then
+            gh pr ready "$pr" --undo >/dev/null 2>&1 || true
+            echo "$pr: not merged, gate: checks (gh pr checks rc=$rc after $attempt repair attempts); PR left as draft" >&2
+            _pr_record_merge "$pr" "blocked:checks" "checks" "failing after $attempt repair attempts"
+            echo "Last failure evidence:" >&2; sed 's/^/    /' "$evid" >&2
+            rm -rf "$tmp"
+            return 1
+        fi
+        attempt=$((attempt+1))
+        cur="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+        if [ -z "$branch" ] || [ "$cur" != "$branch" ]; then
+            echo "$pr: not merged, gate: repair (checkout is '${cur:-none}', repair must run on PR branch '${branch:-unknown}'); PR left open" >&2
+            rm -rf "$tmp"; return 1
+        fi
+        echo "$pr: checks red, repair attempt $attempt of $max"
+        if [ -n "${LOKI_PR_REPAIR_CMD:-}" ]; then
+            bash -c "$LOKI_PR_REPAIR_CMD \"\$1\"" _ "$evid" || { echo "$pr: repair attempt $attempt failed, not pushing"; continue; }
+        else
+            "$(command -v loki || echo "$0")" start "$evid" || { echo "$pr: repair attempt $attempt failed, not pushing"; continue; }
+        fi
+        git push origin "HEAD:refs/heads/$branch" >/dev/null 2>&1 || echo "$pr: push of repair failed" >&2
+    done
+}
+
+# Record the merge gate's own result in .loki/state/pr.json (merged,
+# blocked:<gate> or waiting) so the receipt and handoff read the same outcome
+# the gate produced. Only updates an existing "created" record that describes
+# the same PR (pr arg matches .branch or the number at the end of .url); any
+# other record is left untouched. Never invents one. File mode is preserved.
+_pr_record_merge() {
+    local pr="$1" outcome="$2" gate="${3:-}" checks="${4:-not recorded}" f=".loki/state/pr.json" t n
+    n="${pr#\#}"
+    case "$n" in */pull/*) n="${n%/}"; n="${n##*/}" ;; esac
+    [ -f "$f" ] && command -v jq >/dev/null 2>&1 || return 0
+    t="$(mktemp "$f.XXXXXX" 2>/dev/null)" || return 0
+    cp -p "$f" "$t" 2>/dev/null || { rm -f "$t"; return 0; }
+    if jq --arg p "$pr" --arg n "$n" --arg o "$outcome" --arg g "$gate" --arg c "$checks" \
+        'select(.state=="created" and (.branch==$p or ((.url // "") | (endswith("/pull/" + $n) or endswith("/pull/" + $n + "/"))))) | .merge={outcome:$o, gate:(if $g=="" then null else $g end), checks:$c}' "$f" > "$t" 2>/dev/null && [ -s "$t" ]; then
+        mv "$t" "$f"
+    else
+        rm -f "$t"
+    fi
+    return 0
+}
+
+# Shared merge gate. One PR (number or branch) merges only when it is not a
+# draft, `gh pr checks` exits 0 after polling pending (rc=8), and, with
+# --require-verified, this run's proof headline is VERIFIED (missing proof or
+# an unreadable headline is never VERIFIED). On refusal it prints the exact
+# blocking gate ("gate: draft|verdict|checks") and leaves the PR open.
+# Usage: _merge_pr_gated <pr> [--require-verified] [--delete-branch]
+_merge_pr_gated() {
+    local pr="$1" need_verified=false margs=(--squash) rc d
+    shift
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --require-verified) need_verified=true ;;
+            --delete-branch) margs+=(--delete-branch) ;;
+        esac
+        shift
+    done
+    command -v gh >/dev/null 2>&1 || { echo "$pr: not merged, gate: gh (gh CLI is required)" >&2; _pr_record_merge "$pr" "blocked:gh" "gh"; return 1; }
+    d="$(gh pr view "$pr" --json isDraft -q .isDraft 2>/dev/null)" || d=""
+    if [ "$d" != "false" ]; then
+        echo "$pr: not merged, gate: draft (PR is a draft or its state is unreadable); PR left open" >&2
+        _pr_record_merge "$pr" "blocked:draft" "draft"
+        return 1
+    fi
+    if $need_verified; then
+        local pid="" headline=""
+        [ -f .loki/state/last-proof-id.txt ] && pid="$(cat .loki/state/last-proof-id.txt 2>/dev/null)"
+        if [ -n "$pid" ] && [ -f ".loki/proofs/${pid}/proof.json" ] && command -v jq >/dev/null 2>&1; then
+            headline="$(jq -r '.honesty.headline // empty' ".loki/proofs/${pid}/proof.json" 2>/dev/null)"
+        fi
+        if [ "$headline" != "VERIFIED" ]; then
+            echo "$pr: not merged, gate: verdict (run verdict is '${headline:-missing}', need VERIFIED); PR left open" >&2
+            _pr_record_merge "$pr" "blocked:verdict" "verdict"
+            return 1
+        fi
+    fi
+    rc=0; _pr_checks_wait "$pr" || rc=$?
+    if [ "$rc" != "0" ]; then
+        echo "$pr: not merged, gate: checks (gh pr checks rc=$rc); PR left open" >&2
+        case "$rc" in
+            8) _pr_record_merge "$pr" "waiting" "checks" "pending" ;;
+            1) _pr_record_merge "$pr" "blocked:checks" "checks" "failing" ;;
+            *) _pr_record_merge "$pr" "blocked:checks" "checks" "unknown" ;;
+        esac
+        return 1
+    fi
+    if ! gh pr merge "$pr" "${margs[@]}" >/dev/null 2>&1; then
+        echo "$pr: not merged, gate: merge (gh pr merge failed); PR left open" >&2
+        _pr_record_merge "$pr" "blocked:merge" "merge" "passing"
+        return 1
+    fi
+    _pr_record_merge "$pr" "merged" "" "all passing"
+    return 0
+}
+
 # loki merge: serial PR merge queue. Queue lives in .loki/merge-queue (one PR
 # number per line). A PR merges only when `gh pr checks` exits 0 (all green);
 # after each merge the next PR is rebased onto the new base (gh pr update-branch
@@ -25425,8 +26117,7 @@ cmd_merge() {
             [ "${1:-}" = "--dry-run" ] && dry=true
             if [ ! -s "$qfile" ]; then echo "Merge queue is empty"; return 0; fi
             command -v gh >/dev/null 2>&1 || { echo "gh CLI is required" >&2; return 1; }
-            local poll="${LOKI_MERGE_POLL_S:-20}" tries="${LOKI_MERGE_MAX_POLLS:-90}"
-            local first=true n rc i remaining="" merged=0 blocked=0
+            local first=true n rc remaining="" merged=0 blocked=0
             while IFS= read -r n; do
                 [ -n "$n" ] || continue
                 if $dry; then
@@ -25445,29 +26136,33 @@ cmd_merge() {
                         || { echo "#$n: rebase onto new base failed, left in queue"; remaining="$remaining$n"$'\n'; blocked=$((blocked+1)); continue; }
                     echo "#$n: rebased onto new base"
                 fi
-                rc=8; i=0
-                while [ "$rc" = "8" ] && [ "$i" -lt "$tries" ]; do
-                    rc=0; gh pr checks "$n" >/dev/null 2>&1 || rc=$?
-                    [ "$rc" = "8" ] && { sleep "$poll"; i=$((i+1)); }
-                done
-                if [ "$rc" != "0" ]; then
-                    echo "#$n: checks not green (rc=$rc), left in queue, not merged"
-                    remaining="$remaining$n"$'\n'; blocked=$((blocked+1)); continue
-                fi
-                if gh pr merge "$n" --squash >/dev/null 2>&1; then
+                if _merge_pr_gated "$n" 2>"$qfile.err"; then
                     echo "#$n: merged"; merged=$((merged+1)); first=false
                 else
-                    echo "#$n: merge failed, left in queue"
+                    sed 's/^/#/' "$qfile.err"; echo "#$n: left in queue"
                     remaining="$remaining$n"$'\n'; blocked=$((blocked+1))
                 fi
             done < "$qfile"
             if $dry; then echo "Dry run: nothing changed"; return 0; fi
+            rm -f "$qfile.err"
             printf '%s' "$remaining" > "$qfile"
             echo "Merged: $merged, left in queue: $blocked"
             [ "$blocked" -eq 0 ]
             ;;
+        watch)
+            [ $# -gt 0 ] || { echo "Usage: loki merge watch <pr> [--require-verified] [--delete-branch]" >&2; return 2; }
+            _merge_pr_watch "$@" && echo "$1: merged"
+            ;;
+        pr)
+            [ $# -gt 0 ] || { echo "Usage: loki merge pr <pr-or-branch> [--require-verified] [--delete-branch]" >&2; return 2; }
+            _merge_pr_gated "$@" && echo "$1: merged"
+            ;;
         help|--help|-h|*)
-            echo "Usage: loki merge <add|list|run|clear>"
+            echo "Usage: loki merge <add|list|run|pr|watch|clear>"
+            echo "  watch <pr>         Wait for checks; on red run up to LOKI_PR_REPAIR_MAX (2) bounded"
+            echo "                     repair sessions on the PR branch, push, re-check, merge when green."
+            echo "  pr <pr|branch>     Merge one PR through the same gate (not draft, checks green;"
+            echo "                     --require-verified also needs a VERIFIED run verdict)."
             echo "  add <pr>...        Queue pull requests"
             echo "  list               Show the queue"
             echo "  run [--dry-run]    Merge one at a time, only when checks are green;"
@@ -27664,93 +28359,32 @@ cmd_trust_metrics() {
     python3 "$tm_mod" --loki-dir "$loki_dir" ${pass_args[@]+"${pass_args[@]}"}
 }
 
+# loki estimate: one estimator. The estimate is loki-ts/src/runner/router/cost_preview.ts,
+# the same one 'loki start' prints; this arm only hands off to the Bun CLI (bin/loki is the
+# normal route; this covers 'loki help estimate' and a direct bash invocation). tools/estimate-run.py
+# stays for its other callers (preflight, model-advisor) but is no longer reachable from here.
+cmd_estimate() {
+    local entry="${LOKI_TS_ENTRY:-}"
+    if [ -z "$entry" ]; then
+        if [ -f "$SKILL_DIR/loki-ts/dist/loki.js" ]; then
+            entry="$SKILL_DIR/loki-ts/dist/loki.js"
+        elif [ -f "$SKILL_DIR/loki-ts/src/cli.ts" ]; then
+            entry="$SKILL_DIR/loki-ts/src/cli.ts"
+        fi
+    fi
+    if [ -z "$entry" ] || [ ! -f "$entry" ] || ! command -v bun >/dev/null 2>&1; then
+        echo -e "${RED}loki estimate requires the Bun runtime and is not available on the bash route.${NC}" >&2
+        echo "Install Bun (https://bun.sh) or remove LOKI_LEGACY_BASH=1." >&2
+        return 1
+    fi
+    bun "$entry" estimate "$@"
+}
+
 # Transparent cost view (R3): per-run + per-project spend, model routing, and
 # budget status with the 80% warn line. Reuses efficiency_cost.collect_efficiency
 # for the current-run aggregate (single source of truth) and reads .loki/proofs/
 # for persistent per-run history. Honest: prints "not recorded" when cost was
 # never collected, never a fabricated $0.00.
-# Forward cost projection. Wraps tools/estimate-run.py.
-#
-# --iterations is REQUIRED by that tool by design: no multi-run history exists
-# to derive a horizon from, so projecting a total without one would be guessing
-# at the single number the operator asked for. We surface that requirement here
-# rather than inventing a default, for the same reason cost reports UNKNOWN
-# instead of $0.00 -- an unearned number is worse than an absent one.
-cmd_estimate() {
-    local iterations=""
-    local show_json=false
-
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --help|-h)
-                echo -e "${BOLD}loki estimate${NC} - Project what a run is likely to cost"
-                echo ""
-                echo "Usage: loki estimate --iterations N [--json]"
-                echo ""
-                echo "Projects a run cost from this workspace's MEASURED history in"
-                echo ".loki/metrics/efficiency/. With no measured history there is no"
-                echo "basis, and it says so rather than returning a fabricated number."
-                echo ""
-                echo "Options:"
-                echo "  --iterations N       REQUIRED. How many iterations to project."
-                echo "                       No multi-run history exists to derive a horizon"
-                echo "                       from, so there is no honest default."
-                echo "  --json               Machine-readable JSON output"
-                echo "  --help, -h           Show this help"
-                echo ""
-                echo "Examples:"
-                echo "  loki estimate --iterations 10"
-                echo "  loki estimate --iterations 25 --json"
-                echo ""
-                echo "See also: loki cost --detail (what a run ALREADY spent)"
-                return 0
-                ;;
-            --json) show_json=true; shift ;;
-            --iterations) iterations="${2:-}"; shift 2 || shift ;;
-            --iterations=*) iterations="${1#*=}"; shift ;;
-            *) echo -e "${RED}Unknown option: $1${NC}" >&2; echo "Run 'loki estimate --help' for usage." >&2; return 1 ;;
-        esac
-    done
-
-    if [ -z "$iterations" ]; then
-        echo -e "${RED}--iterations is required${NC}" >&2
-        echo "" >&2
-        echo "No multi-run history exists to derive a horizon from, so there is no" >&2
-        echo "honest default for how many iterations to project. Say how many you" >&2
-        echo "expect and the projection is scaled from measured per-iteration cost." >&2
-        echo "" >&2
-        echo "  loki estimate --iterations 10" >&2
-        echo "" >&2
-        echo "Run 'loki estimate --help' for usage." >&2
-        return 1
-    fi
-
-    case "$iterations" in
-        ''|*[!0-9]*)
-            echo -e "${RED}--iterations must be a positive whole number (got: $iterations)${NC}" >&2
-            return 1
-            ;;
-    esac
-
-    local estimate_py="$SKILL_DIR/tools/estimate-run.py"
-    if ! command -v python3 >/dev/null 2>&1; then
-        echo -e "${RED}python3 is required for 'loki estimate'${NC}" >&2
-        echo "Install python3 and re-run." >&2
-        return 1
-    fi
-    if [ ! -f "$estimate_py" ]; then
-        echo -e "${RED}Estimate tool not found: $estimate_py${NC}" >&2
-        echo "Your install looks incomplete. Reinstall: loki self-update" >&2
-        return 1
-    fi
-
-    # Same workspace derivation as 'loki cost --detail': the tool takes the
-    # workspace and appends .loki itself, while LOKI_DIR is the .loki path.
-    local est_args=("$(dirname "${LOKI_DIR:-.loki}")" "--iterations" "$iterations")
-    [ "$show_json" = "true" ] && est_args+=("--json")
-    python3 "$estimate_py" "${est_args[@]}"
-}
-
 cmd_cost() {
     local show_json=false
     local last_n=0
@@ -29493,6 +30127,28 @@ PYEOF
             return 1
             ;;
     esac
+}
+
+# User-configurable child agents: .loki/agents/<name>.md, ~/.config/loki/agents/<name>.md
+cmd_agents() {
+    local sub="${1:-list}"
+    case "$sub" in
+        help|-h|--help)
+            echo "Usage: loki agents <list|new|show|export> [args]"
+            echo "  list                    List configured agents (project overrides user)"
+            echo "  new <name> [--user]     Scaffold .loki/agents/<name>.md (or ~/.config/loki/agents)"
+            echo "                          Names reviewer, planner, tester copy the shipped examples"
+            echo "  show <name>             Show one agent and its system prompt"
+            echo "  export --claude [--user] Write agents as Claude Code subagents (.claude/agents/)"
+            echo "Council reviewers use a configured agent named reviewer, tester or security."
+            return 0
+            ;;
+    esac
+    local script_dir helper
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    helper="${script_dir}/../agents/custom_agents.py"
+    [ -f "$helper" ] || { echo -e "${RED}Error: agents/custom_agents.py not found${NC}"; return 1; }
+    python3 -I "$helper" "$@"
 }
 
 # Agent type dispatch (v6.7.0)
@@ -35999,7 +36655,7 @@ PYEOF
 }
 
 # loki bench - head-to-head benchmark harness (R2).
-# Subcommands: run <task> | vs <task> | list | verify <result.json>.
+# Subcommands: run <task> | vs <task> | list | verify <result.json> | attribution.
 # Thin pass-through to benchmarks/bench/run.sh (shared python core runner.py).
 # CREDIBILITY: Loki NEVER grades its own success. Success is decided by a
 # held-out acceptance command run by the grader OUTSIDE the agent (exit code).
@@ -36033,6 +36689,7 @@ cmd_bench() {
             echo "  verify <file>   Recompute task_hash + check tool versions for a result.json"
             echo "  oracles         Are the graders trustworthy? Hash-bound, no spend, no provider"
             echo "  report <files>  Build results.json + RESULTS.md from per-tool result-rows"
+            echo "  attribution     Same-model harness attribution: raw Claude Code vs Loki (--dry-run, --execute)"
             echo ""
             echo "Options:"
             echo "  --trials N      Number of trials per tool (default 3)"
@@ -36229,7 +36886,9 @@ cmd_proof() {
             echo "                       reads UNKNOWN when it cannot be computed"
             echo "  phases [--json]      Measured phase history from real phase_change"
             echo "                       events; unrecorded boundaries read UNKNOWN"
-            echo "  show <id>            Pretty-print .loki/proofs/<id>/proof.json"
+            echo "  show <id> [--json]   Compact reviewer summary (label, revision, checks,"
+            echo "                       requirements, modified tests); --json prints the"
+            echo "                       full .loki/proofs/<id>/proof.json"
             echo "  verify <id>          Re-check a receipt against the repo (tamper + drift)."
             echo "                       Exit 0 clean, 1 tamper/drift, 2 could not check,"
             echo "                       64 usage (no id, more than one id, unknown option,"
@@ -36401,6 +37060,14 @@ PYEOF
             exit 0
             ;;
         show)
+            local _ps_json=0 _ps_a _ps_args=()
+            for _ps_a in "$@"; do
+                case "$_ps_a" in
+                    --json) _ps_json=1 ;;
+                    *) _ps_args+=("$_ps_a") ;;
+                esac
+            done
+            set -- "${_ps_args[@]+"${_ps_args[@]}"}"
             local id="${1:-}"
             if [ -z "$id" ]; then
                 echo -e "${RED}Missing proof id.${NC} Use 'loki proof list'."
@@ -36411,6 +37078,21 @@ PYEOF
                 echo -e "${RED}Proof not found: ${id}${NC}"
                 echo "Use 'loki proof list' to see available proofs."
                 exit 1
+            fi
+            if [ "$_ps_json" -eq 0 ]; then
+                # Compact reviewer summary (docs/PROOF-PASSPORT.md).
+                local _ps_py _ps_vr="${_LOKI_SCRIPT_DIR}/lib/proof-verify.py"
+                _ps_py="$(loki_verify_tool_path python3)" || {
+                    echo -e "${RED}python3 is unavailable${NC}" >&2
+                    exit 2
+                }
+                local _ps_root
+                _ps_root="$(loki_verify_root 2>/dev/null)" || {
+                    echo -e "${YELLOW}Summary unavailable (project tree not resolved; not checking the ambient cwd).${NC} Use 'loki proof show ${id} --json' for the full record." >&2
+                    exit 2
+                }
+                "$_ps_py" -E "$_ps_vr" summary "$pj" --repo "$_ps_root" --loki-dir "$loki_dir" || exit $?
+                exit 0
             fi
             if command -v jq &>/dev/null; then
                 jq . "$pj"

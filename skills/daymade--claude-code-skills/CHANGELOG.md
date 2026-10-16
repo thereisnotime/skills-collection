@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **feishu-doc-scraper** (v1.9.0): Continue comment capture after unavailable reply text while preserving raw replies and image gaps, align the renderer with all three Lark hosts, render verified whiteboard previews in place, and emit complete provenance plus optional discussion links. Add synthetic shape/host/media regressions and live capture/render validation. Change type: bounded capture-reliability and rendering repair.
+- **app-evolver** (v1.1.2): Adapt Eleven's feature-investigation playbooks into the existing reverse-analysis handoff: locate observable anchors, trace substantive work, retain build-bound evidence notes and respect the existing mutation owner. Keep network and performance conclusions within observed evidence; add no framework or runtime dependency. Change type: bounded evidence-selection refinement.
+- **read-codex-history** (`daymade-claude-code` v4.30.3): Classify an error cascade from the current unrecovered failure tail while retaining historical errors. Bounded rollout replay and regression tests cover recovery, empty results, patch outcomes and terminal-state precedence. Change type: existing-contract repair.
+- **terraform-skill** (v1.5.9): Document native-plan sensitivity-mark diagnosis when JSON values show no change; require exact plan binding and preserve release rejection for unexplained actions. Change type: bounded guidance addition.
+
+- **lark-cli-router** (`daymade-claude-code` v4.30.2): Use the installed CLI's guide metadata for routing, add an entry link for existing date-based recording lookup, and defer duplicated budget, concurrency and exit-code definitions to helper help and the official guide; code, permissions and the Skill description are unchanged.
+
+- **lark-cli-router** (`daymade-claude-code` v4.30.1): Move the existing dated-recording trigger before the catalog description cutoff, preserving all other triggers and runtime behavior.
+
+- **lark-cli-router** (`daymade-claude-code` v4.30.0): Add date-first recording candidate lookup for explicit dates and explicitly authorized profiles, preserving pagination and partial results while the agent confirms the meeting from its content.
+
 - **read-codex-history** (`daymade-claude-code` v4.29.1): Document the shipped streaming validation API and lineage callbacks with a synthetic runnable example; centralize the contract, correct index-only recovery guidance, and remove derived summaries. Runtime unchanged.
+- **tunnel-doctor** (v1.17.3): Test working SSH gateway candidates through the actual consumer before extending native relay work; preserve required UDP and other protocol acceptance.
+
 - **read-codex-history** (`daymade-claude-code` v4.29.0): `validate_codex_rollout(..., end_byte_offset=...)`; streaming identity, ordinal and copied-context validation; existing parser limits preserved.
 - **git-safety-net** (`git-safety-net` v1.22.5 → v1.22.6): "verify the original restriction's object, action and destination"; "Build the source contribution inventory from immutable refs, not the survivor's `git status`".
 

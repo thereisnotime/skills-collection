@@ -6,12 +6,12 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 
 ## Counts
 
-- KEEP-MODERN: 64
+- KEEP-MODERN: 70
 - UPDATE: 22
-- DROP-LEGACY: 31
+- DROP-LEGACY: 32
 - DELETE: 14
-- Total rows: 131
-- Registry paths (commands and nested subcommands): 181
+- Total rows: 138
+- Registry paths (commands and nested subcommands): 194
 
 ## Commands
 
@@ -28,6 +28,7 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 | receipt | bun route, bash fallthrough | DELETE | Alias of proof; shown only under 'loki help aliases' |
 | wiki | bun route, bash fallthrough | KEEP-MODERN | Bun-native knowledge feature |
 | control | bun route, bash fallthrough | KEEP-MODERN | D56 control plane, on by default |
+| intent | loki-ts/src/cli.ts | KEEP-MODERN | Read-only intent view |
 | kpis | loki-ts/src/cli.ts | KEEP-MODERN | Bun-native KPI report |
 | report | bun route, bash fallthrough | UPDATE | Mixed route; only kpis is Bun |
 | trust | bun route, bash fallthrough | KEEP-MODERN | Trust moat surface |
@@ -45,6 +46,11 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 | completion (hidden) | loki-ts/src/cli.ts | KEEP-MODERN | Hidden plumbing; completions install themselves |
 | __complete (hidden) | loki-ts/src/cli.ts | KEEP-MODERN | Hidden plumbing for generated completions |
 | help | autonomy/loki | KEEP-MODERN | Core |
+| chat | autonomy/loki | KEEP-MODERN | Provider-neutral conversational verb |
+| edit | autonomy/loki | KEEP-MODERN | Provider-neutral single-edit verb |
+| diff | autonomy/loki | KEEP-MODERN | Passes extra args to git diff |
+| models | autonomy/loki | KEEP-MODERN | Provider-neutral model tiers |
+| setup | autonomy/loki | KEEP-MODERN | Onboarding gate |
 | quick | autonomy/loki | UPDATE | Routes to the v10 lean path by default |
 | quickstart | autonomy/loki | KEEP-MODERN | Onboarding path |
 | init | autonomy/loki | UPDATE | Templates predate v10 |
@@ -129,10 +135,11 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 | cleanup | autonomy/loki | DROP-LEGACY | Legacy run.sh orphans |
 | state | autonomy/loki | DROP-LEGACY | Legacy engine |
 | agent | autonomy/loki | DROP-LEGACY | Legacy engine |
+| agents | autonomy/loki | DROP-LEGACY | Legacy engine |
 | trigger | autonomy/loki | DROP-LEGACY | Legacy engine |
 | failover | autonomy/loki | DROP-LEGACY | Legacy engine |
 | reset | autonomy/loki | DROP-LEGACY | Legacy engine |
-| merge | autonomy/loki | DROP-LEGACY | Legacy parallel mode |
+| merge | autonomy/loki | DROP-LEGACY | Bash PR merge gate |
 | heal | autonomy/loki | DROP-LEGACY | Legacy engine |
 | migrate | autonomy/loki | DROP-LEGACY | Superseded by modernize |
 | dogfood | autonomy/loki | DROP-LEGACY | Legacy engine |
@@ -178,7 +185,7 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 - preview: 1
 - projects: 8
 - proof: 6
-- provider: 3
+- provider: 2
 - quick: 1
 - resume: 1
 - rollback: 2

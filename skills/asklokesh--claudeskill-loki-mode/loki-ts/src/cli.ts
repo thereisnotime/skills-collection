@@ -23,12 +23,13 @@ Bun-native commands:
   version                Print Loki Mode version
   status [--json]        Show current orchestrator status
   stats [--json] [--efficiency]   Session statistics
+  intent show <run>      Print a past run's intent card and answer
   provider show [name]   Show current provider
   provider list          List available providers and install status
   memory list            Cross-project learnings counts
   memory lessons [--json] PR review lessons with their uses and outcomes
   memory forget <prl-id> Delete one PR lesson and print its text
-  memory learn <o/r#PR>  Learn lessons from a merged PR's review comments
+  memory learn <o/r#PR>  Learn lessons from a merged PR's review comments (or --recent N, max 20)
   memory index [rebuild] Show or rebuild memory index
   doctor [--json]        System prerequisites health check
   rollback <subcmd>      Restore .loki/ state from a checkpoint
@@ -43,9 +44,10 @@ Bun-native commands:
   issues run [owner/repo] Triage every open issue and run the actionable ones; too-large ones become stacked PRs
                          (flags: --label L --limit N --parallel K --draft --dry-run --yes --comment --no-split)
   verify-pr <url|o/r#N>  Verify a PR against its linked issue in a sandbox (LOKI_VERIFY_PR=1)
-  answer [run] [--text]  Resume a BLOCKED run with an answer (--text, or the Control Plane answer file)
+  answer [run] [--text]  Start a follow-up run from a BLOCKED run with your answer (--text, or the Control Plane answer file)
   control <subcmd>       Control plane (on by default; LOKI_CONTROL=0 turns it off)
                          (subcmds: serve [--port N] [--db PATH] | backfill [DIR] | status)
+  estimate [--json]      Cost estimate for a run (the same estimate 'loki start' prints)
   kpis [--json]          KPI snapshot (alias of: report kpis)
   report kpis            Canonical KPI snapshot report
   trust <subcmd>         Trust trajectory derived from proof-of-run history
@@ -94,6 +96,11 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       return runModernStatus(rest);
     }
 
+    case "intent": {
+      const { runIntentShow } = await import("./commands/run_status.ts");
+      return runIntentShow(rest);
+    }
+
     case "stats": {
       const { runStats } = await import("./commands/stats.ts");
       return runStats(rest);
@@ -102,6 +109,11 @@ async function dispatch(argv: readonly string[]): Promise<number> {
     case "doctor": {
       const { runDoctor } = await import("./commands/doctor.ts");
       return runDoctor(rest);
+    }
+
+    case "estimate": {
+      const { runEstimate } = await import("./runner/router/cost_preview.ts");
+      return runEstimate(rest, { repoDir: process.cwd(), env: process.env });
     }
 
     case "kpis": {
@@ -387,8 +399,11 @@ installCrashHandlers();
 // SIGINT handler -- propagate Ctrl-C to a clean exit so child processes
 // spawned via Bun.spawn (e.g. doctor's network probes) don't outlive us.
 // Standard convention: 128 + signal number.
-process.on("SIGINT", () => process.exit(130));
-process.on("SIGTERM", () => process.exit(143));
+// A Loki 10 supervisor (runner/worker_proc.ts spawnWorker) sets this symbol while it owns the stop: it terminates the
+// worker gracefully, records usage, and exits 130 itself, so these immediate exits must stand down.
+const ownsStop = (): boolean => (globalThis as Record<symbol, unknown>)[Symbol.for("loki.ownsStopSignals")] === true;
+process.on("SIGINT", () => { if (!ownsStop()) process.exit(130); });
+process.on("SIGTERM", () => { if (!ownsStop()) process.exit(143); });
 
 // Conservative capture (plan section 9): a plain nonzero exit from a command
 // that returned a status cleanly (doctor failing a check, an unknown subcommand,

@@ -7,7 +7,7 @@
 // slice's files.
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { sealedLog } from "./log_fixture.ts";
-import { createHash, generateKeyPairSync, sign as nodeSign } from "node:crypto";
+import { createHash, generateKeyPairSync, sign as nodeSign, type KeyObject } from "node:crypto";
 import { kidOf } from "../../src/engine10/stages/seal.ts";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -661,5 +661,220 @@ describe("main() UNSIGNED policy (D47)", () => {
         expect((await runMain(["fs1"], join(dir, "runs"))).code).toBe(4);
       });
     } finally { rmSync(dir, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
+  });
+});
+
+describe("main() --seal-composite", () => {
+  test("help documents it, a missing or extra run dir exits 2, a dir without integration.json exits 2", async () => {
+    const d = tmpDir();
+    expect((await runMain(["--help"], d)).out).toContain("--seal-composite RUN_DIR");
+    const err = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (() => true) as typeof process.stderr.write;
+    try {
+      expect((await runMain(["--seal-composite"], d)).code).toBe(2);
+      expect((await runMain(["--seal-composite", d, "x"], d)).code).toBe(2);
+      expect((await runMain(["--seal-composite", d], d)).code).toBe(2);
+    } finally { process.stderr.write = err; }
+    rmSync(d, { recursive: true, force: true });
+  });
+});
+
+// V118-05: --max-age rides the signed JWT iat, checked after integrity.
+describe("main() --max-age on the signed iat (V118-05)", () => {
+  const SAVED = process.env["LOKI_RECEIPT_SIGNING_KEY"];
+  const NOW = 1_800_000_000_000; // ms, injected clock
+  let dir: string;
+  let key: { publicKey: KeyObject; privateKey: KeyObject };
+  beforeEach(() => {
+    dir = tmpDir();
+    key = generateKeyPairSync("ed25519");
+    process.env["LOKI_RECEIPT_SIGNING_KEY"] = key.privateKey.export({ type: "pkcs8", format: "pem" }) as string;
+  });
+  afterEach(() => {
+    if (SAVED === undefined) delete process.env["LOKI_RECEIPT_SIGNING_KEY"]; else process.env["LOKI_RECEIPT_SIGNING_KEY"] = SAVED;
+    rmSync(dir, { recursive: true, force: true });
+  });
+  // Signed receipt whose JWT carries the given iat (seconds), written at `sub` under dir.
+  function signedAt(iat: number | undefined, sub = "runs/sg/receipt.json"): string {
+    const fields = baseReceiptFields();
+    const hash = computeReceiptHash(fields);
+    const h = Buffer.from(JSON.stringify({ alg: "EdDSA", kid: kidOf(key.publicKey) })).toString("base64url");
+    const p = Buffer.from(JSON.stringify({ receipt_sha256: hash, ...(iat === undefined ? {} : { iat }) })).toString("base64url");
+    const sig = nodeSign(null, Buffer.from(`${h}.${p}`), key.privateKey).toString("base64url");
+    const path = join(dir, sub);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, JSON.stringify({ ...fields, receipt_sha256: hash, verification: { jwt: `${h}.${p}.${sig}`, kid: kidOf(key.publicKey) } }));
+    return path;
+  }
+  async function run(args: string[]): Promise<{ code: number; out: string; err: string }> {
+    const out: string[] = [], err: string[] = [];
+    const w = process.stdout.write.bind(process.stdout), e = process.stderr.write.bind(process.stderr);
+    process.stdout.write = ((c: string) => { out.push(String(c)); return true; }) as typeof process.stdout.write;
+    process.stderr.write = ((c: string) => { err.push(String(c)); return true; }) as typeof process.stderr.write;
+    try { return { code: await main(args, { runsRoot: join(dir, "runs"), now: () => NOW }), out: out.join(""), err: err.join("") }; }
+    finally { process.stdout.write = w; process.stderr.write = e; }
+  }
+  const nowS = NOW / 1000;
+  test("fresh signed receipt with --max-age 1d is VERIFIED, exit 0; the =form agrees", async () => {
+    const f = signedAt(nowS - 60);
+    expect((await run([f, "--max-age", "1d"])).code).toBe(0);
+    expect((await run([f, "--max-age=86400"])).code).toBe(0);
+  });
+  test("backdated iat exits 2 with the reason text", async () => {
+    const r = await run([signedAt(nowS - 8 * 86400), "--max-age", "7d"]);
+    expect(r.code).toBe(2);
+    expect(r.out).toContain("verdict: UNCHECKED");
+    expect(r.out).toContain("is older than --max-age 7d");
+  });
+  test("a group receipt path (.loki/groups/<gid>/receipt.json) is checked the same way", async () => {
+    const f = signedAt(nowS - 8 * 3600, ".loki/groups/g1/receipt.json");
+    expect((await run([f, "--max-age", "1h"])).code).toBe(2);
+    expect((await run([f, "--max-age", "1d"])).code).toBe(0);
+  });
+  test("unsigned receipt and a signed receipt with no iat both exit 2 with the no-iat reason", async () => {
+    const u = writeUnsignedReceipt(dir, "us");
+    for (const f of [u, signedAt(undefined)]) {
+      const r = await run([f, "--max-age", "1d", "--allow-unsigned"]);
+      expect(r.code).toBe(2);
+      expect(r.out).toContain("no signed iat; age cannot be checked");
+    }
+  });
+  test("tampered receipt stays TAMPERED, exit 1", async () => {
+    const f = signedAt(nowS - 10);
+    const r = JSON.parse(readFileSync(f, "utf8")); r.repo = "x/y"; writeFileSync(f, JSON.stringify(r));
+    expect((await run([f, "--max-age", "1d"])).code).toBe(1);
+  });
+  test("invalid --max-age (abc, 0, empty, missing, negative, repeated) exits 2 with invalid --max-age", async () => {
+    const f = signedAt(nowS);
+    for (const a of [["--max-age", "abc"], ["--max-age=0"], ["--max-age="], ["--max-age"], ["--max-age", "-5"], ["--max-age=1d", "--max-age=2d"]]) {
+      const r = await run([f, ...a]);
+      expect(r.code).toBe(2);
+      expect(r.err).toContain("invalid --max-age");
+    }
+  });
+  test("iat more than 300s in the future exits 2; within skew passes", async () => {
+    expect((await run([signedAt(nowS + 400), "--max-age", "1d"])).code).toBe(2);
+    expect((await run([signedAt(nowS + 100), "--max-age", "1d"])).code).toBe(0);
+  });
+  test("without --max-age the output is unchanged", async () => {
+    const r = await run([signedAt(nowS - 99 * 86400)]);
+    expect(r.code).toBe(0);
+    expect(r.out).not.toContain("iat");
+  });
+  test("the help names --max-age", async () => {
+    expect((await run(["--help"])).out).toContain("--max-age");
+  });
+});
+
+describe("loki.deploy/1 signed deploy records", () => {
+  let dir: string, keyFile: string, savedKey: string | undefined, savedInline: string | undefined;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "deploy-rec-"));
+    keyFile = join(dir, "key.pem");
+    savedKey = process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"]; savedInline = process.env["LOKI_RECEIPT_SIGNING_KEY"];
+    delete process.env["LOKI_RECEIPT_SIGNING_KEY"];
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = keyFile;
+  });
+  afterEach(() => {
+    if (savedKey === undefined) delete process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"]; else process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = savedKey;
+    if (savedInline !== undefined) process.env["LOKI_RECEIPT_SIGNING_KEY"] = savedInline;
+    rmSync(dir, { recursive: true, force: true });
+  });
+  async function run(args: string[]): Promise<{ code: number; out: string }> {
+    const out: string[] = [];
+    const w = process.stdout.write.bind(process.stdout), e = process.stderr.write.bind(process.stderr);
+    process.stdout.write = ((c: string) => { out.push(String(c)); return true; }) as typeof process.stdout.write;
+    process.stderr.write = (() => true) as typeof process.stderr.write;
+    try { return { code: await main(args, {}), out: out.join("") }; } finally { process.stdout.write = w; process.stderr.write = e; }
+  }
+  /** A legacy proof.json (digest = sha256 of the sorted compact body) with an attestation, plus a deploy record citing it. */
+  async function fixture(signedProof = true): Promise<{ rec: string; proof: string }> {
+    const { canonicalJson, signReceipt } = await import("../../src/util/receipt_signer.ts");
+    const body = { schema: "proof/1", run_id: "p1", verdict: "pass" };
+    const hash = createHash("sha256").update(canonicalJson(body)).digest("hex");
+    const att = signedProof ? signReceipt("p1", hash).jwt : null;
+    const proof = join(dir, ".loki", "proofs", "p1", "proof.json");
+    mkdirSync(join(dir, ".loki", "proofs", "p1"), { recursive: true });
+    writeFileSync(proof, JSON.stringify({ ...body, verification: { hash, attestation: att } }));
+    const rec = join(dir, ".loki", "deploys", "d.json");
+    mkdirSync(join(dir, ".loki", "deploys"), { recursive: true });
+    writeFileSync(rec, JSON.stringify({ schema: "loki.deploy/1", receipt_sha256: hash, head_sha: "abc123", target: "vercel", command: "vercel --prod", health_status: "HEALTHY", health_url: "http://x/ok", rollback_attempted: false, rollback_exit: null, started_at: "2026-01-01T00:00:00Z", finished_at: "2026-01-01T00:00:05Z" }));
+    return { rec, proof };
+  }
+  test("sign then verify is VERIFIED and leaves the receipt unchanged", async () => {
+    const { rec, proof } = await fixture();
+    const before = readFileSync(proof, "utf8");
+    expect((await run(["--sign-deploy", rec])).code).toBe(0);
+    const r = await run([rec]);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("verdict: VERIFIED");
+    expect(readFileSync(proof, "utf8")).toBe(before);
+  });
+  test("--max-age on a deploy record is UNCHECKED, exit 2, never VERIFIED", async () => {
+    const { rec } = await fixture();
+    await run(["--sign-deploy", rec]);
+    for (const a of [[rec, "--max-age", "1s"], [rec, "--max-age=1s"]]) {
+      const r = await run(a);
+      expect(r.code).toBe(2);
+      expect(r.out).toContain("verdict: UNCHECKED");
+      expect(r.out).not.toContain("VERIFIED\n");
+    }
+  });
+  test("extra arguments after a deploy record exit 2", async () => {
+    const { rec } = await fixture();
+    await run(["--sign-deploy", rec]);
+    expect((await run([rec, rec])).code).toBe(2);
+  });
+  test("a flipped field is TAMPERED, exit 1", async () => {
+    const { rec } = await fixture();
+    await run(["--sign-deploy", rec]);
+    writeFileSync(rec, readFileSync(rec, "utf8").replace('"HEALTHY"', '"FAILED_HEALTH"'));
+    const r = await run([rec]);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("verdict: TAMPERED");
+  });
+  test("an unsigned record is UNCHECKED, exit 2", async () => {
+    const { rec } = await fixture();
+    const r = await run([rec]);
+    expect(r.code).toBe(2);
+    expect(r.out).toContain("verdict: UNCHECKED");
+  });
+  test("a machine without the signing key is UNCHECKED", async () => {
+    const { rec } = await fixture();
+    await run(["--sign-deploy", rec]);
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = join(dir, "absent.pem");
+    expect((await run([rec])).code).toBe(2);
+  });
+  test("--pubkey re-checks with only the public half", async () => {
+    const { rec } = await fixture();
+    await run(["--sign-deploy", rec]);
+    const { createPrivateKey, createPublicKey } = await import("node:crypto");
+    const pub = join(dir, "pub.jwk");
+    writeFileSync(pub, JSON.stringify(createPublicKey(createPrivateKey(readFileSync(keyFile))).export({ format: "jwk" })));
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = join(dir, "absent.pem");
+    expect((await run([rec, "--pubkey", pub])).code).toBe(0);
+  });
+  test("--pubkey holding a non-Ed25519 key exits 2 and never prints VERIFIED", async () => {
+    const { rec } = await fixture();
+    await run(["--sign-deploy", rec]);
+    const { generateKeyPairSync } = await import("node:crypto");
+    const rsa = join(dir, "rsa.pem");
+    writeFileSync(rsa, generateKeyPairSync("rsa", { modulusLength: 2048 }).publicKey.export({ type: "spki", format: "pem" }));
+    const r = await run([rec, "--pubkey", rsa]);
+    expect(r.code).toBe(2);
+    expect(r.out).not.toContain("VERIFIED");
+  });
+  test("a tampered cited receipt is never VERIFIED", async () => {
+    const { rec, proof } = await fixture();
+    await run(["--sign-deploy", rec]);
+    writeFileSync(proof, readFileSync(proof, "utf8").replace('"pass"', '"fail"'));
+    expect((await run([rec])).code).toBe(1);
+  });
+  test("an unsigned cited receipt is UNCHECKED, a missing one is UNCHECKED", async () => {
+    const a = await fixture(false);
+    await run(["--sign-deploy", a.rec]);
+    expect((await run([a.rec])).code).toBe(2);
+    rmSync(a.proof);
+    expect((await run([a.rec])).code).toBe(2);
   });
 });

@@ -729,6 +729,360 @@ else
     echo "  SKIPPED: needs cryptography and test 8's signed fixture (not a pass)"
 fi
 
+# ===========================================================================
+# 14-18. HEALTH CHECK, AUTO-ROLLBACK AND THE POLICY PERMISSION.
+#
+# A local stub HTTP server (python3, loopback only, run-owned port, stopped by
+# the PID recorded here) answers /ok with 200 and /bad with 500. No cloud CLI
+# and no outside network is touched. The positive control is 14 (200 stays
+# healthy and never rolls back); 15 is the one that must go red on a regression.
+# ===========================================================================
+echo "14-18. health probe, auto-rollback and policy permission"
+if [ "${D8S_EXECUTED:-0}" = "1" ]; then
+    HS_PORT_FILE="$WORKROOT/hs.port"
+    python3 - "$HS_PORT_FILE" <<'PYEOF' &
+import http.server, socketserver, sys
+HITS = {"recover": 0}
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        code = 200 if self.path.startswith(("/ok", "/ver")) else 500
+        body = b"build-abc123" if self.path.startswith("/ver") else b"x"
+        if self.path.startswith("/recover"):
+            HITS["recover"] += 1
+            code = 500 if HITS["recover"] <= 2 else 200
+        self.send_response(code); self.end_headers(); self.wfile.write(body)
+    def log_message(self, *a): pass
+srv = socketserver.TCPServer(("127.0.0.1", 0), H)
+open(sys.argv[1], "w").write(str(srv.server_address[1]))
+srv.serve_forever()
+PYEOF
+    HS_PID=$!
+    trap 'kill "$HS_PID" 2>/dev/null || true; cleanup' EXIT INT TERM
+    for _i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        [ -s "$HS_PORT_FILE" ] && break
+        sleep 0.25
+    done
+    HS_PORT="$(cat "$HS_PORT_FILE" 2>/dev/null || true)"
+
+    mk_hfix() {  # <name> ; signed receipt, nextjs project (vercel --prod)
+        local n="$1" b
+        b="$(make_fixture "$n")"
+        ( cd "$WORKROOT/$n" && _LOKI_RUN_START_SHA="$b" \
+            python3 "$GENERATOR" --loki-dir "$WORKROOT/$n/.loki" >/dev/null 2>&1 )
+    }
+    run_h() {  # <dir> [flags...]
+        local d="$1"; shift
+        ( cd "$d" && PATH="$FAKE_BIN:$PATH" LOKI_DIR="$d/.loki" LOKI_DATA_DIR="$WORKROOT/nodata" \
+            LOKI_DEPLOY_HEALTH_ATTEMPTS=2 LOKI_DEPLOY_HEALTH_INTERVAL=0 \
+            bash "$LOKI_BIN" deploy --dir "$d" --no-clip "$@" 2>&1 )
+    }
+    last_record() { ls -t "$1"/.loki/deploys/*.json 2>/dev/null | head -1; }
+    rec_field() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get(sys.argv[2]))' "$1" "$2"; }
+
+    if [ -z "$HS_PORT" ]; then
+        bad "stub health server did not start; 14-18 would be vacuous"
+    else
+        # 14. 200 -> healthy, no rollback (positive control)
+        mk_hfix d14h; D14H="$WORKROOT/d14h"
+        reset_sentinels
+        OUT14H="$(run_h "$D14H" --execute --health-url "http://127.0.0.1:$HS_PORT/ok" --auto-rollback)"; RC14=$?
+        R14="$(last_record "$D14H")"
+        if [ "$RC14" -eq 0 ] && [ -n "$R14" ] && [ "$(rec_field "$R14" health_status)" = "healthy" ] \
+           && [ "$(rec_field "$R14" rollback_attempted)" = "False" ] \
+           && ! grep -q rollback "$SENTINEL_DIR/vercel" 2>/dev/null; then
+            ok "14. HTTP 200 records healthy, exits 0, runs no rollback"
+        else
+            bad "14. healthy path wrong" "rc=$RC14 rec=$R14 $(printf '%s' "$OUT14H" | tail -3)"
+        fi
+
+        # 15. 500 + --auto-rollback -> FAILED_HEALTH, rollback invoked, exit != 0
+        mk_hfix d15h; D15H="$WORKROOT/d15h"
+        reset_sentinels
+        cat > "$FAKE_BIN/vercel" <<EOF
+#!/usr/bin/env bash
+echo "STUB-RAN \$*" >> "$SENTINEL_DIR/vercel"
+exit 0
+EOF
+        OUT15="$(run_h "$D15H" --execute --health-url "http://127.0.0.1:$HS_PORT/bad" --auto-rollback)"; RC15=$?
+        R15="$(last_record "$D15H")"
+        if [ "$RC15" -ne 0 ] && [ -n "$R15" ] \
+           && [ "$(rec_field "$R15" health_status)" = "FAILED_HEALTH" ] \
+           && [ "$(rec_field "$R15" rollback_attempted)" = "True" ] \
+           && [ "$(rec_field "$R15" rollback_exit)" = "0" ] \
+           && grep -q "STUB-RAN rollback" "$SENTINEL_DIR/vercel"; then
+            ok "15. HTTP 500 records FAILED_HEALTH, runs the rollback, exits non-zero"
+        else
+            bad "15. unhealthy path wrong" "rc=$RC15 rec=$R15 $(printf '%s' "$OUT15" | tail -4)"
+        fi
+
+        # 15b. rollback exit 0 is re-probed: still 500 -> post_rollback_health FAILED_HEALTH, exit 5
+        OUT15B="$(run_h "$D15H" --execute --health-url "http://127.0.0.1:$HS_PORT/bad" --auto-rollback)"; RC15B=$?
+        R15B="$(last_record "$D15H")"
+        if [ "$RC15B" -eq 5 ] && [ "$(rec_field "$R15B" post_rollback_health)" = "FAILED_HEALTH" ] \
+           && [ "$(rec_field "$R15B" health_http_code)" = "500" ] \
+           && ! grep -q "NOT re-checked" <<<"$OUT15B"; then
+            ok "15b. an unhealthy rolled-back service is recorded FAILED_HEALTH and exits 5"
+        else
+            bad "15b. rollback health not re-checked" "rc=$RC15B rec=$R15B $(printf '%s' "$OUT15B" | tail -4)"
+        fi
+        # 15c. rollback restores service: /recover fails the 2 deploy probes then answers 200
+        mk_hfix d15c; D15C="$WORKROOT/d15c"
+        OUT15C="$(run_h "$D15C" --execute --health-url "http://127.0.0.1:$HS_PORT/recover" --auto-rollback)"; RC15C=$?
+        R15C="$(last_record "$D15C")"
+        if [ "$RC15C" -eq 4 ] && [ "$(rec_field "$R15C" health_status)" = "FAILED_HEALTH" ] \
+           && [ "$(rec_field "$R15C" post_rollback_health)" = "healthy" ] \
+           && [ "$(rec_field "$R15C" health_http_code)" = "500" ]; then
+            ok "15c. a rollback that restores service records post_rollback_health healthy"
+        else
+            bad "15c. recovered rollback mis-recorded" "rc=$RC15C rec=$R15C $(printf '%s' "$OUT15C" | tail -4)"
+        fi
+
+        # 15d. --health-match: body must contain the string; record carries match, code and tree sha
+        mk_hfix d15d; D15D="$WORKROOT/d15d"
+        OUT15D="$(run_h "$D15D" --execute --health-url "http://127.0.0.1:$HS_PORT/ver" --health-match abc123)"; RC15D=$?
+        R15D="$(last_record "$D15D")"
+        T15D="$(git -C "$D15D" rev-parse 'HEAD^{tree}' 2>/dev/null)"
+        if [ "$RC15D" -eq 0 ] && [ "$(rec_field "$R15D" health_status)" = "healthy" ] \
+           && [ "$(rec_field "$R15D" health_match)" = "abc123" ] && [ "$(rec_field "$R15D" health_http_code)" = "200" ] \
+           && [ -n "$T15D" ] && [ "$(rec_field "$R15D" tree_sha)" = "$T15D" ]; then
+            ok "15d. matching body records healthy with health_match, http code and tree_sha"
+        else
+            bad "15d. health-match happy path wrong" "rc=$RC15D rec=$R15D $(printf '%s' "$OUT15D" | tail -3)"
+        fi
+        mk_hfix d15e; D15E="$WORKROOT/d15e"
+        OUT15E="$(run_h "$D15E" --execute --health-url "http://127.0.0.1:$HS_PORT/ver" --health-match deadbeef)"; RC15E=$?
+        R15E="$(last_record "$D15E")"
+        if [ "$RC15E" -eq 4 ] && [ "$(rec_field "$R15E" health_status)" = "FAILED_HEALTH" ] \
+           && [ "$(rec_field "$R15E" health_match)" = "deadbeef" ] && [ "$(rec_field "$R15E" health_http_code)" = "200" ]; then
+            ok "15e. a 200 whose body lacks the match string is FAILED_HEALTH, exit 4"
+        else
+            bad "15e. mismatching body still passed" "rc=$RC15E rec=$R15E $(printf '%s' "$OUT15E" | tail -3)"
+        fi
+        OUT15F="$(run_h "$D15E" --execute --health-match abc123)"; RC15F=$?
+        if [ "$RC15F" -ne 0 ] && grep -q "requires --health-url" <<<"$OUT15F"; then
+            ok "15f. --health-match without --health-url is refused"
+        else
+            bad "15f. --health-match without a URL not refused" "rc=$RC15F"
+        fi
+
+        # 16. 500 without --auto-rollback: FAILED_HEALTH, NO rollback
+        mk_hfix d16h; D16H="$WORKROOT/d16h"
+        rm -f "$SENTINEL_DIR/vercel"
+        _="$(run_h "$D16H" --execute --health-url "http://127.0.0.1:$HS_PORT/bad")"; RC16=$?
+        R16="$(last_record "$D16H")"
+        if [ "$RC16" -ne 0 ] && [ "$(rec_field "$R16" health_status)" = "FAILED_HEALTH" ] \
+           && [ "$(rec_field "$R16" rollback_attempted)" = "False" ] \
+           && ! grep -q "rollback" "$SENTINEL_DIR/vercel" 2>/dev/null; then
+            ok "16. no --auto-rollback: FAILED_HEALTH, nothing rolled back"
+        else
+            bad "16. rollback ran without --auto-rollback, or status wrong" "rc=$RC16 rec=$R16"
+        fi
+
+        # 17. no URL -> unchecked (never healthy); --auto-rollback alone is a usage error
+        mk_hfix d17h; D17H="$WORKROOT/d17h"
+        _="$(run_h "$D17H" --execute)"; RC17=$?
+        R17="$(last_record "$D17H")"
+        OUT17B="$(run_h "$D17H" --execute --auto-rollback)"; RC17B=$?
+        if [ "$RC17" -eq 0 ] && [ "$(rec_field "$R17" health_status)" = "unchecked" ] \
+           && [ "$RC17B" -ne 0 ] && grep -q "requires --health-url" <<<"$OUT17B"; then
+            ok "17. no URL records unchecked; --auto-rollback without a URL is refused"
+        else
+            bad "17. unchecked handling wrong" "rc=$RC17 rec=$R17 rcb=$RC17B"
+        fi
+
+        # 18. policy: execute-level autonomy refuses deploy before exec; operate allows
+        mk_hfix d18h; D18H="$WORKROOT/d18h"
+        mkdir -p "$D18H/.loki"
+        printf '{"autonomy":"execute"}\n' > "$D18H/.loki/policies.json"
+        rm -f "$SENTINEL_DIR/vercel"
+        OUT18="$(run_h "$D18H" --execute)"; RC18=$?
+        if [ "$RC18" -ne 0 ] && grep -q "policy denied deploy" <<<"$OUT18" \
+           && [ ! -e "$SENTINEL_DIR/vercel" ]; then
+            ok "18. policy autonomy=execute refuses the deploy before any CLI runs"
+        else
+            bad "18. policy deny did not refuse" "rc=$RC18 $(printf '%s' "$OUT18" | tail -4)"
+        fi
+        printf '{"autonomy":"operate"}\n' > "$D18H/.loki/policies.json"
+        OUT18B="$(run_h "$D18H" --execute)"; RC18B=$?
+        if [ "$RC18B" -eq 0 ] && [ -e "$SENTINEL_DIR/vercel" ]; then
+            ok "18b. policy autonomy=operate permits the deploy (positive control)"
+        else
+            bad "18b. operate did not permit the deploy" "rc=$RC18B $(printf '%s' "$OUT18B" | tail -4)"
+        fi
+        printf '{not json' > "$D18H/.loki/policies.json"
+        rm -f "$SENTINEL_DIR/vercel"
+        _="$(run_h "$D18H" --execute)"; RC18C=$?
+        if [ "$RC18C" -ne 0 ] && [ ! -e "$SENTINEL_DIR/vercel" ]; then
+            ok "18c. an unparseable policy file fails closed"
+        else
+            bad "18c. corrupt policy did not refuse" "rc=$RC18C"
+        fi
+        printf '{}\n' > "$D18H/.loki/policies.json"
+        rm -f "$SENTINEL_DIR/vercel"
+        OUT18D="$(run_h "$D18H" --execute)"; RC18D=$?
+        if [ "$RC18D" -ne 0 ] && grep -q "sets no autonomy/actions.deploy" <<<"$OUT18D" \
+           && [ ! -e "$SENTINEL_DIR/vercel" ]; then
+            ok "18d. a policy file with no autonomy/actions.deploy refuses the deploy"
+        else
+            bad "18d. permission-less policy did not refuse" "rc=$RC18D $(printf '%s' "$OUT18D" | tail -4)"
+        fi
+        # 19. Fly: the version is captured BEFORE the deploy and used for rollback
+        FLY_BIN="$WORKROOT/fly-bin"; mkdir -p "$FLY_BIN"
+        cat > "$FLY_BIN/fly" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "releases" ] && [ "\$2" = "--json" ]; then echo '[{"Version":7},{"Version":6}]'; exit 0; fi
+echo "FLY-RAN \$*" >> "$SENTINEL_DIR/fly-calls"
+exit 0
+EOF
+        cp "$FLY_BIN/fly" "$FLY_BIN/flyctl"; chmod +x "$FLY_BIN/fly" "$FLY_BIN/flyctl"
+        D19_BASE="$(make_fixture d19h)"; D19H="$WORKROOT/d19h"
+        git -C "$D19H" rm -q package.json
+        echo "flask" > "$D19H/requirements.txt"
+        git -C "$D19H" add requirements.txt
+        git -C "$D19H" commit -qm "python app"
+        ( cd "$D19H" && _LOKI_RUN_START_SHA="$D19_BASE" \
+            python3 "$GENERATOR" --loki-dir "$D19H/.loki" >/dev/null 2>&1 )
+        rm -f "$SENTINEL_DIR/fly-calls"
+        OUT19="$( cd "$D19H" && PATH="$FLY_BIN:$PATH" LOKI_DIR="$D19H/.loki" LOKI_DATA_DIR="$WORKROOT/nodata" \
+            LOKI_DEPLOY_HEALTH_ATTEMPTS=1 LOKI_DEPLOY_HEALTH_INTERVAL=0 \
+            bash "$LOKI_BIN" deploy --dir "$D19H" --no-clip --execute \
+            --health-url "http://127.0.0.1:$HS_PORT/bad" --auto-rollback 2>&1 )"; RC19=$?
+        if [ "$RC19" -ne 0 ] && grep -q "releases rollback 7" "$SENTINEL_DIR/fly-calls" 2>/dev/null; then
+            ok "19. Fly rolls back to the version captured before the deploy"
+        else
+            bad "19. fly rollback target wrong" "rc=$RC19 $(cat "$SENTINEL_DIR/fly-calls" 2>/dev/null) $(printf '%s' "$OUT19" | tail -3)"
+        fi
+
+        # 20-25. SIGNED DEPLOY RECORD (loki.deploy/1) and the staged --canary rollout.
+        # The Bun route is pinned to the working tree source so the dist bundle cannot mask a regression.
+        if ! command -v bun >/dev/null 2>&1; then
+            echo "  SKIPPED: bun not installed; 20-25 need the Bun verifier (not a pass)"
+        else
+        export LOKI_TS_ENTRY="$PROJECT_DIR/loki-ts/src/cli.ts" LOKI_NO_BROWSER=1
+        vrf() { ( cd "$WORKROOT" && HOME="${VHOME:-$HOME}" bash "$LOKI_BIN" verify "$@" 2>&1 ); }
+        sha_of() { python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
+
+        mk_hfix d20h; D20H="$WORKROOT/d20h"
+        PROOF20="$(ls "$D20H"/.loki/proofs/*/proof.json | head -1)"
+        PSUM20="$(sha_of "$PROOF20")"
+        reset_sentinels
+        _="$(run_h "$D20H" --execute --health-url "http://127.0.0.1:$HS_PORT/ok")"; RC20=$?
+        R20="$(last_record "$D20H")"
+        PDIG20="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["verification"]["hash"])' "$PROOF20")"
+        OUTV20="$(vrf "$R20")"; RCV20=$?
+        if [ "$RC20" -eq 0 ] && [ "$RCV20" -eq 0 ] && grep -q "verdict: VERIFIED" <<<"$OUTV20" \
+           && [ "$(rec_field "$R20" schema)" = "loki.deploy/1" ] && [ "$(rec_field "$R20" receipt_sha256)" = "$PDIG20" ] \
+           && [ "$(rec_field "$R20" head_sha)" = "$(git -C "$D20H" rev-parse HEAD)" ] \
+           && [ "$(sha_of "$PROOF20")" = "$PSUM20" ]; then
+            ok "20. the deploy record is a signed loki.deploy/1 attestation that verifies offline; the receipt is unchanged"
+        else
+            bad "20. signed record did not verify" "rc=$RC20 rcv=$RCV20 $(printf '%s' "$OUTV20" | tail -3)"
+        fi
+
+        # 21. a flipped byte in the record is TAMPERED (exit 1), never VERIFIED
+        python3 - "$R20" "$WORKROOT/rec21.json" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["health_status"] = "FAILED_HEALTH" if d["health_status"] == "healthy" else "healthy"
+json.dump(d, open(sys.argv[2], "w"), indent=2)
+PYEOF
+        OUTV21="$(vrf "$WORKROOT/rec21.json" --receipt "$PROOF20")"; RCV21=$?
+        if [ "$RCV21" -eq 1 ] && grep -q "verdict: TAMPERED" <<<"$OUTV21"; then
+            ok "21. an edited record fails closed as TAMPERED"
+        else
+            bad "21. edited record was not TAMPERED" "rcv=$RCV21 $(printf '%s' "$OUTV21" | tail -3)"
+        fi
+
+        # 22. unsigned record and unknown key are UNCHECKED (exit 2), never VERIFIED
+        python3 - "$R20" "$WORKROOT/rec22.json" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1])); d.pop("signature", None)
+json.dump(d, open(sys.argv[2], "w"), indent=2)
+PYEOF
+        OUTV22="$(vrf "$WORKROOT/rec22.json" --receipt "$PROOF20")"; RCV22=$?
+        mkdir -p "$WORKROOT/nokeyhome"
+        OUTV22B="$(VHOME="$WORKROOT/nokeyhome" vrf "$R20")"; RCV22B=$?
+        if [ "$RCV22" -eq 2 ] && grep -q "verdict: UNCHECKED" <<<"$OUTV22" \
+           && [ "$RCV22B" -eq 2 ] && grep -q "verdict: UNCHECKED" <<<"$OUTV22B"; then
+            ok "22. an unsigned record and a machine without the key are UNCHECKED"
+        else
+            bad "22. unsigned or unkeyed record was not UNCHECKED" "rc=$RCV22/$RCV22B $(printf '%s' "$OUTV22B" | tail -2)"
+        fi
+
+        # 23. --pubkey checks against the given public key only, with no local key
+        bun -e 'import {createPrivateKey,createPublicKey} from "node:crypto";import {readFileSync,writeFileSync} from "node:fs";writeFileSync(process.argv[1],createPublicKey(createPrivateKey(readFileSync(process.argv[2]))).export({type:"spki",format:"pem"}))' \
+            "$WORKROOT/pub23.pem" "$HOME/.loki/keys/receipt-ed25519.pem" 2>/dev/null
+        OUTV23="$(VHOME="$WORKROOT/nokeyhome" vrf "$R20" --pubkey "$WORKROOT/pub23.pem")"; RCV23=$?
+        if [ "$RCV23" -eq 0 ] && grep -q "verdict: VERIFIED" <<<"$OUTV23"; then
+            ok "23. verify --pubkey re-checks the record with only the public key"
+        else
+            bad "23. --pubkey verify failed" "rcv=$RCV23 $(printf '%s' "$OUTV23" | tail -3)"
+        fi
+
+        # 24. a cited receipt that is no longer VERIFIED fails closed, though the record signature is intact
+        cp -R "$D20H/.loki" "$WORKROOT/loki24"
+        python3 - "$WORKROOT/loki24" <<'PYEOF'
+import glob, json, sys
+for f in glob.glob(sys.argv[1] + "/proofs/*/proof.json"):
+    d = json.load(open(f)); d["files_changed"] = {"count": 999999}
+    json.dump(d, open(f, "w"))
+PYEOF
+        R24="$(ls "$WORKROOT"/loki24/deploys/*.json | head -1)"
+        OUTV24="$(vrf "$R24")"; RCV24=$?
+        if [ "$RCV24" -ne 0 ] && ! grep -q "verdict: VERIFIED" <<<"$OUTV24"; then
+            ok "24. a record citing a tampered receipt is never VERIFIED"
+        else
+            bad "24. record verified over a tampered receipt" "rcv=$RCV24 $(printf '%s' "$OUTV24" | tail -3)"
+        fi
+
+        # 25. --canary on Vercel: healthy preview is promoted; a 500 preview is NEVER promoted; unsupported providers refuse
+        printf '%s' "http://127.0.0.1:$HS_PORT/ok" > "$WORKROOT/canary-url"
+        cat > "$FAKE_BIN/vercel" <<EOF
+#!/usr/bin/env bash
+echo "\$*" >> "$SENTINEL_DIR/vercel-calls"
+if [ "\$1" = "promote" ]; then exit 0; fi
+cat "$WORKROOT/canary-url"; echo
+exit 0
+EOF
+        chmod +x "$FAKE_BIN/vercel"
+        mk_hfix d25a; D25A="$WORKROOT/d25a"
+        rm -f "$SENTINEL_DIR/vercel-calls"
+        _="$(run_h "$D25A" --execute --canary)"; RC25A=$?
+        R25A="$(last_record "$D25A")"
+        if [ "$RC25A" -eq 0 ] && grep -q "^promote http://127.0.0.1:$HS_PORT/ok" "$SENTINEL_DIR/vercel-calls" \
+           && ! grep -q -- "--prod" "$SENTINEL_DIR/vercel-calls" \
+           && [ "$(rec_field "$R25A" canary)" = "True" ] && [ "$(rec_field "$R25A" health_status)" = "healthy" ] \
+           && grep -q "verdict: VERIFIED" <<<"$(vrf "$R25A")"; then
+            ok "25a. canary: preview deploy (no --prod), healthy probe, then vercel promote; record verifies"
+        else
+            bad "25a. canary happy path wrong" "rc=$RC25A calls=$(cat "$SENTINEL_DIR/vercel-calls" 2>/dev/null)"
+        fi
+        printf '%s' "http://127.0.0.1:$HS_PORT/bad" > "$WORKROOT/canary-url"
+        mk_hfix d25b; D25B="$WORKROOT/d25b"
+        rm -f "$SENTINEL_DIR/vercel-calls"
+        _="$(run_h "$D25B" --execute --canary)"; RC25B=$?
+        R25B="$(last_record "$D25B")"
+        if [ "$RC25B" -eq 4 ] && ! grep -q "promote" "$SENTINEL_DIR/vercel-calls" \
+           && [ "$(rec_field "$R25B" health_status)" = "FAILED_HEALTH" ]; then
+            ok "25b. canary with a 500 preview never promotes and exits 4"
+        else
+            bad "25b. a failed canary was promoted or mis-recorded" "rc=$RC25B calls=$(cat "$SENTINEL_DIR/vercel-calls" 2>/dev/null)"
+        fi
+        mkdir -p "$WORKROOT/d25c/dist"; echo "<html></html>" > "$WORKROOT/d25c/dist/index.html"
+        reset_sentinels
+        OUT25C="$(run_h "$WORKROOT/d25c" --execute --canary)"; RC25C=$?
+        if [ "$RC25C" -ne 0 ] && [ "$(any_sentinel)" -eq 0 ] && grep -q "documents no staged rollout verb" <<<"$OUT25C"; then
+            ok "25c. a provider with no staged path refuses --canary and runs nothing"
+        else
+            bad "25c. unsupported provider did not refuse --canary" "rc=$RC25C sentinels=$(any_sentinel)"
+        fi
+        fi
+    fi
+    kill "$HS_PID" 2>/dev/null || true
+else
+    echo "  SKIPPED: needs test 8's signed fixture (not a pass)"
+fi
+
 echo ""
 echo "==================================================================="
 echo "Passed: $PASS   Failed: $FAIL"

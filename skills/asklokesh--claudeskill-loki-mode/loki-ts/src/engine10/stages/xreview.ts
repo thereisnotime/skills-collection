@@ -3,8 +3,10 @@
 // Off unless loki.yaml `review: codex|claude` or LOKI_REVIEW_PROVIDER is set.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { loadReviewStageAgent } from "../../council/role_agents.ts";
 import { run } from "../../util/shell.ts";
 import { safeGitRun } from "../../util/safe_git.ts";
+import { readRiskRecord } from "../../util/run_summary.ts";
 import type { RunContext, Verdict } from "../types.ts";
 
 export type ReviewProvider = "codex" | "claude";
@@ -20,8 +22,7 @@ export function minVerdict(verdict: Verdict, review: CrossReview | null): Verdic
   return RANK[ceiling] < RANK[verdict] ? ceiling : verdict;
 }
 
-const asProvider = (v: string | undefined): ReviewProvider | null => { const s = v?.trim().toLowerCase(); return s === "codex" || s === "claude" ? s : null; };
-const isOff = (v: string | undefined): boolean => /^(off|none|false|0)$/i.test(v?.trim() ?? "");
+const asProvider = (v: string | undefined): ReviewProvider | null => { const s = v?.trim().toLowerCase(); return s === "codex" || s === "claude" ? s : null; }; const isOff = (v: string | undefined): boolean => /^(off|none|false|0)$/i.test(v?.trim() ?? "");
 
 /** Explicit setting: env wins over loki.yaml top-level `review:`. A provider, "off", or undefined (nothing set). */
 function explicitReview(repoDir: string, env: NodeJS.ProcessEnv): ReviewProvider | "off" | undefined {
@@ -60,11 +61,17 @@ export function reviewReceipt(builder: string, xr: CrossReview | null, env: Node
 }
 
 /** Read-only argv: codex runs in its read-only sandbox; claude gets read tools only with writers and shell denied. */
-export function reviewArgv(p: ReviewProvider, prompt: string, env: NodeJS.ProcessEnv = process.env): string[] {
+export function reviewArgv(p: ReviewProvider, prompt: string, env: NodeJS.ProcessEnv = process.env, model?: string): string[] {
   const cli = reviewCli(p, env);
   return p === "codex"
     ? [cli, "exec", "--sandbox", "read-only", prompt]
-    : [cli, "-p", prompt, "--allowedTools", "Read,Grep,Glob", "--disallowedTools", "Write,Edit,NotebookEdit,Bash"];
+    : [cli, "-p", prompt, ...(model ? ["--model", model] : []), "--allowedTools", "Read,Grep,Glob", "--disallowedTools", "Write,Edit,NotebookEdit,Bash"];
+}
+
+/** OC-AGENTS: a configured reviewer or council agent (see council/role_agents.ts) supplies the reviewer persona, its provider and, for a claude judge, its model. None configured: null, behavior unchanged. */
+export function configuredReviewer(repoDir: string, env: NodeJS.ProcessEnv = process.env): { prompt: string; model: string; provider: ReviewProvider | null } | null {
+  const a = loadReviewStageAgent(repoDir, env); if (!a) return null;
+  return { prompt: a.prompt, model: a.provider === "claude" ? a.model : "", provider: asProvider(a.provider) };
 }
 
 const clean = (s: string): string => s.replace(/[\x00-\x1f\x7f`]+/g, " ").trim().slice(0, 300);
@@ -81,14 +88,16 @@ export function parseReview(p: ReviewProvider, out: string): CrossReview {
 
 /** Runs the reviewer when enabled. Null when off. A missing CLI, a failure or a timeout is not_run with a NOT PROVEN note, never PASS. */
 export async function crossReview(ctx: RunContext, verdict: Verdict, head: string): Promise<CrossReview | null> {
-  const p = reviewProvider(ctx.repoDir, process.env, ctx.provider); if (!p) return null;
+  const agent = configuredReviewer(ctx.repoDir);
+  const p = reviewProvider(ctx.repoDir, process.env, ctx.provider) ?? agent?.provider ?? null; if (!p) return null; // a configured reviewer/council agent turns the default review on
   if (verdict !== "VERIFIED" && verdict !== "ALREADY_SATISFIED") return null; // nothing a review could downgrade
+  if (readRiskRecord(ctx.repoDir, ctx.startedAtMs ?? 0)?.tier === "low") return { provider: p, level: "not_run", notes: [`cross-review skipped: low risk (${p} not run)`] }; // COST-4: low risk records the skip, never a pass
   const d = await safeGitRun(ctx.repoDir, ["diff", "--no-color", ctx.baseSha, head, "--", ".", ":(exclude).loki"], { timeoutMs: 20000 }).catch(() => null);
   if (!d || d.exitCode !== 0) return { provider: p, level: "not_run", notes: [`cross-review not run: diff unavailable for ${p}`] };
-  const prompt = ["You are an independent code reviewer. Review ONLY the diff below for correctness bugs, spec violations and missing tests. Do not modify files.",
+  const prompt = [agent ? `${agent.prompt}\nReview ONLY the diff below. Do not modify files.` : "You are an independent code reviewer. Review ONLY the diff below for correctness bugs, spec violations and missing tests. Do not modify files.",
     "Reply with a first line exactly `VERDICT: PASS`, `VERDICT: FLAG` (concerns) or `VERDICT: BLOCK` (a reproduced defect), then one `- reason` line per concern.", "", "```diff", d.stdout.slice(0, MAX_DIFF), "```"].join("\n");
   try {
-    const r = await run(reviewArgv(p, prompt), { cwd: ctx.repoDir, timeoutMs: TIMEOUT_MS });
+    const r = await run(reviewArgv(p, prompt, process.env, p === "claude" ? agent?.model : undefined), { cwd: ctx.repoDir, timeoutMs: TIMEOUT_MS });
     if (r.exitCode !== 0) return { provider: p, level: "not_run", notes: [`cross-review not run: ${p} exited ${r.exitCode}`] };
     return parseReview(p, r.stdout);
   } catch {

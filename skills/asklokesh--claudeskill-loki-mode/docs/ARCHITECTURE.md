@@ -209,14 +209,12 @@ memory/                    Memory system (Python package, ~19 modules)
   embeddings.py            Vector embeddings (optional)
   vector_index.py          Vector search index
   cross_project.py         Cross-project knowledge transfer
-  rag_injector.py          RAG context injection into prompts
   knowledge_graph.py       Knowledge graph over memories
   layers/                  Progressive-disclosure loading
 
 mcp/                       Model Context Protocol server
   server.py                MCP server (tools + resources + prompts)
-  tools.py / magic_tools.py / managed_tools.py  Tool registries
-  resources.py             MCP resources
+  magic_tools.py / managed_tools.py  Tool registries
   lsp_proxy.py             LSP proxy (references, definitions, symbols)
 
 dashboard/                 FastAPI control-plane backend

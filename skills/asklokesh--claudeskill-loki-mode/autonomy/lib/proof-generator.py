@@ -40,6 +40,21 @@ from efficiency_cost import collect_efficiency as _collect_efficiency  # noqa: E
 import effort_estimator  # noqa: E402
 from tree_digest import MANIFEST_VERSION, compute_tree_digest  # noqa: E402
 from workspace_diff import collect_workspace_diff  # noqa: E402
+import importlib.util as _ilu  # noqa: E402
+
+
+def _load_proof_verify_mod():
+    # proof-verify.py is hyphenated (not importable); it owns the verification record.
+    spec = _ilu.spec_from_file_location(
+        "loki_proof_verify", os.path.join(os.path.dirname(os.path.abspath(__file__)), "proof-verify.py"))
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_PV = _load_proof_verify_mod()
+_vr_capture_environment = _PV.capture_environment
+_vr_git_dirty = _PV.git_dirty
 
 
 # ---------------------------------------------------------------------------
@@ -1121,8 +1136,6 @@ def _empty_tree_sha(repo_dir):
 # collect_workspace_diff), so uncommitted work is covered.
 _TI_CFG_ALWAYS = re.compile(r"(^|/)(conftest\.py|\.?pytest\.(?:ini|toml)|tox\.ini|jest\.config\.[\w.]+|vitest\.config\.[\w.]+|\.mocharc[\w.]*)$")
 _TI_CFG_SHARED = re.compile(r"(^|/)(setup\.cfg|pyproject\.toml|package\.json)$")
-_TI_TEST_FILE = re.compile(
-    r"(^|/)(tests?|__tests__|spec|specs)/|\.(test|spec)\.[\w]+$|(^|/)test_[^/]*\.py$|_test\.(py|go|rs)$|(^|/)conftest\.py$")
 _TI_SKIP_JS = re.compile(
     # options object only as the 2nd argument: title (string or identifier), then `, {`
     r"\b(test|it|describe|suite|context|specify)\s*\(\s*(?:'[^'\n]*'|\"[^\"\n]*\"|`[^`\n]*`|[\w.$]+)\s*,\s*\{[^}]*\b(skip|todo)\s*:\s*(?!(?:false|0|null|undefined)\b)\S"
@@ -1270,7 +1283,7 @@ def _collect_tests_integrity(target_dir, base):
         if u and not u.startswith(".loki/"):
             entries.append(("A", u, u))
     for st, old, new in entries:
-        if st in ("D", "R") and _TI_TEST_FILE.search(old):
+        if st in ("D", "R") and _PV._TEST_FILE.search(old):
             weakened.append("test file %s: %s" % ("deleted" if st == "D" else "renamed", old))
     if not greenfield:
         for st, old, new in entries:
@@ -1310,7 +1323,7 @@ def _collect_tests_integrity(target_dir, base):
                 edited.append(cur)
             cur, rx, removed_assert = None, None, False
         elif line.startswith("+++ b/"):
-            cur = line[6:] if _TI_TEST_FILE.search(line[6:]) else None
+            cur = line[6:] if _PV._TEST_FILE.search(line[6:]) else None
             rx = _ti_skip_re(cur) if cur else None
         elif cur and line.startswith("+") and rx and rx.search(line):
             weakened.append("skip added in %s" % cur)
@@ -1318,7 +1331,7 @@ def _collect_tests_integrity(target_dir, base):
                 and _TI_ASSERT.search(line):
             removed_assert = True
     for u in untracked.split("\0"):
-        if not u or u.startswith(".loki/") or not _TI_TEST_FILE.search(u):
+        if not u or u.startswith(".loki/") or not _PV._TEST_FILE.search(u):
             continue
         rx = _ti_skip_re(u)
         if not rx:
@@ -1428,6 +1441,20 @@ def _collect_journey(loki_dir):
         n = iv.get("count")
         if isinstance(n, int) and n >= 0:
             out["interventions"] = n
+        # by_type / waited_s exist only for counters written by the current
+        # handle_pause. A count-only legacy file yields no detail (unmeasured,
+        # never a fabricated zero). waited_s is wall-clock blocked seconds, an
+        # upper bound on human attention, not active time.
+        bt = iv.get("by_type")
+        ws = iv.get("waited_s")
+        if isinstance(bt, dict) and isinstance(ws, int) and not isinstance(ws, bool) and ws >= 0:
+            out["interventions_detail"] = {
+                "by_type": {
+                    k: (bt[k] if isinstance(bt.get(k), int) and not isinstance(bt.get(k), bool) and bt[k] >= 0 else 0)
+                    for k in ("steer", "input", "authorization", "repair")
+                },
+                "waited_s": ws,
+            }
 
     # PR state/URL, written by the consent-gated PR step. "prepared" means a PR
     # body exists locally and GitHub was NOT mutated.
@@ -1625,6 +1652,9 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
         # recompute it after runner exit to reject proofs followed by code edits.
         "tree_sha256": compute_tree_digest(target_dir),
         "tree_manifest_version": MANIFEST_VERSION,
+        # Execution validity (docs/PROOF-PASSPORT.md): whether the tree
+        # was dirty when the checks ran. None when git could not answer.
+        "dirty": _vr_git_dirty(target_dir),
     }
     facts = {
         "git": git_facts,
@@ -1663,6 +1693,8 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
         # Descriptive; NOT read by _compute_headline (gating is founder-gated).
         "healthcheck": healthcheck,
         "cost": cost,
+        # Environment the checks ran in (measured at generation time).
+        "environment": _vr_capture_environment(),
         "meta": {
             "run_id": run_id,
             "loki_version": loki_version,
@@ -1829,6 +1861,8 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
     # "unavailable" rather than showing a fabricated zero.
     if isinstance(journey, dict) and isinstance(journey.get("interventions"), int):
         proof["interventions"] = journey["interventions"]
+    if isinstance(journey, dict) and isinstance(journey.get("interventions_detail"), dict):
+        proof["interventions_detail"] = journey["interventions_detail"]
 
     return proof, run_id
 

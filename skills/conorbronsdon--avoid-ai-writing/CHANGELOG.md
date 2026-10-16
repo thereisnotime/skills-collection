@@ -6,6 +6,12 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Treat the smart-punctuation co-occurrence finding as a low-priority style check in plain mode and omit it in rendered-Markdown mode. House-style typography no longer changes authorship scores, probabilities, confidence, or classifications, including the separate classifier corroborator. Keep the public type and other pattern checks (#351).
+
+## [3.38.0] — 2026-10-15
+
 ### Changed
 
 - Replaced placeholder instructions and empty suggestions in the word replacement tables with concrete, direct alternatives for previously incomplete entries (#215).
@@ -14,8 +20,8 @@ All notable changes to this project are documented here.
 
 ### Fixed
 
+- Keep the "X is dead; long live Y" form as editorial judgment rather than a deterministic `performed-insight` finding. Essay titles, supported contrasts, and literal succession announcements share the wording; other performed-insight phrases still detect (#351).
 - Recognize Markdown setext heading underlines (including two-hyphen level-2 underlines) alongside thematic breaks as sentence boundaries so surrounding blocks do not share homoglyph script evidence (#390).
-
 - Short Russian words in Russian technical prose with English terms ("`make_json_safe()` на Enum", "r/StableDiffusion от 07.10") are no longer read as homoglyph swaps. The lookalike rule now decides per sentence: a dot inside a date or a version and a hard line wrap no longer end it, and a word spelled entirely in lookalike letters is swapped only when its sentence has no Russian or Greek letter that is not a lookalike (follow-up to #352). Sentence punctuation, Markdown separators/tables and HTML block starts keep unrelated blocks separate. Fully substituted words beside Russian or Greek prose, including across plain hard wraps, remain a documented detection limit.
 - Disambiguate "features support for" detection to flag verb uses with definite, possessive, and singular subject determiners, including versioned product names ("The library features support for...", "This Windows 11 app features support for..."), while preserving plural-noun readings with programming keyword objects and compound predicates (#387).
 - Treat "which/what features" as a noun in an indirect question (right after a question verb such as decide, check or find out, or at the start of a sentence) and "whose features" as a noun; every other use keeps the existing verb checks (#384). Recognize explicitly singular subjects before "features support for" as a verb, preserving plural-noun readings, and recognize article-led indirect-question verb cases with compound subjects (#391).

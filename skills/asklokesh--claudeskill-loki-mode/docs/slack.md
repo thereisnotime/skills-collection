@@ -16,12 +16,13 @@ Point the Slack Events API request URL at this server through a tunnel or revers
 
 - `@loki <issue ref or task text>` in a channel starts a Loki 10 run (it launches `bin/loki "<task>"`; the text must be at least two words and must not start with `-`, otherwise the bot replies asking you to describe the task, so a lone word like `reset` can never reach a legacy subcommand) and replies in the thread with the run id.
 - When the run ends BLOCKED, the question is posted in the same thread. A reply in that thread starts a follow-up run with your answer added to the original task (v10 has no in-place resume, BLOCKED is terminal).
+- The CLI `loki answer` has the same semantics: it starts a fresh follow-up run that carries the original task plus your answer, it does not resume the BLOCKED run.
 - Runs are launched through the repo `bin/loki` with the two Slack secrets removed from the child environment and `LOKI_NO_BROWSER=1` set. A failed Slack post logs one redacted line to stderr.
 - Every request is verified with the Slack signature (HMAC sha256 over `v0:timestamp:body`, constant-time compare, timestamps older than 5 minutes are rejected). Retried events are deduplicated.
 
 ## Who can start a run
 
-Set `LOKI_SLACK_ALLOWED_USERS` to a comma-separated list of Slack user IDs (for example `U012ABC,U034DEF`). A mention or a BLOCKED-thread answer from any other user is rejected with a short thread reply and nothing is spawned. When it is unset, anyone who can mention the bot can start a run, and `loki slack serve` prints one startup line saying so.
+Set `LOKI_SLACK_ALLOWED_USERS` to a comma-separated list of Slack user IDs (for example `U012ABC,U034DEF`). A mention or a BLOCKED-thread answer from any other user is rejected with a short thread reply and nothing is spawned. When it is unset or blank, every mention is rejected (fail closed) and `loki slack serve` prints one startup line saying so. Set it to `*` to explicitly allow anyone in the workspace. The trigger server `/slack` slash command applies the same variable to the form `user_id`.
 
 Limits: task text over 64 KB is rejected with "task too long" and no run starts. If a run cannot be launched, the thread gets a generic message and the detail (which may include local paths) is logged to stderr only. `--port` must be a whole number (an empty value exits 2).
 

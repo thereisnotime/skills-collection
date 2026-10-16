@@ -14,24 +14,38 @@
 // is never a fallback: a throw returns code 1 with a message.
 import { closeSync, constants, fstatSync, openSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
-import { decompose, parseItems, type Dag } from "../decompose.ts";
+import { decompose, parseItems, parseMilestones, type Dag } from "../decompose.ts";
 import { buildRepoMap, type RepoMap } from "../../engine10/repomap.ts";
 import { selectRelevantFiles } from "../../engine10/relevant_files.ts";
+import type { BacklogLauncher, SealDeps } from "./run_group.ts";
 
 export const MAX_SPEC_BYTES = 1_048_576;
 export const MAX_SEQ_TASK_BYTES = 65_536;
 const SPEC_PATH_RE = /\/|\.(md|txt|ya?ml|json)$/i;
 
-export interface GroupCtx { task: string; repoDir: string; env: NodeJS.ProcessEnv; spec: string; specPath: string | null }
+export interface GroupCtx { task: string; repoDir: string; env: NodeJS.ProcessEnv; provider: string; spec: string; specPath: string | null; seal?: SealDeps; say?: (s: string) => void }
 /** Group execution (D61-10..13: unit runner, unit mode, integrator, seal group). Returns an exit code. */
 export type GroupRunner = (dag: Dag, ctx: GroupCtx) => Promise<number>;
 
+/** Parallel unit slots per provider (providers/*.sh PROVIDER_MAX_PARALLEL). Unknown providers are sequential: never guess parallel. */
+const PROVIDER_SLOTS: Record<string, number> = { claude: 10, codex: 2, cline: 1, aider: 1, opencode: 1 };
+export function providerSlots(env: NodeJS.ProcessEnv, provider?: string): { provider: string; slots: number } {
+  provider = (provider || env.LOKI_PROVIDER || "claude").toLowerCase();
+  return { provider, slots: PROVIDER_SLOTS[provider] ?? 1 };
+}
+
 export interface RouteDeps {
   group?: GroupRunner;
+  /** Test seam for the default group runner: replaces the backlog.py launcher. */
+  backlog?: BacklogLauncher;
+  /** Seal and verify implementations for the default group runner; supplied by the caller outside features/. Missing means NOT PROVEN. */
+  seal?: SealDeps;
   listFiles?: (repoDir: string) => string[];
   select?: (task: string, map: RepoMap, max: number) => string[];
   stderr?: (s: string) => void;
   cwd?: string;
+  /** The provider the run resolved (--provider wins over LOKI_PROVIDER); sets the slot cap and is forwarded to every unit. */
+  provider?: string;
 }
 export interface RouteResult { code: number | null; task: string }
 
@@ -62,6 +76,7 @@ function readSpec(task: string, repoDir: string, cwd: string): SpecRead {
 
 export async function maybeRunGroup(task: string, repoDir: string, env: NodeJS.ProcessEnv, deps: RouteDeps = {}): Promise<RouteResult> {
   if (env.LOKI_SPEED === "0") return { code: null, task };
+  if (env.LOKI_UNIT_ID) return { code: null, task }; // a unit child never re-decomposes into a nested group
   const say = deps.stderr ?? ((s: string): void => { process.stderr.write(s); });
   const seq = (t: string): string => {
     if (Buffer.byteLength(t) <= MAX_SEQ_TASK_BYTES) return t;
@@ -69,23 +84,50 @@ export async function maybeRunGroup(task: string, repoDir: string, env: NodeJS.P
     return task;
   };
   const fb = (t: string, reason: string): RouteResult => { say(`loki: sequential (reason: ${reason})\n`); return { code: null, task: seq(t) }; };
-  let spec = task, specPath: string | null = null, dag: Dag;
+  let spec = task, specPath: string | null = null, dag: Dag | undefined;
+  let missions: ReturnType<typeof parseMilestones> = [];
+  let mdags: Dag[] = [];
   try {
     const r = readSpec(task, repoDir, deps.cwd ?? process.cwd());
     if (r.kind === "reject") return fb(task, r.reason);
     if (r.kind === "missing") say(`loki: spec path not readable (${r.path}); treating the argument as a literal task\n`);
     if (r.kind === "file") { spec = r.text; specPath = r.path; say(`loki: reading spec from ${r.path}\n`); }
-    if (parseItems(spec).length < 2) return { code: null, task: seq(spec) }; // a small task never decomposes
+    missions = parseMilestones(spec);
+    if (!missions.length && parseItems(spec).length < 2) return { code: null, task: seq(spec) }; // a small task never decomposes
     const files = deps.listFiles ? deps.listFiles(repoDir) : buildRepoMap(repoDir).files;
     const map: RepoMap = { files, entries: files.map((f) => ({ path: f, symbols: [] })), truncated: false };
-    dag = decompose(spec, map, { select: deps.select ?? selectRelevantFiles });
+    const select = deps.select ?? selectRelevantFiles;
+    if (missions.length) mdags = missions.map((m) => decompose(m.body, map, { select }));
+    else dag = decompose(spec, map, { select });
   } catch (e) {
     return fb(spec, `group setup failed: ${(e as Error).message.split("\n")[0]}`);
   }
-  if (dag.units.length < 2) return fb(spec, `decomposer returned ${dag.units.length} unit`);
-  if (!deps.group) return fb(spec, "group machinery unavailable");
+  if (missions.length) {
+    // Mission: milestone by milestone, in order. 1-unit groups and sequential providers are allowed here.
+    const cap = providerSlots(env, deps.provider);
+    try {
+      const group = deps.group ?? (await import("./run_group.ts")).runGroup.bind(null, deps.backlog);
+      for (let i = 0; i < missions.length; i++) {
+        const m = missions[i]!, k = i + 1, N = missions.length;
+        say(`loki: milestone ${k}/${N}: ${m.title || `Milestone ${m.n}`}\n`);
+        const code = await group(mdags[i]!, { task, repoDir, env, provider: cap.provider, spec: m.body, specPath, seal: deps.seal, say });
+        if (code !== 0) {
+          say(`loki: milestone ${k}/${N} failed (exit ${code}); rerun the same loki start to resume\n`);
+          return { code, task: spec };
+        }
+      }
+      return { code: 0, task: spec };
+    } catch (e) {
+      say(`loki: group run failed: ${(e as Error).message.split("\n")[0]}\n`);
+      return { code: 1, task: spec };
+    }
+  }
+  if (!dag || dag.units.length < 2) return fb(spec, `decomposer returned ${dag?.units.length ?? 0} unit`);
+  const cap = providerSlots(env, deps.provider);
+  if (cap.slots < 2) return fb(spec, `provider ${cap.provider} runs units sequentially`);
   try {
-    return { code: await deps.group(dag, { task, repoDir, env, spec, specPath }), task: spec };
+    const group = deps.group ?? (await import("./run_group.ts")).runGroup.bind(null, deps.backlog);
+    return { code: await group(dag, { task, repoDir, env, provider: cap.provider, spec, specPath, seal: deps.seal, say }), task: spec };
   } catch (e) {
     say(`loki: group run failed: ${(e as Error).message.split("\n")[0]}\n`);
     return { code: 1, task: spec };

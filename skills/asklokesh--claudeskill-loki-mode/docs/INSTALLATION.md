@@ -2,9 +2,9 @@
 
 Loki Mode, by [Autonomi](https://www.autonomi.dev/), turns a spec or an issue into a verified pull request with a receipt you can check. This page covers installing it, a first run, and the options around it.
 
-**Version:** v11.3.9
+**Version:** v11.15.0
 
-**Engine note:** `loki "<task>"`, `loki owner/repo#N` and `loki quick` run the Loki 10 engine. `loki start` still routes to the older engine, which is being removed; prefer `loki owner/repo#N`. See the [user guide](v10/GUIDE.md).
+**Engine note:** `loki start` is the primary command. `loki start`, `loki "<task>"`, `loki owner/repo#N` and `loki quick` all run the Loki 10 engine, whatever the flag order or input form (PRD file, issue ref, task or one-word brief). The previous loop runs only on `--engine legacy`, `LOKI_ENGINE=legacy`, or for one call when a flag Loki 10 cannot honor is present. See the [user guide](v10/GUIDE.md) and the [5-minute quickstart](QUICKSTART.md).
 
 ---
 
@@ -51,18 +51,51 @@ loki --version    # prints the installed version
 loki doctor       # checks providers, Bun, skill links and prerequisites
 ```
 
-You need at least one provider CLI. Claude Code (`claude`) is the default and the only one with every feature.
+## Prerequisites
+
+Required (`loki doctor` fails without them):
+
+| Tool | Minimum |
+|------|---------|
+| Node.js | 20+ (22 LTS is the CI target) |
+| Python 3 | 3.8 |
+| git | any recent version |
+| jq | any |
+| curl | any |
+
+Plus a way to reach a model. Claude Code (`claude`) is the default provider and the only one with every feature, so the default path needs it installed and logged in: `npm install -g @anthropic-ai/claude-code`, then `claude auth login`. The bundled Claude Agent SDK with `ANTHROPIC_API_KEY` can stand in for the CLI on the engine10 path. `loki edit` and `loki chat` call the `claude` CLI directly. Every other provider CLI (`codex`, `cline`, `aider`, `opencode`) is optional.
+
+Optional: Bun 1.3+ (bundled by the npm package), bash 4+ (recommended), Ollama or an OpenRouter key for non-Claude model routes.
+
+One command checks and configures all of this:
+
+```bash
+loki setup            # wizard: tools, Claude login, provider, model route, spend cap
+loki setup --yes      # non-interactive, accept defaults
+loki setup --check    # report only
+loki doctor --fix     # apply safe fixes; prints exact commands for the rest
+loki config list      # show settings; also: loki config get|set|path
+loki doctor --json    # machine-readable
+```
+
+`loki doctor --fix` creates state directories and a default config. It never installs system packages or runs sudo; it prints those commands instead.
 
 ---
 
 ## First run
 
 ```bash
-loki welcome                 # what Loki is and what to do next
-loki quickstart              # guided first build: setup check, idea, template, plan, go
-loki owner/repo#42           # work a GitHub issue end to end and open a PR
-loki "add a /health route"   # run one task in the current repo
+loki setup                         # first-run wizard
+loki start "add a /health route"   # the primary path: build, verify, seal a receipt
+loki start prd.md                  # same, from a PRD file
+loki start owner/repo#42           # same, from a GitHub, GitLab or Jira issue
+loki edit "rename fooBar to foo_bar"   # one small change, no loop
+loki chat                          # interactive alternative (Plan/Build modes)
+loki welcome                       # what Loki is and what to do next
+loki quickstart                    # guided first build: setup check, idea, template, plan, go
 ```
+
+The shorter forms `loki "<task>"` and `loki owner/repo#42` run the same engine. The spend cap defaults to $100 when `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set and to no dollar cap on a subscription login; change it with `--max-cost <usd>`, `budgets.per_run` in `loki.yaml`, or `loki setup --budget`. A quick walkthrough is in [QUICKSTART.md](QUICKSTART.md).
 
 `loki quickstart` asks four questions and shows the plan before anything runs. Press Enter at every step to build the sample Todo app. Add `--dry-run --json` to preview the plan without writing files.
 
@@ -93,13 +126,24 @@ See [control-plane-migration.md](control-plane-migration.md) and [control-plane-
 
 | Provider | Notes |
 |----------|-------|
-| `claude` | Default. Full feature set. |
-| `cline` | Full feature set; small local models may fail tool use. |
-| `codex` | Sequential only. |
-| `aider` | Sequential only; `ollama_chat/<model>` works for local models. |
-| `opencode` | Sequential only. Install with `npm install -g opencode-ai`. |
+| `claude` | Default (Tier 1). Full feature set. |
+| `cline` | Full feature set; small local models may fail tool use. Engine10 cost parsed or estimated, guardrail scan. |
+| `codex` | Sequential only. Engine10 cost parsed or estimated, guardrail scan, `--sandbox workspace-write`. |
+| `aider` | Sequential only; `ollama_chat/<model>` works for local models. Engine10 cost reported or estimated, guardrail scan, `--no-auto-commits`. |
+| `opencode` | Sequential only. Supported in engine10 (`--provider opencode`); cost not measured. Install with `npm install -g opencode-ai`; model via `LOKI_OPENCODE_MODEL=provider/model`. |
 
 When `LOKI_PROVIDER` is unset, Loki uses the first installed CLI in this order: `claude`, `cline`, `codex`, `aider`, `opencode`. An explicit `LOKI_PROVIDER` or `--provider NAME` always wins.
+
+### Model routes and local models
+
+Run OpenRouter or a local model through the Claude harness with `LOKI_MODEL_ROUTE=<kind>/<id>`, where kind is `openrouter`, `ollama`, `lmstudio`, `llamacpp`, `vllm` or `custom` (custom needs `LOKI_MODEL_BASE_URL`):
+
+```bash
+loki models --local                                     # discover local models, print ready-to-paste values
+LOKI_MODEL_ROUTE=ollama/qwen3-coder loki start prd.md
+```
+
+OpenRouter reads `OPENROUTER_API_KEY`. The route applies to the Claude child process only and every Loki control (cost, kill blocking, receipts) still applies. Details: [user guide](v10/GUIDE.md).
 
 ---
 

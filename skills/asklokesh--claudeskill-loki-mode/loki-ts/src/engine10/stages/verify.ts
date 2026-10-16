@@ -7,16 +7,16 @@ import { scopedOutOf } from "../../project_model/scope.ts";
 import { existsSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
-import { assertDeltaNotes } from "../../e10ext/assert_delta.ts"; import { failIds } from "../failures.ts";
+import { testConfigChanged } from "../../features/runner_config.ts"; import { assertDeltaNotes } from "../../e10ext/assert_delta.ts"; import { failIds } from "../failures.ts";
 import { harnessLoadReason } from "../../runner/load_owner.ts";
 import { loadRepoMap, namedFiles } from "../sizing.ts";
 import { isTestFile } from "../testmap.ts";
-import { classifyCheck, plainTestEnv, stripAnsi, goRunner, hasExecutedProof, ran, skipped } from "../../util/check_result.ts";
+import { changedFiles, classifyCheck, classifyRisk, diffFiles, markExecuted, recordRisk, plainTestEnv, stripAnsi, goRunner, hasExecutedProof, ran, skipped, summaryPassFailCount } from "../../util/check_result.ts";
 import { WALL_COMPILE_REASON, wallOwnedFailure } from "../../util/wall_owned.ts";
 import type { ImplementExit, RunContext, Stage, StageResult, TestRef } from "../types.ts";
 import { STAGE_BUDGETS } from "../types.ts";
 import type { ProjectApi } from "../../project_model/api.ts"; import { groupByPackage, loadProjectApi, siteFor } from "../../project_model/resolve.ts";
-import { safeGit } from "../../util/safe_git.ts";
+import { safeGit } from "../../util/safe_git.ts"; import { attribute, attributeFullSuite } from "../../runner/repo_profile.ts";
 const CHECK_TIMEOUT_MS = 60_000; // ENGINE.md 16 E-09: "60s limit" per check; limitS (120s) is the stage's outer bound
 /** implement.ts's full stage.completed.data isn't in the shared contract yet; this is the one
  *  field verify.ts reads from it (ImplementExit itself IS a contract type, types.ts). */
@@ -70,17 +70,7 @@ export function commandFor(t: TestRef, repoDir: string, api?: ProjectApi | null)
   return { cwd: site?.cwd ?? repoDir, cmd, args, argv: [cmd, ...args], ...(interpreter ? { interpreter } : {}), pkgRoot: site?.root ?? "." };
 }
 const dedupeTests = (tests: TestRef[]): TestRef[] => [...new Map(tests.map((t) => [`${t.runner}:${t.path}`, t] as const)).values()];
-/** Tracked changes against baseSha, plus untracked new files (commit runs after verify). `.loki/`
- *  is filtered defensively even though intake also excludes it via .git/info/exclude. Throws if
- *  either git command fails: a broken baseSha must never read as "nothing changed" (~ALREADY_SATISFIED). */
-export function changedFiles(repoDir: string, baseSha: string): string[] {
-  const run = (args: string[]): string[] =>
-    safeGit(repoDir, args)
-      .split("\n").map((l) => l.trim()).filter(Boolean);
-  const tracked = run(["diff", "--name-only", baseSha]);
-  const untracked = run(["ls-files", "--others", "--exclude-standard"]);
-  return [...new Set([...tracked, ...untracked])].filter((f) => !f.startsWith(".loki/"));
-}
+export { changedFiles } from "../../util/check_result.ts"; // one owner: check_result.ts (diffFiles builds on it)
 interface RunOpts {
   path?: string; // PATH override, tests only, so "missing tool" never depends on the host
   stdin?: string;
@@ -93,16 +83,7 @@ interface RunOpts {
 }
 const CODE_EXT = /\.(?:[cm]?[jt]sx?|py|go)$/; // the extensions testmap.ts maps (JS/TS, Python, Go)
 export { ran, skipped } from "../../util/check_result.ts"; // FC-16: the one shared count parser and classifier live in check_result.ts
-const CFG_ALWAYS = /(^|\/)(conftest\.py|\.?pytest\.(?:ini|toml)|tox\.ini|jest\.config\.[\w.]+|vitest\.config\.[\w.]+|\.mocharc[\w.]*)$/;
-const CFG_SHARED = /(^|\/)(setup\.cfg|pyproject\.toml|package\.json)$/;
-const CFG_LINE = /^[+-].*(pytest|jest|mocha|vitest|"test"\s*:|addopts|testpaths)/im;
-/** A-115: changed files that configure the test runner. Files that also hold dependencies and metadata (setup.cfg, pyproject.toml,
- *  package.json) count only when a changed line names a runner or the test script, or the file is new (no diff against base).
- *  ponytail: a hit needs a human look, never a verdict; a runner key renamed without one of those words slips through. */
-export function testConfigChanged(repoDir: string, baseSha: string, changed: string[]): string[] {
-  const diff = (f: string): string => safeGit(repoDir, ["diff", "-U0", baseSha, "--", f]);
-  return changed.filter((f) => CFG_ALWAYS.test(f) || (CFG_SHARED.test(f) && (() => { const d = diff(f); return !d || CFG_LINE.test(d); })()));
-}
+export { testConfigChanged } from "../../features/runner_config.ts"; // D86 FC-09r: the one runner-config registry lives in features/
 /** `cut` means the timeout or the stage's AbortSignal killed the child: never read as "fail" and
  *  never retried (a hung check must not burn 2x its timeout). `out` is a 64 KB tail, unread when cut. The result comes from exit + timeout, never pipe EOF (an orphaned grandchild may hold the pipes). */
 async function runOnce(cmd: string, args: string[], cwd: string, signal: AbortSignal, opts: RunOpts): Promise<{ ok: boolean; missing: boolean; cut: boolean; out: string }> {
@@ -160,6 +141,8 @@ export async function runCheck(
   ctx.emit("test.result", "verify", { ...check });
   return check;
 }
+type Counts = { run: number; skipped: number };
+type BaseSubtraction = { ids: string[]; names: string[]; weak: string[]; cnt: Record<string, { b: Counts; h: Counts }> };
 /** A-112: a test check red on head, in a file the diff did not touch, whose every failing id is also red on a pristine detached base
  *  worktree (never a reset of the implement tree, D42 (2)) is pre_red: ids go to NOT PROVEN, seal skips it in the verdict, the check stays
  *  "fail" and in the fix loop unless the TARGET progressed: a passing Wall test, or a relevant test (`rel`: impacted tests of the task-named
@@ -169,8 +152,11 @@ export async function runCheck(
  *  NOT PROVEN (a skipped target is not a fixed target). Weak also means it ran FEWER tests than base (pytest.exit, xfail, a deleted test):
  *  every relevant pass is compared with its base run, and xfailed counts as skipped, never passed.
  *  ponytail: bun/go/cargo/npm yield no ids and no skip count, so they are never subtracted or judged weak. */
-async function subtractBase(ctx: RunContext, api: ProjectApi | null, checks: VerifyCheck[], tests: TestRef[], changed: string[], wall: Set<string>, rel: Set<string>, signal: AbortSignal): Promise<{ ids: string[]; names: string[]; weak: string[]; cnt: Record<string, { b: { run: number; skipped: number }; h: { run: number; skipped: number } }> }> {
-  const out = { ids: [] as string[], names: [] as string[], weak: [] as string[], cnt: {} as Record<string, { b: { run: number; skipped: number }; h: { run: number; skipped: number } }> };
+async function subtractBase(
+  ctx: RunContext, api: ProjectApi | null, checks: VerifyCheck[], tests: TestRef[], changed: string[],
+  wall: Set<string>, rel: Set<string>, signal: AbortSignal,
+): Promise<BaseSubtraction> {
+  const out: BaseSubtraction = { ids: [], names: [], weak: [], cnt: {} };
   const pairs = checks.flatMap((c) => {
     const t = tests.find((x) => `${x.runner}:${x.path}` === c.name);
     return t ? [{ c, t }] : [];
@@ -184,15 +170,27 @@ async function subtractBase(ctx: RunContext, api: ProjectApi | null, checks: Ver
     git(["-c", "core.hooksPath=/dev/null", "worktree", "add", "--detach", dir, ctx.baseSha]);
     const base = new Map<VerifyCheck, { red: string[]; n: number; sk: number }>();
     for (const { c, t } of new Set([...un, ...sus])) {
-      const bc = commandFor(t, dir, api), b = await runOnce(bc.cmd, bc.args, bc.cwd, signal, {});
-      base.set(c, { red: !b.ok && !b.cut ? failIds(b.out) : [], n: ran(b.out) ?? (['pass', 'fail'] as const).reduce((t, k) => t + +([...b.out.matchAll(new RegExp(`^(?:#|\\u2139) ${k} (\\d+)$`, 'gm'))].pop()?.[1] ?? 0), 0) /* node spec prints its failing-tests section after the summary block; take the LAST pass and fail lines, not every one */, sk: skipped(b.out) });
+      const bc = commandFor(t, dir, api);
+      const b = await runOnce(bc.cmd, bc.args, bc.cwd, signal, {});
+      const red = !b.ok && !b.cut ? failIds(b.out) : [];
+      base.set(c, { red, n: ran(b.out) ?? summaryPassFailCount(b.out), sk: skipped(b.out) });
     }
-    out.weak = sus.filter(({ c }) => (c.sk ?? 0) > base.get(c)!.sk || (c.n ?? 0) < base.get(c)!.n).map(({ c }) => c.name); for (const { c } of sus) out.cnt[c.name] = { b: { run: base.get(c)!.n, skipped: base.get(c)!.sk }, h: { run: c.n ?? 0, skipped: c.sk ?? 0 } };
+    out.weak = sus
+      .filter(({ c }) => (c.sk ?? 0) > base.get(c)!.sk || (c.n ?? 0) < base.get(c)!.n)
+      .map(({ c }) => c.name);
+    for (const { c } of sus) {
+      out.cnt[c.name] = { b: { run: base.get(c)!.n, skipped: base.get(c)!.sk }, h: { run: c.n ?? 0, skipped: c.sk ?? 0 } };
+    }
+    // A-115b: sus includes an EDITED relevant file (its base-red ids now pass;
+    // the caller's `weakened test:` note keeps it PARTIAL)
     const progress = checks.some((c) => wall.has(c.name) && c.result === "pass")
-      || sus.some(({ c }) => !out.weak.includes(c.name) && base.get(c)!.red.length > 0 && (c.n ?? 0) >= base.get(c)!.n); // A-115b: sus includes an EDITED relevant file (its base-red ids now pass; the caller's `weakened test:` note keeps it PARTIAL)
+      || sus.some(({ c }) => !out.weak.includes(c.name) && base.get(c)!.red.length > 0 && (c.n ?? 0) >= base.get(c)!.n);
     if (progress) {
       for (const { c } of un) {
-        if (!rel.has(c.name) && c.result === "fail" && c.ids?.length && c.ids.every((i) => base.get(c)!.red.includes(i))) { out.names.push(c.name); out.ids.push(...c.ids); }
+        if (!rel.has(c.name) && c.result === "fail" && c.ids?.length && c.ids.every((i) => base.get(c)!.red.includes(i))) {
+          out.names.push(c.name);
+          out.ids.push(...c.ids);
+        }
       }
     }
   } catch { /* base unavailable: checks stay failing */ } finally {
@@ -251,6 +249,7 @@ export const verifyStage: Stage = {
       }
       return { status: "failed", data: { changed_files: [] }, reason: "empty diff without an already_done marker" };
     }
+    let risk = (() => { try { const r = classifyRisk(diffFiles(ctx.repoDir, ctx.baseSha)); recordRisk(ctx.repoDir, r); return r; } catch { return null; } })(); // RISKTIER: artifact-based tier, recorded; deferred checks are never a pass
     const checks: VerifyCheck[] = [];
     const api = loadProjectApi(ctx.repoDir); // FC-01: null (repo-root behavior) unless the model has a package below the root
     const map = await ctx.tests.detect(ctx.repoDir);
@@ -275,6 +274,9 @@ export const verifyStage: Stage = {
     }
     const targetNames = new Set([...wallTests, ...relevant].map((t) => `${t.runner}:${t.path}`)); // FC-21b: Wall and task-named tests, the proof a limit-stopped run needs
     const preRed = await subtractBase(ctx, api, checks, tests, changed, new Set(wallTests.map((t) => `${t.runner}:${t.path}`)), new Set(relevant.map((t) => `${t.runner}:${t.path}`)), signal);
+    // REPOMEM: a failing, untouched, non-target test whose every id was already red in the intake baseline (same base commit) is pre-existing: never blocks. Anything else that fails is introduced and always blocks.
+    const attr = attribute(ctx.repoDir, ctx.baseSha, checks.filter((c) => c.result === "fail" && !preRed.names.includes(c.name)).map((c) => ({ name: c.name, ids: c.ids, eligible: !targetNames.has(c.name) && !changed.includes(c.name.slice(c.name.indexOf(":") + 1)) })));
+    preRed.names.push(...attr.preExistingChecks); preRed.ids.push(...attr.preExistingIds);
     if (!signal.aborted) {
       // Lint/typecheck of changed files only (ENGINE.md section 4's named tool per language).
       await runLintChecks(ctx, changed, signal, checks, { api, wall: wallPaths });
@@ -285,6 +287,15 @@ export const verifyStage: Stage = {
           stdin: changed.join("\n") + "\n",
         });
       }
+    }
+    const fullNotProven = new Set<string>(); // no-runner entries are dropped at not_proven: nothing ran, and the risk record keeps the full test command deferred
+    if (risk && risk.tier !== "low" && !signal.aborted) { // RISKTIER: medium and high run the detected full test command (deep.ts runner table); the reviewer, council and security scan stay recorded as not run
+      const { runFullSuite } = await import("./deep.ts"); // lazy: deep.ts imports this module
+      const full: Parameters<typeof runFullSuite>[3] = [];
+      await runFullSuite(ctx, signal, {}, full, fullNotProven);
+      for (const c of full) checks.push({ name: c.name, cmd: c.cmd, result: c.result as VerifyCheck["result"], duration_s: c.duration_s, ...(c.reason ? { reason: c.reason } : {}) });
+      const fa = attributeFullSuite(ctx.repoDir, ctx.baseSha, full, checks.filter((c) => c.result === "fail" && !preRed.names.includes(c.name)).flatMap((c) => c.ids ?? []), changed); preRed.names.push(...fa.preExistingChecks); preRed.ids.push(...fa.preExistingIds); attr.introducedChecks.push(...fa.introducedChecks); attr.line = [attr.line, fa.line].filter(Boolean).join("; ") || null; // REPOMEM: same attribution for the full suite
+      if (full.some((c) => c.result === "pass" || c.result === "fail")) { risk = markExecuted(risk, ["full test command", "full suite"]); recordRisk(ctx.repoDir, risk); }
     }
     const cfgChanged = testConfigChanged(ctx.repoDir, ctx.baseSha, changed); // FC-21b: also feeds uncovered_changed
     const covered = (f: string): boolean => ctx.tests.impacted(map, [f]).some((t) => checks.some((c) => c.name === `${t.runner}:${t.path}` && hasExecutedProof([c])));
@@ -300,8 +311,8 @@ export const verifyStage: Stage = {
     const inBase = (f: string): boolean => { try { safeGit(ctx.repoDir, ["cat-file", "-e", `${ctx.baseSha}:${f}`], { stdio: "ignore" }); return true; } catch { return false; } };
     const testCounts: Record<string, unknown> = {}; const modifiedRel = relevant.filter((t) => changed.includes(t.path) && inBase(t.path)).flatMap((t) => { const k = preRed.cnt[`${t.runner}:${t.path}`]; if (k) testCounts[t.path] = k; return [`weakened test: ${t.path}`, ...(assertDeltaNotes(ctx.repoDir, ctx.baseSha, null, t.path, intake?.task ?? "", k?.b, k?.h) ?? [])]; }); // a relevant test file edited: NOT VERIFIED (seal lists the same line)
     const weakened = [...modifiedRel, ...cfgChanged.map((f) => `test configuration changed: ${f}`), ...preRed.weak.map((n) => `skipped or fewer tests than base: ${n}`)];
-    const notProven = [...weakened, ...checks.filter((c) => c.owner === "harness").map((c) => `${c.reason} (${c.name}; harness-owned, no fix rounds)`), ...new Set(checks.filter((c) => c.interpreter === "system" && c.result !== "not_run").map((c) => (c.name.startsWith("lint:") ? "lint ran on the system ruff" : "tests ran on the system interpreter")))];
-    return { status: "completed", data: { checks, flaky, failures_grouped: failuresGrouped, changed_files: changed, not_proven: notProven, pre_red: preRed.ids, pre_red_checks: preRed.names, test_counts: testCounts, uncovered_changed: uncoveredChanged, target_checks: checks.filter((c) => c.result === "pass" && targetNames.has(c.name)).map((c) => c.name) } };
+    const notProven = [...weakened, ...[...fullNotProven].filter((n) => !n.startsWith("full suite (no test runner")), ...checks.filter((c) => c.owner === "harness").map((c) => `${c.reason} (${c.name}; harness-owned, no fix rounds)`), ...new Set(checks.filter((c) => c.interpreter === "system" && c.result !== "not_run").map((c) => (c.name.startsWith("lint:") ? "lint ran on the system ruff" : "tests ran on the system interpreter")))];
+    return { status: "completed", data: { checks, flaky, failures_grouped: failuresGrouped, changed_files: changed, not_proven: notProven, pre_red: preRed.ids, pre_red_checks: preRed.names, ...(attr.line ? { baseline_line: attr.line, introduced_checks: attr.introducedChecks } : {}), test_counts: testCounts, uncovered_changed: uncoveredChanged, target_checks: checks.filter((c) => c.result === "pass" && targetNames.has(c.name)).map((c) => c.name), risk } };
   },
 };
 export const stage = verifyStage;

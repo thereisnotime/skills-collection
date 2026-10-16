@@ -31,7 +31,7 @@
 #   LOKI_RESOURCE_MEM_THRESHOLD  - Memory % threshold to warn (default: 80)
 #
 # Budget / Cost Limits (opt-in):
-#   LOKI_BUDGET_LIMIT            - Max USD spend before auto-pause (default: empty = unlimited)
+#   LOKI_BUDGET_LIMIT            - Max USD spend before auto-pause (default: loki-ts/data/model-pricing.json default_max_cost_usd, 100 USD; empty = unlimited)
 #                                  Example: "50.00" pauses session when estimated cost >= $50
 #
 # Security & Autonomy Controls (Enterprise):
@@ -532,7 +532,7 @@ for key, env_var in mapping.items():
     val = get_nested(data, key) or data.get(key) or data.get(key.replace('.', '_'))
     if val and isinstance(val, str):
         safe_val = shlex.quote(val)
-        print(f'[ -z \"\${{{env_var}:-}}\" ] && export {env_var}={safe_val}')
+        print(f'[ -z \"\${{{env_var}:-}}\" ] && export {env_var}={safe_val}' + (\" && export LOKI_BUDGET_SOURCE=config\" if env_var == 'LOKI_BUDGET_LIMIT' else ''))
 " 2>/dev/null)" 2>/dev/null || true
 }
 _LOKI_SETTINGS_FILE="${TARGET_DIR:-.}/.loki/config/settings.json" _load_json_settings
@@ -565,7 +565,23 @@ RESOURCE_MEM_THRESHOLD=${LOKI_RESOURCE_MEM_THRESHOLD:-80}     # Memory % thresho
 # it never kills work or discards a deliverable. The user removes .loki/PAUSE
 # to resume, or raises LOKI_BUDGET_LIMIT. Set LOKI_BUDGET_LIMIT="" to restore
 # the old unlimited behavior explicitly.
-BUDGET_LIMIT=${LOKI_BUDGET_LIMIT-"100.00"}  # USD. Note `-` not `:-`: an
+# LM-002: the default value is read from default_max_cost_usd in loki-ts/data/model-pricing.json, the same
+# file the Loki 10 engine reads (docs/cost-controls.md). "100.00" is only the
+# fallback when that file is absent, and budget_cap.test.ts pins it to the file.
+_loki_budget_default="$(sed -n 's/.*"default_max_cost_usd"[[:space:]]*:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' \
+    "${SCRIPT_DIR}/../loki-ts/data/model-pricing.json" 2>/dev/null | head -n 1)"
+case "$_loki_budget_default" in
+    '' | *[!0-9.]*) _loki_budget_default="100.00" ;;
+    *) _loki_budget_default="$(awk -v v="$_loki_budget_default" 'BEGIN{printf "%.2f", v}')" ;;
+esac
+# Where the active cap came from: flag (loki start --budget), config (settings.json),
+# env (LOKI_BUDGET_LIMIT set by the caller), or default. Printed once at run start.
+if [ "${LOKI_BUDGET_LIMIT+set}" = "set" ]; then
+    BUDGET_SOURCE="${LOKI_BUDGET_SOURCE:-env}"
+else
+    BUDGET_SOURCE="default"
+fi
+BUDGET_LIMIT=${LOKI_BUDGET_LIMIT-"$_loki_budget_default"}  # USD. Note `-` not `:-`: an
                                             # explicit empty value means the
                                             # operator chose unlimited, and is
                                             # honored.
@@ -7536,7 +7552,7 @@ EOF
   "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 BUDGET_EOF
-        log_info "Budget limit set: \$$BUDGET_LIMIT"
+        log_info "Budget limit set: \$$BUDGET_LIMIT (source: ${BUDGET_SOURCE:-default})"
     fi
 
     # v7.0.0 Phase 2: remote->local hydrate. Runs ONCE at session boot (not
@@ -9041,21 +9057,25 @@ _read_iteration_cost() {
     if [ -f "$result_cost_file" ]; then
         python3 -c "
 import json
+def _c(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else 'unmeasured'
 try:
     d = json.load(open('$result_cost_file'))
     print(
         d.get('input_tokens', 0) or 0,
         d.get('output_tokens', 0) or 0,
-        d.get('total_cost_usd', 0) or 0,
+        _c(d.get('total_cost_usd')),
         d.get('cache_read_tokens', 0) or 0,
         d.get('cache_creation_tokens', 0) or 0,
     )
 except Exception:
-    print(0, 0, 0, 0, 0)
-" 2>/dev/null || echo "0 0 0 0 0"
+    print(0, 0, 'unmeasured', 0, 0)
+" 2>/dev/null || echo "0 0 unmeasured 0 0"
     elif [ -f ".loki/context/tracking.json" ]; then
         python3 -c "
 import json
+def _c(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else 'unmeasured'
 try:
     t = json.load(open('.loki/context/tracking.json'))
     iters = t.get('per_iteration', [])
@@ -9065,17 +9085,17 @@ try:
         print(
             m.get('input_tokens', 0),
             m.get('output_tokens', 0),
-            m.get('cost_usd', 0),
+            _c(m.get('cost_usd')),
             m.get('cache_read_tokens', 0),
             m.get('cache_creation_tokens', 0),
         )
     else:
-        print(0, 0, 0, 0, 0)
+        print(0, 0, 'unmeasured', 0, 0)
 except Exception:
-    print(0, 0, 0, 0, 0)
-" 2>/dev/null || echo "0 0 0 0 0"
+    print(0, 0, 'unmeasured', 0, 0)
+" 2>/dev/null || echo "0 0 unmeasured 0 0"
     else
-        echo "0 0 0 0 0"
+        echo "0 0 unmeasured 0 0"
     fi
 }
 
@@ -9192,6 +9212,15 @@ track_iteration_complete() {
 $iter_cost_line
 ITER_COST_EOF
 
+    # Unknown cost is omitted with a reason, never written as 0 (readers treat absence as unmeasured).
+    local iter_cost_json
+    case "${iter_cost:-unmeasured}" in
+        unmeasured) iter_cost_json='  "cost_unmeasured_reason": "no dollar figure recorded for this iteration",
+' ;;
+        *) iter_cost_json="  \"cost_usd\": ${iter_cost},
+" ;;
+    esac
+
     cat > ".loki/metrics/efficiency/iteration-${iteration}.json" << EFF_EOF
 {
   "iteration": $iteration,
@@ -9204,8 +9233,7 @@ ITER_COST_EOF
   "output_tokens": ${iter_output:-0},
   "cache_read_tokens": ${iter_cache_read:-0},
   "cache_creation_tokens": ${iter_cache_creation:-0},
-  "cost_usd": ${iter_cost:-0},
-  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+${iter_cost_json}  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EFF_EOF
 
@@ -28264,6 +28292,41 @@ check_human_intervention() {
 }
 
 # Handle pause state - wait for resume
+# Writes .loki/state/interventions.json. Mirrors loki-ts/src/runner/intervention.ts
+# (count, basis, by_type enum counts, waited_s). Modes: "count" bumps count and
+# the by_type bucket inferred from the signal files; "waited <secs>" adds
+# wall-clock blocked seconds (an upper bound on human attention, not active
+# minutes). Best-effort: never fails a run.
+_loki_iv_record() {
+    local loki_dir="$1" mode="$2" secs="${3:-0}" iv_type="authorization"
+    [ -n "$loki_dir" ] || return 0
+    if [ -e "$loki_dir/HUMAN_INPUT.md" ]; then iv_type="input"
+    elif [ -e "$loki_dir/signals/GATE_ESCALATION" ] || [ -e "$loki_dir/signals/COUNCIL_REVIEW_REQUESTED" ]; then iv_type="repair"
+    elif [ -e "$loki_dir/signals/BUDGET_EXCEEDED" ]; then iv_type="steer"
+    fi
+    mkdir -p "$loki_dir/state" 2>/dev/null || true
+    python3 -I -c 'import json,sys
+p,mode,secs,t=sys.argv[1:5]
+def n(v):
+    return v if isinstance(v,int) and not isinstance(v,bool) and v>=0 else 0
+try:
+    d=json.load(open(p))
+    if not isinstance(d,dict): d={}
+except Exception:
+    d={}
+if mode=="waited" and not d:
+    sys.exit(0)
+bt=d.get("by_type") if isinstance(d.get("by_type"),dict) else {}
+out={k:n(bt.get(k)) for k in ("steer","input","authorization","repair")}
+if mode=="count":
+    out[t]+=1
+    d["count"]=n(d.get("count"))+1
+d["basis"]="blocking pauses that waited on a human"
+d["by_type"]=out
+d["waited_s"]=n(d.get("waited_s"))+(int(secs) if mode=="waited" else 0)
+open(p,"w").write(json.dumps(d)+"\n")' "$loki_dir/state/interventions.json" "$mode" "$secs" "$iv_type" 2>/dev/null || true
+}
+
 handle_pause() {
     # BUG-ST-007: Guard against concurrent pause handler execution
     if [ "${_PAUSE_IN_PROGRESS:-0}" -eq 1 ]; then
@@ -28284,21 +28347,8 @@ handle_pause() {
     #
     # proof-generator reads this; when the file is absent the receipt renders NO
     # interventions row rather than claiming zero. Best-effort: never fail a run.
-    if [ -n "${loki_dir}" ]; then
-        mkdir -p "$loki_dir/state" 2>/dev/null || true
-        local _iv_file="$loki_dir/state/interventions.json"
-        local _iv_prev=0
-        if [ -f "$_iv_file" ]; then
-            _iv_prev=$(python3 -c "import json,sys
-try:
-    v=json.load(open(sys.argv[1])).get('count')
-    print(int(v) if isinstance(v,int) and v>=0 else 0)
-except Exception:
-    print(0)" "$_iv_file" 2>/dev/null || echo 0)
-        fi
-        printf '{"count":%s,"basis":"blocking pauses that waited on a human"}\n' \
-            "$(( _iv_prev + 1 ))" > "$_iv_file" 2>/dev/null || true
-    fi
+    local _iv_t0=$SECONDS
+    _loki_iv_record "$loki_dir" count
 
     # Save state before pausing so it persists across potential crashes
     save_state ${RETRY_COUNT:-0} "paused" 0
@@ -28398,6 +28448,7 @@ except Exception:
         # Check for stop signal
         if [ -f "$loki_dir/STOP" ]; then
             rm -f "$loki_dir/STOP" "$loki_dir/PAUSED.md"
+            _loki_iv_record "$loki_dir" waited "$(( SECONDS - ${_iv_t0:-$SECONDS} ))" 2>/dev/null || true
             PAUSED=false
             _PAUSE_IN_PROGRESS=0
             return 1
@@ -28443,6 +28494,7 @@ except Exception:
     done
 
     rm -f "$loki_dir/PAUSED.md"
+    _loki_iv_record "$loki_dir" waited "$(( SECONDS - ${_iv_t0:-$SECONDS} ))" 2>/dev/null || true
     log_info "Resuming execution..."
     PAUSED=false
     _PAUSE_IN_PROGRESS=0
@@ -29817,6 +29869,12 @@ except (json.JSONDecodeError, OSError): pass
     # finalization exit so it fires once and never double-prints on success.
     if [ "$result" != "0" ]; then
         _loki_surface_why_hint || true
+    fi
+
+    # OC-OUTPUT: unified run summary (same format as engine10); best-effort, never changes the exit code.
+    if [ -f "$SCRIPT_DIR/lib/run-summary.sh" ]; then
+        # shellcheck source=lib/run-summary.sh
+        source "$SCRIPT_DIR/lib/run-summary.sh" 2>/dev/null && loki_run_summary "$result" 2>/dev/null || true
     fi
 
     exit $result

@@ -23,7 +23,7 @@ with nowhere to look them up.
 |---|---|---|
 | `LOKI_PRD_FILE` | none | Path to a spec file, as an alternative to the positional argument. |
 | `LOKI_MAX_ITERATIONS` | `1000` | Hard cap on iterations. Reaching it is a deterministic terminal failure, not a success. Also in `config schema`. |
-| `LOKI_BUDGET_LIMIT` | `100.00` | Spend cap in USD. Breaching it **pauses** the run (writes `.loki/PAUSE` and saves state); it never kills work or discards a deliverable. Remove `.loki/PAUSE` to resume, or raise the cap. Set to `""` for no cap. A warning is logged at 80%. |
+| `LOKI_BUDGET_LIMIT` | `100.00` | Spend cap in USD on the previous loop (the Loki 10 engine uses `--max-cost`, `budgets.per_run` or a default of $100 only when `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set; none on a subscription). Also enforced by kill on codex, cline, aider and opencode in the Loki 10 engine. Breaching it **pauses** the run (writes `.loki/PAUSE` and saves state); it never kills work or discards a deliverable. Remove `.loki/PAUSE` to resume, or raise the cap. Set to `""` for no cap. A warning is logged at 80%. |
 | `LOKI_MAX_DURATION` | unset (no cap) | Wall-clock cap in seconds. Stops cleanly at the next iteration boundary with a `max_duration_reached` terminal status. `loki start --max-duration` also accepts `90m` / `2h`. |
 | `LOKI_AUTO_CONFIRM` | unset | `true`/`false` to control prompts. Takes precedence over `CI`. |
 | `LOKI_CONFIG_DUMP` | `0` | `1` prints the resolved configuration and exits **without starting a run or spending anything**. |
@@ -40,8 +40,16 @@ interact and why hitting one is a failure rather than a success.
 | `LOKI_PROVIDER` | `claude` | `claude`, `cline`, `codex`, `aider`, or `opencode`. |
 | `LOKI_SESSION_MODEL` | `medium` | The capability tier for the run: `small`, `medium`, or `high`. See below. |
 | `LOKI_MAX_TIER` | unlimited | Caps model tier, so a run cannot escalate past what you are willing to pay for. |
-| `LOKI_MODEL_OVERRIDE` | unset | Overrides the resolved model outright. |
+| `LOKI_MODEL_OVERRIDE` | unset | Overrides the resolved model outright. A route spec (`ollama/<id>`) works too. |
+| `LOKI_MODEL_ROUTE` | unset | `<kind>/<id>` with kind `openrouter`, `ollama`, `lmstudio`, `llamacpp`, `vllm` or `custom`. Routes the Claude harness to that endpoint; `loki models` lists them, `loki models --local` discovers local runtimes. |
+| `LOKI_MODEL_BASE_URL` | unset | Base URL for a `custom/<id>` route (required for `custom`). |
+| `LOKI_MODEL_API_KEY` | unset | Token for a `custom/<id>` route (optional). OpenRouter reads `OPENROUTER_API_KEY`. |
+| `LOKI_OPENCODE_MODEL` | unset | `provider/model` id passed to opencode (for example `openrouter/deepseek/deepseek-v3.2`). Also `LOKI_OPENCODE_FLAGS` and `LOKI_OPENCODE_CLI`. |
+| `LOKI_EDIT_MODEL` | unset | Model for `loki edit`. |
+| `LOKI_ENGINE` | unset | `legacy` forces the previous loop; the `--engine` flag wins over it. |
+| `LOKI_SUMMARY_JSON` | unset | `1` prints the end-of-run summary as one JSON line on the previous loop. |
 | `LOKI_TIER` | `oss` | **Not a model setting.** The open-core licensing seam. Leave it unset. |
+| `LOKI_REPO_BASELINE` | unset | `0` skips the intake repo profile and baseline test run (see docs/HARNESS-INTELLIGENCE-PLAN.md). |
 | `LOKI_ALLOW_CLAUDE_SIDECALLS` | unset | `1` (exactly) lets PRD enrichment, done recognition, the council voters, the USAGE.md refresh and the quickstart intent check prompt the `claude` CLI under a non-claude provider; `loki doctor --airgap` then reports that as required egress to Anthropic. |
 
 ### Picking a model without naming one
@@ -92,10 +100,45 @@ behaviour has a switch rather than a fork.
 | `LOKI_INJECT_FINDINGS` | on | Injects the previous iteration's reviewer findings, by severity and file:line. `0` makes the next iteration a blind retry. |
 | `LOKI_ITERATION_GRACE` | on | When the agent reports done and no gate is failing, grants ONE extra iteration past the cap to land the work. Granted at most once per run. `0` restores a pure counter. |
 | `LOKI_SCOPED_CHANGE` | auto | Forces the scoped-change profile on (`1`) or off (`0`). Auto-detected from an issue-sourced spec on a repository with real history. Never disables a trust gate; it skips phases irrelevant to a scoped fix. |
+| `LOKI_RISK_TIER` | computed | Raises the verification tier (`low`, `medium`, `high`) above the one computed from the diff. Lowering is ignored unless `LOKI_RISK_OVERRIDE_REASON` is also set. |
+| `LOKI_RISK_OVERRIDE_REASON` | unset | Recorded reason that lets `LOKI_RISK_TIER` lower the computed tier. Stored in the risk record and shown in the run summary. |
 
 `LOKI_INJECT_FINDINGS=0` is the one to think twice about. Without it the model
 is told to fix problems without being told which, so it re-derives them from
 scratch every iteration -- the slowest and least accurate way to converge.
+
+### Verification depth (risk tier)
+
+The v10 verify stage classifies risk on the diff (the artifact), never on the
+prompt, and records the result in `.loki/state/risk-tier.json`. The run
+summary prints its one-line `summary` (also `summary.risk` under `--json`; in
+default output only while the 8-line cap still holds). A record older than the
+run start is ignored, and a classification failure never fails verify.
+`loki review --risk` (`autonomy/lib/review_risk.py`) is a separate 0-100
+advisory score and is unchanged.
+
+- high: a sensitive path (auth, crypto, payments, migrations or `.sql`, CI config, lockfiles, infra, `.env`), a deleted test file, public API surface (openapi/swagger, `.proto`, `.d.ts`, `api/`, `routes/`, `public/`, index files), 15+ files, or 500+ changed lines.
+- medium: an existing test or test config modified, 4+ files, or 100+ changed lines.
+- low: everything else. Test files are never counted as sensitive.
+
+| Tier | Selected checks | Recorded as not run |
+|---|---|---|
+| low | targeted tests, lint of changed files | full test command, reviewer, council, security scan (skipped by design) |
+| medium | low plus full test command, one reviewer | one reviewer (and the full test command when no runner was detected) |
+| high | medium plus full suite, council, security scan | council, security scan (and the full test command and full suite when no runner was detected) |
+
+Targeted tests and lint always run. At medium and high, verify also runs the
+detected full test command (the `deep.ts` per-runner table); a full-test
+failure counts like any failing check, and a `not_run` result is added to
+`not_proven`. Reviewer, council and security scan are not run by fast verify at
+any tier, so they stay recorded as not run; nothing marks a skipped check as
+passing. Record shape: `{version, tier, computed, reasons[], stats{files, lines,
+sensitive[], tests_modified[], tests_deleted[], api[]}, checks_selected[],
+checks_deferred[], override?, override_ignored?, summary}`.
+
+Known gaps: the bash `run.sh` council triggers and the outcome record do not
+yet use this tier; public API detection is path-based, not a semantic diff of
+exports; a full-test failure that also fails on the base is not subtracted.
 
 ## Timeouts
 

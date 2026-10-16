@@ -22,6 +22,10 @@ const REGISTRY: Record<string, Entry> = {
   "e10ext/treeswap.ts|checkout": { count: 1, cls: "trust", why: "tree swap restores paths from the base commit while merging a chosen attempt tree into the run's own worktree" },
   "e10ext/treeswap.ts|rm": { count: 1, cls: "trust", why: "tree swap drops files the losing attempt added, inside the run's own worktree" },
   "engine10/stages/intake.ts|checkout": { count: 2, cls: "trust", why: "creates or enters the run branch; plain checkout refuses to overwrite edits" },
+  "providers/provider_guard.ts|checkout": { count: 1, cls: "trust", why: "revertGuard restores only tracked files the provider run deleted, literal pathspecs after a -- separator, inside the run worktree" },
+  "engine10/integrate.ts|checkout": { count: 1, cls: "trust", why: "creates the new integration branch from the base ref only after a clean tracked tree and a missing branch are verified; checkout -b never overwrites edits" },
+  "features/speed/run_group.ts|checkout": { count: 2, cls: "trust", why: "resume leaves the stale group branch (one ternary: back to the start branch or detach at base); plain checkout never forces, so it refuses rather than overwrite edits" },
+  "util/modernize_unit.ts|checkout": { count: 1, cls: "trust", why: "detaches FETCH_HEAD inside a fresh run-owned temp dir that holds only the fetched repo@ref; no user work exists there" },
   "e10ext/stop_restore.ts|checkout": { count: 1, cls: "trust", why: "returns the user's checkout to the branch they started on; plain checkout refuses to overwrite edits" },
 };
 

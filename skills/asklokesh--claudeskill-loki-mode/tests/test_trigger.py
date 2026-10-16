@@ -84,6 +84,8 @@ class TestEventRouting(unittest.TestCase):
     def setUp(self):
         # Patch run_loki_command to avoid actually running loki
         self.mock_run = patch("trigger_server.run_loki_command", return_value=True).start()
+        self.real_outcome = ts.run_loki_outcome
+        self.mock_outcome = patch("trigger_server.run_loki_outcome", return_value=ts.OUTCOME_PASSED).start()
         self.mock_notify = patch("trigger_server.send_notification").start()
         # Patch log_event to avoid file I/O
         self.mock_log = patch("trigger_server.log_event").start()
@@ -91,10 +93,20 @@ class TestEventRouting(unittest.TestCase):
     def tearDown(self):
         patch.stopall()
 
-    def _make_issues_payload(self, action, number=42, repo="owner/repo"):
+    def _make_issues_payload(self, action, number=42, repo="owner/repo", assoc="OWNER"):
+        return {
+            "action": action,
+            "issue": {"number": number, "title": "Test issue", "author_association": assoc},
+            "repository": {"full_name": repo},
+        }
+
+    def _make_comment_payload(self, assoc="MEMBER", action="created", body="focus on auth",
+                              repo="owner/repo", number=42, login="alice", user_type="User"):
         return {
             "action": action,
             "issue": {"number": number, "title": "Test issue"},
+            "comment": {"body": body, "author_association": assoc,
+                        "user": {"login": login, "type": user_type}},
             "repository": {"full_name": repo},
         }
 
@@ -125,6 +137,247 @@ class TestEventRouting(unittest.TestCase):
         self.assertEqual(call_args[0], "start")
         self.assertIn("--pr", call_args)
         self.assertIn("--detach", call_args)
+
+    def test_issues_opened_from_stranger_skipped(self):
+        for assoc in ("NONE", "CONTRIBUTOR", "FIRST_TIME_CONTRIBUTOR", ""):
+            summary, status = ts.handle_issues_event(self._make_issues_payload("opened", assoc=assoc))
+            self.assertIn("skipped", status)
+        self.mock_run.assert_not_called()
+
+    def test_issues_opened_stranger_allowed_with_optout_env(self):
+        with patch.dict(os.environ, {"LOKI_TRIGGER_ALLOW_ANY_ISSUE_AUTHOR": "1"}):
+            _, status = ts.handle_issues_event(self._make_issues_payload("opened", assoc="NONE"))
+        self.assertEqual(status, "fired")
+
+    # issue_comment steering
+
+    def test_issue_comment_registered(self):
+        self.assertIn("issue_comment", ts.EVENT_HANDLERS)
+
+    def test_issue_comment_member_steers_known_run(self):
+        with patch("trigger_server.find_live_run", return_value="run-1") as f:
+            summary, status = ts.handle_issue_comment_event(self._make_comment_payload("MEMBER"))
+        f.assert_called_once_with("owner/repo#42")
+        self.assertEqual(status, "fired")
+        args = self.mock_outcome.call_args[0][0]
+        self.assertEqual(args[0], "steer")
+        self.assertEqual(len(args), 2)
+        self.assertIn("focus on auth", args[1])
+        self.assertFalse(args[1].startswith("-"))
+
+    def _steer_stdout(self, text):
+        def fake(args, dry_run=False, stdout_sink=None):
+            if stdout_sink is not None:
+                stdout_sink.append(text)
+            return ts.OUTCOME_PASSED
+        self.mock_outcome.side_effect = fake
+
+    def test_issue_comment_authorized_steer_posts_ack_with_rev(self):
+        self._steer_stdout("Steering note (rev 3) written\nSteer rev 3 received: applies at next plan/implement stage.\n")
+        with patch("trigger_server.find_live_run", return_value="run-1"), \
+             patch("trigger_server.post_steer_ack") as ack:
+            _, status = ts.handle_issue_comment_event(self._make_comment_payload("MEMBER"))
+        self.assertEqual(status, "fired")
+        ack.assert_called_once_with("owner/repo#42", "owner/repo", 3, dry_run=False)
+        text = ts.steer_ack_text(3)
+        self.assertIn("rev 3", text)
+        self.assertIn("applies at next plan/implement stage", text)
+
+    def test_issue_comment_unauthorized_posts_no_ack(self):
+        with patch("trigger_server.find_live_run", return_value="run-1"), \
+             patch("trigger_server.post_steer_ack") as ack:
+            ts.handle_issue_comment_event(self._make_comment_payload("NONE"))
+        ack.assert_not_called()
+
+    def test_issue_comment_failed_steer_posts_no_ack(self):
+        self.mock_outcome.return_value = ts.OUTCOME_FAILED
+        with patch("trigger_server.find_live_run", return_value="run-1"), \
+             patch("trigger_server.post_steer_ack") as ack:
+            _, status = ts.handle_issue_comment_event(self._make_comment_payload("MEMBER"))
+        self.assertEqual(status, "error")
+        ack.assert_not_called()
+
+    def test_issue_comment_unknown_steer_posts_no_ack(self):
+        self.mock_outcome.return_value = ts.OUTCOME_UNKNOWN
+        with patch("trigger_server.find_live_run", return_value="run-1"), \
+             patch("trigger_server.post_steer_ack") as ack:
+            _, status = ts.handle_issue_comment_event(self._make_comment_payload("MEMBER"))
+        self.assertEqual(status, ts.OUTCOME_UNKNOWN)
+        ack.assert_not_called()
+
+    def test_issue_comment_detached_failing_loki_posts_no_ack(self):
+        import stat, shutil
+        d = tempfile.mkdtemp()
+        try:
+            fake = os.path.join(d, "loki")
+            with open(fake, "w") as f:
+                f.write("#!/bin/sh\nsleep 3\nexit 1\n")
+            os.chmod(fake, os.stat(fake).st_mode | stat.S_IXUSR)
+            self.mock_outcome.side_effect = self.real_outcome
+            with patch.dict(os.environ, {"PATH": d + os.pathsep + os.environ["PATH"]}), \
+                 patch.object(ts, "DISPATCH_WAIT_SECONDS", 1), \
+                 patch("trigger_server.find_live_run", return_value="run-1"), \
+                 patch("trigger_server.post_steer_ack") as ack:
+                ts.handle_issue_comment_event(self._make_comment_payload("MEMBER"))
+            ack.assert_not_called()
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_issue_comment_prompt_injection_off_posts_no_ack(self):
+        with patch.dict(os.environ, {"LOKI_PROMPT_INJECTION": "0"}), \
+             patch("trigger_server.find_live_run", return_value="run-1"), \
+             patch("trigger_server.post_steer_ack") as ack:
+            ts.handle_issue_comment_event(self._make_comment_payload("MEMBER"))
+        ack.assert_not_called()
+
+    def test_loki_authored_comments_never_steer(self):
+        bodies = [ts.STEER_ACK_MARKER + "\n" + ts.steer_ack_text(3),
+                  "<!-- loki-status -->\nrun state"]
+        for b in bodies:
+            with patch("trigger_server.find_live_run", return_value="run-1"):
+                _, status = ts.handle_issue_comment_event(
+                    self._make_comment_payload("OWNER", body=b))
+            self.assertIn("skipped", status)
+        self.mock_outcome.assert_not_called()
+
+    def test_post_steer_ack_body_carries_marker(self):
+        seen = {}
+        def fake(argv, **kw):
+            seen["body"] = Path(argv[-1]).read_text()
+            return MagicMock(returncode=0, stderr="")
+        with patch("trigger_server.subprocess.run", side_effect=fake):
+            ts.post_steer_ack("owner/repo#42", "owner/repo", 2)
+        self.assertIn(ts.STEER_ACK_MARKER, seen["body"])
+
+    def test_post_steer_ack_invokes_issue_comment_with_pinned_origin(self):
+        with patch("trigger_server.subprocess.run") as run:
+            run.return_value = MagicMock(returncode=0, stderr="")
+            self.assertTrue(ts.post_steer_ack("owner/repo#42", "owner/repo", 2))
+        argv = run.call_args[0][0]
+        self.assertEqual(argv[2:4], ["issue-comment", "owner/repo#42"])
+        env = run.call_args[1]["env"]
+        self.assertEqual(env["_LOKI_ORIGIN_PINNED"], "1")
+        self.assertEqual(env["_LOKI_PINNED_ORIGIN"], "https://github.com/owner/repo.git")
+
+    def test_parse_steer_rev_from_stdout(self):
+        self.assertEqual(ts.parse_steer_rev("x\nSteer rev 12 received: applies at next plan/implement stage.\n"), 12)
+        self.assertEqual(ts.parse_steer_rev("\x1b[0;32mSteering note (rev 7) written to .loki/HUMAN_INPUT.md\x1b[0m\n"), 7)
+
+    def test_parse_steer_rev_unparseable_is_none(self):
+        for out in ("", None, "garbage", "Steer rev x received"):
+            self.assertIsNone(ts.parse_steer_rev(out))
+
+    def test_steer_ack_without_rev_has_no_number(self):
+        text = ts.steer_ack_text(None)
+        self.assertTrue(text.startswith("Steer received"))
+        self.assertNotRegex(text, r"\d")
+
+    def test_issue_comment_unparseable_stdout_acks_without_rev(self):
+        self._steer_stdout("nothing useful\n")
+        with patch("trigger_server.find_live_run", return_value="run-1"), \
+             patch("trigger_server.post_steer_ack") as ack:
+            ts.handle_issue_comment_event(self._make_comment_payload("MEMBER"))
+        ack.assert_called_once_with("owner/repo#42", "owner/repo", None, dry_run=False)
+
+    def test_run_loki_outcome_captures_stdout(self):
+        proc = MagicMock(returncode=0)
+        proc.communicate.return_value = (b"Steer rev 9 received: x\n", b"")
+        sink = []
+        with patch("subprocess.Popen", return_value=proc):
+            self.real_outcome(["steer", "n"], stdout_sink=sink)
+        self.assertEqual(ts.parse_steer_rev("".join(sink)), 9)
+
+    def test_issue_comment_unauthorized_skipped_no_write(self):
+        for assoc in ("NONE", "CONTRIBUTOR", "FIRST_TIMER", None):
+            with patch("trigger_server.find_live_run", return_value="run-1"):
+                _, status = ts.handle_issue_comment_event(self._make_comment_payload(assoc))
+            self.assertIn("skipped", status)
+        self.mock_outcome.assert_not_called()
+
+    def test_issue_comment_bot_edited_deleted_skipped(self):
+        cases = [self._make_comment_payload(user_type="Bot"),
+                 self._make_comment_payload(login="loki[bot]"),
+                 self._make_comment_payload(action="edited"),
+                 self._make_comment_payload(action="deleted")]
+        for payload in cases:
+            with patch("trigger_server.find_live_run", return_value="run-1"):
+                _, status = ts.handle_issue_comment_event(payload)
+            self.assertIn("skipped", status)
+        self.mock_outcome.assert_not_called()
+
+    def test_issue_comment_no_run_skipped(self):
+        with patch("trigger_server.find_live_run", return_value=None):
+            _, status = ts.handle_issue_comment_event(self._make_comment_payload("OWNER"))
+        self.assertIn("skipped", status)
+        self.mock_outcome.assert_not_called()
+
+    def test_issue_comment_forged_repo_rejected(self):
+        with patch("trigger_server.find_live_run", return_value="run-1"):
+            _, status = ts.handle_issue_comment_event(self._make_comment_payload("OWNER", repo="--evil"))
+        self.assertIn("rejected", status)
+        self.mock_outcome.assert_not_called()
+
+    def test_issue_comment_body_bounded_to_one_line(self):
+        body = "line one\nline two\n" + "x" * 5000
+        with patch("trigger_server.find_live_run", return_value="run-1"):
+            ts.handle_issue_comment_event(self._make_comment_payload("OWNER", body=body))
+        note = self.mock_outcome.call_args[0][0][1]
+        self.assertNotIn("\n", note)
+        self.assertLessEqual(len(note), 1100)
+
+    def test_find_live_run_matches_issue_ref_with_pid(self):
+        import tempfile
+        d = tempfile.mkdtemp()
+        cwd = os.getcwd()
+        try:
+            os.chdir(d)
+            for rid, ref, pid in (("r-old", "owner/repo#42", False), ("r-live", "owner/repo#42", True), ("r-other", "owner/repo#7", True)):
+                rd = Path(".loki/runs") / rid
+                rd.mkdir(parents=True)
+                (rd / "events.jsonl").write_text(json.dumps({"type": "run.started", "data": {"issue_ref": ref}}) + "\n")
+                if pid:
+                    (rd / "run.pid").write_text(json.dumps({"pid": os.getpid(), "start": ts._process_start_time(os.getpid()), "run_id": rid}))
+            self.assertEqual(ts.find_live_run("owner/repo#42"), "r-live")
+            self.assertIsNone(ts.find_live_run("owner/repo#99"))
+        finally:
+            os.chdir(cwd)
+
+    def test_find_live_run_honors_loki_dir(self):
+        import tempfile
+        d = tempfile.mkdtemp()
+        cwd = os.getcwd()
+        try:
+            os.chdir(d)
+            state = Path(d) / "elsewhere"
+            rd = state / "runs" / "r-env"
+            rd.mkdir(parents=True)
+            (rd / "events.jsonl").write_text(json.dumps({"type": "run.started", "data": {"issue_ref": "o/r#5"}}) + "\n")
+            (rd / "run.pid").write_text(json.dumps({"pid": os.getpid(), "start": ts._process_start_time(os.getpid()), "run_id": "r-env"}))
+            self.assertIsNone(ts.find_live_run("o/r#5"))
+            with patch.dict(os.environ, {"LOKI_DIR": str(state)}):
+                self.assertEqual(ts.find_live_run("o/r#5"), "r-env")
+        finally:
+            os.chdir(cwd)
+
+    def test_find_live_run_rejects_recycled_pid(self):
+        import tempfile
+        d = tempfile.mkdtemp()
+        cwd = os.getcwd()
+        try:
+            os.chdir(d)
+            good = ts._process_start_time(os.getpid())
+            for rid, rec in (
+                ("r-stale", {"pid": os.getpid(), "start": "Thu Jan 1 00:00:00 1970", "run_id": "r-stale"}),
+                ("r-nostart", {"pid": os.getpid()}),
+                ("r-wrongid", {"pid": os.getpid(), "start": good, "run_id": "other"}),
+            ):
+                rd = Path(".loki/runs") / rid
+                rd.mkdir(parents=True)
+                (rd / "events.jsonl").write_text(json.dumps({"type": "run.started", "data": {"issue_ref": "o/r#7"}}) + "\n")
+                (rd / "run.pid").write_text(json.dumps(rec))
+            self.assertIsNone(ts.find_live_run("o/r#7"))
+        finally:
+            os.chdir(cwd)
 
     def test_issues_closed_skipped(self):
         payload = self._make_issues_payload("closed")

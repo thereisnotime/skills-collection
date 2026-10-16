@@ -8,10 +8,19 @@
 // Every feature is DEFAULT OFF, and the first describe block proves it: with no
 // flags set, all four modules are passthrough. That is what keeps the 60
 // byte-exact build_prompt parity fixtures green.
-import { describe, expect, it, afterEach } from "bun:test";
+import { describe, expect, it, test, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { join } from "node:path";
+import { attribute, attributeFullSuite, discoverCommands, ensureProfile, loadProfile, manifestHash, profileBrief, commandProfilePath, renderProfile, repoReadiness, type BaselineRunner, type CommandProfile, type ProfileCommand } from "../../src/runner/repo_profile.ts";
+import { runIntake } from "../../src/engine10/stages/intake.ts";
+import { verifyStage } from "../../src/engine10/stages/verify.ts";
+import type { RunContext, TestRef } from "../../src/engine10/types.ts";
+import { briefContext } from "../../src/e10ext/context.ts";
+import { runDoctor } from "../../src/commands/doctor.ts";
+
 
 import { routeTaskClass, requestTier } from "../../src/runner/capability_router.ts";
 import {
@@ -534,5 +543,335 @@ describe("integrated slice: the four features compose", () => {
 
     // The profile was never re-written by the parallel path (read-only snapshot).
     expect(readProfile({ repoRoot: root, lokiDirOverride: loki }).status).toBe("fresh");
+  });
+});
+
+// REPOMEM: repo profile discovery, baseline, reuse, attribution (pre-existing vs introduced), brief and doctor --repo. Real git repos, real node test runs.
+describe("repo baseline profile (REPOMEM)", () => {
+  const dirs: string[] = [];
+  afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
+  const git = (d: string, a: string[]): string => execFileSync("git", a, { cwd: d, encoding: "utf8" }).trim();
+  function repo(files: Record<string, string>): string {
+    const d = mkdtempSync(join(tmpdir(), "e10-repomem-"));
+    dirs.push(d);
+    git(d, ["init", "-q"]); git(d, ["config", "user.email", "t@t.test"]); git(d, ["config", "user.name", "t"]);
+    for (const [f, c] of Object.entries(files)) { mkdirSync(join(d, f, ".."), { recursive: true }); writeFileSync(join(d, f), c); }
+    git(d, ["add", "-A"]); git(d, ["commit", "-q", "-m", "base"]);
+    writeFileSync(join(d, ".git", "info", "exclude"), ".loki/\n"); // intake does this before the profile is written
+    return d;
+  }
+  const T = "const t=require('node:test');const assert=require('node:assert');";
+  const GOOD = T + "t('good',()=>{assert.strictEqual(1,1);});\n";
+  const OLD_RED = T + "t('old bug',()=>{assert.strictEqual(1,2);});\n";
+  const NODE = { "package.json": JSON.stringify({ scripts: { test: "node --test", lint: "eslint .", typecheck: "tsc --noEmit", build: "echo build" } }), "good.test.js": GOOD, "old.test.js": OLD_RED };
+  const never: BaselineRunner = () => { throw new Error("baseline must not run"); };
+
+  describe("discoverCommands", () => {
+    test("node: scripts become test/lint/typecheck/build, the npm placeholder test is ignored, lockfile picks the manager", () => {
+      const d = repo({ ...NODE, "pnpm-lock.yaml": "" });
+      expect(discoverCommands(d).map((c) => `${c.kind}=${c.cmd}`)).toEqual(["test=pnpm test", "lint=pnpm run lint", "typecheck=pnpm run typecheck", "build=pnpm run build"]);
+      const e = repo({ "package.json": JSON.stringify({ scripts: { test: 'echo "Error: no test specified" && exit 1' } }) });
+      expect(discoverCommands(e)).toEqual([]);
+    });
+    test("python: pytest, ruff, mypy from pyproject; a venv python wins", () => {
+      const d = repo({ "pyproject.toml": "[tool.pytest.ini_options]\n[tool.ruff]\n[tool.mypy]\n", ".venv/bin/python": "" });
+      expect(discoverCommands(d).map((c) => `${c.kind}=${c.cmd}`)).toEqual([`test=${join(".venv", "bin", "python")} -m pytest -q`, "lint=ruff check .", "typecheck=mypy ."]);
+    });
+    test("make: targets named test, lint, build", () => {
+      const d = repo({ Makefile: ".PHONY: test\ntest:\n\techo t\nlint:\n\techo l\nbuild: lint\n\techo b\nVAR := x\n" });
+      expect(discoverCommands(d).map((c) => `${c.kind}=${c.cmd}`)).toEqual(["test=make test", "lint=make lint", "build=make build"]);
+    });
+    test("go and cargo manifests; CI fills only a kind no manifest named and skips shell-compound lines", () => {
+      expect(discoverCommands(repo({ "go.mod": "module x\n" })).map((c) => c.cmd)).toEqual(["go test ./...", "go vet ./...", "go build ./..."]);
+      expect(discoverCommands(repo({ "Cargo.toml": "[package]\n" })).map((c) => c.cmd)).toEqual(["cargo test", "cargo clippy", "cargo build"]);
+      const d = repo({ ".github/workflows/ci.yml": "jobs:\n  a:\n    steps:\n      - run: npm run lint\n      - run: npm test && curl x\n" });
+      expect(discoverCommands(d).map((c) => `${c.kind}=${c.cmd}[${c.source}]`)).toEqual(["lint=npm run lint[.github/workflows/ci.yml]"]);
+    });
+  });
+
+  describe("baseline and persistence", () => {
+    test("a pre-existing failure is recorded with its id; the profile is persisted with revision and manifest hash; no litter in the tree", () => {
+      const d = repo(NODE);
+      const r = ensureProfile(d)!;
+      expect(r.reused).toBe(false);
+      const p = loadProfile(d)!;
+      expect(p.revision).toBe(git(d, ["rev-parse", "HEAD"]));
+      expect(p.manifest_hash).toBe(manifestHash(d));
+      expect(p.baseline).toMatchObject({ ran: true, command: "npm test", attributable: true });
+      expect(p.baseline.exit_code).not.toBe(0);
+      expect(p.baseline.failing_ids).toContain("old bug");
+      const t = p.commands.find((c) => c.kind === "test")!;
+      expect(t).toMatchObject({ validated: true, failing_ids: p.baseline.failing_ids });
+      expect(p.commands.filter((c) => c.kind !== "test").every((c) => c.validated === null)).toBe(true);
+      expect(git(d, ["ls-files", "--others", "--exclude-standard"])).toBe("");
+    }, 60_000);
+    test("a green baseline records exit 0 and no failing ids", () => {
+      const d = repo({ "package.json": NODE["package.json"], "good.test.js": GOOD });
+      const p = ensureProfile(d)!.profile;
+      expect(p.baseline).toMatchObject({ exit_code: 0, failing_ids: [], attributable: true });
+    }, 60_000);
+    test("reuse while the manifest hash and HEAD match; new HEAD re-runs only the baseline; a manifest edit rediscovers", () => {
+      const d = repo(NODE);
+      let runs = 0;
+      const run: BaselineRunner = () => { runs++; return { code: 0, timedOut: false, out: "" }; };
+      expect(ensureProfile(d, { run })!.reused).toBe(false); expect(runs).toBe(1);
+      expect(ensureProfile(d, { run: never })!.reused).toBe(true);
+      writeFileSync(join(d, "README.md"), "x"); git(d, ["add", "README.md"]); git(d, ["commit", "-q", "-m", "docs"]);
+      const moved = ensureProfile(d, { run })!;
+      expect(moved.reused).toBe(false); expect(runs).toBe(2);
+      expect(moved.profile.commands.map((c) => c.cmd)).toEqual(["npm test", "npm run lint", "npm run typecheck", "npm run build"]);
+      writeFileSync(join(d, "package.json"), JSON.stringify({ scripts: { test: "bun test" } })); git(d, ["commit", "-q", "-am", "scripts"]);
+      expect(ensureProfile(d, { run })!.profile.commands.map((c) => c.cmd)).toEqual(["npm test"]);
+      expect(runs).toBe(3);
+    });
+    test("a timed-out or unparseable baseline is not attributable and says why; a repo with no test command records no baseline", () => {
+      const d = repo(NODE);
+      const to = ensureProfile(d, { run: () => ({ code: null, timedOut: true, out: "" }), timeoutS: 1 })!.profile;
+      expect(to.baseline).toMatchObject({ timed_out: true, attributable: false, reason: "timed out" });
+      expect(to.commands[0]).toMatchObject({ validated: false });
+      const e = repo({ "README.md": "x" });
+      expect(ensureProfile(e)!.profile.baseline).toMatchObject({ ran: false, reason: "no test command discovered" });
+      expect(renderProfile(ensureProfile(e)!.profile)).toContain("not run (no test command discovered)");
+    });
+  });
+
+  describe("attribution", () => {
+    const prof = (d: string, ids: string[], attributable = true): string => {
+      const base = git(d, ["rev-parse", "HEAD"]);
+      mkdirSync(join(d, ".loki", "state"), { recursive: true });
+      writeFileSync(commandProfilePath(d), JSON.stringify({ version: 1, revision: base, manifest_hash: "h", created_at: "t", commands: [], baseline: { ran: true, command: "npm test", exit_code: 1, duration_s: 1, timed_out: false, failing_ids: ids, attributable } }));
+      return base;
+    };
+    test("only a check whose every id is in the baseline is pre-existing; one new id makes it introduced; unknown ids never excuse", () => {
+      const d = repo(NODE), base = prof(d, ["a", "b"]);
+      const a = attribute(d, base, [{ name: "n:1", ids: ["a"], eligible: true }, { name: "n:2", ids: ["a", "new"], eligible: true }, { name: "n:3", eligible: true }, { name: "n:4", ids: ["b"], eligible: false }]);
+      expect(a.preExistingChecks).toEqual(["n:1"]);
+      expect(a.introducedChecks).toEqual(["n:2", "n:3", "n:4"]);
+      expect(a.line).toBe("baseline: 1 pre-existing failing check(s) (not blocking), 3 introduced (blocking)");
+    });
+    test("stale revision, unattributable or empty baseline: everything is introduced", () => {
+      const d = repo(NODE), base = prof(d, ["a"]);
+      expect(attribute(d, "0".repeat(40), [{ name: "n", ids: ["a"], eligible: true }]).preExistingChecks).toEqual([]);
+      prof(d, ["a"], false);
+      expect(attribute(d, base, [{ name: "n", ids: ["a"], eligible: true }]).preExistingChecks).toEqual([]);
+      prof(d, []);
+      expect(attribute(d, base, [{ name: "n", ids: ["a"], eligible: true }]).line).toBeNull();
+    });
+  });
+
+  describe("verify and brief wiring", () => {
+    function ctxFor(d: string, base: string, impacted: TestRef[]): RunContext {
+      return { repoDir: d, runDir: join(d, ".loki"), baseSha: base, emit: () => {}, tests: { detect: async () => ({ runners: [], tests: impacted }), impacted: (_m: unknown, f: string[]) => (f.length ? impacted : []) },
+        outputs: () => ({ intake: { task: "", tree: undefined }, wall: { files: [] } }) } as unknown as RunContext;
+    }
+    const node = (path: string): TestRef => ({ runner: "node", path }) as TestRef;
+    test("a baseline-red test the agent did not touch never blocks; a test the agent broke always blocks; the line says so", async () => {
+      const d = repo({ ...NODE, "feat.js": "exports.v=1;\n", "feat.test.js": T + "const {v}=require('./feat.js');t('feat',()=>{assert.strictEqual(v,1);});\n" });
+      ensureProfile(d);
+      const base = git(d, ["rev-parse", "HEAD"]);
+      writeFileSync(join(d, "feat.js"), "exports.v=2;\n");
+      const out = (await verifyStage.run(ctxFor(d, base, [node("old.test.js"), node("feat.test.js")]), new AbortController().signal)).data as Record<string, unknown>;
+      expect(out["pre_red_checks"]).toEqual(["node:old.test.js"]);
+      expect(out["introduced_checks"]).toEqual(["node:feat.test.js"]);
+      expect(out["baseline_line"]).toBe("baseline: 1 pre-existing failing check(s) (not blocking), 1 introduced (blocking)");
+      expect((out["failures_grouped"] as unknown[]).length).toBe(1);
+    }, 120_000);
+    describe("medium tier full suite (REPOMEM, v11.5.1)", () => {
+      const FEAT = { "feat.js": "exports.v=1;\n", "feat.test.js": T + "t('feat',()=>{assert.ok(true);});\n", "other.test.js": T + "const {v}=require('./feat.js');t('other',()=>{assert.strictEqual(v,1);});\n" };
+      const medium = async (d: string, impacted: TestRef[], edit: () => void): Promise<Record<string, unknown>> => {
+        ensureProfile(d);
+        const base = git(d, ["rev-parse", "HEAD"]);
+        edit();
+        const ctx = { ...ctxFor(d, base, impacted), tests: { detect: async () => ({ runners: ["npm"], tests: impacted }), impacted: (_m: unknown, f: string[]) => (f.length ? impacted : []) } } as unknown as RunContext;
+        const prev = process.env["LOKI_RISK_TIER"];
+        process.env["LOKI_RISK_TIER"] = "medium";
+        try { return (await verifyStage.run(ctx, new AbortController().signal)).data as Record<string, unknown>; } finally { if (prev === undefined) delete process.env["LOKI_RISK_TIER"]; else process.env["LOKI_RISK_TIER"] = prev; }
+      };
+      const fullFails = (out: Record<string, unknown>): string[] => (out["failures_grouped"] as { signature: string }[]).map((f) => f.signature).filter((n) => n.startsWith("full suite"));
+      test("red baseline, only pre-existing ids fail the full suite: listed pre-existing, not a failure", async () => {
+        const d = repo({ ...NODE, ...FEAT });
+        const out = await medium(d, [node("feat.test.js")], () => writeFileSync(join(d, "feat.js"), "exports.v=1;\nexports.w=2;\n"));
+        expect((out["checks"] as { name: string; result: string }[]).find((c) => c.name === "full suite: npm")?.result).toBe("fail");
+        expect(out["pre_red_checks"]).toContain("full suite: npm");
+        expect(out["pre_red"]).toContain("old bug");
+        expect(fullFails(out)).toEqual([]);
+      }, 120_000);
+      test("one new failing id in the full suite blocks", async () => {
+        const d = repo({ ...NODE, ...FEAT });
+        const out = await medium(d, [node("feat.test.js")], () => writeFileSync(join(d, "feat.js"), "exports.v=2;\n"));
+        expect(out["pre_red_checks"]).not.toContain("full suite: npm");
+        expect(fullFails(out).length).toBe(1);
+      }, 120_000);
+      test("unparseable full-suite failure output excuses nothing", async () => {
+        const d = repo({ ...NODE, ...FEAT });
+        const out = await medium(d, [node("feat.test.js")], () => writeFileSync(join(d, "package.json"), JSON.stringify({ scripts: { test: "node -e \"console.log('boom');process.exit(1)\"" } })));
+        expect(out["pre_red_checks"]).not.toContain("full suite: npm");
+        expect(fullFails(out).length).toBe(1);
+      }, 120_000);
+      test("a baseline-red id that a changed test file also fails is never excused", async () => {
+        const d = repo({ ...NODE, ...FEAT });
+        const out = await medium(d, [node("old.test.js")], () => writeFileSync(join(d, "old.test.js"), OLD_RED + "// edited\n"));
+        expect(out["pre_red_checks"]).not.toContain("full suite: npm");
+        expect(fullFails(out).length).toBe(1);
+      }, 120_000);
+      test("B1: the real run fails baseline id B plus a flaky new id X; a re-run would show only B: still blocked, nothing is re-run", async () => {
+        const d = repo({ ...NODE, ...FEAT }), arm = join(d, "..", `armed-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        writeFileSync(join(d, "flaky.test.js"), T + `const fs=require('node:fs');t('flaky x',()=>{if(fs.existsSync(${JSON.stringify(arm)})){fs.unlinkSync(${JSON.stringify(arm)});assert.fail('x');}});\n`);
+        git(d, ["add", "flaky.test.js"]); git(d, ["commit", "-q", "-m", "flaky"]);
+        const out = await medium(d, [node("feat.test.js")], () => { writeFileSync(join(d, "feat.js"), "exports.v=1;\nexports.w=2;\n"); writeFileSync(arm, "1"); });
+        expect(out["pre_red_checks"]).not.toContain("full suite: npm");
+        expect(fullFails(out).length).toBe(1);
+      }, 120_000);
+      test("attributeFullSuite attributes on the check's own ids: different baseline command, id in a changed file, blocked id, missing or empty ids are not excused", () => {
+        const d = repo(NODE);
+        const base = git(d, ["rev-parse", "HEAD"]);
+        mkdirSync(join(d, ".loki", "state"), { recursive: true });
+        writeFileSync(commandProfilePath(d), JSON.stringify({ version: 1, revision: base, manifest_hash: "h", created_at: "t", commands: [], baseline: { ran: true, command: "npm test", exit_code: 1, duration_s: 1, timed_out: false, failing_ids: ["src/a.py::t"], attributable: true } }));
+        const f = (cmd: string, ids?: string[]): { name: string; cmd: string; result: string; ids?: string[] }[] => [{ name: "full suite: x", cmd, result: "fail", ...(ids ? { ids } : {}) }];
+        const ok = ["src/a.py::t"];
+        expect(attributeFullSuite(d, base, f("npm test --silent", ok), [], []).preExistingChecks).toEqual(["full suite: x"]);
+        const narrow = attributeFullSuite(d, base, f("python -m pytest -q", ok), [], []);
+        expect(narrow.preExistingChecks).toEqual([]);
+        expect(narrow.line).toContain("not comparable");
+        expect(attributeFullSuite(d, base, f("npm test", ok), [], ["src/a.py"]).preExistingChecks).toEqual([]);
+        expect(attributeFullSuite(d, base, f("npm test", ok), ["src/a.py::t"], []).preExistingChecks).toEqual([]);
+        expect(attributeFullSuite(d, base, f("npm test", [...ok, "new"]), [], []).preExistingChecks).toEqual([]);
+        expect(attributeFullSuite(d, base, f("npm test"), [], []).preExistingChecks).toEqual([]);
+        expect(attributeFullSuite(d, base, f("npm test", []), [], []).preExistingChecks).toEqual([]);
+      });
+    });
+    test("without a profile verify behaves as before: no baseline fields, every failure stays", async () => {
+      const d = repo({ "old.test.js": OLD_RED, "x.js": "1\n" });
+      const base = git(d, ["rev-parse", "HEAD"]);
+      writeFileSync(join(d, "x.js"), "2\n");
+      const out = (await verifyStage.run(ctxFor(d, base, [node("old.test.js")]), new AbortController().signal)).data as Record<string, unknown>;
+      expect(out["baseline_line"]).toBeUndefined();
+      expect(out["pre_red_checks"]).toEqual([]);
+      expect((out["failures_grouped"] as unknown[]).length).toBe(1);
+    }, 120_000);
+    test("the implementer brief carries the validated commands and the known-red ids, byte-stable across calls", () => {
+      const d = repo(NODE);
+      ensureProfile(d);
+      const brief = profileBrief(d);
+      expect(brief).toContain("test: npm test (validated on the untouched tree)");
+      expect(brief).toContain("lint: npm run lint");
+      expect(brief).toContain("old bug");
+      expect(profileBrief(d)).toBe(brief);
+      const ctx = ctxFor(d, git(d, ["rev-parse", "HEAD"]), []);
+      expect(briefContext(ctx, { select: () => [], cmd: () => ["x", [], undefined, "."] })).toContain(brief);
+      expect(profileBrief(repo({ "README.md": "x" }))).toBe("");
+    }, 60_000);
+    test("loki doctor --repo prints the profile, builds it on demand, --json prints it raw; --fix refreshes it", async () => {
+      const d = repo(NODE), cwd = process.cwd(), chunks: string[] = [], w = process.stdout.write.bind(process.stdout);
+      const cap = async (a: string[]): Promise<string> => { chunks.length = 0; process.stdout.write = ((s: string) => (chunks.push(String(s)), true)) as typeof process.stdout.write; try { await runDoctor(a); } finally { process.stdout.write = w; } return chunks.join(""); };
+      try {
+        process.chdir(d);
+        process.env.LOKI_REPO_BASELINE = "0";
+        try { expect(await cap(["--repo"])).toContain("none yet"); } finally { delete process.env.LOKI_REPO_BASELINE; }
+        expect(loadProfile(d)).toBeNull();
+        const built = await cap(["--repo"]); // FV-readiness-env-2: an absent profile is built on demand
+        expect(built).toContain("npm test");
+        expect(built).toContain("Readiness:");
+        expect(loadProfile(d)!.baseline.command).toBe("npm test");
+        rmSync(commandProfilePath(d));
+        const fixed = await cap(["--repo", "--fix"]); // --fix means build/refresh the profile
+        expect(fixed).toContain("baseline:");
+        expect(loadProfile(d)).not.toBeNull();
+        const before = readFileSync(commandProfilePath(d), "utf8");
+        const text = await cap(["--repo"]);
+        expect(text).toContain("npm test");
+        expect(text).toContain("baseline:");
+        expect(JSON.parse(await cap(["--repo", "--json"])).baseline.command).toBe("npm test");
+        expect(readFileSync(commandProfilePath(d), "utf8")).toBe(before);
+      } finally { process.chdir(cwd); }
+    }, 60_000);
+  });
+
+  describe("repoReadiness (FV-readiness-env-1)", () => {
+    const base = (over: Partial<CommandProfile["baseline"]> = {}): CommandProfile["baseline"] => ({ ran: true, command: "npm test", exit_code: 0, duration_s: 1, timed_out: false, failing_ids: [], attributable: true, ...over });
+    const cmd = (kind: ProfileCommand["kind"], validated: boolean | null = true): ProfileCommand => ({ kind, cmd: `run ${kind}`, source: "package.json", validated, exit_code: 0, duration_s: 1, failing_ids: [] });
+    const prof = (commands: ProfileCommand[], baseline = base()): CommandProfile => ({ version: 1, revision: "abc", manifest_hash: "h", created_at: "t", commands, baseline });
+    const all = [cmd("test"), cmd("lint"), cmd("typecheck"), cmd("build")];
+    test("clean profile scores 100; each gap costs points and carries a fix", () => {
+      expect(repoReadiness(prof(all))).toMatchObject({ score: 100, grade: "A", findings: [] });
+      const none = repoReadiness(prof([cmd("lint"), cmd("typecheck"), cmd("build")], base({ ran: false })));
+      expect(none.score).toBe(70);
+      expect(none.findings.map((f) => f.id)).toContain("no-test-command");
+      expect(none.findings.every((f) => f.fix.length > 0 && f.message.length > 0)).toBe(true);
+      const bare = repoReadiness(prof([cmd("test")]));
+      expect(bare.score).toBe(75);
+      expect(bare.findings.map((f) => f.id)).toEqual(expect.arrayContaining(["no-lint", "no-typecheck", "no-build"]));
+    });
+    test("red baseline names the failing ids; unattributable and timed-out baselines are flagged", () => {
+      const red = repoReadiness(prof(all, base({ exit_code: 1, failing_ids: ["a", "b"] })));
+      expect(red.score).toBe(80);
+      const f = red.findings.find((x) => x.id === "baseline-red")!;
+      expect(f.message).toContain("2");
+      expect(f.fix).toContain("will not blame these on your change");
+      expect(repoReadiness(prof(all, base({ timed_out: true, attributable: false }))).findings.map((x) => x.id)).toContain("baseline-unattributable");
+      expect(repoReadiness(prof([{ ...cmd("test"), validated: false }, cmd("lint"), cmd("typecheck"), cmd("build")], base({ attributable: false }))).findings.map((x) => x.id)).toContain("command-not-runnable");
+    });
+    test("host not ready caps the score and surfaces the host fix", () => {
+      const r = repoReadiness(prof(all), { firstTaskReady: false, fix: "npm install -g @anthropic-ai/claude-code" });
+      expect(r.score).toBeLessThanOrEqual(40);
+      expect(r.findings.find((x) => x.id === "host-not-ready")!.fix).toContain("claude-code");
+    });
+    test("renderProfile and doctor --repo --json carry readiness", async () => {
+      const text = renderProfile(prof([cmd("test")]));
+      expect(text).toContain("Readiness: 75/100 (C)");
+      expect(text).toContain("Fix:");
+      expect(renderProfile(prof(all))).toContain("Readiness: 100/100 (A)");
+      const d = repo(NODE), cwd = process.cwd(), chunks: string[] = [], w = process.stdout.write.bind(process.stdout);
+      try {
+        process.chdir(d); ensureProfile(d);
+        process.stdout.write = ((s: string) => (chunks.push(String(s)), true)) as typeof process.stdout.write;
+        try { await runDoctor(["--repo", "--json"]); } finally { process.stdout.write = w; }
+        const j = JSON.parse(chunks.join(""));
+        expect(j.baseline.command).toBe("npm test");
+        expect(typeof j.readiness.score).toBe("number");
+        expect(Array.isArray(j.readiness.findings)).toBe(true);
+      } finally { process.chdir(cwd); }
+    }, 60_000);
+  });
+
+  describe("intake wiring", () => {
+    const ictx = (d: string): RunContext => ({ runId: "e10-t", repoDir: d, runDir: join(d, ".loki", "runs", "e10-t"), baseSha: "", branch: "loki/e10-t", provider: "claude", model: "m", deep: false, capS: 900, emit: () => {},
+      sessions: { run() { throw new Error("no session"); } }, tests: { detect: async () => ({ runners: [], tests: [] }), impacted: () => [] }, cost: {}, clock: { now: () => Date.now() }, outputs: () => ({}) }) as unknown as RunContext;
+    test("a failing intake still prints the Readiness line when the supervisor would have folded it; a completed folded intake prints none", async () => {
+      const grab = async (fn: () => Promise<unknown>): Promise<{ err: unknown; out: string }> => {
+        const errs: string[] = [], we = process.stderr.write.bind(process.stderr);
+        process.stderr.write = ((s: string) => (errs.push(String(s)), true)) as typeof process.stderr.write;
+        let err: unknown = null;
+        try { await fn(); } catch (e) { err = e; } finally { process.stderr.write = we; }
+        return { err, out: errs.join("") };
+      };
+      process.env.LOKI_E10_READINESS_FOLD = "1"; const speed = process.env.LOKI_SPEED; process.env.LOKI_SPEED = "0"; // the sync already-done check is what throws
+      try {
+        const ok = await grab(() => runIntake(ictx(repo(NODE)), new AbortController().signal, { taskText: "unrelated zzqx" }));
+        expect(ok.err).toBeNull();
+        expect(ok.out).not.toMatch(/Readiness:/); // folded into the last line by the supervisor
+        const d = repo({ ...NODE, "src/search-command.ts": "export function search(q: string): string[] { return [q]; }\n", "CHANGELOG.md": "## 1.0\n- Added global search command palette\n" }), c = { ...ictx(d), tests: { detect: async () => ({ runners: [], tests: [{ path: "src/search-command.test.ts" }] }), impacted: () => [] } } as unknown as RunContext;
+        const bad = await grab(() => runIntake(c, new AbortController().signal, { taskText: "Add global search (Cmd+K)" }));
+        expect(String(bad.err)).toContain("no session");
+        expect(bad.out).toMatch(/Readiness: \d+\/100 \([A-F]\)/);
+      } finally { delete process.env.LOKI_E10_READINESS_FOLD; if (speed === undefined) delete process.env.LOKI_SPEED; else process.env.LOKI_SPEED = speed; }
+    }, 60_000);
+    test("intake writes the profile on the untouched tree and a second intake reuses it; LOKI_REPO_BASELINE=0 skips it", async () => {
+      const d = repo(NODE);
+      const errs: string[] = [], we = process.stderr.write.bind(process.stderr);
+      process.stderr.write = ((s: string) => (errs.push(String(s)), true)) as typeof process.stderr.write;
+      try { expect((await runIntake(ictx(d), new AbortController().signal, { taskText: "t" })).status).toBe("completed"); } finally { process.stderr.write = we; }
+      expect(errs.join("")).toMatch(/Readiness: \d+\/100 \([A-F]\)/); // FV-readiness-env-3: loki start surfaces the score
+      const p = loadProfile(d)!;
+      expect(p.baseline.failing_ids).toContain("old bug");
+      expect(git(d, ["status", "--porcelain", "--untracked-files=no"])).toBe("");
+      const before = readFileSync(commandProfilePath(d), "utf8");
+      await runIntake(ictx(d), new AbortController().signal, { taskText: "t" });
+      expect(readFileSync(commandProfilePath(d), "utf8")).toBe(before);
+      const e = repo(NODE);
+      process.env.LOKI_REPO_BASELINE = "0";
+      try { await runIntake(ictx(e), new AbortController().signal, { taskText: "t" }); } finally { delete process.env.LOKI_REPO_BASELINE; }
+      expect(loadProfile(e)).toBeNull();
+    }, 60_000);
   });
 });

@@ -148,6 +148,11 @@ describe("E-67 rework: supervisor backstop", () => {
     expect(r.prUrl).toBeNull();
   }, 10_000);
 
+  test("the issue backstop comment body starts with the loki-backstop marker so the steer webhook ignores it", () => {
+    const src = readFileSync(join(import.meta.dir, "../../src/engine10/supervisor.ts"), "utf8");
+    expect(src).toContain("writeFileSync(bodyFile, `<!-- loki-backstop -->\\nLoki 10 run ${runId}");
+  });
+
   test("worker exits non-zero (not a hang) with a diff and a remote: still gets a draft PR, not silently dropped", async () => {
     const { dir, baseSha } = repoWithCommit();
     const code = `
@@ -355,6 +360,15 @@ describe("A-110 exit ladder", () => {
     expect(r.outcome).toBe("BLOCKED");
     expect(exit).toBe(4);
     expect(comment.calls).toEqual([{ issueRef: "acme/widget#7", reason: "spec conflict: spec says A and B" }]);
+  });
+  test("FV-gh-steer-3: a status step replaces the failure comment; blocked carries its question, and the PR link and final outcome each project once", async () => {
+    const comment = commentSpy(), seen: { prUrl?: string | null; outcome?: string; reason?: string }[] = [];
+    const status = async (p: { prUrl?: string | null; outcome?: string; reason?: string }): Promise<{ argv: string[]; ok: boolean }> => { seen.push(p); return { argv: ["issue-comment", "--update"], ok: true }; };
+    const { r } = await ladder(() => `${COMMIT_A_CHANGE}${ev("stage.completed", "implement", { spec_conflict_reason: "A or B?" })}${sealedAs("SPEC_CONFLICT")}`,
+      { started: { task_source: "issue", issue_ref: "acme/widget#7" }, pr: prSpy().step, comment: comment.step, status });
+    expect(r.outcome).toBe("BLOCKED");
+    expect(comment.calls).toEqual([]);
+    expect(seen).toEqual([{ prUrl: "https://github.com/acme/widget/pull/1" }, { prUrl: "https://github.com/acme/widget/pull/1", outcome: "BLOCKED", reason: "spec conflict: A or B?" }]);
   });
   test("the worker's escalated stop reason drives the outcome: stalled exits 5, fatal keeps its string, none stays FAILED", async () => {
     const stalled = await ladder(() => `${ev("escalated", null, { stop: "stalled" })}${sealedAs("PARTIAL")}`);

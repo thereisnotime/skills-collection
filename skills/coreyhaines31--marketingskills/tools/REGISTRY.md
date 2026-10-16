@@ -101,7 +101,7 @@ Anyone — including tool makers and partners — may contribute content that na
 | lemlist | Email Outreach | ✓ | ✓ | [✓](clis/lemlist.js) | - | [lemlist.md](integrations/lemlist.md) |
 | instantly | Email Outreach | ✓ | ✓ | [✓](clis/instantly.js) | - | [instantly.md](integrations/instantly.md) |
 | google-ads | Ads | ✓ | ✓ | [✓](clis/google-ads.js) | ✓ | [google-ads.md](integrations/google-ads.md) |
-| meta-ads | Ads | ✓ | - | [✓](clis/meta-ads.js) | ✓ | [meta-ads.md](integrations/meta-ads.md) |
+| meta-ads | Ads | ✓ | ✓ | [✓](clis/meta-ads.js) | ✓ | [meta-ads.md](integrations/meta-ads.md) |
 | linkedin-ads | Ads | ✓ | - | [✓](clis/linkedin-ads.js) | - | [linkedin-ads.md](integrations/linkedin-ads.md) |
 | tiktok-ads | Ads | ✓ | - | [✓](clis/tiktok-ads.js) | ✓ | [tiktok-ads.md](integrations/tiktok-ads.md) |
 | zapier | Automation | ✓ | ✓ | [✓](clis/zapier.js) | ✓ | [zapier.md](integrations/zapier.md) |
@@ -260,7 +260,7 @@ Paid advertising platforms and campaign management.
 | Tool | Best For | MCP Available |
 |------|----------|:-------------:|
 | **google-ads** | Search intent, high-intent traffic | ✓ |
-| **meta-ads** | Demand gen, visual products, B2C | - |
+| **meta-ads** | Demand gen, visual products, B2C | ✓ |
 | **linkedin-ads** | B2B, job title targeting | - |
 | **tiktok-ads** | Younger demographics, video | - |
 
@@ -625,7 +625,7 @@ To use MCP tools, ensure the appropriate MCP server is configured in your enviro
 
 ### Composio Integration
 
-[Composio](integrations/composio.md) provides managed OAuth and pre-built connectors for 500+ tools via a single MCP server. It adds MCP access to tools that don't have native MCP servers, including Salesforce, Meta Ads, LinkedIn Ads, Google Sheets, Slack, Notion, and more. (HubSpot now has its own official MCP server.)
+[Composio](integrations/composio.md) provides managed OAuth and pre-built connectors for 500+ tools via a single MCP server. It adds MCP access to tools that don't have native MCP servers, including Salesforce, LinkedIn Ads, Google Sheets, Slack, Notion, and more. (HubSpot and Meta Ads now have their own official MCP servers.)
 
 - **Setup**: `npx @composio/mcp@latest setup`
 - **Quick start**: See [tools/composio/README.md](composio/README.md)

@@ -38,6 +38,8 @@
 #   1  CONCERNS
 #   2  BLOCKED
 #   3  verifier error (could not complete; never silently passes)
+#   64 usage error (unknown option / unexpected argument)
+#   Not a git repo exits 2; an empty diff exits 3 (enforced from v11.4.0).
 #
 # EXIT-CODE ORDERING, RECONCILED. An early draft spec listed
 # 0=VERIFIED, 1=BLOCKED, 2=CONCERNS, and this header used to say a human must
@@ -66,6 +68,7 @@ VERIFY_EXIT_VERIFIED=0
 VERIFY_EXIT_CONCERNS=1
 VERIFY_EXIT_BLOCKED=2
 VERIFY_EXIT_ERROR=3
+VERIFY_EXIT_USAGE=64
 VERIFY_SCHEMA_VERSION="1.0"
 
 # S-216: verify runs from the tree under review (tree="."), and a bare
@@ -355,8 +358,10 @@ verify_diff_base() {
     VERIFY_DIFF_INS=0
     VERIFY_DIFF_DEL=0
     VERIFY_DIFF_NAMES=""
+    VERIFY_NOT_GIT=0
 
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        VERIFY_NOT_GIT=1
         _verify_log "not a git repository; diff base unresolved (inconclusive)"
         return 0
     fi
@@ -2187,6 +2192,16 @@ verify_compute_verdict() {
     elif [ "$has_nonblock_finding" = "true" ] || [ "$inconclusive" = "true" ]; then
         VERIFY_VERDICT="CONCERNS"
         VERIFY_EXIT=$VERIFY_EXIT_CONCERNS
+        # Exit contract (v11.4.0): the two inputs that give the verifier nothing
+        # to check map to their own codes. The verdict word stays CONCERNS so
+        # evidence.json is unchanged; only the process status is sharper.
+        if [ "$has_nonblock_finding" != "true" ]; then
+            if [ "${VERIFY_NOT_GIT:-0}" = "1" ]; then
+                VERIFY_EXIT=$VERIFY_EXIT_BLOCKED
+            elif [ "${VERIFY_DIFF_RESOLVED:-false}" = "true" ] && [ "${VERIFY_DIFF_FILES:-0}" -eq 0 ]; then
+                VERIFY_EXIT=$VERIFY_EXIT_ERROR
+            fi
+        fi
     else
         VERIFY_VERDICT="VERIFIED"
         VERIFY_EXIT=$VERIFY_EXIT_VERIFIED
@@ -2253,6 +2268,7 @@ verify_emit_evidence() {
     _V_SCOPE_SOFT_NET="${VERIFY_SCOPE_SOFT_NET_LINES:-}" \
     _V_SCOPE_MAX_FILES="${VERIFY_SCOPE_MAX_FILES:-}" \
     _V_SCOPE_MAX_NET="${VERIFY_SCOPE_MAX_NET_LINES:-}" \
+    _V_LIBDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib" \
     _verify_py - <<'PYEOF'
 import json, os, hashlib, sys
 
@@ -2386,6 +2402,27 @@ if _scope_verdict:
         "thresholds": _thresholds,
     }
 
+# Verification record (docs/PROOF-PASSPORT.md): integrity, execution
+# validity (revision + environment) and requirement coverage, kept separate, plus
+# per-check status and a scoped label. Additive; verdict/exit_code are untouched.
+# A failure to build it is recorded, never swallowed into a clean-looking doc.
+try:
+    sys.path.insert(0, os.environ["_V_LIBDIR"])
+    import importlib.util
+    _spec = importlib.util.spec_from_file_location(
+        "loki_proof_verify", os.path.join(os.environ["_V_LIBDIR"], "proof-verify.py"))
+    _pv_mod = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pv_mod)
+    doc["verification"] = _pv_mod.build_for_evidence(
+        doc, repo_dir=".", loki_dir=os.environ.get("LOKI_DIR") or ".loki",
+        record_path="", fresh_capture=True)
+    # base_verdict duplicates doc["verdict"]; record_path would pin the output
+    # directory into a document that must be byte-identical across directories.
+    doc["verification"].pop("base_verdict", None)
+except Exception as _vr_exc:
+    doc["verification"] = {"schema_version": "1.0", "error": "verification record unavailable: %s" % _vr_exc,
+                           "label": doc["verdict"] + " (verification record unavailable)"}
+
 os.makedirs(out_dir, exist_ok=True)
 ev_path = os.path.join(out_dir, "evidence.json")
 with open(ev_path, "w") as f:
@@ -2422,6 +2459,10 @@ lines.append("# Autonomi Verify report")
 lines.append("")
 lines.append("Verdict: **%s** (exit %d)" % (doc["verdict"], doc["exit_code"]))
 lines.append("")
+_vr_label = (doc.get("verification") or {}).get("label")
+if _vr_label:
+    lines.append("Verification: %s" % _vr_label)
+    lines.append("")
 _llm = doc.get("llm_review") or {}
 _llm_status = _llm.get("status", "unavailable")
 if _llm_status == "reviewed":
@@ -2543,6 +2584,15 @@ OPTIONS:
                        is exactly as without --hosted (fail-open, never a silent
                        pass). Without --hosted, output is byte-identical to prior
                        releases.
+    --seal-composite <run-dir>
+                       Seal a workspace run into one signed composite receipt
+                       (composite.json). `loki verify <composite.json>` then
+                       re-checks it offline. Routed to the engine10 verifier.
+    --max-age <DUR>    With a receipt path: refuse a receipt whose signed issue
+                       time is older than DUR (Ns, Nm, Nh, Nd or seconds), has
+                       no signed issue time, or is more than 300s in the
+                       future. Exits 2 (UNCHECKED). Routed to the engine10
+                       verifier.
     -h, --help         Show this help.
 
 GATES (deterministic, reproducible by construction):
@@ -2570,6 +2620,11 @@ EXIT CODES:
     1  CONCERNS
     2  BLOCKED
     3  verifier error (could not complete; never silently passes)
+    64 usage error (unknown option or unexpected argument)
+
+    Two inputs that leave nothing to check have their own codes: a directory
+    that is not a git repository exits 2, an empty diff vs base exits 3. The
+    VERDICT line still reads CONCERNS for both.
 
     Severity rises with the code, so `[ $rc -ge 2 ]` means "at least blocked".
     An early draft spec listed 1=BLOCKED, 2=CONCERNS; that ordering was
@@ -3238,10 +3293,10 @@ verify_main() {
             --allow-unsigned) VERIFY_ALLOW_UNSIGNED=1; shift ;;
             --) shift; break ;;
             -*)
-                _verify_err "unknown option: $1"; verify_help; return $VERIFY_EXIT_ERROR ;;
+                _verify_err "unknown option: $1"; verify_help; return $VERIFY_EXIT_USAGE ;;
             *)
                 if [ -z "$base_ref" ]; then base_ref="$1"; else
-                    _verify_err "unexpected argument: $1"; return $VERIFY_EXIT_ERROR
+                    _verify_err "unexpected argument: $1"; return $VERIFY_EXIT_USAGE
                 fi
                 shift ;;
         esac
@@ -3399,7 +3454,20 @@ verify_main() {
     # Under --json stdout carries the evidence document alone, so the human
     # banner is redirected to stderr rather than dropped: an operator watching a
     # terminal still sees the verdict, and `| jq` still parses.
-    printf 'VERDICT: %s\n' "$VERIFY_VERDICT" >&$_v_banner_fd
+    # Scoped label + compact reviewer summary from the verification record just
+    # written to evidence.json. The exit code is unchanged; only the wording is
+    # stricter: a skipped or not-run check never leaves a bare "VERIFIED".
+    local _v_lib _v_label _v_summary
+    _v_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
+    _v_label="$VERIFY_VERDICT"
+    if [ -f "$_v_lib/proof-verify.py" ]; then
+        _v_summary="$(_verify_py "$_v_lib/proof-verify.py" summary "$out_dir/evidence.json" --embedded 2>/dev/null)" || _v_summary=""
+        if [ -n "$_v_summary" ]; then
+            _v_label="${_v_summary%%$'\n'*}"
+            printf '%s\n' "${_v_summary#*$'\n'}" >&$_v_banner_fd
+        fi
+    fi
+    printf 'VERDICT: %s\n' "$_v_label" >&$_v_banner_fd
     printf 'Evidence: %s/evidence.json\n' "$out_dir" >&$_v_banner_fd
     printf 'Report:   %s/report.md\n' "$out_dir" >&$_v_banner_fd
     # --hosted only: surface the enrichment in human output so the extra signal

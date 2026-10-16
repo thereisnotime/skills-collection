@@ -54,3 +54,28 @@ export function verifyRunPid(runDir: string, runId: string, startOf: (pid: numbe
   if (live !== rec.start) return { ok: false, reason: "the pid now belongs to a different process (start time differs)" };
   return { ok: true, pid: rec.pid };
 }
+
+/** RECOVERY: a recorded supervisor that is still alive (same pid and start time) owns the run. */
+export function runOwnerAlive(runDir: string): boolean {
+  const rec = readRunPid(runDir);
+  return rec !== null && processStartTime(rec.pid) === rec.start;
+}
+
+// Cancellation (docs/cost-controls.md): every provider child is spawned by createSessionRunner, so one registry covers all providers.
+// cancelSessions() stops new spawns, kills each live child group (each tracked kill does SIGTERM then SIGKILL after the grace)
+// and resolves once each close handler has recorded its partial usage, or after waitMs.
+const liveSessions = new Set<() => void>();
+let cancelled = false;
+const idleWaiters: Array<() => void> = [];
+export const sessionsCancelled = (): boolean => cancelled;
+/** Registers a live child's kill; the returned function untracks it and wakes cancelSessions once none are left. */
+export function trackSession(kill: () => void): () => void {
+  liveSessions.add(kill);
+  return () => { liveSessions.delete(kill); if (liveSessions.size === 0) for (const w of idleWaiters.splice(0)) w(); };
+}
+export function cancelSessions(waitMs = 8000): Promise<void> {
+  cancelled = true;
+  for (const k of [...liveSessions]) k();
+  if (liveSessions.size === 0) return Promise.resolve();
+  return new Promise<void>((resolve) => { idleWaiters.push(resolve); setTimeout(resolve, waitMs).unref(); });
+}

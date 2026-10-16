@@ -1,22 +1,25 @@
 # CLI reference
 
-Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.3.9. Do not edit by hand.
+Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.15.0. Do not edit by hand.
 Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for the full inventory.
 
 | Command | Description |
 | --- | --- |
 | `loki version` | Show version |
 | `loki status` | Show current run status |
-| `loki doctor` | System prerequisites health check |
+| `loki doctor` | System prerequisites health check; --json, --fix, --requirements, --repo (repo profile with a 0-100 readiness score and fixes) |
 | `loki provider` | Show, list or set the AI provider |
 | `loki provider show` | Show current provider |
 | `loki provider list` | List providers and install status |
 | `loki provider set` | Switch the active provider |
+| `loki provider info` | Provider details; --json prints the capability contract |
+| `loki provider matrix` | Capability matrix per provider and engine |
 | `loki memory` | Cross-project learnings |
 | `loki memory list` | All learnings |
 | `loki memory index` | Show or rebuild the memory index |
 | `loki memory learn` | Learn lessons from a merged PR's review comments |
 | `loki memory lessons` | List PR review lessons with uses and outcomes |
+| `loki memory brief` | Print the lessons and learnings block an engine10 run injects |
 | `loki memory show` | Show one learning |
 | `loki memory search` | Search learnings |
 | `loki memory stats` | Memory statistics |
@@ -41,6 +44,8 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki control backfill` | Ship DIR/.loki/runs to the control plane |
 | `loki control prune` | Delete matching runs |
 | `loki control status` | Show control plane reachability |
+| `loki intent` | Show a past run's intent card |
+| `loki intent show` | Print the intent card and answer |
 | `loki kpis` | KPI snapshot (alias of report kpis) |
 | `loki report` | Reporting: kpis, session, metrics, cost, export, share, dogfood |
 | `loki report kpis` | Canonical KPI snapshot |
@@ -54,7 +59,7 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki trust detail` | Trust metrics detail |
 | `loki crash` | Inspect or submit scrubbed crash reports |
 | `loki contract` | Print the spec delivery contract |
-| `loki start` | Run the autonomous build |
+| `loki start` | Run the autonomous build (a `jira:KEY` or `linear:KEY` ref also writes the outcome back to that ticket, see docs/trackers.md) |
 | `loki slack` | Slack inbound handler |
 | `loki slack serve` | Serve the Slack handler |
 | `loki queue` | Overnight issue queue with a morning digest |
@@ -65,7 +70,8 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki issues run` | Triage and run open issues; split too-large ones into stacked PRs |
 | `loki undo` | Plan or apply an undo of a run |
 | `loki verify-pr` | Verify a PR against its linked issue in a sandbox |
-| `loki answer` | Resume a BLOCKED run with an answer |
+| `loki verify-pr respond` | Fix open review comments on the PR branch, one commit each, reply with the sha |
+| `loki answer` | Start a follow-up run from a BLOCKED run with your answer |
 | `loki engine10` | v10 engine router |
 | `loki engine10 run` | Run the v10 engine |
 | `loki engine10 status` | v10 status |
@@ -74,6 +80,11 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki engine10 dashboard` | v10 dashboard |
 | `loki engine10 modernize` | v10 modernize |
 | `loki help` | Show help |
+| `loki chat` | Interactive chat with the active provider |
+| `loki edit` | Make one small scoped edit |
+| `loki diff` | Show what the last run changed |
+| `loki models` | Show per-provider model routes |
+| `loki setup` | Guided first-run setup wizard |
 | `loki quick` | One small task |
 | `loki quickstart` | Guided first build |
 | `loki init` | Scaffold from a template |
@@ -90,6 +101,7 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki dashboard open` | Open in browser |
 | `loki config` | Manage configuration |
 | `loki config show` | Show config |
+| `loki config list` | List config (alias of show) |
 | `loki config init` | Create config |
 | `loki config edit` | Edit config |
 | `loki config path` | Print config path |

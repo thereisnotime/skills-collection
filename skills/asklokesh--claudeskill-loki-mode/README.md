@@ -7,7 +7,7 @@ Your agent says done. Loki proves it: an autonomous coding agent that turns a ta
 [![Docker Pulls](https://img.shields.io/docker/pulls/asklokesh/loki-mode?style=for-the-badge&logo=docker&logoColor=white&color=2F71E3)](https://hub.docker.com/r/asklokesh/loki-mode)
 [![License](https://img.shields.io/badge/License-BUSL--1.1-36342E?style=for-the-badge)](LICENSE)
 
-[Website](https://www.autonomi.dev/) | [Install guide](docs/INSTALLATION.md) | [User guide](docs/v10/GUIDE.md) | [CLI reference](docs/CLI-REFERENCE.md) | [Changelog](CHANGELOG.md)
+[Website](https://www.autonomi.dev/) | [Quickstart](docs/QUICKSTART.md) | [Install guide](docs/INSTALLATION.md) | [User guide](docs/v10/GUIDE.md) | [CLI reference](docs/CLI-CORE-VERBS.md) | [Compare with opencode](docs/COMPARE-OPENCODE.md) | [Changelog](CHANGELOG.md)
 
 <!-- generated:facts -->
 The npm badge above tracks the current release; see [CHANGELOG.md](CHANGELOG.md) for release notes.
@@ -31,18 +31,19 @@ npx loki-mode tour    # prints a real receipt from a past build: no key, no spen
 
 ## First run
 
-Loki needs a model. An `ANTHROPIC_API_KEY` is enough, or an installed and logged-in [Claude Code](https://docs.claude.com/en/docs/claude-code) CLI.
+Loki needs a model. [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`) is the default provider: install it and log in. The bundled Agent SDK with an `ANTHROPIC_API_KEY` can stand in for the CLI on the main path. Other coding CLIs are optional. See [Requirements](#requirements).
 
 ```bash
-export ANTHROPIC_API_KEY=sk-...
 cd your-repo
-loki doctor                                  # names anything missing, exit 0 when ready
-loki quick "fix the login redirect loop"     # one small task, no PR
-loki "add rate limiting to /api/login"       # build, verify, seal a receipt, open a PR
-loki owner/repo#123                          # same, from a GitHub, GitLab or Jira issue
+loki setup                                   # first-run wizard (or: loki doctor --fix)
+loki start "add rate limiting to /api/login" # the primary path: build, verify, seal a receipt, open a PR
+loki start prd.md                            # same, from a PRD file
+loki start owner/repo#123                    # same, from a GitHub, GitLab or Jira issue
+loki edit "rename fooBar to foo_bar"         # one small change, no loop
+loki chat                                    # interactive alternative: Plan and Build modes
 ```
 
-`loki "<task>"`, `loki owner/repo#N` and `loki quick "<task>"` run on the Loki 10 engine by default. <!-- loki10-default --> Add `--no-pr` to build and verify without opening a pull request, `--max-cost <usd>` to cap spend (default $100 with an API key, no dollar cap on a subscription), and `--provider <name>` to pick another coding CLI.
+`loki start`, `loki "<task>"`, `loki owner/repo#N` and `loki quick "<task>"` all run on the Loki 10 engine by default, whatever the flag order or input form. <!-- loki10-default --> Add `--no-pr` to build and verify without opening a pull request, `--max-cost <usd>` to cap spend, and `--provider <name>` to pick another coding CLI. The spend cap defaults to $100 when `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set and to no dollar cap on a subscription login; `budgets.per_run` in `loki.yaml` also sets it. Inspect the route without running: `loki route start prd.md` or `--explain-route`. New here? The [5-minute quickstart](docs/QUICKSTART.md) walks through it.
 
 ## What you get
 
@@ -56,9 +57,26 @@ Every run starts from a delivery contract derived from your task, writes checks 
 loki verify              # newest run; or: loki verify <run-id>
 ```
 
-`loki verify` re-hashes the receipt, checks its signature and checks it against the run's event log. It prints VERIFIED (exit 0), TAMPERED (1), UNCHECKED (2) or UNSIGNED (3). On another machine, export the public key with `loki keys export` and pass it with `loki verify --pubkey <file>`. A receipt claims only what its checks ran, and lists what they did not; signing proves who produced it, not that the code is bug-free. Details: [docs/SIGNED-RECEIPTS.md](docs/SIGNED-RECEIPTS.md).
+`loki verify` re-hashes the receipt, checks its signature and checks it against the run's event log. It prints a verdict and exits 0 (VERIFIED), 1 (TAMPERED), 2 (UNCHECKED), 3 (UNSIGNED, refused unless `--allow-unsigned`), 4 (run outcome not verified) or 66 (no runs); `[ $rc -eq 0 ]` is the only safe test for "verified". Full table: [docs/exit-codes.md](docs/exit-codes.md). On another machine, export the public key with `loki keys export` and pass it with `loki verify --pubkey <file>`. A receipt claims only what its checks ran, and lists what they did not; signing proves who produced it, not that the code is bug-free. Details: [docs/SIGNED-RECEIPTS.md](docs/SIGNED-RECEIPTS.md).
 
-A finished run prints a short summary:
+For a multi-repo change set, `loki start --workspace <name> "<brief>"` seals one signed `composite.json` over every child receipt, and `loki verify <run-dir>/composite.json` re-checks it offline ([docs/WORKSPACES.md](docs/WORKSPACES.md)). A composite never reads higher than its weakest child.
+
+Two vocabularies, not one. Receipt verdicts (sealed, 5): VERIFIED, PARTIAL, ALREADY_SATISFIED, SPEC_CONFLICT, FAILED. Run outcomes (printed, 8): VERIFIED, ALREADY_SATISFIED, PARTIAL, FAILED, BUDGET_STOP, BLOCKED, STALLED, CANCELLED. BUDGET_STOP, BLOCKED, STALLED and CANCELLED are run outcomes, never receipt verdicts.
+
+| Run outcome | Receipt verdict | `loki start` exit |
+|---|---|---|
+| VERIFIED, ALREADY_SATISFIED | same | 0 |
+| FAILED, PARTIAL | same | 1 |
+| BUDGET_STOP | none (stopped at a cap) | 3 |
+| BLOCKED | SPEC_CONFLICT | 4 |
+| STALLED | none | 5 |
+| CANCELLED | none | 130 |
+
+Composite: every child VERIFIED or ALREADY_SATISFIED gives VERIFIED (all ALREADY_SATISFIED stays ALREADY_SATISFIED, any SPEC_CONFLICT child keeps SPEC_CONFLICT); one PARTIAL child caps it at PARTIAL; a FAILED child fails it. `loki verify` on a composite exits 0 VERIFIED, 1 TAMPERED, 2 UNCHECKED, 3 UNSIGNED.
+
+Autonomy and deploy: `.loki/policies.json` `autonomy: propose|execute|operate` governs what `loki start` may do (propose opens nothing, execute opens a PR, operate also allows deploy); no file keeps today's behavior. `loki trust` prints advisory graduation advice from your receipts and never writes the policy. Loki deploys only behind `loki deploy --execute` (or `loki start --deploy`) plus a VERIFIED, HEAD-anchored receipt and the policy permission; `--health-url` and `--auto-rollback` add a post-deploy probe and a documented provider rollback. A Sentry alert webhook can enqueue a receipt-gated fix PR ([docs/sentry-intake.md](docs/sentry-intake.md)).
+
+A finished run prints a short summary (every run on both engines also ends with a unified Result, Files, Cost, Elapsed, Receipt and `next:` block; `--quiet` prints only that block, `--json` adds a `summary` object):
 
 ```
 Outcome:    VERIFIED
@@ -73,19 +91,33 @@ Time:       4m12s (intake 11s, plan 20s, implement 3m10s, verify 31s)
 
 | Command | What it does |
 |---------|--------------|
-| `loki "<task>"` | Build a task, verify it, seal a receipt, open a PR (`--no-pr`, `--deep`, `--provider`, `--max-cost`) |
-| `loki owner/repo#N` | The same, from a GitHub, GitLab or Jira issue (issue URLs work too) |
-| `loki quick "<task>"` | One small task, no PR |
+| `loki start "<task>"` | The primary path: build a task, PRD file or issue, verify it, seal a receipt, open a PR (`--no-pr`, `--deep`, `--provider`, `--max-cost`). `loki "<task>"` and `loki owner/repo#N` are shorthand |
+| `loki edit "<change>"` | One targeted change in one pass, no PR, plan or council (`--verify`, `--receipt`, `--commit`, `--dry-run`) |
+| `loki quick "<task>"` | One small task with a verify loop, no PR |
+| `loki chat` | Interactive alternative: Plan and Build modes, slash commands, `/run` starts a `loki start` run, `--attach` joins one |
+| `loki route start <args>` | Show the engine, provider, model and reason without running (also `--explain-route`) |
+| `loki setup` | First-run wizard: tools, Claude login, provider, model route, spend cap |
+| `loki config list\|get\|set\|path` | Read and write settings |
+| `loki models [--local]` | List model routes (OpenRouter, Ollama, LM Studio, llama.cpp, vLLM, custom); discover local models |
+| `loki agents list\|new\|show\|export --claude` | Custom child agents in `.loki/agents/*.md` |
 | `loki status [run-id]` | Status of the latest run, or of a given run |
 | `loki verify [run-id]` | Check a receipt's hash, signature and event log |
-| `loki answer [run-id]` | Resume a BLOCKED run with your answer (`--text "..."`) |
-| `loki doctor [--json]` | Check prerequisites, providers and login |
+| `loki answer [run-id]` | Start a follow-up run from a BLOCKED run with your answer (`--text "..."`) |
+| `loki doctor [--fix] [--json]` | Check prerequisites, providers and login; `--fix` applies safe fixes |
 | `loki control serve` | Start the Control Plane (see below) |
 | `loki dashboard` | Open the Control Plane UI, starting it if needed |
 | `loki tour` | Show a sample receipt offline |
 | `loki --help` | Everything else; `loki help <command>` for one command |
 
-Full reference: [docs/CLI-REFERENCE.md](docs/CLI-REFERENCE.md). Engine guide, provider table and model routing: [docs/v10/GUIDE.md](docs/v10/GUIDE.md).
+Core verbs: [docs/CLI-CORE-VERBS.md](docs/CLI-CORE-VERBS.md). Every command (generated): [docs/CLI-REFERENCE.md](docs/CLI-REFERENCE.md). Engine guide, provider table, model routes, custom agents and chat: [docs/v10/GUIDE.md](docs/v10/GUIDE.md). Honest comparison with opencode: [docs/COMPARE-OPENCODE.md](docs/COMPARE-OPENCODE.md).
+
+### Models, providers and local models
+
+Claude Code is the default Tier-1 provider. `--provider codex|cline|aider|opencode` (or `LOKI_PROVIDER`) picks another; on all of them the Loki 10 engine enforces the wall-clock limit and a post-iteration guard scan, and measures cost for codex, cline and aider (parsed from CLI output or estimated, flagged `estimated`) so `--max-cost` applies. For OpenRouter or a local model, set `LOKI_MODEL_ROUTE=<kind>/<id>` (kinds: `openrouter`, `ollama`, `lmstudio`, `llamacpp`, `vllm`, `custom`) before `loki start`; `loki models --local` finds local runtimes and prints ready-to-paste values.
+
+```bash
+LOKI_MODEL_ROUTE=ollama/qwen3-coder loki start prd.md
+```
 
 ## Control Plane
 
@@ -105,15 +137,16 @@ While it is running, runs on this machine ship to it automatically. Guides: [doc
 
 Required:
 
-- A model: `ANTHROPIC_API_KEY`, or a provider CLI such as Claude Code (`claude`). Cline, Codex, Aider and opencode are supported as experimental providers.
+- Claude Code (`claude`), installed and logged in: the default provider and the only one with every feature. The bundled Agent SDK with `ANTHROPIC_API_KEY` can stand in on the main `loki start` path, but `loki edit` and `loki chat` call the `claude` CLI.
 - Python 3.8+ (`python3`)
-- Node.js 20+ (`node`)
+- Node.js 20+ (`node`; 22 LTS is the CI target)
 - `jq`
 - Git 2.x (`git`)
 - `curl`
 
-Recommended:
+Optional:
 
+- Other coding CLIs: Codex, Cline, Aider, opencode (`--provider`). Ollama or an OpenRouter key for model routes.
 - Bun 1.3+ (`bun`) on your PATH (the npm package also bundles it).
 - Docker, to run Loki from the published image.
 
@@ -124,7 +157,7 @@ macOS and Linux are supported.
 - [Installation](docs/INSTALLATION.md), [environment variables](docs/environment-variables.md), [exit codes](docs/exit-codes.md), [known issues](docs/KNOWN-ISSUES.md), [privacy and telemetry](docs/PRIVACY.md)
 - Agent Change Receipt format: [docs/AGENT-CHANGE-RECEIPT.md](docs/AGENT-CHANGE-RECEIPT.md)
 - Issue to PR from GitHub Actions, no hosted service: [docs/examples/loki-issue-to-pr.yml.example](docs/examples/loki-issue-to-pr.yml.example)
-- Jira and Linear intake: [docs/trackers.md](docs/trackers.md). Two-way Slack: [docs/slack.md](docs/slack.md). Multi-repo runs: [docs/WORKSPACES.md](docs/WORKSPACES.md)
+- Jira and Linear intake: [docs/trackers.md](docs/trackers.md). Two-way Slack: [docs/slack.md](docs/slack.md). Multi-repo runs and composite receipts: [docs/WORKSPACES.md](docs/WORKSPACES.md). Deploy: [docs/DEPLOY-PLAN.md](docs/DEPLOY-PLAN.md)
 - MCP: the bundled server exposes 47 tools over stdio (`loki mcp`), including starting a run, reading its status and verifying its receipt.
 - Claude Code plugin: `claude plugin marketplace add asklokesh/loki-mode`, then `claude plugin install loki-mode@loki-mode`. The same marketplace ships [loki-seal](packages/loki-seal/README.md), a Stop hook that refuses "done" when tests newly fail or were weakened.
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Upgrading: [UPGRADING.md](UPGRADING.md)

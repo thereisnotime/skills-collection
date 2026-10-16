@@ -13,31 +13,21 @@ import { deferAlreadyDone, speedEnabled } from "../../features/speed/already_don
 import { snapshotContract } from "../../features/contract.ts";
 import { unmergedEvidence, unmergedEvidenceNote } from "../../util/base_guard.ts";
 import { intakeProjectModel } from "../../project_model/discover.ts"; import { sha256 } from "./seal.ts"; import { splitDirty, untrackedAtIntake, snapshotUntracked } from "../../e10ext/preexisting_dirty.ts";
-import { safeGit } from "../../util/safe_git.ts";
+import { safeGit } from "../../util/safe_git.ts"; import { ensureProfile, repoReadiness } from "../../runner/repo_profile.ts";
 export interface IntakeOptions {
   taskText?: string;
   issueJsonPath?: string;
 }
-interface IssueFields {
-  state: string | null;
-  closed_by_merged_pr?: boolean;
-}
+interface IssueFields { state: string | null; closed_by_merged_pr?: boolean }
 /** owner/repo#number, when the issue JSON carries both (GitHub); null for anything else, never guessed. */
-function issueRefOf(raw: { repo?: unknown; number?: unknown }): string | null {
-  return typeof raw.repo === "string" && raw.repo && typeof raw.number === "number" ? `${raw.repo}#${raw.number}` : null;
-}
-function git(repoDir: string, args: string[]): string {
-  return safeGit(repoDir, args).trim();
-}
+function issueRefOf(raw: { repo?: unknown; number?: unknown }): string | null { return typeof raw.repo === "string" && raw.repo && typeof raw.number === "number" ? `${raw.repo}#${raw.number}` : null; }
+function git(repoDir: string, args: string[]): string { return safeGit(repoDir, args).trim(); }
 /** Tracked-only dirty check: untracked files never block Intake. */
 function dirtyTrackedFiles(repoDir: string): string[] {
-  const out = git(repoDir, ["status", "--porcelain", "--untracked-files=no"]);
-  return out === "" ? [] : out.split("\n");
+  const out = git(repoDir, ["status", "--porcelain", "--untracked-files=no"]); return out === "" ? [] : out.split("\n");
 }
 function ensureBranch(repoDir: string, branch: string): void {
-  try {
-    safeGit(repoDir, ["checkout", "-b", branch], { repoDrivers: true });
-  } catch {
+  try { safeGit(repoDir, ["checkout", "-b", branch], { repoDrivers: true }); } catch {
     // Resume, or the branch already exists for another reason: reuse it.
     safeGit(repoDir, ["checkout", branch], { repoDrivers: true });
   }
@@ -46,38 +36,34 @@ function ensureBranch(repoDir: string, branch: string): void {
 function excludeLokiDir(repoDir: string): void {
   // A linked worktree has a .git FILE; ask git where info/exclude lives (the common dir).
   let path = join(repoDir, ".git", "info", "exclude");
-  try {
-    path = resolve(repoDir, git(repoDir, ["rev-parse", "--git-path", "info/exclude"]));
-  } catch { /* keep the plain-checkout path */ }
-  const existing = existsSync(path) ? readFileSync(path, "utf8") : "";
-  if (existing.split("\n").some((l) => l.trim() === ".loki/")) return;
-  mkdirSync(dirname(path), { recursive: true });
-  const sep = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
+  try { path = resolve(repoDir, git(repoDir, ["rev-parse", "--git-path", "info/exclude"])); } catch { /* keep the plain-checkout path */ }
+  const existing = existsSync(path) ? readFileSync(path, "utf8") : ""; if (existing.split("\n").some((l) => l.trim() === ".loki/")) return;
+  mkdirSync(dirname(path), { recursive: true }); const sep = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
   appendFileSync(path, `${sep}.loki/\n`);
 }
 function loadIssue(path: string): IssueFields {
   const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
   return { state: typeof raw.state === "string" ? raw.state.toLowerCase() : null, closed_by_merged_pr: raw.closed_by_merged_pr === true };
 }
-/** True only on a deterministic, positive signal: a false negative (state
- *  unknown) must never claim already-done. */
-function isAlreadyDone(issue: IssueFields): boolean {
-  return issue.state === "closed" || issue.closed_by_merged_pr === true;
-}
+/** True only on a deterministic, positive signal: a false negative (state unknown) must never claim already-done. */
+function isAlreadyDone(issue: IssueFields): boolean { return issue.state === "closed" || issue.closed_by_merged_pr === true; }
 export async function runIntake(ctx: RunContext, signal: AbortSignal, opts: IntakeOptions = {}): Promise<StageResult> {
+  const held: { fold: string | null } = { fold: null }; // per call: set only when the supervisor would fold the Readiness line into the last line; a failed intake never reaches that line, so it is printed here
+  const flush = (): void => { if (held.fold) process.stderr.write(`${held.fold}\n`); held.fold = null; };
+  let r: StageResult;
+  try { r = await runIntakeBody(ctx, signal, opts, held); } catch (e) { flush(); throw e; }
+  if (r.status === "failed") flush();
+  return r;
+}
+async function runIntakeBody(ctx: RunContext, signal: AbortSignal, opts: IntakeOptions, held: { fold: string | null }): Promise<StageResult> {
   const t0 = Date.now(); if (signal.aborted) return { status: "failed", data: {}, reason: "aborted before intake started" };
   const { blocking: dirty, preexisting } = splitDirty(ctx.repoDir, dirtyTrackedFiles(ctx.repoDir));
-  if (dirty.length > 0) {
-    return { status: "failed", data: {}, reason: `dirty tracked tree: ${dirty.join(", ")}` };
-  }
+  if (dirty.length > 0) return { status: "failed", data: {}, reason: `dirty tracked tree: ${dirty.join(", ")}` };
   const baseSha = git(ctx.repoDir, ["rev-parse", "HEAD"]), startBranch = git(ctx.repoDir, ["symbolic-ref", "-q", "--short", "HEAD"]);
-  const tree = git(ctx.repoDir, ["rev-parse", "HEAD^{tree}"]);
-  ensureBranch(ctx.repoDir, ctx.branch);
-  excludeLokiDir(ctx.repoDir);
+  const tree = git(ctx.repoDir, ["rev-parse", "HEAD^{tree}"]); ensureBranch(ctx.repoDir, ctx.branch); excludeLokiDir(ctx.repoDir);
   const issueJsonPath = opts.issueJsonPath ?? process.env.LOKI_E10_ISSUE_JSON ?? join(ctx.runDir, "issue.json");
   const taskText = opts.taskText ?? process.env.LOKI_E10_TASK_TEXT;
-  let source: "text" | "issue";
-  let taskSha256: string;
+  let source: "text" | "issue"; let taskSha256: string;
   let task = taskText ?? "";
   let alreadySatisfied = false;
   let issueRef: string | null = null;
@@ -107,6 +93,10 @@ export async function runIntake(ctx: RunContext, signal: AbortSignal, opts: Inta
   const repoMap = buildRepoMap(ctx.repoDir);
   writeFileSync(repomapRef, JSON.stringify(repoMap));
   const testmap = await ctx.tests.detect(ctx.repoDir);
+  const built = process.env.LOKI_REPO_BASELINE !== "0" ? ensureProfile(ctx.repoDir) : null; // REPOMEM: commands + a baseline test run on the untouched tree, reused while the manifests are unchanged; never throws
+  const rd = built ? repoReadiness(built.profile) : null, readiness = rd ? `Readiness: ${rd.score}/100 (${rd.grade})${rd.findings.length ? ` - run \`loki doctor --repo\` for ${rd.findings.length} fix(es)` : ""}` : null;
+  if (readiness && process.env.LOKI_E10_READINESS_FOLD === "1") held.fold = readiness;
+  else if (readiness) process.stderr.write(`${readiness}\n`); // FV-readiness-env-3; D48 default mode: the supervisor folds it into the last line instead
   // E-66: "already implemented" as a first-class outcome. A deterministic evidence search over
   // repoMap/testmap/CHANGELOG, confirmed by one short cheap-model session that must cite files;
   // no candidate evidence means no session call (checkAlreadyDone's own gate).
@@ -122,7 +112,7 @@ export async function runIntake(ctx: RunContext, signal: AbortSignal, opts: Inta
     const commentArgv = source === "issue" && issueRef ? buildAlreadyDoneCommentArgv(ctx.runId, issueRef, bodyFile) : undefined;
     return { already_satisfied: true, evidence: already.evidence, iteration_ids: [`${ctx.runId}-already-done`], comment, ...(commentArgv ? { comment_argv: commentArgv } : {}) };
   };
-  const base = { ...common, task_sha256: taskSha256, source, base_sha: baseSha, tree, branch: ctx.branch };
+  const base = { ...common, task_sha256: taskSha256, source, base_sha: baseSha, tree, branch: ctx.branch, ...(readiness ? { readiness } : {}) };
   // FC-15: the claim rests on the PR target. Evidence only in target..HEAD means no claim; Loki's own work there is reported, never refused.
   const stale = already ? unmergedEvidence(ctx.repoDir, already.paths, startBranch) : null;
   if (already && !stale) return { status: "completed", data: { ...base, ...alreadyData(already) } };

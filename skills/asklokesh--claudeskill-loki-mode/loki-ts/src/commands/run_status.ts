@@ -1,20 +1,22 @@
 // CLI-MODERN-2: `loki status` on the Loki 10 engine. Reads only .loki/runs/<id>/events.jsonl (the
 // engine's own record), never STATUS.txt or any legacy state.
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { discoverControlUrl } from "../../../packages/control-plane/src/shipper/discover.ts";
 import { fold, readEvents } from "../engine10/events.ts";
 import { formatDuration } from "../engine10/output.ts";
 import type { EventEnvelope } from "../engine10/types.ts";
+import { STALE_S, workItemState, type WorkItemState } from "../util/run_outputs.ts";
+import { INTENT_ANSWER_FILE, renderIntent } from "../util/intent_card.ts";
 
 export const NO_RUN_HINT = "No Loki 10 runs here yet. Start one with: loki \"<task>\" or loki owner/repo#N";
-const STALE_S = 30 * 60;
 const TERMINAL = new Set(["stage.completed", "stage.failed", "stage.skipped"]);
 
 export interface ModernStatus {
   engine: "loki10";
   run_id: string | null;
   ref: string | null;
+  state: WorkItemState;
   stage: string | null;
   elapsed_s: number | null;
   cost_usd: number | null;
@@ -28,9 +30,19 @@ export function runsRoot(env: NodeJS.ProcessEnv, repoDir: string): string {
   return env.LOKI_DIR ? join(resolve(repoDir, env.LOKI_DIR), "runs") : join(repoDir, ".loki", "runs");
 }
 
-function listRuns(root: string): string[] {
+/** Run ids under a runs root, sorted. Ids embed a sortable UTC timestamp (e10-<ISO-ish>-<rand>), so the last is the newest. */
+export function listRunIds(root: string): string[] {
   if (!existsSync(root)) return [];
   return readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+}
+
+export function latestRunId(root: string): string | null {
+  const ids = listRunIds(root);
+  return ids.length ? ids[ids.length - 1]! : null;
+}
+
+export function eventsPath(root: string, runId: string): string {
+  return join(root, runId, "events.jsonl");
 }
 
 const lastTs = (ev: EventEnvelope[]): number => (ev.length ? Date.parse(ev[ev.length - 1]!.ts) : 0);
@@ -51,15 +63,16 @@ export function summarize(runId: string, events: EventEnvelope[], root: string, 
   const pr = events.findLast((e) => e.type === "pr.opened")?.data.url ?? f.run.completed?.data.pr_url;
   const sealed = events.findLast((e) => e.type === "receipt.sealed")?.data.path;
   const receipt = join(root, runId, "receipt.json");
-  const stale = !done && nowMs - lastTs(events) > STALE_S * 1000;
+  const state = workItemState(events, nowMs);
   return {
     engine: "loki10",
     run_id: runId,
     ref: typeof issue === "string" && issue ? issue : null,
+    state,
     stage: !done && open.size ? [...open].sort().join("+") : null,
     elapsed_s: Math.max(0, (endMs - startMs) / 1000),
     cost_usd: f.cost.usd,
-    outcome: f.run.verdict ?? (done ? "completed" : stale ? "stalled (no events for 30m+)" : "running"),
+    outcome: state === "cancelled" ? "cancelled" : f.run.verdict ?? (done ? "completed" : state === "stalled" ? "stalled (no events for 30m+)" : "running"),
     pr_url: typeof pr === "string" && pr ? pr : null,
     receipt_path: typeof sealed === "string" && sealed ? sealed : existsSync(receipt) ? receipt : null,
   };
@@ -67,10 +80,10 @@ export function summarize(runId: string, events: EventEnvelope[], root: string, 
 
 /** The live run if one is recent, else the newest run; null when there are none. */
 export function pickRun(root: string, nowMs: number): { id: string; events: EventEnvelope[] } | null {
-  const ids = listRuns(root).reverse();
+  const ids = listRunIds(root).reverse();
   let newest: { id: string; events: EventEnvelope[] } | null = null;
   for (const id of ids) {
-    const events = readEvents(join(root, id, "events.jsonl"));
+    const events = readEvents(eventsPath(root, id));
     if (events.length === 0) continue;
     newest ??= { id, events };
     if (!events.some((e) => e.type === "run.completed") && nowMs - lastTs(events) <= STALE_S * 1000) return { id, events };
@@ -81,7 +94,7 @@ export function pickRun(root: string, nowMs: number): { id: string; events: Even
 export function render(s: ModernStatus): string {
   const cost = s.cost_usd === null ? "cost not measured" : `$${s.cost_usd.toFixed(2)}`;
   const lines = [
-    `Loki 10 run ${s.run_id}: ${s.outcome}${s.stage ? `, ${s.stage}` : ""}`,
+    `Loki 10 run ${s.run_id}: ${s.state}${s.outcome !== null && s.outcome !== s.state && /^[A-Z_]+$/.test(s.outcome) ? ` (${s.outcome})` : ""}${s.stage ? `, ${s.stage}` : ""}`,
     `  ${s.ref ?? "text task"}, ${formatDuration(s.elapsed_s ?? 0)} elapsed, ${cost}`,
     `  PR: ${s.pr_url ?? "none"}, receipt: ${s.receipt_path ?? "not sealed yet"}`,
   ];
@@ -117,7 +130,7 @@ export async function runModernStatus(argv: readonly string[], env: NodeJS.Proce
   const now = Date.now();
   let hit = pickRun(root, now);
   if (wanted !== null) {
-    const events = readEvents(join(root, wanted, "events.jsonl"));
+    const events = readEvents(eventsPath(root, wanted));
     if (events.length === 0) { process.stderr.write(`loki status: no events for run ${wanted}\n`); return 1; }
     hit = { id: wanted, events };
   }
@@ -126,11 +139,32 @@ export async function runModernStatus(argv: readonly string[], env: NodeJS.Proce
   if (cp === null) cp = await probeConfiguredControl(env);
   if (!hit) {
     process.stdout.write(json
-      ? `${JSON.stringify({ engine: "loki10", run_id: null, ref: null, stage: null, elapsed_s: null, cost_usd: null, outcome: null, pr_url: null, receipt_path: null, control_plane_url: cp, hint: NO_RUN_HINT })}\n`
+      ? `${JSON.stringify({ engine: "loki10", run_id: null, ref: null, state: null, stage: null, elapsed_s: null, cost_usd: null, outcome: null, pr_url: null, receipt_path: null, control_plane_url: cp, hint: NO_RUN_HINT })}\n`
       : `${NO_RUN_HINT}\n${cp ? `  Control Plane: ${cp}\n` : ""}`);
     return 0;
   }
   const s: ModernStatus = { ...summarize(hit.id, hit.events, root, now), control_plane_url: cp };
   process.stdout.write(json ? `${JSON.stringify(s)}\n` : `${render(s)}\n`);
+  return 0;
+}
+
+/** `loki intent show <run>`: read-only view of a past run's intent card and the user's answer. */
+export async function runIntentShow(argv: readonly string[], env: NodeJS.ProcessEnv = process.env): Promise<number> {
+  const [sub, id] = argv;
+  if (sub !== "show" || !id) { process.stderr.write("Usage: loki intent show <run-id>\n"); return 1; }
+  const root = runsRoot(env, env.LOKI_E10_REPO_DIR ?? process.cwd());
+  const events = readEvents(eventsPath(root, id));
+  if (events.length === 0) { process.stderr.write(`loki intent: no such run ${id}\n`); return 1; }
+  const plan = [...events].reverse().find((e) => e.type === "stage.completed" && e.stage === "plan");
+  const raw = plan?.data.intent_card;
+  const card = Array.isArray(raw) ? raw.map(String) : null;
+  const lines = [renderIntent(card)];
+  if (card) {
+    try {
+      const ans = readFileSync(join(root, id, INTENT_ANSWER_FILE), "utf8").trim();
+      if (ans) lines.push(`answered: ${ans}`);
+    } catch { /* no answer recorded */ }
+  }
+  process.stdout.write(`${lines.join("\n")}\n`);
   return 0;
 }

@@ -22314,8 +22314,8 @@
       "description": "Design, configure, troubleshoot, or review Cloudflare One Zero Trust and SASE deployments. Use cloudflare-one-migrations for migration planning from other vendors.",
       "path": "cloudflare--skills/skills/cloudflare-one/SKILL.md",
       "remote_path": "skills/cloudflare-one/SKILL.md",
-      "lines": 179,
-      "words": 2758,
+      "lines": 181,
+      "words": 2773,
       "code_blocks": 0,
       "languages": []
     },
@@ -22324,8 +22324,8 @@
       "description": "Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security. Use for architecture and product selection, including when the user describes a need without namin",
       "path": "cloudflare--skills/skills/cloudflare/SKILL.md",
       "remote_path": "skills/cloudflare/SKILL.md",
-      "lines": 151,
-      "words": 3301,
+      "lines": 152,
+      "words": 3331,
       "code_blocks": 0,
       "languages": []
     },
@@ -22389,6 +22389,16 @@
         "jsonc",
         "typescript"
       ]
+    },
+    {
+      "name": "gateway-workers",
+      "description": "Build, debug, or review Cloudflare Workers invoked by the Forward action in Gateway HTTP policies, including the GatewayMiddleware entrypoint, Gateway types, context, and continuation.",
+      "path": "cloudflare--skills/skills/gateway-workers/SKILL.md",
+      "remote_path": "skills/gateway-workers/SKILL.md",
+      "lines": 39,
+      "words": 518,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "turnstile-spin",
@@ -22499,7 +22509,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     },
     {
@@ -22508,12 +22518,12 @@
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
       "lines": 1056,
-      "words": 21788,
+      "words": 21776,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     },
     {
@@ -22522,10 +22532,10 @@
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
       "lines": 1053,
-      "words": 21661,
+      "words": 21649,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     },
     {
@@ -22539,7 +22549,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     },
     {
@@ -22551,7 +22561,7 @@
       "words": 997,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     },
     {
@@ -22563,7 +22573,7 @@
       "words": 1060,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     },
     {
@@ -22577,7 +22587,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     },
     {
@@ -22589,7 +22599,7 @@
       "words": 592,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     },
     {
@@ -22603,7 +22613,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     },
     {
@@ -22618,7 +22628,7 @@
         "bash",
         "js"
       ],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     },
     {
@@ -22630,7 +22640,7 @@
       "words": 809,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.37.0",
+      "version": "3.38.0",
       "license": "MIT"
     }
   ],
@@ -22655,8 +22665,8 @@
       "description": "When the user wants to set up, improve, or audit analytics tracking and measurement. Also use when the user mentions \"set up tracking,\" \"GA4,\" \"Google Analytics,\" \"conversion tracking,\" \"event trackin",
       "path": "coreyhaines31--marketingskills/skills/analytics/SKILL.md",
       "remote_path": "skills/analytics/SKILL.md",
-      "lines": 339,
-      "words": 1531,
+      "lines": 368,
+      "words": 2030,
       "code_blocks": 5,
       "languages": [
         "javascript",
@@ -22811,8 +22821,8 @@
       "description": "\"When the user wants to generate, iterate, or scale ad creative \u2014 headlines, descriptions, primary text, or full ad variations \u2014 for any paid advertising platform. Also use when the user mentions 'ad ",
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
-      "lines": 475,
-      "words": 3823,
+      "lines": 477,
+      "words": 3851,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -22836,8 +22846,8 @@
       "description": "When the user wants to create or optimize an email sequence, drip campaign, automated email flow, or lifecycle email program. Also use when the user mentions \"email sequence,\" \"drip campaign,\" \"nurtur",
       "path": "coreyhaines31--marketingskills/skills/emails/SKILL.md",
       "remote_path": "skills/emails/SKILL.md",
-      "lines": 341,
-      "words": 1618,
+      "lines": 343,
+      "words": 1646,
       "code_blocks": 2,
       "languages": []
     },
@@ -22906,8 +22916,8 @@
       "description": "\"When the user wants help with paid advertising campaigns on Google Ads, Meta (Facebook/Instagram), LinkedIn, Twitter/X, or other ad platforms. Also use when the user mentions 'PPC,' 'paid media,' 'RO",
       "path": "coreyhaines31--marketingskills/skills/ads/SKILL.md",
       "remote_path": "skills/ads/SKILL.md",
-      "lines": 473,
-      "words": 4024,
+      "lines": 479,
+      "words": 4218,
       "code_blocks": 2,
       "languages": []
     },
@@ -22927,7 +22937,7 @@
       "path": "coreyhaines31--marketingskills/skills/free-tools/SKILL.md",
       "remote_path": "skills/free-tools/SKILL.md",
       "lines": 191,
-      "words": 1093,
+      "words": 1104,
       "code_blocks": 0,
       "languages": []
     },
@@ -22946,8 +22956,8 @@
       "description": "\"When the user wants to run influencer, creator, or ambassador partnerships to promote their product \u2014 finding and vetting partners, structuring deals, briefing creators, disclosure compliance, and me",
       "path": "coreyhaines31--marketingskills/skills/influencer-marketing/SKILL.md",
       "remote_path": "skills/influencer-marketing/SKILL.md",
-      "lines": 208,
-      "words": 2918,
+      "lines": 210,
+      "words": 3006,
       "code_blocks": 0,
       "languages": []
     },
@@ -22966,8 +22976,8 @@
       "description": "\"When the user wants to create or update their product marketing context document. Also use when the user mentions 'product context,' 'marketing context,' 'set up context,' 'positioning,' 'who is my t",
       "path": "coreyhaines31--marketingskills/skills/product-marketing/SKILL.md",
       "remote_path": "skills/product-marketing/SKILL.md",
-      "lines": 256,
-      "words": 1409,
+      "lines": 321,
+      "words": 2124,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -22979,7 +22989,7 @@
       "path": "coreyhaines31--marketingskills/skills/marketing-loops/SKILL.md",
       "remote_path": "skills/marketing-loops/SKILL.md",
       "lines": 116,
-      "words": 1535,
+      "words": 1538,
       "code_blocks": 0,
       "languages": []
     },
@@ -22999,7 +23009,7 @@
       "path": "coreyhaines31--marketingskills/skills/ai-seo/SKILL.md",
       "remote_path": "skills/ai-seo/SKILL.md",
       "lines": 500,
-      "words": 4872,
+      "words": 5142,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -23116,8 +23126,8 @@
       "description": "\"When the user wants to edit, review, or improve existing marketing copy, or refresh outdated content. Also use when the user mentions 'edit this copy,' 'review my copy,' 'copy feedback,' 'proofread,'",
       "path": "coreyhaines31--marketingskills/skills/copy-editing/SKILL.md",
       "remote_path": "skills/copy-editing/SKILL.md",
-      "lines": 490,
-      "words": 2803,
+      "lines": 492,
+      "words": 2895,
       "code_blocks": 0,
       "languages": []
     },
@@ -23126,8 +23136,8 @@
       "description": "When the user wants to write, rewrite, or improve marketing copy for any page, including homepage, landing pages, pricing pages, feature pages, about pages, or product pages. Also use when the user sa",
       "path": "coreyhaines31--marketingskills/skills/copywriting/SKILL.md",
       "remote_path": "skills/copywriting/SKILL.md",
-      "lines": 296,
-      "words": 1774,
+      "lines": 340,
+      "words": 2419,
       "code_blocks": 0,
       "languages": []
     },
@@ -23428,13 +23438,13 @@
       "description": "Use for anything related to EAS Observe - adding `expo-observe` to an Expo project (AppMetricsRoot/ObserveRoot HOC, markInteractive and ObserveInteractiveMarker, the useObserve hook, the Expo Router /",
       "path": "expo--skills/plugins/expo/skills/eas-observe/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-observe/SKILL.md",
-      "lines": 55,
-      "words": 647,
+      "lines": 47,
+      "words": 555,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.1.0",
+      "version": "1.2.0",
       "license": "MIT"
     },
     {
@@ -26566,6 +26576,18 @@
   ],
   "remotion-dev--skills": [
     {
+      "name": "color-correction",
+      "description": "Correct exposure, white balance, and tone, and apply 3D Cube LUTs to footage.",
+      "path": "remotion-dev--skills/skills/remotion-markup/color-correction.md",
+      "remote_path": "skills/remotion-markup/color-correction.md",
+      "lines": 119,
+      "words": 531,
+      "code_blocks": 2,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
       "name": "fonts",
       "description": "Loading Google Fonts and local fonts in Remotion",
       "path": "remotion-dev--skills/skills/remotion-markup/google-fonts.md",
@@ -26659,9 +26681,9 @@
       "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
       "path": "remotion-dev--skills/skills/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-markup/sequencing.md",
-      "lines": 68,
-      "words": 303,
-      "code_blocks": 3,
+      "lines": 52,
+      "words": 215,
+      "code_blocks": 2,
       "languages": [
         "tsx"
       ]
@@ -26697,7 +26719,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/audio.md",
       "remote_path": "skills/remotion-markup/audio.md",
       "lines": 191,
-      "words": 573,
+      "words": 571,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -26735,22 +26757,22 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 475,
-      "words": 2009,
+      "lines": 472,
+      "words": 1946,
       "code_blocks": 7,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "transitions",
       "description": "Scene transitions and overlays for Remotion using TransitionSeries.",
       "path": "remotion-dev--skills/skills/remotion-markup/transitions.md",
       "remote_path": "skills/remotion-markup/transitions.md",
-      "lines": 252,
-      "words": 814,
-      "code_blocks": 9,
+      "lines": 287,
+      "words": 880,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "tsx"
@@ -26799,8 +26821,8 @@
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
       "path": "remotion-dev--skills/skills/remotion-markup/effects.md",
       "remote_path": "skills/remotion-markup/effects.md",
-      "lines": 278,
-      "words": 1105,
+      "lines": 281,
+      "words": 1115,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -26853,14 +26875,14 @@
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
       "remote_path": "skills/remotion-interactivity/SKILL.md",
-      "lines": 485,
-      "words": 2276,
+      "lines": 459,
+      "words": 2113,
       "code_blocks": 17,
       "languages": [
         "sh",
         "tsx"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "get-audio-duration",
@@ -26907,7 +26929,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-maps",
@@ -26918,7 +26940,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-studio",
@@ -26931,7 +26953,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-docs",
@@ -26942,15 +26964,15 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "display-captions",
       "description": "Displaying captions in Remotion using the Basic Captions element",
       "path": "remotion-dev--skills/skills/remotion-captions/display-captions.md",
       "remote_path": "skills/remotion-captions/display-captions.md",
-      "lines": 176,
-      "words": 662,
+      "lines": 170,
+      "words": 656,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -26981,7 +27003,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "rendering",
@@ -27014,7 +27036,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "framework",
@@ -27049,7 +27071,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-best-practices",
@@ -27062,7 +27084,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "tailwind",
@@ -27085,7 +27107,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-upgrade",
@@ -27098,7 +27120,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-maps",
@@ -27109,7 +27131,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "maps-mapbox",
@@ -27192,6 +27214,18 @@
       ]
     },
     {
+      "name": "color-correction",
+      "description": "Correct exposure, white balance, and tone, and apply 3D Cube LUTs to footage.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/color-correction.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/color-correction.md",
+      "lines": 119,
+      "words": 531,
+      "code_blocks": 2,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
       "name": "fonts",
       "description": "Loading Google Fonts and local fonts in Remotion",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/google-fonts.md",
@@ -27222,13 +27256,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 475,
-      "words": 2009,
+      "lines": 472,
+      "words": 1946,
       "code_blocks": 7,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "text-highlights",
@@ -27298,9 +27332,9 @@
       "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/sequencing.md",
-      "lines": 68,
-      "words": 303,
-      "code_blocks": 3,
+      "lines": 52,
+      "words": 215,
+      "code_blocks": 2,
       "languages": [
         "tsx"
       ]
@@ -27336,7 +27370,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/audio.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/audio.md",
       "lines": 191,
-      "words": 573,
+      "words": 571,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -27374,9 +27408,9 @@
       "description": "Scene transitions and overlays for Remotion using TransitionSeries.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/transitions.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/transitions.md",
-      "lines": 252,
-      "words": 814,
-      "code_blocks": 9,
+      "lines": 287,
+      "words": 880,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "tsx"
@@ -27425,8 +27459,8 @@
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/effects.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/effects.md",
-      "lines": 278,
-      "words": 1105,
+      "lines": 281,
+      "words": 1115,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -27479,14 +27513,14 @@
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
-      "lines": 485,
-      "words": 2276,
+      "lines": 459,
+      "words": 2113,
       "code_blocks": 17,
       "languages": [
         "sh",
         "tsx"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-multimedia",
@@ -27497,7 +27531,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "get-audio-duration",
@@ -27544,7 +27578,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-studio",
@@ -27557,7 +27591,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-docs",
@@ -27568,7 +27602,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-captions",
@@ -27581,15 +27615,15 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "display-captions",
       "description": "Displaying captions in Remotion using the Basic Captions element",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/display-captions.md",
       "remote_path": "skills/remotion-best-practices/remotion-captions/display-captions.md",
-      "lines": 176,
-      "words": 662,
+      "lines": 170,
+      "words": 656,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -27618,7 +27652,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "rendering",
@@ -27661,7 +27695,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "transparent-videos",
@@ -27688,7 +27722,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "tailwind",
@@ -27711,7 +27745,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "remotion-maps",
@@ -27722,7 +27756,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.535"
+      "version": "4.0.536"
     },
     {
       "name": "maps-mapbox",
@@ -29758,8 +29792,8 @@
       "description": "Analyzes smart contract codebases to identify state-changing entry points for security auditing. Detects externally callable functions that modify state, categorizes them by access level (public, admi",
       "path": "trailofbits--skills/plugins/entry-point-analyzer/skills/entry-point-analyzer/SKILL.md",
       "remote_path": "plugins/entry-point-analyzer/skills/entry-point-analyzer/SKILL.md",
-      "lines": 248,
-      "words": 1265,
+      "lines": 265,
+      "words": 1436,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -32988,7 +33022,7 @@
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
       "lines": 487,
-      "words": 4092,
+      "words": 4098,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -33029,6 +33063,36 @@
       "lines": 89,
       "words": 548,
       "code_blocks": 3,
+      "languages": []
+    },
+    {
+      "name": "tester",
+      "description": "Writes and runs focused tests for a change, reports gaps",
+      "path": "asklokesh--claudeskill-loki-mode/templates/agents/tester.md",
+      "remote_path": "templates/agents/tester.md",
+      "lines": 11,
+      "words": 73,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "planner",
+      "description": "Breaks a goal into small ordered tasks with acceptance checks",
+      "path": "asklokesh--claudeskill-loki-mode/templates/agents/planner.md",
+      "remote_path": "templates/agents/planner.md",
+      "lines": 11,
+      "words": 66,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "reviewer",
+      "description": "Skeptical code reviewer for correctness, tests and maintainability",
+      "path": "asklokesh--claudeskill-loki-mode/templates/agents/reviewer.md",
+      "remote_path": "templates/agents/reviewer.md",
+      "lines": 11,
+      "words": 66,
+      "code_blocks": 0,
       "languages": []
     },
     {
@@ -45159,12 +45223,12 @@
   ],
   "Masriyan--Claude-Code-CyberSecurity-Skill": [
     {
-      "name": "Network Security & Traffic Analysis",
-      "description": "Network traffic analysis, PCAP parsing, IDS/IPS rule creation, firewall configuration auditing, and network anomaly detection",
+      "name": "08-network-security",
+      "description": "Network traffic analysis, PCAP parsing, IDS/IPS rule creation, firewall",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/08-network-security/SKILL.md",
       "remote_path": "skills/08-network-security/SKILL.md",
-      "lines": 391,
-      "words": 1723,
+      "lines": 412,
+      "words": 1845,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -45173,30 +45237,30 @@
         "suricata",
         "zeek"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "CSOC Operations & Playbook Automation",
-      "description": "SOC alert triage, incident playbook automation, escalation workflows, shift reporting, and SOC KPI tracking",
+      "name": "11-csoc-automation",
+      "description": "SOC alert triage, incident playbook automation, escalation workflows,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/11-csoc-automation/SKILL.md",
       "remote_path": "skills/11-csoc-automation/SKILL.md",
-      "lines": 464,
-      "words": 2238,
+      "lines": 485,
+      "words": 2360,
       "code_blocks": 13,
       "languages": [
         "bash",
         "markdown",
         "yaml"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Cloud Security & Container Hardening",
-      "description": "AWS/Azure/GCP security auditing, container and Kubernetes hardening, Infrastructure as Code scanning, and cloud compliance assessment",
+      "name": "10-cloud-security",
+      "description": "AWS/Azure/GCP security auditing, container and Kubernetes hardening,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/10-cloud-security/SKILL.md",
       "remote_path": "skills/10-cloud-security/SKILL.md",
-      "lines": 474,
-      "words": 2146,
+      "lines": 495,
+      "words": 2268,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -45205,44 +45269,44 @@
         "markdown",
         "yaml"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Red Team Operations & Engagement Planning",
-      "description": "Authorized red team engagement planning, C2 architecture design, attack methodology, lateral movement strategy, OPSEC, and professional reporting",
+      "name": "14-red-team-ops",
+      "description": "Authorized red team engagement planning, C2 architecture design, attack",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/14-red-team-ops/SKILL.md",
       "remote_path": "skills/14-red-team-ops/SKILL.md",
-      "lines": 431,
-      "words": 2149,
+      "lines": 452,
+      "words": 2270,
       "code_blocks": 14,
       "languages": [
         "apache",
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "GRC & Compliance",
-      "description": "Governance, risk, and compliance \u2014 risk assessment and scoring, control mapping across NIST CSF 2.0 / ISO 27001:2022 / SOC 2 / CIS Controls v8, gap analysis, audit evidence preparation, and security p",
+      "name": "19-grc-compliance",
+      "description": "Governance, risk, and compliance \u2014 risk assessment and scoring, control",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/19-grc-compliance/SKILL.md",
       "remote_path": "skills/19-grc-compliance/SKILL.md",
-      "lines": 169,
-      "words": 1197,
+      "lines": 191,
+      "words": 1321,
       "code_blocks": 6,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Blue Team Defense & Hardening",
-      "description": "System hardening, detection engineering, security baseline monitoring, patch management, defense-in-depth architecture, and security posture improvement",
+      "name": "15-blue-team-defense",
+      "description": "System hardening, detection engineering, security baseline monitoring,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/15-blue-team-defense/SKILL.md",
       "remote_path": "skills/15-blue-team-defense/SKILL.md",
-      "lines": 757,
-      "words": 3408,
+      "lines": 778,
+      "words": 3530,
       "code_blocks": 24,
       "languages": [
         "bash",
@@ -45252,15 +45316,15 @@
         "yaml",
         "yara"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Exploit Development & Payload Engineering",
-      "description": "Proof-of-concept development, payload crafting, shellcode analysis, and exploitation technique research for authorized security testing",
+      "name": "03-exploit-development",
+      "description": "Proof-of-concept development, payload crafting, shellcode analysis, and",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/03-exploit-development/SKILL.md",
       "remote_path": "skills/03-exploit-development/SKILL.md",
-      "lines": 366,
-      "words": 1620,
+      "lines": 386,
+      "words": 1742,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -45268,72 +45332,72 @@
         "python",
         "sql"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Reconnaissance & OSINT Automation",
-      "description": "Passive and active reconnaissance, subdomain enumeration, DNS analysis, technology fingerprinting, and OSINT data correlation for authorized security assessments",
+      "name": "01-recon-osint",
+      "description": "Passive and active reconnaissance, subdomain enumeration, DNS analysis,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/01-recon-osint/SKILL.md",
       "remote_path": "skills/01-recon-osint/SKILL.md",
-      "lines": 297,
-      "words": 1569,
+      "lines": 317,
+      "words": 1692,
       "code_blocks": 9,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Supply Chain Security",
-      "description": "Software supply chain security \u2014 SBOM generation and analysis, dependency confusion and typosquatting detection, malicious package indicators, CI/CD pipeline hardening, and artifact provenance/signing",
+      "name": "20-supply-chain-security",
+      "description": "Software supply chain security \u2014 SBOM generation and analysis, dependency",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/20-supply-chain-security/SKILL.md",
       "remote_path": "skills/20-supply-chain-security/SKILL.md",
-      "lines": 201,
-      "words": 1532,
+      "lines": 223,
+      "words": 1656,
       "code_blocks": 5,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Reverse Engineering & Binary Analysis",
-      "description": "Binary analysis, assembly interpretation, disassembly, decompilation, firmware RE, and protocol reverse engineering",
+      "name": "04-reverse-engineering",
+      "description": "Binary analysis, assembly interpretation, disassembly, decompilation,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/04-reverse-engineering/SKILL.md",
       "remote_path": "skills/04-reverse-engineering/SKILL.md",
-      "lines": 363,
-      "words": 1900,
+      "lines": 384,
+      "words": 2022,
       "code_blocks": 13,
       "languages": [
         "bash",
         "java",
         "python"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Mobile Application Security",
-      "description": "Android and iOS application security testing \u2014 static and dynamic analysis, APK/IPA inspection, OWASP MASVS/MASTG verification, secure-storage and transport review, and mobile malware triage for autho",
+      "name": "17-mobile-security",
+      "description": "Android and iOS application security testing \u2014 static and dynamic analysis,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/17-mobile-security/SKILL.md",
       "remote_path": "skills/17-mobile-security/SKILL.md",
-      "lines": 173,
-      "words": 1063,
+      "lines": 195,
+      "words": 1187,
       "code_blocks": 3,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Log Analysis & SIEM Integration",
-      "description": "Security log parsing, anomaly detection, SIEM query building, Sigma rule creation, and correlation rule development across Splunk, Elastic, QRadar, and Microsoft Sentinel",
+      "name": "12-log-analysis",
+      "description": "Security log parsing, anomaly detection, SIEM query building, Sigma rule",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/12-log-analysis/SKILL.md",
       "remote_path": "skills/12-log-analysis/SKILL.md",
-      "lines": 437,
-      "words": 2050,
+      "lines": 459,
+      "words": 2172,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -45344,129 +45408,129 @@
         "spl",
         "yaml"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "OT / ICS / SCADA Security",
-      "description": "Operational Technology and industrial control system security \u2014 Purdue model segmentation, industrial protocol analysis (Modbus, DNP3, S7, EtherNet/IP), PLC/HMI exposure, IEC 62443 alignment, and MITR",
+      "name": "18-ot-ics-security",
+      "description": "Operational Technology and industrial control system security \u2014 Purdue",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/18-ot-ics-security/SKILL.md",
       "remote_path": "skills/18-ot-ics-security/SKILL.md",
-      "lines": 163,
-      "words": 1182,
+      "lines": 186,
+      "words": 1303,
       "code_blocks": 3,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Malware Analysis & Sandboxing",
-      "description": "Static and dynamic malware analysis, YARA rule generation, sandbox configuration, behavioral profiling, and malware family classification",
+      "name": "05-malware-analysis",
+      "description": "Static and dynamic malware analysis, YARA rule generation, sandbox configuration,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/05-malware-analysis/SKILL.md",
       "remote_path": "skills/05-malware-analysis/SKILL.md",
-      "lines": 400,
-      "words": 1856,
+      "lines": 421,
+      "words": 1979,
       "code_blocks": 13,
       "languages": [
         "bash",
         "markdown",
         "yara"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Threat Intelligence & CTI",
-      "description": "Cyber threat intelligence production \u2014 the intelligence cycle, IOC extraction/normalization/enrichment, STIX/TAXII and MISP, structured analytic models (Diamond, Kill Chain, ATT&CK), source scoring, a",
+      "name": "21-threat-intelligence",
+      "description": "Cyber threat intelligence production \u2014 the intelligence cycle, IOC extraction/normalization/enrichment,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/21-threat-intelligence/SKILL.md",
       "remote_path": "skills/21-threat-intelligence/SKILL.md",
-      "lines": 205,
-      "words": 1814,
+      "lines": 237,
+      "words": 1996,
       "code_blocks": 3,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Purple Team & Adversary Emulation",
-      "description": "Collaborative purple-team operations \u2014 threat-informed adversary emulation planning (ATT&CK, CTID, Atomic Red Team, CALDERA), the detect-tune-validate loop, detection coverage measurement (DeTT&CT/Nav",
+      "name": "22-purple-team",
+      "description": "Collaborative purple-team operations \u2014 threat-informed adversary emulation",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/22-purple-team/SKILL.md",
       "remote_path": "skills/22-purple-team/SKILL.md",
-      "lines": 221,
-      "words": 1752,
+      "lines": 250,
+      "words": 1915,
       "code_blocks": 5,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "AI & LLM Security",
-      "description": "LLM and AI application security testing \u2014 prompt injection, jailbreak resistance, OWASP LLM Top 10 (2025), RAG and agent/tool-use security, model supply chain, and AI red teaming for authorized assess",
+      "name": "16-ai-llm-security",
+      "description": "LLM and AI application security testing \u2014 prompt injection, jailbreak",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/16-ai-llm-security/SKILL.md",
       "remote_path": "skills/16-ai-llm-security/SKILL.md",
-      "lines": 193,
-      "words": 1383,
+      "lines": 215,
+      "words": 1506,
       "code_blocks": 4,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Incident Response & Digital Forensics",
-      "description": "IR playbook execution, evidence collection, forensic timeline analysis, memory forensics, and post-incident reporting following NIST SP 800-61 and SANS PICERL methodology",
+      "name": "07-incident-response",
+      "description": "IR playbook execution, evidence collection, forensic timeline analysis,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/07-incident-response/SKILL.md",
       "remote_path": "skills/07-incident-response/SKILL.md",
-      "lines": 402,
-      "words": 2048,
+      "lines": 424,
+      "words": 2170,
       "code_blocks": 10,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Vulnerability Scanning & Assessment",
-      "description": "Dependency auditing, CVE detection, configuration security review, CVSS scoring, and prioritized vulnerability reporting",
+      "name": "02-vulnerability-scanner",
+      "description": "Dependency auditing, CVE detection, configuration security review, CVSS",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/02-vulnerability-scanner/SKILL.md",
       "remote_path": "skills/02-vulnerability-scanner/SKILL.md",
-      "lines": 321,
-      "words": 1621,
+      "lines": 341,
+      "words": 1744,
       "code_blocks": 12,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Cryptographic Analysis & Assessment",
-      "description": "SSL/TLS auditing, cipher suite analysis, hash algorithm identification, encryption implementation review, and cryptographic weakness detection in code",
+      "name": "13-crypto-analysis",
+      "description": "SSL/TLS auditing, cipher suite analysis, hash algorithm identification,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/13-crypto-analysis/SKILL.md",
       "remote_path": "skills/13-crypto-analysis/SKILL.md",
-      "lines": 372,
-      "words": 1979,
+      "lines": 392,
+      "words": 2102,
       "code_blocks": 10,
       "languages": [
         "bash",
         "nginx",
         "python"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Web Application Security Testing",
-      "description": "OWASP Top 10 testing, injection vulnerability detection, API security assessment, authentication testing, and web vulnerability reporting for authorized assessments",
+      "name": "09-web-security",
+      "description": "OWASP Top 10 testing, injection vulnerability detection, API security",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/09-web-security/SKILL.md",
       "remote_path": "skills/09-web-security/SKILL.md",
-      "lines": 459,
-      "words": 1959,
+      "lines": 480,
+      "words": 2082,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -45475,15 +45539,15 @@
         "python",
         "sql"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     },
     {
-      "name": "Threat Hunting & IOC Analysis",
-      "description": "IOC extraction, threat intelligence correlation, MITRE ATT&CK mapping, hunt hypothesis generation, and detection rule creation",
+      "name": "06-threat-hunting",
+      "description": "IOC extraction, threat intelligence correlation, MITRE ATT&CK mapping,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/06-threat-hunting/SKILL.md",
       "remote_path": "skills/06-threat-hunting/SKILL.md",
-      "lines": 404,
-      "words": 1723,
+      "lines": 434,
+      "words": 1926,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -45494,7 +45558,7 @@
         "spl",
         "yaml"
       ],
-      "version": "3.1.0"
+      "license": "MIT"
     }
   ],
   "pitimon--claude-cybersecurity-skill": [
@@ -157179,8 +157243,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1332,
-      "words": 12857,
+      "lines": 1351,
+      "words": 13043,
       "code_blocks": 71,
       "languages": [
         "bash",
@@ -157646,8 +157710,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/references/original-media-and-reader.md",
       "remote_path": "feishu-doc-scraper/references/original-media-and-reader.md",
-      "lines": 184,
-      "words": 1450,
+      "lines": 194,
+      "words": 1533,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -157959,8 +158023,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/lark-cli-router/SKILL.md",
       "remote_path": "daymade-claude-code/lark-cli-router/SKILL.md",
-      "lines": 166,
-      "words": 1226,
+      "lines": 161,
+      "words": 1207,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -158388,8 +158452,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/references/skill-composition.md",
       "remote_path": "app-evolver/references/skill-composition.md",
-      "lines": 83,
-      "words": 681,
+      "lines": 88,
+      "words": 719,
       "code_blocks": 0,
       "languages": []
     },
@@ -181158,8 +181222,8 @@
       "description": "\"Quick reference for ponytail's modes, skills, and commands. One-shot display.\"",
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-help/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-help/SKILL.md",
-      "lines": 71,
-      "words": 406,
+      "lines": 76,
+      "words": 437,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -181236,8 +181300,8 @@
       "description": ">",
       "path": "dietrichgebert--ponytail/skills/ponytail-help/SKILL.md",
       "remote_path": "skills/ponytail-help/SKILL.md",
-      "lines": 71,
-      "words": 413,
+      "lines": 76,
+      "words": 444,
       "code_blocks": 2,
       "languages": [
         "bash",

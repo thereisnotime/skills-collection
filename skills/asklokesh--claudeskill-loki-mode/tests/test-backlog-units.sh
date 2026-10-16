@@ -36,11 +36,19 @@ id="${LOKI_UNIT_ID:-issue-${1##*#}}"
 echo "start $id $(git branch --show-current) args=$*" >> "$MOCK_DIR/events"
 mkdir "$MOCK_DIR/lock.$id"
 ls -d "$MOCK_DIR"/lock.* | wc -l | tr -d ' ' >> "$MOCK_DIR/conc"
+if [ -n "${LOKI_UNIT_ID:-}" ]; then
+    echo "head $id $(git rev-parse HEAD)" >> "$MOCK_DIR/events"
+    echo "spec $id ${LOKI_UNIT_SPEC:-none} speed=${LOKI_SPEED:-unset}" >> "$MOCK_DIR/events"
+    rd=".loki/runs/r1"; mkdir -p "$rd"
+    if [ "$id" = "${MOCK_SYMLINK:-}" ]; then ln -s "$MOCK_DIR/secret.json" "$rd/receipt.json"; else echo "{\"unit\":\"$id\"}" > "$rd/receipt.json"; fi
+    echo "{\"ev\":\"$id\"}" > "$rd/events.jsonl"
+fi
 sleep 1
 rmdir "$MOCK_DIR/lock.$id"
 if [ "$id" = "${MOCK_FAIL:-}" ]; then echo "Outcome:    FAILED"; echo "Reason:     boom"; echo "end $id fail" >> "$MOCK_DIR/events"; exit 1; fi
 echo "end $id ok" >> "$MOCK_DIR/events"
 echo "Outcome:    VERIFIED"; echo "PR:         none"
+[ -n "${MOCK_COST:-}" ] && echo "Cost:       \$$MOCK_COST (claude, 10k tokens)"
 exit 0
 LEOF
 chmod +x "$TMP/launcher.sh"
@@ -64,7 +72,7 @@ cat > "$TMP/dag.json" <<'DEOF'
  "edges":[{"from":"a","to":"b","via":"x"},{"from":"b","to":"d","via":"y"},{"from":"c","to":"d","via":"z"}]}
 DEOF
 
-reset_mock() { rm -rf "$TMP"/lock.* "$TMP"/events "$TMP"/conc "$HOME/.loki"; MOCK_FAIL=""; export MOCK_FAIL; }
+reset_mock() { rm -rf "$REPO/.loki/groups"; rm -rf "$TMP"/lock.* "$TMP"/events "$TMP"/conc "$HOME/.loki"; MOCK_FAIL=""; export MOCK_FAIL; }
 # Line number of the first event matching $1 in the events file.
 ev() { grep -n "$1" "$TMP/events" | head -1 | cut -d: -f1; }
 maxconc() { sort -n "$TMP/conc" | tail -1; }
@@ -134,6 +142,73 @@ echo "== summary header (S5)"
 reset_mock
 out="$($TO bash "$LOKI" backlog acme/widgets --dag "$TMP/dag.json" --concurrency 3 2>&1)"
 grep -q '^ITEM ' <<<"$out" && ! grep -q '^ISSUE ' <<<"$out" && pass "summary header says ITEM, not ISSUE" || fail "summary header" "$out"
+
+echo "== receipts, resume, frozen spec (V118-02)"
+GU="$REPO/.loki/groups/g1/group/units"
+reset_mock
+echo '{"secret":1}' > "$TMP/secret.json"
+cat > "$TMP/dag2.json" <<DEOF
+{"group":"g1","units":[
+ {"id":"a","items":["do a"],"done":true},
+ {"id":"b","items":["do b"],"deps":["a"],"spec":"$TMP/accept.json"},
+ {"id":"c","items":["do c"]}]}
+DEOF
+out="$(MOCK_FAIL=c MOCK_SYMLINK=b $TO bash "$LOKI" backlog acme/widgets --dag "$TMP/dag2.json" --concurrency 2 2>&1)"
+grep -q 'backlog: unit-g1-1 VERIFIED (resumed)' <<<"$out" && pass "done unit reports VERIFIED (resumed)" || fail "resumed line" "$out"
+! grep -q '^start a ' "$TMP/events" && pass "launcher never called for the done unit" || fail "done launched" "$(cat "$TMP/events")"
+grep -q '^start b ' "$TMP/events" && pass "dependent of a done unit still runs" || fail "dependent" "$(cat "$TMP/events")"
+grep -q "^spec b $TMP/accept.json speed=1" "$TMP/events" && pass "spec unit gets LOKI_UNIT_SPEC and LOKI_SPEED=1" || fail "spec env" "$(cat "$TMP/events")"
+grep -q '^spec c none speed=unset' "$TMP/events" && pass "unit without spec gets neither" || fail "no spec env" "$(cat "$TMP/events")"
+grep -q '"unit":"c"' "$GU/c/receipt.json" 2>/dev/null && [ -f "$GU/c/events.jsonl" ] && pass "failed unit receipt and events harvested" || fail "fail harvest" "$(ls -R "$REPO/.loki" 2>&1 | head -20)"
+[ ! -e "$GU/b/receipt.json" ] && pass "symlinked receipt is not copied" || fail "symlink copied" "$(ls -l "$GU/b")"
+mode="$(stat -c %a "$GU/c" 2>/dev/null || stat -f %Lp "$GU/c")"
+[ "$mode" = "700" ] && pass "harvest dir mode 0700" || fail "mode" "$mode"
+
+echo "== unit base forwarded to the worktree (fix units start at the group tip)"
+git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+git -C "$REPO" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+git -C "$REPO" -c user.name=t -c user.email=t@t commit -q --allow-empty -m tip
+TIP="$(git -C "$REPO" rev-parse HEAD)"; ORIGIN="$(git -C "$REPO" rev-parse origin/HEAD)"
+cat > "$TMP/dagb.json" <<DEOF
+{"group":"gb","units":[{"id":"fixu-1","items":["fix"],"base":"$TIP"}]}
+DEOF
+for ws in 1 0; do
+    reset_mock
+    LOKI_WORKSPACES=$ws $TO bash "$LOKI" backlog acme/widgets --dag "$TMP/dagb.json" >/dev/null 2>&1
+    grep -q "^head fixu-1 $TIP" "$TMP/events" && pass "LOKI_WORKSPACES=$ws: unit with base starts at the base, not origin/HEAD" || fail "base ws=$ws" "$(cat "$TMP/events" 2>&1) origin=$ORIGIN"
+done
+reset_mock
+sed 's/,"base":"[0-9a-f]*"//' "$TMP/dagb.json" > "$TMP/dagn.json"
+LOKI_WORKSPACES=1 $TO bash "$LOKI" backlog acme/widgets --dag "$TMP/dagn.json" >/dev/null 2>&1
+grep -q "^head fixu-1 $ORIGIN" "$TMP/events" && pass "control: no base under workspaces starts at origin/HEAD" || fail "control" "$(cat "$TMP/events" 2>&1)"
+
+echo "== non-hex base: ref resolves to its SHA, unresolvable fails loudly"
+git -C "$REPO" branch -f basebr "$TIP"
+sed 's/"base":"[0-9a-f]*"/"base":"basebr"/' "$TMP/dagb.json" > "$TMP/dagr.json"
+for ws in 1 0; do
+    reset_mock
+    LOKI_WORKSPACES=$ws $TO bash "$LOKI" backlog acme/widgets --dag "$TMP/dagr.json" >/dev/null 2>&1
+    grep -q "^head fixu-1 $TIP" "$TMP/events" && pass "LOKI_WORKSPACES=$ws: ref-name base resolved to its SHA" || fail "ref base ws=$ws" "$(cat "$TMP/events" 2>&1)"
+done
+for bad in nosuchref -x; do
+    reset_mock
+    sed "s/\"base\":\"[0-9a-f]*\"/\"base\":\"$bad\"/" "$TMP/dagb.json" > "$TMP/dagx.json"
+    out="$($TO bash "$LOKI" backlog acme/widgets --dag "$TMP/dagx.json" 2>&1)"; rc=$?
+    [ "$rc" -ne 0 ] && echo "$out" | grep -q "base '$bad' is not a commit SHA" && [ ! -s "$TMP/events" ] && pass "bad base '$bad' fails loudly, nothing launched" || fail "bad base $bad" "rc=$rc $out"
+done
+
+echo ""
+echo "== group budget: LOKI_BUDGET_LIMIT bounds the sum of units"
+cat > "$TMP/dagc.json" <<'DEOF'
+{"group":"gc","units":[{"id":"x","items":["do x"]},{"id":"y","items":["do y"]},{"id":"z","items":["do z"]}],"edges":[]}
+DEOF
+reset_mock
+out="$(MOCK_COST=0.80 LOKI_BUDGET_LIMIT=1 $TO bash "$LOKI" backlog acme/widgets --dag "$TMP/dagc.json" --concurrency 1 2>&1)"; rc=$?
+[ "$(grep -c '^start ' "$TMP/events")" = "2" ] && pass "third unit not launched once group total >= cap" || fail "group cap launches" "$(cat "$TMP/events") $out"
+echo "$out" | grep -q 'BUDGET_STOP: group budget' && [ "$rc" -ne 0 ] && pass "pending unit reports group BUDGET_STOP" || fail "group stop line" "rc=$rc $out"
+reset_mock
+out="$(MOCK_COST=0.80 $TO bash "$LOKI" backlog acme/widgets --dag "$TMP/dagc.json" --concurrency 1 2>&1)"
+[ "$(grep -c '^start ' "$TMP/events")" = "3" ] && pass "no cap set: all units run" || fail "no cap" "$out"
 
 echo ""
 echo "Passed: $PASS  Failed: $FAIL"

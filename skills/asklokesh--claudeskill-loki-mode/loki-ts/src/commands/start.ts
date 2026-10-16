@@ -13,8 +13,10 @@
 // (--compliance, mirofish) are rejected loudly and documented. See
 // artifacts/ITER1-FLAG-RECONCILE.md.
 
+import { DEFAULT_MAX_COST_USD } from "../e10ext/budget_cap.ts"; // LM-002: help states the real default
 import type { ProviderName, SessionTier } from "../runner/types.ts";
 import { tokenFreeEnv } from "../util/safe_git.ts";
+import { REPO_ROOT } from "../util/paths.ts";
 
 function argVal(args: readonly string[], flag: string): string | undefined {
   const i = args.indexOf(flag);
@@ -86,7 +88,7 @@ function hasSpecFlag(args: readonly string[]): boolean {
   return args.some((a) => a === "--spec" || a.startsWith("--spec=") || a === "--spec-first");
 }
 
-const VALID_PROVIDERS = new Set(["claude", "codex", "cline", "aider"]);
+const VALID_PROVIDERS = new Set(["claude", "codex", "cline", "aider", "opencode"]);
 // The session-pin values run.sh's LOKI_SESSION_MODEL case accepts: the three
 // tier names plus the Claude aliases (opus is the top-only setting; bash
 // dispatches it as opus, not as the sonnet-defaulted planning tier).
@@ -136,17 +138,20 @@ export interface ParsedStartOpts {
   noPr?: boolean; // --attempts / --spec only: forwarded to engine10; absent = normal PR behavior
 }
 
-const START_USAGE =
+export const START_USAGE =
   "usage: loki start <spec> [--max-iterations N] [--max-retries N] [--budget-limit USD]\n" +
-  "                        [--provider claude|codex|cline|aider] [--session-model small|medium|high|opus|sonnet|haiku]\n" +
+  "                        [--provider claude|codex|cline|aider|opencode] [--session-model small|medium|high|opus|sonnet|haiku]\n" +
   "                        [--completion-promise TEXT] [--base-wait S] [--max-wait S]\n" +
   "                        [--prd FILE | --brief TEXT] [--simple|--complex] [--allow-haiku]\n" +
   "                        [--regen-prd] [--skip-memory]\n" +
   "                        [--spec FILE | --spec-first]\n" +
+  "                        [--workspace NAME | --deploy [--health-url URL [--health-match STR]] [--auto-rollback]]\n" +
   "  <spec> = a PRD path, or a one-line brief. (Issue refs / --github / --parallel /\n" +
   "  --sandbox, opencode, and other shell-adapter paths run on the bash route automatically.)\n" +
+  "  --workspace NAME  run the loki.yaml workspace NAME for the brief; --deploy deploys after the run through the gated loki deploy --execute\n" +
   "  --spec-first  write the acceptance criteria to .loki/specs/<slug>.md and stop, so you can edit them\n" +
   "  --spec FILE   run Loki 10 against an edited spec as the authoritative intent (a spec that does not parse exits 2 with the line)\n" +
+  `  --budget-limit USD  per-run spend cap (default $${DEFAULT_MAX_COST_USD}; Loki 10 applies it with an API key and none on a subscription; see docs/cost-controls.md)\n` +
   "       loki start <spec> --attempts N [--no-pr] [--provider P] [--budget USD] [--session-model T]\n" +
   "  --attempts N  run N (1-5) independent Loki 10 engine attempts in separate git worktrees; the one with\n" +
   "                the most executed passing checks is applied and every loser is recorded on the attempts\n" +
@@ -302,18 +307,29 @@ export function startEngine(o: ParsedStartOpts): "runner" | "attempts" | "spec" 
   return o.attempts === undefined ? "runner" : "attempts";
 }
 
+/** A jira:/linear: ref exports LOKI_WRITEBACK_ISSUE and LOKI_WRITEBACK_KIND so tracker writeback keys off the intake ref (returns a copy when set). */
+export function writebackEnv(task: string, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const m = /^(jira|linear):([A-Za-z][A-Za-z0-9_]*-\d+)$/.exec(task.trim());
+  return m ? { ...env, LOKI_WRITEBACK_ISSUE: m[2]!.toUpperCase(), LOKI_WRITEBACK_KIND: m[1]! } : env;
+}
+
+/** The engine10 argv for one start (pure; the cap flag reaches the plan route too). */
+export function engineArgv(o: ParsedStartOpts, task: string, forceNoPr: boolean): string[] {
+  const argv = o.specFirst ? [process.argv[1] ?? "", "engine10", "plan", task, "--spec"] : [process.argv[1] ?? "", "engine10", ...(task ? [task] : [])];
+  if (o.specPath) argv.push("--spec", o.specPath);
+  if (o.specFirst) { if (o.provider) argv.push("--provider", o.provider); if (o.budgetLimit !== undefined) argv.push("--max-cost", String(o.budgetLimit)); return argv; }
+  if (forceNoPr || o.noPr) argv.push("--no-pr");
+  if (o.provider) argv.push("--provider", o.provider);
+  if (o.budgetLimit !== undefined) argv.push("--max-cost", String(o.budgetLimit)); // FC-37: per-run cap, never dropped
+  return argv;
+}
 /** One engine10 run (FC-38: the only engine `start --attempts` may reach; it seals a receipt). */
 async function runEngine10(cwd: string, o: ParsedStartOpts, env: NodeJS.ProcessEnv, forceNoPr: boolean): Promise<number> {
   const { existsSync, readFileSync, statSync } = await import("node:fs");
   const spec = o.prdPath;
   const task = spec !== "" && existsSync(spec) && statSync(spec).isFile() ? readFileSync(spec, "utf8") : spec;
-  const argv = o.specFirst ? [process.argv[1] ?? "", "engine10", "plan", task, "--spec"] : [process.argv[1] ?? "", "engine10", ...(task ? [task] : [])];
-  if (o.specPath) argv.push("--spec", o.specPath);
-  if (o.specFirst) { if (o.provider) argv.push("--provider", o.provider); return await spawnEngine(cwd, argv, env); }
-  if (forceNoPr || o.noPr) argv.push("--no-pr");
-  if (o.provider) argv.push("--provider", o.provider);
-  if (o.budgetLimit !== undefined) argv.push("--max-cost", String(o.budgetLimit)); // FC-37: per-run cap, never dropped
-  return await spawnEngine(cwd, argv, env);
+  env = writebackEnv(task, env);
+  return await spawnEngine(cwd, engineArgv(o, task, forceNoPr), env);
 }
 
 async function spawnEngine(cwd: string, argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
@@ -325,7 +341,32 @@ async function spawnEngine(cwd: string, argv: string[], env: NodeJS.ProcessEnv):
   });
 }
 
+/** PATH slice: --workspace / --deploy (and their --health-url / --auto-rollback modifiers) are bash-route orchestration. Alone they divert to autonomy/loki; with --attempts or --spec they fall through and are refused loudly. */
+export function isBashOnlyStart(args: readonly string[]): boolean {
+  if (hasAttemptsFlag(args) || hasSpecFlag(args)) return false;
+  return args.some((a) => a === "--workspace" || a.startsWith("--workspace=") || a === "--deploy");
+}
+
+const START_ENV_NAMES = new Set(["PATH", "HOME", "USER", "LOGNAME", "SHELL", "TERM", "TMPDIR", "LANG", "TZ", "CI", "NO_COLOR", "SSH_AUTH_SOCK", "LOKI_RUN_TMP"]);
+const START_ENV_PREFIXES = ["LOKI_", "LC_", "XDG_", "NODE_", "BUN_", "ANTHROPIC_", "CLAUDE_", "OPENAI_", "CODEX_", "GEMINI_", "GOOGLE_", "OPENROUTER_", "OLLAMA_", "AWS_", "AZURE_", "GH_", "GITHUB_"];
+/** Scoped child env for the bash divert: an explicit allowlist (plan section 3), never the whole env plus unrelated secrets. */
+export function scopedStartEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const out: NodeJS.ProcessEnv = {};
+  for (const [k, v] of Object.entries(env)) {
+    if (v !== undefined && (START_ENV_NAMES.has(k) || START_ENV_PREFIXES.some((p) => k.startsWith(p)))) out[k] = v;
+  }
+  return out;
+}
+
 export async function runStart(args: readonly string[]): Promise<number> {
+  if (isBashOnlyStart(args)) {
+    const { spawn } = await import("node:child_process");
+    return await new Promise<number>((resolveExit) => {
+      const child = spawn("bash", [`${REPO_ROOT}/autonomy/loki`, "start", ...args], { env: scopedStartEnv(process.env), stdio: "inherit" });
+      child.on("error", () => resolveExit(1));
+      child.on("close", (code) => resolveExit(code ?? 1));
+    });
+  }
   const parsed = parseStartArgs(args);
   if (typeof parsed === "number") return parsed;
   if (startEngine(parsed) === "runner") {
@@ -335,6 +376,12 @@ export async function runStart(args: readonly string[]): Promise<number> {
   if (startEngine(parsed) === "spec") return runEngine10(process.cwd(), parsed, process.env, false);
   const { attempts, ...runnerOpts } = parsed;
   const { runAttempts, productionDeps } = await import("../runner/attempts.ts");
+  const { perAttemptCap, resolveCap, capNote } = await import("../e10ext/budget_cap.ts");
+  // One total for N attempts: each child run gets total/N, so --attempts 3 cannot triple the spend.
+  const total = resolveCap(runnerOpts.budgetLimit !== undefined ? String(runnerOpts.budgetLimit) : null, process.cwd(), process.env);
+  const share = "error" in total ? undefined : perAttemptCap(total.usd, attempts ?? 1);
+  const attemptOpts = share !== undefined && (attempts ?? 1) > 1 ? { ...runnerOpts, budgetLimit: share } : runnerOpts;
+  if (share !== undefined && "usd" in total && (attempts ?? 1) > 1) process.stdout.write(`${capNote(total.usd, total.source)} shared by ${attempts} attempts: $${share.toFixed(2)} each\n`);
   const deps = productionDeps(
     process.cwd(),
     () => runEngine10(process.cwd(), runnerOpts, process.env, false),
@@ -344,7 +391,7 @@ export async function runStart(args: readonly string[]): Promise<number> {
       // Token-free: attempts never push (forced --no-pr; only push-pr after all attempts has credentials), so no attempt process needs GH_TOKEN or SSH_AUTH_SOCK.
       const env = tokenFreeEnv({ ...process.env, LOKI_DIR: `${wt}/.loki` });
       delete env["LOKI_RUN_TMP"];
-      return runEngine10(wt, runnerOpts, env, true);
+      return runEngine10(wt, attemptOpts, env, true);
     },
     { noPr: runnerOpts.noPr === true },
   );

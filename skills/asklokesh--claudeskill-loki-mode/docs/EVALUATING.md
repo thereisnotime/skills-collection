@@ -184,6 +184,52 @@ per-call cost was not recorded.
 
 ---
 
+## 8. Harness attribution: what Loki adds to the same model
+
+Question: what does Loki add to the same underlying coding agent, and is the benefit worth its cost? Status: pilot. Six tasks, small n. A pilot reports variance; it is not proof of superiority. Running it is a separate, paid step.
+
+```bash
+loki bench attribution --dry-run                       # validate task set, print plan, no model call
+loki bench attribution --model <model-id> --execute    # run, spends API budget
+loki bench attribution --report <result.json>          # re-render the markdown report
+```
+
+Source checkout only. Implementation: `benchmarks/bench/attribution.py`, reusing `runner._apply_overlay`, `report._median` and `benchmarks/bench/adapters` (process-tree reaping, the Claude JSON parser, the Loki adapter and its cost collection). Options: `--tasks id,id`, `--repeats N` (default 1), `--model ID` (default `claude-sonnet-5`, or `LOKI_BENCH_MODEL`), `--budget-usd X` (default 5), `--timeout SECONDS` (default 900, capped by each task's `agent_timeout_s`), `--out-dir DIR`, `--tasks-dir DIR`. Without `--execute` it only prints the plan and never spawns `claude` or `loki`.
+
+Arms and controls: `raw_claude` runs `claude -p <prompt> --output-format json --model M --dangerously-skip-permissions --max-budget-usd B`; `loki` runs `loki start <prompt-file> --provider claude --no-dashboard --yes` with `LOKI_SESSION_MODEL=M` and `LOKI_BUDGET_LIMIT=B`. Both get a byte-identical seed in a fresh git repo with one fixed "seed" commit, the same prompt text (the PRD file for Loki is kept outside the workspace), the same wall-clock cap with the process tree reaped on timeout, separate scratch directories, a scoped child environment and `LOKI_NO_BROWSER=1`. The arm that goes first alternates per task and repeat. Every result JSON pins `claude --version`, `loki version`, the Loki commit SHA, Python version, model, budget, timeout, repeats, and per task the sha256 of the seed tree, acceptance tree and prompt. Disclosed difference: Loki runs its own planning, review and verification loop; that overhead is what is measured. Provider comparisons are out of scope so model and harness effects are not mixed.
+
+Tasks live under `benchmarks/attribution/tasks/<id>/` (2 bug fixes, 2 features, 1 refactor, 1 integration): `task.json`, `prompt.md` (the only instruction either arm sees), `seed/` (workspace), `acceptance/` (hidden test, copied in only after the run, overwriting same-named files) and `reference/` (known-good overlay, used only by tests). Exit code 0 from `acceptance.cmd` means accepted. The loader rejects a task whose acceptance test also appears in the seed. Neither arm grades itself: no council, RARV-C or LLM judge takes part in scoring.
+
+Metrics, per arm and per task class, computed by `compute_metrics`; failures, timeouts and harness errors stay in every denominator:
+
+- Acceptance rate: accepted / assigned, with a 95% Wilson interval.
+- False-completion rate: (reported success and not accepted) / reported success; null when nothing reported success. Reported success means `claude -p` exits 0 with `is_error` false, or `loki start` exits 0.
+- Cost per accepted task: total measured spend across all attempts / accepted. Null (`undefined_no_accepted`) when none accepted. A run with no cost figure is `unmeasured`, never zero: some unmeasured gives `partial_lower_bound` (per-accepted null, lower bound only), all unmeasured gives `unmeasured`. Cost is API-dollar accounting; subscription use is not converted.
+- Elapsed time: median over accepted runs, with completion rate, timeout count and error count; median over all runs is also given.
+
+Not measured: human effort, recovery success, review quality. Output: `--out-dir` (default `benchmarks/attribution/results/`) receives `attribution-<UTC stamp>.json` and the matching `.md`. Publish failures, timeouts and exclusions with the report; do not drop rows. Do not claim superiority from overlapping intervals on a handful of runs; use the pilot to size a larger run with `--repeats` above 1. Tests: `python3 benchmarks/bench/tests/test_attribution.py` (no model call).
+
+---
+
+## 9. Factory-vs-Loki task set (reproducible, partly unmeasured)
+
+`benchmarks/attribution/tasks/coord-1-api-web/` (multi-repo coordination) and `benchmarks/attribution/tasks/longspec-1-three-units/` (long spec, three units) ship with held-out acceptance kept outside the workspace. `benchmarks/bench/attribution.py` has three arms: `raw_claude`, `loki` and an optional `droid` arm. The droid arm probes `droid exec --help`; when `droid exec` is unavailable every droid cell is recorded UNMEASURED with a reason, never zero. `python3 benchmarks/bench/attribution.py --dry-run` lists the tasks and arms and makes no model call. No Factory result is published: Factory publishes no Missions benchmark and no droid run has been measured here. Axis where Loki is ahead on documented features: offline-recheckable signed receipts, now composite receipts for multi-repo change sets; Factory documents none.
+
+---
+
+## Outcome analytics
+
+One set of definitions for the effort and honesty numbers, used by the bench report (`benchmarks/bench/attribution.py`) and by real-run reports (`loki trust`, `.loki/state/interventions.json`, HANDOFF.md). It answers the Factory comparison gate "metrics include failures and measure user effort" (FACTORY_VS_LOKI section 8, P2). Failures are counted, never dropped.
+
+- Term accepted outcome: bench, a run whose held-out acceptance check passed. Real runs, a proof with verdict VERIFIED that was not later contradicted by a FAILED outcome.
+- Term misleading completion: Loki or the agent claimed done and was wrong. Bench name `false_completion` = (reported success and not accepted) / reported success. `loki trust` name `false_verified` = VERIFIED claims later FAILED / VERIFIED claims. Same idea, same denominator (claims of success). Null when nothing claimed success.
+- Term cost per accepted: total spend across ALL attempts, failures included, divided by accepted. Null when nothing was accepted, and null when any run's cost is unmeasured (a partial sum is not a total; the bench also reports a lower bound). Never zero for an unknown.
+- Interventions by type: counts of blocking pauses that waited on a person, split into `steer`, `input`, `authorization` and `repair` (a fixed enum, no free text). Written to `.loki/state/interventions.json` at the pause site; shown in `loki trust`, HANDOFF.md and the proof as `interventions_detail`. Absent means not recorded, not zero.
+- Waited versus active minutes: only `waited_s` is measured, the wall-clock seconds a run sat blocked on a person. It is an upper bound on human attention. Active minutes (time a person actually spent working) are NOT measured and are never reported. `loki trust` labels the figure "waited, upper bound".
+- Retries: iterations to completion, taken from the proof `iterations.count` (`loki trust` iterations axis). A retry is not an intervention.
+
+---
+
 ## What we do not have
 
 Stating this plainly, because you will find it out anyway and it is cheaper for
@@ -201,6 +247,8 @@ both of us if you find it here.
   Replit Agent ship no local CLI and are not covered at all. Treat this as
   "unclaimed on every surface we can reach", which is stronger than the earlier
   "unclaimed as far as we can verify" and still short of a proven first.
+- **No scale measurement for multi-repo runs.** No test covers dozens of repos, so none is claimed.
+- **No Factory comparison run.** The droid arm is UNMEASURED until a run exists (section 9).
 - **Generation is not air-gapped.** See section 2.
 
 ---

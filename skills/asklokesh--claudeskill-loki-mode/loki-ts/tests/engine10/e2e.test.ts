@@ -128,6 +128,7 @@ describe("engine10 e2e (stub claude)", () => {
     const q = runEngine("done");
     const lines = q.out.trim().split("\n");
     expect(lines.length).toBeLessThanOrEqual(8);
+    expect(lines[lines.length - 1]).toMatch(/; Readiness: \d+\/100 \([A-F]\)/); // FV-readiness-env-3: folded into the last line, never a ninth line
     expect((lines[0] ?? "").split("; downgrade: ")[0]).toBe(`Loki 10 engine, PR target: main, base: main, ${hasApiKey(process.env) ? "cap $100.00 (default)" : "no dollar cap (subscription)"}`); // D82-COSTCAP: the cap follows whether the env holds an API key
     expect(q.out).not.toMatch(/^\[\d\d:\d\d\]/m);
     expect(q.out).toMatch(/^Receipt:\s+sha256:[0-9a-f]{64}/m);
@@ -135,6 +136,13 @@ describe("engine10 e2e (stub claude)", () => {
     const v = runEngine("done", false, ["--verbose"]);
     expect(v.out).toMatch(/^\[\d\d:\d\d\] intake/m);
   });
+  test("an inherited LOKI_E10_READINESS_FOLD never hides the Readiness line outside default mode (--verbose)", () => {
+    process.env.LOKI_E10_READINESS_FOLD = "1";
+    try {
+      const v = runEngine("done", false, ["--verbose"]);
+      expect(v.out).toMatch(/^Readiness: \d+\/100 \([A-F]\)/m); // its own stderr line, not folded
+    } finally { delete process.env.LOKI_E10_READINESS_FOLD; }
+  }, 120_000);
   test("done run: intake through seal, receipt, marker, efficiency record, under 60s", () => {
     const r = runEngine("done");
     if (r.code !== 0) console.error(r.out);

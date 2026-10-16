@@ -1885,7 +1885,7 @@ The swarm is stopped: .loki/V10-STOP exists, the loop has no wake-ups, and the c
 - Rerun (b) started 2026-10-01T09:32Z: the 4 Loki-specific tasks x 3 reps, arms v10 and raw-claude, model claude-sonnet-5, at main 575ddebcf; out ~/loki-ci-logs/d50-rerun-*. No lift number is cited until it finishes. Then fix the top cause first and record a per-model stage profile with a lift row.
 
 ## 2026-10-01T10:14Z LOKI MORNING TEST
-- See docs/v10/MORNING-BRIEF.md, section "LOKI MORNING TEST" (latest 10.5.27, both gate legs passed).
+- LOKI MORNING TEST: latest 10.5.27, both gate legs passed (the separate morning brief doc was removed).
 
 ## 2026-10-01T10:25Z D50 rerun complete (3 reps x 4 tasks x 2 arms, claude-sonnet-5, main 575ddebcf)
 - click-2877: v10 3/3, raw 3/3 (baseline false ALREADY_SATISFIED did not recur: noise). humanize-333: v10 1/3, raw 1/3 (parity, hard task).
@@ -2326,3 +2326,63 @@ The swarm is stopped: .loki/V10-STOP exists, the loop has no wake-ups, and the c
 - guards-always pushed to main at 1d20b928e (push rc=0): 19/19 --guards-only rows rc=0 (~/loki-ci-logs/ga-guards-2141b.log), sigpipe CEILING 1789 -> 1742.
 - ENV-INTAKE bb2d57569: opus r1 BLOCK (F1 supply_guard registry token exfil, F2 seal commit hooks get worker env, F3 LOKI_* secrets incl. PR bot token and receipt signing key reach repo tests, F4 stray ' + R + ' arg in run.sh lint calls). CTO: F3 counts against 11.3.6 and earlier; signing key must never be in any child env. Fix slice ENV-INTAKE-R1FIX building; r2 pending; B9 n=9 two-bug +5.2% (rerun on fixed head). GHSA-p656 held.
 - Disk P0 cleared earlier (83G free). AUTO-REAP cf94b8bd4 in TL review; WF-2MIN-3 (CTO GO: one tarball, merge release+publish-npm, npm-visible non-blocking) building; CANARY-SHAPE building.
+
+## Release CI results, 10.6.x (folded from the removed 2026-10-03 handoff doc)
+- 10.6.0 (9f9569c35): Tests, Bun Parity, Coverage, Security Audit green. Published.
+- 10.6.1 (9bc3cfcc7): Tests red, shard 7 test-engine10-docs.sh (D57 docs pass removed the README loki10-default marker). Not published.
+- 10.6.2 (5c1e3324d): Tests red from W1-ROUTE (moat P5 and P9 probes, loki run --help flags, UI bare loki). Not published.
+- 10.6.3 (f289f8bf2): Tests red, shard 7 test-ui-bare-loki (LEAK3 URL output); LEAK3 reverted (05410c554). Not published.
+- 10.6.4 (3a4df211c): all Tests jobs failed on an npm 404 for a not-yet-propagated package. Not published; carried into 10.6.5.
+- 10.6.5 (0472f306a): moat P9 injection-cannot-reach-token regressed by the minimal loki start route. Not published.
+- 10.6.6 (456058bae): scope control, Control Plane v0, train-cycle fix, docs. All green. Published.
+- 10.6.7 (bfce1db12): D60 sprint, all gates, Release, Post-Release Smoke and Promote success. latest and next at 10.6.7.
+- Open at handoff: real-repo gate not wired into promote.yml and needs operator provider auth; no end-to-end exit 3 run of the cost cap; root action.yml still uses loki start --simple; about 43 worktrees under .claude/worktrees (cap 15); never push backup/train-67..70 or backup/main-pre-rebuild.
+
+## 2026-10-15T20:05Z (CoS) 11.7.1 published, v11.8.0 train started
+- 11.7.0 (8b22e5fba): Tests red on tests/test-help-changelog-drift.sh (three flags missing from help/completion) and tests/test-sigpipe-guard.sh (count 1743 over ceiling 1742). Not published.
+- 11.7.1 (a01a22740): Release and Tests completed/success (gh run watch log, runs 38794589410 and 38794589637); npm dist-tags next=11.7.1, latest=11.6.0.
+- v11.8.0 train (workflow wf_e6306e08-008): group Seal, group resume, multi-milestone missions, Slack and Linear delegation on the trigger server, receipt --max-age, deploy completion and pulse ID_RE fixes.
+
+## 2026-10-15T20:45Z (CoS) v11.8.0 failed CI, v11.8.1 fix-forward
+- v11.8.0 (b5191b999): Tests run 38800796458 and Release failed on line budgets (core engine10 5020, features 3190), the D66 fence (run_group.ts value-imported seal and verify_cmd), two unclassified checkouts in the L2 registry, macOS-first stat in tests/test-backlog-units.sh:162, and a `loki help verify` mismatch. Not published.
+- Fix 1d734e6ba (Opus HIGH review APPROVED, 162 pass 0 fail on five suites), merged as 1788db60b. Correction: E-121 (pulse ID_RE for S41-style ids) already shipped in v10.5.3 (BOARD row E-121, merge aecf6daa); nothing is open there.
+- Local guards on the merged tree, all rc=0: test-help-changelog-drift, test-sigpipe-guard, test-help-and-log-cap, test-backlog-units, structural-checks, test-ci-only-divergence, test-platform-infra; bun test budget, l2_destructive_registry, route_group, seal_group: 117 pass 0 fail.
+
+## 2026-10-15T21:36Z (CoS) v11.9.0 train merged, release pending
+- 11.8.1 (22a6efc1f): Release and Tests completed/success; npm next=11.8.1.
+- Merged into main with --no-ff (workflow wf_b2e3c1df-452): DELEG-JIRA-TEAMS, DEPLOY-ATTEST-CANARY, ESTIMATE-ONE, RAG-DECIDE, GRAPH-IMPORTS, CPE24-HARDEN, CP-NITS-START, FC-01b (head e089b4224). FC-19b was already on main (5470167dd).
+- Rework round wf_4d4e81e3-3c3, Opus review APPROVE: GROUP-FIX-UNITS 196e3a6a4 (cap mutant MAX_FIX_UNITS=3 now red; 124 pass 0 fail), merged 0b3a2a46b; FC-09r c91b3642d (safeGit at runner_config.ts:45; raw execFileSync positive control red; 72 pass 0 fail), merged c39697cc1.
+- Guards on c39697cc1 plus dist rebuild (build rc=0): structural-checks rc=0; bun budget, l2_destructive_registry, fc25_raw_spawn_guard, spawn_env_guard, start_flag_parity_guard 43 pass 0 fail.
+- Advisories to card: detached --ship brief path calls gh issue close on b<epoch>; non-detached auto-merge arm rejects --brief; `loki run --brief-text` not marked internal; Teams dedup keys only on activity id; backlog.py base silently falls back to origin/HEAD on a non-SHA; runner_config subdir-base test missing.
+
+## 2026-10-15T21:56Z (CoS) v11.9.0 failed CI, v11.9.1 fix-forward
+- v11.9.0 (b46960893): Tests run 38811268755 and Release 38811268450 failed: python test_trigger_server_hardening BriefPr test assumed a host provider CLI; bun static shape (engine10 outside the cli.ts arm, from ESTIMATE-ONE) and its E-12 shell twin; bun L0 guard (runner_config probes unlisted, two stale verify.ts rows); DOC-02 (docs/sentry-intake.md:56 named `loki job`). Not published; npm next stays 11.8.1.
+- Fix c42d7fd22 (TL review APPROVE: 140 pass 0 fail plus 26 pass 0 fail on a git-archive copy), merged 9da6e2772.
+- Guards on 9da6e2772 after dist rebuild (build rc=0): help-changelog-drift, sigpipe-guard, help-and-log-cap, ci-only-divergence, platform-infra, engine10-dispatch, docs-cli-drift, structural-checks all rc=0; pytest test_trigger_server_hardening 70 passed; bun budget, l2_destructive_registry, fc25, spawn_env, start_flag_parity, l0_guard, cli static shape 57 pass 0 fail.
+
+## 2026-10-15T22:17Z (CoS) v11.10.0 train merged, release pending
+- 11.9.1 (9d64d1461): Release and Tests completed/success; npm next=11.9.1, latest=11.8.1; GitHub release body set.
+- Merged into main with --no-ff (workflow wf_2c49533d-407, all reviews APPROVE): BRIEF-SHIP-FIX fb08048ef (a5f19f4c9), TEAMS-DEDUP ae7c8a7e5 (81d06e674), BASE-AND-SUBDIR 21f7d2581 (f02699857), A-112b bfd6b98d8 (b4e63c1ff), S41-13 e3607718c after rework (eb6c8d762; dist conflict resolved by rebuild, build rc=0).
+- Not shipped: M-15 (Opus BLOCK at unit.ts:164, symlinked conftest.py reaches PROVEN); round 3 rework in workflow wf_1d55d32c-a65. M-17..M-29 and G-05 stay blocked on it.
+- Advisory to card: TEAMS-DEDUP collision test is toothless; use conv='a|b',svc='c' against conv='a',svc='b|c'.
+- Guards on eb6c8d762: structural-checks and bun budget failed (core engine10 5000 >= 5000; A-112b split the verify.ts git helper over three lines). Folded it back to one line, no behaviour change. After dist rebuild (build rc=0): help-changelog-drift, sigpipe-guard, help-and-log-cap, ci-only-divergence, platform-infra, engine10-dispatch, docs-cli-drift, structural-checks all rc=0; pytest test_trigger_server_hardening 74 passed; bun budget, l2_destructive_registry, l0_guard, fc25, spawn_env, start_flag_parity, cli static shape, attempts, implement, verify 131 pass 0 fail.
+
+## 2026-10-15T22:37Z (CoS) v11.10.0 failed CI, v11.10.1 fix-forward
+- v11.10.0 (58344ed27): Tests run 38816323342 and Release failed: bun route_matrix_mutation B3 and B6 (anchor "let session = await ctx.sessions.run(first);" no longer exists after S41-13, so the mutations were not applied). Not published; npm next stays 11.9.1.
+- Fix: anchor updated to the S41-13 line in loki-ts/tests/engine10/route_matrix_mutation.test.ts (33 pass 0 fail); bun test tests/engine10 2037 pass 0 fail 1 skip.
+- M-15 round 4 (1c9a5e56a) Opus BLOCK: case-insensitive Conftest.py and symlinks under SKIP_DIRS; round 5 (class fixes) in flight.
+
+## 2026-10-15 23:35Z v11.10.1 green, v11.11.0 train
+- v11.10.1 (9d952ff56): Release and Tests success; npm next=11.10.1, GitHub release body set.
+- M-15 round 5 (f6b9bdd7d) and round 6 (c85b1a443) Opus BLOCK. Round 6 reproduced B1 (atexit rewrites the junit via the --junitxml path in sys.argv) and B2 (wrapping TestReport.from_item_and_call), both FC-24. CTO call: option (a), accept FC-24, delete the false "not forgeable" and "unreachable" claims, mark PROVEN conformance runner_reported, keep B1/B2 as documenting fixtures; modernize budget only, core is 4998/5000. Round 7 in flight.
+- R15 refill: six rows cut from BACKLOG-D91; three cards repointed at owning modules (run_status.ts, pr_lessons.ts, reviewer_brief.ts) per extend-never-duplicate.
+- v11.11.0 train: R15-F1 8e7e3c381, R15-F2 8df4a556d, R15-E1 c649c2ac1, R15-E2 b816a26e3, each sonnet Tech Lead APPROVE; dist conflicts resolved by rebuild.
+- R15-B1 rejected: stale premise (setDefaultTimeout(130_000) already present). R15-B2 rejected: issue 213 failures under load are wall-clock bound assertions, not the pid-file spin; trial fix still 43/3.
+- 23:40Z M-15 round 7 (2f7d2a115) Opus HIGH APPROVE against the CTO threat model: conformance is runner_reported (FC-24), false claims deleted, B1/B2 kept as documenting fixtures, unit.test.ts 111/0. Merged as 20a9f2f32 for v11.12.0; M-17 and its chain are unblocked.
+- 2026-10-15T23:52Z v11.11.0 CI red on help/completion drift (never tagged or published); fix folded into v11.12.0 with M-15. M-17 r1 BLOCKED by Opus HIGH (raw execFileSync git in coordinator runs planted hooks, FC-25 sibling); r2 rework running (wf_329c9171-c19). Worktrees 33 -> 22 (11 merged removed).
+- 2026-10-15T23:56Z Dispatched 7 ready rows (FC-09r, CPE24-P2a, CPE24-P4a, CP-NITS1, FC-01b, FC-19b, CP-START); every one was already on main (fix commits are ancestors of HEAD, reviewers reran tests and mutations on main). BOARD rows were stale at ready; set to released. New FC-09s sibling row from the FC-09r review. M-17 r2 Opus HIGH APPROVED at d0437a578.
+- 2026-10-16T00:00Z Merged M-17 (4d2e9f5f1, Opus HIGH approved r2) and FC-09s (8bfddbe4d, Opus HIGH approved). Fixed the engine10 L7 guard hit (M-15 unit.ts comment said 'not recorded') and a scheduler test type error against the M-15 conformance type (tests field). Both fold into v11.12.0.
+- 2026-10-16T00:30Z v11.12.0 CI red on Linux (never published): full_env_spawn_guard, spawn_env_guard and model_output_regex_guard flagged the M-15/M-17 modernize unit.ts spawns, and the sitecustomize conformance test named a readdir-order-dependent file. Fixed with tokenFreeEnv on both spawns, sorted drift iteration, and a reasoned allowlist entry; shipping as v11.12.1. FC-09t r3 (064cb191b) held out of main on branch fc09t-wip after a second Opus BLOCK (# inside """ strings, \u escapes in quoted keys); r4 rework running. Factory-parity workflow wy3yizr98 building 40 FV slices plus COST-1/4/5 in 12 lanes; COST-2/3/6 parked (Engine Law L1, moat, paid eval).
+- 2026-10-16T01:20Z v11.13.0: fast-forwarded main to fv-train 79a127fa9 (12 factory-parity lanes, FC-09t r5, M-20 wave verify; Opus integration review APPROVED, engine10 2291/0, tsc 0). 43 BOARD rows released; FV-gh-steer-4 and FV-pr-loop-4 back to ready. M-22 approved, M-23 in Opus round 2; both merge next.
+- 2026-10-16T02:04Z v11.14.0: v11.13.0 never published (credentialed_push_guard red: verify-pr respond pushed with its own token). Fixed by routing respond through engine10-push.sh push-pr with origin read once before the fixer runs (Opus HIGH approved r3 after two BLOCKs). Merged M-21 wave ship, M-22 unit resume, M-23 remote units and G-05, FV-pr-loop-4 and FV-gh-steer-4, fv-train follow-ups; engine10 core trimmed to 4946 lines. Guards 158/0, engine10+util 2523 pass (31 route-matrix fails are local TMPDIR-only, green in CI).
+- 2026-10-16T02:40Z v11.15.0: v11.14.0 never published (CI red: route matrix packages link, merge-queue gh PATH and stat order, FC-89 marker); all four fixed. Shipped M-25 sealed final report (row 379 released), resume adopts only landed merges (mutation-checked 18/1 red, 19/0 green), modernize coordinator wiring (Opus round 2 approve; real runs still exit 2 naming four missing pieces), modernize trim 4107 to 3792. Gates: shell 14/14 rc 0, bun guard set 640/1 then L0 allowlist entry dropped (3/0), tsc 0.

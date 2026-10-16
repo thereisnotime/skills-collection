@@ -1,6 +1,6 @@
 # Loki 10 engine guide
 
-Default: Loki 10 engine for `loki "<task>"`, `loki owner/repo#N` and `loki quick "<task>"`. `loki legacy` and LOKI_ENGINE were removed in 11.0.0. <!-- loki10-default -->
+Default: Loki 10 engine for `loki start`, `loki "<task>"`, `loki owner/repo#N` and `loki quick "<task>"`. `loki legacy` was removed in 11.0.0; the previous loop runs only on an explicit `--engine legacy` or `LOKI_ENGINE=legacy` (see Routing). <!-- loki10-default -->
 
 Loki 10 is the rewritten engine (docs/v10/ENGINE.md). Since the D48 flip it
 runs `loki "<task>"`, `loki owner/repo#N` (issue mode) and `loki quick
@@ -12,28 +12,76 @@ newest entry in .loki/runs/ is a v10 run newer than the newest legacy proof
 it runs the v10 verify, otherwise the legacy verify. If bun is missing or
 LOKI_PROVIDER is unsupported, the default mode falls back to the bash path
 and prints one stderr line saying why. In 11.0.0 (LEGACY-ZERO W1-01) `loki
-legacy` was removed (it exits 2 with a removal message) and LOKI_ENGINE is no
-longer read; any value is ignored.
+legacy` was removed (it exits 2 with a removal message). From 11.4.0
+`--engine legacy|engine10` and LOKI_ENGINE select the engine explicitly (see
+Routing below).
 
-`loki start owner/repo#N`, `loki start <issue URL>` and `loki start "<multi-word
-task>"` run Loki 10, the same as `loki owner/repo#N` and `loki "<task>"`. A PRD
-file, a flag-first call (`loki start --simple prd.md`) and a one-word start still
-run on the previous bash loop (autonomy/run.sh), and so does the opencode
-provider, until FC38-SWEEP ports them. `loki legacy` and LOKI_ENGINE remain
-removed. The previous loop is being removed (see docs/v10/LEGACY-REMOVAL.md).
+## Routing
+
+Argument order and input form never change the engine. Flags are normalized
+before the routing decision, so these all run on Loki 10:
+
+```
+loki start prd.md              loki start --no-pr prd.md
+loki start owner/repo#123      loki start --provider codex owner/repo#123
+loki start "fix the login bug" loki start --no-pr "fix the login bug"
+loki start fixit               loki quick -v "fix the login bug"
+```
+
+A PRD file, an issue ref or URL, a multi-word task and a one-word brief take
+the same path. `-v` means `--verbose`, `--budget` and `--budget-limit` mean
+`--max-cost`, and `--yes`, `-y`, `--no-plan`, `--no-mirofish` and
+`--no-dashboard` are accepted and ignored. A PRD file path that does not exist
+exits 2 with "PRD file not found".
+
+The previous loop (autonomy/run.sh) runs only when:
+
+1. you pass `--engine legacy` or set `LOKI_ENGINE=legacy` (`--engine engine10`
+   forces Loki 10 and refuses a flag it cannot honor; the flag wins over the
+   variable), or
+2. the call carries a flag Loki 10 does not support (for example `--simple`,
+   `--complex`, `--parallel`, `--github`, `--sandbox`, `--max-iterations`).
+   Only that call goes to the previous loop, and one stderr line names the flag
+   and the engine chosen, or
+3. LOKI_PROVIDER (or `--provider`) names a provider Loki 10 has no invoker
+   for (anything but claude, codex, cline, aider, opencode), or bun is missing, or the
+   PRD is larger than 100000 bytes. One stderr line says why.
+
+`loki <word>` with a single bare word stays the command namespace (`loki doctor`),
+so use `loki start <word>` for a one-word brief. A first argument starting with
+`-` followed by a multi-word task or an issue ref (`loki --no-pr "fix it now"`)
+runs on Loki 10 like the positional form.
+
+### See the route without running
+
+```
+loki route start prd.md
+loki route quick "fix the login redirect loop" --json
+loki start --simple prd.md --explain-route
+```
+
+`loki route [start|quick] <same args>` and `--explain-route` on start or quick
+print the engine, provider, model, input type and the reason, then exit 0
+without running anything. `--json` prints one JSON object with the keys
+`engine`, `provider`, `model`, `input_type`, `input`, `reason`.
 
 Some pieces named in this guide are still being built. Each one below says
 so plainly instead of describing a finished feature.
 
 ## Quickstart
 
-Put the task first, as a quoted multi-word string, so bin/loki's router
-sends it to the v10 engine. A one-word argument that is not an issue ref,
-or any first argument starting with `-`, stays on the legacy engine.
+`loki start` is the primary path. Give it a PRD file, an issue ref, a task in
+quotes or a one-word brief. Flags may come before or after it; the engine is
+the same (see Routing).
 
 ```
-loki "fix the login redirect loop" --no-pr
+loki start prd.md
+loki start "fix the login redirect loop" --no-pr
 ```
+
+`loki "<task>"` and `loki owner/repo#N` are shorthand for the same run.
+`loki chat` is an interactive alternative that can start and join these runs
+(see Chat below).
 
 `loki quick "<task>"` is the small-task entry. It runs the same engine
 without opening a pull request (the legacy quick never opened one), and the
@@ -42,16 +90,16 @@ skipped and implement runs on your run's own model, like a raw session.
 `LOKI_E10_CASCADE=1` opts in to the cheaper sonnet start (it prints and
 records the downgrade); a repeated test failure always escalates up, never
 down (Engine Law L1).
-`loki quick --help` and a flag-first `loki quick -v "<task>"` stay on the
-legacy quick.
+`loki quick --help` prints the help; `loki quick -v "<task>"` runs on Loki 10 with
+`--verbose`.
 
 ```
 loki quick "fix the login redirect loop"
 ```
 
 If bun is not installed, or LOKI_PROVIDER names a provider the v10 engine
-has no invoker for (anything but claude, codex, cline, aider), these entry
-points fall back to the legacy engine instead of failing.
+has no invoker for (anything but claude, codex, cline, aider, opencode), these entry
+points fall back to the legacy engine with a one-line notice instead of failing.
 
 Issue refs work the same way:
 
@@ -74,14 +122,19 @@ Flags, from the engine's own `--help`:
   from 480s to 1800s (`loki-ts/src/engine10/types.ts`).
 - `--provider <name>`: pick the coding provider for this run. See the
   provider table below.
-- `--max-cost <usd>`: per-run cost cap in dollars. Without the flag the cap is
-  `budgets.per_run` in the repo's `loki.yaml` (for example
-  `budgets:` then `  per_run: 5`), else the default of $20.00. The flag wins over
-  the file. The start line shows the cap in force, for example
-  `... previous engine), cap $20.00 (default)`. Once priced cost reaches the cap
-  the running stage is stopped, no later stage starts, and the run ends
-  BUDGET_STOP with exit code 3. Sessions with no provider price never count
-  toward the cap.
+- `--max-cost <usd>`: per-run cost cap in dollars (`--budget` and
+  `--budget-limit` are aliases). Order of precedence: the flag, then
+  `budgets.per_run` in the repo's `loki.yaml` (for example `budgets:` then
+  `  per_run: 5`), then the default. The default is $100.00 when
+  `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set, and no dollar cap on a
+  subscription login (usage then counts against your plan limits). Source:
+  `loki-ts/src/e10ext/budget_cap.ts`. The start line shows the cap in force,
+  for example `cap $100.00 (default)` or `no dollar cap (subscription)`. Once
+  priced cost reaches the cap the running stage is stopped, no later stage
+  starts, and the run ends BUDGET_STOP with exit code 3. Sessions with no
+  provider price never count toward the cap. On the previous loop the same cap
+  is `LOKI_BUDGET_LIMIT` (default 100.00 USD; set it to an empty string for
+  unlimited), and a breach pauses the run instead of killing it.
 
 `--no-pr`, `--deep` and `--provider` are parsed by the supervisor
 (`loki-ts/src/engine10/supervisor.ts`) and take effect on a real run.
@@ -99,9 +152,115 @@ verify, seal) and then, in the supervisor, the pr stage, ending in the
 Slack is not part of the v10 engine surface (no command, no notification
 hook) and is in progress, tracked with the other wave 3 items.
 
+## Small changes: loki edit
+
+`loki edit` is the lightest path: one Claude pass on the current repo with no
+PRD, plan, council, PR, receipt or branch switch. It prints the diff stat, the
+diff, and one line with cost and elapsed time.
+
+```
+loki edit "rename fooBar to foo_bar"
+loki edit src/foo.ts "rename X to Y"
+loki edit --verify --commit src/a.ts "add null checks"
+loki edit --dry-run "describe the change"
+```
+
+- `--verify` runs the fast verifier on the result.
+- `--receipt` writes an unsigned receipt to `.loki/edit-receipts/`.
+- `--commit` commits only the files the pass touched, by name; skipped when
+  verify failed.
+- `--dry-run` plans only (plan permission mode); nothing changes.
+- `LOKI_EDIT_MODEL` overrides the model. Claude provider only for now.
+
+Use `loki edit` for a single pass, `loki quick "<task>"` for a small task with
+a verify loop, and `loki start` for anything that needs a plan, verification
+and a sealed receipt. Exit codes: 0 done, 1 provider or verify failure, 2
+usage or setup error ([exit-codes.md](../exit-codes.md)).
+
+## Custom agents
+
+Define child agents as markdown with YAML frontmatter in `.loki/agents/<name>.md`
+(project) or `~/.config/loki/agents/<name>.md` (user). A project agent wins
+over a user agent of the same name. The body is the system prompt.
+
+Frontmatter keys: `name` (must equal the file name without `.md`),
+`description` (required), `model`, `provider` (`claude` by default; `codex`,
+`cline`, `aider` or `opencode`), `tools` (allow list), `deny` (deny list) and
+`permission` (`plan` default, `edit` or `full`).
+
+```
+loki agents list
+loki agents new reviewer          # reviewer, planner and tester copy shipped examples
+loki agents show reviewer
+loki agents export --claude       # writes .claude/agents/ (add --user for ~/.claude/agents)
+```
+
+`permission: plan` exports as Claude Code `disallowedTools` Edit, Write,
+NotebookEdit and Bash. Council reviewers pick up a matching agent: one named
+`reviewer`, `tester` or `security` replaces the council-v2 reviewer prompt and
+model for the matching roles (`code_quality_reviewer` and
+`requirements_verifier` use `reviewer`; `test_auditor` uses `tester`;
+`devils_advocate` uses `security`, then `reviewer`). With no agents configured
+nothing changes. `loki agent` (singular) is the unchanged built-in agent-type
+command.
+
+## Chat (interactive alternative)
+
+`loki start` stays the primary path. `loki chat` is an interactive session for
+exploring and small steps, and it hands off to and from `loki start`.
+
+- Start with `loki chat` (needs a TTY; for one-shot tasks use `loki quick`).
+  Bare `loki` does not open chat.
+- The session starts in Plan mode (read-only); `/plan` and `/build` switch
+  modes and the prompt shows `loki[plan]>` or `loki[build]>`. Plan mode is
+  enforced for Claude (`--permission-mode plan`); other providers get a
+  prompt-level read-only instruction.
+- Slash commands: `/plan`, `/build`, `/run <prd|brief>`, `/quick <task>`,
+  `/edit <change>`, `/verify`, `/receipt`, `/cost`, `/diff`, `/undo`,
+  `/model <id>`, `/provider <name>`, `/help`, `/exit`.
+- `/run` starts a normal `loki start` run with the chat's model and provider.
+- `loki chat --attach` joins a running or the last `loki start` session, with
+  `/status`, `/steer`, `/diff`, `/verify`, `/receipt` and `/stop`.
+- `loki chat --tui` launches the full Claude Code TUI with the Loki system
+  prompt appended.
+
+## Setup, doctor and config
+
+```
+loki setup            # wizard: tools, Claude login, provider, model route, spend cap
+loki setup --yes      # non-interactive defaults
+loki setup --check    # report only
+loki doctor --fix     # create state dirs and a default config; prints exact commands for the rest
+loki config list      # also: get <key>, set <key> <value>, path
+```
+
+`loki setup` flags: `--provider claude|codex|cline|aider|opencode`,
+`--model`, `--budget USD` and `--global`. `loki doctor --fix` never installs
+system packages and never runs sudo. Prerequisites are in
+[INSTALLATION.md](../INSTALLATION.md).
+
+## Exit codes
+
+One contract, enforced from 11.4.0: [exit-codes.md](../exit-codes.md) lists the
+per-command codes, including `loki verify`. CI gates should use
+`loki verify || fail`, not `[ $rc -eq 1 ]`, and treat any code of 2 or higher as
+worse than CONCERNS. This is a breaking change for scripts that tested rc==1 on
+an empty diff or a non-git directory.
+
 ## The summary
 
-A finished run prints the start line, then one label per line (Outcome,
+Every run on both engines also ends with one unified block: `Result:`
+(verified, done-unverified, failed or stopped), `Files:` (N changed, +ins
+-del), `Cost:` (`$X.XX`, marked `(estimated)` when not provider-reported,
+`not measured` when unknown), `Elapsed:`, `Receipt:` (path, when one exists)
+and one `next:` line naming the suggested command (`loki diff`, `loki verify`,
+`loki undo`, `loki status`, `loki doctor`, or `loki chat --attach`). Pass
+`--quiet` to print only this block and `--json` to add a `summary` object to
+the JSON output. `NO_COLOR=1` disables color, which is also off when stdout is
+not a TTY. On the previous loop, `LOKI_SUMMARY_JSON=1` prints the summary as
+one JSON line, and its cost is always an estimate from the context tracker.
+
+A finished engine10 run prints the start line, then one label per line (Outcome,
 PR, Receipt, NOT PROVEN, Cost, Time; a Reason line is added for any
 outcome other than VERIFIED or ALREADY_SATISFIED). The quiet default stays
 within 8 lines. The block below is the older 5-line form; the labels are the
@@ -221,18 +380,82 @@ receipt with no signing key configured (or a key that failed to load) reads
 
 ## Provider table
 
-| Provider | Cost measured | Kill blocking enforced |
-|----------|----------------|--------------------------|
-| claude   | yes            | yes                      |
-| codex    | no             | no                       |
-| cline    | no             | no                       |
-| aider    | no             | no                       |
-| opencode | not supported  | n/a                      |
+| Provider | Cost measured | Spend cap enforced | Guardrail scan | Kill blocking enforced |
+|----------|---------------|--------------------|----------------|------------------------|
+| claude   | yes (provider-reported) | yes | native | yes |
+| codex    | yes (parsed or estimated) | yes | yes | no |
+| cline    | yes (parsed or estimated) | yes | yes | no |
+| aider    | yes (reported or estimated) | yes | yes | no |
+| opencode | no | no (cost not measured); wall clock limit still applies | yes | no |
 
-For codex, cline and aider, a run's Cost line reads `not measured` and the
-NOT PROVEN line adds the literal entry `kill blocking not enforced`
-(`loki-ts/src/engine10/stages/seal.ts`). opencode is not one of engine10's
-provider names (`claude`, `codex`, `cline`, `aider`); it is not supported.
+Claude Code is the default and the only Tier-1 provider; the others are
+optional. Select one with `--provider <name>` or `LOKI_PROVIDER`.
+
+### Cost and the spend cap on non-Claude providers
+
+For codex, cline and aider, engine10 reads token usage from the CLI output
+(aider's `Cost: $X session` line is used as-is). If the CLI prints no usage,
+cost is estimated from prompt and response sizes (about 4 characters per
+token) with the built-in price table (`loki-ts/src/providers/price_table.ts`).
+A model not in the table prices at a mid-range default of $2 per 1M input
+tokens and $10 per 1M output tokens. Estimated figures carry `estimated: true`
+and `cost_basis` (`provider-tokens` or `size-estimate`) on the `cost` event in
+`events.jsonl`, and the efficiency record has `cost_source: "estimated"`.
+Estimates are approximate. The cap in `--max-cost` applies unchanged. A run
+with no prompt and no output stays `not measured`, never `$0.00`.
+
+### Guardrails on non-Claude providers
+
+With codex, cline, aider or opencode, engine10 enforces the wall-clock limit
+and `BUDGET_LIMIT` (for example `BUDGET_LIMIT=5 loki start prd.md`) by killing
+the process group. After each iteration it scans the diff and reverts and
+fails the iteration on mass deletion of tracked files, `.git/config` changes,
+new git hooks, and symlinks or paths outside the project (a `guard.violation`
+event). Native flags are used where the CLI has them: codex runs with
+`--sandbox workspace-write`, aider with `--no-auto-commits`. Cline and
+opencode have no sandbox flag. The scan is post-hoc rather than inline, so
+receipts still list `kill blocking not enforced` for these providers.
+
+For opencode, a run's Cost line reads `not measured` and the NOT PROVEN line
+adds the literal entry `kill blocking not enforced`
+(`loki-ts/src/engine10/stages/seal.ts`). opencode is a supported
+engine10 provider (`loki-ts/src/runner/provider_opencode.ts`): install it with
+`npm install -g opencode-ai` and select it with `--provider opencode`. It runs
+`opencode run --auto` non-interactively, takes a `provider/model` id from
+`LOKI_OPENCODE_MODEL` (for example `openrouter/deepseek/deepseek-v3.2`; unset
+uses opencode's own default), passes extra flags from `LOKI_OPENCODE_FLAGS`,
+and honors `LOKI_OPENCODE_CLI` for the binary path. `LOKI_HOST_GUARD=1` is
+incompatible with non-Claude providers.
+
+### Model routes and local models
+
+To run OpenRouter or a local model through the Claude harness, so every
+Tier-1 control (cost, kill blocking, receipts) still applies, set
+`LOKI_MODEL_ROUTE=<kind>/<id>` before `loki start`. Selection is by
+environment variable; `loki start` has no `--model` flag.
+
+```
+LOKI_MODEL_ROUTE=ollama/qwen3-coder loki start prd.md
+LOKI_MODEL_ROUTE=openrouter/deepseek/deepseek-v3.2 loki start "fix the login bug"
+```
+
+| Kind | Base URL | Token |
+|------|----------|-------|
+| `openrouter/<id>` | https://openrouter.ai/api | `OPENROUTER_API_KEY` |
+| `ollama/<id>` | http://localhost:11434 | none |
+| `lmstudio/<id>` | http://localhost:1234 | none |
+| `llamacpp/<id>` | http://localhost:8080 | none |
+| `vllm/<id>` | http://localhost:8000 | none |
+| `custom/<id>` | `LOKI_MODEL_BASE_URL` (required) | `LOKI_MODEL_API_KEY` (optional) |
+
+A route spec in `LOKI_MODEL_OVERRIDE` works too. The route environment
+applies to the Claude child process only; the token is never exported into
+your shell, put on a command line, or logged. Plain Claude ids (`opus`,
+`sonnet`, `claude-*`) behave as before.
+
+`loki models` lists the routes. `loki models --local` probes Ollama, LM
+Studio, llama.cpp and vLLM on their default ports (1s timeout each) and prints
+ready-to-paste values. Both accept `--json`.
 
 ## Model routing
 
@@ -321,10 +544,11 @@ runs on the B9 corpus, and it can emit shape defaults from those runs
 
 ## After the flip
 
-D48 made v10 the default for `loki "<task>"`, `loki owner/repo#N` and
-`loki quick "<task>"`. 11.0.0 removed the engine switch: `loki legacy` exits
-2 with a removal message and LOKI_ENGINE is ignored. PRD-file starts
-(`loki start ./prd.md`), the opencode provider, and the no-bun
-fallback still run on the previous bash loop until FC38-SWEEP ports them; they are tracked in
-docs/v10/LEGACY-REMOVAL.md. The marked line near the top of this file and of
-README.md's Loki 10 section records the current state.
+D48 made v10 the default for `loki start`, `loki "<task>"`,
+`loki owner/repo#N` and `loki quick "<task>"`. 11.0.0 removed `loki legacy`
+(it exits 2 with a removal message). From 11.4.0, `--engine legacy|engine10`
+and `LOKI_ENGINE` select the engine explicitly, and PRD-file starts, flag-first
+calls, one-word briefs and the opencode provider run on Loki 10 (see Routing).
+The previous bash loop runs only in the cases listed under Routing. The marked
+line near the top of this file and of README.md's Loki 10 section records the
+current state.

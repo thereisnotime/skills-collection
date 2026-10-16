@@ -1,11 +1,10 @@
 // E-11 (TS half): PR stage (ENGINE.md sections 4, 6, 7). Runs in the SUPERVISOR (P0), never the
 // worker: the only stage touching GitHub credentials, only through the credentialed push child
 // engine10-push.sh (P4); no LLM, no untrusted text read here. Supervisor calls runPr after the
-// worker exits, passing pinnedOrigin (section 6). Contract gap: pushArgv ends push-pr in "1"/"0"
-// while the script takes "--draft" (translated below); it cannot say whether the PR already
-// existed, so `existing` is null, never fabricated.
+// worker exits, passing pinnedOrigin (section 6). push-pr prints a "reused" or "created" marker line before the
+// PR URL; `existing` is true/false from it, and null when the script printed none (local origin, older script).
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PushArgs, RunContext, Stage, StageResult, Verdict } from "../types.ts";
 import { pushArgv } from "../types.ts";
@@ -17,18 +16,12 @@ import { intentSection } from "../../util/intent_card.ts";
 import { specPrLine } from "../../util/spec_file.ts";
 import { REPO_ROOT } from "../../util/paths.ts";
 import { safeGit } from "../../util/safe_git.ts";
-import { yamlKey } from "../../util/yaml_key.ts";
+import { stackBase, stackSection } from "../../util/run_outputs.ts";
+import { lokiYamlTexts, yamlKey } from "../../util/yaml_key.ts";
 /** B7: who opens the PR. LOKI_PR_AUTHOR beats loki.yaml pr.author; anything but "bot" is "me". */
 export function resolvePrAuthor(repoDir: string, environ: NodeJS.ProcessEnv = process.env): "me" | "bot" {
   let v: string | null = (environ.LOKI_PR_AUTHOR ?? "").trim() || null;
-  if (v === null) {
-    for (const f of ["loki.yaml", "loki.yml"]) {
-      const p = join(repoDir, f);
-      if (!existsSync(p)) continue;
-      try { v = yamlKey(readFileSync(p, "utf8"), "pr", "author"); } catch { /* unreadable */ }
-      break;
-    }
-  }
+  if (v === null) { const t = lokiYamlTexts(repoDir)[0]; if (t !== undefined) v = yamlKey(t, "pr", "author"); } // the first file only, even if the key is absent
   return (v ?? "").toLowerCase() === "bot" ? "bot" : "me";
 }
 /** RunContext plus the pinned origin and the cap signal from the supervisor. */
@@ -37,26 +30,47 @@ export type PrContext = RunContext & {
   pinnedOrigin?: string;
   /** True once the global cap (machine.ts) has fired for this run. */
   capHit?(): boolean;
+  /** Review handoff markdown (util/run_summary.ts handoffSection); appended to the PR body. */
+  handoffMd?: string;
+  /** Policy require_approval: open as a draft. Carried on the context, never process.env. */
+  draft?: boolean;
 };
 export interface PrOptions {
   /** Injectable for tests; defaults to the real script next to this checkout. */
   pushScriptPath?: string;
 }
 export const DEFAULT_PUSH_SH = join(REPO_ROOT, "autonomy/lib/engine10-push.sh");
-const PR_URL_RE = /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/\d+$/;
+export const PR_URL_RE = /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/\d+$/;
 const SHA_RE = /^[0-9a-f]{40}$/;
 function lastNonEmptyLine(s: string): string {
-  const lines = s.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
-  return lines[lines.length - 1] ?? "";
+  const lines = s.split("\n").map((l) => l.trim()).filter((l) => l.length > 0); return lines[lines.length - 1] ?? "";
 }
-/** pushArgv's push-pr shape ends "...,"1"|"0"". engine10-push.sh instead
- *  wants only an optional literal "--draft" (4 or 5 total args). Translate
- *  rather than edit either file (see the contract-gap note above). */
-function toPushShellArgs(args: PushArgs): string[] {
+/** pushArgv's push-pr shape ends "...,"1"|"0"". engine10-push.sh instead wants only an optional literal "--draft" (4 or 5 total args). Translate rather than edit either file (see the header note). */
+export function toPushShellArgs(args: PushArgs): string[] {
   const built = pushArgv(args);
-  const flag = built.pop();
-  if (flag === "1") built.push("--draft");
+  const flag = built.pop(); if (flag === "1") built.push("--draft");
   return built;
+}
+function pushEnv(repoDir: string, pinnedOrigin: string): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, _LOKI_ORIGIN_PINNED: "1", _LOKI_PINNED_ORIGIN: pinnedOrigin };
+  if (resolvePrAuthor(repoDir) === "bot") {
+    const botToken = process.env.LOKI_PR_BOT_TOKEN; if (botToken) env.GH_TOKEN = botToken; // child env only; never logged
+    else process.stderr.write("loki: pr.author is bot but LOKI_PR_BOT_TOKEN is not set; opening the PR as me\n");
+  }
+  return env;
+}
+/** The one credentialed push-pr call (env, bot token, spawn, URL check incl. E-41 local://); stage and modernize ship share it. */
+export type PushPrResult = { ok: true; url: string; existing: boolean | null; localOk: boolean } | { ok: false; reason: string };
+export function runPushPr(a: { repoDir: string; branch: string; title: string; bodyFile: string; draft: boolean; pinnedOrigin: string; base?: string | null; scriptPath?: string; env?: NodeJS.ProcessEnv }): PushPrResult {
+  const args = [...toPushShellArgs({ cmd: "push-pr", repoDir: a.repoDir, branch: a.branch, title: a.title, bodyFile: a.bodyFile, draft: a.draft }), ...(a.base ? ["--base", a.base] : [])];
+  const env = a.env ?? pushEnv(a.repoDir, a.pinnedOrigin);
+  const r = spawnSync("bash", [a.scriptPath ?? DEFAULT_PUSH_SH, ...args], { env, encoding: "utf8" });
+  if (r.status !== 0) return { ok: false, reason: `engine10-push.sh push-pr failed (exit ${r.status}): ${(r.stderr ?? "").trim()}` };
+  const url = lastNonEmptyLine(r.stdout ?? ""), markers = (r.stdout ?? "").split("\n").map((l) => l.trim());
+  // E-41: for a local bare origin (the eval harness) push-pr prints exactly local://<pinned origin>#<branch>; accepted only for an absolute, colon-free pin.
+  const localOk = a.pinnedOrigin.startsWith("/") && !a.pinnedOrigin.includes(":") && url === `local://${a.pinnedOrigin}#${a.branch}`;
+  if (!localOk && !PR_URL_RE.test(url)) return { ok: false, reason: `engine10-push.sh push-pr printed no valid PR URL (got: ${url || "(empty)"})` };
+  return { ok: true, url, localOk, existing: markers.includes("reused") ? true : markers.includes("created") ? false : null }; // null = unknown, never fabricated
 }
 function briefSection(ctx: PrContext): string {
   if (!reviewerBriefEnabled()) return "";
@@ -73,20 +87,6 @@ export function issueLink(runDir: string, verdict: Verdict): string {
     return ok ? `\n${verdict === "VERIFIED" ? "Closes" : "Refs"} ${i.repo as string}#${i.number as number}\n` : "";
   } catch { return ""; }
 }
-/** MASS-2: a stacked slice's PR targets its parent slice's run branch (LOKI_PR_BASE, set by `loki issues run`).
- *  undefined = no stacking (the default branch); null = set but not a safe branch name, so the stage fails closed. */
-export function stackBase(env: NodeJS.ProcessEnv): string | null | undefined {
-  const b = env.LOKI_PR_BASE;
-  if (b === undefined || b === "") return undefined;
-  return /^[A-Za-z0-9][A-Za-z0-9._/-]{0,200}$/.test(b) && !b.includes("..") && !b.includes("//") && !b.endsWith("/") && !b.endsWith(".lock") ? b : null;
-}
-/** MASS-2: a slice run has no issue.json, so `loki issues run` names the epic it belongs to (LOKI_PR_REFS=owner/repo#N).
- *  A slice never closes its epic, so this is always "Refs"; a strict ref or nothing reaches the body. */
-export function stackSection(env: NodeJS.ProcessEnv, base: string | undefined, hasIssueLink: boolean): string {
-  const r = env.LOKI_PR_REFS ?? "";
-  const refs = !hasIssueLink && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#\d+$/.test(r) ? `\nRefs ${r}\n` : "";
-  return refs + (base ? `\nStacked on \`${base}\`: review and merge that pull request first.\n` : "");
-}
 export async function runPr(ctx: PrContext, signal: AbortSignal, opts: PrOptions = {}): Promise<StageResult> {
   if (signal.aborted) return { status: "failed", data: {}, reason: "aborted before pr started" };
   const pinnedOrigin = ctx.pinnedOrigin;
@@ -97,36 +97,20 @@ export async function runPr(ctx: PrContext, signal: AbortSignal, opts: PrOptions
   const verdict = seal.verdict ?? "PARTIAL"; // fail-safe: an unknown verdict is never treated as VERIFIED
   const notProven = [...(seal.not_proven ?? [])];
   const capHit = ctx.capHit?.() ?? false;
-  const draft = verdict !== "VERIFIED" || capHit || process.env.LOKI_PR_DRAFT === "1"; // MASS-1: `loki issues run --draft` asks for drafts only; it never un-drafts
+  const draft = verdict !== "VERIFIED" || capHit || process.env.LOKI_PR_DRAFT === "1" || (ctx as PrContext).draft === true; // MASS-1: `loki issues run --draft` asks for drafts only; it never un-drafts
   const base = stackBase(process.env);
   if (base === null) return { status: "failed", data: {}, reason: "LOKI_PR_BASE is not a valid branch name: refusing to push" };
   mkdirSync(ctx.runDir, { recursive: true });
   const link = issueLink(ctx.runDir, verdict);
   const bodyFile = join(ctx.runDir, "pr-body.md");
   const beforeAfter = await beforeAfterBlock(ctx.repoDir, ctx.runDir, ((ctx.outputs().verify?.["changed_files"] ?? []) as unknown[]).map(String), ctx.baseSha, { signal });
-  writeFileSync(bodyFile, withAiMarker(withSealRoute(renderReviewerBody({ verdict, draftReason: draftReason(verdict, capHit), notProven, receiptPath: seal.receipt_path ?? null, receiptSha256: seal.receipt_sha256 ?? null, signed: typeof seal.signed === "boolean" ? seal.signed : null, runId: ctx.runId, outputs: ctx.outputs() }), process.env, seal), aiMarkerLine({ runId: ctx.runId, provider: ctx.provider, model: ctx.model })) + intentSection(ctx.outputs().plan) + specPrLine(process.env) + evidenceSection(seal.receipt_path) + briefSection(ctx) + beforeAfter + (seal.mutation_line ? `\n${seal.mutation_line}\n` : "") + link + stackSection(process.env, base, link !== ""), "utf8");
+  writeFileSync(bodyFile, withAiMarker(withSealRoute(renderReviewerBody({ verdict, draftReason: draftReason(verdict, capHit), notProven, receiptPath: seal.receipt_path ?? null, receiptSha256: seal.receipt_sha256 ?? null, signed: typeof seal.signed === "boolean" ? seal.signed : null, runId: ctx.runId, outputs: ctx.outputs() }), process.env, seal), aiMarkerLine({ runId: ctx.runId, provider: ctx.provider, model: ctx.model })) + intentSection(ctx.outputs().plan) + specPrLine(process.env) + evidenceSection(seal.receipt_path) + briefSection(ctx) + beforeAfter + (seal.mutation_line ? `\n${seal.mutation_line}\n` : "") + link + stackSection(process.env, base, link !== "") + (ctx.handoffMd ?? ""), "utf8");
   const title = `Loki 10: ${verdict} (${ctx.runId})`;
-  const pushShellArgs = [...toPushShellArgs({ cmd: "push-pr", repoDir: ctx.repoDir, branch: ctx.branch, title, bodyFile, draft }), ...(base ? ["--base", base] : [])];
   const scriptPath = opts.pushScriptPath ?? DEFAULT_PUSH_SH;
-  const env: NodeJS.ProcessEnv = { ...process.env, _LOKI_ORIGIN_PINNED: "1", _LOKI_PINNED_ORIGIN: pinnedOrigin };
-  if (resolvePrAuthor(ctx.repoDir) === "bot") {
-    const botToken = process.env.LOKI_PR_BOT_TOKEN;
-    if (botToken) env.GH_TOKEN = botToken; // child env only; never logged
-    else process.stderr.write("loki: pr.author is bot but LOKI_PR_BOT_TOKEN is not set; opening the PR as me\n");
-  }
-  const pushResult = spawnSync("bash", [scriptPath, ...pushShellArgs], { env, encoding: "utf8" });
-  if (pushResult.status !== 0) {
-    return { status: "failed", data: {}, reason: `engine10-push.sh push-pr failed (exit ${pushResult.status}): ${(pushResult.stderr ?? "").trim()}` };
-  }
-  const url = lastNonEmptyLine(pushResult.stdout ?? "");
-  // E-41: for a local bare origin (the eval harness) push-pr prints exactly
-  // local://<pinned origin>#<branch>; accepted only for an absolute, colon-free pin.
-  const localOk = pinnedOrigin.startsWith("/") && !pinnedOrigin.includes(":") && url === `local://${pinnedOrigin}#${ctx.branch}`;
-  if (!localOk && !PR_URL_RE.test(url)) {
-    return { status: "failed", data: {}, reason: `engine10-push.sh push-pr printed no valid PR URL (got: ${url || "(empty)"})` };
-  }
-  // Unknown, not fabricated: see the contract-gap note above.
-  const existing: boolean | null = null;
+  const env = pushEnv(ctx.repoDir, pinnedOrigin);
+  const pr = runPushPr({ repoDir: ctx.repoDir, branch: ctx.branch, title, bodyFile, draft, pinnedOrigin, base, scriptPath, env });
+  if (!pr.ok) return { status: "failed", data: {}, reason: pr.reason };
+  const { url, localOk, existing } = pr;
   ctx.emit("pr.opened", "pr", { url, draft, existing });
   const headSha = safeGit(ctx.repoDir, ["rev-parse", "HEAD"]).trim();
   const notProvenOut: string[] = [];
@@ -141,7 +125,7 @@ export async function runPr(ctx: PrContext, signal: AbortSignal, opts: PrOptions
   } else {
     notProvenOut.push("commit status loki/deep-verify not set (HEAD sha not resolvable)");
   }
-  await (await import("../../integrations/writeback.ts")).writeBack({ verdict, prUrl: url, receiptSha256: seal.receipt_sha256 ?? null, task: String((ctx.outputs().intake as { task?: unknown } | undefined)?.task ?? "") }); // B6: opt-in, never throws
+  await (await import("../../integrations/writeback.ts")).writeBack({ phase: "done", verdict, prUrl: url, receiptSha256: seal.receipt_sha256 ?? null, task: String((ctx.outputs().intake as { task?: unknown } | undefined)?.task ?? "") }); // B6: opt-in, never throws
   return { status: "completed", data: { pr_url: url, draft, existing, ...(notProvenOut.length ? { not_proven: notProvenOut } : {}) } };
 }
 export const stage: Stage = {

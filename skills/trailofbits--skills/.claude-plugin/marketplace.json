@@ -66,7 +66,7 @@
     },
     {
       "name": "devcontainer-setup",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "description": "Create pre-configured devcontainers with Claude Code and language-specific tooling",
       "author": {
         "name": "Alexis Challande",
@@ -94,7 +94,7 @@
     },
     {
       "name": "gh-cli",
-      "version": "1.6.2",
+      "version": "1.6.3",
       "description": "Intercepts GitHub URL fetches (WebFetch and MCP fetch tools) and curl/wget commands, redirecting to the authenticated gh CLI.",
       "author": {
         "name": "William Tan",
@@ -115,7 +115,7 @@
     },
     {
       "name": "entry-point-analyzer",
-      "version": "1.0.4",
+      "version": "2.0.0",
       "description": "Analyzes smart contract codebases to identify state-changing entry points for security auditing. Detects externally callable functions that modify state, categorizes them by access level, and generates structured audit reports.",
       "author": {
         "name": "Nicolas Donboly",

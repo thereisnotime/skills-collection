@@ -56,6 +56,13 @@ function _loki {
                 agent)
                     _loki_agent
                     ;;
+                estimate)
+                    _arguments \
+                        '--json[Output machine-readable JSON]' \
+                        '--model[Model whose rough prior to use]:model:' \
+                        '--provider[Provider whose default model is used]:provider:' \
+                        '--help[Show help]'
+                    ;;
                 status)
                     _arguments \
                         '--json[Output machine-readable JSON]' \
@@ -64,7 +71,51 @@ function _loki {
                 doctor)
                     _arguments \
                         '--json[Output machine-readable JSON]' \
+                        '--fix[Create state dirs and a default config]' \
                         '--help[Show help]'
+                    ;;
+                chat)
+                    _arguments \
+                        '--attach[Attach to a running session]' \
+                        '--tui[Use the terminal UI]' \
+                        '--help[Show help]'
+                    ;;
+                agents)
+                    _arguments \
+                        '1:subcommand:(list new show export)' \
+                        '--claude[Export to .claude/agents]' \
+                        '--user[Use the user-level agents directory]' \
+                        '--help[Show help]'
+                    ;;
+                models)
+                    _arguments \
+                        '--local[Show local models]' \
+                        '--json[Output machine-readable JSON]' \
+                        '--help[Show help]'
+                    ;;
+                setup)
+                    _arguments \
+                        '--yes[Non-interactive defaults]' \
+                        '--check[Report only]' \
+                        '--help[Show help]'
+                    ;;
+                route)
+                    _arguments \
+                        '1:verb:(start quick)' \
+                        '--json[Output machine-readable JSON]' \
+                        '--provider[AI provider]:provider name:(claude cline codex aider opencode)' \
+                        '--model[Model or route override]:model:' \
+                        '--no-pr[Skip the pull request]' \
+                        '--max-cost[Spend cap in USD]:amount:' \
+                        '--help[Show help]'
+                    ;;
+                edit)
+                    _arguments \
+                        '--verify[Run verification after the edit]' \
+                        '--commit[Commit the edit]' \
+                        '--dry-run[Describe the change only]' \
+                        '--help[Show help]' \
+                        '*:file:_files'
                     ;;
                 reset)
                     _loki_reset
@@ -117,6 +168,27 @@ function _loki {
                     ;;
                 code)
                     _loki_code
+                    ;;
+                deploy)
+                    _arguments \
+                        '--dir[Project directory to scan]:directory:_directories' \
+                        '--no-clip[Do not copy the command to the clipboard]' \
+                        '--execute[Run the deploy command if the receipt gate passes]' \
+                        '--canary[With --execute: staged rollout (Vercel promote, Fly canary)]' \
+                        '--allow-unanchored[Proceed when the receipt records no baseline]' \
+                        '--health-url[Health probe URL]:url:' \
+                        '--auto-rollback[Roll back on a failed health probe]' \
+                        '--help[Show help]'
+                    ;;
+                verify)
+                    _arguments \
+                        '--pubkey[Check against this public key only]:key file:_files' \
+                        '--sign-deploy[Sign a loki.deploy/1 deploy record in place]:record:_files' \
+                        '--receipt[Cited receipt file for a deploy record]:receipt:_files' \
+                        '--max-age[Reject a receipt older than DUR]:duration:' \
+                        '--seal-composite[Sign a workspace composite]:run dir:_directories' \
+                        '--help[Show help]' \
+                        '*:receipt or deploy record:_files'
                     ;;
             esac
             ;;
@@ -187,7 +259,7 @@ function _loki_commands {
         'plan:Preview the build plan for a spec'
         'report:Reporting commands (cost, kpis, share)'
         'cost:Show cost of recent runs (--detail for cache + trend)'
-        'estimate:Project run cost (requires --iterations N)'
+        'estimate:Estimate run cost from run history (--json, --model, --provider)'
         'kpis:Key performance indicators'
         'stats:Session statistics'
         'preview:Open the running app preview'
@@ -214,11 +286,18 @@ function _loki_commands {
         'crash:Crash report management'
         'otel:OpenTelemetry management'
         'wiki:Wiki commands'
-        'answer:Resume a BLOCKED run with an answer'
+        'answer:Start a follow-up run from a BLOCKED run with your answer'
         'verify-pr:Verify a PR against its linked issue in a sandbox'
         'queue:Overnight issue queue with a morning digest'
         'issues:Run every open issue in a repo and open PRs'
         'undo:Show what undoing a run would do (read-only plan)'
+        'chat:Interactive chat session (run, attach)'
+        'route:Print the engine, provider and model route without running'
+        'edit:Make a scoped edit to files'
+        'setup:First-run wizard for tools, provider, model route and spend cap'
+        'models:List models and routes (--local for local models)'
+        'agents:List, scaffold, show and export agent definitions'
+        'diff:Show what the last run changed'
         'control:Control plane (preview, LOKI_CONTROL=1)'
         'workspace:Multi-project workspaces (preview, LOKI_WORKSPACES=1)'
         'backlog:Run every matching open issue, N in parallel'
@@ -262,6 +341,15 @@ function _loki_start {
     _arguments \
         '--provider[AI provider]:provider name:(claude cline codex aider opencode)' \
         '--parallel[Parallel mode]' \
+        '--brief[Zero-config brief mode]:brief text:' \
+        '--worktree[Git worktree isolation]' \
+        '--pr[Worktree plus auto-create PR]' \
+        '--ship[Worktree plus PR plus auto-merge]' \
+        '--detach[Run in background (implies --worktree)]' \
+        '--workspace[Run a loki.yaml workspace for the brief]:workspace name:' \
+        '--deploy[Deploy after a VERIFIED run via loki deploy --execute]' \
+        '--health-url[With --deploy: health probe URL]:url:' \
+        '--auto-rollback[With --deploy: roll back on a failed health probe]' \
         '--background[Background mode]' \
         '--bg[Background mode]' \
         '--simple[Force simple complexity]' \
@@ -275,6 +363,10 @@ function _loki_start {
         '--yes[Skip confirmation prompts]' \
         '-y[Skip confirmation prompts]' \
         '--budget[Cost budget limit in USD]:amount:' \
+        '--model[Model or route override]:model:' \
+        '--max-cost[Spend cap in USD]:amount:' \
+        '--no-pr[Build and verify without opening a pull request]' \
+        '--explain-route[Print the route without running]' \
         '--max-iterations[Max iterations]:number:' \
         '--attempts[Independent attempts in worktrees, 1-5]:number:(1 2 3 4 5)' \
         '*:spec file:_loki_spec_files'
@@ -323,7 +415,8 @@ function _loki_provider {
         'show:Display current provider'
         'set:Set default provider'
         'list:List available providers'
-        'info:Get provider information'
+        'info:Get provider information (--json: capability contract)'
+        'matrix:Show the capability matrix'
         'help:Provider help'
     )
     _describe -t cmds 'provider subcommand' cmds
@@ -334,6 +427,7 @@ function _loki_plan {
         '--json[Machine-readable JSON output]' \
         '--verbose[Detailed per-iteration breakdown]' \
         '--spec[Write editable acceptance criteria to .loki/specs/<slug>.md]' \
+        '--requirements[Print the last run requirement-to-check map (read-only)]' \
         '*:prd file:_files'
 }
 

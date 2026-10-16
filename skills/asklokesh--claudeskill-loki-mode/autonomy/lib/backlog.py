@@ -2,7 +2,7 @@
 """loki backlog: run one v10 issue-mode run per open issue, N in parallel (D51).
 
     loki backlog owner/repo --all | --label X | --issues 1,2,3
-                 [--concurrency N] [--dry-run]
+                 [--concurrency N] [--slots N] [--dry-run]
 
 Each issue gets its own git worktree and branch (loki/backlog-N) beside the
 checkout; the launcher runs inside it. Success = the child exited 0 (the engine's
@@ -195,7 +195,9 @@ def load_dag(path, group):
         if task.lstrip().startswith("-"):
             raise ValueError("unit %s task text starts with '-' and would be read as an option" % uid)
         units.append({"n": n, "id": uid, "deps": deps[uid], "write_set": list(u.get("writeSet") or []),
-                      "task": task})
+                      "task": task, "done": u.get("done") is True,
+                      "base": str(u.get("base") or ""),
+                      "spec": u["spec"] if isinstance(u.get("spec"), str) and os.path.isabs(u["spec"]) else ""})
     return group, units
 
 
@@ -207,6 +209,8 @@ def main(argv):
     sel.add_argument("--label")
     sel.add_argument("--issues")
     ap.add_argument("--concurrency", type=int)
+    ap.add_argument("--slots", type=int, help="provider cap on parallel runs; the effective concurrency is the lower of this and --concurrency/loki.yaml")
+    ap.add_argument("--provider", help="provider for every child run; wins over loki.yaml provider:")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--dag", help="decomposer DAG JSON; its units run on loki/unit-<group>-<n>")
     ap.add_argument("--group", help="unit group id (default: the DAG's group, else g1)")
@@ -240,6 +244,11 @@ def main(argv):
     conc = a.concurrency or cfg.get("concurrency", 2)
     if conc < 1:
         return die("--concurrency must be >= 1")
+    if a.slots is not None:
+        if a.slots < 1:
+            return die("--slots must be >= 1")
+        # An explicit --concurrency is capped too: the provider limit always wins.
+        conc = min(a.slots, a.concurrency) if a.concurrency else a.slots
 
     env = dict(os.environ)
     token = ""
@@ -256,6 +265,17 @@ def main(argv):
     if origin_slug(top).lower() != a.repo.lower():
         return die("this checkout's origin is %r, not %s; cd into a checkout of %s"
                    % (origin_slug(top) or "unknown", a.repo, a.repo))
+
+    for u in dag_units:
+        b = u["base"]
+        if not b or re.match(r"^[0-9a-f]{7,64}$", b):
+            continue
+        # A ref-name base is resolved to a SHA; an unresolvable one fails loudly, never falls back to origin/HEAD.
+        r = git("rev-parse", "--verify", "-q", "--end-of-options", b + "^{commit}", cwd=top) if not b.startswith("-") else None
+        sha = r.stdout.strip() if r is not None and r.returncode == 0 else ""
+        if not re.match(r"^[0-9a-f]{40,64}$", sha):
+            return die("unit %s base %r is not a commit SHA or a resolvable ref" % (u["id"], b))
+        u["base"] = sha
 
     try:
         issues = ([{"number": n, "title": ""} for n in numbers] if numbers
@@ -284,11 +304,21 @@ def main(argv):
         sect, name = key.split(".")
         if cfg.get(sect, {}).get(name):
             child_env[var] = cfg[sect][name]
-    if cfg.get("provider"):
+    if a.provider:
+        child_env["LOKI_PROVIDER"] = a.provider
+    elif cfg.get("provider"):
         child_env["LOKI_PROVIDER"] = cfg["provider"]
-    # ponytail: per-run cap is forwarded only; the v10 engine itself caps on time
-    if cfg.get("budgets", {}).get("per_run_usd"):
-        child_env["LOKI_BUDGET_LIMIT"] = str(cfg["budgets"]["per_run_usd"])
+    # per-run cap forwarded to each child (budgets.per_run is the TS-side alias); an exported LOKI_BUDGET_LIMIT wins over loki.yaml
+    bud = cfg.get("budgets", {})
+    per_run = bud.get("per_run_usd") or bud.get("per_run")
+    if per_run and not env.get("LOKI_BUDGET_LIMIT"):
+        child_env["LOKI_BUDGET_LIMIT"] = str(per_run)
+    group_cap = None  # a DAG group shares one total: the run cap bounds the sum of its units, not each unit
+    if dag_units:
+        try:
+            group_cap = float(env.get("LOKI_BUDGET_LIMIT") or 0) or None
+        except ValueError:
+            group_cap = None
     day_cap = cfg.get("budgets", {}).get("per_day_usd")
 
     # One job table for issues and units: they share one slot pool.
@@ -304,7 +334,10 @@ def main(argv):
                    "cmd": [launcher, u["task"], "--no-pr"],
                    "deps": [key_of[d] for d in u["deps"]],
                    "env": {"LOKI_GROUP_ID": group, "LOKI_UNIT_ID": u["id"], "LOKI_UNIT_N": str(u["n"]),
-                           "LOKI_UNIT_DEPS": ",".join(u["deps"]), "LOKI_UNIT_WRITE_SET": "\n".join(u["write_set"])}}
+                           "LOKI_UNIT_DEPS": ",".join(u["deps"]), "LOKI_UNIT_WRITE_SET": "\n".join(u["write_set"])},
+                   "done": u["done"], "base": u["base"]}
+        if u["spec"]:  # frozen group acceptance for unit_mode (wall.ts)
+            spec[k]["env"].update(LOKI_UNIT_SPEC=u["spec"], LOKI_SPEED="1")
     state = {k: {"status": "queued", "ok": None, "cost": None, "ran": False} for k in spec}
     for k in state:
         say("backlog: %s queued" % spec[k]["label"])
@@ -321,6 +354,32 @@ def main(argv):
         sys.exit(130)
     signal.signal(signal.SIGTERM, stop_children)
     signal.signal(signal.SIGINT, stop_children)
+
+    def harvest(k, wt):
+        """Copy the newest unit receipt and events into the group dir before the worktree goes."""
+        gid = spec[k]["env"].get("LOKI_GROUP_ID")
+        uid = spec[k]["env"].get("LOKI_UNIT_ID")
+        if not (spec[k]["unit"] and gid and uid):
+            return
+        try:
+            runs = os.path.join(wt, ".loki", "runs")
+            cands = [os.path.join(runs, d) for d in os.listdir(runs)
+                     if not os.path.islink(os.path.join(runs, d))
+                     and os.path.isfile(os.path.join(runs, d, "receipt.json"))]
+            if not cands:
+                return
+            src_dir = max(cands, key=lambda d: os.path.getmtime(os.path.join(d, "receipt.json")))
+            dst_dir = os.path.join(top, ".loki", "groups", gid, "group", "units", uid)
+            os.makedirs(dst_dir, mode=0o700, exist_ok=True)
+            for name in ("receipt.json", "events.jsonl"):
+                src, dst = os.path.join(src_dir, name), os.path.join(dst_dir, name)
+                if os.path.islink(src) or os.path.islink(dst) or not os.path.isfile(src):
+                    continue
+                tmp = dst + ".tmp%d" % os.getpid()
+                shutil.copyfile(src, tmp)
+                os.replace(tmp, dst)
+        except OSError:
+            pass
 
     def finish(k):
         nonlocal unmeasured
@@ -339,6 +398,7 @@ def main(argv):
             add_spend(usd)
         state[k].update(status=status, ok=ok, cost=usd)
         say("backlog: %s %s" % (spec[k]["label"], status))
+        harvest(k, wt)
         if ok:
             git("worktree", "remove", "--force", wt, cwd=top)
             if not spec[k]["unit"]:  # a passing unit branch is kept for the integrator
@@ -353,13 +413,13 @@ def main(argv):
             # Shared worktree prep (D51-B05): per-base lock, clean start point, deps copied.
             git("branch", "-D", s["branch"], cwd=top)
             try:
-                worktree_prep.prepare_worktree(top, wt, s["branch"])
+                worktree_prep.prepare_worktree(top, wt, s["branch"], base=s.get("base") or None)
                 r = None
             except (RuntimeError, subprocess.CalledProcessError) as e:
                 msg = getattr(e, "stderr", None) or str(e)
                 r = subprocess.CompletedProcess([], 1, "", msg)
         else:
-            r = git("worktree", "add", "-B", s["branch"], wt, "HEAD", cwd=top)
+            r = git("worktree", "add", "-B", s["branch"], wt, s.get("base") or "HEAD", cwd=top)
         if r is not None and r.returncode != 0:
             err = (r.stderr.strip().splitlines() or ["git error"])[-1]
             state[k].update(status="FAILED: worktree: " + redact(err, token), ok=False)
@@ -392,6 +452,13 @@ def main(argv):
         for k in [k for k, (p, _l, _w) in running.items() if p.poll() is not None]:
             finish(k)
         while pending and len(running) < conc:
+            group_spent = sum(st["cost"] or 0 for st in state.values())
+            if group_cap and group_spent >= group_cap:
+                for k in pending:
+                    state[k].update(status="BUDGET_STOP: group budget $%.2f reached ($%.2f spent)" % (group_cap, group_spent), ok=False)
+                    say("backlog: %s %s" % (spec[k]["label"], state[k]["status"]))
+                pending = []
+                break
             spent = spent_today() if day_cap else 0.0
             if day_cap and (spent is None or spent >= day_cap):
                 for k in pending:
@@ -405,6 +472,10 @@ def main(argv):
             k = next_ready()
             if k is None:
                 break
+            if spec[k].get("done"):
+                state[k].update(status="VERIFIED (resumed)", ok=True)
+                say("backlog: %s VERIFIED (resumed)" % spec[k]["label"])
+                continue
             launch(k)
         if running:
             time.sleep(0.2)

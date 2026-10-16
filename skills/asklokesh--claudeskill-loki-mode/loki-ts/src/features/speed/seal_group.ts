@@ -10,8 +10,9 @@
 // all of it and also runs the full verify on every sub-receipt. Nothing here produces a verdict:
 // the combined verdict still comes from the Seal computation, and this module can only lower it.
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { signReceipt } from "../../util/receipt_signer.ts";
 import type { Verdict } from "../../engine10/types.ts";
 import type { VerifyDeps } from "../../engine10/verify_cmd.ts";
 
@@ -31,17 +32,17 @@ export interface GroupUnit {
 export interface ReceiptGroup { group_id: string; units: GroupUnit[] }
 export interface GroupSeal { section: ReceiptGroup | undefined; notProven: string[]; problems: number; allUnitsPass: boolean }
 /** Same hash the receipt uses (seal.ts receiptSha256), injected so this module never imports seal.ts or verify_cmd.ts. */
-type RecHash = (r: Record<string, unknown>) => string;
-type VerifyOne = (receiptPath: string, deps?: VerifyDeps) => Promise<{ verdict: string; reasons: string[] }>;
-const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-const PASSING = new Set(["VERIFIED", "ALREADY_SATISFIED"]);
-const sha = (b: Buffer | string): string => createHash("sha256").update(b).digest("hex");
-const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
-const text = (v: unknown, cap: number): string => (typeof v === "string" ? v.replace(/[\x00-\x1f\x7f]+/g, " ").trim().slice(0, cap) : "");
+export type RecHash = (r: Record<string, unknown>) => string;
+export type VerifyOne = (receiptPath: string, deps?: VerifyDeps) => Promise<{ verdict: string; reasons: string[] }>;
+export const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+export const PASSING = new Set(["VERIFIED", "ALREADY_SATISFIED"]);
+export const sha = (b: Buffer | string): string => createHash("sha256").update(b).digest("hex");
+export const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
+export const text = (v: unknown, cap: number): string => (typeof v === "string" ? v.replace(/[\x00-\x1f\x7f]+/g, " ").trim().slice(0, cap) : "");
 const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0);
 const unitsDir = (runDir: string): string => join(runDir, "group", "units");
-const readJson = (p: string): unknown => { try { return JSON.parse(readFileSync(p, "utf8")); } catch { return undefined; } };
-const dirNames = (d: string): string[] | null => { try { return readdirSync(d).filter((n) => !n.startsWith(".")).sort(); } catch { return null; } }; // dotfiles (.DS_Store) are not units
+export const readJson = (p: string): unknown => { try { return JSON.parse(readFileSync(p, "utf8")); } catch { return undefined; } };
+export const dirNames = (d: string): string[] | null => { try { return readdirSync(d).filter((n) => !n.startsWith(".")).sort(); } catch { return null; } }; // dotfiles (.DS_Store) are not units
 /** Reads the group directory under runDir. No group/manifest.json means a single run: inert, so the receipt is byte-identical to today. */
 export function sealGroup(runDir: string, rh: RecHash): GroupSeal {
   const manifestPath = join(runDir, "group", "manifest.json");
@@ -116,12 +117,26 @@ export async function verifyGroup(receiptPath: string, receipt: Record<string, u
   }
   return unchecked ? { verdict: "UNCHECKED", reason: `group: ${unchecked}` } : null;
 }
-const cell = (s: string): string => s.replace(/[\x00-\x1f\x7f|]+/g, " ").trim();
-/** Markdown unit table for the PR body. */
-export function unitTableLines(g: ReceiptGroup): string[] {
-  return [
-    `Units (group ${cell(g.group_id)}):`, "",
-    "| Unit | Goal | Files | Tests | Tokens | Model | Verdict |", "|---|---|---|---|---|---|---|",
-    ...g.units.map((u) => `| ${cell(u.unit_id)} | ${cell(u.goal)} | ${u.files.map(cell).join(", ")} | ${u.tests} | ${u.tokens} | ${cell(u.model)} | ${cell(u.verdict)} |`),
-  ];
+
+/** Group receipt: one signed body over sealGroup's section, written to <groupDir>/receipt.json (tmp + rename). Reuses sealGroup and the cap rules; no second sealer.
+ *  Throws (message names the problem) when group/manifest.json is missing or any unit sub-receipt fails to seal, so a bad group never gets a receipt. rh is seal.ts receiptSha256, injected. */
+export const GROUP_SCHEMA = "loki.v10.group/1";
+export function composeGroupReceipt(groupDir: string, rh: RecHash, o: { baseRef: string; head: string }): { path: string; receipt: Record<string, unknown> } {
+  const seal = sealGroup(groupDir, rh);
+  if (!seal.section) throw new Error(seal.notProven.length > 0 ? seal.notProven.join("; ") : "group/manifest.json missing");
+  const verdict = capGroupVerdict(compositeVerdict(seal.section.units.map((u) => u.verdict)), seal);
+  const gid = seal.section.group_id;
+  const body = { schema: GROUP_SCHEMA, run_id: gid, verdict, base_sha: o.baseRef, head_sha: o.head, not_proven: seal.notProven, group: seal.section };
+  const hash = rh(body as unknown as Record<string, unknown>), sig = signReceipt(gid, hash);
+  const receipt = { ...body, receipt_sha256: hash, verification: { jwt: sig.jwt, kid: sig.kid } };
+  const path = join(groupDir, "receipt.json"), tmp = `${path}.${process.pid}.tmp`;
+  mkdirSync(groupDir, { recursive: true });
+  writeFileSync(tmp, JSON.stringify(receipt, null, 2) + "\n"); renameSync(tmp, path);
+  return { path, receipt };
+}
+/** Cap rule shared by seal and verify: FAILED child fails, SPEC_CONFLICT stays, any non-passing child caps at PARTIAL. */
+export function compositeVerdict(childVerdicts: string[]): Verdict {
+  const base: Verdict = childVerdicts.includes("SPEC_CONFLICT") ? "SPEC_CONFLICT" : childVerdicts.length > 0 && childVerdicts.every((v) => v === "ALREADY_SATISFIED") ? "ALREADY_SATISFIED" : "VERIFIED";
+  const failed = childVerdicts.filter((v) => v === "FAILED" || !["VERIFIED", "ALREADY_SATISFIED", "PARTIAL", "SPEC_CONFLICT"].includes(v)).length;
+  return capGroupVerdict(base, { section: undefined, notProven: [], problems: failed, allUnitsPass: childVerdicts.every((v) => PASSING.has(v)) });
 }

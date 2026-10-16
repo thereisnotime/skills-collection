@@ -26,12 +26,19 @@ GitHub, the bearer token authenticates a human operator -- so holding one must
 never grant the other. If no API token is configured the server still starts but
 every /jobs request is rejected with 503 and an audit log line.
 
+Self-healing entry point: POST /sentry accepts a Sentry integration webhook
+authenticated by Sentry's own HMAC (sentry-hook-signature) under a THIRD,
+separate secret (LOKI_SENTRY_WEBHOOK_SECRET or SENTRY_CLIENT_SECRET). A valid
+alert enqueues `loki start "<normalized brief>" --pr --detach`: the output is a
+receipt-gated PR only, never a deploy. No secret means the route answers 503.
+
 Usage:
     python3 autonomy/trigger-server.py [--port PORT] [--secret SECRET] [--dry-run]
                                        [--workers N] [--queue-size N]
 """
 
 import argparse
+import base64
 import collections
 import hashlib
 import hmac
@@ -46,11 +53,14 @@ import signal
 import socket
 import socketserver
 import subprocess
+import tempfile
 import sys
 import threading
 import time
-from datetime import datetime
+import urllib.parse
+from datetime import datetime, timezone
 from pathlib import Path
+from urllib.request import Request, urlopen
 
 # Receipt attestation. Imported by path because trigger-server.py runs as a
 # script from an arbitrary cwd, so a bare `import receipt_jwt` would depend on
@@ -176,6 +186,74 @@ def valid_spec(spec):
     if spec.startswith("-"):
         return False
     return True
+
+
+# M-23: POST /jobs kind "unit" (remote modernize unit). The schema is closed:
+# any field outside UNIT_JOB_FIELDS is rejected, so no credential, env var or
+# command can ride the payload. Credentials come from the worker's own secret
+# mount, never from the job. Every value is bounded and dash-leading values are
+# refused so none can be parsed as a CLI flag.
+UNIT_JOB_KIND = "unit"
+UNIT_JOB_FIELDS = frozenset(("kind", "repo", "ref", "unit", "mid", "target"))
+UNIT_JOB_REQUIRED = ("repo", "ref", "unit")
+UNIT_JOB_TARGETS = ("python3", "java21")
+MAX_UNIT_REPO_LEN = 140
+MAX_UNIT_REF_LEN = 200
+# fullmatch + explicit ASCII classes: "$" would accept a trailing newline and
+# "\d" would accept Unicode digits. Mirrors the TS REPO_RE/REF_RE/UNIT_RE/MID_RE.
+UNIT_REPO_RE = re.compile(r"[A-Za-z0-9._][A-Za-z0-9._-]*/[A-Za-z0-9._-]+", re.ASCII)
+UNIT_REF_RE = re.compile(r"[A-Za-z0-9._][A-Za-z0-9._/-]*", re.ASCII)
+UNIT_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", re.ASCII)
+UNIT_MID_RE = re.compile(r"mod-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}", re.ASCII)
+
+
+def validate_unit_job(payload):
+    """Strictly validate a kind "unit" payload.
+
+    Returns (clean_dict, None) or (None, error). The clean dict holds only
+    known string fields, so downstream code never sees anything else.
+    """
+    if not isinstance(payload, dict):
+        return None, "payload must be a JSON object"
+    unknown = sorted(str(k) for k in payload if k not in UNIT_JOB_FIELDS)
+    if unknown:
+        return None, "unknown field(s): %s" % ", ".join(k[:40] for k in unknown[:5])
+    for key in UNIT_JOB_REQUIRED:
+        if key not in payload:
+            return None, "missing field: %s" % key
+    for key, value in payload.items():
+        if not isinstance(value, str):
+            return None, "field %s must be a string" % key
+    repo, ref, unit = payload["repo"], payload["ref"], payload["unit"]
+    if (len(repo) > MAX_UNIT_REPO_LEN or not UNIT_REPO_RE.fullmatch(repo)
+            or any(seg in (".", "..") for seg in repo.split("/"))):
+        return None, "invalid repo"
+    if (not ref or len(ref) > MAX_UNIT_REF_LEN or not UNIT_REF_RE.fullmatch(ref)
+            or ".." in ref or ref.endswith((".lock", "/", "."))):
+        return None, "invalid ref"
+    if not UNIT_ID_RE.fullmatch(unit):
+        return None, "invalid unit"
+    clean = {"kind": UNIT_JOB_KIND, "repo": repo, "ref": ref, "unit": unit}
+    if "mid" in payload:
+        if not UNIT_MID_RE.fullmatch(payload["mid"]):
+            return None, "invalid mid"
+        clean["mid"] = payload["mid"]
+    if "target" in payload:
+        if payload["target"] not in UNIT_JOB_TARGETS:
+            return None, "invalid target"
+        clean["target"] = payload["target"]
+    return clean, None
+
+
+def unit_start_args(unit_job):
+    """argv for the modernize unit worker. One list, never a shell string."""
+    args = ["modernize", "unit", "--repo", unit_job["repo"],
+            "--ref", unit_job["ref"], "--unit", unit_job["unit"]]
+    if "mid" in unit_job:
+        args += ["--mid", unit_job["mid"]]
+    if "target" in unit_job:
+        args += ["--target", unit_job["target"]]
+    return args
 
 
 def constant_time_equals(a, b):
@@ -398,11 +476,34 @@ OUTCOME_FAILED = JOB_STATUS_FAILED    # launch failed, or exited non-zero
 OUTCOME_UNKNOWN = JOB_STATUS_UNKNOWN  # detached; exit code never observed
 
 
-def run_loki_outcome(args, dry_run=False):
+# Secrets this server holds that a spawned `loki start` must never inherit: a
+# prompt-injected run could otherwise forge /sentry, /webhook or /jobs requests.
+CHILD_ENV_DENYLIST = (
+    "GITHUB_WEBHOOK_SECRET",
+    "LOKI_API_TOKEN",
+    "LOKI_API_TOKEN_FILE",
+    "LOKI_SENTRY_WEBHOOK_SECRET",
+    "SENTRY_CLIENT_SECRET",
+    "SLACK_SIGNING_SECRET",
+    "SLACK_BOT_TOKEN",
+    "LINEAR_WEBHOOK_SECRET",
+    "LINEAR_API_KEY",
+    "JIRA_WEBHOOK_SECRET",
+    "JIRA_API_TOKEN",
+    "TEAMS_SECURITY_TOKEN",
+)
+
+
+def _scoped_child_env():
+    return {k: v for k, v in os.environ.items() if k not in CHILD_ENV_DENYLIST}
+
+
+def run_loki_outcome(args, dry_run=False, stdout_sink=None):
     """Run a loki command and report WHICH of the three outcomes occurred.
 
     Returns one of OUTCOME_PASSED / OUTCOME_FAILED / OUTCOME_UNKNOWN. This is
     the honest version of run_loki_command, which answers only "did it launch".
+    When stdout_sink is a list, the decoded stdout is appended to it on completion.
     """
     cmd = ["loki"] + args
     if dry_run:
@@ -414,13 +515,16 @@ def run_loki_outcome(args, dry_run=False):
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=_scoped_child_env(),
         )
     except (FileNotFoundError, OSError) as e:
         logging.error("Failed to launch %s: %s", " ".join(cmd), e)
         return OUTCOME_FAILED
 
     try:
-        _, stderr = proc.communicate(timeout=DISPATCH_WAIT_SECONDS)
+        stdout, stderr = proc.communicate(timeout=DISPATCH_WAIT_SECONDS)
+        if stdout_sink is not None:
+            stdout_sink.append((stdout or b"").decode("utf-8", errors="replace"))
     except subprocess.TimeoutExpired:
         # Detached past the wait window. The reaper collects the child, but we
         # never see its exit code, so the outcome is genuinely UNKNOWN -- NOT a
@@ -454,7 +558,7 @@ def run_loki_outcome(args, dry_run=False):
     return OUTCOME_FAILED
 
 
-def run_loki_command(args, dry_run=False):
+def run_loki_command(args, dry_run=False, stdout_sink=None):
     """Run a loki command synchronously and reap it; or print it if dry_run.
 
     Returns True if the command was launched and exited 0 (or backgrounded
@@ -470,9 +574,150 @@ def run_loki_command(args, dry_run=False):
     passed wants run_loki_outcome instead. Behaviour is unchanged: a detached
     dispatch (UNKNOWN) still reads as True here, exactly as before.
     """
-    return run_loki_outcome(args, dry_run=dry_run) in (
+    return run_loki_outcome(args, dry_run=dry_run, stdout_sink=stdout_sink) in (
         OUTCOME_PASSED, OUTCOME_UNKNOWN,
     )
+
+
+TRUSTED_ASSOCIATIONS = ("OWNER", "MEMBER", "COLLABORATOR")  # same set as verify_pr.ts
+STEER_NOTE_MAX = 1000
+
+
+def _process_start_time(pid):
+    """`ps -o lstart=` for pid, whitespace-normalized like run_pid.ts processStartTime; None if gone."""
+    if not isinstance(pid, int) or pid <= 1:
+        return None
+    try:
+        out = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)], capture_output=True,
+                             text=True, timeout=5, env={**os.environ, "LC_ALL": "C"}).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return " ".join(out.split()) or None
+
+
+def find_live_run(ref):
+    """Return the id of a live run for issue ref "owner/repo#N", else None.
+
+    Scans $LOKI_DIR (default .loki)/runs/*/events.jsonl for a run.started whose issue_ref matches and
+    whose run.pid names a live process. Mirrors runOwnerAlive: the recorded
+    start time and run_id must match, so a recycled pid does not read as live.
+    """
+    runs = Path(os.environ.get("LOKI_DIR") or ".loki") / "runs"
+    try:
+        dirs = sorted(runs.iterdir())
+    except OSError:
+        return None
+    for d in dirs:
+        try:
+            with open(d / "events.jsonl", "r", encoding="utf-8", errors="replace") as fh:
+                first = json.loads(fh.readline() or "{}")
+            if first.get("type") != "run.started" or (first.get("data") or {}).get("issue_ref") != ref:
+                continue
+            rec = json.loads((d / "run.pid").read_text())
+            pid = int(rec.get("pid", 0))
+            start = rec.get("start")
+            if pid > 1 and isinstance(start, str) and rec.get("run_id") == d.name \
+                    and _process_start_time(pid) == " ".join(start.split()):
+                return d.name
+        except (OSError, ValueError, TypeError, AttributeError):
+            continue
+    return None
+
+
+def steer_ack_text(rev):
+    """Ack line for a steer; byte-identical to the line `loki steer` prints (cmd_steer)."""
+    if rev is None:
+        return "Steer received: applies at next plan/implement stage."
+    return "Steer rev %s received: applies at next plan/implement stage." % rev
+
+
+STEER_ACK_MARKER = "<!-- loki-steer-ack -->"
+LOKI_COMMENT_MARKER = "<!-- loki-"  # any Loki-authored comment (status projector, steer ack) never steers
+
+
+def parse_steer_rev(stdout):
+    """Revision number from `loki steer` stdout (its ack line), else None. Never guesses."""
+    m = re.search(r"Steer rev (\d+) received", stdout or "") \
+        or re.search(r"Steering note \(rev (\d+)\)", stdout or "")
+    return int(m.group(1)) if m else None
+
+
+def post_steer_ack(ref, repo_full_name, rev, dry_run=False):
+    """Post one ack comment on the issue through engine10-push.sh issue-comment. Best effort."""
+    text = steer_ack_text(rev)
+    if dry_run:
+        logging.info("[DRY-RUN] Would ack %s: %s", ref, text)
+        return True
+    script = Path(__file__).resolve().parent / "lib" / "engine10-push.sh"
+    body = None
+    try:
+        fd, body = tempfile.mkstemp(prefix="loki-steer-ack.", suffix=".md")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(STEER_ACK_MARKER + "\n" + text + "\n")
+        env = _scoped_child_env()
+        env["_LOKI_ORIGIN_PINNED"] = "1"
+        env["_LOKI_PINNED_ORIGIN"] = "https://github.com/%s.git" % repo_full_name
+        proc = subprocess.run(["bash", str(script), "issue-comment", ref, body],
+                              capture_output=True, text=True, timeout=60, env=env)
+        if proc.returncode != 0:
+            logging.error("steer ack failed (%d): %s", proc.returncode, proc.stderr.strip())
+        return proc.returncode == 0
+    except (OSError, subprocess.SubprocessError) as e:
+        logging.error("steer ack failed: %s", e)
+        return False
+    finally:
+        if body:
+            try:
+                os.unlink(body)
+            except OSError:
+                pass
+
+
+def handle_issue_comment_event(payload, dry_run=False):
+    """Handle issue_comment: an authorized new comment steers the issue's live run."""
+    action = payload.get("action", "")
+    if action != "created":
+        return None, "skipped (action=%s)" % action
+    comment = payload.get("comment") or {}
+    if comment.get("author_association") not in TRUSTED_ASSOCIATIONS:
+        return None, "skipped (comment author not authorized)"
+    user = comment.get("user") or {}
+    login = str(user.get("login", ""))
+    if user.get("type") == "Bot" or login.endswith("[bot]"):
+        return None, "skipped (bot comment)"
+    if LOKI_COMMENT_MARKER in str(comment.get("body", "")):
+        return None, "skipped (loki-authored comment)"
+    number = (payload.get("issue") or {}).get("number")
+    repo_full_name = (payload.get("repository") or {}).get("full_name", "")
+    if number is None or not valid_issue_number(number):
+        return None, "rejected (invalid issue number)"
+    if not valid_repo_full_name(repo_full_name):
+        return None, "rejected (invalid repository full_name)"
+    ref = "%s#%s" % (repo_full_name, number)
+    if find_live_run(ref) is None:
+        return None, "skipped (no live run for %s)" % ref
+    body = re.sub(r"[\x00-\x1f\x7f\s]+", " ", str(comment.get("body", ""))).strip()[:STEER_NOTE_MAX]
+    if not body:
+        return None, "skipped (empty comment)"
+    login = re.sub(r"[^A-Za-z0-9-]", "", login)[:39]
+    note = "GitHub comment from %s: %s" % (login or "unknown", body)
+    summary = "steer %s from comment" % ref
+    sink = []
+    outcome = run_loki_outcome(["steer", note], dry_run=dry_run, stdout_sink=sink)
+    # Only a confirmed exit 0 proves the steer was written. A detached child
+    # (UNKNOWN) never reports its exit code, so acking would claim an unverified
+    # steer; report it as launched but post nothing.
+    if outcome == OUTCOME_UNKNOWN:
+        send_notification("Trigger fired: %s" % summary)
+        return summary, OUTCOME_UNKNOWN
+    success = outcome == OUTCOME_PASSED
+    if success:
+        send_notification("Trigger fired: %s" % summary)
+        rev = parse_steer_rev("".join(sink))
+        injection_off = os.environ.get("LOKI_PROMPT_INJECTION", "").lower() in ("0", "false")
+        if not injection_off:
+            post_steer_ack(ref, repo_full_name, rev, dry_run=dry_run)
+    return summary, "fired" if success else "error"
 
 
 def handle_issues_event(payload, dry_run=False):
@@ -481,6 +726,9 @@ def handle_issues_event(payload, dry_run=False):
     if action != "opened":
         return None, "skipped (action=%s)" % action
     issue = payload.get("issue", {})
+    if (issue.get("author_association") not in TRUSTED_ASSOCIATIONS
+            and os.environ.get("LOKI_TRIGGER_ALLOW_ANY_ISSUE_AUTHOR", "") not in ("1", "true")):
+        return None, "skipped (issue author not authorized)"
     issue_number = issue.get("number")
     repo = payload.get("repository", {})
     repo_full_name = repo.get("full_name", "")
@@ -555,6 +803,14 @@ def handle_workflow_run_event(payload, dry_run=False):
     return summary, status
 
 
+def brief_start_args(brief):
+    """argv for a delegated PR run. `--brief` forces brief mode so the text is
+    never reclassified as a PRD path or issue URL, and `--pr --detach` are only
+    honored by `loki start` in brief mode because cmd_start routes them through
+    the worktree + PR path."""
+    return ["start", "--brief", brief, "--pr", "--detach"]
+
+
 def handle_job_event(payload, dry_run=False):
     """Handle a remotely-submitted job: loki start <spec> --detach.
 
@@ -566,7 +822,18 @@ def handle_job_event(payload, dry_run=False):
     spec = payload.get("spec")
     if not valid_spec(spec):
         return None, "rejected (invalid spec)"
-    args = ["start", spec.strip(), "--detach"]
+    unit_job = payload.get("unit_job")
+    if unit_job is not None:
+        # Re-validated here so the handler is safe no matter who calls it.
+        clean, _err = validate_unit_job(unit_job)
+        if clean is None:
+            return None, "rejected (invalid unit job)"
+        args = unit_start_args(clean)
+    # Jira/Teams delegation sets pr=True: receipt-gated PR run, never a deploy.
+    elif payload.get("pr") is True:
+        args = brief_start_args(spec.strip())
+    else:
+        args = ["start", spec.strip(), "--detach"]
     summary = "job %s: %s" % (payload.get("job_id", "?"), spec.strip())
     # A remote submitter gates CI on this, so report the BUILD's outcome, not
     # merely that a build was launched. "fired" (launched) and "passed" must
@@ -577,14 +844,476 @@ def handle_job_event(payload, dry_run=False):
     return summary, status
 
 
+# Pseudo-event for a Sentry alert. Like JOB_EVENT it is NOT a GitHub event and is
+# refused on /webhook: only /sentry, under its own HMAC secret, may enqueue it.
+SENTRY_EVENT = "sentry_issue"
+INTERNAL_EVENTS = (JOB_EVENT, SENTRY_EVENT)
+
+# Sentry actions that mean "a new problem needs a fix". resolved/assigned/etc.
+# are skipped so a state change never starts a build.
+SENTRY_ACTIONS = ("triggered", "created")
+SENTRY_BRIEF_MAX = 1500
+ISSUE_PROVIDERS_SH = Path(__file__).resolve().parent / "issue-providers.sh"
+
+
+def validate_sentry_signature(secret, body, signature_header):
+    """Validate Sentry's `sentry-hook-signature` (hex HMAC-SHA256, no prefix).
+
+    Fails closed: no secret or no header is never valid.
+    """
+    if not secret or not signature_header:
+        return False
+    expected = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    return constant_time_equals(expected, signature_header.strip().lower())
+
+
+# Slack and Linear delegation. Same signed-body contract as
+# loki-ts/src/contrib/slack_inbound.ts (signSlackBody/verifySlackSignature).
+SIGNATURE_MAX_SKEW_S = 300
+SLACK_REPLY_PREFIX = "https://hooks.slack.com/"
+LINEAR_API_URL = "https://api.linear.app/graphql"
+LINEAR_IDENTIFIER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*-\d+$")
+NOTIFY_TIMEOUT_SECONDS = 10
+NOTIFY_TEXT_MAX = 1000
+
+
+def sign_slack_body(secret, timestamp, body):
+    """`v0=` + hex HMAC-SHA256 over `v0:<timestamp>:<raw body>` (bytes)."""
+    base = b"v0:" + str(timestamp).encode("utf-8") + b":" + body
+    return "v0=" + hmac.new(secret.encode("utf-8"), base, hashlib.sha256).hexdigest()
+
+
+def verify_slack_signature(secret, timestamp, body, signature, now=None):
+    """Fail closed: no secret, header, numeric timestamp or fresh window -> False."""
+    if not secret or not timestamp or not signature:
+        return False
+    if not re.fullmatch(r"[0-9]+", timestamp):
+        return False
+    now = time.time() if now is None else now
+    if abs(now - int(timestamp)) > SIGNATURE_MAX_SKEW_S:
+        return False
+    return constant_time_equals(sign_slack_body(secret, timestamp, body), signature)
+
+
+def verify_linear_signature(secret, body, signature):
+    """Linear-Signature: hex HMAC-SHA256 of the raw body. Freshness is checked
+    separately against the signed body's webhookTimestamp (linear_fresh)."""
+    if not secret or not signature:
+        return False
+    expected = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    return constant_time_equals(expected, signature.strip().lower())
+
+
+def linear_fresh(payload, now=None):
+    ts_val = payload.get("webhookTimestamp")
+    if isinstance(ts_val, bool) or not isinstance(ts_val, (int, float)):
+        return False
+    secs = ts_val / 1000.0 if ts_val > 1e11 else float(ts_val)
+    now = time.time() if now is None else now
+    return abs(now - secs) <= SIGNATURE_MAX_SKEW_S
+
+
+def resolve_chat_secrets(env, secret, api_token, sentry_secret):
+    """Return (slack_secret, linear_secret), blanking any that equals another
+    credential: each authenticates a different party and MUST differ."""
+    slack = env.get("SLACK_SIGNING_SECRET", "")
+    linear = env.get("LINEAR_WEBHOOK_SECRET", "")
+    others = [x for x in (secret, api_token, sentry_secret) if x]
+    slack_bad = bool(slack) and any(
+        constant_time_equals(slack, o) for o in others + ([linear] if linear else []))
+    linear_bad = bool(linear) and any(
+        constant_time_equals(linear, o) for o in others + ([slack] if slack else []))
+    if slack_bad:
+        logging.error("The Slack secret is identical to another credential. "
+                      "They MUST differ; disabling /slack.")
+    if linear_bad:
+        logging.error("The Linear secret is identical to another credential. "
+                      "They MUST differ; disabling /linear.")
+    return ("" if slack_bad else slack), ("" if linear_bad else linear)
+
+
+# Jira Cloud and Microsoft Teams delegation. Both enqueue a PR-only run.
+JIRA_KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]*-\d+$")
+JIRA_EVENTS = ("jira:issue_created", "jira:issue_updated")
+JIRA_TRIGGER_FIELDS = ("assignee", "labels")
+DELEGATED_BRIEF_MAX = 1500
+HTML_TAG_RE = re.compile(r"<[^>]*>")
+
+
+def verify_jira_signature(secret, body, signature):
+    """X-Hub-Signature: `sha256=` + hex HMAC-SHA256 of the raw body. Jira sends
+    no timestamp, so replay is bounded by delivery-id dedup in the handler."""
+    if not secret or not signature:
+        return False
+    sig = signature.strip().lower()
+    if not sig.startswith("sha256="):
+        return False
+    expected = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    return constant_time_equals(expected, sig[len("sha256="):])
+
+
+def sign_teams_body(token, body):
+    """Base64 HMAC-SHA256 of the raw body, keyed by the base64-decoded token."""
+    key = base64.b64decode(token, validate=True)
+    return base64.b64encode(hmac.new(key, body, hashlib.sha256).digest()).decode("ascii")
+
+
+def verify_teams_signature(token, body, authorization):
+    """Authorization: `HMAC <base64>`. Fails closed on a bad token or header."""
+    if not token or not authorization:
+        return False
+    scheme, _, value = authorization.strip().partition(" ")
+    if scheme.upper() != "HMAC" or not value.strip():
+        return False
+    try:
+        expected = sign_teams_body(token, body)
+    except ValueError:
+        return False
+    return constant_time_equals(expected, value.strip())
+
+
+def teams_dedup_key(activity):
+    """Dedup key for a Teams activity: activity ids are unique only within a
+    conversation, so scope by conversation id plus serviceUrl and tenant when
+    present. Empty string (never deduplicated) when the activity id is absent."""
+    act_id = activity.get("id")
+    if not isinstance(act_id, str) or not act_id:
+        return ""
+
+    def _s(v):
+        return v if isinstance(v, str) else ""
+
+    conv = activity.get("conversation")
+    conv = conv if isinstance(conv, dict) else {}
+    cdata = activity.get("channelData")
+    tenant = cdata.get("tenant") if isinstance(cdata, dict) else None
+    tenant_id = _s(tenant.get("id")) if isinstance(tenant, dict) else ""
+    tenant_id = tenant_id or _s(conv.get("tenantId"))
+    return "teams:" + json.dumps(
+        [_s(conv.get("id")), _s(activity.get("serviceUrl")), tenant_id, act_id])
+
+
+def teams_fresh(activity, now=None):
+    """The activity's ISO-8601 `timestamp` must be within the skew window."""
+    raw = activity.get("timestamp")
+    if not isinstance(raw, str) or not raw:
+        return False
+    try:
+        dt = datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    now = time.time() if now is None else now
+    return abs(now - dt.timestamp()) <= SIGNATURE_MAX_SKEW_S
+
+
+def _csv_set(value):
+    return frozenset(x.strip() for x in value.split(",") if x.strip())
+
+
+def _one_line(text, limit=DELEGATED_BRIEF_MAX):
+    text = " ".join(CONTROL_CHARS_RE.sub(" ", str(text or "")).split())
+    return text.encode("utf-8")[:limit].decode("utf-8", errors="ignore")
+
+
+def jira_trigger_matches(payload, assignees, labels):
+    """True when the issue is assigned to a configured user or carries a
+    configured label. An update only counts if it changed assignee or labels,
+    so unrelated edits never re-fire a run."""
+    issue = payload.get("issue")
+    fields = issue.get("fields") if isinstance(issue, dict) else None
+    if not isinstance(fields, dict):
+        return False
+    if payload.get("webhookEvent") == "jira:issue_updated":
+        items = (payload.get("changelog") or {}).get("items")
+        changed = ({i.get("field") for i in items if isinstance(i, dict)}
+                   if isinstance(items, list) else set())
+        if not changed.intersection(JIRA_TRIGGER_FIELDS):
+            return False
+    who = fields.get("assignee")
+    ids = set()
+    if isinstance(who, dict):
+        for k in ("accountId", "emailAddress", "displayName"):
+            if isinstance(who.get(k), str):
+                ids.add(who[k])
+    if ids.intersection(assignees):
+        return True
+    have = fields.get("labels")
+    return isinstance(have, list) and bool(
+        {x for x in have if isinstance(x, str)}.intersection(labels))
+
+
+def adf_text(node, out=None):
+    """Flatten an Atlassian Document Format tree to its text nodes."""
+    top = out is None
+    out = [] if top else out
+    if isinstance(node, dict):
+        if isinstance(node.get("text"), str):
+            out.append(node["text"])
+        for child in node.get("content") or []:
+            adf_text(child, out)
+    elif isinstance(node, list):
+        for child in node:
+            adf_text(child, out)
+    return " ".join(out) if top else None
+
+
+def build_jira_brief(issue):
+    fields = issue.get("fields") or {}
+    desc = fields.get("description")
+    if isinstance(desc, dict):
+        desc = adf_text(desc)
+    parts = ["Resolve Jira issue %s: %s." % (issue.get("key"), fields.get("summary") or "")]
+    if isinstance(desc, str) and desc.strip():
+        parts.append(desc)
+    parts.append("Reproduce with a regression test, then fix the root cause.")
+    return _one_line(" ".join(parts))
+
+
+def build_teams_brief(activity):
+    text = re.sub(r"<at>.*?</at>", " ", str(activity.get("text") or ""), flags=re.S)
+    return _one_line(HTML_TAG_RE.sub(" ", text))
+
+
+def resolve_delegation_secrets(env, others):
+    """Return (jira_secret, teams_token), blanking any equal to another
+    credential in `others` or to each other."""
+    jira = env.get("JIRA_WEBHOOK_SECRET", "")
+    teams = env.get("TEAMS_SECURITY_TOKEN", "")
+    others = [x for x in others if x]
+    out = []
+    for name, val, peer in (("Jira", jira, teams), ("Teams", teams, jira)):
+        bad = bool(val) and any(constant_time_equals(val, o)
+                                for o in others + ([peer] if peer else []))
+        if bad:
+            logging.error("The %s secret is identical to another credential. "
+                          "They MUST differ; disabling its route.", name)
+        out.append("" if bad else val)
+    return tuple(out)
+
+
+def _post_json(url, data, headers):
+    """POST JSON with a bounded timeout. Raises on any failure; callers log."""
+    req = Request(url, data=json.dumps(data).encode("utf-8"),
+                  headers=dict(headers, **{"Content-Type": "application/json"}),
+                  method="POST")
+    with urlopen(req, timeout=NOTIFY_TIMEOUT_SECONDS) as resp:
+        resp.read()
+
+
+def _notify_slack(target, text):
+    url = target.get("response_url", "")
+    if not (isinstance(url, str) and url.startswith(SLACK_REPLY_PREFIX)):
+        return
+    _post_json(url, {"response_type": "in_channel", "text": text}, {})
+
+
+def _notify_linear(target, text):
+    key = os.environ.get("LINEAR_API_KEY", "")
+    issue_id = target.get("issue_id", "")
+    if not key or not isinstance(issue_id, str) or not issue_id:
+        return
+    _post_json(LINEAR_API_URL, {
+        "query": "mutation($i:String!,$b:String!){commentCreate(input:"
+                 "{issueId:$i,body:$b}){success}}",
+        "variables": {"i": issue_id, "b": text},
+    }, {"Authorization": key})
+
+
+def _notify_jira(target, text):
+    """ADF comment on the issue. Site and credentials come from the operator's
+    env only (never the payload); a non-https base URL is never contacted."""
+    base = os.environ.get("JIRA_BASE_URL", "").rstrip("/")
+    email = os.environ.get("JIRA_EMAIL", "")
+    token = os.environ.get("JIRA_API_TOKEN", "")
+    key = target.get("key", "")
+    if not (base.startswith("https://") and email and token
+            and isinstance(key, str) and JIRA_KEY_RE.match(key)):
+        return
+    auth = base64.b64encode(("%s:%s" % (email, token)).encode("utf-8")).decode("ascii")
+    _post_json("%s/rest/api/3/issue/%s/comment" % (base, key), {
+        "body": {"type": "doc", "version": 1, "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": text}]}]},
+    }, {"Authorization": "Basic " + auth})
+
+
+# Reply-target kind -> notifier. Sentry has no entry on purpose: it never replies.
+NOTIFIERS = {"slack": _notify_slack, "linear": _notify_linear, "jira": _notify_jira}
+
+
+def notify_job_complete(target, job_id, status, summary):
+    """Send a completion summary to a reply target captured after verification.
+
+    Never raises: a notifier failure must not fail the job. Each notifier
+    re-checks its own destination as defense in depth.
+    """
+    if not isinstance(target, dict):
+        return
+    notifier = NOTIFIERS.get(target.get("kind"))
+    if notifier is None:
+        return
+    text = ("loki job %s finished: %s. %s" % (job_id, status, summary or "")).strip()
+    text = CONTROL_CHARS_RE.sub(" ", text)[:NOTIFY_TEXT_MAX]
+    try:
+        notifier(target, text)
+    except Exception as e:  # notifier errors never fail a job
+        logging.warning("Completion notify for job %s failed: %s", job_id, e)
+
+
+def normalize_sentry_payload(payload):
+    """Run the existing normalize_sentry_json over a Sentry webhook payload.
+
+    Reuses autonomy/issue-providers.sh (single owner of the Sentry shape) via a
+    scoped-env bash call. Returns the normalized dict or None.
+    """
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return None
+    raw = {k: data[k] for k in ("issue", "event") if isinstance(data.get(k), dict)}
+    if not raw:
+        return None
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin")}
+    ev = raw.get("event") or {}
+    env["_LOKI_SENTRY_URL"] = str(ev.get("web_url") or ev.get("url") or "")
+    try:
+        proc = subprocess.run(
+            ["bash", "-c", 'source "$1" && normalize_sentry_json', "_",
+             str(ISSUE_PROVIDERS_SH)],
+            input=json.dumps(raw).encode("utf-8"), capture_output=True,
+            env=env, timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        out = json.loads(proc.stdout.decode("utf-8", errors="replace").strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+    return out if isinstance(out, dict) else None
+
+
+def _clip(value, limit=80):
+    """Single-line, control-char-free, length-capped untrusted text."""
+    text = " ".join(CONTROL_CHARS_RE.sub(" ", str(value or "")).split())
+    return text.encode("utf-8")[:limit].decode("utf-8", errors="ignore")
+
+
+def _sentry_release_env(payload):
+    ev = ((payload or {}).get("data") or {}).get("event")
+    ev = ev if isinstance(ev, dict) else {}
+    release = ev.get("release")
+    if isinstance(release, dict):
+        release = release.get("version")
+    return _clip(release), _clip(ev.get("environment"), 40)
+
+
+def _last_deploy_context():
+    """'last deploy <sha7> <finished_at> health=<status>' from the newest
+    .loki/deploys record in the server's project dir, or ''."""
+    try:
+        ddir = os.path.join(os.getcwd(), ".loki", "deploys")
+        names = sorted(n for n in os.listdir(ddir) if n.endswith(".json"))
+        if not names:
+            return ""
+        with open(os.path.join(ddir, names[-1]), "r", encoding="utf-8") as fh:
+            rec = json.load(fh)
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(rec, dict) or not rec.get("head_sha"):
+        return ""
+    return "last deploy %s %s health=%s" % (
+        _clip(rec.get("head_sha"), 7), _clip(rec.get("finished_at"), 30),
+        _clip(rec.get("health_status") or "unchecked", 20))
+
+
+def _culprit_owner(culprit):
+    """'last change to <file> by <author> <sha7>' via read-only git log -1, or ''."""
+    token = culprit.split(" ", 1)[0] if culprit else ""
+    if not token or token.startswith("-") or ".." in token:
+        return ""
+    root = os.path.realpath(os.getcwd())
+    full = os.path.realpath(os.path.join(root, token))
+    if not full.startswith(root + os.sep) or not os.path.isfile(full):
+        return ""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", root, "log", "-1", "--format=%an|%h", "--", full],
+            capture_output=True, timeout=5,
+            env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")})
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    out = proc.stdout.decode("utf-8", errors="replace").strip()
+    if proc.returncode != 0 or "|" not in out:
+        return ""
+    author, sha = out.rsplit("|", 1)
+    return "last change to %s by %s %s" % (_clip(token, 60), _clip(author, 40), _clip(sha, 12))
+
+
+def build_sentry_brief(norm, payload=None):
+    """One-line, control-char-free brief that can never parse as a CLI flag."""
+    culprit = ""
+    for line in str(norm.get("body", "")).splitlines():
+        if line.startswith("- Culprit: "):
+            culprit = line[len("- Culprit: "):].strip()
+            break
+    parts = ["Fix Sentry issue %s: %s" % (norm.get("number", "?"), norm.get("title", ""))]
+    if culprit:
+        parts.append("(culprit %s)" % culprit)
+    release, env_name = _sentry_release_env(payload)
+    ctx = []
+    if release:
+        ctx.append("release %s" % release)
+    if env_name:
+        ctx.append("env %s" % env_name)
+    for extra in (_last_deploy_context(), _culprit_owner(culprit)):
+        if extra:
+            ctx.append(extra)
+    if ctx:
+        parts.append("[%s]" % "; ".join(ctx))
+    if norm.get("url"):
+        parts.append("See %s." % norm["url"])
+    parts.append("Reproduce with a regression test, then fix the root cause.")
+    brief = CONTROL_CHARS_RE.sub(" ", " ".join(parts))
+    brief = " ".join(brief.split())
+    return brief.encode("utf-8")[:SENTRY_BRIEF_MAX].decode("utf-8", errors="ignore")
+
+
+def handle_sentry_event(payload, dry_run=False):
+    """Handle a verified Sentry alert: loki start <brief> --pr --detach.
+
+    PR only. Never passes a deploy argument: a fix still has to earn a VERIFIED
+    receipt, and shipping it stays a separate, gated human step.
+    """
+    action = payload.get("action", "")
+    if action not in SENTRY_ACTIONS:
+        return None, "skipped (action=%s)" % action
+    norm = normalize_sentry_payload(payload)
+    if norm is None:
+        return None, "rejected (unparseable sentry payload)"
+    brief = build_sentry_brief(norm, payload)
+    if not valid_spec(brief):
+        return None, "rejected (invalid brief)"
+    args = brief_start_args(brief)
+    summary = "sentry issue %s" % norm.get("number", "?")
+    success = run_loki_command(args, dry_run=dry_run)
+    status = "fired" if success else "error"
+    if success:
+        send_notification("Trigger fired: %s" % summary)
+    return summary, status
+
+
 # Map event name -> handler. Keeps do_POST routing declarative. JOB_EVENT rides
 # the same table (and therefore the same bounded queue and worker pool) but is
 # explicitly refused on the /webhook path.
 EVENT_HANDLERS = {
     "issues": handle_issues_event,
+    "issue_comment": handle_issue_comment_event,
     "pull_request": handle_pull_request_event,
     "workflow_run": handle_workflow_run_event,
     JOB_EVENT: handle_job_event,
+    SENTRY_EVENT: handle_sentry_event,
 }
 
 
@@ -629,6 +1358,9 @@ class Dispatcher:
         self._job_max = max(1, job_history)
         self._jobs = collections.OrderedDict()
         self._jobs_lock = threading.Lock()
+        # Reply targets (Slack response_url / Linear issue) keyed by job_id,
+        # written only by the verified /slack and /linear handlers.
+        self._reply_targets = collections.OrderedDict()
         # Proof-attribution bookkeeping. The proof pointer is global to the
         # working directory, so a receipt only identifies a job when that job
         # was the only build that could have written it. All three are updated
@@ -643,6 +1375,8 @@ class Dispatcher:
         self._dedup_max = max(1, dedup_size)
         self._seen_deliveries = collections.OrderedDict()
         self._dedup_lock = threading.Lock()
+        self._seen_path = get_loki_dir() / "seen-deliveries.jsonl"
+        self._load_seen()
         self._threads = []
         self._stop = threading.Event()
         for i in range(max(1, workers)):
@@ -653,6 +1387,64 @@ class Dispatcher:
             )
             t.start()
             self._threads.append(t)
+
+    def _load_seen(self):
+        """Reload the last dedup_max accepted keys so a restart keeps dedup."""
+        try:
+            lines = self._seen_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return
+        keys = []
+        for line in lines:
+            try:
+                k = json.loads(line).get("k")
+            except (ValueError, AttributeError):
+                continue
+            if isinstance(k, str) and k:
+                keys.append(k)
+        keys = keys[-self._dedup_max:]
+        for k in keys:
+            self._seen_deliveries[k] = True
+        if len(lines) > 2 * self._dedup_max:
+            try:
+                self._seen_path.write_text(
+                    "".join(json.dumps({"k": k}) + "\n" for k in keys), encoding="utf-8")
+            except OSError:
+                pass
+
+    def _remember(self, key):
+        """Record key (caller holds _dedup_lock); append to the JSONL, best effort."""
+        self._seen_deliveries[key] = True
+        while len(self._seen_deliveries) > self._dedup_max:
+            self._seen_deliveries.popitem(last=False)
+        try:
+            with open(self._seen_path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps({"k": key}) + "\n")
+        except OSError:
+            pass
+
+    def seen_intake(self, event_type, payload):
+        """True if the same repo#N + action + head sha was accepted and its run is live.
+
+        Catches a redelivery under a new delivery id or after a restart. Once the
+        run is no longer live the same key may dispatch again. Only issues and
+        pull_request events carry an intake key.
+        """
+        if event_type not in ("issues", "pull_request"):
+            return False
+        number = (payload.get("issue") or payload.get("pull_request") or {}).get("number")
+        repo = (payload.get("repository") or {}).get("full_name", "")
+        if number is None or not repo:
+            return False
+        sha = ((payload.get("pull_request") or {}).get("head") or {}).get("sha", "")
+        key = "intake:%s:%s#%s:%s:%s" % (event_type, repo, number, payload.get("action", ""), sha)
+        ref = "%s#%s" % (repo, number)
+        with self._dedup_lock:
+            if key in self._seen_deliveries and find_live_run(ref) is not None:
+                return True
+            if key not in self._seen_deliveries:
+                self._remember(key)
+            return False
 
     def seen_delivery(self, delivery_id):
         """Return True if this delivery_id was already accepted (idempotency).
@@ -672,9 +1464,7 @@ class Dispatcher:
                 # Insertion order is the eviction policy; duplicates leave it
                 # unchanged.
                 return True
-            self._seen_deliveries[delivery_id] = True
-            while len(self._seen_deliveries) > self._dedup_max:
-                self._seen_deliveries.popitem(last=False)
+            self._remember(delivery_id)
             return False
 
     def _begin_proof_window(self, job_id=None):
@@ -765,6 +1555,17 @@ class Dispatcher:
             entry["updated"] = _utc_now()
             if summary:
                 entry["summary"] = summary
+
+    def set_reply_target(self, job_id, target):
+        """Store a verified reply target server side, bounded like _jobs."""
+        with self._jobs_lock:
+            self._reply_targets[job_id] = target
+            while len(self._reply_targets) > self._job_max:
+                self._reply_targets.popitem(last=False)
+
+    def pop_reply_target(self, job_id):
+        with self._jobs_lock:
+            return self._reply_targets.pop(job_id, None)
 
     def get_job(self, job_id):
         """Return a copy of the job record, or None if unknown/evicted.
@@ -859,6 +1660,9 @@ class Dispatcher:
                 )
                 if job_id:
                     self.record_job(job_id, status, summary or "")
+                    target = self.pop_reply_target(job_id)
+                    if target is not None:
+                        notify_job_complete(target, job_id, status, summary)
             finally:
                 self.queue.task_done()
 
@@ -875,6 +1679,18 @@ class WebhookHandler(http.server.BaseHTTPRequestHandler):
     # Bearer token for the /jobs API. MUST be a different secret from `secret`
     # above: one authenticates GitHub, the other authenticates a human.
     api_token = ""
+    # Sentry integration client secret for /sentry. Distinct from both above.
+    sentry_secret = ""
+    # Slack signing secret (/slack) and Linear webhook secret (/linear), each
+    # distinct from every other credential.
+    slack_secret = ""
+    linear_secret = ""
+    # Jira webhook secret (/jira), Teams outgoing-webhook token (/teams), and
+    # the Jira trigger filters (assignee ids/emails/names, labels).
+    jira_secret = ""
+    teams_secret = ""
+    jira_assignees = frozenset()
+    jira_labels = frozenset()
     dispatcher = None
     # Ed25519 key that attests receipts, and the retired public keys that keep
     # pre-rotation receipts verifiable. Both default to unconfigured, which
@@ -1149,14 +1965,50 @@ class WebhookHandler(http.server.BaseHTTPRequestHandler):
             self._send_json(400, {"error": "payload must be a JSON object"})
             return
 
+        if payload.get("kind") == UNIT_JOB_KIND:
+            self._handle_unit_submit(payload)
+            return
+
         spec = payload.get("spec")
         if not valid_spec(spec):
             log_event(JOB_EVENT, "", "", "rejected (invalid spec)")
             self._send_json(400, {"error": "invalid spec"})
             return
 
+        job_id = self._enqueue_job(spec.strip())
+        if job_id is None:
+            return
+        self._send_json(202, {"id": job_id, "status": "queued"})
+
+    def _handle_unit_submit(self, payload):
+        """POST /jobs {"kind": "unit", ...}; caller already authenticated."""
+        clean, err = validate_unit_job(payload)
+        if clean is None:
+            log_event(JOB_EVENT, "", "", "rejected (invalid unit job)")
+            self._send_json(400, {"error": err})
+            return
+        summary = "unit:%s@%s:%s" % (clean["repo"], clean["ref"], clean["unit"])
+        if not valid_spec(summary):
+            log_event(JOB_EVENT, "", "", "rejected (invalid unit job)")
+            self._send_json(400, {"error": "invalid unit job"})
+            return
+        job_id = self._enqueue_job(summary, unit_job=clean)
+        if job_id is None:
+            return
+        self._send_json(202, {"id": job_id, "status": "queued"})
+
+    def _enqueue_job(self, spec, reply_target=None, pr=False, unit_job=None):
+        """Record and enqueue one validated job; shared by /jobs, /slack, /linear.
+
+        Returns the job id, or None after sending 429 when the queue is full.
+        reply_target must come from an already-verified request.
+        """
         job_id = secrets.token_urlsafe(12)
-        job = {"spec": spec.strip(), "job_id": job_id}
+        job = {"spec": spec, "job_id": job_id}
+        if pr:
+            job["pr"] = True
+        if unit_job is not None:
+            job["unit_job"] = unit_job
 
         # Record BEFORE enqueueing. A worker can pick the job up the instant
         # submit() returns and write "running"/"fired"; record_job is
@@ -1165,6 +2017,8 @@ class WebhookHandler(http.server.BaseHTTPRequestHandler):
         # forever. On the 429 path below the record is unreachable (no id is
         # handed out) and the store is bounded, so nothing leaks.
         self.dispatcher.record_job(job_id, "queued", job["spec"])
+        if reply_target is not None:
+            self.dispatcher.set_reply_target(job_id, reply_target)
 
         # Enforce the existing queue bound so a submit storm cannot fork
         # unbounded builds. 429 (not a silent drop) tells the client to retry.
@@ -1172,17 +2026,269 @@ class WebhookHandler(http.server.BaseHTTPRequestHandler):
             logging.warning(
                 "Queue full; shedding job submit from %s", self.address_string()
             )
+            self.dispatcher.pop_reply_target(job_id)
             log_event(JOB_EVENT, "", "", "rejected (queue full)")
             self._send_json(429, {"error": "server busy, retry later"})
-            return
+            return None
 
         log_event(JOB_EVENT, "", job["spec"], "queued")
+        return job_id
+
+    def _handle_slack(self):
+        """POST /slack -- signed slash command; enqueues a job, ephemeral reply."""
+        body = self._read_body()
+        if body is None:
+            return
+        if not self.slack_secret:
+            log_event(JOB_EVENT, "", "", "rejected (no slack signing secret configured)")
+            self._send_json(503, {"error": "SLACK_SIGNING_SECRET not configured"})
+            return
+        if not verify_slack_signature(
+                self.slack_secret,
+                self.headers.get("X-Slack-Request-Timestamp", ""),
+                body, self.headers.get("X-Slack-Signature", "")):
+            logging.warning("Invalid Slack signature from %s", self.address_string())
+            log_event(JOB_EVENT, "", "", "rejected (invalid slack signature)")
+            self._send_json(401, {"error": "invalid signature"})
+            return
+        # Verified from here on.
+        ctype = (self.headers.get("Content-Type", "") or "").lower()
+        if "json" in ctype:
+            try:
+                data = json.loads(body)
+            except ValueError:
+                self._send_json(400, {"error": "invalid JSON"})
+                return
+            if isinstance(data, dict) and data.get("type") == "url_verification":
+                self._send_json(200, {"challenge": str(data.get("challenge", ""))})
+                return
+            self._send_json(400, {"error": "unsupported slack payload"})
+            return
+        form = urllib.parse.parse_qs(body.decode("utf-8", errors="replace"))
+        allowed = {u.strip() for u in os.environ.get("LOKI_SLACK_ALLOWED_USERS", "").split(",") if u.strip()}
+        user_id = (form.get("user_id") or [""])[0]
+        if "*" not in allowed and user_id not in allowed:
+            log_event(JOB_EVENT, "", "", "rejected (slack user not allowed)")
+            self._send_json(200, {"response_type": "ephemeral",
+                                  "text": "You are not allowed to start runs from Slack."})
+            return
+        text = (form.get("text") or [""])[0]
+        if not valid_spec(text):
+            log_event(JOB_EVENT, "", "", "rejected (invalid slack spec)")
+            self._send_json(200, {"response_type": "ephemeral",
+                                  "text": "Usage: /loki <spec>. Spec must be a "
+                                          "one-line brief or ref, not starting with '-'."})
+            return
+        response_url = (form.get("response_url") or [""])[0]
+        target = {"kind": "slack"}
+        if response_url.startswith(SLACK_REPLY_PREFIX):
+            target["response_url"] = response_url
+        job_id = self._enqueue_job(text.strip(), target)
+        if job_id is None:
+            return
+        self._send_json(200, {"response_type": "ephemeral",
+                              "text": "Queued loki job %s" % job_id})
+
+    def _handle_linear(self):
+        """POST /linear -- signed Linear issue webhook; enqueues linear:<identifier>."""
+        body = self._read_body()
+        if body is None:
+            return
+        if not self.linear_secret:
+            log_event(JOB_EVENT, "", "", "rejected (no linear webhook secret configured)")
+            self._send_json(503, {"error": "LINEAR_WEBHOOK_SECRET not configured"})
+            return
+        if not verify_linear_signature(
+                self.linear_secret, body, self.headers.get("Linear-Signature", "")):
+            logging.warning("Invalid Linear signature from %s", self.address_string())
+            log_event(JOB_EVENT, "", "", "rejected (invalid linear signature)")
+            self._send_json(401, {"error": "invalid signature"})
+            return
+        try:
+            payload = json.loads(body)
+        except ValueError:
+            self._send_json(400, {"error": "invalid JSON"})
+            return
+        if not isinstance(payload, dict):
+            self._send_json(400, {"error": "payload must be a JSON object"})
+            return
+        if not linear_fresh(payload):
+            log_event(JOB_EVENT, "", "", "rejected (stale linear timestamp)")
+            self._send_json(401, {"error": "stale or missing webhookTimestamp"})
+            return
+        data = payload.get("data")
+        if (payload.get("type") != "Issue" or payload.get("action") != "create"
+                or not isinstance(data, dict)):
+            self._send_json(200, {"status": "skipped"})
+            return
+        ident = data.get("identifier")
+        if not isinstance(ident, str) or not LINEAR_IDENTIFIER_RE.match(ident):
+            self._send_json(400, {"error": "invalid issue identifier"})
+            return
+        if self.dispatcher.seen_delivery(self.headers.get("Linear-Delivery", "")):
+            self._send_json(200, {"status": "duplicate"})
+            return
+        spec = "linear:%s" % ident
+        if not valid_spec(spec):
+            self._send_json(400, {"error": "invalid spec"})
+            return
+        issue_id = data.get("id")
+        target = {"kind": "linear",
+                  "issue_id": issue_id if isinstance(issue_id, str) else ""}
+        job_id = self._enqueue_job(spec, target)
+        if job_id is None:
+            return
         self._send_json(202, {"id": job_id, "status": "queued"})
+
+    def _handle_jira(self):
+        """POST /jira -- signed Jira Cloud webhook; enqueues a PR-only run."""
+        body = self._read_body()
+        if body is None:
+            return
+        if not self.jira_secret:
+            log_event(JOB_EVENT, "", "", "rejected (no jira webhook secret configured)")
+            self._send_json(503, {"error": "JIRA_WEBHOOK_SECRET not configured"})
+            return
+        if not verify_jira_signature(
+                self.jira_secret, body, self.headers.get("X-Hub-Signature", "")):
+            logging.warning("Invalid Jira signature from %s", self.address_string())
+            log_event(JOB_EVENT, "", "", "rejected (invalid jira signature)")
+            self._send_json(401, {"error": "invalid signature"})
+            return
+        try:
+            payload = json.loads(body)
+        except ValueError:
+            self._send_json(400, {"error": "invalid JSON"})
+            return
+        if not isinstance(payload, dict):
+            self._send_json(400, {"error": "payload must be a JSON object"})
+            return
+        if (payload.get("webhookEvent") not in JIRA_EVENTS
+                or not jira_trigger_matches(
+                    payload, self.jira_assignees, self.jira_labels)):
+            self._send_json(200, {"status": "skipped"})
+            return
+        issue = payload["issue"]
+        key = issue.get("key")
+        if not isinstance(key, str) or not JIRA_KEY_RE.match(key):
+            self._send_json(400, {"error": "invalid issue key"})
+            return
+        brief = build_jira_brief(issue)
+        if not valid_spec(brief):
+            self._send_json(400, {"error": "invalid brief"})
+            return
+        # Jira has no signed timestamp, and the delivery id header is not covered
+        # by the HMAC, so also dedup on a hash of the signed body: a captured body
+        # cannot be replayed by changing or dropping the header.
+        dup_id = self.dispatcher.seen_delivery(
+            self.headers.get("X-Atlassian-Webhook-Identifier", ""))
+        dup_body = self.dispatcher.seen_delivery(
+            "jira-body:" + hashlib.sha256(body).hexdigest())
+        if dup_id or dup_body:
+            self._send_json(200, {"status": "duplicate"})
+            return
+        job_id = self._enqueue_job(brief, {"kind": "jira", "key": key}, pr=True)
+        if job_id is None:
+            return
+        self._send_json(202, {"id": job_id, "status": "queued"})
+
+    def _handle_teams(self):
+        """POST /teams -- Teams outgoing webhook; enqueues a PR-only run."""
+        body = self._read_body()
+        if body is None:
+            return
+        if not self.teams_secret:
+            log_event(JOB_EVENT, "", "", "rejected (no teams security token configured)")
+            self._send_json(503, {"error": "TEAMS_SECURITY_TOKEN not configured"})
+            return
+        if not verify_teams_signature(
+                self.teams_secret, body, self.headers.get("Authorization", "")):
+            logging.warning("Invalid Teams signature from %s", self.address_string())
+            log_event(JOB_EVENT, "", "", "rejected (invalid teams signature)")
+            self._send_json(401, {"error": "invalid signature"})
+            return
+        try:
+            activity = json.loads(body)
+        except ValueError:
+            self._send_json(400, {"error": "invalid JSON"})
+            return
+        if not isinstance(activity, dict):
+            self._send_json(400, {"error": "payload must be a JSON object"})
+            return
+        if not teams_fresh(activity):
+            log_event(JOB_EVENT, "", "", "rejected (stale teams timestamp)")
+            self._send_json(401, {"error": "stale or missing timestamp"})
+            return
+        brief = build_teams_brief(activity)
+        if not valid_spec(brief):
+            self._send_json(200, {"type": "message",
+                                  "text": "Usage: @loki <brief>. One-line brief, "
+                                          "not starting with '-'."})
+            return
+        if self.dispatcher.seen_delivery(teams_dedup_key(activity)):
+            self._send_json(200, {"type": "message", "text": "Duplicate, already queued."})
+            return
+        job_id = self._enqueue_job(brief, pr=True)
+        if job_id is None:
+            return
+        self._send_json(200, {"type": "message", "text": "Queued loki job %s" % job_id})
+
+    def _handle_sentry(self):
+        """POST /sentry -- Sentry alert, HMAC-verified, enqueues a fix run."""
+        body = self._read_body()
+        if body is None:
+            return
+        event_type = SENTRY_EVENT
+        if not self.sentry_secret:
+            logging.warning("Rejecting /sentry from %s: no Sentry secret configured",
+                            self.address_string())
+            log_event(event_type, "", "", "rejected (no sentry secret configured)")
+            self._send_json(503, {"error": "sentry webhook secret not configured"})
+            return
+        sig = self.headers.get("sentry-hook-signature", "")
+        if not validate_sentry_signature(self.sentry_secret, body, sig):
+            logging.warning("Invalid Sentry signature from %s", self.address_string())
+            log_event(event_type, "", "", "rejected (invalid signature)")
+            self._send_json(401, {"error": "invalid signature"})
+            return
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            self._send_json(400, {"error": "invalid JSON"})
+            return
+        if not isinstance(payload, dict):
+            self._send_json(400, {"error": "payload must be a JSON object"})
+            return
+        action = payload.get("action", "")
+        if self.dispatcher.seen_delivery(self.headers.get("Request-ID", "")):
+            log_event(event_type, action, "", "duplicate")
+            self._send_json(200, {"event": event_type, "status": "duplicate"})
+            return
+        if not self.dispatcher.submit(event_type, payload):
+            log_event(event_type, action, "", "rejected (queue full)")
+            self._send_json(503, {"error": "server busy, retry later"})
+            return
+        self._send_json(202, {"event": event_type, "action": action, "status": "queued"})
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
         if path == "/jobs":
             self._handle_job_submit()
+            return
+        if path == "/sentry":
+            self._handle_sentry()
+            return
+        if path == "/slack":
+            self._handle_slack()
+            return
+        if path == "/linear":
+            self._handle_linear()
+            return
+        if path == "/jira":
+            self._handle_jira()
+            return
+        if path == "/teams":
+            self._handle_teams()
             return
         if path != "/webhook":
             self._send_json(404, {"error": "not found"})
@@ -1201,10 +2307,10 @@ class WebhookHandler(http.server.BaseHTTPRequestHandler):
         # never be reachable with the webhook HMAC. Without this, a holder of
         # the webhook secret could POST X-GitHub-Event: loki_job and submit an
         # arbitrary spec, defeating the separate-credential requirement.
-        if event_type == JOB_EVENT:
+        if event_type in INTERNAL_EVENTS:
             logging.warning(
                 "Rejecting %s on /webhook from %s: submits require the /jobs "
-                "API and its own bearer token",
+                "API and its own bearer token (Sentry uses /sentry)",
                 JOB_EVENT,
                 self.address_string(),
             )
@@ -1260,6 +2366,14 @@ class WebhookHandler(http.server.BaseHTTPRequestHandler):
                 event_type,
             )
             log_event(event_type, action, "", "duplicate (delivery %s)" % delivery_id)
+            self._send_json(
+                200,
+                {"event": event_type, "action": action, "status": "duplicate"},
+            )
+            return
+
+        if self.dispatcher.seen_intake(event_type, payload):
+            log_event(event_type, action, "", "duplicate (live run for same intake key)")
             self._send_json(
                 200,
                 {"event": event_type, "action": action, "status": "duplicate"},
@@ -1350,6 +2464,30 @@ def main():
         )
         api_token = ""
 
+    # Sentry secret: env only (never argv). Must differ from the other two
+    # credentials, since each authenticates a different party.
+    sentry_secret = (os.environ.get("LOKI_SENTRY_WEBHOOK_SECRET")
+                     or os.environ.get("SENTRY_CLIENT_SECRET") or "")
+    if sentry_secret and (
+        (secret and constant_time_equals(sentry_secret, secret))
+        or (api_token and constant_time_equals(sentry_secret, api_token))
+    ):
+        logging.error(
+            "The Sentry secret is identical to the webhook secret or API "
+            "token. They MUST differ; disabling /sentry."
+        )
+        sentry_secret = ""
+
+    # Slack/Linear secrets: env only. Each must differ from every other
+    # credential, since each authenticates a different party.
+    slack_secret, linear_secret = resolve_chat_secrets(
+        os.environ, secret, api_token, sentry_secret)
+
+    jira_secret, teams_secret = resolve_delegation_secrets(
+        os.environ, [secret, api_token, sentry_secret, slack_secret, linear_secret])
+    WebhookHandler.jira_assignees = _csv_set(os.environ.get("JIRA_ASSIGNEES", ""))
+    WebhookHandler.jira_labels = _csv_set(os.environ.get("JIRA_LABELS", ""))
+
     # Persist resolved values, but never write the secret to disk.
     config["port"] = port
     config["dry_run"] = dry_run
@@ -1363,6 +2501,11 @@ def main():
     WebhookHandler.dry_run = dry_run
     WebhookHandler.secret = secret
     WebhookHandler.api_token = api_token
+    WebhookHandler.sentry_secret = sentry_secret
+    WebhookHandler.slack_secret = slack_secret
+    WebhookHandler.linear_secret = linear_secret
+    WebhookHandler.jira_secret = jira_secret
+    WebhookHandler.teams_secret = teams_secret
     WebhookHandler.dispatcher = dispatcher
 
     signing_key, signing_kid = load_signing_key(auto_generate=False)
@@ -1404,6 +2547,34 @@ def main():
             "503. Set LOKI_API_TOKEN or LOKI_API_TOKEN_FILE to enable remote "
             "submits."
         )
+    if not sentry_secret:
+        logging.warning(
+            "No Sentry secret configured: POST /sentry is rejected with 503. "
+            "Set LOKI_SENTRY_WEBHOOK_SECRET or SENTRY_CLIENT_SECRET."
+        )
+    if not slack_secret:
+        logging.warning(
+            "No Slack signing secret configured: POST /slack is rejected with "
+            "503. Set SLACK_SIGNING_SECRET."
+        )
+    elif not os.environ.get("LOKI_SLACK_ALLOWED_USERS", "").strip():
+        logging.warning(
+            "LOKI_SLACK_ALLOWED_USERS is not set: every /slack command is "
+            "rejected. Set Slack user IDs, or * to allow anyone."
+        )
+    if not linear_secret:
+        logging.warning(
+            "No Linear webhook secret configured: POST /linear is rejected with "
+            "503. Set LINEAR_WEBHOOK_SECRET."
+        )
+    if not jira_secret:
+        logging.warning(
+            "No Jira webhook secret configured: POST /jira is rejected with "
+            "503. Set JIRA_WEBHOOK_SECRET.")
+    if not teams_secret:
+        logging.warning(
+            "No Teams security token configured: POST /teams is rejected with "
+            "503. Set TEAMS_SECURITY_TOKEN.")
     if not secret:
         logging.warning(
             "No webhook secret configured: ALL webhooks will be rejected with "

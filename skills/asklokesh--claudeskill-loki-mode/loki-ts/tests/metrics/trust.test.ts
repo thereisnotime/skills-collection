@@ -260,6 +260,11 @@ describe("computeTrajectory: no PII", () => {
       "gate_pass_rate",
       "iterations",
       "interventions",
+      "verdict",
+      "false_verified",
+      "cost_usd",
+      "interventions_by_type",
+      "waited_s",
     ]);
     for (const row of traj.series) {
       for (const k of Object.keys(row)) {
@@ -292,5 +297,115 @@ describe("formatting", () => {
     writeProof("r1", { generatedAt: "2026-06-01T00:00:00Z", finalVerdict: "APPROVED" });
     const human = formatTrajectoryHuman(computeTrajectory(td));
     expect(human).toContain("Not enough history yet");
+  });
+});
+
+import { graduationAdvice, type TrustRun } from "../../src/metrics/trust.ts";
+
+function gRun(i: number, over: Partial<TrustRun> = {}): TrustRun {
+  return {
+    run_id: `r${i}`, generated_at: null, council_pass_rate: 1, gate_pass_rate: 1,
+    iterations: 3, interventions: 0, verdict: "VERIFIED", cost_usd: null, interventions_by_type: null, waited_s: null, false_verified: false, ...over,
+  };
+}
+
+describe("graduationAdvice", () => {
+  const ten = Array.from({ length: 12 }, (_, i) => gRun(i));
+  it("eligible: 12 clean runs, no regression", () => {
+    const a = graduationAdvice({ series: ten, regressing_axes: [] }, "propose");
+    expect(a.eligible).toBe(true);
+    expect(a.next_level).toBe("execute");
+    expect(a.summary).toContain("eligible for execute: 12 runs, 0 false VERIFIED, council pass 100%");
+  });
+  it("too few runs", () => {
+    const a = graduationAdvice({ series: ten.slice(0, 4), regressing_axes: [] }, "propose");
+    expect(a.eligible).toBe(false);
+    expect(a.missing[0]).toContain("need 10+ runs, have 4");
+  });
+  it("runs without verdict evidence are UNCHECKED, not eligible", () => {
+    const s = ten.map((r) => ({ ...r, verdict: null, false_verified: null }));
+    const a = graduationAdvice({ series: s, regressing_axes: [] }, "propose");
+    expect(a.eligible).toBe(false);
+    expect(a.missing[0]).toContain("UNCHECKED");
+  });
+  it("all-FAILED verdicts are not eligible", () => {
+    const s = Array.from({ length: 10 }, (_, i) => gRun(i, { verdict: "FAILED", council_pass_rate: 0, gate_pass_rate: 0 }));
+    const a = graduationAdvice({ series: s, regressing_axes: [] }, "propose");
+    expect(a.eligible).toBe(false);
+    expect(a.summary).toContain("not yet eligible for execute");
+    expect(a.missing.join()).toContain("10 run(s) with a non-VERIFIED verdict");
+  });
+  it("6 VERIFIED + 4 FAILED is not eligible", () => {
+    const s = Array.from({ length: 10 }, (_, i) => gRun(i, i < 6 ? {} : { verdict: "FAILED" }));
+    const a = graduationAdvice({ series: s, regressing_axes: [] }, "propose");
+    expect(a.eligible).toBe(false);
+    expect(a.missing.join()).toContain("have 6");
+    expect(a.missing.join()).toContain("4 run(s) with a non-VERIFIED verdict");
+  });
+  it("a false VERIFIED blocks", () => {
+    const s = [...ten.slice(1), gRun(99, { false_verified: true })];
+    expect(graduationAdvice({ series: s, regressing_axes: [] }, "execute").eligible).toBe(false);
+  });
+  it("a regressing axis blocks", () => {
+    const a = graduationAdvice({ series: ten, regressing_axes: ["gate_pass_rate"] }, "propose");
+    expect(a.eligible).toBe(false);
+    expect(a.missing.join()).toContain("regressing: gate_pass_rate");
+  });
+  it("operate has no next level", () => {
+    const a = graduationAdvice({ series: ten, regressing_axes: [] }, "operate");
+    expect(a.eligible).toBe(false);
+    expect(a.next_level).toBeNull();
+  });
+});
+
+describe("computeTrajectory: outcome effort", () => {
+  const raw = (id: string, extra: Record<string, unknown>) =>
+    writeProof(id, {
+      generatedAt: `2026-06-0${id.slice(1)}T00:00:00Z`,
+      raw: { run_id: id, generated_at: `2026-06-0${id.slice(1)}T00:00:00Z`, ...extra },
+    });
+  const detail = (input: number, auth: number, waited: number) => ({
+    interventions_detail: {
+      by_type: { steer: 0, input, authorization: auth, repair: 0 },
+      waited_s: waited,
+    },
+  });
+
+  it("mixed fixture: honest-null cost, misleading 1/3, by_type totals", () => {
+    raw("r1", { verdict: "VERIFIED", cost: { usd: 1 }, interventions: 1, ...detail(1, 0, 120) });
+    raw("r2", { verdict: "VERIFIED", cost: { usd: 2 }, interventions: 0, ...detail(0, 0, 0) });
+    raw("r3", { verdict: "VERIFIED", later_verdict: "FAILED", cost: { usd: 3 }, interventions: 1, ...detail(0, 1, 60) });
+    raw("r4", { verdict: "FAILED", interventions: 0, ...detail(0, 0, 0) });
+    const eff = computeTrajectory(td).outcome_effort;
+    expect(eff.accepted).toBe(2);
+    expect(eff.claimed_verified).toBe(3);
+    expect(eff.false_verified).toBe(1);
+    expect(eff.misleading_completion_rate).toBeCloseTo(1 / 3, 3);
+    expect(eff.cost_per_accepted_usd).toBeNull();
+    expect(eff.cost_note).toContain("unmeasured");
+    expect(eff.interventions_by_type).toEqual({ steer: 0, input: 1, authorization: 1, repair: 0 });
+    expect(eff.interventions_per_accepted).toBe(1);
+    expect(eff.waited_min_per_accepted).toBe(1.5);
+    const human = formatTrajectoryHuman(computeTrajectory(td));
+    expect(human).toContain("Outcome effort");
+    expect(human).toContain("waited, upper bound");
+  });
+
+  it("cost per accepted is total spend over all attempts / accepted", () => {
+    raw("r1", { verdict: "VERIFIED", cost: { usd: 1 } });
+    raw("r2", { verdict: "FAILED", cost: { usd: 3 } });
+    const eff = computeTrajectory(td).outcome_effort;
+    expect(eff.cost_per_accepted_usd).toBe(4);
+    expect(eff.interventions_per_accepted).toBeNull();
+    expect(eff.waited_min_per_accepted).toBeNull();
+    expect(eff.interventions_by_type).toBeNull();
+  });
+
+  it("no accepted run: null with note, no claimed: null rate", () => {
+    raw("r1", { verdict: "FAILED", cost: { usd: 1 } });
+    const eff = computeTrajectory(td).outcome_effort;
+    expect(eff.cost_per_accepted_usd).toBeNull();
+    expect(eff.cost_note).toContain("no accepted");
+    expect(eff.misleading_completion_rate).toBeNull();
   });
 });
