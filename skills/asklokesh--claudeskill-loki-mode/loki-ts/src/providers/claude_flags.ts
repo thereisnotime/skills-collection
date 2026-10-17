@@ -16,7 +16,15 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve as resolvePath, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { buildMcpConfigArgv } from "./mcp_config.ts";
+
+// --disallowedTools tree-mutation guard for reviewer sessions. Byte-identical to
+// loki_review_guard_denylist in autonomy/lib/claude-flags.sh. Kept in this leaf
+// module so engine10 stages and runner/quality_gates.ts share one value without
+// the stages importing the SDK invoker.
+export const REVIEW_GUARD_DENYLIST =
+  "Edit,Write,NotebookEdit,Bash(git commit:*),Bash(git reset:*),Bash(git push:*),Bash(git checkout:*),Bash(git clean:*),Bash(git rm:*),Bash(git stash:*),Bash(git -C:*),Bash(git --git-dir:*),Bash(git -c:*)";
 
 export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -302,6 +310,48 @@ export function buildAutoFlags(args: AutoFlagsArgs): string[] {
   ) {
     out.push("--no-session-persistence");
   }
+  return out;
+}
+
+// Specialist reviewer routing (cost program S9). simple and standard tiers run
+// haiku with lean flags. Complex or unknown tier, HIGH-tier changes and the moat
+// reviewers keep today's behavior. LOKI_ADVISOR_MODEL (haiku|sonnet|opus) always
+// wins; fable is refused (its classifiers can end a reviewer turn with no VERDICT).
+const REVIEWER_MOAT = ["security-sentinel", "devils-advocate"];
+
+export function reviewerModelForTier(opts: {
+  tier?: string;
+  reviewer: string;
+  highTier?: boolean;
+  env?: Record<string, string | undefined>;
+}): string | null {
+  const env = opts.env ?? process.env;
+  const advisor = (env["LOKI_ADVISOR_MODEL"] ?? "").trim().toLowerCase();
+  if (advisor === "haiku" || advisor === "sonnet" || advisor === "opus") return advisor;
+  if (env["LOKI_REVIEWER_TIER_ROUTING"] === "0") return null;
+  if (opts.highTier === true || REVIEWER_MOAT.includes(opts.reviewer)) return null;
+  const tier = (opts.tier ?? "").trim().toLowerCase();
+  return tier === "simple" || tier === "standard" ? "haiku" : null;
+}
+
+// Lean child flags for a text-only reviewer. `--tools=` MUST stay one argument:
+// the option is variadic, so `--tools ""` swallows the trailing prompt.
+export function leanReviewerFlags(opts: {
+  env?: Record<string, string | undefined>;
+  flagSupported?: (flag: string) => boolean;
+} = {}): string[] {
+  const env = opts.env ?? process.env;
+  if (env["LOKI_LEAN_CHILDREN"] === "0") return [];
+  const ok = opts.flagSupported ?? ((f: string) => claudeFlagSupported(f));
+  const out: string[] = [];
+  if (env["LOKI_BARE_SUBCALLS"] !== "0" && (env["ANTHROPIC_API_KEY"] ?? "").trim() !== "" && ok("--bare")) {
+    out.push("--bare");
+  } else {
+    if (ok("--setting-sources")) out.push("--setting-sources", "project");
+    if (ok("--strict-mcp-config")) out.push("--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}');
+    if (ok("--disable-slash-commands")) out.push("--disable-slash-commands");
+  }
+  if (ok("--tools")) out.push("--tools=");
   return out;
 }
 
@@ -782,4 +832,126 @@ export function cavemanSuppressEnv(): string {
 // Test-only reset. Not exported in production typings.
 export function _resetClaudeHelpCacheForTest(text: string | null = null): void {
   _claudeHelpCache = text;
+}
+
+// ---------------------------------------------------------------------------
+// P12-26 / C-C2 -- compiled permission policy (the default)
+//
+// Permission argv for the Claude CLI. LOKI_PERMISSION_POLICY=compiled: the shared rule in
+// src/policies/claude_permissions.js (also invoked by providers/claude.sh) emits
+// --permission-mode plus --allowedTools/--disallowedTools from the task policy.
+// LOKI_PERMISSION_POLICY=legacy: the historical --dangerously-skip-permissions,
+// byte-identical. Unset: compiled only when an operator claude_permissions policy exists,
+// otherwise legacy (headless acceptEdits with no allowedTools denies test runners and git commit).
+// Any other value fails closed to compiled with a one-time warning.
+// ---------------------------------------------------------------------------
+interface PermissionsModule {
+  compile(d: string, e: NodeJS.ProcessEnv): { args: string[]; warnings: string[] };
+  hasOperatorPolicy(e: NodeJS.ProcessEnv): boolean;
+}
+
+function loadPermissionsModule(): PermissionsModule {
+  const req = createRequire(import.meta.url);
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
+  // src/providers and dist sit at different depths below the repo root (same as designArchetypesText).
+  const modPath = [
+    resolvePath(moduleDir, "..", "..", "..", "src", "policies", "claude_permissions.js"), // src/providers -> repo root
+    resolvePath(moduleDir, "..", "..", "src", "policies", "claude_permissions.js"), // dist -> repo root
+  ].find((p) => existsSync(p));
+  if (!modPath) throw new Error("claude_permissions.js not found");
+  return req(modPath) as PermissionsModule;
+}
+
+let permissionUnknownWarned = false;
+/** Test hook: re-arm the once-per-process unknown-value warning. */
+export function resetPermissionPolicyWarning(): void {
+  permissionUnknownWarned = false;
+}
+
+export function permissionPolicyMode(
+  env: NodeJS.ProcessEnv = process.env,
+  warn: (m: string) => void = (m) => process.stderr.write(`[loki] WARNING: ${m}\n`),
+): "compiled" | "legacy" {
+  const v = env["LOKI_PERMISSION_POLICY"] ?? "";
+  if (v === "legacy") return "legacy";
+  if (v === "compiled") return "compiled";
+  if (v === "") {
+    try {
+      return loadPermissionsModule().hasOperatorPolicy(env) ? "compiled" : "legacy";
+    } catch {
+      return "legacy";
+    }
+  }
+  if (!permissionUnknownWarned) {
+    permissionUnknownWarned = true;
+    warn(`LOKI_PERMISSION_POLICY=${v}: unknown value; using compiled`);
+  }
+  return "compiled";
+}
+
+// The one start-banner line naming the active mode (byte-identical to the bash banner).
+export function permissionPolicyBanner(env: NodeJS.ProcessEnv = process.env): string {
+  if (permissionPolicyMode(env, () => {}) === "legacy") {
+    return (env["LOKI_PERMISSION_POLICY"] ?? "") === ""
+      ? "Permission policy: legacy (no operator policy found; add one to use compiled)"
+      : "Permission policy: legacy (unset LOKI_PERMISSION_POLICY to use compiled)";
+  }
+  return "Permission policy: compiled (set LOKI_PERMISSION_POLICY=legacy to revert)";
+}
+
+export function permissionArgv(
+  repoDir: string = process.env["LOKI_PROJECT_DIR"] || process.cwd(),
+  env: NodeJS.ProcessEnv = process.env,
+  warn: (m: string) => void = (m) => process.stderr.write(`[loki] WARNING: ${m}\n`),
+): string[] {
+  if (permissionPolicyMode(env, warn) === "legacy") return ["--dangerously-skip-permissions"];
+  try {
+    const mod = loadPermissionsModule();
+    const r = mod.compile(repoDir, env);
+    r.warnings.forEach(warn);
+    return r.args;
+  } catch (e) {
+    warn(`compiled permission policy: compiler unavailable (${(e as Error).message}); using most restrictive mode (plan)`);
+    return ["--permission-mode", "plan"];
+  }
+}
+
+// P12-26c -- Agent SDK permission options, derived from permissionArgv (the one
+// resolver) so the SDK route honours LOKI_PERMISSION_POLICY exactly like the CLI.
+// Legacy: bypassPermissions + the required companion flag, byte-identical to the
+// previous hardcoded options. Only the argv shapes the compiler emits are read.
+export interface SdkPermissionOptions {
+  permissionMode: "plan" | "default" | "acceptEdits" | "bypassPermissions";
+  allowDangerouslySkipPermissions?: true;
+  allowedTools?: string[];
+  disallowedTools?: string[];
+}
+
+export function sdkPermissionOptions(
+  repoDir?: string,
+  env: NodeJS.ProcessEnv = process.env,
+  warn?: (m: string) => void,
+): SdkPermissionOptions {
+  const argv = warn ? permissionArgv(repoDir, env, warn) : permissionArgv(repoDir, env);
+  if (argv.includes("--dangerously-skip-permissions")) {
+    return { permissionMode: "bypassPermissions", allowDangerouslySkipPermissions: true };
+  }
+  const val = (flag: string): string | undefined => {
+    const i = argv.indexOf(flag);
+    return i >= 0 ? argv[i + 1] : undefined;
+  };
+  const csv = (s: string | undefined): string[] | undefined => {
+    const l = (s ?? "").split(",").filter(Boolean);
+    return l.length ? l : undefined;
+  };
+  const m = val("--permission-mode");
+  const modes = ["plan", "default", "acceptEdits", "bypassPermissions"] as const;
+  const mode = modes.find((x) => x === m) ?? "plan"; // unreadable mode fails closed
+  const out: SdkPermissionOptions = { permissionMode: mode };
+  if (mode === "bypassPermissions") out.allowDangerouslySkipPermissions = true;
+  const allow = csv(val("--allowedTools"));
+  const deny = csv(val("--disallowedTools"));
+  if (allow) out.allowedTools = allow;
+  if (deny) out.disallowedTools = deny;
+  return out;
 }

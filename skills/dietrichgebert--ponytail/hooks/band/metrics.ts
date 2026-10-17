@@ -164,6 +164,15 @@ export const testsLabel = (t: Band['tests']) =>
 
 // Claude Code writes the session's sidebar name into its transcript on every rename.
 export const TITLE_RECORD = '"type":"custom-title"'
+// grep -o pattern for the model of every reply in a transcript.
+export const MODEL_PATTERN = '"model":"claude-[^"]*"'
+
+// The model that wrote most replies, from grep -o lines like "model":"claude-opus-5-5". Empty when none.
+export function mainModel(grepOut: string): string {
+  const count = new Map<string, number>()
+  for (const m of grepOut.matchAll(/"model":"(claude-[^"]+)"/g)) count.set(m[1], (count.get(m[1]) ?? 0) + 1)
+  return [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
+}
 
 // The newest sidebar name in transcript lines, or undefined when the session has none.
 export function sessionTitle(jsonl: string): string | undefined {
@@ -189,6 +198,7 @@ export type Snapshot = {
   name: string
   session: string
   level: string
+  model: string
   cost: number
   lastTurn: number | null
   turns: number
@@ -230,6 +240,7 @@ export function snapshot(b: Band, startedAt: number): Snapshot {
     name: b.name,
     session: b.session,
     level: b.level,
+    model: b.model,
     // The session's cost as /cost totals it, since its start or the last /clear.
     cost: +b.spent.toFixed(4),
     lastTurn: b.turnCosts[b.turnCosts.length - 1] ?? null,
@@ -251,6 +262,7 @@ export function markdown(s: Snapshot): string {
   const rows = [
     ['Project', s.project],
     ['Started', s.started],
+    ['Model', s.model || '–'],
     ['Cost', `$${s.cost.toFixed(2)}${s.lastTurn === null ? '' : ` · last turn $${s.lastTurn.toFixed(2)}`} · ⌀ $${per(s.cost, s.turns).toFixed(2)} / turn`],
     ['Turns', `${s.turns}`],
     ['Agent time', `${elapsed(s.agentMs)} · ⌀ ${elapsed(per(s.agentMs, s.turns))} / turn`],
@@ -265,7 +277,7 @@ export function markdown(s: Snapshot): string {
   return [`## ${cell(s.name || 'Untitled session')}`, '', '| | |', '|---|---|', ...rows.map(([k, v]) => `| ${k} | ${cell(v ?? '')} |`)].join('\n')
 }
 
-export const CSV_HEADER = 'key,started,project,name,cost_usd,turns,agent_minutes,tokens_total,tokens_output,reuse_pct,reused,new,callers_open,tests,level'
+export const CSV_HEADER = 'key,started,project,name,cost_usd,turns,agent_minutes,tokens_total,tokens_output,reuse_pct,reused,new,callers_open,tests,level,model'
 
 const csvField = (v: string | number | null) => {
   const s = v === null ? '' : String(v)
@@ -273,13 +285,13 @@ const csvField = (v: string | number | null) => {
 }
 
 export const csvRow = (s: Snapshot) =>
-  [s.key, s.started, s.project, s.name, s.cost.toFixed(2), s.turns, (s.agentMs / 60000).toFixed(1), totalTokens(s.tokens), s.tokens.output, s.reuse, s.reused, s.created, s.callersOpen, s.tests, s.level]
+  [s.key, s.started, s.project, s.name, s.cost.toFixed(2), s.turns, (s.agentMs / 60000).toFixed(1), totalTokens(s.tokens), s.tokens.output, s.reuse, s.reused, s.created, s.callersOpen, s.tests, s.level, s.model]
     .map(csvField)
     .join(',')
 
 // One row per session, replaced on every turn, so the file stays a table of tasks.
 export function upsertCsv(existing: string, s: Snapshot): string {
-  const rows = existing.split('\n').filter(line => line !== '' && line !== CSV_HEADER && !line.startsWith(`${s.key},`))
+  const rows = existing.split('\n').filter(line => line !== '' && !line.startsWith('key,') && !line.startsWith(`${s.key},`))
   return [CSV_HEADER, ...rows, csvRow(s)].join('\n') + '\n'
 }
 

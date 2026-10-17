@@ -8,7 +8,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import { runStatus } from "../../src/commands/status.ts";
 import { stripAnsi, RED } from "../../src/util/colors.ts";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -74,13 +74,13 @@ describe("status: --help", () => {
   it("prints usage and returns 0", async () => {
     const r = await runWithCapture(["--help"]);
     expect(r.exitCode).toBe(0);
-    expect(r.stdout).toContain("Usage: loki status [--json]");
+    expect(r.stdout).toContain("Usage: loki status [--json|--badge|--probe]");
   });
 
   it("accepts -h alias", async () => {
     const r = await runWithCapture(["-h"]);
     expect(r.exitCode).toBe(0);
-    expect(r.stdout).toContain("Usage: loki status [--json]");
+    expect(r.stdout).toContain("Usage: loki status [--json|--badge|--probe]");
   });
 });
 
@@ -89,7 +89,7 @@ describe("status: unknown flag", () => {
     const r = await runWithCapture(["--bogus"]);
     expect(r.exitCode).toBe(1);
     expect(stripAnsi(r.stdout)).toContain("Unknown flag: --bogus");
-    expect(r.stdout).toContain("Usage: loki status [--json]");
+    expect(r.stdout).toContain("Usage: loki status [--json|--badge|--probe]");
   });
 });
 
@@ -773,5 +773,258 @@ describe("status: text mode -- last deploy", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("status --badge: verified deploy badge", () => {
+  const URL = "https://app.example.com";
+  const KEYS = ["LOKI_RECEIPT_SIGNING_KEY_FILE", "LOKI_RECEIPT_SIGNING_KEY"];
+  let savedKeys: Array<string | undefined> = [];
+  beforeEach(() => { savedKeys = KEYS.map((k) => process.env[k]); });
+  afterEach(() => {
+    KEYS.forEach((k, i) => { if (savedKeys[i] === undefined) delete process.env[k]; else process.env[k] = savedKeys[i]; });
+  });
+  async function badgeFixture(extra: Record<string, unknown>, sign = true): Promise<string> {
+    const root = mkTmp();
+    const lokiDir = join(root, ".loki");
+    mkdirSync(join(lokiDir, "deploys"), { recursive: true });
+    const keyFile = join(root, "key.pem");
+    delete process.env["LOKI_RECEIPT_SIGNING_KEY"];
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = keyFile;
+    {
+      const { canonicalJson, signReceipt } = await import("../../src/util/receipt_signer.ts");
+      const { createHash } = await import("node:crypto");
+      const { main } = await import("../../src/engine10/verify_cmd.ts");
+      const body = { schema: "proof/1", run_id: "p1", verdict: "pass" };
+      const hash = createHash("sha256").update(canonicalJson(body)).digest("hex");
+      mkdirSync(join(lokiDir, "proofs", "p1"), { recursive: true });
+      writeFileSync(join(lokiDir, "proofs", "p1", "proof.json"), JSON.stringify({ ...body, verification: { hash, attestation: signReceipt("p1", hash).jwt } }));
+      const rec = join(lokiDir, "deploys", "20261016T000000Z-1.json");
+      writeFileSync(rec, JSON.stringify({ schema: "loki.deploy/1", receipt_sha256: hash, head_sha: "abc123", target: "vercel", command: "vercel --prod", health_status: "HEALTHY", health_url: "http://x/ok", rollback_attempted: false, rollback_exit: null, started_at: "2026-01-01T00:00:00Z", finished_at: "2026-01-01T00:00:05Z", ...extra }));
+      if (sign) {
+        const w = process.stdout.write.bind(process.stdout);
+        process.stdout.write = (() => true) as typeof process.stdout.write;
+        try { await main(["--sign-deploy", rec]); } finally { process.stdout.write = w; }
+      }
+    }
+    process.env["LOKI_DIR"] = lokiDir;
+    return root;
+  }
+  async function badge(extra: Record<string, unknown>, sign = true): Promise<string> {
+    const root = await badgeFixture(extra, sign);
+    try {
+      const r = await runWithCapture(["--badge"]);
+      expect(r.exitCode).toBe(0);
+      return stripAnsi(r.stdout);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  it("signed healthy record with live_binding=VERIFIED prints a green linked badge", async () => {
+    const out = await badge({ deployed_url: URL, live_binding: "VERIFIED" });
+    expect(out).toContain("brightgreen");
+    expect(out).toContain(`${URL}/.well-known/loki-provenance.json`);
+  });
+  it("FAILED_HEALTH gives a red badge", async () => {
+    const out = await badge({ deployed_url: URL, live_binding: "VERIFIED", health_status: "FAILED_HEALTH" });
+    expect(out).toContain("-red");
+    expect(out).not.toContain("brightgreen");
+  });
+  it("tampered record gives a red badge", async () => {
+    const root = await badgeFixture({ deployed_url: URL, live_binding: "VERIFIED" });
+    try {
+      const f = join(root, ".loki", "deploys", "20261016T000000Z-1.json");
+      writeFileSync(f, readFileSync(f, "utf-8").replace("vercel", "evil"));
+      const out = stripAnsi((await runWithCapture(["--badge"])).stdout);
+      expect(out).toContain("-red");
+      expect(out).not.toContain("brightgreen");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+  it("unsigned record omits the badge with a reason", async () => {
+    const out = await badge({ deployed_url: URL, live_binding: "VERIFIED" }, false);
+    expect(out).not.toContain("brightgreen");
+    expect(out).toContain("No deploy badge");
+  });
+  it("missing live_binding omits the badge", async () => {
+    const out = await badge({ deployed_url: URL });
+    expect(out).not.toContain("brightgreen");
+    expect(out).toContain("live_binding");
+  });
+  it("missing deployed_url omits the badge", async () => {
+    const out = await badge({ live_binding: "VERIFIED" });
+    expect(out).not.toContain("shields.io");
+    expect(out).toContain("deployed_url");
+  });
+});
+
+describe("status --probe: re-probe last deploy health URL", () => {
+  let server: ReturnType<typeof Bun.serve>;
+  let root = "";
+  let savedDir: string | undefined;
+  let savedTimeout: string | undefined;
+  let savedRetry: string | undefined;
+  let flakyHits = 0;
+  beforeEach(() => {
+    savedDir = process.env["LOKI_DIR"];
+    savedTimeout = process.env["LOKI_STATUS_PROBE_TIMEOUT_MS"];
+    savedRetry = process.env["LOKI_STATUS_PROBE_RETRY_DELAY_MS"];
+    process.env["LOKI_STATUS_PROBE_RETRY_DELAY_MS"] = "50";
+    flakyHits = 0;
+    server = Bun.serve({
+      port: 0,
+      fetch(req) {
+        const p = new URL(req.url).pathname;
+        if (p === "/flaky") return ++flakyHits === 1 ? new Response("cold", { status: 503 }) : new Response("ok");
+        if (p === "/ok") return new Response("ok");
+        if (p === "/redirect") return new Response(null, { status: 302, headers: { location: "/ok" } });
+        if (p === "/xhost") return new Response(null, { status: 302, headers: { location: `http://localhost:${server.port}/ok` } });
+        if (p === "/slow") return new Promise<Response>((r) => setTimeout(() => r(new Response("late")), 3000));
+        return new Response("boom", { status: 500 });
+      },
+    });
+  });
+  afterEach(() => {
+    server.stop(true);
+    if (savedDir === undefined) delete process.env["LOKI_DIR"]; else process.env["LOKI_DIR"] = savedDir;
+    if (savedTimeout === undefined) delete process.env["LOKI_STATUS_PROBE_TIMEOUT_MS"]; else process.env["LOKI_STATUS_PROBE_TIMEOUT_MS"] = savedTimeout;
+    if (savedRetry === undefined) delete process.env["LOKI_STATUS_PROBE_RETRY_DELAY_MS"]; else process.env["LOKI_STATUS_PROBE_RETRY_DELAY_MS"] = savedRetry;
+    if (root) rmSync(root, { recursive: true, force: true });
+    root = "";
+  });
+  function fixture(rec: Record<string, unknown> | null): void {
+    root = mkdtempSync(join(tmpdir(), "status-probe-"));
+    const lokiDir = join(root, ".loki");
+    mkdirSync(join(lokiDir, "deploys"), { recursive: true });
+    if (rec !== null) writeFileSync(join(lokiDir, "deploys", "20261016T000000Z-1.json"), JSON.stringify({ schema: "loki.deploy/1", target: "vercel", head_sha: "abc123", health_status: "HEALTHY", ...rec }));
+    process.env["LOKI_DIR"] = lokiDir;
+  }
+  const url = (path: string): string => `http://127.0.0.1:${server.port}${path}`;
+
+  it("healthy URL exits 0", async () => {
+    fixture({ health_url: url("/ok") });
+    const r = await runWithCapture(["--probe"]);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain("Deploy health OK");
+  });
+  it("redirect to a healthy URL exits 0", async () => {
+    fixture({ health_url: url("/redirect") });
+    expect((await runWithCapture(["--probe"])).exitCode).toBe(0);
+  });
+  it("redirect to a different host returning 200 exits 1 naming the final host", async () => {
+    fixture({ health_url: url("/xhost") });
+    const r = await runWithCapture(["--probe"]);
+    expect(r.exitCode).toBe(1);
+    const out = stripAnsi(r.stdout);
+    expect(out).toContain("redirected to a different host (localhost)");
+    expect(out).not.toContain("Deploy health OK");
+  });
+  it("a 500 exits 1 naming the URL and status", async () => {
+    fixture({ health_url: url("/down") });
+    const r = await runWithCapture(["--probe"]);
+    expect(r.exitCode).toBe(1);
+    const out = stripAnsi(r.stdout);
+    expect(out).toContain(url("/down"));
+    expect(out).toContain("returned 500");
+  });
+  it("first 503 then 200 retries and exits 0, retry visible", async () => {
+    fixture({ health_url: url("/flaky") });
+    const r = await runWithCapture(["--probe"]);
+    expect(r.exitCode).toBe(0);
+    expect(flakyHits).toBe(2);
+    const out = stripAnsi(r.stdout);
+    expect(out).toContain("retrying once");
+    expect(out).toContain("returned 503");
+    expect(out).toContain("Deploy health OK");
+  });
+  it("two failures exit 1 after exactly one retry", async () => {
+    fixture({ health_url: url("/down") });
+    const r = await runWithCapture(["--probe"]);
+    expect(r.exitCode).toBe(1);
+    const out = stripAnsi(r.stdout);
+    expect(out.match(/retrying once/g)?.length).toBe(1);
+    expect(out).toContain("Deploy health REGRESSED");
+  });
+  it("a timeout exits 1 naming the URL", async () => {
+    fixture({ health_url: url("/slow") });
+    process.env["LOKI_STATUS_PROBE_TIMEOUT_MS"] = "200";
+    const r = await runWithCapture(["--probe"]);
+    expect(r.exitCode).toBe(1);
+    expect(stripAnsi(r.stdout)).toContain("timed out after 200ms");
+    expect(stripAnsi(r.stdout)).toContain(url("/slow"));
+  });
+  it("unreachable URL exits 1", async () => {
+    fixture({ health_url: "http://127.0.0.1:1/x" });
+    expect((await runWithCapture(["--probe"])).exitCode).toBe(1);
+  });
+  it("no deploy record exits 0 with a note", async () => {
+    fixture(null);
+    const r = await runWithCapture(["--probe"]);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain("no deploy record");
+  });
+  it("record without health_url exits 0 with a note", async () => {
+    fixture({});
+    const r = await runWithCapture(["--probe"]);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain("no health URL");
+  });
+
+  describe("--json", () => {
+    const parse = (out: string): Record<string, unknown> => JSON.parse(out) as Record<string, unknown>;
+    it("healthy URL prints one JSON object, exit 0", async () => {
+      fixture({ health_url: url("/ok") });
+      const r = await runWithCapture(["--probe", "--json"]);
+      expect(r.exitCode).toBe(0);
+      expect(parse(r.stdout)).toEqual({ url: url("/ok"), ok: true, status: 200, attempts: 1, reason: null });
+    });
+    it("flag order does not matter", async () => {
+      fixture({ health_url: url("/ok") });
+      const r = await runWithCapture(["--json", "--probe"]);
+      expect(r.exitCode).toBe(0);
+      expect(parse(r.stdout)["ok"]).toBe(true);
+    });
+    it("flaky URL reports attempts 2 and keeps stdout pure JSON", async () => {
+      fixture({ health_url: url("/flaky") });
+      const r = await runWithCapture(["--probe", "--json"]);
+      expect(r.exitCode).toBe(0);
+      const o = parse(r.stdout);
+      expect(o["attempts"]).toBe(2);
+      expect(o["ok"]).toBe(true);
+    });
+    it("a 500 exits 1 with ok false, status and reason", async () => {
+      fixture({ health_url: url("/down") });
+      const r = await runWithCapture(["--probe", "--json"]);
+      expect(r.exitCode).toBe(1);
+      expect(parse(r.stdout)).toEqual({ url: url("/down"), ok: false, status: 500, attempts: 2, reason: "returned 500" });
+    });
+    it("cross-host redirect exits 1 with reason", async () => {
+      fixture({ health_url: url("/xhost") });
+      const r = await runWithCapture(["--probe", "--json"]);
+      expect(r.exitCode).toBe(1);
+      expect(String(parse(r.stdout)["reason"])).toContain("redirected to a different host");
+    });
+    it("unreachable URL exits 1 with null status", async () => {
+      fixture({ health_url: "http://127.0.0.1:1/x" });
+      const r = await runWithCapture(["--probe", "--json"]);
+      expect(r.exitCode).toBe(1);
+      const o = parse(r.stdout);
+      expect(o["status"]).toBeNull();
+      expect(String(o["reason"])).toContain("unreachable");
+    });
+    it("no deploy record exits 0 with ok true and null url", async () => {
+      fixture(null);
+      const r = await runWithCapture(["--probe", "--json"]);
+      expect(r.exitCode).toBe(0);
+      expect(parse(r.stdout)).toEqual({ url: null, ok: true, status: null, attempts: 0, reason: "no deploy record" });
+    });
+    it("record without health_url exits 0 with ok true", async () => {
+      fixture({});
+      const r = await runWithCapture(["--probe", "--json"]);
+      expect(r.exitCode).toBe(0);
+      expect(parse(r.stdout)["url"]).toBeNull();
+    });
   });
 });

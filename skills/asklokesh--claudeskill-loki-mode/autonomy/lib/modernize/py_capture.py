@@ -454,6 +454,25 @@ def _check_boundary(name, value, declared):
     return None
 
 
+def _declared_for_case(declared, per_case, bound_names, call_args, call_kwargs):
+    """Per-case boundary declarations (optional "boundaries" key on a --cases line):
+    {"args": [kind|null, ...], "kwargs": {name: kind}, "return": kind|null}. This is how a replay declares
+    the kinds the ORACLE recorded, so a text argument is not "undeclared". It adds to the --boundaries file,
+    never overrides it, and a runtime type that differs from the declared kind is still flagged."""
+    if not isinstance(per_case, dict):
+        return declared
+    merged = dict(declared)
+    arg_kinds = per_case.get("args") or []
+    kw_kinds = per_case.get("kwargs") or {}
+    for i, name in enumerate(bound_names):
+        kind = arg_kinds[i] if i < len(call_args) and i < len(arg_kinds) else kw_kinds.get(name)
+        if kind in ("text", "bytes") and name not in merged:
+            merged[name] = kind
+    if per_case.get("return") in ("text", "bytes") and "return" not in merged:
+        merged["return"] = per_case["return"]
+    return merged
+
+
 def _unsupported_not_proven(tagged, path):
     """Recurse into an already-tagged structure (a return value or an
     exception arg) and turn every 'unsupported' tag at any nesting depth
@@ -519,6 +538,36 @@ def run_case(func, args, kwargs):
 # CLI
 # --------------------------------------------------------------------------
 
+def _stub_unit_functions(namespace, unit_path):
+    """No-op ablation: every plain function defined in the unit file becomes a
+    stub returning None. runpy.run_path returns a copy of the module globals, so
+    only the entry's own stub matters here; functions called internally still
+    see the real module. __wrapped__ keeps the original signature visible to the
+    boundary check on Python 3 (inspect.signature follows it). Returns the set of
+    names replaced; an entry outside it (imported function, bound-method alias,
+    functools.partial, callable instance) was NOT stubbed."""
+    import types
+    want = os.path.realpath(unit_path)
+    replaced = set()
+    for name in list(namespace.keys()):
+        func = namespace[name]
+        if not isinstance(func, types.FunctionType):
+            continue
+        if os.path.realpath(func.__code__.co_filename) != want:
+            continue
+        namespace[name] = _make_stub(func)
+        replaced.add(name)
+    return replaced
+
+
+def _make_stub(original):
+    def stub(*_args, **_kwargs):
+        return None
+    stub.__name__ = original.__name__
+    stub.__wrapped__ = original
+    return stub
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Python 2/3 capture tracer (Loki Modernize M-09)")
     parser.add_argument("--unit", required=True, help="path to the unit's .py source")
@@ -526,6 +575,8 @@ def main(argv=None):
     parser.add_argument("--out", required=True, help="output cases.jsonl path")
     parser.add_argument("--coverage", help="output coverage.json path")
     parser.add_argument("--boundaries", help="JSON file of declared text/bytes boundaries")
+    parser.add_argument("--stub", action="store_true",
+                        help="no-op ablation: replace every function defined in the unit file with a stub returning None")
     args = parser.parse_args(argv)
 
     unit_path = os.path.abspath(args.unit)
@@ -547,6 +598,10 @@ def main(argv=None):
         sys.stderr.write("py_capture: failed to load unit %s: %s\n" % (args.unit, exc))
         return 2
 
+    stubbed = None
+    if args.stub:
+        stubbed = _stub_unit_functions(namespace, unit_path)
+
     with open(args.cases, "r") as fh:
         case_lines = [line for line in fh if line.strip()]
 
@@ -556,6 +611,9 @@ def main(argv=None):
         spec = json.loads(line)
         entry = spec["entry"]
         entries_used.add(entry)
+        if stubbed is not None and entry not in stubbed:
+            sys.stderr.write("py_capture: --stub could not stub entry %s\n" % entry)
+            return 2
         func = namespace.get(entry)
         if func is None or not callable(func):
             sys.stderr.write("py_capture: entry not found or not callable: %s\n" % entry)
@@ -570,17 +628,18 @@ def main(argv=None):
 
         not_proven = []
         bound_names = _bound_names(func, call_args, call_kwargs)
+        case_declared = _declared_for_case(declared, spec.get("boundaries"), bound_names, call_args, call_kwargs)
         for i, name in enumerate(bound_names):
             if i < len(call_args):
-                reason = _check_boundary(name, call_args[i], declared)
+                reason = _check_boundary(name, call_args[i], case_declared)
             elif name in call_kwargs:
-                reason = _check_boundary(name, call_kwargs[name], declared)
+                reason = _check_boundary(name, call_kwargs[name], case_declared)
             else:
                 reason = None
             if reason:
                 not_proven.append(reason)
         if outcome["had_result"]:
-            reason = _check_boundary("return", outcome["result"], declared)
+            reason = _check_boundary("return", outcome["result"], case_declared)
             if reason:
                 not_proven.append(reason)
             not_proven.extend(_unsupported_not_proven(outcome["result_tag"], "return"))

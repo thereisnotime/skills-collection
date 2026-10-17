@@ -41,6 +41,11 @@ and Codex with a stub `npx` first on PATH that replays canned acpx streams
 5. **Failures are additive and non-blocking.** A missing CLI means no job starts;
    a human-facing markdown review reports the pass as not run. A started timeout, failure,
    or unusable return is named in Coverage and the in-process review completes.
+   In `mode:agent`, a run that selected the adversarial lens carries a `peer`
+   object whose `outcome` is `folded` only when a peer artifact was folded; any
+   other outcome (never started, failed, no usable output) is recorded with its
+   Coverage sentence and leaves `status` unchanged. A run that did not select the
+   lens leaves `peer` absent.
    The worker never changes recipients internally; any recipient-changing retry
    requires a new disclosure and sanction.
 
@@ -61,7 +66,8 @@ and Codex with a stub `npx` first on PATH that replays canned acpx streams
    serving families differ attestably. Receiptless routes say "requested
    <model> at <effort>" with no serving caveat; a caveat appears only on a
    receipt mismatch or a route that requested no model. `mode:agent` emits no
-   user-facing prose but retains the worker's stderr audit record.
+   user-facing prose but retains the worker's stderr audit record; its JSON
+   still records the peer outcome.
 
 9. **Oversized diffs recover without one giant prompt.** A fixture above the
    inline token or file-count limit sends the peer the orchestrator's compact

@@ -119,7 +119,7 @@ En Claude Code, ponytail ahora muestra una barra encima del prompt: cuánto cues
   <img src="../assets/band/board.png" width="880" alt="El board de ponytail, una página local: 61 sesiones, 20h 13m de tiempo de agente, $285.30 y 492.5M tokens en los últimos 30 días; tiempo de agente por proyecto a lo largo del tiempo; las últimas sesiones con sus tests; días activos y racha.">
 </p>
 
-**Board** abre una página local con todas las tareas de tus proyectos: coste, tiempo de agente y tokens a lo largo del tiempo, cada sesión con sus tests y los días que trabajaste. Por defecto, todo se queda en tu máquina, en `~/.config/ponytail/band/`.
+**Board** abre una página local con todas las tareas de tus proyectos: coste, tiempo de agente y tokens a lo largo del tiempo, cada sesión con sus tests y los días que trabajaste. Por defecto, todo se queda en tu máquina, en `~/.config/ponytail/band/`. `/ponytail band import` añade tus sesiones anteriores de Claude Code al board, con su coste, tiempo de agente y tokens.
 
 ## Cómo funciona
 
@@ -172,6 +172,7 @@ Instala ponytail solo desde `DietrichGebert/ponytail` en GitHub o `@dietrichgebe
 |---------|----------|
 | `/ponytail [lite \| full \| ultra \| off]` | Ajusta la intensidad o lo apaga. Sin argumento enciende ponytail en el nivel por defecto si está apagado; si no, muestra el nivel actual. |
 | `/ponytail band [on \| off]` | Solo en Claude Code: oculta o muestra la barra encima del prompt. Sin argumento la alterna. El nivel no cambia. |
+| `/ponytail band import` | Solo en Claude Code: añade tus sesiones anteriores al board, con coste, tiempo de agente y tokens. |
 | `/ponytail-review` | Revisa el diff actual como el dev senior al que llaman cuando algo se rompe: bugs, seguridad, carga real, código arriesgado sin test, partes lentas y lo que sobra. Cada hallazgo dice qué hace el código, qué falla, cómo arreglarlo y qué pasa si no se arregla. Indica un objetivo con palabras normales para acotarlo o ampliarlo: `uncommitted`, `staged`, `branch` o un enlace a un PR. |
 | `/ponytail-audit` | La misma revisión para todo el repo, lo más importante primero. |
 | `/ponytail-debt` | Reúne los atajos `shortcut:` que dejaste para después en un registro, para que "luego" no se convierta en "nunca". |

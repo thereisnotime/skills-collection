@@ -49,7 +49,7 @@ failed_check() { printf '%s\n' "$1" | grep -E "^FAIL +[0-9]+ms +$2"; }
 
 echo "T1 -- clean tree: every check passes"
 out="$(run)"; rc=$?
-if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "all passed"; then
+if [ "$rc" -eq 0 ] && grep -q "all passed" <<<"$out"; then
     ok "clean tree exits 0"
 else
     bad "clean tree failed (rc=$rc)"; printf '%s\n' "$out" | sed 's/^/     | /'
@@ -80,7 +80,7 @@ rm -f "$S/tests/test-planted-home-path.sh"
 echo "T4 -- an over-budget file is caught"
 yes 'export const x = 1;' | head -n 1600 > "$S/loki-ts/src/e10ext/planted_over_budget.ts"
 out="$(run)"; rc=$?
-if [ "$rc" -ne 0 ] && failed_check "$out" "line budgets" >/dev/null && printf '%s' "$out" | grep -q "e10ext"; then
+if [ "$rc" -ne 0 ] && failed_check "$out" "line budgets" >/dev/null && grep -q "e10ext" <<<"$out"; then
     ok "line-budget check FAILs on e10ext over 1,500 lines"
 else
     bad "over-budget e10ext not caught (rc=$rc)"
@@ -133,7 +133,7 @@ git -C "$N" init -q -b trunk
 git -C "$N" add -A
 git -C "$N" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=t -c user.email=t@t commit -q -m base
 out="$(STRUCTURAL_ROOT="$N" bash "$N/scripts/structural-checks.sh" 2>&1 >/dev/null)"
-if printf '%s' "$out" | grep -q "structural-checks: no base ref, scanning the working tree only"; then
+if grep -q "structural-checks: no base ref, scanning the working tree only" <<<"$out"; then
     ok "warns when no base ref resolves"
 else
     bad "no warning without a base ref"
@@ -159,7 +159,65 @@ else
 fi
 printf 'a \342\200\224 b\n' > "$G/eval/loki10/refdiff/untracked.diff"
 out="$(STRUCTURAL_ROOT="$G" bash "$G/scripts/structural-checks.sh" 2>&1)"
-if ! printf '%s' "$out" | grep -q "untracked: eval/loki10/refdiff"; then ok "untracked refdiff dash exempt"; else bad "untracked refdiff flagged"; fi
+if ! grep -q "untracked: eval/loki10/refdiff" <<<"$out"; then ok "untracked refdiff dash exempt"; else bad "untracked refdiff flagged"; fi
+
+echo "T10 -- an unmeasured multiple in a doc is caught; a cited one passes"
+git -C "$G" reset -q --hard main
+printf 'It is 3x faster than before.\n' > "$G/planted-claim.md"
+git -C "$G" add planted-claim.md
+git -C "$G" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=t -c user.email=t@t commit -q -m claim
+out="$(STRUCTURAL_ROOT="$G" bash "$G/scripts/structural-checks.sh" 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] && failed_check "$out" "unmeasured Nx" >/dev/null; then ok "unmeasured 3x claim FAILs"; else bad "unmeasured claim not caught (rc=$rc)"; fi
+printf 'It is 3x faster than before (see docs/METRICS.md).\n' > "$G/planted-claim.md"
+git -C "$G" add planted-claim.md
+git -C "$G" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=t -c user.email=t@t commit -q -m cited
+out="$(STRUCTURAL_ROOT="$G" bash "$G/scripts/structural-checks.sh" 2>&1)"
+if ! failed_check "$out" "unmeasured Nx" >/dev/null; then ok "cited claim passes"; else bad "cited claim flagged"; fi
+
+echo "T11 -- P12-40b: quoted/code/escaped lines pass; missed phrasings are caught"
+claim_flagged() { # claim_flagged <doc text>: 0 when the guard flags the line
+    git -C "$G" reset -q --hard main
+    printf '%s\n' "$1" > "$G/planted-claim.md"
+    git -C "$G" add planted-claim.md
+    git -C "$G" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=t -c user.email=t@t commit -q -m c11
+    out="$(STRUCTURAL_ROOT="$G" bash "$G/scripts/structural-checks.sh" 2>&1)"
+    failed_check "$out" "unmeasured Nx" >/dev/null
+}
+for line in 'The spec says `3x faster` is required.' 'It is 3x faster (see docs/METRICS.md).' 'Requirement: 3x faster. <!-- claim-ok -->' 'The flaky test passes half the time.'; do
+    if ! claim_flagged "$line"; then ok "not flagged: $line"; else bad "false positive: $line"; fi
+done
+printf '%s\n' '```' '3x faster' '```' > "$G/planted-claim.md"
+git -C "$G" add planted-claim.md
+git -C "$G" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=t -c user.email=t@t commit -q -m fence
+out="$(STRUCTURAL_ROOT="$G" bash "$G/scripts/structural-checks.sh" 2>&1)"
+if ! failed_check "$out" "unmeasured Nx" >/dev/null; then ok "fenced block not flagged"; else bad "fenced block flagged"; fi
+for line in 'We get 50 % fewer retries.' 'This cuts cost by 50%.' 'It runs 4x as fast.' 'Result: **3x** on the bench.' 'It costs half the cost of before.'; do
+    if claim_flagged "$line"; then ok "flagged: $line"; else bad "missed: $line"; fi
+done
+# Editing an opening fence must not hide later claims (fence state from the full file).
+git -C "$G" reset -q --hard main
+printf 'a\n```\nx\n```\nb\n' > "$G/fence.md"
+git -C "$G" add fence.md
+git -C "$G" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=t -c user.email=t@t commit -q -m fence0
+git -C "$G" branch -f main HEAD
+git -C "$G" checkout -q -b fence-edit
+printf 'a\n```bash\nx\n```\nb\nnow 3x faster\n' > "$G/fence.md"
+git -C "$G" add fence.md
+git -C "$G" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=t -c user.email=t@t commit -q -m fence1
+out="$(STRUCTURAL_ROOT="$G" bash "$G/scripts/structural-checks.sh" 2>&1)"
+if failed_check "$out" "unmeasured Nx" >/dev/null; then ok "claim after an edited opening fence is flagged"; else bad "edited fence hid a later claim"; fi
+# Hunk-header function-context text containing +<digits> must not shift line numbers.
+git -C "$G" checkout -q main
+git -C "$G" checkout -q -b hunk-ctx
+printf 'Intro\nx\n\nA +1\n' > "$G/h.md"
+git -C "$G" add h.md
+git -C "$G" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=t -c user.email=t@t commit -q -m h0
+git -C "$G" branch -f main HEAD
+printf '```\nfoo 8x faster\n```\n' >> "$G/h.md"
+git -C "$G" add h.md
+git -C "$G" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=t -c user.email=t@t commit -q -m h1
+out="$(STRUCTURAL_ROOT="$G" bash "$G/scripts/structural-checks.sh" 2>&1)"
+if ! failed_check "$out" "unmeasured Nx" >/dev/null; then ok "fenced claim not flagged when hunk context has +digits"; else bad "hunk context +digits misread fence state"; fi
 
 echo
 echo "Results: $PASS passed, $FAIL failed"

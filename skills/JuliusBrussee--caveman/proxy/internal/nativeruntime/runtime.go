@@ -104,7 +104,7 @@ type Runtime struct {
 	receiptDir            string
 	usage                 sessionusage.Reader
 	mu                    sync.Mutex // activeSessions and lastActivity only
-	sessionLocks          [64]sync.Mutex
+	sessionStripes        [64]chan struct{}
 	repositoryMu          sync.RWMutex
 	repositoryMaps        map[string]*repositoryMapEntry
 	repositorySessionRefs map[string]repositorySessionRef
@@ -150,13 +150,17 @@ type repositoryMapEntry struct {
 }
 
 func newRuntime(store *ccr.Store) *Runtime {
-	return &Runtime{
+	runtime := &Runtime{
 		store: store, repositoryMaps: map[string]*repositoryMapEntry{},
 		repositorySessionRefs: map[string]repositorySessionRef{}, repositoryWarming: map[string]bool{}, repositoryEnded: map[string]time.Time{},
 		activeSessions: map[string]sessionActivity{}, lastActivity: time.Now(),
 		// A store-less engine: Detect reads only the bytes handed to it.
 		detect: engine.New(nil, nil).Detect,
 	}
+	for i := range runtime.sessionStripes {
+		runtime.sessionStripes[i] = make(chan struct{}, 1)
+	}
+	return runtime
 }
 
 func New(store *ccr.Store) *Runtime { return newRuntime(store) }
@@ -221,12 +225,84 @@ func resolveProfile(raw, policyMode string) (string, profileFeatures, error) {
 	}
 }
 
-func (r *Runtime) Handle(_ context.Context, request Request) (Response, error) {
-	started := time.Now()
-	sessionLock := r.sessionLock(request.Session.ID)
-	sessionLock.Lock()
-	defer sessionLock.Unlock()
+// decisionResult carries one settled decision from the drain goroutine back to
+// Handle.
+type decisionResult struct {
+	response Response
+	err      error
+}
 
+// Handle decides one packed host event. The context is the hook deadline and it
+// is honored: the thin host adapter across the socket gives up at the same
+// deadline, so a store call wedged on cross-process database contention must
+// not run Handle to the store's own 5s busy timeout. It used to (issue #1279:
+// an upgraded home whose ccr.db was write-locked by stale 2.x processes closed
+// every native.sock connection with an empty reply seconds after the hook had
+// already failed open, and every queued event behind it did the same).
+func (r *Runtime) Handle(ctx context.Context, request Request) (Response, error) {
+	mustRun := stateOnlyEvents[request.Event.Type]
+	if err := ctx.Err(); err != nil && !mustRun {
+		return Response{}, fmt.Errorf("native runtime: hook budget exhausted before %s: %w", request.Event.Type, err)
+	}
+	// The decision runs on its own goroutine so the deadline bounds it from the
+	// outside: when the budget dies, Handle returns fail-open immediately and
+	// the drain finishes the store work in the background. The drain queues
+	// for the session stripe itself, and a channel serves its waiters in
+	// arrival order, so a later session.end cannot overtake an event queued
+	// before it. A waiter whose budget dies leaves the queue (and frees its
+	// payload) at its deadline; the state-only events stay queued and run.
+	stripe := r.sessionStripe(request.Session.ID)
+	out := make(chan decisionResult, 1)
+	go func() {
+		if mustRun {
+			stripe <- struct{}{}
+		} else {
+			select {
+			case stripe <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
+		}
+		defer func() { <-stripe }()
+		response, err := r.respond(ctx, request)
+		out <- decisionResult{response: response, err: err}
+	}()
+	select {
+	case result := <-out:
+		return result.response, result.err
+	case <-ctx.Done():
+		select {
+		case result := <-out:
+			return result.response, result.err
+		default:
+		}
+		return Response{}, fmt.Errorf("native runtime: hook budget exhausted during %s: %w", request.Event.Type, ctx.Err())
+	}
+}
+
+// stateOnlyEvents send the host nothing it acts on; their whole effect is the
+// store write (archive and receipt, compaction transition, subagent state and
+// evidence merge). They run to completion on the drain even after the hook
+// deadline, because the host has already moved on and will not resend them.
+var stateOnlyEvents = map[string]bool{
+	"session.end":            true,
+	"context.compact.before": true,
+	"subagent.start":         true,
+	"subagent.stop":          true,
+}
+
+// respond is the decision body Handle drains on its goroutine. The context
+// checks bound the store work it STARTS: once the hook deadline has passed, the
+// response can no longer reach the host, so pending store writes are skipped
+// instead of queued behind the wedged store connection. Work already in flight
+// still finishes (idempotent writes, single-connection ordering), and
+// stateOnlyEvents run even on a dead budget so, for one, a session the host
+// ended is always archived.
+func (r *Runtime) respond(ctx context.Context, request Request) (Response, error) {
+	started := time.Now()
+	if err := ctx.Err(); err != nil && !stateOnlyEvents[request.Event.Type] {
+		return Response{}, err
+	}
 	if request.ProtocolVersion != ProtocolVersion {
 		return Response{}, fmt.Errorf("native runtime: unsupported protocol version %d", request.ProtocolVersion)
 	}
@@ -340,9 +416,16 @@ func (r *Runtime) Handle(_ context.Context, request Request) (Response, error) {
 	if err != nil {
 		return Response{}, err
 	}
-	response.RuntimeUS = time.Since(started).Microseconds()
-	if err := r.recordDecision(request, response); err != nil {
-		return Response{}, err
+	// Past the deadline the response never reaches the host, so skip the
+	// decision record instead of queueing more store work behind a wedged
+	// connection. The session.end finalization below still runs on the drain:
+	// a session the host ended must be archived regardless of budget.
+	budgetAlive := ctx.Err() == nil
+	if budgetAlive {
+		response.RuntimeUS = time.Since(started).Microseconds()
+		if err := r.recordDecision(request, response); err != nil {
+			return Response{}, err
+		}
 	}
 	if request.Event.Type == "session.end" && r.receiptDir != "" {
 		receipt, writeErr := r.writeReceipt(request)
@@ -360,17 +443,18 @@ func (r *Runtime) Handle(_ context.Context, request Request) (Response, error) {
 	return response, nil
 }
 
-// sessionLock preserves event order within one session without making unrelated
+// sessionStripe preserves event order within one session without making unrelated
 // coding-agent sessions spend their shared 250 ms hook budget waiting on each
 // other's repository and CCR work. Fixed stripes bound lock memory for a
 // long-lived runtime; hash collisions only serialize, never weaken isolation.
-func (r *Runtime) sessionLock(sessionID string) *sync.Mutex {
+// Each stripe is a one-slot channel: holding it is a value in the buffer.
+func (r *Runtime) sessionStripe(sessionID string) chan struct{} {
 	var hash uint32 = 2166136261
 	for i := 0; i < len(sessionID); i++ {
 		hash ^= uint32(sessionID[i])
 		hash *= 16777619
 	}
-	return &r.sessionLocks[hash%uint32(len(r.sessionLocks))]
+	return r.sessionStripes[hash%uint32(len(r.sessionStripes))]
 }
 
 func directOutputRewriteAgent(agentID string) bool {

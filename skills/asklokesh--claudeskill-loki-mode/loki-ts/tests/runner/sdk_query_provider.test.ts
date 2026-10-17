@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PROVIDER_DEFAULT_MODEL } from "../../src/util/claude_model.ts";
 import type { ProviderInvocation } from "../../src/runner/types.ts";
 
 let scratch: string;
@@ -73,6 +74,65 @@ describe("sdkQueryProvider (hermetic, stubbed query)", () => {
     expect(body).toContain("done");
   });
 
+  it("requested_model in the result-cost record is the exact model passed to query (P12-23)", async () => {
+    const keys = ["LOKI_MAX_TIER", "LOKI_CLAUDE_MODEL_PLANNING", "LOKI_E10_MODEL_DEFAULT", "LOKI_ITERATION", "LOKI_ROUTER", "LOKI_TIER_ROUTING"];
+    const prev: Record<string, string | undefined> = {};
+    for (const k of keys) { prev[k] = process.env[k]; delete process.env[k]; }
+    process.env["LOKI_ITERATION"] = "7";
+    const msgs = [
+      { type: "system", subtype: "init", model: "claude-sonnet-4-6", session_id: "s" },
+      { type: "result", subtype: "success", is_error: false, total_cost_usd: 0.01, usage: {}, session_id: "s" },
+    ];
+    const rec = () => JSON.parse(readFileSync(join(scratch, ".loki", "metrics", "result-cost-7.json"), "utf8"));
+    try {
+      process.env["LOKI_MAX_TIER"] = "sonnet";
+      process.env["LOKI_CLAUDE_MODEL_PLANNING"] = "opus";
+      stubQuery(msgs);
+      const { sdkQueryProvider } = await import("../../src/runner/providers.ts");
+      await sdkQueryProvider().invoke(call({ tier: "planning" }));
+      const passed = lastQueryArgs?.options?.["model"];
+      expect(typeof passed).toBe("string");
+      expect(rec().requested_model).toBe(passed as string);
+      expect(rec().requested_model).not.toBe("opus");
+
+      delete process.env["LOKI_MAX_TIER"];
+      delete process.env["LOKI_CLAUDE_MODEL_PLANNING"];
+      process.env["LOKI_E10_MODEL_DEFAULT"] = "1";
+      stubQuery(msgs);
+      await sdkQueryProvider().invoke(call({ tier: "development" }));
+      expect(lastQueryArgs?.options?.["model"]).toBeUndefined();
+      expect(rec().requested_model).toBe(PROVIDER_DEFAULT_MODEL);
+      expect(rec().model_downgraded).toBeNull();
+    } finally {
+      for (const k of keys) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; }
+    }
+  });
+
+  it("requested_model follows the router-rewritten model, not the haiku pin (P12-23b)", async () => {
+    const keys = ["LOKI_MAX_TIER", "LOKI_CLAUDE_MODEL_DEVELOPMENT", "LOKI_MODEL_DEVELOPMENT", "LOKI_E10_MODEL_DEFAULT", "LOKI_ITERATION", "LOKI_ROUTER", "LOKI_ROUTER_ADVISOR", "LOKI_TIER_ROUTING"];
+    const prev: Record<string, string | undefined> = {};
+    for (const k of keys) { prev[k] = process.env[k]; delete process.env[k]; }
+    process.env["LOKI_ITERATION"] = "8";
+    process.env["LOKI_ROUTER"] = "1";
+    process.env["LOKI_ROUTER_ADVISOR"] = "off"; // advisor unavailable: router turns a haiku executor into sonnet
+    process.env["LOKI_CLAUDE_MODEL_DEVELOPMENT"] = "haiku";
+    try {
+      stubQuery([
+        { type: "system", subtype: "init", model: "claude-sonnet-4-6", session_id: "s" },
+        { type: "result", subtype: "success", is_error: false, total_cost_usd: 0.01, usage: {}, session_id: "s" },
+      ]);
+      const { sdkQueryProvider } = await import("../../src/runner/providers.ts");
+      await sdkQueryProvider().invoke(call({ tier: "development" }));
+      const passed = lastQueryArgs?.options?.["model"];
+      expect(passed).toBe("sonnet");
+      const r = JSON.parse(readFileSync(join(scratch, ".loki", "metrics", "result-cost-8.json"), "utf8"));
+      expect(r.requested_model).toBe(passed as string);
+      expect(r.requested_model).not.toBe("haiku");
+    } finally {
+      for (const k of keys) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; }
+    }
+  });
+
   it("is_error result -> exit 1", async () => {
     stubQuery([
       { type: "result", subtype: "error_during_execution", is_error: true, total_cost_usd: 0.01, usage: {} },
@@ -102,6 +162,54 @@ describe("sdkQueryProvider (hermetic, stubbed query)", () => {
     expect(r.exitCode).toBe(1);
     expect(existsSync(r.capturedOutputPath)).toBe(true);
     expect(readFileSync(r.capturedOutputPath, "utf8")).toContain("sdk-loop error");
+  });
+
+  it("P12-26c: LOKI_PERMISSION_POLICY=compiled reaches query() permissionMode (no bypass)", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "sdkq-perm-"));
+    const keys = ["LOKI_PERMISSION_POLICY", "LOKI_DATA_DIR", "LOKI_MANAGED_SETTINGS"] as const;
+    const prev = keys.map((k) => process.env[k]);
+    process.env["LOKI_PERMISSION_POLICY"] = "compiled";
+    process.env["LOKI_DATA_DIR"] = dataDir;
+    process.env["LOKI_MANAGED_SETTINGS"] = join(dataDir, "missing-managed.json");
+    const realWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (() => true) as typeof process.stderr.write; // silence the no-policy warning
+    try {
+      stubQuery([{ type: "result", is_error: false, total_cost_usd: 0.01, usage: {} }]);
+      const { sdkQueryProvider } = await import("../../src/runner/providers.ts");
+      await sdkQueryProvider().invoke(call());
+      const opts = lastQueryArgs?.options ?? {};
+      expect(opts["permissionMode"]).toBe("acceptEdits");
+      expect(opts["allowDangerouslySkipPermissions"]).toBeUndefined();
+    } finally {
+      process.stderr.write = realWrite;
+      keys.forEach((k, i) => {
+        const v = prev[i];
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      });
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it("P12-27: set OTEL_* vars are in options.env; unset ones are not invented", async () => {
+    const keys = ["OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME"];
+    const prev = keys.map((k) => process.env[k]);
+    process.env["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://c:4318";
+    delete process.env["OTEL_SERVICE_NAME"];
+    try {
+      stubQuery([{ type: "result", is_error: false, total_cost_usd: 0.01, usage: {} }]);
+      const { sdkQueryProvider } = await import("../../src/runner/providers.ts");
+      await sdkQueryProvider().invoke(call());
+      const env = lastQueryArgs?.options?.["env"] as Record<string, string>;
+      expect(env["OTEL_EXPORTER_OTLP_ENDPOINT"]).toBe("http://c:4318");
+      expect("OTEL_SERVICE_NAME" in env).toBe(false);
+    } finally {
+      keys.forEach((k, i) => {
+        const v = prev[i];
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      });
+    }
   });
 
   it("passes options.env spreading process.env (PATH survives -- the env-replace trap)", async () => {
@@ -137,7 +245,7 @@ describe("sdkQueryProvider (hermetic, stubbed query)", () => {
   });
 
   // E-65: what actually reaches query() for an engine10 session, not just what buildSdkLoopOptions returns.
-  it("engine10 session: query() gets the 6 engine tools, the bare preset, and no LOKI_E10_* in the session env", async () => {
+  it("engine10 session: query() gets the 6 engine tools, the stable preset, and no LOKI_E10_* in the session env", async () => {
     const prev = { stage: process.env["LOKI_E10_STAGE"], brief: process.env["LOKI_E10_BRIEF"] };
     process.env["LOKI_E10_STAGE"] = "implement";
     process.env["LOKI_E10_BRIEF"] = "brief";
@@ -147,7 +255,7 @@ describe("sdkQueryProvider (hermetic, stubbed query)", () => {
       await sdkQueryProvider().invoke(call());
       const opts = lastQueryArgs?.options ?? {};
       expect(opts["tools"]).toEqual(["Bash", "Read", "Edit", "Write", "Glob", "Grep"]);
-      expect(opts["systemPrompt"]).toEqual({ type: "preset", preset: "claude_code" });
+      expect(opts["systemPrompt"]).toEqual({ type: "preset", preset: "claude_code", excludeDynamicSections: true });
       expect(opts["settingSources"]).toEqual(["project"]);
       expect(opts["mcpServers"]).toBeUndefined();
       const env = opts["env"] as Record<string, string>;
@@ -184,7 +292,7 @@ describe("sdkQueryProvider (hermetic, stubbed query)", () => {
     }
   });
 
-  it("engine10 session, LOKI_E10_PREFIX unset (default off): query() keeps the bare preset, byte-identical to main", async () => {
+  it("engine10 session, LOKI_E10_PREFIX unset (default off): query() keeps the stable preset (CP-01 default)", async () => {
     const prev = { stage: process.env["LOKI_E10_STAGE"], prefix: process.env["LOKI_E10_PREFIX"] };
     process.env["LOKI_E10_STAGE"] = "implement";
     delete process.env["LOKI_E10_PREFIX"];
@@ -193,7 +301,7 @@ describe("sdkQueryProvider (hermetic, stubbed query)", () => {
       const { sdkQueryProvider } = await import("../../src/runner/providers.ts");
       await sdkQueryProvider().invoke(call());
       const opts = lastQueryArgs?.options ?? {};
-      expect(opts["systemPrompt"]).toEqual({ type: "preset", preset: "claude_code" });
+      expect(opts["systemPrompt"]).toEqual({ type: "preset", preset: "claude_code", excludeDynamicSections: true });
     } finally {
       for (const [k, v] of [["LOKI_E10_STAGE", prev.stage], ["LOKI_E10_PREFIX", prev.prefix]] as const) {
         if (v === undefined) delete process.env[k];
@@ -221,7 +329,14 @@ describe("sdkQueryProvider (hermetic, stubbed query)", () => {
   it("sets the fully-autonomous permission options (bypass + companion flag)", async () => {
     stubQuery([{ type: "result", is_error: false, total_cost_usd: 0.01, usage: {} }]);
     const { sdkQueryProvider } = await import("../../src/runner/providers.ts");
-    await sdkQueryProvider().invoke(call());
+    const prevPolicy = process.env["LOKI_PERMISSION_POLICY"];
+    process.env["LOKI_PERMISSION_POLICY"] = "legacy"; // C-C2: bypass is the legacy escape hatch
+    try {
+      await sdkQueryProvider().invoke(call());
+    } finally {
+      if (prevPolicy === undefined) delete process.env["LOKI_PERMISSION_POLICY"];
+      else process.env["LOKI_PERMISSION_POLICY"] = prevPolicy;
+    }
     const opts = lastQueryArgs?.options ?? {};
     expect(opts["permissionMode"]).toBe("bypassPermissions");
     expect(opts["allowDangerouslySkipPermissions"]).toBe(true);

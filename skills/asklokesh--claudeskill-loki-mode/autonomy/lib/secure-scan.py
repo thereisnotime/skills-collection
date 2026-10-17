@@ -46,7 +46,7 @@ import os
 import re
 import sys
 
-RULES_VERSION = "1.0"
+RULES_VERSION = "1.1"
 
 # --- scan limits -----------------------------------------------------------
 # Cap per-file size so a giant generated bundle cannot stall the gate. 2 MiB is
@@ -114,10 +114,14 @@ _SECRET_PATTERNS = [
     ("openai-key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
     # GitHub personal access token (classic): ghp_ + 36 chars
     ("github-pat", re.compile(r"\bghp_[A-Za-z0-9]{36}\b")),
+    # GitHub OAuth / server / user-to-server tokens and fine-grained PATs
+    ("github-token", re.compile(r"\b(?:gh[osu]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,})\b")),
+    # Anthropic API key
+    ("anthropic-key", re.compile(r"\bsk-ant-[A-Za-z0-9_-]{16,}")),
     # Google API key: AIza + 35 url-safe chars
     ("google-api-key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
     # Slack bot token: xoxb- + token body
-    ("slack-bot-token", re.compile(r"\bxoxb-[0-9A-Za-z-]{10,}\b")),
+    ("slack-token", re.compile(r"\bxox[baprs]-[0-9A-Za-z-]{10,}\b")),
 ]
 
 # Placeholder / example markers. If the matched secret (or its surrounding
@@ -371,6 +375,40 @@ _ACAC_TRUE_CODE = re.compile(
 
 
 # ---------------------------------------------------------------------------
+# rule 6: TLS certificate verification disabled
+# ---------------------------------------------------------------------------
+# Python requests/httpx verify=False, Node rejectUnauthorized: false, Go
+# InsecureSkipVerify: true, and NODE_TLS_REJECT_UNAUTHORIZED set to 0 (env file,
+# shell export or process.env assignment). Each turns off certificate checks and
+# leaves the connection open to man-in-the-middle interception.
+_TLS_VERIFY_DISABLED = re.compile(
+    r"""(?:
+        \bverify\s*=\s*False\b
+      | \brejectUnauthorized['"]?\s*:\s*false\b
+      | \bInsecureSkipVerify['"]?\s*:\s*true\b
+      | \bNODE_TLS_REJECT_UNAUTHORIZED\b['"\]]?\s*[=:]\s*['"]?0\b
+    )""",
+    re.VERBOSE,
+)
+# Test and fixture code legitimately disables verification against local
+# servers; rule 4's dev/test path markers apply, plus fixture directories.
+_TLS_FIXTURE_PATH_RE = re.compile(
+    r"(?:^|/)(?:fixtures?|__tests__|__mocks__|spec|specs)(?:/|$)|"
+    r"[._-](?:spec|fixtures?)[._-]",
+    re.IGNORECASE,
+)
+
+
+def _tls_rule_applies(rel_path):
+    """False for dev/test/fixture paths and prose docs, where a mention of a
+    disabled-verification flag is not a shipped misconfiguration."""
+    norm = rel_path.replace("\\", "/")
+    if _DEV_MARKER_RE.search(norm) or _TLS_FIXTURE_PATH_RE.search(norm):
+        return False
+    return not norm.lower().endswith((".md", ".mdx", ".rst", ".txt", ".adoc"))
+
+
+# ---------------------------------------------------------------------------
 # file walking / reading
 # ---------------------------------------------------------------------------
 
@@ -427,11 +465,12 @@ def _finding(rule, rel_path, line, severity, message, fix):
     }
 
 
-def _scan_file(rel_path, lines):
+def _scan_file(rel_path, lines, secrets_everywhere=False):
     """Return a list of findings for one file. `lines` is [(lineno, text), ...]."""
     findings = []
     browser_served = _is_browser_served(rel_path)
     prod_config = _is_production_config(rel_path)
+    tls_scan = _tls_rule_applies(rel_path)
 
     # rule 3 / rule 5 need whole-file context for the AND conditions.
     saw_rls_disable = None  # lineno of a DISABLE ROW LEVEL SECURITY
@@ -457,7 +496,10 @@ def _scan_file(rel_path, lines):
             ))
 
         # --- rule 2: secret literal in a browser-served file -------------
-        if browser_served:
+        # secrets_everywhere (opt-in, used by the proof-share redaction scan)
+        # applies the same token rule to every text file: a share bundle has no
+        # browser/server split, so any token in it is a leak.
+        if browser_served or secrets_everywhere:
             for kind, pat in _SECRET_PATTERNS:
                 for m in pat.finditer(text):
                     secret = m.group(0)
@@ -549,6 +591,18 @@ def _scan_file(rel_path, lines):
                     "debug-on only in dev/local config.",
                 ))
 
+        # --- rule 6: TLS verification disabled ---------------------------
+        if (tls_scan and not _COMMENT_OR_DOC_LINE.match(text)
+                and _TLS_VERIFY_DISABLED.search(text)):
+            findings.append(_finding(
+                "tls-verify-disabled", rel_path, lineno, "HIGH",
+                "TLS certificate verification is disabled; the connection can "
+                "be intercepted by anyone on the network path.",
+                "Remove the override and trust the system CA store. For a "
+                "private CA, pass its bundle (verify=/path/ca.pem, ca option) "
+                "instead of turning verification off.",
+            ))
+
         # --- rule 5: CORS wildcard + credentials (whole-file AND) --------
         # Skip prose/doc lines (_rule3_skip = comment-only line or .md/.rst/.txt
         # doc file): a README or comment WARNING about ACAO * + credentials is not
@@ -590,7 +644,7 @@ def _scan_file(rel_path, lines):
 # scan driver
 # ---------------------------------------------------------------------------
 
-def scan(target_dir):
+def scan(target_dir, secrets_everywhere=False):
     """Scan target_dir and return the result dict.
 
     Raises ValueError if target_dir is not a readable directory (the CLI maps
@@ -599,11 +653,13 @@ def scan(target_dir):
         raise ValueError("not a directory: %s" % target_dir)
 
     findings = []
+    files_scanned = 0
     for abs_path, rel_path in _iter_files(target_dir):
         lines = _read_lines(abs_path)
         if lines is None:
             continue
-        findings.extend(_scan_file(rel_path, lines))
+        files_scanned += 1
+        findings.extend(_scan_file(rel_path, lines, secrets_everywhere))
 
     # deterministic ordering: by file, then line, then rule
     findings.sort(key=lambda f: (f["file"], f["line"], f["rule"]))
@@ -618,6 +674,7 @@ def scan(target_dir):
         "summary": {
             "total": len(findings),
             "by_severity": by_severity,
+            "files_scanned": files_scanned,
         },
     }
 
@@ -630,14 +687,15 @@ def _cli(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     # --json is accepted for symmetry with the other shims; output is always
     # JSON, so the flag is a no-op kept for a stable, predictable interface.
-    args = [a for a in argv if a != "--json"]
+    everywhere = "--secrets-everywhere" in argv
+    args = [a for a in argv if a not in ("--json", "--secrets-everywhere")]
     if not args or argv[0] in ("-h", "--help"):
         print(json.dumps(
-            {"error": "usage: secure-scan.py <target_dir> [--json]"}))
+            {"error": "usage: secure-scan.py <target_dir> [--json] [--secrets-everywhere]"}))
         return 2
     target_dir = args[0]
     try:
-        result = scan(target_dir)
+        result = scan(target_dir, everywhere)
     except ValueError as exc:
         print(json.dumps({"error": str(exc)}))
         return 2

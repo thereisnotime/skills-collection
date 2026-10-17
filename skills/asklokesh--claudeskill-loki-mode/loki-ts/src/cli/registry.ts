@@ -80,6 +80,7 @@ const startFlags: FlagSpec[] = [
   bool("--fresh-prd", "Regenerate the PRD from the codebase"),
   { name: "--compliance", type: "enum", values: ["default", "healthcare", "fintech", "government"], desc: "Compliance preset" },
   str("--budget", "<usd>", "Cost budget limit in USD"),
+  { name: "--cost", type: "enum", values: ["lean", "off"], desc: "Cost profile (also LOKI_COST_PROFILE)" },
   { name: "--bmad-project", type: "path", desc: "BMAD Method project artifacts as input" },
   { name: "--openspec", type: "path", desc: "OpenSpec change directory as input" },
   { name: "--config", type: "path", desc: "Load settings from a config file" },
@@ -88,9 +89,9 @@ const startFlags: FlagSpec[] = [
 export const REGISTRY: readonly CmdSpec[] = [
   // ---- Bun-native (loki-ts dispatcher) ----
   cmd("version", "KEEP-MODERN", "bun", "Show version", "Bun-native, no legacy dependency", { aliases: ["--version", "-v"] }),
-  cmd("status", "UPDATE", "both", "Show current run status", "Reads both engines; fold legacy fields into the v10 view", { flags: [json], example: "loki status --json" }),
+  cmd("status", "UPDATE", "both", "Show current run status", "Reads both engines; fold legacy fields into the v10 view", { flags: [json, bool("--badge", "Print the verified deploy badge"), bool("--probe", "Re-probe the last deploy health URL; exit 1 on regression")], example: "loki status --json" }),
   cmd("stats", "DELETE", "bun", "Session statistics (alias of report session)", "Deprecated alias; use report session", { flags: [json, bool("--efficiency", "Token and cost efficiency")] }),
-  cmd("doctor", "KEEP-MODERN", "both", "System prerequisites health check; --json, --fix, --requirements, --repo (repo profile with a 0-100 readiness score and fixes)", "Core onboarding gate", { flags: [json, bool("--fix", "Apply safe fixes; with --repo, build or refresh the repo profile"), bool("--airgap", "Air-gapped check"), bool("--repo", "Print the repo profile and readiness score"), bool("--requirements", "Requirements per execution path")], example: "loki doctor --json" }),
+  cmd("doctor", "KEEP-MODERN", "both", "System prerequisites health check; --json, --fix, --requirements, --repo (repo profile with a 0-100 readiness score and fixes)", "Core onboarding gate", { flags: [json, bool("--fix", "Apply safe fixes; with --repo, build or refresh the repo profile"), bool("--yes", "With --fix: run the claude install and login without asking"), bool("--airgap", "Air-gapped check"), bool("--repo", "Print the repo profile and readiness score"), bool("--requirements", "Requirements per execution path")], example: "loki doctor --json" }),
   cmd("provider", "KEEP-MODERN", "both", "Show, list or set the AI provider", "Provider-agnostic core", {
     subcommands: [
       sub("show", "Show current provider", { positionals: [{ name: "name", type: "dynamic", dynamic: "providers" }] }),
@@ -122,6 +123,8 @@ export const REGISTRY: readonly CmdSpec[] = [
       sub("latest", "Restore the latest checkpoint"),
     ],
   }),
+  cmd("backup", "KEEP-MODERN", "bash", "Back up dashboard state (audit log, checkpoint) with a sha256 manifest", "Enterprise retention and backup (D99 item 7)", { flags: [str("--dir", "<path>", "State directory (default ~/.loki/dashboard)"), str("--out", "<archive>", "Archive path (default ./loki-backup-<timestamp>.tar.gz)")] }),
+  cmd("restore", "KEEP-MODERN", "bash", "Restore dashboard state from a verified backup archive", "Enterprise retention and backup (D99 item 7)", { flags: [str("--dir", "<path>", "State directory (default ~/.loki/dashboard)"), bool("--force", "Replace a non-empty state directory (old one is kept aside)"), str("--sha256", "<hex>", "Expected archive digest when no .sha256 sidecar exists")], positionals: [{ name: "archive", type: "path" }] }),
   cmd("proof", "KEEP-MODERN", "both", "Inspect and share proof-of-run receipts", "The Evidence Receipt moat", {
     aliases: ["receipt"],
     subcommands: [
@@ -129,6 +132,9 @@ export const REGISTRY: readonly CmdSpec[] = [
       sub("show", "Show a receipt", { positionals: [runId] }),
       sub("open", "Open a receipt", { positionals: [runId] }),
       sub("share", "Share a receipt", { positionals: [runId] }),
+      sub("badge", "Print the Verified by Loki badge", { positionals: [runId] }),
+      sub("md", "Print badge markdown for a README", { positionals: [runId] }),
+      sub("bundle", "Write a self-verifying receipt bundle", { positionals: [runId] }),
     ],
   }),
   cmd("wiki", "KEEP-MODERN", "both", "Cited codebase wiki and Q&A", "Bun-native knowledge feature", {
@@ -138,19 +144,20 @@ export const REGISTRY: readonly CmdSpec[] = [
       sub("ask", "Ask a question", { positionals: [{ name: "question", type: "string" }] }),
     ],
   }),
-  cmd("control", "KEEP-MODERN", "both", "Control Plane (serve, backfill, prune, status)", "D56 control plane, on by default", {
+  cmd("control", "KEEP-MODERN", "both", "Control Plane (serve, backfill, prune, stop, status)", "D56 control plane, on by default", {
     subcommands: [
       sub("serve", "Run the control plane and UI", { flags: [port, dbFlag] }),
       sub("backfill", "Ship DIR/.loki/runs to the control plane", { positionals: [{ name: "dir", type: "path" }] }),
       sub("prune", "Delete matching runs", { flags: [str("--repo", "<owner/name>", "Repository to prune"), str("--before", "<iso-date>", "Prune runs before this date"), bool("--dry-run", "Report only"), dbFlag] }),
+      sub("stop", "Stop the running control plane"),
       sub("status", "Show control plane reachability"),
     ],
   }),
   cmd("intent", "KEEP-MODERN", "bun", "Show a past run's intent card", "Read-only intent view", { subcommands: [sub("show", "Print the intent card and answer", { positionals: [runId] })] }),
-  cmd("kpis", "KEEP-MODERN", "bun", "KPI snapshot (alias of report kpis)", "Bun-native KPI report", { flags: [json] }),
+  cmd("kpis", "KEEP-MODERN", "bun", "KPI snapshot (alias of report kpis)", "Bun-native KPI report", { flags: [json, str("--since", "<Nd|YYYY-MM-DD>", "Limit iteration totals to a window")] }),
   cmd("report", "UPDATE", "both", "Reporting: kpis, session, metrics, cost, export, share, dogfood", "Mixed route; only kpis is Bun", {
     subcommands: [
-      sub("kpis", "Canonical KPI snapshot", { flags: [json] }),
+      sub("kpis", "Canonical KPI snapshot", { flags: [json, str("--since", "<Nd|YYYY-MM-DD>", "Limit iteration totals to a window")] }),
       sub("session", "Session report", { flags: [bool("--efficiency", "Token and cost stats")] }),
       sub("metrics", "Metrics report"),
       sub("cost", "Cost report"),
@@ -198,11 +205,12 @@ export const REGISTRY: readonly CmdSpec[] = [
   cmd("review", "UPDATE", "bash", "Standalone code review with quality gates", "Gates are legacy-shaped"),
   cmd("dashboard", "UPDATE", "bash", "Operations UI server", "Overlaps Control Plane", { subcommands: [sub("start", "Start"), sub("stop", "Stop"), sub("status", "Status"), sub("url", "Print URL"), sub("open", "Open in browser")] }),
   cmd("config", "UPDATE", "bash", "Manage configuration", "Mixed legacy keys", { subcommands: [sub("show", "Show config"), sub("list", "List config (alias of show)"), sub("init", "Create config"), sub("edit", "Edit config"), sub("path", "Print config path"), sub("set", "Set a value"), sub("get", "Get a value")] }),
-  cmd("mcp", "KEEP-MODERN", "bash", "Launch the MCP server (stdio)", "Engine-neutral"),
+  cmd("mcp", "KEEP-MODERN", "bash", "Launch the MCP server (stdio)", "Engine-neutral", { subcommands: [sub("install", "Register loki-mode in an MCP client config", { flags: [str("--client", "<name>", "claude, cursor, vscode or windsurf"), bool("--project", "Project-level config"), bool("--global", "User-level config"), bool("--print", "Print, write nothing")] })] }),
   cmd("acp", "KEEP-MODERN", "bash", "Run Loki as an ACP agent", "Engine-neutral"),
   cmd("stop", "KEEP-MODERN", "bash", "Stop execution immediately", "Session control"),
-  cmd("pause", "KEEP-MODERN", "bash", "Pause after the current session", "Session control"),
-  cmd("resume", "KEEP-MODERN", "bash", "Resume a paused or interrupted run", "Session control"),
+  cmd("pause", "KEEP-MODERN", "both", "Pause after the current session", "Session control; Bun writes the Loki 10 run request, bash keeps the legacy PAUSE file"),
+  cmd("resume", "KEEP-MODERN", "both", "Resume a paused or interrupted run", "Session control; Bun clears a Loki 10 pause, bash keeps the legacy resume"),
+  cmd("cancel", "KEEP-MODERN", "both", "Cancel the active Loki 10 run at the next stage boundary", "Session control; Loki 10 only"),
   cmd("why", "KEEP-MODERN", "bash", "Explain how the last run ended", "Outcome explainer"),
   cmd("next", "KEEP-MODERN", "bash", "Run the right next step", "Guided flow"),
   cmd("logs", "KEEP-MODERN", "bash", "Tail recent log output", "Engine-neutral"),
@@ -277,7 +285,7 @@ export const REGISTRY: readonly CmdSpec[] = [
   legacy("heal", "Legacy healing", "Legacy engine"),
   legacy("migrate", "Legacy migration", "Superseded by modernize"),
   legacy("dogfood", "Dogfood run", "Legacy engine"),
-  legacy("steer", "Nudge a running legacy build", "Needs legacy prompt injection"),
+  cmd("steer", "KEEP-MODERN", "bash", "Nudge a running build", "Session control"),
   legacy("outcomes", "Outcome analytics", "Legacy outcome store"),
   legacy("worktree", "Worktree management", "Legacy parallel mode", ["wt"]),
   legacy("checkpoint", "Legacy checkpoints", "Legacy engine", ["cp"]),

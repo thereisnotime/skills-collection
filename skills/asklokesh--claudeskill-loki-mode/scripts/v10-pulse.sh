@@ -212,6 +212,8 @@ export PULSE_MAIN_REF="${PULSE_MAIN_REF:-main}"
 export PULSE_NPM_CMD="${PULSE_NPM_CMD:-}"
 export PULSE_GH_CMD="${PULSE_GH_CMD:-}"
 export PULSE_GH_STREAK_CMD="${PULSE_GH_STREAK_CMD:-}"
+export PULSE_PROMOTE_CMD="${PULSE_PROMOTE_CMD:-}"
+export LOKI_PULSE_PROMOTION_LAG_H="${LOKI_PULSE_PROMOTION_LAG_H:-6}"
 export PULSE_GOVERNOR_CMD="${PULSE_GOVERNOR_CMD:-}"
 export PULSE_WORKTREE_CMD="${PULSE_WORKTREE_CMD:-}"
 export PULSE_MOAT_RESULT="${PULSE_MOAT_RESULT:-}"
@@ -473,7 +475,7 @@ VIOLATION_PRIORITY = [
     "SESSION_STALLED", "CI_RED", "CI_CANCELLED_STREAK", "RELEASE_ON_RED", "HIGH_LOAD",
     "BUDGET_BURN", "OPUS_SHARE",
     "MOAT_REGRESSION", "MAIN_RED_BY_MERGE", "UNRELEASED_MERGE", "RELEASE_CADENCE", "TRAIN_LATE", "REVIEW_STALE",
-    "AGENT_OVER_BUDGET", "STALE_PROGRESS", "UNEVIDENCED_CLAIM", "RELEASED_AHEAD_OF_NPM",
+    "AGENT_OVER_BUDGET", "STALE_PROGRESS", "UNEVIDENCED_CLAIM", "RELEASED_AHEAD_OF_NPM", "PROMOTION_LAG",
     "ORPHAN_TEST", "ORPHAN_WORKTREE", "STRAY_CONTAINER", "STRAY_WORKTREE",
     "WORKTREE_COUNT", "IDLE_BUILDERS", "UNDERSTAFFED", "LOW_READY", "NO_RECENT_RELEASE",
     "LOW_RELEASE_VOLUME", "RELEASE_SLO", "MERGED_NOT_RELEASED_STALE", "CONTROL_OVERSIZE",
@@ -542,6 +544,28 @@ _gh_streak_argv = shlex.split(os.environ["PULSE_GH_STREAK_CMD"]) if os.environ.g
     "--json", "status,conclusion", "--limit", "10",
 ]
 
+# TEN-STABILITY-06: why `latest` lags `next`. Prints the first PROMOTE-BLOCK or
+# FATAL line of the newest non-skipped Promote run and the failing step names
+# of the newest measured (success/failure) Nightly. Consulted only when the
+# lag violation fires; shares the cache/refresh path of the other gh calls.
+_PROMOTE_SNIPPET = r'''
+rid=$(gh run list -w Promote --limit 10 --json databaseId,conclusion \
+  --jq '[.[]|select(.conclusion!="skipped" and .conclusion!="")][0].databaseId') || exit 1
+[ -n "$rid" ] && [ "$rid" != "null" ] && gh run view "$rid" --log-failed 2>/dev/null \
+  | grep -m1 -E 'PROMOTE-BLOCK|FATAL'
+nid=$(gh run list -w Nightly --limit 10 --json databaseId,conclusion \
+  --jq '[.[]|select(.conclusion=="success" or .conclusion=="failure")][0].databaseId') || exit 1
+if [ -n "$nid" ] && [ "$nid" != "null" ]; then
+  steps=$(gh run view "$nid" --json jobs --jq \
+    '[.jobs[].steps[]|select(.conclusion=="failure")|.name]|join(", ")') || exit 1
+  echo "NIGHTLY-FAILED-STEPS: ${steps:-none}"
+fi
+exit 0
+'''
+_promote_argv = shlex.split(os.environ["PULSE_PROMOTE_CMD"]) if os.environ.get("PULSE_PROMOTE_CMD") else [
+    "bash", "-c", _PROMOTE_SNIPPET,
+]
+
 # E-75: a second, narrower gh call for when the main-CI lookup above (multi
 # -workflow, --json status,conclusion,workflowName) comes back inconclusive
 # -- gh itself failed/timed out, OR it succeeded but returned nothing
@@ -606,7 +630,11 @@ def run_network():
         if _gh_fallback_argv is not None else None
     )
     _governor_proc = safe(start_proc, _governor_argv, REPO_ROOT)
+    _promote_proc = safe(start_proc, _promote_argv, REPO_ROOT, _clean_env())
     return {
+        # Four sequential gh calls: own ceiling (like the governor), only ever
+        # waited on in the detached refresh run, never the interactive hook.
+        "promote": safe(finish_proc, _promote_proc, time_left(T0 + 20)) or (None, "", ""),
         "npm": safe(finish_proc, _npm_proc, time_left(NETWORK_DEADLINE)) or (None, "", ""),
         "gh_ci": (
             safe(finish_proc, _gh_proc, time_left(NETWORK_DEADLINE)) or (None, "", "")
@@ -726,6 +754,7 @@ if REFRESH_ONLY:
     if _gh_fallback_argv is not None:
         safe(cache_write, "gh_fallback", _res["gh_fallback"], main_sha)
     safe(cache_write, "governor", _res["governor"])
+    safe(cache_write, "promote", _res["promote"])
     try:
         _pp = os.path.join(CACHE_DIR, "refresh.pid")
         with open(_pp, "r") as _f:
@@ -736,7 +765,7 @@ if REFRESH_ONLY:
     sys.exit(0)
 elif CACHE_MODE:
     _need_refresh = False
-    for _name in ("npm", "gh_ci", "gh_streak", "gh_fallback", "governor"):
+    for _name in ("npm", "gh_ci", "gh_streak", "gh_fallback", "governor", "promote"):
         _rec, _age = cache_read(_name)
         _usable = (
             _rec is not None and isinstance(_rec.get("out"), str)
@@ -781,6 +810,7 @@ _gh_rc, _gh_out, _gh_err = net["gh_ci"]
 _gh_streak_rc, _gh_streak_out, _gh_streak_err = net["gh_streak"]
 _gh_fallback_rc, _gh_fallback_out, _gh_fallback_err = net["gh_fallback"]
 _governor_rc, _governor_out, _governor_err = net["governor"]
+_promote_rc, _promote_out, _promote_err = net["promote"]
 
 
 # --- 1. releases in the last 24h / minutes since last release -------------
@@ -804,6 +834,7 @@ def parse_npm_releases(rc, out):
     # current one and would otherwise always read as "just released".
     stamps = []       # epoch seconds, every real version entry
     versioned = []     # (epoch, version key), for latest_version below
+    version_epochs = {}
     for key, val in data.items():
         if key in ("created", "modified"):
             continue
@@ -821,6 +852,7 @@ def parse_npm_releases(rc, out):
         if t is not None:
             stamps.append(t)
             versioned.append((t, key))
+            version_epochs[key] = t
     if not stamps:
         return None
     stamps.sort()
@@ -840,10 +872,11 @@ def parse_npm_releases(rc, out):
         "count_24h": count_24h,
         "count_1h": count_1h,
         "latest_version": latest_version,
-        # A-01: releases land on `next`; the newest publish is next unless
-        # the registry says otherwise. `latest` moves only via promote.yml.
+        # A-01: the newest publish is next unless
+        # the registry says otherwise. D102: `latest` is published together with `next`.
         "next_version": dist_tags.get("next") or latest_version,
         "promoted_version": dist_tags.get("latest"),
+        "version_epochs": version_epochs,
     }
 
 
@@ -861,6 +894,44 @@ else:
     emit("Releases (24h): %d%s" % (npm_result["count_24h"], _npm_note))
     emit("Minutes since last release: %.1f%s" % (mins_since, _npm_note))
     emit("latest promoted: %s%s" % (npm_result.get("promoted_version") or "UNKNOWN", _npm_note))
+
+    # PROMOTION_LAG (TEN-STABILITY-06): `latest` is promotion-only, so a next
+    # published far later than latest means promotion is blocked. Names the
+    # blocking reason so the CoS triages it in one turn. Fail soft: a lookup
+    # failure prints UNKNOWN for the reason and never raises.
+    def check_promotion_lag():
+        nxt = npm_result.get("next_version")
+        lat = npm_result.get("promoted_version")
+        if not nxt or not lat or nxt == lat:
+            return
+        eps = npm_result.get("version_epochs") or {}
+        if nxt not in eps or lat not in eps:
+            return
+        try:
+            limit_h = float(os.environ.get("LOKI_PULSE_PROMOTION_LAG_H") or "6")
+        except ValueError:
+            limit_h = 6.0
+        lag_h = (eps[nxt] - eps[lat]) / 3600.0
+        if not lag_h > limit_h:
+            return
+        reason = "UNKNOWN"
+        nightly = "UNKNOWN"
+        if _promote_rc == 0 and _promote_out.strip():
+            reason = "none found (no non-skipped Promote run with a PROMOTE-BLOCK or FATAL line)"
+            for ln in _promote_out.splitlines():
+                m = re.search(r"(PROMOTE-BLOCK|FATAL).*", ln)
+                if m and reason.startswith("none found"):
+                    reason = m.group(0).strip()
+                elif ln.startswith("NIGHTLY-FAILED-STEPS:"):
+                    nightly = ln.split(":", 1)[1].strip() or "UNKNOWN"
+        add_violation(
+            "PROMOTION_LAG",
+            "latest %s is %.1fh older than next %s (limit %gh); promote block: %s; "
+            "newest measured Nightly failing steps: %s"
+            % (lat, lag_h, nxt, limit_h, reason, nightly),
+        )
+
+    safe(check_promotion_lag)
 
 
 # --- 2. main CI status for PULSE_MAIN_REF's head SHA -----------------------
@@ -1903,27 +1974,40 @@ else:
 _MERGE_SHA_TOKEN_RE = re.compile(r"\b[0-9a-f]{7,40}\b")
 
 
-def find_merge_commit_for_id(row_id):
-    # -E + a trailing "not another digit" boundary: a plain substring grep
-    # for "slice-S-1" also matches "slice-S-10", "slice-S-11", ... (BOARD ID
-    # numbers are not fixed-width), which would silently resolve the WRONG
-    # slice's merge commit. Pinned to MAIN_REF, not the caller's own HEAD,
-    # for the same reason check_unreleased_merge_age's git describe is
-    # above. `-n 1`: the grep-filtered walk stops at the first (newest)
-    # match instead of scanning the rest of history uselessly. row_id comes
-    # straight off a BOARD.md cell with no ID_RE filter here (this check
-    # scans every row, not just the known ID shapes), so an odd ID can make
-    # `-E`'s pattern itself invalid -- git then exits non-zero and this
-    # raises rather than silently returning "no match" (see below: that
-    # distinction is the whole point of raising here instead of just
-    # returning None on any non-zero rc, which would let a git failure --
-    # timeout, malformed pattern, anything -- read as "nothing to flag").
-    rc, out, err = git(
-        ["log", MAIN_REF, "--merges", "-n", "1", "--format=%H", "-E", "--grep", "slice-%s([^0-9]|$)" % row_id]
-    )
+_MERGE_INDEX = []
+
+
+def load_merge_index():
+    # ONE `git log --merges` pass for the whole check, newest first, instead
+    # of one per BOARD row: with 50 merged rows under load a single slow
+    # call used to raise for whichever row it hit and blank the anti-drift
+    # signal. git() memoizes by args, so every row shares this one answer.
+    # A non-zero rc (timeout included) raises rather than returning an empty
+    # index, so a git failure still reads UNKNOWN and never "nothing to flag".
+    rc, out, err = git(["log", MAIN_REF, "--merges", "--format=%H%x1f%B%x1e"])
     if rc != 0:
-        raise RuntimeError("git log --merges failed for row %r: rc=%s: %s" % (row_id, rc, err.strip()))
-    return out.strip() or None
+        raise RuntimeError("git log --merges failed: rc=%s: %s" % (rc, err.strip()))
+    entries = []
+    for rec in out.split("\x1e"):
+        sha, sep, msg = rec.strip().partition("\x1f")
+        if sep and sha:
+            entries.append((sha, msg))
+    _MERGE_INDEX[:] = entries
+
+
+def find_merge_commit_for_id(row_id):
+    # Newest merge whose message has "slice-<row_id>" followed by a non-digit
+    # or end of line: a plain substring match for "slice-S-1" would also hit
+    # "slice-S-10" (BOARD ID numbers are not fixed-width) and resolve the
+    # WRONG slice's merge. row_id is matched literally (re.escape): it comes
+    # straight off a BOARD.md cell with no ID_RE filter.
+    if not _MERGE_INDEX:
+        load_merge_index()
+    pat = re.compile(r"slice-" + re.escape(row_id) + r"([^0-9]|$)", re.M)
+    for sha, msg in _MERGE_INDEX:
+        if pat.search(msg):
+            return sha
+    return None
 
 
 def find_cited_merge_sha(row_text):
@@ -2945,7 +3029,7 @@ else:
 
 
 # --- 12b. WORKTREE_COUNT: too many worktrees under .claude/worktrees (S-94)
-_WORKTREE_COUNT_MAX = 15
+_WORKTREE_COUNT_MAX = 21  # D103
 # WORKTREE_SPRAWL (AUTO-REAP, FC-99): the disk-exhaustion tier. 377 worktrees
 # (56G) once filled the laptop volume; above this the reaper must run now.
 _WORKTREE_SPRAWL_MAX = 20
@@ -3261,12 +3345,13 @@ _NEXT_ACTION_TEXT = {
     "AGENT_OVER_BUDGET": "check in on the named agent(s), they have exceeded their role/tier time budget",
     "STALE_PROGRESS": "append a PROGRESS.md entry: Part 1 gate numbers, Part 2 slices done, top blocker",
     "UNEVIDENCED_CLAIM": "add a command/output citation to the named line(s) or retract the claim (D26 guard 4)",
+    "PROMOTION_LAG": "clear the named PROMOTE-BLOCK (usually a red Nightly step) so promote.yml can move latest",
     "RELEASED_AHEAD_OF_NPM": "verify the named release(s) actually reached npm, or fix the BOARD row's status/timestamp",
     "ORPHAN_TEST": "investigate the named orphaned/long-running test process; stop by exact PID only if confirmed stale, never by name or pattern",
     "ORPHAN_WORKTREE": "investigate the named worktree/run.sh process; stop by exact PID only if confirmed stale, never by name or pattern",
     "STRAY_CONTAINER": "remove or fix the named swarm container: capped resources, restart policy 'no', removed when done (D28)",
     "STRAY_WORKTREE": "move the named worktree(s) under .claude/worktrees or remove them (git worktree remove)",
-    "WORKTREE_COUNT": "prune stale worktrees under .claude/worktrees (git worktree remove), it is over the 15 max",
+    "WORKTREE_COUNT": "prune stale worktrees under .claude/worktrees (git worktree remove), it is over the 21 max (D103)",
     "IDLE_BUILDERS": "dispatch more builders against the named ready slice(s) in docs/v10/BOARD.md",
     "UNDERSTAFFED": "staff more engineers now, the ready queue is deep and BOARD shows fewer than 8 rows building",
     "LOW_READY": "the Product Owner should cut the named number of additional slices onto the ready queue",

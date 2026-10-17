@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventLog, readEvents } from "../../src/engine10/events.ts";
-import { issueStatusBody, issueStatusProjector, STATUS_MARKER, workItemState, type WorkItemState } from "../../src/util/run_outputs.ts";
+import { controlRunLink, issueStatusBody, issueStatusProjector, STATUS_MARKER, workItemBlockers, workItemId, workItemState, type WorkItemState } from "../../src/util/run_outputs.ts";
 import type { EventEnvelope } from "../../src/engine10/types.ts";
 import { NO_RUN_HINT, render, runIntentShow, runModernStatus, summarize } from "../../src/commands/run_status.ts";
 import { DEFAULT_PUSH_SH } from "../../src/engine10/stages/pr.ts";
@@ -47,6 +47,50 @@ describe("loki status (Loki 10)", () => {
     expect(out).toContain("$0.42");
     expect(out).toContain("https://github.com/acme/widgets/pull/99");
     expect(out).toContain("receipt.json");
+  });
+
+  test("text and json status carry last event age and seq (P12-19)", async () => {
+    writeRun("e10-20261003T000000Z-aaaa", { done: true });
+    const { out } = await run([]);
+    expect(out).toMatch(/last event \d+s ago \(seq 5\)/);
+    const j = JSON.parse((await run(["--json"])).out);
+    expect(j.last_event_seq).toBe(5);
+    expect(j.last_event_ago_s).toBeGreaterThanOrEqual(0);
+  });
+  test("a running Control Plane yields a per-run deep link (P12-19)", async () => {
+    writeRun("e10-20261003T000000Z-aaaa", { done: true });
+    const orig = process.stdout.write.bind(process.stdout);
+    let out = "";
+    process.stdout.write = ((c: string | Uint8Array) => { out += String(c); return true; }) as typeof process.stdout.write;
+    try { await runModernStatus([], { ...env(), LOKI_CONTROL: "1", LOKI_CONTROL_URL: "http://127.0.0.1:47821/" }); } finally { process.stdout.write = orig; }
+    expect(out).toMatch(/Control Plane run: http:\/\/127\.0\.0\.1:47821\/#\/runs\/[0-9a-f]{16}\/e10-20261003T000000Z-aaaa/);
+    expect(controlRunLink(null, dir, "r")).toBeNull();
+    expect(controlRunLink("javascript:x", dir, "r")).toBeNull();
+  });
+
+  test("--badge is routed to the deploy badge, not rejected as an unknown flag", async () => {
+    const prev = process.env.LOKI_DIR;
+    process.env.LOKI_DIR = join(dir, ".loki");
+    try {
+      const { code, out } = await run(["--badge"]);
+      expect(code).toBe(0);
+      expect(out.toLowerCase()).not.toContain("unknown flag");
+    } finally {
+      if (prev === undefined) delete process.env.LOKI_DIR; else process.env.LOKI_DIR = prev;
+    }
+  });
+
+  test("--probe is routed to the deploy probe, not rejected as an unknown flag", async () => {
+    const prev = process.env.LOKI_DIR;
+    process.env.LOKI_DIR = join(dir, ".loki");
+    try {
+      const { code, out } = await run(["--probe"]);
+      expect(code).toBe(0);
+      expect(out.toLowerCase()).not.toContain("unknown flag");
+      expect(out).toContain("No deploy to probe");
+    } finally {
+      if (prev === undefined) delete process.env.LOKI_DIR; else process.env.LOKI_DIR = prev;
+    }
   });
 
   test("a live run is preferred over a newer-named completed one and shows its stage", async () => {
@@ -149,6 +193,46 @@ describe("work-item state (one vocabulary)", () => {
     expect(workItemState(ev, Date.parse("2026-10-15T00:31:00Z"))).toBe("stalled");
     expect(workItemState(ev, Date.parse("2026-10-15T00:10:00Z"))).toBe("executing");
   });
+  describe("P12-08 extended lifecycle (transition table)", () => {
+    // Only states with a real engine writer: pr.opened (supervisor) and deep.started (supervisor, detached post-PR verify).
+    const seqs: [string, EventEnvelope[], WorkItemState][] = [
+      ["pr opened, not observed -> delivering", mk(["run.started", null], ["stage.completed", "implement"], ["receipt.sealed", "seal"], ["pr.opened", "pr"]), "delivering"],
+      ["pr opened then deep verify started -> observing", mk(["run.started", null], ["pr.opened", "pr"], ["deep.started", "deep", { pid: 1 }]), "observing"],
+      ["run.completed after pr.opened stays terminal", mk(["run.started", null], ["pr.opened", "pr"], ["run.completed", null, { verdict: "VERIFIED" }]), "completed"],
+    ];
+    for (const [name, ev, want] of seqs) test(name, () => expect(workItemState(ev)).toBe(want));
+    test("delivering falls to stalled after 30m silence", () => {
+      expect(workItemState(seqs[0]![1], Date.parse("2026-10-15T01:00:00Z"))).toBe("stalled");
+    });
+    const conflict = mk(["run.started", null, { issue_ref: "o/r#5" }], ["stage.completed", "implement", { spec_conflict_reason: "spec says A and B" }], ["run.completed", null, { verdict: "SPEC_CONFLICT" }]);
+    test("blockers are a separate field, never in the state string (real writer: implement spec_conflict_reason)", () => {
+      expect(workItemBlockers(conflict)).toEqual(["spec_conflict: spec says A and B"]);
+      expect(workItemState(conflict)).toBe("waiting_for_input");
+      expect(workItemBlockers(seqs[0]![1])).toEqual([]);
+      expect(workItemBlockers(mk(["run.started", null], ["run.completed", null, { verdict: "SPEC_CONFLICT" }]))).toEqual(["spec_conflict: unspecified"]);
+    });
+    test("blockers use the LATEST implement stage.completed (a re-run supersedes the earlier one)", () => {
+      const rerun = mk(["run.started", null], ["stage.completed", "implement", { spec_conflict_reason: "old reason" }], ["stage.completed", "implement", { spec_conflict_reason: "new reason" }], ["run.completed", null, { verdict: "SPEC_CONFLICT" }]);
+      expect(workItemBlockers(rerun)).toEqual(["spec_conflict: new reason"]);
+    });
+    test("render shows the Blockers line only when there are blockers", () => {
+      const text = (ev: EventEnvelope[]): string => render({ ...summarize("e10-x", ev, dir, Date.now()), control_plane_url: null } as never);
+      expect(text(conflict)).toContain("  Blockers: spec_conflict: spec says A and B");
+      expect(text(seqs[0]![1])).not.toContain("Blockers");
+    });
+    test("work_item_id is keyed by the issue ref and spans runs; summarize and status --json carry it", async () => {
+      const a = mk(["run.started", null, { issue_ref: "o/r#5" }]), b = mk(["run.started", null, { issue_ref: "o/r#5" }, ]);
+      expect(workItemId(a)).toBe("o/r#5");
+      expect(workItemId(b)).toBe(workItemId(a));
+      expect(workItemId(mk(["run.started", null]))).toBeNull();
+      expect(summarize("e10-x", a, dir, Date.now()).work_item_id).toBe("o/r#5");
+      writeRun("e10-20261003T000002Z-ffff", { done: false });
+      expect(JSON.parse((await run(["--json"])).out).work_item_id).toBe("acme/widgets#12");
+    });
+    test("the existing 12 states are unchanged (11 in the table plus stalled)", () => {
+      expect(new Set(cases.map(([, , w]) => w)).size).toBe(11);
+    });
+  });
   test("text status renders the state; the verdict stays detail", () => {
     const first = (ev: EventEnvelope[]): string => render({ ...summarize("e10-x", ev, dir, Date.now()), control_plane_url: null } as never).split("\n")[0]!;
     expect(first(mk(["run.started", null], ["run.completed", null, { verdict: "SPEC_CONFLICT" }]))).toMatch(/^Loki 10 run e10-x: waiting_for_input/);
@@ -232,6 +316,9 @@ describe("issue status projector (FV-gh-steer-3)", () => {
     expect(body).toContain("Operator steers applied: 2");
     expect(body).toContain("Pull request: https://github.com/o/r/pull/3");
     expect(body).not.toContain("SECRET PLAN TEXT");
+    expect(body).toMatch(/Last event: seq \d+/);
+    expect(body).not.toContain("Control Plane:");
+    expect(issueStatusBody(evs, { runId: "r1", steerRevs: 0, controlUrl: "http://127.0.0.1:47821/#/runs/abc/r1" })).toContain("Control Plane: http://127.0.0.1:47821/#/runs/abc/r1");
     expect(body.match(/<!-- loki-status -->/g)!.length).toBe(1);
     expect(body).not.toMatch(/@victim|`rm`/);
   });

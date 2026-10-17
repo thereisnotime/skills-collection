@@ -13,6 +13,7 @@ import {
   elapsed,
   fmtTokens,
   isTestCommand,
+  mainModel,
   markdown,
   metricsSvg,
   parseDefs,
@@ -37,7 +38,7 @@ describe('board', () => {
     expect(rows.length).toBe(3)
     expect(rows[1]?.[3]).toBe('Fix "cart", totals\nand tax')
     const tasks = tasksFrom(CSV)
-    expect(tasks[0]).toEqual({ started: '2026-10-15 12:00', project: 'shop', name: 'Fix "cart", totals\nand tax', cost: 3.1, turns: 6, agentMinutes: 26, tokens: 1_200_000, reuse: 83, tests: '14 passed', level: 'full' })
+    expect(tasks[0]).toEqual({ started: '2026-10-15 12:00', project: 'shop', name: 'Fix "cart", totals\nand tax', cost: 3.1, turns: 6, agentMinutes: 26, tokens: 1_200_000, reuse: 83, tests: '14 passed', level: 'full', model: '' })
     expect(tasks[1]?.reuse).toBeNull()
     expect(tasksFrom('not,a,ledger\n1,2,3')).toEqual([])
   })
@@ -80,7 +81,7 @@ describe('metrics', () => {
   })
 
   const BASE: Band = {
-    level: 'full', cost: 31.9, spent: 3.1, turns: 6, turnCosts: [0.42], tokens: { input: 5000, output: 85_000, cacheRead: 1_100_000, cacheWrite: 10_000 },
+    level: 'full', model: 'claude-opus-5-5', cost: 31.9, spent: 3.1, turns: 6, turnCosts: [0.42], tokens: { input: 5000, output: 85_000, cacheRead: 1_100_000, cacheWrite: 10_000 },
     busyMs: 1_560_000, name: 'Fix the cart | totals, again', project: 'shop', session: '4c69e3db-57a0', transcript: '', reused: ['to_cents'], created: [], dupes: [],
     removed: [], openCallers: [], tests: { state: 'pass', passed: 14 }, details: false,
   }
@@ -98,6 +99,18 @@ describe('metrics', () => {
     expect(resume(ahead, csv, '4c69e3db-7')).toEqual(ahead)
     expect(resume(fresh, csv, 'missing-1')).toEqual(fresh)
     expect(resume(fresh, '', '4c69e3db-7')).toEqual(fresh)
+  })
+
+  test('the row names the model that wrote most replies, and an older ledger keeps its rows', () => {
+    expect(mainModel('"model":"claude-opus-5-5"\n"model":"claude-haiku-5-5"\n"model":"claude-opus-5-5"\n')).toBe('claude-opus-5-5')
+    expect(mainModel('')).toBe('')
+    const old = 'key,started,project,name,cost_usd,turns,agent_minutes,tokens_total,tokens_output,reuse_pct,reused,new,callers_open,tests,level\n' +
+      'other-1,2026-10-14 09:00,shop,Other,1.00,2,3.0,500,50,,0,0,0,not run,full\n'
+    const csv = upsertCsv(old, snapshot(BASE, Date.UTC(2026, 9, 15, 12, 0)))
+    expect(csv.split('\n')[0]).toBe(CSV_HEADER)
+    expect(csv.split('\n').filter(line => line.startsWith('key,')).length).toBe(1)
+    expect(tasksFrom(csv).map(t => t.model)).toEqual(['', 'claude-opus-5-5'])
+    expect(markdown(snapshot(BASE, Date.UTC(2026, 9, 15, 12, 0)))).toContain('| Model | claude-opus-5-5 |')
   })
 
   test('the webhook sends the token only over https, or to this machine', () => {
@@ -256,6 +269,83 @@ test('after /ponytail band the band draws nothing', async ($, on) => {
   expect(await ui.find({ key: 'level' })).toBeUndefined()
   expect(await ui.find({ key: 'board' })).toBeUndefined()
   await ui.unmount()
+})
+
+test('the ledger is written on Windows, where there is no mkdir', async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  const env: Record<string, string> = { OS: 'Windows_NT', XDG_CONFIG_HOME: 'C:/Users/u/.config' }
+  on('env.get', ($, e) => ({ value: env[e.name] }))
+  on('session.repo', () => ({ value: { root: 'C:/repo/shop' } }) as never)
+  on('session.id', () => ({ value: 's1' }))
+  on('session.turns', () => ({ value: 1 }))
+  on('session.usage', () => ({ value: { startedAt: 0, cost: { usd: 0.5 } } }) as never)
+  on('process.run', ($, e) => (e.argv[0] === 'mkdir' ? { deny: 'mkdir: not found' } : ({ value: { exitCode: 1, stdout: '', stderr: '' } } as never)))
+  on('fs.read', () => ({ deny: 'missing' }) as never)
+  on('fs.list', () => ({ value: [] }))
+  const written: string[] = []
+  on('fs.write', ($, e) => {
+    // The engine writes the path with this OS's separator.
+    written.push(e.path.replace(/\\/g, '/'))
+    return { value: undefined }
+  })
+  const status: unknown[] = []
+  on('ui.status', ($, e) => {
+    status.push(e)
+    return { value: undefined }
+  })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('turn.complete', () => ({ text: '' }))
+  await $.session.start({ cwd: 'C:/repo/shop', surface: null } as never)
+  await $.turn.complete({ answer: '', durationMs: 1000 } as never)
+  expect(JSON.stringify(status)).not.toContain('could not write the task ledger')
+  // Off Windows a C: path is relative, so the working dir comes in front of it: compare the end.
+  expect(written.length).toBe(2)
+  expect(written[0]?.endsWith('C:/Users/u/.config/ponytail/band/shop.csv')).toBe(true)
+  expect(written[1]?.endsWith('C:/Users/u/.config/ponytail/band/board.html')).toBe(true)
+})
+
+test('without HOME (Windows) the band reads its flags under USERPROFILE', async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  on('env.get', ($, e) => ({ value: e.name === 'USERPROFILE' ? 'C:\\Users\\u' : undefined }))
+  // The engine may hand the path on with either separator, and off Windows a C: path is relative,
+  // so the working dir comes in front of it: compare the end.
+  const reads: string[] = []
+  on('fs.read', ($, e, next) => {
+    reads.push(e.path.replaceAll('\\', '/'))
+    return reads.at(-1)?.endsWith('C:/Users/u/.claude/.ponytail-band') ? { value: 'off' } : next(e)
+  })
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>prompt only</Text>
+  })
+  const ui = await $.ui.mount({ plugin: 'ponytail', surface: 'terminal', ...BAND })
+  expect(reads.some(path => path.endsWith('C:/Users/u/.claude/.ponytail-band'))).toBe(true)
+  expect(await ui.find({ key: 'level' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('another mod drawing above the prompt shows below the band, in compact and in details', async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  // Another mod in the same slot, beneath ponytail in the chain.
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>other band</Text>
+  })
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ plugin: 'ponytail', surface, ...BAND })
+    expect(await ui.find({ key: 'level' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /other band/ })).toBeDefined()
+
+    await ui.press({ key: 'details' })
+    expect(await ui.find({ key: 'level-ultra' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /other band/ })).toBeDefined()
+    // back to compact for the next surface
+    await ui.press({ key: 'details' })
+    await ui.unmount()
+  }
 })
 
 test('review and audit run the same commands a person types', async ($, on) => {

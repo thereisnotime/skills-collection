@@ -16,6 +16,7 @@ import {
   writeEfficiencyRecord,
 } from "../../src/engine10/cost.ts";
 import { partialUsagePath, recordPartialStreamCost } from "../../src/runner/budget.ts";
+import { consumeSdkStream } from "../../src/runner/sdk_stream_parser.ts";
 import { createSessionRunner } from "../../src/engine10/session.ts";
 
 const FIX = join(import.meta.dir, "fixtures", "cost");
@@ -472,5 +473,124 @@ describe("engine10 cost-summary.py integration (E-06b green criterion)", () => {
     } finally {
       rmSync(checkout, { recursive: true, force: true });
     }
+  });
+});
+
+describe("P12-21 cost attribution breakdown", () => {
+  const put = (dir: string, iter: string, rec: Record<string, unknown>): void => {
+    mkdirSync(join(dir, "metrics"), { recursive: true });
+    writeFileSync(join(dir, "metrics", `result-cost-${iter}.json`), JSON.stringify(rec));
+  };
+  const base = { input_tokens: 10, output_tokens: 5, cache_read_tokens: 100, cache_creation_tokens: 7 };
+
+  test("per-stage and retry usd sum to the run usd, cache tokens carried", () => {
+    const d = tmpCheckout();
+    try {
+      put(d, "1", { ...base, total_cost_usd: 0.5, stage: "dev" });
+      put(d, "2", { ...base, total_cost_usd: 0.25, stage: "dev", retry: true });
+      put(d, "3", { ...base, total_cost_usd: 0.25, stage: "test", attempt: 2 });
+      put(d, "4", { ...base, total_cost_usd: 1 });
+      const c = sumResultCosts(d, ["1", "2", "3", "4"]);
+      const b = c.breakdown!;
+      expect(c.usd).toBe(2);
+      expect(b.usd).toBe(c.usd);
+      expect(Object.values(b.per_stage).reduce((a, s) => a + (s.usd ?? NaN), 0)).toBe(c.usd as number);
+      expect(b.per_stage["dev"]).toMatchObject({ usd: 0.75, sessions: 2, cache_read_tokens: 200, cache_creation_tokens: 14 });
+      expect(b.per_stage["unattributed"]!.usd).toBe(1);
+      expect(b.retry_usd).toBe(0.5);
+      expect(b.retry_sessions).toBe(2);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+
+  test("per-stage cache_hit_ratio is read / (read + creation), null when no cache tokens", () => {
+    const d = tmpCheckout();
+    try {
+      put(d, "1", { input_tokens: 1, output_tokens: 1, cache_read_tokens: 7000, cache_creation_tokens: 0, total_cost_usd: 0.1, stage: "implement" });
+      put(d, "2", { input_tokens: 1, output_tokens: 1, cache_read_tokens: 0, cache_creation_tokens: 7000, total_cost_usd: 0.1, stage: "implement" });
+      put(d, "3", { input_tokens: 1, output_tokens: 1, total_cost_usd: 0.1, stage: "plan" });
+      const b = sumResultCosts(d, ["1", "2", "3"]).breakdown!;
+      expect(b.per_stage["implement"]).toMatchObject({ cache_read_tokens: 7000, cache_creation_tokens: 7000, cache_hit_ratio: 0.5 });
+      expect(b.per_stage["plan"]!.cache_hit_ratio).toBeNull();
+      expect(b.per_stage["plan"]!.cache_read_tokens).toBe(0);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+
+  test("non-finite or negative cost fails closed to null, never summed as zero", () => {
+    const d = tmpCheckout();
+    try {
+      put(d, "1", { ...base, total_cost_usd: 0.5, stage: "dev" });
+      put(d, "2", { ...base, total_cost_usd: "NaN", stage: "dev", retry: true });
+      put(d, "3", { ...base, total_cost_usd: -1, stage: "test" });
+      put(d, "4", { ...base, total_cost_usd: 2, stage: "ship" });
+      const b = sumResultCosts(d, ["1", "2", "3", "4"]).breakdown!;
+      expect(b.usd).toBeNull();
+      expect(b.per_stage["dev"]!.usd).toBeNull();
+      expect(b.per_stage["test"]!.usd).toBeNull();
+      expect(b.per_stage["ship"]!.usd).toBe(2);
+      expect(b.retry_usd).toBeNull();
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+
+  test("all-zero-usage record (E-69) and a missing file null the breakdown exactly when run usd is null", () => {
+    const d = tmpCheckout();
+    try {
+      put(d, "1", { total_cost_usd: 0.5, input_tokens: 1, output_tokens: 1, stage: "dev" });
+      put(d, "2", { total_cost_usd: 0, input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, stage: "test" });
+      const z = sumResultCosts(d, ["1", "2"]);
+      expect(z.usd).toBeNull();
+      expect(z.breakdown!.usd).toBeNull();
+      expect(z.breakdown!.per_stage["test"]!.usd).toBeNull();
+      expect(z.breakdown!.per_stage["dev"]!.usd).toBe(0.5);
+      const m = sumResultCosts(d, ["1", "9"]);
+      expect(m.usd).toBeNull();
+      expect(m.breakdown!.usd).toBeNull();
+      const ok = sumResultCosts(d, ["1"]);
+      expect(ok.breakdown!.usd).toBe(ok.usd as number);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+
+  test("writeResultCost emits stage and attempt, sumResultCosts attributes them", async () => {
+    const d = tmpCheckout();
+    const prev = { s: process.env["LOKI_E10_STAGE"], a: process.env["LOKI_E10_ATTEMPT"] };
+    try {
+      process.env["LOKI_E10_STAGE"] = "verify"; process.env["LOKI_E10_ATTEMPT"] = "2";
+      const usage = { input_tokens: 5, output_tokens: 5 };
+      await consumeSdkStream([{ type: "result", is_error: false, total_cost_usd: 0.3, usage }], { cwd: d, iteration: "1", hookEventsEnabled: false, write: () => {} });
+      const b = sumResultCosts(join(d, ".loki"), ["1"]).breakdown!;
+      expect(Object.keys(b.per_stage)).toEqual(["verify"]);
+      expect(b.retry_usd).toBe(0.3);
+    } finally {
+      for (const [k, v] of [["LOKI_E10_STAGE", prev.s], ["LOKI_E10_ATTEMPT", prev.a]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+      rmSync(d, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("TEN-COST-28 per-stage spend share in the summary", () => {
+  const ev = (stage: string, usd: number | null, source = "x") => ({ type: "cost", stage, data: { usd, source } });
+  test("shares sum to 100 and the top stage is named", async () => {
+    const { stageShareText } = await import("../../src/util/cost_breakdown.ts");
+    const t = stageShareText([ev("plan", 1), ev("implement", 1), ev("fix", 1), ev("implement", 1)])!;
+    expect(t).toBe("plan 25%, implement 50%, fix 25%; top: implement");
+    const odd = stageShareText([ev("plan", 1), ev("wall", 1), ev("fix", 1)])!;
+    expect(odd.match(/(\d+)%/g)!.reduce((a, p) => a + parseInt(p, 10), 0)).toBe(100);
+  });
+  test("unpriced or unmetered stages say unmetered, never 0; nothing metered is null", async () => {
+    const { stageShareText } = await import("../../src/util/cost_breakdown.ts");
+    expect(stageShareText([ev("plan", 3), ev("xreview", null), ev("fix", 0, "cli-invoker-unmetered"), ev("implement", 1)]))
+      .toBe("plan 75%, xreview unmetered, fix unmetered, implement 25%; top: plan");
+    expect(stageShareText([ev("plan", null), ev("fix", null)])).toBeNull();
+    expect(stageShareText([ev("plan", 2)])).toBeNull();
+  });
+  test("renderMainOutput prints a Spend line under Cost and omits it when absent", async () => {
+    const { renderMainOutput } = await import("../../src/engine10/supervisor.ts");
+    const { stageShareText } = await import("../../src/util/cost_breakdown.ts");
+    const events = [{ v: 1, seq: 1, ts: "t", run: "r", ...ev("plan", 1) }, { v: 1, seq: 2, ts: "t", run: "r", ...ev("fix", 3) }] as never[];
+    const base = { pr: null, verdict: "VERIFIED", notProven: [], flaky: [], wallS: 1, stages: [] };
+    const withS = renderMainOutput(events, { ...base, cost: { usd: 4, provider: "claude", tokens: 1, stageShares: stageShareText(events) } } as never);
+    expect(withS).toContain("Spend:");
+    expect(withS).toContain("plan 25%, fix 75%; top: fix");
+    expect(withS.indexOf("Cost:")).toBeLessThan(withS.indexOf("Spend:"));
+    expect(renderMainOutput(events, { ...base, cost: { usd: 4, provider: "claude", tokens: 1 } } as never)).not.toContain("Spend:");
   });
 });

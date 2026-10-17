@@ -265,6 +265,51 @@ func TestScanSkillsSkipsMissingAndDanglingSkillFiles(t *testing.T) {
 	}
 }
 
+func TestScanSkillsSkipsModelInvocationDisabledSkills(t *testing.T) {
+	root := t.TempDir()
+	skills := map[string]string{
+		"auto":   "---\nname: auto\ndescription: loads every turn\n---\n",
+		"manual": "---\nname: manual\ndescription: loads only on /manual\ndisable-model-invocation: true\n---\n",
+	}
+	for dir, body := range skills {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, dir, "SKILL.md"), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := scanSkills(root)
+	if len(got) != 1 || got[0].Name != "auto" {
+		t.Fatalf("skills = %+v, want only auto: disable-model-invocation keeps a skill out of the per-turn catalog", got)
+	}
+}
+
+func TestReadSkillFrontmatterDescriptionForms(t *testing.T) {
+	cases := []struct {
+		name, body, wantDesc string
+	}{
+		{"single line", "---\nname: s\ndescription: one line\n---\n", "one line"},
+		{"plain multi-line", "---\nname: s\ndescription:\n  first part\n  second part\nlicense: MIT\n---\n", "first part second part"},
+		{"folded block", "---\nname: s\ndescription: >-\n  first part\n  second part\n---\n", "first part second part"},
+		{"quoted", "---\nname: s\ndescription: \"quoted text\"\n---\n", "quoted text"},
+		// Not strict YAML (unquoted ": " inside a plain scalar); must still read.
+		{"loose yaml", "---\nname: s\ndescription: Use when: asked\n---\n", "Use when: asked"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "SKILL.md")
+			if err := os.WriteFile(path, []byte(tc.body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			fm := readSkillFrontmatter(path)
+			if fm.Name != "s" || fm.Description != tc.wantDesc {
+				t.Fatalf("frontmatter = %+v, want name s, description %q", fm, tc.wantDesc)
+			}
+		})
+	}
+}
+
 func TestScanConfigCountsAncestorClaudeFiles(t *testing.T) {
 	project := t.TempDir()
 	cwd := filepath.Join(project, "nested", "work")

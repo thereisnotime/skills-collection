@@ -1,7 +1,8 @@
 // D65-SPEC: spec to contract parsing and trace mapping.
 import { afterEach, beforeEach, describe, expect, it, test } from "bun:test";
-import { assignCriteria, freezeGroupContract, groupContractPath, spawnWithContract, loadContract, repoRoot, sanitizeCriterion, parseContract, sealContract, snapshotContract, traceContract, untracedLines, MAX_CRITERIA, fromChecklist, fromPrdText, fromSpecText, mapRequirements, readRequirementsMap, renderRequirementsMap, writeFromChecklist, writeFromEngine10, type RanCheck } from "../../src/features/contract.ts";
-import { formatRunSummary, withNextLine } from "../../src/util/run_summary.ts";
+import { validateConstraints, assignCriteria, freezeGroupContract, groupContractPath, spawnWithContract, loadContract, repoRoot, sanitizeCriterion, parseContract, sealContract, snapshotContract, traceContract, untracedLines, MAX_CRITERIA, fromChecklist, fromPrdText, fromSpecText, mapRequirements, readRequirementsMap, renderRequirementsMap, writeFromChecklist, writeFromEngine10, type RanCheck } from "../../src/features/contract.ts";
+import { formatRunSummary, nextOf, withNextLine } from "../../src/util/run_summary.ts";
+import { reasonOf } from "../../src/engine10/output.ts";
 import { SPEC_MARKER, renderSpec } from "../../src/util/spec_file.ts";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, symlinkSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -425,5 +426,31 @@ describe("group contract (CONTRACT)", () => {
     const r = await spawnWithContract(dir, "g3", units, mk(["nobody owns this criterion"]), () => { called++; });
     expect(r.ok).toBe(false);
     expect(called).toBe(0);
+  });
+});
+
+describe("failure-specific next line (TEN-UX-02)", () => {
+  test("a fatal:auth run summary names claude login, and the supervisor passes the reason", () => {
+    const reason = reasonOf([], false, "fatal:auth", "FAILED");
+    expect(reason).toBe("provider authentication failed");
+    expect(nextOf("failed", 1, reason)).toBe("claude login");
+    const sup = readFileSync(join(import.meta.dir, "../../src/engine10/supervisor.ts"), "utf8");
+    expect(sup).toMatch(/nextOf\(rr, ds\?\.files \?\? null, reasonOf\(events, res\.tampered, res\.stop, res\.outcome\), provider\)/);
+  });
+});
+
+describe("validateConstraints (P12-43)", () => {
+  const ok = { id: "C-1", kind: "perf" as const, text: "p95 under 200ms", wall_cases: ["W-1"] };
+  test("valid constraint passes", () => {
+    expect(validateConstraints([ok, { ...ok, id: "C-2", kind: "api", wall_cases: ["W-1", "W-2"] }], ["W-1", "W-2"])).toEqual([]);
+  });
+  test("empty wall_cases fails", () => {
+    expect(validateConstraints([{ ...ok, wall_cases: [] }], ["W-1"])[0]).toContain("names no wall case id");
+  });
+  test("unknown wall case id fails", () => {
+    expect(validateConstraints([{ ...ok, wall_cases: ["W-9"] }], ["W-1"])[0]).toContain("unknown wall case id: W-9");
+  });
+  test("unknown kind fails", () => {
+    expect(validateConstraints([{ ...ok, kind: "style" as never }], ["W-1"])[0]).toContain("unknown kind style");
   });
 });

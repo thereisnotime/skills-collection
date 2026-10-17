@@ -105,6 +105,25 @@ describe("A-117 loki verify binds the receipt to events.jsonl", () => {
     expect(await verdictOf(runEngine("done"), (p) => rmSync(p.events))).toBe("TAMPERED");
   }, 120_000);
 });
+describe("TEN-STABILITY-09 stub claude login probe", () => {
+  const stubs = [join(STUB_DIR, "claude"), join(FIX, "..", "issue-ref", "bin", "claude")];
+  const inline = ["supervisor_signal.test.ts", "budget_stop_e2e.test.ts"];
+  test("every engine10 stub claude answers claude auth status as logged in", () => {
+    for (const s of stubs) {
+      const r = Bun.spawnSync(["bash", s, "auth", "status"], { env: { ...process.env, E2E_STUB_LOG: "", ISSUE_REF_STUB_LOG: "" } });
+      expect(r.exitCode).toBe(0);
+      expect(JSON.parse(r.stdout.toString()).loggedIn).toBe(true);
+    }
+    for (const f of inline) expect(readFileSync(join(import.meta.dir, f), "utf8")).toContain('"\\${2:-}" = "status"');
+    // TEN-STABILITY-19: the first-run gate's heredoc stub was the missed sibling; it edited sum.js on the probe and Intake refused the dirty tree.
+    expect(readFileSync(join(import.meta.dir, "..", "..", "..", "scripts", "first-run-gate.sh"), "utf8")).toContain(`*" auth status "*) echo '{"loggedIn": true`);
+  });
+  test("the auth status probe is not logged as a stage", () => {
+    const log = join(mkdtempSync(join(tmpdir(), "loki-e2e-")), "stub.log"); temps.push(join(log, ".."));
+    Bun.spawnSync(["bash", stubs[0]!, "auth", "status"], { env: { ...process.env, E2E_STUB_LOG: log } });
+    expect(existsSync(log)).toBe(false);
+  });
+});
 describe("engine10 e2e (stub claude)", () => {
   test("A-130 round 2: a tampered event log is TAMPERED on the receipt line, never VERIFIED, never exit 0", () => {
     const t = runEngine("tamper", false, ["--json"]);
@@ -203,6 +222,10 @@ describe("engine10 e2e (stub claude)", () => {
     expect(r.stubEnv).toContain("implement GH_TOKEN=ghp_LOKIWITHHELDsentinel");
     expect(r.stubEnv).not.toContain(CANARY);
     expect(r.stubEnv).not.toMatch(/LOKI_LEGACY_BASH=\S/);
+    const started = r.events.find((e) => e.type === "run.started")!.data;
+    expect(started.requested_model).toBeTruthy();
+    expect(started).toHaveProperty("config_digest");
+    expect(started).not.toHaveProperty("policy_id");
     const leaked = Bun.spawnSync(["grep", "-rl", CANARY, join(r.repo, ".loki")], { env: process.env });
     expect(leaked.stdout.toString()).toBe("");
     // No stage event for pr: the worker's machine never loads it.

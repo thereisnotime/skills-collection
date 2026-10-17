@@ -4,6 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const { getClaudeDir, getDefaultMode, isDeactivationCommand, writeDefaultMode } = require('./ponytail-config');
 const {
   clearMode,
@@ -78,6 +79,14 @@ function finish() {
         // prompt (hooks/band reads this flag). It outlives the session; absent = shown.
         // Other hosts have no band, so there the word stays an unknown argument.
         if (arg === 'band' && !isCopilot && !isCodex && !isQoder && !isCodeBuddy && !isCursor) {
+          // `/ponytail band import`: past sessions into the board, in the background, so the prompt
+          // is answered right away while the transcripts are read. Detached, it outlives this hook's
+          // process.exit below.
+          if (parts[2] === 'import') {
+            spawn(process.execPath, [path.join(__dirname, 'ponytail-band-import.js')], { detached: true, stdio: 'ignore' });
+            writeHookOutput('UserPromptSubmit', readMode() || 'off', 'PONYTAIL BAND IMPORT: past Claude Code sessions (cost, agent time, tokens) are being added to the board in the background. Open the board in a minute. Confirm in one short line.');
+            return;
+          }
           const flag = path.join(getClaudeDir(), '.ponytail-band');
           let hidden = false;
           try { hidden = fs.readFileSync(flag, 'utf8').trim() === 'off'; } catch (e) {}

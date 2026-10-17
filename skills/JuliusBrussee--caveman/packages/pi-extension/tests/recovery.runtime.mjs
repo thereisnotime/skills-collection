@@ -304,3 +304,30 @@ test("unavailable recovery and thrown failures leave tool results untouched", as
     assert.deepEqual(event, original);
   } finally { cleanup(); }
 });
+
+test("a runtime that gave no reply is reported once, and only for that reason", async () => {
+  const { path, cleanup } = shim();
+  const recovery = new RecoveryClient(path);
+  const event = outputEvent();
+  const replacement = `full: ccr://${KNOWN_HANDLE}`;
+  try {
+    let quiet = 0;
+    assert.equal(await shrinkToolResult({ call: async () => undefined }, "test", event, recovery, () => { quiet += 1; }), undefined);
+    assert.equal(quiet, 1, "an empty reply must be distinguishable from 'do not shrink'");
+    assert.equal(await shrinkToolResult({ call: async () => undefined }, "test", event, recovery, () => { quiet += 1; }), undefined);
+    assert.equal(quiet, 2, "every quiet reply is reported; the caller rate-limits");
+
+    // A runtime that answers is not a failure, however the reply is judged.
+    const quietBefore = quiet;
+    await shrink(recovery, { output_replacement: replacement }, event);
+    await shrink(recovery, { output_replacement: "no ccr handle here" }, event);
+    await shrink(recovery, { output_replacement: `full: ccr://${KNOWN_HANDLE.replace(/.$/, "0")}` }, event);
+    assert.equal(quiet, quietBefore, "a real reply must never raise the signal");
+
+    // Skipped before the bridge is ever asked: nothing was decided, so nothing
+    // is reported.
+    assert.equal(await shrinkToolResult({ call: async () => { throw new Error("must not run"); } }, "test", outputEvent(""), recovery, () => { quiet += 1; }), undefined);
+    assert.equal(await shrinkToolResult({ call: async () => { throw new Error("must not run"); } }, "test", outputEvent("x".repeat(MAX_TOOL_OUTPUT_BYTES + 1)), recovery, () => { quiet += 1; }), undefined);
+    assert.equal(quiet, quietBefore, "a result that never reaches the runtime is not a quiet runtime");
+  } finally { cleanup(); }
+});

@@ -41,6 +41,15 @@ test("partial checks: skipped, not_run and flaky are NOT CHECKED, never passed; 
   expect(md).toContain("NOT PROVEN: perf");
 });
 
+test("spend: retry dollars append only when positive", () => {
+  expect(spendText({ usd: 1.5, retryUsd: 0.4 })).toBe("$1.50 (measured) ($0.40 on retries)");
+  for (const r of [0, null, undefined, -1, NaN]) expect(spendText({ usd: 1.5, retryUsd: r as number | null | undefined })).toBe("$1.50 (measured)");
+  expect(spendText({ usd: null, retryUsd: 0.4 })).toBe("not measured");
+  const f: HandoffFacts = { repoDir: ".", runId: "r", events: [], outcome: "VERIFIED", usd: 1.5, retryUsd: 0.4, elapsedS: 5, notProven: [], task: "t", requirements: null };
+  expect(renderHandoff(composeHandoff(f))).toContain("spend $1.50 (measured) ($0.40 on retries);");
+  expect(renderHandoff(composeHandoff({ ...f, retryUsd: 0 }))).not.toContain("on retries");
+});
+
 test("spend: unmeasured never renders as $0.00", () => {
   expect(spendText({ usd: null })).toBe("not measured");
   expect(spendText({ usd: null, partialUsd: 0.1, measuredSessions: 1, totalSessions: 3 })).toContain("partial: $0.10 for 1 of 3");
@@ -138,4 +147,48 @@ test("FV-pr-loop-4: a blocked merge shows the gate and waiting at, never merged;
     writeFileSync(pj, JSON.stringify({ state: "created", merge: { outcome: "bogus" } }));
     expect(renderHandoff(composeHandoff(f))).toContain("Merge: not recorded");
   } finally { rmSync(repo, { recursive: true, force: true }); }
+});
+
+// TEN-UX-02: failure-specific Next line. Reason literals are copied from engine10/output.ts reasonOf.
+import { nextOf } from "../../src/util/run_summary.ts";
+const NEXT_ROWS: [string, "failed" | "stopped", number | null, string][] = [
+  ["provider authentication failed", "failed", 2, "claude login"],
+  ["provider credit exhausted", "failed", null, "check provider billing, or loki start --provider <other>"],
+  ["pytest failed: 2 errors", "failed", null, "loki chat --attach (ask why)"],
+  ["pytest failed: 2 errors", "failed", 3, "loki chat --attach (ask why); loki undo to revert"],
+  ["spec conflict: R1 vs R2", "stopped", 1, 'loki answer --text "<your decision>"'],
+  ["stalled: same failure 3 times", "stopped", 1, "loki chat --attach"],
+  ["engine ended before sealing a receipt", "failed", 1, "loki doctor"],
+];
+test.each(NEXT_ROWS)("nextOf %s (%s, files %p)", (reason, result, files, want) => { expect(nextOf(result, files, reason)).toBe(want); });
+test("nextOf auth failure names the active provider, not claude", () => {
+  expect(nextOf("failed", 2, "provider authentication failed", "codex")).toBe("re-authenticate codex, then loki doctor");
+  expect(nextOf("failed", 2, "provider authentication failed", "claude")).toBe("claude login");
+  expect(nextOf("failed", 2, "provider authentication failed")).toBe("claude login");
+});
+test("TEN-COST-32: budget stop next names --max-cost and the run id", () => {
+  const n = nextOf("stopped", 1, "cost/time cap reached", "claude", "run-abc123");
+  expect(n).toContain("--max-cost");
+  expect(n).toContain("run-abc123");
+  expect(nextOf("stopped", 1, "cost/time cap reached")).toContain("--max-cost");
+  expect(nextOf("stopped", 1, "cost/time cap reached")).toContain("time cap");
+  expect(nextOf("stopped", 1, "cost/time cap reached")).not.toContain("stopped run");
+  expect(nextOf("failed", 1, "cost/time cap reached")).toBe("loki undo");
+  expect(nextOf("stopped", 1, "stalled: same failure 3 times")).toBe("loki chat --attach");
+});
+test("nextOf default outputs do not drift", () => {
+  expect(nextOf("verified", 2)).toBe("loki diff");
+  expect(nextOf("verified", 0)).toBe("loki status");
+  expect(nextOf("done-unverified", 1, "x failed: y")).toBe("loki verify");
+  expect(nextOf("stopped", 1)).toBe("loki status");
+  expect(nextOf("failed", 1)).toBe("loki undo");
+  expect(nextOf("failed", null)).toBe("loki doctor");
+  expect(nextOf("failed", 1, "cost/time cap reached")).toBe("loki undo");
+});
+test("every reason literal in output.ts reasonOf has a nextOf mapping row", () => {
+  const src = readFileSync(join(import.meta.dir, "../../src/engine10/output.ts"), "utf8").split("\n").find((l) => l.includes("const r = EXIT[outcome] === 0"))!;
+  const lits = [...src.matchAll(/"((?:provider|engine ended|stalled)[^"]*)"|`(spec conflict)|\$\{bad\.name\}( failed)/g)].map((m) => m[1] ?? m[2] ?? "<check> failed");
+  expect(lits.length).toBeGreaterThanOrEqual(5);
+  const rowFor = (l: string): boolean => NEXT_ROWS.some(([r]) => r === l || r.startsWith(l) || (l === "<check> failed" && / failed: /.test(r)));
+  for (const l of lits) expect(rowFor(l), `no nextOf row for reason: ${l}`).toBe(true);
 });

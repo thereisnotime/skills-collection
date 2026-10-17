@@ -3,17 +3,17 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-  readFlaky,
+  cacheStats,
+  cachedRepoMap,
+  cachedTestMap,
   readRepoMapCache,
   readTestMapCache,
-  recordFailures,
-  recordFlaky,
   repoCacheDir,
   repoKey,
-  topFailures,
   writeRepoMapCache,
   writeTestMapCache,
 } from "../../src/engine10/cache.ts";
+import { readFlaky, recordFailures, recordFlaky, topFailures } from "../../src/util/failure_memory.ts";
 import type { RepoMap } from "../../src/engine10/repomap.ts";
 import type { TestMap } from "../../src/engine10/types.ts";
 
@@ -71,10 +71,17 @@ describe("repomap/testmap cache, keyed by tree hash", () => {
     expect(readRepoMapCache(dir, "tree1")).toEqual(REPOMAP);
   });
 
+  test("a stale old-format repomap-<tree>.json is ignored", () => {
+    const dir = repoCacheDir("k", tmpRoot());
+    require("node:fs").mkdirSync(dir, { recursive: true });
+    require("node:fs").writeFileSync(resolve(dir, "repomap-tree1.json"), JSON.stringify(REPOMAP));
+    expect(readRepoMapCache(dir, "tree1")).toBeNull();
+  });
+
   test("a corrupt cache file is a miss, not a crash", () => {
     const dir = repoCacheDir("k", tmpRoot());
     writeRepoMapCache(dir, "tree1", REPOMAP);
-    require("node:fs").writeFileSync(resolve(dir, "repomap-tree1.json"), "{not json");
+    require("node:fs").writeFileSync(resolve(dir, "repomap2-tree1.json"), "{not json");
     expect(readRepoMapCache(dir, "tree1")).toBeNull();
   });
 
@@ -84,7 +91,7 @@ describe("repomap/testmap cache, keyed by tree hash", () => {
   test("valid JSON of the wrong shape is a miss, not a crash", () => {
     const dir = repoCacheDir("k", tmpRoot());
     require("node:fs").mkdirSync(dir, { recursive: true });
-    require("node:fs").writeFileSync(resolve(dir, "repomap-tree1.json"), "42");
+    require("node:fs").writeFileSync(resolve(dir, "repomap2-tree1.json"), "42");
     require("node:fs").writeFileSync(resolve(dir, "testmap-tree1.json"), "null");
     expect(readRepoMapCache(dir, "tree1")).toBeNull();
     expect(readTestMapCache(dir, "tree1")).toBeNull();
@@ -190,5 +197,32 @@ describe("failure signatures (top 3 for the implementer brief)", () => {
     const top = topFailures(dir);
     expect(top).toEqual([{ signature: "sig-a", count: 3, sample: "s2" }]);
     expect(Number.isFinite(top[0]?.count)).toBe(true);
+  });
+});
+
+describe("TEN-SPEED-04 tree-keyed reuse across fix rounds", () => {
+  test("same tree: second round is a counted hit and does not rebuild; new tree rebuilds", () => {
+    const dir = repoCacheDir("k", tmpRoot());
+    cacheStats.hits = 0; cacheStats.misses = 0;
+    let repoBuilds = 0, testBuilds = 0;
+    const rb = () => { repoBuilds++; return REPOMAP; }, tb = () => { testBuilds++; return TESTMAP; };
+    expect(cachedRepoMap(dir, "t1", rb)).toEqual(REPOMAP);
+    expect(cachedTestMap(dir, "t1", tb)).toEqual(TESTMAP);
+    expect(cachedRepoMap(dir, "t1", rb)).toEqual(REPOMAP);
+    expect(cachedTestMap(dir, "t1", tb)).toEqual(TESTMAP);
+    expect([repoBuilds, testBuilds, cacheStats.hits, cacheStats.misses]).toEqual([1, 1, 2, 2]);
+    cachedRepoMap(dir, "t2", rb);
+    expect([repoBuilds, cacheStats.misses]).toEqual([2, 3]);
+  });
+
+  test("a corrupt entry rebuilds and heals; an unwritable cache dir still returns the built map", () => {
+    const dir = repoCacheDir("k", tmpRoot());
+    writeRepoMapCache(dir, "t1", REPOMAP);
+    require("node:fs").writeFileSync(resolve(dir, "repomap2-t1.json"), "42");
+    expect(cachedRepoMap(dir, "t1", () => REPOMAP)).toEqual(REPOMAP);
+    expect(readRepoMapCache(dir, "t1")).toEqual(REPOMAP);
+    const file = join(tmpRoot(), "afile");
+    require("node:fs").writeFileSync(file, "x");
+    expect(cachedTestMap(join(file, "sub"), "t1", () => TESTMAP)).toEqual(TESTMAP);
   });
 });

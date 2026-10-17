@@ -171,6 +171,12 @@ def _interventions_value(proof):
 _IV_TYPES = ("steer", "input", "authorization", "repair")
 
 
+_LIB_DIR = os.path.dirname(os.path.abspath(__file__))
+if _LIB_DIR not in sys.path:
+    sys.path.insert(0, _LIB_DIR)
+from efficiency_cost import cost_block_is_partial  # noqa: E402
+
+
 def _cost_value(proof):
     usd = _obj(proof.get("cost")).get("usd")
     if usd is None or isinstance(usd, bool):
@@ -183,7 +189,7 @@ def _cost_value(proof):
 
 
 def _intervention_detail(proof):
-    """(by_type, waited_s) from proof.interventions_detail; None when absent."""
+    """(by_type, waited_s, active_s) from proof.interventions_detail; None when absent."""
     d = _obj(proof.get("interventions_detail"))
     bt = _obj(d.get("by_type"))
     out = {}
@@ -198,7 +204,9 @@ def _intervention_detail(proof):
             any_key = True
     w = d.get("waited_s")
     ws = w if isinstance(w, (int, float)) and not isinstance(w, bool) and w >= 0 else None
-    return (out if any_key else None), ws
+    a = d.get("active_s")
+    act = a if isinstance(a, int) and not isinstance(a, bool) and a >= 0 else None
+    return (out if any_key else None), ws, act
 
 
 def _verdict_evidence(proof):
@@ -229,13 +237,15 @@ def _load_runs(loki_dir):
             # Malformed / partial proof: skip, do not fail the trajectory.
             continue
         verdict, false_verified = _verdict_evidence(proof)
-        by_type, waited_s = _intervention_detail(proof)
+        by_type, waited_s, active_s = _intervention_detail(proof)
         runs.append({
             "verdict": verdict,
             "false_verified": false_verified,
             "cost_usd": _cost_value(proof),
+            "cost_partial": cost_block_is_partial(_obj(proof.get("cost"))),
             "interventions_by_type": by_type,
             "waited_s": waited_s,
+            "active_s": active_s,
             "run_id": str(proof.get("run_id") or name),
             "generated_at": proof.get("generated_at"),
             "council_pass_rate": _council_pass_value(proof.get("council")),
@@ -333,6 +343,9 @@ def outcome_effort(series):
         cost_note = "no runs"
     elif accepted == 0:
         cost_note = "no accepted run, cost per accepted is undefined"
+    elif any(r.get("cost_partial") for r in series):
+        cost_note = "cost partial for %d of %d runs, a lower bound is not a total" % (
+            sum(1 for r in series if r.get("cost_partial")), len(series))
     elif unmeasured:
         cost_note = "cost unmeasured for %d of %d runs, a partial sum is not a total" % (unmeasured, len(series))
     else:
@@ -343,6 +356,7 @@ def outcome_effort(series):
         by_type = {k: sum(r["interventions_by_type"][k] for r in with_detail) for k in _IV_TYPES}
     all_iv = bool(series) and all(r["interventions"] is not None for r in series)
     all_waited = bool(series) and all(r["waited_s"] is not None for r in series)
+    all_active = bool(series) and all(r["active_s"] is not None for r in series)
     return {
         "runs": len(series),
         "accepted": accepted,
@@ -356,6 +370,8 @@ def outcome_effort(series):
             round(sum(r["interventions"] for r in series) / accepted, 4) if accepted and all_iv else None),
         "waited_min_per_accepted": (
             round(sum(r["waited_s"] for r in series) / 60.0 / accepted, 1) if accepted and all_waited else None),
+        "active_min_per_accepted": (
+            round(sum(r["active_s"] for r in series) / 60.0 / accepted, 1) if accepted and all_active else None),
     }
 
 
@@ -376,7 +392,9 @@ def _fmt_outcome_effort(e):
     lines.append("  Interventions per accepted: %s" % ("n/a" if ipa is None else ipa))
     w = e.get("waited_min_per_accepted")
     lines.append("  Minutes per accepted: %s" % (
-        "n/a" if w is None else "%s (waited, upper bound; active minutes are not measured)" % w))
+        "n/a" if w is None else "%s (waited, upper bound)" % w))
+    am = e.get("active_min_per_accepted")
+    lines.append("  Active minutes per accepted: %s" % ("n/a (not measured)" if am is None else am))
     return lines
 
 
@@ -397,6 +415,7 @@ def compute_trajectory(loki_dir):
             "cost_usd": r["cost_usd"],
             "interventions_by_type": r["interventions_by_type"],
             "waited_s": r["waited_s"],
+            "active_s": r["active_s"],
             "verdict": r["verdict"],
             "false_verified": r["false_verified"],
         })
@@ -440,7 +459,7 @@ def compute_trajectory(loki_dir):
         "regressing_axes": regressing_axes,
         "series": series,
         "notes": notes,
-        "outcome_effort": outcome_effort(series),
+        "outcome_effort": outcome_effort(runs),
     }
 
 

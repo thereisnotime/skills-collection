@@ -38,6 +38,8 @@ import {
   remainingBudget,
   fallbackForPrimary,
   tierRouteModel,
+  permissionArgv,
+  sdkPermissionOptions,
 } from "../providers/claude_flags.ts";
 import { mcpConfigPath } from "../providers/mcp_config.ts";
 import { LEAN_PREFIX } from "../features/lean_prefix.ts";
@@ -52,8 +54,8 @@ import type {
   ProviderResult,
   SessionTier,
 } from "./types.ts";
-import { resolveClaudeModel } from "../util/claude_model.ts";
-import { modelRouteEnv, modelRouteModel } from "../providers/model_routes.ts";
+import { PROVIDER_DEFAULT_MODEL, resolveClaudeModel } from "../util/claude_model.ts";
+import { modelRouteEnv, modelRouteModel, otelPassthroughEnv } from "../providers/model_routes.ts";
 import { opencodeProvider } from "./provider_opencode.ts";
 
 // ---------------------------------------------------------------------------
@@ -199,17 +201,25 @@ function claudeTierToModel(tier: SessionTier): string {
 // is still planning, so a capability-router or recovery tier change wins.
 // Known divergence: LOKI_MODEL_OVERRIDE (below) still wins over the pin here;
 // run.sh lets the pin overwrite the override.
+// TEN-COST-12: engine10 stage sessions last 10-17s, so the 1-hour cache TTL ($4/M write) buys nothing over
+// 5 minutes ($2.50/M). Claude Code honors FORCE_PROMPT_CACHING_5M=1. Engine10 children only (LOKI_E10_STAGE is
+// set by engine10/session.ts); the main RARV loop is untouched. Opt out with LOKI_E10_CACHE_TTL=1h.
+export function engine10CacheTtlEnv(env: Record<string, string | undefined>): Record<string, string> {
+  if (!env["LOKI_E10_STAGE"] || env["LOKI_E10_CACHE_TTL"] === "1h") return {};
+  return { FORCE_PROMPT_CACHING_5M: "1" };
+}
+
 // EL-W0-06 (D86, FC-04, L1): an engine10 child with nothing configured passes NO model, so the
 // claude CLI uses its own default exactly like raw `claude -p`. session.ts sets LOKI_E10_MODEL_DEFAULT=1
 // only when no override or pin exists; any explicit tier pin, ceiling or routing here still wins.
-function useProviderDefaultModel(call: ProviderInvocation): boolean {
+export function useProviderDefaultModel(call: ProviderInvocation): boolean {
   const e = process.env;
   if (e["LOKI_E10_MODEL_DEFAULT"] !== "1" || call.tier === "fast") return false;
   const name = call.tier === "planning" ? "PLANNING" : "DEVELOPMENT";
   return !(e[`LOKI_CLAUDE_MODEL_${name}`] || e[`LOKI_MODEL_${name}`] || e["LOKI_MODEL_OVERRIDE"] || e["LOKI_MAX_TIER"] || e["LOKI_TIER_ROUTING"]);
 }
 
-function claudeModelFor(call: ProviderInvocation): string {
+export function claudeModelFor(call: ProviderInvocation): string {
   const routedModel = modelRouteModel(process.env); // OC-MODELS: openrouter/ollama/... route wins
   if (routedModel) return routedModel;
   const opusPin =
@@ -302,14 +312,22 @@ function hostGuardRequired(cwd: string): boolean {
   });
 }
 
-function hostGuardSettingsJson(): string {
+// Host-guard hook timeout, seconds. Mirrors _loki_hook_timeout in autonomy/run.sh
+// (same env var, same default, same validation); parity test: tests/runner/hook_timeout_parity.test.ts.
+export const HOOK_TIMEOUT_DEFAULT_S = 30;
+export function hookTimeoutSeconds(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env["LOKI_HOOK_TIMEOUT"] ?? "";
+  return /^[1-9][0-9]{0,4}$/.test(raw) ? Number(raw) : HOOK_TIMEOUT_DEFAULT_S;
+}
+
+export function hostGuardSettingsJson(): string {
   const hookPath = resolve(REPO_ROOT, "autonomy", "hooks", "validate-bash.sh");
   if (!existsSync(hookPath)) throw new Error(`host command guard hook is missing: ${hookPath}`);
   return JSON.stringify({
     hooks: {
       PreToolUse: [{
         matcher: "Bash",
-        hooks: [{ type: "command", command: `bash ${shellQuote(hookPath)}` }],
+        hooks: [{ type: "command", command: `bash ${shellQuote(hookPath)}`, timeout: hookTimeoutSeconds() }],
       }],
     },
   });
@@ -478,8 +496,9 @@ export function claudeProvider(): ProviderInvoker {
 
       const argv: string[] = [
         cli,
-        // claude.sh:31 PROVIDER_AUTONOMOUS_FLAG
-        "--dangerously-skip-permissions",
+        // claude.sh:31 PROVIDER_AUTONOMOUS_FLAG (the compiled policy swaps it unless LOKI_PERMISSION_POLICY=legacy, C-C2)
+        ...permissionArgv(call.cwd),
+        ...(process.env["LOKI_E10_DISALLOWED_TOOLS"] ? ["--disallowedTools", process.env["LOKI_E10_DISALLOWED_TOOLS"]] : []), // Q18-04: per-session deny (read-only reviewer)
         ...modelArgv,
         ...autoFlags,
         ...sessionArgv,
@@ -528,7 +547,7 @@ export function claudeProvider(): ProviderInvoker {
           : undefined;
       const r = await shellRun(argv, {
         cwd: call.cwd,
-        env: { ...cavemanEnv, ...modelRouteEnv(process.env) },
+        env: { ...otelPassthroughEnv(process.env), ...cavemanEnv, ...modelRouteEnv(process.env), ...engine10CacheTtlEnv(process.env) },
         timeoutMs: _callTimeoutMs,
       });
       await writeCaptured(call.iterationOutputPath, r.stdout, r.stderr);
@@ -599,6 +618,7 @@ export interface SdkLoopExtraOptions {
   settings?: { advisorModel: string; autoCompactWindow?: number };
   noAppend?: boolean;
   systemPrompt?: string;
+  excludeDynamic?: boolean;
 }
 // E-65: engine10 sessions (LOKI_E10_STAGE is set only by engine10/session.ts) run lean. Measured "OK" prefix on
 // sonnet: 20,413 tokens with the full preset tool set + loki append vs 7,136 with these 6 tools, paid on every turn.
@@ -635,6 +655,9 @@ export function buildSdkLoopOptions(args: {
     // claude_code preset so every stage/task shares a byte-identical leading
     // block (cache-stable prefix, D41 item 2). Flag off: unchanged preset below.
     if (process.env["LOKI_E10_PREFIX"] === "lean") out.systemPrompt = LEAN_PREFIX;
+    // CP-01 (D99): cwd, repo status and memory leave the system prompt (moved to the first user message) so the
+    // leading block is byte-identical across stages and runs. ON by default; LOKI_E10_STABLE_PREFIX=0 opts out.
+    if (process.env["LOKI_E10_STABLE_PREFIX"] !== "0") out.excludeDynamic = true;
   }
 
   // MCP tools: reuse the exact bundle the shell route writes (loki-mode server +
@@ -692,8 +715,9 @@ export function buildSdkLoopOptions(args: {
 // without loading the Agent SDK.
 export function resolveSystemPrompt(
   extra: SdkLoopExtraOptions,
-): string | { type: "preset"; preset: "claude_code"; append?: string } {
+): string | { type: "preset"; preset: "claude_code"; append?: string; excludeDynamicSections?: boolean } {
   if (extra.systemPrompt) return extra.systemPrompt;
+  if (extra.excludeDynamic) return { type: "preset", preset: "claude_code", excludeDynamicSections: true };
   return autonomyAppendEnabled() && !extra.noAppend
     ? { type: "preset", preset: "claude_code", append: autonomyAppendText() }
     : { type: "preset", preset: "claude_code" };
@@ -724,12 +748,19 @@ async function runSdkHostGuard(input: unknown, cwd: string) {
       stdout: "pipe",
       stderr: "ignore",
     });
+    // Fail closed on timeout: kill the hook and deny (same budget as the CLI route).
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; proc.kill(9); }, hookTimeoutSeconds() * 1000);
     proc.stdin.write(JSON.stringify(input));
     proc.stdin.end();
-    const [stdout, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      proc.exited,
-    ]);
+    let stdout: string;
+    let exitCode: number;
+    try {
+      [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+    } finally {
+      clearTimeout(timer);
+    }
+    if (timedOut) return hostGuardDecision("LOKI_HOST_GUARD: hook timed out, so the Bash command was denied.");
     const parsed = JSON.parse(stdout) as {
       hookSpecificOutput?: { permissionDecision?: string };
     };
@@ -769,7 +800,7 @@ export function sdkQueryProvider(): ProviderInvoker {
         // process.env or PATH/HOME/ANTHROPIC_API_KEY vanish and query() fails.
         const env: Record<string, string> = { ...(process.env as Record<string, string>) };
         if (cavemanLvl) env["CAVEMAN_DEFAULT_MODE"] = cavemanLvl;
-        Object.assign(env, modelRouteEnv(process.env)); // OC-MODELS: child-only route env
+        Object.assign(env, otelPassthroughEnv(process.env), modelRouteEnv(process.env), engine10CacheTtlEnv(process.env)); // OC-MODELS: child-only route env; TEN-COST-12
         // E-65: the session's own Bash tool inherits this env; a `loki start` run inside an engine session
         // must not pick up the lean engine10 shape. The host-guard hook runs in this process, so it is unaffected.
         for (const k of Object.keys(env)) if (k.startsWith("LOKI_E10_")) delete env[k];
@@ -801,10 +832,10 @@ export function sdkQueryProvider(): ProviderInvoker {
             ...(resumeId ? { resume: resumeId } : {}),
             ...(defaultModel ? {} : { model: extra.model ?? model }),
             cwd: call.cwd,
-            // fully autonomous, like --dangerously-skip-permissions. bypassPermissions
-            // REQUIRES the allowDangerouslySkipPermissions companion or it throws.
-            permissionMode: "bypassPermissions",
-            allowDangerouslySkipPermissions: true,
+            // P12-26c: honours LOKI_PERMISSION_POLICY via the shared resolver. Legacy keeps
+            // bypassPermissions + the required allowDangerouslySkipPermissions companion.
+            ...sdkPermissionOptions(call.cwd),
+            ...(process.env["LOKI_E10_DISALLOWED_TOOLS"] ? { disallowedTools: process.env["LOKI_E10_DISALLOWED_TOOLS"].split(",").filter(Boolean) } : {}), // Q18-04
             includePartialMessages: true, // live delta streaming
             includeHookEvents: true, // hooks arrive as system messages (parser)
             // S41-11: LOKI_E10_TRIM=1, default off. Read directly from
@@ -856,6 +887,7 @@ export function sdkQueryProvider(): ProviderInvoker {
           cwd: call.cwd,
           iteration: process.env["LOKI_ITERATION"] ?? "0",
           hookEventsEnabled: process.env["LOKI_HOOK_EVENTS"] !== "off",
+          requestedModel: defaultModel ? PROVIDER_DEFAULT_MODEL : (extra.model ?? model), // P12-23: the exact value resolved for this call, never an inherited env var
           write: (s) => process.stdout.write(s),
         });
         captured = res.capturedText;

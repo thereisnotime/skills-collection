@@ -11,19 +11,22 @@
 // Network probes (ChromaDB, MiroFish) use AbortSignal.timeout(2000) so a slow
 // probe never hangs the CLI. Secret env vars are checked for presence only --
 // the value is never read or echoed.
-import { accessSync, constants as fsConstants, existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync, statSync, statfsSync } from "node:fs";
-import { spawn, spawnSync } from "node:child_process";
+import { appendFileSync, writeFileSync, mkdirSync, accessSync, constants as fsConstants, existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync, statSync, statfsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { REPO_ROOT } from "../util/paths.ts";
 import { commandExists, run } from "../util/shell.ts";
 import { findPython3, runInline } from "../util/python.ts";
 import { BOLD, CYAN, DIM, GREEN, NC, RED, YELLOW } from "../util/colors.ts";
+import { emitFunnel } from "../util/funnel.ts";
 import { getVersion } from "../version.ts";
 import { detectProtocol } from "../cockpit/capability.ts";
 import { rasterAvailable } from "../cockpit/raster.ts";
 import { probeAdvisor } from "../runner/router/advisor_probe.ts";
 import { routerEnabled } from "../runner/router/flag.ts";
+import { withholdGithubTokens } from "../runner/github_token.ts";
+import { GATEWAY_LANE_LOSS, gatewayLaneLabel } from "../providers/model_routes.ts";
 
 // ---------- Setup requirements per execution path -----------------------------
 // The table lives in autonomy/lib/setup-requirements.json (one source for doctor, loki setup,
@@ -412,6 +415,120 @@ type PythonImportOk = (module: string, useMlPython?: boolean) => Promise<boolean
 const pyImpl = { fn: pythonImportOk as PythonImportOk };
 export function _setPythonImportOkForTest(fn: PythonImportOk | null): void {
   pyImpl.fn = fn ?? pythonImportOk;
+}
+
+// Test seam for the non-python Integration probes (http, PATH lookup, sentrux
+// version) so a test can inject slow probes and time the concurrent gather.
+interface IntegrationProbeFns {
+  http: (url: string) => Promise<boolean>;
+  command: (cmd: string) => Promise<string | null>;
+  sentruxVersion: () => Promise<string>;
+}
+const LSP_BINS = [
+  "pyright-langserver",
+  "pylsp",
+  "typescript-language-server",
+  "gopls",
+  "rust-analyzer",
+  "jdtls",
+];
+async function defaultSentruxVersion(): Promise<string> {
+  try {
+    const r = await run(["sentrux", "--version"], { timeoutMs: 2000 });
+    const tok = r.stdout.split(/\s+/).filter(Boolean).pop();
+    if (tok) return tok.replace(/^v/, "");
+  } catch {
+    /* keep "unknown" */
+  }
+  return "unknown";
+}
+const integrationImpl: IntegrationProbeFns = {
+  http: (url) => httpReachable(url),
+  command: (cmd) => commandExists(cmd),
+  sentruxVersion: defaultSentruxVersion,
+};
+export function _setIntegrationProbesForTest(fns: Partial<IntegrationProbeFns> | null): void {
+  integrationImpl.http = fns?.http ?? ((url) => httpReachable(url));
+  integrationImpl.command = fns?.command ?? ((cmd) => commandExists(cmd));
+  integrationImpl.sentruxVersion = fns?.sentruxVersion ?? defaultSentruxVersion;
+}
+
+export interface IntegrationProbes {
+  mcpOk: boolean;
+  numpyOk: boolean;
+  stOk: boolean;
+  chromaOk: boolean;
+  lsp: string[];
+  mirofishOk: boolean | null;
+  sentruxVersion: string | null;
+}
+
+// Every Integration probe is independent, so run them all at once: the
+// section takes the slowest probe, not the sum. Callers render in their own
+// fixed order, so output is byte-identical to the sequential version.
+export async function probeIntegrations(mfUrl: string | undefined): Promise<IntegrationProbes> {
+  const [mcpOk, numpyOk, stOk, chromaOk, lspHits, mirofishOk, sentruxVersion] = await Promise.all([
+    pyImpl.fn("mcp"),
+    pyImpl.fn("numpy", true),
+    pyImpl.fn("sentence_transformers", true),
+    integrationImpl.http("http://localhost:8100/api/v2/heartbeat"),
+    Promise.all(LSP_BINS.map(async (bin) => ((await integrationImpl.command(bin)) ? bin : null))),
+    mfUrl ? integrationImpl.http(`${mfUrl}/health`) : Promise.resolve<boolean | null>(null),
+    (async (): Promise<string | null> =>
+      (await integrationImpl.command("sentrux")) ? integrationImpl.sentruxVersion() : null)(),
+  ]);
+  return {
+    mcpOk,
+    numpyOk,
+    stOk,
+    chromaOk,
+    lsp: lspHits.filter((b): b is string => b !== null),
+    mirofishOk,
+    sentruxVersion,
+  };
+}
+
+// ---------- Claude CLI compatibility (P12-24) ---------------------------------
+
+export interface ClaudeCliRange {
+  min_version?: string;
+  qualified_version?: string;
+}
+export type ClaudeCliCompat = "ok" | "below_min" | "newer_unqualified" | "unknown";
+
+/** Read providers.claude.cli from the compat manifest (model_catalog.json). Null when absent. */
+export function loadClaudeCliRange(root: string = REPO_ROOT): ClaudeCliRange | null {
+  try {
+    const cat = JSON.parse(readFileSync(resolve(root, "providers/model_catalog.json"), "utf8"));
+    const cli = cat?.providers?.claude?.cli;
+    return cli && typeof cli === "object" ? (cli as ClaudeCliRange) : null;
+  } catch {
+    return null;
+  }
+}
+
+function cmpSemver(a: string, b: string): number {
+  const x = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const y = b.split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+/** Pure: classify a probed claude CLI version against the qualified range. */
+export function evaluateClaudeCliCompat(version: string | null, range: ClaudeCliRange | null): ClaudeCliCompat {
+  if (!version || !range) return "unknown";
+  if (range.min_version && cmpSemver(version, range.min_version) < 0) return "below_min";
+  if (range.qualified_version && cmpSemver(version, range.qualified_version) > 0) return "newer_unqualified";
+  return "ok";
+}
+
+type ClaudeVersionProbe = () => string | null;
+const claudeVersionImpl: { fn: ClaudeVersionProbe | null } = { fn: null };
+export function _setClaudeVersionForTest(fn: ClaudeVersionProbe | null): void {
+  claudeVersionImpl.fn = fn;
 }
 
 // ---------- Router advisor (ROUTER-1 R1-20) -----------------------------------
@@ -809,6 +926,13 @@ export async function buildDoctorJson(): Promise<DoctorJson> {
   const skills = skillsForJson();
   for (const s of skills) statuses.push(s.status);
 
+  // CLAUDE CLI MINIMUM (P12-24): same single fail row the text path counts.
+  const claudeRow = checks.find((c) => c.command === "claude");
+  if (claudeRow?.found) {
+    const ver = claudeVersionImpl.fn ? claudeVersionImpl.fn() : claudeRow.version;
+    if (evaluateClaudeCliCompat(ver, loadClaudeCliRange()) === "below_min") statuses.push("fail");
+  }
+
   return {
     loki_mode_version: getVersion(),
     checks,
@@ -828,6 +952,16 @@ export async function buildDoctorJson(): Promise<DoctorJson> {
 
 // ---------- Text mode rendering ----------------------------------------------
 
+// P9 (TEN-P9-FIX, TEN-P9-FIX-F1): every doctor spawn of a provider CLI gets the env a provider session gets, built by the
+// same withholdGithubTokens the session uses (never a hand-built copy), so a channel added there is withheld here too.
+// The operator opt-out (LOKI_ALLOW_AGENT_GITHUB_TOKEN=1) keeps the env untouched, as it does for the session. Warnings are
+// dropped: the session prints its own, and a probe must not add stderr lines to doctor output. Never mutates its argument.
+export function providerProbeEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const out: NodeJS.ProcessEnv = { ...env };
+  withholdGithubTokens(out, () => {});
+  return out;
+}
+
 // v7.104.2 parity with bash doctor: the durable login signal is `claude auth
 // status` (local, zero-network, ~0.2s, JSON with "loggedIn"), which recognizes
 // BOTH the file-based AND the native/macOS-Keychain login (the native install
@@ -836,10 +970,10 @@ export async function buildDoctorJson(): Promise<DoctorJson> {
 // parseable output -> caller reports UNKNOWN (warn), never a false
 // fail). Kept byte-faithful with autonomy/loki's inline `claude auth status`
 // parse so the bash and Bun doctor routes render the identical login line.
-function claudeAuthStatusLoggedIn(): "yes" | "no" | "" {
+export function claudeAuthStatusLoggedIn(cli = "claude", env: NodeJS.ProcessEnv = process.env): "yes" | "no" | "" {
   try {
-    const r = spawnSync("claude", ["auth", "status"], {
-      env: { ...process.env },
+    const r = spawnSync(cli, ["auth", "status"], {
+      env: providerProbeEnv(env),
       encoding: "utf8",
       timeout: 5000,
     });
@@ -852,6 +986,37 @@ function claudeAuthStatusLoggedIn(): "yes" | "no" | "" {
   } catch {
     return "";
   }
+}
+
+// TEN-SPEED-05: back-to-back `loki start` runs reuse a SUCCESSFUL login probe
+// for 10 minutes. Only "yes" is stored; "no" and "" always re-probe, so a
+// logged-out state is never hidden. Keyed on the CLI path; a missing or
+// corrupt file means probe.
+export const CLAUDE_LOGIN_TTL_MS = 10 * 60 * 1000;
+export function claudeLoginProbeCached(cli: string, env: NodeJS.ProcessEnv = process.env, now = Date.now()): "yes" | "no" | "" {
+  const file = join(env.HOME || homedir(), ".loki", "claude-login-ok.json");
+  try {
+    const c = JSON.parse(readFileSync(file, "utf8"));
+    if (c?.cli === cli && typeof c.at === "number" && now - c.at >= 0 && now - c.at < CLAUDE_LOGIN_TTL_MS) return "yes";
+  } catch { /* no usable cache */ }
+  let li = claudeAuthStatusLoggedIn(cli, env); if (li === "") li = claudeAuthStatusLoggedIn(cli, env); // one retry, as doctor does
+  if (li === "yes") { try { mkdirSync(join(file, ".."), { recursive: true }); writeFileSync(file, JSON.stringify({ cli, at: now })); } catch { /* best effort */ } }
+  return li;
+}
+
+// TEN-SPEED-08: same 10-minute reuse for the PR-run `gh auth status` probe.
+// Only a passing probe is stored; a failed one always re-probes. Keyed on the
+// resolved gh path; a missing or corrupt file means probe.
+export async function ghAuthProbeCached(env: NodeJS.ProcessEnv, probe: () => Promise<boolean>, now = Date.now()): Promise<boolean> {
+  const bin = "gh"; const gh = Bun.which(bin, { PATH: env.PATH ?? process.env.PATH ?? "" }) ?? bin; // lookup only, never a spawn
+  const file = join(env.HOME || homedir(), ".loki", "gh-auth-ok.json");
+  try {
+    const c = JSON.parse(readFileSync(file, "utf8"));
+    if (c?.gh === gh && typeof c.at === "number" && now - c.at >= 0 && now - c.at < CLAUDE_LOGIN_TTL_MS) return true;
+  } catch { /* no usable cache */ }
+  const ok = await probe();
+  if (ok) { try { mkdirSync(join(file, ".."), { recursive: true }); writeFileSync(file, JSON.stringify({ gh, at: now })); } catch { /* best effort */ } }
+  return ok;
 }
 
 export type ClaudeLoginResult = {
@@ -970,15 +1135,18 @@ export function bump(t: Tally, s: Status): void {
 
 function printHelp(): void {
   process.stdout.write(`${BOLD}loki doctor${NC} - Check system prerequisites\n\n`);
-  process.stdout.write(`Usage: loki doctor [--json] [--fix] [--requirements] [--airgap] [--repo]\n\n`);
+  process.stdout.write(`Usage: loki doctor [--json] [--fix [--yes]] [--requirements] [--airgap] [--repo [--round-trip]]\n\n`);
   process.stdout.write(`Options:\n`);
   process.stdout.write(`  --json    Output machine-readable JSON (includes requirements grouped by execution path)\n`);
   process.stdout.write(`  --requirements  Print requirements per execution path (required or optional, present or missing, one-line fix)\n`);
-  process.stdout.write(`  --fix     Apply safe fixes (dirs, config defaults); print commands for the rest\n`);
+  process.stdout.write(`  --fix     Apply safe fixes (dirs, config defaults); on a TTY offer the claude install and login (y/N); print commands for the rest\n`);
+  process.stdout.write(`  --yes     With --fix: run the claude install and login without asking (also -y)\n`);
   // --airgap never reaches this handler: bin/loki routes it to the bash audit.
   process.stdout.write(`  --repo    Print the repo profile (.loki/state/repo-profile.json): discovered\n`);
   process.stdout.write(`            test/lint/typecheck/build commands, the baseline test run and a\n`);
   process.stdout.write(`            readiness score. Builds the profile if absent; with --fix, refreshes it\n`);
+  process.stdout.write(`  --round-trip  With --repo: make one tiny provider call (opt-in, may cost a few tokens) and\n`);
+  process.stdout.write(`            record the result in .loki/state/readiness.jsonl. Off by default\n`);
   process.stdout.write(`  --airgap  Audit network egress: model inference, telemetry and the\n`);
   process.stdout.write(`            update check, REQUIRED or optional, and how to disable\n`);
   process.stdout.write(`            each. Exits non-zero while a required egress remains.\n\n`);
@@ -1000,18 +1168,7 @@ function emitFirstRunBlocked(blockers: string): void {
   else if (blockers.includes("curl is not installed")) key = "curl";
   else if (blockers.includes("Free up disk")) key = "disk";
   else if (blockers.includes("broken symlink")) key = "skill_symlink";
-  try {
-    const script = resolve(REPO_ROOT, "autonomy", "telemetry.sh");
-    if (!existsSync(script)) return;
-    const child = spawn(
-      "bash",
-      ["-c", 'source "$1" >/dev/null 2>&1 && loki_emit_first_run_blocked "$2" >/dev/null 2>&1', "_", script, key],
-      { detached: true, stdio: "ignore", env: { ...process.env } },
-    );
-    child.unref();
-  } catch {
-    // telemetry is best-effort
-  }
+  emitFunnel("first_run_blocked", key);
 }
 
 async function runText(): Promise<number> {
@@ -1069,6 +1226,23 @@ async function runText(): Promise<number> {
     }
     bump(tally, c.status);
     if (c.found) anyProvider = true;
+    if (cmd === "claude" && c.found) {
+      const range = loadClaudeCliRange();
+      const ver = claudeVersionImpl.fn ? claudeVersionImpl.fn() : c.version;
+      const compat = evaluateClaudeCliCompat(ver, range);
+      if (compat === "below_min") {
+        process.stdout.write(
+          `  ${badge("fail")}  Claude CLI ${ver} is older than the minimum ${range?.min_version}\n`,
+        );
+        process.stdout.write(`         ${YELLOW}Fix: npm install -g @anthropic-ai/claude-code${NC}\n`);
+        bump(tally, "fail");
+        tally.blockers.push(`claude CLI must be >= ${range?.min_version} (found ${ver})`);
+      } else if (compat === "newer_unqualified") {
+        process.stdout.write(
+          `  ${badge("warn")}  Claude CLI ${ver} is newer than the qualified ${range?.qualified_version}; not yet qualified\n`,
+        );
+      }
+    }
   }
   if (!anyProvider) {
     // The bundled Claude Agent SDK runs the main loop with no separate CLI, but
@@ -1207,6 +1381,12 @@ async function runText(): Promise<number> {
       bump(tally, "pass");
     }
   }
+  const lane = gatewayLaneLabel(env);
+  if (lane) {
+    process.stdout.write(`  ${badge("warn")}  ${lane}\n`);
+    process.stdout.write(`         ${GATEWAY_LANE_LOSS}\n`);
+    bump(tally, "warn");
+  }
   process.stdout.write(`\n`);
 
   // Router: advisor availability and the bundled Claude Code version. Not
@@ -1244,16 +1424,11 @@ async function runText(): Promise<number> {
 
   // Integrations
   process.stdout.write(`${CYAN}Integrations:${NC}\n`);
-  // v7.5.8: parallelize the three python module probes. Sequentially the
-  // numpy + sentence_transformers checks each have a 30s timeout (cold ML
-  // imports), so worst case was ~60-90s wall time. Promise.all keeps them
-  // bounded by the slowest single probe. Output order is preserved by
-  // awaiting the array up front.
-  const [mcpOk, numpyOk, stOk] = await Promise.all([
-    pyImpl.fn("mcp"),
-    pyImpl.fn("numpy", true),
-    pyImpl.fn("sentence_transformers", true),
-  ]);
+  // All Integration probes run concurrently (probeIntegrations); the section
+  // is rendered below in the original fixed order.
+  const mfUrl = process.env["LOKI_MIROFISH_URL"];
+  const integ = await probeIntegrations(mfUrl);
+  const { mcpOk, numpyOk, stOk } = integ;
   if (mcpOk) {
     process.stdout.write(`  ${badge("pass")}  MCP SDK (Python)\n`);
     bump(tally, "pass");
@@ -1277,7 +1452,7 @@ async function runText(): Promise<number> {
     );
     bump(tally, "warn");
   }
-  if (await httpReachable("http://localhost:8100/api/v2/heartbeat")) {
+  if (integ.chromaOk) {
     process.stdout.write(`  ${badge("pass")}  ChromaDB server (port 8100)\n`);
     bump(tally, "pass");
   } else {
@@ -1290,20 +1465,7 @@ async function runText(): Promise<number> {
   // mcp.lsp_proxy auto-detects these binaries; reporting here gives users
   // visibility into which languages get agent-side symbol grounding.
   {
-    const lspBins = [
-      "pyright-langserver",
-      "pylsp",
-      "typescript-language-server",
-      "gopls",
-      "rust-analyzer",
-      "jdtls",
-    ];
-    const found: string[] = [];
-    for (const bin of lspBins) {
-      if (await commandExists(bin)) {
-        found.push(bin);
-      }
-    }
+    const found = integ.lsp;
     if (found.length > 0) {
       process.stdout.write(
         `  ${badge("pass")}  LSP servers detected (${found.length}): ${found.join(", ")}\n`,
@@ -1318,9 +1480,8 @@ async function runText(): Promise<number> {
   }
   // MiroFish: only check if env var is set (we can't run docker inspect cheaply
   // without spawning docker; bash also gates on env var or docker inspect).
-  const mfUrl = process.env["LOKI_MIROFISH_URL"];
   if (mfUrl) {
-    if (await httpReachable(`${mfUrl}/health`)) {
+    if (integ.mirofishOk) {
       process.stdout.write(`  ${badge("pass")}  MiroFish server (${mfUrl})\n`);
       bump(tally, "pass");
     } else {
@@ -1344,15 +1505,8 @@ async function runText(): Promise<number> {
   // sentrux check (v7.5.14, optional architectural-drift gate). Mirrors the
   // bash-route line at autonomy/loki:cmd_doctor so the bun-parity matrix
   // diff stays empty.
-  if (await commandExists("sentrux")) {
-    let sentruxVer = "unknown";
-    try {
-      const r = await run(["sentrux", "--version"], { timeoutMs: 2000 });
-      const tok = r.stdout.split(/\s+/).filter(Boolean).pop();
-      if (tok) sentruxVer = tok.replace(/^v/, "");
-    } catch {
-      /* keep "unknown" */
-    }
+  if (integ.sentruxVersion !== null) {
+    const sentruxVer = integ.sentruxVersion;
     process.stdout.write(
       `  ${badge("pass")}  sentrux ${sentruxVer} (architectural drift gate: loki sentrux help)\n`,
     );
@@ -1741,18 +1895,39 @@ else:
 
 // ---------- Public entry point -----------------------------------------------
 
-export async function runDoctor(argv: readonly string[]): Promise<number> {
+export interface RoundTripResult { ok: boolean; detail: string }
+export type RoundTripRunner = () => Promise<RoundTripResult>;
+export interface DoctorDeps { roundTrip?: RoundTripRunner }
+
+// Default harmless round-trip: one tiny prompt through the active provider CLI.
+const defaultRoundTrip: RoundTripRunner = async () => {
+  const provider = process.env["LOKI_PROVIDER"] || "claude";
+  const prompt = "Reply with the single word OK";
+  const args = provider === "claude" ? ["-p", prompt] : provider === "codex" ? ["exec", prompt] : null;
+  if (!args) return { ok: false, detail: `round-trip unsupported for provider ${provider}` };
+  const r = spawnSync(provider, args, { encoding: "utf8", timeout: 60000, env: providerProbeEnv() });
+  if (r.error) return { ok: false, detail: String(r.error.message).slice(0, 200) };
+  return { ok: r.status === 0, detail: (r.status === 0 ? r.stdout : r.stderr || `exit ${r.status}`).trim().slice(0, 200) };
+};
+
+export async function runDoctor(argv: readonly string[], deps: DoctorDeps = {}): Promise<number> {
+  let roundTrip = false;
   let json = false;
   let fix = false;
+  let yes = false;
   let repo = false;
   let reqs = false;
   for (const arg of argv) {
     if (arg === "--repo") {
       repo = true;
+    } else if (arg === "--round-trip") {
+      roundTrip = true;
     } else if (arg === "--json") {
       json = true;
     } else if (arg === "--fix") {
       fix = true;
+    } else if (arg === "--yes" || arg === "-y") {
+      yes = true;
     } else if (arg === "--requirements") {
       reqs = true;
     } else if (arg === "--help" || arg === "-h") {
@@ -1760,7 +1935,7 @@ export async function runDoctor(argv: readonly string[]): Promise<number> {
       return 0;
     } else {
       process.stderr.write(`${RED}Unknown option: ${arg}${NC}\n`);
-      process.stderr.write(`Usage: loki doctor [--json] [--fix] [--requirements] [--airgap] [--repo]\n`);
+      process.stderr.write(`Usage: loki doctor [--json] [--fix [--yes]] [--requirements] [--airgap] [--repo [--round-trip]]\n`);
       return 1;
     }
   }
@@ -1774,6 +1949,16 @@ export async function runDoctor(argv: readonly string[]): Promise<number> {
     const failing = rep.paths.flatMap((x) => x.items).find((i) => i.level === "required" && i.status !== "present");
     const host = { firstTaskReady: ready, fix: failing ? requirementFix(failing.id) : null };
     const withReadiness = p ? { ...p, readiness: repoReadiness(p, host) } : p;
+    let rt: RoundTripResult | null = null;
+    if (roundTrip) {
+      try { rt = await (deps.roundTrip ?? defaultRoundTrip)(); } catch (e) { rt = { ok: false, detail: String((e as Error)?.message ?? e).slice(0, 200) }; }
+    }
+    try { // readiness history: one JSON line per run; never fails the command
+      const dir = join(process.cwd(), ".loki", "state");
+      mkdirSync(dir, { recursive: true });
+      const checks = rep.paths.flatMap((x) => x.items).map((i) => ({ id: i.id, level: i.level, status: i.status }));
+      appendFileSync(join(dir, "readiness.jsonl"), JSON.stringify({ ts: new Date().toISOString(), checks, pass: ready, score: withReadiness?.readiness?.score ?? null, roundTrip: rt }) + "\n");
+    } catch { /* history is best effort */ }
     if (json) process.stdout.write(JSON.stringify(reqs ? { repo: withReadiness, requirements: rep } : withReadiness, null, 2) + "\n");
     else process.stdout.write(renderProfile(p, host) + (reqs ? renderRequirementsText(rep) + "\n" : ""));
     return 0;
@@ -1790,8 +1975,8 @@ export async function runDoctor(argv: readonly string[]): Promise<number> {
   if (fix) {
     const code = await runText();
     const { runDoctorFix } = await import("./doctor_fix.ts");
-    runDoctorFix();
-    return code;
+    const fixCode = runDoctorFix({ yes });
+    return code !== 0 ? code : fixCode;
   }
   // Hint goes to stderr so stdout stays byte-identical for the bun-parity gate.
   process.stderr.write(`Hint: loki doctor --fix applies safe fixes and prints commands for the rest.\n`);

@@ -9,7 +9,7 @@
 // Read independently from the JSON so these assertions do not depend on resolveClaudeModel itself.
 const CATALOG_OPUS: string = JSON.parse(_rf(_join(import.meta.dir, "../../../providers/model_catalog.json"), "utf8")).providers.claude.cli_aliases.opus;
 import { describe, expect, it, beforeEach, afterEach, test } from "bun:test";
-import { resolveProvider, claudeProvider, codexProvider, clineProvider, aiderProvider, PROVIDER_COMMIT_HYGIENE, buildSdkLoopOptions, SDK_BUNDLED_CLAUDE_CODE, truthy } from "../../src/runner/providers.ts";
+import { resolveProvider, claudeProvider, codexProvider, clineProvider, aiderProvider, PROVIDER_COMMIT_HYGIENE, buildSdkLoopOptions, engine10CacheTtlEnv, SDK_BUNDLED_CLAUDE_CODE, truthy } from "../../src/runner/providers.ts";
 import type { ProviderInvocation } from "../../src/runner/types.ts";
 import { readFileSync as _rf, chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join as _join, join } from "node:path";
@@ -309,10 +309,16 @@ describe("codexProvider invocation", () => {
 });
 
 describe("claudeProvider invocation", () => {
-  it("passes --dangerously-skip-permissions, --model, and -p", async () => {
+  it("passes --dangerously-skip-permissions (legacy), --model, and -p", async () => {
     const argvLog = writeStub({ stdout: "ok" });
     const p = claudeProvider();
-    const r = await p.invoke(makeCall({ tier: "development", prompt: "build x" }));
+    process.env["LOKI_PERMISSION_POLICY"] = "legacy"; // C-C2: compiled is the default
+    let r;
+    try {
+      r = await p.invoke(makeCall({ tier: "development", prompt: "build x" }));
+    } finally {
+      delete process.env["LOKI_PERMISSION_POLICY"];
+    }
     expect(r.exitCode).toBe(0);
     const argv = readArgv(argvLog);
     // v7.104.0: default (no LOKI_ALLOW_HAIKU) development tier maps to sonnet
@@ -436,6 +442,31 @@ describe("claudeProvider invocation", () => {
   // LOKI_MODEL_OVERRIDE alt-provider routing. Added per Opus #2 reviewer
   // CONCERN that the bash and Bun routes had bash-only test coverage; this
   // closes the parity gap by directly exercising the Bun override branch.
+  it("P12-27: set OTEL_* vars reach the child env unchanged; unset ones are not invented", async () => {
+    const envLog = join(tmp, "env.log");
+    writeFileSync(stubPath, `#!/bin/sh\nenv > '${envLog}'\nexit 0\n`);
+    chmodSync(stubPath, 0o755);
+    const keys = ["OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OTEL_RESOURCE_ATTRIBUTES", "CLAUDE_CODE_ENABLE_TELEMETRY"];
+    const prev = keys.map((k) => process.env[k]);
+    process.env["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://c:4318";
+    process.env["CLAUDE_CODE_ENABLE_TELEMETRY"] = "1";
+    delete process.env["OTEL_SERVICE_NAME"];
+    delete process.env["OTEL_RESOURCE_ATTRIBUTES"];
+    try {
+      await claudeProvider().invoke(makeCall());
+      const lines = readFileSync(envLog, "utf8").split("\n");
+      expect(lines).toContain("OTEL_EXPORTER_OTLP_ENDPOINT=http://c:4318");
+      expect(lines).toContain("CLAUDE_CODE_ENABLE_TELEMETRY=1");
+      expect(lines.some((l) => l.startsWith("OTEL_SERVICE_NAME="))).toBe(false);
+    } finally {
+      keys.forEach((k, i) => {
+        const v = prev[i];
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      });
+    }
+  });
+
   it("Phase I: LOKI_MODEL_OVERRIDE wins when ANTHROPIC_BASE_URL also set", async () => {
     process.env["ANTHROPIC_BASE_URL"] = "https://openrouter.ai/api/v1";
     process.env["LOKI_MODEL_OVERRIDE"] = "anthropic/claude-3.5-sonnet";
@@ -1082,6 +1113,41 @@ describe("providers truthy", () => {
       for (const v of negatives) {
         expect(truthy(v)).toBe(false);
       }
+    });
+  });
+});
+
+describe("TEN-COST-12 engine10 5-minute cache TTL", () => {
+  test("engine10 stage session forces the 5-minute TTL", () => {
+    expect(engine10CacheTtlEnv({ LOKI_E10_STAGE: "implement" })).toEqual({ FORCE_PROMPT_CACHING_5M: "1" });
+  });
+  test("main RARV loop env is untouched", () => {
+    expect(engine10CacheTtlEnv({})).toEqual({});
+  });
+  test("LOKI_E10_CACHE_TTL=1h opts out", () => {
+    expect(engine10CacheTtlEnv({ LOKI_E10_STAGE: "plan", LOKI_E10_CACHE_TTL: "1h" })).toEqual({});
+  });
+
+  // r2: the helper alone is not enough; pin the claudeProvider shellRun call site.
+  describe("claudeProvider child env", () => {
+    const KEYS = ["LOKI_E10_STAGE", "LOKI_E10_CACHE_TTL", "FORCE_PROMPT_CACHING_5M"];
+    let backup: Record<string, string | undefined>;
+    beforeEach(() => { backup = Object.fromEntries(KEYS.map((k) => [k, process.env[k]])); for (const k of KEYS) delete process.env[k]; });
+    afterEach(() => { for (const k of KEYS) { if (backup[k] === undefined) delete process.env[k]; else process.env[k] = backup[k]; } });
+    async function childCacheEnv(): Promise<string> {
+      const envLog = join(tmp, "env.log");
+      writeStub();
+      writeFileSync(stubPath, `#!/bin/sh\nprintf '%s' "\${FORCE_PROMPT_CACHING_5M-UNSET}" > '${envLog}'\nexit 0\n`);
+      chmodSync(stubPath, 0o755);
+      await claudeProvider().invoke(makeCall({ mainLoop: true }));
+      return readFileSync(envLog, "utf8");
+    }
+    test("LOKI_E10_STAGE set gives the child FORCE_PROMPT_CACHING_5M=1", async () => {
+      process.env["LOKI_E10_STAGE"] = "implement";
+      expect(await childCacheEnv()).toBe("1");
+    });
+    test("without LOKI_E10_STAGE the child has no such key", async () => {
+      expect(await childCacheEnv()).toBe("UNSET");
     });
   });
 });

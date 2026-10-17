@@ -9,7 +9,7 @@
 // - claudeFlagSupported respects the cache; ensureClaudeHelpCache idempotent
 // - buildAutoFlags composes only supported + non-null flags
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, copyFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -18,6 +18,11 @@ import {
   fallbackForPrimary,
   claudeFlagSupported,
   buildAutoFlags,
+  permissionArgv,
+  permissionPolicyMode,
+  permissionPolicyBanner,
+  resetPermissionPolicyWarning,
+  sdkPermissionOptions,
   claudeSessionUuid,
   claudeIterationSessionUuid,
   sessionStampArgv,
@@ -31,6 +36,8 @@ import {
   _resetClaudeHelpCacheForTest,
   AUTONOMY_OVERRIDE_TEXT,
   FIRST_PASS_EXCELLENCE_TEXT,
+  reviewerModelForTier,
+  leanReviewerFlags,
 } from "../../src/providers/claude_flags.ts";
 
 describe("claude_flags.effortForTier", () => {
@@ -718,5 +725,400 @@ describe("claude_flags Phase 2 resume (#165)", () => {
     seed("not-a-uuid");
     process.env[RESUME] = "1";
     expect(sessionResumeArgv(dir)).toEqual([]);
+  });
+});
+
+// P12-26: LOKI_PERMISSION_POLICY=compiled. Both routes share
+// src/policies/claude_permissions.js; the bash route is exercised for parity.
+describe("claude_flags.permissionArgv (P12-26)", () => {
+  let repo: string;
+  const SKIP = ["--dangerously-skip-permissions"];
+  const noManaged = (extra: Record<string, string> = {}): NodeJS.ProcessEnv => ({
+    PATH: process.env["PATH"],
+    HOME: repo,
+    LOKI_MANAGED_SETTINGS: join(repo, "no-such-managed.json"),
+    LOKI_PERMISSION_POLICY: "compiled",
+    ...extra,
+  });
+  const writePolicy = (p: unknown): void => {
+    mkdirSync(join(repo, ".loki"), { recursive: true });
+    writeFileSync(join(repo, ".loki", "policies.json"), typeof p === "string" ? p : JSON.stringify(p));
+  };
+  const bashArgv = (env: NodeJS.ProcessEnv): string[] => {
+    const root = join(import.meta.dir, "../../..");
+    const r = Bun.spawnSync(
+      ["bash", "-c", `source "${root}/providers/claude.sh" 2>/dev/null; _loki_claude_permission_argv; printf '%s\\n' "\${_LOKI_PERM_ARGV[@]}"`],
+      { env: { ...env, LOKI_PROJECT_DIR: repo }, cwd: repo },
+    );
+    return r.stdout.toString().split("\n").filter((l) => l.length > 0);
+  };
+  beforeEach(() => { repo = mkdtempSync(join(tmpdir(), "perm-pol-")); });
+  afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
+
+  it("C-C2: unset + operator policy present selects compiled on both routes", () => {
+    writePolicy({ claude_permissions: { mode: "acceptEdits", allow: ["Read"] } }); // HOME=repo, so repo/.loki is the operator dir
+    const env: NodeJS.ProcessEnv = { ...noManaged(), LOKI_PERMISSION_POLICY: "" };
+    expect(permissionPolicyMode(env)).toBe("compiled");
+    const ts = permissionArgv(repo, env, () => {});
+    expect(ts).not.toEqual(SKIP);
+    expect(ts[0]).toBe("--permission-mode");
+    expect(bashArgv(env)).toEqual(ts);
+    delete env["LOKI_PERMISSION_POLICY"];
+    expect(permissionPolicyMode(env)).toBe("compiled");
+  });
+
+  it("C-C2: unset + no operator policy resolves legacy on both routes, with the legacy banner", () => {
+    const unsetEnv: NodeJS.ProcessEnv = noManaged();
+    delete unsetEnv["LOKI_PERMISSION_POLICY"];
+    for (const env of [{ ...noManaged(), LOKI_PERMISSION_POLICY: "" }, unsetEnv]) {
+      expect(permissionPolicyMode(env)).toBe("legacy");
+      expect(permissionArgv(repo, env, () => {})).toEqual(SKIP);
+      expect(bashArgv(env)).toEqual(SKIP);
+      expect(permissionPolicyBanner(env)).toBe("Permission policy: legacy (no operator policy found; add one to use compiled)");
+    }
+  });
+
+  it("C-C2: unset + yaml-only policy file without claude_permissions resolves legacy on both routes", () => {
+    mkdirSync(join(repo, ".loki"), { recursive: true });
+    writeFileSync(join(repo, ".loki", "policies.yaml"), "policies:\n  cost:\n    max: 5\n");
+    const env = noManaged();
+    delete env["LOKI_PERMISSION_POLICY"];
+    expect(permissionPolicyMode(env)).toBe("legacy");
+    expect(permissionArgv(repo, env, () => {})).toEqual(SKIP);
+    expect(bashArgv(env)).toEqual(SKIP);
+  });
+
+  it("C-C2: unset + yaml-only policy file with a claude_permissions key resolves compiled (plan, yaml unsupported)", () => {
+    mkdirSync(join(repo, ".loki"), { recursive: true });
+    writeFileSync(join(repo, ".loki", "policies.yaml"), "policies:\n  claude_permissions:\n    mode: default\n");
+    const env = noManaged();
+    delete env["LOKI_PERMISSION_POLICY"];
+    expect(permissionPolicyMode(env)).toBe("compiled");
+    expect(permissionArgv(repo, env, () => {})).toEqual(["--permission-mode", "plan"]);
+    expect(bashArgv(env)).toEqual(["--permission-mode", "plan"]);
+  });
+
+  it("C-C2: explicit compiled + no operator policy keeps fail-closed acceptEdits", () => {
+    const env = noManaged();
+    expect(permissionPolicyMode(env)).toBe("compiled");
+    expect(permissionArgv(repo, env, () => {})).toEqual(["--permission-mode", "acceptEdits"]);
+    expect(bashArgv(env)).toEqual(["--permission-mode", "acceptEdits"]);
+  });
+
+  it("C-C2: the unknown-value warning prints once per process", () => {
+    resetPermissionPolicyWarning();
+    const warns: string[] = [];
+    const env = noManaged({ LOKI_PERMISSION_POLICY: "bogus" });
+    permissionPolicyMode(env, (m) => warns.push(m));
+    permissionPolicyMode(env, (m) => warns.push(m));
+    expect(warns.length).toBe(1);
+  });
+
+  it("C-C2: legacy restores skip-permissions byte-identically on both routes", () => {
+    const env = noManaged({ LOKI_PERMISSION_POLICY: "legacy" });
+    expect(permissionPolicyMode(env)).toBe("legacy");
+    expect(permissionArgv(repo, env)).toEqual(SKIP);
+    expect(bashArgv(env)).toEqual(SKIP);
+  });
+
+  it("C-C2: unknown value fails closed to compiled with a warning on both routes", () => {
+    writePolicy({ claude_permissions: { mode: "acceptEdits", allow: ["Read"] } });
+    const env = noManaged({ LOKI_PERMISSION_POLICY: "bogus" });
+    const warns: string[] = [];
+    resetPermissionPolicyWarning();
+    expect(permissionPolicyMode(env, (m) => warns.push(m))).toBe("compiled");
+    expect(warns.some((w) => w.includes("unknown value"))).toBe(true);
+    const ts = permissionArgv(repo, env, () => {});
+    expect(ts).not.toEqual(SKIP);
+    expect(bashArgv(env)).toEqual(ts);
+  });
+
+  it("C-C2: start banner names the active mode on both routes", () => {
+    const root = join(import.meta.dir, "../../..");
+    const bashBanner = (policy: string): string =>
+      Bun.spawnSync(
+        ["bash", "-c", `source "${root}/providers/claude.sh" 2>/dev/null; loki_permission_policy_banner`],
+        { env: { PATH: process.env["PATH"], HOME: repo, LOKI_PERMISSION_POLICY: policy } },
+      ).stdout.toString().trim();
+    const compiled = "Permission policy: compiled (set LOKI_PERMISSION_POLICY=legacy to revert)";
+    const noPol = "Permission policy: legacy (no operator policy found; add one to use compiled)";
+    const envHome = { HOME: repo };
+    expect(permissionPolicyBanner({ ...envHome, LOKI_PERMISSION_POLICY: "compiled" })).toBe(compiled);
+    expect(permissionPolicyBanner(envHome)).toBe(noPol);
+    expect(bashBanner("")).toBe(noPol);
+    writePolicy({ claude_permissions: { mode: "acceptEdits" } });
+    expect(permissionPolicyBanner(envHome)).toBe(compiled);
+    expect(bashBanner("")).toBe(compiled);
+    expect(permissionPolicyBanner({ LOKI_PERMISSION_POLICY: "legacy" })).toBe(bashBanner("legacy"));
+    expect(permissionPolicyBanner({ LOKI_PERMISSION_POLICY: "legacy" })).toContain("legacy");
+  });
+
+  it("compiled: mode + allow/deny lists, identical on both routes", () => {
+    writePolicy({ policies: { claude_permissions: { mode: "acceptEdits", allow: ["Read", "Bash(git diff:*)"], deny: ["Bash(rm:*)"] } } });
+    const want = ["--permission-mode", "acceptEdits", "--allowedTools", "Read,Bash(git diff:*)", "--disallowedTools", "Bash(rm:*)"];
+    expect(permissionArgv(repo, noManaged())).toEqual(want);
+    expect(bashArgv(noManaged())).toEqual(want);
+  });
+
+  it("deny always wins over allow", () => {
+    writePolicy({ claude_permissions: { mode: "default", allow: ["Read", "Bash(rm:*)"], deny: ["Bash(rm:*)"] } });
+    const a = permissionArgv(repo, noManaged());
+    expect(a).toEqual(["--permission-mode", "default", "--allowedTools", "Read", "--disallowedTools", "Bash(rm:*)"]);
+    expect(bashArgv(noManaged())).toEqual(a);
+  });
+
+  it("managed settings cap the mode; never more permissive", () => {
+    writePolicy({ claude_permissions: { mode: "bypassPermissions" } });
+    const managed = join(repo, "managed.json");
+    writeFileSync(managed, JSON.stringify({ permissions: { defaultMode: "default", deny: ["Bash(curl:*)"] } }));
+    const env = noManaged({ LOKI_MANAGED_SETTINGS: managed });
+    const want = ["--permission-mode", "default", "--disallowedTools", "Bash(curl:*)"];
+    expect(permissionArgv(repo, env)).toEqual(want);
+    expect(bashArgv(env)).toEqual(want);
+    // a more restrictive policy is left alone
+    writePolicy({ claude_permissions: { mode: "plan" } });
+    expect(permissionArgv(repo, env).slice(0, 2)).toEqual(["--permission-mode", "plan"]);
+  });
+
+  it("managed disableBypassPermissionsMode caps bypass at acceptEdits", () => {
+    writePolicy({ claude_permissions: { mode: "bypassPermissions" } });
+    const managed = join(repo, "managed.json");
+    writeFileSync(managed, JSON.stringify({ permissions: { disableBypassPermissionsMode: "disable" } }));
+    expect(permissionArgv(repo, noManaged({ LOKI_MANAGED_SETTINGS: managed })).slice(0, 2)).toEqual(["--permission-mode", "acceptEdits"]);
+  });
+
+  it("invalid policy fails closed to plan with a warning, never skip-permissions", () => {
+    for (const bad of ["{not json", { claude_permissions: { mode: "yolo" } }, { claude_permissions: { allow: "Read" } }]) {
+      writePolicy(bad);
+      const warns: string[] = [];
+      const a = permissionArgv(repo, noManaged(), (m) => warns.push(m));
+      expect(a).toEqual(["--permission-mode", "plan"]);
+      expect(warns.length).toBe(1);
+      expect(bashArgv(noManaged())).toEqual(["--permission-mode", "plan"]);
+    }
+  });
+
+  it("unreadable managed settings fail closed to plan", () => {
+    const managed = join(repo, "managed.json");
+    writeFileSync(managed, "{broken");
+    expect(permissionArgv(repo, noManaged({ LOKI_MANAGED_SETTINGS: managed }), () => {})).toEqual(["--permission-mode", "plan"]);
+  });
+
+  it("no policy: acceptEdits with a stderr warning (not default), same on bash", () => {
+    const warns: string[] = [];
+    expect(permissionArgv(repo, noManaged(), (m) => warns.push(m))).toEqual(["--permission-mode", "acceptEdits"]);
+    expect(warns.length).toBe(1);
+    expect(bashArgv(noManaged())).toEqual(["--permission-mode", "acceptEdits"]);
+  });
+
+  it("a repo policy may only narrow the operator policy, never widen it", () => {
+    const home = join(repo, "operator");
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, "policies.json"), JSON.stringify({ claude_permissions: { mode: "default", allow: ["Read"], deny: ["Bash(curl:*)"] } }));
+    writePolicy({ claude_permissions: { mode: "bypassPermissions", allow: ["Read", "Write"], deny: ["Bash(rm:*)"] } });
+    const env = noManaged({ LOKI_DATA_DIR: home });
+    const want = ["--permission-mode", "default", "--allowedTools", "Read", "--disallowedTools", "Bash(curl:*),Bash(rm:*)"];
+    expect(permissionArgv(repo, env)).toEqual(want);
+    expect(bashArgv(env)).toEqual(want);
+  });
+
+  it("a repo policy cannot widen when there is no operator policy (acceptEdits, empty allow)", () => {
+    const empty = join(repo, "empty-operator");
+    mkdirSync(empty, { recursive: true });
+    writePolicy({ claude_permissions: { mode: "bypassPermissions", allow: ["Bash(*)"] } });
+    const env = noManaged({ HOME: empty, LOKI_DATA_DIR: empty });
+    const want = ["--permission-mode", "acceptEdits"];
+    expect(permissionArgv(repo, env, () => {})).toEqual(want);
+    expect(bashArgv(env)).toEqual(want);
+  });
+
+  it("an operator policy without allow means an empty allow list; a repo allow cannot add to it", () => {
+    const home = join(repo, "operator");
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, "policies.json"), JSON.stringify({ claude_permissions: { mode: "default" } }));
+    writePolicy({ claude_permissions: { allow: ["Bash(*)"] } });
+    const env = noManaged({ LOKI_DATA_DIR: home });
+    const want = ["--permission-mode", "default"];
+    expect(permissionArgv(repo, env)).toEqual(want);
+    expect(bashArgv(env)).toEqual(want);
+  });
+
+  it("every in-run-path claude spawn site routes through the permission helper (out of scope: benchmarks, eval, scripts)", () => {
+    const root = join(import.meta.dir, "../../..");
+    const lit = "--dangerously-skip-permissions";
+    const live = (rel: string): string[] =>
+      readFileSync(join(root, rel), "utf8").split("\n").filter((l) => l.includes(lit) && !/^\s*(#|\/\/|\*)/.test(l));
+    expect(live("autonomy/run.sh").filter((l) => !l.includes("PROVIDER_AUTONOMOUS_FLAG=") && !l.includes("_LOKI_PERM_ARGV=("))).toEqual([]);
+    for (const f of ["autonomy/lib/voter-agents.sh", "autonomy/lib/done-recognition.sh", "autonomy/lib/prd-enrich.sh", "autonomy/grill.sh", "autonomy/quickstart.sh"]) {
+      expect(live(f).filter((l) => !l.includes("_LOKI_PERM_ARGV=("))).toEqual([]);
+    }
+    expect(live("loki-ts/src/runner/quality_gates.ts")).toEqual([]);
+    expect(live("loki-ts/src/council/voter_agents.ts")).toEqual([]);
+    expect(live("providers/claude.sh").filter((l) => !l.includes("PROVIDER_AUTONOMOUS_FLAG="))).toEqual([]);
+  });
+
+  // P12-26b guard. Exemptions are whole-line (trimmed) matches; a raw launch sharing a line with
+  // an exempt shape is NOT exempt.
+  const LIT = "--dangerously-skip-permissions";
+  const EXACT_OK = [
+    `_LOKI_PERM_ARGV=(${LIT})`,
+    `PROVIDER_AUTONOMOUS_FLAG="${LIT}"`,
+    `_LEGACY = ["${LIT}"]`,
+  ];
+  // file -> exact lines allowed only there (docs/display text, never a launch)
+  const FILE_LINES: Record<string, string[]> = {
+    "magic/core/debate.py": [`return ["${LIT}"]`], // import-failure fallback, only when the policy is unset
+    "autonomy/loki": [`claude ${LIT}`, `echo "Flag:        ${LIT}"`],
+  };
+  // Whole files scoped out, with a reason. Any raw launch in them is accepted.
+  const SCOPED_OUT: Record<string, string> = {
+    "dashboard/build_supervisor.py": "sandboxed fixed printf readiness probe must run Bash; a policy would cause a false auth failure",
+    "scripts/first-run-gate.sh": "benchmark raw-claude baseline arm and help-text stub, deliberately not policy-routed",
+    "scripts/b9-scoreboard.sh": "benchmark raw-claude baseline arms and help-text stub, deliberately not policy-routed",
+    "scripts/e2e-d65/stub-claude.sh": "stub claude help text only, not a launch",
+    "eval/loki10/harness.py": "eval harness raw-claude baseline arm, deliberately not policy-routed",
+    "benchmarks/bench/attribution.py": "benchmark raw-claude baseline arm (and its recorded command string); a policy would skew the A/B against Loki",
+    "benchmarks/bench/adapters/claude_code.py": "head-to-head adapter that runs stock Claude Code as the competitor arm, not a Loki launch",
+  };
+  const rawLaunches = (rel: string, text: string): string[] =>
+    text.split("\n").filter((l) => {
+      if (!l.includes(LIT)) return false;
+      const t = l.trim();
+      if (/^(#|\/\/|\*)/.test(t)) return false;
+      if (EXACT_OK.includes(t)) return false;
+      if ((FILE_LINES[rel] ?? []).includes(t)) return false;
+      return true;
+    });
+
+  it("P12-26b: guard flags raw launch shapes", () => {
+    expect(rawLaunches("autonomy/x.sh", `claude ${LIT} -p "$prompt"`).length).toBe(1);
+    expect(rawLaunches("autonomy/x.sh", `    claude ${LIT} -p "$prompt"`).length).toBe(1);
+    expect(rawLaunches("autonomy/x.sh", `_LOKI_PERM_ARGV=(${LIT}); claude ${LIT} -p x`).length).toBe(1);
+    expect(rawLaunches("autonomy/x.sh", `claude ${LIT}`).length).toBe(1); // heredoc line only exempt in autonomy/loki
+    expect(rawLaunches("autonomy/loki", `claude ${LIT}`).length).toBe(0);
+    expect(rawLaunches("autonomy/x.sh", `    _LOKI_PERM_ARGV=(${LIT})`).length).toBe(0);
+  });
+
+  it("P12-26b: no unlisted raw --dangerously-skip-permissions launch remains in autonomy/, providers/, dashboard/, magic/, scripts/, benchmarks/, eval/", () => {
+    const root = join(import.meta.dir, "../../..");
+    const out: string[] = [];
+    const check = (r: string): void => {
+      const bad = rawLaunches(r, readFileSync(join(root, r), "utf8"));
+      if (bad.length && !(r in SCOPED_OUT)) out.push(`${r}: ${(bad[0] ?? "").trim().slice(0, 100)}`);
+    };
+    const walk = (rel: string): void => {
+      for (const e of readdirSync(join(root, rel), { withFileTypes: true })) {
+        const r = `${rel}/${e.name}`;
+        if (e.isDirectory()) { if (!["node_modules", "__pycache__", "dist", ".git"].includes(e.name)) walk(r); continue; }
+        if (/\.(sh|py|ts|js|mjs)$/.test(e.name) || e.name === "loki") check(r);
+      }
+    };
+    for (const d of ["autonomy", "providers", "dashboard", "magic", "scripts", "benchmarks", "eval"]) walk(d);
+    expect(out).toEqual([]);
+  });
+
+  it("P12-26c: SDK path maps the policy to permissionMode via the same resolver", () => {
+    // legacy: the old default, byte-identical
+    const unset = { ...noManaged(), LOKI_PERMISSION_POLICY: "legacy" };
+    expect(sdkPermissionOptions(repo, unset)).toEqual({ permissionMode: "bypassPermissions", allowDangerouslySkipPermissions: true });
+    // compiled restrictive policy
+    writePolicy({ claude_permissions: { mode: "acceptEdits", allow: ["Read"], deny: ["Bash(rm:*)"] } });
+    expect(sdkPermissionOptions(repo, noManaged())).toEqual({
+      permissionMode: "acceptEdits", allowedTools: ["Read"], disallowedTools: ["Bash(rm:*)"],
+    });
+  });
+
+  it("P12-26c: SDK path never widens: repo bypass under a managed cap, and fail-closed plan", () => {
+    writePolicy({ claude_permissions: { mode: "bypassPermissions" } });
+    const managed = join(repo, "managed.json");
+    writeFileSync(managed, JSON.stringify({ permissions: { disableBypassPermissionsMode: "disable" } }));
+    expect(sdkPermissionOptions(repo, noManaged({ LOKI_MANAGED_SETTINGS: managed })).permissionMode).toBe("acceptEdits");
+    writePolicy("{not json");
+    expect(sdkPermissionOptions(repo, noManaged(), () => {}).permissionMode).toBe("plan");
+  });
+
+  it("works from the bundled dist layout (and fails closed to plan when the compiler is absent)", () => {
+    const root = join(import.meta.dir, "../../..");
+    const lay = join(repo, "layout");
+    mkdirSync(join(lay, "loki-ts", "dist"), { recursive: true });
+    const bundle = join(lay, "loki-ts", "dist", "loki.js");
+    const b = Bun.spawnSync(["bun", "build", join(root, "loki-ts/src/providers/claude_flags.ts"), "--target=bun", `--outfile=${bundle}`]);
+    expect(b.exitCode).toBe(0);
+    writePolicy({ claude_permissions: { mode: "acceptEdits", deny: ["Bash(rm:*)"] } });
+    const probe = `import { permissionArgv } from ${JSON.stringify(bundle)}; console.log(JSON.stringify(permissionArgv(${JSON.stringify(repo)})));`;
+    const run = (): string => {
+      const pf = join(lay, "probe.mjs");
+      writeFileSync(pf, probe);
+      const r = Bun.spawnSync(["bun", pf], { env: noManaged() });
+      return r.stdout.toString().trim();
+    };
+    // compiler absent from the layout: fail closed to plan, never skip-permissions
+    expect(JSON.parse(run())).toEqual(["--permission-mode", "plan"]);
+    mkdirSync(join(lay, "src", "policies"), { recursive: true });
+    copyFileSync(join(root, "src/policies/claude_permissions.js"), join(lay, "src", "policies", "claude_permissions.js"));
+    expect(JSON.parse(run())).toEqual(["--permission-mode", "acceptEdits", "--disallowedTools", "Bash(rm:*)"]);
+  });
+});
+
+describe("claude_flags.reviewerModelForTier (S9)", () => {
+  it("routes simple and standard tiers to haiku", () => {
+    for (const tier of ["simple", "standard", " SIMPLE "]) {
+      expect(reviewerModelForTier({ tier, reviewer: "test-coverage-auditor", env: {} })).toBe("haiku");
+    }
+  });
+  it("complex, unknown and absent tiers stay unpinned", () => {
+    expect(reviewerModelForTier({ tier: "complex", reviewer: "a", env: {} })).toBeNull();
+    expect(reviewerModelForTier({ tier: "bogus", reviewer: "a", env: {} })).toBeNull();
+    expect(reviewerModelForTier({ reviewer: "a", env: {} })).toBeNull();
+  });
+  it("never downgrades moat reviewers or HIGH-tier changes", () => {
+    expect(reviewerModelForTier({ tier: "simple", reviewer: "security-sentinel", env: {} })).toBeNull();
+    expect(reviewerModelForTier({ tier: "simple", reviewer: "devils-advocate", env: {} })).toBeNull();
+    expect(reviewerModelForTier({ tier: "simple", reviewer: "a", highTier: true, env: {} })).toBeNull();
+  });
+  it("LOKI_ADVISOR_MODEL keeps precedence; fable refused", () => {
+    expect(reviewerModelForTier({ tier: "complex", reviewer: "a", env: { LOKI_ADVISOR_MODEL: "opus" } })).toBe("opus");
+    expect(reviewerModelForTier({ tier: "simple", reviewer: "security-sentinel", env: { LOKI_ADVISOR_MODEL: "sonnet" } })).toBe("sonnet");
+    expect(reviewerModelForTier({ tier: "simple", reviewer: "a", env: { LOKI_ADVISOR_MODEL: "fable" } })).toBe("haiku");
+    expect(reviewerModelForTier({ tier: "complex", reviewer: "a", env: { LOKI_ADVISOR_MODEL: "fable" } })).toBeNull();
+  });
+  it("LOKI_REVIEWER_TIER_ROUTING=0 disables routing", () => {
+    expect(reviewerModelForTier({ tier: "simple", reviewer: "a", env: { LOKI_REVIEWER_TIER_ROUTING: "0" } })).toBeNull();
+  });
+});
+
+describe("claude_flags.leanReviewerFlags (S9)", () => {
+  const all = () => true;
+  it("emits --tools= as ONE argument, never --tools plus empty", () => {
+    const f = leanReviewerFlags({ env: {}, flagSupported: all });
+    expect(f).toContain("--tools=");
+    expect(f).not.toContain("--tools");
+    expect(f).not.toContain("");
+  });
+  it("--bare only with API key", () => {
+    expect(leanReviewerFlags({ env: { ANTHROPIC_API_KEY: "k" }, flagSupported: all })).toEqual(["--bare", "--tools="]);
+    const f = leanReviewerFlags({ env: {}, flagSupported: all });
+    expect(f).not.toContain("--bare");
+    expect(f[f.indexOf("--setting-sources") + 1]).toBe("project");
+    expect(f).toContain("--strict-mcp-config");
+    expect(f).toContain("--disable-slash-commands");
+  });
+  it("LOKI_BARE_SUBCALLS=0 disables --bare", () => {
+    expect(leanReviewerFlags({ env: { ANTHROPIC_API_KEY: "k", LOKI_BARE_SUBCALLS: "0" }, flagSupported: all })).not.toContain("--bare");
+  });
+  it("drops unsupported flags", () => {
+    const f = leanReviewerFlags({ env: {}, flagSupported: (x) => x !== "--tools" && x !== "--disable-slash-commands" });
+    expect(f).not.toContain("--tools=");
+    expect(f).not.toContain("--disable-slash-commands");
+  });
+  it("LOKI_LEAN_CHILDREN=0 disables all", () => {
+    expect(leanReviewerFlags({ env: { LOKI_LEAN_CHILDREN: "0", ANTHROPIC_API_KEY: "k" }, flagSupported: all })).toEqual([]);
+  });
+  it("defaults to the claude help cache", () => {
+    _resetClaudeHelpCacheForTest(null);
+    expect(leanReviewerFlags({ env: {} })).toEqual([]);
+    _resetClaudeHelpCacheForTest("--tools --setting-sources");
+    expect(leanReviewerFlags({ env: {} })).toEqual(["--setting-sources", "project", "--tools="]);
+    _resetClaudeHelpCacheForTest(null);
   });
 });

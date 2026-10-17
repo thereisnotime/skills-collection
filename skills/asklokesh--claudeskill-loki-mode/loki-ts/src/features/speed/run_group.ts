@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import type { Dag, Unit } from "../decompose.ts";
-import { freezeGroupContract, groupContractPath, parseContract } from "../contract.ts";
+import { assignCriteria, freezeGroupContract, groupContractPath, parseContract } from "../contract.ts";
 import { integrate } from "../../engine10/integrate.ts";
 import { integrateWithFixes, type FixUnit } from "./fix_units.ts";
 import type { receiptSha256 as ReceiptSha256Fn } from "../../engine10/stages/seal.ts";
@@ -20,6 +20,9 @@ import { safeGitSpawn } from "../../util/safe_git.ts";
 import { atomicWriteJson } from "../../util/atomic.ts";
 import { REPO_ROOT } from "../../util/paths.ts";
 import { discoverCommands } from "../../runner/repo_profile.ts";
+import { checkDecomposable } from "./decompose_check.ts";
+import { buildRepoMap } from "../../engine10/repomap.ts";
+import { createGroupFeed, createGroupRenderer } from "./group_output.ts";
 import { providerSlots, type GroupCtx } from "./route.ts";
 
 /** Seal and verify functions, injected by the caller outside features/ (D66 fence: features/ never value-imports seal or verify_cmd). */
@@ -30,9 +33,9 @@ export const NOT_PROVEN = 4;
 
 export interface BacklogRun { code: number; stdout: string }
 /** argv is the full python3 argument list after the interpreter; env is already scoped. */
-export type BacklogLauncher = (argv: string[], env: NodeJS.ProcessEnv, cwd: string) => Promise<BacklogRun>;
+export type BacklogLauncher = (argv: string[], env: NodeJS.ProcessEnv, cwd: string, onOut?: (chunk: string) => void) => Promise<BacklogRun>;
 
-const ENV_KEEP = /^(PATH|HOME|TMPDIR|LANG|LC_ALL|CI|SSH_AUTH_SOCK|GH_TOKEN|GITHUB_TOKEN|ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|OPENAI_API_KEY|LOKI_[A-Z0-9_]+|CLAUDE_[A-Z0-9_]+)$/;
+const ENV_KEEP = /^(PATH|HOME|USER|LOGNAME|SHELL|TMPDIR|LANG|LC_ALL|CI|SSH_AUTH_SOCK|GH_TOKEN|GITHUB_TOKEN|ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|OPENAI_API_KEY|LOKI_[A-Z0-9_]+|CLAUDE_[A-Z0-9_]+)$/;
 export function scopedEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {};
   for (const [k, v] of Object.entries(env)) if (v !== undefined && ENV_KEEP.test(k)) out[k] = v;
@@ -40,10 +43,46 @@ export function scopedEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return out;
 }
 
-const defaultLauncher: BacklogLauncher = (argv, env, cwd) => new Promise((resolve) => {
+/** Cost of one backlog.py launch, summed from its per-unit summary rows (`<label> $0.17 <status>`). usd is null when no unit reported a dollar figure: unknown is never $0. */
+export interface GroupCost { usd: number | null; measured: number; unmeasured: number }
+export function parseGroupCost(stdout: string): GroupCost {
+  const at = stdout.lastIndexOf("\nSummary:");
+  if (at < 0) return { usd: null, measured: 0, unmeasured: 0 }; // launcher died before its table: streamed lines are not unit rows
+  const tail = stdout.slice(at + 1);
+  let usd = 0, measured = 0, unmeasured = 0;
+  for (const m of tail.matchAll(/^(?!ITEM\b)\S+[ \t]+(\$[0-9]+(?:\.[0-9]+)?|unmeasured)[ \t]+\S/gm)) {
+    if (m[1] === "unmeasured") unmeasured++; else { usd += Number(m[1]!.slice(1)); measured++; }
+  }
+  return { usd: measured > 0 ? usd : null, measured, unmeasured };
+}
+/** One cost line for the group run, in the run-summary wording (`Cost:     $0.11` / `not measured`); partial when some units reported no figure, never $0.00 for an unknown. */
+export function groupCostLine(costs: GroupCost[], provider = "claude"): string {
+  const measured = costs.reduce((a, c) => a + c.measured, 0), unmeasured = costs.reduce((a, c) => a + c.unmeasured, 0);
+  if (measured === 0) return "Cost:     not measured\n";
+  const usd = costs.reduce((a, c) => a + (c.usd ?? 0), 0);
+  return unmeasured > 0 ? `Cost:     $${usd.toFixed(2)} partial (${provider}, ${measured} of ${measured + unmeasured} unit sessions measured)\n` : `Cost:     $${usd.toFixed(2)} (${provider}, ${measured} unit session${measured === 1 ? "" : "s"})\n`;
+}
+/** Roll group unit cost into the parent run's efficiency records (.loki/metrics/efficiency/iteration-*.json) so collect_efficiency, the receipt and the bench read it. One record per priced launch (cost_usd = its summed unit figures) and one per unmeasured unit (no cost_usd key), because collect_efficiency derives cost_partial from records lacking cost_usd and ignores a record's own cost_partial flag. Phase is "implement": the group units do implementation work and collect_efficiency has no group phase. */
+export function writeGroupCostRecord(repoDir: string, name: string, costs: GroupCost[], provider: string): void {
+  const dir = join(repoDir, ".loki", "metrics", "efficiency");
+  const timestamp = new Date().toISOString();
+  try {
+    const base = { phase: "implement", provider, status: "group", kind: "group_cost", timestamp }; // kind: the kpis reader excludes these from iteration_count
+    const recs: Record<string, unknown>[] = [];
+    for (const c of costs) {
+      if (c.measured > 0 && c.usd !== null) recs.push({ ...base, cost_usd: Number(c.usd.toFixed(6)), units_measured: c.measured });
+      for (let j = 0; j < c.unmeasured; j++) recs.push({ ...base, cost_unmeasured_reason: "unit reported no dollar figure" });
+    }
+    if (recs.length === 0) return;
+    mkdirSync(dir, { recursive: true });
+    recs.forEach((r, k) => atomicWriteJson(join(dir, `iteration-group-${name}-${String(k).padStart(3, "0")}.json`), r));
+  } catch { /* cost reporting never fails the run */ }
+}
+
+const defaultLauncher: BacklogLauncher = (argv, env, cwd, onOut) => new Promise((resolve) => {
   const child = spawn("python3", argv, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
   let out = "";
-  child.stdout.on("data", (b: Buffer) => { out += b.toString(); process.stderr.write(b); });
+  child.stdout.on("data", (b: Buffer) => { out += b.toString(); onOut?.(b.toString()); process.stderr.write(b); });
   child.stderr.on("data", (b: Buffer) => { process.stderr.write(b); });
   child.on("error", (e) => resolve({ code: 127, stdout: out + String(e) }));
   child.on("close", (c) => resolve({ code: c ?? 1, stdout: out }));
@@ -71,8 +110,11 @@ const readJson = (p: string): Record<string, unknown> | null => { try { const v 
 /** A unit as stored in dag.json: the decomposer's fields plus `spec` (abs path of its frozen unit spec) and `done` (backlog.py skips it). */
 type StoredUnit = Unit & { spec?: string; done?: boolean };
 
-/** Newest .loki/groups/<gid>/dag.json whose spec_sha256 equals specSha, or null. */
-function findResumable(repoDir: string, specSha: string): { gid: string; stored: Record<string, unknown> } | null {
+/** Hash of one unit's contract slice (criterion texts only: ids shift when criteria are inserted). */
+const sliceSha = (criteria: { text: string }[]): string => sha256(JSON.stringify(criteria.map((c) => c.text)));
+
+/** Newest .loki/groups/<gid>/dag.json whose spec_sha256 equals specSha (or, with unitIds, whose non-fix unit ids equal unitIds: a revised spec), or null. */
+function findResumable(repoDir: string, specSha: string, unitIds?: string[]): { gid: string; stored: Record<string, unknown> } | null {
   const root = join(repoDir, ".loki", "groups");
   let names: string[] = [];
   try { names = readdirSync(root); } catch { return null; }
@@ -80,7 +122,7 @@ function findResumable(repoDir: string, specSha: string): { gid: string; stored:
   for (const gid of names) {
     if (!GID_RE.test(gid)) continue;
     const p = join(root, gid, "dag.json"), d = readJson(p);
-    if (!d || d["spec_sha256"] !== specSha || typeof d["base_ref"] !== "string" || !Array.isArray(d["units"])) continue;
+    if (!d || (unitIds ? JSON.stringify((Array.isArray(d["units"]) ? (d["units"] as Partial<FixUnit>[]) : []).filter((u) => !u.fixKind).map((u) => u.id)) !== JSON.stringify(unitIds) : d["spec_sha256"] !== specSha) || typeof d["base_ref"] !== "string" || !Array.isArray(d["units"])) continue;
     let at = 0; try { at = statSync(p).mtimeMs; } catch { continue; }
     if (!best || at > best.at || (at === best.at && gid > best.gid)) best = { gid, stored: d, at };
   }
@@ -115,7 +157,11 @@ export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, 
   const { receiptSha256, verifyReceipt } = ctx.seal;
   const run = launcher ?? defaultLauncher;
   const specSha = sha256(ctx.spec);
-  const resumable = env.LOKI_GROUP_RESUME === "0" ? null : findResumable(repoDir, specSha);
+  const resumeOn = env.LOKI_GROUP_RESUME !== "0";
+  const exact = resumeOn ? findResumable(repoDir, specSha) : null;
+  const resumable = exact ?? (resumeOn ? findResumable(repoDir, specSha, dag.units.map((u) => u.id)) : null); // revised spec: same decomposition, different spec
+  const revised = resumable !== null && exact === null;
+  const changed = new Set<string>(); // revised spec: units whose contract slice hash changed (these rerun; the rest are skipped-unchanged)
   const groupId = resumable?.gid ?? `g${Date.now().toString(36)}`;
   const groupDir = join(repoDir, ".loki", "groups", groupId);
   const receiptPath = join(groupDir, "receipt.json");
@@ -141,14 +187,23 @@ export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, 
     startBranch = String(resumable.stored["start_branch"] ?? "");
     full = { units: resumable.stored["units"] as Unit[], sharedFiles: (resumable.stored["sharedFiles"] as string[] | undefined) ?? [], edges: (resumable.stored["edges"] as Dag["edges"] | undefined) ?? [] };
     units = full.units as StoredUnit[];
-    if (!existsSync(groupContractPath(repoDir, groupId))) {
+    if (revised) {
+      const next = assignCriteria(units, parseContract(ctx.spec, ctx.specPath ?? "").criteria).units;
+      const oldUnits = readJson(groupContractPath(repoDir, groupId))?.["units"];
+      const old = new Map<string, string>();
+      for (const cu of Array.isArray(oldUnits) ? (oldUnits as { id: string; criteria: { text: string }[] }[]) : []) old.set(cu.id, sliceSha(cu.criteria));
+      for (const nu of next) if (old.get(nu.id) !== sliceSha(nu.criteria)) changed.add(nu.id);
+      const f = freezeGroupContract(repoDir, groupId, units, parseContract(ctx.spec, ctx.specPath ?? ""));
+      if (!f.ok) { say(`loki: ${f.reason}\n`); return 1; }
+      for (const u of units) if (changed.has(u.id)) { const nd = dag.units.find((x) => x.id === u.id); if (nd) { u.items = nd.items; u.writeSet = nd.writeSet; } }
+    } else if (!existsSync(groupContractPath(repoDir, groupId))) {
       const f = freezeGroupContract(repoDir, groupId, units, parseContract(ctx.spec, ctx.specPath ?? ""));
       if (!f.ok) { say(`loki: ${f.reason}\n`); return 1; }
     }
     // A VERIFIED group receipt whose head is still the group branch re-verifies and finishes without launching anything.
     const rec = readJson(receiptPath);
     const tip = git(repoDir, ["rev-parse", "--verify", "--quiet", `refs/heads/loki/group-${groupId}`]);
-    if (rec && rec["verdict"] === "VERIFIED" && tip !== "" && rec["head_sha"] === tip && allUnitsVerified(unitVerdictsOf(rec)) && (await verifyReceipt(receiptPath)).verdict === "VERIFIED") {
+    if (changed.size === 0 && rec && rec["verdict"] === "VERIFIED" && tip !== "" && rec["head_sha"] === tip && allUnitsVerified(unitVerdictsOf(rec)) && (await verifyReceipt(receiptPath)).verdict === "VERIFIED") {
       say(`loki: resuming group ${groupId}: group receipt already VERIFIED on ${`loki/group-${groupId}`}; nothing to run\n`);
       return 0;
     }
@@ -180,8 +235,8 @@ export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, 
   // Resume bookkeeping: a unit is done only on a verified, head-matching harvest; anything else drops its stale harvest and reruns.
   let doneCount = 0;
   for (const [i, u] of units.entries()) {
-    u.done = resumable ? await unitDone(verifyReceipt, repoDir, groupId, i + 1, u.id) : false;
-    if (u.done) doneCount++;
+    u.done = resumable && !changed.has(u.id) ? await unitDone(verifyReceipt, repoDir, groupId, i + 1, u.id) : false;
+    if (u.done) { doneCount++; if (revised) say(`loki: unit ${u.id} skipped-unchanged\n`); }
     else if (resumable && UNIT_ID_RE.test(u.id)) rmSync(join(groupDir, "group", "units", u.id), { recursive: true, force: true });
   }
   // An unfinished fix unit (and every later one) is dropped: its base integration no longer exists; the fix loop re-derives it.
@@ -190,19 +245,28 @@ export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, 
   if (resumable) say(`loki: resuming group ${groupId}: ${doneCount} of ${units.length} units already VERIFIED\n`);
   const dagPath = join(groupDir, "dag.json");
   atomicWriteJson(dagPath, { group: groupId, spec_sha256: specSha, base_ref: baseRef, start_branch: startBranch, ...full, units });
+  // D61-09: report a heavily coupled backlog. Advisory only: it never changes the DAG, the slots or the exit code.
+  try {
+    const chk = await checkDecomposable(full, { map: (() => { try { return buildRepoMap(repoDir); } catch { return null; } })() });
+    if (chk.mode === "sequential") say(`loki: warning: backlog is not decomposable into parallel units (${chk.reason}); units still run, but coupled work may conflict at integration\n`);
+  } catch { /* advisory check failed: run unchanged */ }
 
   const { provider, slots } = providerSlots(env, ctx.provider);
   const pending = units.length - doneCount;
   const status = new Map<string, string>();
+  const costs: GroupCost[] = [];
   let launchCode = 0;
+  const costName = `${groupId}-${Date.now().toString(36)}`; // one record per invocation: a resumed group adds to earlier launches
   if (pending > 0) {
     const slug = slugOf();
     if (!slug) { say("loki: NOT PROVEN: group run needs an origin remote of the form owner/repo; no unit was started\n"); return 1; }
     const n = Math.min(slots, pending);
     say(`loki: group ${groupId}: ${units.length} units, ${n} parallel slot(s) (provider ${provider})\n`);
     const backlog = join(REPO_ROOT, "autonomy", "lib", "backlog.py");
-    const res = await run([backlog, slug, "--dag", dagPath, "--group", groupId, "--slots", String(n), "--provider", provider], scopedEnv({ ...env, LOKI_PROVIDER: provider }), repoDir);
+    const feed = createGroupFeed(groupId, units, createGroupRenderer({ write: say, isTTY: false })); // plain per-unit lines; a TTY repaint needs a raw stderr writer
+    const res = await run([backlog, slug, "--dag", dagPath, "--group", groupId, "--slots", String(n), "--provider", provider], scopedEnv({ ...env, LOKI_PROVIDER: provider }), repoDir, (c) => feed.feed(c));
     launchCode = res.code;
+    costs.push(parseGroupCost(res.stdout));
     // backlog prints `backlog: unit-<group>-<n> <status>`; a unit passed only when its status is VERIFIED or a PR url. Anything else is a fail.
     for (const m of res.stdout.matchAll(/^backlog: (unit-\S+) (VERIFIED|PR \S+|FAILED.*|BLOCKED.*|BUDGET_STOP.*|SKIPPED.*)$/gm)) status.set(m[1]!, m[2]!);
   }
@@ -213,6 +277,7 @@ export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, 
     if (u.done || /^(VERIFIED|PR )/.test(st)) branches[u.id] = `loki/${key}`; else failedUnits.push(u.id);
   });
   if (launchCode !== 0) say(`loki: unit launcher exit ${launchCode}; ${failedUnits.length} unit(s) did not pass\n`);
+  if (costs.length > 0) { say(groupCostLine(costs, provider)); writeGroupCostRecord(repoDir, costName, costs, provider); }
   if (Object.keys(branches).length === 0) { say("loki: FAILED: no unit passed; nothing to integrate\n"); return 1; }
 
   const testCmd = testCommand(repoDir, env), fixes = units.filter((u) => (u as Partial<FixUnit>).fixKind) as FixUnit[];
@@ -224,6 +289,7 @@ export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, 
     fix.spec = spec; fix.done = false; fix.base = git(repoDir, ["rev-parse", "HEAD"]); units.push(fix); // backlog.py starts the worktree at the group tip, not origin/HEAD
     putDag(units.map((u) => (u === fix ? u : { ...u, done: true })));
     const res = await run([join(REPO_ROOT, "autonomy", "lib", "backlog.py"), slug, "--dag", dagPath, "--group", groupId, "--slots", "1", "--provider", provider], scopedEnv({ ...env, LOKI_PROVIDER: provider }), repoDir);
+    costs.push(parseGroupCost(res.stdout));
     if (res.code !== 0 || !new RegExp(`^backlog: ${key} (VERIFIED|PR \\S+)$`, "m").test(res.stdout)) { units.pop(); return null; }
     fix.done = true;
     return `loki/${key}`;
@@ -231,6 +297,7 @@ export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, 
   const r = await integrateWithFixes({ repoDir, env, dag: { ...full, units: units.filter((u) => !(u as Partial<FixUnit>).fixKind) }, fixes, branches, failed: failedUnits, testCmd,
     io: { integrate: (dag, br, failed) => integrate({ repoDir, groupId, baseRef, dag, branches: br, failedUnits: failed, testCmd }), launch: launchFix, leave: dropGroupBranch, say } });
   if (fixes.length > 0) putDag(units);
+  if (costs.length > 1) { say(groupCostLine(costs, provider)); writeGroupCostRecord(repoDir, costName, costs, provider); } // fix units ran after the first line: restate the running total
   for (const [id, o] of Object.entries(r.perUnit)) say(`loki: unit ${id} ${o}\n`);
   if (!r.ok || launchCode !== 0) {
     say(`loki: FAILED: group not verified (${r.reason ?? "launcher reported a failed unit"})\n`);

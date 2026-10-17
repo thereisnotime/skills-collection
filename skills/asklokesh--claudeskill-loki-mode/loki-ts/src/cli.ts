@@ -21,8 +21,9 @@ Usage: loki <command> [args...]
 
 Bun-native commands:
   version                Print Loki Mode version
-  status [--json]        Show current orchestrator status
+  status [--json|--badge|--probe]  Show current orchestrator status
   stats [--json] [--efficiency]   Session statistics
+  pause | resume | cancel  Ask the active Loki 10 run to pause, resume or cancel at the next stage boundary
   intent show <run>      Print a past run's intent card and answer
   provider show [name]   Show current provider
   provider list          List available providers and install status
@@ -34,7 +35,7 @@ Bun-native commands:
   doctor [--json]        System prerequisites health check
   rollback <subcmd>      Restore .loki/ state from a checkpoint
                          (subcmds: list | show <id> | to <id> | latest)
-  undo <run-id> [--plan] Plan or apply (LOKI_UNDO=1) an undo of a run; verifies the receipt first
+  undo <run-id> [--plan|--dry-run] Plan or apply (LOKI_UNDO=1) an undo of a run; verifies the receipt first
   proof <subcmd>         Inspect/share proof-of-run artifacts
                          (subcmds: list | show <id> | open <id> | share <id>)
   wiki <subcmd>          Auto-generated, cited codebase wiki + Q&A
@@ -99,6 +100,13 @@ async function dispatch(argv: readonly string[]): Promise<number> {
     case "intent": {
       const { runIntentShow } = await import("./commands/run_status.ts");
       return runIntentShow(rest);
+    }
+
+    case "pause":
+    case "resume":
+    case "cancel": {
+      const { runControlVerb } = await import("./commands/run_status.ts");
+      return runControlVerb(cmd, process.env);
     }
 
     case "stats": {

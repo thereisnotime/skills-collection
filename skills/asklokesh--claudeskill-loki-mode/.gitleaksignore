@@ -135,3 +135,30 @@ dd61901dc34ca13c107c7f9800171f6cec2efe45:.gitleaksignore:generic-api-key:123
 1513583f087412b1930e114e9209594ef31bbf12:loki-ts/tests/util/fc90_credential_env.test.ts:github-oauth:11
 # FC-90 GH-KEYRING fixture, same planted fake gho_FAKEPLANTED canary: gitleaks 8.30.0 (CI pin) attributes it to merge commit 5aaec69ff, not 1513583f0
 5aaec69ff1738ed1948cf986dd7ff7db46d6537a:loki-ts/tests/util/fc90_credential_env.test.ts:github-oauth:11
+# TEN-QUALITY-01 redaction fixture: a planted fake AWS-format key in check_result.test.ts, not a credential
+9e3c999df88ff4352facedb00dac45fa138a64c8:loki-ts/tests/engine10/check_result.test.ts:aws-access-token:342
+9e3c999df88ff4352facedb00dac45fa138a64c8:loki-ts/tests/engine10/check_result.test.ts:aws-access-token:345
+d9f24cd7a3a54c3082b7bdb692c0a1e548435f0c:loki-ts/tests/engine10/check_result.test.ts:aws-access-token:342
+d9f24cd7a3a54c3082b7bdb692c0a1e548435f0c:loki-ts/tests/engine10/check_result.test.ts:aws-access-token:345
+fd027051c4ee351a9c1c9d26cf4d71e395ea25c1:loki-ts/tests/engine10/check_result.test.ts:aws-access-token:342
+fd027051c4ee351a9c1c9d26cf4d71e395ea25c1:loki-ts/tests/engine10/check_result.test.ts:aws-access-token:345
+bc0e97c6308c658927b3d540375e5bcba5807b0b:loki-ts/tests/engine10/check_result.test.ts:aws-access-token:342
+bc0e97c6308c658927b3d540375e5bcba5807b0b:loki-ts/tests/engine10/check_result.test.ts:aws-access-token:345
+# TEN-ADOPTION-01 demo receipt fixture: public EdDSA JWS signature and a project_model cache hash, no secret (pubkey.jwk has no d member)
+710d1289b90f8faf44a6fdeb6186322801dd156e:skills/fixtures/demo-receipt/receipt.json:jwt:114
+710d1289b90f8faf44a6fdeb6186322801dd156e:skills/fixtures/demo-receipt/events.jsonl:generic-api-key:6
+5eb2d7df8f75e7309244c2179c1ad10c8eea002b:skills/fixtures/demo-receipt/receipt.json:jwt:114
+5eb2d7df8f75e7309244c2179c1ad10c8eea002b:skills/fixtures/demo-receipt/events.jsonl:generic-api-key:6
+# TEN-ADOPTION-07 receipt gallery fixture: public EdDSA JWS signature, public key thumbprint (kid) and a cache hash, no secret (pubkey.jwk has no d member)
+d996f53d0972df736fc839b0fc3db03a88d6ebe0:examples/receipts/add-fix/VERIFY.md:generic-api-key:9
+d996f53d0972df736fc839b0fc3db03a88d6ebe0:examples/receipts/add-fix/receipt.json:jwt:114
+d996f53d0972df736fc839b0fc3db03a88d6ebe0:examples/receipts/add-fix/events.jsonl:generic-api-key:6
+d462b180ec95f4e6d6943cd7db1f5f2dc5a16847:examples/receipts/add-fix/VERIFY.md:generic-api-key:9
+d462b180ec95f4e6d6943cd7db1f5f2dc5a16847:examples/receipts/add-fix/receipt.json:jwt:114
+d462b180ec95f4e6d6943cd7db1f5f2dc5a16847:examples/receipts/add-fix/events.jsonl:generic-api-key:6
+
+# v11.17.40 test fixtures: TEN-ADOPTION-13 proof share --dry-run secret-scan test uses a patterned fake ghp_ token; TEN-SECURITY-04 redact test builds a synthetic PEM block from a template body. Neither is a real credential.
+bcd7a8214335dcbeb97b792cf5917b6a51b9f3e2:loki-ts/tests/commands/proof.test.ts:github-pat:359
+6da250f32a79e87bd1137daec452f53a028be0a1:loki-ts/tests/util/redact.test.ts:private-key:39
+719beb07763ef0975a4c74c6a19fb760c8208972:loki-ts/tests/commands/proof.test.ts:github-pat:359
+411c557f6118d6a7b57d4390d76af51692114ad4:loki-ts/tests/util/redact.test.ts:private-key:39

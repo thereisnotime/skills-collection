@@ -1,10 +1,11 @@
 // WC-01b: LOKI_E10_WALL_CONCURRENT=1 authors the Wall alongside plan and implement, installs once before verify.
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FLOW, runMachine } from "../../src/engine10/machine.ts";
+import { STEER_MAX_BYTES, staleAtSeal, staleReason, staleWallRevisions } from "../../src/util/steer.ts";
 import type { RunContext, Stage, StageName, StageResult } from "../../src/engine10/types.ts";
 
 type Ev = { type: string; stage: StageName | null; data: Record<string, unknown> };
@@ -13,10 +14,19 @@ const git = (cwd: string, ...a: string[]): string => execFileSync("git", ["-c", 
 const dirs: string[] = [];
 afterEach(() => { delete process.env.LOKI_E10_WALL_CONCURRENT; for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
 
+// Template repo built once; each test copies it instead of running git init/add/commit.
+let templateDir = "", templateSha = "";
+beforeAll(() => {
+  templateDir = mkdtempSync(join(tmpdir(), "loki-wc01b-tpl-"));
+  git(templateDir, "init", "-q"); writeFileSync(join(templateDir, "README.md"), "x\n"); git(templateDir, "add", "README.md"); git(templateDir, "commit", "-qm", "init");
+  templateSha = git(templateDir, "rev-parse", "HEAD").trim();
+});
+afterAll(() => { rmSync(templateDir, { recursive: true, force: true }); });
+
 function fixture() {
   const repoDir = mkdtempSync(join(tmpdir(), "loki-wc01b-repo-")); dirs.push(repoDir);
-  git(repoDir, "init", "-q"); writeFileSync(join(repoDir, "README.md"), "x\n"); git(repoDir, "add", "README.md"); git(repoDir, "commit", "-qm", "init");
-  const baseSha = git(repoDir, "rev-parse", "HEAD").trim();
+  cpSync(templateDir, repoDir, { recursive: true });
+  const baseSha = templateSha;
   const events: Ev[] = [], log: string[] = [];
   const ctx: RunContext = {
     runId: "wc01b", repoDir, runDir: join(repoDir, ".run"), baseSha, branch: "b", provider: "claude", model: "fake", deep: false, capS: 900,
@@ -68,7 +78,7 @@ describe("WC-01b wall concurrent", () => {
     expect(r.outputs.wall?.base_run).toEqual({ pass: 0, fail: 1, not_run: 0 });
     expect(bases[0]).not.toBe(f.repoDir); expect(bases[1]).toBe("base-has-wall");
     expect(existsSync(bases[0]!)).toBe(false); // base worktree removed
-  });
+  }, 15000);
   it("records deps:head when implement touched a manifest", async () => {
     process.env.LOKI_E10_WALL_CONCURRENT = "1";
     const f = fixture(), r = await run(f, stages(f, { implement: (repo) => writeFileSync(join(repo, "package.json"), "{}\n") }));
@@ -92,5 +102,72 @@ describe("WC-01b wall concurrent", () => {
     const r = await run(f, s);
     expect(f.log).toEqual(["intake", "plan", "wall:seq", "implement:start", "implement:tree:clean", "verify", "commit", "seal", "pr"]);
     expect(r.outputs.wall).toEqual({ readOnlyFiles: [], duration_s: expect.any(Number) }); // duration_s is stamped on every completed stage (RECEIPT-TRUTH)
+  });
+  it("P12-02: a steer consumed during implement is stale against the concurrent Wall (timeline gets the wall start)", async () => {
+    process.env.LOKI_E10_WALL_CONCURRENT = "1";
+    const f = fixture(), s = stages(f, { authorMs: 80 });
+    f.ctx.sessions = { run: async () => ({ exit: 0, durationMs: 1, text: "", stderrTail: "" }) as never };
+    let stale: number[] = [];
+    s.implement = { name: "implement", targetS: 1, limitS: 5, run: async (c: RunContext) => {
+      mkdirSync(join(f.repoDir, ".loki"), { recursive: true }); writeFileSync(join(f.repoDir, ".loki", "HUMAN_INPUT.md"), "## Operator directive rev 1 (t) actor=a source=chat\nchange it\n");
+      await sleep(5); await c.sessions.run({ stage: "implement", brief: "b" } as never); return { status: "completed", data: {} };
+    } };
+    s.seal = { name: "seal", targetS: 1, limitS: 5, run: async (c: RunContext) => { stale = staleWallRevisions(c.intentRevisions, c.timeline).map((r) => r.rev); return { status: "completed", data: {} }; } };
+    await run(f, s);
+    expect(stale).toEqual([1]);
+  });
+  it("P12-07d: the sequential Wall path also records start_ms", async () => {
+    const f = fixture(), s = stages(f);
+    s.wall = { name: "wall", targetS: 1, limitS: 5, run: async () => ({ status: "completed", data: { readOnlyFiles: [] } }) };
+    await run(f, s);
+    expect(typeof f.events.find((e) => e.type === "stage.started" && e.stage === "wall")?.data.start_ms).toBe("number");
+  });
+  it("P12-07d: the machine emits the applied revisions and the wall start so a resume can restore them", async () => {
+    process.env.LOKI_E10_WALL_CONCURRENT = "1";
+    const f = fixture(), s = stages(f, { authorMs: 80 });
+    f.ctx.sessions = { run: async () => ({ exit: 0, durationMs: 1, text: "", stderrTail: "" }) as never };
+    s.implement = { name: "implement", targetS: 1, limitS: 5, run: async (c: RunContext) => {
+      mkdirSync(join(f.repoDir, ".loki"), { recursive: true }); writeFileSync(join(f.repoDir, ".loki", "HUMAN_INPUT.md"), "## Operator directive rev 1 (t) actor=a source=chat\nchange it\n");
+      await sleep(5); await c.sessions.run({ stage: "implement", brief: "b" } as never); return { status: "completed", data: {} };
+    } };
+    await run(f, s);
+    expect((f.events.find((e) => e.type === "intent.revised")?.data.revisions as { rev: number }[]).map((r) => r.rev)).toEqual([1]);
+    expect(typeof f.events.find((e) => e.type === "stage.started" && e.stage === "wall")?.data.start_ms).toBe("number");
+  });
+  describe("P12-02b: following the Seal refusal remedy produces a run that seals", () => {
+    const HDR = "## Operator directive rev 1 (t) actor=a source=chat\n";
+    // Plan consumes a steer present at run start (plan||wall start together), Seal applies the real staleness check.
+    const attempt = async (f: ReturnType<typeof fixture>) => {
+      f.ctx.intentRevisions = undefined; f.ctx.timeline = undefined; f.log.length = 0;
+      const s = stages(f), out: { status: string; reason?: string } = { status: "?" };
+      s.plan = { name: "plan", targetS: 1, limitS: 5, run: async (c: RunContext) => { await c.sessions.run({ stage: "plan", brief: "b" } as never); return { status: "completed", data: {} }; } };
+      s.seal = { name: "seal", targetS: 1, limitS: 5, run: async (c: RunContext) => { const st = staleAtSeal(c.repoDir, c); out.status = st.length ? "failed" : "completed"; if (st.length) out.reason = staleReason(st); return { status: "completed", data: {} }; } };
+      f.ctx.sessions = { run: async () => ({ exit: 0, durationMs: 1, text: "", stderrTail: "" }) as never };
+      await run(f, s); return out;
+    };
+    const cases: [string, (repo: string) => void, (repo: string) => void][] = [
+      ["symlink", (r) => symlinkSync("/dev/null", join(r, ".loki/HUMAN_INPUT.md")), () => undefined],
+      ["not a regular file", (r) => mkdirSync(join(r, ".loki/HUMAN_INPUT.md")), (r) => rmSync(join(r, ".loki/HUMAN_INPUT.md"), { recursive: true })],
+      ["over 1 MiB", (r) => writeFileSync(join(r, ".loki/HUMAN_INPUT.md"), `${HDR}${"x".repeat(STEER_MAX_BYTES + 1)}`), () => undefined],
+      ["logs dir unwritable or file unreadable", (r) => { writeFileSync(join(r, ".loki/logs"), "f"); writeFileSync(join(r, ".loki/HUMAN_INPUT.md"), `${HDR}go\n`); }, (r) => { rmSync(join(r, ".loki/HUMAN_INPUT.md")); rmSync(join(r, ".loki/logs")); mkdirSync(join(r, ".loki/logs")); }],
+    ];
+    for (const [reason, setup, remedy] of cases) {
+      it(`${reason}: refused, then the remedy leaves a run that seals`, async () => {
+        process.env.LOKI_E10_WALL_CONCURRENT = "1";
+        const f = fixture(); mkdirSync(join(f.repoDir, ".loki"), { recursive: true }); setup(f.repoDir);
+        const first = await attempt(f);
+        expect(first.status).toBe("failed");
+        expect(first.reason).toContain(`(${reason})`); expect(first.reason).toContain('delete .loki/HUMAN_INPUT.md and re-run with loki "<task with the steer folded in>"');
+        // Follow the remedy exactly: delete .loki/HUMAN_INPUT.md (and make .loki/logs writable); the steer is folded into the task, not left in place.
+        remedy(f.repoDir); expect(lstatSync(join(f.repoDir, ".loki/HUMAN_INPUT.md"), { throwIfNoEntry: false })).toBeUndefined();
+        expect((await attempt(f)).status).toBe("completed");
+      });
+    }
+    it("control: leaving the steer in place (the old remedy) is refused again", async () => {
+      process.env.LOKI_E10_WALL_CONCURRENT = "1";
+      const f = fixture(); mkdirSync(join(f.repoDir, ".loki"), { recursive: true });
+      writeFileSync(join(f.repoDir, ".loki/HUMAN_INPUT.md"), `${HDR}go\n`);
+      expect((await attempt(f)).status).toBe("failed");
+    });
   });
 });

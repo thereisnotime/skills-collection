@@ -1,6 +1,6 @@
 // D51-A4: pr_opened / blocked / finished post well-formed Slack payloads to a local mock webhook.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { notifyEvent } from "../../src/e10ext/slack_events.ts";
+import { notifyEvent } from "../../src/util/slack_events.ts";
 
 const bodies: any[] = [];
 let server: ReturnType<typeof Bun.serve>;
@@ -33,7 +33,17 @@ describe("slack events", () => {
     await notifyEvent({ LOKI_SLACK_WEBHOOK_URL: url }, "finished", { summary: "Outcome: VERIFIED", outcome: "VERIFIED", cost: "$1.50", time: "61s" });
     expect(bodies).toHaveLength(1);
     expect([field(bodies[0], "Outcome"), field(bodies[0], "Cost"), field(bodies[0], "Time")]).toEqual(["VERIFIED", "$1.50", "61s"]);
-    expect(bodies[0].text).toBe("Outcome: VERIFIED");
+    expect(bodies[0].text).toBe("Outcome: VERIFIED\nreceipt (unattested)");
+  });
+  test("finished shows the stored receipt verdict, TAMPERED never VERIFIED, (unattested) when none", async () => {
+    const run = async (receipt?: string) => { bodies.length = 0; await notifyEvent({ LOKI_SLACK_WEBHOOK_URL: url }, "finished", { summary: "Outcome: X", outcome: "VERIFIED", receipt }); return bodies[0]; };
+    const ok = await run("VERIFIED"), bad = await run("TAMPERED"), none = await run(undefined);
+    expect(field(ok, "Receipt")).toBe("VERIFIED");
+    expect(field(bad, "Receipt")).toBe("TAMPERED");
+    expect(JSON.stringify(bad)).not.toContain("Receipt\",\"value\":\"VERIFIED");
+    expect(field(none, "Receipt")).toBe("(unattested)");
+    expect(bad.text).toContain("receipt TAMPERED");
+    expect(none.text).toContain("(unattested)");
   });
   test("no webhook set: nothing posted, no error", async () => {
     bodies.length = 0;

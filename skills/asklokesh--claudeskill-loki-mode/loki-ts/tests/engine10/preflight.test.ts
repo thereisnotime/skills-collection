@@ -9,12 +9,14 @@
 // identity" case. Every repo fixture pins HOME to an empty temp dir and
 // blanks GIT_CONFIG_GLOBAL/GIT_CONFIG_SYSTEM so the check is hermetic.
 import { afterAll, describe, expect, test } from "bun:test";
-import { requirementFix } from "../../src/commands/doctor.ts";
+import { providerProbeEnv, requirementFix } from "../../src/commands/doctor.ts";
+import { withholdGithubTokens } from "../../src/runner/github_token.ts";
+import { GITHUB_TOKEN_VARS, SENTINEL_PREFIX } from "../../src/util/credential_env.ts";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkPreflight, PreflightError } from "../../src/engine10/preflight.ts";
+import { assertPreflight, checkPreflight, PreflightError } from "../../src/engine10/preflight.ts";
 import { runSupervisor } from "../../src/engine10/supervisor.ts";
 
 const PREFLIGHT_TS = join(import.meta.dir, "..", "..", "src", "engine10", "preflight.ts");
@@ -61,7 +63,7 @@ function pathWithOnlyGit(): string {
 
 describe("checkPreflight", () => {
   test("not a git work tree is fatal", async () => {
-    const dir = tmpRoot("e10-pf-notrepo-");
+    const dir = tmpRoot("e10-pf-notrepo-"); writeFileSync(join(dir, "f.txt"), "x");
     const r = await checkPreflight({ repoDir: dir, provider: "claude", pr: false, env: { PATH: process.env.PATH ?? "" } });
     expect(r.fatal).toContain("not a git repository");
   });
@@ -158,7 +160,7 @@ describe("runSupervisor forwards opts.env to preflight", () => {
 
 describe("preflight() wrapper", () => {
   test("exits 2 with the fatal line on stderr and leaves no .loki/runs dir", () => {
-    const dir = tmpRoot("e10-pf-wrapper-"); // deliberately not a git repo
+    const dir = tmpRoot("e10-pf-wrapper-"); writeFileSync(join(dir, "f.txt"), "x"); // non-empty so never auto-initialised; deliberately not a git repo
     const code = [
       `const { preflight } = await import(${JSON.stringify(PREFLIGHT_TS)});`,
       `await preflight({ repoDir: ${JSON.stringify(dir)}, provider: "claude", pr: false, env: { PATH: process.env.PATH } });`,
@@ -169,5 +171,305 @@ describe("preflight() wrapper", () => {
     expect(res.stderr).toContain("not a git repository");
     expect(res.stdout).not.toContain("UNREACHABLE");
     expect(existsSync(join(dir, ".loki", "runs"))).toBe(false);
+  });
+});
+
+describe("first run (TEN-UX-01)", () => {
+  function emptyFolder(): { dir: string; env: Record<string, string> } {
+    const dir = tmpRoot("e10-pf-empty-");
+    const home = tmpRoot("e10-pf-home-");
+    const gc = join(home, "gitconfig");
+    writeFileSync(gc, "[user]\n\tname = t\n\temail = t@t.test\n");
+    return { dir, env: { PATH: process.env.PATH ?? "", HOME: home, GIT_CONFIG_GLOBAL: gc, GIT_CONFIG_SYSTEM: "/dev/null" } };
+  }
+  function fakeClaude(out: string, exit = 0): { cli: string; marker: string } {
+    const d = tmpRoot("e10-pf-claude-");
+    const marker = join(d, "called");
+    const cli = join(d, "claude");
+    writeFileSync(cli, `#!/bin/sh\ntouch '${marker}'\n${out ? `echo '${out}'\n` : ""}exit ${exit}\n`);
+    chmodSync(cli, 0o755);
+    return { cli, marker };
+  }
+  const opts = (dir: string, env: Record<string, string>) => ({ repoDir: dir, provider: "claude", pr: false, env });
+
+  test("empty folder, no repo: initialised with a commit and one notice", async () => {
+    const { dir, env } = emptyFolder();
+    const r = await checkPreflight(opts(dir, { ...env, LOKI_CLAUDE_CLI: stubCli() }));
+    expect(r.fatal).toBeNull();
+    expect(existsSync(join(dir, ".git"))).toBe(true);
+    expect(execFileSync("git", ["-C", dir, "rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8", env }).trim()).toBe("main");
+    expect(r.warnings.filter((w) => w.startsWith("initialized a new git repository in"))).toEqual([`initialized a new git repository in ${dir} (LOKI_AUTO_GIT_INIT=0 to refuse)`]);
+  });
+
+  test("folder with a file and no repo stays fatal and untouched", async () => {
+    const { dir, env } = emptyFolder();
+    writeFileSync(join(dir, "a.txt"), "x");
+    const r = await checkPreflight(opts(dir, { ...env, LOKI_CLAUDE_CLI: stubCli() }));
+    expect(r.fatal).toContain("git init && git add . && git commit -m init");
+    expect(existsSync(join(dir, ".git"))).toBe(false);
+  });
+
+  test("LOKI_AUTO_GIT_INIT=0 refuses on an empty folder", async () => {
+    const { dir, env } = emptyFolder();
+    const r = await checkPreflight(opts(dir, { ...env, LOKI_AUTO_GIT_INIT: "0", LOKI_CLAUDE_CLI: stubCli() }));
+    expect(r.fatal).toContain("not a git repository");
+    expect(existsSync(join(dir, ".git"))).toBe(false);
+  });
+
+  // TEN-UX-01-F1: the real start entry (supervisor main) must reach initEmptyRepo before its own repo check.
+  function startIn(dir: string, env: Record<string, string>) {
+    const code = `import { main } from ${JSON.stringify(join(import.meta.dir, "..", "..", "src", "engine10", "supervisor.ts"))}; process.exit(await main(["fix the bug"]));`;
+    const script = join(tmpRoot("e10-pf-entry-"), "entry.ts"); // main reads process.argv[1], so a real file, not -e
+    writeFileSync(script, code);
+    return spawnSync(process.execPath, [script], { cwd: dir, encoding: "utf8", timeout: 60000, env: { ...env, LOKI_SPEED: "0", LOKI_CLAUDE_CLI: fakeClaude('{"loggedIn":false}').cli } });
+  }
+
+  test("start entry in an empty folder initialises the repo and gets past the repo check", () => {
+    const { dir, env } = emptyFolder();
+    const r = startIn(dir, env);
+    expect(r.stderr).not.toContain("not inside a git repository");
+    expect(r.stderr).toContain("initialized a new git repository in");
+    expect(r.stderr).toContain("claude login (or set ANTHROPIC_API_KEY)");
+    expect(existsSync(join(dir, ".git"))).toBe(true);
+    expect(r.status).toBe(2);
+  });
+
+  test("start entry in a non-empty folder keeps the named git init fix and touches nothing", () => {
+    const { dir, env } = emptyFolder();
+    writeFileSync(join(dir, "a.txt"), "x");
+    const r = startIn(dir, env);
+    expect(r.stderr).toContain("git init && git add . && git commit -m init");
+    expect(existsSync(join(dir, ".git"))).toBe(false);
+    expect(r.status).toBe(2);
+  });
+
+  test("claude loggedIn:false is fatal and names the fix", async () => {
+    const { dir, env } = identifiedRepo();
+    const { cli } = fakeClaude('{"loggedIn":false}');
+    const r = await checkPreflight(opts(dir, { ...env, LOKI_CLAUDE_CLI: cli }));
+    expect(r.fatal).toContain("claude login (or set ANTHROPIC_API_KEY)");
+  });
+
+  test("unknown login answer is a warning, never fatal", async () => {
+    const { dir, env } = identifiedRepo();
+    for (const f of [fakeClaude("{}"), fakeClaude("", 1)]) {
+      const r = await checkPreflight(opts(dir, { ...env, LOKI_CLAUDE_CLI: f.cli }));
+      expect(r.fatal).toBeNull();
+      expect(r.warnings.filter((w) => w.includes("claude auth status"))).toHaveLength(1);
+    }
+  });
+
+  test("TEN-UX-12: a silent first probe that answers on the retry adds no warning", async () => {
+    const { dir, env } = identifiedRepo();
+    const d = tmpRoot("e10-pf-flaky-"); const cli = join(d, "claude"); const n = join(d, "n");
+    writeFileSync(cli, `#!/bin/sh\nif [ -f '${n}' ]; then echo '{"loggedIn":true}'; else touch '${n}'; fi\nexit 0\n`); chmodSync(cli, 0o755);
+    const r = await checkPreflight(opts(dir, { ...env, LOKI_CLAUDE_CLI: cli }));
+    expect(r.fatal).toBeNull();
+    expect(r.warnings.filter((w) => w.includes("claude auth status"))).toHaveLength(0);
+  });
+
+  test("TEN-UX-12: a persistently unanswered probe warns on stderr only, never stdout", async () => {
+    const { dir, env } = identifiedRepo();
+    const so = process.stdout.write, se = process.stderr.write; let out = "", err = "";
+    process.stdout.write = ((c: string | Uint8Array) => { out += String(c); return true; }) as typeof process.stdout.write;
+    process.stderr.write = ((c: string | Uint8Array) => { err += String(c); return true; }) as typeof process.stderr.write;
+    try { await assertPreflight(opts(dir, { ...env, LOKI_CLAUDE_CLI: fakeClaude("", 1).cli })); } finally { process.stdout.write = so; process.stderr.write = se; }
+    expect(out).toBe("");
+    expect(err.trim().split("\n").filter((l) => l.includes("could not confirm the Claude login"))).toHaveLength(1);
+  });
+
+  test("loggedIn:true is clean", async () => {
+    const { dir, env } = identifiedRepo();
+    const r = await checkPreflight(opts(dir, { ...env, LOKI_CLAUDE_CLI: fakeClaude('{"loggedIn":true}').cli }));
+    expect(r.fatal).toBeNull();
+    expect(r.warnings.filter((w) => w.includes("claude auth status"))).toHaveLength(0);
+  });
+
+  test("the login probe spawns the provider CLI without the GitHub token or SSH agent (P9, TEN-P9-FIX)", async () => {
+    const { dir, env } = identifiedRepo();
+    const d = tmpRoot("e10-pf-claude-env-");
+    const dump = join(d, "env.txt");
+    const cli = join(d, "claude");
+    writeFileSync(cli, `#!/bin/sh\nenv > '${dump}'\necho '{"loggedIn":true}'\n`);
+    chmodSync(cli, 0o755);
+    const canary = "ghp_PFCANARYtokenzzzzzzzzzzzzzzzzzzzz";
+    const r = await checkPreflight(opts(dir, { ...env, GH_TOKEN: canary, GITHUB_TOKEN: canary, SSH_AUTH_SOCK: join(d, "agent.sock"), GIT_SSH_COMMAND: "ssh", LOKI_CLAUDE_CLI: cli }));
+    expect(r.fatal).toBeNull();
+    const seen = readFileSync(dump, "utf8");
+    expect(seen).not.toContain(canary);
+    expect(seen).not.toMatch(/^SSH_AUTH_SOCK=/m);
+    expect(seen).toMatch(/^GIT_SSH_COMMAND=false$/m);
+    expect(seen).toMatch(/^GIT_CONFIG_KEY_\d+=credential\.helper$/m);
+  });
+
+  // TEN-P9-FIX-F1: the probe env is built BY withholdGithubTokens, not a hand-built copy of it. Every key that function sets,
+  // changes or deletes on this input must reach the spawned CLI the same way, so a channel added there later (an askpass
+  // var, a new GIT_CONFIG pair) is withheld from the probe with no doctor.ts edit. Token vars carry a fresh sentinel per call,
+  // so they are compared by prefix; everything else by exact value or absence.
+  const parseEnv = (dump: string): Map<string, string> => {
+    const m = new Map<string, string>();
+    for (const line of dump.split("\n")) { const i = line.indexOf("="); if (i > 0 && /^[A-Za-z_][A-Za-z0-9_]*$/.test(line.slice(0, i))) m.set(line.slice(0, i), line.slice(i + 1)); }
+    return m;
+  };
+  function expectWithheldLike(input: Record<string, string>, seen: Map<string, string>): number {
+    const ref: NodeJS.ProcessEnv = { ...input };
+    withholdGithubTokens(ref, () => {});
+    let touched = 0;
+    for (const k of new Set([...Object.keys(input), ...Object.keys(ref)])) {
+      if (ref[k] === input[k]) continue;
+      touched++;
+      if (ref[k] === undefined) expect([k, seen.has(k)]).toEqual([k, false]);
+      else if ((GITHUB_TOKEN_VARS as readonly string[]).includes(k)) expect([k, seen.get(k)?.startsWith(SENTINEL_PREFIX)]).toEqual([k, true]);
+      // the empty gh config dir is per process: another process (the bun cli child) mints its own
+      else if (k === "GH_CONFIG_DIR" && seen.get(k) !== ref[k]) expect([k, /\/loki-gh-config-[^/]+$/.test(seen.get(k) ?? "")]).toEqual([k, true]);
+      else expect([k, seen.get(k)]).toEqual([k, ref[k]]);
+    }
+    return touched;
+  }
+  const P9_INPUT = (d: string): Record<string, string> => ({
+    GH_TOKEN: "ghp_PFCANARYtokenzzzzzzzzzzzzzzzzzzzz", GITHUB_TOKEN: "ghp_PFCANARYtokenzzzzzzzzzzzzzzzzzzzz",
+    GH_ENTERPRISE_TOKEN: "ghp_PFCANARYtokenzzzzzzzzzzzzzzzzzzzz", GITHUB_ENTERPRISE_TOKEN: "ghp_PFCANARYtokenzzzzzzzzzzzzzzzzzzzz",
+    SSH_AUTH_SOCK: join(d, "agent.sock"), GIT_SSH_COMMAND: "ssh", GIT_ASKPASS: join(d, "askpass"), SSH_ASKPASS: join(d, "askpass"),
+    GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "user.name", GIT_CONFIG_VALUE_0: "t", GIT_CONFIG_PARAMETERS: "'credential.helper'='store'",
+    GIT_TERMINAL_PROMPT: "1", GCM_INTERACTIVE: "always",
+  });
+
+  test("the login probe env equals withholdGithubTokens on every channel it touches (TEN-P9-FIX-F1)", async () => {
+    const { dir, env } = identifiedRepo();
+    const d = tmpRoot("e10-pf-claude-same-");
+    const dump = join(d, "env.txt");
+    const cli = join(d, "claude");
+    writeFileSync(cli, `#!/bin/sh\nenv > '${dump}'\necho '{"loggedIn":true}'\n`);
+    chmodSync(cli, 0o755);
+    const input = { ...env, ...P9_INPUT(d), LOKI_CLAUDE_CLI: cli };
+    const r = await checkPreflight(opts(dir, input));
+    expect(r.fatal).toBeNull();
+    const seen = parseEnv(readFileSync(dump, "utf8"));
+    expect(expectWithheldLike(input, seen)).toBeGreaterThanOrEqual(8);
+    // The helper doctor uses for every provider spawn (login probe and --round-trip) agrees in-process too, and never mutates.
+    const before = { ...input };
+    const probe = providerProbeEnv(input);
+    expect(input).toEqual(before);
+    expectWithheldLike(input, new Map(Object.entries(probe).filter((e): e is [string, string] => e[1] !== undefined)));
+  });
+
+  test("operator opt-out keeps the probe env untouched, as withholdGithubTokens does for the session", () => {
+    const d = tmpRoot("e10-pf-claude-optout-");
+    const input = { ...P9_INPUT(d), LOKI_ALLOW_AGENT_GITHUB_TOKEN: "1" };
+    expect(providerProbeEnv(input)).toEqual(input);
+    // exact-string opt-out: a value that merely reads as true (or numerically equals 1) still withholds
+    for (const v of ["01", "true", " 1", "1.0"]) expect([v, providerProbeEnv({ ...input, LOKI_ALLOW_AGENT_GITHUB_TOKEN: v })["GH_TOKEN"]?.startsWith(SENTINEL_PREFIX)]).toEqual([v, true]);
+  });
+
+  test("bun cli doctor: the login probe never sees the GitHub token (real entry path, TEN-P9-FIX-F1)", () => {
+    const d = tmpRoot("e10-pf-doctor-");
+    const dump = join(d, "env.txt");
+    writeFileSync(join(d, "claude"), `#!/bin/sh\nif [ "$1" = auth ]; then env > '${dump}'; echo '{"loggedIn":true}'; exit 0; fi\necho "2.1.99 (Claude Code)"\n`);
+    chmodSync(join(d, "claude"), 0o755);
+    const base: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) if (v !== undefined && k !== "ANTHROPIC_API_KEY" && k !== "CLAUDE_CODE_OAUTH_TOKEN") base[k] = v;
+    const input = { ...base, ...P9_INPUT(d), PATH: `${d}:${process.env.PATH ?? ""}` };
+    const r = spawnSync("bun", [join(import.meta.dir, "..", "..", "src", "cli.ts"), "doctor"], { env: input, encoding: "utf8", timeout: 60000 });
+    expect(r.stdout).toContain("Claude CLI is logged in");
+    const raw = readFileSync(dump, "utf8");
+    expect(raw).not.toContain("PFCANARY");
+    expectWithheldLike(input, parseEnv(raw));
+  }, 90000);
+
+  test("ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN skips the probe", async () => {
+    const { dir, env } = identifiedRepo();
+    for (const k of ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"]) {
+      const f = fakeClaude('{"loggedIn":false}');
+      const r = await checkPreflight(opts(dir, { ...env, [k]: "x", LOKI_CLAUDE_CLI: f.cli }));
+      expect(r.fatal).toBeNull();
+      expect(existsSync(f.marker)).toBe(false);
+    }
+  });
+});
+
+describe("TEN-SPEED-05: login probe reuse", () => {
+  function counting(out: string): { cli: string; count: () => number } {
+    const d = tmpRoot("e10-pf-cnt-"); const cli = join(d, "claude"); const log = join(d, "log");
+    writeFileSync(cli, `#!/bin/sh\necho x >> '${log}'\n${out ? `echo '${out}'\n` : ""}exit 0\n`); chmodSync(cli, 0o755);
+    return { cli, count: () => (existsSync(log) ? readFileSync(log, "utf8").trim().split("\n").length : 0) };
+  }
+  const o = (dir: string, env: Record<string, string>) => ({ repoDir: dir, provider: "claude", pr: false, env });
+  const cacheFile = (env: Record<string, string>) => join(env.HOME ?? "", ".loki", "claude-login-ok.json");
+
+  test("two starts inside 10 min spawn the probe once", async () => {
+    const { dir, env } = identifiedRepo(); const c = counting('{"loggedIn":true}'); const e = { ...env, LOKI_CLAUDE_CLI: c.cli };
+    expect((await checkPreflight(o(dir, e))).fatal).toBeNull();
+    expect((await checkPreflight(o(dir, e))).fatal).toBeNull();
+    expect(c.count()).toBe(1);
+  });
+
+  test("a logged-out probe is never cached", async () => {
+    const { dir, env } = identifiedRepo(); const c = counting('{"loggedIn":false}'); const e = { ...env, LOKI_CLAUDE_CLI: c.cli };
+    expect((await checkPreflight(o(dir, e))).fatal).toContain("not logged in");
+    expect((await checkPreflight(o(dir, e))).fatal).toContain("not logged in");
+    expect(c.count()).toBe(2);
+    expect(existsSync(cacheFile(e))).toBe(false);
+  });
+
+  test("an unanswered probe is never cached", async () => {
+    const { dir, env } = identifiedRepo(); const c = counting(""); const e = { ...env, LOKI_CLAUDE_CLI: c.cli };
+    await checkPreflight(o(dir, e)); const first = c.count(); await checkPreflight(o(dir, e));
+    expect(c.count()).toBe(first * 2);
+  });
+
+  test("an expired entry re-probes; a different CLI path re-probes", async () => {
+    const { dir, env } = identifiedRepo(); const c = counting('{"loggedIn":true}'); const e = { ...env, LOKI_CLAUDE_CLI: c.cli };
+    await checkPreflight(o(dir, e));
+    writeFileSync(cacheFile(e), JSON.stringify({ cli: c.cli, at: Date.now() - 10 * 60 * 1000 - 1000 }));
+    await checkPreflight(o(dir, e)); expect(c.count()).toBe(2);
+    const c2 = counting('{"loggedIn":true}');
+    await checkPreflight(o(dir, { ...e, LOKI_CLAUDE_CLI: c2.cli })); expect(c2.count()).toBe(1);
+  });
+
+  test("a corrupt cache file re-probes without crashing", async () => {
+    const { dir, env } = identifiedRepo(); const c = counting('{"loggedIn":true}'); const e = { ...env, LOKI_CLAUDE_CLI: c.cli };
+    await checkPreflight(o(dir, e)); writeFileSync(cacheFile(e), "{not json");
+    expect((await checkPreflight(o(dir, e))).fatal).toBeNull(); expect(c.count()).toBe(2);
+  });
+});
+
+describe("TEN-SPEED-08: gh auth probe reuse", () => {
+  function ghDir(authExit: number): { path: string; count: () => number } {
+    const d = tmpRoot("e10-pf-gh-"); const log = join(d, "log");
+    writeFileSync(join(d, "gh"), `#!/bin/sh\n[ "$1" = auth ] && echo x >> '${log}'\nif [ "$1" = auth ]; then exit ${authExit}; fi\nexit 0\n`); chmodSync(join(d, "gh"), 0o755);
+    symlinkSync(execFileSync("which", ["git"], { encoding: "utf8" }).trim(), join(d, "git"));
+    return { path: d, count: () => (existsSync(log) ? readFileSync(log, "utf8").trim().split("\n").length : 0) };
+  }
+  function prRepo(g: { path: string }) {
+    const { dir, env } = identifiedRepo();
+    execFileSync("git", ["-C", dir, "remote", "add", "origin", "https://github.com/acme/widget.git"]);
+    return { dir, env: { ...env, PATH: g.path, LOKI_CLAUDE_CLI: stubCli(), ANTHROPIC_API_KEY: "k" } };
+  }
+  const o = (dir: string, env: Record<string, string>) => ({ repoDir: dir, provider: "claude", pr: true, env });
+  const cacheFile = (env: Record<string, string>) => join(env.HOME ?? "", ".loki", "gh-auth-ok.json");
+
+  test("two PR runs inside 10 min spawn gh auth status once", async () => {
+    const g = ghDir(0); const { dir, env } = prRepo(g);
+    expect((await checkPreflight(o(dir, env))).fatal).toBeNull();
+    expect((await checkPreflight(o(dir, env))).fatal).toBeNull();
+    expect(g.count()).toBe(1);
+  });
+
+  test("a failed probe is never cached", async () => {
+    const g = ghDir(1); const { dir, env } = prRepo(g);
+    expect((await checkPreflight(o(dir, env))).fatal).toContain("gh (GitHub CLI)");
+    expect((await checkPreflight(o(dir, env))).fatal).toContain("gh (GitHub CLI)");
+    expect(g.count()).toBe(2); expect(existsSync(cacheFile(env))).toBe(false);
+  });
+
+  test("expired entry, other gh path, and corrupt file all re-probe", async () => {
+    const g = ghDir(0); const { dir, env } = prRepo(g);
+    await checkPreflight(o(dir, env));
+    writeFileSync(cacheFile(env), JSON.stringify({ gh: join(g.path, "gh"), at: Date.now() - 10 * 60 * 1000 - 1000 }));
+    await checkPreflight(o(dir, env)); expect(g.count()).toBe(2);
+    writeFileSync(cacheFile(env), JSON.stringify({ gh: "/other/gh", at: Date.now() }));
+    await checkPreflight(o(dir, env)); expect(g.count()).toBe(3);
+    writeFileSync(cacheFile(env), "{not json");
+    expect((await checkPreflight(o(dir, env))).fatal).toBeNull(); expect(g.count()).toBe(4);
   });
 });

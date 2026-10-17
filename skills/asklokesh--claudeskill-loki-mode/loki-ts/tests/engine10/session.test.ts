@@ -12,8 +12,12 @@ import { describe, expect, test } from "bun:test";
 import { dirname, join } from "node:path";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { classifyExitCause, createSessionRunner, HEARTBEAT_MS_DEFAULT } from "../../src/engine10/session.ts";
+import { childEnv, classifyExitCause, createSessionRunner, diffShortstat, diffSignature, HEARTBEAT_MS_DEFAULT } from "../../src/engine10/session.ts";
+import { resultCostPath, sumResultCosts, UNMETERED } from "../../src/engine10/cost.ts";
+import { liveArchivedCosts, withArchivedCosts } from "../../src/providers/provider_cost.ts";
+const archivedCostIds = (root: string, ids: string[]): string[] => liveArchivedCosts(root, ids, UNMETERED);
 import type { SessionRunOptions } from "../../src/engine10/types.ts";
+import { execFileSync } from "node:child_process";
 
 async function waitForFile(path: string, timeoutMs = 5000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -67,6 +71,106 @@ describe("engine10 session", () => {
     delete process.env["SESSION_TEST_GRANDCHILD_PID_FILE"];
     rmSync(dir, { recursive: true, force: true });
   }, 10_000);
+
+  test("a silent session emits one session.stalled and heartbeats carry a progress class", async () => {
+    process.env["LOKI_E10_STALL_S"] = "0.1";
+    const events: { type: string; data: Record<string, unknown> }[] = [];
+    const runner = createSessionRunner({ provider: "claude", childCommand: ["bash", ["-c", "sleep 2.5"]], heartbeatMs: 30, emit: (type, _s, data) => events.push({ type, data }) });
+    await runner.run(baseOpts({ limitS: 30 }));
+    delete process.env["LOKI_E10_STALL_S"];
+    expect(events.filter((e) => e.type === "session.stalled").length).toBe(1);
+    expect(events.find((e) => e.type === "heartbeat")?.data["progress"]).toBeDefined();
+  }, 10_000);
+
+  test("Q18-06: LOKI_E10_STALL_KILL_S kills a silent child; one session.ended with cause and reason stalled", async () => {
+    process.env["LOKI_E10_STALL_KILL_S"] = "0.1";
+    const events: { type: string; data: Record<string, unknown> }[] = [];
+    try {
+      const runner = createSessionRunner({ provider: "claude", childCommand: ["bash", ["-c", "sleep 20"]], heartbeatMs: 30, emit: (type, _s, data) => events.push({ type, data }) });
+      const res = await runner.run(baseOpts({ limitS: 30 }));
+      expect(res.killed).toBe(true);
+    } finally {
+      delete process.env["LOKI_E10_STALL_KILL_S"];
+    }
+    const ended = events.filter((e) => e.type === "session.ended");
+    expect(ended.length).toBe(1);
+    expect(ended[0]?.data["cause"]).toBe("stalled");
+    expect(ended[0]?.data["reason"]).toBe("stalled");
+  }, 15_000);
+
+  test("Q18-06: with the stall-kill knob unset or 0, a silent child is not killed and session.ended has no reason key", async () => {
+    for (const v of [undefined, "0"]) {
+      if (v === undefined) delete process.env["LOKI_E10_STALL_KILL_S"]; else process.env["LOKI_E10_STALL_KILL_S"] = v;
+      process.env["LOKI_E10_STALL_S"] = "0.1";
+      const events: { type: string; data: Record<string, unknown> }[] = [];
+      try {
+        const runner = createSessionRunner({ provider: "claude", childCommand: ["bash", ["-c", "sleep 0.6"]], heartbeatMs: 30, emit: (type, _s, data) => events.push({ type, data }) });
+        const res = await runner.run(baseOpts({ limitS: 30 }));
+        expect(res.killed).toBe(false);
+      } finally {
+        delete process.env["LOKI_E10_STALL_KILL_S"];
+        delete process.env["LOKI_E10_STALL_S"];
+      }
+      const ended = events.find((e) => e.type === "session.ended");
+      expect(ended).toBeDefined();
+      expect("reason" in (ended?.data ?? {})).toBe(false);
+    }
+  }, 15_000);
+
+  test("P12-09b: a rerun with the same iterationId keeps the earlier attempt's cost (summed, not overwritten)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "loki-p1209b-cost-"));
+    try {
+      const lokiRoot = join(dir, ".loki");
+      const child = (usd: number) => ["bash", ["-c", `mkdir -p .loki/metrics; echo '{"total_cost_usd":${usd},"input_tokens":5,"output_tokens":5,"model":"m"}' > .loki/metrics/result-cost-$LOKI_ITERATION.json; exit 1`]] as [string, string[]];
+      for (const usd of [1, 2]) await createSessionRunner({ provider: "claude", lokiRoot, childCommand: child(usd) }).run(baseOpts({ cwd: dir, iterationId: "q-1", limitS: 20 }));
+      expect(existsSync(resultCostPath(lokiRoot, "q-1"))).toBe(true);
+      expect(sumResultCosts(lokiRoot, withArchivedCosts(lokiRoot, ["q-1"])).usd).toBe(3);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 20_000);
+
+  test("P12-09b: a zero-usage is_error record from a quota attempt does not blank the run's cost (E-69 stays honest)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "loki-p1209b-zero-"));
+    try {
+      const lokiRoot = join(dir, ".loki");
+      const rec = (usd: number, tok: number) => ["bash", ["-c", `mkdir -p .loki/metrics; echo '{"total_cost_usd":${usd},"input_tokens":${tok},"output_tokens":${tok},"model":"m"}' > .loki/metrics/result-cost-$LOKI_ITERATION.json; exit ${usd === 0 ? 1 : 0}`]] as [string, string[]];
+      for (const [usd, tok] of [[0, 0], [2.5, 5]] as const) await createSessionRunner({ provider: "claude", lokiRoot, childCommand: rec(usd, tok) }).run(baseOpts({ cwd: dir, iterationId: "z-1", limitS: 20 }));
+      const c = sumResultCosts(lokiRoot, archivedCostIds(lokiRoot, ["z-1"]));
+      expect(c.usd).toBe(2.5);
+      expect(c.missing).toEqual([]);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 20_000);
+
+  // P12-09b: an archived attempt that cost money or has unknown cost must stay in the sum (flagged partial/ambiguous), never be dropped.
+  for (const [name, first, ambiguous] of [
+    ["C: unpriced model, tokens but total_cost_usd null", '{"total_cost_usd":null,"input_tokens":90000,"output_tokens":20000,"model":"m"}', false],
+    ["E: resumed attempt at $1.20 with resumed_from", '{"total_cost_usd":1.2,"input_tokens":50,"output_tokens":50,"model":"m","resumed_from":"e-0"}', true],
+  ] as const) test(`P12-09b regression ${name}`, async () => {
+    const dir = mkdtempSync(join(tmpdir(), "loki-p1209b-reg-"));
+    try {
+      const lokiRoot = join(dir, ".loki"), sh = (body: string, code: number) => ["bash", ["-c", `mkdir -p .loki/metrics; echo '${body}' > .loki/metrics/result-cost-$LOKI_ITERATION.json; exit ${code}`]] as [string, string[]];
+      for (const [body, code] of [[first, 1], ['{"total_cost_usd":2.5,"input_tokens":5,"output_tokens":5,"model":"m"}', 0]] as const) await createSessionRunner({ provider: "claude", lokiRoot, childCommand: sh(body, code) }).run(baseOpts({ cwd: dir, iterationId: "r-1", limitS: 20 }));
+      const ids = archivedCostIds(lokiRoot, ["r-1"]);
+      expect(ids).toContain("r-1-q1"); // the archive is counted, not dropped
+      const c = sumResultCosts(lokiRoot, ids);
+      expect(ambiguous ? c.partialUsd >= 2.5 : c.usd === null && c.missing.includes("r-1-q1")).toBe(true);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 20_000);
+  test("P12-09b regression I: an archived $0.80 zero-usage attempt is counted, only a $0 one never ran", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "loki-p1209b-i-"));
+    try {
+      const lokiRoot = join(dir, ".loki"), sh = (body: string) => ["bash", ["-c", `mkdir -p .loki/metrics; echo '${body}' > .loki/metrics/result-cost-$LOKI_ITERATION.json; exit 1`]] as [string, string[]];
+      for (const body of ['{"total_cost_usd":0.8,"input_tokens":0,"output_tokens":0,"model":"m"}', '{"total_cost_usd":2.5,"input_tokens":5,"output_tokens":5,"model":"m"}']) await createSessionRunner({ provider: "claude", lokiRoot, childCommand: sh(body) }).run(baseOpts({ cwd: dir, iterationId: "i-1", limitS: 20 }));
+      expect(archivedCostIds(lokiRoot, ["i-1"])).toContain("i-1-q1");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 20_000);
+  test("P12-09b: the unmetered stub record (B) is counted, not dropped as never-ran", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "loki-p1209b-unm-"));
+    try {
+      const lokiRoot = join(dir, ".loki"), sh = (body: string) => ["bash", ["-c", `mkdir -p .loki/metrics; echo '${body}' > .loki/metrics/result-cost-$LOKI_ITERATION.json; exit 1`]] as [string, string[]];
+      for (const body of ['{"total_cost_usd":0,"input_tokens":0,"output_tokens":0,"model":"m","source":"cli-invoker-unmetered"}', '{"total_cost_usd":2.5,"input_tokens":5,"output_tokens":5,"model":"m"}']) await createSessionRunner({ provider: "claude", lokiRoot, childCommand: sh(body) }).run(baseOpts({ cwd: dir, iterationId: "u-1", limitS: 20 }));
+      expect(archivedCostIds(lokiRoot, ["u-1"])).toContain("u-1-q1");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }, 20_000);
 
   test("emits a heartbeat event while waiting", async () => {
     const events: { type: string; stage: string | null; data: Record<string, unknown> }[] = [];
@@ -453,5 +557,108 @@ describe("engine10 session", () => {
       expect(result.killed).toBe(true);
       expect(events).toContain("guard.budget_stop");
     }, 20000);
+  });
+});
+
+describe("P12-12c diffSignature sees in-place growth of one modified file", () => {
+  const g = (d: string, ...a: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: d, encoding: "utf8" });
+  test("shortstat repeats (1 file, 1 insertion) but the signature moves", () => {
+    const d = mkdtempSync(join(tmpdir(), "p12-12c-"));
+    try {
+      g(d, "init", "-q"); writeFileSync(join(d, "a.txt"), "one\n"); g(d, "add", "a.txt"); g(d, "commit", "-qm", "init");
+      writeFileSync(join(d, "a.txt"), "one\ntwo\n");
+      const before = diffSignature(d), stat = diffShortstat(d);
+      writeFileSync(join(d, "a.txt"), "one\ntwo-with-more-text\n");
+      expect(diffShortstat(d)).toEqual(stat);
+      expect(diffSignature(d)).not.toBe(before);
+      expect(diffSignature(d)).toBe(diffSignature(d));
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+describe("P12-12d diffSignature base path and per-list budget", () => {
+  const g = (d: string, ...a: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: d, encoding: "utf8" });
+  const fixed = { files: 1, insertions: 1, deletions: 0 };
+  test("cwd in a repo subdirectory: an in-place edit of a tracked file moves the signature", () => {
+    const d = mkdtempSync(join(tmpdir(), "p12-12d-"));
+    try {
+      g(d, "init", "-q"); mkdirSync(join(d, "sub")); writeFileSync(join(d, "sub", "a.txt"), "one\n"); g(d, "add", "sub/a.txt"); g(d, "commit", "-qm", "init");
+      writeFileSync(join(d, "sub", "a.txt"), "one\ntwo\n");
+      const sub = join(d, "sub"), before = diffSignature(sub, fixed);
+      writeFileSync(join(sub, "a.txt"), "one\ntwo-with-more-text\n");
+      expect(diffSignature(sub, fixed)).not.toBe(before);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("untracked growth is seen even with a very large tracked change list", () => {
+    const d = mkdtempSync(join(tmpdir(), "p12-12d-"));
+    try {
+      g(d, "init", "-q");
+      for (let i = 0; i < 2100; i++) writeFileSync(join(d, `t${i}.txt`), "x\n");
+      g(d, "add", "."); g(d, "commit", "-qm", "init");
+      for (let i = 0; i < 2100; i++) writeFileSync(join(d, `t${i}.txt`), "y\n");
+      writeFileSync(join(d, "new.txt"), "a\n");
+      const before = diffSignature(d, fixed);
+      writeFileSync(join(d, "new.txt"), "a\nbbbbbbbbbbbb\n");
+      expect(diffSignature(d, fixed)).not.toBe(before);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+describe("P12-12e diffSignature uses one scope from a repo subdirectory", () => {
+  const g = (d: string, ...a: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: d, encoding: "utf8" });
+  test("growth outside cwd leaves the signature alone, growth inside cwd moves it", () => {
+    const d = mkdtempSync(join(tmpdir(), "p12-12e-"));
+    try {
+      g(d, "init", "-q"); mkdirSync(join(d, "sub")); mkdirSync(join(d, "other"));
+      writeFileSync(join(d, "sub", "a.txt"), "one\n"); writeFileSync(join(d, "other", "b.txt"), "one\n"); g(d, "add", "."); g(d, "commit", "-qm", "init");
+      const sub = join(d, "sub");
+      writeFileSync(join(sub, "a.txt"), "one\ntwo\n");
+      const before = diffSignature(sub);
+      writeFileSync(join(d, "other", "b.txt"), "one\nelsewhere\n"); // outside cwd: not this run's progress
+      expect(diffShortstat(sub).files).toBe(1);
+      expect(diffSignature(sub)).toBe(before);
+      writeFileSync(join(sub, "a.txt"), "one\ntwo-with-more-text\n"); // inside cwd
+      expect(diffSignature(sub)).not.toBe(before);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+describe("P12-12 diffShortstat counts untracked files", () => {
+  const g = (d: string, ...a: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: d, encoding: "utf8" });
+  test("a stage that only adds new files reads as nonzero, .loki and the real index untouched", () => {
+    const d = mkdtempSync(join(tmpdir(), "p12-12-"));
+    try {
+      g(d, "init", "-q"); writeFileSync(join(d, "a.txt"), "one\n"); g(d, "add", "a.txt"); g(d, "commit", "-qm", "init");
+      expect(diffShortstat(d)).toEqual({ files: 0, insertions: 0, deletions: 0 });
+      writeFileSync(join(d, "new1.txt"), "x\ny\nz\n"); writeFileSync(join(d, "new 2.txt"), "q\n"); mkdirSync(join(d, ".loki")); writeFileSync(join(d, ".loki", "s.json"), "{}\n");
+      expect(diffShortstat(d)).toEqual({ files: 2, insertions: 0, deletions: 0 });
+      expect(g(d, "status", "--porcelain", "-uall")).toContain("?? new1.txt");
+      expect(g(d, "diff", "--cached", "--name-only").trim()).toBe("");
+      writeFileSync(join(d, "a.txt"), "one\ntwo\n");
+      expect(diffShortstat(d)).toEqual({ files: 3, insertions: 1, deletions: 0 });
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("an untracked nested repo with no commits never drops the tracked change", () => {
+    const d = mkdtempSync(join(tmpdir(), "p12-12-"));
+    try {
+      g(d, "init", "-q"); writeFileSync(join(d, "a.txt"), "one\n"); g(d, "add", "a.txt"); g(d, "commit", "-qm", "init");
+      mkdirSync(join(d, "sub")); g(join(d, "sub"), "init", "-q"); writeFileSync(join(d, "a.txt"), "one\ntwo\n");
+      const r = diffShortstat(d);
+      expect(r.files).toBeGreaterThanOrEqual(1); expect(r.insertions).toBe(1);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+describe("TEN-COST-13 lean prefix default", () => {
+  const cfg = { provider: "claude" } as Parameters<typeof childEnv>[1];
+  const o = { iterationId: "i", stage: "plan", brief: "b", tier: "development" } as Parameters<typeof childEnv>[0];
+  test("defaults LOKI_E10_PREFIX to lean, and an explicit user value wins", () => {
+    const saved = process.env["LOKI_E10_PREFIX"];
+    try {
+      delete process.env["LOKI_E10_PREFIX"];
+      expect(childEnv(o, cfg)["LOKI_E10_PREFIX"]).toBe("lean");
+      process.env["LOKI_E10_PREFIX"] = "off";
+      expect(childEnv(o, cfg)["LOKI_E10_PREFIX"]).toBe("off");
+    } finally { if (saved === undefined) delete process.env["LOKI_E10_PREFIX"]; else process.env["LOKI_E10_PREFIX"] = saved; }
   });
 });

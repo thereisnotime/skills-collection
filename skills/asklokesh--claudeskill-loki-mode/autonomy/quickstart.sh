@@ -824,12 +824,31 @@ _qs_classify_invoke() {
     local to=""
     if command -v timeout >/dev/null 2>&1; then to="timeout"
     elif command -v gtimeout >/dev/null 2>&1; then to="gtimeout"; fi
+    _LOKI_PERM_ARGV=(--dangerously-skip-permissions)
+    if [ "${LOKI_PERMISSION_POLICY:-}" != "legacy" ]; then
+        # P12-26b: nothing on this path sources claude-flags.sh. Compute in a subshell so its
+        # top-level exports (caveman vars) never leak; fail closed to plan when unavailable.
+        local _qs_flags _qs_out _qs_a
+        _qs_flags="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/lib/claude-flags.sh"
+        _LOKI_PERM_ARGV=(--permission-mode plan)
+        _qs_out="$(
+            # shellcheck source=/dev/null
+            . "$_qs_flags" >/dev/null 2>&1 || exit 1
+            type _loki_claude_permission_argv >/dev/null 2>&1 || exit 1
+            _loki_claude_permission_argv
+            printf '%s\n' "${_LOKI_PERM_ARGV[@]}"
+        )" || _qs_out=""
+        if [ -n "$_qs_out" ]; then
+            _LOKI_PERM_ARGV=()
+            while IFS= read -r _qs_a; do _LOKI_PERM_ARGV+=("$_qs_a"); done <<< "$_qs_out"
+        fi
+    fi
     if [ -n "$to" ]; then
         out=$(CAVEMAN_DEFAULT_MODE=off "$to" "${LOKI_QUICKSTART_CLASSIFY_TIMEOUT}" \
-                  claude --dangerously-skip-permissions -p "$prompt" 2>/dev/null) || rc=$?
+                  claude "${_LOKI_PERM_ARGV[@]}" -p "$prompt" 2>/dev/null) || rc=$?
     else
         out=$(CAVEMAN_DEFAULT_MODE=off \
-                  claude --dangerously-skip-permissions -p "$prompt" 2>/dev/null) || rc=$?
+                  claude "${_LOKI_PERM_ARGV[@]}" -p "$prompt" 2>/dev/null) || rc=$?
     fi
     [ "$rc" -ne 0 ] && return 1
     [ -z "$out" ] && return 1

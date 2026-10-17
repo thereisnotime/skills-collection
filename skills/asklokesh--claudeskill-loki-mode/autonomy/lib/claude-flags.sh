@@ -212,6 +212,93 @@ _loki_apikey_helper_configured() {
     return 1
 }
 
+# ---------- S2: lean child-session flags + cost ledger ----------
+# loki_lean_child_flags <role> prints the lean flag set for a NON-MAIN child
+# `claude -p` session, ONE ARGUMENT PER LINE (never an empty line).
+# Callers read it with a line loop.
+#   - API-key/apiKeyHelper host: "--bare" (gated by loki_subcall_bare_enabled,
+#     which keeps OAuth-only hosts off --bare; it would fail auth there).
+#   - Otherwise: --setting-sources project, --strict-mcp-config, an empty
+#     --mcp-config, --disable-slash-commands.
+#   - Text-only roles additionally get the single argument "--tools=" (no tools). --tools is
+#     variadic: "--tools" plus an empty argument swallows a trailing prompt.
+# Every flag is probed with loki_claude_flag_supported; an unsupported flag and
+# its value are dropped. LOKI_LEAN_CHILDREN=0 prints nothing. Main-session
+# flags are not touched by this helper.
+loki_lean_child_flags() {
+    local role="${1:-}"
+    [ "${LOKI_LEAN_CHILDREN:-1}" = "0" ] && return 0
+    if loki_subcall_bare_enabled; then
+        printf '%s\n' "--bare"
+    else
+        if loki_claude_flag_supported "--setting-sources"; then
+            printf '%s\n' "--setting-sources" "project"
+        fi
+        if loki_claude_flag_supported "--strict-mcp-config"; then
+            printf '%s\n' "--strict-mcp-config"
+        fi
+        if loki_claude_flag_supported "--mcp-config"; then
+            printf '%s\n' "--mcp-config" '{"mcpServers":{}}'
+        fi
+        if loki_claude_flag_supported "--disable-slash-commands"; then
+            printf '%s\n' "--disable-slash-commands"
+        fi
+    fi
+    case "$role" in
+        grill|council|vote|review|reviewer|enrich|wiki|docs|docgen|summary)
+            if loki_claude_flag_supported "--tools"; then
+                printf '%s\n' "--tools="
+            fi
+            ;;
+    esac
+    return 0
+}
+
+# loki_child_ledger_append <phase> <claude --output-format json> appends one
+# line to .loki/metrics/child-sessions.jsonl in the format read by
+# autonomy/lib/efficiency_cost.py read_child_ledger: phase, model,
+# input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, usd,
+# source. A missing usd is omitted, never written as 0. Returns 1 (writes
+# nothing) when the json is not a parseable result object.
+loki_child_ledger_append() {
+    local phase="${1:-}" payload="${2:-}"
+    [ -n "$phase" ] && [ -n "$payload" ] || return 1
+    local dir="${LOKI_DIR:-.loki}/metrics" line
+    line=$(printf '%s' "$payload" | python3 -I -c '
+import json, sys
+phase = sys.argv[1]
+try:
+    d = json.loads(sys.stdin.read())
+except Exception:
+    sys.exit(1)
+if isinstance(d, list):
+    d = next((x for x in reversed(d) if isinstance(x, dict) and x.get("type") == "result"), None)
+if not isinstance(d, dict):
+    sys.exit(1)
+u = d.get("usage") if isinstance(d.get("usage"), dict) else {}
+def n(v):
+    return v if isinstance(v, int) and not isinstance(v, bool) else 0
+mu = d.get("modelUsage")
+model = next(iter(mu), "") if isinstance(mu, dict) and mu else (d.get("model") or "")
+rec = {
+    "phase": phase,
+    "model": model if isinstance(model, str) else "",
+    "input_tokens": n(u.get("input_tokens")),
+    "output_tokens": n(u.get("output_tokens")),
+    "cache_creation_tokens": n(u.get("cache_creation_input_tokens")),
+    "cache_read_tokens": n(u.get("cache_read_input_tokens")),
+}
+usd = d.get("total_cost_usd", d.get("cost_usd"))
+if isinstance(usd, (int, float)) and not isinstance(usd, bool):
+    rec["usd"] = usd
+rec["source"] = "claude-json"
+print(json.dumps(rec, separators=(",", ":")))
+' "$phase" 2>/dev/null) || return 1
+    [ -n "$line" ] || return 1
+    mkdir -p "$dir" 2>/dev/null || return 1
+    printf '%s\n' "$line" >> "$dir/child-sessions.jsonl" || return 1
+}
+
 # EMBED 3 -- --disallowedTools (reviewer / adversarial subcalls). Motivation: a
 # parallel agent once ran `git reset --hard` and wiped uncommitted work, so a
 # reviewer/voter subcall should not casually mutate the tree. Per `claude --help`
@@ -972,3 +1059,73 @@ loki_export_subagent_capacity() {
 # subprocess tree inherits it, so every subcall site gets the same capacity
 # without each one having to remember to call this.
 loki_export_subagent_capacity
+
+# P12-26 / C-C2: the compiled permission policy swaps --dangerously-skip-permissions for
+# --permission-mode / --allowedTools / --disallowedTools compiled from the task policy by
+# src/policies/claude_permissions.js (shared with the TS permissionArgv). Resolution:
+#   LOKI_PERMISSION_POLICY=legacy    -> legacy (old flag, byte-identical)
+#   LOKI_PERMISSION_POLICY=compiled  -> compiled (fail-closed acceptEdits with no policy)
+#   unset                            -> compiled only when an operator claude_permissions
+#                                       policy exists, else legacy (headless acceptEdits
+#                                       with no allowedTools denies npm test / git commit)
+#   any other value                  -> compiled, with a one-time warning per process
+# Result lands in _LOKI_PERM_ARGV. A compile failure fails closed to plan.
+_LOKI_PERM_UNKNOWN_WARNED=0
+_loki_permission_policy_mode() {
+    case "${LOKI_PERMISSION_POLICY:-}" in
+        legacy) echo legacy ;;
+        compiled) echo compiled ;;
+        "")
+            local _helper
+            _helper="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/src/policies/claude_permissions.js"
+            if command -v node >/dev/null 2>&1 && [ -f "$_helper" ] \
+                && [ "$(node "$_helper" --has-operator-policy 2>/dev/null)" = "1" ]; then
+                echo compiled
+            else
+                echo legacy
+            fi
+            ;;
+        *) echo compiled ;;
+    esac
+}
+
+# Unknown-value warning, once per process. Runs in the caller shell (never inside $(...)),
+# so the guard variable persists.
+_loki_permission_warn_unknown_once() {
+    case "${LOKI_PERMISSION_POLICY:-}" in
+        ""|legacy|compiled) return 0 ;;
+    esac
+    [ "${_LOKI_PERM_UNKNOWN_WARNED:-0}" = "1" ] && return 0
+    _LOKI_PERM_UNKNOWN_WARNED=1
+    echo "[loki] WARNING: LOKI_PERMISSION_POLICY=${LOKI_PERMISSION_POLICY}: unknown value; using compiled" >&2
+}
+
+# The one start-banner line naming the active mode.
+loki_permission_policy_banner() {
+    if [ "$(_loki_permission_policy_mode 2>/dev/null)" = "legacy" ]; then
+        if [ -z "${LOKI_PERMISSION_POLICY:-}" ]; then
+            echo "Permission policy: legacy (no operator policy found; add one to use compiled)"
+        else
+            echo "Permission policy: legacy (unset LOKI_PERMISSION_POLICY to use compiled)"
+        fi
+    else
+        echo "Permission policy: compiled (set LOKI_PERMISSION_POLICY=legacy to revert)"
+    fi
+}
+
+_loki_claude_permission_argv() {
+    _LOKI_PERM_ARGV=(--dangerously-skip-permissions)
+    _loki_permission_warn_unknown_once
+    [ "$(_loki_permission_policy_mode)" = "legacy" ] && return 0
+    local _helper _out _a
+    _helper="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/src/policies/claude_permissions.js"
+    _LOKI_PERM_ARGV=(--permission-mode plan)
+    if ! command -v node >/dev/null 2>&1 || [ ! -f "$_helper" ]; then
+        echo "[loki] WARNING: compiled permission policy: compiler unavailable; using most restrictive mode (plan)" >&2
+        return 0
+    fi
+    _out="$(node "$_helper" "${LOKI_PROJECT_DIR:-$PWD}")" || return 0
+    [ -n "$_out" ] || return 0
+    _LOKI_PERM_ARGV=()
+    while IFS= read -r _a; do _LOKI_PERM_ARGV+=("$_a"); done <<< "$_out"
+}

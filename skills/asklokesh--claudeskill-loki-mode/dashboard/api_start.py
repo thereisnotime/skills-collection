@@ -12,7 +12,7 @@ argv.
 
 ponytail: run state is in memory (a dashboard restart forgets the queue; the
 runs themselves keep going and their worktrees keep the receipts). The
-v10 engine has no resume-with-answer (--resume was removed), so a BLOCKED
+v10 engine has no resume-with-answer (--resume only resumes a publish-phase run), so a BLOCKED
 question is shown with the re-run command instead of an answer box.
 """
 import json
@@ -472,7 +472,7 @@ def backlog_status():
         for r in _RUNS.values():
             row = {k: r.get(k) for k in ("number", "title", "status", "pr_url", "question", "detail")}
             if r["status"] == "blocked":
-                row["resume_hint"] = ("The engine cannot resume with an answer (--resume was removed). "
+                row["resume_hint"] = ("The engine cannot resume with an answer (--resume only finishes the publish phase of a sealed run, not a blocked one). "
                                       "Answer on the issue, then re-run: loki %s#%d" % (repo, r["number"]))
             out.append(row)
     return {"repo": repo, "concurrency": _concurrency(), "issues": out}

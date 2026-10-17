@@ -22647,16 +22647,16 @@
   "conorluddy--ios-simulator-skill": [
     {
       "name": "ios-simulator-skill",
-      "description": "29 production-ready scripts for iOS app testing, building, and automation. Provides semantic UI navigation, build automation, accessibility testing, and simulator lifecycle management. Optimized for A",
+      "description": "Build, test, and drive iOS apps in the Simulator with 29 token-efficient scripts. Use when asked to build or test an Xcode project, launch an app on a simulator, tap/type/swipe through its UI by acces",
       "path": "conorluddy--ios-simulator-skill/ios-simulator-skill/skills/ios-simulator-skill/SKILL.md",
       "remote_path": "ios-simulator-skill/skills/ios-simulator-skill/SKILL.md",
-      "lines": 414,
-      "words": 2944,
+      "lines": 420,
+      "words": 3109,
       "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "1.5.0"
+      "version": "1.6.0"
     }
   ],
   "coreyhaines31--marketingskills": [
@@ -23668,7 +23668,7 @@
       "path": "firecrawl--cli/skills/firecrawl-search/SKILL.md",
       "remote_path": "skills/firecrawl-search/SKILL.md",
       "lines": 145,
-      "words": 1644,
+      "words": 1671,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -33022,7 +33022,7 @@
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
       "lines": 487,
-      "words": 4098,
+      "words": 4102,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -157549,8 +157549,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 502,
-      "words": 8557,
+      "lines": 504,
+      "words": 8604,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -157774,8 +157774,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 112,
-      "words": 1760,
+      "lines": 123,
+      "words": 1828,
       "code_blocks": 0,
       "languages": []
     },
@@ -157820,8 +157820,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/references/native-job-readback.md",
       "remote_path": "daymade-macos/macos-watchdog/references/native-job-readback.md",
-      "lines": 77,
-      "words": 582,
+      "lines": 130,
+      "words": 1085,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -157834,6 +157834,16 @@
       "remote_path": "daymade-macos/macos-watchdog/references/probe-cost.md",
       "lines": 77,
       "words": 661,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "event-driven-observers",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/references/event-driven-observers.md",
+      "remote_path": "daymade-macos/macos-watchdog/references/event-driven-observers.md",
+      "lines": 209,
+      "words": 1660,
       "code_blocks": 0,
       "languages": []
     },
@@ -178287,6 +178297,16 @@
       ]
     },
     {
+      "name": "palmier-reels",
+      "description": "This skill should be used when creating a vertical narrative reel (Instagram/Telegram, 1080\u00d71920) from scratch in Palmier Pro through its local MCP \u2014 turning a script, quotes or lesson notes into a be",
+      "path": "glebis--claude-skills/palmier-reels/SKILL.md",
+      "remote_path": "palmier-reels/SKILL.md",
+      "lines": 29,
+      "words": 559,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "name-audition",
       "description": "Run candidate product, brand, company, or benchmark names through an audition \u2014 authoritative domain-availability checks, collision research across SaaS/GitHub/packages/the target adjacent domain, a l",
       "path": "glebis--claude-skills/name-audition/SKILL.md",
@@ -178464,6 +178484,16 @@
       "lines": 34,
       "words": 211,
       "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "cognitive-toolkit",
+      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 98,
+      "words": 617,
+      "code_blocks": 1,
       "languages": []
     },
     {
@@ -180950,8 +180980,8 @@
       "description": "Act on a Caveman learn report - review the ranked token sinks, apply cost-lowering fixes with per-edit consent, and report what those fixes returned. Use when asked to lower an agent's token cost, wha",
       "path": "JuliusBrussee--caveman/skills/caveman-learn/SKILL.md",
       "remote_path": "skills/caveman-learn/SKILL.md",
-      "lines": 175,
-      "words": 1864,
+      "lines": 177,
+      "words": 1891,
       "code_blocks": 0,
       "languages": []
     },
@@ -181222,8 +181252,8 @@
       "description": "\"Quick reference for ponytail's modes, skills, and commands. One-shot display.\"",
       "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-help/SKILL.md",
       "remote_path": ".openclaw/skills/ponytail-help/SKILL.md",
-      "lines": 76,
-      "words": 437,
+      "lines": 77,
+      "words": 453,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -181300,8 +181330,8 @@
       "description": ">",
       "path": "dietrichgebert--ponytail/skills/ponytail-help/SKILL.md",
       "remote_path": "skills/ponytail-help/SKILL.md",
-      "lines": 76,
-      "words": 444,
+      "lines": 77,
+      "words": 460,
       "code_blocks": 2,
       "languages": [
         "bash",

@@ -789,7 +789,85 @@ loki_apply_scoped_change_profile() {
     export LOKI_SCOPED_CHANGE_ACTIVE=1
 }
 
+# Small-task fast path (cost S5). Applied AFTER detect_complexity, because the
+# tier is not known when this file is sourced. Trigger: DETECTED_COMPLEXITY is
+# simple and, for a scoped change in an existing repo, the working-tree diff
+# fits LOKI_SMALL_DIFF_BUDGET changed lines (default 400). LOKI_SMALL_PROFILE=0
+# opts out. It never overrides another explicit profile.
+#
+# What this NEVER touches: the deterministic gates, holdout and Seal. It only
+# drops model-bearing orchestration that has no reader on a small task. Every
+# knob uses ":=" so explicit user env always beats the profile.
+loki_small_profile_eligible() {
+    [ "${LOKI_SMALL_PROFILE:-1}" != "0" ] || return 1
+    [ "${DETECTED_COMPLEXITY:-}" = "simple" ] || return 1
+    case "${LOKI_BUILD_PROFILE:-}" in
+        ""|small) ;;
+        *) return 1 ;;
+    esac
+    if [ "${LOKI_SCOPED_CHANGE_ACTIVE:-0}" = "1" ]; then
+        local changed budget="${LOKI_SMALL_DIFF_BUDGET:-400}"
+        changed="$(git -C "${TARGET_DIR:-.}" diff --numstat HEAD 2>/dev/null \
+            | awk '{ if ($1 ~ /^[0-9]+$/) n += $1; if ($2 ~ /^[0-9]+$/) n += $2 } END { print n + 0 }')"
+        [ "${changed:-0}" -le "$budget" ] 2>/dev/null || return 1
+    fi
+    return 0
+}
+
+loki_apply_small_profile() {
+    : "${LOKI_SPEC_GRILL:=0}"
+    : "${LOKI_PRD_ENRICH:=0}"
+    : "${LOKI_WIKI_AUTO:=0}"
+    : "${LOKI_AUTO_DOCS:=false}"
+    : "${LOKI_GATE_DEVILS_ADVOCATE:=false}"
+    : "${LOKI_COUNCIL_MODEL_VOTERS:=0}"
+    : "${LOKI_ADVISOR_MODEL:=haiku}"
+    : "${LOKI_SIMPLE:=1}"
+    : "${LOKI_DOCS_TIER:=small}"
+    export LOKI_SPEC_GRILL LOKI_PRD_ENRICH LOKI_WIKI_AUTO LOKI_AUTO_DOCS
+    export LOKI_GATE_DEVILS_ADVOCATE
+    export LOKI_COUNCIL_MODEL_VOTERS LOKI_ADVISOR_MODEL LOKI_SIMPLE LOKI_DOCS_TIER
+    LOKI_SMALL_PROFILE_ACTIVE=1
+    export LOKI_SMALL_PROFILE_ACTIVE
+}
+
+# Main-session lean flags, small profile only. Fills _LOKI_SMALL_MAIN_ARGV from
+# loki_lean_child_flags (one argument per line) and widens the OAuth-host
+# "--setting-sources project" to "project,local" so project-local settings
+# still apply. Returns 1 (array empty) on any other profile, so the caller
+# keeps its existing "user,project,local" pin. LOKI_SMALL_LEAN_MAIN=0 opts out.
+# "--bare" is never passed to the main session: it skips hooks and the host
+# command guard. Lean flags apply to child sessions only.
+loki_small_main_session_flags() {
+    _LOKI_SMALL_MAIN_ARGV=()
+    [ "${LOKI_SMALL_PROFILE_ACTIVE:-0}" = "1" ] || return 1
+    [ "${LOKI_SMALL_LEAN_MAIN:-1}" != "0" ] || return 1
+    type loki_lean_child_flags >/dev/null 2>&1 || return 1
+    local _line _prev=""
+    while IFS= read -r _line; do
+        [ -n "$_line" ] || continue
+        [ "$_line" != "--bare" ] || continue
+        if [ "$_prev" = "--setting-sources" ] && [ "$_line" = "project" ]; then
+            _line="project,local"
+        fi
+        _LOKI_SMALL_MAIN_ARGV+=("$_line")
+        _prev="$_line"
+    done <<<"$(loki_lean_child_flags main)"
+    [ "${#_LOKI_SMALL_MAIN_ARGV[@]}" -gt 0 ]
+}
+
+loki_maybe_apply_small_profile() {
+    loki_small_profile_eligible || return 0
+    LOKI_BUILD_PROFILE=small
+    export LOKI_BUILD_PROFILE
+    loki_apply_build_profile
+}
+
 loki_apply_build_profile() {
+    if [ "${LOKI_BUILD_PROFILE:-}" = "small" ]; then
+        loki_apply_small_profile
+        return 0
+    fi
     [ "${LOKI_BUILD_PROFILE:-}" = "simple-web" ] || return 0
     : "${LOKI_PHASE_API_TESTS:=false}"
     : "${LOKI_PHASE_INTEGRATION:=false}"
@@ -6709,13 +6787,15 @@ spawn_worktree_session() {
                 # Expand the auto-flag array with the bash-3.2 empty-array guard
                 # (${arr[@]+...}) so a bare "${arr[@]}" under set -u does not
                 # abort with "unbound variable" when no flags were collected.
+                _LOKI_PERM_ARGV=(--dangerously-skip-permissions)
+                ! type _loki_claude_permission_argv >/dev/null 2>&1 || _loki_claude_permission_argv
                 if [ -n "$_loki_wt_cm" ]; then
-                    CAVEMAN_DEFAULT_MODE="$_loki_wt_cm" claude --dangerously-skip-permissions \
+                    CAVEMAN_DEFAULT_MODE="$_loki_wt_cm" claude "${_LOKI_PERM_ARGV[@]}" \
                         "${_LOKI_WT_AUTO_FLAGS[@]+"${_LOKI_WT_AUTO_FLAGS[@]}"}" \
                         -p "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
                         >> "$log_file" 2>&1 || _wt_exit=$?
                 else
-                    claude --dangerously-skip-permissions \
+                    claude "${_LOKI_PERM_ARGV[@]}" \
                         "${_LOKI_WT_AUTO_FLAGS[@]+"${_LOKI_WT_AUTO_FLAGS[@]}"}" \
                         -p "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
                         >> "$log_file" 2>&1 || _wt_exit=$?
@@ -6950,7 +7030,9 @@ Output ONLY the resolved file content with no conflict markers. No explanations.
                 # variable (the shell, not the agent, writes the resolved file).
                 # It needs no hooks, LSP, CLAUDE.md auto-discovery, or MCP, so
                 # --bare is safe and cheaper. Gated + opt-out LOKI_BARE_SUBCALLS=0.
-                local _cr_argv=("--dangerously-skip-permissions")
+                _LOKI_PERM_ARGV=(--dangerously-skip-permissions)
+                ! type _loki_claude_permission_argv >/dev/null 2>&1 || _loki_claude_permission_argv
+                local _cr_argv=("${_LOKI_PERM_ARGV[@]}")
                 if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
                     _cr_argv+=("--bare")
                 fi
@@ -9668,6 +9750,15 @@ _loki_host_guard_required() {
     LOKI_AUTO_GIT_INIT=0 _loki_workspace_is_engine_owned
 }
 
+# Host-guard hook timeout, seconds. Mirrors hookTimeoutSeconds in
+# loki-ts/src/runner/providers.ts (same env var, default 30, positive int <= 99999).
+_loki_hook_timeout() {
+    case "${LOKI_HOOK_TIMEOUT:-}" in
+        [1-9] | [1-9][0-9] | [1-9][0-9][0-9] | [1-9][0-9][0-9][0-9] | [1-9][0-9][0-9][0-9][0-9]) printf '%s\n' "$LOKI_HOOK_TIMEOUT" ;;
+        *) printf '%s\n' 30 ;;
+    esac
+}
+
 _loki_prepare_host_guard() {
     _loki_host_guard_required || return 0
 
@@ -9692,12 +9783,12 @@ _loki_prepare_host_guard() {
     fi
 
     local settings_json
-    settings_json=$(_LOKI_HOST_GUARD_HOOK="$hook_path" python3 -c '
+    settings_json=$(_LOKI_HOST_GUARD_HOOK="$hook_path" _LOKI_HOOK_TIMEOUT="$(_loki_hook_timeout)" python3 -c '
 import json, os, shlex
 command = "bash " + shlex.quote(os.environ["_LOKI_HOST_GUARD_HOOK"])
 print(json.dumps({"hooks": {"PreToolUse": [{
     "matcher": "Bash",
-    "hooks": [{"type": "command", "command": command}],
+    "hooks": [{"type": "command", "command": command, "timeout": int(os.environ["_LOKI_HOOK_TIMEOUT"])}],
 }]}}))
 ' 2>/dev/null) || settings_json=""
     if [ -z "$settings_json" ]; then
@@ -12473,6 +12564,8 @@ enforce_build_check() {
     #   none       -> positively no build phase at all                 -> not_applicable (N/A)
     local cmd="" ran="false" applicable="false" exit_code="null" status="not_run"
     local build_class="present"
+    # exec_cmd overrides cmd for execution only (the recorded command stays JSON-safe).
+    local exec_cmd="" exec_env="" exec_tmo=""
 
     # INVERTED classification (three council rounds each found a fake-green hole in
     # an allowlist of build systems -> the allowlist is structurally leaky). The
@@ -12526,7 +12619,24 @@ enforce_build_check() {
         # bazel/anything-unborn silently reads VERIFIED. This makes the ENTIRE
         # no-package.json universe honest by CONSTRUCTION (list-free), which is why
         # this converges where four rounds of adding-to-a-list could not.
-        if [ "$has_foreign_manifest" = "false" ] && [ -f "$tree/package.json" ]; then
+        # S3 (cost program): a manifest-less PYTHON tree (no package.json, no foreign
+        # manifest, no setup.py/pyproject) has a runnable, deterministic build
+        # equivalent: byte-compiling every module (syntax + import-time constants).
+        # We RUN it and record verified/failed. This is NOT a not_applicable
+        # claim: a broken .py file fails the build fact instead of hiding behind
+        # "build not run".
+        if [ "$has_foreign_manifest" = "false" ] && [ ! -f "$tree/package.json" ] \
+           && command -v python3 >/dev/null 2>&1 \
+           && find "$tree" -maxdepth 4 -type f -name '*.py' \
+                -not -path '*/.loki/*' -not -path '*/.git/*' -not -path '*/node_modules/*' \
+                -not -path '*/.venv/*' -not -path '*/venv/*' \
+                -print -quit 2>/dev/null | grep -q .; then
+            cmd="python3 -m compileall -q ."; applicable="true"; build_class="runnable"
+            exec_cmd="python3 -m compileall -q -x '(^|/)(\\.loki|\\.git|node_modules|\\.venv|venv)(/|\$)' ."
+            exec_env="PYTHONPYCACHEPREFIX=$quality_dir/.pycache"
+            if command -v timeout >/dev/null 2>&1; then exec_tmo="timeout $timeout_s"
+            elif command -v gtimeout >/dev/null 2>&1; then exec_tmo="gtimeout $timeout_s"; fi
+        elif [ "$has_foreign_manifest" = "false" ] && [ -f "$tree/package.json" ]; then
             local has_build_devdep="false"
             # A build TOOL as a (dev)dependency means a build exists even if it runs
             # under a non-"build" script name -> stay not_run, do not claim N/A.
@@ -12571,7 +12681,13 @@ enforce_build_check() {
             return $?
         else
             local rc=0
-            ( cd "$tree" && timeout "$timeout_s" sh -c "$cmd" >/dev/null 2>&1 ) || rc=$?
+            if [ -n "$exec_cmd" ]; then
+                # Python compileall: pycache redirected out of the repo; timeout
+                # prefix is optional so a box without timeout is not a false RED.
+                ( cd "$tree" && env "$exec_env" $exec_tmo sh -c "$exec_cmd" >/dev/null 2>&1 ) || rc=$?
+            else
+                ( cd "$tree" && timeout "$timeout_s" sh -c "$cmd" >/dev/null 2>&1 ) || rc=$?
+            fi
             ran="true"; exit_code="$rc"
             if [ "$rc" -eq 0 ]; then status="verified"; else status="failed"; fi
             : > "$marker" 2>/dev/null || true
@@ -13777,7 +13893,32 @@ _loki_run_pytest_with_timeout() {
     local pytest_timeout="${LOKI_PYTEST_TIMEOUT:-${LOKI_GATE_TIMEOUT:-300}}"
     local _to_cmd=()
     read -r -a _to_cmd <<< "$(_loki_timeout_prefix "$pytest_timeout" 'pytest gate')"
-    (cd "$target_dir" && "${_to_cmd[@]}" pytest "$@" 2>&1)
+    # S3 (cost program): bare `pytest` does not put the cwd on sys.path, so
+    # root-level modules imported from tests/ raise ModuleNotFoundError (a false
+    # RED that drives repair loops). `python3 -m pytest` adds cwd. Falls back to
+    # the bare binary only when python3 cannot import pytest.
+    local _py_cmd=(pytest)
+    if command -v python3 >/dev/null 2>&1 && python3 -c 'import pytest' >/dev/null 2>&1; then
+        _py_cmd=(python3 -m pytest)
+    fi
+    local _pt_out _pt_rc
+    _pt_out=$(cd "$target_dir" && "${_to_cmd[@]}" "${_py_cmd[@]}" "$@" 2>&1)
+    _pt_rc=$?
+    # Exit 5 = pytest collected 0 items (module-level-assert files, custom
+    # python_files). Try stdlib unittest discovery before giving up. Zero tests
+    # from BOTH stays exit 5 (the caller records it inconclusive, never verified).
+    if [ "$_pt_rc" -eq 5 ] && command -v python3 >/dev/null 2>&1; then
+        local _ut_out _ut_rc
+        _ut_out=$(cd "$target_dir" && "${_to_cmd[@]}" python3 -m unittest discover -p 'test_*.py' 2>&1)
+        _ut_rc=$?
+        printf '%s\n[loki] pytest collected 0 tests (exit 5); fell back to python3 -m unittest discover\n%s\n' "$_pt_out" "$_ut_out"
+        if [ "$_ut_rc" -eq 0 ] && printf '%s\n' "$_ut_out" | grep -qE '^(Ran 0 tests|NO TESTS RAN$)'; then
+            return 5
+        fi
+        return "$_ut_rc"
+    fi
+    printf '%s\n' "$_pt_out"
+    return "$_pt_rc"
 }
 
 # ============================================================================
@@ -14326,14 +14467,27 @@ sys.stdout.write(t.strip())
             # v7.5.15 (Triage #14): wrapped with configurable timeout via helper.
             output=$(_loki_run_pytest_with_timeout "${TARGET_DIR:-.}" --tb=short)
             pytest_exit=$?
+            # S3: the helper falls back to unittest discover on pytest exit 5; the
+            # record must name the runner that actually produced the verdict.
+            case "$output" in *"fell back to python3 -m unittest discover"*) test_runner="unittest" ;; esac
             if [ "$pytest_exit" -eq 124 ]; then
                 local _pt_to="${LOKI_PYTEST_TIMEOUT:-${LOKI_GATE_TIMEOUT:-300}}"
                 test_passed=false
                 log_warn "pytest gate timed out after ${_pt_to}s (exit 124)"
-                details="pytest: TIMED OUT after ${_pt_to}s -- $(echo "$output" | tail -3 | tr '\n' ' ')"
+                details="$test_runner: TIMED OUT after ${_pt_to}s -- $(echo "$output" | tail -3 | tr '\n' ' ')"
+            elif [ "$pytest_exit" -eq 5 ]; then
+                # Zero tests from pytest AND unittest: inconclusive, never verified.
+                # Stays passing only on a POSITIVE "Ran 0 tests" read, which the
+                # zero-test guard below downgrades to no_tests_run; anything else
+                # (no fallback output) is a plain failure.
+                test_runner="unittest"
+                if ! printf '%s\n' "$output" | grep -qE '^(Ran 0 tests|NO TESTS RAN$)'; then
+                    test_passed=false
+                fi
+                details="unittest: $(echo "$output" | tail -5 | tr '\n' ' ')"
             else
                 [ "$pytest_exit" -ne 0 ] && test_passed=false
-                details="pytest: $(echo "$output" | tail -5 | tr '\n' ' ')"
+                details="$test_runner: $(echo "$output" | tail -5 | tr '\n' ' ')"
             fi
         elif [ "$has_python_project" = "true" ] && command -v python3 &>/dev/null; then
             # #139: pytest ABSENT but a Python test suite exists. stdlib unittest
@@ -16282,7 +16436,9 @@ _dispatch_reviewer() {
             #     Guardrail, not a sandbox -- echo>/sed -i/etc. remain; the
             #     real net is commit-before-agent-wave. Opt out
             #     LOKI_REVIEW_TOOL_GUARD=0. See loki_review_guard_denylist.
-            local _rv_argv=("--dangerously-skip-permissions")
+            _LOKI_PERM_ARGV=(--dangerously-skip-permissions)
+            ! type _loki_claude_permission_argv >/dev/null 2>&1 || _loki_claude_permission_argv
+            local _rv_argv=("${_LOKI_PERM_ARGV[@]}")
             # OPT-IN advisor pin (v7.104.0, LOKI_ADVISOR_MODEL): reviewers still
             # pass NO --model by default (unchanged behavior: they run on the
             # account default). When the operator/user sets LOKI_ADVISOR_MODEL to
@@ -16317,7 +16473,7 @@ _dispatch_reviewer() {
                 _rv_argv+=(
                     "--settings" "$LOKI_HOST_GUARD_SETTINGS_JSON"
                     "--setting-sources" ""
-                    "--tools" ""
+                    "--tools="
                     "--mcp-config" '{"mcpServers":{}}'
                     "--strict-mcp-config"
                     "--disable-slash-commands"
@@ -17715,6 +17871,11 @@ SPECIALIST_SELECT
 
     if [ -z "$selected_specialists" ]; then
         log_error "Code review: Specialist selection failed"
+        return 1
+    fi
+    # An empty reviewer list must never read as "passed (0/0)": fail closed.
+    if ! printf '%s' "$selected_specialists" | python3 -c 'import sys,json; sys.exit(0 if json.load(sys.stdin).get("reviewers") else 1)' 2>/dev/null; then
+        log_error "Code review: no reviewers selected; review is inconclusive"
         return 1
     fi
 
@@ -21352,7 +21513,9 @@ ${_commits}"
     # needed, so --bare is safe and cheaper. Opt out LOKI_BARE_SUBCALLS=0.
     # Always at least --dangerously-skip-permissions, so the array is never
     # empty (empty "${arr[@]}" under set -u errors on bash 3.2, stock macOS).
-    local _ic_argv=("--dangerously-skip-permissions")
+    _LOKI_PERM_ARGV=(--dangerously-skip-permissions)
+    ! type _loki_claude_permission_argv >/dev/null 2>&1 || _loki_claude_permission_argv
+    local _ic_argv=("${_LOKI_PERM_ARGV[@]}")
     if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
         _ic_argv+=("--bare")
     fi
@@ -21462,6 +21625,20 @@ PY
         log_info "Auto-wiki regen skipped (generator returned non-zero); keeping existing wiki."
     fi
     return 0
+}
+
+# At most one wiki regeneration per run, on every tier (cost S5). Args:
+# iteration, max iterations, iteration exit code. A failed non-final iteration
+# defers; the first successful iteration, or the final one, spends the single
+# run. The flag lives in the caller's shell, so call this without a subshell.
+_auto_wiki_regen_once() {
+    [ "${_LOKI_WIKI_REGEN_DONE:-0}" = "1" ] && return 0
+    local iter="${1:-0}" max="${2:-0}" rc="${3:-1}"
+    if [ "$rc" != "0" ]; then
+        [ "$max" -gt 0 ] 2>/dev/null && [ "$iter" -ge "$max" ] 2>/dev/null || return 0
+    fi
+    _LOKI_WIKI_REGEN_DONE=1
+    _auto_wiki_regen
 }
 
 
@@ -24671,6 +24848,13 @@ except Exception:
     fi
 
     log_info "PRD: ${prd_path:-Codebase Analysis Mode}"
+    # Complexity is detected once, here, so the small-task profile can take
+    # effect before spec grill, PRD enrich and the first prompt. The later
+    # detect_complexity guard sees the cached value.
+    if [ -z "${DETECTED_COMPLEXITY:-}" ]; then
+        detect_complexity "$prd_path"
+    fi
+    loki_maybe_apply_small_profile
     log_info "Max retries: $MAX_RETRIES"
     log_info "Max iterations: $MAX_ITERATIONS"
     log_info "Completion promise: $COMPLETION_PROMISE"
@@ -25529,7 +25713,9 @@ except Exception as exc:
         # present so the array is never empty (empty "${arr[@]}" under `set -u`
         # is an error on bash 3.2, the stock macOS shell). The autonomy override
         # is appended conditionally.
-        local _loki_claude_argv=("--dangerously-skip-permissions" "--model" "$tier_param")
+        _LOKI_PERM_ARGV=(--dangerously-skip-permissions)
+        ! type _loki_claude_permission_argv >/dev/null 2>&1 || _loki_claude_permission_argv
+        local _loki_claude_argv=("${_LOKI_PERM_ARGV[@]}" "--model" "$tier_param")
         if [ "${LOKI_AUTONOMY_OVERRIDE:-on}" != "off" ] \
            && type _loki_autonomy_override_text >/dev/null 2>&1 \
            && type loki_claude_flag_supported >/dev/null 2>&1 \
@@ -25541,7 +25727,9 @@ except Exception as exc:
         # default. Behavior-neutral (these are the standard sources). Gated +
         # falls back to the implicit default when unsupported. Opt out with
         # LOKI_SETTING_SOURCES=off.
-        if ! loki_is_supervised_simple_web \
+        if loki_small_main_session_flags; then
+            _loki_claude_argv+=("${_LOKI_SMALL_MAIN_ARGV[@]}")
+        elif ! loki_is_supervised_simple_web \
            && [ "${LOKI_SETTING_SOURCES:-on}" != "off" ] \
            && type loki_claude_flag_supported >/dev/null 2>&1 \
            && loki_claude_flag_supported "--setting-sources"; then
@@ -26367,6 +26555,15 @@ EOF
             ( LOKI_DIR="${TARGET_DIR:-.}/.loki" \
               python3 "${SCRIPT_DIR}/lib/decision_record.py" record "${_dr_args[@]}" \
               >/dev/null 2>&1 </dev/null & ) 2>/dev/null || true
+        fi
+
+        # DESIGN DECISION RECORD (P12-37). The plan (REASON) stage may leave
+        # .loki/signals/DESIGN_DECISION.json (rationale, alternatives, source,
+        # scope). Record it once, then consume it. Non-fatal; no file, no record.
+        local _dd_file="${TARGET_DIR:-.}/.loki/signals/DESIGN_DECISION.json"
+        if [ "${rarv_phase:-}" = "REASON" ] && [ -s "$_dd_file" ] && [ -f "${SCRIPT_DIR:-}/lib/decision_record.py" ]; then
+            LOKI_DIR="${TARGET_DIR:-.}/.loki" python3 "${SCRIPT_DIR}/lib/decision_record.py" design-file "$_dd_file" \
+                >/dev/null 2>&1 </dev/null && rm -f "$_dd_file" || true
         fi
 
         # AGENT PROMPT SIZE. The call this brackets is 93% of a run's wall clock
@@ -27195,7 +27392,7 @@ EOF
         # structure changed). Default-on; opt out LOKI_WIKI_AUTO=0. The `|| true`
         # is belt-and-suspenders -- the function already returns 0 on every path.
         if ! loki_is_supervised_simple_web; then
-            _auto_wiki_regen 2>/dev/null || true
+            _auto_wiki_regen_once "$ITERATION_COUNT" "$MAX_ITERATIONS" "$exit_code" 2>/dev/null || true
         fi
 
         # BUG-QG-008: Track iteration for convergence regardless of exit code
@@ -29129,6 +29326,10 @@ main() {
 
     # Show provider info
     log_info "Provider: ${PROVIDER_DISPLAY_NAME:-Claude Code} (${PROVIDER_NAME:-claude})"
+    # C-C2: one line naming the active permission policy (claude provider only).
+    if [ "${PROVIDER_NAME:-claude}" = "claude" ] && declare -F loki_permission_policy_banner >/dev/null 2>&1; then
+        log_info "$(loki_permission_policy_banner)"
+    fi
     if [ "${PROVIDER_DEGRADED:-false}" = "true" ]; then
         # Report what is ACTUALLY missing, read from the capability flags, rather
         # than asserting a fixed pair. The old wording hardcoded "Parallel agents

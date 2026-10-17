@@ -1,4 +1,3 @@
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/conorluddy/ios-simulator-skill)
 
 # iOS Simulator Skill for Agents
 
@@ -17,18 +16,33 @@ If you only need Xcode build tooling without the simulator scripts, see the plug
 
 ## Installation
 
-### Via Plugin Marketplace (Recommended)
-
-In Claude Code:
+### Claude Code — plugin marketplace (recommended)
 
 ```
 /plugin marketplace add conorluddy/ios-simulator-skill
 /plugin install ios-simulator-skill@conorluddy
 ```
 
+### Codex — plugin marketplace (recommended)
+
+```bash
+codex plugin marketplace add conorluddy/ios-simulator-skill
+codex plugin add ios-simulator-skill@conorluddy
+```
+
+Or run `/plugins` inside Codex and install it from the `conorluddy` marketplace. Start a new
+Codex session afterwards. Update later with `codex plugin marketplace upgrade conorluddy`.
+
 ### Manual install
 
-A skill is loaded from `SKILL.md` at the root of its directory — `~/.claude/skills/<name>/SKILL.md`.
+A skill is loaded from `SKILL.md` at the root of its directory:
+
+| Agent | User-level skills | Project-level skills |
+|---|---|---|
+| Claude Code | `~/.claude/skills/<name>/SKILL.md` | `.claude/skills/<name>/SKILL.md` |
+| Codex | `~/.agents/skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` |
+
+The commands below use the Claude Code path; swap in `~/.agents/skills` for Codex.
 This repository is a *plugin*, so the skill itself lives at
 `ios-simulator-skill/skills/ios-simulator-skill/`; cloning the whole repo into your skills
 directory puts `SKILL.md` three levels too deep and the skill will not load.
@@ -48,8 +62,14 @@ cp -R ~/src/ios-simulator-skill/ios-simulator-skill/skills/ios-simulator-skill \
       ~/.claude/skills/ios-simulator-skill
 ```
 
-For a project-local install, use `.claude/skills/ios-simulator-skill` as the destination instead.
-Either way, restart Claude Code afterwards; verify with `ls ~/.claude/skills/ios-simulator-skill/SKILL.md`.
+For a project-local install, use the project-level path from the table instead.
+Restart Claude Code afterwards (Codex picks up new skills automatically; restart it if the skill
+doesn't appear). Verify `SKILL.md` sits at the root of the destination:
+
+```bash
+ls ~/.claude/skills/ios-simulator-skill/SKILL.md   # Claude Code
+ls ~/.agents/skills/ios-simulator-skill/SKILL.md   # Codex
+```
 
 ### Prerequisites
 
@@ -172,8 +192,8 @@ Every script supports `--help` and `--json`. See **SKILL.md** for the complete r
 |--------|-------------|-----------|
 | `screen_mapper.py` | Analyze current screen, list interactive elements | `--verbose`, `--hints` |
 | `navigator.py` | Find and interact with elements semantically | `--find-text`, `--find-type`, `--find-id`, `--tap`, `--enter-text` |
-| `gesture.py` | Swipes, scrolls, pinches, long press, pull to refresh | `--swipe`, `--scroll`, `--pinch`, `--long-press`, `--refresh` |
-| `keyboard.py` | Text input and hardware button control | `--type`, `--key`, `--button`, `--clear`, `--dismiss` |
+| `gesture.py` | Swipes (finger direction), scrolls (content direction), pinch, long press, pull to refresh | `--swipe`, `--scroll`, `--pinch`, `--scale`, `--long-press`, `--refresh` |
+| `keyboard.py` | Text input, keys, key sequences and hardware buttons | `--type`, `--key`, `--key-sequence`, `--button`, `--clear`, `--dismiss` |
 | `app_launcher.py` | Launch, terminate, install, deep link apps | `--launch`, `--terminate`, `--install`, `--open-url`, `--list` |
 
 #### Testing & Analysis

@@ -100,7 +100,7 @@ done
 # advice that omits the cap has moved the contradiction rather than closed it.
 dir="$(mk_state "cap_advice" "max_iterations_reached")"
 out="$(cd "$dir" && LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" resume 2>&1)"
-if printf '%s' "$out" | grep -q 'LOKI_MAX_ITERATIONS'; then
+if grep -q 'LOKI_MAX_ITERATIONS' <<<"$out"; then
     pass "an iteration-capped run is told to raise LOKI_MAX_ITERATIONS"
 else
     fail "capped run advice omits the cap; resuming as-is hits the same limit"
@@ -108,7 +108,7 @@ fi
 
 dir="$(mk_state "budget_advice" "budget_exceeded")"
 out="$(cd "$dir" && LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" resume 2>&1)"
-if printf '%s' "$out" | grep -q 'LOKI_BUDGET_LIMIT'; then
+if grep -q 'LOKI_BUDGET_LIMIT' <<<"$out"; then
     pass "a budget-capped run is told to raise LOKI_BUDGET_LIMIT"
 else
     fail "budget run advice omits the budget; resuming as-is hits the same limit"
@@ -128,7 +128,7 @@ for status in max_iterations_reached budget_exceeded; do
     dir="$(mk_state "noiter_$status" "$status")"
     out="$(cd "$dir" && LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" resume 2>&1)"
     # mk_state writes iteration 9; it must not appear as a promised pick-up.
-    if printf '%s' "$out" | grep -q 'picks up from iteration'; then
+    if grep -q 'picks up from iteration' <<<"$out"; then
         fail "$status: promises to pick up from an iteration that load_state resets to 0"
     else
         pass "$status: does not promise a resumed iteration count"
@@ -139,7 +139,7 @@ done
 # assertion above would pass on an implementation that dropped it everywhere.
 dir="$(mk_state "iter_interrupted" "interrupted")"
 out="$(cd "$dir" && LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" resume 2>&1)"
-if printf '%s' "$out" | grep -q 'picks up from iteration'; then
+if grep -q 'picks up from iteration' <<<"$out"; then
     pass "interrupted: still promises the pick-up (it genuinely resumes)"
 else
     fail "interrupted lost its pick-up line; the assertion above was vacuous"
@@ -151,7 +151,7 @@ fi
 for status in council_approved council_force_approved completion_promise_fulfilled; do
     dir="$(mk_state "verdict_$status" "$status")"
     out="$(cd "$dir" && LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" resume 2>&1)"
-    if printf '%s' "$out" | grep -q "$DEAD_END"; then
+    if grep -q "$DEAD_END" <<<"$out"; then
         pass "$status: resume correctly refuses (it routes to loki ship)"
     else
         fail "$status: resume offered to continue an APPROVED build -- worse than silence"
@@ -161,7 +161,7 @@ done
 # --- A stale spec path must not produce a command that fails on paste ---------
 dir="$(mk_state "stale_prd" "max_iterations_reached" "/nonexistent/definitely-gone.md")"
 out="$(cd "$dir" && LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" resume 2>&1)"
-if printf '%s' "$out" | grep -q 'definitely-gone.md'; then
+if grep -q 'definitely-gone.md' <<<"$out"; then
     fail "a stale prdPath was interpolated; the printed command fails on paste"
 else
     pass "a stale prdPath degrades to bare 'loki start'"
@@ -174,10 +174,99 @@ mkdir -p "$WORK/live_prd"
 printf 'spec\n' > "$WORK/live_prd/spec.md"
 dir="$(mk_state "live_prd" "max_iterations_reached" "$WORK/live_prd/spec.md")"
 out="$(cd "$dir" && LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" resume 2>&1)"
-if printf '%s' "$out" | grep -q 'spec.md'; then
+if grep -q 'spec.md' <<<"$out"; then
     pass "a live prdPath is interpolated into the resume command"
 else
     fail "a live prdPath was dropped; the command would resume a different run"
+fi
+
+# --- P12-07b: a bare `loki start --resume` reaches the engine10 resume path ----
+# Before the fix cmd_start ignored --resume and began a new build. A stub entry
+# records the argv the delegate receives, so the route is read out, not assumed.
+if command -v bun >/dev/null 2>&1; then
+    stub="$WORK/stub-entry.js"
+    printf 'console.log("STUB-ARGV:" + process.argv.slice(2).join(" ")); process.exit(process.argv[2] === "engine10" ? Number(process.env.STUB_RC || 0) : 0);\n' > "$stub"
+    dir="$WORK/start_resume"; mkdir -p "$dir"
+    out="$(cd "$dir" && LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume 2>&1)"; rc=$?
+    case "$out" in
+        *"STUB-ARGV:engine10 resume"*) pass "start --resume delegates to engine10 resume" ;;
+        *) fail "start --resume did not reach engine10 resume: $out" ;;
+    esac
+    [ "$rc" -eq 0 ] && pass "start --resume exit 0 when resume succeeds" || fail "start --resume rc=$rc, expected 0"
+    out="$(cd "$dir" && STUB_RC=4 LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume e10-abc 2>&1)"; rc=$?
+    case "$out" in
+        *"STUB-ARGV:engine10 resume e10-abc"*) pass "start --resume passes the run id through" ;;
+        *) fail "start --resume dropped the run id: $out" ;;
+    esac
+    [ "$rc" -eq 0 ] && pass "phase-reported (4) maps to exit 0, same as loki resume" || fail "rc=$rc, expected 0 for a reported phase"
+    out="$(cd "$dir" && LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start "fix the login bug" --resume 2>&1)"; rc=$?
+    [ "$rc" -eq 2 ] && pass "start <task> --resume is refused with exit 2" || fail "start <task> --resume rc=$rc, expected 2"
+    case "$out" in
+        *"takes an optional run id, not a task"*) pass "refusal names the run-id-only rule" ;;
+        *) fail "refusal message missing: $out" ;;
+    esac
+    case "$out" in *STUB-ARGV*) fail "task text reached the delegate" ;; *) pass "task text never reaches the delegate" ;; esac
+    out="$(cd "$dir" && LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --provider claude --budget 5 --resume 2>&1)"; rc=$?
+    case "$out" in
+        *"STUB-ARGV:engine10 resume"*) pass "start --provider claude --budget 5 --resume reaches engine10 resume" ;;
+        *) fail "value flags around --resume were refused: $out" ;;
+    esac
+    case "$out" in *"STUB-ARGV:engine10 resume claude"*|*"resume 5"*) fail "a flag value leaked as a run id: $out" ;; *) pass "flag values are not passed as run ids" ;; esac
+    out="$(cd "$dir" && LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume --provider claude e10-abc --budget 5 2>&1)"
+    case "$out" in
+        *"STUB-ARGV:engine10 resume e10-abc"*) pass "run id kept when value flags surround it" ;;
+        *) fail "run id lost around value flags: $out" ;;
+    esac
+    # P12-07e: --brief consumes the next token, so its text is never a run id.
+    out="$(cd "$dir" && LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume --brief "build a todo app" 2>&1)"; rc=$?
+    case "$out" in
+        *"STUB-ARGV:engine10 resume"*) pass "start --resume --brief TEXT reaches engine10 resume" ;;
+        *) fail "--brief text was misparsed as a run id: $out" ;;
+    esac
+    case "$out" in *"build a todo app"*"STUB-ARGV"*|*"STUB-ARGV"*"build a todo app"*) fail "--brief text leaked to the delegate: $out" ;; *) pass "--brief text never reaches the delegate" ;; esac
+    # P12-07f: --mirofish takes an optional URL, --mirofish-docker a required image.
+    out="$(cd "$dir" && LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume --mirofish http://x 2>&1)"; rc=$?
+    case "$out" in
+        *"STUB-ARGV:engine10 resume"*) pass "start --resume --mirofish URL reaches engine10 resume" ;;
+        *) fail "--mirofish URL was misparsed as a run id: $out" ;;
+    esac
+    out="$(cd "$dir" && LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume --mirofish --provider claude 2>&1)"; rc=$?
+    case "$out" in
+        *"STUB-ARGV:engine10 resume"*) pass "start --resume --mirofish before another flag reaches engine10 resume" ;;
+        *) fail "bare --mirofish broke the scan: $out" ;;
+    esac
+    out="$(cd "$dir" && LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume --mirofish-docker img 2>&1)"; rc=$?
+    case "$out" in
+        *"STUB-ARGV:engine10 resume"*) pass "start --resume --mirofish-docker IMG reaches engine10 resume" ;;
+        *) fail "--mirofish-docker image was misparsed as a run id: $out" ;;
+    esac
+    # P12-07k: the scan consumes only the value of an allowlisted valued flag, and an unknown flag (even a Bun-route-only one) exits 64 so its value is never read as a run id.
+    # Tolerance: a pair here only has to be skipped by the scan; the legacy bash route need not honor the flag.
+    for pair in "--provider claude" "--budget 4" "--max-duration 30m" "--log-level debug" "--isolation none"; do
+        # shellcheck disable=SC2086 # intentional split: "$pair" is flag plus value
+        out="$(cd "$dir" && LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume $pair 2>&1)"
+        case "$out" in
+            *"STUB-ARGV:engine10 resume"*) pass "start --resume $pair reaches engine10 resume" ;;
+            *) fail "'$pair' value was misparsed as a run id: $out" ;;
+        esac
+    done
+    for pair in "--model sonnet" "--max-wait 30" "--foo bar"; do
+        # shellcheck disable=SC2086 # intentional split: "$pair" is flag plus value
+        out="$(cd "$dir" && LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume $pair 2>&1)"; rc=$?
+        if [ "$rc" -eq 64 ] && [[ "$out" == *"Unknown option: ${pair%% *}"* ]]; then pass "start --resume $pair exits 64"; else fail "start --resume $pair rc=$rc: $out"; fi
+    done
+    # The --workspace brief scan reads the same allowlist as the --resume scan.
+    out="$(cd "$dir" && bash -c 'source <(sed -n "/^_loki_start_flag_kind()/,/^}/p" "$1"); for f in --provider --mirofish --resume --fast; do _loki_start_flag_kind "$f" || echo "MISSING $f"; done; for f in --model --max-cost --max-wait; do ! _loki_start_flag_kind "$f" || echo "UNEXPECTED $f"; done' _ "$LOKI_BIN" 2>&1)"
+    [ -z "$out" ] && pass "shared allowlist knows start flags and rejects Bun-only ones" || fail "shared list gaps: $out"
+    # Parity: exit 5 (publish failed) maps to 1 in BOTH commands.
+    out="$(cd "$dir" && STUB_RC=5 LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume 2>&1)"; rc_start=$?
+    mkdir -p "$dir/.loki/runs/e10-parity"; : > "$dir/.loki/runs/e10-parity/events.jsonl"
+    out="$(cd "$dir" && STUB_RC=5 LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" resume 2>&1)"; rc_resume=$?
+    if [ "$rc_start" -eq 1 ] && [ "$rc_resume" -eq 1 ]; then pass "exit 5 maps to 1 in start --resume and resume"; else fail "exit 5 parity: start=$rc_start resume=$rc_resume, expected 1 and 1"; fi
+    out="$(cd "$dir" && STUB_RC=3 LOKI_TS_ENTRY="$stub" LOKI_LEGACY_BASH=1 bash "$LOKI_BIN" start --resume 2>&1)"; rc=$?
+    [ "$rc" -eq 3 ] && pass "nothing to resume (3) is not turned into a new build" || fail "rc=$rc, expected 3"
+else
+    fail "bun unavailable: start --resume route was NOT measured (unmeasured, not clean)"
 fi
 
 echo "  $PASS passed, $FAIL failed"

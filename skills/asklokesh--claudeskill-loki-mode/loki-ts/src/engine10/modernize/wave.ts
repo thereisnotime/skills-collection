@@ -4,6 +4,9 @@
 // reason naming the failing step (M-21 ship consumes this verdict). Child processes get tokenFreeEnv.
 // Output is kept only as a bounded tail for humans, never parsed and never in the reason string.
 import { spawnSync } from "node:child_process";
+import { readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import type { InventoryResult } from "./inventory.ts";
 import type { ModernizeLog } from "./log.ts";
 import { tokenFreeEnv } from "../../util/safe_git.ts";
 
@@ -49,6 +52,8 @@ export interface VerifyWaveOpts {
   commands: Partial<Record<WaveStep, StepCommand | null>>;
   log?: ModernizeLog;
   run?: StepRunner;
+  /** Steps whose command may be null: skipped with ran:false instead of blocking (M-27E, D2). */
+  optional?: readonly WaveStep[];
 }
 
 function clampTimeout(ms: number | undefined): number {
@@ -83,6 +88,7 @@ export function verifyWave(opts: VerifyWaveOpts): WaveVerdict {
   const steps: StepResult[] = [];
   let failedStep: WaveStep | null = null;
   let reason: string | null = null;
+  const skipped: WaveStep[] = [];
   const block = (step: WaveStep, why: string): void => {
     failedStep = step;
     reason = `wave ${opts.wave} blocked: ${step} ${why}`;
@@ -91,6 +97,7 @@ export function verifyWave(opts: VerifyWaveOpts): WaveVerdict {
   for (const step of WAVE_STEPS) {
     if (failedStep !== null) { steps.push({ step, ran: false, passed: false, exit: null, tail: "" }); continue; }
     const cmd = opts.commands[step];
+    if (cmd == null && opts.optional?.includes(step)) { skipped.push(step); steps.push({ step, ran: false, passed: false, exit: null, tail: "" }); continue; }
     if (!validArgv(cmd)) {
       steps.push({ step, ran: false, passed: false, exit: null, tail: "" });
       block(step, "has no command configured");
@@ -109,7 +116,7 @@ export function verifyWave(opts: VerifyWaveOpts): WaveVerdict {
   const verdict: WaveVerdict = { wave: opts.wave, verified: failedStep === null, failedStep, reason, steps };
   opts.log?.append("wave.verified", {
     wave: opts.wave, verified: verdict.verified, failed_step: failedStep, reason,
-    steps: steps.map((s) => ({ step: s.step, ran: s.ran, passed: s.passed, exit: s.exit })),
+    steps: steps.map((s) => ({ step: s.step, ran: s.ran, passed: s.passed, exit: s.exit })), skipped,
   });
   return verdict;
 }
@@ -118,4 +125,32 @@ export function verifyWave(opts: VerifyWaveOpts): WaveVerdict {
 export function nextWaveGate(prior: WaveVerdict[]): { allowed: boolean; reason: string | null } {
   const bad = prior.find((v) => !v.verified);
   return bad ? { allowed: false, reason: bad.reason ?? `wave ${bad.wave} blocked: not verified` } : { allowed: true, reason: null };
+}
+
+/** Verify argv from the Inventory (M-27D). Fail closed: an undetected step is null, never another step's command. */
+export function detectWaveCommands(inv: InventoryResult, target: string): Record<WaveStep, StepCommand | null> {
+  const { system, marker } = inv.buildSystem;
+  const none = { build: null, integration: null, original_suite: null };
+  const text = (): string => { try { return readFileSync(join(target, marker ?? ""), "utf8"); } catch { return ""; } };
+  if (system === "maven") {
+    // failsafe binds ITs to verify; surefire-only projects run IT-named classes through test; neither fails closed (null).
+    const integration: StepCommand | null = text().includes("maven-failsafe-plugin") ? { argv: ["mvn", "-B", "verify"] }
+      : inv.files.some((f) => ["IT.java", "ITCase.java", "IntegrationTest.java"].some((x) => f.endsWith(x))) ? { argv: ["mvn", "-B", "test", "-Dtest=*IT,*ITCase,*IntegrationTest", "-Dsurefire.failIfNoSpecifiedTests=false"] } : null;
+    return { build: { argv: ["mvn", "-B", "-q", "compile"] }, integration, original_suite: { argv: ["mvn", "-B", "test"] } };
+  }
+  if (system === "gradle") {
+    let gw = "gradle";
+    try { if (inv.files.includes("gradlew") && (statSync(join(target, "gradlew")).mode & 0o111) !== 0) gw = "./gradlew"; } catch { /* keep gradle */ }
+    return { build: { argv: [gw, "assemble"] }, integration: text().includes("integrationTest") ? { argv: [gw, "integrationTest"] } : null, original_suite: { argv: [gw, "test"] } };
+  }
+  if (system !== "setuptools" && system !== "poetry" && system !== "tox") return none;
+  // Segment-prefix match (never raw startsWith) and the dir must hold at least one .py file.
+  const itDir = ["tests/integration", "integration"].find((d) => inv.files.some((f) => f.startsWith(d + "/") && f.endsWith(".py")));
+  const pytest = "pytest" in inv.tests.evidence;
+  // tox.ini is read by file, not by build-system marker: pyproject usually wins the marker and would hide tox.
+  let toxIni = "";
+  if (inv.files.includes("tox.ini")) { try { toxIni = readFileSync(join(target, "tox.ini"), "utf8"); } catch { /* none */ } }
+  const integration: StepCommand | null = toxIni.includes("[testenv:integration") ? { argv: ["tox", "-e", "integration"] }
+    : itDir && pytest ? { argv: ["python3", "-m", "pytest", "-q", itDir] } : null;
+  return { build: { argv: ["python3", "-m", "compileall", "-q", "-x", "/(\\.loki|\\.venv|venv|node_modules|\\.tox|\\.git)/", "."] }, integration, original_suite: pytest ? { argv: ["python3", "-m", "pytest", "-q"] } : null };
 }

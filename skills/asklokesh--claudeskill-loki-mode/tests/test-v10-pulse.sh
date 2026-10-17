@@ -230,6 +230,7 @@ COMMON_ARGS=(
     "PULSE_PROGRESS_MD=$PROGRESS_FRESH"
     "PULSE_NPM_CMD=false"
     "PULSE_GH_CMD=false"
+    "PULSE_PROMOTE_CMD=false"
     "PULSE_GH_FALLBACK_CMD=false"
     "PULSE_GOVERNOR_CMD=cat $GOVERNOR_OK_JSON"
     "PULSE_GH_STREAK_CMD=cat $GH_STREAK_OK_JSON"
@@ -1933,6 +1934,7 @@ recs = {
     "npm": '{"1.0.0":"2026-09-27T01:30:00.000Z"}',
     "gh_ci": '[{"status":"completed","conclusion":"failure","workflowName":"Lint"}]',
     "gh_streak": '[{"status":"completed","conclusion":"success"}]',
+    "promote": "NIGHTLY-FAILED-STEPS: none",
     # gh_ci above already resolves cleanly (RED), so the E-75 fallback is
     # never consulted -- this entry only exists so a missing cache file for
     # it does not itself count as a cache miss and force a spurious refresh.
@@ -1950,7 +1952,7 @@ PYEOF
 T33_ARGS=(
     "PATH=$STUB_BIN:$PATH"
     "PULSE_REPO_ROOT=$FAKE_REPO" "PULSE_MAIN_REF=main" "CONTROL_MD=$CONTROL_OK"
-    "BOARD_MD=$BOARD_CLEAN" "PULSE_NPM_CMD=" "PULSE_GH_CMD=" "PULSE_GH_STREAK_CMD="
+    "BOARD_MD=$BOARD_CLEAN" "PULSE_NPM_CMD=" "PULSE_GH_CMD=" "PULSE_PROMOTE_CMD=" "PULSE_GH_STREAK_CMD="
     # Unlike npm/gh above (real binary names, intercepted via PATH stub),
     # the governor's default argv is a real path under $PULSE_REPO_ROOT
     # ($FAKE_REPO here, which has no scripts/usage-governor.py) -- it would
@@ -2204,9 +2206,9 @@ else
     printf '%s\n' "$OUT"
 fi
 
-echo "T38 -- S-94: WORKTREE_COUNT does not fire at exactly 15 worktrees under .claude/worktrees"
+echo "T38 -- S-94: WORKTREE_COUNT does not fire at exactly 21 worktrees (D103) under .claude/worktrees"
 WT15_LIST=""
-for i in $(seq 1 15); do
+for i in $(seq 1 21); do
     WT15_LIST="${WT15_LIST}worktree /repo/.claude/worktrees/wf-${i}
 HEAD dead
 
@@ -2214,21 +2216,21 @@ HEAD dead
 done
 if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_LIST=$WT15_LIST"; then rc=0; else rc=$?; fi
 if ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: WORKTREE_COUNT" \
-    && printf '%s\n' "$OUT" | grep -qF "Worktrees under .claude/worktrees: 15 (max 15)"; then
-    ok "exactly 15 worktrees under .claude/worktrees does not fire WORKTREE_COUNT"
+    && printf '%s\n' "$OUT" | grep -qF "Worktrees under .claude/worktrees: 21 (max 21)"; then
+    ok "exactly 21 worktrees under .claude/worktrees does not fire WORKTREE_COUNT"
 else
     bad "T38 WORKTREE_COUNT-at-max case: rc=$rc output follows"
     printf '%s\n' "$OUT"
 fi
 
-echo "T38b -- WORKTREE_COUNT fires at 16 worktrees under .claude/worktrees"
-WT16_LIST="${WT15_LIST}worktree /repo/.claude/worktrees/wf-16
+echo "T38b -- WORKTREE_COUNT fires at 22 worktrees under .claude/worktrees"
+WT16_LIST="${WT15_LIST}worktree /repo/.claude/worktrees/wf-22
 HEAD dead
 
 "
 if run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_WORKTREE_LIST=$WT16_LIST"; then rc=0; else rc=$?; fi
-if printf '%s\n' "$OUT" | grep -qF "VIOLATION: WORKTREE_COUNT: 16 worktrees under .claude/worktrees exceeds the 15 max"; then
-    ok "16 worktrees under .claude/worktrees fires WORKTREE_COUNT"
+if printf '%s\n' "$OUT" | grep -qF "VIOLATION: WORKTREE_COUNT: 22 worktrees under .claude/worktrees exceeds the 21 max"; then
+    ok "22 worktrees under .claude/worktrees fires WORKTREE_COUNT"
 else
     bad "T38b WORKTREE_COUNT-fires case: rc=$rc output follows"
     printf '%s\n' "$OUT"
@@ -3274,15 +3276,19 @@ else
     printf '%s\n' "$OUT"
 fi
 
-echo "T51 -- MERGED_NOT_RELEASED_STALE reports UNKNOWN, never 'none', when a row's ID breaks the"
-echo "      underlying git lookup (a real git failure must never read as 'nothing to flag')"
-BOARD_MNS_BAD="$WORK/BOARD-mns-bad.md"
-cat > "$BOARD_MNS_BAD" <<'EOF'
-| ID | Owner | File set | Tier | Status | Notes |
-|---|---|---|---|---|---|
-| S-( | a | x | LOW | merged@2026-09-20T00:10Z | |
+echo "T51 -- MERGED_NOT_RELEASED_STALE reports UNKNOWN, never 'none', when the git lookup itself"
+echo "      fails (timeout/crash must never read as 'nothing to flag')"
+BOARD_MNS_BAD="$BOARD_MNS"
+REAL_GIT="$(command -v git)"
+FAKE_GIT_DIR="$WORK/fake-git-fail"
+mkdir -p "$FAKE_GIT_DIR"
+cat > "$FAKE_GIT_DIR/git" <<EOF
+#!/bin/sh
+for a in "\$@"; do [ "\$a" = "--merges" ] && { echo "fatal: injected" >&2; exit 128; }; done
+exec "$REAL_GIT" "\$@"
 EOF
-if run_pulse "PULSE_REPO_ROOT=$MNS_REPO" "PULSE_MAIN_REF=main" \
+chmod +x "$FAKE_GIT_DIR/git"
+if run_pulse "PATH=$FAKE_GIT_DIR:$PATH" "PULSE_REPO_ROOT=$MNS_REPO" "PULSE_MAIN_REF=main" \
     "BOARD_MD=$BOARD_MNS_BAD" "CONTROL_MD=$CONTROL_OK" "PULSE_PROGRESS_MD=$PROGRESS_FRESH" \
     "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=false" "PULSE_GH_STREAK_CMD=false" \
     "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$MNS_REPO")" \
@@ -3291,9 +3297,51 @@ if printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*merged_not_released_stale"
     && printf '%s\n' "$OUT" | grep -qF "Merged rows already released (D37/E-90): UNKNOWN (release tag, " \
     && ! printf '%s\n' "$OUT" | grep -qF "Merged rows already released (D37/E-90): none" \
     && ! printf '%s\n' "$OUT" | grep -q "^VIOLATION: MERGED_NOT_RELEASED_STALE"; then
-    ok "an ID that breaks the git --grep pattern reports UNKNOWN, never a false 'none'"
+    ok "a failing git log --merges reports UNKNOWN, never a false 'none'"
 else
     bad "T51 MERGED_NOT_RELEASED_STALE-git-failure case: rc=$rc output follows"
+    printf '%s\n' "$OUT"
+fi
+
+echo "T51b -- merge lookup is ONE git log --merges call however many merged rows the board has,"
+echo "       a regex-shaped ID is matched literally, and slice-S-0 never resolves slice-S-01's merge"
+# Move the tag to main's tip so BOTH S-01 and S-02 merges are released: a
+# prefix-matching lookup for the S-0 row would then resolve to a released
+# merge and flag it, which the literal-boundary lookup must not.
+(cd "$MNS_REPO" && git tag -f v1.0.0 main >/dev/null 2>&1)
+CALL_LOG="$WORK/merges-calls.log"
+: > "$CALL_LOG"
+COUNT_GIT_DIR="$WORK/fake-git-count"
+mkdir -p "$COUNT_GIT_DIR"
+cat > "$COUNT_GIT_DIR/git" <<EOF
+#!/bin/sh
+for a in "\$@"; do [ "\$a" = "--merges" ] && echo x >> "$CALL_LOG"; done
+exec "$REAL_GIT" "\$@"
+EOF
+chmod +x "$COUNT_GIT_DIR/git"
+BOARD_MNS_MANY="$WORK/BOARD-mns-many.md"
+{
+    printf '%s\n' '| ID | Owner | File set | Tier | Status | Notes |' '|---|---|---|---|---|---|'
+    printf '%s\n' '| S-01 | a | x | LOW | merged@2026-09-20T00:10Z | |'
+    printf '%s\n' '| S-0 | a | x | LOW | merged@2026-09-20T00:10Z | |'
+    printf '%s\n' '| S-( | a | x | LOW | merged@2026-09-20T00:10Z | |'
+    printf '%s\n' '| S-.. | a | x | LOW | merged@2026-09-20T00:10Z | |'
+    for i in $(seq 1 47); do printf '| N-%02d | a | x | LOW | merged@2026-09-20T00:10Z | |\n' "$i"; done
+} > "$BOARD_MNS_MANY"
+if run_pulse "PATH=$COUNT_GIT_DIR:$PATH" "PULSE_REPO_ROOT=$MNS_REPO" "PULSE_MAIN_REF=main" \
+    "BOARD_MD=$BOARD_MNS_MANY" "CONTROL_MD=$CONTROL_OK" "PULSE_PROGRESS_MD=$PROGRESS_FRESH" \
+    "PULSE_NPM_CMD=cat $NPM_TIME_JSON" "PULSE_GH_CMD=false" "PULSE_GH_STREAK_CMD=false" \
+    "PULSE_WORKTREE_CMD=$(worktree_cmd_for "$MNS_REPO")" \
+    "PULSE_SWARM_START=2026-09-26T23:00Z" "PULSE_NOW=2026-09-27T02:00:00Z"; then rc=0; else rc=$?; fi
+NCALLS="$(wc -l < "$CALL_LOG" | tr -d ' ')"
+if [ "$NCALLS" = "1" ] \
+    && printf '%s\n' "$OUT" | grep -q "^VIOLATION: MERGED_NOT_RELEASED_STALE: S-01 (merge " \
+    && ! printf '%s\n' "$OUT" | grep -q "S-0 (merge " \
+    && ! printf '%s\n' "$OUT" | grep -q "S-\.\. (merge " \
+    && ! printf '%s\n' "$OUT" | grep -q "^UNKNOWN metrics:.*merged_not_released_stale"; then
+    ok "50 merged rows cost 1 git log --merges call; S-0 does not match S-01's merge; regex-shaped IDs match literally"
+else
+    bad "T51b one-pass merge lookup: git --merges calls=$NCALLS rc=$rc output follows"
     printf '%s\n' "$OUT"
 fi
 
@@ -3528,6 +3576,49 @@ if [ "$rc" != 0 ] \
     ok "npm UNKNOWN: no RELEASE_SLO claim either way, exit nonzero (never a false pass)"
 else
     bad "npm UNKNOWN case wrong (rc=$rc)"; printf '%s\n' "$OUT"
+fi
+
+# --- TEN-STABILITY-06: PROMOTION_LAG names the blocking reason -------------
+echo "TEN-STABILITY-06: PROMOTION_LAG"
+mk_lag_npm() { # file next_time latest_time
+python3 - "$1" "$2" "$3" <<'PYEOF'
+import json, sys
+f, nxt, lat = sys.argv[1:4]
+print(json.dumps({"time": {"created": "2020-01-01T00:00:00.000Z", "modified": nxt,
+    "99.10.1": lat, "99.17.6": nxt},
+    "dist-tags": {"latest": "99.10.1", "next": "99.17.6"}}), file=open(f, "w"))
+PYEOF
+}
+LAG_NPM="$WORK/npm-lag.json"; mk_lag_npm "$LAG_NPM" 2026-09-27T01:40:00.000Z 2026-09-26T00:00:00.000Z
+LAG_NPM_SMALL="$WORK/npm-lag-small.json"; mk_lag_npm "$LAG_NPM_SMALL" 2026-09-27T01:40:00.000Z 2026-09-26T23:40:00.000Z
+LAG_NPM_SAME="$WORK/npm-lag-same.json"
+python3 -c "
+import json
+print(json.dumps({'time': {'99.10.1': '2026-09-26T00:00:00.000Z'}, 'dist-tags': {'latest': '99.10.1', 'next': '99.10.1'}}))
+" > "$LAG_NPM_SAME"
+LAG_PROMOTE="$WORK/promote-lag.txt"
+printf '%s\n' "promote	step	2026-09-27T01:00:00Z PROMOTE-BLOCK: the newest nightly at the promoted SHA abc is failure" \
+    "NIGHTLY-FAILED-STEPS: bench-gate, soak" > "$LAG_PROMOTE"
+lag_run() { # npm_file promote_cmd
+    run_pulse "${COMMON_ARGS[@]}" "BOARD_MD=$BOARD_CLEAN" "PULSE_NPM_CMD=cat $1" \
+        "PULSE_GH_CMD=cat $GH_GREEN_JSON" "PULSE_PROMOTE_CMD=$2" || true
+}
+lag_run "$LAG_NPM" "cat $LAG_PROMOTE"
+if printf '%s\n' "$OUT" | grep "^VIOLATION: PROMOTION_LAG" | grep -qF "PROMOTE-BLOCK: the newest nightly at the promoted SHA abc is failure" \
+    && printf '%s\n' "$OUT" | grep "^VIOLATION: PROMOTION_LAG" | grep -qF "bench-gate, soak"; then
+    ok "PROMOTION_LAG fires with the PROMOTE-BLOCK reason and Nightly failing steps"
+else
+    bad "PROMOTION_LAG reason line missing"; printf '%s\n' "$OUT"
+fi
+lag_run "$LAG_NPM_SMALL" "cat $LAG_PROMOTE"
+if ! grep -q "PROMOTION_LAG" <<<"$OUT"; then ok "lag under threshold: no PROMOTION_LAG"; else bad "under-threshold lag fired"; fi
+lag_run "$LAG_NPM_SAME" "cat $LAG_PROMOTE"
+if ! grep -q "PROMOTION_LAG" <<<"$OUT"; then ok "next==latest: no PROMOTION_LAG"; else bad "next==latest fired"; fi
+lag_run "$LAG_NPM" "false"
+if printf '%s\n' "$OUT" | grep "^VIOLATION: PROMOTION_LAG" | grep -qF "promote block: UNKNOWN"; then
+    ok "promote lookup failure: PROMOTION_LAG still fires with UNKNOWN reason"
+else
+    bad "gh failure case wrong"; printf '%s\n' "$OUT"
 fi
 
 TOTAL=$((PASS + FAIL))

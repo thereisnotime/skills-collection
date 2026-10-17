@@ -614,6 +614,113 @@ test('opencode 2.x loads server.js: session init, prompt mode changes and contex
   }
 });
 
+// ── opencode 2.x: a second setup() for one location is a no-op ────────────
+// opencode 2 can find plugins/caveman/ twice: the opencode.json `plugin` entry
+// that 1.x needs, and the auto-discovery of plugins/. 2.0.29 activates one copy,
+// but server.js must not depend on that. A second active setup would register a
+// second subscriber, prompt hook and context hook: two banners per request.
+test('opencode 2.x server.js: a second setup() for the same location registers nothing until the first is disposed', async () => {
+  const xdg = freshTmpDir();
+  const shimDir = shimOpencode();
+  const origDefault = process.env.CAVEMAN_DEFAULT_MODE;
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  const cleanups = [];
+  try {
+    const r = runInstaller(['--only', 'opencode'], installEnv(xdg, shimDir));
+    assert.equal(r.status, 0, r.stderr);
+    process.env.XDG_CONFIG_HOME = xdg;
+    process.env.CAVEMAN_DEFAULT_MODE = 'caveman';
+    const serverUrl = pathToFileURL(path.join(xdg, 'opencode', 'plugins', 'caveman', 'server.js')).href;
+    const first = (await import(serverUrl)).default;
+    // A second module instance of the same file, as a second load path can give.
+    const second = (await import(serverUrl + '?copy=2')).default;
+    assert.notEqual(first, second, 'test needs two module instances');
+
+    const makeCtx = (directory) => {
+      const ctx = {
+        location: { directory, project: { id: 'prj', directory } },
+        hooks: {},
+        registrations: 0,
+        subscriptions: 0,
+        signals: [],
+        event: {
+          subscribe: (opts = {}) => {
+            ctx.subscriptions++;
+            ctx.signals.push(opts.signal);
+            return (async function* () {
+              await new Promise((resolve) => {
+                if (!opts.signal || opts.signal.aborted) return resolve();
+                opts.signal.addEventListener('abort', resolve, { once: true });
+              });
+            })();
+          },
+        },
+        session: {
+          hook: async (name, callback) => {
+            ctx.registrations++;
+            ctx.hooks[name] = callback;
+            return { dispose: async () => {} };
+          },
+        },
+      };
+      return ctx;
+    };
+    const dirA = path.join(xdg, 'project-a');
+    const dirB = path.join(xdg, 'project-b');
+
+    const a1 = makeCtx(dirA);
+    const disposeA1 = await first.setup(a1);
+    cleanups.push(disposeA1);
+    assert.equal(a1.registrations, 2, 'first setup registers prompt + context');
+    assert.equal(a1.subscriptions, 1);
+
+    // Same location again, from the same and from another module instance.
+    const a2 = makeCtx(dirA);
+    const disposeA2 = await first.setup(a2);
+    const a3 = makeCtx(dirA);
+    const disposeA3 = await second.setup(a3);
+    assert.equal(typeof disposeA2, 'function');
+    assert.equal(typeof disposeA3, 'function');
+    assert.equal(a2.registrations + a3.registrations, 0, 'a duplicate setup registered hooks');
+    assert.equal(a2.subscriptions + a3.subscriptions, 0, 'a duplicate setup subscribed to events');
+
+    // Disposing a no-op duplicate must not release the active copy.
+    disposeA2();
+    const a4 = makeCtx(dirA);
+    cleanups.push(await first.setup(a4));
+    assert.equal(a4.registrations, 0, 'a no-op disposer released the active setup');
+
+    // One active copy: one banner per request.
+    const context = { sessionID: 'ses_1', system: [{ type: 'text', text: 'host prompt' }] };
+    await a1.hooks.context(context);
+    const banners = context.system.filter((part) => /^CAVEMAN MODE ACTIVE/.test(part.text));
+    assert.equal(banners.length, 1);
+
+    // Another project in the same service gets its own active setup.
+    const b1 = makeCtx(dirB);
+    cleanups.push(await second.setup(b1));
+    assert.equal(b1.registrations, 2, 'a second location must still load caveman');
+
+    // After dispose, a reload (dispose, then setup) activates again.
+    disposeA1();
+    assert.equal(a1.signals[0].aborted, true, 'dispose did not stop the event subscription');
+    disposeA1(); // a repeated dispose is harmless
+    const a5 = makeCtx(dirA);
+    cleanups.push(await second.setup(a5));
+    assert.equal(a5.registrations, 2, 'setup after dispose must register again');
+    assert.equal(a5.subscriptions, 1);
+    disposeA3();
+  } finally {
+    for (const dispose of cleanups) dispose();
+    if (origDefault === undefined) delete process.env.CAVEMAN_DEFAULT_MODE;
+    else process.env.CAVEMAN_DEFAULT_MODE = origDefault;
+    if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+    else process.env.XDG_CONFIG_HOME = origXdg;
+    fs.rmSync(xdg, { recursive: true, force: true });
+    fs.rmSync(shimDir, { recursive: true, force: true });
+  }
+});
+
 // ── system.transform must inject the ACTIVE MODE's skill ─────────────────
 // Checks injected content differs per mode and a mid-session switch replaces
 // the whole block rather than stacking behind the prior one (#792).

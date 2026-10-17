@@ -53,6 +53,7 @@ line_budgets() {
     [ "$core" -lt 5000 ] || { echo "core engine10 $core >= 5000"; rc=1; }
     [ "$mod" -lt 4000 ] || { echo "modernize $mod >= 4000"; rc=1; }
     [ "$ext" -lt 1500 ] || { echo "e10ext $ext >= 1500"; rc=1; }
+    contrib=${contrib:-0}
     [ "$contrib" -lt 1200 ] || { echo "contrib $contrib >= 1200"; rc=1; }
     [ "$skill" -lt 500 ] || { echo "SKILL.md $skill >= 500"; rc=1; }
     return $rc
@@ -103,6 +104,37 @@ changed_chars() {
     return $rc
 }
 
+# P12-40 (M10): an added doc line may not state a speed or cost multiple or
+# percentage without citing a measurement (METRICS, ROUTING-EVIDENCE or a
+# .loki/metrics path on the same line). Scans added *.md lines only, so the
+# patterns in this script never match themselves.
+# P12-40b: text inside inline code spans and fenced code blocks is skipped
+# (quoted requirements), and a line carrying the explicit escape token
+# <!-- claim-ok --> is skipped. Also caught: "50 % fewer", "cuts cost by 50%",
+# "4x as fast", a bold **3x**, and "half the cost". Fence state comes from the
+# full new file content, looked up by each added line's number.
+unmeasured_claims() {
+    local base="$BASE" cite='METRICS|ROUTING-EVIDENCE|\.loki/metrics'
+    { git diff "$base" -U0 -- '*.md' ":(exclude)loki-ts/dist/**" ":(exclude)eval/loki10/refdiff/**" 2>/dev/null || true; } \
+        | perl -ne '
+            BEGIN { $k = shift @ARGV; @ARGV = ();
+              $n = q{\d+(?:\.\d+)?};
+              @c = ( qr/\b$n\s?(?:x|%)\s+(?:faster|cheaper|fewer|less|lower|as\s+(?:fast|cheap))\b/i,
+                     qr/\b(?:cuts?|reduc\w*|lowers?|saves?|slash\w*|drops?)\b[^.]{0,40}\bby\s+$n\s?(?:x|%)/i,
+                     qr/\bhalf\s+(?:the|of\s+the)\s+(?:cost|price|latency|tokens)\b/i,
+                     qr/\*\*$n\s?x\*\*/i ); }
+            if (/^\+\+\+ b\/(.*)$/) { $file = $1; %in = (); $o = 0; $i = 0;
+              if (open(F, "<", $file)) { while (<F>) { $i++; if (/^\s*(```|~~~)/) { $in{$i} = 1; $o = !$o } elsif ($o) { $in{$i} = 1 } } close F }
+              next }
+            if (/^@@ -\S+ \+(\d+)(?:,\d+)? @@/) { $ln = $1; next }
+            next unless /^\+(?!\+\+ )(.*)$/;
+            $l = $1; $cur = $ln++;
+            next if $in{$cur} || $l =~ /<!-- claim-ok -->/ || $l =~ /$k/;
+            $t = $l; $t =~ s/`[^`]*`//g;
+            for $re (@c) { if ($t =~ $re) { print "unmeasured claim: $l\n"; $bad = 1; last } }
+            END { exit $bad ? 1 : 0 }' "$cite"
+}
+
 # Typecheck is ~2s with deps installed; skipped (not failed) when loki-ts has no
 # node_modules, e.g. CI before its bun install (Tier A R4 typechecks later).
 typecheck() {
@@ -117,6 +149,7 @@ check "SKILL.md version sync"   skill_version
 check "line budgets"            line_budgets
 check "readme no stale version" bash tests/test-readme-no-stale-version.sh
 check "emoji/dash on changes"   changed_chars
+check "unmeasured Nx claims"    unmeasured_claims
 check "loki-ts typecheck"       typecheck
 
 if [ "$FAILED" -gt 0 ]; then echo "structural-checks: $FAILED failed"; exit 1; fi

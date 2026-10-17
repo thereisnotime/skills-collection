@@ -151,4 +151,24 @@ describe("EL-W0-06 auxiliary pins are listed", () => {
     expect(modelDowngrades("claude", { LOKI_E10_CASCADE: "1" })[0]?.stage).toBe("implement,fix");
     expect(modelDowngrades("claude", { LOKI_E10_WALL_TIER: "opus", LOKI_CLAUDE_MODEL_FAST: "opus" })).toEqual([]);
   });
+  test("TEN-COST-16 haiku-first is listed when on, absent when off, and an override is named", () => {
+    const row = modelDowngrades("claude", { LOKI_IMPLEMENT_HAIKU_FIRST: "1" }).find((d) => d.reason.includes("LOKI_IMPLEMENT_HAIKU_FIRST"));
+    expect(row?.stage).toBe("implement");
+    expect(row?.model).toMatch(/haiku/);
+    expect(row?.reason).toBe("LOKI_IMPLEMENT_HAIKU_FIRST opt-in");
+    expect(modelDowngrades("claude", {}).some((d) => d.reason.includes("HAIKU_FIRST"))).toBe(false);
+    const casc = modelDowngrades("claude", { LOKI_IMPLEMENT_HAIKU_FIRST: "1", LOKI_E10_CASCADE: "1" }).find((d) => d.reason.includes("HAIKU_FIRST"));
+    expect(casc?.reason).toContain("overridden by LOKI_E10_CASCADE");
+  });
+  test("TEN-COST-16-F1 router names its override; cascade override only when the cascade pins below the run model", () => {
+    const both = { LOKI_IMPLEMENT_HAIKU_FIRST: "1", LOKI_E10_CASCADE: "1" };
+    const viaRouter = modelDowngrades("claude", { ...both, LOKI_ROUTER: "1" }).filter((d) => d.reason.includes("HAIKU_FIRST"));
+    expect(viaRouter.map((d) => d.reason)).toEqual(["LOKI_IMPLEMENT_HAIKU_FIRST overridden by the router"]);
+    expect(viaRouter[0]?.model).toBe("router-chosen");
+    const onSonnet = modelDowngrades("claude", both, "sonnet").filter((d) => d.reason.includes("HAIKU_FIRST"));
+    expect(onSonnet.map((d) => d.reason)).toEqual(["LOKI_IMPLEMENT_HAIKU_FIRST opt-in"]);
+    expect(onSonnet[0]?.model).toMatch(/haiku/);
+    const onOpus = modelDowngrades("claude", both, "opus").filter((d) => d.reason.includes("HAIKU_FIRST"));
+    expect(onOpus[0]?.reason).toContain("overridden by LOKI_E10_CASCADE");
+  });
 });

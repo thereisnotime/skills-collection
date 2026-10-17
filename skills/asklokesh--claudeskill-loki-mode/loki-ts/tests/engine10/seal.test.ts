@@ -9,6 +9,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { snapshotContract } from "../../src/features/contract.ts";
 import { snapshotUntracked, splitDirty, untrackedAtIntake } from "../../src/e10ext/preexisting_dirty.ts";
 import { createHash, generateKeyPairSync } from "node:crypto";
+import { STEER_MAX_BYTES, withSteer } from "../../src/util/steer.ts";
+import { intentRevisionsBlock } from "../../src/util/run_outputs.ts";
 import { appendReceiptFact } from "../../src/util/pr_lessons.ts";
 import { sealedLog } from "./log_fixture.ts";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
@@ -19,6 +21,11 @@ import { main as verifyMain, verifyReceipt } from "../../src/engine10/verify_cmd
 import { runMachine } from "../../src/engine10/machine.ts";
 import { costTotalsOf, sumResultCosts } from "../../src/engine10/cost.ts";
 import { buildTime, reconciledTotalS } from "../../src/contrib/receipt_time.ts";
+import { hooks } from "../../src/engine10/hooks.ts";
+import { readRunHistory, type RunOutcome } from "../../src/runner/router/history.ts";
+import { repoKey } from "../../src/engine10/cache.ts";
+import { readOriginUrl } from "../../src/util/engine_origin.ts";
+import { computeKey, shallowDirs } from "../../src/project_model/gather.ts";
 import { EXIT, formatSummary, outcomeOf } from "../../src/engine10/output.ts";
 import { safeRestore } from "../../src/e10ext/discard.ts"; import { commitStage, DEEP_NOT_PROVEN, renderReceiptMd, SIGNING_UNAVAILABLE, sealStage } from "../../src/engine10/stages/seal.ts";
 import type { EventType, Receipt, RunContext, StageName } from "../../src/engine10/types.ts";
@@ -115,6 +122,19 @@ afterEach(() => {
 });
 
 describe("engine10 seal", () => {
+  test("P12-09c: router request counts include archived quota attempts exactly once", async () => {
+    const { repo, base } = makeRepo("p1209c-router");
+    mkdirSync(join(repo, ".loki", "metrics"), { recursive: true });
+    const rec = (n: number) => JSON.stringify({ total_cost_usd: 1, input_tokens: 5, output_tokens: 5, model: "m", requests_total: n, requests_over_100k: 0 });
+    writeFileSync(join(repo, ".loki", "metrics", "result-cost-e10-r1-impl.json"), rec(5));
+    writeFileSync(join(repo, ".loki", "metrics", "result-cost-e10-r1-impl-q1.json"), rec(3));
+    const prev = process.env["LOKI_ROUTER"]; process.env["LOKI_ROUTER"] = "1";
+    try {
+      const { ctx } = ctxFor(repo, base);
+      const r = receiptOf(await sealStage.run(ctx, new AbortController().signal));
+      expect((r as unknown as { route: { requests_total: number } }).route.requests_total).toBe(8);
+    } finally { if (prev === undefined) delete process.env["LOKI_ROUTER"]; else process.env["LOKI_ROUTER"] = prev; }
+  });
   test("signed: JWT verifies through verify_attestation and the hash recomputes", async () => {
     // Fail loudly rather than skip: a skip here would be a false green.
     expect(cryptoPy).not.toBe("");
@@ -168,6 +188,19 @@ describe("engine10 seal", () => {
     expect(r.cost.measured_sessions).toBe(1);
     expect(r.cost.total_sessions).toBe(2);
     expect(r.cost.partial_usd).toBe(0.125);
+  }, 30000);
+
+  test("TEN-COST-11 r3: ctx.sessionIds feeds the cost read and clears the cost-not-measured note", async () => {
+    noKey();
+    const { repo, base } = makeRepo("session-ids");
+    const { ctx } = ctxFor(repo, base);
+    let got: string[] = [];
+    ctx.cost = { read: (_d, ids) => { got = ids; return { usd: null, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0 }; } };
+    ctx.sessionIds = () => ["x-wall", "x-wall-r2"];
+    await commitStage.run(ctx, new AbortController().signal);
+    const r = receiptOf(await sealStage.run(ctx, new AbortController().signal));
+    expect(got).toEqual(expect.arrayContaining(["x-wall", "x-wall-r2"]));
+    expect(r.not_proven.join("|")).not.toContain("cost not measured");
   }, 30000);
 
   test("A-121 G5: clean HOME, no key env: seal auto-generates a 0600 key, signs, verify reports VERIFIED, one flipped byte is TAMPERED", async () => {
@@ -1331,6 +1364,88 @@ describe("FC-69 not_run Wall is disclosed and does not change the verdict", () =
   }, 30000);
 });
 
+// TEN-GATES-02 (FC-AGENT-PROOF, D104): VERIFIED needs agent-independent proof; a test file the run ADDED is agent-authored evidence only.
+describe("TEN-GATES-02 seal requires agent-independent proof", () => {
+  const AGENT_ONLY = "only agent-authored tests executed (no agent-independent proof)";
+  async function sealWith(name: string, preexisting: boolean, env: Record<string, string> = {}, editOld = false) {
+    noKey();
+    const { repo, base: b0 } = makeRepo(name);
+    let base = b0;
+    mkdirSync(join(repo, "tests"), { recursive: true });
+    if (preexisting) { // commit the test at base, then keep the run diff to a.txt only (an edited old test would be a weakened test)
+      writeFileSync(join(repo, "tests/test_x.py"), "def test_x():\n    assert True\n");
+      sh(["git", "add", "tests/test_x.py"], repo); sh(["git", "commit", "-q", "-m", "old test"], repo); base = sh(["git", "rev-parse", "HEAD"], repo).trim();
+      if (editOld) writeFileSync(join(repo, "tests/test_x.py"), "def test_x():\n    assert 1\n"); // status M in the run diff, never A
+    } else writeFileSync(join(repo, "tests/test_x.py"), "def test_x():\n    assert True\n");
+    const prev = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]]));
+    Object.assign(process.env, env);
+    try {
+      const { ctx } = ctxFor(repo, base, "claude", { wall: { files: [] }, verify: { checks: [{ name: "pytest:tests/test_x.py", cmd: "pytest -q tests/test_x.py", result: "pass", n: 1, duration_s: 1 }], flaky: [], wall_passed: true, duration_s: 1 } });
+      await commitStage.run(ctx, new AbortController().signal);
+      const s = await sealStage.run(ctx, new AbortController().signal);
+      return { s, r: receiptOf(s), md: readFileSync(join(ctx.runDir, "receipt.md"), "utf8") };
+    } finally { for (const [k, v] of Object.entries(prev)) if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  test("only a check on a test file ADDED in the diff passed, no Wall: PARTIAL with the agent-only NOT PROVEN line", async () => {
+    const { s, r, md } = await sealWith("gates02-added", false);
+    expect(s.data.verdict).toBe("PARTIAL");
+    expect(r.not_proven).toContain(AGENT_ONLY);
+    expect(r.not_proven).not.toContain("no tests executed");
+    expect(r.checks).toEqual([{ name: "pytest:tests/test_x.py", cmd: "pytest -q tests/test_x.py", result: "pass", duration_s: 1, provenance: "agent_authored", n: 1 }]); // n carried so verify --require-exogenous can see executed proof (TEN-GATES-03-F1)
+    expect(md).toContain("### Agent-independent checks\n- none\n");
+    expect(md).toContain("### Agent-authored / advisory checks\n- pass: pytest:tests/test_x.py");
+    expect(md).not.toContain("### Checks");
+  }, 30000);
+  test("the same check on a PRE-EXISTING test file: VERIFIED, provenance exogenous", async () => {
+    const { s, r, md } = await sealWith("gates02-preexisting", true);
+    expect(s.data.verdict).toBe("VERIFIED");
+    expect(r.not_proven).not.toContain(AGENT_ONLY);
+    expect(r.checks[0]!.provenance).toBe("exogenous");
+    expect(md).toContain("### Agent-independent checks\n- pass: pytest:tests/test_x.py");
+    expect(md).toContain("### Agent-authored / advisory checks\n- none\n");
+  }, 30000);
+  test("TEN-GATES-17: a PRE-EXISTING test edited in the run (status M) is agent_authored, advisory; verify --require-exogenous exits 4", async () => {
+    const { s, r } = await sealWith("gates17-edited-old", true, {}, true);
+    expect(r.checks[0]!.provenance).toBe("agent_authored");
+    expect(r.not_proven).toContain("weakened test: tests/test_x.py"); // the A-119 edit rule still caps it
+    expect(r.not_proven).toContain(AGENT_ONLY);
+    expect(s.data.verdict).toBe("PARTIAL");
+    sealedLog(dirname(s.data.receipt_path as string), r.receipt_sha256);
+    const w = process.stdout.write.bind(process.stdout); process.stdout.write = (() => true) as typeof process.stdout.write;
+    let rc = -1; try { rc = await verifyMain(["r1", "--require-exogenous"], { runsRoot: dirname(dirname(s.data.receipt_path as string)) }); } finally { process.stdout.write = w; }
+    expect(rc).toBe(4);
+  }, 30000);
+  test("LOKI_EXOGENOUS_PROOF=0 restores the old verdict (VERIFIED) and only the opt-out (\"00\" or \"false\" stay on)", async () => {
+    expect((await sealWith("gates02-optout", false, { LOKI_EXOGENOUS_PROOF: "0" })).s.data.verdict).toBe("VERIFIED");
+    expect((await sealWith("gates02-optout-00", false, { LOKI_EXOGENOUS_PROOF: "00" })).s.data.verdict).toBe("PARTIAL");
+    expect((await sealWith("gates02-optout-1", false, { LOKI_EXOGENOUS_PROOF: "1" })).s.data.verdict).toBe("PARTIAL");
+  }, 60000);
+  test("a receipt with provenance still verifies end to end through loki verify (hash covers the additive key)", async () => {
+    const { s, r } = await sealWith("gates02-roundtrip", true);
+    sealedLog(dirname(s.data.receipt_path as string), r.receipt_sha256);
+    expect((await verifyReceipt(s.data.receipt_path as string)).verdict).toBe("VERIFIED");
+    // the real `loki verify --require-exogenous` entry reads the provenance seal recorded (TEN-GATES-03 consumer)
+    const out: string[] = [], w = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((c: string) => { out.push(String(c)); return true; }) as typeof process.stdout.write;
+    let rc = -1; try { rc = await verifyMain(["r1", "--require-exogenous"], { runsRoot: dirname(dirname(s.data.receipt_path as string)) }); } finally { process.stdout.write = w; }
+    expect(rc).toBe(0);
+    expect(out.join("")).toContain("agent-independent: 1 of 1 passing checks");
+  }, 30000);
+  test("receipt.md sections: exogenous and independent are agent-independent; agent_authored, llm_judge and an unknown value are advisory (fail closed)", () => {
+    const c = (name: string, provenance: string) => ({ name, cmd: "x", result: "pass" as const, duration_s: 1, provenance }) as Receipt["checks"][number];
+    const md = renderReceiptMd({ ...receiptWithCost({ usd: 0, input_tokens: 0, output_tokens: 0, measured_sessions: 0, total_sessions: 0, partial_usd: 0 } as Receipt["cost"]), checks: [c("lint", "exogenous"), c("pytest:w.py", "independent"), c("pytest:n.py", "agent_authored"), c("council", "llm_judge"), c("odd", "bogus")] });
+    const [indep, adv] = md.split("### Agent-authored / advisory checks");
+    expect(indep).toContain("- pass: lint ");
+    expect(indep).toContain("- pass: pytest:w.py ");
+    for (const n of ["pytest:n.py", "council", "odd"]) { expect(indep).not.toContain(`- pass: ${n} `); expect(adv).toContain(`- pass: ${n} `); }
+  });
+  test("a receipt without provenance (older seal) renders the single ### Checks section unchanged", () => {
+    const md = renderReceiptMd({ ...receiptWithCost({ usd: 0, input_tokens: 0, output_tokens: 0, measured_sessions: 0, total_sessions: 0, partial_usd: 0 } as Receipt["cost"]), checks: [{ name: "pytest", cmd: "pytest -q", result: "pass", duration_s: 1 }] });
+    expect(md).toContain("### Checks\n- pass: pytest (`pytest -q`, 1s)\n");
+    expect(md).not.toContain("Agent-independent");
+  });
+});
+
 describe("v11.7 LESSONS: sealed run becomes a receipt fact", () => {
   const factFor = async (name: string, env?: string) => {
     const { repo, base } = makeRepo(name);
@@ -1360,4 +1475,148 @@ describe("v11.7 LESSONS: sealed run becomes a receipt fact", () => {
     const off = await factFor("learn-off", "0");
     expect(existsSync(join(off.repo, ".loki/memory/semantic/pr-lessons.json"))).toBe(false);
   }, 60000);
+
+  // P12-02: an intent revision consumed after the Wall was authored stales it; Seal refuses until the Wall is re-authored.
+  // Revisions come from machine memory (ctx.intentRevisions), never the agent-writable repo file.
+  const rv = (rev: number, at: number) => ({ rev, source: "chat", actor: "alice", sha: `${rev}`.repeat(64).slice(0, 64), at });
+  const withRevs = (name: string, revs: ReturnType<typeof rv>[], timeline?: RunContext["timeline"]) => {
+    noKey();
+    const { repo, base } = makeRepo(name);
+    const { ctx } = ctxFor(repo, base);
+    ctx.intentRevisions = revs; ctx.timeline = timeline ?? [{ stage: "wall", startMs: 2000, endMs: 2500 }];
+    return ctx;
+  };
+  test("revision after wall blocks seal", async () => {
+    const ctx = withRevs("rev-after-wall", [rv(1, 3000)]);
+    await commitStage.run(ctx, new AbortController().signal);
+    const s = await sealStage.run(ctx, new AbortController().signal);
+    expect(s.status).toBe("failed");
+    expect(s.reason).toContain("arrived after the Wall was frozen");
+    expect(s.reason).toContain("Rerun with the new intent");
+    expect(existsSync(join(ctx.runDir, "receipt.json"))).toBe(false);
+    ctx.timeline = [{ stage: "wall", startMs: 2000, endMs: 2500 }, { stage: "wall", startMs: 3100, endMs: 3500 }]; // re-authored after the revision
+    expect((await sealStage.run(ctx, new AbortController().signal)).status).toBe("completed");
+  }, 30000);
+  test("agent tampering with the repo revisions file cannot suppress staleness or the receipt list", async () => {
+    for (const how of ["backdate", "truncate", "symlink"]) {
+      const ctx = withRevs(`rev-tamper-${how}`, [rv(1, 3000)]);
+      const f = join(ctx.repoDir, ".loki/intent-revisions.jsonl");
+      if (how === "backdate") writeFileSync(f, JSON.stringify({ rev: 1, consumed_at: new Date(10).toISOString() }) + "\n");
+      else if (how === "truncate") writeFileSync(f, "");
+      else symlinkSync("/dev/null", f);
+      await commitStage.run(ctx, new AbortController().signal);
+      expect((await sealStage.run(ctx, new AbortController().signal)).status).toBe("failed");
+    }
+    const ok = withRevs("rev-tamper-receipt", [rv(1, 1000)]); // pre-Wall, so seal completes; the file is /dev/null yet the receipt still lists it
+    symlinkSync("/dev/null", join(ok.repoDir, ".loki/intent-revisions.jsonl"));
+    await commitStage.run(ok, new AbortController().signal);
+    expect(receiptOf(await sealStage.run(ok, new AbortController().signal)).intent_revisions?.map((r) => r.rev)).toEqual([1]);
+  }, 60000);
+  test("pre-wall revision does not block seal; one at or after the Wall start tick is stale", async () => {
+    const ctx = withRevs("rev-before-wall", [rv(1, 1800), rv(2, 1999)]);
+    await commitStage.run(ctx, new AbortController().signal);
+    const s = await sealStage.run(ctx, new AbortController().signal);
+    expect(s.status).toBe("completed");
+    expect(receiptOf(s).intent_revisions?.map((r) => r.rev)).toEqual([1, 2]);
+    ctx.intentRevisions = [rv(3, 2001)]; // after the Wall STARTED (it ended later at 2500): the boundary is the start
+    expect((await sealStage.run(ctx, new AbortController().signal)).status).toBe("failed");
+    ctx.intentRevisions = [rv(4, 2000)]; // the same tick as the Wall start is late too
+    expect((await sealStage.run(ctx, new AbortController().signal)).status).toBe("failed");
+  }, 30000);
+  test("a steer still pending in HUMAN_INPUT.md at seal refuses and is recorded", async () => {
+    const ctx = withRevs("rev-pending", []);
+    writeFileSync(join(ctx.repoDir, ".loki/HUMAN_INPUT.md"), "## Operator directive rev 1 (2026-10-15T00:00:01Z) actor=alice source=chat\nmore\n");
+    await commitStage.run(ctx, new AbortController().signal);
+    const s = await sealStage.run(ctx, new AbortController().signal);
+    expect(s.status).toBe("failed");
+    expect(s.reason).toContain("arrived after the Wall was frozen");
+    expect(ctx.intentRevisions?.map((r) => r.rev)).toEqual([1]);
+  }, 30000);
+  // Unconsumable steers must fail closed: an unwritable logs dir or an oversize file leaves no revision record by the old path.
+  const HDR = "## Operator directive rev 1 (2026-10-15T00:00:01Z) actor=alice source=chat\n";
+  const refuses = async (ctx: RunContext, why: string, remedy: string) => { await commitStage.run(ctx, new AbortController().signal); const r = await sealStage.run(ctx, new AbortController().signal); expect(r.status).toBe("failed"); expect(r.reason).toBe(`a steer in .loki/HUMAN_INPUT.md could not be applied (${why}); this run cannot be sealed. ${remedy} A steer left in place is read after the Wall starts and blocks the next run too: delete .loki/HUMAN_INPUT.md and re-run with loki "<task with the steer folded in>".`); expect(existsSync(join(ctx.runDir, "receipt.json"))).toBe(false); };
+  test("logs path is a regular file: a steer at implement refuses the seal", async () => {
+    const ctx = withRevs("rev-logs-file-impl", []);
+    writeFileSync(join(ctx.repoDir, ".loki/logs"), "not a dir");
+    writeFileSync(join(ctx.repoDir, ".loki/HUMAN_INPUT.md"), `${HDR}change\n`);
+    expect(withSteer({ stage: "implement", brief: "b" }, ctx.repoDir, ctx.intentRevisions).brief).toBe("b"); // not injected, but recorded as unapplied
+    await refuses(ctx, "logs dir unwritable or file unreadable", "Make .loki/logs a writable directory. A steer that was already claimed is archived as .loki/logs/human-input-*.md; one still at .loki/HUMAN_INPUT.md is unreadable, so delete it.");
+  }, 30000);
+  test("logs path is a regular file: a late steer refuses the seal", async () => {
+    const ctx = withRevs("rev-logs-file-late", []);
+    writeFileSync(join(ctx.repoDir, ".loki/logs"), "not a dir");
+    writeFileSync(join(ctx.repoDir, ".loki/HUMAN_INPUT.md"), `${HDR}late\n`);
+    await refuses(ctx, "logs dir unwritable or file unreadable", "Make .loki/logs a writable directory. A steer that was already claimed is archived as .loki/logs/human-input-*.md; one still at .loki/HUMAN_INPUT.md is unreadable, so delete it.");
+  }, 30000);
+  test("an oversize late steer refuses the seal", async () => {
+    const ctx = withRevs("rev-oversize-late", []);
+    writeFileSync(join(ctx.repoDir, ".loki/HUMAN_INPUT.md"), `${HDR}${"x".repeat(STEER_MAX_BYTES + 1)}`);
+    await refuses(ctx, "over 1 MiB", "The oversize file was moved to .loki/logs/.");
+  }, 30000);
+  test("an oversize steer at implement refuses the seal", async () => {
+    const ctx = withRevs("rev-oversize-impl", []);
+    writeFileSync(join(ctx.repoDir, ".loki/HUMAN_INPUT.md"), `${HDR}${"x".repeat(STEER_MAX_BYTES + 1)}`);
+    withSteer({ stage: "implement", brief: "b" }, ctx.repoDir, ctx.intentRevisions);
+    rmSync(join(ctx.repoDir, ".loki/logs"), { recursive: true, force: true });
+    await refuses(ctx, "over 1 MiB", "The oversize file was moved to .loki/logs/.");
+  }, 30000);
+  test("a symlinked steer file refuses the seal with a truthful reason", async () => {
+    const ctx = withRevs("rev-symlink", []);
+    symlinkSync("/dev/null", join(ctx.repoDir, ".loki/HUMAN_INPUT.md"));
+    await refuses(ctx, "symlink", "The symlink was removed.");
+  }, 30000);
+  test("a directory at HUMAN_INPUT.md refuses the seal naming that path", async () => {
+    const ctx = withRevs("rev-dir", []);
+    mkdirSync(join(ctx.repoDir, ".loki/HUMAN_INPUT.md"));
+    await refuses(ctx, "not a regular file", "It is a directory or special file.");
+  }, 30000);
+  test("intentRevisionsBlock omits unapplied records", () => {
+    expect(intentRevisionsBlock([rv(1, 1), { ...rv(0, 2), unapplied: true, reason: "x" }]).intent_revisions?.map((r) => r.rev)).toEqual([1]);
+    expect(intentRevisionsBlock([{ ...rv(0, 2), unapplied: true, reason: "x" }])).toEqual({});
+  });
+  test("receipt lists revisions", async () => {
+    const ctx = withRevs("rev-receipt", [rv(1, 1800), rv(2, 1900)]);
+    await commitStage.run(ctx, new AbortController().signal);
+    const r = receiptOf(await sealStage.run(ctx, new AbortController().signal));
+    expect(r.intent_revisions).toEqual([{ rev: 1, source: "chat", actor: "alice", sha: "1".repeat(64) }, { rev: 2, source: "chat", actor: "alice", sha: "2".repeat(64) }]);
+  }, 30000);
+});
+
+// P12-32b-c: the history row is keyed on the model that actually ran, and on escalation only the final rung records.
+describe("seal records routing history under the model that ran (P12-32b-c)", () => {
+  async function sealRows(name: string, over: Partial<Record<StageName, Record<string, unknown>>>): Promise<RunOutcome[]> {
+    const { repo, base } = makeRepo(name);
+    writeFileSync(join(repo, "package.json"), "{}");
+    const cite = ["package.json"];
+    const pkg = { name: "p0", root: ".", runner: "vitest", commands: { test: null, lint: null, build: null, start: null }, ui: { present: false, boot: null, cite }, cite };
+    const m = { schema: "loki.v10.project/1", status: "ok", workspaceKind: "single", workspaceCite: cite, packages: [pkg], fingerprintFiles: cite, key: computeKey(repo, cite, shallowDirs(repo)) };
+    writeFileSync(join(repo, ".loki", "project.json"), JSON.stringify(m));
+    const home = join(root, `${name}-home`);
+    mkdirSync(home, { recursive: true });
+    const prevHome = process.env["HOME"], prevPrev = process.env["LOKI_COST_PREVIEW"], prevTime = hooks.time;
+    process.env["HOME"] = home; delete process.env["LOKI_COST_PREVIEW"];
+    hooks.time = { build: () => ({ wall_s: 5, stages: {} }) as never, firstEventMs: () => null, reconciled: () => 5 };
+    try {
+      const { ctx } = ctxFor(repo, base, "claude", over);
+      ctx.cost = { read: () => ({ usd: 0.5, inputTokens: 10, outputTokens: 5, cacheReadTokens: 0 }) };
+      await commitStage.run(ctx, new AbortController().signal);
+      await sealStage.run(ctx, new AbortController().signal);
+      return readRunHistory(repoKey(readOriginUrl(repo), repo));
+    } finally {
+      hooks.time = prevTime;
+      if (prevHome === undefined) delete process.env["HOME"]; else process.env["HOME"] = prevHome;
+      if (prevPrev !== undefined) process.env["LOKI_COST_PREVIEW"] = prevPrev;
+    }
+  }
+  const impl = (extra: Record<string, unknown>) => ({ exit: "done", tests_reverted: [], duration_s: 3, iteration_id: "e10-r1-impl", ...extra });
+
+  test("the recorded executor is the routed implement model, not the run model", async () => {
+    const rows = await sealRows("hist-ran", { implement: impl({ model: "claude-haiku-4-5", route_model: "claude-haiku-4-5" }) });
+    expect(rows.map((r) => r.executor)).toEqual(["haiku"]);
+  }, 30000);
+
+  test("a haiku implement followed by a sonnet fix writes one row, the final rung", async () => {
+    const rows = await sealRows("hist-esc", { implement: impl({ model: "claude-haiku-4-5", route_model: "claude-haiku-4-5" }), fix: { round: 1, model: "claude-sonnet-4-6" } });
+    expect(rows.map((r) => r.executor)).toEqual(["sonnet"]);
+  }, 30000);
 });

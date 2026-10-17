@@ -29,8 +29,14 @@ function gitPathExists(ref: string, gitPath: string): boolean {
   return spawnSync("git", ["cat-file", "-e", `${ref}:${gitPath}`], { cwd: REPO_ROOT }).status === 0
 }
 
+const skillAtRef = new Map<string, boolean>()
 function gitShowExists(ref: string, skill: string): boolean {
-  return gitPathExists(ref, `skills/${skill}/SKILL.md`)
+  const key = `${ref}:${skill}`
+  const cached = skillAtRef.get(key)
+  if (cached !== undefined) return cached
+  const exists = gitPathExists(ref, `skills/${skill}/SKILL.md`)
+  skillAtRef.set(key, exists)
+  return exists
 }
 
 describe("skill-eval-cell catalog", () => {
@@ -326,6 +332,10 @@ describe("skill-eval-cell catalog", () => {
       "ce-compound-refresh/worth-lens-intent-confirms-before-loading",
       "ce-debug/pipeline-divergent-defer",
       "ce-doc-review/approval-versus-judgment-summary",
+      "ce-doc-review/peer-outcome-disabled-by-config",
+      "ce-doc-review/peer-outcome-folded",
+      "ce-doc-review/peer-outcome-started-failed",
+      "ce-doc-review/peer-outcome-started-no-artifact",
       "ce-noslop/dense-paragraph-keeps-every-claim",
       "ce-noslop/detect-names-patterns-without-rewrite",
       "ce-noslop/facts-survive-the-edit",

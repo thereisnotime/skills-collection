@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { basename, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { attribute, attributeFullSuite, discoverCommands, ensureProfile, loadProfile, manifestHash, profileBrief, commandProfilePath, renderProfile, repoReadiness, type BaselineRunner, type CommandProfile, type ProfileCommand } from "../../src/runner/repo_profile.ts";
+import { attribute, attributeFullSuite, attributeStatic, discoverCommands, ensureProfile, loadProfile, manifestHash, profileBrief, commandProfilePath, renderProfile, repoReadiness, type BaselineRunner, type CommandProfile, type ProfileCommand } from "../../src/runner/repo_profile.ts";
 import { runIntake } from "../../src/engine10/stages/intake.ts";
 import { verifyStage } from "../../src/engine10/stages/verify.ts";
 import type { RunContext, TestRef } from "../../src/engine10/types.ts";
@@ -39,6 +39,7 @@ import {
   type ExecManifest,
 } from "../../src/runner/exec_manifest.ts";
 import { decideRecovery, signatureRepeated } from "../../src/runner/recovery_policy.ts";
+import { recordFingerprints, readFingerprints, failureFingerprint, flakyRerunSignal, cleanTreeId, failedCheckNames, failedChecksSignal, FINGERPRINT_MAX } from "../../src/util/failure_memory.ts";
 
 const tmps: string[] = [];
 function tmp(): string {
@@ -573,6 +574,17 @@ describe("repo baseline profile (REPOMEM)", () => {
       const e = repo({ "package.json": JSON.stringify({ scripts: { test: 'echo "Error: no test specified" && exit 1' } }) });
       expect(discoverCommands(e)).toEqual([]);
     });
+    test("typescript: tsconfig plus typescript dep gives a tsc --noEmit typecheck unless a script exists", () => {
+      const ts = (scripts: Record<string, string>, extra: Record<string, string> = {}) => ({ "package.json": JSON.stringify({ scripts, devDependencies: { typescript: "5" } }), "tsconfig.json": "{}", ...extra });
+      const tc = (d: string) => discoverCommands(d).filter((c) => c.kind === "typecheck").map((c) => `${c.cmd}[${c.source}]`);
+      expect(tc(repo(ts({ build: "x" })))).toEqual(["npx tsc --noEmit[tsconfig.json]"]);
+      expect(tc(repo(ts({}, { "bun.lock": "" })))).toEqual(["bunx tsc --noEmit[tsconfig.json]"]);
+      expect(tc(repo(ts({}, { "pnpm-lock.yaml": "" })))).toEqual(["pnpm exec tsc --noEmit[tsconfig.json]"]);
+      expect(tc(repo(ts({ typecheck: "tsc -p ." })))).toEqual(["npm run typecheck[package.json]"]);
+      expect(tc(repo({ "package.json": JSON.stringify({ scripts: {}, devDependencies: { typescript: "5" } }) }))).toEqual([]);
+      expect(tc(repo({ "package.json": JSON.stringify({ scripts: {} }), "tsconfig.json": "{}" }))).toEqual([]);
+      expect(manifestHash(repo(ts({}))) === manifestHash(repo(ts({}, { "tsconfig.json": '{"a":1}' })))).toBe(false);
+    });
     test("python: pytest, ruff, mypy from pyproject; a venv python wins", () => {
       const d = repo({ "pyproject.toml": "[tool.pytest.ini_options]\n[tool.ruff]\n[tool.mypy]\n", ".venv/bin/python": "" });
       expect(discoverCommands(d).map((c) => `${c.kind}=${c.cmd}`)).toEqual([`test=${join(".venv", "bin", "python")} -m pytest -q`, "lint=ruff check .", "typecheck=mypy ."]);
@@ -656,6 +668,46 @@ describe("repo baseline profile (REPOMEM)", () => {
       expect(attribute(d, base, [{ name: "n", ids: ["a"], eligible: true }]).preExistingChecks).toEqual([]);
       prof(d, []);
       expect(attribute(d, base, [{ name: "n", ids: ["a"], eligible: true }]).line).toBeNull();
+    });
+  });
+
+  describe("attributeStatic (TEN-QUALITY-02)", () => {
+    const R = (l: string, m = "`os` imported but unused", c = "F401"): string => `a.py:${l}:8: ${c} [*] ${m}\nFound 1 error.\n[*] 1 fixable with the \`--fix\` option.\n`;
+    test("recorded real samples parse for all 3 tools", () => {
+      const ruff = "src/a.py:1:8: F401 [*] `os` imported but unused\nsrc/a.py:3:1: E402 Module level import not at top of file\nFound 2 errors.\n[*] 1 fixable with the `--fix` option.\n";
+      const sc = "In.sh:3:6: warning: Double quote to prevent globbing and word splitting. [SC2086]\nIn.sh:4:1: note: Use find instead of ls. [SC2012]\n";
+      const es = "/r/x.js:1:7: 'x' is assigned a value but never used. [Error/no-unused-vars]\n/r/x.js:2:1: Unexpected console statement. [Warning/no-console]\n\n2 problems\n";
+      expect(attributeStatic("ruff", ruff, ruff, 1).preExisting).toBe(true);
+      expect(attributeStatic("shellcheck", sc, sc, 1).preExisting).toBe(true);
+      expect(attributeStatic("eslint", es, es, 1).preExisting).toBe(true);
+      expect(attributeStatic("ruff", ruff, "src/a.py:1:8: F401 [*] `os` imported but unused\n", 1).introduced).toEqual(["src/a.py E402 Module level import not at top of file"]);
+      expect(attributeStatic("shellcheck", sc, sc.split("\n")[0] + "\n", 1).preExisting).toBe(false);
+      expect(attributeStatic("eslint", es, es.split("\n")[0] + "\n", 1).preExisting).toBe(false);
+    });
+    test("same diagnostic on base and head is pre-existing; shifted line alone is pre-existing", () => {
+      expect(attributeStatic("ruff", R("1"), R("1"), 1).preExisting).toBe(true);
+      expect(attributeStatic("ruff", R("40"), R("1"), 1).preExisting).toBe(true);
+    });
+    test("an extra instance on head is introduced", () => {
+      expect(attributeStatic("ruff", R("1") + R("9"), R("1"), 1).preExisting).toBe(false);
+    });
+    test("same code with a different message is introduced", () => {
+      expect(attributeStatic("ruff", R("1", "`sys` imported but unused"), R("1"), 1).preExisting).toBe(false);
+    });
+    test("fail closed: garbage head, empty parse with non-zero exit, null base, garbage base, unknown tool", () => {
+      expect(attributeStatic("ruff", "Traceback boom\n", R("1"), 2).preExisting).toBe(false);
+      expect(attributeStatic("ruff", "", R("1"), 2).preExisting).toBe(false);
+      expect(attributeStatic("ruff", "Traceback boom\n", R("1"), 0).preExisting).toBe(false);
+      expect(attributeStatic("ruff", "", "garbage\n", 0).preExisting).toBe(false);
+      expect(attributeStatic("ruff", R("1"), null, 1).preExisting).toBe(false);
+      expect(attributeStatic("ruff", R("1"), "garbage\n", 1).preExisting).toBe(false);
+      expect(attributeStatic("pylint", R("1"), R("1"), 1).preExisting).toBe(false);
+      expect(attributeStatic("ruff", "All checks passed!\n", R("1"), 0).preExisting).toBe(true);
+      // 3-arg form: exit unknown, empty or summary-only parse fails closed
+      expect(attributeStatic("ruff", "", R("1")).preExisting).toBe(false);
+      expect(attributeStatic("ruff", "Found 2 errors.\n", R("1")).preExisting).toBe(false);
+      expect(attributeStatic("ruff", "Found 2 errors.\n", R("1"), 0).preExisting).toBe(false);
+      expect(attributeStatic("eslint", "2 problems\n", "", 0).preExisting).toBe(false);
     });
   });
 
@@ -873,5 +925,153 @@ describe("repo baseline profile (REPOMEM)", () => {
       try { await runIntake(ictx(e), new AbortController().signal, { taskText: "t" }); } finally { delete process.env.LOKI_REPO_BASELINE; }
       expect(loadProfile(e)).toBeNull();
     }, 60_000);
+  });
+});
+
+describe("P12-11 recovery classes (FC-REQ)", () => {
+  const E = ON.recovery;
+  const T = "tree-abc";
+  const table: Array<[string, Parameters<typeof decideRecovery>[0], string, string]> = [
+    ["rerun same tree fail then pass", { output: "x", rerun: { test: "t1", failTree: T, passTree: T } }, "retry", "flaky"],
+    ["rerun on different trees is not flaky", { output: "x", rerun: { test: "t1", failTree: T, passTree: "other" } }, "retry", "transient"],
+    ["rerun with empty tree is not flaky", { output: "x", rerun: { test: "t1", failTree: "", passTree: "" } }, "retry", "transient"],
+    ["prose saying flaky is not evidence", { output: "this test is flaky, flaky flaky" }, "retry", "transient"],
+    ["protocol error signal", { output: "x", protocolError: true }, "revise", "protocol_error"],
+    ["conflicting requirements signal", { output: "x", conflictingRequirements: true }, "escalate", "conflicting_requirements"],
+    ["unrecognized stays transient retry", { output: "never seen before zzz" }, "retry", "transient"],
+  ];
+  for (const [name, sig, action, klass] of table) {
+    it(name, () => {
+      const d = decideRecovery(sig, { env: E, history: [] });
+      expect(d.action).toBe(action as never);
+      expect(d.reason).toContain(klass);
+    });
+  }
+  it("flaky never overrides a permanent failure", () => {
+    const d = decideRecovery({ output: "invalid_api_key", rerun: { test: "t", failTree: T, passTree: T } }, { env: E, history: [] });
+    expect(d.action).toBe("stop");
+  });
+  it("Q17-03: flaky check alone reruns, a different real failing check still takes a fix round", () => {
+    const rerun = { test: "a", failTree: T, passTree: T };
+    expect(decideRecovery({ output: "x", buildExitCode: 1, rerun, failedChecks: ["a"] }, { env: E, history: [] })).toMatchObject({ action: "retry", reason: "flaky" });
+    expect(decideRecovery({ output: "x", buildExitCode: 1, rerun, failedChecks: ["a", "b"] }, { env: E, history: [] })).toMatchObject({ action: "revise", reason: "build_failed" });
+  });
+  it("Q17-03: absent or malformed failedChecks behaves exactly as before (flaky still wins)", () => {
+    const rerun = { test: "a", failTree: T, passTree: T };
+    for (const failedChecks of [undefined, "b", 7, null, [1, 2]] as unknown[]) {
+      expect(decideRecovery({ output: "x", buildExitCode: 1, rerun, failedChecks: failedChecks as never }, { env: E, history: [] })).toMatchObject({ action: "retry", reason: "flaky" });
+    }
+  });
+  it("fingerprints persist across two runs and are bounded", () => {
+    const dir = tmp();
+    expect(recordFingerprints(dir, "run1", "flaky", ["a", "b"])).toEqual(["a", "b"]);
+    recordFingerprints(dir, "run2", "flaky", ["a"]);
+    const fp = readFingerprints(dir);
+    expect(fp.length).toBe(3);
+    expect(fp.filter((r) => r.fp === failureFingerprint("flaky", "a")).length).toBe(2);
+    for (let i = 0; i < FINGERPRINT_MAX + 20; i++) recordFingerprints(dir, "r" + i, "flaky", ["n" + i]);
+    expect(readFingerprints(dir).length).toBeLessThanOrEqual(FINGERPRINT_MAX);
+    expect(readFingerprints(dir).at(-1)?.run).toBe("r" + (FINGERPRINT_MAX + 19));
+  });
+  it("extend never duplicate: one recordFlaky owner, fingerprints live in util/failure_memory.ts", () => {
+    const rp = readFileSync(new URL("../../src/runner/recovery_policy.ts", import.meta.url), "utf8");
+    expect(rp).not.toMatch(/export function (recordFlaky|recordFingerprints|readFingerprints)/);
+    expect(rp).not.toContain("fingerprints.jsonl");
+    const fm = readFileSync(new URL("../../src/util/failure_memory.ts", import.meta.url), "utf8");
+    expect(fm.match(/export function recordFlaky/g)?.length).toBe(1);
+  });
+  it("recordFingerprints tolerates junk input", () => {
+    expect(recordFingerprints(tmp(), "r", "flaky", undefined)).toEqual([]);
+    expect(recordFingerprints(tmp(), "r", "flaky", [1, "ok"] as unknown)).toEqual(["ok"]);
+  });
+});
+
+describe("P12-11b flaky rerun producer and summary wiring", () => {
+  const E = { LOKI_RECOVERY_POLICY: "1" } as NodeJS.ProcessEnv;
+  it("flakyRerunSignal yields rerun evidence only from a flaky row recorded on the same known tree", () => {
+    const dir = tmp();
+    expect(flakyRerunSignal(dir, "tree1")).toBeUndefined();
+    recordFingerprints(dir, "r1", "flaky", ["t/a.test.ts"], "tree1");
+    expect(flakyRerunSignal(dir, "")).toBeUndefined();
+    expect(flakyRerunSignal(dir, "tree1")).toEqual({ test: "t/a.test.ts", failTree: "tree1", passTree: "tree1" });
+  });
+  it("a flaky row from another tree, or recorded without a tree, is no evidence", () => {
+    const dir = tmp();
+    recordFingerprints(dir, "r1", "flaky", ["t/old.test.ts"], "treeOld");
+    recordFingerprints(dir, "r2", "flaky", ["t/notree.test.ts"]);
+    expect(flakyRerunSignal(dir, "treeNew")).toBeUndefined();
+    expect(flakyRerunSignal(dir, "treeOld")?.test).toBe("t/old.test.ts");
+  });
+  it("production shape (buildExitCode 1 plus produced rerun) reaches retry:flaky", () => {
+    const dir = tmp();
+    recordFingerprints(dir, "r1", "flaky", ["t/a.test.ts"], "tree1");
+    const rerun = flakyRerunSignal(dir, "tree1");
+    const d = decideRecovery({ output: "blip", buildExitCode: 1, rerun }, { env: E, history: [] });
+    expect(d).toMatchObject({ action: "retry", reason: "flaky" });
+  });
+  it("buildExitCode 1 without same-tree rerun evidence still revises", () => {
+    expect(decideRecovery({ output: "x", buildExitCode: 1 }, { env: E, history: [] })).toMatchObject({ action: "revise", reason: "build_failed" });
+    expect(decideRecovery({ output: "x", buildExitCode: 1, rerun: { test: "t", failTree: "a", passTree: "b" } }, { env: E, history: [] }).action).toBe("revise");
+  });
+  it("P12-11b-c cleanTreeId: tree sha only for a clean worktree; run-owned .loki paths ignored; dirty or non-repo is empty", () => {
+    const d = tmp();
+    const g = (...a: string[]) => execFileSync("git", ["-C", d, "-c", "user.name=t", "-c", "user.email=t@t", ...a], { encoding: "utf8" });
+    expect(cleanTreeId(d)).toBe("");
+    g("init", "-q");
+    writeFileSync(join(d, "a.txt"), "1");
+    g("add", "a.txt");
+    g("commit", "-q", "-m", "x");
+    const tree = g("rev-parse", "HEAD^{tree}").trim();
+    expect(cleanTreeId(d)).toBe(tree);
+    mkdirSync(join(d, ".loki", "state"), { recursive: true });
+    writeFileSync(join(d, ".loki", "state", "fingerprints.jsonl"), "{}\n");
+    expect(cleanTreeId(d)).toBe(tree);
+    writeFileSync(join(d, "a.txt"), "2");
+    expect(cleanTreeId(d)).toBe("");
+    g("checkout", "--", "a.txt");
+    writeFileSync(join(d, "untracked.txt"), "u");
+    expect(cleanTreeId(d)).toBe("");
+  });
+  it("P12-11b-c: a row recorded with an empty tree (dirty at verify) never becomes evidence", () => {
+    const dir = tmp();
+    recordFingerprints(dir, "r1", "flaky", ["t/a.test.ts"], "");
+    expect(flakyRerunSignal(dir, "tree1")).toBeUndefined();
+  });
+  it("Q17-03 production shape: verify output with one flaky plus one real failing check revises; flaky alone retries", () => {
+    const verifyChecks = [{ name: "bun:a.test.ts", result: "flaky" }, { name: "bun:b.test.ts", result: "fail" }, { name: "tsc", result: "pass" }, { name: "holdout", result: "not_run" }];
+    const dir = tmp();
+    recordFingerprints(dir, "r1", "flaky", ["bun:a.test.ts"], "tree1");
+    recordFingerprints(dir, "r1", "failed", failedCheckNames(verifyChecks), "tree1");
+    const sig = { output: "x", buildExitCode: 1, rerun: flakyRerunSignal(dir, "tree1"), failedChecks: failedChecksSignal(dir, "tree1") };
+    expect(sig.failedChecks).toEqual(["bun:b.test.ts"]);
+    expect(decideRecovery(sig, { env: E, history: [] })).toMatchObject({ action: "revise", reason: "build_failed" });
+    const dir2 = tmp();
+    recordFingerprints(dir2, "r1", "flaky", ["bun:a.test.ts"], "tree1");
+    recordFingerprints(dir2, "r1", "failed", failedCheckNames([verifyChecks[0]]), "tree1");
+    expect(failedChecksSignal(dir2, "tree1")).toBeUndefined();
+    expect(failedChecksSignal(dir, "")).toBeUndefined();
+    expect(failedCheckNames("junk")).toEqual([]);
+    expect(decideRecovery({ output: "x", buildExitCode: 1, rerun: flakyRerunSignal(dir2, "tree1"), failedChecks: failedChecksSignal(dir2, "tree1") }, { env: E, history: [] })).toMatchObject({ action: "retry", reason: "flaky" });
+  });
+  it("Q17-03: the real call sites pass failedChecks and record failed checks", () => {
+    const au = readFileSync(new URL("../../src/runner/autonomous.ts", import.meta.url), "utf8");
+    const sv = readFileSync(new URL("../../src/engine10/supervisor.ts", import.meta.url), "utf8");
+    expect(au).toMatch(/failedChecks: failedChecksSignal\(/);
+    expect(sv).toMatch(/"failed", failedCheckNames\(folded\.stages\["verify"\]/);
+  });
+  it("P12-11b-c: supervisor and autonomous derive the tree through cleanTreeId", () => {
+    const au = readFileSync(new URL("../../src/runner/autonomous.ts", import.meta.url), "utf8");
+    const sv = readFileSync(new URL("../../src/engine10/supervisor.ts", import.meta.url), "utf8");
+    expect(au).toContain("cleanTreeId(");
+    expect(sv).toContain("cleanTreeId(");
+    expect(au).not.toMatch(/flakyRerunSignal\([^)]*rev-parse/);
+    expect(sv).not.toMatch(/"flaky"[^;]*rev-parse/);
+  });
+  it("autonomous.ts feeds rerun into decideRecovery and supervisor passes the real flaky list", () => {
+    const au = readFileSync(new URL("../../src/runner/autonomous.ts", import.meta.url), "utf8");
+    expect(au).toContain("flakyRerunSignal(");
+    expect(au).not.toMatch(/rerun: buildExitCode === 1/);
+    const sv = readFileSync(new URL("../../src/engine10/supervisor.ts", import.meta.url), "utf8");
+    expect(sv).not.toMatch(/notProven: res\.notProven, flaky: \[\]/);
   });
 });

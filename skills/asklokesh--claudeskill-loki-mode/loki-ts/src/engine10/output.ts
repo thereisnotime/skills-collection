@@ -6,10 +6,9 @@
 import type { EventEnvelope, Verdict } from "./types.ts";
 import { registryLoader } from "./registry.ts";
 import { redactSecrets } from "../util/redact.ts";
+import { STAGE_BUDGETS } from "./types.ts";
 const NAME_WIDTH = 12; // fits "implement" + padding to align the next column
-// E-44 (found by E-14): 7 ("skipped") left no separating space, ran duration straight into it
-// ("skipped0s"); +1 guarantees at least one space after the longest status word.
-const STATUS_WIDTH = 8; // fits "skipped" plus a required separating space
+const STATUS_WIDTH = 8; // E-44: "skipped" plus one separating space (7 ran it into the duration)
 const LABEL_WIDTH = 12; // fits "NOT PROVEN:" + one space
 export function formatClock(elapsedS: number): string {
   const s = Math.max(0, Math.round(elapsedS));
@@ -35,12 +34,17 @@ export interface StageLine {
   durationS: number | null;
   detail: string;
 }
+// Q18-07: eta.ts is optional (core never imports contrib); the first line kicks off the lazy load, so ETA and learning start from the second line.
+let etaMod: { estimate?: EtaEstimator; record?: (t: number | null, a: number) => void } | null = null;
+function etaOf(): NonNullable<typeof etaMod> { if (!etaMod) { etaMod = {}; registryLoader("./eta.ts").then((m) => { etaMod = m as typeof etaMod; }, () => {}); } return etaMod!; }
+const targetOf = (stage: string) => STAGE_BUDGETS[stage as keyof typeof STAGE_BUDGETS]?.targetS ?? null;
 /** `[00:11] intake      done   11s   repo map cached, runners: pytest, vitest` */
 export function formatStageLine(line: StageLine): string {
   const clock = formatClock(line.clockS);
   const name = line.name.padEnd(NAME_WIDTH);
   const status = line.status.padEnd(STATUS_WIDTH);
   const duration = line.durationS == null ? "not measured" : formatDuration(line.durationS);
+  if (line.status === "done" && line.durationS != null) etaOf().record?.(targetOf(line.name), line.durationS);
   return `[${clock}] ${name}${status}${duration}   ${line.detail}`;
 }
 export interface HeartbeatLine {
@@ -57,7 +61,8 @@ export interface HeartbeatLine {
 /** `[01:05] implement   waiting on claude session  1m00s  ETA 2m00s  (3 files, +41 -2)` */
 export function formatHeartbeatLine(h: HeartbeatLine): string {
   const bits = [`waiting on ${h.waitingOn}`, formatDuration(h.elapsedS)];
-  if (h.etaS != null) bits.push(`ETA ${formatDuration(h.etaS)}`);
+  const eta = h.etaS !== undefined ? h.etaS : etaOf().estimate?.(targetOf(h.stage), h.elapsedS);
+  if (eta != null) bits.push(`ETA ${formatDuration(eta)}`);
   if (h.diff) bits.push(`(${h.diff.files} files, +${h.diff.insertions} -${h.diff.deletions})`);
   return `[${formatClock(h.clockS)}] ${h.stage.padEnd(NAME_WIDTH)}${bits.join("  ")}`;
 }
@@ -104,10 +109,10 @@ export interface SummaryInput {
      *  or leave measuredSessions 0, for a run with no priced sessions at all. */
     partialUsd?: number;
     measuredSessions?: number;
-    totalSessions?: number;
+    totalSessions?: number; stageShares?: string | null; /* TEN-COST-28: stageShareText line, printed as Spend */ capUsd?: number; // Q17-02: run cap USD when set; the measured Cost line adds "N% of cap $X"
   };
   wallS: number;
-  stages: { label: string; seconds: number }[];
+  stages: { label: string; seconds: number }[]; firstSealed?: boolean; // TEN-UX-11: first sealed PR in repo (METRICS row 14); only literal true marks Time
 }
 function labelCol(text: string): string {
   return `${text}:`.padEnd(LABEL_WIDTH);
@@ -124,23 +129,18 @@ export function formatSummary(input: SummaryInput): string {
   if (input.flaky.length > 0) notProvenLine += `; flaky ${input.flaky.join(", ")}`;
   const costLine =
     input.cost.usd != null
-      ? `${labelCol("Cost")}$${input.cost.usd.toFixed(2)} (${input.cost.provider}, ${input.cost.tokens != null ? `${formatTokens(input.cost.tokens)} tokens` : "tokens not measured"}${input.cost.note ? `; ${input.cost.note}` : ""})`
+      ? `${labelCol("Cost")}$${input.cost.usd.toFixed(2)} (${input.cost.provider}, ${input.cost.tokens != null ? `${formatTokens(input.cost.tokens)} tokens` : "tokens not measured"}${input.cost.note ? `; ${input.cost.note}` : ""}${input.cost.capUsd ? `; ${Math.round((input.cost.usd / input.cost.capUsd) * 100)}% of cap $${input.cost.capUsd.toFixed(2)}` : ""})`
       : input.cost.measuredSessions
         ? `${labelCol("Cost")}partial: $${(input.cost.partialUsd ?? 0).toFixed(2)} for ${input.cost.measuredSessions} of ${input.cost.totalSessions ?? input.cost.measuredSessions} sessions`
         : `${labelCol("Cost")}not measured${input.cost.note ? ` (${input.cost.note})` : ""}`;
-  const stagesStr = input.stages.map((s) => `${s.label} ${formatDuration(s.seconds)}`).join(", ");
-  const timeLine = `${labelCol("Time")}${formatDuration(input.wallS)} (${stagesStr})`;
-  return [verdictLine, ...(input.reason ? [`${labelCol("Reason")}${input.reason}`] : []), prLine, ...receiptLine, notProvenLine, costLine, timeLine].join("\n");
+  const stagesStr = input.stages.map((s) => `${s.label} ${formatDuration(s.seconds)}`).join(", ") + ((slow) => (slow ? `; slowest: ${slow.label} ${Math.min(100, Math.round((slow.seconds / input.wallS) * 100))}%` : ""))(input.wallS > 0 ? input.stages.filter((s) => s.seconds > 0).reduce<{ label: string; seconds: number } | null>((a, s) => (a && a.seconds >= s.seconds ? a : s), null) : null); // TEN-SPEED-03: slowest stage share of wall; needs real durations and wall
+  const timeLine = `${labelCol("Time")}${formatDuration(input.wallS)} (${stagesStr})${input.firstSealed === true ? " - first sealed PR in this repo" : ""}`;
+  return [verdictLine, ...(input.reason ? [`${labelCol("Reason")}${input.reason}`] : []), prLine, ...receiptLine, notProvenLine, costLine, ...(input.cost.stageShares ? [`${labelCol("Spend")}${input.cost.stageShares}`] : []), timeLine].join("\n");
 }
-/** Section 3: an optional module loaded only if present, never a hard dependency.
- *  eta.ts (E-20, wave 2) is not part of this slice; when absent, ETAs are omitted. */
+/** Section 3: eta.ts is optional; when absent, ETAs are omitted. */
 export type EtaEstimator = (targetS: number | null, elapsedS: number) => number | null;
 /** modulePath is injectable for tests; production callers omit it and get "./eta.ts". */
-export async function estimateEtaS(
-  targetS: number | null,
-  elapsedS: number,
-  modulePath = "./eta.ts",
-): Promise<number | null> {
+export async function estimateEtaS(targetS: number | null, elapsedS: number, modulePath = "./eta.ts"): Promise<number | null> {
   let mod: { estimate?: EtaEstimator };
   try {
     mod = (await (modulePath === "./eta.ts" ? registryLoader(modulePath) : import(modulePath))) as { estimate?: EtaEstimator };

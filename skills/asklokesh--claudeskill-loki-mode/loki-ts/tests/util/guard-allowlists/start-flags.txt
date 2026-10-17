@@ -1,6 +1,5 @@
 # loki start flag parity table. Format: flag | both  OR  flag | bash-only <reason>  OR  flag | bun-only <reason>.
 # Guard: start_flag_parity_guard.test.ts (D91 finding class 2). Bun-only-refused flags exit 2 loudly (FC-38), never silent.
--* | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
 -- | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
 --aider-flags | both
 --aider-model | both
@@ -16,6 +15,7 @@
 --budget | both
 --budget-limit | bun-only real divergence: bash cmd_start has no --budget-limit label (only --budget); follow-up to add the alias on bash
 --cline-model | both
+--cost | both
 --completion-promise | bun-only declared on the Bun route only; bash cmd_start has no label for it
 --complex | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
 --compliance | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
@@ -34,7 +34,7 @@
 --max-duration | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
 --max-iterations | bun-only declared on the Bun route only; bash cmd_start has no label for it
 --max-retries | bun-only declared on the Bun route only; bash cmd_start has no label for it
---max-wait | both (Bun route only in practice: the bash label is the --workspace brief collector value-skip; the bash main loop rejects it with exit 64)
+--max-wait | bun-only declared on the Bun route only; bash cmd_start has no label for it
 --mirofish | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
 --mirofish-bg | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
 --mirofish-docker | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
@@ -59,7 +59,8 @@
 --repo-fast | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
 --repo-full | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
 --sandbox | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
---session-model | bun-only real divergence: bash cmd_start has no --session-model label; follow-up to add it on bash
+--max-cost | bash-only bash cmd_start skips it in the workspace-start preparse (P12-10 route) and bin/loki forwards it; Bun parseStartArgs does not parse it
+--session-model | both
 --ship | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
 --simple | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
 --skip-memory | bash-only legacy-loop or bash-route flag; Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
@@ -72,8 +73,10 @@
 -y | both
 --workspace | bash-only multi-repo workspace run; the Bun start diverts it to autonomy/loki, and --attempts or --spec refuse it
 --deploy | bash-only chains the gated loki deploy --execute after the run; the Bun start diverts it to autonomy/loki
+--resume | bash-only handled in the bash cmd_start pre-scan (P12-07b): routes to engine10 resume, never a new build
 --health-url | bash-only modifier of --deploy; handled in the bash cmd_start pre-scan, Bun diverts with --deploy
 --health-match | bash-only modifier of --deploy; handled in the bash cmd_start pre-scan, Bun diverts with --deploy
 --auto-rollback | bash-only modifier of --deploy; handled in the bash cmd_start pre-scan, Bun diverts with --deploy
---model | bash-only value-skip label in the --workspace brief collector of cmd_start; the Bun route refuses it with exit 2 (FC-38) because engine10 does not honor it
---max-cost | bash-only value-skip label in the --workspace brief collector of cmd_start; the Bun route refuses it with exit 2 (FC-38), its per-run cap is --budget-limit
+--destination | bash-only modifier of --deploy; handled in the bash cmd_start pre-scan, Bun diverts with --deploy
+--canary | bash-only modifier of --deploy; handled in the bash cmd_start pre-scan, Bun diverts with --deploy
+--domain | bash-only modifier of --deploy; handled in the bash cmd_start pre-scan, Bun diverts with --deploy

@@ -318,6 +318,22 @@ describe("ce-code-review contract", () => {
     expect(content).toContain("**Deprecated alias**")
   })
 
+  test("mode:agent JSON records the peer outcome in finish-input's vocabulary", async () => {
+    const modes = await readRepoFile("skills/ce-code-review/references/modes-and-output.md")
+    const finishInput = await readRepoFile("skills/ce-code-review/references/finish-input.md")
+    const review = await readRepoFile("skills/ce-code-review/references/cross-model-review.md")
+    const json = modes.split("## JSON output format (`mode:agent` only)")[1] ?? ""
+    const outcomes = (text: string) =>
+      (text.match(/"peer": \{[^}]*?"outcome": "([^"]+)"/)?.[1] ?? "")
+        .split(" | ")
+        .filter((value) => value !== "null")
+
+    expect(outcomes(json).length).toBeGreaterThan(0)
+    expect(outcomes(json)).toEqual(outcomes(finishInput))
+    expect(json).toContain("copy `outcome` and `coverage` verbatim from the `peer` record in `finish-input.json`")
+    expect(review).not.toContain("stay silent in `mode:agent`")
+  })
+
   test("documents policy-driven routing and actionable handoff", async () => {
     const content = await readCodeReviewRuntimeContract()
 
@@ -1843,7 +1859,7 @@ describe("cross-model peer skip legibility", () => {
 
   function extractHostAttestation(src: string): string {
     const m = src.match(
-      /if \[ "\$\{CLAUDECODE:-\}" = "1" \]; then XHOST_HARNESS=claude; XHOST_FAMILY=claude;\n(?:elif .+\n)*else XHOST_HARNESS=unknown; XHOST_FAMILY=unknown; fi/,
+      /XHOST_SEEN=;\n(?:.+\n)*?else XHOST_HARNESS=unknown; XHOST_FAMILY=unknown; fi/,
     )
     expect(m).toBeTruthy()
     return m![0]
@@ -1868,7 +1884,6 @@ describe("cross-model peer skip legibility", () => {
     )
     for (const snippet of snippets) {
       expect(snippet).toBe(snippets[0])
-      expect(snippet).toContain('XHOST_HARNESS=grok; XHOST_FAMILY=grok')
       expect(snippet).toContain("GROK_AGENT")
       expect(snippet).toContain("GROK_SESSION_ID")
     }
@@ -1876,10 +1891,23 @@ describe("cross-model peer skip legibility", () => {
     expect(attestHost(snippet, {})).toBe("unknown unknown")
     expect(attestHost(snippet, { GROK_AGENT: "1" })).toBe("grok grok")
     expect(attestHost(snippet, { GROK_SESSION_ID: "sess" })).toBe("grok grok")
-    expect(attestHost(snippet, { CLAUDECODE: "1", GROK_AGENT: "1" })).toBe("claude claude")
-    expect(attestHost(snippet, { CODEX_SESSION_ID: "sess", GROK_AGENT: "1" })).toBe("codex codex")
+    expect(attestHost(snippet, { CLAUDECODE: "1" })).toBe("claude claude")
+    expect(attestHost(snippet, { CODEX_THREAD_ID: "t" })).toBe("codex codex")
+    expect(attestHost(snippet, { CLAUDECODE: "1", CURSOR_AGENT: "1" })).toBe("claude claude")
     expect(attestHost(snippet, { CURSOR_AGENT: "1" })).toBe("cursor unknown")
+    expect(attestHost(snippet, { OMPCODE: "1", CLAUDECODE: "1" })).toBe("omp unknown")
+    expect(attestHost(snippet, { OMPCODE: "1", CLAUDECODE: "1", CODEX_THREAD_ID: "t" })).toBe("omp unknown")
+    expect(attestHost(snippet, { CLAUDECODE: "1", CODEX_THREAD_ID: "t" })).toBe("unknown unknown")
+    expect(attestHost(snippet, { CLAUDECODE: "1", GROK_AGENT: "1" })).toBe("unknown unknown")
+    expect(attestHost(snippet, { CODEX_SESSION_ID: "sess", GROK_AGENT: "1" })).toBe("unknown unknown")
   })
+
+  for (const { worker } of routeTokenPairs) {
+    test(`${worker} accepts the harness token the attestation snippet emits for an owning harness`, async () => {
+      const src = await readRepoFile(worker)
+      expect(src).toContain("codex|claude|grok|cursor|opencode|antigravity|omp|unknown)")
+    })
+  }
 
   // The provider runs under `set -m` in its OWN process group so the worker can
   // group-reap it without killing itself. On a clean worker exit the runner's

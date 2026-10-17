@@ -26,6 +26,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { num, routerTelemetryOn } from "../engine10/cost.ts";
+import { modelOutcome } from "../util/run_identity.ts";
 import { partialUsagePath } from "./budget.ts";
 
 // A structural subset of the Agent SDK's SDKMessage union -- only the fields the
@@ -75,6 +76,7 @@ export interface ParserContext {
   cwd: string; // repo root under which .loki lives
   iteration: string; // LOKI_ITERATION stamp for the result-cost file
   hookEventsEnabled: boolean; // LOKI_HOOK_EVENTS != "off"
+  requestedModel?: string; // the model the runner resolved for this call (P12-23); absent = no requested/downgrade fields
   // Live-output sink. The caller tees the same text to the terminal +
   // iterationOutputPath + captured log (mirroring the bash `tee`). Default: stdout.
   write?: (s: string) => void;
@@ -126,6 +128,9 @@ export interface StreamResult {
   // True iff a terminal `result` message arrived. When false, the loop ended
   // without a result (aborted/crashed) and the caller must treat it as failure.
   sawResult: boolean;
+  // True iff the stream ended abnormally (source threw mid-iteration, or no terminal result arrived). The
+  // result is then partial: whatever was consumed is kept, exitCode stays 1.
+  truncated: boolean;
 }
 
 export async function consumeSdkStream(
@@ -182,7 +187,8 @@ export async function consumeSdkStream(
   const reqById = new Map<string, RequestUsage>();
   const advisorById = new Map<string, AdvisorUsage>();
 
-  for await (const data of asAsync(messages)) {
+  const guard = { truncated: false };
+  for await (const data of asAsync(messages, guard)) {
     const msgType = data.type ?? "";
 
     // --- stream_event: live incremental delta text (--include-partial-messages)
@@ -373,23 +379,29 @@ export async function consumeSdkStream(
       totalCostUsd = data.total_cost_usd ?? null;
       sessionId = data.session_id;
       if (advisorById.size === 0) recordRouterUsage(new Map(), advisorById, "#result", data.usage ?? {}); // advisor seen only on the result
-      writeResultCost(lokiRoot, ctx.iteration, data, data.model ?? sessionModel, firstTurnPromptTokens, routerTelemetry(reqById, advisorById));
+      writeResultCost(lokiRoot, ctx.iteration, data, data.model ?? sessionModel, firstTurnPromptTokens, routerTelemetry(reqById, advisorById), ctx.requestedModel);
 
       exitCode = data.is_error ? 1 : 0;
       // do not break: a well-formed stream ends after result, but keep draining.
     }
   }
 
-  return { exitCode, sessionId, totalCostUsd, capturedText: captured, rateLimit, sawResult };
+  return { exitCode, sessionId, totalCostUsd, capturedText: captured, rateLimit, sawResult, truncated: guard.truncated || !sawResult };
 }
 
 // --- helpers (translations of the Python functions) -----------------------
 
-async function* asAsync(src: AsyncIterable<StreamMsg> | Iterable<StreamMsg>): AsyncIterable<StreamMsg> {
-  if ((src as AsyncIterable<StreamMsg>)[Symbol.asyncIterator]) {
-    yield* src as AsyncIterable<StreamMsg>;
-  } else {
-    for (const m of src as Iterable<StreamMsg>) yield m;
+// Degrades a broken source: a throw mid-iteration ends the stream and flags it
+// truncated (never propagates); non-object entries are skipped.
+async function* asAsync(src: AsyncIterable<StreamMsg> | Iterable<StreamMsg>, guard: { truncated: boolean }): AsyncIterable<StreamMsg> {
+  try {
+    if ((src as AsyncIterable<StreamMsg>)[Symbol.asyncIterator]) {
+      for await (const m of src as AsyncIterable<StreamMsg>) if (m && typeof m === "object") yield m;
+    } else {
+      for (const m of src as Iterable<StreamMsg>) if (m && typeof m === "object") yield m;
+    }
+  } catch {
+    guard.truncated = true;
   }
 }
 
@@ -555,6 +567,7 @@ function writeResultCost(
   model?: string,
   firstTurnPromptTokens?: number,
   router?: Record<string, number>,
+  requested?: string,
 ): void {
   try {
     const cost = data.total_cost_usd;
@@ -571,8 +584,12 @@ function writeResultCost(
       ...(typeof data.num_turns === "number" ? { num_turns: data.num_turns } : {}),
       ...(typeof data.session_id === "string" && data.session_id ? { session_id: data.session_id } : {}),
       ...(process.env["LOKI_E10_RESUME_SESSION"] ? { resumed_from: process.env["LOKI_E10_RESUME_SESSION"] } : {}),
+      // P12-21: the caller's stage and attempt (env, like the resume id), so cost_breakdown can attribute per stage and retry
+      ...(process.env["LOKI_E10_STAGE"] ? { stage: process.env["LOKI_E10_STAGE"] } : {}),
+      ...(Number(process.env["LOKI_E10_ATTEMPT"]) >= 1 ? { attempt: Math.floor(Number(process.env["LOKI_E10_ATTEMPT"])) } : {}),
       ...modelUsageFields(data),
       ...(model ? { model } : {}),
+      ...(model && requested ? { requested_model: requested, model_downgraded: modelOutcome(requested, model).downgraded } : {}), // P12-23 Q3: requested vs actual
       ...(firstTurnPromptTokens !== undefined ? { first_turn_prompt_tokens: firstTurnPromptTokens } : {}),
       ...(router ?? {}),
     };

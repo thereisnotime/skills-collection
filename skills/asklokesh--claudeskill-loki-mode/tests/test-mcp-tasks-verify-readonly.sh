@@ -65,7 +65,7 @@ const { privateKey, publicKey } = c.generateKeyPairSync("ed25519");
 fs.writeFileSync(w + "/k.pem", privateKey.export({ type: "pkcs8", format: "pem" }));
 const canon = (v) => Array.isArray(v) ? "[" + v.map(canon).join(",") + "]" : v && typeof v === "object" ? "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + canon(v[k])).join(",") + "}" : JSON.stringify(v === undefined ? null : v);
 const b = (x) => Buffer.from(x).toString("base64url");
-const body = { schema: "loki.v10.receipt/1", run_id: "e10-1", verdict: "VERIFIED" };
+const body = { schema: "loki.v10.receipt/1", run_id: "e10-1", verdict: "VERIFIED", events_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", time: { wall_s: 0, stages: {} } };
 const hash = c.createHash("sha256").update(canon(body)).digest("hex");
 const kid = b(c.createHash("sha256").update('{"crv":"Ed25519","kty":"OKP","x":"' + publicKey.export({ format: "jwk" }).x + '"}').digest());
 const input = b(canon({ alg: "EdDSA", typ: "JWT", kid: kid })) + "." + b(canon({ job_id: "e10-1", run_id: "e10-1", receipt_sha256: hash, iat: 1 }));
@@ -74,10 +74,32 @@ fs.writeFileSync(w + "/repo/signed/.loki/runs/e10-1/receipt.json", JSON.stringif
 JS
 node "$WORK/mk.js" "$WORK" || { fail "could not build a signed receipt"; }
 export HOME="$WORK/home" LOKI_RECEIPT_SIGNING_KEY_FILE="$WORK/k.pem"
+
+# A non-VERIFIED result may be skipped only when the engine itself says no bun can run (bin/loki looks at PATH and the
+# bundled @oven/bun-*). A crash from a bun that exists, or any other output, must fail.
+classify_non_verified() {
+  case "$1" in
+    *"cannot run on this machine: no working bun"*) echo skip ;;
+    *) echo fail ;;
+  esac
+}
+[ "$(classify_non_verified '{"exit_code": 1, "output": "boom", "verified": false}')" = "fail" ] && pass "a crash with a working bun is a failure, not a skip" || fail "a crash was classified as a skip"
+[ "$(classify_non_verified '{"exit_code": 1, "output": "loki: the Loki 10 engine cannot run on this machine: no working bun (none on PATH)", "verified": false}')" = "skip" ] && pass "the engine's no-working-bun message is the one skip" || fail "the no-working-bun message was not a skip"
+
 sdirect="$(python3 -I "$ADAPTER" verify "" "$WORK/repo/signed")"
 case "$sdirect" in
   *'"verified": true'*) pass "positive control: direct verify of the signed receipt is VERIFIED" ;;
-  *) echo "SKIP: signed verify not runnable here (no bun / loki-ts deps): $sdirect"; sdirect="" ;;
+  # A real verdict line (TAMPERED, UNCHECKED, UNSIGNED, NOT VERIFIED) means the engine ran and refused the receipt: that is a regression, never a skip.
+  *'verdict: '*) fail "signed receipt did not verify (engine produced a verdict): $sdirect"; sdirect="" ;;
+  *)
+    # The only legitimate skip is the engine's own "no working bun" message (bin/loki checks PATH and the bundled
+    # @oven/bun-* both, so `command -v bun` is the wrong test). Any other non-VERIFIED result is a crash or failure.
+    if [ "$(classify_non_verified "$sdirect")" = "skip" ]; then
+      echo "SKIP: signed verify not runnable here (precondition absent: no working bun): $sdirect"
+    else
+      fail "signed receipt did not verify (non-VERIFIED result without the no-working-bun precondition): $sdirect"
+    fi
+    sdirect="" ;;
 esac
 if [ -n "$sdirect" ]; then
   stask="$(ADAPTER_ROOT="$ROOT" REPO="$WORK/repo/signed" LOKI_MCP_TASKS=1 node -e '

@@ -10,13 +10,23 @@ import { execFile, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { fold, readEvents } from "../engine10/events.ts";
+import { fold, partialCost, readEvents } from "../engine10/events.ts";
 import { eventsRelPath, readOriginUrl } from "./engine_origin.ts";
 import { runOwnerAlive } from "./run_pid.ts";
 import { safeGit } from "./safe_git.ts";
+import { currentBranch } from "../e10ext/stop_restore.ts";
+import type { Outcome } from "../engine10/output.ts";
 import { noteOf } from "./base_guard.ts";
+import { sourceId } from "../../../packages/control-plane/src/shipper/ship.ts";
 import { redactSecrets } from "./redact.ts";
+import { readIntentRevisions, type IntentRevision } from "./steer.ts";
 import type { EventEnvelope, Verdict } from "../engine10/types.ts";
+
+/** Receipt field (A04): the operator intent revisions this run consumed. Omitted when none so other receipts stay byte-stable. */
+export function intentRevisionsBlock(revs: readonly IntentRevision[] | undefined): { intent_revisions?: { rev: number; source: string | null; actor: string | null; sha: string }[] } {
+  const r = (revs ?? []).filter((r) => r.unapplied !== true).map(({ rev, source, actor, sha }) => ({ rev, source, actor, sha }));
+  return r.length ? { intent_revisions: r } : {};
+}
 
 const REVERTED = "unrelated edit reverted:";
 export type StageOutputs = Partial<Record<string, Record<string, unknown>>>;
@@ -61,12 +71,34 @@ export function loadRunOutputs(runDir: string, events: readonly EventEnvelope[])
 /** Work-item state (docs/v10/ENGINE.md "Work-item state"); lives here, not in engine10/events.ts, to keep the core line budget. */
 export type WorkItemState =
   | "received" | "prepared" | "planned" | "executing" | "validating" | "ready_to_ship" | "completed"
-  | "waiting_for_input" | "budget_stopped" | "failed" | "cancelled" | "stalled";
+  | "waiting_for_input" | "budget_stopped" | "failed" | "cancelled" | "stalled"
+  | "delivering" | "observing";
 export const STALE_S = 30 * 60;
 
 /** The one work-item vocabulary (docs/v10/ENGINE.md "Work-item state"). Pure over the event log. Terminal states come only from run.completed;
  *  `nowMs` (optional) enables "stalled" for an unfinished run with no events for STALE_S. */
 export function workItemState(events: readonly EventEnvelope[], nowMs?: number): WorkItemState {
+  // delivering = pr.opened (supervisor); observing = the detached post-PR deep verify has started (deep.started, supervisor).
+  if (!events.some((e) => e.type === "run.completed") && !(nowMs !== undefined && events.length > 0 && nowMs - Date.parse(events[events.length - 1]!.ts) > STALE_S * 1000) && events.some((e) => e.type === "pr.opened"))
+    return events.some((e) => e.type === "deep.started") ? "observing" : "delivering";
+  return stageState(events, nowMs);
+}
+
+/** Blockers live in their own field, never in the state string. The only blocker the engine writes is an implement spec conflict (stage.completed spec_conflict_reason on a SPEC_CONFLICT run). */
+export function workItemBlockers(events: readonly EventEnvelope[]): string[] {
+  if (events.findLast((e) => e.type === "run.completed")?.data["verdict"] !== "SPEC_CONFLICT") return [];
+  const why = events.findLast((e) => e.type === "stage.completed" && e.stage === "implement")?.data["spec_conflict_reason"];
+  return [`spec_conflict: ${typeof why === "string" && why ? why.replace(/[\x00-\x1f\x7f]+/g, " ").slice(0, 500) : "unspecified"}`];
+}
+
+/** One work item spans runs: keyed by the issue ref on run.started; null for a text task. */
+export function workItemId(events: readonly EventEnvelope[]): string | null {
+  const d = events.find((e) => e.type === "run.started")?.data ?? {};
+  const k = d["issue_ref"];
+  return typeof k === "string" && k ? k : null;
+}
+
+function stageState(events: readonly EventEnvelope[], nowMs?: number): WorkItemState {
   const done = events.findLast((e) => e.type === "run.completed");
   if (done) {
     const v = done.data.verdict;
@@ -97,7 +129,7 @@ export type Phase = "implement" | "verify" | "publish" | "done";
 /** RECOVERY: which phase an event log stopped in. "done" means nothing is left to resume. */
 export function phaseOf(events: readonly EventEnvelope[]): Phase {
   if (events.some((e) => e.type === "pr.opened")) return "done";
-  const s = workItemState(events);
+  const s = stageState(events);
   if (s === "ready_to_ship") return "publish";
   if (s === "validating") return "verify";
   return s === "received" || s === "prepared" || s === "planned" || s === "executing" ? "implement" : "done";
@@ -125,8 +157,132 @@ export function findInterrupted(repoDir: string, runId?: string): Interrupted | 
   return { runId: top.id, phase, events, task: taskOf(events) };
 }
 
+// P12-07: per-stage checkpoints and the resume point. The append-only event log is the durable checkpoint store; a checkpoint is the
+// last stage.completed per stage with a sha of its inputs (earlier stages' outputs) and of its own outputs. Resume fails closed.
+export const STAGE_ORDER = ["intake", "plan", "wall", "implement", "verify", "commit", "seal", "pr"] as const;
+export interface Checkpoint { stage: string; seq: number; inputs_sha: string; outputs_sha: string }
+const sha = (v: unknown): string => createHash("sha256").update(JSON.stringify(v) ?? "null").digest("hex");
+const settled = (events: readonly EventEnvelope[], s: string): boolean => events.some((e) => e.stage === s && (e.type === "stage.completed" || e.type === "stage.skipped"));
+
+/** One checkpoint per completed stage, in flow order; inputs_sha covers every earlier stage's recorded outputs. */
+export function stageCheckpoints(events: readonly EventEnvelope[]): Checkpoint[] {
+  const last = new Map<string, EventEnvelope>();
+  for (const e of events) if (e.type === "stage.completed" && typeof e.stage === "string") last.set(e.stage, e);
+  const out: Checkpoint[] = [], prior: unknown[] = [];
+  for (const s of STAGE_ORDER) {
+    const e = last.get(s);
+    if (!e) continue;
+    out.push({ stage: s, seq: e.seq, inputs_sha: sha(prior), outputs_sha: sha(e.data) });
+    prior.push([s, e.data]);
+  }
+  return out;
+}
+
+/** First flow stage with no stage.completed (or stage.skipped, unless completedOnly); null when every stage settled. Pure and lenient (handoff text only). */
+export function firstIncompleteStage(events: readonly EventEnvelope[], completedOnly = false): string | null {
+  return STAGE_ORDER.find((s) => !(completedOnly ? events.some((e) => e.stage === s && e.type === "stage.completed") : settled(events, s))) ?? null;
+}
+
+export type ResumePoint = { ok: true; stage: string; skip: string[]; checkpoints: Checkpoint[]; intentRevisions: IntentRevision[]; timeline: { stage: "wall"; startMs: number; endMs: number }[] } | { ok: false; reason: string };
+
+/** The stage a resumed run re-enters at. Fail closed: a torn or unreadable log, a seq gap, a finished run, a mixed run id or a stage
+ *  recorded as done while an earlier one never settled all refuse. rawLog (the file text) lets a corrupt line be detected. */
+export function resumePoint(events: readonly EventEnvelope[], rawLog?: string): ResumePoint {
+  if (rawLog !== undefined) {
+    const lines = rawLog.split("\n").filter((l) => l.trim() !== "");
+    if (lines.length !== events.length) return { ok: false, reason: `event log is torn or corrupt (${lines.length - events.length} unreadable line(s))` };
+    if (rawLog.length > 0 && !rawLog.endsWith("\n")) return { ok: false, reason: "event log ends in a torn line" };
+  }
+  if (events.length === 0) return { ok: false, reason: "event log is empty or unreadable" };
+  if (events.some((e, i) => e.seq !== i)) return { ok: false, reason: "event log has a sequence gap" };
+  if (new Set(events.map((e) => e.run)).size !== 1) return { ok: false, reason: "event log mixes run ids" };
+  if (!events.some((e) => e.type === "run.started")) return { ok: false, reason: "no run.started event" };
+  if (events.some((e) => e.type === "tamper.detected")) return { ok: false, reason: "event log was flagged as tampered" };
+  if (events.some((e) => e.type === "run.completed")) return { ok: false, reason: "run already completed; nothing to resume" };
+  const intake = events.findLast((e) => e.type === "stage.completed" && e.stage === "intake");
+  if (intake && typeof intake.data["base_sha"] !== "string") return { ok: false, reason: "intake checkpoint has no base_sha" };
+  const next = firstIncompleteStage(events);
+  if (next === null) return { ok: false, reason: "every stage settled; nothing to resume" };
+  const idx = STAGE_ORDER.indexOf(next as (typeof STAGE_ORDER)[number]);
+  const par = next === "plan" || next === "wall"; // plan and wall run in parallel (machine.ts FLOW): either may finish first
+  const later = STAGE_ORDER.slice(idx + 1).find((s) => !(par && (s === "plan" || s === "wall")) && events.some((e) => e.stage === s && e.type === "stage.completed"));
+  if (later) return { ok: false, reason: `stage ${later} completed but ${next} never did` };
+  // P12-07d/h: durable late-steer state, seeded into ctx on re-entry (seedResumeCtx). Both inputs are worker-forgeable via ingest, so each rule fails closed.
+  const byRev = new Map<number, IntentRevision>(); // union of every intent.revised; on a duplicate rev keep the LATEST at (unapplied wins), so a pre-claimed at:0 cannot displace the honest entry
+  for (const e of events) if (e.type === "intent.revised" && Array.isArray(e.data["revisions"])) for (const r of e.data["revisions"] as IntentRevision[]) if (typeof r === "object" && r !== null && Number.isInteger(r.rev) && Number.isFinite(r.at)) { const o = byRev.get(r.rev); if (!o || (r.unapplied === true && o.unapplied !== true) || (o.unapplied !== true && r.at > o.at)) byRev.set(r.rev, r); }
+  const intentRevisions = [...byRev.values()].sort((x, y) => x.rev - y.rev);
+  const starts = events.filter((e) => e.type === "stage.started" && e.stage === "wall").map((e) => { const m = e.data["start_ms"], seen = Date.parse(e.ts); return typeof m === "number" && Number.isFinite(m) && m >= 0 ? Math.min(m, Number.isFinite(seen) ? seen : 0) : 0; }); // a claimed start is capped at the supervisor's own append time; unknown = 0: every revision stale
+  const first = starts.length ? Math.min(...starts) : null, timeline = first === null ? [] : [{ stage: "wall" as const, startMs: first, endMs: first }]; // EARLIEST start only: a later forged start cannot move the freeze point forward
+  return { ok: true, stage: next, skip: STAGE_ORDER.slice(0, idx), checkpoints: stageCheckpoints(events), intentRevisions, timeline };
+}
+
+/** P12-07h: seeds a re-entered run's ctx with the durable steer state; the machine does `ctx.timeline ??= []`, so a seeded array is used as is. */
+export function seedResumeCtx(ctx: { intentRevisions?: IntentRevision[]; timeline?: { stage: "wall"; startMs: number; endMs: number }[] }, rp: Extract<ResumePoint, { ok: true }>): void {
+  ctx.intentRevisions = [...rp.intentRevisions]; ctx.timeline = [...rp.timeline];
+}
+
+/** P12-07i: the worker-side re-entry. Computes the resume point from the durable log (fail closed), seeds ctx via seedResumeCtx, and returns the
+ *  flow without settled stages plus their recorded outputs, so a restored stage never reruns and later stages still see its data. */
+export function resumeMachineOpts<F extends string>(ctx: Parameters<typeof seedResumeCtx>[0], events: readonly EventEnvelope[], raw: string | undefined, flow: readonly (F | readonly F[])[]): { ok: true; flow: (F | readonly F[])[]; restored: StageOutputs } | { ok: false; reason: string } {
+  const rp = resumePoint(events, raw);
+  if (!rp.ok) return rp;
+  seedResumeCtx(ctx, rp);
+  const done = new Set<string>(STAGE_ORDER.filter((s) => (s === "intake" || s === "plan" || s === "wall" || s === "implement") && settled(events, s))), restored: StageOutputs = {};
+  for (const s of done) { const e = events.findLast((x) => x.type === "stage.completed" && x.stage === s); if (e) restored[s] = e.data; }
+  // D61-04: a deferred already-done hit lands on intake AFTER its stage.completed was written, so the flag is durable only in the supervisor-written already.attested event (SUPERVISOR_ONLY: a worker line of that type is dropped). It counts only if it precedes implement's stage.completed and no intent.revised follows it (stale evidence). Absent or malformed -> not satisfied (old logs restore as before).
+  const hitIdx = events.findLastIndex((x) => x.type === "already.attested" && x.stage === "intake"), hit = hitIdx < 0 ? undefined : events[hitIdx], ev = hit?.data["evidence"];
+  const implDone = events.findLastIndex((x) => x.type === "stage.completed" && x.stage === "implement");
+  if (restored["intake"] && hit && hit.data["already_satisfied"] === true && Array.isArray(ev) && ev.length > 0 && ev.every((x) => typeof x === "string" && x !== "") && (implDone < 0 || hitIdx < implDone) && !events.slice(hitIdx + 1).some((x) => x.type === "intent.revised")) restored["intake"] = { ...restored["intake"], already_satisfied: true, evidence: ev };
+  const kept = flow.map((st) => typeof st === "string" ? (done.has(st) ? [] : st) : st.filter((n) => !done.has(n))).filter((st) => st.length > 0);
+  return { ok: true, flow: kept as (F | readonly F[])[], restored };
+}
+
+/** `loki start --resume [run-id]`. The publish phase resumes through resumePublish; an earlier phase re-enters the machine at the resume
+ *  point under a fresh supervisor (run.resumed, restored stages not rerun). Exit 2 on a refusal: unreadable state is never a success. */
+export async function resumeFlag(runId: string | undefined, noPr = false, deps: ResumeDeps = {}): Promise<number> {
+  const out = deps.out ?? ((s: string) => { process.stderr.write(s); });
+  let repoDir: string;
+  try { repoDir = safeGit(process.cwd(), ["rev-parse", "--show-toplevel"]).trim(); } catch { out("engine10: --resume: not inside a git repository\n"); return 2; }
+  const id = runId && /^e10-[A-Za-z0-9-]+$/.test(runId) ? runId : undefined;
+  const it = findInterrupted(repoDir, id);
+  if (!it) { out("engine10: --resume: no interrupted engine10 run\n"); return 3; }
+  let raw = "";
+  try { raw = readFileSync(join(repoDir, eventsRelPath(it.runId)), "utf8"); } catch { out(`engine10: --resume refused: run ${it.runId} event log unreadable\n`); return 2; }
+  const rp = resumePoint(it.events, raw);
+  if (!rp.ok) { out(`engine10: --resume refused: ${rp.reason}\n`); return 2; }
+  if (it.phase === "publish" && noPr) { out("engine10: --resume refused: --no-pr was given and this run is in its publish phase\n"); return 2; }
+  if (it.phase === "publish") return resumePublish(repoDir, it, deps);
+  out(`engine10: resume from stage ${rp.stage} (settled: ${rp.skip.join(", ") || "none"})\n`);
+  const br = `loki/${it.runId}`, origBranch = currentBranch(repoDir), pc = partialCost(it.events), st0 = (it.events.find((e) => e.type === "run.started")?.data ?? {}) as Record<string, unknown>;
+  if (it.events.some((e) => e.type === "cap.hit")) { out(`engine10: --resume refused: run ${it.runId} already hit its cost or time cap\n`); return 2; }
+  let activeS = 0; for (let i = 1; i < it.events.length; i++) { const g = (Date.parse(it.events[i]!.ts) - Date.parse(it.events[i - 1]!.ts)) / 1000; if (g <= 0) continue; const ev = it.events[i]!; if (g <= 120 || ev.type !== "run.resumed") activeS += g; else { const alive = Date.parse(String(ev.data["last_alive_ts"] ?? "")), since = (alive - Date.parse(it.events[i - 1]!.ts)) / 1000; if (since > 0) activeS += Math.min(since, g); } } // P12-07l: a long gap is downtime only when it ends in run.resumed; a long verify (or any quiet running stage) that ends in its own event counts in full; P12-07n: a gap ending in run.resumed counts up to the supervisor's last heartbeat (last_alive_ts) as active, only the rest as downtime
+  const capS = Number(st0["cap_s"]) > 0 ? Number(st0["cap_s"]) - activeS : undefined, ceilS = Number(st0["cap_ceiling_s"]) > 0 ? Number(st0["cap_ceiling_s"]) - activeS : undefined;
+  if (capS !== undefined && capS < 60) { out(`engine10: --resume refused: run ${it.runId} has under 60s of its time cap left\n`); return 2; }
+  if (rp.skip.includes("intake") && origBranch !== br) {
+    const dirty = safeGit(repoDir, ["status", "--porcelain", "--", ".", ":(exclude).loki"]).split("\n").filter(Boolean);
+    if (dirty.length) { out(`engine10: --resume refused: ${dirty.length} uncommitted or untracked file(s) in your working tree would ride onto ${br}; commit or stash them first\n`); return 2; }
+    try { safeGit(repoDir, ["checkout", "-q", br]); } catch { out(`engine10: --resume refused: cannot switch to run branch ${br}\n`); return 2; }
+  }
+  const st = (it.events.find((e) => e.type === "run.started")?.data ?? {}) as Record<string, unknown>, provider = String(st["provider"] ?? "claude"), model = String(st["model"] ?? ""), deep = st["deep"] === true;
+  const env: NodeJS.ProcessEnv = { ...process.env, ...(capS !== undefined ? { LOKI_E10_CAP_S: String(Math.floor(capS)) } : {}), ...(pc.usd > 0 ? { LOKI_E10_SPENT_USD: String(pc.usd) } : {}), ...(Number(st["max_cost_usd"]) >= 0 && st["max_cost_usd"] !== undefined ? { LOKI_E10_MAX_COST_USD: String(st["max_cost_usd"]) } : {}) };
+  const runDir = join(repoDir, ".loki", "runs", it.runId), eventsPath = join(repoDir, eventsRelPath(it.runId));
+  const pr = noPr ? undefined : async ({ pushEnv, verdict, notProven }: { pushEnv: { _LOKI_PINNED_ORIGIN: string }; verdict: Verdict; notProven: string[] }) => {
+    const gate = prGate(repoDir);
+    if ("deny" in gate) return { url: null, draft: false, existing: null, notProven: [gate.deny] };
+    const evs = readEvents(eventsPath), sealed: Record<string, unknown> = { ...((evs.findLast((e) => e.type === "receipt.sealed")?.data ?? {}) as Record<string, unknown>), not_proven: notProven }, base = evs.find((e) => e.type === "stage.completed" && e.stage === "intake")?.data["base_sha"];
+    const r = await (await import("../engine10/stages/pr.ts")).runPr({ runId: it.runId, repoDir, runDir, branch: br, pinnedOrigin: pushEnv._LOKI_PINNED_ORIGIN, provider, model, baseSha: typeof base === "string" ? base : "", outputs: () => ({ ...loadRunOutputs(runDir, evs), seal: { ...sealed, verdict, receipt_path: sealed["path"] } }), capHit: () => evs.some((e) => e.type === "cap.hit"), draft: gate.draft, emit: () => {} } as never, new AbortController().signal);
+    const d = r.data as { pr_url?: string; draft?: boolean; existing?: boolean | null; not_proven?: string[] };
+    return r.status !== "completed" ? { url: null, draft: false, existing: null, notProven: [`PR not opened: ${r.reason}`] } : { url: d.pr_url ?? null, draft: d.draft === true, existing: d.existing ?? null, notProven: d.not_proven };
+  };
+  const supervise = deps.supervise ?? (async (o) => (await import("../engine10/supervisor.ts")).runSupervisor(o));
+  const { EXIT } = await import("../engine10/output.ts");
+  const res = await supervise({ runId: it.runId, repoDir, env, resume: true, capS: capS === undefined ? undefined : Math.floor(capS), capCeilingS: ceilS === undefined ? undefined : Math.floor(ceilS), restoreBranch: origBranch, workerArgv: [process.execPath, resolve(process.argv[1] ?? ""), "engine10", "worker", it.runId, provider, model, deep ? "deep" : "fast"], started: { ...st, resumed_from: rp.stage }, pr });
+  out(`engine10: resumed run ${it.runId}: ${res.outcome}\n`);
+  return EXIT[res.outcome];
+}
+
 export type RunPrFn = (ctx: Record<string, unknown>, signal: AbortSignal) => Promise<{ status: string; reason?: string; data: Record<string, unknown> }>;
-export interface ResumeDeps { runPr?: RunPrFn; out?: (s: string) => void }
+export interface ResumeDeps { runPr?: RunPrFn; out?: (s: string) => void; supervise?: (o: import("../engine10/supervisor.ts").SupervisorOptions) => Promise<{ outcome: Outcome }> }
 
 /** Resumes the publish phase. Reuses the sealed receipt; appends run.resumed, pr.opened and run.completed. */
 export async function resumePublish(repoDir: string, it: Interrupted, deps: ResumeDeps = {}): Promise<number> {
@@ -222,11 +378,19 @@ export const STATUS_MARKER = "<!-- loki-status -->";
 const plain = (t: string): string => t.replace(/[\x00-\x1f\x7f]+/g, " ").replace(/[<>`@]/g, " ").slice(0, 500); // a reason can echo worker text: no markup, no mentions
 /** The single status comment an issue run keeps current (FV-gh-steer-3). Built only from harness-owned event fields and the PR url; the only worker-derived text is the
  *  blocked/failed reason, flattened by `plain`. `steerRevs` counts operator revisions consumed since this run started. */
-export function issueStatusBody(events: readonly EventEnvelope[], o: { runId: string; steerRevs: number; prUrl?: string | null; outcome?: string | null; reason?: string | null }): string {
+/** P12-19 (D06): the Control Plane page for one run, `<base>/#/runs/<sourceId>/<runId>`. null unless base is an http(s) url. */
+export function controlRunLink(base: string | null | undefined, repoDir: string, runId: string): string | null {
+  if (!base || !/^https?:\/\//.test(base) || !runId) return null;
+  return `${base.replace(/\/+$/, "")}/#/runs/${encodeURIComponent(sourceId(repoDir))}/${encodeURIComponent(runId)}`;
+}
+export function issueStatusBody(events: readonly EventEnvelope[], o: { runId: string; steerRevs: number; prUrl?: string | null; outcome?: string | null; reason?: string | null; controlUrl?: string | null }): string {
   const planned = events.some((e) => e.type === "stage.completed" && e.stage === "plan");
   const lines = [STATUS_MARKER, `Loki run \`${o.runId.replace(/[^A-Za-z0-9._-]/g, "")}\``, "", `State: ${o.outcome ?? workItemState(events)}`, `Plan: ${planned ? "ready" : "pending"}`];
   if (o.steerRevs > 0) lines.push(`Operator steers applied: ${o.steerRevs}`);
   if (o.prUrl) lines.push(`Pull request: ${o.prUrl}`);
+  if (o.controlUrl) lines.push(`Control Plane: ${o.controlUrl}`);
+  const last = events[events.length - 1]; // seq only: a relative age would change the body every call and defeat the unchanged-body skip
+  if (last) lines.push(`Last event: seq ${last.seq}`);
   if (o.reason) lines.push("", `${o.outcome === "BLOCKED" ? "Question" : "Reason"}: ${plain(o.reason)}`);
   return `${lines.join("\n")}\n`;
 }
@@ -239,9 +403,8 @@ export function issueStatusProjector(o: { pushSh: string; env: NodeJS.ProcessEnv
   const argvOf = (bodyFile: string): string[] => ["issue-comment", "--update", o.issueRef, bodyFile];
   const once = async (x: StatusExtra): Promise<{ argv: string[]; ok: boolean } | null> => {
     const events = readEvents(o.eventsPath), since = Date.parse(events[0]?.ts ?? "") || 0;
-    let revs = 0;
-    try { for (const l of readFileSync(join(o.repoDir, ".loki", "intent-revisions.jsonl"), "utf8").split("\n")) if (l) { try { if (Date.parse(String((JSON.parse(l) as { consumed_at?: unknown }).consumed_at)) >= since) revs++; } catch { /* torn line */ } } } catch { /* no steers */ }
-    const body = issueStatusBody(events, { runId: o.runId, steerRevs: revs, ...x }), bodyFile = join(o.runDir, "status-comment.md"), argv = argvOf(bodyFile);
+    const revs = readIntentRevisions(o.repoDir, since).length;
+    const body = issueStatusBody(events, { runId: o.runId, steerRevs: revs, controlUrl: controlRunLink(o.env.LOKI_CONTROL_PLANE_URL || o.env.LOKI_CONTROL_URL, o.repoDir, o.runId), ...x }), bodyFile = join(o.runDir, "status-comment.md"), argv = argvOf(bodyFile);
     if (body === last) return { argv, ok: true };
     mkdirSync(o.runDir, { recursive: true }); writeFileSync(bodyFile, body);
     const ok = await new Promise<boolean>((res) => { execFile("bash", [o.pushSh, ...argv], { env }, (err) => res(!err)); });

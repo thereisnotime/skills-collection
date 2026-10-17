@@ -1,11 +1,13 @@
 // E-07: SessionRunner. Runs one provider session in its own OS process group so the whole tree can be
 // killed together at limitS (ENGINE.md 10). E-32: the child re-enters via cli.ts's `engine10 session` route.
+import { createWatchdog, stallKillS, stallThresholdS } from "../runner/watchdog.ts";
 import { spawn, type ChildProcess } from "node:child_process";
 import { cancelSessions, sessionsCancelled, trackSession } from "../util/run_pid.ts"; export { cancelSessions }; // one registry covers every provider child (docs/cost-controls.md)
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, writeSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { writeProviderCost } from "../providers/provider_cost.ts";
+import { archivePriorCosts, writeProviderCost } from "../providers/provider_cost.ts";
 import { modelRouteModel } from "../providers/model_routes.ts";
+import { PROVIDER_DEFAULT_MODEL } from "../util/claude_model.ts";
 import { recordSessionCost, resultCostPath, tokensUnmeasured, UNMETERED } from "./cost.ts";
 import { partialUsagePath, recordPartialStreamCost } from "../runner/budget.ts";
 import { hooks } from "./hooks.ts";
@@ -33,7 +35,7 @@ export interface SessionRunnerConfig {
   advisor?: { available: boolean; reason?: string };
 }
 /** Recorded when a claude run has no configured model: the provider CLI runs its own default, exactly like raw `claude -p` (L1). */
-export const PROVIDER_DEFAULT_MODEL = "claude (provider default)";
+export { PROVIDER_DEFAULT_MODEL }; // label lives in util/claude_model.ts (a leaf the runner can import without a cycle)
 /** The model a session really runs: the override, else a configured pin, else the provider's own default (no --model flag, L1 never below raw). */
 export function resolveModel(provider: string): string {
   const e = process.env;
@@ -50,6 +52,7 @@ export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): Nod
   env["LOKI_E10_BRIEF"] = opts.brief;
   env["LOKI_E10_TIER"] = opts.tier;
   env["LOKI_E10_PROVIDER"] = cfg.provider;
+  if (opts.disallowedTools) env["LOKI_E10_DISALLOWED_TOOLS"] = opts.disallowedTools; else delete env["LOKI_E10_DISALLOWED_TOOLS"];
   if (opts.resumeSessionId) env["LOKI_E10_RESUME_SESSION"] = opts.resumeSessionId; else delete env["LOKI_E10_RESUME_SESSION"]; // MW-2: only the per-call option sets it
   // Only ever ADD variables here; never blank an inherited var for a non-claude provider (LOKI_HOST_GUARD gates resolveProvider's fail-closed throw, providers.ts:63).
   if (cfg.provider === "claude") {
@@ -57,6 +60,7 @@ export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): Nod
     if (process.env["LOKI_E10_INVOKER"] === "cli") delete env["LOKI_SDK_LOOP"];
     else env["LOKI_SDK_LOOP"] = "1";
     env["LOKI_HOST_GUARD"] = "1";
+    if (env["LOKI_E10_PREFIX"] === undefined) env["LOKI_E10_PREFIX"] = "lean"; // TEN-COST-13: lean cache-stable prefix by default; an explicit user value (including off) wins
     const override = process.env["LOKI_MODEL_OVERRIDE"];
     if (override) {
       env["LOKI_CLAUDE_MODEL_PLANNING"] = override;
@@ -76,14 +80,29 @@ export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): Nod
   }
   return env;
 }
-function diffShortstat(cwd: string | undefined): { files: number; insertions: number; deletions: number } {
-  try {
-    const out = safeGit(cwd ?? process.cwd(), ["diff", "--shortstat"]).trim();
-    const files = /(\d+) files? changed/.exec(out);
-    const ins = /(\d+) insertions?\(\+\)/.exec(out);
-    const del = /(\d+) deletions?\(-\)/.exec(out);
-    return { files: files ? Number(files[1]) : 0, insertions: ins ? Number(ins[1]) : 0, deletions: del ? Number(del[1]) : 0 };
-  } catch { return { files: 0, insertions: 0, deletions: 0 }; }
+export function diffShortstat(cwd: string | undefined): { files: number; insertions: number; deletions: number } {
+  const dir = cwd ?? process.cwd(), o = { timeout: 10_000 }; // P12-12: bounded, since the heartbeat runs this synchronously every 30s
+  let out = "";
+  try { out = safeGit(dir, ["diff", "--shortstat", "--relative"], o).trim(); } catch { /* unreadable: counts stay zero */ } // --relative: same cwd scope as the name lists and ls-files, so the signature tracks only this run's subtree
+  let untracked = 0; // --shortstat misses untracked files: count them (without reading content) so an add-only stage is not zero change
+  try { untracked = safeGit(dir, ["ls-files", "-z", "--others", "--exclude-standard", "--", ".", ":(exclude).loki"], o).split("\0").filter(Boolean).length; } catch { /* keep the tracked stat */ }
+  const files = /(\d+) files? changed/.exec(out), ins = /(\d+) insertions?\(\+\)/.exec(out), del = /(\d+) deletions?\(-\)/.exec(out);
+  return { files: (files ? Number(files[1]) : 0) + untracked, insertions: ins ? Number(ins[1]) : 0, deletions: del ? Number(del[1]) : 0 };
+}
+/** Watchdog signature: shortstat counts plus a cheap content signal (size and mtime of every changed file), so in-place growth of one already-modified file moves it. */
+export function diffSignature(cwd: string | undefined, stat: { files: number; insertions: number; deletions: number } = diffShortstat(cwd)): string {
+  const dir = cwd ?? process.cwd(), o = { timeout: 10_000 };
+  let bytes = 0, newest = 0;
+  const add = (list: string): void => { // each list gets its own 1000-file budget, so a huge tracked list never starves the untracked one
+    let n = 0;
+    for (const f of list.split("\0").filter(Boolean)) {
+      if (n++ >= 1000) return; // bound the stat work on huge trees
+      try { const st = statSync(join(dir, f)); bytes += st.size; if (st.mtimeMs > newest) newest = st.mtimeMs; } catch { /* deleted: counted by shortstat */ }
+    }
+  };
+  try { add(safeGit(dir, ["diff", "--name-only", "--relative", "-z"], o)); } catch { /* unreadable: counts only */ } // --relative: cwd-relative like ls-files --others, so join(dir, f) holds from a repo subdirectory
+  try { add(safeGit(dir, ["ls-files", "-z", "--others", "--exclude-standard", "--", ".", ":(exclude).loki"], o)); } catch { /* tracked only */ }
+  return `${JSON.stringify(stat)}|${bytes}|${newest}`;
 }
 function parseMarkers(stdout: string): SessionMarkers {
   // Line-anchored, so prose that merely names a marker (or an echoed brief) never counts.
@@ -115,7 +134,7 @@ const EXIT_CAUSES: Readonly<Record<number, string>> = {
 };
 // E-68: a session child traps SIGTERM and exits 143, so classify from what the ENGINE knows (it sent the kill), never the child's code:
 // killed always wins. killCause names which kill fired; it defaults to "limit".
-export function classifyExitCause(exit: number | null, killed: boolean, killCause?: "limit" | "aborted"): string {
+export function classifyExitCause(exit: number | null, killed: boolean, killCause?: "limit" | "aborted" | "stalled"): string {
   if (killed) return killCause ?? "limit";
   if (exit === null) return "external kill";
   return EXIT_CAUSES[exit] ?? `exit ${exit} (unrecognized code)`;
@@ -159,31 +178,31 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
       // A signal aborted before run() never fires the listener below, so it never spawns.
       if (opts.signal.aborted || sessionsCancelled()) return Promise.resolve({ exit: null, markers: { done: false, alreadyDone: null, specConflict: null }, durationS: 0, killed: true, stderrTail: "" });
       const env = childEnv(opts, cfg);
+      archivePriorCosts(cfg.lokiRoot, opts.cwd, opts.iterationId);
       const [cmd, args] = cfg.childCommand ?? [
         process.execPath,
         // Through the cli `engine10 session` route: import.meta.path is dist/loki.js in a bundle, session.ts from source.
         [import.meta.path.endsWith("session.ts") ? `${import.meta.dir}/../cli.ts` : import.meta.path, "engine10", "session"],
       ];
       const sessionId = opts.iterationId;
-      // stderr is piped and kept (tail only, E-61) for stage.failed diagnostics; always drained
-      // via the "data" listener below so a full pipe can never stall the child.
+      // stderr is piped and kept (tail only, E-61) for stage.failed diagnostics; always drained via the "data" listener below so a full pipe can never stall the child.
       const guardSnap = isGuarded(cfg.provider) && cfg.lokiRoot ? beginGuard(opts.cwd ?? process.cwd(), cfg.lokiRoot) : null; // PARITY-ENFORCE
       const child: ChildProcess = spawn(cmd, args, { cwd: opts.cwd, env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
       const pgid = child.pid;
       let stdout = "";
       child.stdout?.on("data", (d: Buffer) => { stdout += d.toString(); });
       // ponytail: re-concats on every chunk, fine for a CLI session's stderr volume; switch to a ring buffer if that stops holding.
-      let stderrTail = Buffer.alloc(0);
+      let stderrTail = Buffer.alloc(0), errBytes = 0;
       child.stderr?.on("data", (d: Buffer) => {
-        stderrTail = Buffer.concat([stderrTail, d]);
+        errBytes += d.length; stderrTail = Buffer.concat([stderrTail, d]);
         if (stderrTail.length > STDERR_TAIL_BYTES) stderrTail = stderrTail.subarray(stderrTail.length - STDERR_TAIL_BYTES);
       });
       let killed = false;
       // Which kill fired, from the engine's own point of view -- never guessed from the
       // child's exit code. First one wins: the limit timer and an external abort cannot
       // both be the cause of the same kill.
-      let killCause: "limit" | "aborted" | null = null;
-      const kill = (cause: "limit" | "aborted") => {
+      let killCause: "limit" | "aborted" | "stalled" | null = null;
+      const kill = (cause: "limit" | "aborted" | "stalled") => {
         if (killed) return;
         killed = true;
         killCause = cause;
@@ -193,8 +212,11 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
       const onAbort = () => kill("aborted");
       const limitTimer = setTimeout(() => kill("limit"), opts.limitS * 1000);
       const capUsd = parseCapUsd(process.env["LOKI_E10_MAX_COST_USD"]), effDir = cfg.lokiRoot ? join(cfg.lokiRoot, "metrics", "efficiency") : null, effBase = effDir !== null && capUsd !== null ? calculateCostFromRecords(readEfficiencyDir(effDir)) : 0; const stopBudgetWatch = isGuarded(cfg.provider) && capUsd !== null ? watchBudget(() => (cfg.remaining?.() ?? 1) <= 0 || (effDir !== null && calculateCostFromRecords(readEfficiencyDir(effDir)) - effBase >= capUsd), () => { cfg.emit?.("guard.budget_stop", opts.stage, { provider: cfg.provider }); kill("limit"); }) : () => {}; // PARITY-ENFORCE: live kill on the run cap (LOKI_E10_MAX_COST_USD), not the unset BUDGET_LIMIT
+      const watchdog = createWatchdog(Date.now), stallKill = stallKillS(); // FC-17: 0 (default) never kills
       const heartbeatTimer = setInterval(() => {
-        cfg.emit?.("heartbeat", opts.stage, { waiting_on: opts.stage, elapsed_s: (Date.now() - start) / 1000, diff: diffShortstat(opts.cwd) });
+        const diff = diffShortstat(opts.cwd), w = watchdog.tick(stdout.length + errBytes, diffSignature(opts.cwd, diff));
+        cfg.emit?.("heartbeat", opts.stage, { waiting_on: opts.stage, elapsed_s: (Date.now() - start) / 1000, diff, progress: w.cls });
+        if (w.stalledNow) cfg.emit?.("session.stalled", opts.stage, { session_id: sessionId, idle_s: w.idleS, threshold_s: stallThresholdS() }); if (stallKill > 0 && w.idleS >= stallKill) kill("stalled");
       }, cfg.heartbeatMs ?? HEARTBEAT_MS_DEFAULT);
       opts.signal.addEventListener("abort", onAbort, { once: true });
       const untrack = trackSession(() => kill("aborted"));
@@ -212,7 +234,7 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
           const logText = existsSync(log) ? readFileSync(log, "utf8") : ""; const markers = parseMarkers(stdout + logText);
           const durationS = (Date.now() - start) / 1000;
           cfg.emit?.("session.ended", opts.stage, {
-            session_id: sessionId, exit: exitKind(guard.ok ? code : 1, killed, markers), cause: classifyExitCause(code, killed, killCause ?? undefined), duration_s: durationS,
+            session_id: sessionId, exit: exitKind(guard.ok ? code : 1, killed, markers), cause: classifyExitCause(code, killed, killCause ?? undefined), duration_s: durationS, ...(killCause === "stalled" ? { reason: "stalled" } : {}),
           });
           recordCost(cfg, opts, killed ? "killed" : code === 0 ? "completed" : "failed", durationS, stdout + logText);
           untrack();

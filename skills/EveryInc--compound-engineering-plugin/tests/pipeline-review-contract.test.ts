@@ -852,6 +852,33 @@ describe("ce-doc-review contract", () => {
     expect(synthesis).toContain("Review complete")
   })
 
+  test("non-interactive result records a cleanly skipped cross-model peer", async () => {
+    const synthesis = await readRepoFile(
+      "skills/ce-doc-review/references/synthesis-and-presentation.md",
+    )
+    const review = await readRepoFile(
+      "skills/ce-doc-review/references/cross-model-review.md",
+    )
+    const nonInteractive = sliceSection(
+      synthesis,
+      "**Non-interactive mode:**",
+      "**Interactive mode:**",
+    )
+
+    const template = sliceSection(nonInteractive, "```", "Review complete\n```")
+
+    expect(nonInteractive).toContain("peer.outcome: folded")
+    expect(nonInteractive).toContain("peer.outcome: in-process-fallback")
+    expect(template).toContain("peer.outcome: <folded | in-process-fallback>")
+    expect(template).toContain("cross-model <lens> peer: <what happened to the peer's result>")
+    expect(template).toContain("<lens>: in-process fallback (cross-model peer not run: <reason>)")
+    expect(template).toContain("whole-doc: not run (cross-model peer not run: <reason>)")
+
+    expect(review).not.toContain("stay silent in non-interactive mode")
+    expect(review).not.toContain("emit no user-facing prose")
+    expect(review).toContain("references/synthesis-and-presentation.md")
+  })
+
   test("completed doc review returns control without authorizing another workflow", async () => {
     const synthesis = await readRepoFile(
       "skills/ce-doc-review/references/synthesis-and-presentation.md"

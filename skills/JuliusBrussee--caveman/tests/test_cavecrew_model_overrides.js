@@ -328,6 +328,79 @@ test('insideGitWorkTree walks up to an ancestor .git', () => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+// ── Unicode line-break rejection in patchFrontmatterModel ─────────────────
+
+console.log('\nUnicode line-break rejection\n');
+
+test('U+2028 LINE SEPARATOR in model value is rejected', () => {
+  const out = patchFrontmatterModel(REVIEWER_FM, 'son net');
+  assert.strictEqual(out, REVIEWER_FM, 'U+2028 in value should leave file unchanged');
+});
+
+test('U+2029 PARAGRAPH SEPARATOR in model value is rejected', () => {
+  const out = patchFrontmatterModel(REVIEWER_FM, 'son net');
+  assert.strictEqual(out, REVIEWER_FM, 'U+2029 in value should leave file unchanged');
+});
+
+test('U+0085 NEL in model value is rejected', () => {
+  const out = patchFrontmatterModel(REVIEWER_FM, 'son\u0085net');
+  assert.strictEqual(out, REVIEWER_FM, 'U+0085 in value should leave file unchanged');
+});
+
+// ── symlink refusal in applyOverrides ─────────────────────────────────────
+
+console.log('\nsymlink refusal\n');
+
+test('applyOverrides does not write through a symlinked agent file', () => {
+  if (process.platform === 'win32') { passed++; console.log('  ✓ (skipped on Windows)'); return; }
+  withTmpPlugin((root, agentsDir) => {
+    const real = path.join(agentsDir, 'real-reviewer.md');
+    const link = path.join(agentsDir, 'cavecrew-reviewer.md');
+    fs.writeFileSync(real, REVIEWER_FM, 'utf8');
+    fs.symlinkSync(real, link);
+    applyOverrides(root, { CAVECREW_REVIEWER_MODEL: 'sonnet' });
+    // The real file must be untouched; the symlink still points there.
+    assert.strictEqual(fs.readFileSync(real, 'utf8'), REVIEWER_FM,
+      'symlink target was overwritten');
+  });
+});
+
+// ── atomic write leaves no temp file on success ───────────────────────────
+
+console.log('\natomic write\n');
+
+test('applyOverrides leaves no .caveman-tmp-* file after a successful write', () => {
+  withTmpPlugin((root, agentsDir) => {
+    fs.writeFileSync(path.join(agentsDir, 'cavecrew-reviewer.md'), REVIEWER_FM, 'utf8');
+    applyOverrides(root, { CAVECREW_REVIEWER_MODEL: 'sonnet' });
+    const leftovers = fs.readdirSync(agentsDir).filter((f) => f.includes('.caveman-tmp-'));
+    assert.deepEqual(leftovers, [], 'temp file not cleaned up: ' + leftovers.join(', '));
+  });
+});
+
+test('applyOverrides removes the staged temp file when the rename fails', () => {
+  withTmpPlugin((root, agentsDir) => {
+    const agentPath = path.join(agentsDir, 'cavecrew-reviewer.md');
+    fs.writeFileSync(agentPath, REVIEWER_FM, 'utf8');
+    // A rename can fail for reasons the hook cannot control: on Windows an
+    // open handle on the target gives EPERM, and a read-only parent gives
+    // EACCES. applyOverrides swallows it (it must never block session start),
+    // so the staged file has to be cleaned up on the way out or it
+    // accumulates one copy per pid in the user's plugin directory.
+    const realRename = fs.renameSync;
+    fs.renameSync = () => { const e = new Error('EPERM: operation not permitted'); e.code = 'EPERM'; throw e; };
+    try {
+      applyOverrides(root, { CAVECREW_REVIEWER_MODEL: 'sonnet' });
+    } finally {
+      fs.renameSync = realRename;
+    }
+    const leftovers = fs.readdirSync(agentsDir).filter((f) => f.includes('.caveman-tmp-'));
+    assert.deepEqual(leftovers, [], 'staged temp file left behind: ' + leftovers.join(', '));
+    assert.strictEqual(fs.readFileSync(agentPath, 'utf8'), REVIEWER_FM,
+      'original agent file must survive a failed rename unchanged');
+  });
+});
+
 console.log('');
 if (failed === 0) {
   console.log('All ' + (passed + failed) + ' tests passed.');

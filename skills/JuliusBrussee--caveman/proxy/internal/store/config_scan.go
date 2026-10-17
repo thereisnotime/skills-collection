@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	enginetokens "github.com/JuliusBrussee/caveman/engine/tokens"
 )
 
@@ -125,6 +127,17 @@ func opencodeRoot() string {
 // Keep this source disabled unless the caller explicitly supplies a scan root.
 func aiderRoot() string {
 	return os.Getenv("CAVEMAN_AIDER_ROOT")
+}
+
+func piRoot() string {
+	if r := os.Getenv("CAVEMAN_PI_ROOT"); r != "" {
+		return r
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".pi")
 }
 
 // estimateTokens is the project's inferred token heuristic (bytes/4), matching the
@@ -352,7 +365,13 @@ func scanSkills(skillsDir string) []skillInfo {
 		if err != nil || !info.Mode().IsRegular() {
 			continue
 		}
-		name, desc := readSkillFrontmatter(path)
+		fm := readSkillFrontmatter(path)
+		if fm.DisableModelInvocation {
+			// Claude Code leaves these out of the per-turn catalog; they load only
+			// when the user invokes them.
+			continue
+		}
+		name, desc := fm.Name, fm.Description
 		if name == "" {
 			name = e.Name()
 		}
@@ -375,16 +394,24 @@ func metadataWithTokenBasis(raw, basis string) string {
 	return compactMeta(meta)
 }
 
-func readSkillFrontmatter(path string) (name, desc string) {
+// skillFrontmatter holds the SKILL.md keys that decide a skill's catalog tax.
+type skillFrontmatter struct {
+	Name                   string `yaml:"name"`
+	Description            string `yaml:"description"`
+	DisableModelInvocation bool   `yaml:"disable-model-invocation"`
+}
+
+func readSkillFrontmatter(path string) skillFrontmatter {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", ""
+		return skillFrontmatter{}
 	}
 	defer f.Close()
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
 	inFront := false
 	started := false
+	var front []string
 	for sc.Scan() {
 		line := sc.Text()
 		trimmed := strings.TrimSpace(line)
@@ -400,19 +427,34 @@ func readSkillFrontmatter(path string) (name, desc string) {
 			if !started {
 				// No frontmatter fence on the first non-empty line; bail.
 				if trimmed != "" {
-					return "", ""
+					return skillFrontmatter{}
 				}
 				continue
 			}
 			continue
 		}
+		front = append(front, line)
+	}
+	var fm skillFrontmatter
+	if err := yaml.Unmarshal([]byte(strings.Join(front, "\n")), &fm); err == nil {
+		fm.Name, fm.Description = strings.TrimSpace(fm.Name), strings.TrimSpace(fm.Description)
+		return fm
+	}
+	// Hand-written frontmatter is often not strict YAML (e.g. an unquoted ": " in
+	// a description); fall back to reading single-line keys.
+	fm = skillFrontmatter{}
+	for _, line := range front {
+		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "name:") {
-			name = strings.TrimSpace(strings.TrimPrefix(trimmed, "name:"))
+			fm.Name = strings.TrimSpace(strings.TrimPrefix(trimmed, "name:"))
 		} else if strings.HasPrefix(trimmed, "description:") {
-			desc = strings.TrimSpace(strings.TrimPrefix(trimmed, "description:"))
+			fm.Description = strings.TrimSpace(strings.TrimPrefix(trimmed, "description:"))
+		} else if trimmed == "disable-model-invocation: true" {
+			fm.DisableModelInvocation = true
 		}
 	}
-	return strings.Trim(name, `"'`), strings.Trim(desc, `"'`)
+	fm.Name, fm.Description = strings.Trim(fm.Name, `"'`), strings.Trim(fm.Description, `"'`)
+	return fm
 }
 
 func countHooks(settingsPath string) int {

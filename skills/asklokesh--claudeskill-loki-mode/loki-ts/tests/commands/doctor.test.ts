@@ -15,7 +15,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { REPO_ROOT } from "../../src/util/paths.ts";
 import {
+  _setClaudeVersionForTest,
+  _setIntegrationProbesForTest,
   _setPythonImportOkForTest,
+  probeIntegrations,
+  evaluateClaudeCliCompat,
+  loadClaudeCliRange,
   evaluateRequirements,
   firstTaskReady,
   loadRequirements,
@@ -404,6 +409,61 @@ describe("doctor.runDoctor (end-to-end)", () => {
       process.chdir(cwd); rmSync(d, { recursive: true, force: true });
       if (prev === undefined) delete process.env.LOKI_REPO_BASELINE; else process.env.LOKI_REPO_BASELINE = prev;
     }
+  });
+
+  describe("P12-41 readiness history and round-trip", () => {
+    const withRepo = async (fn: (d: string) => Promise<void>) => {
+      const prev = process.env.LOKI_REPO_BASELINE, cwd = process.cwd(), d = mkdtempSync(join(tmpdir(), "doctor-p1241-"));
+      process.env.LOKI_REPO_BASELINE = "0";
+      try { process.chdir(d); await fn(d); } finally {
+        process.chdir(cwd); rmSync(d, { recursive: true, force: true });
+        if (prev === undefined) delete process.env.LOKI_REPO_BASELINE; else process.env.LOKI_REPO_BASELINE = prev;
+      }
+    };
+    const lines = (d: string) => readFileSync(join(d, ".loki", "state", "readiness.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+
+    it("two --repo runs append two JSON lines", async () => {
+      await withRepo(async (d) => {
+        await captureStdio(() => runDoctor(["--repo"]));
+        await captureStdio(() => runDoctor(["--repo"]));
+        const l = lines(d);
+        expect(l.length).toBe(2);
+        expect(typeof l[0].ts).toBe("string");
+        expect(Array.isArray(l[0].checks)).toBe(true);
+        expect(typeof l[0].pass).toBe("boolean");
+        expect(l[0].roundTrip).toBeNull();
+      });
+    });
+
+    it("no provider call without --round-trip", async () => {
+      await withRepo(async () => {
+        let calls = 0;
+        await captureStdio(() => runDoctor(["--repo"], { roundTrip: async () => { calls++; return { ok: true, detail: "x" }; } }));
+        expect(calls).toBe(0);
+      });
+    });
+
+    it("--round-trip failure is recorded, not thrown", async () => {
+      await withRepo(async (d) => {
+        const { result } = await captureStdio(() => runDoctor(["--repo", "--round-trip"], { roundTrip: async () => { throw new Error("boom"); } }));
+        expect(result).toBe(0);
+        const l = lines(d);
+        expect(l[0].roundTrip.ok).toBe(false);
+        expect(l[0].roundTrip.detail).toContain("boom");
+      });
+    });
+
+    it("--round-trip success is recorded", async () => {
+      await withRepo(async (d) => {
+        await captureStdio(() => runDoctor(["--repo", "--round-trip"], { roundTrip: async () => ({ ok: true, detail: "OK" }) }));
+        expect(lines(d)[0].roundTrip.ok).toBe(true);
+      });
+    });
+
+    it("help lists --round-trip", async () => {
+      const { cap } = await captureStdio(() => runDoctor(["--help"]));
+      expect(cap.out).toContain("--round-trip");
+    });
   });
 
   it("rejects unknown options with exit 1", async () => {
@@ -962,5 +1022,240 @@ describe("bash requirements evaluator (autonomy/provider-offer.sh)", () => {
     const rep = bashReport({ LOKI_SDK_LOOP: "1", LOKI_SDK_NODE_MODULES: join(REPO_ROOT, "no-such-dir") });
     const sdk = rep.paths.find((p) => p.id === "api-key-sdk")!;
     expect(sdk.items.find((i) => i.id === "sdk-mode")!.status).toBe("present");
+  });
+});
+
+// ---- P12-24: Claude CLI minimum version and compat manifest ------------------
+
+describe("doctor claude CLI compat (P12-24)", () => {
+  const range = { min_version: "2.1.0", qualified_version: "2.1.293" };
+
+  it("manifest carries a min and qualified claude CLI version", () => {
+    const r = loadClaudeCliRange();
+    expect(r?.min_version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(r?.qualified_version).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it("classifies versions against the range", () => {
+    expect(evaluateClaudeCliCompat("2.0.9", range)).toBe("below_min");
+    expect(evaluateClaudeCliCompat("2.1.0", range)).toBe("ok");
+    expect(evaluateClaudeCliCompat("2.1.293", range)).toBe("ok");
+    expect(evaluateClaudeCliCompat("2.1.294", range)).toBe("newer_unqualified");
+    expect(evaluateClaudeCliCompat(null, range)).toBe("unknown");
+    expect(evaluateClaudeCliCompat("1.0.0", null)).toBe("unknown");
+  });
+
+  describe("runDoctor with a stub claude on PATH", () => {
+    let dir = "";
+    let prevPath: string | undefined;
+    beforeEach(() => {
+      stubPythonImportOk();
+      dir = mkdtempSync(join(tmpdir(), "doctor-p1224-"));
+      writeFileSync(join(dir, "claude"), "#!/bin/sh\necho 2.1.293\n");
+      chmodSync(join(dir, "claude"), 0o755);
+      prevPath = process.env.PATH;
+      process.env.PATH = `${dir}:${prevPath ?? ""}`;
+    });
+    afterEach(() => {
+      restorePythonImportOk();
+      _setClaudeVersionForTest(null);
+      if (prevPath === undefined) delete process.env.PATH; else process.env.PATH = prevPath;
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it("fails with a blocker below the minimum", async () => {
+      _setClaudeVersionForTest(() => "1.9.0");
+      const { result, cap } = await captureStdio(() => runDoctor([]));
+      expect(result).toBe(1);
+      expect(cap.out).toContain("older than the minimum 2.1.0");
+      expect(cap.out).toContain("claude CLI must be >= 2.1.0");
+    });
+
+    it("does not fail at a qualified version", async () => {
+      _setClaudeVersionForTest(() => "2.1.293");
+      const { cap } = await captureStdio(() => runDoctor([]));
+      expect(cap.out).not.toContain("older than the minimum");
+    });
+  });
+});
+
+describe("doctor --fix consent-gated installs (TEN-UX-04)", () => {
+  const NPM = ["npm", "install", "-g", "@anthropic-ai/claude-code"];
+  const mk = (): { cwd: string; home: string } => ({
+    cwd: mkdtempSync(join(tmpdir(), "docfix-cwd-")),
+    home: mkdtempSync(join(tmpdir(), "docfix-home-")),
+  });
+  const missing = (...gone: string[]) => (c: string) => !gone.includes(c);
+  const recorder = (status = 0, stderr = "") => {
+    const calls: string[][] = [];
+    return { calls, run: (argv: readonly string[]) => { calls.push([...argv]); return { status, stderr }; } };
+  };
+
+  it("(a) claude missing, no tty, no --yes: runner never called, npm command printed", async () => {
+    const { applyDoctorFixes } = await import("../../src/commands/doctor_fix.ts");
+    const { cwd, home } = mk();
+    const r = recorder();
+    const out = applyDoctorFixes(cwd, home, { has: missing("claude"), runner: r.run, tty: false, yes: false, loggedIn: () => "yes" });
+    expect(r.calls).toEqual([]);
+    expect(out.manual.join("\n")).toContain("npm install -g @anthropic-ai/claude-code");
+  });
+
+  it("(b) claude missing, --yes: runner gets exactly the npm install argv", async () => {
+    const { applyDoctorFixes } = await import("../../src/commands/doctor_fix.ts");
+    const { cwd, home } = mk();
+    const r = recorder();
+    const out = applyDoctorFixes(cwd, home, { has: missing("claude"), runner: r.run, tty: false, yes: true, loggedIn: () => "yes" });
+    expect(r.calls).toEqual([NPM]);
+    expect(out.applied).toContain(NPM.join(" "));
+  });
+
+  it("(b2) tty without --yes asks first: declined runs nothing, accepted runs npm", async () => {
+    const { applyDoctorFixes } = await import("../../src/commands/doctor_fix.ts");
+    const { cwd, home } = mk();
+    const no = recorder();
+    applyDoctorFixes(cwd, home, { has: missing("claude"), runner: no.run, tty: true, confirm: () => false });
+    expect(no.calls).toEqual([]);
+    const yes = recorder();
+    applyDoctorFixes(cwd, home, { has: missing("claude"), runner: yes.run, tty: true, confirm: () => true });
+    expect(yes.calls).toEqual([NPM]);
+  });
+
+  it("(c) runner failure: output has failed: and exit code is non-zero", async () => {
+    const { runDoctorFix } = await import("../../src/commands/doctor_fix.ts");
+    const r = recorder(1, "npm ERR! EACCES permission denied\nsecond line");
+    const { cwd, home } = mk();
+    const { result, cap } = await captureStdio(async () =>
+      runDoctorFix({ cwd, home, has: missing("claude"), runner: r.run, yes: true, loggedIn: () => "yes" }));
+    expect(cap.out).toContain("failed: npm install -g @anthropic-ai/claude-code: npm ERR! EACCES permission denied");
+    expect(cap.out).not.toContain("second line");
+    expect(result).toBe(1);
+  });
+
+  it("(c2) success exits 0 with fixed:", async () => {
+    const { runDoctorFix } = await import("../../src/commands/doctor_fix.ts");
+    const r = recorder();
+    const { cwd, home } = mk();
+    const { result, cap } = await captureStdio(async () =>
+      runDoctorFix({ cwd, home, has: missing("claude"), runner: r.run, yes: true, loggedIn: () => "yes" }));
+    expect(cap.out).toContain("fixed: npm install -g @anthropic-ai/claude-code");
+    expect(result).toBe(0);
+  });
+
+  it("(d) jq missing with --yes: system package is never run, command printed", async () => {
+    const { applyDoctorFixes } = await import("../../src/commands/doctor_fix.ts");
+    const { cwd, home } = mk();
+    const r = recorder();
+    const out = applyDoctorFixes(cwd, home, { has: missing("jq"), runner: r.run, yes: true, loggedIn: () => "yes" });
+    expect(r.calls).toEqual([]);
+    expect(out.manual.join("\n")).toContain("brew install jq");
+  });
+
+  it("(e) claude present and logged out with --yes: runner gets [claude, login]", async () => {
+    const { applyDoctorFixes } = await import("../../src/commands/doctor_fix.ts");
+    const { cwd, home } = mk();
+    const r = recorder();
+    applyDoctorFixes(cwd, home, { has: () => true, runner: r.run, yes: true, loggedIn: () => "no" });
+    expect(r.calls).toEqual([["claude", "login"]]);
+  });
+
+  it("(e2) logged in or unknown login state: no login run", async () => {
+    const { applyDoctorFixes } = await import("../../src/commands/doctor_fix.ts");
+    for (const state of ["yes", ""] as const) {
+      const { cwd, home } = mk();
+      const r = recorder();
+      applyDoctorFixes(cwd, home, { has: () => true, runner: r.run, yes: true, loggedIn: () => state });
+      expect(r.calls).toEqual([]);
+    }
+  });
+
+  it("(f) real entry path: bin/loki doctor --fix --yes runs claude login via the shim", () => {
+    const { cwd, home } = mk();
+    const shim = mkdtempSync(join(tmpdir(), "docfix-shim-"));
+    const log = join(shim, "calls.log");
+    writeFileSync(join(shim, "claude"), `#!/bin/sh\nif [ "$1" = auth ]; then echo '{"loggedIn":false}'; exit 0; fi\necho "$@" >> "${log}"\nexit 0\n`);
+    chmodSync(join(shim, "claude"), 0o755);
+    const r = spawnSync(join(REPO_ROOT, "bin", "loki"), ["doctor", "--fix", "--yes"], {
+      cwd, encoding: "utf8", timeout: 120000,
+      env: {
+        ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("LOKI_"))),
+        HOME: home, PATH: `${shim}:${process.env.PATH ?? ""}`,
+      },
+    });
+    if (!r.stdout.includes("fixed: claude login")) console.error(r.stdout.slice(-1500), r.stderr.slice(-500));
+    expect(r.stdout).toContain("fixed: claude login");
+    expect(readFileSync(log, "utf8").trim().split("\n").filter((l) => l === "login")).toEqual(["login"]);
+    rmSync(shim, { recursive: true, force: true });
+  });
+});
+
+// ---- TEN-SPEED-06: Integration probes run concurrently ------------------------
+
+describe("doctor Integration probes run concurrently (TEN-SPEED-06)", () => {
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+  afterEach(() => {
+    _setIntegrationProbesForTest(null);
+    restorePythonImportOk();
+  });
+
+  it("three 200ms injected probes finish in well under the 600ms serial sum", async () => {
+    _setPythonImportOkForTest(async () => { await sleep(200); return true; });
+    _setIntegrationProbesForTest({
+      http: async () => { await sleep(200); return true; },
+      command: async (c) => { await sleep(200); return c === "gopls" ? "/x/gopls" : null; },
+      sentruxVersion: async () => "1.2.3",
+    });
+    const t0 = Date.now();
+    const r = await probeIntegrations("http://mf.invalid");
+    const dt = Date.now() - t0;
+    expect(dt).toBeLessThan(350);
+    expect(r).toEqual({
+      mcpOk: true, numpyOk: true, stOk: true, chromaOk: true,
+      lsp: ["gopls"], mirofishOk: true, sentruxVersion: null,
+    });
+  });
+
+  it("unset MiroFish url skips the probe; sentrux version only when on PATH", async () => {
+    _setPythonImportOkForTest(async () => false);
+    let httpCalls = 0;
+    _setIntegrationProbesForTest({
+      http: async () => { httpCalls++; return false; },
+      command: async (c) => (c === "sentrux" ? "/x/sentrux" : null),
+      sentruxVersion: async () => "9.9.9",
+    });
+    const r = await probeIntegrations(undefined);
+    expect(httpCalls).toBe(1);
+    expect(r.mirofishOk).toBeNull();
+    expect(r.sentruxVersion).toBe("9.9.9");
+    expect(r.lsp).toEqual([]);
+  });
+
+  it("runDoctor([]) starts every probe together and keeps the Integrations output order", async () => {
+    const starts: number[] = [];
+    const t0 = Date.now();
+    const mark = (): void => { starts.push(Date.now() - t0); };
+    _setPythonImportOkForTest(async () => { mark(); await sleep(150); return true; });
+    _setIntegrationProbesForTest({
+      http: async () => { mark(); await sleep(150); return true; },
+      command: async (c) => {
+        if (["pyright-langserver", "pylsp", "typescript-language-server", "gopls", "rust-analyzer", "jdtls", "sentrux"].includes(c)) {
+          mark(); await sleep(150);
+          return c === "sentrux" || c === "pylsp" ? `/x/${c}` : null;
+        }
+        const { commandExists } = await import("../../src/util/shell.ts");
+        return commandExists(c);
+      },
+      sentruxVersion: async () => "1.2.3",
+    });
+    const { cap } = await captureStdio(() => runDoctor([]));
+    const spread = Math.max(...starts) - Math.min(...starts);
+    expect(starts.length).toBe(3 + 1 + 6 + 1);
+    expect(spread).toBeLessThan(100);
+    const order = ["MCP SDK (Python)", "numpy (vector search)", "sentence-transformers (embeddings)", "ChromaDB server (port 8100)", "LSP servers detected (1): pylsp", "OTEL", "sentrux 1.2.3"];
+    let at = -1;
+    for (const needle of order) {
+      const i = cap.out.indexOf(needle);
+      expect(i).toBeGreaterThan(at);
+      at = i;
+    }
   });
 });

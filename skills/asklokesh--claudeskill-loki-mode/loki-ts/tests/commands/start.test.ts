@@ -4,6 +4,9 @@
 // LOKI_SDK_LOOP=1). The runAutonomous delegation itself is covered by the
 // existing loki_start_e2e.test.ts.
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { isBashOnlyStart, parseStartArgs, scopedStartEnv, startEngine, writebackEnv } from "../../src/commands/start.ts";
 
 // E2E-shaped: drives the real loop, which writes state files and spawns
@@ -85,6 +88,65 @@ describe("parseStartArgs (Bun start flag subset)", () => {
     expect(env["LOKI_SKIP_MEMORY"]).toBe("true");
   });
 
+  it("--cost lean reaches the child env and prints one line naming both levers", () => {
+    const env: Record<string, string> = {};
+    const saved = { r: process.env["LOKI_ROUTER"], t: process.env["LOKI_E10_TRIM"], c: process.env["LOKI_COST_PROFILE"], d: process.env["LOKI_DIR"], h: process.env["LOKI_IMPLEMENT_HAIKU_FIRST"] };
+    delete process.env["LOKI_ROUTER"]; delete process.env["LOKI_E10_TRIM"]; delete process.env["LOKI_COST_PROFILE"]; delete process.env["LOKI_IMPLEMENT_HAIKU_FIRST"];
+    const dir = mkdtempSync(join(tmpdir(), "start-cost-"));
+    process.env["LOKI_DIR"] = dir;
+    try {
+      const lines: string[] = [];
+      const r = parseStartArgs(["./prd.md", "--cost", "lean"], collect, (s) => lines.push(s), (k, v) => { env[k] = v; });
+      expect(typeof r).toBe("object");
+      expect(env["LOKI_ROUTER"]).toBeUndefined();
+      expect(env["LOKI_IMPLEMENT_HAIKU_FIRST"]).toBe("1");
+      expect(env["LOKI_E10_TRIM"]).toBe("1");
+      expect(lines.join("")).toMatch(/LOKI_IMPLEMENT_HAIKU_FIRST=1.*LOKI_E10_TRIM=1/);
+      errs.length = 0;
+      expect(parseStartArgs(["./prd.md", "--cost", "cheap"], collect)).toBe(2);
+      expect(errs.join("")).toContain("unknown cost profile");
+    } finally {
+      for (const [k, v] of [["LOKI_ROUTER", saved.r], ["LOKI_E10_TRIM", saved.t], ["LOKI_COST_PROFILE", saved.c], ["LOKI_DIR", saved.d], ["LOKI_IMPLEMENT_HAIKU_FIRST", saved.h]] as const) {
+        if (v === undefined) delete process.env[k]; else process.env[k] = v;
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("loki.yaml cost.profile is the team default; flag and env override; invalid warns", () => {
+    const keys = ["LOKI_COST_PROFILE", "LOKI_DIR", "LOKI_IMPLEMENT_HAIKU_FIRST", "LOKI_E10_TRIM", "LOKI_E10_SMALL_NO_RUNNER", "LOKI_E10_SMALL_MAX_CHARS"];
+    const saved = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+    const cwd = process.cwd();
+    const dir = mkdtempSync(join(tmpdir(), "start-costyaml-"));
+    const run = (extra: string[], yaml: string | null, envProfile?: string) => {
+      for (const k of keys) delete process.env[k];
+      process.env["LOKI_DIR"] = join(dir, ".loki");
+      if (envProfile !== undefined) process.env["LOKI_COST_PROFILE"] = envProfile;
+      rmSync(join(dir, "loki.yaml"), { force: true });
+      if (yaml !== null) writeFileSync(join(dir, "loki.yaml"), yaml);
+      const env: Record<string, string> = {};
+      errs.length = 0;
+      const r = parseStartArgs(["./prd.md", ...extra], collect, () => {}, (k, v) => { env[k] = v; });
+      return { r, env };
+    };
+    try {
+      process.chdir(dir);
+      expect(run([], null).env["LOKI_IMPLEMENT_HAIKU_FIRST"]).toBeUndefined();
+      expect(run([], "cost:\n  profile: lean\n").env["LOKI_IMPLEMENT_HAIKU_FIRST"]).toBe("1");
+      expect(run(["--cost", "off"], "cost:\n  profile: lean\n").env["LOKI_IMPLEMENT_HAIKU_FIRST"]).toBeUndefined();
+      expect(run([], "cost:\n  profile: lean\n", "off").env["LOKI_IMPLEMENT_HAIKU_FIRST"]).toBeUndefined();
+      expect(run([], "cost:\n  other:\n    profile: lean\n").env["LOKI_IMPLEMENT_HAIKU_FIRST"]).toBeUndefined();
+      const bad = run([], "cost:\n  profile: cheap\n");
+      expect(typeof bad.r).toBe("object");
+      expect(bad.env["LOKI_IMPLEMENT_HAIKU_FIRST"]).toBeUndefined();
+      expect(errs.join("")).toContain("ignoring loki.yaml cost.profile 'cheap'");
+    } finally {
+      process.chdir(cwd);
+      for (const k of keys) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]!; }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("--budget is an alias of --budget-limit", () => {
     const r = parseStartArgs(["./prd.md", "--budget", "3.25"], collect);
     expect((r as Exclude<typeof r, number>).budgetLimit).toBe(3.25);
@@ -101,7 +163,27 @@ describe("parseStartArgs (Bun start flag subset)", () => {
     const outs: string[] = [];
     expect(parseStartArgs(["--help"], collect, (s) => outs.push(s))).toBe(0);
     expect(outs.join("")).toContain("usage: loki start");
+    // TEN-COST-25: the --cost lean help line names the real lean levers, not the dropped router.
+    const costLine = outs.join("").split("\n").find((l) => l.includes("--cost lean   opt-in")) ?? "";
+    expect(costLine).toContain("LOKI_IMPLEMENT_HAIKU_FIRST=1");
+    expect(costLine).toContain("LOKI_E10_SMALL_MAX_CHARS=1200");
+    expect(costLine).not.toContain("LOKI_ROUTER");
     expect(parseStartArgs(["-h"], collect, (s) => outs.push(s))).toBe(0);
+  });
+
+  it("--help ends with an Examples section: brief, PRD file, issue ref (TEN-UX-19)", () => {
+    const outs: string[] = [];
+    expect(parseStartArgs(["--help"], collect, (s) => outs.push(s))).toBe(0);
+    const text = outs.join("");
+    const idx = text.indexOf("\nExamples:\n");
+    expect(idx).toBeGreaterThan(0);
+    const lines = text.slice(idx).split("\n").filter((l) => l.trim().startsWith("loki start"));
+    expect(lines.length).toBe(3);
+    expect(lines[0]).toContain('loki start "build a todo app"');
+    expect(lines[1]).toContain("loki start ./prd.md");
+    expect(lines[2]).toContain("loki start owner/repo#123");
+    expect(text.endsWith("\n")).toBe(true);
+    expect(text.trimEnd().split("\n").pop()).toContain("owner/repo#123");
   });
 
   it("accept-and-ignore no-ops (--yes, --no-plan) do not reject and take no value", () => {

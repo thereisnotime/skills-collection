@@ -8,6 +8,7 @@ export type Tokens = { input: number; output: number; cacheRead: number; cacheWr
 
 export type Band = {
   level: string
+  model: string
   cost: number
   spent: number
   turns: number

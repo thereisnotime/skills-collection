@@ -583,6 +583,7 @@ The $20.00 default per-run cap stays. It is a hard stop on priced sessions only;
 6. Cap: 90s small, 180s normal, LOKI_E10_WALL_LIMIT_S may override up to 300s, fixed before the session. A Wall timeout stays not_run, never red or already_satisfied, and Seal discloses it.
 7. Ships behind LOKI_E10_WALL_MANIFEST with a lift row (augmentiq#52 plus 2 brownfield tasks, manifest off versus on). Lower lift drops the change. Slices W1-S1..W1-S4 on BOARD; S1 to S3 touch the engine10 core and wait for core budget room.
 
+8. P12-05 holdout, behind LOKI_WALL_HOLDOUT_RATIO (superseded by D99 item 4: default ratio 0.2, on, active at 5+ Wall checks, a holdout failure blocks the Seal; opt out with LOKI_WALL_HOLDOUT=0): a deterministic subset (sha256 of run id and test id, max(1, round(ratio*N)), none under 5 Wall tests) is kept outside the repo and runDir, copied in only by verify as blocking holdout:N checks, and its private store is removed when the run ends. Shipped state (C-C4, C-C4b): on by default. Preconditions (a), (b), (d) and (e) (pin hashes outside the store, drop targetDir from the manifest, close the tmp symlink race, define resume) are NOT yet done: the manifest still carries targetDir and is self-attesting beyond the per-file sha256 check, and a missing or altered store fails closed. Precondition (c) is done in C-C4b: held-out checks are excluded from failures_grouped, and the fix stage receives only an opaque holdout_failed count, never a held-out name, command or failure text.
 
 ## D78
 2026-10-03T10:39Z, CoS (D69). GitHub push protection rejected train/94 because commit 04f62ff4e (SEC-SCAN-1) carried planted fake AWS key literals in tests/test-secret-scan.sh. Nothing in the range was on origin, so the 124 unpushed main commits were rewritten locally (filter-branch index-filter on that one file): each literal is split with an adjacent empty single-quoted string, so bash builds the same value and the scanner test still blocks it (6/0). The tree diff from the old head was that file only. This was not a force-push, and no protection bypass was requested. Commit SHAs cited on BOARD and PROGRESS for 10:25Z and earlier today, after a185ce16, are pre-rewrite and resolve only through the reflog. Rule: a test fixture never holds a scanner-matching secret literal, split it at write time.
@@ -784,7 +785,7 @@ Amends FC-35 (the router-on plan no longer skips small tasks) and D89 Amendment 
 2. Line budgets are never raised to admit a feature. Overflow is extracted along docs/v11/REGISTRIES.md.
 3. RG-06 approved: loki-ts/src/contrib/ with a 1200-line cap and the D66 import rules. Binding guards: core (engine10) never imports contrib; each contrib module is optional (deleting one leaves core compiling and flag-off goldens unchanged); no verdict logic in contrib (D42); the cap failure lists per-file line counts.
 
-## D96 (2026-10-08, founder directive relayed by steering at 17:45Z, CoS records): every approved slice is a release; next by merge, latest by promotion
+## D96 (2026-10-08, founder directive relayed by steering at 17:45Z, CoS records): every approved slice is a release; next by merge, latest by promotion (point 3 SUPERSEDED by D102: latest and next publish together)
 Founder: "you are taking hours long for releases, I wanted 3 releases to 10 releases per hour ... release asap to accommodate that many". Supersedes D94 point 1 (trains) and the D91 clock cut; D90 moves from publish to promotion. D94 points 2 and 3 stand.
 1. A slice that passes merge-gate merges straight to main, and main publishes a PATCH to npm `next` within 15 minutes. There are no trains and no batching. Target: 3 or more releases per hour, 10 when the queue allows.
 2. `next` gate (budget 10 min from push to npm): tsc, impacted tests plus always-run guards, moat P9 (never waived), dist guard, pack smoke.
@@ -798,3 +799,69 @@ Founder: "you are taking hours long for releases, I wanted 3 releases to 10 rele
 1. A guard (a test that fails a build on a shape it detects) blocks a merge only on findings that a realistic change would trigger: an ordinary workflow edit or an ordinary contributor mistake. A realistic finding always blocks.
 2. Contrived adversarial bypasses (exit 256, eval rc=0, writes hidden in arithmetic or through an indirect name, deliberately obfuscated shell) are logged as LOW follow-up rows in FAILURE-CLASSES.md and do not block. These guards protect against our own mistakes; an attacker who controls workflow files is covered by branch protection and review.
 3. HIGH reviews have a 2-round limit. Round 3 escalates to the CTO with the finding list, and the CTO decides. Reason: opus share was about 50% against the 30% budget (D13).
+
+## D99 (2026-10-16, founder grant at 19:33Z "make all decisions on my behalf to make loki mode better than anything in the world", CoS records): every open founder and CTO decision is decided
+Standing: from this grant on, the CoS decides founder-queue items without waiting and records each here. Items needing a credential or money beyond the caps below still go to FOUNDER-QUEUE.md. Claude stays the primary provider and `loki start` stays the primary entry point (founder, standing).
+1. C-C1 gateway lane wording: a non-Anthropic model routed behind the claude CLI is labelled "gateway lane (unqualified)". `loki doctor` prints that label and a feature-loss list (prompt caching, extended thinking, server tools and hooks are not guaranteed on that lane). Claude routes stay unlabelled and default. Unblocks P12-27.
+2. C-C2 permission default: the compiled permission policy becomes the default once P12-26g-c merges with a HIGH approve. The legacy skip-permissions path stays reachable only with LOKI_PERMISSION_POLICY=legacy, and run start prints which mode is active. Flip slice is HIGH.
+3. C-C3 cost moat overlap: COST-2 and COST-3 fold into P12-32. One scoring module computes expected accepted-outcome cost (price divided by the measured acceptance rate); no parallel moat change. Unparks COST-2/3 as P12-32 inputs.
+4. C-C4 Wall holdout: ratio 0.2, active when a Wall has 5 or more checks (at least 1 held out). A holdout failure blocks the Seal (NOT_PROVEN with the holdout reason), never a warning. Default on. Reason: moat and Seal accuracy rank above cost and speed.
+5. C-F1 paid evaluation: approved, hard cap 150 USD for this cycle across COST-6 n=3, the B9 live run and the S-112 ablation unpark. Each run sets a per-run cost cap; spend lands in METRICS.md. The 50 USD/day line (queue item 3) still binds.
+6. C-F5 hosted Company OS: out of scope until cost at or under 0.5x raw Claude Code is proven. The CLI and `loki start` stay the product.
+7. C-F6 enterprise commitments: no SCIM, HA or named support owner yet. P12-48 (retention and backup) proceeds.
+8. C-F7 comparative external pilot: deferred until C-F1 runs prove the cost claim; no external spend now.
+9. C-F8 stale version references: the CoS refreshes in-repo docs (PLAN-V12) to the shipped VERSION; the source plan outside the repo is left as an archived input.
+10. M-27 Legacy-Bench pilot: use the public set named in MODERNIZE.md; calibrate the cap from the first 3 pilot runs inside the C-F1 cap.
+11. M-27E defaults: D1 (multi-file units NOT_PROVEN), D2 (a wave with no detected integration tests verifies with a warning; build and original suite still block) and D3 (overflow goes to util/, the modernize/ cap stays 4,000) are adopted as built.
+12. P12-13b journeys: the U1-U8 list is confirmed as the journey set; add the gh pr edit and comment stubs.
+
+## D100 (2026-10-16, CTO call under D99, CoS records): features cap raised from 3,000 to 3,300 lines
+- FC-09u round 1 HIGH review reproduced 7 bypasses of a hand-rolled YAML key reader in runner_config.ts. The builder had folded that code onto a single line of about 600 characters to stay under the D66 features cap, and the folded code hid the bypasses.
+- The parser-based round 2 fix, unfolded, takes src/features to 3,012 lines.
+- Rejected: folding again, which hurts review. Also rejected: moving the helper into src/util only to dodge the cap, which games the gate.
+- Rule: never fold code to fit a cap. When a correct, readable change crosses a cap, the cap owner raises it in the same slice and records why.
+- Unchanged: the engine10 core cap (D29, D33), the e10ext cap (D42) and the contrib cap.
+- Reverse: lower the cap back once A-150 or a features split frees lines.
+
+## D101 (2026-10-16, CTO call under D99, CoS records): runner config files cap trust on any byte change
+- FC-09v round 1 HIGH review reproduced a bypass with real pnpm 11.1.3: a block scalar indicator on its own line made Bun.YAML swallow `overrides` into a string while js-yaml 4 installed a malicious `link:` override. A fuzz found more parser disagreements (`1_000`, timestamps, block indentation indicators).
+- Rule: never trust a second parser's view of a file another tool will load. For YAML runner config, byte-identical means unchanged; any other byte change caps trust. Changed `*.patch` files and paths under `patches/` cap as well.
+- Cost: an unrelated edit to pnpm-workspace.yaml now caps. Accepted: such edits are rare and moat beats convenience.
+- Rejected: more regexes on a strict subset (round 1 showed the class is open); bundling js-yaml (pnpm can change parsers between versions).
+- Reverse: only by comparing with the exact parser the installed package manager uses, proven by a differential fuzz against it.
+
+## D102 (2026-10-17, founder directive, CoS records): a VERSION push publishes npm `latest` and `next` at once; no CI gate before npm
+Founder: "stability I don't want nightly delaying latest version in npm, make an update and always a release should get into npm as well asap, but never cost time of testing, i hate delays, i want fastest releases into npm, significantly fastest and much faster than anyone in the world. within seconds." Supersedes D96 point 3 (latest by promotion), the `next` gate wait of D96 point 2, and the required-ci wait described in earlier release docs.
+1. A push to main that changes VERSION runs release.yml. The new `publish-npm` job needs only `pack-npm` (which already verifies the packed tarball carries a fresh dist and records its sha256). It does not wait on `gate`, Tests, Security Audit, nightly, the backstop, Post-Release Smoke, the git tag or the GitHub Release.
+2. `publish-npm` verifies the tarball digest, publishes with `--tag next`, then moves `latest` and `next` to VERSION only behind a `sort -V` never-backwards guard (VERSION must be the highest). A rerun for a version npm already serves only re-asserts the dist-tags; any other publish failure is fatal. The TypeScript SDK does the same (publish `--tag next`, then guarded tag moves).
+   The `release-npm` concurrency group (and `release-npm-sdk` for the SDK, `cancel-in-progress: false`) keeps one pending job, so an intermediate version can be skipped on npm while `latest` still ends at the newest.
+3. Deleted: the `required-ci` job, `.github/workflows/promote.yml` and their tests (test-promote-head-stamp.sh, test-promote-smoke-sha.sh, test_release_required_ci.py). The Docker `:latest` tag and the Homebrew formula bump that promote.yml performed now run inside release.yml after the release job.
+4. Tests, Security Audit, the nightly and the backstop still run in parallel on every push. They are fix-forward signals: a red result opens a P0 fix slice, never delays or blocks npm. `gate`, tag, GitHub Release, SBOM, notify, docker and the SDKs still use it. `npm-visible` stays informational.
+5. Safety net unchanged: never unpublish; `npm deprecate` is allowed for a bad version, then ship the fix as the next PATCH. The never-backwards guard now lives in publish-npm (publish under next, move latest and next only if VERSION is the highest by sort -V; serialized by a release-npm concurrency group); the gitHead stamp, packed-version check and release-actor tag guards stay.
+6. Pulse: a promotion lag violation, if one exists, fires only when npm `latest` differs from `next`.
+- Cost accepted: a red build can reach `latest` for minutes. Reason: the founder ranks speed of release over pre-publish testing, and deprecate plus fix-forward bounds the damage.
+- Reverse: only by a founder directive.
+
+## D103 (2026-10-17, CoS under D99, founder directive "faster releases and faster strategy to 10/10 asap"): throughput levers
+1. Seat cap 20 and worktree cap 21 (was 14 and 15). The founder ruled cost irrelevant on the Max plan; the limit is this machine (14 CPUs, 24 GB). Load average above 20 or free memory under 3 GB pauses new dispatch.
+2. HIGH-tier slices are built by opus. Evidence: TEN-P9-FIX (opus builder) was approved in round 1, while sonnet-built HIGH slices DEPLOY-02 and COST-11 each took 3 rounds.
+3. Every builder brief carries the anti-BLOCK checklist: run the row's exact Wall command; for each new guard, show the mutation that turns it red, including the boundary case (numeric vs string compare, the token removed from one of two places); test through the real entry path (bin/loki start, runMachine), not only the helper; sweep siblings of the same mechanism. Most of today's BLOCKs were one of these.
+4. Every approved slice is merged and released in the same CoS turn (D102 unchanged). TEN-RELEASE-FAST extends scripts/release.sh so one command bumps, writes the notes, rebuilds dist, commits, runs the push checks and pushes.
+- Reverse: by founder directive, or by the CoS if load or memory limits are hit twice in an hour.
+
+## D104 (2026-10-17, CTO call under D99, CoS records): Seal VERIFIED requires agent-independent proof, default on (TEN-GATES-02)
+FC-AGENT-PROOF: a run whose only executed passing check is a test file the same run ADDED proves nothing an independent party wrote; the agent graded its own work.
+1. Every receipt check gains an additive `provenance` key from the TEN-GATES-01 classifier (`checkProvenance` in loki-ts/src/util/check_result.ts): exogenous, independent (a Wall file or the holdout), agent_authored (a runner on a path with status A in the run diff) or llm_judge. A receipt without the key (sealed before this change) still verifies: the hash covers whatever keys the body holds.
+2. seal.ts uses `hasExogenousProof` instead of `hasExecutedProof`. A green Wall base run still counts. When the only executed passes are agent_authored or llm_judge, the verdict caps at PARTIAL and NOT PROVEN gains "only agent-authored tests executed (no agent-independent proof)".
+3. receipt.md splits `### Agent-independent checks` (exogenous, independent) from `### Agent-authored / advisory checks` (agent_authored, llm_judge; an unknown value lands here, fail closed). A receipt without provenance keeps the single `### Checks` section.
+4. Default on. Opt-out: LOKI_EXOGENOUS_PROOF=0 (exact string "0"; any other value, including "00" or "false", keeps the gate) restores the FC-16 executed-proof verdict. Provenance is still recorded under the opt-out.
+- Cost accepted: some honest runs that only add new tests for new code now seal PARTIAL until a Wall or a pre-existing suite covers them. Reason: Seal accuracy ranks above delivered accuracy (operating model order).
+- Reverse: only by a CTO call recorded here with a measured false-PARTIAL rate.
+
+## D105 (2026-10-17, CTO call under D99, TEN-GATES-10): VERIFIED needs one agent-independent fact beside the agent's own suite
+1. The agent writes both the code and its test suite, so a green suite alone is the agent grading its own work. `proof-generator.py` now records a pre-headline degraded item `exogenous_evidence` ("no agent-independent evidence (only the agent's own test suite passed)") when tests are verified and no exogenous fact passed, which turns that VERIFIED into VERIFIED WITH GAPS.
+2. Counts as corroboration: build verified, healthcheck ok, functional_status verified, a security scan that ran and came back clean, or an exogenous quality gate that passed. An advisory (model-authored) gate pass never counts, including the `unit_tests` gate derived from the suite itself.
+3. The item is a headline input (no `post_headline` flag), so `proof-verify.py` re-derives the same amber headline from the recorded ledger with no verifier change. The rule never moves a headline to green and never touches NOT VERIFIED.
+4. Opt-out: `LOKI_PROOF_REQUIRE_EXOGENOUS=0` (exact string "0" after trimming; any other value keeps the requirement, fail-closed).
+5. Ordering: the primary `loki start` route already writes build-results.json (TEN-GATES-09) and an exogenous security_scan gate (TEN-GATES-08), so a run with a real build or scan keeps VERIFIED. Health and functional facts arrive with TEN-GATES-07 (not yet merged when this landed); until then a route run whose stack has no build step and no scan result reads amber, which is the honest reading.
+- Reverse: CTO call if field receipts show honest runs with real exogenous checks reading amber; the opt-out covers one-off needs.

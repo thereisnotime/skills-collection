@@ -792,6 +792,12 @@ assert.equal(fs.existsSync(bandFlag), false, '/ponytail band on must keep a show
 result = run('ponytail-mode-tracker.js', { ...defEnv, PLUGIN_DATA: path.join(defHome, 'codex') }, JSON.stringify({ prompt: '/ponytail band' }));
 assert.equal(result.stdout, '');
 assert.equal(fs.existsSync(bandFlag), false, 'Codex must not write the band flag');
+// `/ponytail band import` starts the import in the background and leaves the band and level alone.
+result = band('import');
+assert.equal(result.status, 0, result.stderr);
+assert.match(result.stdout, /PONYTAIL BAND IMPORT/);
+assert.equal(fs.existsSync(bandFlag), false, '/ponytail band import must not hide the band');
+assert.equal(fs.readFileSync(defFlag, 'utf8'), 'ultra', '/ponytail band import must not change the level');
 
 // review is not a valid default (#377) — the command is ignored, config unchanged.
 result = run('ponytail-mode-tracker.js', defEnv, JSON.stringify({ prompt: '/ponytail default review' }));

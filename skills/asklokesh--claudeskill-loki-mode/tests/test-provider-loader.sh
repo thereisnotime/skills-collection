@@ -294,6 +294,148 @@ else
     log_fail "auto_detect_provider() should not auto-detect $detected"
 fi
 
+# ===========================================
+# Test 13: P12-26 permission policy flags (claude)
+# ===========================================
+log_test "claude permission argv: default is compiled only with an operator policy (else legacy); legacy keeps skip-permissions; unknown fails closed to compiled"
+_pp_dir="$(mktemp -d "${TMPDIR:-/tmp}/loki-run.pp.XXXXXX")"
+mkdir -p "$_pp_dir/.loki"
+printf '%s' '{"claude_permissions":{"mode":"acceptEdits","allow":["Read","Bash(rm:*)"],"deny":["Bash(rm:*)"]}}' > "$_pp_dir/.loki/policies.json"
+# shellcheck disable=SC2016
+_pp_probe='source "$1/providers/claude.sh" 2>/dev/null; _loki_claude_permission_argv; printf "%s|" "${_LOKI_PERM_ARGV[@]}"'
+_pp_leg=$(LOKI_PERMISSION_POLICY=legacy LOKI_PROJECT_DIR="$_pp_dir" bash -c "$_pp_probe" _ "$PROVIDERS_DIR/..")
+_pp_def=$(env -u LOKI_PERMISSION_POLICY HOME="$_pp_dir" LOKI_MANAGED_SETTINGS="$_pp_dir/none.json" LOKI_PROJECT_DIR="$_pp_dir" bash -c "$_pp_probe" _ "$PROVIDERS_DIR/..")
+_pp_unk=$(LOKI_PERMISSION_POLICY=bogus HOME="$_pp_dir" LOKI_MANAGED_SETTINGS="$_pp_dir/none.json" LOKI_PROJECT_DIR="$_pp_dir" bash -c "$_pp_probe" _ "$PROVIDERS_DIR/.." 2>"$_pp_dir/unk.err")
+_pp_unkwarn=$(grep -c "unknown value" "$_pp_dir/unk.err")
+mkdir -p "$_pp_dir/empty-home"
+_pp_banner_def=$(env -u LOKI_PERMISSION_POLICY HOME="$_pp_dir" bash -c 'source "$1/providers/claude.sh" 2>/dev/null; loki_permission_policy_banner' _ "$PROVIDERS_DIR/..")
+_pp_banner_nopol=$(env -u LOKI_PERMISSION_POLICY HOME="$_pp_dir/empty-home" bash -c 'source "$1/providers/claude.sh" 2>/dev/null; loki_permission_policy_banner' _ "$PROVIDERS_DIR/..")
+_pp_nopol_unset=$(env -u LOKI_PERMISSION_POLICY HOME="$_pp_dir/empty-home" LOKI_MANAGED_SETTINGS="$_pp_dir/none.json" LOKI_PROJECT_DIR="$_pp_dir" bash -c "$_pp_probe" _ "$PROVIDERS_DIR/..")
+_pp_nopol_cmp=$(LOKI_PERMISSION_POLICY=compiled HOME="$_pp_dir/empty-home" LOKI_MANAGED_SETTINGS="$_pp_dir/none.json" LOKI_PROJECT_DIR="$_pp_dir/empty-home" bash -c "$_pp_probe" _ "$PROVIDERS_DIR/.." 2>/dev/null)
+mkdir -p "$_pp_dir/yaml-cost/.loki" "$_pp_dir/yaml-cp/.loki"
+printf 'policies:\n  cost:\n    max: 5\n' > "$_pp_dir/yaml-cost/.loki/policies.yaml"
+printf 'policies:\n  claude_permissions:\n    mode: default\n' > "$_pp_dir/yaml-cp/.loki/policies.yaml"
+_pp_yaml_cost=$(env -u LOKI_PERMISSION_POLICY HOME="$_pp_dir/yaml-cost" LOKI_MANAGED_SETTINGS="$_pp_dir/none.json" LOKI_PROJECT_DIR="$_pp_dir/yaml-cost" bash -c "$_pp_probe" _ "$PROVIDERS_DIR/..")
+_pp_yaml_cp=$(env -u LOKI_PERMISSION_POLICY HOME="$_pp_dir/yaml-cp" LOKI_MANAGED_SETTINGS="$_pp_dir/none.json" LOKI_PROJECT_DIR="$_pp_dir/yaml-cp" bash -c "$_pp_probe" _ "$PROVIDERS_DIR/.." 2>/dev/null)
+_pp_banner_leg=$(LOKI_PERMISSION_POLICY=legacy bash -c 'source "$1/providers/claude.sh" 2>/dev/null; loki_permission_policy_banner' _ "$PROVIDERS_DIR/..")
+_pp_cmp=$(LOKI_PERMISSION_POLICY=compiled HOME="$_pp_dir" LOKI_MANAGED_SETTINGS="$_pp_dir/none.json" LOKI_PROJECT_DIR="$_pp_dir" bash -c "$_pp_probe" _ "$PROVIDERS_DIR/..")
+printf '%s' '{bad' > "$_pp_dir/.loki/policies.json"
+_pp_bad=$(LOKI_PERMISSION_POLICY=compiled HOME="$_pp_dir" LOKI_MANAGED_SETTINGS="$_pp_dir/none.json" LOKI_PROJECT_DIR="$_pp_dir" bash -c "$_pp_probe" _ "$PROVIDERS_DIR/.." 2>/dev/null)
+rm -rf "$_pp_dir"
+_pp_want="--permission-mode|acceptEdits|--allowedTools|Read|--disallowedTools|Bash(rm:*)|"
+if [ "$_pp_leg" = "--dangerously-skip-permissions|" ] \
+   && [ "$_pp_def" = "$_pp_want" ] \
+   && [ "$_pp_unk" = "$_pp_want" ] && [ "$_pp_unkwarn" -ge 1 ] \
+   && [ "$_pp_banner_def" = "Permission policy: compiled (set LOKI_PERMISSION_POLICY=legacy to revert)" ] \
+   && [ "$_pp_banner_leg" = "Permission policy: legacy (unset LOKI_PERMISSION_POLICY to use compiled)" ] \
+   && [ "$_pp_banner_nopol" = "Permission policy: legacy (no operator policy found; add one to use compiled)" ] \
+   && [ "$_pp_nopol_unset" = "--dangerously-skip-permissions|" ] \
+   && [ "$_pp_nopol_cmp" = "--permission-mode|acceptEdits|" ] \
+   && [ "$_pp_yaml_cost" = "--dangerously-skip-permissions|" ] \
+   && [ "$_pp_yaml_cp" = "--permission-mode|plan|" ] \
+   && [ "$_pp_cmp" = "$_pp_want" ] \
+   && [ "$_pp_bad" = "--permission-mode|plan|" ]; then
+    log_pass "default compiled, legacy escape hatch, unknown fails closed, banner present, invalid policy fails closed"
+else
+    log_fail "permission argv mismatch: leg=[$_pp_leg] unk=[$_pp_unk] banner=[$_pp_banner_def] def=[$_pp_def] cmp=[$_pp_cmp] bad=[$_pp_bad] nopol_banner=[$_pp_banner_nopol] nopol_unset=[$_pp_nopol_unset] nopol_cmp=[$_pp_nopol_cmp] yaml_cost=[$_pp_yaml_cost] yaml_cp=[$_pp_yaml_cp]"
+fi
+
+# ===========================================
+# Test 14: P12-26b quickstart + python sites reach the shared helper
+# ===========================================
+log_test "quickstart classify and magic debate honor LOKI_PERMISSION_POLICY (stub claude)"
+_pq_dir="$(mktemp -d "${TMPDIR:-/tmp}/loki-run.pq.XXXXXX")"
+mkdir -p "$_pq_dir/.loki" "$_pq_dir/bin"
+printf '%s' '{"claude_permissions":{"mode":"acceptEdits","deny":["Bash(rm:*)"]}}' > "$_pq_dir/.loki/policies.json"
+printf '#!/bin/sh\nprintf "%%s|" "$@" > "%s/argv"\necho ok\n' "$_pq_dir" > "$_pq_dir/bin/claude"
+chmod +x "$_pq_dir/bin/claude"
+_pq_root="$PROVIDERS_DIR/.."
+# shellcheck disable=SC2016
+_pq_qs='source "$1/autonomy/quickstart.sh" >/dev/null 2>&1; _qs_classify_invoke "hi" >/dev/null 2>&1; cat "$2/argv"'
+_pq_env=(LOKI_NO_BROWSER=1 LOKI_ALLOW_CLAUDE_SIDECALLS=1 LOKI_PROVIDER=claude PATH="$_pq_dir/bin:$PATH" HOME="$_pq_dir" LOKI_MANAGED_SETTINGS="$_pq_dir/none.json" LOKI_PROJECT_DIR="$_pq_dir")
+_pq_def=$(env LOKI_PERMISSION_POLICY=legacy "${_pq_env[@]}" bash -c "$_pq_qs" _ "$_pq_root" "$_pq_dir")
+_pq_cmp=$(env LOKI_PERMISSION_POLICY=compiled "${_pq_env[@]}" bash -c "$_pq_qs" _ "$_pq_root" "$_pq_dir")
+# shellcheck disable=SC2016
+_pq_py='import sys; sys.path.insert(0, sys.argv[1]); from magic.core.debate import DebateRunner; r = DebateRunner.__new__(DebateRunner); r.provider = "claude"; r.project_dir = sys.argv[2]; print("|".join(r._build_command("p")))'
+_pq_pdef=$(env LOKI_PERMISSION_POLICY=legacy "${_pq_env[@]}" python3 -c "$_pq_py" "$_pq_root" "$_pq_dir")
+_pq_pcmp=$(env LOKI_PERMISSION_POLICY=compiled "${_pq_env[@]}" python3 -c "$_pq_py" "$_pq_root" "$_pq_dir")
+_pq_want="--permission-mode|acceptEdits|--disallowedTools|Bash(rm:*)|"
+_pq_ddef=$(env -u LOKI_PERMISSION_POLICY "${_pq_env[@]}" bash -c "$_pq_qs" _ "$_pq_root" "$_pq_dir")
+_pq_pddef=$(env -u LOKI_PERMISSION_POLICY "${_pq_env[@]}" python3 -c "$_pq_py" "$_pq_root" "$_pq_dir")
+rm -rf "$_pq_dir"
+if [ "$_pq_def" = "--dangerously-skip-permissions|-p|hi|" ] \
+   && [ "$_pq_cmp" = "${_pq_want}-p|hi|" ] \
+   && [ "$_pq_pdef" = "claude|--dangerously-skip-permissions|-p|p" ] \
+   && [ "$_pq_pcmp" = "claude|${_pq_want}-p|p" ] \
+   && [ "$_pq_ddef" = "${_pq_want}-p|hi|" ] \
+   && [ "$_pq_pddef" = "claude|${_pq_want}-p|p" ]; then
+    log_pass "quickstart and debate: legacy keeps the flag, default and compiled apply the policy"
+else
+    log_fail "p12-26b mismatch: qs_def=[$_pq_def] qs_cmp=[$_pq_cmp] py_def=[$_pq_pdef] py_cmp=[$_pq_pcmp]"
+fi
+
+# ===========================================
+# Test 15: P12-26b helper leaks no exports and fails closed
+# ===========================================
+log_test "loki _loki_perm_argv_for: no caveman leak under legacy, plan when helper missing"
+_pl_dir="$(mktemp -d "${TMPDIR:-/tmp}/loki-run.pl.XXXXXX")"
+sed -n '/^_loki_perm_argv_for() {/,/^}/p' "$PROVIDERS_DIR/../autonomy/loki" > "$_pl_dir/fn.sh"
+# shellcheck disable=SC2016
+_pl_probe='. "$1/fn.sh"; _LOKI_SCRIPT_DIR="$2"; _loki_perm_argv_for "$1"; printf "%s|%s" "${CAVEMAN_DEFAULT_MODE:-unset}" "${_LOKI_PERM_ARGV[*]}"'
+_pl_leak=$(LOKI_PERMISSION_POLICY=legacy CAVEMAN_DEFAULT_MODE=full bash -c "$_pl_probe" _ "$_pl_dir" "$PROVIDERS_DIR/../autonomy" 2>/dev/null)
+_pl_cmpleak=$(LOKI_PERMISSION_POLICY=compiled HOME="$_pl_dir" LOKI_MANAGED_SETTINGS="$_pl_dir/none.json" CAVEMAN_DEFAULT_MODE=full bash -c "$_pl_probe" _ "$_pl_dir" "$PROVIDERS_DIR/../autonomy" 2>/dev/null)
+_pl_miss=$(LOKI_PERMISSION_POLICY=compiled CAVEMAN_DEFAULT_MODE=full bash -c "$_pl_probe" _ "$_pl_dir" "$_pl_dir/nolib" 2>/dev/null)
+# quickstart: helper missing + compiled must fail closed
+_pl_qs=$(LOKI_PERMISSION_POLICY=compiled LOKI_ALLOW_CLAUDE_SIDECALLS=1 LOKI_PROVIDER=claude PATH="$_pl_dir:$PATH" bash -c '
+  printf "#!/bin/sh\nprintf \"%%s|\" \"\$@\" > \"%s/argv\"\n" "$1" > "$1/claude"; chmod +x "$1/claude"
+  mkdir -p "$1/qs/lib"; cp "$2/autonomy/quickstart.sh" "$1/qs/quickstart.sh"; mkdir -p "$1/providers"; cp "$2/providers/"*.sh "$1/providers/"
+  . "$1/qs/quickstart.sh" >/dev/null 2>&1; _qs_classify_invoke hi >/dev/null 2>&1; cat "$1/argv"' _ "$_pl_dir" "$PROVIDERS_DIR/.." 2>/dev/null)
+rm -rf "$_pl_dir"
+if [ "$_pl_leak" = "full|--dangerously-skip-permissions" ] \
+   && [ "$_pl_cmpleak" = "full|--permission-mode acceptEdits" ] \
+   && [ "$_pl_miss" = "full|--permission-mode plan" ] \
+   && [ "$_pl_qs" = "--permission-mode|plan|-p|hi|" ]; then
+    log_pass "no leak, legacy flag under legacy, plan when helper missing"
+else
+    log_fail "p12-26b helper: leak=[$_pl_leak] cmpleak=[$_pl_cmpleak] miss=[$_pl_miss] qs=[$_pl_qs]"
+fi
+
+# Test 16: P12-27 OTel passthrough (set vars only, unchanged, never invented)
+echo ""
+echo "Test 16: OTel passthrough and gateway lane label (P12-27)"
+# Vars are set NON-exported inside the shell so only the loader export helper can
+# hand them to the child (an exported prefix would be inherited regardless).
+_ot_out=$(env -u OTEL_SERVICE_NAME -u OTEL_RESOURCE_ATTRIBUTES -u OTEL_EXPORTER_OTLP_HEADERS \
+    -u OTEL_EXPORTER_OTLP_ENDPOINT -u CLAUDE_CODE_ENABLE_TELEMETRY \
+    bash -c 'OTEL_EXPORTER_OTLP_ENDPOINT="http://c:4318"; CLAUDE_CODE_ENABLE_TELEMETRY=1
+      source "$1/providers/loader.sh"; load_provider claude >/dev/null 2>&1
+      bash "$1/providers/model_route_exec.sh" env | grep -E "^(OTEL_|CLAUDE_CODE_ENABLE_TELEMETRY)" | sort | tr "\n" "|"' _ "$PROVIDERS_DIR/..")
+if [ "$_ot_out" = "CLAUDE_CODE_ENABLE_TELEMETRY=1|OTEL_EXPORTER_OTLP_ENDPOINT=http://c:4318|" ]; then
+    log_pass "OTel vars reach the child unchanged; unset ones are not invented"
+else
+    log_fail "otel passthrough: [$_ot_out]"
+fi
+
+_gl_route=$(env -u ANTHROPIC_BASE_URL -u LOKI_MODEL_OVERRIDE LOKI_MODEL_ROUTE=ollama/qwen3-coder \
+    bash -c 'source "$1/model_routes.sh"; loki_model_route_lane_label' _ "$PROVIDERS_DIR")
+_gl_gw=$(env -u LOKI_MODEL_ROUTE ANTHROPIC_BASE_URL=https://gw.example LOKI_MODEL_OVERRIDE=gpt-5 \
+    bash -c 'source "$1/model_routes.sh"; loki_model_route_lane_label' _ "$PROVIDERS_DIR")
+_gl_claude=$(env -u LOKI_MODEL_ROUTE ANTHROPIC_BASE_URL=https://gw.example LOKI_MODEL_OVERRIDE=sonnet \
+    bash -c 'source "$1/model_routes.sh"; loki_model_route_lane_label' _ "$PROVIDERS_DIR")
+_gl_none=$(env -u LOKI_MODEL_ROUTE -u ANTHROPIC_BASE_URL -u LOKI_MODEL_OVERRIDE \
+    bash -c 'source "$1/model_routes.sh"; loki_model_route_lane_label' _ "$PROVIDERS_DIR")
+_gl_rep=$(env -u ANTHROPIC_BASE_URL -u LOKI_MODEL_OVERRIDE LOKI_MODEL_ROUTE=ollama/qwen3-coder \
+    bash -c 'source "$1/model_routes.sh"; loki_model_route_lane_report' _ "$PROVIDERS_DIR" | tail -1)
+if [ "$_gl_rep" != "prompt caching, extended thinking, server tools and hooks are not guaranteed on this lane" ]; then
+    log_fail "lane report loss line: [$_gl_rep]"
+fi
+if [ "$_gl_route" = "gateway lane (unqualified)" ] && [ "$_gl_gw" = "gateway lane (unqualified)" ] \
+   && [ -z "$_gl_claude" ] && [ -z "$_gl_none" ]; then
+    log_pass "gateway lane label on non-Anthropic routes only"
+else
+    log_fail "lane label: route=[$_gl_route] gw=[$_gl_gw] claude=[$_gl_claude] none=[$_gl_none]"
+fi
+
 echo ""
 echo "========================================"
 echo "Test Summary"

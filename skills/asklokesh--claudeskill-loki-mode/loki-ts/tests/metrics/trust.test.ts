@@ -265,6 +265,7 @@ describe("computeTrajectory: no PII", () => {
       "cost_usd",
       "interventions_by_type",
       "waited_s",
+      "active_s",
     ]);
     for (const row of traj.series) {
       for (const k of Object.keys(row)) {
@@ -300,12 +301,12 @@ describe("formatting", () => {
   });
 });
 
-import { graduationAdvice, type TrustRun } from "../../src/metrics/trust.ts";
+import { graduationAdvice, outcomeEffort, type TrustRun } from "../../src/metrics/trust.ts";
 
 function gRun(i: number, over: Partial<TrustRun> = {}): TrustRun {
   return {
     run_id: `r${i}`, generated_at: null, council_pass_rate: 1, gate_pass_rate: 1,
-    iterations: 3, interventions: 0, verdict: "VERIFIED", cost_usd: null, interventions_by_type: null, waited_s: null, false_verified: false, ...over,
+    iterations: 3, interventions: 0, verdict: "VERIFIED", cost_usd: null, interventions_by_type: null, waited_s: null, active_s: null, false_verified: false, ...over,
   };
 }
 
@@ -391,6 +392,38 @@ describe("computeTrajectory: outcome effort", () => {
     expect(human).toContain("waited, upper bound");
   });
 
+  it("active minutes per accepted are reported only when every run measured them", () => {
+    const withActive = (id: string, active?: number) =>
+      raw(id, {
+        verdict: "VERIFIED",
+        ...detail(1, 0, 600),
+        ...(active === undefined
+          ? {}
+          : { interventions_detail: { by_type: { steer: 0, input: 1, authorization: 0, repair: 0 }, waited_s: 600, active_s: active } }),
+      });
+    withActive("r1", 90);
+    withActive("r2", 30);
+    const eff = computeTrajectory(td).outcome_effort;
+    expect(eff.active_min_per_accepted).toBe(1);
+    expect(eff.waited_min_per_accepted).toBe(10);
+    const human = formatTrajectoryHuman(computeTrajectory(td));
+    expect(human).toContain("Active minutes per accepted: 1");
+    withActive("r3");
+    const eff2 = computeTrajectory(td).outcome_effort;
+    expect(eff2.active_min_per_accepted).toBeNull();
+    expect(formatTrajectoryHuman(computeTrajectory(td))).toContain("Active minutes per accepted: n/a (not measured)");
+  });
+
+  it("a malformed active_s (float, negative) is unmeasured, not 0", () => {
+    for (const [i, bad] of [1.5, -1].entries()) {
+      raw(`r${i + 1}`, {
+        verdict: "VERIFIED",
+        interventions_detail: { by_type: { steer: 0, input: 1, authorization: 0, repair: 0 }, waited_s: 60, active_s: bad },
+      });
+    }
+    expect(computeTrajectory(td).outcome_effort.active_min_per_accepted).toBeNull();
+  });
+
   it("cost per accepted is total spend over all attempts / accepted", () => {
     raw("r1", { verdict: "VERIFIED", cost: { usd: 1 } });
     raw("r2", { verdict: "FAILED", cost: { usd: 3 } });
@@ -407,5 +440,39 @@ describe("computeTrajectory: outcome effort", () => {
     expect(eff.cost_per_accepted_usd).toBeNull();
     expect(eff.cost_note).toContain("no accepted");
     expect(eff.misleading_completion_rate).toBeNull();
+  });
+});
+
+describe("outcomeEffort partial cost", () => {
+  it("refuses a bare cost per accepted when any run cost is partial", () => {
+    const e = outcomeEffort([gRun(0, { cost_usd: 0.5 }), gRun(1, { cost_usd: 0.5, cost_partial: true })]);
+    expect(e.cost_per_accepted_usd).toBeNull();
+    expect(e.cost_note).toContain("cost partial for 1 of 2 runs");
+  });
+  it("still reports complete cost", () => {
+    const e = outcomeEffort([gRun(0, { cost_usd: 0.5, cost_partial: false })]);
+    expect(e.cost_per_accepted_usd).toBe(0.5);
+  });
+});
+
+describe("computeTrajectory partial cost parity with trust_trajectory.py", () => {
+  it("loads cost_partial from proofs and refuses a bare cost per accepted", () => {
+    for (const id of ["r0", "r1"]) {
+      writeProof(id, {
+        generatedAt: "2026-01-01T00:00:00Z",
+        raw: { run_id: id, verdict: "VERIFIED", cost: { usd: 0.5, cost_partial: true } },
+      });
+    }
+    const traj = computeTrajectory(td);
+    expect(traj.outcome_effort.cost_per_accepted_usd).toBeNull();
+    expect(traj.outcome_effort.cost_note).toContain("cost partial for 2 of 2 runs");
+    expect(formatTrajectoryHuman(traj)).not.toContain("Cost per accepted: $");
+  });
+  it("unpriced records alone mark the run partial", () => {
+    writeProof("r0", {
+      generatedAt: "2026-01-01T00:00:00Z",
+      raw: { run_id: "r0", verdict: "VERIFIED", cost: { usd: 0.5, cost_unpriced_records: 2 } },
+    });
+    expect(computeTrajectory(td).outcome_effort.cost_per_accepted_usd).toBeNull();
   });
 });

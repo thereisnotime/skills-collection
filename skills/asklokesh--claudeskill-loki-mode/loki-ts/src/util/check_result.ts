@@ -3,10 +3,12 @@
 // reported as unknown. A success verdict (VERIFIED or ALREADY_SATISFIED) needs at least one Loki-executed check with n>0 and a
 // pass (hasExecutedProof). Every site that sets result "pass" for a test run routes through classifyCheck.
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
+import { basename, isAbsolute, join } from "node:path";
 import { isTestFile } from "../engine10/testmap.ts";
+import type { RunnerName, TestRef } from "../engine10/types.ts";
 import { safeGit, tokenFreeEnv } from "./safe_git.ts";
+import { redactSecrets } from "./redact.ts";
 
 /** FC-69: the ONE child env for every harness-run test or verify command. A user's FORCE_COLOR=3 makes node:test, pytest, jest and
  *  friends emit ANSI that defeats line-anchored result parsers; FORCE_COLOR=0 + NO_COLOR=1 keeps the output plain. CI is left as is.
@@ -167,6 +169,8 @@ export function testCount(raw: string, path?: string, ok?: boolean): number | nu
 
 export interface ClassifyInput { kind: "test" | "static"; ok: boolean; cut?: boolean; missing?: boolean; out: string; path?: string; runner?: "go" }
 export interface Classified { result: "pass" | "fail" | "not_run"; n?: number; reason?: string }
+/** classifyCheck result plus the rerun-only "flaky" verdict (TEN-QUALITY-17); kept separate so existing classifyCheck callers keep the narrow type. */
+export interface ClassifiedRerun extends Omit<Classified, "result"> { result: Classified["result"] | "flaky"; rerun?: { first: "fail"; second: "pass"; n?: number } }
 /** One attempt of one check. static = lint/typecheck/scan (exit code decides, no count). test = a test runner: pass needs n>0. */
 export function classifyCheck(i: ClassifyInput): Classified {
   if (i.missing) return { result: "not_run", reason: "tool not found on PATH" };
@@ -189,21 +193,86 @@ export function classifyCheck(i: ClassifyInput): Classified {
   if (n === null) return { result: "not_run", reason: UNMEASURED_REASON };
   return { result: "pass", n };
 }
+/** TEN-QUALITY-17: a test check that fails and then passes on ONE immediate rerun is flaky, not fail, so fix rounds are not spent on it.
+ *  Only a test whose first attempt classified fail is rerun (static, not_run and pass never are); a rerun that is not a pass keeps the first fail.
+ *  flaky carries no n, so it is never executed proof (isExecutedProof needs result "pass"), exogenous or otherwise. */
+export function classifyWithRerun(first: ClassifyInput, rerun: () => ClassifyInput): ClassifiedRerun {
+  const a = classifyCheck(first);
+  if (first.kind !== "test" || a.result !== "fail") return a;
+  const b = classifyCheck(rerun());
+  if (b.result !== "pass") return a;
+  return { result: "flaky", reason: "failed once, passed on one immediate rerun", rerun: { first: "fail", second: "pass", ...(b.n !== undefined ? { n: b.n } : {}) } };
+}
 /** True when a check is Loki-executed proof: a pass with n>0. */
 export const isExecutedProof = (c: { result?: unknown; n?: unknown }): boolean => c.result === "pass" && typeof c.n === "number" && c.n > 0;
 /** Success-verdict gate: at least one executed check with n>0 and a pass. */
 export const hasExecutedProof = (checks: ReadonlyArray<{ result?: unknown; n?: unknown }>): boolean => checks.some(isExecutedProof);
 
+/** TEN-GATES-01 (FC-AGENT-PROOF): who authored the evidence behind a check. exogenous = lint/typecheck/static, scans, pre-existing suites, boot, probes;
+ *  independent = a Wall file or the holdout; agent_authored = a runner on a path ADDED in the diff; llm_judge = council-style reviewers.
+ *  Unknown names are exogenous (fail-closed toward the existing behaviour, same direction as proof-generator.py:286-292). Pure, no wiring. */
+export type CheckProvenance = "exogenous" | "independent" | "agent_authored" | "llm_judge";
+export interface ProvenanceCtx { addedFiles: readonly string[]; wallFiles: readonly string[]; holdout?: boolean; modifiedFiles?: readonly string[] } // modifiedFiles: pre-existing paths the run edited, deleted or renamed (TEN-GATES-17)
+const LLM_JUDGES = new Set(["council", "xreview", "code_review", "devils_advocate", "magic_debate"]);
+const NON_RUNNER = new Set(["lint", "typecheck", "holdout", "select-tests"]); // heads verify.ts emits that are not test runners
+const normPath = (p: string): string => p.replace(/^(?:\.\/)+/, "");
+export function checkProvenance(name: string, ctx: ProvenanceCtx): CheckProvenance {
+  const head = name.split(":")[0]!;
+  if (LLM_JUDGES.has(head)) return "llm_judge";
+  if (head === "holdout") return "independent";
+  if (!NON_RUNNER.has(head) && name.includes(":")) { // test checks are named `${runner}:${path}` (verify.ts testCheckName); any other head is a runner
+    const p = normPath(name.slice(name.indexOf(":") + 1));
+    if (ctx.wallFiles.some((w) => normPath(w) === p)) return "independent";
+    if (ctx.addedFiles.some((a) => normPath(a) === p)) return "agent_authored";
+    if (ctx.modifiedFiles?.some((m) => normPath(m) === p)) return "agent_authored"; // TEN-GATES-17: a pre-existing test the run edited is no longer the original proof (same direction as the A-119 edit rule)
+  }
+  return "exogenous";
+}
+/** True when some executed check (pass, n>0) is not backed solely by agent-authored or LLM-judge evidence. */
+export const hasExogenousProof = (checks: ReadonlyArray<{ name?: string; result?: unknown; n?: unknown }>, ctx: ProvenanceCtx): boolean =>
+  checks.some((c) => isExecutedProof(c) && ((p) => p !== "agent_authored" && p !== "llm_judge")(checkProvenance(c.name ?? "", ctx)));
+/** TEN-GATES-14: per-gate legibility for `loki verify --explain`. exogenous/independent evidence is exogenous; agent_authored and llm_judge are agent-influenced; absent or unknown provenance is unrecorded, never exogenous. */
+export interface ExplainGate { name: string; class: "exogenous" | "agent-influenced" | "unrecorded"; provenance: string | null; result: string; n: number | null; evidence: string }
+export function explainGates(receiptPath: string): ExplainGate[] {
+  let checks: Array<Record<string, unknown>> = [];
+  try { const c = (JSON.parse(readFileSync(receiptPath, "utf8")) as { checks?: unknown }).checks; if (Array.isArray(c)) checks = c.filter((x): x is Record<string, unknown> => !!x && typeof x === "object"); } catch { /* unreadable: no gates */ }
+  return checks.map((c) => {
+    const p = typeof c.provenance === "string" ? c.provenance : null;
+    return { name: String(c.name ?? ""), class: p === "exogenous" || p === "independent" ? "exogenous" : p === "agent_authored" || p === "llm_judge" ? "agent-influenced" : "unrecorded", provenance: p, result: String(c.result ?? "not_run"), n: typeof c.n === "number" ? c.n : null, evidence: String(c.cmd ?? "") };
+  });
+}
+const printable = (s: string): string => s.replace(/[\x00-\x1f\x7f]/g, "?"); // receipt text never drives the terminal
+/** What the receipt verifier saw: set once it resolves a run receipt and prints its verdict. */
+export interface ExplainRec { runId?: string; receiptPath?: string; verdict?: string }
+/** --explain lists each gate after the verdict; --json prints {run_id, verdict, exit_code, gates} on stdout with the human lines on stderr. Read-only: the exit code is the verifier's, unchanged; a TAMPERED receipt's gates are never listed. */
+export async function withExplain(args: readonly string[], run: (args: readonly string[], rec: ExplainRec) => Promise<number>): Promise<number> {
+  const explain = args.includes("--explain"), json = args.includes("--json");
+  if (!explain && !json) return run(args, {});
+  const mode = args.find((a) => /^--(export-dsse|seal-composite|sign-deploy|sign-provenance|url)(=|$)/.test(a)); // these print their own documents, not a receipt verdict
+  if (mode) return (process.stderr.write(`loki verify: --explain and --json are not supported with ${mode.split("=")[0]}\n`), 2);
+  const rec: ExplainRec = {}, w = process.stdout.write;
+  if (json) process.stdout.write = process.stderr.write.bind(process.stderr) as typeof process.stdout.write;
+  let code: number;
+  try { code = await run(args.filter((a) => a !== "--explain" && a !== "--json"), rec); } finally { if (json) process.stdout.write = w; }
+  if (!rec.receiptPath || !rec.verdict) return (process.stderr.write("loki verify: --explain and --json apply to a run receipt only; nothing explained\n"), code);
+  const gates = rec.verdict === "TAMPERED" ? null : explainGates(rec.receiptPath);
+  if (json) return (process.stdout.write(`${JSON.stringify({ run_id: rec.runId ?? null, verdict: rec.verdict, exit_code: code, gates })}\n`), code);
+  if (!gates) return (process.stdout.write("explain: receipt TAMPERED; its gates are untrusted and not listed\n"), code);
+  process.stdout.write(`explain: ${gates.length} gate${gates.length === 1 ? "" : "s"} (exogenous: evidence the agent could not shape; agent-influenced: agent-authored test or LLM judge; unrecorded: no provenance)\n`);
+  for (const g of gates) process.stdout.write(`  gate ${printable(g.name)}: ${g.class} (provenance ${g.provenance === null ? "not recorded" : printable(g.provenance)}), result ${printable(g.result)}, n ${g.n ?? "-"}, evidence: ${printable(g.evidence) || "-"}\n`);
+  return code;
+}
+
 // RISKTIER: classify risk on the ARTIFACT (the actual diff), never the prompt, and map the tier to a verification plan.
 // The bash `loki review --risk` scorer (autonomy/lib/review_risk.py) stays a separate 0-100 advisory view.
 export type RiskTier = "low" | "medium" | "high";
-export interface DiffFile { path: string; added: number; deleted: number; status?: "added" | "modified" | "deleted" }
+export interface DiffFile { path: string; added: number; deleted: number; status?: "added" | "modified" | "deleted"; deps?: boolean /* set by diffFiles for a dependency manifest whose dependency set changed */ }
 export interface RiskOverride { from: RiskTier; to: RiskTier; reason: string }
 export interface RiskAssessment {
   version: 1; tier: RiskTier; computed: RiskTier; reasons: string[];
   stats: { files: number; lines: number; sensitive: string[]; tests_modified: string[]; tests_deleted: string[]; api: string[] };
   checks_selected: string[]; checks_deferred: string[]; // deferred = planned for this tier but NOT run by the fast verify stage; never a pass
-  override?: RiskOverride; override_ignored?: string; summary: string;
+  override?: RiskOverride; override_ignored?: string; advisories?: string[]; summary: string;
 }
 
 const SENSITIVE: [string, RegExp][] = [
@@ -240,7 +309,45 @@ function summaryOf(a: Pick<RiskAssessment, "tier" | "computed" | "reasons" | "ov
 /** Marks selected deeper checks that verify really executed (for example the full test command), then rebuilds deferred and summary. */
 export function markExecuted(a: RiskAssessment, executed: string[]): RiskAssessment {
   const checks_deferred = deferredOf(a.tier, a.checks_selected, executed);
-  return { ...a, checks_deferred, summary: summaryOf({ ...a, checks_deferred }) };
+  return { ...a, checks_deferred, summary: summaryOf({ ...a, checks_deferred }) + (a.advisories?.length ? `; advisory: ${a.advisories.join(", ")}` : "") };
+}
+
+// TEN-GATES-18: advisory only. A dependency manifest whose dependency set changed with no lockfile change beside it (same or ancestor dir) is flagged; it never alters the tier.
+const MANIFEST_LOCKS: [RegExp, RegExp][] = [
+  [/(^|\/)package\.json$/, /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?)$/],
+  [/(^|\/)pyproject\.toml$/, /(^|\/)(poetry\.lock|uv\.lock|pdm\.lock|Pipfile\.lock)$/],
+  [/(^|\/)go\.mod$/, /(^|\/)go\.sum$/],
+];
+const dirOf = (p: string): string => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
+const PKG_DEP_KEYS = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
+const PYPROJECT_NONDEP = /^(name|version|description|readme|license|requires-python|python|authors|maintainers|keywords|classifiers|homepage|repository|documentation|packages|include|exclude)$/;
+
+/** Pure: did the dependency set of this manifest change? package.json compares the four dependency maps (scripts-only edits are false); go.mod and pyproject.toml read the -U0 patch. Unparseable package.json counts as changed. */
+export function manifestDepsChanged(path: string, oldText: string, newText: string, patch: string): boolean {
+  if (/(^|\/)package\.json$/.test(path)) {
+    try {
+      const o = oldText.trim() ? JSON.parse(oldText) : {}, n = newText.trim() ? JSON.parse(newText) : {};
+      return PKG_DEP_KEYS.some((k) => JSON.stringify(o?.[k] ?? {}) !== JSON.stringify(n?.[k] ?? {}));
+    } catch { return true; }
+  }
+  const changed = patch.split("\n").filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l));
+  if (/(^|\/)go\.mod$/.test(path)) return changed.some((l) => { const b = l.slice(1).trim(); return b !== "" && !b.startsWith("//") && !/^(module|go|toolchain)\b/.test(b); });
+  return changed.some((l) => {
+    const b = l.slice(1).trim();
+    if (/^"[A-Za-z][\w.-]*(\[[\w,.-]+\])?\s*([<>=~!]|;|@|"\s*,?\s*$)/.test(b)) return true; // PEP 508 list entry
+    const m = /^([A-Za-z][\w.-]*)\s*=\s*("[\^~<>=!*\d]|\{[^}]*version)/.exec(b); // poetry-style name = "^1.0"
+    return !!m && !PYPROJECT_NONDEP.test(m[1]!);
+  });
+}
+
+/** Pure: manifests with changed dependencies and no matching lockfile in the same or an ancestor directory of the diff. */
+export function manifestsWithoutLock(files: DiffFile[]): string[] {
+  return files.filter((f) => f.deps && f.status !== "deleted").flatMap((f) => {
+    const pair = MANIFEST_LOCKS.find(([m]) => m.test(f.path)); if (!pair) return [];
+    const d = dirOf(f.path);
+    const locked = files.some((g) => pair[1].test(g.path) && (dirOf(g.path) === "" || d === dirOf(g.path) || d.startsWith(dirOf(g.path) + "/")));
+    return locked ? [] : [f.path];
+  });
 }
 
 export function classifyRisk(files: DiffFile[], env: NodeJS.ProcessEnv = process.env): RiskAssessment {
@@ -272,12 +379,13 @@ export function classifyRisk(files: DiffFile[], env: NodeJS.ProcessEnv = process
     else ignored = `LOKI_RISK_TIER=${asked} ignored: lowering from ${computed} needs LOKI_RISK_OVERRIDE_REASON`;
   }
   const plan = PLAN[tier], checks_deferred = deferredOf(tier, plan.selected, []);
-  const summary = summaryOf({ tier, computed, reasons, ...(override ? { override } : {}), checks_deferred });
+  const advisories = manifestsWithoutLock(files).map((p) => `manifest changed without lockfile: ${p}`);
+  const summary = summaryOf({ tier, computed, reasons, ...(override ? { override } : {}), checks_deferred }) + (advisories.length ? `; advisory: ${advisories.join(", ")}` : "");
   return {
     version: 1, tier, computed, reasons,
     stats: { files: files.length, lines, sensitive, tests_modified: testsModified, tests_deleted: testsDeleted, api },
     checks_selected: plan.selected, checks_deferred,
-    ...(override ? { override } : {}), ...(ignored ? { override_ignored: ignored } : {}), summary,
+    ...(override ? { override } : {}), ...(ignored ? { override_ignored: ignored } : {}), ...(advisories.length ? { advisories } : {}), summary,
   };
 }
 
@@ -304,12 +412,22 @@ export function diffFiles(repoDir: string, baseSha: string): DiffFile[] {
     const [s, ...p] = l.split("\t"), f = stat.get(p[p.length - 1] ?? "");
     if (f) f.status = s?.startsWith("A") ? "added" : s?.startsWith("D") ? "deleted" : "modified";
   }
-  return paths.map((path) => {
+  const out = paths.map((path) => {
     const f = stat.get(path);
     if (f) return f;
     let n = 0; try { n = readFileSync(join(repoDir, path), "utf8").split("\n").length; } catch { /* unreadable or binary */ }
     return { path, added: n, deleted: 0, status: "added" as const };
   });
+  for (const f of out) { // TEN-GATES-18: tag manifests whose dependency set changed (advisory input; a read failure leaves it untagged)
+    if (f.status === "deleted" || !MANIFEST_LOCKS.some(([m]) => m.test(f.path))) continue;
+    try {
+      const oldText = f.status === "added" ? "" : safeGit(repoDir, ["show", `${baseSha}:${f.path}`]);
+      const newText = readFileSync(join(repoDir, f.path), "utf8");
+      const patch = f.status === "added" ? newText.split("\n").map((l) => `+${l}`).join("\n") : safeGit(repoDir, ["diff", "-U0", baseSha, "--", f.path]);
+      if (manifestDepsChanged(f.path, oldText, newText, patch)) f.deps = true;
+    } catch { /* best effort */ }
+  }
+  return out;
 }
 
 /** Writes .loki/state/risk-tier.json atomically; best effort, a recording failure never fails the run. */
@@ -320,4 +438,96 @@ export function recordRisk(repoDir: string, a: RiskAssessment): string | null {
     writeFileSync(`${p}.tmp`, JSON.stringify(a, null, 2) + "\n"); renameSync(`${p}.tmp`, p);
     return p;
   } catch { return null; }
+}
+
+/** TEN-QUALITY-01: the decisive block of a failed check's output for the fix brief. Pure: ANSI stripped, absolute repo paths made
+ *  repo-relative, secrets redacted, capped at `cap` bytes. pytest "E " lines + last frame, jest/vitest Expected/Received, node/bun
+ *  AssertionError, go "--- FAIL" + next lines, tsc/ruff diagnostics. Unknown shapes fall back to the last few lines. */
+export const EXCERPT_GROUP_CAP = 1500;
+export const EXCERPT_TOTAL_CAP = 6144;
+/** Cut to at most cap UTF-8 bytes without leaving a partial code point (a trailing U+FFFD from the cut is stripped). */
+export function truncateBytes(s: string, cap: number): string {
+  const buf = Buffer.from(s, "utf8");
+  return buf.length <= cap ? s : buf.subarray(0, Math.max(0, cap)).toString("utf8").replace(/\uFFFD$/, "");
+}
+export function failureExcerpt(out: string, repoDir = "", cap = EXCERPT_GROUP_CAP): string {
+  let t = stripAnsi(out.slice(-65536)).replace(/\r/g, "");
+  if (repoDir) t = t.split(repoDir.replace(/\/+$/, "") + "/").join("");
+  const lines = t.split("\n").map((l) => l.replace(/\s+$/, ""));
+  const pick = new Set<number>();
+  const take = (i: number, n = 1): void => { for (let k = 0; k < n && i + k < lines.length; k++) if (lines[i + k]!.trim()) pick.add(i + k); };
+  lines.forEach((l, i) => {
+    if (/^E\s/.test(l)) take(i);
+    else if (/^\s*(Expected|Received)\b/.test(l) || /^\s*expect\(.*\)\.\w+/.test(l)) take(i);
+    else if (/^[\w./@-]+\.py:\d+: /.test(l)) take(i);
+    else if (/AssertionError|^\s*(expected|actual)\b.*[:=]|^\s*(not ok|FAILED)\b/.test(l)) take(i, 3);
+    else if (/^\s*--- FAIL/.test(l)) take(i, 4);
+    else if (/^[\w./@-]+\.\w+(\(\d+,\d+\)|:\d+(:\d+)?)[:\s].*\b(error|TS\d+|[A-Z]{1,3}\d{3,4})\b/.test(l)) take(i);
+  });
+  const lastFrame = lines.map((l, i) => (/^[\w./@-]+\.py:\d+: /.test(l) ? i : -1)).filter((i) => i >= 0).pop();
+  if (lastFrame !== undefined && [...pick].some((i) => /^E\s/.test(lines[i]!))) take(lastFrame);
+  let body = [...pick].sort((a, b) => a - b).map((i) => lines[i]!).join("\n");
+  if (!body) body = lines.filter((l) => l.trim()).slice(-6).join("\n");
+  body = redactSecrets(body);
+  return truncateBytes(body, cap);
+}
+
+// Wall base-run exit classification, moved from engine10/stages/wall.ts (core line budget); this module owns result classification.
+// B1/B2/B3/B4 (r3, opus review of E-125): only the short-summary line names the FINAL exception -- immune to a captured stdout/stderr block forging an earlier frame (B3), or an earlier link in a chain (B4).
+export function pytestCollectionIsRed(output: string, repoDir: string): boolean {
+  if (/ModuleNotFoundError/.test(output)) return false;
+  const real = (p: string): string | null => { try { return realpathSync(isAbsolute(p) ? p : join(repoDir, p)); } catch { return null; } };
+  const repoReal = real(repoDir); const under = (p: string): boolean => { const r = real(p); return !!repoReal && !!r && (r === repoReal || r.startsWith(`${repoReal}/`)); };
+  // pytest reports an ImportError from `from x import y` via its own (short-summary-less) path; the message always carries the module's own (absolute) file, so a direct scan is unambiguous.
+  const imp = /ImportError: cannot import name .* from ['"][\w.]+['"] \(([^)]+)\)/.exec(output); if (imp) return under(imp[1]!);
+  // B3 (r4): captured stdout prints ABOVE the short summary, so trust only the LAST ERROR line after the final summary header, and E lines only from the first collecting block, cut at its first Captured separator. No header: fail closed.
+  const hdr = [...output.matchAll(/^=+ short test summary info =+$/gm)].pop(); if (!hdr) return false;
+  const cls = [...output.slice(hdr.index).matchAll(/^ERROR \S+ - (\w+Error): /gm)].pop()?.[1]; if (cls !== "AttributeError" && cls !== "NameError") return false;
+  const start = output.search(/^_+ ERROR collecting /m); if (start < 0 || start > hdr.index) return false; const block = output.slice(start, hdr.index).split(/^-+ Captured .*$/m)[0]!;
+  const eLines = [...block.matchAll(new RegExp(`^E {3}${cls}: (.*)$`, "gm"))]; const eLine = eLines[eLines.length - 1]; if (!eLine) return false;
+  // B1 (r3): an AttributeError's frame is only where the dotted access sits, not who owns the missing attribute -- go by the message instead.
+  if (cls === "AttributeError") { const m = /^module ['"]([\w.]+)['"] has no attribute/.exec(eLine[1]!); return !!m && moduleUnderRepo(repoDir, m[1]!); }
+  // NameError: the raise site must be repo code, not merely an import line naming an outside module. B2 (r3): a frame path may contain a space.
+  const frames = [...block.slice(0, eLine.index).matchAll(/^(.+?):\d+: in \S+\n\s*(.*)$/gm)]; const last = frames[frames.length - 1];
+  return !!last && under(last[1]!) && !/^\s*(import\s|from\s\S+\s+import\b)/.test(last[2] ?? "");
+}
+function moduleUnderRepo(repoDir: string, name: string): boolean { const rel = name.replace(/\./g, "/"); return existsSync(join(repoDir, `${rel}.py`)) || existsSync(join(repoDir, rel, "__init__.py")); }
+// E-125 r5: exit-1 output is red only from the real final summary, never captured text. The runner appends -rfE, so a repo's `-q` addopts (stacked to -qq, no footer) still lists FAILED lines.
+function pytestExit1IsRed(output: string): boolean {
+  if (/^!+ _pytest\.outcomes\.Exit\b/m.test(output)) return false; // pytest.exit(...) can print any text, incl. "1 failed"
+  if (/^=*\s*(\d+ \w+(, )?)*\d+ failed\b.* in [\d.]+s/.test(output.trimEnd().split("\n").pop() ?? "")) return true;
+  const hdr = [...output.matchAll(/^=+ short test summary info =+$/gm)].pop();
+  return !!hdr && /^FAILED \S+/m.test(output.slice(hdr.index));
+}
+// B2 (r2): jest/vitest/bun red requires a parsed failed-test count above 0; unparseable output stays 0 (not_run).
+function parsedFailCount(runner: RunnerName, output: string): number {
+  const m = runner === "bun" ? /^\s*(\d+)\s+fail\s*$/m.exec(output)
+    : runner === "jest" ? /Tests:\s*(\d+)\s+failed/i.exec(output)
+    : runner === "vitest" ? /Tests\s+(\d+)\s+failed/i.exec(output) : null;
+  return m ? Number(m[1]) : 0;
+}
+// A-103 node:test red, mirroring pytest: a missing module inside the repo or an error thrown by code under test is red; a missing bare package, or an error thrown from the Wall file itself (Jest globals), is not. A missing-module crash is not_run only when the file itself failed (no named subtest failed, spec or TAP), and any failing subtest whose error is not a Wall-file Reference/SyntaxError makes the file red, so a child process crash or printed footer cannot hide a real red. Only node's own lines count (col-0 crash text, or a failing-tests block's error line and first frame), never an assertion diff.
+function nodeIsRed(f: TestRef, raw: string): boolean {
+  // node 20/22 off a TTY print TAP: crash text is "# "-prefixed and a failure is a yaml block (name: 'X', stack: |-). Strip the prefix from non-counter lines so the spec-shape regexes apply.
+  const o = raw.replace(/^# (?!(?:tests|suites|pass|fail|cancelled|skipped|todo|duration_ms|Subtest)\b)/gm, "");
+  const mod = /^Error(?: \[\w+\])?: Cannot find (?:module|package) '([^']+)'(?:(?!\u2716)[\s\S])*?\nNode\.js v/m.exec(o), top = /^(\S+):\d+\n.*\n.*\n\n?(?:ReferenceError|SyntaxError)\b/m.exec(o);
+  const named = [...o.matchAll(/^(?:\u2716|\s*not ok \d+ -) (?!failing tests:)(.+?)(?: \(|$)/gm)].some((m) => !f.path.endsWith(m[1]!) && !m[1]!.endsWith(f.path)), blk = o.split("failing tests:")[1] ?? "", esm = /^SyntaxError: The requested module '([^']+)' does not provide an export named/m.exec(o), errs = [...blk.matchAll(/^ {2}(\w+Error): .*\n\s+at (?:.*\()?([^\s()]+?):\d+:\d+/gm), ...o.matchAll(/^ +name: '(\w+Error)'\n(?:.*\n)*? +stack: \|-\n\s+(?:.*\()?([^\s()]+?):\d+:\d+/gm)];
+  return /^(?:#|\u2139) fail [1-9]/m.test(raw) && (/^ {2}AssertionError\b/m.test(blk) || /^ +name: 'AssertionError'/m.test(o) || (mod && !named ? /^[./]/.test(mod[1]!) : esm ? /^[./]/.test(esm[1]!) : top ? !top[1]!.endsWith(f.path) : !errs.length || errs.some((e) => !/^(?:Reference|Syntax)Error$/.test(e[1]!) || !(e[2]!.startsWith("node:") || e[2]!.endsWith(f.path))))); // ESM "cannot import name": red for a repo path, not_run for a bare package
+}
+// D42 (3) exit classification. B4 (r2): any "system"-interpreter result is not_run, same as verify (E-98a).
+// Red: pytest exit 1/resolved 2; jest/vitest/bun a parsed failed count>0. npm/go/cargo (B2, coarse): never fail.
+/** FC-69: why a base run was not_run, for the receipt and console ("Wall test not executed: <file>: <reason>"). */
+export function notRunReason(status: number | null, interpreter?: "project" | "system"): string {
+  if (interpreter === "system") return "ran under the system interpreter, not the project's, so the result proves nothing";
+  if (status === null) return "the test runner did not start or timed out";
+  if (status === 126 || status === 127) return `the test runner command was not found or not executable (exit ${status})`;
+  return status === 0 ? "exit 0 but no executed test count could be confirmed" : `exit ${status} but the runner output showed no readable failing test`;
+}
+export function classify(f: TestRef, status: number | null, output: string, repoDir: string, interpreter?: "project" | "system"): "pass" | "fail" | "not_run" {
+  if (interpreter === "system") return "not_run";
+  output = stripAnsi(output); // FC-69: every parser below reads plain text, whoever captured it
+  if (status === null || status === 126 || status === 127) return "not_run"; if (status === 0) return classifyCheck({ kind: "test", ok: true, out: output, path: f.path, ...(f.runner === "go" ? { runner: "go" as const } : {}) }).result === "pass" ? "pass" : "not_run"; // FC-16: exit 0 with zero or unknown executed tests is not a pass
+  if (f.runner === "pytest") return status === 1 ? (pytestExit1IsRed(output) ? "fail" : "not_run") : status === 2 ? (pytestCollectionIsRed(output, repoDir) ? "fail" : "not_run") : "not_run";
+  if (f.runner === "jest" || f.runner === "vitest" || f.runner === "bun") return parsedFailCount(f.runner, output) > 0 ? "fail" : "not_run";
+  return f.runner === "node" && nodeIsRed(f, output) ? "fail" : "not_run"; // npm/go/cargo: coarse (B2), never a per-file red
 }

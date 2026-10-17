@@ -1,7 +1,7 @@
 // UNDO-1: `loki undo <run-id> --plan`. Strictly read-only: verifies the run's receipt, then prints what an undo
 // would do (UNDO-2 applies it). Every git call goes through safe_git and is checked against READ_ONLY_GIT, so a
 // future edit that adds a mutating subcommand throws here instead of changing the user's repo.
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { lokiDir } from "../util/paths.ts";
 import { safeGitSpawn } from "../util/safe_git.ts";
@@ -9,9 +9,10 @@ import { verifyReceipt, type Verdict } from "../engine10/verify_cmd.ts";
 import { readEvents } from "../engine10/events.ts";
 import { isEnvelope } from "../features/receipt_dsse.ts";
 import type { ApplyGit } from "./undo_apply.ts";
+import { formatAge } from "./queue.ts";
 
 /** The only git subcommands this file may run. None writes a ref, the index or the working tree. */
-export const READ_ONLY_GIT: ReadonlySet<string> = new Set(["rev-parse", "log", "merge-base", "for-each-ref", "symbolic-ref", "rev-list", "cat-file"]);
+export const READ_ONLY_GIT: ReadonlySet<string> = new Set(["rev-parse", "log", "merge-base", "for-each-ref", "symbolic-ref", "rev-list", "cat-file", "show"]);
 
 export type GitRunner = (repoDir: string, args: readonly string[]) => { status: number; stdout: string };
 
@@ -32,6 +33,7 @@ export interface UndoPlan {
   branch_extra_commits: number;
   actions: string[];
   warnings: string[];
+  diffstat?: string; // --dry-run only: what reverting the plan's commits would remove
 }
 
 /** A receipt's refs are attacker-influenced (an unsigned receipt is accepted with --allow-unsigned): only a hex object id may reach git. */
@@ -54,6 +56,7 @@ export interface UndoDeps {
   closePr?: (url: string) => { ok: boolean; message: string };
   undoDir?: string;
   env?: NodeJS.ProcessEnv;
+  now?: () => Date; // --list age column
 }
 
 function receiptRefs(path: string): { base: string; head: string } | null {
@@ -138,12 +141,21 @@ export function renderPlan(p: UndoPlan): string {
     "plan:",
     ...p.actions.map((a) => `  - ${a}`),
     ...p.warnings.map((w) => `warning: ${w}`),
-    "plan only: nothing was changed. To apply: LOKI_UNDO=1 loki undo " + p.run_id,
+    ...(p.diffstat !== undefined ? ["diffstat that undo would revert:", p.diffstat === "" ? "  (empty)" : p.diffstat.replace(/\s+$/, "").replace(/^/gm, "  ")] : []),
+    (p.diffstat !== undefined ? "dry run" : "plan only") + ": nothing was changed. To apply: LOKI_UNDO=1 loki undo " + p.run_id,
   ];
   return o.join("\n") + "\n";
 }
 
-const USAGE = "Usage: loki undo <run-id> --plan [--json] [--allow-unsigned]\n       LOKI_UNDO=1 loki undo <run-id> [--yes] [--close-pr]\nVerify the run's receipt, then print (--plan) or carry out (apply) what undoing the run does.\nApply reverts commits already on the default branch on a new branch and deletes an unmerged local run branch; it never rewrites history or force-pushes.\nWithout --yes apply asks first and, with no terminal, stays a dry run. A tampered or unsigned receipt is always refused.\nExit: 0 done or planned, 1 receipt tampered or undo failed, 2 usage, refusal or receipt unchecked, 3 receipt unsigned (refused), 66 unknown run.\n";
+/** --dry-run: per-commit `git show --stat` (read-only) for every commit the plan would revert or drop. */
+export function dryRunDiffstat(p: UndoPlan, repoDir: string, git: GitRunner): string {
+  return p.commits.map((c) => {
+    const r = git(repoDir, ["show", "--stat", "--format=", "--end-of-options", c.sha]);
+    return `${c.sha.slice(0, 12)} ${c.subject}\n${r.stdout.replace(/\s+$/, "")}`;
+  }).join("\n");
+}
+
+const USAGE = "Usage: loki undo --list   (recent runs that can be undone: run id, verdict, files changed, age; newest first)\n       loki undo <run-id> --plan [--json] [--allow-unsigned]\n       loki undo <run-id> --dry-run [--json] [--allow-unsigned]   (plan plus the diffstat undo would revert; changes nothing)\n       LOKI_UNDO=1 loki undo <run-id> [--yes] [--close-pr]\nVerify the run's receipt, then print (--plan) or carry out (apply) what undoing the run does.\nApply reverts commits already on the default branch on a new branch and deletes an unmerged local run branch; it never rewrites history or force-pushes.\nWithout --yes apply asks first and, with no terminal, stays a dry run. A tampered or unsigned receipt is always refused.\nExit: 0 done or planned, 1 receipt tampered or undo failed, 2 usage, refusal or receipt unchecked, 3 receipt unsigned (refused), 66 unknown run.\n";
 const EXIT_BY_VERDICT: Record<Verdict, number> = { VERIFIED: 0, UNSIGNED: 3, TAMPERED: 1, UNCHECKED: 2 };
 
 type Loaded = { plan: UndoPlan } | { rc: number };
@@ -165,19 +177,59 @@ async function loadPlan(runId: string, allowUnsigned: boolean, deps: UndoDeps, g
   return { plan: buildPlan(runId, result.verdict, refs, repoDir, prUrlOf(join(runsRoot, runId, "events.jsonl")), git) };
 }
 
+const LIST_MAX = 20;
+
+/** --list: newest-first table of runs with a receipt. Read-only: verifies each receipt and counts files via read-only `log --name-only`. */
+async function listRuns(deps: UndoDeps, git: GitRunner, out: (s: string) => void): Promise<number> {
+  const runsRoot = deps.runsRoot ?? join(lokiDir(), "runs");
+  const repoDir = deps.repoDir ?? dirname(lokiDir());
+  const now = (deps.now ?? (() => new Date()))();
+  let found: { id: string; path: string; mtime: number }[] = [];
+  try {
+    for (const id of readdirSync(runsRoot)) {
+      const path = join(runsRoot, id, "receipt.json");
+      if (!RUN_ID_RE.test(id) || id.includes("..") || !existsSync(path)) continue;
+      found.push({ id, path, mtime: statSync(path).mtimeMs });
+    }
+  } catch { /* no runs dir */ }
+  found.sort((a, b) => b.mtime - a.mtime || (a.id < b.id ? -1 : 1));
+  found = found.slice(0, LIST_MAX);
+  if (found.length === 0) { out("no runs to undo\n"); return 0; }
+  const rows: string[][] = [["RUN", "VERDICT", "FILES", "AGE"]];
+  for (const r of found) {
+    const refs = receiptRefs(r.path);
+    let files = "-";
+    if (refs) {
+      const l = git(repoDir, ["log", "--name-only", "--format=", "--end-of-options", `${refs.base}..${refs.head}`]);
+      if (l.status === 0) files = String(new Set(l.stdout.split("\n").map((x) => x.trim()).filter(Boolean)).size);
+    }
+    const verdict = (await verifyReceipt(r.path)).verdict;
+    rows.push([r.id, verdict, files, formatAge(new Date(r.mtime).toISOString(), now)]);
+  }
+  const w = [0, 1, 2].map((i) => Math.max(...rows.map((row) => row[i]!.length)));
+  out(rows.map((row) => `${row.map((c, i) => (i < 3 ? c.padEnd(w[i]!) : c)).join("  ")}\n`).join(""));
+  return 0;
+}
+
 export async function runUndo(args: readonly string[], deps: UndoDeps = {}): Promise<number> {
   const out = deps.out ?? ((s: string) => void process.stdout.write(s)), err = deps.err ?? ((s: string) => void process.stderr.write(s));
   if (args[0] === "--help" || args[0] === "-h" || args.length === 0) { out(USAGE); return args.length === 0 ? 2 : 0; }
-  const flags = new Set(["--plan", "--json", "--allow-unsigned", "--yes", "--close-pr"]);
+  if (args.includes("--list")) {
+    if (args.length !== 1) { err(`loki undo: --list takes no other arguments\n${USAGE}`); return 2; }
+    return listRuns(deps, deps.git ?? defaultRunner, out);
+  }
+  const flags = new Set(["--plan", "--json", "--allow-unsigned", "--yes", "--close-pr", "--dry-run"]);
   const pos = args.filter((a) => !a.startsWith("--")), bad = args.filter((a) => a.startsWith("--") && !flags.has(a));
   if (bad.length > 0 || pos.length !== 1) { err(`loki undo: ${bad.length > 0 ? `unknown flag ${bad[0]}` : "exactly one run-id is required"}\n${USAGE}`); return 2; }
   const runId = pos[0]!;
-  const planOnly = args.includes("--plan");
+  const dryRun = args.includes("--dry-run");
+  const planOnly = args.includes("--plan") || dryRun;
   if (!planOnly && (args.includes("--allow-unsigned") || args.includes("--json"))) { err("loki undo: --allow-unsigned and --json apply to --plan only; apply never accepts an unsigned receipt\n"); return 2; }
-  if (planOnly && (args.includes("--yes") || args.includes("--close-pr"))) { err("loki undo: --yes and --close-pr cannot be combined with --plan\n"); return 2; }
+  if (planOnly && (args.includes("--yes") || args.includes("--close-pr"))) { err("loki undo: --yes and --close-pr cannot be combined with --plan or --dry-run\n"); return 2; }
   if (!planOnly && (deps.env ?? process.env)["LOKI_UNDO"] !== "1") { err("loki undo: applying an undo is behind LOKI_UNDO=1 until reviewed; use --plan to preview\n"); return 2; }
   const loaded = await loadPlan(runId, planOnly && args.includes("--allow-unsigned"), deps, deps.git ?? defaultRunner);
   if ("rc" in loaded) return loaded.rc;
+  if (dryRun) loaded.plan.diffstat = dryRunDiffstat(loaded.plan, deps.repoDir ?? dirname(lokiDir()), deps.git ?? defaultRunner);
   if (planOnly) { out(args.includes("--json") ? JSON.stringify(loaded.plan, null, 2) + "\n" : renderPlan(loaded.plan)); return 0; }
   const { applyUndo } = await import("./undo_apply.ts");
   const undoDir = deps.undoDir ?? join(lokiDir(), "undo");

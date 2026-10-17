@@ -29,6 +29,7 @@ export interface GuardSnapshot {
 }
 
 const git = (cwd: string, args: string[]): string => { try { return safeGit(cwd, args).trim(); } catch { return ""; } };
+// Absolute git dir (worktree and submodule safe), falling back to cwd/.git when rev-parse fails.
 const gitDir = (cwd: string): string => { const g = git(cwd, ["rev-parse", "--absolute-git-dir"]); return g || join(cwd, ".git"); };
 const listHooks = (gd: string): string[] => { try { return readdirSync(join(gd, "hooks")).filter((f) => !f.endsWith(".sample")).sort(); } catch { return []; } };
 const readSafe = (p: string): string => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
@@ -64,7 +65,9 @@ export function escapesProject(root: string, linkPath: string): boolean {
 export function scanGuard(s: GuardSnapshot): { violations: Violation[]; deletedPaths: string[]; escapingLinks: string[] } {
   const violations: Violation[] = [];
   const gd = gitDir(s.cwd);
-  const status = git(s.cwd, ["status", "--porcelain=v1", "-uall"]).split("\n").filter(Boolean);
+  // P12-25: -z gives raw NUL-terminated records; a rename or copy (R/C in either column) carries a second record, its source path.
+  const rec = (() => { try { return safeGit(s.cwd, ["status", "--porcelain=v1", "-z", "-uall"]); } catch { return ""; } })().split("\0").filter(Boolean), status: string[] = [];
+  for (let i = 0; i < rec.length; i++) { status.push(rec[i]!); if (/^.[RC]|^[RC]/.test(rec[i]!)) i++; }
   const deletedPaths = status.filter((l) => /^( D|D )/.test(l)).map((l) => l.slice(3));
   if (isRepoDeletion(deletedPaths.length, s.tracked)) violations.push({ kind: "repo-deleted", detail: `${deletedPaths.length} of ${s.tracked} tracked files deleted` });
   if (readSafe(join(gd, "config")) !== s.gitConfig) violations.push({ kind: "git-internals", detail: ".git/config changed" });
@@ -73,8 +76,8 @@ export function scanGuard(s: GuardSnapshot): { violations: Violation[]; deletedP
   if (!git(s.cwd, ["rev-parse", "HEAD"])) violations.push({ kind: "git-internals", detail: "HEAD unresolvable" });
   const escapingLinks: string[] = [];
   for (const l of status) {
-    const p = l.slice(3).replace(/^"|"$/g, "");
-    if (p.includes("..")) { violations.push({ kind: "outside-project", detail: `path escapes project: ${p}` }); continue; }
+    const p = l.slice(3);
+    if (p.split("/").includes("..")) { violations.push({ kind: "outside-project", detail: `path escapes project: ${p}` }); continue; }
     const abs = join(s.cwd, p);
     try { if (lstatSync(abs).isSymbolicLink() && escapesProject(s.cwd, abs)) { escapingLinks.push(p); violations.push({ kind: "outside-project", detail: `symlink points outside project: ${p}` }); } } catch { /* deleted path */ }
   }

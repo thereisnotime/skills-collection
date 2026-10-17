@@ -8,6 +8,9 @@
 //   - requirements-verifier  (model=opus,   effort=high)
 //   - test-auditor           (model=sonnet, effort=high)
 //   - convergence-voter      (model=sonnet, effort=medium)
+// Cost S7: unless LOKI_COMPLEXITY=complex the three base voters run on haiku
+// with no effort knob (byte-mirror of autonomy/lib/voter-agents.sh). The
+// devils-advocate is unchanged.
 //   - devils-advocate        (model=opus,   effort=xhigh)  -- conditional 4th
 //
 // The 3 base voters always run. The 4th (devils-advocate) is constructed via
@@ -34,6 +37,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve as resolvePath } from "node:path";
 import type { AgentVerdict } from "../runner/council.ts";
 import { judgeJson, sdkJudgeAvailable } from "../runner/sdk_invoker.ts";
+import { withChildLedger } from "../util/child_ledger.ts";
 import type { CouncilEvaluateContext } from "../runner/council.ts";
 import { readStreamCapped } from "../util/shell.ts";
 import { parseMultiResponse } from "./finding_schema.ts";
@@ -43,6 +47,7 @@ import {
   ensureClaudeHelpCache,
   reviewAllowlistArgv,
   cavemanSuppressEnv,
+  permissionArgv,
 } from "../providers/claude_flags.ts";
 import { resolveClaudeModel } from "../util/claude_model.ts";
 
@@ -127,6 +132,7 @@ function commonSuffix(slug: string): string {
     "",
     `Your role slug is "${slug}". Emit exactly one finding with role=${slug}.`,
     "Return ONLY the JSON object {\"findings\":[...]} matching the provided --json-schema.",
+    "For every CRITICAL or HIGH issue, cite the evidence as path:line (for example src/a.ts:42, or .loki/logs/x.log:9); an uncited blocking issue is downgraded to MEDIUM.",
     "Do not wrap in markdown fences. Do not add prose before or after the JSON.",
   ].join("\n");
 }
@@ -144,11 +150,13 @@ export function buildVoterAgentsJson(cec: CouncilEvaluateContext): Record<string
   const baseHigh = effortForTier(tier === "fast" ? "development" : tier);
   // Convergence-voter is medium by intent (cheap signal); use 'fast' tier mapping.
   const convergenceEffort = effortForTier("fast");
+  const lean = (process.env["LOKI_COMPLEXITY"] ?? "standard") !== "complex";
+  const pick = (model: string, effort: string): { model: string; effort?: string } =>
+    lean ? { model: "haiku" } : { model, effort };
 
   const reqVerifier: AgentSpec = {
     description: "Requirements verifier -- checks current state against the PRD requirements.",
-    model: "opus",
-    effort: baseHigh,
+    ...pick("opus", baseHigh),
     prompt: [
       `You are the requirements-verifier voter for iteration ${iter}.`,
       prdLine,
@@ -163,8 +171,7 @@ export function buildVoterAgentsJson(cec: CouncilEvaluateContext): Record<string
 
   const testAuditor: AgentSpec = {
     description: "Test auditor -- inspects test logs and gate outcomes.",
-    model: "sonnet",
-    effort: baseHigh,
+    ...pick("sonnet", baseHigh),
     prompt: [
       `You are the test-auditor voter for iteration ${iter}.`,
       prdLine,
@@ -178,8 +185,7 @@ export function buildVoterAgentsJson(cec: CouncilEvaluateContext): Record<string
 
   const convergenceVoter: AgentSpec = {
     description: "Convergence voter -- monitors iteration delta and stagnation signals.",
-    model: "sonnet",
-    effort: convergenceEffort,
+    ...pick("sonnet", convergenceEffort),
     prompt: [
       `You are the convergence-voter for iteration ${iter}.`,
       prdLine,
@@ -299,7 +305,7 @@ export async function dispatchClaudeAgents(
   cec: CouncilEvaluateContext,
   claudeRunner?: ClaudeRunner,
 ): Promise<AgentVerdict[]> {
-  const runner = claudeRunner ?? defaultClaudeRunner;
+  const runner = claudeRunner ?? withChildLedger(defaultClaudeRunner, cec.ctx.lokiDir, "council"); // COST-WALL: the real spawn is a child session, one ledger line each
   const injected = claudeRunner !== undefined;
 
   if (!injected) {
@@ -346,6 +352,7 @@ export async function dispatchClaudeAgents(
         model: process.env["LOKI_SDK_COUNCIL_MODEL"] || resolveClaudeModel("sonnet"),
         effort: "high",
         timeoutMs,
+        ledger: { lokiDir: cec.ctx.lokiDir, phase: "council" },
       });
       if (obj !== null) {
         const verdicts = parseMultiResponse(JSON.stringify(obj));
@@ -369,7 +376,7 @@ export async function dispatchClaudeAgents(
   // through the auto-flags builder.
   const argv = [
     "claude",
-    "--dangerously-skip-permissions",
+    ...permissionArgv(),
     "--agents",
     JSON.stringify(agentsJson),
     "--json-schema",
@@ -447,7 +454,7 @@ export async function dispatchDevilsAdvocate(
   cec: CouncilEvaluateContext,
   claudeRunner?: ClaudeRunner,
 ): Promise<AgentVerdict> {
-  const runner = claudeRunner ?? defaultClaudeRunner;
+  const runner = claudeRunner ?? withChildLedger(defaultClaudeRunner, cec.ctx.lokiDir, "council"); // COST-WALL: the real spawn is a child session, one ledger line each
   const injected = claudeRunner !== undefined;
 
   if (!injected) {
@@ -478,7 +485,7 @@ export async function dispatchDevilsAdvocate(
   // the tree-mutation guard / least-privilege allowlist apply identically.
   const argv = [
     "claude",
-    "--dangerously-skip-permissions",
+    ...permissionArgv(),
     "--agents",
     JSON.stringify(agentsJson),
     "--json-schema",

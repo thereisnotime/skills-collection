@@ -1175,6 +1175,7 @@ verify_secret_scan_file() {
         'github_pat_[A-Za-z0-9_]{60,}'              # GitHub fine-grained PAT
         'xox[baprs]-[A-Za-z0-9-]{10,}'              # Slack token (xoxb-/xoxp-/...)
         'sk-[A-Za-z0-9]{20,}'                       # OpenAI-style secret key
+        'sk-ant-[A-Za-z0-9_-]{20,}'                 # Anthropic API key (hyphenated body)
         'AIza[0-9A-Za-z_-]{35}'                     # Google API key
         'glpat-[A-Za-z0-9_-]{20,}'                  # GitLab personal access token
     )
@@ -2593,6 +2594,11 @@ OPTIONS:
                        no signed issue time, or is more than 300s in the
                        future. Exits 2 (UNCHECKED). Routed to the engine10
                        verifier.
+    --require-exogenous
+                       With a run receipt: exit 4 when a VERIFIED receipt has
+                       no agent-independent passing check or no recorded
+                       provenance (or set LOKI_VERIFY_REQUIRE_EXOGENOUS=1).
+                       Routed to the engine10 verifier.
     -h, --help         Show this help.
 
 GATES (deterministic, reproducible by construction):

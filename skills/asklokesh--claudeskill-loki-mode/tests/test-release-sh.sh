@@ -193,8 +193,23 @@ for a in "$@"; do
 done
 green() { printf '[{"status":"completed","conclusion":"success","headSha":"%s"}]\n' "$STUB_SHA"; }
 red()   { printf '[{"status":"completed","conclusion":"failure","headSha":"%s"}]\n' "$STUB_SHA"; }
+# --ship's bounded wait asks about the Release workflow: the first
+# $GH_RELEASE_BUSY calls (counted in $GH_RELEASE_COUNT) report a run in flight.
+if [ "$wf" = "Release" ]; then
+    n=0
+    if [ -n "${GH_RELEASE_COUNT:-}" ] && [ -f "$GH_RELEASE_COUNT" ]; then n="$(cat "$GH_RELEASE_COUNT")"; fi
+    n=$((n + 1))
+    if [ -n "${GH_RELEASE_COUNT:-}" ]; then echo "$n" > "$GH_RELEASE_COUNT"; fi
+    if [ "$n" -le "${GH_RELEASE_BUSY:-0}" ]; then
+        echo '[{"status":"in_progress","databaseId":7}]'
+    else
+        echo '[{"status":"completed","databaseId":7}]'
+    fi
+    exit 0
+fi
 case "$GH_MODE" in
     green) green ;;
+    green_head) printf '[{"status":"completed","conclusion":"success","headSha":"%s"}]\n' "$(git rev-parse HEAD)" ;;
     tests_red)      [ "$wf" = "Tests" ] && red || green ;;
     empty) echo '[]' ;;
     diffsha) printf '[{"status":"completed","conclusion":"success","headSha":"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"}]\n' ;;
@@ -215,6 +230,9 @@ cat > "$STUBBIN/bun" << 'BUNEOF'
 if [ "$1" = "run" ] && [ "$2" = "build" ]; then
     mkdir -p dist
     printf 'stub build, version %s\n' "$(cat ../VERSION)" > dist/loki.js
+    printf '{"version":3,"sources":[],"names":[],"mappings":"","x":"%s"}\n' "$(cat ../VERSION)" > dist/loki.js.map
+    # --ship race fixture: move origin/main mid-ship (after the preflight).
+    if [ -n "${BUN_RACE_SCRIPT:-}" ]; then bash "$BUN_RACE_SCRIPT" >/dev/null 2>&1; fi
     exit 0
 fi
 exit 1
@@ -235,6 +253,12 @@ for f in $FILES; do
     mkdir -p "$REPO2/$(dirname "$f")"
     cp "$REPO_ROOT/$f" "$REPO2/$f"
 done
+# Guard-row fixtures (REL-GUARD): the real runner and selector, a stub row list.
+mkdir -p "$REPO2/eval/loki10" "$REPO2/tests"
+cp "$REPO_ROOT/scripts/impacted-gate.sh" "$REPO_ROOT/scripts/select-tests.sh" "$REPO2/scripts/"
+cp "$REPO_ROOT/eval/loki10/lib-tmp.sh" "$REPO2/eval/loki10/"
+printf 'shell_test\ttests/stub-guard.sh\n' > "$REPO2/scripts/global-guards.tsv"
+printf '#!/usr/bin/env bash\nexit "${GUARD_STUB_RC:-0}"\n' > "$REPO2/tests/stub-guard.sh"
 echo "0.0.1" > "$REPO2/loki-ts/dist/loki.js"
 # Pin a known baseline so `patch` produces a predictable, hardcodable new
 # version regardless of this real repo's current VERSION.
@@ -361,6 +385,363 @@ fi
 grep -qi "SKIPPING the green-CI release gate" "$WORK2/case.log" \
     && ok "escape hatch prints a loud warning" \
     || bad "escape hatch did not print the expected warning: $(cat "$WORK2/case.log")"
+
+echo
+echo "T12 -- ALLOW_RED still runs the global guard rows (REL-GUARD)"
+run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1 GUARD_STUB_RC=1"
+rc12=$?
+[ "$rc12" -eq 3 ] && ok "red guard row aborts the release (exit 3)" || bad "expected exit 3, got $rc12 ($(tail -8 "$WORK2/case.log"))"
+grep -q "tests/stub-guard.sh" "$WORK2/case.log" \
+    && ok "red guard row is named in the output" || bad "row not named: $(tail -5 "$WORK2/case.log")"
+[ "$(snapshot2)" = "$CONTENT_BEFORE" ] && ok "red guard: VERSION and files untouched" || bad "red guard: files were modified"
+
+if run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1 GUARD_STUB_RC=0"; then
+    ok "green guard row proceeds to the bump"
+else
+    bad "expected exit 0 with a green guard row, got $? ($(tail -3 "$WORK2/case.log"))"
+fi
+grep -q "1.2.4" "$REPO2/VERSION" && ok "green guard: VERSION bumped" || bad "green guard: VERSION not bumped"
+
+if run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1 LOKI_RELEASE_SKIP_GUARDS=1 GUARD_STUB_RC=1"; then
+    ok "SKIP_GUARDS=1 proceeds despite a red row"
+else
+    bad "expected exit 0 with SKIP_GUARDS=1, got $?"
+fi
+grep -q "SKIPPING the global guard rows" "$WORK2/case.log" \
+    && ok "SKIP_GUARDS prints a loud warning" || bad "no skip warning"
+
+echo
+echo "T13 -- guard rows run against a clean worktree of HEAD, not the dirty tree (REL-GUARD-b)"
+# (a) dirty tracked file would make the row red; HEAD is green, so the guard stays green.
+reset_repo2
+printf '#!/usr/bin/env bash\nexit 1\n' > "$REPO2/tests/stub-guard.sh"
+( cd "$REPO2" && env PATH="$STUBBIN:$PATH" GH_MODE=tests_red STUB_SHA="$STUB_SHA" GH_CALL_LOG="$WORK2/gh-calls.log" \
+    LOKI_RELEASE_ALLOW_RED=1 bash ./scripts/release.sh patch --bump-only >"$WORK2/case.log" 2>&1 </dev/null )
+rc13=$?
+[ "$rc13" -eq 0 ] && ok "dirty-but-red working edit does not turn the guard red (reads HEAD)" || bad "expected exit 0, got $rc13 ($(tail -4 "$WORK2/case.log"))"
+grep -q "RELEASE_GUARD_DIRTY" "$WORK2/case.log" && bad "dirty refusal still present" || ok "no dirty-tree refusal"
+[ -z "$(git -C "$REPO2" worktree list | grep guard-wt)" ] && ok "no leftover guard worktree (a)" || bad "leftover guard worktree: $(git -C "$REPO2" worktree list)"
+# (b) committed red row with a green-looking working edit: guard is red, exit 3.
+reset_repo2
+printf '#!/usr/bin/env bash\nexit 1\n' > "$REPO2/tests/stub-guard.sh"
+git -C "$REPO2" -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false -c core.hooksPath=/dev/null \
+    commit -q -am "red guard" >/dev/null
+B_SHA="$(git -C "$REPO2" rev-parse HEAD)"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$REPO2/tests/stub-guard.sh"
+( cd "$REPO2" && env PATH="$STUBBIN:$PATH" GH_MODE=tests_red STUB_SHA="$B_SHA" GH_CALL_LOG="$WORK2/gh-calls.log" \
+    LOKI_RELEASE_ALLOW_RED=1 bash ./scripts/release.sh patch --bump-only >"$WORK2/case.log" 2>&1 </dev/null )
+rc13b=$?
+[ "$rc13b" -eq 3 ] && ok "committed red row stays red despite a green working edit (exit 3)" || bad "expected exit 3, got $rc13b ($(tail -4 "$WORK2/case.log"))"
+grep -q "RELEASE_GUARD_RED" "$WORK2/case.log" && ok "RELEASE_GUARD_RED printed" || bad "no RED message"
+[ -z "$(git -C "$REPO2" worktree list | grep guard-wt)" ] && ok "no leftover guard worktree (b)" || bad "leftover guard worktree: $(git -C "$REPO2" worktree list)"
+# restore the fixture to the baseline commit for later cases
+git -C "$REPO2" reset -q --hard "$STUB_SHA" >/dev/null 2>&1
+reset_repo2
+
+echo
+echo "T14 -- caller-exported LOKI_RUN_TMP does not turn the guard red (REL-GUARD-b)"
+if run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1 GUARD_STUB_RC=0 LOKI_RUN_TMP=/nonexistent-run-tmp"; then
+    ok "guard green with LOKI_RUN_TMP preset"
+else
+    bad "preset LOKI_RUN_TMP broke the guard ($(tail -5 "$WORK2/case.log"))"
+fi
+
+echo
+echo "T15 -- default guard timeout is 300s, not 170 (REL-GUARD-b)"
+grep -q 'LOKI_RELEASE_GUARD_TIMEOUT:-300' "$REPO_ROOT/scripts/release.sh" && ok "default 300" || bad "default not 300"
+grep -q ':-170' "$REPO_ROOT/scripts/release.sh" && bad "170 default still present" || ok "no 170 default"
+
+echo
+echo "T16 -- stale loki-guard.*/guard-wt registrations are reclaimed; unrelated worktrees untouched (REL-GUARD-c)"
+reset_repo2
+T16_ROOT="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
+T16_STALE="$(mktemp -d "${T16_ROOT}/loki-guard.XXXXXXXX")"
+chmod 700 "$T16_STALE"
+T16_NEST="$(mktemp -d "${T16_ROOT}/loki-guard.XXXXXXXX")"
+mkdir -p "$T16_NEST/y"
+git -C "$REPO2" worktree add --detach "$T16_NEST/y/loki-guard.z/guard-wt" HEAD >/dev/null 2>&1
+git -C "$REPO2" worktree add --detach "$T16_STALE/guard-wt" HEAD >/dev/null 2>&1
+T16_OTHER="$WORK2/unrelated-wt"
+git -C "$REPO2" worktree add --detach "$T16_OTHER" HEAD >/dev/null 2>&1
+git -C "$REPO2" worktree list | grep -q "$T16_STALE/guard-wt" && ok "fixture: stale registration present" || bad "fixture: stale registration missing"
+if run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1 GUARD_STUB_RC=0"; then
+    ok "guard run stays green with a stale registration present"
+else
+    bad "guard run failed with stale registration ($(tail -5 "$WORK2/case.log"))"
+fi
+if git -C "$REPO2" worktree list | grep -q "$T16_STALE/guard-wt"; then
+    bad "stale guard worktree still registered: $(git -C "$REPO2" worktree list)"
+else
+    ok "stale guard registration removed"
+fi
+if git -C "$REPO2" worktree list | grep -q "/y/loki-guard.z/guard-wt" && [ -d "$T16_NEST/y/loki-guard.z/guard-wt" ]; then
+    ok "nested loki-guard.a/y/loki-guard.z/guard-wt survives"
+else
+    bad "nested registration was swept"
+fi
+[ ! -e "$T16_STALE" ] && ok "stale loki-guard parent dir removed" || bad "stale parent dir remains: $T16_STALE"
+if git -C "$REPO2" worktree list | grep -q "/unrelated-wt " && [ -d "$T16_OTHER" ]; then
+    ok "unrelated worktree untouched"
+else
+    bad "unrelated worktree was removed"
+fi
+git -C "$REPO2" worktree remove --force "$T16_OTHER" >/dev/null 2>&1 || true
+git -C "$REPO2" worktree remove --force "$T16_NEST/y/loki-guard.z/guard-wt" >/dev/null 2>&1 || true
+rm -rf -- "$T16_STALE" "$T16_NEST"
+git -C "$REPO2" worktree prune >/dev/null 2>&1 || true
+
+echo
+echo "T17-T26 -- --ship one-command release (TEN-RELEASE-FAST)"
+echo "  fixture: a clone of a LOCAL bare origin; stub gh, gitleaks and bun on"
+echo "  PATH; an empty global git config. The real remote is never touched."
+SHIPW="$WORK2/ship"
+mkdir -p "$SHIPW"
+: > "$SHIPW/empty-gitconfig"
+# Stub gitleaks: logs its argv, exits $GITLEAKS_RC (0 = clean).
+cat > "$STUBBIN/gitleaks" << 'GLEOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${GITLEAKS_LOG:-/dev/null}"
+exit "${GITLEAKS_RC:-0}"
+GLEOF
+chmod +x "$STUBBIN/gitleaks"
+gitq() { git -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
+
+# Template: REPO2's baseline + a CHANGELOG whose line 8 is '## v1.2.3', a
+# tracked-but-ignored dist pair (as in the real repo) and a tracked
+# docs/v10/CONTROL.md (the usage governor's always-dirty file).
+SHIP_TPL="$SHIPW/tpl"
+git clone -q "$REPO2" "$SHIP_TPL"
+{
+    printf '# Changelog\n\nAll notable changes.\n\nKeep a Changelog.\n\nSemver.\n'
+    printf '## v1.2.3 (2026-01-01)\n\n### Fixed\n- baseline\n'
+} > "$SHIP_TPL/CHANGELOG.md"
+printf 'loki-ts/dist/\n' > "$SHIP_TPL/.gitignore"
+printf '{"version":3,"sources":[],"names":[],"mappings":"","x":"1.2.3"}\n' > "$SHIP_TPL/loki-ts/dist/loki.js.map"
+mkdir -p "$SHIP_TPL/docs/v10"
+printf 'control\n' > "$SHIP_TPL/docs/v10/CONTROL.md"
+mkdir -p "$SHIP_TPL/loki-ts/src"
+printf 'export const x = 1;\n' > "$SHIP_TPL/loki-ts/src/index.ts"
+gitq -C "$SHIP_TPL" add CHANGELOG.md .gitignore docs/v10/CONTROL.md loki-ts/src/index.ts
+gitq -C "$SHIP_TPL" add -f loki-ts/dist/loki.js.map
+gitq -C "$SHIP_TPL" commit -q -m "ship fixture"
+SHIP_BASE="$(git -C "$SHIP_TPL" rev-parse HEAD)"
+printf '## v1.2.4 (2026-10-17)\n\n### Added\n- one-command ship\n\n\n' > "$SHIPW/notes.md"
+
+SHIP_ORIGIN="$SHIPW/origin.git"
+SHIP_REPO="$SHIPW/repo"
+new_ship_fixture() {
+    rm -rf -- "$SHIP_ORIGIN" "$SHIP_REPO" "$SHIPW/other"
+    git clone -q --bare "$SHIP_TPL" "$SHIP_ORIGIN"
+    git clone -q "$SHIP_ORIGIN" "$SHIP_REPO"
+    : > "$SHIPW/gitleaks.log"
+    rm -f "$SHIPW/release-count"
+}
+origin_main() { git -C "$SHIP_ORIGIN" rev-parse refs/heads/main; }
+# Push one unrelated commit to origin from a second clone (origin moves on).
+cat > "$SHIPW/race.sh" << RACEEOF
+#!/usr/bin/env bash
+rm -rf "$SHIPW/other"
+git clone -q "$SHIP_ORIGIN" "$SHIPW/other"
+echo other > "$SHIPW/other/other.txt"
+git -C "$SHIPW/other" add other.txt
+git -C "$SHIPW/other" -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m other
+git -C "$SHIPW/other" -c core.hooksPath=/dev/null push -q origin HEAD:refs/heads/main
+RACEEOF
+
+# Runs the real entry path: bash scripts/release.sh --ship from the repo root.
+run_ship_case() {
+    # $1 = extra env assignments ("A=1 B=2") or ""; $2 = notes file
+    local extra="${1:-}" notes="${2:-$SHIPW/notes.md}"
+    ( cd "$SHIP_REPO" \
+        && env PATH="$STUBBIN:$PATH" GIT_CONFIG_GLOBAL="$SHIPW/empty-gitconfig" GIT_CONFIG_NOSYSTEM=1 \
+           GH_MODE=green_head GH_RELEASE_COUNT="$SHIPW/release-count" GITLEAKS_LOG="$SHIPW/gitleaks.log" \
+           LOKI_RELEASE_SHIP_POLL=1 $extra \
+           bash ./scripts/release.sh --ship --notes "$notes" >"$SHIPW/case.log" 2>&1 </dev/null )
+}
+# A refused ship: exit 4, the named token, origin/main unchanged.
+assert_refused() {
+    local label="$1" rc="$2" token="$3" origin_before="$4"
+    [ "$rc" -eq 4 ] && ok "$label: exit 4" || bad "$label: expected exit 4, got $rc ($(tail -4 "$SHIPW/case.log"))"
+    grep -q "$token" "$SHIPW/case.log" && ok "$label: $token printed" || bad "$label: no $token ($(tail -4 "$SHIPW/case.log"))"
+    [ "$(origin_main)" = "$origin_before" ] && ok "$label: origin/main untouched (no push)" || bad "$label: origin/main moved"
+}
+
+echo
+echo "T17 -- --ship happy path completes every phase and pushes"
+new_ship_fixture
+printf 'governor append\n' >> "$SHIP_REPO/docs/v10/CONTROL.md"   # dirty, NOT staged
+run_ship_case ""
+rc=$?
+[ "$rc" -eq 0 ] && ok "ship exit 0" || bad "ship expected exit 0, got $rc ($(tail -8 "$SHIPW/case.log"))"
+LOCAL_HEAD="$(git -C "$SHIP_REPO" rev-parse HEAD)"
+[ "$(origin_main)" = "$LOCAL_HEAD" ] && ok "origin/main equals the local release commit" || bad "origin/main != HEAD"
+[ "$(git -C "$SHIP_REPO" log -1 --format=%s)" = "release: v1.2.4" ] && ok "commit subject 'release: v1.2.4'" || bad "subject: $(git -C "$SHIP_REPO" log -1 --format=%s)"
+[ "$(git -C "$SHIP_REPO" log -1 --format='%an <%ae>')" = "asklokesh <lokeshmure@live.com>" ] && ok "commit identity asklokesh" || bad "identity: $(git -C "$SHIP_REPO" log -1 --format='%an <%ae>')"
+[ "$(git -C "$SHIP_REPO" rev-parse HEAD~1)" = "$SHIP_BASE" ] && ok "exactly one commit on top of the base" || bad "unexpected history"
+[ "$(git -C "$SHIP_REPO" show HEAD:CHANGELOG.md | sed -n 8p)" = "## v1.2.4 (2026-10-17)" ] && ok "CHANGELOG line 8 is the new section" || bad "CHANGELOG line 8: $(git -C "$SHIP_REPO" show HEAD:CHANGELOG.md | sed -n 8p)"
+[ "$(git -C "$SHIP_REPO" show HEAD:CHANGELOG.md | sed -n '11p')" = "- one-command ship" ] \
+    && [ -z "$(git -C "$SHIP_REPO" show HEAD:CHANGELOG.md | sed -n '12p')" ] \
+    && [ "$(git -C "$SHIP_REPO" show HEAD:CHANGELOG.md | sed -n 13p)" = "## v1.2.3 (2026-01-01)" ] \
+    && ok "old section follows after exactly one blank line" || bad "CHANGELOG join wrong: $(git -C "$SHIP_REPO" show HEAD:CHANGELOG.md | sed -n '8,16p' | tr '\n' '|')"
+git -C "$SHIP_REPO" show HEAD:loki-ts/dist/loki.js | grep -q 1.2.4 && ok "committed dist/loki.js embeds 1.2.4" || bad "dist loki.js not in commit"
+git -C "$SHIP_REPO" show HEAD:loki-ts/dist/loki.js.map | grep -q 1.2.4 && ok "committed dist/loki.js.map rebuilt" || bad "dist map not in commit"
+git -C "$SHIP_REPO" show HEAD:VERSION | grep -qx 1.2.4 && ok "committed VERSION 1.2.4" || bad "VERSION not committed"
+git -C "$SHIP_REPO" diff --name-only HEAD~1 HEAD | grep -qx docs/v10/CONTROL.md && bad "unstaged CONTROL.md edit was committed" || ok "dirty CONTROL.md left out of the commit"
+grep -qF -- "--log-opts=origin/main..HEAD --diff-merges=first-parent" "$SHIPW/gitleaks.log" && ok "gitleaks ran on origin/main..HEAD first-parent" || bad "gitleaks args: $(cat "$SHIPW/gitleaks.log")"
+ntime="$(grep -c '^\[TIME\] ' "$SHIPW/case.log")"
+[ "$ntime" -ge 10 ] && ok "per-phase timings printed ($ntime [TIME] lines)" || bad "only $ntime [TIME] lines"
+for ph in preflight "bump version files" "write CHANGELOG section" "rebuild loki-ts/dist" "stage and commit" "ancestry check" gitleaks "wait for an in-flight Release run" push "verify origin/main" total; do
+    grep -q "^\[TIME\] $ph" "$SHIPW/case.log" || bad "no [TIME] line for phase: $ph"
+done
+
+echo
+echo "T18 -- origin/main not an ancestor of HEAD: refuses before any write"
+new_ship_fixture
+bash "$SHIPW/race.sh"
+ORIG="$(origin_main)"
+run_ship_case ""
+assert_refused "non-ancestor" $? SHIP_NOT_ANCESTOR "$ORIG"
+[ "$(git -C "$SHIP_REPO" rev-parse HEAD)" = "$SHIP_BASE" ] && ok "non-ancestor: no local commit" || bad "non-ancestor: a commit was made"
+grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "non-ancestor: VERSION untouched (preflight)" || bad "non-ancestor: VERSION written"
+
+echo
+echo "T19 -- origin/main moves mid-ship: post-commit ancestry recheck refuses"
+new_ship_fixture
+run_ship_case "BUN_RACE_SCRIPT=$SHIPW/race.sh"
+rc=$?
+ORIG="$(origin_main)"
+[ "$ORIG" != "$SHIP_BASE" ] && ok "race fixture moved origin/main" || bad "race fixture did not move origin"
+assert_refused "mid-ship race" "$rc" SHIP_NOT_ANCESTOR "$ORIG"
+grep -q "was NOT pushed" "$SHIPW/case.log" && ok "mid-ship race: says the local commit was not pushed" || bad "no not-pushed note"
+[ ! -s "$SHIPW/gitleaks.log" ] && ok "mid-ship race: refused before gitleaks" || bad "gitleaks ran after a failed ancestry check"
+
+echo
+echo "T20 -- gitleaks finding: refuses before push"
+new_ship_fixture
+run_ship_case "GITLEAKS_RC=1"
+assert_refused "gitleaks hit" $? SHIP_GITLEAKS "$SHIP_BASE"
+# E-114: a range that adds .gitleaks.toml could disable the very scan it faces.
+new_ship_fixture
+printf 'title = "x"\n' > "$SHIP_REPO/.gitleaks.toml"
+gitq -C "$SHIP_REPO" add .gitleaks.toml
+gitq -C "$SHIP_REPO" commit -q -m "add zero-rule config"
+run_ship_case ""
+assert_refused "range adds .gitleaks.toml" $? SHIP_GITLEAKS_CONFIG "$SHIP_BASE"
+[ ! -s "$SHIPW/gitleaks.log" ] && ok "range adds .gitleaks.toml: gitleaks never ran" || bad "gitleaks ran on a self-configured range"
+# The repo's reviewed .gitleaksignore baseline is passed when present.
+new_ship_fixture
+: > "$SHIP_REPO/.gitleaksignore"
+gitq -C "$SHIP_REPO" add .gitleaksignore
+gitq -C "$SHIP_REPO" commit -q -m "add ignore baseline"
+run_ship_case ""
+rc=$?
+[ "$rc" -eq 0 ] && grep -qF -- "--gitleaks-ignore-path $(cd "$SHIP_REPO" && pwd)/.gitleaksignore" "$SHIPW/gitleaks.log" \
+    && ok ".gitleaksignore baseline passed to gitleaks" || bad ".gitleaksignore not passed (rc=$rc): $(cat "$SHIPW/gitleaks.log")"
+
+echo
+echo "T21 -- only HEAD plus this run's edits reach the release commit"
+# T21a: anything already staged is refused in preflight, before any write.
+new_ship_fixture
+printf 'governor append\n' >> "$SHIP_REPO/docs/v10/CONTROL.md"
+git -C "$SHIP_REPO" add docs/v10/CONTROL.md
+run_ship_case ""
+assert_refused "CONTROL.md pre-staged" $? SHIP_INDEX_NOT_EMPTY "$SHIP_BASE"
+[ "$(git -C "$SHIP_REPO" rev-parse HEAD)" = "$SHIP_BASE" ] && ok "pre-staged: no commit made" || bad "pre-staged: a commit was made"
+grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "pre-staged: VERSION untouched (preflight)" || bad "pre-staged: VERSION written"
+grep -q "docs/v10/CONTROL.md" "$SHIPW/case.log" && ok "pre-staged: file named" || bad "pre-staged file not named"
+# T21b: an arbitrary staged file (not on the 5-name denylist) is refused too.
+new_ship_fixture
+printf 'x\n' > "$SHIP_REPO/docs/v10/CONTROL.md.orig"
+git -C "$SHIP_REPO" add docs/v10/CONTROL.md.orig
+run_ship_case ""
+assert_refused "CONTROL.md.orig pre-staged" $? SHIP_INDEX_NOT_EMPTY "$SHIP_BASE"
+# T21c: an unstaged edit to a release-list file is refused (reviewer probe).
+new_ship_fixture
+printf 'UNREVIEWED STRAY EDIT\n' >> "$SHIP_REPO/CHANGELOG.md"
+run_ship_case ""
+assert_refused "stray CHANGELOG.md edit" $? SHIP_DIRTY_RELEASE_FILES "$SHIP_BASE"
+grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "stray CHANGELOG edit: VERSION untouched (preflight)" || bad "stray CHANGELOG edit: VERSION written"
+new_ship_fixture
+printf 'stray\n' >> "$SHIP_REPO/CLAUDE.md"
+run_ship_case ""
+assert_refused "stray CLAUDE.md edit" $? SHIP_DIRTY_RELEASE_FILES "$SHIP_BASE"
+grep -q "CLAUDE.md" "$SHIPW/case.log" && ok "stray CLAUDE.md edit: file named" || bad "dirty file not named"
+# T21d: an unstaged edit to a build input would be bundled into dist.
+new_ship_fixture
+printf 'export const y = 2;\n' >> "$SHIP_REPO/loki-ts/src/index.ts"
+run_ship_case ""
+assert_refused "stray loki-ts/src edit" $? SHIP_DIRTY_RELEASE_FILES "$SHIP_BASE"
+# Second line: files staged mid-run (after preflight, during the build).
+printf '#!/usr/bin/env bash\nprintf "x\\n" >> "%s/docs/v10/CONTROL.md"\ngit -C "%s" add docs/v10/CONTROL.md\n' "$SHIP_REPO" "$SHIP_REPO" > "$SHIPW/stage-control.sh"
+printf '#!/usr/bin/env bash\nprintf "x\\n" > "%s/docs/v10/CONTROL.md.orig"\ngit -C "%s" add docs/v10/CONTROL.md.orig\n' "$SHIP_REPO" "$SHIP_REPO" > "$SHIPW/stage-orig.sh"
+# T21e: denylisted name staged mid-run.
+new_ship_fixture
+run_ship_case "BUN_RACE_SCRIPT=$SHIPW/stage-control.sh"
+assert_refused "CONTROL.md staged mid-run" $? SHIP_FORBIDDEN_STAGED "$SHIP_BASE"
+[ "$(git -C "$SHIP_REPO" rev-parse HEAD)" = "$SHIP_BASE" ] && ok "staged mid-run: no commit made" || bad "staged mid-run: a commit was made"
+# T21f: a non-denylisted name staged mid-run hits the allowlist (exact match:
+# CONTROL.md.orig contains a forbidden path but is not one).
+new_ship_fixture
+run_ship_case "BUN_RACE_SCRIPT=$SHIPW/stage-orig.sh"
+assert_refused "CONTROL.md.orig staged mid-run" $? SHIP_UNEXPECTED_STAGED "$SHIP_BASE"
+grep -q "SHIP_FORBIDDEN_STAGED" "$SHIPW/case.log" && bad "denylist matched a substring" || ok "denylist stays exact-path"
+[ "$(git -C "$SHIP_REPO" rev-parse HEAD)" = "$SHIP_BASE" ] && ok "unexpected staged: no commit made" || bad "unexpected staged: a commit was made"
+# T21g: allowlist boundary: 'CHANGELOG' is a substring of a release path
+# (CHANGELOG.md) but not one, so the match must be whole-path.
+printf '#!/usr/bin/env bash\nprintf "x\\n" > "%s/CHANGELOG"\ngit -C "%s" add CHANGELOG\n' "$SHIP_REPO" "$SHIP_REPO" > "$SHIPW/stage-sub.sh"
+new_ship_fixture
+run_ship_case "BUN_RACE_SCRIPT=$SHIPW/stage-sub.sh"
+assert_refused "CHANGELOG (substring of a release path) staged mid-run" $? SHIP_UNEXPECTED_STAGED "$SHIP_BASE"
+
+echo
+echo "T22 -- CHANGELOG line 8 mismatch: refuses before any write"
+new_ship_fixture
+sed 's/^## v1.2.3 /## v1.2.30 /' "$SHIP_REPO/CHANGELOG.md" > "$SHIPW/cl" && cp "$SHIPW/cl" "$SHIP_REPO/CHANGELOG.md"
+run_ship_case ""
+assert_refused "c[7] '## v1.2.30' for 1.2.3 (prefix boundary)" $? SHIP_CHANGELOG_MISMATCH "$SHIP_BASE"
+grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "c[7] mismatch: VERSION untouched" || bad "c[7] mismatch: VERSION written"
+new_ship_fixture
+{ printf 'extra header line\n'; cat "$SHIP_TPL/CHANGELOG.md"; } > "$SHIP_REPO/CHANGELOG.md"
+run_ship_case ""
+assert_refused "c[7] shifted by one line" $? SHIP_CHANGELOG_MISMATCH "$SHIP_BASE"
+
+echo
+echo "T23 -- notes header must name the new version"
+new_ship_fixture
+printf '## v1.2.5 (2026-10-17)\n\n- wrong\n' > "$SHIPW/bad-notes.md"
+run_ship_case "" "$SHIPW/bad-notes.md"
+assert_refused "notes header v1.2.5" $? SHIP_NOTES_HEADER "$SHIP_BASE"
+
+echo
+echo "T24 -- in-flight Release run: bounded wait, then push"
+new_ship_fixture
+run_ship_case "GH_RELEASE_BUSY=2"
+rc=$?
+[ "$rc" -eq 0 ] && ok "waited out 2 busy polls, exit 0" || bad "expected exit 0, got $rc ($(tail -5 "$SHIPW/case.log"))"
+[ "$(grep -c 'Release run in flight' "$SHIPW/case.log")" -eq 2 ] && ok "two wait lines logged" || bad "wait lines: $(grep -c 'Release run in flight' "$SHIPW/case.log")"
+[ "$(origin_main)" = "$(git -C "$SHIP_REPO" rev-parse HEAD)" ] && ok "pushed after the wait" || bad "not pushed after the wait"
+new_ship_fixture
+run_ship_case "GH_RELEASE_BUSY=999 LOKI_RELEASE_SHIP_WAIT=2"
+assert_refused "Release never idle" $? SHIP_RELEASE_BUSY "$SHIP_BASE"
+grep -q 'LOKI_RELEASE_SHIP_WAIT:-300' "$REPO_ROOT/scripts/release.sh" && grep -q 'max_wait=300' "$REPO_ROOT/scripts/release.sh" \
+    && ok "wait default and cap are 300s" || bad "wait bound not 300s"
+
+echo
+echo "T25 -- --ship still runs the green-CI release gate"
+new_ship_fixture
+run_ship_case "GH_MODE=tests_red STUB_SHA=$SHIP_BASE"
+rc=$?
+[ "$rc" -eq 3 ] && ok "Tests red at HEAD: exit 3" || bad "expected exit 3, got $rc"
+[ "$(origin_main)" = "$SHIP_BASE" ] && grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "gate refusal: nothing written or pushed" || bad "gate refusal wrote or pushed"
+
+echo
+echo "T26 -- --ship argument validation"
+( cd "$SHIP_REPO" && bash ./scripts/release.sh --ship >"$SHIPW/case.log" 2>&1 </dev/null )
+[ $? -eq 1 ] && grep -q -- "--ship needs --notes FILE" "$SHIPW/case.log" && ok "--ship without --notes exits 1" || bad "missing --notes not rejected"
+( cd "$SHIP_REPO" && bash ./scripts/release.sh patch --notes "$SHIPW/notes.md" >"$SHIPW/case.log" 2>&1 </dev/null )
+[ $? -eq 1 ] && ok "--notes without --ship exits 1" || bad "--notes without --ship accepted"
+( cd "$SHIP_REPO" && bash ./scripts/release.sh --ship --dry-run --notes "$SHIPW/notes.md" >"$SHIPW/case.log" 2>&1 </dev/null )
+[ $? -eq 1 ] && ok "--ship --dry-run exits 1" || bad "--ship --dry-run accepted"
 
 echo
 echo "==============================================================="

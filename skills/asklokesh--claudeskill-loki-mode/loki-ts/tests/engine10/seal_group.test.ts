@@ -12,7 +12,7 @@ import { computeReceiptHash, main as verifyMain, verifyReceipt } from "../../src
 import { runGroup } from "../../src/features/speed/run_group.ts";
 import type { Dag } from "../../src/features/decompose.ts";
 import { capGroupVerdict, sealGroup } from "../../src/features/speed/seal_group.ts";
-import { composeComposite, compositeHash } from "../../src/util/composite_seal.ts";
+import { collectToolchain, composeComposite, compositeHash } from "../../src/util/composite_seal.ts";
 import type { EventType, Receipt, RunContext, StageName, Verdict } from "../../src/engine10/types.ts";
 
 let root = "";
@@ -71,7 +71,7 @@ function writeGroup(runDir: string, units: U[]): void {
     mkdirSync(d, { recursive: true });
     const events = JSON.stringify({ v: 1, seq: 0, ts: "2026-01-01T00:00:00.000Z", run: u.id, type: "run.started", stage: null, data: { group_id: "g1", unit_id: u.id } }) + "\n";
     writeFileSync(join(d, "events.jsonl"), events);
-    const body = { schema: "loki.v10.receipt/1", run_id: u.id, verdict: u.verdict ?? "VERIFIED", head_sha: "h".repeat(40), events_sha256: sha256(events), not_proven: [] };
+    const body = { schema: "loki.v10.receipt/1", run_id: u.id, verdict: u.verdict ?? "VERIFIED", head_sha: "h".repeat(40), events_sha256: sha256(events), time: { wall_s: 0, stages: {} }, not_proven: [] };
     const h = receiptSha256(body as never), sig = u.unsigned ? { jwt: null, kid: null } : signReceipt(u.id, h);
     writeFileSync(join(d, "receipt.json"), JSON.stringify({ ...body, receipt_sha256: h, verification: sig }, null, 2) + "\n");
   }
@@ -236,7 +236,7 @@ describe("D61-13 group seal and verify", () => {
     rewrite(path, (r) => { r["verdict"] = "VERIFIED"; }, true);
     const ud = join(ctx.runDir, "group/units/x");
     mkdirSync(ud, { recursive: true });
-    const body = { schema: "loki.v10.receipt/1", run_id: "x", verdict: "VERIFIED", head_sha: "h".repeat(40), events_sha256: sha256(""), not_proven: [] };
+    const body = { schema: "loki.v10.receipt/1", run_id: "x", verdict: "VERIFIED", head_sha: "h".repeat(40), events_sha256: sha256(""), time: { wall_s: 0, stages: {} }, not_proven: [] };
     const h = receiptSha256(body as never), subTxt = JSON.stringify({ ...body, receipt_sha256: h, verification: { jwt: null, kid: null } });
     writeFileSync(join(ud, "receipt.json"), subTxt);
     rewrite(path, (r) => { r["group"] = { group_id: "g", units: [{ index: 0, unit_id: "x", sub_receipt_sha256: sha256(subTxt), receipt_sha256: h, events_file_sha256: null, verdict: "VERIFIED" }] }; }, true);
@@ -334,7 +334,7 @@ function writeWs(name: string, kids: C[], integ: Record<string, unknown> = {}, l
   for (const k of kids) {
     const head = k.head ?? `${k.repo[0]}`.repeat(40);
     heads[k.repo] = head; outcomes[k.repo] = "ok";
-    const body = { schema: "loki.v10.receipt/1", run_id: `run-${k.repo}`, verdict: k.verdict ?? "VERIFIED", head_sha: head, events_sha256: sha256(""), not_proven: [] };
+    const body = { schema: "loki.v10.receipt/1", run_id: `run-${k.repo}`, verdict: k.verdict ?? "VERIFIED", head_sha: head, events_sha256: sha256(""), time: { wall_s: 0, stages: {} }, not_proven: [] };
     const h = receiptSha256(body as never), sig = k.unsigned ? { jwt: null, kid: null } : signReceipt(`run-${k.repo}`, h);
     mkdirSync(dirname(childPath(runDir, k.repo)), { recursive: true });
     writeFileSync(childPath(runDir, k.repo), JSON.stringify({ ...body, receipt_sha256: h, verification: sig }, null, 2) + "\n");
@@ -361,6 +361,33 @@ function resign(p: string, f: (c: Record<string, any>) => void): void {
 
 describe("composite receipt", () => {
   const KIDS: C[] = [{ repo: "api" }, { repo: "web" }];
+  test("TEN-GATES-19: sealed composite records the toolchain, absent tools are null, tampering is caught", async () => {
+    const p = await seal(writeWs("tc", KIDS));
+    const c = JSON.parse(readFileSync(p, "utf8")) as Record<string, any>;
+    expect(Object.keys(c["toolchain"]).sort()).toEqual(["bun", "git", "node", "python3"]);
+    // bun stays: process.versions.bun is genuine evidence. node is never taken from bun's Node-compat version.
+    const none = collectToolchain(() => null);
+    expect(none.node).toBeNull();
+    expect(none.python3).toBeNull();
+    expect(none.git).toBeNull();
+    expect(typeof none.bun).toBe("string");
+    const nulls = writeWs("tc-null", KIDS);
+    const body = composeComposite(nulls, computeReceiptHash, { bun: null, node: null, python3: null, git: null });
+    expect(body.toolchain).toEqual({ bun: null, node: null, python3: null, git: null });
+    expect((await verdictOf(p)).verdict).toBe("VERIFIED");
+    c["toolchain"]["node"] = "0.0.0";
+    writeFileSync(p, JSON.stringify(c));
+    expect((await verdictOf(p)).verdict).toBe("TAMPERED");
+    resign(p, (x) => { x["toolchain"] = { bun: 1 }; });
+    const r = await verdictOf(p);
+    expect(r.verdict).toBe("TAMPERED");
+    expect(r.reasons.join(" ")).toContain("toolchain");
+  });
+  test("TEN-GATES-19: a composite sealed before the toolchain field existed still verifies", async () => {
+    const p = await seal(writeWs("tc-old", KIDS));
+    resign(p, (x) => { delete x["toolchain"]; });
+    expect((await verdictOf(p)).verdict).toBe("VERIFIED");
+  });
   test("all green: signed composite verifies VERIFIED, exit 0, children in order", async () => {
     const dir = writeWs("green", KIDS);
     const p = await seal(dir);
@@ -589,7 +616,7 @@ describe("group run: Group Seal and resume", () => {
       mkdirSync(d, { recursive: true });
       const events = JSON.stringify({ v: 1, seq: 0, ts: "2026-01-01T00:00:00.000Z", run: u.id, type: "run.started", stage: null, data: {} }) + "\n";
       writeFileSync(join(d, "events.jsonl"), events);
-      const body = { schema: "loki.v10.receipt/1", run_id: u.id, verdict: o.satisfied?.includes(n) ? "ALREADY_SATISFIED" : "VERIFIED", head_sha: head, events_sha256: sha256(events), not_proven: [] };
+      const body = { schema: "loki.v10.receipt/1", run_id: u.id, verdict: o.satisfied?.includes(n) ? "ALREADY_SATISFIED" : "VERIFIED", head_sha: head, events_sha256: sha256(events), time: { wall_s: 0, stages: {} }, not_proven: [] };
       const h = receiptSha256(body as never), sig = o.unsigned?.includes(n) ? { jwt: null, kid: null } : signReceipt(u.id, h);
       const rec = { ...body, receipt_sha256: h, verification: sig };
       if (o.tamper?.includes(n)) rec.verdict = "FAILED";
@@ -598,9 +625,9 @@ describe("group run: Group Seal and resume", () => {
     }
     return { code: 0, stdout: out };
   };
-  const go = async (repo: string, l: ReturnType<typeof fake>, env: Record<string, string> = {}): Promise<{ code: number; err: string }> => {
+  const go = async (repo: string, l: ReturnType<typeof fake>, env: Record<string, string> = {}, spec = SPEC): Promise<{ code: number; err: string }> => {
     let err = "";
-    const code = await runGroup(l, DAG, { task: "t", repoDir: repo, env: { LOKI_GROUP_TEST_CMD: "true", LOKI_PROVIDER: "claude", ...env } as NodeJS.ProcessEnv, provider: "claude", spec: SPEC, specPath: null, seal: { receiptSha256, verifyReceipt }, say: (s) => { err += s; } });
+    const code = await runGroup(l, DAG, { task: "t", repoDir: repo, env: { LOKI_GROUP_TEST_CMD: "true", LOKI_PROVIDER: "claude", ...env } as NodeJS.ProcessEnv, provider: "claude", spec, specPath: null, seal: { receiptSha256, verifyReceipt }, say: (s) => { err += s; } });
     return { code, err };
   };
   const groups = (repo: string): string[] => readdirSync(join(repo, ".loki", "groups")).filter((n) => n.startsWith("g"));
@@ -662,6 +689,20 @@ describe("group run: Group Seal and resume", () => {
     expect(groups(repo).length).toBe(1);
     expect(err).toContain(`loki: resuming group ${groups(repo)[0]}: 2 of 3 units already VERIFIED`);
     expect(dagOf(repo, groups(repo)[0]!).units.map((u: { done: boolean }) => u.done)).toEqual([true, true, false]);
+  });
+
+  const AC = "## Acceptance criteria\n", BASE = AC + SPEC, REVISED = AC + "- add alpha\n- add beta v2\n- add gamma\n";
+  test("spec revision resume: unaffected units are skipped-unchanged, the changed unit reruns on the same gid", async () => {
+    const repo = mkRepo("gr-revised"), calls: string[] = [];
+    expect((await go(repo, fake(repo, calls), {}, BASE)).code).toBe(0);
+    const { code, err } = await go(repo, fake(repo, calls), {}, REVISED);
+    expect(code).toBe(0);
+    expect(calls).toEqual(["u1", "u2", "u3", "u2"]);
+    expect(groups(repo).length).toBe(1);
+    expect(err).toContain("unit u1 skipped-unchanged");
+    expect(err).toContain("unit u3 skipped-unchanged");
+    expect(err).not.toContain("unit u2 skipped-unchanged");
+    expect(dagOf(repo, groups(repo)[0]!).spec_sha256).toBe(createHash("sha256").update(REVISED).digest("hex"));
   });
 
   test("a unit whose branch head moved since its receipt reruns", async () => {

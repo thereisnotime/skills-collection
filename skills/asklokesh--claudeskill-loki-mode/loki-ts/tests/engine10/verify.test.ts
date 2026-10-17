@@ -204,7 +204,7 @@ describe("engine10 verify: test selection and select-tests.sh", () => {
     const testChecks = checks.filter((c) => c.name.startsWith("bun:"));
     expect(testChecks).toHaveLength(1); // 3 sources (impacted, wall, changed-test-file), 1 run
     expect(testChecks[0]?.result).toBe("pass");
-    expect(emitted.filter((e) => e.type === "test.result")).toHaveLength(1);
+    expect(emitted.filter((e) => e.type === "test.result" && String(e.data["name"]).startsWith("bun:"))).toHaveLength(1);
   }, 20_000);
 
   test("an absolute Wall path is normalized to repo-relative and still selected", async () => {
@@ -394,6 +394,60 @@ describe("engine10 verify: pytest interpreter resolution (E-98a)", () => {
     }
   });
 
+  test("TEN-QUALITY-11: uv.lock and no .venv resolves through uv run as the project interpreter", () => {
+    const repoDir = mkRepo();
+    const uvDir = mkdtempSync(join(tmpdir(), "e10-verify-uv-"));
+    cleanupDirs.push(uvDir);
+    writeFileSync(join(uvDir, "uv"), "#!/usr/bin/env bash\nexit 0\n");
+    chmodSync(join(uvDir, "uv"), 0o755);
+    const savedPath = process.env["PATH"];
+    process.env["PATH"] = `${uvDir}:${savedPath ?? ""}`;
+    try {
+      // no uv.lock: today's system result
+      expect(runnerCmd({ runner: "pytest", path: "tests/test_x.py" }, repoDir)[2]).toBe("system");
+      writeFileSync(join(repoDir, "uv.lock"), "version = 1\n");
+      const [cmd, args, interpreter] = runnerCmd({ runner: "pytest", path: "tests/test_x.py" }, repoDir);
+      expect([cmd, args, interpreter]).toEqual(["uv", ["run", "--", "python", "-m", "pytest", "-q", "tests/test_x.py"], "project"]);
+      // a real .venv still wins over uv
+      const venvBin = join(repoDir, ".venv", "bin");
+      mkdirSync(venvBin, { recursive: true });
+      writeFileSync(join(venvBin, "python"), "#!/usr/bin/env bash\nexit 0\n");
+      chmodSync(join(venvBin, "python"), 0o755);
+      expect(runnerCmd({ runner: "pytest", path: "tests/test_x.py" }, repoDir)[0]).toBe(join(venvBin, "python"));
+    } finally {
+      if (savedPath === undefined) delete process.env["PATH"]; else process.env["PATH"] = savedPath;
+    }
+  });
+
+  test("TEN-QUALITY-11: uv.lock but no uv on PATH keeps the system result; ruff goes through uv run when uv exists", async () => {
+    const repoDir = mkRepo();
+    writeFileSync(join(repoDir, "uv.lock"), "version = 1\n");
+    const savedPath = process.env["PATH"];
+    const emptyDir = mkdtempSync(join(tmpdir(), "e10-verify-nouv-"));
+    cleanupDirs.push(emptyDir);
+    process.env["PATH"] = `${emptyDir}:/usr/bin:/bin`;
+    try {
+      if (!Bun.which("uv")) expect(runnerCmd({ runner: "pytest", path: "tests/test_x.py" }, repoDir)[2]).toBe("system");
+    } finally {
+      if (savedPath === undefined) delete process.env["PATH"]; else process.env["PATH"] = savedPath;
+    }
+    const uvDir = mkdtempSync(join(tmpdir(), "e10-verify-uv-"));
+    cleanupDirs.push(uvDir);
+    writeFileSync(join(uvDir, "uv"), "#!/usr/bin/env bash\nexit 0\n");
+    chmodSync(join(uvDir, "uv"), 0o755);
+    process.env["PATH"] = `${uvDir}:${savedPath ?? ""}`;
+    try {
+      const { ctx } = fakeCtx({ repoDir, baseSha: "HEAD" });
+      const checks: VerifyCheck[] = [];
+      await runLintChecks(ctx, ["changed.py"], sig(), checks);
+      const ruffCheck = checks.find((c) => c.name === "lint:ruff");
+      expect(ruffCheck?.cmd.startsWith("uv run -- ruff check")).toBe(true);
+      expect(ruffCheck?.interpreter).toBe("project");
+    } finally {
+      if (savedPath === undefined) delete process.env["PATH"]; else process.env["PATH"] = savedPath;
+    }
+  });
+
   test("ruff resolves the same way: project .venv/bin/ruff over a bare PATH ruff", async () => {
     const repoDir = mkRepo();
     const venvBin = join(repoDir, ".venv", "bin");
@@ -550,5 +604,17 @@ describe("diffFiles and recordRisk against a real repo", () => {
     const p = recordRisk(d, r);
     expect(p && existsSync(p)).toBe(true);
     expect(JSON.parse(readFileSync(p!, "utf8")).tier).toBe("high");
+  });
+});
+
+describe("engine10 verify: full-suite evidence (P12-01)", () => {
+  test("a medium-risk run emits a verify-stage test.result for each full-suite check it records", async () => {
+    const repoDir = mkRepo();
+    writeFileSync(join(repoDir, "big.ts"), Array.from({ length: 150 }, (_, i) => `export const v${i} = ${i};`).join("\n") + "\n");
+    const { ctx, emitted } = fakeCtx({ repoDir, baseSha: baseSha(repoDir), detect: async () => ({ runners: ["node"], tests: [] }) });
+    const result = await verifyStage.run(ctx, sig());
+    const full = (result.data.checks as VerifyCheck[]).filter((c) => c.name.startsWith("full suite"));
+    expect(full.length).toBeGreaterThan(0);
+    for (const c of full) expect(emitted.some((e) => e.type === "test.result" && e.stage === "verify" && e.data["name"] === c.name && e.data["result"] === c.result)).toBe(true);
   });
 });

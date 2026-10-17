@@ -6,12 +6,12 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 
 ## Counts
 
-- KEEP-MODERN: 70
+- KEEP-MODERN: 74
 - UPDATE: 22
-- DROP-LEGACY: 32
+- DROP-LEGACY: 31
 - DELETE: 14
-- Total rows: 138
-- Registry paths (commands and nested subcommands): 194
+- Total rows: 141
+- Registry paths (commands and nested subcommands): 202
 
 ## Commands
 
@@ -24,6 +24,8 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 | provider | bun route, bash fallthrough | KEEP-MODERN | Provider-agnostic core |
 | memory | bun route, bash fallthrough | UPDATE | Memory still carries legacy store paths |
 | rollback | bun route, bash fallthrough | KEEP-MODERN | Checkpoint restore is engine-neutral |
+| backup | autonomy/loki | KEEP-MODERN | Enterprise retention and backup (D99 item 7) |
+| restore | autonomy/loki | KEEP-MODERN | Enterprise retention and backup (D99 item 7) |
 | proof | bun route, bash fallthrough | KEEP-MODERN | The Evidence Receipt moat |
 | receipt | bun route, bash fallthrough | DELETE | Alias of proof; shown only under 'loki help aliases' |
 | wiki | bun route, bash fallthrough | KEEP-MODERN | Bun-native knowledge feature |
@@ -63,8 +65,9 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 | mcp | autonomy/loki | KEEP-MODERN | Engine-neutral |
 | acp | autonomy/loki | KEEP-MODERN | Engine-neutral |
 | stop | autonomy/loki | KEEP-MODERN | Session control |
-| pause | autonomy/loki | KEEP-MODERN | Session control |
-| resume | autonomy/loki | KEEP-MODERN | Session control |
+| pause | bun route, bash fallthrough | KEEP-MODERN | Session control; Bun writes the Loki 10 run request, bash keeps the legacy PAUSE file |
+| resume | bun route, bash fallthrough | KEEP-MODERN | Session control; Bun clears a Loki 10 pause, bash keeps the legacy resume |
+| cancel | bun route, bash fallthrough | KEEP-MODERN | Session control; Loki 10 only |
 | why | autonomy/loki | KEEP-MODERN | Outcome explainer |
 | next | autonomy/loki | KEEP-MODERN | Guided flow |
 | logs | autonomy/loki | KEEP-MODERN | Engine-neutral |
@@ -143,7 +146,7 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 | heal | autonomy/loki | DROP-LEGACY | Legacy engine |
 | migrate | autonomy/loki | DROP-LEGACY | Superseded by modernize |
 | dogfood | autonomy/loki | DROP-LEGACY | Legacy engine |
-| steer | autonomy/loki | DROP-LEGACY | Needs legacy prompt injection |
+| steer | autonomy/loki | KEEP-MODERN | Session control |
 | outcomes | autonomy/loki | DROP-LEGACY | Legacy outcome store |
 | worktree | autonomy/loki | DROP-LEGACY | Legacy parallel mode |
 | wt | autonomy/loki | DELETE | Alias of worktree; shown only under 'loki help aliases' |
@@ -169,7 +172,7 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 - enterprise: 2
 - explain: 5
 - export: 6
-- github: 5
+- github: 6
 - import: 1
 - init: 21
 - issue: 2
@@ -184,7 +187,7 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 - pause: 1
 - preview: 1
 - projects: 8
-- proof: 6
+- proof: 5
 - provider: 2
 - quick: 1
 - resume: 1

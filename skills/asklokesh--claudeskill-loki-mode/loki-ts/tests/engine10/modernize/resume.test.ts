@@ -1,20 +1,24 @@
 // M-22 wall: unit-level resume after a coordinator crash (docs/v10/MODERNIZE.md sections 3.7 and 5).
 import { describe, expect, it } from "bun:test";
-import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ClusterResult, Unit } from "../../../src/engine10/modernize/cluster.ts";
 import { ModernizeLog, readModernizeEvents } from "../../../src/engine10/modernize/log.ts";
 import { loadResumeState, mergeOnce, planResume, resumeSchedule } from "../../../src/engine10/modernize/resume.ts";
 import type { MergeOps } from "../../../src/engine10/modernize/resume.ts";
-import { schedule } from "../../../src/engine10/modernize/scheduler.ts";
+import { gitWorktrees, schedule } from "../../../src/engine10/modernize/scheduler.ts";
+import { buildInventory } from "../../../src/engine10/modernize/inventory.ts";
+import { safeGit } from "../../../src/util/safe_git.ts";
+import type { runUnit } from "../../../src/engine10/modernize/unit.ts";
 import type { AttemptCtx, AttemptOutcome, WorktreeOps } from "../../../src/engine10/modernize/scheduler.ts";
 import type { UnitRunResult } from "../../../src/engine10/modernize/unit.ts";
-import { runWaves } from "../../../src/util/modernize_coordinator.ts";
+import { makeAttemptRunner, makeProposeSession, makeUnitPrep, productionWaveDeps, runWaves } from "../../../src/util/modernize_coordinator.ts";
 import type { WaveDeps } from "../../../src/util/modernize_coordinator.ts";
 import type { StepRunner } from "../../../src/engine10/modernize/wave.ts";
 import { makeUnitRunners } from "../../../src/util/modernize_unit.ts";
-import { modernizeEventsPath, planPath } from "../../../src/engine10/modernize/types.ts";
+import { readReport } from "../../../src/engine10/modernize/report.ts";
+import { modernizeEventsPath, planPath, reportJsonPath } from "../../../src/engine10/modernize/types.ts";
 
 const MID = "mod-20260101T000000Z-abcdef";
 const u = (id: string): Unit => ({ id, nodes: [id], lines: 1, highRisk: false });
@@ -365,6 +369,30 @@ describe("runWaves (coordinator): verify, ship, resume", () => {
     };
   };
 
+  it("FC-M25W: writes the sealed report once per run: COMPLETE when proven, INCOMPLETE naming the unrun wave when blocked", async () => {
+    const f = fx();
+    const f2 = fx();
+    try {
+      await runWaves(planOf([[u("a")], [u("b")]]), mk(f));
+      const rep = readReport(f.dir, MID);
+      expect(rep.verdict).toBe("COMPLETE");
+      expect(rep.units.map((x) => [x.unit, x.verdict])).toEqual([["a", "PROVEN"], ["b", "PROVEN"]]);
+      expect(rep.units[0]).toHaveProperty("receiptSha256");
+      expect(existsSync(reportJsonPath(f.dir, MID))).toBe(true);
+      expect(readModernizeEvents(f.dir, MID).filter((e) => e.type === "modernize.completed")).toHaveLength(1);
+
+      const bad: StepRunner = (step) => ({ status: step === "build" ? 1 : 0, timedOut: false, error: null, tail: "" });
+      const r2 = await runWaves(planOf([[u("a")], [u("b")]]), mk(f2, { stepRunner: bad }));
+      expect(r2.ok).toBe(false);
+      const rep2 = readReport(f2.dir, MID);
+      expect(rep2.verdict).toBe("INCOMPLETE");
+      expect(rep2.blocking_waves).toEqual([1, 2]);
+      expect(rep2.units.map((x) => x.unit)).toEqual(["a", "b"]);
+      expect(rep2.units.find((x) => x.unit === "b")!.verdict).toBe("NOT_PROVEN");
+      expect(readModernizeEvents(f2.dir, MID).filter((e) => e.type === "modernize.completed")).toHaveLength(1);
+    } finally { f.done(); f2.done(); }
+  });
+
   it("a verified wave invokes shipWave (non-draft PR) and records wave.shipped; a failed verify ships a draft and blocks the next wave", async () => {
     const f = fx();
     try {
@@ -406,6 +434,19 @@ describe("runWaves (coordinator): verify, ship, resume", () => {
     } finally { f.done(); }
   });
 
+  it("resume: prepare (oracle capture) is NOT called for units already logged completed or not_proven", async () => {
+    const f = fx();
+    try {
+      f.log.append("unit.started", { unit: "a", model: "sonnet", variant: 0 });
+      f.log.append("unit.completed", { unit: "a" });
+      f.log.append("unit.not_proven", { unit: "b", reasons: ["old"] });
+      const prepared: string[] = [];
+      const restarted = new ModernizeLog(f.dir, MID);
+      await runWaves(planOf([[u("a"), u("b"), u("c")]]), mk(f, { log: restarted, resume: true, ship: false, prepare: (x) => { prepared.push(x.id); return null; } }));
+      expect(prepared).toEqual(["c"]);
+    } finally { f.done(); }
+  });
+
   it("resume: a logged NOT_PROVEN unit is never shipped PROVEN and blocks the next wave", async () => {
     const f = fx();
     try {
@@ -423,6 +464,39 @@ describe("runWaves (coordinator): verify, ship, resume", () => {
       expect(pushes.map((p) => p.draft)).toEqual([true]);
       expect(JSON.stringify(pushes)).not.toContain("| a | PROVEN |");
     } finally { f.done(); }
+  });
+
+  it("FC-M25W-b: emits one unit.planned per planned unit, once, even on a resumed run", async () => {
+    const f = fx();
+    try {
+      const plan = planOf([[u("a")], [u("b")]]);
+      await runWaves(plan, mk(f, { ship: false }));
+      await runWaves(plan, mk(f, { ship: false, resume: true }));
+      const planned = readModernizeEvents(f.dir, MID).filter((e) => e.type === "unit.planned");
+      expect(planned.map((e) => e.data["unit"])).toEqual(["a", "b"]);
+    } finally { f.done(); }
+  });
+
+  it("FC-M25W-b: a failing splittable unit is re-sliced (unit.resliced); an unsplittable one is not; the unit stays NOT_PROVEN", async () => {
+    const f = fx();
+    try {
+      const wide: Unit = { id: "w", nodes: ["w1.py", "w2.py"], lines: 2, highRisk: false };
+      const run = (ctx: AttemptCtx): AttemptOutcome => ({ result: { ...proven(ctx.unit.id), verdict: "NOT_PROVEN" }, costUsd: 0 });
+      const slice = (x: Unit): Unit[] => x.nodes.length > 1 ? x.nodes.map((n, i) => ({ id: `${x.id}.${i}`, nodes: [n], lines: 1, highRisk: false })) : [];
+      const check = (x: Unit) => ({ unit: x.id, cases: 3, pass: 3, fail: 0, held_out_pass: 1, held_out_fail: 0, rate: 1, branch_pct: 100, failures: [], not_proven: [], verdict: "PROVEN" as const });
+      const r = await runWaves(planOf([[wide]]), mk(f, { run, ship: false, reslice: { slice, check } }));
+      const ev = readModernizeEvents(f.dir, MID).filter((e) => e.type === "unit.resliced");
+      expect(ev.length).toBe(1);
+      expect(ev[0]!.data["unit"]).toBe("w");
+      expect(r.ok).toBe(false);
+      expect(r.blocked).toContain("unit w NOT_PROVEN");
+    } finally { f.done(); }
+    const g = fx();
+    try {
+      const run = (ctx: AttemptCtx): AttemptOutcome => ({ result: { ...proven(ctx.unit.id), verdict: "NOT_PROVEN" }, costUsd: 0 });
+      await runWaves(planOf([[u("solo")]]), mk(g, { run, ship: false, reslice: { slice: () => [], check: () => { throw new Error("unused"); } } }));
+      expect(readModernizeEvents(g.dir, MID).filter((e) => e.type === "unit.resliced")).toEqual([]);
+    } finally { g.done(); }
   });
 
   it("a non-PROVEN unit blocks the wave: the next wave never runs", async () => {
@@ -462,5 +536,201 @@ describe("runWaves (coordinator): verify, ship, resume", () => {
     const bad = makeUnitRunners({ target: "java21", session: () => ({ status: 3 }) });
     expect(() => bad.implement({ unit: "u", repoDir: tmpdir(), mid: MID, target: "java21", normalizers: { float_tolerance: 0, unordered_fields: [], skip_fields: [] } })).toThrow("exited 3");
     expect(() => bad.runNew("u", tmpdir(), {} as never)).toThrow("no new-tree runner for target java21");
+  });
+});
+
+describe("M-27E coordinator wiring", () => {
+  const ST: StepRunner = () => ({ status: 0, timedOut: false, error: null, tail: "" });
+  const gitRepo = (files: string[]): string => {
+    const dir = mkdtempSync(join(tmpdir(), "m27e-"));
+    safeGit(dir, ["init", "-q", "-b", "main"]);
+    for (const f of files) writeFileSync(join(dir, f), "x = 1\n");
+    safeGit(dir, ["add", "."]);
+    safeGit(dir, ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init"]);
+    return dir;
+  };
+  const unit1 = (id: string, nodes: string[]): Unit => ({ id, nodes, lines: 1, highRisk: false });
+
+  it("makeAttemptRunner: runUnit gets the base repo, the worktree as newTreeDir, the unit files and a stub runner", () => {
+    const f = fx();
+    const calls: unknown[][] = [];
+    const fake = ((...a: unknown[]) => { calls.push(a); return proven("u-1"); }) as unknown as typeof runUnit;
+    const runners = makeUnitRunners({ target: "python3", session: () => ({ status: 0 }) });
+    const unit = unit1("u-1", ["pkg/a.py"]);
+    const run = makeAttemptRunner({ mid: MID, target: "python3", log: f.log, repoDir: "/base/repo", units: [unit], runners, runUnit: fake });
+    run({ unit, model: "sonnet", variant: 0, worker: 1, worktree: "/wt/u-1", baseSha: "abc123" });
+    const card = calls[0]![0] as Record<string, unknown>;
+    expect(card["repoDir"]).toBe("/base/repo");
+    expect(card["newTreeDir"]).toBe("/wt/u-1");
+    expect(card["baseSha"]).toBe("abc123");
+    expect(card["files"]).toEqual(["pkg/a.py"]);
+    expect(typeof calls[0]![5]).toBe("function");
+    expect(calls[0]![5]).toBe(runners.runStub);
+    f.done();
+  });
+
+  it("FC-M25W-b: makeAttemptRunner logs codemod.skipped with the runCodemod reason when the tool is absent", () => {
+    const f = fx();
+    const fake = (() => proven("u-1")) as unknown as typeof runUnit;
+    const runners = makeUnitRunners({ target: "python3", session: () => ({ status: 0 }) });
+    const unit = unit1("u-1", ["pkg/a.py"]);
+    const run = makeAttemptRunner({ mid: MID, target: "python3", log: f.log, repoDir: "/base/repo", units: [unit], runners, runUnit: fake, codemod: () => ({ found: false, code: null }) });
+    run({ unit, model: "sonnet", variant: 0, worker: 1, worktree: "/wt/u-1", baseSha: "abc123" });
+    const ev = readModernizeEvents(f.dir, MID).filter((e) => e.type === "codemod.skipped");
+    expect(ev.length).toBe(1);
+    expect(ev[0]!.data).toMatchObject({ unit: "u-1", tool: "futurize", reason: "futurize not found on PATH" });
+    const ran = fx();
+    makeAttemptRunner({ mid: MID, target: "python3", log: ran.log, repoDir: "/base/repo", units: [unit], runners, runUnit: fake, codemod: () => ({ found: true, code: 0 }) })({ unit, model: "sonnet", variant: 0, worker: 1, worktree: "/wt/u-1", baseSha: "abc123" });
+    expect(readModernizeEvents(ran.dir, MID).filter((e) => e.type === "codemod.skipped")).toEqual([]);
+    f.done(); ran.done();
+  });
+
+  it("M-25w-c: a codemod tool that is found but exits non-zero is logged as codemod.skipped", () => {
+    const f = fx();
+    const fake = (() => proven("u-1")) as unknown as typeof runUnit;
+    const runners = makeUnitRunners({ target: "python3", session: () => ({ status: 0 }) });
+    const unit = unit1("u-1", ["pkg/a.py"]);
+    makeAttemptRunner({ mid: MID, target: "python3", log: f.log, repoDir: "/base/repo", units: [unit], runners, runUnit: fake, codemod: () => ({ found: true, code: 2 }) })({ unit, model: "sonnet", variant: 0, worker: 1, worktree: "/wt/u-1", baseSha: "abc123" });
+    const ev = readModernizeEvents(f.dir, MID).filter((e) => e.type === "codemod.skipped");
+    expect(ev.length).toBe(1);
+    expect(ev[0]!.data).toMatchObject({ unit: "u-1", tool: "futurize", reason: "futurize exited non-zero" });
+    f.done();
+  });
+
+  it("two waves with real merge ops: wave 2 worktree is based on HEAD after wave 1's merge", async () => {
+    const repo = gitRepo(["a.py", "b.py"]);
+    const f = fx();
+    try {
+      const plan = planOf([[unit1("a.py", ["a.py"])], [unit1("b.py", ["b.py"])]]);
+      const built = productionWaveDeps({ repoDir: repo, mid: MID, target: "python3", workers: 1, budgetUsd: null, resume: false, noPr: true, inv: buildInventory(repo), plan, log: f.log });
+      if (!built.ok) throw new Error(built.reason);
+      const seen: Array<{ unit: string; base: string; head: string; sawA: boolean }> = [];
+      const run = (ctx: AttemptCtx): AttemptOutcome => {
+        seen.push({ unit: ctx.unit.id, base: ctx.baseSha, head: safeGit(ctx.worktree, ["rev-parse", "HEAD"]).trim(), sawA: readFileSync(join(ctx.worktree, "a.py"), "utf8").includes("changed") });
+        writeFileSync(join(ctx.worktree, ctx.unit.id), "x = 1  # changed\n");
+        return { result: proven(ctx.unit.id), costUsd: 0 };
+      };
+      const r = await runWaves(plan, { ...built.deps, run, prepare: () => null, stepRunner: ST, waveCommands: { build: { argv: ["true"] }, integration: { argv: ["true"] }, original_suite: { argv: ["true"] } }, worktrees: gitWorktrees });
+      expect(r.blocked).toBeNull();
+      const headAfterOne = safeGit(repo, ["log", "--format=%H", "-n", "2"]).trim().split("\n")[1]!;
+      expect(seen[1]!.base).toBe(headAfterOne);
+      expect(seen[1]!.base).not.toBe(seen[0]!.base);
+      expect(seen[1]!.head).toBe(headAfterOne);
+      expect(seen[1]!.sawA).toBe(true);
+    } finally { f.done(); rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  it("a unit whose capture fails is NOT_PROVEN with that reason and never reaches the runner", async () => {
+    const f = fx();
+    try {
+      const ran: string[] = [];
+      const merged = new Set<string>();
+      const deps: WaveDeps = {
+        repoDir: f.dir, mid: MID, baseSha: "base", workers: 1, budgetUsd: null, unitEstimateUsd: null, log: f.log,
+        run: (c) => { ran.push(c.unit.id); return { result: proven(c.unit.id), costUsd: 0 }; },
+        merge: { isMerged: (x) => merged.has(x), merge: (x) => { merged.add(x); } },
+        worktrees: f.worktrees, resume: false, waveCommands: { build: { argv: ["true"] } }, stepRunner: ST, ship: false, pinnedOrigin: "",
+        prepare: (x) => (x.id === "a" ? "old runtime unavailable" : null),
+      };
+      const r = await runWaves(planOf([[u("a"), u("b")]]), deps);
+      expect(ran).toEqual(["b"]);
+      expect(r.ok).toBe(false);
+      expect(r.blocked).toContain("unit a NOT_PROVEN");
+      expect(r.blocked).toContain("old runtime unavailable");
+      const ev = readModernizeEvents(f.dir, MID).find((e) => e.type === "unit.not_proven" && e.data["unit"] === "a");
+      expect(JSON.stringify(ev?.data)).toContain("old runtime unavailable");
+    } finally { f.done(); }
+  });
+
+  it("a 2-node unit is NOT_PROVEN as multi-file and capture is never attempted", () => {
+    const f = fx();
+    try {
+      let called = 0;
+      const prep = makeUnitPrep({ repoDir: f.dir, mid: MID, propose: () => [], runtimeOk: () => true, capture: (() => { called++; return { ok: true }; }) as never });
+      expect(prep(unit1("u-1", ["a.py", "b.py"]))).toContain("multi-file unit");
+      expect(prep(unit1("u-2", ["Main.java"]))).toContain("multi-file unit");
+      expect(called).toBe(0);
+      expect(prep(unit1("u-3", ["a.py"]))).toBeNull();
+      expect(called).toBe(1);
+      const failing = makeUnitPrep({ repoDir: f.dir, mid: MID, propose: () => [], runtimeOk: () => true, capture: (() => ({ ok: false, reason: "no cases captured" })) as never });
+      expect(failing(unit1("u-4", ["a.py"]))).toBe("no cases captured");
+      const noRuntime = makeUnitPrep({ repoDir: f.dir, mid: MID, propose: () => [], runtimeOk: () => false, capture: (() => { called++; return { ok: true }; }) as never });
+      expect(noRuntime(unit1("u-5", ["a.py"]))).toBe("old runtime unavailable");
+      expect(noRuntime(unit1("u-6", ["a.py", "b.py"]))).toBe("old runtime unavailable");
+    } finally { f.done(); }
+  });
+
+  it("productionWaveDeps reads build files from the repo dir (F7: not the target string)", () => {
+    const repo = gitRepo(["tox.ini", "a.py"]);
+    writeFileSync(join(repo, "tox.ini"), "[tox]\n[testenv:integration]\ncommands = true\n");
+    const f = fx();
+    try {
+      const plan = planOf([[unit1("a.py", ["a.py"])]]);
+      const built = productionWaveDeps({ repoDir: repo, mid: MID, target: "python3", workers: 1, budgetUsd: null, resume: false, noPr: true, inv: buildInventory(repo), plan, log: f.log });
+      expect(built.ok).toBe(true);
+      if (!built.ok) return;
+      expect(built.deps.waveCommands.build).not.toBeNull();
+      expect(built.deps.waveCommands.integration).not.toBeNull();
+      expect(built.deps.optionalSteps).toEqual([]);
+    } finally { f.done(); rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  it("productionWaveDeps on a tmp repo with --no-pr is ok and merges through gitMergeOps without a seam", () => {
+    const repo = gitRepo(["a.py"]);
+    const f = fx();
+    try {
+      const plan = planOf([[unit1("a.py", ["a.py"])]]);
+      const built = productionWaveDeps({ repoDir: repo, mid: MID, target: "python3", workers: 2, budgetUsd: null, resume: false, noPr: true, inv: buildInventory(repo), plan, log: f.log });
+      expect(built.ok).toBe(true);
+      if (!built.ok) return;
+      expect(built.deps.ship).toBe(false);
+      expect(built.deps.merge.isMerged("a.py")).toBe(false);
+      expect(built.deps.optionalSteps).toEqual(["integration"]);
+      expect(built.deps.baseSha).toBe(safeGit(repo, ["rev-parse", "HEAD"]).trim());
+      const src = readFileSync(join(import.meta.dir, "..", "..", "..", "src", "util", "modernize_coordinator.ts"), "utf8");
+      expect(src).toContain("gitMergeOps(o.repoDir, o.mid)");
+      expect(src).not.toMatch(/gitMergeOps\([^)]*isMerged/);
+      const noRepo = productionWaveDeps({ repoDir: f.dir, mid: MID, target: "python3", workers: 2, budgetUsd: null, resume: false, noPr: true, inv: buildInventory(f.dir), plan, log: f.log });
+      expect(noRepo.ok).toBe(false);
+    } finally { f.done(); rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  it("scopes the python build step to the wave's changed .py files and keeps the excludes (M-27F)", async () => {
+    const f = fx();
+    try {
+      writeFileSync(join(f.dir, "a.py"), "x = 1\n"); writeFileSync(join(f.dir, "b.py"), "y = 2\n");
+      const build = { argv: ["python3", "-m", "compileall", "-q", "-x", "/(\\.loki|\\.venv|venv|node_modules|\\.tox|\\.git)/", "."] };
+      const seen: string[][] = [];
+      const spy: StepRunner = (step, c) => { if (step === "build") seen.push(c.argv); return { status: 0, timedOut: false, error: null, tail: "" }; };
+      const mkd = { repoDir: f.dir, mid: MID, baseSha: "base", workers: 1, budgetUsd: null, unitEstimateUsd: null, log: f.log, run: (ctx: AttemptCtx): AttemptOutcome => ({ result: proven(ctx.unit.id), costUsd: 0 }), merge: { isMerged: () => false, merge: () => {} }, worktrees: f.worktrees, resume: false, waveCommands: { build, integration: { argv: ["true"] }, original_suite: { argv: ["true"] } }, stepRunner: spy, ship: false, pinnedOrigin: "" } as WaveDeps;
+      await runWaves(planOf([[u("a.py")], [u("b.py"), u("gone.py")]]), mkd);
+      expect(seen).toEqual([
+        [...build.argv.slice(0, 6), "a.py"],
+        [...build.argv.slice(0, 6), "b.py"],
+      ]);
+    } finally { f.done(); }
+  });
+
+  it("makeProposeSession runs the injected session in a.cwd with a token-free env and throws on a nonzero exit (M-27F)", () => {
+    const calls: { brief: string; cwd: string; env: NodeJS.ProcessEnv }[] = [];
+    let status = 0;
+    const session = ((brief: string, cwd: string, env: NodeJS.ProcessEnv) => { calls.push({ brief, cwd, env }); return { status }; }) as never;
+    const prev = process.env["GITHUB_TOKEN"];
+    process.env["GITHUB_TOKEN"] = "ghp_secret";
+    try {
+      const propose = makeProposeSession({ mid: MID, provider: "claude", session });
+      const a = { cwd: "/work/dir", env: {}, unitFile: "/work/dir/u.py", missing: [{ line: 3, outcome: "true" as const }], round: 2 };
+      propose(a);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.cwd).toBe("/work/dir");
+      expect(calls[0]!.brief).toContain("/work/dir/u.py");
+      expect(calls[0]!.brief).toContain("round 2");
+      expect(calls[0]!.brief).toContain('"line":3');
+      expect(JSON.stringify(calls[0]!.env)).not.toContain("ghp_secret");
+      status = 3;
+      expect(() => propose(a)).toThrow("propose session exited 3");
+    } finally {
+      if (prev === undefined) delete process.env["GITHUB_TOKEN"]; else process.env["GITHUB_TOKEN"] = prev;
+    }
   });
 });

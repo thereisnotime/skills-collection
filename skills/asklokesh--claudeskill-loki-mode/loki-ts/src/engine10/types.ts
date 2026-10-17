@@ -19,16 +19,18 @@ export const STAGE_BUDGETS: Readonly<Record<StageName, { targetS: number | null;
 };
 export const DEFAULT_CAP_S = 900;
 export const DEEP_CAP_S = 2700;
+/** LOKI_E10_CAP_S as a usable cap: finite and positive, else null ("Infinity", NaN, 0, negatives are rejected). */
+export function envCapS(raw: string | undefined): number | null { const n = Number(raw); return Number.isFinite(n) && n > 0 ? n : null; }
 export const BACKSTOP_GRACE_S = 30;
 export function backstopS(capS: number, graceS: number = BACKSTOP_GRACE_S): number { return capS - Math.min(graceS, capS / 30); } // supervisor.ts's backstop; machine.ts's soft cap stays under it
 export const DEEP_IMPLEMENT_LIMIT_S = 1800; // ENGINE.md section 4: 480s, 1800s with --deep
 export const MAX_FIX_ROUNDS = 2;
 export const EVENT_TYPES = [
-  "run.started", "stage.started", "stage.completed", "stage.failed", "stage.skipped",
-  "heartbeat", "session.started", "session.ended", "cost", "wall.sealed",
+  "run.started", "run.resumed", "stage.started", "stage.completed", "stage.failed", "stage.skipped",
+  "heartbeat", "session.started", "session.ended", "session.stalled", "cost", "wall.sealed", "wall.reauthor",
   "tests.restored", "test.result", "test.scoped_out", "fix.round", "already.satisfied", "spec.conflict",
   "escalated", "cap.hit", "cap.sized", "tamper.detected", "receipt.sealed", "pr.opened",
-  "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant", "route", "route.escalated", "provider.failover", "project_model.fallback",
+  "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant", "route", "route.escalated", "provider.failover", "project_model.fallback", "intent.revised", "already.attested", "cancel_requested", "cancel_effective",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 /** One line of events.jsonl. All keys required; stage is null for run-level events; readers tolerate unknown `type` values. */
@@ -73,6 +75,7 @@ export interface SessionRunOptions {
   limitS: number;
   signal: AbortSignal;
   cwd?: string;
+  disallowedTools?: string; // Q18-04: comma list passed as --disallowedTools (read-only reviewer)
   /** Pins this session's model for its tier (E-45 Wall on sonnet); unset inherits the run model. */
   model?: string;
   resumeSessionId?: string; // MW-2: provider session to resume (LOKI_E10_FIX_RESUME); unset starts fresh
@@ -123,10 +126,12 @@ export interface CostTotals {
 export interface CostReader { // implemented by cost.ts (E-06)
   read(repoDir: string, iterationIds: string[]): CostTotals;
 }
-export interface Clock { now(): number; } // epoch ms
+export interface Clock { now(): number; sleep?(ms: number, signal?: AbortSignal): Promise<void>; } // epoch ms; sleep is optional so tests can fake the quota wait
 export interface RunContext {
   timeline?: { stage: StageName; startMs: number; endMs: number }[]; // every stage the machine ran (any outcome), for the receipt's time buckets
-  startedAtMs?: number; // set by the machine at run start (epoch ms); seal falls back to it for time.total_s
+  sessionIds?: () => string[]; // iteration ids of every session the machine started, recorded at launch; seal unions them into the cost read
+  wallSealed?: boolean; // P12-13c: set when wall.sealed is emitted, so steer staleness holds even if outputs.wall never lands
+  intentRevisions?: import("../util/steer.ts").IntentRevision[]; startedAtMs?: number; // intentRevisions: P12-02, machine memory, never the repo file; startedAtMs: set by the machine at run start (epoch ms); seal falls back to it for time.total_s
   runId: string;
   repoDir: string;
   runDir: string;
@@ -150,7 +155,7 @@ export interface ReceiptCheck {
   name: string;
   cmd: string;
   result: "pass" | "fail" | "not_run";
-  duration_s: number;
+  duration_s: number; provenance?: import("../util/check_result.ts").CheckProvenance; n?: number; // TEN-GATES-02 provenance, TEN-GATES-03-F1 n (executed test count): additive; absent on older receipts, which still verify byte-stable
 }
 /** .loki/runs/<id>/receipt.json. receipt_sha256 = sha256 of canonical JSON without `verification`. */
 export interface Receipt {
@@ -165,9 +170,9 @@ export interface Receipt {
   wall: { files: { path: string; sha256: string }[]; passed: boolean | null };
   checks: ReceiptCheck[];
   not_proven: string[];
-  spec?: { path: string; sha256: string }; // SPEC-FIRST-INTENT: present only when a user spec file drove the run
+  spec?: { path: string; sha256: string }; intent_revisions?: { rev: number; source: string | null; actor: string | null; sha: string }[]; // P12-02 (omitted when none); SPEC-FIRST-INTENT: present only when a user spec file drove the run
   supply?: import("../supply/supply_guard.ts").SupplyBlock; // T10: present only when the guard found newly added dependencies
-  route?: import("../runner/router/route_block.ts").RouteBlock; // R1-15: present only while the router is on
+  route?: import("../runner/router/route_block.ts").RouteBlock; // R1-15: present only while the router is on.
   cost_preview?: Record<string, unknown>; // 11.3.0 T1: absent under LOKI_COST_PREVIEW=0
   verdict: Verdict;
   /** T2: "test fails without the fix: yes | no | inconclusive (reason)"; omitted when LOKI_MUTATION_PROOF=0 or the verdict was not VERIFIED. */

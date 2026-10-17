@@ -228,7 +228,7 @@ type countedResponse struct {
 	counter *countingWriter
 }
 
-func (c *countedResponse) Write(p []byte) (int, error) { return c.counter.Write(p) }
+func (c *countedResponse) Write(p []byte) (int, error) { return c.counter.write(p) }
 
 func (c *countedResponse) Flush() { _ = http.NewResponseController(c.ResponseWriter).Flush() }
 

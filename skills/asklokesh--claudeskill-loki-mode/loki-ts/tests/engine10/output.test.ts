@@ -14,6 +14,7 @@ import {
   outcomeOf,
   reasonOf,
 } from "../../src/engine10/output.ts";
+import { reset as resetEta } from "../../src/contrib/eta.ts";
 
 describe("formatClock", () => {
   test("zero-padded mm:ss", () => {
@@ -95,12 +96,38 @@ describe("formatHeartbeatLine (golden, ENGINE.md section 11)", () => {
   });
 
   test("omits ETA and diff when absent", () => {
-    const line = formatHeartbeatLine({ clockS: 5, stage: "seal", waitingOn: "signing key", elapsedS: 5 });
+    const line = formatHeartbeatLine({ clockS: 5, stage: "seal", waitingOn: "signing key", elapsedS: 5, etaS: null });
     expect(line).toBe("[00:05] seal        waiting on signing key  5s");
+  });
+
+  test("Q18-07: the heartbeat computes an ETA from the stage target when none is passed", async () => {
+    resetEta();
+    formatHeartbeatLine({ clockS: 0, stage: "implement", waitingOn: "x", elapsedS: 0 }); // first call starts the lazy eta.ts load
+    await Bun.sleep(30);
+    expect(formatHeartbeatLine({ clockS: 65, stage: "implement", waitingOn: "claude session", elapsedS: 60 })).toContain("ETA 2m00s");
+    expect(formatHeartbeatLine({ clockS: 5, stage: "no-such-stage", waitingOn: "x", elapsedS: 5 })).not.toContain("ETA");
+  });
+
+  test("Q18-07: a done stage line records its actual so later ETAs learn the overrun", async () => {
+    resetEta();
+    formatHeartbeatLine({ clockS: 0, stage: "implement", waitingOn: "x", elapsedS: 0 });
+    await Bun.sleep(30);
+    formatStageLine({ clockS: 360, name: "implement", status: "done", durationS: 360, detail: "x" });
+    expect(formatHeartbeatLine({ clockS: 1, stage: "implement", waitingOn: "x", elapsedS: 60 })).toContain("ETA 5m00s");
+    resetEta();
   });
 });
 
 describe("formatSummary (golden, ENGINE.md section 11)", () => {
+  test("Q17-02: cost line shows cap use only when a cap is set", () => {
+    const base = { pr: null, verdict: "VERIFIED", notProven: [], flaky: [], wallS: 60, stages: [] };
+    const capped = formatSummary({ ...base, cost: { usd: 0.84, provider: "claude", tokens: 212000, capUsd: 2 } } as never);
+    expect(capped).toContain("$0.84 (claude, 212k tokens; 42% of cap $2.00)");
+    const plain = formatSummary({ ...base, cost: { usd: 0.84, provider: "claude", tokens: 212000 } } as never);
+    expect(plain).not.toContain("of cap");
+    expect(formatSummary({ ...base, cost: { usd: null, provider: "claude", tokens: null, capUsd: 2 } } as never)).not.toContain("of cap");
+    expect(formatSummary({ ...base, cost: { usd: null, provider: "claude", tokens: null, partialUsd: 1, measuredSessions: 1, totalSessions: 2, capUsd: 2 } } as never)).not.toContain("of cap");
+  });
   test("known dollars with unknown tokens never prints 0 tokens", () => {
     const out = formatSummary({
       pr: null, verdict: "VERIFIED", notProven: [], flaky: [],
@@ -131,7 +158,7 @@ describe("formatSummary (golden, ENGINE.md section 11)", () => {
       "PR:         https://github.com/o/r/pull/12 (draft: fix rounds exhausted)\n" +
       "NOT PROVEN: full suite, app boot, council, security scan (deep verify running); flaky tests/test_x.py::t\n" +
       "Cost:       $0.84 (claude, 212k tokens)\n" +
-      "Time:       4m12s (intake 11s, plan+wall 38s, implement 2m41s, verify 29s, seal+pr 13s)",
+      "Time:       4m12s (intake 11s, plan+wall 38s, implement 2m41s, verify 29s, seal+pr 13s; slowest: implement 64%)",
     );
   });
 
@@ -161,8 +188,28 @@ describe("formatSummary (golden, ENGINE.md section 11)", () => {
       "PR:         https://github.com/o/r/pull/34\n" +
       "NOT PROVEN: full suite (deep verify running), app boot (deep verify running), council (deep verify running), security scan (deep verify running)\n" +
       "Cost:       $0.42 (claude, 98k tokens)\n" +
-      "Time:       5m00s (intake 10s, plan+wall 40s, implement 3m20s, verify 35s, seal+pr 15s)",
+      "Time:       5m00s (intake 10s, plan+wall 40s, implement 3m20s, verify 35s, seal+pr 15s; slowest: implement 67%)",
     );
+  });
+
+  test("Time line names the slowest stage and its share of wall time; omitted without durations (TEN-SPEED-03)", () => {
+    const base = { pr: null, verdict: "VERIFIED" as const, notProven: [], flaky: [], cost: { usd: 0.1, provider: "claude", tokens: 1000 } };
+    const timeOf = (wallS: number, stages: { label: string; seconds: number }[]): string => formatSummary({ ...base, wallS, stages } as never).split("\n").at(-1) as string;
+    expect(timeOf(100, [{ label: "a", seconds: 10 }, { label: "b", seconds: 70 }, { label: "c", seconds: 20 }])).toBe("Time:       1m40s (a 10s, b 1m10s, c 20s; slowest: b 70%)");
+    expect(timeOf(100, [])).toBe("Time:       1m40s ()");
+    expect(timeOf(0, [{ label: "a", seconds: 10 }])).not.toContain("slowest");
+    expect(timeOf(100, [{ label: "a", seconds: Number.NaN }])).not.toContain("slowest");
+  });
+
+  test("firstSealed marks the Time line only when literally true (TEN-UX-11)", () => {
+    const base = { pr: null, verdict: "VERIFIED" as const, notProven: [], flaky: [], cost: { usd: 0.1, provider: "claude", tokens: 1000 }, wallS: 60, stages: [{ label: "intake", seconds: 5 }] };
+    const timeOf = (extra: object): string => formatSummary({ ...base, ...extra } as never).split("\n").at(-1) as string;
+    const plain = "Time:       1m00s (intake 5s; slowest: intake 8%)";
+    expect(timeOf({})).toBe(plain);
+    expect(timeOf({ firstSealed: false })).toBe(plain);
+    expect(timeOf({ firstSealed: "false" })).toBe(plain);
+    expect(timeOf({ firstSealed: true })).toBe(plain + " - first sealed PR in this repo");
+    expect(formatSummary({ ...base, firstSealed: true }).split("\n")).toHaveLength(formatSummary(base).split("\n").length);
   });
 
   test("null cost renders \"not measured\", never $0.00", () => {

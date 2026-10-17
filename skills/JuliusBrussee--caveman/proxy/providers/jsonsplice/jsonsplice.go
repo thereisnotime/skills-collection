@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"slices"
 )
 
 // maxSpliceBytes bounds the inputs of an edit so the output's size
@@ -148,11 +149,7 @@ func ReplaceRaw(body []byte, span Span, replacement []byte) ([]byte, error) {
 	if len(body) > maxSpliceBytes || len(replacement) > maxSpliceBytes {
 		return nil, fmt.Errorf("json splice: body too large")
 	}
-	out := make([]byte, 0, len(body)-(span.End-span.Start)+len(replacement))
-	out = append(out, body[:span.Start]...)
-	out = append(out, replacement...)
-	out = append(out, body[span.End:]...)
-	return out, nil
+	return slices.Concat(body[:span.Start], replacement, body[span.End:]), nil
 }
 
 // AppendObjectFields inserts fields immediately before an object's closing

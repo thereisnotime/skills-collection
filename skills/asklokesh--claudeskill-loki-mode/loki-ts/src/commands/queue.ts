@@ -5,7 +5,7 @@
 //                               consulting the usage governor before each item, then
 //                               write and print a morning digest.
 // The runner and the governor are injectable so tests never call claude.
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { atomicWriteText } from "../util/atomic.ts";
 import { REPO_ROOT } from "../util/paths.ts";
@@ -85,6 +85,22 @@ export function readQueue(lokiDir: string): QueueItem[] {
   }
 }
 
+// A queue file that exists but does not parse (a crash left it truncated) must not be overwritten by
+// the next add: move it aside for inspection and warn once. Same pattern as util/outbox.ts.
+function quarantineCorruptQueue(lokiDir: string, now: Date, warn: (s: string) => void): void {
+  const p = queuePath(lokiDir);
+  if (!existsSync(p)) return;
+  try {
+    const d = JSON.parse(readFileSync(p, "utf8")) as { items?: unknown } | null;
+    if (d !== null && typeof d === "object" && Array.isArray(d.items)) return;
+  } catch { /* fall through to quarantine */ }
+  const q = `${p}.corrupt-${now.getTime()}`;
+  try {
+    renameSync(p, q);
+    warn(`warn: queue file ${p} is corrupt; quarantined as ${q}\n`);
+  } catch { /* best effort */ }
+}
+
 function writeQueue(lokiDir: string, items: QueueItem[]): void {
   mkdirSync(lokiDir, { recursive: true });
   const p = queuePath(lokiDir);
@@ -105,6 +121,7 @@ export function queueAdd(refs: readonly string[], d: QueueDeps): number {
     }
     norm.push(n);
   }
+  quarantineCorruptQueue(d.lokiDir, d.now(), d.err);
   const items = readQueue(d.lokiDir);
   const have = new Set(items.map((i) => i.ref));
   let added = 0;
@@ -123,13 +140,28 @@ export function queueAdd(refs: readonly string[], d: QueueDeps): number {
   return 0;
 }
 
+export function formatAge(addedAt: string, now: Date): string {
+  const t = Date.parse(addedAt);
+  if (!Number.isFinite(t)) return "unknown";
+  const sec = Math.max(0, Math.floor((now.getTime() - t) / 1000));
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h`;
+  return `${Math.floor(sec / 86400)}d`;
+}
+
 export function queueList(d: QueueDeps): number {
   const items = readQueue(d.lokiDir);
   if (items.length === 0) {
-    d.out("queue is empty\n");
+    d.out("queue is empty\nnext: loki queue add <issue...>  (owner/repo#N, #N or an issue URL)\n");
     return 0;
   }
-  items.forEach((it, i) => d.out(`${i + 1}. ${it.ref}  (added ${it.added_at})\n`));
+  const rows = items.map((it) => ({ id: it.ref, age: formatAge(it.added_at, d.now()), status: "queued" }));
+  const w = Math.max(2, ...rows.map((r) => r.id.length));
+  const aw = Math.max(3, ...rows.map((r) => r.age.length));
+  d.out(`${"ID".padEnd(w)}  ${"AGE".padEnd(aw)}  STATUS\n`);
+  for (const r of rows) d.out(`${r.id.padEnd(w)}  ${r.age.padEnd(aw)}  ${r.status}\n`);
+  d.out(`${rows.length} queued\n`);
   return 0;
 }
 

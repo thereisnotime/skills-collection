@@ -11,11 +11,19 @@ import type { RecoveryClient } from "./recovery.ts";
 // not re-exported from the package root; omitted fields keep current values).
 type ToolResultPatch = { content: ToolResultEvent["content"] };
 
+// onNoReply fires when the runtime gave no reply at all for this PostToolUse.
+// "Decided not to shrink" is a reply; a dead or stalled runtime is not, and
+// without this signal the two are indistinguishable to the caller — a session
+// whose runtime goes quiet mid-run just stops compressing (#1287). Never fires
+// on the other skip paths (empty text, over-cap, unusable replacement): those
+// are ordinary per-result decisions, not a runtime failure. The caller is
+// expected to rate-limit it.
 export async function shrinkToolResult(
   bridge: HookBridge,
   sessionId: string,
   event: ToolResultEvent,
   recovery: Pick<RecoveryClient, "verify">,
+  onNoReply?: () => void,
 ): Promise<ToolResultPatch | undefined> {
   const text = event.content
     .map((block) => (block.type === "text" && typeof block.text === "string" ? block.text : ""))
@@ -32,6 +40,10 @@ export async function shrinkToolResult(
       tool_input: event.input,
       tool_output: text,
     });
+    if (!response) {
+      onNoReply?.();
+      return undefined;
+    }
     const proposed = outputReplacementOf(response);
     if (!proposed || Buffer.byteLength(proposed, "utf8") > MAX_OUTPUT_REPLACEMENT_BYTES) return undefined;
     let handle = normalizeRecoveryHandle(response?.recovery_ref);

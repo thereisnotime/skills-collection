@@ -64,6 +64,7 @@ nothing.
 | Gemini CLI | `~/.gemini/tmp/*/chats/session-*.json` | `~/.gemini/GEMINI.md`, `GEMINI.md` from repo root to cwd | `CAVEMAN_GEMINI_ROOT` |
 | opencode | `~/.local/share/opencode/storage/{session,message,part}` | none | `CAVEMAN_OPENCODE_ROOT` |
 | aider | `.aider.chat.history.md` files under the root | none | `CAVEMAN_AIDER_ROOT` (required; off without it) |
+| Pi | `~/.pi/agent/sessions/**/*.jsonl` | none | `CAVEMAN_PI_ROOT` |
 
 The memory and rules doctor also reads `.claude/CLAUDE.md`, `CLAUDE.local.md`,
 `.claude/rules/*.md` and `~/.claude/rules/*.md` (path-scoped rules with a
@@ -117,7 +118,7 @@ The default window is `--since 30d`. The scan times out after 120 s
 | `--json` | The `caveman.learn.v1` plan on stdout. |
 | `--md` | Detailed Markdown. |
 | `--since <Nd>` | Window, e.g. `7d`. |
-| `--sources <list>` | Any of `claude,codex,gemini,opencode,aider`. Default: all. |
+| `--sources <list>` | Any of `claude,codex,gemini,opencode,aider,pi`. Default: all. |
 | `--repo <substring>` | Keep only sessions whose repository matches, before any detector runs. Config is still read from the current directory. |
 | `--retro` | Adds the "would have saved" replay block (`retro`). Budgets: `--behavior-budget-ms`, `--retro-budget-ms`. Omitted when `--repo` is set. |
 | `implement [claude\|codex] [--prompt "<focus>"]` | Opens the agent with the `caveman-learn` skill and the current report. |
@@ -481,8 +482,8 @@ into one line; `--all`, `--md`, JSON and the HTML report list each model.
 - **Headless sessions can consume the nudge.** A scripted `claude -p` or
   `codex exec` fires `SessionStart` with source `startup`, so it can claim and
   confirm the nudge where no one sees it.
-- **Unsupported agents.** Only the five sources above are scanned. Cursor,
-  Windsurf, Hermes, Pi and other agents are not read.
+- **Unsupported agents.** Only the six sources above are scanned. Cursor,
+  Windsurf, Hermes and other agents are not read.
 - **aider** is off unless `CAVEMAN_AIDER_ROOT` points at a directory to walk.
   aider history has no provider usage, so it adds nothing to depth, dumbzone,
   spend or trends.

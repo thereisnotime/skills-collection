@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSessionRunner } from "../../src/engine10/session.ts";
 import { firstError, runCheck } from "../../src/engine10/stages/verify.ts";
+import { hooks } from "../../src/engine10/hooks.ts";
 import { FLOW, optional, runMachine, type MachineRunContext } from "../../src/engine10/machine.ts";
 import type { RunContext, Stage, StageName, StageResult } from "../../src/engine10/types.ts";
 
@@ -125,8 +126,8 @@ describe("engine10 machine", () => {
   });
   const failing = (tail: string) => ({ exit: 1, markers: { done: false, alreadyDone: null, specConflict: null }, durationS: 0, killed: false, stderrTail: tail });
 
-  for (const [tail, klass] of [["Your credit balance is too low", "quota_exhausted"], ["invalid x-api-key", "auth"], ["billing_hard_limit_reached ... insufficient_quota", "quota_exhausted"]] as const) {
-    it(`a ${klass} error aborts on the first occurrence: no fix round, no further session`, async () => {
+  for (const [tail, klass] of [["invalid x-api-key", "auth"]] as const) {
+    it(`a ${klass} error is fatal on the first occurrence (quota now waits, P12-09): no fix round, no further session`, async () => {
       const { ctx, events } = fakeCtx();
       let sessions = 0;
       ctx.sessions = { run: async () => { sessions++; return failing(tail); } };
@@ -136,6 +137,74 @@ describe("engine10 machine", () => {
       expect(of(events, "stage.started")).not.toContain("fix");
     });
   }
+
+  describe("P12-09 quota wait and rerun", () => {
+    const okRes = { exit: 0, markers: { done: true, alreadyDone: null, specConflict: null }, durationS: 0, killed: false, stderrTail: "" };
+    const virtual = (ctx: RunContext) => { let now = Date.now(); const slept: number[] = []; ctx.clock = { now: () => now, sleep: async (ms: number) => { slept.push(ms); now += ms; } }; return slept; };
+    it("a quota error twice then success waits on ctx.clock and the run completes", async () => {
+      const { ctx, events } = fakeCtx();
+      const slept = virtual(ctx);
+      let calls = 0, stageRuns = 0;
+      ctx.sessions = { run: async () => (++calls <= 2 ? failing("[sdk-loop error: Your credit balance is too low to access the API]") : okRes) };
+      const r = await runMachine(ctx, { load: loaderOf(all({ implement: stage("implement", async (c, signal) => { stageRuns++; await c.sessions.run({ stage: "implement", brief: "", tier: "development", iterationId: "i", limitS: 1, signal, cwd: "/" }); return { status: "completed", data: {} }; }) })) });
+      expect(calls).toBe(3);
+      expect(stageRuns).toBe(1);
+      expect(slept.length).toBe(2);
+      expect(r.stopped).toBeNull();
+      expect(r.capHit).toBe(false);
+      expect(of(events, "stage.started").filter((n) => n === "implement").length).toBe(1);
+    });
+    it("a quota that never recovers ends budget_stopped (cap.hit), not fatal and not an infinite wait", async () => {
+      const { ctx, events } = fakeCtx(900);
+      const slept = virtual(ctx);
+      let calls = 0;
+      ctx.sessions = { run: async () => { calls++; return failing("insufficient_quota"); } };
+      const r = await runMachine(ctx, { load: loaderOf(all({ implement: sessionStage("", { n: 0 }) })) });
+      expect(r.capHit).toBe(true);
+      expect(r.stopped).toBeNull();
+      expect(of(events, "cap.hit").length).toBe(1);
+      expect(calls).toBeGreaterThan(1);
+      expect(calls).toBeLessThan(40);
+      expect(slept.length).toBeGreaterThan(0);
+    });
+    it("the dollar cap (ctx.overCap) ends the quota wait between attempts", async () => {
+      const { ctx } = fakeCtx(900000);
+      const slept = virtual(ctx);
+      let calls = 0;
+      ctx.overCap = () => slept.length >= 1;
+      ctx.sessions = { run: async () => { calls++; return failing("insufficient_quota"); } };
+      const r = await runMachine(ctx, { load: loaderOf(all({ implement: sessionStage("", { n: 0 }) })) });
+      expect(calls).toBe(1);
+      expect(slept.length).toBe(1);
+      expect(r.stopped).toBeNull();
+      expect(r.capHit).toBe(true);
+    });
+    it("the SDK iteration-log credit line, through the real session runner, waits and ends budget_stopped", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "loki-p1209b-"));
+      try {
+        const { ctx } = fakeCtx(900000);
+        const slept = virtual(ctx);
+        const runner = createSessionRunner({ provider: "claude", childCommand: ["bash", ["-c", 'mkdir -p .loki; echo "[sdk-loop error: Your credit balance is too low to access the API]" > ".loki/iteration-$LOKI_ITERATION.log"; exit 1']] });
+        let calls = 0;
+        ctx.overCap = () => slept.length >= 2;
+        ctx.sessions = { run: (o) => { calls++; return runner.run({ ...o, cwd: dir }); } };
+        const r = await runMachine(ctx, { load: loaderOf(all({ implement: sessionStage("", { n: 0 }) })) });
+        expect(r.stopped).toBeNull();
+        expect(r.capHit).toBe(true);
+        expect(calls).toBe(2);
+      } finally { rmSync(dir, { recursive: true, force: true }); }
+    });
+    it("auth stays fatal with no wait", async () => {
+      const { ctx } = fakeCtx();
+      const slept = virtual(ctx);
+      let calls = 0;
+      ctx.sessions = { run: async () => { calls++; return failing("invalid x-api-key"); } };
+      const r = await runMachine(ctx, { load: loaderOf(all({ implement: sessionStage("", { n: 0 }) })) });
+      expect(r.stopped).toBe("fatal:auth");
+      expect(calls).toBe(1);
+      expect(slept.length).toBe(0);
+    });
+  });
 
   it("a 429 is transient: the run is not stopped fatal", async () => {
     const { ctx } = fakeCtx();
@@ -184,7 +253,6 @@ describe("engine10 machine", () => {
     ["the session child's own stderr", "echo 'invalid x-api-key' >&2; exit 1", "auth"],
     ["the real SDK auth line in the iteration log", "mkdir -p .loki; echo '[sdk-loop error: Claude Code returned an error result: Failed to authenticate. API Error: 401 API key is invalid.]' > .loki/iteration-it-implement.log; exit 1", "auth"],
     ["the SDK Not logged in error line", "mkdir -p .loki; echo '[sdk-loop error: Claude Code returned an error result: Not logged in - Please run /login]' > .loki/iteration-it-implement.log; exit 1", "auth"],
-    ["the SDK error line in the iteration log","mkdir -p .loki; echo '[sdk-loop error: Your credit balance is too low to access the API]' > .loki/iteration-it-implement.log; exit 1", "quota_exhausted"],
   ] as const) {
     it(`real session runner: ${label} stops fatal:${klass} after ONE session`, async () => {
       const runs = { n: 0 };
@@ -451,5 +519,60 @@ describe("engine10 optional()", () => {
     const p = join(dir, "broken.ts");
     writeFileSync(p, "throw new Error('boom');\n");
     await expect(optional(p)).rejects.toThrow("boom");
+  });
+
+describe("TEN-COST-11 r3: spend of failed or killed stages reaches seal", () => {
+  const OKS = { exit: 0, markers: { done: true, alreadyDone: null, specConflict: null }, durationS: 0.1, killed: false };
+  const run = async (wall: Stage["run"], limitS = 5) => {
+    const { ctx } = fakeCtx();
+    ctx.sessions = { run: async () => OKS } as RunContext["sessions"];
+    let seen: string[] | undefined, outWall: unknown = "unset";
+    const seal = stage("seal", async (c) => { seen = c.sessionIds?.(); outWall = c.outputs().wall; return { status: "completed", data: {} }; });
+    await runMachine(ctx, { load: loaderOf(all({ wall: stage("wall", wall, limitS), seal })) });
+    return { seen, outWall };
+  };
+  it("a failed+killed wall stage's session ids are visible to seal although outputs.wall is empty", async () => {
+    const r = await run(async (c) => {
+      await c.sessions.run({ stage: "wall", iterationId: "w1" } as never); await c.sessions.run({ stage: "wall", iterationId: "w1-r2" } as never);
+      return { status: "failed", data: { iteration_ids: ["w1", "w1-r2"] }, killed: true };
+    });
+    expect(r.outWall).toBeUndefined();
+    expect(r.seen).toEqual(expect.arrayContaining(["w1", "w1-r2"]));
+  });
+  it("a wall stage cut off by its limit keeps the ids of sessions it had started", async () => {
+    const r = await run(async (c, sig) => { await c.sessions.run({ stage: "wall", iterationId: "w1" } as never); await sleep(5000, sig); return { status: "completed", data: {} }; }, 0.05);
+    expect(r.seen).toContain("w1");
+  });
+});
+});
+
+describe("concurrent wall distrusts a green base run when implement changed files (TEN-COST-11-F1)", () => {
+  const saved = hooks.wall;
+  afterEach(() => { hooks.wall = saved; delete process.env.LOKI_E10_WALL_CONCURRENT; });
+  const go = async (changed: string[] | null) => {
+    process.env.LOKI_E10_WALL_CONCURRENT = "1";
+    const repo = mkdtempSync(join(tmpdir(), "loki-f1-")); const base = mkdtempSync(join(tmpdir(), "loki-f1-base-"));
+    try {
+      hooks.wall = { snapshotTree: async () => base, changedSinceBase: () => changed, manifests: /package\.json$/ };
+      const { ctx } = fakeCtx(); ctx.repoDir = repo;
+      const wall = { ...stage("wall"), split: {
+        author: async () => ({ kind: "authored", targetDir: join(repo, "tests"), contents: new Map([["loki_wall_a.test.ts", "t\n"]]) }),
+        install: (): StageResult => ({ status: "completed", data: { base_run: { pass: 3, fail: 0, not_run: 0 }, already_satisfied: true } }),
+      } } as Stage;
+      const r = await runMachine(ctx, { load: loaderOf(all({ wall })), flow: FLOW });
+      return r.outputs.wall as Record<string, unknown> & { base_run: Record<string, unknown> };
+    } finally { rmSync(repo, { recursive: true, force: true }); rmSync(base, { recursive: true, force: true }); }
+  };
+  it("implement changed a source file: already_satisfied false and base_run unproven", async () => {
+    const w = await go(["src/x.ts"]);
+    expect(w.already_satisfied).toBe(false); expect(w.already_satisfied_distrusted).toBe(true);
+    expect(w.base_run).toMatchObject({ pass: 3, fail: 0, not_run: 1, unproven: true });
+  });
+  it("changed set unknown (null): distrusted too", async () => {
+    expect((await go(null)).already_satisfied).toBe(false);
+  });
+  it("positive control: only .loki and wall files changed keeps already_satisfied true", async () => {
+    const w = await go([".loki/x", "tests/loki_wall_a.test.ts"]);
+    expect(w.already_satisfied).toBe(true); expect(w.base_run.unproven).toBeUndefined();
   });
 });

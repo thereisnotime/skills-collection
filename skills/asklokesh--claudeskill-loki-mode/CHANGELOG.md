@@ -5,6 +5,674 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.17.42 (2026-10-17)
+
+P0 fix-forward for the nightly 39016259458 failures.
+
+### Fixed
+
+- TEN-STABILITY-18: green the remaining nightly reds:
+  - util/check_result.ts is registered as a "not recorded" producer.
+  - The Wall brief size cap is re-measured.
+  - The router opt-out golden pins the pre-router Wall order.
+  - verify resolves uv with the live PATH (Bun.which).
+  - 15 legacy echo-into-grep forms are converted, and the sigpipe ceiling is lowered from 1728 to 1722.
+  - `loki verify --require-exogenous` routes through bin/loki and autonomy/loki and appears in help.
+  - The bare-loki UI test pins the new three-line control output.
+  - local-ci scopes gitleaks to origin/main..HEAD.
+- TEN-STABILITY-19: the moat P8 positive control records a real byte-compile build result again (P8 PROVEN). The first-run gate stub answers the login probe without touching the work tree (0 assertions failed).
+
+## v11.17.41 (2026-10-17)
+
+Wave AJ: 9 reviewed slices.
+
+### Added
+
+- TEN-SECURITY-06: secure-scan rule 6 flags disabled TLS verification.
+- TEN-SECURITY-05: redactSecrets strips secret query parameters from URLs.
+- TEN-ADOPTION-14: `loki proof list --json` prints the proof index as JSON.
+- TEN-DEPLOY-14: `loki status --probe --json` prints one JSON object.
+- TEN-QUALITY-16: the commit stage formats only the run's own changed files with the repo's configured formatter.
+- TEN-UX-19: `loki start --help` ends with brief, PRD file and issue reference examples.
+- TEN-SPEED-06: `loki doctor` runs its integration probes concurrently.
+
+### Fixed
+
+- TEN-STABILITY-15: `loki queue add` quarantines a corrupt queue file and warns, instead of overwriting every queued item.
+- TEN-COST-32: the cap-stop next-step line gets the run id from the real callers and covers the time cap.
+
+## v11.17.40 (2026-10-17)
+
+Wave AG: 14 reviewed slices.
+
+### Added
+
+- TEN-GATES-20: secure-scan reports files_scanned, and a zero-file scan is not_run instead of a pass.
+- TEN-COST-31: `loki report kpis --since <Nd|YYYY-MM-DD>` windows the iteration totals.
+- TEN-COST-34: the run summary spend line adds retry dollars when retry sessions cost money.
+- TEN-SPEED-07: a fix-round verify runs the previous round's failing test files first.
+- TEN-QUALITY-17: a test that fails and then passes on one immediate rerun is classified flaky, and flaky never counts as executed or exogenous proof.
+- TEN-QUALITY-18: TypeScript repos with no typecheck script get a `tsc --noEmit` typecheck.
+- TEN-UX-17: `loki undo --list` prints recent runs with verdict, files changed and age.
+- TEN-ADOPTION-13: `loki proof share --dry-run` runs the secret scan and lists what would be shared.
+
+### Fixed
+
+- TEN-GATES-18: risk classification reads manifest dependency changes from git data; the L0 guard allowlist records check_result.ts.
+- TEN-GATES-19: the composite seal records the node version only from a real probe, never bun's compat version.
+- TEN-SECURITY-04: redactSecrets strips GitLab, npm, Hugging Face and Stripe tokens and PEM private key blocks.
+- TEN-SPEED-08: preflight reuses a successful `gh auth status` probe for 10 minutes.
+- TEN-ADOPTION-15: the update hint and self-update share one registry helper.
+- TEN-DEPLOY-13: `loki status --probe` fails when the health URL redirects to a different origin.
+
+## v11.17.39 (2026-10-17)
+
+### Added
+- TEN-DEPLOY-09: `loki start --deploy` passes --destination, --canary, --env-file, --domain and --github through to `loki deploy`; chat help and docs describe the brief-to-verified-URL path. With --deploy, --env-file is no longer loaded as start config.
+
+### Fixed
+- TEN-STABILITY-14: the four loki-ts/tests/util structural guards are green again. funnel.ts spawns with a token-free env instead of the full parent env, --cost is declared in the start flag parity table, and the regex and module allowlists match the tree.
+
+### Known
+- A-112b closed as already shipped (commit bfd6b98d8 unfolded subtractBase).
+- TEN-DEPLOY-03, TEN-GATES-15, Q17-05b and Q18-03e remain blocked and are re-dispatched with opus fixers.
+
+## v11.17.38 (2026-10-17)
+
+### Added
+- TEN-DEPLOY-06: `loki deploy --domain` attaches a custom domain and proves TLS.
+- TEN-COST-29: the Spend summary flags cache-cold stages (cache read under 30 percent of input).
+- TEN-SPEED-04: cachedRepoMap and cachedTestMap reuse the stored map when the tree hash is unchanged, with hit and miss counts.
+- TEN-QUALITY-14: the Wall authoring prompt requires one negative-case assertion per acceptance line.
+- TEN-UX-14: `loki queue list` shows id, age and status columns with a count footer.
+- TEN-ADOPTION-11: `loki trust` prints a copyable README badge snippet for the last sealed run.
+- TEN-ADOPTION-12: a one-line what-is-new prints once after an upgrade.
+
+### Fixed
+- TEN-STABILITY-13: wall base-run classifiers moved to util/check_result.ts; engine10 core is 4949 lines, under the 5000 cap again.
+- TEN-SECURITY-01: the pre-PR secure scan matches provider keys in added lines and forces a/ b/ diff prefixes, so user diff config cannot hide a key.
+- TEN-SECURITY-02: redact strips URL userinfo and Authorization header values.
+- TEN-SECURITY-03: the bash secret scanners match Anthropic sk-ant keys.
+- TEN-GATES-17: a pre-existing test file the run edited is advisory provenance, not exogenous proof, for `loki verify --require-exogenous`.
+- TEN-SPEED-05: a successful claude login probe is reused for 10 minutes.
+- TEN-UX-15: `start --cost` is registered in shell completions; registry flags are guarded in every shell.
+- TEN-DEPLOY-12: `loki status --probe` retries once after 5s before reporting a regression.
+- TEN-STABILITY-12: a truncated outbox entry is quarantined with one warning instead of silently overwritten.
+
+### Tests
+- TEN-GATES-16: pin the fail-safe fallbacks of head-drift overlap.
+
+### Known
+- TEN-COST-30 closed as already shipped: start.ts warns on an unknown loki.yaml cost.profile and cost_profile.ts rejects an unknown --cost value.
+- TEN-QUALITY-15 closed as already shipped: fix.ts caps rounds after one escalation and machine.ts stops on three identical verify signatures.
+- Four tests/util structural guards are red on this tree (model-output regex allowlist count for wall.ts, full-env spawn allowlist for doctor.ts and funnel.ts, stale unregistered-modules entry for status.ts, undeclared --cost in the start flag parity table). Three were already red at v11.17.37; a P0 fix-forward slice is open.
+- TEN-DEPLOY-03 and TEN-GATES-15 remain blocked after one fix round and are re-dispatched.
+
+## v11.17.37 (2026-10-17)
+
+### Added
+- TEN-COST-28: the run summary prints each stage's share of spend and names the top stage.
+- TEN-SPEED-03: the Time line names the slowest stage and its share of wall time.
+- TEN-QUALITY-13: the cross-review prompt carries the intent card Acceptance lines and names unmet ones.
+- TEN-GATES-14: `loki verify --explain` lists each gate as exogenous or agent-influenced, with the evidence it read.
+- TEN-UX-13: `loki undo --dry-run` prints the diffstat it would revert.
+- TEN-DEPLOY-11: `loki rollback deploy` prints the provider rollback command for the last deploy record.
+
+### Tests
+- TEN-COST-11-F1: pin the concurrent wall distrust of a green base run when implement changed files.
+
+### Known
+- TEN-STABILITY-11 closed as already shipped: `loki-ts/src/util/run_pid.ts` verifyRunPid already compares process start time to catch PID reuse.
+- The engine10 core size budget test reports 5006 of 5000 lines on main (pre-existing since at least v11.17.35); a P0 fix-forward slice is open.
+- TEN-SECURITY-01 remains blocked after one fix round (git diff-prefix config bypass in the added-line scan); it is re-dispatched.
+
+## v11.17.36 (2026-10-17)
+
+### Added
+- TEN-QUALITY-11: a uv.lock repo without a .venv runs pytest and ruff through `uv run` as the project interpreter.
+- TEN-QUALITY-12: `LOKI_E10_REPOMAP_MAX_FILES` knob; truncation drops vendored and generated dirs first.
+- TEN-ADOPTION-09: a gitlab.com pinned origin routes to `engine10-push-gitlab.sh push-mr`.
+- TEN-ADOPTION-07: gallery of verifiable receipts with an offline guard.
+- TEN-ADOPTION-08: install smoke covers tour, `mcp install --print` and the MCP stdio handshake.
+
+### Fixed
+- TEN-UX-12: preflight retries an unanswered `claude auth status` probe once, so a slow probe adds no warning line.
+
+## v11.17.35 (2026-10-17)
+
+Wave Y: 4 HIGH slices.
+
+### Added
+- engine10 deep stage runs a real app boot through `app_probe` and applies the secure-scan rules to changed files in the security check; a HIGH finding fails, a missing scanner is not_run (TEN-GATES-06).
+- Proof generator: VERIFIED needs one agent-independent fact beside the agent's own suite (an exogenous gate, a security scan that found something to check, or a healthcheck that answered). Recorded as D105 (TEN-GATES-10).
+- `loki deploy --env-file FILE` with provider verbs for Fly, Netlify and Cloudflare; env values are never written to the deploy record and the deploy argv is never evaluated (TEN-DEPLOY-05).
+
+### Fixed
+- web-app GitHub push runs the receipt-stamped `loki github publish`; fabricated fallback URLs (vercel.app, netlify.app, github.io) are gone (TEN-DEPLOY-08).
+
+### Known
+- The TEN-GATES-10 merge hand-resolved a DECISIONS.md collision: TEN-GATES-02 and TEN-GATES-10 both took D104. GATES-10 is now D105, and its two code comments were updated to match. No logic change.
+
+## v11.17.34 (2026-10-17)
+
+### Fixed
+- Seal: receipt checks now carry the verify stage's passing-test count `n`, so `loki verify --require-exogenous` counts real sealed receipts. Since TEN-GATES-03-F1 every real receipt counted 0 agent-independent checks and the flag always exited 4. The key is additive and hashed; receipts without it verify unchanged. P0 fix-forward from the v11.17.33 combined-tree red (HIGH APPROVE c958f563c).
+- The v11.17.33 doctor `--fix` real-entry-path red was a stale dist only; the v11.17.33 release build already carries TEN-UX-04, no code change.
+
+### Board
+- 24 new ready slices from the Product Owner refill (D91), plus TEN-GATES-17 (HIGH): an edited pre-existing test must not count as agent-independent proof.
+
+## v11.17.33 (2026-10-17)
+
+Wave W and wave AB: 16 reviewed slices.
+
+### Added
+- `loki tour` verifies a bundled sealed receipt offline, then tampers a copy and shows TAMPERED (TEN-ADOPTION-01).
+- One-click Cursor and VS Code MCP install links in README and docs/INSTALLATION.md; deprecated npm keywords dropped (TEN-ADOPTION-06).
+- `LOKI_E10_REPRO=1` adds a reproduce-first sentence to the lean implement brief when no plan exists (TEN-QUALITY-08).
+- `loki doctor --fix` offers a consent-gated claude install and `claude login` (TEN-UX-04).
+- Seal VERIFIED now requires agent-independent proof, default on; every receipt check carries a `provenance` key and receipt.md splits agent-independent from advisory checks. Opt out with `LOKI_EXOGENOUS_PROOF=0`. Recorded as D104 (TEN-GATES-02).
+- `loki start` reads `cost.profile` from loki.yaml as the team default (TEN-COST-27).
+- bench-suite times `loki verify --fast` and records p95_ms (TEN-SPEED-02).
+- The run summary Time line marks the first sealed PR in a repo (TEN-UX-11).
+- The reviewer PR body gives a copyable receipt-check `uses:` line pinned to the current version (TEN-ADOPTION-10).
+- `loki status --probe` re-probes the last deploy health URL (TEN-DEPLOY-10).
+
+### Fixed
+- Doctor provider spawns reuse `withholdGithubTokens`, closing the P9 rule-of-two gap on the login probe (TEN-P9-FIX-F1).
+- local-ci gitleaks uses first-parent diff-merges, and G1 reads the mode at any indentation (TEN-SEC-GITLEAKS-01-F1).
+- The build_verified funnel payload is asserted to carry only headline and route (TEN-UX-03-F1).
+- `scripts/release.sh --ship` commits only HEAD plus its own edits (TEN-RELEASE-FAST).
+- The bench task venv inherits system site-packages so pytest runs (TEN-COST-21).
+- Relevance ranks tracked traceback paths past the 2000-file repo map cap (TEN-QUALITY-10).
+
+### Known
+- Two tests are red on the combined tree and have a P0 fix-forward open: seal.test.ts "verifies end to end through loki verify" (rc 4) and doctor.test.ts "(f) real entry path" (TEN-UX-04). Each passed in its own slice worktree.
+- The TEN-GATES-02 merge hand-resolved a DECISIONS.md append conflict (D103 and D104 both kept, no content change).
+
+## v11.17.32 (2026-10-17)
+
+### Added
+- Ablation in loki start (TEN-GATES-12): the proof path runs the ablation check before the proof is generated, so engine10 runs carry quality/ablation.json and the proof shows whether the change is load-bearing. LOKI_PROOF_ABLATION=0 opts out; a stale ablation file is removed first.
+- Seeded-defect corpus (TEN-GATES-13): benchmarks/seeded-defects holds 100 runnable seeded defects across five categories, generated by a committed script that checks the corpus is byte-identical to a fresh generation. Moat property P4.seeded-defect-corpus-present is now proven.
+- Cost proof run (TEN-COST-08): docs/v10/METRICS.md documents how to reproduce the C-F1 cost proof, including the arms, repeats, spend cap and verdict rules.
+- Group cost in C-F1 (TEN-COST-19): loki rows in the cost harness sum cost across group units.
+
+### Changed
+- Lean cost profile (TEN-COST-25): `--cost lean` no longer turns on the router, which forced a plan session on every small task. It now sets haiku-first implement, prompt trim and the small-task sizing knobs, each only when not already set.
+- Bare loki (TEN-UX-10): after the dashboard URL, bare `loki` prints how to give work (`loki start "<brief>"`) and how to stop the UI (`loki control stop`).
+
+## v11.17.31 (2026-10-17)
+
+### Fixed
+- Stub login in tests (TEN-STABILITY-09): the engine10 stub CLIs used by the end-to-end suites answer `claude auth status`, so the login probe never stalls or warns in stub runs. This targets the red main Tests runs. The v11.17.30 notes listed this fix, but it was not in that release because its merge conflicted; it ships here.
+
+## v11.17.30 (2026-10-17)
+
+### Fixed
+- Stub login in tests (TEN-STABILITY-09): the engine10 stub CLIs used by the end-to-end suites answer `claude auth status`, so the login probe never stalls or warns in stub runs. This targets the red main Tests runs.
+- Pulse speed (TEN-STABILITY-10): the merged-not-released check reads merges with one memoized git log pass and matches slice IDs with a digit boundary, instead of one git log per row that timed out under load.
+
+## v11.17.29 (2026-10-17)
+
+### Added
+- Stop the control plane (TEN-UX-09): `loki control stop` stops the detached control plane using the PID in instance.json, only after its /health endpoint confirms it is the Loki control service. A mismatched identity or an invalid PID is refused and nothing is signalled.
+- Load-bearing proof (TEN-GATES-11): autonomy/lib/ablation.py reverts each changed unit, reruns the checks and restores the tree, so the proof marks a change load-bearing only when removing it turns a check red. Dead code is never sealed as load-bearing, and docs-only changes report not applicable. Moat property P8 now runs in the suite instead of pending.
+- Speed ratio (TEN-SPEED-01): the cost claim reports a paired elapsed time ratio (raw over loki) with the same bootstrap confidence interval as the cost ratio. It never changes the cost verdict.
+- Sizing knobs (TEN-COST-26): LOKI_E10_SMALL_MAX_CHARS sets the small-task brief length (default 600, unchanged) and LOKI_E10_SMALL_NO_RUNNER=1 lets a repo without a test runner still size as small.
+
+### Fixed
+- Session model downgrades (TEN-COST-16-F1): the L1 session downgrade list follows the same precedence as implement (router off, cascade first, then haiku-first), so the two paths no longer disagree on which model runs first.
+
+## v11.17.28 (2026-10-17)
+
+### Added
+- Cost attribution by lever (TEN-COST-04): the C-F1 attribution script takes `--loki-env LOKI_<NAME>=<value>` and pools runs by arm plus lever settings, so a lean-profile arm is never averaged with a default arm. A malformed lever is refused with exit 2.
+
+### Fixed
+- Pre-push gitleaks warnings (TEN-SEC-PREPUSH-MERGE-WARN): the .gitleaksignore and .gitleaks.toml change checks read merges against their first parent only, so merging an older slice branch no longer reports ignore lines that were already on main.
+
+## v11.17.27 (2026-10-17)
+
+### Changed
+- Wall on haiku (TEN-COST-11): the engine10 wall stage authors checks on haiku first and re-authors on sonnet only when the haiku wall fails, when stage time allows. A green wall that could not be re-checked within budget is marked distrusted (base_run not_run and unproven), so seal never reports ALREADY_SATISFIED and commit never discards implement's work on an unproven green. Seal and wall share one green-on-base test and one distrust helper.
+- Board: 20 new slices toward 10/10 across cost, speed, UX, adoption, gates, deploy, stability and quality.
+
+## v11.17.26 (2026-10-17)
+
+### Added
+- Haiku-first implement (TEN-COST-16): LOKI_IMPLEMENT_HAIKU_FIRST=1 runs the implement stage on haiku first and escalates to the run model when verify fails. The downgrade is printed on the start line and recorded, including when the cascade or router overrides it.
+- Proof app facts (TEN-GATES-07): the proof collects app boot health and functional facts before it is generated.
+
+### Fixed
+- Provenance freshness (TEN-DEPLOY-02): `loki verify --max-age` refuses a provenance document whose built_at is in the future, and `--seal-composite` and `--export-dsse` refuse `--max-age` with a clear message instead of ignoring it.
+
+## v11.17.25 (2026-10-17)
+
+### Added
+- Lean cost profile (TEN-COST-01): `loki start --cost lean` or LOKI_COST_PROFILE=lean opts a run into the cheaper model and effort settings, printed on the start line.
+- Batched judge calls (TEN-COST-24): SDK judge calls can opt into the Message Batches path for lower per-token cost.
+- First-run gate entry (TEN-UX-08): `scripts/first-run-gate.sh --entry start-empty` measures `loki start` in an empty folder end to end and compares the wall time against its budget numerically.
+
+### Fixed
+- Empty folder start (TEN-UX-01-F1): the engine10 supervisor initializes a git repo in an empty folder instead of exiting with "not inside a git repository".
+- Verify require-exogenous (TEN-GATES-03-F1): `--require-exogenous` also applies to unsigned receipts accepted with `--allow-unsigned`, and only checks that executed (n > 0) count as agent-independent proof.
+- Proof share redaction (TEN-ADOPTION-03-F1): `loki proof share` refuses any bundle file holding a GitHub, AWS, Anthropic, OpenAI or Slack token, even with `--yes`; `proof badge`, `proof md` and `proof bundle` are registered in help and completions.
+- Lint abort test (TEN-QUALITY-03-F1): the abort-mid-run lint case now goes red if the caller's abort signal is dropped.
+
+### Changed
+- Throughput (D103): seat cap 20 and worktree cap 21; HIGH-tier slices are built by opus.
+
+## v11.17.24 (2026-10-17)
+
+### Added
+- First-run funnel (TEN-UX-03): the default engine10 route reports first_run_blocked with a reason key (not_a_repo, git_identity or other) on a preflight refusal, and build_verified on a verified run, through the same opt-out analytics bridge doctor uses. No paths or task text are sent.
+
+### Fixed
+- Token isolation (TEN-P9-FIX): the first-run login probe (`claude auth status`) now runs with the GitHub token, gh config store, credential helper and SSH agent withheld, the same as a provider session. Since v11.17.22 the probe ran with the full environment, so the P9 injection moat failed.
+- Secret scanning (TEN-SEC-GITLEAKS-01): the pre-push gitleaks scan reads merge commits the same way as the CI Security Audit (first-parent), so a key added only in a merge result is refused locally. The check_result fixture builds its fake key at runtime instead of committing one.
+- Status badge (TEN-DEPLOY-04-F1): `loki status --badge` is routed by the dispatcher and listed in help, the command registry and shell completions.
+
+## v11.17.23 (2026-10-17)
+
+### Fixed
+- App probe (TEN-GATES-04): the app probe stops the app unconditionally when boot times out, so a slow app never leaks a running process, and its tests use a free port instead of a fixed one.
+- Chat startup (TEN-UX-05): chat startup readiness is capped at 3 lines structurally, and an ambiguous slash command suggests the matching commands.
+
+## v11.17.22 (2026-10-17)
+
+### Added
+- Deploy badge (TEN-DEPLOY-04): `loki status --badge` prints a green badge only when the last deploy record verifies and its signed live binding is VERIFIED, a red badge for TAMPERED or FAILED_HEALTH, and otherwise no badge with the reason.
+- First run in an empty folder (TEN-UX-01): `loki start` in an empty folder with no repo initialises one (branch main, empty commit) with a one-line notice; a non-empty folder still stops with the exact git commands, and LOKI_AUTO_GIT_INIT=0 refuses. For the Claude provider, a logged-out CLI stops before any spend.
+- Nightly flake classification (TEN-STABILITY-07): the nightly run classifies Bun test failures as FLIP or STABLE-FAIL at one SHA and labels bun latest legs as drift; the job is informational and never changes the run conclusion.
+
+### Changed
+- Relevant files (TEN-QUALITY-05): ranking is identifier aware. Traceback, file:line and dotted module paths rank first, then exact identifier matches weighted by file stem, symbol and path segment, with stopwords dropped and ties kept in repo-map order.
+
+### Fixed
+- Security Audit (fix-forward): gitleaks fingerprints for the TEN-QUALITY-01 redaction fixture as re-added by slice-branch merges fd027051c and bc0e97c63 under first-parent merge diffs are listed. A local scan of e2b6b77d2..HEAD with --diff-merges=first-parent reports no leaks.
+
+## v11.17.21 (2026-10-17)
+
+### Fixed
+- Wall cost skip keeps the holdout (TEN-COST-09): a Wall that cannot run on the project interpreter is skipped only when the holdout is off. With the holdout on (the default), the Wall runs so held-back tests still reach verify and can fail the seal.
+- Login redirect check (TEN-GATES-05b): a relative Location header is resolved against the request URL before the canonical trailing-slash comparison, so `Location: auth/` for GET /api/auth no longer reads as a login redirect while /api/auth/ serves anonymously.
+- Test hygiene (TEN-COST-09-F1): the holdout fixture removes its holdout store, so test runs no longer leave loki-e10-holdout directories in the temp root.
+- Security Audit (fix-forward): the gitleaks ignore entries for the TEN-QUALITY-01 redaction fixture on merge commit d9f24cd7a were malformed (a shell path modifier ate ":l"), so the scan of v11.17.20 failed. The entries are corrected; a local scan of 10eb771d8..HEAD reports no leaks.
+
+## v11.17.20 (2026-10-17)
+
+### Added
+- Failure excerpts in fix rounds (TEN-QUALITY-01): each failing visible check now hands the fix session a redacted excerpt of its decisive output lines (pytest, jest and vitest, node assertions, go, tsc and ruff, with a last-lines fallback), capped at 1500 bytes per group and 6 KB in total by UTF-8 bytes. Holdout check output never reaches the fix brief, and failure signatures are unchanged, so stall detection is unaffected.
+
+### Changed
+- 5-minute cache TTL for engine10 sessions (TEN-COST-12): engine10 stage sessions request the 5-minute prompt cache by default on both the CLI and SDK routes; LOKI_E10_CACHE_TTL=1h opts out, and the main RARV loop is unchanged.
+
+### Fixed
+- Group decomposition (TEN-COST-23): items that name no files fold into a unit that owns files instead of becoming empty units, so a fully file-less plan falls back to the sequential run.
+- CI on main (P0 fix-forward): repaired the red Tests workflow (registry known gaps for `github publish`, the never-below-raw guard regex, test selection, shellcheck, the stale future-version guard and `loki proof` help drift).
+
+## v11.17.19 (2026-10-17)
+
+### Changed
+- Lean prefix by default (TEN-COST-13): engine10 Claude sessions use the lean, cache-stable system prefix unless LOKI_E10_PREFIX is set; an explicit value, including off, wins. Other providers are unchanged.
+
+### Fixed
+- Group run iteration counts (TEN-GROUP-AUTH-F1): group cost records no longer count as iterations in KPIs or `loki stats`; their cost and tokens still count. One shared predicate serves both readers, and a test ties the writer's record kind to the reader.
+
+## v11.17.18 (2026-10-17)
+
+### Changed
+- Wall brief output budget (TEN-COST-14): the Wall author brief carries a fixed output budget line (one test file, no closing summary) in the cache-stable prefix, ahead of any run-specific text, so Wall sessions spend fewer output tokens.
+
+## v11.17.17 (2026-10-17)
+
+### Added
+- Agent-independent evidence in verify (TEN-GATES-03): `loki verify` prints how many passing checks are agent independent (k of n) from the receipt's check provenance, and says "provenance not recorded" when a receipt has none. `--require-exogenous` (or `LOKI_VERIFY_REQUIRE_EXOGENOUS=1`) exits 4 for a VERIFIED receipt with no agent-independent pass. Tamper and signature verdicts are unchanged.
+- Security scan gate on loki start (TEN-GATES-08): the engine10 route runs the secure scan as an exogenous gate, writes security-findings.json, fails on an active HIGH finding and reads inconclusive when the scanner or python3 is missing. `LOKI_GATE_SECURITY_SCAN=0` turns it off.
+- PR body verify line (TEN-ADOPTION-04): the receipt section shows the `loki proof bundle` and `npx loki-mode verify` commands so anyone can check the run on another machine. The Loki footer says verified only for a non-draft VERIFIED body, and `LOKI_PR_FOOTER=0` removes it. No network call, no telemetry.
+- Proof for loki start runs (TEN-ADOPTION-03): `loki proof` badge, bundle and share work for engine10 runs, not only legacy runs.
+- Dashboard run panels (TEN-UX-07): the dashboard shows Reason, Next and Stage panels for the selected run.
+
+### Fixed
+- Lint baseline (TEN-QUALITY-03): baseline lint reruns stop when the stage is aborted, so an aborted verify no longer waits on them, and an aborted rerun never excuses a lint failure.
+
+## v11.17.16 (2026-10-17)
+
+### Fixed
+- Docker images build again: the deep stage imported the review denylist from the runner module that loads the Anthropic SDK, so the control-plane server bundle failed to resolve `@anthropic-ai/sdk` and the 11.17.15 images were not published. The denylist now lives in the Claude flags module, and a control-plane test fails if the server bundle ever reaches the SDK invoker again.
+- Release safety (TEN-RELEASE-INSTANT-F1): if npm cannot report the current `latest`, the release still publishes under `next` but refuses to move `latest`, so a registry hiccup can never move `latest` backwards.
+- Cost claim (TEN-COST-18-F1): `cost_claim` skips non-object rows with a counted warning instead of crashing, and never counts them toward the ratio.
+
+## v11.17.15 (2026-10-17)
+
+### Fixed
+- Release packaging: the pack-npm job now installs loki-ts dependencies before packing. The control-plane server bundle imports loki-ts source, and without them v11.17.14 failed to pack with `Could not resolve: "@anthropic-ai/sdk"`, so v11.17.14 never reached npm. This release ships everything listed under v11.17.14.
+
+## v11.17.14 (2026-10-17)
+
+### Added
+- Deep-stage council (Q18-04): the deep stage now runs one read-only reviewer session instead of recording "council (not wired)". An empty or failed diff is refused before any session starts, and a reply counts as a review only when it says LGTM or lists FINDING lines.
+- Check provenance (TEN-GATES-01): every check is classed as exogenous, independent, agent authored or LLM judged, so a verdict proven only by tests the agent added in the same change is no longer counted as exogenous proof.
+- MCP install (TEN-ADOPTION-05): `loki mcp install` merges the Loki server into Cursor, VS Code and Claude configs without touching other entries, keeps a .bak copy, refuses invalid JSON, and `--print` writes nothing.
+- Publish to GitHub (TEN-DEPLOY-07): `loki publish` creates the GitHub repo (private by default, `--public` opt-in), pushes it and posts the receipt verdict as the loki/receipt commit status. A dirty tree is refused.
+- Dashboard first view (TEN-UX-06): the dashboard shows an empty state with the next command, a stage strip, and selects the newest run automatically.
+- Build verdict in proof (TEN-GATES-09): engine10 runs write build results so the proof shows a real build verdict; an unbuilt project never reads as green.
+- Relevant-file digest (TEN-QUALITY-06): the full-job brief carries a capped digest of signatures from the files most relevant to the task.
+- Localization recall (TEN-QUALITY-09): the SWE-bench loader measures whether a run touched the files the reference fix touched.
+- Cache detail per stage (TEN-COST-05): per-stage cost lines carry cache read, cache creation and cache hit ratio.
+- Receipt bundle (TEN-ADOPTION-02): a run's receipt packs into one portable bundle a third party can verify.
+- Cost proof tooling (TEN-COST-17, TEN-COST-18, TEN-COST-20): the C-F1 ledger records raw token classes, a cost_claim command states the measured ratio, and the seed tasks ship their own tests.
+
+### Fixed
+- Git token safety (Q18-02b): token-carrying git fetch and pull reset repo-local CA, TLS verify and curl resolve settings, and never recurse into submodules, closing paths where a hostile repo could see the token.
+- Lint attribution (TEN-QUALITY-02): comparing head lint to base fails closed when the head output has only a summary line or nothing parseable with a non-zero exit, so pre-existing lint is never excused by mistake.
+- Repo map (TEN-QUALITY-04): the repo map scans past the first 20 KB of a file and caches per tree.
+- Pulse (TEN-STABILITY-06): PROMOTION_LAG names its reason and the failing Nightly steps.
+- Deploy output (TEN-DEPLOY-01b): `loki deploy --execute` streams provider output live and keeps the provider exit code.
+- Fix rounds (TEN-QUALITY-07): the fix brief carries the current diff and its hunks instead of an empty stat.
+- Group runs (TEN-GROUP-AUTH): unit sessions keep USER, LOGNAME and SHELL so Claude login works on macOS, and the run prints one Cost line summed from every unit (partial when a unit is unmeasured).
+
+### Changed
+- Project model discovery (TEN-COST-07): tries the fast model tier first and uses the run model only on retry.
+- Cross review (TEN-COST-06): the Claude judge runs with lean flags and its spend lands in the run ledger.
+- Instant releases (TEN-RELEASE-INSTANT, D102): every release publishes to npm `latest` and `next` as soon as the package is built, with a never-backwards version guard. The nightly promotion workflow is removed.
+
+## v11.17.13 (2026-10-17)
+
+v11.17.12 was tagged but never published: its full test suite failed on one stale test assertion, so npm stayed at 11.17.11. Everything listed under v11.17.12 ships in this release.
+
+### Added
+- Heartbeat ETA (Q18-07): the `loki start` heartbeat line shows an estimated time remaining, and actual durations are recorded at seal so later estimates improve.
+- Group run output (Q18-11): grouped backlog runs emit group.started and group.unit events and render a live per-unit group view.
+- Cost cap share (Q17-02): the engine10 Cost line adds "N% of cap $X" when `--max-cost` or `LOKI_E10_MAX_COST_USD` is set. Without a cap the line is unchanged.
+- Live deploy URL (TEN-DEPLOY-01): `loki deploy --execute` captures the public URL the provider prints, shows "Live at: <url>", records it in the deploy receipt and health-checks it when no `--health-url` is given.
+- Failure-specific next step (TEN-UX-02): a failed `loki start` now names the exact fix for its failure class (login, billing or provider, attach, answer, doctor) instead of one generic hint. For providers other than Claude (TEN-UX-02b) the login hint names that provider's own re-authentication step instead of `claude login`.
+- Cost claim verdict (TEN-COST-03): `benchmarks/bench/cost_claim.py` proves a cost ratio only when a seeded paired bootstrap confidence interval clears the target with no acceptance loss, no partial cost, one engine version and at least 3 runs per task.
+- Lean Claude Code baseline (TEN-COST-02): the benchmark adapter can run raw Claude Code with the same tool set as engine10, so cost comparisons are like for like.
+
+### Fixed
+- Moat property P9 (Q18-03c, Q18-03d): the allowToken guard scans both raw and comment-stripped source, closing re-export, indirect-call and argv-prefix bypasses, with new positive controls for each.
+- Cost summary test (fix-forward for v11.17.12): the shared-predicate check matches the efficiency_cost import by name, so importing a second helper on the same line no longer fails the suite.
+- Benchmark suite (TEN-STABILITY-01): bench-suite passes environment variables through an env shim that hyperfine 1.20 accepts and fails when any command is skipped.
+- Nightly benchmark (TEN-STABILITY-08): hyperfine is pinned to v1.19.0 with sha256 checks, and a commit whose nightly failed is measured again instead of being skipped forever.
+- Release guard coverage (TEN-STABILITY-04): every repo-wide guard that has reached main red is listed in scripts/global-guards.tsv and checked by the selector tests.
+- Shell completions: zsh completion now offers `loki restore`, and bash completion offers `loki deploy --destination`.
+- Concurrency test flake (TEN-STABILITY-05): wall_concurrent builds its git template once and copies it per test, so it no longer races the 5 second test timeout under load.
+
+### Changed
+- Shared helpers (TEN-SECURE-SCAN-UTIL, TEN-BADGE-UTIL, TEN-CORE-TRIM): one typed TypeScript wrapper over secure-scan.py, one verdict badge helper for `loki share`, and test-file text helpers moved out of the engine core (4931 of 5000 lines) with no behavior change.
+- Failure classes (TEN-FC-ROWS): nine new FAILURE-CLASSES rows for the upcoming quality, cost, deploy, stability and UX fixes.
+
+## v11.17.12 (2026-10-17)
+
+### Fixed
+- AI bill of materials (Q18-05b): credential-looking path segments are matched case-insensitively against a wider prefix list, scoped package names with one interior slash are accepted, and the sealed hook now receives a deep-frozen copy of the receipt, so a contrib hook can no longer alter the sealed receipt.
+- Partial cost reporting (COST-WALL-f): `loki trust`, the Evidence Receipt hero and cost card, the proof fallback page, the social hook and `loki cost` summary now show a partial cost as a lower bound ("at least") or as n/a for cost per accepted, instead of presenting it as a complete total. The TypeScript and Python trust calculations now agree.
+
+## v11.17.11 (2026-10-17)
+
+v11.17.10 never published: its Tests run was green, but the Release gate (run 38989985829) found that the committed loki-ts/dist/loki.js.map was not a fresh build of that commit. This release ships the v11.17.10 content with a freshly built dist and source map.
+
+### Fixed
+- Moat property P9 (Q18-03b): the allowToken guard pins the one permitted fetch-only use after stripping comments, so a token mention hidden in a comment can neither satisfy nor evade it, and it fails closed when safe_git is imported under an alias.
+- Runner config check (FC-09x): the guard now compares Bun patchedDependencies between the runner configs and parses CRLF line endings and multi-line flow-map patch targets, so a patch entry written in either form is no longer missed.
+- Benchmark cost accounting (COST-WALL-e): every cost aggregate (summarize_trials, cell_axes, report.summarize_row, compute_metrics) marks the result partial when any measured trial has no cost, nulls the cost-per-solved and cost-per-verified headlines and reports a lower bound instead, and counts invalid ledger lines, so an unmeasured run can no longer make Loki look cheaper than it is.
+
+## v11.17.10 (2026-10-17)
+
+v11.17.9 never published. Its Tests run (38988194257) went red on bf3d2ae24 because two FC-25c(a) safe_git tests failed in the shared bun process. This release ships the v11.17.9 content plus the fix and the slices merged since.
+
+### Added
+- Slack finished event (Q17-01): the message carries the receipt verdict; a tampered log reports TAMPERED first, and a run without a receipt reports (unattested).
+- Opt-in stall kill (Q18-06): with LOKI_E10_STALL_KILL_S set above 0, a session idle that many seconds is ended with reason stalled; unset or 0 keeps the old behavior.
+- AI-BOM at seal (Q18-05): a sealed run writes .loki ai-bom.cdx.json, a CycloneDX list of the models and provider that actually ran, after the receipt is final; a failing writer never changes the receipt.
+
+### Fixed
+- FC-25c(a) tests are hermetic: an earlier suite in the same process could leave GIT_SSH_COMMAND or a GIT_CONFIG_COUNT credential.helper reset in the environment, which overrode repo config and made the controls fail on CI only.
+- Modernize events (M-25w-b): `loki modernize` now emits unit.planned and codemod.skipped, and reslice runs in production, so every declared modernize event has a live producer.
+- Runner config registry (FC-09w): config file names match case-insensitively, and a .npmrc byte change or a changed patchedDependencies target caps the verdict.
+- Cost ledger coverage (COST-WALL-c): every judge, voter and code-reviewer spawn and SDK call writes a cost ledger line, and an SDK call that throws writes an unmeasured line, so run cost is never silently undercounted.
+- Cost benchmark honesty (COST-WALL-d): a partially measured loki cost is shown as a lower bound and its ratio as unmeasured, never as a complete headline; a cost taken only from the child-session ledger now counts as partial, and a spend-cap abort says when the spend is a lower bound.
+- Modernize producer guard (M-25w-c): the event-producer check ignores append( inside strings and comments, and a codemod tool that exits non-zero now records codemod.skipped with its reason.
+
+## v11.17.9 (2026-10-17)
+
+v11.17.8 never published: its Tests run (38986362613) was red on 7fc08f186 because the real-run harness fixture receipt did not name the check that Q17-04 pinned. This release ships the v11.17.8 and v11.17.7 content plus the fix and the changes below.
+
+### Fixed
+- Real-run harness test (FC-REALRUN-FIXTURE): the doctored-receipt fixture in tests/test-real-run.sh names the pinned node:sum.test.js check, so the Q17-04 expected-checks pin no longer fails the dry-install scenario.
+- Cost reader (COST-WALL-b, FC-COST-PARTIAL): a run whose main session has tokens but no dollar figure, plus priced child-session ledger lines, is reported as a partial lower bound instead of a complete total.
+- Smart retry (Q17-03): when a verify run has a flaky check and also a different check that really failed, the next attempt revises the code instead of retrying unchanged; flaky alone still retries.
+- Runner config trust (FC-09v): any byte change to pnpm-workspace.yaml or .yarnrc.yml, including add, delete, rename, symlink and nested copies, now caps the verdict below VERIFIED; YAML key comparison is no longer trusted, because parsers disagree on edge-case documents.
+- Git safety (Q18-02): read-only git fetches that carry a token now pin upload-pack and receive-pack and reset repo-local credential helpers, so a cloned repo cannot run its own helper or upload-pack under the token; the user global helper still works.
+
+### Added
+- Test selector (Q18-10): a change to a dashboard or web-app Python API handler selects the shell suites that call its /api routes.
+- `loki start` prints a warning on stderr when a backlog cannot be split into independent parallel units (Q18-08); the run still launches as before.
+- Cost accounting (COST-WALL): council voters, quality-gate reviewers and the SDK judge bridge append one line per real provider call to .loki/metrics/child-sessions.jsonl, and the cost reader adds those lines to the run total; calls with no measured dollar figure are marked partial instead of counted as zero.
+- Control-plane git calls (Q18-01): diffstat, discover and checkpoints run git through safeGit with the hardened flags and a token-free environment, and the FC-25 guard now covers packages/control-plane/src.
+
+## v11.17.8 (2026-10-17)
+
+v11.17.7 never published: its Tests run was red on e66c51a09 because the Tier A test selector check (FC-89) found the new M-25w modernize producer-coverage test walking all of loki-ts/src without the walk-all-src marker. This release ships the v11.17.7 content plus the fix.
+
+### Fixed
+- Test selector (FC-89): loki-ts/tests/engine10/modernize/log.test.ts carries the walk-all-src marker, so any loki-ts/src change selects the producer-coverage test and tests/test-select-tests.sh is green again.
+- Modernize scale run (M-28): the scratch copy of the source is git-initialised before `loki modernize` runs, because unit discovery lists files with git ls-files; a run that discovers zero units now exits 2 instead of reporting success.
+- Pricing loader test (Q18-09): the budget test compares every tier of every pricing-file row to the loaded table, so a loader that drops cache_write_1h, cache_read or over_100k now fails the suite; previously such a loss passed.
+
+### Added
+- Cost attribution (Q17-06): `attribution.py` dry-run prints a cost-per-attempt table offline, with no paid spend.
+- Release wall guard (Q17-04): scripts/assert-wall-executed.sh takes an expected-checks list and fails the release when a named check did not execute; mutation and review are read from the receipt's mutation_outcome and review fields, other names match exactly or by `name:` prefix, and the real-run scenarios pin the exact non-Wall test checks so the Wall test alone cannot satisfy them.
+
+## v11.17.7 (2026-10-16)
+
+### Fixed
+- Modernize pilot (M-27b): a run counts as complete when it exits 0 or writes a COMPLETE modernize.completed event with empty blocking lists; any executed run with no measured cost is charged its full allowance, so spend is never undercounted; the planned-units denominator is the larger of the printed estimate and the units started across waves.
+- C-F1 cost benchmark (COST-HARN): loki rows store the real exit code and stdout/stderr tails, and reported success follows the engine verdict; seed repos get an origin remote so multi-unit specs no longer exit in 0.2s at the group runner; the loki adapter passes --no-pr and disables git and gh credential prompts, so a benchmark run never pushes or opens a PR; the adapter reads v10 run evidence (receipt verdict, stage.failed and cap.hit reasons, session count) before legacy paths; per-run .loki evidence and stderr are kept before the workdir is removed, skipping secret-looking file names.
+
+- Modernize final report (M-25w): every `loki modernize` run now writes a sealed .loki/modernize/<mid>/report.json with a COMPLETE or INCOMPLETE verdict from a finally block, so a blocked, throwing or refused run still leaves an honest INCOMPLETE report; the run also appends a modernize.completed event the pilot reads, reslice appends unit.resliced, and a guard test asserts every declared modernize event has a producer.
+
+### Changed
+- scripts/release.sh runs the global guard rows inside a clean detached worktree of HEAD instead of refusing a dirty tree (REL-GUARD-b), so a release from a checkout with uncommitted coordination files still runs every guard against exactly the committed tree; a missing guard list or zero selected suites fails closed, the guard timeout defaults to 300 seconds, and a preset LOKI_RUN_TMP is not inherited.
+- docs/v10/FAILURE-CLASSES.md records FC-M25W-b: the modernize events unit.planned and codemod.skipped are declared with no producer.
+- REL-GUARD-c: an interrupted release guard worktree is reclaimed on the next run (only direct children of the temp root named loki-guard.*), worktree prune runs after removal, and a chmod failure is logged.
+
+## v11.17.6 (2026-10-16)
+
+### Fixed
+- The cost benchmark (`benchmarks/bench/attribution.py --execute`) now runs the repo `bin/loki` (or `LOKI_BENCH_LOKI_BIN`) instead of whatever `loki` is first on PATH, and refuses to run with exit 2 when the binary's version does not match the repo `VERSION`. Set `LOKI_BENCH_ALLOW_VERSION_MISMATCH=1` to override. The run metadata records the binary used. A stale global v11.3.9 binary had silently measured an old engine.
+
+### Changed
+- `scripts/release.sh` under `LOKI_RELEASE_ALLOW_RED=1` now runs the global guard rows (`scripts/impacted-gate.sh --guards-only`) before any write and exits 3 when one is red. `LOKI_RELEASE_SKIP_GUARDS=1` skips them; `LOKI_RELEASE_GUARD_TIMEOUT` sets the per-row limit (default 170s). New guard rows: help-changelog-drift, no-tmp-sweep, hard-deadline-confinement and cli-commands. Six ALLOW_RED cuts had shipped trees that failed these CI-only guards.
+- Decision D101: runner config YAML files cap trust on any byte change instead of comparing parsed keys, after a reproduced parser differential with pnpm 11.1.3.
+
+## v11.17.5 (2026-10-16)
+
+v11.17.4 never published: its Tests run was red because `loki grill` returned "provider returned no output" when the provider CLI ignored `--output-format json`. This release ships the v11.17.4 content plus the fix.
+
+### Fixed
+- `loki grill` and PRD enrich keep plain-text provider output when the CLI does not return JSON, so the lean JSON unwrap from v11.17.4 no longer empties the reply.
+
+## v11.17.4 (2026-10-16)
+
+v11.17.3 was written into this changelog but never published to npm: its required CI failed on line budgets, process substitution in `run.sh`, and a ShellCheck warning. This release publishes everything listed under v11.17.3 plus the changes below. `loki start` with Claude remains the primary path.
+
+### Changed
+- Completion council voters run with lean child flags, use haiku on the small and standard tiers (complex tier unchanged), receive the PRD path so they no longer report "No PRD was provided", and write one child-session cost ledger line per vote. Missing evidence still never approves (cost S7).
+- Grill and PRD enrich call Claude through the lean child flags and write cost ledger lines; PRD enrich no longer loads user-scope settings (cost S8).
+
+### Fixed
+- The small-tier main session argument builder in `run.sh` reads the lean flags from a here-string instead of process substitution, so it stays inside the hard deadline confinement rule.
+- The engine10 core is back under its 5,000-line budget.
+
+## v11.17.3 (2026-10-16)
+
+v11.17.2 was written into this changelog but never published to npm: its required CI failed on help drift. This release publishes everything listed under v11.17.2 plus the changes below. `loki start` with Claude remains the primary path.
+
+### Changed
+- Claude permission policy: when an operator policy with a `claude_permissions` section exists, `loki start` runs Claude with the compiled policy (`--permission-mode acceptEdits` plus the compiled allow and deny lists) instead of skipping permissions. With no operator policy, runs keep the previous behaviour. `LOKI_PERMISSION_POLICY=legacy` forces the old mode and `LOKI_PERMISSION_POLICY=compiled` forces the compiled mode. A one-line banner at start names the active policy and why (C-C2).
+- The recursive-delete guard in the command safety hook judges variable targets by their real grammar: `${var:?}` and quoted variable paths under a named subdirectory are allowed, while defaults that expand to `~`, `..` or a temp root, backtick substitutions, and heredoc tricks that hide a later delete are denied (P12-26g-d).
+- Python projects with no build manifest now get a real build check (`python3 -m compileall`) instead of "build not run", so a working Python project is no longer reported as VERIFIED WITH GAPS. Pytest runs as `python3 -m pytest`, and when pytest collects nothing the gate falls back to `unittest discover`; zero tests run stays inconclusive and never counts as a pass (cost S3).
+- Cost reporting counts every child session (council, reviewers, docs, grill) from `.loki/metrics/child-sessions.jsonl`, not only the main session. A missing ledger is reported as absent, never as zero, and unpriced lines mark the total as partial (cost S1).
+- The benchmark compares Loki against two baselines, `raw-configured` (Claude Code with the operator's settings) and `raw-bare` (`claude --bare`, needs `ANTHROPIC_API_KEY`), and stops at `--max-spend-usd` using the true ledger spend (cost S10).
+- Child sessions (council, reviewers, docs, grill) can run with lean flags (`--strict-mcp-config --tools=`) and append one line each to the child-session cost ledger (cost S2).
+- The wiki generator passes `--tools=` as one argument; the earlier `--tools ""` form made the Claude CLI swallow the prompt. A missing batched section now prints a warning (cost S6).
+- Reviewer model routing by change tier lives in the existing Claude flags and quality gate modules instead of a separate file; moat reviewers keep their model regardless of tier (cost S9).
+- Modernize integration detection matches only real `tests/integration/` or `integration/` directories that hold Python files, reads `tox.ini` whenever present, and picks Maven `verify` only when Failsafe is declared (M-27D-b).
+- Holdout failure reasons go to a private triage file under `.loki/runs/<id>/` and never reach agent-visible events (C-C4b-c-b).
+- Python test gate (TS route) tolerates a missing `pytest` or `python3`: it falls back to `unittest discover`, and a missing interpreter or zero tests run is inconclusive, never a failure or a pass (cost S4).
+- Small build profile for simple projects: lean main session without `--bare` (hooks and the command guard stay on), full mandatory and security reviewers, and an empty reviewer list now fails closed instead of passing as 0/0. The supervised reviewer passes `--tools=` as one argument (cost S5).
+
+### Fixed
+- The command safety hook parses under macOS `/bin/bash` 3.2 again. A literal backtick in an embedded Python block made bash 3.2 reject the whole hook, which then denied every command.
+- `loki modernize --help` lists the `loki modernize <repo> --to <lang>` form.
+- `scripts/v10-guard.sh` (the session safety guard) parses under macOS `/bin/bash` 3.2 again, for the same reason.
+- The legacy council status routes answer only on loopback hosts, like the control routes (ROUTES-LOOPBACK).
+
+## v11.17.2 (2026-10-16)
+
+Hardening release for `loki start` and its resume path, the steer channel, the Seal verifier, and the command safety hook. `loki start` with Claude remains the primary path and every change here applies to it; chat routes through the same commands.
+
+### Added
+- `loki modernize <repo> --to python3` runs end to end: it captures an oracle for each unit, schedules waves, merges each wave, verifies it and ships. Capture needs python2.7 or `LOKI_MOD_OLD_RUNTIME`; without it every unit is NOT PROVEN and the command exits 1. Multi-file units are NOT PROVEN for now, and a wave with no integration tests is verified with a warning (M-26b, M-27A to M-27E).
+- Wall holdout is on by default: with 5 or more Wall checks, 20 percent are held out from the build stages, and a held-out failure blocks the Seal. Set `LOKI_WALL_HOLDOUT=0` to opt out (C-C4).
+- `loki backup` and `loki restore`, and audit retention with a chain checkpoint. `LOKI_AUDIT_RETENTION_DAYS` sets the window (default 90) (P12-48).
+- `loki doctor` labels an unqualified gateway lane and prints the features that lane loses (P12-27). `loki doctor --repo` appends a readiness record, and `--round-trip` adds an opt-in live provider check (P12-41).
+- Pause and cancel requests are read at stage boundaries (P12-10). Jira and Linear comments can steer a run, and each phase transitions the ticket (P12-18).
+- An idempotency-keyed outbox for the pull request side effect, so a retried run never opens a second PR (P12-36).
+- Design decision records with rationale validation (P12-37), typed constraints in the contract (P12-43), and skill-derived checks as quality gates (P12-44).
+- Memory gains tenant scope, TTL expiry, outcome feedback and pick reasons (P12-42).
+- `LOKI_VISUAL_GATE=1` makes a visual evidence failure a verify failure (P12-47).
+- A deploy destination enum and a staging-before-production gate (P12-33). A PreCompact hook flushes milestones before context compaction (P12-38).
+- `loki status` shows a freshness label and a Control Plane deep link (P12-19). A large sizing tier (P12-46).
+- Parallel group units share one budget ledger, so the run cap holds across them (P12-22r). Unit resume is aware of spec revisions (P12-45).
+- Expected accepted-outcome cost scoring for model routing. It ships dark until a router caller exists (P12-32).
+- The B9 per-task cost table and a small-edit parity gate on recorded fixtures (P12-28).
+
+### Changed
+- `loki start --resume` reruns verification before it trusts a resumed run, refuses to resume over a dirty working tree or a run that already hit its cost cap, seeds the spend already recorded, passes only the remaining cap to the resumed run, and emits a `run.resumed` event (P12-07i).
+- An "already satisfied" verdict survives a resume only when the supervisor attested it (P12-07j).
+- Time spent in a quiet stage counts toward the run's active time, the deep worker honors `LOKI_E10_CAP_S`, and a non-finite cap value is ignored instead of disabling the cap (P12-07l, P12-07m).
+- A run killed during verification writes a heartbeat, so a resume counts the verify time it spent instead of losing it. A forged or out-of-range heartbeat value is ignored (P12-07n).
+- On the bash route (`LOKI_LEGACY_BASH=1`, or no bun available), `loki start --resume` and `--workspace` combined with a Bun-only flag now exit 64 with a message instead of silently ignoring the flag. One allowlist governs which start flags each route accepts; `--model` is kept (P12-07k).
+- Chat reports "Run start unproven" when it cannot confirm a live run, instead of claiming the run started (P12-16f).
+- The test harness requires its dependencies in CI and local CI, scopes skips to a single run, reports a blocked read as SKIP rather than a vacuous pass, runs Python isolated, and fails closed when a source cannot be resolved (P12-30c, P12-30d, P12-30e).
+
+### Fixed
+- The weekly integrity audit installs Bun with its cache off, so an issue-triggered job can no longer seed a cache that a write-permission job restores (Rule of Two, P9).
+- Steer input handling: FIFOs, directories and non-regular files are refused, duplicate inodes are deduplicated, claim times are recorded on the claim itself, and an applied marker is written before the input is removed. A consume killed midway now reports an orphaned claim, and Seal refuses the run until it is resolved. The orphan sweep uses a set lookup (P12-02c to P12-02h).
+- `loki verify` reports a receipt with an unknown schema as TAMPERED instead of passing it, and a test that could pass without running is fixed (P12-01e).
+- The command safety hook checks environment-variable prefixes on `rm`, joins backslash-newline continuations before matching, treats `GCONV_PATH`, `LOCPATH` and `EXECIGNORE` as risky, and accepts only uppercase names as safe environment assignments (P12-26e, P12-26f).
+- `loki modernize` with `--help` or `-h` anywhere on the command line prints usage and exits 0 instead of failing with exit 2 (M-MOD).
+- The no-progress detector compares diff size using the same directory scope as its file lists, so a file growing outside the run's subdirectory no longer looks like progress (P12-12e).
+- Issue-ref runs survive `kill -9` and resume, steers are covered end to end, and a skipped Wall no longer freezes steers (P12-13).
+- The command safety hook expands braces before matching, which closes temp-root bypasses, and denies recursive `rm` of temp roots (P12-26g, P12-26g-b).
+- The transcript parser degrades on a truncated transcript instead of failing (P12-39). The failure fingerprint store moved into the shared failure memory (P12-11).
+- `loki doctor` spawns the provider with a token-free environment, workspace scan accepts forwarded flags, and the harness clone pins main.
+- A run that edits a test runner config, or a file that config loads, can no longer seal VERIFIED (LOST-1, FC-09).
+- The engine10 system prefix is cache-stable by default, which cuts repeated prompt cost; `LOKI_E10_STABLE_PREFIX=0` opts out (LOST-2).
+- Once the Wall seals, steers are frozen even when no Wall output is recorded; a late steer after a kill is refused (P12-13c).
+- Held-out test failures reach the fix stage only as an opaque count, so the fixer cannot overfit to them (C-C4b).
+- The router ranks candidate models by expected cost per accepted outcome once history clears the floor, and records history under the model that ran (P12-32b).
+- `loki pause`, `loki resume` and `loki cancel` dispatch to a live run with a liveness-checked poll; cancel completes as cancelled (P12-10b).
+- A flaky rerun signal outranks build_failed in recovery, scoped to the recorded tree, and the run summary lists the real flaky tests (P12-11b).
+- `loki modernize` oracle capture runs token-free in a temp directory with wave-scoped compile checks (M-27F).
+- PR journey stubs record `gh pr edit` and `gh pr comment` arguments (P12-13b).
+- The shared group budget ledger fails closed when it cannot be created, and a resumed spend seed is written once and never double counted (P12-22s).
+- The recursive delete safety hook denies the remaining temp-root bypasses: inexact run-tmp variables, dotdot climbs through variables, and variable-led glob targets (P12-26g-c).
+- Unchanged runner configs are no longer re-parsed at seal time, and an unparseable runner config caps the seal (LOST-1b).
+- Flaky rerun evidence counts only when taken on a clean worktree at the verify-time tree (P12-11b-c).
+- Model escalation records only the final rung in routing history (P12-32b-c).
+- Hook timeouts match between the TypeScript and bash runners (P12-38).
+- Held-out test ids and messages never leave the verify stage, a held-out-only failure never escalates the model, and a held-out store failure is reported as a harness failure (C-C4b-c).
+- CI guard repairs: cleanTreeId now runs git through safeGit, the L2 destructive-verb scanner exempts command registrations, the sigpipe legacy-form ceiling drops from 1742 to 1728, and `loki backup` and `loki restore` gain shell completions.
+- Budget ledger: a regression test pins that only the first seed line counts toward the ledger sum.
+- CLI help guard: the dispatch-label check now accepts labels that follow "|" in an alias row, so `pause | resume | cancel` counts for all three commands.
+
+## v11.17.1 (2026-10-16)
+
+v11.17.0 was never published to npm. Its release failed required CI because the changelog named `loki start --resume` while the start help and bash completion did not. This release fixes that, and it is the first to publish everything listed under v11.17.0 and v11.16.0, plus the fixes below. `loki start` with Claude remains the primary path, and every change here applies to it.
+
+### Fixed
+- `loki start --resume` is listed in the start help and in bash completion.
+- `loki verify` reports a group/1 receipt with no group section as TAMPERED. A receipt with an unrecognized schema also verifies as TAMPERED, and the MCP verify test now fails on a real verdict (P12-01d).
+- Resume uses the earliest Wall start, caps a claimed start at its event timestamp, and keeps the latest entry per revision. This closes Wall-start and revision-squat forgeries (P12-07h).
+- The Seal router's cost sum counts archived quota attempts once, and the quota rerun loop stays bounded under a frozen clock (P12-09c).
+- The heartbeat diff stat counts untracked files, and is split into two timed git calls. The guard scan parses `git status -z` without trimming, records rename sources, and matches exact `..` segments (P12-12, P12-25).
+- The watchdog counts streamed output or a diff change as progress. The diff signature includes the size and mtime of each changed file, uses cwd-relative paths for both lists, and has a per-list stat budget (P12-12c, P12-12d).
+- Bash hook: under the compiled permission policy it cannot widen the policy, and it denies when python3 is missing or the input is malformed. The `rm -rf` safe-path override is checked per segment and refuses `..` and dot-glob path segments by default. It also refuses newline, CR and `;` bypasses (P12-26d).
+- Chat `/run` waits for the start against a deadline, uses one monotonic clock per launch, and caps its iterations. A failed clock read ends the wait at the deadline. If the clock read fails at launch, chat reports a clock failure instead of a false timeout (P12-16c, P12-16d, P12-16e).
+- Eval task fixtures are relative to `eval/loki10` and resolve against the harness directory, with no founder-path heuristic (P12-30b).
+
+- The session.ts model-output regex guard baseline is lowered from 6 to 4 after P12-12d removed two matches.
+
+## v11.17.0 (2026-10-16)
+
+v11.16.0 was written into this changelog but never published to npm: its release failed required CI on four guard checks. This release fixes those checks and is the first to publish everything listed under v11.16.0, plus the engine-plan slices below. `loki start` with Claude remains the primary path, and every change here applies to it; chat and Slack route through the same commands.
+
+### Added
+- Per-stage resume for the v10 engine: an interrupted run resumes at the stage it stopped in, and the handoff states which stages are restored and which rerun (P12-07).
+- `loki verify` checks Seal drift: a receipt whose sealed commit no longer matches the repository is reported, not trusted (P12-01).
+- Compiled Claude permission policy behind `LOKI_PERMISSION_POLICY`. It is applied at every Claude launch site in the shell, Python and TypeScript paths, and a repository policy can never widen the user's policy. The SDK loop path honours it too: under `LOKI_PERMISSION_POLICY=compiled` it runs in acceptEdits and never in bypass mode. The default is unchanged when the variable is unset (P12-26, P12-26b, P12-26c).
+- Quota exhaustion is a bounded wait-then-rerun of the same provider call instead of a fatal stop. Waits back off exponentially and stop at the run cap, so a run ends budget-stopped rather than waiting forever. Authentication failures stay fatal (P12-09).
+- Work-item ids and extended lifecycle states in run state (P12-08). `loki status` now reports only states the engine actually writes: `observing` follows the deep-verify start after a PR opens, and blockers show the implement stage's spec conflict reason. The `paused` and `waiting_for_policy` states and `pr_ref` had no writer and are removed (P12-08b).
+- `loki start --resume` routes each run to the right resume path, the start and resume commands share one exit-code mapping, and the handoff names both commands (P12-07b, P12-07c).
+- A steer that arrives after the Wall freeze, or one that cannot be applied, blocks Seal with the reason recorded on the run record (P12-02).
+- Seven eval task families with nonce-gated hidden tests (P12-30), and a configured-Claude-Code eval arm for like-for-like comparison (P12-29).
+- A structural guard refuses uncited "Nx faster" or "N% cheaper" claims added to docs unless the line cites a measurement (P12-40).
+
+- `loki verify` reports a receipt/1 missing a valid time or events_sha256 as TAMPERED, and the test fixtures now match real Seal output (P12-01b, P12-01c).
+- Resume parses durable `intent.revised` and Wall start events, and fails closed when the Wall start is missing or in the future (P12-07d).
+- Holdout support for the Wall, off by default until the founder sets the ratio (P12-05).
+
+
+### Changed
+- Chat `/run` reports "Run started" only once a live run exists, and prints the real error and log path when the start fails (P12-16b).
+- Slack echoes redact secrets and escape user text before posting (P12-17b).
+
+- The proof cleanliness check runs batched over a sparse cone, so large repositories no longer pay one git call per rule (P12-03c, P12-03d).
+- Steer handling, work-item lifecycle and start-flag parsing tightened across the start and resume paths (P12-02b, P12-02c, P12-07e, P12-07f, P12-08c, P12-23, P12-23b).
+- The engine10 core keeps a line cap enforced by test (P12-CAP), and uncited claims in docs are tracked (P12-40b).
+
+### Fixed
+- `loki start` pre-scans skip the value of every value-taking flag, so a flag value is never read as a command, and the help no longer advertises a nonexistent `--model`; it points to `LOKI_MODEL_ROUTE` instead (P12-07g).
+- Four CI guards that blocked v11.16.0 now pass: a Seal drift git call now runs with a scrubbed environment; the credentialed verify-pr push and a benign file-name regex are allowlisted with reasons; and test pipes into `grep -q` use here-strings, keeping the SIGPIPE ceiling.
+- The permission guard test typechecks under strict index access.
+- A proof taken from a dirty working tree now fails closed. Renamed files and submodule changes count as changes, and the refusal says what to commit or stash (P12-03b).
+- The review allowlist guard anchors on the reviewer argv setup that P12-26 introduced.
+- Cost tests write result-cost during the run like the real child, so the runner's archive-before-spawn no longer hides it (P12-09b).
+- Eval tasks resolve the tracked fixture bundle when the pinned absolute path is absent, so CI can prepare the fam-* runs (P12-30).
+- The live-run trigger test pins `LOKI_DIR` itself, so a value leaked by another test module under parallel runs no longer points it at the wrong directory.
+
+## v11.16.0 (2026-10-16)
+
+Engine-plan v1.2 slices, part two. `loki start` with Claude remains the primary path; chat and Slack steers now route through the same `loki steer` command and only report success when the steer's revision is confirmed.
+
+### Added
+- Doctor checks a minimum Claude CLI version against a compatibility manifest (P12-24).
+- Per-stage, retry and cache cost attribution in the cost breakdown, with honest unknowns where a cost cannot be measured (P12-21).
+- Measured active human minutes per accepted task, recorded next to waited time and mirrored into the Python trust view (P12-31).
+- Per-provider isolation matrix test (P12-25).
+- Engine progress classes and a stall watchdog that flags a run making no file progress (P12-12).
+- Slack thread steers with a live allowlist, revoked actors, durable bounded dedup and in-place status updates (P12-17).
+- Chat commands /answer, /pause, /resume and /start; /run starts in the background with output in .loki/chat-run.log (P12-16).
+- Issue-comment and chat steers record their source and actor (P12-14, P12-15).
+
+### Changed
+- Council blocking findings must cite file:line; unanchored blocking issues are downgraded instead of rejecting the run (P12-06).
+- `loki steer` help no longer claims the modern path needs LOKI_PROMPT_INJECTION; the legacy loop still does (P12-20).
+
+### Fixed
+- Bash completion for `loki deploy` now offers `--health-match`, so the completion drift guard passes again.
+- `gh pr merge` is pinned to the proven head commit; proofs for one head must agree, dirty proofs are ignored, and a moved head is recorded as blocked (P12-03).
+- verify-pr respond refuses when the PR head moved after the proof (P12-04).
+- Push and pr-ready share an owner-filtered PR lookup; pr-ready refuses a PR that is not the pinned owner's (N3, N4).
+- Modernize readies a reused all-PROVEN wave PR with the new body and marks truncated cells.
+- Chat and Slack never claim a steer that was not confirmed; bare help and flag-like text are refused.
+- The isolation guard's revert no longer loses the first deleted path (P12-25).
+
 ## v11.15.0 (2026-10-16)
 
 v11.13.0 and v11.14.0 were written into this changelog but never published to npm: both failed required CI. This release fixes those failures and is the first to publish everything listed under v11.13.0 and v11.14.0, plus the modernize work below. `loki start` with Claude remains the primary path.

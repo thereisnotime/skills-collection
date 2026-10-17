@@ -19,7 +19,7 @@ help_core_screen() {
     echo "  quick \"<task>\"   One small task, no PR"
     echo ""
     echo "Check:"
-    echo "  status [--json]  What is running and where it stands"
+    echo "  status [--json|--badge|--probe]  What is running and where it stands"
     echo "  verify [--json]  Deterministic verification (CI-gate exit codes)"
     echo "  receipt          Inspect the proof-of-run receipt (alias of: proof)"
     echo "  diff / undo      See what a run changed; undo <run> to plan or apply a rollback"
@@ -117,7 +117,7 @@ Verification
   loki verify --json           One JSON object: command, exit_code, ok, output
   loki verify --pubkey FILE    Check a receipt against a public key
   loki receipt                 Inspect the proof-of-run receipt
-  loki undo <run> [--plan]     Plan or apply an undo of a run
+  loki undo <run> [--plan|--dry-run]  Plan or apply an undo of a run
 
 Exit codes: see loki help exit-codes.
 T

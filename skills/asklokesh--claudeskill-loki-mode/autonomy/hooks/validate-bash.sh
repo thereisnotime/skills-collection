@@ -28,8 +28,27 @@ case "${LOKI_HOST_GUARD:-0}" in
     1|true|yes|on) HOST_GUARD=true ;;
 esac
 
+# P12-26d: when the resolved policy is compiled (explicit compiled, or unset with an
+# operator claude_permissions policy present) the compiled allow/deny list
+# and permission mode decide. An explicit hook "allow" skips the permission
+# prompt for every command that passes the blocklist, which would widen the
+# compiled policy, so the hook never emits one and fails closed on bad input.
+COMPILED_POLICY=false
+case "${LOKI_PERMISSION_POLICY:-}" in
+    legacy) ;;
+    "")
+        _vb_helper="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)/src/policies/claude_permissions.js"
+        if command -v node >/dev/null 2>&1 && [ -f "$_vb_helper" ] \
+            && [ "$(node "$_vb_helper" --has-operator-policy 2>/dev/null)" = "1" ]; then
+            COMPILED_POLICY=true
+        fi
+        ;;
+    *) COMPILED_POLICY=true ;;
+esac
+
 if ! command -v python3 >/dev/null 2>&1; then
     "$HOST_GUARD" && deny "LOKI_HOST_GUARD: python3 is unavailable, so the Bash command cannot be inspected safely."
+    "$COMPILED_POLICY" && deny "LOKI_PERMISSION_POLICY=compiled: python3 is unavailable, so the Bash command cannot be inspected safely."
     printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
     exit 0
 fi
@@ -43,9 +62,14 @@ except Exception:
     raise SystemExit(2)
 if not isinstance(command, str) or not command.strip():
     raise SystemExit(2)
+# Join backslash-newline continuations as bash does (an odd run of backslashes
+# before the newline), so every later split and pattern match sees one command.
+import re
+command = re.sub(r"(?<!\\)((?:\\\\)*)\\\r?\n", r"\1", command)
 sys.stdout.write(command)
 '); then
     "$HOST_GUARD" && deny "LOKI_HOST_GUARD: malformed or missing Bash command input was denied."
+    "$COMPILED_POLICY" && deny "LOKI_PERMISSION_POLICY=compiled: malformed or missing Bash command input was denied."
     printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
     exit 0
 fi
@@ -342,24 +366,925 @@ BLOCKED_PATTERNS=(
     ":\(\) *\{.*\|.*&"
 )
 
-# Safe path patterns that override blocked pattern matches
+# Safe path patterns that override blocked pattern matches. They are matched
+# per SEGMENT (the command split on ; & | newline CR), never against the whole
+# string: an unanchored or per-line match let `rm -rf /tmp/x; rm -rf /` and
+# `rm -rf /tmp/x<newline>rm -rf /` ride the override. Only the segment that hit
+# a blocked pattern must be safe; an optional trailing /dev/null redirection is
+# allowed, and `*` and `$$` in /tmp names. A `..` anywhere in the segment is
+# never safe.
+_SAFE_REDIR='([[:space:]]+[0-9]*>>?[[:space:]]*/dev/null)*[[:space:]]*'
+_SAFE_ENV='([ABCDEFGHIJKLMNOPQRSTUVWXYZ_][ABCDEFGHIJKLMNOPQRSTUVWXYZ0-9_]*=[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0-9._/:-]*[[:space:]]+)*'
+# A dot-leading path component with a glob char (`/tmp/.*` expands to `/tmp/..`).
+_DOT_GLOB='/\.[^/[:space:]]*[*?[]'
 SAFE_PATTERNS=(
-    "rm -rf /tmp/"
-    "rm -rf \.loki/queue/dead-letter"
+    '^[[:space:]]*'"$_SAFE_ENV"'rm -rf (/tmp/([abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0-9._/*-]|\$\$)+[[:space:]]*)+'"$_SAFE_REDIR"'$'
+    '^[[:space:]]*'"$_SAFE_ENV"'rm -rf \.loki/queue/dead-letter[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0-9._/-]*'"$_SAFE_REDIR"'$'
 )
+
+# Env names that change what the allowed command executes or loads; a prefix
+# naming one never rides the safe-path override.
+_env_prefix_is_risky() {
+    local rest="$1" name
+    while [[ "$rest" =~ ^[[:space:]]*([abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_][abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0-9_]*)=[^[:space:]]*(.*)$ ]]; do
+        name="${BASH_REMATCH[1]}"
+        rest="${BASH_REMATCH[2]}"
+        case "$name" in
+            PATH|LD_*|DYLD_*|BASH_ENV|ENV|IFS|PS4|SHELLOPTS|BASHOPTS|PROMPT_COMMAND|GIT_SSH_COMMAND|GIT_EXEC_PATH|NODE_OPTIONS|PYTHONPATH|PERL5OPT|GCONV_PATH|LOCPATH|EXECIGNORE) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+# Allowlist: the safe-path override applies only when EVERY segment of the
+# command is blank, an accepted safe rm, or a bare `NAME=value` assignment
+# (uppercase name not on the risky list, value free of quoting, expansion,
+# grouping and redirection characters). Anything else (export, declare, unset,
+# eval, source, hash, alias, function, subshell, echo, cd, ...) can change how a
+# later rm resolves, so it disables the override. Over-denial is intended.
+_ASSIGN_ONLY='^[[:space:]]*([ABCDEFGHIJKLMNOPQRSTUVWXYZ_][ABCDEFGHIJKLMNOPQRSTUVWXYZ_0-9]*)=([^][\"'"'"'\\$`(){}<>[:space:]]*)[[:space:]]*$'
+_segment_is_inert() {
+    local seg="$1"
+    [[ "$seg" =~ ^[[:space:]]*(true|false|:)?[[:space:]]*$ ]] && return 0
+    if [[ "$seg" =~ $_ASSIGN_ONLY ]]; then
+        _env_prefix_is_risky "$seg" && return 1
+        return 0
+    fi
+    return 1
+}
+
+_all_segments_allowlisted() {
+    local seg
+    while IFS= read -r seg; do
+        _segment_is_inert "$seg" && continue
+        _segment_is_safe "$seg" || return 1
+    done <<< "$1"
+    return 0
+}
+
+_segment_is_safe() {
+    local seg="$1" safe
+    [[ "$seg" == *".."* ]] && return 1
+    _env_prefix_is_risky "$seg" && return 1
+    [[ "$seg" =~ $_DOT_GLOB ]] && return 1
+    for safe in "${SAFE_PATTERNS[@]}"; do
+        [[ "$seg" =~ $safe ]] && return 0
+    done
+    return 1
+}
+
+# Succeeds when every segment hitting $1 is safe and at least one segment hits
+# (a pattern that only matches across segments, like `curl x | sh`, is unsafe).
+_blocked_hits_all_safe() {
+    local pat="$1" flat seg hit=false
+    # Strip fd duplication (2>&1) first: its `&` is not a command separator, and removing it hides no command.
+    flat=$(printf '%s' "$COMMAND" | sed -E 's/[0-9]*>&[0-9]+//g' | tr ';&|\r' '\n')
+    _all_segments_allowlisted "$flat" || return 1
+    while IFS= read -r seg; do
+        printf '%s' "$seg" | grep -qE "$pat" || continue
+        hit=true
+        _segment_is_safe "$seg" || return 1
+    done <<< "$flat"
+    "$hit"
+}
+
+# A recursive rm whose target IS a temp root, or a bare glob directly under
+# one, wipes every tenant of the temp dir. The target is normalized first
+# (quotes and backslashes dropped, a glued trailing redirect cut, repeated and
+# trailing slashes and `/./` collapsed, `..` resolved lexically) so `//tmp`,
+# `/tmp/x/../*`, `/t\mp` and `"$TMPDIR"/*` cannot hide. Single-level brace
+# alternatives are expanded and every alternative is checked. A named child
+# (`/tmp/loki-run.abc123`, `/tmp/foo*`) is not a bare glob and stays ok.
+_normalize_rm_target() {
+    local t="${1%%[<>]*}" prev="" comp joined="" sc
+    local -a parts=() stack=()
+    t="${t//[\"\'\\]/}"
+    while [ "$t" != "$prev" ]; do
+        prev="$t"
+        t="${t//\/\//\/}"
+        t="${t//\/.\//\/}"
+    done
+    if [[ "$t" == */* ]]; then
+        IFS=/ read -r -a parts <<< "$t"
+        for comp in ${parts[@]+"${parts[@]}"}; do
+            case "$comp" in
+                ''|.) ;;
+                ..)
+                    # A dotdot that would pop a temp root component is
+                    # unresolvable lexically ($TMPDIR/.. is the root's parent
+                    # on some hosts): report the temp root itself (deny).
+                    joined=""
+                    for sc in ${stack[@]+"${stack[@]}"}; do joined="${joined}/${sc}"; done
+                    case "$joined" in
+                        /tmp|/var/tmp|/private/tmp|/private/var/tmp|'/$TMPDIR'|'/${TMPDIR}')
+                            printf '%s' "/tmp"
+                            return 0
+                            ;;
+                    esac
+                    joined=""
+                    if [ "${#stack[@]}" -gt 1 ] || { [ "${#stack[@]}" -eq 1 ] && [[ "$t" == /* ]]; }; then
+                        unset 'stack[${#stack[@]}-1]'
+                    fi
+                    ;;
+                *) stack+=("$comp") ;;
+            esac
+        done
+        for comp in ${stack[@]+"${stack[@]}"}; do joined="${joined}/${comp}"; done
+        if [[ "$t" == /* ]]; then
+            t="${joined:-/}"
+        else
+            t="${joined#/}"
+        fi
+    fi
+    while [[ "$t" == */. && "$t" != "/." ]]; do t="${t%/.}"; done
+    while [[ "$t" == */ && "$t" != "/" ]]; do t="${t%/}"; done
+    printf '%s' "$t"
+}
+
+# Expand single-level comma brace groups into the global _ALTS array without
+# a subshell. Fails closed (returns 1) on nested braces, `{x..y}` ranges, or
+# more than 64 alternatives; the caller denies.
+_BRACE_CAP=64
+_expand_braces() {
+    local s="$1" cur pre body post b alt
+    local -a work=("$s")
+    local temp=false
+    _ALTS=()
+    # Fail-closed rules (nested braces, ranges, cap, residual groups) apply to
+    # every target except a plain relative path (no leading / ~ $ {, no `..`
+    # component). The run-owned LOKI_RUN_TMP variable is also exempt.
+    local q="${s//[\"\'\\]/}" stripped
+    temp=true
+    case "$q" in
+        '$LOKI_RUN_TMP'|'$LOKI_RUN_TMP/'*|'${LOKI_RUN_TMP}'|'${LOKI_RUN_TMP}/'*) temp=false ;;
+        /*|'~'*|'$'*|'{'*) ;;
+        *)
+            if [[ "/${q}/" != *"/../"* ]]; then temp=false; fi
+            ;;
+    esac
+    if $temp; then
+        # Drop parameter expansions (innermost first) so `${A:-${B}}` is not nesting.
+        stripped="$s"
+        while [[ "$stripped" =~ \$\{[^\{\}]*\} ]]; do
+            stripped="${stripped/"${BASH_REMATCH[0]}"/}"
+        done
+        # A numeric range under a non-TMPDIR variable only appends digits, so it
+        # cannot build a temp root (`$BUILD_DIR/shard{1..4}`).
+        if [[ "$q" =~ ^\$\{?([A-Za-z_][A-Za-z0-9_]*) && "${BASH_REMATCH[1]}" != TMPDIR ]]; then
+            while [[ "$stripped" =~ \{-?[0-9]+\.\.-?[0-9]+\} ]]; do
+                stripped="${stripped/"${BASH_REMATCH[0]}"/}"
+            done
+        fi
+        if [[ "$stripped" =~ \{[^\}]*\{ ]] || [[ "$stripped" =~ \{[^\}]*\.\.[^\}]*\} ]]; then
+            return 1
+        fi
+    fi
+    while [ "${#work[@]}" -gt 0 ]; do
+        cur="${work[0]}"
+        work=("${work[@]:1}")
+        if [[ "$cur" =~ ^((\$\{[^\}]*\}|[^\{])*)\{([^\}]*,[^\}]*)\}(.*)$ ]]; then
+            pre="${BASH_REMATCH[1]}"; body="${BASH_REMATCH[3]}"; post="${BASH_REMATCH[4]}"
+            b="$body"
+            while :; do
+                alt="${b%%,*}"
+                work+=("${pre}${alt}${post}")
+                [[ "$b" == *,* ]] || break
+                b="${b#*,}"
+            done
+            [ $(( ${#work[@]} + ${#_ALTS[@]} )) -le "$_BRACE_CAP" ] || { $temp && return 1; return 2; }
+        else
+            # A comma group the regex could not peel off stays unexpanded.
+            if $temp && [[ "$cur" =~ \{[^\}]*,[^\}]*\} ]]; then
+                return 1
+            fi
+            _ALTS+=("$cur")
+            [ $(( ${#work[@]} + ${#_ALTS[@]} )) -le "$_BRACE_CAP" ] || { $temp && return 1; return 2; }
+        fi
+    done
+    return 0
+}
+
+# A component is glob-only when it is only `*`, `?`, `.`, or when it holds a
+# `[` with no literal prefix before it (bracket parsing is ambiguous: `[!]]`,
+# `[]a]`, `[=a=]`, so fail closed).
+_glob_only() {
+    local c="$1" pre
+    [[ "$c" =~ ^[*?.]+$ ]] && return 0
+    if [[ "$c" == *"["* ]]; then
+        pre="${c%%\[*}"
+        [[ "$pre" =~ ^[*?.]*$ ]] && return 0
+    fi
+    return 1
+}
+_temp_target_is_root_or_glob() {
+    local t rest
+    t=$(_normalize_rm_target "$1")
+    case "$t" in
+        /tmp|/var/tmp|/private/tmp|/private/var/tmp|'$TMPDIR'|'${TMPDIR}') return 0 ;;
+        /private/var/tmp/*) rest="${t#/private/var/tmp/}" ;;
+        /private/tmp/*) rest="${t#/private/tmp/}" ;;
+        /var/tmp/*) rest="${t#/var/tmp/}" ;;
+        /tmp/*) rest="${t#/tmp/}" ;;
+        '$TMPDIR'/*) rest="${t#\$TMPDIR/}" ;;
+        '${TMPDIR}'/*) rest="${t#\$\{TMPDIR\}/}" ;;
+        /private/var/tmp*) rest="${t#/private/var/tmp}"; _glob_only "$rest"; return ;;
+        /private/tmp*) rest="${t#/private/tmp}"; _glob_only "$rest"; return ;;
+        /var/tmp*) rest="${t#/var/tmp}"; _glob_only "$rest"; return ;;
+        /tmp*) rest="${t#/tmp}"; _glob_only "$rest"; return ;;
+        '$TMPDIR'*) rest="${t#\$TMPDIR}"; _glob_only "$rest"; return ;;
+        '${TMPDIR}'*) rest="${t#\$\{TMPDIR\}}"; _glob_only "$rest"; return ;;
+        *) return 1 ;;
+    esac
+    # first component made only of glob characters, dots and bracket expressions
+    _glob_only "${rest%%/*}" && return 0
+    return 1
+}
+
+_rm_target_is_temp_root_or_glob() {
+    local alt
+    if [[ "$1" == *"{"* ]]; then
+        _expand_braces "$1" || {
+            # 1 = fail closed (temp target); 2 = over cap on a non-temp target
+            [ "$?" -eq 2 ] && return 1
+            return 0
+        }
+        for alt in ${_ALTS[@]+"${_ALTS[@]}"}; do
+            _temp_target_is_root_or_glob "$alt" && return 0
+        done
+        return 1
+    fi
+    _temp_target_is_root_or_glob "$1"
+}
+
+# P12-26g-c: residual shapes that reach a temp root or the filesystem root
+# without naming it. Each helper returns 0 to DENY (fail closed).
+_RUN_TMP_RE='^/([^/]+/)*loki-run\.[A-Za-z0-9]+$'
+_run_tmp_valid() {
+    local v="${LOKI_RUN_TMP:-}"
+    [[ "$v" =~ $_RUN_TMP_RE ]] || return 1
+    [[ "/${v}/" != *"/../"* && "/${v}/" != *"/./"* ]]
+}
+
+# A component that can expand to `..`: a literal `..`, one built by gluing
+# variables onto dots (`..$X`, `.$X.`; X may be empty or `.`), or a dot-leading
+# glob (`.?`, `.*`, `..*`, `.[.]`; bash < 5.2 has no globskipdots, so these
+# match `..`). Worst case is assumed everywhere.
+_is_dotdotish() {
+    local c="$1" s="$1"
+    [[ "$c" == *.* ]] || return 1
+    while [[ "$s" =~ (\$\{[^\}]*\}|\$[[:alpha:]_][[:alnum:]_]*) ]]; do
+        s="${s/"${BASH_REMATCH[0]}"/}"
+    done
+    [ "$s" = "." ] && [ "$s" = "$c" ] && return 1
+    [[ "$s" =~ ^\.[.*?]*$ ]] || [[ "$s" =~ ^\.[.*?]*\[ ]]
+}
+
+_has_dotdot_component() {
+    local c
+    local -a p=()
+    [[ "$1" == *.* ]] || return 1
+    IFS=/ read -r -a p <<< "$1"
+    for c in ${p[@]+"${p[@]}"}; do _is_dotdotish "$c" && return 0; done
+    return 1
+}
+
+# Lexical resolve of an absolute path; `..` (or a possible `..`) at the root
+# stays at the root.
+_lex_resolve() {
+    local comp out=""
+    local -a parts=() stack=()
+    IFS=/ read -r -a parts <<< "$1"
+    for comp in ${parts[@]+"${parts[@]}"}; do
+        case "$comp" in
+            ''|.) ;;
+            *)
+                if _is_dotdotish "$comp"; then
+                    [ "${#stack[@]}" -gt 0 ] && unset 'stack[${#stack[@]}-1]'
+                else
+                    stack+=("$comp")
+                fi
+                ;;
+        esac
+    done
+    for comp in ${stack[@]+"${stack[@]}"}; do out="${out}/${comp}"; done
+    printf '%s' "${out:-/}"
+}
+
+# Resolved path is a temp root, a bare temp glob, or an ancestor of a temp root.
+_resolved_reaches_temp() {
+    case "$1" in
+        /|/tmp|/var|/var/tmp|/private|/private/tmp|/private/var|/private/var/tmp) return 0 ;;
+    esac
+    _temp_target_is_root_or_glob "$1"
+}
+
+# `..` climbing from a known base: deny when the result leaves the base or
+# reaches a temp root; an unknown or relative base is unresolvable (deny).
+_dotdot_escapes_base() {
+    local base="$1" rel="$2" res
+    [[ "$base" == /* ]] || return 0
+    base=$(_lex_resolve "$base")
+    res=$(_lex_resolve "${base}/${rel}")
+    _resolved_reaches_temp "$res" && return 0
+    [[ "$res" == "$base" || "$res" == "$base"/* ]] || return 0
+    return 1
+}
+
+# Absolute path an empty or defaulted variable can build: deny when it is, or
+# climbs to, a temp root or the filesystem root, or holds a glob root.
+_abs_path_deny() {
+    _resolved_reaches_temp "$(_lex_resolve "$1")" && return 0
+    _alt_extra_deny "$1"
+}
+
+_alt_extra_deny() {
+    local a="$1" name="" mod="" rest="" rest0="" r n c1 c2 c3 w combined
+    local multi=false
+    if [[ "$a" =~ ^\$\{([A-Za-z_][A-Za-z0-9_]*)([^\}]*)\}(.*)$ ]]; then
+        name="${BASH_REMATCH[1]}"; mod="${BASH_REMATCH[2]}"; rest="${BASH_REMATCH[3]}"
+    elif [[ "$a" =~ ^\$([A-Za-z_][A-Za-z0-9_]*)(.*)$ ]]; then
+        name="${BASH_REMATCH[1]}"; rest="${BASH_REMATCH[2]}"
+    fi
+    rest0="$rest"
+    if [ -n "$name" ]; then
+        # Strip every further leading expansion ($X$Y/..., "$X""$Y"/...).
+        while [[ "$rest" =~ ^(\$\{[[:alpha:]_][[:alnum:]_]*[^\}]*\}|\$[[:alpha:]_][[:alnum:]_]*)(.*)$ ]]; do
+            multi=true
+            rest="${BASH_REMATCH[2]}"
+        done
+        # A default or alternative word can supply the root: ${X:-/}tmp/*,
+        # ${X:-/tmp}. Check the word plus the rest as the path it can build.
+        if [ -n "$mod" ] && [ "$name" != "LOKI_RUN_TMP" ]; then
+            case "$mod" in
+                :-*|:=*|:+*) w="${mod:2}" ;;
+                -*|=*|+*) w="${mod:1}" ;;
+                *) w="" ;;
+            esac
+            combined="${w}${rest0}"
+            if [[ "$combined" == /* ]]; then
+                _abs_path_deny "$combined" && return 0
+            fi
+        fi
+        case "$name" in
+            LOKI_RUN_TMP*)
+                [ "$name" = "LOKI_RUN_TMP" ] || return 0
+                [ -z "$mod" ] || return 0
+                "$multi" && return 0
+                _run_tmp_valid || return 0
+                [ -z "$rest" ] && return 1
+                [[ "$rest" == /* ]] || return 0
+                _has_dotdot_component "$rest" && return 0
+                [[ "$rest" =~ $_DOT_GLOB ]] && return 0
+                return 1
+                ;;
+            TMPDIR) "$multi" || return 1 ;;
+            HOME)
+                if ! "$multi"; then
+                    _has_dotdot_component "$rest" || return 1
+                    _dotdot_escapes_base "${HOME:-}" "$rest"
+                    return
+                fi
+                ;;
+        esac
+        _has_dotdot_component "$rest" && return 0
+        if [[ "$rest" == /* ]]; then
+            r="$rest"
+            while [[ "$r" == /* || "$r" == ./* ]]; do r="${r#/}"; r="${r#./}"; done
+            case "$r" in ''|'*'*|'?'*|'['*|'{'*) return 0 ;; esac
+            # An unset variable makes the rest an absolute path: deny when it
+            # is, or climbs to, a temp root, or any component holds a glob.
+            # The only brace left after expansion that stays ok is a numeric
+            # range glued to a literal prefix in the last component.
+            local lastc="${rest##*/}" headp="${rest%/*}"
+            [[ "$headp" == *[\*\?\[\{]* ]] && return 0
+            [[ "$lastc" == *[\*\?\[]* ]] && return 0
+            if [[ "$lastc" == *"{"* ]]; then
+                [[ "$lastc" =~ ^[^\{]+\{-?[0-9]+\.\.-?[0-9]+\}$ ]] || return 0
+            fi
+            _resolved_reaches_temp "$(_lex_resolve "$rest")" && return 0
+        fi
+        return 1
+    fi
+    # shellcheck disable=SC2088 # literal tilde in a string being inspected
+    case "$a" in
+        '~'|'~/'*)
+            rest="${a#\~}"
+            _has_dotdot_component "$rest" || return 1
+            _dotdot_escapes_base "${HOME:-}" "$rest"
+            return
+            ;;
+        '~+'*|'~-'*)
+            # PWD / OLDPWD: OLDPWD is unknown, so a glob, dotdot or bare form denies.
+            rest="${a#\~?}"
+            [ -z "$rest" ] && return 0
+            [[ "$rest" == /* ]] || return 1
+            r="${rest#/}"
+            case "$r" in ''|'*'*|'?'*|'['*|'{'*) return 0 ;; esac
+            _has_dotdot_component "$rest" && return 0
+            return 1
+            ;;
+        '$'*|'{'*) return 1 ;;
+        /*)
+            n="$a"
+            r=""
+            while [ "$n" != "$r" ]; do r="$n"; n="${n//\/\//\/}"; n="${n//\/.\//\/}"; done
+            if _has_dotdot_component "$n"; then
+                n=$(_lex_resolve "$n")
+                _resolved_reaches_temp "$n" && return 0
+            fi
+            n="${n#/}"
+            c1="${n%%/*}"
+            c2=""
+            [[ "$n" == */* ]] && { c2="${n#*/}"; c2="${c2%%/*}"; }
+            case "$c1" in *[\*\?\[]*) return 0 ;; esac
+            case "$c2" in *[\*\?\[]*) [ "$c1" = "tmp" ] || return 0 ;; esac
+            if [ "$c1" = "private" ] && [ "$c2" = "var" ]; then
+                c3="${n#*/}"; c3="${c3#*/}"; c3="${c3%%/*}"
+                case "$c3" in *[\*\?\[]*) return 0 ;; esac
+            fi
+            return 1
+            ;;
+    esac
+    _has_dotdot_component "$a" || return 1
+    _dotdot_escapes_base "$CWD" "$a"
+}
+
+# Over-cap groups cannot be enumerated: deny when any dot touches a brace,
+# comma, glob, bracket or variable (a possible `..`), or a `*` alternative.
+_OVERCAP_RE='\.\.|[{,]\.|\.[{},]|\.[^/,{}]*[*?[$]|[{,]\*[,}]'
+_rm_target_extra_deny() {
+    local q="${1%%[<>]*}" alt rc=0
+    q="${q//[\"\'\\]/}"
+    local -a alts=("$q")
+    if [[ "$q" == *"{"* ]]; then
+        _expand_braces "$q" || rc=$?
+        [ "$rc" -eq 1 ] && return 0
+        # Over cap (rc 2): a `.` or `..` alternative or a dot glued to a group
+        # can build a dotdot component bash will expand; fail closed.
+        if [ "$rc" -eq 2 ] && [[ "$q" =~ $_OVERCAP_RE ]]; then
+            return 0
+        fi
+        [ "$rc" -eq 0 ] && alts=(${_ALTS[@]+"${_ALTS[@]}"})
+    fi
+    local stripped
+    for alt in ${alts[@]+"${alts[@]}"}; do
+        # A comma group the expander could not peel (a parameter expansion
+        # inside it) is unenumerable: fail closed.
+        if [ "$rc" -eq 0 ] && [[ "$alt" == *"{"* ]]; then
+            stripped="$alt"
+            while [[ "$stripped" =~ \$\{[^\{\}]*\} ]]; do
+                stripped="${stripped/"${BASH_REMATCH[0]}"/}"
+            done
+            [[ "$stripped" =~ \{[^\}]*,[^\}]*\} ]] && return 0
+        fi
+        _alt_extra_deny "$alt" && return 0
+    done
+    return 1
+}
+
+# P12-26g-d: allow-grammar for recursive rm targets. A target is allowed only
+# when, after quotes and braces are removed, it matches one of the shapes
+# below; anything else denies (fail closed). It runs BEFORE the older
+# temp-root checks, which still run on every target the grammar lets through.
+#   (a) plain relative path: first component not a glob, never climbs above start
+#   (b) absolute path outside every temp root and its ancestors, no glob in the
+#       first two components (except /tmp/<name>*), no expansion inside it
+#   (c) "$LOKI_RUN_TMP"[/...] with a valid LOKI_RUN_TMP
+#   (d) $TMPDIR or ${TMPDIR} with no modifier, then /<non-glob name>
+#   (e) $HOME or ~ then /..., staying inside HOME and off every temp root
+#   (f) another named variable, then /<non-glob, non-dotdot name>
+# Denied outright: positional or special parameters, ${!X}, ${#X}, $'..',
+# $"..", command substitution, nested ${..${..}}, any ${X<modifier>} other than
+# a whole-target :- or - default, and any expansion inside an absolute path.
+# Every function below returns 0 to DENY.
+_G_CAP=64
+_g_expand() {
+    local cur pre body post lo hi i span b alt
+    local -a work=("$1")
+    _G_ALTS=()
+    while [ "${#work[@]}" -gt 0 ]; do
+        cur="${work[0]}"
+        work=("${work[@]:1}")
+        # A leading sentinel keeps the regex free of an empty alternation.
+        if [[ "@${cur}" =~ ^(.*[^$])\{([^\{\}]*)\}(.*)$ ]]; then
+            pre="${BASH_REMATCH[1]#@}"; body="${BASH_REMATCH[2]}"; post="${BASH_REMATCH[3]}"
+            if [[ "$body" =~ ^(-?[0-9]+)\.\.(-?[0-9]+)$ ]]; then
+                lo="${BASH_REMATCH[1]}"; hi="${BASH_REMATCH[2]}"
+                [ "${#lo}" -le 6 ] && [ "${#hi}" -le 6 ] || return 2
+                case "$lo" in -*) lo=$(( -(10#${lo#-}) )) ;; *) lo=$(( 10#$lo )) ;; esac
+                case "$hi" in -*) hi=$(( -(10#${hi#-}) )) ;; *) hi=$(( 10#$hi )) ;; esac
+                span=$(( hi - lo )); [ "$span" -lt 0 ] && span=$(( -span ))
+                [ "$span" -lt "$_G_CAP" ] || return 2
+                i="$lo"
+                while :; do
+                    work+=("${pre}${i}${post}")
+                    [ "$i" -eq "$hi" ] && break
+                    if [ "$lo" -le "$hi" ]; then i=$(( i + 1 )); else i=$(( i - 1 )); fi
+                done
+            elif [[ "$body" == *,* ]]; then
+                b="$body"
+                while :; do
+                    alt="${b%%,*}"
+                    work+=("${pre}${alt}${post}")
+                    [[ "$b" == *,* ]] || break
+                    b="${b#*,}"
+                done
+            else
+                return 1
+            fi
+        else
+            [[ "$cur" =~ (^|[^$])\{ ]] && return 1
+            _G_ALTS+=("$cur")
+        fi
+        [ $(( ${#work[@]} + ${#_G_ALTS[@]} )) -le "$_G_CAP" ] || return 2
+    done
+    return 0
+}
+
+# After the first variable, a component that is exactly $name or ${name}
+# (not TMPDIR or HOME) is folded to a plain word; the glob and dotdot checks
+# then judge the folded path.
+_g_fold_vars() {
+    local rest="$1" c out="" n
+    local -a p=()
+    [[ "$rest" == /* ]] || { printf '%s' "$rest"; return; }
+    IFS=/ read -r -a p <<< "${rest#/}"
+    for c in ${p[@]+"${p[@]}"}; do
+        if [[ "$c" =~ ^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$ ]]; then
+            n="${BASH_REMATCH[1]}"
+            case "$n" in TMPDIR|HOME) ;; *) c="v" ;; esac
+        fi
+        out="${out}/${c}"
+    done
+    [[ "$rest" == */ ]] && out="${out}/"
+    printf '%s' "$out"
+}
+
+# Rest after a variable: "/" then a non-glob first component, and no
+# dotdot-capable component anywhere.
+_g_named_rest_deny() {
+    local rest="$1" c first=true
+    local -a p=()
+    [[ "$rest" == /* ]] || return 0
+    IFS=/ read -r -a p <<< "${rest#/}"
+    [ "${#p[@]}" -gt 0 ] || return 0
+    for c in "${p[@]}"; do
+        _is_dotdotish "$c" && return 0
+        if $first; then
+            [ -n "$c" ] || return 0
+            [[ "$c" == *[\*\?\[]* ]] && return 0
+            first=false
+        fi
+    done
+    return 1
+}
+
+_g_home_deny() {
+    local rest="$1" home="${HOME:-}" hr res
+    [[ "$home" == /* ]] || return 0
+    [ -n "$rest" ] || return 0
+    [[ "$rest" == /* ]] || return 0
+    hr=$(_lex_resolve "$home")
+    [ "$hr" != "/" ] || return 0
+    _resolved_reaches_temp "$hr" && return 0
+    res=$(_lex_resolve "${hr}${rest}")
+    _resolved_reaches_temp "$res" && return 0
+    [[ "$res" == "$hr"/* ]] || return 0
+    return 1
+}
+
+_g_abs_deny() {
+    local a="$1" r n c1 c2 c3
+    [[ "$a" == *'$'* ]] && return 0
+    [[ "$a" =~ $_DOT_GLOB ]] && return 0
+    r=$(_lex_resolve "$a")
+    _resolved_reaches_temp "$r" && return 0
+    n="${r#/}"
+    c1="${n%%/*}"
+    c2=""
+    [[ "$n" == */* ]] && { c2="${n#*/}"; c2="${c2%%/*}"; }
+    case "$c1" in *[\*\?\[]*) return 0 ;; esac
+    case "$c2" in *[\*\?\[]*) [ "$c1" = "tmp" ] || return 0 ;; esac
+    if [ "$c1" = "private" ] && [ "$c2" = "var" ]; then
+        c3="${n#*/}"; c3="${c3#*/}"; c3="${c3%%/*}"
+        case "$c3" in *[\*\?\[]*) return 0 ;; esac
+    fi
+    return 1
+}
+
+_g_rel_deny() {
+    local a="$1" c depth=0 seen=false
+    local -a p=()
+    [[ "$a" == *'$'* ]] && return 0
+    IFS=/ read -r -a p <<< "$a"
+    for c in ${p[@]+"${p[@]}"}; do
+        case "$c" in
+            '') continue ;;
+            .) seen=true; continue ;;
+            ..) depth=$(( depth - 1 )); [ "$depth" -ge 0 ] || return 0; continue ;;
+        esac
+        _is_dotdotish "$c" && return 0
+        if ! $seen; then
+            seen=true
+            case "$c" in [\*\?\[]*) return 0 ;; esac
+        fi
+        depth=$(( depth + 1 ))
+    done
+    [ "$depth" -gt 0 ] && return 1
+    return 0
+}
+
+_g_alt_deny() {
+    local a="$1" name rest w
+    [ -n "$a" ] || return 0
+    # Whole-target default: ${N:-W} or ${N-W}, N not TMPDIR, W a variable, a
+    # relative word with no leading glob, or an allowed absolute path.
+    if [[ "$a" =~ ^\$\{([A-Za-z_][A-Za-z0-9_]*)(:-|-)(.*)\}$ ]]; then
+        name="${BASH_REMATCH[1]}"; w="${BASH_REMATCH[3]}"
+        [ "$name" != "TMPDIR" ] && [ "$name" != "HOME" ] || return 0
+        [ -n "$w" ] || return 0
+        if [[ "$w" =~ ^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$ ]]; then
+            [ "${BASH_REMATCH[1]}" != "TMPDIR" ] && [ "${BASH_REMATCH[1]}" != "HOME" ] || return 0
+            return 1
+        fi
+        [[ "$w" == *'$'* || "$w" == *'{'* || "$w" == *'}'* ]] && return 0
+        _g_alt_deny "$w"
+        return
+    fi
+    # ${TMPDIR:-<temp root>}/<named child>
+    if [[ "$a" =~ ^\$\{TMPDIR:-(/[^\}\$]*)\}(/.*)$ ]]; then
+        w="${BASH_REMATCH[1]}"; rest="${BASH_REMATCH[2]}"
+        case "$(_lex_resolve "$w")" in
+            /tmp|/var/tmp|/private/tmp|/private/var/tmp) ;;
+            *) return 0 ;;
+        esac
+        [[ "$rest" == *'$'* ]] && return 0
+        _g_named_rest_deny "$rest"
+        return
+    fi
+    # ${N:?} and ${N:?msg} guards behave exactly like a bare ${N}.
+    if [[ "$a" =~ ^\$\{([A-Za-z_][A-Za-z0-9_]*):\?[^\}\$\{]*\}(.*)$ ]]; then
+        a="\${${BASH_REMATCH[1]}}${BASH_REMATCH[2]}"
+    fi
+    # shellcheck disable=SC2088 # literal tilde in a string being inspected
+    case "$a" in
+        '$'*)
+            if [[ "$a" =~ ^\$\{([A-Za-z_][A-Za-z0-9_]*)\}(.*)$ ]] || [[ "$a" =~ ^\$([A-Za-z_][A-Za-z0-9_]*)(.*)$ ]]; then
+                name="${BASH_REMATCH[1]}"; rest="${BASH_REMATCH[2]}"
+            else
+                return 0
+            fi
+            case "$name" in
+                LOKI_RUN_TMP|HOME|TMPDIR) ;;
+                *) rest=$(_g_fold_vars "$rest") ;;
+            esac
+            [[ "$rest" == *'$'* || "$rest" == *'{'* || "$rest" == *'}'* ]] && return 0
+            [ -z "$rest" ] || [[ "$rest" == /* ]] || return 0
+            case "$name" in
+                LOKI_RUN_TMP)
+                    _run_tmp_valid || return 0
+                    [ -z "$rest" ] && return 1
+                    _has_dotdot_component "$rest" && return 0
+                    [[ "$rest" =~ $_DOT_GLOB ]] && return 0
+                    return 1
+                    ;;
+                HOME) _g_home_deny "$rest"; return ;;
+                *)
+                    # A whole-target named variable (rm -r "$dir") is allowed;
+                    # TMPDIR bare names the temp root itself.
+                    if [ -z "$rest" ]; then
+                        [ "$name" != "TMPDIR" ] || return 0
+                        return 1
+                    fi
+                    _g_named_rest_deny "$rest"
+                    return
+                    ;;
+            esac
+            ;;
+        '~'|'~/'*)
+            [[ "$a" == *'$'* ]] && return 0
+            _g_home_deny "${a#\~}"
+            return
+            ;;
+        '~'*|'{'*|*'{'*|*'}'*) return 0 ;;
+        /*) _g_abs_deny "$a"; return ;;
+    esac
+    _g_rel_deny "$a"
+}
+
+_rm_grammar_deny() {
+    local t="${1%%[<>]*}" q alt rc=0
+    [ -n "$t" ] || return 1
+    # $' and $" open ANSI-C / locale quoting; a $$ before the quote is a PID.
+    [[ "$t" =~ (^|[^$])\$[\'\"] ]] && return 0
+    q="${t//[\"\'\\]/}"
+    # find -exec rm -r {} + / \; : a bare {} is find's placeholder, not a brace.
+    [ "$q" = "{}" ] && return 1
+    [[ "$q" == *'`'* || "$q" == *'$('* ]] && return 0
+    # $$ is a PID only mid-component (/tmp/test-$$); a leading $$ denies below.
+    while [[ "$q" =~ ^(.*[^/\$])\$\$(.*)$ ]]; do q="${BASH_REMATCH[1]}0${BASH_REMATCH[2]}"; done
+    local -a alts=("$q")
+    if [[ "$q" == *"{"* ]]; then
+        _g_expand "$q" || rc=$?
+        [ "$rc" -eq 1 ] && return 0
+        if [ "$rc" -eq 2 ]; then
+            # Over the cap: only a named relative first component, no
+            # expansion and no dot trick, can be left unexpanded.
+            [[ "$q" =~ ^[A-Za-z0-9_-][A-Za-z0-9._-]*/ ]] || return 0
+            [[ "$q" == *'$'* ]] && return 0
+            [[ "$q" =~ $_OVERCAP_RE ]] && return 0
+            return 1
+        fi
+        alts=(${_G_ALTS[@]+"${_G_ALTS[@]}"})
+    fi
+    for alt in ${alts[@]+"${alts[@]}"}; do
+        _g_alt_deny "$alt" && return 0
+    done
+    return 1
+}
+
+# `rm`, `/bin/rm`, `\rm`, `"rm"` all name rm.
+_is_rm_token() {
+    local x="${1//[\"\'\\]/}"
+    [ "${x##*/}" = "rm" ]
+}
+
+_segment_rm_hits_temp_root() {
+    local seg="$1" tok recursive=false seen_rm=false
+    local -a words
+    # Command substitution and grouping open a new command word: split on them.
+    [[ "$seg" == *'`'* ]] && seg="${seg//\`/ \$( }"
+    seg="${seg//[()\`]/ }"
+    read -r -a words <<< "$seg"
+    for tok in "${words[@]}"; do
+        if ! $seen_rm; then
+            _is_rm_token "$tok" && seen_rm=true
+            continue
+        fi
+        case "$tok" in
+            --recursive) recursive=true ;;
+            -*) [[ "$tok" =~ ^-[[:alpha:]]*[rR] ]] && recursive=true ;;
+        esac
+    done
+    $seen_rm && $recursive || return 1
+    seen_rm=false
+    for tok in "${words[@]}"; do
+        if ! $seen_rm; then
+            _is_rm_token "$tok" && seen_rm=true
+            continue
+        fi
+        case "$tok" in -*) continue ;; esac
+        [ -n "${tok//[\"\'\\]/}" ] || continue
+        # Fail closed before the hook timeout (Claude Code treats it as allow).
+        [ $((SECONDS - _RM_T0)) -ge "$_RM_BUDGET" ] && return 0
+        _rm_grammar_deny "$tok" && return 0
+        _rm_target_is_temp_root_or_glob "$tok" && return 0
+        _rm_target_extra_deny "$tok" && return 0
+    done
+    return 1
+}
+
+_RM_T0=$SECONDS
+_RM_BUDGET="${LOKI_RM_GUARD_BUDGET_SECS:-20}"
+case "$_RM_BUDGET" in ""|*[!0-9]*) _RM_BUDGET=20 ;; esac
+# P12-26g-d: inspect only real command words. Quoted data of a final-in-pipeline
+# printf/echo/cat (and a cat heredoc body) is masked; any construct that can run
+# data as code (eval, shells, $( ), backticks, pipes into them) disables masking.
+_INSPECT=$(_LOKI_MASK_CMD="$COMMAND" python3 - <<'PY'
+import os
+import re
+import sys
+
+cmd = os.environ.get("_LOKI_MASK_CMD", "")
+DATA = {"printf", "echo", "cat"}
+RISKY_WORD = re.compile(
+    r"(^|[^\w./-])(eval|source|sh|bash|zsh|dash|ksh|xargs|exec|python3?|perl|ruby|node|ssh|find|parallel)(?![\w-])"
+)
+DOT_CMD = re.compile(r"(^|[;&|\n(]\s*)\.\s")
+
+
+def emit(text):
+    sys.stdout.write(text)
+    raise SystemExit(0)
+
+
+# Any construct that can turn data into code disables masking entirely.
+# ANSI-C / locale quoting ($' $") hides quote boundaries from this walker.
+if re.search(r"\x60|\$\(|<\(|>\(|\$['\"]", cmd) or RISKY_WORD.search(cmd) or DOT_CMD.search(cmd):
+    emit(cmd)
+
+n = len(cmd)
+out = list(cmd)
+HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*([\"']?)([A-Za-z_]\w*)\1")
+ASSIGN = re.compile(r"^\s*[A-Za-z_]\w*=\S*\s+")
+
+
+def is_data(text):
+    while ASSIGN.match(text):
+        text = ASSIGN.sub("", text, count=1)
+    m = re.match(r"\s*(\S+)", text)
+    if not m or m.group(1) not in DATA:
+        return False
+    if m.group(1) == "printf" and re.search(r"(^|\s)-v", text):
+        return False
+    return True
+
+
+def mask(s, e):
+    for k in range(s, e):
+        if out[k] != "\n":
+            out[k] = "x"
+
+
+i = 0
+unit_start = 0
+spans = []
+pending = []  # (delimiter, strip_tabs, mask_body)
+unit_hd = []  # heredocs opened by an unquoted << in the current unit
+
+
+def end_unit(end, piped):
+    data = is_data(cmd[unit_start:end]) and not piped
+    if data:
+        for s, e in spans:
+            mask(s, e)
+    for delim, strip in unit_hd:
+        pending.append((delim, strip, data))
+
+
+while i < n:
+    c = cmd[i]
+    if c == "\\":
+        i += 2
+        continue
+    if c == "#" and (i == 0 or cmd[i - 1] in " \t;&|()\n"):
+        j = cmd.find("\n", i)
+        i = n if j < 0 else j
+        continue
+    if c == "<" and cmd.startswith("<<", i):
+        m = HEREDOC.match(cmd, i)
+        if m:
+            unit_hd.append((m.group(2), cmd.startswith("<<-", i)))
+            i = m.end()
+            continue
+    if c == "'":
+        j = cmd.find("'", i + 1)
+        if j < 0:
+            emit(cmd)
+        spans.append((i + 1, j))
+        i = j + 1
+        continue
+    if c == '"':
+        j = i + 1
+        while j < n and cmd[j] != '"':
+            j += 2 if cmd[j] == "\\" else 1
+        if j >= n:
+            emit(cmd)
+        spans.append((i + 1, j))
+        i = j + 1
+        continue
+    if c in ";&|\n":
+        piped = c == "|" and cmd[i + 1:i + 2] != "|"
+        end_unit(i, piped)
+        spans = []
+        unit_hd = []
+        if c == "\n" and pending:
+            pos = i + 1
+            for delim, strip, do_mask in pending:
+                while pos < n:
+                    nl = cmd.find("\n", pos)
+                    stop = n if nl < 0 else nl
+                    line = cmd[pos:stop]
+                    if (line.lstrip("\t") if strip else line) == delim:
+                        pos = stop
+                        break
+                    if do_mask:
+                        mask(pos, stop)
+                    pos = stop + 1
+            pending = []
+            i = pos
+            unit_start = i
+            continue
+        i += 1
+        unit_start = i
+        continue
+    i += 1
+end_unit(n, False)
+emit("".join(out))
+PY
+) || _INSPECT="$COMMAND"
+[ -n "$_INSPECT" ] || _INSPECT="$COMMAND"
+_flat_for_temp_root=$(printf '%s' "$_INSPECT" | sed -E 's/[0-9]*>&[0-9]+//g' | tr ';&|\r' '\n')
+while IFS= read -r _seg; do
+    if _segment_rm_hits_temp_root "$_seg"; then
+        deny "Blocked: recursive delete of a temp root or a bare glob under it"
+    fi
+done <<< "$_flat_for_temp_root"
 
 # Check for blocked patterns
 for pattern in "${BLOCKED_PATTERNS[@]}"; do
     if echo "$COMMAND" | grep -qE "$pattern"; then
-        # Check if a safe pattern also matches (whitelist override)
-        is_safe=false
-        for safe in "${SAFE_PATTERNS[@]}"; do
-            if echo "$COMMAND" | grep -qE "$safe"; then
-                is_safe=true
-                break
-            fi
-        done
-        "$is_safe" && continue
+        _blocked_hits_all_safe "$pattern" && continue
         deny "Blocked: potentially dangerous command pattern detected"
     fi
 done
@@ -370,7 +1295,10 @@ mkdir -p "$LOG_DIR"
 printf '%s' "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"command\":$(echo "$COMMAND" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}" >> "$LOG_DIR/bash-audit.jsonl"
 echo >> "$LOG_DIR/bash-audit.jsonl"
 
-# Allow command
+# Allow command. Compiled policy: no decision, the permission flow decides.
+if "$COMPILED_POLICY"; then
+    exit 0
+fi
 printf '%s' '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}'
 
 exit 0

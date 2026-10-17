@@ -5,7 +5,7 @@
 // regression check so the existing behavior stays intact.
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildRepoMap } from "../../src/engine10/repomap.ts";
@@ -43,7 +43,7 @@ test("python fixture yields top-level def and class names", () => {
   expect(entry?.symbols).toEqual(["handler", "Widget"]);
 });
 
-test("nested or indented defs are not extracted", () => {
+test("nested defs inside a method are not extracted, the method is", () => {
   writeFileSync(
     join(dir, "app.py"),
     "class Outer:\n    def method(self):\n        def inner():\n            pass\n        return inner\n",
@@ -51,7 +51,7 @@ test("nested or indented defs are not extracted", () => {
   commitAll();
   const map = buildRepoMap(dir);
   const entry = map.entries.find((e) => e.path === "app.py");
-  expect(entry?.symbols).toEqual(["Outer"]);
+  expect(entry?.symbols).toEqual(["Outer", "Outer.method"]);
 });
 
 test("top-level async def is captured, indented async def is not", () => {
@@ -74,4 +74,68 @@ test("JS export behavior is unchanged", () => {
   const map = buildRepoMap(dir);
   const entry = map.entries.find((e) => e.path === "widget.ts");
   expect(entry?.symbols).toEqual(["makeWidget", "Widget"]);
+});
+
+test("python method past byte 20000 is indexed as Class.method", () => {
+  const filler = "# pad\n".repeat(10_000);
+  writeFileSync(
+    join(dir, "models.py"),
+    `${filler}class QuerySet:\n    def bulk_create(self, objs):\n        pass\n\n    async def aget(self):\n        pass\n\ndef helper():\n    pass\n`,
+  );
+  commitAll();
+  const symbols = buildRepoMap(dir).entries.find((e) => e.path === "models.py")?.symbols;
+  expect(symbols).toEqual(["QuerySet", "QuerySet.bulk_create", "QuerySet.aget", "helper"]);
+});
+
+test("symbols are capped at 300 per file", () => {
+  let src = "";
+  for (let i = 0; i < 1000; i++) src += `def f${i}():\n    pass\n`;
+  writeFileSync(join(dir, "many.py"), src);
+  commitAll();
+  expect(buildRepoMap(dir).entries.find((e) => e.path === "many.py")?.symbols.length).toBe(300);
+});
+
+function seedBigRepo(): void {
+  mkdirSync(join(dir, "build"), { recursive: true });
+  mkdirSync(join(dir, "src"), { recursive: true });
+  for (let i = 0; i < 15; i++) writeFileSync(join(dir, "build", `v${i}.js`), `export const v${i} = 1;\n`);
+  for (let i = 0; i < 10; i++) writeFileSync(join(dir, "src", `s${i}.js`), `export const s${i} = 1;\n`);
+  commitAll();
+}
+
+describe("file cap", () => {
+  const saved = process.env.LOKI_E10_REPOMAP_MAX_FILES;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.LOKI_E10_REPOMAP_MAX_FILES;
+    else process.env.LOKI_E10_REPOMAP_MAX_FILES = saved;
+  });
+
+  test("env knob caps files and build dir is dropped before source", () => {
+    seedBigRepo();
+    process.env.LOKI_E10_REPOMAP_MAX_FILES = "12";
+    const map = buildRepoMap(dir);
+    expect(map.files.length).toBe(12);
+    expect(map.truncated).toBe(true);
+    expect(map.files.filter((f) => f.startsWith("src/")).length).toBe(10);
+    expect(map.files.filter((f) => f.startsWith("build/")).length).toBe(2);
+  });
+
+  test("invalid knob falls back to default 2000, no reorder under cap", () => {
+    seedBigRepo();
+    process.env.LOKI_E10_REPOMAP_MAX_FILES = "abc";
+    const map = buildRepoMap(dir);
+    expect(map.truncated).toBe(false);
+    expect(map.files.length).toBe(25);
+    expect(map.files[0]).toBe("build/v0.js");
+  });
+
+  test("filename containing a junk dir name is not junk", () => {
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "vendorish.js"), "export const a = 1;\n");
+    mkdirSync(join(dir, "build"), { recursive: true });
+    writeFileSync(join(dir, "build", "x.js"), "export const x = 1;\n");
+    commitAll();
+    process.env.LOKI_E10_REPOMAP_MAX_FILES = "1";
+    expect(buildRepoMap(dir).files).toEqual(["src/vendorish.js"]);
+  });
 });

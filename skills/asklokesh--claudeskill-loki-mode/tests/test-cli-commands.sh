@@ -111,6 +111,19 @@ test_cmd "loki --version exits 0 and shows version" \
 test_cmd "loki status exits 0" \
     0 "" status
 
+# P12-19: status freshness label for the newest Loki 10 run (bash route)
+((TOTAL++))
+_fresh_dir="$(mktemp -d "${TMPDIR:-/tmp}/loki-fresh.XXXXXXXX")"
+mkdir -p "$_fresh_dir/.loki/runs/e10-20261016T000000Z-aaaa"
+printf '%s\n' '{"v":1,"seq":7,"ts":"2020-01-01T00:00:00Z","run":"e10-20261016T000000Z-aaaa","type":"heartbeat","stage":null,"data":{}}' > "$_fresh_dir/.loki/runs/e10-20261016T000000Z-aaaa/events.jsonl"
+_fresh_out="$(cd "$_fresh_dir" && LOKI_DIR="$_fresh_dir/.loki" "$LOKI" status 2>&1)" || true
+if grep -Eq 'last event [0-9]+s ago \(seq 7\)' <<<"$_fresh_out"; then
+    log_pass "loki status shows last event age and seq"
+else
+    log_fail "loki status shows last event age and seq" "got: $_fresh_out"
+fi
+rm -rf -- "$_fresh_dir"
+
 # -------------------------------------------
 # Test: loki config show
 # -------------------------------------------
@@ -315,6 +328,25 @@ test_cmd "loki api start -h shows help (#574)" \
 # -------------------------------------------
 test_cmd "loki unknown-command exits 2 (usage error)" \
     2 "Unknown command" nonexistent-command-xyz
+
+# -------------------------------------------
+# Test: _loki_verdict_badge (share badge maker)
+# -------------------------------------------
+_badge_fn="$(awk '/^_loki_verdict_badge\(\) \{/{f=1} f{print} f&&/^}/{exit}' "$LOKI")"
+check_badge() {
+    local desc="$1" expected="$2" headline="$3" url="$4" out
+    ((TOTAL++))
+    out="$(bash -c "$_badge_fn"$'\n''_loki_verdict_badge "$1" "$2"' _ "$headline" "$url")"
+    if [ "$out" = "$expected" ]; then log_pass "$desc"; else log_fail "$desc" "got '$out'"; fi
+}
+_bu="https://gist.github.com/x/1"
+_bi="https://img.shields.io/static/v1?label=Loki"
+check_badge "badge: VERIFIED is brightgreen" "[![Loki: verified](${_bi}&message=verified&color=brightgreen)](${_bu})" "VERIFIED" "$_bu"
+check_badge "badge: VERIFIED WITH GAPS is orange" "[![Loki: verified with gaps](${_bi}&message=verified%20with%20gaps&color=orange)](${_bu})" "VERIFIED WITH GAPS" "$_bu"
+check_badge "badge: NOT VERIFIED is red" "[![Loki: not verified](${_bi}&message=not%20verified&color=red)](${_bu})" "NOT VERIFIED" "$_bu"
+check_badge "badge: unmapped headline omitted" "" "PASSED" "$_bu"
+check_badge "badge: empty headline omitted" "" "" "$_bu"
+check_badge "badge: no url omitted" "" "VERIFIED" ""
 
 # -------------------------------------------
 # Summary

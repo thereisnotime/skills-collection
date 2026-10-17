@@ -743,28 +743,27 @@ function lastRunLine(dir: string): string {
   }
 }
 
-// Newest .loki/deploys/*.json (loki.deploy/1): target, head, health, rollback and the signature
-// verdict from the one existing verify path (verify_cmd main; its stdout is muted here). Silent when none.
-async function renderLastDeploy(dir: string): Promise<void> {
+interface LastDeploy { path: string; newest: string; rec: Record<string, unknown> | null; verdict: string }
+
+// Loads the newest loki.deploy/1 record and its signature verdict. rec is null when unreadable.
+async function loadLastDeploy(dir: string): Promise<LastDeploy | null> {
   const ddir = resolve(dir, "deploys");
   let files: string[] = [];
   try {
     files = readdirSync(ddir).filter((f) => f.endsWith(".json")).sort();
   } catch {
-    return;
+    return null;
   }
   const newest = files[files.length - 1];
-  if (newest === undefined) return;
+  if (newest === undefined) return null;
   const path = resolve(ddir, newest);
   let rec: Record<string, unknown>;
   try {
     rec = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
   } catch {
-    process.stdout.write(`${DIM}Last deploy: record unreadable (${newest})${NC}\n`);
-    return;
+    return { path, newest, rec: null, verdict: "UNCHECKED" };
   }
-  if (rec["schema"] !== "loki.deploy/1") return;
-  const str = (k: string): string => (typeof rec[k] === "string" ? (rec[k] as string) : "");
+  if (rec["schema"] !== "loki.deploy/1") return null;
   let verdict = "UNCHECKED";
   const realWrite = process.stdout.write.bind(process.stdout);
   const realErr = process.stderr.write.bind(process.stderr);
@@ -780,6 +779,22 @@ async function renderLastDeploy(dir: string): Promise<void> {
     process.stdout.write = realWrite;
     process.stderr.write = realErr;
   }
+  return { path, newest, rec, verdict };
+}
+
+// Newest .loki/deploys/*.json (loki.deploy/1): target, head, health, rollback and the signature
+// verdict from the one existing verify path (verify_cmd main; its stdout is muted here). Silent when none.
+async function renderLastDeploy(dir: string): Promise<void> {
+  const d = await loadLastDeploy(dir);
+  if (d === null) return;
+  if (d.rec === null) {
+    process.stdout.write(`${DIM}Last deploy: record unreadable (${d.newest})${NC}\n`);
+    return;
+  }
+  const rec = d.rec;
+  const path = d.path;
+  const verdict = d.verdict;
+  const str = (k: string): string => (typeof rec[k] === "string" ? (rec[k] as string) : "");
   const health = str("health_status") || "unchecked";
   const bad = health === "FAILED_HEALTH";
   let rb = "no rollback";
@@ -790,6 +805,104 @@ async function renderLastDeploy(dir: string): Promise<void> {
   const colour = bad || verdict === "TAMPERED" ? RED : DIM;
   process.stdout.write(`${colour}Last deploy: ${str("target") || "unknown"} at ${str("head_sha").slice(0, 12) || "unknown"}, health ${health}, ${rb}, record ${verdict}${NC}\n`);
   if (bad) process.stdout.write(`${RED}  UNHEALTHY: the last deploy failed its health check. Record: ${path}${NC}\n`);
+}
+
+// loki status --badge: markdown shields badge for the newest deploy record. Green ONLY when the
+// signature verifies (verify path) AND the signed live_binding field is VERIFIED; red for TAMPERED
+// or FAILED_HEALTH; anything else omits the badge with a one-line reason. Colors match renderProofBadge.
+async function runStatusBadge(): Promise<number> {
+  const d = await loadLastDeploy(lokiDir());
+  const omit = (why: string): number => {
+    process.stdout.write(`No deploy badge: ${why}\n`);
+    return 0;
+  };
+  if (d === null) return omit("no deploy record");
+  if (d.rec === null) return omit("deploy record unreadable");
+  const rec = d.rec;
+  const url = typeof rec["deployed_url"] === "string" ? (rec["deployed_url"] as string).trim() : "";
+  if (!/^https?:\/\/\S+$/.test(url)) return omit("record has no deployed_url");
+  const bad = rec["health_status"] === "FAILED_HEALTH";
+  let message: string;
+  let color: string;
+  if (d.verdict === "TAMPERED" || bad) {
+    message = "deployed: unverified";
+    color = "red";
+  } else if (d.verdict !== "VERIFIED") {
+    return omit(`record signature is ${d.verdict}`);
+  } else if (rec["live_binding"] !== "VERIFIED") {
+    return omit("live_binding is not VERIFIED");
+  } else {
+    message = "deployed: verified";
+    color = "brightgreen";
+  }
+  const enc = (x: string): string => encodeURIComponent(x.replace(/-/g, "--"));
+  const link = `${url.replace(/\/+$/, "")}/.well-known/loki-provenance.json`;
+  process.stdout.write(`[![${message}](https://img.shields.io/badge/${enc("Loki")}-${enc(message)}-${color})](${link})\n`);
+  return 0;
+}
+
+// loki status --probe: re-probe the newest deploy record's health_url now. Exit 0 when healthy
+// (2xx/3xx) or when there is nothing to probe; exit 1 on a 4xx/5xx, timeout or network error
+// that persists across one retry after 5 seconds (LOKI_STATUS_PROBE_RETRY_DELAY_MS overrides).
+// With json=true the only stdout is one JSON object {url, ok, status, attempts, reason}; exit codes are unchanged.
+async function runStatusProbe(json = false): Promise<number> {
+  const say = (t: string): void => {
+    if (!json) process.stdout.write(t);
+  };
+  const emit = (o: { url: string | null; ok: boolean; status: number | null; attempts: number; reason: string | null }): void => {
+    if (json) process.stdout.write(`${JSON.stringify(o)}\n`);
+  };
+  const d = await loadLastDeploy(lokiDir());
+  if (d === null) {
+    say("No deploy to probe: no deploy record\n");
+    emit({ url: null, ok: true, status: null, attempts: 0, reason: "no deploy record" });
+    return 0;
+  }
+  const raw = d.rec !== null && typeof d.rec["health_url"] === "string" ? (d.rec["health_url"] as string).trim() : "";
+  if (!/^https?:\/\/\S+$/.test(raw)) {
+    say("No deploy to probe: last deploy record has no health URL\n");
+    emit({ url: null, ok: true, status: null, attempts: 0, reason: "last deploy record has no health URL" });
+    return 0;
+  }
+  const ms = Number(process.env["LOKI_STATUS_PROBE_TIMEOUT_MS"]);
+  const timeoutMs = Number.isFinite(ms) && ms > 0 ? ms : 10000;
+  const rd = Number(process.env["LOKI_STATUS_PROBE_RETRY_DELAY_MS"]);
+  const retryMs = Number.isFinite(rd) && rd >= 0 ? rd : 5000;
+  // One attempt: returns a failure reason, or null when healthy (prints the OK line).
+  let lastStatus: number | null = null;
+  const attempt = async (): Promise<string | null> => {
+    lastStatus = null;
+    try {
+      const res = await fetch(raw, { redirect: "follow", signal: AbortSignal.timeout(timeoutMs) });
+      lastStatus = res.status;
+      if (res.status >= 200 && res.status < 400) {
+        // A redirect to another host (login page, provider not-found page) is not this deploy's health.
+        const finalHost = res.url ? new URL(res.url).hostname : "";
+        if (finalHost !== "" && finalHost !== new URL(raw).hostname) return `redirected to a different host (${finalHost}), returned ${res.status}`;
+        say(`Deploy health OK: ${raw} returned ${res.status}\n`);
+        return null;
+      }
+      return `returned ${res.status}`;
+    } catch (e) {
+      return e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError") ? `timed out after ${timeoutMs}ms` : `unreachable (${e instanceof Error ? e.message : String(e)})`;
+    }
+  };
+  // A cold start is not a regression: retry once after a pause before reporting.
+  let why = await attempt();
+  if (why === null) {
+    emit({ url: raw, ok: true, status: lastStatus, attempts: 1, reason: null });
+    return 0;
+  }
+  say(`Deploy health probe failed (${raw} ${why}); retrying once in ${Math.round(retryMs / 1000)}s\n`);
+  await new Promise<void>((r) => setTimeout(r, retryMs));
+  why = await attempt();
+  if (why === null) {
+    emit({ url: raw, ok: true, status: lastStatus, attempts: 2, reason: null });
+    return 0;
+  }
+  say(`${RED}Deploy health REGRESSED: ${raw} ${why}${NC}\n`);
+  emit({ url: raw, ok: false, status: lastStatus, attempts: 2, reason: why });
+  return 1;
 }
 
 // v7.5.3: surface Phase 1 artifacts inline. Quiet on greenfield runs.
@@ -924,14 +1037,21 @@ export async function runStatus(argv: readonly string[]): Promise<number> {
   while (args.length > 0) {
     const flag = args[0];
     if (flag === "--json") {
+      if (args.includes("--probe")) return runStatusProbe(true);
       return runStatusJson();
     }
+    if (flag === "--badge") {
+      return runStatusBadge();
+    }
+    if (flag === "--probe") {
+      return runStatusProbe(args.includes("--json"));
+    }
     if (flag === "--help" || flag === "-h") {
-      process.stdout.write(`Usage: loki status [--json]\n`);
+      process.stdout.write(`Usage: loki status [--json|--badge|--probe]\n`);
       return 0;
     }
     process.stdout.write(`${RED}Unknown flag: ${flag}${NC}\n`);
-    process.stdout.write(`Usage: loki status [--json]\n`);
+    process.stdout.write(`Usage: loki status [--json|--badge|--probe]\n`);
     return 1;
   }
   return runStatusText();

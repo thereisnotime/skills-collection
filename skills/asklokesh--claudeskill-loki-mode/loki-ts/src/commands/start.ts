@@ -17,6 +17,8 @@ import { DEFAULT_MAX_COST_USD } from "../e10ext/budget_cap.ts"; // LM-002: help 
 import type { ProviderName, SessionTier } from "../runner/types.ts";
 import { tokenFreeEnv } from "../util/safe_git.ts";
 import { REPO_ROOT } from "../util/paths.ts";
+import { applyCostProfile, COST_PROFILES } from "../util/cost_profile.ts";
+import { lokiYamlTexts, yamlKey } from "../util/yaml_key.ts";
 
 function argVal(args: readonly string[], flag: string): string | undefined {
   const i = args.indexOf(flag);
@@ -40,6 +42,7 @@ const VALUE_FLAGS = new Set([
   "--aider-model",
   "--aider-flags",
   "--cline-model",
+  "--cost", // TEN-COST-01: cost profile (lean|off); also LOKI_COST_PROFILE
 ]);
 
 // RUNNER boolean env-mapping flags: no value token; set an env var the runner
@@ -71,6 +74,7 @@ const ATTEMPTS_VALUE_FLAGS = new Set([
   "--session-model",
   "--prd",
   "--brief",
+  "--cost",
   "--attempts", // N independent attempts in separate worktrees (1-5)
 ]);
 const ATTEMPTS_NOOP_BOOL_FLAGS = new Set(["--yes", "-y", "--no-plan", "--no-mirofish", "--no-dashboard", "--no-pr"]);
@@ -143,19 +147,25 @@ export const START_USAGE =
   "                        [--provider claude|codex|cline|aider|opencode] [--session-model small|medium|high|opus|sonnet|haiku]\n" +
   "                        [--completion-promise TEXT] [--base-wait S] [--max-wait S]\n" +
   "                        [--prd FILE | --brief TEXT] [--simple|--complex] [--allow-haiku]\n" +
-  "                        [--regen-prd] [--skip-memory]\n" +
+  "                        [--regen-prd] [--skip-memory] [--cost lean|off]\n" +
   "                        [--spec FILE | --spec-first]\n" +
-  "                        [--workspace NAME | --deploy [--health-url URL [--health-match STR]] [--auto-rollback]]\n" +
+  "                        [--workspace NAME | --deploy [--health-url URL [--health-match STR]] [--auto-rollback]\n" +
+  "                                  [--destination preview|staging|production] [--canary] [--env-file FILE] [--domain HOST] [--github]]\n" +
   "  <spec> = a PRD path, or a one-line brief. (Issue refs / --github / --parallel /\n" +
   "  --sandbox, opencode, and other shell-adapter paths run on the bash route automatically.)\n" +
   "  --workspace NAME  run the loki.yaml workspace NAME for the brief; --deploy deploys after the run through the gated loki deploy --execute\n" +
+  "  --cost lean   opt-in cost profile (also LOKI_COST_PROFILE=lean): sets LOKI_IMPLEMENT_HAIKU_FIRST=1, LOKI_E10_TRIM=1, LOKI_E10_SMALL_NO_RUNNER=1 and LOKI_E10_SMALL_MAX_CHARS=1200 unless already set; recorded in .loki/cost-profile.json\n" +
   "  --spec-first  write the acceptance criteria to .loki/specs/<slug>.md and stop, so you can edit them\n" +
   "  --spec FILE   run Loki 10 against an edited spec as the authoritative intent (a spec that does not parse exits 2 with the line)\n" +
   `  --budget-limit USD  per-run spend cap (default $${DEFAULT_MAX_COST_USD}; Loki 10 applies it with an API key and none on a subscription; see docs/cost-controls.md)\n` +
   "       loki start <spec> --attempts N [--no-pr] [--provider P] [--budget USD] [--session-model T]\n" +
   "  --attempts N  run N (1-5) independent Loki 10 engine attempts in separate git worktrees; the one with\n" +
   "                the most executed passing checks is applied and every loser is recorded on the attempts\n" +
-  "                receipt. Without --no-pr the winner alone is pushed and opened as a draft PR. Runner-only flags are refused with --attempts.\n";
+  "                receipt. Without --no-pr the winner alone is pushed and opened as a draft PR. Runner-only flags are refused with --attempts.\n" +
+  "\nExamples:\n" +
+  "  loki start \"build a todo app\"      # brief\n" +
+  "  loki start ./prd.md                 # PRD file\n" +
+  "  loki start owner/repo#123           # GitHub issue ref\n";
 
 // Parse the reconciled flag surface into RunnerOpts (+ apply env-mapping flags to
 // process.env), or return an error/terminal exit code. Value 0 = handled+exit
@@ -270,6 +280,26 @@ export function parseStartArgs(
   // Export the pin the way run.sh does (translated, e.g. high -> planning), so
   // the provider's opus pin and every child process read the same value.
   if (tierRaw) applyEnv("LOKI_SESSION_MODEL", tierRaw);
+
+  // TEN-COST-01: opt-in cost profile; fills only unset levers, records them, names them on one line.
+  // TEN-COST-27: loki.yaml cost.profile is the team default; --cost and LOKI_COST_PROFILE win. An invalid yaml value warns and falls back.
+  let costRaw = args.find((a) => a.startsWith("--cost="))?.slice("--cost=".length) ?? argVal(args, "--cost") ?? process.env["LOKI_COST_PROFILE"];
+  if (costRaw === undefined) {
+    for (const t of lokiYamlTexts(process.cwd())) {
+      const v = yamlKey(t, "cost", "profile");
+      if (v === null) continue;
+      if (Object.hasOwn(COST_PROFILES, v.trim().toLowerCase())) costRaw = v;
+      else err(`start: ignoring loki.yaml cost.profile '${v}' (expected lean or off)\n`);
+      break;
+    }
+  }
+  try {
+    const note = applyCostProfile(costRaw, process.env, applyEnv, process.env["LOKI_DIR"] ?? ".loki");
+    if (note) out(note + "\n");
+  } catch (e) {
+    err(`start: ${(e as Error).message}\n`);
+    return 2;
+  }
 
   // --budget is an alias of --budget-limit (bash divergence closed).
   const budget = posNum(argVal(args, "--budget-limit") ?? argVal(args, "--budget"));

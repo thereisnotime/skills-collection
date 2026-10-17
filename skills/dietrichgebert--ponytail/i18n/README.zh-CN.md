@@ -119,7 +119,7 @@ Ponytail 把他放进你的 AI 智能体里。
   <img src="../assets/band/board.png" width="880" alt="ponytail 看板，一个本地页面：最近 30 天 61 个会话，智能体时间 20h 13m，$285.30，token 492.5M；各项目的智能体时间变化；最近的会话及其测试结果；活跃天数和连续天数。">
 </p>
 
-**Board** 会打开一个本地页面，汇总你所有项目的任务：随时间变化的成本、智能体时间和 token，每个会话及其测试结果，以及你工作过的日子。默认情况下，所有数据都留在你的电脑上，位于 `~/.config/ponytail/band/`。
+**Board** 会打开一个本地页面，汇总你所有项目的任务：随时间变化的成本、智能体时间和 token，每个会话及其测试结果，以及你工作过的日子。默认情况下，所有数据都留在你的电脑上，位于 `~/.config/ponytail/band/`。`/ponytail band import` 会把你以前的 Claude Code 会话连同成本、智能体时间和 token 一起加入看板。
 
 ## 工作原理
 
@@ -172,6 +172,7 @@ codex plugin add ponytail@ponytail
 |------|------|
 | `/ponytail [lite \| full \| ultra \| off]` | 设置强度或关闭。不带参数时：如果已关闭，就以默认级别打开；否则显示当前级别。 |
 | `/ponytail band [on \| off]` | 仅限 Claude Code：隐藏或显示提示框上方的信息栏。不带参数时切换。级别不变。 |
+| `/ponytail band import` | 仅限 Claude Code：把以前的会话连同成本、智能体时间和 token 加入看板。 |
 | `/ponytail-review` | 像出了故障会被叫醒的资深开发者那样审查当前 diff：bug、安全、真实负载、没有测试的高风险代码、慢的地方，以及可以删掉的东西。每条发现都写清这段代码做什么、哪里出错、怎么修、不修会怎样。用普通的话指定目标来缩小或扩大范围：`uncommitted`、`staged`、`branch`，或一个 PR 链接。 |
 | `/ponytail-audit` | 对整个仓库做同样的检查，最重要的排在前面。 |
 | `/ponytail-debt` | 把你推迟处理的 `shortcut:` 捷径收集成一份清单，免得"以后再说"变成"永远不做"。 |

@@ -54,7 +54,7 @@ Automatic detection recognizes:
 - test reports (a JUnit XML root element, or top-level pytest-json-report or Jest JSON keys, that parse with at least one test);
 - terminal output;
 - diffs;
-- HTML;
+- HTML (a document that opens with `<!doctype html>` or `<html>` is HTML even when stray carriage returns would otherwise read as terminal output);
 - tabular data;
 - source code;
 - logs;

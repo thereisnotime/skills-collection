@@ -4,11 +4,11 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { hooks } from "./hooks.ts";
-import { classifyFailure } from "../runner/retry_class.ts";
+import { rerunOnQuota, sessionKind } from "../runner/retry_class.ts";
 import { REGISTRY } from "./registry.ts";
-import { timeBudgetNote } from "../util/run_cap.ts"; import { FINISH_LINE } from "../e10ext/context.ts"; import { withSteer } from "../util/steer.ts"; import { restoreReadOnly, type ReadOnlyFile } from "./stages/implement.ts"; import { stallClimb } from "../runner/router/unit_model.ts";
+import { runControlBoundary } from "../util/run_control.ts"; import { timeBudgetNote } from "../util/run_cap.ts"; import { FINISH_LINE } from "../e10ext/context.ts"; import { withSteer } from "../util/steer.ts"; import { restoreReadOnly, type ReadOnlyFile } from "./stages/implement.ts"; import { stallClimb } from "../runner/router/unit_model.ts"; import { removeHoldout } from "../util/holdout.ts"; import { distrustGreenBase } from "./stages/wall.ts";
 import { backstopS, DEEP_IMPLEMENT_LIMIT_S, MAX_FIX_ROUNDS, STAGE_BUDGETS } from "./types.ts";
-import type { Obj, RunContext, Stage, StageName, StageResult } from "./types.ts";
+import type { EventType, Obj, RunContext, Stage, StageName, StageResult } from "./types.ts";
 
 /** WC-01b: optional split halves a wall stage may carry (see wall.ts `stage.split`). */
 interface WallSplit {
@@ -36,6 +36,8 @@ export interface MachineOptions {
   resize?: () => number;
   /** Run start in epoch ms; the cap counts from here. Defaults to now. */
   startedAtMs?: number;
+  /** P12-07i: outputs of stages already settled before an interrupt; seeded so later stages see them and the flow skips them. */
+  restored?: Partial<Record<StageName, Obj>>;
 }
 export interface MachineResult {
   outputs: Partial<Record<StageName, Obj>>;
@@ -57,7 +59,7 @@ function defaultLoader(dir: string) {
     return mod ? (mod.stage ?? mod.default ?? null) : null;
   };
 }
-const hasFailures = (d: Obj | undefined): boolean => Array.isArray(d?.failures_grouped) && d.failures_grouped.length > 0;
+export const hasFailures = (d: Obj | undefined): boolean => (Array.isArray(d?.failures_grouped) && d.failures_grouped.length > 0) || (typeof d?.holdout_failed === "number" && d.holdout_failed > 0); // C-C4b: a held-out failure is only an opaque count
 // Only already_satisfied short-circuits to the tail. spec_conflict must still run verify and
 // the fix loop (E-98b); seal.ts:110 already reads implement.exit off outputs for the verdict.
 const earlyExit = (d: Obj): boolean => d.already_satisfied === true;
@@ -67,23 +69,26 @@ export function softCapS(capS: number): number { const plain = (capS * 14) / 15,
 export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Promise<MachineResult> {
   const load = opts.load ?? defaultLoader(opts.stagesDir ?? join(import.meta.dir, "stages"));
   const outputs: Partial<Record<StageName, Obj>> = {};
-  let capHit = false, fatal: string | null = null;
+  let capHit = false, fatal: string | null = null; if (opts.restored) Object.assign(outputs, opts.restored);
   const startMs = opts.startedAtMs ?? ctx.clock.now();
   if (ctx.startedAtMs === undefined) ctx.startedAtMs = startMs;
-  const timeline: NonNullable<typeof ctx.timeline> = ctx.timeline ??= [];
+  const timeline: NonNullable<typeof ctx.timeline> = ctx.timeline ??= [], intentRevs = ctx.intentRevisions ??= [];
   let capAtMs = startMs + softCapS(ctx.capS) * 1000; // 14/15 of capS for the default/deep caps; see softCapS above
   const capCtl = new AbortController();
   let capTimer = setTimeout(() => capCtl.abort(), Math.max(0, capAtMs - ctx.clock.now()));
   let implementStartMs: number | null = null;
   const withTimeNote = (brief: string, limitS: number): string => brief.endsWith(FINISH_LINE) ? `${brief.slice(0, -FINISH_LINE.length)}${timeBudgetNote(limitS)}\n\n${FINISH_LINE}` : `${brief}\n\n${timeBudgetNote(limitS)}`;
+  const startedIds = new Set<string>(); // TEN-COST-11 r3: every session this run started, whatever its stage later returned; seal unions these into the cost read so a killed or failed stage's spend is never lost
   const sessions = { run: async (o0: Parameters<typeof ctx.sessions.run>[0]) => {
-    const o = withSteer(o0, ctx.repoDir); // operator steer (.loki/HUMAN_INPUT.md), consumed once
-    const left = implementStartMs === null ? Infinity : Math.max(1, implementBudgetS - (ctx.clock.now() - implementStartMs) / 1000), imp = o.stage === "implement" ? { ...o, limitS: Math.min(Math.max(o.limitS, implementBudgetS), left) } : o, r = await ctx.sessions.run(imp.stage === "implement" && typeof imp.brief === "string" && imp.limitS > 0 ? { ...imp, brief: withTimeNote(imp.brief, imp.limitS) } : imp); // FC-21 (c): the time note goes after the byte-stable prefix and body; FC-21b A2: a resumed session gets only the budget left, and the note sits BEFORE the closing FINISH_LINE
-    const t = (r as { stderrTail?: string }).stderrTail ?? "", sdk = /\[sdk-loop error: [^\n]*?(?:(Failed to authenticate|API key is invalid|Not logged in)|(credit balance))/.exec(t); // the SDK's real wording, matched only on its own error line
-    const k = r.exit === 0 ? null : sdk ? (sdk[1] ? "auth" : "quota_exhausted") : classifyFailure(t).reason; if (k === "auth" || k === "quota_exhausted") fatal ??= `fatal:${k}`; if (ctx.overCap?.()) capCtl.abort(); // D60-5: dollar cap reached, stop the running stage too
+    startedIds.add(o0.iterationId);
+    const n0 = intentRevs.length, o = withSteer(o0, ctx.repoDir, intentRevs); // operator steer (.loki/HUMAN_INPUT.md), consumed once
+    if (intentRevs.length > n0) ctx.emit("intent.revised", o.stage, { revisions: intentRevs }); // P12-07h will seed ctx from these on re-entry; durable in events.jsonl
+    const left = implementStartMs === null ? Infinity : Math.max(1, implementBudgetS - (ctx.clock.now() - implementStartMs) / 1000), imp = o.stage === "implement" ? { ...o, limitS: Math.min(Math.max(o.limitS, implementBudgetS), left) } : o, r = await rerunOnQuota(() => ctx.sessions.run(imp.stage === "implement" && typeof imp.brief === "string" && imp.limitS > 0 ? { ...imp, brief: withTimeNote(imp.brief, imp.limitS) } : imp), sessionKind, ctx.clock, imp.signal, capAtMs, () => ctx.overCap?.() === true); // FC-21 (c): the time note goes after the byte-stable prefix and body; FC-21b A2: a resumed session gets only the budget left, and the note sits BEFORE the closing FINISH_LINE
+    const k = r.exit === 0 ? null : sessionKind(r as { exit: number; stderrTail?: string }); // P12-09: quota waits and reruns inside rerunOnQuota; it is fatal only if no cap ended the wait
+    if (k === "auth" || (k === "quota_exhausted" && !capReached())) fatal ??= `fatal:${k}`; if (ctx.overCap?.() || (k === "quota_exhausted" && capReached())) capCtl.abort(); // D60-5: dollar cap reached, stop the running stage too
     return r;
   } };
-  const sctx: MachineRunContext = { ...ctx, sessions, implementLeftS: () => implementStartMs === null ? Infinity : implementBudgetS - (ctx.clock.now() - implementStartMs) / 1000, outputs: () => ({ ...outputs }), capHit: () => capHit };
+  const sctx: MachineRunContext = { ...ctx, sessions, implementLeftS: () => implementStartMs === null ? Infinity : implementBudgetS - (ctx.clock.now() - implementStartMs) / 1000, outputs: () => ({ ...outputs }), capHit: () => capHit, sessionIds: () => [...startedIds] };
   const elapsedS = (): number => (ctx.clock.now() - startMs) / 1000;
   /** FC-21b: the one post-plan resize. Never below the current cap or the elapsed time; recomputes capAtMs and re-arms the soft-cap timer. */
   const applyResize = (proposedS: number): void => {
@@ -110,7 +115,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
     }
     if (underCap && capReached()) { markCap(name); return null; }
     const limitS = name === "implement" ? (ctx.deep ? DEEP_IMPLEMENT_LIMIT_S : st.limitS >= STAGE_BUDGETS.implement.limitS ? implementLimitS(st.limitS) : st.limitS) : st.limitS; if (name === "implement") { implementBudgetS = limitS; implementStartMs = ctx.clock.now(); } // FC-19: implement gets the run budget left, not a fixed 480s
-    ctx.emit("stage.started", name, { target_s: st.targetS, limit_s: limitS });
+    ctx.emit("stage.started", name, { target_s: st.targetS, limit_s: limitS, ...(name === "wall" ? { start_ms: ctx.clock.now() } : {}) });
     const t0 = ctx.clock.now();
     const dur = (): number => (ctx.clock.now() - t0) / 1000;
     const ctl = new AbortController();
@@ -155,6 +160,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
       res.data.duration_s = durationS; outputs[name] = res.data; // RECEIPT-TRUTH: seal sums time.stages from outputs, so every stage records its own duration_s here; same object (not a copy) because intake mutates its own data after the stage ends (D61-04)
       ctx.emit("stage.completed", name, { ...res.data, duration_s: durationS });
     } else if (res.status === "skipped") {
+      if (Array.isArray(res.data.not_proven)) outputs[name] = res.data; // TEN-COST-09: a skip that disclosed what it left unproven reaches seal
       ctx.emit("stage.skipped", name, { ...res.data, reason: res.reason ?? "skipped by stage" });
     } else {
       ctx.emit("stage.failed", name, { ...res.data, duration_s: dur(), reason: res.reason ?? "failed" });
@@ -184,9 +190,9 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
     const timer = setTimeout(() => kill("limit"), st.limitS * 1000), onCap = (): void => kill("cap");
     if (capCtl.signal.aborted) onCap(); else capCtl.signal.addEventListener("abort", onCap);
     const aborted = new Promise<null>((res) => ctl.signal.addEventListener("abort", () => res(null)));
-    ctx.emit("stage.started", "wall", { target_s: st.targetS, limit_s: st.limitS });
+    ctx.emit("stage.started", "wall", { target_s: st.targetS, limit_s: st.limitS, start_ms: ctx.clock.now() });
     const promise = st.split.author(sctx, ctl.signal); promise.catch(() => {});
-    wallJob = { snap: hooks.wall!.snapshotTree(ctx.repoDir, ctl.signal), split: st.split, promise, ctl, aborted, t0: ctx.clock.now(), timer, why: () => why, onCap };
+    wallJob = { snap: hooks.wall!.snapshotTree(ctx.repoDir, ctl.signal), split: st.split, promise, ctl, aborted, t0: ctx.clock.now(), timer, why: () => why, onCap }; timeline.push({ stage: "wall", startMs: wallJob.t0, endMs: wallJob.t0 });
     return true;
   };
   /** Awaits the author, then installs once against a pre-implement tree snapshot. Returns the wall result (also recorded in outputs/events). */
@@ -212,9 +218,8 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
             // Fail closed: a base run that passes while implement changed files is not trusted as "already satisfied" (the base copy could still resolve into live code); verify decides.
             const unsure = changed === null || touched.length > 0, d = r.data, b0 = d.base_run as { pass?: number; fail?: number; not_run?: number };
             const green = typeof b0.pass === "number" && b0.pass > 0 && b0.fail === 0 && (b0.not_run ?? 0) === 0;
-            // Fail closed for EVERY consumer (wall, discard.alreadySatisfied, seal wallGreenOnBase): an untrusted green base run is recorded as unproven (not_run), which all of them already refuse.
-            const distrust = unsure && green;
-            r = { ...r, data: { ...d, ...(distrust ? { already_satisfied: false, already_satisfied_distrusted: true } : {}), base_run: { ...b0, ...(distrust ? { not_run: 1, unproven: true } : {}), ...(changed === null || changed.some((f) => hooks.wall!.manifests.test(f)) ? { deps: "head" } : {}) } } };
+            const d1 = unsure && green ? distrustGreenBase(d) : d; // shared fail-closed mechanism (wall.ts distrustGreenBase)
+            r = { ...r, data: { ...d1, base_run: { ...(d1.base_run as Obj), ...(changed === null || changed.some((f) => hooks.wall!.manifests.test(f)) ? { deps: "head" } : {}) } } };
           }
         } finally { rmSync(base, { recursive: true, force: true }); }
       }
@@ -226,13 +231,14 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
   try {
     let jumped = false, resized = false, stopped: string | null = null;
     const sigs: string[] = [];
-    const sigOf = (d: Obj | undefined, r?: StageResult | null): string => r && r.status !== "completed" ? `verify-crashed-${sigs.length}` : JSON.stringify(((d?.failures_grouped ?? []) as { signature?: string }[]).map((g) => g.signature).sort()); // a crashed or timed-out verify leaves outputs.verify stale: record a marker that never matches (A-113b)
+    const sigOf = (d: Obj | undefined, r?: StageResult | null): string => r && r.status !== "completed" ? `verify-crashed-${sigs.length}` : JSON.stringify([...((d?.failures_grouped ?? []) as { signature?: string }[]).map((g) => g.signature).sort(), `holdout_failed=${d?.holdout_failed ?? 0}`]); // a crashed or timed-out verify leaves outputs.verify stale: record a marker that never matches (A-113b)
     for (const step of opts.flow ?? FLOW) {
       const group = (typeof step === "string" ? [step] : [...step]) as StageName[];
       let todo = group;
       if (wallJob && (jumped || capReached())) abortWall();
       const isTail = todo.every((n) => TAIL.includes(n));
       if (jumped && !isTail) continue;
+      if (!isTail && !jumped && await runControlBoundary(ctx.runDir, (t) => ctx.emit(t as EventType, null, {}))) { jumped = true; stopped = "cancelled by request"; continue; } // P12-10: pause/cancel read at stage boundaries only
       if (!isTail && capReached()) markCap(todo[0] as StageName);
       if (capHit && !isTail) { jumped = true; continue; }
       if (wallConcurrent() && todo.includes("plan") && todo.includes("wall") && !wallJob && await startWallAuthor()) todo = todo.filter((n) => n !== "wall"); // the Wall is now a background job, joined before verify
@@ -277,6 +283,6 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
     return { outputs, capHit, stopped };
   } finally {
     abortWall();
-    clearTimeout(capTimer);
+    clearTimeout(capTimer); removeHoldout(ctx.runId, ctx.repoDir);
   }
 }

@@ -176,18 +176,23 @@ export interface ModernizeCliDeps {
   /** Cost/time priors (eta.ts/cost.ts history, or the Legacy-Bench pilot median, M-27).
    *  Unmeasured (null/null) until that wiring lands; estimate.ts prints "not measured", never $0. */
   prior?: CostPrior;
-  /** Complete wave dependencies (tests inject stubs); absent means productionWaveDeps, which names what is not built. */
+  /** Complete wave dependencies (tests inject stubs); absent means productionWaveDeps, which fails closed (exit 2) on a missing HEAD or origin. */
   waves?: WaveDeps;
 }
 const NO_PRIOR: CostPrior = { usdPerUnit: null, p50UnitTimeS: null };
 
 /** `loki modernize` entry point (TABLE route in ../cli.ts). Section 2/3.1: parses and validates flags, opens the modernize
  *  log, runs Inventory and the up-front estimate, and for --dry-run prints it and stops at zero model spend. Otherwise it
- *  hands the plan to runWaves (util/modernize_coordinator.ts); when a dependency of that is not built, productionWaveDeps names it and exits 2. */
+ *  hands the plan to runWaves (util/modernize_coordinator.ts); when productionWaveDeps cannot build its dependencies it names the gap and exits 2. */
 export async function main(args: readonly string[], deps: ModernizeCliDeps = {}): Promise<number> {
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     process.stdout.write(USAGE);
     return args.length === 0 ? 2 : 0;
+  }
+  // --help/-h anywhere is a usage request (exit 0), not an unknown flag/argument (exit 2); USAGE lists unit too.
+  if (args.includes("--help") || args.includes("-h")) {
+    process.stdout.write(USAGE);
+    return 0;
   }
   if (args[0] === "unit") return unitMain(args.slice(1), deps);
   const parsed = parseArgs(args);
@@ -233,12 +238,12 @@ export async function main(args: readonly string[], deps: ModernizeCliDeps = {})
 
   let waveDeps = deps.waves;
   if (!waveDeps) {
-    const built = productionWaveDeps({ repoDir: opts.repoDir, mid, target: opts.target, workers: opts.workers, budgetUsd: opts.budgetUsd, resume: opts.resume !== null, noPr: opts.noPr });
+    const built = productionWaveDeps({ repoDir: opts.repoDir, mid, target: opts.target, workers: opts.workers, budgetUsd: opts.budgetUsd, resume: opts.resume !== null, noPr: opts.noPr, inv, plan: clustered, log });
     if (!built.ok) { process.stderr.write(`${built.reason}; use --dry-run\n`); return 2; }
     waveDeps = built.deps;
   }
   const res = await runWaves(clustered, waveDeps);
-  for (const w of res.waves) process.stdout.write(`wave ${w.wave}: ${w.verdict.verified ? "verified" : `not verified (${w.verdict.reason})`}${w.shipped ? `, shipped ${w.url ?? ""}` : w.reason ? `, not shipped (${w.reason})` : ""}\n`);
+  for (const w of res.waves) process.stdout.write(`wave ${w.wave}: ${w.verdict.verified ? `verified${w.verdict.steps.some((x) => !x.ran) ? " (integration not detected: warned)" : ""}` : `not verified (${w.verdict.reason})`}${w.shipped ? `, shipped ${w.url ?? ""}` : w.reason ? `, not shipped (${w.reason})` : ""}\n`);
   if (res.blocked) process.stderr.write(`modernize: ${res.blocked}\n`);
   return res.ok ? 0 : 1;
 }

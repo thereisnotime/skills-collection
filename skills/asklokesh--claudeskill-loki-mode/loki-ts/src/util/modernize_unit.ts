@@ -2,12 +2,12 @@
 // D33 line cap; modernize/cli.ts only routes here. One unit runs through the existing runUnit (M-15) inside a
 // run-owned temp checkout of repo@ref, fetched with safe_git (hooks, fsmonitor, ext:: off). Exit 0 only on PROVEN.
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { ModernizeLog } from "../engine10/modernize/log.ts";
 import { DEFAULT_NORMALIZERS } from "../engine10/modernize/oracle/seal.ts";
-import { makeModernizeId } from "../engine10/modernize/types.ts";
+import { isSafeUnitId, makeModernizeId } from "../engine10/modernize/types.ts";
 import type { ModernizeTarget } from "../engine10/modernize/types.ts";
 import { runUnit } from "../engine10/modernize/unit.ts";
 import { makePytestBaseRunner, makePytestCollector } from "./python.ts";
@@ -98,11 +98,10 @@ function unitBrief(card: UnitCard): string {
 /** One factory for the per-unit implementer and new-tree case runner, shared by the local coordinator and `loki modernize unit`.
  *  implement runs the same engine10 session child the implement stage uses (provider resolution included). runNew replays one
  *  oracle case against the new tree; a target with no runner throws, so every case is NOT_PROVEN and nothing is faked. */
-export function makeUnitRunners(o: UnitRunnerOpts): { implement: Implementer; runNew: NewCaseRunner } {
+export function makeUnitRunners(o: UnitRunnerOpts): { implement: Implementer; runNew: NewCaseRunner; runStub: NewCaseRunner } {
   const provider = o.provider ?? process.env["LOKI_E10_PROVIDER"] ?? "claude";
   const limitS = o.sessionLimitS ?? SESSION_LIMIT_S;
-  const cli = import.meta.path.endsWith("modernize_unit.ts") ? join(import.meta.dir, "..", "cli.ts") : import.meta.path;
-  const session = o.session ?? ((_brief, cwd, env) => spawnSync(process.execPath, [cli, "engine10", "session"], { cwd, env, stdio: ["ignore", "ignore", "pipe"], timeout: limitS * 1000 }));
+  const session = makeSessionRunner(o);
   const implement: Implementer = (card) => {
     const cwd = card.newTreeDir ?? card.repoDir;
     const brief = unitBrief(card);
@@ -112,27 +111,73 @@ export function makeUnitRunners(o: UnitRunnerOpts): { implement: Implementer; ru
   };
   const runNew: NewCaseRunner = (unitId, newTreeDir, rec) => {
     if (o.target !== "python3") throw new Error(`no new-tree runner for target ${o.target}`);
-    return runPythonCase(o, unitId, newTreeDir, rec);
+    return runPythonCase(o, unitId, newTreeDir, rec, false);
   };
-  return { implement, runNew };
+  const runStub: NewCaseRunner = (unitId, newTreeDir, rec) => {
+    if (o.target !== "python3") throw new Error(`no stub runner for target ${o.target}`);
+    return runPythonCase(o, unitId, newTreeDir, rec, true);
+  };
+  return { implement, runNew, runStub };
 }
 
-/** Replays one oracle case against the new tree with the same tracer that captured it (py_capture.py), so old and new are tagged identically. */
-function runPythonCase(o: UnitRunnerOpts, unitId: string, newTreeDir: string, rec: CaseRecord): NewCaseOutcome {
-  const src = o.unitFile ? o.unitFile(unitId, newTreeDir) : join(newTreeDir, unitId);
+/** The session spawn behind implement: o.session when injected, else the engine10 session child run synchronously. */
+export function makeSessionRunner(o: Pick<UnitRunnerOpts, "session" | "sessionLimitS">): NonNullable<UnitRunnerOpts["session"]> {
+  const limitS = o.sessionLimitS ?? SESSION_LIMIT_S;
+  const cli = import.meta.path.endsWith("modernize_unit.ts") ? join(import.meta.dir, "..", "cli.ts") : import.meta.path;
+  return o.session ?? ((_brief, cwd, env) => spawnSync(process.execPath, [cli, "engine10", "session"], { cwd, env, stdio: ["ignore", "ignore", "pipe"], timeout: limitS * 1000 }));
+}
+
+/** The unit id read as a repo-relative path. Null (so the caller reports "cannot locate") unless the id is safe and
+ *  the REAL path (symlinks resolved) stays inside the real new tree. */
+export function defaultUnitFile(unitId: string, newTreeDir: string): string | null {
+  if (!isSafeUnitId(unitId)) return null;
+  try {
+    const root = realpathSync(newTreeDir);
+    const real = realpathSync(join(root, unitId));
+    return real.startsWith(root + sep) ? real : null;
+  } catch { return null; }
+}
+
+type Kind = "text" | "bytes";
+const KIND_TAGS: Record<string, Kind> = { text: "text", bytes: "bytes", bytearray: "bytes" };
+function kindsOf(t: { t?: string; v?: unknown } | null | undefined, out: Set<Kind>): void {
+  if (!t || typeof t !== "object") return;
+  const k = typeof t.t === "string" ? KIND_TAGS[t.t] : undefined;
+  if (k) { out.add(k); return; }
+  if (!Array.isArray(t.v)) return;
+  for (const item of t.v) {
+    if (Array.isArray(item)) for (const x of item) kindsOf(x as { t?: string }, out); // dict pairs
+    else kindsOf(item as { t?: string }, out);
+  }
+}
+const declaredKind = (t: Parameters<typeof kindsOf>[0]): Kind | null => {
+  const s = new Set<Kind>(); kindsOf(t, s);
+  return s.size === 1 ? [...s][0]! : null; // mixed stays undeclared: py_capture flags it regardless
+};
+
+/** Text/bytes boundaries declared by the sealed oracle case itself: the kind the old code saw at each argument and the return.
+ *  py_capture maps positions to parameter names. A boundary the oracle never saw as text or bytes stays undeclared. */
+export function boundariesFromCase(rec: CaseRecord): { args: (Kind | null)[]; kwargs: Record<string, Kind>; return: Kind | null } {
+  const kwargs: Record<string, Kind> = {};
+  for (const [k, v] of Object.entries(rec.kwargs ?? {})) { const d = declaredKind(v); if (d) kwargs[k] = d; }
+  return { args: (rec.args ?? []).map(declaredKind), kwargs, return: declaredKind(rec.return) };
+}
+
+/** Replays one oracle case against the new tree (or, with stub, against the unit replaced by no-op stubs) with the same tracer that captured it (py_capture.py), so old and new are tagged identically. */
+function runPythonCase(o: UnitRunnerOpts, unitId: string, newTreeDir: string, rec: CaseRecord, stub: boolean): NewCaseOutcome {
+  const src = o.unitFile ? o.unitFile(unitId, newTreeDir) : defaultUnitFile(unitId, newTreeDir);
   if (!src || !src.endsWith(".py") || !existsSync(src)) throw new Error(`cannot locate the source of unit ${unitId} in the new tree`);
   const dir = mkdtempSync(join(tmpdir(), "loki-newcase-"));
   try {
     const cases = join(dir, "in.jsonl"), out = join(dir, "out.jsonl");
-    writeFileSync(cases, JSON.stringify({ entry: rec.entry, args: rec.args, kwargs: rec.kwargs }) + "\n", "utf8");
-    const r = spawnSync(o.pythonBin ?? "python3", [join(REPO_ROOT, "autonomy", "lib", "modernize", "py_capture.py"), "--unit", src, "--cases", cases, "--out", out],
+    writeFileSync(cases, JSON.stringify({ entry: rec.entry, args: rec.args, kwargs: rec.kwargs, boundaries: boundariesFromCase(rec) }) + "\n", "utf8");
+    const r = spawnSync(o.pythonBin ?? "python3", [join(REPO_ROOT, "autonomy", "lib", "modernize", "py_capture.py"), "--unit", src, "--cases", cases, "--out", out, ...(stub ? ["--stub"] : [])],
       { cwd: newTreeDir, encoding: "utf8", timeout: CASE_TIMEOUT_MS, env: { ...tokenFreeEnv(), PYTHONDONTWRITEBYTECODE: "1" } });
     if (r.status !== 0 || !existsSync(out)) throw new Error(`new-tree case runner failed (${r.status ?? r.signal ?? "no status"}): ${String(r.stderr ?? "").trim().split("\n").pop() ?? ""}`);
     const line = readFileSync(out, "utf8").split("\n").find((l) => l.trim() !== "");
     if (!line) throw new Error("new-tree case runner produced no record");
     const got = JSON.parse(line) as CaseRecord;
-    if (got.not_proven.length > 0) throw new Error(`new-tree case not provable: ${got.not_proven.join("; ")}`);
-    return { return: got.return, exc: got.exc, stdout: got.stdout, files: got.files };
+    return { return: got.return, exc: got.exc, stdout: got.stdout, files: got.files, ...(got.not_proven.length > 0 ? { not_proven: got.not_proven } : {}) };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -146,8 +191,8 @@ export async function unitMain(args: readonly string[], deps: { makeId?: () => s
   if (!parsed.ok) { process.stderr.write(`modernize unit: ${parsed.error}\nUsage: ${UNIT_USAGE}\n`); return 2; }
   const o = parsed.opts;
   const u = deps.unit ?? {};
-  const runners = u.implement && u.runNew ? null : makeUnitRunners({ target: o.target });
-  const implement = u.implement ?? runners!.implement, runNew = u.runNew ?? runners!.runNew;
+  const runners = u.implement && u.runNew && u.runStub ? null : makeUnitRunners({ target: o.target });
+  const implement = u.implement ?? runners!.implement, runNew = u.runNew ?? runners!.runNew, runStub = u.runStub ?? runners!.runStub;
   const runTmp = process.env["LOKI_RUN_TMP"] ?? "";
   const root = u.tmpRoot ?? (runTmp !== "" && isRealDir(runTmp) ? runTmp : tmpdir());
   let repoDir: string;
@@ -164,7 +209,7 @@ export async function unitMain(args: readonly string[], deps: { makeId?: () => s
     const card: UnitCard = { unit: o.unit, repoDir, mid, target: o.target, normalizers: DEFAULT_NORMALIZERS };
     let result: UnitRunResult;
     try {
-      result = (u.runUnit ?? runUnit)(card, log, u.runConformance ?? makePytestBaseRunner(), implement, runNew, u.runStub, u.collect ?? makePytestCollector());
+      result = (u.runUnit ?? runUnit)(card, log, u.runConformance ?? makePytestBaseRunner(), implement, runNew, runStub, u.collect ?? makePytestCollector());
     } catch (e) {
       process.stderr.write(`modernize unit: ${o.unit} failed: ${e instanceof Error ? e.message : String(e)}\n`); return 1;
     }
@@ -185,7 +230,6 @@ export const REMOTE_UNIT_FIELDS = ["kind", "repo", "ref", "unit", "mid", "target
 const TARGETS: readonly ModernizeTarget[] = ["python3", "java21"];
 const REPO_RE = /^[A-Za-z0-9._][A-Za-z0-9._-]*\/[A-Za-z0-9._-]+$/;
 const REF_RE = /^[A-Za-z0-9._][A-Za-z0-9._/-]*$/;
-const UNIT_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const MID_RE = /^mod-\d{8}T\d{6}Z-[0-9a-f]{6}$/;
 const MAX_REPO = 140;
 const MAX_REF = 200;
@@ -216,7 +260,7 @@ export function buildUnitJob(spec: RemoteUnitSpec): RemoteUnitJob {
   if (typeof ref !== "string" || !ref || ref.length > MAX_REF || !REF_RE.test(ref) || ref.includes("..") || /(\.lock|\/|\.)$/.test(ref)) {
     throw new Error("invalid ref");
   }
-  if (typeof unit !== "string" || !UNIT_RE.test(unit)) throw new Error("invalid unit");
+  if (!isSafeUnitId(unit)) throw new Error("invalid unit");
   const job: RemoteUnitJob = { kind: "unit", repo, ref, unit };
   if (mid !== undefined) {
     if (typeof mid !== "string" || !MID_RE.test(mid)) throw new Error("invalid mid");

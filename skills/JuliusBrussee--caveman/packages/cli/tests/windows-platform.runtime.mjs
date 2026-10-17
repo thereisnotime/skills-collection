@@ -13,6 +13,7 @@ import {
   executableCandidateNames,
   generatedPluginInvocation,
   hookExecutableInvocation,
+  hostShellInvocation,
   nativeHookInvocation,
   normalizeHookPath,
   quoteHookPath,
@@ -251,4 +252,30 @@ test("native PowerShell executes generated lifecycle hook commands", { skip: pro
   });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(readFileSync(marker, "utf8")), ["native-hook", "claude"]);
+});
+
+// #1263: the shrink rewrite is handed back to the HOST to run in the HOST's own
+// shell, which differs per host on Windows — Git Bash under Claude Code,
+// PowerShell under the opencode plugin, cmd.exe under Gemini CLI. A quoted path
+// is only a string literal in PowerShell, so the old single-quoted prefix died
+// with `ParserError: Unexpected token 'shrink'` before the command ran.
+test("a host-shell invocation is bare so PowerShell, bash and cmd all run it", () => {
+  assert.equal(
+    hostShellInvocation("C:\\Users\\jane\\AppData\\Roaming\\npm\\caveman.CMD", undefined, "win32"),
+    "C:/Users/jane/AppData/Roaming/npm/caveman.CMD",
+  );
+  assert.equal(
+    hostShellInvocation("C:\\Program Files\\nodejs\\node.exe", "C:\\npm\\cli\\dist\\index.js", "win32"),
+    null,
+    "a path needing quotes has no form all three shells accept — decline the rewrite instead",
+  );
+  // POSIX hosts all run sh/bash/zsh, where the quoted form is correct: unchanged.
+  assert.equal(
+    hostShellInvocation("/usr/local/bin/caveman", undefined, "darwin"),
+    "'/usr/local/bin/caveman'",
+  );
+  assert.equal(
+    hostShellInvocation("/usr/local/bin/node", "/opt/cli/dist/index.js", "linux"),
+    "'/usr/local/bin/node' '/opt/cli/dist/index.js'",
+  );
 });

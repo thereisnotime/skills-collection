@@ -1,12 +1,13 @@
 // M-01: modernize event types, log wrapper and state paths.
+// select: walk-all-src
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModernizeLog, readModernizeEvents } from "../../../src/engine10/modernize/log.ts";
 import {
   estimatePath, inventoryPath, isModernizeId, makeModernizeId, modernizeEventsPath,
-  modernizeRoot, oracleDir, planPath, reportJsonPath, reportMdPath, routesPath, unitCardPath,
+  MODERNIZE_EVENT_TYPES, modernizeRoot, oracleDir, planPath, reportJsonPath, reportMdPath, routesPath, unitCardPath,
 } from "../../../src/engine10/modernize/types.ts";
 
 let repoDir = "";
@@ -65,5 +66,62 @@ describe("ModernizeLog", () => {
     const log2 = new ModernizeLog(repoDir, mid);
     const e = log2.append("estimate.printed", { cost: null });
     expect(e.seq).toBe(1);
+  });
+});
+
+/** FC-M25W-b / M-25w-c: a producer is the event name as a string literal inside a real `append(` call (word boundary before append) on one line.
+ *  Comments are blanked and string literals are lifted out first, so `append(` or a `//` inside a string never counts or hides code. */
+export const hasProducer = (text: string, name: string): boolean => {
+  const strs: string[] = [];
+  let code = "";
+  for (let i = 0; i < text.length;) {
+    const c = text[i]!;
+    if (c === "/" && text[i + 1] === "/") { while (i < text.length && text[i] !== "\n") i++; continue; }
+    if (c === "/" && text[i + 1] === "*") { const e = text.indexOf("*/", i + 2); const end = e < 0 ? text.length : e + 2; code += text.slice(i, end).replace(/[^\n]/g, " "); i = end; continue; }
+    if (c === '"' || c === "'" || c === "`") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== c && (c === "`" || text[j] !== "\n")) j += text[j] === "\\" ? 2 : 1;
+      strs.push(text.slice(i + 1, j));
+      code += `\u0001${strs.length - 1}\u0002`;
+      i = j + 1;
+      continue;
+    }
+    code += c; i++;
+  }
+  for (const m of code.matchAll(/\bappend\(([^\n]*)/g)) {
+    for (const s of m[1]!.matchAll(/\u0001(\d+)\u0002/g)) if (strs[Number(s[1])] === name) return true;
+  }
+  return false;
+};
+
+describe("event producers (FC-M25W, FC-M25W-b)", () => {
+  const walk = (d: string): string[] => readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? walk(p) : p.endsWith(".ts") ? [p] : []; });
+  it("every event name in types.ts has an append( producer in loki-ts/src (empty allowlist)", () => {
+    const src = join(import.meta.dir, "..", "..", "..", "src");
+    const typesFile = join(src, "engine10", "modernize", "types.ts");
+    const text = walk(src).filter((f) => f !== typesFile).map((f) => readFileSync(f, "utf8")).join("\n");
+    expect(MODERNIZE_EVENT_TYPES.filter((t) => !hasProducer(text, t))).toEqual([]);
+  });
+  it("the review mutations are not producers; a real append is", () => {
+    const real = 'log.append("unit.resliced", { unit: u });';
+    expect(hasProducer(real, "unit.resliced")).toBe(true);
+    expect(hasProducer('log.append(ok ? "unit.resliced" : "unit.completed", {});', "unit.resliced")).toBe(true);
+    expect(hasProducer('if (e.type == "unit.resliced") {}', "unit.resliced")).toBe(false);
+    expect(hasProducer('if (["unit.resliced"].includes(e.type)) {}', "unit.resliced")).toBe(false);
+    expect(hasProducer('doIt(); // see "unit.resliced"', "unit.resliced")).toBe(false);
+    expect(hasProducer('log.append(kind); // "unit.resliced"', "unit.resliced")).toBe(false);
+  });
+  it("M-25w-c: fakes are rejected, a real call beside a URL string is kept", () => {
+    const n = "unit.resliced";
+    expect(hasProducer('const s = "log.append(\\"unit.resliced\\", {})";', n)).toBe(false);
+    expect(hasProducer("const s = 'x append(\"unit.resliced\")';", n)).toBe(false);
+    expect(hasProducer('/* log.append("unit.resliced", {}); */', n)).toBe(false);
+    expect(hasProducer('xs.myappend("unit.resliced", {});', n)).toBe(false);
+    expect(hasProducer('log.append("unit.resliced", { url: "http://x" });', n)).toBe(true);
+    expect(hasProducer('const u = "http://x"; log.append("unit.resliced", {});', n)).toBe(true);
+    expect(hasProducer("log.append(`unit.resliced`, {});", n)).toBe(true);
+  });
+  it("M-25w-c: the walk marker stays on line 2", () => {
+    expect(readFileSync(join(import.meta.dir, "log.test.ts"), "utf8").split("\n")[1]).toBe("// select: walk-all-src");
   });
 });

@@ -10,7 +10,7 @@
 // diff against the source while the integration is wired up.
 
 import { existsSync, mkdirSync, writeFileSync, statSync, readFileSync, unlinkSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import {
   realClock,
   type Clock,
@@ -27,10 +27,11 @@ import {
 } from "./types.ts";
 import { run as shellRun } from "../util/shell.ts";
 import { maybeGenerateProof } from "./proof.ts";
-import { cavemanCaptureUserMode } from "../providers/claude_flags.ts";
+import { cavemanCaptureUserMode, permissionPolicyBanner } from "../providers/claude_flags.ts";
 import { resolvePrdForRun } from "./prd_reuse.ts";
 import { withholdGithubTokens } from "./github_token.ts";
 import { decideRecovery } from "./recovery_policy.ts";
+import { cleanTreeId, failedChecksSignal, flakyRerunSignal } from "../util/failure_memory.ts";
 import {
   checkpointedStateCorrupt,
   providerUnavailableFromThrow,
@@ -495,6 +496,11 @@ export async function runAutonomous(opts: RunnerOpts): Promise<number> {
   } finally {
     // R1: shareable proof-of-run. Single call site -> emits on EVERY terminal
     // return (success and failure). Fire-and-forget; never throws.
+    try {
+      const { buildFact, writeBuildResults } = await import("../util/python_build_check.ts");
+      const qdir = join(ctx.lokiDir, "quality");
+      writeBuildResults(ctx.lokiDir, await buildFact(ctx.cwd, join(qdir, ".pycache")));
+    } catch { /* build fact is best effort; absent file stays an honest not_run */ }
     await maybeGenerateProof(ctx).catch(() => {});
     try { (await import("../features/contract.ts")).writeFromChecklist(ctx.cwd, ctx.lokiDir); } catch { /* REQTRACE: never fails a run */ }
   }
@@ -511,6 +517,7 @@ async function runAutonomousCore(
   log("[runner] Starting autonomous execution");
   log(`[runner] PRD: ${ctx.prdPath ?? "Codebase Analysis Mode"}`);
   log(`[runner] provider=${ctx.provider} mode=${ctx.autonomyMode} model=${ctx.sessionModel}`);
+  if (ctx.provider === "claude") log(permissionPolicyBanner());
   log(`[runner] max_retries=${ctx.maxRetries} max_iterations=${ctx.maxIterations}`);
 
   ensureLokiDirs(ctx);
@@ -1033,6 +1040,10 @@ async function runAutonomousCore(
             buildExitCode,
             treeCorrupt: checkpointedStateCorrupt(ctx.lokiDir),
             providerUnavailable,
+            // P12-11b: same-tree fail-then-pass evidence from verify's flaky fingerprints; the row must match the current tree id.
+            rerun: flakyRerunSignal(resolve(ctx.cwd, ".loki", "state"), cleanTreeId(ctx.cwd)),
+            // Q17-03: real failing checks on the same tree; one other than the flaky check keeps the fix round.
+            failedChecks: failedChecksSignal(resolve(ctx.cwd, ".loki", "state"), cleanTreeId(ctx.cwd)),
           },
           { env: process.env as NodeJS.ProcessEnv },
         );

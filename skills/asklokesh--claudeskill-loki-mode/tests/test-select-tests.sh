@@ -446,6 +446,19 @@ expect_contains "R8 attempts.ts diff selects structural checks" "$out" "tests/te
 out="$(cd "$REPO_ROOT" && bash "$SELECT" --guards-only)"
 expect_contains "R8 --guards-only lists the guards with no diff" "$out" "$(printf 'R8\tmoat\ttests/moat/p9-rule-of-two.sh')"
 
+# TEN-STABILITY-04: each repo-wide guard that reached main red on 2026-10-16 is a declared R8 row (not only a
+# marker pickup) and --guards-only lists it, so deleting a row turns this red.
+guards_out="$(cd "$REPO_ROOT" && bash "$SELECT" --guards-only)"
+for g in "shell_test	tests/cli/test-completions-coverage.sh" \
+    "bun_test	loki-ts/tests/engine10/budget.test.ts" \
+    "bun_test	loki-ts/tests/engine10/l2_destructive_registry.test.ts" \
+    "bun_test	loki-ts/tests/engine10/pr_body_golden.test.ts" \
+    "bun_test	loki-ts/tests/commands/cli_help_routes.test.ts" \
+    "shell_test	tests/test-select-tests.sh"; do
+    if grep -qxF -- "$g" "$REPO_ROOT/scripts/global-guards.tsv"; then PASS=$((PASS + 1)); else FAIL=$((FAIL + 1)); echo "FAIL: global-guards.tsv lacks row: $g"; fi
+    expect_contains "TEN-STABILITY-04 --guards-only lists ${g#*	}" "$guards_out" "$(printf 'R8\t%s' "$g")"
+done
+
 # FASTGATE-GLOBAL-GUARDS (FC-89): a bun test that walks the whole loki-ts/src tree names no src stem, so R4 never
 # selected it (WALL-COLOR, FC-69, shipped a red). Such tests carry the marker `// select: walk-all-src` and the
 # selector picks every marked file up for any diff, no hard-coded list. A diff touching only
@@ -507,6 +520,33 @@ if [ "${ncalls:-9999}" -lt 60 ]; then
 else
     FAIL=$((FAIL + 1)); echo "FAIL: SEL-XARGS candidate scan spawned $ncalls grep calls (expected < 60)"
 fi
+
+# FC-31 route needle: a changed API route handler selects the shell suite that hits its URL, with no
+# per-route table. Fixture repo: a handler with a router prefix, a suite that curls one of its routes,
+# and an unrelated suite. The selector cds to its own repo root, so run a copy of scripts/ in the fixture.
+rt_dir="$(mktemp -d "${LOKI_RUN_TMP:-${TMPDIR:-/tmp}}/select-route.XXXXXX")"
+mkdir -p "$rt_dir/dashboard" "$rt_dir/web-app" "$rt_dir/tests/moat"
+cp -R "$REPO_ROOT/scripts" "$rt_dir/scripts"
+printf 'router = APIRouter(prefix="/api/zebra")\n\n@router.get("/stripes/{sid}")\ndef f():\n    pass\n\n@router.post("")\ndef g():\n    pass\n' > "$rt_dir/dashboard/api_zebra.py"
+printf '@app.get("/api/giraffe/neck")\ndef h():\n    pass\n' > "$rt_dir/web-app/server.py"
+printf '#!/usr/bin/env bash\ncurl -s localhost/api/zebra/stripes/7\n' > "$rt_dir/tests/test-zebra-curl.sh"
+printf '#!/usr/bin/env bash\ncurl -s localhost/api/giraffe/neck\n' > "$rt_dir/tests/test-giraffe-curl.sh"
+printf '#!/usr/bin/env bash\necho nothing to see\n' > "$rt_dir/tests/test-unrelated.sh"
+out="$(cd "$rt_dir" && bash scripts/select-tests.sh --files - <<<'dashboard/api_zebra.py')"
+expect_contains "FC-31 route needle: dashboard handler selects the suite that curls its route" "$out" "$(printf 'R3\tshell_test\ttests/test-zebra-curl.sh')"
+if grep -qE 'test-(unrelated|giraffe-curl)\.sh' <<<"$out"; then
+    FAIL=$((FAIL + 1)); echo "FAIL: FC-31 route needle selected a suite for a route the handler does not declare"
+else
+    PASS=$((PASS + 1))
+fi
+out="$(cd "$rt_dir" && bash scripts/select-tests.sh --files - <<<'web-app/server.py')"
+expect_contains "FC-31 route needle: web-app server selects the suite that curls its route" "$out" "$(printf 'R3\tshell_test\ttests/test-giraffe-curl.sh')"
+if grep -qF 'test-zebra-curl.sh' <<<"$out"; then
+    FAIL=$((FAIL + 1)); echo "FAIL: FC-31 route needle: web-app change selected the dashboard route suite"
+else
+    PASS=$((PASS + 1))
+fi
+rm -rf "$rt_dir"
 
 echo ""
 echo "select-tests fixtures: $PASS passed, $FAIL failed"

@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runQueue, readQueue, normalizeRef, type GovernorReading, type RunResult } from "../../src/commands/queue.ts";
@@ -35,6 +35,34 @@ function harness(opts: {
 }
 
 describe("loki queue", () => {
+  test("add on a corrupt queue file quarantines it, warns once, and starts a fresh file", async () => {
+    const qf = join(dir, "issue-queue.json");
+    writeFileSync(qf, '{"version":1,"items":[{"ref":"o/r#9","added_at":"2026');
+    const h = harness({});
+    expect(await runQueue(["add", "o/r#1", "o/r#2"], h.inject)).toBe(0);
+    expect(readQueue(dir).map((i) => i.ref)).toEqual(["o/r#1", "o/r#2"]);
+    const q = readdirSync(dir).filter((f) => f.startsWith("issue-queue.json.corrupt-"));
+    expect(q.length).toBe(1);
+    expect(readFileSync(join(dir, q[0]!), "utf8")).toContain("o/r#9");
+    expect(h.err.filter((e) => e.includes("corrupt")).length).toBe(1);
+  });
+
+  test("add on a valid queue and on a missing file does not quarantine", async () => {
+    const h = harness({});
+    await runQueue(["add", "o/r#1"], h.inject);
+    await runQueue(["add", "o/r#2"], h.inject);
+    expect(readdirSync(dir).filter((f) => f.includes(".corrupt-")).length).toBe(0);
+    expect(h.err.length).toBe(0);
+    expect(readQueue(dir).map((i) => i.ref)).toEqual(["o/r#1", "o/r#2"]);
+  });
+
+  test("add on a parseable file with no items array quarantines it", async () => {
+    writeFileSync(join(dir, "issue-queue.json"), "[]");
+    const h = harness({});
+    await runQueue(["add", "o/r#1"], h.inject);
+    expect(readdirSync(dir).filter((f) => f.includes(".corrupt-")).length).toBe(1);
+  });
+
   test("add and list keep insertion order, dedupe, and normalize URLs", async () => {
     const h = harness({});
     expect(await runQueue(["add", "o/r#3", "o/r#1"], h.inject)).toBe(0);
@@ -113,5 +141,36 @@ describe("loki queue", () => {
     await runQueue(["run"], h.inject);
     expect(h.ran).toEqual(["o/r#1"]);
     expect(h.out.join("")).toContain("governor unreadable (timeout); proceeded");
+  });
+});
+
+describe("loki queue list columns (TEN-UX-14)", () => {
+  test("prints id, age, status columns and an N queued footer", async () => {
+    const h = harness({});
+    await runQueue(["add", "o/r#3", "o/r#10"], h.inject);
+    const later = { ...h.inject, now: () => new Date("2026-10-08T05:00:00.000Z") };
+    h.out.length = 0;
+    expect(await runQueue(["list"], later)).toBe(0);
+    const lines = h.out.join("").split("\n");
+    expect(lines[0]).toMatch(/^ID\s+AGE\s+STATUS$/);
+    expect(lines[1]).toMatch(/^o\/r#3\s+2h\s+queued$/);
+    expect(lines[2]).toMatch(/^o\/r#10\s+2h\s+queued$/);
+    expect(lines[3]).toBe("2 queued");
+  });
+
+  test("age uses seconds, minutes and days units", async () => {
+    const { formatAge } = await import("../../src/commands/queue.ts");
+    const n = new Date("2026-10-08T03:00:00.000Z");
+    expect(formatAge("2026-10-08T02:59:30.000Z", n)).toBe("30s");
+    expect(formatAge("2026-10-08T02:57:00.000Z", n)).toBe("3m");
+    expect(formatAge("2026-10-05T03:00:00.000Z", n)).toBe("3d");
+    expect(formatAge("garbage", n)).toBe("unknown");
+  });
+
+  test("empty queue prints a next step", async () => {
+    const h = harness({});
+    await runQueue(["list"], h.inject);
+    expect(h.out.join("")).toContain("queue is empty");
+    expect(h.out.join("")).toContain("loki queue add");
   });
 });

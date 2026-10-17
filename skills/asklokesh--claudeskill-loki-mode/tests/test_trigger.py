@@ -166,7 +166,7 @@ class TestEventRouting(unittest.TestCase):
         self.assertFalse(args[1].startswith("-"))
 
     def _steer_stdout(self, text):
-        def fake(args, dry_run=False, stdout_sink=None):
+        def fake(args, dry_run=False, stdout_sink=None, **_kw):
             if stdout_sink is not None:
                 stdout_sink.append(text)
             return ts.OUTCOME_PASSED
@@ -279,6 +279,33 @@ class TestEventRouting(unittest.TestCase):
             ts.handle_issue_comment_event(self._make_comment_payload("MEMBER"))
         ack.assert_called_once_with("owner/repo#42", "owner/repo", None, dry_run=False)
 
+    def test_issue_comment_steer_records_github_source_and_actor(self):
+        with patch("trigger_server.find_live_run", return_value="run-1"):
+            ts.handle_issue_comment_event(self._make_comment_payload("MEMBER", login="octo-cat"))
+        env = self.mock_outcome.call_args.kwargs.get("extra_env")
+        self.assertEqual(env, {"LOKI_STEER_SOURCE": "github", "LOKI_STEER_ACTOR": "octo-cat"})
+
+    def test_issue_comment_steer_actor_is_sanitized(self):
+        with patch("trigger_server.find_live_run", return_value="run-1"):
+            ts.handle_issue_comment_event(self._make_comment_payload("MEMBER", login="a b;rm"))
+        env = self.mock_outcome.call_args.kwargs.get("extra_env")
+        self.assertEqual(env["LOKI_STEER_ACTOR"], "abrm")
+
+    def test_run_loki_outcome_extra_env_reaches_child_and_overrides(self):
+        proc = MagicMock(returncode=0)
+        proc.communicate.return_value = (b"", b"")
+        with patch.dict(os.environ, {"LOKI_STEER_SOURCE": "stale"}), \
+             patch("subprocess.Popen", return_value=proc) as popen:
+            self.real_outcome(["steer", "n"], extra_env={"LOKI_STEER_SOURCE": "github"})
+        self.assertEqual(popen.call_args.kwargs["env"]["LOKI_STEER_SOURCE"], "github")
+
+    def test_run_loki_outcome_extra_env_cannot_restore_denied_secret(self):
+        proc = MagicMock(returncode=0)
+        proc.communicate.return_value = (b"", b"")
+        with patch("subprocess.Popen", return_value=proc) as popen:
+            self.real_outcome(["steer", "n"], extra_env={"LOKI_API_TOKEN": "x"})
+        self.assertNotIn("LOKI_API_TOKEN", popen.call_args.kwargs["env"])
+
     def test_run_loki_outcome_captures_stdout(self):
         proc = MagicMock(returncode=0)
         proc.communicate.return_value = (b"Steer rev 9 received: x\n", b"")
@@ -329,8 +356,13 @@ class TestEventRouting(unittest.TestCase):
         import tempfile
         d = tempfile.mkdtemp()
         cwd = os.getcwd()
+        # Pin LOKI_DIR: other modules set it at import and never restore it,
+        # so under xdist an inherited value would point find_live_run elsewhere.
         try:
             os.chdir(d)
+            env_patch = patch.dict(os.environ, {"LOKI_DIR": os.path.join(d, ".loki")})
+            env_patch.start()
+            self.addCleanup(env_patch.stop)
             for rid, ref, pid in (("r-old", "owner/repo#42", False), ("r-live", "owner/repo#42", True), ("r-other", "owner/repo#7", True)):
                 rd = Path(".loki/runs") / rid
                 rd.mkdir(parents=True)

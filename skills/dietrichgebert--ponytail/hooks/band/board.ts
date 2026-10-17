@@ -28,6 +28,7 @@ export type Task = {
   reuse: number | null
   tests: string
   level: string
+  model: string
 }
 
 // RFC 4180 rows: quoted fields may hold commas, doubled quotes and line breaks.
@@ -77,6 +78,7 @@ export function tasksFrom(text: string): Task[] {
     reuse: at(row, 'reuse_pct') === '' ? null : num(row, 'reuse_pct'),
     tests: at(row, 'tests'),
     level: at(row, 'level'),
+    model: at(row, 'model'),
   }))
 }
 
@@ -156,7 +158,7 @@ th{text-align:left;font-weight:400;color:var(--faint);font-size:12px;padding:0 1
 th:first-child,td:first-child{padding-left:22px}th:last-child,td:last-child{padding-right:22px}
 td{padding:11px 10px;border-top:1px solid var(--line);white-space:nowrap;vertical-align:middle}
 th.r,td.r{text-align:right}
-td.name{white-space:normal;min-width:200px;max-width:320px}.task{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sub{font-size:12px;color:var(--faint)}
+td.name{white-space:normal;min-width:140px;width:100%;max-width:0}.task{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sub{font-size:12px;color:var(--faint)}
 .bar{height:3px;border-radius:2px;margin-top:6px;background:linear-gradient(90deg,var(--c),transparent)}
 .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 9px;border-radius:999px;background:var(--nonebg);color:var(--muted)}
 .pill i{width:6px;height:6px;border-radius:50%;background:currentColor}
@@ -193,6 +195,8 @@ const APP = `(function () {
   function svg(tag, attrs, parent) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.append(e); return e }
   function two(n) { return (n < 10 ? '0' : '') + n }
   function dayKey(ms) { var d = new Date(ms); return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) }
+  // claude-opus-5-5 reads as Opus 5.5; a trailing date in the id is dropped.
+  function modelName(m) { var p = m.replace(/^claude-/, '').split('-'); return p[0] ? p[0][0].toUpperCase() + p[0].slice(1) + (p.length > 1 ? '\\u00a0' + p.slice(1).filter(function (x) { return x.length < 3 }).join('.') : '') : '' }
   function shortDate(key) { return MONTHS[+key.slice(5, 7) - 1] + ' ' + +key.slice(8, 10) }
   function dur(min) { return min < 60 ? min + 'm' : Math.floor(min / 60) + 'h ' + (min % 60) + 'm' }
   function time(ms) { var s = Math.round(ms / 1000); return s < 60 ? s + 's' : s < 3600 ? Math.floor(s / 60) + 'm ' + (s % 60) + 's' : dur(Math.round(s / 60)) }
@@ -354,7 +358,7 @@ const APP = `(function () {
 
   function table() {
     var body = byId('rows'), q = state.q.trim().toLowerCase(); body.textContent = ''
-    var list = inDays(scope(), days(span())).filter(function (t) { return !q || t.name.toLowerCase().indexOf(q) >= 0 || t.project.toLowerCase().indexOf(q) >= 0 })
+    var list = inDays(scope(), days(span())).filter(function (t) { return !q || (t.name + ' ' + t.project + ' ' + modelName(t.model)).toLowerCase().indexOf(q) >= 0 })
       .sort(function (a, b) { return b.started.localeCompare(a.started) })
     byId('count').textContent = String(list.length)
     if (!list.length) {
@@ -365,8 +369,9 @@ const APP = `(function () {
     list.forEach(function (t) {
       var tr = h('tr'), name = h('td', 'name'), task = h('div', 'task', t.name || 'Untitled session'), bar = h('div', 'bar'), tests = h('td')
       task.title = t.name; bar.style.setProperty('--c', colorOf(t.project)); bar.style.width = Math.max(4, t.agentMinutes / max * 100) + '%'
-      name.append(task, h('div', 'sub', (state.project ? '' : t.project + ' · ') + shortDate(t.started.slice(0, 10)) + ', ' + t.started.slice(11)), bar)
-      tests.append(pill(t.tests))
+      name.append(task, h('div', 'sub', (state.project ? '' : t.project + ' · ') + shortDate(t.started.slice(0, 10)) + ', ' + t.started.slice(11) + (t.model ? ' · ' + modelName(t.model) : '')), bar)
+      // An imported session has no test record: a dash, not "not run".
+      tests.append(t.tests || t.level !== 'import' ? pill(t.tests) : h('span', 'sub', '–'))
       tr.append(name, h('td', 'r num', time(t.agentMinutes * 60000)), h('td', 'r num', money(t.cost)), h('td', 'r num', tok(t.tokens)), h('td', 'r num', String(t.turns)), tests)
       body.append(tr)
     })

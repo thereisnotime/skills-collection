@@ -1,6 +1,6 @@
 # CLI reference
 
-Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.15.0. Do not edit by hand.
+Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.17.42. Do not edit by hand.
 Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for the full inventory.
 
 | Command | Description |
@@ -30,19 +30,25 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki rollback show` | Show a checkpoint |
 | `loki rollback to` | Restore a checkpoint |
 | `loki rollback latest` | Restore the latest checkpoint |
+| `loki backup` | Back up dashboard state (audit log, checkpoint) with a sha256 manifest |
+| `loki restore` | Restore dashboard state from a verified backup archive |
 | `loki proof` (alias: `receipt`) | Inspect and share proof-of-run receipts |
 | `loki proof list` | List receipts |
 | `loki proof show` | Show a receipt |
 | `loki proof open` | Open a receipt |
 | `loki proof share` | Share a receipt |
+| `loki proof badge` | Print the Verified by Loki badge |
+| `loki proof md` | Print badge markdown for a README |
+| `loki proof bundle` | Write a self-verifying receipt bundle |
 | `loki wiki` | Cited codebase wiki and Q&A |
 | `loki wiki generate` | Generate the wiki |
 | `loki wiki show` | Show a section |
 | `loki wiki ask` | Ask a question |
-| `loki control` | Control Plane (serve, backfill, prune, status) |
+| `loki control` | Control Plane (serve, backfill, prune, stop, status) |
 | `loki control serve` | Run the control plane and UI |
 | `loki control backfill` | Ship DIR/.loki/runs to the control plane |
 | `loki control prune` | Delete matching runs |
+| `loki control stop` | Stop the running control plane |
 | `loki control status` | Show control plane reachability |
 | `loki intent` | Show a past run's intent card |
 | `loki intent show` | Print the intent card and answer |
@@ -108,10 +114,12 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki config set` | Set a value |
 | `loki config get` | Get a value |
 | `loki mcp` | Launch the MCP server (stdio) |
+| `loki mcp install` | Register loki-mode in an MCP client config |
 | `loki acp` | Run Loki as an ACP agent |
 | `loki stop` | Stop execution immediately |
 | `loki pause` | Pause after the current session |
 | `loki resume` | Resume a paused or interrupted run |
+| `loki cancel` | Cancel the active Loki 10 run at the next stage boundary |
 | `loki why` | Explain how the last run ended |
 | `loki next` | Run the right next step |
 | `loki logs` | Tail recent log output |
@@ -159,3 +167,4 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki metrics` | Metrics |
 | `loki sentrux` | Architecture sensor |
 | `loki magic` | Magic modules |
+| `loki steer` | Nudge a running build |

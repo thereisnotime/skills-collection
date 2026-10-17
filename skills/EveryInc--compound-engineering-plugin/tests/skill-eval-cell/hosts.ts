@@ -21,6 +21,8 @@ export type HostResolution = {
 }
 
 export function attestCurrentHost(env: NodeJS.ProcessEnv = process.env): CurrentHost {
+  // oh-my-pi copies CLAUDECODE=1 into every session, and omp is not an eval host.
+  if (env.OMPCODE) return "unknown"
   if (env.CLAUDECODE === "1") return "claude"
   if (
     env.CODEX_SANDBOX ||
@@ -100,6 +102,7 @@ export function cellEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEn
   // Each cell's CLI re-sets its own attestation markers; an inherited marker
   // from the launching harness makes the child attest as the wrong host.
   delete env.CLAUDECODE
+  delete env.OMPCODE
   delete env.CODEX_SANDBOX
   delete env.CODEX_SANDBOX_NETWORK_DISABLED
   delete env.CODEX_SESSION_ID

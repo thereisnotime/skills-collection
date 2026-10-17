@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { budgetNext, lastBudgetStop, priorSpend, unenforceableNote, writeBudgetStop, capMeter, capNote, perAttemptCap, runnerBudget, childBudgetLimit, costMeter, groupEnv, DEFAULT_MAX_COST_USD, hasApiKey, SUBSCRIPTION_NOTE, parseCapUsd, resolveCap, yamlPerRun } from "../../src/e10ext/budget_cap.ts";
+import { budgetNext, lastBudgetStop, priorSpend, unenforceableNote, writeBudgetStop, capMeter, capNote, perAttemptCap, runnerBudget, childBudgetLimit, costMeter, groupEnv, ledgerSum, DEFAULT_MAX_COST_USD, hasApiKey, SUBSCRIPTION_NOTE, parseCapUsd, resolveCap, yamlPerRun } from "../../src/e10ext/budget_cap.ts";
 import { childEnv } from "../../src/engine10/session.ts";
 import { watchBudget } from "../../src/providers/provider_guard.ts";
 import { runMachine } from "../../src/engine10/machine.ts";
@@ -173,7 +173,7 @@ describe("group env carries the resolved cap to unit children", () => {
     expect(groupEnv({} as NodeJS.ProcessEnv, 0).LOKI_BUDGET_LIMIT).toBeUndefined();
   });
   test("supervisor hands the group the capped env, not process.env", () => {
-    expect(readFileSync(resolve(ROOT, "loki-ts/src/engine10/supervisor.ts"), "utf8")).toContain("maybeRunGroup(task, repoDir, groupEnv(process.env, cap.usd)");
+    expect(readFileSync(resolve(ROOT, "loki-ts/src/engine10/supervisor.ts"), "utf8")).toContain("maybeRunGroup(task, repoDir, groupEnv(process.env, cap.usd, repoDir)");
   });
 });
 
@@ -273,5 +273,92 @@ describe("budget stop survives a kill-and-rerun", () => {
   test("supervisor seeds the worker env and writes budget.json on BUDGET_STOP", () => {
     const src = readFileSync(resolve(import.meta.dir, "../../src/engine10/supervisor.ts"), "utf8");
     expect(src).toContain("LOKI_E10_SPENT_USD"); expect(src).toContain("writeBudgetStop(");
+  });
+});
+
+describe("P12-22r shared budget ledger across parallel units", () => {
+  const mk = () => mkdtempSync(join(tmpdir(), "p1222r-"));
+  const cost = (m: { emit: (t: never, s: never, d: Record<string, unknown>) => void }, usd: number) => m.emit("cost" as never, null as never, { usd });
+  test("two units sharing a ledger stop at the single cap", () => {
+    const d = mk();
+    try {
+      const env = { LOKI_E10_MAX_COST_USD: "1", LOKI_BUDGET_LEDGER: join(d, "l.ledger") } as NodeJS.ProcessEnv;
+      const a = capMeter((() => {}) as never, env), b = capMeter((() => {}) as never, env);
+      cost(a, 0.6); expect(a.over()).toBe(false); expect(b.over()).toBe(false);
+      cost(b, 0.6);
+      expect(a.over()).toBe(true); expect(b.over()).toBe(true);
+      expect(a.remaining()).toBe(0);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("without a ledger units keep private meters (unchanged)", () => {
+    const env = { LOKI_E10_MAX_COST_USD: "1" } as NodeJS.ProcessEnv;
+    const a = capMeter((() => {}) as never, env), b = capMeter((() => {}) as never, env);
+    cost(a, 0.6); cost(b, 0.6); expect(a.over()).toBe(false); expect(b.over()).toBe(false);
+  });
+  test("fail closed: unwritable ledger path stops the unit", () => {
+    const env = { LOKI_E10_MAX_COST_USD: "5", LOKI_BUDGET_LEDGER: "/nonexistent-p1222r/dir/x.ledger" } as NodeJS.ProcessEnv;
+    const m = capMeter((() => {}) as never, env);
+    expect(m.over()).toBe(true); expect(m.remaining()).toBe(0);
+  });
+  test("fail closed: ledger vanishing mid-run stops the unit", () => {
+    const d = mk();
+    try {
+      const f = join(d, "l.ledger"), m = capMeter((() => {}) as never, { LOKI_E10_MAX_COST_USD: "5", LOKI_BUDGET_LEDGER: f } as NodeJS.ProcessEnv);
+      expect(m.over()).toBe(false); rmSync(f); expect(m.over()).toBe(true);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("groupEnv exports one absolute ledger, keeps an existing one", () => {
+    const d = mk();
+    try {
+      const g = groupEnv({} as NodeJS.ProcessEnv, 5, d);
+      expect(g.LOKI_BUDGET_LEDGER && g.LOKI_BUDGET_LEDGER.startsWith(d)).toBe(true);
+      expect(groupEnv({ LOKI_BUDGET_LEDGER: "/x/y" } as NodeJS.ProcessEnv, 5, d).LOKI_BUDGET_LEDGER).toBe("/x/y");
+      expect(groupEnv({} as NodeJS.ProcessEnv, 0, d).LOKI_BUDGET_LEDGER).toBeUndefined();
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("groupEnv fails closed when the ledger dir cannot be created", () => {
+    const d = mk();
+    try {
+      writeFileSync(join(d, ".loki"), "not a dir");
+      const g = groupEnv({} as NodeJS.ProcessEnv, 5, d);
+      expect(g.LOKI_BUDGET_LEDGER).toBeTruthy();
+      expect(capMeter((() => {}) as never, { LOKI_E10_MAX_COST_USD: "5", LOKI_BUDGET_LEDGER: g.LOKI_BUDGET_LEDGER } as NodeJS.ProcessEnv).over()).toBe(true);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("rerun seed is recorded once in the ledger, never added on top of it", () => {
+    const d = mk();
+    try {
+      const env = { LOKI_E10_MAX_COST_USD: "10", LOKI_E10_SPENT_USD: "4", LOKI_BUDGET_LEDGER: join(d, "l.ledger") } as NodeJS.ProcessEnv;
+      const a = capMeter((() => {}) as never, env), b = capMeter((() => {}) as never, env);
+      expect(a.remaining()).toBe(6); expect(b.remaining()).toBe(6);
+      cost(a, 1);
+      expect(capMeter((() => {}) as never, env).remaining()).toBe(5);
+      const f2 = join(d, "old.ledger"); writeFileSync(f2, JSON.stringify({ pid: 1, usd: 4 }) + "\n"); // ledger already holds the 4 dollars
+      expect(capMeter((() => {}) as never, { ...env, LOKI_BUDGET_LEDGER: f2 } as NodeJS.ProcessEnv).remaining()).toBe(6);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("concurrent processes append one ledger: exact sum, no torn line", async () => {
+    const d = mk();
+    try {
+      const ledger = join(d, "race.ledger"), child = join(d, "child.ts"), n = 4, per = 200;
+      writeFileSync(child, `import { capMeter } from ${JSON.stringify(resolve(ROOT, "loki-ts/src/e10ext/budget_cap.ts"))};
+const m = capMeter((() => {}) as never, { LOKI_E10_MAX_COST_USD: "100000", LOKI_BUDGET_LEDGER: process.argv[2] } as NodeJS.ProcessEnv);
+for (let i = 0; i < ${per}; i++) m.emit("cost" as never, "x" as never, { usd: 0.25, pad: "x".repeat(300) });
+`);
+      const procs = Array.from({ length: n }, () => Bun.spawn([process.execPath, child, ledger], { stdout: "ignore", stderr: "pipe" }));
+      for (const p of procs) expect(await p.exited).toBe(0);
+      const lines = readFileSync(ledger, "utf8").split("\n").filter(Boolean);
+      expect(lines.length).toBe(n * per);
+      for (const l of lines) expect(typeof (JSON.parse(l) as { usd: number }).usd).toBe("number");
+      expect(ledgerSum(ledger)).toBe(n * per * 0.25);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("ledgerSum counts only the first seed line, first seed wins", () => {
+    const d = mk();
+    try {
+      const f = join(d, "s.ledger");
+      writeFileSync(f, JSON.stringify({ usd: 2, seed: true }) + "\n" + JSON.stringify({ usd: 3, seed: true }) + "\n" + JSON.stringify({ usd: 0.5 }) + "\n");
+      expect(ledgerSum(f)).toBe(2.5);
+    } finally { rmSync(d, { recursive: true, force: true }); }
   });
 });

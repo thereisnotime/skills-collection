@@ -25,7 +25,7 @@
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join, resolve, isAbsolute } from "node:path";
 import { failIds } from "../engine10/failures.ts";
 import { plainTestEnv, stripAnsi } from "../util/check_result.ts";
@@ -259,7 +259,7 @@ export type BaselineRunner = (cmd: string, cwd: string, timeoutMs: number) => Ba
 
 export const commandProfilePath = (repoDir: string): string => join(repoDir, ".loki", "state", "repo-profile.json");
 const DEFAULT_TIMEOUT_S = 60;
-const MANIFESTS = ["requirements.txt", "package.json", "Makefile", "makefile", "GNUmakefile", "pyproject.toml", "tox.ini", "pytest.ini", "setup.cfg", "go.mod", "Cargo.toml"];
+const MANIFESTS = ["requirements.txt", "package.json", "Makefile", "makefile", "GNUmakefile", "pyproject.toml", "tox.ini", "pytest.ini", "setup.cfg", "go.mod", "Cargo.toml", "tsconfig.json"];
 const NO_TEST = /no test specified/i;
 
 const read = (p: string): string => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
@@ -288,12 +288,15 @@ export function discoverCommands(repoDir: string): ProfileCommand[] {
   const out: ProfileCommand[] = [];
   const pj = read(join(repoDir, "package.json"));
   if (pj) {
-    let scripts: Record<string, unknown> = {};
-    try { scripts = (JSON.parse(pj) as { scripts?: Record<string, unknown> }).scripts ?? {}; } catch { /* malformed manifest: nothing to discover */ }
+    let scripts: Record<string, unknown> = {}, hasTs = false;
+    try { const j = JSON.parse(pj) as { scripts?: Record<string, unknown>; dependencies?: Record<string, unknown>; devDependencies?: Record<string, unknown> }; scripts = j.scripts ?? {}; hasTs = !!(j.dependencies?.typescript ?? j.devDependencies?.typescript); } catch { /* malformed manifest: nothing to discover */ }
     const pm = pkgManager(repoDir), run = (n: string): string => (n === "test" ? `${pm} test` : `${pm} run ${n}`);
     const has = (n: string): boolean => typeof scripts[n] === "string" && !(n === "test" && NO_TEST.test(String(scripts[n])));
     const pick = (kind: CmdKind, names: string[]): void => { const n = names.find(has); if (n) out.push(entry(kind, run(n), "package.json")); };
-    pick("test", ["test"]); pick("lint", ["lint"]); pick("typecheck", ["typecheck", "type-check", "tsc"]); pick("build", ["build"]);
+    pick("test", ["test"]); pick("lint", ["lint"]); pick("typecheck", ["typecheck", "type-check", "tsc"]);
+    // No typecheck script: a TypeScript repo (tsconfig.json plus a typescript dependency) still gets a config-based one.
+    if (hasTs && existsSync(join(repoDir, "tsconfig.json")) && !out.some((e) => e.kind === "typecheck")) out.push(entry("typecheck", `${({ bun: "bunx", pnpm: "pnpm exec", yarn: "yarn" } as Record<string, string>)[pm] ?? "npx"} tsc --noEmit`, "tsconfig.json"));
+    pick("build", ["build"]);
   }
   const mk = ["Makefile", "makefile", "GNUmakefile"].map((f) => [f, read(join(repoDir, f))] as const).find(([, t]) => t);
   if (mk) {
@@ -321,6 +324,36 @@ export function discoverCommands(repoDir: string): ProfileCommand[] {
     }
   }
   return out;
+}
+
+/** TEN-QUALITY-16: a formatter the repo ITSELF configures. `argv` is the command before the file list; `exts` selects the files it owns. Config detection only, never an install. */
+export interface RepoFormatter { tool: string; argv: string[]; exts: RegExp }
+export function detectFormatters(repoDir: string): RepoFormatter[] {
+  const out: RepoFormatter[] = [];
+  const has = (...fs: string[]): boolean => fs.some((f) => existsSync(join(repoDir, f)));
+  const pp = read(join(repoDir, "pyproject.toml")), pj = read(join(repoDir, "package.json"));
+  if (/\[tool\.ruff/.test(pp) || has("ruff.toml", ".ruff.toml")) out.push({ tool: "ruff", argv: ["ruff", "format"], exts: /\.pyi?$/ });
+  let prettierKey = false;
+  try { prettierKey = pj !== "" && "prettier" in (JSON.parse(pj) as object); } catch { /* malformed manifest: no formatter */ }
+  const local = join(repoDir, "node_modules", ".bin", "prettier"); // a repo-local binary only: nothing is fetched
+  if ((prettierKey || readdirSync(repoDir).some((f) => /^(\.prettierrc(\.[a-z0-9]+)?|prettier\.config\.[cm]?[jt]s)$/.test(f))) && existsSync(local)) out.push({ tool: "prettier", argv: [local, "--write"], exts: /\.(?:[cm]?[jt]sx?|json|css|scss|md|ya?ml|html)$/ });
+  if (has("go.mod")) out.push({ tool: "gofmt", argv: ["gofmt", "-w"], exts: /\.go$/ });
+  if (has("rustfmt.toml", ".rustfmt.toml")) {
+    const ed = /^\s*edition\s*=\s*"(\d+)"/m.exec(read(join(repoDir, "Cargo.toml")))?.[1];
+    out.push({ tool: "rustfmt", argv: ["rustfmt", ...(ed ? ["--edition", ed] : [])], exts: /\.rs$/ });
+  }
+  return out;
+}
+
+/** Runs each detected formatter once over the regular files (no symlinks) it owns. A missing binary or nonzero exit is a no-op; returns the files a formatter exited 0 on. env must already be token-free. */
+export function runFormatters(repoDir: string, files: string[], env: NodeJS.ProcessEnv): string[] {
+  const fmts = detectFormatters(repoDir);
+  const mine = fmts.length ? files.filter((f) => { try { return lstatSync(join(repoDir, f)).isFile(); } catch { return false; } }) : [];
+  return fmts.flatMap((fm) => {
+    const own = mine.filter((f) => fm.exts.test(f));
+    const r = own.length ? spawnSync(fm.argv[0]!, [...fm.argv.slice(1), ...own.map((f) => `./${f}`)], { cwd: repoDir, env, stdio: "ignore", timeout: 30000 }) : null;
+    return r && !r.error && r.status === 0 ? own : [];
+  });
 }
 
 /** Default runner: `sh -c` in repoDir, an explicit scoped env (token-free, no color, no bytecode litter), SIGKILL on timeout. */
@@ -394,6 +427,65 @@ export function attributeFullSuite(repoDir: string, baseSha: string, full: { nam
   if (bad.some((c) => norm(c.cmd) !== norm(p.baseline.command ?? ""))) return { ...none, line: `baseline: ran "${p.baseline.command}", not the full suite command, ids not comparable, full suite failures not excused` };
   const block = new Set(blocked);
   return attribute(repoDir, baseSha, bad.map((c) => ({ name: c.name, ...(c.ids ? { ids: c.ids } : {}), eligible: (c.ids ?? []).every((i) => !block.has(i) && !changed.some((f) => i.includes(f))) })));
+}
+
+/** Static-diagnostic attribution (TEN-QUALITY-02): lint output of head vs base as multisets keyed path/code/message, line and column dropped so shifts do not count.
+ *  preExisting only when every head diagnostic key appears in base at the same or a higher count. Fail-closed (introduced): unknown tool, unparseable head or base
+ *  output, an empty parse with a non-zero or unknown (null, the default) exit, a summary count >0 with nothing parsed, or a missing base output (file new on head). */
+export type StaticTool = "ruff" | "shellcheck" | "eslint";
+export interface StaticAttribution { preExisting: boolean; introduced: string[]; reason: string }
+const STATIC_DIAG: Record<StaticTool, RegExp> = {
+  ruff: /^(.+?):\d+:\d+: ([A-Z]+\d+) (?:\[\*\] )?(.*)$/,
+  shellcheck: /^(.+?):\d+:\d+: (?:error|warning|note|info|style): (.*) \[(SC\d+)\]$/,
+  eslint: /^(.+?):\d+:\d+: (.*) \[(?:Error|Warning)\/([^\]]*)\]$/,
+};
+const STATIC_NOISE = /^(?:Found \d+ errors?\.?|\[\*\] .*|All checks passed!|No fixes available.*|\d+ problems?)$/;
+const STATIC_SUMMARY = /^\s*(?:Found ([1-9]\d*) errors?|([1-9]\d*) problems?)/m;
+function parseStatic(tool: StaticTool, out: string): Map<string, number> | null {
+  const re = STATIC_DIAG[tool], m = new Map<string, number>();
+  for (const raw of out.split("\n")) {
+    const line = raw.trim();
+    if (!line || STATIC_NOISE.test(line)) continue;
+    const g = re.exec(line);
+    if (!g) return null;
+    const [path, code, msg] = tool === "ruff" ? [g[1]!, g[2]!, g[3]!] : [g[1]!, g[3]!, g[2]!];
+    const k = `${path}\u0000${code}\u0000${msg}`;
+    m.set(k, (m.get(k) ?? 0) + 1);
+  }
+  return m;
+}
+export function attributeStatic(tool: string, headOut: string, baseOut: string | null, headExit: number | null = null): StaticAttribution {
+  const bad = (reason: string): StaticAttribution => ({ preExisting: false, introduced: [], reason });
+  if (tool !== "ruff" && tool !== "shellcheck" && tool !== "eslint") return bad(`unknown tool ${tool}`);
+  const head = parseStatic(tool, headOut);
+  if (!head) return bad("unparseable head output");
+  if (head.size === 0 && headExit !== 0) return bad("no diagnostics parsed but non-zero exit");
+  if (head.size === 0 && STATIC_SUMMARY.test(headOut)) return bad("summary reports problems but no diagnostics parsed");
+  if (baseOut === null) return bad("no base output (file new on head)");
+  const base = parseStatic(tool, baseOut);
+  if (!base) return bad("unparseable base output");
+  const introduced: string[] = [];
+  for (const [k, n] of head) if (n > (base.get(k) ?? 0)) introduced.push(k.split("\u0000").join(" "));
+  return { preExisting: introduced.length === 0, introduced, reason: introduced.length ? `${introduced.length} new diagnostic(s)` : "all diagnostics present on base" };
+}
+
+/** TEN-QUALITY-03: is every static diagnostic of `files` already present on base? One head run over all files, one stdin run per file on its base content
+ *  (`io.base` returns null for a file absent from base). `prefix` is the tool's own leading args (ruff "check", eslint "eslint"). Fail-closed: a run that does
+ *  not execute, or a file with head diagnostics and no base content (new on head), is never excused. */
+export async function staticPreExisting(tool: StaticTool, prefix: string[], files: string[], io: { run(args: string[], stdin?: string): Promise<{ out: string } | null>; base(f: string): string | null }): Promise<boolean> {
+  const fmt = tool === "ruff" ? ["--output-format=concise"] : tool === "shellcheck" ? ["-f", "gcc"] : ["-f", "unix"];
+  const head = await io.run([...prefix, ...fmt, ...files]);
+  if (!head) return false;
+  let baseOut = "";
+  for (const f of files) {
+    const content = io.base(f);
+    if (content === null) { if (head.out.includes(`${f}:`)) return false; continue; }
+    const stdin = tool === "ruff" ? ["--stdin-filename", f, "-"] : tool === "eslint" ? ["--stdin", "--stdin-filename", f] : ["-"];
+    const r = await io.run([...prefix, ...fmt, ...stdin], content);
+    if (!r) return false;
+    baseOut += (tool === "shellcheck" ? r.out.replace(/^-:/gm, `${f}:`) : r.out) + "\n";
+  }
+  return attributeStatic(tool, head.out, baseOut, 1).preExisting;
 }
 
 /** Stable text for the implementer brief: fixed order, no timestamps, so the bytes change only when the profile's content does. */

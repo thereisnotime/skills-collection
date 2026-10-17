@@ -135,7 +135,7 @@ export LOKI_TELEMETRY_DISABLED=true DO_NOT_TRACK=1 LOKI_NO_UPDATE_CHECK=1 CI=tru
 MOAT_START=$(date +%s)
 MOAT_MAIN_PID=$$
 MOAT_TMP="$(mktemp -d "${TMPDIR:-/tmp}/moat-p9.XXXXXX")" || { echo "p9: mktemp failed" >&2; exit 1; }
-MOAT_IDS="P9.issue-workflows-separate-untrusted-from-push P9.comment-trigger-author-gate P9.injection-cannot-reach-token P9.checkout-no-persisted-credentials"
+MOAT_IDS="P9.issue-workflows-separate-untrusted-from-push P9.comment-trigger-author-gate P9.injection-cannot-reach-token P9.checkout-no-persisted-credentials P9.allowtoken-only-fetch-callers"
 MOAT_EMITTED=" "
 MOAT_PGIDS=""
 
@@ -2075,6 +2075,205 @@ inj_run_bun_default() {
     fi
 }
 
+p9_at_comma() {
+    perl -0777 -ne '
+            while (/\b(?:safeGitEnv|safeGitArgs)\s*\(/g) {
+                my ($d, $q, $i) = (0, "", pos());
+                for (; $i < length($_); $i++) {
+                    my $c = substr($_, $i, 1);
+                    if ($q ne "") { if ($c eq "\\") { $i++ } elsif ($c eq $q) { $q = "" } next }
+                    if ($c eq "\"" || $c eq "\x27" || $c eq "`") { $q = $c; next }
+                    if ($c =~ /[(\[{]/) { $d++; next }
+                    if ($c =~ /[)\]}]/) { last if $d == 0; $d--; next }
+                    if ($c eq "," && $d == 0) {
+                        if (substr($_, $i + 1) =~ /\A\s*\)/) { last }
+                        exit 0;
+                    }
+                }
+            }
+            exit 1'
+}
+
+p9_at_import() {
+    perl -0777 -ne '
+            exit 0 if /\bimport\s*\*\s*as\s+\w+\s+from\s*["\x27][^"\x27]*safe_git/
+                || /\bimport\s*(?:type\s*)?\{[^}]*\bas\b[^}]*\}\s*from\s*["\x27][^"\x27]*safe_git/
+                || /\brequire\s*\(\s*["\x27][^"\x27]*safe_git/
+                || /\bimport\s*\(\s*["\x27][^"\x27]*safe_git/
+                || /\bexport\s*(?:type\s*)?\{[^}]*\}\s*from\s*["\x27][^"\x27]*safe_git/
+                || /\bexport\s*(?:type\s*)?\{[^}]*\b(?:safeGitEnv|safeGitArgs)\b[^}]*\}\s*from\s*["\x27]/
+                || /\bexport\s*\*\s*(?:as\s+\w+\s+)?from\s*["\x27][^"\x27]*safe_git/;
+            exit 1'
+}
+
+p9_at_indirect() {
+    perl -0777 -ne '
+            s/\b(?:import|export)\s*(?:type\s*)?\{[^}]*\}\s*from\s*["\x27][^"\x27]*["\x27]//g;
+            exit 0 if /\b(?:safeGitEnv|safeGitArgs)\b(?!\s*\()/;
+            while (/\b(?:safeGitEnv|safeGitArgs)\s*\(/g) {
+                my ($d, $q) = (0, "");
+                for (my $i = pos(); $i < length($_); $i++) {
+                    my $c = substr($_, $i, 1);
+                    if ($q ne "") { if ($c eq "\\") { $i++ } elsif ($c eq $q) { $q = "" } next }
+                    if ($c eq "\"" || $c eq "\x27" || $c eq "`") { $q = $c; next }
+                    if ($c =~ /[(\[{]/) { $d++; next }
+                    if ($c =~ /[)\]}]/) { last if $d == 0; $d--; next }
+                    exit 0 if $d == 0 && substr($_, $i, 3) eq "...";
+                }
+            }
+            exit 1'
+}
+
+p9_at_either() {  # <scan fn> <file> <stripped text>: 0 if raw OR stripped trips it
+    "$1" < "$2" && return 0
+    printf '%s\n' "$3" | "$1"
+}
+
+allowtoken_scan() {
+    # FC-25c / SAFEGIT-REPOCONFIG 1+2: allowToken keeps the credential, so only
+    # the two fetch callers may pass it to safeGit, and only in the fetch-only form.
+    # safeGitEnv(base, true) is the positional spelling of the same opt-in.
+    local src="$1" hits f n
+    [ -d "$src" ] || { nok "vacuous: $src is missing"; return; }
+    n="$(grep -rl 'allowToken' "$src" | grep -c .)"
+    [ "$n" -ge 3 ] || nok "vacuous: expected allowToken in safe_git, base_guard and modernize_unit, found $n files"
+    hits="$(grep -rl 'allowToken' "$src" | grep -v -e '/util/safe_git\.ts$' -e '/util/base_guard\.ts$' -e '/util/modernize_unit\.ts$')"
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        nok "allowToken used outside the allowed fetch callers: ${f#"$REPO_ROOT"/}"
+    done <<EOF_HITS
+$hits
+EOF_HITS
+    local strip='
+        my ($s, $o, $q, $n) = (do { local $/; <STDIN> }, "", "", 0);
+        for (my $i = 0; $i < length $s; $i++) {
+            my $c = substr($s, $i, 1); my $d = substr($s, $i + 1, 1);
+            if ($q ne "") { $o .= $c; if ($c eq "\\") { $o .= $d; $i++ } elsif ($c eq $q) { $q = "" } next }
+            if ($c eq "\"" || $c eq "\x27" || $c eq "`") { $q = $c; $o .= $c; next }
+            if ($c eq "/" && $d eq "/") { $i++ while $i < length $s && substr($s, $i, 1) ne "\n"; $o .= "\n"; next }
+            if ($c eq "/" && $d eq "*") { $i += 2; $i++ while $i < length $s && substr($s, $i, 2) ne "*/"; $i++; $o .= " "; next }
+            $o .= $c;
+        }
+        print $o;'
+    # Per-file scans trip on EITHER the raw text OR the comment-stripped text (OR, never
+    # AND). The strip helper ignores regex literals and template ${} nesting, so on its
+    # own it can delete a real call; the raw pass keeps that failure fail-closed.
+    # (1) Positional opt-in: any safeGitEnv/safeGitArgs call outside safe_git.ts with
+    # a second argument (top-level comma, quote/bracket aware, multi-line, nested).
+    # (2) Alias, namespace, require, dynamic import and any re-export of safe_git or
+    # of its opt-in helpers (barrel, with or without "as") fail closed.
+    # (3) Indirect use: any mention outside an import list that is not a direct call
+    # (alias const, .apply/.call/.bind, optional call) or a spread-argument call.
+    local code
+    while IFS= read -r -d '' f; do
+        code="$(perl -e "$strip" < "$f")"
+        if p9_at_either p9_at_comma "$f" "$code"; then
+            nok "safeGitEnv/safeGitArgs called with a positional token flag outside safe_git.ts: ${f#"$REPO_ROOT"/}"
+        fi
+        if p9_at_either p9_at_import "$f" "$code"; then
+            nok "safe_git imported by alias, namespace, require or dynamic import, or its opt-in helpers re-exported (call names hidden from the scan): ${f#"$REPO_ROOT"/}"
+        fi
+        if p9_at_either p9_at_indirect "$f" "$code"; then
+            nok "safeGitEnv/safeGitArgs used indirectly (alias, apply/call/bind, optional call or spread args): ${f#"$src"/}"
+        fi
+    done < <(find "$src" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.mts' -o -name '*.cts' -o -name '*.js' -o -name '*.mjs' -o -name '*.cjs' -o -name '*.jsx' \) ! -path '*/util/safe_git.ts' -print0)
+    # Fetch-only pin: exactly one allowToken occurrence (raw and comment-stripped),
+    # and across the whole comment-stripped file it is followed by the fetch-only
+    # expression and then , or } (newlines allowed), so a widened or second use fails.
+    local raw_n code_n code sig
+    for f in base_guard modernize_unit; do
+        code="$(perl -e "$strip" < "$src/util/$f.ts")"
+        raw_n="$(grep -o 'allowToken' "$src/util/$f.ts" | grep -c .)"
+        code_n="$(printf '%s\n' "$code" | grep -o 'allowToken' | grep -c .)"
+        if [ "$raw_n" -ne 1 ] || [ "$code_n" -ne 1 ] \
+            || ! printf '%s\n' "$code" | perl -0777 -ne 'exit(/allowToken\s*:\s*args\[0\]\s*===\s*"fetch"\s*[,}]/ ? 0 : 1)'; then
+            nok "$f.ts allowToken is not the single fetch-only form (allowToken: args[0] === \"fetch\")"
+        fi
+        # The pin must sit in the very safeGit call whose argv is the plain `args`
+        # parameter: exact signature, then `safeGit(<dir>, args, {` and the pin, with no
+        # other mention of args (default, rebinding, destructuring, shorthand method)
+        # and no function/arrow between the signature and the pin.
+        if [ "$f" = base_guard ]; then
+            sig='function\s+git\s*\(\s*repoDir\s*:\s*string\s*,\s*args\s*:\s*string\[\]\s*[,)]'
+            call='safeGit\(\s*repoDir\s*,\s*args\s*,\s*\{'
+        else
+            sig='const\s+git\s*=\s*\(\s*args\s*:\s*string\[\]\s*\)\s*:\s*string\s*=>'
+            call='safeGit\(\s*dest\s*,\s*args\s*,\s*\{'
+        fi
+        if ! printf '%s\n' "$code" | SIG="$sig" CALL="$call" perl -0777 -ne '
+                exit 1 unless /$ENV{SIG}((?:(?!allowToken|safeGit).)*?\b$ENV{CALL}(?:(?!allowToken|;).)*?)allowToken\s*:\s*args\[0\]\s*===\s*"fetch"/s;
+                my $span = $1;
+                exit 1 unless $span =~ s/$ENV{CALL}//;
+                exit($span =~ /\bargs\b|=>|\bfunction\b/ ? 1 : 0)' \
+            || printf '%s\n' "$code" | perl -0777 -ne 'exit(/\b(?:const|let|var)\s+args\b|\bargs\s*(?:\?\?|\|\||&&|[-+*\/|&])?=(?![=>])/ ? 0 : 1)'; then
+            nok "$f.ts allowToken pin is not bound to the plain args parameter of the safeGit call (shadowed, defaulted, reassigned or altered argv)"
+        fi
+    done
+}
+
+# Positive controls: each synthetic bypass tree (the real util files plus one
+# offender) must make the scan fail, so a blind guard cannot pass quietly.
+allowtoken_controls() {
+    local src="$REPO_ROOT/loki-ts/src" name body t saved_fails real_bg real_mu
+    real_bg="$(cat "$src/util/base_guard.ts")"
+    real_mu="$(cat "$src/util/modernize_unit.ts")"
+    local names="reexport-as reexport-barrel comment-line comment-block indirect-alias indirect-apply spread-args shadow-default shadow-const shadow-catch shadow-destructure shadow-forof shadow-method argv-prefix-bg argv-prefix-mu regex-comment regex-quote template-nest reexport-barrel2 comment-only-strip"
+    for name in $names; do
+        t="$T_AT/$name"
+        mkdir -p "$t/util"
+        cp "$src/util/safe_git.ts" "$src/util/base_guard.ts" "$src/util/modernize_unit.ts" "$t/util/"
+        case "$name" in
+            reexport-as)    body='export { safeGitEnv as sge } from "./util/safe_git.ts";' ;;
+            reexport-barrel) printf '%s\n' 'import { safeGitEnv as sge } from "./barrel.ts"; sge(process.env, true);' > "$t/cons.ts"
+                            body='export { safeGitEnv } from "./util/safe_git.ts";'; printf '%s\n' "$body" > "$t/barrel.ts"; body='export {};' ;;
+            comment-line)   body='import { safeGitArgs } from "./util/safe_git.ts";
+safeGitArgs // c
+(["push"], true);' ;;
+            comment-block)  body='import { safeGitEnv } from "./util/safe_git.ts";
+safeGitEnv /*x*/ (process.env, true);' ;;
+            indirect-alias) body='import { safeGitEnv } from "./util/safe_git.ts";
+const f = safeGitEnv; f(process.env, true);' ;;
+            indirect-apply) body='import { safeGitArgs } from "./util/safe_git.ts";
+safeGitArgs.apply(null, [["fetch"], true]);' ;;
+            spread-args)    body='import { safeGitEnv } from "./util/safe_git.ts";
+const a: [NodeJS.ProcessEnv, boolean] = [process.env, true]; safeGitEnv(...a);' ;;
+            shadow-default) printf '%s\n' "$real_bg" | sed 's/args: string\[\], timeout/args: string[] = ["fetch"], timeout/' > "$t/util/base_guard.ts"; body='export {};' ;;
+            shadow-const)   { printf '%s\n' "$real_mu"; printf '%s\n' 'const args = ["fetch"];'; } > "$t/util/modernize_unit.ts"; body='export {};' ;;
+            shadow-catch)   printf '%s\n' "$real_bg" | sed 's/^  try {$/  try { throw 1; } catch ([args]) {/' > "$t/util/base_guard.ts"; body='export {};' ;;
+            shadow-destructure) printf '%s\n' "$real_bg" | sed 's/^  try {$/  [args] = [["fetch"]]; try {/' > "$t/util/base_guard.ts"; body='export {};' ;;
+            shadow-forof)   printf '%s\n' "$real_bg" | sed 's/^  try {$/  for (args of [["fetch"]]); try {/' > "$t/util/base_guard.ts"; body='export {};' ;;
+            shadow-method)  printf '%s\n' "$real_bg" | sed 's/^  try {$/  const o = { m(args: string[]) { return args; } }; try {/' > "$t/util/base_guard.ts"; body='export {};' ;;
+            regex-comment)  body='import { safeGitEnv } from "./util/safe_git.ts";
+const re = /\/*/; safeGitEnv(process.env, true); // */' ;;
+            regex-quote)    body='import { safeGitEnv } from "./util/safe_git.ts";
+const re = /"/;
+const u = "//"; safeGitEnv(process.env, true);' ;;
+            template-nest)  body='import { safeGitEnv } from "./util/safe_git.ts";
+const a = `${"`"}`; const b = "//"; safeGitEnv(process.env, true);' ;;
+            reexport-barrel2) # barrel of a barrel: re-exports the helper from a module other than safe_git
+                            body='export { safeGitEnv } from "./b1.ts";' ;;
+            comment-only-strip) # raw text hides the comma behind a quote inside the comment; only stripping sees it
+                            body='import { safeGitEnv } from "./util/safe_git.ts";
+safeGitEnv(process.env /* '\'' */, true);' ;;
+            argv-prefix-bg) printf '%s\n' "$real_bg" | sed 's/safeGit(repoDir, args, {/safeGit(repoDir, ["push", ...args], {/' > "$t/util/base_guard.ts"; body='export {};' ;;
+            argv-prefix-mu) printf '%s\n' "$real_mu" | sed 's/safeGit(dest, args, {/safeGit(dest, ["push", "origin"], {/' > "$t/util/modernize_unit.ts"; body='export {};' ;;
+        esac
+        printf '%s\n' "$body" > "$t/offender.ts"
+        saved_fails="$CASE_FAILS"; CASE_FAILS=""
+        allowtoken_scan "$t"
+        [ -n "$CASE_FAILS" ] || { CASE_FAILS="$saved_fails"; nok "positive control '$name' was not flagged (allowToken guard is blind to it)"; continue; }
+        CASE_FAILS="$saved_fails"
+    done
+}
+
+case_allowtoken() {
+    local T_AT
+    T_AT="$(mktemp -d "${TMPDIR:-/tmp}/loki-run.p9at.XXXXXXXX")" || { nok "cannot create control dir"; return; }
+    allowtoken_scan "$REPO_ROOT/loki-ts/src"
+    allowtoken_controls
+    rm -rf -- "$T_AT"
+}
+
 moat_run "P9.issue-workflows-separate-untrusted-from-push" \
     "no workflow job or shipped action that untrusted text can reach combines it with write access or secrets and push/PR" \
     case_rule2
@@ -2087,4 +2286,7 @@ moat_run "P9.injection-cannot-reach-token" \
 moat_run "P9.checkout-no-persisted-credentials" \
     "actions/checkout sets persist-credentials: false in issue/comment/review-triggered and agent-running jobs" \
     case_checkout
+moat_run "P9.allowtoken-only-fetch-callers" \
+    "allowToken is passed to safeGit only by base_guard.ts and modernize_unit.ts (plus its definition in safe_git.ts)" \
+    case_allowtoken
 exit 0

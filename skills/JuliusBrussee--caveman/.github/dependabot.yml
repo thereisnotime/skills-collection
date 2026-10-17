@@ -18,6 +18,11 @@ updates:
       interval: weekly
     commit-message:
       prefix: "chore(deps)"
+    # browse/ is a consumer copy of caveman-browse. chromedp 0.21 moved to a
+    # generic Action/Command API that browse/cdp.go does not build against;
+    # the port belongs upstream, and this copy follows it.
+    ignore:
+      - dependency-name: "github.com/chromedp/*"
     groups:
       go:
         patterns: ["*"]
@@ -59,6 +64,16 @@ updates:
       - dependency-name: "@strands-agents/sdk"
       - dependency-name: "@mastra/core"
       - dependency-name: "@modelcontextprotocol/sdk"
+      # TypeScript 7 drops the JS compiler API that sdk/typescript's
+      # cjs-types.mjs builds with, and @types/node majors type runtimes newer
+      # than the engines floor (>=22). Both are deliberate migrations.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # The Pi pin moves by hand: provider-compat.runtime.mjs is a tripwire
+      # that needs a compat review of the nested pi-ai on every bump.
+      - dependency-name: "@earendil-works/pi-coding-agent"
     groups:
       npm:
         patterns: ["*"]

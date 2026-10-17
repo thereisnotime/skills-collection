@@ -1,7 +1,7 @@
 {
   "name": "loki-mode",
   "mcpName": "io.github.asklokesh/loki-mode",
-  "version": "11.15.0",
+  "version": "11.17.42",
   "description": "An autonomous software factory that knows what it is supposed to deliver, and proves it did.",
   "keywords": [
     "agent",
@@ -25,8 +25,6 @@
     "distributed-systems",
     "embeddings",
     "enterprise",
-    "gemini",
-    "gemini-cli",
     "gpt",
     "hive-mind",
     "large-language-model",

@@ -1,5 +1,4 @@
-// E-45 cost path: deterministic task sizing (no model call) and knobs. Missing intake inputs size "normal".
-// E-64: the small-task lean path (skip Plan+Wall) and the sonnet-then-escalate model cascade.
+// E-45 cost path: deterministic task sizing (no model call) and knobs; missing intake inputs size "normal". E-64: the small-task lean path (skip Plan+Wall) and the sonnet-then-escalate model cascade.
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { readRepoMapCache, repoCacheDir, repoKey } from "./cache.ts";
@@ -13,21 +12,25 @@ export function namedFiles(task: string, map: RepoMap | null): string[] {
   return (map?.files ?? []).filter((f) => task.toLowerCase().includes(basename(f).toLowerCase()));
 }
 
-export function sizeTask(task: string, map: RepoMap | null, tests: TestMap | null): { size: "small" | "normal"; reasons: string[] } {
+/** P12-46: "large" = names more than LARGE_NAMED_FILES repo files; never lean, routed to decompose (a large unit never runs in parallel). */
+export type TaskSize = "small" | "normal" | "large"; export const LARGE_NAMED_FILES = 8;
+/** C-F1 run4 knobs: LOKI_E10_SMALL_MAX_CHARS (positive number, default 600); LOKI_E10_SMALL_NO_RUNNER=1 stops a missing runner forcing normal. */
+export const smallMaxChars = (env = process.env): number => Number(env.LOKI_E10_SMALL_MAX_CHARS) > 0 ? Number(env.LOKI_E10_SMALL_MAX_CHARS) : 600;
+export function sizeTask(task: string, map: RepoMap | null, tests: TestMap | null): { size: TaskSize; reasons: string[] } {
   const named = namedFiles(task, map).length;
+  if (named > LARGE_NAMED_FILES) return { size: "large", reasons: [`task names ${named} files > ${LARGE_NAMED_FILES}: decompose`] };
   const why = [
-    !task.trim() && "no task text", task.length > 600 && `task ${task.length} chars > 600`,
+    !task.trim() && "no task text", task.length > smallMaxChars() && `task ${task.length} chars > ${smallMaxChars()}`,
     !map && "no repo map", (map?.files.length ?? 0) > 3000 && `repo ${map?.files.length} files > 3000`,
     map?.truncated && "repo map truncated at the file cap", // buildRepoMap caps files at 2000, so the >3000 rule alone never fires
-    !tests?.runners.length && "no test runner detected", named > 2 && `task names ${named} files > 2`,
+    !tests?.runners.length && process.env.LOKI_E10_SMALL_NO_RUNNER !== "1" && "no test runner detected", named > 2 && `task names ${named} files > 2`,
   ].filter((w): w is string => typeof w === "string");
   return why.length ? { size: "normal", reasons: why } : { size: "small", reasons: [`task ${task.length} chars, names ${named} files`] };
 }
 
 /** Best-effort RepoMap load from intake's repomap_ref; missing/unreadable is null, never a crash. */
 export function loadRepoMap(repomapRef: string | undefined): RepoMap | null {
-  if (!repomapRef || !existsSync(repomapRef)) return null;
-  try { return JSON.parse(readFileSync(repomapRef, "utf8")) as RepoMap; } catch { return null; }
+  try { return repomapRef && existsSync(repomapRef) ? JSON.parse(readFileSync(repomapRef, "utf8")) as RepoMap : null; } catch { return null; }
 }
 
 /** E-64: <=maxLines paths from the tree-keyed cache, else intake's repomap_ref; Wall and implement share this. */
@@ -45,22 +48,27 @@ export function hasRelevantTests(task: string, map: RepoMap | null, tests: TestM
 }
 
 /** "lean" skips Plan+Wall (one implement session); "wall" keeps Wall (medium/large, or small with no relevant tests). */
-export type SmallTaskPath = "lean" | "wall";
-export const smallTaskPath = (size: "small" | "normal", relevantTests: boolean): SmallTaskPath => (size === "small" && relevantTests ? "lean" : "wall");
+export type SmallTaskPath = "lean" | "wall"; export const smallTaskPath = (size: TaskSize, relevantTests: boolean): SmallTaskPath => (size === "small" && relevantTests ? "lean" : "wall");
 const knob = (v: string | undefined, words: string[]): boolean => words.includes((v ?? "").toLowerCase());
 /** LOKI_E10_PLAN: 0/off/never skips, 1/on/always forces, anything else sizes. */
 export const planMode = (env = process.env): "auto" | "always" | "never" =>
   knob(env.LOKI_E10_PLAN, ["0", "off", "never", "false"]) ? "never" : knob(env.LOKI_E10_PLAN, ["1", "on", "always", "true"]) ? "always" : "auto";
 export const wallEnabled = (env = process.env): boolean => !knob(env.LOKI_E10_WALL, ["0", "off", "false"]);
 /** W1-S3: Wall session cap, 90s small / 180s normal; LOKI_E10_WALL_LIMIT_S overrides (clamped to 300; garbage, zero or negative falls back). */
-export const wallLimitS = (size: "small" | "normal", env = process.env): number => { const n = Number(env.LOKI_E10_WALL_LIMIT_S); return Number.isFinite(n) && n > 0 ? Math.min(300, n) : size === "small" ? 90 : 180; };
+export const wallLimitS = (size: TaskSize, env = process.env): number => { const n = Number(env.LOKI_E10_WALL_LIMIT_S); return Number.isFinite(n) && n > 0 ? Math.min(300, n) : size === "small" ? 90 : 180; };
 /** Engine Law L1 (supersedes D31's sonnet-first default): the cascade is OFF unless LOKI_E10_CASCADE=1/on/true opts in. Off means implement and fix run on the run's own model, as a raw session would. */
 export const cascadeEnabled = (env = process.env): boolean => knob(env.LOKI_E10_CASCADE, ["1", "on", "true"]);
 /** Resolves a cli_alias (e.g. "sonnet") to its catalog model id; an id already, or an unknown alias, passes through unchanged. */
 export const resolveModelAlias = resolveClaudeModel;
 /** LOKI_E10_WALL_TIER (alias or id, default sonnet) resolved via providers/model_catalog.json cli_aliases. */
 export const wallModel = (env = process.env): string => resolveModelAlias(env.LOKI_E10_WALL_TIER || "sonnet");
+/** COST-11: first Wall author rung. Haiku for small/normal tasks, re-authored once on wallModel() when the result is unusable (wall.ts runWall).
+ *  Fail-safe: any pin (LOKI_E10_WALL_TIER, LOKI_MODEL_OVERRIDE), concurrent Wall (its base run is not validated at author time), an unknown/large size or LOKI_E10_WALL_FIRST=0 uses wallModel() directly, so no escalation applies. */
+export const wallFirstModel = (size: TaskSize, env = process.env): string => {
+  if (knob(env.LOKI_E10_WALL_FIRST, ["0", "off", "false"]) || env.LOKI_E10_WALL_TIER || env.LOKI_MODEL_OVERRIDE || env.LOKI_E10_WALL_CONCURRENT === "1") return wallModel(env);
+  return size === "small" || size === "normal" ? resolveModelAlias("haiku") : wallModel(env);
+};
 /** E-64: the cascade's first implement call pins to the same sonnet alias Wall already uses (E-45). */
 export const cascadeImplementModel = wallModel;
 
-export { modelRank, escalationModel, cascadeDowngrade } from "../runner/model_rank.ts"; // L1 model ordering lives outside the engine10 line budget
+export { modelRank, escalationModel, cascadeDowngrade, haikuFirstDowngrade } from "../runner/model_rank.ts"; // L1 model ordering lives outside the engine10 line budget

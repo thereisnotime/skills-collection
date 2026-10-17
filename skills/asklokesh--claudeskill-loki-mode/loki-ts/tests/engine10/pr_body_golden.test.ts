@@ -23,6 +23,14 @@ describe("PR body golden: FireLater#17 recording", () => {
     expect(notRecorded(body)).toEqual([]);
     expect(body).not.toMatch(/not recorded|not available|unavailable|no data|unknown|missing/i); // widened missing-field phrases
   });
+  it("names the receipt-check action with a copyable uses: line pinned to the current version", () => {
+    const v = readFileSync(join(import.meta.dir, "../../../VERSION"), "utf8").trim();
+    expect(body).toContain(`- \`uses: asklokesh/loki-mode/.github/actions/receipt-check@v${v}\``);
+    expect(body).not.toContain("adds the receipt-check action");
+    const unpinned = renderReviewerBody({ verdict: "VERIFIED", draftReason: null, notProven: [], receiptPath: null, receiptSha256: null, signed: null, runId: "r", outputs }, {}, "unknown");
+    expect(unpinned).not.toContain("uses:");
+    expect(renderReviewerBody({ verdict: "VERIFIED", draftReason: null, notProven: [], receiptPath: null, receiptSha256: null, signed: null, runId: "r", outputs }, {}, "11.17.9")).toContain("receipt-check@v11.17.9`");
+  });
   it("fills what the issue asked from the issue's acceptance criteria", () => {
     expect(body).toContain("- Create centralized Zod schema registry");
     expect(body).toContain("- Implement validation middleware for all routes");
@@ -101,7 +109,7 @@ describe("L7 guard: no producer prints 'not recorded' for a present source key",
     expect(sup).toContain("loadRunOutputs(runDir, events)");
   });
   it("every source file that can print 'not recorded' is a registered producer", () => {
-    const REGISTERED = new Set(["e10ext/reviewer_body.ts", "engine10/stages/seal.ts", "engine10/session.ts", "runner/sdk_stream_parser.ts", "util/run_outputs.ts", "runner/router/route_block.ts", "util/run_summary.ts", "metrics/trust.ts"]);
+    const REGISTERED = new Set(["e10ext/reviewer_body.ts", "engine10/stages/seal.ts", "engine10/session.ts", "runner/sdk_stream_parser.ts", "util/run_outputs.ts", "runner/router/route_block.ts", "util/run_summary.ts", "metrics/trust.ts", "engine10/verify_cmd.ts", "util/check_result.ts"]);
     const root = join(import.meta.dir, "..", "..", "src");
     const hits: string[] = [];
     const walk = (d: string): void => { for (const n of readdirSync(d)) { const p = join(d, n); if (statSync(p).isDirectory()) walk(p); else if (p.endsWith(".ts") && readFileSync(p, "utf8").includes("not recorded")) hits.push(p.slice(root.length + 1)); } };

@@ -56,6 +56,21 @@ export interface RecoverySignals {
   readonly treeCorrupt?: boolean;
   /** Provider itself is unreachable/unavailable (distinct from a rate limit). */
   readonly providerUnavailable?: boolean;
+  /**
+   * Rerun evidence: the same test failed, then passed, on an IDENTICAL tree.
+   * The only input that yields the flaky class; prose never does.
+   */
+  readonly rerun?: { readonly test: string; readonly failTree: string; readonly passTree: string };
+  /**
+   * Q17-03: names of the checks that really failed (verify result "fail"). When this is a
+   * string array holding any name other than rerun.test, a real failure exists beside the
+   * flaky check and the flaky rerun does not mask it. Absent or malformed means today's behavior.
+   */
+  readonly failedChecks?: readonly string[];
+  /** Structured signal (not prose) that the agent/tool wire protocol was violated. */
+  readonly protocolError?: boolean;
+  /** Structured signal that two requirements cannot both hold; re-prompting cannot fix it. */
+  readonly conflictingRequirements?: boolean;
   /** Attempts already spent on this failure. */
   readonly attempts?: number;
   /** Wall-clock seconds already spent on this failure. */
@@ -70,6 +85,20 @@ export interface RecoveryDecision {
   readonly reason: string;
   /** Set only for `failover`. Recovery requests a TIER, never a model ID. */
   readonly requestTier?: CapabilityTier;
+}
+
+/** P12-11 classes (FC-REQ). Everything unrecognized stays transient (retry_class.ts fail-safe). */
+export type RecoveryClass = "flaky" | "protocol_error" | "conflicting_requirements";
+
+// flaky = fail-then-pass on one non-empty tree id. Different or unknown trees prove nothing.
+export function hasOtherRealFailure(sig: RecoverySignals): boolean {
+  const f = sig.failedChecks as unknown;
+  if (!Array.isArray(f) || !f.every((n) => typeof n === "string")) return false;
+  return f.some((n: string) => n !== sig.rerun?.test);
+}
+
+export function isFlaky(r: RecoverySignals["rerun"]): boolean {
+  return r !== undefined && r.test !== "" && r.failTree !== "" && r.failTree === r.passTree;
 }
 
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -169,9 +198,11 @@ export interface DecideOpts {
 //   2. permanent failure -> stop (never retry an auth/model/quota error)
 //   3. repeated signature-> stop (circuit breaker; we are provably stuck)
 //   4. caps exhausted    -> escalate
+//   4b. conflicting_requirements, protocol_error -> stop / revise (P12-11, only from explicit signals)
 //   5. tree corrupt      -> checkpoint_rollback
 //   6. provider down     -> failover (tier request only)
 //   7. build failed      -> revise (exit code only, never prose)
+//   7b. flaky (identical-tree fail-then-pass, P12-11) -> retry flaky
 //   8. transient         -> retry
 export function decideRecovery(sig: RecoverySignals, opts: DecideOpts = {}): RecoveryDecision {
   const env = opts.env ?? process.env;
@@ -219,6 +250,16 @@ export function decideRecovery(sig: RecoverySignals, opts: DecideOpts = {}): Rec
     return { action: "escalate", reason: "cap_cost" };
   }
 
+  // (4b) P12-11 classes, from structured signals only. A conflict cannot be
+  // fixed by re-prompting, so it goes to a human; a protocol error is the
+  // work/tool being wrong, so revise.
+  if (sig.conflictingRequirements === true) {
+    return { action: "escalate", reason: "conflicting_requirements" };
+  }
+  if (sig.protocolError === true) {
+    return { action: "revise", reason: "protocol_error" };
+  }
+
   // (5) A corrupt tree cannot be fixed by re-prompting; restore a checkpoint.
   if (sig.treeCorrupt === true) {
     return { action: "checkpoint_rollback", reason: "tree_corrupt" };
@@ -227,6 +268,13 @@ export function decideRecovery(sig: RecoverySignals, opts: DecideOpts = {}): Rec
   // (6) Provider unavailable -> request a different TIER. No model ID here.
   if (sig.providerUnavailable === true) {
     return { action: "failover", reason: "provider_unavailable", requestTier: "development" };
+  }
+
+  // (7a) flaky: fail-then-pass on an identical tree proves the failure is non-deterministic, so it
+  // outranks build_failed (a revise would rewrite code that is not broken). Different or unknown trees prove nothing.
+  // Q17-03: a different, really failing check beside the flaky one still takes a fix round.
+  if (isFlaky(sig.rerun) && !hasOtherRealFailure(sig)) {
+    return { action: "retry", reason: "flaky" };
   }
 
   // (7) COMPILE/TEST FAILURE -- exit code ONLY. `undefined` means no build ran,

@@ -167,6 +167,63 @@ class CompressSafetyTests(unittest.TestCase):
             self.assertFalse(backup.exists())
             self.assertFalse((Path(tmp) / "task.md.caveman-staged").exists())
 
+    def _run_fix_pass(self, fix, fix_is_faithful=False):
+        # The first candidate drops the URL, so the real validate() rejects it
+        # and `fix` (a whole file, as build_fix_prompt asks for) is the repair.
+        original = (
+            "---\n"
+            "name: deploy-notes\n"
+            "description: Notes for deploying the service to production safely.\n"
+            "---\n\n"
+            "# Deploy\n\n"
+            "Some prose about the deploy process that is fairly verbose and wordy.\n\n"
+            "- Deploy:\n\n"
+            "      ```bash\n"
+            "      kubectl delete pod --all -n prod\n"
+            "      ```\n\n"
+            "See https://example.com/docs for more.\n"
+        )
+        _, body = compress_mod.split_frontmatter(original)
+        masked, _ = compress_mod.mask_code_blocks(body)
+        first = (
+            masked.replace("Some prose about the deploy process that is fairly verbose and wordy.", "Deploy prose.")
+            .replace("See https://example.com/docs for more.", "See docs.")
+        )
+        with tempfile.TemporaryDirectory() as tmp, \
+             tempfile.TemporaryDirectory() as data_home, \
+             mock.patch.dict(os.environ, {"XDG_DATA_HOME": data_home, "LOCALAPPDATA": data_home}):
+            path = self._file_with(Path(tmp), original)
+            repair = fix(original.replace(
+                "Some prose about the deploy process that is fairly verbose and wordy.", "Deploy prose."
+            ))
+            with mock.patch.object(compress_mod, "call_claude", side_effect=[first, repair]):
+                ok = compress_mod.compress_file(path)
+            if fix_is_faithful:
+                self.assertTrue(ok)
+                self.assertEqual(path.read_text(encoding="utf-8"), repair)
+                return
+            self.assertFalse(ok)
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
+            backup = compress_mod.backup_dir_for(path.resolve()) / "task.original.md"
+            self.assertFalse(backup.exists())
+            self.assertFalse((Path(tmp) / "task.md.caveman-staged").exists())
+
+    def test_fix_pass_that_only_restores_the_url_is_written(self):
+        self._run_fix_pass(lambda text: text, fix_is_faithful=True)
+
+    def test_fix_pass_cannot_change_list_nested_code(self):
+        # The first pass masks the fence indented under the list item, but the
+        # fix prompt carries it unmasked and validate() does not see a fence
+        # indented past 3 spaces, so a changed command would pass validation.
+        self._run_fix_pass(lambda text: text.replace("-n prod", "-n dev"))
+
+    def test_fix_pass_cannot_rewrite_frontmatter(self):
+        # The first pass strips frontmatter before the model sees it; the fix
+        # prompt sends the whole file, and validate() never compares it.
+        self._run_fix_pass(lambda text: text.replace(
+            "Notes for deploying the service to production safely.", "deploy notes prod."
+        ))
+
     def test_real_compression_writes_backup_and_target(self):
         # Isolate the backup data dir to a temp location so the out-of-tree
         # backup (issue #420) never lands in the developer's real home dir.
@@ -352,6 +409,87 @@ class CompressSafetyTests(unittest.TestCase):
             self.assertEqual(seen_live_contents, [original] * compress_mod.MAX_RETRIES)
             self.assertEqual(path.read_text(encoding="utf-8"), original)
             self.assertFalse((Path(tmp) / (path.name + ".caveman-staged")).exists())
+
+    def _assert_fix_call_error_cleans_up(self, error):
+        # The fix call raising (provider timeout, CLI failure, Ctrl-C) used to
+        # leave the backup and the staging file behind, and the leftover
+        # backup made every later run abort with "Backup file already exists".
+        with tempfile.TemporaryDirectory() as tmp, \
+             tempfile.TemporaryDirectory() as data_home, \
+             mock.patch.dict(os.environ, {"XDG_DATA_HOME": data_home, "LOCALAPPDATA": data_home}):
+            original = "# Heading\n\nProse to compress, long enough to pass the identity check here.\n"
+            compressed = "# Heading\n\nProse.\n"
+            path = self._file_with(Path(tmp), original)
+            backup = compress_mod.backup_dir_for(path.resolve()) / "task.original.md"
+            invalid = mock.Mock(is_valid=False, errors=["some validation error"], warnings=[])
+
+            with mock.patch.object(compress_mod, "call_claude", side_effect=[compressed, error]), \
+                 mock.patch.object(compress_mod, "validate", return_value=invalid):
+                with self.assertRaises(type(error)):
+                    compress_mod.compress_file(path)
+
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
+            self.assertFalse(backup.exists())
+            self.assertFalse((Path(tmp) / "task.md.caveman-staged").exists())
+
+            # A re-run is not blocked by a leftover backup.
+            with mock.patch.object(compress_mod, "call_claude", return_value=compressed), \
+                 mock.patch.object(compress_mod, "validate") as v:
+                v.return_value = mock.Mock(is_valid=True, errors=[], warnings=[])
+                self.assertTrue(compress_mod.compress_file(path))
+            self.assertEqual(path.read_text(encoding="utf-8"), compressed)
+            self.assertEqual(backup.read_text(encoding="utf-8"), original)
+
+    def test_fix_call_exception_leaves_no_backup_or_staging(self):
+        self._assert_fix_call_error_cleans_up(RuntimeError("provider timed out"))
+
+    def test_fix_call_keyboard_interrupt_leaves_no_backup_or_staging(self):
+        self._assert_fix_call_error_cleans_up(KeyboardInterrupt())
+
+    def test_error_after_live_write_keeps_the_backup(self):
+        # Once the live write has started the backup may be the only copy of
+        # the original, so the cleanup must leave it alone.
+        with tempfile.TemporaryDirectory() as tmp, \
+             tempfile.TemporaryDirectory() as data_home, \
+             mock.patch.dict(os.environ, {"XDG_DATA_HOME": data_home, "LOCALAPPDATA": data_home}):
+            original = "# Heading\n\nProse to compress.\n"
+            compressed = "# Heading\n\nProse.\n"
+            path = self._file_with(Path(tmp), original)
+            target = path.resolve()
+            real_write_target = compress_mod._write_target
+
+            def write_then_die(write_path, text, backup_path, newline="\n"):
+                real_write_target(write_path, text, backup_path, newline)
+                if write_path == target:
+                    raise KeyboardInterrupt()
+
+            with mock.patch.object(compress_mod, "call_claude", return_value=compressed), \
+                 mock.patch.object(compress_mod, "validate") as v, \
+                 mock.patch.object(compress_mod, "_write_target", side_effect=write_then_die):
+                v.return_value = mock.Mock(is_valid=True, errors=[], warnings=[])
+                with self.assertRaises(KeyboardInterrupt):
+                    compress_mod.compress_file(path)
+
+            self.assertEqual(path.read_text(encoding="utf-8"), compressed)
+            backup = compress_mod.backup_dir_for(target) / "task.original.md"
+            self.assertEqual(backup.read_text(encoding="utf-8"), original)
+            self.assertFalse((Path(tmp) / "task.md.caveman-staged").exists())
+
+    def test_error_before_backup_check_keeps_an_existing_backup(self):
+        # A backup left by an earlier successful run is not this run's to delete.
+        with tempfile.TemporaryDirectory() as tmp, \
+             tempfile.TemporaryDirectory() as data_home, \
+             mock.patch.dict(os.environ, {"XDG_DATA_HOME": data_home, "LOCALAPPDATA": data_home}):
+            path = self._file_with(Path(tmp), "# Heading\n\nProse.\n")
+            backup = compress_mod.backup_dir_for(path.resolve()) / "task.original.md"
+            backup.parent.mkdir(parents=True)
+            backup.write_text("earlier original\n", encoding="utf-8")
+
+            with mock.patch.object(compress_mod, "read_source", side_effect=KeyboardInterrupt()):
+                with self.assertRaises(KeyboardInterrupt):
+                    compress_mod.compress_file(path)
+
+            self.assertEqual(backup.read_text(encoding="utf-8"), "earlier original\n")
 
     def test_non_utf8_input_refused_before_anything_is_written(self):
         """errors="ignore" used to drop the undecodable byte, write the mangled

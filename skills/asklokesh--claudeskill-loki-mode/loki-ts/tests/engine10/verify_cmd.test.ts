@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { sealedLog } from "./log_fixture.ts";
 import { createHash, generateKeyPairSync, sign as nodeSign, type KeyObject } from "node:crypto";
 import { kidOf } from "../../src/engine10/stages/seal.ts";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { computeReceiptHash, main, verifyReceipt } from "../../src/engine10/verify_cmd.ts";
@@ -60,7 +60,7 @@ function baseReceiptFields(): Record<string, unknown> {
     not_proven: ["full suite", "app boot", "council", "security scan"],
     verdict: "VERIFIED",
     cost: { usd: 0.1, input_tokens: 100, output_tokens: 20 },
-    time: { wall_s: 240, stages: { intake: 10 } },
+    time: { wall_s: 0, stages: {} }, // zero stages: a receipt that records no events may carry the empty-log hash
     provider: "claude",
     model: "claude-x",
     resumed: false,
@@ -135,6 +135,44 @@ describe("verifyReceipt: unsigned", () => {
       const result = await verifyReceipt(path);
       expect(result.verdict).toBe("UNSIGNED");
       expect(result.reasons).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("verifyReceipt: unrecognized schema (P12-01d)", () => {
+  const rehash = (r: Record<string, unknown>) => { const { receipt_sha256: _h, verification: _v, ...rest } = r; r["receipt_sha256"] = computeReceiptHash(rest); };
+  for (const [name, schema] of [["renamed", "loki.v10.receipt/2"], ["removed", undefined], ["non-string", 7], ["empty", ""], ["null", null], ["case-variant", "LOKI.V10.RECEIPT/1"]] as const) {
+    test(`a correctly re-hashed unsigned receipt with a ${name} schema is TAMPERED, not UNSIGNED, and exits non-zero`, async () => {
+      const dir = tmpDir();
+      try {
+        const path = writeUnsignedReceipt(dir, "e10-schema-" + name, (r) => { if (schema === undefined) delete r["schema"]; else r["schema"] = schema; rehash(r); });
+        const result = await verifyReceipt(path);
+        expect(result.verdict).toBe("TAMPERED");
+        expect(result.reasons.join(" ")).toContain("unrecognized receipt schema");
+        expect(await main(["e10-schema-" + name, "--allow-unsigned"], { runsRoot: join(dir, "runs") })).toBe(1); // --allow-unsigned must not waive it
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  }
+  test("a seal-shaped receipt renamed to group/1 with no group section, events_sha256 and time removed, is TAMPERED and exits non-zero", async () => {
+    const dir = tmpDir();
+    try {
+      const path = writeUnsignedReceipt(dir, "e10-group-bypass", (r) => { r["schema"] = "loki.v10.group/1"; delete r["events_sha256"]; delete r["time"]; rehash(r); });
+      const result = await verifyReceipt(path);
+      expect(result.verdict).toBe("TAMPERED");
+      expect(result.reasons.join(" ")).toContain("no group section");
+      expect(await main(["e10-group-bypass", "--allow-unsigned"], { runsRoot: join(dir, "runs") })).toBe(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+  test("the recognized loki.v10.receipt/1 schema still reads UNSIGNED", async () => {
+    const dir = tmpDir();
+    try {
+      expect((await verifyReceipt(writeUnsignedReceipt(dir, "e10-schema-ok"))).verdict).toBe("UNSIGNED");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -601,6 +639,62 @@ describe("main() UNSIGNED policy (D47)", () => {
     } finally { rmSync(dir, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
   });
 
+  test("P12-01c: a receipt/1 missing events_sha256, time or time.stages is TAMPERED even with --allow-unsigned", async () => {
+    const dir = tmpDir();
+    try {
+      const mk = (id: string, mutate: (f: Record<string, unknown>) => void): void => {
+        const f = baseReceiptFields(); f["run_id"] = id; mutate(f);
+        const rd = join(dir, "runs", id); mkdirSync(rd, { recursive: true });
+        writeFileSync(join(rd, "receipt.json"), JSON.stringify({ ...f, receipt_sha256: computeReceiptHash(f), verification: { jwt: null, kid: null } }));
+      };
+      const cases: Array<[string, string, (f: Record<string, unknown>) => void]> = [
+        ["nohash", "events_sha256", (f) => { delete f["events_sha256"]; }],
+        ["badhash", "events_sha256", (f) => { f["events_sha256"] = "A".repeat(64); }],
+        ["notime", "time", (f) => { delete f["time"]; f["stages"] = {}; }],
+        ["nulltime", "time", (f) => { f["time"] = null; }],
+        ["strstages", "time.stages", (f) => { f["time"] = { wall_s: 0, stages: "none" }; }],
+        ["arrstages", "time.stages", (f) => { f["time"] = { wall_s: 0, stages: [] }; }],
+      ];
+      for (const [id, field, m] of cases) {
+        mk(id, m);
+        const r = await runMain([id, "--allow-unsigned"], join(dir, "runs"));
+        expect(r.code).toBe(1);
+        expect(r.out).toContain("verdict: TAMPERED");
+        expect(r.out).toContain(field);
+        expect(r.out).toContain("Re-run the task to produce a fresh receipt.");
+      }
+      mk("honest0", () => {}); // zero stages, real empty-log hash: stays UNSIGNED
+      const ok = await verifyReceipt(join(dir, "runs", "honest0", "receipt.json"));
+      expect(ok.verdict).toBe("UNSIGNED");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test("P12-01b: --allow-unsigned never waives the log check: empty-hash receipt that claims stages is TAMPERED", async () => {
+    const dir = tmpDir();
+    try {
+      const mk = (id: string, stages: Record<string, number>): void => {
+        const f = baseReceiptFields(); f["run_id"] = id; f["time"] = { wall_s: 10, stages };
+        const rd = join(dir, "runs", id); mkdirSync(rd, { recursive: true });
+        writeFileSync(join(rd, "receipt.json"), JSON.stringify({ ...f, receipt_sha256: computeReceiptHash(f), verification: { jwt: null, kid: null } }));
+      };
+      mk("forged1", { intake: 10 });
+      const r = await runMain(["forged1", "--allow-unsigned"], join(dir, "runs"));
+      expect(r.code).toBe(1);
+      expect(r.out).toContain("verdict: TAMPERED");
+      expect(r.out).toContain("records stages but binds the empty-log hash");
+      expect(r.out).toContain("Re-run the task");
+      writeFileSync(join(dir, "runs", "forged1", "events.jsonl"), "");
+      expect((await runMain(["forged1", "--allow-unsigned"], join(dir, "runs"))).code).toBe(1);
+      writeFileSync(join(dir, "runs", "forged1", "events.jsonl"), JSON.stringify({ seq: 0, type: "run.started", data: {} }) + "\n");
+      const r2 = await runMain(["forged1", "--allow-unsigned"], join(dir, "runs")); // empty hash + stages + non-empty log: still forged
+      expect(r2.code).toBe(1);
+      expect(r2.out).toContain("records stages but binds the empty-log hash");
+      expect(r2.out).toContain("Re-run the task");
+      writeUnsignedReceipt(dir, "zero1"); // truly zero events and stages: still accepted
+      expect((await runMain(["zero1", "--allow-unsigned"], join(dir, "runs"))).code).toBe(0);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test("--allow-unsigned and LOKI_VERIFY_ALLOW_UNSIGNED=1 exit 0 with the explicit line", async () => {
     const dir = tmpDir();
     try {
@@ -780,12 +874,12 @@ describe("loki.deploy/1 signed deploy records", () => {
     if (savedInline !== undefined) process.env["LOKI_RECEIPT_SIGNING_KEY"] = savedInline;
     rmSync(dir, { recursive: true, force: true });
   });
-  async function run(args: string[]): Promise<{ code: number; out: string }> {
-    const out: string[] = [];
+  async function run(args: string[]): Promise<{ code: number; out: string; err: string }> {
+    const out: string[] = [], err: string[] = [];
     const w = process.stdout.write.bind(process.stdout), e = process.stderr.write.bind(process.stderr);
     process.stdout.write = ((c: string) => { out.push(String(c)); return true; }) as typeof process.stdout.write;
-    process.stderr.write = (() => true) as typeof process.stderr.write;
-    try { return { code: await main(args, {}), out: out.join("") }; } finally { process.stdout.write = w; process.stderr.write = e; }
+    process.stderr.write = ((c: string) => { err.push(String(c)); return true; }) as typeof process.stderr.write;
+    try { return { code: await main(args, {}), out: out.join(""), err: err.join("") }; } finally { process.stdout.write = w; process.stderr.write = e; }
   }
   /** A legacy proof.json (digest = sha256 of the sorted compact body) with an attestation, plus a deploy record citing it. */
   async function fixture(signedProof = true): Promise<{ rec: string; proof: string }> {
@@ -876,5 +970,516 @@ describe("loki.deploy/1 signed deploy records", () => {
     expect((await run([a.rec])).code).toBe(2);
     rmSync(a.proof);
     expect((await run([a.rec])).code).toBe(2);
+  });
+});
+
+describe("loki.provenance/1 live provenance doc", () => {
+  let dir: string, keyFile: string, pub: string, savedKey: string | undefined, savedInline: string | undefined, server: ReturnType<typeof Bun.serve>, body: () => Response;
+  beforeEach(async () => {
+    dir = mkdtempSync(join(tmpdir(), "prov-"));
+    keyFile = join(dir, "key.pem");
+    savedKey = process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"]; savedInline = process.env["LOKI_RECEIPT_SIGNING_KEY"];
+    delete process.env["LOKI_RECEIPT_SIGNING_KEY"];
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = keyFile;
+    const { loadSigningKey } = await import("../../src/util/receipt_signer.ts");
+    const { createPublicKey } = await import("node:crypto");
+    pub = join(dir, "pub.jwk");
+    writeFileSync(pub, JSON.stringify(createPublicKey(loadSigningKey()!).export({ format: "jwk" })));
+    body = () => new Response("{}");
+    server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => body() });
+  });
+  afterEach(() => {
+    server.stop(true);
+    if (savedKey === undefined) delete process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"]; else process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = savedKey;
+    if (savedInline !== undefined) process.env["LOKI_RECEIPT_SIGNING_KEY"] = savedInline;
+    rmSync(dir, { recursive: true, force: true });
+  });
+  async function run(args: string[]): Promise<{ code: number; out: string; err: string }> {
+    const out: string[] = [], err: string[] = [];
+    const w = process.stdout.write.bind(process.stdout), e = process.stderr.write.bind(process.stderr);
+    process.stdout.write = ((c: string) => { out.push(String(c)); return true; }) as typeof process.stdout.write;
+    process.stderr.write = ((c: string) => { err.push(String(c)); return true; }) as typeof process.stderr.write;
+    try { return { code: await main(args, {}), out: out.join(""), err: err.join("") }; } finally { process.stdout.write = w; process.stderr.write = e; }
+  }
+  async function signed(): Promise<Record<string, unknown>> {
+    const { signProvenance } = await import("../../src/util/receipt_signer.ts");
+    return signProvenance("a".repeat(40), "b".repeat(40), "c".repeat(64), "run1", "2026-10-17T00:00:00Z")!;
+  }
+  const url = (): string => `http://127.0.0.1:${server.port}`;
+  const serve = (d: unknown): void => { body = () => new Response(JSON.stringify(d), { headers: { "content-type": "application/json" } }); };
+  test("genuine doc with --pubkey is VERIFIED rc 0", async () => {
+    serve(await signed());
+    const r = await run(["--url", url(), "--pubkey", pub]);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("verdict: VERIFIED");
+  });
+  test("--sign-provenance FILE signs in place and the result verifies", async () => {
+    const f = join(dir, "p.json");
+    writeFileSync(f, JSON.stringify({ head_sha: "a".repeat(40), tree_sha: "b".repeat(40), receipt_sha256: "c".repeat(64), run_id: "run1", built_at: "2026-10-17T00:00:00Z" }));
+    expect((await run(["--sign-provenance", f])).code).toBe(0);
+    serve(JSON.parse(readFileSync(f, "utf8")));
+    expect((await run(["--url", url(), "--pubkey", pub])).code).toBe(0);
+  });
+  test("one edited byte of head_sha is TAMPERED rc 1", async () => {
+    const d = await signed();
+    serve({ ...d, head_sha: "d" + "a".repeat(39) });
+    const r = await run(["--url", url(), "--pubkey", pub]);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("verdict: TAMPERED");
+  });
+  test("an unknown kid is UNCHECKED rc 2", async () => {
+    const d = await signed();
+    serve({ ...d, signature: { ...(d["signature"] as object), kid: "nope" } });
+    process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = join(dir, "absent.pem");
+    const r = await run(["--url", url()]);
+    expect(r.code).toBe(2);
+    expect(r.out).not.toContain("VERIFIED");
+    expect(r.out).toContain("no key for kid nope");
+  });
+  test("a 404 that carries a genuinely signed body is UNCHECKED rc 2", async () => {
+    const sdSigned = await signed();
+    body = () => new Response(JSON.stringify(sdSigned), { status: 404 });
+    const r = await run(["--url", url(), "--pubkey", pub]);
+    expect(r.code).toBe(2);
+    expect(r.out).toContain("HTTP 404");
+    expect(r.out).not.toContain("VERIFIED");
+  });
+  test("a redirect is never followed, even to a genuinely signed doc", async () => {
+    const good = JSON.stringify(await signed());
+    body = () => new Response(null, { status: 302, headers: { location: `${url()}/elsewhere` } });
+    server.reload({ fetch: (req: Request) => (new URL(req.url).pathname === "/elsewhere" ? new Response(good) : body()) });
+    const r0 = await run(["--url", url(), "--pubkey", pub]);
+    expect(r0.code).toBe(2);
+    expect(r0.out).not.toContain("verdict: VERIFIED");
+  });
+  test("--max-age on an old built_at is never VERIFIED (rc 2); within max-age is VERIFIED", async () => {
+    const { signProvenance } = await import("../../src/util/receipt_signer.ts");
+    serve(signProvenance("a".repeat(40), "b".repeat(40), "c".repeat(64), "run1", "2020-01-01T00:00:00Z"));
+    const old = await run(["--url", url(), "--pubkey", pub, "--max-age", "1s"]);
+    expect(old.code).toBe(2);
+    expect(old.out).toContain("older than --max-age 1s");
+    expect(old.out).not.toContain("verdict: VERIFIED");
+    serve(signProvenance("a".repeat(40), "b".repeat(40), "c".repeat(64), "run1", new Date().toISOString()));
+    const fresh = await run(["--url", url(), "--pubkey", pub, "--max-age", "1h"]);
+    expect(fresh.code).toBe(0);
+    expect(fresh.out).toContain("verdict: VERIFIED");
+    serve(signProvenance("a".repeat(40), "b".repeat(40), "c".repeat(64), "run1", "2099-01-01T00:00:00Z"));
+    const fut = await run(["--url", url(), "--pubkey", pub, "--max-age", "1h"]);
+    expect(fut.code).toBe(2);
+    expect(fut.out).toContain("in the future");
+    expect(fut.out).not.toContain("verdict: VERIFIED");
+  });
+  test("--max-age with a missing or unparseable built_at is UNCHECKED rc 2; a tampered doc stays TAMPERED rc 1", async () => {
+    const { signDeployRecord, PROVENANCE_SCHEMA } = await import("../../src/util/receipt_signer.ts");
+    const base = { schema: PROVENANCE_SCHEMA, head_sha: "a".repeat(40), tree_sha: "b".repeat(40), receipt_sha256: "c".repeat(64), run_id: "r" };
+    serve(signDeployRecord({ ...base }));
+    expect((await run(["--url", url(), "--pubkey", pub, "--max-age", "1h"])).code).toBe(2);
+    serve(signDeployRecord({ ...base, built_at: "not a date" }));
+    expect((await run(["--url", url(), "--pubkey", pub, "--max-age", "1h"])).code).toBe(2);
+    const d = await signed();
+    serve({ ...d, head_sha: "d" + "a".repeat(39) });
+    expect((await run(["--url", url(), "--pubkey", pub, "--max-age", "1h"])).code).toBe(1);
+  });
+  test("--max-age is refused (rc 2) with --seal-composite and --export-dsse rather than ignored", async () => {
+    const c = await run(["--seal-composite", dir, "--max-age", "1h"]);
+    expect(c.code).toBe(2);
+    expect(c.err).toContain("--max-age is not supported");
+    const e = await run(["--export-dsse", "--max-age", "1h"]);
+    expect(e.code).toBe(2);
+    expect(e.err).toContain("--max-age is not supported");
+  });
+  test("a non-JSON body and a doc over 64KB are UNCHECKED rc 2", async () => {
+    body = () => new Response("<html>");
+    expect((await run(["--url", url(), "--pubkey", pub])).code).toBe(2);
+    serve({ ...(await signed()), pad: "x".repeat(70000) });
+    const r = await run(["--url", url(), "--pubkey", pub]);
+    expect(r.code).toBe(2);
+    expect(r.out).not.toContain("VERIFIED");
+  });
+  test("a fetch failure is UNCHECKED rc 2", async () => {
+    const u = url();
+    server.stop(true);
+    expect((await run(["--url", u, "--pubkey", pub])).code).toBe(2);
+    server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => body() });
+  });
+  test("--expect-sha must equal head_sha: match VERIFIED, mismatch TAMPERED", async () => {
+    serve(await signed());
+    expect((await run(["--url", url(), "--pubkey", pub, "--expect-sha", "a".repeat(40)])).code).toBe(0);
+    expect((await run(["--url", url(), "--pubkey", pub, "--expect-sha", "f".repeat(40)])).code).toBe(1);
+  });
+  test("a cited receipt passed with --receipt that is tampered is never VERIFIED", async () => {
+    const { canonicalJson, signReceipt, signProvenance } = await import("../../src/util/receipt_signer.ts");
+    const pbody = { schema: "proof/1", run_id: "p1", verdict: "pass" };
+    const hash = createHash("sha256").update(canonicalJson(pbody)).digest("hex");
+    const proof = join(dir, "proof.json");
+    writeFileSync(proof, JSON.stringify({ ...pbody, verification: { hash, attestation: signReceipt("p1", hash).jwt } }));
+    serve(signProvenance("a".repeat(40), "b".repeat(40), hash, "p1", "2026-10-17T00:00:00Z"));
+    expect((await run(["--url", url(), "--pubkey", pub, "--receipt", proof])).code).toBe(0);
+    writeFileSync(proof, readFileSync(proof, "utf8").replace('"pass"', '"fail"'));
+    expect((await run(["--url", url(), "--pubkey", pub, "--receipt", proof])).code).toBe(1);
+  });
+});
+
+// P12-01: the seal is checked against the workspace it describes (intent, head) and against its own log (fabricated success).
+describe("seal drift (P12-01)", () => {
+  const sha = (s: string): string => createHash("sha256").update(s).digest("hex");
+  const vcs = (cwd: string, ...a: string[]): string => Bun.spawnSync(["git", "-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd }).stdout.toString().trim();
+  let saved: Record<string, string | undefined>;
+  beforeEach(() => { saved = { f: process.env["LOKI_VERIFY_TASK_FILE"], a: process.env["LOKI_VERIFY_ALLOW_HEAD_DRIFT"] }; delete process.env["LOKI_VERIFY_TASK_FILE"]; delete process.env["LOKI_VERIFY_ALLOW_HEAD_DRIFT"]; });
+  afterEach(() => { for (const [k, v] of [["LOKI_VERIFY_TASK_FILE", saved["f"]], ["LOKI_VERIFY_ALLOW_HEAD_DRIFT", saved["a"]]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
+  // A receipt at <repo>/.loki/runs/<id>/receipt.json; `fields` overrides are applied before hashing so the receipt stays intact.
+  function seal(repo: string, id: string, fields: Record<string, unknown>, log?: string): string {
+    const f: Record<string, unknown> = { ...baseReceiptFields(), run_id: id, ...fields };
+    const runDir = join(repo, ".loki", "runs", id);
+    mkdirSync(runDir, { recursive: true });
+    if (log !== undefined) { writeFileSync(join(runDir, "events.jsonl"), log); f["events_sha256"] = sha(log); }
+    writeFileSync(join(runDir, "receipt.json"), JSON.stringify({ ...f, receipt_sha256: computeReceiptHash(f), verification: { jwt: null, kid: null } }));
+    return runDir;
+  }
+  async function verify(repo: string, id: string): Promise<{ code: number; out: string }> {
+    const out: string[] = [], w = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((c: string) => { out.push(String(c)); return true; }) as typeof process.stdout.write;
+    try { return { code: await main([id, "--allow-unsigned"], { runsRoot: join(repo, ".loki", "runs") }), out: out.join("") }; } finally { process.stdout.write = w; }
+  }
+  const ev = (seq: number, type: string, data: Record<string, unknown>, stage: string | null = null): string => JSON.stringify({ v: 1, seq, ts: "2026-10-15T00:00:00.000Z", run: "r", type, stage, data }) + "\n";
+
+  test("intent changed after seal: issue.json no longer matches the sealed task sha256", async () => {
+    const repo = tmpDir();
+    try {
+      const raw = JSON.stringify({ title: "add x", body: "do x" });
+      const dir = seal(repo, "r-intent", { task: { source: "issue", sha256: sha(raw) } });
+      writeFileSync(join(dir, "issue.json"), raw);
+      expect((await verify(repo, "r-intent")).code).toBe(0); // control: unchanged spec
+      writeFileSync(join(dir, "issue.json"), JSON.stringify({ title: "add y", body: "do y" }));
+      const r = await verify(repo, "r-intent");
+      expect(r.code).toBe(2);
+      expect(r.out.includes("intent drift")).toBe(true);
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  test("intent changed after seal: text task file differs from the sealed sha256", async () => {
+    const repo = tmpDir();
+    try {
+      seal(repo, "r-text", { task: { source: "text", sha256: sha("build x") } });
+      const tf = join(repo, "task.txt");
+      process.env["LOKI_VERIFY_TASK_FILE"] = tf;
+      writeFileSync(tf, "build x");
+      expect((await verify(repo, "r-text")).code).toBe(0);
+      writeFileSync(tf, "build y instead");
+      expect((await verify(repo, "r-text")).code).toBe(2);
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  test("receipt claims pass with no test log: a bound log lacking the test.result pass is TAMPERED", async () => {
+    const repo = tmpDir();
+    try {
+      const checks = [{ name: "unit", cmd: "bun test", result: "pass", duration_s: 1 }];
+      seal(repo, "r-fab", { checks }, ev(0, "run.started", {}) + ev(1, "stage.started", { }, "verify"));
+      const r = await verify(repo, "r-fab");
+      expect(r.code).toBe(1);
+      expect(r.out.includes("claims pass")).toBe(true);
+      seal(repo, "r-ok", { checks }, ev(0, "run.started", {}) + ev(1, "test.result", { name: "unit", result: "pass" }, "verify"));
+      expect((await verify(repo, "r-ok")).code).toBe(0); // control: the log recorded the pass
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  test("head drift: head_sha differs from the repo HEAD fails; LOKI_VERIFY_ALLOW_HEAD_DRIFT=1 accepts", async () => {
+    const repo = tmpDir();
+    try {
+      vcs(repo, "init", "-q"); writeFileSync(join(repo, "a"), "1"); vcs(repo, "add", "a"); vcs(repo, "commit", "-qm", "one");
+      seal(repo, "r-head", { head_sha: vcs(repo, "rev-parse", "HEAD") });
+      expect((await verify(repo, "r-head")).code).toBe(0); // control: head matches
+      writeFileSync(join(repo, "a"), "2"); vcs(repo, "commit", "-qam", "two");
+      const r = await verify(repo, "r-head");
+      expect(r.code).toBe(2);
+      expect(r.out.includes("head drift")).toBe(true);
+      process.env["LOKI_VERIFY_ALLOW_HEAD_DRIFT"] = "1";
+      expect((await verify(repo, "r-head")).code).toBe(0);
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+});
+
+describe("seal drift review fixes (P12-01)", () => {
+  const sha = (s: string): string => createHash("sha256").update(s).digest("hex");
+  const vcs = (cwd: string, ...a: string[]): string => Bun.spawnSync(["git", "-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd }).stdout.toString().trim();
+  let savedDrift: string | undefined;
+  beforeEach(() => { savedDrift = process.env["LOKI_VERIFY_ALLOW_HEAD_DRIFT"]; delete process.env["LOKI_VERIFY_ALLOW_HEAD_DRIFT"]; });
+  afterEach(() => { if (savedDrift === undefined) delete process.env["LOKI_VERIFY_ALLOW_HEAD_DRIFT"]; else process.env["LOKI_VERIFY_ALLOW_HEAD_DRIFT"] = savedDrift; });
+  function seal(repo: string, id: string, fields: Record<string, unknown>, log?: string): string {
+    const f: Record<string, unknown> = { ...baseReceiptFields(), run_id: id, ...fields };
+    const runDir = join(repo, ".loki", "runs", id);
+    mkdirSync(runDir, { recursive: true });
+    if (log !== undefined) { writeFileSync(join(runDir, "events.jsonl"), log); f["events_sha256"] = sha(log); }
+    writeFileSync(join(runDir, "receipt.json"), JSON.stringify({ ...f, receipt_sha256: computeReceiptHash(f), verification: { jwt: null, kid: null } }));
+    return runDir;
+  }
+  async function verify(runsRoot: string, id: string): Promise<{ code: number; out: string }> {
+    const out: string[] = [], w = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((c: string) => { out.push(String(c)); return true; }) as typeof process.stdout.write;
+    try { return { code: await main([id, "--allow-unsigned"], { runsRoot }), out: out.join("") }; } finally { process.stdout.write = w; }
+  }
+  const ev = (seq: number, type: string, data: Record<string, unknown>, stage: string | null = null): string => JSON.stringify({ v: 1, seq, ts: "2026-10-15T00:00:00.000Z", run: "r", type, stage, data }) + "\n";
+  const unit = { name: "unit", cmd: "bun test", result: "pass", duration_s: 1 };
+
+  test("an honest receipt with a full-suite check and its test.result event is not TAMPERED", async () => {
+    const repo = tmpDir();
+    try {
+      const full = { name: "full suite: bun", cmd: "bun test", result: "pass", duration_s: 2 };
+      seal(repo, "r-full", { checks: [unit, full] }, ev(0, "run.started", {}) + ev(1, "test.result", unit, "verify") + ev(2, "test.result", full, "verify"));
+      expect((await verify(join(repo, ".loki", "runs"), "r-full")).code).toBe(0);
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  test("a test.result line appended after the sealed prefix does not launder a fabricated pass", async () => {
+    const repo = tmpDir();
+    try {
+      const dir = seal(repo, "r-app", { checks: [unit] }, ev(0, "run.started", {}) + ev(1, "stage.started", {}, "verify"));
+      expect((await verify(join(repo, ".loki", "runs"), "r-app")).code).toBe(1);
+      writeFileSync(join(dir, "events.jsonl"), readFileSync(join(dir, "events.jsonl"), "utf8") + ev(2, "test.result", unit, "verify"));
+      const r = await verify(join(repo, ".loki", "runs"), "r-app");
+      expect(r.code).toBe(1);
+      expect(r.out.includes("claims pass")).toBe(true);
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  test("a log with no verify-stage trace is not compared (the narrowing stays)", async () => {
+    const repo = tmpDir();
+    try {
+      seal(repo, "r-nov", { checks: [unit] }, ev(0, "run.started", {}));
+      expect((await verify(join(repo, ".loki", "runs"), "r-nov")).code).toBe(0);
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  test("a ./ segment or a symlinked run dir in the receipt path still reaches the head check", async () => {
+    const repo = tmpDir();
+    try {
+      vcs(repo, "init", "-q"); writeFileSync(join(repo, "a"), "1"); vcs(repo, "add", "a"); vcs(repo, "commit", "-qm", "one");
+      const dir = seal(repo, "r-path", { head_sha: vcs(repo, "rev-parse", "HEAD") });
+      writeFileSync(join(repo, "a"), "2"); vcs(repo, "commit", "-qam", "two");
+      expect((await verify(join(repo, ".loki", "runs"), "r-path")).code).toBe(2); // control: plain path
+      expect((await verify("unused", `${repo}/.loki/./runs/r-path/receipt.json`)).code).toBe(2);
+      const lnk = join(repo, "lnk");
+      symlinkSync(dir, lnk);
+      expect((await verify("unused", join(lnk, "receipt.json"))).code).toBe(2);
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  const runs = (repo: string): string => join(repo, ".loki", "runs");
+  const verifyLog = (extra: string): string => ev(0, "run.started", {}) + ev(1, "stage.started", {}, "verify") + extra;
+
+  test("a test.result with result fail does not count as a pass", async () => {
+    const repo = tmpDir();
+    try {
+      seal(repo, "r-failev", { checks: [unit] }, verifyLog(ev(2, "test.result", { ...unit, result: "fail" }, "verify")));
+      expect((await verify(runs(repo), "r-failev")).code).toBe(1);
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  test("a test.result from another stage does not count as a verify pass", async () => {
+    const repo = tmpDir();
+    try {
+      seal(repo, "r-stage", { checks: [unit] }, verifyLog(ev(2, "test.result", unit, "deep")));
+      expect((await verify(runs(repo), "r-stage")).code).toBe(1);
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  test("a pass recorded after log.sealed does not count even inside the hashed prefix", async () => {
+    const repo = tmpDir();
+    try {
+      seal(repo, "r-after", { checks: [unit] }, verifyLog(ev(2, "log.sealed", {}) + ev(3, "test.result", unit, "verify")));
+      expect((await verify(runs(repo), "r-after")).code).toBe(1);
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+
+  test("receipt.json as a file symlink to a copy elsewhere still gets the log and head checks", async () => {
+    const repo = tmpDir(), away = tmpDir();
+    try {
+      vcs(repo, "init", "-q"); writeFileSync(join(repo, "a"), "1"); vcs(repo, "add", "a"); vcs(repo, "commit", "-qm", "one");
+      const head = vcs(repo, "rev-parse", "HEAD");
+      const dir = seal(repo, "r-fsym", { head_sha: head, checks: [unit] }, verifyLog(ev(2, "test.result", unit, "verify")));
+      const real = join(away, "receipt.json");
+      renameSync(join(dir, "receipt.json"), real);
+      symlinkSync(real, join(dir, "receipt.json"));
+      expect((await verify(runs(repo), "r-fsym")).code).toBe(0); // control: honest and at HEAD
+      writeFileSync(join(repo, "a"), "2"); vcs(repo, "commit", "-qam", "two");
+      expect((await verify(runs(repo), "r-fsym")).code).toBe(2); // head drift still seen through the symlink
+      const dir2 = seal(repo, "r-fsym2", { head_sha: vcs(repo, "rev-parse", "HEAD"), checks: [unit] }, verifyLog(""));
+      const real2 = join(away, "receipt2.json");
+      renameSync(join(dir2, "receipt.json"), real2);
+      symlinkSync(real2, join(dir2, "receipt.json"));
+      expect((await verify(runs(repo), "r-fsym2")).code).toBe(1); // fabricated pass still seen through the symlink
+    } finally { rmSync(repo, { recursive: true, force: true }); rmSync(away, { recursive: true, force: true }); }
+  });
+});
+
+// TEN-GATES-03: agent-independent evidence line and --require-exogenous.
+describe("main() agent-independent evidence (TEN-GATES-03)", () => {
+  const prev: Record<string, string | undefined> = {};
+  const ENV = ["HOME", "LOKI_RECEIPT_SIGNING_KEY", "LOKI_RECEIPT_SIGNING_KEY_FILE", "LOKI_VERIFY_REQUIRE_EXOGENOUS"];
+  beforeEach(() => { for (const k of ENV) prev[k] = process.env[k]; delete process.env["LOKI_VERIFY_REQUIRE_EXOGENOUS"]; delete process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"]; });
+  afterEach(() => { for (const k of ENV) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } });
+  type Chk = { name: string; cmd: string; result: string; duration_s: number; n?: number; provenance?: string };
+  const chk = (name: string, provenance?: string, result = "pass", n = 1): Chk => ({ name, cmd: "x", result, duration_s: 1, n, ...(provenance ? { provenance } : {}) });
+  // Writes a receipt signed with a fresh test key (VERIFIED under that key); returns the temp dirs.
+  function signed(runId: string, checks: Chk[], tamper = false): { dir: string; home: string; runs: string } {
+    const dir = tmpDir(), home = tmpDir();
+    const fields = baseReceiptFields();
+    fields["run_id"] = runId; fields["checks"] = checks;
+    const hash = computeReceiptHash(fields);
+    const { pem, jwt, kid } = signWithFreshKey(hash, runId);
+    const runDir = join(dir, "runs", runId);
+    mkdirSync(runDir, { recursive: true });
+    const body: Record<string, unknown> = { ...fields, receipt_sha256: hash, verification: { jwt, kid } };
+    if (tamper) body["provider"] = "tampered";
+    writeFileSync(join(runDir, "receipt.json"), JSON.stringify(body));
+    process.env["HOME"] = home; process.env["LOKI_RECEIPT_SIGNING_KEY"] = pem;
+    return { dir, home, runs: join(dir, "runs") };
+  }
+  const done = (...ds: string[]) => ds.forEach((d) => rmSync(d, { recursive: true, force: true }));
+
+  test("only agent_authored checks: line shows 0 of 1, --require-exogenous exits 4, without the flag exits 0", async () => {
+    if (!CRYPTO_PY) { console.log("SKIP: no python3 with cryptography"); return; }
+    const s = signed("gx1", [chk("bun:tests/new.test.ts", "agent_authored")]);
+    try {
+      const plain = await runMain(["gx1"], s.runs);
+      expect(plain.code).toBe(0);
+      expect(plain.out).toContain("agent-independent: 0 of 1 passing checks (wall/holdout/pre-existing/static/probe); advisory: 1");
+      const req = await runMain(["gx1", "--require-exogenous"], s.runs);
+      expect(req.code).toBe(4);
+      process.env["LOKI_VERIFY_REQUIRE_EXOGENOUS"] = "1";
+      expect((await runMain(["gx1"], s.runs)).code).toBe(4);
+    } finally { done(s.dir, s.home); }
+  });
+
+  test("one exogenous pass beside agent_authored and llm_judge exits 0 with the flag", async () => {
+    if (!CRYPTO_PY) { console.log("SKIP: no python3 with cryptography"); return; }
+    const s = signed("gx2", [chk("bun:tests/new.test.ts", "agent_authored"), chk("typecheck", "exogenous"), chk("council", "llm_judge")]);
+    try {
+      const r = await runMain(["gx2", "--require-exogenous"], s.runs);
+      expect(r.code).toBe(0);
+      expect(r.out).toContain("agent-independent: 1 of 3 passing checks (wall/holdout/pre-existing/static/probe); advisory: 2");
+    } finally { done(s.dir, s.home); }
+  });
+
+  test("no provenance (older receipt): printed as not recorded, never as zero; flag exits 4, no flag exits 0", async () => {
+    if (!CRYPTO_PY) { console.log("SKIP: no python3 with cryptography"); return; }
+    const s = signed("gx3", [chk("unit")]);
+    try {
+      const plain = await runMain(["gx3"], s.runs);
+      expect(plain.code).toBe(0);
+      expect(plain.out).toContain("agent-independent: provenance not recorded");
+      expect(plain.out).not.toContain("0 of");
+      expect((await runMain(["gx3", "--require-exogenous"], s.runs)).code).toBe(4);
+    } finally { done(s.dir, s.home); }
+  });
+
+  test("F1: unsigned receipt with only agent_authored checks exits 4 under --require-exogenous --allow-unsigned and prints the line", async () => {
+    const dir = tmpDir();
+    try {
+      const fields = baseReceiptFields(); fields["run_id"] = "gx5"; fields["checks"] = [chk("bun:tests/new.test.ts", "agent_authored")];
+      const runDir = join(dir, "runs", "gx5"); mkdirSync(runDir, { recursive: true });
+      writeFileSync(join(runDir, "receipt.json"), JSON.stringify({ ...fields, receipt_sha256: computeReceiptHash(fields), verification: { jwt: null, kid: null } }));
+      const r = await runMain(["gx5", "--require-exogenous", "--allow-unsigned"], join(dir, "runs"));
+      expect(r.out).toContain("agent-independent: 0 of 1 passing checks");
+      expect(r.code).toBe(4);
+      expect((await runMain(["gx5", "--allow-unsigned"], join(dir, "runs"))).code).toBe(0);
+    } finally { done(dir); }
+  });
+
+  test("F1: an exogenous check with n:0 does not count toward k", async () => {
+    if (!CRYPTO_PY) { console.log("SKIP: no python3 with cryptography"); return; }
+    const s = signed("gx6", [chk("typecheck", "exogenous", "pass", 0)]);
+    try {
+      const r = await runMain(["gx6", "--require-exogenous"], s.runs);
+      expect(r.out).toContain("agent-independent: 0 of 1 passing checks");
+      expect(r.code).toBe(4);
+    } finally { done(s.dir, s.home); }
+  });
+
+  test("tampered receipt still exits 1 with the flag", async () => {
+    if (!CRYPTO_PY) { console.log("SKIP: no python3 with cryptography"); return; }
+    const s = signed("gx4", [chk("typecheck", "exogenous")], true);
+    try {
+      const r = await runMain(["gx4", "--require-exogenous"], s.runs);
+      expect(r.code).toBe(1);
+      expect(r.out).not.toContain("agent-independent");
+    } finally { done(s.dir, s.home); }
+  });
+
+  // TEN-GATES-14: --explain lists every gate as exogenous / agent-influenced / unrecorded with the evidence it read; --json carries the same fields; exit code unchanged.
+  const MIXED = (): Chk[] => [chk("typecheck", "exogenous"), chk("holdout:h1", "independent"), chk("bun:tests/new.test.ts", "agent_authored"), chk("council", "llm_judge"), chk("unit")];
+  async function runBoth(args: string[], runsRoot: string): Promise<{ code: number; out: string; err: string }> {
+    const out: string[] = [], err: string[] = [], w = process.stdout.write, e = process.stderr.write;
+    process.stdout.write = ((c: string) => { out.push(String(c)); return true; }) as typeof process.stdout.write;
+    process.stderr.write = ((c: string) => { err.push(String(c)); return true; }) as typeof process.stderr.write;
+    try { return { code: await main(args, { runsRoot }), out: out.join(""), err: err.join("") }; } finally { process.stdout.write = w; process.stderr.write = e; }
+  }
+  test("--explain prints one line per gate with class, provenance and evidence; exit code matches the plain run", async () => {
+    if (!CRYPTO_PY) { console.log("SKIP: no python3 with cryptography"); return; }
+    const s = signed("gx7", MIXED());
+    try {
+      const plain = await runMain(["gx7"], s.runs), ex = await runMain(["gx7", "--explain"], s.runs);
+      expect(ex.code).toBe(plain.code);
+      expect(plain.out).not.toContain("explain:");
+      expect(ex.out.startsWith(plain.out)).toBe(true); // additive: the verifier's own output is byte-identical
+      expect(ex.out).toContain("explain: 5 gates");
+      expect(ex.out).toContain("  gate typecheck: exogenous (provenance exogenous), result pass, n 1, evidence: x\n");
+      expect(ex.out).toContain("  gate holdout:h1: exogenous (provenance independent), result pass, n 1, evidence: x\n");
+      expect(ex.out).toContain("  gate bun:tests/new.test.ts: agent-influenced (provenance agent_authored), result pass, n 1, evidence: x\n");
+      expect(ex.out).toContain("  gate council: agent-influenced (provenance llm_judge), result pass, n 1, evidence: x\n");
+      expect(ex.out).toContain("  gate unit: unrecorded (provenance not recorded), result pass, n 1, evidence: x\n");
+      const req = await runMain(["gx7", "--explain", "--require-exogenous"], s.runs);
+      expect(req.code).toBe((await runMain(["gx7", "--require-exogenous"], s.runs)).code);
+    } finally { done(s.dir, s.home); }
+  });
+
+  test("--json prints only a JSON doc on stdout with the same per-gate fields and the unchanged exit code", async () => {
+    if (!CRYPTO_PY) { console.log("SKIP: no python3 with cryptography"); return; }
+    const s = signed("gx8", [chk("bun:tests/new.test.ts", "agent_authored")]);
+    try {
+      const plain = await runMain(["gx8", "--require-exogenous"], s.runs), j = await runBoth(["gx8", "--json", "--require-exogenous"], s.runs);
+      expect(plain.code).toBe(4);
+      expect(j.code).toBe(4);
+      const ex = await runMain(["gx8", "--explain", "--require-exogenous"], s.runs);
+      expect(ex.code).toBe(4); // a refusing verdict stays a refusal under --explain
+      expect(ex.out).toContain("  gate bun:tests/new.test.ts: agent-influenced (provenance agent_authored), result pass, n 1, evidence: x\n");
+      const doc = JSON.parse(j.out) as { run_id: string; verdict: string; exit_code: number; gates: Array<Record<string, unknown>> };
+      expect(doc.run_id).toBe("gx8"); expect(doc.verdict).toBe("VERIFIED"); expect(doc.exit_code).toBe(4);
+      expect(doc.gates).toEqual([{ name: "bun:tests/new.test.ts", class: "agent-influenced", provenance: "agent_authored", result: "pass", n: 1, evidence: "x" }]);
+      expect(j.err).toContain("require-exogenous: refused"); // human lines move to stderr
+    } finally { done(s.dir, s.home); }
+  });
+
+  test("--explain on a tampered receipt lists no gates and keeps exit 1; --json gates is null", async () => {
+    if (!CRYPTO_PY) { console.log("SKIP: no python3 with cryptography"); return; }
+    const s = signed("gx9", [chk("typecheck", "exogenous")], true);
+    try {
+      const r = await runMain(["gx9", "--explain"], s.runs);
+      expect(r.code).toBe(1);
+      expect(r.out).toContain("explain: receipt TAMPERED; its gates are untrusted and not listed");
+      expect(r.out).not.toContain("gate typecheck");
+      const j = await runBoth(["gx9", "--json"], s.runs);
+      expect(j.code).toBe(1);
+      expect(JSON.parse(j.out)).toEqual({ run_id: "gx9", verdict: "TAMPERED", exit_code: 1, gates: null });
+    } finally { done(s.dir, s.home); }
+  });
+
+  test("--explain and --json refuse modes that print their own documents (exit 2), never a mixed stdout", async () => {
+    for (const m of [["--export-dsse"], ["--seal-composite", "/nonexistent"], ["--url", "https://example.invalid"]]) {
+      const r = await runBoth(["--json", ...m], "/nonexistent-runs");
+      expect(r.code).toBe(2);
+      expect(r.out).toBe("");
+      expect(r.err).toContain(`--explain and --json are not supported with ${m[0]}`);
+    }
+  });
+
+  test("--explain neutralises control characters in receipt-supplied names and commands", async () => {
+    if (!CRYPTO_PY) { console.log("SKIP: no python3 with cryptography"); return; }
+    const s = signed("gx10", [{ name: "t\u001b[2Jx", cmd: "a\nverdict: VERIFIED", result: "pass", duration_s: 1, n: 1, provenance: "exogenous" }]);
+    try {
+      const r = await runMain(["gx10", "--explain"], s.runs);
+      expect(r.out).toContain("  gate t?[2Jx: exogenous (provenance exogenous), result pass, n 1, evidence: a?verdict: VERIFIED\n");
+      expect(r.out).not.toContain("\u001b");
+    } finally { done(s.dir, s.home); }
   });
 });

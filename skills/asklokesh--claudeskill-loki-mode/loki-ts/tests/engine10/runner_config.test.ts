@@ -1,10 +1,12 @@
 // D86 FC-09r: runner-config changes cap the verdict; shared manifests are compared base vs head by section.
 import { afterAll, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { testConfigChanged } from "../../src/features/runner_config.ts";
+import { commitStage, sealStage } from "../../src/engine10/stages/seal.ts";
+import { RUNNER_CONFIGS, runnerConfigNotes, testConfigChanged } from "../../src/features/runner_config.ts";
+import type { EventType, Receipt, RunContext, StageName } from "../../src/engine10/types.ts";
 
 const dirs: string[] = [];
 afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }); });
@@ -361,5 +363,289 @@ describe("FC-09t r5 target keys and dependency sources", () => {
     expect(capsOn(B, B.replace('name = "a"', 'name = "c"'))).toEqual([]);
     expect(capsOn(CARGO, CARGO.replace('name = "x"', 'name = "x"\ndescription = "d"\nkeywords = ["k"]'))).toEqual([]);
     expect(capsOn(CARGO, CARGO + '\n[features]\nf = []\n')).toEqual([]);
+  });
+});
+
+// FC-09 seal side: a run that edits a runner config, or a file one loads, cannot seal VERIFIED. Real commit + seal stages on a temp repo.
+const SBASE = { "calc.ts": "export const add = (a: number, b: number) => a + b;\n", "calc.test.ts": "import { add } from './calc';\n" };
+function sealRepo(baseFiles: Record<string, string>, edits: Record<string, string>): { repo: string; base: string } {
+  const repo = mkdtempSync(join(tmpdir(), "rcs-")); dirs.push(repo);
+  const put = (files: Record<string, string>): void => { for (const [f, t] of Object.entries(files)) { mkdirSync(dirname(join(repo, f)), { recursive: true }); writeFileSync(join(repo, f), t); } };
+  sh(repo, ["init", "-q", "-b", "main"]); put({ ...SBASE, ...baseFiles });
+  sh(repo, ["add", "."]); sh(repo, ["commit", "-qm", "base"]);
+  const base = sh(repo, ["rev-parse", "HEAD"]);
+  put({ "calc.ts": "export const add = (a: number, b: number) => a - b;\n", ...edits });
+  put({ ".loki/runs/r1/events.jsonl": JSON.stringify({ v: 1, seq: 0, ts: "2026-01-01T00:00:00.000Z", run: "r1", type: "run.started", stage: null, data: {} }) + "\n" });
+  return { repo, base };
+}
+function sealCtx(repo: string, base: string): RunContext {
+  const outputs: Partial<Record<StageName, Record<string, unknown>>> = {
+    intake: { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", title: "fix", resumed: false },
+    wall: { files: [] },
+    implement: { exit: "done", tests_reverted: [], duration_s: 3, iteration_id: "e10-r1-impl" },
+    verify: { checks: [{ name: "bun test", cmd: "bun test", result: "pass", duration_s: 1, n: 1 }], flaky: [], wall_passed: true, duration_s: 2 },
+  };
+  return {
+    runId: "r1", repoDir: repo, runDir: join(repo, ".loki/runs/r1"), baseSha: base, branch: "loki/r1", provider: "claude", model: "m", deep: false, capS: 900,
+    emit: (_t: EventType) => {}, sessions: { run: async () => { throw new Error("none"); } },
+    tests: { detect: async () => ({ runners: [], tests: [] }), impacted: () => [] },
+    cost: { read: () => ({ usd: null, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0 }) }, clock: { now: () => 0 }, outputs: () => outputs,
+  };
+}
+async function sealRun(baseFiles: Record<string, string>, edits: Record<string, string>): Promise<Receipt> {
+  process.env["LOKI_RECEIPT_SIGNING_KEY"] = ""; process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = join(tmpdir(), "rcs-nokey", "k.pem");
+  const { repo, base } = sealRepo(baseFiles, edits), ctx = sealCtx(repo, base);
+  await commitStage.run(ctx, new AbortController().signal);
+  const s = await sealStage.run(ctx, new AbortController().signal);
+  return JSON.parse(readFileSync(s.data.receipt_path as string, "utf8")) as Receipt;
+}
+const cappedOn = (r: Receipt, file: string): void => {
+  expect(["PARTIAL", "NOT PROVEN"]).toContain(r.verdict);
+  expect(r.not_proven.some((n) => n.includes(file) && /runner (config|setup file)/.test(n))).toBe(true);
+};
+describe("FC-09 seal caps a run that touches runner config", () => {
+  test("control: a clean run still seals VERIFIED", async () => {
+    const r = await sealRun({ "bunfig.toml": "[test]\n" }, { "notes.txt": "x\n" });
+    expect(r.verdict).toBe("VERIFIED");
+    expect(r.not_proven.some((n) => /runner (config|setup file)/.test(n))).toBe(false);
+  }, 30000);
+  test("bun: bunfig.toml preloads a new setup.ts", async () => {
+    const r = await sealRun({ "bunfig.toml": "[test]\n" }, { "bunfig.toml": '[test]\npreload = ["./setup.ts"]\n', "setup.ts": "// mock\n" });
+    cappedOn(r, "bunfig.toml"); cappedOn(r, "setup.ts");
+  }, 30000);
+  test("vitest: an already-listed setupFiles entry is edited", async () => {
+    cappedOn(await sealRun({ "vitest.config.ts": "export default { test: { setupFiles: ['./test/setup.ts'] } };\n", "test/setup.ts": "// empty\n" }, { "test/setup.ts": "vi.mock('../calc');\n" }), "test/setup.ts");
+  }, 30000);
+  test("jest: moduleNameMapper retargets at a new stub", async () => {
+    const r = await sealRun({ "package.json": '{"name":"x","jest":{"testEnvironment":"node"}}\n' }, { "package.json": '{"name":"x","jest":{"testEnvironment":"node","moduleNameMapper":{"^./calc$":"<rootDir>/stub.js"}}}\n', "stub.js": "module.exports = {};\n" });
+    cappedOn(r, "package.json"); cappedOn(r, "stub.js");
+  }, 30000);
+  test("jest: <rootDir> is the config folder in a monorepo package", async () => {
+    cappedOn(await sealRun({ "packages/foo/jest.config.js": "module.exports = { setupFiles: ['<rootDir>/setup.js'] };\n", "packages/foo/setup.js": "// e\n" }, { "packages/foo/setup.js": "jest.mock('x');\n" }), "packages/foo/setup.js");
+  }, 30000);
+  test("jest: explicit rootDir fails closed", async () => {
+    cappedOn(await sealRun({ "cfg/jest.config.js": "module.exports = { rootDir: '..', setupFiles: ['<rootDir>/setup.js'] };\n", "setup.js": "// e\n" }, { "setup.js": "jest.mock('./calc');\n" }), "setup.js");
+  }, 30000);
+  test("pytest: a new conftest.py caps", async () => {
+    cappedOn(await sealRun({}, { "tests/conftest.py": "import calc\n" }), "tests/conftest.py");
+  }, 30000);
+  test("__mocks__: added and edited mocks cap", async () => {
+    cappedOn(await sealRun({}, { "src/__mocks__/calc.ts": "export const add = () => 3;\n" }), "src/__mocks__/calc.ts");
+    cappedOn(await sealRun({ "src/__mocks__/calc.ts": "export const add = () => 1;\n" }, { "src/__mocks__/calc.ts": "export const add = () => 3;\n" }), "src/__mocks__/calc.ts");
+  }, 60000);
+  test("vitest.workspace: inline setupFiles in an added workspace caps", async () => {
+    cappedOn(await sealRun({}, { "vitest.workspace.ts": "export default [{ test: { setupFiles: ['./setup.ts'] } }];\n", "setup.ts": "//\n" }), "vitest.workspace.ts");
+  }, 30000);
+  test("package.json pretest edit caps the seal verdict", async () => {
+    const pk = (s: Record<string, string>): string => JSON.stringify({ name: "x", scripts: s }) + "\n";
+    cappedOn(await sealRun({ "package.json": pk({ test: "bun test" }) }, { "package.json": pk({ test: "bun test", pretest: "node mock.js" }) }), "package.json");
+  }, 30000);
+  test("an unchanged malformed package.json does not cap; a changed one is reported unparseable", async () => {
+    const r = await sealRun({ "fixtures/bad/package.json": "{ not json" }, { "notes.txt": "x\n" });
+    expect(r.verdict).toBe("VERIFIED");
+    const { repo, base } = sealRepo({ "package.json": "{ not json" }, { "package.json": "{ still not json" });
+    sh(repo, ["add", "package.json"]); sh(repo, ["commit", "-qm", "c"]);
+    expect(runnerConfigNotes(repo, base, sh(repo, ["rev-parse", "HEAD"]), ["package.json"]).join("\n")).toContain("unparseable");
+  }, 30000);
+  test("LOST-1b: an unchanged unparseable config caps when a non-test file in its tree changed", () => {
+    const { repo, base } = sealRepo({ "package.json": "{ not json" }, { "src/helper.ts": "export {};\n", "calc.test.ts": "// t\n" });
+    sh(repo, ["add", "src/helper.ts", "calc.test.ts", "calc.ts"]); sh(repo, ["commit", "-qm", "c"]);
+    const head = sh(repo, ["rev-parse", "HEAD"]);
+    expect(runnerConfigNotes(repo, base, head, ["src/helper.ts"]).join("\n")).toContain("runner config unparseable");
+    expect(runnerConfigNotes(repo, base, head, ["calc.test.ts"])).toEqual([]);
+  }, 30000);
+  test("LOST-1b: an unchanged unparseable config in a subtree ignores changes elsewhere", () => {
+    const { repo, base } = sealRepo({ "fixtures/bad/package.json": "{ not json" }, { "src/helper.ts": "export {};\n" });
+    sh(repo, ["add", "src/helper.ts"]); sh(repo, ["commit", "-qm", "c"]);
+    expect(runnerConfigNotes(repo, base, sh(repo, ["rev-parse", "HEAD"]), ["src/helper.ts"])).toEqual([]);
+  }, 30000);
+  test("LOST-1b: an unchanged config blob is read once, not twice", () => {
+    const { repo, base } = sealRepo({ "bunfig.toml": "[test]\n" }, { "notes.txt": "x\n" });
+    sh(repo, ["add", "notes.txt"]); sh(repo, ["commit", "-qm", "c"]);
+    const bin = mkdtempSync(join(tmpdir(), "rcbin-")); dirs.push(bin);
+    const log = join(bin, "log"), real = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
+    writeFileSync(join(bin, "git"), `#!/bin/sh\necho "$@" >> ${log}\nexec ${real} "$@"\n`, { mode: 0o755 });
+    const old = process.env["PATH"]; process.env["PATH"] = `${bin}:${old}`;
+    try { runnerConfigNotes(repo, base, sh(repo, ["rev-parse", "HEAD"]), ["notes.txt"]); } finally { process.env["PATH"] = old; }
+    expect((readFileSync(log, "utf8").match(/show .*:bunfig\.toml/g) ?? []).length).toBe(1);
+  }, 30000);
+  test("a package.json change outside runner sections is not runner config", () => {
+    const { repo, base } = sealRepo({ "package.json": '{"name":"x","jest":{}}\n' }, { "package.json": '{"name":"x","version":"2","jest":{}}\n' });
+    sh(repo, ["add", "package.json"]); sh(repo, ["commit", "-qm", "c"]);
+    expect(runnerConfigNotes(repo, base, sh(repo, ["rev-parse", "HEAD"]), ["package.json"])).toEqual([]);
+  });
+});
+
+describe("FC-09u pnpm-workspace and yarnrc key-level caps", () => {
+  const PNPM = 'packages:\n  - "pkgs/*"\n\noverrides:\n  foo: 1.0.0\n\npackageExtensions:\n  bar@1:\n    dependencies:\n      baz: "*"\n';
+  const YARN = 'nodeLinker: node-modules\n\npackageExtensions:\n  bar@1:\n    dependencies:\n      baz: "*"\n';
+  const capsOn = (f: string, base: string, head: string): string[] => { const r = repo({ [f]: base }); r.edit(f, head); return testConfigChanged(r.dir, r.base, [f]); };
+  test("pnpm-workspace.yaml overrides edit caps", () => {
+    expect(capsOn("pnpm-workspace.yaml", PNPM, PNPM.replace("foo: 1.0.0", "foo: link:../fake"))).toEqual(["pnpm-workspace.yaml"]);
+  });
+  test("pnpm-workspace.yaml packageExtensions edit caps", () => {
+    expect(capsOn("pnpm-workspace.yaml", PNPM, PNPM.replace('baz: "*"', 'qux: "*"'))).toEqual(["pnpm-workspace.yaml"]);
+  });
+  test(".yarnrc.yml packageExtensions edit caps", () => {
+    expect(capsOn(".yarnrc.yml", YARN, YARN.replace('baz: "*"', 'qux: "*"'))).toEqual([".yarnrc.yml"]);
+  });
+  test("a new overrides or packageExtensions block caps, including quoted keys and nested paths", () => {
+    expect(capsOn("pnpm-workspace.yaml", 'packages:\n  - "a"\n', 'packages:\n  - "a"\noverrides:\n  x: 1\n')).toEqual(["pnpm-workspace.yaml"]);
+    expect(capsOn("sub/.yarnrc.yml", "nodeLinker: pnp\n", 'nodeLinker: pnp\n"packageExtensions": { a@1: {} }\n')).toEqual(["sub/.yarnrc.yml"]);
+  });
+  // D101 fail-closed: YAML runner configs are never compared as parsed values (Bun.YAML and js-yaml 4 disagree), so even an unrelated or comment-only edit caps.
+  test("any byte change caps, including a comment-only or unrelated edit", () => {
+    expect(capsOn("pnpm-workspace.yaml", PNPM, PNPM.replace('"pkgs/*"', '"other/*"'))).toEqual(["pnpm-workspace.yaml"]);
+    expect(capsOn("pnpm-workspace.yaml", PNPM, "# note\n" + PNPM)).toEqual(["pnpm-workspace.yaml"]);
+    expect(capsOn(".yarnrc.yml", YARN, YARN.replace("node-modules", "pnp"))).toEqual([".yarnrc.yml"]);
+  });
+  test("a byte-identical YAML config does not cap", () => {
+    const r = repo({ "pnpm-workspace.yaml": PNPM, "x.txt": "1" });
+    r.edit("x.txt", "2"); sh(r.dir, ["add", "."]); sh(r.dir, ["commit", "-qm", "c"]);
+    expect(runnerConfigNotes(r.dir, r.base, sh(r.dir, ["rev-parse", "HEAD"]), ["x.txt"])).toEqual([]);
+  });
+  test.each([
+    ["block scalar on its own line", "x:\n  foo\npackages: [a]\n", "x:\n  |\noverrides:\n  foo: link:./fake\n"],
+    ["folded scalar after comment", "x: 1\n", "x: #\n  >\noverrides:\n  foo: link:./fake\n"],
+    ["1_000 number", "overrides:\n  foo: 1_000\n", "overrides:\n  foo: link:./fake\n"],
+    ["timestamp", "x: 2001-12-14\n", "x: 2001-12-14t21:59:43.10-05:00\noverrides:\n  foo: link:./fake\n"],
+    ["indentation indicator", "x: 1\n", "x: |2\n    a\noverrides:\n  foo: link:./fake\n"],
+  ])("FC-09v r2 pnpm-workspace.yaml parser-disagreement case caps: %s", (_n, a, b) => {
+    expect(capsOn("pnpm-workspace.yaml", a, b)).toEqual(["pnpm-workspace.yaml"]);
+  });
+  test("a changed, added or deleted patch file caps", () => {
+    expect(capsOn("patches/foo.patch", "a\n", "b\n")).toEqual(["patches/foo.patch"]);
+    expect(capsOn("sub/patches/foo.diff", "a\n", "b\n")).toEqual(["sub/patches/foo.diff"]);
+    expect(capsOn("x.patch", "a\n", "b\n")).toEqual(["x.patch"]);
+    const r = repo({ "patches/foo.patch": "a\n", "k": "1" });
+    r.edit("patches/foo.patch", "b\n"); sh(r.dir, ["add", "."]); sh(r.dir, ["commit", "-qm", "c"]);
+    expect(runnerConfigNotes(r.dir, r.base, sh(r.dir, ["rev-parse", "HEAD"]), ["patches/foo.patch"]).length).toBe(1);
+  });
+  test.each([
+    ["explicit key", "packages: [a]\n? overrides\n: {foo: 1.0.0}\n", "packages: [a]\n? overrides\n: {foo: link:../fake}\n"],
+    ["BOM", "\uFEFFoverrides:\n  foo: 1.0.0\n", "\uFEFFoverrides:\n  foo: link:../fake\n"],
+    ["escaped key", '"overrides":\n  foo: 1.0.0\n', '"overrides":\n  foo: link:../fake\n'],
+    ["escaped unicode key", '"\\u006fverrides":\n  foo: 1.0.0\n', '"\\u006fverrides":\n  foo: link:../fake\n'],
+    ["flow map", "{packages: [a], overrides: {foo: 1.0.0}}\n", "{packages: [a], overrides: {foo: link:../fake}}\n"],
+    ["anchor body", "x-base: &o {foo: 1.0.0}\noverrides: *o\n", "x-base: &o {foo: link:../fake}\noverrides: *o\n"],
+    ["merge key", "x-base: &o {foo: 1.0.0}\noverrides:\n  <<: *o\n", "x-base: &o {foo: link:../fake}\noverrides:\n  <<: *o\n"],
+    ["bare CR", "packages: [a]\roverrides:\r  foo: 1.0.0\r", "packages: [a]\roverrides:\r  foo: link:../fake\r"],
+  ])("pnpm-workspace.yaml bypass caps: %s", (_n, a, b) => {
+    expect(capsOn("pnpm-workspace.yaml", a, b)).toEqual(["pnpm-workspace.yaml"]);
+  });
+  test.each([
+    ["double BOM", "\uFEFF\uFEFFoverrides:\n  foo: 1.0.0\n", "\uFEFF\uFEFFoverrides:\n  foo: link:./fake\n"],
+    ["collection key", "packages: [a]\n? [foo]\n: 1.0.0\n", "packages: [a]\n? [foo]\n: link:./fake\n"],
+    ["quoted merge key", 'x: &o {foo: 1.0.0}\noverrides:\n  "<<": *o\n', 'x: &o {foo: link:./fake}\noverrides:\n  "<<": *o\n'],
+    ["alias in overrides", "x: &o 1.0.0\noverrides:\n  foo: *o\n", "x: &o link:./fake\noverrides:\n  foo: *o\n"],
+    ["CR only", "overrides:\r  foo: 1.0.0\r", "overrides:\r  foo: link:./fake\r"],
+    ["tab", "packages: [a]\toverrides: {foo: 1.0.0}\n", "packages: [a]\toverrides: {foo: link:./fake}\n"],
+    ["tag", "overrides: !!map\n  foo: 1.0.0\n", "overrides: !!map\n  foo: link:./fake\n"],
+    ["document marker", "---\noverrides:\n  foo: 1.0.0\n", "---\noverrides:\n  foo: link:./fake\n"],
+  ])("FC-09v pnpm-workspace.yaml outside the strict subset caps: %s", (_n, a, b) => {
+    expect(capsOn("pnpm-workspace.yaml", a, b)).toEqual(["pnpm-workspace.yaml"]);
+  });
+  test("malformed YAML that changed fails closed", () => {
+    expect(capsOn("pnpm-workspace.yaml", "packages: [a]\n", "packages: [a\noverrides: {\n")).toEqual(["pnpm-workspace.yaml"]);
+  });
+  test.each([["patchedDependencies", "a@1: p.patch"], ["catalog", "a: 1"], ["catalogs", "x: {a: 1}"]])("pnpm-workspace.yaml %s edit caps", (k, v) => {
+    expect(capsOn("pnpm-workspace.yaml", "packages: [a]\n", `packages: [a]\n${k}:\n  ${v}\n`)).toEqual(["pnpm-workspace.yaml"]);
+  });
+  test.each([["yarnPath", ".yarn/releases/fake.cjs"], ["plugins", "[./fake.cjs]"]])(".yarnrc.yml %s edit caps", (k, v) => {
+    expect(capsOn(".yarnrc.yml", YARN, `${YARN}${k}: ${v}\n`)).toEqual([".yarnrc.yml"]);
+  });
+  test("runnerConfigNotes caps any edit", () => {
+    const r = repo({ "pnpm-workspace.yaml": PNPM });
+    r.edit("pnpm-workspace.yaml", PNPM.replace("foo: 1.0.0", "foo: 2.0.0")); sh(r.dir, ["add", "."]); sh(r.dir, ["commit", "-qm", "c"]);
+    expect(runnerConfigNotes(r.dir, r.base, sh(r.dir, ["rev-parse", "HEAD"]), ["pnpm-workspace.yaml"]).length).toBe(1);
+    r.edit("pnpm-workspace.yaml", PNPM.replace("foo: 1.0.0", "foo: 2.0.0").replace('"pkgs/*"', '"z/*"')); sh(r.dir, ["add", "."]); sh(r.dir, ["commit", "-qm", "d"]);
+    expect(runnerConfigNotes(r.dir, sh(r.dir, ["rev-parse", "HEAD~1"]), sh(r.dir, ["rev-parse", "HEAD"]), ["pnpm-workspace.yaml"]).length).toBe(1);
+  });
+});
+
+describe("FC-09w case-insensitive registry, .npmrc, patchedDependencies targets", () => {
+  const NAMES = ["PNPM-Workspace.yaml", ".YARNRC.yml", "Jest.Config.js", "VITEST.config.ts", "Bunfig.TOML", "ConfTest.py", "Tox.INI", "PyTest.ini", ".Mocharc.json", ".CARGO/Config.toml", "Babel.Config.js", ".PnpmFile.cjs", "Patches/a.diff", "x.PATCH", ".NPMRC", "sub/.Npmrc"];
+  const commit = (d: string, m: string): string => { sh(d, ["add", "."]); sh(d, ["commit", "-qm", m]); return sh(d, ["rev-parse", "HEAD"]); };
+  test.each(NAMES.map((n) => [n]))("capitalized %s: edit caps in both entry points", (f) => {
+    const r = repo({ [f]: "a = 1\n", "x.txt": "1" });
+    r.edit(f, "a = 2\n");
+    expect(testConfigChanged(r.dir, r.base, [f])).toEqual([f]);
+    const head = commit(r.dir, "e");
+    expect(runnerConfigNotes(r.dir, r.base, head, [f]).length).toBe(1);
+  });
+  test.each(NAMES.map((n) => [n]))("capitalized %s: add caps in both entry points", (f) => {
+    const r = repo({ "x.txt": "1" });
+    r.edit(f, "a = 1\n");
+    expect(testConfigChanged(r.dir, r.base, [f])).toEqual([f]);
+    const head = commit(r.dir, "a");
+    expect(runnerConfigNotes(r.dir, r.base, head, [f]).length).toBe(1);
+  });
+  test("capitalized shared manifest compares by section, not by bytes", () => {
+    const r = repo({ "Package.JSON": pkg({ test: "t" }, { version: "1" }) });
+    r.edit("Package.JSON", pkg({ test: "t" }, { version: "2" }));
+    expect(testConfigChanged(r.dir, r.base, ["Package.JSON"])).toEqual([]);
+    r.edit("Package.JSON", pkg({ test: "t", pretest: "x" }));
+    expect(testConfigChanged(r.dir, r.base, ["Package.JSON"])).toEqual(["Package.JSON"]);
+  });
+  test("a byte-identical .npmrc does not cap", () => {
+    const r = repo({ ".npmrc": "registry=a\n", "x.txt": "1" });
+    r.edit("x.txt", "2");
+    expect(runnerConfigNotes(r.dir, r.base, commit(r.dir, "c"), ["x.txt"])).toEqual([]);
+  });
+  test("every registry regex is case-insensitive", () => {
+    for (const s of RUNNER_CONFIGS) expect(s.re.flags).toContain("i");
+  });
+  test.each([
+    ["package.json pnpm key", "package.json", pkg({ test: "t" }, { pnpm: { patchedDependencies: { "foo@1.0.0": "vendor/foo.js" } } }), "vendor/foo.js"],
+    ["package.json top-level key", "package.json", pkg({ test: "t" }, { patchedDependencies: { "foo@1.0.0": "./vendor/foo.txt" } }), "vendor/foo.txt"],
+    ["pnpm-workspace.yaml", "pnpm-workspace.yaml", 'packages:\n  - a\npatchedDependencies:\n  foo@1.0.0: vendor/foo.js\n  "bar@2": "other/bar.js"\n', "other/bar.js"],
+    ["nested manifest resolves relative to it", "sub/package.json", pkg({ test: "t" }, { pnpm: { patchedDependencies: { "foo@1": "v/foo.js" } } }), "sub/v/foo.js"],
+  ])("patchedDependencies target outside patches/ caps when edited: %s", (_n, cfg, text, target) => {
+    const r = repo({ [cfg]: text, [target]: "old\n" });
+    r.edit(target, "new\n");
+    const notes = runnerConfigNotes(r.dir, r.base, commit(r.dir, "p"), [target]);
+    expect(notes.length).toBe(1);
+    expect(notes[0]).toContain(target);
+  });
+  test("an unrelated file next to a patchedDependencies manifest does not cap", () => {
+    const r = repo({ "package.json": pkg({ test: "t" }, { pnpm: { patchedDependencies: { "foo@1": "vendor/foo.js" } } }), "vendor/foo.js": "a", "vendor/other.js": "a" });
+    r.edit("vendor/other.js", "b");
+    expect(runnerConfigNotes(r.dir, r.base, commit(r.dir, "u"), ["vendor/other.js"])).toEqual([]);
+  });
+  describe("FC-09x remapped patch target between two committed patch files caps", () => {
+    const remap = (cfg: string, baseText: string, headText: string): string[] => {
+      const r = repo({ [cfg]: baseText, "p.patch": "p\n", "q.patch": "q\n" });
+      r.edit(cfg, headText);
+      return runnerConfigNotes(r.dir, r.base, commit(r.dir, "m"), [cfg]);
+    };
+    test("Bun top-level patchedDependencies mapping compared in package.json", () => {
+      const r = repo({ "package.json": pkg({ test: "t" }, { patchedDependencies: { a: "p.patch" } }), "p.patch": "p\n", "q.patch": "q\n" });
+      r.edit("package.json", pkg({ test: "t" }, { patchedDependencies: { a: "q.patch" } }));
+      expect(testConfigChanged(r.dir, r.base, ["package.json"])).toEqual(["package.json"]);
+      expect(runnerConfigNotes(r.dir, r.base, commit(r.dir, "m"), ["package.json"]).length).toBeGreaterThan(0);
+    });
+    test("CRLF pnpm-workspace.yaml remap caps", () => {
+      expect(remap("pnpm-workspace.yaml", "packages:\r\n  - a\r\npatchedDependencies:\r\n  a: p.patch\r\n", "packages:\r\n  - a\r\npatchedDependencies:\r\n  a: q.patch\r\n").length).toBeGreaterThan(0);
+    });
+    test("CRLF pnpm-workspace.yaml adding b->p.patch caps", () => {
+      expect(remap("pnpm-workspace.yaml", "patchedDependencies:\r\n  a: p.patch\r\n", "patchedDependencies:\r\n  a: p.patch\r\n  b: p.patch\r\n").length).toBeGreaterThan(0);
+    });
+    test("multi-line flow map remap caps", () => {
+      expect(remap("pnpm-workspace.yaml", "patchedDependencies: {\n  a: p.patch,\n  b: p.patch\n}\n", "patchedDependencies: {\n  a: q.patch,\n  b: p.patch\n}\n").length).toBeGreaterThan(0);
+    });
+    test("CRLF pnpm-workspace.yaml targets are parsed as patch targets", () => {
+      const r = repo({ "pnpm-workspace.yaml": "packages:\r\n  - a\r\npatchedDependencies:\r\n  a: vendor/a.js\r\n", "vendor/a.js": "x\n" });
+      r.edit("vendor/a.js", "y\n");
+      const n = runnerConfigNotes(r.dir, r.base, commit(r.dir, "p"), ["vendor/a.js"]);
+      expect(n.length).toBe(1);
+      expect(n[0]).toContain("vendor/a.js");
+    });
+    test("multi-line flow map targets are parsed as patch targets", () => {
+      const r = repo({ "pnpm-workspace.yaml": "patchedDependencies: {\n  a: vendor/a.js,\n  b: vendor/b.js\n}\nother: 1\n", "vendor/b.js": "x\n" });
+      r.edit("vendor/b.js", "y\n");
+      const n = runnerConfigNotes(r.dir, r.base, commit(r.dir, "p"), ["vendor/b.js"]);
+      expect(n.length).toBe(1);
+      expect(n[0]).toContain("vendor/b.js");
+    });
   });
 });

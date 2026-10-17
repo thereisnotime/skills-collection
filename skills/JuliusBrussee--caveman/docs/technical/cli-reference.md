@@ -268,7 +268,7 @@ Record mode never changes model-visible request bytes.
 
 ```bash
 caveman learn
-caveman learn --since 7d --sources claude,codex,gemini,opencode,aider
+caveman learn --since 7d --sources claude,codex,gemini,opencode,aider,pi
 caveman learn --all
 caveman learn --repo my-project
 caveman learn --json

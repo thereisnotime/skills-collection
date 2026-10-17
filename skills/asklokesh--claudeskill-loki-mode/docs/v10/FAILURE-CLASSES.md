@@ -137,7 +137,7 @@ L0 review rule (ENGINE-LAWS.md L0): a fix that adds an `if` or a regex about the
 - Mechanism: one verdict-display function that returns TAMPERED whenever the run is tampered or its seal is invalid (CPE-27).
 - Fixture: an ingested run with tamper.detected never shows VERIFIED in any surface.
 - Sibling follow-up (EL-FC08b): redact at source in the engine before hashing. Today the shipper (redactEvent) and the server (redactSecrets) rewrite event data before the CP can hash it, so an honest signed run holding a token reads UNVERIFIED ("log redacted before ingest; seal not checkable"), never TAMPERED and never VERIFIED. Redacting before the engine hashes and signs would make such runs checkable end to end.
-- Sibling follow-up (deferred, not built in EL-FC08b): the shipper should send the sha256 of each line before redaction (alongside the redacted line). The CP could then check the seal over the original hashes and tell a genuine redaction from a downgrade (a FAILED log edited to PARTIAL plus a planted [REDACTED]); today such a log can only read "<verdict> (unattested)" or UNVERIFIED. This is the lasting fix for placeholder downgrades.
+- Sibling follow-up (deferred, not built in EL-FC08b): the shipper should send the sha256 of each line before redaction (alongside the redacted line). The CP could then check the seal over the original hashes and tell a genuine redaction from a downgrade (a FAILED log edited to PARTIAL plus a planted [REDACTED]); today such a log can only read "<verdict> (unattested)" or UNVERIFIED. This is the lasting fix for placeholder downgrades. REJECTED 2026-10-17 (Q17-05, HIGH r1 on 36524784d): a client-supplied original hash cannot be checked by the server, so a forger copies log.sealed events_sha256 into the shipped chain and a FAILED run displays VERIFIED; the chain is also unbound to the run id, so any signed seal replays onto any log. Rule: the CP never accepts a client-supplied hash in place of recomputing one over the bytes it received. The lasting fix is the line above: redact in the engine before hashing and signing (Q17-05b).
 - Sibling follow-up: the Slack summary, PR status and `loki status` do not yet read the CP effective_verdict.
 
 ## FC-09 A test-config edit outside scope can make broken code VERIFIED
@@ -149,6 +149,10 @@ L0 review rule (ENGINE-LAWS.md L0): a fix that adds an `if` or a regex about the
   - the equivalents for other runners: vitest.config setupFiles, jest setupFiles and moduleNameMapper, pytest conftest.py, and go test flags in Makefiles.
 - Mechanism: one runner-config registry for each runner. Any added or changed file that it names (configs, preloads, setup files, conftest) caps the verdict below VERIFIED, with NOT PROVEN naming the file.
 - Fixture: a stub-provider repro for each runner (bun preload, vitest setupFiles, jest moduleNameMapper, pytest conftest).
+- Status (FC-09r): mechanism in `loki-ts/src/features/runner_config.ts`, read by verify.ts (testConfigChanged, base vs working tree) and seal.ts (runnerConfigNotes, base vs head, adds a NOT PROVEN line so the verdict cannot be VERIFIED). Fixtures: `loki-ts/tests/engine10/runner_config.test.ts` (real commit + seal stages).
+- Covered: bunfig.toml; vitest, vite, jest config and vitest.workspace; .mocharc; pytest.ini, tox.ini, conftest.py; pyproject.toml and setup.cfg pytest sections; .cargo/config.toml; preload, setupFiles, globalSetup and exact-file moduleNameMapper targets (jest rootDir resolved, explicit rootDir fails closed); `__mocks__/`; package.json scripts and resolution redirects; go.mod and go.work replace; Cargo.toml patch and replace; tsconfig paths; a changed config that fails to parse is capped, an unchanged broken one is not.
+- Deferred: transitive imports of setup files, pytest `-p` plugins and `pytest_plugins`, .mocharc `require`/`spec` targets, setupFiles given as identifiers or globs, Makefile go test flags.
+- FC-09w (P1, reproduced 2026-10-17 by the FC-09v r2 HIGH review): every RUNNER_CONFIGS pattern is case-sensitive, but macOS filesystems are case-insensitive, so adding `PNPM-Workspace.yaml` or `.YARNRC.yml` is not capped (notes 0) while real pnpm 11.1.3 reads the capitalized file. Siblings: every registry row (jest, vitest, bunfig, conftest and the rest). Mechanism: match case-insensitively across the whole registry in one place. Fixture: capitalized variants of each row cap in loki-ts/tests/engine10 runner_config tests. Also open (P2): patchedDependencies targets outside patches/ with non-.patch names, and .npmrc (registry=) are not in the registry.
 
 ## FC-10 Live line truncated to ~20 columns on a pty with no size
 - User saw: on a pty with no column size (script -q, CI, tmux before a resize, IDE terminals) the quiet-mode live status line was cut to about 20 characters, for example "[implement] implemen". Raw: the stage events were complete; only the rendering was wrong.
@@ -639,6 +643,7 @@ L0 review rule (ENGINE-LAWS.md L0): a fix that adds an `if` or a regex about the
 - Law: evidence or it did not happen; a green that cannot go red is not a gate. Guard class: the root cause is FC-67 (WALL-NOTRUN holds that row); this row is the detection layer.
 - Siblings: any other check a receipt could lose without a failing exit (lint, mutation proof, cross review) is not yet counted; the guard asserts only checks[] executed >= 2 and the Wall test.
 - Mechanism: scripts/assert-wall-executed.sh reads the keys seal.ts writes (checks[].result, wall.files, wall.passed, not_proven[]). scripts/real-run.sh applies it to scenarios with SC_WALL_EXECUTED=1 (trivial-sum, two-bug). Post-Release Smoke npm-smoke runs it as a blocking step.
+- Q17-04 sibling guard: a scenario sets SC_EXPECT_CHECKS=lint,mutation,review and assert-wall-executed.sh (3rd arg) fails when a named check is absent or not_run in checks[]; unset keeps today's behavior.
 - Limit: the real trivial-sum and two-bug runs are billed and CI has no provider key, so Post-Release Smoke cannot run them unattended; the blocking step proves the guard logic on the released commit and runs the real scenario when a key is supplied.
 - Fixture: tests/test-wall-executed-guard.sh (11.3.1 shape passes, 11.3.2 shape fails, each leg alone fails).
 
@@ -795,3 +800,285 @@ L0 review rule (ENGINE-LAWS.md L0): a fix that adds an `if` or a regex about the
 - Mechanism: scripts/v10-worktree-reap.sh removes (non-force, by exact path) clean worktrees merged into origin/main or idle past 6h by HEAD reflog mtime and not on an active BOARD row; idle dirty ones are salvaged to wt-save/<name> first (node_modules and .rv deleted, loki-ts/dist discarded); detached unmerged HEADs get a wt-save ref; locked and fresh ones are kept. It runs after each main sync in train-cycle.sh and from .githooks/post-merge. scripts/v10-worktree-add.sh enforces the 40G floor (LOKI_WORKTREE_DISK_FLOOR_GB), reaping first. Pulse emits WORKTREE_SPRAWL above 20.
 - Fixture: tests/test-worktree-reap.sh (merged, idle, detached, dirty-idle, .rv, dist-only, dirty-fresh, locked, fresh, BOARD-held, floor refusal, pulse 20 vs 21).
 - Known limits: a locked worktree whose owning agent is dead is kept (the reaper cannot tell dead from alive, so it never touches a locked one); and slice worktrees created by the agent harness bypass the disk floor unless the dispatcher creates them through scripts/v10-worktree-add.sh.
+
+## FC-100 The merge gate accepted a proof not bound to the PR head (MERGE-HEAD-PIN)
+- User saw: a PR could merge on a VERIFIED verdict that was earned by a different commit than the one merged (last-proof-id pointed at whatever ran last, and gh pr merge named no expected head).
+- Law: a verdict binds to the exact bytes it judged; the merge must prove the head it lands equals the head that was proven.
+- Cause (measured): _merge_pr_gated read .loki/state/last-proof-id.txt without comparing facts.git.head_sha to the PR headRefOid, and called gh pr merge without --match-head-commit; a scan that stopped at the first matching proof let an older VERIFIED override a newer NOT_PROVEN.
+- Siblings swept: verify-pr respond headRefOid compare (P12-04, loki-ts); the queue path shares _merge_pr_gated and is pinned too.
+- Mechanism: the gate reads headRefOid, requires every clean (non-dirty) proof for that head to agree on VERIFIED, refuses with gate: head when none exists or the head is unreadable or moved, and merges with --match-head-commit.
+- Fixture: tests/test-loki-merge-queue.sh (pin flag, stale proof, proof resolved by head, older VERIFIED vs newer NOT_PROVEN, dirty proof, unreadable head, head moved).
+- Known limits: a proof without facts.git.head_sha never matches (fails closed); dirty is ignoring .loki/ only.
+
+## FC-101 A receipt field the writer always emits was treated as optional, so deleting it passed as UNSIGNED (RECEIPT-FIELD-OPTIONAL)
+- User saw: a hand-edited receipt with events_sha256, time or time.stages removed (or set to null or a string) verified as UNSIGNED, and --allow-unsigned accepted it.
+- Law: a verifier may treat a field as optional only if some writer omits it; absence of an always-written field is evidence of editing, never a pass.
+- Cause (measured): checkEventLog returned null when events_sha256 was not a string, and the P12-01b stages check accepted any non-object time; seal.ts has written both fields since ad80fd4e6.
+- Siblings swept: the group receipt (seal_group.ts), Python proof receipts and control-plane fixtures never carry these fields and are not gated; signed receipts already cover both fields through receipt_sha256 and the attestation. The control-plane verify fixture (packages/control-plane/test/server/verify.test.ts signed()) and the undo_plan, undo_apply and workspace e2e receipt/1 fixtures are gated and now carry seal-shaped fields (empty-log hash with zero stages).
+- Mechanism: verify_cmd.ts checkEventLog, for schema loki.v10.receipt/1 only, returns TAMPERED naming the missing field (events_sha256 not 64-char lowercase hex, time absent or null, time.stages not a plain object) and ends "Re-run the task to produce a fresh receipt."
+- Fixture: loki-ts/tests/engine10/verify_cmd.test.ts P12-01c (field missing, malformed hash, time removed with stages at top level, time null, stages string, stages array, honest zero-stage receipt stays UNSIGNED); hand-built receipt/1 fixtures in seal_group, log_seal and visual_evidence tests now carry both fields.
+- Known limits: closed by FC-103 (a schema variant or no schema field is now TAMPERED).
+
+## FC-102 A resumed run lost intake's deferred already_satisfied flag (D61-04, P12-07j) (RESUME-ALREADY-SATISFIED)
+- User saw: after `loki start --resume`, a run whose intent was already satisfied committed and verified its own diff and opened a redundant PR instead of short-circuiting to ALREADY_SATISFIED. Raw: the deferred hit was applied in memory only.
+- Cause (measured): the deferred hit mutates intake's data after intake's stage.completed was emitted (machine.ts keeps the same object for that reason), so resumeMachineOpts restored intake from a payload that never had the flag.
+- Law: L4 (the durable log must carry every fact a later stage reads).
+- Siblings swept: every other stage output restored by resumeMachineOpts is final before its stage.completed emit; intake is the only stage mutated afterward. Readers of intake.already_satisfied: machine.ts mustJump, seal.ts verdictOf, discard.ts.
+- Mechanism: the worker emits `already.satisfied` (already_done_async.ts, after hitsUnchangedFromBase and apply succeed). SupervisorLog.ingest attests it as the SUPERVISOR_ONLY event `already.attested` only for a well-formed deferred hit while implement is in flight; a worker line of type already.attested is dropped. resumeMachineOpts restores the flag only from already.attested that precedes implement's stage.completed with no later intent.revised (stale evidence). Absent, malformed or rejected means not satisfied; old logs restore as before.
+- Guarantee: a restored flag jumps past verify. VERIFIED is impossible because verdictOf returns ALREADY_SATISFIED, or PARTIAL without proof, whenever intake.already_satisfied is true.
+- Fixture: loki-ts/tests/engine10/fix_resume.test.ts P12-07j (survives, old log, unattested worker event, malformed, intent.revised, post-implement, ingest attestation, verdictOf); tests/engine10/already_done.test.ts (emit payload and ordering).
+- Known limits: a compromised worker can still fake a well-formed already.satisfied while implement is in flight, the same claim it can already make through the LOKI_ALREADY_DONE marker; the attestation closes forgery outside that window and log edits (tamper.detected). discard.ts restores staged paths on this flag, so that window remains the trust boundary. comment and comment_argv are not restored.
+
+## FC-103 An unrecognized or missing receipt schema skipped every schema-gated check and read UNSIGNED, and a verify test turned a failed verification into SKIP (RECEIPT-SCHEMA-UNKNOWN)
+- User saw: a re-hashed unsigned receipt whose schema was renamed or removed verified as UNSIGNED (exit 0 under --allow-unsigned); tests/test-mcp-tasks-verify-readonly.sh printed SKIP and exited 0 when the signed verify returned a non-VERIFIED result with no verdict line.
+- Law: a verifier dispatches on a closed set of schemas; anything outside the set is evidence of editing, never a pass. A test may skip only on a named absent precondition, never on a verification result.
+- Cause (measured): schema-gated checks (FC-101, group section) were opt-in per schema, so a receipt that matched no schema matched no check; the test's catch-all case branch mapped every output without "verdict: " to SKIP.
+- Siblings swept: DSSE envelope and composite.json dispatch before this point and have their own hash checks; group/1 without a group section was closed in P12-01d; the other verify-path tests (test-loki-verify-*, verify_cmd.test.ts) assert on verdicts, not on skips.
+- Mechanism: verify_cmd.ts verifyReceipt returns TAMPERED naming "unrecognized receipt schema" unless schema is loki.v10.receipt/1 or loki.v10.group/1 (P12-01d, extended here by tests); the MCP verify test (classify_non_verified) fails on every non-VERIFIED result and SKIPs only when the output contains the engine message "cannot run on this machine: no working bun" (bin/loki checks PATH and the bundled @oven/bun-*, so a PATH probe is the wrong precondition).
+- Fixture: loki-ts/tests/engine10/verify_cmd.test.ts P12-01d loop (renamed, removed, non-string, empty, null, case-variant); tests/test-mcp-tasks-verify-readonly.sh run with PATH lacking bun, a bundled node_modules/@oven/bun-*/bin/bun and LOKI_TS_ENTRY at a crashing stub (old: SKIP 6/0, new: FAIL) plus the classify_non_verified cases.
+- Known limits: the only SKIP is the engine-reported "no working bun"; a bun that exists but crashes fails. The unsigned cases of the same script always run.
+
+## FC-104 A steer claim linked to a normal archive was swept as "applied" although the consumer died before applying it (STEER-APPLIED-UNPROVEN)
+- User saw: an operator steer vanished: never injected, never reported, and Seal passed.
+- Law: "applied" must be provable from a durable record written before the evidence that could contradict it is removed; an inode match proves only that a link happened.
+- Cause (measured): consumeSteer linked the claim to human-input-<stamp>.md, unlinked the claim, then recorded revisions. P12-02f's sweep removed any claim sharing an inode with a normal archive, so a kill between link and record (or unlink and record) lost the steer silently.
+- Siblings swept: ORPHAN and REJECTED archives (already reported when made, still removed quietly); the no-hardlink rename fallback in archiveTo (EPERM, ENOTSUP, EXDEV, EMLINK), which now also runs the record and marker step right after the rename (no claim survives there, so the order is record after rename); a dropped call there left the sink and intent-revisions.jsonl empty and Seal passing.
+- Mechanism: archiveTo runs an onLinked step before the claim unlink: revisions are recorded, then a .applied-<archive> marker is written. sweepOrphans removes a claim linked to a normal archive only when that marker exists; otherwise it archives it ORPHAN and reports "orphaned claim" so Seal refuses.
+- Fixture: loki-ts/tests/e10ext/steer.test.ts (P12-02g kill-before-record, marker-before-unlink order, applied-then-unlink-failed removed quietly).
+- Known limits: markers whose archive is gone are pruned by the sweep; the marker is agent-writable like the revision file; a kill between record and marker reports a recorded steer as unapplied (fails closed).
+- Known limits (no-hardlink filesystems): a kill after the rename fallback and before the revision record leaves no claim to sweep, so that steer is lost unreported; the order is unchanged from P12-02f.
+
+## FC-REQ Recovery treated a flaky pass, a protocol violation and a requirements conflict as the same transient failure (P12-11) (RECOVERY-CLASSES)
+- User saw: a test that failed once and passed on rerun was reported as a failure or retried blindly; a conflicting spec was re-prompted until the budget ran out.
+- Law: a class is claimed only from structured evidence, never from agent prose; an unrecognized failure stays transient and is retried (retry_class.ts fail-safe).
+- Cause (measured): decideRecovery knew only permanent, transient, build_failed, tree_corrupt and provider_unavailable; supervisor.ts hardcoded `flaky: []` and nothing remembered failures across runs.
+- Siblings swept: verify.ts already reruns once and marks fail-then-pass "flaky" (the evidence source); retry_class.ts classifyFailure is unchanged; the permanent-failure stop and the repeated-signature breaker still run before any new class.
+- Mechanism: recovery_policy.ts adds RecoverySignals rerun (same non-empty tree on fail and pass), protocolError and conflictingRequirements. Results: flaky -> retry, protocol_error -> revise, conflicting_requirements -> escalate. util/failure_memory.ts recordFingerprints (extends the existing failure-memory owner; flaky.json and failures.jsonl keep no per-run rows) appends fingerprints to .loki/state/fingerprints.jsonl (append-only, newest 200 kept) and supervisor.ts feeds verify's flaky list into it and the summary.
+- Fixture: loki-ts/tests/runner/harness_intelligence.test.ts "P12-11 recovery classes (FC-REQ)" (classifier table, fingerprints across two runs, bound).
+- Known limits: protocolError and conflictingRequirements have no producer wired yet (callers must set them from structured signals); fingerprints are recorded for flaky only and not yet read back by a policy rule; verify's flaky list reaches decideRecovery as the rerun signal (P12-11b) and Q17-03 adds failedChecks so a real failure beside a flaky check still revises (failedChecks has no production producer yet, so absent data keeps flaky-wins); engine10 renderMainOutput still passes flaky: [] (names reach the user via seal notProven); the bounding rewrite is best effort and a concurrent append can lose a row.
+
+## FC-P12-32 Router cost objective is built but dark in production (RESOLVED by P12-32b)
+- User-visible vs raw: no route decision changes today; the expected accepted-outcome cost ranking (history.ts routeScore, rankExecutorsByCost, haikuFloorExecutor) has no production caller.
+- Law broken: a control nobody reads is theatre (reader without a live caller).
+- Cause (measured): grep of loki-ts/src finds zero callers of resolveExecutor (decision.ts) and none that sets its historyFloor input, so haikuFloorExecutor is unreachable outside tests.
+- Siblings swept: decision.ts envOverride, model_rank.ts nextState and issues_epic.ts are the only decision.ts importers; none builds a ResolveInput.
+- Mechanism: seal.ts recordRun now also records FAILED as a code-owned loss (cost_preview.ts outcomeFor), so acceptance is measured; the remaining step is a caller that builds ResolveInput with historyFloor = haikuFloorExecutor(...) when the router resolves the stage executor.
+- Fixture: loki-ts/tests/runner/cost_preview.test.ts "P12-32 outcomeFor", router_history.test.ts P12-32 cases.
+- Resolved (P12-32b): implement_route.ts routeStart passes a lazy repoHistoryFloor to unit_model.ts routeRecord, which applies history.ts historyRaisedRoute (through resolveExecutor) to a valid cheapest-tier route; history only raises, and no history, below-floor history or corrupt history gives today's routing. Fixture: router_history.test.ts "P12-32b live cost routing".
+- Known limits: acceptance counts only VERIFIED and FAILED; PARTIAL runs are not recorded; history never selects a cheaper unproven model, by design.
+
+## FC-M25W Modernize final report and reslice event are built but never written in production (MODERNIZE-REPORT-DARK)
+- User-visible vs raw: a real `loki modernize` run leaves no `.loki/modernize/<mid>/report.json`, so no sealed COMPLETE or NOT PROVEN verdict reaches the user or the M-27 pilot; units re-sliced is never recorded.
+- Law broken: a control nobody reads is theatre (writer without a live caller; event declared with no producer).
+- Cause (measured 2026-10-16, M-27 HIGH review): `git grep writeReport -- loki-ts/src` finds only its definition at report.ts:106; `git grep unit.resliced -- loki-ts/src` finds only the declaration at types.ts:10 (reslice.ts never appends it).
+- Siblings to sweep: every name in the modernize types.ts event list must have at least one producer in loki-ts/src; cost has no per-unit producer either (only budget.hit spent_usd at scheduler.ts:203).
+- Mechanism: the coordinator (loki-ts/src/util/modernize_coordinator.ts) calls writeReport once at the end of a run; reslice.ts appends unit.resliced; a guard test asserts every declared event name has a producer.
+- Fixture: loki-ts/tests/engine10/modernize/e2e.test.ts asserts report.json exists after the stub run; a new producer-coverage case in the existing modernize test file.
+
+## FC-M25W-b Modernize events unit.planned and codemod.skipped are declared with no producer (MODERNIZE-EVENT-DARK)
+- User-visible vs raw: the modernize event log never shows which units were planned or why a codemod was skipped, so a user cannot see the plan or a missing-tool reason; the raw cause is two names in the types.ts event list with no append call.
+- Law broken: a control nobody reads is theatre (event declared with no producer).
+- Cause (measured 2026-10-16, M-25w build): `grep -rn "unit.planned\|codemod.skipped" loki-ts/src` finds only types.ts:8-9 and comments in codemod.ts:4,10; the M-25w producer guard allowlists both names.
+- Siblings to sweep: every name in the modernize types.ts event list; the allowlist in the M-25w producer guard must shrink to empty.
+- Mechanism: the planner appends unit.planned once per unit; the codemod caller appends codemod.skipped with the reason codemod.ts already returns; then delete both allowlist entries so the existing guard covers them.
+- Fixture: the M-25w producer-coverage case with an empty allowlist.
+
+## FC-COST-PARTIAL A cost total built from ledger lines alone is reported as complete when the main records carry tokens but no dollar figure (COST-PARTIAL-HIDDEN)
+- User-visible vs raw: `loki` cost and the C-F1 benchmark show a small total with cost_partial false, so a run looks cheaper than it was and the 2x cost claim could rest on an understated number.
+- Law broken: a total that omits unpriced spend must say it is a lower bound.
+- Cause (measured 2026-10-17, COST-WALL HIGH review F1): autonomy/lib/efficiency_cost.py lines 316-325; a main efficiency record with tokens and no cost_usd plus one priced child-ledger line gives usd 0.01, cost_partial False. engine10 omits cost_usd when a session reports no dollar figure.
+- Siblings to sweep: every reader of cost_partial (autonomy/lib/cost-summary.py, the C-F1 benchmark row_true_spend, dashboard cost views).
+- Mechanism: when main records exist and cost_available is false, set cost_partial true in the one reader; siblings consume that flag.
+- Fixture: tests/test_efficiency_cost_availability.py case with token-only main record plus a priced ledger line asserts cost_partial true.
+
+## FC-REALRUN-FIXTURE A pinned scenario expectation changed without the fixture receipt that the harness self-test checks it against (REALRUN-FIXTURE-DRIFT)
+- User-visible vs raw: v11.17.8 never published; Tests run 38986362613 failed only "real-run harness scenarios, dry install, doctored receipt" with `FAIL wall-guard: expected check "node:sum.test.js" executed in checks[]`.
+- Law broken: a change to an expectation must update every fixture that exercises it in the same slice.
+- Cause (measured 2026-10-17): Q17-04b (e1bdde7d3) set SC_EXPECT_CHECKS=node:sum.test.js in tests/real-run/scenarios/trivial-sum.sh; tests/test-real-run.sh good.json still named its checks "a" and "b". The slice gate ran tests/test-wall-executed-guard.sh but not tests/test-real-run.sh.
+- Siblings to sweep: every user of --check-receipt or SC_EXPECT_CHECKS (grep finds only tests/test-real-run.sh, tests/test-wall-executed-guard.sh, scripts/real-run.sh).
+- Mechanism: the fixture names the pinned check; slice cards touching tests/real-run/scenarios list tests/test-real-run.sh in their commands.
+- Fixture: tests/test-real-run.sh good receipt passes (13 PASS, rc=0 locally after the fix).
+
+## FC-COST-PARTIAL-b Partial cost still readable as complete in sibling consumers (COST-PARTIAL-SIBLINGS)
+- User-visible vs raw: a run whose cost is only partly measured can still be shown as a complete number in the runner equivalence report, the bench-run report, or a spend-cap message without its lower-bound label.
+- Law broken: one shared mechanism (FC-COST-PARTIAL fixed attribution.py only; siblings read cost without the partial flag).
+- Cause (COST-WALL-d HIGH reviews 2026-10-17): equivalence_report.py:334-374 and report.py:280 ignore adapter.provenance.cost_partial; row_spend_is_partial returns False for cost_usd None with true_cost_usd set; efficiency_cost.py counts ledger_invalid_lines without setting cost_partial; a stored cost_usd 0.0 with a larger true_cost_usd renders complete.
+- Mechanism: one helper decides partial (null cost, cost below ledger or true cost, invalid ledger lines, unpriced lines) and every cost consumer calls it.
+- Fixture: cases in benchmarks/bench/tests/test_attribution.py and tests/test_efficiency_cost_availability.py for each sibling.
+
+## FC-25c-ci Git env overrides leaked by an earlier suite silence repo-config controls (GIT-ENV-LEAK)
+- User-visible vs raw: v11.17.9 never published; Tests run 38988194257 failed 2 FC-25c(a) controls on ubuntu while they passed locally per file.
+- Law broken: a test must be hermetic; a control that depends on process-wide state is not a control.
+- Cause (reproduced 2026-10-17): runAutonomous (autonomous.ts:448) and issues_run.ts:512 call withholdGithubTokens on process.env inside the shared bun process, leaving GIT_SSH_COMMAND=false and a GIT_CONFIG_COUNT credential.helper reset; both override repo config. Running the old file with those four variables set reproduces exactly the 2 CI failures.
+- Siblings to sweep: every test that asserts a repo-local git config value runs (fsmonitor, filter, ssh, credential, uploadpack).
+- Mechanism: hermeticGit wrapper in fc25_safe_git.test.ts removes GIT_SSH, GIT_SSH_COMMAND, GIT_CONFIG_PARAMETERS and GIT_CONFIG_COUNT/KEY/VALUE for the test and restores them after.
+- Fixture: the same file run with GIT_SSH_COMMAND=false GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0= passes 14/0.
+
+## FC-TEN-QUALITY-01 The fix session gets a bare check name with no assertion text (FIX-BRIEF-BLIND)
+- User-visible vs raw: the user saw fix rounds repeat or stall on a failing test. Raw pytest printed `E assert 4 == 5`; the fix brief carried only the check name and the rerun command.
+- Law broken: L4 (the fixer must see the evidence the verifier saw).
+- Siblings: every runner whose decisive block differs: pytest `E ` lines, jest/vitest Expected/Received, node AssertionError, go `--- FAIL`, tsc/ruff diagnostics; holdout checks must stay hidden.
+- Mechanism: one failureExcerpt() in util/check_result.ts (redacted, repo-relative, at most 1500 bytes per check, 6 KB total), held in a stage-local map in verify.ts. It is never part of the check signature, never emitted in test.result, never computed for holdout checks.
+- Fixture: fix.test.ts (failing pytest `assert add(2,2) == 5`), check_result.test.ts (one fixture per runner plus size cap and AKIA redaction), wall_holdout.test.ts (holdout text absent from failures_grouped, events and brief).
+
+## FC-TEN-QUALITY-02 Pre-existing lint cannot be told apart from lint the change introduced (LINT-NO-BASELINE)
+- User-visible vs raw: the user saw a fix loop spending rounds on lint that was already in the repo. Raw base output showed the same diagnostics before the change.
+- Law broken: L4 (attribution must compare head to base, as tests already do via attribute()).
+- Siblings: ruff concise, shellcheck gcc, eslint unix parsers; tsc is out of scope; a file new on head has no base.
+- Mechanism: one pure attributeStatic(tool, headOut, baseOut) in runner/repo_profile.ts next to attribute() and attributeFullSuite(). Multiset keyed path/code/message (line and column dropped). Fails closed: unparseable head, empty parse with non-zero exit, missing base and unknown tool all count as introduced.
+- Fixture: harness_intelligence.test.ts cases for same, extra, changed-message, shifted-line, garbage and null-base inputs, plus a recorded real sample per parser.
+
+## FC-TEN-QUALITY-03 A pre-existing lint failure drives fix rounds because verify never asks the baseline (LINT-DRIVES-FIX)
+- User-visible vs raw: the user saw lint:ruff in failures_grouped for a file whose base already failed it. Raw base content run through the same tool gave the same diagnostics.
+- Law broken: L4, and the one-mechanism rule (tests already excuse pre-existing failures via attr.preExistingChecks / preRed.names).
+- Siblings: ruff, shellcheck, eslint per-file checks; tsc stays untouched; files new on head are never excused.
+- Mechanism: runLintChecks in verify.ts feeds base content on stdin to the tool and calls attributeStatic from QUALITY-02, joining the existing preExistingChecks path (at most 4 core lines).
+- Fixture: verify_lint.test.ts with a repo fixture and a stub ruff: base has the unused import (excused), head adds a new one (still reported), a new-file F401 (never excused).
+
+## FC-TEN-QUALITY-07 The fix brief says the diff is unavailable because its only reader has no writer (DEAD-DIFF-STAT)
+- User-visible vs raw: every real fix brief read "(diff stat is not available)". The working tree had the changed files.
+- Law broken: reader/writer key contract: fix.ts:62 reads prior.implement.diff_stat and no stage writes it.
+- Siblings: buildFixBrief and buildFixResumeBrief both consume the diff; any other reader of implement.diff_stat.
+- Mechanism: one currentDiff(repoDir, baseSha, maxBytes=6000) in runner/session_resume.ts via safeGit, computed fresh each fix round; excludes .loki/, names untracked files without touching the index, truncates with an explicit note.
+- Fixture: fix.test.ts and fix_resume.test.ts: temp repo with a modified file and no diff_stat shows "1 file changed"; round 2 shows the hunk; .loki/ never appears; a 50 KB diff cuts at 6000 bytes with the note.
+
+## FC-TEN-COST-06 The xreview claude judge spends tokens with lean flags off and no ledger line (XREVIEW-UNMETERED)
+- User-visible vs raw: cost totals omitted the cross-review judge. Raw claude calls ran with full settings and no child-session line.
+- Law broken: cost accounting must cover every model call (see FC-COST-PARTIAL).
+- Siblings: the codex argv (unchanged); other stages that spawn claude children and already use withChildLedger.
+- Mechanism: reviewArgv adds leanReviewerFlags() and --output-format json for claude; the run is wrapped in withChildLedger(run, lokiDir, 'xreview'). Verdict rules unchanged: no VERDICT line or bad JSON is not_run, never PASS.
+- Fixture: xreview.test.ts: argv contains the lean flags and json format; a stubbed run writes a phase xreview line to .loki/metrics/child-sessions.jsonl; JSON `VERDICT: BLOCK` parses to block; non-JSON gives not_run.
+
+## FC-TEN-DEPLOY-08 The web app reports a deployed URL it never obtained and stages everything on push (DEPLOY-FABRICATED-URL)
+- User-visible vs raw: a deploy with no URL in its output returned `https://vercel.app` as success. Raw provider output had no URL, and no receipt gate ran.
+- Law broken: a success claim must key on a parsed confirmation (fallback success is a false ack); the CLI deploy gate is the only path.
+- Siblings: deploy_session and github_push_session in web-app/server.py; hardcoded netlify.app and github.io fallbacks; the bulk-stage and `--public` push path; web-app consumers of url.
+- Mechanism: both handlers call the gated CLI (`loki deploy --execute --dir <dir>`, `loki github publish`) as argv lists and read the newest .loki/deploys record; url is deployed_url or null; refusals return 4xx with reasons.
+- Fixture: web-app/tests/test_server.py with monkeypatched subprocess; a grep for the three fallback URLs in server.py must exit 1.
+
+## FC-TEN-STABILITY-01 bench-suite builds VAR=1 hyperfine commands that hyperfine 1.20 refuses (BENCH-ARGV-ENV)
+- User-visible vs raw: the v11.17.6 backstop went red. Raw hyperfine 1.20 refused any positional command matching ^[A-Z_]+=, and the script skipped those commands without failing.
+- Law broken: a gate that skips its own work must fail, not pass quietly.
+- Siblings: benchPair and benchRoute call sites in loki-ts/scripts/bench-suite.ts; fixed /tmp/bench-*.json export paths; partial SKIP exit code.
+- Mechanism: one exported pure argv builder emits `env LOKI_LEGACY_BASH=1 <shim> <cmd>` (works on hyperfine 1.18 and 1.20); exports go under a mkdtemp dir; any SKIPPED command exits non-zero.
+- Fixture: loki-ts/tests/scripts/bench_suite_argv.test.ts with a fake hyperfine on PATH that exits 1 with the 1.20 message on a VAR= command.
+
+## FC-TEN-STABILITY-05 wall_concurrent races the 5s bun test timeout (WC-TIMEOUT-RACE)
+- User-visible vs raw: nightly 38938949858 failed. Raw duration was 5004.82ms against the 5000ms default; assertions were correct.
+- Law broken: a test must be hermetic and not depend on machine speed.
+- Siblings: other engine10 suites that init, add and commit a repo per test.
+- Mechanism: build the repo fixture once in beforeAll and copy it per test; give the concurrency case an explicit timeout sized from measured CI duration; every assertion unchanged.
+- Fixture: `bun test --timeout 1500 tests/engine10/wall_concurrent.test.ts` under CPU load, and a 20-run loop of the plain command.
+
+## FC-TEN-UX-02 Every failed start prints the same generic Next line (NEXT-NOT-SPECIFIC)
+- User-visible vs raw: auth failure, credit exhaustion, a failed check, a spec conflict and a stall all told the user `loki doctor` or `loki undo`. Raw reason strings from output.ts reasonOf name the actual cause.
+- Law broken: the failure message must name the exact fix for the cause that happened.
+- Siblings: every literal reason produced by reasonOf (output.ts:74); the supervisor call site that passes the reason.
+- Mechanism: nextOf in util/run_summary.ts takes reason and outcome and maps each failure class to one command; verified, done-unverified, budget and stopped output stays byte-identical.
+- Fixture: run_summary.test.ts table rows copied from the real reason literals, a pin of the old outputs, and a source scan that every reasonOf literal has a mapping; tests/features/contract.test.ts covers fatal:auth end to end.
+
+## FC-AGENT-PROOF A VERIFIED verdict proven only by agent-authored evidence (TEN-GATES-01)
+- User-visible vs raw: the receipt says VERIFIED, but every executed pass is a test the implementer added in the same diff or an LLM judge verdict; raw shows no check the agent could not write itself.
+- Law broken: success needs evidence the implementing agent did not author (exogenous gates are the moat).
+- Siblings to sweep: engine10 seal proof, proof-generator headline, deep council pass.
+- Mechanism: util/check_result.ts checkProvenance classifies each check (exogenous, independent, agent_authored, llm_judge; unknown is exogenous) and hasExogenousProof is the one predicate every consumer calls.
+- Fixture: loki-ts/tests/engine10/check_result.test.ts "TEN-GATES-01 check provenance" (added test file, same path pre-existing, Wall path, council, unknown name).
+
+## FC-TEN-GROUP-AUTH Group child sessions lose the OS identity vars and report no cost (SCOPED-ENV-NO-IDENTITY)
+- User-visible vs raw: every unit session of a group run printed "Not logged in" and failed in about 6s at $0 on macOS Claude OAuth; the run then said nothing about the dollars the surviving units spent.
+- Law broken: a scoped child env must keep what the provider CLI needs to authenticate (USER and LOGNAME key the macOS keychain lookup) while still dropping unrelated secrets; spend that happened must be reported, never silently unmeasured.
+- Siblings: run_group.ts ENV_KEEP (broken); commands/start.ts START_ENV_NAMES and util/skill_checks.ts SKILL_CHECK_ENV_ALLOW already keep USER, LOGNAME, SHELL; features/speed/fix_units.ts suiteTail (the group's fix-unit suite run) was a fourth allowlist and now keeps the same three vars; a git grep of env allowlists in loki-ts/src found no other. The remaining child-env helpers copy the full env and remove named secrets, so they never dropped identity.
+- Mechanism: ENV_KEEP in run_group.ts gains USER, LOGNAME, SHELL; parseGroupCost and groupCostLine sum the per-unit cost rows of every backlog.py launch and print one measured, partial or not-measured `Cost:` line like a single run, and writeGroupCostRecord rolls the sum into the parent .loki/metrics/efficiency so collect_efficiency, receipts and the bench read it. parseGroupCost ignores output with no Summary table. No shared base list: the allowlists differ in everything but the identity trio, so a shared list would not remove the copies.
+- Fixture: tests/features/run_group_env_cost.test.ts (scopedEnv keeps USER and LOGNAME and drops an unrelated secret; group cost equals the sum of unit costs, unmeasured rows read partial, none reads not measured; a runGroup test with a fake launcher asserts the Cost line and the efficiency record); tests/runner/spawn_env_guard.test.ts stays green.
+
+## FC-BUNDLE-SDK-LEAK A server bundle pulls loki-ts SDK code through a one-constant import (v11.17.14)
+- User-visible vs raw: v11.17.14 never reached npm and the 11.17.15 docker images failed to build; raw was `Could not resolve: "@anthropic-ai/sdk"` while bundling packages/control-plane src/server/serve.ts.
+- Law broken: a module imported by the control-plane server must not reach runner code that needs loki-ts runtime deps; a shared constant lives in a leaf module.
+- Siblings: deep.ts was the only engine10 stage importing runner/quality_gates.ts (git grep); xreview.ts already imports providers/claude_flags.ts. pack-npm also lacked a loki-ts install, fixed in 386e73f32.
+- Mechanism: REVIEW_GUARD_DENYLIST moves to providers/claude_flags.ts; quality_gates.ts re-exports it; deep.ts imports the leaf.
+- Fixture: tests/test-control-plane.sh builds serve.ts with a metafile and fails if runner/sdk_invoker appears (red with the old import: 3 hits; green: 0).
+
+## FC-TEN-COST-23 Decomposer emits a unit with an empty write set and unit mode refuses it (EMPTY-WRITESET-UNIT)
+- User-visible vs raw: every multi-unit run of coord-1-api-web exited 1 with "unit launcher exit 1; 2 unit(s) did not pass" after about 50s, the spurious unit having failed with exit 2 in 1s and $0; the raw reason ("unit mode was requested but its spec file is invalid") never reached the user.
+- Law broken: a decomposer output must be runnable by the stage that consumes it; unit_mode.ts parseText rejects writeSet.length === 0 and the engine refuses an unfenced run, so a file-less prose bullet ("`limit` must be an int ...") became a unit that could never start.
+- Siblings: decompose.ts items with no matching file (also shared-file-only items); fix_units.ts units (always carry a write set); the u1 PARTIAL exit 1 in the same evidence is the separate no-test-runner seed cause (TEN-COST-20, TEN-COST-21), not this class.
+- Mechanism: decompose() folds every item that names no write-set file into the first unit that owns files; if no item names a file all items form one unit and route.ts falls back to the sequential run (fewer than 2 units).
+- Fixture: tests/engine10/decompose.test.ts "no unit has an empty write set" and "a spec where no item names a file collapses to one unit"; repro: LOKI_UNIT_SPEC with writeSet [] and bin/loki start gives rc=2 "spec file is invalid".
+
+## FC-TEN-UX-01 First run in an empty folder dies on "not a git repository", and a logged-out Claude CLI fails only after spend starts (FIRST-RUN-DEAD-END)
+- User-visible vs raw: a new user running `loki start "<brief>"` in a fresh folder got "not a git repository ... run loki from inside a git checkout" with no next step; a logged-out claude CLI surfaced later as a failed first iteration.
+- Law broken: a first run must either work or name the exact command that fixes it, before any spend.
+- Siblings: preflight.ts git identity check (stays fatal, names the git config command, never set automatically); doctor.ts login probe (same `claude auth status` parse, now shared); non-empty folder without a repo (stays fatal, now names `git init && git add . && git commit -m init`).
+- Mechanism: util/first_run_repo.ts initialises only a truly empty folder (LOKI_AUTO_GIT_INIT=0 refuses); preflight reuses doctor claudeAuthStatusLoggedIn: loggedIn false is fatal, an unknown answer is a warning only.
+- Fixture: tests/engine10/preflight.test.ts "first run (TEN-UX-01)" cases (empty folder, one-file folder, LOKI_AUTO_GIT_INIT=0, fake claude loggedIn false / unknown / API key set).
+- Recurrence (2026-10-17, TEN-UX-01-F1): the mechanism was wired only into preflight.ts, but supervisor.ts exits 2 on `git rev-parse --show-toplevel` before preflight runs, so `bash scripts/first-run-gate.sh --stub --entry start-empty` still printed "engine10: not inside a git repository" (TEN-UX-08 TL review). Fix: the supervisor repo lookup calls the same initEmptyRepo and prints its notice or its named-fix fatal; fixture is that first-run gate entry plus a supervisor-level test that runs the real start path in an empty folder, not preflight in isolation.
+
+## FC-TEN-P9-FIX The first-run login probe spawned the provider CLI holding the GitHub token (P9-PREFLIGHT-LEAK)
+- User-visible vs raw: moat P9.injection-cannot-reach-token went red on v11.17.22 (canary GH_TOKEN/GITHUB_TOKEN, hosts.yml, credential.helper and SSH_AUTH_SOCK reached the provider stub in every scenario); the raw cause was preflight running `claude auth status` from the supervisor with its full env.
+- Law broken: every spawn of a provider CLI gets the withheld env (moat P9); the supervisor env is never handed to an agent binary, probe or not.
+- Siblings: doctor.ts provider probe at the json route (already tokenFreeEnv); modernize/oracle/search.ts `--version` probe (already tokenFreeEnv); engine10 session spawns (worker env, assertWorkerEnv).
+- Mechanism: doctor.ts claudeAuthStatusLoggedIn, the one shared login probe, spawns with tokenFreeEnv plus GIT_SSH_COMMAND=false unless LOKI_ALLOW_AGENT_GITHUB_TOKEN=1.
+- Fixture: tests/engine10/preflight.test.ts "the login probe spawns the provider CLI without the GitHub token or SSH agent"; tests/moat/p9-rule-of-two.sh against a dist rebuilt from the tree.
+
+## FC-TEN-SEC-PREPUSH-MERGE-WARN Pre-push warns about .gitleaksignore lines a merge did not add (MERGE-SECOND-PARENT-DIFF)
+- User-visible vs raw: the v11.17.25 push printed 5 false ".gitleaksignore gained line(s)" warnings for merges c6d3894f1..0a16434e1 while the net .gitleaksignore diff of the push was empty; the raw cause was `diff-tree -m`, which also diffs a merge against its second parent (the older slice branch), so every line main gained since the fork looked added by the merge.
+- Law broken: a warning names what a commit changed relative to what it was merged onto; it never reports lines the base already had.
+- Siblings: the .gitleaks.toml name-only and patch diff-tree calls in .githooks/pre-push (same -m, fixed here; they could even FAIL the push on a toml main already had); the eval-fixture scan diff-tree -m in the same hook (kept: scanning both parents is conservative and fail-closed); scripts/security-audit-gitleaks.sh (comment only) and scripts/train-cycle.sh (plain non-merge name list).
+- Mechanism: the per-commit drift check in .githooks/pre-push passes `--diff-merges=first-parent` instead of `-m`; a merge that adds a line itself still differs from its first parent, and each branch commit is its own entry in the pushed list.
+- Fixture: tests/test-pre-push-gitleaks.sh case 19b (older-slice merge prints no warning; merge adding a line still warns); red with `-m` restored on all three calls, and red with the flag dropped from the ignore call.
+
+## FC-TEN-STABILITY-09 Engine10 stub claude CLIs do not answer `claude auth status`, so the login probe logs a stage or stalls (STUB-AUTH-STATUS-SILENT)
+- User-visible vs raw: raw (test infrastructure). main Tests failed on 11 of the last 13 runs after TEN-UX-01 added the preflight login probe: stub runs printed the extra "could not confirm the Claude login" line (A-130 8-line quiet cap, 9 seen), the issue-ref stub logged the probe as an "other" stage, and the SIGINT stub treated the probe as the implement session (slept 5s, never recorded cost).
+- Law broken: a stub provider must honour every CLI call the engine makes before a session, not only `-p`; a probe the stub does not answer is indistinguishable from a real unknown login.
+- Siblings: tests/engine10/fixtures/e2e/bin/claude, fixtures/issue-ref/bin/claude, inline stubs in supervisor_signal.test.ts and budget_stop_e2e.test.ts (all fixed). tests/engine10/fixtures/providers/bin/* are non-claude providers and are not probed. Two verify_lint.test.ts lint:tsc cases fail only in a worktree with no loki-ts/node_modules (environmental, not this class).
+- Mechanism: every stub claude answers `auth status` with {"loggedIn":true}, no side effects.
+- Fixture: tests/engine10/e2e.test.ts "every engine10 stub claude answers claude auth status as logged in".
+
+## FC-TEN-STABILITY-15 queue add on a corrupt queue file silently overwrites every queued item (QUEUE-CORRUPT-OVERWRITE)
+- User-visible vs raw: user-visible. A truncated .loki/issue-queue.json read as an empty queue, so `loki queue add` wrote a file holding only the new item and the overnight backlog vanished with no message.
+- Law broken: a reader that maps a parse failure to "empty" must not be followed by a writer of the same file; unreadable state is quarantined and reported, never replaced.
+- Siblings: util/outbox.ts runOnce (TEN-STABILITY-12, already quarantines); queue run reads the queue and returns "queue is empty" without writing, so it cannot overwrite; its end-of-run writeQueue only follows a successful read.
+- Mechanism: queueAdd calls quarantineCorruptQueue, which renames the bad file to issue-queue.json.corrupt-<ts> and warns once on stderr before the read.
+- Fixture: loki-ts/tests/commands/queue.test.ts "add on a corrupt queue file quarantines it".
+
+## FC-TEN-STABILITY-18a Test pins a literal that an intentional change moved, and the pin is not updated in the same slice (STALE-PIN-AFTER-INTENT)
+- User-visible vs raw: raw (test infrastructure). Nightly 39016259458 stayed red on main e32ee1b5d: pr_body_golden producer registry (util/check_result.ts moved the gate line there, TEN-STABILITY-13), sizing wall brief cap (710 measured vs 600; TEN-COST-14 output budget plus TEN-QUALITY-14 negative-case sentence), router_optout_golden (TEN-COST-11 haiku-first Wall), test-ui-bare-loki (TEN-UX-10 next-step lines), test-local-ci-gitleaks (TEN-SEC-GITLEAKS-01-F1 first-parent log-opts).
+- Law broken: a slice that changes an asserted surface owns the guards that assert it; green on the slice branch is not green on main when the change landed after the pin.
+- Siblings: the five pins above (all fixed). The sizing cap now records its measured number; the router golden pins LOKI_E10_WALL_FIRST=0 so it isolates router behavior (wall.test.ts owns haiku-first).
+- Mechanism: each guard names the owning change in a comment and asserts the intended new shape (first line plus next-step lines; the exact log-opts string), never a weaker match.
+- Fixture: tests/test-ui-bare-loki.sh "the URL is followed by the start and stop next-step lines"; tests/test-local-ci-gitleaks.sh exact log-opts grep and live invocation mirror.
+
+## FC-TEN-STABILITY-18b Bun.which reads the PATH captured at process start, so a test or caller that mutates process.env.PATH is ignored (BUN-WHICH-STALE-PATH)
+- User-visible vs raw: raw (CI only). verify.test.ts TEN-QUALITY-11 cases passed on a machine with uv installed and failed in CI without it: resolveTool asked Bun.which("uv") and never saw the fake uv prepended to process.env.PATH.
+- Law broken: tool resolution must use the same PATH the child process will receive.
+- Siblings: verify.ts resolveTool (fixed, both uv and fallback lookups); provider_failover.ts defaultInstalled, deep.ts:104 and modernize/lang/java.ts:159 call Bun.which without the live PATH when no path option is given (named, not changed: production PATH is fixed at start, no test mutates it).
+- Mechanism: resolveTool's onPath helper passes {PATH: process.env.PATH}.
+- Fixture: verify.test.ts TEN-QUALITY-11 cases, run with PATH=/usr/bin:/bin plus the bun directory (no uv): red before the fix (2 fail), green after.
+
+## FC-TEN-STABILITY-18c A verify flag exists in the engine10 verifier and completions but the dispatcher rejects it and help omits it (VERIFY-FLAG-NOT-ROUTED)
+- User-visible vs raw: user-visible. `loki verify --require-exogenous` (the CHANGELOG form) printed "[verify][error] unknown option" from the legacy verifier, and `loki verify --help` did not list the flag.
+- Law broken: a documented flag must reach the implementation that owns it, and its help must list it.
+- Siblings: --allow-unsigned and --export-dsse also lack a flag-first route in bin/loki (they work after a run id or receipt path); named, not changed here.
+- Mechanism: bin/loki and autonomy/loki cmd_verify route --require-exogenous to engine10 like --pubkey; autonomy/verify.sh help lists it.
+- Fixture: tests/test-help-changelog-drift.sh (flag in help); `bash bin/loki verify --require-exogenous` now reaches engine10 ("no runs found") instead of the unknown-option error.
+
+## FC-TEN-STABILITY-18d The legacy echo-into-grep-q ratchet is breached by new tests and the ceiling is the only guard (SIGPIPE-RATCHET-BREACH)
+- User-visible vs raw: raw (test infrastructure). tests/test-sigpipe-guard.sh counted 1737 legacy forms against a ceiling of 1728.
+- Law broken: the ceiling is lowered when a suite is converted, never raised (the guard's own header).
+- Siblings: 15 forms converted in test-next-resume-agree.sh (7), test-security-audit-config.sh (6) and test-doctor-ux.sh (2); the ceiling now equals the new count, 1722. Large holders remain (test-v10-pulse.sh 321, test-deploy-receipt-gate.sh 38).
+- Mechanism: grep -q PATTERN <<<"$var" here-string form.
+- Fixture: tests/test-sigpipe-guard.sh; SIGPIPE_GUARD_CEILING=1721 turns it red (count 1722 exceeds ceiling 1721).
+
+## FC-TEN-STABILITY-19a A headline policy change silently disarmed a moat positive control (MOAT-CONTROL-POLICY-DRIFT)
+- User-visible vs raw: raw (moat suite). `bash tests/moat/run.sh` printed "moat suite: FAIL (1 rule failure(s))": P8.ablation-dead-code-not-sealed got "positive control: load-bearing fixture headline=VERIFIED WITH GAPS, expected VERIFIED". The raw cause was TEN-GATES-10 (c6796b75b, D104): VERIFIED now needs one agent-independent fact beside the agent's suite, and the P8 fixture recorded only the suite (build marked not applicable), so every P8 fixture got an exogenous_evidence gap. The dead-code assertion "headline is not VERIFIED" then held for the wrong reason: removing the not_load_bearing rule from _compute_headline no longer turned it red.
+- Law broken: a negative assertion is evidence only while its positive control reaches the green state under the CURRENT headline rules; a headline rule change must re-green every moat control it touches.
+- Siblings: tests/test-proof-ablation-headline.sh (passes; it pins facts.ablation, not the headline); tests/test_proof_generator.py (updated by TEN-GATES-10 itself); P1-P7 and P9 were green on the same run, so no other moat control reads a suite-only VERIFIED.
+- Mechanism: the P8 fixture records a real build fact (byte-compiling every source file, exit code recorded, no .pyc written) so the control meets D104; the moat rule and the generator are unchanged.
+- Fixture: tests/moat/p8-load-bearing-proof.sh. Red with the build exit code forced to 1 (control headline=NOT VERIFIED), and red with the generator's not_load_bearing check mutated ("headline is VERIFIED although the checks pass with the change no-oped"), which was undetectable before this fix.
+
+## FC-TEN-STABILITY-19b The first-run gate stub treated the login probe as a work session (STUB-AUTH-STATUS-SILENT recurrence)
+- User-visible vs raw: raw (release gate). `bash scripts/first-run-gate.sh --stub` failed 7 assertions, all from "Reason: dirty tracked tree: M sum.js" at intake.ts:61, plus a python FileNotFoundError traceback from the cost-non-null probe. The engine preflight (TEN-UX-01, 08a8ae052) runs `claude auth status` in the repo before Intake; the gate's heredoc stub short-circuited only --help/--version, so the probe applied the sum.js fix and Intake refused the dirty tree. The real CLI's auth status is read-only, so users never saw this.
+- Law broken: same as FC-TEN-STABILITY-09: a stub provider must honour every CLI call the engine makes before a session.
+- Siblings: FC-TEN-STABILITY-09 fixed the loki-ts/tests stubs but not scripts/first-run-gate.sh (fixed here). scripts/b9-scoreboard.sh already answers auth. tests/test-quick-config-safety.sh, test-quick-receipt-order.sh, test-quick-artifacts.sh, test-json-schemas.sh and test-usage-governor.sh all pass on this base (their stubs do not edit the tree on the probe).
+- Mechanism: the gate stub answers `auth status` with {"loggedIn": true}, no side effects; the cost-non-null probe reports an unreadable run record as a FAIL line instead of a traceback.
+- Fixture: loki-ts/tests/engine10/e2e.test.ts "every engine10 stub claude answers claude auth status as logged in" now also pins the first-run gate stub (red with the stub line removed); the gate itself returns to 7 failures with that line removed.

@@ -64,6 +64,8 @@ const ENV_KEYS = [
   "LOKI_STUB_GATE_DOC_COVERAGE",
   "LOKI_STUB_GATE_MAGIC_DEBATE",
   "LOKI_GATE_LSP_DIAGNOSTICS",
+  "LOKI_GATE_SKILL_CHECKS",
+  "LOKI_GATE_SECURITY_SCAN",
   "LOKI_STUB_GATE_LSP_DIAGNOSTICS",
   "LOKI_GATE_LSP_WRITER",
   "LOKI_GATE_SEMANTIC_TESTS",
@@ -212,6 +214,8 @@ describe("escalation ladder boundaries", () => {
     process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
     process.env["LOKI_GATE_INVARIANTS"] = "false";
     process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    process.env["LOKI_GATE_SKILL_CHECKS"] = "false";
+    process.env["LOKI_GATE_SECURITY_SCAN"] = "false";
   });
 
   it("counts failures normally below CLEAR_LIMIT (count 1, 2)", async () => {
@@ -306,6 +310,8 @@ describe("runQualityGates orchestration", () => {
     process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
     process.env["LOKI_GATE_INVARIANTS"] = "false";
     process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    process.env["LOKI_GATE_SKILL_CHECKS"] = "false";
+    process.env["LOKI_GATE_SECURITY_SCAN"] = "false";
     const r = await runQualityGates(makeCtx());
     expect(r.failed).toEqual([]);
     expect(r.blocked).toBe(false);
@@ -360,6 +366,8 @@ describe("runQualityGates orchestration", () => {
     process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
     process.env["LOKI_GATE_INVARIANTS"] = "false";
     process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    process.env["LOKI_GATE_SKILL_CHECKS"] = "false";
+    process.env["LOKI_GATE_SECURITY_SCAN"] = "false";
     // mock_integrity and mutation_integrity are left default-on; with no
     // findings artifact they run and pass, so they appear in passed[]
     // ahead of code_review (sequence order).
@@ -731,7 +739,7 @@ describe("runTestCoverage (real Phase 5 implementation)", () => {
   });
 
   it("an inconclusive artifact does not block the gate battery, and is surfaced as INCONCLUSIVE (#82)", async () => {
-    for (const k of ["LOKI_GATE_SEMANTIC_TESTS", "LOKI_GATE_INVARIANTS", "LOKI_GATE_LSP_DIAGNOSTICS"]) {
+    for (const k of ["LOKI_GATE_SEMANTIC_TESTS", "LOKI_GATE_INVARIANTS", "LOKI_GATE_LSP_DIAGNOSTICS", "LOKI_GATE_SKILL_CHECKS", "LOKI_GATE_SECURITY_SCAN"]) {
       process.env[k] = "false";
     }
     process.env["LOKI_STUB_GATE_STATIC_ANALYSIS"] = "pass";
@@ -1029,6 +1037,8 @@ describe("runSemanticTests (P1-3 spawn-based gate)", () => {
     process.env["LOKI_GATE_MAGIC_DEBATE"] = "false";
     process.env["LOKI_GATE_INVARIANTS"] = "false";
     process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    process.env["LOKI_GATE_SKILL_CHECKS"] = "false";
+    process.env["LOKI_GATE_SECURITY_SCAN"] = "false";
 
     const outcome = await runQualityGates(makeCtx());
     expect(outcome.passed).not.toContain("semantic_tests");
@@ -1073,6 +1083,8 @@ describe("runSemanticTests (P1-3 spawn-based gate)", () => {
     process.env["LOKI_GATE_MAGIC_DEBATE"] = "false";
     process.env["LOKI_GATE_INVARIANTS"] = "false";
     process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    process.env["LOKI_GATE_SKILL_CHECKS"] = "false";
+    process.env["LOKI_GATE_SECURITY_SCAN"] = "false";
 
     const outcome = await runQualityGates(makeCtx());
     expect(outcome.failed).toContain("semantic_tests");
@@ -1124,6 +1136,8 @@ describe("runSemanticTests (P1-3 spawn-based gate)", () => {
     process.env["LOKI_GATE_MAGIC_DEBATE"] = "false";
     process.env["LOKI_GATE_INVARIANTS"] = "false";
     process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    process.env["LOKI_GATE_SKILL_CHECKS"] = "false";
+    process.env["LOKI_GATE_SECURITY_SCAN"] = "false";
 
     const outcome = await runQualityGates(makeCtx());
     expect(outcome.failed).toContain("semantic_tests");
@@ -1286,6 +1300,8 @@ describe("runInvariants (P1-4 spawn-based gate)", () => {
     // isolates the invariants gate.
     process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
     process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    process.env["LOKI_GATE_SKILL_CHECKS"] = "false";
+    process.env["LOKI_GATE_SECURITY_SCAN"] = "false";
   }
 
   it("does NOT run when surfacing is opted OUT (LOKI_GATE_INVARIANTS=false)", async () => {
@@ -2113,6 +2129,8 @@ describe("runQualityGates LSP-diagnostics toggle (default ON, advisory)", () => 
 
   it("does NOT run lsp_diagnostics when opted out (LOKI_GATE_LSP_DIAGNOSTICS=false)", async () => {
     process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    process.env["LOKI_GATE_SKILL_CHECKS"] = "false";
+    process.env["LOKI_GATE_SECURITY_SCAN"] = "false";
     const r = await runQualityGates(makeCtx());
     expect(r.passed).not.toContain("lsp_diagnostics");
     expect(r.failed).not.toContain("lsp_diagnostics");
@@ -2228,5 +2246,78 @@ describe("gate inconclusive marker (gate-dark is not a silent clean pass)", () =
       if (prevInv === undefined) delete process.env.LOKI_GATE_INVARIANTS;
       else process.env.LOKI_GATE_INVARIANTS = prevInv;
     }
+  });
+});
+
+// COST-WALL-c: claudeReviewer is a real provider child session on three paths; each must leave exactly one
+// line in <LOKI_DIR>/metrics/child-sessions.jsonl. Removing any withChildLedger wrapper or the SDK ledger param turns this red.
+describe("COST-WALL-c claudeReviewer ledger wiring", () => {
+  const RESULT = JSON.stringify({ type: "result", total_cost_usd: 0.0123, usage: { input_tokens: 5, output_tokens: 6 }, structured_output: { verdict: "PASS", findings: [] } });
+  const KEYS = ["PATH", "LOKI_DIR", "LOKI_SDK_CODE_REVIEW", "LOKI_REVIEW_JSON_SCHEMA", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"] as const;
+  const saved: Record<string, string | undefined> = {};
+  let root = "";
+  let loki = "";
+  const lines = (): Record<string, unknown>[] => {
+    try { return readFileSync(join(loki, "metrics", "child-sessions.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)); } catch { return []; }
+  };
+  const review = () => claudeReviewer({ reviewer: { name: "code-quality" } as never, diff: "d", files: "f", prompt: "review this" });
+
+  beforeEach(async () => {
+    for (const k of KEYS) saved[k] = process.env[k];
+    root = mkdtempSync(join(tmpdir(), "loki-cwc-"));
+    loki = join(root, ".loki");
+    const bin = join(root, "bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "claude"), `#!/bin/sh\ncase "$1" in --help) echo "  --json-schema  --disallowedTools"; exit 0;; esac\nfor a in "$@"; do if [ "$a" = "json" ]; then printf '%s' '${RESULT}'; exit 0; fi; done\nprintf 'VERDICT: PASS\\nFINDINGS:\\n- None\\n'\n`, { mode: 0o755 });
+    process.env["PATH"] = `${bin}:${saved["PATH"]}`;
+    process.env["LOKI_DIR"] = loki;
+    delete process.env["LOKI_SDK_CODE_REVIEW"];
+    delete process.env["LOKI_REVIEW_JSON_SCHEMA"];
+    const { _resetClaudeHelpCacheForTest } = await import("../../src/providers/claude_flags.ts");
+    _resetClaudeHelpCacheForTest();
+  });
+  afterEach(async () => {
+    for (const k of KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+    const { _resetClaudeHelpCacheForTest } = await import("../../src/providers/claude_flags.ts");
+    _resetClaudeHelpCacheForTest();
+    const { __resetSdkClientForTests } = await import("../../src/runner/sdk_invoker.ts");
+    __resetSdkClientForTests();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("structured --json-schema path records the result JSON cost", async () => {
+    await review();
+    const l = lines();
+    expect(l.length).toBe(1);
+    expect(l[0]!["phase"]).toBe("reviewer");
+    expect(l[0]!["usd"]).toBe(0.0123);
+  });
+
+  it("plain text path (schema off) records one unmeasured line, never a zero usd", async () => {
+    process.env["LOKI_REVIEW_JSON_SCHEMA"] = "off";
+    await review();
+    const l = lines();
+    expect(l.length).toBe(1);
+    expect(l[0]!["phase"]).toBe("reviewer");
+    expect(l[0]!["cost_status"]).toBe("unmeasured");
+    expect("usd" in l[0]!).toBe(false);
+  });
+
+  it("SDK reviewer path (LOKI_SDK_CODE_REVIEW=1) records a priced sdk-judge line", async () => {
+    const body = JSON.stringify({ id: "m", type: "message", role: "assistant", model: "claude-sonnet-4-5", stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ verdict: "PASS", findings: [] }) }], usage: { input_tokens: 1000, output_tokens: 500 } });
+    const srv = Bun.serve({ port: 0, fetch: () => new Response(body, { headers: { "content-type": "application/json" } }) });
+    try {
+      process.env["LOKI_SDK_CODE_REVIEW"] = "1";
+      process.env["ANTHROPIC_API_KEY"] = "sk-test";
+      process.env["ANTHROPIC_BASE_URL"] = `http://127.0.0.1:${srv.port}`;
+      const { __resetSdkClientForTests } = await import("../../src/runner/sdk_invoker.ts");
+      __resetSdkClientForTests();
+      await review();
+      const l = lines();
+      expect(l.length).toBe(1);
+      expect(l[0]!["phase"]).toBe("reviewer");
+      expect(l[0]!["source"]).toBe("sdk-judge");
+      expect(typeof l[0]!["usd"]).toBe("number");
+    } finally { srv.stop(true); }
   });
 });

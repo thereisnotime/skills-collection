@@ -1076,7 +1076,444 @@ EOF
         else
             bad "25c. unsupported provider did not refuse --canary" "rc=$RC25C sentinels=$(any_sentinel)"
         fi
+
+        # 26. --destination: production refuses without a VERIFIED staging record for this SHA; allowed after one
+        printf '%s' "http://127.0.0.1:$HS_PORT/ok" > "$WORKROOT/canary-url"
+        mk_hfix d26; D26="$WORKROOT/d26"
+        rm -f "$SENTINEL_DIR/vercel-calls"
+        OUT26A="$(run_h "$D26" --execute --destination production)"; RC26A=$?
+        if [ "$RC26A" -ne 0 ] && [ ! -e "$SENTINEL_DIR/vercel-calls" ] && grep -q "no VERIFIED staging deploy receipt" <<<"$OUT26A"; then
+            ok "26a. production with no staging receipt refuses, names why, runs nothing"
+        else
+            bad "26a. production ran or refused without naming staging" "rc=$RC26A calls=$(cat "$SENTINEL_DIR/vercel-calls" 2>/dev/null)"
         fi
+        _="$(run_h "$D26" --execute --destination staging)"; RC26S=$?
+        R26S="$(last_record "$D26")"
+        if [ "$RC26S" -eq 0 ] && [ "$(rec_field "$R26S" destination)" = "staging" ] && ! grep -q -- "--prod" "$SENTINEL_DIR/vercel-calls"; then
+            ok "26b. staging deploy runs without --prod and records destination=staging"
+        else
+            bad "26b. staging deploy wrong" "rc=$RC26S calls=$(cat "$SENTINEL_DIR/vercel-calls" 2>/dev/null)"
+        fi
+        # 26c. non-canary provider output streams to stdout and its exit code is preserved
+        cp "$FAKE_BIN/vercel" "$WORKROOT/vercel.26c.bak"
+        cat > "$FAKE_BIN/vercel" <<EOF
+#!/usr/bin/env bash
+echo "STREAM-LINE-ONE"
+echo "Production: http://127.0.0.1:$HS_PORT/ok"
+exit 7
+EOF
+        chmod +x "$FAKE_BIN/vercel"
+        mk_hfix d26c; D26C="$WORKROOT/d26c"
+        OUT26C="$(run_h "$D26C" --execute)"; RC26C=$?
+        if grep -q "^STREAM-LINE-ONE" <<<"$OUT26C" && grep -q "Production: http://127.0.0.1:$HS_PORT/ok" <<<"$OUT26C" \
+           && grep -q "Deploy command exited 7" <<<"$OUT26C" && [ "$RC26C" -ne 0 ]; then
+            ok "26c. provider output streams to the terminal and its exit code is preserved"
+        else
+            bad "26c. provider output not streamed or exit code lost" "rc=$RC26C $(printf '%s' "$OUT26C" | tail -4)"
+        fi
+        cp "$WORKROOT/vercel.26c.bak" "$FAKE_BIN/vercel"
+        cp "$R26S" "$WORKROOT/r26s.bak"
+        python3 -c 'import json,sys;p=sys.argv[1];r=json.load(open(p));r["exit_code"]=0;r["head_sha"]="x";json.dump(r,open(p,"w"),indent=2)' "$R26S"
+        rm -f "$SENTINEL_DIR/vercel-calls"
+        _="$(run_h "$D26" --execute --destination production)"; RC26T=$?
+        if [ "$RC26T" -ne 0 ] && [ ! -e "$SENTINEL_DIR/vercel-calls" ]; then
+            ok "26c. an edited staging record no longer authorizes production"
+        else
+            bad "26c. tampered staging record authorized production" "rc=$RC26T"
+        fi
+        cp "$WORKROOT/r26s.bak" "$R26S"
+        rm -f "$SENTINEL_DIR/vercel-calls"
+        OUT26P="$(run_h "$D26" --execute --destination production)"; RC26P=$?
+        if [ "$RC26P" -eq 0 ] && grep -q -- "--prod" "$SENTINEL_DIR/vercel-calls" && [ "$(rec_field "$(last_record "$D26")" destination)" = "production" ]; then
+            ok "26d. production deploys after a VERIFIED staging deploy of the same SHA"
+        else
+            bad "26d. production not allowed after staging" "rc=$RC26P $(printf '%s' "$OUT26P" | tail -4)"
+        fi
+
+        # 27. captured deployed URL: recorded, probed by default, never invented
+        cat > "$FAKE_BIN/curl" <<'CEOF'
+#!/usr/bin/env bash
+printf '200'
+exit 0
+CEOF
+        chmod +x "$FAKE_BIN/curl"
+        printf '#!/usr/bin/env bash\necho "Production: https://app-x.vercel.app"\nexit 0\n' > "$FAKE_BIN/vercel"
+        chmod +x "$FAKE_BIN/vercel"
+        mk_hfix d27a; D27A="$WORKROOT/d27a"
+        OUT27A="$(run_h "$D27A" --execute)"; RC27A=$?
+        R27A="$(last_record "$D27A")"
+        if [ "$RC27A" -eq 0 ] && [ "$(rec_field "$R27A" deployed_url)" = "https://app-x.vercel.app" ] \
+           && [ "$(rec_field "$R27A" health_status)" = "healthy" ] \
+           && [ "$(rec_field "$R27A" health_url_source)" = "captured" ] \
+           && grep -q "Live at: https://app-x.vercel.app" <<<"$OUT27A"; then
+            ok "27a. a printed URL is recorded as deployed_url and probed by default"
+        else
+            bad "27a. captured URL not recorded or probed" "rc=$RC27A rec=$R27A $(printf '%s' "$OUT27A" | tail -3)"
+        fi
+        printf '#!/usr/bin/env bash\necho "deployed, no link"\nexit 0\n' > "$FAKE_BIN/vercel"
+        mk_hfix d27b; D27B="$WORKROOT/d27b"
+        OUT27B="$(run_h "$D27B" --execute)"; RC27B=$?
+        R27B="$(last_record "$D27B")"
+        if [ "$RC27B" -eq 0 ] && [ -z "$(rec_field "$R27B" deployed_url)" ] \
+           && [ "$(rec_field "$R27B" health_status)" = "unchecked" ] \
+           && ! grep -q "Live at:" <<<"$OUT27B"; then
+            ok "27b. no printed URL: deployed_url empty, health unchecked, nothing invented"
+        else
+            bad "27b. a URL was invented or health claimed" "rc=$RC27B rec=$R27B"
+        fi
+        printf '#!/usr/bin/env bash\necho "Production: https://app-x.vercel.app"\nexit 0\n' > "$FAKE_BIN/vercel"
+        mk_hfix d27c; D27C="$WORKROOT/d27c"
+        _="$(run_h "$D27C" --execute --health-url "http://127.0.0.1:$HS_PORT/ok")"; RC27C=$?
+        R27C="$(last_record "$D27C")"
+        if [ "$RC27C" -eq 0 ] && [ "$(rec_field "$R27C" health_url_source)" = "flag" ] \
+           && [ "$(rec_field "$R27C" health_url)" = "http://127.0.0.1:$HS_PORT/ok" ]; then
+            ok "27c. --health-url wins over the captured URL and records source=flag"
+        else
+            bad "27c. flag source wrong" "rc=$RC27C rec=$R27C"
+        fi
+        rm -f "$FAKE_BIN/curl"
+        fi
+    fi
+
+    # 28. --env-file: KEY=VALUE pushed through the provider's documented verb as
+    # argv elements (never a shell), names-only record, values masked everywhere.
+    echo "28. loki deploy --env-file pushes env by name, never stores or prints values"
+    ENVS="$WORKROOT/envs"; mkdir -p "$ENVS"
+    mk_envfix() {  # <name> [.env.example content] ; signed nextjs fixture, example committed
+        local n="$1" ex="${2:-}" b d
+        b="$(make_fixture "$n")"; d="$WORKROOT/$n"
+        if [ -n "$ex" ]; then
+            printf '%s\n' "$ex" > "$d/.env.example"
+            git -C "$d" add .env.example
+            git -C "$d" commit -qm "env example"
+        fi
+        ( cd "$d" && _LOKI_RUN_START_SHA="$b" \
+            python3 "$GENERATOR" --loki-dir "$d/.loki" >/dev/null 2>&1 )
+    }
+    cat > "$FAKE_BIN/vercel" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$SENTINEL_DIR/vercel-argv"
+echo "deployed"
+exit 0
+EOF
+    chmod +x "$FAKE_BIN/vercel"
+    argv_line() { tr '\n' ' ' < "$SENTINEL_DIR/vercel-argv" 2>/dev/null; }
+    printf 'API_URL=x\n# a comment\nexport TOKEN="s3cr3t"\n' > "$ENVS/good.env"
+
+    # 28a. GREEN: argv carries -e K=V per key; s3cr3t is in no output and no record
+    mk_envfix d28a "API_URL=
+TOKEN="; D28A="$WORKROOT/d28a"
+    reset_sentinels
+    OUT28A="$(run_h "$D28A" --execute --env-file "$ENVS/good.env")"; RC28A=$?
+    R28A="$(last_record "$D28A")"
+    if [ "$RC28A" -eq 0 ] && [ "$(argv_line)" = "--prod -e API_URL=x -e TOKEN=s3cr3t " ]; then
+        ok "28a. vercel argv is '--prod -e API_URL=x -e TOKEN=s3cr3t'"
+    else
+        bad "28a. env not passed as -e argv" "rc=$RC28A argv=$(argv_line) $(printf '%s' "$OUT28A" | tail -4)"
+    fi
+    if [ -n "$R28A" ] && ! grep -q "s3cr3t" <<<"$OUT28A" && ! grep -q "s3cr3t" "$R28A" \
+       && grep -q "TOKEN=\*\*\*" <<<"$OUT28A" \
+       && [ "$(rec_field "$R28A" env_keys)" = "['API_URL', 'TOKEN']" ] \
+       && [ "$(rec_field "$R28A" env_source)" = "$(cd "$ENVS" && pwd -P)/good.env" ]; then
+        ok "28a. s3cr3t absent from stdout, stderr and the record; env_keys=[API_URL,TOKEN]; Running line masks K=***"
+    else
+        bad "28a. a value leaked or env_keys wrong" "rec=$R28A keys=$( [ -n "$R28A" ] && rec_field "$R28A" env_keys)"
+    fi
+
+    # 28b. a key listed in .env.example but missing from the env file refuses, names it, runs nothing
+    mk_envfix d28b "API_URL=
+DB_URL=
+TOKEN="; D28B="$WORKROOT/d28b"
+    reset_sentinels
+    OUT28B="$(run_h "$D28B" --execute --env-file "$ENVS/good.env")"; RC28B=$?
+    if [ "$RC28B" -eq 1 ] && [ "$(any_sentinel)" -eq 0 ] && grep -q "DB_URL" <<<"$OUT28B" \
+       && ! grep -q "API_URL, DB_URL\|TOKEN, DB_URL" <<<"$OUT28B" && ! grep -q "s3cr3t" <<<"$OUT28B"; then
+        ok "28b. missing .env.example key refuses rc 1, names only DB_URL, no stub call"
+    else
+        bad "28b. missing key did not refuse cleanly" "rc=$RC28B sentinels=$(any_sentinel) $(printf '%s' "$OUT28B" | tail -3)"
+    fi
+
+    # 28c. a value that looks like a command substitution is passed literally, never run
+    # shellcheck disable=SC2016
+    printf 'PAYLOAD=$(touch pwned)\nTICK=`touch pwned2`\n' > "$ENVS/evil.env"
+    mk_envfix d28c; D28C="$WORKROOT/d28c"
+    reset_sentinels
+    _="$(run_h "$D28C" --execute --env-file "$ENVS/evil.env")"; RC28C=$?
+    # shellcheck disable=SC2016
+    if [ "$RC28C" -eq 0 ] && [ ! -e "$D28C/pwned" ] && [ ! -e "$WORKROOT/pwned" ] && [ ! -e "$D28C/pwned2" ] \
+       && grep -qF 'PAYLOAD=$(touch pwned)' "$SENTINEL_DIR/vercel-argv"; then
+        ok "28c. a \$(touch pwned) value reaches argv literally and creates no file"
+    else
+        bad "28c. an env value was shell-evaluated" "rc=$RC28C argv=$(argv_line)"
+    fi
+
+    # 28d. --env-file without --execute refuses; a missing file and a malformed line refuse
+    reset_sentinels
+    _="$(run_h "$D28C" --env-file "$ENVS/good.env")"; RC28D=$?
+    _="$(run_h "$D28C" --execute --env-file "$ENVS/nope.env")"; RC28E=$?
+    printf 'GOOD=1\nnot a pair\n' > "$ENVS/bad.env"
+    OUT28F="$(run_h "$D28C" --execute --env-file "$ENVS/bad.env")"; RC28F=$?
+    if [ "$RC28D" -eq 1 ] && [ "$RC28E" -eq 1 ] && [ "$RC28F" -eq 1 ] && [ "$(any_sentinel)" -eq 0 ] \
+       && grep -q "line 2 is not KEY=VALUE" <<<"$OUT28F"; then
+        ok "28d. no --execute, a missing file, or a malformed line refuses rc 1 and runs nothing"
+    else
+        bad "28d. bad --env-file input did not refuse" "rc=$RC28D/$RC28E/$RC28F sentinels=$(any_sentinel)"
+    fi
+
+    # 28e-28j. Fly, Netlify and Cloudflare verbs; an unsupported provider and a
+    # failed env step run no deploy. Each provider runs from its own stub dir on a
+    # PATH with every OTHER deploy CLI's directory removed, so a real CLI on this
+    # host can never be picked (or run) in place of the stub.
+    ENV_CALLS="$SENTINEL_DIR/env-calls"
+    path_without() {  # <cli>... ; $PATH with these executables hidden
+        # A dir holding a deploy CLI is replaced by a shim dir of symlinks to
+        # its OTHER executables, so python3, git and the rest stay reachable.
+        local out="" p c f skip n=0 shim _ifs="$IFS"
+        IFS=:
+        for p in $PATH; do
+            skip=0
+            for c in "$@"; do [ -x "$p/$c" ] && skip=1; done
+            if [ "$skip" -eq 0 ]; then out="${out:+$out:}$p"; continue; fi
+            n=$((n + 1)); shim="$WORKROOT/env-shim-$n"; rm -rf "$shim"; mkdir -p "$shim"
+            for f in "$p"/*; do
+                [ -x "$f" ] || continue
+                skip=0
+                for c in "$@"; do [ "${f##*/}" = "$c" ] && skip=1; done
+                [ "$skip" -eq 0 ] && ln -s "$f" "$shim/${f##*/}" 2>/dev/null
+            done
+            out="${out:+$out:}$shim"
+        done
+        IFS="$_ifs"
+        printf '%s' "$out"
+    }
+    mk_env_stubs() {  # <bindir> <cli>... ; each logs "<cli> <argv>" one call per line
+        local b="$1" c; shift; mkdir -p "$b"
+        for c in "$@"; do
+            printf '#!/usr/bin/env bash\necho "%s $*" >> "%s"\necho done\nexit 0\n' "$c" "$ENV_CALLS" > "$b/$c"
+            chmod +x "$b/$c"
+        done
+    }
+    mk_typed_fix() {  # <name> <python|docker|static> ; signed fixture of that project type
+        local n="$1" kind="$2" b d
+        b="$(make_fixture "$n")"; d="$WORKROOT/$n"
+        git -C "$d" rm -q package.json
+        case "$kind" in
+            python) echo "flask" > "$d/requirements.txt"; git -C "$d" add requirements.txt ;;
+            docker) echo "FROM scratch" > "$d/Dockerfile"; git -C "$d" add Dockerfile ;;
+            static) mkdir -p "$d/dist"; echo "<html></html>" > "$d/dist/index.html"; git -C "$d" add dist/index.html ;;
+        esac
+        git -C "$d" commit -qm "$kind app"
+        ( cd "$d" && _LOKI_RUN_START_SHA="$b" python3 "$GENERATOR" --loki-dir "$d/.loki" >/dev/null 2>&1 )
+    }
+    run_env() {  # <dir> <bindir> <path> [flags...]
+        local d="$1" bd="$2" p="$3"; shift 3
+        ( cd "$d" && PATH="$bd:$p" LOKI_DIR="$d/.loki" LOKI_DATA_DIR="$WORKROOT/nodata" \
+            bash "$LOKI_BIN" deploy --dir "$d" --no-clip --execute --env-file "$ENVS/good.env" "$@" 2>&1 )
+    }
+    GOOD_ENV="$(cd "$ENVS" && pwd -P)/good.env"
+    ALL_CLIS="vercel netlify flyctl fly wrangler"
+
+    # 28e. Fly: 'fly secrets set --stage K=V ...' BEFORE 'fly deploy'
+    mk_env_stubs "$WORKROOT/env-fly" fly flyctl
+    mk_typed_fix d28e python; D28E="$WORKROOT/d28e"
+    reset_sentinels
+    # shellcheck disable=SC2086
+    OUT28E="$(run_env "$D28E" "$WORKROOT/env-fly" "$(path_without $ALL_CLIS)")"; RC28X=$?
+    R28E="$(last_record "$D28E")"
+    if [ "$RC28X" -eq 0 ] && [ "$(sed -n 1p "$ENV_CALLS")" = "fly secrets set --stage API_URL=x TOKEN=s3cr3t" ] \
+       && [ "$(sed -n 2p "$ENV_CALLS")" = "fly deploy" ] && [ "$(wc -l < "$ENV_CALLS" | tr -d ' ')" = "2" ] \
+       && ! grep -q "s3cr3t" <<<"$OUT28E" && ! grep -q "s3cr3t" "$R28E" \
+       && grep -q "Running (env): fly secrets set --stage API_URL=\*\*\* TOKEN=\*\*\*" <<<"$OUT28E" \
+       && [ "$(rec_field "$R28E" env_keys)" = "['API_URL', 'TOKEN']" ]; then
+        ok "28e. Fly stages secrets with 'fly secrets set --stage' before 'fly deploy'; values masked and unrecorded"
+    else
+        bad "28e. fly env verb wrong" "rc=$RC28X calls=$(tr '\n' '|' < "$ENV_CALLS" 2>/dev/null) $(printf '%s' "$OUT28E" | tail -3)"
+    fi
+
+    # 28f. Netlify: 'netlify env:import FILE' before 'netlify deploy --prod'
+    mk_env_stubs "$WORKROOT/env-netlify" netlify
+    mk_envfix d28f; D28F="$WORKROOT/d28f"
+    reset_sentinels
+    # shellcheck disable=SC2086
+    OUT28F2="$(run_env "$D28F" "$WORKROOT/env-netlify" "$(path_without $ALL_CLIS)")"; RC28F2=$?
+    if [ "$RC28F2" -eq 0 ] && [ "$(sed -n 1p "$ENV_CALLS")" = "netlify env:import $GOOD_ENV" ] \
+       && [ "$(sed -n 2p "$ENV_CALLS")" = "netlify deploy --prod" ] \
+       && ! grep -q "s3cr3t" "$ENV_CALLS" && ! grep -q "s3cr3t" <<<"$OUT28F2" && ! grep -q "s3cr3t" "$(last_record "$D28F")"; then
+        ok "28f. Netlify imports the file with 'netlify env:import FILE' before the deploy; no value in argv"
+    else
+        bad "28f. netlify env verb wrong" "rc=$RC28F2 calls=$(tr '\n' '|' < "$ENV_CALLS" 2>/dev/null) $(printf '%s' "$OUT28F2" | tail -3)"
+    fi
+
+    # 28g. Cloudflare: 'wrangler secret bulk FILE' before 'wrangler deploy'
+    mk_env_stubs "$WORKROOT/env-cf" wrangler
+    mk_typed_fix d28g docker; D28G="$WORKROOT/d28g"
+    reset_sentinels
+    # shellcheck disable=SC2086
+    OUT28G="$(run_env "$D28G" "$WORKROOT/env-cf" "$(path_without $ALL_CLIS)")"; RC28G=$?
+    if [ "$RC28G" -eq 0 ] && [ "$(sed -n 1p "$ENV_CALLS")" = "wrangler secret bulk $GOOD_ENV" ] \
+       && [ "$(sed -n 2p "$ENV_CALLS")" = "wrangler deploy" ] \
+       && ! grep -q "s3cr3t" "$ENV_CALLS" && ! grep -q "s3cr3t" <<<"$OUT28G" && ! grep -q "s3cr3t" "$(last_record "$D28G")"; then
+        ok "28g. Cloudflare runs 'wrangler secret bulk FILE' before 'wrangler deploy'"
+    else
+        bad "28g. cloudflare env verb wrong" "rc=$RC28G calls=$(tr '\n' '|' < "$ENV_CALLS" 2>/dev/null) $(printf '%s' "$OUT28G" | tail -3)"
+    fi
+
+    # 28h. a provider with no documented env verb (Cloudflare Pages) refuses with nothing run
+    mk_typed_fix d28h static; D28H="$WORKROOT/d28h"
+    reset_sentinels
+    # shellcheck disable=SC2086
+    OUT28H="$(run_env "$D28H" "$WORKROOT/env-cf" "$(path_without $ALL_CLIS)")"; RC28H=$?
+    if [ "$RC28H" -eq 1 ] && [ "$(any_sentinel)" -eq 0 ] \
+       && grep -q "env-file is not supported for: wrangler pages deploy" <<<"$OUT28H"; then
+        ok "28h. an unsupported provider refuses --env-file and runs nothing"
+    else
+        bad "28h. unsupported provider did not refuse --env-file" "rc=$RC28H sentinels=$(any_sentinel) $(printf '%s' "$OUT28H" | tail -3)"
+    fi
+
+    # 28i. a failed env step runs NO deploy and exits non-zero
+    mkdir -p "$WORKROOT/env-flyfail"
+    printf '#!/usr/bin/env bash\necho "fly $*" >> "%s"\n[ "$1" = secrets ] && exit 3\nexit 0\n' "$ENV_CALLS" > "$WORKROOT/env-flyfail/fly"
+    cp "$WORKROOT/env-flyfail/fly" "$WORKROOT/env-flyfail/flyctl"; chmod +x "$WORKROOT/env-flyfail/fly" "$WORKROOT/env-flyfail/flyctl"
+    reset_sentinels
+    # shellcheck disable=SC2086
+    OUT28I="$(run_env "$D28E" "$WORKROOT/env-flyfail" "$(path_without $ALL_CLIS)")"; RC28I=$?
+    if [ "$RC28I" -eq 3 ] && ! grep -q "^fly deploy" "$ENV_CALLS" && grep -q "deploy was NOT run" <<<"$OUT28I" \
+       && ! grep -q "s3cr3t" <<<"$OUT28I"; then
+        ok "28i. a failed 'fly secrets set' exits 3 and never runs 'fly deploy'"
+    else
+        bad "28i. deploy ran after a failed env step" "rc=$RC28I calls=$(tr '\n' '|' < "$ENV_CALLS" 2>/dev/null)"
+    fi
+
+    # 29. --domain: attach with the provider's documented verb, then PROVE TLS with
+    # openssl. vercel, openssl and curl are stubs; nothing leaves the machine.
+    echo "29. loki deploy --domain attaches a domain and proves TLS (never claims valid unchecked)"
+    DOM_CALLS="$SENTINEL_DIR/dom-calls"
+    DOM_MODE="$WORKROOT/dom-mode"
+    DOM_SHA="$WORKROOT/dom-sha"
+    mk_dom_bin() {  # <bindir> <cli>... ; deploy CLIs print a URL and log argv; plus openssl and curl stubs
+        local b="$1" c; shift; mkdir -p "$b"
+        for c in "$@"; do
+            printf '#!/usr/bin/env bash\necho "%s $*" >> "%s"\necho "https://app-abc.example-host.app"\nexit 0\n' "$c" "$DOM_CALLS" > "$b/$c"
+            chmod +x "$b/$c"
+        done
+        cat > "$b/openssl" <<EOF
+#!/usr/bin/env bash
+echo "openssl \$*" >> "$DOM_CALLS"
+mode="\$(cat "$DOM_MODE" 2>/dev/null)"
+case "\$1" in
+    s_client)
+        [ "\$mode" = hsfail ] && exit 1
+        echo "-----BEGIN CERTIFICATE-----"; echo "AAAA"; echo "-----END CERTIFICATE-----"
+        exit 0 ;;
+    x509)
+        cat >/dev/null
+        echo "notAfter=Jan  1 00:00:00 2030 GMT"
+        [ "\$mode" = expiring ] && { echo "Certificate will expire"; exit 1; }
+        echo "Certificate will not expire"; exit 0 ;;
+esac
+exit 0
+EOF
+        cat > "$b/curl" <<EOF
+#!/usr/bin/env bash
+echo "curl \$*" >> "$DOM_CALLS"
+case "\$*" in *provenance*) ;; *) printf 200; exit 0 ;; esac
+[ -s "$DOM_SHA" ] || exit 22
+printf '{"head_sha":"%s"}' "\$(cat "$DOM_SHA")"
+EOF
+        chmod +x "$b/openssl" "$b/curl"
+    }
+    run_dom() {  # <dir> <bindir> <path> [flags...]
+        local d="$1" bd="$2" p="$3"; shift 3
+        ( cd "$d" && PATH="$bd:$p" LOKI_DIR="$d/.loki" LOKI_DATA_DIR="$WORKROOT/nodata" \
+            bash "$LOKI_BIN" deploy --dir "$d" --no-clip --execute --domain shop.example.com "$@" 2>&1 )
+    }
+    dom_calls() { tr '\n' '|' < "$DOM_CALLS" 2>/dev/null; }
+    mk_dom_bin "$WORKROOT/dom-vercel" vercel
+    mk_dom_bin "$WORKROOT/dom-netlify" netlify
+
+    # 29a. GREEN: alias argv recorded, TLS probe ran, tls_status=valid, tls_not_after set, provenance matches
+    mk_envfix d29a; D29A="$WORKROOT/d29a"
+    git -C "$D29A" rev-parse HEAD > "$DOM_SHA"
+    echo ok > "$DOM_MODE"
+    reset_sentinels
+    OUT29A="$(run_dom "$D29A" "$WORKROOT/dom-vercel" "$(path_without $ALL_CLIS openssl curl)")"; RC29A=$?
+    R29A="$(last_record "$D29A")"
+    if [ "$RC29A" -eq 0 ] && grep -q "^vercel alias set https://app-abc.example-host.app shop.example.com$" "$DOM_CALLS" \
+       && grep -q "^openssl s_client -servername shop.example.com -connect shop.example.com:443$" "$DOM_CALLS" \
+       && grep -q "^openssl x509 -noout -enddate -checkend 604800$" "$DOM_CALLS" \
+       && [ "$(rec_field "$R29A" domain)" = "shop.example.com" ] && [ "$(rec_field "$R29A" domain_status)" = "attached" ] \
+       && [ "$(rec_field "$R29A" tls_status)" = "valid" ] && [ "$(rec_field "$R29A" tls_not_after)" = "2030-01-01T00:00:00Z" ] \
+       && [ "$(rec_field "$R29A" domain_provenance)" = "match" ]; then
+        ok "29a. vercel alias set argv recorded, tls_status=valid, tls_not_after set, provenance match, exit 0"
+    else
+        bad "29a. domain green path wrong" "rc=$RC29A calls=$(dom_calls) rec=$R29A $(printf '%s' "$OUT29A" | tail -4)"
+    fi
+
+    # 29b. an openssl whose -checkend fails gives expiring (exit 0, never valid)
+    mk_envfix d29b; D29B="$WORKROOT/d29b"
+    echo expiring > "$DOM_MODE"
+    reset_sentinels
+    OUT29B="$(run_dom "$D29B" "$WORKROOT/dom-vercel" "$(path_without $ALL_CLIS openssl curl)")"; RC29B=$?
+    R29B="$(last_record "$D29B")"
+    if [ "$RC29B" -eq 0 ] && [ "$(rec_field "$R29B" tls_status)" = "expiring" ]; then
+        ok "29b. a failing -checkend records tls_status=expiring"
+    else
+        bad "29b. expiring not recorded" "rc=$RC29B status=$(rec_field "$R29B" tls_status) $(printf '%s' "$OUT29B" | tail -3)"
+    fi
+
+    # 29c. a handshake failure gives invalid, exit 6, and the DNS record the provider needs
+    mk_envfix d29c; D29C="$WORKROOT/d29c"
+    echo hsfail > "$DOM_MODE"
+    reset_sentinels
+    OUT29C="$(run_dom "$D29C" "$WORKROOT/dom-vercel" "$(path_without $ALL_CLIS openssl curl)")"; RC29C=$?
+    R29C="$(last_record "$D29C")"
+    if [ "$RC29C" -eq 6 ] && [ "$(rec_field "$R29C" tls_status)" = "invalid" ] && grep -q "cname.vercel-dns.com" <<<"$OUT29C"; then
+        ok "29c. a handshake failure records tls_status=invalid, exits 6 and prints the Vercel DNS record"
+    else
+        bad "29c. invalid TLS wrong" "rc=$RC29C status=$(rec_field "$R29C" tls_status) $(printf '%s' "$OUT29C" | tail -3)"
+    fi
+
+    # 29d. Netlify: manual domain step, no alias call, TLS still checked
+    mk_envfix d29d; D29D="$WORKROOT/d29d"
+    echo ok > "$DOM_MODE"
+    reset_sentinels
+    OUT29D="$(run_dom "$D29D" "$WORKROOT/dom-netlify" "$(path_without $ALL_CLIS openssl curl)")"; RC29D=$?
+    R29D="$(last_record "$D29D")"
+    if [ "$RC29D" -eq 0 ] && [ "$(rec_field "$R29D" domain_status)" = "manual" ] && ! grep -q "alias\|certs" "$DOM_CALLS" \
+       && grep -q "^openssl s_client" "$DOM_CALLS" && [ "$(rec_field "$R29D" tls_status)" = "valid" ]; then
+        ok "29d. netlify records domain_status=manual, makes no alias call, still checks TLS"
+    else
+        bad "29d. netlify manual path wrong" "rc=$RC29D calls=$(dom_calls) $(printf '%s' "$OUT29D" | tail -3)"
+    fi
+
+    # 29e. no openssl on PATH gives unchecked, never valid
+    mk_dom_bin "$WORKROOT/dom-noossl" vercel
+    rm -f "$WORKROOT/dom-noossl/openssl"
+    mk_envfix d29e; D29E="$WORKROOT/d29e"
+    reset_sentinels
+    OUT29E="$(run_dom "$D29E" "$WORKROOT/dom-noossl" "$(path_without $ALL_CLIS openssl curl)")"; RC29E=$?
+    R29E="$(last_record "$D29E")"
+    if [ "$RC29E" -eq 0 ] && [ "$(rec_field "$R29E" tls_status)" = "unchecked" ] && [ "$(rec_field "$R29E" tls_not_after)" = "" ]; then
+        ok "29e. no openssl records tls_status=unchecked, never valid"
+    else
+        bad "29e. missing openssl was not unchecked" "rc=$RC29E status=$(rec_field "$R29E" tls_status) $(printf '%s' "$OUT29E" | tail -3)"
+    fi
+
+    # 29f. a failed alias exits 6 with domain_status=failed; --domain needs --execute and a hostname
+    mk_dom_bin "$WORKROOT/dom-aliasfail" vercel
+    printf '#!/usr/bin/env bash\necho "vercel $*" >> "%s"\n[ "$1" = alias ] && exit 2\necho "https://app-abc.example-host.app"\nexit 0\n' "$DOM_CALLS" > "$WORKROOT/dom-aliasfail/vercel"
+    mk_envfix d29f; D29F="$WORKROOT/d29f"
+    reset_sentinels
+    OUT29F="$(run_dom "$D29F" "$WORKROOT/dom-aliasfail" "$(path_without $ALL_CLIS openssl curl)")"; RC29F=$?
+    R29F="$(last_record "$D29F")"
+    OUT29G="$(cd "$D29F" && bash "$LOKI_BIN" deploy --dir "$D29F" --no-clip --domain shop.example.com 2>&1)"; RC29G=$?
+    OUT29H="$(cd "$D29F" && bash "$LOKI_BIN" deploy --dir "$D29F" --no-clip --execute --domain "bad host" 2>&1)"; RC29H=$?
+    if [ "$RC29F" -eq 6 ] && [ "$(rec_field "$R29F" domain_status)" = "failed" ] \
+       && [ "$RC29G" -eq 1 ] && grep -q "requires --execute" <<<"$OUT29G" \
+       && [ "$RC29H" -eq 1 ] && grep -q "not a valid hostname" <<<"$OUT29H"; then
+        ok "29f. failed alias exits 6 (domain_status=failed); --domain without --execute and a bad hostname exit 1"
+    else
+        bad "29f. alias failure or arg validation wrong" "rc=$RC29F/$RC29G/$RC29H $(printf '%s' "$OUT29F" | tail -2)"
     fi
     kill "$HS_PID" 2>/dev/null || true
 else
