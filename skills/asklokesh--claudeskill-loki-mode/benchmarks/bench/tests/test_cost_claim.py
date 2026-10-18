@@ -15,7 +15,9 @@ def _arm(costs_by_task, accepted=None, **extra):
         for ri, c in enumerate(costs):
             ok = True if accepted is None else accepted(ti, ri)
             rows.append({"task_id": "t%d" % ti, "accepted": ok, "cost_usd": c,
-                         "engine": "e1", "loki_version": "11.0.0", **extra})
+                         "engine": "e1", "loki_version": "11.0.0",
+                         "model_used": "m1", "cost_source": "src",
+                         **extra})
     return rows
 
 
@@ -102,7 +104,8 @@ _CLI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 def _attr_rows(arm, cost, ntask=8, nrep=3, prefix="t"):
     return [{"task": "%s%d" % (prefix, t), "arm": arm, "accepted": True,
              "cost_usd": cost, "status": "completed", "engine": "e1",
-             "loki_version": "11.0.0"}
+             "loki_version": "11.0.0", "model_used": "m1",
+             "cost_source": "claude_json.total_cost_usd"}
             for t in range(ntask) for _ in range(nrep)]
 
 
@@ -145,6 +148,28 @@ def test_cli_usage_error_exit_2(tmp_path):
     args = _base_args(tmp_path / "missing.jsonl")
     assert _run(*args)[0] == 2
     assert _run("--loki-arm", "loki")[0] == 2
+
+
+def test_cli_same_arm_refused_exit_2(tmp_path):
+    f = tmp_path / "a.jsonl"
+    _write(f, _attr_rows("loki", 0.4) + _attr_rows("raw-lean", 1.0))
+    for target in ("0.5", "1.0", "2.0"):
+        rc, out = _run("--rows", str(f), "--loki-arm", "loki",
+                       "--floor-arm", "loki", "--target", target)
+        assert rc == 2, (target, rc, out)
+        assert "PROVEN" not in out, (target, out)
+
+
+def test_cli_target_must_be_finite_and_positive(tmp_path):
+    f = tmp_path / "a.jsonl"
+    _write(f, _attr_rows("loki", 0.4) + _attr_rows("raw-lean", 1.0))
+    for bad in ("nan", "inf", "-inf", "0", "-0.5", "abc"):
+        args = _base_args(f)
+        args[args.index("--target") + 1] = bad
+        rc, out = _run(*args)
+        assert rc == 2, (bad, rc, out)
+        assert "PROVEN" not in out, (bad, out)
+    assert _run(*_base_args(f))[0] == 0
 
 
 def test_cli_maps_unmeasured_and_partial(tmp_path):
@@ -300,3 +325,220 @@ def test_negative_and_infinite_elapsed_excluded():
     v = cc.cost_claim_verdict(loki, floor, 0.5)
     assert v["time_rows_excluded"] == 2, v
     assert abs(v["time_ratio"] - 2.0) < 1e-9, v
+
+
+def test_model_mismatch_between_arms_blocks():
+    loki, floor = _tight(0.4)
+    for r in loki:
+        r["model_used"] = "cheap"
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["verdict"] == "NOT PROVEN"
+    assert any(r.startswith("model") for r in v["reasons"])
+
+
+def test_model_mixed_within_arm_blocks():
+    loki, floor = _tight(0.4)
+    floor[0]["model_used"] = "other"
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert any(r.startswith("model") for r in v["reasons"])
+
+
+def test_model_missing_blocks():
+    loki, floor = _tight(0.4)
+    del loki[0]["model_used"]
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["verdict"] == "NOT PROVEN"
+    assert any(r.startswith("model: missing") for r in v["reasons"])
+
+
+def test_cli_model_mismatch_not_proven(tmp_path):
+    rows = _attr_rows("loki", 0.4) + _attr_rows("raw-lean", 1.0)
+    for r in rows:
+        if r["arm"] == "loki":
+            r["model_used"] = "cheap"
+    f = tmp_path / "r.jsonl"
+    _write(f, rows)
+    rc, out = _run(*_base_args(f))
+    assert "NOT PROVEN" in out and "model" in out, out
+
+
+def test_cost_profile_named_in_verdict():
+    loki, floor = _tight(0.4)
+    for r in loki:
+        r["cost_profile"] = "lean"
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["cost_profile"] == "lean"
+    assert v["verdict"] == "PROVEN_AT(0.5)", v
+
+
+def test_cost_profile_absent_is_null_and_does_not_block():
+    loki, floor = _tight(0.4)
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["cost_profile"] is None
+    assert v["verdict"] == "PROVEN_AT(0.5)", v
+
+
+def test_cost_profile_mixed_arm_blocks():
+    loki, floor = _tight(0.4)
+    for r in loki:
+        r["cost_profile"] = "lean"
+    loki[0]["cost_profile"] = "off"
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["verdict"] == "NOT PROVEN"
+    assert v["cost_profile"] == "mixed"
+    assert any(r.startswith("cost_profile") for r in v["reasons"])
+
+
+def test_cost_profile_partly_missing_is_mixed():
+    loki, floor = _tight(0.4)
+    for r in loki[1:]:
+        r["cost_profile"] = "lean"
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["cost_profile"] == "mixed"
+    assert any(r.startswith("cost_profile") for r in v["reasons"])
+
+
+def test_cost_profile_ignores_floor_and_unmeasured_rows():
+    loki, floor = _tight(0.4)
+    for r in loki:
+        r["cost_profile"] = "lean"
+    loki.append({"task_id": "t0", "unmeasured": True, "cost_profile": "off"})
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["cost_profile"] == "lean"
+    assert v["verdict"] == "PROVEN_AT(0.5)", v
+
+
+def test_cli_cost_profile_lean_and_mixed(tmp_path):
+    rows = _attr_rows("loki", 0.4) + _attr_rows("raw-lean", 1.0)
+    for r in rows:
+        if r["arm"] == "loki":
+            r["cost_profile"] = "lean"
+    f = tmp_path / "p.jsonl"
+    _write(f, rows)
+    rc, out = _run(*_base_args(f))
+    assert rc == 0 and json.loads(out)["cost_profile"] == "lean", out
+    next(r for r in rows if r["arm"] == "loki")["cost_profile"] = "off"
+    _write(f, rows)
+    rc, out = _run(*_base_args(f))
+    assert rc == 1 and json.loads(out)["cost_profile"] == "mixed", out
+
+
+def test_unmatched_exclusion_warned_and_listed(tmp_path):
+    f = tmp_path / "a.jsonl"
+    rows = _attr_rows("loki", 0.4) + _attr_rows("raw-lean", 1.0)
+    rows += _attr_rows("loki", 5.0, 1, prefix="bad")
+    rows += _attr_rows("raw-lean", 1.0, 1, prefix="bad")
+    _write(f, rows)
+    p = subprocess.run([sys.executable, "-I", _CLI, *_base_args(f),
+                        "--exclude-task", "bad0", "--exclude-task", "typo"],
+                       capture_output=True, text=True)
+    v = json.loads(p.stdout)
+    assert v["unmatched_exclusions"] == ["typo"], v
+    assert v["excluded_tasks"] == ["bad0", "typo"]
+    assert "typo" in p.stderr and "matches no row" in p.stderr
+    assert "bad0" not in p.stderr
+    rc, out = _run(*_base_args(f), "--exclude-task", "bad0")
+    assert json.loads(out)["unmatched_exclusions"] == []
+
+
+def test_task_set_mismatch_blocks():
+    loki, floor = _tight(0.4)
+    floor = [r for r in floor if r["task_id"] != "t7"]
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["verdict"] == "NOT PROVEN"
+    assert any(r.startswith("tasks: arms cover different task sets")
+               and "t7" in r for r in v["reasons"]), v["reasons"]
+
+
+def test_task_set_mismatch_both_directions_and_match_clean():
+    loki, floor = _tight(0.4)
+    extra = [dict(r, task_id="tx") for r in floor if r["task_id"] == "t0"]
+    v = cc.cost_claim_verdict(loki, floor + extra, 0.5)
+    assert any(r.startswith("tasks:") and "tx" in r for r in v["reasons"])
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert not any(r.startswith("tasks:") for r in v["reasons"])
+
+
+def test_cli_task_set_mismatch_not_proven(tmp_path):
+    f = tmp_path / "a.jsonl"
+    rows = _attr_rows("loki", 0.4) + _attr_rows("raw-lean", 1.0)
+    rows += _attr_rows("loki", 0.4, 1, prefix="only")
+    _write(f, rows)
+    rc, out = _run(*_base_args(f))
+    v = json.loads(out)
+    assert rc == 1 and any(r.startswith("tasks:") for r in v["reasons"]), out
+
+
+def test_cost_source_missing_blocks():
+    loki, floor = _tight(0.4)
+    del loki[0]["cost_source"]
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["verdict"] == "NOT PROVEN"
+    assert any(r.startswith("cost_source: missing") for r in v["reasons"])
+
+
+def test_cost_source_mixed_within_arm_blocks_but_arms_may_differ():
+    loki, floor = _tight(0.4)
+    for r in loki:
+        r["cost_source"] = "loki.efficiency_cost"
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["verdict"] == "PROVEN_AT(0.5)", v["reasons"]
+    floor[0]["cost_source"] = "loki.efficiency_cost"
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert v["verdict"] == "NOT PROVEN"
+    assert any(r.startswith("cost_source: floor mixes") for r in v["reasons"])
+
+
+def test_cli_cost_source_missing_not_proven(tmp_path):
+    f = tmp_path / "a.jsonl"
+    rows = _attr_rows("loki", 0.4) + _attr_rows("raw-lean", 1.0)
+    rows[0]["cost_source"] = None
+    _write(f, rows)
+    rc, out = _run(*_base_args(f))
+    v = json.loads(out)
+    assert rc == 1 and any(r.startswith("cost_source:") for r in v["reasons"]), out
+
+
+def _bad_cost_cases():
+    return [None, "missing", float("nan"), float("inf"), -0.1, "0.4", True]
+
+
+def test_bad_cost_row_blocks():
+    for bad in _bad_cost_cases():
+        loki, floor = _tight(0.4)
+        if bad == "missing":
+            del loki[0]["cost_usd"]
+        else:
+            loki[0]["cost_usd"] = bad
+        v = cc.cost_claim_verdict(loki, floor, 0.5)
+        assert v["verdict"] == "NOT PROVEN", (bad, v)
+        assert any(r.startswith("cost: 1 row(s)") for r in v["reasons"]), (bad, v)
+
+
+def test_bad_cost_row_floor_arm_blocks_and_zero_cost_is_fine():
+    loki, floor = _tight(0.4)
+    floor[3]["cost_usd"] = None
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert any(r.startswith("cost:") for r in v["reasons"])
+    loki, floor = _tight(0.4)
+    loki[0]["cost_usd"] = 0.0
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert not any(r.startswith("cost:") for r in v["reasons"]), v["reasons"]
+
+
+def test_bad_cost_row_unmeasured_not_counted():
+    loki, floor = _tight(0.4)
+    loki[0]["cost_usd"] = None
+    loki[0]["unmeasured"] = True
+    v = cc.cost_claim_verdict(loki, floor, 0.5)
+    assert not any(r.startswith("cost:") for r in v["reasons"]), v["reasons"]
+
+
+def test_bad_cost_row_cli_not_proven(tmp_path):
+    f = tmp_path / "a.jsonl"
+    rows = _attr_rows("loki", 0.4) + _attr_rows("raw-lean", 1.0)
+    rows[0]["cost_usd"] = None
+    _write(f, rows)
+    rc, out = _run(*_base_args(f))
+    v = json.loads(out)
+    assert rc == 1 and any(r.startswith("cost:") for r in v["reasons"]), out

@@ -263,7 +263,7 @@ if command -v xcrun &> /dev/null; then
         check_warning "No simulators currently booted"
         echo "       Boot a simulator to begin testing"
         echo "       Example: xcrun simctl boot <device-udid>"
-        echo "       (Xcode 27 has no Simulator.app; DeviceHub.app lives in Xcode.app/Contents/Applications/)"
+        echo "       Or open the UI: open -b com.apple.dt.Devices  (Device Hub, Xcode 27+; older Xcode: open -a Simulator)"
     fi
 else
     check_failed "Cannot check booted simulators (simctl not available)"
@@ -311,7 +311,8 @@ fi
 STALE_UDIDS=""
 if [ -f /tmp/idb/state ]; then
     STALE_UDIDS=$(python3 - <<'PY' 2>/dev/null || true
-import json, os
+import json, os, re
+UDID = re.compile(r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}")
 try:
     with open("/tmp/idb/state") as handle:
         entries = json.load(handle)
@@ -324,7 +325,10 @@ for entry in entries:
     try:
         os.kill(pid, 0)
     except OSError:
-        print(entry.get("udid", ""))
+        # Only report well-formed simulator UDIDs.
+        udid = str(entry.get("udid", ""))
+        if UDID.fullmatch(udid):
+            print(udid)
 PY
 )
 fi

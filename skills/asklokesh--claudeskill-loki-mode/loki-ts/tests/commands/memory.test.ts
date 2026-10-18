@@ -39,6 +39,27 @@ describe("memory list", () => {
   });
 });
 
+describe("memory list json", () => {
+  it("list json prints counts and learnings path, text output unchanged", async () => {
+    const a = await bunCmd(["memory", "list", "--json"]);
+    expect(a.exitCode).toBe(0);
+    const j = JSON.parse(a.stdout);
+    expect(typeof j.patterns).toBe("number");
+    expect(typeof j.mistakes).toBe("number");
+    expect(typeof j.successes).toBe("number");
+    expect(j.learnings_path).toContain("learnings");
+    const t = await bunCmd(["memory", "list"]);
+    expect(stripAnsi(t.stdout)).toContain("Patterns:");
+    expect(() => JSON.parse(t.stdout)).toThrow();
+  });
+
+  it("list json via bin/loki entry path", async () => {
+    const a = await run([resolve(REPO_ROOT, "bin", "loki"), "memory", "ls", "--json"]);
+    expect(a.exitCode).toBe(0);
+    expect(Object.keys(JSON.parse(a.stdout))).toEqual(["patterns", "mistakes", "successes", "learnings_path"]);
+  });
+});
+
 describe("memory index (display)", () => {
   it("displays index.json when present, else 'No index found'", async () => {
     const a = await bunCmd(["memory", "index"]);
@@ -70,5 +91,53 @@ describe("memory brief (INJECT)", () => {
       expect(r.stdout).toContain("confidence 0.50");
       expect(r.stdout).toContain("use flock");
     } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+
+  it("brief without task value prints usage and exits 2", async () => {
+    for (const args of [["memory", "brief", "--task"], ["memory", "brief", "--task", ""], ["memory", "brief", "--task", "--json"]]) {
+      const r = await run(["bun", CLI, ...args], { env: { ...process.env, LOKI_NO_BROWSER: "1" } });
+      expect(r.exitCode).toBe(2);
+      expect(r.stderr).toContain("Usage: loki memory brief [--task <text>]");
+      expect(r.stdout).toBe("");
+    }
+  });
+});
+
+describe("memory unknown flag", () => {
+  it("lessons/list/brief reject unknown flags with usage and exit 2; known flags still work", async () => {
+    const env = { ...process.env, LOKI_NO_BROWSER: "1" };
+    for (const [args, usage] of [
+      [["memory", "lessons", "--jsno"], "Usage: loki memory lessons [--json]"],
+      [["memory", "list", "--bogus"], "Usage: loki memory list [--json]"],
+      [["memory", "brief", "--bogus"], "Usage: loki memory brief [--task <text>]"],
+    ] as const) {
+      const r = await run(["bun", CLI, ...args], { env });
+      expect(r.exitCode).toBe(2);
+      expect(r.stderr).toContain("unknown flag");
+      expect(r.stderr).toContain(usage);
+      expect(r.stdout).toBe("");
+    }
+    for (const args of [["memory", "lessons", "--json"], ["memory", "list", "--json"], ["memory", "brief", "--task", "x"]]) {
+      const r = await run(["bun", CLI, ...args], { env });
+      expect(r.exitCode).toBe(0);
+    }
+  });
+});
+
+describe("memory flag hint", () => {
+  it("suggests the closest allowed flag, and stays silent when none is close", async () => {
+    const env = { ...process.env, LOKI_NO_BROWSER: "1" };
+    for (const [args, hint] of [
+      [["memory", "lessons", "--jsno"], "Did you mean '--json'?"],
+      [["memory", "list", "--jsn"], "Did you mean '--json'?"],
+      [["memory", "brief", "--taks", "x"], "Did you mean '--task'?"],
+    ] as const) {
+      const r = await run(["bun", CLI, ...args], { env });
+      expect(r.exitCode).toBe(2);
+      expect(r.stderr).toContain(hint);
+    }
+    const far = await run(["bun", CLI, "memory", "lessons", "--zzzzzzzz"], { env });
+    expect(far.exitCode).toBe(2);
+    expect(far.stderr).not.toContain("Did you mean");
   });
 });

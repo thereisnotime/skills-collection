@@ -77,7 +77,7 @@ for (const override of [
 ]) {
   test(`Hermes MCP install reaches the native config root: ${override ?? "platform default"}`, (t) => {
     const root = mkdtempSync(join(tmpdir(), "cave-hermes home "));
-    t.after(() => rmSync(root, { recursive: true, force: true }));
+    t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
     const home = join(root, "home"),
       bin = join(root, "bin"),
       local = join(home, "local app data");

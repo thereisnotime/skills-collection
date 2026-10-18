@@ -15,7 +15,7 @@ function temporary(prefix) {
   temporaryDirs.push(directory);
   return directory;
 }
-after(() => temporaryDirs.forEach(directory => rmSync(directory, { recursive: true, force: true })));
+after(() => temporaryDirs.forEach(directory => rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 })));
 
 function runAdd(project, args, extraEnv = {}) {
   let env = { ...process.env, NO_COLOR: "1", ...extraEnv };

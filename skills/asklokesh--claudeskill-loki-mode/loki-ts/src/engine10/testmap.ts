@@ -2,8 +2,9 @@
 // real files only (ENGINE.md section 8). Each changed file maps to tests that import/reference
 // it, unioned with a same-stem floor so Go or import-free tests never drop to zero (under-selecting
 // is unsafe). Pure read. EngineTestMap extends types.ts TestMap without editing it.
-import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
-import { basename, extname, isAbsolute, join, relative, sep } from "node:path";
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { basename, dirname, extname, isAbsolute, join, relative, sep } from "node:path";
+import { safeGit } from "../util/safe_git.ts";
 import { loadProjectApi } from "../project_model/resolve.ts";
 import { attachScope, scopeRefs } from "../project_model/scope.ts";
 import type { RunnerName, TestMap, TestMapProvider, TestRef } from "./types.ts";
@@ -63,7 +64,21 @@ function readText(p: string): string {
 function normalizeRel(raw: string): string {
   return raw.split(sep).join("/").replace(/^\.\//, "");
 }
-// ponytail: full recursive walk minus SKIP_DIRS; add a file cap or `git ls-files` if a huge monorepo makes this slow.
+/** TEN-SPEED-13: tracked plus untracked-not-ignored files from git (honours .gitignore), same SKIP_DIRS filter and sort as the walk. Null outside a repo or when git lists nothing, so the caller falls back to the walk. */
+function gitFiles(root: string): string[] | null {
+  try {
+    const raw = safeGit(root, ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { maxBuffer: 256 * 1024 * 1024, timeout: 60_000 });
+    const out = new Set<string>();
+    for (const p of raw.split("\0")) {
+      if (p === "" || p.split("/").some((seg, i, a) => i < a.length - 1 && SKIP_DIRS.has(seg))) continue;
+      try { if (lstatSync(join(root, p)).isFile()) out.add(p); } catch { /* deleted but still indexed */ }
+    }
+    return out.size ? [...out].sort() : null;
+  } catch {
+    return null;
+  }
+}
+/** Recursive walk minus SKIP_DIRS: the fallback outside a git repo. */
 function walk(root: string): string[] {
   const out: string[] = [];
   const stack = [root];
@@ -88,16 +103,17 @@ function walk(root: string): string[] {
 }
 /** Synchronous core: scans `root`, returns the full detected map. `detect()` on TestMapProviderImpl just wraps this in a Promise per the interface. */
 export function buildTestMap(root: string): EngineTestMap {
-  const files = walk(root);
+  const files = gitFiles(root) ?? walk(root);
   const evidence: Partial<Record<RunnerName, string>> = {};
   const mark = (r: RunnerName, file: string): void => {
     if (!(r in evidence)) evidence[r] = file;
   };
+  const jsText = new Map<string, string>();
   for (const rel of files) {
     const name = basename(rel);
     const full = join(root, rel);
-    if (name === "package.json") detectFromPackageJson(readText(full), rel, mark);
-    else if (JS_TEST_RE.test(name) && /(?:from|require\()\s*['"]node:test['"]/.test(readText(full))) mark("node", rel);
+    if (JS_TEST_RE.test(name) && !evidence["node"] && /(?:from|require\()\s*['"]node:test['"]/.test(jsText.set(rel, readText(full)).get(rel)!)) mark("node", rel);
+    else if (name === "package.json") detectFromPackageJson(readText(full), rel, mark);
     else if (name === "bunfig.toml") mark("bun", rel);
     else if (name === "pytest.ini" || name === "conftest.py") mark("pytest", rel);
     else if (name === "pyproject.toml" && /\[tool\.pytest/.test(readText(full))) mark("pytest", rel);
@@ -125,7 +141,7 @@ export function buildTestMap(root: string): EngineTestMap {
   const sourceRefs: Record<string, string[]> = Object.create(null);
   const specs: Record<string, string[]> = Object.create(null);
   for (const t of tests) {
-    const text = readText(join(root, t.path));
+    const text = jsText.get(t.path) ?? readText(join(root, t.path));
     specs[t.path] = [...text.matchAll(JS_SPEC_RE)].map((m) => m[1] ?? "");
     const names = referencedBasenames(text);
     names.add(coveredStem(t.path));
@@ -161,9 +177,11 @@ export function impactedRefs(map: TestMap, changedFiles: readonly string[]): Tes
       continue;
     }
     const stem = basename(rel, extname(rel));
-    for (const p of sourceRefs[stem] ?? []) {
-      add(map.tests.find((t) => t.path === p));
-    }
+    // Directory entry files (index.ts, __init__.py, Rust mod.rs) are also imported by their directory name.
+    const stems = [stem];
+    const entry = stem === "index" || stem === "__init__" || (stem === "mod" && extname(rel) === ".rs");
+    if (entry && dirname(rel) !== ".") stems.push(basename(dirname(rel)));
+    for (const s of stems) for (const p of sourceRefs[s] ?? []) add(map.tests.find((t) => t.path === p));
   }
   return scopeRefs(map, changedFiles.map(normalizeRel), out);
 }

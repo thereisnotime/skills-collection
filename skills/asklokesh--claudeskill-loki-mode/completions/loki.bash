@@ -28,7 +28,7 @@ _loki_completion() {
             # If the word starts with a dash, show flags
             # Rule: list every flag bin/loki routes (Bun/engine10 ones such as --model, --max-cost, --spec, --no-pr too), not only cmd_start's own.
             if [[ "$cur" == -* ]]; then
-                local flags="--provider --max-iterations --parallel --background --bg --simple --complex --github --no-dashboard --sandbox --skip-memory --cost --spec --spec-first --yes --budget --attempts --model --isolation --max-cost --no-pr --explain-route --brief --worktree --pr --ship --detach --workspace --deploy --health-url --auto-rollback --destination --canary --domain --env-file --resume --help"
+                local flags="--provider --max-iterations --parallel --background --bg --simple --complex --github --no-dashboard --sandbox --skip-memory --cost --spec --spec-first --dry-run --yes --budget --attempts --model --isolation --max-cost --no-pr --explain-route --brief --worktree --pr --ship --detach --workspace --deploy --health-url --auto-rollback --destination --canary --domain --env-file --resume --help"
                 COMPREPLY=( $(compgen -W "${flags}" -- "$cur") )
                 return 0
             fi
@@ -72,6 +72,10 @@ _loki_completion() {
             ;;
 
         provider)
+            if [[ $cword -ge 3 && ( "${words[2]}" == "list" || "${words[2]}" == "info" ) ]]; then
+                COMPREPLY=( $(compgen -W "--json" -- "$cur") )
+                return 0
+            fi
             local provider_cmds="show set list info matrix help"
             COMPREPLY=( $(compgen -W "${provider_cmds}" -- "$cur") )
             ;;
@@ -143,7 +147,7 @@ _loki_completion() {
             ;;
         doctor)
             if [[ "$cur" == -* ]]; then
-                COMPREPLY=( $(compgen -W "--json --fix --yes --repo --requirements --help" -- "$cur") )
+                COMPREPLY=( $(compgen -W "--json --quiet --fix --yes --repo --requirements --help" -- "$cur") )
                 return 0
             fi
             ;;
@@ -234,6 +238,14 @@ _loki_completion() {
             fi
             ;;
 
+        control)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "--port --json --repo --help" -- "$cur") )
+                return 0
+            fi
+            COMPREPLY=( $(compgen -W "serve status help" -- "$cur") )
+            ;;
+
         plan)
             if [[ "$cur" == -* ]]; then
                 COMPREPLY=( $(compgen -W "--json --verbose --spec --requirements --help" -- "$cur") )
@@ -272,6 +284,29 @@ _loki_completion() {
                 return 0
             fi
             _filedir -d
+            ;;
+
+        report)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "--json --since --efficiency --help" -- "$cur") )
+                return 0
+            fi
+            COMPREPLY=( $(compgen -W "session metrics cost kpis export share dogfood" -- "$cur") )
+            return 0
+            ;;
+
+        verify-pr)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "--out --json --help" -- "$cur") )
+                return 0
+            fi
+            ;;
+
+        undo)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "--list --plan --dry-run --help" -- "$cur") )
+                return 0
+            fi
             ;;
 
         metrics)
@@ -317,6 +352,10 @@ _loki_completion() {
         monitor)
             # Complete with directories
             _filedir -d
+            ;;
+
+        version)
+            COMPREPLY=( $(compgen -W "--json --help" -- "$cur") )
             ;;
 
         completions)

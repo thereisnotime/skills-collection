@@ -1,6 +1,6 @@
 // CLI-MODERN-2: `loki status` shows Loki 10 runs and never the legacy box.
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventLog, readEvents } from "../../src/engine10/events.ts";
@@ -66,6 +66,31 @@ describe("loki status (Loki 10)", () => {
     expect(out).toMatch(/Control Plane run: http:\/\/127\.0\.0\.1:47821\/#\/runs\/[0-9a-f]{16}\/e10-20261003T000000Z-aaaa/);
     expect(controlRunLink(null, dir, "r")).toBeNull();
     expect(controlRunLink("javascript:x", dir, "r")).toBeNull();
+  });
+
+  test("second run id is a too-many-arguments error with the full usage", async () => {
+    const orig = process.stderr.write.bind(process.stderr);
+    let err = "";
+    process.stderr.write = ((c: string | Uint8Array) => { err += String(c); return true; }) as typeof process.stderr.write;
+    try {
+      const { code } = await run(["e10-20261003T000000Z-aaaa", "e10-20261003T000000Z-bbbb"]);
+      expect(code).toBe(1);
+    } finally { process.stderr.write = orig; }
+    expect(err).toContain("too many arguments: expected one run id");
+    expect(err).not.toContain("unknown flag");
+    expect(err).toContain("Usage: loki status [run-id] [--json|--badge|--probe]");
+  });
+
+  test("a truly unknown flag still reports unknown flag with the full usage", async () => {
+    const orig = process.stderr.write.bind(process.stderr);
+    let err = "";
+    process.stderr.write = ((c: string | Uint8Array) => { err += String(c); return true; }) as typeof process.stderr.write;
+    try {
+      const { code } = await run(["--bogus"]);
+      expect(code).toBe(1);
+    } finally { process.stderr.write = orig; }
+    expect(err).toContain("unknown flag --bogus");
+    expect(err).toContain("Usage: loki status [run-id] [--json|--badge|--probe]");
   });
 
   test("--badge is routed to the deploy badge, not rejected as an unknown flag", async () => {
@@ -336,5 +361,89 @@ describe("issue status projector (FV-gh-steer-3)", () => {
     for (const l of lines) expect(l).toMatch(/^issue-comment --update acme\/widgets#12 .*status-comment\.md$/);
     expect(readFileSync(`${log}.body`, "utf8")).toContain("Pull request: https://github.com/o/r/pull/3");
     expect(existsSync(join(runDir, "status-comment.md"))).toBe(true);
+  });
+});
+
+describe("run id traversal", () => {
+  const plant = (): void => {
+    const outside = join(dir, ".loki", "evil");
+    mkdirSync(outside, { recursive: true });
+    const log = new EventLog(join(outside, "events.jsonl"), "evil");
+    log.append("run.started", null, { issue_ref: "acme/widgets#66", task_source: "issue" });
+    mkdirSync(join(dir, ".loki", "runs"), { recursive: true });
+  };
+  const capture = async (fn: () => Promise<number>): Promise<{ code: number; out: string; err: string }> => {
+    const oo = process.stdout.write.bind(process.stdout), oe = process.stderr.write.bind(process.stderr);
+    let out = "", err = "";
+    process.stdout.write = ((c: string | Uint8Array) => { out += String(c); return true; }) as typeof process.stdout.write;
+    process.stderr.write = ((c: string | Uint8Array) => { err += String(c); return true; }) as typeof process.stderr.write;
+    try { return { code: await fn(), out, err }; } finally { process.stdout.write = oo; process.stderr.write = oe; }
+  };
+  test("status rejects a traversal run id with exit 2", async () => {
+    plant();
+    const r = await capture(() => runModernStatus(["../evil"], env()));
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("invalid run id");
+    expect(r.out).not.toContain("acme/widgets#66");
+  });
+  test("intent show rejects a traversal run id with exit 2", async () => {
+    plant();
+    const r = await capture(() => runIntentShow(["show", "../evil"], env()));
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("invalid run id");
+  });
+});
+
+describe("loki pause|cancel dead supervisor (TEN-STABILITY-22)", () => {
+  const plantRun = (id: string, pid: number, start: string): string => {
+    const runDir = join(dir, ".loki", "runs", id);
+    mkdirSync(runDir, { recursive: true });
+    writeFileSync(join(runDir, "run.pid"), JSON.stringify({ pid, start, argv: ["x"], run_id: id }));
+    return runDir;
+  };
+  test("dead supervisor: refuse with no live run, exit 1, no request written", async () => {
+    const { runControlVerb } = await import("../../src/commands/run_status.ts");
+    const { readRunControl } = await import("../../src/util/run_control.ts");
+    const runDir = plantRun("e10-dead", 2_000_000_000, "never");
+    const oe = process.stderr.write.bind(process.stderr);
+    let err = "";
+    process.stderr.write = ((c: string | Uint8Array) => { err += String(c); return true; }) as typeof process.stderr.write;
+    try {
+      expect(runControlVerb("pause", env(), dir)).toBe(1);
+      expect(runControlVerb("cancel", env(), dir)).toBe(1);
+    } finally { process.stderr.write = oe; }
+    expect(err).toContain("no live run");
+    expect(readRunControl(runDir)).toBeNull();
+  });
+  test("live older run is targeted over a newer dead one", async () => {
+    const { runControlVerb } = await import("../../src/commands/run_status.ts");
+    const { readRunControl } = await import("../../src/util/run_control.ts");
+    const { processStartTime } = await import("../../src/util/run_pid.ts");
+    const liveDir = plantRun("e10-a-live", process.pid, processStartTime(process.pid) ?? "");
+    const deadDir = plantRun("e10-b-dead", 2_000_000_000, "never");
+    const oo = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (() => true) as typeof process.stdout.write;
+    try { expect(runControlVerb("pause", env(), dir)).toBe(0); } finally { process.stdout.write = oo; }
+    expect(readRunControl(liveDir)).toBe("pause");
+    expect(readRunControl(deadDir)).toBeNull();
+  });
+});
+
+describe("pickRun mtime", () => {
+  test("pickRun mtime: newest events.jsonl wins over the lexically latest id", async () => {
+    writeRun("e10-20261003T000000Z-zzzz", { done: true });
+    writeRun("e10-20261001T000000Z-aaaa", { done: true });
+    const old = new Date(Date.now() - 3600_000);
+    utimesSync(join(dir, ".loki", "runs", "e10-20261003T000000Z-zzzz", "events.jsonl"), old, old);
+    const { out } = await run([]);
+    expect(out).toContain("e10-20261001T000000Z-aaaa");
+    expect(out).not.toContain("e10-20261003T000000Z-zzzz");
+  });
+
+  test("pickRun mtime: a run dir without events is skipped", async () => {
+    writeRun("e10-20261001T000000Z-aaaa", { done: true });
+    mkdirSync(join(dir, ".loki", "runs", "e10-20261005T000000Z-bbbb"), { recursive: true });
+    const { out } = await run([]);
+    expect(out).toContain("e10-20261001T000000Z-aaaa");
   });
 });

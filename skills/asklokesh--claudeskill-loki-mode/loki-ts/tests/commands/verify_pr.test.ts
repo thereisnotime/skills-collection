@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defaultCheckout, defaultIssue, defaultPackageSuites, defaultSandbox, parsePrRef, runVerifyPr, type PrMeta, type VerifyPrDeps } from "../../src/commands/verify_pr.ts";
+import { defaultCheckout, defaultIssue, defaultPrMeta, defaultPackageSuites, defaultSandbox, parsePrRef, runVerifyPr, type PrMeta, type VerifyPrDeps } from "../../src/commands/verify_pr.ts";
 import { extractChecks } from "../../src/contrib/verify_pr_f2p.ts";
 
 let dir: string;
@@ -44,10 +44,10 @@ const hostSandbox = (d: string, cmd: string) => {
 const TRUSTED = { author: "maint", authorAssociation: "MEMBER", updatedAt: "2026-10-01T00:00:00Z", repo: "o/r" };
 const noSuites = () => ({ suites: [] as string[], removed: [] as string[] });
 
-function run(meta: PrMeta, over: Partial<VerifyPrDeps> = {}, issueBody = ISSUE) {
+function run(meta: PrMeta, over: Partial<VerifyPrDeps> = {}, issueBody = ISSUE, extra: string[] = []) {
   const out: string[] = [], err: string[] = [];
   const outDir = join(dir, "out");
-  const p = runVerifyPr(["o/r#7", "--out", outDir], {
+  const p = runVerifyPr(["o/r#7", "--out", outDir, ...extra], {
     env: { LOKI_VERIFY_PR: "1" }, out: (s) => void out.push(s), err: (s) => void err.push(s),
     prMeta: () => meta, issue: () => ({ body: issueBody, ...TRUSTED }), sandbox: hostSandbox, packageSuites: noSuites, ...over,
   });
@@ -110,8 +110,25 @@ describe("loki verify-pr", () => {
   test("no linked issue is NOT PROVEN, never VERIFIED", async () => {
     const f = fixture("fix");
     const r = await run({ ...f.meta, issueRefs: [] }, { checkout: defaultCheckout });
-    expect(r.rc).toBe(4);
+    expect(r.rc).toBe(3);
     expect(r.json.reasons[0]).toContain("no linked issue");
+  });
+
+  test("no receipt exit code: missing proof is 3, failed proof stays 4, both say which", async () => {
+    const f = fixture("fix");
+    const none = await run({ ...f.meta, issueRefs: [] }, { checkout: defaultCheckout });
+    expect(none.rc).toBe(3);
+    expect(none.out).toContain("no proof:");
+    expect(none.json.noProof).toBe(true);
+    const nocheck = await run(f.meta, { checkout: defaultCheckout }, "Fix add()\n- add works\n");
+    expect(nocheck.rc).toBe(3);
+    const untrusted = await run(f.meta, { checkout: defaultCheckout, issue: () => ({ body: ISSUE, ...TRUSTED, authorAssociation: "NONE" }) });
+    expect(untrusted.rc).toBe(3);
+    const noop = fixture("noop");
+    const failed = await run(noop.meta, { checkout: defaultCheckout });
+    expect(failed.rc).toBe(4);
+    expect(failed.out).not.toContain("no proof:");
+    expect(failed.json.noProof).toBeUndefined();
   });
 
   test("an issue with no runnable check is NOT PROVEN", async () => {
@@ -171,6 +188,19 @@ echo "unexpected: $*" >&2; exit 2
     expect(bad.authorAssociation).toBeUndefined();
   });
 
+  test("gh timeout: a stalled gh throws within the bound instead of hanging", () => {
+    const bin = join(dir, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "gh"), "#!/bin/sh\nexec sleep 30\n");
+    chmodSync(join(bin, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${bin}:${process.env["PATH"]}`, LOKI_VPR_GH_TIMEOUT_MS: "300" };
+    const t0 = Date.now();
+    expect(() => defaultPrMeta({ repo: "o/r", number: 1 }, env)).toThrow();
+    expect(Date.now() - t0).toBeLessThan(10_000);
+    const i = defaultIssue("o/r#1", env, () => ({ body: ISSUE }));
+    expect(i.lookupFailed).toBe(true);
+  });
+
   test("OWNER, MEMBER and COLLABORATOR are trusted; repo match ignores case", async () => {
     const f = fixture("fix");
     for (const a of ["OWNER", "MEMBER", "COLLABORATOR"]) {
@@ -217,6 +247,43 @@ echo "unexpected: $*" >&2; exit 2
     const r = await run(f.meta, { checkout: defaultCheckout, sandbox: () => ({ status: "BLOCKED", exit_code: null, detail: "daemon down" }) });
     expect(r.rc).toBe(2);
     expect(r.json.blocked).toBe(true);
+  });
+
+  test("json stdout: --json prints the verdict object, exit codes unchanged", async () => {
+    const fx = fixture("fix").meta;
+    const ok = await run(fx, { checkout: defaultCheckout }, ISSUE, ["--json"]);
+    expect(ok.rc).toBe(0);
+    expect(JSON.parse(ok.out)).toEqual(ok.json);
+    expect(ok.out).not.toContain("verdict: ");
+    const np = await run(fixture("noop").meta, { checkout: defaultCheckout }, ISSUE, ["--json"]);
+    expect(np.rc).toBe(4);
+    expect(JSON.parse(np.out).verdict).toBe("NOT PROVEN");
+    const bl = await run(fx, { checkout: defaultCheckout, sandbox: () => ({ status: "BLOCKED", exit_code: null }) }, ISSUE, ["--json"]);
+    expect(bl.rc).toBe(2);
+    expect(JSON.parse(bl.out).blocked).toBe(true);
+    const plain = await run(fx, { checkout: defaultCheckout });
+    expect(plain.out).toContain("verdict: VERIFIED");
+  });
+
+  test("json stdout: through bin/loki the flag is not a usage error", () => {
+    const r = spawnSync(join(__dirname, "../../../bin/loki"), ["verify-pr", "--json", "nope"], { encoding: "utf8", env: { ...process.env, LOKI_VERIFY_PR: "1" } });
+    expect(r.stderr).toContain("not a PR url");
+    expect(r.status).toBe(2);
+  });
+
+  test("out needs a value: a dash-led or missing --out is a usage error and creates nothing", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "loki-vpr-out-"));
+    try {
+      for (const argv of [["o/r#7", "--out", "--json"], ["o/r#7", "--out", "-x"], ["o/r#7", "--out"]]) {
+        const errs: string[] = [];
+        expect(await runVerifyPr(argv, { env: { LOKI_VERIFY_PR: "1" }, err: (s) => void errs.push(s) })).toBe(2);
+        expect(errs.join("")).toContain("Usage: loki verify-pr");
+      }
+      const r = spawnSync(join(__dirname, "../../../bin/loki"), ["verify-pr", "o/r#7", "--out", "--json"], { encoding: "utf8", cwd, env: { ...process.env, LOKI_VERIFY_PR: "1" } });
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("Usage: loki verify-pr");
+      expect(existsSync(join(cwd, "--json"))).toBe(false);
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
   });
 
   test("off by default and bad refs exit 2", async () => {

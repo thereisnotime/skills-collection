@@ -26,16 +26,20 @@ export interface PriorOpts { model?: string; sizeClass?: SizeClass; env?: Env }
 // D50 small-tier baseline (docs/v10/METRICS.md, 2026-09-30, 9 measured runs per tier, min-max). The B9
 // scoreboard rows are still pending (RELEASE-11.md), so only the small-task band is measured; at start no plan
 // exists, so "unplanned" uses that band. medium and large have no measured row and therefore no prior.
+// opus: no per-run min-max exists (the D50 baseline ran no opus arm). Its band is the two measured cost-per-
+// completed-task means of the D30 small-tier report on claude-opus-5-5 (29 tasks): v10 lean $0.1616 to v10
+// default knobs $0.3946 (docs/v10/METRICS.md, 2026-09-28).
 const PRIOR_USD: Record<string, Partial<Record<SizeClass, [number, number]>>> = {
   haiku: { unplanned: [0.19, 0.63], small: [0.19, 0.63] },
   sonnet: { unplanned: [0.11, 0.98], small: [0.11, 0.98] },
+  opus: { unplanned: [0.16, 0.39], small: [0.16, 0.39] },
 };
 
 /** Size class from the structured plan scope file list (same 3-file boundary run_cap uses); never from task text. */
 export const sizeClassFromScope = (files: string[]): SizeClass => (files.length <= 3 ? "small" : files.length <= 10 ? "medium" : "large");
 
 export function priorFor(model: string | undefined, sizeClass: SizeClass = "unplanned"): Prior | null {
-  const tier = /haiku/i.test(model ?? "") ? "haiku" : /sonnet/i.test(model ?? "") ? "sonnet" : null;
+  const tier = /haiku/i.test(model ?? "") ? "haiku" : /sonnet/i.test(model ?? "") ? "sonnet" : /opus/i.test(model ?? "") ? "opus" : null;
   const usd = tier ? PRIOR_USD[tier]?.[sizeClass] : undefined;
   return tier && usd ? { usd: [usd[0], usd[1]], tier, size_class: sizeClass } : null;
 }
@@ -140,6 +144,10 @@ Examples:
 See also: loki cost --detail (what a run ALREADY spent)
 `;
 
+// Same provider list as `loki start` (commands/start.ts imports it). Only claude has a closed model vocabulary; other providers take free-form model ids.
+export const VALID_PROVIDERS: ReadonlySet<string> = new Set(["claude", "codex", "cline", "aider", "opencode"]);
+const CLAUDE_MODEL_RE = /^(claude-[A-Za-z0-9._-]+|opus|sonnet|haiku|small|medium|high)$/i;
+
 /** `loki estimate`: one estimator, the one `loki start` prints. resolve maps a provider to its start model. */
 export function runEstimate(args: readonly string[], d: { repoDir: string; env: Env; resolve?: (provider: string) => string; cacheRoot?: string; out?: (s: string) => void; err?: (s: string) => void }): number {
   const out = d.out ?? ((s: string) => void process.stdout.write(s)), err = d.err ?? ((s: string) => void process.stderr.write(s));
@@ -148,12 +156,17 @@ export function runEstimate(args: readonly string[], d: { repoDir: string; env: 
     const a = args[i]!;
     if (a === "--help" || a === "-h") { out(ESTIMATE_HELP); return 0; }
     else if (a === "--json") json = true;
-    else if (a === "--model" || a === "--provider") { const v = args[++i]; if (!v) { err(`loki estimate: ${a} needs a value\n`); return 1; } if (a === "--model") model = v; else provider = v; }
-    else if (a.startsWith("--model=")) model = a.slice(8);
-    else if (a.startsWith("--provider=")) provider = a.slice(11);
+    else if (a === "--model" || a === "--provider") { const v = args[++i]; if (!v || v.startsWith("-")) { err(`loki estimate: ${a} needs a value\n`); return 1; } if (a === "--model") model = v; else provider = v; }
+    else if (a.startsWith("--model=") || a.startsWith("--provider=")) {
+      const name = a.startsWith("--model=") ? "--model" : "--provider", v = a.slice(name.length + 1);
+      if (!v || v.startsWith("-")) { err(`loki estimate: ${name} needs a value\n`); return 1; }
+      if (name === "--model") model = v; else provider = v;
+    }
     else if (a === "--iterations" || a.startsWith("--iterations=")) { err("loki estimate: --iterations was removed; the estimate now comes from this repo's run history (same as 'loki start'). Run 'loki estimate --help'.\n"); return 1; }
     else { err(`Unknown option: ${a}\nRun 'loki estimate --help' for usage.\n`); return 1; }
   }
+  if (!VALID_PROVIDERS.has(provider)) { err(`loki estimate: unknown --provider '${provider}' (use one of: ${[...VALID_PROVIDERS].join(", ")})\n`); return 1; }
+  if (model !== undefined && provider === "claude" && !CLAUDE_MODEL_RE.test(model)) { err(`loki estimate: unknown --model '${model}' for provider claude (use a claude-* model id or opus, sonnet, haiku)\n`); return 1; }
   if (!previewOn(d.env)) { out(json ? '{"ok":false,"reason":"cost preview is off (LOKI_COST_PREVIEW=0)"}\n' : "estimate: OFF (LOKI_COST_PREVIEW=0)\n"); return 0; }
   const r = estimateFor(d.repoDir, d.cacheRoot, { model: model ?? (d.resolve ?? resolveModel)(provider), env: d.env });
   out(json ? `${JSON.stringify(r)}\n` : `${startText(r)}\n`);

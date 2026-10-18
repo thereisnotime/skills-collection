@@ -76,7 +76,7 @@ Windows 未实测。请求、认证文件默认位置、参数和退出行为的
 **banked 计数是净值，且只在同一账号内可比。** 库存会被兑现减掉、被新发放加上，所以「读数没变」
 不证明「没有新发放」——先问该账号上次读数之后是否兑现过（2026-09-30 反例：某账号读数仍是 1，
 实为旧的一张已用掉、新的一张已到）。本机 CLI 登录账号可能在两次查询之间被切换，`query_usage`
-读的是当时登录的那个。比较前后读数用账号句柄 `account_ref` 确认是同一账号：`query_usage`
+读的是当时登录的那个。比较前后读数时，用 `account_ref` 核验每个端点当时的账号；身份连续性与 A→B→A 边界按下文「窗口变化与重置归因」判断。`query_usage`
 输出里直接带；网页读数或用户转述的读数没有，就在本地用已知邮箱算——先去掉首尾空白与标点
 （网页文本抓出的邮箱常带句末的 `.`，会算出另一个值），再小写取哈希：
 `python3 -c "import hashlib,sys;print(hashlib.sha256(sys.argv[1].strip().strip('.,;:').casefold().encode()).hexdigest()[:8])" <email>`。
@@ -103,6 +103,41 @@ uv run python -m unittest discover -s tests -v
 
 这条命令不访问真实账号。需要验证认证、端点或请求行为的改动时，另做已授权账号的只读冒烟，
 并比较查询前后的认证文件哈希；不要用兑换重置或切换 CLI 登录测试查询功能。
+
+## 窗口变化与重置归因（机械判据）
+
+当前 API 只提供**当前已核验账号的现值**；rollout 只提供**无身份的用量/锚点形状**。二者没有可把
+匿名历史绑定到当前账号的连接键。`reset_at - window_seconds` 只能叫 `implied_window_start_at`；
+没有独立事件证据时，不能把它写成 `reset_landed_at`。
+
+- 同一 `account_ref` 的前后读数出现用量下降且 `reset_at` 改变，只能证明**两个观测点之间窗口发生变化**。
+  端点身份相同不能排除中间 A→B→A；`last_refresh` 接近、远离或缺失都不改变这个判据。
+- 只有四类证据可放行相应的 reset 结论：用户或产品的直接 reset 事件；明确自然周期形状；banked
+  直接兑现事件；与措辞范围匹配的官方 global 证据。仅仅「回到 100%」不是直接 reset 事件。
+- 缺旧基线、缺身份、证据冲突或只有匿名 rollout 时，归因保持 `unknown`；当前余量、Next reset 和
+  banked 库存仍按实际读数正常报告，不补零、不猜测原因。
+
+下任何「已重置 / 换号 / 全员重置」结论前，把本轮证据写成 JSON 并运行：
+
+```bash
+python3 scripts/reset_attribution.py --input /tmp/tibo-attribution.json
+```
+
+输入不放邮箱、token 或凭据，只用 `account_ref`：
+
+| 字段 | 合同 |
+|---|---|
+| `transitions[].before/after` | 各为一个观测；`identity=verified` 必须有 `account_ref` 与带时区的 `checked_at_utc`；匿名观测用 `identity=anonymous`。另有 `window_seconds`、`used_percent`、`reset_at_utc` 和可选 banked/plan 字段；没有前读数时 `before=null` |
+| `transitions[].anonymous_candidates` | 可选；只记录匿名形状，不能补身份 |
+| `events[]` | 可选直接事件：`account_switch`、`account_reset_observed`、`banked_redeem`、`official_global_reset`；附 `account_ref`（global 为 null）、`source`、`source_ref` 和 `checked_at_utc`。有明确发生区间时另给 `interval_start_utc` / `interval_end_utc`；官方范围用 `scope=all_paid` 或 `unknown` |
+| `auth_hints.last_refresh_utc` | 可选提示；只追加 `LAST_REFRESH_NON_DETERMINATIVE`，不参与分类 |
+
+输出的 `observations.current_state` 是可报告现值；`classification` 与 `candidate_causes` 是证据分类；
+`claim_gate` 逐类放行或阻断 `current_state`、`account_window_change`、`same_account_reset`、
+`multi_account_reset`（多账号排除自然周期与切号后的提前窗口变化或直接实测）、
+`cross_account_observation`（较弱的跨账户窗口变化观测）、`account_switch`、`global_reset` 与
+`all_accounts`（仅官方 `all_paid`）。`block` 的断言不得交付。脚本缺键、空值、重复周窗口、
+不可比窗口或坏时间戳会显式失败或保持 `unknown`，不把 malformed input 变成正面归因。
 
 ## 相邻两次重置的归因
 

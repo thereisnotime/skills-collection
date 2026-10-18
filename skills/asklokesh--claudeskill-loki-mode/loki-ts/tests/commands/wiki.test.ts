@@ -82,6 +82,32 @@ describe("loki wiki show (Bun native)", () => {
     expect(bun.exitCode).not.toBe(0);
   });
 
+  it("bad section lists valid sections and exits 2", async () => {
+    const bun = await sh(["bun", BUN_CLI, "wiki", "show", "bogus"], project);
+    expect(bun.exitCode).toBe(2);
+    expect(bun.stdout).toBe("");
+    expect(bun.stderr).toContain("No such section: bogus");
+    expect(bun.stderr).toContain("Valid sections: architecture, modules, data-flow");
+    const ok = await sh(["bun", BUN_CLI, "wiki", "show", "data-flow"], project);
+    expect(ok.exitCode).toBe(0);
+  });
+
+  it("unknown command exits 2", async () => {
+    const bun = await sh(["bun", BUN_CLI, "wiki", "shw"], project);
+    expect(bun.exitCode).toBe(2);
+    expect(bun.stdout).toBe("");
+    expect(bun.stderr).toContain("Unknown wiki command: shw");
+    expect(bun.stderr).toContain("Did you mean 'show'?");
+    expect(bun.stderr).toContain("Usage");
+  });
+
+  it("two sections is a usage error with exit 1 and no output", async () => {
+    const bun = await sh(["bun", BUN_CLI, "wiki", "show", "architecture", "modules"], project);
+    expect(bun.exitCode).toBe(1);
+    expect(bun.stdout).toBe("");
+    expect(bun.stderr).toContain("Too many arguments");
+  });
+
   it("show with no wiki prints a hint and exits non-zero", async () => {
     const empty = mkdtempSync(join(tmpdir(), "loki-wiki-none-"));
     try {
@@ -91,5 +117,19 @@ describe("loki wiki show (Bun native)", () => {
     } finally {
       rmSync(empty, { recursive: true, force: true });
     }
+  });
+
+  it("show json", async () => {
+    const artifact = readFileSync(join(project, ".loki", "wiki", "architecture.md"), "utf8");
+    const one = await sh(["bun", BUN_CLI, "wiki", "show", "architecture", "--json"], project);
+    expect(one.exitCode).toBe(0);
+    expect(JSON.parse(one.stdout)).toEqual({ section: "architecture", content: artifact });
+    const all = await sh(["bun", BUN_CLI, "wiki", "show", "--json"], project);
+    expect(all.exitCode).toBe(0);
+    const arr = JSON.parse(all.stdout) as { section: string; content: string }[];
+    expect(arr.map((x) => x.section)).toEqual(["architecture", "modules", "data-flow"]);
+    expect(arr[0]!.content).toBe(artifact);
+    const text = await sh(["bun", BUN_CLI, "wiki", "show", "architecture"], project);
+    expect(text.stdout).toBe(artifact);
   });
 });

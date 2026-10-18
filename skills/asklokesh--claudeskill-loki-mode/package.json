@@ -1,7 +1,7 @@
 {
   "name": "loki-mode",
   "mcpName": "io.github.asklokesh/loki-mode",
-  "version": "11.17.42",
+  "version": "11.17.58",
   "description": "An autonomous software factory that knows what it is supposed to deliver, and proves it did.",
   "keywords": [
     "agent",
@@ -82,6 +82,8 @@
     "bin/loki",
     "loki-ts/dist/",
     "loki-ts/data/",
+    "benchmarks/seeded-defects/manifest.json",
+    "benchmarks/seeded-defects/results/*.json",
     "loki-ts/package.json",
     "packages/control-plane/src/",
     "packages/control-plane/drizzle/",

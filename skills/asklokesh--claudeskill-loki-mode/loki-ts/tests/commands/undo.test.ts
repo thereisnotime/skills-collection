@@ -79,3 +79,42 @@ describe("loki undo --list", () => {
     expect(r.err).toContain("--list takes no other arguments");
   });
 });
+
+describe("loki undo unknown flag", () => {
+  for (const args of [["run1", "--bogus"], ["run1", "--dry-rn"], ["run1", "--plan", "-x"], ["--list", "--bogus"], ["--bogus"]]) {
+    test(`unknown flag rejected: ${args.join(" ")}`, async () => {
+      const r = await list(args);
+      expect(r.rc).toBe(2);
+      const bad = args.find((a) => a === "--bogus" || a === "--dry-rn" || a === "-x")!;
+      const hint = bad === "--dry-rn" ? "Did you mean '--dry-run'?\n" : "";
+      expect(r.err).toBe(`loki undo: unknown flag ${bad} (see loki undo --help)\n${hint}`);
+      expect(r.calls.length).toBe(0);
+    });
+  }
+  test("flag hint: closest known flag suggested, none when far", async () => {
+    expect((await list(["run1", "--plam"])).err).toBe("loki undo: unknown flag --plam (see loki undo --help)\nDid you mean '--plan'?\n");
+    expect((await list(["run1", "--zzzzzzzz"])).err).toBe("loki undo: unknown flag --zzzzzzzz (see loki undo --help)\n");
+  });
+  test("valid flags still accepted", async () => {
+    expect((await list(["run1", "--plan", "--help"])).rc).toBe(0);
+    expect((await list(["--list"])).rc).toBe(0);
+  });
+});
+
+describe("undo id before gate", () => {
+  const run = async (args: string[]) => {
+    const err: string[] = [];
+    const rc = await runUndo(args, { runsRoot: dir, repoDir: dir, env: {}, git: () => ({ status: 0, stdout: "" }), out: () => {}, err: (s: string) => void err.push(s) } as never);
+    return { rc, err: err.join("") };
+  };
+  test("bad run id without LOKI_UNDO reports invalid id, not the gate", async () => {
+    const r = await run(["../etc"]);
+    expect(r.rc).toBe(2);
+    expect(r.err).toBe("loki undo: invalid run id '../etc'\n");
+  });
+  test("valid id without LOKI_UNDO still reports the gate", async () => {
+    const r = await run(["run1"]);
+    expect(r.rc).toBe(2);
+    expect(r.err).toContain("behind LOKI_UNDO=1");
+  });
+});

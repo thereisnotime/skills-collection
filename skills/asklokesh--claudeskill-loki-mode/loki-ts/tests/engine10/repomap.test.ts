@@ -5,7 +5,7 @@
 // regression check so the existing behavior stays intact.
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildRepoMap } from "../../src/engine10/repomap.ts";
@@ -87,6 +87,16 @@ test("python method past byte 20000 is indexed as Class.method", () => {
   expect(symbols).toEqual(["QuerySet", "QuerySet.bulk_create", "QuerySet.aget", "helper"]);
 });
 
+test("bounded read: huge file is indexed from its head, tail past the cap is ignored", () => {
+  writeFileSync(join(dir, "big.ts"), "export const head = 1;\n");
+  commitAll();
+  // sparse 5GB file: a full utf8 read would exceed V8's string limit and yield no symbols
+  truncateSync(join(dir, "big.ts"), 5_000_000_000);
+  appendFileSync(join(dir, "big.ts"), "\nexport const tail = 2;\n");
+  const e = buildRepoMap(dir).entries.find((x) => x.path === "big.ts");
+  expect(e?.symbols).toEqual(["head"]);
+});
+
 test("symbols are capped at 300 per file", () => {
   let src = "";
   for (let i = 0; i < 1000; i++) src += `def f${i}():\n    pass\n`;
@@ -127,6 +137,23 @@ describe("file cap", () => {
     expect(map.truncated).toBe(false);
     expect(map.files.length).toBe(25);
     expect(map.files[0]).toBe("build/v0.js");
+  });
+
+  test("bad max files note", () => {
+    seedBigRepo();
+    for (const bad of ["abc", "0", "-5", "1.5"]) {
+      process.env.LOKI_E10_REPOMAP_MAX_FILES = bad;
+      const orig = process.stderr.write.bind(process.stderr);
+      const seen: string[] = [];
+      process.stderr.write = ((c: string | Uint8Array) => { seen.push(String(c)); return true; }) as typeof process.stderr.write;
+      let map;
+      try { map = buildRepoMap(dir); } finally { process.stderr.write = orig; }
+      const notes = seen.filter((l) => l.includes("LOKI_E10_REPOMAP_MAX_FILES"));
+      expect(notes.length).toBe(1);
+      expect(notes[0]).toContain(JSON.stringify(bad));
+      expect(notes[0]).toContain("2000");
+      expect(map.files.length).toBe(25);
+    }
   });
 
   test("filename containing a junk dir name is not junk", () => {

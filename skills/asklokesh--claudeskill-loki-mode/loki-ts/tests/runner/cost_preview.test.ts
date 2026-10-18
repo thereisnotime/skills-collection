@@ -90,9 +90,15 @@ describe("rough prior (F2)", () => {
     expect(startText(estimateFromHistory(SHAPE, KEY, root, { model: "claude-haiku-5-5" }))).toBe("estimate: ~$0.19-$0.63 (rough prior, no history for this shape)");
   });
   test("unknown tier or unmeasured size class has no prior", () => {
-    expect(priorFor("claude-opus-5-5", "unplanned")).toBeNull();
+    expect(priorFor("claude-fable-5", "unplanned")).toBeNull();
     expect(priorFor("claude-sonnet-5-5", "large")).toBeNull();
-    expect(startText(estimateFromHistory(SHAPE, KEY, root, { model: "claude-opus-5-5" }))).toContain("NOT AVAILABLE");
+    expect(priorFor("claude-opus-5-5", "large")).toBeNull();
+    expect(startText(estimateFromHistory(SHAPE, KEY, root, { model: "claude-fable-5" }))).toContain("NOT AVAILABLE");
+  });
+  test("opus prior", () => {
+    expect(priorFor("claude-opus-5-5")?.tier).toBe("opus");
+    expect(startText(estimateFromHistory(SHAPE, KEY, root, { model: "claude-opus-5-5" }))).toBe("estimate: ~$0.16-$0.39 (rough prior, no history for this shape)");
+    expect(startText(estimateFromHistory(SHAPE, KEY, root, { model: "opus", env: { LOKI_COST_PRIOR: "0" } }))).toContain("NOT AVAILABLE");
   });
   test("size class comes from structured plan scope file count", () => {
     expect(sizeClassFromScope(["a", "b", "c"])).toBe("small");
@@ -146,7 +152,7 @@ describe("loki estimate is the same estimator as the loki start preview (ESTIMAT
     return { rc, out, err };
   };
   test("prints exactly the start-line estimate text for the same input", () => {
-    for (const [args, model] of [[[], "claude-sonnet-5-5"], [["--model", "claude-haiku-4-5"], "claude-haiku-4-5"], [["--model=zzz"], "zzz"]] as const) {
+    for (const [args, model] of [[[], "claude-sonnet-5-5"], [["--model", "claude-haiku-4-5"], "claude-haiku-4-5"], [["--model=claude-opus-4-1"], "claude-opus-4-1"]] as const) {
       const start = startText(JSON.parse(encodeEstimate({}, root, root, model)!));
       expect(run([...args]).out).toBe(`${start}\n`);
     }
@@ -160,6 +166,23 @@ describe("loki estimate is the same estimator as the loki start preview (ESTIMAT
   });
   test("LOKI_COST_PREVIEW=0 prints OFF, no number", () => {
     expect(run([], { LOKI_COST_PREVIEW: "0" }).out).toBe("estimate: OFF (LOKI_COST_PREVIEW=0)\n");
+  });
+  test("unknown provider and unknown claude model are rejected with one error line, exit 1", () => {
+    const a = run(["--provider", "bogus"]);
+    expect(a.rc).toBe(1); expect(a.out).toBe(""); expect(a.err).toContain("unknown --provider 'bogus'"); expect(a.err.trim().split("\n").length).toBe(1);
+    const b = run(["--model", "nosuchmodel"]);
+    expect(b.rc).toBe(1); expect(b.out).toBe(""); expect(b.err).toContain("unknown --model 'nosuchmodel'");
+    expect(run(["--provider=bogus"]).rc).toBe(1);
+    expect(run(["--provider", "codex", "--model", "gpt-5.3-codex"]).rc).toBe(0);
+    expect(run(["--provider", "claude"]).rc).toBe(0);
+    expect(run([], { LOKI_PROVIDER: "bogus" }).rc).toBe(1);
+  });
+  test("model needs a value: empty or dash-leading value is rejected, never swallows the next flag", () => {
+    for (const args of [["--provider", "codex", "--model", "--json"], ["--provider", "codex", "--model="], ["--model=--json"], ["--provider", "--json"], ["--provider="]]) {
+      const r = run(args);
+      expect(r.rc).toBe(1); expect(r.out).toBe(""); expect(r.err).toContain("needs a value");
+    }
+    expect(run(["--provider", "codex", "--model=gpt-5.3-codex", "--json"]).rc).toBe(0);
   });
   test("--iterations is removed and says so; unknown flags fail; --help documents the change", () => {
     const a = run(["--iterations", "10"]);

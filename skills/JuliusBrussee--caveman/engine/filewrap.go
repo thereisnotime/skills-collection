@@ -120,6 +120,11 @@ func unwrapInput(input []byte) ([]byte, inputWrappers) {
 	body := input
 	wrappers := make(inputWrappers, 0, 2)
 	for range 4 {
+		if inner, wrapper := unwrapCodexExec(body); wrapper.present {
+			body = inner
+			wrappers = append(wrappers, wrapper)
+			continue
+		}
 		if inner, wrapper := unwrapListing(body); wrapper.present {
 			body = inner
 			wrappers = append(wrappers, wrapper)

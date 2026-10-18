@@ -9,16 +9,19 @@
 //     and invariants instead.
 import { afterEach, beforeEach, describe, expect, it, mock, test } from "bun:test";
 import { createServer, type Server } from "node:http";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { REPO_ROOT } from "../../src/util/paths.ts";
+import { processStartTime } from "../../src/util/run_pid.ts";
 import {
   _setClaudeVersionForTest,
   _setIntegrationProbesForTest,
+  _setJsonProbesForTest,
   _setPythonImportOkForTest,
   probeIntegrations,
+  cmpVersion,
   evaluateClaudeCliCompat,
   loadClaudeCliRange,
   evaluateRequirements,
@@ -31,8 +34,13 @@ import {
   type ReqTable,
   buildDoctorJson,
   checkDisk,
+  findOrphanRuns,
+  lowestVolume,
   checkSkills,
   checkTool,
+  readEffectiveProvider,
+  readProviderAvailability,
+  renderProviderAvailability,
   httpReachable,
   pythonImportOk,
   runDoctor,
@@ -154,6 +162,52 @@ describe("doctor.checkDisk", () => {
     }
     expect(["pass", "fail", "warn"]).toContain(d.status);
   });
+
+  it("reports the minimum across home, cwd and tmp and names the low volume", () => {
+    const d = checkDisk();
+    expect(d.volumes!.length).toBeGreaterThan(0);
+    const min = Math.min(...d.volumes!.map((v) => v.available_gb));
+    expect(d.available_gb).toBe(min);
+    expect(d.volumes!.find((v) => v.available_gb === min)!.name).toBe(d.low_volume!);
+    expect(d.volumes!.map((v) => v.name)).toEqual(["home", "cwd", "tmp"]);
+  });
+
+  it("lowestVolume picks the smallest volume by name", () => {
+    const r = lowestVolume([
+      { name: "home", path: "/h", available_gb: 200 },
+      { name: "cwd", path: "/c", available_gb: 3.5 },
+      { name: "tmp", path: "/t", available_gb: 40 },
+    ]);
+    expect(r).toEqual({ available_gb: 3.5, low_volume: "cwd" });
+    expect(lowestVolume([])).toEqual({ available_gb: null, low_volume: null });
+  });
+
+  it("skips unreadable volumes and keeps null when none are readable", () => {
+    const d = checkDisk([{ name: "cwd", path: "/nonexistent-loki-path-xyz" }]);
+    expect(d.available_gb).toBeNull();
+    expect(d.low_volume).toBeNull();
+  });
+});
+
+describe("doctor disk text volume label", () => {
+  for (const name of ["home", "cwd", "tmp"] as const) {
+    it(`names the ${name} volume on the text disk line when low`, async () => {
+      const volumes = (["home", "cwd", "tmp"] as const).map((n) => ({
+        name: n,
+        path: `/${n}`,
+        available_gb: n === name ? 3.2 : 100,
+      }));
+      const { cap } = await captureStdio(() => runDoctor([], { diskVolumes: volumes }));
+      expect(cap.out).toContain(`Disk space: 3GB available on ${name} volume (low)`);
+    }, 30_000);
+  }
+
+  it("omits the volume label when disk passes", async () => {
+    const volumes = [{ name: "home" as const, path: "/h", available_gb: 100 }];
+    const { cap } = await captureStdio(() => runDoctor([], { diskVolumes: volumes }));
+    expect(cap.out).toContain("Disk space: 100GB available\n");
+    expect(cap.out).not.toContain("volume");
+  }, 30_000);
 });
 
 // ---- checkSkills -------------------------------------------------------------
@@ -1168,6 +1222,78 @@ describe("doctor --fix consent-gated installs (TEN-UX-04)", () => {
     }
   });
 
+  it("seed provider: first installed provider CLI is written, claude when none", async () => {
+    const { applyDoctorFixes } = await import("../../src/commands/doctor_fix.ts");
+    const seeded = (has: (c: string) => boolean): string => {
+      const { cwd, home } = mk();
+      applyDoctorFixes(cwd, home, { has, runner: recorder().run, tty: false, loggedIn: () => "yes" });
+      return JSON.parse(readFileSync(join(cwd, ".loki", "config", "settings.json"), "utf8")).provider;
+    };
+    expect(seeded((c) => c === "codex")).toBe("codex");
+    expect(seeded((c) => c === "aider" || c === "opencode")).toBe("aider");
+    expect(seeded(() => true)).toBe("claude");
+    expect(seeded(() => false)).toBe("claude");
+  });
+
+  it("seed provider: real entry path bin/loki doctor --fix seeds codex from a shim", () => {
+    const { cwd, home } = mk();
+    const shim = mkdtempSync(join(tmpdir(), "docfix-seed-"));
+    writeFileSync(join(shim, "codex"), "#!/bin/sh\nexit 0\n");
+    chmodSync(join(shim, "codex"), 0o755);
+    const noClaudePath = (process.env.PATH ?? "").split(":").filter((d) => d && !existsSync(join(d, "claude"))).join(":");
+    const r = spawnSync(join(REPO_ROOT, "bin", "loki"), ["doctor", "--fix"], {
+      cwd, encoding: "utf8", timeout: 120000,
+      env: {
+        ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("LOKI_"))),
+        HOME: home, PATH: `${shim}:${noClaudePath}`,
+      },
+    });
+    const cfg = JSON.parse(readFileSync(join(cwd, ".loki", "config", "settings.json"), "utf8"));
+    expect(cfg.provider).toBe("codex");
+    expect(r.stdout).toContain("provider=codex");
+    rmSync(shim, { recursive: true, force: true });
+  }, 60000);
+
+  it("(g) repair settings: invalid JSON is backed up and rewritten only with consent", async () => {
+    const { applyDoctorFixes } = await import("../../src/commands/doctor_fix.ts");
+    const bad = "{ not json";
+    const seed = () => {
+      const { cwd, home } = mk();
+      mkdirSync(join(cwd, ".loki", "config"), { recursive: true });
+      writeFileSync(join(cwd, ".loki", "config", "settings.json"), bad);
+      return { cwd, home, file: join(cwd, ".loki", "config", "settings.json") };
+    };
+    const deps = { has: (c: string) => c === "claude", runner: recorder().run, loggedIn: () => "yes" as const };
+    const a = seed();
+    const outA = applyDoctorFixes(a.cwd, a.home, { ...deps, tty: false, yes: false });
+    expect(readFileSync(a.file, "utf8")).toBe(bad);
+    expect(outA.manual.join("\n")).toContain("is not valid JSON");
+    const b = seed();
+    const outB = applyDoctorFixes(b.cwd, b.home, { ...deps, tty: false, yes: true });
+    expect(JSON.parse(readFileSync(b.file, "utf8")).provider).toBe("claude");
+    const bak = readdirSync(join(b.cwd, ".loki", "config")).filter((f) => f.startsWith("settings.json.invalid-"));
+    expect(bak.length).toBe(1);
+    expect(readFileSync(join(b.cwd, ".loki", "config", bak[0]!), "utf8")).toBe(bad);
+    expect(outB.applied.join("\n")).toContain("backed up invalid");
+    expect(outB.manual.join("\n")).not.toContain("is not valid JSON");
+    const c = seed();
+    applyDoctorFixes(c.cwd, c.home, { ...deps, tty: true, confirm: () => false });
+    expect(readFileSync(c.file, "utf8")).toBe(bad);
+  });
+
+  it("(g2) repair settings through bin/loki doctor --fix --yes", () => {
+    const { cwd, home } = mk();
+    mkdirSync(join(cwd, ".loki", "config"), { recursive: true });
+    const f = join(cwd, ".loki", "config", "settings.json");
+    writeFileSync(f, "{ broken");
+    const r = spawnSync(join(REPO_ROOT, "bin", "loki"), ["doctor", "--fix", "--yes"], {
+      cwd, encoding: "utf8", timeout: 120000,
+      env: { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("LOKI_"))), HOME: home },
+    });
+    expect(r.stdout).toContain("backed up invalid");
+    expect(() => JSON.parse(readFileSync(f, "utf8"))).not.toThrow();
+  }, 60000);
+
   it("(f) real entry path: bin/loki doctor --fix --yes runs claude login via the shim", () => {
     const { cwd, home } = mk();
     const shim = mkdtempSync(join(tmpdir(), "docfix-shim-"));
@@ -1257,5 +1383,196 @@ describe("doctor Integration probes run concurrently (TEN-SPEED-06)", () => {
       expect(i).toBeGreaterThan(at);
       at = i;
     }
+  });
+});
+
+describe("doctor json checks run concurrently (TEN-SPEED-10)", () => {
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+  afterEach(() => _setJsonProbesForTest(null));
+
+  it("json checks run concurrently: three 200ms probes overlap and output keys are preserved", async () => {
+    await buildDoctorJson(); // warm the shared tool-check path
+    const base = await buildDoctorJson();
+    _setJsonProbesForTest({
+      sentrux: async () => { await sleep(200); return base.sentrux; },
+      memory: async () => { await sleep(200); return base.memory; },
+      requirements: async () => { await sleep(200); return base.requirements; },
+    });
+    const t0 = Date.now();
+    const j = await buildDoctorJson();
+    const dt = Date.now() - t0;
+    const t1 = Date.now();
+    _setJsonProbesForTest({ sentrux: async () => base.sentrux, memory: async () => base.memory, requirements: async () => base.requirements });
+    await buildDoctorJson();
+    const floor = Date.now() - t1;
+    expect(dt - floor).toBeLessThan(400);
+    expect(j.sentrux).toEqual(base.sentrux);
+    expect(j.memory).toEqual(base.memory);
+    expect(j.requirements).toEqual(base.requirements);
+    expect(Object.keys(j)).toEqual(Object.keys(base));
+  });
+});
+
+// TEN-UX-18: doctor --quiet keeps only FAIL/WARN rows and the Summary footer.
+describe("doctor --quiet", () => {
+  afterEach(() => { _setPythonImportOkForTest(null); _setIntegrationProbesForTest(null); });
+
+  it("filterQuietDoctor drops pass rows, headers and OK lines, keeps fail/warn with fix lines and the footer", async () => {
+    const { filterQuietDoctor } = await import("../../src/commands/doctor.ts");
+    const text = [
+      "Loki Mode Doctor", "", "Tools:", "  PASS  Node (v20)", "  FAIL  Git - not found",
+      "         Fix: install git", "  OK    Single loki install", "  WARN  Disk low", "  PASS  Bun",
+      "         Note: pass detail", "", "Summary: 2 passed, 1 failed, 1 warnings", "", "Then re-run: loki doctor", "",
+    ].join("\n");
+    const out = filterQuietDoctor(text);
+    expect(out).toContain("FAIL  Git - not found");
+    expect(out).toContain("Fix: install git");
+    expect(out).toContain("WARN  Disk low");
+    expect(out).toContain("Summary: 2 passed");
+    expect(out).toContain("Then re-run: loki doctor");
+    expect(out).not.toContain("PASS");
+    expect(out).not.toContain("Tools:");
+    expect(out).not.toContain("Single loki");
+    expect(out).not.toContain("pass detail");
+  });
+
+  it("runDoctor(['--quiet']) prints no PASS row, keeps the footer, and returns the same exit code as the full run", async () => {
+    stubPythonImportOk();
+    const full = await captureStdio(() => runDoctor([]));
+    const quiet = await captureStdio(() => runDoctor(["--quiet"]));
+    expect(quiet.result).toBe(full.result);
+    expect(quiet.cap.out).not.toMatch(/\bPASS\b/);
+    expect(quiet.cap.out).toMatch(/Summary:/);
+    expect(quiet.cap.out.length).toBeLessThan(full.cap.out.length);
+    const short = await captureStdio(() => runDoctor(["-q"]));
+    expect(short.result).toBe(full.result);
+  });
+
+  it("install hint follows its row", async () => {
+    stubPythonImportOk();
+    const saved = process.env.PATH;
+    process.env.PATH = "/usr/bin:/bin";
+    try {
+      const quiet = await captureStdio(() => runDoctor(["--quiet"]));
+      const lines = quiet.cap.out.split("\n").map((l) => l.replace(/\x1b\[[0-9;]*m/g, ""));
+      const i = lines.findIndex((l) => /\b(FAIL|WARN)\b.*claude/i.test(l));
+      expect(i).toBeGreaterThanOrEqual(0);
+      expect(lines[i + 1]).toContain("Install: npm install -g @anthropic-ai/claude-code");
+      expect(quiet.cap.err).not.toContain("Install:");
+    } finally {
+      process.env.PATH = saved;
+    }
+  });
+
+  it("--quiet leaves --json unaffected", async () => {
+    stubPythonImportOk();
+    const a = await captureStdio(() => runDoctor(["--json"]));
+    const b = await captureStdio(() => runDoctor(["--json", "--quiet"]));
+    expect(b.result).toBe(a.result);
+    expect(JSON.parse(b.cap.out).summary).toEqual(JSON.parse(a.cap.out).summary);
+  });
+});
+
+// TEN-STABILITY-17: doctor lists orphan runs (dead owner, no run.completed) with the resume/undo command.
+describe("doctor orphan runs", () => {
+  const env = (id: string, seq: number, type: string) => JSON.stringify({ v: 1, seq, ts: new Date().toISOString(), run: id, type, stage: null, data: {} }) + "\n";
+  let repo: string;
+  let prevCwd: string;
+  function mkRun(id: string, types: string[], pid?: number): void {
+    const dir = join(repo, ".loki", "runs", id);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "events.jsonl"), types.map((t, i) => env(id, i, t)).join(""));
+    if (pid !== undefined) {
+      const start = pid === process.pid ? (processStartTime(pid) ?? "") : "dead-start";
+      writeFileSync(join(dir, "run.pid"), JSON.stringify({ pid, start, argv: ["x"], run_id: id }));
+    }
+  }
+  beforeEach(() => {
+    repo = mkdtempSync(join(tmpdir(), "loki-orphan-"));
+    prevCwd = process.cwd();
+  });
+  afterEach(() => {
+    process.chdir(prevCwd);
+    rmSync(repo, { recursive: true, force: true });
+    restorePythonImportOk();
+  });
+
+  it("lists a dead-owner run without run.completed; skips live and completed runs", () => {
+    mkRun("e10-orphan", ["run.started"], 999999);
+    mkRun("e10-live", ["run.started"], process.pid);
+    mkRun("e10-done", ["run.started", "run.completed"], 999999);
+    expect(findOrphanRuns(repo)).toEqual(["e10-orphan"]);
+  });
+
+  it("runDoctor text prints a warn row naming the run id and the resume and undo commands", async () => {
+    mkRun("e10-orphan", ["run.started"], 999999);
+    mkRun("e10-live", ["run.started"], process.pid);
+    mkRun("e10-done", ["run.started", "run.completed"], 999999);
+    process.chdir(repo);
+    stubPythonImportOk();
+    const { cap } = await captureStdio(() => runDoctor([]));
+    const out = cap.out.replace(/\x1b\[[0-9;]*m/g, "");
+    expect(out).toMatch(/WARN\s+Orphan run e10-orphan/);
+    expect(out).toContain("loki start --resume e10-orphan");
+    expect(out).toContain("loki undo e10-orphan");
+    expect(out).not.toContain("e10-live");
+    expect(out).not.toContain("e10-done");
+  });
+});
+
+describe("doctor hung helper (TEN-STABILITY-47)", () => {
+  let dir = "";
+  let prevPath: string | undefined;
+  let prevTimeout: string | undefined;
+  beforeEach(() => {
+    stubPythonImportOk();
+    dir = mkdtempSync(join(tmpdir(), "doctor-hung-"));
+    for (const name of ["bash", "python3"]) {
+      writeFileSync(join(dir, name), "#!/bin/sh\nexec sleep 30\n");
+      chmodSync(join(dir, name), 0o755);
+    }
+    prevPath = process.env.PATH;
+    prevTimeout = process.env.LOKI_DOCTOR_HELPER_TIMEOUT_MS;
+    process.env.PATH = `${dir}:${prevPath ?? ""}`;
+    process.env.LOKI_DOCTOR_HELPER_TIMEOUT_MS = "300";
+  });
+  afterEach(() => {
+    restorePythonImportOk();
+    if (prevPath === undefined) delete process.env.PATH; else process.env.PATH = prevPath;
+    if (prevTimeout === undefined) delete process.env.LOKI_DOCTOR_HELPER_TIMEOUT_MS;
+    else process.env.LOKI_DOCTOR_HELPER_TIMEOUT_MS = prevTimeout;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("provider helpers return skipped values when the helper hangs", () => {
+    const t0 = Date.now();
+    expect(readEffectiveProvider()).toBeNull();
+    expect(readProviderAvailability()).toBeNull();
+    expect(renderProviderAvailability()).toBe("");
+    expect(Date.now() - t0).toBeLessThan(10000);
+  });
+
+  it("runDoctor finishes and reports hung probes as skipped", async () => {
+    const t0 = Date.now();
+    const { cap } = await captureStdio(() => runDoctor([]));
+    expect(Date.now() - t0).toBeLessThan(25000);
+    expect(cap.out).toContain("timed out (skipped)");
+  }, 30000);
+});
+
+describe("doctor version compare", () => {
+  test("one semver compare serves all three call shapes", async () => {
+    expect(cmpVersion("2.1.0", "2.1.0", 3)).toBe(0);
+    expect(cmpVersion("2.0.9", "2.1.0", 3)).toBeLessThan(0);
+    expect(cmpVersion("2.1.1", "2.1.0", 2)).toBe(0);
+    expect(cmpVersion("2.1.1", "2.1.0")).toBeGreaterThan(0);
+    expect(cmpVersion("20", "20.0", 2)).toBe(0);
+    expect(cmpVersion("1.x", "1.0", 2)).toBe(0);
+    expect(evaluateClaudeCliCompat("2.0.9", { min_version: "2.1.0" } as never)).toBe("below_min");
+    expect(evaluateClaudeCliCompat("2.1.5", { min_version: "2.1.0", qualified_version: "2.1.4" } as never)).toBe("newer_unqualified");
+    const old = await checkTool("bun", "bun", "required", "999.0");
+    expect(old.status).toBe("fail");
+    const ok = await checkTool("bun", "bun", "required", null);
+    expect(ok.status).toBe("pass");
   });
 });

@@ -5,6 +5,193 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.17.58 (2026-10-17)
+
+### Fixed
+- The v11.17.57 release notes name the queue rm subcommand in prose, so the help and changelog drift guard passes on main again (STAB-1).
+
+## v11.17.57 (2026-10-17)
+
+### Fixed
+- The engine10 core is back under its 5,000-line budget (4,956): verify reuses the shared `mapPool` and `verifyJobs` in `util/check_result.ts`, and the test command resolver, failure-line normalizer, `sanitizeReason` and the clock, duration and token formatters move to existing util modules with re-exports, behavior unchanged (STAB-1).
+- `loki start` imports safe_git statically so the moat P9 allowToken caller scan passes again; the L2 destructive git registry scan no longer counts the queue rm subcommand name as a git call (STAB-1).
+- Test-only: the FC-01 monorepo tests follow the `npx --no-install` argv, a new preflight test uses a here-string under the sigpipe ceiling, and `router_history.test.ts` carries its select marker (STAB-1).
+
+## v11.17.56 (2026-10-17)
+
+### Added
+- Redaction masks the value of key=value and key: value assignments whose name ends in password, secret, token or api_key, including flag forms (`--password=x`, `--db-password=x`, `--api-key=x`), separator-prefixed names (`_token=x`, `__SECRET=x`), quoted, JSON and YAML values; names that only contain a keyword mid-word (`mytoken=1`, `--max-tokens=5`) stay readable (TEN-SECURITY-25).
+
+## v11.17.55 (2026-10-17)
+
+### Added
+- Preflight probes login state for codex, cline, aider and opencode the way it already does for claude, and fails early with a one-line fix when the repo directory is not writable (TEN-ADOPTION-34, TEN-UX-55).
+- Redaction covers Slack webhook URLs, Stripe `sk_test_` and `rk_` keys, and `whsec_` webhook secrets (TEN-SECURITY-24).
+- The pre-run cost estimate now has a prior for opus models (TEN-COST-62).
+- `updateCommandFor` returns pnpm and yarn global upgrade hints (TEN-DEPLOY-27).
+
+### Changed
+- `loki doctor --fix` seeds the default provider from the first installed provider CLI, and with consent backs up an invalid `.loki/config/settings.json` and rewrites defaults; doctor.ts uses one shared version comparator (TEN-ADOPTION-35, TEN-UX-58, TEN-QUALITY-40).
+- An invalid pause timeout env warns once on stderr; a pause that expires records cancel reason `timeout_abandon`, distinct from a user cancel (TEN-STABILITY-60, TEN-STABILITY-61).
+- `loki run status` picks the newest run by events.jsonl mtime instead of reading every run; a failed registry version fetch is cached briefly so offline commands do not wait on the network (TEN-SPEED-24, TEN-SPEED-25).
+- `loki --version` and `loki version` reject extra positional arguments with exit 2 (TEN-UX-53).
+
+### Fixed
+- Cost caps: `parseCapUsd` accepts `.5` and `5.`; `OPENROUTER_API_KEY` and `LOKI_MODEL_API_KEY` count as API billing so those runs get a cap; `resolveRunCapS` reads the first loki.yaml/loki.yml like the other readers; `yamlKey` reads flow-style maps such as `budgets: { per_run: 5 }` (TEN-COST-59, TEN-COST-60, TEN-COST-61, TEN-STABILITY-58).
+- The redact GOOGLE_KEY rule requires the AIza prefix shape, so ordinary identifiers starting with AI are no longer rewritten (TEN-SECURITY-23).
+- policyGate says policy was NOT evaluated when node is absent with `LOKI_POLICY_REQUIRE_NODE=0`, and reports a check.js timeout as a timeout (TEN-GATES-31, TEN-GATES-32).
+- CLI argument strictness: `loki start` rejects a repeated single-value flag; `loki issues run` accepts only decimal digits for its limit and parallel flags; `loki queue add` rejects issue 0; the engine10 supervisor exits 2 when `--spec` or `--max-cost` has no value; `loki undo` validates the run id before the gate; `loki provider show <unknown>` exits 2 with the valid list; `loki status --json` rejects an unknown option; `loki stats` writes its unknown-option message to stderr; internal handoff requires an explicit consecutive-failure count (TEN-UX-56, TEN-ADOPTION-36, TEN-STABILITY-62, TEN-STABILITY-63, TEN-STABILITY-59, TEN-UX-52, TEN-UX-57, TEN-UX-54, TEN-STABILITY-65).
+
+### Known
+- The engine10 core size budget test is red (5013 of 5000 lines) since 11.17.54; the fix is in review and ships fix-forward. TEN-SECURITY-25 (assignment-value redaction) was held back after review found it stopped redacting flag-form names such as `--password=x`.
+
+## v11.17.54 (2026-10-17)
+
+### Added
+- `loki start --dry-run` validates every flag, runs the preflight and prints the provider, model and cost cap it would use, then exits 0 without spending a token (TEN-UX-45).
+- engine10 speed: intake reuses the tree-keyed repomap and testmap cache; verify (`LOKI_E10_VERIFY_JOBS`) and the Wall base run (`LOKI_E10_BASE_JOBS`) run test files with bounded concurrency, default 1; a group suite-fix unit reuses the failing-suite output integrate already captured (TEN-SPEED-17 to TEN-SPEED-20).
+- `LOKI_PRICE_TABLE=<json file>` overrides or extends the built-in price table; an invalid file falls back to the built-in table (TEN-COST-54).
+- opencode runs get a size-estimate cost record when the model is priced, so the cost cap and `loki cost` cover all 5 providers (TEN-COST-55).
+- Test selection maps a changed Python `__init__.py` and Rust `mod.rs` to the package name (TEN-QUALITY-32).
+- The supervisor forwards SIGHUP to the detached worker process group, so closing the terminal no longer orphans a paid worker (TEN-STABILITY-56).
+
+### Changed
+- `loki start` unknown-flag errors suggest the closest valid flag, and an unknown `--provider` lists the valid providers (TEN-UX-46, TEN-UX-47).
+- The session heartbeat, buildTestMap and repomap read less: one untracked-file listing per beat, one read per JS test file, and at most MAX_SCAN_BYTES per file (TEN-SPEED-21 to TEN-SPEED-23).
+- `noImplicitReturns` is enabled; `handleSlackEvent` narrows an unknown payload; `SessionResult` carries an optional `stderrTail`; new characterization tests for fix_units, compound_match and buildOpencodeArgv (TEN-QUALITY-33 to TEN-QUALITY-38).
+- The P9 rule-of-two moat guard pins every allowToken detection rule with a positive control, including escaped keys in JSON modules (Q18-03e).
+
+### Fixed
+- Test selection now finds tests for a changed `index.ts`/`index.js` (TEN-QUALITY-39).
+- `usdFor` clamps non-finite or negative token counts and caps cached tokens at input; mini and nano OpenAI models get their own prices instead of the full-model rate (TEN-COST-56, TEN-COST-58).
+- `loki estimate --model` requires a non-empty value that is not another flag (TEN-COST-57).
+- `loki start` fails with "needs a value" for an empty `--provider`, `--session-model`, `--cost`, `--spec`, `--health-url`, `--domain`, `--destination` or `--env-file`, and treats a missing PRD path with spaces as a path, not a paid brief (TEN-UX-48, TEN-UX-50, TEN-DEPLOY-26).
+- A first-run folder holding only `.DS_Store` or other OS metadata counts as empty (TEN-UX-51).
+- `appendRunOutcome` no longer loses an outcome when two runs finish together (TEN-STABILITY-57).
+- secure-scan scans untracked files over 1 MB line by line up to a hard cap and reports anything above the cap, instead of skipping them silently (TEN-SECURITY-22).
+
+## v11.17.53 (2026-10-17)
+
+### Added
+- `secure-scan.py` rule 9 flags unsafe deserialization (`pickle.loads`, `yaml.load` without a safe loader, `marshal.loads`) and rule 10 flags SQL built by f-string, `%` formatting or concatenation passed to `execute()` in added lines (TEN-SECURITY-19, TEN-SECURITY-20).
+- Secret detection widened: `redactSecrets` strips AWS ASIA keys and Azure `AccountKey=` strings; `export_sarif` flags PyPI, Docker, DigitalOcean, Google OAuth, Shopify and Postman tokens; `secure-scan.py` matches AWS ASIA, Azure AccountKey and Twilio SK keys (TEN-SECURITY-16, TEN-SECURITY-17, TEN-SECURITY-18).
+- `cost_claim.py` refuses a proven verdict when rows lack `cost_source` or an arm mixes cost sources, and reports NOT PROVEN when the arms cover different task sets (TEN-COST-51, TEN-COST-52).
+- `loki rollback deploy --json` prints the matched rollback command as JSON (TEN-DEPLOY-25).
+- Shell completion registry lists crash subcommands, rollback deploy, and the `--json`, `--list` and `--dry-run` flags of control status, trust, undo, memory list and memory lessons (TEN-ADOPTION-28 to TEN-ADOPTION-33).
+- `loki control`, `loki queue`, `loki queue run`, `loki undo` and `loki memory` suggest the closest valid subcommand, flag or argument on a typo (TEN-UX-40 to TEN-UX-44).
+
+### Fixed
+- `cost_claim.py` no longer counts a missing, None, NaN or negative `cost_usd` as zero (TEN-COST-53).
+- Bounded timeouts on every previously unbounded child call: safe_git config probes (fail closed), the PR stage push and pr-ready scripts, the runner push-pr spawn, pr_lessons push, `issues run` gh calls and the `verify pr` gh helper (TEN-SECURITY-21, TEN-STABILITY-50, TEN-STABILITY-51, TEN-STABILITY-53, TEN-STABILITY-54, TEN-STABILITY-55).
+- A negative `LOKI_MUTATION_PROOF_TIMEOUT_S` or `LOKI_E10_NOTIFY_TIMEOUT_MS` falls back to the default instead of failing the verifier gate or dropping Slack events (TEN-GATES-30, TEN-STABILITY-49).
+- `recordFailures` appends atomically, so concurrent runs no longer lose failure-memory lines (TEN-STABILITY-52).
+- Rollback deploy hints skip npx, bunx, pnpm dlx and yarn dlx wrappers and alias flyctl to fly (TEN-DEPLOY-24).
+
+## v11.17.52 (2026-10-17)
+
+### Added
+- `cost_claim.py` verdicts name the loki arm's `cost_profile` (lean, default, off) and refuse a loki arm that mixes profiles, so a lean-profile cost claim versus Claude Code is explicit evidence (TEN-COST-49).
+
+### Fixed
+- `cost_claim.py --exclude-task` warns on stderr for any excluded name that matches no row and lists it as `unmatched_exclusions` in the verdict, so a mistyped exclusion no longer looks applied (TEN-COST-50).
+
+## v11.17.51 (2026-10-17)
+
+### Fixed
+- `loki doctor` no longer passes the full parent environment to its helper and provider-offer spawns; both use the token-free environment, and the stale spawn-guard allowlist row is removed.
+- The engine10 core is back under its 5000-line budget: the AI-marking helpers moved from `engine10/pr_body.ts` to `util/reviewer_brief.ts` and are re-exported unchanged.
+- `deep_wiring.test.ts` creates an initial commit, matching the preflight that now refuses repos with no commits.
+- The workspace e2e check, the sigpipe-guard ceiling, and the dependency inventory (`loki-ts/todo-app/package.json`) are green again after wave AO.
+
+## v11.17.50 (2026-10-17)
+
+### Wave AO (28 TEN rows, all reviewed APPROVE)
+
+- Seal: receipt.json and receipt.md are written atomically through atomicWriteText (TEN-GATES-27, opus HIGH review); engine10 keys export exits 2 on extra arguments (TEN-GATES-28).
+- verify-pr: a dash-led or missing --out is a usage error and creates nothing (TEN-GATES-29).
+- Timeouts: negative, zero, NaN or Infinity values for the provider call, queue item, council review and SDK review timeouts fall back to safe defaults with a note instead of disabling the timeout (TEN-STABILITY-39 to 42).
+- Security: TEN-SECURITY-13, 14 and 15 (opus HIGH review).
+- Cost, UX, deploy, stability, speed, quality and adoption: TEN-COST-46/47/48, TEN-UX-37/38/39, TEN-DEPLOY-23, TEN-STABILITY-43 to 48, TEN-SPEED-16, TEN-QUALITY-29/30/31, TEN-ADOPTION-27.
+
+### Known red, fix-forward in flight
+
+- full_env_spawn_guard flags loki-ts/src/commands/doctor.ts; engine10 core is 5016 lines against the 5000 cap. A P0 slice is fixing both.
+
+## v11.17.49 (2026-10-17)
+
+### P0 fix-forward: main Tests green again
+
+- Structural guards and shell shards 4, 6 and 7: tests/shard-durations.tsv gains the TEN-ADOPTION-15 self-update row, which also restores the shard-coverage spread.
+- Shell shard 1: test-cli-commands expects loki config provider without a subcommand to exit 2 (TEN-UX-26 contract).
+- Shell shard 3: test-tour-verify hides bun by running a tree copy without node_modules, since CI's npm install ships @oven/bun-*.
+- Shell shard 7: test-doctor-ux greps the integrationImpl.http MiroFish probe.
+- Bun: contract test accepts the runId argument to nextOf; config help and provider help join the CLI registry known gaps with CLI-MODERN counts; the proof share token test plants its token below the write-time redactor (Q17-05b).
+- Completions: one zsh report arm with --since, --json, --efficiency and subcommands; --repo in the zsh control arm.
+
+## v11.17.48 (2026-10-17)
+
+### Wave AN (30 TEN rows, all reviewed APPROVE)
+
+- Security and speed: receipt signer toolchain probe is memoized per process and probes node, python3 and git concurrently (TEN-SECURITY-12, TEN-SPEED-15).
+- Gates: TEN-GATES-25 and TEN-GATES-26 tighten gate evidence (opus HIGH review).
+- Cost: budget rebuild pins limit, budget_limit and exceeded, and counts skipped malformed efficiency files (TEN-QUALITY-27, TEN-COST-44); bash pricing readers warn on keyless or unreadable pricing files (TEN-COST-42); cost preview rejects unknown providers (TEN-COST-45); TEN-COST-43.
+- CLI: loki queue rejects unknown flags with usage and exit 2, and queue list gains --json (TEN-STABILITY-34, TEN-ADOPTION-25); loki control backfill honours --repo DIR (TEN-QUALITY-28).
+- Stability, UX, deploy, speed and adoption: TEN-STABILITY-32/33/35/36/37/38, TEN-UX-30/31/32/33/34/36, TEN-DEPLOY-21/22, TEN-SPEED-13/14, TEN-ADOPTION-24/26.
+- Completions: loki control --repo in the bash arm and a zsh report arm with --since, so help-changelog-drift passes.
+
+## v11.17.47 (2026-10-17)
+
+### Fixed
+- The Seal receipt now carries the seeded-defect corpus block and a correct `catch_rate`, read only from the packaged benchmarks/seeded-defects manifest, never from the target repo (TEN-GATES-15).
+- One shared redaction now covers the engine event writer, the control-plane shipper and ingest; `redactSecrets` iterates to a fixpoint so hashing once-redacted bytes stays stable, and the private shipper copy is removed (Q17-05b).
+
+## v11.17.46 (2026-10-17)
+
+### Added
+- Per-run receipts record the toolchain, and gate results record per-gate wall-clock `duration_ms` (TEN-GATES-22, TEN-GATES-24).
+- `loki start` prints the effective run cap and its source before the first iteration (TEN-COST-41).
+- `loki provider list` prints an install hint for each missing provider CLI; `loki queue run` prints an `[n/m]` progress line per item (TEN-ADOPTION-22, TEN-UX-29).
+
+### Changed
+- `loki doctor --json` runs the sentrux, memory and requirements probes concurrently; the repo profile is cached on HEAD sha plus dirty flag; `loki report kpis --since` skips efficiency files older than the cutoff without reading them (TEN-SPEED-10, TEN-SPEED-12, TEN-SPEED-11).
+
+### Fixed
+- `loki start` exits 2 on a missing PRD path instead of running it as a brief; `--deploy` validates `--health-url`, `--domain` and `--env-file` up front with exit 2 (TEN-STABILITY-30, TEN-DEPLOY-19, TEN-DEPLOY-20).
+- Budget: `budget_used` is rebuilt from efficiency records when budget.json is corrupt; an unreadable model-pricing.json warns once before falling back to a 100 USD cap (TEN-COST-39, TEN-COST-40).
+- Secret scan in SARIF export and commit scanning covers Hugging Face, SendGrid, Twilio and Azure storage keys (TEN-SECURITY-11).
+- `loki verify-pr` exits 3 with "no proof:" when no proof exists and 4 when proof ran and failed (TEN-GATES-23).
+- Argument validation: `loki undo` rejects unknown flags, `loki control backfill --repo` needs a value, `loki report kpis --since` needs a value, `loki wiki show` lists valid sections on a bad one, and bash `loki provider`, `config` and `api` exit 2 on an unknown subcommand (TEN-STABILITY-28, TEN-STABILITY-26, TEN-UX-28, TEN-QUALITY-26, TEN-UX-25, TEN-UX-26).
+- `loki doctor --quiet` keeps Install hints under their WARN or FAIL row; bash `loki control --help` lists prune, stop and status --json (TEN-UX-27, TEN-UX-24).
+- One-time warnings for invalid LOKI_E10_STALL_S / LOKI_E10_STALL_KILL_S and for corrupt checkpoint metadata skipped by listCheckpoints (TEN-STABILITY-27, TEN-STABILITY-31).
+- Tests: help-changelog-drift asserts exact completion tokens; doctor disk volume label and provider failover ordering are pinned (TEN-QUALITY-23, TEN-QUALITY-22, TEN-QUALITY-25).
+
+## v11.17.45 (2026-10-17)
+
+### Fixed
+- `loki deploy` clears every leftover provenance doc before a deploy decides, so a stale doc from an earlier build can never vouch for the current SHA (TEN-DEPLOY-03). tests/test-deploy-receipt-gate.sh 83/0.
+
+## v11.17.44 (2026-10-17)
+
+### Added
+- `loki provider list --json` and `loki control status --json` emit machine-readable output; unknown runs report null, never 0 (TEN-ADOPTION-17, TEN-ADOPTION-16).
+- `loki queue remove` and `loki queue clear`, plus a validated `--max-total-cost` cap for `loki queue run` (TEN-UX-16, TEN-COST-33).
+- `loki doctor --quiet` prints only WARN and FAIL rows with their fixes; doctor flags orphaned runs whose owner is dead and prints resume and undo commands (TEN-UX-18, TEN-STABILITY-17).
+- Rollback, memory, crash, version, wiki, update-check, run-summary and dashboard-entry improvements across TEN-DEPLOY-16/17/18, TEN-UX-21/22/23, TEN-ADOPTION-18/19/20/21, TEN-QUALITY-20 and TEN-STABILITY-23.
+- Start-path cost controls, budget-cap and unit-mode speedups (TEN-COST-35/36/37, TEN-SPEED-09).
+
+### Fixed
+- Secret scan in `loki export --sarif` now catches Anthropic API keys, JWTs and Stripe live keys (TEN-SECURITY-09); redaction covers more vendor secret shapes (TEN-SECURITY-10).
+- secure-scan flags `subprocess` calls with `shell=True` outside tests and comments (TEN-SECURITY-07).
+- `loki run status` hardening and `loki cancel` refuses with "no live run" (exit 1) when the supervisor is dead instead of printing "requested" (TEN-SECURITY-08, TEN-STABILITY-22).
+- Retry classification: 429-prefixed billing bodies are quota_exhausted (non-retryable); 529, bad gateway and gateway timeout are transient (TEN-COST-38, TEN-STABILITY-25).
+- `loki provider <unknown>` and `loki control serve --port` without a value now exit 2 with a usage line (TEN-UX-20, TEN-STABILITY-21).
+- doctor disk check reports the lowest-free volume (TEN-DEPLOY-15); provider failover, runner error and spec-file fixes (TEN-STABILITY-24, TEN-QUALITY-21, TEN-QUALITY-19); verify-pr gate fix (TEN-GATES-21).
+
+## v11.17.43 (2026-10-17)
+
+### Fixed
+- Help and shell completions now list `loki report kpis --since` and `loki undo --list`, closing the help-changelog-drift red introduced by v11.17.40 (TEN-STABILITY-20, FC-TEN-STABILITY-20 HELP-FLAG-DRIFT).
+
 ## v11.17.42 (2026-10-17)
 
 P0 fix-forward for the nightly 39016259458 failures.

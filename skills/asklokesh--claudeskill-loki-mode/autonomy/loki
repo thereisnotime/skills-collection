@@ -74,9 +74,16 @@ fi
 # Default per-run spend cap (single source: default_max_cost_usd in loki-ts/data/model-pricing.json,
 # also read by loki-ts/src/e10ext/budget_cap.ts and autonomy/run.sh). Prints a plain number; 100 only if the file is unreadable.
 loki_budget_default_usd() {
-    local v=""
-    [ -f "$_LOKI_SCRIPT_DIR/../loki-ts/data/model-pricing.json" ] && \
-        v="$(sed -n 's/.*"default_max_cost_usd"[[:space:]]*:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' "$_LOKI_SCRIPT_DIR/../loki-ts/data/model-pricing.json" | head -1)"
+    local f="${1:-$_LOKI_SCRIPT_DIR/../loki-ts/data/model-pricing.json}" v=""
+    if [ -e "$f" ]; then
+        v="$(sed -n 's/.*"default_max_cost_usd"[[:space:]]*:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' "$f" 2>/dev/null | head -1)"
+        case "$v" in
+            '' | *[!0-9.]*)
+                printf '%s\n' "loki: warning: cannot read default_max_cost_usd from $f (unreadable or no parsable key); using fallback 100" >&2
+                v=""
+                ;;
+        esac
+    fi
     printf '%s\n' "${v:-100}"
 }
 
@@ -1757,18 +1764,19 @@ _help_answer() {
 _help_verify_pr() {
     echo -e "${BOLD}loki verify-pr${NC} - Verify a PR against its linked issue (experimental, LOKI_VERIFY_PR=1)"
     echo ""
-    echo "Usage: loki verify-pr <https://github.com/o/r/pull/N | o/r#N> [--out DIR]"
+    echo "Usage: loki verify-pr <https://github.com/o/r/pull/N | o/r#N> [--out DIR] [--json]"
     echo "       loki verify-pr respond <o/r#N>   fix open review comments (one commit each, on the PR"
     echo "                                        branch), push, reply with the sha; never resolves threads"
     echo ""
     echo "Derives a check from the PR's linked issue (Check: \`cmd\` or a loki-check fence)."
     echo "VERIFIED only if the check fails on the PR base, passes on its head, and the"
     echo "touched packages' suites pass. A PR with no linked issue, no check, a removed"
-    echo "test or a non-discriminating check is NOT PROVEN. Writes verify-pr-result.json."
+    echo "test or a non-discriminating check is NOT PROVEN. Writes verify-pr-result.json;"
+    echo "--json also prints that verdict object on stdout instead of the text summary."
     echo "PR code runs only in the container sandbox (scripts/verify-pr-sandbox.sh); set"
     echo "LOKI_VPR_IMAGE to a locally present image."
     echo ""
-    echo "Exit codes: 0 verified, 2 usage or sandbox blocked, 4 not proven."
+    echo "Exit codes: 0 verified, 2 usage or sandbox blocked, 3 no proof to run (no linked issue or no trusted runnable check), 4 proof ran and failed."
 }
 
 # Appended to `loki help verify`: the v10 DSSE export flag (docs/exit-codes.md).
@@ -1855,6 +1863,7 @@ show_help_all() {
     echo "  ultracode \"task\" Run a task as a native Claude Code Dynamic Workflow (opt-in, Claude-only)"
     echo "  trust [cmd]      Visible trust trajectory; 'trust detail' for metrics"
     echo "  undo <run> [--plan|--dry-run]  Plan or apply (LOKI_UNDO=1) an undo of a run; verifies the receipt"
+    echo "  undo --list                    List recent runs with verdict, files changed and age"
     echo ""
     echo "Observe:"
     echo "  dashboard [cmd]  Operations UI server (start|stop|status|url|open)"
@@ -1873,9 +1882,9 @@ show_help_all() {
     echo ""
     echo "Config:"
     echo "  config [cmd]     Manage configuration (show|init|edit|path|set|get)"
-    echo "  doctor [--json]  Check system prerequisites and skill symlinks"
+    echo "  doctor [--json] [--quiet]  Check system prerequisites and skill symlinks"
     echo ""
-    echo "  version          Show version"
+    echo "  version [--json] Show version (--json for machine-readable)"
     echo "  help             Show this help ('loki help aliases' for old names)"
     echo ""
     echo "More commands (the most useful; many more are dispatchable):"
@@ -1928,6 +1937,7 @@ show_help_all() {
     echo "  loki status [--json]          # Current status"
     echo "  loki report session --efficiency   # Token + cost stats"
     echo "  loki report kpis [--json]     # Accuracy + efficiency KPI snapshot"
+    echo "  loki report kpis --since 7d   # Window KPI totals (Nd or YYYY-MM-DD)"
     echo "  loki doctor [--json]          # System prereq + skill symlinks"
     echo "  loki logs                     # Tail recent log output"
     echo "  loki report export json|markdown|csv|timeline   # Export session"
@@ -2694,6 +2704,27 @@ cmd_start() {
         echo -e "${RED}--health-url, --health-match, --auto-rollback, --destination, --canary and --domain apply only with --deploy${NC}" >&2
         exit 2
     fi
+    # Same checks and text as cmd_deploy so the bash route fails before cmd_start.
+    if [ "$_ps_deploy" = 1 ]; then
+        if [ -n "$_ps_dest" ]; then
+            case "$_ps_dest" in
+                preview|staging|production) ;;
+                *) echo -e "${RED}loki deploy --destination must be one of: preview, staging, production${NC}" >&2; exit 2 ;;
+            esac
+        fi
+        if [ "$_ps_rb" = 1 ] && [ -z "$_ps_health" ]; then
+            echo -e "${RED}loki deploy --auto-rollback requires --health-url (no health signal, no rollback)${NC}" >&2
+            exit 2
+        fi
+        if [ -n "$_ps_hmatch" ] && [ -z "$_ps_health" ]; then
+            echo -e "${RED}loki deploy --health-match requires --health-url${NC}" >&2
+            exit 2
+        fi
+        if [ "$_ps_canary" = 1 ] && [ -n "$_ps_dest" ] && [ "$_ps_dest" != production ]; then
+            echo -e "${RED}loki deploy --canary only applies to --destination production${NC}" >&2
+            exit 2
+        fi
+    fi
     if [ -n "$_ps_ws" ]; then
         if [ "$_ps_deploy" = 1 ]; then
             echo -e "${RED}--workspace and --deploy cannot be combined: deploy each repo with loki deploy${NC}" >&2
@@ -2884,7 +2915,7 @@ cmd_start() {
                 echo "                        and, with --deploy, the flag --github runs loki github publish after a good deploy"
                 echo ""
                 echo "Issue-mode options (used when input is an ISSUE-REF or a --brief):"
-                echo "  --dry-run             Preview generated PRD without starting"
+                echo "  --dry-run             Validate flags, run the preflight and print the provider, model and cost cap without starting (issue mode: preview the PRD)"
                 echo "  --no-start            Generate PRD but don't start execution"
                 echo "  --output FILE         Save generated PRD to custom path"
                 echo "  --worktree, -w        Git worktree isolation (separate branch)"
@@ -3518,7 +3549,18 @@ cmd_start() {
         # SUPPORTED_PROVIDERS but missing from the older lists.
         local _pf_installed=""
         local _pf_p
-        for _pf_p in claude codex cline aider opencode; do
+        # Single source: SUPPORTED_PROVIDERS in providers/loader.sh.
+        local _pf_known
+        _pf_known="$(sed -n 's/^SUPPORTED_PROVIDERS=(\(.*\))$/\1/p' "$_LOKI_SCRIPT_DIR/../providers/loader.sh" 2>/dev/null | tr -d '"' | head -1)"
+        [ -n "$_pf_known" ] || _pf_known="claude codex cline aider opencode"
+        case " $_pf_known " in
+            *" $_pf_explicit "*) ;;
+            *)
+                echo -e "${RED}Error: unknown provider '$_pf_explicit' (use one of: ${_pf_known// /, })${NC}" >&2
+                exit 1
+                ;;
+        esac
+        for _pf_p in $_pf_known; do
             if command -v "$_pf_p" >/dev/null 2>&1; then
                 _pf_installed="${_pf_installed:+$_pf_installed }$_pf_p"
             fi
@@ -7198,7 +7240,7 @@ cmd_stats() {
         case "$1" in
             --json) show_json=true; shift ;;
             --efficiency) show_efficiency=true; shift ;;
-            *) shift ;;
+            *) echo "Unknown option: $1 (see: loki stats --help)" >&2; return 2 ;;
         esac
     done
 
@@ -7494,6 +7536,9 @@ cmd_provider() {
             cmd_provider_set "$@"
             ;;
         list)
+            case " $* " in
+                *" --json "*) _loki_bun_delegate provider list "$@" || { echo "loki provider list --json needs bun: ${_LOKI_DELEGATE_WHY}" >&2; return 1; } ;;
+            esac
             cmd_provider_list
             ;;
         info)
@@ -7508,7 +7553,17 @@ cmd_provider() {
         models)
             cmd_provider_models
             ;;
+        help|--help|-h)
+            _cmd_provider_help
+            ;;
         *)
+            echo "loki provider: unknown subcommand '${subcommand}' (see 'loki provider help')" >&2
+            return 2
+            ;;
+    esac
+}
+
+_cmd_provider_help() {
             echo -e "${BOLD}Loki Mode Provider Management${NC}"
             echo ""
             echo "Usage: loki provider <command>"
@@ -7516,7 +7571,7 @@ cmd_provider() {
             echo "Commands:"
             echo "  show     Show current provider (default)"
             echo "  set      Set provider for this project"
-            echo "  list     List available providers"
+            echo "  list     List available providers (--json: name, tier, installed, version)"
             echo "  info     Show provider details (--json: capability contract)"
             echo "  matrix   Show the capability matrix per provider and engine"
             echo "  models   Show resolved model configuration for all providers"
@@ -7537,8 +7592,6 @@ cmd_provider() {
             echo "  loki provider list"
             echo "  loki provider info codex"
             echo "  loki provider models"
-            ;;
-    esac
 }
 
 cmd_provider_show() {
@@ -10050,7 +10103,7 @@ _deploy_latest_receipt() {
     return 0
 }
 
-# _deploy_record <dir> <command> <exit_code> <run_id> <anchor_sha> [state] [health_status] [health_url] [rb_attempted] [rb_exit] [receipt_sha256] [started_at] [finished_at] [target] [canary] [post_rollback_health] [health_http_code] [health_match] [tree_sha] [destination] [deployed_url] [health_url_source] [env_keys_csv] [env_source] [domain] [domain_status] [tls_status] [tls_not_after] [domain_provenance]
+# _deploy_record <dir> <command> <exit_code> <run_id> <anchor_sha> [state] [health_status] [health_url] [rb_attempted] [rb_exit] [receipt_sha256] [started_at] [finished_at] [target] [canary] [post_rollback_health] [health_http_code] [health_match] [tree_sha] [destination] [deployed_url] [health_url_source] [env_keys_csv] [env_source] [domain] [domain_status] [tls_status] [tls_not_after] [domain_provenance] [live_binding]
 # Writes the executed deploy's own record, then signs it (loki.deploy/1, Ed25519 via the
 # receipt signer in loki-ts/src/util/receipt_signer.ts) so it is bound to the receipt that
 # authorized it; `loki verify <record>` re-checks it offline. An unsigned record is reported
@@ -10080,6 +10133,7 @@ _deploy_record() {
     local env_keys_csv="${23:-}" env_source="${24:-}"
     # --domain: tls_status is "unchecked" unless the openssl proof ran and said otherwise.
     local domain_rec="${25:-}" domain_status="${26:-}" tls_status="${27:-unchecked}" tls_not_after="${28:-}" domain_prov="${29:-}"
+    local live_binding="${30:-}"
     local ddir="$dir/.loki/deploys"
     [ -d "${LOKI_DIR:-}" ] && ddir="${LOKI_DIR}/deploys"
     mkdir -p "$ddir" 2>/dev/null || return 0
@@ -10089,7 +10143,7 @@ _deploy_record() {
     DR_RBA="$rb_attempted" DR_RBX="$rb_exit" DR_RSHA="$receipt_sha" DR_T0="$started_at" \
     DR_T1="$finished_at" DR_TGT="$target" DR_CAN="$canary" DR_PRB="$post_rb" DR_HC="$hcode_rec" DR_HM="$hmatch" DR_TREE="$tree_sha" DR_DEST="$dest_rec" DR_DURL="$deployed_url" DR_HSRC="$hsrc" \
     DR_ENVK="$env_keys_csv" DR_ENVS="$env_source" \
-    DR_DOM="$domain_rec" DR_DOMS="$domain_status" DR_TLS="$tls_status" DR_TLSA="$tls_not_after" DR_DOMP="$domain_prov" \
+    DR_DOM="$domain_rec" DR_DOMS="$domain_status" DR_TLS="$tls_status" DR_TLSA="$tls_not_after" DR_DOMP="$domain_prov" DR_LB="$live_binding" \
         python3 -c '
 import json, os, datetime
 state = os.environ.get("DR_STATE") or "anchored"
@@ -10128,6 +10182,7 @@ json.dump({
     "tls_status": os.environ.get("DR_TLS") or "unchecked",
     "tls_not_after": os.environ.get("DR_TLSA", ""),
     "domain_provenance": os.environ.get("DR_DOMP", ""),
+    "live_binding": os.environ.get("DR_LB") or "unchecked",
     "health_http_code": int(os.environ["DR_HC"]) if os.environ.get("DR_HC", "").isdigit() else None,
 }, open(os.environ["DR_OUT"], "w"), indent=2)
 ' 2>/dev/null || return 0
@@ -10224,6 +10279,91 @@ _deploy_probe_health() {
     [ "$body" = /dev/null ] || rm -f "$body"
     printf '%s' "$code"
     return 1
+}
+
+# _deploy_provenance_root <dir> <type>
+# Echoes the static root that ships with the deploy and may carry /.well-known/, or "" when no
+# such root exists. nextjs and Vite: public/. Built static: the detected dist/ then build/.
+# docker, python and node serve no static root, so they print "" and are never bound.
+_deploy_provenance_root() {
+    local dir="${1:-.}" type="${2:-}"
+    case "$type" in
+        nextjs) printf '%s' "$dir/public" ;;
+        static)
+            if [ -f "$dir/dist/index.html" ]; then printf '%s' "$dir/dist"
+            elif [ -f "$dir/build/index.html" ]; then printf '%s' "$dir/build"
+            elif [ -f "$dir/package.json" ] && grep -q '"vite"' "$dir/package.json" 2>/dev/null; then printf '%s' "$dir/public"
+            fi
+            ;;
+    esac
+    return 0
+}
+
+# _deploy_clear_provenance <dir>
+# Removes .well-known/loki-provenance.json from EVERY candidate static root (public/, dist/,
+# build/). Runs before each deploy decides whether to write a fresh doc, so a doc left by an
+# earlier deploy can never ship with a build it does not describe (unanchored override,
+# unsupported type, signing failure, or a root that moved between deploys).
+_deploy_clear_provenance() {
+    local dir="${1:-.}" r
+    for r in public dist build; do
+        rm -f "$dir/$r/.well-known/loki-provenance.json" 2>/dev/null || true
+    done
+    return 0
+}
+
+# _deploy_write_provenance <dir> <root> <head_sha> <tree_sha> <receipt_sha256> <run_id>
+# Writes <root>/.well-known/loki-provenance.json and signs it in place (loki verify
+# --sign-provenance). Called only after the gate (including the dirty-tree check) passed, so the
+# untracked file never dirties the tree that was verified; it is also added to .git/info/exclude
+# so the NEXT deploy's dirty-tree gate does not trip over it. Returns non-zero when not signed.
+_deploy_write_provenance() {
+    local dir="$1" root="$2" head="$3" tree="$4" rsha="$5" rid="$6"
+    local f="$root/.well-known/loki-provenance.json" ex
+    rm -f "$f" 2>/dev/null
+    [ -n "$head" ] && [ -n "$tree" ] && [ -n "$rsha" ] && [ -n "$rid" ] || return 1
+    mkdir -p "$root/.well-known" 2>/dev/null || return 1
+    PV_H="$head" PV_T="$tree" PV_R="$rsha" PV_I="$rid" PV_OUT="$f" python3 -c '
+import json, os, datetime
+json.dump({"schema": "loki.provenance/1", "head_sha": os.environ["PV_H"], "tree_sha": os.environ["PV_T"],
+           "receipt_sha256": os.environ["PV_R"], "run_id": os.environ["PV_I"],
+           "built_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")},
+          open(os.environ["PV_OUT"], "w"), indent=2)
+' 2>/dev/null || { rm -f "$f"; return 1; }
+    ex="$(git -C "$dir" rev-parse --git-path info/exclude 2>/dev/null)" || ex=""
+    if [ -n "$ex" ]; then
+        case "$ex" in /*) ;; *) ex="$dir/$ex" ;; esac
+        grep -qxF '**/.well-known/loki-provenance.json' "$ex" 2>/dev/null \
+            || { mkdir -p "$(dirname "$ex")" 2>/dev/null; printf '%s\n' '**/.well-known/loki-provenance.json' >> "$ex" 2>/dev/null; } || true
+    fi
+    if ! ( cd "$dir" && _loki_bun_delegate engine10 verify --sign-provenance "$f" ) >/dev/null 2>&1; then
+        rm -f "$f"
+        return 1
+    fi
+    return 0
+}
+
+# _deploy_probe_live_binding <dir> <url> <anchor>
+# Fetches <url>/.well-known/loki-provenance.json through loki verify --url --expect-sha.
+# Returns 0 VERIFIED (signature holds and head_sha equals the anchor), 1 MISMATCH (a doc
+# was served but is forged or names a different SHA, still so on the last bounded retry),
+# 2 UNCHECKED (no doc could be fetched or its key is unknown, after a bounded retry with the
+# health-probe tunables). Never VERIFIED on 2.
+_deploy_probe_live_binding() {
+    local dir="$1" url="$2" anchor="$3"
+    local attempts="${LOKI_DEPLOY_HEALTH_ATTEMPTS:-5}" interval="${LOKI_DEPLOY_HEALTH_INTERVAL:-3}" i=0 vrc=2
+    case "$attempts" in ''|*[!0-9]*) attempts=5 ;; esac
+    case "$interval" in ''|*[!0-9]*) interval=3 ;; esac
+    while [ "$i" -lt "$attempts" ]; do
+        i=$((i + 1))
+        vrc=0
+        ( cd "$dir" && _loki_bun_delegate engine10 verify --url "$url" --expect-sha "$anchor" ) >/dev/null 2>&1 || vrc=$?
+        [ "$vrc" -eq 0 ] && return 0
+        [ "$i" -lt "$attempts" ] && [ "$interval" -gt 0 ] && sleep "$interval"
+    done
+    # A mismatch on the last attempt is FAILED; earlier mismatches may be propagation of the previous build.
+    [ "$vrc" -eq 1 ] && return 1
+    return 2
 }
 
 # _deploy_policy_refusal <dir>
@@ -10605,6 +10745,25 @@ _deploy_try_execute() {
         esac
     fi
 
+    # Provenance doc: shipped with the build so the live URL can prove which SHA it serves.
+    local live_binding="unchecked" prov_root="" prov_written=false
+    prov_root="$(_deploy_provenance_root "$dir" "$type")"
+    # Every branch below starts from no doc: only a doc written by THIS deploy may ship.
+    _deploy_clear_provenance "$dir"
+    if [ "$anchor_state" = "unanchored_overridden" ]; then
+        live_binding="unanchored"
+        echo "Live binding unanchored: the evidence gate was overridden with the anchor UNPROVEN, so no provenance doc is published and the live URL is not bound to ${anchor:0:12}." >&2
+    elif [ -z "$prov_root" ]; then
+        live_binding="unsupported"
+        echo "Live binding unsupported: a ${type} project has no static root to serve /.well-known/loki-provenance.json, so the live URL is not bound to ${anchor:0:12}." >&2
+    elif _deploy_write_provenance "$dir" "$prov_root" "$anchor" "$(git -C "$dir" rev-parse 'HEAD^{tree}' 2>/dev/null || true)" \
+        "$(python3 -c 'import json,sys;print((json.load(open(sys.argv[1])).get("verification") or {}).get("hash") or "")' "$pj" 2>/dev/null || true)" "$run_id"; then
+        prov_written=true
+        echo "Provenance written: ${prov_root}/.well-known/loki-provenance.json"
+    else
+        echo -e "${YELLOW}WARNING: the provenance doc could not be signed, so the live URL will not be bound to this SHA.${NC}" >&2
+    fi
+
     local rc=0 started_at finished_at purl="" canary_out=""
     local -a deploy_argv=()
     read -r -a deploy_argv <<<"$exec_cmd"
@@ -10689,8 +10848,31 @@ _deploy_try_execute() {
         fi
     fi
 
-    if [ "$health_status" = "FAILED_HEALTH" ]; then
+    # Live binding: the deployed URL must serve the provenance doc for THIS anchor.
+    if [ "$prov_written" = true ] && [ "$rc" -eq 0 ] && [ "$health_status" != "FAILED_HEALTH" ] && [ -n "$deployed_url" ]; then
+        echo "Probing live binding: ${deployed_url%/}/.well-known/loki-provenance.json"
+        local lb_rc=0
+        _deploy_probe_live_binding "$dir" "$deployed_url" "$anchor" || lb_rc=$?
+        case "$lb_rc" in
+            0)
+                live_binding="VERIFIED"
+                echo -e "${GREEN}Live binding VERIFIED:${NC} ${deployed_url} serves a signed provenance doc for ${anchor:0:12}."
+                ;;
+            1)
+                live_binding="FAILED"
+                health_status="FAILED_HEALTH"
+                echo -e "${RED}FAILED_HEALTH: ${deployed_url} served a provenance doc that is forged or is not for ${anchor:0:12} (stale or wrong build served).${NC}" >&2
+                ;;
+            *)
+                echo "  Live binding unchecked: no verifiable provenance doc could be fetched from ${deployed_url}. Not a claim the live build is ${anchor:0:12}." >&2
+                ;;
+        esac
+    fi
+
+    if [ "$health_status" = "FAILED_HEALTH" ] && [ "$live_binding" != "FAILED" ]; then
         echo -e "${RED}FAILED_HEALTH: ${health_url} did not return 2xx${health_match:+ containing \"${health_match}\"} (last status ${hcode:-000}).${NC}" >&2
+    fi
+    if [ "$health_status" = "FAILED_HEALTH" ]; then
         if [ "$auto_rollback" = true ] && [ -n "$rb_cmd" ] && ! _deploy_is_destructive "$rb_cmd"; then
             echo "Rolling back: ${rb_cmd}" >&2
             rb_attempted=true
@@ -10729,7 +10911,7 @@ _deploy_try_execute() {
     rec="$(_deploy_record "$dir" "$exec_disp" "$rc" "${run_id:-unknown}" "${anchor:-unknown}" \
         "$anchor_state" "$health_status" "$health_url" "$rb_attempted" "$rb_exit" \
         "$rsha" "$started_at" "$finished_at" "${command%% *}" "$canary" "$post_rb" "$hcode" "$health_match" "$(git -C "$dir" rev-parse 'HEAD^{tree}' 2>/dev/null || true)" "$dest" "$deployed_url" "$health_src" "$env_keys" "$env_file" \
-        "$domain" "$_DD_STATUS" "$_DD_TLS" "$_DD_NOTAFTER" "$_DD_PROV")"
+        "$domain" "$_DD_STATUS" "$_DD_TLS" "$_DD_NOTAFTER" "$_DD_PROV" "$live_binding")"
     echo ""
     if [ "$rc" -eq 0 ]; then
         echo -e "${GREEN}Deploy command exited 0.${NC}"
@@ -14006,7 +14188,7 @@ cmd_config() {
         validate)
             cmd_config_validate "$@"
             ;;
-        *)
+        help|--help|-h)
             echo -e "${YELLOW}Usage: loki config [show|list|init|edit|path|set|get|example|schema|validate]${NC}"
             echo ""
             echo "  show            Show current configuration (default)"
@@ -14035,6 +14217,10 @@ cmd_config() {
             echo "  notify.slack         Slack webhook URL"
             echo "  notify.discord       Discord webhook URL"
             echo "  budget               Cost budget limit in USD"
+            ;;
+        *)
+            echo "loki config: unknown subcommand '${subcommand}' (see 'loki config help')" >&2
+            return 2
             ;;
     esac
 }
@@ -15486,10 +15672,19 @@ cmd_version() {
         --help|-h|help)
             echo -e "${BOLD}Loki Mode -- print version${NC}"
             echo ""
-            echo "Usage: loki version"
+            echo "Usage: loki version [--json]"
             echo ""
             echo "Prints 'Loki Mode vX.Y.Z' from the VERSION file shipped with"
             echo "the package. Equivalent to 'loki --version' and 'loki -v'."
+            echo ""
+            echo "  --json    Print {\"version\",\"runtime\",\"install_path\"} as one JSON line"
+            return 0
+            ;;
+        --json)
+            local _vp="${SKILL_DIR:-}"
+            _vp="${_vp//\\/\\\\}"
+            _vp="${_vp//\"/\\\"}"
+            printf '{"version":"%s","runtime":"bash","install_path":"%s"}\n' "$(get_version)" "$_vp"
             return 0
             ;;
     esac
@@ -15785,7 +15980,7 @@ cmd_api() {
             fi
             ;;
 
-        *)
+        help|--help|-h)
             echo -e "${BOLD}Loki Mode Dashboard/API Server${NC}"
             echo ""
             echo "Usage: loki api <command>"
@@ -15807,6 +16002,10 @@ cmd_api() {
             echo "  POST /api/stop    - Stop session"
             echo "  POST /api/pause   - Pause session"
             echo "  POST /api/resume  - Resume session"
+            ;;
+        *)
+            echo "loki api: unknown subcommand '${subcommand}' (see 'loki api help')" >&2
+            return 2
             ;;
     esac
 }
@@ -25720,7 +25919,7 @@ except Exception as e:
             echo "Usage: loki memory <command> [args]"
             echo ""
             echo "Learnings Commands:"
-            echo "  list              Show summary of all learnings"
+            echo "  list [--json]     Show summary of all learnings"
             echo "  show [type]       Show entries (patterns|mistakes|successes|all)"
             echo "                    Options: --limit N, --project P"
             echo "  search <query>    Search across all learnings"
@@ -34897,7 +35096,10 @@ cmd_control() {
             echo "Commands:"
             echo "  serve [--port N] [--db PATH]   Run the control plane + UI on 127.0.0.1"
             echo "  backfill [DIR]                 Ship DIR/.loki/runs to the control plane"
-            echo "  status                         Show whether the control plane is reachable"
+            echo "  prune --repo OWNER/NAME | --before ISO_DATE [--dry-run] [--db PATH]"
+            echo "                                 Delete matching runs, their events and orphaned sources"
+            echo "  stop                           Stop the running control plane"
+            echo "  status [--json]                Show whether the control plane is reachable (--json: one JSON object)"
             return 0
             ;;
     esac

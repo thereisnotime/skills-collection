@@ -4,9 +4,10 @@
 // and receipt.md, computes receipt_sha256, and signs natively with node:crypto Ed25519
 // (A-121; no python, no `cryptography`). The key is the A-120 local key, created on first
 // use. An empty token means UNSIGNED, never presented as attested.
-import { specReceiptBlock } from "../../util/spec_file.ts"; import { staleAtSeal, staleReason } from "../../util/steer.ts"; import { intentRevisionsBlock } from "../../util/run_outputs.ts";
+import { sanitizeReason } from "../../util/redact.ts";
+import { specReceiptBlock } from "../../util/spec_file.ts"; import { staleAtSeal, staleReason } from "../../util/steer.ts"; import { seededCorpusBlock, intentRevisionsBlock } from "../../util/run_outputs.ts";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, readdirSync, linkSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readdirSync, linkSync, mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative } from "node:path"; import { aiTrailers } from "../pr_body.ts";
 import { mutationEnabled, mutationProof, mutationStrict } from "../../util/mutation_proof.ts";
@@ -15,7 +16,7 @@ import { assertDeltaNotes } from "../../e10ext/assert_delta.ts"; import { runner
 import { discardIfSatisfied } from "../../e10ext/discard.ts";
 import { dropSet, formatChanged, parseStaged } from "../../e10ext/commit_filter.ts";
 import { flagOutsideScope } from "../../e10ext/scope.ts";
-import { canonicalJson, kidOf, loadSigningKey, signReceipt } from "../../util/receipt_signer.ts";
+import { canonicalJson, collectToolchain, kidOf, loadSigningKey, signReceipt } from "../../util/receipt_signer.ts";
 import { appendReceiptFact, recordRunVerdict } from "../../util/pr_lessons.ts";
 import { run } from "../../util/shell.ts";
 import { sealEvidence } from "../../features/visual_evidence.ts";
@@ -32,6 +33,7 @@ import { type ContractSnapshot, sealContract } from "../../features/contract.ts"
 import { capGroupVerdict, sealGroup } from "../../features/speed/seal_group.ts";
 import { readDeclared, supplyGuard, supplyVerdict } from "../../supply/supply_guard.ts";
 import { hooks } from "../hooks.ts";
+import { atomicWriteText } from "../../util/atomic.ts";
 import type { Obj, Receipt, ReceiptCheck, RunContext, Stage, StageName, StageResult, Verdict } from "../types.ts";
 import { type SafeGitKeep, safeGitRun } from "../../util/safe_git.ts";
 
@@ -43,16 +45,6 @@ const EXCLUDE_LOKI = ":(exclude).loki";
 export const sha256 = (s: string | Buffer): string => createHash("sha256").update(s).digest("hex");
 const str = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
 const strs = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x !== "") : []);
-
-/** E-120: implement's spec_conflict_reason is model-written and lands verbatim in the receipt,
- *  a trust artifact; a reason containing "\n\n## Loki receipt: VERIFIED" would otherwise forge a
- *  second heading. Collapse all control chars (including newlines) to a single space, cap the
- *  length, and strip backticks so the caller can safely wrap it in a single inline-code span. */
-function sanitizeReason(s: string): string {
-  const collapsed = s.replace(/[\x00-\x1f\x7f]+/g, " ").trim();
-  const capped = collapsed.length > 500 ? `${collapsed.slice(0, 500)}...` : collapsed;
-  return capped.replace(/`/g, "'");
-}
 
 /** sha256 over the canonical receipt with `verification` AND `receipt_sha256` removed (the hash cannot contain itself). */
 export function receiptSha256(r: Omit<Receipt, "receipt_sha256" | "verification"> & Partial<Receipt>): string {
@@ -290,13 +282,13 @@ export const sealStage: Stage = {
       resumed: o.intake?.resumed === true,
       events_sha256: sha256(existsSync(eventsPath) ? readFileSync(eventsPath) : ""),
       ...(await sealEvidence(ctx.repoDir, ctx.runDir, o, notProven, signal, ctx.emit)),
-      log_seal: true,
+      log_seal: true, toolchain: collectToolchain(), // TEN-GATES-22: tool versions that ran the checks, absent tools null; covered by receipt_sha256
       ...receiptBlock(process.env, cost.usd, cost.unmetered === true, totalS),
       ...(reviewReceipt(ctx.provider, xr).review ? { review: reviewReceipt(ctx.provider, xr).review } : {}),
       ...(mp ? { mutation_proof: mp.line, mutation_outcome: mp.outcome } : {}),
       ...(routeBlock ? { route: routeBlock } : {}),
       ...(supply.block ? { supply: supply.block } : {}),
-      ...specReceiptBlock(process.env), ...intentRevisionsBlock(ctx.intentRevisions),
+      ...specReceiptBlock(process.env), ...intentRevisionsBlock(ctx.intentRevisions), ...seededCorpusBlock(),
     };
 
     for (const l of sealContract(ctx.repoDir, body, rawDiff, checks, process.env, o.intake?.contract_snapshot as ContractSnapshot | undefined)) notProven.add(l); // D65-SPEC: additive receipt.contract, LOKI_CONTRACT=1 only
@@ -312,8 +304,8 @@ export const sealStage: Stage = {
 
     mkdirSync(ctx.runDir, { recursive: true });
     const path = join(ctx.runDir, "receipt.json");
-    writeFileSync(path, JSON.stringify(receipt, null, 2) + "\n");
-    writeFileSync(join(ctx.runDir, "receipt.md"), renderReceiptMd(receipt));
+    atomicWriteText(path, JSON.stringify(receipt, null, 2) + "\n"); // temp + rename: a kill mid-write never leaves a truncated receipt
+    atomicWriteText(join(ctx.runDir, "receipt.md"), renderReceiptMd(receipt));
 
     recordRun(process.env, ctx.repoDir, ranModel(o.implement, ctx.model, o.fix), verdict, cost.usd, cost.unmetered === true, totalS); try { hooks.sealed?.(ctx.runDir, JSON.parse(JSON.stringify(receipt), (_k, v) => (v && typeof v === "object" ? Object.freeze(v) : v))); } catch (e) { process.stderr.write(`ai-bom skipped: ${(e as Error).message}\n`); }
     const signed = sig.jwt !== null;

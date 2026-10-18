@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { run } from "../../src/util/shell.ts";
 import { stripAnsi } from "../../src/util/colors.ts";
 import { resolve } from "node:path";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..");
@@ -35,6 +35,22 @@ describe("provider show", () => {
   });
 });
 
+describe("provider show unknown provider", () => {
+  it("unknown provider exits 2 and lists valid providers", async () => {
+    const a = await bunCmd(["provider", "show", "nopeprovider"]);
+    expect(a.exitCode).toBe(2);
+    const err = stripAnsi(a.stderr);
+    expect(err).toContain("unknown provider 'nopeprovider'");
+    for (const p of ["claude", "cline", "codex", "aider", "opencode"]) expect(err).toContain(p);
+    expect(stripAnsi(a.stdout)).not.toContain("Current Provider");
+  });
+
+  it("known provider argument still exits 0", async () => {
+    const a = await bunCmd(["provider", "show", "codex"]);
+    expect(a.exitCode).toBe(0);
+  });
+});
+
 describe("provider list", () => {
   it("byte-for-byte parity with bash", async () => {
     const a = await bunCmd(["provider", "list"]);
@@ -49,6 +65,26 @@ describe("provider list", () => {
     const plain = stripAnsi(a.stdout);
     for (const p of ["claude", "codex", "cline", "aider", "opencode"]) {
       expect(plain).toContain(p);
+    }
+  });
+});
+
+describe("provider list install hints", () => {
+  it("list shows install hint", async () => {
+    // PATH holds only bun, so every provider CLI reads as missing.
+    const dir = mkdtempSync(resolve(tmpdir(), "loki-prov-"));
+    try {
+      symlinkSync(process.execPath, resolve(dir, "bun"));
+      symlinkSync("/bin/sh", resolve(dir, "sh"));
+      const a = await run(["bun", CLI, "provider", "list"], { env: { PATH: dir } });
+      expect(a.exitCode).toBe(0);
+      expect(stripAnsi(a.stdout)).toContain("not installed");
+      const err = stripAnsi(a.stderr);
+      expect(err).toContain("npm install -g @anthropic-ai/claude-code");
+      expect(err).toContain("pip install aider-chat");
+      expect(err).toContain("npm install -g opencode-ai");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
@@ -86,9 +122,62 @@ describe("opencode provider selection", () => {
 });
 
 describe("provider unknown subcommand", () => {
-  it("prints help on unknown subcommand", async () => {
+  it("unknown subcommand prints error plus help and exits 2", async () => {
     const a = await bunCmd(["provider", "definitelynotacommand"]);
-    expect(a.exitCode).toBe(0);
+    expect(a.exitCode).toBe(2);
+    expect(stripAnsi(a.stderr)).toContain("unknown subcommand 'definitelynotacommand'");
     expect(stripAnsi(a.stdout)).toContain("Loki Mode Provider Management");
+  });
+
+  it("did you mean: close typo gets a suggestion, exit 2", async () => {
+    const a = await bunCmd(["provider", "lst"]);
+    expect(a.exitCode).toBe(2);
+    expect(stripAnsi(a.stderr)).toContain("Did you mean 'list'?");
+  });
+
+  it("did you mean: no suggestion when nothing within distance 2", async () => {
+    const a = await bunCmd(["provider", "definitelynotacommand"]);
+    expect(a.exitCode).toBe(2);
+    expect(stripAnsi(a.stderr)).not.toContain("Did you mean");
+  });
+
+  it("help, -h, --help stay exit 0", async () => {
+    for (const w of ["help", "-h", "--help"]) {
+      const a = await bunCmd(["provider", w]);
+      expect(a.exitCode).toBe(0);
+      expect(stripAnsi(a.stdout)).toContain("Loki Mode Provider Management");
+    }
+  });
+});
+
+describe("provider list json", () => {
+  const check = (stdout: string) => {
+    const j = JSON.parse(stdout);
+    expect(j.providers.map((x: { name: string }) => x.name)).toEqual(["claude", "cline", "codex", "aider", "opencode"]);
+    for (const x of j.providers) {
+      expect(typeof x.tier).toBe("string");
+      expect(typeof x.installed).toBe("boolean");
+      if (!x.installed) expect(x.version).toBeNull();
+      else expect(x.version === null || typeof x.version === "string").toBe(true);
+    }
+    expect(j.providers.find((x: { name: string }) => x.name === "claude").tier).toBe("1");
+  };
+
+  it("bun CLI emits provider objects", async () => {
+    const a = await bunCmd(["provider", "list", "--json"]);
+    expect(a.exitCode).toBe(0);
+    check(a.stdout);
+  });
+
+  it("bash CLI delegates to the same JSON", async () => {
+    const b = await bashCmd(["provider", "list", "--json"]);
+    expect(b.exitCode).toBe(0);
+    check(b.stdout);
+  });
+
+  it("plain list is unchanged and not JSON", async () => {
+    const a = await bunCmd(["provider", "list"]);
+    expect(stripAnsi(a.stdout)).toContain("Available Providers");
+    expect(() => JSON.parse(a.stdout)).toThrow();
   });
 });

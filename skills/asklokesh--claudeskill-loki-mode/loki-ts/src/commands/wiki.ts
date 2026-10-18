@@ -14,6 +14,7 @@
 // LOKI_LEGACY_BASH=1 escape hatch; `show` is kept at parity with the bash
 // route (see loki-ts/tests/commands/wiki.test.ts).
 
+import { suggestWord } from "../cli/registry.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { REPO_ROOT } from "../util/paths.ts";
@@ -25,7 +26,8 @@ Usage: loki wiki <command> [options]
 
 Commands:
   generate [path] [--force]   Build/refresh the cited wiki in .loki/wiki/
-  show [section]              Print the wiki (or one section: architecture|modules|data-flow)
+  show [section] [--json]     Print the wiki (or one section: architecture|modules|data-flow)
+                              --json: emit {section, content} (all sections: an array)
   ask "<question>"           Cited answer grounded in the codebase (file:line)
 
 Each wiki section cites the real source files it was built from.
@@ -45,15 +47,26 @@ function wikiDir(): string {
 
 function runShow(args: string[]): number {
   let section = "";
+  let asJson = false;
   for (const a of args) {
     if (a === "--help" || a === "-h") {
       process.stdout.write(
-        "Usage: loki wiki show [section]\nSections: architecture, modules, data-flow\n",
+        "Usage: loki wiki show [section] [--json]\nSections: architecture, modules, data-flow\n",
       );
       return 0;
     }
+    if (a === "--json") {
+      asJson = true;
+      continue;
+    }
     if (a.startsWith("-")) {
       process.stderr.write(`${RED}Unknown option: ${a}${NC}\n`);
+      return 1;
+    }
+    if (section) {
+      process.stderr.write(
+        `${RED}Too many arguments: expected one section, got '${section}' and '${a}'${NC}\nUsage: loki wiki show [section]\n`,
+      );
       return 1;
     }
     section = a;
@@ -70,16 +83,33 @@ function runShow(args: string[]): number {
   if (section) {
     if (!SECTIONS.has(section)) {
       process.stderr.write(
-        `${RED}No such section: ${section} (try: architecture, modules, data-flow)${NC}\n`,
+        `${RED}No such section: ${section}${NC}\nValid sections: ${[...SECTIONS].join(", ")}\n`,
       );
-      return 1;
+      return 2;
     }
     const f = join(dir, `${section}.md`);
     if (!existsSync(f)) {
       process.stderr.write(`${RED}Section not generated: ${section}${NC}\n`);
       return 1;
     }
-    process.stdout.write(readFileSync(f, "utf8"));
+    const content = readFileSync(f, "utf8");
+    process.stdout.write(
+      asJson ? `${JSON.stringify({ section, content })}\n` : content,
+    );
+    return 0;
+  }
+
+  if (asJson) {
+    const all = [...SECTIONS]
+      .filter((s) => existsSync(join(dir, `${s}.md`)))
+      .map((s) => ({ section: s, content: readFileSync(join(dir, `${s}.md`), "utf8") }));
+    if (all.length === 0) {
+      process.stderr.write(
+        `${RED}No wiki sections found. Run 'loki wiki generate'.${NC}\n`,
+      );
+      return 1;
+    }
+    process.stdout.write(`${JSON.stringify(all)}\n`);
     return 0;
   }
 
@@ -118,6 +148,8 @@ async function delegateToBash(sub: string, args: string[]): Promise<number> {
   }
 }
 
+const WIKI_SUBCOMMANDS = ["show", "generate", "ask", "help"] as const;
+
 export async function runWiki(argv: string[]): Promise<number> {
   const sub = argv[0];
   const rest = argv.slice(1);
@@ -137,7 +169,11 @@ export async function runWiki(argv: string[]): Promise<number> {
       return delegateToBash("ask", rest);
     default:
       process.stderr.write(`${RED}Unknown wiki command: ${sub}${NC}\n`);
-      process.stdout.write(HELP);
-      return 1;
+      {
+        const hint = suggestWord(sub, WIKI_SUBCOMMANDS);
+        if (hint) process.stderr.write(`Did you mean '${hint}'?\n`);
+      }
+      process.stderr.write(HELP);
+      return 2;
   }
 }

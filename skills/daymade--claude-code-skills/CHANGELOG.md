@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **frontend-visual-qa** (v1.21.8): Remove derived table/list counts from reading guidance and add the repository's embedded-reader workflow entry. Existing checks and evidence boundaries are unchanged.
+
+- **Installation entry points**: Generate registered suite/plugin targets on Windows, preserve document and statusline choices in both featured-plugin menus, and direct generated CLI commands to the terminal. Align the README selectors, command-generator instructions and update guidance; add output-based installer regressions against the marketplace manifest.
+
+- **competitors-analysis** (v1.6.5): Reconcile requested and cumulative competitor sources before historical inventories, retaining evidence depth and normal discovery/profile/update paths. Change type: bounded routing correction.
+- **app-evolver** (v1.1.3): Add paired acceptance examples for bounded absence and normal eventual completion, preserving failed attempts and read-only API semantics. Change type: bounded acceptance guidance.
+- **frontend-visual-qa** (v1.21.6): Add reader-usability counterexamples and focused replay cases for retained but unreadable bodies, global chrome and overlay interference, and viewport-drift false comparisons. Scope result-consumption fixture checks to their case identities so later cases can be appended. Change type: bounded guidance addition; scripts and permissions unchanged.
+- **frontend-visual-qa** (v1.21.5): Keep the same long input and normal viewport when verifying constrained source-and-return journeys. Add synthetic collapsed-pane, ordinary-navigation and short-input controls; runtime permissions unchanged.
+
+- **tibo-reset-codex** (v1.23.2): Use the vendor's direct file entry for login-browser reads in restricted macOS research; retain source-coverage unknowns and existing account authorization. Change type: bounded execution guidance.
+- **frontend-visual-qa** (v1.21.7): Separate freshness from performance evidence; compare the same visible endpoint under evidenced resource/cache conditions and retain failed attempts. Change type: bounded evidence interpretation.
+- **macos-permissions** (`daymade-macos` v1.23.4): Correlate preflight, requester, service and database grants with the actual operation before choosing a permission repair. Change type: bounded diagnostic correction.
+- **github-ops** (v1.14.12): Continue authorized Confirm access recovery through the normal credential route while retaining physical-challenge and account-selection handoffs. Change type: bounded authentication recovery clarification.
+- **terraform-skill** (v1.5.10): Classify authorized linked releases, preserve dedicated routes through later ordinary publication, and retain environment/backend boundaries. Change type: bounded release decision clarification.
+- **frontend-visual-qa** (v1.21.3 → v1.21.4): Add view/request-bound capture checks and concurrent-deployment recovery; preserve existing audit profiles and authority. Change type: bounded verification-method clarification.
+
+- **tibo-reset-codex** (v1.23.0 → v1.23.1): Correct `account_ref` endpoint-identity wording and route the repository entry to the existing mechanical attribution owner; runtime code unchanged. Change type: authoritative documentation correction.
+
+- **daymade-skill** (v1.70.3 → v1.70.4): Route suite instructions to the existing task-result examples and governance owner; remove derived membership and duplicated governance text. Change type: documentation routing repair.
+- **macos-permissions** (`daymade-macos` v1.23.3): Verify the original permission request before restarting; distinguish expired requests from late consent and limit necessary relaunches to controlled, authorized processes. Change type: bounded permission-recovery correction.
+
+- **peer-message** (v1.22.2): Route queued-delivery decisions to the transport SOP, align receive outcomes with the implementation, and add repository entry points for fresh ownership checks and receive-integrity handling; preserve runtime behavior.
+- **frontend-visual-qa** (v1.21.3): Add paired synthetic result-consumption replays for an unformatted summary with a readable original and a healthy output with honest unknowns. Cover route-bound local updates; runtime instructions unchanged.
+- **peer-message** (v1.22.0 → v1.22.1): Refresh mutable facts before ownership questions, require deliberate queued delivery with its visible consequences, and detect same-ID prepared-content conflicts before lifecycle suppression; preserve valid new blockers, legacy handling and existing transports. Change type: bounded coordination repair.
+
+- **scrapling-skill** (v1.0.1): Detect installed Chromium and Chrome Headless Shell under Windows `%LOCALAPPDATA%\ms-playwright`, retaining macOS/Linux cache checks and missing-runtime hints. Change type: bounded diagnostic repair (#643).
+- **claude-switch-models-setup / skill-creator** (`daymade-claude-code` v4.30.6, `daymade-skill` v1.70.3): Recognize the same physical authoring checkout across Git path spellings in owner inventory and source-contract registration checks. Preserve exact origin, active lease, independent Git directory and symlink boundaries. Change type: bounded authoring-identity repair.
+- **peer-message** (v1.21.6 → v1.22.0): Add `inspect-inbound` to read one supported Codex envelope by explicit thread UUID and exact own message ID, returning complete raw content, store coordinates and distinct found/miss/unavailable/error outcomes without sending, consuming or resuming a session; preserve existing commands. Change type: narrow read-only capability.
+
+- **transcript-fixer** (`daymade-audio` v1.49.2): Preserve separate review anchors for repeated raw occurrences when Stage 1 leaves input unchanged; add single-item `--reanchor-context-offset` recovery while retaining ambiguous-anchor, drift and name refusals. Change type: bounded queue-recovery repair.
+- **tibo-reset-codex** (`tibo-reset-codex` v1.22.2 → v1.23.0): Separate current account state, unattributed window changes and evidenced reset events so account switches no longer inherit reset claims. Add deterministic attribution, append-only finding invalidation, anonymous rollout labels, and regressions for direct, natural, banked, official and multi-account paths. Change type: workflow and safety redesign with an append-only journal extension.
+
+- **debugging-network-issues** (v1.11.2 → v1.11.3): Separate endpoint discovery from execution and add bounded device-throughput guidance for actual data paths, receiver counts, rollback budgets and independent restoration readback. Retain existing mutation and recovery owners. Change type: bounded evidence and workflow correction.
+- **pdf-creator** (`daymade-docs` v1.25.2 → v1.25.3): Allow long CJK table cells to wrap in `cjk-auto`, require command-copy acceptance from the final PDF, and report actual preview paths while preserving generated filenames. Change type: bounded rendering and delivery-verification repair.
+- **peer-message** (v1.21.6): Classify only the exact queued-Codex missing-executable pre-spawn failure as not_sent; preserve unknown for ambiguous queue failures.
+- **skill-creator** (`daymade-skill` v1.70.2): Add two synthetic task-result examples for actual host consumption and evidence-assisted answer correction; preserve the first-attempt result separately from the corrected answer. Change type: bounded acceptance-example clarification; scripts and evaluation formats unchanged.
+- **continue-codex-work** (`daymade-claude-code` v4.30.5): Document the existing TUI `/goal resume` recovery route alongside App Server control, using the official guide and version-pinned source. Preserve authorization, policy rejection, budget/counter readback and actual automatic-turn verification. Change type: bounded recovery-routing correction.
+- **capture-screen / macos-permissions** (`daymade-macos` v1.23.2): Separate observation from foreground control; check existing authorization and desktop ownership before activation or permission-dialog input.
+- **docx-creator** (`daymade-docs` v1.25.2): Keep verified native background renderers eligible and scope the bundled macOS Word helper's foreground requirements to that helper.
+- **ghostty-use** (v1.6.2): Keep snapshots and checks independent of desktop takeover; reuse explicit idle-desktop authorization for restore and stop input on human takeover.
+- **kimi-use** (v1.8.1): Recognize existing idle-desktop authorization while retaining background-first operation, current ownership checks and host-denial boundaries.
+
+- **frontend-visual-qa** (v1.21.2): Add anonymous dashboard replays for readable history without runtime coverage and a correctly scoped zero alongside an unknown source. Keep runtime instructions unchanged; independent consumer runs and semantic review cover both controls.
+- **macos-watchdog** (`daymade-macos` v1.23.1): Correct stop-versus-disable guidance and returned-service diagnosis; consolidate lifecycle commands under the owning Skill procedure.
 - **macos-watchdog** (`daymade-macos` v1.22.7 → v1.23.0): Compare loaded scheduling with the expected plist, including absent timers and unresolved native formats. Add event-trigger selection, deployment and downstream acceptance guidance while retaining periodic observers.
 - **skill-evolver** (v1.0.3): Add optional, self-contained replay cases for hidden state changes, changed artifact identity and independent work with a missing runtime. Select cases by the affected behavior; preserve existing verification owners and permission boundaries.
 - **macos-watchdog** (`daymade-macos` v1.22.7): Add calendar deadline recovery and separate native-run, dispatch/consumption, and actual user-output evidence. Change type: bounded recovery-verification clarification.

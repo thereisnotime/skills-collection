@@ -145,6 +145,49 @@ const apiKey = "AKIAXXXXXXXXXXXXXXXX"; // replace with your key
 EOF
 scan "$SAFE"; assert_silent "secret-in-client-file" "r2-placeholder"
 
+# TEN-SECURITY-14: vendor shapes beyond AWS/openai/github/anthropic/google/slack.
+# Bodies are built at runtime so this file itself carries no scannable literal.
+_b36=$(printf 'aB3dE5gH7jK9mN1pQ3rS5tU7vW9xY1zA2b3C')
+_b24=$(printf 'aB3dE5gH7jK9mN1pQ3rS5tU7')
+_s22=$(printf 'aB3dE5gH7jK9mN1pQ3rS5t')
+_s43=$(printf 'aB3dE5gH7jK9mN1pQ3rS5tU7vW9xY1zA2b3C4d5E6f7')
+sec14_check() { # <label> <expected-kind> <literal>
+    local d="$WORK/sec14-$1"; mkdir -p "$d/public"
+    printf 'const k = "%s";\n' "$3" > "$d/public/app.js"
+    scan "$d"
+    if fires "secret-in-client-file" && grep -q "$2" "$WORK/last.json"; then ok "sec14: $1 fires naming $2"
+    else bad "sec14: $1 did not fire naming $2" "$(cat "$WORK/last.json")"; fi
+}
+_gp="glpat""-"
+sec14_check gitlab gitlab-token "${_gp}${_b24:0:20}"
+sec14_check npm npm-token "npm_${_b36}"
+sec14_check hf huggingface-token "hf_${_b36}"
+sec14_check stripe stripe-key "sk_live_${_b24}"
+sec14_check stripe-rk stripe-key "rk_live_${_b24}"
+sec14_check sendgrid sendgrid-key "SG.${_s22}.${_s43}"
+# --- TEN-SECURITY-18: AWS ASIA, Azure AccountKey, Twilio SK ---
+_b86=$(printf 'aB3dE5gH7jK9mN1pQ3rS5tU7vW9xY1zA2b3C4d5E6f7aB3dE5gH7jK9mN1pQ3rS5tU7vW9xY1zA2b3C4d5E6f7')
+_h32=$(printf 'a1b2c3d4e5f60718293a4b5c6d7e8f90')
+sec14_check aws-sts aws-sts-key "ASIAQ3RS5TU7VW9XY1Z2"
+sec14_check azure azure-account-key "DefaultEndpointsProtocol=https;AccountKey=${_b86}=="
+sec14_check twilio twilio-key "SK${_h32}"
+SAFE="$WORK/sec18-safe"; mkdir -p "$SAFE/public"
+cat > "$SAFE/public/app.js" <<'EOT'
+const a = "ASIAshort";
+const b = "AccountKey=${KEY}";
+const c = "SKtooshort";
+EOT
+scan "$SAFE"; assert_silent "secret-in-client-file" "sec18-safe"
+rv=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("rules_version"))' "$WORK/last.json")
+if [ "$rv" = "1.7" ]; then ok "sec18: rules_version is 1.7"; else bad "sec18: rules_version $rv" ""; fi
+SAFE="$WORK/sec14-placeholder"; mkdir -p "$SAFE/public"
+cat > "$SAFE/public/app.js" <<EOT
+const a = "${_gp}xxxxxxxxxxxxxxxxxxxx";
+const b = "sk_live_your_key_here_000000000000";
+const c = "hf_00000000000000000000000000000000000";
+EOT
+scan "$SAFE"; assert_silent "secret-in-client-file" "sec14-placeholder"
+
 # FP guard B: a real-shaped secret in a SERVER-ONLY file (no web-root path
 # component) must NOT trip rule 2.
 SAFE="$WORK/r2-safe-server"; mkdir -p "$SAFE/api"
@@ -224,6 +267,26 @@ printf 'requests.get(u, verify=False)\n' > "$SAFE/fixtures/c.py"
 printf '# never pass verify=False here\n// rejectUnauthorized: false is unsafe\n' > "$SAFE/note.py"
 printf 'Do not set verify=False.\n' > "$SAFE/README.md"
 scan "$SAFE"; assert_silent "tls-verify-disabled" "r6-safe-and-excluded-paths"
+
+# --- rule 7: shell-injection (TEN-SECURITY-07) ------------------------------
+BAD="$WORK/r7-py"; mkdir -p "$BAD"
+printf 'import subprocess\nsubprocess.run(f"rm {x}", shell=True)\n' > "$BAD/a.py"
+scan "$BAD"; assert_fires "shell-injection" "r7-subprocess-fstring-shell-true"
+sl=$(python3 -c 'import json,sys; f=[x for x in json.load(open(sys.argv[1]))["findings"] if x["rule"]=="shell-injection"]; print(f[0]["file"]+":"+str(f[0]["line"]))' "$WORK/last.json" 2>/dev/null)
+if [ "$sl" = "a.py:2" ]; then ok "r7: finding carries file and line"
+else bad "r7: expected a.py:2 got $sl"; fi
+BAD="$WORK/r7-many"; mkdir -p "$BAD"
+printf 'subprocess.call("ls %%s" %% d, shell=True)\nsubprocess.Popen("ls " + d, shell=True)\nsubprocess.run("ls {}".format(d), shell=True)\nos.system("rm " + p)\nos.system(f"rm {p}")\n' > "$BAD/b.py"
+printf 'const cp = require("child_process");\ncp.exec(`ls ${dir}`);\nexecSync(`rm ${f}`);\n' > "$BAD/c.js"
+scan "$BAD"
+if [ "$(total_findings)" = "7" ]; then ok "r7: all dynamic shapes found"
+else bad "r7: expected 7 findings" "$(cat "$WORK/last.json")"; fi
+SAFE="$WORK/r7-safe"; mkdir -p "$SAFE/tests"
+printf 'subprocess.run("ls -la", shell=True)\nsubprocess.run(["rm", x])\nsubprocess.run(f"rm {x}")\nos.system("clear")\nsubprocess.run(["ls", f"{x}"], shell=False)\n# os.system(f"rm {x}")\n' > "$SAFE/ok.py"
+printf 'const m = re.exec(`a${b}`);\nexec(`ls ${d}`);\ncp.exec("ls");\n' > "$SAFE/ok.js"
+printf 'subprocess.run(f"rm {x}", shell=True)\n' > "$SAFE/tests/test_x.py"
+printf 'Avoid os.system(f"rm {x}").\n' > "$SAFE/README.md"
+scan "$SAFE"; assert_silent "shell-injection" "r7-safe-and-excluded"
 
 # --- rule 5: cors-wildcard-credentials -------------------------------------
 # ACAO * AND ACAC true in the same file -> fires.
@@ -527,6 +590,85 @@ ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 GRANT SELECT ON users TO anon;
 EOF
 scan "$BAD"; assert_fires "world-open-datastore" "r3-rls-sql-migration"
+
+# ---------------------------------------------------------------------------
+# rule 8: committed-env-secret (TEN-SECURITY-15)
+# ---------------------------------------------------------------------------
+BAD="$WORK/r8-env"; mkdir -p "$BAD"
+printf 'STRIPE_SECRET=abc123def456\n' > "$BAD/.env"
+printf 'export API_TOKEN="q9w8e7r6t5y4"\n' > "$BAD/.env.production"
+scan "$BAD"
+if fires committed-env-secret; then ok "r8-env-secret-fires"; else bad "r8-env-secret-fires" "no finding"; fi
+if grep -q 'abc123def456\|q9w8e7r6t5y4' "$WORK/last.json"; then bad "r8-value-not-echoed" "value leaked"; else ok "r8-value-not-echoed"; fi
+if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); f=[x for x in d["findings"] if x["rule"]=="committed-env-secret"]; sys.exit(0 if len(f)==2 and f[0]["line"]==1 and f[0]["file"] else 1)' "$WORK/last.json"; then ok "r8-file-and-line"; else bad "r8-file-and-line" "bad shape"; fi
+
+SAFE="$WORK/r8-safe"; mkdir -p "$SAFE"
+printf 'STRIPE_SECRET=abc123def456\n' > "$SAFE/.env.example"
+printf 'STRIPE_SECRET=abc123def456\n' > "$SAFE/.env.sample"
+printf 'STRIPE_SECRET=\nAPI_TOKEN=""\nDB_PASSWORD=changeme\nAUTH_KEY=${AUTH_KEY}\nNEXT_PUBLIC_MAP_KEY=pk12345678\nAPP_NAME=abc123def456\n# OLD_SECRET=abc123def456\n' > "$SAFE/.env"
+scan "$SAFE"
+if fires committed-env-secret; then bad "r8-safe-silent" "false positive"; else ok "r8-safe-silent"; fi
+
+# git-aware: gitignored untracked .env stays silent; tracked .env fires
+GIT="$WORK/r8-git"; mkdir -p "$GIT"
+( cd "$GIT" && git init -q . && printf '.env\n' > .gitignore \
+  && printf 'STRIPE_SECRET=abc123def456\n' > .env \
+  && printf 'API_TOKEN=q9w8e7r6t5y4\n' > .env.production \
+  && git add .gitignore .env.production ) >/dev/null 2>&1
+scan "$GIT"
+if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); f=[x["file"] for x in d["findings"] if x["rule"]=="committed-env-secret"]; sys.exit(0 if f==[".env.production"] else 1)' "$WORK/last.json"; then ok "r8-git-ignored-untracked-silent"; else bad "r8-git-ignored-untracked-silent" "wrong set"; fi
+
+# entry path: run_secure_scan (the run.sh gate) blocks on it under block mode
+if type run_secure_scan >/dev/null 2>&1; then
+    rc=0; ( TARGET_DIR="$BAD"; export TARGET_DIR; LOKI_SECURE_GATE=block; export LOKI_SECURE_GATE; run_secure_scan ) || rc=$?
+    [ "$rc" -eq 1 ] && ok "r8-gate-blocks-committed-env" || bad "r8-gate-blocks-committed-env" "rc=$rc"
+fi
+
+# ---------------------------------------------------------------------------
+# rule 9: unsafe-deserialization (TEN-SECURITY-19)
+# ---------------------------------------------------------------------------
+BAD="$WORK/r9-bad"; mkdir -p "$BAD"
+printf 'import pickle\nobj = pickle.loads(blob)\n' > "$BAD/a.py"
+scan "$BAD"; assert_fires "unsafe-deserialization" "r9-pickle-loads"
+d9=$(python3 -c 'import json,sys; f=[x for x in json.load(open(sys.argv[1]))["findings"] if x["rule"]=="unsafe-deserialization"]; print(f[0]["file"]+":"+str(f[0]["line"]))' "$WORK/last.json" 2>/dev/null)
+if [ "$d9" = "a.py:2" ]; then ok "r9: finding carries file and line"; else bad "r9: expected a.py:2 got $d9"; fi
+printf 'import yaml\ncfg = yaml.load(open(p))\n' > "$BAD/b.py"
+scan "$BAD"; assert_fires "unsafe-deserialization" "r9-yaml-load-no-loader"
+printf 'import marshal\nc = marshal.loads(raw)\n' > "$BAD/c.py"
+rm -f "$BAD/a.py" "$BAD/b.py"
+scan "$BAD"; assert_fires "unsafe-deserialization" "r9-marshal-loads"
+
+SAFE="$WORK/r9-safe"; mkdir -p "$SAFE/tests"
+printf 'import yaml, json\na = yaml.safe_load(s)\nb = yaml.load(s, Loader=yaml.SafeLoader)\nc = json.loads(s)\n# d = pickle.loads(x)\n' > "$SAFE/ok.py"
+printf 'import pickle\nx = pickle.loads(b)\n' > "$SAFE/tests/test_x.py"
+printf 'x = pickle.loads(b)\n' > "$SAFE/notes.md"
+scan "$SAFE"; assert_silent "unsafe-deserialization" "r9-safe-and-excluded"
+
+# ---------------------------------------------------------------------------
+# rule 10: sql-string-formatting (TEN-SECURITY-20)
+# ---------------------------------------------------------------------------
+BAD="$WORK/r10-bad"; mkdir -p "$BAD"
+printf 'def f(c, u):\n    c.execute(f"SELECT * FROM t WHERE id = {u}")\n' > "$BAD/a.py"
+scan "$BAD"; assert_fires "sql-string-formatting" "r10-fstring"
+d10=$(python3 -c 'import json,sys; f=[x for x in json.load(open(sys.argv[1]))["findings"] if x["rule"]=="sql-string-formatting"]; print(f[0]["file"]+":"+str(f[0]["line"]))' "$WORK/last.json" 2>/dev/null)
+if [ "$d10" = "a.py:2" ]; then ok "r10: finding carries file and line"; else bad "r10: expected a.py:2 got $d10"; fi
+printf 'c.execute("SELECT * FROM t WHERE id = %%s" %% uid)\n' > "$BAD/a.py"
+scan "$BAD"; assert_fires "sql-string-formatting" "r10-percent"
+printf 'c.execute("SELECT * FROM t WHERE n = \x27" + name + "\x27")\n' > "$BAD/a.py"
+scan "$BAD"; assert_fires "sql-string-formatting" "r10-concat"
+printf 'c.execute("SELECT * FROM t WHERE id = {}".format(uid))\n' > "$BAD/a.py"
+scan "$BAD"; assert_fires "sql-string-formatting" "r10-format"
+# entry path: run_secure_scan (the run.sh gate) blocks on it under block mode
+if type run_secure_scan >/dev/null 2>&1; then
+    rc=0; ( TARGET_DIR="$BAD"; export TARGET_DIR; LOKI_SECURE_GATE=block; export LOKI_SECURE_GATE; run_secure_scan ) || rc=$?
+    [ "$rc" -eq 1 ] && ok "r10-gate-blocks-sql-formatting" || bad "r10-gate-blocks-sql-formatting" "rc=$rc"
+fi
+
+SAFE="$WORK/r10-safe"; mkdir -p "$SAFE/tests"
+printf 'c.execute("SELECT * FROM t WHERE id = %%s", (uid,))\nc.execute("SELECT 1")\nc.execute(f"SELECT 1")\n# c.execute(f"x {y}")\n' > "$SAFE/ok.py"
+printf 'c.execute(f"SELECT {x}")\n' > "$SAFE/tests/test_x.py"
+printf 'c.execute(f"SELECT {x}")\n' > "$SAFE/notes.md"
+scan "$SAFE"; assert_silent "sql-string-formatting" "r10-safe-and-excluded"
 
 # ===========================================================================
 echo

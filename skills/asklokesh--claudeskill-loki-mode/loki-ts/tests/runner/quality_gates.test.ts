@@ -301,6 +301,22 @@ describe("runQualityGates orchestration", () => {
     process.env["LOKI_STUB_GATE_MAGIC_DEBATE"] = "pass";
   });
 
+  it("gate duration recorded per executed gate", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
+    process.env["LOKI_GATE_INVARIANTS"] = "false";
+    process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    process.env["LOKI_GATE_SKILL_CHECKS"] = "false";
+    process.env["LOKI_GATE_SECURITY_SCAN"] = "false";
+    const r = await runQualityGates(makeCtx());
+    const d = r.durations_ms ?? {};
+    expect(Object.keys(d).sort()).toEqual([...r.passed, ...r.failed].sort());
+    expect(Object.keys(d).length).toBeGreaterThan(0);
+    for (const v of Object.values(d)) {
+      expect(typeof v).toBe("number");
+      expect(v).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   it("returns all gates in passed[] when stubs default to pass", async () => {
     // v7.57.0: semantic/invariant/lsp are now default-ON but advisory. They
     // SPAWN real detectors / the LSP writer against ctx.cwd, which is slow and
@@ -2320,4 +2336,26 @@ describe("COST-WALL-c claudeReviewer ledger wiring", () => {
       expect(typeof l[0]!["usd"]).toBe("number");
     } finally { srv.stop(true); }
   });
+
+  it("negative sdk review timeout falls back to 180s instead of timing out at once", async () => {
+    const seen: unknown[] = [];
+    const msg = { id: "m", type: "message", role: "assistant", model: "claude-sonnet-4-5", stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ verdict: "PASS", findings: [] }) }], usage: { input_tokens: 1, output_tokens: 1 } };
+    const prevTo = process.env["LOKI_SDK_REVIEW_TIMEOUT"];
+    const sdk = await import("../../src/runner/sdk_invoker.ts");
+    try {
+      process.env["LOKI_SDK_CODE_REVIEW"] = "1";
+      process.env["ANTHROPIC_API_KEY"] = "sk-test";
+      sdk.__setSdkClientForTests({ messages: { create: async (_b: unknown, o: { timeout?: number }) => { seen.push(o?.timeout); return msg; } } });
+      for (const v of ["-5", "0", "NaN", "Infinity"]) {
+        process.env["LOKI_SDK_REVIEW_TIMEOUT"] = v;
+        await review();
+      }
+      process.env["LOKI_SDK_REVIEW_TIMEOUT"] = "90";
+      await review();
+      expect(seen).toEqual([180000, 180000, 180000, 180000, 90000]);
+    } finally {
+      if (prevTo === undefined) delete process.env["LOKI_SDK_REVIEW_TIMEOUT"]; else process.env["LOKI_SDK_REVIEW_TIMEOUT"] = prevTo;
+    }
+  });
+
 });

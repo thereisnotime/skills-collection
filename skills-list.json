@@ -23452,13 +23452,13 @@
       "description": "\"Entry point and router for every Expo or EAS task. Load this skill first \u2014 before writing code and before choosing another expo-* / eas-* skill \u2014 when the request, PRD, or spec mentions Expo, EAS, Ex",
       "path": "expo--skills/plugins/expo/skills/expo-overview/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-overview/SKILL.md",
-      "lines": 116,
-      "words": 1405,
+      "lines": 122,
+      "words": 1476,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.1.0",
+      "version": "1.2.0",
       "license": "MIT"
     },
     {
@@ -23493,8 +23493,8 @@
       "description": "Build and distribute Expo development clients locally or via TestFlight for internal testing. For production TestFlight releases and store submission, use the eas-app-stores skill.",
       "path": "expo--skills/plugins/expo/skills/expo-dev-client/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-dev-client/SKILL.md",
-      "lines": 183,
-      "words": 690,
+      "lines": 185,
+      "words": 769,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -23692,7 +23692,7 @@
       "path": "firecrawl--cli/skills/firecrawl-agent/SKILL.md",
       "remote_path": "skills/firecrawl-agent/SKILL.md",
       "lines": 74,
-      "words": 654,
+      "words": 638,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -157109,8 +157109,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 216,
-      "words": 1781,
+      "lines": 225,
+      "words": 1873,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -157156,8 +157156,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/competitors-analysis/SKILL.md",
       "remote_path": "competitors-analysis/SKILL.md",
-      "lines": 330,
-      "words": 2113,
+      "lines": 332,
+      "words": 2158,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -157385,8 +157385,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-ops/SKILL.md",
       "remote_path": "github-ops/SKILL.md",
-      "lines": 257,
-      "words": 2062,
+      "lines": 264,
+      "words": 2144,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -157430,8 +157430,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 595,
-      "words": 4578,
+      "lines": 597,
+      "words": 4588,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -157478,8 +157478,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 862,
-      "words": 3133,
+      "lines": 875,
+      "words": 3190,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157516,8 +157516,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/SKILL.md",
       "remote_path": "peer-message/SKILL.md",
-      "lines": 126,
-      "words": 625,
+      "lines": 129,
+      "words": 648,
       "code_blocks": 0,
       "languages": []
     },
@@ -157549,8 +157549,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 504,
-      "words": 8604,
+      "lines": 508,
+      "words": 8653,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -157722,8 +157722,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/references/codex-account-switch.md",
       "remote_path": "ghostty-use/references/codex-account-switch.md",
-      "lines": 127,
-      "words": 890,
+      "lines": 129,
+      "words": 920,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -157761,8 +157761,8 @@
       "description": "Programmatic screenshot capture on macOS. Find window IDs with Swift CGWindowListCopyWindowInfo, control application windows via AppleScript (zoom, scroll, select), and capture with screencapture. Use",
       "path": "daymade--claude-code-skills/daymade-macos/capture-screen/SKILL.md",
       "remote_path": "daymade-macos/capture-screen/SKILL.md",
-      "lines": 298,
-      "words": 1367,
+      "lines": 321,
+      "words": 1620,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -157775,7 +157775,7 @@
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
       "lines": 123,
-      "words": 1828,
+      "words": 1837,
       "code_blocks": 0,
       "languages": []
     },
@@ -157808,8 +157808,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-permissions/SKILL.md",
       "remote_path": "daymade-macos/macos-permissions/SKILL.md",
-      "lines": 89,
-      "words": 927,
+      "lines": 116,
+      "words": 1215,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -158482,8 +158482,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/references/implementation-and-acceptance.md",
       "remote_path": "app-evolver/references/implementation-and-acceptance.md",
-      "lines": 94,
-      "words": 705,
+      "lines": 138,
+      "words": 1106,
       "code_blocks": 0,
       "languages": []
     },
@@ -158629,8 +158629,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/pdf-creator/SKILL.md",
       "remote_path": "daymade-docs/pdf-creator/SKILL.md",
-      "lines": 248,
-      "words": 3687,
+      "lines": 250,
+      "words": 3870,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -158736,8 +158736,8 @@
       "description": "Compare selected deployed HTTP resources with a frozen release when freshness or deployment is part of a UI acceptance claim.",
       "path": "daymade--claude-code-skills/frontend-visual-qa/references/delivery-verification.md",
       "remote_path": "frontend-visual-qa/references/delivery-verification.md",
-      "lines": 99,
-      "words": 704,
+      "lines": 112,
+      "words": 825,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -158958,8 +158958,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/change-verification.md",
       "remote_path": "daymade-skill/skill-creator/references/change-verification.md",
-      "lines": 184,
-      "words": 4141,
+      "lines": 215,
+      "words": 4496,
       "code_blocks": 0,
       "languages": []
     },
@@ -159078,8 +159078,8 @@
       "description": "Parent/worker reply addressing, payload design, delivery-language discipline, evidence that stays valid while its subject is still changing, verifying inbound peer assertions before acting or replying",
       "path": "daymade--claude-code-skills/peer-message/references/coordination-and-learning-loop.md",
       "remote_path": "peer-message/references/coordination-and-learning-loop.md",
-      "lines": 279,
-      "words": 1685,
+      "lines": 281,
+      "words": 1696,
       "code_blocks": 2,
       "languages": [
         "text"
@@ -159090,8 +159090,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/references/local-coordination.md",
       "remote_path": "peer-message/references/local-coordination.md",
-      "lines": 200,
-      "words": 496,
+      "lines": 202,
+      "words": 505,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -159102,9 +159102,9 @@
       "description": "Transport-neutral addressing, Claude UDS and Codex live/queued delivery, message envelopes, and receiver-side verification.",
       "path": "daymade--claude-code-skills/peer-message/references/protocol-and-discovery.md",
       "remote_path": "peer-message/references/protocol-and-discovery.md",
-      "lines": 278,
-      "words": 1203,
-      "code_blocks": 7,
+      "lines": 317,
+      "words": 1480,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "json",
@@ -178484,16 +178484,6 @@
       "lines": 34,
       "words": 211,
       "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
       "languages": []
     },
     {

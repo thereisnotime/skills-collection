@@ -109,6 +109,19 @@ describe("loki issues run", () => {
     expect(h.ghCalls[0]).toContain(evil);
   });
 
+  test("strict int flags: --limit and --parallel accept only plain decimal digits", async () => {
+    for (const flag of ["--limit", "--parallel"]) {
+      for (const bad of ["1e1", "0x10", "0b11", " 5", "5 ", "+5", "1.0", "-1", "0", "", "99999999999999999999"]) {
+        const h = harness({});
+        expect(await runIssues(["run", SLUG, flag, bad, "--dry-run"], h.inject)).toBe(2);
+        expect(h.err.join("")).toContain("needs a positive integer");
+        expect(h.ghCalls).toEqual([]);
+      }
+      const ok = harness({});
+      expect(await runIssues(["run", SLUG, flag, "3", "--dry-run"], ok.inject)).toBe(0);
+    }
+  });
+
   test("refuses a dash-leading label or milestone before calling gh", async () => {
     for (const bad of [["--label", "--repo=evil"], ["--milestone", "-x"]]) {
       const h = harness({});
@@ -167,6 +180,28 @@ describe("loki issues run", () => {
     }
     expect(readFileSync(log, "utf8")).toContain("ghp_USERREALTOKEN");
     expect(after).toContain("LOKIWITHHELDsentinel");
+  });
+
+  test("hung gh call times out as a nonzero rc instead of stalling", async () => {
+    const bin = join(dir, "bin-hung");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "gh"), "#!/bin/sh\nexec sleep 30\n");
+    chmodSync(join(bin, "gh"), 0o755);
+    const h = harness({});
+    delete h.inject.gh;
+    const saved = { ...process.env };
+    process.env.PATH = `${bin}:${saved.PATH}`;
+    process.env.LOKI_ISSUES_GH_TIMEOUT_MS = "300";
+    const t0 = Date.now();
+    let rc: number;
+    try {
+      rc = await runIssues(["run", SLUG, "--dry-run"], h.inject);
+    } finally {
+      for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+      Object.assign(process.env, saved);
+    }
+    expect(Date.now() - t0).toBeLessThan(10000);
+    expect(rc).not.toBe(0);
   });
 
   test("dedupe skips an issue with an open loki/issue-N PR or a linking Loki PR body", async () => {
@@ -244,6 +279,29 @@ describe("loki issues run", () => {
     expect(h.worktrees).toEqual([]);
     expect(existsSync(join(dir, ".loki", "issues-run"))).toBe(false);
     expect(h.out.join("")).toContain("estimated total: NOT AVAILABLE (0 prior verified runs for shape node, need 3)");
+  });
+
+  test("dry run json prints one decision row per issue and nothing else on stdout", async () => {
+    const h = harness({ issues: [issue(1), issue(2)], prs: [{ headRefName: "loki/issue-2", body: "" }], isTTY: false });
+    expect(await runIssues(["run", SLUG, "--dry-run", "--json"], h.inject)).toBe(0);
+    expect(JSON.parse(h.out.join(""))).toEqual([
+      { number: 1, decision: "pending", reason: "not triaged (dry run makes no model calls)", covered_by_pr: false },
+      { number: 2, decision: "skip", reason: "open Loki PR exists", covered_by_pr: true },
+    ]);
+    expect(h.triaged).toEqual([]);
+    expect(h.ran).toEqual([]);
+  });
+
+  test("dry run json with every issue covered still prints the plan", async () => {
+    const h = harness({ issues: [issue(2)], prs: [{ headRefName: "loki/issue-2", body: "" }] });
+    expect(await runIssues(["run", SLUG, "--dry-run", "--json"], h.inject)).toBe(0);
+    expect(JSON.parse(h.out.join(""))).toHaveLength(1);
+  });
+
+  test("--json without --dry-run is refused with exit 2", async () => {
+    const h = harness({ issues: [issue(1)] });
+    expect(await runIssues(["run", SLUG, "--json", "--yes"], h.inject)).toBe(2);
+    expect(h.triaged).toEqual([]);
   });
 
   test("no TTY and no --yes refuses with exit 2 before any billed call", async () => {

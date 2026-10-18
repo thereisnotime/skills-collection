@@ -56,7 +56,7 @@ exit 0
       ...extra,
     },
     cleanup() {
-      rmSync(home, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
     },
   };
 }

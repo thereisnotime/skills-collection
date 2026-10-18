@@ -11,21 +11,26 @@
 // Network probes (ChromaDB, MiroFish) use AbortSignal.timeout(2000) so a slow
 // probe never hangs the CLI. Secret env vars are checked for presence only --
 // the value is never read or echoed.
+import { PROVIDER_INSTALL } from "./provider.ts";
 import { appendFileSync, writeFileSync, mkdirSync, accessSync, constants as fsConstants, existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync, statSync, statfsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { homedir } from "node:os";
+import { spawnSync, type SpawnSyncOptions, type SpawnSyncReturns } from "node:child_process";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { REPO_ROOT } from "../util/paths.ts";
 import { commandExists, run } from "../util/shell.ts";
 import { findPython3, runInline } from "../util/python.ts";
 import { BOLD, CYAN, DIM, GREEN, NC, RED, YELLOW } from "../util/colors.ts";
 import { emitFunnel } from "../util/funnel.ts";
+import { readEvents } from "../engine10/events.ts";
+import { eventsRelPath } from "../util/engine_origin.ts";
+import { runOwnerAlive } from "../util/run_pid.ts";
 import { getVersion } from "../version.ts";
 import { detectProtocol } from "../cockpit/capability.ts";
 import { rasterAvailable } from "../cockpit/raster.ts";
 import { probeAdvisor } from "../runner/router/advisor_probe.ts";
 import { routerEnabled } from "../runner/router/flag.ts";
 import { withholdGithubTokens } from "../runner/github_token.ts";
+import { tokenFreeEnv } from "../util/safe_git.ts";
 import { GATEWAY_LANE_LOSS, gatewayLaneLabel } from "../providers/model_routes.ts";
 
 // ---------- Setup requirements per execution path -----------------------------
@@ -89,14 +94,20 @@ export function requirementMin(id: string): string | null {
   return requirementById(id)?.min ?? null;
 }
 
-function versionAtLeast(version: string, min: string): boolean {
-  const a = version.split(".").map((n) => parseInt(n, 10) || 0);
-  const b = min.split(".").map((n) => parseInt(n, 10) || 0);
-  for (let i = 0; i < Math.max(a.length, b.length, 2); i++) {
-    const x = a[i] ?? 0, y = b[i] ?? 0;
-    if (x !== y) return x > y;
+/** Shared dotted-version comparator: compares the first `depth` parts (default: the longer input, min 2); non-numeric parts count as 0. */
+export function cmpVersion(a: string, b: string, depth?: number): number {
+  const x = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const y = b.split(".").map((n) => parseInt(n, 10) || 0);
+  const n = depth ?? Math.max(x.length, y.length, 2);
+  for (let i = 0; i < n; i++) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0);
+    if (d !== 0) return d;
   }
-  return true;
+  return 0;
+}
+
+function versionAtLeast(version: string, min: string): boolean {
+  return cmpVersion(version, min) >= 0;
 }
 
 async function defaultVersion(cmd: string): Promise<string | null> {
@@ -209,9 +220,15 @@ export type ToolCheck = {
   path: string | null;
 };
 
+export type DiskVolume = { name: "home" | "cwd" | "tmp"; path: string; available_gb: number };
+
+// available_gb is the MINIMUM free GB across the home, cwd and tmp volumes.
+// low_volume names the volume that produced it; volumes lists each readable one.
 export type DiskCheck = {
   available_gb: number | null;
   status: Status;
+  low_volume?: DiskVolume["name"] | null;
+  volumes?: DiskVolume[];
 };
 
 // v7.5.15: sentrux architectural-drift gate state exposed in --json output.
@@ -303,20 +320,6 @@ async function probeVersion(cmd: string): Promise<string | null> {
   }
 }
 
-function compareMajorMinor(version: string, min: string): number {
-  const cur = version.split(".").map((p) => parseInt(p, 10));
-  const want = min.split(".").map((p) => parseInt(p, 10));
-  while (cur.length < 2) cur.push(0);
-  while (want.length < 2) want.push(0);
-  for (let i = 0; i < 2; i++) {
-    const a = cur[i] ?? 0;
-    const b = want[i] ?? 0;
-    if (Number.isNaN(a) || Number.isNaN(b)) return 0;
-    if (a !== b) return a - b;
-  }
-  return 0;
-}
-
 export async function checkTool(
   name: string,
   cmd: string,
@@ -331,7 +334,7 @@ export async function checkTool(
   if (!found) {
     status = required === "required" ? "fail" : "warn";
   } else if (minVersion && version) {
-    if (compareMajorMinor(version, minVersion) < 0) {
+    if (cmpVersion(version, minVersion, 2) < 0) {
       status = required === "required" ? "fail" : "warn";
     }
   }
@@ -348,25 +351,70 @@ export async function checkTool(
   };
 }
 
+// ---------- Orphan runs (TEN-STABILITY-17) -------------------------------------
+/** Run ids under <repoDir>/.loki/runs whose event log has no run.completed and whose recorded owner process is gone. */
+export function findOrphanRuns(repoDir: string, ownerAlive: (runDir: string) => boolean = runOwnerAlive): string[] {
+  const root = join(repoDir, ".loki", "runs");
+  let ids: string[] = [];
+  try { ids = readdirSync(root); } catch { return []; }
+  const out: string[] = [];
+  for (const id of ids.sort()) {
+    if (!/^e10-[A-Za-z0-9-]+$/.test(id)) continue;
+    try {
+      const events = readEvents(join(repoDir, eventsRelPath(id)));
+      if (events.length === 0 || events.some((e) => e.type === "run.completed")) continue;
+      if (ownerAlive(join(root, id))) continue;
+      out.push(id);
+    } catch { /* unreadable run dir: not reported */ }
+  }
+  return out;
+}
+
 // ---------- Disk check --------------------------------------------------------
 
 // JSON form of disk check (bash cmd_doctor_json uses round(..., 1) -- 1 decimal).
-export function checkDisk(): DiskCheck {
+export function lowestVolume(volumes: DiskVolume[]): { available_gb: number | null; low_volume: DiskVolume["name"] | null } {
   let available_gb: number | null = null;
-  try {
-    const stats = statfsSync(homedir());
-    const bytes = Number(stats.bavail) * Number(stats.bsize);
-    available_gb = Math.round((bytes / (1024 ** 3)) * 10) / 10;
-  } catch {
-    available_gb = null;
+  let low_volume: DiskVolume["name"] | null = null;
+  for (const v of volumes) {
+    if (available_gb === null || v.available_gb < available_gb) {
+      available_gb = v.available_gb;
+      low_volume = v.name;
+    }
   }
+  return { available_gb, low_volume };
+}
+
+export function checkDisk(
+  targets: Array<{ name: DiskVolume["name"]; path: string }> = [
+    { name: "home", path: homedir() },
+    { name: "cwd", path: process.cwd() },
+    { name: "tmp", path: tmpdir() },
+  ],
+): DiskCheck {
+  const volumes: DiskVolume[] = [];
+  for (const t of targets) {
+    try {
+      const stats = statfsSync(t.path);
+      const bytes = Number(stats.bavail) * Number(stats.bsize);
+      volumes.push({ name: t.name, path: t.path, available_gb: Math.round((bytes / (1024 ** 3)) * 10) / 10 });
+    } catch {
+      // unreadable volume is skipped
+    }
+  }
+
+  return diskCheckFromVolumes(volumes);
+}
+
+export function diskCheckFromVolumes(volumes: DiskVolume[]): DiskCheck {
+  const { available_gb, low_volume } = lowestVolume(volumes);
 
   let status: Status = "pass";
   if (available_gb !== null) {
     if (available_gb < 1) status = "fail";
     else if (available_gb < 5) status = "warn";
   }
-  return { available_gb, status };
+  return { available_gb, status, low_volume, volumes };
 }
 
 // ---------- Network probes ----------------------------------------------------
@@ -507,21 +555,11 @@ export function loadClaudeCliRange(root: string = REPO_ROOT): ClaudeCliRange | n
   }
 }
 
-function cmpSemver(a: string, b: string): number {
-  const x = a.split(".").map((n) => parseInt(n, 10) || 0);
-  const y = b.split(".").map((n) => parseInt(n, 10) || 0);
-  for (let i = 0; i < 3; i++) {
-    const d = (x[i] ?? 0) - (y[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return 0;
-}
-
 /** Pure: classify a probed claude CLI version against the qualified range. */
 export function evaluateClaudeCliCompat(version: string | null, range: ClaudeCliRange | null): ClaudeCliCompat {
   if (!version || !range) return "unknown";
-  if (range.min_version && cmpSemver(version, range.min_version) < 0) return "below_min";
-  if (range.qualified_version && cmpSemver(version, range.qualified_version) > 0) return "newer_unqualified";
+  if (range.min_version && cmpVersion(version, range.min_version, 3) < 0) return "below_min";
+  if (range.qualified_version && cmpVersion(version, range.qualified_version, 3) > 0) return "newer_unqualified";
   return "ok";
 }
 
@@ -580,6 +618,20 @@ type SkillStatus = {
   dangling: boolean;
 };
 
+// TEN-STABILITY-47: every doctor helper child gets a hard timeout so one hung
+// script cannot freeze the whole doctor. A timed-out child reports as skipped.
+export const DOCTOR_HELPER_TIMEOUT_MS = 15000;
+function helperTimeoutMs(): number {
+  const n = Number(process.env["LOKI_DOCTOR_HELPER_TIMEOUT_MS"]);
+  return Number.isInteger(n) && n > 0 ? n : DOCTOR_HELPER_TIMEOUT_MS;
+}
+function helperSpawn(cmd: string, args: string[], opts: SpawnSyncOptions = {}): SpawnSyncReturns<string | Buffer> {
+  return spawnSync(cmd, args, { env: tokenFreeEnv(), ...opts, timeout: helperTimeoutMs() });
+}
+function helperTimedOut(r: SpawnSyncReturns<unknown>): boolean {
+  return (r.error as NodeJS.ErrnoException | undefined)?.code === "ETIMEDOUT";
+}
+
 // The provider id a build would actually use. Read from provider-offer.sh --
 // the SAME helper the bash route calls -- rather than re-deriving the priority
 // list here, which is how the provider lists in this repo have drifted before.
@@ -588,9 +640,9 @@ export function readEffectiveProvider(): string | null {
   const script = providerOfferScript();
   if (!script) return null;
   try {
-    const r = spawnSync("bash", [script, "effective-provider"], { env: { ...process.env }, encoding: "utf8" });
+    const r = helperSpawn("bash", [script, "effective-provider"], { encoding: "utf8" });
     if (r.status !== 0 || !r.stdout) return null;
-    const id = r.stdout.trim();
+    const id = r.stdout.toString().trim();
     return id === "" ? null : id;
   } catch {
     return null;
@@ -741,9 +793,9 @@ export function readProviderAvailability(): ProviderAvailability | null {
   const script = providerOfferScript();
   if (!script) return null;
   try {
-    const r = spawnSync("bash", [script, "providers-json"], { env: { ...process.env }, encoding: "utf8" });
+    const r = helperSpawn("bash", [script, "providers-json"], { encoding: "utf8" });
     if (r.status !== 0 || !r.stdout) return null;
-    const parsed = JSON.parse(r.stdout) as ProviderAvailability;
+    const parsed = JSON.parse(r.stdout.toString()) as ProviderAvailability;
     if (!parsed || !Array.isArray(parsed.providers)) return null;
     return parsed;
   } catch {
@@ -763,9 +815,9 @@ export function renderProviderAvailability(): string {
   const script = providerOfferScript();
   if (!script) return "";
   try {
-    const r = spawnSync("bash", [script, "providers"], { env: { ...process.env }, encoding: "utf8" });
+    const r = helperSpawn("bash", [script, "providers"], { encoding: "utf8" });
     if (r.status !== 0 || !r.stdout) return "";
-    return r.stdout;
+    return r.stdout.toString();
   } catch {
     return "";
   }
@@ -887,13 +939,29 @@ async function requirementsSection(): Promise<RequirementsReport & { first_task_
   return { ...rep, first_task_ready: firstTaskReady(rep) };
 }
 
+// Test seam: wraps the three independent async JSON probes so a test can stub
+// slow ones and prove they overlap (TEN-SPEED-10).
+const jsonProbeImpl: {
+  sentrux: () => Promise<SentruxCheck>;
+  memory: () => Promise<MemoryHealth>;
+  requirements: () => Promise<RequirementsReport & { first_task_ready: boolean }>;
+} = { sentrux: checkSentrux, memory: checkMemoryHealth, requirements: requirementsSection };
+export function _setJsonProbesForTest(fns: Partial<typeof jsonProbeImpl> | null): void {
+  jsonProbeImpl.sentrux = fns?.sentrux ?? checkSentrux;
+  jsonProbeImpl.memory = fns?.memory ?? checkMemoryHealth;
+  jsonProbeImpl.requirements = fns?.requirements ?? requirementsSection;
+}
+
 export async function buildDoctorJson(): Promise<DoctorJson> {
   const rows = await runAllToolChecks();
   // Strip the displayName field for JSON output -- bash JSON has bare names.
   const checks: ToolCheck[] = rows.map(({ displayName: _displayName, ...rest }) => rest);
   const disk = checkDisk();
-  const sentrux = await checkSentrux();
-  const memory = await checkMemoryHealth();
+  const [sentrux, memory, requirements] = await Promise.all([
+    jsonProbeImpl.sentrux(),
+    jsonProbeImpl.memory(),
+    jsonProbeImpl.requirements(),
+  ]);
 
   const statuses: Status[] = checks.map((c) => c.status);
   statuses.push(disk.status);
@@ -945,7 +1013,7 @@ export async function buildDoctorJson(): Promise<DoctorJson> {
     // Advisory only: deliberately excluded from the passed/failed/warnings
     // tally and from `ok`, so a stale catalog can never flip the exit code.
     model_catalog: describeCatalogFreshness(),
-    requirements: await requirementsSection(),
+    requirements,
     summary: summarizeStatuses(statuses),
   };
 }
@@ -960,6 +1028,20 @@ export function providerProbeEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.P
   const out: NodeJS.ProcessEnv = { ...env };
   withholdGithubTokens(out, () => {});
   return out;
+}
+
+// TEN-ADOPTION-34: non-claude login state for preflight. codex has `login status` (exit code; fatal only on "Not logged in"); cline, aider and opencode keep varied keys/files, so they only warn.
+const PROVIDER_API_KEY_VARS = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY", "DEEPSEEK_API_KEY", "XAI_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY"];
+export function providerLoginIssue(provider: string, cli: string, env: Record<string, string | undefined>): { fatal?: string; warn?: string } | null {
+  const home = env.HOME || homedir(); const key = (k: string) => !!env[k]?.trim();
+  if (provider === "codex") {
+    if (key("OPENAI_API_KEY") || key("CODEX_API_KEY")) return null;
+    const r = spawnSync(cli, ["login", "status"], { env: providerProbeEnv(env), encoding: "utf8", timeout: 5000 });
+    if (r.status === 0) return null;
+    return /not logged in/i.test(`${r.stdout}${r.stderr}`) ? { fatal: "codex is not logged in; run: codex login (or set OPENAI_API_KEY)" } : { warn: "could not confirm the Codex login (codex login status gave no answer); continuing" };
+  }
+  if (PROVIDER_API_KEY_VARS.some(key) || (provider === "opencode" && existsSync(join(env.XDG_DATA_HOME || join(home, ".local", "share"), "opencode", "auth.json"))) || (provider === "cline" && existsSync(join(home, ".cline")))) return null;
+  return provider === "aider" || provider === "opencode" || provider === "cline" ? { warn: `no ${provider} login or API key found (set a provider API key such as ANTHROPIC_API_KEY or OPENAI_API_KEY${provider === "opencode" ? ", or run: opencode auth login" : ""}); continuing` } : null;
 }
 
 // v7.104.2 parity with bash doctor: the durable login signal is `claude auth
@@ -1073,7 +1155,7 @@ function formatToolLine(c: ToolRow): string {
           : "not found (optional)";
     return `  ${badge(c.status)}  ${label} - ${note}`;
   }
-  if (c.min_version && c.version && compareMajorMinor(c.version, c.min_version) < 0) {
+  if (c.min_version && c.version && cmpVersion(c.version, c.min_version, 2) < 0) {
     const tag = c.required === "required" ? "requires" : "recommended";
     return `  ${badge(c.status)}  ${label}${ver} - ${tag} >= ${c.min_version}`;
   }
@@ -1135,9 +1217,10 @@ export function bump(t: Tally, s: Status): void {
 
 function printHelp(): void {
   process.stdout.write(`${BOLD}loki doctor${NC} - Check system prerequisites\n\n`);
-  process.stdout.write(`Usage: loki doctor [--json] [--fix [--yes]] [--requirements] [--airgap] [--repo [--round-trip]]\n\n`);
+  process.stdout.write(`Usage: loki doctor [--json] [--quiet] [--fix [--yes]] [--requirements] [--airgap] [--repo [--round-trip]]\n\n`);
   process.stdout.write(`Options:\n`);
   process.stdout.write(`  --json    Output machine-readable JSON (includes requirements grouped by execution path)\n`);
+  process.stdout.write(`  --quiet   Text mode: print only FAIL and WARN rows plus the Summary footer (also -q); exit code and --json unchanged\n`);
   process.stdout.write(`  --requirements  Print requirements per execution path (required or optional, present or missing, one-line fix)\n`);
   process.stdout.write(`  --fix     Apply safe fixes (dirs, config defaults); on a TTY offer the claude install and login (y/N); print commands for the rest\n`);
   process.stdout.write(`  --yes     With --fix: run the claude install and login without asking (also -y)\n`);
@@ -1171,7 +1254,7 @@ function emitFirstRunBlocked(blockers: string): void {
   emitFunnel("first_run_blocked", key);
 }
 
-async function runText(): Promise<number> {
+async function runText(deps: DoctorDeps = {}): Promise<number> {
   process.stdout.write(`${BOLD}Loki Mode Doctor${NC}\n\n`);
   process.stdout.write(`Checking system prerequisites...\n\n`);
 
@@ -1209,13 +1292,7 @@ async function runText(): Promise<number> {
   // the Bun route but not bash and break parity. On stderr it is invisible to the
   // stdout-only gate AND aligned under local-ci's 2>&1 capture. The user still
   // sees the hint (stderr is shown on a real terminal).
-  const providerInstall: Record<string, string> = {
-    claude: "npm install -g @anthropic-ai/claude-code",
-    codex: "npm install -g @openai/codex",
-    cline: "npm install -g cline",
-    aider: "pip install aider-chat",
-    opencode: "npm install -g opencode-ai",
-  };
+  const providerInstall = PROVIDER_INSTALL;
   let anyProvider = false;
   let sdkOnly = false;
   for (const cmd of providerCmds) {
@@ -1255,7 +1332,7 @@ async function runText(): Promise<number> {
     let sdkUsable = false;
     const sdkOfferScript = resolve(REPO_ROOT, "autonomy/provider-offer.sh");
     if (existsSync(sdkOfferScript)) {
-      const probe = spawnSync("bash", [sdkOfferScript, "detect-sdk"], { env: { ...process.env }, stdio: "ignore" });
+      const probe = helperSpawn("bash", [sdkOfferScript, "detect-sdk"], { stdio: "ignore" });
       sdkUsable = probe.status === 0;
     }
     if (sdkUsable) {
@@ -1292,7 +1369,7 @@ async function runText(): Promise<number> {
       if (process.stdout.isTTY) {
         const offerScript = resolve(REPO_ROOT, "autonomy/provider-offer.sh");
         if (existsSync(offerScript)) {
-          spawnSync("bash", [offerScript, "report"], { env: { ...process.env }, stdio: "inherit" });
+          spawnSync("bash", [offerScript, "report"], { env: tokenFreeEnv(), stdio: "inherit" });
         }
       }
     }
@@ -1526,7 +1603,13 @@ async function runText(): Promise<number> {
     );
     bump(tally, "warn");
   }
-  if (spawnSync("python3", ["-c", "import cryptography"], { env: { ...process.env }, stdio: "ignore" }).status !== 0) {
+  const cryptoProbe = helperSpawn("python3", ["-c", "import cryptography"], { stdio: "ignore" });
+  if (helperTimedOut(cryptoProbe)) {
+    process.stdout.write(
+      `  ${badge("warn")}  Receipt signing: python3 'cryptography' check timed out (skipped)\n`,
+    );
+    bump(tally, "warn");
+  } else if (cryptoProbe.status !== 0) {
     process.stdout.write(
       `  ${badge("warn")}  Receipt signing: python3 'cryptography' package missing, receipts will be UNSIGNED (pip install cryptography)\n`,
     );
@@ -1550,22 +1633,23 @@ async function runText(): Promise<number> {
     bump(tally, bunCheck.status);
   }
 
-  const disk = checkDisk();
+  const disk = deps.diskVolumes ? diskCheckFromVolumes(deps.diskVolumes) : checkDisk();
   // Bash text uses `df -g` (integer GB, floored). JSON uses round(_, 1).
   // checkDisk() returns the JSON-friendly float; floor it here for text-mode parity.
   const diskTextGb = disk.available_gb === null ? null : Math.floor(disk.available_gb);
+  const diskVol = disk.status !== "pass" && disk.low_volume ? ` on ${disk.low_volume} volume` : "";
   if (diskTextGb === null) {
     process.stdout.write(`  ${badge("warn")}  Disk space: unable to determine\n`);
     bump(tally, "warn");
   } else if (disk.status === "fail") {
     process.stdout.write(
-      `  ${badge("fail")}  Disk space: ${diskTextGb}GB available (need >= 1GB)\n`,
+      `  ${badge("fail")}  Disk space: ${diskTextGb}GB available${diskVol} (need >= 1GB)\n`,
     );
     bump(tally, "fail");
-    tally.blockers.push(`Free up disk: ${diskTextGb}GB available, need >= 1GB`);
+    tally.blockers.push(`Free up disk: ${diskTextGb}GB available${diskVol}, need >= 1GB`);
   } else if (disk.status === "warn") {
     process.stdout.write(
-      `  ${badge("warn")}  Disk space: ${diskTextGb}GB available (low)\n`,
+      `  ${badge("warn")}  Disk space: ${diskTextGb}GB available${diskVol} (low)\n`,
     );
     bump(tally, "warn");
   } else {
@@ -1573,6 +1657,10 @@ async function runText(): Promise<number> {
       `  ${badge("pass")}  Disk space: ${diskTextGb}GB available\n`,
     );
     bump(tally, "pass");
+  }
+  for (const id of findOrphanRuns(process.cwd()).slice(0, 5)) {
+    process.stdout.write(`  ${badge("warn")}  Orphan run ${id}: owner process died before run.completed (resume: loki start --resume ${id}, or undo: loki undo ${id})\n`);
+    bump(tally, "warn");
   }
   process.stdout.write(`\n`);
 
@@ -1844,19 +1932,21 @@ async function runText(): Promise<number> {
   // A-123: the last stdout line. Byte-mirrors cmd_doctor. The key state is read
   // WITHOUT creating a key (auto_generate=False).
   const id = process.env["LOKI_PROVIDER"] || readEffectiveProvider() || "claude";
-  const modelRun = spawnSync(
+  const modelRun = helperSpawn(
     "bash",
     ["-c", 'source "$1" >/dev/null 2>&1; printf %s "${PROVIDER_MODEL_DEVELOPMENT:-}"', "_", resolve(REPO_ROOT, "providers", `${id}.sh`)],
-    { env: { ...process.env }, encoding: "utf8" },
+    { encoding: "utf8" },
   );
-  const model = (modelRun.stdout ?? "").trim() || "default";
-  const keyRun = spawnSync(
+  const model = (modelRun.stdout ?? "").toString().trim() || "default";
+  const keyRun = helperSpawn(
     "python3",
     ["-E", "-c", READY_KEY_PY, resolve(REPO_ROOT, "autonomy")],
-    { env: { ...process.env }, encoding: "utf8" },
+    { encoding: "utf8" },
   );
-  const key = (keyRun.stdout ?? "").trim();
-  const keyState = key.startsWith("kid ")
+  const key = (keyRun.stdout ?? "").toString().trim();
+  const keyState = helperTimedOut(keyRun)
+    ? "receipts unsigned: signing key check timed out (skipped)"
+    : key.startsWith("kid ")
     ? `receipts signed (${key})`
     : key === "none"
       ? "receipts will be signed on first run"
@@ -1897,7 +1987,7 @@ else:
 
 export interface RoundTripResult { ok: boolean; detail: string }
 export type RoundTripRunner = () => Promise<RoundTripResult>;
-export interface DoctorDeps { roundTrip?: RoundTripRunner }
+export interface DoctorDeps { roundTrip?: RoundTripRunner; diskVolumes?: DiskVolume[] }
 
 // Default harmless round-trip: one tiny prompt through the active provider CLI.
 const defaultRoundTrip: RoundTripRunner = async () => {
@@ -1910,6 +2000,49 @@ const defaultRoundTrip: RoundTripRunner = async () => {
   return { ok: r.status === 0, detail: (r.status === 0 ? r.stdout : r.stderr || `exit ${r.status}`).trim().slice(0, 200) };
 };
 
+// TEN-UX-18: --quiet keeps FAIL/WARN rows (with their indented fix lines) and
+// everything from the Summary line on; every other line is dropped.
+export function filterQuietDoctor(text: string): string {
+  const ansi = /\x1b\[[0-9;]*m/g;
+  const out: string[] = [];
+  let inRow = false;
+  let inFooter = false;
+  for (const line of text.split("\n")) {
+    const plain = line.replace(ansi, "");
+    if (inFooter || /^Summary:/.test(plain)) { inFooter = true; out.push(line); continue; }
+    if (/^\s+(FAIL|WARN)\b/.test(plain)) { inRow = true; out.push(line); continue; }
+    if (inRow && /^ {9,}\S/.test(plain)) { out.push(line); continue; }
+    inRow = false;
+  }
+  return out.join("\n");
+}
+
+async function runTextQuiet(deps: DoctorDeps = {}): Promise<number> {
+  const orig = process.stdout.write.bind(process.stdout);
+  let buf = "";
+  (process.stdout as { write: unknown }).write = (chunk: string | Uint8Array): boolean => {
+    buf += typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+    return true;
+  };
+  // TEN-UX-27: route "Install:" hints (stderr in full mode, for bun-parity) into
+  // the same buffer so each hint stays directly under its row.
+  const origErr = process.stderr.write.bind(process.stderr);
+  (process.stderr as { write: unknown }).write = (chunk: string | Uint8Array, ...rest: unknown[]): boolean => {
+    const text = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+    if (/^\s+(\x1b\[[0-9;]*m)*Install:/.test(text)) { buf += text; return true; }
+    return (origErr as (c: string | Uint8Array, ...r: unknown[]) => boolean)(chunk, ...rest);
+  };
+  let code: number;
+  try {
+    code = await runText(deps);
+  } finally {
+    (process.stdout as { write: unknown }).write = orig;
+    (process.stderr as { write: unknown }).write = origErr;
+  }
+  orig(filterQuietDoctor(buf));
+  return code;
+}
+
 export async function runDoctor(argv: readonly string[], deps: DoctorDeps = {}): Promise<number> {
   let roundTrip = false;
   let json = false;
@@ -1917,6 +2050,7 @@ export async function runDoctor(argv: readonly string[], deps: DoctorDeps = {}):
   let yes = false;
   let repo = false;
   let reqs = false;
+  let quiet = false;
   for (const arg of argv) {
     if (arg === "--repo") {
       repo = true;
@@ -1928,6 +2062,8 @@ export async function runDoctor(argv: readonly string[], deps: DoctorDeps = {}):
       fix = true;
     } else if (arg === "--yes" || arg === "-y") {
       yes = true;
+    } else if (arg === "--quiet" || arg === "-q") {
+      quiet = true;
     } else if (arg === "--requirements") {
       reqs = true;
     } else if (arg === "--help" || arg === "-h") {
@@ -1935,7 +2071,7 @@ export async function runDoctor(argv: readonly string[], deps: DoctorDeps = {}):
       return 0;
     } else {
       process.stderr.write(`${RED}Unknown option: ${arg}${NC}\n`);
-      process.stderr.write(`Usage: loki doctor [--json] [--fix [--yes]] [--requirements] [--airgap] [--repo [--round-trip]]\n`);
+      process.stderr.write(`Usage: loki doctor [--json] [--quiet] [--fix [--yes]] [--requirements] [--airgap] [--repo [--round-trip]]\n`);
       return 1;
     }
   }
@@ -1973,12 +2109,12 @@ export async function runDoctor(argv: readonly string[], deps: DoctorDeps = {}):
     return result.summary.ok ? 0 : 1;
   }
   if (fix) {
-    const code = await runText();
+    const code = quiet ? await runTextQuiet(deps) : await runText(deps);
     const { runDoctorFix } = await import("./doctor_fix.ts");
     const fixCode = runDoctorFix({ yes });
     return code !== 0 ? code : fixCode;
   }
   // Hint goes to stderr so stdout stays byte-identical for the bun-parity gate.
   process.stderr.write(`Hint: loki doctor --fix applies safe fixes and prints commands for the rest.\n`);
-  return runText();
+  return quiet ? runTextQuiet(deps) : runText(deps);
 }

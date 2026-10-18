@@ -15,7 +15,7 @@ for (const args of [
 ]) {
   test(`Hermes failed-proxy fallback preserves original provider arguments: ${args.join(" ")}`, (t) => {
     const root = mkdtempSync(join(tmpdir(), "cave-hermes direct "));
-    t.after(() => rmSync(root, { recursive: true, force: true }));
+    t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
     const home = join(root, "home"),
       bin = join(root, "bin");
     for (const path of [home, bin, join(home, ".caveman-cloud")])

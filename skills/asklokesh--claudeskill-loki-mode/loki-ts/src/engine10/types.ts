@@ -19,8 +19,22 @@ export const STAGE_BUDGETS: Readonly<Record<StageName, { targetS: number | null;
 };
 export const DEFAULT_CAP_S = 900;
 export const DEEP_CAP_S = 2700;
-/** LOKI_E10_CAP_S as a usable cap: finite and positive, else null ("Infinity", NaN, 0, negatives are rejected). */
-export function envCapS(raw: string | undefined): number | null { const n = Number(raw); return Number.isFinite(n) && n > 0 ? n : null; }
+const warnedCap = new Set<string>();
+/** Warn once per source+value on stderr that a set cap is unusable and the default applies. Never loosens the cap. */
+export function warnBadCap(source: string, raw: string): void {
+  const key = `${source}=${raw}`;
+  if (warnedCap.has(key)) return;
+  warnedCap.add(key);
+  process.stderr.write(`loki: ignoring invalid ${source}="${raw}" (need a number > 0); using the default cap of ${DEFAULT_CAP_S}s\n`);
+}
+/** LOKI_E10_CAP_S as a usable cap: finite and positive, else null ("Infinity", NaN, 0, negatives are rejected). A set but unusable value warns once on stderr; unset or blank is silent. */
+export function envCapS(raw: string | undefined): number | null {
+  if (raw === undefined || raw.trim() === "") return null;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return n;
+  warnBadCap("LOKI_E10_CAP_S", raw);
+  return null;
+}
 export const BACKSTOP_GRACE_S = 30;
 export function backstopS(capS: number, graceS: number = BACKSTOP_GRACE_S): number { return capS - Math.min(graceS, capS / 30); } // supervisor.ts's backstop; machine.ts's soft cap stays under it
 export const DEEP_IMPLEMENT_LIMIT_S = 1800; // ENGINE.md section 4: 480s, 1800s with --deep
@@ -88,6 +102,8 @@ export interface SessionResult {
   killed: boolean;
   /** Optional tail of the agent's own final message (its diagnosis), fed to an escalated fix round. */
   summary?: string;
+  /** Tail of the provider's stderr; set by the real runner, read on error exits. */
+  stderrTail?: string;
 }
 export interface SessionRunner { // implemented by session.ts (E-07)
   run(opts: SessionRunOptions): Promise<SessionResult>;
@@ -171,10 +187,11 @@ export interface Receipt {
   checks: ReceiptCheck[];
   not_proven: string[];
   spec?: { path: string; sha256: string }; intent_revisions?: { rev: number; source: string | null; actor: string | null; sha: string }[]; // P12-02 (omitted when none); SPEC-FIRST-INTENT: present only when a user spec file drove the run
-  supply?: import("../supply/supply_guard.ts").SupplyBlock; // T10: present only when the guard found newly added dependencies
+  seeded_corpus?: import("../util/run_outputs.ts").SeededCorpus; /* TEN-GATES-15 */ supply?: import("../supply/supply_guard.ts").SupplyBlock; // T10: present only when the guard found newly added dependencies
   route?: import("../runner/router/route_block.ts").RouteBlock; // R1-15: present only while the router is on.
   cost_preview?: Record<string, unknown>; // 11.3.0 T1: absent under LOKI_COST_PREVIEW=0
   verdict: Verdict;
+  toolchain?: import("../util/receipt_signer.ts").Toolchain; // TEN-GATES-22: absent on receipts sealed before it existed, which still verify
   /** T2: "test fails without the fix: yes | no | inconclusive (reason)"; omitted when LOKI_MUTATION_PROOF=0 or the verdict was not VERIFIED. */
   mutation_proof?: string;
   /** XV-1: cross-review judge and whether it is a different vendor than the builder (LOKI_XVENDOR_DEFAULT=1 only). */

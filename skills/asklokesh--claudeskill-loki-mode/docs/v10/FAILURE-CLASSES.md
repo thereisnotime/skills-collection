@@ -136,7 +136,7 @@ L0 review rule (ENGINE-LAWS.md L0): a fix that adds an `if` or a regex about the
   - `loki status`.
 - Mechanism: one verdict-display function that returns TAMPERED whenever the run is tampered or its seal is invalid (CPE-27).
 - Fixture: an ingested run with tamper.detected never shows VERIFIED in any surface.
-- Sibling follow-up (EL-FC08b): redact at source in the engine before hashing. Today the shipper (redactEvent) and the server (redactSecrets) rewrite event data before the CP can hash it, so an honest signed run holding a token reads UNVERIFIED ("log redacted before ingest; seal not checkable"), never TAMPERED and never VERIFIED. Redacting before the engine hashes and signs would make such runs checkable end to end.
+- Sibling follow-up (EL-FC08b): redact at source in the engine before hashing. Today the shipper (redactEvent) and the server (redactSecrets) rewrite event data before the CP can hash it, so an honest signed run holding a token reads UNVERIFIED ("log redacted before ingest; seal not checkable"), never TAMPERED and never VERIFIED. Redacting before the engine hashes and signs would make such runs checkable end to end. Status: built in Q17-05b (engine writer, shipper and ingest share redactEnvelope; redactSecrets iterates to a fixpoint so the layers produce the same bytes; a redaction-rewritten signed log now reads TAMPERED).
 - Sibling follow-up (deferred, not built in EL-FC08b): the shipper should send the sha256 of each line before redaction (alongside the redacted line). The CP could then check the seal over the original hashes and tell a genuine redaction from a downgrade (a FAILED log edited to PARTIAL plus a planted [REDACTED]); today such a log can only read "<verdict> (unattested)" or UNVERIFIED. This is the lasting fix for placeholder downgrades. REJECTED 2026-10-17 (Q17-05, HIGH r1 on 36524784d): a client-supplied original hash cannot be checked by the server, so a forger copies log.sealed events_sha256 into the shipped chain and a FAILED run displays VERIFIED; the chain is also unbound to the run id, so any signed seal replays onto any log. Rule: the CP never accepts a client-supplied hash in place of recomputing one over the bytes it received. The lasting fix is the line above: redact in the engine before hashing and signing (Q17-05b).
 - Sibling follow-up: the Slack summary, PR status and `loki status` do not yet read the CP effective_verdict.
 
@@ -1082,3 +1082,25 @@ L0 review rule (ENGINE-LAWS.md L0): a fix that adds an `if` or a regex about the
 - Siblings: FC-TEN-STABILITY-09 fixed the loki-ts/tests stubs but not scripts/first-run-gate.sh (fixed here). scripts/b9-scoreboard.sh already answers auth. tests/test-quick-config-safety.sh, test-quick-receipt-order.sh, test-quick-artifacts.sh, test-json-schemas.sh and test-usage-governor.sh all pass on this base (their stubs do not edit the tree on the probe).
 - Mechanism: the gate stub answers `auth status` with {"loggedIn": true}, no side effects; the cost-non-null probe reports an unreadable run record as a FAIL line instead of a traceback.
 - Fixture: loki-ts/tests/engine10/e2e.test.ts "every engine10 stub claude answers claude auth status as logged in" now also pins the first-run gate stub (red with the stub line removed); the gate itself returns to 7 failures with that line removed.
+
+## FC-TEN-STABILITY-20 A slice adds a CLI flag in the Bun route and CHANGELOG but not in the help-drift-checked help or completions (HELP-FLAG-DRIFT)
+- User-visible vs raw: user-visible. `loki report kpis --since` and `loki undo --list` (v11.17.40) worked but were absent from `loki help` and Tab completion, so tests/test-help-changelog-drift.sh was red on 3 lines.
+- Law broken: a documented flag must appear in the help output for its command and in completions/loki.bash.
+- Siblings: swept the other newest-window invocations (proof list --json, proof share --dry-run, queue add, start --help, status --probe/--json); all already pass. completions/_loki carries no per-flag lists for report or undo; its undo description now names --list.
+- Mechanism: autonomy/loki help text lists both flags; completions/loki.bash gains report and undo cases. The drift test already guards both.
+- Fixture: tests/test-help-changelog-drift.sh (22 passed, 0 failed); removing the `undo --list` help line turns it red.
+
+## FC-TEN-UX-26 Bash commands whose default case arm printed help and exited 0 on an unknown subcommand
+
+- User-visible vs raw: user-visible. `loki config frobnicate` and `loki api frobnicate` printed usage and returned 0, so scripts could not detect a typo (same class as `loki provider`, TEN-UX-25).
+- Law broken: an unknown subcommand must fail non-zero with a one-line error; help stays reachable via help, --help and -h.
+- Siblings: swept 24 bash commands with `<cmd> frobnicate`; only config and api (fixed here) returned 0, plus `loki voice`, a stub with no subcommands that prints a planned-feature notice (left as is).
+- Mechanism: explicit help|--help|-h arm, default arm prints `loki <cmd>: unknown subcommand` to stderr and returns 2.
+- Fixture: tests/test-help-discoverability.sh; restoring the old default arm turns the frobnicate assertions red.
+
+## FC-TEN-STABILITY-50 A credentialed push/pr-ready child is spawned with spawnSync and no timeout, so one hung script blocks the run (UNBOUNDED-PUSH-CHILD)
+- User-visible vs raw: user-visible. A hung engine10-push.sh froze the PR stage with no failure surfaced.
+- Law broken: every child process is bounded and a timeout is a named stage failure.
+- Sibling sweep: pr.ts push-pr, push-mr, pr-ready and status now share spawnBounded (LOKI_PR_PUSH_TIMEOUT_MS, default 50s). Still unbounded: src/util/pr_lessons.ts:348, src/runner/attempts.ts:376, src/engine10/supervisor.ts:374.
+- One shared mechanism: spawnBounded and failReason in loki-ts/src/engine10/stages/pr.ts.
+- Regression fixture: loki-ts/tests/engine10/pr.test.ts "hung push script".

@@ -2506,3 +2506,51 @@ v11.17.21 published (Release success on 462fbc40a; npm latest 11.17.21, next 11.
 
 ## 2026-10-17T09:41Z (CoS) v11.17.42
 - v11.17.42: TEN-STABILITY-18 and TEN-STABILITY-19 merged; FAILURE-CLASSES append conflicts resolved as union. Results: tests/util plus pr_body_golden, sizing, router_optout_golden, verify, budget and l0 guards 538 pass 0 fail. sigpipe, ui-bare and local-ci-gitleaks rc 0; first-run-gate --stub 0 assertions failed. help-changelog-drift still red on new v11.17.40 flags (report --since, undo --list); TEN-STABILITY-20 dispatched.
+
+## 2026-10-17T09:49Z (CoS) v11.17.43
+- Released TEN-STABILITY-20 (help/completion drift fix-forward). Board refilled with 30 TEN rows for wave AL (fc36b4548).
+
+## 2026-10-17T10:10Z (CoS) v11.17.44
+- Released waves AL (30 slices, 21 chains, all APPROVE) and AK (6 slices). Combined main: tsc rc 0; bun 1233/0 and 528/0; help-changelog-drift rc 0; secure-scan rc 0.
+
+## 2026-10-17T10:17Z (CoS) v11.17.45
+- Released TEN-DEPLOY-03 (wave AH fix round, APPROVE fe1026bf1). Board refilled with 30 TEN rows for wave AM (fbde018b2).
+
+## 2026-10-17T11:21Z (CoS) v11.17.46
+- Released wave AM: 28 slices APPROVE across 19 chains; TEN-STABILITY-29 and TEN-ADOPTION-23 dropped as already fixed. Combined main: tsc rc 0; bun 593/0 and 449/0; help-changelog-drift, help-discoverability, secret-scan rc 0.
+
+## 2026-10-17T11:59Z (CoS) v11.17.47
+- Released TEN-GATES-15 and Q17-05b (wave AH redo, opus APPROVE 708682ea2 and 0112c4fcc) plus a tsc fix-forward in redact.test.ts (325df1f44). Q18-03e blocked after 3 rounds; reslice to a real tokenizer. Combined: tsc rc 0; loki-ts bun 557/0; control-plane server 335/0. Board refill wave AN (bda2ee54d) included.
+
+## 2026-10-17T12:36Z (CoS) v11.17.48
+- Wave AN shipped: 30 of 30 TEN rows APPROVE and merged in 19 chains (one test import conflict resolved by hand, union of both import sets). Checks: tsc rc=0; bun test changed files plus spawn_env_guard, engine10/budget and tests/util 1026 pass 0 fail; test-deploy, test-help-start-flags, test-pricing-parity rc=0; help-changelog-drift 51 passed 0 failed after the completion fix. Main Tests red on cbded2759 (shard-durations row for TEN-ADOPTION-15 plus shell and bun shards) has a P0 fix-forward agent running. Q18-03e reslice 4 (TypeScript compiler API) building.
+
+## 2026-10-17T12:39Z (CoS) v11.17.49
+- P0 fix-forward for main Tests red on cbded2759, 5a6d770f6, e8e750117 (structural guards, bun, shell shards 1,2,3,4,6,7). Local evidence: help-changelog-drift 51/0, shard-durations-drift rc=0, shard-coverage rc=0, cli-commands rc=0, doctor-ux rc=0, cli/test-tour-verify rc=0, bun contract plus touched tests 66 pass 0 fail. Shard 3 cause is CI-only (bun found via node_modules/@oven), reasoned from the log.
+
+## 2026-10-17T13:13Z (CoS) v11.17.50
+- Wave AO shipped: 28 of 30 TEN rows APPROVE and merged clean in 22 chains. TEN-COST-49 FAILED (builder worktree path missing) so TEN-COST-50 was not built; both stay ready. Checks: tsc rc=0; bun changed tests plus guards 1266 pass 4 fail before the dist rebuild, 2 fail after (full_env_spawn_guard on doctor.ts, engine10 budget 5016 of 5000); secure-scan, help-changelog-drift, shard-durations-drift rc=0. Main Tests on 3756bef0f still red (bun, shell shards 0,3,4); a P0 fix-forward agent covers those and the two local reds. Q18-03e fix round 2 (64d5d906d) is in opus re-review.
+
+## 2026-10-17T13:29Z (CoS) v11.17.51
+- P0 fix-forward for the wave AO reds (doctor spawn env, engine10 budget, deep_wiring, workspace e2e, sigpipe, DEPS) released; evidence: targeted bun 570 pass 0 fail, four shell suites rc=0, tsc clean.
+
+## 2026-10-17T13:34Z (CoS) v11.17.52
+- TEN-COST-49 and TEN-COST-50 released; evidence: test_cost_claim.py 37 passed, reviewer mutations red then restored.
+
+## 2026-10-17T13:56Z (CoS) v11.17.53
+- Wave AP released (30 rows, 19 chains, each reviewer APPROVE by SHA); evidence in ~/loki-ci-logs/ap-check.log (tsc, bun test, secure-scan, drift guards, cost_claim pytest).
+
+## 2026-10-17T14:35Z (CoS) v11.17.54
+- Wave AQ released (30 rows, 19 chains, every reviewer APPROVE by SHA, ancestry checked) plus Q18-03e (opus round 5 APPROVE e41ef40b2 after 5 BLOCK rounds); evidence in ~/loki-ci-logs/aq-check.log.
+
+## 2026-10-17T14:50Z (CoS) v11.17.55
+- Wave AR released (29 rows, 19 chains, reviewer APPROVE by SHA, ancestry checked; TEN-SECURITY-25 held at BLOCK 30fd64ba8 for a fix round). Combined checks in ~/loki-ci-logs/ar-check.log: build OK, bun test 533 pass 1 fail (known engine10 core budget, fix in flight), drift guards rc=0, control-plane 33 pass; tsc red on queue.ts:75 fixed in a2a21c137 (tsc OK, queue.test.ts 29 pass 0 fail).
+
+## 2026-10-17T14:55Z (CoS) v11.17.56
+- TEN-SECURITY-25 released after round 2 (BLOCK 30fd64ba8 flag-form leak fixed; opus HIGH APPROVE c0c17580a: 75-case leak diff vs b12355488, 160000-combination idempotency sweep, new rule linear at 13ms or less on 100KB). Main checks: tsc OK, bun test tests/util 434 pass 0 fail. Reviewer N1 (pre-existing URL userinfo ReDoS, 2.8s on 100KB) dispatched as TEN-SECURITY-26.
+
+## 2026-10-17T15:48Z (CoS) v11.17.57
+- STAB-1 main green fix-forward: core budget 4956 (budget.test pass), P9 allowtoken case PASS, L2 registry pass, monorepo_cwd 16 pass 0 fail, sigpipe 1722 <= 1722, select-tests 119 pass 0 fail, help drift 34 pass 0 fail. Combined: tsc rc=0, build rc=0, bun test (budget, l0, monorepo, l2, verify, util, spawn_env_guard, contract, cli) 765 pass 0 fail. Three orphan bun test PIDs (ppid 1, 21h old, removed worktrees) stopped by PID.
+
+## 2026-10-17T16:07Z (CoS) v11.17.58
+- STAB-1 follow-up: Tests 39046745996 on v11.17.57 failed only on shard 1 help drift (FAIL: 'loki queue rm' (CHANGELOG) is absent from help), caused by the 11.17.57 notes. Reworded; tests/test-help-changelog-drift.sh 4 passed, 0 failed. Release 39046745968 all jobs success; npm latest and next 11.17.57.

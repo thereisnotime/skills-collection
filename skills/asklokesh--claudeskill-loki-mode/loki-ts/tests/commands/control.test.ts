@@ -3,7 +3,7 @@ import { runControl } from "../../src/commands/control.ts";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 
 const realFetch = globalThis.fetch;
 let out = "";
@@ -44,6 +44,31 @@ describe("loki control status runs count", () => {
     stub(() => new Response(JSON.stringify({ total: 0 })));
     await runControl(["status"], env);
     expect(out).toContain("0 runs");
+  });
+});
+
+describe("loki control status json", () => {
+  test("status json up: one object with running pid port url runs", async () => {
+    stub(() => new Response(JSON.stringify({ total: 3 })));
+    expect(await runControl(["status", "--json"], env)).toBe(0);
+    expect(JSON.parse(out)).toEqual({ running: true, pid: 1, port: 1, url: "http://127.0.0.1:1", runs: 3 });
+  });
+  test("status json runs unknown is null, never 0", async () => {
+    stub(() => new Response("boom", { status: 500 }));
+    await runControl(["status", "--json"], env);
+    expect(JSON.parse(out).runs).toBeNull();
+  });
+  test("status json down: running false, exit 1, valid JSON", async () => {
+    globalThis.fetch = (async () => { throw new Error("refused"); }) as unknown as typeof fetch;
+    expect(await runControl(["status", "--json"], env)).toBe(1);
+    const j = JSON.parse(out);
+    expect(j.running).toBe(false);
+    expect(j.pid).toBeNull();
+  });
+  test("status without --json text output unchanged", async () => {
+    stub(() => new Response(JSON.stringify({ total: 3 })));
+    await runControl(["status"], env);
+    expect(out).toBe("loki control: up at http://127.0.0.1:1 (pid 1), 3 runs\n");
   });
 });
 
@@ -111,5 +136,130 @@ describe("loki control stop", () => {
       }
     } finally { process.kill = realKill; }
     expect(sent).not.toContain("SIGTERM");
+  });
+});
+
+describe("loki control serve flag values", () => {
+  let err = "";
+  let realErr: typeof process.stderr.write;
+  beforeEach(() => {
+    err = "";
+    realErr = process.stderr.write;
+    process.stderr.write = ((s: string | Uint8Array) => { err += String(s); return true; }) as typeof process.stderr.write;
+  });
+  afterEach(() => { process.stderr.write = realErr; });
+  const e = { LOKI_CONTROL_PORT: "" } as NodeJS.ProcessEnv;
+  test("port without value exits 2 with usage", async () => {
+    expect(await runControl(["serve", "--port"], e)).toBe(2);
+    expect(err).toContain("--port needs a value");
+    expect(err).toContain("Usage: loki control serve");
+  });
+  test("port followed by another flag exits 2", async () => {
+    expect(await runControl(["serve", "--port", "--db", "x"], e)).toBe(2);
+    expect(err).toContain("--port needs a value");
+  });
+  test("db without value exits 2", async () => {
+    expect(await runControl(["serve", "--db"], e)).toBe(2);
+    expect(err).toContain("--db needs a value");
+  });
+  test("non-numeric port exits 2", async () => {
+    expect(await runControl(["serve", "--port", "abc"], e)).toBe(2);
+    expect(err).toContain("invalid --port abc");
+  });
+});
+
+describe("loki control backfill repo missing value", () => {
+  test("backfill repo missing value fails with exit 2 and names --repo", async () => {
+    let err = "";
+    const realErr = process.stderr.write;
+    process.stderr.write = ((s: string | Uint8Array) => { err += String(s); return true; }) as typeof process.stderr.write;
+    let called = false;
+    globalThis.fetch = (async () => { called = true; return new Response("{}"); }) as unknown as typeof fetch;
+    try {
+      expect(await runControl(["backfill", "--repo"], env)).toBe(2);
+      expect(await runControl(["backfill", "--repo", "--other"], env)).toBe(2);
+    } finally { process.stderr.write = realErr; }
+    expect(err).toContain("--repo needs a value");
+    expect(called).toBe(false);
+  });
+});
+
+describe("loki control backfill repo DIR", () => {
+  // Distinct run counts per repo so the output proves which directory was shipped.
+  const mkRepo = (root: string, name: string, runIds: string[]): string => {
+    const dir = join(root, name);
+    for (const id of runIds) {
+      mkdirSync(join(dir, ".loki", "runs", id), { recursive: true });
+      writeFileSync(join(dir, ".loki", "runs", id, "events.jsonl"), "");
+    }
+    return dir;
+  };
+  let root = "";
+  let cwd = "";
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "loki-ctl-backfill-"));
+    cwd = process.cwd();
+    globalThis.fetch = (async () => new Response("{}")) as unknown as typeof fetch;
+  });
+  afterEach(() => { process.chdir(cwd); rmSync(root, { recursive: true, force: true }); });
+
+  test("backfill repo DIR ships DIR, not cwd", async () => {
+    const here = mkRepo(root, "here", ["a"]);
+    const target = mkRepo(root, "target", ["x", "y", "z"]);
+    process.chdir(here);
+    expect(await runControl(["backfill", "--repo", target], env)).toBe(0);
+    expect(out).toContain("backfill 3 runs");
+  });
+  test("bare backfill DIR ships DIR, not cwd", async () => {
+    const here = mkRepo(root, "here", ["a"]);
+    const target = mkRepo(root, "target", ["x", "y"]);
+    process.chdir(here);
+    expect(await runControl(["backfill", target], env)).toBe(0);
+    expect(out).toContain("backfill 2 runs");
+  });
+});
+
+describe("loki control status extra args", () => {
+  let err = "";
+  let realErr: typeof process.stderr.write;
+  beforeEach(() => { err = ""; realErr = process.stderr.write; process.stderr.write = ((s: string | Uint8Array) => { err += String(s); return true; }) as typeof process.stderr.write; });
+  afterEach(() => { process.stderr.write = realErr; });
+  test("status --jsno rejected with usage, exit 2, no human form", async () => {
+    stub(() => new Response(JSON.stringify({ total: 3 })));
+    expect(await runControl(["status", "--jsno"], env)).toBe(2);
+    expect(err).toContain("Usage: loki control status [--json]");
+    expect(out).toBe("");
+  });
+  test("status extra rejected", async () => {
+    stub(() => new Response(JSON.stringify({ total: 3 })));
+    expect(await runControl(["status", "extra"], env)).toBe(2);
+    expect(err).toContain("unexpected argument 'extra'");
+  });
+  test("stop extra rejected before touching anything", async () => {
+    expect(await runControl(["stop", "extra"], env)).toBe(2);
+    expect(err).toContain("Usage: loki control stop");
+    expect(out).toBe("");
+  });
+});
+
+describe("loki control unknown subcommand", () => {
+  let err = "";
+  let realErr: typeof process.stderr.write;
+  beforeEach(() => { err = ""; realErr = process.stderr.write; process.stderr.write = ((s: string | Uint8Array) => { err += String(s); return true; }) as typeof process.stderr.write; });
+  afterEach(() => { process.stderr.write = realErr; });
+  test("did you mean: suggests nearest subcommand, exit 2", async () => {
+    expect(await runControl(["statsu"], env)).toBe(2);
+    expect(err).toContain("unknown command 'statsu'");
+    expect(err).toContain("Did you mean 'status'?");
+    expect(err).toContain("Usage: loki control");
+  });
+  test("did you mean: no hint for a far-off word", async () => {
+    expect(await runControl(["zzzzzzzz"], env)).toBe(2);
+    expect(err).not.toContain("Did you mean");
+  });
+  test("did you mean: works through bin/loki", () => {
+    const r = spawnSync(join(import.meta.dir, "..", "..", "..", "bin", "loki"), ["control", "statsu"], { encoding: "utf8" });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("Did you mean 'status'?");
   });
 });

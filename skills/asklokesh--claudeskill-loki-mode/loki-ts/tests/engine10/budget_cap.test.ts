@@ -11,7 +11,7 @@ import { runMachine } from "../../src/engine10/machine.ts";
 import { EXIT, outcomeOf } from "../../src/engine10/output.ts";
 import { USAGE } from "../../src/engine10/cli.ts";
 import { engineArgv, START_USAGE, type ParsedStartOpts } from "../../src/commands/start.ts";
-import { buildProviderCost } from "../../src/providers/provider_cost.ts";
+import { buildProviderCost, writeProviderCost } from "../../src/providers/provider_cost.ts";
 import type { RunContext, Stage, StageName } from "../../src/engine10/types.ts";
 
 describe("cap resolution", () => {
@@ -20,6 +20,16 @@ describe("cap resolution", () => {
     expect(parseCapUsd("2.50")).toBe(2.5);
     expect(parseCapUsd("$7")).toBe(7);
     for (const bad of ["0", "-1", "abc", "", "1e3", "NaN"]) expect(parseCapUsd(bad)).toBeNull();
+  });
+  test("bare decimal cap: .5 and 5. are dollar caps, not null", () => {
+    expect(parseCapUsd(".5")).toBe(0.5);
+    expect(parseCapUsd("$.25")).toBe(0.25);
+    expect(parseCapUsd("5.")).toBe(5);
+    for (const bad of [".", "$.", "..5", "5..", ".0", "0."]) expect(parseCapUsd(bad)).toBeNull();
+    expect(resolveCap(".5", "/nonexistent-loki-repo", {})).toEqual({ usd: 0.5, source: "--max-cost" });
+    expect(resolveCap(null, "/nonexistent-loki-repo", { LOKI_BUDGET_LIMIT: "5." })).toEqual({ usd: 5, source: "env" });
+    expect(resolveCap(null, "/nonexistent-loki-repo", { LOKI_BUDGET_LIMIT: ".0" })).toEqual({ usd: 0, source: "subscription" });
+    expect(yamlPerRun("budgets:\n  per_run: .5\n")).toBe(0.5);
   });
   test("yamlPerRun reads budgets.per_run only", () => {
     expect(yamlPerRun("budgets:\n  per_run: 3.5\n  per_day: 50\n")).toBe(3.5);
@@ -41,6 +51,23 @@ describe("cap resolution", () => {
       expect(resolveCap("1.5", d, none)).toEqual({ usd: 1.5, source: "--max-cost" });
       expect(resolveCap("1.5", d, keyed)).toEqual({ usd: 1.5, source: "--max-cost" });
       expect("error" in resolveCap("zero", d, none)).toBe(true);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("unparseable env or yaml cap returns an error, 0 stays valid", () => {
+    const d = mkdtempSync(join(tmpdir(), "loki-cap-"));
+    try {
+      const keyed = { ANTHROPIC_API_KEY: "present" } as NodeJS.ProcessEnv;
+      for (const bad of ["5usd", "abc", "-3"]) {
+        const r = resolveCap(null, d, { ...keyed, LOKI_BUDGET_LIMIT: bad });
+        expect("error" in r && r.error.includes("LOKI_BUDGET_LIMIT")).toBe(true);
+      }
+      expect(resolveCap(null, d, { ...keyed, LOKI_BUDGET_LIMIT: "0" })).toEqual({ usd: 100, source: "default" });
+      expect(resolveCap(null, d, { ...keyed, LOKI_BUDGET_LIMIT: "" })).toEqual({ usd: 100, source: "default" });
+      writeFileSync(join(d, "loki.yaml"), "budgets:\n  per_run: 5usd\n");
+      const y = resolveCap(null, d, keyed);
+      expect("error" in y && y.error.includes("budgets.per_run")).toBe(true);
+      writeFileSync(join(d, "loki.yaml"), "budgets:\n  per_run: 0\n");
+      expect(resolveCap(null, d, keyed)).toEqual({ usd: 100, source: "default" });
     } finally { rmSync(d, { recursive: true, force: true }); }
   });
   test("start-line note names the cap", () => {
@@ -160,6 +187,29 @@ describe("a model with no known price is unmeasured, never priced by a guess or 
   });
 });
 
+describe("opencode estimate", () => {
+  test("a priced opencode model gets a size-estimate record", () => {
+    const rec = buildProviderCost("opencode", "gpt-5.3-codex", "do the thing please", "some opencode output");
+    expect(rec).not.toBeNull();
+    expect(rec!.estimated).toBe(true);
+    expect(rec!.cost_basis).toBe("size-estimate");
+    expect(typeof rec!.total_cost_usd).toBe("number");
+  });
+  test("an unpriced opencode model stays unmeasured with a reason", () => {
+    const rec = buildProviderCost("opencode", "totally-unknown-model-x", "do the thing please", "some opencode output");
+    expect(rec!.total_cost_usd).toBeNull();
+    expect(rec!.cost_basis).toBe("unpriced");
+  });
+  test("writeProviderCost writes the result-cost file for opencode", () => {
+    const d = mkdtempSync(join(tmpdir(), "oc-est-"));
+    try {
+      const dest = join(d, "metrics", "result-cost-1.json");
+      expect(writeProviderCost(dest, "opencode", "gpt-5.3-codex", "do the thing please", "some opencode output")).not.toBeNull();
+      expect(JSON.parse(readFileSync(dest, "utf8")).cost_basis).toBe("size-estimate");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
 describe("group env carries the resolved cap to unit children", () => {
   test("a positive cap is exported as LOKI_BUDGET_LIMIT without mutating the input", () => {
     const base = { PATH: "/bin" } as NodeJS.ProcessEnv;
@@ -228,6 +278,12 @@ describe("every start mode honors the one cap", () => {
     expect(runnerBudget(4, "/nonexistent", {}).usd).toBe(4);
     expect(runnerBudget(undefined, "/nonexistent", { ANTHROPIC_API_KEY: "x" } as NodeJS.ProcessEnv)).toEqual({ usd: DEFAULT_MAX_COST_USD, note: capNote(DEFAULT_MAX_COST_USD, "default") });
     expect(runnerBudget(undefined, "/nonexistent", {} as NodeJS.ProcessEnv)).toEqual({ usd: undefined, note: null });
+  });
+  test("runner keeps a dollar cap when LOKI_BUDGET_LIMIT is unparseable", () => {
+    const r = runnerBudget(undefined, "/nonexistent", { ANTHROPIC_API_KEY: "x", LOKI_BUDGET_LIMIT: "5usd" } as NodeJS.ProcessEnv);
+    expect(r.usd).toBe(DEFAULT_MAX_COST_USD);
+    expect(r.note).toContain("LOKI_BUDGET_LIMIT must be a positive number");
+    expect(runnerBudget(undefined, "/nonexistent", { LOKI_BUDGET_LIMIT: "5usd" } as NodeJS.ProcessEnv).usd).toBe(DEFAULT_MAX_COST_USD);
   });
   test("attempts split the total: 3 attempts on a $3 cap get $1 each", () => {
     expect(perAttemptCap(3, 3)).toBe(1);
@@ -359,6 +415,20 @@ for (let i = 0; i < ${per}; i++) m.emit("cost" as never, "x" as never, { usd: 0.
       const f = join(d, "s.ledger");
       writeFileSync(f, JSON.stringify({ usd: 2, seed: true }) + "\n" + JSON.stringify({ usd: 3, seed: true }) + "\n" + JSON.stringify({ usd: 0.5 }) + "\n");
       expect(ledgerSum(f)).toBe(2.5);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+describe("route key cap", () => {
+  test("route key cap: a model-route key counts as an API key", () => {
+    expect(hasApiKey({ OPENROUTER_API_KEY: "k" })).toBe(true);
+    expect(hasApiKey({ LOKI_MODEL_API_KEY: "k" })).toBe(true);
+    expect(hasApiKey({ OPENROUTER_API_KEY: "" })).toBe(false);
+    const d = mkdtempSync(join(tmpdir(), "loki-rk-"));
+    try {
+      expect(resolveCap(null, d, { OPENROUTER_API_KEY: "k" })).toEqual({ usd: DEFAULT_MAX_COST_USD, source: "default" });
+      expect(resolveCap(null, d, { LOKI_MODEL_API_KEY: "k" })).toEqual({ usd: DEFAULT_MAX_COST_USD, source: "default" });
+      expect(resolveCap(null, d, {})).toEqual({ usd: 0, source: "subscription" });
     } finally { rmSync(d, { recursive: true, force: true }); }
   });
 });

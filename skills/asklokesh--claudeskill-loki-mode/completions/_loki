@@ -32,6 +32,13 @@ function _loki {
                 export)
                     _arguments '--sarif[Write findings.sarif for a run]'
                     ;;
+                control)
+                    _arguments \
+                        '--port[Port for the control plane server]:port:' \
+                        '--json[Output as JSON]' \
+                        '--repo[Repository to backfill]:repo:_files -/' \
+                        '1:subcommand:(serve status help)'
+                    ;;
                 config)
                     _loki_config
                     ;;
@@ -73,6 +80,7 @@ function _loki {
                 doctor)
                     _arguments \
                         '--json[Output machine-readable JSON]' \
+                        '(-q --quiet)'{-q,--quiet}'[Print only failed and warned checks plus the summary]' \
                         '--fix[Create state dirs and a default config; offer claude install and login]' \
                         '--yes[With --fix: run the claude install and login without asking]' \
                         '--help[Show help]'
@@ -146,6 +154,14 @@ function _loki {
                         '--help[Show help]' \
                         '1:subcommand:(prometheus)'
                     ;;
+                report)
+                    _arguments \
+                        '--json[Machine-readable JSON output]' \
+                        '--since[Window for kpis (Nd or YYYY-MM-DD)]:since:' \
+                        '--efficiency[Include efficiency totals]' \
+                        '--help[Show help]' \
+                        '1:subcommand:(session metrics cost kpis export share dogfood)'
+                    ;;
                 share)
                     _arguments \
                         '--private[Create a secret gist]' \
@@ -163,6 +179,9 @@ function _loki {
                     ;;
                 completions)
                     _arguments '1:shell:(bash zsh install)'
+                    ;;
+                version)
+                    _arguments '--json[Print version, runtime and install path as JSON]' '--help[Show help]'
                     ;;
                 monitor)
                     _directories
@@ -184,6 +203,12 @@ function _loki {
                         '--allow-unanchored[Proceed when the receipt records no baseline]' \
                         '--health-url[Health probe URL]:url:' \
                         '--auto-rollback[Roll back on a failed health probe]' \
+                        '--help[Show help]'
+                    ;;
+                verify-pr)
+                    _arguments \
+                        '--out[Result directory]:dir:_files -/' \
+                        '--json[Print the verdict object on stdout]' \
                         '--help[Show help]'
                     ;;
                 verify)
@@ -305,7 +330,7 @@ function _loki_commands {
         'verify-pr:Verify a PR against its linked issue in a sandbox'
         'queue:Overnight issue queue with a morning digest'
         'issues:Run every open issue in a repo and open PRs'
-        'undo:Show what undoing a run would do (read-only plan; --dry-run adds the diffstat)'
+        'undo:Show what undoing a run would do (read-only plan; --dry-run adds the diffstat; --list shows recent runs)'
         'chat:Interactive chat session (run, attach)'
         'route:Print the engine, provider and model route without running'
         'edit:Make a scoped edit to files'
@@ -345,7 +370,7 @@ function _loki_commands {
         'bench:Run benchmarks'
         'open:Open a project resource'
         'rc:Release candidate commands'
-        'version:Show version'
+        'version:Show version (--json for machine-readable)'
         'completions:Output shell completions'
         'help:Show help'
     )
@@ -380,6 +405,7 @@ function _loki_start {
         '--skip-memory[Skip loading memory context]' \
         '--spec[Run against an edited spec file]:spec file:_files' \
         '--spec-first[Write an editable spec, then stop]' \
+        '--dry-run[Validate flags and preflight, print provider, model and cap, spend nothing]' \
         '--yes[Skip confirmation prompts]' \
         '-y[Skip confirmation prompts]' \
         '--budget[Cost budget limit in USD]:amount:' \
@@ -435,7 +461,7 @@ function _loki_provider {
     cmds=(
         'show:Display current provider'
         'set:Set default provider'
-        'list:List available providers'
+        'list:List available providers (--json: name, tier, installed, version)'
         'info:Get provider information (--json: capability contract)'
         'matrix:Show the capability matrix'
         'help:Provider help'

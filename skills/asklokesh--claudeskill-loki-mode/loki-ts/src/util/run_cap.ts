@@ -2,7 +2,7 @@
 // An explicit cap (LOKI_E10_CAP_S or loki.yaml budgets.run_cap_s) is fixed: never shrunk or grown, and it wins over the ceiling.
 import { lstatSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DEFAULT_CAP_S, envCapS } from "../engine10/types.ts";
+import { DEFAULT_CAP_S, envCapS, warnBadCap } from "../engine10/types.ts";
 import { dependentsOf } from "../project_model/graph.ts";
 import type { ProjectApi } from "../project_model/api.ts";
 import { lokiYamlTexts, yamlKey } from "./yaml_key.ts";
@@ -50,13 +50,18 @@ export function resizeCap(runDir: string, api: ProjectApi | null, subscription: 
 }
 /** budgets.run_cap_s from loki.yaml text (a two-level read, like budgets.per_run). */
 export function yamlRunCapS(text: string): number | null {
-  const v = Number(yamlKey(text, "budgets", "run_cap_s"));
-  return Number.isInteger(v) && v > 0 ? v : null;
+  const raw = yamlKey(text, "budgets", "run_cap_s");
+  if (raw === null || raw.trim() === "") return null;
+  const v = Number(raw);
+  if (Number.isInteger(v) && v > 0) return v;
+  warnBadCap("budgets.run_cap_s", raw);
+  return null;
 }
 /** The cap the run starts with: a fixed cap if one is set, else DEFAULT_CAP_S (no plan exists yet; the worker resizes once after plan). Best effort: unreadable yaml falls back to the default. */
 export function resolveRunCapS(repoDir: string, subscription: boolean, env: NodeJS.ProcessEnv = process.env): { capS: number; fixedS?: number; ceilingS: number } {
   const texts = lokiYamlTexts(repoDir);
-  const yamlS = texts.length > 0 ? yamlRunCapS(texts[texts.length - 1]!) : null; // the last readable file wins
+  const first = texts.find((t) => yamlKey(t, "budgets", "run_cap_s") !== null); // the first file that sets the key wins, like resolveCap
+  const yamlS = first !== undefined ? yamlRunCapS(first) : null;
   const fixedS = fixedCapS(envCapS(env.LOKI_E10_CAP_S) ?? undefined, yamlS);
   return { capS: fixedS ?? DEFAULT_CAP_S, fixedS, ceilingS: fixedS ?? capCeilingS(subscription) };
 }

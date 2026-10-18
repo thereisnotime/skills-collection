@@ -1,6 +1,6 @@
 // CLI-MODERN-2: `loki status` on the Loki 10 engine. Reads only .loki/runs/<id>/events.jsonl (the
 // engine's own record), never STATUS.txt or any legacy state.
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { discoverControlUrl } from "../../../packages/control-plane/src/shipper/discover.ts";
 import { fold, readEvents } from "../engine10/events.ts";
@@ -8,6 +8,8 @@ import { formatDuration } from "../engine10/output.ts";
 import type { EventEnvelope } from "../engine10/types.ts";
 import { STALE_S, controlRunLink, workItemBlockers, workItemId, workItemState, type WorkItemState } from "../util/run_outputs.ts";
 import { readRunControl, writeRunControl, type RunControlAction } from "../util/run_control.ts";
+import { readRunPid, runOwnerAlive } from "../util/run_pid.ts";
+import { isRunId } from "./undo.ts";
 import { INTENT_ANSWER_FILE, renderIntent } from "../util/intent_card.ts";
 
 export const NO_RUN_HINT = "No Loki 10 runs here yet. Start one with: loki \"<task>\" or loki owner/repo#N";
@@ -88,17 +90,18 @@ export function summarize(runId: string, events: EventEnvelope[], root: string, 
   };
 }
 
-/** The live run if one is recent, else the newest run; null when there are none. */
-export function pickRun(root: string, nowMs: number): { id: string; events: EventEnvelope[] } | null {
-  const ids = listRunIds(root).reverse();
-  let newest: { id: string; events: EventEnvelope[] } | null = null;
-  for (const id of ids) {
-    const events = readEvents(eventsPath(root, id));
-    if (events.length === 0) continue;
-    newest ??= { id, events };
-    if (!events.some((e) => e.type === "run.completed") && nowMs - lastTs(events) <= STALE_S * 1000) return { id, events };
+/** The live run if one is recent, else the newest run; null when there are none. Runs are ordered by events.jsonl mtime and only the newest non-empty file is read (a live run always has the newest mtime). */
+export function pickRun(root: string, _nowMs: number): { id: string; events: EventEnvelope[] } | null {
+  const ranked: Array<{ id: string; mtime: number }> = [];
+  for (const id of listRunIds(root)) {
+    try { ranked.push({ id, mtime: statSync(eventsPath(root, id)).mtimeMs }); } catch { /* no events file */ }
   }
-  return newest;
+  ranked.sort((x, y) => y.mtime - x.mtime || (x.id < y.id ? 1 : -1));
+  for (const { id } of ranked) {
+    const events = readEvents(eventsPath(root, id));
+    if (events.length > 0) return { id, events };
+  }
+  return null;
 }
 
 export function render(s: ModernStatus): string {
@@ -134,17 +137,20 @@ export async function runModernStatus(argv: readonly string[], env: NodeJS.Proce
   if (argv.includes("--probe")) return (await import("./status.ts")).runStatus(["--probe"]);
   let json = false;
   let wanted: string | null = null;
+  const usage = "Usage: loki status [run-id] [--json|--badge|--probe]\n";
   for (const a of argv) {
     if (a === "--json") json = true;
     else if (!a.startsWith("-") && wanted === null) wanted = a;
-    else if (a === "--help" || a === "-h") { process.stdout.write("Usage: loki status [run-id] [--json|--badge|--probe]\n  Shows the current or latest Loki 10 run.\n"); return 0; }
-    else { process.stderr.write(`loki status: unknown flag ${a}\nUsage: loki status [--json]\n`); return 1; }
+    else if (!a.startsWith("-")) { process.stderr.write(`loki status: too many arguments: expected one run id\n${usage}`); return 1; }
+    else if (a === "--help" || a === "-h") { process.stdout.write(`${usage}  Shows the current or latest Loki 10 run.\n`); return 0; }
+    else { process.stderr.write(`loki status: unknown flag ${a}\n${usage}`); return 1; }
   }
   const repoDir = env.LOKI_E10_REPO_DIR ?? process.cwd();
   const root = runsRoot(env, repoDir);
   const now = Date.now();
   let hit = pickRun(root, now);
   if (wanted !== null) {
+    if (!isRunId(wanted)) { process.stderr.write(`loki status: invalid run id '${wanted}'\n`); return 2; }
     const events = readEvents(eventsPath(root, wanted));
     if (events.length === 0) { process.stderr.write(`loki status: no events for run ${wanted}\n`); return 1; }
     hit = { id: wanted, events };
@@ -167,6 +173,7 @@ export async function runModernStatus(argv: readonly string[], env: NodeJS.Proce
 export async function runIntentShow(argv: readonly string[], env: NodeJS.ProcessEnv = process.env): Promise<number> {
   const [sub, id] = argv;
   if (sub !== "show" || !id) { process.stderr.write("Usage: loki intent show <run-id>\n"); return 1; }
+  if (!isRunId(id)) { process.stderr.write(`loki intent: invalid run id '${id}'\n`); return 2; }
   const root = runsRoot(env, env.LOKI_E10_REPO_DIR ?? process.cwd());
   const events = readEvents(eventsPath(root, id));
   if (events.length === 0) { process.stderr.write(`loki intent: no such run ${id}\n`); return 1; }
@@ -187,8 +194,12 @@ export async function runIntentShow(argv: readonly string[], env: NodeJS.Process
 /** `loki pause|resume|cancel`: writes the request into the newest run dir; the engine acts at the next stage boundary (P12-10).
  * A finished run takes no request, and resume needs a pending pause, so the bash CLI can fall through to the legacy session verbs. */
 export function runControlVerb(verb: RunControlAction, env: NodeJS.ProcessEnv = process.env, repoDir: string = env.LOKI_E10_REPO_DIR ?? process.cwd()): number {
-  const root = runsRoot(env, repoDir), id = latestRunId(root);
-  if (id === null) { process.stderr.write(`loki ${verb}: ${NO_RUN_HINT}\n`); return 1; }
+  const root = runsRoot(env, repoDir), latest = latestRunId(root);
+  if (latest === null) { process.stderr.write(`loki ${verb}: ${NO_RUN_HINT}\n`); return 1; }
+  // Prefer the newest run whose recorded supervisor is alive; a recorded but dead owner cannot act on a request.
+  const live = listRunIds(root).reverse().find((r) => runOwnerAlive(join(root, r)));
+  const id = live ?? latest;
+  if (live === undefined && readRunPid(join(root, id)) !== null) { process.stderr.write(`loki ${verb}: no live run (supervisor of ${id} is gone)\n`); return 1; }
   if (readEvents(eventsPath(root, id)).some((e) => e.type === "run.completed")) { process.stderr.write(`loki ${verb}: run ${id} already finished; nothing to ${verb}\n`); return 1; }
   if (verb === "resume" && readRunControl(join(root, id)) !== "pause") { process.stderr.write(`loki resume: run ${id} is not paused\n`); return 1; }
   writeRunControl(join(root, id), verb);

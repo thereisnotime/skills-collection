@@ -82,6 +82,18 @@ describe("shouldSkipUpdateCheck", () => {
     process.env["LOKI_NO_UPDATE_CHECK"] = "1";
     expect(shouldSkipUpdateCheck()).toBe(true);
   });
+  it("opt out true and yes also skip", async () => {
+    await withTTY(true, async () => {
+      delete process.env["CI"];
+      expect(shouldSkipUpdateCheck()).toBe(false);
+      for (const v of ["1", "true", "TRUE", "yes"]) {
+        process.env["LOKI_NO_UPDATE_CHECK"] = v;
+        expect(shouldSkipUpdateCheck()).toBe(true);
+      }
+      process.env["LOKI_NO_UPDATE_CHECK"] = "0";
+      expect(shouldSkipUpdateCheck()).toBe(false);
+    });
+  });
   it("skips in CI", () => {
     process.env["CI"] = "true";
     expect(shouldSkipUpdateCheck()).toBe(true);
@@ -127,11 +139,35 @@ describe("resolveLatest caching", () => {
     expect(calls).toBe(2);
   });
 
-  it("returns null and writes no cache when the fetcher fails (offline)", async () => {
+  it("returns null when the fetcher fails (offline)", async () => {
     const fetcher = async () => null;
     const got = await resolveLatest(3_000_000, fetcher, cacheFile);
     expect(got).toBeNull();
-    expect(existsSync(cacheFile)).toBe(false);
+  });
+
+  it("negative cache: a failed fetch is not retried within 15 min, then is", async () => {
+    let calls = 0;
+    const fetcher = async () => {
+      calls++;
+      return null;
+    };
+    const t0 = 4_000_000;
+    expect(await resolveLatest(t0, fetcher, cacheFile)).toBeNull();
+    expect(calls).toBe(1);
+    expect(await resolveLatest(t0 + 60_000, fetcher, cacheFile)).toBeNull();
+    expect(calls).toBe(1);
+    expect(await resolveLatest(t0 + 15 * 60_000 + 1, fetcher, cacheFile)).toBeNull();
+    expect(calls).toBe(2);
+  });
+
+  it("negative cache: success after the window still caches normally", async () => {
+    let calls = 0;
+    const fetcher = async () => (++calls === 1 ? null : "7.99.0");
+    const t0 = 5_000_000;
+    await resolveLatest(t0, fetcher, cacheFile);
+    expect(await resolveLatest(t0 + 16 * 60_000, fetcher, cacheFile)).toBe("7.99.0");
+    expect(await resolveLatest(t0 + 17 * 60_000, fetcher, cacheFile)).toBe("7.99.0");
+    expect(calls).toBe(2);
   });
 });
 
@@ -150,6 +186,27 @@ describe("maybePrintUpdateHint", () => {
     expect(lines[0]).toContain("A newer Loki Mode is available: 7.99.0 (you have 7.88.0)");
     expect(lines[0]).toContain("bun install -g loki-mode");
     expect(lines[0]!.endsWith("\n")).toBe(true);
+  });
+
+  it("picks the update hint from the install path", async () => {
+    const hint = async (installPath: string) => {
+      const lines: string[] = [];
+      await withTTY(true, async () => {
+        await maybePrintUpdateHint("7.88.0", {
+          now: 10_500_000,
+          fetcher: async () => "7.99.0",
+          write: (m) => lines.push(m),
+          cacheFile,
+          installPath,
+        });
+      });
+      return lines[0] ?? "";
+    };
+    expect(await hint("/opt/homebrew/Cellar/loki-mode/1/bin/loki")).toContain("brew upgrade loki-mode");
+    expect(await hint("/usr/local/lib/node_modules/loki-mode/bin/loki")).toContain("Update: npm i -g loki-mode");
+    expect(await hint("/opt/homebrew/lib/node_modules/loki-mode/bin/loki")).toContain("Update: npm i -g loki-mode");
+    expect(await hint("/Users/a/.bun/install/global/node_modules/loki-mode/x")).toContain("Update: bun install -g loki-mode");
+    expect(await hint("/src/loki")).toContain("Update: bun install -g loki-mode");
   });
 
   it("prints nothing when already on the latest version", async () => {
@@ -211,6 +268,33 @@ describe("maybePrintUpdateHint", () => {
 // install they had just run. A leftover ~/.local/bin/loki symlink into an old
 // npm-global tree was shadowing ~/.bun/bin/loki on PATH. Reinstalling updates a
 // copy PATH never reaches, so the advice sent them round a loop with no exit.
+describe("updateCommandFor via maybePrintUpdateHint", () => {
+  it("pnpm yarn hint", async () => {
+    const hint = async (installPath: string) => {
+      const lines: string[] = [];
+      const dir = mkdtempSync(join(tmpdir(), "loki-upd-"));
+      try {
+        await withTTY(true, async () => {
+          await maybePrintUpdateHint("7.88.0", {
+            now: 10_500_000,
+            fetcher: async () => "7.99.0",
+            write: (m) => lines.push(m),
+            cacheFile: join(dir, "update-check.json"),
+            installPath,
+          });
+        });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+      return lines.find((l) => l.includes("Update:")) ?? "";
+    };
+    expect(await hint("/Users/a/Library/pnpm/global/5/node_modules/loki-mode/bin/loki")).toContain("Update: pnpm add -g loki-mode");
+    expect(await hint("/home/a/.local/share/pnpm/global/5/.pnpm/loki-mode@1/node_modules/loki-mode/x")).toContain("Update: pnpm add -g loki-mode");
+    expect(await hint("/Users/a/.config/yarn/global/node_modules/loki-mode/bin/loki")).toContain("Update: yarn global add loki-mode");
+    expect(await hint("/Users/a/.bun/install/global/node_modules/loki-mode/x")).toContain("Update: bun install -g loki-mode");
+  });
+});
+
 describe("shadowed install detection", () => {
   // Build a fake PATH with two package layouts: <dir>/loki -> <pkg>/bin/loki,
   // with <pkg>/package.json carrying the version.

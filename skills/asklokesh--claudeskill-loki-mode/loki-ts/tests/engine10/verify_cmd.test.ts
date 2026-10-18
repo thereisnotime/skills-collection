@@ -10,6 +10,7 @@ import { sealedLog } from "./log_fixture.ts";
 import { createHash, generateKeyPairSync, sign as nodeSign, type KeyObject } from "node:crypto";
 import { kidOf } from "../../src/engine10/stages/seal.ts";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { computeReceiptHash, main, verifyReceipt } from "../../src/engine10/verify_cmd.ts";
@@ -1460,7 +1461,7 @@ describe("main() agent-independent evidence (TEN-GATES-03)", () => {
       expect(r.out).not.toContain("gate typecheck");
       const j = await runBoth(["gx9", "--json"], s.runs);
       expect(j.code).toBe(1);
-      expect(JSON.parse(j.out)).toEqual({ run_id: "gx9", verdict: "TAMPERED", exit_code: 1, gates: null });
+      expect(JSON.parse(j.out)).toEqual({ run_id: "gx9", run: "gx9", verdict: "TAMPERED", exit_code: 1, receipt_sha256: null, reasons: expect.any(Array), agent_independent: null, gates: null });
     } finally { done(s.dir, s.home); }
   });
 
@@ -1481,5 +1482,79 @@ describe("main() agent-independent evidence (TEN-GATES-03)", () => {
       expect(r.out).toContain("  gate t?[2Jx: exogenous (provenance exogenous), result pass, n 1, evidence: a?verdict: VERIFIED\n");
       expect(r.out).not.toContain("\u001b");
     } finally { done(s.dir, s.home); }
+  });
+
+  test("verify json: unsigned receipt doc carries run, receipt_sha256, reasons and agent_independent; exit code and plain text unchanged", async () => {
+    const dir = tmpDir();
+    try {
+      const f = baseReceiptFields(); f["run_id"] = "vj1"; f["checks"] = [chk("a", "exogenous"), chk("b", "agent_authored"), chk("c", "independent", "fail")];
+      const hash = computeReceiptHash(f), rd = join(dir, "runs", "vj1"); mkdirSync(rd, { recursive: true });
+      writeFileSync(join(rd, "receipt.json"), JSON.stringify({ ...f, receipt_sha256: hash, verification: { jwt: null, kid: null } }));
+      const roots = join(dir, "runs"), plainBefore = await runBoth(["vj1", "--allow-unsigned"], roots);
+      const j = await runBoth(["vj1", "--allow-unsigned", "--json"], roots);
+      expect(j.code).toBe(plainBefore.code);
+      expect(j.err).toBe(plainBefore.out); // human text is byte identical, moved to stderr
+      const doc = JSON.parse(j.out) as Record<string, unknown>;
+      expect(doc["run"]).toBe("vj1"); expect(doc["run_id"]).toBe("vj1");
+      expect(doc["verdict"]).toBe("UNSIGNED"); expect(doc["receipt_sha256"]).toBe(hash);
+      expect(doc["reasons"]).toEqual([]);
+      expect(doc["agent_independent"]).toEqual({ k: 1, of: 2 });
+    } finally { done(dir); }
+  });
+
+  test("verify json: tampered receipt has null agent_independent and a reason; exit 1", async () => {
+    const dir = tmpDir();
+    try {
+      writeUnsignedReceipt(dir, "vj2", (r) => { r["provider"] = "forged"; });
+      const j = await runBoth(["vj2", "--json"], join(dir, "runs"));
+      const doc = JSON.parse(j.out) as { verdict: string; reasons: string[]; agent_independent: unknown; receipt_sha256: unknown };
+      expect(j.code).toBe(1); expect(doc.verdict).toBe("TAMPERED");
+      expect(doc.agent_independent).toBeNull(); expect(doc.receipt_sha256).toBeNull();
+      expect(doc.reasons[0]).toContain("receipt_sha256 mismatch");
+    } finally { done(dir); }
+  });
+
+  test("verify json: real CLI dispatcher (src/cli.ts engine10 verify) prints one JSON doc on stdout", () => {
+    const dir = tmpDir();
+    try {
+      writeUnsignedReceipt(dir, "vj3");
+      const r = spawnSync(process.execPath, [join(__dirname, "../../src/cli.ts"), "engine10", "verify", "vj3", "--allow-unsigned", "--json"], { encoding: "utf8", cwd: dir, env: { ...process.env, LOKI_DIR: dir } });
+      expect(r.status).toBe(0);
+      const doc = JSON.parse(r.stdout) as { run: string; verdict: string; agent_independent: { k: number; of: number } };
+      expect(doc.run).toBe("vj3"); expect(doc.verdict).toBe("UNSIGNED"); expect(doc.agent_independent).toEqual({ k: 0, of: 1 });
+    } finally { done(dir); }
+  });
+
+  test("unknown flag and extra id exit 2 with a usage line, never a receipt verdict", async () => {
+    for (const a of [["--bogus"], ["run-a", "run-b"], ["run-a", "--bogus"]]) {
+      const r = await runBoth(a, "/nonexistent-runs");
+      expect(r.code).toBe(2);
+      expect(r.out).toBe("");
+      expect(r.err).toContain("Usage: loki verify [run-id]");
+    }
+  });
+});
+
+// TEN-GATES-28: keys export read args[0] only, so `export extra --bogus` printed the key and exited 0.
+describe("keys export rejects extra args (TEN-GATES-28)", () => {
+  const CLI = resolve(import.meta.dir, "../../src/cli.ts");
+  function keysCli(args: string[]): { code: number; out: string; err: string } {
+    const home = mkdtempSync(join(tmpdir(), "loki-run-k28-"));
+    try {
+      const r = spawnSync("bun", [CLI, "engine10", "keys", ...args], { env: { ...process.env, HOME: home, LOKI_RECEIPT_SIGNING_KEY_FILE: "" }, encoding: "utf8", timeout: 60000 });
+      return { code: r.status ?? -1, out: r.stdout, err: r.stderr };
+    } finally { rmSync(home, { recursive: true, force: true }); }
+  }
+  test("keys export extra --bogus exits 2 with the usage line and prints no key", () => {
+    for (const a of [["export", "extra"], ["export", "extra", "--bogus"], ["export", "--bogus"]]) {
+      const r = keysCli(a);
+      expect(r.code).toBe(2);
+      expect(r.out).toBe("");
+      expect(r.err).toContain("Usage: loki keys export");
+    }
+  });
+  test("export alone, --help and -h are unchanged", () => {
+    expect(keysCli(["export"]).code).toBe(66);
+    for (const h of ["--help", "-h"]) { const r = keysCli([h]); expect(r.code).toBe(0); expect(r.err).toContain("Usage: loki keys export"); }
   });
 });

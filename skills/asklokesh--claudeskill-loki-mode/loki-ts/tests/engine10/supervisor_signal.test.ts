@@ -45,7 +45,7 @@ process.exit(r.outcome === "CANCELLED" ? (r.notProven.some((n) => n.endsWith("SI
   expect(git(dir, "branch", "--show-current")).toBe("loki/e10-sig");
   sup.kill(sig);
   const code = await exited;
-  expect(code).toBe(sig === "SIGINT" ? 130 : 143);
+  expect(code).toBe(sig === "SIGTERM" ? 143 : 130);
   await new Promise((r) => setTimeout(r, 300));
   if (dirty) {
     expect(git(dir, "branch", "--show-current")).toBe("loki/e10-sig");
@@ -61,6 +61,7 @@ process.exit(r.outcome === "CANCELLED" ? (r.notProven.some((n) => n.endsWith("SI
 describe("supervisor stop signals", () => {
   test("SIGINT returns to the starting branch and leaves no orphans", () => run("SIGINT"), 30000);
   test("SIGTERM with an uncommitted run edit stays on the run branch and keeps the edit", () => run("SIGTERM", true), 30000);
+  test("sighup (terminal closed) returns to the starting branch and leaves no orphans", () => run("SIGHUP"), 30000);
   test("SIGTERM returns to the starting branch and leaves no orphans", () => run("SIGTERM"), 30000);
 });
 
@@ -289,4 +290,18 @@ describe("loki cancel on a live run", () => {
     expect(types).not.toContain("pr.opened");
     expect(out).toContain("CANCELLED");
   }, 150_000);
+});
+
+describe("supervisor main flag values", () => {
+  test("missing flag value: --spec or --max-cost with no value exits 2 with a needs-a-value line, via the real CLI", async () => {
+    const plain = mkdtempSync(join(tmpdir(), "e10-mfv-"));
+    roots.push(plain);
+    const CLI = join(import.meta.dir, "../../src/cli.ts");
+    for (const [flag, args] of [["--spec", ["task", "--spec"]], ["--max-cost", ["task", "--max-cost"]], ["--spec", ["task", "--spec", "--deep"]], ["--max-cost", ["task", "--max-cost", ""]]] as [string, string[]][]) {
+      const p = Bun.spawn([process.execPath, CLI, "engine10", "run", ...args], { cwd: plain, env: process.env, stdout: "ignore", stderr: "pipe" });
+      const err = await new Response(p.stderr).text();
+      expect(await p.exited).toBe(2);
+      expect(err).toContain(`${flag} needs a value`);
+    }
+  }, 60_000);
 });

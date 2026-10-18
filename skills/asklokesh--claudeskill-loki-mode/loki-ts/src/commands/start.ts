@@ -13,16 +13,25 @@
 // (--compliance, mirofish) are rejected loudly and documented. See
 // artifacts/ITER1-FLAG-RECONCILE.md.
 
+import { accessSync, constants as fsConstants, existsSync as pathExists, statSync } from "node:fs";
 import { DEFAULT_MAX_COST_USD } from "../e10ext/budget_cap.ts"; // LM-002: help states the real default
 import type { ProviderName, SessionTier } from "../runner/types.ts";
-import { tokenFreeEnv } from "../util/safe_git.ts";
+import { tokenFreeEnv, safeGitRun } from "../util/safe_git.ts";
 import { REPO_ROOT } from "../util/paths.ts";
 import { applyCostProfile, COST_PROFILES } from "../util/cost_profile.ts";
 import { lokiYamlTexts, yamlKey } from "../util/yaml_key.ts";
+import { suggestWord } from "../cli/registry.ts";
+import { VALID_PROVIDERS } from "../runner/router/cost_preview.ts";
 
 function argVal(args: readonly string[], flag: string): string | undefined {
-  const i = args.indexOf(flag);
-  return i >= 0 && i + 1 < args.length ? args[i + 1] : undefined;
+  // First occurrence wins; both "--flag value" and "--flag=value" forms (TEN-COST-35).
+  const eq = `${flag}=`;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i] as string;
+    if (a === flag) return i + 1 < args.length ? args[i + 1] : undefined;
+    if (a.startsWith(eq)) return a.slice(eq.length);
+  }
+  return undefined;
 }
 
 // RUNNER value-flags: consume the next token, map to a ParsedStartOpts field.
@@ -44,6 +53,10 @@ const VALUE_FLAGS = new Set([
   "--cline-model",
   "--cost", // TEN-COST-01: cost profile (lean|off); also LOKI_COST_PROFILE
 ]);
+
+// TEN-STABILITY-33: free-text value flags. A missing, empty or dash-leading value is an error (use --flag=-x for a dash-leading value).
+// TEN-UX-48: --provider, --session-model, --cost and --spec take a required value too.
+const TEXT_VALUE_FLAGS = new Set(["--prd", "--brief", "--completion-promise", "--aider-model", "--aider-flags", "--cline-model", "--provider", "--session-model", "--cost", "--spec"]);
 
 // RUNNER boolean env-mapping flags: no value token; set an env var the runner
 // already reads (or, for --skip-memory, now reads -- see build_prompt/runner).
@@ -92,7 +105,6 @@ function hasSpecFlag(args: readonly string[]): boolean {
   return args.some((a) => a === "--spec" || a.startsWith("--spec=") || a === "--spec-first");
 }
 
-const VALID_PROVIDERS = new Set(["claude", "codex", "cline", "aider", "opencode"]);
 // The session-pin values run.sh's LOKI_SESSION_MODEL case accepts: the three
 // tier names plus the Claude aliases (opus is the top-only setting; bash
 // dispatches it as opus, not as the sonnet-defaulted planning tier).
@@ -117,6 +129,7 @@ function acceptedFlags(attemptsMode: boolean, specMode = false): Set<string> {
   for (const k of specMode ? SPEC_NOOP_BOOL_FLAGS : attemptsMode ? ATTEMPTS_NOOP_BOOL_FLAGS : NOOP_BOOL_FLAGS) s.add(k);
   s.add("--help");
   s.add("-h");
+  s.add("--dry-run");
   return s;
 }
 
@@ -139,6 +152,7 @@ export interface ParsedStartOpts {
   attempts?: number; // set only by --attempts; selects the engine10 attempts path
   specPath?: string; // SPEC-FIRST-INTENT: --spec FILE, forwarded to engine10
   specFirst?: boolean; // --spec-first: write the spec for editing and stop
+  dryRun?: boolean; // TEN-UX-45: validate, preflight, print provider/model/cap, exit 0 without a run
   noPr?: boolean; // --attempts / --spec only: forwarded to engine10; absent = normal PR behavior
 }
 
@@ -148,13 +162,14 @@ export const START_USAGE =
   "                        [--completion-promise TEXT] [--base-wait S] [--max-wait S]\n" +
   "                        [--prd FILE | --brief TEXT] [--simple|--complex] [--allow-haiku]\n" +
   "                        [--regen-prd] [--skip-memory] [--cost lean|off]\n" +
-  "                        [--spec FILE | --spec-first]\n" +
+  "                        [--spec FILE | --spec-first] [--dry-run]\n" +
   "                        [--workspace NAME | --deploy [--health-url URL [--health-match STR]] [--auto-rollback]\n" +
   "                                  [--destination preview|staging|production] [--canary] [--env-file FILE] [--domain HOST] [--github]]\n" +
   "  <spec> = a PRD path, or a one-line brief. (Issue refs / --github / --parallel /\n" +
   "  --sandbox, opencode, and other shell-adapter paths run on the bash route automatically.)\n" +
   "  --workspace NAME  run the loki.yaml workspace NAME for the brief; --deploy deploys after the run through the gated loki deploy --execute\n" +
   "  --cost lean   opt-in cost profile (also LOKI_COST_PROFILE=lean): sets LOKI_IMPLEMENT_HAIKU_FIRST=1, LOKI_E10_TRIM=1, LOKI_E10_SMALL_NO_RUNNER=1 and LOKI_E10_SMALL_MAX_CHARS=1200 unless already set; recorded in .loki/cost-profile.json\n" +
+  "  --dry-run     validate every flag, run the preflight and print the provider, model and cost cap this run would use, then exit 0 without spending a token\n" +
   "  --spec-first  write the acceptance criteria to .loki/specs/<slug>.md and stop, so you can edit them\n" +
   "  --spec FILE   run Loki 10 against an edited spec as the authoritative intent (a spec that does not parse exits 2 with the line)\n" +
   `  --budget-limit USD  per-run spend cap (default $${DEFAULT_MAX_COST_USD}; Loki 10 applies it with an API key and none on a subscription; see docs/cost-controls.md)\n` +
@@ -197,6 +212,8 @@ export function parseStartArgs(
   // `--` ends options: the next token is the spec regardless of leading dashes.
   let spec: string | undefined;
   let endOfOpts = false;
+  const seenValueFlags = new Set<string>();
+  const valueFlagSet = specMode ? SPEC_VALUE_FLAGS : attemptsMode ? ATTEMPTS_VALUE_FLAGS : VALUE_FLAGS;
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (!a) continue;
@@ -216,11 +233,18 @@ export function parseStartArgs(
           err("Runner and orchestration flags were only honored by the legacy loop; remove them or drop --attempts.\n");
           return 2;
         }
-        err(`start: flag ${name} is not supported by the Bun (LOKI_SDK_LOOP) runner.\n`);
-        err(
-          "Orchestration flags (--parallel, --github, --issue, --sandbox, --api, --bg, mirofish) run on the bash route automatically; if you reached this, run without LOKI_SDK_LOOP.\n",
-        );
+        const near = suggestWord(name, [...accepted].filter((f) => f.startsWith("--")));
+        err(`start: flag ${name} is not supported by loki start.${near ? ` Did you mean ${near}?` : ""}\n`);
+        err("Run 'loki start --help' to see the supported flags.\n");
         return 2;
+      }
+      // TEN-UX-56: a repeated single-value flag is refused, never silently first-wins.
+      if (valueFlagSet.has(name)) {
+        if (seenValueFlags.has(name)) {
+          err(`start: ${name} was given more than once; pass it a single time\n`);
+          return 2;
+        }
+        seenValueFlags.add(name);
       }
       const boolEnv = BOOL_ENV_FLAGS.get(name);
       if (boolEnv) {
@@ -228,6 +252,14 @@ export function parseStartArgs(
         continue;
       }
       if ((specMode ? SPEC_NOOP_BOOL_FLAGS : attemptsMode ? ATTEMPTS_NOOP_BOOL_FLAGS : NOOP_BOOL_FLAGS).has(name)) continue;
+      if (TEXT_VALUE_FLAGS.has(name)) {
+        const inline = a.includes("=");
+        const v = inline ? a.slice(a.indexOf("=") + 1) : args[i + 1];
+        if (v === undefined || v === "" || (!inline && v.startsWith("-"))) {
+          err(`start: ${name} needs a value, got ${v === undefined ? "nothing" : v === "" ? "an empty value" : `'${v}'`} (use ${name}=VALUE for a dash-leading value)\n`);
+          return 2;
+        }
+      }
       // value-flag: skip its value token (unless inline --flag=value)
       if ((specMode ? SPEC_VALUE_FLAGS : attemptsMode ? ATTEMPTS_VALUE_FLAGS : VALUE_FLAGS).has(name) && !a.includes("=")) i++;
       continue;
@@ -243,6 +275,15 @@ export function parseStartArgs(
   const specFirst = args.includes("--spec-first");
   if (specFlag !== undefined && specFirst) {
     err("start: --spec and --spec-first cannot be combined\n");
+    return 2;
+  }
+  // TEN-UX-32: two or more different spec sources are refused, never silently dropped.
+  const sources: Array<[string, string]> = [];
+  if (spec !== undefined) sources.push(["positional spec", spec]);
+  if (prdFlag !== undefined) sources.push(["--prd", prdFlag]);
+  if (briefFlag !== undefined) sources.push(["--brief", briefFlag]);
+  if (new Set(sources.map(([, v]) => v)).size > 1) {
+    err(`start: conflicting spec sources, pick one: ${sources.map(([n, v]) => `${n} ${JSON.stringify(v)}`).join(", ")}\n`);
     return 2;
   }
   const resolvedSpec = prdFlag ?? briefFlag ?? spec ?? (specFlag !== undefined ? "" : undefined);
@@ -262,7 +303,7 @@ export function parseStartArgs(
 
   const providerRaw = argVal(args, "--provider");
   if (providerRaw && !VALID_PROVIDERS.has(providerRaw)) {
-    err(`start: unknown --provider '${providerRaw}'\n`);
+    err(`start: unknown --provider '${providerRaw}' (use one of: ${[...VALID_PROVIDERS].join(", ")})\n`);
     return 2;
   }
   // Generic capability vocabulary (small|medium|high) is translated onto the
@@ -301,8 +342,25 @@ export function parseStartArgs(
     return 2;
   }
 
+  // TEN-COST-36: a present numeric flag with a missing, non-numeric, zero or negative value is an error, not a silent default.
+  for (const f of ["--max-iterations", "--max-retries", "--budget-limit", "--budget", "--base-wait", "--max-wait"]) {
+    if (!accepted.has(f) || !args.some((a) => a === f || a.startsWith(`${f}=`))) continue;
+    const v = argVal(args, f);
+    if (posNum(v) === undefined) {
+      err(`start: ${f} must be a positive number, got '${v ?? ""}'\n`);
+      return 2;
+    }
+  }
+
   // --budget is an alias of --budget-limit (bash divergence closed).
-  const budget = posNum(argVal(args, "--budget-limit") ?? argVal(args, "--budget"));
+  // TEN-COST-43: both spellings with different values is an error, never first-wins.
+  const bl = argVal(args, "--budget-limit");
+  const bb = argVal(args, "--budget");
+  if (bl !== undefined && bb !== undefined && posNum(bl) !== posNum(bb)) {
+    err(`start: conflicting budget flags, pick one: --budget-limit ${bl}, --budget ${bb}\n`);
+    return 2;
+  }
+  const budget = posNum(bl ?? bb);
 
   let attempts: number | undefined;
   if (attemptsMode) {
@@ -317,6 +375,7 @@ export function parseStartArgs(
   return {
     ...(attempts !== undefined ? { attempts } : {}),
     ...((attemptsMode || specMode) && args.includes("--no-pr") ? { noPr: true } : {}),
+    ...(args.includes("--dry-run") ? { dryRun: true } : {}),
     ...(specFlag ? { specPath: specFlag } : {}),
     ...(specFirst ? { specFirst: true } : {}),
     prdPath: resolvedSpec,
@@ -329,6 +388,20 @@ export function parseStartArgs(
     baseWaitSeconds: posNum(argVal(args, "--base-wait")),
     maxWaitSeconds: posNum(argVal(args, "--max-wait")),
   };
+}
+
+/** TEN-STABILITY-30: a path-shaped spec (or any --prd value) that does not exist is an error, never a paid run on the path string as an inline brief. Issue refs, URLs and multi-word briefs are not path-shaped. Returns the message, or null. */
+export function missingPrdMessage(args: readonly string[], spec: string, exists: (p: string) => boolean = pathExists): string | null {
+  if (spec === "") return null;
+  const fromFlag = argVal(args, "--prd") !== undefined || args.some((a) => a.startsWith("--prd="));
+  if (!fromFlag) {
+    if (argVal(args, "--brief") !== undefined || args.some((a) => a.startsWith("--brief="))) return null;
+    const noRef = !/#|^[A-Za-z][A-Za-z0-9+.-]*:/.test(spec);
+    const spacedPath = /\s/.test(spec) && !/[\r\n]/.test(spec) && spec.includes("/") && /\.(md|txt|pdf|ya?ml|json)$/i.test(spec); // TEN-UX-50: "My Docs/prd.md"
+    const pathShaped = noRef && (spacedPath || (!/\s/.test(spec) && (spec.includes("/") || /\.(md|txt|ya?ml|json)$/i.test(spec))));
+    if (!pathShaped) return null;
+  }
+  return exists(spec) ? null : `PRD file not found: ${spec}\n`;
 }
 
 /** Which engine a parsed start runs: the 11.3.0 runner, unless --attempts was given (FC-38 scoped). */
@@ -377,6 +450,59 @@ export function isBashOnlyStart(args: readonly string[]): boolean {
   return args.some((a) => a === "--workspace" || a.startsWith("--workspace=") || a === "--deploy");
 }
 
+/** TEN-DEPLOY-19: --health-url must be http(s) with a host and --domain a bare hostname; null when valid or absent (a missing value is left to the bash parser). */
+export function deployFlagError(args: readonly string[]): string | null {
+  const val = (name: string): string | undefined => {
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i] ?? "";
+      if (a.startsWith(`${name}=`)) return a.slice(name.length + 1);
+      if (a === name) {
+        const n = args[i + 1];
+        return n !== undefined && !n.startsWith("-") ? n : undefined;
+      }
+    }
+    return undefined;
+  };
+  // TEN-DEPLOY-26: a value flag with no value is named here, before the paid build
+  for (const f of ["--health-url", "--domain", "--destination", "--env-file"]) {
+    const i = args.indexOf(f);
+    if (i >= 0 && (args[i + 1] === undefined || args[i + 1]!.startsWith("-"))) return `start: ${f} requires a value\n`;
+  }
+  const health = val("--health-url");
+  if (health !== undefined) {
+    let ok = false;
+    try {
+      const u = new URL(health);
+      ok = (u.protocol === "http:" || u.protocol === "https:") && u.hostname !== "";
+    } catch {
+      ok = false;
+    }
+    if (!ok) return `start: --health-url must be an http or https URL with a host, got '${health}'\n`;
+  }
+  const domain = val("--domain");
+  if (domain !== undefined && !/^(?=.{1,253}$)[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/.test(domain)) {
+    return `start: --domain must be a bare hostname (no scheme, path or port), got '${domain}'\n`;
+  }
+  const envFile = val("--env-file"); // TEN-DEPLOY-20: fail before the build, not after
+  if (envFile !== undefined) {
+    let ok = false;
+    try {
+      accessSync(envFile, fsConstants.R_OK);
+      ok = statSync(envFile).isFile();
+    } catch {
+      ok = false;
+    }
+    if (!ok) return `start: --env-file '${envFile}' does not exist or is not a readable file\n`;
+  }
+  // TEN-DEPLOY-21: mirror loki deploy's destination enum, health-url requirement and canary rule before the paid build
+  const dest = val("--destination");
+  if (dest !== undefined && !["preview", "staging", "production"].includes(dest)) return `start: --destination must be one of: preview, staging, production, got '${dest}'\n`;
+  if (args.includes("--auto-rollback") && health === undefined) return "start: --auto-rollback requires --health-url (no health signal, no rollback)\n";
+  if (val("--health-match") !== undefined && health === undefined) return "start: --health-match requires --health-url\n";
+  if (args.includes("--canary") && dest !== undefined && dest !== "production") return "start: --canary only applies to --destination production\n";
+  return null;
+}
+
 const START_ENV_NAMES = new Set(["PATH", "HOME", "USER", "LOGNAME", "SHELL", "TERM", "TMPDIR", "LANG", "TZ", "CI", "NO_COLOR", "SSH_AUTH_SOCK", "LOKI_RUN_TMP"]);
 const START_ENV_PREFIXES = ["LOKI_", "LC_", "XDG_", "NODE_", "BUN_", "ANTHROPIC_", "CLAUDE_", "OPENAI_", "CODEX_", "GEMINI_", "GOOGLE_", "OPENROUTER_", "OLLAMA_", "AWS_", "AZURE_", "GH_", "GITHUB_"];
 /** Scoped child env for the bash divert: an explicit allowlist (plan section 3), never the whole env plus unrelated secrets. */
@@ -388,8 +514,46 @@ export function scopedStartEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return out;
 }
 
+/** TEN-COST-41: the one-line effective run cap and its source; null when the runner's own `[runner] cap` note already names it (env, loki.yaml, default). */
+export async function capSourceLine(budgetLimit: number | undefined, repoDir: string, env: NodeJS.ProcessEnv): Promise<string | null> {
+  const { resolveCap, capNote } = await import("../e10ext/budget_cap.ts");
+  const c = resolveCap(budgetLimit !== undefined ? String(budgetLimit) : null, repoDir, env);
+  if ("error" in c) return null;
+  return budgetLimit !== undefined || c.source === "subscription" ? capNote(c.usd, c.source).replace("(--max-cost)", "(--budget-limit)") : null; // the start flag is --budget-limit, not engine10's --max-cost
+}
+
+/** TEN-UX-45: what `loki start --dry-run` prints; runs the real preflight (read-only: an uninitialised folder is reported, never git-initialised) and spends nothing. Returns the exit code. */
+export async function dryRunStart(o: ParsedStartOpts, repoDir: string, env: NodeJS.ProcessEnv, out: (s: string) => void = (s) => process.stdout.write(s), err: (s: string) => void = (s) => process.stderr.write(s)): Promise<number> {
+  const provider = o.provider ?? (env["LOKI_PROVIDER"] || "claude");
+  if (!VALID_PROVIDERS.has(provider)) { err(`start: unknown LOKI_PROVIDER '${provider}' (use one of: ${[...VALID_PROVIDERS].join(", ")})\n`); return 2; }
+  const { resolveCap, capNote } = await import("../e10ext/budget_cap.ts");
+  const cap = resolveCap(o.budgetLimit !== undefined ? String(o.budgetLimit) : null, repoDir, env);
+  if ("error" in cap) { err(`start: ${cap.error}\n`); return 2; }
+  const inRepo = (await safeGitRun(repoDir, ["rev-parse", "--is-inside-work-tree"], { env: env as Record<string, string>, timeoutMs: 10000 })).stdout.trim() === "true";
+  if (inRepo) {
+    const { checkPreflight } = await import("../engine10/preflight.ts");
+    const pf = await checkPreflight({ repoDir, provider, pr: o.noPr !== true, env });
+    for (const w of pf.warnings) err(`${w}\n`);
+    if (pf.fatal) { err(`start: dry-run preflight failed: ${pf.fatal}\n`); return 2; }
+  } else {
+    out("preflight: this folder is not a git repository; loki start would set one up if the folder is empty\n");
+  }
+  out(`dry-run: provider ${provider}, model ${o.sessionModel ?? "default tier routing"}, ${capNote(cap.usd, cap.source).replace("(--max-cost)", "(--budget-limit)")}, spec ${JSON.stringify(o.prdPath || o.specPath || "")}\n`);
+  out("dry-run: flags valid, preflight passed, nothing was run and no tokens were spent\n");
+  return 0;
+}
+
 export async function runStart(args: readonly string[]): Promise<number> {
   if (isBashOnlyStart(args)) {
+    if (args.includes("--dry-run")) {
+      process.stderr.write("start: --dry-run is not supported with --workspace or --deploy\n");
+      return 2;
+    }
+    const deployErr = deployFlagError(args);
+    if (deployErr) {
+      process.stderr.write(deployErr);
+      return 2;
+    }
     const { spawn } = await import("node:child_process");
     return await new Promise<number>((resolveExit) => {
       const child = spawn("bash", [`${REPO_ROOT}/autonomy/loki`, "start", ...args], { env: scopedStartEnv(process.env), stdio: "inherit" });
@@ -399,8 +563,16 @@ export async function runStart(args: readonly string[]): Promise<number> {
   }
   const parsed = parseStartArgs(args);
   if (typeof parsed === "number") return parsed;
+  const missing = missingPrdMessage(args, parsed.prdPath);
+  if (missing) {
+    process.stderr.write(missing);
+    return 2;
+  }
+  if (parsed.dryRun) return dryRunStart(parsed, process.cwd(), process.env);
   if (startEngine(parsed) === "runner") {
     const { runAutonomous } = await import("../runner/autonomous.ts");
+    const capLine = await capSourceLine(parsed.budgetLimit, process.cwd(), process.env);
+    if (capLine) process.stdout.write(`[runner] ${capLine}\n`);
     return runAutonomous(parsed);
   }
   if (startEngine(parsed) === "spec") return runEngine10(process.cwd(), parsed, process.env, false);

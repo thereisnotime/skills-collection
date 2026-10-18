@@ -67,20 +67,22 @@ export interface IssuesRunArgs {
   yes: boolean;
   comment: boolean;
   split: boolean;
+  json: boolean;
 }
 
-const USAGE = "usage: loki issues run [owner/repo] [--label L] [--milestone M] [--limit N] [--parallel K] [--draft] [--dry-run] [--yes] [--comment] [--no-split]\n";
+const USAGE = "usage: loki issues run [owner/repo] [--label L] [--milestone M] [--limit N] [--parallel K] [--draft] [--dry-run] [--json] [--yes] [--comment] [--no-split]\n";
 const SLUG_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const DEFAULT_LIMIT = 100;
 const RATE_LIMIT_RETRIES = 2;
 
 export function parseIssuesArgs(args: readonly string[]): IssuesRunArgs | string {
-  const a: IssuesRunArgs = { slug: null, label: null, milestone: null, limit: DEFAULT_LIMIT, parallel: 1, draft: false, dryRun: false, yes: false, comment: false, split: true };
+  const a: IssuesRunArgs = { slug: null, label: null, milestone: null, limit: DEFAULT_LIMIT, parallel: 1, draft: false, dryRun: false, yes: false, comment: false, split: true, json: false };
   for (let i = 0; i < args.length; i++) {
     const t = args[i]!;
     const val = (): string | null => (i + 1 < args.length ? args[++i]! : null);
     if (t === "--draft") a.draft = true;
     else if (t === "--dry-run") a.dryRun = true;
+    else if (t === "--json") a.json = true;
     else if (t === "--yes" || t === "-y") a.yes = true;
     else if (t === "--comment") a.comment = true;
     else if (t === "--no-split") a.split = false;
@@ -91,14 +93,16 @@ export function parseIssuesArgs(args: readonly string[]): IssuesRunArgs | string
       if (t === "--label") a.label = v;
       else a.milestone = v;
     } else if (t === "--limit" || t === "--parallel") {
-      const v = Number(val());
-      if (!Number.isInteger(v) || v < 1) return `${t} needs a positive integer`;
+      const raw = val();
+      const v = raw !== null && /^[0-9]+$/.test(raw) ? Number(raw) : NaN;
+      if (!Number.isSafeInteger(v) || v < 1) return `${t} needs a positive integer`;
       if (t === "--parallel" && v > MAX_PARALLEL) return `--parallel is at most ${MAX_PARALLEL}`;
       if (t === "--limit") a.limit = v;
       else a.parallel = v;
     } else if (!t.startsWith("-") && a.slug === null && SLUG_RE.test(t)) a.slug = t;
     else return `unexpected argument: ${t}`;
   }
+  if (a.json && !a.dryRun) return "--json needs --dry-run (it prints the plan only)";
   return a;
 }
 
@@ -194,6 +198,8 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
     return 2;
   }
   const started = d.now();
+  const realOut = d.out;
+  if (a.json) d = { ...d, out: () => {} };
 
   // 1. list and dedupe (read-only gh calls, nothing billed)
   const list = d.gh(["issue", "list", "--repo", slug, "--state", "open", "--json", "number,title,body,labels", "--limit", String(a.limit), ...(a.label ? ["--label", a.label] : []), ...(a.milestone ? ["--milestone", a.milestone] : [])]);
@@ -229,11 +235,20 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
     ? `estimated total: ${per.tilde}$${(per.usd[0] * todo.length).toFixed(2)}-$${(per.usd[1] * todo.length).toFixed(2)} for ${todo.length} issue${todo.length === 1 ? "" : "s"} (${startText(est)} per issue)${extra}`
     : `estimated total: NOT AVAILABLE (${est.ok ? "" : est.reason})`;
   d.out(`${estLine}\n`);
+  // --json --dry-run: the plan as data; no triage call is made, so todo issues are "pending"
+  const planJson = (): void => {
+    const plan = issues.map((i) => (covered.has(i.number)
+      ? { number: i.number, decision: "skip", reason: "open Loki PR exists", covered_by_pr: true }
+      : { number: i.number, decision: "pending", reason: "not triaged (dry run makes no model calls)", covered_by_pr: false }));
+    realOut(JSON.stringify(plan) + "\n");
+  };
   if (todo.length === 0) {
+    if (a.json) planJson();
     d.out("nothing to run\n");
     return 0;
   }
   if (a.dryRun) {
+    if (a.json) planJson();
     d.out(`dry run: no triage calls, nothing spawned; parallel ${a.parallel}${a.draft ? ", draft PRs" : ""}${a.split ? "" : ", no split"}\n`);
     return 0;
   }
@@ -490,6 +505,12 @@ export function makeWorktrees(repoDir: string): IssuesRunDeps["worktree"] {
   };
 }
 
+// A hung gh call must not stall the whole batch: bounded, returned as rc 124.
+function ghTimeoutMs(): number {
+  const n = Number(process.env["LOKI_ISSUES_GH_TIMEOUT_MS"]);
+  return Number.isFinite(n) && n > 0 ? n : 120000;
+}
+
 export function askYesNo(question: string): Promise<boolean> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((res) => rl.question(question, (ans) => {
@@ -516,7 +537,10 @@ export async function runIssues(args: readonly string[], inject?: Partial<Issues
     repoDir,
     lokiDir,
     gh: inject?.gh ?? ((ghArgs) => {
-      const r = spawnSync("gh", [...ghArgs], { cwd: repoDir, env: userEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+      const r = spawnSync("gh", [...ghArgs], { cwd: repoDir, env: userEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: ghTimeoutMs(), killSignal: "SIGKILL" });
+      if ((r.error as NodeJS.ErrnoException | undefined)?.code === "ETIMEDOUT") {
+        return { rc: 124, stdout: r.stdout ?? "", stderr: `gh ${ghArgs[0] ?? ""} timed out after ${ghTimeoutMs()}ms` };
+      }
       return { rc: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? (r.error ? String(r.error) : "") };
     }),
     triage: inject?.triage ?? makeSessionTriage(repoDir, lokiDir, provider),

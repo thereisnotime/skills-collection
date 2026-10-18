@@ -11,7 +11,7 @@ const cli = fileURLToPath(new URL("../dist/index.js", import.meta.url));
 
 function fixture(t, unset = []) {
   const root = mkdtempSync(join(tmpdir(), "cave-codex recovery "));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const home = join(root, "home");
   const codexHome = join(root, "codex account");
   const caveHome = join(root, "recovery home");

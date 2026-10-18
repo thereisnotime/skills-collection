@@ -18,7 +18,7 @@ The scanner is honest by construction:
     .git, vendor, bundled dist of dependencies) and oversized files, so it is
     cheap and deterministic.
 
-The five v1 rules (see internal/LOOP4-SECURE-BY-DEFAULT-PLAN.md):
+The v1 rules (rules 6, 7, 8, 9 and 10 added later) (see internal/LOOP4-SECURE-BY-DEFAULT-PLAN.md):
   1. private-key-committed   (HIGH)   a PEM private-key block in any text file
   2. secret-in-client-file   (HIGH)   a real secret literal in a browser-served file
   3. world-open-datastore    (HIGH)   a literal world-open datastore rule
@@ -44,9 +44,10 @@ CLI (mirrors dashboard/audit.py / proof-verify.py shim style):
 import json
 import os
 import re
+import subprocess
 import sys
 
-RULES_VERSION = "1.1"
+RULES_VERSION = "1.7"
 
 # --- scan limits -----------------------------------------------------------
 # Cap per-file size so a giant generated bundle cannot stall the gate. 2 MiB is
@@ -122,6 +123,22 @@ _SECRET_PATTERNS = [
     ("google-api-key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
     # Slack bot token: xoxb- + token body
     ("slack-token", re.compile(r"\bxox[baprs]-[0-9A-Za-z-]{10,}\b")),
+    # GitLab personal access token
+    ("gitlab-token", re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}")),
+    # npm automation/publish token: npm_ + 36 alphanumerics
+    ("npm-token", re.compile(r"(?<![A-Za-z0-9])npm_[A-Za-z0-9]{36}(?![A-Za-z0-9])")),
+    # Hugging Face user access token
+    ("huggingface-token", re.compile(r"(?<![A-Za-z0-9_])hf_[A-Za-z0-9]{34,}")),
+    # Stripe live secret / restricted key
+    ("stripe-key", re.compile(r"(?<![A-Za-z0-9])[sr]k_live_[A-Za-z0-9]{24,}")),
+    # SendGrid API key: SG.<22>.<43>
+    ("sendgrid-key", re.compile(r"(?<![A-Za-z0-9])SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}")),
+    # AWS temporary (STS) access key id
+    ("aws-sts-key", re.compile(r"\bASIA[0-9A-Z]{16}\b")),
+    # Azure storage connection string account key: 86 base64 chars + ==
+    ("azure-account-key", re.compile(r"AccountKey=[A-Za-z0-9+/]{86}==")),
+    # Twilio API key SID: SK + 32 hex
+    ("twilio-key", re.compile(r"(?<![A-Za-z0-9])SK[0-9a-f]{32}(?![A-Za-z0-9])")),
 ]
 
 # Placeholder / example markers. If the matched secret (or its surrounding
@@ -146,7 +163,7 @@ def _is_placeholder_secret(secret):
             return True
     # strip the known prefix so we examine just the secret body
     body = secret
-    for prefix in ("akia", "sk-", "ghp_", "aiza", "xoxb-"):
+    for prefix in ("akia", "sk-", "ghp_", "aiza", "xoxb-", "glpat-", "npm_", "hf_", "sk_live_", "rk_live_"):
         if low.startswith(prefix):
             body = secret[len(prefix):]
             break
@@ -409,6 +426,117 @@ def _tls_rule_applies(rel_path):
 
 
 # ---------------------------------------------------------------------------
+# rule 7: shell injection shapes
+# ---------------------------------------------------------------------------
+# Literal forms only, one line: subprocess.* with shell=True whose first
+# argument is an f-string, a %-format, a .format() call or a concatenation;
+# os.system() with an f-string, %-format, .format() or concatenation; and
+# child_process exec/execSync with a template literal containing ${...}.
+# Constant-string commands and list-form argv are never flagged.
+_PY_DYNAMIC_ARG = (
+    r"""(?:[rRbB]?[fF][rR]?(?:"[^"]*"|'[^']*')"""
+    r"""|(?:"[^"]*"|'[^']*')\s*(?:%|\+|\.format\()"""
+    r"""|[A-Za-z_][\w.]*\s*\+\s*(?:"|'|[A-Za-z_]))"""
+)
+_SHELL_TRUE_SUBPROCESS = re.compile(
+    r"""\bsubprocess\.(?:run|call|Popen|check_output|check_call)\(\s*"""
+    + _PY_DYNAMIC_ARG + r""".*\bshell\s*=\s*True\b"""
+)
+_OS_SYSTEM_DYNAMIC = re.compile(
+    r"""\bos\.(?:system|popen)\(\s*""" + _PY_DYNAMIC_ARG
+)
+_NODE_EXEC_TEMPLATE = re.compile(
+    r"""\b(?:child_process\.|cp\.)?(?:exec|execSync)\(\s*`[^`]*\$\{"""
+)
+_NODE_CP_FILE = re.compile(r"""\bchild_process\b""")
+_SHELL_INJECTION_PATH_RE = _TLS_FIXTURE_PATH_RE
+
+
+def _shell_rule_applies(rel_path):
+    """Same exclusions as rule 6: dev/test/fixture paths and prose docs."""
+    return _tls_rule_applies(rel_path)
+
+
+def _shell_injection_hit(text, node_file):
+    if _SHELL_TRUE_SUBPROCESS.search(text) or _OS_SYSTEM_DYNAMIC.search(text):
+        return True
+    m = _NODE_EXEC_TEMPLATE.search(text)
+    if not m:
+        return False
+    qualified = text[max(0, m.start()):m.end()].lstrip().startswith(("child_process.", "cp."))
+    return qualified or node_file
+
+
+# ---------------------------------------------------------------------------
+# rule 9: unsafe deserialization (Python files)
+# ---------------------------------------------------------------------------
+# pickle.load/loads (also cPickle, _pickle), marshal.load/loads, and yaml.load
+# without a Safe loader on the same line. yaml.safe_load and
+# yaml.load(..., Loader=yaml.SafeLoader) are never flagged. Same path
+# exclusions as rules 6 and 7. Python files only (.py).
+_UNSAFE_DESERIALIZE = re.compile(
+    r"""\b(?:c?[pP]ickle|_pickle|marshal)\.loads?\s*\("""
+)
+_YAML_LOAD = re.compile(r"""\byaml\.load(?:_all)?\s*\(""")
+_YAML_SAFE_LOADER = re.compile(r"""\bC?SafeLoader\b""")
+
+
+def _deserialize_hit(text):
+    if _UNSAFE_DESERIALIZE.search(text):
+        return True
+    return bool(_YAML_LOAD.search(text) and not _YAML_SAFE_LOADER.search(text))
+
+
+# ---------------------------------------------------------------------------
+# rule 10: SQL built by string formatting and passed to execute() (Python)
+# ---------------------------------------------------------------------------
+# .execute( / .executemany( whose first argument is an interpolated f-string
+# (with a {placeholder}), a string literal followed by % or +, or a string
+# literal followed by .format(. A literal followed by a comma (parameter
+# tuple or list) is the safe form and is never flagged. Same line only; same
+# path exclusions as rules 6, 7 and 9. Python files only (.py).
+_SQL_EXEC_FORMATTED = re.compile(
+    r"""\.execute(?:many)?\s*\(\s*(?:"""
+    r"""[rR]?[fF]"[^"]*\{|[rR]?[fF]'[^']*\{"""
+    r"""|[rR]?"[^"]*"\s*(?:%|\+|\.format\s*\()"""
+    r"""|[rR]?'[^']*'\s*(?:%|\+|\.format\s*\())"""
+)
+
+
+# ---------------------------------------------------------------------------
+# rule 8: committed real env file with a secret assignment
+# ---------------------------------------------------------------------------
+# Only real env files (.env, .env.local, .env.production and the prod/staging
+# siblings); .env.example/.sample/.template never match the name regex. The
+# assigned name must end in KEY, SECRET, TOKEN or PASSWORD and the value must be
+# non-empty and not a placeholder or a ${VAR} reference. NEXT_PUBLIC_/PUBLIC
+# names are public by design and skipped. The value is never echoed.
+_REAL_ENVFILE_RE = re.compile(
+    r"(?:^|/)\.env(?:\.(?:local|production|prod|staging))?$", re.IGNORECASE)
+_ENV_SECRET_ASSIGN_RE = re.compile(
+    r"^\s*(?:export\s+)?([A-Za-z][A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD))"
+    r"\s*=\s*(.*?)\s*$")
+
+
+def _env_secret_assignment(text):
+    """Name of a secret-shaped env assignment with a real value, else None."""
+    m = _ENV_SECRET_ASSIGN_RE.match(text)
+    if not m:
+        return None
+    name, value = m.group(1), m.group(2)
+    if "PUBLIC" in name.upper():
+        return None
+    if value[:1] in ("'", '"') and value[-1:] == value[:1] and len(value) >= 2:
+        value = value[1:-1]
+    elif " #" in value:
+        value = value.split(" #", 1)[0].rstrip()
+    value = value.strip()
+    if not value or _PLACEHOLDER_RE.search(value) or _is_placeholder_secret(value):
+        return None
+    return name
+
+
+# ---------------------------------------------------------------------------
 # file walking / reading
 # ---------------------------------------------------------------------------
 
@@ -433,6 +561,20 @@ def _iter_files(target_dir):
                 continue
             rel_path = os.path.relpath(abs_path, target_dir)
             yield abs_path, rel_path
+
+
+def _git_tracked_files(target_dir):
+    """Return the set of git-tracked rel paths under target_dir, or None when
+    target_dir is not inside a git work tree (or git is unavailable)."""
+    try:
+        r = subprocess.run(
+            ["git", "-C", target_dir, "ls-files", "-z"],
+            capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    return set(os.fsdecode(x) for x in r.stdout.split(b"\0") if x)
 
 
 def _read_lines(abs_path):
@@ -465,12 +607,22 @@ def _finding(rule, rel_path, line, severity, message, fix):
     }
 
 
-def _scan_file(rel_path, lines, secrets_everywhere=False):
+def _scan_file(rel_path, lines, secrets_everywhere=False, env_tracked=None):
     """Return a list of findings for one file. `lines` is [(lineno, text), ...]."""
     findings = []
     browser_served = _is_browser_served(rel_path)
     prod_config = _is_production_config(rel_path)
     tls_scan = _tls_rule_applies(rel_path)
+    shell_scan = _shell_rule_applies(rel_path)
+    real_envfile = bool(_REAL_ENVFILE_RE.search(rel_path))
+    # env_tracked: None = not a git repo (report as a present env file);
+    # a set = only git-tracked env files are in version control.
+    env_in_git = env_tracked is not None
+    if real_envfile and env_in_git and rel_path not in env_tracked:
+        real_envfile = False
+    deser_scan = shell_scan and rel_path.lower().endswith(".py")
+    sqli_scan = deser_scan
+    node_file = shell_scan and any(_NODE_CP_FILE.search(t) for _, t in lines)
 
     # rule 3 / rule 5 need whole-file context for the AND conditions.
     saw_rls_disable = None  # lineno of a DISABLE ROW LEVEL SECURITY
@@ -603,6 +755,57 @@ def _scan_file(rel_path, lines, secrets_everywhere=False):
                 "instead of turning verification off.",
             ))
 
+        # --- rule 7: shell injection shapes ------------------------------
+        if (shell_scan and not _COMMENT_OR_DOC_LINE.match(text)
+                and _shell_injection_hit(text, node_file)):
+            findings.append(_finding(
+                "shell-injection", rel_path, lineno, "HIGH",
+                "A shell command is built from a formatted or concatenated "
+                "string; any untrusted value in it becomes shell syntax.",
+                "Pass an argv list without shell=True (subprocess.run([cmd, "
+                "arg])) or use execFile/spawn with an args array; never "
+                "interpolate input into a command string.",
+            ))
+
+        # --- rule 9: unsafe deserialization ------------------------------
+        if (deser_scan and not _COMMENT_OR_DOC_LINE.match(text)
+                and _deserialize_hit(text)):
+            findings.append(_finding(
+                "unsafe-deserialization", rel_path, lineno, "HIGH",
+                "Untrusted bytes or YAML passed to pickle, marshal or an "
+                "unsafe yaml.load can execute arbitrary code on load.",
+                "Use yaml.safe_load (or Loader=yaml.SafeLoader) and a data "
+                "format such as JSON; never unpickle or unmarshal data from "
+                "an untrusted source.",
+            ))
+
+        # --- rule 10: SQL built by string formatting ---------------------
+        if (sqli_scan and not _COMMENT_OR_DOC_LINE.match(text)
+                and _SQL_EXEC_FORMATTED.search(text)):
+            findings.append(_finding(
+                "sql-string-formatting", rel_path, lineno, "HIGH",
+                "SQL built with an f-string, % formatting, .format or "
+                "concatenation and passed to execute() is open to SQL "
+                "injection.",
+                "Pass values as bound parameters: "
+                "cursor.execute(\"... WHERE id = %s\", (value,)).",
+            ))
+
+        # --- rule 8: committed real env file with a secret value ---------
+        if real_envfile:
+            env_name = _env_secret_assignment(text)
+            if env_name:
+                findings.append(_finding(
+                    "committed-env-secret", rel_path, lineno, "HIGH",
+                    ("A committed env file assigns a value to %s; the value is "
+                     "in version control history." % env_name) if env_in_git
+                    else ("An env file assigns a value to %s; it is not in a "
+                          "git repo so it cannot be confirmed ignored." % env_name),
+                    "Remove the file from git (git rm --cached), add it to "
+                    ".gitignore, rotate the credential, and commit only a "
+                    ".env.example with empty or placeholder values.",
+                ))
+
         # --- rule 5: CORS wildcard + credentials (whole-file AND) --------
         # Skip prose/doc lines (_rule3_skip = comment-only line or .md/.rst/.txt
         # doc file): a README or comment WARNING about ACAO * + credentials is not
@@ -654,12 +857,13 @@ def scan(target_dir, secrets_everywhere=False):
 
     findings = []
     files_scanned = 0
+    env_tracked = _git_tracked_files(target_dir)
     for abs_path, rel_path in _iter_files(target_dir):
         lines = _read_lines(abs_path)
         if lines is None:
             continue
         files_scanned += 1
-        findings.extend(_scan_file(rel_path, lines, secrets_everywhere))
+        findings.extend(_scan_file(rel_path, lines, secrets_everywhere, env_tracked))
 
     # deterministic ordering: by file, then line, then rule
     findings.sort(key=lambda f: (f["file"], f["line"], f["rule"]))

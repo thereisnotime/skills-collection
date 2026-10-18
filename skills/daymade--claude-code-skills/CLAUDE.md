@@ -90,6 +90,8 @@ keep discovery observations separate from final result checks.
 For research-driven evolution of a specified existing Skill, start at
 [skill-evolver](skill-evolver/SKILL.md) and follow its public stage routes; use
 local private adapters only when available.
+For verification of changed state side effects, artifact reuse or prerequisite
+handling, read `skill-evolver/references/behavior-replay-cases.md`.
 
 For evidence-based improvement of an existing application, enter
 [app-evolver](app-evolver/SKILL.md). For released-artifact or runtime evidence,
@@ -152,6 +154,9 @@ owns later reconciliation and consumer readback.
 For citation previews and in-place source inspection, enter
 [report-with-html's interaction owner](report-with-html/references/interaction-components.md)
 and [frontend-visual-qa's source-inspection route](frontend-visual-qa/references/journey-and-page-contracts.md#cited-source-inspection).
+For embedded-reader sizing, surrounding navigation, overlays or reading/return
+changes, enter [frontend-visual-qa](frontend-visual-qa/SKILL.md) and its
+[embedded-reader journey](frontend-visual-qa/references/journey-and-page-contracts.md#embedded-readers-and-semantic-zoom).
 
 For HTML report images and explanatory diagrams, enter
 [report-with-html](report-with-html/SKILL.md); its
@@ -193,13 +198,13 @@ Python hooks.
 For rendered UI freshness, delayed editor/batch responses or deployment acceptance, enter
 [frontend-visual-qa](frontend-visual-qa/SKILL.md). Keep its manifest, launcher,
 result semantics and rendered-journey procedure in that owner.
-For build reuse across source refs, load its
-[delivery provenance procedure](frontend-visual-qa/references/delivery-verification.md#reuse-a-build-from-another-source-ref).
+For build reuse across source refs or a target redeployed during acceptance, load its
+[delivery verification procedure](frontend-visual-qa/references/delivery-verification.md).
 For nested zoomable workspaces, use its
 [journey and state matrix](frontend-visual-qa/references/journey-and-page-contracts.md#journey-and-state-matrix).
 For embedded-reader zoom, return, focus or filtered-selection changes, use its
 [reader journey](frontend-visual-qa/references/journey-and-page-contracts.md#embedded-readers-and-semantic-zoom).
-For browser visibility or long JSONL input problems, load its
+For browser visibility, selected read modes, request/capture timing or long JSONL input problems, load its
 [browser-driving and observation traps](frontend-visual-qa/references/browser-driving-and-observation-traps.md);
 keep adapter requirements and invocation examples in that reference.
 For changed contribution views or multi-item reads, use that same journey contract
@@ -274,6 +279,8 @@ Before selecting file-event or periodic triggers, follow
 [macos-watchdog's trigger and acceptance workflow](daymade-macos/macos-watchdog/references/event-driven-observers.md).
 For loaded plist scheduling and configuration, use its
 [native readback](daymade-macos/macos-watchdog/references/native-job-readback.md).
+For stopping or persistently disabling a job, follow its
+[stop semantics](daymade-macos/macos-watchdog/SKILL.md#stop-semantics-the-deprecated-trap).
 Before choosing or changing any periodic observer's cadence, follow
 [macos-watchdog's observation contract](daymade-macos/macos-watchdog/references/probe-cost.md).
 For named macOS load/runaway alerts, follow
@@ -407,6 +414,10 @@ Keep native-guard installation, recovery and actual-host acceptance in that work
 do not duplicate its parameters here. Reply lookup, transport and discovery
 details belong in [the transport and receiver-evidence SOP](peer-message/references/protocol-and-discovery.md).
 Enter that SOP when diagnosing delayed Codex coordination or comparing live and queued receipts.
+Before asking about mutable ownership or a publication window, use the
+[fresh-state preflight](peer-message/references/coordination-and-learning-loop.md#51-发现别人的在制品先核实再问等一个有界窗口).
+For an inbound coordination envelope or a receive-integrity error, follow
+[receive, reply and closure](peer-message/references/local-coordination.md#收件回信和关闭).
 For oversized discovery responses or complete-title export, use its
 [discovery-output contract](peer-message/references/protocol-and-discovery.md#发现输出的范围).
 Current product availability, provenance, and inbound-control mechanics belong in
@@ -440,7 +451,9 @@ For Codex reset announcements or account quota questions, enter
 [account usage SOP](tibo-reset-codex/references/account-usage.md) for authentication,
 per-account verification, adjacent-reset attribution and browser restoration. Treat
 [query_usage.py](tibo-reset-codex/scripts/query_usage.py) as the executable authority
-for query parameters, supported response fields and exit behavior. For local
+for query parameters, supported response fields and exit behavior;
+[reset_attribution.py](tibo-reset-codex/scripts/reset_attribution.py) owns mechanical
+claim/evidence attribution and `claim_gate`. For local
 snapshot reconstruction, [scan_rollouts.py](tibo-reset-codex/scripts/scan_rollouts.py)
 owns candidate output. An unfulfilled
 reset promise or a question about missing execution signals enters the Skill's

@@ -1,6 +1,7 @@
 // UNDO-1: `loki undo <run-id> --plan`. Strictly read-only: verifies the run's receipt, then prints what an undo
 // would do (UNDO-2 applies it). Every git call goes through safe_git and is checked against READ_ONLY_GIT, so a
 // future edit that adds a mutating subcommand throws here instead of changing the user's repo.
+import { suggestWord } from "../cli/registry.ts";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { lokiDir } from "../util/paths.ts";
@@ -39,6 +40,8 @@ export interface UndoPlan {
 /** A receipt's refs are attacker-influenced (an unsigned receipt is accepted with --allow-unsigned): only a hex object id may reach git. */
 const SHA_RE = /^[0-9a-f]{7,64}$/;
 const RUN_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+/** True when `id` is a safe single-segment run id (no separators, no leading dot, no ".."). */
+export const isRunId = (id: string): boolean => RUN_ID_RE.test(id) && !id.includes("..");
 
 const defaultRunner: GitRunner = (repoDir, args) => {
   const r = safeGitSpawn(repoDir, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
@@ -214,18 +217,26 @@ async function listRuns(deps: UndoDeps, git: GitRunner, out: (s: string) => void
 export async function runUndo(args: readonly string[], deps: UndoDeps = {}): Promise<number> {
   const out = deps.out ?? ((s: string) => void process.stdout.write(s)), err = deps.err ?? ((s: string) => void process.stderr.write(s));
   if (args[0] === "--help" || args[0] === "-h" || args.length === 0) { out(USAGE); return args.length === 0 ? 2 : 0; }
+  const known = new Set(["--list", "--plan", "--json", "--allow-unsigned", "--yes", "--close-pr", "--dry-run", "--help"]);
+  const bad = args.find((x) => x.startsWith("-") && !known.has(x));
+  if (bad !== undefined) {
+    const hint = suggestWord(bad, [...known]);
+    err(`loki undo: unknown flag ${bad} (see loki undo --help)\n${hint ? `Did you mean '${hint}'?\n` : ""}`);
+    return 2;
+  }
+  if (args.includes("--help")) { out(USAGE); return 0; }
   if (args.includes("--list")) {
     if (args.length !== 1) { err(`loki undo: --list takes no other arguments\n${USAGE}`); return 2; }
     return listRuns(deps, deps.git ?? defaultRunner, out);
   }
-  const flags = new Set(["--plan", "--json", "--allow-unsigned", "--yes", "--close-pr", "--dry-run"]);
-  const pos = args.filter((a) => !a.startsWith("--")), bad = args.filter((a) => a.startsWith("--") && !flags.has(a));
-  if (bad.length > 0 || pos.length !== 1) { err(`loki undo: ${bad.length > 0 ? `unknown flag ${bad[0]}` : "exactly one run-id is required"}\n${USAGE}`); return 2; }
+  const pos = args.filter((x) => !x.startsWith("-"));
+  if (pos.length !== 1) { err(`loki undo: exactly one run-id is required\n${USAGE}`); return 2; }
   const runId = pos[0]!;
   const dryRun = args.includes("--dry-run");
   const planOnly = args.includes("--plan") || dryRun;
   if (!planOnly && (args.includes("--allow-unsigned") || args.includes("--json"))) { err("loki undo: --allow-unsigned and --json apply to --plan only; apply never accepts an unsigned receipt\n"); return 2; }
   if (planOnly && (args.includes("--yes") || args.includes("--close-pr"))) { err("loki undo: --yes and --close-pr cannot be combined with --plan or --dry-run\n"); return 2; }
+  if (!isRunId(runId)) { err(`loki undo: invalid run id '${runId}'\n`); return 2; }
   if (!planOnly && (deps.env ?? process.env)["LOKI_UNDO"] !== "1") { err("loki undo: applying an undo is behind LOKI_UNDO=1 until reviewed; use --plan to preview\n"); return 2; }
   const loaded = await loadPlan(runId, planOnly && args.includes("--allow-unsigned"), deps, deps.git ?? defaultRunner);
   if ("rc" in loaded) return loaded.rc;

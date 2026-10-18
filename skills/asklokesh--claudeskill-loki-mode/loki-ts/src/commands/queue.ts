@@ -1,14 +1,18 @@
 // `loki queue`: an overnight queue of GitHub issue refs.
 //   loki queue add <issue...>   append refs to .loki/issue-queue.json
-//   loki queue list             show what is queued
-//   loki queue run [--no-pr]    process one at a time through issue-mode `loki start`,
+//   loki queue list [--json]    show what is queued (--json: the refs as a JSON array)
+//   loki queue remove <issue...> take refs out of the queue (missing ref: "not queued", exit 0)
+//   loki queue clear            empty the queue
+//   loki queue run [--no-pr] [--max-total-cost <usd>]  process one at a time through issue-mode `loki start`,
 //                               consulting the usage governor before each item, then
-//                               write and print a morning digest.
+//                               write and print a morning digest. --max-total-cost stops
+//                               before the next item once cumulative recorded spend reaches the cap.
 // The runner and the governor are injectable so tests never call claude.
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { atomicWriteText } from "../util/atomic.ts";
 import { REPO_ROOT } from "../util/paths.ts";
+import { suggestWord } from "../cli/registry.ts";
 import { printForecast, readingFromGovernorJson, recordWindowDelta, type UsageReading } from "../contrib/forecast.ts";
 
 export interface QueueItem {
@@ -68,8 +72,10 @@ const PR_RE = /https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d
 
 export function normalizeRef(raw: string): string | null {
   const m = URL_RE.exec(raw);
-  if (m) return `${m[1]}#${m[2]}`;
-  return REF_RE.test(raw) ? raw : null;
+  if (m) return /^0+$/.test(m[2]!) ? null : `${m[1]}#${m[2]}`;
+  if (!REF_RE.test(raw)) return null;
+  // issue numbers start at 1; #0, 0 and o/r#00 are unrunnable
+  return /^0+$/.test(raw.replace(/^.*#/, "")) ? null : raw;
 }
 
 function queuePath(lokiDir: string): string {
@@ -140,6 +146,45 @@ export function queueAdd(refs: readonly string[], d: QueueDeps): number {
   return 0;
 }
 
+export function queueRemove(refs: readonly string[], d: QueueDeps): number {
+  if (refs.length === 0) {
+    d.err("usage: loki queue remove <issue...>   (owner/repo#N, #N, N or a GitHub issue URL)\n");
+    return 2;
+  }
+  const norm: string[] = [];
+  for (const r of refs) {
+    const n = normalizeRef(r);
+    if (!n) {
+      d.err(`loki queue remove: not an issue reference: ${r}\n`);
+      return 2;
+    }
+    norm.push(n);
+  }
+  quarantineCorruptQueue(d.lokiDir, d.now(), d.err);
+  let items = readQueue(d.lokiDir);
+  let removed = 0;
+  for (const ref of new Set(norm)) {
+    if (!items.some((i) => i.ref === ref)) {
+      d.out(`not queued: ${ref}\n`);
+      continue;
+    }
+    items = items.filter((i) => i.ref !== ref);
+    removed++;
+    d.out(`removed: ${ref}\n`);
+  }
+  if (removed > 0) writeQueue(d.lokiDir, items);
+  d.out(`${removed} removed, ${items.length} left\n`);
+  return 0;
+}
+
+export function queueClear(d: QueueDeps): number {
+  quarantineCorruptQueue(d.lokiDir, d.now(), d.err);
+  const n = readQueue(d.lokiDir).length;
+  if (n > 0) writeQueue(d.lokiDir, []);
+  d.out(`${n} removed, 0 left\n`);
+  return 0;
+}
+
 export function formatAge(addedAt: string, now: Date): string {
   const t = Date.parse(addedAt);
   if (!Number.isFinite(t)) return "unknown";
@@ -150,8 +195,12 @@ export function formatAge(addedAt: string, now: Date): string {
   return `${Math.floor(sec / 86400)}d`;
 }
 
-export function queueList(d: QueueDeps): number {
+export function queueList(d: QueueDeps, json = false): number {
   const items = readQueue(d.lokiDir);
+  if (json) {
+    d.out(JSON.stringify(items.map((it) => it.ref)) + "\n");
+    return 0;
+  }
   if (items.length === 0) {
     d.out("queue is empty\nnext: loki queue add <issue...>  (owner/repo#N, #N or an issue URL)\n");
     return 0;
@@ -171,6 +220,7 @@ export interface DigestRow {
   pr: string | null;
   cost: string;
   note: string;
+  position?: string; // "n/m" place in this run, shown in the digest next to the ref
 }
 
 export interface Skipped {
@@ -189,7 +239,7 @@ export function renderDigest(started: Date, finished: Date, rows: DigestRow[], s
   L.push("Results");
   if (rows.length === 0) L.push("  (none)");
   for (const r of rows) {
-    L.push(`  ${r.ref}`);
+    L.push(r.position ? `  [${r.position}] ${r.ref}` : `  ${r.ref}`);
     L.push(`    verdict: ${r.verdict}`);
     L.push(`    pr:      ${r.pr ?? "none"}`);
     L.push(`    cost:    ${r.cost}`);
@@ -202,8 +252,52 @@ export function renderDigest(started: Date, finished: Date, rows: DigestRow[], s
   return L.join("\n") + "\n";
 }
 
+// --max-total-cost <usd> or --max-total-cost=<usd>: null when absent, NaN when present but not a positive number.
+export function parseMaxTotalCost(args: readonly string[]): number | null {
+  let raw: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i] as string;
+    if (a === "--max-total-cost") raw = args[i + 1] ?? "";
+    else if (a.startsWith("--max-total-cost=")) raw = a.slice("--max-total-cost=".length);
+  }
+  if (raw === undefined) return null;
+  const n = /^\d+(\.\d+)?$/.test(raw) ? Number(raw) : NaN;
+  return n > 0 ? n : Number.NaN;
+}
+
+const QUEUE_SUBCOMMANDS = ["add", "list", "remove", "rm", "clear", "run"] as const;
+const QUEUE_RUN_FLAGS = ["--no-pr", "--max-total-cost"] as const;
+const QUEUE_USAGE = "usage: loki queue <add <issue...> | list [--json] | remove <issue...> | clear | run [--no-pr] [--max-total-cost <usd>]>\n";
+
+// First argument queue run does not understand (so a mistyped --no-pr cannot open PRs), or null when all are valid.
+function unknownRunArg(args: readonly string[]): string | null {
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i] as string;
+    if (a === "--no-pr" || a.startsWith("--max-total-cost=")) continue;
+    if (a === "--max-total-cost") {
+      i++;
+      continue;
+    }
+    return a;
+  }
+  return null;
+}
+
 export async function queueRun(args: readonly string[], d: QueueDeps): Promise<number> {
+  const bad = unknownRunArg(args);
+  if (bad !== null) {
+    const flagPart = bad.split("=")[0] as string;
+    const guess = suggestWord(flagPart, QUEUE_RUN_FLAGS);
+    d.err(`loki queue run: unknown argument '${bad}'${guess ? ` (did you mean '${guess}'?)` : ""}\n${QUEUE_USAGE}`);
+    return 2;
+  }
   const pr = !args.includes("--no-pr");
+  const cap = parseMaxTotalCost(args);
+  if (cap !== null && Number.isNaN(cap)) {
+    d.err("loki queue run: --max-total-cost needs a positive USD amount, e.g. --max-total-cost 5\n");
+    return 2;
+  }
+  let spent = 0;
   const started = d.now();
   const rows: DigestRow[] = [];
   const skipped: Skipped[] = [];
@@ -215,9 +309,15 @@ export async function queueRun(args: readonly string[], d: QueueDeps): Promise<n
   }
   let forecastShown = false;
   const pending = [...remaining];
+  const total = pending.length;
+  let begun = 0;
   const width = Math.max(1, Math.min(MAX_PARALLEL, Math.floor(d.parallel ?? 1)));
   const lane = async (): Promise<void> => {
     while (stopReason === null) {
+      if (cap !== null && spent >= cap) {
+        stopReason = `total cost cap $${cap.toFixed(2)} reached (spent $${spent.toFixed(2)})`;
+        return;
+      }
       const item = pending.shift();
       if (!item) return;
       const g = await d.governor();
@@ -229,6 +329,8 @@ export async function queueRun(args: readonly string[], d: QueueDeps): Promise<n
         forecastShown = true;
         await printForecast(d.lokiDir, async () => g.usage ?? null, d.err);
       }
+      const position = `${++begun}/${total}`;
+      d.err(`[${position}] ${item.ref}\n`);
       const t0 = Date.now();
       let res: RunResult;
       try {
@@ -240,12 +342,14 @@ export async function queueRun(args: readonly string[], d: QueueDeps): Promise<n
       const verdict = res.verdict || (res.rc === 0 ? "COMPLETED (no proof verdict)" : `FAILED (exit ${res.rc})`);
       const row: DigestRow = {
         ref: item.ref,
+        position,
         verdict,
         pr: prUrl,
         cost: typeof res.costUsd === "number" ? `$${res.costUsd.toFixed(2)}` : "NOT RECORDED",
         note: g.ok ? "" : `governor unreadable (${g.reason}); proceeded`,
       };
       rows.push(row);
+      if (typeof res.costUsd === "number") spent += res.costUsd;
       // Advisory history: window consumed by this item, from two cached governor readings (best effort).
       if (g.usage) {
         try {
@@ -359,6 +463,15 @@ export function runnerEnv(opts: RunOpts, runLoki: string): NodeJS.ProcessEnv {
   return { ...(opts.env ?? process.env), LOKI_NO_BROWSER: "1", ...(opts.cwd ? { LOKI_DIR: runLoki } : {}), ...(opts.draft ? { LOKI_PR_DRAFT: "1" } : {}), ...(opts.prBase ? { LOKI_PR_BASE: opts.prBase } : {}), ...(opts.prRefs ? { LOKI_PR_REFS: opts.prRefs } : {}) };
 }
 
+/** Per-item timeout in minutes: only a positive finite value that fits setTimeout is honored, else 120 with one stderr note. */
+export function itemTimeoutMin(raw: string | undefined, warn: (s: string) => void = (s) => void process.stderr.write(s)): number {
+  if (raw === undefined || raw.trim() === "") return 120;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0 && n * 60_000 <= 2_147_483_647) return n;
+  warn(`loki queue: ignoring invalid LOKI_QUEUE_ITEM_TIMEOUT_MIN=${JSON.stringify(raw)} (need a positive number of minutes); using 120\n`);
+  return 120;
+}
+
 export function makeDefaultRunner(lokiDir: string): QueueDeps["runner"] {
   return async (ref, opts) => {
     const since = Date.now();
@@ -367,7 +480,7 @@ export function makeDefaultRunner(lokiDir: string): QueueDeps["runner"] {
     const runLoki = opts.cwd ? join(opts.cwd, ".loki") : lokiDir;
     const env = runnerEnv(opts, runLoki);
     const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", stdin: "ignore", env, ...(opts.cwd ? { cwd: opts.cwd } : {}) });
-    const mins = Number(process.env["LOKI_QUEUE_ITEM_TIMEOUT_MIN"]) || 120;
+    const mins = itemTimeoutMin(process.env["LOKI_QUEUE_ITEM_TIMEOUT_MIN"]);
     const timer = setTimeout(() => proc.kill(), mins * 60_000);
     const [so, se] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
     const rc = await proc.exited;
@@ -401,11 +514,33 @@ export async function runQueue(args: readonly string[], inject?: Partial<QueueDe
     case "add":
       return queueAdd(rest, d);
     case "list":
-      return queueList(d);
+    {
+      const extra = rest.find((a) => a !== "--json");
+      if (extra !== undefined) {
+        d.err(`loki queue list: unexpected argument '${extra}'\n${QUEUE_USAGE}`);
+        return 2;
+      }
+      return queueList(d, rest.includes("--json"));
+    }
+    case "remove":
+    case "rm":
+      return queueRemove(rest, d);
+    case "clear":
+      if (rest.length > 0) {
+        d.err(`loki queue clear: unexpected argument '${rest[0]}'\n${QUEUE_USAGE}`);
+        return 2;
+      }
+      return queueClear(d);
     case "run":
       return queueRun(rest, d);
-    default:
-      d.err("usage: loki queue <add <issue...> | list | run [--no-pr]>\n");
+    default: {
+      if (sub === undefined || sub === "--help" || sub === "-h" || sub === "help") {
+        d.err(QUEUE_USAGE);
+        return 2;
+      }
+      const guess = suggestWord(sub, QUEUE_SUBCOMMANDS);
+      d.err(`loki queue: unknown subcommand '${sub}'${guess ? ` (did you mean '${guess}'?)` : ""}\n${QUEUE_USAGE}`);
       return 2;
+    }
   }
 }

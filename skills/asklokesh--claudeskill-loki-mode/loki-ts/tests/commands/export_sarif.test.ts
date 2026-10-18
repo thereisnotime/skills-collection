@@ -83,3 +83,88 @@ describe("export --sarif uris", () => {
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
 });
+
+describe("export --sarif vendor keys", () => {
+  const J = (...p: string[]) => p.join("");
+  const cases: [string, string][] = [
+    ["anthropic-api-key", J("sk-", "ant-", "api03-", "Ab1Cd2Ef3Gh4Ij5Kl6Mn7Op8Qr9St0Uv_-wX")],
+    ["openai-project-key", J("sk-", "proj-", "Ab1Cd2Ef3Gh4Ij5Kl6Mn7Op8Qr9St0")],
+    ["npm-token", J("npm", "_", "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8")],
+    ["stripe-key", J("sk", "_live_", "a1B2c3D4e5F6g7H8i9J0k1L2m3")],
+    ["jwt", J("eyJ", "hbGciOiJIUzI1NiJ9", ".eyJ", "zdWIiOiIxMjM0NTY3ODkwIn0", ".dBjftJeZ4CVPmB92K27uhbUJU1p1r")],
+  ];
+  const mk = (line: string) => `diff --git a/src/a.ts b/src/a.ts\n+++ b/src/a.ts\n@@ -1,0 +1,1 @@\n+const t = "${line}";\n`;
+  test.each(cases)("vendor keys: %s is reported through main without the value", async (label, key) => {
+    const { root, runs } = fixture();
+    try {
+      expect(scanDiff(mk(key)).map((f) => f.key)).toEqual([label]);
+      const r = await run(["--sarif", "e10-1-aaaa"], { runsRoot: runs, diff: async () => mk(key) });
+      expect(r.rc).toBe(0);
+      const sarif = readFileSync(join(runs, "e10-1-aaaa", "findings.sarif"), "utf8");
+      expect(sarif.match(/"ruleId": "loki\/secret-scan"/g)?.length).toBe(1);
+      expect(sarif).not.toContain(key);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+  test("vendor keys: clean lookalikes report 0", () => {
+    for (const clean of ["risk-assessment-framework-documentation", "task-management-workflow-orchestrator", "const npm_config = 1;", "sk_live_ placeholder", "eyJ.short.tok", "sk-ant-api03-short"]) {
+      expect(scanDiff(mk(clean))).toEqual([]);
+    }
+  });
+});
+
+describe("export --sarif extra token formats", () => {
+  const J = (...p: string[]) => p.join("");
+  const cases: [string, string][] = [
+    ["huggingface-token", J("hf", "_", "aB3dE5gH7jK9mN1pQ3sT5vW7yZ9bD1fH3jL5")],
+    ["sendgrid-key", J("SG", ".", "aB3dE5gH7jK9mN1pQ3sT5v", ".", "aB3dE5gH7jK9mN1pQ3sT5vW7yZ9bD1fH3jL5nP7rT9u")],
+    ["twilio-key", J("SK", "0123456789abcdef0123456789abcdef")],
+    ["azure-storage-key", J("Account", "Key=", "aB3dE5gH7jK9mN1pQ3sT5vW7yZ9bD1fH3jL5nP7rT9uVwXyZ0123456789+/abcd==")],
+  ];
+  const mk = (line: string) => `diff --git a/src/a.ts b/src/a.ts\n+++ b/src/a.ts\n@@ -1,0 +1,1 @@\n+const t = "${line}";\n`;
+  test.each(cases)("extra token formats: %s is reported through main label-only", async (label, key) => {
+    const { root, runs } = fixture();
+    try {
+      expect(scanDiff(mk(key)).map((f) => f.key)).toEqual([label]);
+      const r = await run(["--sarif", "e10-1-aaaa"], { runsRoot: runs, diff: async () => mk(key) });
+      expect(r.rc).toBe(0);
+      const sarif = readFileSync(join(runs, "e10-1-aaaa", "findings.sarif"), "utf8");
+      expect(sarif.match(/"ruleId": "loki\/secret-scan"/g)?.length).toBe(1);
+      expect(sarif).not.toContain(key);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+  test("extra token formats: clean lookalikes report 0", () => {
+    for (const clean of ["const hf_model = 'bert';", "hf_short", "SG.short.tok", "SK0123", "AccountKey=short", "MASK0123456789abcdef0123456789abcdef"]) {
+      expect(scanDiff(mk(clean))).toEqual([]);
+    }
+  });
+});
+
+describe("export --sarif more token shapes", () => {
+  const J = (...p: string[]) => p.join("");
+  const B = "aB3dE5gH7jK9mN1pQ3sT5vW7yZ9bD1fH3jL5nP7rT9uVwXyZ01";
+  const cases: [string, string][] = [
+    ["pypi-token", J("pypi", "-AgEI", B)],
+    ["docker-pat", J("dckr", "_pat_", "aB3dE5gH7jK9mN1pQ3sT5v")],
+    ["digitalocean-token", J("dop", "_v1_", "0123456789abcdef".repeat(4))],
+    ["google-oauth-token", J("ya29", ".", "aB3dE5gH7jK9mN1pQ3sT5vW7")],
+    ["shopify-token", J("shp", "at_", "0123456789abcdef0123456789abcdef")],
+    ["postman-key", J("PM", "AK-", "aB3dE5gH7jK9mN1pQ3sT5vW7", "-", "aB3dE5gH7jK9mN1pQ3sT5vW7yZ9bD1fH3j")],
+  ];
+  const mk = (line: string) => `diff --git a/src/a.ts b/src/a.ts\n+++ b/src/a.ts\n@@ -1,0 +1,1 @@\n+const t = "${line}";\n`;
+  test.each(cases)("more token shapes: %s is reported through main label-only", async (label, key) => {
+    const { root, runs } = fixture();
+    try {
+      expect(scanDiff(mk(key)).map((f) => f.key)).toEqual([label]);
+      const r = await run(["--sarif", "e10-1-aaaa"], { runsRoot: runs, diff: async () => mk(key) });
+      expect(r.rc).toBe(0);
+      const sarif = readFileSync(join(runs, "e10-1-aaaa", "findings.sarif"), "utf8");
+      expect(sarif.match(/"ruleId": "loki\/secret-scan"/g)?.length).toBe(1);
+      expect(sarif).not.toContain(key);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+  test("more token shapes: clean lookalikes report 0", () => {
+    for (const clean of ["pypi-AgEIshort", "pypi-install", "dckr_pat_x", "dop_v1_abc", "ya29.short", "shpat_abc", "PMAK-short-tok", "xya29.aB3dE5gH7jK9mN1pQ3sT5vW7"]) {
+      expect(scanDiff(mk(clean))).toEqual([]);
+    }
+  });
+});

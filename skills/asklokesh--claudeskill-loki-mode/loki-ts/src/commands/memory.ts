@@ -4,6 +4,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
+import { suggestWord } from "../cli/registry.ts";
 import { BOLD, GREEN, YELLOW, CYAN, NC } from "../util/colors.ts";
 import { homeLokiDir, lokiDir, REPO_ROOT } from "../util/paths.ts";
 import { runInline } from "../util/python.ts";
@@ -28,12 +29,17 @@ function countDescriptionLines(file: string): number {
   }
 }
 
-export async function runMemoryList(): Promise<number> {
+export async function runMemoryList(json = false): Promise<number> {
   await mkdir(LEARNINGS_DIR, { recursive: true });
 
   const patterns = countDescriptionLines(resolve(LEARNINGS_DIR, "patterns.jsonl"));
   const mistakes = countDescriptionLines(resolve(LEARNINGS_DIR, "mistakes.jsonl"));
   const successes = countDescriptionLines(resolve(LEARNINGS_DIR, "successes.jsonl"));
+
+  if (json) {
+    process.stdout.write(`${JSON.stringify({ patterns, mistakes, successes, learnings_path: LEARNINGS_DIR }, null, 2)}\n`);
+    return 0;
+  }
 
   process.stdout.write(`${BOLD}Cross-Project Learnings${NC}\n`);
   process.stdout.write(`\n`);
@@ -100,6 +106,20 @@ function lessonJson(l: Lesson): Record<string, unknown> {
   return { id: l.id, text: l.text, source: l.source, uses: l.uses.length, verified_ratio: settled.length ? verified / settled.length : null };
 }
 
+// "Did you mean" line for a mistyped flag, or empty when no allowed flag is close.
+function flagHint(bad: string, allowed: readonly string[]): string {
+  const hint = suggestWord(bad, allowed);
+  return hint ? `Did you mean '${hint}'?\n` : "";
+}
+
+// Reject flags a read-only subcommand does not know instead of printing the default output.
+function unknownFlag(sub: string, rest: readonly string[], allowed: readonly string[], usage: string): boolean {
+  const bad = rest.find((a) => a.startsWith("-") && !allowed.includes(a) && a !== "--help" && a !== "-h");
+  if (bad === undefined) return false;
+  process.stderr.write(`Error: unknown flag '${bad}' for 'memory ${sub}'\n${flagHint(bad, allowed)}${usage}\n`);
+  return true;
+}
+
 export async function runMemory(argv: readonly string[]): Promise<number> {
   if (argv.length === 0) {
     // Bare `loki memory`: the learnings summary followed by this repo's PR lessons.
@@ -110,6 +130,7 @@ export async function runMemory(argv: readonly string[]): Promise<number> {
   const sub = argv[0] ?? "list";
   switch (sub) {
     case "lessons": {
+      if (unknownFlag("lessons", argv.slice(1), ["--json"], "Usage: loki memory lessons [--json]")) return 2;
       const lessons = loadLessons(process.cwd());
       if (argv.slice(1).includes("--json")) {
         process.stdout.write(`${JSON.stringify(lessons.map(lessonJson), null, 2)}\n`);
@@ -120,8 +141,11 @@ export async function runMemory(argv: readonly string[]): Promise<number> {
     }
     case "brief": {
       // INJECT: the exact block an engine10 run injects, so `loki chat` can show it. No new retrieval.
+      const bi = argv.findIndex((a, k) => k > 0 && a.startsWith("-") && a !== "--task" && a !== "--help" && a !== "-h" && argv[k - 1] !== "--task");
+      if (bi > 0) { process.stderr.write(`Error: unknown flag '${argv[bi]}' for 'memory brief'\n${flagHint(argv[bi] ?? "", ["--task"])}Usage: loki memory brief [--task <text>]\n`); return 2; }
       const i = argv.indexOf("--task");
       const task = i >= 0 ? (argv[i + 1] ?? "") : "";
+      if (i >= 0 && (task === "" || task.startsWith("--"))) { process.stderr.write("Usage: loki memory brief [--task <text>]\n"); return 2; }
       process.stdout.write((formatLessonsForBrief(retrieveLessons(process.cwd(), task)) + learningsBlock(process.cwd())).trimStart());
       return 0;
     }
@@ -135,7 +159,8 @@ export async function runMemory(argv: readonly string[]): Promise<number> {
     }
     case "list":
     case "ls":
-      return runMemoryList();
+      if (unknownFlag("list", argv.slice(1), ["--json"], "Usage: loki memory list [--json]")) return 2;
+      return runMemoryList(argv.slice(1).includes("--json"));
     case "learn": {
       const usage = "Usage: loki memory learn <owner/repo#PR> | --recent N [--repo owner/repo]\n";
       if (argv[1] === "--recent") {
