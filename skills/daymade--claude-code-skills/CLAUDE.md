@@ -124,10 +124,9 @@ proxy-conflict and network-recovery references. For automatic WeCom integration,
 enter `setup-notifications-via-wecom`; its receipt contract owns accepted/rejected/unknown
 handling, while the worker owns event identity and delivery state.
 
-For Terraform publication, approval, first mutation, expired plans, environment isolation or
-initialization-cache changes, enter [`terraform-skill`](terraform-skill/SKILL.md).
-Its pre-deploy and release references own publisher preparation, native-expression verification and authorization;
-its isolation reference owns backend/workspace identity and fresh-state validation.
+For Terraform publication, linked releases, shared-route replacement, approval, first mutation,
+expired plans, environment isolation or initialization-cache changes, enter
+[`terraform-skill`](terraform-skill/SKILL.md).
 
 For Deep Research or Kimi financial-research changes, enter the owning
 [`deep-research`](deep-research/SKILL.md) or [`kimi-use`](kimi-use/SKILL.md) Skill.
@@ -175,6 +174,9 @@ For hook creation, consolidation, Skill-entry enforcement, registration or recov
 and follow its Build order and installer-owned recovery contract. Follow that
 Skill's loop and reminder contract; keep current thresholds in the
 owning implementation.
+For ordinary-interface notification visibility, use
+[hook_pitfalls.md #66](daymade-claude-code/claude-code-hooks/references/hook_pitfalls.md);
+for current-version/partial-structure SQLite upgrades, use that file's #59.
 
 Python entry points registered as synchronous Claude Code/Codex lifecycle hooks or
 background services (LaunchAgents included) must call a fixed direct interpreter
@@ -196,8 +198,9 @@ Python hooks.
 ### Rendered UI delivery acceptance
 
 For rendered UI freshness, delayed editor/batch responses or deployment acceptance, enter
-[frontend-visual-qa](frontend-visual-qa/SKILL.md). Keep its manifest, launcher,
-result semantics and rendered-journey procedure in that owner.
+[frontend-visual-qa](frontend-visual-qa/SKILL.md).
+Before measuring loading speed, read its
+[cache and timing comparison](frontend-visual-qa/references/browser-driving-and-observation-traps.md#separate-freshness-checks-from-performance-comparisons).
 For build reuse across source refs or a target redeployed during acceptance, load its
 [delivery verification procedure](frontend-visual-qa/references/delivery-verification.md).
 For nested zoomable workspaces, use its
@@ -219,14 +222,16 @@ For oversized images or figure readability in a Markdown note or transcript, use
 It owns reader-specific sizing and the representative pilot; keep display values
 and verification details there.
 
-### Background Full Disk Access repair
+### Background protected-data access
 
-When a LaunchAgent cannot read protected data, enter
-[`macos-permissions`](daymade-macos/macos-permissions/SKILL.md) and its
+For a background protected-data read failure, start at
+[macos-permissions' reproduction step](daymade-macos/macos-permissions/SKILL.md#reproduce-the-reported-denial-first).
+Before interpreting preflight logs or grant rows, read its
+[correlation procedure](daymade-macos/macos-permissions/references/tcc-mechanics.md#correlate-preflight-and-grant-evidence).
+For an established Full Disk Access repair, use its
 [automated repair SOP](daymade-macos/macos-permissions/references/automated-full-disk-access.md).
-For a reported denial that may no longer occur, start at its
-[reproduction step](daymade-macos/macos-permissions/SKILL.md#reproduce-the-reported-denial-first).
-Keep attribution, repair and actual-context verification with those owners.
+After a permission grant or reset, follow `macos-permissions`'s
+[request lifecycle](daymade-macos/macos-permissions/SKILL.md#after-a-grant-or-reset).
 
 Treat `daymade-skill/skill-creator` as a locked uv project. Run its bundled Python tools from that directory with `uv run --frozen`; the project-local `.venv` is isolated from caller projects while uv's shared cache supplies the pinned packages. Do not reintroduce per-call `--with` overlays for dependencies already in its `pyproject.toml`.
 
@@ -310,6 +315,10 @@ validation behavior in
 [native_review.py](daymade-audio/transcript-fixer/scripts/native_review.py), and
 queue anchor behavior in
 [review_queue.py](daymade-audio/transcript-fixer/scripts/core/review_queue.py).
+For same-line repeats or a legacy row needing an explicit slot, follow
+[occurrence anchoring](daymade-audio/transcript-fixer/references/review_queue_dashboard.md#same-line-occurrence-anchoring).
+Use the [CLI reference](daymade-audio/transcript-fixer/references/script_parameters.md#fix_transcriptionpy)
+to select the command; the argument parser owns accepted combinations.
 For remaining pending rows or a received human verdict on an already reviewed file, enter
 [pending continuation](daymade-audio/transcript-fixer/references/pending-continuation.md).
 For source-audio export, identity and timeline pairing, follow
@@ -570,9 +579,9 @@ For inherited upload restrictions or source paths hidden by ignore rules, read i
 [convergence authority and source-inventory procedure](git-safety-net/references/merge_verification.md#1-freeze-the-outcome-and-the-first-ref-snapshot).
 
 For GitHub-hosted state — PRs, issues, Actions, repository or organization settings, permissions,
-and API/UI mutations — treat `github-ops/SKILL.md` as the canonical operating contract. A command
-receipt is not completion; use that Skill's operation-specific independent readback. Keep detailed
-GitHub SOPs there rather than copying them into this repository-level instruction file.
+and API/UI mutations — enter [github-ops](github-ops/SKILL.md).
+For reauthentication during an authorized operation, use its
+[named-write authentication procedure](github-ops/SKILL.md#8-authenticate-only-for-the-named-write).
 For upstream contributions and desktop E2E acceptance, enter
 [github-contributor](github-contributor/SKILL.md) and its
 [quality/E2E workflow](github-contributor/references/phase3_quality_gates_and_e2e.md).
@@ -856,8 +865,10 @@ Before submitting or modifying skills:
 ## Adding a New Skill to Marketplace
 
 Follow [Adding a New Skill to Marketplace](references/new-skill-guide.md) for
-registration, README updates, validation, and publication. Use the existing suite
-identity when adding a member; do not introduce a parallel standalone plugin.
+registration, README updates, documentation alignment, validation, and publication.
+Apply **Quality Standards** above to this file's affected stable rules and routes.
+Use the existing suite identity when adding a member; do not introduce a parallel
+standalone plugin.
 The local-availability gate under **Testing Skills Locally** applies when local
 use is part of the requested delivery.
 

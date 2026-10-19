@@ -98,8 +98,8 @@ describe("engine10 implement brief", () => {
 
 describe("engine10 implement brief: LOKI_E10_REPRO (TEN-QUALITY-08)", () => {
   const SENT = "If the task reports a bug, first add a new test function that reproduces it, run it and see it fail, then fix the code and run that test again.";
-  // Golden captured before the change with the flag unset: length 1867, sha256 below.
-  const GOLDEN = { len: 1867, sha: "3b3d4780fcf16ea5a49eeb49668aa5520a9666ee2394bca3c6c293dfeace2099" };
+  // Golden with the flag unset: length 2362, sha256 below (re-captured for FC-FIX-OVER-CONFLICT: the FIXED_RULES docs rule and the stage-prefix no-substitute sentence).
+  const GOLDEN = { len: 2362, sha: "ce0377a48465bb7d2ca813f9bfbe55cf137c188b43e7149c574108cfdcb9934c" };
   const withRepro = <T>(v: string | undefined, fn: () => T): T => { const old = process.env.LOKI_E10_REPRO; if (v === undefined) delete process.env.LOKI_E10_REPRO; else process.env.LOKI_E10_REPRO = v; try { return fn(); } finally { if (old === undefined) delete process.env.LOKI_E10_REPRO; else process.env.LOKI_E10_REPRO = old; } };
   const lean = () => buildImplementBrief("fix the bug", null, ["tests/x.test.ts"]);
   test("flag on: lean brief contains the sentence once", () => {
@@ -392,5 +392,33 @@ describe("engine10 implement stage: S41-13 two attempts (LOKI_E10_ATTEMPTS)", ()
       expect(count()).toBe(1);
       expect(res.data.attempts).toBeUndefined();
     });
+  });
+});
+
+describe("engine10 implement stage: TEN-QUALITY-44 repro test out of repo", () => {
+  const git = (d: string, ...a: string[]): string => Bun.spawnSync(["git", "-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: d }).stdout.toString().trim();
+  async function runWith(body: string, flag: string | undefined) {
+    const dir = mkdtempSync(join(tmpdir(), "loki-q44-"));
+    git(dir, "init", "-q"); writeFileSync(join(dir, "a.txt"), "x\n"); git(dir, "add", "a.txt"); git(dir, "commit", "-qm", "base");
+    const briefs: string[] = [];
+    const sessions = new FakeSessionRunner(doneResult, (o) => { briefs.push(o.brief); if (briefs.length === 1) writeFileSync(join(dir, "repro.test.ts"), body, "utf8"); else writeFileSync(join(dir, "repro.test.ts"), 'import { f } from "../src/f.ts";\n', "utf8"); });
+    const ctx = { ...fakeCtx(sessions, { intake: { task: "fix the bug" } }, join(dir, ".loki", "runs", "r1")), repoDir: dir, baseSha: git(dir, "rev-parse", "HEAD") };
+    const old = process.env.LOKI_E10_REPRO; if (flag === undefined) delete process.env.LOKI_E10_REPRO; else process.env.LOKI_E10_REPRO = flag;
+    try { const r = await implementStage.run(ctx, new AbortController().signal); return { r, briefs, file: readFileSync(join(dir, "repro.test.ts"), "utf8") }; }
+    finally { if (old === undefined) delete process.env.LOKI_E10_REPRO; else process.env.LOKI_E10_REPRO = old; rmSync(dir, { recursive: true, force: true }); }
+  }
+  const BAD = 'import { f } from "/Users/someone/.claude/plugins/x/f.ts";\n';
+  test("repro test out of repo is re-asked once with the reason", async () => {
+    const { r, briefs, file } = await runWith(BAD, "1");
+    expect(briefs.length).toBe(2);
+    expect(briefs[1]).toContain("repro.test.ts");
+    expect(briefs[1]).toContain("outside the repo");
+    expect(file).toContain("../src/f.ts");
+    expect(r.status).toBe("completed");
+    expect((r.data.iteration_ids as string[]).length).toBe(2);
+  });
+  test("repro test out of repo: clean repro and flag-off runs are not re-asked", async () => {
+    expect((await runWith('import { f } from "../src/f.ts";\n', "1")).briefs.length).toBe(1);
+    expect((await runWith(BAD, undefined)).briefs.length).toBe(1);
   });
 });

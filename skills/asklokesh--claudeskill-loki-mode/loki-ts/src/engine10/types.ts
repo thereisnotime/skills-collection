@@ -42,9 +42,9 @@ export const MAX_FIX_ROUNDS = 2;
 export const EVENT_TYPES = [
   "run.started", "run.resumed", "stage.started", "stage.completed", "stage.failed", "stage.skipped",
   "heartbeat", "session.started", "session.ended", "session.stalled", "cost", "wall.sealed", "wall.reauthor",
-  "tests.restored", "test.result", "test.scoped_out", "fix.round", "already.satisfied", "spec.conflict",
+  "tests.restored", "test.result", "test.scoped_out", "test.skipped_on_base", "fix.round", "already.satisfied", "spec.conflict",
   "escalated", "cap.hit", "cap.sized", "tamper.detected", "receipt.sealed", "pr.opened",
-  "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant", "route", "route.escalated", "provider.failover", "project_model.fallback", "intent.revised", "already.attested", "cancel_requested", "cancel_effective",
+  "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant", "route", "route.escalated", "provider.failover", "project_model.fallback", "intent.revised", "already.attested", "cancel_requested", "cancel_effective", "loop.repeat", "deps.install",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 /** One line of events.jsonl. All keys required; stage is null for run-level events; readers tolerate unknown `type` values. */
@@ -185,7 +185,7 @@ export interface Receipt {
   diff_sha256: string;
   wall: { files: { path: string; sha256: string }[]; passed: boolean | null };
   checks: ReceiptCheck[];
-  not_proven: string[];
+  not_proven: string[]; not_applicable?: string[]; // FC-SEAL-NA-AS-UNPROVEN: informational notes (package without tests, no app to boot, not selected by risk tier); never part of any verdict
   spec?: { path: string; sha256: string }; intent_revisions?: { rev: number; source: string | null; actor: string | null; sha: string }[]; // P12-02 (omitted when none); SPEC-FIRST-INTENT: present only when a user spec file drove the run
   seeded_corpus?: import("../util/run_outputs.ts").SeededCorpus; /* TEN-GATES-15 */ supply?: import("../supply/supply_guard.ts").SupplyBlock; // T10: present only when the guard found newly added dependencies
   route?: import("../runner/router/route_block.ts").RouteBlock; // R1-15: present only while the router is on.

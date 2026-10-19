@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import ts from "typescript";
 import { cascadeDowngrade, cascadeEnabled, escalationModel, haikuFirstDowngrade, modelRank } from "../../src/engine10/sizing.ts";
 import { implementStage } from "../../src/engine10/stages/implement.ts";
 import { fixStage } from "../../src/engine10/stages/fix.ts";
@@ -141,15 +142,59 @@ export function guardViolations(files: Record<string, string>): string[] {
   };
   for (const [path, src] of Object.entries(files)) {
     if (path.startsWith("dashboard/") || path === "types.ts" || path === "session.ts" || path === "cost.ts") continue;
-    const lines = src.split("\n");
-    lines.forEach((line, i) => {
-      const m = line.match(/(?:\.\.\.\(\w+ \? \{ )?\bmodel(?:: | \?)(.*)$/);
-      if (!m || /ctx\.model|^\s*(\/\/|\*)/.test(line) || !/sessions\.run|\.\.\.\(|^\s*model: (wallModel|downgrade|pinned)/.test(line)) return;
-      const expr = line.slice(line.indexOf("model") === -1 ? 0 : 0).trim().replace(/^\.\.\.\(/, "").replace(/^model: /, "");
-      const ok = allowed[path];
-      if (path === "stages/fix.ts" && /^routedPin \? \{ model: routedPin \} : \{\}\)/.test(expr) && FIX_ROUTED_DEF.test(src)) return; // evidence-backed router pin, checked structurally below
-      if (!ok || !ok.test(expr)) v.push(`${path}:${i + 1}: unvetted session model pin: ${line.trim()}`);
-    });
+    const ok = allowed[path];
+    const sf = ts.createSourceFile(path, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const routedOk = (e: string): boolean => path === "stages/fix.ts" && /^routedPin \? \{ model: routedPin \} : \{\}$/.test(e) && FIX_ROUTED_DEF.test(src);
+    const vetted = (e: string): boolean => (ok !== undefined && ok.test(e)) || routedOk(e);
+    const skipParens = (n: ts.Node): ts.Node => (ts.isParenthesizedExpression(n) ? skipParens(n.expression) : n);
+    const nameOf = (q: ts.ObjectLiteralElementLike): string | undefined => (q.name && (ts.isIdentifier(q.name) || ts.isStringLiteral(q.name)) ? q.name.text : undefined);
+    // An object literal that is `...(cond ? { ..model.. } : {})` is judged through the spread; return that spread, if any.
+    const spreadOf = (obj: ts.ObjectLiteralExpression): ts.SpreadAssignment | undefined => {
+      let n: ts.Node = obj.parent;
+      while (n && !ts.isSpreadAssignment(n) && (ts.isConditionalExpression(n) || ts.isParenthesizedExpression(n))) n = n.parent;
+      return n && ts.isSpreadAssignment(n) ? n : undefined;
+    };
+    // A `model` key inside an event data object (`data: { ... }` or `const data = { ... }`) describes the run; it is not a session pin.
+    // Only the nearest enclosing object counts, so a pin elsewhere in the same statement or after the data object closed is still judged.
+    const isData = (obj: ts.ObjectLiteralExpression): boolean => {
+      const sp = spreadOf(obj);
+      const par = (sp ? sp.parent : obj).parent;
+      return !!par && ((ts.isPropertyAssignment(par) && nameOf(par) === "data") || (ts.isVariableDeclaration(par) && ts.isIdentifier(par.name) && par.name.text === "data"));
+    };
+    const condSpreads = (obj: ts.ObjectLiteralExpression): ts.ConditionalExpression[] =>
+      obj.properties.flatMap((q) => { const c = ts.isSpreadAssignment(q) ? skipParens(q.expression) : undefined; return c && ts.isConditionalExpression(c) ? [c] : []; });
+    const calleeOf = (obj: ts.ObjectLiteralExpression): string => (ts.isCallExpression(obj.parent) ? obj.parent.expression.getText(sf) : "");
+    // An explicit `model:` key is in scope when the object has ANY conditional spread (the shape of a session options object);
+    // a shorthand `model` only when a conditional spread sets effort or model, because event payloads spread unrelated keys.
+    const inScope = (obj: ts.ObjectLiteralExpression, prop: ts.ObjectLiteralElementLike, init: string): boolean => {
+      if (/\.(emit|append)$/.test(calleeOf(obj))) return false; // event payloads describe the run; they never configure a session
+      if (spreadOf(obj) !== undefined || /sessions\.run$/.test(calleeOf(obj))) return true;
+      const cs = condSpreads(obj);
+      if (ts.isPropertyAssignment(prop)) return cs.length > 0 || /^(wallModel|downgrade|pinned)/.test(init);
+      return cs.some((c) => [c.whenTrue, c.whenFalse].some((b) => ts.isObjectLiteralExpression(b) && b.properties.some((x) => ["effort", "model"].includes(nameOf(x) ?? ""))));
+    };
+    // wall.ts COST-11: the wall session's own pin is the local `model` of wallAuthor, defined once from the retry model or wallFirstModel.
+    const inWallAuthor = (n: ts.Node): boolean => {
+      for (let a: ts.Node | undefined = n; a; a = a.parent) if (ts.isFunctionDeclaration(a)) return a.name?.text === "wallAuthor" && a.getText(sf).includes("const model = retry?.model ?? wallFirstModel(sz.size)");
+      return false;
+    };
+    const visit = (node: ts.Node): void => {
+      if (ts.isObjectLiteralExpression(node)) {
+        for (const prop of node.properties) {
+          if (!(ts.isPropertyAssignment(prop) || ts.isShorthandPropertyAssignment(prop)) || nameOf(prop) !== "model") continue;
+          const init = ts.isPropertyAssignment(prop) ? prop.initializer.getText(sf) : "model";
+          if (!inScope(node, prop, init) || isData(node)) continue;
+          const sp = spreadOf(node);
+          const wallShorthand = path === "stages/wall.ts" && init === "model" && inWallAuthor(prop);
+          const good = sp
+            ? vetted(skipParens(sp.expression).getText(sf))
+            : init === "ctx.model" || (ok !== undefined && ok.test(`${init},`)) || wallShorthand;
+          if (!good) v.push(`${path}:${sf.getLineAndCharacterOfPosition(prop.getStart(sf)).line + 1}: unvetted session model pin: ${node.getText(sf).split("\n")[0]!.trim()}`);
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
   }
   // ROUTER-1: a model below the run model is allowed only when a router route record exists for that unit with its evidence (source plus reason).
   for (const path of ["stages/implement.ts", "stages/fix.ts"]) {
@@ -216,6 +261,39 @@ describe("L1 static guard", () => {
     const f = loadFiles();
     f["sizing.ts"] = f["sizing.ts"]!.replace('knob(env.LOKI_E10_CASCADE, ["1", "on", "true"])', '!knob(env.LOKI_E10_CASCADE, ["0", "off", "false"])');
     expect(guardViolations(f).length).toBeGreaterThan(0);
+  });
+
+  it("one-line options object: every spread pin is vetted on its own, and a data-key model is not a pin", () => {
+    const f = loadFiles();
+    const line = f["stages/fix.ts"]!.split("\n").find((l) => l.includes("const sessionBase = {") && l.includes("...(pinnedModel ? { model: pinnedModel } : {})"))!;
+    expect(line).toBeDefined();
+    expect(guardViolations(f).filter((x) => x.includes("unvetted session model pin"))).toEqual([]);
+    const g = { ...f, "stages/fix.ts": f["stages/fix.ts"]!.replace(line, line.replace("...(routedPin ? { model: routedPin } : {})", '...(effort ? { model: "claude-haiku-4-5" } : {})')) };
+    expect(guardViolations(g).some((x) => x.includes("unvetted session model pin"))).toBe(true);
+    const h = { ...f, "stages/fix.ts": f["stages/fix.ts"]!.replace(line, line.replace("...(pinnedModel ? { model: pinnedModel } : {})", '...(pinnedModel ? { model: "claude-haiku-4-5" } : {})')) };
+    expect(guardViolations(h).some((x) => x.includes("unvetted session model pin"))).toBe(true);
+  });
+
+  it("review misses F, G, E: a non-first model key, a trailing model key and a data-key outside an event object are pins", () => {
+    const f = loadFiles();
+    const fix = f["stages/fix.ts"]!;
+    const line = fix.split("\n").find((l) => l.includes("const sessionBase = {") && l.includes("...(pinnedModel ? { model: pinnedModel } : {})"))!;
+    const red = (mut: string): boolean => guardViolations({ ...f, "stages/fix.ts": mut }).some((x) => x.includes("unvetted session model pin"));
+    expect(red(fix.replace(line, line.replace("...(effort ? { effort } : {})", "...(effort ? { effort, model: lowModel } : {})")))).toBe(true); // F
+    expect(red(fix.replace(line, line.replace(/ \};$/, ", model: lowModel };")))).toBe(true); // G
+    expect(red(`${fix}\nconst o = { ...(pinnedModel ? { model: pinnedModel } : {}), stage: "fix", model: lowModel };\n`)).toBe(true); // E, outside a data object
+    expect(red(`${fix}\nconst o = { ...(effort ? { effort } : {}), model: lowModel };\n`)).toBe(true); // E, plain shape: the only spread is unrelated
+    expect(red(`${fix}\nctx.emit("x", "fix", { data: { round } }); const o = { ...(effort ? { effort } : {}), model: lowModel };\n`)).toBe(true); // pin after a data object already closed
+    expect(red(`${fix}\nconst data: Record<string, unknown> = {\n  ...(effort ? { effort } : {}), model: actualModel,\n};\n`)).toBe(false); // a data-named binding is an event object
+    expect(red(`${fix}\n// it's fine\nconst d = { ...(effort ? { effort } : {}), model: "}" }; const data = {\n ...(effort ? { effort } : {}), model: actualModel };\n`)).toBe(true); // braces in strings and apostrophes in comments do not hide the first pin
+    for (const re of ["/'/", '/"/', "/`/", "/\\/\\//"]) expect(red(`${fix}\nconst data = { re: ${re} }; const o = { ...(effort ? { effort } : {}), model: lowModel };\n`)).toBe(true); // a quote or // inside a regex literal is not a string or comment
+    expect(red(`${fix}\nconst o = { ...(signal ? { signal } : {}), model: lowModel };\n`)).toBe(true); // any conditional spread puts an explicit model key in scope
+    expect(red(`${fix}\nconst o = { ...(signal ? { signal } : {}), model: lowModel }; ctx.sessions.run(o);\n`)).toBe(true);
+    expect(red(`${fix}\nctx.emit("x", "fix", { ...(signal ? { signal } : {}), model: actualModel });\n`)).toBe(false); // an emit payload is not a session
+    const wall = f["stages/wall.ts"]!;
+    const sibling = `\nexport async function wallLow(ctx: RunContext) {\n  const model = "claude-haiku-4-5";\n  return ctx.sessions.run({ stage: "wall", model });\n}\n`;
+    expect(guardViolations({ ...f, "stages/wall.ts": wall + sibling }).some((x) => x.includes("unvetted session model pin"))).toBe(true); // the wallAuthor shorthand vetting is per function, not per file
+    expect(red(`${fix}\nctx.emit("x", "fix", { data: { round, model: actualModel } });\n`)).toBe(false); // inside a data object it stays exempt
   });
 
   it("mutation M5: pinning a non-test fix round to haiku without opt-in makes the guard fail", () => {

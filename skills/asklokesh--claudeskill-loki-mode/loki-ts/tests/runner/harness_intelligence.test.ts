@@ -14,7 +14,8 @@ import { tmpdir } from "node:os";
 import { basename, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { attribute, attributeFullSuite, attributeStatic, discoverCommands, ensureProfile, loadProfile, manifestHash, profileBrief, commandProfilePath, renderProfile, repoReadiness, type BaselineRunner, type CommandProfile, type ProfileCommand } from "../../src/runner/repo_profile.ts";
+import { failIds } from "../../src/engine10/failures.ts";
+import { attribute, attributeFullSuite, attributeStatic, baselineSuites, discoverCommands, ensureProfile, loadProfile, manifestHash, profileBrief, commandProfilePath, renderProfile, repoReadiness, type BaselineRunner, type CommandProfile, type ProfileCommand } from "../../src/runner/repo_profile.ts";
 import { runIntake } from "../../src/engine10/stages/intake.ts";
 import { verifyStage } from "../../src/engine10/stages/verify.ts";
 import type { RunContext, TestRef } from "../../src/engine10/types.ts";
@@ -753,6 +754,8 @@ describe("repo baseline profile (REPOMEM)", () => {
         const out = await medium(d, [node("feat.test.js")], () => writeFileSync(join(d, "feat.js"), "exports.v=2;\n"));
         expect(out["pre_red_checks"]).not.toContain("full suite: npm");
         expect(fullFails(out).length).toBe(1);
+        const sample = (out["failures_grouped"] as { signature: string; sample: string }[]).find((f) => f.signature.startsWith("full suite"))!.sample; // FC-FULLSUITE-ANSI-IDS: the fix brief carries failure text, not just the command
+        expect(sample).toContain("AssertionError");
       }, 120_000);
       test("unparseable full-suite failure output excuses nothing", async () => {
         const d = repo({ ...NODE, ...FEAT });
@@ -790,6 +793,68 @@ describe("repo baseline profile (REPOMEM)", () => {
         expect(attributeFullSuite(d, base, f("npm test", [...ok, "new"]), [], []).preExistingChecks).toEqual([]);
         expect(attributeFullSuite(d, base, f("npm test"), [], []).preExistingChecks).toEqual([]);
         expect(attributeFullSuite(d, base, f("npm test", []), [], []).preExistingChecks).toEqual([]);
+      });
+      test("FC-FULLSUITE-ANSI-IDS: a colored head run excuses against a plain baseline superset; colored genuinely new ids still block; unparsed ids say so", () => {
+        const d = repo(NODE), base = git(d, ["rev-parse", "HEAD"]);
+        mkdirSync(join(d, ".loki", "state"), { recursive: true });
+        const known = ["src/a.test.ts > s > c", "src/b.test.ts > s > d", "src/c.test.ts > s > e"];
+        writeFileSync(commandProfilePath(d), JSON.stringify({ version: 1, revision: base, manifest_hash: "h", created_at: "t", commands: [], baseline: { ran: true, command: "npm test", exit_code: 1, duration_s: 1, timed_out: false, failing_ids: known, attributable: true } }));
+        const color = (ids: string[]): string => `${ids.map((i) => ` \u001b[41m FAIL \u001b[49m \u001b[31m${i}\u001b[39m`).join("\n")}\n \u001b[2m Tests \u001b[22m \u001b[31m${ids.length} failed\u001b[39m | 3 passed (${ids.length + 3})`;
+        const chk = (out: string) => [{ name: "full suite: frontend", cmd: "npm test", result: "fail", ids: failIds(out) }];
+        expect(attributeFullSuite(d, base, chk(color(known.slice(0, 2))), [], []).preExistingChecks).toEqual(["full suite: frontend"]);
+        const fresh = attributeFullSuite(d, base, chk(color([known[0]!, "src/new.test.ts > s > n"])), [], []);
+        expect(fresh.preExistingChecks).toEqual([]); expect(fresh.introducedChecks).toEqual(["full suite: frontend"]);
+        const none = attributeFullSuite(d, base, [{ name: "full suite: frontend", cmd: "npm test", result: "fail", ids: [] }], [], []);
+        expect(none.introducedChecks).toEqual(["full suite: frontend"]);
+        expect(none.line).toContain("head failure ids unparseable");
+      });
+      // FC-BASELINE-PER-PACKAGE: verify runs one full-suite command per package; the baseline records the same commands, each in its own cwd.
+      const profileAt = (d: string, base: string): void => {
+        mkdirSync(join(d, ".loki", "state"), { recursive: true });
+        writeFileSync(commandProfilePath(d), JSON.stringify({ version: 1, revision: base, manifest_hash: "h", created_at: "t", commands: [{ kind: "test", cmd: "npm test", source: "package.json", validated: true }], baseline: { ran: true, command: "npm test", exit_code: 1, duration_s: 1, timed_out: false, failing_ids: ["old bug"], attributable: true } }));
+      };
+      const specs = [
+        { name: "full suite: npm", cmd: "npm test --silent", cwd: ".", run: "npm test --silent" },
+        { name: "full suite: fe", cmd: "(cd fe && npm test)", cwd: "fe", run: "npm test" },
+        { name: "full suite: be", cmd: "(cd be && npm test)", cwd: "be", run: "npm test" },
+      ];
+      test("baselineSuites records one entry per full-suite command in its cwd, skips the root command already run, reuses, re-runs after an install, and keeps to its budget", () => {
+        const d = repo({ ...NODE, "fe/x": "", "be/x": "" }), base = git(d, ["rev-parse", "HEAD"]);
+        profileAt(d, base);
+        const seen: string[] = [];
+        const run: BaselineRunner = (cmd, cwd) => { seen.push(`${cmd}@${basename(cwd)}`); return basename(cwd) === "fe" ? { code: 1, timedOut: false, out: "not ok 1 - fe bug\n# fail 1\n" } : { code: 1, timedOut: false, out: "garbled" }; };
+        const p = baselineSuites(d, specs, { run })!;
+        expect(seen).toEqual(["npm test@fe", "npm test@be"]);
+        expect(p.suites!.map((s) => [s.name, s.command, s.failing_ids, s.attributable])).toEqual([["full suite: fe", "(cd fe && npm test)", ["fe bug"], true], ["full suite: be", "(cd be && npm test)", [], false]]);
+        expect(loadProfile(d)!.suites!.length).toBe(2);
+        baselineSuites(d, specs, { run: never });
+        seen.length = 0;
+        baselineSuites(d, specs, { run, rerun: true });
+        expect(seen.filter((x) => x !== "npm test@fe" && x !== "npm test@be").length).toBe(1); expect(seen).toContain("npm test@fe"); expect(seen).toContain("npm test@be"); // after an install the main baseline and every suite re-run, attributable or not
+        const slow: BaselineRunner = () => ({ code: 1, timedOut: true, out: "" });
+        rmSync(commandProfilePath(d)); profileAt(d, base);
+        const b = baselineSuites(d, specs, { run: slow, budgetS: 0 })!;
+        expect(b.suites!.map((s) => [s.ran, s.reason])).toEqual([[false, "baseline budget used up"], [false, "baseline budget used up"]]);
+        writeFileSync(join(d, "README.md"), "x"); git(d, ["add", "README.md"]); git(d, ["commit", "-q", "-m", "moved"]);
+        expect(baselineSuites(d, specs, { run: never })).toBeNull(); // a profile for another HEAD is never extended
+      });
+      test("attributeFullSuite matches each package check to its own suite baseline; a missing or unattributable suite excuses nothing", () => {
+        const d = repo(NODE), base = git(d, ["rev-parse", "HEAD"]);
+        profileAt(d, base);
+        const p = loadProfile(d)!;
+        p.suites = [
+          { name: "full suite: fe", ran: true, command: "(cd fe && npm test)", exit_code: 1, duration_s: 1, timed_out: false, failing_ids: ["fe bug"], attributable: true },
+          { name: "full suite: be", ran: true, command: "(cd be && npm test)", exit_code: 1, duration_s: 1, timed_out: false, failing_ids: [], attributable: false },
+        ];
+        writeFileSync(commandProfilePath(d), JSON.stringify(p));
+        const chk = (name: string, cmd: string, ids: string[]) => ({ name, cmd, result: "fail", ids });
+        expect(attributeFullSuite(d, base, [chk("full suite: fe", "(cd fe && npm test)", ["fe bug"])], [], []).preExistingChecks).toEqual(["full suite: fe"]);
+        expect(attributeFullSuite(d, base, [chk("full suite: npm", "npm test --silent", ["old bug"]), chk("full suite: fe", "(cd fe && npm test)", ["fe bug"])], [], []).preExistingChecks).toEqual(["full suite: npm", "full suite: fe"]);
+        expect(attributeFullSuite(d, base, [chk("full suite: fe", "(cd fe && npm test)", ["old bug"])], [], []).preExistingChecks).toEqual([]); // another command's red id is not this one's
+        expect(attributeFullSuite(d, base, [chk("full suite: be", "(cd be && npm test)", ["x"])], [], []).preExistingChecks).toEqual([]);
+        const miss = attributeFullSuite(d, base, [chk("full suite: fe", "(cd fe && npm test)", ["fe bug"]), chk("full suite: ui", "(cd ui && npm test)", ["fe bug"])], [], []);
+        expect(miss.preExistingChecks).toEqual([]);
+        expect(miss.line).toContain("not comparable");
       });
     });
     test("without a profile verify behaves as before: no baseline fields, every failure stays", async () => {
@@ -1051,13 +1116,14 @@ describe("P12-11b flaky rerun producer and summary wiring", () => {
     expect(failedChecksSignal(dir2, "tree1")).toBeUndefined();
     expect(failedChecksSignal(dir, "")).toBeUndefined();
     expect(failedCheckNames("junk")).toEqual([]);
+    expect(failedCheckNames([{ name: "lint:shellcheck", result: "fail" }, { name: "bun:b.test.ts", result: "fail" }], ["lint:shellcheck"])).toEqual(["bun:b.test.ts"]); // FC-LINT-PRE-RED
     expect(decideRecovery({ output: "x", buildExitCode: 1, rerun: flakyRerunSignal(dir2, "tree1"), failedChecks: failedChecksSignal(dir2, "tree1") }, { env: E, history: [] })).toMatchObject({ action: "retry", reason: "flaky" });
   });
   it("Q17-03: the real call sites pass failedChecks and record failed checks", () => {
     const au = readFileSync(new URL("../../src/runner/autonomous.ts", import.meta.url), "utf8");
     const sv = readFileSync(new URL("../../src/engine10/supervisor.ts", import.meta.url), "utf8");
     expect(au).toMatch(/failedChecks: failedChecksSignal\(/);
-    expect(sv).toMatch(/"failed", failedCheckNames\(folded\.stages\["verify"\]/);
+    expect(sv).toMatch(/"failed", failedCheckNames\(folded\.stages\["verify"\]\?\.data\.checks, folded\.stages\["verify"\]\?\.data\.pre_red_checks/); // FC-LINT-PRE-RED: supervisor passes verify pre_red_checks
   });
   it("P12-11b-c: supervisor and autonomous derive the tree through cleanTreeId", () => {
     const au = readFileSync(new URL("../../src/runner/autonomous.ts", import.meta.url), "utf8");

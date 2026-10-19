@@ -295,9 +295,10 @@ const FILES_MEDIUM = 4, FILES_HIGH = 15, LINES_MEDIUM = 100, LINES_HIGH = 500;
 
 // Fast verify always runs targeted tests and lint of changed files; anything else in `selected` is required depth.
 const RAN_ALWAYS = ["targeted tests", "lint of changed files"];
+export const REVIEWER_ITEM = "one reviewer";
 const PLAN: Record<RiskTier, { selected: string[] }> = {
   low: { selected: [...RAN_ALWAYS] },
-  medium: { selected: [...RAN_ALWAYS, "full test command", "one reviewer"] },
+  medium: { selected: [...RAN_ALWAYS, "full test command", REVIEWER_ITEM] },
   high: { selected: [...RAN_ALWAYS, "full test command", "full suite", "council", "security scan"] },
 };
 const LOW_SKIPPED = ["full test command", "reviewer", "council", "security scan"]; // low skips these by design; they are listed so the record never implies they ran
@@ -307,6 +308,23 @@ function summaryOf(a: Pick<RiskAssessment, "tier" | "computed" | "reasons" | "ov
   const why = a.tier === a.computed ? a.reasons.slice(0, 2).join("; ") : `computed ${a.computed}; override ${a.override?.from} to ${a.override?.to}: ${a.override?.reason}`;
   const def = a.checks_deferred;
   return `risk: ${a.tier} (${why}), ${def.length ? def.join(", ") : "no deeper checks"} not run`;
+}
+
+export const DEEP_ITEMS = ["full suite", "app boot", "council", "security scan"] as const;
+export const NOT_SELECTED = "not selected by risk tier: ";
+/** FC-SEAL-NA-AS-UNPROVEN: the deep checks a receipt lists as NOT PROVEN (the tier wanted them and they did not run) versus "not selected by risk tier" (the tier never asked). No usable risk record keeps every item NOT PROVEN (fail-safe); a full suite that verify executed is dropped. */
+export function deepGaps(risk: unknown, verifyChecks: { name?: unknown; result?: unknown }[], deepChecks: { name?: unknown; result?: unknown }[] = [], reviewRan = false): { notProven: string[]; notSelected: string[] } {
+  const r = risk as { tier?: unknown; checks_selected?: unknown; checks_deferred?: unknown } | null | undefined, arr = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+  const ok = !!r && (r.tier === "low" || r.tier === "medium" || r.tier === "high") && Array.isArray(r.checks_selected) && Array.isArray(r.checks_deferred);
+  const executed = (cs: { name?: unknown; result?: unknown }[], i: string): boolean => cs.some((c) => String(c.name).startsWith(i) && (c.result === "pass" || c.result === "fail"));
+  const sel = ok ? arr(r?.checks_selected) : [], fullRan = executed(verifyChecks, "full suite") || (sel.includes("full test command") && !arr(r?.checks_deferred).includes("full test command"));
+  const items = DEEP_ITEMS.filter((i) => !(i === "full suite" ? fullRan : false) && !executed(deepChecks, i));
+  if (!ok) return { notProven: [...items], notSelected: [] };
+  const low = r?.tier === "low", gap = (i: string): boolean => !low && (i === "full suite" ? sel.includes("full test command") || sel.includes("full suite") : sel.includes(i));
+  const notProven = items.filter(gap), notSelected = items.filter((i) => !gap(i)).map((i) => NOT_SELECTED + i);
+  const reviewed = reviewRan || executed(deepChecks, "council"); // FC-MEDIUM-REVIEWER-UNCREDITED: "one reviewer" is credited only by a review that really ran (seal's cross-review verdict, or the deep reviewer session); never by tier alone
+  for (const d of arr(r?.checks_deferred).filter((x) => !(DEEP_ITEMS as readonly string[]).includes(x) && !(x === REVIEWER_ITEM && reviewed))) (low ? notSelected : notProven).push(low ? NOT_SELECTED + d : d);
+  return { notProven, notSelected };
 }
 
 /** Marks selected deeper checks that verify really executed (for example the full test command), then rebuilds deferred and summary. */
@@ -395,24 +413,26 @@ export function classifyRisk(files: DiffFile[], env: NodeJS.ProcessEnv = process
 /** Tracked changes against baseSha, plus untracked new files (commit runs after verify). `.loki/`
  *  is filtered defensively even though intake also excludes it via .git/info/exclude. Throws if
  *  either git command fails: a broken baseSha must never read as "nothing changed" (~ALREADY_SATISFIED). */
-export function changedFiles(repoDir: string, baseSha: string): string[] {
+export function changedFiles(repoDir: string, baseSha: string, skip?: (f: string) => boolean): string[] {
   const run = (args: string[]): string[] =>
     safeGit(repoDir, args)
-      .split("\n").map((l) => l.trim()).filter(Boolean);
-  const tracked = run(["diff", "--name-only", baseSha]);
-  const untracked = run(["ls-files", "--others", "--exclude-standard"]);
-  return [...new Set([...tracked, ...untracked])].filter((f) => !f.startsWith(".loki/"));
+      .split("\0").filter(Boolean); // FC-CHANGED-PATH-QUOTED: -z plus quotePath=false, so a non-ASCII path is its real name, never a quoted escape
+  const tracked = run(["-c", "core.quotePath=false", "diff", "--no-renames", "--name-only", "-z", baseSha]);
+  const untracked = run(["-c", "core.quotePath=false", "ls-files", "--others", "--exclude-standard", "-z"]);
+  return [...new Set([...tracked, ...untracked])].filter((f) => !f.startsWith(".loki/") && !skip?.(f)); // skip: install-owned paths (FC-DEPS-NOT-INSTALLED)
 }
 
 /** changedFiles enriched with numstat counts and name-status; untracked files get a line count as additions. Throws on git failure. */
-export function diffFiles(repoDir: string, baseSha: string): DiffFile[] {
-  const paths = changedFiles(repoDir, baseSha), stat = new Map<string, DiffFile>();
-  for (const l of safeGit(repoDir, ["diff", "--numstat", baseSha]).split("\n")) {
+export function diffFiles(repoDir: string, baseSha: string, skip?: (f: string) => boolean): DiffFile[] {
+  const paths = changedFiles(repoDir, baseSha, skip), stat = new Map<string, DiffFile>();
+  // -z with --no-renames: NUL-terminated simple records, so a name with a quote, backslash, tab or newline is never escaped (FC-CHANGED-PATH-QUOTED)
+  for (const l of safeGit(repoDir, ["-c", "core.quotePath=false", "diff", "--no-renames", "--numstat", "-z", baseSha]).split("\0")) {
     const [a, d, ...p] = l.split("\t"), path = p.join("\t");
     if (path) stat.set(path, { path, added: Number(a) || 0, deleted: Number(d) || 0 });
   }
-  for (const l of safeGit(repoDir, ["diff", "--name-status", baseSha]).split("\n")) {
-    const [s, ...p] = l.split("\t"), f = stat.get(p[p.length - 1] ?? "");
+  const ns = safeGit(repoDir, ["-c", "core.quotePath=false", "diff", "--no-renames", "--name-status", "-z", baseSha]).split("\0");
+  for (let i = 0; i + 1 < ns.length; i += 2) {
+    const f = stat.get(ns[i + 1] ?? ""), s = ns[i];
     if (f) f.status = s?.startsWith("A") ? "added" : s?.startsWith("D") ? "deleted" : "modified";
   }
   const out = paths.map((path) => {
@@ -582,6 +602,17 @@ export function runnerCmd(t: TestRef, repoDir: string): [string, string[], Inter
     case "cargo": return ["cargo", ["test"]];
   }
 }
+/** The legacy per-runner full suite (no multi-root model), one check per detected runner: run by deep.ts, baselined via package_suite.ts fullSuiteSpecs. */
+export const FULL_SUITE_CMD: Record<RunnerName, { cmd: string; args: string[] }> = {
+  pytest: { cmd: "python", args: ["-m", "pytest", "-q"] },
+  vitest: { cmd: "npx", args: ["vitest", "run"] },
+  jest: { cmd: "npx", args: ["jest"] },
+  bun: { cmd: "bun", args: ["test"] },
+  node: { cmd: "node", args: ["--test"] },
+  npm: { cmd: "npm", args: ["test", "--silent"] },
+  go: { cmd: "go", args: ["test", "-json", "./..."] },
+  cargo: { cmd: "cargo", args: ["test"] },
+};
 /** FC-01: the one resolver for a test invocation: a package-owned file runs in its package dir with a package-relative path, else exactly runnerCmd at the root. */
 export function commandFor(t: TestRef, repoDir: string, api?: ProjectApi | null): { cwd: string; cmd: string; args: string[]; argv: string[]; interpreter?: Interpreter; pkgRoot: string } {
   const site = siteFor(api, repoDir, t.path);

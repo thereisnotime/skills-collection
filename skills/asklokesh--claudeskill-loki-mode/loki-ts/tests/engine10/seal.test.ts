@@ -27,7 +27,7 @@ import { repoKey } from "../../src/engine10/cache.ts";
 import { readOriginUrl } from "../../src/util/engine_origin.ts";
 import { computeKey, shallowDirs } from "../../src/project_model/gather.ts";
 import { EXIT, formatSummary, outcomeOf } from "../../src/engine10/output.ts";
-import { safeRestore } from "../../src/e10ext/discard.ts"; import { commitStage, DEEP_NOT_PROVEN, renderReceiptMd, SIGNING_UNAVAILABLE, sealStage } from "../../src/engine10/stages/seal.ts";
+import { safeRestore } from "../../src/e10ext/discard.ts"; import { addedSymlinkNotes } from "../../src/util/base_guard.ts"; import { commitStage, renderReceiptMd, SIGNING_UNAVAILABLE, sealStage } from "../../src/engine10/stages/seal.ts";
 import type { EventType, Receipt, RunContext, StageName } from "../../src/engine10/types.ts";
 import { _setIsolatedPythonFixedForTests } from "../../src/util/python.ts";
 import { REPO_ROOT } from "../../src/util/paths.ts";
@@ -479,6 +479,17 @@ print(load_signing_key(auto_generate=False)[1])`, AUTONOMY, keyFile], root).trim
     expect(r.checks.find((c) => c.name === "node:o.test.js")?.result).toBe("fail"); // never recorded as pass
   }, 30000);
 
+  test("FC-ZERO-ON-BASE: a not_run check listed in verify.skipped_on_base is not NOT PROVEN; an unlisted not_run still is", async () => {
+    noKey();
+    const { repo, base } = makeRepo("zerobase");
+    const mk = (skipped: string[]) => ({ verify: { checks: [{ name: "node:a.test.js", cmd: "node --test", result: "pass", n: 1, duration_s: 1 }, { name: "node:skip.test.js", cmd: "node --test", result: "not_run", duration_s: 1 }, { name: "node:other.test.js", cmd: "node --test", result: "not_run", duration_s: 1 }], flaky: [], wall_passed: true, skipped_on_base: skipped } });
+    const { ctx } = ctxFor(repo, base, "claude", mk(["node:skip.test.js"]));
+    await commitStage.run(ctx, new AbortController().signal);
+    const r = receiptOf(await sealStage.run(ctx, new AbortController().signal));
+    expect(r.not_proven).not.toContain("not run: node:skip.test.js");
+    expect(r.not_proven).toContain("not run: node:other.test.js"); expect(r.not_proven).toContain("skipped on base (excused): node:skip.test.js");
+  }, 30000);
+
   // E-98a B1: verify passing every check must not seal VERIFIED when verify itself flagged a
   // system-interpreter run. Red on pre-B1 code: verdictOf never looked at o.verify.not_proven,
   // so this sealed VERIFIED with no "tests ran on the system interpreter" line in the receipt.
@@ -496,6 +507,47 @@ print(load_signing_key(auto_generate=False)[1])`, AUTONOMY, keyFile], root).trim
     expect(r.not_proven).toContain("tests ran on the system interpreter");
     expect(r.verdict).not.toBe("VERIFIED");
   }, 30000);
+
+  // FC-SEAL-NA-AS-UNPROVEN: N/A and "not selected by risk tier" are visible but are not gaps; a real gap still downgrades.
+  describe("FC-SEAL-NA-AS-UNPROVEN", () => {
+    const pass = { name: "pytest:tests/test_x.py", cmd: "pytest -q tests/test_x.py", result: "pass", n: 1, duration_s: 1 };
+    const run = async (name: string, verify: Record<string, unknown>) => {
+      noKey();
+      const { repo, base } = makeRepo(name);
+      const { ctx } = ctxFor(repo, base, "claude", { verify: { checks: [pass], flaky: [], wall_passed: true, ...verify } });
+      await commitStage.run(ctx, new AbortController().signal);
+      const s = await sealStage.run(ctx, new AbortController().signal);
+      return { r: receiptOf(s), md: readFileSync(join(ctx.runDir, "receipt.md"), "utf8") };
+    };
+    const risk = (tier: string, selected: string[], deferred: string[]) => ({ tier, checks_selected: selected, checks_deferred: deferred });
+    test("verify's not_applicable lands under N/A, not NOT PROVEN, and does not downgrade", async () => {
+      const { r, md } = await run("na-visible", { not_applicable: ["full suite: package claude-code-repo defines no test command"], risk: risk("low", ["targeted tests", "lint of changed files"], ["full test command", "reviewer", "council", "security scan"]) });
+      expect(r.not_applicable).toContain("full suite: package claude-code-repo defines no test command");
+      expect(r.not_proven.join("|")).not.toContain("defines no test command");
+      expect(md).toContain("### N/A");
+      expect(md.split("### NOT PROVEN")[1]!.split("### N/A")[0]).not.toContain("defines no test command");
+    }, 30000);
+    test("low tier: deep items are 'not selected by risk tier', not NOT PROVEN", async () => {
+      const { r } = await run("na-low", { risk: risk("low", ["targeted tests", "lint of changed files"], ["full test command", "reviewer", "council", "security scan"]) });
+      for (const i of ["full suite", "app boot", "council", "security scan"]) { expect(r.not_proven).not.toContain(i); expect(r.not_applicable).toContain(`not selected by risk tier: ${i}`); }
+    }, 30000);
+    test("high tier: a selected check that did not run stays NOT PROVEN; an executed full suite is dropped", async () => {
+      const sel = ["targeted tests", "lint of changed files", "full test command", "full suite", "council", "security scan"];
+      const a = await run("na-high", { risk: risk("high", sel, ["council", "security scan", "full test command", "full suite"]) });
+      for (const i of ["full suite", "council", "security scan"]) expect(a.r.not_proven).toContain(i);
+      const b = await run("na-high-full", { risk: risk("high", sel, ["council", "security scan"]), checks: [pass, { name: "full suite: pytest", cmd: "pytest", result: "pass", n: 3, duration_s: 1 }] });
+      expect(b.r.not_proven).not.toContain("full suite"); expect(b.r.not_proven).toContain("council");
+    }, 60000);
+    test("no usable risk record keeps every deep item NOT PROVEN (fail-safe)", async () => {
+      const { r } = await run("na-norisk", {});
+      for (const i of ["full suite", "app boot", "council", "security scan"]) expect(r.not_proven).toContain(i);
+      expect(r.not_applicable).toBeUndefined();
+    }, 30000);
+    test("a real unproven item still downgrades and stays under NOT PROVEN", async () => {
+      const { r } = await run("na-real", { not_proven: ["tests ran on the system interpreter"], not_applicable: ["full suite: package p defines no test command"] });
+      expect(r.verdict).not.toBe("VERIFIED"); expect(r.not_proven).toContain("tests ran on the system interpreter");
+    }, 30000);
+  });
 
   // E-116: real-seal SPEC_CONFLICT coverage, driven through sealStage.run (not a copy of
   // verdictOf's logic like machine.test.ts's fake seal stage at seal.ts:110). Each case is
@@ -664,6 +716,33 @@ print(load_signing_key(auto_generate=False)[1])`, AUTONOMY, keyFile], root).trim
     expect(r.not_proven.some((n) => n.includes("t_new.test.ts"))).toBe(false);
     // Editing a.txt, a non-test file, never lands on NOT PROVEN by this check.
     expect(r.not_proven.some((n) => n.includes("a.txt"))).toBe(false);
+  }, 30000);
+
+  test("FC-WALL-PHANTOM-PATH: a symlink added by the change lands on NOT PROVEN by name; a regular new file and a plan-requested link do not", async () => {
+    noKey();
+    const { repo, base } = makeRepo("symadd");
+    symlinkSync("a.txt", join(repo, "alias_dir"));
+    writeFileSync(join(repo, "plain.txt"), "x\n");
+    const { ctx } = ctxFor(repo, base);
+    await commitStage.run(ctx, new AbortController().signal);
+    const r = receiptOf(await sealStage.run(ctx, new AbortController().signal));
+    expect(r.not_proven.some((n) => n.startsWith("symlink added by the change") && n.endsWith("alias_dir"))).toBe(true);
+    expect(r.not_proven.some((n) => n.includes("plain.txt"))).toBe(false);
+    expect(r.verdict).not.toBe("VERIFIED");
+    const meta = ":000000 120000 " + "0".repeat(40) + " " + "1".repeat(40) + " A";
+    expect(addedSymlinkNotes([meta, "l"], null)).toHaveLength(1);
+    expect(addedSymlinkNotes([meta, "l"], "Add a symlink l for compatibility")).toEqual([]);
+    expect(addedSymlinkNotes([":120000 000000 " + "1".repeat(40) + " " + "0".repeat(40) + " D", "l"], null)).toEqual([]);
+    const z = "0".repeat(40), o1 = "1".repeat(40);
+    expect(addedSymlinkNotes([":120000 120000 " + o1 + " " + z + " M", "l"], null)).toEqual([]); // a retargeted link is not an added one
+    expect(addedSymlinkNotes([":100644 120000 " + o1 + " " + z + " T", "l"], null)).toHaveLength(1); // a regular file became a link
+    expect(addedSymlinkNotes([":120000 100644 " + o1 + " " + z + " T", "l"], null)).toEqual([]);
+    for (const neg of ["do not add a symlink", "No symlink here", "Do it without a symlink"]) expect(addedSymlinkNotes([meta, "l"], neg)).toHaveLength(1);
+    expect(addedSymlinkNotes([meta, "l"], "Create an alias for the old name")).toHaveLength(1); // alias is not an escape
+    expect(addedSymlinkNotes([meta, "l"], "Do not use a symlink. Later, add a symlink at l.")).toEqual([]);
+    const sub = ":000000 160000 " + z + " " + o1 + " A";
+    expect(addedSymlinkNotes([sub, "vendor/x"], null)).toHaveLength(1);
+    expect(addedSymlinkNotes([sub, "vendor/x"], "Add the x submodule")).toEqual([]);
   }, 30000);
 
   test("D50-F2-S2: a literal value swap is labelled beside weakened test and a deleted assert stays weakened test only; both seal PARTIAL", async () => {

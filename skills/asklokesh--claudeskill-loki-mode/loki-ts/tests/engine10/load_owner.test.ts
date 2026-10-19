@@ -41,6 +41,15 @@ describe("B2: base load error must match head's", () => {
     const o = "FAIL a.test.js\n  Test suite failed to run\n\n    Cannot find module 'dep' from 'src/fmt.js'\n";
     expect(await run(dir, sha, o, o)).toBe(true);
   });
+  test("FC-DEPS-NOT-INSTALLED: an untracked install-created node_modules/x/package.json is not the code's change (skip), so the load error stays harness-owned", async () => {
+    const { dir, sha } = repo();
+    mkdirSync(join(dir, "node_modules/x"), { recursive: true }); writeFileSync(join(dir, "node_modules/x/package.json"), "{}\n");
+    const o = "Error: Cannot find package 'zod' imported from lib/other.js\n";
+    const script = `printf '%s\\n' "$OUT"; exit 1`;
+    const input = { repoDir: dir, baseSha: sha, out: o, cmd: "bash", args: ["-c", script], signal: new AbortController().signal, env: { OUT: o } };
+    expect(await loadErrorIsHarnessOwned(input)).toBe(false); // without the filter the stem "package" matches the installed file (the bug)
+    expect(await loadErrorIsHarnessOwned({ ...input, skip: (f: string) => f.startsWith("node_modules/") })).toBe(true);
+  });
   test("positive control: same signature without a name, paths normalized across checkouts", async () => {
     const { dir, sha } = repo();
     const o = `ImportError while importing test module '${dir}/tests/test_a.py'.\n`;
@@ -52,6 +61,25 @@ describe("B2: base load error must match head's", () => {
     const { dir, sha } = repo();
     const script = `if grep -q BASE src/main.js; then echo "sh: jest: command not found"; else echo "$HEAD_OUT"; fi; exit 1`;
     expect(await harnessLoadReason({ repoDir: dir, baseSha: sha, out: HEAD_MISSING_LOCAL, cmd: "bash", args: ["-c", script], signal: new AbortController().signal, env: { HEAD_OUT: HEAD_MISSING_LOCAL } })).toBeUndefined();
+  });
+});
+
+describe("FC-DEPS-NOT-INSTALLED: sh not-found and npx missing-packages errors carry a tool key", () => {
+  const BANNER = "\n> frontend@0.1.0 test\n> mytool run\n\n";
+  const sh = (t: string) => `${BANNER}sh: 1: ${t}: not found\n`;
+  const npx = (p: string) => `${BANNER}npm error npx canceled due to missing packages and no YES option: ["${p}"]\n`;
+  test("head 'mytool: not found' vs base 'vitest: not found' is a code failure", async () => {
+    const { dir, sha } = repo();
+    expect(await run(dir, sha, sh("mytool"), sh("vitest"))).toBe(false);
+  });
+  test("positive control: the same missing tool on both sides is harness-owned", async () => {
+    const { dir, sha } = repo();
+    expect(await run(dir, sha, sh("vitest"), sh("vitest"))).toBe(true);
+  });
+  test("npx missing packages: a different package is a code failure, the same one harness-owned", async () => {
+    const { dir, sha } = repo();
+    expect(await run(dir, sha, npx("mytool@1.0.0"), npx("vitest@2.1.0"))).toBe(false);
+    expect(await run(dir, sha, npx("vitest@2.1.0"), npx("vitest@2.1.0"))).toBe(true);
   });
 });
 

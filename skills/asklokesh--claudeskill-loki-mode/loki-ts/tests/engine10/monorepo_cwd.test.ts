@@ -7,6 +7,7 @@ import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RunContext, TestRef } from "../../src/engine10/types.ts";
+import { changedFiles, diffFiles } from "../../src/util/check_result.ts";
 import { commandFor, runLintChecks, runnerCmd, verifyStage, type VerifyCheck } from "../../src/engine10/stages/verify.ts";
 import { runFullSuite, type DeepCheck } from "../../src/engine10/stages/deep.ts";
 import { RealBaseTestRunner } from "../../src/engine10/stages/wall.ts";
@@ -156,6 +157,34 @@ describe("FC-01 verify in a multi-root monorepo", () => {
     expect(checks.map((c) => [c.name, c.result])).toEqual([["full suite: backend", "pass"]]);
     expect([...notProven]).toEqual(["full suite: package frontend defines no test command"]);
   });
+  // FC-SEAL-NA-AS-UNPROVEN: frontend has no test command. N/A beside a suite that ran, unless the diff is in frontend with no Wall proof.
+  describe("FC-SEAL-NA-AS-UNPROVEN package without a test command", () => {
+    const suites = async (opts: { changed?: string[]; proofFiles?: string[] }, rootPkg = false): Promise<string[]> => {
+      const { dir, base } = monorepo(true);
+      const api = loadProjectApi(dir)!; const m = api.model as ProjectModel;
+      m.packages[0]!.commands.test = cmd('echo " Test Files  1 passed (1)"; echo "      Tests  1 passed (1)"', "backend", "backend/package.json");
+      if (rootPkg) m.packages[1] = { ...m.packages[1]!, name: "root", root: "." };
+      writeFileSync(join(dir, PROJECT_FILE), JSON.stringify(m));
+      const notProven = new Set<string>();
+      await runFullSuite(ctxFor(dir, base, []), sig(), opts, [], notProven);
+      return [...notProven];
+    };
+    const note = "full suite: package frontend defines no test command";
+    test("changed files only in the tested package: N/A", async () => { expect(await suites({ changed: ["backend/src/a.ts"] })).toEqual([`n/a: ${note}`]); });
+    test("changed files in the package without tests and no Wall proof: stays NOT PROVEN", async () => { expect(await suites({ changed: ["frontend/src/a.ts"] })).toEqual([note]); expect(await suites({ changed: ["frontend/src/a.ts"], proofFiles: [] })).toEqual([note]); });
+    test("changed files in the package without tests but a passing Wall proof inside it: N/A", async () => { expect(await suites({ changed: ["frontend/src/a.ts"], proofFiles: ["frontend/tests/w.test.ts"] })).toEqual([`n/a: ${note}`]); });
+    test("a Wall proof in ANOTHER package does not prove the package without tests (reviewer finding 1)", async () => { expect(await suites({ changed: ["backend/src/a.ts", "frontend/src/a.ts"], proofFiles: ["backend/tests/w.test.ts"] })).toEqual([note]); });
+    test("root package without tests: a diff in plugins/** with a root Wall file stays N/A; a Wall file inside another package does not prove it", async () => {
+      const rootNote = "full suite: package root defines no test command";
+      expect(await suites({ changed: ["plugins/x/a.ts"], proofFiles: ["tests/loki_wall_a.test.ts"] }, true)).toEqual([`n/a: ${rootNote}`]);
+      expect(await suites({ changed: ["plugins/x/a.ts"], proofFiles: ["backend/tests/w.test.ts"] }, true)).toEqual([rootNote]);
+    });
+    test("FC-CHANGED-PATH-QUOTED: a changed path no package resolves, or a quoted one, is owned: stays NOT PROVEN", async () => {
+      expect(await suites({ changed: ["\"frontend/src/caf\\303\\251.ts\""] })).toEqual([note]);
+      expect(await suites({ changed: ["backend/src/a.ts", "elsewhere/x.md"] })).toEqual([note]);
+    });
+    test("unknown diff is fail-safe NOT PROVEN", async () => { expect(await suites({})).toEqual([note]); });
+  });
   test("the Wall base run executes a package file from its package directory", () => {
     const { dir } = monorepo(true);
     const res = new RealBaseTestRunner().run(dir, [{ runner: "vitest", path: TEST_FILE }]);
@@ -168,6 +197,55 @@ describe("FC-01 verify in a multi-root monorepo", () => {
     await verifyStage.run(ctxFor(dir, base, [{ runner: "vitest", path: TEST_FILE }]), sig());
     expect(calls().filter((l) => l.includes("vitest"))[0]).toBe(`${dir}|vitest run ${TEST_FILE}`);
   });
+});
+
+// FC-SEAL-NA-AS-UNPROVEN: the verify-stage wiring (verify.ts passes the diff and the per-package Wall proof; the not_proven filter drops n/a notes).
+describe("FC-SEAL-NA-AS-UNPROVEN verify wiring", () => {
+  const WALL_FE = "frontend/tests/w.test.ts";
+  const run = async (wallPath: string, feResult: "pass" | "fail" = "pass"): Promise<string[]> => {
+    const { dir, base } = monorepo(true);
+    delete process.env["LOKI_RISK_TIER"]; delete process.env["LOKI_RISK_OVERRIDE_REASON"]; // medium: the full suite runs
+    mkdirSync(join(dir, "frontend", "tests"), { recursive: true }); writeFileSync(join(dir, WALL_FE), "// w\n");
+    writeFileSync(join(dir, "frontend", "src", "a.ts"), "export const a = 1;\n");
+    if (feResult === "fail") writeFileSync(join(stubDir, "npx"), `#!/bin/sh\ncase "$(pwd -P)" in *frontend) echo " Tests  1 failed (1)"; exit 1;; esac\necho " Test Files  1 passed (1)"\necho "      Tests  1 passed (1)"\nexit 0\n`);
+    const tests: TestRef[] = [{ runner: "vitest", path: TEST_FILE }, { runner: "vitest", path: WALL_FE }];
+    const ctx = { ...ctxFor(dir, base, tests), outputs: () => ({ wall: { files: [{ path: wallPath }] } }) } as RunContext;
+    const r = await verifyStage.run(ctx, sig());
+    return r.data.not_proven as string[];
+  };
+  const fe = "full suite: package frontend defines no test command";
+  test("a passing Wall file inside the package without tests proves it: not in not_proven, and no n/a note leaks into not_proven", async () => {
+    const np = await run(WALL_FE);
+    expect(np).not.toContain(fe);
+    expect(np.some((n) => n.includes("defines no test command"))).toBe(false);
+    expect(np.some((n) => n.startsWith("n/a"))).toBe(false);
+  });
+  test("a passing Wall file in another package does not prove the package without tests", async () => { expect(await run(TEST_FILE)).toContain(fe); });
+  test("FC-CHANGED-PATH-QUOTED: a non-ASCII frontend path is still owned by frontend: its note stays NOT PROVEN beside a backend Wall", async () => {
+    const { dir, base } = monorepo(true);
+    delete process.env["LOKI_RISK_TIER"]; delete process.env["LOKI_RISK_OVERRIDE_REASON"];
+    writeFileSync(join(dir, "frontend", "src", "caf\u00e9.ts"), "export const a = 1;\n");
+    expect(changedFiles(dir, base)).toContain("frontend/src/caf\u00e9.ts"); // not a quoted octal escape
+    const ctx = { ...ctxFor(dir, base, [{ runner: "vitest", path: TEST_FILE }]), outputs: () => ({ wall: { files: [{ path: TEST_FILE }] } }) } as RunContext;
+    expect((await verifyStage.run(ctx, sig())).data.not_proven as string[]).toContain(fe);
+  });
+  test("FC-CHANGED-PATH-QUOTED: git mv of a frontend file into backend still lists the frontend path: its note stays NOT PROVEN", async () => {
+    const { dir, base } = monorepo(true);
+    delete process.env["LOKI_RISK_TIER"]; delete process.env["LOKI_RISK_OVERRIDE_REASON"];
+    git(dir, ["mv", "frontend/src/main.ts", "backend/src/main.ts"]);
+    expect(changedFiles(dir, base)).toEqual(expect.arrayContaining(["frontend/src/main.ts", "backend/src/main.ts"]));
+    const ctx = { ...ctxFor(dir, base, [{ runner: "vitest", path: TEST_FILE }]), outputs: () => ({ wall: { files: [{ path: TEST_FILE }] } }) } as RunContext;
+    expect((await verifyStage.run(ctx, sig())).data.not_proven as string[]).toContain(fe);
+  });
+  test("diffFiles reads a tracked edit to a name with a double quote: status modified, +N correct", () => {
+    const { dir } = monorepo(true);
+    const name = 'frontend/src/q"uote.ts';
+    writeFileSync(join(dir, name), "a\n"); git(dir, ["add", "-A"]); git(dir, ["commit", "-q", "-m", "q"]);
+    const base2 = git(dir, ["rev-parse", "HEAD"]);
+    writeFileSync(join(dir, name), "a\nb\nc\n");
+    expect(diffFiles(dir, base2).find((f) => f.path === name)).toMatchObject({ added: 2, deleted: 0, status: "modified" });
+  });
+  test("a failing Wall file is no proof", async () => { expect(await run(WALL_FE, "fail")).toContain(fe); });
 });
 
 describe("FC-01 single-package repo is unchanged", () => {
@@ -225,6 +303,24 @@ describe("FC-16 C1 per-package suites route through classifyCheck", () => {
   test("exit 0 with [no test files] only is not_run (no tests executed)", async () => {
     const r = await suite("?   \texample.com/a\t[no test files]\n");
     expect(r.checks[0]!.result).toBe("not_run");
+  });
+  test("FC-FULLSUITE-ANSI-IDS: a colored failing vitest package run still yields its ids and a redacted excerpt", async () => {
+    const red = (s: string): string => `\u001b[31m${s}\u001b[39m`;
+    const out = ` \u001b[41m FAIL \u001b[49m ${red("src/a.test.ts > s > c")}\nAssertionError: expected 1 to be 2\n \u001b[2m Tests \u001b[22m ${red("1 failed")} | 2 passed (3)\n`;
+    const r = await suite(out, 1);
+    expect(r.checks[0]!.result).toBe("fail");
+    expect(r.checks[0]!.ids).toEqual(["src/a.test.ts > s > c"]);
+    expect(r.checks[0]!.excerpt).toContain("AssertionError");
+    expect(r.checks[0]!.excerpt).not.toContain("\u001b");
+  });
+  test("FC-FULLSUITE-ANSI-IDS: the package suite child runs under the plain env (FORCE_COLOR=0, NO_COLOR=1)", async () => {
+    const { dir, base } = monorepo(true);
+    const m = loadProjectApi(dir)!.model as ProjectModel;
+    m.packages[0]!.commands.test = cmd(`echo "$FORCE_COLOR $NO_COLOR" > "${join(stubDir, "env.out")}"; echo " Tests  1 passed (1)"`, "backend", "backend/package.json");
+    writeFileSync(join(dir, PROJECT_FILE), JSON.stringify(m));
+    process.env["FORCE_COLOR"] = "3";
+    try { await runFullSuite(ctxFor(dir, base, []), sig(), {}, [], new Set<string>()); } finally { delete process.env["FORCE_COLOR"]; }
+    expect(readFileSync(join(stubDir, "env.out"), "utf8").trim()).toBe("0 1");
   });
   test("a failing package stays fail", async () => {
     const r = await suite("--- FAIL: TestA (0.00s)\nFAIL\nFAIL\texample.com/a\t0.004s\n", 1);

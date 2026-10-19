@@ -6,6 +6,11 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Add editorial decision cards to selected existing rules, with stable IDs, partial detector mappings, applicability conditions, and edit/keep/gap examples. Preserve subjective judgments and report unresolved claim scope. Keep the full catalog mandatory in directory and portable installations; no detector API, loading default, or category count changes (#206).
+- Reworded the large-file scope sentence in the editing contract so it no longer reads as "without asking" to static skill scanners; the meaning is unchanged. Documented known scanner false positives in `SUPPORT.md`.
+
 ### Fixed
 
 - Treat the smart-punctuation co-occurrence finding as a low-priority style check in plain mode and omit it in rendered-Markdown mode. House-style typography no longer changes authorship scores, probabilities, confidence, or classifications, including the separate classifier corroborator. Keep the public type and other pattern checks (#351).

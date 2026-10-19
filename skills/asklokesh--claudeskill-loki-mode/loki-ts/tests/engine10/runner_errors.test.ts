@@ -151,11 +151,24 @@ describe("FC-02 load error ownership (HIGH review B1, B2, N1)", () => {
     expect(o("Error: Cannot find module '/app/x.js'\nRequire stack:")).toBe("load_error");
     expect(o("bash: line 1: vitest: command not found")).toBe("load_error");
   });
+  test("FC-DEPS-NOT-INSTALLED: a runner whose package is not installed is harness-owned; the same words in test output are not", () => {
+    const o = (s: string) => classifyRunnerOutput(s);
+    const npx = "> frontend@0.1.0 test\n> vitest run\n\nnpm error npx canceled due to missing packages and no YES option: [\"vitest@5.0.5\"]\nnpm error A complete log of this run can be found in: /x.log";
+    expect(o(npx)).toMatchObject({ kind: "load_error", owner: "harness" });
+    expect(o(npx).reason).toContain("not installed");
+    expect(o("npm ERR! canceled due to missing packages and no YES option: [\"jest@29\"]").kind).toBe("load_error");
+    expect(o("sh: 1: vitest: not found").kind).toBe("load_error");
+    expect(o("> frontend@0.1.0 test\n> vitest run\n\nsh: 1: mytool: not found").reason).toContain("mytool: not found"); // the error line, never the npm banner
+    expect(o(npx).reason).toContain("canceled due to missing packages");
+    expect(o("expected log to say: npx canceled due to missing packages\n Tests  1 failed | 2 passed").kind).toBe("test_failure");
+    expect(o("AssertionError: expected 'sh: 1: x: not found' to be ''").kind).toBe("test_failure");
+  });
 });
 
 describe("FC-17 Wall no-op precheck", () => {
   test("no runnable test command: skipped in under 10s with a reason, no model session", async () => {
-    const repoDir = mkdtempSync(join(tmpdir(), "loki-fc17-"));
+    const repoDir = mkdtempSync(join(tmpdir(), "loki-fc17-")), prev = process.env.LOKI_WALL_HARNESS_RUNNER;
+    process.env.LOKI_WALL_HARNESS_RUNNER = "0"; // the bun harness fallback off: FC-17's skip is what remains
     try {
       const runDir = join(repoDir, ".loki", "runs", "r1"); mkdirSync(runDir, { recursive: true });
       const ref = join(runDir, "repomap.json");
@@ -169,7 +182,7 @@ describe("FC-17 Wall no-op precheck", () => {
       expect(r.status).toBe("skipped");
       expect(r.reason).toContain("no runnable test command");
       expect(called).toBe(0);
-    } finally { rmSync(repoDir, { recursive: true, force: true }); }
+    } finally { if (prev === undefined) delete process.env.LOKI_WALL_HARNESS_RUNNER; else process.env.LOKI_WALL_HARNESS_RUNNER = prev; rmSync(repoDir, { recursive: true, force: true }); }
   });
 });
 

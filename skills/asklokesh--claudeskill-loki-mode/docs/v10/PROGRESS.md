@@ -2554,3 +2554,93 @@ v11.17.21 published (Release success on 462fbc40a; npm latest 11.17.21, next 11.
 
 ## 2026-10-17T16:07Z (CoS) v11.17.58
 - STAB-1 follow-up: Tests 39046745996 on v11.17.57 failed only on shard 1 help drift (FAIL: 'loki queue rm' (CHANGELOG) is absent from help), caused by the 11.17.57 notes. Reworded; tests/test-help-changelog-drift.sh 4 passed, 0 failed. Release 39046745968 all jobs success; npm latest and next 11.17.57.
+
+## 2026-10-18T20:30Z (CoS) v11.17.61
+- P1 FC-NO-DIFF-PUBLISH (anthropics/claude-code#21527 rerun): empty fork push, skipped comment logged ok, glued reason, extra fix rounds. Slices P1-AD (551267ec5) and P1-C (8fcc1315b) merged. Checks: tsc clean (control-plane excluded); bun test budget, supervisor_backstop, machine, sdk_stream_parser, spawn_env_guard, contract 192 pass 0 fail; e2e, issue_ref_e2e, already_done, pr, tests/util 571 tests 0 fail; test-engine10-push.sh 85 passed 0 failed; sigpipe 4 passed; select-tests 119 passed.
+
+## 2026-10-18T20:38Z (CoS) v11.17.62
+- FC-LOKI-DIR-DIRT (asklokesh/FireLater#20): intake blocked on deleted tracked .loki/ legacy files; deleter traced to manual rm in shell history, not Loki (scratch-clone repro on 11.17.60 left them intact). Fix in intake dirtyTrackedFiles. Checks: intake + budget 82 pass 0 fail (new test red first with the exact reported reason); tsc clean (control-plane excluded); e2e, supervisor_backstop, seal, spawn_env_guard, contract, e10ext 380 pass 0 fail.
+
+## 2026-10-18T21:32Z (CoS) v11.17.63
+- FC-VACUOUS-WALL-GREEN + FC-FIX-OVER-CONFLICT (anthropics/claude-code#21527). HIGH review (review-21527) BLOCK B1 (green-on-base Wall counted as VERIFIED proof) fixed, re-review APPROVE: 430 pass 0 fail across check_result/seal/wall/machine/wall_concurrent/already_done/verify/discard_proto/budget, tsc 0. Full suite shards aa-ad + ae1 0 fail (ae1 723 pass); route_matrix rerun pending (timed out together, fix-forward signal). CI-only guards help-drift/sigpipe/select-tests rc=0.
+
+## 2026-10-18T21:52Z (CoS) v11.17.64
+- FC-LINT-OOM: Tests shard 0 killed (runner shutdown, exit 143) mid ShellCheck on 303d5df9b and d8293520e; measured shellcheck RSS loki 8.4 GB, run.sh 9.8 GB. Heavy files lint alone. tests/test-shellcheck-heavy-serial.sh red on old script, green now; real lint 598 pass 0 fail 1m45s; shard-coverage, sigpipe, select-tests, registration, help-drift, no-dashes rc 0. LOW review (review-21527) APPROVE.
+
+## 2026-10-18T22:54Z (CoS) v11.17.65
+- FC-TEST-LEAKS-INTO-REPO: writer was providers.test.ts codex stub via preflight providerLoginIssue in process cwd. Fix 3c09faeb5: probe cwd tmpdir, stub exits 0 on login. Guard red on parent (codex case fails at providers.test.ts:184, calc.ts appears), green now: providers+preflight 58 pass 0 fail; help-drift rc 0, sigpipe rc 0. TL review APPROVE (note: relative LOKI_CODEX_CLI path resolves against tmpdir; warning only, follow-up).
+
+## 2026-10-18T22:58Z (CoS) v11.17.66
+- FC-STACKED-ON-LOKI-RUN: #21527 rerun on 11.17.64 based its run on loki/e10-20261018T205304Z-fdfc. Fix 304566e37 (base_guard.stackedOnLokiRun + intake checkout from target tip). HIGH review BLOCK on e869305 (B1/B2), APPROVE on f810c19; merged content equals approved (diff only 3c09faeb5 released files). intake.test.ts 54 pass; engine10 subset 138 pass 0 fail rc=0. help-drift was red (no backticked loki invocation in newest 5 sections); this section restores it.
+
+## 2026-10-19T00:10Z (CoS) v11.17.67
+- FC-LAZY-CONTROL-ENV: Tests 39174561642 shard 6 red on 8cc81a1b8. Causes reproduced: env GIT_SSH_COMMAND=false or GIT_NO_LAZY_FETCH=1 fails the control; clean env failed 1/20 (racy index). Fix 4735b5c14: env isolation + f.txt mtime 2030 + control-first fail. 40/40 clean runs 21/0; hostile env 21/0. TL APPROVE with mutation (drop GIT_NO_LAZY_FETCH in run.sh:10826 -> real leg FAIL 20/1, restored 21/0); select-tests 119/0.
+
+## 2026-10-19T00:19Z (CoS) v11.17.68
+- FireLater#20 (FC-BASELINE-PER-PACKAGE, FC-DEPS-NOT-INSTALLED): 4 HIGH rounds. R1 BLOCK c3ea3ec1e (B1 untyped not-found keys, B2 install leak, B3 FAIL-line duration strip). R2 BLOCK f1db1bb88 (info/exclude dropped agent lockfile, persisted, shared across worktrees). R3 BLOCK 37bff6049 (load_owner changedSince unfiltered: Cannot find package zod -> code failure). R4 APPROVE b8418f695: real runCheck repro fail -> not_run/harness; positive control stays fail; 650 pass 0 fail across 19 files; tsc clean outside control-plane. Rebased onto 0d153a7e9 as 52bb0fb78, loki-ts src/tests diff vs reviewed = empty. drift 4/0, sigpipe rc 0, select-tests 119/0.
+
+## 2026-10-19T02:38Z (CoS) v11.17.69
+- FC-23 Wall CJS brief (FireLater#20 rerun on 11.17.67: Wall failed lint:eslint:backend no-require-imports). Engineer 2cfe35140, TL APPROVE: fc23_wall_conventions 10/0, red with parent conventions.ts 9/1. Cherry-picked as edef17cd5.
+
+## 2026-10-19T02:44Z (CoS) v11.17.70
+- 11.17.70: CI fix 82c3edbc (intake.test.ts hermetic; slow-PATH red 32/22, green 54/0; CS reviewed test-only diff) + dup-note 7a04c3839 (TL APPROVE 55/0, red 54/1). Combined on main: intake+budget 88 pass 0 fail.
+
+## 2026-10-19T02:46Z (CoS) v11.17.71
+- 11.17.71: install hardening d4170dc68+1b52683ed (cherry-picked d42be9af1, f1fa80b95). HIGH BLOCK B1/B2 fixed; HIGH re-review APPROVE: fc22+budget+intake 142/0, real npm ci in workspace member rc=0. On main: fc22+intake+budget 143 pass 0 fail. Follow-ups: pnpm yaml inline/unindented lists, uv --locked/pipenv --deploy, D106 || wording.
+
+## 2026-10-19T02:54Z (CoS) v11.17.72
+- 11.17.72: FC-FIX-CONFLICT-STALLED (FireLater#20 rerun 11.17.67 ended STALLED). 60f95df4f+1c43b5130+e5321f613 cherry-picked as 82f536d85, 9aa74fab0, b0b7b2066. HIGH: BLOCK x2 (sibling readers), then APPROVE: control-plane 539/0, pytest 35 passed, red 2 fail each without reader changes. On main: blocked_answer+machine+fix+budget 112 pass 0 fail.
+
+## 2026-10-19T03:12Z (CoS) v11.17.73
+- 11.17.73: P0 fix-forward for D106 install masking (live in 71/72). af838b55 commits 2bb2f0194..279f1ac5d cherry-picked as 2599744de..20cf84915 plus D106 wording fix. HIGH a1168a6d: BLOCK x5 (||, quoted separators, later ; list, trap/function/alias, set -n), APPROVE round 6 at 279f1ac5d: fc22_install+intake+budget 145 pass 0 fail, real npm stale-lock probes all rc=1 on rewritten shapes.
+
+## 2026-10-19T03:16Z (CoS) v11.17.74
+- 11.17.74: D106 follow-up, NODE_OPTIONS/BASH_ENV/ENV refused like PATH. af838b55 4284ae1fb cherry-picked. HIGH a1168a6d round 7 APPROVE: 4 files 5+/5-, probes 8 refused, no over-match, fc22_install+intake+budget 145 pass 0 fail; red 56/1 with source reverted.
+
+## 2026-10-19T03:20Z (CoS) v11.17.75
+- 11.17.75: FC-ZERO-ON-BASE. a849c264 commits 9a4267335..58bb86a73 cherry-picked as 2a52da847..13b0b64c6 plus unused-import drop. HIGH a6dc6f16: BLOCK x4 (workspace link, nested links, venv spellings, spelled-target exemption), APPROVE round 5: attack set 11/0, verify_prered+seal+verify+budget 209/0. On main after cherry-pick: same 4 suites 209 pass 0 fail, tsc no engine10/base_guard errors.
+
+## 2026-10-19T05:27Z (CoS) v11.17.76
+- 11.17.76: FC-FULLSUITE-ANSI-IDS. Diagnosed on FireLater#20 run e10-20261019T045437Z-7939 (base 156 fails, head 150, 0 new; failIds raw 0 vs stripped 296/307). Engineer b9767d997 red-then-green 5 tests; HIGH review APPROVE (190/0, mutation removing stripAnsi turns 2 tests red). Main after cherry-pick 9944bc030: 83/0 on 4 touched suites.
+
+## 2026-10-19T06:34Z (CoS) v11.17.77
+- 11.17.77: FC-WALL-OUT-OF-REPO-TARGET. Diagnosed on anthropics/claude-code#81826 run e10-20261019T061221Z-ec31 (11.17.76 PARTIAL: Wall targeted ~/.claude/plugins ralph-loop, implementer added bunfig.toml preload). Engineer 1a5c55790+a38987338; HIGH review BLOCK (sizing cap, prefix placement, 5 false positives) then APPROVE 199/0 across 13 files.
+
+## 2026-10-19T06:50Z (CoS) v11.17.78
+- 11.17.78: main CI guard fixes (L0 project_model names, never_below_raw AST matcher, M1 anchor, modernize producer scan). Engineer chain 21187a2c7..9e17b7f75; HIGH review BLOCK x4 then APPROVE (134/0, 23 parent shapes still caught + 7 new, shipped source zero violations).
+
+## 2026-10-19T07:19Z (CoS) v11.17.79
+- 11.17.79: FC-OUT-OF-REPO + FC-NO-PUSH-UNVERIFIED (#21527 bugs b/c; HIGH BLOCK x2 then APPROVE) and FC-LINT-PRE-RED (TL BLOCK x2 then APPROVE, mutation 16/1 -> 88/0). Budget fold f5a1685b5: 383 pass 0 fail.
+
+## 2026-10-19T08:06Z (CoS) v11.17.80
+- 11.17.80: fix-forward for Tests run 39215298360 on c6db3c019 (D50-F4 backstop expectation, plan brief golden; 32 pass 0 fail) plus supervisor pre_red_checks wiring 411fdaf63 (red 106/1 -> green 107/0; 172 pass 0 fail incl. budget). P9 moat fixture ccccfc82f under HIGH review, ships next.
+
+## 2026-10-19T08:15Z (CoS) v11.17.81
+- 11.17.81: P9 fixture 990270f12 + 466d55a4e (HIGH APPROVE; fast-gate.sh p9 rc=0, 5 PASS; no-pytest wrapper gives the prerequisite message, gate rc=1). Fixes Release gate P9 red on c6db3c019/c5358b462.
+
+## 2026-10-19T08:43Z (CoS) v11.17.82
+- 11.17.82: FC-SEAL-NA-AS-UNPROVEN + FC-CHANGED-PATH-QUOTED (96d0c22db..9eb4bddd8; HIGH APPROVE after 3 BLOCK rounds; reviewer edge probes for renames, copies, T type change, tab/newline/quote names, status-letter names all pass; main targeted 622 pass 0 fail incl budget). Full engine10 gate timed out at 560s under load; ship_hook alone 2 pass 0 fail in 5s.
+
+## 2026-10-19T08:48Z (CoS) v11.17.83
+- 11.17.83: FC-WALL-PHANTOM-PATH r1-r3 (298fddf96..82233dad0; HIGH APPROVE after 2 BLOCK rounds; full real #81826 Wall file against base ef7bfdc reports plugins/ralph-loop; 3 round-3 mutations each red). Main targeted 662 pass 0 fail incl budget.
+
+## 2026-10-19T09:07Z (CoS) v11.17.84
+- 11.17.84: TEN-QUALITY-41/42 (21aa567a8, TL APPROVE, 2 mutations red), TEN-QUALITY-44 (e6d010590 219cf7a7d, TL APPROVE, mutation red), TEN-QUALITY-45 merge-interaction fix (b9db7ad92, TL APPROVE, mutation red 2 tests). Main targeted 612 pass 0 fail, tsc rc=0.
+
+## 2026-10-19T10:34Z (CoS) v11.17.85
+- 11.17.85: main Tests fix-forward (red on c5358b462..6a710258f): 65259575d WF-GATE-DEDUP drift, 74862da13 app_probe docker stub, 0a897c42c L0 guard breach (MANIFESTS literal) in conventions.ts. HIGH opus APPROVE: mutations caught (gate pytest, app_probe text, L0 literal), engine10 split 761+1828 pass 0 fail, util 459/0, tsc rc=0; route_matrix_mutation unverified (timeout). Follow-ups filed: nameless-manifest fallback false phantom, \w*_modules too broad, chained pip+pytest bypass.
+
+## 2026-10-19T10:37Z (CoS) v11.17.86
+- 11.17.86: FC-WALL-PHANTOM-PATH in-testdir sibling (f2b930627 cherry-picked as 3f75ea650 onto 0a897c42c). HIGH opus APPROVE: revert red 32/1, gates 150 pass 0 fail, end-to-end runWall re-ask then discard verified on the #81826 shape, tsc 0 errors in engine10/project_model; route_matrix_mutation unverified (50 min suite). Non-blocking: helper-generated fixture with a root fixtures/ dir can cost one re-ask.
+
+## 2026-10-19T10:49Z (CoS) v11.17.87
+- 11.17.87: 11.17.85 review follow-ups (53549dba0, 29a44f936). HIGH opus BLOCK on 53549dba0 (extension/nameless-JSON fallback hid phantoms in 6 repros), fixed in 29a44f936, HIGH APPROVE: 6 repros + incident shapes report, revert red (fallback no false root, modules dir phantom), gate 186/0, dedup 13/0 incl M10, tsc clean for engine10/project_model. Follow-up: fixture for the model-known branch (stale multi-root M4).
+
+## 2026-10-19T10:52Z (CoS) v11.17.88
+- 11.17.88: FC-MEDIUM-REVIEWER-UNCREDITED b28cd44c6 (cherry-pick 8977befb8, HIGH APPROVE). deepGaps credits one reviewer only when the cross-review level is not not_run or a deep council check executed. Gate 158 pass 0 fail (check_result, seal, budget), tsc rc=0. Default same-vendor medium review 261db067d HIGH BLOCKED (seal 60s limit), in rework.
+
+## 2026-10-19T10:53Z (CoS) v11.17.89
+- 11.17.89: model-known root fixtures ce55854f8 (test-only, TL APPROVE): -t model-known root 2/0 green, mutation `if (site) return site.cwd;` red 1/1, fc23+l0_guard 41/0.
+
+## 2026-10-19T10:57Z (CoS) v11.17.90
+- 11.17.90: TEN-COST-63 d7d600ca4 (Wall -oor re-ask gated on ctx.overCap, red 0/1 -> green 1/0) and TEN-QUALITY-43 07f0f0594 (authorModel rename). TL APPROVE: 5 suites 192 pass 0 fail, tsc no engine10 errors.

@@ -1183,6 +1183,7 @@ case_injection() {
     for p in git python3 perl; do
         command -v "$p" >/dev/null 2>&1 || { nok "prerequisite missing: $p"; return; }
     done
+    python3 -c 'import pytest' >/dev/null 2>&1 || { nok "prerequisite missing: python3 pytest (the fixture's VERIFIED run executes a pytest test; pip install pytest)"; return; }
     detect_egress_block
     if [ -z "$EGRESS_MECH" ]; then
         nok "prerequisite missing: egress sandbox (the issue run must not reach the network)"
@@ -1238,6 +1239,10 @@ case_injection() {
     if ! ( cd "$W" && git init -q && git config user.email moat@example.invalid \
             && git config user.name moat && git config commit.gpgsign false \
             && printf 'def greet(name):\n    return "hi " + name\n' > greeter.py \
+            && printf 'from greeter import greet\n\n\ndef test_greet_says_hello():\n    assert greet("moat") == "hello moat"\n' > test_greeter.py \
+            && printf '.venv/\n__pycache__/\n.pytest_cache/\n' > .gitignore \
+            && mkdir -p .venv/bin && ln -s "$(command -v python3)" .venv/bin/python \
+            && printf '#!/bin/sh\necho "All checks passed!"\n' > .venv/bin/ruff && chmod +x .venv/bin/ruff \
             && git add -A && git commit -qm init \
             && git clone -q --bare "$W" "$T/remote.git" \
             && git remote add origin https://github.com/octocat/hello.git \
@@ -1893,7 +1898,25 @@ PY
             || nok "[hosts-only] the git-credential-helper probe never ran or never reported (vacuous probe: $(grep 'credential_helper_read=' "$T/hosts-only/provider-actions.log" 2>/dev/null || echo 'no credential_helper_read= line found'))"
     fi
     }
-    # --- run the six scenarios above with bounded parallelism (<=3) --------
+    scn_unverified() {
+    # 5. unverified: same run, but the fixture's ruff shim is removed, so lint
+    #    is not_run and the run seals PARTIAL. FC-NO-PUSH-UNVERIFIED: Loki must
+    #    then keep the branch local (no push, no PR), say so, and the provider
+    #    still never sees the token. Guards the new behaviour and proves the
+    #    VERIFIED legs above reach their push because the run is VERIFIED.
+    inj_run unverified "export LOKI_DELEGATE_PR=1; rm -f '$T/unverified/work/.venv/bin/ruff' || exit 44"
+    if inj_live unverified; then
+        [ -z "$(inj_leaked unverified)" ] \
+            || nok "[unverified] canary token(s) reached the provider environment: $(inj_leaked unverified)"
+        grep -qE 'sealed PARTIAL, not verified: branch loki/[^ ]+ stays local \(not pushed\)' "$T/unverified/start.err" "$T/unverified/start.out" \
+            || nok "[unverified] a PARTIAL run did not print 'stays local (not pushed)' ($(inj_diag unverified))"
+        grep -q '^loki ' "$T/unverified/push.log" \
+            && nok "[unverified] Loki pushed a PARTIAL run (push log: $(tr '\n' ',' < "$T/unverified/push.log"))"
+        grep -q '^loki token=[a-z]* via=[a-z]* pr create' "$T/unverified/gh.log" \
+            && nok "[unverified] Loki opened a PR for a PARTIAL run (gh log: $(tr '\n' ',' < "$T/unverified/gh.log"))"
+    fi
+    }
+    # --- run the seven scenarios above with bounded parallelism (<=4 per wave) --------
     # Each is already an independent "fresh copy" (own $T/<label> work dir,
     # HOME and logs; see inj_run), so the only cross-scenario coupling is the
     # `nok` accumulator. A backgrounded subshell must clear the inherited
@@ -1925,9 +1948,10 @@ PY
     p9_inj_bg planted scn_planted; pids2="$pids2 $P9_LAST_PID"
     p9_inj_bg opt-out scn_opt_out; pids2="$pids2 $P9_LAST_PID"
     p9_inj_bg hosts-only scn_hosts_only; pids2="$pids2 $P9_LAST_PID"
+    p9_inj_bg unverified scn_unverified; pids2="$pids2 $P9_LAST_PID"
     for pid in $pids2; do wait "$pid"; done
 
-    for label in default auto-pr auto-pr-ssh planted opt-out hosts-only; do
+    for label in default auto-pr auto-pr-ssh planted opt-out hosts-only unverified; do
         [ -s "$T/nok.$label" ] || continue
         while IFS= read -r line; do nok "$line"; done < "$T/nok.$label"
     done

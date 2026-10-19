@@ -110,6 +110,88 @@ describe("engine10 machine", () => {
     expect(r.stopped).toBe("stalled");
   });
 
+  it("two fix rounds that left the tree unchanged against the same failure stall without a third verify", async () => {
+    const { ctx, events } = fakeCtx();
+    let verifies = 0, fixes = 0;
+    const r = await runMachine(ctx, { load: loaderOf(all({
+      verify: stage("verify", async () => { verifies++; return { status: "completed", data: { failures_grouped: [{ signature: "same" }] } }; }),
+      fix: stage("fix", async () => { fixes++; return { status: "completed", data: { round: fixes, tree_before: "t0", tree_after: "t0", signatures: "same" } }; }),
+    })) });
+    expect(r.stopped).toBe("stalled");
+    expect(fixes).toBe(2);
+    expect(verifies).toBe(2);
+    expect(events.some((e) => e.type === "loop.repeat")).toBe(true);
+  });
+
+  it("a fix round that reports a spec conflict ends as SPEC_CONFLICT on the implement output, never STALLED (FC-FIX-CONFLICT-STALLED)", async () => {
+    const { ctx, events } = fakeCtx();
+    let fixes = 0;
+    const r = await runMachine(ctx, { load: loaderOf(all({
+      implement: stage("implement", async () => ({ status: "completed", data: { exit: "done" } })),
+      verify: stage("verify", async () => ({ status: "completed", data: { failures_grouped: [{ signature: "same" }] } })),
+      fix: stage("fix", async () => { fixes++; return { status: "completed", data: { round: fixes, tree_before: "t0", tree_after: "t0", signatures: "same", ...(fixes === 2 ? { exit: "spec_conflict", spec_conflict_reason: "needs a hosted service" } : {}) } }; }),
+    })) });
+    expect(r.stopped).not.toBe("stalled");
+    expect(events.some((e) => e.type === "loop.repeat")).toBe(false);
+    expect(r.outputs.implement?.exit).toBe("spec_conflict");
+    expect(r.outputs.implement?.spec_conflict_reason).toBe("needs a hosted service");
+    expect(fixes).toBe(2);
+  });
+
+  it("one no-op fix round still gets its verify: a flaky check may pass on the same tree", async () => {
+    const { ctx, events } = fakeCtx();
+    let verifies = 0, fixes = 0;
+    await runMachine(ctx, { load: loaderOf(all({
+      verify: stage("verify", async () => { verifies++; return { status: "completed", data: { failures_grouped: verifies === 1 ? [{ signature: "flaky" }] : [] } }; }),
+      fix: stage("fix", async () => { fixes++; return { status: "completed", data: { round: fixes, tree_before: "t0", tree_after: "t0" } }; }),
+    })) });
+    expect(fixes).toBe(1);
+    expect(verifies).toBe(2);
+    expect(events.some((e) => e.type === "loop.repeat")).toBe(false);
+  });
+
+  it("a crashed verify between two no-op fix rounds is not a repeat (A-113b)", async () => {
+    const { ctx, events } = fakeCtx();
+    let verifies = 0, fixes = 0;
+    await runMachine(ctx, { load: loaderOf(all({
+      verify: stage("verify", async () => {
+        verifies++;
+        if (verifies === 2) return { status: "failed", reason: "verify crashed", data: {} };
+        return { status: "completed", data: { failures_grouped: [{ signature: "same" }] } };
+      }),
+      fix: stage("fix", async () => { fixes++; return { status: "completed", data: { round: fixes, tree_before: "t0", tree_after: "t0" } }; }),
+    })) });
+    expect(events.some((e) => e.type === "loop.repeat")).toBe(false);
+    expect(verifies).toBe(3);
+  });
+
+  it("a fix round that changed the tree is verified, even with the same failure", async () => {
+    const { ctx, events } = fakeCtx();
+    let verifies = 0, fixes = 0;
+    await runMachine(ctx, { load: loaderOf(all({
+      verify: stage("verify", async () => { verifies++; return { status: "completed", data: { failures_grouped: [{ signature: "same" }] } }; }),
+      fix: stage("fix", async () => { fixes++; return { status: "completed", data: { round: fixes, tree_before: `t${fixes}`, tree_after: `t${fixes + 1}`, signatures: "same" } }; }),
+    })) });
+    expect(verifies).toBe(3);
+    expect(events.some((e) => e.type === "loop.repeat")).toBe(false);
+  });
+
+  it("a failed fix stage keeps the old output but is never read as a repeat", async () => {
+    const { ctx, events } = fakeCtx();
+    let verifies = 0, fixes = 0;
+    await runMachine(ctx, { load: loaderOf(all({
+      verify: stage("verify", async () => { verifies++; return { status: "completed", data: { failures_grouped: [{ signature: `s${verifies}` }] } }; }),
+      fix: stage("fix", async () => {
+        fixes++;
+        return fixes === 1
+          ? { status: "completed", data: { round: 1, tree_before: "t0", tree_after: "t1" } }
+          : { status: "failed", reason: "session error", data: {} };
+      }),
+    })) });
+    expect(verifies).toBe(3);
+    expect(events.some((e) => e.type === "loop.repeat")).toBe(false);
+  });
+
   it("changing signatures are not stalled", async () => {
     const { ctx } = fakeCtx();
     let n = 0;
@@ -365,7 +447,7 @@ describe("engine10 machine", () => {
     expect(of(events, "stage.completed").slice(-3)).toEqual(["commit", "seal", "pr"]);
   });
 
-  it("spec_conflict still runs verify and the fix loop; seal still reports SPEC_CONFLICT (E-98b)", async () => {
+  it("spec_conflict still runs verify (E-98b) but no fix round (FC-FIX-OVER-CONFLICT); seal still reports SPEC_CONFLICT", async () => {
     const { ctx, events } = fakeCtx();
     let fixRan = false;
     await runMachine(ctx, {
@@ -380,8 +462,8 @@ describe("engine10 machine", () => {
         }),
       })),
     });
-    expect(of(events, "stage.started")).toContain("verify");
-    expect(fixRan).toBe(true);
+    expect(of(events, "stage.started").filter((n) => n === "verify")).toHaveLength(1);
+    expect(fixRan).toBe(false);
     const seal = events.find((e) => e.type === "stage.completed" && e.stage === "seal");
     expect(seal?.data.verdict).toBe("SPEC_CONFLICT");
   });
@@ -574,5 +656,31 @@ describe("concurrent wall distrusts a green base run when implement changed file
   it("positive control: only .loki and wall files changed keeps already_satisfied true", async () => {
     const w = await go([".loki/x", "tests/loki_wall_a.test.ts"]);
     expect(w.already_satisfied).toBe(true); expect(w.base_run.unproven).toBeUndefined();
+  });
+});
+
+describe("FC-OUT-OF-REPO machine", () => {
+  const ran = (events: Ev[]) => of(events, "stage.completed");
+  it("an out-of-repo plan skips implement, verify and fix, runs the tail, and seals via spec_conflict", async () => {
+    const { ctx, events } = fakeCtx();
+    const plan = stage("plan", async () => ({ status: "completed", data: { out_of_repo: true, spec_conflict_reason: "out-of-repo: hosted service" } }));
+    let sealSaw: Record<string, unknown> | undefined;
+    const seal = stage("seal", async (c) => { sealSaw = c.outputs().implement; return { status: "completed", data: {} }; });
+    const r = await runMachine(ctx, { load: loaderOf(all({ plan, seal })) });
+    expect(ran(events)).toEqual(["intake", "plan", "wall", "commit", "seal", "pr"]);
+    expect(sealSaw?.exit).toBe("spec_conflict"); expect(sealSaw?.spec_conflict_reason).toBe("out-of-repo: hosted service");
+    expect(r.outputs.implement?.exit).toBe("spec_conflict");
+  });
+  it("an intent_declined plan stops the run before implement", async () => {
+    const { ctx, events } = fakeCtx();
+    const plan = stage("plan", async () => ({ status: "completed", data: { intent_declined: true } }));
+    const r = await runMachine(ctx, { load: loaderOf(all({ plan })) });
+    expect(r.stopped).toBe("intent declined");
+    expect(ran(events)).not.toContain("implement");
+  });
+  it("positive control: a normal plan still runs implement and verify", async () => {
+    const { ctx, events } = fakeCtx();
+    await runMachine(ctx, { load: loaderOf(all()) });
+    expect(ran(events)).toContain("implement"); expect(ran(events)).toContain("verify");
   });
 });

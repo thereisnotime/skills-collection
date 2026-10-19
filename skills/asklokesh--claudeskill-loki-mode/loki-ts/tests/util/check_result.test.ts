@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { baseJobs, mapPool, verifyJobs, classifyRisk, classifyWithRerun, diffFiles, hasExecutedProof, hasExogenousProof, manifestDepsChanged, markExecuted, type ClassifyInput } from "../../src/util/check_result.ts";
+import { deepGaps, baseJobs, mapPool, verifyJobs, classifyRisk, classifyWithRerun, diffFiles, hasExecutedProof, hasExogenousProof, manifestDepsChanged, markExecuted, type ClassifyInput } from "../../src/util/check_result.ts";
 
 const dirs: string[] = [];
 afterEach(() => { while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true }); });
@@ -137,5 +137,37 @@ describe("mapPool and jobs env (TEN-SPEED-18/19 shared pool)", () => {
       withEnv(key, "3", () => expect(fn()).toBe(3));
       withEnv(key, "999", () => expect(fn()).toBe(cap));
     }
+  });
+});
+
+describe("FC-SEAL-NA-AS-UNPROVEN deepGaps", () => {
+  const r = (tier: string, selected: string[], deferred: string[]) => ({ tier, checks_selected: selected, checks_deferred: deferred });
+  const base = ["targeted tests", "lint of changed files"];
+  test("no usable risk record: every deep item NOT PROVEN, none N/A", () => {
+    for (const bad of [undefined, null, {}, { tier: "weird", checks_selected: [], checks_deferred: [] }]) expect(deepGaps(bad, [])).toEqual({ notProven: ["full suite", "app boot", "council", "security scan"], notSelected: [] });
+  });
+  test("low tier: nothing was asked for, all of it is not selected", () => {
+    const g = deepGaps(r("low", base, ["full test command", "reviewer", "council", "security scan"]), []);
+    expect(g.notProven).toEqual([]); expect(g.notSelected).toContain("not selected by risk tier: reviewer"); expect(g.notSelected).toContain("not selected by risk tier: full suite");
+  });
+  test("medium: a selected full test command that did not run is a gap; one that ran drops the full suite", () => {
+    const sel = [...base, "full test command", "one reviewer"];
+    expect(deepGaps(r("medium", sel, ["full test command", "one reviewer"]), []).notProven).toEqual(["full suite", "full test command", "one reviewer"]);
+    const ran = deepGaps(r("medium", sel, ["one reviewer"]), []);
+    expect(ran.notProven).toEqual(["one reviewer"]); expect(ran.notSelected).toContain("not selected by risk tier: council");
+  });
+  test("medium reviewer: credited only by a review that really ran", () => {
+    const sel = [...base, "full test command", "one reviewer"], rec = r("medium", sel, ["one reviewer"]);
+    expect(deepGaps(rec, []).notProven).toContain("one reviewer"); // tier alone never credits it
+    expect(deepGaps(rec, [], [], false).notProven).toContain("one reviewer"); // a cross-review that did not run stays NOT PROVEN
+    expect(deepGaps(rec, [], [], true).notProven).not.toContain("one reviewer"); // seal's cross-review returned a verdict
+    expect(deepGaps(rec, [], [{ name: "council", result: "pass" }]).notProven).not.toContain("one reviewer"); // deep reviewer session ran
+    expect(deepGaps(rec, [], [{ name: "council", result: "not_run" }]).notProven).toContain("one reviewer");
+    expect(deepGaps(r("high", [...base, "full test command", "full suite", "council", "security scan"], ["council"]), [], [], true).notProven).toContain("council"); // a cross-review does not credit high's council
+    expect(deepGaps(r("low", base, ["full test command", "reviewer", "council", "security scan"]), [], [], true).notProven).toEqual([]);
+  });
+  test("an executed deep check is dropped", () => {
+    const g = deepGaps(r("high", [...base, "full test command", "full suite", "council", "security scan"], ["council", "security scan"]), [], [{ name: "security scan", result: "pass" }]);
+    expect(g.notProven).toEqual(["council"]);
   });
 });

@@ -47,7 +47,7 @@ categories:
     subcategories:
       - name: "Obsidian"
       - name: "Data Visualization"
-  - name: "Open Source Software"
+  - name: "Open Source Contribution & Maintenance"
     prefix: open
   - name: "Research & Scientific Inquiry"
     prefix: research
@@ -59,6 +59,8 @@ categories:
     prefix: clients
   - name: "Status Lines"
     prefix: statusline
+  - name: "Mods"
+    prefix: mods
   - name: "Design & UI/UX"
     prefix: design
   - name: "Writing & Prose Quality"

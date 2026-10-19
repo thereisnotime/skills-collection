@@ -4,7 +4,7 @@
 import { routeStartLine } from "../runner/router/route_block.ts";
 import { execFileSync, spawn, spawnSync } from "node:child_process"; import { currentBranch, restoreBranch } from "../e10ext/stop_restore.ts";
 import { createHash, createPublicKey, sign, type Hash } from "node:crypto";
-import { redactEventData } from "../util/redact.ts"; import { resolveRunCapS } from "../util/run_cap.ts"; import { safeGit } from "../util/safe_git.ts";
+import { redactEventData } from "../util/redact.ts"; import { localBranchNote, resolveRunCapS } from "../util/run_cap.ts"; import { safeGit } from "../util/safe_git.ts";
 import { terminalWidth } from "../util/term_width.ts";
 import { diffStat, formatRunSummary, handoffSection, readRiskSummary, writeHandoff, withNextLine, withRiskLine, nextOf, resultOf, summaryObject, useColor } from "../util/run_summary.ts"; // OC-OUTPUT, RISKTIER
 import { guardedBackstop, validBase } from "../e10ext/commit_filter.ts";
@@ -15,12 +15,13 @@ import { loadSpecFile, type LoadedSpec } from "../util/spec_file.ts";
 import { eventsRelPath, githubRepoFromUrl, readOriginUrl, writeEngineMarker } from "../util/engine_origin.ts";
 export { eventsRelPath, githubRepoFromUrl, readOriginUrl, writeEngineMarker }; // re-exported: callers and tests import these from here
 import { withholdGithubTokens } from "../runner/github_token.ts"; import { readAliveBeat, writeAliveBeat, writeRunPid } from "../util/run_pid.ts";
-import { EventLog, fold, partialCost, readEvents, tail, type Folded } from "./events.ts"; import { stageShareText } from "../util/cost_breakdown.ts";
+import { EventLog, conflictReasonOf, fold, partialCost, readEvents, tail, type Folded } from "./events.ts"; import { stageShareText } from "../util/cost_breakdown.ts";
 import { disclosureLine } from "../providers/provider_guard.ts";
 import { budgetNext, capNote, groupEnv, parseCapUsd, priorSpend, resolveCap, SUBSCRIPTION_NOTE, unenforceableNote, writeBudgetStop } from "../e10ext/budget_cap.ts";
 import { fetchIssueToFile } from "./fetch_issue.ts";
 import { fetchTrackerIssueToFile, parseTrackerRef } from "../features/tracker_intake.ts";
 import { formatHeartbeatLine, formatStageLine, formatSummary, formatPreModelLine, preModelTiming, type PreModelTiming, EXIT, outcomeOf, reasonOf, type Outcome, type SummaryInput } from "./output.ts";
+import { renderProofCard } from "../util/receipt_surface.ts";
 import { LiveLine } from "../e10ext/liveline.ts";
 import { killGroup, spawnWorker } from "../runner/worker_proc.ts";
 import { askIntent } from "../util/intent_card.ts";
@@ -65,8 +66,8 @@ export type PrStep = (p: {
   notProven: string[]; // accumulated so far (backstop/tamper included): the only place the PR body learns why when a killed worker never sealed a receipt
 }) => Promise<PrOutcome | null>;
 // Backstop fallback for a FAILED run with no PR (no diff, or no remote): on an issue run, posts a comment naming the reason instead of vanishing.
-export type CommentStep = (p: { env: NodeJS.ProcessEnv; runId: string; issueRef: string; reason: string; prUrl?: string | null }) => Promise<{ argv: string[]; ok: boolean } | null>;
-export type StatusStep = (p: { prUrl?: string | null; outcome?: string; reason?: string }) => Promise<{ argv: string[]; ok: boolean } | null>; // FV-gh-steer-3: upserts the one status comment on the issue
+export type CommentStep = (p: { env: NodeJS.ProcessEnv; runId: string; issueRef: string; reason: string; prUrl?: string | null }) => Promise<{ argv: string[]; ok: boolean; skipped?: boolean } | null>;
+export type StatusStep = (p: { prUrl?: string | null; outcome?: string; reason?: string }) => Promise<{ argv: string[]; ok: boolean; skipped?: boolean } | null>; // FV-gh-steer-3: upserts the one status comment on the issue
 export interface SupervisorOptions {
   runId: string;
   repoDir: string;
@@ -184,16 +185,17 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   // E-66: already-satisfied opens no PR. E-67: FAILED (including a backstop kill) does not block the
   // PR outright; backstopCommit lands what the kill left uncommitted so the diff below (against
   // intake's base_sha) sees it. No diff falls to the comment/print branch below.
-  let hasDiff = false;
-  if (verdict === "FAILED" && !cancelled) {
+  let hasDiff = false; // P1: every verdict needs a net diff to publish; a SPEC_CONFLICT or PARTIAL that changed nothing must not push an empty branch
+  if (!cancelled) {
     const stages = fold(readEvents(log.path)).stages; // A-104c: a failed commit stage already chose what to exclude (Wall files, lockfiles, pre-run dirt); a blanket `add -A` would undo it
     const baseE = stages["intake"], base = validBase(baseE?.type === "stage.completed" ? baseE.data.base_sha : null); // D50-F4b: a worker-written base is never an option or ref
-    if (stages["commit"]?.type !== "stage.failed") { const why = guardedBackstop(intact, opts.repoDir, workerEnv, opts.runId, base, baseE?.type === "stage.completed" ? baseE.data.preexisting_dirty : undefined); if (why) notProven.push(why); } // no completed intake = no run branch: repoDir is still the user's own branch, never `add -A` there
-    try { // net diff against base (a revert commit can leave HEAD past base with nothing to publish); any failure counts as a diff
+    if (verdict === "FAILED" && stages["commit"]?.type !== "stage.failed") { const why = guardedBackstop(intact, opts.repoDir, workerEnv, opts.runId, base, baseE?.type === "stage.completed" ? baseE.data.preexisting_dirty : undefined, baseE?.type === "stage.completed" ? baseE.data.install_created : undefined); if (why) notProven.push(why); } // no completed intake = no run branch: repoDir is still the user's own branch, never `add -A` there
+    if (base === null && verdict !== "FAILED") hasDiff = true; else try { // no recorded base: nothing to compare, keep the pre-P1 behaviour; otherwise // net diff against base (a revert commit can leave HEAD past base with nothing to publish); any failure counts as a diff
       safeGit(opts.repoDir, ["diff", "--quiet", String(base), "HEAD", "--", ".", ":(exclude).loki"], { env: workerEnv, stdio: "ignore" });
     } catch { hasDiff = base !== null; }
   }
-  if (opts.pr && !cancelled && intact && origin && verdict !== "ALREADY_SATISFIED" && (verdict !== "FAILED" || hasDiff)) {
+  if (opts.pr && !cancelled && intact && origin && verdict !== "ALREADY_SATISFIED" && verdict !== "VERIFIED" && hasDiff) process.stderr.write(localBranchNote(opts.runId, verdict, opts.repoDir)); // FC-NO-PUSH-UNVERIFIED
+  if (opts.pr && !cancelled && intact && origin && verdict === "VERIFIED" && hasDiff) { // FC-NO-PUSH-UNVERIFIED: only a verified success leaves the machine; ALREADY_SATISFIED opens no PR (E-66)
     const pushEnv: PushEnv = { _LOKI_ORIGIN_PINNED: "1", _LOKI_PINNED_ORIGIN: origin };
     const out = await opts.pr({ env, pushEnv, runId: opts.runId, repoDir: opts.repoDir, verdict, notProven });
     notProven.push(...(out?.notProven ?? []));
@@ -209,18 +211,18 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   const stopRaw = folded.run.escalated?.data.stop, stop = typeof stopRaw === "string" ? stopRaw : null;
   const outcome: Outcome = cancelled ? "CANCELLED" : outcomeOf(verdict, allEvents.some((e) => e.type === "cap.hit"), stop, log.tampered, receiptVerdict), blocked = outcome === "BLOCKED"; let statusReason: string | undefined;
   if (blocked || (verdict === "FAILED" && prUrl === null && !cancelled)) { // E-67: never vanish silently -- an issue run gets a comment naming the reason, anything else is printed. A-110: BLOCKED always posts its one question
-    const why = allEvents.find((e) => e.type === "stage.completed" && e.stage === "implement")?.data.spec_conflict_reason;
+    const why = conflictReasonOf(allEvents);
     const reason = blocked ? `spec conflict: ${String(why ?? "see the receipt").replace(/[\x00-\x1f\x7f]+/g, " ").slice(0, 500)}` : notProven.join("; ") || "run failed", issueRef = opts.started?.["issue_ref"]; await (await import("../integrations/writeback.ts")).writeBack({ phase: blocked ? "blocked" : "failed", reason, verdict, prUrl, receiptSha256: null, task: "" }, env); // opt-in tracker writeback (key from LOKI_WRITEBACK_ISSUE), never throws
     if (blocked) await slackEvent(env, "blocked", { repo: githubRepoFromUrl(origin) ?? undefined, issue: String(opts.started?.["issue_ref"] ?? ""), question: reason }); // D51-A4
     const isIssueWithRef = opts.started?.["task_source"] === "issue" && typeof issueRef === "string" && issueRef !== ""; if (opts.status) statusReason = reason;
     if (isIssueWithRef && opts.comment && !opts.status) {
       const out = await opts.comment({ env, runId: opts.runId, issueRef: issueRef as string, reason, prUrl });
-      log.append("issue.commented", null, { argv: out?.argv ?? [], ok: out?.ok ?? false, reason });
+      log.append("issue.commented", null, { argv: out?.argv ?? [], ok: out?.ok ?? false, ...(out?.skipped ? { skipped: true } : {}), reason });
     } else if (!blocked) process.stderr.write(`engine10: run ${opts.runId} ended FAILED with no PR: ${reason}\n`);
   }
-  if (opts.status) { const st = await opts.status({ prUrl, outcome: String(outcome), reason: statusReason }); log.append("issue.commented", null, { argv: st?.argv ?? [], ok: st?.ok ?? false, reason: statusReason ?? String(outcome) }); }
+  if (opts.status) { const st = await opts.status({ prUrl, outcome: String(outcome), reason: statusReason }); log.append("issue.commented", null, { argv: st?.argv ?? [], ok: st?.ok ?? false, ...(st?.skipped ? { skipped: true } : {}), reason: statusReason ?? String(outcome) }); }
   log.append("run.completed", null, { verdict, ...(cancelled ? { cancelled: true, signal: cancelled, outcome: "CANCELLED" } : {}), pr_url: prUrl, not_proven: notProven, cost_usd: costUsd, wall_s: wallS, pre_model: preModelTiming(allEvents, t0) }); // D61-1
-  log.sealLog(); recordFingerprints(join(opts.repoDir, ".loki", "state"), opts.runId, "failed", failedCheckNames(folded.stages["verify"]?.data.checks), cleanTreeId(opts.repoDir)); // Q17-03: real failing checks, read by decideRecovery so a flaky check does not mask them
+  log.sealLog(); recordFingerprints(join(opts.repoDir, ".loki", "state"), opts.runId, "failed", failedCheckNames(folded.stages["verify"]?.data.checks, folded.stages["verify"]?.data.pre_red_checks as string[] | undefined), cleanTreeId(opts.repoDir)); // Q17-03/FC-LINT-PRE-RED: real failing checks minus base-red, read by decideRecovery so a flaky check does not mask them
   const stages = allEvents.filter((e) => e.type === "stage.completed" && typeof e.data.duration_s === "number").map((e) => ({ label: String(e.stage), seconds: e.data.duration_s as number })), // E-48 notify: Slack when configured, no-op otherwise
     pc = partialCost(allEvents, log.tampered),
     summary = { pr: prUrl ? { url: prUrl, draft: verdict !== "VERIFIED" } : null, verdict, outcome, notProven, flaky: recordFingerprints(join(opts.repoDir, ".loki", "state"), opts.runId, "flaky", folded.stages["verify"]?.data.flaky, cleanTreeId(opts.repoDir)), wallS, stages, cost: { usd: costUsd, provider: String(opts.started?.provider ?? ""), tokens: summaryTokens(folded, allEvents.some((e) => e.type === "cost")), partialUsd: pc.usd, measuredSessions: pc.measured, totalSessions: pc.total, stageShares: log.tampered ? null : stageShareText(allEvents), capUsd: Number(opts.started?.["max_cost_usd"]) > 0 ? Number(opts.started?.["max_cost_usd"]) : undefined } };
@@ -232,7 +234,20 @@ export { alreadyDoneTextComment, policyGate, prGate, unmergedLokiWorkNote, type 
 export function renderMainOutput(events: EventEnvelope[], summary: SummaryInput, verbose = true): string {
   const c = alreadyDoneTextComment(events), un = unmergedLokiWorkNote(events);
   const pm = (events.findLast((e) => e.type === "run.completed")?.data.pre_model ?? null) as PreModelTiming | null;
-  return `${c ? `\n${c}\n` : ""}${un ? `\n${un}\n` : ""}${verbose ? formatPreModelLine(pm) : ""}${formatSummary(summary)}\n`;
+  const verify = events.findLast((e) => e.type === "stage.completed" && e.stage === "verify");
+  const checks = Array.isArray(verify?.data.checks) ? verify.data.checks.length : 0;
+  const seal = events.findLast((e) => e.type === "stage.completed" && e.stage === "seal");
+  const mutation = typeof seal?.data.mutation_line === "string" ? seal.data.mutation_line : null;
+  const card = renderProofCard({
+    verdict: summary.outcome ?? summary.verdict,
+    usd: summary.cost.usd,
+    wallS: summary.wallS,
+    checks,
+    mutationProof: mutation,
+    sha: summary.receipt?.sha ?? null,
+    tampered: summary.receipt?.tampered === true,
+  });
+  return `${c ? `\n${c}\n` : ""}${un ? `\n${un}\n` : ""}${verbose ? formatPreModelLine(pm) : ""}${formatSummary(summary)}\n${verbose ? `\n${card}\n` : ""}`; // D48: the default stays within 8 lines; the card is --verbose only
 }
 const ISSUE_RE = /^(?:[\w.-]+\/[\w.-]+#\d+|https?:\/\/\S+\/(?:-\/)?issues\/\d+)$/;
 // E-59: every token field the provider reported, cache included (E-50 found "1k shown for 372k used" when this summed only input+output). The sole place tokens are computed for the Cost line.
@@ -372,7 +387,7 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
       writeFileSync(bodyFile, `<!-- loki-backstop -->\nLoki 10 run ${runId} ${prUrl ? `opened draft PR ${prUrl}` : "ended without a PR"}.\n\n${prUrl ? "One question" : "Reason"}: ${reason}\n`);
       const argv = pushArgv({ cmd: "issue-comment", issueRef, bodyFile });
       const origin = readOriginUrl(repoDir), r = spawnSync("bash", [DEFAULT_PUSH_SH, ...argv], { env: origin ? { ...env, _LOKI_ORIGIN_PINNED: "1", _LOKI_PINNED_ORIGIN: origin } : env, encoding: "utf8" }); // the push script refuses an unpinned origin
-      return { argv, ok: r.status === 0 };
+      return { argv, ok: r.status === 0, ...(/^skipped: /m.test(String(r.stdout)) ? { skipped: true } : {}) };
     },
   }).catch((e) => { if (!(e instanceof PreflightError)) throw e; process.stderr.write(`${e.message}\n`); return null; });
   clearInterval(tailTimer); stopPlan();
@@ -403,5 +418,6 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
   const rdy = events.find((e) => e.type === "stage.completed" && e.stage === "intake")?.data.readiness, foldTail = [handoffRef, typeof rdy === "string" ? rdy : ""].filter(Boolean).join("; "); // FV-readiness-env-3: D48 default mode folds readiness into the last line
   const riskLine = readRiskSummary(repoDir, t0); // RISKTIER: this run's recorded tier, deferred checks stated as not run
   process.stdout.write(json ? `${JSON.stringify({ ...JSON.parse(out), summary: { ...summaryObject(ui), ...(riskLine ? { risk: riskLine } : {}) } })}\n` : quiet ? withRiskLine(formatRunSummary(ui, { color: useColor() }), riskLine, 99) + (handoffRef ? `${handoffRef}\n` : "") : verbose ? `${out}\n${withRiskLine(formatRunSummary(ui, { color: useColor() }), riskLine, 99)}${handoffRef ? `${handoffRef}\n` : ""}` : withRiskLine(foldTail ? withNextLine(out, ui).replace(/\n$/, `; ${foldTail}\n`) : withNextLine(out, ui), riskLine, 7, capLine ? 1 : 0)); // D48: default output stays within 8 lines, so the summary collapses to one line
+  if (!json && res.outcome === "VERIFIED") await import("../util/satisfaction.ts").then((m) => m.maybeAsk({ runId, env: process.env, isTTY: process.stdin.isTTY === true && process.stdout.isTTY === true })).catch(() => {});
   return res.outcome === "CANCELLED" && res.notProven.some((n) => n.endsWith("SIGTERM")) ? 143 : EXIT[res.outcome]; // a SIGTERM cancel keeps the conventional 128+15
 }

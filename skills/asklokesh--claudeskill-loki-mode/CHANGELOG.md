@@ -5,6 +5,208 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.17.90 (2026-10-19)
+
+### Fixed
+- A run that has already reached its spending cap no longer starts an extra model session to rewrite Wall tests that point outside the repo; those tests are discarded instead, so a capped run stops spending money. Rerun with `loki start owner/repo#N`.
+
+## v11.17.89 (2026-10-19)
+
+### Fixed
+- Added regression coverage for how the Wall finds a test's package root when a project model is known, so a stale model that omits a package keeps reporting paths that do not exist instead of silently accepting them. No behaviour change. Rerun with `loki start owner/repo#N`.
+
+## v11.17.88 (2026-10-19)
+
+### Fixed
+- A medium-tier run no longer gets credit for "one reviewer" in its Seal unless a code review actually ran. Previously the Seal could count the reviewer requirement as met even when no reviewer was configured or the review was skipped, which overstated how well the change had been checked. Rerun with `loki start owner/repo#N`.
+
+## v11.17.87 (2026-10-19)
+
+### Fixed
+- The Wall check for test paths that do not exist in the repository now catches a missing path under a folder whose name ends in `_modules` (for example `src/my_modules/x`). Installed dependency folders are still skipped when git ignores them.
+- When the project model knows the repository layout, the Wall check now looks for a test's files from the same folder the tests actually run in. A config file such as `tsconfig.json`, `.eslintrc.json`, `phpunit.xml` or `setup.cfg` near the tests can no longer hide a missing path.
+- The release gate check now fails when pytest is run on the same line that installs it. Rerun with `loki start owner/repo#N`.
+
+## v11.17.86 (2026-10-19)
+
+### Fixed
+- A Wall test that points at a directory inside the test folder which does not exist there, but whose name exists at the repository root (for example `tests/plugins/ralph-loop` when the real code lives under `plugins/`), is now caught. The author is asked once to point it at the real code, instead of the run adding a symlink or a stub to make the path exist. Rerun with `loki start owner/repo#N`.
+
+## v11.17.85 (2026-10-19)
+
+### Fixed
+- The Wall check that catches a test pointing at a path that does not exist in the repository now finds a package's root from the project model and the package's own manifest, instead of a fixed list of manifest file names, so it works the same way for any language or package layout.
+- Two internal tests no longer depend on the CI machine (one assumed Docker was absent, one rejected installing pytest in the release gate). No user-visible change. Rerun with `loki start owner/repo#N`.
+
+## v11.17.84 (2026-10-19)
+
+### Fixed
+- A test that reaches the code under test through an installed copy in the user home (for example an import from a plugin directory under the home folder) is now caught in the bug-reproduction test as well as in Wall tests, and the author is asked once to point it at the repository code instead.
+- The out-of-repo check no longer flags a plain absolute path string that is only test data, such as a fixture path, and a HOME override now exempts only the lines after it instead of the whole file. A quoted home path used directly as an import, require or source target is still flagged. Rerun with `loki start owner/repo#N`.
+
+## v11.17.83 (2026-10-19)
+
+### Fixed
+- A Wall test that points at a repository path that does not exist (for example a plugin directory named after the issue rather than the real one) is now caught before the change is built. The author is asked once to fix it, shown where same-named files really live, and the test is discarded if it still points nowhere. Roots read from an environment override with a fallback, prettier-split path joins and monorepo package roots are all followed.
+- A change that adds a symlink, turns a file into a link, or adds a submodule is now NOT PROVEN unless the plan asks for one, so a run can no longer pass a check by aliasing a missing path to an existing one. Rerun with `loki start owner/repo#N`.
+
+## v11.17.82 (2026-10-19)
+
+### Fixed
+- In a monorepo, a package with no test command, an app with nothing to probe, or a deep check that does not apply is now reported as not applicable instead of NOT PROVEN, so such a run can seal VERIFIED. A package without tests counts as proven only when a passing Wall or holdout test lies inside that package.
+- Changed-file detection reads git paths unquoted and without rename pairing, so a non-ASCII file name, a file name with quotes or tabs, or a file moved out of a package can no longer hide that package's change. A changed path that no package owns stays NOT PROVEN.
+
+## v11.17.81 (2026-10-19)
+
+### Fixed
+- The P9 security moat check (an injected issue cannot reach the push token) runs its fixture to a VERIFIED result again, so Loki's own push and PR path is exercised, and a new leg proves an unverified run stays local. CI and the release gate install pytest for it, and a missing pytest now reports `prerequisite missing: python3 pytest` instead of misleading token failures. No user-visible change.
+
+## v11.17.80 (2026-10-19)
+
+### Fixed
+- Failure memory no longer records a lint check that also fails on the base commit as one of the run's failures, so recovery advice after a run is not steered by lint problems the run did not cause.
+- Two engine tests now match the 11.17.79 behaviour (a failed run keeps its branch local and opens no PR; the plan brief explains how to report an out-of-repo request). No user-visible change. Rerun with `loki start owner/repo#N`.
+
+## v11.17.79 (2026-10-19)
+
+### Fixed
+- A run whose plan finds no in-repo file to change (the issue targets another repository, a plugin marketplace, or a path outside the checkout) now ends BLOCKED early with the reason "out-of-repo: ..." and exit 4, instead of spending the full budget and inventing files.
+- An unverified run never pushes. With a pull request requested, only a VERIFIED run pushes its branch and opens a PR; any other verdict keeps `loki/<runId>` local and prints how to inspect it. Modernize waves follow the same rule.
+- A lint check that already fails on the base commit is no longer reported as the run's failure reason, a HANDOFF failure, a SARIF error, or a penalty when choosing between two attempts. Rerun with `loki start owner/repo#N`.
+
+## v11.17.78 (2026-10-19)
+
+### Fixed
+- Main CI is green again: five repository guards that went red after 11.17.75 are fixed. The D106 install ecosystem table moved out of the project model into one shared module so the project model names no tool; the CommonJS convention brief no longer says "TypeScript"; the modernize event producer scan runs per file so a stray quote in one file cannot hide another file's producers; and the route-matrix M1 mutation anchor matches the current source. No user-visible behaviour changes.
+- The never-below-raw guard, which fails the build when any engine stage pins a session to a cheaper model without vetting, now reads the TypeScript syntax tree instead of matching lines. It catches pins it previously missed (a pin beside an unrelated conditional spread, a trailing pin after a vetted spread, multi-line session options, a shorthand pin bound to an unvetted local) while event payloads stay exempt. Rerun with `loki start owner/repo#N`.
+
+## v11.17.77 (2026-10-19)
+
+### Fixed
+- The acceptance checks Loki writes before coding (the Wall) can no longer target an installed copy of the code outside the repository (FC-WALL-OUT-OF-REPO-TARGET). A Wall check that located the code under test through the home directory (for example `process.env.X ?? join(homedir(), '.claude/plugins/...')`) pushed the implementer into adding test-runner config to redirect it, which Loki then rightly flagged as runner tampering and ended PARTIAL. The Wall writer is now told to reach repo code by repo-relative paths, and a written check whose home-derived path locates code (import, require, source, spawn, exec, readFile target, or a dot-directory) is re-asked once with the exact reason and discarded if still out of repo. Checks that sandbox HOME or assert `~` expansion behaviour are not affected. Rerun with `loki start owner/repo#N`.
+
+## v11.17.76 (2026-10-19)
+
+### Fixed
+- A repo whose full test suite was already failing on the base commit no longer ends FAILED with "full suite: <package> failed" when the run introduced no new failures (FC-FULLSUITE-ANSI-IDS). The full-suite runners read test output with color codes still in it, so runners such as vitest and jest yielded zero failure ids and the known base failures could never be matched; they now run with color disabled and strip ANSI before parsing, like the baseline already did, and the failure-id parser strips ANSI itself so no caller can regress. A genuinely new failing test still blocks, and when head failure ids cannot be parsed the verdict now says so instead of implying none matched. Full-suite failures also carry a redacted failure excerpt into the fix brief, so fix rounds see the real error instead of only the command. Rerun with `loki start owner/repo#N`.
+
+## v11.17.75 (2026-10-19)
+
+### Fixed
+- An untouched impacted test that runs zero tests on the base commit as well as on head (for example a `describe.skip` suite) is now reported as informational ("skipped on base (excused): <check>") instead of NOT PROVEN, because the change did not cause the skip (FC-ZERO-ON-BASE). The excusal is deliberately narrow so it can never hide a real regression: it applies only when the run changed test files alone and no test config, and it is withheld whenever installed dependencies could load the changed code on base (any `node_modules` link at any depth that really resolves inside the repo, or a `.venv` editable install, `.pth`, `direct_url.json` or editable finder naming the repo, with percent-encoded and symlinked spellings matched). pnpm workspace repos are therefore never excused, and a run that edits source code keeps NOT PROVEN by design. Rerun with `loki start owner/repo#N`.
+
+## v11.17.74 (2026-10-19)
+
+### Fixed
+- Locked installs (D106) also refuse an assignment to `NODE_OPTIONS`, `BASH_ENV` or `ENV`, bare, exported or as an install prefix, the same way as `PATH`. Such a command is run exactly as written and recorded `locked: false` ("unparsed shell construct"), so a repo script loaded through one of them cannot end a failed locked install with exit 0 while the run claims `locked: true`. Rerun with `loki start owner/repo#N`.
+
+## v11.17.73 (2026-10-19)
+
+### Fixed
+- Locked installs (D106) no longer report a pass when the install failed. In 11.17.71 and 11.17.72 an install followed by `|| true`, a later `;` or newline command, or a shell construct could be rewritten to its locked form (`npm ci`) while the rest of the command hid its failure, so the run recorded `locked: true` with nothing installed. An install is now rewritten only when the command uses plain characters, every step before it is `cd <path>`, `export VAR=value` or a VAR=value assignment (never PATH), and every step after it is joined by `&&`; anything else is run exactly as written and recorded `locked: false` with the reason. Trailing separators are trimmed, so YAML `run: |` installs still lock. uv uses `--locked`, pipenv uses `install --deploy`, pnpm workspace lists in inline and unindented form are read, and `UV_FROZEN`/`UV_LOCKED` count as already locked. Rerun with `loki start owner/repo#N`.
+
+## v11.17.72 (2026-10-19)
+
+### Fixed
+- A fix round whose agent reports a spec conflict (`LOKI_SPEC_CONFLICT`) now ends the run BLOCKED with the agent's question, instead of STALLED. Previously only the implement stage honored the marker, so the fix loop left the tree unchanged and the anti-loop ended the run STALLED (FC-FIX-CONFLICT-STALLED). The conflict is believed only when the fix round left the tree unchanged after one correction resume, so a fix round cannot use it to skip a real failure. Every place that shows the reason (run output, writeback comment, `loki answer`, work-item blockers, Slack, control-plane answer and stop reason, the run page raw view, the dashboard and the MCP status) now reads it through one rule: the last fix-round reason, else implement's. Rerun with `loki start owner/repo#N`.
+
+## v11.17.71 (2026-10-19)
+
+### Changed
+- Intake dependency install is now locked and fail-closed (D106, FC-DEPS-NOT-INSTALLED). When a lockfile governs the package, the discovered install command runs in its locked form: `npm ci`, `pnpm install --frozen-lockfile`, `yarn install --immutable` (Berry) or `--frozen-lockfile` (Classic), `bun install --frozen-lockfile`, `cargo` with `--locked`, the locked `uv` and `pipenv` forms, frozen `bundle`; `poetry install` and `composer install` already install from their lock and stay as written. A lockfile in a parent directory only counts when that directory declares the package as a workspace member (npm/yarn/bun `workspaces`, `pnpm-workspace.yaml`, cargo `[workspace]`, uv `tool.uv.workspace`), and `cd X &&` segments are resolved from `X`. A failed locked install is reported as not proven instead of retried with a mutating install. Opt out with `LOKI_E10_INSTALL=0` or `verify.install_deps: false` in loki.yaml. Start a run with `loki start owner/repo#N`.
+
+## v11.17.70 (2026-10-19)
+
+### Fixed
+- Intake: when a run starts from the PR target because HEAD is an earlier unaccepted Loki run, the base note is shown once on the start line instead of also being printed as raw stderr during intake (it appeared up to three times). If that checkout fails, the warning now clears the live progress line first on a terminal. Rerun with `loki start owner/repo#N`.
+- Tests: the engine10 intake tests are hermetic again. Intake now records full-suite baselines, which ran real `npx`/`python` runners in the test and timed out on CI; the test shadows them with instant stubs and turns dependency installs off.
+
+## v11.17.69 (2026-10-19)
+
+### Fixed
+- Wall: for a CommonJS package the Wall test brief now tells the writer to use `import` statements in TypeScript files and keep `require()` only for plain `.js` and `.cjs` files. A TypeScript Wall test written with `require()` failed common package lint configs (for example `@typescript-eslint/no-require-imports`), which left the Wall check harness-owned and the run NOT PROVEN (FC-23). Rerun an affected issue with `loki start owner/repo#N`.
+
+## v11.17.68 (2026-10-19)
+
+### Fixed
+- Verify: a full-suite check in a multi-package repo (for example a frontend workspace) is now compared against its own baseline command, so a failure that already exists on the base branch is attributed per package instead of failing the run (FC-BASELINE-PER-PACKAGE). Vitest `×` failure lines are parsed as test ids; the trailing duration is stripped only from those lines, never from FAIL lines.
+- Intake: dependencies are installed once at intake on a fresh clone, so checks no longer fail with `sh: 1: vitest: not found`. A failed install makes the run NOT PROVEN with the reason shown, never a code failure. Files the install creates (node_modules, .venv, lockfiles) are recorded with a content hash and kept out of verify, the fix brief and the PR until the agent actually changes them; nothing is written to the repo's git config or exclude file (FC-DEPS-NOT-INSTALLED). `LOKI_E10_INSTALL=0` disables the install.
+- Load errors: a "not found" error is harness-owned only when base and head miss the same tool or package. A head that newly misses a different tool (for example `sh: 1: mytool: not found` against a base missing vitest) is a code failure that gets fix rounds, and the NOT PROVEN reason names the error line instead of the npm banner.
+
+## v11.17.67 (2026-10-19)
+
+### Fixed
+- Tests: the S-218r lazy-fetch control in tests/test-untracked-status-fsmonitor.sh is now deterministic. It failed main CI (shard 6/8) when an inherited GIT_SSH_COMMAND or GIT_NO_LAZY_FETCH silenced the hook, and about 1 run in 20 in a clean env because `git status` only lazy-fetches when the index entry is racily clean. Both fixtures now isolate git env and config and force a stat mismatch; a dead control fails and marks the real leg NOT PROVEN instead of passing (FC-LAZY-CONTROL-ENV).
+
+## v11.17.66 (2026-10-18)
+
+### Fixed
+- Intake: a `loki start owner/repo#123` run started while the checkout sits on an earlier, unaccepted Loki run branch (`loki/e10-*`, every commit carrying a Loki-Run trailer) now branches from the PR target tip instead of stacking on that prior run. The start line names the skipped commits, intake records `stacked_loki_skip`, and setting LOKI_PR_BASE keeps the old behavior. A failed checkout keeps base at HEAD and says so (FC-STACKED-ON-LOKI-RUN).
+
+## v11.17.65 (2026-10-18)
+
+### Fixed
+- Tests: the engine10 provider suite no longer leaves an untracked `loki-ts/calc.ts` in the repo checkout. The supervisor preflight `codex login status` probe ran in the caller's directory, where the codex test stub wrote its edit; the probe now runs from the temp directory and the stub answers `login` without touching files. A guard asserts no new untracked file appears under loki-ts after a provider run (FC-TEST-LEAKS-INTO-REPO).
+
+## v11.17.64 (2026-10-18)
+
+### Fixed
+- CI: the Tests workflow no longer dies with "runner has received a shutdown signal" (exit 143) during ShellCheck Linting. shellcheck peaks at 8-10 GB on the largest scripts and two ran at once on a 16 GB runner; files of at least LOKI_SHELLCHECK_HEAVY_LINES lines (default 5000) now lint alone. Lint verdicts are unchanged (FC-LINT-OOM).
+
+## v11.17.63 (2026-10-18)
+
+### Fixed
+- An issue whose code is not in the repository (for example a feature of a hosted service) no longer ends ALREADY_SATISFIED just because Loki's own Wall test passed before any change. A Wall test that is green on base now only backs an explicit "already done" claim; on a changed tree it caps the verdict at PARTIAL with the NOT PROVEN line "Wall green on base: no Wall test discriminates the change" (FC-VACUOUS-WALL-GREEN, anthropics/claude-code#21527).
+- A run whose implementer declares a spec conflict no longer spends fix rounds writing documentation or changelog text for behavior the code does not have; it ends SPEC_CONFLICT after one verify. The briefs now forbid announcing missing behavior in docs (FC-FIX-OVER-CONFLICT).
+- Main CI is green again: the 11.17.61 fix-session spec_conflict field that tripped the never-below-raw static guard is removed.
+
+## v11.17.62 (2026-10-18)
+
+### Fixed
+- A repo that committed Loki's own .loki/ state files can start runs again after that folder is cleared. Before, intake refused with "dirty tracked tree: D .loki/CONTINUITY.md, ..." on every run; Loki's own state is now never treated as your change, and the run still never commits those deletions (FC-LOKI-DIR-DIRT).
+
+## v11.17.61 (2026-10-18)
+
+### Fixed
+- A run that changed nothing no longer pushes a branch or opens a PR, whatever its verdict. Before, a spec conflict or partial run with an empty diff pushed an empty branch, on a repo you cannot push to as well as your own (FC-NO-DIFF-PUBLISH).
+- A status or backstop issue comment that Loki skipped (no push access, or a local origin) is now recorded as skipped in the run's events instead of as posted.
+- A spec-conflict or already-done reason no longer runs two model messages together mid-word; consecutive text blocks are kept on separate lines before markers are read.
+- When a fix round confirms the implement session's spec conflict and changes nothing, the run stops there with its SPEC_CONFLICT result instead of spending more fix rounds.
+
+## v11.17.60 (2026-10-18)
+
+Issue mode works on a repository you cannot push to, a repo with no test runner now gets a real Wall result, and run output stays on one line per item.
+
+### Added
+- On a GitHub repository you cannot push to (gh reports `permissions.push: false`), `loki start` pushes the run branch to your fork and opens the PR upstream from `you:branch`. The fork is created if missing and is used only after gh confirms it is a fork of that repository owned by you. A draft outcome (anything but VERIFIED) stays on the fork with a one-line notice and the `gh pr create` command to open it yourself; Loki does not open draft PRs on someone else's repository. Fork creation is logged before it happens, and the branch is public on your fork. `LOKI_PR_FORK=0` turns this off. No token is needed beyond your `gh auth login` and git login. Repositories you can push to are unchanged.
+- A repository with no detected test runner and no Python or Go test suite (docs, plugins, config) now has its Wall check run by Loki's own bun, in the Wall and in verify, so the receipt records a real Wall result instead of "no tests to run". `LOKI_WALL_HARNESS_RUNNER=0` turns this off.
+
+### Fixed
+- Status and backstop comments are no longer posted on an issue in a repository you cannot push to. They post only when gh confirms push access; a failed check skips them. The receipt comment on your own PR is still posted, and a status body quoting the receipt marker cannot bypass this.
+- The receipt's `wall.passed` is now recorded: true only when every Wall and holdout check ran and passed, false on any failure, unset otherwise. Before this, every receipt with Wall files listed "wall result not recorded by verify".
+- A Wall file is handed to a JS test runner only when it is a JS or TS file.
+- The Reason line is clipped at a word boundary with "..." instead of mid-word. NOT PROVEN items stay on one line each: a failed push reads as the push script's reason plus any "Permission to X denied", never raw git or gh stderr. A fork GitHub has not served yet says to rerun.
+- The intent card no longer runs into the live progress line on a terminal.
+- `autonomy/lib/proof_redact.py`: URI credential redaction skips the "@"-free tail of each token, so a long scheme-like token without "@" no longer takes seconds (TEN-SECURITY-26 follow-up, #226).
+
+## v11.17.59 (2026-10-18)
+
+### Added
+- `loki wow` and `loki tour --live` run one small Loki 10 task in a temporary git repo, seal a signed receipt, and print outcome, cost, tokens, and PROVEN vs NOT PROVEN. `loki verify` checks that receipt with no network. With no provider they show the existing offline `loki tour` sample. A live run that ends STALLED, BLOCKED, BUDGET_STOP or FAILED shows its own receipt and returns its own exit code; the sample is shown only when no receipt was written, and is labeled as not this run's result. `--max-cost` must be a positive number. The temp repo is removed after the receipt prints unless you pass `loki wow --keep`. Both end with `Ready for your repo? loki start`. `loki tour` with no flag stays the offline sample.
+- A GitHub pull request opened by a Loki 10 run gets a short receipt comment: outcome, receipt sha256, the `loki verify` command, PROVEN vs NOT PROVEN, and DRAFT when the PR is a draft. A re-run or resume on the same PR edits that one comment in place (it carries the `<!-- loki-receipt -->` marker) instead of adding another. It lists the same NOT PROVEN items as the PR body plus any commit-status miss. A failed comment is recorded as NOT PROVEN with its exit status. It does not fail the run. Local and GitLab origins are skipped. `--no-pr` still writes a verifiable receipt and posts nothing.
+- `loki factory "<task|prd|issue>"` is `loki start`. `loki start` prints the autonomy policy on stderr, so `--json` stdout stays parseable. On the Loki 10 path it prints with `--verbose` only, so the default output stays within 8 lines (D48); data commands (`keys`, `verify`, `status`, `export`, `dashboard`) never print it. `loki factory ./other-repo` reports that repo's policy file. `propose`, `execute`, and `operate` are unchanged. Factory does not write a policy file. No policy file means the same PR gate as `loki start`. A run that cannot satisfy the contract still stops with one BLOCKED question. The summary still prints outcome, receipt, cost, and the next command.
+- `--cost-first` (or `LOKI_COST_FIRST=1`) keeps a low-risk advisor haiku route that the shape has not earned. It stays off unless you pass the flag or `--haiku`. A history floor, no advisor, a higher risk, and an explicit model override still raise the model. `--max-cost` and `budgets.per_run` stay the hard cap. Claude and OpenCode stay first-class.
+- The fix loop stops as STALLED, and logs `loki: anti-loop`, when two fix rounds in a row leave the tree byte-identical (a sha256 of the full diff against the run base plus every untracked file) against the same fully-run failure, unless a router stall-climb is still available. One no-op round still gets its verify, so a flaky check can pass on the same tree, and a crashed verify between rounds never counts as a repeat. A killed or failed fix round is never read as a repeat, and two different edits with the same diff stat are not confused. STALLED, BUDGET_STOP, and BLOCKED still never produce a VERIFIED receipt.
+- After a VERIFIED run on a TTY, Loki asks for an optional local rating (1-5, and y or n for would use again). It is off in CI (`CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `JENKINS_URL`, `BUILDKITE`, `CIRCLECI`, `TRAVIS`, `TF_BUILD`, `TEAMCITY_VERSION`), off without a TTY, and off when `LOKI_SATISFACTION` is 0, off, or false. A blank line, Ctrl-D, or 30 seconds with no answer stores nothing and never holds the exit code. The line is appended to `~/.loki/satisfaction.jsonl` on this machine only. The receipt and `loki verify` are unchanged.
+- Control Plane: a running run names its current stage. The BLOCKED reply card keeps a visible border on a narrow window. The cost tile adds the average across this week's priced runs (the same window as the weekly total). Home still reads every run, so NEEDS YOU and the weekly counts are complete. Verified share stays on the overview.
+
+### Changed
+- The default model is unchanged: the provider default, the same model a raw session would use. The harness is what differs. Wall tests stay read-only, a share of them is held out of the implement session, and verify re-runs the checks after the model stops. A pass that exists only in the model's reply cannot seal VERIFIED. The implement brief now says that in one line.
+- `--haiku` opts the first implement onto haiku (the existing lean levers plus `LOKI_COST_FIRST=1`). A failed check climbs back to the session model. `--cost lean` remains the same opt-in without the cost-first route.
+- `loki start` turns on fail-to-pass (`LOKI_MUTATION_STRICT=1` unless you already set it) and trims new tool logs before the next model turn (`LOKI_E10_TRIM=1` unless you already set it). A plan that declares a behavior change is not VERIFIED when the Wall tests still pass on the old code. A refactor declared `behavior_change: false` stays VERIFIED. The PR comment includes that proof line. With `--verbose`, the terminal ends with a four-line card (the default stays within 8 lines, D48): verdict, dollars, seconds, checks run outside the model, the fail-to-pass line, and the receipt hash. An unpriced run says cost not measured, never $0, and a missing proof line says so instead of `not recorded`. The fix brief leads with the first failure signature the harness found and tells the model not to hunt for a different bug or edit an existing test. Opt out with `LOKI_MUTATION_STRICT=0` or `LOKI_E10_TRIM=0`. Trim keeps the last 120 lines of a command and does not rewrite earlier turns. Measured results these mechanisms follow, none of them a solve-rate claim for Loki: SWE-bench counts a fix only on FAIL_TO_PASS plus green PASS_TO_PASS. Agentless (arXiv 2407.01489) reached 32.00% (96/300) on SWE-bench Lite at about $0.70 by validating outside the model. AlphaCodium (arXiv 2401.08500) moved GPT-4 pass@5 on CodeContests validation from 19% to 44% by iterating on executed tests. Huang et al. (arXiv 2310.01798) found self-grading does not improve results. Tyen et al. (arXiv 2311.08516) found models can correct a mistake once the location is given, and cannot reliably find it themselves. Liu et al. (arXiv 2307.03172, Lost in the Middle) found accuracy drops when the needed text sits in the middle of a long context.
+- `loki start` with no task and no git repo shows the offline receipt (no provider, no spend) and ends with `loki start`. An explicit `--provider` or `LOKI_PROVIDER` keeps the provider preflight, so a missing or unknown provider still fails with its message. Inside a repo, no-task behavior is unchanged. `loki start` prints the autonomy level. `loki factory` is the same command.
+- Docs for the handoff from Claude Code or opencode: there is no transcript importer, the plan session resumes into implement unless `LOKI_E10_FIX_RESUME=0`, a rate limit is retried, a hard billing failure is not, and `loki resume` is the checkpoint. Uninstall removes the command and leaves receipts in the project `.loki/runs` and in `~/.loki`.
+
 ## v11.17.58 (2026-10-17)
 
 ### Fixed

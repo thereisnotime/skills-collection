@@ -36,12 +36,14 @@ const LOAD_PATTERNS: [RegExp, string][] = [
   [/\[setup failed\]|cannot find package|no required module provides package/, "go package could not be set up"],
   [/could not determine executable to run/i, "test runner executable not found"],
   [/^(?:\S+: )?(?:line \d+: )?[\w.-]+: command not found$/m, "test runner executable not found"],
+  [/^(?:\S+: )?\d+: [\w.-]+: not found$/m, "test runner executable not found (not installed)"], // POSIX sh: "sh: 1: <tool>: not found"
+  [/^npm (?:error|ERR!) (?:npx )?canceled due to missing packages/m, "test runner package not installed"], // FC-DEPS-NOT-INSTALLED
 ];
 
 /** First line carrying the error, capped, for the NOT PROVEN reason. */
 function firstLoadLine(out: string): string {
   const lines = out.split("\n").map((l) => l.trim()).filter(Boolean);
-  const l = lines.find((x) => /^(?:E\s+)?(?:Error|\w*Error|ERROR|Failed|FAIL)\b|Cannot find|Interrupted:|No test files found/.test(x)) ?? lines[0] ?? "";
+  const l = lines.find((x) => /^(?:E\s+)?(?:Error|\w*Error|ERROR|Failed|FAIL)\b|Cannot find|Interrupted:|No test files found|\d+: [\w.-]+: not found$|: command not found$|canceled due to missing packages/.test(x)) ?? lines[0] ?? "";
   return l.replace(/\s+/g, " ").slice(0, 160);
 }
 

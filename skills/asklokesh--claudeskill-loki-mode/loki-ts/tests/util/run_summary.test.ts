@@ -29,6 +29,13 @@ test("failure: failed check and stage failure are listed, never as passed", () =
   expect(md).toContain("nothing demonstrated");
 });
 
+test("FC-LINT-PRE-RED: a failing check also failing on base is listed apart, not under Failures", () => {
+  const md = renderHandoff({ ...base, checks: [{ name: "lint:shellcheck", cmd: "shellcheck a.sh", result: "fail", pre_red: true }, { name: "t", cmd: "pytest -q", result: "fail" }] });
+  expect(md).toContain("## Already failing on base");
+  expect(md.split("## Failures")[1]).not.toContain("shellcheck");
+  expect(md.split("## Failures")[1]).toContain("pytest -q");
+});
+
 test("partial checks: skipped, not_run and flaky are NOT CHECKED, never passed; uncovered requirements surface", () => {
   const md = renderHandoff({ ...base, checks: [{ name: "a", cmd: "unit", result: "pass" }, { name: "b", cmd: "e2e", result: "not_run", reason: "no browser" }, { name: "c", cmd: "slow", result: "flaky" }], requirements: [{ id: "R1", text: "handles 429", status: "uncovered" }, { id: "R2", text: "ok", status: "covered" }], notProven: ["perf"] });
   expect(md).toContain("PASSED: unit");
@@ -203,4 +210,15 @@ test("useColor: NO_COLOR empty keeps color, non-empty or TERM=dumb disables", ()
   expect(useColor({ TERM: "dumb" }, true)).toBe(false);
   expect(useColor({}, false)).toBe(false);
   for (const e of [{ NO_COLOR: "" }, { NO_COLOR: "1" }, { TERM: "dumb" }, { TERM: "xterm" }, {}]) expect(useColor(e, true)).toBe(!colorDisabled(e));
+});
+
+test("FC-LINT-PRE-RED: composeHandoff tags a verify check named in pre_red_checks and the handoff lists it as already failing on base", () => {
+  const verify = ev("stage.completed", "verify", { checks: [{ name: "lint:shellcheck", cmd: "shellcheck a.sh", result: "fail" }, { name: "bun:t", cmd: "bun test t", result: "fail" }], pre_red_checks: ["lint:shellcheck"] });
+  const h = composeHandoff({ repoDir: ".", runId: "r", events: [verify], outcome: "PARTIAL", usd: 1, elapsedS: 5, notProven: [], task: "t", requirements: null });
+  expect(h.checks.find((c) => c.name === "lint:shellcheck")?.pre_red).toBe(true);
+  expect(h.checks.find((c) => c.name === "bun:t")?.pre_red).toBeUndefined();
+  const md = renderHandoff(h);
+  expect(md.split("## Already failing on base")[1]!.split("##")[0]).toContain("shellcheck a.sh");
+  expect(md.split("## Failures")[1]).not.toContain("shellcheck");
+  expect(md.split("## Failures")[1]).toContain("bun test t");
 });

@@ -1,7 +1,8 @@
 // E-08: Implement (ENGINE.md 4, 16). One session; the brief marks Wall tests read-only, names only the impacted tests. Afterwards any changed read-only file is restored (tests_reverted) and the exit is classified.
+import { installOwned } from "../../project_model/install.ts";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { withStagePrefix } from "../../features/lean_prefix.ts";
+import { withStagePrefix } from "../../features/lean_prefix.ts"; import { outOfRepoReask, outOfRepoTests } from "../../project_model/conventions.ts";
 import { fence, formatLessonsForBrief, recordUse, retrieveLessons } from "../../util/pr_lessons.ts";
 import { FINISH_LINE, FIXED_RULES, briefContext } from "../../e10ext/context.ts";
 import { fastTierModel } from "../../runner/model_downgrades.ts";
@@ -62,7 +63,7 @@ export function restoreReadOnly(files: ReadOnlyFile[]): string[] {
 
 /** FC-43: the exact set verify.ts judges "empty diff" on; an unreadable tree is "not empty" so the resume never fires on a guess. */
 function treeIsEmpty(ctx: RunContext): boolean {
-  try { return changedFiles(ctx.repoDir, ctx.baseSha).length === 0; } catch { return false; }
+  try { return changedFiles(ctx.repoDir, ctx.baseSha, installOwned(ctx.repoDir, ctx.outputs().intake?.install_created)).length === 0; } catch { return false; }
 }
 
 /** INJECT: top relevant learnings (.loki/state/relevant-learnings.json) as a fenced untrusted block. Missing or malformed file means "". Confidence is a fixed 0.50 because the writer records none: never claim more than ran. */
@@ -145,6 +146,7 @@ export const implementStage: Stage = {
     if (session.markers.specConflict && !session.killed) { const r = await resumeAfterConflict(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session); session = r.session; if (r.iterationId !== ids[ids.length - 1]) ids.push(r.iterationId); } // FC-19: one correction, then the conflict is believed
     if (!signal.aborted && !session.killed && session.exit === 0 && !session.markers.specConflict && !session.markers.alreadyDone && treeIsEmpty(ctx)) { const r = await resumeAfterEmptyDone(ctx, { ...unchained(), iterationId: ids[ids.length - 1]! }, session); session = r.session; ids.push(r.iterationId); } // FC-43: one correction for a done exit with no change
 
+    if (process.env.LOKI_E10_REPRO === "1" && !plan && !signal.aborted && !session.killed && session.exit === 0) { let bad: { name: string; why: string }[] = []; try { bad = outOfRepoTests(ctx.repoDir, changedFiles(ctx.repoDir, ctx.baseSha, installOwned(ctx.repoDir, ctx.outputs().intake?.install_created))); } catch { /* unreadable tree: no re-ask */ } if (bad.length) { const redo = `${first.iterationId}-oor`; ids.push(redo); session = await ctx.sessions.run({ ...unchained(), brief: withStagePrefix(outOfRepoReask("Rewrite these new test files in place, keeping the same names and what they reproduce.", bad)), iterationId: redo }); } } // TEN-QUALITY-44: the repro test gets the Wall's out-of-repo check and one re-ask
     const testsReverted = restoreReadOnly(readOnly);
     const iterationId = ids[ids.length - 1]!;
     // E-68 classifies exit codes; a non-killed, marker-less non-zero exit is an error, never "done".

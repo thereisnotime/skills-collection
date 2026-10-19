@@ -14,6 +14,7 @@ import {
   outcomeOf,
   reasonOf,
 } from "../../src/engine10/output.ts";
+import { clipWords } from "../../src/util/term_width.ts";
 import { reset as resetEta } from "../../src/contrib/eta.ts";
 
 describe("formatClock", () => {
@@ -314,6 +315,11 @@ describe("outcomeOf and the exit ladder (A-110)", () => {
 describe("reasonOf (A-130 round 4)", () => {
   const ev = (type: string, stage: string | null, data: Record<string, unknown> = {}) => ({ v: 1, seq: 0, ts: "t", run: "r", type, stage, data }) as never;
   const vfy = (checks: unknown[]) => ev("stage.completed", "verify", { checks });
+  test("FC-LINT-PRE-RED: a check excused as failing on base is not the reason", () => {
+    const v = (pre: string[]) => ev("stage.completed", "verify", { checks: [{ name: "lint:shellcheck", result: "fail" }, { name: "bun:x", result: "fail", first_error: "boom" }], pre_red_checks: pre });
+    expect(reasonOf([v(["lint:shellcheck"])], false, null, "PARTIAL")).toBe("bun:x failed: boom");
+    expect(reasonOf([v([])], false, null, "PARTIAL")).toBe("lint:shellcheck failed");
+  });
   test("success has no reason", () => expect(reasonOf([], false, null, "VERIFIED")).toBeUndefined());
   test("tamper wins over everything", () => expect(reasonOf([ev("stage.failed", "verify", { reason: "x" })], true, "stalled", "FAILED")).toBe("event log modified outside the engine"));
   test("fatal stops are named", () => {
@@ -323,6 +329,15 @@ describe("reasonOf (A-130 round 4)", () => {
   test("BLOCKED prints the conflict, not the empty diff", () => {
     const e = [ev("stage.completed", "implement", { spec_conflict_reason: "spec says A and B" }), ev("stage.failed", "verify", { reason: "empty diff without an already_done marker" })];
     expect(reasonOf(e, false, null, "BLOCKED")).toBe("spec conflict: spec says A and B");
+  });
+  test("a long reason is clipped at a word with a marker, never mid-word", () => {
+    const why = "Wall test tests/loki_wall_gitlab_slack.test.ts passes only if CHANGELOG.md/README.md claim GitLab support for Slack, but that integration is server-side and not in this repo, and the plan says to leave the tree unchanged apart from the two plan files";
+    const r = reasonOf([ev("stage.completed", "implement", { spec_conflict_reason: why })], false, null, "BLOCKED")!;
+    expect(r.length).toBeLessThanOrEqual(200);
+    expect(r.endsWith("...")).toBe(true);
+    expect(`spec conflict: ${why}`.startsWith(r.slice(0, -3))).toBe(true);
+    expect(`spec conflict: ${why}`.charAt(r.length - 3)).toBe(" ");
+    expect(clipWords("abcdef", 2)).toBe("ab");
   });
   test("stalled", () => expect(reasonOf([vfy([{ name: "t", result: "fail" }])], false, "stalled", "STALLED")).toBe("stalled: same failure 3 times"));
   test("a red suite names the failing check and first_error", () => expect(reasonOf([vfy([{ name: "bun:calc.test.ts", result: "fail", first_error: "expected 6 got 5" }])], false, null, "FAILED")).toBe("bun:calc.test.ts failed: expected 6 got 5"));
@@ -340,6 +355,13 @@ describe("reasonOf (A-130 round 4)", () => {
   test("an unsealed run never prints an empty NOT PROVEN", () => {
     const base = { pr: null, verdict: "FAILED", notProven: [], flaky: [], cost: { usd: null, provider: "claude", tokens: null }, wallS: 1, stages: [] };
     expect(formatSummary({ ...base, receipt: { sha: null, signed: null } } as never)).toContain("NOT PROVEN: everything (no receipt sealed)");
+  });
+  test("a multi-line NOT PROVEN item (raw push stderr) stays on one line", () => {
+    const base = { pr: null, verdict: "SPEC_CONFLICT", flaky: [], cost: { usd: null, provider: "claude", tokens: null }, wallS: 1, stages: [], receipt: { sha: "ab", signed: true } };
+    const out = formatSummary({ ...base, notProven: ["full suite", "PR not opened: x failed:\nremote: Permission to a/b.git denied to u.\nfatal: 403"] } as never);
+    const line = out.split("\n").find((l) => l.startsWith("NOT PROVEN:"))!;
+    expect(line).toBe("NOT PROVEN: full suite, PR not opened: x failed: remote: Permission to a/b.git denied to u. fatal: 403");
+    expect(out.split("\n").some((l) => l.startsWith("fatal:"))).toBe(false);
   });
   test("no tests to run", () => expect(reasonOf([vfy([])], false, null, "FAILED")).toBe("no tests to run"));
   test("control characters are stripped and the length capped", () => {

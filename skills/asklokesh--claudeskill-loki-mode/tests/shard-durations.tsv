@@ -587,6 +587,7 @@ State versioning (SYN-015)	0
 Welcome opener (terminal + browser)	7
 Browser-open guard (tests never open a browser, S-103)	1
 ShellCheck Linting	140
+ShellCheck heavy files lint alone, never in parallel (FC-LINT-OOM)	3
 shard-durations.tsv drift detector (S-134)	2
 version-bump-only push skips heavy Tests jobs (S-132)	3
 release gate does not repeat Tests work and keeps dist checks (WF-GATE-DEDUP)	3
@@ -766,3 +767,4 @@ loki github publish (receipt-stamped GitHub export)	10
 loki tour verifies the bundled sealed receipt (VERIFIED, then TAMPERED)	3
 examples gallery receipts all verify with their own pubkey (TEN-ADOPTION-07)	5
 loki self-update --check reports installed vs latest (TEN-ADOPTION-15)	5
+wow and factory onboarding	4

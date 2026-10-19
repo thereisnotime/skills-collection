@@ -273,7 +273,18 @@ class RedactionCorpusTests(unittest.TestCase):
         for s in ("a" * 200000,
                   "password=" + "x" * 200000,
                   "postgres://" + "u" * 100000 + ":" + "p" * 100000 + "@h",
-                  "postgres://" + "u" * 200000):
+                  "postgres://" + "u" * 200000,
+                  # TEN-SECURITY-26: a long run of scheme chars with many word
+                  # starts (a--a--a) made the unbounded scheme quadratic (2.4s at 84KB).
+                  "--a" * 28000 + "token",
+                  "a." * 50000 + "x",
+                  # The password class scanned an "@"-free tail from every
+                  # scheme start (5.6s at "a://" * 16000 with the bounded scheme).
+                  "a://" * 50000,
+                  "a://u:" * 35000,
+                  "a://" * 50000 + "@",
+                  "a://u:" * 35000 + "@",
+                  "a:///" * 40000 + "@"):
             start = time.monotonic()
             proof_redact.redact_value(s)
             elapsed = time.monotonic() - start
@@ -281,6 +292,19 @@ class RedactionCorpusTests(unittest.TestCase):
                 elapsed, 1.0,
                 "redaction took %.3fs on a long input (possible ReDoS)"
                 % elapsed)
+
+    def test_uri_credential_helper_matches_plain_regex(self):
+        # _redact_uri_credentials only skips the "@"-free tail of each token;
+        # output and count must equal a plain _URI_CREDENTIAL.subn on any input.
+        import random
+        rng = random.Random(26)
+        alphabet = ["a", "Z", "9", "_", "-", "+", ".", ":", "/", "@", " ",
+                    "\t", "\n", "\u00e9", "://", "://", "u:p@"]
+        for _ in range(20000):
+            s = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 24)))
+            self.assertEqual(
+                proof_redact._redact_uri_credentials(s),
+                proof_redact._URI_CREDENTIAL.subn(r"\1[REDACTED]\3", s), repr(s))
 
     def test_unix_home_paths_strip_username(self):
         cases = [

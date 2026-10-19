@@ -15,8 +15,9 @@ import { withSealRoute } from "../../runner/router/route_block.ts"; import { aiM
 import { intentSection } from "../../util/intent_card.ts";
 import { specPrLine } from "../../util/spec_file.ts";
 import { REPO_ROOT } from "../../util/paths.ts";
-import { safeGit } from "../../util/safe_git.ts";
+import { safeGit } from "../../util/safe_git.ts"; import { pushErrLine } from "../../util/term_width.ts";
 import { stackBase, stackSection } from "../../util/run_outputs.ts";
+import { postReceiptComment, renderReceiptComment } from "../../util/receipt_surface.ts";
 import { lokiYamlTexts, yamlKey } from "../../util/yaml_key.ts"; import { idempotencyKey, runOnce } from "../../util/outbox.ts";
 /** B7: who opens the PR. LOKI_PR_AUTHOR beats loki.yaml pr.author; anything but "bot" is "me". */
 export function resolvePrAuthor(repoDir: string, environ: NodeJS.ProcessEnv = process.env): "me" | "bot" {
@@ -55,7 +56,7 @@ export function toPushShellArgs(args: PushArgs): string[] {
 /** TEN-STABILITY-50: every push/pr-ready/status child is bounded so one hung script cannot block the run. LOKI_PR_PUSH_TIMEOUT_MS overrides (default 50s, inside the 60s stage limit). */
 export function prChildTimeoutMs(environ: NodeJS.ProcessEnv = process.env): number { const n = Number(environ.LOKI_PR_PUSH_TIMEOUT_MS); return Number.isFinite(n) && n >= 100 ? Math.floor(n) : 50_000; }
 function spawnBounded(args: string[], env: NodeJS.ProcessEnv) { return spawnSync("bash", args, { env, encoding: "utf8", timeout: prChildTimeoutMs(), killSignal: "SIGKILL" }); }
-function failReason(script: string, mode: string, r: ReturnType<typeof spawnBounded>): string { const timedOut = (r.error as NodeJS.ErrnoException | undefined)?.code === "ETIMEDOUT"; return timedOut ? `${script} ${mode} timed out after ${prChildTimeoutMs()}ms (hung script killed)` : `${script} ${mode} failed (exit ${r.status}): ${(r.stderr ?? "").trim()}`; }
+function failReason(script: string, mode: string, r: ReturnType<typeof spawnBounded>): string { const timedOut = (r.error as NodeJS.ErrnoException | undefined)?.code === "ETIMEDOUT"; return timedOut ? `${script} ${mode} timed out after ${prChildTimeoutMs()}ms (hung script killed)` : r.status === 4 && mode === "push-pr" && pushErrLine(r.stderr ?? "").startsWith("fork-only: ") ? pushErrLine(r.stderr ?? "") : `${script} ${mode} failed (exit ${r.status}): ${pushErrLine(r.stderr ?? "")}`; }
 function pushEnv(repoDir: string, pinnedOrigin: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, _LOKI_ORIGIN_PINNED: "1", _LOKI_PINNED_ORIGIN: pinnedOrigin };
   if (resolvePrAuthor(repoDir) === "bot") {
@@ -136,6 +137,12 @@ export async function runPr(ctx: PrContext, signal: AbortSignal, opts: PrOptions
   } else {
     notProvenOut.push("commit status loki/deep-verify not set (HEAD sha not resolvable)");
   }
+  const receiptComment = renderReceiptComment({
+    verdict, draft, draftReason: draftReason(verdict, capHit), notProven: [...notProven, ...notProvenOut],
+    receiptSha256: seal.receipt_sha256 ?? null, runId: ctx.runId, mutationProof: seal.mutation_line ?? null,
+  }); // the same items as the PR body (no new exposure), plus this stage's own commit-status misses
+  const commentMiss = postReceiptComment({ scriptPath, env, runDir: ctx.runDir, url, timeoutMs: prChildTimeoutMs(), comment: receiptComment });
+  if (commentMiss) notProvenOut.push(commentMiss);
   await (await import("../../integrations/writeback.ts")).writeBack({ phase: "done", verdict, prUrl: url, receiptSha256: seal.receipt_sha256 ?? null, task: String((ctx.outputs().intake as { task?: unknown } | undefined)?.task ?? "") }); // B6: opt-in, never throws
   return { status: "completed", data: { pr_url: url, draft, existing, ...(notProvenOut.length ? { not_proven: notProvenOut } : {}) } };
 }

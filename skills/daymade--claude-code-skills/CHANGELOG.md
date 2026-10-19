@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **skill-evolver** (v1.0.4): Compare recommendations with current mechanisms, distinguish evidence gaps from negative value, preserve bounded opportunities and justified repairs, and scope comparison handoffs to their actual owners. Change type: bounded decision and routing repair.
+- **product-analysis** (v1.0.3): Ground confidence and priority in source and task evidence instead of agent votes or counts; preserve CLI, integration and external API consumers before declaring routes unused. Change type: bounded evidence-judgment repair.
+- **tunnel-doctor** (v1.17.4): Distinguish a dedicated SSH key's source restriction from TUN/firewall drops; retain owner-controlled repair and verify the authenticated public body, access boundaries and natural reconnect. Change type: bounded diagnostic and evidence guidance.
+- **capture-screen** (`daymade-macos` v1.23.7): Find untitled on-screen windows when their application owner matches the keyword; retain title matching and unfiltered listing. Verified with deterministic filtering checks and a self-owned untitled native window. Change type: existing-contract bug fix.
+- **claude-code-hooks / repository instructions** (`daymade-claude-code` v4.30.8): Remove derived fixture and observation counts from visibility and migration guidance, and add the consuming instruction-entry routes. Runtime behavior and acceptance contracts are unchanged. Change type: documentation hygiene and routing alignment.
+- **floorplan-finder** (v1.0.0): Add online residential plan discovery, original-image comparison, entrance and bathroom ambiguity checks, same-layout confirmation, and evidence-based recovery. Register the standalone plugin and align both language guides. Marketplace catalog: 3.25.0.
+- **product-growth** (v1.0.0): Add evidence-based growth diagnosis, proactive feedback discovery, product-specific metrics, causal reasoning and action/result verification. Register the standalone plugin and align both language guides.
+
+- **capture-screen** (`daymade-macos` v1.23.6): Route permission recovery guidance to the existing request lifecycle and remove manual summary counts; keep capture commands and runtime behavior unchanged.
+- **read-codex-history** (`daymade-claude-code` v4.30.9): Read strictly identified pre-envelope legacy metadata, state markers and bare response items. Share header classification with backup consumers while preserving original bytes and tool evidence; reject unknown shapes and conflicting identities.
+
+- **macos-permissions** (`daymade-macos` v1.23.5): Reuse current protected-operation evidence, retain pending requests and bound missing-evidence reads; align the repository diagnosis entry. Change type: bounded SOP consistency repair.
+- **terraform-skill** (v1.5.11): Check existing candidate-bound production authorization before requesting missing approval. Change type: bounded SOP consistency repair.
+- **Repository instructions**: Align authentication, performance, protected-read and release navigation with canonical owners; remove repeated route summaries.
 - **frontend-visual-qa** (v1.21.8): Remove derived table/list counts from reading guidance and add the repository's embedded-reader workflow entry. Existing checks and evidence boundaries are unchanged.
 
 - **Installation entry points**: Generate registered suite/plugin targets on Windows, preserve document and statusline choices in both featured-plugin menus, and direct generated CLI commands to the terminal. Align the README selectors, command-generator instructions and update guidance; add output-based installer regressions against the marketplace manifest.
@@ -15,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **app-evolver** (v1.1.3): Add paired acceptance examples for bounded absence and normal eventual completion, preserving failed attempts and read-only API semantics. Change type: bounded acceptance guidance.
 - **frontend-visual-qa** (v1.21.6): Add reader-usability counterexamples and focused replay cases for retained but unreadable bodies, global chrome and overlay interference, and viewport-drift false comparisons. Scope result-consumption fixture checks to their case identities so later cases can be appended. Change type: bounded guidance addition; scripts and permissions unchanged.
 - **frontend-visual-qa** (v1.21.5): Keep the same long input and normal viewport when verifying constrained source-and-return journeys. Add synthetic collapsed-pane, ordinary-navigation and short-input controls; runtime permissions unchanged.
+- **claude-code-hooks** (`daymade-claude-code` v4.30.7): Require ordinary-host visibility acceptance before adding duplicate hook notifications, and cover current-version databases missing newly introduced structures in migration tests. Change type: bounded verification-guidance correction.
 
 - **tibo-reset-codex** (v1.23.2): Use the vendor's direct file entry for login-browser reads in restricted macOS research; retain source-coverage unknowns and existing account authorization. Change type: bounded execution guidance.
 - **frontend-visual-qa** (v1.21.7): Separate freshness from performance evidence; compare the same visible endpoint under evidenced resource/cache conditions and retain failed attempts. Change type: bounded evidence interpretation.
@@ -37,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **peer-message** (v1.21.6 → v1.22.0): Add `inspect-inbound` to read one supported Codex envelope by explicit thread UUID and exact own message ID, returning complete raw content, store coordinates and distinct found/miss/unavailable/error outcomes without sending, consuming or resuming a session; preserve existing commands. Change type: narrow read-only capability.
 
 - **transcript-fixer** (`daymade-audio` v1.49.2): Preserve separate review anchors for repeated raw occurrences when Stage 1 leaves input unchanged; add single-item `--reanchor-context-offset` recovery while retaining ambiguous-anchor, drift and name refusals. Change type: bounded queue-recovery repair.
+
+- **daymade-audio** (v1.49.3): Expose the existing explicit re-anchor option in the CLI reference and repository entry; keep occurrence semantics in the queue SOP and remove duplicated field lists and obsolete batch narration. Change type: documentation alignment; runtime code unchanged.
 - **tibo-reset-codex** (`tibo-reset-codex` v1.22.2 → v1.23.0): Separate current account state, unattributed window changes and evidenced reset events so account switches no longer inherit reset claims. Add deterministic attribution, append-only finding invalidation, anonymous rollout labels, and regressions for direct, natural, banked, official and multi-account paths. Change type: workflow and safety redesign with an append-only journal extension.
 
 - **debugging-network-issues** (v1.11.2 → v1.11.3): Separate endpoint discovery from execution and add bounded device-throughput guidance for actual data paths, receiver counts, rollback budgets and independent restoration readback. Retain existing mutation and recovery owners. Change type: bounded evidence and workflow correction.

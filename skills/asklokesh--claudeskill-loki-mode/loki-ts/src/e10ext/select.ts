@@ -1,12 +1,11 @@
 // S41-05 attempt-selection rule (docs/v10/SCORECARD-PLAN.md section 4 "Attempt selection (two attempts)", docs/v10/DECISIONS.md D42 (1)). Pure function: it reads results core already
 // computed by scoring each attempt's diff against the shared set S in the primary tree, and returns a choice only. It never runs a test, never decides pass/fail for Seal, and never
 // touches stages/ at runtime (D42 (1); the import-graph guard lives in tests/engine10/budget.test.ts next to the modernize cap). Core re-runs verify and Seal on whichever tree this picks.
-import type { TestRef } from "../engine10/types.ts";
+import type { TestRef } from "../engine10/types.ts"; import { isBlockingFail } from "../util/failure_memory.ts";
 // D42 (1): seal.ts/verify.ts/wall.ts/verify_cmd.ts may be referenced only as `import type`.
 import type { VerifyCheck } from "../engine10/stages/verify.ts";
 
-/** verify.ts's VerifyCheck plus S41-08's exit_code, which isn't recorded on main yet;
- *  condition 5 below treats a missing exit_code as "not a pytest collection-error exit". */
+/** verify.ts's VerifyCheck plus S41-08's exit_code, which isn't recorded on main yet; condition 5 below treats a missing exit_code as "not a pytest collection-error exit". */
 export type AttemptCheck = VerifyCheck & { exit_code?: number };
 
 export interface AttemptCandidate {
@@ -26,6 +25,7 @@ export interface AttemptCandidate {
    *  checks. A check whose name is outside S and outside `wall` is ignored (an attempt-authored
    *  test never counts, section 4 note under the Deterministic failure definition). */
   checks: AttemptCheck[];
+  preRedChecks?: string[]; // FC-LINT-PRE-RED: verify's pre_red_checks for this attempt; a lint check named here also fails on base and is not counted in lintFails
 }
 
 export interface SelectResult {
@@ -85,7 +85,7 @@ function rankTuple(a: AttemptCandidate, sNames: Set<string>, wallNames: Set<stri
   let flakyInS = 0;
   let lintFails = 0;
   for (const c of a.checks) {
-    if (c.name.startsWith("lint:") && c.result === "fail") lintFails++;
+    if (c.name.startsWith("lint:") && isBlockingFail(c, a.preRedChecks)) lintFails++;
     // wallPasses (key 1) reads `wall` directly, independent of S: a sealed Wall file is written after baseSha and left uncommitted (wall.ts), so S's "exists at baseSha" filter can drop a
     // Wall test out of S while it still must count at key 1 -- an attempt that fails the Wall must never win because the caller happened to build S without it (R1, reproduced: with the
     // Wall test outside S, a Wall failure used to be invisible everywhere).

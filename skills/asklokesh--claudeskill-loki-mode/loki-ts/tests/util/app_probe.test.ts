@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,12 +16,20 @@ const freePort = (): Promise<string> => new Promise((res, rej) => {
   s.listen(0, "127.0.0.1", () => { const p = (s.address() as { port: number }).port; s.close(() => res(String(p))); });
 });
 const by = (r: Awaited<ReturnType<typeof appProbe>>, n: string) => r.checks.find((c) => c.name === n);
+// A red http probe on a runner we cannot reach (macOS nightly) must carry its own evidence: print app-runner's files.
+const explain = (d: string, r: Awaited<ReturnType<typeof appProbe>>): void => {
+  if (by(r, "http probe")?.result === "pass") return;
+  const ar = join(d, ".loki", "app-runner");
+  const dump = ["detection.json", "state.json", "health.json", "app.log"].map((f) => `--- ${f}\n${existsSync(join(ar, f)) ? readFileSync(join(ar, f), "utf8").slice(-4000) : "(missing)"}`);
+  console.error(`appProbe diagnostics ${JSON.stringify(r.checks)}\n${dump.join("\n")}`);
+};
 
 describe("appProbe", () => {
   it("static site: boot pass, http probe pass, nothing left on the PID", async () => {
     const d = fixture();
     writeFileSync(join(d, "index.html"), "<h1>hi</h1>");
     const r = await appProbe(d, join(d, ".loki"), { env: { LOKI_APP_PORT: await freePort() }, timeoutMs: 40_000 });
+    explain(d, r);
     expect(by(r, "app boot")?.result).toBe("pass");
     expect(by(r, "http probe")?.result).toBe("pass");
     expect(r.pid).not.toBeNull();
@@ -37,12 +45,22 @@ describe("appProbe", () => {
     expect(by(r, "http probe")?.result).toBe("not_run");
   }, 60_000);
 
-  it("empty repo: not_run, never fail", async () => {
+  it("empty repo (FC-SEAL-NA-AS-UNPROVEN): n/a, never fail, never not_run", async () => {
     const d = fixture();
     const r = await appProbe(d, join(d, ".loki"), { timeoutMs: 40_000 });
-    expect(by(r, "app boot")?.result).toBe("not_run");
-    expect(by(r, "http probe")?.result).toBe("not_run");
+    expect(by(r, "app boot")?.result).toBe("n/a");
+    expect(by(r, "http probe")?.result).toBe("n/a");
     expect(r.checks.some((c) => c.result === "fail")).toBe(false);
+  }, 60_000);
+
+  it("a Docker project whose runtime is missing is not_run (a real gap), never n/a", async () => {
+    const d = fixture();
+    writeFileSync(join(d, "Dockerfile"), "FROM scratch\n");
+    // A hosted runner ships a live docker at /usr/bin; shadow it with a daemon-down stub so the test models "runtime unavailable" on every host.
+    const stub = join(d, "stub-bin"); mkdirSync(stub); writeFileSync(join(stub, "docker"), "#!/bin/sh\nexit 1\n"); chmodSync(join(stub, "docker"), 0o755);
+    const r = await appProbe(d, join(d, ".loki"), { env: { PATH: `${stub}:/usr/bin:/bin` }, timeoutMs: 40_000 });
+    expect(by(r, "app boot")?.result).toBe("not_run");
+    expect(r.checks.some((c) => c.result === "n/a")).toBe(false);
   }, 60_000);
 
   it("mutation: skipStop leaves the PID alive (proves the leftover-PID assertion bites)", async () => {
@@ -70,6 +88,7 @@ describe("appProbe", () => {
     const d = fixture();
     writeFileSync(join(d, "index.html"), "<h1>hi</h1>");
     const r = await appProbe(d, join(d, ".loki"), { specText: "GET /index.html", env: { LOKI_APP_PORT: await freePort() }, timeoutMs: 40_000 });
+    explain(d, r);
     expect(by(r, "functional verify")).toBeDefined();
     expect(existsSync(join(d, ".loki", "quality", "functional-results.json"))).toBe(true);
   }, 60_000);

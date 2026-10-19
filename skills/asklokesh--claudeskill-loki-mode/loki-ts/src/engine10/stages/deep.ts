@@ -4,6 +4,7 @@
 // suite or a secret match is failure. Rule of Two: assertWorkerEnv asserts no real GitHub token,
 // since the deep worker runs repo code and reads untrusted diffs. Council goes through the
 // injectable CouncilRunner; unwired, it is NOT PROVEN, never passing.
+import { installOwned } from "../../project_model/install.ts";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -14,8 +15,8 @@ import { harnessLoadReason } from "../../runner/load_owner.ts";
 import { assertWorkerEnv } from "../worker.ts";
 import { canonicalJson, sha256, signReceipt } from "./seal.ts";
 import { changedFiles } from "./verify.ts";
-import { runPackageSuites } from "../../project_model/package_suite.ts";
-import { classifyCheck, goRunner, NO_TESTS_REASON } from "../../util/check_result.ts"; import { failIds } from "../failures.ts";
+import { NA_PREFIX, naNote, naText, runPackageSuites, suiteEnv } from "../../project_model/package_suite.ts";
+import { classifyCheck, failureExcerpt, FULL_SUITE_CMD, goRunner, NO_TESTS_REASON, stripAnsi } from "../../util/check_result.ts"; import { failIds } from "../failures.ts";
 import type { PushArgs, ReceiptCheck, RunContext, RunnerName, SessionRunner, Stage, StageResult } from "../types.ts";
 import { pushArgv, STAGE_BUDGETS } from "../types.ts";
 import { REVIEW_GUARD_DENYLIST } from "../../providers/claude_flags.ts";
@@ -58,14 +59,14 @@ export function sessionCouncil(sessions: SessionRunner): CouncilRunner {
  *  the same disclosed-extra-field pattern testmap.ts's EngineTestMap and
  *  verify.ts's VerifyCheck already use. */
 export interface DeepCheck extends ReceiptCheck {
-  reason?: string; ids?: string[]; // ids: failing test ids of the real run (failIds), read by verify's baseline attribution
+  reason?: string; ids?: string[]; excerpt?: string; // excerpt: redacted failure text for the fix brief; ids: failing test ids of the real run (failIds), read by verify's baseline attribution
 }
 export interface DeepOptions {
   pushScriptPath?: string;
   secretScanShPath?: string;
   appProbe?: (repoDir: string, lokiDir: string) => Promise<AppProbeResult>; // TEN-GATES-06: defaults to util/app_probe.ts appProbe (boots via app-runner.sh, always stops)
   secureScanPath?: string; // secure-scan.py override, tests only
-  council?: CouncilRunner;
+  council?: CouncilRunner; changed?: string[]; proofFiles?: string[]; // FC-SEAL-NA-AS-UNPROVEN: the diff and the Wall verdict decide whether a package without tests is N/A
   maxCouncilDiffBytes?: number;
   fullSuiteTimeoutMs?: number;
   path?: string; // PATH override, tests only, so "missing tool" never depends on the host
@@ -79,20 +80,10 @@ const COUNCIL_LIMIT_S = 600;
 const FULL_SUITE_TIMEOUT_MS = 300_000; // 5 min per runner; deep's own stage limit (2700s) is the outer bound
 const PR_NUMBER_RE = /\/pull\/(\d+)$/;
 const SHA_RE = /^[0-9a-f]{40}$/;
-const FULL_SUITE_CMD: Record<RunnerName, { cmd: string; args: string[] }> = {
-  pytest: { cmd: "python", args: ["-m", "pytest", "-q"] },
-  vitest: { cmd: "npx", args: ["vitest", "run"] },
-  jest: { cmd: "npx", args: ["jest"] },
-  bun: { cmd: "bun", args: ["test"] },
-  node: { cmd: "node", args: ["--test"] },
-  npm: { cmd: "npm", args: ["test", "--silent"] },
-  go: { cmd: "go", args: ["test", "-json", "./..."] },
-  cargo: { cmd: "cargo", args: ["test"] },
-};
 /** One check per detected runner, run to completion (no retry: flaky-rerun
  *  is a fast-verify concept, ENGINE.md never asks for it in deep verify). */
 export async function runFullSuite(ctx: RunContext, signal: AbortSignal, opts: DeepOptions, checks: DeepCheck[], notProven: Set<string>): Promise<void> {
-  if (await runPackageSuites(ctx.repoDir, signal, { path: opts.path, timeoutMs: opts.fullSuiteTimeoutMs ?? FULL_SUITE_TIMEOUT_MS, baseSha: ctx.baseSha }, checks, notProven)) return;
+  if (await runPackageSuites(ctx.repoDir, signal, { path: opts.path, timeoutMs: opts.fullSuiteTimeoutMs ?? FULL_SUITE_TIMEOUT_MS, baseSha: ctx.baseSha, skip: installOwned(ctx.repoDir, ctx.outputs().intake?.install_created), changed: opts.changed, proofFiles: opts.proofFiles }, checks, notProven)) return;
   const map = await ctx.tests.detect(ctx.repoDir);
   if (map.runners.length === 0) {
     notProven.add("full suite (no test runner detected)");
@@ -110,7 +101,7 @@ export async function runFullSuite(ctx: RunContext, signal: AbortSignal, opts: D
     const r = await run([spec.cmd, ...spec.args], {
       cwd: ctx.repoDir,
       timeoutMs: opts.fullSuiteTimeoutMs ?? FULL_SUITE_TIMEOUT_MS,
-      ...(opts.path ? { env: { PATH: opts.path } } : {}),
+      env: suiteEnv(opts.path),
     });
     const durationS = (Date.now() - started) / 1000;
     if (signal.aborted) {
@@ -118,10 +109,10 @@ export async function runFullSuite(ctx: RunContext, signal: AbortSignal, opts: D
       notProven.add(`not run: ${name} (aborted)`);
       continue;
     }
-    const out = `${r.stdout}\n${r.stderr}`, lr = r.exitCode === 0 ? undefined : await harnessLoadReason({ repoDir: ctx.repoDir, baseSha: ctx.baseSha, out, cmd: spec.cmd, args: spec.args, signal, ...(opts.path ? { env: { PATH: opts.path } } : {}) });
+    const out = stripAnsi(`${r.stdout}\n${r.stderr}`), lr = r.exitCode === 0 ? undefined : await harnessLoadReason({ repoDir: ctx.repoDir, baseSha: ctx.baseSha, skip: installOwned(ctx.repoDir, ctx.outputs().intake?.install_created), out, cmd: spec.cmd, args: spec.args, signal, ...(opts.path ? { env: { PATH: opts.path } } : {}) });
     if (lr) { checks.push({ name, cmd: [spec.cmd, ...spec.args].join(" "), result: "not_run", duration_s: durationS }); notProven.add(`${lr} (${name}; harness-owned)`); continue; } // FC-02: harness-owned, never a code failure
     const cls = classifyCheck({ kind: "test", ok: r.exitCode === 0, out, ...goRunner(spec.cmd, spec.args) });
-    checks.push({ name, cmd: [spec.cmd, ...spec.args].join(" "), result: cls.result, duration_s: durationS, ...(cls.result === "fail" ? { ids: failIds(out) } : {}) }); // FC-16: exit 0 with no executed tests is not a pass
+    checks.push({ name, cmd: [spec.cmd, ...spec.args].join(" "), result: cls.result, duration_s: durationS, ...(cls.result === "fail" ? { ids: failIds(out), excerpt: failureExcerpt(out, ctx.repoDir) } : {}) }); // FC-16: exit 0 with no executed tests is not a pass
     if (cls.result === "not_run") notProven.add(`not run: ${name} (${cls.reason ?? NO_TESTS_REASON})`);
   }
 }
@@ -131,7 +122,7 @@ async function runAppBoot(ctx: RunContext, opts: DeepOptions, checks: DeepCheck[
   let r: AppProbeResult;
   try { r = await (opts.appProbe ?? appProbe)(ctx.repoDir, join(ctx.repoDir, ".loki")); } catch (err) { r = { checks: [{ name: "app boot", cmd: "autonomy/app-runner.sh", result: "not_run", duration_s: 0, reason: `app probe threw: ${(err as Error).message}` }], pid: null, url: null }; }
   if (!r.checks.some((c) => c.name === "app boot")) notProven.add("not run: app boot (app probe reported no result)");
-  for (const c of r.checks) { checks.push(c); if (c.result === "not_run") notProven.add(`not run: ${c.name} (${c.reason ?? "no reason given"})`); }
+  for (const c of r.checks) { if (c.result === "n/a") { notProven.add(`${NA_PREFIX}${c.name} (${c.reason ?? "not applicable"})`); continue; } checks.push(c as DeepCheck); if (c.result === "not_run") notProven.add(`not run: ${c.name} (${c.reason ?? "no reason given"})`); }
 }
 async function runCouncilCheck(
   ctx: RunContext, changed: string[], baseSha: string, signal: AbortSignal, opts: DeepOptions, checks: DeepCheck[], notProven: Set<string>,
@@ -233,25 +224,25 @@ export async function runDeep(ctx: DeepContext, signal: AbortSignal, opts: DeepO
   }
   let changed: string[];
   try {
-    changed = changedFiles(ctx.repoDir, ctx.baseSha);
+    changed = changedFiles(ctx.repoDir, ctx.baseSha, installOwned(ctx.repoDir, ctx.outputs().intake?.install_created));
   } catch (err) {
     return { status: "failed", data: {}, reason: `git diff against base failed: ${(err as Error).message}` };
   }
   const checks: DeepCheck[] = [];
   const notProven = new Set<string>();
-  await runFullSuite(ctx, signal, opts, checks, notProven);
+  await runFullSuite(ctx, signal, { ...opts, changed }, checks, notProven);
   await runAppBoot(ctx, opts, checks, notProven);
   await runCouncilCheck(ctx, changed, ctx.baseSha, signal, opts, checks, notProven);
   await runSecretScan(ctx, changed, opts, checks, notProven);
   const statusState: "success" | "failure" = checks.some((c) => c.result === "fail") ? "failure" : "success";
-  const notProvenList = [...notProven];
+  const notProvenList = [...notProven].filter((n) => !naNote(n)), notApplicable = [...notProven].filter(naNote).map(naText);
   const seal = ctx.outputs().seal as { receipt_sha256?: string } | undefined;
   const addendumBody = {
     schema: "loki.v10.receipt-addendum/1" as const,
     run_id: ctx.runId,
     base_receipt_sha256: seal?.receipt_sha256 ?? null,
     checks,
-    not_proven: notProvenList,
+    not_proven: notProvenList, ...(notApplicable.length ? { not_applicable: notApplicable } : {}),
     status_state: statusState,
   };
   const addendumSha256 = sha256(canonicalJson(addendumBody));
@@ -262,7 +253,7 @@ export async function runDeep(ctx: DeepContext, signal: AbortSignal, opts: DeepO
   const pushNotProven = await postResults(ctx, opts, checks, notProvenList, statusState);
   const allNotProven = [...notProvenList, ...pushNotProven];
   ctx.emit("deep.completed", "deep", { checks, status_state: statusState, addendum_sha256: addendumSha256 });
-  return { status: "completed", data: { checks, addendum_sha256: addendumSha256, status_state: statusState, not_proven: allNotProven } };
+  return { status: "completed", data: { checks, addendum_sha256: addendumSha256, status_state: statusState, not_proven: allNotProven, ...(notApplicable.length ? { not_applicable: notApplicable } : {}) } };
 }
 export const deepStage: Stage = {
   name: "deep",

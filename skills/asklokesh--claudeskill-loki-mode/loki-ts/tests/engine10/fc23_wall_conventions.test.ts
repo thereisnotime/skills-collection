@@ -5,9 +5,9 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runWall, buildWallBrief, WALL_OUTPUT_BUDGET } from "../../src/engine10/stages/wall.ts";
+import { runWall, buildWallBrief, WALL_OUTPUT_BUDGET, WALL_REPO_PATHS } from "../../src/engine10/stages/wall.ts";
 import { verifyStage } from "../../src/engine10/stages/verify.ts";
-import { conventionViolation, readPackageConventions } from "../../src/project_model/conventions.ts";
+import { conventionViolation, conventionsBrief, outOfRepoTarget, phantomReason, phantomRepoPaths, readPackageConventions } from "../../src/project_model/conventions.ts";
 import { wallOwnedFailure } from "../../src/util/wall_owned.ts";
 import type { RunContext, SessionRunOptions, StageName } from "../../src/engine10/types.ts";
 
@@ -60,6 +60,12 @@ describe("FC-23 conventions reader (parser, not a guess)", () => {
 });
 
 describe("FC-23 Wall author matches the package", () => {
+  test("CommonJS brief does not instruct require() in TypeScript (the package lint forbids it)", () => {
+    const b = conventionsBrief(readPackageConventions(cjsRepo()));
+    expect(b).toContain("CommonJS");
+    expect(b).toContain("write import statements");
+    expect(b).not.toContain("require() for paths and modules");
+  });
   test("a CommonJS package: the brief carries the convention, and a Wall test with import.meta is discarded, not placed in the tree", async () => {
     const repoDir = cjsRepo();
     let brief = "";
@@ -142,5 +148,258 @@ describe("COST-14 Wall brief output budget", () => {
     expect(b).toContain("one test file");
     expect(b).toContain("no closing summary");
     expect(b.indexOf(WALL_OUTPUT_BUDGET)).toBeLessThan(b.indexOf("add x"));
+  });
+});
+
+describe("FC-WALL-OUT-OF-REPO-TARGET", () => {
+  const INSTALLED = "const t = process.env.PLUGIN_DIR ?? join(homedir(), '.claude/plugins/x/y');\ntest('a', () => { expect(t).toBeTruthy(); });\n";
+  test("detector: home-derived values that locate code are rejected; repo-relative and tmpdir pass", () => {
+    expect(outOfRepoTarget(INSTALLED)).not.toBeNull();
+    expect(outOfRepoTarget("const p = join(process.env.HOME!, '.claude', 'x');")).not.toBeNull();
+    expect(outOfRepoTarget("const m = await import(join(homedir(), 'x', 'y.ts'));")).not.toBeNull();
+    expect(outOfRepoTarget("p = Path.home() / '.config' / 'x'")).not.toBeNull();
+    expect(outOfRepoTarget("const p = join(import.meta.dir, '..', 'plugins', 'a', 'b');")).toBeNull();
+    expect(outOfRepoTarget("const d = mkdtempSync(join(tmpdir(), 'fx-'));")).toBeNull();
+    expect(outOfRepoTarget("// was homedir() before\nconst p = './src/a';")).toBeNull();
+  });
+  test("detector negatives: sandboxed HOME, expect/assert comparisons, shell and pytest home checks pass", () => {
+    expect(outOfRepoTarget("process.env.HOME = d;\nexpect(configPath()).toBe(join(d, '.app'));")).toBeNull(); // A
+    expect(outOfRepoTarget("expect(expandPath('~/foo')).toBe(join(d, 'foo'));")).toBeNull(); // C
+    expect(outOfRepoTarget("expect(normalize('/home/user/x')).toBe('/home/user/x');")).toBeNull(); // D
+    expect(outOfRepoTarget("def test_x(monkeypatch):\n    monkeypatch.setenv('HOME', str(tmp_path))\n    assert os.path.expanduser('~') == str(tmp_path)\n    p = os.path.join(os.path.expanduser('~'), '.config')\n")).toBeNull(); // E
+    expect(outOfRepoTarget('HOME="$(mktemp -d)"; export HOME\n./bin/loki init\n[ -f "$HOME/.loki/config" ]\n')).toBeNull(); // F
+  });
+  test("literal import target flagged: a quoted absolute home path that is the direct import/require/source target", () => {
+    expect(outOfRepoTarget('import { f } from "/Users/someone/.claude/plugins/x/f.ts";')).not.toBeNull();
+    expect(outOfRepoTarget('import "/home/dev/app/setup.ts";')).not.toBeNull();
+    expect(outOfRepoTarget("const m = await import('/home/dev/app/f.ts');")).not.toBeNull();
+    expect(outOfRepoTarget("const m = require('/root/app/f.js');")).not.toBeNull();
+    expect(outOfRepoTarget('source /home/dev/app/lib.sh')).not.toBeNull();
+    expect(outOfRepoTarget('. "/home/dev/app/lib.sh"')).not.toBeNull();
+    expect(outOfRepoTarget('import { f } from "C:\\Users\\dev\\f.ts";')).not.toBeNull();
+    expect(outOfRepoTarget('const p = "/home/user/project/.git";')).toBeNull();
+    expect(outOfRepoTarget('const d = "/Users/dev/app";\nrun(d);')).toBeNull();
+    expect(outOfRepoTarget('process.env.HOME = d;\nimport { f } from "/Users/x/f.ts";')).toBeNull();
+    expect(outOfRepoTarget('expect(x).toBe(require("/home/a/b"));')).toBeNull();
+  });
+  test("literal path not flagged: an absolute literal with no home-derived value passes; homedir joins still flag", () => {
+    expect(outOfRepoTarget("const p = join('/home/user/project', '.git');")).toBeNull();
+    expect(outOfRepoTarget("const g = '/Users/dev/app/.git';\nexec(g);")).toBeNull();
+    expect(outOfRepoTarget("const p = join(homedir(), '.git');")).not.toBeNull();
+  });
+  test("home exemption scoped: homedir() joined before a HOME assignment still flags; after it passes", () => {
+    expect(outOfRepoTarget("const p = join(homedir(), '.claude', 'x');\nprocess.env.HOME = d;")).not.toBeNull();
+    expect(outOfRepoTarget("process.env.HOME = d;\nconst p = join(homedir(), '.claude', 'x');")).toBeNull();
+  });
+  test("brief tells the writer to use repo-relative paths", () => {
+    const b = buildWallBrief("t"), at = b.indexOf(WALL_REPO_PATHS);
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(b.indexOf("t\n") === -1 ? b.length : b.indexOf("Repository paths") === -1 ? b.length : b.indexOf("Repository paths")); // static prefix, before run-specific text
+  });
+  test("a Wall file targeting the home dir is re-asked once with the reason; the rewrite is kept", async () => {
+    const repoDir = cjsRepo(); const briefs: string[] = [];
+    const ctx = wallCtx(repoDir, (o) => {
+      briefs.push(o.brief);
+      writeFileSync(join(o.cwd!, "loki_wall_a.test.ts"), briefs.length === 1 ? INSTALLED : "import { foo } from '../src/a';\ntest('x', () => { expect(foo()).toBe(1); });\n");
+    });
+    const r = await runWall(ctx, new AbortController().signal, { baseRunner: { run: () => ({ pass: 0, fail: 1 }) } });
+    expect(briefs.length).toBe(2);
+    expect(briefs[1]).toContain("loki_wall_a.test.ts");
+    expect(briefs[1]).toContain("outside the repo");
+    expect(r.data.discarded).toBeUndefined();
+  });
+  test("a file still out-of-repo after the rewrite is discarded, never installed", async () => {
+    const repoDir = cjsRepo(); let n = 0;
+    const ctx = wallCtx(repoDir, (o) => { n++; writeFileSync(join(o.cwd!, "loki_wall_a.test.ts"), INSTALLED); });
+    const r = await runWall(ctx, new AbortController().signal, { baseRunner: { run: () => ({ pass: 0, fail: 1 }) } });
+    expect(n).toBeGreaterThanOrEqual(2);
+    expect(existsSync(join(repoDir, "tests", "loki_wall_a.test.ts"))).toBe(false);
+    expect(JSON.stringify(r.data.discarded)).toContain("outside the repo");
+  });
+  test("a clean repo-relative file triggers no extra session", async () => {
+    const repoDir = cjsRepo({ "plugins/a/x.sh": "echo\n" }); let n = 0;
+    const ctx = wallCtx(repoDir, (o) => { n++; writeFileSync(join(o.cwd!, "loki_wall_a.test.ts"), "const p = join(__dirname, '..', 'plugins', 'a');\ntest('x', () => { expect(p).toBeTruthy(); });\n"); });
+    await runWall(ctx, new AbortController().signal, { baseRunner: { run: () => ({ pass: 0, fail: 1 }) } });
+    expect(n).toBe(1);
+  });
+  test("re-ask respects budget: no rewrite session at the cap (file discarded); still re-asked while budget remains", async () => {
+    for (const over of [true, false]) {
+      const repoDir = cjsRepo(); let n = 0;
+      const ctx = wallCtx(repoDir, (o) => { if (o.iterationId?.endsWith("-oor")) n++; writeFileSync(join(o.cwd!, "loki_wall_a.test.ts"), INSTALLED); });
+      ctx.overCap = () => over;
+      const r = await runWall(ctx, new AbortController().signal, { baseRunner: { run: () => ({ pass: 0, fail: 1 }) } });
+      expect(n > 0).toBe(!over); // counts only the -oor rewrite sessions
+      expect(JSON.stringify(r.data.discarded)).toContain("outside the repo");
+    }
+  });
+});
+
+// Header and helpers of the Wall file loki 11.17.77 wrote for anthropics/claude-code#81826 (run e10-20261019T064138Z-a7ca; base tree ef7bfdc has no plugins/ralph-loop).
+const REAL_81826 = 'import { test, expect } from \'bun:test\';\\nimport { spawnSync } from \'node:child_process\';\\nimport { mkdtempSync, existsSync, readFileSync, writeFileSync } from \'node:fs\';\\nimport { tmpdir } from \'node:os\';\\nimport { join } from \'node:path\';\\n\\nconst ROOT = process.env.REPO_ROOT ?? process.cwd();\\nconst PLUGIN = join(ROOT, \'plugins\', \'ralph-loop\');\\nconst SETUP = join(PLUGIN, \'scripts\', \'setup-ralph-loop.sh\');\\nconst HOOK = join(PLUGIN, \'hooks\', \'stop-hook.sh\');\\nconst STATE = join(\'.claude\', \'ralph-loop.local.md\');\\n\\nconst env: Record<string, string> = { ...(process.env as Record<string, string>) };\\ndelete env.CLAUDE_CODE_SESSION_ID;\\n\\nfunction freshDir(): string {\\n  const dir = mkdtempSync(join(tmpdir(), \'loki-wall-ralph-\'));\\n  writeFileSync(join(dir, \'t.jsonl\'),\\n    \'{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"still working"}]}}\\\n\');\\n  return dir;\\n}\\n\\nfunction setup(dir: string, value: string) {\\n  return spawnSync(\'bash\', [SETUP, \'do\', \'the\', \'task\', \'--max-iterations\', value],\\n    { cwd: dir, env, encoding: \'utf8\' });\\n}\\n\\nfunction hook(dir: string) {\\n  return spawnSync(\'bash\', [HOOK], {\\n    cwd: dir,\\n    env,\\n    encoding: \'utf8\',\\n    input: JSON.stringify({ session_id: \'s1\', transcript_path: join(dir, \'t.jsonl\') }),\\n  });\\n}\\n\\nfunction stateExists(dir: string): boolean {\\n  return existsSync(join(dir, STATE));\\n}\\n\\nfunction rounds(dir: string, n: number): void {\\n  for (let i = 0; i < n; i++) {\\n    if (!stateExists(dir)) break;\\n    hook(dir);\\n  }';
+describe("FC-WALL-PHANTOM-PATH", () => {
+  const PHANTOM = "const ROOT = join(__dirname, '..');\nconst PLUGIN = join(ROOT, 'plugins', 'ralph-loop');\nconst SH = join(PLUGIN, 'scripts', 'setup-ralph-loop.sh');\ntest('a', () => { expect(spawnSync('bash', [SH]).status).toBe(0); });\n";
+  const FIXED = "const SH = join(__dirname, '..', 'plugins', 'ralph-wiggum', 'scripts', 'setup-ralph-loop.sh');\ntest('a', () => { expect(spawnSync('bash', [SH]).status).toBe(0); });\n";
+  const repoWith = (): string => cjsRepo({ "plugins/ralph-wiggum/scripts/setup-ralph-loop.sh": "echo\n" });
+  test("detector: a missing repo path is reported, an existing one passes, a path the plan creates passes", () => {
+    const repo = repoWith(), td = join(repo, "tests");
+    expect(phantomRepoPaths(PHANTOM, "a.test.ts", td, repo, null)).toContain("plugins/ralph-loop");
+    expect(phantomRepoPaths(FIXED, "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths(PHANTOM, "a.test.ts", td, repo, "Create plugins/ralph-loop/scripts/setup-ralph-loop.sh and plugins/ralph-loop")).toEqual([]);
+    expect(phantomRepoPaths("const p = join(process.cwd(), 'src', 'a.ts');", "a.test.ts", td, repo, null)).toEqual(["src/a.ts"]);
+  });
+  test("detector negatives: write/expect/tmp lines, the test's own dir, non-JS files and node_modules are ignored", () => {
+    const repo = repoWith(), td = join(repo, "tests"); execFileSync("git", ["init", "-q"], { cwd: repo }); writeFileSync(join(repo, ".gitignore"), "node_modules/\n");
+    expect(phantomRepoPaths("writeFileSync(join(__dirname, '..', 'out', 'x.txt'), 'a');", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("expect(existsSync(join(__dirname, '..', 'gone'))).toBe(false);", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const f = join(__dirname, 'fixtures', 'a.json');", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const f = join(__dirname, '..', 'node_modules', 'x');", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths(PHANTOM, "a.py", td, repo, null)).toEqual([]);
+  });
+  test("monorepo: process.cwd() paths resolve against the nearest package root of the test file and the repo root", () => {
+    const repo = repoWith(); mkdirSync(join(repo, "packages/a/test"), { recursive: true }); mkdirSync(join(repo, "packages/a/src"), { recursive: true });
+    writeFileSync(join(repo, "packages/a/package.json"), '{"name":"a","version":"1.0.0"}'); writeFileSync(join(repo, "packages/a/src/x.ts"), "x\n");
+    const td = join(repo, "packages/a/test"), code = "const f = join(process.cwd(), 'src', 'x.ts');";
+    expect(phantomRepoPaths(code, "x.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const f = join(process.cwd(), 'plugins', 'ralph-wiggum');", "x.test.ts", td, repo, null)).toEqual([]); // exists under the repo root
+    expect(phantomRepoPaths("const f = join(process.cwd(), 'src', 'nope.ts');", "x.test.ts", td, repo, null)).toHaveLength(1);
+  });
+  describe("model-known root", () => {
+    const cmd = (cwd: string) => ({ cmd: "npx vitest run", cwd, cite: [`${cwd}/package.json`] });
+    const mpkg = (name: string) => ({ name, root: name, runner: "vitest", cite: [`${name}/package.json`], commands: { test: cmd(name), lint: null, build: null, start: null }, ui: { present: false, boot: null, cite: [`${name}/package.json`] } });
+    const savedModel = process.env["LOKI_E10_PROJECT_MODEL"];
+    afterEach(() => { if (savedModel === undefined) delete process.env["LOKI_E10_PROJECT_MODEL"]; else process.env["LOKI_E10_PROJECT_MODEL"] = savedModel; });
+    // packages a and b exist on disk with a manifest; the cached model lists only `listed`
+    const modelRepo = (listed: string[]): string => {
+      process.env["LOKI_E10_PROJECT_MODEL"] = "1";
+      const repo = mk();
+      for (const n of ["a", "b", "c"]) { mkdirSync(join(repo, n, "test"), { recursive: true }); writeFileSync(join(repo, n, "package.json"), `{"name":"${n}","version":"1.0.0"}`); }
+      mkdirSync(join(repo, "b/src"), { recursive: true }); writeFileSync(join(repo, "b/src/y.ts"), "y\n");
+      mkdirSync(join(repo, "a/src"), { recursive: true }); writeFileSync(join(repo, "a/src/x.ts"), "x\n");
+      const model = { schema: "loki.v10.project/1", status: "ok", key: "k", workspaceKind: "multi-root", workspaceCite: ["a/package.json"], packages: listed.map(mpkg), fingerprintFiles: ["a/package.json"] };
+      mkdirSync(join(repo, ".loki"), { recursive: true }); writeFileSync(join(repo, ".loki", "project.json"), JSON.stringify(model));
+      return repo;
+    };
+    test("stale multi-root model omitting the test's package: verify runs at the repo root, so a path existing only under the package is reported", () => {
+      const repo = modelRepo(["a", "c"]);
+      expect(phantomRepoPaths("const f = join(process.cwd(), 'src', 'y.ts');", "y.test.ts", join(repo, "b/test"), repo, null)).toEqual(["src/y.ts"]);
+    });
+    test("multi-root model listing the test's package: the path under that package cwd is not reported", () => {
+      const repo = modelRepo(["a", "b"]);
+      expect(phantomRepoPaths("const f = join(process.cwd(), 'src', 'y.ts');", "y.test.ts", join(repo, "b/test"), repo, null)).toEqual([]);
+    });
+  });
+  test("a const-bound path the test later creates is not phantom", () => {
+    const repo = repoWith(), td = join(repo, "tests");
+    expect(phantomRepoPaths("const OUT = join(__dirname, '..', 'build-out');\nmkdirSync(OUT, { recursive: true });\nwriteFileSync(join(OUT, 'a.txt'), 'x');", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const OUT = join(__dirname, '..', 'gen');\nawait fs.mkdir(OUT);", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const OUT = join(__dirname, '..', 'gen');\nconst DST = join(__dirname, '..', 'copy');\ncpSync(OUT, DST);", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const OUT = join(__dirname, '..', 'gen');\nexpect(OUT).toBeTruthy();", "a.test.ts", td, repo, null)).toEqual(["gen"]);
+  });
+  test("a path the repo git-ignores is not phantom", () => {
+    const repo = repoWith(), td = join(repo, "tests");
+    execFileSync("git", ["init", "-q"], { cwd: repo }); writeFileSync(join(repo, ".gitignore"), ".next/\nout/\n");
+    expect(phantomRepoPaths("const f = join(__dirname, '..', '.next', 'server', 'a.js');", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const f = join(__dirname, '..', 'out', 'a.js');", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const f = join(__dirname, '..', 'src', 'a.js');", "a.test.ts", td, repo, null)).toEqual(["src/a.js"]);
+  });
+  test("package root fallback: a named manifest above the test dir is the cwd; a fixture json in the test dir is not; the incident still reports", () => {
+    const repo0 = repoWith(); execFileSync("git", ["init", "-q"], { cwd: repo0 });
+    for (const [p, c] of Object.entries({ "packages/a/package.json": '{"name":"a","version":"1"}', "packages/a/src/x.ts": "x\n", "packages/a/test/user.json": '{"name":"bob","age":3}' })) { mkdirSync(join(repo0, p, ".."), { recursive: true }); writeFileSync(join(repo0, p), c); }
+    expect(phantomRepoPaths("const f = join(process.cwd(), 'src', 'x.ts');", "x.test.ts", join(repo0, "packages/a/test"), repo0, null)).toEqual([]);
+    const r = repoWith();
+    expect(phantomRepoPaths("const p = resolve(import.meta.dir, '..', 'plugins/ralph-loop');", "x.test.ts", join(r, "tests"), r, null)).toEqual(["plugins/ralph-loop"]);
+  });
+  test("fallback no false root: an unrelated config file near the test never hides a real phantom", () => {
+    const code = "const f = join(process.cwd(), 'fixtures/a.json');";
+    const cases: Record<string, Record<string, string>> = {
+      "tests/tsconfig.json": { "tests/tsconfig.json": '{"compilerOptions":{}}' },
+      "tests/.eslintrc.json": { "tests/.eslintrc.json": '{"extends":"x","rules":{}}' },
+      "tests/phpunit.xml": { "tests/phpunit.xml": "<phpunit/>" },
+      "tests/setup.cfg": { "tests/setup.cfg": "[tool:pytest]\n" },
+      "root toml + web/tsconfig.json": { "pyproject.toml": "[project]\n", "tests/web/tsconfig.json": '{"compilerOptions":{}}' },
+    };
+    for (const [name, files] of Object.entries(cases)) {
+      const repo = repoWith(); execFileSync("git", ["init", "-q"], { cwd: repo });
+      for (const [p, c] of Object.entries({ ...files, "tests/fixtures/a.json": "[]" })) { mkdirSync(join(repo, p, ".."), { recursive: true }); writeFileSync(join(repo, p), c); }
+      mkdirSync(join(repo, "tests/unit"), { recursive: true });
+      expect([name, phantomRepoPaths(code, "x.test.ts", join(repo, "tests/unit"), repo, null)]).toEqual([name, ["fixtures/a.json"]]);
+    }
+    const repo = repoWith(); execFileSync("git", ["init", "-q"], { cwd: repo });
+    for (const [p, c] of Object.entries({ "src/tsconfig.json": '{"compilerOptions":{}}', "src/plugins/ralph-loop/a.sh": "x\n" })) { mkdirSync(join(repo, p, ".."), { recursive: true }); writeFileSync(join(repo, p), c); }
+    mkdirSync(join(repo, "src/t"), { recursive: true });
+    expect(phantomRepoPaths("const p = join(process.cwd(), 'plugins/ralph-loop');", "x.test.ts", join(repo, "src/t"), repo, null)).toEqual(["plugins/ralph-loop"]);
+  });
+  test("modules dir phantom: an ignored vendor dir is exempt by the ignore check alone, a look-alike source dir is still reported", () => {
+    const repo = repoWith(), td = join(repo, "tests");
+    execFileSync("git", ["init", "-q"], { cwd: repo }); writeFileSync(join(repo, ".gitignore"), "web_modules/\nnode_modules/\n");
+    for (const s of ["my_modules", "feature_modules"]) expect(phantomRepoPaths(`const p = resolve(import.meta.dir, '..', 'src', '${s}', 'x');`, "x.test.ts", td, repo, null)).toEqual([`src/${s}/x`]);
+    expect(phantomRepoPaths("const p = resolve(import.meta.dir, '..', 'node_modules', 'x');", "x.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const p = resolve(import.meta.dir, '..', 'web_modules', 'x');", "x.test.ts", td, repo, null)).toEqual([]); // git-ignored
+  });
+  test("a plan clears a path only when it names the path with its parent, never a bare segment or basename", () => {
+    const repo = repoWith(), td = join(repo, "tests"), code = "const f = join(__dirname, '..', 'src', 'newmod', 'index.ts');";
+    expect(phantomRepoPaths(code, "a.test.ts", td, repo, null)).toEqual(["src/newmod/index.ts"]);
+    expect(phantomRepoPaths(code, "a.test.ts", td, repo, "Introduce src/newmod with an entry point")).toEqual([]);
+    expect(phantomRepoPaths(code, "a.test.ts", td, repo, "Introduce a newmod module with an entry point")).toEqual(["src/newmod/index.ts"]);
+    for (const plan of ["Fix the ralph-loop plugin's setup script", "ralph-loop: --max-iterations 08 must be decimal", "Edit setup-ralph-loop.sh under plugins/ralph-wiggum/"]) expect(phantomRepoPaths(PHANTOM, "a.test.ts", td, repo, plan)).toContain("plugins/ralph-loop");
+  });
+  test("monorepo: a call that exists under the repo root does not shift the pairing of a later phantom", () => {
+    const repo = repoWith(); mkdirSync(join(repo, "packages/a/test"), { recursive: true }); mkdirSync(join(repo, "test/helpers"), { recursive: true });
+    writeFileSync(join(repo, "packages/a/package.json"), '{"name":"a","version":"1.0.0"}');
+    const td = join(repo, "packages/a/test");
+    expect(phantomRepoPaths("const h = join(process.cwd(), 'test', 'helpers');\nconst p = join(__dirname, '..', '..', '..', 'plugins', 'ralph-loop');", "x.test.ts", td, repo, null)).toEqual(["plugins/ralph-loop"]);
+  });
+  test("the real #81826 Wall file (env override of the cwd) reports plugins/ralph-loop", () => {
+    const repo = repoWith(), td = join(repo, "tests");
+    const real = REAL_81826.replace(/\\n/g, "\n");
+    expect(phantomRepoPaths(real, "loki_wall_ralph_max_iterations.test.ts", td, repo, null)[0]).toBe("plugins/ralph-loop");
+    expect(phantomRepoPaths("const R = process.env.X || process.cwd();\nconst P = join(R, 'plugins', 'ralph-wiggum');", "a.test.ts", td, repo, null)).toEqual([]);
+  });
+  test("a Prettier-split join() call is caught; fileURLToPath(new URL('..', import.meta.url)) anchors like __dirname", () => {
+    const repo = repoWith(), td = join(repo, "tests");
+    expect(phantomRepoPaths("const f = join(\n  __dirname,\n  '..',\n  'plugins',\n  'ralph-loop',\n);", "a.test.ts", td, repo, null)).toEqual(["plugins/ralph-loop"]);
+    expect(phantomRepoPaths("const f =\n  join(__dirname, '..', 'plugins', 'ralph-loop');", "a.test.ts", td, repo, null)).toEqual(["plugins/ralph-loop"]);
+    expect(phantomRepoPaths("const ROOT = fileURLToPath(new URL('..', import.meta.url));\nconst f = join(ROOT, 'plugins', 'ralph-loop');", "a.test.ts", td, repo, null)).toEqual(["plugins/ralph-loop"]);
+    expect(phantomRepoPaths("const ROOT = fileURLToPath(new URL('..', import.meta.url));\nconst f = join(ROOT, 'plugins', 'ralph-wiggum');", "a.test.ts", td, repo, null)).toEqual([]);
+  });
+  test("in-testdir phantom: a path under the test dir whose first segment only exists at the repo root is reported", () => {
+    const repo = repoWith(), td = join(repo, "tests");
+    mkdirSync(td, { recursive: true }); mkdirSync(join(td, "fixtures"), { recursive: true });
+    const inc = "const PLUGIN = resolve(import.meta.dir, 'plugins/ralph-loop');\nconst SETUP = join(PLUGIN, 'scripts/setup-ralph-loop.sh');\n";
+    expect(phantomRepoPaths(inc, "loki_wall_ralph_loop_max_iterations.test.ts", td, repo, null)[0]).toBe("tests/plugins/ralph-loop");
+    expect(phantomRepoPaths(inc, "a.test.ts", td, repo, "Create tests/plugins/ralph-loop")).toEqual([]);
+    expect(phantomRepoPaths("const P = resolve(import.meta.dir, 'plugins/ralph-wiggum');", "a.test.ts", td, repo, null)).toEqual(["tests/plugins/ralph-wiggum"]);
+    expect(phantomRepoPaths("const P = join(import.meta.dir, 'fixtures', 'a.json');", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const P = join(import.meta.dir, 'fixtures', 'a.json');\nconst Q = join(import.meta.dir, 'plugins', 'x');\nmkdirSync(Q);", "a.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const P = fileURLToPath(import.meta.url);\nconst Q = join(P, 'plugins');", "a.test.ts", td, repo, null)).toEqual([]);
+  });
+  test("same-name hint works for a missing directory", () => {
+    const why = phantomReason(["plugins/ralph-loop"], ["some/other/ralph-loop/run.sh", "x/y.ts"]);
+    expect(why).toContain("plugins/ralph-loop (a path named ralph-loop exists at some/other/ralph-loop)");
+    expect(phantomReason([], [])).toBeNull();
+  });
+  test("a phantom path is re-asked once with the reason and the nearest real file; the rewrite is kept", async () => {
+    const repoDir = repoWith(); const briefs: string[] = [];
+    const ctx = wallCtx(repoDir, (o) => { briefs.push(o.brief); writeFileSync(join(o.cwd!, "loki_wall_a.test.ts"), briefs.length === 1 ? PHANTOM : FIXED); });
+    const r = await runWall(ctx, new AbortController().signal, { baseRunner: { run: () => ({ pass: 0, fail: 1 }) } });
+    expect(briefs.length).toBe(2);
+    expect(briefs[1]).toContain("plugins/ralph-loop");
+    expect(briefs[1]).toContain("do not exist in the repository");
+    expect(r.data.discarded).toBeUndefined();
+  });
+  test("a path the plan creates is not re-asked", async () => {
+    const repoDir = repoWith(); let n = 0;
+    const ctx = wallCtx(repoDir, (o) => { n++; writeFileSync(join(o.cwd!, "loki_wall_a.test.ts"), PHANTOM); });
+    const base = ctx.outputs;
+    ctx.outputs = () => ({ ...base(), plan: { plan: "Add plugins/ralph-loop and plugins/ralph-loop/scripts/setup-ralph-loop.sh" } }) as ReturnType<typeof base>;
+    await runWall(ctx, new AbortController().signal, { baseRunner: { run: () => ({ pass: 0, fail: 1 }) } });
+    expect(n).toBe(1);
+  });
+  test("still phantom after the rewrite: discarded, never installed", async () => {
+    const repoDir = repoWith();
+    const ctx = wallCtx(repoDir, (o) => { writeFileSync(join(o.cwd!, "loki_wall_a.test.ts"), PHANTOM); });
+    const r = await runWall(ctx, new AbortController().signal, { baseRunner: { run: () => ({ pass: 0, fail: 1 }) } });
+    expect(existsSync(join(repoDir, "tests", "loki_wall_a.test.ts"))).toBe(false);
+    expect(JSON.stringify(r.data.discarded)).toContain("do not exist");
   });
 });

@@ -14,10 +14,10 @@ import { withStagePrefix } from "../../features/lean_prefix.ts";
 import { RUNNER_HINT, wallManifestFor } from "../../e10ext/wall_hints.ts";
 import { hasRelevantTests, loadRepoMap, planMode, repoMapText, sizeTask, smallTaskPath, wallEnabled, wallFirstModel, wallLimitS, wallModel } from "../sizing.ts";
 import { sha256, wallGreenOnBaseOf } from "./seal.ts"; import { removeHoldout, stashHoldout, wallHoldoutRatio } from "../../util/holdout.ts";
-import { commandFor } from "./verify.ts"; import { projectInterpreter } from "../testmap.ts";
+import { commandFor } from "./verify.ts"; import { harnessRunners, projectInterpreter } from "../testmap.ts";
 import type { ProjectApi } from "../../project_model/api.ts"; import { loadProjectApi } from "../../project_model/resolve.ts";
 import { baseJobs, classify, classifyCheck, mapPool, notRunReason, plainTestEnv, spawnCollect, stripAnsi } from "../../util/check_result.ts";
-import { conventionViolation, conventionsBrief, readPackageConventions } from "../../project_model/conventions.ts"; // FC-23
+import { conventionViolation, conventionsBrief, outOfRepoReask, outOfRepoTarget, phantomReason, phantomRepoPaths, readPackageConventions } from "../../project_model/conventions.ts"; // FC-23
 
 const WALL_PREFIX = "loki_wall_";
 
@@ -58,10 +58,14 @@ export const WALL_MAP_MAX_LINES = 200;
 /** COST-14: static output budget, placed before any run-specific text so it stays in the cache-stable prefix. */
 export const WALL_OUTPUT_BUDGET = "Output budget: write one test file, one assertion block per acceptance line, no docstrings, and no closing summary.";
 
+/** FC-WALL-OUT-OF-REPO-TARGET: static, cache-stable, sits beside the output budget before any run-specific text. */
+export const WALL_REPO_PATHS = "Reach repo code by repo-relative paths, never via home dir, $HOME or ~/.";
+
 export function buildWallBrief(task: string, repomapText = "", runners: RunnerName[] = [], hasManifest = false, conventions = "", acceptance: string[] = []): string {
   return withStagePrefix([
     "You are the Loki 10 Wall author.",
     WALL_OUTPUT_BUDGET,
+    WALL_REPO_PATHS,
     `You cannot see the repository. This directory holds only task.md and repomap.txt${hasManifest ? " and wall_manifest.txt (signatures, runner config, test layout and test-style examples)" : ""}.`,
     ...(repomapText ? [`Repository paths (repomap.txt):\n${repomapText}`] : []),
     ...taskBlock(task),
@@ -92,11 +96,11 @@ function wallTargetDir(repoDir: string, existingTests: TestRef[]): string {
   const first = existingTests[0];
   return first ? join(repoDir, dirname(first.path)) : join(repoDir, "tests");
 }
-/** Runner for a generated file: extension decides for Python/Go, else the repo's detected JS runner; unknown never guesses (unselectable). */
+/** Runner for a generated file: extension decides for Python/Go, a JS/TS file takes the repo's detected JS runner; anything else never guesses (unselectable). */
 function guessRunner(fileName: string, runners: RunnerName[]): RunnerName | null {
   if (fileName.endsWith(".py")) return "pytest";
   if (fileName.endsWith(".go")) return "go";
-  return (["vitest", "jest", "bun", "node"] as const).find((r) => runners.includes(r)) ?? null;
+  return /\.[cm]?[jt]sx?$/.test(fileName) ? (["vitest", "jest", "bun", "node"] as const).find((r) => runners.includes(r)) ?? null : null; // a JS runner only ever runs a JS/TS file
 }
 
 /** WC-01a: what wallAuthor hands installWall. Sealed copies live under <runDir>/wall; nothing here touches repoDir. */
@@ -114,12 +118,12 @@ export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: {
   const repomapRef = prior.intake?.repomap_ref as string | undefined;
   const testMap = (prior.intake?.testmap as TestMap | undefined) ?? null;
   const existingTests: TestRef[] = testMap?.tests ?? [];
-  const runners: RunnerName[] = testMap?.runners ?? [];
 
   // E-64: skip Wall too on the lean path (plan.ts, which always runs, logs this same decision on "variant").
   // LOKI_E10_PLAN=always forces a plan even for a small task, so the lean path never applies: a forced plan
   // still gets the Wall's independent acceptance tests.
   const repoMap = loadRepoMap(repomapRef);
+  const runners: RunnerName[] = testMap ? harnessRunners(testMap.runners, repoMap?.files ?? []) : [];
   const sz = sizeTask(task, repoMap, testMap);
   if (planMode() !== "always" && smallTaskPath(sz.size, hasRelevantTests(task, repoMap, testMap, ctx.tests.impacted)) === "lean") {
     return done({ status: "skipped", data: { size: sz.size }, reason: "small task with a relevant test: cascade skips Wall" });
@@ -139,33 +143,36 @@ export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: {
   const wm = wallManifestFor(ctx.repoDir, tree, task); // D77: flag-gated, null (as if off) on any failure
   for (const [n, c] of [["task.md", task], ["repomap.txt", repomapText], ...(wm ? [["wall_manifest.txt", wm.text]] : [])] as [string, string][]) writeFileSync(join(cwd, n), c, "utf8");
 
-  const model = retry?.model ?? wallFirstModel(sz.size), iterationId = `${ctx.runId}-wall${retry?.suffix ?? ""}`; // COST-11
+  const authorModel = retry?.model ?? wallFirstModel(sz.size), iterationId = `${ctx.runId}-wall${retry?.suffix ?? ""}`; // COST-11
   const session = await ctx.sessions.run({
     stage: "wall",
     brief: buildWallBrief(task, repomapText, runners, !!wm, conventionsBrief(conv), unitSpec()?.acceptance ?? []),
     // E-45: pinned cheaper model; development tier because the planning tier yields to the LOKI_SESSION_MODEL=opus pin.
     tier: "development",
-    model,
+    model: authorModel,
     iterationId,
     limitS: wallLimitS(sz.size), // W1-S3
     signal,
     cwd,
   });
-  if (session.killed || session.exit === null) { rmSync(cwd, { recursive: true, force: true }); return done({ status: "failed", data: { iteration_ids: [iterationId], model }, reason: "wall session aborted, killed, or timed out", killed: true }); } // E-54: also covers killed-from-outside (exit:null, "killed before exiting" per types.ts)
+  if (session.killed || session.exit === null) { rmSync(cwd, { recursive: true, force: true }); return done({ status: "failed", data: { iteration_ids: [iterationId], model: authorModel }, reason: "wall session aborted, killed, or timed out", killed: true }); } // E-54: also covers killed-from-outside (exit:null, "killed before exiting" per types.ts)
 
-  const all = readdirSync(cwd).filter((f) => f.startsWith(WALL_PREFIX)), held = stashHoldout({ runId: ctx.runId, repoDir: ctx.repoDir, srcDir: cwd, targetDir, names: all.filter((n) => !conventionViolation(conv, n, readFileSync(join(cwd, n), "utf8"))), runnerOf: (n) => guessRunner(n, runners) }), generated = all.filter((n) => !held?.names.has(n)); // P12-05: the held-out subset never reaches the repo, runDir or the implementer
+  const planText = typeof prior.plan?.plan === "string" ? prior.plan.plan : null, repoFiles = repoMap?.files ?? [];
+  const oor = (): { name: string; why: string }[] => readdirSync(cwd).filter((f) => f.startsWith(WALL_PREFIX)).flatMap((name) => { const text = readFileSync(join(cwd, name), "utf8"), why = outOfRepoTarget(text) ?? phantomReason(phantomRepoPaths(text, name, targetDir, ctx.repoDir, planText), repoFiles); return why ? [{ name, why }] : []; });
+  const bad1 = oor(); if (bad1.length > 0 && !signal.aborted && !ctx.overCap?.()) await ctx.sessions.run({ stage: "wall", brief: withStagePrefix(outOfRepoReask("Rewrite these Wall files in place, keeping the same names and acceptance coverage.", bad1)), tier: "development", model: authorModel, iterationId: `${iterationId}-oor`, limitS: wallLimitS(sz.size), signal, cwd }); // FC-WALL-OUT-OF-REPO-TARGET: re-ask once in the same directory with the precise reason
+  const oorBad = new Map(oor().map((b) => [b.name, b.why])), all = readdirSync(cwd).filter((f) => f.startsWith(WALL_PREFIX)), held = stashHoldout({ runId: ctx.runId, repoDir: ctx.repoDir, srcDir: cwd, targetDir, names: all.filter((n) => !oorBad.has(n) && !conventionViolation(conv, n, readFileSync(join(cwd, n), "utf8"))), runnerOf: (n) => guessRunner(n, runners) }), generated = all.filter((n) => !held?.names.has(n)); // P12-05: the held-out subset never reaches the repo, runDir or the implementer
   const sealedDir = join(ctx.runDir, "wall");
   if (generated.length > 0) mkdirSync(sealedDir, { recursive: true });
 
   const contents = new Map<string, string>();
   const discarded: { file: string; reason: string }[] = []; // FC-23: a file the package's own compiler would reject is harness-owned: sealed copy only, never in the tree
   for (const name of generated) {
-    const content = readFileSync(join(cwd, name), "utf8"), bad = conventionViolation(conv, name, content);
+    const content = readFileSync(join(cwd, name), "utf8"), oorWhy = oorBad.get(name), bad = oorWhy ?? conventionViolation(conv, name, content);
     writeFileSync(join(sealedDir, name), content, "utf8");
-    if (bad) discarded.push({ file: name, reason: `${bad}; wall test did not compile under the package config` }); else contents.set(name, content);
+    if (oorWhy) discarded.push({ file: name, reason: `${oorWhy}; wall test discarded after one rewrite request` }); else if (bad) discarded.push({ file: name, reason: `${bad}; wall test did not compile under the package config` }); else contents.set(name, content);
   }
   rmSync(cwd, { recursive: true, force: true });
-  return { kind: "authored", model, iterationId, task, sizeName: sz.size, runners, targetDir, generated, contents, discarded, ...(wm ? { manifestSha256: wm.sha256 } : {}), ...(held ? { holdoutDir: held.dir } : {}) };
+  return { kind: "authored", model: authorModel, iterationId, task, sizeName: sz.size, runners, targetDir, generated, contents, discarded, ...(wm ? { manifestSha256: wm.sha256 } : {}), ...(held ? { holdoutDir: held.dir } : {}) };
 }
 
 /** Copy the sealed files into repoDir, emit wall.sealed, run the base run in baseDir, drop not_run files. */
@@ -201,7 +208,7 @@ function* installCore(ctx: RunContext, a: WallAuthored, baseDir: string, opts: W
       base_run: baseRun,
       ...(notRunFiles.length ? { not_run_files: notRunFiles } : {}),
       iteration_ids: [a.iterationId ?? `${ctx.runId}-wall`],
-      already_satisfied: alreadySatisfied, ...(a.holdoutDir ? { holdout_dir: a.holdoutDir } : {}), // opaque path only: names stay in the private store
+      already_satisfied: false, ...(alreadySatisfied ? { green_on_base: true } : {}), ...(a.holdoutDir ? { holdout_dir: a.holdoutDir } : {}), // opaque path only: names stay in the private store
       ...(discarded.length ? { discarded } : {}),
     },
   };
