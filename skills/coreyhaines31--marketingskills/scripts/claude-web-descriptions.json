@@ -8,7 +8,7 @@
     "description": "Create and iterate paid ad copy, hooks, headlines, and visual or video concepts. Prepares creative tests with falsifiable hypotheses and approval-ready variations."
   },
   "ads": {
-    "source_description_sha256": "42d4b3a95829ab5dc70d68c8c077b863be168fc8dbe1e971f4c5d8737b10ce03",
+    "source_description_sha256": "c54fc7bb2dfa432ec60fd08ab9452d36a7dd8c80de4dda8a3f4dafee1509d921",
     "description": "Plan and optimize paid campaigns across Google, Meta, and LinkedIn: audiences, budgets, bidding, ROAS, CPA, and lead quality. Weekly checks end in one HOLD/FIX/TEST/INVESTIGATE call."
   },
   "ai-seo": {
@@ -16,7 +16,7 @@
     "description": "Improve AI search visibility, LLM citations, AEO/GEO, AI Overviews, and agent-readable site content; audit why AI answers overlook your brand."
   },
   "analytics": {
-    "source_description_sha256": "9a52bbb064c72f04050f5f8d3375e4eccf9ec231a7be52d40823a6de568dd6db",
+    "source_description_sha256": "e18a8bc80b57e466f2e256b20d90678b8cea57aa08af87a45b929cdeb1a21a6f",
     "description": "Set up or audit GA4, conversion events, UTMs, partner link patterns, and tracking plans. Computes metrics from row-level data and compares rates only over matching closed windows."
   },
   "aso": {
@@ -24,7 +24,7 @@
     "description": "Audit and optimize App Store or Google Play listings, app keywords, visibility, rankings, and listing conversion."
   },
   "attribution": {
-    "source_description_sha256": "01fdc33a6297f1e4606a52eec48c00ece9cc43db22ef2519ff90eed0785e81bb",
+    "source_description_sha256": "619168d09f7a8fcb273df85ff9414a45b2a560c63aff3e4476b3e069a60b06e8",
     "description": "Choose attribution models, reconcile revenue dashboards, and investigate channel impact using multi-touch, MMM, incrementality, and first-party attribution."
   },
   "churn-prevention": {
@@ -54,6 +54,10 @@
   "content-strategy": {
     "source_description_sha256": "602ac5599f4e6e51643d9caa4ccd3cb5429751987750b15cc39e9cba002a85e6",
     "description": "Plan content topics, pillars, clusters, editorial calendars, blog strategy, and content roadmaps before writing individual pieces."
+  },
+  "conversion-tracking": {
+    "source_description_sha256": "a84dea1ca5ad6a6cfb5bd2851c48ac05feae1af463f78ff927276ab8567fabb3",
+    "description": "Set up, audit, and fix conversion tracking from forms, bookings, and checkouts to Google Ads, Meta, GA4, LinkedIn, TikTok, and Microsoft Ads."
   },
   "copy-editing": {
     "source_description_sha256": "3d2e37bce6de1230991064d501775040a9fb1e5245f6fb01470ad162a6d7a39e",
@@ -102,6 +106,10 @@
   "lead-magnets": {
     "source_description_sha256": "aecc5622c2d6a2d7f2adb039359152375e1bb7dba3b57117aa0f6a67d611c6e3",
     "description": "Plan lead magnets and content offers: ebooks, checklists, templates, gating, landing pages, and packaging a course or content library as an installable agent skill."
+  },
+  "link-building": {
+    "source_description_sha256": "41c4fce1924387807bb8f0ec4d482d5e14cb7a4806de15e850362dd98727d4bb",
+    "description": "Earn backlinks and third-party mentions on pages search engines and AI assistants trust, without link spam."
   },
   "marketing-council": {
     "source_description_sha256": "103f655a5584cfab3521597f218b44e4bf20181ca2231bf68e67da7c9481f101",

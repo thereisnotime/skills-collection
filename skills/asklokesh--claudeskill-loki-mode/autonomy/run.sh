@@ -6071,6 +6071,7 @@ _loki_trusted_push() {
             return 2 ;;
     esac
     _repo="$(_loki_github_repo_from_url "$_url")"
+    local _origin_url="$_url"
     if [ -n "$_dest" ]; then
         if ! _loki_github_repo_from_url "https://github.com/${_dest}.git" >/dev/null; then
             log_warn "Not pushing branch '$_branch': fork destination '$_dest' is not a plain OWNER/REPO."
@@ -6088,11 +6089,41 @@ _loki_trusted_push() {
         return 2
     fi
     _tmp="$(mktemp -d "${TMPDIR:-/tmp}/loki-push.XXXXXX")" || return 1
+    # FC-TRUSTED-PUSH-PARTIAL-CLONE: a partial agent clone (extensions.partialclone,
+    # or a remote.<n>.promisor true/yes/on/1 on newer git; both read as data)
+    # holds objects it never downloaded, and upload-pack does not lazy-fetch
+    # them, so the branch fetch below dies. Seed the temp repo with the
+    # validated origin (_origin_url, captured before a fork _dest overwrites
+    # _url) as a promisor remote and fetch its refs first. The agent pack is
+    # thin (deltas against blobs the temp repo only knows by id), so the client
+    # lazy-fetches those delta bases from loki-base during the agent fetch: that
+    # fetch therefore runs under "$_runner" too. The credentials stay on the
+    # client side only: the agent-dir upload-pack, the one process that reads
+    # agent config, is started through `env -i` with no credentials, no helper
+    # config, no HOME and no lazy fetch. GIT_TERMINAL_PROMPT=0 so a refused
+    # token never waits on a username. Non-partial repos skip all of this.
+    local _partial="" _up=""
+    if [ -n "$(git -C "$_dir" config --get extensions.partialclone 2>/dev/null)" ] \
+        || git -C "$_dir" config --get-regexp '^remote\..*\.promisor$' 2>/dev/null | grep -Eqi ' (true|yes|on|1)$'; then
+        _partial=1
+        _up="/usr/bin/env -i PATH=/usr/bin:/bin GIT_NO_LAZY_FETCH=1 $(printf '%q' "$(command -v git)") upload-pack"
+    fi
     # --update-shallow: a shallow agent repo's history ends in shallow roots,
     # which a plain fetch rejects while still exiting 0. The rev-parse makes a
     # silently empty fetch fail here instead of at the push.
     if git init -q --template= "$_tmp" >/dev/null 2>&1 \
-        && git -C "$_tmp" fetch -q --no-tags --update-shallow "$_dir" "+refs/heads/$_branch:refs/heads/$_branch" >/dev/null 2>&1 \
+        && { [ -z "$_partial" ] || {
+            git -C "$_tmp" config core.repositoryformatversion 1 \
+            && git -C "$_tmp" config extensions.partialclone loki-base \
+            && git -C "$_tmp" config remote.loki-base.url "$_origin_url" \
+            && git -C "$_tmp" config remote.loki-base.promisor true \
+            && git -C "$_tmp" config remote.loki-base.partialclonefilter blob:none \
+            && GIT_TERMINAL_PROMPT=0 "$_runner" git -C "$_tmp" fetch -q --no-tags --filter=blob:none loki-base "+refs/heads/*:refs/remotes/loki-base/*" >/dev/null 2>&1; }; } \
+        && { if [ -n "$_partial" ]; then
+            GIT_TERMINAL_PROMPT=0 "$_runner" git -C "$_tmp" fetch -q --no-tags --update-shallow --upload-pack "$_up" "$_dir" "+refs/heads/$_branch:refs/heads/$_branch" >/dev/null 2>&1
+        else
+            git -C "$_tmp" fetch -q --no-tags --update-shallow "$_dir" "+refs/heads/$_branch:refs/heads/$_branch" >/dev/null 2>&1
+        fi; } \
         && git -C "$_tmp" rev-parse -q --verify "refs/heads/$_branch" >/dev/null 2>&1; then
         _rc=0
         # `-C "$_tmp"`: git starts repository discovery in the fresh repo, so
@@ -16575,6 +16606,26 @@ _dispatch_reviewer() {
                     _cr_provider_env+=("-u" "$_cr_secret_name")
                 done
             fi
+            # FC-REVIEWER-GIT-CONFIG-EXEC: the shared review allowlist grants git
+            # status/diff/show/log, and git runs programs named in the target repo's
+            # own config (core.fsmonitor, diff drivers, textconv, diff.external). The
+            # TS reviewerGitEnv (util/safe_git.ts) is the one mechanism; this adds its
+            # GIT_* env to the provider env. Fail-closed: no env, no allowlisted review.
+            if type loki_review_allowlist_enabled >/dev/null 2>&1 && loki_review_allowlist_enabled; then
+                local _rv_git_kv
+                local _rv_git_env_file
+                _rv_git_env_file="$(mktemp 2>/dev/null)" || _rv_git_env_file=""
+                if [ -z "$_rv_git_env_file" ] || [ ! -x "${_cr_root}/bin/loki" ] \
+                   || ! "${_cr_root}/bin/loki" internal reviewer-git-env > "$_rv_git_env_file" 2>/dev/null; then
+                    log_warn "reviewer git hardening unavailable; reviewer not dispatched (fail-closed)"
+                    [ -z "$_rv_git_env_file" ] || rm -f "$_rv_git_env_file"
+                    return 125
+                fi
+                while IFS= read -r -d '' _rv_git_kv; do
+                    _cr_provider_env+=("$_rv_git_kv")
+                done < "$_rv_git_env_file"
+                rm -f "$_rv_git_env_file"
+            fi
             # v8 RAW-SDK REVIEWER PATH (opt-in LOKI_SDK_CODE_REVIEW=1). Run the
             # reviewer via the pure-HTTPS @anthropic-ai/sdk bridge (no claude
             # binary) and re-materialize the SAME legacy VERDICT/FINDINGS text
@@ -16770,7 +16821,7 @@ _dispatch_reviewer() {
                 _cr_text_cap=$(_loki_review_deadline_remaining "$_review_deadline_ms") || return 124
             fi
             _loki_with_deadline_stdin_text "$_cr_text_cap" "$prompt_text" \
-                env CAVEMAN_DEFAULT_MODE=off claude "${_rv_argv[@]}" -p \
+                "${_cr_provider_env[@]}" CAVEMAN_DEFAULT_MODE=off claude "${_rv_argv[@]}" -p \
                 --output-format text > "$review_output"
             ;;
         codex)

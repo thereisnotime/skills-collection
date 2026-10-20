@@ -287,5 +287,104 @@ grep -q "repos/octocat/hello/check-runs" "$GHLOG" \
     && ok "proof-check posts the check-run for the origin repo when gh runs from /" \
     || bad "proof-check did not post (could not resolve the repo from /; gh log: $(tr '\n' ',' < "$GHLOG"))"
 
+# --- FC-TRUSTED-PUSH-PARTIAL-CLONE: a --filter=blob:none agent repo ------------
+# upload-pack on a partial clone dies serving objects it never downloaded, so
+# the temp repo is seeded with the origin as a promisor remote first. The
+# origin is the same local bare repo the operator's insteadOf routes URL to.
+PC_ORIGIN="$W/gh/octocat/hello.git"
+git -C "$PC_ORIGIN" config uploadpack.allowFilter true
+git -C "$PC_ORIGIN" config uploadpack.allowAnySHA1InWant true
+PC_SEED="$W/pc-seed"
+git init -q "$PC_SEED"
+echo base > "$PC_SEED/a.txt"; git -C "$PC_SEED" add a.txt; git -C "$PC_SEED" commit -q -m base
+echo two > "$PC_SEED/b.txt"; git -C "$PC_SEED" add b.txt; git -C "$PC_SEED" commit -q -m two
+# A blob only in history (deleted at the tip) is never downloaded by the
+# blob:none clone's checkout, so serving it from the clone is what dies.
+echo old > "$PC_SEED/old.txt"; git -C "$PC_SEED" add old.txt; git -C "$PC_SEED" commit -q -m old
+git -C "$PC_SEED" rm -q old.txt; git -C "$PC_SEED" commit -q -m "drop old"
+cred git -C "$PC_SEED" push -q "$PC_ORIGIN" HEAD:refs/heads/pc-base 2>/dev/null
+git clone -q --filter=blob:none -b pc-base "file://$PC_ORIGIN" "$W/agent-partial" 2>/dev/null
+git -C "$W/agent-partial" checkout -q -b loki/fix-partial
+echo agent > "$W/agent-partial/c.txt"
+git -C "$W/agent-partial" add c.txt
+git -C "$W/agent-partial" commit -q -m "agent work on a partial clone"
+git -C "$W/agent-partial" remote set-url origin "$URL"
+[ "$(git -C "$W/agent-partial" config --get remote.origin.promisor)" = true ] \
+    && ok "partial-clone fixture really is a partial clone" || bad "partial-clone fixture is not partial (test proves nothing)"
+reset_logs
+( cd "$W/agent-partial" && _loki_trusted_push cred . loki/fix-partial ) >/dev/null 2>&1
+rc=$?
+if [ "$rc" -eq 0 ] && [ -n "$(git -C "$PC_ORIGIN" rev-parse -q --verify refs/heads/loki/fix-partial)" ]; then
+    ok "a partial-clone agent repo's branch is pushed"
+else
+    bad "a partial-clone agent repo's branch was not pushed (rc=$rc)"
+fi
+# The non-partial path must not seed a promisor remote.
+LB_SEEN="$W/lb.seen"; : > "$LB_SEEN"
+git() {
+    if [ "${1:-}" = -C ] && [ "${3:-}" = config ]; then
+        case "${4:-}" in remote.loki-base.*) echo x >> "$LB_SEEN" ;; esac
+    fi
+    command git "$@"
+}
+( cd "$W/agent-partial" && _loki_trusted_push cred . loki/fix-partial ) >/dev/null 2>&1
+unset -f git
+[ -s "$LB_SEEN" ] \
+    && ok "wrapper control: the partial path seeds loki-base" || bad "wrapper control: no loki-base seeding seen on the partial path"
+: > "$LB_SEEN"
+git() {
+    if [ "${1:-}" = -C ] && [ "${3:-}" = config ]; then
+        case "${4:-}" in remote.loki-base.*) echo x >> "$LB_SEEN" ;; esac
+    fi
+    command git "$@"
+}
+( cd "$W/agent-shallow" && _loki_trusted_push cred . loki/fix-shallow ) >/dev/null 2>&1
+unset -f git
+[ ! -s "$LB_SEEN" ] && ok "a non-partial agent repo creates no loki-base remote" || bad "a non-partial agent repo seeded loki-base"
+
+# --- FC-TRUSTED-PUSH-PARTIAL-CLONE, private origin + thin pack ---------------
+# The agent modified a large file, so its pack is thin: a delta against a blob
+# the temp repo only knows by id, lazy-fetched from the origin during the agent
+# fetch. The origin refuses token-less reads (packObjectsHook in the test's
+# global config, scoped to the origin repo). The agent-dir upload-pack must run
+# with no credentials and no HOME, so it also never sees that hook.
+PD_SEED="$W/pd-seed"
+git init -q "$PD_SEED"
+seq 1 20000 > "$PD_SEED/big.txt"; git -C "$PD_SEED" add big.txt; git -C "$PD_SEED" commit -q -m big
+cred git -C "$PD_SEED" push -q "$PC_ORIGIN" HEAD:refs/heads/pd-base 2>/dev/null
+git clone -q --filter=blob:none -b pd-base "file://$PC_ORIGIN" "$W/agent-delta" 2>/dev/null
+git -C "$W/agent-delta" checkout -q -b loki/fix-delta
+sed 's/^10000$/changed/' "$W/agent-delta/big.txt" > "$W/big.new" && cp "$W/big.new" "$W/agent-delta/big.txt"
+git -C "$W/agent-delta" commit -q -am "agent edits one line of a large file"
+git -C "$W/agent-delta" remote set-url origin "$URL"
+printf '#!/bin/sh\ncase "$(pwd -P)" in "%s") [ "${GH_TOKEN:-}" = "%s" ] || { echo "origin refuses token-less read" >&2; exit 1; } ;; esac\nexec "$@"\n' "$PC_ORIGIN" "$CANARY" > "$W/deny-hook.sh"
+chmod +x "$W/deny-hook.sh"
+git config --global uploadpack.packObjectsHook "$W/deny-hook.sh"
+git clone -q --no-checkout "file://$PC_ORIGIN" "$W/ctl-tokenless" >/dev/null 2>&1 \
+    && bad "control: the origin served a token-less read (hook not live)" || ok "control: the origin refuses a token-less read"
+cred git clone -q --no-checkout "file://$PC_ORIGIN" "$W/ctl-token" >/dev/null 2>&1 \
+    && ok "control: the origin serves a read with the token" || bad "control: the origin refused a read with the token"
+# Spy on the agent-dir upload-pack: log its environment, then run real git.
+REAL_GIT="$(command -v git)"
+mkdir -p "$W/shimbin"
+printf '#!/bin/sh\n[ "$1" = upload-pack ] && env > "%s"\nexec "%s" "$@"\n' "$W/up.env" "$REAL_GIT" > "$W/shimbin/git"
+chmod +x "$W/shimbin/git"
+rm -f "$W/up.env"
+reset_logs
+( export PATH="$W/shimbin:$PATH"; cd "$W/agent-delta" && _loki_trusted_push cred . loki/fix-delta ) >/dev/null 2>&1
+rc=$?
+if [ "$rc" -eq 0 ] && [ -n "$(git -C "$PC_ORIGIN" rev-parse -q --verify refs/heads/loki/fix-delta)" ]; then
+    ok "a thin-pack branch from a partial clone reaches a private origin"
+else
+    bad "a thin-pack branch from a partial clone did not reach a private origin (rc=$rc)"
+fi
+if [ -s "$W/up.env" ] && ! grep -qE '^(GH_TOKEN|GITHUB_TOKEN|SSH_AUTH_SOCK|HOME|GIT_CONFIG[A-Z_]*)=' "$W/up.env" \
+    && grep -qx 'GIT_NO_LAZY_FETCH=1' "$W/up.env"; then
+    ok "the agent-dir upload-pack ran with a scrubbed env (no token, socket, HOME or git config env; no lazy fetch)"
+else
+    bad "the agent-dir upload-pack env was not scrubbed or not observed ($(cat "$W/up.env" 2>/dev/null | tr '\n' ' '))"
+fi
+git config --global --unset uploadpack.packObjectsHook
+
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

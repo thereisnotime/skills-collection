@@ -175,11 +175,16 @@ export async function zeroOnBase(
     const src = join(repoDir, relative(baseDir, c.cwd));
     if (depsSeeHead(src, repoDir)) continue;
     for (const d of ["node_modules", ".venv"]) { try { if (existsSync(join(src, d)) && !existsSync(join(c.cwd, d))) symlinkSync(join(src, d), join(c.cwd, d)); } catch { /* no deps on base: not zero, stays fail-closed */ } }
-    const b = await run(c), last = c.args[c.args.length - 1] ?? "";
-    const k = classifyCheck({ kind: "test", ok: b.ok, cut: b.cut, missing: b.missing, out: b.out, ...goRunner(c.cmd, c.args), path: /\.[cm]?[jt]s$/.test(last) ? last : undefined });
-    if (k.result === "not_run" && k.n === 0 && !b.cut && !b.missing) { zero.push(c.name); note(c.name); }
+    if (isZeroRun(c, await run(c))) { zero.push(c.name); note(c.name); }
   }
   return zero;
+}
+
+/** True when one finished run of a test command executed zero tests (the shared mapping of 0 tests to not_run; a cut or missing run never counts). */
+export function isZeroRun(c: { cmd: string; args: string[] }, b: { ok: boolean; cut: boolean; missing: boolean; out: string }): boolean {
+  const last = c.args[c.args.length - 1] ?? "";
+  const k = classifyCheck({ kind: "test", ok: b.ok, cut: b.cut, missing: b.missing, out: b.out, ...goRunner(c.cmd, c.args), path: /\.[cm]?[jt]s$/.test(last) ? last : undefined });
+  return k.result === "not_run" && k.n === 0 && !b.cut && !b.missing;
 }
 
 /** FC-WALL-PHANTOM-PATH: a symlink ADDED by the change (status A, or T where a regular file became a link; a retargeted link, M, is not) or an added submodule pointer (mode 160000) makes a missing path appear without implementing anything. NOT PROVEN by name unless the plan asks for one: only the words symlink(s) / submodule(s), and not negated ("no symlink", "do not add a symlink", "without a submodule"). Input is the raw diff-tree -z list (meta, path pairs). */

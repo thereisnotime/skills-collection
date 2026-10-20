@@ -33,7 +33,7 @@ Then:
 **From your terminal (CLI):**
 ```bash
 # Automated installation (macOS/Linux)
-curl -fsSL https://raw.githubusercontent.com/daymade/claude-code-skills/main/scripts/install.sh | bash
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/daymade/claude-code-skills/main/scripts/install.sh | bash'
 
 # Automated installation (Windows PowerShell)
 iwr -useb https://raw.githubusercontent.com/daymade/claude-code-skills/main/scripts/install.ps1 | iex
@@ -65,6 +65,8 @@ For a valid check that emits warnings, follow its
 For local/remote ASR selection, speed comparison and speech-content acceptance, enter
 [asr-transcribe-to-text](daymade-audio/asr-transcribe-to-text/SKILL.md) and its
 [execution SOP](daymade-audio/asr-transcribe-to-text/references/execution_location_and_comparison.md).
+For Scrapling browser-cache diagnosis, follow
+[the troubleshooting owner](scrapling-skill/references/troubleshooting.md#2-browser-backed-fetchers-not-ready).
 For competitor source-carrier/edition binding, claims, citations and existing-product learning, enter
 [competitors-analysis](competitors-analysis/SKILL.md) and its
 [citation readback checklist](competitors-analysis/references/analysis_checklist.md#citation-readback-and-counterevidence).
@@ -74,7 +76,8 @@ For user-selected collection destinations, load the
 [collection destination route](competitors-analysis/references/collection_destination.md).
 For running an original application demo, follow that Skill's
 [original-app demo recipe](competitors-analysis/references/original-app-demo.md).
-For transaction recovery tests or financial migration/fixture acceptance, enter
+For file-backed persistence and CLI acceptance, transaction recovery tests,
+financial migration/fixture acceptance, runtime compatibility or project-bound release acceptance, enter
 [qa-expert](qa-expert/SKILL.md); its test-case routes select the detailed recipes.
 
 For choosing or reviewing a library, framework, storage, data format, model,
@@ -90,14 +93,21 @@ keep discovery observations separate from final result checks.
 For research-driven evolution of a specified existing Skill, start at
 [skill-evolver](skill-evolver/SKILL.md) and follow its public stage routes; use
 local private adapters only when available.
+Before presenting an improvement diagnosis, follow its
+[mechanism decision step](skill-evolver/SKILL.md#decide-every-important-mechanism).
 For verification of changed state side effects, artifact reuse or prerequisite
 handling, read `skill-evolver/references/behavior-replay-cases.md`.
+
+For product-audit confidence, API consumer coverage and recommendation priority,
+enter [product-analysis's synthesis method](product-analysis/references/synthesis_methodology.md).
 
 For evidence-based improvement of an existing application, enter
 [app-evolver](app-evolver/SKILL.md). For released-artifact or runtime evidence,
 load its [Skill composition route](app-evolver/references/skill-composition.md);
 keep specialist selection and handoff boundaries in that owner.
-When a repair batch ends or the user questions its direction, load its
+When the user corrects premises, research focus or scope, return first to its
+[task binding](app-evolver/SKILL.md#1-bind-the-application-and-unfinished-result).
+For next-increment selection after that reconciliation or a completed repair batch, use its
 [increment-selection contract](app-evolver/references/evidence-and-fit.md#make-the-disposition-operational).
 
 For permission-sensitive fixtures, use Skill Creator's
@@ -120,7 +130,9 @@ and its actual-reader pilot before expansion. Keep conversion evidence and reade
 observations separate; this file does not define another batch recipe.
 
 For proxy-selection or disruptive VPN recovery changes, enter `tunnel-doctor` and its
-proxy-conflict and network-recovery references. For automatic WeCom integration,
+proxy-conflict and network-recovery references. For unresolved tunnel packet-loss
+localization, read the [capture procedure](debugging-network-issues/references/packet-capture-recipes.md#four-boundary-tunnel-captures).
+For automatic WeCom integration,
 enter `setup-notifications-via-wecom`; its receipt contract owns accepted/rejected/unknown
 handling, while the worker owns event identity and delivery state.
 
@@ -163,8 +175,9 @@ For HTML report images and explanatory diagrams, enter
 source verification, placement and review. Keep report-specific assets with the report.
 
 Treat [packaging_policy.py](daymade-skill/skill-creator/scripts/packaging_policy.py)
-as the canonical inclusion policy for packaging, security attestation, source
-audits, and version checks. Keep consumers on this shared implementation. Preserve the recorded policy
+as the canonical inclusion policy for packaged content, security attestation and
+source audits. Version progression and shipped-change review use their owning
+gates under **Updating Existing Skills** below. Preserve the recorded policy
 when verifying an existing baseline; consult
 [source snapshot archives](daymade-skill/skill-creator/references/source-snapshot-archives.md)
 before archiving or restoring it.
@@ -195,6 +208,9 @@ being copied here. An owning installer may support an already authorized
 launcher; that does not make a package-manager dispatcher the default for
 Python hooks.
 
+For persistent Python service installation, environment reuse or startup, follow
+[macos-watchdog's persistent runtime procedure](daymade-macos/macos-watchdog/SKILL.md#persistent-python-runtime).
+
 ### Rendered UI delivery acceptance
 
 For rendered UI freshness, delayed editor/batch responses or deployment acceptance, enter
@@ -205,17 +221,23 @@ For build reuse across source refs or a target redeployed during acceptance, loa
 [delivery verification procedure](frontend-visual-qa/references/delivery-verification.md).
 For nested zoomable workspaces, use its
 [journey and state matrix](frontend-visual-qa/references/journey-and-page-contracts.md#journey-and-state-matrix).
+For live status or attention filters, follow its
+[cross-view attention journey](frontend-visual-qa/references/journey-and-page-contracts.md#operational-attention-across-views).
 For embedded-reader zoom, return, focus or filtered-selection changes, use its
 [reader journey](frontend-visual-qa/references/journey-and-page-contracts.md#embedded-readers-and-semantic-zoom).
 For browser visibility, selected read modes, request/capture timing or long JSONL input problems, load its
 [browser-driving and observation traps](frontend-visual-qa/references/browser-driving-and-observation-traps.md);
 keep adapter requirements and invocation examples in that reference.
+For timed-out screenshots or blank hidden-window captures, follow its
+[background capture diagnosis](frontend-visual-qa/references/browser-driving-and-observation-traps.md#background-screenshot-failure-does-not-establish-a-page-failure).
 For changed contribution views or multi-item reads, use that same journey contract
 for source-derived coverage and partial-result recovery; keep the detailed recipe
 with the Skill.
 Before designing or judging monitoring, availability or certificate matrices, enter
 [data-visualization-discipline](data-visualization-discipline/SKILL.md).
-Keep observation and risk semantics in its data-validation route, not a second checklist here.
+Observation and risk semantics follow its data-validation route.
+For incomplete observations, unknown counts or confirmed zero, use its
+[operational-state matrix](data-visualization-discipline/references/operational-state-matrix.md).
 
 For oversized images or figure readability in a Markdown note or transcript, use
 [frontend-visual-qa's actual-reader handoff](frontend-visual-qa/references/markdown-reader-handoff.md).
@@ -259,8 +281,16 @@ recovery, or capacity checks before necessary backup/copy/extraction, use
 [macos-cleaner](daymade-macos/macos-cleaner/SKILL.md) and its
 [necessary-copy capacity preflight](daymade-macos/macos-cleaner/references/safety_rules.md#necessary-copy-capacity-preflight).
 When changing measurement, run the SOP's targeted regression suite before shipping.
+For uv cache diagnosis or retirement, enter
+[macos-cleaner](daymade-macos/macos-cleaner/SKILL.md) and its
+[uv target semantics](daymade-macos/macos-cleaner/references/cleanup_targets.md#uv-cache-retirement).
 
 ### Automated Test Suites (CI)
+
+For third-party model speed, protocol, concurrency or answer collection, enter
+[llm-eval-harness](llm-eval-harness/SKILL.md). Its probe receipts distinguish
+completed observations, noncompliance, partial evidence and execution failure;
+process exit alone does not establish the measured result.
 
 A `tests/` directory under a Skill does **not** automatically run in CI.
 [The registry](scripts/ci/test-suites.txt) owns suite admission and membership;
@@ -366,8 +396,11 @@ reuse, or history request. Ordinary implementation, reports, and read-only
 inspection do not arm it; PreToolUse and Stop may enforce only a requirement
 already created by the current prompt. Artifact selection and runtime-read
 comparison are owned by that Skill; a receipt about a locator is not proof of
-the delivered artifact. Detailed retrieval mechanics remain in
-`daymade-claude-code/prior-work-retrieval/SKILL.md`.
+the delivered artifact. For retrieval freshness, changed-source recovery and
+receipt lifetime, follow the [Prior Work operating contract](daymade-claude-code/prior-work-retrieval/SKILL.md).
+
+For CLI/hook manifest selection or continuation in an already-running host, read
+[the manifest-selection contract](daymade-claude-code/prior-work-retrieval/SKILL.md#2-validate-the-explicit-source-manifest).
 
 ### Local Conversation History Boundary
 
@@ -753,7 +786,7 @@ The marketplace is configured in `.claude-plugin/marketplace.json`:
    - The registered plugin owns the release version. Suite members share their suite's
      version; a standalone Skill uses its own plugin entry.
    - Follow [skill-creator's versioning contract](daymade-skill/skill-creator/SKILL.md)
-     for shipped-file changes and change classification.
+     for change classification and release identity.
 
 ### ⚠️ Updating Existing Skills (MANDATORY)
 
@@ -763,47 +796,18 @@ decide which changed files ship. Do not infer a separate member version from its
 
 For pre-commit release progression, use the existing
 [version checker](scripts/ci/check_version_progression.py) through the
-[mainline guard](scripts/git-mainline-guard.mjs). Its registered-plugin mapping and
-the packaging owner above determine which release identity must advance.
+[mainline guard](scripts/git-mainline-guard.mjs). That checker owns registered-plugin
+mapping and version-increment eligibility; package exclusion alone is not a version
+exemption. Select shipped-change review eligibility through
+[release readiness](daymade-skill/skill-creator/references/release-readiness.md).
 
 **Read the baseline version from an immutable ref, never from the working tree.**
-In a shared checkout `marketplace.json` may already carry a parallel session's
-in-flight bump — staged or merely saved — and `git status` looks normal either
-way, so a version computed from the working copy silently inherits their number
-as its starting point:
+A shared checkout's `marketplace.json` may already carry another session's staged
+or saved version bump; that working copy cannot establish the baseline.
 
-```bash
-git show origin/main:.claude-plugin/marketplace.json   # baseline to bump FROM
-```
-
-This is what makes the check above decidable. `git diff --name-only` tells you
-*which* skills changed; only an immutable ref tells you what their versions were
-before anyone started editing.
-
-**When the pre-commit guard blocks with "marketplace release state is stale or
-incomplete"**: the staged `marketplace.json` diverges from current `origin/main`
-in plugins you did *not* touch — someone merged after you branched, and the
-guard's progression check compares your index against *current* main, not your
-branch point. Recovery:
-
-1. Rebuild `marketplace.json` from `origin/main`'s state plus **only** your
-   changes, programmatically — assert the base values before mutating, never
-   text-merge or hand-edit two versions:
-   ```bash
-   git show origin/main:.claude-plugin/marketplace.json   # the ONLY baseline
-   # then apply your bump(s)/skills-array addition onto THAT content,
-   # and preserve the file's trailing newline (json.dump drops it)
-   ```
-2. If the guard then reports a *foreign* plugin's "content changed but version
-   did not increase": your branch is missing that plugin's merge entirely —
-   bring the branch current with `origin/main`. On a contended shared checkout
-   where `git merge` (ort) refuses your staged files: merge in a temporary
-   worktree, copy the merged file back so staged content equals the merge
-   result byte-for-byte, then `git merge --ff-only <merge-sha>` — a
-   fast-forward accepts staged content that equals the target; ort never does.
-3. Commit as a standalone command — `git add … && git commit` in one line trips
-   the scope guard's unknown-domain branch regardless of
-   content.
+For a stale marketplace guard, a foreign plugin's apparent version regression,
+or a release candidate missing current main, follow
+[integration before review binding](daymade-skill/skill-creator/references/release-readiness.md#integrate-current-main-before-binding-review).
 
 **CHANGELOG.md merges as a union** (`.gitattributes`). Merging `origin/main`
 into a branch locally, or rebasing onto it, keeps parallel additions under
@@ -843,10 +847,20 @@ All Python scripts in this repository:
 
 ## Quality Standards
 
+For public first-use instructions, follow [QUICKSTART.md](QUICKSTART.md) or
+[QUICKSTART.zh-CN.md](QUICKSTART.zh-CN.md). For reporter environment fields, use
+the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) rather than copying
+a Skill list or assuming the reporter's host.
+
+For a blocked packaging attempt, follow the
+[packaging recovery procedure](daymade-skill/skill-creator/references/publishing-and-packaging.md#step-7-packaging-a-skill).
+
 For changes to scripts, importable API contracts, configuration, or operating procedures, use
 [docs-cleaner](daymade-docs/docs-cleaner/SKILL.md) for scoped documentation delivery:
 resolve implementation intent and authorization before updating the owning SOP,
 and validate the delivered command examples. Keep detailed governance in that Skill.
+For outbound link-check diagnostics, follow its
+[reader-host interpretation](daymade-docs/docs-cleaner/SKILL.md#updating-references-to-a-file-you-moved-or-deleted).
 After moving a procedure or renaming an anchor, use its
 [delivery-entry replay](daymade-docs/docs-cleaner/references/delivery-entry-replay.md)
 against the consuming instruction-file entry.

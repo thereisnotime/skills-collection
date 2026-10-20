@@ -40,6 +40,7 @@ test('actual CLI closes six excess PRs, locks them, blocks with owner identity, 
       return send(issue);
     }
     if (url.pathname.endsWith('/issues/88') && req.method === 'PATCH') { issue = { ...issue, ...body }; return send(issue); }
+    if (/\/issues\/\d+\/comments$/.test(url.pathname)) return send(req.method === 'GET' ? [] : {});
     if (req.method === 'PATCH' && /\/pulls\/\d+$/.test(url.pathname)) {
       const pr = rows.find(row => row.number === Number(url.pathname.split('/').pop()));
       pr.state = body.state; return send(pr);

@@ -1,13 +1,13 @@
 // A-112: baseline subtract (pre_red never blocks VERIFIED, but only on proof of progress) and A-111b (bare-filename test names).
 import { afterEach, describe, expect, test } from "bun:test";
-import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { depsSeeHead } from "../../src/util/base_guard.ts";
+import { depsSeeHead, isZeroRun } from "../../src/util/base_guard.ts"; import { commandFor } from "../../src/util/check_result.ts";
 import type { RunContext, TestRef } from "../../src/engine10/types.ts";
-import { runCheck, verifyStage } from "../../src/engine10/stages/verify.ts";
+import { probeZeroChecks, runCheck, verifyStage } from "../../src/engine10/stages/verify.ts";
 import { failIds } from "../../src/engine10/failures.ts";
 
 const dirs: string[] = [];
@@ -22,20 +22,21 @@ const git = (d: string, a: string[]): string => execFileSync("git", a, { cwd: d,
 const node = (path: string): TestRef => ({ runner: "node", path }) as TestRef;
 
 /** A repo committed with `base`, then `work` written on top (the implement stage's edit); `impacted` are the selected test files. */
-function repoWith(base: Record<string, string>, work: Record<string, string>, impacted: TestRef[], wall: string[] = [], o: { task?: string; sel?: (files: string[]) => TestRef[] } = {}): { ctx: RunContext; dir: string } {
+function repoWith(base: Record<string, string>, work: Record<string, string>, impacted: TestRef[], wall: string[] = [], o: { task?: string; sel?: (files: string[]) => TestRef[]; noBaseline?: boolean } = {}): { ctx: RunContext; dir: string } {
   const dir = mkdtempSync(join(tmpdir(), "e10-prered-"));
   dirs.push(dir);
   git(dir, ["init", "-q"]); git(dir, ["config", "user.email", "t@t.test"]); git(dir, ["config", "user.name", "t"]);
   for (const [f, c] of Object.entries(base)) { mkdirSync(dirname(join(dir, f)), { recursive: true }); writeFileSync(join(dir, f), c); }
   git(dir, ["add", "-A"]); git(dir, ["commit", "-q", "-m", "base"]);
   const baseSha = git(dir, ["rev-parse", "HEAD"]);
+  const zeroAtIntake = impacted.filter((t) => t.runner === "node").filter((t) => { const c = commandFor(t, dir, null), r = spawnSync(c.cmd, c.args, { cwd: c.cwd, encoding: "utf8" }); return isZeroRun(c, { ok: r.status === 0, cut: false, missing: false, out: `${r.stdout}${r.stderr}` }); }).map((t) => `node:${t.path}`); // the intake zero baseline: measured on the untouched tree before implement runs
   for (const [f, c] of Object.entries(work)) writeFileSync(join(dir, f), c);
   mkdirSync(join(dir, ".loki"), { recursive: true });
   writeFileSync(join(dir, ".loki", "repomap.json"), JSON.stringify({ files: Object.keys(base) }));
   const ctx = {
     repoDir: dir, runDir: join(dir, ".loki"), baseSha, emit: () => {},
     tests: { detect: async () => ({ runners: [], tests: impacted }), impacted: (_m: unknown, files: string[]) => (o.sel ?? ((f: string[]) => (f.length ? impacted.filter((t) => !wall.includes(t.path)) : [])))(files) },
-    outputs: () => ({ intake: { task: o.task ?? "", repomap_ref: join(dir, ".loki", "repomap.json") }, wall: { files: wall.map((path) => ({ path })) } }),
+    outputs: () => ({ intake: { task: o.task ?? "", repomap_ref: join(dir, ".loki", "repomap.json"), ...(o.noBaseline ? {} : { zero_baseline: { measured: impacted.map((t) => `node:${t.path}`), zero: zeroAtIntake } }) }, wall: { files: wall.map((path) => ({ path })) } }),
   } as unknown as RunContext;
   return { ctx, dir };
 }
@@ -228,6 +229,112 @@ describe("engine10 verify: zero executed on base too (FC-ZERO-ON-BASE)", () => {
     const d = (await run(ctx)).data as unknown as Z;
     expect(d.checks.find((c) => c.name === "node:gated.test.js")?.result).toBe("not_run");
     expect(d.skipped_on_base).toEqual([]);
+  }, 60_000);
+});
+
+describe("engine10 verify: a relevant test the repo itself skips (FC-REPO-SKIPPED-TEST-DOWNGRADES)", () => {
+  const SKIPPED = "// deliberately skipped, needs a real DB\n";
+  type Z = Out & { skipped_on_base: string[] };
+  const TASK = "fix sum.js"; // names sum.js, so every impacted test is a relevant (task-named) test
+  const base = { "sum.js": SUM_BUG, "sum.test.js": SUM_TEST, "skip.test.js": SKIPPED };
+  test("a relevant, untouched, wholly skipped file is skipped_on_base even though the run edited source (red before: relevant and source-editing runs were never measured)", async () => {
+    const { ctx } = repoWith(base, { "sum.js": SUM_OK }, [node("sum.test.js"), node("skip.test.js")], [], { task: TASK });
+    const d = (await run(ctx)).data as unknown as Z;
+    expect(d.checks.find((c) => c.name === "node:skip.test.js")?.result).toBe("not_run");
+    expect(d.checks.find((c) => c.name === "node:sum.test.js")?.result).toBe("pass");
+    expect(d.skipped_on_base).toEqual(["node:skip.test.js"]);
+  }, 60_000);
+  test("negative: the skipped file is in the run's diff (edited) stays fail-closed", async () => {
+    const { ctx } = repoWith(base, { "sum.js": SUM_OK, "skip.test.js": SKIPPED + "// edited\n" }, [node("sum.test.js"), node("skip.test.js")], [], { task: TASK });
+    expect(((await run(ctx)).data as unknown as Z).skipped_on_base).toEqual([]);
+  }, 60_000);
+  test("negative: an all-skipped Wall file is never excused, with source edited and the task naming it", async () => {
+    const { ctx } = repoWith(base, { "sum.js": SUM_OK }, [node("sum.test.js"), node("skip.test.js")], ["skip.test.js"], { task: TASK });
+    const d = (await run(ctx)).data as unknown as Z;
+    expect(d.checks.find((c) => c.name === "node:skip.test.js")?.result).toBe("not_run");
+    expect(d.skipped_on_base).toEqual([]);
+  }, 60_000);
+  test("negative: zero on head but tests ran on base (relevant, untouched) stays fail-closed", async () => {
+    const gated = T + "if (!require('./gate.js').off) t('runs on base',()=>{});\n";
+    const { ctx } = repoWith({ "gate.js": "exports.off=false;\n", "gated.test.js": gated }, { "gate.js": "exports.off=true;\n" }, [node("gated.test.js")], [], { task: "fix gate.js" });
+    const d = (await run(ctx)).data as unknown as Z;
+    expect(d.checks.find((c) => c.name === "node:gated.test.js")?.result).toBe("not_run");
+    expect(d.skipped_on_base).toEqual([]);
+  }, 60_000);
+  test("negative: a test configuration edit withholds the excusal", async () => {
+    const { ctx } = repoWith({ ...base, "jest.config.js": "module.exports={};\n" }, { "sum.js": SUM_OK, "jest.config.js": "module.exports={testTimeout:1};\n" }, [node("sum.test.js"), node("skip.test.js")], [], { task: TASK });
+    expect(((await run(ctx)).data as unknown as Z).skipped_on_base).toEqual([]);
+  }, 60_000);
+  test("negative: base not measured (base worktree cannot be created) keeps today's behavior", async () => {
+    const { ctx } = repoWith(base, { "sum.js": SUM_OK }, [node("sum.test.js"), node("skip.test.js")], [], { task: TASK });
+    const c = ctx as unknown as { baseSha: string; repoDir: string }; c.baseSha = git(c.repoDir, ["rev-parse", `${c.baseSha}^{tree}`]); // diffable, but `git worktree add` refuses a tree: the base cannot be materialised
+    const d = (await run(ctx)).data as unknown as Z;
+    expect(d.checks.find((c) => c.name === "node:skip.test.js")?.result).toBe("not_run");
+    expect(d.skipped_on_base).toEqual([]);
+  }, 60_000);
+  const pkg = (deps: Record<string, string>): string => JSON.stringify({ name: "r", dependencies: deps }, null, 2) + "\n";
+  const GATED = T + "let has=true;try{require.resolve('optdep')}catch{has=false}\nif(has) t('runs with optdep',()=>{assert.ok(require('optdep').ok)});\n";
+  const dbase = { ".gitignore": "node_modules\n", "package.json": pkg({ optdep: "1.0.0" }), "node_modules/optdep/index.js": "exports.ok=true;\n", "node_modules/optdep/package.json": "{\"name\":\"optdep\",\"main\":\"index.js\"}\n", "sum.js": SUM_BUG, "sum.test.js": SUM_TEST, "gated.test.js": GATED };
+  const impacted = [node("sum.test.js"), node("gated.test.js")];
+  test("negative (review repro): the run REMOVED the dependency an untouched test needs, so the test is zero on head but runs on the true base: never excused", async () => {
+    const { ctx, dir } = repoWith(dbase, { "sum.js": SUM_OK, "package.json": pkg({}) }, impacted, [], { task: TASK });
+    rmSync(join(dir, "node_modules", "optdep"), { recursive: true, force: true });
+    const d = (await run(ctx)).data as unknown as Z;
+    expect(d.checks.find((c) => c.name === "node:gated.test.js")?.result).toBe("not_run");
+    expect(d.skipped_on_base).toEqual([]);
+  }, 60_000);
+  test("negative (BYPASS1): the run only deletes node_modules/optdep, no manifest or lockfile change: the check ran at intake, so it is not zero there", async () => {
+    const { ctx, dir } = repoWith(dbase, { "sum.js": SUM_OK }, impacted, [], { task: TASK });
+    rmSync(join(dir, "node_modules", "optdep"), { recursive: true, force: true });
+    const d = (await run(ctx)).data as unknown as Z;
+    expect(d.checks.find((c) => c.name === "node:gated.test.js")?.result).toBe("not_run");
+    expect(d.skipped_on_base).toEqual([]);
+  }, 60_000);
+  test("negative (BYPASS2): the dependency moves from dependencies to peerDependencies (no removed line) and is uninstalled", async () => {
+    const shape = (a: string, b: string): string => `{\n  "name": "r",\n  "dependencies": {\n${a}  },\n  "peerDependencies": {\n${b}  }\n}\n`, line = "    \"optdep\": \"1.0.0\"\n"; // every line of the base manifest is still present in head: only the block changes
+    const { ctx, dir } = repoWith({ ...dbase, "package.json": shape(line, "") }, { "sum.js": SUM_OK, "package.json": shape("", line) }, impacted, [], { task: TASK });
+    rmSync(join(dir, "node_modules", "optdep"), { recursive: true, force: true });
+    expect(((await run(ctx)).data as unknown as Z).skipped_on_base).toEqual([]);
+  }, 60_000);
+  test("negative: no intake zero baseline recorded fails closed", async () => {
+    const { ctx } = repoWith(base, { "sum.js": SUM_OK }, [node("sum.test.js"), node("skip.test.js")], [], { task: TASK, noBaseline: true });
+    expect(((await run(ctx)).data as unknown as Z).skipped_on_base).toEqual([]);
+  }, 60_000);
+  test("negative (BYPASS3): the run deletes node_modules/optdep/index.js but keeps its package.json (name@version unchanged): ran at intake, so never excused", async () => {
+    const { ctx, dir } = repoWith(dbase, { "sum.js": SUM_OK }, impacted, [], { task: TASK });
+    rmSync(join(dir, "node_modules", "optdep", "index.js"));
+    expect(((await run(ctx)).data as unknown as Z).skipped_on_base).toEqual([]);
+  }, 60_000);
+  test("negative: a check absent from the intake baseline (not measured there) is withheld even though it is zero on head and on base", async () => {
+    const { ctx } = repoWith(base, { "sum.js": SUM_OK }, [node("sum.test.js"), node("skip.test.js")], [], { task: TASK });
+    const was = ctx.outputs.bind(ctx);
+    (ctx as unknown as { outputs: () => unknown }).outputs = () => { const o = was() as { intake: Record<string, unknown> }; return { ...o, intake: { ...o.intake, zero_baseline: { measured: ["node:sum.test.js"], zero: [] } } }; };
+    expect(((await run(ctx)).data as unknown as Z).skipped_on_base).toEqual([]);
+  }, 60_000);
+  test("positive (FireLater#20 shape): relevant skipped file zero at intake and on head, source edited, dependencies only ADDED in package.json and node_modules: excused", async () => {
+    const { ctx, dir } = repoWith({ ...base, ".gitignore": "node_modules\n", "package.json": pkg({ a: "1" }) }, { "sum.js": SUM_OK, "package.json": pkg({ a: "1", ws: "8.0.0" }) }, [node("sum.test.js"), node("skip.test.js")], [], { task: TASK });
+    mkdirSync(join(dir, "node_modules", "ws"), { recursive: true }); writeFileSync(join(dir, "node_modules", "ws", "package.json"), "{\"name\":\"ws\",\"version\":\"8.0.0\"}\n");
+    expect(((await run(ctx)).data as unknown as Z).skipped_on_base).toEqual(["node:skip.test.js"]);
+  }, 60_000);
+  test("probeZeroChecks (what intake records) measures a skipped file as zero and a real one as not zero", async () => {
+    const { dir } = repoWith(base, {}, [node("sum.test.js"), node("skip.test.js")]);
+    const r = await probeZeroChecks(dir, [node("sum.test.js"), node("skip.test.js")], new AbortController().signal);
+    expect(r).toEqual({ measured: ["node:skip.test.js", "node:sum.test.js"], zero: ["node:skip.test.js"] });
+  }, 60_000);
+  test("a probed test's own untracked byproduct is removed after intake's probe and never reaches the agent diff; a file that pre-existed is kept", async () => {
+    const writer = T + "require('node:fs').writeFileSync('probe-cache.txt','x');t('writes a cache',()=>{});\n";
+    const { dir } = repoWith({ ...base, "writer.test.js": writer }, {}, [node("writer.test.js")]);
+    rmSync(join(dir, "probe-cache.txt"), { force: true }); // repoWith's own sync baseline run already wrote it; intake starts from a tree without it
+    writeFileSync(join(dir, "keep-me.txt"), "pre-existing untracked\n");
+    const r = await probeZeroChecks(dir, [node("writer.test.js")], new AbortController().signal);
+    expect(r.measured).toEqual(["node:writer.test.js"]);
+    expect(existsSync(join(dir, "probe-cache.txt"))).toBe(false);
+    expect(existsSync(join(dir, "keep-me.txt"))).toBe(true);
+    expect(git(dir, ["ls-files", "--others", "--exclude-standard"]).split("\n")).not.toContain("probe-cache.txt");
+  }, 60_000);
+  test("positive: an additions-only manifest edit (FireLater#20 shape, trailing comma moved) keeps the excusal", async () => {
+    const { ctx } = repoWith({ ...base, "package.json": pkg({ optdep: "1.0.0" }) }, { "sum.js": SUM_OK, "package.json": pkg({ optdep: "1.0.0", ws: "8.0.0" }) }, [node("sum.test.js"), node("skip.test.js")], [], { task: TASK });
+    expect(((await run(ctx)).data as unknown as Z).skipped_on_base).toEqual(["node:skip.test.js"]);
   }, 60_000);
 });
 

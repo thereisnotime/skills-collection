@@ -14,9 +14,11 @@ import { intentRevisionsBlock } from "../../src/util/run_outputs.ts";
 import { appendReceiptFact } from "../../src/util/pr_lessons.ts";
 import { sealedLog } from "./log_fixture.ts";
 import { copyFileSync, linkSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process"; import { chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { backstopCommit } from "../../src/e10ext/commit_filter.ts"; import { sealDrift } from "../../src/util/seal_drift.ts";
+import { reviewExtraLimitS } from "../../src/engine10/stages/xreview.ts";
 import { main as verifyMain, verifyReceipt } from "../../src/engine10/verify_cmd.ts";
 import { runMachine } from "../../src/engine10/machine.ts";
 import { costTotalsOf, sumResultCosts } from "../../src/engine10/cost.ts";
@@ -479,6 +481,19 @@ print(load_signing_key(auto_generate=False)[1])`, AUTONOMY, keyFile], root).trim
     expect(r.checks.find((c) => c.name === "node:o.test.js")?.result).toBe("fail"); // never recorded as pass
   }, 30000);
 
+  test("FC-PR-BODY-PUBLIC-HYGIENE: pre_red is set only on a FAILED check named in pre_red_checks", async () => {
+    noKey();
+    const { repo, base } = makeRepo("prered-flag");
+    const chk = (name: string, result: string) => ({ name, cmd: "node --test", result, n: 1, duration_s: 1 });
+    const { ctx } = ctxFor(repo, base, "claude", { verify: { checks: [chk("listed-fail", "fail"), chk("listed-pass", "pass"), chk("unlisted-fail", "fail")], flaky: [], wall_passed: true, pre_red: [], pre_red_checks: ["listed-fail", "listed-pass"] } });
+    await commitStage.run(ctx, new AbortController().signal);
+    const r = receiptOf(await sealStage.run(ctx, new AbortController().signal));
+    const flag = (n: string) => r.checks.find((c) => c.name === n)?.pre_red;
+    expect(flag("listed-fail")).toBe(true);
+    expect(flag("listed-pass")).toBeUndefined();
+    expect(flag("unlisted-fail")).toBeUndefined();
+  }, 30000);
+
   test("FC-ZERO-ON-BASE: a not_run check listed in verify.skipped_on_base is not NOT PROVEN; an unlisted not_run still is", async () => {
     noKey();
     const { repo, base } = makeRepo("zerobase");
@@ -487,8 +502,48 @@ print(load_signing_key(auto_generate=False)[1])`, AUTONOMY, keyFile], root).trim
     await commitStage.run(ctx, new AbortController().signal);
     const r = receiptOf(await sealStage.run(ctx, new AbortController().signal));
     expect(r.not_proven).not.toContain("not run: node:skip.test.js");
-    expect(r.not_proven).toContain("not run: node:other.test.js"); expect(r.not_proven).toContain("skipped on base (excused): node:skip.test.js");
+    expect(r.not_proven).toContain("not run: node:other.test.js"); expect(r.not_proven).toContain("skipped by the repo on base and head: node:skip.test.js");
   }, 30000);
+
+  describe("FC-REPO-SKIPPED-TEST-DOWNGRADES", () => {
+    const pass = { name: "node:a.test.js", cmd: "node --test", result: "pass", n: 1, duration_s: 1 };
+    const skip = { name: "node:skip.test.js", cmd: "node --test", result: "not_run", reason: "no tests executed (ran 0 tests, empty or all skipped)", duration_s: 1 };
+    const run = async (name: string, verify: Record<string, unknown>, over: Record<string, unknown> = {}) => {
+      noKey();
+      const { repo, base } = makeRepo(name);
+      const { ctx } = ctxFor(repo, base, "claude", { verify: { checks: [pass, skip], flaky: [], wall_passed: true, ...verify }, ...over });
+      await commitStage.run(ctx, new AbortController().signal);
+      return receiptOf(await sealStage.run(ctx, new AbortController().signal));
+    };
+    test("control: a not_run check verify did not measure as skipped on base still makes the verdict PARTIAL", async () => {
+      expect((await run("rsk-control", {})).verdict).toBe("PARTIAL");
+    }, 30000);
+    test("a measured repo skip (listed in skipped_on_base) does not downgrade; it stays in the receipt as not_run + repo_skipped, with the non-blocking note", async () => {
+      const r = await run("rsk-ok", { skipped_on_base: [skip.name] });
+      expect(r.verdict).toBe("VERIFIED");
+      expect(r.checks.find((c: { name: string }) => c.name === skip.name)).toMatchObject({ result: "not_run", repo_skipped: true });
+      expect(r.checks.find((c: { name: string }) => c.name === pass.name)!.repo_skipped).toBeUndefined();
+      expect(r.not_proven).toContain("skipped by the repo on base and head: node:skip.test.js");
+      expect(r.not_proven).not.toContain("not run: node:skip.test.js");
+    }, 30000);
+    test("negative: another not_run that is not listed still downgrades", async () => {
+      const r = await run("rsk-other", { skipped_on_base: [skip.name], checks: [pass, skip, { ...skip, name: "node:other.test.js" }] });
+      expect(r.verdict).toBe("PARTIAL"); expect(r.not_proven).toContain("not run: node:other.test.js");
+    }, 30000);
+    test("negative: with the skip excused and no executed passing n>0 check (FC-16) the verdict is not VERIFIED", async () => {
+      const r = await run("rsk-noproof", { skipped_on_base: [skip.name], checks: [skip] });
+      expect(r.verdict).not.toBe("VERIFIED");
+    }, 30000);
+    test("negative: a Wall file named in skipped_on_base is never excused (an all-skipped Wall stays not proven)", async () => {
+      const r = await run("rsk-wall", { skipped_on_base: ["node:tests/skip.test.js"], checks: [pass, { ...skip, name: "node:tests/skip.test.js" }] }, { wall: { files: [{ path: "tests/skip.test.js", sha256: "cd".repeat(32) }] } });
+      expect(r.verdict).toBe("PARTIAL"); expect(r.not_proven).toContain("not run: node:tests/skip.test.js");
+      expect(r.checks.find((c: { name: string }) => c.name === "node:tests/skip.test.js")!.repo_skipped).toBeUndefined();
+    }, 30000);
+    test("negative: a failing check is never excused by skipped_on_base", async () => {
+      const r = await run("rsk-fail", { skipped_on_base: [skip.name], checks: [pass, { ...skip, result: "fail" }] });
+      expect(r.verdict).toBe("FAILED");
+    }, 30000);
+  });
 
   // E-98a B1: verify passing every check must not seal VERIFIED when verify itself flagged a
   // system-interpreter run. Red on pre-B1 code: verdictOf never looked at o.verify.not_proven,
@@ -842,6 +897,18 @@ describe("engine10 receipt not_proven rendering (D50-F2r3)", () => {
     expect(md).toContain("- a 'b' ## Loki receipt: VERIFIED");
     expect(md).not.toContain("\n## Loki receipt");
     expect(md).not.toContain("\x07");
+  });
+});
+describe("FC-PR-BODY-PUBLIC-HYGIENE receipt.md base-red label", () => {
+  test("a pre_red failing check reads already failing on base; a plain fail does not", () => {
+    const r = receiptWithCost({ usd: 0, input_tokens: 0, output_tokens: 0, measured_sessions: 1, total_sessions: 1, partial_usd: 0 });
+    r.checks = [
+      { name: "lint:shellcheck", cmd: "shellcheck a.sh", result: "fail", duration_s: 1, provenance: "exogenous", pre_red: true },
+      { name: "unit", cmd: "bun test", result: "fail", duration_s: 1, provenance: "exogenous" },
+    ];
+    const md = renderReceiptMd(r);
+    expect(md).toContain("- fail (already failing on base, not caused by this change): lint:shellcheck");
+    expect(md).toContain("- fail: unit (");
   });
 });
 describe("engine10 receipt cost line (E-69)", () => {
@@ -1712,4 +1779,224 @@ describe("seal records routing history under the model that ran (P12-32b-c)", ()
     const rows = await sealRows("hist-esc", { implement: impl({ model: "claude-haiku-4-5", route_model: "claude-haiku-4-5" }), fix: { round: 1, model: "claude-sonnet-4-6" } });
     expect(rows.map((r) => r.executor)).toEqual(["sonnet"]);
   }, 30000);
+});
+
+describe("medium default review at seal", () => {
+  const risk = { tier: "medium", checks_selected: ["targeted tests", "lint of changed files", "full test command", "one reviewer"], checks_deferred: ["one reviewer"] };
+  const setup = (name: string, sleepS: number, text = "VERDICT: PASS") => {
+    const { repo, base } = makeRepo(name);
+    writeFileSync(join(repo, "src.js"), "x\n"); sh(["git", "add", "src.js"], repo); sh(["git", "commit", "-q", "-m", "agent wip"], repo);
+    mkdirSync(join(repo, ".loki", "state"), { recursive: true }); writeFileSync(join(repo, ".loki", "state", "risk-tier.json"), JSON.stringify({ tier: "medium" }));
+    const stub = join(repo, "..", `${name}-claude`); writeFileSync(stub, `#!/bin/sh\nsleep ${sleepS}\nprintf '%s\\n' '{"type":"result","result":"${text}"}'\n`); chmodSync(stub, 0o755);
+    const { ctx } = ctxFor(repo, base, "claude", { verify: { checks: [{ name: "pytest", cmd: "pytest -q", result: "pass", n: 1, duration_s: 1 }], flaky: [], wall_passed: true, duration_s: 2, risk } });
+    return { ctx, stub };
+  };
+  const withEnv = async (stub: string, extra: Record<string, string>, f: () => Promise<void>) => {
+    const keys = ["LOKI_REVIEW_PROVIDER", "LOKI_XVENDOR_DEFAULT", "LOKI_CLAUDE_CLI", "LOKI_E10_REVIEW_BOX_S"], saved = keys.map((k) => process.env[k]);
+    for (const k of keys) delete process.env[k];
+    process.env["LOKI_CLAUDE_CLI"] = stub; Object.assign(process.env, extra); noKey();
+    try { await f(); } finally { keys.forEach((k, i) => { const v = saved[i]; if (v === undefined) delete process.env[k]; else process.env[k] = v; }); }
+  };
+  const sealed = async (ctx: RunContext, limitS: number) => {
+    const o = ctx.outputs(), stages: Record<string, typeof sealStage> = { seal: { ...sealStage, limitS } };
+    for (const n of ["intake", "wall", "implement", "verify"] as const) stages[n] = { name: n, targetS: 1, limitS: 5, run: async () => ({ status: "completed" as const, data: o[n] ?? {} }) };
+    return runMachine(ctx as never, { flow: ["intake", "wall", "implement", "verify", "seal"], load: async (n: StageName) => stages[n] ?? null });
+  };
+  test("slow reviewer keeps receipt: a review longer than seal's own limit still seals, and the receipt names it", async () => {
+    const { ctx, stub } = setup("slowrev", 3);
+    await withEnv(stub, { LOKI_E10_REVIEW_BOX_S: "30" }, async () => {
+      const r = await sealed(ctx, 1);
+      expect(r.outputs.seal).toBeDefined();
+      const rc = receiptOf({ data: r.outputs.seal as Record<string, unknown> }) as unknown as { review?: Record<string, unknown> };
+      expect(rc.review).toEqual({ provider: "claude", vendor_differs: false, same_vendor: true, defaulted: true, level: "pass" });
+    });
+  }, 60000);
+  test("slow reviewer keeps receipt: a review past its box is not_run, seal still writes the receipt", async () => {
+    const { ctx, stub } = setup("slowrev-box", 5);
+    await withEnv(stub, { LOKI_E10_REVIEW_BOX_S: "1" }, async () => {
+      const r = await sealed(ctx, 1);
+      expect(r.outputs.seal).toBeDefined();
+      const rc = receiptOf({ data: r.outputs.seal as Record<string, unknown> }) as unknown as { review?: Record<string, unknown> };
+      expect(rc.review?.level).toBe("not_run");
+    });
+  }, 60000);
+  test("slow reviewer keeps receipt: a non-exec wrapper is killed as a group within the box and leaves no grandchild", async () => {
+    const { ctx, stub } = setup("wrap", 0), pidf = `${stub}.pid`;
+    writeFileSync(stub, `#!/bin/sh\nsleep 45 &\necho $! > ${pidf}\nwait\necho VERDICT: PASS\n`);
+    await withEnv(stub, { LOKI_E10_REVIEW_BOX_S: "1" }, async () => {
+      const t0 = Date.now(), r = await sealed(ctx, 1);
+      expect(r.outputs.seal).toBeDefined();
+      expect(Date.now() - t0).toBeLessThan(25000);
+      const rc = receiptOf({ data: r.outputs.seal as Record<string, unknown> }) as unknown as { review?: Record<string, unknown> };
+      expect(rc.review?.level).toBe("not_run");
+      expect(() => process.kill(Number(readFileSync(pidf, "utf8").trim()), 0)).toThrow();
+    });
+  }, 60000);
+  test("slow reviewer keeps receipt: a run with little time left before the backstop spawns no review and clamps seal's extra limit", async () => {
+    const { ctx, stub } = setup("lowtime", 0), mark = `${stub}.ran`;
+    writeFileSync(stub, `#!/bin/sh\ntouch ${mark}\nprintf '%s\\n' '{"type":"result","result":"VERDICT: PASS"}'\n`);
+    await withEnv(stub, {}, async () => {
+      expect(reviewExtraLimitS(ctx)).toBe(330);
+      ctx.capS = 100; expect(reviewExtraLimitS(ctx)).toBeLessThan(100); expect(reviewExtraLimitS(ctx)).toBeGreaterThan(0);
+      ctx.capS = 60; expect(reviewExtraLimitS(ctx)).toBe(0);
+      const s = await sealStage.run(ctx, new AbortController().signal), rc = receiptOf(s) as unknown as { review?: Record<string, unknown> };
+      expect(existsSync(mark)).toBe(false);
+      expect(rc.review?.level).toBe("not_run");
+      expect(receiptOf(s).not_proven.join(" | ")).toContain("insufficient run time");
+    });
+  }, 60000);
+  test("seal passes reviewRan through: a default review that ran credits one reviewer, an opt-out does not", async () => {
+    const a = setup("rr-on", 0), b = setup("rr-off", 0);
+    const notProven = async (c: typeof a, env: Record<string, string>) => { let np: string[] = []; await withEnv(c.stub, env, async () => { const s = await sealStage.run(c.ctx, new AbortController().signal); np = receiptOf(s).not_proven; }); return np.join(" | "); };
+    expect(await notProven(a, {})).not.toContain("one reviewer");
+    expect(await notProven(b, { LOKI_REVIEW_PROVIDER: "none" })).toContain("one reviewer");
+  }, 60000);
+  // FC-FULL-SUITE-EXIT-CODED-SCRIPT: claude-code#81826 sealed PARTIAL on a proven change because the full suite was a CI checker script
+  const seal2 = async (name: string, full: Record<string, unknown>) => {
+    const { repo, base } = makeRepo(name);
+    writeFileSync(join(repo, "src.js"), "x\n"); sh(["git", "add", "src.js"], repo); sh(["git", "commit", "-q", "-m", "agent wip"], repo);
+    mkdirSync(join(repo, ".loki", "state"), { recursive: true }); writeFileSync(join(repo, ".loki", "state", "risk-tier.json"), JSON.stringify({ tier: "medium" }));
+    const stub = join(repo, "..", `${name}-claude`); writeFileSync(stub, `#!/bin/sh\nprintf '%s\\n' '{"type":"result","result":"VERDICT: PASS"}'\n`); chmodSync(stub, 0o755);
+    const checks = [{ name: "node:tests/wall.test.ts", cmd: "node --test tests/wall.test.ts", result: "pass", n: 7, duration_s: 1 }, { cmd: "x", duration_s: 1, ...full }];
+    const { ctx } = ctxFor(repo, base, "claude", { verify: { checks, flaky: [], wall_passed: true, duration_s: 2, risk } });
+    let out: { verdict: unknown; np: string[] } = { verdict: null, np: [] };
+    await withEnv(stub, {}, async () => { const s = await sealStage.run(ctx, new AbortController().signal); out = { verdict: s.data.verdict, np: receiptOf(s).not_proven }; });
+    return out;
+  };
+  test("a Wall pass with n>0 plus an exit-coded full suite seals VERIFIED and the review credits one reviewer", async () => {
+    const r = await seal2("fc-exit-coded", { name: "full suite: repo-root", cmd: "python3 .github/scripts/check_workflow_hardening.py", result: "pass", count: "n/a (exit-coded check, not a test runner)" });
+    expect(r.np.join(" | ")).not.toContain("full suite");
+    expect(r.np.join(" | ")).not.toContain("one reviewer");
+    expect(r.verdict).toBe("VERIFIED");
+  }, 60000);
+  test("control: the same run with an UNMEASURED framework full suite stays PARTIAL and the reviewer is not credited", async () => {
+    const r = await seal2("fc-unmeasured", { name: "full suite: repo-root", cmd: "python3 -m pytest", result: "not_run", reason: "executed count unmeasured (Loki could not parse the runner summary, harness-owned)" });
+    expect(r.verdict).toBe("PARTIAL");
+    expect(r.np.join(" | ")).toContain("one reviewer");
+  }, 60000);
+});
+
+describe("FC-VERIFIED-PR-WITHOUT-ITS-TEST a VERIFIED run publishes the sealed Wall that passed", () => {
+  const REL = "tests/loki_wall_x.test.ts", NAME = `bun:${REL}`, SEALED = "// sealed wall\n", AGENT = "// agent edited it\n";
+  const sha = (s: string): string => createHash("sha256").update(s).digest("hex");
+  const git = (repo: string, ...a: string[]): string => sh(["git", ...a], repo);
+  /** Repo with a product change (a.txt), the Wall file in the tree (agent bytes), its sealed copy under runDir/wall, and verify outputs for it. */
+  async function run(name: string, o: { sealedSha?: string; result?: string; target?: string[]; verifyNotProven?: string[]; env?: Record<string, string>; productEdit?: boolean } = {}) {
+    noKey();
+    const { repo, base } = makeRepo(name);
+    if (o.productEdit === false) git(repo, "checkout", "--", "a.txt");
+    mkdirSync(join(repo, "tests"), { recursive: true }); writeFileSync(join(repo, REL), AGENT);
+    const { ctx } = ctxFor(repo, base, "claude", {
+      wall: { files: [{ path: join(repo, REL), sha256: o.sealedSha ?? sha(SEALED) }], base_run: { pass: 0, fail: 1, not_run: 0 } },
+      verify: { checks: [{ name: NAME, cmd: `bun test ${REL}`, result: o.result ?? "pass", n: 2, duration_s: 1 }], target_checks: o.target ?? [NAME], flaky: [], wall_passed: (o.result ?? "pass") === "pass", duration_s: 1, ...(o.verifyNotProven ? { not_proven: o.verifyNotProven } : {}) },
+    });
+    mkdirSync(join(ctx.runDir, "wall"), { recursive: true }); writeFileSync(join(ctx.runDir, "wall/loki_wall_x.test.ts"), SEALED);
+    const prev = Object.fromEntries(Object.keys(o.env ?? {}).map((k) => [k, process.env[k]])); Object.assign(process.env, o.env ?? {});
+    try {
+      await commitStage.run(ctx, new AbortController().signal);
+      const productHead = git(repo, "rev-parse", "HEAD").trim(), s = await sealStage.run(ctx, new AbortController().signal);
+      return { repo, base, ctx, s, r: receiptOf(s), productHead, head: git(repo, "rev-parse", "HEAD").trim() };
+    } finally { for (const [k, v] of Object.entries(prev)) if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  const names = (repo: string, a: string, b: string) => git(repo, "diff", "--name-only", a, b).trim().split("\n").filter(Boolean);
+
+  test("VERIFIED: the sealed Wall file is committed in a child commit, the receipt still binds the product head and diff", async () => {
+    const x = await run("fcv-ok");
+    expect(x.s.data.verdict).toBe("VERIFIED");
+    expect(x.head).not.toBe(x.productHead);
+    expect(git(x.repo, "rev-parse", "HEAD^").trim()).toBe(x.productHead);
+    expect(names(x.repo, x.productHead, x.head)).toEqual([REL]);
+    expect(git(x.repo, "show", `HEAD:${REL}`)).toBe(SEALED); // the sealed bytes, never the agent's copy
+    expect(readFileSync(join(x.repo, REL), "utf8")).toBe(SEALED);
+    expect(x.r.head_sha).toBe(x.productHead);
+    expect(names(x.repo, x.base, x.r.head_sha)).toEqual(["a.txt"]); // the sealed product diff holds no Wall file
+    expect(x.s.data.wall_published).toEqual({ files: [REL], cmds: [`bun test ${REL}`] });
+    expect(git(x.repo, "log", "-1", "--format=%B")).toContain("Loki-Wall-Publish: r1");
+    expect(x.r.diff_sha256).toBe(sha(git(x.repo, "diff-tree", "-r", "-z", "--raw", "--no-renames", "--no-abbrev", "-O/dev/null", x.base, x.productHead, "--", ".", ":(exclude).loki")));
+  }, 30000);
+  test("the receipt is identical in tree and diff to the opt-out run (Wall is never product)", async () => {
+    const on = await run("fcv-on"), off = await run("fcv-off", { env: { LOKI_COMMIT_WALL: "0" } });
+    expect(on.r.diff_sha256).toBe(off.r.diff_sha256); expect(on.r.tree).toBe(off.r.tree);
+    expect(off.head).toBe(off.productHead); expect(off.s.data.wall_published).toBeUndefined(); // LOKI_COMMIT_WALL=0 restores the old behavior
+    expect(git(off.repo, "ls-files", REL).trim()).toBe("");
+  }, 60000);
+  test("a sealed copy that does not hash to the sealed sha256 is not published and is NOT PROVEN", async () => {
+    const x = await run("fcv-mismatch", { sealedSha: "ab".repeat(32) });
+    expect(x.head).toBe(x.productHead); expect(x.s.data.wall_published).toBeUndefined();
+    expect(x.r.not_proven.some((n) => n.includes("Wall test not published") && n.includes(REL))).toBe(true);
+  }, 30000);
+  test("a Wall file that failed, or is not in verify's passing target checks, stays dropped", async () => {
+    const f = await run("fcv-failed", { result: "fail" }), n = await run("fcv-notarget", { target: [] });
+    for (const x of [f, n]) { expect(x.head).toBe(x.productHead); expect(x.s.data.wall_published).toBeUndefined(); expect(git(x.repo, "ls-files", REL).trim()).toBe(""); }
+  }, 60000);
+  test("PARTIAL keeps today's behavior: nothing published", async () => {
+    const x = await run("fcv-partial", { verifyNotProven: ["some gap"] });
+    expect(x.s.data.verdict).toBe("PARTIAL"); expect(x.head).toBe(x.productHead); expect(x.s.data.wall_published).toBeUndefined();
+  }, 30000);
+  test("a Wall-only change (no product diff) is FAILED and publishes nothing", async () => {
+    const x = await run("fcv-wallonly", { productEdit: false });
+    expect(x.s.data.verdict).toBe("FAILED"); expect(x.head).toBe(x.base); expect(x.s.data.wall_published).toBeUndefined();
+  }, 30000);
+  test("re-sealing after the publish commit keeps the receipt on the product head (idempotent)", async () => {
+    const x = await run("fcv-reseal"), again = await sealStage.run(x.ctx, new AbortController().signal);
+    expect(receiptOf(again).head_sha).toBe(x.productHead); expect(receiptOf(again).diff_sha256).toBe(x.r.diff_sha256);
+    expect(git(x.repo, "rev-list", "--count", `${x.base}..HEAD`).trim()).toBe("2"); // product + one Wall commit, not two
+  }, 30000);
+  test("backstopCommit (killed or crashed worker) still drops Wall files", () => {
+    const { repo, base } = makeRepo("fcv-backstop"); mkdirSync(join(repo, "tests"), { recursive: true }); writeFileSync(join(repo, REL), SEALED);
+    backstopCommit(repo, process.env, "r1", base, undefined);
+    expect(names(repo, base, "HEAD")).toEqual(["a.txt"]); expect(git(repo, "ls-files", REL).trim()).toBe("");
+  }, 30000);
+});
+
+describe("FC-VERIFIED-PR-WITHOUT-ITS-TEST review block: hooks, sealed bytes, forged trailer, drift", () => {
+  const REL = "tests/loki_wall_x.test.ts", NAME = `bun:${REL}`, SEALED = "// sealed wall\n";
+  const sha = (s: string): string => createHash("sha256").update(s).digest("hex");
+  const git = (repo: string, ...a: string[]): string => sh(["git", ...a], repo);
+  const hook = (repo: string, body: string): void => { const h = join(repo, ".git/hooks/pre-commit"); mkdirSync(dirname(h), { recursive: true }); writeFileSync(h, `#!/bin/sh\n${body}\n`); chmodSync(h, 0o755); };
+  async function run(name: string, pre?: (repo: string) => void) {
+    noKey();
+    const { repo, base } = makeRepo(name);
+    mkdirSync(join(repo, "tests"), { recursive: true }); writeFileSync(join(repo, REL), "// agent\n");
+    const { ctx } = ctxFor(repo, base, "claude", {
+      wall: { files: [{ path: join(repo, REL), sha256: sha(SEALED) }], base_run: { pass: 0, fail: 1, not_run: 0 } },
+      verify: { checks: [{ name: NAME, cmd: `bun test ${REL}`, result: "pass", n: 2, duration_s: 1 }], target_checks: [NAME], flaky: [], wall_passed: true, duration_s: 1 },
+    });
+    mkdirSync(join(ctx.runDir, "wall"), { recursive: true }); writeFileSync(join(ctx.runDir, "wall/loki_wall_x.test.ts"), SEALED);
+    await commitStage.run(ctx, new AbortController().signal);
+    pre?.(repo);
+    const s = await sealStage.run(ctx, new AbortController().signal);
+    return { repo, ctx, s, r: receiptOf(s) };
+  }
+  const tree = (repo: string): string[] => git(repo, "ls-tree", "-r", "--name-only", "HEAD").trim().split("\n");
+
+  test("a pre-commit hook that adds evil.js and rewrites the Wall file never runs: the child holds exactly the sealed bytes", async () => {
+    const { repo } = await run("fc-hook-evil", (r) => hook(r, `echo evil > evil.js; git add evil.js; echo '// extra' >> ${REL}; git add ${REL}`));
+    expect(tree(repo)).not.toContain("evil.js");
+    expect(git(repo, "show", `HEAD:${REL}`)).toBe(SEALED);
+    expect(git(repo, "diff", "--name-only", "HEAD^", "HEAD").trim()).toBe(REL);
+  });
+
+  test("a formatter-style hook that only reformats the Wall file leaves the sealed bytes committed", async () => {
+    const { repo } = await run("fc-hook-fmt", (r) => hook(r, `printf '// reformatted\\n' > ${REL}; git add ${REL}`));
+    expect(git(repo, "show", `HEAD:${REL}`)).toBe(SEALED);
+  });
+
+  test("a forged Loki-Wall-Publish trailer on a commit that adds another file is not a re-seal child: the receipt binds that HEAD", async () => {
+    const { repo, ctx, r } = await run("fc-forged");
+    expect(r["head_sha"]).toBe(git(repo, "rev-parse", "HEAD^").trim());
+    writeFileSync(join(repo, "evil.js"), "x"); git(repo, "add", "evil.js");
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "forged", "-m", `Loki-Wall-Publish: ${ctx.runId}`);
+    const forged = git(repo, "rev-parse", "HEAD").trim(), s2 = await sealStage.run(ctx, new AbortController().signal);
+    expect(receiptOf(s2)["head_sha"]).toBe(forged);
+  });
+
+  test("seal_drift: the genuine Wall child is benign; a trailer-bearing commit with a non-Wall file is drift", async () => {
+    const { repo, ctx, s, r } = await run("fc-drift");
+    const rp = String(s.data["receipt_path"]);
+    expect(sealDrift(rp, r as unknown as Record<string, unknown>)).toBeNull();
+    writeFileSync(join(repo, "evil.js"), "x"); git(repo, "add", "evil.js");
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "child", "-m", `Loki-Wall-Publish: ${ctx.runId}`);
+    expect(sealDrift(rp, r as unknown as Record<string, unknown>)?.verdict).toBe("UNCHECKED");
+  });
 });

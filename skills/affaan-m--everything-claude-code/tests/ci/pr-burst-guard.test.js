@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { evaluate, moderate, githubAPI, listPages, strongestWindow } = require('../../scripts/ci/pr-burst-guard');
+const { evaluate, moderate, githubAPI, listPages, strongestWindow, capExcess } = require('../../scripts/ci/pr-burst-guard');
 
-const policy = { windowMinutes: 20, closeAbove: 5, blockAbove: 10, deniedUserIDs: [999], notify: ['maintainer'] };
+const policy = { windowMinutes: 20, closeAbove: 5, blockAbove: 10, maxOpen: 10, deniedUserIDs: [999], notify: ['maintainer'] };
 const start = Date.parse('2026-10-14T19:00:00Z');
 const pull = (number, extra = {}) => ({ number, user: { id: 42, login: 'contributor' },
   created_at: new Date(start + number * 1000).toISOString(), state: 'open', ...extra });
@@ -18,14 +18,15 @@ function fixture(n, options = {}) {
     if (route === '/repos/owner/repo') return { owner: { login: 'owner', type: 'User' } };
     if (route.endsWith(`/pulls/${n}`)) return rows.find(p => p.number === n);
     if (route.includes('/collaborators/')) return { permission: options.permission || 'read' };
-    if (route.includes('/pulls?')) return rows.slice().reverse();
+    if (route.includes('/pulls?')) return rows.filter(p => !route.includes('state=open') || p.state === 'open').slice().reverse();
     if (route.includes('/issues?')) return issue ? [issue] : [];
+    if (/\/issues\/\d+\/comments\?/.test(route) && method === 'GET') return options.comments || [];
     if (route.endsWith('/issues') && method === 'POST') {
       issue = { number: 101, user: { login: 'github-actions[bot]' }, ...body };
       return issue;
     }
     if (route.endsWith('/issues/101') && method === 'PATCH') { issue = { ...issue, ...body }; return issue; }
-    if (route.endsWith('/issues/101/comments')) return {};
+    if (route.endsWith('/comments') && method === 'POST') return {};
     if (method === 'PATCH') return {};
     if (method === 'PUT') return {};
     throw new Error(`Unexpected ${method} ${route}`);
@@ -176,6 +177,66 @@ test('closure failure still creates an alert with enforcement errors', async () 
   };
   assert.match((await moderate(f.args)).errors[0], /close denied/);
   assert(f.calls.some(c => c.method === 'POST' && c.body.body.includes('close denied')));
+});
+
+// Spread PRs one hour apart so the burst window never fires; only the open-PR cap applies.
+const spread = (n, extra = {}) => Array.from({ length: n }, (_, i) => pull(i + 1,
+  { created_at: new Date(start + i * 3600000).toISOString(), ...extra }));
+
+test('open-PR cap keeps the oldest ten open and closes the rest, newest first', () => {
+  const result = capExcess(spread(12), spread(12)[11], policy);
+  assert.equal(result.openCount, 12);
+  assert.deepEqual(result.capExcess.map(p => p.number), [11, 12]);
+  const closed = spread(12).map((p, i) => i < 3 ? { ...p, state: 'closed' } : p);
+  assert.equal(capExcess(closed, closed[11], policy).openCount, 9);
+  assert.equal(capExcess(spread(12), spread(12)[11], policy, new Set([11, 12])).capExcess.length, 0);
+  assert.equal(capExcess(spread(12, { user: { id: 7, login: 'other' } }), pull(1), policy).openCount, 1);
+});
+
+test('cap closes with an explanatory comment, no lock, no maintainer alert, and never comments twice', async () => {
+  const rows = spread(11);
+  const f = fixture(11, { rows });
+  const result = await moderate(f.args);
+  assert.equal(result.count, 1);
+  assert.deepEqual(result.capExcess.map(p => p.number), [11]);
+  assert(f.calls.some(c => c.method === 'PATCH' && c.route.endsWith('/pulls/11') && c.body.state === 'closed'));
+  const comment = f.calls.find(c => c.method === 'POST' && c.route.endsWith('/issues/11/comments'));
+  assert.match(comment.body.body, /11 open pull requests.*limit of 10/);
+  assert.equal(f.calls.filter(c => c.route.endsWith('/lock')).length, 0);
+  assert.equal(f.calls.filter(c => c.method === 'POST' && c.route.endsWith('/issues')).length, 0);
+  const again = fixture(11, { rows, comments: [{ user: { login: 'github-actions[bot]' }, body: comment.body.body }] });
+  await moderate(again.args);
+  assert.equal(again.calls.filter(c => c.method === 'POST').length, 0);
+  // A contributor-authored lookalike comment cannot suppress the explanation.
+  const spoofed = fixture(11, { rows, comments: [{ user: { login: 'contributor' }, body: comment.body.body }] });
+  await moderate(spoofed.args);
+  assert.equal(spoofed.calls.filter(c => c.method === 'POST').length, 1);
+});
+
+test('cap counts open PRs after burst closures, so one run never closes a PR twice', async () => {
+  const rows = [...spread(9), ...pulls(6).map(p => ({ ...p, number: p.number + 9,
+    created_at: new Date(start + 24 * 3600000 + p.number * 1000).toISOString() }))];
+  const f = fixture(15, { rows });
+  const result = await moderate(f.args);
+  assert.equal(result.count, 6);
+  assert.deepEqual(result.excess.map(p => p.number), [15]);
+  assert.equal(result.openCount, 14);
+  assert.deepEqual(result.capExcess.map(p => p.number), [11, 12, 13, 14]);
+  assert.equal(f.calls.filter(c => c.method === 'PATCH' && c.route.endsWith('/pulls/15')).length, 1);
+});
+
+test('cap dry run reports the excess without mutating; collaborators are exempt from the cap', async () => {
+  const f = fixture(12, { rows: spread(12), dryRun: true });
+  assert.deepEqual((await moderate(f.args)).capExcess.map(p => p.number), [11, 12]);
+  assert(f.calls.every(c => c.method === 'GET'));
+  const w = fixture(12, { rows: spread(12), permission: 'write' });
+  assert.equal((await moderate(w.args)).exempt, true);
+  assert.equal(w.calls.filter(c => c.method !== 'GET').length, 0);
+});
+
+test('policy requires a positive integer maxOpen', () => {
+  assert.throws(() => capExcess([], pull(1), { ...policy, maxOpen: 0 }), /maxOpen/);
+  assert.throws(() => capExcess([], pull(1), { ...policy, maxOpen: undefined }), /maxOpen/);
 });
 
 test('reports only moderation metadata, never PR bodies or titles', async () => {

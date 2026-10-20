@@ -24,7 +24,7 @@ import { buildMcpConfigArgv } from "./mcp_config.ts";
 // module so engine10 stages and runner/quality_gates.ts share one value without
 // the stages importing the SDK invoker.
 export const REVIEW_GUARD_DENYLIST =
-  "Edit,Write,NotebookEdit,Bash(git commit:*),Bash(git reset:*),Bash(git push:*),Bash(git checkout:*),Bash(git clean:*),Bash(git rm:*),Bash(git stash:*),Bash(git -C:*),Bash(git --git-dir:*),Bash(git -c:*)";
+  "Edit,Write,NotebookEdit,Bash(git commit:*),Bash(git reset:*),Bash(git push:*),Bash(git checkout:*),Bash(git clean:*),Bash(git rm:*),Bash(git stash:*),Bash(git -C:*),Bash(git --git-dir:*),Bash(git -c:*),Bash(git --exec-path:*),Bash(git diff --output:*),Bash(git diff --output=:*),Bash(git diff --ext-diff:*),Bash(git diff --no-index:*),Bash(git log --output:*),Bash(git log --output=:*),Bash(git log --ext-diff:*),Bash(git show --output:*),Bash(git show --output=:*),Bash(git show --ext-diff:*),Bash(git blame --output:*),Bash(git blame --output=:*),Bash(rg --pre:*),Bash(rg --pre=:*),Bash(rg --pre-glob:*),Bash(rg --pre-glob=:*),Bash(rg --hostname-bin:*),Bash(rg --hostname-bin=:*),Bash(find -delete:*),Bash(find -exec:*),Bash(find -execdir:*),Bash(find -ok:*),Bash(find -fprint:*),Bash(find -fprintf:*),Bash(find -fls:*),Bash(git * --output*),Bash(git * --ext-diff*),Bash(git * --no-index*),Bash(rg * --pre*),Bash(rg * --hostname-bin*),Bash(rg --pre*),Bash(rg --hostname-bin*),Bash(find * -delete*),Bash(find * -exec*),Bash(find * -execdir*),Bash(find * -fprint*),Bash(find * -fls*),Bash(find * -ok*)";
 
 export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -336,7 +336,13 @@ export function reviewerModelForTier(opts: {
 
 // Lean child flags for a text-only reviewer. `--tools=` MUST stay one argument:
 // the option is variadic, so `--tools ""` swallows the trailing prompt.
+//
+// `tools` (default "" = no tools) names the built-in tools a reviewer keeps, as one
+// comma-separated `--tools=A,B` argument. FC-XREVIEW-BLIND-TOOLS: an empty list
+// disables every tool (init event shows "tools":[]), so an allowlist is moot.
 export function leanReviewerFlags(opts: {
+  tools?: string;
+  settingSources?: string; // "" loads no source (not repo, not user: permissions.allow, hooks, CLAUDE.md)
   env?: Record<string, string | undefined>;
   flagSupported?: (flag: string) => boolean;
 } = {}): string[] {
@@ -347,11 +353,11 @@ export function leanReviewerFlags(opts: {
   if (env["LOKI_BARE_SUBCALLS"] !== "0" && (env["ANTHROPIC_API_KEY"] ?? "").trim() !== "" && ok("--bare")) {
     out.push("--bare");
   } else {
-    if (ok("--setting-sources")) out.push("--setting-sources", "project");
+    if (ok("--setting-sources")) out.push("--setting-sources", opts.settingSources ?? "project");
     if (ok("--strict-mcp-config")) out.push("--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}');
     if (ok("--disable-slash-commands")) out.push("--disable-slash-commands");
   }
-  if (ok("--tools")) out.push("--tools=");
+  if (ok("--tools")) out.push(`--tools=${opts.tools ?? ""}`);
   return out;
 }
 
@@ -544,6 +550,11 @@ export function sessionStampArgv(runId?: string, iteration?: number): string[] {
 // ---------------------------------------------------------------------------
 export const REVIEW_ALLOWLIST_TOKEN =
   "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git blame:*),Bash(cat:*),Bash(ls:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(head:*),Bash(tail:*),Bash(wc:*)";
+
+// The shared allowlist minus every git entry: git status/diff/show/log run programs named by
+// the repo's own .git/config and attributes (core.fsmonitor, diff drivers, textconv), so a
+// reviewer that must not mutate the worktree gets no git at all (FC-XREVIEW-BLIND-TOOLS).
+export const REVIEW_ALLOWLIST_NO_GIT = REVIEW_ALLOWLIST_TOKEN.split(",").filter((t) => !t.startsWith("Bash(git ")).join(",");
 
 // Emit the --allowedTools least-privilege grant on reviewer/voter subcalls?
 // DEFAULT ON; opt OUT with LOKI_REVIEW_ALLOWLIST=0; gated on CLI support.

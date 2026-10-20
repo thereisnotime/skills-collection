@@ -22662,11 +22662,11 @@
   "coreyhaines31--marketingskills": [
     {
       "name": "analytics",
-      "description": "When the user wants to set up, improve, or audit analytics tracking and measurement. Also use when the user mentions \"set up tracking,\" \"GA4,\" \"Google Analytics,\" \"conversion tracking,\" \"event trackin",
+      "description": "When the user wants to set up, improve, or audit analytics tracking and measurement. Also use when the user mentions \"set up tracking,\" \"GA4,\" \"Google Analytics,\" \"event tracking,\" \"UTM parameters,\" \"",
       "path": "coreyhaines31--marketingskills/skills/analytics/SKILL.md",
       "remote_path": "skills/analytics/SKILL.md",
-      "lines": 368,
-      "words": 2030,
+      "lines": 369,
+      "words": 2065,
       "code_blocks": 5,
       "languages": [
         "javascript",
@@ -22710,6 +22710,16 @@
       "remote_path": "skills/lead-magnets/SKILL.md",
       "lines": 313,
       "words": 1773,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "link-building",
+      "description": "\"When the user wants to earn backlinks or third-party mentions that lift rankings and AI citations. Also use when the user mentions 'link building,' 'linkbuilding,' 'backlinks,' 'get more backlinks,' ",
+      "path": "coreyhaines31--marketingskills/skills/link-building/SKILL.md",
+      "remote_path": "skills/link-building/SKILL.md",
+      "lines": 172,
+      "words": 2133,
       "code_blocks": 0,
       "languages": []
     },
@@ -22788,8 +22798,8 @@
       "description": "When the user wants to submit their product to startup, SaaS, AI, agent, MCP, no-code, or review directories for backlinks, domain rating, and discovery. Also use when the user mentions \"directory sub",
       "path": "coreyhaines31--marketingskills/skills/directory-submissions/SKILL.md",
       "remote_path": "skills/directory-submissions/SKILL.md",
-      "lines": 402,
-      "words": 4105,
+      "lines": 403,
+      "words": 4121,
       "code_blocks": 0,
       "languages": []
     },
@@ -22842,6 +22852,16 @@
       ]
     },
     {
+      "name": "conversion-tracking",
+      "description": "Set up, audit, verify, or fix website conversion tracking. Use when the conversion is a form submission, booked meeting, chat, phone call, signup, or purchase; when conversions must reach Google Ads, ",
+      "path": "coreyhaines31--marketingskills/skills/conversion-tracking/SKILL.md",
+      "remote_path": "skills/conversion-tracking/SKILL.md",
+      "lines": 169,
+      "words": 4968,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
       "name": "emails",
       "description": "When the user wants to create or optimize an email sequence, drip campaign, automated email flow, or lifecycle email program. Also use when the user mentions \"email sequence,\" \"drip campaign,\" \"nurtur",
       "path": "coreyhaines31--marketingskills/skills/emails/SKILL.md",
@@ -22886,8 +22906,8 @@
       "description": "When the user wants to plan a content strategy, decide what content to create, or figure out what topics to cover. Also use when the user mentions \"content strategy,\" \"what should I write about,\" \"con",
       "path": "coreyhaines31--marketingskills/skills/content-strategy/SKILL.md",
       "remote_path": "skills/content-strategy/SKILL.md",
-      "lines": 442,
-      "words": 2834,
+      "lines": 445,
+      "words": 2871,
       "code_blocks": 2,
       "languages": []
     },
@@ -22916,8 +22936,8 @@
       "description": "\"When the user wants help with paid advertising campaigns on Google Ads, Meta (Facebook/Instagram), LinkedIn, Twitter/X, or other ad platforms. Also use when the user mentions 'PPC,' 'paid media,' 'RO",
       "path": "coreyhaines31--marketingskills/skills/ads/SKILL.md",
       "remote_path": "skills/ads/SKILL.md",
-      "lines": 479,
-      "words": 4218,
+      "lines": 478,
+      "words": 4251,
       "code_blocks": 2,
       "languages": []
     },
@@ -22936,8 +22956,8 @@
       "description": "When the user wants to plan, evaluate, or build a free tool for marketing purposes \u2014 lead generation, SEO value, or brand awareness. Also use when the user mentions \"engineering as marketing,\" \"free t",
       "path": "coreyhaines31--marketingskills/skills/free-tools/SKILL.md",
       "remote_path": "skills/free-tools/SKILL.md",
-      "lines": 191,
-      "words": 1104,
+      "lines": 192,
+      "words": 1118,
       "code_blocks": 0,
       "languages": []
     },
@@ -22998,8 +23018,8 @@
       "description": "\"When the user wants help with public relations, earned media, press coverage, journalist outreach, or media strategy (not pull requests). Also use when the user mentions 'PR,' 'press,' 'press release",
       "path": "coreyhaines31--marketingskills/skills/public-relations/SKILL.md",
       "remote_path": "skills/public-relations/SKILL.md",
-      "lines": 155,
-      "words": 1415,
+      "lines": 158,
+      "words": 1455,
       "code_blocks": 0,
       "languages": []
     },
@@ -23008,8 +23028,8 @@
       "description": "\"When the user wants to optimize content for AI search engines, get cited by LLMs, or appear in AI-generated answers. Also use when the user mentions 'AI SEO,' 'AEO,' 'GEO,' 'LLMO,' 'answer engine opt",
       "path": "coreyhaines31--marketingskills/skills/ai-seo/SKILL.md",
       "remote_path": "skills/ai-seo/SKILL.md",
-      "lines": 500,
-      "words": 5142,
+      "lines": 501,
+      "words": 5239,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -23030,8 +23050,8 @@
       "description": "\"When the user wants to research, profile, or analyze competitors from their URLs. Also use when the user mentions 'competitor profile,' 'competitor research,' 'competitor analysis,' 'profile this com",
       "path": "coreyhaines31--marketingskills/skills/competitor-profiling/SKILL.md",
       "remote_path": "skills/competitor-profiling/SKILL.md",
-      "lines": 441,
-      "words": 2460,
+      "lines": 442,
+      "words": 2473,
       "code_blocks": 4,
       "languages": [
         "markdown"
@@ -23063,7 +23083,7 @@
       "path": "coreyhaines31--marketingskills/skills/attribution/SKILL.md",
       "remote_path": "skills/attribution/SKILL.md",
       "lines": 228,
-      "words": 3375,
+      "words": 3379,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -23074,8 +23094,8 @@
       "description": "When the user wants to audit, review, or diagnose SEO issues on their site. Also use when the user mentions \"SEO audit,\" \"technical SEO,\" \"why am I not ranking,\" \"SEO issues,\" \"on-page SEO,\" \"meta tag",
       "path": "coreyhaines31--marketingskills/skills/seo-audit/SKILL.md",
       "remote_path": "skills/seo-audit/SKILL.md",
-      "lines": 497,
-      "words": 2585,
+      "lines": 498,
+      "words": 2597,
       "code_blocks": 0,
       "languages": []
     },
@@ -23667,8 +23687,8 @@
       "description": "Find web sources with query-relevant page excerpts and optional full-page content, and discover workflows, data APIs, and indexes. Use for web research or finding structured records, listings, transcr",
       "path": "firecrawl--cli/skills/firecrawl-search/SKILL.md",
       "remote_path": "skills/firecrawl-search/SKILL.md",
-      "lines": 145,
-      "words": 1671,
+      "lines": 149,
+      "words": 1864,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -26588,6 +26608,18 @@
       ]
     },
     {
+      "name": "arabic-text",
+      "description": "Arabic, Persian, Urdu and Hebrew text - base direction, word and letter animation that keeps Arabic letters joined, fonts.",
+      "path": "remotion-dev--skills/skills/remotion-markup/arabic-text.md",
+      "remote_path": "skills/remotion-markup/arabic-text.md",
+      "lines": 89,
+      "words": 658,
+      "code_blocks": 2,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
       "name": "fonts",
       "description": "Loading Google Fonts and local fonts in Remotion",
       "path": "remotion-dev--skills/skills/remotion-markup/google-fonts.md",
@@ -26681,12 +26713,10 @@
       "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
       "path": "remotion-dev--skills/skills/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-markup/sequencing.md",
-      "lines": 52,
-      "words": 215,
-      "code_blocks": 2,
-      "languages": [
-        "tsx"
-      ]
+      "lines": 29,
+      "words": 171,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "calculate-metadata",
@@ -26757,13 +26787,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 472,
-      "words": 1946,
-      "code_blocks": 7,
+      "lines": 320,
+      "words": 1464,
+      "code_blocks": 4,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "transitions",
@@ -26822,7 +26852,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/effects.md",
       "remote_path": "skills/remotion-markup/effects.md",
       "lines": 281,
-      "words": 1115,
+      "words": 1123,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -26875,14 +26905,14 @@
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
       "remote_path": "skills/remotion-interactivity/SKILL.md",
-      "lines": 459,
-      "words": 2113,
-      "code_blocks": 17,
+      "lines": 333,
+      "words": 1593,
+      "code_blocks": 13,
       "languages": [
         "sh",
         "tsx"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "get-audio-duration",
@@ -26929,7 +26959,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-maps",
@@ -26940,7 +26970,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-studio",
@@ -26953,7 +26983,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-docs",
@@ -26964,7 +26994,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "display-captions",
@@ -27003,7 +27033,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "rendering",
@@ -27036,7 +27066,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "framework",
@@ -27071,7 +27101,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-best-practices",
@@ -27084,7 +27114,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "tailwind",
@@ -27107,7 +27137,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-upgrade",
@@ -27120,7 +27150,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-maps",
@@ -27131,7 +27161,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "maps-mapbox",
@@ -27226,6 +27256,18 @@
       ]
     },
     {
+      "name": "arabic-text",
+      "description": "Arabic, Persian, Urdu and Hebrew text - base direction, word and letter animation that keeps Arabic letters joined, fonts.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/arabic-text.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/arabic-text.md",
+      "lines": 89,
+      "words": 658,
+      "code_blocks": 2,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
       "name": "fonts",
       "description": "Loading Google Fonts and local fonts in Remotion",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/google-fonts.md",
@@ -27256,13 +27298,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 472,
-      "words": 1946,
-      "code_blocks": 7,
+      "lines": 320,
+      "words": 1464,
+      "code_blocks": 4,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "text-highlights",
@@ -27332,12 +27374,10 @@
       "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/sequencing.md",
-      "lines": 52,
-      "words": 215,
-      "code_blocks": 2,
-      "languages": [
-        "tsx"
-      ]
+      "lines": 29,
+      "words": 171,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "calculate-metadata",
@@ -27460,7 +27500,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/effects.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/effects.md",
       "lines": 281,
-      "words": 1115,
+      "words": 1123,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -27513,14 +27553,14 @@
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
-      "lines": 459,
-      "words": 2113,
-      "code_blocks": 17,
+      "lines": 333,
+      "words": 1593,
+      "code_blocks": 13,
       "languages": [
         "sh",
         "tsx"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-multimedia",
@@ -27531,7 +27571,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "get-audio-duration",
@@ -27578,7 +27618,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-studio",
@@ -27591,7 +27631,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-docs",
@@ -27602,7 +27642,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-captions",
@@ -27615,7 +27655,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "display-captions",
@@ -27652,7 +27692,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "rendering",
@@ -27695,7 +27735,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "transparent-videos",
@@ -27722,7 +27762,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "tailwind",
@@ -27745,7 +27785,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "remotion-maps",
@@ -27756,7 +27796,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.536"
+      "version": "4.0.537"
     },
     {
       "name": "maps-mapbox",
@@ -29038,122 +29078,6 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 113,
-      "words": 1134,
-      "code_blocks": 2,
-      "languages": [
-        "sh"
-      ]
-    },
-    {
-      "name": "stripe-pay",
-      "description": ">-",
-      "path": "stripe--ai/providers/codex/plugin/skills/stripe-pay/SKILL.md",
-      "remote_path": "providers/codex/plugin/skills/stripe-pay/SKILL.md",
-      "lines": 62,
-      "words": 622,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "upgrade-stripe",
-      "description": ">-",
-      "path": "stripe--ai/providers/codex/plugin/skills/upgrade-stripe/SKILL.md",
-      "remote_path": "providers/codex/plugin/skills/upgrade-stripe/SKILL.md",
-      "lines": 200,
-      "words": 1226,
-      "code_blocks": 9,
-      "languages": [
-        "bash",
-        "html",
-        "javascript",
-        "python",
-        "ruby"
-      ]
-    },
-    {
-      "name": "stripe-best-practices",
-      "description": ">-",
-      "path": "stripe--ai/providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
-      "remote_path": "providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
-      "lines": 80,
-      "words": 827,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "stripe-projects",
-      "description": ">",
-      "path": "stripe--ai/providers/codex/plugin/skills/stripe-projects/SKILL.md",
-      "remote_path": "providers/codex/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 152,
-      "words": 1040,
-      "code_blocks": 10,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
-      "name": "connect-recommend",
-      "description": ">-",
-      "path": "stripe--ai/providers/codex/plugin/skills/connect-recommend/SKILL.md",
-      "remote_path": "providers/codex/plugin/skills/connect-recommend/SKILL.md",
-      "lines": 362,
-      "words": 3161,
-      "code_blocks": 12,
-      "languages": []
-    },
-    {
-      "name": "stripe-apps",
-      "description": ">-",
-      "path": "stripe--ai/providers/codex/plugin/skills/stripe-apps/SKILL.md",
-      "remote_path": "providers/codex/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 79,
-      "words": 990,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "stripe-docs",
-      "description": ">-",
-      "path": "stripe--ai/providers/codex/plugin/skills/stripe-docs/SKILL.md",
-      "remote_path": "providers/codex/plugin/skills/stripe-docs/SKILL.md",
-      "lines": 48,
-      "words": 191,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
-      "name": "metronome",
-      "description": ">-",
-      "path": "stripe--ai/providers/codex/plugin/skills/metronome/SKILL.md",
-      "remote_path": "providers/codex/plugin/skills/metronome/SKILL.md",
-      "lines": 79,
-      "words": 1487,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "connect-required-verification-information",
-      "description": ">-",
-      "path": "stripe--ai/providers/codex/plugin/skills/connect-required-verification-information/SKILL.md",
-      "remote_path": "providers/codex/plugin/skills/connect-required-verification-information/SKILL.md",
-      "lines": 413,
-      "words": 3499,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "json",
-        "mermaid"
-      ]
-    },
-    {
-      "name": "stripe-directory",
-      "description": ">-",
-      "path": "stripe--ai/providers/codex/plugin/skills/stripe-directory/SKILL.md",
-      "remote_path": "providers/codex/plugin/skills/stripe-directory/SKILL.md",
       "lines": 113,
       "words": 1134,
       "code_blocks": 2,
@@ -45291,8 +45215,8 @@
       "description": "Governance, risk, and compliance \u2014 risk assessment and scoring, control",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/19-grc-compliance/SKILL.md",
       "remote_path": "skills/19-grc-compliance/SKILL.md",
-      "lines": 191,
-      "words": 1321,
+      "lines": 206,
+      "words": 1436,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -45323,8 +45247,8 @@
       "description": "Proof-of-concept development, payload crafting, shellcode analysis, and",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/03-exploit-development/SKILL.md",
       "remote_path": "skills/03-exploit-development/SKILL.md",
-      "lines": 386,
-      "words": 1742,
+      "lines": 392,
+      "words": 1804,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -45353,8 +45277,8 @@
       "description": "Software supply chain security \u2014 SBOM generation and analysis, dependency",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/20-supply-chain-security/SKILL.md",
       "remote_path": "skills/20-supply-chain-security/SKILL.md",
-      "lines": 223,
-      "words": 1656,
+      "lines": 226,
+      "words": 1697,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -45382,8 +45306,8 @@
       "description": "Android and iOS application security testing \u2014 static and dynamic analysis,",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/17-mobile-security/SKILL.md",
       "remote_path": "skills/17-mobile-security/SKILL.md",
-      "lines": 195,
-      "words": 1187,
+      "lines": 204,
+      "words": 1261,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -45415,8 +45339,8 @@
       "description": "Operational Technology and industrial control system security \u2014 Purdue",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/18-ot-ics-security/SKILL.md",
       "remote_path": "skills/18-ot-ics-security/SKILL.md",
-      "lines": 186,
-      "words": 1303,
+      "lines": 195,
+      "words": 1368,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -45472,8 +45396,8 @@
       "description": "LLM and AI application security testing \u2014 prompt injection, jailbreak",
       "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/16-ai-llm-security/SKILL.md",
       "remote_path": "skills/16-ai-llm-security/SKILL.md",
-      "lines": 215,
-      "words": 1506,
+      "lines": 238,
+      "words": 1689,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -157055,11 +156979,11 @@
     },
     {
       "name": "scrapling-skill",
-      "description": "Install, troubleshoot, and use Scrapling CLI to extract HTML, Markdown, or text from webpages. Use this skill whenever the user mentions Scrapling, `uv tool install scrapling`, `scrapling extract`, We",
+      "description": ">-",
       "path": "daymade--claude-code-skills/scrapling-skill/SKILL.md",
       "remote_path": "scrapling-skill/SKILL.md",
-      "lines": 184,
-      "words": 839,
+      "lines": 190,
+      "words": 881,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -157132,8 +157056,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/marketplace-health-check/SKILL.md",
       "remote_path": "marketplace-health-check/SKILL.md",
-      "lines": 98,
-      "words": 1211,
+      "lines": 105,
+      "words": 1518,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -157192,8 +157116,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 834,
-      "words": 9887,
+      "lines": 847,
+      "words": 10013,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -157241,8 +157165,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/qa-expert/SKILL.md",
       "remote_path": "qa-expert/SKILL.md",
-      "lines": 309,
-      "words": 1563,
+      "lines": 318,
+      "words": 1628,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -157318,8 +157242,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/SKILL.md",
       "remote_path": "app-evolver/SKILL.md",
-      "lines": 165,
-      "words": 1255,
+      "lines": 178,
+      "words": 1392,
       "code_blocks": 0,
       "languages": []
     },
@@ -157356,8 +157280,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/llm-eval-harness/SKILL.md",
       "remote_path": "llm-eval-harness/SKILL.md",
-      "lines": 319,
-      "words": 2657,
+      "lines": 330,
+      "words": 2747,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -157379,8 +157303,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/report-with-html/SKILL.md",
       "remote_path": "report-with-html/SKILL.md",
-      "lines": 677,
-      "words": 7177,
+      "lines": 686,
+      "words": 7243,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -157570,7 +157494,7 @@
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
       "lines": 508,
-      "words": 8653,
+      "words": 8649,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -157678,8 +157602,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/slides-creator/SKILL.md",
       "remote_path": "slides-creator/SKILL.md",
-      "lines": 31,
-      "words": 122,
+      "lines": 23,
+      "words": 149,
       "code_blocks": 0,
       "languages": []
     },
@@ -157804,8 +157728,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 123,
-      "words": 1837,
+      "lines": 207,
+      "words": 2917,
       "code_blocks": 0,
       "languages": []
     },
@@ -157815,7 +157739,7 @@
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
       "lines": 308,
-      "words": 5908,
+      "words": 5933,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -158111,9 +158035,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 369,
-      "words": 2959,
-      "code_blocks": 7,
+      "lines": 419,
+      "words": 3361,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ]
@@ -158123,8 +158047,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/marketplace-dev/SKILL.md",
       "remote_path": "daymade-claude-code/marketplace-dev/SKILL.md",
-      "lines": 470,
-      "words": 2945,
+      "lines": 459,
+      "words": 2787,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -158435,8 +158359,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/asr-transcribe-to-text/SKILL.md",
       "remote_path": "daymade-audio/asr-transcribe-to-text/SKILL.md",
-      "lines": 988,
-      "words": 7397,
+      "lines": 993,
+      "words": 7437,
       "code_blocks": 39,
       "languages": [
         "bash",
@@ -158448,8 +158372,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 451,
-      "words": 6155,
+      "lines": 453,
+      "words": 6262,
       "code_blocks": 0,
       "languages": []
     },
@@ -158470,8 +158394,8 @@
       "description": "",
       "path": "daymade--claude-code-skills/.github/ISSUE_TEMPLATE/bug_report.md",
       "remote_path": ".github/ISSUE_TEMPLATE/bug_report.md",
-      "lines": 57,
-      "words": 173,
+      "lines": 48,
+      "words": 169,
       "code_blocks": 1,
       "languages": []
     },
@@ -158512,8 +158436,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/references/implementation-and-acceptance.md",
       "remote_path": "app-evolver/references/implementation-and-acceptance.md",
-      "lines": 138,
-      "words": 1106,
+      "lines": 153,
+      "words": 1252,
       "code_blocks": 0,
       "languages": []
     },
@@ -158634,8 +158558,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/data-visualization-discipline/references/operational-state-matrix.md",
       "remote_path": "data-visualization-discipline/references/operational-state-matrix.md",
-      "lines": 48,
-      "words": 142,
+      "lines": 53,
+      "words": 169,
       "code_blocks": 0,
       "languages": []
     },
@@ -158681,8 +158605,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/ppt-creator/SKILL.md",
       "remote_path": "daymade-docs/ppt-creator/SKILL.md",
-      "lines": 33,
-      "words": 115,
+      "lines": 24,
+      "words": 147,
       "code_blocks": 0,
       "languages": []
     },
@@ -158727,8 +158651,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/docs-router/SKILL.md",
       "remote_path": "daymade-docs/docs-router/SKILL.md",
-      "lines": 71,
-      "words": 694,
+      "lines": 70,
+      "words": 689,
       "code_blocks": 0,
       "languages": []
     },
@@ -158749,8 +158673,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/docs-cleaner/SKILL.md",
       "remote_path": "daymade-docs/docs-cleaner/SKILL.md",
-      "lines": 790,
-      "words": 7771,
+      "lines": 805,
+      "words": 7942,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -159006,8 +158930,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/materialization-budget.md",
       "remote_path": "daymade-skill/skill-creator/references/materialization-budget.md",
-      "lines": 199,
-      "words": 1458,
+      "lines": 209,
+      "words": 1571,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -159075,8 +158999,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/existing-skill-migration.md",
       "remote_path": "daymade-skill/skill-creator/references/existing-skill-migration.md",
-      "lines": 267,
-      "words": 5298,
+      "lines": 271,
+      "words": 5362,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -159109,8 +159033,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/publishing-and-packaging.md",
       "remote_path": "daymade-skill/skill-creator/references/publishing-and-packaging.md",
-      "lines": 285,
-      "words": 3188,
+      "lines": 299,
+      "words": 3354,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -159176,8 +159100,8 @@
       "description": "Transport-neutral addressing, Claude UDS and Codex live/queued delivery, message envelopes, and receiver-side verification.",
       "path": "daymade--claude-code-skills/peer-message/references/protocol-and-discovery.md",
       "remote_path": "peer-message/references/protocol-and-discovery.md",
-      "lines": 317,
-      "words": 1480,
+      "lines": 324,
+      "words": 1560,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -178570,16 +178494,6 @@
       "lines": 34,
       "words": 211,
       "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
       "languages": []
     },
     {

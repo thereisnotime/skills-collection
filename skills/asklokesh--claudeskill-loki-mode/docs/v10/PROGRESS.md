@@ -2644,3 +2644,51 @@ v11.17.21 published (Release success on 462fbc40a; npm latest 11.17.21, next 11.
 
 ## 2026-10-19T10:57Z (CoS) v11.17.90
 - 11.17.90: TEN-COST-63 d7d600ca4 (Wall -oor re-ask gated on ctx.overCap, red 0/1 -> green 1/0) and TEN-QUALITY-43 07f0f0594 (authorModel rename). TL APPROVE: 5 suites 192 pass 0 fail, tsc no engine10 errors.
+
+## 2026-10-19T12:02Z (CoS) v11.17.91
+- 11.17.91: fix-forward for Tests run 39241305385 on 2f69291d4 (never_below_raw L1 static guard 3 fail: authorModel flagged as unvetted pin). Reverted 405ea194b (TEN-QUALITY-43 rename); never_below_raw+wall+fc23 120 pass 0 fail. TEN-QUALITY-43 reopened: the guard vets the model shorthand, so a rename needs a guard update.
+
+## 2026-10-19T12:12Z (CoS) v11.17.92
+- 11.17.92: medium default same-vendor review (FC-MEDIUM-REVIEWER-UNCREDITED sibling) d40a36677+378bfa1c6+7822aafeb as r3 2abb45519. HIGH APPROVE round 3 after two BLOCKs (seal 60s limit; group kill + backstop clamp). Case D replay: receipt not_run in 5227ms, no orphan. Gates 436/0 (11 files), never_below_raw+l0_guard 19/0, spawn env guards 7/0, tsc clean (control-plane filtered). Follow-ups: bounded pipe drain for setsid grandchild (P2), Number.isFinite guard on roomS.
+
+## 2026-10-19T12:36Z (CoS) v11.17.93
+- 11.17.93: FC-WALL-PHANTOM-PATH walk-up sibling, 4d7b7abf4 + 1de873678 (cherry-picks of 09fef8ead, 3e2b7b492). HIGH opus review round 1 BLOCK (FP-A..D2 reproduced), round 2 APPROVE: gate 210/0 + tests/util 461/0, tsc 0 non-control-plane, 3 mutations red. Field case run e10-20261019T121849Z-848d reports plugins/ralph-loop.
+
+## 2026-10-19T13:25Z (CoS) v11.17.94
+- 11.17.94: FC-OUTCOME-FLOOD 6e48cea46 (from 29cf26410; field run e10-20261019T130749Z-f11c FireLater#20 printed ~300 pre-red entries). TL APPROVE: digest input untouched, dedupe mutation 5 red, gate 872 pass 0 fail, tsc clean.
+
+## 2026-10-19T13:43Z (CoS) v11.17.95
+- 11.17.95: FC-WALL-LOCATION-BLIND c3fbc4f4c+10226edf6 (from ff9d5c9d3+9807b3401; field run e10-20261019T130749Z-f11c FireLater#20). HIGH APPROVE round 2: 7 repro cases, 5 mutations red, 838 pass 0 fail; merged-tree gate 789 pass 0 fail.
+
+## 2026-10-19T13:53Z (CoS) v11.17.96
+- 11.17.96: FC-XREVIEW-BLIND-TOOLS bf2b129d8..2a08304d5 (from 54ffc9f0c..74ac1f558; field run #81826 NOT PROVEN 'tool output came back empty'). HIGH APPROVE round 4: python3/curl denied, cat ok, empty-source tokens equal project baseline, 3 mutations red; merged-tree gate 856 pass 0 fail, tsc clean.
+
+## 2026-10-19T13:56Z (CoS) v11.17.97
+- 11.17.97: FC-PR-BODY-PUBLIC-HYGIENE ad8547c68..b8e2c29dc (from f22146704..11b26e039; field run #81826 PR body). HIGH APPROVE round 3: E/I/FireLater17/#81826 kept, M7/M8/M9 red; merged-tree gate 898 pass 0 fail, tsc clean.
+
+## 2026-10-19T14:48Z (CoS) v11.17.98
+- 11.17.98: FC-CP-DENYLIST-DRIFT 6d8767316 (main CI red since 11.17.96: control-plane ask_policy parity + CP-04). TL APPROVE; control-plane package 539 pass 0 fail, tests/test-control-plane.sh 33 passed 0 failed.
+
+## 2026-10-19T16:47Z (CoS) v11.17.99
+- 11.17.99: one batched release per founder directive. FC-WALL-PROOF-PACKAGE-BLIND (opus APPROVE r2), FC-REVIEWER-GIT-CONFIG-EXEC (opus APPROVE r3), engine10 budget fix, plus CI pruned to release.yml (1fc608f34). Targeted suites 203 pass 0 fail; tests/util 476/0; tsc clean. Full bun suite hung past 1700s (no verdict).
+
+## 2026-10-19T17:09Z (CoS) v11.17.100
+- 11.17.100: FC-WALL-FILE-OWNS-EVERY-PACKAGE (opus HIGH review). claude-code#81826 on 11.17.99 sealed PARTIAL on untouched package `scripts` because the root Wall file read as owned by every test-less package. monorepo_cwd 38/0 (red on HEAD 2739c8e26: 1 fail), tsc clean.
+
+## 2026-10-19T18:37Z (CoS) v11.17.101
+- 11.17.101: FC-TRUSTED-PUSH-PARTIAL-CLONE (opus HIGH APPROVE; trusted-push-agent-config 62/0, engine10-push-gitlab 25/0). claude-code#81826 on 11.17.100 sealed VERIFIED but the fork push failed rc=1 in a partial clone.
+
+## 2026-10-19T19:00Z (CoS) v11.17.102
+- 11.17.102: FC-VERIFIED-PR-WITHOUT-ITS-TEST (opus HIGH APPROVE after hook BLOCK; seal 121/0, pr_body_golden 17/0, log_seal 19/0) and FC-FULL-SUITE-EXIT-CODED-SCRIPT (opus HIGH APPROVE; check_result 31/0, monorepo_cwd 39/0). claude-code#81826 draft rerun on 11.17.101 sealed PARTIAL on an exit-coded checker script.
+
+## 2026-10-19T19:33Z (CoS) v11.17.103
+- 11.17.103: FC-REPO-SKIPPED-TEST-DOWNGRADES (opus HIGH APPROVE x4), FC-FULL-SUITE-EXIT-CODED-SCRIPT attribution (opus HIGH APPROVE; harness_intelligence 108/0) and FC-UNOWNED-FILE-OWNED-BY-TESTLESS-PACKAGE (opus HIGH APPROVE; monorepo_cwd 42/0, red 37/5). claude-code#81826 on 11.17.102 sealed PARTIAL on an unowned plugin file; FireLater#20 on 11.17.100 sealed PARTIAL on a repo-skipped suite.
+
+## 2026-10-20T01:40Z (CoS) v11.18.0 checkpoint, session paused to Wednesday
+- Founder: release a minor checkpoint and pause until Wednesday. Weekly usage measured at 91.0% (stop line 92%).
+- claude-code#81826: the verified fix (base-10 round-trip overflow check, 7/7 acceptance, bash -n OK) is pushed fast-forward to fork PR asklokesh/claude-code#1, head 3a4d482, with an updated body. The upstream repo only accepts PRs from collaborators, so the fork PR is how it gets delivered.
+- Filed asklokesh/loki-mode #229-#238 (class issues: run isolation, publish integrity, runner from the owning package, risk tier, decomposition, unmapped start flag, weakened-test false positive, Wall proven vs committed path).
+- Resume Wednesday:
+  1. Re-run `loki start asklokesh/loki-mode#233` in a fresh clone, using an engine built from the candidate fix. The installed engine cannot verify a fix to its own runner selection.
+  2. Before any #233 release, require the full loki-ts `bun test` and an opus HIGH review.
+  3. Then work #238, #236, #237, #234, #235 and #230-#232 under #229.

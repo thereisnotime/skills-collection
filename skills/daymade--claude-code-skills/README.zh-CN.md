@@ -14,20 +14,6 @@
 
 专业的 Claude Code 技能市场，提供生产就绪的技能，用于增强开发工作流。
 
-## 📑 目录
-
-- [🌟 必备技能：skill-creator](#-必备技能skill-creator)
-- [🚀 快速安装](#-快速安装)
-- [🇨🇳 中国用户指南](#-中国用户指南)
-- [📦 其他可用技能](#-其他可用技能)
-- [🎬 交互式演示画廊](#-交互式演示画廊)
-- [🎯 使用场景](#-使用场景)
-- [📚 文档](#-文档)
-- [🛠️ 系统要求](#️-系统要求)
-- [❓ 常见问题](#-常见问题)
-- [🤝 贡献](#-贡献)
-- [📄 许可证](#-许可证)
-
 ---
 
 ## 🌟 必备技能：skill-creator
@@ -132,7 +118,7 @@ claude plugin install daymade-skill@daymade-skills
 
 **macOS/Linux：**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/daymade/claude-code-skills/main/scripts/install.sh | bash
+bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/daymade/claude-code-skills/main/scripts/install.sh | bash'
 ```
 
 **Windows (PowerShell)：**
@@ -177,7 +163,7 @@ claude plugin install daymade-docs@daymade-skills
 
 这些技能以套件形式整体发布，不再提供单独的单技能插件。所有文档技能都在 `daymade-docs/` 下，随套件一起安装。
 自动选择由 `docs-router` 负责；各专业技能的原有命令仍可手动调用。
-`ppt-creator` 仅供手动兼容调用；已安装 `deck-creator` 时由它处理新建演示文稿。
+使用保留的 PPT 命令前，先读[兼容通告](./daymade-docs/ppt-creator/SKILL.md)。
 
 **Apple 平台套件**（为 macOS/iOS 开发与运维提供统一命名空间）：
 ```bash
@@ -438,7 +424,7 @@ CC-Switch 支持以下中国 AI 服务提供商：
 
 按输入和交付格式选择套件内的专业技能，读取该技能的完整说明及当前任务所需参考资料。
 覆盖文档转换、Word/PDF 制作、Mermaid 图片、macOS Excel 自动化、扫描件、DOCX 审阅提取和文档整理。
-专业技能的原命令保留手动调用；已安装 `deck-creator` 时由它处理新建演示文稿，`ppt-creator` 仅供手动兼容调用。
+专业技能的原命令保留手动调用；使用旧 PPT 命令前，先读[兼容通告](./daymade-docs/ppt-creator/SKILL.md)。
 
 ---
 
@@ -461,10 +447,6 @@ CC-Switch 支持以下中国 AI 服务提供商：
 - Windows/WSL 路径自动化
 - Confluence 导出处理
 - 路径转换和图片提取辅助脚本
-
-**🎬 实时演示**
-
-![Markdown 工具演示](./demos/doc-to-markdown/convert-docs.gif)
 
 ---
 
@@ -683,10 +665,6 @@ claude plugin install ghostty-use@daymade-skills
 - DNS、缓存和防火墙诊断
 - 代理方法，配有可选的辅助脚本
 
-**🎬 实时演示**
-
-![Cloudflare 故障排除演示](./demos/cloudflare-troubleshooting/diagnose-redirect-loop.gif)
-
 ---
 
 ### **ui-designer** - UI 设计系统提取器
@@ -714,42 +692,10 @@ claude plugin install ghostty-use@daymade-skills
 
 ---
 
-### **ppt-creator** - 专业演示文稿创建
 
-> **安装**：`claude plugin install daymade-docs@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-docs:ppt-creator`）
+### **ppt-creator** - 兼容通告
 
-使用金字塔原理和断言-证据框架创建专业幻灯片。
-
-**使用场景：**
-- 从主题或文档创建演示文稿
-- 生成带有数据可视化的幻灯片
-- 创建推介演讲、业务评审或主题演讲
-- 应用说服性叙事结构
-- 生成完整的 PPTX 文件和演讲备注
-
-**主要功能：**
-- 金字塔原理结构（结论 → 理由 → 证据）
-- 断言-证据幻灯片框架
-- 自动数据合成和图表生成（matplotlib）
-- 双路径 PPTX 创建（Marp CLI + document-skills:pptx）
-- 完整编排：内容 → 数据 → 图表 → 带图表的 PPTX
-- 每张幻灯片 45-60 秒演讲备注
-- 质量评分和自动改进（目标：75/100）
-
-**示例用法：**
-```bash
-# 从主题创建演示文稿
-"为季度业务回顾创建一个演示文稿"
-
-# 从文档生成幻灯片
-"从这个产品规格文档创建一个推介演讲"
-```
-
-**🎬 实时演示**
-
-*即将推出*
-
-📚 **文档**：参见 [daymade-docs/ppt-creator/references/WORKFLOW.md](./daymade-docs/ppt-creator/references/WORKFLOW.md) 了解 9 阶段创建流程
+使用旧 `daymade-docs:ppt-creator` 命令前，先读[退役与安装兼容通告](./daymade-docs/ppt-creator/SKILL.md)。
 
 ---
 
@@ -905,9 +851,9 @@ python3 scripts/compare.py original.mp4 compressed.mp4 -o report.html --interval
 
 ---
 
-### **qa-expert** - 综合 QA 测试基础设施
+### **qa-expert** - QA 测试计划、执行与报告
 
-使用自主 LLM 执行、Google 测试标准和 OWASP 安全最佳实践建立世界级 QA 测试流程。
+使用 AAA 测试结构和 OWASP 安全类别，建立测试用例、执行跟踪、缺陷报告和 QA 交接流程。
 
 **使用场景：**
 - 为新项目或现有项目设置 QA 基础设施
@@ -915,48 +861,35 @@ python3 scripts/compare.py original.mp4 compressed.mp4 -o report.html --interval
 - 实施安全测试（OWASP Top 10 覆盖）
 - 执行具有自动进度跟踪的综合测试计划
 - 使用适当的 P0-P4 严重性分类提交错误
-- 计算质量指标和执行质量门禁
-- 启用自主 LLM 驱动的测试执行（100 倍加速）
+- 计算质量指标并评估项目发布条件
+- 启用自主 LLM 驱动的测试执行
 - 为第三方团队交接准备 QA 文档
 
 **主要功能：**
-- **一键初始化**：使用模板、CSV 和文档完成 QA 基础设施
-- **自主执行**：主提示使 LLM 能够自动执行所有测试、自动跟踪结果、自动提交错误
-- **Google 测试标准**：AAA 模式合规性、90% 覆盖率目标、快速失败验证
-- **OWASP 安全测试**：90% Top 10 覆盖，具有特定攻击向量
-- **质量门禁执行**：100% 执行、≥80% 通过率、0 个 P0 错误、≥80% 代码覆盖率
+- **一条命令初始化**：创建 QA 目录、模板和示例 CSV
+- **自主执行**：按项目批准的计划执行，跟踪结果并记录缺陷
+- **运行时兼容性**：将适配器输出与目标运行时的实际语义对照，区分模拟输入与原生执行
+- **发布验收**：依项目发布政策判断；总体通过率不能抵消关键用户任务失败
 - **基本事实原则**：防止文档/CSV 同步问题（测试文档 = 权威来源）
 - **错误跟踪**：P0-P4 分类，详细重现步骤和环境信息
-- **第 1 天入职**：新 QA 工程师的 5 小时指南
-- **30+ LLM 提示**：用于特定 QA 任务的即用型提示
-- **指标仪表板**：测试执行进度、通过率、错误分析、质量门禁状态
+- **入职指南**：帮助新 QA 工程师接手项目
+- **LLM 提示**：用于特定 QA 任务的提示
+- **指标报告**：测试执行进度、通过率、关联缺陷和内置检查结果
 
 **示例用法：**
 ```bash
-# 初始化 QA 项目（创建完整基础设施）
-python3 scripts/init_qa_project.py my-app ./
+# 从已加载的 Skill 定位 qa-expert-dir；使用全新的项目根目录
+uv run "<qa-expert-dir>/scripts/init_qa_project.py" my-app "<project-root>"
 
-# 计算质量指标和门禁状态
-python3 scripts/calculate_metrics.py tests/TEST-EXECUTION-TRACKING.csv
-
-# 对于自主执行，从以下位置复制主提示：
-# references/master_qa_prompt.md → 粘贴到 LLM → 在 5 周内自动执行 342 个测试
+# 测试执行后生成指标报告
+uv run "<qa-expert-dir>/scripts/calculate_metrics.py" "<project-root>/tests/docs/templates/TEST-EXECUTION-TRACKING.csv"
 ```
 
-**🎬 实时演示**
+初始化只创建模板。执行前需替换示例行、提供测试规范并验证项目测试工具。准备、恢复和交接按[执行 SOP](./qa-expert/references/master_qa_prompt.md)进行。指标命令只报告结果，不决定能否发布。
 
-*即将推出*
+📚 **文档**：从 [qa-expert](./qa-expert/SKILL.md) 进入测试选择、执行和报告流程。
 
-📚 **文档**：参见 [qa-expert/references/](./qa-expert/references/)：
-- `master_qa_prompt.md` - 自主执行的单一命令（100 倍加速）
-- `google_testing_standards.md` - AAA 模式、覆盖率阈值、OWASP 测试
-- `day1_onboarding.md` - 新 QA 工程师的 5 小时入职时间表
-- `ground_truth_principle.md` - 防止文档/CSV 同步问题
-- `llm_prompts_library.md` - 30+ 即用型 QA 提示
-
-**要求**：Python 3.8+
-
-**💡 创新**：自主执行能力（通过主提示）使 LLM 能够以比手动执行快 100 倍的速度执行整个测试套件，跟踪零人为错误。非常适合第三方 QA 交接 - 只需提供主提示，他们就可以立即开始测试。
+**要求**：Python 3.8+、uv
 
 ---
 
@@ -1307,104 +1240,12 @@ python scripts/fetch_tweet.py https://x.com/user/status/123 output.md
 
 > **安装**：`claude plugin install daymade-macos@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-macos:macos-cleaner`）
 
-**在 macOS 上恢复磁盘空间最安全的方式。** 已知具体嫌疑源时先做定向只读取证（包括 Apple 内容缓存），只有来源未知时才扩大到系统缓存、应用残留、大文件和开发环境。
-
-**为什么 macos-cleaner 与众不同：**
-- **安全优先理念**：在明确用户确认之前绝不删除。每项操作都包含风险评估（🟢 安全 / 🟡 谨慎 / 🔴 保留）。
-- **智能胜于自动化**：先分析，详细解释，然后由你决定。与盲目删除的一键清理工具不同，我们帮助你理解要删除的内容及原因。
-- **开发者友好**：深度分析 Docker、Homebrew、npm、pip 缓存 - 这些是通用清理工具遗漏的工具。
-- **透明且教育性**：每项建议都包含对文件的解释、为什么安全（或不安全）以及删除后的影响。
-- **专业品质**：由了解误删重要文件痛苦的开发者构建。包含全面的安全检查和 Time Machine 备份建议。
-
-**我们的设计原则：**
-1. **用户控制优先**：你做决定，我们提供洞察
-2. **解释一切**：没有神秘的删除 - 完全透明的影响说明
-3. **保守的默认值**：不确定时，我们保留而不是删除
-4. **开发者视角**：理解开发工具缓存，而不仅仅是系统文件
-5. **混合方法**：结合脚本精度与可视化工具（Mole 集成）
-
-**使用场景：**
-- 你的 Mac 磁盘空间不足（使用率 >80%）
-- 你是开发者，Docker/npm/pip/Homebrew 缓存堆积如山
-- Apple 内容缓存提示 `Caching needs more space`、处于 unlimited，或 `ActualCacheUsed` 异常偏高
-- 你想了解占用空间的内容，而不仅仅是盲目删除
-- 你需要清理已卸载应用程序的残留
-- 你更喜欢理解而非自动化
-
-**主要功能：**
-- **智能缓存分析**：按安全级别对系统缓存、应用缓存、日志进行分类
-- **Apple 内容缓存**：区分逻辑 `CacheUsed` 与物理 `ActualCacheUsed`，核验 peer 和受保护服务，并使用 Apple 支持的限额、停用与清空入口
-- **应用残留检测**：查找已卸载应用程序的孤立数据，并提供可信度评分
-- **大文件与重复文件发现**：智能分类，并可在精确批准的路径内运行只读 `fdupes` 检查
-- **开发环境清理**：Docker 镜像/容器/卷、OrbStack、Homebrew、npm、pip；Docker 构建缓存只测量，不提供 prune 类删除
-- **交互式安全删除**：批量确认、选择性删除、撤销友好（尽可能使用废纸篓）
-- **前后报告**：跟踪空间恢复并提供详细分解
-- **Mole 集成**：与可视化清理工具无缝协作，适合 GUI 偏好
-- **风险分类**：每个项目都标有安全级别和说明
-- **Time Machine 感知**：建议在大批量删除（>10 GB）前进行备份
-
-**我们的优势：**
-- ✅ **通过透明度建立信任**：其他清理工具隐藏删除内容。我们展示一切并解释原因。
-- ✅ **以开发者为中心**：我们清理 Docker，而不仅仅是浏览器缓存。我们理解 `.git` 目录、`node_modules` 和构建产物。
-- ✅ **内置安全检查**：保护系统文件、用户数据、凭据、活动数据库或正在使用的文件不被删除。
-- ✅ **教育性**：了解什么可以安全删除及原因，以便你能自信地维护你的 Mac。
-- ❌ **不是一键解决方案**：在你确认一份有明确范围的命令计划前不会改变任何状态；如果你要求 Claude 执行，也只会运行已确认的动作并做前后验证。
+📚 **文档**：[macOS Cleaner](./daymade-macos/macos-cleaner/SKILL.md)；uv 缓存诊断或清退进入该 Skill 的 [uv 目标语义](./daymade-macos/macos-cleaner/references/cleanup_targets.md#uv-cache-retirement)。
 
 **示例用法：**
-```bash
-# 安装 Apple 平台套件
-claude plugin install daymade-macos@daymade-skills
-
-# 要求 Claude Code 分析你的 Mac
-"我的 Mac 快没空间了，帮我分析一下是什么在占用存储空间"
-
-# Claude 将会：
-# 1. 已知嫌疑源时先定向只读检查；只有来源未知时才做广泛分析
-# 2. 展示带有安全级别的分类结果
-# 3. 解释每个类别（缓存、残留、大文件、开发工具）
-# 4. 推荐清理方法
-# 5. 仅执行你确认的操作
-
-# 示例分析输出：
-📊 磁盘空间分析
-━━━━━━━━━━━━━━━━━━━━━━━
-总计:       500 GB
-已用:       450 GB (90%)
-可用:        50 GB (10%)
-
-🟢 安全清理 (95 GB):
-  - 系统缓存:          45 GB (应用会自动重新生成)
-  - Homebrew 缓存:      5 GB (需要时重新安装)
-  - npm 缓存:           3 GB (清除安全)
-  - 旧日志:             8 GB (仅诊断数据)
-  - 废纸篓:            34 GB (已标记为删除)
-
-🟡 建议审查 (62 GB):
-  - 大型下载:          38 GB (可能包含重要文件)
-  - 应用残留:           8 GB (验证应用是否真正卸载)
-  - Docker 镜像:       12 GB (可能正在使用)
-  - 旧 .git 仓库:       4 GB (验证项目是否已归档)
-
-🔴 除非确定否则保留 (0 GB):
-  - 未检测到高风险项目
-
-建议：从 🟢 安全项目开始 (95 GB)，然后一起审查 🟡 项目。
+```text
+我的 Mac 快没空间了，帮我分析一下是什么在占用存储空间
 ```
-
-**🎬 实时演示**
-
-*即将推出*
-
-📚 **文档**：参见 [macos-cleaner/references/](./daymade-macos/macos-cleaner/references/) 了解：
-- `apple_content_caching.md` - Apple 内容缓存的定向诊断与受支持修复
-- `cleanup_targets.md` - 每个清理目标的详细说明
-- `mole_integration.md` - 如何将脚本与 Mole 可视化工具结合使用
-- `safety_rules.md` - 全面的安全指南以及永远不应删除的内容
-
-**要求**：
-- **Python 3.6+**（macOS 预装）
-- **macOS**（在 macOS 10.15+ 上测试）
-- **可选**：[Mole](https://github.com/tw93/Mole) 用于可视化清理界面
 
 ---
 
@@ -1854,7 +1695,7 @@ claude plugin install windows-remote-desktop-connection-doctor@daymade-skills
 
 ### **product-analysis** - 多路径产品审计与优化
 
-使用并行的 Claude Code 分析代理（必要时结合 Codex CLI）进行产品审计，覆盖 UX、API、架构和竞品对比场景，输出可量化指标与优先级建议。
+通过并行探索与有证据的综合判断，审计 UX、API、架构及选定竞品的实现。
 
 **使用场景：**
 - 上线前审核或定期产品健康度检查
@@ -1864,9 +1705,9 @@ claude plugin install windows-remote-desktop-connection-doctor@daymade-skills
 
 **主要功能：**
 - 自动识别项目类型和 `codex` 可用性
-- 支持 `full / ux / api / arch / compare` 多维度审计模式
-- Claude 与可选 Codex 代理并行分析，降低单点偏见
-- 产出量化指标与 P0/P1/P2 修复优先级建议
+- 按任务选择[审计范围](product-analysis/SKILL.md#scope-modes)
+- Claude 与可选 Codex 代理并行探索
+- 按[综合判断方法](product-analysis/references/synthesis_methodology.md)核对证据和选择优先级
 - 输出可落地的优化方案（行动项 + 依据）
 
 **示例用法：**
@@ -1876,8 +1717,8 @@ claude plugin install product-analysis@daymade-skills
 
 # 然后请求审计
 "用 full 模式做一轮产品上线前审计"
-"做一轮 UX 审计并给出可量化问题"
-"做一轮 API 审计，识别未使用的接口"
+"审计 UX 导航，并验证它对用户任务的影响"
+"追踪 API 消费者，识别可以安全退役的接口"
 "用 compare 模式和竞品进行对标"
 ```
 
@@ -2248,31 +2089,9 @@ uv run douban-skill/scripts/douban-rss-sync.py <douban-user-id>
 
 ---
 
-### **slides-creator** - 叙事优先的幻灯片创建
+### **slides-creator** - 兼容通告
 
-引导用户完成结构化叙事设计（ABCDEFG 模型），然后将视觉生成委托给 `baoyu-slide-deck`。专注于机器做不到的事——与人类的叙事共创。
-
-**使用场景：**
-- 从用户内容创建演示文稿、幻灯片或 PPT
-- 将文章、转录稿或笔记转化为视觉幻灯片
-- 为演讲和工作坊设计叙事弧线
-
-**主要功能：**
-- Phase 0：源材料收集（优先使用用户自己的文字）
-- Phase 1：使用 ABCDEFG 模型进行叙事结构讨论
-- Phase 2：机器可读输入的内容结构化
-- Phase 3-5：将视觉生成委托给 baoyu-slide-deck
-- Phase 6：目录重组和讲者备注提取的后处理
-
-**示例用法：**
-```bash
-# 自然触发 skill
-"帮我把我的文章做成幻灯片"
-"从我的演讲转录稿创建演示文稿"
-"我需要一个 20 分钟的工作坊演示"
-```
-
-**要求**：需要 baoyu-slide-deck skill 进行视觉生成。
+使用旧 `slides-creator` 入口前，先读[退役与安装兼容通告](./slides-creator/SKILL.md)。
 
 ---
 
@@ -3518,14 +3337,9 @@ completion drive 随时能盖过它；hook 才是一堵墙。
 > **安装**：`claude plugin install daymade-macos@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-macos:macos-watchdog`）
 
 设计、部署、纪律化 macOS launchd 看门狗——检测复发问题并自动修复的
-LaunchAgent / LaunchDaemon，同时不让看门狗自己变成干扰源。提炼自
-15 个生产环境看门狗及其事故史。
+LaunchAgent / LaunchDaemon，同时不让看门狗自己变成干扰源。
 
-**核心能力：**
-- 安静看门狗契约——前提状态自检（监控的生命周期绑定其前提）、耐心模式（延迟打扰而非延迟检测）、升级式自动冷却、绝不复活用户主动退出的应用
-- 会咬人的部署细节——gui vs system domain、StandardOut/ErrorPath、作用于真实解释器的 TCC/FDA，以及停止语义（`unload` 已废弃且会被 `RunAtLoad` 复活——只用 bootout/bootstrap/disable）
-- 默认批量循环节流 + SRE 告警分层（page vs ticket、疲劳数字）
-- 附带 `watchdog-cooldown.sh`（可 source 的升级式冷却 + 手动暂停状态机）、`new-launchagent.sh`（带校验的幂等安装器）与带注释的 plist 模板
+📚 **文档**：[macOS Watchdog](./daymade-macos/macos-watchdog/SKILL.md)；常驻 Python 的部署进入 [持久运行时](./daymade-macos/macos-watchdog/SKILL.md#persistent-python-runtime)。
 
 **使用示例：**
 ```text
@@ -4015,9 +3829,6 @@ review 后修复/落地时，使用 **github-review-pr**。
 使用 **skill-evolver** 完成指定现有 Skill 的研究驱动优化，从相关证据和机制取舍
 推进到授权改动与实际结果验证。
 
-### 演示文稿与商务沟通
-使用 **ppt-creator** 生成具有数据可视化、结构化叙事和完整 PPTX 输出的专业幻灯片，用于推介、评审和主题演讲。使用 **slides-creator** 进行叙事优先的幻灯片设计——它引导你完成 ABCDEFG 叙事框架，优先收集你的原始内容，然后将视觉生成委托给 baoyu-slide-deck。非常适合需要将现有文章、转录稿或演讲转化为视觉幻灯片的场景。
-
 ### 视频质量分析
 使用 **video-comparer** 分析压缩结果、评估编解码器性能并生成交互式比较报告。与 **youtube-downloader** 结合使用以比较不同质量的下载。
 
@@ -4040,10 +3851,10 @@ review 后修复/落地时，使用 **github-review-pr**。
 使用 **meeting-minutes-taker** 将原始会议转写稿转换为结构化、基于证据的会议纪要。与 **transcript-fixer** 结合使用可在生成纪要前清理 ASR 错误。特点是多轮生成配合 UNION 合并以避免内容丢失。
 
 ### QA 测试与质量保证
-使用 **qa-expert** 建立具有自主 LLM 执行、Google 测试标准和 OWASP 安全测试的综合 QA 测试基础设施。非常适合项目启动、第三方 QA 交接和执行质量门禁（100% 执行、≥80% 通过率、0 个 P0 错误）。主提示可实现 100 倍更快的测试执行，零跟踪错误。
+使用 [qa-expert](./qa-expert/SKILL.md) 建立 QA 流程、编写测试用例、跟踪执行、生成报告并交接给第三方团队。
 
 ### 提示词工程与需求工程
-使用 **prompt-optimizer** 将模糊的功能请求转换为具有领域理论基础的精确 EARS 规范。非常适合产品需求文档、AI 辅助编码和学习提示词工程最佳实践。与 **skill-creator** 结合使用以创建结构良好的技能提示，或与 **ppt-creator** 结合使用以确保演示内容需求清晰明确。
+使用 **prompt-optimizer** 将模糊的功能请求转换为具有领域理论基础的精确 EARS 规范。非常适合产品需求文档、AI 辅助编码和学习提示词工程最佳实践。与 **skill-creator** 结合使用以创建结构良好的技能提示。
 
 ### 会话历史与文件恢复
 使用 **read-claude-code-history** 从之前的 Claude Code 会话中恢复已删除的文件、在对话历史中搜索特定实现，或跟踪文件随时间的演变。对于恢复意外删除的代码或查找你记得但找不到的功能实现至关重要。
@@ -4089,7 +3900,7 @@ rollout 身份、fork／compaction lineage 与 Codex-only 搜索使用
 使用 **twitter-reader** 无需 JavaScript 渲染或身份验证即可获取推文内容。非常适合记录社交媒体讨论、归档话题、分析推文内容或从 Twitter/X 收集参考资料。与 **doc-to-markdown** 结合可将获取的内容转换为其他格式，或与 **repomix-safe-mixer** 结合安全地打包研究集合。
 
 ### macOS 系统维护与磁盘空间恢复
-使用 **macos-cleaner** 以安全优先的方式诊断和恢复 macOS 磁盘空间。它会把 Apple 内容缓存等已知嫌疑源先路由到定向只读取证，区分逻辑量与物理占盘，说明影响和恢复方式，并在任何状态变更前要求明确确认；同时覆盖 Docker/OrbStack、Homebrew/npm/pip、应用残留、大文件和可选的 Mole 探索。
+[macOS Cleaner](./daymade-macos/macos-cleaner/SKILL.md)。
 
 ### 技能发现与管理
 使用 **skills-search** 优先发现并复用已配置本地仓库里的 Skill；必要时再进入 CCPM 注册表，保留外部检索、安装和管理能力。
@@ -4104,7 +3915,7 @@ rollout 身份、fork／compaction lineage 与 Codex-only 搜索使用
 使用 **tunnel-doctor** 诊断和修复 macOS 上 Tailscale 与代理/VPN 工具的多层冲突（路由劫持、HTTP 环境变量、系统代理、SSH ProxyCommand、VM/容器代理传播、DNS 解析器卡死）。当 Tailscale ping 正常但 TCP 连接失败、git push 报 "failed to begin relaying via HTTP"，或在使用 Shadowrocket、Clash、Surge 的同时设置 Tailscale SSH 到 WSL 实例时特别有用。还覆盖 **TUN 测量污染**——开着全局代理时，裸探针（`nc -z` 显示 0.00s、`ping`、国外 `ip-api` 查询）为什么会撒谎，以及该信什么。
 
 ### 产品审计与优化
-使用 **product-analysis** 进行上线前和例行产品体检，覆盖 UX、API、架构与竞品对比场景。支持 P0/P1/P2 分级建议，并可根据可量化指标输出可执行优化清单。适用于需要跨团队协作验证方向是否合理的复杂产品。
+使用 [product-analysis](./product-analysis/SKILL.md) 进行上线、UX、API、架构审计及基于源码的竞品对比。
 
 ### 远程桌面与 VDI 优化
 使用 **windows-remote-desktop-connection-doctor** 诊断 macOS 上 Azure Virtual Desktop / W365 连接质量问题。当传输协议显示 WebSocket 而非 UDP Shortpath、RTT 异常高，或更换网络位置后 RDP Shortpath 失败时特别有用。结合网络证据收集与 Windows App 日志分析，系统性定位根因。
@@ -4162,12 +3973,11 @@ rollout 身份、fork／compaction lineage 与 Codex-only 搜索使用
 - **cli-demo-generator**：参见 `cli-demo-generator/references/vhs_syntax.md` 了解 VHS 语法和 `cli-demo-generator/references/best_practices.md` 了解演示指南
 - **cloudflare-troubleshooting**：参见 `cloudflare-troubleshooting/references/api_overview.md` 了解 API 文档
 - **ui-designer**：参见 `ui-designer/SKILL.md` 了解完整的设计系统提取工作流
-- **ppt-creator**：参见 `daymade-docs/ppt-creator/references/WORKFLOW.md` 了解 9 阶段创建流程和 `daymade-docs/ppt-creator/references/ORCHESTRATION_OVERVIEW.md` 了解自动化
 - **youtube-downloader**：参见 `youtube-downloader/SKILL.md` 了解使用示例和故障排除
 - **repomix-safe-mixer**：参见 `repomix-safe-mixer/references/common_secrets.md` 了解检测到的凭据模式
 - **video-comparer**：参见 `video-comparer/references/video_metrics.md` 了解质量指标解释和 `video-comparer/references/configuration.md` 了解自定义选项
 - **transcript-fixer**：参见 `daymade-audio/transcript-fixer/references/workflow_guide.md` 了解分步工作流和 `daymade-audio/transcript-fixer/references/team_collaboration.md` 了解协作模式
-- **qa-expert**：参见 `qa-expert/references/master_qa_prompt.md` 了解自主执行（100 倍加速）和 `qa-expert/references/google_testing_standards.md` 了解 AAA 模式和 OWASP 测试
+- **qa-expert**：参见 [qa-expert](./qa-expert/SKILL.md) 了解自主执行和测试标准
 - **prompt-optimizer**：参见 `prompt-optimizer/references/ears_syntax.md` 了解 EARS 转换模式、`prompt-optimizer/references/domain_theories.md` 了解理论目录和 `prompt-optimizer/references/examples.md` 了解完整转换示例
 - **read-codex-history**：参见 `daymade-claude-code/read-codex-history/references/storage_and_portability.md` 了解本地数据源选择、跨平台路径、隐私边界和诊断方法
 - **read-claude-code-history**：参见 `daymade-claude-code/read-claude-code-history/references/session_file_format.md` 了解 JSONL 结构和 `daymade-claude-code/read-claude-code-history/references/workflow_examples.md` 了解恢复工作流
@@ -4182,7 +3992,7 @@ rollout 身份、fork／compaction lineage 与 Codex-only 搜索使用
 - **promptfoo-evaluation**：参见 `promptfoo-evaluation/references/promptfoo_api.md` 了解评测模式
 - **developing-ios-apps**：参见 `daymade-macos/developing-ios-apps/references/xcodegen-full.md` 了解 XcodeGen 选项与 project.yml 细节
 - **twitter-reader**：参见 `twitter-reader/SKILL.md` 了解 API 密钥设置和 URL 格式支持
-- **macos-cleaner**：参见 `daymade-macos/macos-cleaner/references/apple_content_caching.md` 了解 Apple 内容缓存、`daymade-macos/macos-cleaner/references/cleanup_targets.md` 了解清理目标语义、`daymade-macos/macos-cleaner/references/mole_integration.md` 了解 Mole、`daymade-macos/macos-cleaner/references/safety_rules.md` 了解安全指南
+- [macos-cleaner](./daymade-macos/macos-cleaner/SKILL.md)
 - **skill-reviewer**：参见 `daymade-skill/skill-reviewer/references/evaluation_checklist.md` 了解完整评估标准、`daymade-skill/skill-reviewer/references/pr_template.md` 了解 PR 模板
 - **github-contributor**：参见 `github-contributor/references/pr_checklist.md` 了解 PR 质量清单、`github-contributor/references/project_evaluation.md` 了解项目评估标准、`github-contributor/references/communication_templates.md` 了解 issue/PR 沟通模板
 - **i18n-expert**：参见 `i18n-expert/SKILL.md` 了解完整的 i18n 设置工作流程、键架构指导和审计程序
@@ -4190,7 +4000,7 @@ rollout 身份、fork／compaction lineage 与 Codex-only 搜索使用
 - **fact-checker**：参见 `fact-checker/SKILL.md` 了解事实核查工作流程和声明验证过程
 - **competitors-analysis**：参见 `competitors-analysis/SKILL.md` 了解 discover/ingest/profile/landscape 工作流，参见 `competitors-analysis/references/profile_template.md` 了解竞品档案模板
 - **windows-remote-desktop-connection-doctor**：参见 `windows-remote-desktop-connection-doctor/references/windows_app_log_analysis.md` 了解日志解析模式和 `windows-remote-desktop-connection-doctor/references/avd_transport_protocols.md` 了解传输协议详情
-- **product-analysis**：参见 `product-analysis/SKILL.md` 了解工作流，参见 `product-analysis/references/synthesis_methodology.md` 了解跨代理加权与推荐逻辑
+- **product-analysis**：参见[工作流](product-analysis/SKILL.md)与[证据综合方法](product-analysis/references/synthesis_methodology.md)，核对原始来源并形成建议
 - **excel-automation**：参见 `daymade-docs/excel-automation/SKILL.md` 了解创建/解析/控制工作流，参见 `daymade-docs/excel-automation/references/formatting-reference.md` 了解格式规范
 - **capture-screen**：参见 `daymade-macos/capture-screen/SKILL.md` 了解基于 CGWindowID 的 macOS 截图流程
 - **continue-claude-code-work**：参见 `daymade-claude-code/continue-claude-code-work/SKILL.md` 了解本地会话产物恢复、漂移检查与续做流程
@@ -4200,14 +4010,13 @@ rollout 身份、fork／compaction lineage 与 Codex-only 搜索使用
 - **claude-export-txt-better**：参见 `daymade-claude-code/claude-export-txt-better/SKILL.md` 了解工作流，参见 `daymade-claude-code/claude-export-txt-better/scripts/fix-claude-export.py` 了解重建算法，参见 `daymade-claude-code/claude-export-txt-better/evals/` 查看真实回归 fixture
 - **douban-skill**：参见 `douban-skill/SKILL.md` 了解导出工作流，参见 `douban-skill/references/troubleshooting.md` 查看 7 种被测抓取方案及失败原因的完整日志
 - **terraform-skill**：参见 `terraform-skill/SKILL.md` 查看按确切报错 → 根本原因 → 复制粘贴修复组织的实操陷阱完整目录
-- **slides-creator**：参见 `slides-creator/SKILL.md` 了解叙事优先工作流，参见 `slides-creator/references/narrative-design-guide.md` 了解 ABCDEFG 模型，参见 `slides-creator/references/content-creation-first-law.md` 了解通用内容创作原则
 - **debugging-network-issues**：参见 `debugging-network-issues/SKILL.md` 了解证伪优先工作流，参见 `debugging-network-issues/references/layered-isolation-experiment.md` 了解多跳隔离模式，参见 `debugging-network-issues/references/case-sse-rst-130s.md` 查看 SSE 生产案例，参见 `debugging-network-issues/references/case-proxy-tun-cname-override.md` 查看客户端代理/TUN CNAME 规则覆盖案例
 - **stepfun-tts**：参见 `stepfun-tts/SKILL.md` 了解 Contextual TTS 决策树，参见 `stepfun-tts/references/migration_from_v2.md` 查看 `voice_label` → `instruction` 迁移手册和审查改写清单
 - **stepfun-asr**：参见 `stepfun-asr/SKILL.md` 了解 SSE 端点工作流和 ASR 侧四个坑（错端点、Plan vs Normal key、重复幻觉、SSE `error` 事件）。`stepfun-asr/references/api_reference.md` 给出原始 HTTP 集成所需的 JSON 请求体和 SSE 事件契约
 - **llm-eval-harness**：参见 `llm-eval-harness/references/evaluation_disciplines.md` 了解每条纪律背后的推理（环境变量传 key、thinking-aware 吞吐、代理隔离、概率化协议判定），以及 `llm-eval-harness/references/quality_blind_judge.md` 了解独立盲审质量方法
 - **meme-creator**：参见 `meme-creator/SKILL.md` 了解完整流程，及 `meme-creator/references/tracking-playbook.md` 了解 CSRT 失效分类与手工关键帧接管
 
-## 🛠️ 系统要求
+## 🛠 系统要求
 
 - **floorplan-finder**：获授权的网页读取和看图工具；来源需要交互时另需浏览器，无随包运行时依赖。
 
@@ -4263,11 +4072,11 @@ Codex 的技能也可以通过 Codex 插件市场安装；使用前请查看对�
 
 ### 我可以贡献自己的技能吗？
 
-当然可以！查看 [CONTRIBUTING.md](./CONTRIBUTING.md) 了解指南。我们建议使用 skill-creator 来确保你的技能符合质量标准。
+新 Skill 的建议与提交范围见[贡献政策](./CONTRIBUTING.md#what-we-dont-accept)；修改现有 Skill 时按 [bug 修复流程](./CONTRIBUTING.md#-bug-fixes-to-existing-skills)执行。
 
 ### 这些技能使用安全吗？
 
-是的，所有技能都是开源的并经过审查。代码可在此仓库中查看。
+开源便于检查，但不能证明安全。审查方法见 [skill-reviewer](./daymade-skill/skill-reviewer/SKILL.md) 与[安全检查清单](./daymade-skill/skill-creator/references/sanitization_checklist.md)。
 
 ### 中国用户如何处理 API 访问？
 
@@ -4318,7 +4127,7 @@ Codex 的技能也可以通过 Codex 插件市场安装；使用前请查看对�
 ## 📞 联系方式
 
 - **GitHub**：[@daymade](https://github.com/daymade)
-- **Email**：daymadev89@gmail.com
+- **Email**：[daymadev89@gmail.com](mailto:daymadev89@gmail.com)
 - **仓库**：[daymade/claude-code-skills](https://github.com/daymade/claude-code-skills)
 
 ---

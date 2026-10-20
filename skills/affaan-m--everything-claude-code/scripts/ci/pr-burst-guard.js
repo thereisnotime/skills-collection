@@ -6,7 +6,7 @@ const path = require('node:path');
 const LOGIN = /^[a-z\d](?:[a-z\d-]{0,38})(?:\[bot\])?$/i;
 
 function validatePolicy(policy) {
-  for (const key of ['windowMinutes', 'closeAbove', 'blockAbove']) {
+  for (const key of ['windowMinutes', 'closeAbove', 'blockAbove', 'maxOpen']) {
     if (!Number.isSafeInteger(policy[key]) || policy[key] < 1) throw new Error(`Invalid policy ${key}`);
   }
   if (policy.blockAbove <= policy.closeAbove) throw new Error('blockAbove must exceed closeAbove');
@@ -86,6 +86,33 @@ function strongestWindow(rows, current, policy, eventTime) {
   return { ...peak, excess: peak.denied ? peak.excess : [...excess.values()] };
 }
 
+/** Open-PR cap: keep the author's oldest `maxOpen` open PRs, close the rest. PRs the burst
+ *  guard already closed in this run are treated as closed so nothing is mutated twice. */
+function capExcess(openRows, current, policy, alreadyClosed = new Set()) {
+  validatePolicy(policy);
+  const open = [...new Map([...openRows, current].map(pr => [pr.number, pr])).values()]
+    .filter(pr => pr.user.id === current.user.id && pr.state === 'open' && !alreadyClosed.has(pr.number))
+    .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.number - b.number);
+  return { openCount: open.length, maxOpen: policy.maxOpen,
+    capExcess: open.slice(policy.maxOpen).map(pr => ({ number: pr.number, state: pr.state })) };
+}
+
+const CAP_MARKER = '<!-- ecc-pr-open-cap -->';
+
+async function enforceCap(api, root, pr, current, result) {
+  try {
+    await api('PATCH', `${root}/pulls/${pr.number}`, { state: 'closed' });
+    const comments = await listPages(api, `${root}/issues/${pr.number}/comments?sort=created`);
+    if (comments.some(c => c.user?.login === 'github-actions[bot]' && c.body?.includes(CAP_MARKER))) return;
+    await api('POST', `${root}/issues/${pr.number}/comments`, { body: [CAP_MARKER,
+      `Closed automatically: @${current.user.login} has ${result.openCount} open pull requests in this repository, above the limit of ${result.maxOpen} per contributor.`,
+      '', 'Get existing PRs merged, or close the ones you no longer need, then reopen this one. The limit is about review capacity, not the quality of this patch.',
+      'Contributors with repository write access are exempt. Policy: `.github/PR_MODERATION.md`.'].join('\n') });
+  } catch (error) {
+    result.errors.push(`#${pr.number}: ${error.message}`);
+  }
+}
+
 async function blockAuthor(blockAPI, owner, login) {
   if (!blockAPI) return 'Unavailable: PR_MODERATION_BLOCK_TOKEN is not configured';
   try {
@@ -160,11 +187,19 @@ async function moderate({ api, blockAPI, repository, number, action = 'opened', 
   // let an older event conceal a newer burst already present in the API snapshot.
   const result = { ...strongestWindow(rows, current, policy, end), author: current.user.login,
     dryRun, errors: [], blockStatus: 'Below blocking threshold' };
+  // Total open PRs is a separate, unwindowed list: the burst scan stops at the window edge.
+  const openRows = await listPages(api, `${root}/pulls?state=open&sort=created&direction=desc`);
+  Object.assign(result, capExcess(openRows, current, policy, new Set(result.excess.map(pr => pr.number))));
   if (dryRun) {
     if (result.block) result.blockStatus = 'Dry run: would attempt owner-scoped blocking';
     return result;
   }
-  if (result.excess.length === 0) return result;
+  if (result.excess.length > 0) await enforceBurst({ api, blockAPI, root, repo, current, result, policy });
+  for (const pr of result.capExcess) await enforceCap(api, root, pr, current, result);
+  return result;
+}
+
+async function enforceBurst({ api, blockAPI, root, repo, current, result, policy }) {
   if (result.block) result.blockStatus = await blockAuthor(blockAPI, repo.owner, current.user.login);
   for (const pr of result.excess) {
     if (pr.state !== 'open') continue;
@@ -176,7 +211,6 @@ async function moderate({ api, blockAPI, repository, number, action = 'opened', 
     }
   }
   await notify(api, root, current, result, policy);
-  return result;
 }
 
 async function main() {
@@ -196,4 +230,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = { evaluate, moderate, githubAPI, listPages, validatePolicy, strongestWindow };
+module.exports = { evaluate, moderate, githubAPI, listPages, validatePolicy, strongestWindow, capExcess };

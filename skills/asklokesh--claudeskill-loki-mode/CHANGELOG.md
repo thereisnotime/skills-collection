@@ -5,6 +5,83 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.17.103 (2026-10-19)
+
+### Fixed
+- Seal: a zero-test check that the repository itself skips (for example a `describe.skip` integration suite the run never touched) no longer downgrades a proven run to PARTIAL. The excusal applies only when intake measured the same check as zero on the untouched base, the dependency environment fingerprint is unchanged, and the run did not remove or re-version a dependency; the receipt records it as `repo_skipped`. Untracked files the zero-baseline probe creates are removed so they never reach the agent diff.
+- Verify: a failing exit-coded script is now attributed by a multiset of lightly normalized output lines, so a failure already present on base reads as pre-existing while a new or changed failure reads as introduced. Only the repo root prefix and a `:line` or `:line:col` suffix directly after a file extension are stripped; empty output is not attributable and blocks.
+- Verify: a changed file that belongs to no package (for example a plugin shell script) no longer makes every package without a test command own the diff. Such a file is credited only when the whole product diff is unowned and the Wall test was red on base and green on head; otherwise the run records "changed file <f> belongs to no package and no passing check exercised it" and stays NOT PROVEN. Run `loki start owner/repo#N` as before; no flag is needed.
+
+## v11.17.102 (2026-10-19)
+
+### Fixed
+- Seal: a VERIFIED run now publishes the Wall acceptance tests that were sealed and passed as a follow-up commit on its branch, and the PR body gains an "Acceptance tests" section, so a Loki PR ships with its own tests. The receipt binds the product head; the Wall child commit runs with hooks and signing off, each committed blob must equal the sealed bytes, the child must touch exactly the published paths or it is rolled back, and seal_drift and re-seal accept the child only when its trailer, paths and sha256 all match the run's Wall. Opt out with `LOKI_COMMIT_WALL=0`.
+- Verify: a full-suite command that is a plain script (for example `python3 .github/scripts/check.py`) is now an exit-coded check: rc 0 passes and rc non-zero fails, recorded as "n/a (exit-coded check, not a test runner)". Previously it was ruled not_run because it prints no runner summary, which sealed proven runs PARTIAL. It never counts as target proof, and a real test framework with no parseable summary stays unmeasured.
+
+## v11.17.101 (2026-10-19)
+
+### Fixed
+- Push: a VERIFIED run whose agent repo is a partial clone (`--filter=blob:none`, or any promisor remote) now pushes its branch and opens the PR. Previously the trusted push copied the branch into a fresh repo that could not resolve the missing delta bases, so the push to the fork failed with rc=1 and no PR was opened. The temp repo is now seeded from the validated origin as a promisor remote and the agent-dir fetch runs credentialed through a scrubbed `env -i` upload-pack, so agent-controlled config (fsmonitor, hooks, packObjectsHook, credential helpers, sshCommand, ext:: promisors) is never executed. Same fix in the GitLab MR push child. Non-partial repos take the unchanged path.
+
+## v11.17.100 (2026-10-19)
+
+### Fixed
+- Seal: the run's own passing acceptance Wall file at the repo root no longer makes every package without a test command count as changed. Previously, in a repo with two or more such packages, an untouched one stayed NOT PROVEN, so a fix confined to one test-less package sealed PARTIAL instead of VERIFIED. An unknown diff, a Wall-only diff, a failed Wall, or any product file with no owning package still stays NOT PROVEN.
+
+## v11.17.99 (2026-10-19)
+
+### Fixed
+- Seal: a package with no test command is now credited when the acceptance Wall failed on the base, passed on the head, and every changed file (other than the run's own Wall files) belongs to that package. Previously a root-level Wall left such a package NOT PROVEN, so fixes to test-less plugin packages sealed PARTIAL instead of VERIFIED.
+- Reviewer git hardening: git in reviewer children can no longer run repo-configured programs through gpg signature checks, lazy-fetch ssh or upload-pack commands, diff-shim option injection, textconv filters or the pager. It fails closed on a repo-set upload-pack or receive-pack and on partial clones with git older than 2.44. Voter and quality-gate reviewer spawns use a token-free base environment, and a guard checks every call.
+- The engine10 core is back under its 5,000-line budget (no behaviour change).
+
+### Changed
+- CI is reduced to a single release workflow that runs on a VERSION push and publishes npm (latest and next), the tag and GitHub release, Homebrew, the SDKs and signed Docker images with no test gate in front. The Tests, nightly, security audit, SBOM, Docker build check, post-release smoke, integrity audit, model-catalog probe, code review and CLA workflows are removed.
+
+## v11.17.98 (2026-10-19)
+
+### Fixed
+- The control-plane Ask policy deny list is back in step with the reviewer deny list (git `--exec-path`, `--output`, `--ext-diff` and `--no-index` forms, `rg --pre` and `--hostname-bin`, `find -exec` and `-delete` forms). It only adds denials; the parity test now names every missing token at once.
+
+## v11.17.97 (2026-10-19)
+
+### Fixed
+- The PR body's "What the issue asked" section no longer copies issue-template boilerplate (preflight checklists, "before submitting" sections, first-person attestations such as "I have searched existing issues") into a public pull request. Real acceptance criteria are always kept: nothing under an acceptance or criteria heading is removed, a user's own Checklist or Prerequisites items stay, and the intent line is used only when the issue has nothing but template text.
+- The PR body no longer lists installed `loki_wall_*` acceptance files among changed files, and the receipt marks a check as pre-red only when it failed on base. Rerun with `loki start owner/repo#N`.
+
+## v11.17.96 (2026-10-19)
+
+### Fixed
+- The seal cross-reviewer now has real read-only tools (Read, Grep, Glob and a read-only shell: cat, ls, grep, rg, find, head, tail, wc) and is told truthfully what it can run, so it no longer reports "my tool output came back empty" and traces acceptance lines by hand.
+- The cross-reviewer is hardened against the code it reviews: it gets no git commands (a repository's git config could run drivers before the receipt is hashed), loads no user or project settings (a machine allow rule could otherwise widen its shell, and user instructions added about 4,300 tokens per review), runs in dontAsk mode, and is denied write and exec forms such as rg --pre and rg --hostname-bin. Rerun with `loki start owner/repo#N`.
+
+## v11.17.95 (2026-10-19)
+
+### Fixed
+- The Wall author is now told the directory its acceptance test will run from (and that it is copied to the repository root when it is), so a test no longer builds paths against the wrong base and fails as a phantom path. When the Wall re-ask fires, its reason names the location cause and the package root, and still lists any real typo alongside it.
+- A stale `loki_wall_*` test left in the repository by an earlier run is no longer selected through the test map or risk scan, and no longer credited as an independent pass. Rerun with `loki start owner/repo#N`.
+
+## v11.17.94 (2026-10-19)
+
+### Fixed
+- The run outcome, PR body, receipt.md and handoff no longer flood the screen when the base commit already has many failing tests. Pre-red tests are deduplicated (a short name and its full-path twin count once) and shown as one line such as "pre red: 147 tests already failing on base (listed in receipt.json)". Other per-item lists (not run, flaky, skipped on base and similar) collapse to a count past 8 entries. receipt.json and its digest are unchanged. Rerun with `loki start owner/repo#N`.
+
+## v11.17.93 (2026-10-19)
+
+### Fixed
+- The Wall test check now catches a test that searches upward from the working directory or the test folder for a repo path that does not exist (for example a misnamed plugin folder). The Wall stage asks for one rewrite naming the missing path, instead of letting the run finish against a test that can never pass and seal SPEC_CONFLICT. Loops over real folder names and paths found anywhere on the way up are not flagged. Rerun with `loki start owner/repo#N`.
+
+## v11.17.92 (2026-10-19)
+
+### Fixed
+- Medium-tier runs now get one code review by default from the same provider that wrote the change (Claude or Codex), so their Seal can list a real reviewer instead of reporting "one reviewer" as not proven. A blocking review caps the result at PARTIAL. Set `LOKI_REVIEW_PROVIDER=off` to opt out.
+- A slow or stuck reviewer can no longer cost a run its Seal: the review gets its own time box, fits inside the run's remaining time, is skipped and recorded as not run when too little time is left, and stops every process it started when the box or the stage ends. Rerun with `loki start owner/repo#N`.
+
+## v11.17.91 (2026-10-19)
+
+### Fixed
+- Restored an internal variable name in the Wall stage that 11.17.90 had renamed; the rename tripped the engine's own check that every model choice is vetted, failing the main test run. No behaviour change. Rerun with `loki start owner/repo#N`.
+
 ## v11.17.90 (2026-10-19)
 
 ### Fixed

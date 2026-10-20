@@ -9,6 +9,8 @@ import { runWall, buildWallBrief, WALL_OUTPUT_BUDGET, WALL_REPO_PATHS } from "..
 import { verifyStage } from "../../src/engine10/stages/verify.ts";
 import { conventionViolation, conventionsBrief, outOfRepoTarget, phantomReason, phantomRepoPaths, readPackageConventions } from "../../src/project_model/conventions.ts";
 import { wallOwnedFailure } from "../../src/util/wall_owned.ts";
+import { withoutStaleWall } from "../../src/util/check_result.ts";
+import { RealTestMapProvider } from "../../src/engine10/testmap.ts";
 import type { RunContext, SessionRunOptions, StageName } from "../../src/engine10/types.ts";
 
 const REAL_NODE_MODULES = join(import.meta.dir, "..", "..", "node_modules");
@@ -302,6 +304,37 @@ describe("FC-WALL-PHANTOM-PATH", () => {
     expect(phantomRepoPaths("const f = join(__dirname, '..', 'out', 'a.js');", "a.test.ts", td, repo, null)).toEqual([]);
     expect(phantomRepoPaths("const f = join(__dirname, '..', 'src', 'a.js');", "a.test.ts", td, repo, null)).toEqual(["src/a.js"]);
   });
+  test("walk-up phantom: a join on a loop base seeded from cwd or the test dir is checked against the repo (run e10-20261019T121849Z-848d)", () => {
+    const WALK = (leaf: string): string => "import { existsSync, mkdtempSync } from 'node:fs';\nimport { tmpdir } from 'node:os';\nimport { dirname, join, resolve } from 'node:path';\nfunction pluginDir(): string {\n  for (const start of [process.cwd(), import.meta.dir]) {\n    let dir = resolve(start);\n    while (true) {\n      const candidate = join(dir, 'plugins', '" + leaf + "');\n      if (existsSync(join(candidate, 'scripts', 'setup-ralph-loop.sh'))) return candidate;\n      const parent = dirname(dir);\n      if (parent === dir) break;\n      dir = parent;\n    }\n  }\n  throw new Error('plugins/ralph-loop not found at or above cwd');\n}\n";
+    const repo = repoWith(), td = join(repo, "tests");
+    expect(phantomRepoPaths(WALK("ralph-loop"), "w.test.ts", td, repo, null)).toEqual(["plugins/ralph-loop"]);
+    expect(phantomRepoPaths(WALK("ralph-loop"), "w.test.ts", repo, repo, null)).toEqual(["plugins/ralph-loop"]);
+    expect(phantomRepoPaths(WALK("ralph-loop"), "w.test.ts", td, repo, "Create plugins/ralph-loop")).toEqual([]);
+    expect(phantomRepoPaths(WALK("ralph-wiggum"), "w.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths(WALK("ralph-loop").replace("'plugins'", "'nowhere'"), "w.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const d = mkdtempSync(join(tmpdir(), 'x-'));\nconst f = join(d, 'plugins', 'ralph-loop');", "w.test.ts", td, repo, null)).toEqual([]);
+    expect(phantomRepoPaths("const base = join(tmpdir(), 'x');\nfor (const s of [base]) { let dir = resolve(s); const c = join(dir, 'plugins', 'ralph-loop'); }", "w.test.ts", td, repo, null)).toEqual([]);
+  });
+  test("walk-up phantom: a loop over a repo-relative string is not a walk-up (FP-A)", () => {
+    const repo = repoWith(), td = join(repo, "tests"); mkdirSync(join(repo, "scripts"), { recursive: true });
+    const SETUP = " {\n  const setup = join(plugin, 'scripts', 'setup-ralph-loop.sh');\n}";
+    expect(phantomRepoPaths("for (const plugin of ['plugins/ralph-wiggum'])" + SETUP, "w.test.ts", td, repo, null)).toEqual([]); // FP-A
+  });
+  test("walk-up phantom: a loop over a join on cwd is not a walk-up (FP-B)", () => {
+    const repo = repoWith(), td = join(repo, "tests"); mkdirSync(join(repo, "scripts"), { recursive: true });
+    const SETUP = " {\n  const setup = join(plugin, 'scripts', 'setup-ralph-loop.sh');\n}";
+    expect(phantomRepoPaths("for (const plugin of [join(process.cwd(), 'plugins', 'ralph-wiggum')])" + SETUP, "w.test.ts", td, repo, null)).toEqual([]); // FP-B
+  });
+  test("walk-up phantom: a loop over several joins on an unresolved root is not a walk-up (FP-C)", () => {
+    const repo = repoWith(), td = join(repo, "tests"); mkdirSync(join(repo, "scripts"), { recursive: true }); mkdirSync(join(repo, "plugins/hookify"), { recursive: true });
+    const SETUP = " {\n  const setup = join(plugin, 'scripts', 'setup-ralph-loop.sh');\n}";
+    expect(phantomRepoPaths("const ROOT = process.cwd();\nfor (const plugin of [join(ROOT, 'plugins', 'ralph-wiggum'), join(ROOT, 'plugins', 'hookify')])" + SETUP, "w.test.ts", td, repo, null)).toEqual([]); // FP-C
+  });
+  test("walk-up phantom: a walk-up whose file exists at a directory on the way up is not reported (FP-D2)", () => {
+    const repo = repoWith(), td = join(repo, "tests"); mkdirSync(join(repo, "scripts"), { recursive: true });
+    const walk = "for (const start of [process.cwd(), import.meta.dir]) {\n  let dir = resolve(start);\n  while (true) {\n    const s = join(dir, 'scripts', 'setup-ralph-loop.sh');\n    dir = dirname(dir);\n  }\n}\n";
+    expect(phantomRepoPaths(walk, "w.test.ts", join(repo, "plugins/ralph-wiggum/tests"), repo, null)).toEqual([]); // FP-D2
+  });
   test("package root fallback: a named manifest above the test dir is the cwd; a fixture json in the test dir is not; the incident still reports", () => {
     const repo0 = repoWith(); execFileSync("git", ["init", "-q"], { cwd: repo0 });
     for (const [p, c] of Object.entries({ "packages/a/package.json": '{"name":"a","version":"1"}', "packages/a/src/x.ts": "x\n", "packages/a/test/user.json": '{"name":"bob","age":3}' })) { mkdirSync(join(repo0, p, ".."), { recursive: true }); writeFileSync(join(repo0, p), c); }
@@ -402,4 +435,100 @@ describe("FC-WALL-PHANTOM-PATH", () => {
     expect(existsSync(join(repoDir, "tests", "loki_wall_a.test.ts"))).toBe(false);
     expect(JSON.stringify(r.data.discarded)).toContain("do not exist");
   });
+});
+
+describe("FC-WALL-LOCATION-BLIND (run e10-20261019T130749Z-f11c, FireLater#20)", () => {
+  // Modelled on the run: the author thought its file sits at the repo root (root = __dirname); Loki installs it in backend/src/lib.
+  const BLIND = "import { describe, test, expect } from 'vitest';\nimport * as path from 'path';\n// Repository root: this file lives at the repo root, next to backend/ and frontend/.\nconst root = __dirname;\nconst B = path.join(root, 'backend', 'src');\nconst F = path.join(root, 'frontend', 'src');\ntest('a', () => { expect(B).toBeTruthy(); expect(F).toBeTruthy(); });\n";
+  const FIXED_LOC = "const root = require('path').join(__dirname, '..', '..', '..');";
+  const fl = (): string => cjsRepo({ "backend/package.json": '{"name":"backend","version":"1.0.0"}', "backend/src/lib/x.test.ts": "x\n", "backend/src/index.ts": "x\n", "frontend/package.json": '{"name":"frontend","version":"1.0.0"}', "frontend/src/app.ts": "x\n" });
+  const flCtx = (repoDir: string, onSession: (o: SessionRunOptions) => void): RunContext => {
+    const ctx = wallCtx(repoDir, onSession); const rm = join(ctx.runDir, "repomap.json");
+    writeFileSync(rm, JSON.stringify({ files: ["backend/src/lib/x.test.ts", "backend/src/index.ts", "frontend/src/app.ts"], entries: [], truncated: false }));
+    ctx.outputs = () => ({ intake: { task: "add x", testmap: { runners: ["vitest"], tests: [{ runner: "vitest", path: "backend/src/lib/x.test.ts" }] }, repomap_ref: rm } }) as Partial<Record<StageName, Record<string, unknown>>>;
+    return ctx;
+  };
+  test("(a) the brief states the destination directory and what __dirname resolves to", () => {
+    const b = buildWallBrief("t", "", [], false, "", [], "backend/src/lib");
+    expect(b).toContain("backend/src/lib/"); expect(b).toContain("__dirname"); expect(b).toContain("import.meta.dir");
+    expect(buildWallBrief("t", "", [], false, "", [], null)).toBe(buildWallBrief("t")); // no location: byte-identical
+    expect(buildWallBrief("t", "", [], false, "", [], "")).toContain("copied to the repository root");
+  });
+  test("(a) the first author brief carries the destination derived from the placement logic", async () => {
+    const briefs: string[] = []; const repoDir = fl();
+    await runWall(flCtx(repoDir, (o) => { briefs.push(o.brief); }), new AbortController().signal, { baseRunner: { run: () => ({ pass: 0, fail: 1 }) } });
+    expect(briefs[0]).toContain("is copied to backend/src/lib/"); expect(briefs[0]).toContain("__dirname");
+  });
+  test("(b) phantomReason names the cause when the phantom is the test dir joined with a real root path", () => {
+    const files = ["backend/src/lib/x.test.ts", "backend/src/index.ts", "frontend/src/app.ts"];
+    const why = phantomReason(["backend/src/lib/backend/src", "backend/src/lib/frontend/src"], files, "backend/src/lib", "backend")!;
+    expect(why).toContain("backend/src/lib/"); expect(why).toContain("not the repo root"); expect(why).toContain("backend/src exists relative to the repo root"); expect(why).toContain("frontend/src exists relative to the repo root");
+    expect(phantomReason(["backend/src/lib/nope"], files, "backend/src/lib", "backend")).not.toContain("not the repo root"); // control: no real root path, generic text
+  });
+  test("(b) the re-ask for the run's file names the cause; the rewrite that fixes the location is kept", async () => {
+    const briefs: string[] = []; const repoDir = fl();
+    const ctx = flCtx(repoDir, (o) => { briefs.push(o.brief); writeFileSync(join(o.cwd!, "loki_wall_a.test.ts"), briefs.length === 1 ? BLIND : BLIND.replace("const root = __dirname;", FIXED_LOC)); });
+    const r = await runWall(ctx, new AbortController().signal, { baseRunner: { run: () => ({ pass: 0, fail: 1 }) } });
+    expect(briefs.length).toBe(2);
+    expect(briefs[1]).toContain("not the repo root"); expect(briefs[1]).toContain("backend/src exists relative to the repo root");
+    expect(r.data.discarded).toBeUndefined();
+  });
+  const baseRepo = (): string => {
+    const repoDir = cjsRepo({ "src/a.ts": "export const foo = 1;\n" });
+    writeFileSync(join(repoDir, ".gitignore"), "node_modules\n.loki\n");
+    git(repoDir, ["init", "-q"]); git(repoDir, ["add", "."]); git(repoDir, ["commit", "-qm", "base"]);
+    return repoDir;
+  };
+  test("(c) a stale loki_wall_* file left untracked by an earlier run is never verified or credited when this run's Wall discarded it", async () => {
+    const repoDir = baseRepo();
+    mkdirSync(join(repoDir, "src", "lib"), { recursive: true });
+    writeFileSync(join(repoDir, "src", "lib", "loki_wall_old.test.ts"), "test('x', () => {});\n"); writeFileSync(join(repoDir, "src", "b.ts"), "export const b = 1;\n");
+    const ctx = wallCtx(repoDir, () => {}); ctx.baseSha = git(repoDir, ["rev-parse", "HEAD"]).trim();
+    ctx.outputs = () => ({ wall: { files: [], discarded: [{ file: "loki_wall_old.test.ts", reason: "x" }] } }) as Partial<Record<StageName, Record<string, unknown>>>;
+    const r = await verifyStage.run(ctx, new AbortController().signal);
+    expect(r.data.changed_files).toEqual(["src/b.ts"]);
+    expect(JSON.stringify(r.data.checks)).not.toContain("loki_wall_old");
+  }, 60_000);
+  test("(c) this run's own installed Wall file still counts as changed", async () => {
+    const repoDir = baseRepo();
+    writeFileSync(join(repoDir, "src", "loki_wall_new.test.ts"), "test('x', () => {});\n");
+    const ctx = wallCtx(repoDir, () => {}); ctx.baseSha = git(repoDir, ["rev-parse", "HEAD"]).trim();
+    ctx.outputs = () => ({ wall: { files: [{ path: join(repoDir, "src", "loki_wall_new.test.ts") }] } }) as Partial<Record<StageName, Record<string, unknown>>>;
+    const r = await verifyStage.run(ctx, new AbortController().signal);
+    expect(r.data.changed_files).toEqual(["src/loki_wall_new.test.ts"]);
+  }, 60_000);
+});
+
+describe("FC-WALL-LOCATION-BLIND review round 2", () => {
+  const fl2 = (): string => cjsRepo({ "backend/package.json": '{"name":"backend","version":"1.0.0"}', "backend/src/lib/x.ts": "x\n", "backend/src/index.ts": "x\n" });
+  const FILES = ["backend/src/lib/x.ts", "backend/src/index.ts"];
+  test("(b) package-root case: names the package root where the path really exists", () => {
+    const why = phantomReason(["backend/src/lib/src"], ["backend/src/index.ts", "backend/src/lib/x.ts"], "backend/src/lib", "backend")!;
+    expect(why).toContain("src exists relative to the package root backend/"); expect(why).not.toContain("src exists relative to the repo root");
+  });
+  test("(b) mixed phantoms: a location mistake and a real typo are both reported", () => {
+    const why = phantomReason(["backend/src/lib/backend/src", "backend/src/lib/nope"], ["backend/src/index.ts", "backend/src/lib/x.ts"], "backend/src/lib", "")!;
+    expect(why).toContain("not the repo root"); expect(why).toContain("do not exist in the repository"); expect(why).toContain("backend/src/lib/nope");
+    expect(why.split("do not exist in the repository")[1]).not.toContain("backend/src/lib/backend/src");
+  });
+  test("(a) repo-root destination is stated; unknown destination emits nothing", () => {
+    expect(buildWallBrief("t", "", [], false, "", [], "")).toContain("copied to the repository root");
+    expect(buildWallBrief("t")).not.toContain("copied to");
+  });
+  test("(c) a repoDir with a trailing slash still keeps the run's own absolute Wall path", () => {
+    expect(withoutStaleWall(["src/loki_wall_new.test.ts", "src/loki_wall_old.test.ts", "src/a.ts"], ["/r/repo/src/loki_wall_new.test.ts"], "/r/repo/")).toEqual(["src/loki_wall_new.test.ts", "src/a.ts"]);
+  });
+  test("(c) the test map and risk ignore a stale loki_wall_* test that imports a changed source (review repro)", async () => {
+    const repoDir = mk();
+    for (const [n, c] of Object.entries({ "src/ws.ts": "export const w = 1;\n", "bunfig.toml": "[test]\n", "src/real.test.ts": "import { test } from 'bun:test';\ntest('r', () => {});\n", ".gitignore": ".loki\n" })) { mkdirSync(join(repoDir, n, ".."), { recursive: true }); writeFileSync(join(repoDir, n), c); }
+    git(repoDir, ["init", "-q"]); git(repoDir, ["add", "."]); git(repoDir, ["commit", "-qm", "base"]);
+    writeFileSync(join(repoDir, "src", "loki_wall_old.test.ts"), "import { test, expect } from 'bun:test';\nimport { w } from './ws';\ntest('x', () => { expect(w).toBe(2); });\n");
+    writeFileSync(join(repoDir, "src", "ws.ts"), "export const w = 2;\n");
+    const ctx = wallCtx(repoDir, () => {}); ctx.baseSha = git(repoDir, ["rev-parse", "HEAD"]).trim();
+    const real = new RealTestMapProvider(); ctx.tests = { detect: (d: string) => real.detect(d), impacted: (m, c) => real.impacted(m, c) };
+    ctx.outputs = () => ({ wall: { files: [], discarded: [{ file: "loki_wall_old.test.ts", reason: "x" }] } }) as Partial<Record<StageName, Record<string, unknown>>>;
+    const r = await verifyStage.run(ctx, new AbortController().signal);
+    expect(JSON.stringify(r.data.checks)).not.toContain("loki_wall_old");
+    expect(r.data.changed_files).toEqual(["src/ws.ts"]);
+  }, 60_000);
 });

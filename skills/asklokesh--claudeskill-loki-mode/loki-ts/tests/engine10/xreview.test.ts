@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { acceptanceLines, acceptancePromptBlock } from "../../src/util/intent_card.ts";
+import { REVIEW_ALLOWLIST_NO_GIT, REVIEW_ALLOWLIST_TOKEN, REVIEW_GUARD_DENYLIST } from "../../src/providers/claude_flags.ts";
 import { crossReview, minVerdict, parseReview, reviewArgv, reviewProvider, reviewReceipt } from "../../src/engine10/stages/xreview.ts";
 
 const root = mkdtempSync(join(tmpdir(), "xv1-"));
@@ -104,7 +105,7 @@ describe("TEN-COST-06 lean claude judge", () => {
   const sup = () => true;
   it("claude argv carries lean flags and json output", () => {
     const a = reviewArgv("claude", "p", {}, undefined, sup).join(" ");
-    expect(a).toContain("--setting-sources project"); expect(a).toContain("--output-format json");
+    expect(a).toContain("--setting-sources  "); expect(a).toContain("--output-format json");
   });
   it("claude argv uses --bare with an API key", () => {
     expect(reviewArgv("claude", "p", { ANTHROPIC_API_KEY: "k" }, undefined, sup)).toContain("--bare");
@@ -116,6 +117,31 @@ describe("TEN-COST-06 lean claude judge", () => {
   it("non-JSON claude stdout is not_run, never pass", () => {
     expect(parseReview("claude", "VERDICT: PASS").level).toBe("not_run");
     expect(parseReview("claude", "{not json").level).toBe("not_run");
+  });
+  it("FC-PR-BODY-PUBLIC-HYGIENE: parseReview keeps flags whole, merges headers, drops empty headers", () => {
+    const long = `Missing tests: ${"the diff adds no tests for the new behaviour. ".repeat(8)}Done.`; // about 380 chars, past the old 300 cut
+    const out = [
+      "VERDICT: FLAG",
+      `- ${long}`,
+      "- Dead code in  stop-hook.sh : the check can never fire.",
+      "- Acceptance lines, traced by hand because the shell output was not visible:",
+      "  - 08 stops at round 8",
+      "  - 010 stops at round 10",
+      "- Unverified context: the state write is outside the diff. My tool output came back empty so I could not confirm it.",
+      "- Trailing header with nothing under it:",
+    ].join("\n");
+    const notes = parseReview("claude", JSON.stringify({ result: out })).notes;
+    expect(notes[0]).toBe(`cross-review flag (claude): ${long}`);
+    expect(notes.some((n) => n.endsWith("not visible:"))).toBe(false);
+    expect(notes.some((n) => n.includes("not visible: 08 stops at round 8; 010 stops at round 10") || (n.includes("08 stops at round 8") && n.includes("010 stops at round 10")))).toBe(true);
+    expect(notes.some((n) => n.endsWith("could not confirm it."))).toBe(true);
+    expect(notes.some((n) => n.includes("Trailing header"))).toBe(false);
+    expect(notes).toHaveLength(4);
+  });
+  it("FC-PR-BODY-PUBLIC-HYGIENE: an over-cap flag ends with an ellipsis, never mid-sentence", () => {
+    const n = parseReview("claude", JSON.stringify({ result: `VERDICT: FLAG\n- ${"word ".repeat(300)}` })).notes[0]!;
+    expect(n.endsWith("...")).toBe(true);
+    expect(n.length).toBeLessThan(700);
   });
   it("a stubbed claude run writes one xreview ledger line", async () => {
     const d = mkdtempSync(join(root, "led-")), bd = mkdtempSync(join(root, "bin-"));
@@ -166,5 +192,96 @@ describe("TEN-QUALITY-13 acceptance lines in the reviewer prompt", () => {
   it("no card or no outputs: prompt has no acceptance block", async () => {
     expect((await stubRun(undefined)).argv).not.toContain("UNMET: ` followed");
     expect((await stubRun({ plan: {} })).argv).not.toContain("intent card");
+  });
+});
+
+describe("medium default review", () => {
+  const mk = (tier: string, provider = "claude", verdictText = "VERDICT: PASS") => {
+    const d = mkdtempSync(join(root, "mdr-")), bd = mkdtempSync(join(root, "mdrbin-"));
+    const git = (...a: string[]) => Bun.spawnSync(["git", "-C", d, "-c", "user.name=t", "-c", "user.email=t@t", ...a]);
+    git("init", "-q"); writeFileSync(join(d, "a"), "1"); git("add", "a"); git("commit", "-qm", "c");
+    mkdirSync(join(d, ".loki", "state"), { recursive: true }); writeFileSync(join(d, ".loki", "state", "risk-tier.json"), JSON.stringify({ tier }));
+    const stub = join(bd, provider); writeFileSync(stub, `#!/bin/sh\nprintf '%s\\n' '{"type":"result","result":"${verdictText}"}'\n`); chmodSync(stub, 0o755);
+    return { ctx: { repoDir: d, provider, baseSha: "HEAD", runDir: d } as never, stub };
+  };
+  const withEnv = async (stub: string, extra: Record<string, string>, f: () => Promise<void>) => {
+    const keys = ["LOKI_REVIEW_PROVIDER", "LOKI_XVENDOR_DEFAULT", "LOKI_CLAUDE_CLI", "LOKI_CODEX_CLI"]; const saved = keys.map((k) => process.env[k]);
+    for (const k of keys) delete process.env[k];
+    process.env["LOKI_CLAUDE_CLI"] = stub; process.env["LOKI_CODEX_CLI"] = stub; Object.assign(process.env, extra);
+    try { await f(); } finally { keys.forEach((k, i) => { const v = saved[i]; if (v === undefined) delete process.env[k]; else process.env[k] = v; }); }
+  };
+  it("medium default review: medium with nothing configured runs the run's own CLI and is marked same-vendor", async () => {
+    const { ctx, stub } = mk("medium");
+    await withEnv(stub, {}, async () => {
+      const r = await crossReview(ctx, "VERIFIED", "HEAD");
+      expect(r?.level).toBe("pass"); expect(r?.provider).toBe("claude"); expect(r?.same_vendor_default).toBe(true);
+      expect(reviewReceipt("claude", r).review).toEqual({ provider: "claude", vendor_differs: false, same_vendor: true, defaulted: true, level: "pass" });
+    });
+  });
+  it("medium default review: a BLOCK caps the verdict at PARTIAL", async () => {
+    const { ctx, stub } = mk("medium", "claude", "VERDICT: BLOCK\\n- bad");
+    await withEnv(stub, {}, async () => { expect(minVerdict("VERIFIED", await crossReview(ctx, "VERIFIED", "HEAD"))).toBe("PARTIAL"); });
+  });
+  it("medium default review: LOKI_REVIEW_PROVIDER=none and off opt out", async () => {
+    const { ctx, stub } = mk("medium");
+    for (const v of ["none", "off"]) await withEnv(stub, { LOKI_REVIEW_PROVIDER: v }, async () => { expect(await crossReview(ctx, "VERIFIED", "HEAD")).toBeNull(); });
+  });
+  it("medium default review: low and high tiers do not default", async () => {
+    for (const t of ["low", "high"]) { const { ctx, stub } = mk(t); await withEnv(stub, {}, async () => { expect(await crossReview(ctx, "VERIFIED", "HEAD")).toBeNull(); }); }
+  });
+  it("medium default review: a configured reviewer keeps precedence and is not marked defaulted", async () => {
+    const { ctx, stub } = mk("medium");
+    await withEnv(stub, { LOKI_REVIEW_PROVIDER: "codex" }, async () => { const r = await crossReview(ctx, "VERIFIED", "HEAD"); expect(r?.provider).toBe("codex"); expect(r?.same_vendor_default).toBeUndefined(); });
+  });
+  // FC-XREVIEW-BLIND-TOOLS: the claude reviewer had a blanket Bash deny and a prompt inviting it to run things, so it flagged "my tool output came back empty".
+  it("FC-XREVIEW-BLIND-TOOLS: claude reviewer gets the shared read-only shell allowlist and mutation denylist, not a blanket Bash deny", () => {
+    const a = reviewArgv("claude", "p", {}, undefined, () => true), at = (f: string) => a[a.indexOf(f) + 1] ?? "";
+    expect(at("--allowedTools")).toBe(REVIEW_ALLOWLIST_NO_GIT); expect(at("--disallowedTools")).toBe(REVIEW_GUARD_DENYLIST);
+    expect(at("--allowedTools")).toContain("Bash(cat:*)"); expect(at("--disallowedTools").split(",")).not.toContain("Bash");
+  });
+  it("FC-XREVIEW-BLIND-TOOLS: argv never carries the empty --tools= (it disables every tool); an explicit tool list with Bash is present", () => {
+    const a = reviewArgv("claude", "p", {}, undefined, () => true);
+    expect(a).not.toContain("--tools=");
+    expect(a).toContain("--tools=Read,Grep,Glob,Bash");
+    expect(a.indexOf("--tools=Read,Grep,Glob,Bash")).toBeGreaterThan(a.indexOf("-p") + 1); // never ahead of the prompt
+  });
+  it("FC-XREVIEW-BLIND-TOOLS: xreview allowlist has no git entry (repo .git/config drivers run programs), shared allowlist keeps git for council", () => {
+    const repo = mkdtempSync(join(tmpdir(), "loki-run-fsmon-")), marker = join(repo, "fsmon-ran");
+    try {
+      mkdirSync(join(repo, ".git"), { recursive: true });
+      writeFileSync(join(repo, ".git", "fsmon.sh"), `#!/bin/sh\ntouch '${marker}'\n`); chmodSync(join(repo, ".git", "fsmon.sh"), 0o755);
+      writeFileSync(join(repo, ".git", "config"), `[core]\n\tfsmonitor = ${join(repo, ".git", "fsmon.sh")}\n`);
+      const a = reviewArgv("claude", "p", {}, undefined, () => true), allow = a[a.indexOf("--allowedTools") + 1]!.split(",");
+      expect(allow.some((t) => t.startsWith("Bash(git"))).toBe(false); expect(allow).toContain("Bash(cat:*)"); expect(allow).toEqual(REVIEW_ALLOWLIST_NO_GIT.split(","));
+      expect(existsSync(marker)).toBe(false); // nothing in the reviewer argv can trigger the configured fsmonitor
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+    expect(REVIEW_ALLOWLIST_TOKEN).toContain("Bash(git status:*)"); expect(REVIEW_ALLOWLIST_TOKEN).toContain("Bash(git diff:*)");
+  });
+  it("FC-XREVIEW-BLIND-TOOLS: the argv the reviewer CLI really receives has no git allowlist entry, and a configured fsmonitor never runs", async () => {
+    const { ctx, stub } = mk("medium"), out = join(root, "real-argv.txt"), repo = (ctx as { repoDir: string }).repoDir, marker = join(repo, "fsmon-ran");
+    writeFileSync(join(repo, ".git", "fsmon.sh"), `#!/bin/sh\ntouch '${marker}'\n`); chmodSync(join(repo, ".git", "fsmon.sh"), 0o755);
+    Bun.spawnSync(["git", "-C", repo, "config", "core.fsmonitor", join(repo, ".git", "fsmon.sh")]);
+    writeFileSync(stub, `#!/bin/sh\nfor a in "$@"; do printf '%s\\n' "$a"; done > '${out}'\nprintf '%s\\n' '{"type":"result","result":"VERDICT: PASS"}'\n`); chmodSync(stub, 0o755);
+    await withEnv(stub, {}, async () => { await crossReview(ctx, "VERIFIED", "HEAD"); });
+    const argv = readFileSync(out, "utf8").split("\n"), allow = argv[argv.indexOf("--allowedTools") + 1] ?? "";
+    expect(allow).toContain("Bash(cat:*)"); expect(allow).not.toContain("Bash(git"); expect(argv).toContain("--permission-mode");
+    const i = argv.indexOf("--setting-sources"); if (i >= 0) expect(argv[i + 1]).toBe("");
+    expect(existsSync(marker)).toBe(false);
+  });
+  it("FC-XREVIEW-BLIND-TOOLS: repo settings cannot widen the reviewer shell (no setting sources, dontAsk mode)", () => {
+    const a = reviewArgv("claude", "p", {}, undefined, () => true);
+    expect(a[a.indexOf("--setting-sources") + 1]).toBe(""); // no source: neither repo nor user settings (permissions.allow, hooks, CLAUDE.md) load expect(a[a.indexOf("--permission-mode") + 1]).toBe("dontAsk");
+  });
+  it("FC-XREVIEW-BLIND-TOOLS: denylist closes the write escapes under the read-only allowlist", () => {
+    const d = REVIEW_GUARD_DENYLIST.split(",");
+    for (const g of ["rg --pre", "rg --pre=", "rg --pre-glob", "rg --pre-glob=", "rg --hostname-bin", "git diff --output", "git diff --output=", "git log --output", "git log --output=", "git show --output", "git show --output=", "git diff --ext-diff", "git -c", "git --exec-path", "find -delete", "find -exec"]) expect(d).toContain(`Bash(${g}:*)`);
+    for (const g of ["git * --output*", "git * --ext-diff*", "rg * --pre*", "rg * --hostname-bin*", "rg --pre*", "rg --hostname-bin*", "find * -delete*", "find * -exec*"]) expect(d).toContain(`Bash(${g})`);
+  });
+  it("FC-XREVIEW-BLIND-TOOLS: reviewer prompt describes only real tools and never forbids reporting an inspection failure", async () => {
+    const { ctx, stub } = mk("medium"), out = join(root, "blind-prompt.txt");
+    writeFileSync(stub, `#!/bin/sh\nprintf '%s' "$2" > '${out}'\nprintf '%s\\n' '{"type":"result","result":"VERDICT: PASS"}'\n`);
+    await withEnv(stub, {}, async () => { await crossReview(ctx, "VERIFIED", "HEAD"); });
+    const p = readFileSync(out, "utf8");
+    expect(p).toContain("cannot edit files or run project code or tests"); expect(p).toContain("say so plainly"); expect(p).toContain("No git commands are available"); expect(p).not.toContain("never report");
   });
 });

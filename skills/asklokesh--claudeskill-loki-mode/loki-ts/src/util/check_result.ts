@@ -4,7 +4,8 @@
 // pass (hasExecutedProof). Every site that sets result "pass" for a test run routes through classifyCheck.
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { siteFor } from "../project_model/resolve.ts";
 import type { ProjectApi } from "../project_model/api.ts";
@@ -170,8 +171,35 @@ export function testCount(raw: string, path?: string, ok?: boolean): number | nu
   return null;
 }
 
-export interface ClassifyInput { kind: "test" | "static"; ok: boolean; cut?: boolean; missing?: boolean; out: string; path?: string; runner?: "go" }
-export interface Classified { result: "pass" | "fail" | "not_run"; n?: number; reason?: string }
+/** FC-FULL-SUITE-EXIT-CODED-SCRIPT: the receipt count text of a full-suite command that is a plain script (a CI checker), not a test runner. */
+export const EXIT_CODED_COUNT = "n/a (exit-coded check, not a test runner)";
+/** Any recognized test framework or test-script wrapper anywhere in the command. Conservative: a match means "framework". */
+const FRAMEWORK_RE = /\b(?:pytest|py\.test|unittest|nose2?|tox|nox|jest|vitest|mocha|jasmine|ava|tap|playwright|cypress|karma|rspec|minitest|phpunit|pest|codeception|ctest|busted|prove)\b|\b(?:bun|deno|node|go|cargo|dotnet|swift|mix|dart|flutter|zig)\s+(?:[\w:.=-]+\s+)*test\b|\b(?:npm|pnpm|yarn|bun|npx)\b.*\btest|\b(?:mvn|mvnw|gradle|gradlew|ant|sbt|make|cmake|bazel|rake|composer|lein)\b|test/i;
+const SCRIPT_RE = /^(?:python[\d.]*|node|bash|sh|ruby|perl)\s+(?:--?[\w-]+\s+)*([^\s-][^\s]*\.(?:py|js|mjs|cjs|sh|rb|pl))(?:\s|$)/;
+/** True only when EVERY segment of the command is a plain interpreter-plus-script run (or a cd) and nothing in it names a test framework.
+ *  Anything ambiguous (make, ./script, -m, -c, a path or word containing "test") is a framework, so it stays UNMEASURED when no summary parses. */
+export function isExitCodedScript(cmd: string): boolean {
+  const segs = cmd.replace(/[()]/g, " ").split(/&&|\|\||[;|\n]/).map((x) => x.trim()).filter(Boolean);
+  let script = false;
+  for (const raw of segs) {
+    const seg = raw.replace(/^(?:(?:env|command|exec|time|nohup)\s+|[A-Za-z_]\w*=\S*\s+)+/, "").replace(/["']/g, "");
+    if (/^cd\s+\S+$/.test(seg)) continue;
+    if (FRAMEWORK_RE.test(seg) || !SCRIPT_RE.test(seg)) return false;
+    script = true;
+  }
+  return script;
+}
+/** Stable failing id of an exit-coded script: the command plus a hash of its normalized failing output, or null when nothing is left to compare (a silent failure is never attributable).
+ *  Normalized = ANSI stripped, the repo root prefix (and /private on macOS) plus its slash removed, line:col numbers removed, whitespace folded; the lines are a SORTED MULTISET (no dedupe),
+ *  so an extra identical line is new. Repo-relative paths, other absolute paths and every other digit stay, so any new or changed finding is a different id (introduced). Recorded identically at the intake baseline and in the head full suite. */
+export function exitCodedId(cmd: string, out: string, repoDir = ""): string | null {
+  const roots = repoDir ? [`/private${repoDir}/`, `${repoDir}/`, `/private${repoDir}`, repoDir] : [];
+  const norm = (x: string): string => roots.reduce((t, r) => t.split(r).join(""), x).replace(/(?<=\.[A-Za-z0-9]+):\d+(?::\d+)?/g, "").replace(/\s+/g, " ").trim();
+  const lines = stripAnsi(out).split("\n").map(norm).filter(Boolean).sort();
+  return lines.length ? `exit-coded:${cmd.trim()}:${createHash("sha256").update(lines.join("\n")).digest("hex")}` : null;
+}
+export interface ClassifyInput { kind: "test" | "static"; ok: boolean; cut?: boolean; missing?: boolean; out: string; path?: string; runner?: "go"; exitCoded?: boolean /* FC-FULL-SUITE-EXIT-CODED-SCRIPT: the command is a plain script (isExitCodedScript), decided by exit code like a static check */ }
+export interface Classified { result: "pass" | "fail" | "not_run"; n?: number; reason?: string; count?: string }
 /** classifyCheck result plus the rerun-only "flaky" verdict (TEN-QUALITY-17); kept separate so existing classifyCheck callers keep the narrow type. */
 export interface ClassifiedRerun extends Omit<Classified, "result"> { result: Classified["result"] | "flaky"; rerun?: { first: "fail"; second: "pass"; n?: number } }
 /** One attempt of one check. static = lint/typecheck/scan (exit code decides, no count). test = a test runner: pass needs n>0. */
@@ -190,6 +218,7 @@ export function classifyCheck(i: ClassifyInput): Classified {
     return FAIL_EVIDENCE.test(text) || GO_FAIL_EVIDENCE.test(text) ? { result: "fail" } : { result: "not_run", reason: UNCONFIRMED_REASON };
   }
   const n = testCount(i.out, i.path, i.ok);
+  if (i.exitCoded && n === null) return { result: i.ok ? "pass" : "fail", count: EXIT_CODED_COUNT }; // only when no runner summary parses (a wrapper that prints a real summary keeps its count); never carries n: not executed-test proof
   if (!i.ok && FAIL_EVIDENCE.test(text)) return { result: "fail", ...(n !== null ? { n } : {}) }; // L2: a failure is never downgraded by a zero count
   if (n === 0) return { result: "not_run", n: 0, reason: `${NO_TESTS_REASON} (ran 0 tests, empty or all skipped)` };
   if (!i.ok) return { result: "fail", ...(n !== null ? { n } : {}) };
@@ -410,6 +439,20 @@ export function classifyRisk(files: DiffFile[], env: NodeJS.ProcessEnv = process
   };
 }
 
+/** FC-WALL-LOCATION-BLIND: a loki_wall_* file in the tree that this run's Wall did not install (an earlier run left it untracked, or this run discarded it) is not a change of this run: verifying it would credit an exogenous pass for a test the receipt lists as discarded. `own` holds the paths this run installed (absolute or repo-relative). */
+export const withoutStaleWall = <T extends string | { path: string }>(items: T[], own: string[], repoDir: string): T[] => { const mine = new Set(own.map((p) => (isAbsolute(p) ? relative(repoDir, p) : p))); return items.filter((it) => { const f = typeof it === "string" ? it : it.path; return !/(^|\/)loki_wall_[^/]*$/.test(f) || mine.has(f); }); };
+/** FC-VERIFIED-PR-WITHOUT-ITS-TEST: the Wall files verify ran and passed (target_checks + executed proof), as their SEALED bytes: the runDir/wall copy must hash to wall.files[].sha256, else a NOT PROVEN note and no file. LOKI_COMMIT_WALL=0: none. */
+export function publishableWall(repoDir: string, runDir: string, o: Partial<Record<string, Record<string, unknown>>>, env: NodeJS.ProcessEnv = process.env): { files: { rel: string; bytes: Buffer; cmd: string }[]; notes: string[] } {
+  const out = { files: [] as { rel: string; bytes: Buffer; cmd: string }[], notes: [] as string[] }, arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []), tgt = new Set(Array.isArray(o.verify?.["target_checks"]) ? (o.verify["target_checks"] as unknown[]).map(String) : []);
+  if (env["LOKI_COMMIT_WALL"] === "0") return out;
+  for (const w of arr(o.wall?.["files"])) {
+    const rel = relative(repoDir, String(w["path"])), hit = arr(o.verify?.["checks"]).find((c) => tgt.has(String(c["name"])) && String(c["name"]).slice(String(c["name"]).indexOf(":") + 1) === rel && hasExecutedProof([c]));
+    if (!hit || rel.startsWith("..") || isAbsolute(rel) || rel.startsWith(".loki/") || !basename(rel).startsWith("loki_wall_")) continue; // stale, failed, not-run or outside the repo: stays dropped
+    try { const bytes = readFileSync(join(runDir, "wall", basename(rel))); if (createHash("sha256").update(bytes).digest("hex") !== w["sha256"]) throw new Error("hash"); out.files.push({ rel, bytes, cmd: String(hit["cmd"]) }); } catch { out.notes.push(`Wall test not published: ${rel} (sealed copy missing or not the sealed bytes)`); }
+  }
+  return out;
+}
+
 /** Tracked changes against baseSha, plus untracked new files (commit runs after verify). `.loki/`
  *  is filtered defensively even though intake also excludes it via .git/info/exclude. Throws if
  *  either git command fails: a broken baseSha must never read as "nothing changed" (~ALREADY_SATISFIED). */
@@ -624,3 +667,41 @@ export function firstError(out: string): string { // the line naming the failing
   const lines = out.slice(-65536).split("\n").map((l) => (l.startsWith("{") ? goOut(l) : l).trim()).filter(Boolean), l =lines.find((x) => /^(FAILED\s|\u25cf\s.*\u203a|not ok\s|_{3,}\s.+\s_{3,}$)/.test(x)) ?? lines.find((x) => /^[\w./-]+\.go:\d+:\d+: \S/.test(x)) /* go compiler line, before "FAIL pkg [build failed]" */ ?? lines.find((x) => /fail|error/i.test(x) && !/^(=|\u2713|ok\b|PASS)/.test(x)) ?? "";
   return l.replace(/\d{4}-\d\d-\d\dT[\d:.]+Z?/g, "").replace(/(^|\s)\/(?:[\w.@-]+\/)*[\w.@-]+/g, "$1<path>").replace(/:\d+(?::\d+)?/g, "").replace(/\[?\d+(?:\.\d+)?m?s\]?/g, "").replace(/\s+/g, " ").slice(0, 160);
 }
+
+/** FC-PR-BODY-PUBLIC-HYGIENE: the one wording for a check that also fails on the base tree (verify's pre_red_checks). */
+export const ALREADY_FAILING_ON_BASE = "already failing on base, not caused by this change";
+/** "fail" stays "fail" unless the check is base-red, then it carries the one shared label; every other result is unchanged. */
+/** FC-REPO-SKIPPED-TEST-DOWNGRADES: the one wording for an unchanged test the repo itself skips (zero tests on base and head); the check stays not_run in the receipt, never counted against the verdict. */
+export const SKIPPED_BY_REPO = "skipped by the repo on base and head";
+export const checkResultLabel = (result: string, preRed: boolean, repoSkipped = false): string => (result === "fail" && preRed ? `fail (${ALREADY_FAILING_ON_BASE})` : result === "not_run" && repoSkipped ? `not_run (${SKIPPED_BY_REPO})` : result);
+
+type G = (args: string[]) => Promise<{ out: string; code: number }>;
+/** FC-VERIFIED-PR-WITHOUT-ITS-TEST: HEAD is this run's Wall child only when its trailer line names this run, it touches exactly paths of this run's wall.files, and each blob hashes to the sealed sha256. A forged trailer is not enough. */
+export async function wallChild(git: G, runId: string, repoDir: string, wallFiles: unknown): Promise<boolean> {
+  if (!(await git(["log", "-1", "--format=%B", "HEAD"])).out.split("\n").includes(`Loki-Wall-Publish: ${runId}`)) return false;
+  const want = new Map((Array.isArray(wallFiles) ? (wallFiles as { path: string; sha256: string }[]) : []).map((w) => [relative(repoDir, w.path), w.sha256] as const));
+  const names = (await git(["diff", "--name-only", "--no-renames", "-z", "HEAD^", "HEAD"])).out.split("\0").filter(Boolean);
+  if (names.length === 0) return false;
+  for (const n of names) { const h = want.get(n); if (h === undefined || createHash("sha256").update((await git(["cat-file", "blob", `HEAD:${n}`])).out).digest("hex") !== h) return false; }
+  return true;
+}
+
+/** FC-VERIFIED-PR-WITHOUT-ITS-TEST: one child commit of the SEALED Wall bytes on top of the product head, run with NO hooks and NO signing (git() default), so nothing but the named paths can enter it.
+ *  Every committed blob must equal the sealed bytes and the commit must touch exactly the published paths; otherwise the child is rolled back (update-ref + read-tree, index and HEAD only) and nothing is published. A re-seal (done) commits nothing. */
+const blobSha = (b: Buffer, hex: number): string => createHash(hex === 64 ? "sha256" : "sha1").update(Buffer.concat([Buffer.from(`blob ${b.length}\0`), b])).digest("hex");
+export async function publishWall(git: G, runId: string, repoDir: string, files: { rel: string; bytes: Buffer }[], done: boolean): Promise<boolean> {
+  const rels = files.map((f) => f.rel), pre = (await git(["rev-parse", "HEAD"])).out.trim();
+  const sound = async (): Promise<boolean> => {
+    const names = (await git(["diff", "--name-only", "--no-renames", "-z", "HEAD^", "HEAD"])).out.split("\0").filter(Boolean).sort();
+    if (names.join("\0") !== [...rels].sort().join("\0")) return false;
+    for (const f of files) { const got = (await git(["rev-parse", `HEAD:${f.rel}`])).out.trim(); if (got === "" || got !== blobSha(f.bytes, got.length)) return false; } // the SEALED bytes, never the worktree file
+    return true;
+  };
+  if (done) return sound();
+  for (const f of files) { const abs = join(repoDir, f.rel); try { if (!realpathSync(dirname(abs)).startsWith(realpathSync(repoDir))) return false; } catch { /* dir not created yet */ } rmSync(abs, { force: true }); mkdirSync(dirname(abs), { recursive: true }); writeFileSync(abs, f.bytes); } // rmSync first: an agent-planted symlink is replaced, never written through
+  if ((await git(["--literal-pathspecs", "add", "--", ...rels])).code !== 0 || (await git(["--literal-pathspecs", "commit", "-q", "-m", "test: loki acceptance checks (Wall)", "-m", `Loki-Wall-Publish: ${runId}\nLoki-Run: ${runId}`, "--", ...rels])).code !== 0) return false;
+  if (await sound()) return true;
+  await git(["update-ref", "HEAD", pre]); await git(["read-tree", "HEAD"]); // drop the bad child; the product head and index are as sealed
+  return false;
+}
+

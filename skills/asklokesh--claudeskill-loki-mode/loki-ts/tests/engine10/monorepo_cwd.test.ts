@@ -13,6 +13,7 @@ import { runFullSuite, type DeepCheck } from "../../src/engine10/stages/deep.ts"
 import { RealBaseTestRunner } from "../../src/engine10/stages/wall.ts";
 import { projectApi } from "../../src/project_model/api.ts";
 import { PROJECT_FILE } from "../../src/project_model/discover.ts";
+import { wallRedOnBaseOf } from "../../src/project_model/package_suite.ts";
 import { loadProjectApi, siteFor } from "../../src/project_model/resolve.ts";
 import { PROJECT_MODEL_SCHEMA, type ModelCommand, type ProjectModel } from "../../src/project_model/schema.ts";
 
@@ -145,6 +146,23 @@ describe("FC-01 verify in a multi-root monorepo", () => {
     expect(checks.map((c) => c.name)).toEqual(["lint:tsc:backend"]); // frontend has no tsconfig
     expect(calls()).toEqual([`${join(dir, "backend")}|tsc --noEmit -p .`]);
   });
+  test("FC-FULL-SUITE-EXIT-CODED-SCRIPT: a package whose test command is a CI checker script passes on exit 0 (count n/a) and fails on exit 1; a framework without a summary stays not_run", async () => {
+    const { dir, base } = monorepo(true);
+    const api = loadProjectApi(dir)!;
+    const m = api.model as ProjectModel;
+    const runWith = async (line: string) => {
+      m.packages[0]!.commands.test = cmd(line, "backend", "backend/package.json");
+      writeFileSync(join(dir, PROJECT_FILE), JSON.stringify(m));
+      const checks: Array<DeepCheck & { count?: string }> = []; await runFullSuite(ctxFor(dir, base, []), sig(), {}, checks, new Set<string>());
+      return checks[0]!;
+    };
+    writeFileSync(join(dir, "backend", "check_hardening.py"), "print('OK: checked 3 job(s) that call Claude and found no problems.')\n");
+    writeFileSync(join(dir, "backend", "check_bad.py"), "import sys\nprint('bad')\nsys.exit(1)\n");
+    const ok = await runWith("python3 check_hardening.py");
+    expect([ok.result, ok.count, ok.n]).toEqual(["pass", "n/a (exit-coded check, not a test runner)", undefined]);
+    expect((await runWith("python3 check_bad.py")).result).toBe("fail");
+    expect((await runWith("python3 -m pytest --version")).result).toBe("not_run");
+  });
   test("the deep full suite runs each package's own test command in its own directory", async () => {
     const { dir, base } = monorepo(true);
     const api = loadProjectApi(dir)!;
@@ -159,7 +177,7 @@ describe("FC-01 verify in a multi-root monorepo", () => {
   });
   // FC-SEAL-NA-AS-UNPROVEN: frontend has no test command. N/A beside a suite that ran, unless the diff is in frontend with no Wall proof.
   describe("FC-SEAL-NA-AS-UNPROVEN package without a test command", () => {
-    const suites = async (opts: { changed?: string[]; proofFiles?: string[] }, rootPkg = false): Promise<string[]> => {
+    const suites = async (opts: { changed?: string[]; proofFiles?: string[]; wallBaseRed?: boolean }, rootPkg = false): Promise<string[]> => {
       const { dir, base } = monorepo(true);
       const api = loadProjectApi(dir)!; const m = api.model as ProjectModel;
       m.packages[0]!.commands.test = cmd('echo " Test Files  1 passed (1)"; echo "      Tests  1 passed (1)"', "backend", "backend/package.json");
@@ -169,7 +187,7 @@ describe("FC-01 verify in a multi-root monorepo", () => {
       await runFullSuite(ctxFor(dir, base, []), sig(), opts, [], notProven);
       return [...notProven];
     };
-    const note = "full suite: package frontend defines no test command";
+    const note = "full suite: package frontend defines no test command", unownedNote = (f: string): string => `changed file ${f} belongs to no package and no passing check exercised it`;
     test("changed files only in the tested package: N/A", async () => { expect(await suites({ changed: ["backend/src/a.ts"] })).toEqual([`n/a: ${note}`]); });
     test("changed files in the package without tests and no Wall proof: stays NOT PROVEN", async () => { expect(await suites({ changed: ["frontend/src/a.ts"] })).toEqual([note]); expect(await suites({ changed: ["frontend/src/a.ts"], proofFiles: [] })).toEqual([note]); });
     test("changed files in the package without tests but a passing Wall proof inside it: N/A", async () => { expect(await suites({ changed: ["frontend/src/a.ts"], proofFiles: ["frontend/tests/w.test.ts"] })).toEqual([`n/a: ${note}`]); });
@@ -181,9 +199,44 @@ describe("FC-01 verify in a multi-root monorepo", () => {
     });
     test("FC-CHANGED-PATH-QUOTED: a changed path no package resolves, or a quoted one, is owned: stays NOT PROVEN", async () => {
       expect(await suites({ changed: ["\"frontend/src/caf\\303\\251.ts\""] })).toEqual([note]);
-      expect(await suites({ changed: ["backend/src/a.ts", "elsewhere/x.md"] })).toEqual([note]);
+      expect(await suites({ changed: ["backend/src/a.ts", "elsewhere/x.md"] })).toEqual([unownedNote("elsewhere/x.md"), `n/a: ${note}`]);
+    });
+    // FC-UNOWNED-FILE-OWNED-BY-TESTLESS-PACKAGE: an unowned file belongs to the repo-root package only; elsewhere the Wall exec must prove it or it is named NOT PROVEN.
+    test("FC-UNOWNED-FILE-OWNED-BY-TESTLESS-PACKAGE: unowned files proven by the Wall (#81826 shape) leave the unrelated package N/A and add no note", async () => {
+      expect(await suites({ changed: ["plugins/r/hooks/stop.sh", "tests/loki_wall_x.test.ts"], proofFiles: ["tests/loki_wall_x.test.ts"], wallBaseRed: true })).toEqual([`n/a: ${note}`]);
+    });
+    test("FC-UNOWNED-FILE-OWNED-BY-TESTLESS-PACKAGE: an unowned file no passing check exercised stays NOT PROVEN, named", async () => {
+      expect(await suites({ changed: ["plugins/r/hooks/stop.sh"] })).toEqual([unownedNote("plugins/r/hooks/stop.sh"), `n/a: ${note}`]);
+      expect(await suites({ changed: ["plugins/r/hooks/stop.sh", "tests/loki_wall_x.test.ts"], proofFiles: ["tests/loki_wall_x.test.ts"], wallBaseRed: false })).toContain(unownedNote("plugins/r/hooks/stop.sh"));
+    });
+    test("FC-UNOWNED-FILE-OWNED-BY-TESTLESS-PACKAGE: the repo-root test-less package still owns an unowned file", async () => {
+      expect(await suites({ changed: ["plugins/r/hooks/stop.sh"] }, true)).toContain("full suite: package root defines no test command");
     });
     test("unknown diff is fail-safe NOT PROVEN", async () => { expect(await suites({})).toEqual([note]); });
+    // FC-WALL-PROOF-PACKAGE-BLIND: execution evidence (Wall red on base, green on head, diff confined to the package), never proof text.
+    describe("FC-WALL-PROOF-PACKAGE-BLIND", () => {
+      const un = (f: string): string => `changed file ${f} belongs to no package and no passing check exercised it`;
+      const wall = ["tests/loki_wall_x.test.ts"], ch = ["frontend/hooks/stop.sh", "tests/loki_wall_x.test.ts"];
+      const red = (changed: string[] | undefined, proofFiles: string[] | undefined = wall, wallBaseRed: boolean | null = true): Promise<string[]> => suites({ ...(changed ? { changed } : {}), ...(proofFiles ? { proofFiles } : {}), ...(wallBaseRed === null ? {} : { wallBaseRed }) });
+      test("base red, head green, diff confined to the package plus the Wall file: N/A", async () => { expect(await red(ch)).toEqual([`n/a: ${note}`]); });
+      test("Wall green on base (or base_run missing or all not_run) never credits", async () => { expect(await red(ch, wall, false)).toEqual([note]); expect(await red(ch, wall, null)).toEqual([note]); });
+      test("diff spanning two packages gets no credit", async () => { expect(await red(["frontend/a.sh", "backend/src/a.ts", ...wall])).toEqual([note]); });
+      test("unknown diff, empty diff and quoted path stay NOT PROVEN", async () => {
+        expect(await red(undefined)).toEqual([note]);
+        expect(await red(wall)).toEqual([note]);
+        expect(await red(['"frontend/src/caf\\303\\251.ts"', ...wall])).toEqual([note]);
+      });
+      test("Wall failed on head (no proof files): no credit", async () => { expect(await red(ch, [])).toEqual([un(wall[0]!), note]); });
+      test("FC-WALL-FILE-OWNS-EVERY-PACKAGE: a passing root Wall file does not make an untouched test-less package own the diff", async () => {
+        expect(await red(["backend/src/a.ts", ...wall])).toEqual([`n/a: ${note}`]);
+        expect(await red(["backend/src/a.ts", ...wall], [])).toEqual([un(wall[0]!), `n/a: ${note}`]);
+        expect(await red(["backend/src/a.ts", "elsewhere/x.md", ...wall])).toEqual([un("elsewhere/x.md"), `n/a: ${note}`]);
+      });
+      test("wallRedOnBaseOf reads real failures only", () => {
+        expect(wallRedOnBaseOf({ pass: 0, fail: 1, not_run: 0 })).toBe(true);
+        for (const b of [undefined, null, {}, { pass: 2, fail: 0, not_run: 0 }, { pass: 0, fail: 0, not_run: 2 }, { fail: "1" }]) expect(wallRedOnBaseOf(b)).toBe(false);
+      });
+    });
   });
   test("the Wall base run executes a package file from its package directory", () => {
     const { dir } = monorepo(true);

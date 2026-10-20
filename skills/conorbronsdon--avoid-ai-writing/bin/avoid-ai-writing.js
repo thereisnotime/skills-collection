@@ -29,8 +29,8 @@ Examples:
   npx --package avoid-ai-writing-detector avoid-ai-writing --source-mode rendered-markdown -- --draft.md
 `;
 
-const CONTEXTS = ["general", "technical", "marketing", "personal"];
-const SOURCE_MODES = ["plain", "rendered-markdown"];
+const CONTEXTS = AIDetector.CONTEXT_MODES;
+const SOURCE_MODES = AIDetector.SOURCE_MODES;
 
 function parseArgs(argv) {
   const options = { help: false, context: "general", sourceMode: "plain", files: [] };

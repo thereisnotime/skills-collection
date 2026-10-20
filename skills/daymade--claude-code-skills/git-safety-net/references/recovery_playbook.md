@@ -49,7 +49,7 @@ authorize branch deletion ([merge_verification.md](merge_verification.md) § Wor
 ## The authoritative "is anything at risk" check
 
 Before anything else, answer the only question that matters — *is any committed or uncommitted
-state present only locally?* When every worktree/ref/tag/stash/dangler enumerated by the full audit
+state present only locally?* When every worktree/ref/tag/reflog/stash/dangler enumerated by the full audit
 is inside the declared evidence scope, check every place local work hides:
 
 ```bash
@@ -58,13 +58,20 @@ scripts/git_loss_audit.sh
 
 If any enumerated surface is excluded, the script is out of scope because it has no exclusion flag.
 Use the authorized checkout/ref's own `status`, `HEAD`, `git log HEAD --not --remotes`, and exact
-remote-ref lookup instead, and state that other worktrees/refs/tags/stashes/danglers were not audited.
+remote-ref lookup instead, and state that other worktrees/refs/tags/reflogs/stashes/danglers were not audited.
 
-- **A completely empty verdict = no reported local state is stranded off-remote.** That means no
-  local-only commits, dirty/unavailable worktrees, stashes, or dangling commits.
+- **The zero-risk verdict requires completed scans and no pending local state.** That means no
+  local-only commits, dirty/unavailable worktrees, stashes, reflog-only/dangling commits, or non-commit refs
+  awaiting manual object-preservation review. An incomplete scan cannot establish this verdict.
 - **Any reported item = inspect it before cleanup.** Local-only commits and dirty/unavailable
-  worktrees make the script exit 1; stashes/danglers stay exit 0 but still need triage or
-  preservation before branch, stash, or worktree deletion.
+  worktrees, failed content scans, and Git scan diagnostics make the script exit 1;
+  stashes, reflog-only/dangling commits and non-commit refs stay exit 0 but still need triage or preservation before
+  branch, stash, or worktree deletion.
+
+The audit reads every worktree's reflogs as well as its current HEAD. Default `fsck --dangling`
+does not report commits retained only by reflogs. Preserve an authorized reflog-only SHA with the
+targeted pin below before expiring its log or retiring worktree metadata; the whole-set
+`git_preserve_danglers.sh` helper scans true danglers only and does not pin reflog-only commits.
 
 Why the script instead of only `git log HEAD --branches --tags --not --remotes`: that command
 catches the current detached HEAD and tag-only commits, but misses a detached HEAD in a different
@@ -88,8 +95,11 @@ those HEADs explicitly, so do not run it when another linked path is excluded.
 Before removal, require empty tracked/untracked status **and a separate ignored-file inventory**,
 exact HEAD capture, content containment proof against a fresh base, a verified targeted bundle of
 the worktree's branch or collision-checked recovery ref, and current-session deletion authority.
-Only then use non-forced `git worktree remove`, followed by path/registration/ref postcondition
-checks. The bundle preserves Git objects, not ignored files; copy any ignored item that is not
+Only then try normal `git worktree remove`, followed by path/registration/ref postcondition
+checks. Its clean-submodule exception in the complete gate below permits one force flag only after
+a specific submodule refusal and independent module preservation; it does not permit removal of
+dirty, unknown, locked, occupied or incompletely preserved state. The bundle preserves the
+superproject's objects, not module-private objects or ignored files; copy any ignored item that is not
 proven reproducible and verify it against a recorded pre-removal
 content hash. Freeze the complete ignored path/type/hash-or-link-target manifest, including
 disposable entries. After authority, repeat both status checks and rebuild that manifest; any
