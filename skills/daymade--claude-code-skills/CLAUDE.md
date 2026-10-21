@@ -79,6 +79,8 @@ For running an original application demo, follow that Skill's
 For file-backed persistence and CLI acceptance, transaction recovery tests,
 financial migration/fixture acceptance, runtime compatibility or project-bound release acceptance, enter
 [qa-expert](qa-expert/SKILL.md); its test-case routes select the detailed recipes.
+For path normalization or drive-relative adapter cases, follow its
+[runtime compatibility recipe](qa-expert/references/runtime-compatibility-acceptance.md#select-optional-path-operation-cases).
 
 For choosing or reviewing a library, framework, storage, data format, model,
 build-vs-buy or architecture — including 用哪个 / 选什么框架 / 要不要自建 / A 还是 B /
@@ -116,14 +118,21 @@ For permission-sensitive fixtures, use Skill Creator's
 For its audit, release, source-contract or materialization commands from another
 working directory, use the [fixed command entry](daymade-skill/skill-creator/references/fixed-command-entry.md).
 
-Before reading a large file or captured tool response, follow Skill Creator's
-[bounded-read recipe](daymade-skill/skill-creator/references/stateful-script-verification.md)
-through that fixed entry. Keep selection, output limits and incomplete-read semantics
-in the owning recipe.
+Before a command that may exceed the response budget, enter Skill Creator's
+[large-output capture recipe](daymade-skill/skill-creator/references/stateful-script-verification.md#large-command-output).
+For a large file or saved tool response, use its
+[complete-file reading workflow](daymade-skill/skill-creator/references/stateful-script-verification.md#complete-file-reads).
+Keep invocation, selection and incomplete-read semantics in those owners.
 
 For plugin/Skill naming, source registration or release labels, use
 [source location and activation](daymade-skill/skill-creator/references/source-location-and-activation.md)
 and [delivery identity](daymade-skill/skill-creator/references/delivery-identity.md).
+
+For a Chinese illustrated recipient guide from a manufacturer PDF, enter
+[docs-router](daymade-docs/docs-router/SKILL.md) and its
+[manual workflow](daymade-docs/pdf-creator/references/illustrated-manual.md).
+For relative-image resource paths or Markdown → PDF rendering, read
+[PDF Creator's ordinary entry](daymade-docs/pdf-creator/SKILL.md).
 
 For saved HTML batches, follow [the conversion owner](daymade-docs/doc-to-markdown/references/html-conversion.md#gate-a-batch-through-the-existing-recipe)
 and its actual-reader pilot before expansion. Keep conversion evidence and reader
@@ -148,6 +157,11 @@ as the route rather than a second copy of those procedures.
 
 For customer-approved report forms, follow
 [skill-creator's report-template contract](daymade-skill/skill-creator/references/authoring-and-reuse.md#show-the-result-not-just-the-work).
+
+For Codex login, credential recovery or quota-query ownership, enter
+[local-codex authentication](daymade-codex/local-codex/SKILL.md#authentication-chatgpt-oauth).
+For existing Ghostty Codex windows around an account switch, enter
+[ghostty-use's switch workflow](ghostty-use/SKILL.md#codex-account-switch).
 
 For rebuilding a paper form from an image, scan or screenshot as an editable
 XLSX with a printable layout, enter
@@ -288,9 +302,10 @@ For uv cache diagnosis or retirement, enter
 ### Automated Test Suites (CI)
 
 For third-party model speed, protocol, concurrency or answer collection, enter
-[llm-eval-harness](llm-eval-harness/SKILL.md). Its probe receipts distinguish
-completed observations, noncompliance, partial evidence and execution failure;
-process exit alone does not establish the measured result.
+[llm-eval-harness](llm-eval-harness/SKILL.md). For machine results, consumed inputs,
+retained answers, output-directory reuse or interrupted runs, read its
+[machine-result contract](llm-eval-harness/references/machine-results.md).
+Process exit alone does not establish the measured result.
 
 A `tests/` directory under a Skill does **not** automatically run in CI.
 [The registry](scripts/ci/test-suites.txt) owns suite admission and membership;

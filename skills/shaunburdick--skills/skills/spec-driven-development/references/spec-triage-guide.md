@@ -16,11 +16,11 @@ When a new piece of work is requested:
 | Condition | Action | Example |
 |-----------|--------|---------|
 | Work modifies existing FRs or ACs | **Amend existing spec** | "Improve combat damage calculation" → update FR-003 in the combat spec |
-| Work adds new FRs to an existing domain | **Amend existing spec** — after consolidating what the change replaces (see [How to Amend](#how-to-amend-an-existing-spec)) | "Add ranged weapons to combat" → generalize the weapon FRs rather than appending a sibling |
+| Work changes or extends a capability an existing spec describes, including another case, input, or variant | **Amend existing spec** — after consolidating what the change replaces (see [How to Amend](#how-to-amend-an-existing-spec)) | "Add ranged weapons to combat" → generalize the weapon FRs rather than appending a sibling |
 | Work would net-add ≈3+ FRs, or the spec is already past ~15 | **Run the [Amendment Gate](#amendment-gate-run-before-writing-the-amendment)** — do not grow | "Add a subsystem to a 100-FR spec" → merge, generalize, or split first |
 | Work fixes bugs in existing spec's scope | **Amend existing spec** | "Fix combat hit detection" → update ACs in the combat spec |
-| Work is a genuinely new, unrelated feature | **Create new spec** | "Add inventory system" → new spec (first time this domain appears) |
-| Work spans multiple existing specs | **Create new spec** with explicit references | "Crafting system that uses inventory + combat" → new spec that cites both |
+| Work introduces a distinct user goal or capability | **Create new spec** — dependency on existing capabilities does not make it an amendment | "Add inventory system" → new spec (first time this domain appears) |
+| A distinct new capability uses multiple existing capabilities | **Create new spec** with explicit references | "Crafting system that uses inventory + combat" → new spec that cites both |
 | Work is ambiguous — could go either way | **Ask the user** before proceeding | "Better NPC behavior" — is this combat AI or dialogue? |
 
 ## How to Amend an Existing Spec
@@ -127,7 +127,7 @@ made once. `## Out of Scope` states what is excluded, and points at
 | Anti-Pattern | Why It's Bad | Correct Approach |
 |---|---|---|
 | "Improve X" as a new spec | Fragments related work, creates orphaned specs | Amend the X spec |
-| "Add feature Y to Z" as a new spec | The Z spec already owns this domain | Add FRs to Z's spec |
+| Treating a variation of a capability Z describes as a new spec | Splits one capability across specs | Amend Z's spec; create a new spec only for a distinct user goal or capability |
 | "Fix bug in X" as a new spec | Bugs are part of the spec's scope | Update ACs in X's spec |
 | Never amending specs | Specs become stale snapshots, not living documents | Rewrite the body; log to `changelog.md` |
 | **Append-only amendment** | Requirements accumulate in arrival order and superseded text stays authoritative-looking, so a reader of the FR section implements the old behaviour | Edit the requirement in place; delete what it replaced |
@@ -228,6 +228,6 @@ The agent should:
 
 1. Run `ls specs/` to list all spec directories.
 2. For each directory, read the **title**, **problem statement**, and **functional requirements** (first ~30 lines of `spec.md` is usually enough).
-3. Check if the requested work overlaps with any existing FRs or falls within any spec's domain.
+3. Check whether the request changes or extends a capability an existing spec describes, or introduces a distinct user goal or capability. Do not decide based on implementation dependency alone.
 4. If overlap exists, apply the decision matrix above.
-5. Only create a new spec if no existing spec covers the domain.
+5. Create a new spec only for a distinct user goal or capability; a new case, input, or variant of an existing capability belongs in its spec.

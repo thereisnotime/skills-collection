@@ -4,7 +4,7 @@ description: Structured spec-driven development workflow. Load this skill whenev
 license: MIT
 metadata:
   author: shaunburdick
-  version: "2.8.0"
+  version: "2.9.0"
 ---
 
 # Spec-Driven Development
@@ -122,7 +122,7 @@ The constitution must be approved before writing any feature specs. All subseque
 
 ### Triage: Existing Specs First
 
-Before creating any new spec, **scan all existing specs** to determine whether this work belongs to an existing spec. See [references/spec-triage-guide.md](references/spec-triage-guide.md) for the full decision matrix and examples.
+Before creating any new spec, **scan all existing specs** to determine whether this work belongs to an existing spec. Amend when the request changes or extends a capability an existing spec describes; create a new spec only for a distinct user goal or capability, not merely because it depends on existing features. See [references/spec-triage-guide.md](references/spec-triage-guide.md) for the full decision matrix and examples.
 
 **Process:** list `specs/`, read each spec's title, problem statement and
 first FRs, and ask whether this work modifies, extends, or fixes something
