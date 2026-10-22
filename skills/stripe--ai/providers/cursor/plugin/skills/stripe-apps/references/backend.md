@@ -34,7 +34,7 @@ Your app’s `stripe_api_access_type` controls how the backend authenticates. Se
 
 ### CORS configuration
 
-CORS (`Access-Control-Allow-Origin: *`) is needed ONLY on endpoints called by the UI extension. The UI runs in a sandboxed iframe with a `null` origin — specific origin allowlisting will not work.
+CORS (`Access-Control-Allow-Origin: *`) is needed ONLY on endpoints called by the UI extension. The UI runs in a sandboxed iframe with a `null` origin — specific origin allowlisting won’t work.
 
 Webhook endpoints do NOT need CORS — they receive requests from Stripe’s servers, not from the browser.
 

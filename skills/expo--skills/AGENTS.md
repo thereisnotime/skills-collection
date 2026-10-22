@@ -269,8 +269,6 @@ codex plugin marketplace add expo/skills --ref main
 - Keep references close to the skill that uses them.
 - Avoid broad rewrites when updating a skill; preserve the skill's existing scope and trigger intent.
 
-## Usage Telemetry & Feedback
+## Feedback
 
-Telemetry is anonymous, **opt-in, and off by default** — nothing is sent until the user enables it with `node plugins/expo/skills/expo-skill-feedback/scripts/telemetry.cjs --on` or `EXPO_SKILLS_TELEMETRY=1` (`--off` / `=0` / `DO_NOT_TRACK=1` disable; CI never sends). When enabled, the plugin-level hook sends automatic `skill_invoked` events on **Claude Code only**. The gate is `telemetryActive()` in `telemetry_common.cjs`.
-
-For contributors: new skills need no telemetry edits. They do need the canonical feedback footer; run `bun scripts/check-skill-limits.ts --fix-feedback`, and CI will enforce it. Codex and Cursor cannot host plugin hooks (verified against their sources; don't re-investigate), so they ship no automatic telemetry hooks.
+Every skill needs the canonical feedback footer. Run `bun scripts/check-skill-limits.ts --fix-feedback` to add or refresh it; CI verifies that its subject matches the skill name.

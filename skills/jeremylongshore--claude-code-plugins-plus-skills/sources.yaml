@@ -132,16 +132,21 @@ sources:
     category: code-quality
     verified: true
     include:
-      - '.claude-plugin/**'
-      - '.mcp.json'
-      - 'src/servers/**'
-      - '.claude/skills/**'
-      - 'dist/servers/**'
-      - 'dist/index.js'
-      - 'dist/index.d.ts'
-      - 'dist/core/**'
-      - 'README.md'
-      - 'LICENSE'
+      - '/.claude-plugin/**'
+      - '/.mcp.json'
+      - '/src/servers/**'
+      - '/.claude/skills/**'
+      - '/dist/servers/**'
+      - '/dist/index.js'
+      - '/dist/index.d.ts'
+      - '/dist/core/**'
+      # Since 52c329d, upstream .mcp.json launches the ncc bundle
+      # (${CLAUDE_PLUGIN_ROOT}/dist/mcp-bundle/index.js) instead of
+      # dist/servers/. Without this glob, the mirror ships a server entry
+      # point that does not exist.
+      - '/dist/mcp-bundle/**'
+      - '/README.md'
+      - '/LICENSE'
     exclude:
       - 'node_modules/**'
       - '.git/**'
@@ -149,6 +154,8 @@ sources:
       - 'tests/**'
       - 'dist/cli/**'
       - 'dist/action/**'
+      # Upstream tracker setup docs are not part of the runtime distribution.
+      - '**/.beads/**'
 
   - name: slack-channel
     description: Two-way Slack channel for Claude Code — chat from Slack DMs and channels via Socket Mode
@@ -163,28 +170,33 @@ sources:
     category: productivity
     verified: true
     include:
-      - '.claude-plugin/**'
-      - '.mcp.json'
+      - '**/.claude-plugin/**'
+      - '**/.mcp.json'
       # '*.ts' (not explicit server.ts/lib.ts) — server.ts imports
       # journal.ts, manifest.ts, policy.ts. Listing files explicitly drops
       # the imports and produces a non-functional mirror (see #645).
-      - '*.ts'
+      - '**/*.ts'
       # features/ holds upstream's gate-properties + runner test suites.
       # Tests are pure-unit (bun:test against lib functions) — no Slack creds
       # required. Synced so `bun test` finds them and CI passes (claude-7tig.1).
-      - 'features/**'
-      - 'package.json'
+      - '**/features/**'
+      # The runtime manifest is at the root. Nested package.json files are
+      # upstream development tools, not part of the channel distribution.
+      - '/package.json'
       # tsconfig.json drives `tsc --noEmit` (the typecheck script in upstream
       # package.json). Without it, tsc dumps help text and exits 1 — making
       # CI's Type checking step fail. Synced together with the source files
       # it references (claude-7tig.1).
-      - 'tsconfig.json'
-      - '.npmrc'
-      - 'skills/**'
-      - 'ACCESS.md'
-      - 'README.md'
-      - 'LICENSE'
+      - '**/tsconfig.json'
+      - '**/.npmrc'
+      - '**/skills/**'
+      - '**/ACCESS.md'
+      - '**/README.md'
+      - '/LICENSE'
+      - '/.audit-harness/LICENSE'
     exclude:
+      # Keep upstream tracker setup docs outside the shipped channel.
+      - '**/.beads/**'
       - 'node_modules/**'
       - '.git/**'
       - '*.log'
@@ -705,12 +717,12 @@ sources:
   # ============================================================
   # aomi (aomi-labs) — PR #679 / CeciliaZ030
   # https://github.com/aomi-labs/skills
-  # Bundle: aomi-transact (drive the Aomi CLI on-chain) and
-  # aomi-build (scaffold Rust SDK crates from OpenAPI specs).
+  # Distribution: aomi-transact (drive the Aomi CLI on-chain).
+  # The upstream build skill is held below pending validation fixes.
   # ============================================================
 
   - name: aomi
-    description: 'Aomi for AI agents — drive the Aomi CLI from natural-language prompts (chat, simulate, sign on-chain transactions with account-abstraction-first execution) and scaffold new Aomi apps from API specs. Bundle ships two skills: aomi-transact (run on-chain across 40+ DeFi/perps/CEX/social apps on EVM mainnets and L2s) and aomi-build (scaffold Rust SDK crates from OpenAPI/Swagger specs).'
+    description: 'Aomi for AI agents — drive the Aomi CLI from natural-language prompts to chat, simulate, and sign on-chain transactions with account-abstraction-first execution across DeFi, perps, CEX, and social apps on EVM mainnets and L2s.'
     repo: aomi-labs/skills
     source_path: plugins/aomi
     target_path: plugins/crypto/aomi
@@ -728,6 +740,9 @@ sources:
       - '.claude-plugin/**'
       - 'skills/**'
     exclude:
+      # Held: this unshipped skill fails three marketplace validation rules
+      # at 783b6debae31. Resolve upstream before admission (claude-ss50.16).
+      - '/skills/build/**'
       - 'node_modules/**'
       - '.git/**'
       - '*.log'
@@ -834,6 +849,9 @@ sources:
     license: MIT-0
     category: productivity
     verified: false
+    # PR #1510 (c2a3e1f8f) approved local Grade-A hardening and safety contracts.
+    # Preserve that reviewed projection until the changes are accepted upstream.
+    curated: true
     keywords:
       - ghost
       - blogging
@@ -942,6 +960,10 @@ sources:
       # upstream stores its license file as lowercase `license`; the sync
       # glob match is case-sensitive, so the casing must match theirs
       - '/license'
+    # The hardened license reader defaults to an uppercase `LICENSE`, so
+    # without this the sync refuses the source ("upstream license file
+    # LICENSE is unavailable"), as it did on the 09-14/21/28 runs.
+    license_path: license
     exclude:
       - 'node_modules/**'
       - '.git/**'

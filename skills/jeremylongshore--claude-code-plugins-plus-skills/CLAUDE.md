@@ -148,6 +148,8 @@ Adopted model: **mirror by default · upstream improvements · never clobber.** 
 
 **How we upstream respectfully.** Want a plugin at our A-grade bar? We bring THEIR plugin to standard on THEIR repo: a friendly issue first ("we featured your plugin and hardened its frontmatter to our A-grade bar — would you be open to a PR upstreaming it?"), then a PR the contributor owns and merges. No surprise PRs; credit preserved; they decide. Once merged upstream, the mirror is A-grade naturally and `curated:` can be dropped. **Any contributor-facing post (issue or PR body) gets Jeremy's wording sign-off BEFORE posting.**
 
+**Mirror file ownership.** `pnpm run validate:mirror-file-ownership` checks the Git index against `.source.json.files`, the sync engine's metadata files, and explicit `curated: true` local ownership. Every selected file in an active mirror must be present in the Git index; ignored or untracked working copies do not count. Use explicit source exclusions and canonical sync for held content. An unowned root package must be a private tracking manifest with no build/test dependency graph. New unowned payloads fail CI. The legacy ownership baseline is empty after retiring the repository-authored Sugar wrapper; upstream Sugar commands and attribution are preserved.
+
 ## Plugin Structure
 
 **AI instruction plugins** (`plugins/[category]/[name]/`): `.claude-plugin/plugin.json` + `README.md` + optional `commands/*.md`, `agents/*.md`, `skills/[name]/SKILL.md`.
@@ -280,7 +282,7 @@ A recent cleanup removed 74 dead duplicate `validation.sh` stubs, collapsed prev
 
 ### auto-bump posture for contributors
 
-`.github/workflows/auto-bump-on-pr.yml` auto-bumps changed plugins' patch versions on PRs (only on `plugins/**` / `packages/**` changes). For a docs-only or otherwise non-release PR, put **`[skip auto-bump]`** in the PR title or body so the auto-bumper steps aside. Minor/major bumps stay a deliberate human choice — hand-edit the version in the same PR. It stays on `pull_request` (not `pull_request_target`) by design — the bump needs a write token, which must never be handed to fork code; fork PRs are skipped cleanly, and a first-time fork contributor's queued "Approve and run" entry just no-ops when approved.
+`.github/workflows/auto-bump-on-pr.yml` auto-bumps changed plugins' patch versions on PRs (only on `plugins/**` / `packages/**` changes). For a docs-only or otherwise non-release PR, put **`[skip auto-bump]`** in the PR title, or on its own line in the body outside prose, quotes, comments, and code examples, so the auto-bumper steps aside. Minor/major bumps stay a deliberate human choice — hand-edit the version in the same PR. It stays on `pull_request` (not `pull_request_target`) by design — the bump needs a write token, which must never be handed to fork code; fork PRs are skipped cleanly, and a first-time fork contributor's queued "Approve and run" entry just no-ops when approved.
 
 ## Adding a New Plugin
 

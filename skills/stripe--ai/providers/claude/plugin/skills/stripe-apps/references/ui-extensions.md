@@ -57,9 +57,9 @@ The order and *which component does which job* (the API of each is in its linked
 
 ## 3. Layout and style rules (the codified craft)
 
-These are the defaults that make an app feel native — they are *not* in any single component doc, so follow them here. Each is tagged **[Required]** (breaks/looks wrong otherwise), **[Recommended]** (Stripe’s craft default), or **[Optional]** (a style choice). Full styling reference: [style your app](https://docs.stripe.com/stripe-apps/style.md).
+These are the defaults that make an app feel native — they’re *not* in any single component doc, so follow them here. Each is tagged **[Required]** (breaks/looks wrong otherwise), **[Recommended]** (Stripe’s craft default), or **[Optional]** (a style choice). Full styling reference: [style your app](https://docs.stripe.com/stripe-apps/style.md).
 
-**[Required] `css` values are tokens, not web CSS.** The `css` prop is not CSS. Every value is a design token or fraction, never a raw unit:
+**[Required] `css` values are tokens, not web CSS.** The `css` prop isn’t CSS. Every value is a design token or fraction, never a raw unit:
 
 - **Spacing** (`padding`, `margin`, `gap`) → tokens only (`xxsmall`…`xxlarge`). Never `"24px"`, `"1rem"`, `%`.
 - **Layout** → `stack: "x" | "y"` with `gap`. There is no `display: "flex"`/`"grid"`.
@@ -104,7 +104,7 @@ Passing a raw CSS value (px, `flex`, hex) is a hard runtime error — the #1 way
 
 Avoid: a single column of oversized full-width cards; a large empty right side or lower page; one metric per row. Match the density of a native Dashboard overview.
 
-**[Recommended] List pages — the table is the hero.** A dedicated list/directory page (for example, a Members tab) is **the table itself**, full-width, as the primary content. The only things around it: **search / filters** (and segment tabs) *above* the table, **pagination** below, and an **empty state**. **Do not put KPI stat tiles, charts, or dashboard modules on a list page** — those belong on the overview. A native list page is dense with *rows*, not decorated with summary cards on top. Keep it: controls → full-width table (many rows) → pagination. (Overviews are multi-module and dense; list pages are single-purpose and focused — don’t blur the two.)
+**[Recommended] List pages — the table is the hero.** A dedicated list/directory page (for example, a Members tab) is **the table itself**, full-width, as the primary content. The only things around it: **search / filters** (and segment tabs) *above* the table, **pagination** below, and an **empty state**. **Don’t put KPI stat tiles, charts, or dashboard modules on a list page** — those belong on the overview. A native list page is dense with *rows*, not decorated with summary cards on top. Keep it: controls → full-width table (many rows) → pagination. (Overviews are multi-module and dense; list pages are single-purpose and focused — don’t blur the two.)
 
 **[Recommended] Stat tiles — a row of top-line KPI cards.** A **single row of equal `surface` cards** (not a 2×2 grid), each a muted `caption` label above a large `semibold` value — use the card treatment from Cards & trays. Lay them out as a horizontal row with equal widths:
 

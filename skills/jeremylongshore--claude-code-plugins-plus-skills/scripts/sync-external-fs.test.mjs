@@ -18,7 +18,9 @@ import {
   ensureCatalogEntry,
   findTargetOverlaps,
   mirrorFiles,
+  enforceMirrorPackagePrivacy,
   mirrorTargetRel,
+  needsProvenanceRefresh,
   pruneOrphans,
   readUpstreamFiles,
   readUpstreamLicense,
@@ -233,6 +235,56 @@ test('upstream links inside the source tree are skipped and reported, never foll
 
 // ------------------------------------------------------------ mirror writes
 
+test('a mirrored root package.json is always written private, and only that file is touched', () => {
+  const s = sandbox();
+  try {
+    const upstreamManifest = JSON.stringify(
+      { name: 'upstream-pkg', version: '1.2.3', scripts: { start: 'node x.js' } },
+      null,
+      2,
+    );
+    const files = [
+      { path: 'package.json', content: Buffer.from(upstreamManifest), mode: 0o100644 },
+      { path: 'nested/package.json', content: Buffer.from('{"name":"inner"}'), mode: 0o100644 },
+      { path: 'SKILL.md', content: Buffer.from('skill'), mode: 0o100644 },
+    ];
+    mirrorFiles({ root: s.repo, targetRel: 'plugins/c/x', files, report: quiet });
+    const written = JSON.parse(
+      fs.readFileSync(path.join(s.repo, 'plugins/c/x/package.json'), 'utf8'),
+    );
+    assert.equal(written.private, true);
+    assert.deepEqual(Object.keys(written), ['name', 'private', 'version', 'scripts']);
+    assert.deepEqual(written.scripts, { start: 'node x.js' });
+    // Nested manifests and other files are mirrored byte-for-byte.
+    assert.equal(
+      fs.readFileSync(path.join(s.repo, 'plugins/c/x/nested/package.json'), 'utf8'),
+      '{"name":"inner"}',
+    );
+    // A re-run is a no-op: the enforced form is stable, not perpetually "modified".
+    assert.deepEqual(
+      mirrorFiles({ root: s.repo, targetRel: 'plugins/c/x', files, report: quiet }),
+      [],
+    );
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('mirror package privacy keeps an already-private manifest byte-identical and refuses invalid JSON', () => {
+  const already = Buffer.from('{\n  "name": "p",\n  "private": true\n}\n');
+  assert.equal(enforceMirrorPackagePrivacy({ path: 'package.json', content: already }), already);
+  assert.throws(
+    () => enforceMirrorPackagePrivacy({ path: 'package.json', content: Buffer.from('{oops') }),
+    /not valid JSON/,
+  );
+  assert.throws(
+    () => enforceMirrorPackagePrivacy({ path: 'package.json', content: Buffer.from('[1]') }),
+    /not a JSON object/,
+  );
+  const other = Buffer.from('{oops');
+  assert.equal(enforceMirrorPackagePrivacy({ path: 'README.md', content: other }), other);
+});
+
 test('mirror writes land atomically with canonical modes, and a re-run is a no-op', () => {
   const s = sandbox();
   try {
@@ -353,6 +405,31 @@ test('an upstream file name that fails path rules is refused before any write', 
 });
 
 // ------------------------------------------------------------ orphan prune
+
+test('excluding an already absent file still refreshes provenance without payload writes', () => {
+  const s = sandbox();
+  try {
+    const targetRel = 'plugins/c/x';
+    put(s.repo, `${targetRel}/keep.md`, 'keep');
+    const prior = { license: 'MIT', files_synced: 2, files: ['gone.md', 'keep.md'] };
+    const ownedFiles = ['keep.md'];
+    const result = pruneOrphans({
+      root: s.repo,
+      targetRel,
+      priorFiles: prior.files,
+      ownedFiles,
+      report: quiet,
+    });
+    assert.deepEqual(result, { changes: [], refused: [] });
+    assert.equal(needsProvenanceRefresh(prior, { license: 'MIT' }, ownedFiles), true);
+    const updated = { license: 'MIT', files_synced: 1, files: ownedFiles };
+    assert.equal(needsProvenanceRefresh(updated, { license: 'MIT' }, ownedFiles), false);
+    assert.equal(needsProvenanceRefresh(updated, { license: 'Apache-2.0' }, ownedFiles), true);
+    assert.equal(needsProvenanceRefresh(updated, { license: 'MIT' }, ['replacement.md']), true);
+  } finally {
+    s.cleanup();
+  }
+});
 
 test('prune removes only owned regular files and refuses traversal and links', (t) => {
   const s = sandbox();

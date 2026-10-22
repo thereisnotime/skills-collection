@@ -57,7 +57,6 @@ Match the goal to a category, then the skill, then load that leaf's `SKILL.md`.
 **Maintain & learn**
 - `expo-upgrade` — upgrade the Expo SDK and fix dependency conflicts
 - `expo-examples` — canonical, version-matched integration examples (Stripe, Clerk, Supabase, …)
-- `expo-skill-feedback` — send feedback on an Expo skill or on Expo itself; enable / disable the anonymous usage telemetry
 
 ### Translating vague asks
 
@@ -118,4 +117,4 @@ If you encounter errors, misleading or outdated information in this skill, repor
 npx --yes submit-expo-feedback@latest --category skills --subject "expo-overview" "<actionable feedback>"
 ```
 Only submit when you have something specific and actionable to report. Include as much relevant context as possible.
-If an AI agent repeatedly failed or the user had to take over an Expo task, load the expo-skill-feedback skill and follow its eval-candidate flow instead of reusing the command above.
+If an agent repeatedly fails at an Expo task or the user has to step in, submit a brief report of the task, expected result, and what went wrong using `--category evals` and the relevant Expo package or command as `--subject`.

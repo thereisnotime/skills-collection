@@ -1,7 +1,9 @@
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { installPortableTree } from '../lib/portable-install.js';
+import { realDirectories } from '../lib/portable-install.js';
+import { diagnosePortableSkill } from '../lib/portable-doctor.js';
 
 type Scope = 'project' | 'user';
 type Support =
@@ -25,11 +27,15 @@ export type PortableInstallResult = {
   source: string;
   destination: string;
   dryRun: boolean;
+  receipt: string;
 };
 
-async function registry(): Promise<Harness[]> {
+async function registry(): Promise<{ schemaVersion: number; harnesses: Harness[] }> {
   const file = new URL('../../registry/harness-registry.json', import.meta.url);
-  return (JSON.parse(await fs.readFile(file, 'utf8')) as { harnesses: Harness[] }).harnesses;
+  return JSON.parse(await fs.readFile(file, 'utf8')) as {
+    schemaVersion: number;
+    harnesses: Harness[];
+  };
 }
 
 function asScope(scope: string): Scope {
@@ -58,13 +64,13 @@ async function portableSource(source: string): Promise<{ directory: string; name
 }
 
 async function selectedHarness(id: string): Promise<Harness> {
-  const harness = (await registry()).find((item) => item.id === id);
+  const harness = (await registry()).harnesses.find((item) => item.id === id);
   if (!harness) throw new Error(`Unknown harness: ${id}`);
   return harness;
 }
 
 export async function listHarnesses(json: boolean): Promise<void> {
-  const harnesses = await registry();
+  const { harnesses } = await registry();
   console.log(
     json
       ? JSON.stringify(harnesses, null, 2)
@@ -72,15 +78,48 @@ export async function listHarnesses(json: boolean): Promise<void> {
   );
 }
 
-export async function doctorSkills(id: string, scope: Scope, json: boolean): Promise<void> {
+export async function doctorSkills(
+  id: string,
+  scope: Scope,
+  json: boolean,
+  sourceRepo = process.cwd(),
+  skill?: string,
+): Promise<void> {
   const resolvedScope = asScope(scope);
   const harness = await selectedHarness(id);
   const destination = target(harness, resolvedScope);
+  if (skill && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(skill))
+    throw new Error('Skill name must be lowercase kebab-case');
+  await realDirectories(destination, false);
+  const names = skill
+    ? [skill]
+    : await fs.readdir(destination).then(
+        (items) => items.filter((name) => !name.startsWith('.')).sort(),
+        (error: NodeJS.ErrnoException) => {
+          if (error.code === 'ENOENT') return [];
+          throw error;
+        },
+      );
+  const diagnoses = [];
+  for (const name of names)
+    diagnoses.push(
+      await diagnosePortableSkill({
+        destination: path.join(destination, name),
+        sourceRepo,
+        harness: id,
+        scope: resolvedScope,
+      }),
+    );
   const result = {
+    schemaVersion: 'ccpi-portable-doctor/v1',
     harness: id,
     support: harness.support,
     scope: resolvedScope,
     destination,
+    sourceRepo: path.resolve(sourceRepo),
+    verificationScope: 'source-and-installed-bytes',
+    quality: 'not-assessed',
+    skills: diagnoses,
     exists: await fs
       .stat(destination)
       .then(() => true)
@@ -89,7 +128,18 @@ export async function doctorSkills(id: string, scope: Scope, json: boolean): Pro
   console.log(
     json
       ? JSON.stringify(result, null, 2)
-      : `${result.exists ? 'Found' : 'Missing'} ${destination}`,
+      : diagnoses.length
+        ? diagnoses
+            .map(
+              (item) =>
+                `${item.name}: ${item.integrity} (byte integrity; quality not assessed)\n` +
+                `  Source: ${item.source?.commit.digest ?? 'unavailable'} ${item.source?.path ?? 'unavailable'}\n` +
+                `  Digest: expected ${item.expectedDigest ?? 'unavailable'}; installed ${item.installedDigest ?? 'unavailable'}\n` +
+                `  Local HEAD: ${item.upstream.state}; ${item.upstream.commit ?? 'unavailable'}\n` +
+                `  ${item.reason}\n  ${item.nextAction}`,
+            )
+            .join('\n')
+        : `${result.exists ? 'No installed skills in' : 'Missing'} ${destination}`,
   );
 }
 
@@ -117,24 +167,20 @@ export async function installPortableSkill(
     source: portable.directory,
     destination,
     dryRun,
+    receipt: path.join(destination, '.ccpi-portable-install.json'),
   };
-  if (!dryRun) {
-    await fs.mkdir(root, { recursive: true });
-    try {
-      await fs.lstat(destination);
-      throw new Error(`Refusing to overwrite existing portable skill: ${destination}`);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    }
-    const staging = path.join(root, `.${portable.name}.${randomUUID()}`);
-    try {
-      await fs.cp(portable.directory, staging, { recursive: true, errorOnExist: true });
-      await fs.rename(staging, destination);
-    } catch (error) {
-      await fs.rm(staging, { recursive: true, force: true });
-      throw error;
-    }
-  }
+  const packageMetadata = JSON.parse(
+    await fs.readFile(new URL('../../package.json', import.meta.url), 'utf8'),
+  ) as { version: string };
+  await installPortableTree({
+    sourceDirectory: portable.directory,
+    destinationRoot: root,
+    harness: harness.id,
+    scope: resolvedScope,
+    registryVersion: (await registry()).schemaVersion,
+    cliVersion: packageMetadata.version,
+    dryRun,
+  });
   console.log(
     json
       ? JSON.stringify(result, null, 2)

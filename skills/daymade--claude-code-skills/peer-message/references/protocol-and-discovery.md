@@ -131,6 +131,8 @@ sandbox 或 approval，不回复服务审批请求。消息在宿主下一次接
 转 queue 或重发。核对原 message ID 的接收证据后决定下一步；先修复已确认的环境缺口，
 不能把错误当成换通道授权，也不手动改传 queued 绕过同一失败。需要及时回应却无法及时投递的窗口协调，保留未送达的事实，按既定等待窗口与隔离方案继续；不是再建一条迟到的请求。helper 本身不启动服务、不杀进程、不修改权限。
 
+不对称形态（2026-10-22 实测）：对端 App Server socket 缺席时，原生跨会话投递的**入站方向仍然工作**——你可能持续收到对方经原生通道发来的协调请求，而每条回信都失败于 `App Server connection unavailable`。此时「不回复」不等于沉默对抗：对方的窗口请求协议里大多自带安全兜底（无回复即按声明推进），且**可观察的状态变化本身就是回执**——对方请求的那件事（如收敛某个 checkout）真的完成后，他们下次只读核验会看到。对已过期的请求回信会被判 `suppressed_closed_reply` 直接抑制；若信息仍改变对方下一步（例如其声明「explicitly pending」的前置已满足），换一条新的 `--kind notice`（新 event、新有效期）再发一次，不重发旧信封。
+
 调用 `codex queue` 的子进程异常中，只有 `FileNotFoundError` 同时满足 `errno == ENOENT` 且 `filename == "codex"`
 才提交 not_sent；其他启动或通信错误、超时及 queue 非零退出仍提交 unknown。
 
@@ -297,6 +299,36 @@ queue 与 history 不是原子快照；内容在两次读取之间迁移时可�
 
 同时读取 `route` 与适用时的 `queue_reason`，辨别实时投递、未加载目标排队和显式排队。
 这些字段在普通文本与 JSON 回执中均可见；route 不证明接收方已读。
+
+### JSON 错误回执
+
+对于带 `--json` 的 `send`、`broadcast`、`list`、`whoami`、`verify`、`replies`、
+`inspect-inbound` 和 `coord prepare`，仅进入 handler 后由 `main()` 捕获的异常会让 stdout 额外输出一个可解析的错误
+对象，成功路径输出不变；stderr 诊断文本与上表退出码逐字保持不变，非 JSON 调用
+的三个通道逐字节不变：
+
+```json
+{"status": "error", "outcome": "not_sent", "error": "synthetic pre-send failure"}
+```
+
+- `status` 恒为 `error`。`outcome` 只取投递路径在失败对象上显式记录的两个值：
+  `not_sent`（确定未发出，如缺 uv、live adapter 无法启动）与 `unknown`（发出与否
+  无法判定，如写入后超时、断连或回执不可解析），与 `coord commit --outcome` 同一词汇。
+- `error` 为原失败对象的 `str(exc)`，与 outcome 分开承载诊断；消费者不从该文字推断是否发出。
+- 回执只信任失败对象上显式记录的 outcome；缺失或不认识的值一律序列化为
+  `unknown`。不从人类可读错误文本猜 outcome——coordination 状态或 OS 类失败
+  永远输出 `unknown`，绝不是 `not_sent`。
+- 退出码不参与回执判定：异常未显式记录 outcome 的失败（如目标解析失败，退出 3）
+  回执仍为 `unknown`；Board 侧按退出码推导的 not_sent 记录以 `coord status` 为准，
+  两者不互相改写。
+- `broadcast` 的逐目标失败已结构化在聚合 JSON 的 `failures[]` 内；退出 5 属于
+  命令正常完成，不触发错误回执。错误回执只对应 handler 内已捕获的命令级异常（确认数、状态
+  不可用等）。
+- `coord status` 恒输出 JSON 但没有 `--json` 开关，不在错误回执覆盖范围内；
+  其失败仍只写 stderr。
+
+上述错误回执可从 stdout 解析为单个 JSON 文档；argparse 参数解析错误和帮助出口不在本合同覆盖范围内，保留现有输出与退出行为。解析出 `status=error` 时按
+`outcome` 与对应退出码分流，不必解析 stderr 文本。
 
 ## 5. Broadcast 语义
 

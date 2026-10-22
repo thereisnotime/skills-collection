@@ -4,27 +4,18 @@
     "path": "plugins/aomi",
     "branch": "main"
   },
-  "last_sync": "2026-07-13T17:27:04.520Z",
+  "last_sync": "2026-10-22T07:11:08.441Z",
   "author": {
     "name": "aomi-labs",
     "github": "aomi-labs"
   },
   "license": "MIT",
-  "files_synced": 26,
+  "files_synced": 17,
   "files": [
     ".claude-plugin/plugin.json",
     "LICENSE",
     "README.md",
     "SECURITY.md",
-    "skills/build/SECURITY.md",
-    "skills/build/SKILL.md",
-    "skills/build/agents/openai.yaml",
-    "skills/build/references/aomi-sdk-patterns.md",
-    "skills/build/references/examples.md",
-    "skills/build/references/host-routes.md",
-    "skills/build/references/spec-to-tools.md",
-    "skills/build/references/troubleshooting.md",
-    "skills/build/templates/quick-scaffold.sh",
     "skills/transact/SECURITY.md",
     "skills/transact/SKILL.md",
     "skills/transact/agents/openai.yaml",
@@ -34,7 +25,7 @@
     "skills/transact/references/drain-vectors.md",
     "skills/transact/references/examples.md",
     "skills/transact/references/gotchas.md",
-    "skills/transact/references/thread.md",
+    "skills/transact/references/session.md",
     "skills/transact/references/troubleshooting.md",
     "skills/transact/references/workflows.md",
     "skills/transact/templates/aomi-workflow.sh"

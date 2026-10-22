@@ -347,6 +347,40 @@ export function readUpstreamLicense(checkoutDir, licensePath) {
 }
 
 /**
+ * Publication boundary for mirrored manifests. A source that mirrors its own
+ * root package.json would otherwise overwrite the local `"private": true`
+ * quarantine on every sync (seen on cli-power-skills and slack-channel), and
+ * check-mirror-packages-private.mjs would then fail. Enforce the invariant as
+ * the file is written, without hand-patching mirrors after each run. Only the
+ * mirror-root package.json is touched. Every other byte is mirrored verbatim.
+ * An unparseable manifest refuses the source, because we cannot prove it is
+ * unpublishable.
+ */
+export function enforceMirrorPackagePrivacy(file) {
+  if (file.path !== 'package.json') return file.content;
+  let manifest;
+  try {
+    manifest = JSON.parse(file.content.toString('utf8'));
+  } catch (error) {
+    throw new Error(
+      `mirrored package.json is not valid JSON (${error.message}); refusing sync rather than shipping a manifest that may be publishable`,
+    );
+  }
+  if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    throw new Error('mirrored package.json is not a JSON object; refusing sync');
+  }
+  if (manifest.private === true) return file.content;
+  // Keep `name` first, then `private`, matching the quarantine commit's layout.
+  const ordered = {};
+  if ('name' in manifest) ordered.name = manifest.name;
+  ordered.private = true;
+  for (const [key, value] of Object.entries(manifest)) {
+    if (key !== 'name' && key !== 'private') ordered[key] = value;
+  }
+  return Buffer.from(`${JSON.stringify(ordered, null, 2)}\n`, 'utf8');
+}
+
+/**
  * Write mirrored files under root/targetRel. Every read, comparison and write
  * goes through safe-fs, so a planted link or special file in the mirror tree
  * refuses the whole source instead of redirecting a write. Returns changes.
@@ -360,8 +394,9 @@ export function mirrorFiles({
   report = log,
 }) {
   const changes = [];
-  for (const file of files) {
-    splitSafeRelative(file.path);
+  for (const upstreamFile of files) {
+    splitSafeRelative(upstreamFile.path);
+    const file = { ...upstreamFile, content: enforceMirrorPackagePrivacy(upstreamFile) };
     const rel = `${targetRel}/${file.path}`;
     const wantMode = typeof file.mode === 'number' && file.mode & 0o111 ? 0o755 : 0o644;
     let reason = 'new';
@@ -395,6 +430,19 @@ export function mirrorFiles({
     changes.push({ path: file.path, action: reason });
   }
   return changes;
+}
+
+// Selection can change without any file writes: an excluded path may have
+// already been absent because Git ignored it. Persist the new inventory too.
+export function needsProvenanceRefresh(prior, source, ownedFiles) {
+  return Boolean(
+    prior &&
+    typeof prior === 'object' &&
+    !Array.isArray(prior) &&
+    (prior.license !== source.license ||
+      prior.files_synced !== ownedFiles.length ||
+      JSON.stringify(prior.files) !== JSON.stringify(ownedFiles)),
+  );
 }
 
 /**
@@ -1115,17 +1163,11 @@ async function syncSource(source, config, lock) {
     }
 
     // `.source.json` is the provenance authority for a mirrored artifact. A
-    // reviewed source-record correction (for example MIT → AGPL-3.0 after an
-    // upstream license check) must update it even when upstream file bytes are
-    // unchanged.
+    // reviewed license or selection correction must update it even when
+    // upstream file bytes are unchanged or excluded files were already absent.
     // A malformed prior manifest is left for the validators: the final write
     // below repairs it only when this sync already has changes.
-    if (
-      !options.dryRun &&
-      priorSource &&
-      typeof priorSource === 'object' &&
-      priorSource.license !== source.license
-    ) {
+    if (!options.dryRun && needsProvenanceRefresh(priorSource, source, ownedFiles)) {
       changes.push({ path: '.source.json', action: 'provenance' });
     }
 

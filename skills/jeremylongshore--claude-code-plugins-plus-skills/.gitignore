@@ -2,8 +2,6 @@
 !/.npmrc
 !plugins/**/.mcp.json
 !plugins/mcp/*/.mcp.json
-!plugins/saas-packs/databricks-pack/000-docs/
-!plugins/saas-packs/databricks-pack/000-docs/**
 #
 #    NOTE: the pattern below uses `**/*/000-docs/` (requires at least one parent
 #    canonical cross-repo standards via `!` rules below.
@@ -70,6 +68,8 @@
 # was explicitly NOT done). No inherent secrets risk; transparency is the point.
 **/*/000-docs/
 **/*/000-docs/**
+!plugins/saas-packs/databricks-pack/000-docs/
+!plugins/saas-packs/databricks-pack/000-docs/**
 # EXCEPTION: Grammarly v2 public contract research, architecture decisions,
 # and release evidence ship with the operator pack.
 !plugins/saas-packs/grammarly-pack/000-docs/
@@ -168,6 +168,12 @@ dist/
 # entrypoint before any package-manager lifecycle runs.
 !plugins/mcp/a2a-client/dist/
 !plugins/mcp/a2a-client/dist/index.js
+# pr-to-spec (mirror) launches a self-contained upstream bundle; it is locked in
+# sources.lock.json and must be committed or the MCP server is missing after install.
+!plugins/mcp/pr-to-spec/dist/
+!plugins/mcp/pr-to-spec/dist/mcp-bundle/
+!plugins/mcp/pr-to-spec/dist/mcp-bundle/index.js
+!plugins/mcp/pr-to-spec/dist/mcp-bundle/package.json
 # MCP plugins launched from a committed bundle (claude-e1mk.10): the marketplace
 # installs by copying the plugin directory, so the .mcp.json target must exist.
 !plugins/mcp/project-health-auditor/dist/
@@ -260,3 +266,10 @@ freshie/hf-dataset/skills.jsonl
 # .env.sops spelling stays ignored for compatibility.
 .sops.env
 .env.sops
+
+# Track the CLI-generated project Beads skill even when a global beads/ ignore exists.
+!/.agents/skills/beads/
+!/.agents/skills/beads/SKILL.md
+!/.agents/skills/beads/agents/
+!/.agents/skills/beads/agents/openai.yaml
+!/.agents/skills/beads/.markdownlint.jsonc

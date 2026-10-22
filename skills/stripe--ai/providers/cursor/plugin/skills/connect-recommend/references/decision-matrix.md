@@ -238,7 +238,7 @@ Strongly recommend:
 
 After the user specifies their platform fee, identify the charge pattern first. This question applies to **destination charges** only. For **separate charges and transfers**, don’t ask how to set `application_fee_amount` — use transfer math instead. For direct charges with Stripe-owned pricing (`fees_collector: "stripe"`), the connected account pays Stripe fees and this question is moot. For direct charges with platform-owned pricing (`fees_collector: "application"`), the platform pays Stripe fees — use the Platform Pricing Tool.
 
-**IMPORTANT: With destination charges, the platform ALWAYS pays Stripe’s processing fees.** They are deducted from the platform’s balance, not the connected account’s. The platform can’t make connected accounts pay Stripe fees directly. The choice is how to calculate `application_fee_amount`.
+**IMPORTANT: With destination charges, the platform ALWAYS pays Stripe’s processing fees.** They’re deducted from the platform’s balance, not the connected account’s. The platform can’t make connected accounts pay Stripe fees directly. The choice is how to calculate `application_fee_amount`.
 
 Use Option A and Option B below as reference material for destination charges.
 

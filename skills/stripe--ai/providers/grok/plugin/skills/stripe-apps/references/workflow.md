@@ -104,9 +104,9 @@ stripe apps start
 
 **Notes:**
 
-- `stripe apps start` requires browser access; Safari is not supported — use Chrome or Firefox
+- `stripe apps start` requires browser access; Safari isn’t supported — use Chrome or Firefox
 - This does **not** persist — your app is only visible while the command is running
-- The app is not installed on your account yet; it’s only previewed locally
+- The app isn’t installed on your account yet; it’s only previewed locally
 
 ### Step 6 — Upload a version (when ready to share or test permissions and secrets)
 

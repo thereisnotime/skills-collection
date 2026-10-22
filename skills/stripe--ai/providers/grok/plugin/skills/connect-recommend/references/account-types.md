@@ -198,7 +198,7 @@ configuration: {
 
 **Choose `dashboard: 'express'` when…**
 
-- You are building a marketplace or on-demand platform
+- You’re building a marketplace or on-demand platform
 - Connected accounts need to see their earnings and payout history
 - You want Stripe to host the seller dashboard so you can focus on your product
 - You want fast onboarding with Stripe-hosted flows
@@ -206,7 +206,7 @@ configuration: {
 **Choose `dashboard: 'full'` when…**
 
 - Connected accounts are established businesses that expect a full payments dashboard
-- You are a SaaS platform where merchants operate independently
+- You’re a SaaS platform where merchants operate independently
 - Connected accounts may want to install Stripe apps or manage their own settings
 - Sellers already have or expect to have their own Stripe relationship
 
@@ -220,7 +220,7 @@ configuration: {
 **Choose `losses_collector: 'stripe'` when…**
 
 - You want Stripe to bear financial responsibility for unresolved negative balances on connected accounts
-- You are starting out and want to minimize financial risk
+- You’re starting out and want to minimize financial risk
 - You don’t have a dedicated risk or fraud operations team
 - You plan to use direct charges
 
@@ -235,7 +235,7 @@ configuration: {
 **Choose `fees_collector: 'stripe'` when…**
 
 - You want the simplest operational model
-- You are fine with Stripe billing connected accounts directly
+- You’re fine with Stripe billing connected accounts directly
 - You don’t want to manage fee invoicing or reconciliation
 
 **Choose `fees_collector: 'application'` when…**
@@ -246,7 +246,7 @@ configuration: {
 
 ### Legacy Migration Note
 
-The terms **Standard**, **Express**, and **Custom** refer to the v1 Accounts API and its `type` parameter. They are no longer the recommended way to create connected accounts. Here is how they roughly map to v2 dimensions:
+The terms **Standard**, **Express**, and **Custom** refer to the v1 Accounts API and its `type` parameter. They’re no longer the recommended way to create connected accounts. Here is how they roughly map to v2 dimensions:
 
 | Legacy v1 Type | Approximate v2 Equivalent |
 | --- | --- |

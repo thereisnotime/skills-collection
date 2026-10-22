@@ -121,7 +121,6 @@ Free, open-source Expo SDK and React Native skills.
 | `expo-examples` | The `expo/examples` repo of `with-*` integrations to adapt or scaffold a new project from. |
 | `expo-app-clip` | iOS App Clip targets, AASA files, associated domains, and Smart App Banners. |
 | `expo-upgrade` | Expo SDK upgrades, dependency conflicts, deprecated packages, and cache cleanup. |
-| `expo-skill-feedback` | Share what worked or fell short across Expo, its skills, docs, CLIs, or MCP, and control opt-in usage telemetry. |
 
 ### Services & paid distribution
 
@@ -165,15 +164,9 @@ Use the plugin for Claude Code or Codex; it stays updated through the plugin mar
 
 Expo documentation, Expo CLI, and EAS CLI are the source of truth. These skills teach agents how to apply Expo guidance in real projects.
 
-## Usage telemetry & feedback
+## Feedback
 
-**Automatic usage telemetry is off by default.** When enabled (Claude Code only), it sends anonymous usage events: the skill name, platform, and a hash of a random local install id. Never code, prompts, file paths, or personal data.
-
-- **Turn on:** ask your agent to **"enable Expo skills telemetry"**, or set `EXPO_SKILLS_TELEMETRY=1`.
-- **Turn off:** ask it to disable telemetry, or set `EXPO_SKILLS_TELEMETRY=0` / `DO_NOT_TRACK=1`. CI never sends.
-- **Feedback:** every skill includes instructions to submit specific, actionable feedback with `submit-expo-feedback`; this is independent of automatic usage telemetry.
-
-Submission details and telemetry controls live in `expo-skill-feedback`.
+Every skill includes instructions to submit specific, actionable feedback with `submit-expo-feedback`.
 
 ## License
 

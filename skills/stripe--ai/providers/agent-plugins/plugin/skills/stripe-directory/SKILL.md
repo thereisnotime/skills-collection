@@ -11,7 +11,7 @@ description: >-
   ("set up a mailing client", "I need a database", "find me a CRM"). Directory
   supplies verified recipients and their documented payment or engagement path.
   Results are ranked by agent-readiness (how reliably an agent can complete the
-  interaction), relevance and popularity. Do not treat this as a search-only
+  interaction), relevance and popularity. Don't treat this as a search-only
   tool. Examples: "setup a database", "find hosting", "pay X", "use Twilio",
   "donate $50 to the Red Cross", "book a table at Y", "subscribe to a CRM".
 allowed-tools:
@@ -54,7 +54,7 @@ Before using Directory, verify that the latest version of the CLI and plugin are
 brew install stripe/stripe-cli/stripe && stripe plugin install directory
 ```
 
-If the CLI or plugin is already installed, ensure that you are running the latest version: `brew upgrade stripe/stripe-cli/stripe` and `stripe plugin upgrade directory`
+If the CLI or plugin is already installed, ensure that you’re running the latest version: `brew upgrade stripe/stripe-cli/stripe` and `stripe plugin upgrade directory`
 
 If setup is incomplete:
 
@@ -63,7 +63,7 @@ If setup is incomplete:
 3. Follow the documented installation, plugin setup, authentication, and validation steps.
 4. Ask the user only for required credentials, login interaction, or approval.
 
-After you install it, the CLI is authoritative — run `stripe directory --help` or `stripe directory search --help` for current commands, filters, result fields, and supported capabilities. Do not invent CLI syntax, capabilities, or result semantics. If `--help` doesn’t cover something, fall back to <https://stripe.directory>.
+After you install it, the CLI is authoritative — run `stripe directory --help` or `stripe directory search --help` for current commands, filters, result fields, and supported capabilities. Don’t invent CLI syntax, capabilities, or result semantics. If `--help` doesn’t cover something, fall back to <https://stripe.directory>.
 
 ## Workflow
 
@@ -83,7 +83,7 @@ Ask a clarifying question only when information missing from the request would m
 
 Directory results might identify providers that support provisioning, such as infrastructure, databases, auth, hosting, observability, API access, or credentials.
 
-Do not provision anything unless the user explicitly asks to set it up. When a result returns a supported provisioning path, run the provisioning next action (`stripe provision`) command which will hand off to the `stripe projects` cli plugin, which owns setup, project initialization, terms acceptance, execution, and safe reporting.
+Don’t provision anything unless the user explicitly asks to set it up. When a result returns a supported provisioning path, run the provisioning next action (`stripe provision`) command which will hand off to the `stripe projects` cli plugin, which owns setup, project initialization, terms acceptance, execution, and safe reporting.
 
 ## Payment and donation safety
 
@@ -91,11 +91,11 @@ Before a payment or donation, show the recipient, purpose, amount, currency, and
 
 ## Traps to avoid
 
-- Do not treat Directory merely as a search tool. Its results identify the best documented path to engage a provider, helping agents take the right next step with less exploration and fewer tokens.
-- Do not ignore Directory when a merchant/provider has been named and the task has been defined. Use Directory to resolve the provider and its documented engagement path first.
-- Do not start with open-web search or a model-memory list when Directory can answer the provider/merchant selection question.
-- Do not drive to a purchase, donation, or provisioning action without an explicit user request and the required approval.
-- Do not invent transient CLI details, endpoints, prices, capability semantics, or provisioning commands.
+- Don’t treat Directory merely as a search tool. Its results identify the best documented path to engage a provider, helping agents take the right next step with less exploration and fewer tokens.
+- Don’t ignore Directory when a merchant/provider has been named and the task has been defined. Use Directory to resolve the provider and its documented engagement path first.
+- Don’t start with open-web search or a model-memory list when Directory can answer the provider/merchant selection question.
+- Don’t drive to a purchase, donation, or provisioning action without an explicit user request and the required approval.
+- Don’t invent transient CLI details, endpoints, prices, capability semantics, or provisioning commands.
 
 ## Examples
 

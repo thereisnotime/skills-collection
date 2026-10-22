@@ -7634,7 +7634,7 @@
     {
       "name": "aomi",
       "source": "./plugins/crypto/aomi",
-      "description": "Aomi for AI agents: drive natural-language EVM transactions (chat, fork-simulate, sign) and scaffold new Aomi apps from API specs. Non-custodial, account-abstraction-first. 40+ protocol apps: Polymarket, 1inch, GMX, Hyperliquid, Aave, Uniswap. Bundle ships two skills: aomi-transact and aomi-build.",
+      "description": "Aomi for AI agents — drive the Aomi CLI from natural-language prompts to chat, simulate, and sign on-chain transactions with account-abstraction-first execution across DeFi, perps, CEX, and social apps on EVM mainnets and L2s.",
       "version": "0.10.0",
       "category": "crypto",
       "keywords": [
@@ -8407,6 +8407,28 @@
         "email": "jeremy@intentsolutions.io"
       },
       "license": "MIT"
+    },
+    {
+      "name": "hol-guard",
+      "source": "./plugins/security/hol-guard",
+      "description": "Local pre-execution security controls and pre-install scanning for AI agent tools, packages, skills, plugins, and MCP servers.",
+      "version": "0.1.0",
+      "category": "security",
+      "keywords": [
+        "hol-guard",
+        "ai-security",
+        "agent-security",
+        "plugin-security",
+        "mcp-security",
+        "supply-chain-security"
+      ],
+      "author": {
+        "name": "Hashgraph Online",
+        "url": "https://github.com/hashgraph-online"
+      },
+      "homepage": "https://github.com/hashgraph-online/hol-guard",
+      "repository": "https://github.com/hashgraph-online/hol-guard-plugin",
+      "license": "Apache-2.0"
     }
   ]
 }

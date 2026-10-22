@@ -186,7 +186,7 @@ The Express + Stripe-managed pricing and Express + platform-managed pricing conf
 
 #### Fee output requirements
 
-These requirements apply only when the recommendation does NOT use the Platform Pricing Tool. When the Platform Pricing Tool is recommended (see “Fee guidance rules” above), skip `applicationFeeIncludes` and any `application_fee_amount` math entirely — state that pricing is configured in the Platform Pricing Tool instead, and do not set an explicit `application_fee_amount`.
+These requirements apply only when the recommendation does NOT use the Platform Pricing Tool. When the Platform Pricing Tool is recommended (see “Fee guidance rules” above), skip `applicationFeeIncludes` and any `application_fee_amount` math entirely — state that pricing is configured in the Platform Pricing Tool instead, and don’t set an explicit `application_fee_amount`.
 
 When NOT using the Platform Pricing Tool, every recommendation MUST explicitly:
 

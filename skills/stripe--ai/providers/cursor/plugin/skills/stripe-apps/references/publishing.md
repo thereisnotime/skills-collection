@@ -15,7 +15,7 @@ How to version, release, and publish your Stripe App.
 
 **Workflow:** Upload → install in a sandbox → test thoroughly → install in live mode.
 
-**Do not skip sandbox testing.** Even if your app looks correct locally with `stripe apps start`, you must install it in a sandbox and verify it works with the actual install flow before going live.
+**Don’t skip sandbox testing.** Even if your app looks correct locally with `stripe apps start`, you must install it in a sandbox and verify it works with the actual install flow before going live.
 
 ## Versioning
 
@@ -76,7 +76,7 @@ Before submitting:
 - Verified email address on your Stripe account
 - Business details filled in (legal name, address)
 - App passes [review requirements](https://docs.stripe.com/stripe-apps/review-requirements.md)
-- Connect platform accounts cannot publish marketplace apps
+- Connect platform accounts can’t publish marketplace apps
 
 ### Submission
 

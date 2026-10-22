@@ -6,7 +6,7 @@ Use this index alongside the bundled references selected in `SKILL.md`. Load the
 
 Before writing any code file, read the relevant canonical docs page using an available documentation tool. These docs are the source of truth for API patterns, component usage, and configuration — do NOT reproduce code examples from memory or from this skill file.
 
-If you cannot access the docs, tell the user you need them to provide the current patterns rather than guessing.
+If you can’t access the docs, tell the user you need them to provide the current patterns rather than guessing.
 
 ## Reference pages
 

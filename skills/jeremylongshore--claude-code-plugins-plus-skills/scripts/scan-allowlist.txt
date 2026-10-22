@@ -76,8 +76,6 @@ plugins/mcp/a2a-client/dist/index.js:long-base64-blob  bundled dependency WASM p
 plugins/skill-enhancers/agent-systems-toolkit/skills/production-upgrade/scripts/audit_evidence.py:outbound-network  imports urllib.parse.urlsplit solely for offline HTTPS URL validation; contains no request client, socket use, or command execution — reviewed 2026-09-05
 
 # ── sources-change-unscanned is a ONE-SHOT waiver (enforced in code by
-sources.yaml:sources-change-unscanned  claude-2957 HOL Guard registration-only review: verified five exact upstream files at 8e8d190fdef125d7d09e7da499338cc35bdad08f against locked SHA256 values; explicit five-file includes, pinned optional CLI installs with user approval, verified:false; no mirror, package, or publication in this PR
-sources.lock.json:sources-change-unscanned  claude-2957 HOL Guard registration-only review: all five SHA256 values reverified against hashgraph-online/hol-guard-plugin at 8e8d190fdef125d7d09e7da499338cc35bdad08f; no executable implementation admitted; later upstream drift remains quarantined
 # honoredWaivers, blocker 62ye.3 / #985 defect 3): a line is honored ONLY in the
 # PR whose diff adds it, so it can never persistently waive future source-list
 # changes. Do NOT leave a standing line here — after its PR merges it is inert
@@ -86,9 +84,6 @@ sources.lock.json:sources-change-unscanned  claude-2957 HOL Guard registration-o
 # (The spent one-shot lines for skills-janitor / walkie-talkie / localplugins /
 # quit-sponsor were removed 2026-07-14 per this rule — their vet evidence lives
 # in git history and the intake PRs #1020/#1030 that added them.)
-sources.yaml:sources-change-unscanned  reviewed quarantine/delist of walkie-talkie: removes the active registry and matching lock approval without introducing any mirrored content
-sources.lock.json:sources-change-unscanned  reviewed quarantine/delist of walkie-talkie: removes the matching lock approval after the active registry was removed, without introducing any mirrored content
-sources.yaml:sources-change-unscanned  reviewed UIZZE source-selection repair: narrows source_path to upstream plugins/claude-directory and selects the complete anti-ui-slop package while preserving verified:false; no mirror or lock bytes change, and sync remains quarantined until a separate exact-SHA review and relock
 
 # ── hyperflow orchestrator skill: upstream web-research feature. ──
 plugins/ai-agency/hyperflow/skills/hyperflow/SKILL.md:allowed-tools-network  upstream v5.8.x added WebFetch/WebSearch to the orchestrator skill for its web-research feature (skills/hyperflow/web-research.md); mirror content hand-reviewed 2026-07-10 (evidence gate on #1008 + the be6ae2d3->eae6e34c5 delta review) — external mirror, upstream's design, no credential surface
@@ -376,8 +371,6 @@ plugins/productivity/intent-labs-pack/skills/audit-tests/shared-refs/security-te
 plugins/productivity/intent-labs-pack/skills/validate-skillmd/SKILL.md:hook-definition  skill body discusses hooks as a validation surface; no hooks.json shipped
 plugins/productivity/intent-labs-pack/skills/validate-skillmd/SKILL.md:allowed-tools-network  documentation of how to detect over-broad allowed-tools (mentions WebFetch as a pattern to flag), not granting network tools
 plugins/productivity/intent-labs-pack/skills/validate-skillmd/references/schema-reminder-frontmatter.md:hook-definition  extracted schema field docs mentioning hooks as a frontmatter topic — not an executable hooks.json
-sources.yaml:sources-change-unscanned  2026-08-23 census-deadline enforcement PR: removes the still-failing census clusters (numman-ali/n-skills, wondelai/skills) per the 2026-07-08 fix-or-removed policy — every notified skill re-validated at upstream default-branch HEAD by census-watch --enforce before removal; entries removed only, no source added or repointed
-sources.lock.json:sources-change-unscanned  2026-08-23 census-deadline enforcement PR: removes the stale lock entries for the same delisted census clusters after their sources were removed; no source is added or repointed
 plugins/testing/kobiton-automate/README.md:secret-exfil-cooccur  Reviewed 2026-08-19 (E3.6 relock): the co-occurrence is Kobiton's documented API-key auth alongside a curl fetch of their own repo's AGENTS.md (raw.githubusercontent.com/kobiton/automate) — verified sponsor source, product install docs, not exfil.
 plugins/testing/kobiton-automate/README.md:mcp-remote  Reviewed 2026-08-19 (E3.6 relock): https://api.kobiton.com/mcp is the product's own remote MCP endpoint on the vendor's domain — the plugin's entire purpose; verified source.
 plugins/mcp/servicegraph/hooks/hooks.json:hook-definition  E4.10 curated hardening reviewed 2026-08-19: a PreToolUse gate matching ONLY mcp__servicegraph__unlock_rows that runs the plugin's own confirm-unlock.sh to emit permissionDecision "ask" — it ADDS a confirmation before paid credit spends and executes nothing else; this is the enforcing artifact for the destructive-policy declaration (790 § 6, AAR 800).
@@ -443,7 +436,6 @@ plugins/saas-packs/anima-pack/skills/anima-debug-bundle/SKILL.md:secret-exfil-co
 plugins/saas-packs/anima-pack/skills/anima-performance-tuning/SKILL.md:secret-exfil-cooccur  scoped Figma token is sent only to fixed api.figma.com node metadata lookup; no credential is written into the source-version cache, output receipt, or third-party request
 plugins/saas-packs/anima-pack/skills/anima-prod-checklist/SKILL.md:secret-exfil-cooccur  production preflight sends the Figma token only to fixed api.figma.com identity verification and records only HTTP status; Anima credentials are presence-checked without transmission or disclosure
 plugins/saas-packs/anima-pack/skills/anima-webhooks-events/SKILL.md:secret-exfil-cooccur  Figma token and configured webhook passcode are sent only to Figma's fixed api.figma.com Webhooks v2 registration endpoint; the receiver verifies the echoed passcode locally and queues no credential
-sources.yaml:sources-change-unscanned  E8.4 changes only fail-closed publication dispositions for existing Skyvern and Hyperflow mirrors; both remain pinned by exact resolved_ref and per-file sha256 entries in sources.lock.json, with no mirrored content changed
 
 # ── Webflow operator pack remediation (2026-09-10). ──
 # Each skill grants WebFetch only to consult the current official Webflow developer
@@ -922,10 +914,31 @@ plugins/ai-ml/ai-sdk-agents/README.md:secret-exfil-cooccur  documented model-pro
 plugins/saas-packs/claude-pack/skills/clade-reference-architecture/SKILL.md:hook-definition  inert JSON documentation for fixed pre-tool and post-tool echo hooks; no network, credentials, dynamic command construction, or untrusted input
 plugins/saas-packs/vendors/anthropic.yaml:outbound-network  documented Anthropic API smoke-test curl sends ANTHROPIC_API_KEY only to the fixed HTTPS api.anthropic.com origin and prints only the API response
 plugins/devops/mattyp-changelog/scripts/changelog_mcp.py:secret-exfil-cooccur  reviewed 2026-09-25: the flagged block only checks that the configured token env var (default GITHUB_TOKEN) is set and returns an empty item list; the token value is never read. The file has no HTTP client; its only network sink is `gh pr create` via subprocess, which authenticates with that same token. Surfaced by the SDK 2.x port PR touching this file; the code predates it (e1b823b6).
-sources.yaml:sources-change-unscanned  2026-10-03 maintainer integration of five contributor sources (schliff #1588, agent-memory-discipline #1552, dvera #1551, orca-replay #1540, swift-ship #1103): registration only, no mirrored content; each entry kept verbatim from the contributor PR, verified:false; swift-ship scripts reviewed at b2b0b9b5 (scoped allowed-tools, rm -rf only on script-owned temp dirs, no network)
-sources.lock.json:sources-change-unscanned  2026-10-03 same integration: all five lock entries generated by the sync's own reader/matcher/license/buildLockEntry at pinned refs (schliff 9f9d58c, agent-memory-discipline 77578ac, dvera 92e1256, orca-replay a9178ca, swift-ship b2b0b9b5); schliff and dvera match the contributor locks byte-for-byte; later upstream drift stays quarantined
-plugins/skill-enhancers/file-to-code/skills/skill-adapter/assets/templates/fastapi_api_template.py:outbound-network  "curl" appears only in the example's docstring ("access the API ... using a tool like curl or Postman"); the template makes no outbound network call - surfaced because #1603 touched the file for CodeQL log-injection fixes
 
+# skills-janitor @ 4b42f39 (reviewed drift relock, 2026-10-01): the new janitor-security
+# feature is itself a malware heuristic scanner. Its "network" and "credential" hits are
+# detection regexes and documentation, not behavior: security.sh is an embedded Python
+# program that imports only json/os/re/sys (no subprocess/urllib/requests/socket) and
+# has no executable curl/wget line.
+plugins/community/skills-janitor/scripts/security.sh:outbound-network  curl appears only inside detection regexes (sh-curlpipe/sh-http/sh-postout, IMPERATIVE); no network I/O in the script
+plugins/community/skills-janitor/scripts/security.sh:secret-exfil-cooccur  credential-path and network tokens are both regex/pattern literals for the scanner; no credential read, no network sink
+plugins/community/skills-janitor/skills/janitor-security/SKILL.md:pipe-to-shell  documentation listing `curl … | bash` as a pattern the scan detects; not an install instruction
+
+# 2026-10-01 reviewed drift relock: findings in mirror files this relock touches.
+# All pre-exist on main and were reviewed in the per-source drift review; each
+# reason below records what was checked.
+plugins/community/hermes-tweet/hermes_tweet/client.py:outbound-network  API client for its own service; the only endpoint is https://xquik.com (client.py:15)
+plugins/community/hermes-tweet/hermes_tweet/catalog.py:outbound-network  catalog lookups against the same xquik.com client; no other host
+plugins/community/mnemos/README.md:hook-definition  JSON example in README documentation, not an installed hook
+plugins/community/portaljs/skills/arcgis-to-portaljs/SKILL.md:allowed-tools-network  WebFetch to read ArcGIS/portal docs for the migration the skill performs
+plugins/community/portaljs/skills/portaljs-migrate/SKILL.md:allowed-tools-network  WebFetch to read the source portal being migrated; no Bash/network shell grant
+plugins/mcp/slack-channel/lib.ts:secret-exfil-cooccur  match is the outbound secret GUARD that blocks live secret values from leaving (lib.ts ~1316); Slack token goes only to the Slack API
+plugins/mcp/slack-channel/server.ts:secret-exfil-cooccur  match is local state-dir constants (~/.claude/channels/slack/.env, access.json); no network sink
+plugins/mcp/x-bug-triage/.claude-plugin/plugin.json:hook-definition  points at hooks/hooks.json, which is empty ({"hooks": {}}) at the relocked 06f262b
+plugins/productivity/box-cloud-filesystem/.claude-plugin/plugin.json:hook-definition  registers the queue-only hooks reviewed below
+plugins/productivity/box-cloud-filesystem/hooks/hooks.json:hook-definition  PostToolUse/Stop run box-sync-on-write.sh / box-sync-summary.sh: opt-in (queue_changes=true) local queueing only, no upload; upload needs a human --apply
+plugins/productivity/publishing-skills/skills/blog-figure-svg/SKILL.md:allowed-tools-network  WebFetch for reference research when drafting figures; no shell/network write
+plugins/skill-enhancers/file-to-code/skills/skill-adapter/assets/templates/fastapi_api_template.py:outbound-network  "curl" appears only in the example's docstring ("access the API ... using a tool like curl or Postman"); the template makes no outbound network call - surfaced because #1603 touched the file for CodeQL log-injection fixes
 # MCP server bundles (claude-e1mk.10, 2026-10-04): first-party plugins now ship self-contained esbuild
 # bundles so the .mcp.json target exists after a marketplace copy-install. Each finding below was checked in context.
 plugins/mcp/conversational-api-debugger/dist/servers/api-debugger.js:dynamic-exec  AJV schema compiler (new Function over opts.code.process / self / scope) bundled from @modelcontextprotocol/sdk, compiling the SDK's fixed schemas; no untrusted source text reaches it - same finding as the reviewed a2a-client bundle
@@ -934,6 +947,10 @@ plugins/mcp/domain-memory-agent/dist/servers/knowledge-base.js:dynamic-exec  AJV
 plugins/mcp/project-health-auditor/dist/servers/code-metrics.js:dynamic-exec  AJV schema compiler (new Function over opts.code.process / self / scope) bundled from @modelcontextprotocol/sdk, compiling the SDK's fixed schemas; no untrusted source text reaches it - same finding as the reviewed a2a-client bundle
 plugins/mcp/workflow-orchestrator/dist/servers/workflow-engine.js:dynamic-exec  AJV schema compiler (new Function over opts.code.process / self / scope) bundled from @modelcontextprotocol/sdk, compiling the SDK's fixed schemas; no untrusted source text reaches it - same finding as the reviewed a2a-client bundle
 plugins/mcp/project-health-auditor/dist/servers/code-metrics.js:secret-exfil-cooccur  the only env read is minimatch's process.env.__MINIMATCH_TESTING_PLATFORM__ (a test-platform flag, not a credential); the debug package's whole-env iteration is stubbed out of the bundle (scripts/debug-stub.mjs)
+
+# pr-to-spec MCP bundle (upstream jeremylongshore/pr-to-prompt, locked; now committed so the server exists after install) — reviewed 2026-10-05.
+plugins/mcp/pr-to-spec/dist/mcp-bundle/index.js:dynamic-exec  AJV schema compiler (new Function over opts.code.process / self / scope) bundled from the MCP SDK, compiling its fixed schemas; same finding as the reviewed a2a-client bundle. Git runs only via execFileSync("git", argv) with no shell
+plugins/mcp/pr-to-spec/dist/mcp-bundle/index.js:secret-exfil-cooccur  the only credential read is process.env.GITHUB_TOKEN, passed to Octokit whose base URLs are api.github.com (and Octokit's default uploads.github.com); the tools call only read endpoints: pulls.get, listFiles, listReviews, listReviewComments
 
 # ── Discord community-link removal (2026-10-05). ──
 # Pre-existing documentation examples surfaced because the PR edited an unrelated

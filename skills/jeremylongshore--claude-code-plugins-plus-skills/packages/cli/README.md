@@ -69,6 +69,65 @@ npx @intentsolutionsio/ccpi search terraform
 
 ## Commands
 
+### `tons skills install <skill-directory>`
+
+Install a first-party skill from a clean Git checkout into a verified harness path:
+
+```bash
+tons skills install ./plugins/testing/example/skills/example-skill --harness claude-code --scope project
+```
+
+The source must be a committed `plugins/<category>/<plugin>/skills/<skill>` directory
+with an HTTPS or SSH `origin`. Uncommitted, untracked, ignored, symlinked, and mirrored
+sources are refused. Installation uses committed Git bytes and preserves executable
+modes; it never copies the checkout recursively or overwrites an existing skill.
+
+Allowed content is `SKILL.md`, `README.md`, `LICENSE`, `LICENSE.md`, `eval-spec.yaml`,
+and files under `assets/`, `examples/`, `references/`, `scripts/`, or `templates/`.
+Hidden files, credential/key files, caches, build output, and local databases are
+refused even when tracked. Review committed skill content before installing it.
+
+Each installation includes `.ccpi-portable-install.json`, binding its file hashes to
+the source repository, commit, tree, harness, and CLI compatibility validation.
+The associated validation report is retained without automatic expiry in the harness
+skill root's `.ccpi-evidence/` directory. This local receipt records provenance and
+compatibility; it does not certify marketplace quality or skill behavior. Installers
+use an exclusive per-skill lock and publish the verified directory by atomic rename.
+
+`--dry-run` performs the same source and validation checks without creating harness
+paths. `--scope user` selects the harness's user directory. `--json` includes the
+destination and receipt path. Unknown and unverified harnesses are refused.
+
+### `tons skills doctor`
+
+Inspect installed byte integrity without changing files:
+
+```bash
+tons skills doctor --harness claude-code --source-repo /path/to/trusted/checkout --json
+tons skills doctor --harness claude-code --source-repo /path/to/trusted/checkout --skill example-skill
+```
+
+The selected source repository defaults to the current directory. Doctor checks its
+origin identity and committed history against each receipt, rehashes installed files,
+and verifies retained compatibility evidence. It reports `verified`, `outdated`,
+`locally-modified`, `missing`, or `unverifiable` in the **integrity** field. Every
+result includes source commit/path and expected/installed digest evidence, or an
+explicit unavailable value. `--skill` can diagnose an absent installation; without
+it, doctor inspects the visible entries in the harness skill directory.
+
+`verified` here means byte identity only. Quality remains `not-assessed`; this command
+does not certify marketplace grades, production readiness, or behavioral evaluations.
+The selected checkout is your trust source; a receipt cannot authenticate itself.
+Malformed receipts, missing evidence, and mismatched repository provenance fail closed.
+
+Update availability is reported separately against the selected repository's local
+`HEAD`, never an implied latest remote version. A newer unrelated commit is not a
+skill update. A deleted source path can leave original bytes verified while current
+source availability is unknown. Local modifications remain visible even when an
+update exists. Doctor never fetches, checks out commits, refreshes the Git index,
+uploads installed content, writes reports, or repairs a skill. Review its suggested
+next action and preserve local work before explicitly changing anything.
+
 ### `ccpi install <plugin>`
 
 Install a plugin from the marketplace.

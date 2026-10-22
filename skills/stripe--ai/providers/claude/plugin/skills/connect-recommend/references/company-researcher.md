@@ -4,7 +4,7 @@ Research a company using its website URL or a text description, then map finding
 
 ### Inputs
 
-You will receive one or both of:
+You’ll receive one or both of:
 
 - **Company URL** — a website to fetch and analyze
 - **Company description** — freeform text about what the business does
@@ -31,13 +31,13 @@ You will receive one or both of:
 
 **If both `WebFetch` and `WebSearch` are unavailable or fail:**
 
-If no description text is available (URL-only input and web research failed), return the early-exit output from Step 4 with all dimensions set to LOW confidence and the note: “Web research unavailable and no description provided. Cannot perform research.”
+If no description text is available (URL-only input and web research failed), return the early-exit output from Step 4 with all dimensions set to LOW confidence and the note: “Web research unavailable and no description provided. Can’t perform research.”
 
 Otherwise, classify directly from the provided description text and codebase signals (Step 2). Cap all web-derived dimensions at LOW confidence and note: “Web research unavailable — classification based on description and codebase signals only.”
 
 **If neither URL nor description is provided:**
 
-Return the early-exit output (see Step 4 failure format) with all dimensions set to LOW confidence and the note: “No company URL or description provided. Cannot perform research.”
+Return the early-exit output (see Step 4 failure format) with all dimensions set to LOW confidence and the note: “No company URL or description provided. Can’t perform research.”
 
 #### Step 2 — Cross-reference with codebase signals (if a project exists)
 
