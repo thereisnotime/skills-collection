@@ -1,13 +1,15 @@
 ---
 name: loki-mode
-description: An autonomous software factory that knows what it is supposed to deliver, and proves it did. Use when the user says Loki Mode or asks to build, fix or verify software autonomously.
+description: Runs an autonomous software factory that knows what it is supposed to deliver and proves it did, with a signed receipt. Use when the user says Loki Mode or asks to build, fix or verify software autonomously.
 ---
 
-# Loki Mode v11.18.0
+# Loki Mode v11.67.9
 
 **Current entry points (Loki 10 engine):** `loki "<task>"`, `loki owner/repo#N` and `loki quick "<task>"` run the Loki 10 engine and end with a signed receipt (`loki verify`). `loki backlog owner/repo --all` runs many issues in parallel. Guide: `docs/v10/GUIDE.md`. The skill instructions below, and `loki start`, describe the previous bash loop. PRD-file starts (`loki start ./prd.md`) and the opencode provider still run on it until FC38-SWEEP ports them; the legacy-engine command and the LOKI_ENGINE switch remain removed. Prefer `loki owner/repo#N` for issues.
 
 **You are an autonomous agent. You make decisions. You do not ask questions. You do not stop.**
+
+**Prerequisite:** run `loki doctor` once; it checks the provider CLI, auth, git and runtime, and prints the fix for each failure.
 
 **Spec in, verified product out.** Spec-driven: a "spec" is whatever describes the work -- a Markdown PRD, a GitHub issue, an OpenAPI doc, a Jira ticket (a PRD is one form of spec). The differentiator is the trust layer: Loki does not call work done until it is verified. The RARV-C closure loop, 8 quality gates, the completion council, and the verified-completion evidence gate must all clear before completion is accepted. The evidence gate blocks on empty-diff, red tests, an unhealthy serveable app (runtime-boot axis, `LOKI_EVIDENCE_BOOT_GATE=0` to opt out), and a leaked credential in the changed files (secret-leak axis, `LOKI_EVIDENCE_SECRET_GATE=0` to opt out) -- v8.0.0.
 
@@ -27,8 +29,7 @@ Execute these steps IN ORDER at the start of EVERY turn:
 
 ```
 1. IF first turn of session:
-   - Read skills/00-index.md
-   - Load 1-2 modules matching your current phase
+   - Load 1-2 modules matching your current phase (Module Loading Protocol)
    - Register session: Write .loki/session.json with:
      {"pid": null, "startedAt": "<ISO timestamp>", "provider": "<provider>",
       "invokedVia": "skill", "status": "running", "updatedAt": "<ISO timestamp>"}
@@ -77,6 +78,19 @@ VERIFY: Run tests. Check build. Validate against spec.
                After 3 failures: Try simpler approach.
                After 5 failures: Log to dead-letter queue, move to next task.
 ```
+
+Copyable closure checklist (RARV-C; tick each before declaring a task done):
+
+```
+- [ ] Reason: highest-priority unblocked task chosen
+- [ ] Act: change committed atomically
+- [ ] Reflect: outcome logged
+- [ ] Verify: tests green, build passes, diff non-empty
+- [ ] Compound: novel insight saved to ~/.loki/solutions/ (or none)
+- [ ] Closure: gates and council clear; receipt is VERIFIED
+```
+
+Example. Input: `loki owner/repo#123`. Output: a branch with the fix, a PR, and a receipt under `.loki/proofs/<run_id>/` whose headline reads `VERIFIED`; re-check with `loki proof verify <run_id>` (exit 0 = clean).
 
 ---
 
@@ -139,7 +153,7 @@ GROWTH ──[continuous improvement loop]──> GROWTH
 
 **Your context window is finite. Preserve it.**
 
-- Load only 1-2 skill modules at a time (from skills/00-index.md)
+- Load only 1-2 skill modules at a time (see Module Loading Protocol)
 - Use Task tool with subagents for exploration (isolates context)
 - **Context Window Tracking (v5.40.0):** Dashboard gauge, timeline, and per-agent breakdown at `GET /api/context`
 - **Notification Triggers (v5.40.0):** Configurable alerts when context exceeds thresholds, tasks fail, or budget limits hit. Manage via `GET/PUT /api/notifications/triggers`
@@ -155,7 +169,6 @@ GROWTH ──[continuous improvement loop]──> GROWTH
 | `.loki/queue/pending.json` | Every turn | When claiming/completing tasks |
 | `.loki/queue/current-task.json` | Before each ACT | When claiming task |
 | `.loki/specs/openapi.yaml` | Before API work | After API changes |
-| `skills/00-index.md` | Session start | Never |
 | `.loki/memory/index.json` | Session start | On topic change |
 | `.loki/memory/timeline.json` | On context need | After task completion |
 | `.loki/memory/token_economics.json` | Never (metrics only) | Every turn |
@@ -174,21 +187,36 @@ One-command rollback (v7.5.2+): `loki rollback latest` or `loki rollback to <id>
 
 This protocol governs **skill module** loading -- task-scoped instruction files in `skills/`. It is distinct from the Memory System Progressive Disclosure (see below), which governs persistent **memory layers** in `.loki/memory/`.
 
+Pick modules from this table, one hop from here. Each module over 100 lines opens with a contents map.
+
+| Task | Module |
+|------|--------|
+| Writing code, spawning subagents, Task tool | [model-selection.md](skills/model-selection.md), [agents.md](skills/agents.md) |
+| Tests, E2E, Playwright | [testing.md](skills/testing.md) |
+| Code review, quality checks | [quality-gates.md](skills/quality-gates.md) |
+| Deployment, CI/CD, infrastructure | [production.md](skills/production.md) |
+| Debugging, errors, failures | [troubleshooting.md](skills/troubleshooting.md) |
+| Architecture, design decisions | [patterns-advanced.md](skills/patterns-advanced.md) |
+| Artifacts, reports | [artifacts.md](skills/artifacts.md) |
+| Parallel features, git worktrees, 50+ agents | [parallel-workflows.md](skills/parallel-workflows.md) |
+| GitHub issues, PRs, syncing | [github-integration.md](skills/github-integration.md) |
+| Multi-provider (Codex, Cline, Aider) | [providers.md](skills/providers.md) |
+| OpenSpec delta context, brownfield changes | [openspec-integration.md](skills/openspec-integration.md) |
+| MiroFish validation, `--mirofish` | [mirofish-integration.md](skills/mirofish-integration.md) |
+| Writing documentation, `loki docs` | [documentation.md](skills/documentation.md) |
+| UI components, design tokens, Gate 12 | [magic-modules.md](skills/magic-modules.md) |
+| Legacy healing, modernization | [healing.md](skills/healing.md) |
+| Plan deepening, knowledge extraction | [compound-learning.md](skills/compound-learning.md) |
+| Managed Agents memory, council, flag hierarchy | [memory.md](skills/memory.md) |
+| Non-trivial change (>3 files, MINOR/MAJOR) | [sdlc-fleet.md](skills/sdlc-fleet.md) |
+| Several agent teams at once, WIP limits | [factory-operations.md](skills/factory-operations.md) |
+| Release, version bump, publish check | [release-cadence.md](skills/release-cadence.md) |
+| Adding your own gate, reviewer or agent | [extending.md](skills/extending.md) |
+
 ```
-1. Read skills/00-index.md (once per session)
-2. Match current task to module:
-   - Writing code? Load model-selection.md
-   - Running tests? Load testing.md
-   - Code review? Load quality-gates.md
-   - Debugging? Load troubleshooting.md
-   - Legacy healing? Load healing.md
-   - Deploying? Load production.md
-   - Parallel features? Load parallel-workflows.md
-   - Architecture planning? Load compound-learning.md (deepen-plan)
-   - Post-verification? Load compound-learning.md (knowledge extraction)
-3. Read the selected module(s)
-4. Execute with that context
-5. When task category changes: Load new modules (old context discarded)
+1. Match current task to a row above; read that module (1-2 at a time)
+2. Execute with that context
+3. When task category changes: load new modules (old context discarded)
 ```
 
 **Memory System Progressive Disclosure** is a separate 3-layer structure (`index.json` -> `timeline.json` -> `episodic/*.json`) for retrieving past episodes/patterns. See `skills/memory.md` and `references/memory-system.md`.
@@ -200,7 +228,7 @@ This protocol governs **skill module** loading -- task-scoped instruction files 
 <!-- generated:commands -->
 Commands (generated from `loki-ts/src/cli/registry.ts`; full reference in `docs/CLI-REFERENCE.md`):
 
-`version`, `status`, `doctor`, `provider`, `memory`, `rollback`, `backup`, `restore`, `proof`, `wiki`, `control`, `intent`, `kpis`, `report`, `trust`, `crash`, `contract`, `start`, `slack`, `queue`, `issues`, `undo`, `verify-pr`, `answer`, `engine10`, `help`, `chat`, `edit`, `diff`, `models`, `setup`, `quick`, `quickstart`, `init`, `template`, `verify`, `keys`, `review`, `dashboard`, `config`, `mcp`, `acp`, `stop`, `pause`, `resume`, `cancel`, `why`, `next`, `logs`, `ship`, `deploy`, `import`, `github`, `issue`, `ci`, `modernize`, `share`, `assets`, `export`, `notify`, `tour`, `wow`, `factory`, `welcome`, `onboard`, `setup-skill`, `self-update`, `remote`, `cockpit`, `code`, `context`, `secrets`, `api`, `sandbox`, `docker`, `web`, `preview`, `telemetry`, `syslog`, `explain`, `docs`, `test`, `bench`, `voice`, `own`, `secure`, `compliance`, `enterprise`, `projects`, `audit`, `cost`, `metrics`, `sentrux`, `magic`, `steer`
+`version`, `status`, `doctor`, `provider`, `memory`, `rollback`, `backup`, `restore`, `proof`, `wiki`, `control`, `runs`, `intent`, `kpis`, `report`, `trust`, `crash`, `contract`, `start`, `slack`, `queue`, `issues`, `undo`, `verify-pr`, `answer`, `engine10`, `help`, `chat`, `edit`, `diff`, `models`, `setup`, `quick`, `quickstart`, `init`, `template`, `verify`, `keys`, `review`, `dashboard`, `config`, `mcp`, `acp`, `stop`, `pause`, `resume`, `cancel`, `why`, `next`, `logs`, `ship`, `deploy`, `import`, `github`, `issue`, `ci`, `modernize`, `share`, `assets`, `export`, `notify`, `tour`, `wow`, `factory`, `welcome`, `onboard`, `setup-skill`, `self-update`, `remote`, `cockpit`, `code`, `context`, `secrets`, `api`, `sandbox`, `docker`, `web`, `preview`, `telemetry`, `syslog`, `explain`, `docs`, `test`, `bench`, `voice`, `own`, `secure`, `compliance`, `enterprise`, `projects`, `audit`, `cost`, `metrics`, `sentrux`, `magic`, `steer`
 <!-- /generated -->
 
 ---
@@ -231,9 +259,9 @@ loki start --provider codex ./prd.json       # GPT-5.3 Codex, degraded mode
 loki start --provider cline ./prd.md         # Cline CLI, degraded mode
 loki start --provider aider ./prd.md         # Aider (18+ providers), degraded mode
 
-# Parallel mode (git worktrees, Claude only)
-loki start ./prd.md --parallel
-loki start 123 --ship                        # Issue -> PR -> auto-merge
+# Parallel and auto-merge (legacy loop only; the default engine refuses these flags)
+loki start ./prd.md --parallel --engine legacy
+loki start 123 --ship --engine legacy        # Issue -> PR -> auto-merge (default engine: 'loki start 123' opens the PR, then 'loki merge-queue')
 
 # Run any loki command inside the published Docker image, zero config (v7.45.0).
 # Bind-mounts the current folder to /workspace so .loki state, resume, and
@@ -442,45 +470,10 @@ See `CHANGELOG.md` entries [7.5.7], [7.5.8], [7.5.13] for the per-fix list and r
 
 ---
 
-## Implemented Features
+## Feature status
 
-| Feature | Added | Notes |
-|---------|-------|-------|
-| Multi-provider support (5 providers) | v5.0.0 | claude, codex, cline, aider, opencode -- see `providers/` |
-| CONTINUITY.md working memory | v5.35.0 | Auto-managed by run.sh, updated each iteration |
-| Quality gates 3-reviewer system | v5.35.0 | 5 specialist reviewers in `skills/quality-gates.md`; execution in run.sh |
-| Memory System (episodic/semantic/procedural) | v5.15.0 | Full implementation in `memory/` |
-| Context Window Tracking | v5.40.0 | Dashboard gauge, per-agent breakdown at `GET /api/context` |
-| Notification Triggers | v5.40.0 | `GET/PUT /api/notifications/triggers` |
-| GitHub integration | v5.42.2 | Import, sync-back, PR creation, export. CLI: `loki github`, API: `/api/github/*` |
-| Legacy System Healing | v6.67.0 | `loki heal <path>` -- friction-as-semantics, characterization tests |
-| Unified `loki start` | v6.84.0 | Auto-detects spec (PRD, OpenAPI, etc.) vs issue input |
-| Managed Agents (memory mirror) | v7.2.0 | Opt-in via `LOKI_MANAGED_AGENTS` -- see Managed Agents section |
-| Bun runtime (Phase 1) | v7.3.0 | Read-only commands routed through `bin/loki`; `LOKI_LEGACY_BASH=1` to revert |
-| Phase 1 RARV-C closure | v7.5.x | Findings injection, real judges, auto-learnings, handoff.md |
-| Anthropic SDK route | v8.0.0 | Opt-in, default-off; one switch `LOKI_SDK_MODE` -- see `references/sdk-mode.md` |
-| Harness intelligence | v8.0.0 | Prompt-cache discipline, confidence-spike re-check, goal scoring, smart retry |
-| SDK degradation event | v8.0.0 | Structured `capability_degraded` record on `.loki/events.jsonl` |
-| Time to first preview | v8.0.0 | `.loki/app-runner/first-preview.json`, write-once (bash route) |
-| Opt-in build analytics | v8.0.0 | `build_verified` event behind a strict second gate, allowlist-only fields |
-
-## Planned / In-Progress Features
-
-| Feature | Target | Notes |
-|---------|--------|-------|
-| Bun runtime (Phase 2+) | TBD | Migrate write-path commands; tracked on `feat/bun-migration` |
-| Managed Agents multiagent path | TBD | `LOKI_EXPERIMENTAL_MANAGED_*` flags -- RESEARCH PREVIEW, not on live API |
-| Benchmarks | TBD | Runner scripts and datasets exist in `benchmarks/`; no published results |
-| `loki run` removal | with legacy removal | Currently a deprecated alias for `loki start` |
-
-## Deprecated
-
-| Item | Deprecated In | Notes |
-|------|---------------|-------|
-| `loki run <issue>` | v6.84.0 | Alias for `loki start`. Removal is part of the planned legacy removal. |
-| `loki start`, RARV skill loop | v10.6.6 | Legacy engine, planned for removal; use `loki "<task>"` / `loki owner/repo#N`. |
-| VSCode extension (`vscode-extension/`) | v7.2.0 | No longer actively maintained; dashboard web UI is the supported front-end. |
+Implemented, planned and deprecated items, with the version each landed in: `skills/release-cadence.md` section 7. `loki start` and the RARV skill loop are the legacy engine (planned removal); prefer `loki "<task>"` or `loki owner/repo#N`.
 
 ---
 
-**v11.18.0 | [Autonomi](https://www.autonomi.dev/) flagship product | core skill**
+**v11.67.9 | [Autonomi](https://www.autonomi.dev/) flagship product | core skill**

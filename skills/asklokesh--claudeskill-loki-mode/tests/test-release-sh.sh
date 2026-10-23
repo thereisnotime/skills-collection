@@ -255,7 +255,7 @@ for f in $FILES; do
 done
 # Guard-row fixtures (REL-GUARD): the real runner and selector, a stub row list.
 mkdir -p "$REPO2/eval/loki10" "$REPO2/tests"
-cp "$REPO_ROOT/scripts/impacted-gate.sh" "$REPO_ROOT/scripts/select-tests.sh" "$REPO2/scripts/"
+cp "$REPO_ROOT/scripts/impacted-gate.sh" "$REPO_ROOT/scripts/select-tests.sh" "$REPO_ROOT/scripts/release-notes.sh" "$REPO2/scripts/"
 cp "$REPO_ROOT/eval/loki10/lib-tmp.sh" "$REPO2/eval/loki10/"
 printf 'shell_test\ttests/stub-guard.sh\n' > "$REPO2/scripts/global-guards.tsv"
 printf '#!/usr/bin/env bash\nexit "${GUARD_STUB_RC:-0}"\n' > "$REPO2/tests/stub-guard.sh"
@@ -521,7 +521,23 @@ mkdir -p "$SHIP_TPL/docs/v10"
 printf 'control\n' > "$SHIP_TPL/docs/v10/CONTROL.md"
 mkdir -p "$SHIP_TPL/loki-ts/src"
 printf 'export const x = 1;\n' > "$SHIP_TPL/loki-ts/src/index.ts"
-gitq -C "$SHIP_TPL" add CHANGELOG.md .gitignore docs/v10/CONTROL.md loki-ts/src/index.ts
+# Stub generator, shaped like scripts/generate-stale-zero.sh: --outputs lists its
+# pathspecs; a run stamps 'still ships in X' on every wiki page (the real one's
+# wiki loop), including pages outside RELEASE_COMMIT_FILES.
+printf 'wiki pages still ships in 1.2.3\n' > "$SHIP_TPL/wiki/Extra-A.md"
+printf 'wiki pages still ships in 1.2.3\n' > "$SHIP_TPL/wiki/Extra-B.md"
+printf 'my page still ships in 1.2.3\n' > "$SHIP_TPL/wiki/Mine.md"
+cat > "$SHIP_TPL/scripts/generate-stale-zero.sh" << 'GENEOF'
+#!/usr/bin/env bash
+cd "$(dirname "$0")/.." || exit 1
+if [ "${1:-}" = "--outputs" ]; then printf 'wiki\n'; exit 0; fi
+v="$(tr -d '\n' < VERSION)"
+for p in wiki/*.md; do
+    sed -E "s/(still ships in )[0-9]+\.[0-9]+\.[0-9]+/\1${v}/" "$p" > "$p.tmp" && mv "$p.tmp" "$p"
+done
+GENEOF
+chmod +x "$SHIP_TPL/scripts/generate-stale-zero.sh"
+gitq -C "$SHIP_TPL" add CHANGELOG.md .gitignore docs/v10/CONTROL.md loki-ts/src/index.ts scripts/generate-stale-zero.sh wiki/Extra-A.md wiki/Extra-B.md wiki/Mine.md
 gitq -C "$SHIP_TPL" add -f loki-ts/dist/loki.js.map
 gitq -C "$SHIP_TPL" commit -q -m "ship fixture"
 SHIP_BASE="$(git -C "$SHIP_TPL" rev-parse HEAD)"
@@ -593,6 +609,33 @@ ntime="$(grep -c '^\[TIME\] ' "$SHIPW/case.log")"
 for ph in preflight "bump version files" "write CHANGELOG section" "rebuild loki-ts/dist" "stage and commit" "ancestry check" gitleaks "wait for an in-flight Release run" push "verify origin/main" total; do
     grep -q "^\[TIME\] $ph" "$SHIPW/case.log" || bad "no [TIME] line for phase: $ph"
 done
+
+echo
+echo "T17b -- generator-stamped wiki pages ride the release commit; the user's own dirt does not"
+new_ship_fixture
+printf 'my own edit\n' >> "$SHIP_REPO/wiki/Mine.md"   # pre-existing dirt on a generator output
+run_ship_case ""
+rc=$?
+[ "$rc" -eq 0 ] && ok "wiki ship exit 0" || bad "wiki ship expected exit 0, got $rc ($(tail -6 "$SHIPW/case.log"))"
+for pg in wiki/Extra-A.md wiki/Extra-B.md; do
+    git -C "$SHIP_REPO" show "HEAD:$pg" | grep -q 'still ships in 1.2.4' && ok "$pg stamp committed" || bad "$pg stamp not in the release commit"
+done
+git -C "$SHIP_REPO" diff --name-only HEAD~1 HEAD | grep -qx wiki/Mine.md && bad "pre-dirty wiki/Mine.md was swept into the release" || ok "pre-dirty wiki/Mine.md left out of the commit"
+grep -q 'my own edit' "$SHIP_REPO/wiki/Mine.md" && ok "wiki/Mine.md edit still on disk" || bad "wiki/Mine.md edit lost"
+left="$(git -C "$SHIP_REPO" diff --name-only HEAD -- wiki | grep -vx wiki/Mine.md || true)"
+[ -z "$left" ] && ok "no release-produced wiki page left modified" || bad "left modified: $left"
+
+echo
+echo "T17c -- a release-produced file left modified after the commit fails the ship"
+new_ship_fixture
+# A post-commit hook re-dirties a page the generator stamped, standing in for any
+# generated file the commit did not take.
+printf '#!/usr/bin/env bash\nprintf late >> wiki/Extra-A.md\n' > "$SHIP_REPO/.git/hooks/post-commit"
+chmod +x "$SHIP_REPO/.git/hooks/post-commit"
+ORIG="$(origin_main)"
+run_ship_case ""
+assert_refused "generated file left modified" $? SHIP_DIRTY_AFTER_COMMIT "$ORIG"
+grep -q 'wiki/Extra-A.md' "$SHIPW/case.log" && ok "refusal names wiki/Extra-A.md" || bad "refusal does not name the page"
 
 echo
 echo "T18 -- origin/main not an ancestor of HEAD: refuses before any write"
@@ -733,6 +776,15 @@ run_ship_case "GH_MODE=tests_red STUB_SHA=$SHIP_BASE"
 rc=$?
 [ "$rc" -eq 3 ] && ok "Tests red at HEAD: exit 3" || bad "expected exit 3, got $rc"
 [ "$(origin_main)" = "$SHIP_BASE" ] && grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "gate refusal: nothing written or pushed" || bad "gate refusal wrote or pushed"
+
+echo
+echo "T17d -- notes with no '### ' subsection are refused before any write, even with LOKI_RELEASE_SKIP_GUARDS=1 (FC-RELEASE-NOTES-FORMAT-UNCHECKED-LOCALLY)"
+new_ship_fixture
+printf '## v1.2.4 (2026-10-17)\n\n- bullets but no subsection\n' > "$SHIPW/notes-flat.md"
+ORIG="$(origin_main)"
+run_ship_case "LOKI_RELEASE_SKIP_GUARDS=1" "$SHIPW/notes-flat.md"
+assert_refused "flat notes" $? SHIP_NOTES_FORMAT "$ORIG"
+grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "flat notes: nothing written (VERSION unchanged)" || bad "flat notes: VERSION was bumped"
 
 echo
 echo "T26 -- --ship argument validation"

@@ -183,6 +183,10 @@ sources:
       # The runtime manifest is at the root. Nested package.json files are
       # upstream development tools, not part of the channel distribution.
       - '/package.json'
+      # The package's lint-staged hook runs Biome; keep its canonical config
+      # and required ignore file so normal commits preserve upstream checks.
+      - '/biome.json'
+      - '/.gitignore'
       # tsconfig.json drives `tsc --noEmit` (the typecheck script in upstream
       # package.json). Without it, tsc dumps help text and exits 1 — making
       # CI's Type checking step fail. Synced together with the source files
@@ -1433,6 +1437,35 @@ sources:
     verified: false
     include:
       - '/.claude-plugin/**'
+      - '/skills/**'
+      - '/README.md'
+      - '/LICENSE'
+    exclude:
+      - 'node_modules/**'
+      - '.git/**'
+      - '*.log'
+
+  # ============================================================
+  # PriceWin (PriceDotWin)
+  # https://github.com/PriceDotWin/pricewin-agent-plugin
+  # ============================================================
+
+  - name: pricewin
+    description: Live hotel and flight prices compared across Booking.com, Agoda, Trip.com and Traveloka, in USD, through PriceWin's remote MCP server (https://mcp.price.win/mcp, no API key), plus a skill for running the two-step search. Can also send a booking request to an OpenTravel partner hotel, which charges nothing.
+    repo: PriceDotWin/pricewin-agent-plugin
+    source_path: .
+    target_path: plugins/mcp/pricewin
+    author:
+      name: PriceWin
+      github: PriceDotWin
+      email: support@price.win
+    license: MIT
+    category: mcp
+    verified: false
+    include:
+      - '/.claude-plugin/plugin.json'
+      - '/.claude-plugin/icon.png'
+      - '/.mcp.json'
       - '/skills/**'
       - '/README.md'
       - '/LICENSE'

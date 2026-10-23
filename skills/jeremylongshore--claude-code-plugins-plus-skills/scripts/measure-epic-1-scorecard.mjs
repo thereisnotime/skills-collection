@@ -13,6 +13,7 @@ import yaml from 'js-yaml';
 import { safeReadFile, UnsafePathError } from './safe-fs.mjs';
 
 import { canonicalDocumentLinks, inspectAuthorityMetadata } from './check-doc-authority.mjs';
+import { inspectCorrectnessSwallows, SWALLOWS_REGISTRY } from './ci-correctness-swallows.mjs';
 import { CORPUS_COHORTS, resolveCorpus } from './corpus-resolver.mjs';
 import { scanDeadDomainPolicy } from './dead-domain-policy.mjs';
 import { artifactRegistration } from './generated-artifact-registry.mjs';
@@ -41,9 +42,9 @@ const UNRESOLVED_ROWS = new Map([
   [
     7,
     {
-      reason_code: 'MISSING_STABLE_DIAGNOSTIC_CLASS_IDS',
+      reason_code: 'MISSING_CANONICAL_STRUCTURAL_MEASUREMENT',
       required_inputs: [
-        'validator JSON records with stable body-section and frontmatter diagnostic IDs',
+        'complete graded skill JSON classified by the indexed canonical baseline_finding_triple function',
       ],
     },
   ],
@@ -882,23 +883,135 @@ function packagePins(reader) {
 }
 
 function marketplaceInvocations(reader) {
-  const results = [];
-  for (const path of reader.paths.filter((item) => item.startsWith('.github/workflows/'))) {
-    const lines = (reader.text(path) ?? '').split(/\r?\n/);
-    for (let index = 0; index < lines.length; index += 1) {
-      if (!/validate-skills-schema\.py.*--marketplace/.test(lines[index])) continue;
-      const window = lines.slice(Math.max(0, index - 8), index + 2).join('\n');
-      results.push({
-        blocking_candidate:
-          path === '.github/workflows/validate-plugins.yml' &&
-          !/continue-on-error:\s*true/.test(window) &&
-          !/\|\|\s*true/.test(lines[index]),
-        line: index + 1,
-        path,
-      });
+  const workflowPath = '.github/workflows/validate-plugins.yml';
+  const wrapperPath = 'scripts/check-marketplace-compliance-baseline.py';
+  const validatorPath = 'scripts/validate-skills-schema.py';
+  const aggregatePath = 'scripts/ci/fastlane.py';
+  const invocations = [];
+  const errors = [];
+  const required = ciRequiredNeeds(reader);
+  const unsuppressed = (value) =>
+    value &&
+    !Object.hasOwn(value, 'if') &&
+    (!Object.hasOwn(value, 'continue-on-error') || value['continue-on-error'] === false);
+  const checkoutHead = (step) =>
+    /^actions\/checkout@/.test(step?.uses ?? '') &&
+    unsuppressed(step) &&
+    (step.with?.repository === undefined || step.with.repository === '${{ github.repository }}') &&
+    (step.with?.ref === undefined || step.with.ref === '${{ github.sha }}') &&
+    (step.with?.path === undefined || step.with.path === '.');
+  const commandLines = (value) =>
+    typeof value === 'string'
+      ? value
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line && !line.startsWith('#'))
+      : [];
+  const setup = 'python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml';
+  const wrapper =
+    'python3 scripts/check-marketplace-compliance-baseline.py --checkout-sha "$CHECKOUT_SHA"';
+  const direct = 'python3 scripts/validate-skills-schema.py --marketplace';
+  const supportedCommand = (run, command) => {
+    const lines = commandLines(run);
+    if (lines[0] === 'set -euo pipefail') lines.shift();
+    if (lines[0] === setup) lines.shift();
+    return lines.length === 1 && lines[0] === command;
+  };
+  const localBash = (workflow, job, step) => {
+    const defaults = [workflow.defaults?.run, job.defaults?.run, step];
+    return defaults.every(
+      (value) =>
+        !value ||
+        ((!Object.hasOwn(value, 'shell') || value.shell === 'bash') &&
+          (!Object.hasOwn(value, 'working-directory') || value['working-directory'] === '.')),
+    );
+  };
+  for (const path of reader.paths.filter((item) =>
+    /^\.github\/workflows\/[^]+\.ya?ml$/.test(item),
+  )) {
+    let workflow;
+    try {
+      workflow = yaml.load(reader.text(path));
+    } catch {
+      errors.push({ path, reason: 'MALFORMED_WORKFLOW' });
+      continue;
+    }
+    if (!workflow || typeof workflow.jobs !== 'object' || workflow.jobs === null) continue;
+    const admission =
+      workflow.on &&
+      !Array.isArray(workflow.on) &&
+      Object.hasOwn(workflow.on, 'pull_request') &&
+      (workflow.on.pull_request === null ||
+        (typeof workflow.on.pull_request === 'object' &&
+          Object.keys(workflow.on.pull_request).length === 0));
+    const aggregate = workflow.jobs['ci-required'];
+    const aggregateSteps = Array.isArray(aggregate?.steps) ? aggregate.steps : [];
+    // REQUIRED/SKIPPABLE stay owned by fastlane.py, whose exact relationship to
+    // this workflow is pinned by tests/ci/test_fastlane_workflow.py. This census
+    // measures wiring to that policy; it does not reimplement Python semantics.
+    const aggregateWired =
+      aggregate?.if === 'always()' &&
+      (!Object.hasOwn(aggregate, 'continue-on-error') ||
+        aggregate['continue-on-error'] === false) &&
+      aggregateSteps.length === 2 &&
+      checkoutHead(aggregateSteps[0]) &&
+      unsuppressed(aggregateSteps[1]) &&
+      localBash(workflow, aggregate, aggregateSteps[1]) &&
+      aggregateSteps[1]?.env?.NEEDS_JSON === '${{ toJSON(needs) }}' &&
+      aggregateSteps[1]?.run?.trim() === 'python3 scripts/ci/fastlane.py gate' &&
+      Boolean(reader.text(aggregatePath));
+    for (const [jobId, job] of Object.entries(workflow.jobs)) {
+      if (!Array.isArray(job?.steps)) continue;
+      for (const [stepIndex, step] of job.steps.entries()) {
+        if (typeof step?.run !== 'string') continue;
+        const wrapperReference = step.run.includes(wrapperPath);
+        const directReference =
+          step.run.includes('validate-skills-schema.py') && step.run.includes('--marketplace');
+        if (!wrapperReference && !directReference) continue;
+        const kind = supportedCommand(step.run, wrapper)
+          ? 'full-ratchet-wrapper'
+          : supportedCommand(step.run, direct)
+            ? 'direct-marketplace-validator'
+            : 'unproven-reference';
+        const reasons = [];
+        if (path !== workflowPath) reasons.push('OUTSIDE_REQUIRED_WORKFLOW');
+        if (!admission) reasons.push('UNPROVEN_UNFILTERED_PR_ADMISSION');
+        if (required.error || !required.needs?.includes(jobId))
+          reasons.push('NOT_REQUIRED_DEPENDENCY');
+        if (!aggregateWired) reasons.push('UNPROVEN_CANONICAL_AGGREGATE');
+        if (!unsuppressed(job) || Object.hasOwn(job, 'needs'))
+          reasons.push('CONDITIONAL_OR_SUPPRESSED_JOB');
+        if (!unsuppressed(step)) reasons.push('CONDITIONAL_OR_SUPPRESSED_STEP');
+        const checkouts = job.steps
+          .slice(0, stepIndex)
+          .filter((entry) => /^actions\/checkout@/.test(entry?.uses ?? ''));
+        if (checkouts.length !== 1 || !checkoutHead(checkouts[0])) {
+          reasons.push('UNPROVEN_ENFORCEMENT_CHECKOUT');
+        }
+        if (!localBash(workflow, job, step)) reasons.push('UNPROVEN_SHELL_OR_WORKING_DIRECTORY');
+        if (kind === 'unproven-reference') reasons.push('UNPROVEN_FULL_CORPUS_COMMAND');
+        if (kind === 'full-ratchet-wrapper' && step.env?.CHECKOUT_SHA !== '${{ github.sha }}') {
+          reasons.push('MISSING_IMMUTABLE_CHECKOUT_BINDING');
+        }
+        if (
+          !reader.text(validatorPath) ||
+          (kind === 'full-ratchet-wrapper' && !reader.text(wrapperPath))
+        ) {
+          reasons.push('MISSING_CANONICAL_IMPLEMENTATION');
+        }
+        invocations.push({
+          blocking_candidate: reasons.length === 0,
+          job: jobId,
+          kind,
+          path,
+          reason_codes: reasons,
+          step: step.name ?? null,
+          step_index: stepIndex,
+        });
+      }
     }
   }
-  return results;
+  return { invocations, errors };
 }
 
 function ciRequiredNeeds(reader) {
@@ -1364,6 +1477,7 @@ export function buildExtendedScorecardRows({
   paths,
   skillRows,
   skillSummary,
+  structuralEvidence,
   marketplaceSummary,
   agentSummary,
 }) {
@@ -1379,7 +1493,8 @@ export function buildExtendedScorecardRows({
   const publishers = publishWorkflows(reader);
   const swallowed = releaseSwallows(reader);
   const pins = packagePins(reader);
-  const invocations = marketplaceInvocations(reader);
+  const marketplace = marketplaceInvocations(reader);
+  const invocations = marketplace.invocations;
   const needs = ciRequiredNeeds(reader);
   const versions = schemaVersions(reader);
   const authority = authorityCensus(reader);
@@ -1408,7 +1523,32 @@ export function buildExtendedScorecardRows({
       skill_summary_rows: finiteCount(skillSummary?.rows),
     },
   );
-  output[7] = unresolved(7, 'canonical validator diagnostics');
+  output[7] = structuralEvidence
+    ? baseRow(
+        7,
+        'measured',
+        'raw missing-required-field and missing-required-section error occurrences across the complete canonical graded SKILL.md cohort',
+        [
+          'scripts/validate-skills-schema.py',
+          'scripts/corpus-resolver.mjs',
+          'scripts/measure-structural-errors.py',
+        ],
+        {
+          ...structuralEvidence,
+          target: 0,
+          target_met: structuralEvidence.structural_occurrences === 0,
+        },
+        {
+          target_status: structuralEvidence.structural_occurrences === 0 ? 'target_met' : 'fail',
+          limitations: [
+            'Occurrence counts preserve diagnostic multiplicity; unique triples are a separate identity count, not structural mass.',
+            'The canonical classifier currently aliases section labels such as ## Overview and ## Examples to the field ## (claude-nfzl.24); this measurement preserves that behavior.',
+            'The percentage uses only SKILL.md error occurrences, unlike the historical 88.9% with its mixed terminal denominator.',
+            'Current counts do not establish historical remediation, ownership, substantive sections, behavioral quality, or Epic 8 completion.',
+          ],
+        },
+      )
+    : unresolved(7, 'canonical validator diagnostics');
   output[8] = unresolved(8, 'canonical validator diagnostics');
   output[9] = unresolved(9, 'canonical validator diagnostics');
   output[10] = baseRow(
@@ -1847,17 +1987,34 @@ export function buildExtendedScorecardRows({
           'deterministic tracked shadow report generated at the current kernel pin',
         ],
       });
+  const blockingJobs = new Set(
+    invocations.filter((entry) => entry.blocking_candidate).map((entry) => entry.job),
+  );
   output[40] = baseRow(
     40,
-    'partial',
-    'tracked workflow command lines invoking the canonical validator with --marketplace',
-    [...new Set(invocations.map((entry) => entry.path))],
+    blockingJobs.size > 0 && marketplace.errors.length === 0 ? 'target_met' : 'partial',
+    'static required-job wiring for full-corpus marketplace validation',
+    [
+      ...new Set([
+        ...invocations.map((entry) => entry.path),
+        'scripts/check-marketplace-compliance-baseline.py',
+        'scripts/validate-skills-schema.py',
+        'scripts/ci/fastlane.py',
+      ]),
+    ].filter((path) => reader.pathSet.has(path)),
     {
-      blocking_candidates: invocations.filter((entry) => entry.blocking_candidate).length,
+      blocking_candidates: blockingJobs.size,
       invocations,
+      parse_errors: marketplace.errors,
+      proof_kind: 'static_required_job_wiring',
       target_blocking: 1,
     },
-    { limitations: ['static workflow analysis does not execute GitHub expression control flow'] },
+    {
+      limitations: [
+        'static wiring proof only; this measurement does not execute the gate or establish hosted red-run evidence',
+        'only explicit supported commands count; unknown shell or workflow control flow remains unproven',
+      ],
+    },
   );
   output[41] = needs.error
     ? baseRow(
@@ -1999,7 +2156,28 @@ export function buildExtendedScorecardRows({
       ],
     },
   );
-  for (const number of [49, 50, 51]) output[number] = unresolved(number);
+  for (const number of [49, 51]) output[number] = unresolved(number);
+  const correctnessSwallows = inspectCorrectnessSwallows({ reader, requiredNeeds: needs });
+  output[50] =
+    correctnessSwallows.reason === 'MISSING_CORRECTNESS_CRITICAL_COMMAND_REGISTRY'
+      ? unresolved(50)
+      : baseRow(
+          50,
+          correctnessSwallows.valid ? 'partial' : 'not_reproducible',
+          'reviewed operation sites in three required-context producer workflows and the complete ci-required graph; partial repository coverage',
+          [
+            SWALLOWS_REGISTRY,
+            '.github/workflows/validate-plugins.yml',
+            '.github/workflows/secret-scan.yml',
+            '.github/workflows/skill-conform.yml',
+            'scripts/ci/fastlane.py',
+          ],
+          correctnessSwallows.values,
+          {
+            limitations: correctnessSwallows.limitations,
+            ...(correctnessSwallows.reason ? { reason_code: correctnessSwallows.reason } : {}),
+          },
+        );
   const freshieRun = latestFreshieRunReceipt(reader);
   output[52] = freshieRun?.valid
     ? baseRow(

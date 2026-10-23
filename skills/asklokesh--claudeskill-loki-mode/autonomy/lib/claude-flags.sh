@@ -6,7 +6,7 @@
 # Every value derives from RARV tier, complexity score, and budget config.
 #
 # Public API (all functions are pure: they read env + filesystem, write stdout).
-#   loki_effort_for_tier <tier> [complexity]    -- emit one of: low|medium|high|xhigh|max
+#   loki_effort_for_tier <tier> [complexity] [model] -- emit one of: low|medium|high|xhigh|max
 #   loki_remaining_budget                        -- emit dollar amount remaining as plain int/float, OR empty when unlimited
 #   loki_fallback_for_primary <model>           -- emit fallback model alias (opus->sonnet, sonnet->haiku if allowed), OR empty when no fallback applies
 #   loki_claude_flag_supported <flag>           -- 0 if `claude --help` lists the flag, 1 otherwise
@@ -26,6 +26,7 @@ __LOKI_CLAUDE_FLAGS_SH_LOADED=1
 loki_effort_for_tier() {
     local tier="${1:-development}"
     local complexity="${2:-${LOKI_COMPLEXITY:-standard}}"
+    local model="${3:-}"
     local effort=""
     case "$tier" in
         planning)    effort="xhigh" ;;
@@ -45,6 +46,27 @@ loki_effort_for_tier() {
             high)   effort="xhigh" ;;
             # xhigh stays xhigh; max not auto-reached.
         esac
+    fi
+    # Clamp to the model's catalog effort.levels (mirror of effortForTier's model argument).
+    # A model with an empty levels list takes no effort parameter: emit nothing and callers omit --effort.
+    if [ -n "$model" ] && command -v python3 >/dev/null 2>&1; then
+        local catalog="${LOKI_MODEL_CATALOG:-${BASH_SOURCE[0]%/*}/../../providers/model_catalog.json}"
+        effort="$(python3 - "$catalog" "$model" "$effort" <<'PYEOF' 2>/dev/null || printf '%s' "$effort"
+import json, sys
+path, model, effort = sys.argv[1:4]
+order = ["low", "medium", "high", "xhigh", "max"]
+c = json.load(open(path))["providers"]["claude"]
+mid = c.get("cli_aliases", {}).get(model, model)
+levels = next((m.get("effort", {}).get("levels") for m in c["models"] if m["id"] == mid or m.get("alias") == model), None)
+if levels is not None and len(levels) == 0:
+    effort = ""
+elif levels and effort not in levels:
+    ok = [l for l in order if l in levels]
+    below = [l for l in ok if order.index(l) <= order.index(effort)]
+    effort = below[-1] if below else ok[0]
+print(effort, end="")
+PYEOF
+)"
     fi
     printf '%s' "$effort"
 }
@@ -1116,9 +1138,22 @@ loki_permission_policy_banner() {
 _loki_claude_permission_argv() {
     _LOKI_PERM_ARGV=(--dangerously-skip-permissions)
     _loki_permission_warn_unknown_once
-    [ "$(_loki_permission_policy_mode)" = "legacy" ] && return 0
     local _helper _out _a
     _helper="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/src/policies/claude_permissions.js"
+    if [ "$(_loki_permission_policy_mode)" = "legacy" ]; then
+        # w2-07: legacy keeps bypass but carries the default web/credential deny rules (same js source).
+        # Unusable compiler or helper failure fails closed to plan, like compiled mode and the TS route.
+        _LOKI_PERM_ARGV=(--permission-mode plan)
+        if ! command -v node >/dev/null 2>&1 || [ ! -f "$_helper" ]; then
+            echo "[loki] WARNING: legacy permission policy: compiler unavailable; using most restrictive mode (plan)" >&2
+            return 0
+        fi
+        _out="$(node "$_helper" --legacy-args)" || return 0
+        [ -n "$_out" ] || return 0
+        _LOKI_PERM_ARGV=()
+        while IFS= read -r _a; do _LOKI_PERM_ARGV+=("$_a"); done <<< "$_out"
+        return 0
+    fi
     _LOKI_PERM_ARGV=(--permission-mode plan)
     if ! command -v node >/dev/null 2>&1 || [ ! -f "$_helper" ]; then
         echo "[loki] WARNING: compiled permission policy: compiler unavailable; using most restrictive mode (plan)" >&2

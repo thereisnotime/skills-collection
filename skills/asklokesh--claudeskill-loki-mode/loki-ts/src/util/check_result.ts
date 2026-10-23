@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, 
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { siteFor } from "../project_model/resolve.ts";
 import type { ProjectApi } from "../project_model/api.ts";
-import { isTestFile } from "../engine10/testmap.ts";
+import { CARGO_TEST_FILE_RE, isTestFile } from "../engine10/testmap.ts";
 import type { RunnerName, TestRef } from "../engine10/types.ts";
 import { safeGit, tokenFreeEnv } from "./safe_git.ts";
 import { redactSecrets } from "./redact.ts";
@@ -25,6 +25,7 @@ export function plainTestEnv(base: NodeJS.ProcessEnv = process.env): Record<stri
   return e;
 }
 export const NO_TESTS_REASON = "no tests executed";
+export const NO_RUNNER_REASON = "no runner of this repo runs this file"; // FC-WALL-FILE-WITHOUT-RUNNER-SILENTLY-DROPPED: the one wording wall.ts (not_run_files) and verify.ts (not_proven) share, so seal dedups them
 export const GO_EXIT0_REASON = "test count could not be confirmed: go test output is produced by the code under test and cannot confirm execution (a Go exit 0 is never a pass)";
 export const UNCONFIRMED_REASON = "test count could not be confirmed";
 /** Real failure evidence in a failed run: a failed test line, a go build or setup failure, a go compiler error line, or "N failed|errors". */
@@ -263,6 +264,51 @@ export function checkProvenance(name: string, ctx: ProvenanceCtx): CheckProvenan
 /** True when some executed check (pass, n>0) is not backed solely by agent-authored or LLM-judge evidence. */
 export const hasExogenousProof = (checks: ReadonlyArray<{ name?: string; result?: unknown; n?: unknown }>, ctx: ProvenanceCtx): boolean =>
   checks.some((c) => isExecutedProof(c) && ((p) => p !== "agent_authored" && p !== "llm_judge")(checkProvenance(c.name ?? "", ctx)));
+/** FC-LEAN-VERIFIED-WITHOUT-CHANGED-SYMBOL: the extensions testmap.ts maps (JS/TS, Python, Go); verify and seal share it. */
+export const CODE_FILE_EXT = /\.(?:[cm]?[jt]sx?|py|go)$/;
+const DECL_RE = /\b(?:function\*?|def|class|fn|func|fun|type|interface|struct|enum|trait|object)\s+([A-Za-z_$][\w$]*)/g;
+const VAR_DECL_RE = /^(?:export\s+(?:default\s+)?(?:declare\s+)?)?(?:const|let|var|val)\s+([A-Za-z_$][\w$]*)/; // only at column 0: an indented const/let/var is a local, not a changed symbol
+/** Drops comment text so a word in a comment is never a symbol or a test reference. Over-stripping only costs a false PARTIAL. */
+const stripComments = (src: string): string =>
+  src.replace(/\/\*[\s\S]*?\*\//g, " ").split("\n").map((l) => (/^\s*\*/.test(l) ? "" : l.replace(/\/\/.*$/, "").replace(/(^|\s)#.*$/, "$1"))).join("\n");
+const GO_METHOD_RE = /\bfunc\s*\([^)]*\)\s*([A-Za-z_]\w*)/g;
+const METHOD_RE = /^\s*(?:(?:public|private|protected|static|async|export|override|final|abstract)\s+)*([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*(?::\s*[^{=]+)?\{\s*$/;
+const NOT_A_NAME = new Set(["if", "for", "while", "switch", "catch", "function", "return", "else", "with", "constructor"]);
+const declNames = (line: string): string[] => {
+  const out: string[] = [];
+  const code = stripComments(line);
+  for (const re of [DECL_RE, GO_METHOD_RE]) for (const m of code.matchAll(re)) out.push(m[1]!);
+  const v = VAR_DECL_RE.exec(code);
+  if (v) out.push(v[1]!);
+  const m = METHOD_RE.exec(code);
+  if (m) out.push(m[1]!);
+  return out.filter((n) => !NOT_A_NAME.has(n));
+};
+/** Names a `git diff -U0` declares or modifies: declarations on added lines, plus the hunk's enclosing declaration (the @@ context) when the hunk removes lines or declares nothing itself. */
+export function changedSymbols(diffU0: string): string[] {
+  const out = new Set<string>();
+  let ctx = "", added: string[] = [], removed = 0;
+  const flush = (): void => {
+    const own = stripComments(added.join("\n")).split("\n").flatMap(declNames); // strip over the whole hunk: a block comment can span added lines
+    for (const n of own) out.add(n);
+    if (removed > 0 || own.length === 0) for (const n of declNames(ctx)) out.add(n);
+    added = []; removed = 0;
+  };
+  for (const line of diffU0.split("\n")) {
+    if (line.startsWith("@@")) { flush(); ctx = line.replace(/^@@[^@]*@@\s?/, ""); }
+    else if (line.startsWith("+") && !line.startsWith("+++")) added.push(line.slice(1));
+    else if (line.startsWith("-") && !line.startsWith("---")) removed++;
+  }
+  flush();
+  return [...out];
+}
+/** Symbols that no test source references as a whole word; every symbol when none is referenced, or when the diff declared none (then "(no declared symbol)"). Empty means some passing test source mentions a changed symbol. */
+export function symbolGap(symbols: readonly string[], testSources: readonly string[]): string[] {
+  if (symbols.length === 0) return ["(no declared symbol)"];
+  const ref = (sym: string, src: string): boolean => new RegExp(`(?<![\\w$])${sym.replace(/[$]/g, "\\$")}(?![\\w$])`).test(src);
+  const code = testSources.map(stripComments);
+  return code.some((src) => symbols.some((sym) => ref(sym, src))) ? [] : [...symbols];
+}
 /** TEN-GATES-14: per-gate legibility for `loki verify --explain`. exogenous/independent evidence is exogenous; agent_authored and llm_judge are agent-influenced; absent or unknown provenance is unrecorded, never exogenous. */
 export interface ExplainGate { name: string; class: "exogenous" | "agent-influenced" | "unrecorded"; provenance: string | null; result: string; n: number | null; evidence: string }
 export function explainGates(receiptPath: string): ExplainGate[] {
@@ -298,11 +344,11 @@ export async function withExplain(args: readonly string[], run: (args: readonly 
 // RISKTIER: classify risk on the ARTIFACT (the actual diff), never the prompt, and map the tier to a verification plan.
 // The bash `loki review --risk` scorer (autonomy/lib/review_risk.py) stays a separate 0-100 advisory view.
 export type RiskTier = "low" | "medium" | "high";
-export interface DiffFile { path: string; added: number; deleted: number; status?: "added" | "modified" | "deleted"; deps?: boolean /* set by diffFiles for a dependency manifest whose dependency set changed */ }
+export interface DiffFile { path: string; added: number; deleted: number; status?: "added" | "modified" | "deleted"; deps?: boolean /* set by diffFiles for a dependency manifest whose dependency set changed */; critical?: string /* set by diffFiles: the repo-derived rule (CODEOWNERS, .loki/config.json critical_paths, or an added publish/push/signing/credential line) that makes this file critical */ }
 export interface RiskOverride { from: RiskTier; to: RiskTier; reason: string }
 export interface RiskAssessment {
   version: 1; tier: RiskTier; computed: RiskTier; reasons: string[];
-  stats: { files: number; lines: number; sensitive: string[]; tests_modified: string[]; tests_deleted: string[]; api: string[] };
+  stats: { files: number; lines: number; sensitive: string[]; critical?: string[]; tests_modified: string[]; tests_deleted: string[]; api: string[] };
   checks_selected: string[]; checks_deferred: string[]; // deferred = planned for this tier but NOT run by the fast verify stage; never a pass
   override?: RiskOverride; override_ignored?: string; advisories?: string[]; summary: string;
 }
@@ -400,6 +446,58 @@ export function manifestsWithoutLock(files: DiffFile[]): string[] {
   });
 }
 
+// FC-CRITICAL-CLASS-GRADED-LOW: critical paths come from the repo itself (CODEOWNERS entries, .loki/config.json critical_paths) and from what the diff adds
+// (a push, publish, signing or credential call), never from a list of one repo's paths. SENSITIVE above stays the generic name heuristic.
+const SEM_RULES: [string, RegExp][] = [
+  ["git push", /\bgit\s+(-\S+\s+)*push\b/],
+  ["publish command", /\b(npm|pnpm|yarn|bun)\s+publish\b|\btwine\s+upload\b|\bcargo\s+publish\b|\bdocker\s+push\b|\bgh\s+release\s+create\b|\bgem\s+push\b/],
+  ["signing call", /\bcosign\s+sign\b|\bjwt\.sign\(|\bcreateSign\(|\bcreateHmac\(|\bhmac\.new\(|\bgpg\b[^\n]*--(detach-)?sign\b|\bminisign\s+-S\b/i],
+  ["credential or token", /\bAuthorization:\s*(Bearer|token)\b|\b(password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|private[_-]?key)\s*[:=]\s*\S/i],
+];
+const DOC_FILE = /\.(md|mdx|txt|rst|adoc)$/i;
+/** gitignore-style glob to RegExp: a pattern with a "/" anchors at the root, one without matches any basename, trailing "/" is a directory. */
+export function globToRegExp(glob: string): RegExp {
+  let g = glob.trim(); const anchored = g.replace(/\/$/, "").includes("/"), dir = g.endsWith("/");
+  g = g.replace(/^\//, "").replace(/\/$/, "");
+  const body = g.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*\//g, "\u0001").replace(/\/\*\*/g, "\u0002").replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]").replace(/\u0001/g, "(.*/)?").replace(/\u0002/g, "(/.*)?");
+  return new RegExp(`${anchored ? "^" : "(^|/)"}${body}${dir ? "/" : "($|/)"}`);
+}
+/** Pure: critical globs with their source label. CODEOWNERS text: the first token of each non-comment line; the match-everything "*" is skipped (it would grade every change critical). */
+export function criticalRulesFrom(codeowners: string | null, configJson: string | null): { glob: string; source: string }[] {
+  const out: { glob: string; source: string }[] = [];
+  for (const l of (codeowners ?? "").split("\n")) { const t = l.replace(/#.*/, "").trim().split(/\s+/)[0] ?? ""; if (t && !/^(\/?\*{1,2}|\/)$/.test(t)) out.push({ glob: t, source: `CODEOWNERS ${t}` }); }
+  try { const c = (JSON.parse(configJson ?? "null") as { critical_paths?: unknown } | null)?.critical_paths; if (Array.isArray(c)) for (const g of c) if (typeof g === "string" && g.trim()) out.push({ glob: g, source: `.loki/config.json critical_paths ${g}` }); } catch { /* unreadable config: CODEOWNERS and diff rules still apply */ }
+  return out;
+}
+const readOr = (p: string): string | null => { try { return readFileSync(p, "utf8"); } catch { return null; } };
+const OWNER_FILES = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"];
+/** Rules come from the BASE tree when baseSha is given: a diff must not be able to empty, delete or shadow the files that grade it. Without a readable base the working tree is used. */
+export function criticalRules(repoDir: string, baseSha?: string): { glob: string; source: string }[] {
+  const read = (p: string): string | null => {
+    if (!baseSha) return readOr(join(repoDir, p));
+    try { return safeGit(repoDir, ["show", `${baseSha}:${p}`]); } catch { return null; }
+  };
+  const co = OWNER_FILES.map(read).find((t) => t !== null) ?? null;
+  return [
+    ...criticalRulesFrom(co, read(".loki/config.json")),
+    // editing the grading inputs is itself critical, whatever they said before
+    ...OWNER_FILES.map((g) => ({ glob: `/${g}`, source: `ownership file ${g} changed` })),
+    { glob: "/.loki/config.json", source: "critical-paths config .loki/config.json changed" },
+  ];
+}
+// Generic path tokens that name a trust boundary in any repo (split on / . _ -): releasing, publishing, signing, auth, security, sealing, verifying.
+const CRITICAL_TOKENS = /^(release|publish|sign|signing|signer|auth|security|seal|verif\w*)$/i;
+const criticalToken = (path: string): string | undefined => path.split(/[\/._-]+/).find((t) => CRITICAL_TOKENS.test(t));
+/** Pure: the rule that makes a file critical, or undefined. Path rules first, then what the file's added text does. Docs and test files are not graded by their text. */
+export function criticalRuleFor(path: string, addedText: string, rules: { glob: string; source: string }[]): string | undefined {
+  const hit = rules.find((r) => { try { return globToRegExp(r.glob).test(path); } catch { return false; } });
+  if (hit) return hit.source;
+  if (DOC_FILE.test(path) || isTestFile(path)) return undefined;
+  const tok = criticalToken(path); if (tok) return `path names a trust boundary (${tok})`;
+  const sem = SEM_RULES.find(([, re]) => re.test(addedText));
+  return sem ? `added ${sem[0]}` : undefined;
+}
+
 export function classifyRisk(files: DiffFile[], env: NodeJS.ProcessEnv = process.env): RiskAssessment {
   const lines = files.reduce((n, f) => n + f.added + f.deleted, 0);
   const sensitive = files.flatMap((f) => { const hit = SENSITIVE.find(([, re]) => re.test(f.path)); return hit && !isTestFile(f.path) ? [`${f.path} (${hit[0]})`] : []; });
@@ -408,6 +506,8 @@ export function classifyRisk(files: DiffFile[], env: NodeJS.ProcessEnv = process
   const testsModified = [...testFiles.filter((f) => f.status !== "added" && f.status !== "deleted").map((f) => f.path), ...files.filter((f) => TEST_CFG.test(f.path)).map((f) => f.path)];
   const api = files.filter((f) => API.test(f.path) && !isTestFile(f.path)).map((f) => f.path);
   const high: string[] = [], med: string[] = [];
+  const critical = files.filter((f) => f.critical).map((f) => `${f.path} (${f.critical})`);
+  if (critical.length) high.push(`critical class: ${critical.slice(0, 3).join(", ")}${critical.length > 3 ? ` (+${critical.length - 3})` : ""}`);
   if (sensitive.length) high.push(`sensitive paths: ${sensitive.slice(0, 5).join(", ")}${sensitive.length > 5 ? ` (+${sensitive.length - 5})` : ""}`);
   if (testsDeleted.length) high.push(`test files deleted: ${testsDeleted.join(", ")}`);
   if (api.length) high.push(`public API surface: ${api.slice(0, 3).join(", ")}`);
@@ -433,7 +533,7 @@ export function classifyRisk(files: DiffFile[], env: NodeJS.ProcessEnv = process
   const summary = summaryOf({ tier, computed, reasons, ...(override ? { override } : {}), checks_deferred }) + (advisories.length ? `; advisory: ${advisories.join(", ")}` : "");
   return {
     version: 1, tier, computed, reasons,
-    stats: { files: files.length, lines, sensitive, tests_modified: testsModified, tests_deleted: testsDeleted, api },
+    stats: { files: files.length, lines, sensitive, ...(critical.length ? { critical } : {}), tests_modified: testsModified, tests_deleted: testsDeleted, api },
     checks_selected: plan.selected, checks_deferred,
     ...(override ? { override } : {}), ...(ignored ? { override_ignored: ignored } : {}), ...(advisories.length ? { advisories } : {}), summary,
   };
@@ -468,6 +568,8 @@ export function changedFiles(repoDir: string, baseSha: string, skip?: (f: string
 /** changedFiles enriched with numstat counts and name-status; untracked files get a line count as additions. Throws on git failure. */
 export function diffFiles(repoDir: string, baseSha: string, skip?: (f: string) => boolean): DiffFile[] {
   const paths = changedFiles(repoDir, baseSha, skip), stat = new Map<string, DiffFile>();
+  // changedFiles hides .loki/ (runtime state), but a tracked .loki/config.json is a grading input: a change to it must stay visible to the critical rules
+  try { if (safeGit(repoDir, ["diff", "--no-renames", "--name-only", baseSha, "--", ".loki/config.json"]).trim() && !paths.includes(".loki/config.json")) paths.push(".loki/config.json"); } catch { /* best effort */ }
   // -z with --no-renames: NUL-terminated simple records, so a name with a quote, backslash, tab or newline is never escaped (FC-CHANGED-PATH-QUOTED)
   for (const l of safeGit(repoDir, ["-c", "core.quotePath=false", "diff", "--no-renames", "--numstat", "-z", baseSha]).split("\0")) {
     const [a, d, ...p] = l.split("\t"), path = p.join("\t");
@@ -484,6 +586,18 @@ export function diffFiles(repoDir: string, baseSha: string, skip?: (f: string) =
     let n = 0; try { n = readFileSync(join(repoDir, path), "utf8").split("\n").length; } catch { /* unreadable or binary */ }
     return { path, added: n, deleted: 0, status: "added" as const };
   });
+  const rules = criticalRules(repoDir, baseSha), added = new Map<string, string>();
+  try { // FC-CRITICAL-CLASS-GRADED-LOW: the added lines per file feed the diff-semantic rules; a read failure leaves only the path rules
+    let cur = "";
+    for (const l of safeGit(repoDir, ["-c", "core.quotePath=false", "diff", "--no-renames", "-U0", baseSha]).split("\n")) {
+      if (l.startsWith("+++ b/")) cur = l.slice(6); else if (l.startsWith("+++ ")) cur = ""; else if (cur && l.startsWith("+")) added.set(cur, `${added.get(cur) ?? ""}${l.slice(1)}\n`);
+    }
+  } catch { /* best effort */ }
+  for (const f of out) {
+    let text = added.get(f.path) ?? "";
+    if (!text && f.status === "added") { try { text = readFileSync(join(repoDir, f.path), "utf8"); } catch { /* unreadable or binary */ } }
+    const rule = criticalRuleFor(f.path, text, rules); if (rule) f.critical = rule;
+  }
   for (const f of out) { // TEN-GATES-18: tag manifests whose dependency set changed (advisory input; a read failure leaves it untagged)
     if (f.status === "deleted" || !MANIFEST_LOCKS.some(([m]) => m.test(f.path))) continue;
     try {
@@ -628,6 +742,10 @@ export function resolveTool(repoDir: string, bin: string, fallback: string, last
   const project = [join(repoDir, ".venv", "bin", bin), join(repoDir, "venv", "bin", bin), ...(venvEnv && inRepo(venvEnv) ? [join(venvEnv, "bin", bin)] : [])].find(existsSync);
   return project ? [project, "project", []] : existsSync(join(repoDir, "uv.lock")) && onPath("uv") ? ["uv", "project", ["run", "--", bin]] : [onPath(fallback) ? fallback : lastResort, "system", []]; // TEN-QUALITY-11: uv.lock, no venv: uv run is the project interpreter
 }
+/** FC-WALL-GO-FILE-RUNS-WHOLE-PACKAGE: the Test, Fuzz and Example function names of one Go file, matched by name only. Over-inclusion is harmless for -run (a name that is no test matches nothing); a signature check would drop valid tests (multi-line, unnamed or aliased *testing.T, non-ASCII names) and turn a red Wall into no run. TestMain is excluded; [] when unreadable or none. */
+export function goTestNames(file: string): string[] {
+  try { return [...new Set([...readFileSync(file, "utf8").matchAll(/^func\s+((?:Test|Fuzz|Example)[\p{L}\p{N}_]*)\s*\(/gmu)].map((m) => m[1]!).filter((n) => n !== "TestMain"))]; } catch { return []; }
+}
 // Command shapes exactly as ENGINE.md section 8's table names them per runner (npm/cargo are
 // "coarse": no per-file selection; go runs per package dir, also coarse below that grain).
 export function runnerCmd(t: TestRef, repoDir: string): [string, string[], Interpreter?] {
@@ -641,13 +759,12 @@ export function runnerCmd(t: TestRef, repoDir: string): [string, string[], Inter
     case "bun": return ["bun", ["test", t.path]];
     case "node": return ["node", ["--test", `./${t.path}`]];
     case "npm": return ["npm", ["test", "--silent"]];
-    case "go": return ["go", ["test", "-json", `./${dirname(t.path)}`]];
-    case "cargo": return ["cargo", ["test"]];
+    case "go": { const names = goTestNames(join(repoDir, t.path)); return ["go", ["test", "-json", ...(names.length ? ["-run", `^(${names.join("|")})$`] : []), `./${dirname(t.path)}`]]; } // one file: only its own Test functions
+    case "cargo": return CARGO_TEST_FILE_RE.test(t.path) ? ["cargo", ["test", "--test", basename(t.path, ".rs")]] : ["cargo", ["test"]]; // a Wall-sealed tests/<name>.rs runs by itself
   }
 }
 /** The legacy per-runner full suite (no multi-root model), one check per detected runner: run by deep.ts, baselined via package_suite.ts fullSuiteSpecs. */
-export const FULL_SUITE_CMD: Record<RunnerName, { cmd: string; args: string[] }> = {
-  pytest: { cmd: "python", args: ["-m", "pytest", "-q"] },
+const FULL_SUITE_STATIC: Record<Exclude<RunnerName, "pytest">, { cmd: string; args: string[] }> = {
   vitest: { cmd: "npx", args: ["vitest", "run"] },
   jest: { cmd: "npx", args: ["jest"] },
   bun: { cmd: "bun", args: ["test"] },
@@ -656,6 +773,12 @@ export const FULL_SUITE_CMD: Record<RunnerName, { cmd: string; args: string[] }>
   go: { cmd: "go", args: ["test", "-json", "./..."] },
   cargo: { cmd: "cargo", args: ["test"] },
 };
+/** FC-FULL-SUITE-IGNORES-PROJECT-INTERPRETER: the one full-suite command per runner. pytest resolves its interpreter exactly as a per-test run does (resolveTool: project .venv, else python3), never a bare `python` that python3-only hosts lack. */
+export function fullSuiteCmd(runner: RunnerName, repoDir: string): { cmd: string; args: string[]; interpreter?: Interpreter } {
+  if (runner !== "pytest") return FULL_SUITE_STATIC[runner];
+  const [cmd, interpreter, pre] = resolveTool(repoDir, "python", "python3", "python");
+  return { cmd, args: [...pre, "-m", "pytest", "-q"], interpreter };
+}
 /** FC-01: the one resolver for a test invocation: a package-owned file runs in its package dir with a package-relative path, else exactly runnerCmd at the root. */
 export function commandFor(t: TestRef, repoDir: string, api?: ProjectApi | null): { cwd: string; cmd: string; args: string[]; argv: string[]; interpreter?: Interpreter; pkgRoot: string } {
   const site = siteFor(api, repoDir, t.path);

@@ -1,12 +1,14 @@
-import { accessSync, constants as fsc, statfsSync } from "node:fs";
+import { accessSync, constants as fsc, mkdirSync, statfsSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { truthy } from "../runner/providers.ts"; // E-36 first-run preflight (docs/v10/ENGINE.md); see preflight.test.ts for cases. Terse: engine10's own budget test caps this dir at 5,000 lines.
-import { safeGitRun } from "../util/safe_git.ts";
-import { claudeLoginProbeCached, ghAuthProbeCached, providerLoginIssue, requirementFix } from "../commands/doctor.ts";
+import { safeGitRun } from "../util/safe_git.ts"; import { canonicalSessionPin } from "../util/claude_model.ts";
+import { claudeLoginProbeCached, ghAuthProbeCached, providerAuthPath, providerLoginIssue, requirementFix } from "../commands/doctor.ts";
 import { initEmptyRepo, NOT_A_REPO } from "../util/first_run_repo.ts";
+import { probePublish, recordPublish } from "../util/engine_origin.ts";
 import { run, type ShellOpts, type ShellResult } from "../util/shell.ts";
 const CLI_ENV_VAR: Record<string, string> = { claude: "LOKI_CLAUDE_CLI", codex: "LOKI_CODEX_CLI", cline: "LOKI_CLINE_CLI", aider: "LOKI_AIDER_CLI", opencode: "LOKI_OPENCODE_CLI" }; // provider name doubles as its default CLI
 const GITHUB_ORIGIN_RE = /^(?:https:\/\/(?:[^@/]+@)?github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)/;
-export interface PreflightOptions { repoDir: string; provider: string; pr: boolean; env?: Record<string, string | undefined>; statfs?: (path: string) => { bavail: number | bigint; bsize: number | bigint } }
+export interface PreflightOptions { repoDir: string; provider: string; pr: boolean; env?: Record<string, string | undefined>; runDir?: string; statfs?: (path: string) => { bavail: number | bigint; bsize: number | bigint } }
 export interface PreflightResult { fatal: string | null; warnings: string[] }
 async function sh(argv: readonly string[], opts: ShellOpts): Promise<ShellResult> { try { return await run(argv, opts); } catch { return { stdout: "", stderr: "", exitCode: 127 }; } } // run() throws (Bun.spawn) when argv[0] does not resolve at all; treated as a failed check, never a crash
 /** TEN-STABILITY-36: free MB on the repo volume (same statfsSync math as doctor checkDisk), null when unreadable. */
@@ -17,11 +19,13 @@ export async function checkPreflight(o: PreflightOptions): Promise<PreflightResu
   let [wt, name, email, head] = await reads(); let initFatal: string | undefined; // TEN-UX-01: only a truly empty folder is initialised
   if (wt.exitCode !== 0 || wt.stdout.trim() !== "true") { const i = await initEmptyRepo(o.repoDir, env); if (i.notice) { warnings.push(i.notice); [wt, name, email, head] = await reads(); } else initFatal = i.fatal; } // re-read only when auto-init ran
   const envVar = CLI_ENV_VAR[o.provider]; const cli = (envVar && env[envVar]?.trim()) || o.provider; const cliOk = envVar ? !!Bun.which(cli, { PATH: env.PATH ?? process.env.PATH ?? "" }) : true; // resolve against the given env's PATH, never the process's
+  let pinErr: string | undefined; if (o.provider === "claude") { try { canonicalSessionPin(env["LOKI_SESSION_MODEL"]); } catch (e) { pinErr = `${(e as Error).message}; set a valid value or unset it (the run would otherwise drop the pin and use the provider default model)`; } } // FC-ENGINE10-IGNORES-SESSION-MODEL-PIN: refuse, never substitute
   const fatal =
     wt.exitCode !== 0 || wt.stdout.trim() !== "true" ? (initFatal ?? NOT_A_REPO(o.repoDir)) :
     !name.stdout.trim() || !email.stdout.trim() ? `git identity is not set; run: git config user.name "you" && git config user.email "you@example.com"` :
     !envVar ? `the v10 engine has no ${o.provider} invoker yet` :
     o.provider !== "claude" && truthy(env["LOKI_HOST_GUARD"]) ? `LOKI_HOST_GUARD=1 is set but provider '${o.provider}' has no enforced PreToolUse hook; unset LOKI_HOST_GUARD or use --provider claude` :
+    pinErr ? pinErr :
     !cliOk ? `provider CLI '${cli}' is not on PATH; install it or set ${envVar} to its path${requirementFix(o.provider) ? `. Fix: ${requirementFix(o.provider)}` : ""}` :
     head.exitCode !== 0 ? "repository has no commits; run: git add . && git commit -m init" :
     null;
@@ -30,15 +34,22 @@ export async function checkPreflight(o: PreflightOptions): Promise<PreflightResu
   const free = freeMb(o.repoDir, o.statfs ?? statfsSync); const minMb = Number(env["LOKI_MIN_FREE_MB"]) > 0 ? Number(env["LOKI_MIN_FREE_MB"]) : 200; // TEN-STABILITY-36: a full volume otherwise dies mid-run in worktree or event-log writes
   if (free !== null && free < minMb) return { fatal: `only ${Math.floor(free)} MB free on the volume holding ${o.repoDir} (need ${minMb} MB); free disk space, or lower LOKI_MIN_FREE_MB`, warnings };
   if (free !== null && free < Math.max(2048, minMb)) warnings.push(`low disk: ${Math.floor(free)} MB free on the volume holding ${o.repoDir}; a long run may fail mid-way (warns under 2 GB)`);
-  if (o.provider === "claude" && !env["ANTHROPIC_API_KEY"] && !env["CLAUDE_CODE_OAUTH_TOKEN"]) { // TEN-UX-01: a logged-out CLI fails before any spend; unknown stays a warning
-    const li = claudeLoginProbeCached(cli, env); // TEN-UX-12 retry + TEN-SPEED-05 10-min cache of a successful probe live in doctor.ts
-    if (li === "no") return { fatal: "claude is not logged in; run: claude login (or set ANTHROPIC_API_KEY)", warnings };
-    if (li === "") warnings.push("could not confirm the Claude login (claude auth status gave no answer); continuing");
+  // CW-14: zero-token auth probe (a local CLI status command only, never a model endpoint); LOKI_PREFLIGHT_PROBE=0 skips it. The outcome is bound into <runDir>/preflight.json.
+  const auth_path = providerAuthPath(o.provider, env); let probe: "ok" | "failed" | "skipped" = "skipped"; let authFatal: string | undefined; const keyed = !auth_path.startsWith("cli_login") && auth_path !== "none";
+  if (env["LOKI_PREFLIGHT_PROBE"] !== "0" && !keyed) {
+    if (o.provider === "claude") { // TEN-UX-01: a logged-out CLI fails before any spend; unknown stays a warning
+      const li = claudeLoginProbeCached(cli, env); // TEN-UX-12 retry + TEN-SPEED-05 10-min cache of a successful probe live in doctor.ts
+      if (li === "no") { probe = "failed"; authFatal = "claude is not logged in; run: claude login (or set ANTHROPIC_API_KEY)"; }
+      else if (li === "") warnings.push("could not confirm the Claude login (claude auth status gave no answer); continuing"); else probe = "ok";
+    } else { const pl = providerLoginIssue(o.provider, cli, env); if (pl?.fatal) { probe = "failed"; authFatal = pl.fatal; } else if (pl?.warn) warnings.push(pl.warn); else if (o.provider === "codex") probe = "ok"; } // TEN-ADOPTION-34
   }
-  if (o.provider !== "claude") { const pl = providerLoginIssue(o.provider, cli, env); if (pl?.fatal) return { fatal: pl.fatal, warnings }; if (pl?.warn) warnings.push(pl.warn); } // TEN-ADOPTION-34
+  if (o.runDir) { try { mkdirSync(o.runDir, { recursive: true }); writeFileSync(join(o.runDir, "preflight.json"), JSON.stringify({ provider: o.provider, auth_path, probe }) + "\n"); } catch { /* the record is evidence, never a gate */ } }
+  if (authFatal) return { fatal: authFatal, warnings };
   if (o.pr && GITHUB_ORIGIN_RE.test((await git(["config", "--get", "remote.origin.url"])).stdout.trim())) {
     const ghOk = await ghAuthProbeCached(env, async () => (await sh(["gh", "--version"], { env, timeoutMs: 5000 })).exitCode === 0 && (await sh(["gh", "auth", "status"], { env, timeoutMs: 10000 })).exitCode === 0); // TEN-SPEED-08: 10-min cache of a passing probe
     if (!ghOk) return { fatal: `gh (GitHub CLI) is missing or not authenticated; run gh auth login, or pass --no-pr`, warnings };
+    const plan = await probePublish((await git(["config", "--get", "remote.origin.url"])).stdout.trim(), env); // R100-022: read at intake, never discovered after the work
+    if (plan) { if (plan.warning) warnings.push(plan.warning); if (o.runDir) recordPublish(o.runDir, plan); }
   }
   return { fatal: null, warnings };
 }

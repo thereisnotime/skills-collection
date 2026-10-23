@@ -119,19 +119,37 @@ else
     fi
 fi
 
-# --- 4. 00-index.md can route to every skill module --------------------------
-# The index is how the agent decides what to load. A module it cannot name is a
-# module that never gets loaded, however binding the module claims to be.
-echo "== 00-index.md routes to every module in skills/ =="
+# --- 4b. No dangling module link in SKILL.md ---------------------------------
+# The inverse of 4: a skills/ or references/ markdown file SKILL.md names must exist.
+echo "== SKILL.md links and path mentions resolve to real files =="
+dangling=""
+for t in $(grep -oE '\((skills|references)/[A-Za-z0-9._-]+\.md\)|`(skills|references)/[A-Za-z0-9._-]+\.md`' SKILL.md | tr -d '()`' | sort -u); do
+    [ -f "$t" ] || dangling="$dangling $t"
+done
+if [ -z "$dangling" ]; then
+    pass "every skills/ and references/ file SKILL.md names exists"
+else
+    fail "SKILL.md names missing file(s):$dangling"
+fi
+
+# --- 4. SKILL.md links every skill module directly ---------------------------
+# SKILL.md is how the agent decides what to load, one hop from the entry file.
+# A module it does not link is a module that never gets loaded, however binding
+# the module claims to be.
+echo "== SKILL.md links every module in skills/ =="
 for f in skills/*.md; do
     b=$(basename "$f")
-    [ "$b" = "00-index.md" ] && continue
-    if grep -q "$b" skills/00-index.md; then
-        pass "00-index.md references $b"
+    if grep -q "(skills/$b)" SKILL.md; then
+        pass "SKILL.md links skills/$b"
     else
-        fail "$b exists in skills/ but 00-index.md cannot route to it"
+        fail "$b exists in skills/ but SKILL.md does not link it"
     fi
 done
+if [ -e skills/00-index.md ]; then
+    fail "skills/00-index.md must not exist: SKILL.md routes to modules directly"
+else
+    pass "no second-hop skills/00-index.md"
+fi
 
 # --- 5. The documented extension seam is real and exercised ------------------
 # skills/extending.md tells developers they can add a reviewer without editing
@@ -179,6 +197,34 @@ ANCHORS
     fi
 else
     fail "skills/extending.md missing: the extension seam is undocumented"
+fi
+
+# --- Contents map on every long module ----------------------------------------
+# A partial read of a long module must still show its whole scope, so every
+# skills/*.md over 100 lines carries a generated TOC. scripts/skill-toc.sh owns
+# the generation; --check fails on a missing or stale one.
+echo "== skills/*.md over 100 lines carry a current contents map =="
+if toc_out=$(bash scripts/skill-toc.sh --check 2>&1); then
+    pass "every long skills/*.md has a current generated TOC"
+else
+    fail "stale or missing skill TOC: $(echo "$toc_out" | tr '\n' ' ')"
+fi
+
+# --- Every references/*.md is reachable from SKILL.md or a skills/*.md --------
+# A reference no loaded file points to is invisible to the agent. The list comes
+# from the directory, so a new reference file must be linked the day it lands.
+echo "== every references/*.md is linked from SKILL.md or skills/*.md =="
+orphans=""
+for ref in references/*.md; do
+    base=$(basename "$ref")
+    if ! grep -qE "references/${base//./\\.}" SKILL.md skills/*.md 2>/dev/null; then
+        orphans="$orphans $base"
+    fi
+done
+if [ -z "$orphans" ]; then
+    pass "every references/*.md is linked from SKILL.md or skills/*.md"
+else
+    fail "orphaned references (linked from nowhere):$orphans"
 fi
 
 echo ""

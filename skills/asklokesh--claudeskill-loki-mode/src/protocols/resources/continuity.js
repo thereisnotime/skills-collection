@@ -11,11 +11,13 @@ const path = require('path');
 
 const RESOURCE_URI = 'loki://state/continuity';
 
+const { UNTRUSTED_NOTICE } = require('../untrusted');
+
 const schema = {
   uri: RESOURCE_URI,
   name: 'Continuity Document',
   description: 'The CONTINUITY.md file containing session state, decisions, and context for continuation.',
-  mimeType: 'text/markdown'
+  mimeType: 'application/json'
 };
 
 function read() {
@@ -25,23 +27,28 @@ function read() {
   if (!fs.existsSync(continuityPath)) {
     return {
       uri: RESOURCE_URI,
-      mimeType: 'text/markdown',
-      text: '# No CONTINUITY.md found\n\nNo active session continuity document exists.'
+      mimeType: 'application/json',
+      text: JSON.stringify({ error: 'No CONTINUITY.md found. No active session continuity document exists.' })
     };
   }
 
   try {
     const content = fs.readFileSync(continuityPath, 'utf8');
+    // Same envelope as the Python server (mcp/server.py _UNTRUSTED_RESOURCES): stored text is data, never instructions.
     return {
       uri: RESOURCE_URI,
-      mimeType: 'text/markdown',
-      text: content
+      mimeType: 'application/json',
+      text: JSON.stringify({
+        untrusted: true,
+        notice: UNTRUSTED_NOTICE,
+        untrusted_content: { content: content }
+      })
     };
   } catch (err) {
     return {
       uri: RESOURCE_URI,
-      mimeType: 'text/markdown',
-      text: '# Error reading CONTINUITY.md\n\n' + err.message
+      mimeType: 'application/json',
+      text: JSON.stringify({ error: 'Error reading CONTINUITY.md: ' + err.message })
     };
   }
 }

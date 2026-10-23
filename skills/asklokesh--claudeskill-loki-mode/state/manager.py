@@ -25,6 +25,7 @@ from contextlib import contextmanager
 import copy
 import uuid
 import glob as glob_module
+from collections import OrderedDict
 
 # Try to import watchdog for file monitoring
 try:
@@ -1863,34 +1864,58 @@ class StateManager:
         self.version_retention = retention
 
 
-# Singleton instance for convenience
-_default_manager: Optional[StateManager] = None
+# One default instance per resolved .loki directory, so a process that changes
+# cwd between projects gets each project's own state. Ordered least to most
+# recently used and capped (LOKI_STATE_MANAGER_MAX) because each manager holds
+# file descriptors and threads (#312).
+DEFAULT_MAX_STATE_MANAGERS = 8
+_default_managers: "OrderedDict[str, StateManager]" = OrderedDict()
 _default_manager_lock = threading.Lock()
+
+
+def _state_manager_cap() -> int:
+    try:
+        cap = int(os.environ.get("LOKI_STATE_MANAGER_MAX", ""))
+    except ValueError:
+        return DEFAULT_MAX_STATE_MANAGERS
+    return cap if cap >= 1 else DEFAULT_MAX_STATE_MANAGERS
 
 
 def get_state_manager(
     loki_dir: Optional[Union[str, Path]] = None,
     **kwargs
 ) -> StateManager:
-    """Get the default state manager instance.
+    """Get the default state manager for a project's .loki directory.
 
-    Uses double-checked locking to avoid a race where two threads
-    could both create a StateManager simultaneously (BUG-ST-007).
+    The instance is keyed on the resolved path of loki_dir (default: .loki under
+    the current working directory), so changing cwd switches to that project's
+    manager. kwargs apply only when the instance is first created. The cache is
+    an LRU capped by LOKI_STATE_MANAGER_MAX (default 8); evicted managers are
+    stopped outside the lock.
+
+    Uses a lock so two threads cannot both create a StateManager
+    simultaneously (BUG-ST-007).
     """
-    global _default_manager
-
-    if _default_manager is None:
-        with _default_manager_lock:
-            if _default_manager is None:
-                _default_manager = StateManager(loki_dir, **kwargs)
-
-    return _default_manager
+    resolved = Path(loki_dir) if loki_dir else Path(".loki")
+    key = os.path.realpath(str(resolved))
+    evicted = []
+    with _default_manager_lock:
+        mgr = _default_managers.get(key)
+        if mgr is None:
+            mgr = _default_managers[key] = StateManager(Path(key), **kwargs)
+        _default_managers.move_to_end(key)
+        cap = _state_manager_cap()
+        while len(_default_managers) > cap:
+            evicted.append(_default_managers.popitem(last=False)[1])
+    for old in evicted:
+        old.stop()
+    return mgr
 
 
 def reset_state_manager() -> None:
-    """Reset the default state manager (for testing)."""
-    global _default_manager
-
-    if _default_manager:
-        _default_manager.stop()
-        _default_manager = None
+    """Stop and drop every default state manager (for testing)."""
+    with _default_manager_lock:
+        managers = list(_default_managers.values())
+        _default_managers.clear()
+    for mgr in managers:
+        mgr.stop()

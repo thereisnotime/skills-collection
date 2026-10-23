@@ -428,6 +428,67 @@ bash tests/test-fast-verify.sh               # prints the ms and the budget
 bash tests/test-helm-worker-scaling.sh       # renders 1, 2, 5 and 25 replicas
 ```
 
+### 3e. UX baselines re-measured on loki-mode@11.55.3, 2026-10-23 (issue #350)
+
+Tracking issue #350 recorded baselines on 11.54.0. This section re-measures what
+could be re-measured on the published 11.55.3 (main VERSION was 11.56.0). It
+extends the ledger above; it adds no parallel file. Setup: one macOS 27.0.1
+machine, node v26.5.0, npm 11.17.0, 1-minute load average about 20 (timings are
+pessimistic), loki installed with `npm i -g loki-mode@11.55.3 --prefix <run-owned
+tmp>/p2 --cache <tmp>/c2` so the user's global install was untouched. Fixtures
+were fresh one-commit git repos with `"test":"node --test"`. Every run's output
+was timestamped per line with
+`perl -MTime::HiRes=time -ne 'printf("%7.2f %s",time-$s,$_)'`. Paid spend
+(LOKI_BENCH_SPEND_APPROVED=1, founder pre-approval): one VERIFIED run, $0.05, as
+printed on its `Cost:` line.
+
+| Metric | Measured on 11.55.3 | Command or source | #350 value on 11.54.0 |
+|---|---|---|---|
+| Install | 7.65s, rc=0 | `npm i -g loki-mode@11.55.3 --prefix ... --cache ...` | 7.0s |
+| Install to first VERIFIED (trivial brief) | 7.65s install plus a 27s run (`Time: 27s`; intake 2s, wall 10s, implement 14s, verify 1s, seal 1s), $0.05 | `loki start "<brief>"` in the fixture | 31.8s total |
+| First output line | 0.71s | first timestamp of the same run | 0.56s |
+| First stage line (`[wall]`) | 6.72s | same run | 5.57s |
+| Missing provider CLI | actionable message with the fix command, rc=2, 1.40s | `PATH=/usr/bin:/bin:<dir with node and git> loki start "add x"` | rc=2 at 1.19s |
+| Flags on the core path | 0 required; `loki start --help` is 135 lines, 60 distinct `--flags`; `loki --help` lists 25 commands | `loki start --help \| wc -l`, `grep -oE -- '--[a-z][a-z0-9-]*' \| sort -u \| wc -l` | 135 lines, 60 flags, 25 commands |
+
+Observed again on 11.55.3 without a new number:
+
+- Invalid API key: the failed run ends with `Reason: exit 1 (general error)`; the
+  cause appears only in the implement log under `.loki/`, not on the terminal.
+  This matches the 11.54.0 finding. Slice: CW-16 #351.
+- A failed zero-change run leaves its empty `loki/e10-...` branch checked out
+  (`git log main..HEAD` printed 0 commits). Matches the 11.54.0 finding.
+  Slice: CW-19 #354.
+
+PR comment commands baseline (issue #360, 2026-10-23). Factory `droid` 0.190.0:
+`droid --help | grep -ciE 'github|pull request|comment'` prints 0 and its
+command list has no GitHub verb, so the CLI itself offers none. Factory's
+published docs (searched 2026-10-23) describe a separate GitHub app and the
+`Factory-AI/droid-action` workflow driven by PR comments: `@droid review`,
+`@droid security`, `@droid security --full`, plus a custom automation that
+applies a requested change and pushes one commit
+([code review](https://docs.factory.ai/guides/droid-exec/code-review),
+[automations](https://docs.factory.ai/software-factory/automations)). No
+complete command list was found. Loki's comparable surface after #360:
+`/loki fix`, `/loki explain`, `/loki reseal` in the issue-to-PR example
+workflow; the fix path is gated on write access and the comment text never
+shares a step with a secret or token. Not measured: Factory's runtime behavior,
+which needs their app installed.
+
+NOT MEASURED on 11.55.3, so the #350 11.54.0 values stand unrefreshed: crash
+recovery and `loki start --resume` (M6), false-done rate (M5, the benchmark task
+did not discriminate), and the bare `claude -p` comparison column. Do not read
+the 11.54.0 numbers as current for those rows.
+
+Honest limits on the 100x goal: install plus two model calls is the floor for
+time to first VERIFIED, so a 100x claim there is not available; 4.6x versus bare
+`claude -p` was recorded on 11.54.0 and was not re-run. The one case where the
+gap is unbounded is the invalid-key cause, which loki hides and `claude -p`
+prints. #350 stays open until its targets are met.
+
+Reproduce: the commands in the table, run inside a directory created with
+`loki_run_tmp_create`.
+
 ### 3c. Deploy surface, measured 2026-08-08
 
 Ran on the four competitor CLIs installed on this machine. Method matters here:
@@ -472,6 +533,20 @@ for c in claude aider opencode codex loki; do
 done
 bash autonomy/loki deploy --execute       # refuses, naming each failed check
 ```
+
+### 3f. Run replay baseline, measured 2026-10-23 (issue #422, R100-082)
+
+Question: can a user step through a finished run stage by stage and see the diff, tests and cost at each step?
+
+| Product | Replay or step-through | Evidence |
+|---|---|---|
+| Loki Mode | Yes: run page scrubber, one position per stage, values read from the run journal (`--` where the journal recorded none) | `[measured]` `cd packages/control-plane && bun test ./test/ui/timeline.test.ts ./test/ui/run.test.tsx` |
+| Claude Code 2.1.309 | None found in help; session resume only | `[measured]` `claude --help \| grep -iE 'resume\|history'` printed only `--resume <session-id>` and `--continue` lines |
+| Codex CLI | UNKNOWN: `codex` is not installed on the measuring machine, so no help output was read | probe not run |
+| Factory droid 0.190.0 | None found in help; session resume and fork only | `[measured]` `droid --help \| grep -iE 'resume\|history'` printed `-r, --resume [sessionId]` and `--fork <sessionId>` |
+| Devin | Session Insights page | `[sourced: https://docs.devin.ai/product-guides/session-insights.md]` not tested |
+
+"None found in help" is weaker than "does not exist"; see section 4.
 
 ## 4. What we do NOT know
 

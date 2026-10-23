@@ -1,6 +1,6 @@
 # Sandbox Mode
 
-> Legacy engine note: this page documents the legacy engine (`loki start`, `LOKI_ENGINE=legacy`), which still ships in 11.18.0 and is being removed. For the current Loki 10 commands (`loki "<task>"`, `loki owner/repo#N`, `loki backlog`, `loki verify`) see [[Home]] and [docs/v10/GUIDE.md](https://github.com/asklokesh/loki-mode/blob/main/docs/v10/GUIDE.md).
+> Legacy engine note: this page documents the legacy engine (`loki start`, `LOKI_ENGINE=legacy`), which still ships in 11.67.9 and is being removed. For the current Loki 10 commands (`loki "<task>"`, `loki owner/repo#N`, `loki backlog`, `loki verify`) see [[Home]] and [docs/v10/GUIDE.md](https://github.com/asklokesh/loki-mode/blob/main/docs/v10/GUIDE.md).
 
 Docker-based isolation for secure execution.
 
@@ -129,6 +129,7 @@ sandbox:
 | `LOKI_SANDBOX_MEMORY` | `4g` | Memory limit |
 | `LOKI_SANDBOX_CPUS` | `2` | CPU limit |
 | `LOKI_SANDBOX_NETWORK` | `bridge` | Network mode: `bridge`, `none`, `host` |
+| `LOKI_SANDBOX_ALLOW_HOSTS` | unset | Opt-in egress allowlist, comma-separated hostnames. The sandbox joins an internal network and reaches only these hosts through a proxy sidecar; link-local (169.254/16, fe80::/10) and private (10/8, 172.16/12, 192.168/16) targets are always refused. Requires `LOKI_SANDBOX_NETWORK=bridge`. |
 
 ---
 

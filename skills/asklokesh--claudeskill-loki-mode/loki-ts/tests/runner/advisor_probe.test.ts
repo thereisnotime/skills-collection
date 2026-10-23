@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, statSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8,7 +8,11 @@ import {
   ADVISOR_ERROR_MARKER,
   probeAdvisor,
   recordAdvisorError,
+  ADVISOR_ERROR_LIMIT,
+  advisorPair,
 } from "../../src/runner/router/advisor_probe.ts";
+import { planRoute } from "../../src/runner/router/plan_route.ts";
+import { advisorStatusLine } from "../../src/commands/doctor.ts";
 
 let runDir: string;
 beforeEach(() => {
@@ -97,5 +101,70 @@ describe("probeAdvisor", () => {
     const body = readFileSync(join(runDir, ADVISOR_ERROR_MARKER), "utf-8");
     expect(body).toContain("first");
     expect(body).not.toContain("second");
+  });
+});
+
+describe("probeAdvisor valid executor/advisor pair (#269)", () => {
+  it("advisor haiku under executor opus is disabled with invalid_pair", () => {
+    const r = probeAdvisor({}, "claude", OK, runDir, { executor: "opus", advisor: "haiku" });
+    expect(r.available).toBe(false);
+    expect(r.reason).toContain("invalid_pair");
+  });
+  it("advisor weaker than executor by id is disabled too", () => {
+    const r = probeAdvisor({}, "claude", OK, runDir, { executor: "claude-opus-5-5", advisor: "claude-sonnet-5-5" });
+    expect(r.reason).toContain("invalid_pair");
+  });
+  it("advisor opus under executor haiku or sonnet, and equal tiers, are valid", () => {
+    expect(probeAdvisor({}, "claude", OK, runDir, { executor: "haiku", advisor: "opus" }).available).toBe(true);
+    expect(probeAdvisor({}, "claude", OK, runDir, { executor: "sonnet", advisor: "opus" }).available).toBe(true);
+    expect(probeAdvisor({}, "claude", OK, runDir, { executor: "opus", advisor: "opus" }).available).toBe(true);
+  });
+  it("an unknown model never rejects the pair, and no pair is the old behavior", () => {
+    expect(probeAdvisor({}, "claude", OK, runDir, { executor: "mystery-model", advisor: "haiku" }).available).toBe(true);
+    expect(probeAdvisor({}, "claude", OK, runDir, { executor: "opus" }).available).toBe(true);
+  });
+  it("the error limit is 3", () => {
+    expect(ADVISOR_ERROR_LIMIT).toBe(3);
+  });
+});
+
+describe("one advisor pair for every probeAdvisor caller (#304)", () => {
+  const WEAK = { LOKI_MODEL_OVERRIDE: "fable" }; // an executor stronger than the Opus advisor
+  it("advisorPair takes the caller model, else the override, else opus", () => {
+    expect(advisorPair({}, "sonnet")).toEqual({ executor: "sonnet", advisor: "opus" });
+    expect(advisorPair(WEAK)).toEqual({ executor: "fable", advisor: "opus" });
+    expect(advisorPair({})).toEqual({ executor: "opus", advisor: "opus" });
+  });
+  it("plan route: an advisor weaker than the executor is unavailable with invalid_pair", async () => {
+    const pr = await planRoute(runDir, "claude", { LOKI_ROUTER: "1", ...WEAK }, "");
+    expect(pr.advisor?.available).toBe(false);
+    expect(pr.advisor?.reason).toContain("invalid_pair");
+  });
+  it("doctor prints the same invalid_pair reason", () => {
+    expect(advisorStatusLine(WEAK, "claude", OK, runDir)).toContain("invalid_pair");
+  });
+  it("positive control: a valid pair is available on the plan route and in doctor", async () => {
+    const pr = await planRoute(runDir, "claude", { LOKI_ROUTER: "1" }, "");
+    expect(pr.advisor?.available).toBe(true);
+    expect(advisorStatusLine({}, "claude", OK, runDir)).toBe("advisor: available");
+  });
+  it("no probeAdvisor( call in loki-ts/src omits the pair argument", () => {
+    const src = join(import.meta.dir, "../../src");
+    const files: string[] = [];
+    const walk = (d: string): void => {
+      for (const e of readdirSync(d)) {
+        const f = join(d, e);
+        if (statSync(f).isDirectory()) walk(f);
+        else if (f.endsWith(".ts")) files.push(f);
+      }
+    };
+    walk(src);
+    const bad: string[] = [];
+    for (const f of files) {
+      if (f.endsWith("router/advisor_probe.ts")) continue;
+      const text = readFileSync(f, "utf-8");
+      for (const m of text.matchAll(/probeAdvisor\(([^\n]*)/g)) if (!/advisorPair\(/.test(m[1] as string)) bad.push(`${f}: ${m[0]}`);
+    }
+    expect(bad).toEqual([]);
   });
 });

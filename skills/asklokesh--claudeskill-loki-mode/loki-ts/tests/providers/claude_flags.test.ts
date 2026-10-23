@@ -38,7 +38,41 @@ import {
   FIRST_PASS_EXCELLENCE_TEXT,
   reviewerModelForTier,
   leanReviewerFlags,
+  clampThinkingForEffort,
+  thinkingConflictsEffort,
+  thinkingUsageError,
 } from "../../src/providers/claude_flags.ts";
+
+describe("effortForTier model clamp", () => {
+  const cat = join(mkdtempSync(join(tmpdir(), "clampcat-")), "cat.json");
+  writeFileSync(cat, JSON.stringify({ providers: { claude: { cli_aliases: { mini: "m-low" }, models: [
+    { id: "m-low", alias: "mini", effort: { levels: ["low", "medium", "high"] } },
+    { id: "m-all", effort: { levels: ["low", "medium", "high", "xhigh", "max"] } },
+    { id: "m-none", effort: { levels: [] } },
+  ] } } }));
+  const prev = process.env["LOKI_MODEL_CATALOG"];
+  beforeEach(() => { process.env["LOKI_MODEL_CATALOG"] = cat; });
+  afterEach(() => { if (prev === undefined) delete process.env["LOKI_MODEL_CATALOG"]; else process.env["LOKI_MODEL_CATALOG"] = prev; });
+  it("clamps xhigh to the highest allowed level", () => { expect(effortForTier("planning", "standard", "m-low")).toBe("high"); });
+  it("resolves a cli alias", () => { expect(effortForTier("planning", "standard", "mini")).toBe("high"); });
+  it("leaves a supported level alone", () => { expect(effortForTier("planning", "standard", "m-all")).toBe("xhigh"); });
+  it("leaves unknown models alone", () => {
+    expect(effortForTier("planning", "standard", "unknown-model")).toBe("xhigh");
+  });
+  it("returns null for a no-effort model so the caller omits --effort", () => {
+    expect(effortForTier("planning", "standard", "m-none")).toBeNull();
+    expect(effortForTier("fast", "standard", "m-none")).toBeNull();
+  });
+  it("catalog haiku-4-5 has no effort parameter", () => {
+    delete process.env["LOKI_MODEL_CATALOG"];
+    expect(effortForTier("planning", "standard", "claude-haiku-4-5")).toBeNull();
+    expect(effortForTier("fast", "standard", "claude-haiku-4-5")).toBeNull();
+  });
+  it("catalog haiku-5-5 supports the planning effort", () => {
+    delete process.env["LOKI_MODEL_CATALOG"];
+    expect(effortForTier("planning", "standard", "claude-haiku-5-5")).toBe("xhigh");
+  });
+});
 
 describe("claude_flags.effortForTier", () => {
   it("maps planning -> xhigh", () => {
@@ -737,6 +771,7 @@ describe("claude_flags.permissionArgv (P12-26)", () => {
     PATH: process.env["PATH"],
     HOME: repo,
     LOKI_MANAGED_SETTINGS: join(repo, "no-such-managed.json"),
+    LOKI_WEB_POLICY: "off", // pre-w2-07 assertions pin the policy-only argv; the web defaults have their own tests below
     LOKI_PERMISSION_POLICY: "compiled",
     ...extra,
   });
@@ -979,6 +1014,7 @@ describe("claude_flags.permissionArgv (P12-26)", () => {
     "eval/loki10/harness.py": "eval harness raw-claude baseline arm, deliberately not policy-routed",
     "benchmarks/bench/attribution.py": "benchmark raw-claude baseline arm (and its recorded command string); a policy would skew the A/B against Loki",
     "benchmarks/bench/adapters/claude_code.py": "head-to-head adapter that runs stock Claude Code as the competitor arm, not a Loki launch",
+    "benchmarks/bench/adapters/codex.py": "head-to-head adapter; the flag appears only as a docstring noting parity with claude's bench arm (the workdir is a throwaway bench dir), not a Loki launch",
   };
   const rawLaunches = (rel: string, text: string): string[] =>
     text.split("\n").filter((l) => {
@@ -1060,6 +1096,176 @@ describe("claude_flags.permissionArgv (P12-26)", () => {
   });
 });
 
+describe("claude_flags web and credential default deny (w2-07)", () => {
+  let repo: string;
+  const root = join(import.meta.dir, "../../..");
+  const perms = require(join(root, "src/policies/claude_permissions.js")) as {
+    compile(d: string, e: NodeJS.ProcessEnv): { args: string[]; warnings: string[] };
+    parseWebAllowDomains(raw: string): string[];
+  };
+  const baseEnv = (extra: Record<string, string> = {}): NodeJS.ProcessEnv => ({
+    PATH: process.env["PATH"],
+    HOME: repo,
+    LOKI_MANAGED_SETTINGS: join(repo, "no-such-managed.json"),
+    ...extra,
+  });
+  const bashArgv = (env: NodeJS.ProcessEnv): string[] => {
+    const r = Bun.spawnSync(
+      ["bash", "-c", `source "${root}/providers/claude.sh" 2>/dev/null; _loki_claude_permission_argv; printf '%s\\n' "\${_LOKI_PERM_ARGV[@]}"`],
+      { env: { ...env, LOKI_PROJECT_DIR: repo }, cwd: repo },
+    );
+    return r.stdout.toString().split("\n").filter((l) => l.length > 0);
+  };
+  const denied = (argv: string[]): string[] => (argv[argv.indexOf("--disallowedTools") + 1] ?? "").split(",").filter(Boolean);
+  beforeEach(() => { repo = mkdtempSync(join(tmpdir(), "web-pol-")); });
+  afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
+
+  it("default compile denies WebFetch, WebSearch and credential reads", () => {
+    const d = denied(perms.compile(repo, baseEnv({ LOKI_PERMISSION_POLICY: "compiled" })).args);
+    expect(d).toContain("WebFetch");
+    expect(d).toContain("WebSearch");
+    expect(d).toContain("Read(//**/.env*)");
+    expect(d).toContain("Read(//**/.aws/**)");
+    expect(d).toContain("Read(//**/.ssh/**)");
+    expect(d).toContain("Read(//**/*.pem)");
+  });
+
+  it("LOKI_WEB_ALLOW_DOMAINS allows only the listed domain; non-ASCII throws", () => {
+    const r = perms.compile(repo, baseEnv({ LOKI_PERMISSION_POLICY: "compiled", LOKI_WEB_ALLOW_DOMAINS: "docs.python.org" }));
+    const a = r.args[r.args.indexOf("--allowedTools") + 1]!.split(",");
+    expect(a).toEqual(["WebFetch(domain:docs.python.org)"]);
+    expect(denied(r.args)).not.toContain("WebFetch");
+    expect(denied(r.args)).toContain("WebSearch");
+    expect(() => perms.parseWebAllowDomains("d\u043ccs.python.org")).toThrow(/non-ASCII/); // Cyrillic homograph
+    expect(() => perms.parseWebAllowDomains("a b.com")).toThrow();
+    const bad = perms.compile(repo, baseEnv({ LOKI_PERMISSION_POLICY: "compiled", LOKI_WEB_ALLOW_DOMAINS: "d\u043ccs.python.org" }));
+    expect(bad.args).toEqual(["--permission-mode", "plan"]); // fails closed
+  });
+
+  it("legacy permissionArgv keeps bypass and denies WebFetch; bash argv is byte-equal", () => {
+    const env = baseEnv({ LOKI_PERMISSION_POLICY: "legacy" });
+    const ts = permissionArgv(repo, env, () => {});
+    expect(ts[0]).toBe("--dangerously-skip-permissions");
+    expect(denied(ts)).toContain("WebFetch");
+    expect(bashArgv(env)).toEqual(ts);
+    const c = baseEnv({ LOKI_PERMISSION_POLICY: "compiled", LOKI_WEB_ALLOW_DOMAINS: "docs.python.org" });
+    expect(bashArgv(c)).toEqual(permissionArgv(repo, c, () => {}));
+    expect(sdkPermissionOptions(repo, env).disallowedTools).toContain("WebSearch");
+  });
+
+  it("legacy with an allowlist still denies WebFetch (deny beats allow) and warns", () => {
+    const warns: string[] = [];
+    const a = permissionArgv(repo, baseEnv({ LOKI_PERMISSION_POLICY: "legacy", LOKI_WEB_ALLOW_DOMAINS: "docs.python.org" }), (m) => warns.push(m));
+    expect(denied(a)).toContain("WebFetch");
+    expect(warns.join("\n")).toContain("LOKI_WEB_ALLOW_DOMAINS");
+  });
+
+  it("credential deny rules are root-anchored so paths outside the repo are covered (B1)", () => {
+    const cred = (argv: string[]) => denied(argv).filter((d) => d.startsWith("Read("));
+    for (const argv of [
+      perms.compile(repo, baseEnv({ LOKI_PERMISSION_POLICY: "compiled" })).args,
+      permissionArgv(repo, baseEnv({ LOKI_PERMISSION_POLICY: "legacy" }), () => {}),
+    ]) {
+      expect(cred(argv).length).toBe(4);
+      for (const r of cred(argv)) expect(r.startsWith("Read(//**/")).toBe(true);
+      expect(cred(argv)).toContain("Read(//**/.aws/**)"); // matches /home/u/.aws/credentials, outside cwd
+      expect(cred(argv).some((r) => r.startsWith("Read(**/"))).toBe(false);
+    }
+  });
+
+  // Minimal model of a Claude Read rule: "//" anchors at the root, "**/" spans directories, "*" stays in one segment.
+  const ruleMatches = (rule: string, path: string): boolean => {
+    const g = rule.slice("Read(//".length, -1);
+    const re = g.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*\//g, "\0").replace(/\*/g, "[^/]*").replace(/\0/g, "(?:.*/)?");
+    return new RegExp(`^${re}$`).test(path.replace(/^\//, ""));
+  };
+  const readDenied = (path: string): boolean => {
+    const argvs = [
+      perms.compile(repo, baseEnv({ LOKI_PERMISSION_POLICY: "compiled" })).args,
+      permissionArgv(repo, baseEnv({ LOKI_PERMISSION_POLICY: "legacy" }), () => {}),
+    ];
+    const hits = argvs.map((a) => denied(a).some((r) => r.startsWith("Read(") && ruleMatches(r, path)));
+    expect(hits[0]).toBe(hits[1]);
+    return hits[0]!;
+  };
+
+  it("every .env variant that can carry a secret is denied, derived from the shipped rule", () => {
+    for (const f of [".env", ".env.local", ".envrc", ".env.prod", ".env.production", ".env.staging.local", ".env.keys", ".env.vault", ".env.secrets", ".env.bak"]) {
+      expect(readDenied(`/work/app/${f}`)).toBe(true);
+    }
+    // Templates are blocked too: a deny beats any allow, so they cannot be carved out of the glob.
+    for (const f of [".env.example", ".env.sample", ".env.template"]) expect(readDenied(`/work/app/${f}`)).toBe(true);
+    expect(readDenied("/home/u/.aws/credentials")).toBe(true);
+    expect(readDenied("/work/app/key.pem")).toBe(true);
+    expect(readDenied("/work/app/README.md")).toBe(false);
+  });
+
+  it("a punycode (xn--) allow domain is rejected and fails closed to plan", () => {
+    expect(() => perms.parseWebAllowDomains("xn--80ak6aa92e.com")).toThrow(/punycode/);
+    expect(() => perms.parseWebAllowDomains("docs.xn--e1afmkfd.org")).toThrow(/punycode/);
+    const bad = perms.compile(repo, baseEnv({ LOKI_PERMISSION_POLICY: "compiled", LOKI_WEB_ALLOW_DOMAINS: "xn--80ak6aa92e.com" }));
+    expect(bad.args).toEqual(["--permission-mode", "plan"]);
+  });
+
+  it("a punycode (xn--) allow domain fails closed to plan on the legacy route too, with a warning", () => {
+    const warns: string[] = [];
+    const env = baseEnv({ LOKI_PERMISSION_POLICY: "legacy", LOKI_WEB_ALLOW_DOMAINS: "docs.xn--e1afmkfd.org" });
+    const argv = permissionArgv(repo, env, (m) => warns.push(m));
+    expect(argv).toEqual(["--permission-mode", "plan"]);
+    expect(argv).not.toContain("--dangerously-skip-permissions");
+    expect(warns.join("\n")).toContain("punycode");
+    expect(bashArgv(env)).toEqual(argv);
+  });
+
+  it("the legacy route fails closed to plan when the policy module throws, never to allow (B2)", () => {
+    const warns: string[] = [];
+    const env = new Proxy(baseEnv({ LOKI_PERMISSION_POLICY: "legacy" }), {
+      get(t, k) { if (k === "LOKI_WEB_POLICY") throw new Error("boom"); return (t as Record<string | symbol, unknown>)[k]; },
+    });
+    const argv = permissionArgv(repo, env, (m) => warns.push(m));
+    expect(argv).toEqual(["--permission-mode", "plan"]);
+    expect(argv).not.toContain("--dangerously-skip-permissions");
+    expect(warns.join("\n")).toContain("most restrictive");
+  });
+
+  it("an unusable web policy fails closed to plan with a warning on bash, python and TS alike (B2)", () => {
+    const env = baseEnv({ LOKI_PERMISSION_POLICY: "legacy", LOKI_WEB_ALLOW_DOMAINS: "a b" });
+    const warns: string[] = [];
+    const ts = permissionArgv(repo, env, (m) => warns.push(m));
+    expect(ts).toEqual(["--permission-mode", "plan"]);
+    expect(warns.join("\n")).toContain("most restrictive");
+    const py = Bun.spawnSync(
+      ["python3", "-c", `import sys, json; sys.path.insert(0, "${root}/autonomy/lib"); from claude_permissions import claude_permission_argv; print(json.dumps(claude_permission_argv("${repo}")))`],
+      { env: { ...env, LOKI_PROJECT_DIR: repo }, cwd: repo },
+    );
+    expect(JSON.parse(py.stdout.toString())).toEqual(ts);
+    expect(py.stderr.toString()).toContain("most restrictive");
+    expect(bashArgv(env)).toEqual(ts);
+  });
+
+  it("with node missing, legacy fails closed to plan with a warning on bash and python (B2)", () => {
+    const empty = join(repo, "empty-bin"); mkdirSync(empty);
+    const env = { ...baseEnv({ LOKI_PERMISSION_POLICY: "legacy" }), LOKI_PROJECT_DIR: repo };
+    const bash = Bun.spawnSync(["/bin/bash", "-c", `source "${root}/providers/claude.sh" 2>/dev/null; PATH="${empty}"; _loki_claude_permission_argv; printf '%s\\n' "\${_LOKI_PERM_ARGV[@]}"`], { env, cwd: repo });
+    expect(bash.stdout.toString().split("\n").filter(Boolean)).toEqual(["--permission-mode", "plan"]);
+    expect(bash.stderr.toString()).toContain("most restrictive");
+    const pyBin = Bun.which("python3")!;
+    const py = Bun.spawnSync([pyBin, "-c", `import sys, json; sys.path.insert(0, "${root}/autonomy/lib"); from claude_permissions import claude_permission_argv; print(json.dumps(claude_permission_argv("${repo}")))`], { env: { ...env, PATH: empty }, cwd: repo });
+    expect(JSON.parse(py.stdout.toString())).toEqual(["--permission-mode", "plan"]);
+    expect(py.stderr.toString()).toContain("most restrictive");
+  });
+
+  it("LOKI_WEB_POLICY=off restores the pre-w2-07 argv; an operator allow of a web tool keeps it", () => {
+    expect(permissionArgv(repo, baseEnv({ LOKI_PERMISSION_POLICY: "legacy", LOKI_WEB_POLICY: "off" }), () => {})).toEqual(["--dangerously-skip-permissions"]);
+    mkdirSync(join(repo, ".loki"), { recursive: true });
+    writeFileSync(join(repo, ".loki", "policies.json"), JSON.stringify({ claude_permissions: { mode: "acceptEdits", allow: ["WebFetch", "WebSearch"] } }));
+    const r = perms.compile(repo, baseEnv({ LOKI_PERMISSION_POLICY: "compiled" }));
+    expect(r.args[r.args.indexOf("--allowedTools") + 1]).toBe("WebFetch,WebSearch");
+    expect(denied(r.args)).not.toContain("WebFetch");
+    expect(denied(r.args)).not.toContain("WebSearch");
+  });
+});
+
 describe("claude_flags.reviewerModelForTier (S9)", () => {
   it("routes simple and standard tiers to haiku", () => {
     for (const tier of ["simple", "standard", " SIMPLE "]) {
@@ -1076,7 +1282,7 @@ describe("claude_flags.reviewerModelForTier (S9)", () => {
     expect(reviewerModelForTier({ tier: "simple", reviewer: "devils-advocate", env: {} })).toBeNull();
     expect(reviewerModelForTier({ tier: "simple", reviewer: "a", highTier: true, env: {} })).toBeNull();
   });
-  it("LOKI_ADVISOR_MODEL keeps precedence; fable refused", () => {
+  it("LOKI_ADVISOR_MODEL keeps precedence; values outside haiku|sonnet|opus are ignored", () => {
     expect(reviewerModelForTier({ tier: "complex", reviewer: "a", env: { LOKI_ADVISOR_MODEL: "opus" } })).toBe("opus");
     expect(reviewerModelForTier({ tier: "simple", reviewer: "security-sentinel", env: { LOKI_ADVISOR_MODEL: "sonnet" } })).toBe("sonnet");
     expect(reviewerModelForTier({ tier: "simple", reviewer: "a", env: { LOKI_ADVISOR_MODEL: "fable" } })).toBe("haiku");
@@ -1125,5 +1331,148 @@ describe("claude_flags.leanReviewerFlags (S9)", () => {
     _resetClaudeHelpCacheForTest("--tools --setting-sources");
     expect(leanReviewerFlags({ env: {} })).toEqual(["--setting-sources", "project", "--tools="]);
     _resetClaudeHelpCacheForTest(null);
+  });
+});
+
+describe("claude_flags.effortForTier bash parity (w2-06)", () => {
+  const sh = join(import.meta.dir, "../../../autonomy/lib/claude-flags.sh");
+  for (const tier of ["planning", "development", "fast"]) {
+    for (const cx of ["standard", "complex"]) {
+      it(`${tier}/${cx}: TS equals bash loki_effort_for_tier`, () => {
+        const r = Bun.spawnSync(["bash", "-c", `source "${sh}"; loki_effort_for_tier ${tier} ${cx}`]);
+        expect(r.exitCode).toBe(0);
+        expect(String(effortForTier(tier, cx))).toBe(r.stdout.toString());
+      });
+    }
+  }
+});
+
+describe("clampThinkingForEffort (#314)", () => {
+  // The effort ceiling per thinking type, per model, from the claude-api skill model table. A model not listed has no recorded limit.
+  const LIMITS: Array<[string, string]> = [["claude-opus-5", "disabled"], ["claude-haiku-5-5", "disabled"], ["claude-sonnet-5-5", "between_tools"]];
+  beforeEach(() => { delete process.env["LOKI_MODEL_CATALOG"]; });
+  for (const [model, type] of LIMITS) {
+    it(`${model}: ${type} at xhigh and max clamps to adaptive and names the clamp`, () => {
+      for (const effort of ["xhigh", "max"]) {
+        const r = clampThinkingForEffort(model, { type }, effort);
+        expect(r.thinking).toEqual({ type: "adaptive" });
+        expect(r.clamp).toEqual({ from: type, to: "adaptive", effort, max: "high" });
+      }
+    });
+    it(`${model}: ${type} at high or below is sent unchanged`, () => {
+      for (const effort of ["low", "medium", "high"]) {
+        const r = clampThinkingForEffort(model, { type }, effort);
+        expect(r.thinking).toEqual({ type });
+        expect(r.clamp).toBeNull();
+      }
+    });
+    it(`${model}: adaptive is never clamped`, () => {
+      expect(clampThinkingForEffort(model, { type: "adaptive" }, "max")).toEqual({ thinking: { type: "adaptive" }, clamp: null });
+    });
+  }
+  it("a model with no recorded limit, an unknown model, and absent thinking or effort are left alone", () => {
+    expect(clampThinkingForEffort("claude-sonnet-5", { type: "disabled" }, "max").clamp).toBeNull();
+    expect(clampThinkingForEffort("m-unknown", { type: "disabled" }, "max").clamp).toBeNull();
+    expect(clampThinkingForEffort("claude-opus-5", undefined, "max")).toEqual({ thinking: undefined, clamp: null });
+    expect(clampThinkingForEffort("claude-opus-5", { type: "disabled" }, undefined).clamp).toBeNull();
+  });
+  it("resolves a cli alias", () => {
+    expect(clampThinkingForEffort("haiku", { type: "disabled" }, "xhigh").clamp?.to).toBe("adaptive");
+  });
+  it("a catalog test fixture drives the limit: no max_effort, no clamp", () => {
+    const cat = join(mkdtempSync(join(tmpdir(), "thinkcat-")), "cat.json");
+    writeFileSync(cat, JSON.stringify({ providers: { claude: { models: [{ id: "m-a", thinking: { types: ["adaptive", "disabled"], max_effort: { disabled: "medium" } } }, { id: "m-b", thinking: { types: ["adaptive", "disabled"] } }] } } }));
+    process.env["LOKI_MODEL_CATALOG"] = cat;
+    expect(clampThinkingForEffort("m-a", { type: "disabled" }, "high").clamp).toEqual({ from: "disabled", to: "adaptive", effort: "high", max: "medium" });
+    expect(clampThinkingForEffort("m-b", { type: "disabled" }, "high").clamp).toBeNull();
+    delete process.env["LOKI_MODEL_CATALOG"];
+  });
+  it("thinkingConflictsEffort: disabled at xhigh or max conflicts only where the catalog records no limit", () => {
+    expect(thinkingConflictsEffort("claude-sonnet-5", { type: "disabled" }, "max")).toBe(true);
+    expect(thinkingConflictsEffort("m-unknown", { type: "disabled" }, "xhigh")).toBe(true);
+    expect(thinkingConflictsEffort("claude-opus-5", { type: "disabled" }, "max")).toBe(false);
+    expect(thinkingConflictsEffort("m-unknown", { type: "disabled" }, "high")).toBe(false);
+    expect(thinkingConflictsEffort("m-unknown", { type: "adaptive" }, "max")).toBe(false);
+  });
+});
+
+describe("thinking substitute and usage message (#314 follow-up)", () => {
+  beforeEach(() => { delete process.env["LOKI_MODEL_CATALOG"]; });
+  it("sonnet-5-5: disabled is sent as between_tools at every effort up to high, adaptive above", () => {
+    for (const effort of [undefined, "low", "medium", "high"]) {
+      const r = clampThinkingForEffort("claude-sonnet-5-5", { type: "disabled" }, effort);
+      expect(r.thinking).toEqual({ type: "between_tools" });
+      expect(r.clamp).toEqual({ from: "disabled", to: "between_tools", effort: effort ?? "default", max: "high" });
+    }
+    for (const effort of ["xhigh", "max"]) {
+      const r = clampThinkingForEffort("claude-sonnet-5-5", { type: "disabled" }, effort);
+      expect(r.thinking).toEqual({ type: "adaptive" });
+      expect(r.clamp).toEqual({ from: "disabled", to: "adaptive", effort, max: "high" });
+    }
+  });
+  it("the substitute comes from the catalog, not the model name", () => {
+    const cat = join(mkdtempSync(join(tmpdir(), "thinksub-")), "cat.json");
+    writeFileSync(cat, JSON.stringify({ providers: { claude: { models: [{ id: "m-s", thinking: { types: ["adaptive", "x"], substitute: { disabled: "x" } } }] } } }));
+    process.env["LOKI_MODEL_CATALOG"] = cat;
+    expect(clampThinkingForEffort("m-s", { type: "disabled" }, "max")).toEqual({ thinking: { type: "x" }, clamp: { from: "disabled", to: "x", effort: "max", max: "none" } });
+    delete process.env["LOKI_MODEL_CATALOG"];
+    expect(clampThinkingForEffort("claude-opus-5", { type: "disabled" }, "high").clamp).toBeNull();
+  });
+  it("thinkingConflictsEffort: a substituted model never conflicts", () => {
+    expect(thinkingConflictsEffort("claude-sonnet-5-5", { type: "disabled" }, "max")).toBe(false);
+  });
+  it("thinkingUsageError derives the sentence from the catalog limit", () => {
+    expect(thinkingUsageError("sdk-judge", "claude-opus-5")).toBe("sdk-judge: --thinking must be disabled or adaptive; for claude-opus-5 disabled is sent as adaptive above --effort high");
+    expect(thinkingUsageError("sdk-text", "claude-sonnet-5-5")).toBe("sdk-text: --thinking must be disabled or adaptive; for claude-sonnet-5-5 disabled is sent as between_tools, and as adaptive above --effort high");
+    expect(thinkingUsageError("sdk-judge", "claude-sonnet-5")).toBe("sdk-judge: --thinking must be disabled or adaptive, and disabled cannot combine with --effort xhigh or max for claude-sonnet-5");
+  });
+});
+
+describe("thinking types are derived from the catalog for every model (#314 review)", () => {
+  it("an adaptive-only model sent disabled at high is clamped to adaptive with the ledger record", () => {
+    expect(clampThinkingForEffort("claude-opus-5-5", { type: "disabled" }, "high")).toEqual({
+      thinking: { type: "adaptive" },
+      clamp: { from: "disabled", to: "adaptive", effort: "high", max: "none" },
+    });
+  });
+
+  type Spec = { types?: string[]; max_effort?: Record<string, string>; substitute?: Record<string, string> };
+  const catalog = JSON.parse(readFileSync(join(import.meta.dir, "../../../providers/model_catalog.json"), "utf8"));
+  const models = (catalog.providers.claude.models as Array<{ id: string; thinking?: Spec }>).filter((m) => m.thinking && Array.isArray(m.thinking.types));
+  const efforts = [undefined, "low", "medium", "high", "xhigh", "max"];
+  beforeEach(() => { delete process.env["LOKI_MODEL_CATALOG"]; });
+
+  it("the catalog has adaptive-only models, so the sweep is not vacuous", () => {
+    expect(models.length).toBeGreaterThan(3);
+    expect(models.some((m) => m.thinking!.types!.join() === "adaptive")).toBe(true);
+  });
+
+  it("no type the CLI accepts is sent to the API unless the catalog lists it for the model", () => {
+    const bad: string[] = [];
+    for (const m of models) for (const type of ["disabled", "adaptive"]) for (const effort of efforts) {
+      if (thinkingConflictsEffort(m.id, { type }, effort)) continue;
+      const sent = clampThinkingForEffort(m.id, { type }, effort).thinking?.type;
+      if (sent && !m.thinking!.types!.includes(sent)) bad.push(`${m.id} ${type}@${effort ?? "default"} -> ${sent}`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("the usage error never names a rule the model lacks", () => {
+    for (const m of models) {
+      const t = m.thinking!, msg = thinkingUsageError("sdk-judge", m.id), sub = t.substitute?.["disabled"];
+      const disabledOk = t.types!.includes("disabled") || sub !== undefined;
+      if (msg.includes("disabled or adaptive")) expect(disabledOk && t.types!.includes("adaptive")).toBe(true);
+      if (msg.includes("cannot combine with --effort xhigh or max")) expect(disabledOk && !sub && !t.max_effort?.["disabled"]).toBe(true);
+      if (msg.includes("above --effort")) expect(msg).toContain(`above --effort ${t.max_effort?.[sub ?? "disabled"]}`);
+      if (sub) expect(msg).toContain(`sent as ${sub}`);
+      if (!disabledOk) expect(msg).toContain(`disabled is not accepted by ${m.id}`);
+    }
+  });
+
+  it("an adaptive-only model refuses disabled at every effort, adaptive stays accepted", () => {
+    for (const m of models.filter((x) => x.thinking!.types!.join() === "adaptive")) for (const effort of efforts) {
+      expect(thinkingConflictsEffort(m.id, { type: "disabled" }, effort)).toBe(true);
+      expect(thinkingConflictsEffort(m.id, { type: "adaptive" }, effort)).toBe(false);
+    }
   });
 });

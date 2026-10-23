@@ -25,7 +25,6 @@ memory/                     # Memory system (core v5.15.0; cross-project + RAG i
   vector_index.py           # Vector search index
   layers/                   # Progressive disclosure implementation
 skills/                     # On-demand skill modules (v3.0 architecture)
-  00-index.md               # Module selection rules and routing
   model-selection.md        # Task tool, parallelization, thinking modes
   providers.md              # Multi-provider documentation
   quality-gates.md          # 8-gate system, velocity-quality balance
@@ -43,7 +42,6 @@ references/                 # Detailed documentation (21 files)
   legacy-healing-patterns.md # Amazon AGI Lab: friction, adapters, archaeology
   openai-patterns.md        # OpenAI Agents SDK: guardrails, tripwires, handoffs
   lab-research-patterns.md  # DeepMind + Anthropic: Constitutional AI, debate
-  production-patterns.md    # HN 2025: What actually works in production
   advanced-patterns.md      # 2025 research patterns (MAR, Iter-VF, GoalAct)
   tool-orchestration.md     # ToolOrchestra-inspired efficiency & rewards
   memory-system.md          # Episodic/semantic memory architecture

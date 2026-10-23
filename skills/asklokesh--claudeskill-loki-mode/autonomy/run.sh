@@ -2003,6 +2003,39 @@ _loki_surface_why_hint() {
     return 0
 }
 
+# _loki_restore_base_branch (FC-EMPTY-RUN-BRANCH-LEFT-CHECKED-OUT, legacy sibling
+# of engine10 dropEmptyRunBranch): when a session ended non-zero and its branch
+# tip is still the recorded start commit, nothing was committed. Put the checkout
+# back on the starting branch and delete that empty session branch. Same rule as
+# the engine10 side: a branch with any commit is never touched, a dirty tracked
+# tree keeps the branch and prints the way back, and a stop signal (130, 143) is
+# left alone because the cleanup trap owns it. Best-effort, never changes the
+# exit code.
+_loki_restore_base_branch() {
+    local result="${1:-0}" td="${TARGET_DIR:-.}"
+    case "$result" in 0|130|143) return 0 ;; esac
+    local base_file="$td/.loki/state/base-branch.txt" sha_file="$td/.loki/state/session-start-sha" br_file="$td/.loki/state/agent-branch.txt"
+    [ -s "$base_file" ] && [ -s "$sha_file" ] && [ -s "$br_file" ] || return 0
+    local base branch start tip cur
+    base="$(cat "$base_file" 2>/dev/null)"; branch="$(cat "$br_file" 2>/dev/null)"; start="$(cat "$sha_file" 2>/dev/null)"
+    case "$branch" in loki/session-*) ;; *) return 0 ;; esac
+    [ -n "$base" ] && [ "$base" != "$branch" ] || return 0
+    tip="$(git -C "$td" rev-parse --verify -q "refs/heads/$branch" 2>/dev/null)" || return 0
+    [ "$tip" = "$start" ] || return 0
+    cur="$(git -C "$td" symbolic-ref --short -q HEAD 2>/dev/null || true)"
+    if [ "$cur" = "$branch" ]; then
+        if [ -n "$(git -C "$td" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+            printf 'loki: tree left on %s, return with: git checkout %s\n' "$branch" "$base" >&2
+            return 0
+        fi
+        git -C "$td" checkout -q "$base" 2>/dev/null || { printf 'loki: tree left on %s, return with: git checkout %s\n' "$branch" "$base" >&2; return 0; }
+        cur="$base"
+    fi
+    [ "$cur" = "$base" ] || return 0
+    git -C "$td" branch -d "$branch" >/dev/null 2>&1 && rm -f "$br_file" 2>/dev/null
+    return 0
+}
+
 # _loki_write_last_error (T2.5): write a durable, classified failure record to
 # .loki/state/LAST_ERROR.json. Schema:
 #   {
@@ -7715,29 +7748,51 @@ BUDGET_EOF
     log_info "Loki directory initialized: .loki/"
 }
 
-# Write .loki/pricing.json based on active provider
+# Write .loki/pricing.json. The model rows derive from loki-ts/data/model-pricing.json
+# (single source of truth, also read by budget.ts); nothing is hand-kept here.
+# Readers: dashboard/server.py (_load_pricing_from_file, /api/pricing).
+# Fail-safe: an unreadable source (or no python3) writes an empty models map, which the dashboard
+# treats as "use my static defaults".
 _write_pricing_json() {
     local provider="${LOKI_PROVIDER:-claude}"
     local updated
     updated=$(date -u +%Y-%m-%d)
 
-    cat > ".loki/pricing.json" << PRICING_EOF
-{
-  "provider": "${provider}",
-  "updated": "${updated}",
-  "source": "static",
-  "models": {
-    "fable":           {"input": 10.00, "output": 50.00, "cache_read": 0.25, "cache_write": 12.5, "cache_write_1h": 20, "label": "Fable 5 (top tier)", "provider": "claude"},
-    "claude-fable-5":  {"input": 10.00, "output": 50.00, "cache_read": 0.25, "cache_write": 12.5, "cache_write_1h": 20, "label": "Fable 5 (top tier)", "provider": "claude"},
-    "opus":            {"input": 4.00,  "output": 20.00, "cache_read": 0.2, "cache_write": 5, "cache_write_1h": 8, "label": "Opus (latest)",   "provider": "claude"},
-    "sonnet":          {"input": 2.00,  "output": 10.00, "cache_read": 0.1, "cache_write": 2.5, "cache_write_1h": 4, "label": "Sonnet (latest)", "provider": "claude"},
-    "haiku":           {"input": 0.10,  "output": 0.50, "cache_read": 0.01, "cache_write": 0.125, "cache_write_1h": 0.2, "over_100k": {"input": 0.50, "output": 2.50}, "label": "Haiku 5.5 (latest)",  "provider": "claude"},
-    "claude-haiku-4-5": {"input": 1.00, "output": 5.00, "cache_read": 0.1, "cache_write": 1.25, "cache_write_1h": 2, "label": "Haiku 4.5", "provider": "claude"},
-    "claude-haiku-5-5": {"input": 0.10, "output": 0.50, "cache_read": 0.01, "cache_write": 0.125, "cache_write_1h": 0.2, "over_100k": {"input": 0.50, "output": 2.50}, "label": "Haiku 5.5", "provider": "claude"},
-    "gpt-5.3-codex":   {"input": 1.75,  "output": 14.00, "label": "GPT-5.3 Codex", "provider": "codex"}
-  }
-}
-PRICING_EOF
+    PRICING_SRC="${SCRIPT_DIR}/../loki-ts/data/model-pricing.json" \
+    PRICING_PROVIDER="$provider" PRICING_UPDATED="$updated" \
+    python3 - > ".loki/pricing.json" << 'PRICING_PY' || printf '{"provider": "%s", "models": {}}\n' "$provider" > ".loki/pricing.json"
+import json, os, sys
+
+src = os.environ["PRICING_SRC"]
+models = {}
+try:
+    with open(src, encoding="utf-8") as fh:
+        rows = json.load(fh)["pricing"]
+    for key, row in rows.items():
+        if not isinstance(row, dict) or "input" not in row or "output" not in row:
+            continue
+        owner = row.get("provider") or ("codex" if key.startswith("gpt-") else "claude")
+        out = {"input": row["input"], "output": row["output"]}
+        if owner == "claude":
+            for field in ("cache_read", "cache_write", "cache_write_1h"):
+                if field in row:
+                    out[field] = row[field]
+            tier = row.get("over_100k")
+            if isinstance(tier, dict) and "input" in tier and "output" in tier:
+                out["over_100k"] = {"input": tier["input"], "output": tier["output"]}
+        out["label"] = row.get("label", key)
+        out["provider"] = owner
+        models[key] = out
+except (OSError, ValueError, KeyError, AttributeError) as exc:
+    sys.stderr.write("loki: warning: cannot derive .loki/pricing.json models from %s: %s\n" % (src, exc))
+    models = {}
+print(json.dumps({
+    "provider": os.environ["PRICING_PROVIDER"],
+    "updated": os.environ["PRICING_UPDATED"],
+    "source": "static",
+    "models": models,
+}, indent=2))
+PRICING_PY
     log_info "Pricing data written: .loki/pricing.json (provider: ${provider})"
 }
 
@@ -16453,24 +16508,15 @@ _dispatch_reviewer() {
     fi
     case "${PROVIDER_NAME:-claude}" in
         claude)
-            # SECURITY-REVIEW MODEL GUARD (evidence-based routing, item 4b):
-            # By DEFAULT reviewers pass NO --model, so they run on the account
-            # default model and are NEVER routed to Fable by a mid-flight model
-            # override or LOKI_FABLE_ARCHITECT (those only rewrite the
-            # iteration's tier_param, not this dispatch). The ONLY way to pin the
-            # reviewer model is the explicit opt-in LOKI_ADVISOR_MODEL below,
-            # which honors haiku|sonnet|opus and REFUSES fable for the reason
-            # stated here. This must stay true. The official model-config docs
-            # CONTRADICT
-            # routing security review to Fable: Fable's safety classifiers
-            # refuse cybersecurity content, and in non-interactive (-p)
-            # mode a flagged request ends the turn with stop_reason
-            # "refusal" instead of a transparent Opus re-run. A refused
-            # security reviewer would return no VERDICT and break the
-            # unanimous-council gate. Defensive-cyber capability lives in
-            # Mythos 5 (Project Glasswing), not Fable. If a future change
-            # adds --model here, the security-sentinel reviewer must be
-            # pinned to opus, never fable.
+            # REVIEWER MODEL PIN: by DEFAULT reviewers pass NO --model, so they
+            # run on the account default model; a mid-flight model override or
+            # LOKI_FABLE_ARCHITECT only rewrites the iteration's tier_param, not
+            # this dispatch. The ONLY way to pin the reviewer model is the
+            # explicit opt-in LOKI_ADVISOR_MODEL below (haiku|sonnet|opus).
+            # A reviewer turn that ends with no VERDICT is never a PASS: the
+            # unanimous-council gate counts it as no verdict. On the raw-SDK
+            # judge path a refusal ends in a named outcome (refused:<category>)
+            # in the gate record (sdk_invoker.ts judgeOutcomeNote).
             # EMBED 2 + 3 (v7.33.0). This is a trust-gate council subcall.
             # $prompt_text is fully self-contained (the diff, changed files,
             # checks, and strict VERDICT/FINDINGS output format), output is
@@ -16495,18 +16541,15 @@ _dispatch_reviewer() {
             # account default). When the operator/user sets LOKI_ADVISOR_MODEL to
             # an allowlisted alias, pin the trust-gate reviewer to it for a
             # stronger/consistent judge - the founder's "advisor will be opus if
-            # needed or user opted". FABLE IS REFUSED here: the model-config docs
-            # say Fable's safety classifiers refuse cybersecurity content and end
-            # a -p turn with stop_reason "refusal", which would return no VERDICT
-            # and break the unanimous-council gate. So only haiku|sonnet|opus are
-            # honored; fable (or any other value) is ignored with no --model.
+            # needed or user opted". Only the tier aliases haiku|sonnet|opus are
+            # honored; any other value is ignored with no --model.
             if [ -n "${LOKI_ADVISOR_MODEL:-}" ]; then
                 local _adv _adv_norm
                 _adv="${LOKI_ADVISOR_MODEL}"
                 _adv_norm="$(printf '%s' "$_adv" | tr '[:upper:]' '[:lower:]' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
                 case "$_adv_norm" in
                     haiku|sonnet|opus) _rv_argv+=("--model" "$_adv_norm") ;;
-                    *) : ;;  # fable and invalid values: no --model (account default)
+                    *) : ;;  # any other value: no --model (account default)
                 esac
             fi
             if loki_is_supervised_simple_web; then
@@ -16584,6 +16627,14 @@ _dispatch_reviewer() {
             if [ -n "$_cr_requirements_manifest" ]; then
                 _cr_schema="${LOKI_REVIEW_REQUIREMENTS_SCHEMA:-}"
             fi
+            # The SDK judge always gets a STATIC schema file: the API caches
+            # compiled schemas for 24h, so run-specific manifest content (hash,
+            # ids, count) must never enter one. The manifest rides in the prompt
+            # body and cr-rematerialize.py enforces it fail-closed.
+            local _cr_sdk_schema="$_cr_schema"
+            if [ -n "$_cr_requirements_manifest" ]; then
+                _cr_sdk_schema="${_cr_root}/loki-ts/data/requirements-verdict-schema.json"
+            fi
             local _cr_provider_env=(env)
             if [ -n "$_cr_requirements_manifest" ]; then
                 local _cr_secret_name
@@ -16638,30 +16689,21 @@ _dispatch_reviewer() {
             # Critical/High). Same schema the claude --json-schema path uses, so
             # verdict parity holds by construction.
             if [ "${LOKI_SDK_CODE_REVIEW:-0}" = "1" ] \
-               && [ -f "$_cr_schema" ] && [ -f "$_cr_remat" ]; then
-                local _crs_loki _crs_pf _crs_out _crs_rc _crs_schema_file=""
-                local _crs_schema_content="" _crs_manifest_content=""
+               && [ -f "$_cr_sdk_schema" ] && [ -f "$_cr_remat" ]; then
+                local _crs_loki _crs_pf _crs_out _crs_rc
+                local _crs_manifest_content=""
                 local _crs_invoked=false
                 _crs_loki="${_cr_root}/bin/loki"
                 if [ -x "$_crs_loki" ] && command -v bun >/dev/null 2>&1; then
                     _crs_pf="$(mktemp 2>/dev/null)" || _crs_pf=""
-                    _crs_schema_file="$_cr_schema"
-                    if [ -n "$_cr_requirements_manifest" ]; then
-                        _crs_schema_file="$(mktemp 2>/dev/null)" || _crs_schema_file=""
-                    fi
-                    if [ -n "$_crs_pf" ] && [ -n "$_crs_schema_file" ]; then
+                    if [ -n "$_crs_pf" ]; then
                         if [ -n "$_cr_requirements_manifest" ]; then
-                            _crs_schema_content="$(_loki_requirements_contract_emit schema 2>/dev/null)" || {
-                                rm -f "$_crs_pf" "$_crs_schema_file" 2>/dev/null || true
+                            # Contract integrity check only; its output is never
+                            # written into a schema.
+                            _loki_requirements_contract_emit schema >/dev/null 2>&1 || {
+                                rm -f "$_crs_pf" 2>/dev/null || true
                                 return 125
                             }
-                            printf '%s' "$_crs_schema_content" > "$_crs_schema_file"
-                            chmod 600 "$_crs_schema_file" 2>/dev/null || {
-                                rm -f "$_crs_pf" "$_crs_schema_file" 2>/dev/null || true
-                                return 125
-                            }
-                        else
-                            _crs_schema_file="$_cr_schema"
                         fi
                         printf '%s' "$prompt_text" > "$_crs_pf"
                         _crs_rc=0
@@ -16680,14 +16722,11 @@ _dispatch_reviewer() {
                         fi
                         _crs_out="$(_loki_with_deadline "$_crs_cap" \
                             "${_cr_provider_env[@]}" "$_crs_loki" internal sdk-judge \
-                            --prompt-file "$_crs_pf" --schema-file "$_crs_schema_file" \
+                            --prompt-file "$_crs_pf" --schema-file "$_cr_sdk_schema" \
                             --model "${LOKI_SDK_REVIEW_MODEL:-sonnet}" --effort high \
                             --timeout-ms "$(( _crs_to_s * 1000 ))")" || _crs_rc=$?
                         _crs_invoked=true
                         rm -f "$_crs_pf" 2>/dev/null || true
-                        if [ -n "$_cr_requirements_manifest" ]; then
-                            rm -f "$_crs_schema_file" 2>/dev/null || true
-                        fi
                         case "$_crs_rc" in
                             124|125) return "$_crs_rc" ;;
                         esac
@@ -18239,16 +18278,14 @@ metadata. This saves tokens without treating dependency changes as unreviewed.""
 
 _persona_line = (persona.strip() + "\n\n") if persona.strip() else ""
 
-prompt = f"""{_persona_line}You are {name}. Your SOLE focus is: {focus}.
-
-Review ONLY for: {checks}.
-
-Files changed:
+# #270: the shared Files and Review context block, evidence and calibration come FIRST and the per-reviewer
+# role last, so parallel reviewers of one gate share a byte-identical cacheable prefix. Mirrors
+# buildReviewerPrompt in loki-ts/src/runner/quality_gates.ts.
+prompt = f"""Files changed:
 {files}
 
 Review context:
 {diff}
-{requirements_section}
 
 {review_context_note}
 
@@ -18257,6 +18294,11 @@ Tests: {json.dumps(tests, sort_keys=True, ensure_ascii=True)}
 Build: {json.dumps(build, sort_keys=True, ensure_ascii=True)}
 
 {severity_calibration}
+
+{_persona_line}You are {name}. Your SOLE focus is: {focus}.
+
+Review ONLY for: {checks}.
+{requirements_section}
 
 {output_format}"""
 
@@ -20503,11 +20545,27 @@ check_budget_limit() {
     local current_cost=0
     local efficiency_dir=".loki/metrics/efficiency"
 
+    # The pricing table is read from loki-ts/data/model-pricing.json inside the
+    # python below; say once per process when it cannot be and the built-in rows apply.
+    if [[ -z "${_LOKI_BUDGET_PRICING_CHECKED:-}" ]]; then
+        _LOKI_BUDGET_PRICING_CHECKED=1
+        python3 -c "import json,sys; json.load(open(sys.argv[1]))['pricing']" "${SCRIPT_DIR}/../loki-ts/data/model-pricing.json" 2>/dev/null \
+            || log_warn "Budget gate: loki-ts/data/model-pricing.json is missing or unreadable; using the built-in price rows"
+    fi
+
     # Calculate cost from per-iteration efficiency files (same source as /api/cost)
     if [ -d "$efficiency_dir" ]; then
         current_cost=$(python3 -c "
-import json, glob
+import json, glob, os, sys
 total = 0.0
+# LOKI_INFERENCE_GEO multiplier on token-priced records, from the same JSON the
+# TS gate reads (autonomy/lib/efficiency_cost.py); the fallback keeps us at 1.1.
+try:
+    sys.path.insert(0, '${SCRIPT_DIR}/lib')
+    from efficiency_cost import inference_geo_multiplier
+    geo = inference_geo_multiplier()
+except Exception:
+    geo = 1.1 if os.environ.get('LOKI_INFERENCE_GEO', '').strip().lower() == 'us' else 1.0
 pricing = {
     'fable': {'input': 10.00, 'output': 50.00, 'cache_read': 0.25, 'cache_write': 12.5, 'cache_write_1h': 20},
     'claude-fable-5': {'input': 10.00, 'output': 50.00, 'cache_read': 0.25, 'cache_write': 12.5, 'cache_write_1h': 20},
@@ -20524,6 +20582,16 @@ pricing = {
     'gpt-5.6-terra': {'input': 2.00, 'output': 12.00},
     'gpt-5.6-luna': {'input': 0.20, 'output': 1.20},
 }
+# The literal rows above are the fallback only. loki-ts/data/model-pricing.json is
+# the single source the TS gate reads; its rows override these by key.
+try:
+    with open('${SCRIPT_DIR}/../loki-ts/data/model-pricing.json') as pf:
+        for k, v in json.load(pf)['pricing'].items():
+            row = {x: v[x] for x in ('input', 'output', 'cache_read', 'cache_write') if isinstance(v.get(x), (int, float))}
+            if 'input' in row and 'output' in row:
+                pricing[k.lower()] = row
+except Exception:
+    pass
 for f in glob.glob('${efficiency_dir}/*.json'):
     try:
         d = json.load(open(f))
@@ -20548,8 +20616,9 @@ for f in glob.glob('${efficiency_dir}/*.json'):
             # same run reports two different spends.
             cr = d.get('cache_read_tokens', 0) or 0
             cw = d.get('cache_creation_tokens', 0) or 0
-            total += (inp / 1_000_000) * p['input'] + (out / 1_000_000) * p['output']
-            total += (cr / 1_000_000) * p.get('cache_read', p['input'] * 0.1) + (cw / 1_000_000) * p.get('cache_write', p['input'] * 1.25)
+            rec = (inp / 1_000_000) * p['input'] + (out / 1_000_000) * p['output']
+            rec += (cr / 1_000_000) * p.get('cache_read', p['input'] * 0.1) + (cw / 1_000_000) * p.get('cache_write', p['input'] * 1.25)
+            total += rec * geo
     except: pass
 print(round(total, 4))
 " 2>/dev/null || echo "0")
@@ -22788,6 +22857,13 @@ print("</previous_gate_failures>")
 PYEOF
 }
 
+# Single source of the parallel-tool-calls directive. Byte-mirrored with
+# PARALLEL_TOOL_CALLS_INSTRUCTION in loki-ts/src/runner/build_prompt.ts. Used by
+# the shared prefix (inside lsp_grounding_instruction) and the supervised profile.
+_loki_parallel_tool_calls_instruction() {
+    printf '%s' "PARALLEL_TOOL_CALLS: When issuing independent read-only operations (reads, greps, file lookups, LSP checks) that do not depend on each other, issue them in a single message so they run in parallel; do not serialize independent lookups."
+}
+
 _loki_build_supervised_simple_web_prompt() {
     local retry="${1:-0}"
     local prd_path="${2:-}"
@@ -22804,7 +22880,7 @@ _loki_build_supervised_simple_web_prompt() {
 You are the implementation agent for a time-bounded hosted web build. Work directly in the existing workspace and begin with tools, not narration.
 
 Required execution order:
-1. Inspect round: use one parallel read-only tool round to inspect only the harness-detected manifest, primary rendered source, and primary stylesheet listed below. Skip any item marked not-detected. Do not read the test yet. Do not inventory the repository, inspect harness metadata, read planning artifacts, browse the web, install dependencies, or create documentation.
+1. Inspect round: inspect only the harness-detected manifest, primary rendered source, and primary stylesheet listed below. Skip any item marked not-detected. Do not read the test yet. Do not inventory the repository, inspect harness metadata, read planning artifacts, browse the web, install dependencies, or create documentation.
 2. Preview round: make the first visible mutation a bounded, working first viewport, not the complete page. When primary_stylesheet is detected, write no more than 4,000 characters of coherent responsive styles before replacing the rendered placeholder. Then write no more than 6,000 characters to the primary rendered source for a responsive navigation, prompt-specific hero, working primary controls, and a meaningful code-native focal visual. The visual must communicate the product through recognizable objects, labels, relationships, or user-supplied data. Empty translucent shapes, generic gradient blobs, and blank frames do not qualify. Do not implement below-fold sections, plans, or tests in this round. Remove the placeholder sentinel only after this viewport is coherent. Do not write a plan or design document first. If no primary source was detected, use one bounded lookup for the rendered entrypoint and edit it immediately.
 3. Completion round: immediately continue after the visible mutation. Implement every section and interaction explicitly named in the actionable user brief. Do not omit, merge away, replace with a static mock, or count planning text, comments, placeholders, or hidden elements as implementation. Wire every navigation link to a real target, give every visible button its stated effect, and make every form behavior truthful. If primary_test is detected, read it now, update it once so it renders the current primary source and checks prompt-specific visible behavior, and do this before any test command. If no primary test exists, add one using the existing runner. Reuse the existing stack and lockfile.
 4. Verification round: run the real automated test once and the production build once. Fix only observed failures, then request completion. Never start a watch-mode test process. Prefer an existing test:ci script or a runner's one-shot mode; if neither exists, use the platform's native one-shot test runner instead of adding a test framework. Do not launch a development server or browser because the harness owns those checks.
@@ -22813,8 +22889,9 @@ Required execution order:
 6. Do not use emoji characters, em dash characters, or en dash characters in source, copy, logs, or summaries.
 
 The harness owns planning, dependency preparation, review, browser checks, proof, and process cleanup. Your job is to mutate the product source quickly, finish the requested app, and run its local tests and build. Do not install or upgrade dependencies, create documentation, use Git, or run temporary verification scripts. After one successful test and build round, run `touch .loki/signals/COMPLETION_REQUESTED` and end the turn. Do not run a second verification pass. Do not commit or push.
-</loki_system>
 SUPERVISED_PROMPT_EOF
+    printf '%s\n' "$(_loki_parallel_tool_calls_instruction)"
+    printf '</loki_system>\n'
     printf '<execution_context iteration="%s" retry="%s">\n' "$iteration" "$retry"
     printf '%s\n' "$source_hints"
     printf '</execution_context>\n'
@@ -22956,7 +23033,7 @@ build_prompt() {
     # writing any reference to a symbol the agent has not already read with
     # the Read tool, prefer mcp__loki-mode-lsp-proxy__lsp_check_exists. This
     # is the single most leveraged grounding primitive per OpenCode research.
-    local lsp_grounding_instruction="LSP_GROUNDING: When the loki-mode-lsp-proxy MCP server is available, prefer LSP tools for symbol verification BEFORE writing code that references those symbols. Workflow: (1) Need to call \`foo.bar()\` you have not already read? -> mcp__loki-mode-lsp-proxy__lsp_check_exists with symbol='bar' (sub-200ms when cached). If exists:false, do NOT write the call -- use mcp__loki-mode-lsp-proxy__lsp_workspace_symbols with the concept name to find the real symbol, or use Read to see the actual API. (2) Just edited a file? -> mcp__loki-mode-lsp-proxy__lsp_get_diagnostics on that file to see new errors before the next iteration. (3) Need to jump to a definition by name (no file:line known)? -> mcp__loki-mode-lsp-proxy__lsp_find_definition_by_name. Skip these tools silently when the server is not available -- check the tool list, do not retry on errors. Goal: eliminate hallucinated API calls before they ship. PARALLEL_TOOL_CALLS: When issuing independent read-only operations (reads, greps, file lookups, LSP checks) that do not depend on each other, issue them in a single message so they run in parallel; do not serialize independent lookups."
+    local lsp_grounding_instruction="LSP_GROUNDING: When the loki-mode-lsp-proxy MCP server is available, prefer LSP tools for symbol verification BEFORE writing code that references those symbols. Workflow: (1) Need to call \`foo.bar()\` you have not already read? -> mcp__loki-mode-lsp-proxy__lsp_check_exists with symbol='bar' (sub-200ms when cached). If exists:false, do NOT write the call -- use mcp__loki-mode-lsp-proxy__lsp_workspace_symbols with the concept name to find the real symbol, or use Read to see the actual API. (2) Just edited a file? -> mcp__loki-mode-lsp-proxy__lsp_get_diagnostics on that file to see new errors before the next iteration. (3) Need to jump to a definition by name (no file:line known)? -> mcp__loki-mode-lsp-proxy__lsp_find_definition_by_name. Skip these tools silently when the server is not available -- check the tool list, do not retry on errors. Goal: eliminate hallucinated API calls before they ship. $(_loki_parallel_tool_calls_instruction)"
 
     # AGENTS.md instruction (agents.md standard: plain Markdown at repo root,
     # nearest-file-wins, read natively by Claude Code/Codex/etc.). Loki prefers
@@ -30142,6 +30219,8 @@ except (json.JSONDecodeError, OSError): pass
     if [ "$result" != "0" ]; then
         _loki_surface_why_hint || true
     fi
+
+    _loki_restore_base_branch "$result" || true
 
     # OC-OUTPUT: unified run summary (same format as engine10); best-effort, never changes the exit code.
     if [ -f "$SCRIPT_DIR/lib/run-summary.sh" ]; then

@@ -9,7 +9,7 @@
 // autonomy/lib/cost-summary.py read (not ours to change). Unlike the legacy bash writer (autonomy/run.sh), which
 // always writes cost_usd (defaulting to 0 when unknown), this omits cost_usd when there is no dollar figure.
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"; import type { CostRecords, CostTotals } from "./types.ts"; import { hooks } from "./hooks.ts"; import { type CostBreakdown, costBreakdown } from "../util/cost_breakdown.ts";
-import { join } from "node:path"; import { routerEnabled } from "../runner/router/flag.ts";
+import { join } from "node:path"; import { sessionPlanEnabled } from "../runner/router/flag.ts";
 
 /** D48: marker on a result-cost file and the cost event/receipt for a CLI-invoker session (LOKI_E10_INVOKER=cli, e.g. the
  *  stub provider) that has no provider-reported dollars. Recorded as 0, never null, and always disclosed in NOT PROVEN. */
@@ -23,6 +23,8 @@ export interface RouterUsage {
   advisor_calls: number;
   advisor_input_tokens: number;
   advisor_output_tokens: number;
+  advisor_errors?: number; // #269: present only when an advisor error or truncation was seen
+  advisor_truncated?: number;
 }
 
 export interface CostResult {
@@ -57,7 +59,7 @@ export interface CostResult {
 /** R1-08: router telemetry is recorded only when the router flag is on (1/true/on, same as the router flag readers), so LOKI_ROUTER unset or 0
  *  leaves the result-cost file and CostResult byte-identical to pre-router. Shared by the stream parser. */
 export function routerTelemetryOn(env: Record<string, string | undefined> = process.env): boolean {
-  return routerEnabled(env);
+  return sessionPlanEnabled(env); // the router, or the advisor alone (#246: a parity run must show the advisor attached)
 }
 
 export function num(v: unknown): number {
@@ -129,6 +131,7 @@ export function sumResultCosts(lokiRoot: string, iterations: string[], context: 
     if (out.router) out.router["advisor_calls"] += num(rec["advisor_calls"]);
     if (out.router) out.router["advisor_input_tokens"] += num(rec["advisor_input_tokens"]);
     if (out.router) out.router["advisor_output_tokens"] += num(rec["advisor_output_tokens"]);
+    if (out.router) for (const k of ["advisor_errors", "advisor_truncated"] as const) if (num(rec[k]) > 0) out.router[k] = (out.router[k] ?? 0) + num(rec[k]);
     if (typeof rec["model"] === "string" && rec["model"]) out.model = rec["model"];
     sources.push(path);
     recs.push({ iter, rec });

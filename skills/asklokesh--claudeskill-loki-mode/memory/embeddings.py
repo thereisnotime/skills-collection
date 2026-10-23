@@ -6,6 +6,7 @@ with support for multiple providers:
 - Local: sentence-transformers (default, no API key required)
 - OpenAI: text-embedding-3-small/large
 - Cohere: embed-english-v3.0
+- Voyage: voyage-code-4 (code retrieval; opt-in only via LOKI_EMBEDDING_PROVIDER=voyage)
 
 Features:
 - Provider fallback chain for resilience
@@ -60,6 +61,7 @@ class EmbeddingProvider(Enum):
     LOCAL = "local"
     OPENAI = "openai"
     COHERE = "cohere"
+    VOYAGE = "voyage"
 
 
 class ChunkingStrategy(Enum):
@@ -84,10 +86,16 @@ class EmbeddingConfig:
 
     # Dimension settings
     dimension: int = 384  # Default for MiniLM-L6-v2
+    # Matryoshka-style truncation: keep the leading N components, then
+    # re-normalize. None keeps the provider's native dimension.
+    output_dimension: Optional[int] = None
+    # Storage dtype for a VectorIndex built from this config.
+    dtype: str = "float32"
 
     # API keys (loaded from env if not provided)
     openai_api_key: Optional[str] = None
     cohere_api_key: Optional[str] = None
+    voyage_api_key: Optional[str] = None
 
     # Chunking settings
     chunking_strategy: str = "semantic"
@@ -126,6 +134,11 @@ class EmbeddingConfig:
         "multilingual": "embed-multilingual-v3.0",
     }
 
+    VOYAGE_MODELS = {
+        "default": "voyage-code-4",
+        "general": "voyage-4",
+    }
+
     # Model dimensions
     MODEL_DIMENSIONS = {
         "all-MiniLM-L6-v2": 384,
@@ -137,6 +150,10 @@ class EmbeddingConfig:
         "embed-english-v3.0": 1024,
         "embed-english-light-v3.0": 384,
         "embed-multilingual-v3.0": 1024,
+        "voyage-code-4": 1024,
+        "voyage-4": 1024,
+        "voyage-code-3": 1024,
+        "voyage-3": 1024,
     }
 
     def __post_init__(self):
@@ -145,6 +162,8 @@ class EmbeddingConfig:
             self.openai_api_key = os.environ.get("OPENAI_API_KEY")
         if self.cohere_api_key is None:
             self.cohere_api_key = os.environ.get("COHERE_API_KEY")
+        if self.voyage_api_key is None:
+            self.voyage_api_key = os.environ.get("VOYAGE_API_KEY")
 
         # Set default model based on provider
         if self.model is None:
@@ -154,10 +173,19 @@ class EmbeddingConfig:
                 self.model = self.OPENAI_MODELS["default"]
             elif self.provider == "cohere":
                 self.model = self.COHERE_MODELS["default"]
+            elif self.provider == "voyage":
+                self.model = self.VOYAGE_MODELS["default"]
 
         # Update dimension based on model
         if self.model in self.MODEL_DIMENSIONS:
             self.dimension = self.MODEL_DIMENSIONS[self.model]
+
+        if self.output_dimension is not None and self.output_dimension < 1:
+            raise ValueError(
+                f"output_dimension must be a positive integer, got {self.output_dimension!r}"
+            )
+        if self.dtype not in ("float32", "float16"):
+            raise ValueError(f"dtype must be float32 or float16, got {self.dtype!r}")
 
     @classmethod
     def from_env(cls) -> "EmbeddingConfig":
@@ -167,6 +195,10 @@ class EmbeddingConfig:
             model=os.environ.get("LOKI_EMBEDDING_MODEL"),
             openai_api_key=os.environ.get("OPENAI_API_KEY"),
             cohere_api_key=os.environ.get("COHERE_API_KEY"),
+            voyage_api_key=os.environ.get("VOYAGE_API_KEY"),
+            output_dimension=int(os.environ["LOKI_EMBEDDING_OUTPUT_DIMENSION"])
+            if os.environ.get("LOKI_EMBEDDING_OUTPUT_DIMENSION") else None,
+            dtype=os.environ.get("LOKI_EMBEDDING_DTYPE", "float32"),
             chunking_strategy=os.environ.get("LOKI_EMBEDDING_CHUNKING", "semantic"),
             include_context=os.environ.get("LOKI_EMBEDDING_CONTEXT", "true").lower() == "true",
         )
@@ -186,6 +218,8 @@ class EmbeddingConfig:
             model=data.get("model"),
             fallback_providers=data.get("fallback_providers", ["local"]),
             dimension=data.get("dimension", 384),
+            output_dimension=data.get("output_dimension"),
+            dtype=data.get("dtype", "float32"),
             chunking_strategy=data.get("chunking_strategy", "semantic"),
             max_chunk_size=data.get("max_chunk_size", 512),
             chunk_overlap=data.get("chunk_overlap", 50),
@@ -205,6 +239,8 @@ class EmbeddingConfig:
             "model": self.model,
             "fallback_providers": self.fallback_providers,
             "dimension": self.dimension,
+            "output_dimension": self.output_dimension,
+            "dtype": self.dtype,
             "chunking_strategy": self.chunking_strategy,
             "max_chunk_size": self.max_chunk_size,
             "chunk_overlap": self.chunk_overlap,
@@ -217,6 +253,7 @@ class EmbeddingConfig:
             "timeout": self.timeout,
             "has_openai_key": self.openai_api_key is not None,
             "has_cohere_key": self.cohere_api_key is not None,
+            "has_voyage_key": self.voyage_api_key is not None,
         }
 
 
@@ -441,17 +478,33 @@ class TextChunker:
 # -----------------------------------------------------------------------------
 
 
+def _check_input_type(input_type: str) -> str:
+    """Return input_type if it is "query" or "document", else raise ValueError."""
+    if input_type not in ("query", "document"):
+        raise ValueError(f"input_type must be 'query' or 'document', got {input_type!r}")
+    return input_type
+
+
 class BaseEmbeddingProvider(ABC):
     """Base class for embedding providers."""
 
+    # True when the provider returns unit-length vectors, so a VectorIndex can
+    # rank by dot product instead of cosine. Subclasses opt in explicitly.
+    normalized: bool = False
+
     @abstractmethod
-    def embed(self, text: str) -> np.ndarray:
-        """Generate embedding for a single text."""
+    def embed(self, text: str, input_type: str = "document") -> np.ndarray:
+        """Generate embedding for a single text.
+
+        input_type is "query" for a search query and "document" for stored
+        content. Asymmetric remote providers (Cohere, Voyage) use it; the rest
+        accept and ignore it.
+        """
         pass
 
     @abstractmethod
-    def embed_batch(self, texts: List[str]) -> np.ndarray:
-        """Generate embeddings for multiple texts."""
+    def embed_batch(self, texts: List[str], input_type: str = "document") -> np.ndarray:
+        """Generate embeddings for multiple texts (see embed for input_type)."""
         pass
 
     @abstractmethod
@@ -476,6 +529,8 @@ class LocalEmbeddingProvider(BaseEmbeddingProvider):
 
     Falls back to TF-IDF when sentence-transformers is not available.
     """
+
+    normalized = True
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2", dimension: int = 384):
         self.model_name = model_name
@@ -562,8 +617,8 @@ class LocalEmbeddingProvider(BaseEmbeddingProvider):
             return embedding
         return embedding / norm
 
-    def embed(self, text: str) -> np.ndarray:
-        """Generate embedding for a single text."""
+    def embed(self, text: str, input_type: str = "document") -> np.ndarray:
+        """Generate embedding for a single text (input_type is ignored)."""
         if self._using_fallback:
             return self._tfidf_embed(text)
 
@@ -583,8 +638,8 @@ class LocalEmbeddingProvider(BaseEmbeddingProvider):
 
         return embedding
 
-    def embed_batch(self, texts: List[str]) -> np.ndarray:
-        """Generate embeddings for multiple texts."""
+    def embed_batch(self, texts: List[str], input_type: str = "document") -> np.ndarray:
+        """Generate embeddings for multiple texts (input_type is ignored)."""
         if not texts:
             return np.empty((0, self.dimension), dtype=np.float32)
 
@@ -617,6 +672,8 @@ class LocalEmbeddingProvider(BaseEmbeddingProvider):
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
     """OpenAI embedding provider using text-embedding-3 models."""
 
+    normalized = True
+
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -648,8 +705,8 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             )
         return self._client
 
-    def embed(self, text: str) -> np.ndarray:
-        """Generate embedding for a single text."""
+    def embed(self, text: str, input_type: str = "document") -> np.ndarray:
+        """Generate embedding for a single text (input_type is ignored)."""
         if not self.is_available():
             raise RuntimeError("OpenAI provider not available")
 
@@ -662,8 +719,8 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         embedding = response.data[0].embedding
         return np.array(embedding, dtype=np.float32)
 
-    def embed_batch(self, texts: List[str]) -> np.ndarray:
-        """Generate embeddings for multiple texts."""
+    def embed_batch(self, texts: List[str], input_type: str = "document") -> np.ndarray:
+        """Generate embeddings for multiple texts (input_type is ignored)."""
         if not texts:
             return np.empty((0, self.dimension), dtype=np.float32)
 
@@ -721,6 +778,8 @@ class CohereEmbeddingProvider(BaseEmbeddingProvider):
         except ImportError:
             logger.warning("cohere package not installed. Install with: pip install cohere")
 
+    _INPUT_TYPES = {"query": "search_query", "document": "search_document"}
+
     def _get_client(self) -> Any:
         """Get or create Cohere client."""
         if self._client is None:
@@ -731,11 +790,11 @@ class CohereEmbeddingProvider(BaseEmbeddingProvider):
             )
         return self._client
 
-    def embed(self, text: str) -> np.ndarray:
+    def embed(self, text: str, input_type: str = "document") -> np.ndarray:
         """Generate embedding for a single text."""
-        return self.embed_batch([text])[0]
+        return self.embed_batch([text], input_type)[0]
 
-    def embed_batch(self, texts: List[str]) -> np.ndarray:
+    def embed_batch(self, texts: List[str], input_type: str = "document") -> np.ndarray:
         """Generate embeddings for multiple texts."""
         if not texts:
             return np.empty((0, self.dimension), dtype=np.float32)
@@ -754,7 +813,7 @@ class CohereEmbeddingProvider(BaseEmbeddingProvider):
             response = client.embed(
                 texts=batch,
                 model=self.model,
-                input_type="search_document"
+                input_type=self._INPUT_TYPES[_check_input_type(input_type)]
             )
             embeddings.extend(response.embeddings)
 
@@ -768,6 +827,85 @@ class CohereEmbeddingProvider(BaseEmbeddingProvider):
 
     def is_available(self) -> bool:
         return self._cohere_available and self.api_key is not None
+
+
+class VoyageEmbeddingProvider(BaseEmbeddingProvider):
+    """Voyage AI embedding provider (voyage-code-4 for code retrieval).
+
+    Remote: sends text to a third party. Registered only when the user
+    names it via LOKI_EMBEDDING_PROVIDER=voyage; a VOYAGE_API_KEY alone
+    never selects it.
+    """
+
+    normalized = True
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: str = "voyage-code-4",
+        dimension: int = 1024,
+        timeout: float = 30.0
+    ):
+        self.api_key = api_key or os.environ.get("VOYAGE_API_KEY")
+        self.model = model
+        self.dimension = dimension
+        self.timeout = timeout
+        self._client: Optional[Any] = None
+        self._voyage_available = False
+
+        try:
+            import voyageai  # noqa: F401
+            self._voyage_available = True
+        except ImportError:
+            logger.warning("voyageai package not installed. Install with: pip install voyageai")
+
+    def _get_client(self) -> Any:
+        """Get or create Voyage client."""
+        if self._client is None:
+            import voyageai
+            self._client = voyageai.Client(
+                api_key=self.api_key,
+                timeout=self.timeout
+            )
+        return self._client
+
+    def embed(self, text: str, input_type: str = "document") -> np.ndarray:
+        """Generate embedding for a single text."""
+        return self.embed_batch([text], input_type)[0]
+
+    def embed_batch(self, texts: List[str], input_type: str = "document") -> np.ndarray:
+        """Generate embeddings for multiple texts."""
+        if not texts:
+            return np.empty((0, self.dimension), dtype=np.float32)
+
+        if not self.is_available():
+            raise RuntimeError("Voyage provider not available")
+
+        client = self._get_client()
+
+        # Voyage accepts up to 128 inputs per request
+        embeddings = []
+        batch_size = 128
+
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            response = client.embed(
+                batch,
+                model=self.model,
+                input_type=_check_input_type(input_type)
+            )
+            embeddings.extend(response.embeddings)
+
+        return np.array(embeddings, dtype=np.float32)
+
+    def get_dimension(self) -> int:
+        return self.dimension
+
+    def get_name(self) -> str:
+        return "voyage"
+
+    def is_available(self) -> bool:
+        return self._voyage_available and self.api_key is not None
 
 
 # -----------------------------------------------------------------------------
@@ -873,13 +1011,29 @@ class EmbeddingEngine:
                 timeout=self.config.timeout,
             )
 
+        # Voyage is opt-in only: registered when named as the provider or an
+        # explicit fallback, never from the presence of VOYAGE_API_KEY alone.
+        voyage_named = (
+            self.config.provider == "voyage"
+            or "voyage" in self.config.fallback_providers
+        )
+        if self.config.voyage_api_key and voyage_named:
+            voyage_model = self.config.model if self.config.provider == "voyage" else "voyage-code-4"
+            voyage_dim = self.config.MODEL_DIMENSIONS.get(voyage_model, 1024)
+            self._providers["voyage"] = VoyageEmbeddingProvider(
+                api_key=self.config.voyage_api_key,
+                model=voyage_model,
+                dimension=voyage_dim,
+                timeout=self.config.timeout,
+            )
+
         # Set primary provider
         if self.config.provider in self._providers:
             provider = self._providers[self.config.provider]
             if provider.is_available():
                 self._primary_provider = provider
                 self._current_provider_name = self.config.provider
-                self.dimension = provider.get_dimension()
+                self.dimension = self._effective_dimension(provider.get_dimension())
                 logger.info(f"Using {self.config.provider} embedding provider")
             else:
                 logger.warning(f"{self.config.provider} provider not available, using fallback")
@@ -897,7 +1051,7 @@ class EmbeddingEngine:
                     self._primary_provider = provider
                     self._current_provider_name = fallback
                     self._using_fallback = True
-                    self.dimension = provider.get_dimension()
+                    self.dimension = self._effective_dimension(provider.get_dimension())
                     self._metrics["fallback_count"] += 1
                     logger.info(f"Switched to fallback provider: {fallback}")
                     return
@@ -906,13 +1060,42 @@ class EmbeddingEngine:
         self._primary_provider = self._providers["local"]
         self._current_provider_name = "local"
         self._using_fallback = True
-        self.dimension = self._primary_provider.get_dimension()
+        self.dimension = self._effective_dimension(self._primary_provider.get_dimension())
 
-    def _get_cache_key(self, text: str, provider: Optional[str] = None) -> str:
-        """Generate a cache key for the given text and provider."""
+    def _get_cache_key(
+        self, text: str, provider: Optional[str] = None, input_type: str = "document"
+    ) -> str:
+        """Generate a cache key for the given text, provider and input type."""
         provider_name = provider or self._current_provider_name
-        content = f"{provider_name}:{self.model_name}:{text}"
+        # "document" keeps the historical key so existing caches stay valid.
+        suffix = "" if input_type == "document" else f":{input_type}"
+        content = f"{provider_name}:{self.model_name}:{text}{suffix}"
         return hashlib.md5(content.encode('utf-8')).hexdigest()
+
+    def _effective_dimension(self, native: int) -> int:
+        """Provider dimension after optional output_dimension truncation."""
+        target = self.config.output_dimension
+        return native if target is None else min(native, target)
+
+    def _prepare(self, embedding: np.ndarray) -> np.ndarray:
+        """Truncate to output_dimension (if set), then L2 normalize."""
+        target = self.config.output_dimension
+        if target is not None and embedding.shape[-1] > target:
+            embedding = embedding[..., :target]
+        return self._normalize(embedding)
+
+    def vector_index_kwargs(self) -> Dict[str, Any]:
+        """Constructor kwargs for a VectorIndex matching this engine's output.
+
+        ``normalized`` follows the active provider's declaration; a provider
+        that does not declare it gets a cosine-ranking index. VectorIndex
+        re-normalizes anything off unit length when the flag is set.
+        """
+        return {
+            "dimension": self.dimension,
+            "normalized": bool(getattr(self._primary_provider, "normalized", False)),
+            "dtype": self.config.dtype,
+        }
 
     def _normalize(self, embedding: np.ndarray) -> np.ndarray:
         """L2 normalize an embedding vector."""
@@ -949,7 +1132,8 @@ class EmbeddingEngine:
         self,
         text: str,
         with_context: bool = False,
-        full_content: Optional[str] = None
+        full_content: Optional[str] = None,
+        input_type: str = "document"
     ) -> np.ndarray:
         """
         Generate embedding for a single text.
@@ -960,10 +1144,14 @@ class EmbeddingEngine:
             text: Input text to embed.
             with_context: Whether to add surrounding context.
             full_content: Full document content for context extraction.
+            input_type: "query" for a search query, "document" (default) for
+                stored content. Remote asymmetric providers embed the two
+                differently; the cache keeps them apart.
 
         Returns:
             Normalized embedding vector of shape (dimension,).
         """
+        _check_input_type(input_type)
         self._metrics["total_requests"] += 1
         start_time = time.time()
 
@@ -975,7 +1163,7 @@ class EmbeddingEngine:
 
         # Check cache
         if self.config.cache_enabled:
-            cache_key = self._get_cache_key(text)
+            cache_key = self._get_cache_key(text, input_type=input_type)
             if cache_key in self._cache:
                 self._metrics["cache_hits"] += 1
                 return self._cache[cache_key]
@@ -986,17 +1174,17 @@ class EmbeddingEngine:
         # Generate embeddings
         try:
             if len(chunks) == 1:
-                embedding = self._primary_provider.embed(chunks[0])
+                embedding = self._primary_provider.embed(chunks[0], input_type)
             else:
                 # Embed chunks and combine (weighted average)
-                chunk_embeddings = self._primary_provider.embed_batch(chunks)
+                chunk_embeddings = self._primary_provider.embed_batch(chunks, input_type)
                 # Weight by chunk length
                 weights = np.array([len(c) for c in chunks], dtype=np.float32)
                 weights = weights / weights.sum()
                 embedding = np.average(chunk_embeddings, axis=0, weights=weights)
 
             # Normalize
-            embedding = self._normalize(embedding)
+            embedding = self._prepare(embedding)
 
             # Track metrics
             provider_name = self._current_provider_name
@@ -1013,13 +1201,13 @@ class EmbeddingEngine:
             # code embedded the raw, un-chunked text, producing a different vector
             # for multi-chunk inputs).
             if len(chunks) == 1:
-                embedding = self._primary_provider.embed(chunks[0])
+                embedding = self._primary_provider.embed(chunks[0], input_type)
             else:
-                chunk_embeddings = self._primary_provider.embed_batch(chunks)
+                chunk_embeddings = self._primary_provider.embed_batch(chunks, input_type)
                 weights = np.array([len(c) for c in chunks], dtype=np.float32)
                 weights = weights / weights.sum()
                 embedding = np.average(chunk_embeddings, axis=0, weights=weights)
-            embedding = self._normalize(embedding)
+            embedding = self._prepare(embedding)
             # The cache key computed above used the pre-fallback provider name.
             # _use_fallback() switched the provider, so recompute the key to
             # reflect the provider that actually produced this vector. Without
@@ -1027,7 +1215,7 @@ class EmbeddingEngine:
             # looks it up under the new provider key, causing a permanent cache
             # miss (and re-embedding) on every fallback request.
             if self.config.cache_enabled:
-                cache_key = self._get_cache_key(text)
+                cache_key = self._get_cache_key(text, input_type=input_type)
             # If dimension changed after fallback, log a warning so callers
             # know existing vector indices may be incompatible (BUG-MEM-006).
             if self.dimension != old_dimension:
@@ -1114,7 +1302,7 @@ class EmbeddingEngine:
         if texts_to_compute:
             try:
                 new_embeddings = self._primary_provider.embed_batch(texts_to_compute)
-                new_embeddings = self._normalize(new_embeddings)
+                new_embeddings = self._prepare(new_embeddings)
 
                 # Track metrics
                 provider_name = self._current_provider_name
@@ -1126,7 +1314,7 @@ class EmbeddingEngine:
                 logger.warning(f"Primary provider failed: {e}, trying fallback")
                 self._use_fallback()
                 new_embeddings = self._primary_provider.embed_batch(texts_to_compute)
-                new_embeddings = self._normalize(new_embeddings)
+                new_embeddings = self._prepare(new_embeddings)
 
             # Update cache
             if self.config.cache_enabled:

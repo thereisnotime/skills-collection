@@ -21,7 +21,32 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${LOKI_PRICING_PARITY_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 
-python3 - "$REPO_ROOT" <<'PY'
+# #310: .loki/pricing.json rows derive from model-pricing.json at runtime. Run the
+# real _write_pricing_json from run.sh against a pricing source (SCRIPT_DIR layout:
+# <tree>/autonomy next to <tree>/loki-ts/data) and copy the written file to $2.
+# shellcheck disable=SC2329
+write_pricing_out() {
+    local src="$1" dest="$2" work rc=0
+    work="$(mktemp -d "${TMPDIR:-/tmp}/loki-run.XXXXXXXX")" || return 1
+    mkdir -p "$work/autonomy" "$work/loki-ts/data" "$work/proj/.loki"
+    cp "$src" "$work/loki-ts/data/model-pricing.json" 2>/dev/null || true
+    (
+        cd "$work/proj" || exit 1
+        SCRIPT_DIR="$work/autonomy"
+        log_error() { :; }; log_warn() { :; }; log_info() { :; }
+        # shellcheck disable=SC1090
+        source <(awk 'f && /^[A-Za-z_][A-Za-z0-9_]*\(\) \{/ {exit} /^_write_pricing_json\(\) \{/ {f=1} f' "$REPO_ROOT/autonomy/run.sh")
+        _write_pricing_json 2>/dev/null
+        cp .loki/pricing.json "$dest"
+    ) || rc=$?
+    case "$work" in "${TMPDIR:-/tmp}"/loki-run.*) rm -rf -- "$work" ;; esac
+    return "$rc"
+}
+pricing_out_dir="$(mktemp -d "${TMPDIR:-/tmp}/loki-run.XXXXXXXX")" || exit 1
+write_pricing_out "$REPO_ROOT/loki-ts/data/model-pricing.json" "$pricing_out_dir/pricing.json" \
+    || echo "FAIL: _write_pricing_json did not run against the real pricing source"
+
+python3 - "$REPO_ROOT" "$pricing_out_dir/pricing.json" <<'PY'
 import json, re, sys
 
 root = sys.argv[1]
@@ -71,7 +96,12 @@ for m in re.finditer(
 tables["budget.ts fallback"] = ts_rows
 
 run = read("autonomy/run.sh")
-tables["run.sh _write_pricing_json"] = rows_dict(window(run, '"fable":           {"input"', 2500), '"')
+try:
+    with open(sys.argv[2], encoding="utf-8") as _fh:
+        gen = json.load(_fh)["models"]
+except (OSError, ValueError, KeyError):
+    gen = {}
+tables["run.sh _write_pricing_json"] = {k: (v["input"], v["output"]) for k, v in gen.items() if k in KEYS}
 tables["run.sh check_budget_limit"] = rows_dict(window(run, "pricing = {\n    'fable'", 1800), "'")
 tables["dashboard _DEFAULT_PRICING"] = rows_dict(window(read("dashboard/server.py"), '"fable":  {"input"', 1800), '"')
 tables["autonomy/loki"] = rows_dict(window(read("autonomy/loki"), "pricing = {\n    'Fable'", 400), "'")
@@ -144,7 +174,7 @@ def cache_rows(text, q):
 
 cache_tables = {
     "budget.ts fallback": cache_rows(fb, '"?'),
-    "run.sh _write_pricing_json": cache_rows(window(run, '"fable":           {"input"', 900), '"'),
+    "run.sh _write_pricing_json": {k: {f: float(v[f]) for f in ("cache_read", "cache_write") if f in v} for k, v in gen.items() if k in PUBLISHED},
     "run.sh check_budget_limit": cache_rows(window(run, "pricing = {\n    'fable'", 900), "'"),
     "dashboard _DEFAULT_PRICING": cache_rows(window(read("dashboard/server.py"), '"fable":  {"input"', 900), '"'),
 }
@@ -234,7 +264,7 @@ def openai_rows(text, q):
 oa = {
     "model-pricing.json": {k: (v["input"], v["output"], v.get("cache_read")) for k, v in pj.items() if k.startswith("gpt-")},
     "budget.ts fallback": openai_rows(fb, '"?'),
-    "run.sh _write_pricing_json": openai_rows(window(run, '"fable":           {"input"', 2500), '"'),
+    "run.sh _write_pricing_json": {k: (v["input"], v["output"], v.get("cache_read")) for k, v in gen.items() if k.startswith("gpt-")},
     "run.sh check_budget_limit": openai_rows(window(run, "pricing = {\n    'fable'", 1500), "'"),
     "dashboard _DEFAULT_PRICING": openai_rows(window(read("dashboard/server.py"), '"fable":  {"input"', 2500), '"'),
 }
@@ -257,11 +287,62 @@ for rel in ("autonomy/tui.sh", "autonomy/context-tracker.py"):
         print(f"FAIL: {rel} still carries a stale price row")
         fails += 1
 
+# #310 derivation: the written file carries every model of model-pricing.json with
+# identical rates and no row the source lacks, so a hand-kept row cannot drift.
+for k, row in pj.items():
+    g = gen.get(k)
+    if g is None:
+        print(f"FAIL: run.sh _write_pricing_json is missing {k} from model-pricing.json")
+        fails += 1
+        continue
+    fields = ("input", "output") if k.startswith("gpt-") else ("input", "output", "cache_read", "cache_write", "cache_write_1h")
+    for f in fields:
+        if f in row and g.get(f) != row[f]:
+            print(f"FAIL: run.sh _write_pricing_json {k} {f}={g.get(f)} != model-pricing.json {row[f]}")
+            fails += 1
+    if row.get("over_100k") and g.get("over_100k") != {"input": row["over_100k"]["input"], "output": row["over_100k"]["output"]}:
+        print(f"FAIL: run.sh _write_pricing_json {k} over_100k {g.get('over_100k')} != model-pricing.json {row['over_100k']}")
+        fails += 1
+for k in gen:
+    if k not in pj:
+        print(f"FAIL: run.sh _write_pricing_json carries hand-kept row {k} absent from model-pricing.json")
+        fails += 1
+
 print("PRICING-PARITY-TEST:", "FAIL" if fails else "PASS")
 sys.exit(1 if fails else 0)
 PY
 rc=$?
 [ "$rc" -eq 0 ] || exit "$rc"
+
+# #310: a model added to model-pricing.json appears in the run.sh output with its
+# rates, and a changed price flows through, with no run.sh edit.
+added_src="$pricing_out_dir/added-pricing.json"
+python3 - "$REPO_ROOT/loki-ts/data/model-pricing.json" "$added_src" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["pricing"]["zz-added-model"] = {"input": 7.0, "output": 9.0, "cache_read": 0.7, "cache_write": 8.75, "cache_write_1h": 14.0, "label": "ZZ Added"}
+d["pricing"]["sonnet"]["input"] = 2.5
+json.dump(d, open(sys.argv[2], "w"))
+PYEOF
+write_pricing_out "$added_src" "$pricing_out_dir/added-out.json" || echo "FAIL: _write_pricing_json did not run against the added-model source"
+added_check="$(python3 - "$pricing_out_dir/added-out.json" <<'PYEOF'
+import json, sys
+try:
+    m = json.load(open(sys.argv[1]))["models"]
+except (OSError, ValueError, KeyError):
+    m = {}
+a, s = m.get("zz-added-model", {}), m.get("sonnet", {})
+ok = (a.get("input"), a.get("output"), a.get("cache_read"), a.get("label")) == (7.0, 9.0, 0.7, "ZZ Added") and s.get("input") == 2.5
+print("ok" if ok else "bad")
+PYEOF
+)"
+if [ "$added_check" = "ok" ]; then
+    echo "ok:   run.sh _write_pricing_json derives an added model and a changed price from model-pricing.json"
+else
+    echo "FAIL: run.sh _write_pricing_json did not carry an added model or a changed price from model-pricing.json"
+    exit 1
+fi
+case "$pricing_out_dir" in "${TMPDIR:-/tmp}"/loki-run.*) rm -rf -- "$pricing_out_dir" ;; esac
 
 # PRICE-TRUTH-2: run the real check_budget_limit from run.sh on the bash route.
 # 1M input + 1M output tokens: claude-haiku-4-5 must cost $6 ($1/$5), not the
@@ -355,4 +436,120 @@ rm -f "$price"
 budget_case "absent file" 0 "100.00"
 
 case "$budget_work" in "${TMPDIR:-/tmp}"/loki-run.*) rm -rf -- "$budget_work" ;; esac
+# #299: LOKI_INFERENCE_GEO=us is a 1.1x multiplier on token-priced cost. TS
+# (calculateCostFromRecords), bash (check_budget_limit) and the Python surfaces
+# (efficiency_cost helper, dashboard _calculate_model_cost) must report the same
+# spend for the same record, geo unset and geo=us. All read one JSON key.
+geo_work="$(mktemp -d "${TMPDIR:-/tmp}/loki-run.XXXXXXXX")" || exit 1
+mkdir -p "$geo_work/.loki/metrics/efficiency"
+printf '{"model":"sonnet","input_tokens":1000000,"output_tokens":1000000}\n' \
+    >"$geo_work/.loki/metrics/efficiency/iter-1.json"
+
+geo_ts() {
+    (cd "$REPO_ROOT/loki-ts" && LOKI_INFERENCE_GEO="$1" bun -e '
+import { calculateCostFromRecords } from "./src/runner/budget.ts";
+console.log(calculateCostFromRecords([{ model: "sonnet", input_tokens: 1000000, output_tokens: 1000000 }]));
+' 2>/dev/null)
+}
+# BUDGET_LIMIT is tiny so check_budget_limit takes the exceeded branch, which
+# records the computed spend as budget_used in budget.json.
+geo_bash() {
+    (
+        cd "$geo_work" || exit 1
+        export SCRIPT_DIR="$REPO_ROOT/autonomy" BUDGET_LIMIT=0.01 ITERATION_COUNT=1
+        log_error() { :; }; log_warn() { :; }; log_info() { :; }; emit_event_json() { :; }
+        # shellcheck disable=SC1090
+        source <(awk '/^check_budget_limit\(\) \{/ {f=1; print; next} f && /^[A-Za-z_][A-Za-z0-9_]*\(\) \{/ {exit} f {print}' "$REPO_ROOT/autonomy/run.sh")
+        rm -f .loki/metrics/budget.json
+        LOKI_INFERENCE_GEO="$1" check_budget_limit >/dev/null 2>&1
+        sed -n 's/.*"budget_used": *\([0-9.]*\).*/\1/p' .loki/metrics/budget.json
+    )
+}
+geo_py() {
+    LOKI_INFERENCE_GEO="$1" python3 - "$REPO_ROOT" <<'PYEOF' 2>/dev/null
+import sys
+sys.path.insert(0, sys.argv[1] + "/autonomy/lib")
+from efficiency_cost import inference_geo_multiplier
+print(round(12.0 * inference_geo_multiplier(), 4))
+PYEOF
+}
+geo_dash() {
+    LOKI_INFERENCE_GEO="$1" python3 - "$REPO_ROOT" <<'PYEOF' 2>/dev/null
+import json, os, sys
+from pathlib import Path as _Path
+root = sys.argv[1]
+src = open(root + "/dashboard/server.py").read()
+seg = src[src.index("def _inference_geo_multiplier"):src.index('@app.get("/api/cost"')]
+ns = {"os": os, "json": json, "_Path": _Path, "__file__": root + "/dashboard/server.py"}
+ns["_get_model_pricing"] = lambda: {"sonnet": {"input": 2.0, "output": 10.0, "cache_read": 0.1, "cache_write": 2.5}}
+exec(seg, ns)
+print(round(ns["_calculate_model_cost"]("sonnet", 1000000, 1000000), 4))
+PYEOF
+}
+geo_num() { awk -v v="$1" 'BEGIN{printf "%.4f", v}'; }
+
+for geo_case in "unset:12.0000" "us:13.2000" "global:12.0000"; do
+    geo="${geo_case%%:*}"; want="${geo_case##*:}"; [ "$geo" = unset ] && geo=""
+    for surf in ts bash py dash; do
+        got="$(geo_num "$(geo_$surf "$geo")")"
+        if [ "$got" = "$want" ]; then
+            echo "ok:   geo '${geo_case%%:*}' $surf spend $got"
+        else
+            echo "FAIL: geo '${geo_case%%:*}' $surf spend '$got', want $want"; bash_fail=1
+        fi
+    done
+done
+
+# The fallback constants must equal the JSON value, or an unreadable file would
+# make the surfaces disagree with each other.
+json_us="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]+'/loki-ts/data/model-pricing.json'))['inference_geo_multipliers']['us'])" "$REPO_ROOT")"
+for f in loki-ts/src/providers/model_routes.ts autonomy/lib/efficiency_cost.py autonomy/run.sh dashboard/server.py; do
+    if grep -Eq '(FALLBACK = |\{"us": |geo = )1\.1\b|1\.1 if os\.environ' "$REPO_ROOT/$f" && [ "$json_us" = "1.1" ]; then
+        echo "ok:   geo fallback 1.1 matches JSON in $f"
+    else
+        echo "FAIL: geo fallback in $f missing or differs from JSON ($json_us)"; bash_fail=1
+    fi
+done
+
+
+# #299c: the budget gate derives its rows from loki-ts/data/model-pricing.json
+# (the literal dict is the fallback only). A mutated JSON price must move the
+# number; a missing JSON must fall back to the literal rows.
+src_work="$(mktemp -d "${TMPDIR:-/tmp}/loki-run.XXXXXXXX")" || exit 1
+mkdir -p "$src_work/mut/autonomy" "$src_work/mut/loki-ts/data" "$src_work/none/autonomy" "$src_work/.loki/metrics/efficiency"
+python3 - "$REPO_ROOT" "$src_work/mut/loki-ts/data/model-pricing.json" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1] + "/loki-ts/data/model-pricing.json"))
+d["pricing"]["sonnet"]["input"] = 3.0
+json.dump(d, open(sys.argv[2], "w"))
+PYEOF
+printf '{"model":"sonnet","input_tokens":1000000,"output_tokens":1000000}\n' >"$src_work/.loki/metrics/efficiency/1.json"
+src_cost() {
+    (
+        cd "$src_work" || exit 1
+        export SCRIPT_DIR="$1" BUDGET_LIMIT=0.01 ITERATION_COUNT=1
+        log_error() { :; }; log_warn() { echo "$*" >>"$src_work/warns.txt"; }; log_info() { :; }; emit_event_json() { :; }
+        # shellcheck disable=SC1090
+        source <(awk '/^check_budget_limit\(\) \{/ {f=1; print; next} f && /^[A-Za-z_][A-Za-z0-9_]*\(\) \{/ {exit} f {print}' "$REPO_ROOT/autonomy/run.sh")
+        rm -f .loki/metrics/budget.json
+        check_budget_limit >/dev/null 2>&1
+        check_budget_limit >/dev/null 2>&1
+        sed -n 's/.*"budget_used": *\([0-9.]*\).*/\1/p' .loki/metrics/budget.json
+    )
+}
+for src_case in "$REPO_ROOT/autonomy:12.0000" "$src_work/mut/autonomy:13.0000" "$src_work/none/autonomy:12.0000"; do
+    got="$(geo_num "$(src_cost "${src_case%:*}")")"; want="${src_case##*:}"
+    if [ "$got" = "$want" ]; then
+        echo "ok:   budget gate JSON source case ${src_case%:*} spend $got" | sed "s#$src_work#<tmp>#; s#$REPO_ROOT#<repo>#"
+    else
+        echo "FAIL: budget gate with SCRIPT_DIR ${src_case%:*} spent '$got', want $want"; bash_fail=1
+    fi
+done
+if [ "$(grep -c 'missing or unreadable' "$src_work/warns.txt" 2>/dev/null)" = "1" ]; then
+    echo "ok:   missing pricing JSON logged the fallback once"
+else
+    echo "FAIL: missing pricing JSON fallback log count is not 1"; bash_fail=1
+fi
+case "$src_work" in "${TMPDIR:-/tmp}"/loki-run.*) rm -rf -- "$src_work" ;; esac
+case "$geo_work" in "${TMPDIR:-/tmp}"/loki-run.*) rm -rf -- "$geo_work" ;; esac
 exit "$bash_fail"

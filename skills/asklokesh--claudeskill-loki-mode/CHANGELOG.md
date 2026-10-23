@@ -5,6 +5,861 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.67.9 (2026-10-23)
+
+### Fixed
+- The allowed-paths sandbox-mount test is corrected (rq-60). Approval: "ship pd/rq60 a8acf9478d31e7b5a7edba62a87291ccbac88d02. rev-b HIGH verdict: APPROVE".
+
+## v11.67.8 (2026-10-23)
+
+### Fixed
+- The trust-core detector test now anchors its six mutation probes on single-line finds, with checks for stale, no-op and non-unique anchors (#214). Approval: "tl-324 APPROVE (LOW/MEDIUM, test file only) pd/rq57 single commit 68d8429607cdf119e0e913b38d19947762af5b4d".
+
+## v11.67.7 (2026-10-23)
+
+### Fixed
+- The trap-task fixtures now keep judge-trap-1 pinned to its paid-trial hash and add judge-trap-1b as a new task id. Approval: "tl-324 APPROVE (MEDIUM) pd/traptasks3 single commit 10c94b836ae9006dd51bf09a8a6bda2fbe09d6d7".
+
+## v11.67.6 (2026-10-23)
+
+### Fixed
+- The MCP server fix from pd/rq56 is now in the release. Approval: "APPROVE pd/rq56 b50a02b5b (tl-2, LOW)".
+
+## v11.67.5 (2026-10-23)
+
+### Fixed
+- One codex effort resolver in claude_flags.ts now serves every caller, and a parity test pins it to codex.sh so the two cannot drift (#255). Approval: "APPROVE pd/rq62 88794a707 (tl-2, MEDIUM)".
+
+## v11.67.4 (2026-10-23)
+
+### Fixed
+- The FC-55 20,050-file test fixture and its cleanup now set explicit timeouts, so they no longer fail on slow machines at the default limit. Approval: "tl-324 approval line: ship range origin/main..6bff668ce2b277376d94b8e69a6875ba3d746338 (pd/fc55b-timeout, 2 commits: 7b9745530f28df2cc89efb89256e7d1c7a4447cd, 6bff668ce2b277376d94b8e69a6875ba3d746338, LOW, merge-tree rc 0)".
+
+## v11.67.3 (2026-10-23)
+
+### Fixed
+- The codex.py scoped-out line is now pinned by the P12-26b guard test and its failure class is recorded (rq-59). Approval: "tl-2 APPROVE pd/rq59a 7bf99e440 (MEDIUM, P0)".
+
+## v11.67.2 (2026-10-23)
+
+### Fixed
+- The e10ext line budget guard is green again: code moved out of the over-budget e10ext file, with cache and full_job_brief tests unchanged (main-red-e10ext, merge head 3bc340b548bffdfcab977e232cc7f6393f93dc3e, stack 85979c3af806bca7a4680a60472c8413c024674f then 3bc340b548bffdfcab977e232cc7f6393f93dc3e). Approval: "APPROVE (MEDIUM, tl-324): pd/main-red-e10ext branch head 3bc340b548bffdfcab977e232cc7f6393f93dc3e (merge commit, second parent a0b492c2b is origin/main)".
+
+## v11.67.1 (2026-10-23)
+
+### Fixed
+- The codex.py scoped-out line is now pinned by the P12-26b guard test and its failure class is recorded (rq-59). Approval: "tl-2 APPROVE pd/rq59a 7bf99e440 (MEDIUM, P0)".
+
+## v11.67.0 (2026-10-23)
+
+### Added
+- loki_seal_diff seals changes a client already made into a signed receipt (CW-12, #345); --seal-existing is registered in route.sh.
+
+### Fixed
+- A run with no Wall file is VERIFIED only if a passing test references a changed symbol; an external diff never takes the lean Wall skip; the lean symbol rule ignores local variables and strips comments over the whole added hunk (cw12-r11). Approval: "cw12-r11 720796a3b now has both HIGH approvals (rev-a and rev-c), so it is clear to merge by SHA 720796a3b." (rev-c; rev-a APPROVE also on 720796a3b)
+
+## v11.66.2 (2026-10-23)
+
+### Fixed
+- Go and cargo test ids are attributed to the base only when the change cannot own them (FC-FULLSUITE-GO-CARGO-IDS, rq02b-r6). Approval: "Ship rq02b-r6: one commit, de98e00583e0f0c5f48baf5c2e6fd7b9aa7e1b68, which is based on origin/main a7162f1f3, and merge-tree exits 0. rev-c is the sole HIGH reviewer and approves it. This supersedes the r5 SHA 5e51076f7, so do not merge r5." (rev-c)
+
+## v11.66.1 (2026-10-23)
+
+### Fixed
+- The release approval gate approves a range by exact SHA, fails closed on a bad range, reuses release.sh RELEASE_DIST_FILES and denies a rowless approval by name (FC-RELEASE-UNNAMED-STACKED-PARENT, #436). Approval: "ship pd/rag436-r3 ff7fb1a8efc85d1d80e98cb4e0ebdb943426c803. It is 3 commits over origin/main 69ea3491d, with an FC-only conflict. Pick in order: 525f46cb81d83a2e7da167bda33e9d0550443ece, 21910793e94f70129f689456d2252f324f96852e, ff7fb1a8efc85d1d80e98cb4e0ebdb943426c803. APPROVE ff7fb1a8efc85d1d80e98cb4e0ebdb943426c803" (rev-b)
+
+## v11.66.0 (2026-10-23)
+
+### Added
+- /loki fix, /loki explain and /loki reseal PR comment commands (#360).
+
+### Fixed
+- The /loki fork refusal is guarded, the fix chain runs end to end, and comments no longer cancel queued commands; the verify-pr stub asserts its subcommand and the publish jobs get their own concurrency group (#360, FC-WORKFLOW-STUB-IGNORES-SUBCOMMAND-AND-SHARED-PUBLISH-GROUP). Approval: "ship pd/360-r3 1cf441b003593f7444c973a5dc070a2688a9da99. It is 3 commits over origin/main 89a8ce8c7, with an FC-only conflict. Pick in order: 976da0716ba7cc3ea3dcdd026e8842aae85f548e, 6252fe6257099370c9fb63ed6a4493ea83a778c0, 1cf441b003593f7444c973a5dc070a2688a9da99. APPROVE 1cf441b003593f7444c973a5dc070a2688a9da99" (rev-b)
+
+## v11.65.6 (2026-10-23)
+
+### Fixed
+- The python leg of the two model-override parity matrices is batched, 445s to 103s (FC-MODEL-OVERRIDE-TEST-TOO-SLOW). Approval: "rev-b APPROVE: ship pd/318r-r4 706028a9188c9f6337b1f4b05fe25292cccca77f. 5 commits over origin/main. Pick in order: 868a96c9f0e5ea87e26a3df971b0cd47465a0d20, 529d4f9d5de3329c34cb193753d48c2dba0693f8, 584689c0f8a867b7e4fcca03754db1e9f514c97f, bf99fa38b25e3ab91c37a01d7d71dd55dc59b812, 706028a9188c9f6337b1f4b05fe25292cccca77f. FC-only conflict. APPROVE 706028a9188c9f6337b1f4b05fe25292cccca77f"
+
+## v11.65.5 (2026-10-23)
+
+### Fixed
+- Proof-verify parity and MCP config tests use a load-aware time budget, with measured sibling sweep counts and the sibling mutant recorded for FC-SUBPROCESS-TEST-DEFAULT-TIMEOUT. Approval: "rev-b APPROVE: ship pd/loadaware c471eda6168dcd3c30de627aa45a6c459bc7fcd1. 2 commits over origin/main. Pick in order: 11493942d4c4e253fc03a384c560a3407c878e75, c471eda6168dcd3c30de627aa45a6c459bc7fcd1. FC-only conflict. APPROVE c471eda6168dcd3c30de627aa45a6c459bc7fcd1"
+
+## v11.65.4 (2026-10-23)
+
+### Fixed
+- The first-run gate test now matches the real context trigger in loki-ts/src/e10ext/context.ts, so its stub gate no longer passes cases the real gate fails (357c3-r2). Approval: "tl-324: APPROVE pd/357c3-r2 46bf09fbe29754ff65f46e4cdc61d8748c865b6d. Single commit on origin/main (no stacked parents)".
+
+## v11.65.3 (2026-10-23)
+
+### Fixed
+- The stale-dist guard in bin/loki and autonomy/loki now compares every loki-ts/src file, not cli.ts alone, so an edited source file triggers a rebuild (dist-freshness-guard). Approval: "APPROVE pd/dist-freshness-guard b8c98f864e2df03898addd7682de73a7b8a42771 (tl-2, MEDIUM)".
+
+## v11.65.2 (2026-10-23)
+
+
+
+### Fixed
+- loki verify --fast and its flags appear in help and in the bash and zsh completions, pinned by the drift test (pd/fastcomp). Approval: "APPROVE pd/fastcomp d5798c76f (tl-2, LOW)", full SHA d5798c76fc4e4e21f4b5d9d81b8a1fa997a98bbe.
+
+## v11.65.1 (2026-10-23)
+
+
+
+### Fixed
+- The supervisor_backstop and route_matrix test bounds scale with machine load, the SIGTERM to SIGKILL gap is measured from the worker's own signal timestamp, and the fake repo dir is cleared at each stage boundary (pd/loadaware). Approval: "APPROVE (LOW, tl-324): pd/loadaware branch head at full SHA 00b2a89160fba583be733074a1f74b0ef1175b49 (merge commit; second parent d8fec54ac is origin/main)". Shipped by merging that head; it contains 2264accef, 7385f1da5, 8722d92ae and 28b795fd1.
+
+## v11.65.0 (2026-10-23)
+
+
+
+### Added
+- The engine10 machine journals a per-stage diff stat for stages that change the tree, and the wall stage journals its own diff stat (pd/stage-diffstat). Approval: "APPROVE (MEDIUM, tl-324): pd/stage-diffstat branch head at full SHA c7a5f00f7b869e227062afe4529a8f11be19409d (merge commit, parents f365f4e2a and origin/main 5cae48655)". Shipped by merging that head.
+
+## v11.64.0 (2026-10-23)
+
+
+
+### Added
+- The dashboard run replay scrubber shows one position per stage with the journal's diff, tests and cost (#422, R100-082). Approval: "APPROVE (LOW, tl-324): #422 / R100-082 run replay scrubber, pd/r422 at full SHA 6f10c92797677550c191e9bf115f5d1aa4f89ff7".
+
+## v11.63.10 (2026-10-23)
+
+### Fixed
+- The dashboard derives the child LOKI_* env allowlist from one data file and guards every runner env read (FC-CHILD-ENV-HAND-ALLOWLIST-DRIFT, #305). Approval: "APPROVE pd/rq51-child-env2 c38467306 (tl-2, MEDIUM). 41 passed, two mutants red and restored, FC row present, merge-tree rc=0, no dashes or emoji."
+
+## v11.63.9 (2026-10-23)
+
+### Fixed
+- A rejected API key ends the run naming its cause and the fix (FC-AUTH-CAUSE-ONLY-IN-IMPL-LOG); engine markers are neutralized in child and CLI stderr as well as stdout (FC-AGENT-TEXT-FORGES-ENGINE-MARKER); a forged sdk-loop auth line on CLI stderr is not fatal:auth end to end. Approval: "SHIP keycause-final2: rev-c APPROVES 11a9fffe4, e0a417163, c939d0786 and e324c350c (head e324c350c). merge-tree against fresh origin/main gives rc=0. tsc rc=0. fatal_e2e, session_dispatch, providers, sdk_stream_parser and output give 196 pass and 0 fail." rev-c is the only assigned HIGH reviewer (CoS ruling).
+
+## v11.63.8 (2026-10-23)
+
+### Fixed
+- The full suite runs under the project interpreter and the repo-identity note names its fix (FC-FULL-SUITE-IGNORES-PROJECT-INTERPRETER); the full-suite baseline run line quotes each word so a spaced repo path still runs (FC-SUITE-RUN-LINE-BREAKS-ON-SPACED-PATH); a Python repo with no ruff and a repo with no UI no longer end PARTIAL (FC-LINT-TOOL-NEVER-USED-BY-PROJECT, FC-VISUAL-EVIDENCE-NA-READ-AS-NOT-PROVEN). Approval: "Ship approved for A-r5+C-r4 (pd/partial-harness-ac-r5), head e6bc96d84. The range over origin/main is 7e7a30f7e, e409e4b91, 8e5dc5028 and e6bc96d84, the merge of origin/main 1b36976dc. tsc gives rc=0, verify.test.ts plus visual_evidence.test.ts give 85 pass and 0 fail, and merge-tree against origin/main 5bc5f4dd0 gives rc=0. Merge by SHA e6bc96d84." (rev-c, only assigned HIGH reviewer per CoS ruling)
+
+## v11.63.7 (2026-10-23)
+
+### Fixed
+- The engine10 runner honors LOKI_SESSION_MODEL and refuses an unrecognized pin (FC-ENGINE10-IGNORES-SESSION-MODEL-PIN); the bash parity assertion is typechecked. Approval: "SHIP e10-session-model: rev-c APPROVES 8721d0612 and 3ab3843de (head 3ab3843de). merge-tree against fresh origin/main gives rc=0. tsc rc=0. session_l1_model, preflight and claude_model_bundle give 95 pass and 0 fail. start.test.ts gives 94 pass and 0 fail." rev-c is the only assigned HIGH reviewer (CoS ruling).
+
+## v11.63.6 (2026-10-23)
+
+### Fixed
+- The PAUSED.md parity comment in loki-ts anchors on the shared no-TTY wording, not run.sh line numbers (#212 criterion 2). Approval: "APPROVE pd/rq72 5a26e8f50 (tl-2, LOW): comment-only in intervention.ts; merge-tree clean; "PAUSED.md resume wording" tests 2/0; the anchor string exists at run.sh:28721, 28743 and intervention.ts:375."
+
+## v11.63.5 (2026-10-23)
+
+### Fixed
+- The alias-forwarding test reads the full grouped help from loki help all and tracks its 32 entries (FC-TEST-ALIAS-FWD-HELP-PAGE-DRIFT). Approval: "APPROVE pd/alias-help-groups2 a1dcdf113 stacked on pd/rq53-alias-spawns 8c97e1ab1 (tl-2, LOW): 211/0 on bash and bun routes, 154 spawns; repoint-to-plain-help mutant red (202/9) and restored; only conflict is docs/v10/FAILURE-CLASSES.md (keep-both; both rows append at EOF); ships after rq53."
+
+## v11.63.4 (2026-10-23)
+
+### Fixed
+- The alias-forwarding test shares one alias --json run between two assertions and prints the CLI spawn count (FC-TEST-ALIAS-FWD-REDUNDANT-SPAWN, #183). Approval: "APPROVE pd/rq53-alias-spawns 8c97e1ab1 (tl-2, LOW): merge-tree rc=0; alias-forwarding suite 154 spawns, 202/9 on both routes, same 9 failing rows as base 5cae48655; export keeps its second spawn; empty-alias-stdout mutant red (189/22) and restored."
+
+## v11.63.3 (2026-10-23)
+
+
+
+### Fixed
+- A sealed Wall path always runs, not only those test discovery lists; a sealed Rust Wall file under tests/ runs as cargo test --test <name>; a sealed Go Wall file runs only its own Test, Fuzz and Example functions via go test -run; and the real go test check gets an explicit 60s timeout (wallgo-r5). Approval: "ship pd/wallgo-r5 37127bc3d4ea913a214ad0c7ac0ad68027158e65 (HIGH, rev-b APPROVE). It is 5 commits over origin/main 5746a4550, linear with 0 merges". rev-c holds no open BLOCK on the wallfile or wallrust commits.
+
+## v11.63.2 (2026-10-23)
+
+
+
+### Fixed
+- get_state_manager caps its per-root cache with an LRU like the TypeScript side (rq35). Approval: "APPROVE pd/rq35 384aca714 (tl-2, LOW), ships after race-impl-hang e59771e33 and rq25 66de3ec0b".
+
+## v11.63.1 (2026-10-23)
+
+
+
+### Fixed
+- The Bun route clears the previous run's proof pointer at run start (rq25; FC-PROOF-POINTER-STALE). Approval: "APPROVE pd/rq25 66de3ec0b (tl-2, MEDIUM), ships after race-impl-hang e59771e33". CoS ruled it independent of race-impl-hang (separate files), so it ships on its own.
+
+## v11.63.0 (2026-10-23)
+
+
+
+### Added
+- loki runs lists every run across registered projects and reads each project's own .loki/runs, never LOKI_DIR (R100-008a, #362; FC-RUNS-ENV-LEAKS-ACROSS-PROJECTS). Approval: "ship pd/r100-008a 861656d44caa7d99f91b5eba57feb9258e46986d ea74b8fc9926b346d2b3ac8be4050d126e755901 (2 commits over origin/main 5746a4550, HIGH, rev-b)".
+
+## v11.62.1 (2026-10-23)
+
+
+
+### Fixed
+- The P9 moat test pins the shorthand helper binding in a dynamic-import destructure to both the import and indirect rules (p9-shorthand, rebased onto main). Approval: "Ship: p9-shorthand. rev-c HIGH re-APPROVE on 61ca6c363, which replaces my earlier a060fbc15 + 518d2891e line. The range is the single commit 61ca6c363 on origin/main."
+
+## v11.62.0 (2026-10-23)
+
+
+
+### Added
+- PR lessons are learned only from human commits: bot authors and merge commits yield no lesson, at most MAX_HUMAN_COMMITS commits are read, commits without a patch are skipped, secrets are redacted before storage, and loki memory promote shares a lesson across repos (pd/364a-r2 and pd/364b-r2). Approval: "tl-324: APPROVE pd/364b-r2 a511d4159a0c06216a3744d77f2267fc968424f8, a stack of four commits on origin/main; ship all four in order: fee344a42cc0f3869c5cfa80f3c6213061203423, dba9b20f32a73ab9c99eb3f6db7fbe184795a480 (364a-r2), 8a7073c953bc92a6f04d4218e99168e334ab29b7, a511d4159a0c06216a3744d77f2267fc968424f8 (364b-r2)".
+
+## v11.61.2 (2026-10-23)
+
+
+
+### Fixed
+- The bench retires the fd-1 to fd-4 overlays that passed a stated-rule near-miss, adds fd-1b to fd-4b, and fd-3b checks a negative quantity before a bad tax rate (pd/fd1b). Approval: "tl-324: APPROVE pd/fd1b head b7d91e38382250c508bc09308ed8b63d2614fdf0. The branch holds a merge commit, so ship by fast-forwarding or merging this head". Shipped by merging that head.
+
+## v11.61.1 (2026-10-23)
+
+
+
+### Fixed
+- The P9 allowtoken moat scan accepts a plain destructured dynamic import of safe_git (FC-P9-DYNAMIC-IMPORT-FALSE-POSITIVE). Approval: "Ship line from rev-c: APPROVE pd/p0-p9-allowtoken a060fbc15. The range origin/main..a060fbc15 is one commit".
+
+## v11.61.0 (2026-10-23)
+
+
+
+### Added
+- Preflight reads the PR publish capability from the GitHub API at intake, names the fallback for collaborators-only and no-fork repositories, and records the publish plan without changing PreflightResult (R100-022, #231). Approval: "tl-324: APPROVE pd/231, a stack of two commits on origin/main; ship both in order: 70c6a399cf2f93ab7c8ce7e7ebeba1ee8f200ca8 then 31d866a55a73f26a54dff0523c186f49907f1978 (head)". The receipt criterion is a separate HIGH slice and is not covered.
+
+## v11.60.17 (2026-10-23)
+
+
+
+### Fixed
+- The engine10 repomap and testmap cache key is bound to its producer, cache files are private and written atomically, and the unbound-fallback and injected-fingerprint mutants are killed (pd/331). Approval: "SHIP pd/331: head 8066c01089fd1dd48c1a791590e3a8caaa0b5326 has rev-c opus HIGH APPROVE. The range is 006ef38ff..8066c0108, three commits: 5fc8c5d46, the merge d11335f4c and 8066c0108." Shipped by merging that head.
+
+## v11.60.16 (2026-10-23)
+
+
+
+### Fixed
+- The zsh completion in completions/_loki now offers the --resume flag (resume-completion3, rebased by its author onto current main). Approval: "APPROVE pd/p0-resume-completion3 ccb5ef9dc71742eddfb55498f692d5b86dd29623 (tl-2, LOW)".
+
+## v11.60.15 (2026-10-23)
+
+### Fixed
+- The P12-07n resume test gets an explicit 60000 ms timeout so it no longer fails under load (fixresume-timeout). Approval: "APPROVE pd/p0-fixresume-timeout cc6432c9b (tl-2, LOW)".
+
+## v11.60.14 (2026-10-23)
+
+### Fixed
+- The cost-cache test now clears LOKI_INFERENCE_GEO and its cache state so it passes regardless of the environment (costcache3). Approval: "APPROVE pd/p0-costcache3 b75336e3b7c10cb9bfe5ab7704fb4b1a0010668d (tl-2, LOW), stacked on parent 9dc4242bf822ec70c85519639131a21fe5dec4d8 (costcache2, previously approved)".
+
+## v11.60.13 (2026-10-23)
+
+### Fixed
+- The cost-cache test loader keeps the helper functions the calculator calls, so cost-cache tests exercise the real calculator instead of a loader that drops its helpers. Approval: "ship pd/p0-costcache2 9dc4242bf822ec70c85519639131a21fe5dec4d8 ... rev-b HIGH reviewer verdict: APPROVE".
+
+## v11.60.12 (2026-10-23)
+
+### Fixed
+- The branch save and restore helpers now live in util/safe_git.ts, which brings the extension module back under its line budget (P0). Approval: "tl-2 APPROVE pd/p0-e10ext-budget debdfa677 (LOW, P0)".
+
+## v11.60.11 (2026-10-23)
+
+### Fixed
+- The Wall no longer depends on a separate runner and now runs through the single shared path (wallnorunner). Approval: "Ship line: pd/wallnorunner a1c07ce3c APPROVED by rev-c (HIGH). Range bc2e0a8ff..a1c07ce3c, a single commit a1c07ce3c".
+
+## v11.60.10 (2026-10-23)
+
+### Fixed
+- The help-vs-changelog drift test now scans a 1000-section window by default, so a missing invocation can no longer hide below the old 5-section cap (FC-HELP-DRIFT-WINDOW-CAP). Approval: "tl-2 APPROVE pd/p0-helpdrift-empty-window 984a2d787 (LOW, P0)".
+
+## v11.60.9 (2026-10-23)
+
+### Fixed
+- The cline version probe now spawns with a token-free environment instead of the full parent environment, so the provider version check no longer exposes secrets to the child process. Approval: "Ship line: pd/p0-envspawn-rc f5aee29de APPROVED by rev-c (HIGH). Range 42404106a..f5aee29de, a single commit f5aee29de".
+
+## v11.60.8 (2026-10-23)
+
+### Fixed
+- The P12-12d bulk-file test fixture now sets an explicit timeout, so it no longer fails on slow machines at the default limit. Approval: "tl-324 approval line: ship range origin/main..29593679a9329eb94e9f2c4e5e57a5d220934d4e (pd/p12-12d-timeout, 1 commit, LOW, merge-tree rc 0)".
+
+## v11.60.7 (2026-10-23)
+
+### Fixed
+- A run's commit stage and backstop now leave out untracked files that existed before the run and that the run did not touch, so your own untracked files are no longer swept into the run's commit. Approval: "rev-c APPROVE pd/commitdrop 18e91429a + b40659541 (HIGH)".
+
+## v11.60.6 (2026-10-23)
+
+### Fixed
+- The help-drift guard reads plain-prose release notes, which clears the test-help-changelog-drift red that blocked several contributors. Approval: "tl-324 approval line: ship range origin/main..2dd3ec556c9b409e4567a7db64d135f6f23a7f09 (pd/p0-helpdrift-rc, 1 commit, MEDIUM, merge-tree rc 0)".
+
+## v11.60.5 (2026-10-23)
+
+### Fixed
+- The shard-coverage guard now watches the five heaviest suites from the duration table instead of a stale name list, so a slow suite can no longer slip out of its shard unnoticed. Approval: "tl-324 approval line: ship range origin/main..03300fe6705af3b03649ddc735101e673a8b5876 (pd/shardfix, 1 commit, MEDIUM, merge-tree rc 0 vs d9a7fe07e)".
+
+## v11.60.4 (2026-10-23)
+
+### Fixed
+- One advisor pair is now used for every advisor probe caller, so an invalid advisor pair is reported the same way by plan route and by doctor (RQ-04, #304). Approval: "tl-324 APPROVE pd/rq04, ship range origin/main..4f4627426e3e37a084c09363c5f110f4a76abeb3 = exactly 1 commit 4f4627426".
+
+## v11.60.3 (2026-10-23)
+
+### Fixed
+- The benchmark runner drains stderr while waiting for the stop marker, so heavy logging can no longer fake a timeout; the resume-cost instrument and engine SHA recording ship with it. Approval: "tl-324 APPROVE ... pd/resumecost3: ship range origin/main..e43a2ea45fe37217caa7446450e9e6e3e0cc63c4 = 7 commits".
+
+## v11.60.2 (2026-10-23)
+
+### Fixed
+- A failed session that committed nothing now returns to your original branch and removes its empty loki/session branch, instead of leaving you checked out on it. Approval: "tl-324 APPROVE ... pd/ux-branchrestore-sh: ship range origin/main..051a879d35ada6591907f827ce06ca6bbda883df = exactly 1 commit 051a879d3".
+
+## v11.60.1 (2026-10-23)
+
+### Fixed
+- The implement lead brief names python -m pytest and forbids files or symlinks in a test directory, so an agent no longer works around a bare pytest import error by committing a tests/<mod>.py symlink. Approval: "ship pd/pytesthint-r2 f0115bb7e (tl-324 APPROVE, MEDIUM)".
+
+## v11.60.0 (2026-10-23)
+
+### Added
+- loki doctor --json gains advisory provider_auth rows (credential source by name, never the value), and preflight records a zero-token auth probe per provider in preflight.json. A failed probe stays fatal; LOKI_PREFLIGHT_PROBE=0 skips it. Approval: "cw14-rb pd/cw14-rb 7ddde458b: APPROVE (rev-b, HIGH re-review scoped to the rebase)".
+
+## v11.59.0 (2026-10-23)
+
+### Added
+- Bench: a Codex adapter, the second arm for the false-done instrument.
+
+## v11.58.3 (2026-10-23)
+
+### Fixed
+- A council citation under a bumped submodule is refuted when the submodule is checked out and labelled NOT PROVEN when it is not, instead of always counting as a high-severity finding. Refs #332.
+
+## v11.58.2 (2026-10-23)
+
+### Fixed
+- Bench: the judge-trap-1 overlay rejects an off-by-one word cut and grades with its own overlay; per-trial false-pass, council cache share and journal reuse metrics are reported. Refs #348.
+- Docs: UX scorecard baselines re-measured on 11.55.3 (Refs #350), and the Feature 100 roadmap links its 79 filed issues.
+
+## v11.58.1 (2026-10-23)
+
+### Fixed
+- LeanCostTableTest rows carry a cost_source so the validator accepts them, which fixes the red test_attribution on main.
+
+## v11.58.0 (2026-10-23)
+
+### Added
+- Four pre-registered false-done bench tasks with hash-attested oracles; the fd-1 duplicate-key check requires the key name, and the fd-2, fd-3 and fd-4 overlays reject near-misses that break a stated rule. Refs #355.
+
+## v11.57.6 (2026-10-23)
+
+### Fixed
+- A plain run never repoints a valid global skill link, takes it into a temp dir, or downgrades it.
+
+## v11.57.5 (2026-10-23)
+
+### Fixed
+- The bench run.sh vs mode accepts commas in LOKI_BENCH_VS_TOOLS.
+
+## v11.57.4 (2026-10-23)
+
+### Fixed
+- A multi-part task with no owner/repo origin runs as one local run instead of reporting NOT PROVEN.
+
+## v11.57.3 (2026-10-23)
+
+### Fixed
+- A failed run that committed nothing restores the starting branch and drops its empty loki/ branch. Refs #354.
+
+## v11.57.2 (2026-10-23)
+
+### Fixed
+- Regenerated the engine10 plan and implement brief goldens for the PARALLEL_TOOL_CALLS prefix line, so the golden tests are green again.
+
+## v11.57.1 (2026-10-23)
+
+### Fixed
+- The loki-mode-sdk dist-tags use the shared fail-closed highest-version script and converge once the SDK version resolves on the registry, so the SDK latest tag can no longer move backwards.
+
+## v11.57.0 (2026-10-23)
+
+### Added
+- One OS confinement module (Seatbelt moved out of build_supervisor, plus Linux bwrap) with secret paths read from one JSON file, off by default (LOKI_OS_SANDBOX=off). A symlink read to a non-secret file outside the workspace is not confined, and Linux bwrap is not proven in CI. Refs #334.
+
+## v11.56.5 (2026-10-23)
+
+### Fixed
+- loki start --resume now reaches the stage resume, and loki verify with a receipt path reaches the engine10 verifier. Refs #352.
+
+## v11.56.4 (2026-10-23)
+
+### Fixed
+- The claude provider refuses a thinking type the model catalog does not list for the model at any effort, and disabled thinking maps to between_tools for claude-sonnet-5-5, with the usage error derived from the catalog. Refs #314.
+
+## v11.56.3 (2026-10-23)
+
+### Fixed
+- The release workflow converges npm dist-tags again once the new version resolves on the registry, so a late-materializing earlier publish can no longer leave latest or next behind.
+
+## v11.56.2 (2026-10-23)
+
+### Fixed
+- npm dist-tags fail closed on any registry read error, never write below a tag read fresh-higher than the target, and the release runs a registry proof job, so latest can no longer move backwards.
+
+## v11.56.1 (2026-10-23)
+
+### Fixed
+- The voter_agents tests judge the --disallowedTools guard on every flag value and record that the claude CLI merges a repeated --disallowedTools flag, so they are green on main again.
+
+## v11.56.0 (2026-10-23)
+
+### Added
+- Per-provider MCP launch for codex, opencode and cline, with an opt-in project .mcp.json under LOKI_MCP_PROJECT=1. Codex MCP env values ride the process env, never argv. Refs #343.
+
+## v11.55.3 (2026-10-23)
+
+### Fixed
+- getStateManager is keyed on the resolved project root, the state manager test moved into loki-ts, and chokidar types are made local. Refs #312.
+
+## v11.55.2 (2026-10-23)
+
+### Fixed
+- Load-aware bun test timeouts (LOKI_TEST_TIMEOUT_SCALE cap 10, LOKI_TEST_TIMEOUT_MS floor); real hangs still time out.
+
+## v11.55.1 (2026-10-23)
+
+### Fixed
+- Group journal adoption binds a signed unit spec hash over id, items, acceptance, writeSet and base, so an edited unit spec is no longer adopted. Refs #283 #317.
+
+## v11.55.0 (2026-10-23)
+
+### Added
+- loki doctor adds a capability row that compares the model catalog with models.retrieve, and doctor tests now stub models.retrieve and trap api.anthropic.com fetches. Refs #324.
+
+## v11.54.4 (2026-10-23)
+
+### Fixed
+- fast_verify cache entries are signed with a per-user 0600 HMAC key, so a planted or edited cache entry can no longer suppress a finding. A tampered entry is rescanned. Refs #319.
+
+## v11.54.3 (2026-10-23)
+
+### Fixed
+- The claude_model.ts comment no longer names a model id, so the no-hardcoded-model-ids guard is green again.
+
+## v11.54.2 (2026-10-23)
+
+### Fixed
+- loki_verify_fast MCP results are now tagged as untrusted content, and every stored-text read path goes through the envelope guard. Refs #319.
+
+## v11.54.1 (2026-10-23)
+
+### Fixed
+- The budget gate reads per-model prices from model-pricing.json, so its spend check can no longer drift from the pricing table. Refs #310.
+
+## v11.54.0 (2026-10-22)
+
+### Added
+- loki doctor checks cloud region, credential and project variables for CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX and CLAUDE_CODE_USE_FOUNDRY, carries the rows in doctor --json, names keyless auth paths, never echoes a credential value, and recommends expiring service account keys. Refs #282.
+
+## v11.53.1 (2026-10-22)
+
+### Fixed
+- .loki/pricing.json model rows are derived from model-pricing.json, so the bash route no longer prices with a stale hand-kept table. A test runs the real writer and compares its output with the catalog. Refs #310.
+
+## v11.53.0 (2026-10-22)
+
+### Fixed
+- Model catalog encodes each model's effort-dependent thinking limit (claude-opus-5 and claude-haiku-5-5 disabled up to high, claude-sonnet-5-5 between_tools up to high), and the SDK judge clamps the thinking type to it instead of sending a request the API refuses. Each clamp is written to the ledger. Refs #314.
+
+## v11.52.0 (2026-10-22)
+
+### Added
+- Metrics (#252): `loki kpis` reports refusal_count, fallback_served_count and retry_count, read from the run ledger.
+
+### Fixed
+- Metrics (#252): the run-ledger writer honors LOKI_DIR, and the kpis since-window test is symmetric.
+
+## v11.51.2 (2026-10-22)
+
+### Fixed
+- Quality gates (#320): the reviewer call streams stream-json, so the stagger hook fires on the first event. The verdict, structured output and cost ledger are byte-identical to the json route. A truncated or missing result event fails closed.
+
+## v11.51.1 (2026-10-22)
+
+### Fixed
+- Cost (#306): prefix_sha now covers the whole cached prefix (system prompt, tools and denials, MAX_THINKING_TOKENS, effort and the brief head), so any change that breaks the prompt cache moves the hash. The cost breakdown names which component changed instead of a bare "(prefix changed)". Older events without prefix_parts still render as before.
+
+## v11.51.0 (2026-10-22)
+
+### Changed
+- MCP server (#257): every tool returns one result contract. A failure sets isError with a stable code (invalid_argument, not_found, unavailable, internal_error and the rest) and a hint, instead of ad-hoc `{"error": ...}` JSON. A source lint fails if any tool returns ad-hoc error JSON. mcp>=1.19.0 is pinned, and a LokiToolError no longer emits a second complete event.
+- MCP server (#257): every tool and resource is classified, and tools that return stored text are tagged untrusted, so a client treats that text as data.
+
+### Fixed
+- MCP server (#257): loki_start_project's PDF/DOCX spec extractor failure goes through the result contract (code invalid_argument, with a hint to convert the spec or pass prd_content).
+
+## v11.50.4 (2026-10-22)
+
+### Fixed
+- Parallel groups (#317): every non-fix unit now starts at the same base SHA the slice journal keys on, instead of origin/HEAD. Dispatch, the journal key and integration share one base, so a unit no longer builds on upstream commits the user has not pulled while being merged onto local HEAD.
+
+## v11.50.3 (2026-10-22)
+
+### Fixed
+- Command routing (#308): a refused value flag consumes its value instead of leaving it in the positionals. `--parallel` is a boolean on the route parser, as in cmd_start, so `--parallel 3` leaves 3 as a positional. The start flag parity guard now derives each flag's kind (value, optional value or boolean) from the cmd_start main parse loop and fails on any disagreement with route.sh.
+
+## v11.50.2 (2026-10-22)
+
+### Fixed
+- Quality gates (#311): the Claude reviewer now fires onFirstResponse on the child's first stdout byte, on both the structured --json-schema and plain text paths, so the #270 reviewer stagger releases the next reviewer as soon as the first one responds instead of waiting the full LOKI_REVIEW_STAGGER_MS fallback. The hook is observer-only and never changes bytes, exit code or timeout.
+
+## v11.50.1 (2026-10-22)
+
+### Fixed
+- Council (#251, #302): a blocking finding whose cited path:line is not in the reviewed tree is downgraded to MEDIUM instead of blocking. The gitlink set comes from git diff --raw, not a disk guess. A citation inside a diff-listed submodule keeps its severity only when a directory component of the path matches a gitlink segment; a filename or a substring near miss (src/lib, src/libfoo/x.ts against vendor/lib) no longer counts.
+- Progress log: 2026-10-22 docs-driven batch checkpoint in docs/v10/PROGRESS.md.
+
+## v11.50.0 (2026-10-22)
+
+### Added
+- Parallel groups (#283): the slice journal is keyed by the sha256 of the slice card plus the base sha, so a finished unit is reused only for the same card on the same base.
+
+### Fixed
+- Parallel groups (#283): journal adoption now requires the unit branch tip to match the journaled tip and the receipt's signed task sha256 to match the unit's task text. A receipt with an absent, empty or mismatched task hash is rejected and the unit runs again, never a false VERIFIED.
+
+## v11.49.3 (2026-10-22)
+
+### Tests
+- Web policy (#256): a regression test now covers the punycode (`xn--`) allow-domain rejection on the legacy permission route as well as the compiled route. It asserts plan-mode argv, no permission bypass, a punycode warning, and bash/TS argv parity. No product code changed.
+
+## v11.49.2 (2026-10-22)
+
+### Fixed
+- MCP test suite (#301): three stale tests now match the shipped code. `MemoryStorage.view_file` is classified as a read-only method, and the LSP proxy tests expect `pyright-langserver` under `python` and `pylsp` under `python-pylsp` (the mapping since v7.7.0). No product code changed.
+
+## v11.49.1 (2026-10-22)
+
+### Fixed
+- Council votes (#288): a legacy vote that carries only `reasoning` is stored as `justification`. A vote that already has a `justification` keeps it; `reasoning` never overwrites it.
+- The completion council's two vote prompts now ask for "REASON: one-line justification citing path:line evidence" instead of free-form reasoning, so every vote names the evidence it rests on.
+- Tests pin both behaviors.
+
+## v11.49.0 (2026-10-22)
+
+### Security
+- Web access and secret-file reads are now blocked by default on every Claude route.
+  - `WebFetch` and `WebSearch` are denied.
+  - `Read` is denied anywhere on disk for every `.env*` file (including `.envrc`, `.env.local`, `.env.prod`, `.env.keys` and `.env.vault`), `*.pem`, `.aws/**` and `.ssh/**`.
+  - Templates such as `.env.example` are blocked too: a deny rule beats any allow rule, so they cannot be carved out of the glob safely.
+  - These are `Read` rules only. They do not stop a shell command such as `cat .env` under `--dangerously-skip-permissions`, so they are not complete secret-file protection.
+- Two ways to re-enable web access:
+  - Set `LOKI_WEB_ALLOW_DOMAINS=<comma list>` to allow `WebFetch` for those hostnames only. This is enforced with `LOKI_PERMISSION_POLICY=compiled`. A punycode (`xn--`) domain is refused.
+  - Set `LOKI_WEB_POLICY=off` to turn off the default web and secret-file rules entirely.
+- If the policy cannot be compiled (an invalid domain list, or Node missing), Loki warns and runs in `plan` mode instead of skipping the rules.
+
+## v11.48.0 (2026-10-22)
+
+### Added
+- Model catalog (#268): each Claude model records the thinking types and effort levels it supports, with its default effort. Opus 5.5 and Haiku 5.5 default to `medium`; Fable 5, Fable 5.1, Opus 5, Sonnet 5 and Sonnet 5.5 default to `high`.
+- A requested effort the model does not support is clamped to the nearest supported level. TypeScript and bash resolve the same value for every tier and complexity.
+
+### Fixed
+- Models with no effort parameter (Claude Haiku 4.5) no longer get an `--effort` flag; the resolver returns nothing for them.
+- The thinking and effort table is pinned by a test, so a catalog model without a pinned capability row fails CI.
+
+## v11.47.0 (2026-10-22)
+
+### Changed
+- Advisor benchmark (#246): the bench now measures the advisor on its own (advisor arm vs no-advisor arm on the same tasks). The advisor stays OFF by default until a parity run proves it helps.
+
+### Fixed
+- The bench commits its fixture as a git baseline, so `loki start` can run in the bench workdir.
+- `advisor_verdict` judges attachment per measured trial. An advisor-arm trial counts only with at least one advisor call and zero advisor errors. A no-advisor trial must record exactly zero calls. Partial data (for example 1 of 4 trials attached) now yields NOT PROVEN, naming the unattached trials, and can never flip the default ON.
+- Each trial row records `advisor_errors` from the advisor provenance.
+
+## v11.46.0 (2026-10-22)
+
+### Added
+- Embedding config accepts an optional `output_dimension` (also `LOKI_EMBEDDING_OUTPUT_DIMENSION` or the config file): vectors keep their leading components and are re-normalized. It also accepts `dtype` (float32 default, float16).
+- A VectorIndex built for a normalized provider (local, openai, voyage) ranks by plain dot product and skips the per-search normalized copy. Defaults and the saved index layout are unchanged.
+
+### Fixed
+- A normalized VectorIndex re-normalizes off-unit vectors on add, update and load, persists the flag, and casts to its dtype on load.
+- A zero vector is stored as zeros instead of NaN, and a non-finite vector is stored unnormalized.
+
+## v11.45.1 (2026-10-22)
+
+### Fixed
+- Token-priced benchmark costs (`price_from_tokens`, used by the claude_code and aider bench adapters only when the provider reports no native cost) now apply the shared `LOKI_INFERENCE_GEO` multiplier. `us` prices at 1.1x, and unset or `global` stays at 1.0x. A provider-reported cost is never multiplied.
+
+## v11.45.0 (2026-10-22)
+
+### Changed
+- Judge outcomes are typed (ok, truncated, malformed, refused, failed). A judge call that fails never reads as a pass.
+- A truncated judge reply retries at a larger max_tokens, up to the effort ceiling of 64000. High effort (16384) retries at 32768. xhigh is already at 64000 and does not retry. An override of 40000 retries at 64000.
+- The fallback retry streams, with the same beta header. Each streamed turn is bounded by an abort signal that covers the whole turn.
+- The child ledger and the failure lines record max_tokens.
+
+### Fixed
+- `--thinking` accepts only `disabled` or `adaptive`. Any other value, or `disabled` with `--effort xhigh` or `max`, exits 2 on `sdk-judge` and `sdk-text`. Before this, it was accepted silently.
+
+## v11.44.1 (2026-10-22)
+
+### Fixed
+- PDF and DOCX specs passed to `loki start` now reach the bash route and the MCP start tool as extracted text, not as raw bytes read as UTF-8 (FC-BINARY-SPEC-READ-AS-UTF8). On the TS route, `runStart` swaps a `.pdf` or `.docx` PRD path for its extracted text before the engine reads it.
+- A missing `.docx` spec path now reports "PRD file not found" instead of being run as an inline brief.
+- An encrypted PDF spec is refused with exit 2.
+
+## v11.44.0 (2026-10-22)
+
+### Added
+- Flag-gated prompt lines in the cache-stable prefix (Bun route only, off under `LOKI_SIMPLE=1`): `LOKI_PROMPT_SCREENSHOT=1` adds a check-the-rendered-result instruction after each UI step, a length-guidance line has its own flag, and an advisor line is added only when the advisor flag is on and the router is enabled. With no flag set, the prompt is unchanged.
+
+### Changed
+- skills docs scope the advisor, length, screenshot and medium-effort claims to the route that honors them.
+
+## v11.43.1 (2026-10-22)
+
+### Changed
+- Structural checks lint every shipped SKILL.md (#259): skill_lint now reads `git ls-files '*SKILL.md'`, so worktree and `.loki` copies no longer report duplicate skill names and turn local-ci red. The OpenClaw skill directory is renamed, and its README points at the new name.
+- The fetch-to-shell lint pattern now also catches:
+  - base64-decoded payloads
+  - process substitution (`<(...)`)
+  - command substitution (`$(...)`)
+  - `tee` stages
+  - `sudo` and `env` wrappers with flags
+
+  Each variant has a planted test, alongside benign controls.
+
+## v11.43.0 (2026-10-22)
+
+### Added
+- `LOKI_CLAUDE_TASK_BUDGET=<tokens>` passes an SDK `taskBudget` on the SDK route and engine10. It is an advisory token countdown and does not replace `--max-budget-usd` or `LOKI_BUDGET_LIMIT`. The claude CLI lane does not receive it.
+
+### Removed
+- The unused `PROVIDER_DEFAULT_EFFORT`, `PROVIDER_DEFAULT_THINKING` and `PROVIDER_DEFAULT_TASK_BUDGET_TOKENS` knobs in `providers/claude.sh`, and the dead `LOKI_CLAUDE_EFFORT` and `LOKI_CLAUDE_THINKING` entries in the dashboard build supervisor. Nothing read them. A new guard fails on any `PROVIDER_DEFAULT_*` that has no reader.
+
+## v11.42.0 (2026-10-22)
+
+### Changed
+- Reviewer prompts (both the bash and TypeScript quality gates) now put the shared Files changed and diff block first and the reviewer's persona, role and checks last, so parallel reviewers share a cacheable prompt prefix.
+- The TypeScript gate launches the first reviewer, then starts the rest after its first response or after `LOKI_REVIEW_STAGGER_MS` (default 3000; 0 launches all at once). Current reviewers do not emit a first-response signal, so in practice this is a fixed wait of up to 3 seconds. The bash gate is not staggered.
+- Every reviewer, including the devil's advocate, now runs at the same effort (high).
+
+## v11.41.0 (2026-10-22)
+
+### Added
+- `ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL` and `ANTHROPIC_DEFAULT_HAIKU_MODEL` pins are honored by the tier resolver, in the same way Claude Code resolves its own aliases. With no pin set, tier routing is unchanged. A pin is user-set only (Loki never writes these variables), and it can route a tier below its default or above `LOKI_MAX_TIER`.
+- `LOKI_INFERENCE_GEO=us` applies the 1.1x US-only inference price multiplier, mirrored across bash, TypeScript, Python and the dashboard. Scope: it applies where Loki estimates cost from tokens. Records that carry a provider-reported cost (`cost_usd`, which is most Claude and Codex records) are kept as reported and are not multiplied again.
+
+## v11.40.0 (2026-10-22)
+
+### Changed
+- A `loki start` flag never switches the engine any more. `--max-duration` maps to the engine10 run cap. `--quiet`, `--resume`, `--pr` and `--dry-run` are mapped. Any flag that engine10 does not support is refused with a message that names its replacement, instead of silently falling back to the legacy engine. Internal callers were migrated.
+
+### Fixed
+- Webhook-triggered starts no longer force `LOKI_ENGINE=legacy` or pass `--detach`, so they run on engine10.
+- Trigger-server dispatch writes child output to per-run files under `.loki/triggers` (mode 0600) instead of pipes. A detached child writing more than 64KB can no longer hang the server.
+
+## v11.39.3 (2026-10-22)
+
+### Changed
+- engine10 core trimmed from 5019 to 4952 lines with no behavior change. The git and filesystem file listing moved from testmap.ts to safe_git.ts, the SHA pattern is now exported from pr.ts, and one argv helper was inlined. This frees line budget for queued engine work.
+
+## v11.39.2 (2026-10-22)
+
+### Fixed
+- Judge enum case is normalized (#295): `high`, `High` and `HIGH` map to one value for votes and issue severity.
+- Judge output schemas must be static (#295). A schema carrying a literal that is not in the `data/*-schema.json` allowlist is rejected with a named `SchemaLiteralError`, because the API caches compiled schemas and a per-run schema body defeats that cache.
+- The packaged `loki internal sdk-judge` failed with ENOENT on `finding-schema.json`. It now resolves `loki-ts/data` from the bundled dist as well as from src.
+
+## v11.39.1 (2026-10-22)
+
+### Fixed
+- Verification risk grading (#234): a change that touches a repo-declared critical path (CODEOWNERS, `.loki/config.json` `critical_paths`), or a diff that adds a push, publish, signing or credential operation, now grades HIGH, so it gets the full test command, full suite, council and security scan. The risk summary names the matching rule. Rules are read from the base tree, so a diff cannot empty, delete or shadow CODEOWNERS or `critical_paths` to downgrade itself. Edits to the ownership files themselves are critical.
+- If a repo has no owners file or config, a changed path that is not a test or doc still grades HIGH when it names a release, publish, sign, auth, security, seal or verification area.
+- Shell tests under `tests/` and `test-*.sh` are now recognised as test files. An edit to an existing shell test now goes through the stricter test-weakening check.
+
+## v11.39.0 (2026-10-22)
+
+### Added
+- Per-stage prompt-cache TTL from measured idle gaps (#244): efficiency records now carry `stage`, `gap_ms` and `duration_ms`. The one TTL switch (`engine10CacheTtlEnv`) picks the 1h cache TTL for a stage only when its persisted median idle gap is between 5 and 60 minutes; with no data it keeps 5m, and an explicit `LOKI_E10_CACHE_TTL` always wins. No stage names are hardcoded.
+- The run report's "cache cold" line names the cause "(prefix changed)" when a stage's cost events carry differing `prefix_sha` values, and a new "cache ttl" line names stages whose median idle gap outruns the 5m TTL.
+
+## v11.38.0 (2026-10-22)
+
+### Added
+- Benchmark effort axis (#296): `loki bench` and `benchmarks/bench/runner.py run --effort high,medium` emit one result row per effort level with an `effort` field. Only adapters that declare an effort parameter receive it (claude_code passes `--effort`); an adapter that cannot apply an effort is refused rather than recorded. The default invocation passes no effort and produces a byte-identical row.
+
+## v11.37.0 (2026-10-22)
+
+### Added
+- Tool-use and skill-navigation telemetry (#275): the per-run result-cost record and `loki_metrics_efficiency` now report tools per turn, tool error rate, attached MCP tool count and skill module reads, alongside the existing router telemetry. Keys are additive; no existing key changed.
+
+## v11.36.6 (2026-10-22)
+
+### Fixed
+- Sandbox egress teardown (#258): the fallback egress dir is created with `mktemp -d` and its teardown record now lives host-side under `LOKI_SANDBOX_STATE_DIR` (default `~/.loki/sandbox-state`), outside the agent's writable workspace. Teardown removes a path only when it is a real, caller-owned `loki-egress.XXXXXXXX` directory directly under the resolved temp root, so a forged or traversal record can no longer make teardown delete anything else. A trailing-slash macOS `TMPDIR` no longer leaks the dir.
+
+## v11.36.5 (2026-10-22)
+
+### Fixed
+- Council transcripts keep one key: every writer records the reviewer's text under `reasoning` and the dashboard panel reads it, while model-facing prompts and schemas ask for a `justification`. A pin test fails if the two drift. Refs #250.
+
+## v11.36.4 (2026-10-22)
+
+### Changed
+- SKILL.md follows the skill-authoring practices in place: one default path, a checklist, worked examples, and no time-sensitive text. Refs #292.
+
+## v11.36.3 (2026-10-22)
+
+### Changed
+- The test runner now registers test-cost-capture.sh, so the cost-capture suite runs in the full test sweep instead of being skipped. Refs #253.
+
+## v11.36.2 (2026-10-22)
+
+### Changed
+- Each `references/` twin is merged into the `skills/` or `references/` module that owns its concern and the twin is deleted: the per-role Capabilities lists now live in `references/agent-types.md` and the production patterns intro and Sources in `skills/production.md`. Every inbound link is re-pointed. Refs #281.
+
+## v11.36.1 (2026-10-22)
+
+### Changed
+- A regression test pins the rerun behavior of a sliced Seal group: when one of three units is already VERIFIED, the rerun dispatches only the other two and logs how many were skipped. Refs #283.
+
+## v11.36.0 (2026-10-22)
+
+### Added
+- `LOKI_OUTPUT_LANGUAGE` sets the language the model answers in. It adds one line after the cache breakpoint, so the cached prompt prefix is byte-identical with or without it, and a value containing a newline is refused. Bun route only; the bash route ignores it. A Japanese PRD fixture covers it. Refs #285.
+
+## v11.35.1 (2026-10-22)
+
+### Fixed
+- The engine10 core is back under its 5000-line budget: the prompt-prefix hash helper moved next to its only consumer in the cost breakdown module, so the structural line-budget check and `budget.test.ts` pass again.
+
+## v11.35.0 (2026-10-22)
+
+### Added
+- Memory namespaces have a byte cap (`LOKI_MEMORY_NAMESPACE_MAX_BYTES`): when a write pushes a namespace past it, the oldest per-entry files (episodes and skills) are evicted first, with a warning naming the file and the cap. Memory view output is truncated at `LOKI_MEMORY_VIEW_MAX_BYTES`. Whole-store files such as `patterns.json` count toward the total but are never deleted. Refs #284.
+
+## v11.34.1 (2026-10-22)
+
+### Changed
+- Every one of the 47 MCP tools now says when to use it and when not to, and skills refer to tools by their fully qualified MCP names, so the model picks the right tool on the first call. A test pins the description shape for every registered tool. Refs #276.
+
+## v11.34.0 (2026-10-22)
+
+### Changed
+- Memory retrieval embeds the search query with the query input type and stored entries with the document type, on providers that support it (Cohere and Voyage). The cache key includes the input type, so stored document embeddings are reused unchanged. Voyage stays opt-in. Refs #287.
+
+## v11.33.0 (2026-10-22)
+
+### Changed
+- A resumed engine10 session keeps its starting effort when a stage resolves to the same or a lower effort, so the cached prompt prefix is not rewritten. A higher stage effort still applies and emits `effort_escalation_cache_reset`. An explicit `LOKI_E10_EFFORT` is never overridden. Refs #274.
+
+## v11.32.0 (2026-10-22)
+
+### Added
+- Opt-in sandbox egress allowlist. With it on, the sandbox reaches the network only through a proxy that allows ports 80 and 443 to allowed hosts. The proxy blocks link-local, private, CGNAT (100.64.0.0/10, which includes cloud metadata at 100.100.100.200), site-local (fec0::/10) and every other non-global address, including IPv4-mapped IPv6 forms. Refs #258.
+
+### Fixed
+- The egress network and proxy sidecar are torn down on every failed sandbox start, and when stop_sandbox finds no running sandbox. Refs #258.
+
+## v11.31.1 (2026-10-22)
+
+### Documentation
+- skills/testing.md now says to check the rendered result after each UI step, matching the issue's acceptance check. Refs #254.
+
+## v11.31.0 (2026-10-22)
+
+### Added
+- The stream parser records advisor tool errors and advisor truncation through the existing recordAdvisorError. After 3 advisor errors in a session, the route receipt backs the advisor off. Cost records include advisor_errors and advisor_truncated only when they are non-zero. Refs #269.
+
+### Fixed
+- An advisor that ranks below its executor in providers/model_catalog.json is now rejected as invalid_pair. An unknown model is never rejected. Refs #269.
+
+## v11.30.0 (2026-10-22)
+
+### Changed
+- The parallel tool-call instruction now has one source, PARALLEL_TOOL_CALLS_INSTRUCTION in loki-ts/src/features/lean_prefix.ts. The engine10 cache-stable STAGE_PREFIX and the RARV build prompt both use it, and autonomy/run.sh carries a byte-identical copy. The supervised simple-web fast path's one-off wording is removed. Refs #245.
+
+## v11.29.0 (2026-10-22)
+
+### Removed
+- The `LOKI_JUDGE_BATCH` judge batch path and its three helper functions are gone. Judge calls always use the synchronous call with the same timeout, client and retry settings as before. Refs #243.
+
+## v11.28.0 (2026-10-22)
+
+### Added
+- The Claude stream parser records `model_refusal_fallback`, `model_refusal_no_fallback` and `api_retry` events in .loki/events.jsonl. It drops retracted and superseded assistant text from the captured output. Refs #252.
+
+### Fixed
+- A turn refused with no fallback is no longer resumed; its stale session id is removed. A truncated turn now keeps the last session id seen on any frame, so it can resume. Refs #252.
+
+## v11.27.0 (2026-10-22)
+
+### Fixed
+- Claude model capacities now match the platform docs: sonnet-5-5, sonnet-5 and haiku-5-5 report 128k max output, and haiku-5-5 a 1M context window. Refs #253.
+- The context tracker reads the window size from providers/model_catalog.json by model id instead of a hardcoded 200k table. 300k tokens on opus-5-5 now shows 30% instead of 150%, so the 90% notification threshold no longer fires early. Codex and Gemini keep a fallback table because the catalog has no window for them. Refs #253.
+
+## v11.26.0 (2026-10-22)
+
+### Fixed
+- Every references/*.md guide is now linked from the skills module that owns its concern. That includes the five guides orphaned when skills/00-index.md was removed in v11.22.0, plus twelve older ones. Refs #247.
+
+### Tests
+- tests/test-skill-doc-accuracy.sh fails if any reference becomes unreachable. The list of references is derived at runtime, with no allowlist. Refs #247.
+
+## v11.25.0 (2026-10-22)
+
+### Changed
+- The effort table in skills/model-selection.md now lists all five levels (low, medium, high, xhigh, max) with per-model defaults and xhigh/max availability from the current platform docs. It notes that effort does not reliably shorten Opus 5 output and points to the claude-api skill for SDK code. Refs #255.
+
+### Tests
+- The bash `loki_effort_for_tier` and TypeScript `effortForTier` effort mappings are now pinned equal per tier and complexity. Refs #255.
+
+## v11.24.0 (2026-10-22)
+
+### Fixed
+- Playwright verification now runs a baseline UI smoke check on the first iteration of every session and on the first iteration after a resume, instead of waiting for the interval to elapse. Regressions present at session start are caught immediately. Refs #254.
+
+## v11.23.0 (2026-10-22)
+
+### Fixed
+- `scripts/release.sh --ship` now commits every version stamp that `scripts/generate-stale-zero.sh` rewrites, including the wiki pages it previously left modified after each release. Files already modified before the bump are never swept in. A file the generator produced that is still modified after the commit fails the release with SHIP_DIRTY_AFTER_COMMIT (exit 4).
+- `scripts/generate-stale-zero.sh --outputs` prints the paths the generator may write, so callers stage from the generator's own declaration instead of a hand-kept list.
+
+## v11.22.0 (2026-10-22)
+
+### Changed
+- SKILL.md now routes to every skills/*.md module in one hop. The Module Loading Protocol is the task-to-module table, and the second-hop index skills/00-index.md is removed. Every live reference to it is updated (#247).
+- tests/test-skill-doc-accuracy.sh check 4 now requires SKILL.md to link every skills/*.md module, and fails if skills/00-index.md is reintroduced (#247).
+
+## v11.21.0 (2026-10-22)
+
+### Added
+- The run report's prompt-cache hint now names why a stage missed the cache (#244, part 1). A cold stage is labelled "(prefix changed)" when its brief prefix differed between calls (the cost event now carries `prefix_sha`, a 12-character hash of the brief's first 2048 characters).
+- A new "cache ttl" hint names stages whose median gap between calls exceeds the 5-minute cache TTL and suggests `LOKI_E10_CACHE_TTL=1h`.
+
+### Tests
+- `tests/engine10/cost_unmetered.test.ts` 8 pass, 0 fail (6/2 with the change removed). Tech-lead review: engine10 cost and session tests 105 pass, 0 fail; `tests/test-cost-cli.sh` 11/0; a mutation of the prefix-changed condition turns a test red.
+
+### Not yet done
+- Choosing 5m or 1h automatically from measured gaps (#244, part 2) is in progress; the TTL still defaults to 5m unless set.
+- Effect on a live run is not yet measured.
+
+## v11.20.0 (2026-10-22)
+
+### Added
+- Skills modules over 100 lines now open with a generated contents map, so a partial read sees the whole scope (#247, part 1). `scripts/skill-toc.sh` writes it; `scripts/skill-toc.sh --check` reports any missing or stale map, and `tests/test-skill-doc-accuracy.sh` fails on one. 22 modules updated, including `skills/quality-gates.md` (1159 lines).
+
+### Tests
+- `tests/test-skill-doc-accuracy.sh` 60 passed, 0 failed (59/1 before the maps existed). Guard mutations (map removed, heading added without regeneration) both report STALE with rc=1; a second write run is idempotent.
+
+### Not yet done
+- #247 part 2 (SKILL.md links modules directly) is in progress; `skills/00-index.md` stays, since SKILL.md and seven tests and docs route through it.
+
+## v11.19.0 (2026-10-22)
+
+### Added
+- Voyage embedding provider (`voyage-code-4`, 1024 dims; `voyage-4` general) in `memory/embeddings.py` (#248). Opt-in only: used when `LOKI_EMBEDDING_PROVIDER=voyage` and `VOYAGE_API_KEY` are both set. The key alone never selects Voyage or adds it to the fallback chain, so memory content never leaves the machine unless the user names the provider. Named without a key, it falls back to local.
+
+### Tests
+- `tests/test_embeddings_edge_cases.py` 9/9 (3 new: opt-in selection, key-alone stays local, named-without-key falls back). `tests/test-embeddings.sh` 25 passed, 0 failed.
+
+### Not yet measured
+- Recall versus the grep fallback on the memory fixtures needs a live Voyage key and user consent to send fixtures to Voyage; #248 stays open for it.
+
 ## v11.18.0 (2026-10-20)
 
 ### Changed

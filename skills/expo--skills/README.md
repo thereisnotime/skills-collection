@@ -166,7 +166,7 @@ Expo documentation, Expo CLI, and EAS CLI are the source of truth. These skills 
 
 ## Feedback
 
-Every skill includes instructions to submit specific, actionable feedback with `submit-expo-feedback`.
+Every skill includes instructions to submit specific, actionable feedback with `npx --yes @expo/agent-cli@latest feedback`.
 
 ## License
 

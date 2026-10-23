@@ -9,7 +9,9 @@
 //   - dispatchClaudeAgents throws when response missing a declared voter
 
 import { describe, it, expect } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { validateFinding } from "../../src/council/finding_schema.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -17,11 +19,12 @@ import {
   buildDevilsAdvocateAgent,
   dispatchClaudeAgents,
   dispatchDevilsAdvocate,
+  citationCtx,
   VOTER_SLUGS,
   type ClaudeRunner,
 } from "../../src/council/voter_agents.ts";
 import { recordFromClaudeResult, recordFromUsage, withChildLedger } from "../../src/util/child_ledger.ts";
-import { __resetSdkClientForTests } from "../../src/runner/sdk_invoker.ts";
+import { __resetSdkClientForTests, __setSdkClientForTests } from "../../src/runner/sdk_invoker.ts";
 import { _resetClaudeHelpCacheForTest } from "../../src/providers/claude_flags.ts";
 import type { CouncilEvaluateContext, AgentVerdict } from "../../src/runner/council.ts";
 import type { RunnerContext } from "../../src/runner/types.ts";
@@ -282,6 +285,32 @@ describe("COST-WALL child-session ledger", () => {
     }
   });
 
+  // #318: a non-ok SDK judge outcome is named in the error the council records, never lost to the claude fall-through.
+  for (const [stop, extra, name] of [
+    ["max_tokens", {}, "truncated"],
+    ["refusal", { stop_details: { category: "cyber" } }, "refused:cyber"],
+    ["model_context_window_exceeded", {}, "context_exceeded"],
+  ] as const) {
+    it(`SDK voter ${stop} outcome appears by name (${name}) in the thrown reason`, async () => {
+      const dir = mkdtempSync(join(tmpdir(), "loki-318-v-")), loki = join(dir, ".loki"), bin = join(dir, "bin");
+      mkdirSync(bin, { recursive: true });
+      writeFileSync(join(bin, "claude"), `#!/bin/sh\ncase "$1" in --help) echo "  --agents  --json-schema"; exit 0;; esac\nexit 1\n`, { mode: 0o755 });
+      const body = JSON.stringify({ id: "m", type: "message", role: "assistant", model: "claude-haiku-5-5", stop_reason: stop, content: [], usage: { input_tokens: 1, output_tokens: 1 }, ...extra });
+      const keys = ["PATH", "LOKI_SDK_VOTER_AGENTS", "LOKI_SDK_COUNCIL_MODEL"] as const;
+      const savedEnv: Record<string, string | undefined> = {};
+      for (const k of keys) savedEnv[k] = process.env[k];
+      process.env["PATH"] = `${bin}:${savedEnv["PATH"]}`; process.env["LOKI_SDK_VOTER_AGENTS"] = "1";
+      process.env["LOKI_SDK_COUNCIL_MODEL"] = "claude-haiku-5-5";
+      __setSdkClientForTests({ messages: { create: async () => JSON.parse(body), stream: () => ({ finalMessage: async () => JSON.parse(body) }) } }); _resetClaudeHelpCacheForTest();
+      try {
+        await expect(dispatchClaudeAgents(ctxIn(loki))).rejects.toThrow(`sdk judge outcome: ${name}`);
+      } finally {
+        for (const k of keys) { if (savedEnv[k] === undefined) delete process.env[k]; else process.env[k] = savedEnv[k]; }
+        __resetSdkClientForTests(); _resetClaudeHelpCacheForTest(); rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  }
+
   it("negative review timeout falls back to 600s and the SDK vote still lands", async () => {
     const dir = mkdtempSync(join(tmpdir(), "loki-neg-to-")), loki = join(dir, ".loki"), bin = join(dir, "bin");
     mkdirSync(bin, { recursive: true });
@@ -359,6 +388,18 @@ describe("dispatchClaudeAgents EMBED 3 --disallowedTools tree-mutation guard", (
     };
   }
 
+  // Every --disallowedTools value on the argv. The permission policy (#256) emits
+  // its own web and credential deny list ahead of the voter guard, so the flag
+  // can appear more than once; the guard is judged on the union, never on the
+  // first occurrence.
+  // Measured on claude 2.1.309: repeated --disallowedTools flags merge (both orders
+  // drop WebFetch and Edit from the init tool list; a single --disallowedTools Edit
+  // keeps WebFetch), so two flags on one argv lose no deny entry.
+  function denyValues(argv: string[]): string[] {
+    return argv.flatMap((a, i) => (a === "--disallowedTools" ? [argv[i + 1] ?? ""] : []));
+  }
+  const GUARD_ENTRIES = ["Edit", "Write", "NotebookEdit", "Bash(git reset:*)", "Bash(git push:*)"];
+
   it("passes --disallowedTools with a deny list (default on) when CLI supports it", async () => {
     _resetClaudeHelpCacheForTest("  --agents\n  --json-schema\n  --disallowedTools <tools...>");
     const savedGuard = process.env["LOKI_REVIEW_TOOL_GUARD"];
@@ -366,9 +407,11 @@ describe("dispatchClaudeAgents EMBED 3 --disallowedTools tree-mutation guard", (
     const cap = { argv: [] as string[] };
     try {
       await dispatchClaudeAgents(fakeCtx(), capturingRunner(cap));
-      const idx = cap.argv.indexOf("--disallowedTools");
-      expect(idx).toBeGreaterThanOrEqual(0);
-      const denyList = cap.argv[idx + 1] ?? "";
+      const values = denyValues(cap.argv);
+      expect(values.length).toBeGreaterThanOrEqual(1);
+      // The voter guard is its own flag value, separate from the policy deny list.
+      expect(values.some((v) => v.startsWith("Edit,Write,NotebookEdit"))).toBe(true);
+      const denyList = values.join(",");
       // Mutating tools denied.
       expect(denyList).toContain("Edit");
       expect(denyList).toContain("Write");
@@ -402,28 +445,33 @@ describe("dispatchClaudeAgents EMBED 3 --disallowedTools tree-mutation guard", (
     }
   });
 
-  it("omits --disallowedTools when LOKI_REVIEW_TOOL_GUARD=0 (opt-out)", async () => {
+  it("omits the voter guard deny list when LOKI_REVIEW_TOOL_GUARD=0 (opt-out)", async () => {
     _resetClaudeHelpCacheForTest("  --agents\n  --json-schema\n  --disallowedTools <tools...>");
     const savedGuard = process.env["LOKI_REVIEW_TOOL_GUARD"];
     process.env["LOKI_REVIEW_TOOL_GUARD"] = "0";
     const cap = { argv: [] as string[] };
     try {
       await dispatchClaudeAgents(fakeCtx(), capturingRunner(cap));
-      expect(cap.argv.includes("--disallowedTools")).toBe(false);
+      // The voter guard is absent; the policy web and credential deny list is
+      // not the guard's to remove, so it stays.
+      const denyList = denyValues(cap.argv).join(",");
+      for (const e of GUARD_ENTRIES) expect(denyList).not.toContain(e);
+      expect(denyList).toContain("Read(//**/.ssh/**)");
     } finally {
       if (savedGuard === undefined) delete process.env["LOKI_REVIEW_TOOL_GUARD"];
       else process.env["LOKI_REVIEW_TOOL_GUARD"] = savedGuard;
     }
   });
 
-  it("omits --disallowedTools when the CLI does not advertise it (graceful degrade)", async () => {
+  it("omits the voter guard deny list when the CLI does not advertise it (graceful degrade)", async () => {
     _resetClaudeHelpCacheForTest("  --agents\n  --json-schema");
     const savedGuard = process.env["LOKI_REVIEW_TOOL_GUARD"];
     delete process.env["LOKI_REVIEW_TOOL_GUARD"];
     const cap = { argv: [] as string[] };
     try {
       await dispatchClaudeAgents(fakeCtx(), capturingRunner(cap));
-      expect(cap.argv.includes("--disallowedTools")).toBe(false);
+      const denyList = denyValues(cap.argv).join(",");
+      for (const e of GUARD_ENTRIES) expect(denyList).not.toContain(e);
       // The voter still functions (agents + schema + prompt present).
       expect(cap.argv.includes("--agents")).toBe(true);
       expect(cap.argv[cap.argv.length - 2]).toBe("-p");
@@ -546,5 +594,139 @@ describe("dispatchClaudeAgents EMBED 3b --allowedTools least-privilege allowlist
       if (savedAllow === undefined) delete process.env["LOKI_REVIEW_ALLOWLIST"];
       else process.env["LOKI_REVIEW_ALLOWLIST"] = savedAllow;
     }
+  });
+});
+
+describe("citationCtx from a monorepo subdirectory", () => {
+  it("a shrunk pkg/src/a.ts cited as cwd-relative src/a.ts past EOF stays HIGH", () => {
+    const top = realpathSync(mkdtempSync(join(tmpdir(), "loki-citctx-")));
+    try {
+      const git = (...a: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: top, stdio: "ignore" });
+      git("init", "-q", "-b", "main");
+      mkdirSync(join(top, "pkg", "src"), { recursive: true });
+      writeFileSync(join(top, "pkg", "src", "a.ts"), Array.from({ length: 30 }, (_, i) => `l${i}`).join("\n") + "\n");
+      git("add", "."); git("commit", "-q", "-m", "base");
+      git("checkout", "-q", "-b", "work");
+      writeFileSync(join(top, "pkg", "src", "a.ts"), "l0\nl1\n");
+      git("commit", "-q", "-am", "shrink");
+      const ctx = citationCtx(join(top, "pkg"));
+      expect(ctx.root).toBe(top);
+      expect(ctx.diffFiles).toEqual(["pkg/src/a.ts"]);
+      const f = { role: "c", vote: "REJECT", reason: "r", confidence: 0.9, issues: [{ severity: "HIGH", description: "deleted guard at src/a.ts:15 removes auth" }] };
+      const r: any = validateFinding(f, ctx);
+      expect(r.issues[0].severity).toBe("HIGH");
+    } finally { rmSync(top, { recursive: true, force: true }); }
+  });
+
+  it("a shrunk file inside a submodule (diff lists only the gitlink) cited from superproject pkg/ stays HIGH", () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "loki-citsub-")));
+    try {
+      const run = (cwd: string, ...a: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "protocol.file.allow=always", ...a], { cwd, stdio: "ignore" });
+      const sub = join(dir, "subrepo"), top = join(dir, "top");
+      mkdirSync(sub); mkdirSync(top);
+      run(sub, "init", "-q", "-b", "main");
+      writeFileSync(join(sub, "s.ts"), Array.from({ length: 30 }, (_, i) => `l${i}`).join("\n") + "\n");
+      run(sub, "add", "."); run(sub, "commit", "-q", "-m", "s1");
+      run(top, "init", "-q", "-b", "main");
+      mkdirSync(join(top, "pkg"));
+      run(top, "submodule", "add", "-q", sub, "pkg/sub");
+      run(top, "commit", "-q", "-m", "base");
+      run(top, "checkout", "-q", "-b", "work");
+      const inSub = join(top, "pkg", "sub");
+      writeFileSync(join(inSub, "s.ts"), "l0\n");
+      run(inSub, "commit", "-q", "-am", "shrink");
+      run(top, "commit", "-q", "-am", "bump submodule");
+      const ctx = citationCtx(join(top, "pkg"));
+      expect(ctx.diffFiles).toEqual(["pkg/sub"]);
+      expect(ctx.gitlinks).toEqual(["pkg/sub"]); // mode 160000 from git diff --raw, not a disk guess
+      const f = { role: "c", vote: "REJECT", reason: "r", confidence: 0.9, issues: [{ severity: "HIGH", description: "deleted guard at sub/s.ts:15 removes auth" }] };
+      expect((validateFinding(f, ctx) as any).issues[0].severity).toBe("HIGH");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it("a deleted file inside a submodule (diff lists only the gitlink) cited from superproject pkg/ stays HIGH", () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "loki-citsub-")));
+    try {
+      const run = (cwd: string, ...a: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "protocol.file.allow=always", ...a], { cwd, stdio: "ignore" });
+      const sub = join(dir, "subrepo"), top = join(dir, "top");
+      mkdirSync(sub); mkdirSync(top);
+      run(sub, "init", "-q", "-b", "main");
+      writeFileSync(join(sub, "s.ts"), Array.from({ length: 30 }, (_, i) => `l${i}`).join("\n") + "\n");
+      run(sub, "add", "."); run(sub, "commit", "-q", "-m", "s1");
+      run(top, "init", "-q", "-b", "main");
+      mkdirSync(join(top, "pkg"));
+      run(top, "submodule", "add", "-q", sub, "pkg/sub");
+      run(top, "commit", "-q", "-m", "base");
+      run(top, "checkout", "-q", "-b", "work");
+      const inSub = join(top, "pkg", "sub");
+      run(inSub, "rm", "-q", "s.ts");
+      run(inSub, "commit", "-q", "-m", "delete");
+      run(top, "commit", "-q", "-am", "bump submodule");
+      const ctx = citationCtx(join(top, "pkg"));
+      expect(ctx.diffFiles).toEqual(["pkg/sub"]);
+      const f = { role: "c", vote: "REJECT", reason: "r", confidence: 0.9, issues: [{ severity: "HIGH", description: "deleted guard at sub/s.ts:15 removes auth" }] };
+      expect((validateFinding(f, ctx) as any).issues[0].severity).toBe("HIGH");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  describe("citationCtx gitlinks come from the mode in git diff --raw", () => {
+    const fixture = (mutate: (run: (cwd: string, ...a: string[]) => void, top: string, sub: string) => void) => {
+      const dir = realpathSync(mkdtempSync(join(tmpdir(), "loki-gitlink-")));
+      const run = (cwd: string, ...a: string[]) => { execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "protocol.file.allow=always", ...a], { cwd, stdio: "ignore" }); };
+      const sub = join(dir, "subrepo"), top = join(dir, "top");
+      mkdirSync(sub); mkdirSync(top);
+      run(sub, "init", "-q", "-b", "main");
+      writeFileSync(join(sub, "s.ts"), "l0\n"); run(sub, "add", "."); run(sub, "commit", "-q", "-m", "s1");
+      run(top, "init", "-q", "-b", "main");
+      mkdirSync(join(top, "src")); writeFileSync(join(top, "src", "real.ts"), "a\n");
+      mutate(run, top, sub);
+      return { dir, top };
+    };
+
+    it("a bumped gitlink plus a plain file: only the gitlink is listed", () => {
+      const { dir, top } = fixture((run, top, sub) => {
+        run(top, "submodule", "add", "-q", sub, "pkg/sub"); run(top, "add", "."); run(top, "commit", "-q", "-m", "base");
+        run(top, "checkout", "-q", "-b", "work");
+        writeFileSync(join(sub, "s.ts"), "l1\n"); run(sub, "commit", "-q", "-am", "s2");
+        run(join(top, "pkg", "sub"), "pull", "-q", "origin", "main");
+        mkdirSync(join(top, "pkg"), { recursive: true }); writeFileSync(join(top, "pkg", "real.ts"), "b\n");
+        run(top, "add", "."); run(top, "commit", "-q", "-m", "bump and edit");
+      });
+      try {
+        const ctx = citationCtx(top);
+        expect([...(ctx.diffFiles ?? [])].sort()).toEqual(["pkg/real.ts", "pkg/sub"]);
+        expect(ctx.gitlinks).toEqual(["pkg/sub"]);
+      } finally { rmSync(dir, { recursive: true, force: true }); }
+    });
+
+    it("gitlinkDeleted lists a file the bump deleted inside the checked-out submodule", () => {
+      const { dir, top } = fixture((run, top, sub) => {
+        writeFileSync(join(sub, "gone.ts"), "g\n"); run(sub, "add", "."); run(sub, "commit", "-q", "-m", "add gone");
+        run(top, "submodule", "add", "-q", sub, "pkg/sub"); run(top, "add", "."); run(top, "commit", "-q", "-m", "base");
+        run(top, "checkout", "-q", "-b", "work");
+        run(sub, "rm", "-q", "gone.ts"); run(sub, "commit", "-q", "-m", "drop gone");
+        run(join(top, "pkg", "sub"), "pull", "-q", "origin", "main");
+        run(top, "add", "."); run(top, "commit", "-q", "-m", "bump");
+      });
+      try { expect(citationCtx(top).gitlinkDeleted).toEqual(["pkg/sub/gone.ts"]); } finally { rmSync(dir, { recursive: true, force: true }); }
+    });
+
+    it("a deleted gitlink (mode on the old side only) is listed", () => {
+      const { dir, top } = fixture((run, top, sub) => {
+        run(top, "submodule", "add", "-q", sub, "pkg/sub"); run(top, "add", "."); run(top, "commit", "-q", "-m", "base");
+        run(top, "checkout", "-q", "-b", "work");
+        run(top, "rm", "-q", "-f", "pkg/sub"); run(top, "commit", "-q", "-m", "drop submodule");
+      });
+      try { expect(citationCtx(top).gitlinks).toEqual(["pkg/sub"]); } finally { rmSync(dir, { recursive: true, force: true }); }
+    });
+
+    it("an added gitlink (mode on the new side only) is listed", () => {
+      const { dir, top } = fixture((run, top, sub) => {
+        run(top, "add", "."); run(top, "commit", "-q", "-m", "base");
+        run(top, "checkout", "-q", "-b", "work");
+        run(top, "submodule", "add", "-q", sub, "pkg/sub"); run(top, "commit", "-q", "-m", "add submodule");
+      });
+      try { expect(citationCtx(top).gitlinks).toEqual(["pkg/sub"]); } finally { rmSync(dir, { recursive: true, force: true }); }
+    });
   });
 });

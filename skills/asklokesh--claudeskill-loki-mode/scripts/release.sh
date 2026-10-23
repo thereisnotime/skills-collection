@@ -412,6 +412,8 @@ bump_all_version_files() {
 # Files staged into the release commit. Kept as its own list, sourced from
 # the same set bump_all_version_files touches, so the commit can never ship
 # a partially-bumped tree (some files updated on disk but left unstaged).
+# Dist files a release commit stages; release-approval-gate.sh reads this line to exempt them.
+RELEASE_DIST_FILES="loki-ts/dist/loki.js loki-ts/dist/loki.js.map"
 RELEASE_COMMIT_FILES="VERSION package.json SKILL.md docker/Dockerfile docker/Dockerfile.sandbox plugins/loki-mode/.claude-plugin/plugin.json server.json CLAUDE.md dashboard/__init__.py mcp/__init__.py docs/INSTALLATION.md wiki/Home.md wiki/_Sidebar.md wiki/API-Reference.md web-app/src/components/Footer.tsx web-app/src/components/WhatsNew.tsx README.md helm/loki-mode/Chart.yaml deploy/helm/autonomi/Chart.yaml deploy/helm/control-plane/Chart.yaml docs/CLI-REFERENCE.md docs/v10/CLI-MODERN.md CHANGELOG.md"
 
 # --- Release gate (RELEASE_ON_RED, S-108) --------------------------------
@@ -754,6 +756,15 @@ SHIP_PHASE_START=0
 SHIP_T0=0
 SHIP_COMMITTED=""
 
+# Tracked files under the generator's declared outputs that differ from HEAD.
+ship_generator_dirty() {
+    local specs
+    [ -x "$ROOT_DIR/scripts/generate-stale-zero.sh" ] || return 0
+    specs="$("$ROOT_DIR/scripts/generate-stale-zero.sh" --outputs)" || return 0
+    # shellcheck disable=SC2086 # pathspecs contain no spaces
+    git -C "$ROOT_DIR" diff --name-only HEAD -- $specs
+}
+
 ship_refuse() {
     log_error "$1: $2"
     if [ -n "$SHIP_COMMITTED" ]; then
@@ -787,6 +798,11 @@ ship_header_is() {
     tok="${line#"## v"}"
     tok="${tok%% *}"
     [ "$tok" = "$want" ]
+}
+
+# Exit 0 iff scripts/release-notes.sh accepts $1 as the notes of version $2.
+ship_check_notes_format() {
+    (cd "$ROOT_DIR" && bash scripts/release-notes.sh "$2" --file "$1" >/dev/null 2>&1)
 }
 
 # Insert the notes file as the new top section at line index 7 (the 8th
@@ -852,6 +868,12 @@ run_ship() {
     command -v gitleaks >/dev/null 2>&1 || ship_refuse SHIP_NO_GITLEAKS "gitleaks is not on PATH"
     ship_header_is "$notes" 1 "$new" \
         || ship_refuse SHIP_NOTES_HEADER "the first line of $notes must be '## v$new ...'"
+    # FC-RELEASE-NOTES-FORMAT-UNCHECKED-LOCALLY: CI's release-notes.sh rejects a section
+    # with no '### ' subsection AFTER npm has published, skipping the tag and GitHub
+    # release. Run the same validator on the notes before any write. Not bypassable:
+    # LOKI_RELEASE_SKIP_GUARDS covers only the global guard rows, never this.
+    ship_check_notes_format "$notes" "$new" \
+        || ship_refuse SHIP_NOTES_FORMAT "release-notes.sh rejects the notes in $notes (needs '### ' subsections and '- ' bullets)"
     ship_header_is "$ROOT_DIR/CHANGELOG.md" 8 "$current" \
         || ship_refuse SHIP_CHANGELOG_MISMATCH "CHANGELOG.md line 8 is '$(sed -n '8p' "$ROOT_DIR/CHANGELOG.md" 2>/dev/null)', expected '## v$current'"
     # The release commit may hold only HEAD plus this run's own edits. Refuse
@@ -867,12 +889,24 @@ run_ship() {
     ship_require_ancestor
 
     ship_phase "bump version files"
+    # Tracked generator outputs already dirty before the bump are the user's own
+    # edits: they are never staged and never counted as release-produced.
+    ship_gen_pre_dirty="$(ship_generator_dirty)"
     bump_all_version_files "$new"
+    ship_gen_changed=""
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        printf '%s\n' "$ship_gen_pre_dirty" | grep -qxF -- "$f" && continue
+        case " $RELEASE_COMMIT_FILES " in *" $f "*) continue ;; esac
+        ship_gen_changed="$ship_gen_changed $f"
+    done <<<"$(ship_generator_dirty)"
 
     ship_phase "write CHANGELOG section"
     ship_write_changelog "$notes" || ship_refuse SHIP_CHANGELOG_WRITE "could not write CHANGELOG.md"
     ship_header_is "$ROOT_DIR/CHANGELOG.md" 8 "$new" \
         || ship_refuse SHIP_CHANGELOG_MISMATCH "CHANGELOG.md line 8 is not '## v$new' after the insert"
+    ship_check_notes_format "$ROOT_DIR/CHANGELOG.md" "$new" \
+        || ship_refuse SHIP_NOTES_FORMAT "release-notes.sh rejects the written CHANGELOG.md section for v$new"
 
     ship_phase "rebuild loki-ts/dist"
     release_rebuild_dist "$new"
@@ -881,7 +915,12 @@ run_ship() {
     for f in $RELEASE_COMMIT_FILES; do
         if [ -e "$ROOT_DIR/$f" ]; then git -C "$ROOT_DIR" add -- "$f"; fi
     done
-    for f in loki-ts/dist/loki.js loki-ts/dist/loki.js.map; do
+    # Files the generator rewrote beyond the fixed list (for example every wiki
+    # page carrying the version stamp), staged by name.
+    for f in $ship_gen_changed; do
+        git -C "$ROOT_DIR" add -- "$f"
+    done
+    for f in $RELEASE_DIST_FILES; do
         [ -f "$ROOT_DIR/$f" ] || ship_refuse SHIP_DIST_MISSING "$f does not exist after the build"
         git -C "$ROOT_DIR" add -f -- "$f"
     done
@@ -899,7 +938,7 @@ run_ship() {
     hit=""
     while IFS= read -r f; do
         [ -n "$f" ] || continue
-        case " $RELEASE_COMMIT_FILES loki-ts/dist/loki.js loki-ts/dist/loki.js.map " in
+        case " $RELEASE_COMMIT_FILES$ship_gen_changed loki-ts/dist/loki.js loki-ts/dist/loki.js.map " in
             *" $f "*) ;;
             *) hit="$hit $f" ;;
         esac
@@ -914,6 +953,15 @@ run_ship() {
     if [ -n "$(git -C "$ROOT_DIR" diff --name-only HEAD -- VERSION CHANGELOG.md loki-ts/dist/loki.js loki-ts/dist/loki.js.map)" ]; then
         ship_refuse SHIP_DIRTY_AFTER_COMMIT "release files still differ from the commit"
     fi
+    # Anything the generator changed that the commit did not take is a
+    # release-produced file left modified; pre-existing dirt is excluded.
+    left=""
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        printf '%s\n' "$ship_gen_pre_dirty" | grep -qxF -- "$f" && continue
+        left="$left $f"
+    done <<<"$(ship_generator_dirty)"
+    [ -z "$left" ] || ship_refuse SHIP_DIRTY_AFTER_COMMIT "release left generated files modified:$left"
 
     ship_phase "ancestry check"
     ship_require_ancestor

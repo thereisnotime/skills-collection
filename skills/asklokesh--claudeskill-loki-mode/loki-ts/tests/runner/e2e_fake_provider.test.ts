@@ -17,7 +17,8 @@
 // Hermetic: every test gets a fresh tmp .loki/ via LOKI_DIR. The fake claude
 // shell script is created/torn down per test under /tmp/fake-claude-test/.
 
-import { afterEach, beforeEach, describe, expect, it, setDefaultTimeout } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { setLoadAwareTimeout } from "../preload.ts";
 import {
   chmodSync,
   existsSync,
@@ -45,7 +46,7 @@ import type {
 // WHICH ones fail changes between runs. That is a timeout signature, not a
 // defect, and it reads as a regression. 30s is far beyond the honest worst
 // case while still catching a genuine hang.
-setDefaultTimeout(30_000);
+setLoadAwareTimeout(30_000);
 
 // ---------------------------------------------------------------------------
 // Test doubles. FakeSignals + FakeCouncil drive the loop to exactly one
@@ -209,9 +210,12 @@ describe("runAutonomous E2E with fake claude binary (stream-json)", () => {
       //    -p, <prompt>]
       // The script sees argv WITHOUT $0. Position-tolerant assertions.
       expect(argv[0]).toBe("--dangerously-skip-permissions");
-      expect(argv[1]).toBe("--model");
-      // Position 2 = model name. Just assert non-empty.
-      expect(argv[2]?.length ?? 0).toBeGreaterThan(0);
+      // w2-07: legacy also carries --disallowedTools <web + credential deny rules> right after the bypass flag.
+      expect(argv[1]).toBe("--disallowedTools");
+      expect(argv[2]).toContain("WebFetch");
+      const modelIdx = argv.indexOf("--model");
+      expect(modelIdx).toBeGreaterThan(-1);
+      expect(argv[modelIdx + 1]?.length ?? 0).toBeGreaterThan(0);
 
       // -p marker exists, with a non-empty prompt immediately after.
       const promptIdx = argv.indexOf("-p");

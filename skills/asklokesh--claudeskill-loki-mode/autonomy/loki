@@ -1856,7 +1856,7 @@ show_help_all() {
     echo "  steer \"<note>\"    Nudge a running build (Loki 10 engine; legacy loop needs LOKI_PROMPT_INJECTION=true)"
     echo ""
     echo "Verify / trust:"
-    echo "  verify [base]    Deterministic PR verification (CI-gate exit codes)"
+    echo "  verify [base] [--fast]  Deterministic PR verification (CI-gate exit codes; --fast: no model, no network)"
     echo "  verify-pr <pr>   Verify a PR against its linked issue; 'verify-pr respond <pr>' fixes review comments"
     echo "  keys export     Print the public receipt-signing key (JWK) for third-party verify --pubkey"
     echo "  review [opts]    Standalone code review with quality gates"
@@ -2848,9 +2848,10 @@ cmd_start() {
         fi
         return "$_ps_drc"
     fi
-    # P12-07b: a bare `loki start --resume [run-id]` goes to the same engine10
-    # resume path as `loki resume` (util/run_outputs.ts resumeMain), never into a
-    # new build. Exit codes go through _loki_e10_resume_map (0 and 4 -> 0, 5 -> 1); any other code, such as 3 for nothing to resume, is returned as is.
+    # P12-07b, #352: a bare `loki start --resume [run-id]` goes to the engine10 stage
+    # resume that `loki "<task>" --resume` uses (util/run_outputs.ts resumeFlag), never into a
+    # new build and never to the reporter (resumeMain). The exit code is returned unchanged:
+    # 3 nothing to resume, 2 refused, 4 blocked, 5 stalled; only `loki resume` maps codes.
     local _ps_resume=0 _ps_resume_args=() _ps_rskip=0 _ps_unknown=""
     for _ps_a in ${_ps_rest[@]+"${_ps_rest[@]}"}; do
         if [ "$_ps_rskip" = 1 ]; then _ps_rskip=0; continue; fi
@@ -2877,9 +2878,8 @@ cmd_start() {
                     return 2 ;;
             esac
         done
-        ( _loki_bun_delegate engine10 resume ${_ps_resume_args[@]+"${_ps_resume_args[@]}"} ) || _ps_rrc=$?
-        _loki_e10_resume_map "$_ps_rrc" || true
-        return "$_LOKI_E10_RC"
+        ( _loki_bun_delegate engine10 --resume ${_ps_resume_args[@]+"${_ps_resume_args[@]}"} ) || _ps_rrc=$?
+        return "$_ps_rrc"
     fi
     set -- ${_ps_rest[@]+"${_ps_rest[@]}"}
 
@@ -15471,7 +15471,7 @@ _loki_bun_delegate() {
     elif [ -f "$root/loki-ts/dist/loki.js" ]; then
         cli="$root/loki-ts/dist/loki.js"
         # Dev checkout: a gitignored dist older than src is stale (same rule as bin/loki).
-        if [ -f "$root/loki-ts/src/cli.ts" ] && [ "$root/loki-ts/src/cli.ts" -nt "$cli" ]; then
+        if [ -f "$root/loki-ts/src/cli.ts" ] && [ -n "$(find "$root/loki-ts/src" -type f -newer "$cli" -print -quit 2>/dev/null)" ]; then
             cli="$root/loki-ts/src/cli.ts"
         fi
     elif [ -f "$root/loki-ts/src/cli.ts" ]; then
@@ -19656,12 +19656,12 @@ cmd_verify() {
     # verified by the engine10 verifier directly; bin/loki sends a bare verify back here.
     for _pk_arg in "$@"; do
         case "$_pk_arg" in
-            --sign-deploy|--sign-provenance|--url|--receipt|composite.json|*/composite.json|--seal-composite|--seal-composite=*|--max-age|--max-age=*|.loki/groups/*/receipt.json|*/.loki/groups/*/receipt.json)
+            --sign-deploy|--sign-provenance|--url|--receipt|composite.json|*/composite.json|--seal-composite|--seal-composite=*|--max-age|--max-age=*|.loki/groups/*/receipt.json|*/.loki/groups/*/receipt.json|.loki/runs/e10-*/receipt.json|*/.loki/runs/e10-*/receipt.json)
                 _loki_bun_delegate engine10 verify "$@"
                 return $? ;;
-            # A signed deploy record (.loki/deploys/*.json, schema loki.deploy/1) is re-checked by the same verifier.
+            # A signed deploy record (.loki/deploys/*.json, schema loki.deploy/1) or a run receipt anywhere (schema loki.v10.receipt) is re-checked by the same verifier.
             *.json)
-                if [ -f "$_pk_arg" ] && grep -q 'loki\.deploy/1' "$_pk_arg" 2>/dev/null; then
+                if [ -f "$_pk_arg" ] && grep -Eq 'loki\.deploy/1|"schema" *: *"loki\.v10\.receipt' "$_pk_arg" 2>/dev/null; then
                     _loki_bun_delegate engine10 verify "$@"
                     return $?
                 fi ;;
@@ -23124,6 +23124,11 @@ main() {
         mcp)
             cmd_mcp "$@"
             ;;
+        runs)
+            # R100-008: Bun-only; bin/loki routes here only when bun is absent.
+            echo "loki runs needs the Bun runtime (install bun, then re-run: loki runs)" >&2
+            exit 2
+            ;;
         undo)
             # UNDO-1: Bun-only (verifies the receipt with the Bun verifier); bin/loki routes here only when bun is absent.
             echo "loki undo needs the Bun runtime (install bun, then re-run: loki undo <run-id> --plan)" >&2
@@ -26304,7 +26309,8 @@ except Exception as e:
             echo "  clear [type]      Clear learnings (all or specific type)"
             echo "  compound [cmd]    Compound-solutions knowledge store (was: loki compound)"
             echo "  lessons [--json]  PR review lessons with their uses and outcomes"
-            echo "  learn <o/r#PR>    Learn lessons from a merged PR's review comments"
+            echo "  learn <o/r#PR>    Learn lessons from a merged PR's review comments and human commits"
+            echo "  promote <prl-id>  Share one lesson with every repo's briefs (undo with forget)"
             echo "  forget <prl-id>   Delete one PR lesson and print its text"
             echo "  brief [--task T]  Print the lessons and learnings block injected into a run"
             echo ""
@@ -38311,6 +38317,7 @@ cmd_bench() {
             echo "Options:"
             echo "  --trials N      Number of trials per tool (default 3)"
             echo "  --model NAME    Override the model"
+            echo "  --effort LIST   Comma list of effort levels (low,medium,high,xhigh,max); one result per level"
             echo "  --emit-proof    Emit an R1 proof-of-run for the Loki trial(s)"
             echo "  --out-dir DIR   (report) output dir for results.json + RESULTS.md"
             echo ""

@@ -127,10 +127,10 @@ class _FailingPrimary:
     def __init__(self, inner):
         self._inner = inner
 
-    def embed(self, text):
+    def embed(self, text, input_type="document"):
         raise RuntimeError("primary embed down")
 
-    def embed_batch(self, texts):
+    def embed_batch(self, texts, input_type="document"):
         raise RuntimeError("primary batch down")
 
     def is_available(self):
@@ -227,6 +227,313 @@ def test_fallback_embed_uses_chunked_path_for_multichunk():
         )
 
 
+def _clean_env(monkeypatch_env):
+    saved = {k: os.environ.pop(k, None) for k in monkeypatch_env}
+    return saved
+
+
+def _restore_env(saved):
+    for k, v in saved.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+
+
+def test_voyage_key_alone_never_selects_voyage():
+    """VOYAGE_API_KEY with LOKI_EMBEDDING_PROVIDER unset must stay local (privacy)."""
+    saved = _clean_env(["LOKI_EMBEDDING_PROVIDER", "LOKI_EMBEDDING_MODEL"])
+    os.environ["VOYAGE_API_KEY"] = "pa-test-key"
+    try:
+        config = EmbeddingConfig.from_env()
+        assert config.provider == "local", config.provider
+        assert "voyage" not in config.fallback_providers
+        engine = EmbeddingEngine(config=config)
+        assert engine._current_provider_name == "local", engine._current_provider_name
+        assert "voyage" not in engine._providers, "voyage must not be registered from key alone"
+    finally:
+        os.environ.pop("VOYAGE_API_KEY", None)
+        _restore_env(saved)
+
+
+def test_voyage_selected_only_when_named():
+    """LOKI_EMBEDDING_PROVIDER=voyage registers Voyage with the code model default."""
+    saved = _clean_env(["LOKI_EMBEDDING_MODEL"])
+    os.environ["VOYAGE_API_KEY"] = "pa-test-key"
+    os.environ["LOKI_EMBEDDING_PROVIDER"] = "voyage"
+    try:
+        config = EmbeddingConfig.from_env()
+        assert config.provider == "voyage"
+        assert config.model == "voyage-code-4", config.model
+        assert config.dimension == 1024, config.dimension
+        engine = EmbeddingEngine(config=config)
+        assert "voyage" in engine._providers
+        assert engine._providers["voyage"].get_name() == "voyage"
+        assert engine._providers["voyage"].api_key == "pa-test-key"
+        assert "voyage" not in config.to_dict().get("fallback_providers")
+        assert config.to_dict()["has_voyage_key"] is True
+    finally:
+        os.environ.pop("VOYAGE_API_KEY", None)
+        os.environ.pop("LOKI_EMBEDDING_PROVIDER", None)
+        _restore_env(saved)
+
+
+def test_voyage_named_without_key_falls_back_local():
+    saved = _clean_env(["VOYAGE_API_KEY", "LOKI_EMBEDDING_MODEL"])
+    os.environ["LOKI_EMBEDDING_PROVIDER"] = "voyage"
+    try:
+        engine = EmbeddingEngine(config=EmbeddingConfig.from_env())
+        assert engine._current_provider_name == "local", engine._current_provider_name
+    finally:
+        os.environ.pop("LOKI_EMBEDDING_PROVIDER", None)
+        _restore_env(saved)
+
+
+class _Resp:
+    def __init__(self, n):
+        self.embeddings = [[1.0, 0.0, 0.0, 0.0]] * n
+
+
+class _RecordingClient:
+    """Stands in for cohere.Client / voyageai.Client; records input_type."""
+
+    def __init__(self):
+        self.input_types = []
+
+    def embed(self, *args, **kwargs):
+        self.input_types.append(kwargs.get("input_type"))
+        texts = kwargs.get("texts", args[0] if args else [])
+        return _Resp(len(texts))
+
+
+def _remote(cls_name):
+    import memory.embeddings as m
+
+    prov = getattr(m, cls_name)(api_key="test-key", dimension=4)
+    prov._cohere_available = True
+    prov._voyage_available = True
+    client = _RecordingClient()
+    prov._client = client
+    return prov, client
+
+
+def test_cohere_maps_input_type():
+    prov, client = _remote("CohereEmbeddingProvider")
+    prov.embed("q", input_type="query")
+    prov.embed("d")
+    prov.embed("d2", input_type="document")
+    prov.embed_batch(["a", "b"], input_type="query")
+    assert client.input_types == [
+        "search_query", "search_document", "search_document", "search_query"
+    ], client.input_types
+
+
+def test_voyage_maps_input_type():
+    prov, client = _remote("VoyageEmbeddingProvider")
+    prov.embed("q", input_type="query")
+    prov.embed("d")
+    assert client.input_types == ["query", "document"], client.input_types
+
+
+def test_input_type_rejects_unknown_value():
+    prov, _ = _remote("CohereEmbeddingProvider")
+    for call in (lambda: prov.embed("x", input_type="search_query"), lambda: _engine().embed("x", input_type="bogus")):
+        try:
+            call()
+        except ValueError:
+            continue
+        raise AssertionError("unknown input_type must raise ValueError")
+
+
+def test_local_and_openai_accept_and_ignore_input_type():
+    import memory.embeddings as m
+
+    eng = _engine()
+    a = eng.embed("same text", input_type="query")
+    b = eng.embed("same text")
+    assert np.allclose(a, b), "local provider must ignore input_type"
+    local = eng._providers["local"]
+    assert np.allclose(local.embed("t", "query"), local.embed("t", "document"))
+    oa = m.OpenAIEmbeddingProvider(api_key="k")
+    seen = []
+
+    class _OA:
+        class embeddings:
+            @staticmethod
+            def create(**kw):
+                seen.append(sorted(kw))
+
+                class R:
+                    data = [type("D", (), {"embedding": [0.1, 0.2]})()] * len(
+                        kw["input"] if isinstance(kw["input"], list) else [1]
+                    )
+
+                return R
+
+    oa._client = _OA
+    oa._openai_available = True
+    oa.embed("x", input_type="query")
+    oa.embed_batch(["x"], input_type="query")
+    assert all("input_type" not in k for k in seen), seen
+
+
+def test_engine_cache_separates_query_from_document():
+    import memory.embeddings as m
+
+    cfg = EmbeddingConfig(provider="local", cache_enabled=True)
+    eng = EmbeddingEngine(config=cfg)
+    calls = []
+    real = eng._primary_provider
+
+    class _Spy:
+        def __getattr__(self, n):
+            return getattr(real, n)
+
+        def embed(self, text, input_type="document"):
+            calls.append(input_type)
+            return real.embed(text, input_type)
+
+    eng._primary_provider = _Spy()
+    eng.embed("hello world", input_type="query")
+    eng.embed("hello world")
+    eng.embed("hello world", input_type="query")
+    assert calls == ["query", "document"], calls
+
+
+def test_retrieval_query_path_passes_query_input_type():
+    from memory.retrieval import MemoryRetrieval
+
+    seen = []
+
+    class _SpyEngine:
+        def embed(self, text, *args, **kwargs):
+            seen.append((text, args, kwargs))
+            return np.zeros(4, dtype=np.float32)
+
+    class _Index:
+        def search(self, vec, top_k):
+            return []
+
+    r = MemoryRetrieval.__new__(MemoryRetrieval)
+    r.embedding_engine = _SpyEngine()
+    r.vector_indices = {"episodic": _Index()}
+    r._indices_built_at = None
+    r.retrieve_by_similarity("find the thing", "episodic")
+    assert len(seen) == 1, seen
+    text, args, kwargs = seen[0]
+    assert text == "find the thing"
+    assert kwargs.get("input_type") == "query" or "query" in args, seen
+
+
+class _StubProvider:
+    """Deterministic non-unit provider of a given native dimension."""
+
+    normalized = False
+
+    def __init__(self, dim):
+        self.dim = dim
+
+    def embed(self, text, input_type="document"):
+        return self.embed_batch([text], input_type)[0]
+
+    def embed_batch(self, texts, input_type="document"):
+        rng = np.random.RandomState(7)
+        return (rng.rand(len(texts), self.dim).astype(np.float32) + 0.5) * 3.0
+
+    def get_dimension(self):
+        return self.dim
+
+    def get_name(self):
+        return "stub"
+
+    def is_available(self):
+        return True
+
+
+def _stub_engine(native_dim, **cfg):
+    config = EmbeddingConfig(
+        provider="local", cache_enabled=False, fallback_providers=["stub"], **cfg
+    )
+    engine = EmbeddingEngine(config=config)
+    engine._providers["stub"] = _StubProvider(native_dim)
+    engine._use_fallback()
+    return engine
+
+
+def test_output_dimension_truncates_stub_provider_to_256():
+    engine = _stub_engine(1024, output_dimension=256)
+    assert engine.dimension == 256, engine.dimension
+    vec = engine.embed("alpha beta")
+    assert vec.shape == (256,), vec.shape
+    assert abs(float(np.linalg.norm(vec)) - 1.0) < 1e-5, "truncated vector must be re-normalized"
+    mat = engine.embed_batch(["alpha", "beta", "gamma"])
+    assert mat.shape == (3, 256), mat.shape
+
+
+def test_default_config_keeps_native_dimension():
+    engine = _stub_engine(1024)
+    assert engine.config.output_dimension is None
+    assert engine.config.dtype == "float32"
+    assert engine.dimension == 1024, engine.dimension
+    assert engine.embed("alpha").shape == (1024,)
+
+
+def test_output_dimension_above_native_is_clamped_and_invalid_rejected():
+    engine = _stub_engine(1024, output_dimension=4096)
+    assert engine.dimension == 1024, engine.dimension
+    for bad in (0, -5):
+        try:
+            EmbeddingConfig(output_dimension=bad)
+        except ValueError:
+            continue
+        raise AssertionError(f"output_dimension={bad} should raise ValueError")
+    try:
+        EmbeddingConfig(dtype="int3")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("unknown dtype should raise ValueError")
+
+
+def test_config_reads_output_dimension_and_dtype_from_env_and_file():
+    saved = _clean_env(["LOKI_EMBEDDING_PROVIDER", "LOKI_EMBEDDING_MODEL"])
+    os.environ["LOKI_EMBEDDING_OUTPUT_DIMENSION"] = "256"
+    os.environ["LOKI_EMBEDDING_DTYPE"] = "float16"
+    try:
+        config = EmbeddingConfig.from_env()
+        assert (config.output_dimension, config.dtype) == (256, "float16")
+        assert config.to_dict()["output_dimension"] == 256
+    finally:
+        os.environ.pop("LOKI_EMBEDDING_OUTPUT_DIMENSION", None)
+        os.environ.pop("LOKI_EMBEDDING_DTYPE", None)
+        _restore_env(saved)
+    import json
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "cfg.json")
+        with open(path, "w") as f:
+            json.dump({"output_dimension": 128, "dtype": "float16"}, f)
+        config = EmbeddingConfig.from_file(path)
+    assert (config.output_dimension, config.dtype) == (128, "float16")
+
+
+def test_provider_normalized_declarations_and_index_kwargs():
+    import memory.embeddings as m
+
+    assert m.LocalEmbeddingProvider.normalized is True
+    assert m.VoyageEmbeddingProvider.normalized is True
+    assert m.BaseEmbeddingProvider.normalized is False
+    engine = _stub_engine(1024, output_dimension=256, dtype="float16")
+    # kwargs follow the active provider's declaration (the stub declares none)
+    assert engine.vector_index_kwargs() == {
+        "dimension": 256, "normalized": False, "dtype": "float16"
+    }
+    engine._primary_provider.normalized = True
+    assert engine.vector_index_kwargs() == {
+        "dimension": 256, "normalized": True, "dtype": "float16"
+    }
+
+
 def _run():
     tests = [
         test_similarity_search_single_1d_corpus,
@@ -235,6 +542,20 @@ def _run():
         test_compute_quality_score_zero_vector_normalize,
         test_fallback_embed_caches_and_hits_on_repeat,
         test_fallback_embed_uses_chunked_path_for_multichunk,
+        test_voyage_key_alone_never_selects_voyage,
+        test_voyage_selected_only_when_named,
+        test_voyage_named_without_key_falls_back_local,
+        test_cohere_maps_input_type,
+        test_voyage_maps_input_type,
+        test_input_type_rejects_unknown_value,
+        test_local_and_openai_accept_and_ignore_input_type,
+        test_engine_cache_separates_query_from_document,
+        test_retrieval_query_path_passes_query_input_type,
+        test_output_dimension_truncates_stub_provider_to_256,
+        test_default_config_keeps_native_dimension,
+        test_output_dimension_above_native_is_clamped_and_invalid_rejected,
+        test_config_reads_output_dimension_and_dtype_from_env_and_file,
+        test_provider_normalized_declarations_and_index_kwargs,
     ]
     failed = 0
     for t in tests:

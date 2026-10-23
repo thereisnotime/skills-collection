@@ -420,6 +420,25 @@ class RealAdapterIntegrationTest(unittest.TestCase):
         # Adapter output passed our validator (no forbidden keys).
         self.assertEqual(schema.validate_adapter_output(row["trials"][0]["adapter"]), [])
 
+    def test_trial_records_advisor_calls_from_the_run(self):
+        spec_path = _make_task(self.tmp, acceptance_cmd="test -f agent-touched.txt", task_id="adv-calls")
+        base = self._fake_runner(marker_in_workdir=True)
+
+        def with_advisor(cmd, cwd=None, **kw):
+            if "start" in " ".join(str(a) for a in (cmd if isinstance(cmd, list) else [cmd])):
+                os.makedirs(os.path.join(cwd, ".loki", "metrics"), exist_ok=True)
+                with open(os.path.join(cwd, ".loki", "metrics", "result-cost-1.json"), "w") as fh:
+                    json.dump({"total_cost_usd": 0.1, "advisor_calls": 4}, fh)
+            return base(cmd, cwd=cwd, **kw)
+
+        row = runner.run_task(spec_path, "loki", trials=1, adapter=self.loki_adapter, runner_fn=with_advisor)
+        self.assertEqual(row["trials"][0]["advisor_calls"], 4)
+        self.assertEqual(row["trials"][0]["advisor_errors"], 0)
+        # No cost record at all: unknown (None), never 0.
+        row = runner.run_task(spec_path, "loki", trials=1, adapter=self.loki_adapter,
+                              runner_fn=self._fake_runner(marker_in_workdir=True))
+        self.assertIsNone(row["trials"][0]["advisor_calls"])
+
     def test_runner_drives_real_loki_adapter_failure(self):
         # Agent does NOT produce the marker -> grader fails the trial.
         spec_path = _make_task(
@@ -467,6 +486,145 @@ class ReproducibleTaskPathTest(unittest.TestCase):
         self.assertTrue(report["hash_match"],
                         "verify must relocate an in-repo task from any cwd: %s"
                         % report["problems"])
+
+
+def mock_adapter_effort(workdir, spec, *, model="mock-model", timeout=900,
+                        runner=None, effort=None):
+    """An adapter that can apply an effort level; echoes it in provenance."""
+    out = mock_adapter_with_cost(workdir, spec, model=model, timeout=timeout)
+    out["provenance"] = {"command": "mock --effort %s" % effort, "verified": True}
+    return out
+
+
+def mock_adapter_strict(workdir, spec, *, model="mock-model", timeout=900):
+    """Rejects any extra kwarg: proves the default path passes no effort."""
+    return mock_adapter_with_cost(workdir, spec, model=model, timeout=timeout)
+
+
+class EffortAxisTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="bench-effort-")
+        self.spec_path = _make_task(self.tmp, acceptance_cmd="true",
+                                    task_id="effort-task")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_each_effort_level_emits_a_row_with_the_effort_field(self):
+        rows = [runner.run_task(self.spec_path, "mock", trials=1,
+                                adapter=mock_adapter_effort, effort=lv)
+                for lv in runner.parse_efforts("high,medium")]
+        self.assertEqual([r["effort"] for r in rows], ["high", "medium"])
+        self.assertIn("mock --effort high",
+                      rows[0]["trials"][0]["adapter"]["provenance"]["command"])
+
+    def test_cli_effort_list_writes_one_row_file_per_level(self):
+        out = os.path.join(self.tmp, "res.json")
+        old_load, old_env = runner.load_adapter, os.environ.get("LOKI_BENCH_SPEND_APPROVED")
+        runner.load_adapter = lambda name: mock_adapter_effort
+        os.environ["LOKI_BENCH_SPEND_APPROVED"] = "1"
+        try:
+            rc = runner._main(["run", self.spec_path, "--adapter", "mock",
+                               "--trials", "1", "--effort", "high,medium",
+                               "--out", out])
+        finally:
+            runner.load_adapter = old_load
+            if old_env is None:
+                os.environ.pop("LOKI_BENCH_SPEND_APPROVED", None)
+            else:
+                os.environ["LOKI_BENCH_SPEND_APPROVED"] = old_env
+        self.assertEqual(rc, 0)
+        got = {}
+        for lv in ("high", "medium"):
+            with open(os.path.join(self.tmp, "res-effort-%s.json" % lv)) as fh:
+                got[lv] = json.load(fh)["effort"]
+        self.assertEqual(got, {"high": "high", "medium": "medium"})
+
+    def _sweep_catalog(self):
+        cat = os.path.join(self.tmp, "cat.json")
+        with open(cat, "w") as fh:
+            json.dump({"providers": {"claude": {"cli_aliases": {"mini": "m-gap"}, "models": [
+                {"id": "m-gap", "alias": "mini", "effort": {"levels": ["high", "low", "max"]}},
+                {"id": "m-none", "effort": {"levels": []}}]}}}, fh)
+        return cat
+
+    def test_effort_sweep_expands_to_the_catalog_levels_low_to_max(self):
+        old = os.environ.get("LOKI_MODEL_CATALOG")
+        os.environ["LOKI_MODEL_CATALOG"] = self._sweep_catalog()
+        try:
+            self.assertEqual(runner.parse_efforts("sweep", "m-gap"), ["low", "high", "max"])
+            self.assertEqual(runner.parse_efforts("sweep", "mini"), ["low", "high", "max"])
+            for model in (None, "m-none", "unknown"):
+                with self.assertRaises(ValueError):
+                    runner.parse_efforts("sweep", model)
+        finally:
+            if old is None:
+                os.environ.pop("LOKI_MODEL_CATALOG", None)
+            else:
+                os.environ["LOKI_MODEL_CATALOG"] = old
+
+    def test_cli_effort_sweep_writes_one_row_per_listed_level(self):
+        out = os.path.join(self.tmp, "sw.json")
+        saved = {k: os.environ.get(k) for k in ("LOKI_MODEL_CATALOG", "LOKI_BENCH_SPEND_APPROVED")}
+        old_load = runner.load_adapter
+        runner.load_adapter = lambda name: mock_adapter_effort
+        os.environ["LOKI_MODEL_CATALOG"] = self._sweep_catalog()
+        os.environ["LOKI_BENCH_SPEND_APPROVED"] = "1"
+        try:
+            rc = runner._main(["run", self.spec_path, "--adapter", "mock", "--trials", "1",
+                               "--model", "m-gap", "--effort", "sweep", "--out", out])
+        finally:
+            runner.load_adapter = old_load
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        self.assertEqual(rc, 0)
+        for lv in ("low", "high", "max"):
+            with open(os.path.join(self.tmp, "sw-effort-%s.json" % lv)) as fh:
+                self.assertEqual(json.load(fh)["effort"], lv)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "sw-effort-medium.json")))
+
+    def test_default_run_has_no_effort_axis(self):
+        # Golden: adapter called with no effort kwarg (strict adapter would
+        # TypeError) and the row key set is exactly the pre-effort shape.
+        row = runner.run_task(self.spec_path, "mock", trials=1,
+                              adapter=mock_adapter_strict)
+        self.assertEqual(sorted(row), sorted([
+            "schema_version", "task_id", "task_path", "task_hash", "harness_sig",
+            "tool", "model", "trials", "summary"]))
+
+    def test_adapter_without_effort_support_is_refused(self):
+        with self.assertRaises(ValueError):
+            runner.run_task(self.spec_path, "mock", trials=1,
+                            adapter=mock_adapter_strict, effort="high")
+
+    def test_invalid_effort_is_refused(self):
+        with self.assertRaises(ValueError):
+            runner.parse_efforts("high,turbo")
+        with self.assertRaises(ValueError):
+            runner.run_task(self.spec_path, "mock", trials=1,
+                            adapter=mock_adapter_effort, effort="turbo")
+
+    def test_claude_code_adapter_passes_effort_flag(self):
+        from adapters import claude_code
+        cmds = []
+
+        def fake(cmd, **kw):
+            cmds.append(cmd)
+
+            class R:
+                returncode = 0
+                stdout = "{}"
+                stderr = ""
+            return R()
+        for eff in ("high", None):
+            claude_code.run(self.tmp, "spec.md", model="sonnet", timeout=5,
+                            runner=fake, effort=eff)
+        main_cmds = [c for c in cmds if "-p" in c]
+        self.assertEqual(main_cmds[0][main_cmds[0].index("--effort") + 1], "high")
+        self.assertNotIn("--effort", main_cmds[1])
 
 
 class CollectEfficiencyFallbackTest(unittest.TestCase):

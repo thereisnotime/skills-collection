@@ -28,6 +28,9 @@ import { dirname, join } from "node:path";
 import { num, routerTelemetryOn } from "../engine10/cost.ts";
 import { modelOutcome } from "../util/run_identity.ts";
 import { partialUsagePath } from "./budget.ts";
+import { recordAdvisorError } from "./router/advisor_probe.ts";
+import { lokiDirFor } from "../util/paths.ts";
+import { neutralizeEngineMarkers } from "./retry_class.ts";
 
 // A structural subset of the Agent SDK's SDKMessage union -- only the fields the
 // parser reads. Kept local (not imported from the SDK) so the parser is pure and
@@ -70,6 +73,20 @@ export interface StreamMsg {
   // E-59: system/init reports the provider's actual model ({"type":"system","subtype":"init",...,"model":"opus"});
   // a result message may also carry it. Never the caller's "sonnet" guess -- writeResultCost records it verbatim.
   model?: string;
+  // Refusal / retry system frames (SDKModelRefusalFallbackMessage, SDKModelRefusalNoFallbackMessage, SDKAPIRetryMessage)
+  // and the assistant-frame supersede list (SDKAssistantMessage.supersedes).
+  uuid?: string;
+  supersedes?: string[];
+  api_refusal_category?: string | null;
+  original_model?: string;
+  fallback_model?: string;
+  scope?: string;
+  retracted_message_uuids?: string[];
+  attempt?: number;
+  max_retries?: number;
+  retry_delay_ms?: number;
+  error_status?: number | null;
+  tools?: unknown; // system/init: the tool names the session was given (mcp__server__tool for MCP tools)
 }
 
 export interface ParserContext {
@@ -131,6 +148,12 @@ export interface StreamResult {
   // True iff the stream ended abnormally (source threw mid-iteration, or no terminal result arrived). The
   // result is then partial: whatever was consumed is kept, exitCode stays 1.
   truncated: boolean;
+  // True iff the stream carried a model_refusal_fallback or model_refusal_no_fallback frame. A refused turn is
+  // not a crash and not a REJECT: council and reviewer consumers read this as INCONCLUSIVE.
+  refused: boolean;
+  // True iff a model_refusal_no_fallback frame arrived: nothing replaced the refused turn, so its session must
+  // not be resumed (the refusal sits in that session's history).
+  refusedNoFallback: boolean;
 }
 
 export async function consumeSdkStream(
@@ -141,7 +164,8 @@ export async function consumeSdkStream(
   const write = ctx.write ?? ((s: string) => process.stdout.write(s));
   const lokiRoot = join(ctx.cwd, ".loki");
   const agentsFile = join(lokiRoot, "state", "agents.json");
-  const eventsJsonl = join(lokiRoot, "events.jsonl");
+  // The run ledger honors LOKI_DIR so the writer and the kpis reader (util/paths lokiDir) share one dir.
+  const eventsJsonl = join(lokiDirFor(ctx.cwd), "events.jsonl");
 
   const agents = loadAgents(agentsFile);
   // Always show the main orchestrator (Python init_orchestrator).
@@ -161,11 +185,29 @@ export async function consumeSdkStream(
   let streamedText = false; // partial-message deltas already printed this message
   let exitCode = 1; // fail-closed: no result message -> failure (aborted/crashed)
   let sessionId: string | undefined;
+  let seenSessionId: string | undefined;
   let sessionModel: string | undefined; // E-59: from system/init, overridden by a result message's own model if present
   let totalCostUsd: number | null | undefined;
   let captured = ""; // load-bearing capture (final assistant text + result.result)
   // Blocks are newline-separated so a line-anchored marker never swallows the next block's prose.
-  const capture = (t: string) => { captured += (captured && !captured.endsWith("\n") ? "\n" : "") + t; };
+  // Assistant text is remembered per frame uuid so a refusal-fallback retraction can evict exactly that text.
+  const textByUuid = new Map<string, string[]>();
+  const capture = (raw: string, uuid?: string) => {
+    const t = neutralizeEngineMarkers(raw); // FC-AGENT-TEXT-FORGES-ENGINE-MARKER: agent text never writes an engine marker
+    captured += (captured && !captured.endsWith("\n") ? "\n" : "") + t;
+    if (uuid) textByUuid.set(uuid, [...(textByUuid.get(uuid) ?? []), t]);
+  };
+  const evict = (uuids: string[] | undefined) => {
+    for (const u of uuids ?? []) {
+      for (const t of textByUuid.get(u) ?? []) {
+        const i = captured.lastIndexOf(t);
+        if (i >= 0) captured = captured.slice(0, i) + captured.slice(i + t.length);
+      }
+      textByUuid.delete(u);
+    }
+  };
+  let refused = false;
+  let refusedNoFallback = false;
   let rateLimit: { resetSeconds?: number } | undefined;
   let sawResult = false;
   // E-98e: per-message usage, keyed by message.id so a repeated streamed
@@ -188,10 +230,26 @@ export async function consumeSdkStream(
   // entries of type 'advisor_message' (BetaAdvisorMessageIterationUsage, @anthropic-ai/sdk).
   const reqById = new Map<string, RequestUsage>();
   const advisorById = new Map<string, AdvisorUsage>();
+  const advisorFaults = new Set<string>(); // #269: one key per distinct advisor error or truncation, so a growing snapshot counts once
+
+  // S1-W2-26: tool-use and skill-navigation telemetry, merged into the result-cost record. A turn is one assistant message id (the SDK may stream its blocks as several messages).
+  const toolsByTurn = new Map<string, Set<string>>();
+  const skillReads: string[] = [];
+  let toolResults = 0, toolErrors = 0, mcpToolCount: number | undefined, anonTurn = 0;
+  const toolTelemetry = (): Record<string, unknown> => {
+    const perTurn = [...toolsByTurn.values()].map((t) => t.size);
+    return {
+      ...(perTurn.length ? { tools_per_turn: Math.max(...perTurn), tool_turns: perTurn.length, tool_calls: perTurn.reduce((a, b) => a + b, 0) } : {}),
+      ...(toolResults ? { tool_results: toolResults, tool_errors: toolErrors, tool_error_rate: toolErrors / toolResults } : {}),
+      ...(mcpToolCount !== undefined ? { mcp_tool_count: mcpToolCount } : {}),
+      ...(skillReads.length ? { skill_module_read: skillReads } : {}),
+    };
+  };
 
   const guard = { truncated: false };
   for await (const data of asAsync(messages, guard)) {
     const msgType = data.type ?? "";
+    if (typeof data.session_id === "string" && data.session_id) seenSessionId = data.session_id; // a truncated turn has no result frame but its session is still resumable
 
     // --- stream_event: live incremental delta text (--include-partial-messages)
     if (msgType === "stream_event") {
@@ -211,10 +269,15 @@ export async function consumeSdkStream(
     // --- assistant: rate-limit error, text blocks + tool_use blocks
     if (msgType === "assistant") {
       // SDKAssistantMessage.error can be 'rate_limit' | 'overloaded' | ...
+      evict(data.supersedes); // refusal-fallback: this frame replaces earlier ones
       const err = data.error;
       if (err === "rate_limit" || err === "overloaded") {
         rateLimit = rateLimit ?? {};
         captured += `\n[${err}]\n`; // so the file-based rate-limit scanner fires
+      }
+      if (err === "authentication_failed") { // FC-AUTH-CAUSE-ONLY-IN-IMPL-LOG: the structural frame, never prose; retry_class SDK_ERR classifies this exact wording
+        const said = neutralizeEngineMarkers((data.message?.content ?? []).map((c) => (c["type"] === "text" ? String(c["text"] ?? "") : "")).join(" ")).replace(/\s+/g, " ").trim().slice(0, 200);
+        captured += `\n[sdk-loop error: Failed to authenticate (authentication_failed)${said ? `: ${said}` : ""}]\n`;
       }
       const u = data.message?.usage;
       if (u) {
@@ -227,6 +290,7 @@ export async function consumeSdkStream(
           cache_creation_input_tokens: Math.max(prev["cache_creation_input_tokens"] ?? 0, num(u["cache_creation_input_tokens"])),
         });
         recordRouterUsage(reqById, advisorById, id, u);
+        recordAdvisorFaults(advisorFaults, id, data.message?.content, u, process.env["LOKI_DIR"] ?? lokiRoot);
         writePartialUsage(lokiRoot, ctx.iteration, usageById, data.model ?? sessionModel ?? null);
 
         if (firstTurnId === undefined) firstTurnId = id;
@@ -237,18 +301,24 @@ export async function consumeSdkStream(
         }
       }
       const content = data.message?.content ?? [];
+      const turnId = data.message?.id ?? `#t${anonTurn++}`;
       for (const item of content) {
         const itype = item["type"] as string | undefined;
         if (itype === "text") {
           const text = (item["text"] as string) ?? "";
           // Capture EVERY final text block (independent of the live-print dedup):
           // the streamedText guard only prevents double-PRINTING, not capture.
-          if (text) capture(text);
+          if (text) capture(text, data.uuid);
           if (text && !streamedText) write(text);
         } else if (itype === "tool_use") {
           const tool = (item["name"] as string) ?? "unknown";
           const toolId = (item["id"] as string) ?? "";
           const input = (item["input"] as Record<string, unknown>) ?? {};
+          const turnTools = toolsByTurn.get(turnId) ?? new Set<string>();
+          turnTools.add(toolId || `anon${turnTools.size}`); toolsByTurn.set(turnId, turnTools);
+          const readPath = tool === "Read" ? input["file_path"] : undefined;
+          const mod = typeof readPath === "string" ? /(?:^|\/)((?:skills|references)\/[^/]+\.md)$/.exec(readPath)?.[1] : undefined;
+          if (mod && !skillReads.includes(mod)) skillReads.push(mod);
           bumpOrchestratorTool(agents, tool, toolDesc(tool, input));
 
           if (tool === "Task") {
@@ -299,6 +369,7 @@ export async function consumeSdkStream(
       const content = data.message?.content ?? [];
       for (const item of content) {
         if (item["type"] === "tool_result") {
+          toolResults++; if (item["is_error"] === true) toolErrors++;
           const toolId = (item["tool_use_id"] as string) ?? "";
           const a = agents[toolId];
           if (a) {
@@ -326,6 +397,33 @@ export async function consumeSdkStream(
     // --- system/init: the provider's own model report (E-59), captured for writeResultCost below.
     if (msgType === "system" && data.subtype === "init" && typeof data.model === "string" && data.model) {
       sessionModel = data.model;
+      if (Array.isArray(data.tools)) mcpToolCount = data.tools.filter((t) => typeof t === "string" && t.startsWith("mcp__")).length;
+      continue;
+    }
+
+    // --- refusal and retry frames -> one run-ledger event each (always written; not gated by hookEventsEnabled).
+    if (msgType === "system" && (data.subtype === "model_refusal_fallback" || data.subtype === "model_refusal_no_fallback")) {
+      refused = true;
+      const noFallback = data.subtype === "model_refusal_no_fallback";
+      if (noFallback) refusedNoFallback = true;
+      else evict(data.retracted_message_uuids);
+      appendRunEvent(eventsJsonl, noFallback ? "model_refusal_no_fallback" : "model_refusal_fallback", {
+        category: data.api_refusal_category ?? null,
+        from_model: data.original_model ?? null,
+        ...(noFallback ? {} : { to_model: data.fallback_model ?? null, scope: data.scope ?? "session" }),
+        session_id: data.session_id ?? null,
+      }, clock);
+      continue;
+    }
+    if (msgType === "system" && data.subtype === "api_retry") {
+      appendRunEvent(eventsJsonl, "api_retry", {
+        attempt: data.attempt ?? null,
+        max_retries: data.max_retries ?? null,
+        retry_delay_ms: data.retry_delay_ms ?? null,
+        error_status: data.error_status ?? null,
+        error: data.error ?? null,
+        session_id: data.session_id ?? null,
+      }, clock);
       continue;
     }
 
@@ -381,14 +479,14 @@ export async function consumeSdkStream(
       totalCostUsd = data.total_cost_usd ?? null;
       sessionId = data.session_id;
       if (advisorById.size === 0) recordRouterUsage(new Map(), advisorById, "#result", data.usage ?? {}); // advisor seen only on the result
-      writeResultCost(lokiRoot, ctx.iteration, data, data.model ?? sessionModel, firstTurnPromptTokens, routerTelemetry(reqById, advisorById), ctx.requestedModel);
+      writeResultCost(lokiRoot, ctx.iteration, data, data.model ?? sessionModel, firstTurnPromptTokens, { ...routerTelemetry(reqById, advisorById, advisorFaults), ...toolTelemetry() }, ctx.requestedModel);
 
       exitCode = data.is_error ? 1 : 0;
       // do not break: a well-formed stream ends after result, but keep draining.
     }
   }
 
-  return { exitCode, sessionId, totalCostUsd, capturedText: captured, rateLimit, sawResult, truncated: guard.truncated || !sawResult };
+  return { exitCode, sessionId: sessionId ?? seenSessionId, totalCostUsd, capturedText: captured, rateLimit, sawResult, truncated: guard.truncated || !sawResult, refused, refusedNoFallback };
 }
 
 // --- helpers (translations of the Python functions) -----------------------
@@ -472,6 +570,16 @@ function toolDesc(tool: string, input: Record<string, unknown>): string {
   }
 }
 
+// Run-ledger event on the same .loki/events.jsonl stream the hook events use. Best-effort.
+function appendRunEvent(eventsJsonl: string, type: string, payload: unknown, clock?: () => string): void {
+  try {
+    mkdirSync(dirname(eventsJsonl), { recursive: true });
+    appendFileSync(eventsJsonl, `${JSON.stringify({ type, source: "claude_cli", timestamp: nowIso(clock), payload })}\n`);
+  } catch {
+    // best-effort
+  }
+}
+
 function appendHookEvent(
   eventsJsonl: string,
   eventName: string,
@@ -525,14 +633,42 @@ function recordRouterUsage(
   if (!old || calls >= old.calls) advisors.set(id, { calls, input, output });
 }
 
-function routerTelemetry(reqs: Map<string, RequestUsage>, advisors: Map<string, AdvisorUsage>): Record<string, number> | undefined {
+// #269: advisor error results (an advisor_tool_result block whose content is advisor_tool_result_error) and advisor sub-calls cut off
+// at max_tokens. Each distinct fault is keyed once and handed to the existing recordAdvisorError (sticky marker, first message wins).
+function recordAdvisorFaults(faults: Set<string>, id: string, content: unknown, u: Record<string, unknown>, runDir: string): void {
+  if (!routerTelemetryOn()) return;
+  const note = (key: string, message: string): void => {
+    if (faults.has(key)) return;
+    faults.add(key);
+    recordAdvisorError(runDir, message);
+  };
+  if (Array.isArray(content)) {
+    for (const [i, item] of (content as Array<Record<string, unknown>>).entries()) {
+      const res = item?.["type"] === "advisor_tool_result" ? (item["content"] as Record<string, unknown> | undefined) : undefined;
+      if (res?.["type"] === "advisor_tool_result_error") note(`err:${id}:${String(item["tool_use_id"] ?? i)}`, `advisor tool error: ${String(res["error_code"] ?? "unknown")}`);
+    }
+  }
+  const its = u["iterations"];
+  if (Array.isArray(its)) {
+    let n = 0;
+    for (const it of its as Array<Record<string, unknown>>) {
+      if (it?.["type"] !== "advisor_message") continue;
+      if (it["stop_reason"] === "max_tokens") note(`trunc:${id}:${n}`, "advisor sub-call truncated (stop_reason max_tokens)");
+      n++;
+    }
+  }
+}
+
+function routerTelemetry(reqs: Map<string, RequestUsage>, advisors: Map<string, AdvisorUsage>, faults: Set<string>): Record<string, number> | undefined {
   if (!routerTelemetryOn()) return undefined; // flag off: result-cost file stays byte-identical to pre-router
-  if (reqs.size === 0 && advisors.size === 0) return undefined; // nothing streamed: keep the file shape unchanged
+  if (reqs.size === 0 && advisors.size === 0 && faults.size === 0) return undefined; // nothing streamed: keep the file shape unchanged
   let over = 0, maxSize = 0, overIn = 0, overOut = 0;
   for (const r of reqs.values()) {
     maxSize = Math.max(maxSize, r.size);
     if (r.size > OVER_100K_TOKENS) { over++; overIn += r.size; overOut += r.output; }
   }
+  let truncated = 0;
+  for (const k of faults) if (k.startsWith("trunc:")) truncated++;
   let calls = 0, aIn = 0, aOut = 0;
   for (const a of advisors.values()) { calls += a.calls; aIn += a.input; aOut += a.output; }
   return {
@@ -544,6 +680,8 @@ function routerTelemetry(reqs: Map<string, RequestUsage>, advisors: Map<string, 
     advisor_calls: calls,
     advisor_input_tokens: aIn,
     advisor_output_tokens: aOut,
+    ...(faults.size > 0 ? { advisor_errors: faults.size } : {}),
+    ...(truncated > 0 ? { advisor_truncated: truncated } : {}),
   };
 }
 
@@ -568,7 +706,7 @@ function writeResultCost(
   data: StreamMsg,
   model?: string,
   firstTurnPromptTokens?: number,
-  router?: Record<string, number>,
+  router?: Record<string, unknown>,
   requested?: string,
 ): void {
   try {

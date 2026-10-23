@@ -43,6 +43,7 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 _STUB_DIR: str | None = None
@@ -163,6 +164,7 @@ _FRESH_REPO_CALLS = {
     "loki_v10_run": dict(ref="", repo_path="."),
     "loki_v10_status": dict(repo_path=""),
     "loki_v10_verify": dict(receipt_path="/nonexistent-receipt.json"),
+    "loki_seal_diff": dict(repo_path=".", intent=""),  # empty intent -> early error, no scratch clone
 }
 
 
@@ -174,6 +176,11 @@ class EventBalanceTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="loki-mcp-balance-")
         os.makedirs(os.path.join(self.tmp, ".loki"), exist_ok=True)
+        # loki_verify_fast keeps its HMAC cache under the user's home by default;
+        # a test must never write there.
+        env = mock.patch.dict(os.environ, {"LOKI_FAST_VERIFY_CACHE_DIR": os.path.join(self.tmp, "fv-cache")})
+        env.start()
+        self.addCleanup(env.stop)
         # Force ChromaDB-unavailable so loki_code_search* take the known path.
         self._orig_chroma = self.server._get_chroma_collection
         self.server._get_chroma_collection = lambda: None
@@ -242,8 +249,9 @@ class EventBalanceTests(unittest.TestCase):
                 # Call each tool TWICE so a per-call leak accumulates and is
                 # unmistakable (1 leaked vs 0 expected, then 2 vs 0).
                 for _ in range(2):
-                    out = _run(fn(**kwargs))
-                    # Every tool must return a JSON string envelope, never raise.
+                    # Through the result contract every tool yields a JSON
+                    # string (success or isError payload), never an exception.
+                    _is_error, out = _run(srv._run_with_contract(name, fn, (), kwargs))
                     self.assertIsInstance(out, str)
                     json.loads(out)
 
@@ -266,8 +274,11 @@ class EventBalanceTests(unittest.TestCase):
             srv._tool_call_start_times.pop("loki_start_project", None)
         with _ChdirToTmp(self.tmp):
             for _ in range(3):
-                body = json.loads(_run(srv.loki_start_project(prd_content="", prd_path="")))
-                self.assertIn("error", body)  # confirms early-return path taken
+                is_error, text = _run(srv._run_with_contract(
+                    "loki_start_project", srv.loki_start_project, (),
+                    {"prd_content": "", "prd_path": ""}))
+                self.assertTrue(is_error)  # confirms early-exit path taken
+                self.assertEqual(json.loads(text)["code"], "invalid_argument")
         remaining = srv._tool_call_start_times.get("loki_start_project", [])
         self.assertEqual(
             len(remaining), 0,
@@ -293,8 +304,10 @@ class EventBalanceTests(unittest.TestCase):
             # mem_get returns early on no-ids only if base_path exists; seed it.
             os.makedirs(os.path.join(self.tmp, ".loki", "memory"), exist_ok=True)
             for _ in range(3):
-                body = json.loads(_run(srv.mem_get(ids="")))
-                self.assertEqual(body.get("error"), "No IDs provided")
+                is_error, text = _run(srv._run_with_contract(
+                    "mem_get", srv.mem_get, (), {"ids": ""}))
+                self.assertTrue(is_error)
+                self.assertEqual(json.loads(text).get("error"), "No IDs provided")
         remaining = srv._tool_call_start_times.get("mem_get", [])
         self.assertEqual(len(remaining), 0)
 
@@ -308,6 +321,49 @@ class EventBalanceTests(unittest.TestCase):
                 self.assertEqual(body.get("learnings"), [])
         remaining = srv._tool_call_start_times.get("loki_learnings", [])
         self.assertEqual(len(remaining), 0)
+
+
+    def _start_with_binary_spec(self, name, run_result):
+        """loki_start_project on a binary spec, with the CLI extractor stubbed."""
+        from unittest import mock
+        srv = self.server
+        spec = os.path.join(os.path.realpath(self.tmp), name)
+        Path(spec).write_bytes(b"PK\x03\x04\xff\xfe binary")
+        calls = []
+
+        def fake_run(cmd, **kw):
+            calls.append(cmd)
+            return run_result
+
+        with _ChdirToTmp(os.path.realpath(self.tmp)), mock.patch("subprocess.run", fake_run):
+            is_error, text = _run(srv._run_with_contract(
+                "loki_start_project", srv.loki_start_project, (), {"prd_path": spec}))
+            out = json.loads(text)
+        return out, calls, is_error
+
+    def test_start_project_binary_spec_goes_through_cli_extractor(self):
+        from types import SimpleNamespace
+        text = os.path.join(os.path.realpath(self.tmp), "extracted.txt")
+        Path(text).write_text("# Extracted PRD\nbuild a thing")
+        for name in ("spec.docx", "spec.pdf"):
+            out, calls, _ = self._start_with_binary_spec(
+                name, SimpleNamespace(returncode=0, stdout=text + "\n", stderr=""))
+            self.assertNotIn("error", out, out)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0][1:3], ["internal", "spec-text"])
+            self.assertTrue(calls[0][3].endswith(name))
+
+    def test_start_project_unreadable_binary_spec_refuses_with_error(self):
+        from types import SimpleNamespace
+        srv = self.server
+        with srv._tool_call_times_lock:
+            srv._tool_call_start_times.pop("loki_start_project", None)
+        out, _, is_error = self._start_with_binary_spec(
+            "spec.docx",
+            SimpleNamespace(returncode=2, stdout="", stderr="no pandoc, textutil or python zipfile"))
+        self.assertTrue(is_error)
+        self.assertIn("pandoc", out.get("error", ""))
+        self.assertEqual(len(srv._tool_call_start_times.get("loki_start_project", [])), 0)
 
 
 if __name__ == "__main__":

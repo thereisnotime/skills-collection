@@ -162,6 +162,103 @@ else
     printf '%s\n' "$orphans" | sed 's/^/        /'
 fi
 
+# ---- CAPACITY ------------------------------------------------------------
+# Capacity values change only with a cited doc line. Source: Anthropic platform
+# docs snapshot 2026-10 (claude-platform-docs-tool-use-sidebar):
+#   build-with-claude/context-windows.md:38  Sonnet 5.5, Sonnet 5, Haiku 5.5 have a
+#     1M-token window and up to 128k output tokens; Haiku 4.5 stays 200k.
+#   build-with-claude/thinking.md:1213-1218  Output limits: Sonnet 5.5 / Sonnet 5 /
+#     Haiku 5.5 128K; Haiku 4.5 64K.
+cap_bad="$(python3 - "$CATALOG" <<'PY'
+import json, sys
+models = {m["id"]: m for m in json.load(open(sys.argv[1]))["providers"]["claude"]["models"]}
+want = {
+    "claude-sonnet-5-5": (1000000, 128000),
+    "claude-sonnet-5": (1000000, 128000),
+    "claude-haiku-5-5": (1000000, 128000),
+    "claude-haiku-4-5": (200000, 64000),
+}
+for mid, (cw, mo) in want.items():
+    m = models[mid]
+    if (m.get("context_window"), m.get("max_output")) != (cw, mo):
+        print("%s: got (%s, %s) want (%s, %s)" % (mid, m.get("context_window"), m.get("max_output"), cw, mo))
+PY
+)"
+if [ -z "$cap_bad" ]; then
+    ok "claude capacity values match the cited docs snapshot"
+else
+    bad "claude capacity drift from docs snapshot:"
+    printf '%s\n' "$cap_bad" | sed 's/^/        /'
+fi
+
+# CAPABILITIES: every claude entry's thinking.types, effort.levels and effort.default are pinned to
+# the claude-api skill model table (thinking and effort rows). A shape-only check would pass a wrong
+# value, so the exact expected set is diffed. Empty levels (haiku-4-5) means no effort parameter.
+# thinking.max_effort (#314) is the highest effort at which a thinking type is accepted: opus-5 and haiku-5-5
+# take "disabled", and sonnet-5-5 takes "between_tools", only at high or below. A model absent from MAXEFF has no
+# recorded limit (the skill table states none), and the catalog must not invent one.
+capab_bad="$(python3 - "$CATALOG" <<'PY'
+import json, sys
+ALL = ["low", "medium", "high", "xhigh", "max"]
+WANT = {
+    "claude-fable-5-1":  (["adaptive"], ALL, "high"),
+    "claude-fable-5":    (["adaptive"], ALL, "high"),
+    "claude-opus-5-5":   (["adaptive"], ALL, "medium"),
+    "claude-opus-5":     (["adaptive", "disabled"], ALL, "high"),
+    "claude-sonnet-5-5": (["adaptive", "between_tools"], ALL, "high"),
+    "claude-sonnet-5":   (["adaptive", "disabled"], ALL, "high"),
+    "claude-haiku-5-5":  (["adaptive", "disabled"], ALL, "medium"),
+    "claude-haiku-4-5":  (["enabled", "disabled"], [], None),
+}
+MAXEFF = {
+    "claude-opus-5":     {"disabled": "high"},
+    "claude-sonnet-5-5": {"between_tools": "high"},
+    "claude-haiku-5-5":  {"disabled": "high"},
+}
+SUBST = {
+    "claude-sonnet-5-5": {"disabled": "between_tools"},
+}
+got = {m["id"]: m for m in json.load(open(sys.argv[1]))["providers"]["claude"]["models"]}
+for mid in sorted(set(WANT) - set(got)):
+    print("%s: pinned model missing from catalog" % mid)
+for mid in sorted(set(got) - set(WANT)):
+    print("%s: catalog model has no pinned capability row" % mid)
+for mid, (types, levels, default) in WANT.items():
+    m = got.get(mid)
+    if m is None:
+        continue
+    gt = m.get("thinking", {}).get("types")
+    gl = m.get("effort", {}).get("levels")
+    gd = m.get("effort", {}).get("default")
+    gs = m.get("thinking", {}).get("substitute", {})
+    if gs != SUBST.get(mid, {}):
+        print("%s: thinking.substitute %r != %r" % (mid, gs, SUBST.get(mid, {})))
+    for t, to in gs.items():
+        if to not in (gt or []):
+            print("%s: thinking.substitute maps %r to %r which is not in thinking.types" % (mid, t, to))
+    gm = m.get("thinking", {}).get("max_effort", {})
+    if gm != MAXEFF.get(mid, {}):
+        print("%s: thinking.max_effort %r != %r" % (mid, gm, MAXEFF.get(mid, {})))
+    for t, lvl in gm.items():
+        if t not in (gt or []):
+            print("%s: thinking.max_effort names type %r that is not in thinking.types" % (mid, t))
+        if lvl not in ALL:
+            print("%s: thinking.max_effort level %r is not an effort level" % (mid, lvl))
+    if gt != types:
+        print("%s: thinking.types %r != %r" % (mid, gt, types))
+    if gl != levels:
+        print("%s: effort.levels %r != %r" % (mid, gl, levels))
+    if gd != default:
+        print("%s: effort.default %r != %r" % (mid, gd, default))
+PY
+)"
+if [ -z "$capab_bad" ]; then
+    ok "every claude model matches its pinned thinking.types, thinking.max_effort, effort.levels and effort.default"
+else
+    bad "claude capability drift from pinned table:"
+    printf '%s\n' "$capab_bad" | sed 's/^/        /'
+fi
+
 echo
 echo "  passed: $PASS  failed: $FAIL"
 [ "$FAIL" -eq 0 ]

@@ -3,7 +3,8 @@
 // invoked; no network calls. The goal is to lock in the loop's exit
 // conditions before the C1/C2/C3/B1 modules land.
 
-import { afterEach, beforeEach, describe, expect, it, setDefaultTimeout } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { setLoadAwareTimeout } from "../preload.ts";
 
 // These are E2E-shaped: they drive the real runAutonomous loop, which writes
 // state files and spawns processes. Bun's 5000ms default is fine on an idle
@@ -13,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, setDefaultTimeout } from "
 // and it cost real time to diagnose because a flake reads like a regression.
 // 30s is far beyond the honest worst case (the slowest of these does ~5s of
 // actual work) while still catching a genuine hang.
-setDefaultTimeout(30_000);
+setLoadAwareTimeout(30_000);
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -169,6 +170,29 @@ describe("runAutonomous", () => {
     const code = await runAutonomous(baseOpts({ signals, providerOverride: provider }));
     expect(code).toBe(0);
     expect(provider.calls).toHaveLength(0);
+  });
+
+  it("#211 Bun-route sibling: a run that stops before proof does not leave the previous run's proof pointer", async () => {
+    // Parity with run.sh:7665. Without the clear, every reader of
+    // state/last-proof-id.txt shows a receipt for different work. LOKI_PROOF=0
+    // keeps the finally-block generator from writing this run's own id, so
+    // "absent" is the only correct outcome.
+    const stateDir = resolve(lokiDir, "state");
+    mkdirSync(stateDir, { recursive: true });
+    const pointer = resolve(stateDir, "last-proof-id.txt");
+    writeFileSync(pointer, "run-A");
+    const signals = new FakeSignals();
+    signals.interventions = [2];
+    const prev = process.env["LOKI_PROOF"];
+    process.env["LOKI_PROOF"] = "0";
+    try {
+      const code = await runAutonomous(baseOpts({ signals, providerOverride: new FakeProvider([]) }));
+      expect(code).toBe(0);
+    } finally {
+      if (prev === undefined) delete process.env["LOKI_PROOF"];
+      else process.env["LOKI_PROOF"] = prev;
+    }
+    expect(existsSync(pointer)).toBe(false);
   });
 
   it("re-checks loop on PAUSE signal then exits when STOP follows", async () => {

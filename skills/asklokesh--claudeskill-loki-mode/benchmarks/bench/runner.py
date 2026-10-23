@@ -153,9 +153,17 @@ def _resolve_task_path(stored: str) -> str:
 # workdir preparation
 # ---------------------------------------------------------------------------
 
-def prepare_workdir(fixture_dir: str, tool: str) -> str:
-    """Copy the fixture into a fresh mktemp workdir. Returns the workdir path."""
-    workdir = tempfile.mkdtemp(prefix="loki-bench-%s-" % tool)
+def prepare_workdir(fixture_dir: str, tool: str, dest: Optional[str] = None) -> str:
+    """Copy the fixture into a fresh mktemp workdir (or into the empty `dest`).
+    Returns the workdir path."""
+    if dest:
+        if os.path.isdir(dest) and os.listdir(dest):
+            raise ValueError("kept workdir already exists and is not empty: %s "
+                             "(use an empty LOKI_BENCH_WORKDIRS root per grid)" % dest)
+        os.makedirs(dest, exist_ok=True)
+        workdir = dest
+    else:
+        workdir = tempfile.mkdtemp(prefix="loki-bench-%s-" % tool)
     if os.path.isdir(fixture_dir):
         # Copy contents of the fixture into workdir (workdir already exists).
         for name in os.listdir(fixture_dir):
@@ -165,7 +173,21 @@ def prepare_workdir(fixture_dir: str, tool: str) -> str:
                 shutil.copytree(src, dst)
             else:
                 shutil.copy2(src, dst)
+    _git_baseline(workdir)
     return workdir
+
+
+def _git_baseline(workdir: str) -> None:
+    """Commit the copied fixture as a git baseline. loki start (engine10) refuses a
+    folder that is not a git work tree and exits rc 2 in under a second, which a
+    bench run would otherwise record as a measured failure of the tool under test.
+    Local identity only; the fixture is the baseline so a diff shows what the agent changed.
+    A dummy origin remote is set so repo identity resolves for every tool alike; nothing is
+    ever fetched or pushed to it (the .invalid TLD never resolves)."""
+    git = ["git", "-c", "user.name=bench", "-c", "user.email=bench@localhost"]
+    for argv in (["git", "init", "-q"], ["git", "remote", "add", "origin", "https://git.invalid/bench/fixture.git"],
+                 ["git", "add", "-A"], git + ["commit", "-q", "-m", "baseline", "--allow-empty"]):
+        subprocess.run(argv, cwd=workdir, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 # ---------------------------------------------------------------------------
@@ -311,9 +333,60 @@ def materialize_prompt(workdir: str, spec: Dict[str, Any]) -> str:
     return prompt_path
 
 
+EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
+
+
+def catalog_effort_levels(model: Optional[str]) -> List[str]:
+    """Effort levels providers/model_catalog.json lists for `model` (id, alias or cli alias).
+
+    Raises ValueError for a missing model, an unknown model or a model with no
+    effort parameter, so a sweep never runs a level the model does not accept.
+    """
+    if not model:
+        raise ValueError("--effort sweep needs --model to know which levels to run")
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.environ.get("LOKI_MODEL_CATALOG") or os.path.join(
+        here, "..", "..", "providers", "model_catalog.json")
+    with open(path) as fh:
+        claude = json.load(fh)["providers"]["claude"]
+    mid = claude.get("cli_aliases", {}).get(model, model)
+    for m in claude["models"]:
+        if m["id"] == mid or m.get("alias") == model:
+            levels = [lv for lv in EFFORT_LEVELS if lv in m.get("effort", {}).get("levels", [])]
+            if not levels:
+                raise ValueError("model %r lists no effort levels; nothing to sweep" % model)
+            return levels
+    raise ValueError("model %r is not in the catalog; cannot sweep" % model)
+
+
+def parse_efforts(raw: str, model: Optional[str] = None) -> List[str]:
+    """Split a comma list of effort levels; reject anything outside EFFORT_LEVELS.
+
+    The single value "sweep" is the effort_sweep axis: every level the catalog
+    lists for `model`, low to max.
+    """
+    if raw.strip() == "sweep":
+        return catalog_effort_levels(model)
+    levels = [x.strip() for x in raw.split(",") if x.strip()]
+    bad = [x for x in levels if x not in EFFORT_LEVELS]
+    if not levels or bad:
+        raise ValueError("invalid --effort %r (allowed: %s, or sweep)" % (
+            bad or raw, ", ".join(EFFORT_LEVELS)))
+    return list(dict.fromkeys(levels))
+
+
+def adapter_supports_effort(adapter: Callable[..., Dict[str, Any]]) -> bool:
+    import inspect
+    try:
+        return "effort" in inspect.signature(adapter).parameters
+    except (TypeError, ValueError):
+        return False
+
+
 def invoke_adapter(adapter: Callable[..., Dict[str, Any]],
                    workdir: str, spec: Dict[str, Any], model: str,
-                   timeout_s: int, runner_fn: Any = None) -> Dict[str, Any]:
+                   timeout_s: int, runner_fn: Any = None,
+                   effort: Optional[str] = None) -> Dict[str, Any]:
     """Call an adapter and validate its output. Raises ValueError if it judges.
 
     Uses the Slice C adapter call convention: run(workdir, prompt_path, *,
@@ -328,6 +401,8 @@ def invoke_adapter(adapter: Callable[..., Dict[str, Any]],
     kwargs: Dict[str, Any] = {"model": model, "timeout": timeout_s}
     if runner_fn is not None:
         kwargs["runner"] = runner_fn
+    if effort is not None:
+        kwargs["effort"] = effort
     out = adapter(workdir, prompt_path, **kwargs)
     errs = schema.validate_adapter_output(out)
     if errs:
@@ -339,18 +414,41 @@ def invoke_adapter(adapter: Callable[..., Dict[str, Any]],
 # trial + run orchestration
 # ---------------------------------------------------------------------------
 
+def _advisor_field(adapter_out: Dict[str, Any], key: str) -> Optional[int]:
+    prov = adapter_out.get("provenance")
+    adv = prov.get("advisor") if isinstance(prov, dict) else None
+    v = adv.get(key) if isinstance(adv, dict) else None
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
+def _advisor_calls(adapter_out: Dict[str, Any]) -> Optional[int]:
+    return _advisor_field(adapter_out, "calls")
+
+
 def run_trial(adapter: Callable[..., Dict[str, Any]],
               spec: Dict[str, Any], fixture_dir: str, model: str,
               tool: str, trial_index: int,
               keep_workdir: bool = False,
               runner_fn: Any = None,
-              task_dir: Optional[str] = None) -> Dict[str, Any]:
-    """One trial: prepare workdir, invoke adapter, GRADE, assemble trial record."""
+              task_dir: Optional[str] = None,
+              effort: Optional[str] = None,
+              trial_label: Optional[str] = None) -> Dict[str, Any]:
+    """One trial: prepare workdir, invoke adapter, GRADE, assemble trial record.
+
+    LOKI_BENCH_WORKDIRS=<root> keeps every workdir at <root>/<tool>/<task>/<label>/
+    (label defaults to the trial index) so a later measurement, for example
+    trust_time, can read the same trials without a second paid run."""
     agent_timeout = int(spec.get("agent_timeout_s", 1800))
-    workdir = prepare_workdir(fixture_dir, tool)
+    root = os.environ.get("LOKI_BENCH_WORKDIRS")
+    dest = None
+    if root:
+        keep_workdir = True
+        dest = os.path.join(root, tool, spec["id"], trial_label or str(trial_index))
+    workdir = prepare_workdir(fixture_dir, tool, dest=dest)
     try:
         adapter_out = invoke_adapter(adapter, workdir, spec, model,
-                                     agent_timeout, runner_fn=runner_fn)
+                                     agent_timeout, runner_fn=runner_fn,
+                                     effort=effort)
         # GRADE on the produced repo state. Grader sees workdir + spec (+ the
         # task dir to resolve a held-out overlay); never adapter-output.
         verdict = grade(workdir, spec, task_dir=task_dir)
@@ -400,7 +498,14 @@ def run_trial(adapter: Callable[..., Dict[str, Any]],
             # a missing key, which is how the original defect stayed invisible.
             "measured": not unmeasured_reasons,
             "unmeasured_reasons": unmeasured_reasons,
+            # Advisor calls this trial streamed; None when not recorded (non-loki tool, or no cost
+            # record). advisor_verdict treats None as not attached, never as zero calls.
+            "advisor_calls": _advisor_calls(adapter_out),
+            # Advisor errors this trial hit; a trial with calls but errors is not attached.
+            "advisor_errors": _advisor_field(adapter_out, "errors"),
         }
+        row["metrics"] = schema.trial_metrics(
+            adapter_out, verdict["success"], measured=not unmeasured_reasons)
         if unmeasured_reasons:
             # Held-out grader evidence preserved separately, never discarded.
             #
@@ -434,50 +539,74 @@ def run_trial(adapter: Callable[..., Dict[str, Any]],
             shutil.rmtree(workdir, ignore_errors=True)
 
 
+def _spend_gated_adapter(adapter_name: str) -> Callable[..., Dict[str, Any]]:
+    """Load a NAMED adapter behind the spend interlock."""
+    # SPEND INTERLOCK. Loading a NAMED adapter is the point where this
+    # harness starts a real tool and therefore starts costing money.
+    #
+    # It exists because a task named "demo-pass" was run on the assumption
+    # that a demo is free. It invoked the provider for three 60-second
+    # trials. Nothing was recorded as billed, but an absent cost record is
+    # not a zero cost record, so the true spend of that run is UNKNOWN --
+    # which is precisely the outcome an interlock prevents.
+    #
+    # Default-DENY, and deliberately not a warning: a prompt that can be
+    # ignored is not an interlock. An explicitly-passed `adapter` (the mock
+    # path used by tests) never reaches here, so offline verification is
+    # unaffected and stays runnable with no opt-in.
+    if os.environ.get("LOKI_BENCH_SPEND_APPROVED") != "1":
+        raise RuntimeError(
+            "SPEND INTERLOCK: running adapter %r starts a real tool and "
+            "costs money. This is founder-gated. Set "
+            "LOKI_BENCH_SPEND_APPROVED=1 to authorise, or pass a mock "
+            "adapter for offline verification. No run was started."
+            % adapter_name)
+    return load_adapter(adapter_name)
+
+
 def run_task(task_path: str, adapter_name: str, *,
              trials: int = 3, model: Optional[str] = None,
              adapter: Optional[Callable[..., Dict[str, Any]]] = None,
              keep_workdir: bool = False,
-             runner_fn: Any = None) -> Dict[str, Any]:
+             runner_fn: Any = None,
+             effort: Optional[str] = None) -> Dict[str, Any]:
     """Run a full task: N trials of one adapter, assemble + validate a result-row.
 
     `adapter` may be passed directly (used by tests with a mock); otherwise the
     named adapter module is loaded from benchmarks/bench/adapters/<name>.py.
+
+    `effort` (one of EFFORT_LEVELS) overrides the tier-derived effort for this
+    run and is recorded as row["effort"]. None keeps today's behaviour: the
+    adapter is called without it and the row carries no effort key. An adapter
+    that cannot apply an effort raises rather than record one it did not run.
     """
     spec = load_task(task_path)
+    retired = schema.retired_tasks().get(spec["id"])
+    if retired:
+        raise ValueError("task %s is retired (%s); use %s" % (spec["id"], retired.get("reason", ""), retired.get("superseded_by", "its replacement")))
     fixture_dir = resolve_fixture_dir(task_path, spec)
     task_dir = os.path.dirname(os.path.abspath(task_path))
     task_hash = schema.compute_task_hash(spec, fixture_dir)
     used_model = model or spec.get("default_model", "")
 
     if adapter is None:
-        # SPEND INTERLOCK. Loading a NAMED adapter is the point where this
-        # harness starts a real tool and therefore starts costing money.
-        #
-        # It exists because a task named "demo-pass" was run on the assumption
-        # that a demo is free. It invoked the provider for three 60-second
-        # trials. Nothing was recorded as billed, but an absent cost record is
-        # not a zero cost record, so the true spend of that run is UNKNOWN --
-        # which is precisely the outcome an interlock prevents.
-        #
-        # Default-DENY, and deliberately not a warning: a prompt that can be
-        # ignored is not an interlock. An explicitly-passed `adapter` (the mock
-        # path used by tests) never reaches here, so offline verification is
-        # unaffected and stays runnable with no opt-in.
-        if os.environ.get("LOKI_BENCH_SPEND_APPROVED") != "1":
-            raise RuntimeError(
-                "SPEND INTERLOCK: running adapter %r starts a real tool and "
-                "costs money. This is founder-gated. Set "
-                "LOKI_BENCH_SPEND_APPROVED=1 to authorise, or pass a mock "
-                "adapter for offline verification. No run was started."
-                % adapter_name)
-        adapter = load_adapter(adapter_name)
+        adapter = _spend_gated_adapter(adapter_name)
+
+    if effort is not None:
+        if effort not in EFFORT_LEVELS:
+            raise ValueError("invalid effort %r (allowed: %s)" % (
+                effort, ", ".join(EFFORT_LEVELS)))
+        if not adapter_supports_effort(adapter):
+            raise ValueError(
+                "adapter %r cannot apply --effort; refusing to record an effort "
+                "it did not run" % adapter_name)
 
     trial_rows: List[Dict[str, Any]] = []
     for i in range(1, max(1, trials) + 1):
         trial_rows.append(run_trial(
             adapter, spec, fixture_dir, used_model, adapter_name, i,
             keep_workdir=keep_workdir, runner_fn=runner_fn, task_dir=task_dir,
+            effort=effort,
         ))
 
     row = {
@@ -502,10 +631,43 @@ def run_task(task_path: str, adapter_name: str, *,
     _cell = os.environ.get("LOKI_BENCH_CELL")
     if _cell:
         row["cell"] = _cell
+    if effort is not None:
+        row["effort"] = effort
     errs = schema.validate_result_row(row)
     if errs:
         raise ValueError("assembled result-row invalid: %s" % "; ".join(errs))
     return row
+
+
+def run_resume_pair(task_path: str, adapter_name: str, *, interrupt: Any,
+                    trials: int = 1, model: Optional[str] = None,
+                    adapter: Optional[Callable[..., Dict[str, Any]]] = None,
+                    runner_fn: Any = None) -> Dict[str, Any]:
+    """Resume-cost instrument (100x axis D). Per trial: an uninterrupted
+    control, then the same task interrupted at a deterministic point and
+    resumed. `interrupt` is a stage name for loki (kill when `(<stage> done` is
+    printed) or seconds for claude_code. Returns every pair with
+    schema.resume_cost(control, interrupted); the grader judges both runs."""
+    spec = load_task(task_path)
+    fixture_dir = resolve_fixture_dir(task_path, spec)
+    task_dir = os.path.dirname(os.path.abspath(task_path))
+    used_model = model or spec.get("default_model", "")
+    if adapter is None:
+        adapter = _spend_gated_adapter(adapter_name)
+    key = "interrupt_after_stage" if adapter_name == "loki" else "interrupt_after_s"
+    resumed = lambda *a, **kw: adapter(*a, **{**kw, key: interrupt})  # noqa: E731
+    pairs = []
+    for i in range(1, max(1, trials) + 1):
+        ctl = run_trial(adapter, spec, fixture_dir, used_model, adapter_name, i,
+                        runner_fn=runner_fn, task_dir=task_dir,
+                        trial_label="control-%d" % i)
+        itr = run_trial(resumed, spec, fixture_dir, used_model, adapter_name, i,
+                        runner_fn=runner_fn, task_dir=task_dir)
+        pairs.append({"control": ctl, "interrupted": itr,
+                      "resume_cost": schema.resume_cost(ctl, itr)})
+    return {"task_id": spec["id"], "tool": adapter_name, "model": used_model,
+            "interrupt": interrupt, "harness_sig": harness_signature(),
+            "pairs": pairs}
 
 
 # ---------------------------------------------------------------------------
@@ -630,6 +792,7 @@ def _current_tool_version(tool: str) -> Optional[str]:
         "loki": ["loki", "version"],
         "aider": ["aider", "--version"],
         "claude_code": ["claude", "--version"],
+        "codex": ["codex", "--version"],
         "claude": ["claude", "--version"],
         "manual": None,  # externally supplied; nothing to query
     }
@@ -660,8 +823,22 @@ def _main(argv: List[str]) -> int:
     pr.add_argument("--adapter", default="loki")
     pr.add_argument("--trials", type=int, default=3)
     pr.add_argument("--model", default=None)
+    pr.add_argument("--effort", default=None,
+                    help="comma list of effort levels (%s), or sweep for every level "
+                         "the catalog lists for --model; one result row per "
+                         "level. Default: tier-derived effort, no effort field"
+                         % ",".join(EFFORT_LEVELS))
     pr.add_argument("--out", default=None)
     pr.add_argument("--keep-workdir", action="store_true")
+
+    pc = sub.add_parser("resume-cost", help="control vs interrupted-then-resumed trial pair")
+    pc.add_argument("task")
+    pc.add_argument("--adapter", default="loki")
+    pc.add_argument("--interrupt", required=True,
+                    help="loki: stage name; claude_code: seconds")
+    pc.add_argument("--trials", type=int, default=1)
+    pc.add_argument("--model", default=None)
+    pc.add_argument("--out", default=None)
 
     pv = sub.add_parser("verify", help="recompute task_hash + check tool versions")
     pv.add_argument("result")
@@ -671,16 +848,51 @@ def _main(argv: List[str]) -> int:
 
     args = p.parse_args(argv)
 
-    if args.cmd == "run":
-        row = run_task(args.task, args.adapter, trials=args.trials,
-                       model=args.model, keep_workdir=args.keep_workdir)
-        payload = json.dumps(row, indent=2, sort_keys=True)
+    if args.cmd == "resume-cost":
+        itr = args.interrupt if args.adapter == "loki" else float(args.interrupt)
+        res = run_resume_pair(args.task, args.adapter, interrupt=itr,
+                              trials=args.trials, model=args.model)
+        payload = json.dumps(res, indent=2, sort_keys=True)
         if args.out:
             with open(args.out, "w") as fh:
                 fh.write(payload + "\n")
             print("wrote %s" % args.out)
         else:
             print(payload)
+        return 0
+
+    if args.cmd == "run":
+        if args.effort is None:
+            row = run_task(args.task, args.adapter, trials=args.trials,
+                           model=args.model, keep_workdir=args.keep_workdir)
+            payload = json.dumps(row, indent=2, sort_keys=True)
+            if args.out:
+                with open(args.out, "w") as fh:
+                    fh.write(payload + "\n")
+                print("wrote %s" % args.out)
+            else:
+                print(payload)
+            return 0
+        try:
+            levels = parse_efforts(args.effort, args.model)
+        except ValueError as exc:
+            print("ERROR: %s" % exc, file=sys.stderr)
+            return 2
+        rows = [run_task(args.task, args.adapter, trials=args.trials,
+                         model=args.model, keep_workdir=args.keep_workdir,
+                         effort=lv) for lv in levels]
+        if not args.out:
+            print(json.dumps(rows[0] if len(rows) == 1 else rows,
+                             indent=2, sort_keys=True))
+            return 0
+        # One file per row (report.py consumes one row per file); the effort
+        # level is suffixed onto the stem when more than one level was run.
+        stem, ext = os.path.splitext(args.out)
+        for lv, row in zip(levels, rows):
+            dest = args.out if len(rows) == 1 else "%s-effort-%s%s" % (stem, lv, ext)
+            with open(dest, "w") as fh:
+                fh.write(json.dumps(row, indent=2, sort_keys=True) + "\n")
+            print("wrote %s" % dest)
         return 0
 
     if args.cmd == "verify":

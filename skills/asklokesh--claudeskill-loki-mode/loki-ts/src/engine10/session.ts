@@ -1,20 +1,24 @@
 // E-07: SessionRunner. Runs one provider session in its own OS process group so the whole tree can be
 // killed together at limitS (ENGINE.md 10). E-32: the child re-enters via cli.ts's `engine10 session` route.
 import { createWatchdog, stallKillS, stallThresholdS } from "../runner/watchdog.ts";
+import { neutralizeEngineMarkers, sdkAuthCause } from "../runner/retry_class.ts";
 import { spawn, type ChildProcess } from "node:child_process";
 import { cancelSessions, sessionsCancelled, trackSession } from "../util/run_pid.ts"; export { cancelSessions }; // one registry covers every provider child (docs/cost-controls.md)
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { archivePriorCosts, writeProviderCost } from "../providers/provider_cost.ts";
 import { modelRouteModel } from "../providers/model_routes.ts";
-import { PROVIDER_DEFAULT_MODEL } from "../util/claude_model.ts";
+import { canonicalSessionPin, PROVIDER_DEFAULT_MODEL } from "../util/claude_model.ts";
+import { stageMedianGapMs } from "../providers/provider_cost.ts";
+import { idleGapMs } from "../util/cost_breakdown.ts";
 import { recordSessionCost, resultCostPath, tokensUnmeasured, UNMETERED } from "./cost.ts";
 import { partialUsagePath, recordPartialStreamCost } from "../runner/budget.ts";
 import { hooks } from "./hooks.ts";
+import { readSessionId } from "../runner/session_resume.ts";
 import { routerEnabled } from "../runner/router/flag.ts";
 import { routedCostFields, routerMarkers, routerSessionPin } from "../runner/router/session_route.ts";
 import type { ImplementExit, SessionMarkers, SessionResult, SessionRunner, SessionRunOptions } from "./types.ts";
-import { safeGit } from "../util/safe_git.ts";
+import { safeGit } from "../util/safe_git.ts"; import { claudeTierToModel } from "../runner/providers.ts"; import { prefixParts, prefixSha } from "../util/cost_breakdown.ts"; import { engine10StaticPrefix } from "../runner/providers.ts";
 import { beginGuard, finishGuard, isGuarded, watchBudget } from "../providers/provider_guard.ts"; // PARITY-ENFORCE: non-Claude guardrails
 import { calculateCostFromRecords, readEfficiencyDir } from "../runner/budget.ts"; import { childBudgetLimit, parseCapUsd } from "../e10ext/budget_cap.ts";
 const KILL_GRACE_MS = 2000; // ENGINE.md section 10: SIGKILL 2s after SIGTERM
@@ -36,20 +40,51 @@ export interface SessionRunnerConfig {
 }
 /** Recorded when a claude run has no configured model: the provider CLI runs its own default, exactly like raw `claude -p` (L1). */
 export { PROVIDER_DEFAULT_MODEL }; // label lives in util/claude_model.ts (a leaf the runner can import without a cycle)
-/** The model a session really runs: the override, else a configured pin, else the provider's own default (no --model flag, L1 never below raw). */
+/**
+ * The model a LOKI_SESSION_MODEL pin names for a claude run (undefined when unset). Throws on an unrecognized value (never the provider default).
+ * opus|sonnet|haiku are themselves, fable collapses to opus as the bash resolver does, and a tier name takes that tier's configured model.
+ * An explicit haiku pin is honored without LOKI_ALLOW_HAIKU: the user asked for it; bash would dispatch sonnet there.
+ */
+export function sessionPinModel(e: NodeJS.ProcessEnv = process.env): string | undefined {
+  const pin = canonicalSessionPin(e["LOKI_SESSION_MODEL"]);
+  if (!pin) return undefined;
+  if (pin === "fable") return "opus";
+  if (pin === "planning" || pin === "development" || pin === "fast") return claudeTierToModel(pin);
+  return pin;
+}
+/** The model a session really runs: the override, else the session pin, else a configured pin, else the provider's own default (no --model flag, L1 never below raw). */
 export function resolveModel(provider: string): string {
   const e = process.env;
   if (e.LOKI_MODEL_OVERRIDE) return e.LOKI_MODEL_OVERRIDE;
   const routed = provider === "claude" ? modelRouteModel(e) : null; // OC-MODELS: a model route names the real model
   if (routed) return routed;
+  const pinned = provider === "claude" ? sessionPinModel(e) : undefined; // LOKI_SESSION_MODEL: the whole-run pin, ahead of the per-tier vars
+  if (pinned) return pinned;
   if (provider !== "claude") return `${provider} (model not recorded)`;
   return e.LOKI_CLAUDE_MODEL_DEVELOPMENT || e.LOKI_MODEL_DEVELOPMENT || PROVIDER_DEFAULT_MODEL;
 }
+// ER-05 / g09-47: effort is part of the cached prefix key, so a resumed session keeps the effort it was created with unless the stage
+// escalates. Per-message effort (mid-conversation output_config) is not exposed by the SDK; revisit when it is, instead of adding a new path.
+const EFFORT_RANK = ["low", "medium", "high", "xhigh", "max"];
+const sessionEffort = new Map<string, string>(); // provider session id -> effort it ran with, filled when a session closes
+/** Effort a call really runs at. A resumed session never drops below its recorded effort; a user LOKI_E10_EFFORT is explicit and always wins. */
+export function sessionEffortFor(opts: SessionRunOptions): { effort: string | undefined; escalated?: { from: string; to: string } } {
+  const resolved = (hooks.effort?.resolve(opts.stage, opts.effort) ?? opts.effort);
+  const prior = opts.resumeSessionId ? sessionEffort.get(opts.resumeSessionId) : undefined;
+  if (!prior || process.env["LOKI_E10_EFFORT"]) return { effort: resolved };
+  const pr = EFFORT_RANK.indexOf(prior), rr = resolved ? EFFORT_RANK.indexOf(resolved) : -1;
+  if (resolved && rr > pr && pr >= 0) return { effort: resolved, escalated: { from: prior, to: resolved } }; // escalation is allowed; it resets the cache
+  if (resolved && rr < 0) return { effort: resolved }; // unknown level: pass through untouched
+  return { effort: prior };
+}
 export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env["LOKI_E10_SEAL_EXISTING_PATCH"]; // CW-12 B2: defense in depth, no session env ever carries the external diff path
   env["LOKI_ITERATION"] = opts.iterationId;
   env["LOKI_E10_STAGE"] = opts.stage;
   env["LOKI_E10_BRIEF"] = opts.brief;
+  const gap = cfg.lokiRoot ? stageMedianGapMs(cfg.lokiRoot, opts.stage) : null; // #244: the persisted median call gap of this stage picks the cache TTL in engine10CacheTtlEnv
+  if (gap !== null) env["LOKI_E10_CACHE_GAP_MS"] = String(gap); else delete env["LOKI_E10_CACHE_GAP_MS"];
   env["LOKI_E10_TIER"] = opts.tier;
   env["LOKI_E10_PROVIDER"] = cfg.provider;
   if (opts.disallowedTools) env["LOKI_E10_DISALLOWED_TOOLS"] = opts.disallowedTools; else delete env["LOKI_E10_DISALLOWED_TOOLS"];
@@ -66,10 +101,18 @@ export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): Nod
       env["LOKI_CLAUDE_MODEL_PLANNING"] = override;
       env["LOKI_CLAUDE_MODEL_DEVELOPMENT"] = override;
       env["LOKI_CLAUDE_MODEL_FAST"] = override;
+    } else {
+      const sessionPin = sessionPinModel(process.env); // after the override, ahead of the per-tier vars; throws on an unrecognized pin
+      if (sessionPin) {
+        env["LOKI_CLAUDE_MODEL_PLANNING"] = sessionPin;
+        env["LOKI_CLAUDE_MODEL_DEVELOPMENT"] = sessionPin;
+        env["LOKI_CLAUDE_MODEL_FAST"] = sessionPin;
+      }
     }
   }
   if (cfg.provider === "claude" && (!opts.model || opts.model === PROVIDER_DEFAULT_MODEL) && resolveModel("claude") === PROVIDER_DEFAULT_MODEL) env["LOKI_E10_MODEL_DEFAULT"] = "1"; // providers.ts then omits --model
-  const effort = (hooks.effort?.resolve(opts.stage, opts.effort) ?? opts.effort); // ER-01: a user LOKI_E10_EFFORT (already in env) wins over opts and the policy
+  const { effort, escalated } = sessionEffortFor(opts); // ER-01: a user LOKI_E10_EFFORT (already in env) wins over opts and the policy; ER-05: a resumed session keeps its effort
+  if (escalated) cfg.emit?.("effort_escalation_cache_reset", opts.stage, { session_id: opts.iterationId, resume_session_id: opts.resumeSessionId, ...escalated });
   const lim = childBudgetLimit(cfg.remaining?.() ?? null); if (lim !== null) env["LOKI_BUDGET_LIMIT"] = lim; if (effort) env["LOKI_E10_EFFORT"] = effort; // lim: the SDK maxBudgetUsd (claude_flags.ts) then caps this one call at what is left
   if (routerEnabled() && !ADVISOR_MARKED_STAGES.has(opts.stage)) env["LOKI_ADVISOR_SCOPE"] = "off"; else delete env["LOKI_ADVISOR_SCOPE"]; // CH-02: only with the router on, so router-off envs stay byte-identical
   const pin = routerSessionPin(env, cfg.provider, cfg.advisor, opts); // ROUTER-1 (runner/router/session_route.ts): identical to opts.model with the router off or a user override set
@@ -149,6 +192,7 @@ function killGroupWithGrace(pgid: number | undefined): void {
   send("SIGTERM");
   setTimeout(() => send("SIGKILL"), KILL_GRACE_MS);
 }
+const lastStageEnd = new WeakMap<SessionRunnerConfig, Map<string, number>>(); // per run: runner config -> stage -> last session end (epoch ms)
 /** Efficiency record plus cost event for one session; a run in another cwd (wall's temp dir) has its result-cost file copied into lokiRoot first, so seal can price it after that dir is gone. */
 function recordCost(cfg: SessionRunnerConfig, opts: SessionRunOptions, status: string, durationS: number, outText = ""): void {
   if (!cfg.lokiRoot) return;
@@ -163,15 +207,20 @@ function recordCost(cfg: SessionRunnerConfig, opts: SessionRunOptions, status: s
     writeFileSync(dest, JSON.stringify({ total_cost_usd: 0, input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, model, source: UNMETERED }));
   }
   const pcost = existsSync(dest) ? null : writeProviderCost(dest, cfg.provider, model, opts.brief, outText); // PARITY-COST: codex/cline/aider priced from output usage or sizes, estimated=true; feeds the same cap path
-  const effort = (hooks.effort?.resolve(opts.stage, opts.effort) ?? opts.effort);
-  const info = { status, durationMs: Math.round(durationS * 1000), model };
+  const effort = sessionEffortFor(opts).effort;
+  // #306: hash the whole cached prefix (system text, tool list incl. per-session denials, thinking, effort, brief), from the function providers.ts builds it with.
+  const penv = { ...process.env, ...(cfg.provider === "claude" && process.env["LOKI_E10_PREFIX"] === undefined ? { LOKI_E10_PREFIX: "lean" } : {}) }, sp = engine10StaticPrefix(penv);
+  const pparts = opts.brief ? prefixParts({ system: `${sp.systemPrompt ?? "preset"}|dyn=${sp.excludeDynamic}`, tools: [...sp.tools, ...(opts.disallowedTools ? [`-${opts.disallowedTools}`] : [])], thinking: process.env["MAX_THINKING_TOKENS"], effort, brief: opts.brief }) : undefined;
+  const endedAt = Date.now(), ends = lastStageEnd.get(cfg) ?? new Map<string, number>(), prev = ends.get(opts.stage); // #244: gap to this run's previous call of the stage
+  ends.set(opts.stage, endedAt); lastStageEnd.set(cfg, ends);
+  const info = { status, durationMs: Math.round(durationS * 1000), model, stage: opts.stage, ...(prev !== undefined ? { gapMs: idleGapMs(endedAt, Math.round(durationS * 1000), prev) } : {}) };
   // No `result` ever arrived: price streamed usage instead of leaving cost_usd null.
   const c = status === "killed" && !existsSync(dest) ? recordPartialStreamCost(cfg.lokiRoot, opts.iterationId, info) : recordSessionCost(cfg.lokiRoot, opts.iterationId, info);
   const ambiguous = c.records?.resume === "ambiguous"; // FIX-RESUME: this resumed session's total may include its predecessor, so its figures are not emitted (NOT RECORDED), never summed on trust
   const unmeasured = tokensUnmeasured(c); // the predicate writeEfficiencyRecord shares: a session without usage emits no token keys, so the control plane never reads a missing session as 0
   cfg.emit?.("cost", opts.stage, {
-    session_id: opts.iterationId, model, usd: c.usd, ...(ambiguous ? { resume: "ambiguous" } : {}), ...(unmeasured ? {} : { input_tokens: c.input_tokens, output_tokens: c.output_tokens,
-    cache_read_tokens: c.cache_read_tokens, cache_creation_tokens: c.cache_creation_tokens }), source: c.unmetered ? UNMETERED : c.source || "not measured", ...(pcost?.estimated ? { estimated: true, cost_basis: pcost.cost_basis } : {}), ...(pcost?.unmeasured_reason ? { unmeasured_reason: pcost.unmeasured_reason, cost_basis: pcost.cost_basis } : {}), ...(effort ? { effort } : {}), ...routedCostFields(dest),
+    session_id: opts.iterationId, model, usd: c.usd, duration_ms: Math.round(durationS * 1000), ...(ambiguous ? { resume: "ambiguous" } : {}), ...(unmeasured ? {} : { input_tokens: c.input_tokens, output_tokens: c.output_tokens,
+    cache_read_tokens: c.cache_read_tokens, cache_creation_tokens: c.cache_creation_tokens }), ...(pparts ? { prefix_sha: prefixSha(pparts), prefix_parts: pparts } : {}), source: c.unmetered ? UNMETERED : c.source || "not measured", ...(pcost?.estimated ? { estimated: true, cost_basis: pcost.cost_basis } : {}), ...(pcost?.unmeasured_reason ? { unmeasured_reason: pcost.unmeasured_reason, cost_basis: pcost.cost_basis } : {}), ...(effort ? { effort } : {}), ...routedCostFields(dest),
   });
 }
 export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
@@ -235,10 +284,11 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
           // The CLI invoker writes only to its iteration log, never stdout.
           const log = join(opts.cwd ?? process.cwd(), ".loki", `iteration-${sessionId}.log`);
           const logText = existsSync(log) ? readFileSync(log, "utf8") : ""; const markers = parseMarkers(stdout + logText);
-          const durationS = (Date.now() - start) / 1000;
+          const durationS = (Date.now() - start) / 1000, authCause = code === 0 ? null : sdkAuthCause(logText); // FC-AUTH-CAUSE-ONLY-IN-IMPL-LOG: the provider text rides the event so the Reason line can name it
           cfg.emit?.("session.ended", opts.stage, {
-            session_id: sessionId, exit: exitKind(guard.ok ? code : 1, killed, markers), cause: classifyExitCause(code, killed, killCause ?? undefined), duration_s: durationS, ...(killCause === "stalled" ? { reason: "stalled" } : {}),
+            session_id: sessionId, exit: exitKind(guard.ok ? code : 1, killed, markers), cause: classifyExitCause(code, killed, killCause ?? undefined), ...(authCause !== null ? { provider_error: authCause } : {}), duration_s: durationS, ...(killCause === "stalled" ? { reason: "stalled" } : {}),
           });
+          const psid = readSessionId(opts.cwd ?? process.cwd(), opts.iterationId), ran = sessionEffortFor(opts).effort; if (psid && ran) sessionEffort.set(psid, ran); // ER-05: what the next resume of this session must keep
           recordCost(cfg, opts, killed ? "killed" : code === 0 ? "completed" : "failed", durationS, stdout + logText);
           untrack();
           resolve({ exit: guard.ok ? code : 1, markers, durationS, killed, summary: (stdout + logText).trim().slice(-4096), stderrTail: (guard.ok ? "" : `guard violation: ${guard.violations.map((v) => v.detail).join("; ")}\n`) + stderrTail.toString("utf8") + (logText.match(/^\[sdk-loop error: .*\]$/gm) ?? []).join("\n") }); // only provider-written text is classified: child stderr and the SDK error line, never the agent transcript (A-113). The child echoes the provider's in-memory stderr (A-113b); only the claude CLI invoker returns one, since codex/cline/aider may print session activity on stderr (unmeasured)
@@ -260,7 +310,7 @@ export async function sessionChildMain(): Promise<never> {
     iterationOutputPath: `.loki/iteration-${process.env["LOKI_ITERATION"] ?? "0"}.log`,
     mainLoop: true,
   });
-  if (result.stderr) writeSync(2, result.stderr); process.exit(result.exitCode); // the CLI invoker's own in-memory stderr, never a file the agent can write
+  if (result.stderr) writeSync(2, neutralizeEngineMarkers(result.stderr)); process.exit(result.exitCode); // the CLI invoker's own in-memory stderr, never a file the agent can write
 }
 // cli.ts routes `engine10 session` here (section 11); it exits the process itself.
 export const main = sessionChildMain;

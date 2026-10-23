@@ -14,9 +14,9 @@ import { withStagePrefix } from "../../features/lean_prefix.ts";
 import { RUNNER_HINT, wallManifestFor } from "../../e10ext/wall_hints.ts";
 import { hasRelevantTests, loadRepoMap, planMode, repoMapText, sizeTask, smallTaskPath, wallEnabled, wallFirstModel, wallLimitS, wallModel } from "../sizing.ts";
 import { sha256, wallGreenOnBaseOf } from "./seal.ts"; import { removeHoldout, stashHoldout, wallHoldoutRatio } from "../../util/holdout.ts";
-import { commandFor } from "./verify.ts"; import { harnessRunners, projectInterpreter } from "../testmap.ts";
+import { commandFor } from "./verify.ts"; import { guessRunner, harnessRunners, projectInterpreter } from "../testmap.ts";
 import type { ProjectApi } from "../../project_model/api.ts"; import { loadProjectApi } from "../../project_model/resolve.ts";
-import { baseJobs, classify, classifyCheck, mapPool, notRunReason, plainTestEnv, spawnCollect, stripAnsi } from "../../util/check_result.ts";
+import { baseJobs, classify, classifyCheck, mapPool, NO_RUNNER_REASON, notRunReason, plainTestEnv, spawnCollect, stripAnsi } from "../../util/check_result.ts";
 import { conventionViolation, conventionsBrief, outOfRepoReask, outOfRepoTarget, phantomReason, phantomRepoPaths, readPackageConventions } from "../../project_model/conventions.ts"; // FC-23
 
 const WALL_PREFIX = "loki_wall_";
@@ -98,11 +98,6 @@ function wallTargetDir(repoDir: string, existingTests: TestRef[]): string {
   return first ? join(repoDir, dirname(first.path)) : join(repoDir, "tests");
 }
 /** Runner for a generated file: extension decides for Python/Go, a JS/TS file takes the repo's detected JS runner; anything else never guesses (unselectable). */
-function guessRunner(fileName: string, runners: RunnerName[]): RunnerName | null {
-  if (fileName.endsWith(".py")) return "pytest";
-  if (fileName.endsWith(".go")) return "go";
-  return /\.[cm]?[jt]sx?$/.test(fileName) ? (["vitest", "jest", "bun", "node"] as const).find((r) => runners.includes(r)) ?? null : null; // a JS runner only ever runs a JS/TS file
-}
 
 /** WC-01a: what wallAuthor hands installWall. Sealed copies live under <runDir>/wall; nothing here touches repoDir. */
 export interface WallAuthored { kind: "authored"; model?: string; iterationId?: string; task: string; sizeName: string; runners: RunnerName[]; targetDir: string; generated: string[]; contents: Map<string, string>; discarded: { file: string; reason: string }[]; manifestSha256?: string; holdoutDir?: string; }
@@ -122,11 +117,11 @@ export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: {
 
   // E-64: skip Wall too on the lean path (plan.ts, which always runs, logs this same decision on "variant").
   // LOKI_E10_PLAN=always forces a plan even for a small task, so the lean path never applies: a forced plan
-  // still gets the Wall's independent acceptance tests.
+  // still gets the Wall's independent acceptance tests. An external diff (CW-12) never takes the lean skip: the Wall is its only independent proof.
   const repoMap = loadRepoMap(repomapRef);
   const runners: RunnerName[] = testMap ? harnessRunners(testMap.runners, repoMap?.files ?? []) : [];
   const sz = sizeTask(task, repoMap, testMap);
-  if (planMode() !== "always" && smallTaskPath(sz.size, hasRelevantTests(task, repoMap, testMap, ctx.tests.impacted)) === "lean") {
+  if (!ctx.externalPatch && planMode() !== "always" && smallTaskPath(sz.size, hasRelevantTests(task, repoMap, testMap, ctx.tests.impacted)) === "lean") {
     return done({ status: "skipped", data: { size: sz.size }, reason: "small task with a relevant test: cascade skips Wall" });
   }
 
@@ -185,7 +180,7 @@ function* installCore(ctx: RunContext, a: WallAuthored, baseDir: string, opts: W
   if (generated.length > 0) mkdirSync(targetDir, { recursive: true }); const sealedFiles: WallSealedFile[] = [], readOnlyFiles: ReadOnlyFile[] = [], wallTests: TestRef[] = [];
   for (const name of generated) {
     const content = contents.get(name); if (content === undefined) continue; // discarded: sealed copy only
-    const dest = join(targetDir, name), runner = guessRunner(name, runners);
+    const dest = join(targetDir, name), runner = guessRunner(name, runners, relative(ctx.repoDir, dest));
     writeFileSync(dest, content, "utf8");
     sealedFiles.push({ path: dest, sha256: sha256(content) }); readOnlyFiles.push({ path: dest, content });
     if (runner) wallTests.push({ runner, path: relative(ctx.repoDir, dest) });
@@ -193,6 +188,7 @@ function* installCore(ctx: RunContext, a: WallAuthored, baseDir: string, opts: W
   ctx.wallSealed = true;
   ctx.emit("wall.sealed", "wall", { files: sealedFiles, ...(a.manifestSha256 ? { manifest_sha256: a.manifestSha256 } : {}) });
   const baseRunner = opts.baseRunner ?? new RealBaseTestRunner(), baseRun = { pass: 0, fail: 0, not_run: discarded.length }, notRunFiles: { file: string; reason: string }[] = []; // A-103: one file at a time; a file with no real result (not_run) proves nothing, so it leaves the tree and Implement's read-only set. Its sealed copy stays under runDir/wall; base_run.not_run lets Seal list it.
+  for (const f of sealedFiles) { const rel = relative(ctx.repoDir, f.path); if (!wallTests.some((t) => t.path === rel)) notRunFiles.push({ file: rel, reason: NO_RUNNER_REASON }); } // FC-WALL-FILE-WITHOUT-RUNNER-SILENTLY-DROPPED: a sealed file no runner can run is named, never dropped
   const each = yield { runner: baseRunner, tests: wallTests }; for (const [i, t] of wallTests.entries()) {
     const e = each?.[i], r = e ?? baseRunner.run(baseDir, [t]), abs = join(ctx.repoDir, t.path); baseRun.pass += r.pass; baseRun.fail += r.fail; baseRun.not_run += r.not_run ?? 0; notRunFiles.push(...(e ? e.notRunFiles : baseRunner.lastNotRunFiles ?? [])); if (r.pass + r.fail === 0) { rmSync(abs, { force: true }); for (const l of [sealedFiles, readOnlyFiles] as { path: string }[][]) l.splice(0, l.length, ...l.filter((f) => f.path !== abs)); }
   }

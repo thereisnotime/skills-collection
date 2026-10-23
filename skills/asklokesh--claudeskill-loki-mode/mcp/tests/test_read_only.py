@@ -27,7 +27,7 @@ EXPECTED_ALLOWLIST = {
 EXCLUDED_TOOLS = {
     "loki_memory_store_pattern", "loki_task_queue_add", "loki_task_queue_update",
     "loki_memory_capture_session_summary", "loki_consolidate_memory",
-    "loki_complete_task", "loki_v10_run", "loki_v10_verify",
+    "loki_complete_task", "loki_v10_run", "loki_v10_verify", "loki_seal_diff",
     "loki_start_project", "loki_checkpoint_restore", "loki_verify_fast",
     "loki_counter_evidence_template", "loki_task_queue_list",
     "loki_code_search_stats", "loki_memory_redact", "loki_graph_query",
@@ -224,7 +224,7 @@ READERS = {
     "load_pattern", "list_patterns", "load_skill", "list_skills", "get_index",
     "get_timeline", "get_active_context", "read_json", "list_files",
     "calculate_importance", "apply_decay", "boost_on_retrieval",
-    "list_namespaces", "get_namespace_stats",
+    "list_namespaces", "get_namespace_stats", "view_file",
 }
 
 

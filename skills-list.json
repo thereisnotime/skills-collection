@@ -11073,7 +11073,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
       "lines": 65,
-      "words": 1183,
+      "words": 1193,
       "code_blocks": 0,
       "languages": []
     },
@@ -23275,7 +23275,7 @@
       "path": "expo--skills/plugins/expo-experiments/skills/expo-migrate-module/SKILL.md",
       "remote_path": "plugins/expo-experiments/skills/expo-migrate-module/SKILL.md",
       "lines": 125,
-      "words": 1566,
+      "words": 1567,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -23289,7 +23289,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-design-system/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-design-system/SKILL.md",
       "lines": 377,
-      "words": 2775,
+      "words": 2776,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -23304,7 +23304,7 @@
       "path": "expo--skills/plugins/expo/skills/eas-app-stores/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-app-stores/SKILL.md",
       "lines": 177,
-      "words": 1037,
+      "words": 1038,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -23319,7 +23319,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-data-fetching/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-data-fetching/SKILL.md",
       "lines": 479,
-      "words": 1787,
+      "words": 1788,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -23334,7 +23334,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-native-ui/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-native-ui/SKILL.md",
       "lines": 202,
-      "words": 1711,
+      "words": 1712,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -23349,7 +23349,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-router/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-router/SKILL.md",
       "lines": 241,
-      "words": 834,
+      "words": 835,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -23364,7 +23364,7 @@
       "path": "expo--skills/plugins/expo/skills/eas-hosting/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-hosting/SKILL.md",
       "lines": 432,
-      "words": 1582,
+      "words": 1583,
       "code_blocks": 23,
       "languages": [
         "bash",
@@ -23380,7 +23380,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-project-structure/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-project-structure/SKILL.md",
       "lines": 115,
-      "words": 901,
+      "words": 902,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -23395,7 +23395,7 @@
       "path": "expo--skills/plugins/expo/skills/eas-update-insights/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-update-insights/SKILL.md",
       "lines": 239,
-      "words": 1726,
+      "words": 1727,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -23410,7 +23410,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-examples/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-examples/SKILL.md",
       "lines": 107,
-      "words": 946,
+      "words": 947,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -23424,7 +23424,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-module/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-module/SKILL.md",
       "lines": 152,
-      "words": 859,
+      "words": 860,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23442,7 +23442,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-animation/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-animation/SKILL.md",
       "lines": 275,
-      "words": 2973,
+      "words": 2974,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -23459,7 +23459,7 @@
       "path": "expo--skills/plugins/expo/skills/eas-observe/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-observe/SKILL.md",
       "lines": 47,
-      "words": 565,
+      "words": 566,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -23473,7 +23473,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-overview/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-overview/SKILL.md",
       "lines": 121,
-      "words": 1466,
+      "words": 1467,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -23487,7 +23487,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-brownfield/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-brownfield/SKILL.md",
       "lines": 70,
-      "words": 814,
+      "words": 815,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -23499,7 +23499,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-ui/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-ui/SKILL.md",
       "lines": 102,
-      "words": 936,
+      "words": 937,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -23514,7 +23514,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-dev-client/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-dev-client/SKILL.md",
       "lines": 185,
-      "words": 779,
+      "words": 780,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -23529,7 +23529,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-app-clip/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-app-clip/SKILL.md",
       "lines": 291,
-      "words": 1235,
+      "words": 1236,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -23547,7 +23547,7 @@
       "path": "expo--skills/plugins/expo/skills/eas-update/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-update/SKILL.md",
       "lines": 147,
-      "words": 1387,
+      "words": 1388,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23562,7 +23562,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-dom/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-dom/SKILL.md",
       "lines": 426,
-      "words": 1386,
+      "words": 1387,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -23577,7 +23577,7 @@
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
       "lines": 238,
-      "words": 4081,
+      "words": 4082,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -23591,7 +23591,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-web-to-native/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-web-to-native/SKILL.md",
       "lines": 92,
-      "words": 1528,
+      "words": 1529,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -23606,7 +23606,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-upgrade/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-upgrade/SKILL.md",
       "lines": 151,
-      "words": 1068,
+      "words": 1069,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23621,7 +23621,7 @@
       "path": "expo--skills/plugins/expo/skills/eas-workflows/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-workflows/SKILL.md",
       "lines": 100,
-      "words": 682,
+      "words": 683,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -23674,8 +23674,8 @@
       "description": "Find web sources with query-relevant page excerpts and optional full-page content, and discover workflows, data APIs, and indexes. Use for web research or finding structured records, listings, transcr",
       "path": "firecrawl--cli/skills/firecrawl-search/SKILL.md",
       "remote_path": "skills/firecrawl-search/SKILL.md",
-      "lines": 149,
-      "words": 1864,
+      "lines": 151,
+      "words": 1932,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -23723,7 +23723,7 @@
       "path": "firecrawl--cli/skills/firecrawl/SKILL.md",
       "remote_path": "skills/firecrawl/SKILL.md",
       "lines": 163,
-      "words": 1533,
+      "words": 1559,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -26758,13 +26758,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 320,
-      "words": 1464,
+      "lines": 327,
+      "words": 1519,
       "code_blocks": 4,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "transitions",
@@ -26823,7 +26823,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/effects.md",
       "remote_path": "skills/remotion-markup/effects.md",
       "lines": 281,
-      "words": 1123,
+      "words": 1124,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -26883,7 +26883,7 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "get-audio-duration",
@@ -26930,7 +26930,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-maps",
@@ -26941,7 +26941,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-studio",
@@ -26954,7 +26954,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-docs",
@@ -26965,7 +26965,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "display-captions",
@@ -27004,7 +27004,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "rendering",
@@ -27037,7 +27037,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "framework",
@@ -27072,7 +27072,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-best-practices",
@@ -27085,7 +27085,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "tailwind",
@@ -27108,7 +27108,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-upgrade",
@@ -27121,7 +27121,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-maps",
@@ -27132,7 +27132,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "maps-mapbox",
@@ -27269,13 +27269,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 320,
-      "words": 1464,
+      "lines": 327,
+      "words": 1519,
       "code_blocks": 4,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "text-highlights",
@@ -27471,7 +27471,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/effects.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/effects.md",
       "lines": 281,
-      "words": 1123,
+      "words": 1124,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -27531,7 +27531,7 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-multimedia",
@@ -27542,7 +27542,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "get-audio-duration",
@@ -27589,7 +27589,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-studio",
@@ -27602,7 +27602,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-docs",
@@ -27613,7 +27613,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-captions",
@@ -27626,7 +27626,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "display-captions",
@@ -27663,7 +27663,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "rendering",
@@ -27706,7 +27706,7 @@
       "words": 82,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "transparent-videos",
@@ -27733,7 +27733,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "tailwind",
@@ -27756,7 +27756,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "remotion-maps",
@@ -27767,7 +27767,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.537"
+      "version": "4.0.538"
     },
     {
       "name": "maps-mapbox",
@@ -28407,6 +28407,18 @@
       "words": 241,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "sanity-form-component-suspense",
+      "description": "Fix a Sanity Studio custom form component (components.input, components.field, components.item, or a plugin's form.components) that suspends without its own Suspense boundary, so it loads without layo",
+      "path": "sanity-io--agent-toolkit/skills/sanity-form-component-suspense/SKILL.md",
+      "remote_path": "skills/sanity-form-component-suspense/SKILL.md",
+      "lines": 88,
+      "words": 769,
+      "code_blocks": 1,
+      "languages": [
+        "tsx"
+      ]
     },
     {
       "name": "content-modeling-best-practices",
@@ -33043,23 +33055,23 @@
   "asklokesh--claudeskill-loki-mode": [
     {
       "name": "loki-mode",
-      "description": "An autonomous software factory that knows what it is supposed to deliver, and proves it did. Use when the user says Loki Mode or asks to build, fix or verify software autonomously.",
+      "description": "Runs an autonomous software factory that knows what it is supposed to deliver and proves it did, with a signed receipt. Use when the user says Loki Mode or asks to build, fix or verify software autono",
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 487,
-      "words": 4104,
-      "code_blocks": 7,
+      "lines": 480,
+      "words": 4019,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ]
     },
     {
       "name": "prompt-optimization",
-      "description": "Applies prompt repetition to improve accuracy for non-reasoning LLMs",
+      "description": "Applies prompt repetition to improve accuracy for non-reasoning LLMs. Use when a Haiku or other non-reasoning agent misses details in a long prompt.",
       "path": "asklokesh--claudeskill-loki-mode/examples/agent-skills/prompt-optimization/SKILL.md",
       "remote_path": "examples/agent-skills/prompt-optimization/SKILL.md",
       "lines": 114,
-      "words": 322,
+      "words": 336,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -33067,11 +33079,11 @@
     },
     {
       "name": "checkpoint-mode",
-      "description": "Pause for review every N tasks - selective autonomy pattern",
+      "description": "Pauses for human review every N tasks (selective autonomy). Use when work needs short autonomous bursts with feedback instead of one long run.",
       "path": "asklokesh--claudeskill-loki-mode/examples/agent-skills/checkpoint-mode/SKILL.md",
       "remote_path": "examples/agent-skills/checkpoint-mode/SKILL.md",
       "lines": 180,
-      "words": 497,
+      "words": 510,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -33081,7 +33093,7 @@
       ]
     },
     {
-      "name": "loki-mode",
+      "name": "loki-mode-openclaw",
       "description": "\"Launch Loki Mode autonomous SDLC agent. Handles PRD-to-deployment with minimal human intervention. Invoke for multi-phase development tasks, bug fixing campaigns, or full product builds.\"",
       "path": "asklokesh--claudeskill-loki-mode/integrations/openclaw/SKILL.md",
       "remote_path": "integrations/openclaw/SKILL.md",
@@ -60348,12 +60360,12 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/dolt-mcp-vcs/skills/dolt-mcp-vcs/SKILL.md",
       "remote_path": "plugins/mcp/dolt-mcp-vcs/skills/dolt-mcp-vcs/SKILL.md",
       "lines": 186,
-      "words": 1828,
+      "words": 1823,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "version": "0.2.0",
+      "version": "0.2.1",
       "license": "Apache-2.0"
     },
     {
@@ -60911,7 +60923,7 @@
       "words": 774,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.20.0",
+      "version": "2.21.0",
       "license": "MIT"
     },
     {
@@ -60923,7 +60935,7 @@
       "words": 569,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.20.0",
+      "version": "2.21.0",
       "license": "MIT"
     },
     {
@@ -60935,7 +60947,7 @@
       "words": 729,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.20.0",
+      "version": "2.21.0",
       "license": "MIT"
     },
     {
@@ -60947,7 +60959,7 @@
       "words": 668,
       "code_blocks": 1,
       "languages": [],
-      "version": "2.20.0",
+      "version": "2.21.0",
       "license": "MIT"
     },
     {
@@ -61010,7 +61022,7 @@
       "words": 615,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -61033,7 +61045,7 @@
       "words": 724,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -67812,7 +67824,7 @@
       "words": 539,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67824,7 +67836,7 @@
       "words": 516,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67836,7 +67848,7 @@
       "words": 506,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67848,7 +67860,7 @@
       "words": 519,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67856,11 +67868,11 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/notion-pack/skills/notion-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/notion-pack/skills/notion-cost-tuning/SKILL.md",
-      "lines": 82,
-      "words": 499,
+      "lines": 85,
+      "words": 529,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67872,7 +67884,7 @@
       "words": 523,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67884,7 +67896,7 @@
       "words": 508,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67896,7 +67908,7 @@
       "words": 527,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67904,11 +67916,11 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/notion-pack/skills/notion-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/notion-pack/skills/notion-core-workflow-a/SKILL.md",
-      "lines": 82,
-      "words": 510,
+      "lines": 85,
+      "words": 597,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67920,7 +67932,7 @@
       "words": 525,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67932,7 +67944,7 @@
       "words": 525,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67944,7 +67956,7 @@
       "words": 509,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67956,7 +67968,7 @@
       "words": 500,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67968,7 +67980,7 @@
       "words": 520,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67980,7 +67992,7 @@
       "words": 484,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -67992,7 +68004,7 @@
       "words": 485,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68004,7 +68016,7 @@
       "words": 514,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68016,7 +68028,7 @@
       "words": 492,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68024,11 +68036,11 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/notion-pack/skills/notion-load-scale/SKILL.md",
       "remote_path": "plugins/saas-packs/notion-pack/skills/notion-load-scale/SKILL.md",
-      "lines": 82,
-      "words": 503,
+      "lines": 85,
+      "words": 544,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68040,7 +68052,7 @@
       "words": 510,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68048,11 +68060,11 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/notion-pack/skills/notion-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/notion-pack/skills/notion-incident-runbook/SKILL.md",
-      "lines": 82,
-      "words": 507,
+      "lines": 85,
+      "words": 538,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68064,7 +68076,7 @@
       "words": 531,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68076,7 +68088,7 @@
       "words": 517,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68088,7 +68100,7 @@
       "words": 503,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68100,7 +68112,7 @@
       "words": 500,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68112,7 +68124,7 @@
       "words": 496,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68124,7 +68136,7 @@
       "words": 505,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68136,7 +68148,7 @@
       "words": 530,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68148,7 +68160,7 @@
       "words": 511,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68160,7 +68172,7 @@
       "words": 508,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68172,7 +68184,7 @@
       "words": 509,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -68184,7 +68196,7 @@
       "words": 504,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -98306,7 +98318,7 @@
       "words": 873,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.31.0",
+      "version": "2.32.0",
       "license": "MIT"
     },
     {
@@ -98376,7 +98388,7 @@
       "words": 771,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.25.0",
+      "version": "2.26.0",
       "license": "MIT"
     },
     {
@@ -98398,7 +98410,7 @@
       "words": 728,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -98420,7 +98432,7 @@
       "words": 348,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -98576,7 +98588,7 @@
       "words": 801,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98653,7 +98665,7 @@
       "words": 787,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.26.0",
+      "version": "2.27.0",
       "license": "MIT"
     },
     {
@@ -98699,7 +98711,7 @@
       "words": 504,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.2.0",
+      "version": "2.3.0",
       "license": "MIT"
     },
     {
@@ -98733,7 +98745,7 @@
       "words": 463,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.2.0",
+      "version": "2.3.0",
       "license": "MIT"
     },
     {
@@ -99003,7 +99015,7 @@
       "words": 727,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.37.0",
+      "version": "1.38.0",
       "license": "MIT"
     },
     {
@@ -99029,7 +99041,7 @@
       "words": 339,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.29.0",
+      "version": "2.30.0",
       "license": "MIT"
     },
     {
@@ -99051,7 +99063,7 @@
       "words": 713,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -99451,7 +99463,7 @@
         "bash",
         "yaml"
       ],
-      "version": "5.23.0",
+      "version": "5.24.0",
       "license": "MIT"
     },
     {
@@ -99465,7 +99477,7 @@
       "languages": [
         "bash"
       ],
-      "version": "5.23.0",
+      "version": "5.24.0",
       "license": "MIT"
     },
     {
@@ -99612,7 +99624,7 @@
       "words": 708,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -99640,7 +99652,7 @@
       "words": 723,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -99665,7 +99677,7 @@
       "words": 656,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -99690,7 +99702,7 @@
       "words": 706,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -99716,7 +99728,7 @@
       "words": 693,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -99745,7 +99757,7 @@
       "words": 660,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -99770,7 +99782,7 @@
       "words": 629,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -99794,7 +99806,7 @@
       "words": 647,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -99820,7 +99832,7 @@
       "words": 681,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -99848,7 +99860,7 @@
       "words": 704,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -99872,7 +99884,7 @@
       "words": 667,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.22.0",
+      "version": "1.23.0",
       "license": "MIT"
     },
     {
@@ -99898,7 +99910,7 @@
       "words": 757,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -99922,7 +99934,7 @@
       "words": 686,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -99947,7 +99959,7 @@
       "words": 686,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -99973,7 +99985,7 @@
       "words": 670,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -100000,7 +100012,7 @@
       "words": 734,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -100027,7 +100039,7 @@
       "words": 677,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.22.0",
+      "version": "1.23.0",
       "license": "MIT"
     },
     {
@@ -100054,7 +100066,7 @@
       "words": 650,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -100079,7 +100091,7 @@
       "words": 706,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -100106,7 +100118,7 @@
       "words": 633,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -100130,7 +100142,7 @@
       "words": 702,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -100156,7 +100168,7 @@
       "words": 718,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -100183,7 +100195,7 @@
       "words": 748,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -100208,7 +100220,7 @@
       "words": 741,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -100233,7 +100245,7 @@
       "words": 771,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -100277,7 +100289,7 @@
       "words": 713,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.29.0",
+      "version": "1.30.0",
       "license": "MIT"
     },
     {
@@ -100299,7 +100311,7 @@
       "words": 735,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.32.0",
+      "version": "1.33.0",
       "license": "MIT"
     },
     {
@@ -100732,7 +100744,7 @@
       "words": 774,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -100754,7 +100766,7 @@
       "words": 828,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -100798,7 +100810,7 @@
       "words": 823,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -100842,7 +100854,7 @@
       "words": 647,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -100930,7 +100942,7 @@
       "words": 611,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -100952,7 +100964,7 @@
       "words": 854,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -100974,7 +100986,7 @@
       "words": 780,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.30.0",
+      "version": "1.31.0",
       "license": "MIT"
     },
     {
@@ -100996,7 +101008,7 @@
       "words": 882,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -101157,7 +101169,7 @@
       "words": 908,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -101223,7 +101235,7 @@
       "words": 764,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.31.0",
+      "version": "1.32.0",
       "license": "MIT"
     },
     {
@@ -101273,7 +101285,7 @@
       "words": 678,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -101302,7 +101314,7 @@
         "bash",
         "text"
       ],
-      "version": "1.17.0",
+      "version": "1.18.0",
       "license": "MIT"
     },
     {
@@ -101328,7 +101340,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -101353,7 +101365,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -101378,7 +101390,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.30.0",
+      "version": "1.31.0",
       "license": "MIT"
     },
     {
@@ -101404,7 +101416,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -101430,7 +101442,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -101469,7 +101481,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -101507,7 +101519,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -101533,7 +101545,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.29.0",
+      "version": "1.30.0",
       "license": "MIT"
     },
     {
@@ -101559,7 +101571,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -101590,7 +101602,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -101616,7 +101628,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -101641,7 +101653,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.32.0",
+      "version": "1.33.0",
       "license": "MIT"
     },
     {
@@ -101680,7 +101692,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -101706,7 +101718,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -101733,7 +101745,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -101758,7 +101770,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.29.0",
+      "version": "1.30.0",
       "license": "MIT"
     },
     {
@@ -101789,7 +101801,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -101816,7 +101828,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.30.0",
+      "version": "1.31.0",
       "license": "MIT"
     },
     {
@@ -101842,7 +101854,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.30.0",
+      "version": "1.31.0",
       "license": "MIT"
     },
     {
@@ -101869,7 +101881,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -101900,7 +101912,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -101927,7 +101939,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -102005,7 +102017,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.30.0",
+      "version": "1.31.0",
       "license": "MIT"
     },
     {
@@ -102031,7 +102043,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -103438,7 +103450,7 @@
       "words": 350,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.21.0",
+      "version": "2.22.0",
       "license": "MIT"
     },
     {
@@ -103691,7 +103703,7 @@
       "words": 228,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.29.0",
+      "version": "1.30.0",
       "license": "MIT"
     },
     {
@@ -104156,7 +104168,7 @@
       "words": 757,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.25.0",
+      "version": "2.26.0",
       "license": "MIT"
     },
     {
@@ -104494,7 +104506,7 @@
       "words": 1352,
       "code_blocks": 3,
       "languages": [],
-      "version": "2.5.0",
+      "version": "2.6.0",
       "license": "MIT"
     },
     {
@@ -104772,7 +104784,7 @@
       "words": 314,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.21.0",
+      "version": "2.22.0",
       "license": "MIT"
     },
     {
@@ -104979,7 +104991,7 @@
       "words": 346,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.22.0",
+      "version": "2.23.0",
       "license": "MIT"
     },
     {
@@ -105040,7 +105052,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -105160,7 +105172,7 @@
       "words": 341,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.22.0",
+      "version": "2.23.0",
       "license": "MIT"
     },
     {
@@ -105430,7 +105442,7 @@
       "words": 634,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -105789,7 +105801,7 @@
       "words": 310,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.21.0",
+      "version": "1.22.0",
       "license": "MIT"
     },
     {
@@ -105801,7 +105813,7 @@
       "words": 286,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.21.0",
+      "version": "1.22.0",
       "license": "MIT"
     },
     {
@@ -105813,7 +105825,7 @@
       "words": 325,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.21.0",
+      "version": "1.22.0",
       "license": "MIT"
     },
     {
@@ -105825,7 +105837,7 @@
       "words": 288,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.21.0",
+      "version": "1.22.0",
       "license": "MIT"
     },
     {
@@ -106182,7 +106194,7 @@
         "bash",
         "sql"
       ],
-      "version": "1.29.0",
+      "version": "1.30.0",
       "license": "MIT"
     },
     {
@@ -106256,7 +106268,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -108489,7 +108501,7 @@
       "languages": [
         "bash"
       ],
-      "version": "\"0.9.0\"",
+      "version": "\"0.11.0\"",
       "license": "\"MIT\""
     },
     {
@@ -108503,7 +108515,7 @@
       "languages": [
         "bash"
       ],
-      "version": "\"0.9.0\"",
+      "version": "\"0.11.0\"",
       "license": "\"MIT\""
     },
     {
@@ -108517,7 +108529,7 @@
       "languages": [
         "bash"
       ],
-      "version": "\"0.9.0\"",
+      "version": "\"0.11.0\"",
       "license": "\"MIT\""
     },
     {
@@ -108525,9 +108537,9 @@
       "description": "Builds and refreshes per-repo dossiers capturing CLA/DCO requirements, branch conventions, AI disclosure policy, review bots, and maintainer pet peeves as the gate system's source of truth. Use when s",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute-prepare/agents/researcher.md",
       "remote_path": "plugins/community/contributing-clanker/skills/contribute-prepare/agents/researcher.md",
-      "lines": 268,
-      "words": 1547,
-      "code_blocks": 8,
+      "lines": 266,
+      "words": 1582,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "markdown"
@@ -108653,8 +108665,8 @@
       "description": "Monitors a running Next.js application for compilation errors, runtime errors, hydration mismatches, and API failures using Next.js DevTools MCP \u2014 runs in parallel with ui-test-agent. Use when testing",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/sprint/agents/nextjs-diagnostics-agent.md",
       "remote_path": "plugins/community/sprint/agents/nextjs-diagnostics-agent.md",
-      "lines": 237,
-      "words": 973,
+      "lines": 240,
+      "words": 979,
       "code_blocks": 5,
       "languages": [
         "markdown"
@@ -108679,8 +108691,8 @@
       "description": "Automates end-to-end UI tests on a running frontend using Chrome browser MCP tools \u2014 executes smoke tests, happy paths, form validation, and CRUD flows, then returns a structured UI TEST REPORT. Use w",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/sprint/agents/ui-test-agent.md",
       "remote_path": "plugins/community/sprint/agents/ui-test-agent.md",
-      "lines": 332,
-      "words": 1303,
+      "lines": 342,
+      "words": 1323,
       "code_blocks": 10,
       "languages": [
         "markdown"
@@ -108789,7 +108801,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.20.0",
+      "version": "1.21.0",
       "license": "MIT"
     },
     {
@@ -108803,7 +108815,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.20.0",
+      "version": "1.21.0",
       "license": "MIT"
     },
     {
@@ -108817,7 +108829,7 @@
       "languages": [
         "markdown"
       ],
-      "version": "1.20.0",
+      "version": "1.21.0",
       "license": "MIT"
     },
     {
@@ -108829,7 +108841,7 @@
       "words": 637,
       "code_blocks": 4,
       "languages": [],
-      "version": "1.20.0",
+      "version": "1.21.0",
       "license": "MIT"
     },
     {
@@ -113042,7 +113054,7 @@
       "words": 539,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -113119,7 +113131,7 @@
       "words": 670,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -113133,7 +113145,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.30.0",
+      "version": "1.31.0",
       "license": "MIT"
     },
     {
@@ -113539,7 +113551,7 @@
       "words": 516,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -113551,7 +113563,7 @@
       "words": 706,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -113662,7 +113674,7 @@
       "words": 506,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -113906,7 +113918,7 @@
       "words": 310,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.21.0",
+      "version": "1.22.0",
       "license": "MIT"
     },
     {
@@ -114004,7 +114016,7 @@
       "words": 519,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -114045,7 +114057,7 @@
       "words": 286,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.21.0",
+      "version": "1.22.0",
       "license": "MIT"
     },
     {
@@ -114057,7 +114069,7 @@
       "words": 873,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.31.0",
+      "version": "2.32.0",
       "license": "MIT"
     },
     {
@@ -114069,7 +114081,7 @@
       "words": 346,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.22.0",
+      "version": "2.23.0",
       "license": "MIT"
     },
     {
@@ -114283,11 +114295,11 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/notion-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/notion-cost-tuning/SKILL.md",
-      "lines": 82,
-      "words": 499,
+      "lines": 85,
+      "words": 529,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -115114,7 +115126,7 @@
       "words": 741,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -115377,7 +115389,7 @@
       "words": 734,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -115592,7 +115604,7 @@
       "words": 650,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -116326,7 +116338,7 @@
       "languages": [
         "bash"
       ],
-      "version": "\"0.9.0\"",
+      "version": "\"0.11.0\"",
       "license": "\"MIT\""
     },
     {
@@ -116651,7 +116663,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -116836,7 +116848,7 @@
       "words": 523,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -117000,7 +117012,7 @@
         "bash",
         "sql"
       ],
-      "version": "1.29.0",
+      "version": "1.30.0",
       "license": "MIT"
     },
     {
@@ -117072,7 +117084,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -117217,7 +117229,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -117469,7 +117481,7 @@
       "words": 787,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.26.0",
+      "version": "2.27.0",
       "license": "MIT"
     },
     {
@@ -117682,7 +117694,7 @@
       "words": 677,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.22.0",
+      "version": "1.23.0",
       "license": "MIT"
     },
     {
@@ -117751,7 +117763,7 @@
       "words": 713,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.29.0",
+      "version": "1.30.0",
       "license": "MIT"
     },
     {
@@ -117940,7 +117952,7 @@
       "words": 314,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.21.0",
+      "version": "2.22.0",
       "license": "MIT"
     },
     {
@@ -118307,7 +118319,7 @@
       "languages": [
         "bash"
       ],
-      "version": "\"0.9.0\"",
+      "version": "\"0.11.0\"",
       "license": "\"MIT\""
     },
     {
@@ -118416,7 +118428,7 @@
       "words": 348,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -118865,7 +118877,7 @@
       "words": 508,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -118992,7 +119004,7 @@
       "words": 656,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -119502,7 +119514,7 @@
       "words": 527,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -119945,7 +119957,7 @@
       "words": 704,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -120140,7 +120152,7 @@
       "words": 615,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -120606,7 +120618,7 @@
       "words": 681,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -120924,7 +120936,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.20.0",
+      "version": "1.21.0",
       "license": "MIT"
     },
     {
@@ -120993,7 +121005,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -121001,11 +121013,11 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/notion-core-workflow-a/SKILL.md",
       "remote_path": "skills/.curated/notion-core-workflow-a/SKILL.md",
-      "lines": 82,
-      "words": 510,
+      "lines": 85,
+      "words": 597,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -121019,7 +121031,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.32.0",
+      "version": "1.33.0",
       "license": "MIT"
     },
     {
@@ -121212,7 +121224,7 @@
       "words": 706,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -121718,7 +121730,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.20.0",
+      "version": "1.21.0",
       "license": "MIT"
     },
     {
@@ -121760,7 +121772,7 @@
       "words": 686,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -121868,7 +121880,7 @@
       "words": 228,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.29.0",
+      "version": "1.30.0",
       "license": "MIT"
     },
     {
@@ -122038,7 +122050,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -122227,7 +122239,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -122710,7 +122722,7 @@
       "words": 525,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -122941,7 +122953,7 @@
       "words": 771,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -123239,7 +123251,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -123330,7 +123342,7 @@
         "bash",
         "yaml"
       ],
-      "version": "5.23.0",
+      "version": "5.24.0",
       "license": "MIT"
     },
     {
@@ -123383,7 +123395,7 @@
       "words": 525,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -123642,7 +123654,7 @@
       "words": 509,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -123847,7 +123859,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -123919,7 +123931,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.30.0",
+      "version": "1.31.0",
       "license": "MIT"
     },
     {
@@ -124031,7 +124043,7 @@
       "words": 500,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -125022,7 +125034,7 @@
       "words": 660,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -125074,7 +125086,7 @@
       "languages": [
         "markdown"
       ],
-      "version": "1.20.0",
+      "version": "1.21.0",
       "license": "MIT"
     },
     {
@@ -125609,7 +125621,7 @@
       "words": 678,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -127379,7 +127391,7 @@
       "words": 520,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -127449,7 +127461,7 @@
       "words": 647,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -127772,7 +127784,7 @@
       "words": 484,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -127895,7 +127907,7 @@
       "words": 350,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.21.0",
+      "version": "2.22.0",
       "license": "MIT"
     },
     {
@@ -128522,7 +128534,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.30.0",
+      "version": "1.31.0",
       "license": "MIT"
     },
     {
@@ -129137,7 +129149,7 @@
       "words": 771,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.25.0",
+      "version": "2.26.0",
       "license": "MIT"
     },
     {
@@ -129259,7 +129271,7 @@
       "words": 667,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.22.0",
+      "version": "1.23.0",
       "license": "MIT"
     },
     {
@@ -129357,7 +129369,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -129538,7 +129550,7 @@
       "words": 735,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.32.0",
+      "version": "1.33.0",
       "license": "MIT"
     },
     {
@@ -130050,7 +130062,7 @@
       "words": 718,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -130359,7 +130371,7 @@
       "words": 485,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -130371,7 +130383,7 @@
       "words": 504,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.2.0",
+      "version": "2.3.0",
       "license": "MIT"
     },
     {
@@ -130800,7 +130812,7 @@
       "words": 611,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -131024,7 +131036,7 @@
       "words": 748,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -131054,7 +131066,7 @@
         "bash",
         "text"
       ],
-      "version": "1.17.0",
+      "version": "1.18.0",
       "license": "MIT"
     },
     {
@@ -131068,7 +131080,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -131691,7 +131703,7 @@
       "words": 647,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -131731,7 +131743,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.30.0",
+      "version": "1.31.0",
       "license": "MIT"
     },
     {
@@ -132627,7 +132639,7 @@
       "words": 637,
       "code_blocks": 4,
       "languages": [],
-      "version": "1.20.0",
+      "version": "1.21.0",
       "license": "MIT"
     },
     {
@@ -133082,7 +133094,7 @@
       "words": 514,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -133213,7 +133225,7 @@
       "words": 774,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.20.0",
+      "version": "2.21.0",
       "license": "MIT"
     },
     {
@@ -133306,7 +133318,7 @@
       "words": 492,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -133496,7 +133508,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -133837,7 +133849,7 @@
       "words": 724,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -133863,7 +133875,7 @@
       "words": 757,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -134400,11 +134412,11 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/notion-load-scale/SKILL.md",
       "remote_path": "skills/.curated/notion-load-scale/SKILL.md",
-      "lines": 82,
-      "words": 503,
+      "lines": 85,
+      "words": 544,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -134510,7 +134522,7 @@
       "words": 510,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -134816,7 +134828,7 @@
       "words": 723,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -134840,7 +134852,7 @@
       "words": 727,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.37.0",
+      "version": "1.38.0",
       "license": "MIT"
     },
     {
@@ -134980,7 +134992,7 @@
       "words": 702,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -135103,7 +135115,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -135689,11 +135701,11 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/notion-incident-runbook/SKILL.md",
       "remote_path": "skills/.curated/notion-incident-runbook/SKILL.md",
-      "lines": 82,
-      "words": 507,
+      "lines": 85,
+      "words": 538,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -135845,7 +135857,7 @@
       "words": 531,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -135857,7 +135869,7 @@
       "words": 569,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.20.0",
+      "version": "2.21.0",
       "license": "MIT"
     },
     {
@@ -136395,7 +136407,7 @@
       "words": 708,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -137070,7 +137082,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.29.0",
+      "version": "1.30.0",
       "license": "MIT"
     },
     {
@@ -137206,7 +137218,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -137358,7 +137370,7 @@
       "words": 634,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -137414,7 +137426,7 @@
       "words": 686,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -137426,7 +137438,7 @@
       "words": 693,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -138110,7 +138122,7 @@
       "words": 764,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.31.0",
+      "version": "1.32.0",
       "license": "MIT"
     },
     {
@@ -138515,7 +138527,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -138859,7 +138871,7 @@
       "words": 517,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -139496,7 +139508,7 @@
       "words": 780,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.30.0",
+      "version": "1.31.0",
       "license": "MIT"
     },
     {
@@ -139621,7 +139633,7 @@
       "words": 729,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.20.0",
+      "version": "2.21.0",
       "license": "MIT"
     },
     {
@@ -140067,7 +140079,7 @@
       "words": 882,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -140300,7 +140312,7 @@
       "words": 339,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.29.0",
+      "version": "2.30.0",
       "license": "MIT"
     },
     {
@@ -140383,7 +140395,7 @@
       "words": 325,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.21.0",
+      "version": "1.22.0",
       "license": "MIT"
     },
     {
@@ -140426,7 +140438,7 @@
       "words": 908,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -140600,7 +140612,7 @@
       "words": 668,
       "code_blocks": 1,
       "languages": [],
-      "version": "2.20.0",
+      "version": "2.21.0",
       "license": "MIT"
     },
     {
@@ -140944,7 +140956,7 @@
       "words": 463,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.2.0",
+      "version": "2.3.0",
       "license": "MIT"
     },
     {
@@ -141035,7 +141047,7 @@
       "words": 503,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -141076,7 +141088,7 @@
       "words": 500,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -141333,7 +141345,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -141359,7 +141371,7 @@
       "words": 823,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.25.0",
+      "version": "1.26.0",
       "license": "MIT"
     },
     {
@@ -141763,7 +141775,7 @@
       "words": 828,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -142016,7 +142028,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -142074,7 +142086,7 @@
       "languages": [
         "bash"
       ],
-      "version": "\"0.9.0\"",
+      "version": "\"0.11.0\"",
       "license": "\"MIT\""
     },
     {
@@ -142086,7 +142098,7 @@
       "words": 757,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.25.0",
+      "version": "2.26.0",
       "license": "MIT"
     },
     {
@@ -142114,7 +142126,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -143058,7 +143070,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -143595,7 +143607,7 @@
       "words": 496,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -143813,7 +143825,7 @@
       "languages": [
         "bash"
       ],
-      "version": "5.23.0",
+      "version": "5.24.0",
       "license": "MIT"
     },
     {
@@ -144699,7 +144711,7 @@
       "words": 505,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -144906,7 +144918,7 @@
       "words": 801,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -145002,7 +145014,7 @@
       "words": 530,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -145423,7 +145435,7 @@
       "words": 341,
       "code_blocks": 0,
       "languages": [],
-      "version": "2.22.0",
+      "version": "2.23.0",
       "license": "MIT"
     },
     {
@@ -145873,7 +145885,7 @@
       "words": 854,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -146551,7 +146563,7 @@
       "words": 713,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -147453,7 +147465,7 @@
       "words": 774,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.24.0",
+      "version": "1.25.0",
       "license": "MIT"
     },
     {
@@ -147509,7 +147521,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.28.0",
+      "version": "1.29.0",
       "license": "MIT"
     },
     {
@@ -147637,7 +147649,7 @@
       "words": 511,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -147837,7 +147849,7 @@
       "words": 1352,
       "code_blocks": 3,
       "languages": [],
-      "version": "2.5.0",
+      "version": "2.6.0",
       "license": "MIT"
     },
     {
@@ -147861,7 +147873,7 @@
       "words": 508,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -148095,7 +148107,7 @@
       "words": 288,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.21.0",
+      "version": "1.22.0",
       "license": "MIT"
     },
     {
@@ -148107,7 +148119,7 @@
       "words": 509,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -148260,7 +148272,7 @@
       "words": 728,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "1.27.0",
       "license": "MIT"
     },
     {
@@ -148328,7 +148340,7 @@
       "words": 629,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.27.0",
+      "version": "1.28.0",
       "license": "MIT"
     },
     {
@@ -148340,7 +148352,7 @@
       "words": 633,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -148592,7 +148604,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.29.0",
+      "version": "1.30.0",
       "license": "MIT"
     },
     {
@@ -149067,7 +149079,7 @@
       "words": 504,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.40.0",
+      "version": "1.41.0",
       "license": "MIT"
     },
     {
@@ -149167,9 +149179,9 @@
       "description": "Builds and refreshes per-repo dossiers capturing CLA/DCO requirements, branch conventions, AI disclosure policy, review bots, and maintainer pet peeves as the gate system's source of truth. Use when s",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/contribute-prepare/agents/researcher.md",
       "remote_path": "skills/.curated/contribute-prepare/agents/researcher.md",
-      "lines": 268,
-      "words": 1547,
-      "code_blocks": 8,
+      "lines": 266,
+      "words": 1582,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "markdown"
@@ -157379,8 +157391,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/SKILL.md",
       "remote_path": "feishu-doc-scraper/SKILL.md",
-      "lines": 215,
-      "words": 3886,
+      "lines": 241,
+      "words": 4129,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -157477,8 +157489,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 847,
-      "words": 10013,
+      "lines": 848,
+      "words": 10043,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -157783,8 +157795,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 877,
-      "words": 3208,
+      "lines": 884,
+      "words": 3233,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157951,9 +157963,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/youtube-downloader/SKILL.md",
       "remote_path": "youtube-downloader/SKILL.md",
-      "lines": 527,
-      "words": 2893,
-      "code_blocks": 23,
+      "lines": 462,
+      "words": 2827,
+      "code_blocks": 21,
       "languages": [
         "bash"
       ]
@@ -158025,8 +158037,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/references/original-media-and-reader.md",
       "remote_path": "feishu-doc-scraper/references/original-media-and-reader.md",
-      "lines": 194,
-      "words": 1533,
+      "lines": 199,
+      "words": 1570,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -158076,12 +158088,11 @@
       "description": "Programmatic screenshot capture on macOS. Find window IDs with Swift CGWindowListCopyWindowInfo, control application windows via AppleScript (zoom, scroll, select), and capture with screencapture. Use",
       "path": "daymade--claude-code-skills/daymade-macos/capture-screen/SKILL.md",
       "remote_path": "daymade-macos/capture-screen/SKILL.md",
-      "lines": 322,
-      "words": 1631,
-      "code_blocks": 15,
+      "lines": 295,
+      "words": 1507,
+      "code_blocks": 12,
       "languages": [
-        "bash",
-        "text"
+        "bash"
       ]
     },
     {
@@ -158123,8 +158134,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-permissions/SKILL.md",
       "remote_path": "daymade-macos/macos-permissions/SKILL.md",
-      "lines": 116,
-      "words": 1261,
+      "lines": 140,
+      "words": 1481,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -159292,7 +159303,7 @@
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/materialization-budget.md",
       "remote_path": "daymade-skill/skill-creator/references/materialization-budget.md",
       "lines": 209,
-      "words": 1571,
+      "words": 1565,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -178389,6 +178400,16 @@
       ]
     },
     {
+      "name": "cms-migration-checklist",
+      "description": "Gated checklist and working method for migrating a WordPress site to Next.js with a Payload CMS admin \u2014 audit, owner decisions, HTML\u2192Lexical conversion, idempotent import and reconciliation, URL/SEO p",
+      "path": "glebis--claude-skills/cms-migration-checklist/SKILL.md",
+      "remote_path": "cms-migration-checklist/SKILL.md",
+      "lines": 244,
+      "words": 2484,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "session-finder",
       "description": "Index and search Claude Code sessions using semantic embeddings (Gemini). Find past sessions by topic, relaunch the best match. Triggers on \"find session\", \"which session did I\", \"relaunch the session",
       "path": "glebis--claude-skills/session-finder/SKILL.md",
@@ -178868,6 +178889,16 @@
       "lines": 34,
       "words": 211,
       "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "cognitive-toolkit",
+      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 98,
+      "words": 617,
+      "code_blocks": 1,
       "languages": []
     },
     {

@@ -26,7 +26,7 @@
 // bash gates, INCLUDING the reviewer dispatcher. The default dispatcher
 // (claudeReviewer) shells out to `claude -p` with the same trust guards as the
 // bash _dispatch_reviewer (autonomy/run.sh:_dispatch_reviewer): no --model
-// (security-sentinel must never route to Fable), --disallowedTools tree-mutation
+// (security-sentinel keeps the account default), --disallowedTools tree-mutation
 // guard, CAVEMAN_DEFAULT_MODE=off so the parsed VERDICT line is not reworded.
 // The SELECTION + AGGREGATION orchestration around it is real, as is the
 // escalation ladder and failure-count persistence.
@@ -51,7 +51,7 @@ import {
   permissionArgv,
   reviewerModelForTier,
 } from "../providers/claude_flags.ts";
-import { judgeJson, sdkJudgeAvailable } from "./sdk_invoker.ts";
+import { judgeJsonOutcome, judgeOutcomeNote, sdkJudgeAvailable, type Effort } from "./sdk_invoker.ts";
 import { atomicWriteText, withFileLockSync } from "../util/atomic.ts";
 import { REPO_ROOT, lokiDir } from "../util/paths.ts";
 import { withChildLedger } from "../util/child_ledger.ts";
@@ -1265,7 +1265,16 @@ export type ReviewerInput = {
   diff: string;
   files: string;
   prompt: string;
+  // #270: one effort for every reviewer of a gate (a differing effort invalidates the shared prompt cache).
+  effort?: Effort;
+  // #270: a reviewer that can observe its first response event calls this so the rest of the battery launches
+  // against a warm cache entry. claudeReviewer fires it on the child's first stdout byte (#311); the SDK judge
+  // path is a single non-streaming call and never fires it. The LOKI_REVIEW_STAGGER_MS timeout stays as the
+  // deliberate fallback. The bash _dispatch_reviewer has no stagger, so it has no sibling hook.
+  onFirstResponse?: () => void;
 };
+
+export const REVIEWER_EFFORT: Effort = "high";
 
 // Dispatcher contract: the orchestrator hands a built prompt to this fn and
 // expects the raw reviewer output text back. Production wiring (v7.5.0+)
@@ -1522,16 +1531,18 @@ export function selectReviewers(
 }
 
 // Port of the BUILD_PROMPT block at autonomy/run.sh:6486-6505.
+// #270: the shared Files and Diff block comes FIRST and the per-reviewer role last, so parallel reviewers of
+// one gate share a byte-identical cacheable prefix. Nothing reviewer-specific may precede the Diff.
 export function buildReviewerPrompt(reviewer: Reviewer, diff: string, files: string): string {
-  return `You are ${reviewer.name}. Your SOLE focus is: ${reviewer.focus}.
-
-Review ONLY for: ${reviewer.checks}.
-
-Files changed:
+  return `Files changed:
 ${files.trim()}
 
 Diff:
 ${diff.trim()}
+
+You are ${reviewer.name}. Your SOLE focus is: ${reviewer.focus}.
+
+Review ONLY for: ${reviewer.checks}.
 
 Output format (STRICT - follow exactly):
 VERDICT: PASS or FAIL
@@ -1562,12 +1573,11 @@ export const REVIEWER_UNAVAILABLE_MARKER = "REVIEWER_UNAVAILABLE";
 // autonomy/run.sh). The orchestrator hands a fully self-contained prompt (diff,
 // changed files, checks, strict VERDICT/FINDINGS contract) and expects raw text
 // back, which parseVerdict then parses. Trust guards mirrored from bash:
-//   - By DEFAULT no --model: reviewers run on the account default and are NEVER
-//     routed to Fable. Fable's safety classifiers refuse cybersecurity content
-//     and would end a security-sentinel turn with stop_reason "refusal" (no
-//     VERDICT line), silently breaking the council gate. The ONLY opt-in pin is
-//     LOKI_ADVISOR_MODEL (haiku|sonnet|opus; fable refused) - the founder's
-//     "advisor opus if needed or user opted". See the long comment in bash
+//   - By DEFAULT no --model: reviewers run on the account default. The ONLY
+//     opt-in pin is LOKI_ADVISOR_MODEL (haiku|sonnet|opus; any other value is
+//     ignored) - the founder's "advisor opus if needed or user opted". A turn
+//     with no VERDICT is never a PASS, and a non-ok SDK judge outcome is named
+//     in the blocking finding (judgeOutcomeNote). See the comment in bash
 //     _dispatch_reviewer.
 //   - --disallowedTools tree-mutation guard (default ON; opt out
 //     LOKI_REVIEW_TOOL_GUARD=0): a reviewer must not casually mutate the tree.
@@ -1645,9 +1655,31 @@ export function rematerializeCodeReview(rawJson: string): string | null {
   return lines.join("\n") + "\n";
 }
 
-export const claudeReviewer: ReviewerFn = async ({ prompt, reviewer: rv }) => {
+// #320: `claude -p` json/text buffers stdout until the run ends, so the #270 stagger hook only fired at completion.
+// With a hook to release, the reviewer asks for stream-json (first event arrives at once) and this lifts the final
+// `result` event back out: the same object --output-format json prints, or its text as --output-format text prints it.
+export function streamFinalResult(stdout: string, format: "json" | "text"): string {
+  let last: Record<string, unknown> | null = null;
+  for (const line of stdout.split("\n")) {
+    const t = line.trim();
+    if (!t.startsWith("{")) continue;
+    try {
+      const ev = JSON.parse(t) as Record<string, unknown>;
+      if (ev["type"] === "result") last = ev;
+    } catch { /* a truncated or non-JSON line is not the result */ }
+  }
+  if (last === null) return "";
+  if (format === "json") return JSON.stringify(last);
+  return typeof last["result"] === "string" && last["result"].length > 0 ? `${last["result"]}\n` : "";
+}
+
+export const claudeReviewer: ReviewerFn = async ({ prompt, reviewer: rv, effort, onFirstResponse }) => {
+  // Reduce the stream before the cost ledger and the verdict parse see it, so both read exactly what json/text gave them.
+  const streamed = (format: "json" | "text"): typeof run => onFirstResponse
+    ? async (...a) => { const r = await run(...a); return { ...r, stdout: streamFinalResult(r.stdout, format) }; }
+    : run;
   const argv = ["claude", ...permissionArgv()];
-  // Model pin: LOKI_ADVISOR_MODEL (haiku|sonnet|opus; fable refused) wins, else
+  // Model pin: LOKI_ADVISOR_MODEL (haiku|sonnet|opus) wins, else
   // simple/standard tiers route to haiku with lean flags (S9). Complex tier,
   // HIGH-tier changes and moat reviewers keep the account default.
   await ensureClaudeHelpCache();
@@ -1668,27 +1700,34 @@ export const claudeReviewer: ReviewerFn = async ({ prompt, reviewer: rv }) => {
   // in-process via the pure-HTTPS @anthropic-ai/sdk judge (no claude binary) and
   // re-materialize the SAME legacy VERDICT/FINDINGS text so parseVerdict et al are
   // untouched. Mirrors the bash _dispatch_reviewer SDK branch, which runs BEFORE
-  // the claude --json-schema block. Fail-closed: judgeJson returns null on any
-  // miss (no key/transport/refusal/malformed) and a bad rematerialize returns
-  // null -> fall through to the claude paths below (never a PASS on a miss;
-  // rematerialize forces FAIL on Critical/High). Calls judgeJson directly rather
-  // than spawning bin/loki -- we are already inside the loki-ts process.
+  // the claude --json-schema block. Fail-closed: any non-ok judge outcome
+  // (truncated/refused/context_exceeded/transport/malformed) and a bad
+  // rematerialize fall through to the claude paths below (never a PASS on a
+  // miss; rematerialize forces FAIL on Critical/High). The outcome name rides
+  // along (sdkNote) into any blocking finding those paths produce. Calls
+  // judgeJsonOutcome directly rather than spawning bin/loki -- we are already
+  // inside the loki-ts process.
+  let sdkNote = "";
+  const failFinding = (msg: string): string =>
+    `VERDICT: FAIL\nFINDINGS:\n- [Critical] ${msg}${sdkNote ? ` (${sdkNote})` : ""}`;
   if (process.env["LOKI_SDK_CODE_REVIEW"] === "1" && existsSync(CODE_REVIEW_SCHEMA_PATH)) {
     try {
       const schema = JSON.parse(readFileSync(CODE_REVIEW_SCHEMA_PATH, "utf8")) as Record<string, unknown>;
       const rawTo = Number(process.env["LOKI_SDK_REVIEW_TIMEOUT"]);
       const timeoutMs = (Number.isFinite(rawTo) && rawTo > 0 ? rawTo : 180) * 1000;
-      const obj = await judgeJson({
+      const sdkOutcome = await judgeJsonOutcome({
         prompt,
         schema,
         model: process.env["LOKI_SDK_REVIEW_MODEL"] || resolveClaudeModel("sonnet"),
-        effort: "high",
+        effort: effort ?? REVIEWER_EFFORT,
         timeoutMs,
         ledger: { lokiDir: lokiDir(), phase: "reviewer" }, // COST-WALL
       });
-      if (obj !== null) {
-        const legacy = rematerializeCodeReview(JSON.stringify(obj));
+      if (sdkOutcome.kind === "ok") {
+        const legacy = rematerializeCodeReview(JSON.stringify(sdkOutcome.value));
         if (legacy !== null) return legacy;
+      } else {
+        sdkNote = judgeOutcomeNote(sdkOutcome);
       }
     } catch {
       // fall through to the claude paths below (fail-closed)
@@ -1706,34 +1745,35 @@ export const claudeReviewer: ReviewerFn = async ({ prompt, reviewer: rv }) => {
     await ensureClaudeHelpCache();
     if (claudeFlagSupported("--json-schema")) {
       const schemaContent = readFileSync(CODE_REVIEW_SCHEMA_PATH, "utf8");
-      const sArgv = [...argv, "-p", prompt, "--json-schema", schemaContent, "--output-format", "json"];
-      const rs = await withChildLedger(run, lokiDir(), "reviewer")(sArgv, { env: { ...(reviewerGitEnv(process.cwd(), tokenFreeEnv(process.env)) as Record<string, string>), CAVEMAN_DEFAULT_MODE: "off" }, timeoutMs: 600_000 }); // FC-REVIEWER-GIT-CONFIG-EXEC // COST-WALL: result JSON carries total_cost_usd
+      const sArgv = [...argv, "-p", prompt, "--json-schema", schemaContent, "--output-format", ...(onFirstResponse ? ["stream-json", "--verbose"] : ["json"])];
+      const rs = await withChildLedger(streamed("json"), lokiDir(), "reviewer")(sArgv, { env: { ...(reviewerGitEnv(process.cwd(), tokenFreeEnv(process.env)) as Record<string, string>), CAVEMAN_DEFAULT_MODE: "off" }, timeoutMs: 600_000, ...(onFirstResponse ? { onFirstStdout: onFirstResponse } : {}) }); // FC-REVIEWER-GIT-CONFIG-EXEC // COST-WALL: result JSON carries total_cost_usd
       if (rs.exitCode === 0 && rs.stdout.trim().length > 0) {
         const legacy = rematerializeCodeReview(rs.stdout);
         if (legacy !== null) return legacy;
       }
       // fail-closed: structured path failed -> blocking synthetic (never a PASS).
-      return `VERDICT: FAIL\nFINDINGS:\n- [Critical] structured reviewer produced no valid verdict`;
+      return failFinding("structured reviewer produced no valid verdict");
     }
   }
 
-  argv.push("-p", prompt, "--output-format", "text");
+  argv.push("-p", prompt, "--output-format", ...(onFirstResponse ? ["stream-json", "--verbose"] : ["text"]));
 
   // Mirror the bash subcall: cwd-agnostic (the prompt carries the diff), caveman
   // hard-suppressed, generous timeout for a single review turn.
-  const r = await withChildLedger(run, lokiDir(), "reviewer")(argv, { // COST-WALL: text output carries no cost, so this line is unmeasured (a lower bound, never zero)
+  const r = await withChildLedger(streamed("text"), lokiDir(), "reviewer")(argv, { // COST-WALL: text output carries no cost, so this line is unmeasured (a lower bound, never zero)
     env: { ...(reviewerGitEnv(process.cwd(), tokenFreeEnv(process.env)) as Record<string, string>), CAVEMAN_DEFAULT_MODE: "off" }, // FC-REVIEWER-GIT-CONFIG-EXEC
     timeoutMs: 600_000,
+    ...(onFirstResponse ? { onFirstStdout: onFirstResponse } : {}),
   });
   if (r.exitCode !== 0) {
     // A failed dispatch must not silently pass. Surface a blocking Critical so a
     // broken reviewer cannot approve a change by accident (parity with the bash
     // arm where a non-zero claude leaves an empty file -> NO_VERDICT -> not a PASS).
-    return `VERDICT: FAIL\nFINDINGS:\n- [Critical] reviewer dispatch failed (claude exit ${r.exitCode})`;
+    return failFinding(`reviewer dispatch failed (claude exit ${r.exitCode})`);
   }
   const out = r.stdout.trim();
   if (out.length === 0) {
-    return `VERDICT: FAIL\nFINDINGS:\n- [Critical] reviewer produced no output`;
+    return failFinding("reviewer produced no output");
   }
   return r.stdout;
 };
@@ -2012,23 +2052,44 @@ export async function runCodeReview(
   });
   atomicWriteText(join(reviewDir, "selection.json"), `${JSON.stringify(selection, null, 2)}\n`);
 
-  // Dispatch all reviewers in parallel via Promise.all (parity with the bash
-  // backgrounding-and-wait loop at run.sh:6516-6556).
-  const results = await Promise.all(
-    selection.reviewers.map(async (rv): Promise<ReviewerVerdict> => {
-      const prompt = buildReviewerPrompt(rv, diff, files);
-      writeFileSync(join(reviewDir, `${rv.name}-prompt.txt`), prompt);
-      let output: string;
-      try {
-        output = await reviewer({ reviewer: rv, diff, files, prompt });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        output = `VERDICT: FAIL\nFINDINGS:\n- [Critical] reviewer threw: ${msg}`;
-      }
-      writeFileSync(join(reviewDir, `${rv.name}.txt`), output);
-      return parseVerdict(rv.name, output);
-    }),
-  );
+  // Dispatch the battery in parallel (parity with the bash backgrounding-and-wait loop at run.sh:6516-6556), but
+  // #270: launch reviewer 1 alone first and hold the rest until its first response event (or its completion, or
+  // LOKI_REVIEW_STAGGER_MS, default 3000, 0 = launch together) so reviewers 2..N read the prompt cache entry
+  // reviewer 1 wrote instead of each writing their own.
+  const runOne = async (rv: Reviewer, onFirstResponse?: () => void): Promise<ReviewerVerdict> => {
+    const prompt = buildReviewerPrompt(rv, diff, files);
+    writeFileSync(join(reviewDir, `${rv.name}-prompt.txt`), prompt);
+    let output: string;
+    try {
+      output = await reviewer({ reviewer: rv, diff, files, prompt, effort: REVIEWER_EFFORT, ...(onFirstResponse ? { onFirstResponse } : {}) });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      output = `VERDICT: FAIL\nFINDINGS:\n- [Critical] reviewer threw: ${msg}`;
+    }
+    writeFileSync(join(reviewDir, `${rv.name}.txt`), output);
+    return parseVerdict(rv.name, output);
+  };
+  const staggerRaw = Number(process.env["LOKI_REVIEW_STAGGER_MS"] ?? 3000);
+  const staggerMs = Number.isFinite(staggerRaw) && staggerRaw >= 0 ? staggerRaw : 3000;
+  const [head, ...rest] = selection.reviewers;
+  let results: ReviewerVerdict[] = [];
+  if (head) {
+    if (staggerMs === 0 || rest.length === 0) {
+      results = await Promise.all(selection.reviewers.map((rv) => runOne(rv)));
+    } else {
+      let signalFirst!: () => void;
+      const firstResponse = new Promise<void>((r) => { signalFirst = r; });
+      const headRun = runOne(head, signalFirst);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        firstResponse,
+        headRun.then(() => undefined),
+        new Promise<void>((r) => { timer = setTimeout(r, staggerMs); }),
+      ]);
+      if (timer) clearTimeout(timer);
+      results = await Promise.all([headRun, ...rest.map((rv) => runOne(rv))]);
+    }
+  }
 
   let passCount = 0;
   let failCount = 0;
@@ -2163,7 +2224,7 @@ export async function runCodeReview(
       writeFileSync(join(reviewDir, `${daReviewer.name}-prompt.txt`), daPrompt);
       let daOutput: string;
       try {
-        daOutput = await reviewer({ reviewer: daReviewer, diff, files, prompt: daPrompt });
+        daOutput = await reviewer({ reviewer: daReviewer, diff, files, prompt: daPrompt, effort: REVIEWER_EFFORT });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         // Fail-safe: a thrown DA reviewer becomes a Critical so a broken

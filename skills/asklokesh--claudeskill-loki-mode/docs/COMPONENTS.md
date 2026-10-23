@@ -247,7 +247,7 @@ search) to MCP clients.
 **Purpose:** Make Loki's memory, tools, and search available over MCP.
 
 **Key files:**
-- `server.py` - MCP server (47 tools: 31 in-file + magic + gated managed + 8 cp; plus
+- `server.py` - MCP server (48 tools: 32 in-file + magic + gated managed + 8 cp; plus
   3 resources, 2 prompts).
 - `magic_tools.py` - Magic Modules tools.
 - `cp_tools.py` - Read-only Control Plane data tools (`cp_*`, GET only; the CP URL
@@ -345,7 +345,6 @@ On-demand skill modules following the progressive-disclosure architecture
 skill file.
 
 **Key files:**
-- `00-index.md` - Module selection rules and routing.
 - `quality-gates.md` - The canonical 8-gate table and RARV-C flags.
 - `model-selection.md`, `providers.md`, `healing.md`, `testing.md`,
   `production.md`, `troubleshooting.md`, `agents.md`, `artifacts.md`,
@@ -367,12 +366,12 @@ Detailed reference documentation backing the slim skill modules.
 **Key files:**
 - `core-workflow.md`, `sdlc-phases.md`, `task-queue.md`, `deployment.md`.
 - `legacy-healing-patterns.md`, `quality-control.md`, `confidence-routing.md`.
-- `memory-system.md`, `mcp-integration.md`, `multi-provider.md`.
+- `memory-system.md`, `mcp-integration.md`.
 - `openai-patterns.md`, `lab-research-patterns.md`, `advanced-patterns.md`,
   `tool-orchestration.md`, `agent-types.md`, `competitive-analysis.md`,
   `cursor-learnings.md`, `prompt-repetition.md`, `business-ops.md`,
   `invariant-checks.md`, `magic-modules-patterns.md`,
-  `magic-rarv-integration.md`, `production-patterns.md`.
+  `magic-rarv-integration.md`.
 
 **Dependencies:**
 - Linked from `skills/` and `CLAUDE.md`.

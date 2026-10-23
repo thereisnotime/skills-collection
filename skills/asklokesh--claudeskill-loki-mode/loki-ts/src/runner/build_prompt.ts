@@ -40,6 +40,8 @@ import { atomicWriteText } from "../util/atomic.ts";
 import { detectComplexity } from "./rarv.ts";
 import { goalSharpeningInstruction } from "./goal_score.ts";
 import { profileFragment } from "./repo_profile.ts";
+import { PARALLEL_TOOL_CALLS_INSTRUCTION } from "../features/lean_prefix.ts";
+import { routerEnabled } from "./router/flag.ts";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -371,7 +373,7 @@ const COMPOSE_INSTRUCTION =
 // v7.7.8: LSP grounding instruction. Parity with bash:
 // run.sh build_prompt() $lsp_grounding_instruction.
 const LSP_GROUNDING_INSTRUCTION =
-  `LSP_GROUNDING: When the loki-mode-lsp-proxy MCP server is available, prefer LSP tools for symbol verification BEFORE writing code that references those symbols. Workflow: (1) Need to call \`foo.bar()\` you have not already read? -> mcp__loki-mode-lsp-proxy__lsp_check_exists with symbol='bar' (sub-200ms when cached). If exists:false, do NOT write the call -- use mcp__loki-mode-lsp-proxy__lsp_workspace_symbols with the concept name to find the real symbol, or use Read to see the actual API. (2) Just edited a file? -> mcp__loki-mode-lsp-proxy__lsp_get_diagnostics on that file to see new errors before the next iteration. (3) Need to jump to a definition by name (no file:line known)? -> mcp__loki-mode-lsp-proxy__lsp_find_definition_by_name. Skip these tools silently when the server is not available -- check the tool list, do not retry on errors. Goal: eliminate hallucinated API calls before they ship. PARALLEL_TOOL_CALLS: When issuing independent read-only operations (reads, greps, file lookups, LSP checks) that do not depend on each other, issue them in a single message so they run in parallel; do not serialize independent lookups.`;
+  `LSP_GROUNDING: When the loki-mode-lsp-proxy MCP server is available, prefer LSP tools for symbol verification BEFORE writing code that references those symbols. Workflow: (1) Need to call \`foo.bar()\` you have not already read? -> mcp__loki-mode-lsp-proxy__lsp_check_exists with symbol='bar' (sub-200ms when cached). If exists:false, do NOT write the call -- use mcp__loki-mode-lsp-proxy__lsp_workspace_symbols with the concept name to find the real symbol, or use Read to see the actual API. (2) Just edited a file? -> mcp__loki-mode-lsp-proxy__lsp_get_diagnostics on that file to see new errors before the next iteration. (3) Need to jump to a definition by name (no file:line known)? -> mcp__loki-mode-lsp-proxy__lsp_find_definition_by_name. Skip these tools silently when the server is not available -- check the tool list, do not retry on errors. Goal: eliminate hallucinated API calls before they ship. ${PARALLEL_TOOL_CALLS_INSTRUCTION}`;
 
 // AGENTS.md instruction (agents.md standard: plain Markdown at repo root,
 // nearest-file-wins, read natively by Claude Code/Codex/etc.). Loki prefers
@@ -397,6 +399,41 @@ const DOC_SCOPE_INSTRUCTION_SIMPLE =
   `DOC_SCOPE: This is a small, simple project. Keep documentation minimal and proportional: a short README.md (what it is, install, run) plus the required USAGE.md is sufficient. Do NOT generate a multi-file architecture documentation suite (ARCHITECTURE.md, COMPONENTS.md, DECISIONS.md, API.md, SETUP.md, TESTING.md) for a project this small -- it is overhead with no reader and wastes iterations. Only add one of those files if the code genuinely warrants it (e.g. write API.md only when there is a real public API surface). Never claim a doc exists that you did not write.`;
 const DOC_SCOPE_INSTRUCTION_FULL =
   `DOC_SCOPE: Scale documentation to what a reader of THIS project actually needs -- do not generate empty boilerplate. Beyond the required USAGE.md, write a README.md and add architecture-suite docs (ARCHITECTURE.md, COMPONENTS.md, DECISIONS.md, API.md, SETUP.md, TESTING.md) only where each one carries real, project-specific content (e.g. API.md only with a real public API, COMPONENTS.md only with multiple distinct components, DECISIONS.md only when there are non-obvious design decisions). Prefer fewer accurate docs over a complete-looking suite of stubs. Never claim a doc exists that you did not write.`;
+
+// Flag-gated cache-stable prefix lines (default off, so flags-off bytes equal the pinned fixtures).
+// Each text is a static string: nothing here may depend on the iteration, or the prefix cache busts.
+// The advisor lines also need the router on, because that is the only path that attaches an advisor.
+const PREFIX_FLAG_LINES: ReadonlyArray<{ flag: string; needsRouter: boolean; text: string }> = [
+  {
+    flag: "LOKI_PROMPT_ADVISOR",
+    needsRouter: true,
+    text:
+      "ADVISOR: Call the advisor tool BEFORE substantive work (after orientation reads, before writing or committing to an approach) and BEFORE you declare done, after your changes are saved. " +
+      "If a call to the advisor is not enough to settle a conflict between its advice and the evidence, call it once more with the conflict stated. Keep the advisor's guidance under 80 words, as a short numbered list.",
+  },
+  {
+    flag: "LOKI_PROMPT_LENGTH",
+    needsRouter: false,
+    text:
+      "LENGTH: A lower effort setting does not reliably shorten your answers. Keep replies as short as the task allows: no restating the request, no recap of finished steps, no unrequested alternatives.",
+  },
+  {
+    flag: "LOKI_PROMPT_SCREENSHOT",
+    needsRouter: false,
+    text:
+      "VERIFY_UI: After each UI step, take a screenshot and evaluate it against the expected result before the next step. Fix what the screenshot shows before moving on.",
+  },
+];
+
+function flagPrefixLines(env: Readonly<Record<string, string | undefined>>): string[] {
+  const out: string[] = [];
+  for (const l of PREFIX_FLAG_LINES) {
+    if (env[l.flag] !== "1") continue;
+    if (l.needsRouter && !routerEnabled(env as Record<string, string | undefined>)) continue;
+    out.push(l.text);
+  }
+  return out;
+}
 
 function docScopeInstruction(env: Readonly<Record<string, string | undefined>>): string {
   // Parity with bash build_prompt(): the bash route reads ${DETECTED_COMPLEXITY:-standard}
@@ -1635,6 +1672,7 @@ export async function buildPrompt(opts: BuildPromptOpts): Promise<string> {
   lines.push(COMPOSE_INSTRUCTION);
   lines.push(LSP_GROUNDING_INSTRUCTION);
   lines.push(AGENTS_MD_INSTRUCTION);
+  for (const l of flagPrefixLines(env)) lines.push(l);
   }
   // v8 harness intelligence (3c): flag a goal the loop cannot hill-climb.
   // Derived from COMPLETION_PROMISE, fixed for the run, so it is cache-stable
@@ -1712,6 +1750,9 @@ export async function buildPrompt(opts: BuildPromptOpts): Promise<string> {
   // <dynamic_context>, never in the cache-stable <loki_system> prefix -- putting
   // it above [CACHE_BREAKPOINT] would bust the prompt cache every iteration.
   if (sections.efficiencyTrend.length > 0) lines.push(sections.efficiencyTrend);
+  // LOKI_OUTPUT_LANGUAGE: dynamic tail only, so the cached prefix bytes are unchanged. Unset or not a plain language name: no line.
+  const outLang = envStr(env, "LOKI_OUTPUT_LANGUAGE").trim();
+  if (/^[\p{L}\p{N} _.-]{1,40}$/u.test(outLang)) lines.push(`Respond in ${outLang}. Keep identifiers, file names and PRD requirement titles in their original script.`);
   lines.push(completionText);
   lines.push("</dynamic_context>");
 
@@ -1851,6 +1892,7 @@ function buildLegacyDegraded(
 // ---------------------------------------------------------------------------
 
 export const _internals = {
+  PREFIX_FLAG_LINES,
   buildPhases,
   rarvInstruction,
   completionInstruction,

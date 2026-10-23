@@ -22,8 +22,9 @@
 
 import { mkdirSync, existsSync, readFileSync, realpathSync, appendFileSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, join, isAbsolute, relative, resolve, sep } from "node:path";
-import { run as shellRun } from "../util/shell.ts";
+import { run as shellRun, shellQuote } from "../util/shell.ts";
 import { REPO_ROOT } from "../util/paths.ts";
+import { neutralizeEngineMarkers } from "./retry_class.ts"; // FC-AGENT-TEXT-FORGES-ENGINE-MARKER: a provider CLI stdout is agent text
 import {
   buildAutoFlags,
   claudeFlagSupported,
@@ -44,9 +45,10 @@ import {
 import { mcpConfigPath } from "../providers/mcp_config.ts";
 import { LEAN_PREFIX } from "../features/lean_prefix.ts";
 import { consumeSdkStream, type StreamMsg } from "./sdk_stream_parser.ts";
+import { writeSessionId } from "./session_resume.ts";
 import { createTrimHook } from "./trim.ts";
-import { probeAdvisor } from "./router/advisor_probe.ts";
-import { routerEnabled } from "./router/flag.ts";
+import { advisorPair, probeAdvisor, ROUTER_ADVISOR_MODEL } from "./router/advisor_probe.ts";
+import { advisorOnlyEnabled, routerEnabled, sessionPlanEnabled } from "./router/flag.ts";
 import type {
   ProviderInvocation,
   ProviderInvoker,
@@ -55,8 +57,14 @@ import type {
   SessionTier,
 } from "./types.ts";
 import { PROVIDER_DEFAULT_MODEL, resolveClaudeModel } from "../util/claude_model.ts";
-import { modelRouteEnv, modelRouteModel, otelPassthroughEnv } from "../providers/model_routes.ts";
+import { applyAliasPin, modelRouteEnv, modelRouteModel, otelPassthroughEnv } from "../providers/model_routes.ts";
 import { opencodeProvider } from "./provider_opencode.ts";
+import { cacheTtlFor } from "../util/cost_breakdown.ts";
+
+// Q18-04: the stage deny list (LOKI_E10_DISALLOWED_TOOLS) is added to the policy deny list, never replaces it.
+export function mergeDisallowedTools(policy: string[] | undefined, stageCsv: string): string[] {
+  return [...new Set([...(policy ?? []), ...stageCsv.split(",").filter(Boolean)])];
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -168,7 +176,7 @@ export function selectClaudeInvokerKind(
 // default, empty counting as unset (bash `${VAR:-default}`). Defaults are
 // sonnet for every tier (v7.104.0), except fast -> haiku under LOKI_ALLOW_HAIKU.
 // An explicit per-tier pin beats the haiku gate, as it does on bash.
-function claudeTierToModel(tier: SessionTier): string {
+export function claudeTierToModel(tier: SessionTier): string {
   // fable unavailable, collapse to opus. Claude Fable 5 is not available at the
   // Claude API ("use Opus 4.8"). Per-tier pins do not apply, matching the bash
   // resolver's `fable) model="opus"` arm (v7.39.1).
@@ -178,7 +186,10 @@ function claudeTierToModel(tier: SessionTier): string {
   // enable haiku on either route (v7.41.4 parity fix).
   const allowHaiku = process.env["LOKI_ALLOW_HAIKU"] === "true";
   const pinned = (name: string, fallback: string): string =>
-    process.env[`LOKI_CLAUDE_MODEL_${name}`] || process.env[`LOKI_MODEL_${name}`] || fallback;
+    applyAliasPin(
+      process.env[`LOKI_CLAUDE_MODEL_${name}`] || process.env[`LOKI_MODEL_${name}`] || fallback,
+      process.env,
+    );
   switch (tier) {
     case "planning":
       return pinned("PLANNING", "sonnet");
@@ -203,9 +214,16 @@ function claudeTierToModel(tier: SessionTier): string {
 // run.sh lets the pin overwrite the override.
 // TEN-COST-12: engine10 stage sessions last 10-17s, so the 1-hour cache TTL ($4/M write) buys nothing over
 // 5 minutes ($2.50/M). Claude Code honors FORCE_PROMPT_CACHING_5M=1. Engine10 children only (LOKI_E10_STAGE is
-// set by engine10/session.ts); the main RARV loop is untouched. Opt out with LOKI_E10_CACHE_TTL=1h.
+// set by engine10/session.ts); the main RARV loop is untouched.
+// #244: an explicit LOKI_E10_CACHE_TTL wins (1h opts out of the 5m force; any other value keeps it). Unset, the stage's
+// persisted median call gap (LOKI_E10_CACHE_GAP_MS, set by childEnv from the efficiency records) between the 5m and 60m TTLs
+// (cacheTtlFor) chooses 1h for that stage; at 60m or more neither cache hits, so 5m stays. No data keeps 5m.
 export function engine10CacheTtlEnv(env: Record<string, string | undefined>): Record<string, string> {
-  if (!env["LOKI_E10_STAGE"] || env["LOKI_E10_CACHE_TTL"] === "1h") return {};
+  if (!env["LOKI_E10_STAGE"]) return {};
+  const ttl = env["LOKI_E10_CACHE_TTL"];
+  if (ttl) return ttl === "1h" ? {} : { FORCE_PROMPT_CACHING_5M: "1" };
+  const gap = Number(env["LOKI_E10_CACHE_GAP_MS"]);
+  if (env["LOKI_E10_CACHE_GAP_MS"] && Number.isFinite(gap) && cacheTtlFor(gap) === "1h") return {};
   return { FORCE_PROMPT_CACHING_5M: "1" };
 }
 
@@ -291,10 +309,6 @@ function physicalPath(path: string): string {
   }
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'"'"'`)}'`;
-}
-
 function hostGuardRequired(cwd: string): boolean {
   if (truthy(process.env["LOKI_HOST_GUARD"])) return true;
   const target = process.env["LOKI_TARGET_DIR"];
@@ -340,7 +354,6 @@ export function hostGuardSettingsJson(): string {
 // not top-level Options. Flag off (the default until R1-19) adds nothing, so the
 // options and argv stay byte-identical to the pre-router build.
 // ---------------------------------------------------------------------------
-const ROUTER_ADVISOR_MODEL = "opus";
 const ROUTER_AUTO_COMPACT_WINDOW = 100000; // SDK minimum; keeps requests under the 100K price cliff
 // Only Haiku 5.5 has the cliff. Sonnet/Opus 5.5 have a 1M window at flat price, so compacting them at 100K only
 // loses context. Unknown models fail safe to the ceiling.
@@ -376,13 +389,17 @@ async function installedClaudeCodeVersion(cli: string): Promise<string> {
   }
 }
 
+const ROUTER_SONNET_ADVISOR_EFFORT = "medium";
+
 export interface RouterSessionPlan {
   settings?: { advisorModel: string; autoCompactWindow?: number };
   model: string;
   advisorReason?: string;
+  // Docs: a Sonnet executor with an Opus advisor runs at medium effort. Set only when the advisor is attached.
+  effort?: string;
 }
 
-// Pure: flag off -> null (caller adds nothing). Flag on -> advisor settings when the probe says available;
+// Pure: both flags off -> null (caller adds nothing). Flag on -> advisor settings when the probe says available;
 // otherwise the executor is Sonnet, never Haiku (L1 amendment, 4.4: Haiku runs only with the advisor attached).
 export function planRouterSession(args: {
   model: string;
@@ -391,11 +408,15 @@ export function planRouterSession(args: {
   env?: Record<string, string | undefined>;
 }): RouterSessionPlan | null {
   const env = args.env ?? process.env;
-  if (!routerEnabled(env)) return null;
-  const probe = probeAdvisor(env, "claude", args.claudeCodeVersion, args.runDir);
+  const routed = routerEnabled(env);
+  if (!routed && !advisorOnlyEnabled(env)) return null;
+  const probe = probeAdvisor(env, "claude", args.claudeCodeVersion, args.runDir, advisorPair(env, args.model));
+  // Advisor alone (#246): the advisor and nothing else. No executor swap, no compact window, so the only variable is the advisor.
+  if (!routed) return probe.available ? { model: args.model, settings: { advisorModel: ROUTER_ADVISOR_MODEL } } : null;
   if (probe.available) {
     return {
       model: args.model,
+      ...(/sonnet/i.test(args.model) ? { effort: ROUTER_SONNET_ADVISOR_EFFORT } : {}),
       settings: {
         advisorModel: ROUTER_ADVISOR_MODEL,
         ...(hasNoPriceCliff(args.model) ? {} : { autoCompactWindow: ROUTER_AUTO_COMPACT_WINDOW }),
@@ -444,7 +465,7 @@ export function claudeProvider(): ProviderInvoker {
   return {
     async invoke(call: ProviderInvocation): Promise<ProviderResult> {
       const baseModel = claudeModelFor(call);
-      const routed = routerEnabled()
+      const routed = sessionPlanEnabled()
         ? planRouterSession({
             model: baseModel,
             runDir: process.env["LOKI_DIR"] ?? resolve(call.cwd, ".loki"),
@@ -547,7 +568,7 @@ export function claudeProvider(): ProviderInvoker {
         env: { ...otelPassthroughEnv(process.env), ...cavemanEnv, ...modelRouteEnv(process.env), ...engine10CacheTtlEnv(process.env) },
         timeoutMs: _callTimeoutMs,
       });
-      await writeCaptured(call.iterationOutputPath, r.stdout, r.stderr);
+      await writeCaptured(call.iterationOutputPath, neutralizeEngineMarkers(r.stdout), neutralizeEngineMarkers(r.stderr));
 
       return {
         exitCode: r.exitCode,
@@ -624,6 +645,7 @@ export interface SdkLoopExtraOptions {
   settingSources?: string[];
   effort?: string;
   maxBudgetUsd?: number;
+  taskBudget?: { total: number };
   fallbackModel?: string;
   tools?: string[];
   model?: string;
@@ -637,6 +659,15 @@ export interface SdkLoopExtraOptions {
 // The engine brief carries its own rules, so the legacy append (commits, CONTINUITY.md, design) does not apply;
 // user/local settings would pull the operator's CLAUDE.md, memory and plugins into every session.
 const ENGINE10_TOOLS = ["Bash", "Read", "Edit", "Write", "Glob", "Grep"];
+/** The engine10 inputs to the cached prefix that do not vary per call: tool list, system text and the dynamic-section switch.
+ *  buildSdkLoopOptions applies exactly this, and session.ts hashes exactly this (prefixParts), so the cache-cause key cannot drift. */
+export function engine10StaticPrefix(env: Readonly<Record<string, string | undefined>>): { tools: string[]; systemPrompt?: string; excludeDynamic: boolean } {
+  return {
+    tools: ENGINE10_TOOLS,
+    ...(env["LOKI_E10_PREFIX"] === "lean" ? { systemPrompt: LEAN_PREFIX } : {}),
+    excludeDynamic: env["LOKI_E10_STABLE_PREFIX"] !== "0",
+  };
+}
 export function buildSdkLoopOptions(args: {
   tier: string | undefined;
   model: string;
@@ -647,7 +678,7 @@ export function buildSdkLoopOptions(args: {
   claudeCodeVersion?: string;
 }): SdkLoopExtraOptions {
   const out: SdkLoopExtraOptions = {};
-  const router = routerEnabled()
+  const router = sessionPlanEnabled()
     ? planRouterSession({
         model: args.model,
         runDir: args.runDir ?? process.env["LOKI_DIR"] ?? resolve(args.cwd, ".loki"),
@@ -660,16 +691,17 @@ export function buildSdkLoopOptions(args: {
   }
   const engine10 = Boolean(process.env["LOKI_E10_STAGE"]);
   if (engine10) {
-    out.tools = ENGINE10_TOOLS;
+    const sp = engine10StaticPrefix(process.env);
+    out.tools = sp.tools;
     out.noAppend = true;
     out.strictMcpConfig = true; // no MCP servers at all, ambient .mcp.json included
     // S41-09: LOKI_E10_PREFIX=lean, default off. A fixed string replaces the
     // claude_code preset so every stage/task shares a byte-identical leading
     // block (cache-stable prefix, D41 item 2). Flag off: unchanged preset below.
-    if (process.env["LOKI_E10_PREFIX"] === "lean") out.systemPrompt = LEAN_PREFIX;
+    if (sp.systemPrompt) out.systemPrompt = sp.systemPrompt;
     // CP-01 (D99): cwd, repo status and memory leave the system prompt (moved to the first user message) so the
     // leading block is byte-identical across stages and runs. ON by default; LOKI_E10_STABLE_PREFIX=0 opts out.
-    if (process.env["LOKI_E10_STABLE_PREFIX"] !== "0") out.excludeDynamic = true;
+    if (sp.excludeDynamic) out.excludeDynamic = true;
   }
 
   // MCP tools: reuse the exact bundle the shell route writes (loki-mode server +
@@ -694,7 +726,7 @@ export function buildSdkLoopOptions(args: {
 
   // effort tier (same mapping as buildAutoFlags).
   try {
-    out.effort = process.env["LOKI_E10_EFFORT"] || effortForTier(args.tier, args.complexity);
+    out.effort = process.env["LOKI_E10_EFFORT"] || router?.effort || effortForTier(args.tier, args.complexity);
   } catch {
     // omit
   }
@@ -708,6 +740,10 @@ export function buildSdkLoopOptions(args: {
   } catch {
     // omit
   }
+  // Advisory token countdown across the whole agentic loop (task-budgets-2026-03-13 beta). It does not
+  // replace maxBudgetUsd enforcement above. Non-positive or non-numeric values are ignored.
+  const taskBudget = Number(process.env["LOKI_CLAUDE_TASK_BUDGET"]);
+  if (Number.isInteger(taskBudget) && taskBudget > 0) out.taskBudget = { total: taskBudget };
   // fallback model (rate-limit resilience), same derivation as the shell route.
   try {
     // fallbackForPrimary has no haiku arm; under the router a haiku 429 falls to sonnet.
@@ -838,6 +874,7 @@ export function sdkQueryProvider(): ProviderInvoker {
         // MW-2: LOKI_E10_RESUME_SESSION is set only by engine10 session.ts from a per-call resumeSessionId: the default spec-conflict
         // (FC-19) and empty-done (FC-43) resumes on claude, and the CH-03 chain under opt-in LOKI_E10_FIX_RESUME. It is read from process.env here, before the LOKI_E10_* strip above applies to the child's env.
         const resumeId = process.env["LOKI_E10_RESUME_SESSION"] || undefined;
+        const permissionOpts = sdkPermissionOptions(call.cwd);
         const q = query({
           prompt: call.prompt,
           options: {
@@ -846,8 +883,8 @@ export function sdkQueryProvider(): ProviderInvoker {
             cwd: call.cwd,
             // P12-26c: honours LOKI_PERMISSION_POLICY via the shared resolver. Legacy keeps
             // bypassPermissions + the required allowDangerouslySkipPermissions companion.
-            ...sdkPermissionOptions(call.cwd),
-            ...(process.env["LOKI_E10_DISALLOWED_TOOLS"] ? { disallowedTools: process.env["LOKI_E10_DISALLOWED_TOOLS"].split(",").filter(Boolean) } : {}), // Q18-04
+            ...permissionOpts,
+            ...(process.env["LOKI_E10_DISALLOWED_TOOLS"] ? { disallowedTools: mergeDisallowedTools(permissionOpts.disallowedTools, process.env["LOKI_E10_DISALLOWED_TOOLS"]) } : {}), // Q18-04: merged with, never replacing, the policy deny list
             includePartialMessages: true, // live delta streaming
             includeHookEvents: true, // hooks arrive as system messages (parser)
             // S41-11: LOKI_E10_TRIM=1, default off. Read directly from
@@ -889,6 +926,7 @@ export function sdkQueryProvider(): ProviderInvoker {
             ...(extra.settingSources ? { settingSources: extra.settingSources } : {}),
             ...(extra.effort ? { effort: extra.effort } : {}),
             ...(extra.maxBudgetUsd ? { maxBudgetUsd: extra.maxBudgetUsd } : {}),
+            ...(extra.taskBudget ? { taskBudget: extra.taskBudget } : {}),
             ...(extra.fallbackModel ? { fallbackModel: extra.fallbackModel } : {}),
             ...(extra.settings ? { settings: extra.settings } : {}),
           },
@@ -904,12 +942,7 @@ export function sdkQueryProvider(): ProviderInvoker {
         });
         captured = res.capturedText;
         // MW-2: engine10 reads this id to resume the session later. Best-effort; a miss only means a fresh fix session.
-        if (res.sessionId && process.env["LOKI_E10_STAGE"]) {
-          try {
-            mkdirSync(join(call.cwd, ".loki"), { recursive: true });
-            writeFileSync(join(call.cwd, ".loki", `e10-session-${process.env["LOKI_ITERATION"] ?? "0"}.json`), JSON.stringify({ session_id: res.sessionId }));
-          } catch { /* best-effort */ }
-        }
+        if (process.env["LOKI_E10_STAGE"]) writeSessionId(call.cwd, process.env["LOKI_ITERATION"] ?? "0", res);
         // Fail-closed: a stream that never produced a terminal result is a
         // failed iteration, never counted as success.
         exitCode = res.sawResult ? res.exitCode : 1;
@@ -1106,7 +1139,7 @@ export function codexProvider(): ProviderInvoker {
           CODEX_MODEL_REASONING_EFFORT: effort,
         },
       });
-      await writeCaptured(call.iterationOutputPath, r.stdout, r.stderr);
+      await writeCaptured(call.iterationOutputPath, neutralizeEngineMarkers(r.stdout), neutralizeEngineMarkers(r.stderr));
 
       return {
         exitCode: r.exitCode,
@@ -1151,7 +1184,7 @@ export function clineProvider(): ProviderInvoker {
       argv.push(withCommitHygiene(call.prompt));
 
       const r = await shellRun(argv, { cwd: call.cwd });
-      await writeCaptured(call.iterationOutputPath, r.stdout, r.stderr);
+      await writeCaptured(call.iterationOutputPath, neutralizeEngineMarkers(r.stdout), neutralizeEngineMarkers(r.stderr));
 
       return {
         exitCode: r.exitCode,
@@ -1212,7 +1245,7 @@ export function aiderProvider(): ProviderInvoker {
       }
 
       const r = await shellRun(argv, { cwd: call.cwd });
-      await writeCaptured(call.iterationOutputPath, r.stdout, r.stderr);
+      await writeCaptured(call.iterationOutputPath, neutralizeEngineMarkers(r.stdout), neutralizeEngineMarkers(r.stderr));
 
       return {
         exitCode: r.exitCode,

@@ -7,7 +7,7 @@ import { safeGit } from "../util/safe_git.ts";
 const LOCKFILE = /(^|\/)([^/]+\.lockb?|[^/]*\.lockfile|lockfile|[^/]+-lock\.(json|ya?ml)|go\.sum|npm-shrinkwrap\.json|Package\.resolved)$/;
 
 // --no-filters: never run a clean filter from the agent-writable .git/config; stderr silenced so a deleted recorded file prints no `fatal:`
-const blob = (repoDir: string, path: string, env: NodeJS.ProcessEnv = process.env): string =>
+export const blob = (repoDir: string, path: string, env: NodeJS.ProcessEnv = process.env): string =>
   safeGit(repoDir, ["hash-object", "-w", "--no-filters", "--", path], { env }).trim();
 
 /** Splits `git status --porcelain` lines into blocking ones and {lockfile path: blob sha} for modified lockfiles. */

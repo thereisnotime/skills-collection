@@ -9,14 +9,16 @@
 //
 // Usage (driven by run.sh; not user-facing):
 //   loki internal sdk-judge --prompt-file P --schema-file S \
-//     [--model M] [--effort low|medium|high|xhigh|max] [--max-tokens N] [--timeout-ms N]
+//     [--model M] [--effort low|medium|high|xhigh|max] [--max-tokens N] [--thinking disabled|adaptive] [--timeout-ms N]
 //
 // Exit codes: 0 ok (+ JSON on stdout); 2 bad args; 3 read error; 1 judge returned
 // null (no key / transport / malformed / refusal). Only 0 prints stdout.
 
+import type Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "node:fs";
-import { type Effort, judgeJson, judgeText } from "../runner/sdk_invoker.ts";
+import { type Effort, describeJudgeOutcome, judgeJsonOutcome, judgeTextOutcome } from "../runner/sdk_invoker.ts";
 import { lokiDir } from "../util/paths.ts";
+import { thinkingConflictsEffort, thinkingUsageError } from "../providers/claude_flags.ts";
 import { isUnresolvedClaudeAlias, resolveClaudeModel } from "../util/claude_model.ts";
 
 function argVal(args: string[], flag: string): string | undefined {
@@ -40,6 +42,12 @@ export function cliLedger(args: string[], fallbackPhase: string): { lokiDir: str
 }
 
 const VALID_EFFORT = new Set(["low", "medium", "high", "xhigh", "max"]);
+
+/** --thinking: `disabled` or `adaptive` only; absent is undefined, anything else is null (caller exits 2). */
+export function parseThinking(v: string | undefined): Anthropic.ThinkingConfigParam | undefined | null {
+  if (v === undefined) return undefined;
+  return v === "disabled" || v === "adaptive" ? { type: v } : null;
+}
 
 export async function runInternalSdkJudge(args: string[]): Promise<number> {
   const promptFile = argVal(args, "--prompt-file");
@@ -71,14 +79,21 @@ export async function runInternalSdkJudge(args: string[]): Promise<number> {
   const effortRaw = argVal(args, "--effort");
   const effort = effortRaw && VALID_EFFORT.has(effortRaw) ? (effortRaw as Effort) : undefined;
   const maxTokens = parsePosInt(argVal(args, "--max-tokens"));
+  const thinking = parseThinking(argVal(args, "--thinking"));
+  if (thinking === null || thinkingConflictsEffort(model, thinking, effort)) {
+    process.stderr.write(`${thinkingUsageError("sdk-judge", model)}\n`);
+    return 2;
+  }
   const timeoutMs = parsePosInt(argVal(args, "--timeout-ms"));
 
-  const result = await judgeJson({ prompt, schema, model, effort, maxTokens, timeoutMs, ledger: cliLedger(args, "sdk-judge") });
-  if (result === null) {
-    // fail-closed: no stdout, non-zero -> bash caller uses its fallback.
+  const result = await judgeJsonOutcome({ prompt, schema, model, effort, maxTokens, thinking, timeoutMs, ledger: cliLedger(args, "sdk-judge") });
+  if (result.kind !== "ok") {
+    // fail-closed: no stdout, non-zero -> bash caller uses its fallback. The
+    // cause is named on stderr, never a bare failure.
+    process.stderr.write(`sdk-judge: outcome=${describeJudgeOutcome(result)}\n`);
     return 1;
   }
-  process.stdout.write(JSON.stringify(result));
+  process.stdout.write(JSON.stringify(result.value));
   return 0;
 }
 
@@ -116,12 +131,18 @@ export async function runInternalSdkText(args: string[]): Promise<number> {
   const effortRaw = argVal(args, "--effort");
   const effort = effortRaw && VALID_EFFORT.has(effortRaw) ? (effortRaw as Effort) : undefined;
   const maxTokens = parsePosInt(argVal(args, "--max-tokens"));
+  const thinking = parseThinking(argVal(args, "--thinking"));
+  if (thinking === null || thinkingConflictsEffort(model, thinking, effort)) {
+    process.stderr.write(`${thinkingUsageError("sdk-text", model)}\n`);
+    return 2;
+  }
   const timeoutMs = parsePosInt(argVal(args, "--timeout-ms"));
 
-  const result = await judgeText({ prompt, model, effort, maxTokens, timeoutMs, ledger: cliLedger(args, "sdk-text") });
-  if (result === null) {
+  const result = await judgeTextOutcome({ prompt, model, effort, maxTokens, thinking, timeoutMs, ledger: cliLedger(args, "sdk-text") });
+  if (result.kind !== "ok") {
+    process.stderr.write(`sdk-text: outcome=${describeJudgeOutcome(result)}\n`);
     return 1;
   }
-  process.stdout.write(result);
+  process.stdout.write(result.value);
   return 0;
 }

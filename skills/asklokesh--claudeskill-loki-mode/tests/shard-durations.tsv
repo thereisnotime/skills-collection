@@ -30,6 +30,7 @@ Bootstrap Tests	0
 Task Queue Tests	0
 Circuit Breaker Tests	1
 Timeout & Stuck Process Tests	7
+OS sandbox module: Seatbelt and bwrap confinement, one secret-path list (#334)	5
 State Recovery Tests	0
 Wrapper Script Tests	0
 Memory Engine Tests	1
@@ -760,3 +761,7 @@ loki tour verifies the bundled sealed receipt (VERIFIED, then TAMPERED)	3
 examples gallery receipts all verify with their own pubkey (TEN-ADOPTION-07)	5
 loki self-update --check reports installed vs latest (TEN-ADOPTION-15)	5
 wow and factory onboarding	4
+cost capture: result-line cost, budget breaker, slug, context-window tracker	5
+loki verify <run receipt path> routes to the v10 verifier (CW-17 #352)	10
+npm-dist-tags.sh never moves a tag backwards and restores an overtaken one (FC-DIST-TAG-MOVED-BACKWARDS)	8
+release-approval-gate.sh approves a range by SHA: stacked parents, patch-id, holds, exemptions (FC-RELEASE-UNNAMED-STACKED-PARENT)	30

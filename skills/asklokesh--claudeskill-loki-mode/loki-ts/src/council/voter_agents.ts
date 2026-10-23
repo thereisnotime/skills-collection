@@ -33,15 +33,66 @@
 // unsupported, parse error), dispatchClaudeAgents throws. The caller
 // (councilEvaluate) catches and falls through to the existing heuristic.
 
-import { existsSync, readFileSync } from "node:fs";
-import { resolve as resolvePath } from "node:path";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { join, resolve as resolvePath } from "node:path";
 import type { AgentVerdict } from "../runner/council.ts";
-import { judgeJson, sdkJudgeAvailable } from "../runner/sdk_invoker.ts";
+import { judgeJsonOutcome, judgeOutcomeNote, sdkJudgeAvailable } from "../runner/sdk_invoker.ts";
 import { withChildLedger } from "../util/child_ledger.ts";
 import type { CouncilEvaluateContext } from "../runner/council.ts";
 import { readStreamCapped } from "../util/shell.ts";
-import { reviewerGitEnv, tokenFreeEnv } from "../util/safe_git.ts";
-import { parseMultiResponse } from "./finding_schema.ts";
+import { reviewerGitEnv, safeGit, tokenFreeEnv } from "../util/safe_git.ts";
+import { changedFiles } from "../util/check_result.ts";
+import { parseMultiResponse, resolveSchemaDataDir } from "./finding_schema.ts";
+import type { CitationContext } from "./finding_schema.ts";
+
+// Citation context for a voter response: the reviewed tree (git toplevel; cwd kept for cwd-relative citations) and the files the
+// reviewed work changed (merge-base with the default branch .. working tree, via
+// changedFiles). No resolvable base means no diffFiles, and finding_schema then
+// downgrades nothing on citation grounds.
+// Submodule gitlinks the reviewed work touched: paths whose mode is 160000 on
+// either side of `git diff --raw` (added, bumped, renamed away or deleted), with the
+// old and new commit of each so a file the bump deleted can be named.
+function gitlinkEntries(root: string, base: string): { path: string; oldSha: string; newSha: string }[] {
+  try {
+    const parts = safeGit(root, ["-c", "core.quotePath=false", "diff", "--raw", "--no-renames", "-z", base]).split("\0");
+    const out: { path: string; oldSha: string; newSha: string }[] = [];
+    for (let i = 0; i + 1 < parts.length; i += 2) {
+      const m = /^:(\d+) (\d+) ([0-9a-f]+) ([0-9a-f]+) /.exec(parts[i] ?? "");
+      if (m && (m[1] === "160000" || m[2] === "160000")) out.push({ path: parts[i + 1] as string, oldSha: m[3] as string, newSha: m[4] as string });
+    }
+    return out;
+  } catch { return []; }
+}
+
+// Root-relative files the bump deleted inside a checked-out submodule (its old..new diff). A submodule that is absent, or lacks either commit, yields none.
+function gitlinkDeletedFiles(root: string, links: { path: string; oldSha: string; newSha: string }[]): string[] {
+  const out: string[] = [];
+  for (const l of links) {
+    if (/^0+$/.test(l.oldSha) || /^0+$/.test(l.newSha)) continue;
+    try {
+      for (const f of safeGit(join(root, l.path), ["-c", "core.quotePath=false", "diff", "--name-only", "--diff-filter=D", "-z", l.oldSha, l.newSha]).split("\0")) if (f) out.push(`${l.path}/${f}`);
+    } catch { /* not checked out or commit unavailable: nothing recognized */ }
+  }
+  return out;
+}
+
+export function citationCtx(cwd: string = process.cwd()): CitationContext {
+  let root: string;
+  try {
+    root = realpathSync(safeGit(cwd, ["rev-parse", "--show-toplevel"]).trim());
+  } catch { return { root: cwd }; }
+  const here = realpathSync(cwd);
+  for (const ref of ["origin/HEAD", "origin/main", "origin/master", "main", "master"]) {
+    try {
+      const base = safeGit(root, ["merge-base", "HEAD", ref]).trim();
+      if (base) {
+        const links = gitlinkEntries(root, base);
+        return { root, cwd: here, diffFiles: changedFiles(root, base), gitlinks: links.map((l) => l.path), gitlinkDeleted: gitlinkDeletedFiles(root, links) };
+      }
+    } catch { /* ref absent: try the next */ }
+  }
+  return { root, cwd: here };
+}
 import {
   claudeFlagSupported,
   effortForTier,
@@ -278,8 +329,7 @@ async function defaultClaudeRunner(argv: string[]): Promise<{ stdout: string; ex
 // Resolve the static schema path relative to this module so the same file
 // powers both bash and Bun routes (architect design Phase C).
 function findingSchemaPath(): string {
-  // Up two dirs from src/council/ to loki-ts/, then into data/.
-  return resolvePath(import.meta.dir, "..", "..", "data", "finding-schema.json");
+  return resolvePath(resolveSchemaDataDir(import.meta.dir), "finding-schema.json");
 }
 
 // v8.x FIX: `claude --json-schema` takes the schema JSON as INLINE CONTENT, not
@@ -334,13 +384,15 @@ export async function dispatchClaudeAgents(
   // v8 RAW-SDK COUNCIL PATH (opt-in LOKI_SDK_VOTER_AGENTS=1, only on the real
   // route -- when a test runner is injected we honor the injection). The raw
   // @anthropic-ai/sdk has no --agents primitive, so we inline the agent roster
-  // into the prompt and constrain the SAME finding schema via judgeJson, feeding
+  // into the prompt and constrain the SAME finding schema via judgeJsonOutcome, feeding
   // the resulting {findings:[...]} object into the SAME parseMultiResponse. Runs
   // BEFORE the claude spawn below so the no-binary deploy win holds. Fail-closed:
-  // judgeJson returns null on any miss (no key/transport/refusal/malformed) ->
-  // we fall through to the claude spawn; a caught throw here also falls through
+  // any non-ok judge outcome (truncated/refused/context_exceeded/transport/
+  // malformed) falls through to the claude spawn and its name rides along in any
+  // error the spawn then throws; a caught throw here also falls through
   // (the caller then uses the heuristic council). A council can never fake-APPROVE
   // via this path: a missing per-voter finding still throws below and falls through.
+  let sdkNote = "";
   if (!injected && process.env["LOKI_SDK_VOTER_AGENTS"] === "1" && sdkJudgeAvailable()) {
     try {
       const roster = JSON.stringify(agentsJson);
@@ -348,7 +400,7 @@ export async function dispatchClaudeAgents(
       const schema = JSON.parse(schemaContent) as Record<string, unknown>;
       const reviewSecs = Number(process.env["LOKI_COUNCIL_REVIEW_TIMEOUT"]);
       const timeoutMs = (Number.isFinite(reviewSecs) && reviewSecs > 0 ? reviewSecs : 600) * 1000;
-      const obj = await judgeJson({
+      const sdkOutcome = await judgeJsonOutcome({
         prompt: sdkPrompt,
         schema,
         model: process.env["LOKI_SDK_COUNCIL_MODEL"] || resolveClaudeModel("sonnet"),
@@ -356,14 +408,16 @@ export async function dispatchClaudeAgents(
         timeoutMs,
         ledger: { lokiDir: cec.ctx.lokiDir, phase: "council" },
       });
-      if (obj !== null) {
-        const verdicts = parseMultiResponse(JSON.stringify(obj));
+      if (sdkOutcome.kind === "ok") {
+        const verdicts = parseMultiResponse(JSON.stringify(sdkOutcome.value), citationCtx());
         const expectedSlugs = Object.keys(agentsJson);
         const seen = new Set(verdicts.map((v) => v.role));
         if (expectedSlugs.every((slug) => seen.has(slug))) {
           return verdicts; // SDK path succeeded with a complete council
         }
         // incomplete -> fall through to the claude spawn (fail-closed)
+      } else {
+        sdkNote = judgeOutcomeNote(sdkOutcome);
       }
     } catch {
       // fall through to the claude spawn (fail-closed)
@@ -416,23 +470,28 @@ export async function dispatchClaudeAgents(
   argv.push(...reviewAllowlistArgv());
   argv.push("-p", topPrompt);
 
-  // H6: bound the subcall. A hung runner rejects here -> caller falls through.
-  const result = await withCouncilTimeout(runner(argv), "council voter dispatch");
-  if (result.exitCode !== 0) {
-    throw new Error(`claude exited with code ${result.exitCode}`);
-  }
-  // parseMultiResponse throws on any malformed / schema-violating output.
-  const verdicts = parseMultiResponse(result.stdout);
-  // Ensure each declared voter is represented. If Claude omitted one,
-  // we treat the whole response as invalid so the caller falls through.
-  const expectedSlugs = Object.keys(agentsJson);
-  const seen = new Set(verdicts.map((v) => v.role));
-  for (const slug of expectedSlugs) {
-    if (!seen.has(slug)) {
-      throw new Error(`response missing finding for voter slug ${slug}`);
+  try {
+    // H6: bound the subcall. A hung runner rejects here -> caller falls through.
+    const result = await withCouncilTimeout(runner(argv), "council voter dispatch");
+    if (result.exitCode !== 0) {
+      throw new Error(`claude exited with code ${result.exitCode}`);
     }
+    // parseMultiResponse throws on any malformed / schema-violating output.
+    const verdicts = parseMultiResponse(result.stdout, citationCtx());
+    // Ensure each declared voter is represented. If Claude omitted one,
+    // we treat the whole response as invalid so the caller falls through.
+    const expectedSlugs = Object.keys(agentsJson);
+    const seen = new Set(verdicts.map((v) => v.role));
+    for (const slug of expectedSlugs) {
+      if (!seen.has(slug)) {
+        throw new Error(`response missing finding for voter slug ${slug}`);
+      }
+    }
+    return verdicts;
+  } catch (e) {
+    if (!sdkNote) throw e;
+    throw new Error(`${e instanceof Error ? e.message : String(e)} (${sdkNote})`);
   }
-  return verdicts;
 }
 
 // dispatchDevilsAdvocate -- single-shot LLM anti-sycophancy re-review.
@@ -511,7 +570,7 @@ export async function dispatchDevilsAdvocate(
   if (result.exitCode !== 0) {
     throw new Error(`claude exited with code ${result.exitCode}`);
   }
-  const verdicts = parseMultiResponse(result.stdout);
+  const verdicts = parseMultiResponse(result.stdout, citationCtx());
   // Exactly one DA finding expected. Best-effort: prefer the devils-advocate
   // slug, but accept the first finding if the model emitted a different role
   // string (this is a single-voter dispatch, so any finding is the DA's). This

@@ -33,6 +33,7 @@ import {
   trackGateFailure,
   resolveDefaultReviewer,
   claudeReviewer,
+  streamFinalResult,
   stubReviewer,
   REVIEWER_UNAVAILABLE_MARKER,
   computeMergeabilityScore,
@@ -1646,6 +1647,80 @@ describe("runCodeReview (Phase 5 selection + dispatch + aggregation)", () => {
     expect(agg["nonblocking_low"]).toBe(0);
   });
 
+  // #270: shared Files + Diff first so parallel reviewers share a cacheable prefix.
+  it("reviewer prompts share an identical prefix that covers the Files and Diff block", async () => {
+    const { buildReviewerPrompt } = await import("../../src/runner/quality_gates.ts");
+    const diff = "+ const x = 1;\n".repeat(40);
+    const files = "src/x.ts\n";
+    const a = buildReviewerPrompt({ name: "alpha", focus: "F1", checks: "C1" }, diff, files);
+    const b = buildReviewerPrompt({ name: "beta-two", focus: "F2 other", checks: "C2 other" }, diff, files);
+    let n = 0;
+    while (n < a.length && n < b.length && a[n] === b[n]) n++;
+    expect(n).toBeGreaterThanOrEqual(diff.trim().length);
+    expect(a.slice(0, n)).toContain("Files changed:");
+    expect(a.slice(0, n)).toContain(diff.trim());
+    expect(a).toContain("You are alpha. Your SOLE focus is: F1.");
+    expect(a).toContain("VERDICT: PASS or FAIL");
+  });
+
+  it("launch order: reviewer 2 starts only after reviewer 1's first response event", async () => {
+    const events: string[] = [];
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((r) => { release = r; });
+    let first = true;
+    const reviewer = async ({ reviewer: rv, onFirstResponse }: { reviewer: { name: string }; onFirstResponse?: () => void }) => {
+      events.push(`start:${rv.name}`);
+      if (first) {
+        first = false;
+        await gate;
+        events.push("first-response");
+        onFirstResponse?.();
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      return "VERDICT: PASS\nFINDINGS:\n- None";
+    };
+    process.env["LOKI_REVIEW_STAGGER_MS"] = "5000";
+    try {
+      const run = runCodeReview(makeCtx(), { diffOverride: { diff: "+ const x = 1;\n", files: "src/x.ts\n" }, reviewer });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(events).toEqual([`start:${events[0]!.slice(6)}`]); // only reviewer 1 has started
+      release!();
+      await run;
+    } finally {
+      delete process.env["LOKI_REVIEW_STAGGER_MS"];
+    }
+    expect(events.indexOf("first-response")).toBeLessThan(events.findIndex((e, i) => i > 0 && e.startsWith("start:")));
+    expect(events.filter((e) => e.startsWith("start:")).length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("launch stagger is bounded: a first reviewer that never signals does not stall the rest", async () => {
+    const started: string[] = [];
+    const reviewer = async ({ reviewer: rv }: { reviewer: { name: string } }) => {
+      started.push(rv.name);
+      if (started.length === 1) await new Promise((r) => setTimeout(r, 400));
+      return "VERDICT: PASS\nFINDINGS:\n- None";
+    };
+    process.env["LOKI_REVIEW_STAGGER_MS"] = "30";
+    try {
+      const t0 = Date.now();
+      await runCodeReview(makeCtx(), { diffOverride: { diff: "+ const x = 1;\n", files: "src/x.ts\n" }, reviewer });
+      expect(started.length).toBeGreaterThanOrEqual(4);
+    } finally {
+      delete process.env["LOKI_REVIEW_STAGGER_MS"];
+    }
+  });
+
+  it("every reviewer in one gate receives the same effort", async () => {
+    const efforts: unknown[] = [];
+    await runCodeReview(makeCtx(), {
+      diffOverride: { diff: "+ const x = 1;\n", files: "src/x.ts\n" },
+      reviewer: async (input) => { efforts.push((input as { effort?: string }).effort); return "VERDICT: PASS\nFINDINGS:\n- None"; },
+    });
+    expect(efforts.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(efforts).size).toBe(1);
+    expect(efforts[0]).toBe("high");
+  });
+
   it("writes per-reviewer .txt outputs alongside the prompt and selection", async () => {
     const r = await runCodeReview(makeCtx(), {
       diffOverride: { diff: "+ const x = 1;\n", files: "src/x.ts\n" },
@@ -2337,6 +2412,28 @@ describe("COST-WALL-c claudeReviewer ledger wiring", () => {
     } finally { srv.stop(true); }
   });
 
+  // #318: a non-ok SDK judge outcome is named in the reviewer's gate text, never lost to the claude fall-through.
+  for (const [stop, extra, name] of [
+    ["max_tokens", {}, "truncated"],
+    ["refusal", { stop_details: { category: "cyber" } }, "refused:cyber"],
+    ["model_context_window_exceeded", {}, "context_exceeded"],
+  ] as const) {
+    it(`SDK reviewer ${stop} outcome appears by name (${name}) in the gate text`, async () => {
+      writeFileSync(join(root, "bin", "claude"), `#!/bin/sh\ncase "$1" in --help) echo "  --json-schema  --disallowedTools"; exit 0;; esac\nexit 3\n`, { mode: 0o755 });
+      const body = JSON.stringify({ id: "m", type: "message", role: "assistant", model: "claude-haiku-5-5", stop_reason: stop, content: [], usage: { input_tokens: 1, output_tokens: 1 }, ...extra });
+      try {
+        process.env["LOKI_SDK_CODE_REVIEW"] = "1";
+        process.env["LOKI_REVIEW_JSON_SCHEMA"] = "off";
+        process.env["LOKI_SDK_REVIEW_MODEL"] = "claude-haiku-5-5";
+        const { __setSdkClientForTests } = await import("../../src/runner/sdk_invoker.ts");
+        __setSdkClientForTests({ messages: { create: async () => JSON.parse(body), stream: () => ({ finalMessage: async () => JSON.parse(body) }) } });
+        const out = await review();
+        expect(out).toContain("VERDICT: FAIL");
+        expect(out).toContain(`sdk judge outcome: ${name}`);
+      } finally { delete process.env["LOKI_SDK_REVIEW_MODEL"]; }
+    });
+  }
+
   it("negative sdk review timeout falls back to 180s instead of timing out at once", async () => {
     const seen: unknown[] = [];
     const msg = { id: "m", type: "message", role: "assistant", model: "claude-sonnet-4-5", stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify({ verdict: "PASS", findings: [] }) }], usage: { input_tokens: 1, output_tokens: 1 } };
@@ -2358,4 +2455,116 @@ describe("COST-WALL-c claudeReviewer ledger wiring", () => {
     }
   });
 
+});
+
+// Fake `claude` honouring --output-format like the real CLI: stream-json prints an init event at once, lingers 1s,
+// then the result event; json prints only the result object; text prints only the text. All three carry one verdict.
+const fakeClaudeScript = (verdict: "PASS" | "FAIL"): string => {
+  const finding = verdict === "FAIL" ? `[{"severity":"High","description":"x"}]` : "[]";
+  const text = verdict === "FAIL" ? "VERDICT: FAIL\\nFINDINGS:\\n- [High] x" : "VERDICT: PASS\\nFINDINGS:\\n- None";
+  const result = `{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.5,"result":"${text}","structured_output":{"verdict":"${verdict}","findings":${finding}}}`;
+  return `#!/bin/sh\ncase "$1" in --help) echo "  --json-schema  --disallowedTools"; exit 0;; esac\nfmt=text\nprev=\nfor a in "$@"; do [ "$prev" = "--output-format" ] && fmt="$a"; prev="$a"; done\ncase "$fmt" in\n  stream-json) printf '%s\\n' '{"type":"system","subtype":"init"}'; sleep 1; printf '%s\\n' '${result}';;\n  json) sleep 1; printf '%s\\n' '${result}';;\n  *) printf '${text}\\n'; sleep 1;;\nesac\n`;
+};
+
+// #311: the production reviewer must call onFirstResponse when its child's first stdout byte arrives, so the
+// #270 stagger releases the next reviewer on that event instead of waiting out LOKI_REVIEW_STAGGER_MS.
+// Removing the onFirstStdout wiring in claudeReviewer (either claude path) turns this red.
+describe("#311 claudeReviewer calls onFirstResponse on first stdout", () => {
+  const KEYS = ["PATH", "LOKI_DIR", "LOKI_SDK_CODE_REVIEW", "LOKI_REVIEW_JSON_SCHEMA"] as const;
+  const saved: Record<string, string | undefined> = {};
+  let root = "";
+  const setup = async (schemaOff: boolean) => {
+    for (const k of KEYS) saved[k] = process.env[k];
+    root = mkdtempSync(join(tmpdir(), "loki-fr311-"));
+    const bin = join(root, "bin");
+    mkdirSync(bin, { recursive: true });
+    // Emits the verdict, then lingers 1s: a hook fired on first stdout runs well before the child exits.
+    writeFileSync(join(bin, "claude"), fakeClaudeScript("PASS"), { mode: 0o755 });
+    process.env["PATH"] = `${bin}:${saved["PATH"]}`;
+    process.env["LOKI_DIR"] = join(root, ".loki");
+    delete process.env["LOKI_SDK_CODE_REVIEW"];
+    if (schemaOff) process.env["LOKI_REVIEW_JSON_SCHEMA"] = "off"; else delete process.env["LOKI_REVIEW_JSON_SCHEMA"];
+    const { _resetClaudeHelpCacheForTest } = await import("../../src/providers/claude_flags.ts");
+    _resetClaudeHelpCacheForTest();
+  };
+  afterEach(async () => {
+    for (const k of KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+    const { _resetClaudeHelpCacheForTest } = await import("../../src/providers/claude_flags.ts");
+    _resetClaudeHelpCacheForTest();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  for (const [label, schemaOff] of [["plain text path", true], ["structured --json-schema path", false]] as const) {
+    it(`${label}: hook fires before the child exits`, async () => {
+      await setup(schemaOff);
+      const t0 = Date.now();
+      let firedAt = -1;
+      const done = claudeReviewer({
+        reviewer: { name: "code-quality" } as never, diff: "d", files: "f", prompt: "review this",
+        onFirstResponse: () => { firedAt = Date.now() - t0; },
+      });
+      await done;
+      const total = Date.now() - t0;
+      expect(firedAt).toBeGreaterThanOrEqual(0);
+      expect(firedAt).toBeLessThan(total - 500);
+    }, 60000);
+  }
+
+  it("no onFirstResponse supplied: reviewer still returns normally", async () => {
+    await setup(true);
+    const out = await claudeReviewer({ reviewer: { name: "code-quality" } as never, diff: "d", files: "f", prompt: "p" });
+    expect(out).toContain("VERDICT: PASS");
+  }, 60000);
+});
+
+// #320: the hook must fire on the first stream event (init), 1s before the result, and the verdict must be the one
+// the non-stream formats give. Dropping stream-json from either claude path, or the final-result reassembly, turns this red.
+describe("#320 claudeReviewer streams so the stagger hook fires before completion", () => {
+  const KEYS = ["PATH", "LOKI_DIR", "LOKI_SDK_CODE_REVIEW", "LOKI_REVIEW_JSON_SCHEMA"] as const;
+  const saved: Record<string, string | undefined> = {};
+  let root = "";
+  const setup = async (schemaOff: boolean) => {
+    for (const k of KEYS) saved[k] = process.env[k];
+    root = mkdtempSync(join(tmpdir(), "loki-fr320-"));
+    const bin = join(root, "bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "claude"), fakeClaudeScript("FAIL"), { mode: 0o755 });
+    process.env["PATH"] = `${bin}:${saved["PATH"]}`;
+    process.env["LOKI_DIR"] = join(root, ".loki");
+    delete process.env["LOKI_SDK_CODE_REVIEW"];
+    if (schemaOff) process.env["LOKI_REVIEW_JSON_SCHEMA"] = "off"; else delete process.env["LOKI_REVIEW_JSON_SCHEMA"];
+    const { _resetClaudeHelpCacheForTest } = await import("../../src/providers/claude_flags.ts");
+    _resetClaudeHelpCacheForTest();
+  };
+  afterEach(async () => {
+    for (const k of KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+    const { _resetClaudeHelpCacheForTest } = await import("../../src/providers/claude_flags.ts");
+    _resetClaudeHelpCacheForTest();
+    rmSync(root, { recursive: true, force: true });
+  });
+  const args = { reviewer: { name: "code-quality" } as never, diff: "d", files: "f", prompt: "review this" };
+
+  for (const [label, schemaOff] of [["text path", true], ["structured path", false]] as const) {
+    it(`${label}: fires more than 500ms before exit and the verdict equals the non-stream one`, async () => {
+      await setup(schemaOff);
+      const plain = await claudeReviewer(args);
+      const t0 = Date.now();
+      let firedAt = -1;
+      const streamed = await claudeReviewer({ ...args, onFirstResponse: () => { firedAt = Date.now() - t0; } });
+      const total = Date.now() - t0;
+      expect(firedAt).toBeGreaterThanOrEqual(0);
+      expect(firedAt).toBeLessThan(total - 500);
+      expect(streamed).toBe(plain);
+      expect(streamed).toContain("VERDICT: FAIL");
+      expect(streamed).toContain("- [High] x");
+    }, 60000);
+  }
+
+  it("streamFinalResult: json keeps the last result object, text unwraps it, a missing result is empty (fail-closed upstream)", () => {
+    const stream = `{"type":"system"}\nnot json\n{"type":"result","result":"VERDICT: PASS","n":1}\n`;
+    expect(JSON.parse(streamFinalResult(stream, "json"))).toEqual({ type: "result", result: "VERDICT: PASS", n: 1 });
+    expect(streamFinalResult(stream, "text")).toBe("VERDICT: PASS\n");
+    expect(streamFinalResult(`{"type":"system"}\n`, "json")).toBe("");
+    expect(streamFinalResult(`{"type":"system"}\n`, "text")).toBe("");
+  });
 });

@@ -30,11 +30,11 @@ skill-name/
 
 ### Core Skills (Built-in)
 
-| Skill | Description | Agent Types |
-|-------|-------------|-------------|
-| `prompt-optimization` | Prompt repetition for Haiku agents | All |
-| `checkpoint-mode` | Pause for review every N tasks | Orchestrator |
-| `confidence-routing` | Multi-tier routing based on confidence | Orchestrator |
+| Skill | Description | Agent Types | Owner | Version | Deps | Eval status |
+|-------|-------------|-------------|-------|---------|------|-------------|
+| `prompt-optimization` | Applies prompt repetition to improve accuracy for non-reasoning LLMs | All | asklokesh | unversioned | none | none (design note) |
+| `checkpoint-mode` | Pauses for review every N tasks (selective autonomy) | Orchestrator | asklokesh | unversioned | none | none (design note) |
+| `confidence-routing` | Multi-tier routing based on confidence | Orchestrator | asklokesh | no directory in this tree | none | none |
 
 ---
 
@@ -106,7 +106,7 @@ Nothing reads these SKILL.md files on any route.
 The snippet below is the DESIGN SKETCH for how such a loader would work, not
 a description of current behavior. Treat the skills here as design notes.
 The live, loaded skill system is `skills/` at the repository root, routed by
-`skills/00-index.md`.
+the routing table in `SKILL.md`.
 
 A loader would discover skills like this:
 

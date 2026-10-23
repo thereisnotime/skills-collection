@@ -79,19 +79,19 @@
       "target_status": "informational",
       "values": {
         "agent_lane": {
-          "error_total_all_validated_surfaces": 232,
-          "fully_compliant_surfaces": 774,
+          "error_total_all_validated_surfaces": 230,
+          "fully_compliant_surfaces": 776,
           "terminal_denominator": {
             "agents": 363,
             "files": 952,
             "label": "agents_plus_plugin_manifests",
             "plugin_manifests": 589
           },
-          "validator_reported_mixed_denominator_percent": 81.3
+          "validator_reported_mixed_denominator_percent": 81.5
         },
         "marketplace_terminal": {
-          "error_total_all_validated_surfaces": 3031,
-          "fully_compliant_surfaces": 2086,
+          "error_total_all_validated_surfaces": 3029,
+          "fully_compliant_surfaces": 2088,
           "terminal_denominator": {
             "agents": 363,
             "commands": 370,
@@ -101,7 +101,7 @@
             "skills": 3493
           },
           "validated_plugin_manifests": 596,
-          "validator_reported_mixed_denominator_percent": 43.3
+          "validator_reported_mixed_denominator_percent": 43.4
         },
         "skill_rows": {
           "a_error_total": 23,
@@ -165,16 +165,42 @@
       }
     },
     "7": {
-      "cohort": "canonical validator diagnostics",
+      "cohort": "raw missing-required-field and missing-required-section error occurrences across the complete canonical graded SKILL.md cohort",
       "dimension": "Structural error classes",
-      "reason_code": "MISSING_STABLE_DIAGNOSTIC_CLASS_IDS",
-      "reproduce": "pnpm run measure:e1 --row=7 --stdout",
-      "required_inputs": [
-        "validator JSON records with stable body-section and frontmatter diagnostic IDs"
+      "limitations": [
+        "Occurrence counts preserve diagnostic multiplicity; unique triples are a separate identity count, not structural mass.",
+        "The canonical classifier currently aliases section labels such as ## Overview and ## Examples to the field ## (claude-nfzl.24); this measurement preserves that behavior.",
+        "The percentage uses only SKILL.md error occurrences, unlike the historical 88.9% with its mixed terminal denominator.",
+        "Current counts do not establish historical remediation, ownership, substantive sections, behavioral quality, or Epic 8 completion."
       ],
-      "source": [],
-      "status": "not_reproducible",
-      "values": null
+      "reproduce": "pnpm run measure:e1 --row=7 --stdout",
+      "source": [
+        "scripts/corpus-resolver.mjs",
+        "scripts/measure-structural-errors.py",
+        "scripts/validate-skills-schema.py"
+      ],
+      "status": "measured",
+      "target_status": "fail",
+      "values": {
+        "affected_skills": 274,
+        "all_skill_error_occurrences": 2798,
+        "measurement_schema_version": 1,
+        "missing_required_field_occurrences": 580,
+        "missing_required_section_occurrences": 1641,
+        "other_skill_error_occurrences": 577,
+        "skill_rows": 3493,
+        "structural_occurrences": 2221,
+        "structural_share_of_skill_errors_pct": 79.3781,
+        "target": 0,
+        "target_met": false,
+        "unique_structural_triples": 847,
+        "unique_triples_by_rule": {
+          "E-MISSING-REQUIRED-FIELD": 580,
+          "E-MISSING-REQUIRED-SECTION": 267
+        },
+        "validator_schema_version": "4.1.0",
+        "validator_sha256": "47109fb5a701b0ceb7ad5b3f0c281ae2ebedf9ae273581f4b62bdd146937dd66"
+      }
     },
     "8": {
       "cohort": "canonical validator diagnostics",
@@ -210,9 +236,9 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "partial",
       "values": {
-        "agent_errors": 232,
+        "agent_errors": 230,
         "agent_files": 363,
-        "reported_compliance_percent": 81.3,
+        "reported_compliance_percent": 81.5,
         "target_errors": 0,
         "target_percent_max": 100
       }
@@ -2495,10 +2521,10 @@
       "source": ["sources.lock.json", "sources.yaml"],
       "status": "measured",
       "values": {
-        "lock_keys": 43,
+        "lock_keys": 44,
         "lock_only": [],
         "target_equal": true,
-        "yaml_keys": 43,
+        "yaml_keys": 44,
         "yaml_only": []
       }
     },
@@ -2980,35 +3006,95 @@
       }
     },
     "40": {
-      "cohort": "tracked workflow command lines invoking the canonical validator with --marketplace",
+      "cohort": "static required-job wiring for full-corpus marketplace validation",
       "dimension": "Marketplace-tier validator runs that block a merge",
-      "limitations": ["static workflow analysis does not execute GitHub expression control flow"],
+      "limitations": [
+        "static wiring proof only; this measurement does not execute the gate or establish hosted red-run evidence",
+        "only explicit supported commands count; unknown shell or workflow control flow remains unproven"
+      ],
       "reproduce": "pnpm run measure:e1 --row=40 --stdout",
       "source": [
         ".github/workflows/minimax-review.yml",
         ".github/workflows/pr-prescreen.yml",
-        ".github/workflows/promote-curated.yml"
+        ".github/workflows/promote-curated.yml",
+        ".github/workflows/validate-plugins.yml",
+        "scripts/check-marketplace-compliance-baseline.py",
+        "scripts/ci/fastlane.py",
+        "scripts/validate-skills-schema.py"
       ],
-      "status": "partial",
+      "status": "target_met",
       "values": {
-        "blocking_candidates": 0,
+        "blocking_candidates": 1,
         "invocations": [
           {
             "blocking_candidate": false,
-            "line": 247,
-            "path": ".github/workflows/minimax-review.yml"
+            "job": "grade",
+            "kind": "unproven-reference",
+            "path": ".github/workflows/minimax-review.yml",
+            "reason_codes": [
+              "OUTSIDE_REQUIRED_WORKFLOW",
+              "UNPROVEN_UNFILTERED_PR_ADMISSION",
+              "NOT_REQUIRED_DEPENDENCY",
+              "UNPROVEN_CANONICAL_AGGREGATE",
+              "CONDITIONAL_OR_SUPPRESSED_JOB",
+              "UNPROVEN_ENFORCEMENT_CHECKOUT",
+              "UNPROVEN_FULL_CORPUS_COMMAND"
+            ],
+            "step": "Run the validator on changed skills",
+            "step_index": 2
           },
           {
             "blocking_candidate": false,
-            "line": 174,
-            "path": ".github/workflows/pr-prescreen.yml"
+            "job": "validate",
+            "kind": "unproven-reference",
+            "path": ".github/workflows/pr-prescreen.yml",
+            "reason_codes": [
+              "OUTSIDE_REQUIRED_WORKFLOW",
+              "UNPROVEN_UNFILTERED_PR_ADMISSION",
+              "UNPROVEN_CANONICAL_AGGREGATE",
+              "UNPROVEN_ENFORCEMENT_CHECKOUT",
+              "UNPROVEN_FULL_CORPUS_COMMAND"
+            ],
+            "step": "Run validator against PR tree (full --json sweep)",
+            "step_index": 7
           },
           {
             "blocking_candidate": false,
-            "line": 90,
-            "path": ".github/workflows/promote-curated.yml"
+            "job": "promote",
+            "kind": "unproven-reference",
+            "path": ".github/workflows/promote-curated.yml",
+            "reason_codes": [
+              "OUTSIDE_REQUIRED_WORKFLOW",
+              "UNPROVEN_UNFILTERED_PR_ADMISSION",
+              "NOT_REQUIRED_DEPENDENCY",
+              "UNPROVEN_CANONICAL_AGGREGATE",
+              "CONDITIONAL_OR_SUPPRESSED_STEP",
+              "UNPROVEN_FULL_CORPUS_COMMAND"
+            ],
+            "step": "Rebuild inventory + grades (optional)",
+            "step_index": 6
+          },
+          {
+            "blocking_candidate": false,
+            "job": "marketplace-compliance-ratchet",
+            "kind": "unproven-reference",
+            "path": ".github/workflows/validate-plugins.yml",
+            "reason_codes": ["CONDITIONAL_OR_SUPPRESSED_STEP", "UNPROVEN_FULL_CORPUS_COMMAND"],
+            "step": "Refuse unauthorized marketplace baseline policy-envelope changes",
+            "step_index": 4
+          },
+          {
+            "blocking_candidate": true,
+            "job": "marketplace-compliance-ratchet",
+            "kind": "full-ratchet-wrapper",
+            "path": ".github/workflows/validate-plugins.yml",
+            "reason_codes": [],
+            "step": "Enforce R1/R2/R3/R4 marketplace compliance ratchet",
+            "step_index": 5
           }
         ],
+        "parse_errors": [],
+        "proof_kind": "static_required_job_wiring",
         "target_blocking": 1
       }
     },
@@ -3022,6 +3108,7 @@
       "status": "partial",
       "values": {
         "actual_needs": [
+          "classify-changes",
           "validate",
           "marketplace-compliance-ratchet",
           "verify",
@@ -3046,7 +3133,7 @@
           "doc-governance",
           "secret-diff-scan"
         ],
-        "actual_needs_count": 23,
+        "actual_needs_count": 24,
         "documented_needs": null
       }
     },
@@ -3135,10 +3222,10 @@
       ],
       "status": "measured",
       "values": {
-        "index_entries": 256,
+        "index_entries": 262,
         "missing_from_index": [],
         "target_equal": true,
-        "tracked_documents": 256,
+        "tracked_documents": 262,
         "untracked_index_entries": []
       }
     },
@@ -3223,16 +3310,471 @@
       "values": null
     },
     "50": {
-      "cohort": null,
+      "cohort": "reviewed operation sites in three required-context producer workflows and the complete ci-required graph; partial repository coverage",
       "dimension": "Unbounded correctness swallows",
-      "reason_code": "MISSING_CORRECTNESS_CRITICAL_COMMAND_REGISTRY",
-      "reproduce": "pnpm run measure:e1 --row=50 --stdout",
-      "required_inputs": [
-        "registry distinguishing bounded cleanup from correctness-critical failure swallowing"
+      "limitations": [
+        "Partial static review only: no shell interpretation, execution, or runtime coverage proof.",
+        "Opaque actions, invoked-script internals, unsupported shell and broad conditions remain coverage gaps.",
+        "Historical issue references do not establish current owners; observed dates are not expiry adjudications.",
+        "Coverage gaps overlap and are not additive; primary and repository totals remain unknown."
       ],
-      "source": [],
-      "status": "not_reproducible",
-      "values": null
+      "reproduce": "pnpm run measure:e1 --row=50 --stdout",
+      "source": [
+        ".github/workflows/secret-scan.yml",
+        ".github/workflows/skill-conform.yml",
+        ".github/workflows/validate-plugins.yml",
+        "scripts/ci-correctness-swallows.json",
+        "scripts/ci/fastlane.py"
+      ],
+      "status": "partial",
+      "values": {
+        "coverage": {
+          "conditional_envelopes": 43,
+          "containers": 236,
+          "containers_with_sites": 17,
+          "counts_overlap": true,
+          "jobs": 28,
+          "opaque_actions": 73,
+          "run_containers": 163,
+          "unreviewed_run_containers": 146,
+          "workflows": 3
+        },
+        "repository_unbounded_total": null,
+        "reviewed_unbounded_correctness_lower_bound": 0,
+        "site_counts": {
+          "authorized_control_flow": 9,
+          "informational": 1,
+          "unbounded_correctness": 0,
+          "unresolved": 14
+        },
+        "sites": [
+          {
+            "authority": [
+              {
+                "line": 38,
+                "path": ".github/workflows/validate-plugins.yml",
+                "text": "      - name: Classify changed paths with the trusted policy"
+              }
+            ],
+            "classification": "authorized_control_flow",
+            "id": "full-lane-fallback",
+            "job": "classify-changes",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Missing trusted base policy explicitly selects the full lane before returning success.",
+            "run_line": 15,
+            "step": 1,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [
+              {
+                "line": 177,
+                "path": ".github/workflows/validate-plugins.yml",
+                "text": "      - name: Enforce the safety ratchet"
+              }
+            ],
+            "classification": "authorized_control_flow",
+            "id": "safety-dependency-fallback",
+            "job": "validate",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Failed import falls back to installation; installation failure is not suppressed.",
+            "run_line": 1,
+            "step": 13,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [
+              {
+                "line": 829,
+                "path": ".github/workflows/validate-plugins.yml",
+                "text": "      - name: Enforce R1/R2/R3/R4 marketplace compliance ratchet"
+              }
+            ],
+            "classification": "authorized_control_flow",
+            "id": "ratchet-dependency-fallback",
+            "job": "marketplace-compliance-ratchet",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Failed import falls back to installation; installation failure is not suppressed.",
+            "run_line": 1,
+            "step": 5,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [
+              {
+                "line": 956,
+                "path": ".github/workflows/validate-plugins.yml",
+                "text": "      - name: Run plugin tests (widened loop — every package.json with a test script)"
+              }
+            ],
+            "classification": "authorized_control_flow",
+            "id": "test-status-accumulator",
+            "job": "test",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Test failure is accumulated and propagated by the final fail check in this bound run body.",
+            "run_line": 70,
+            "step": 8,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [
+              {
+                "line": 306,
+                "path": ".github/workflows/validate-plugins.yml",
+                "text": "      - name: Sync CLI marketplace catalog"
+              }
+            ],
+            "classification": "authorized_control_flow",
+            "id": "catalog-drift-status",
+            "job": "validate",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "The inverted diff status selects an explicit exit 1 on catalog drift.",
+            "run_line": 2,
+            "step": 32,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [
+              {
+                "line": 532,
+                "path": ".github/workflows/validate-plugins.yml",
+                "text": "      - name: Security scan - Informational sweep (non-blocking)"
+              }
+            ],
+            "classification": "informational",
+            "id": "credential-informational-sweep",
+            "job": "validate",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "The workflow labels this sweep informational; the separate gitleaks context owns blocking secret scanning.",
+            "run_line": 20,
+            "step": 56,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [
+              {
+                "line": 581,
+                "path": ".github/workflows/validate-plugins.yml",
+                "text": "          # grep status 1 means no matches; operational errors must still fail."
+              },
+              {
+                "line": 112,
+                "path": "tests/test_ci_scan_failures.py",
+                "text": "    def test_dangerous_scan_io_error_does_not_report_clean(self):"
+              }
+            ],
+            "classification": "authorized_control_flow",
+            "id": "dangerous-rm-scan",
+            "job": "validate",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Only grep's no-match status 1 is normalized; producer and exclusion-filter errors remain blocking under pipefail. Extracted-workflow tests cover matches, exclusions and real scan/filter errors.",
+            "run_line": 33,
+            "step": 57,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [
+              {
+                "line": 1160,
+                "path": ".github/workflows/validate-plugins.yml",
+                "text": "          # Normalize only grep's no-match status, never a find traversal error."
+              },
+              {
+                "line": 150,
+                "path": "tests/test_ci_scan_failures.py",
+                "text": "    def test_discovery_find_error_with_partial_matches_fails_before_pytest(self):"
+              }
+            ],
+            "classification": "authorized_control_flow",
+            "id": "python-test-discovery",
+            "job": "test",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Only grep's no-match status 1 is normalized; find traversal and exclusion-filter failures remain blocking under pipefail, including partial discovery output. Extracted-workflow tests preserve pytest arguments and failures.",
+            "run_line": 20,
+            "step": 16,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [
+              {
+                "line": 281,
+                "path": ".github/workflows/validate-plugins.yml",
+                "text": "      - name: Validate agent frontmatter (report-only)"
+              },
+              {
+                "line": 68,
+                "path": "tests/test_ci_agent_bootstrap.py",
+                "text": "    def test_failed_install_stops_before_validator(self):"
+              }
+            ],
+            "classification": "authorized_control_flow",
+            "id": "agent-dependency-bootstrap",
+            "job": "validate",
+            "observed_deadline": {
+              "date": "2026-10-31",
+              "expiry_adjudicated": false,
+              "source_line": 280
+            },
+            "owner": null,
+            "promotion": null,
+            "rationale": "A failed dependency import falls back to installation; installation failure remains blocking before the advisory validator. Extracted-step tests cover import success, successful and failed installs, and unchanged advisory validator errors.",
+            "run_line": 1,
+            "step": 29,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "agent-advisory-validator",
+            "job": "validate",
+            "observed_deadline": {
+              "date": "2026-10-31",
+              "expiry_adjudicated": false,
+              "source_line": 280
+            },
+            "owner": null,
+            "promotion": null,
+            "rationale": "Advisory correctness validation has a date but lacks established current ownership and promotion authority.",
+            "run_line": 2,
+            "step": 29,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "mcp-advisory-validator",
+            "job": "validate",
+            "observed_deadline": {
+              "date": "2026-11-17",
+              "expiry_adjudicated": false,
+              "source_line": 293
+            },
+            "owner": null,
+            "promotion": null,
+            "rationale": "The following unambiguous gate enforces only a subset; current advisory ownership is unresolved.",
+            "run_line": 1,
+            "step": 30,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "eval-warning-scan",
+            "job": "validate",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Only grep's no-match status 1 is normalized across discovery and both exclusion filters; operational errors fail the existing capture under pipefail. Matching eval findings remain warning-only; role and bounds remain unresolved.",
+            "run_line": 41,
+            "step": 57,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "dependency-audit-advisory",
+            "job": "validate",
+            "observed_deadline": {
+              "date": "2026-10-31",
+              "expiry_adjudicated": false,
+              "source_line": 686
+            },
+            "owner": null,
+            "promotion": null,
+            "rationale": "Report-only audit has a date and historical issue reference, without an established current owner.",
+            "run_line": 30,
+            "step": 59,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "python-dependency-install",
+            "job": "test",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Full-lane optional runtime installation remains best-effort without case-specific failure authority; the three-file fixture dependency closure is installed strictly afterward in both lanes.",
+            "run_line": 14,
+            "step": 13,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "enterprise-validator-advisory",
+            "job": "test",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Report versus gate role and bounds are unresolved; the later CLI marker does not apply.",
+            "run_line": 11,
+            "step": 22,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "cli-strict-advisory",
+            "job": "test",
+            "observed_deadline": {
+              "date": "2026-10-31",
+              "expiry_adjudicated": false,
+              "source_line": 1258
+            },
+            "owner": null,
+            "promotion": null,
+            "rationale": "The CLI marker and historical issue reference do not establish a current owner.",
+            "run_line": 47,
+            "step": 22,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "missing-slack-webhook",
+            "job": "trufflehog",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Missing notification configuration returns success; notification ownership and bound are unresolved.",
+            "run_line": 3,
+            "step": 2,
+            "workflow": ".github/workflows/secret-scan.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "numeric-http-warning",
+            "job": "validate",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Parent-shell status handling permits grep's no-match status 1 and fails operational errors. Matching numeric-HTTP findings remain warning-only; role and bounds remain unresolved.",
+            "run_line": 48,
+            "step": 57,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "base64-warning",
+            "job": "validate",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Parent-shell status handling permits grep's no-match status 1 and fails operational errors. Matching base64 findings remain warning-only; role and bounds remain unresolved.",
+            "run_line": 55,
+            "step": 57,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "insecure-url-warning",
+            "job": "validate",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Parent-shell PIPESTATUS handling checks every producer/filter status under pipefail, permitting no-match status 1 but failing operational errors. Matching insecure-URL findings remain warning-only; role and bounds remain unresolved.",
+            "run_line": 16,
+            "step": 58,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "short-url-warning",
+            "job": "validate",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Parent-shell status handling permits grep's no-match status 1 and fails operational errors. Matching short-URL findings remain warning-only; role and bounds remain unresolved.",
+            "run_line": 23,
+            "step": 58,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "package-test-script-discovery",
+            "job": "test",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Only grep's no-match status 1 selects no-test/Python/test:ci branches; operational errors in all four queries terminate before package commands. Remaining discovery-policy disposition is unresolved.",
+            "run_line": 27,
+            "step": 8,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [
+              {
+                "line": 19,
+                "path": "000-docs/793-AA-AACR-epic-4-scan-push-main.md",
+                "text": "unknown-`before` fallback to the parent commit so a forced push cannot silently pass) with"
+              },
+              {
+                "line": 77,
+                "path": "tests/test_ci_push_scan_parent.py",
+                "text": "    def test_available_parent_preserves_full_refuse_grading(self):"
+              },
+              {
+                "line": 94,
+                "path": "tests/test_ci_push_scan_parent.py",
+                "text": "    def assert_fails_before_scanner(self):"
+              },
+              {
+                "line": 1076,
+                "path": "scripts/scan-synced-content.test.mjs",
+                "text": "  test(`changed CLI fails operationally: ${JSON.stringify(options)}`, () => {"
+              }
+            ],
+            "classification": "authorized_control_flow",
+            "id": "push-parent-fallback",
+            "job": "scan-synced-content",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Zero or unavailable push bases select only the verified parent commit under 793; unavailable parents fail before scanning, and comparison/staged/untracked enumeration failures fail operationally rather than reporting clean. Available-base scans preserve full grading.",
+            "run_line": 7,
+            "step": 4,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          },
+          {
+            "authority": [],
+            "classification": "unresolved",
+            "id": "sync-branch-warn-mode",
+            "job": "scan-synced-content",
+            "observed_deadline": null,
+            "owner": null,
+            "promotion": null,
+            "rationale": "Branch-name selected warn-only mode lacks established current ownership, bound and actor authorization.",
+            "run_line": 8,
+            "step": 3,
+            "workflow": ".github/workflows/validate-plugins.yml"
+          }
+        ],
+        "target": 0,
+        "target_met": false,
+        "unbounded_correctness_total": null
+      }
     },
     "51": {
       "cohort": null,
@@ -3249,15 +3791,15 @@
       "dimension": "Inventory header versus rows",
       "reproduce": "pnpm run measure:e1 --row=52 --stdout",
       "source": [
-        "freshie/reports/run-delta-137.json",
+        "freshie/reports/run-delta-138.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"
       ],
       "status": "target_met",
       "values": {
-        "dolt_commit": "uif5val8skens4dt7gd9pknn9kn91k84",
+        "dolt_commit": "i2nfhlceo2a7affjh32dpt98urqk07f4",
         "header_total_skills": 2916,
-        "run_id": 137,
+        "run_id": 138,
         "skill_row_delta": 0,
         "skill_rows": 2916,
         "target_skill_row_delta": 0
@@ -3270,13 +3812,13 @@
       "source": [
         "freshie/grade-histogram.json",
         "freshie/grades.csv",
-        "freshie/reports/run-delta-137.json"
+        "freshie/reports/run-delta-138.json"
       ],
       "status": "target_met",
       "values": {
         "compliance_rows": 3493,
-        "export_dolt_commit": "uif5val8skens4dt7gd9pknn9kn91k84",
-        "export_run_id": 137,
+        "export_dolt_commit": "i2nfhlceo2a7affjh32dpt98urqk07f4",
+        "export_run_id": 138,
         "grades_csv_rows": 3493,
         "grades_csv_sha256": "f92394a2dfdf1fc09337598a0e5c3563e2a9ad5288ce04e7e0b80e79401710cd",
         "histogram_grades": {
@@ -3294,8 +3836,8 @@
           "D": 154,
           "F": 4
         },
-        "inventory_dolt_commit": "uif5val8skens4dt7gd9pknn9kn91k84",
-        "inventory_run_id": 137,
+        "inventory_dolt_commit": "i2nfhlceo2a7affjh32dpt98urqk07f4",
+        "inventory_run_id": 138,
         "target_lag_runs": 0
       }
     },
@@ -3305,7 +3847,7 @@
       "reproduce": "pnpm run measure:e1 --row=54 --stdout",
       "source": [
         "freshie/reports/legacy-forge-proofs-demotion.json",
-        "freshie/reports/run-delta-137.json",
+        "freshie/reports/run-delta-138.json",
         "freshie/reports/run-delta-19.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py",
@@ -3319,7 +3861,7 @@
           "E2": 0,
           "E3": 0
         },
-        "current_run_id": 137,
+        "current_run_id": 138,
         "invalid_identities": 0,
         "legacy_e0_records": 3,
         "retained_e2_e3": 0,
@@ -3343,7 +3885,7 @@
       "source": [
         "000-docs/807-DR-STND-evaluation-evidence.md",
         "freshie/reports/legacy-forge-proofs-demotion.json",
-        "freshie/reports/run-delta-137.json",
+        "freshie/reports/run-delta-138.json",
         "freshie/reports/run-delta-19.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"

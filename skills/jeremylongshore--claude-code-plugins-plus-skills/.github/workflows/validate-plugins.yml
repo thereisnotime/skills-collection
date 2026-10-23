@@ -22,6 +22,58 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  classify-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      schema: ${{ steps.classify.outputs.schema }}
+      lane: ${{ steps.classify.outputs.lane }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # A PR cannot expand its own fast-lane allowlist: classification uses the
+      # exact target-base policy. Its first installation therefore runs full CI.
+      - name: Classify changed paths with the trusted policy
+        id: classify
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          classifier="scripts/ci/fastlane.py"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            if ! [[ "$PR_BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::Invalid immutable PR base SHA"
+              exit 1
+            fi
+            git cat-file -e "$PR_BASE_SHA^{commit}"
+            if git cat-file -e "$PR_BASE_SHA:scripts/ci/fastlane.py" 2>/dev/null; then
+              classifier="$RUNNER_TEMP/trusted-fastlane.py"
+              git show "$PR_BASE_SHA:scripts/ci/fastlane.py" > "$classifier"
+            else
+              printf '%s\n' '{"schema":1,"lane":"full","reason":"trusted-base-policy-not-installed"}' > "$RUNNER_TEMP/ci-routing.json"
+              printf 'schema=1\nlane=full\n' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          python3 "$classifier" classify \
+            --event-file "$GITHUB_EVENT_PATH" \
+            --event-name "$GITHUB_EVENT_NAME" \
+            --checkout "$GITHUB_SHA" \
+            --receipt "$RUNNER_TEMP/ci-routing.json" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Upload CI routing receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-routing
+          path: ${{ runner.temp }}/ci-routing.json
+          if-no-files-found: ignore
+          retention-days: 90
+
   validate:
     runs-on: ubuntu-latest
     steps:
@@ -127,6 +179,12 @@ jobs:
           python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
           pnpm run validate:safety-ratchet
 
+      - name: Test CI routing policy
+        run: python3 -m unittest tests.ci.test_fastlane tests.ci.test_fastlane_workflow tests.ci.test_funding -v
+
+      - name: Validate funding metadata
+        run: python3 scripts/ci/validate_funding.py .github/FUNDING.yml
+
       # Blueprint 727 E8.8: missing-required-frontmatter remediation stops at
       # a .source.json boundary. The canonical validator reports editable
       # first-party and upstream mirror records separately; first-party debt is
@@ -206,10 +264,12 @@ jobs:
       - name: Verify audit-harness integrity
         run: pnpm exec audit-harness verify
 
-      # CI deadline enforcement — fails the build if any
-      # `# REPORT-ONLY-UNTIL: YYYY-MM-DD` marker in any workflow file is
-      # past its date. Forcing function: report-only gates can't rot
-      # silently into permanent test bypasses.
+      # CI deadline enforcement covers workflows, scripts, policy baselines,
+      # and dated scan-allowlist waivers. Expired deadlines fail the build;
+      # report-only gates cannot silently become permanent test bypasses.
+      - name: Test CI deadline policy
+        run: python3 -m unittest tests.test_ci_deadlines -v
+
       - name: Enforce CI deadlines (no report-only rot)
         run: python3 scripts/check-ci-deadlines.py
 
@@ -220,7 +280,7 @@ jobs:
       # REPORT-ONLY-UNTIL: 2026-10-31 (agent corpus unbaselined; flip to blocking once curated)
       - name: Validate agent frontmatter (report-only)
         run: |
-          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml || true
+          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
           python3 scripts/validate-skills-schema.py --agents-only || true
 
       # .mcp.json validation, two lanes (E4.8, blueprint 727):
@@ -294,6 +354,7 @@ jobs:
           python3 -m unittest tests.test_marketplace_compliance_baseline -v
           python3 -m unittest tests.test_marketplace_compliance_ratchet -v
           python3 -m unittest tests.test_sync_marketplace_root_resolution -v
+          python3 -m unittest tests.test_researcher_refresh -v
 
       # Reject PRs that reformat .claude-plugin/marketplace.extended.json beyond
       # the line budget implied by added/modified entries. Prevents prettier or
@@ -504,12 +565,39 @@ jobs:
 
       - name: Security scan - Dangerous patterns
         run: |
+          set -e -o pipefail
+
+          # Only grep status 1 is an expected no-match; all operational errors block.
+          fail_on_grep_error() {
+            local grep_status
+            for grep_status in "$@"; do
+              if [ "$grep_status" -gt 1 ]; then
+                echo "::error::Warning scan failed (grep status $grep_status)" >&2
+                exit "$grep_status"
+              fi
+            done
+          }
+
+          # grep status 1 means no matches; operational errors must still fail.
+          grep_allow_no_match() {
+            local grep_status
+            if grep "$@"; then
+              return 0
+            else
+              grep_status=$?
+            fi
+            if [ "$grep_status" -eq 1 ]; then
+              return 0
+            fi
+            return "$grep_status"
+          }
+
           echo "Scanning for dangerous command patterns..."
           FOUND_ISSUES=0
 
           # Check for destructive commands (only root deletion, not /var/... paths)
           # Match: rm -rf / or rm -rf /* but NOT rm -rf /var/... etc.
-          DANGEROUS_RM=$(grep -r -E "rm\s+-rf\s+/(\s|$|\*)" plugins/ 2>/dev/null | grep -v "/var/" | grep -v "/tmp/" | grep -v "/prometheus/" || true)
+          DANGEROUS_RM=$(grep_allow_no_match -r -E "rm\s+-rf\s+/(\s|$|\*)" plugins/ | grep_allow_no_match -v "/var/" | grep_allow_no_match -v "/tmp/" | grep_allow_no_match -v "/prometheus/")
           if [ -n "$DANGEROUS_RM" ]; then
             echo "❌ ERROR: Dangerous 'rm -rf /' pattern detected!"
             echo "$DANGEROUS_RM"
@@ -517,7 +605,7 @@ jobs:
           fi
 
           # Check for command injection risks (exclude README documentation)
-          EVAL_USES=$(grep -r -E "eval\s*\(" plugins/ 2>/dev/null | grep -v "README.md" | grep -v "this.redis.eval" || true)
+          EVAL_USES=$(grep_allow_no_match -r -E "eval\s*\(" plugins/ | grep_allow_no_match -v "README.md" | grep_allow_no_match -v "this.redis.eval")
           if [ -n "$EVAL_USES" ]; then
             echo "⚠️  WARNING: 'eval()' detected - potential command injection risk"
             echo "$EVAL_USES"
@@ -526,11 +614,15 @@ jobs:
           # Check for suspicious curl/wget to unknown domains
           if grep -r -E "curl.*http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" plugins/ 2>/dev/null; then
             echo "⚠️  WARNING: curl to IP address detected - potential data exfiltration"
+          else
+            fail_on_grep_error "$?"
           fi
 
           # Check for base64 encoded content (potential obfuscation)
           if grep -r -E "base64\s+-d" plugins/ 2>/dev/null; then
             echo "⚠️  WARNING: base64 decoding detected - potential obfuscation"
+          else
+            fail_on_grep_error "$?"
           fi
 
           if [ $FOUND_ISSUES -eq 0 ]; then
@@ -541,15 +633,32 @@ jobs:
 
       - name: Security scan - Suspicious URLs
         run: |
+          set -e -o pipefail
+
+          # Only grep status 1 is an expected no-match; all operational errors block.
+          fail_on_grep_error() {
+            local grep_status
+            for grep_status in "$@"; do
+              if [ "$grep_status" -gt 1 ]; then
+                echo "::error::Warning scan failed (grep status $grep_status)" >&2
+                exit "$grep_status"
+              fi
+            done
+          }
+
           echo "Scanning for suspicious URLs..."
           # Check for non-HTTPS URLs (except localhost)
           if grep -r -E "http://[^l]" plugins/ | grep -v "localhost" | grep -v "127.0.0.1" 2>/dev/null; then
             echo "⚠️  WARNING: Non-HTTPS URLs detected (security risk)"
+          else
+            fail_on_grep_error "${PIPESTATUS[@]}"
           fi
 
           # Check for URL shorteners (potential phishing)
           if grep -r -E "(bit\.ly|tinyurl\.com|goo\.gl)" plugins/ 2>/dev/null; then
             echo "⚠️  WARNING: URL shorteners detected (potential phishing)"
+          else
+            fail_on_grep_error "$?"
           fi
 
           echo "✅ URL scan complete"
@@ -628,7 +737,7 @@ jobs:
             audit_base="$AUDIT_BEFORE"
             audit_diff_mode="two-dot"
           elif [ "$AUDIT_EVENT" = "workflow_dispatch" ]; then
-            git fetch --no-tags --unshallow origin "$AUDIT_DEFAULT_BRANCH"
+            git fetch --no-tags origin "$AUDIT_DEFAULT_BRANCH"
             audit_base="origin/$AUDIT_DEFAULT_BRANCH"
             audit_diff_mode="three-dot"
           else
@@ -663,6 +772,12 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+      - name: Setup Node for the canonical corpus census
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Exercise corpus withdrawal invariants
+        run: node --test scripts/check-corpus-shrink.test.mjs
       - name: Refuse unauthorized marketplace baseline policy-envelope changes
         if: github.event_name == 'pull_request'
         env:
@@ -711,10 +826,12 @@ jobs:
             )
           fi
           python3 scripts/check-marketplace-compliance-baseline.py "${args[@]}"
-      - name: Enforce R1/R2/R4 marketplace compliance ratchet
+      - name: Enforce R1/R2/R3/R4 marketplace compliance ratchet
+        env:
+          CHECKOUT_SHA: ${{ github.sha }}
         run: |
           python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
-          python3 scripts/check-marketplace-compliance-baseline.py
+          python3 scripts/check-marketplace-compliance-baseline.py --checkout-sha "$CHECKOUT_SHA"
 
   # Verification Pipeline (scoring + badge generation)
   verify:
@@ -757,7 +874,9 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    needs: validate
+    # The matrix consumes no validate outputs. Run alongside validation;
+    # ci-required still requires both jobs to succeed.
+    needs: classify-changes
     strategy:
       fail-fast: false
       matrix:
@@ -800,9 +919,18 @@ jobs:
 
       - name: Build MCP plugins
         if: matrix.test-type == 'mcp-plugins'
+        env:
+          CI_LANE: ${{ needs.classify-changes.outputs.lane }}
         run: |
+          set -euo pipefail
           echo "Building MCP plugins..."
-          pnpm build
+          if [ "${CI_LANE:-}" = lightweight ]; then
+            # Keep every MCP build and its workspace dependency closure. The
+            # independent marketplace job still builds and audits the site.
+            pnpm --filter './plugins/mcp/*...' build
+          else
+            pnpm build
+          fi
           echo "✅ Build complete"
 
       - name: Install evidence emitter dependencies
@@ -829,6 +957,18 @@ jobs:
         if: matrix.test-type == 'mcp-plugins'
         run: |
           set -e
+          # grep 1 is an expected no-match; read/regex/tool failures must block.
+          package_matches() {
+            local status
+            if grep -q "$1" "$2"; then
+              return 0
+            else
+              status=$?
+              if [ "$status" -eq 1 ]; then return 1; fi
+              echo "::error::Unable to inspect package test metadata (grep status $status)" >&2
+              exit "$status"
+            fi
+          }
           fail=0
           tested=0
           failed_plugins=()
@@ -842,12 +982,12 @@ jobs:
               if [ "$category" = "saas-packs" ]; then continue; fi
 
               # Check if a test script exists in package.json
-              if ! grep -q '"test":' "$package" && ! grep -q '"test:ci":' "$package"; then
+              if ! package_matches '"test":' "$package" && ! package_matches '"test:ci":' "$package"; then
                 continue
               fi
 
               # Skip Python-based plugins (tested in python-tests job)
-              if grep -q 'pytest' "$package"; then
+              if package_matches 'pytest' "$package"; then
                 echo "⏭️  Skipping $category/$plugin_name (Python plugin, tested separately)"
                 continue
               fi
@@ -880,7 +1020,7 @@ jobs:
                 fi
               fi
 
-              if grep -q '"test:ci":' package.json; then
+              if package_matches '"test:ci":' package.json; then
                 TEST_CMD=(pnpm test:ci)
               else
                 TEST_CMD=(pnpm test -- --run)
@@ -933,7 +1073,10 @@ jobs:
 
       - name: Install Python test dependencies
         if: matrix.test-type == 'python-tests'
+        env:
+          CI_LANE: ${{ needs.classify-changes.outputs.lane }}
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           pip install pytest pytest-cov pytest-asyncio
 
@@ -942,11 +1085,20 @@ jobs:
             pip install -r requirements.txt
           fi
 
-          # Install dependencies from plugin requirements.txt files
-          find plugins/ -name "requirements.txt" | while read -r req; do
-            echo "Installing deps from $req"
-            pip install -r "$req" || true
-          done
+          if [ "${CI_LANE:-}" != lightweight ]; then
+            # Preserve full-lane provisioning of plugin runtime dependencies.
+            find plugins/ -name "requirements.txt" | while read -r req; do
+              echo "Installing deps from $req"
+              pip install -r "$req" || true
+            done
+          fi
+
+          # Install the fixture dependency closure strictly in both lanes after
+          # runtime provisioning, which can change the installed packages.
+          pip install \
+            -r plugins/mcp/lumera-agent-memory/requirements.txt \
+            -r plugins/security/penetration-tester/skills/performing-penetration-testing/scripts/requirements.txt \
+            -r plugins/crypto/trading-strategy-backtester/requirements.txt
 
           # Install additional testing tools
           pip install pyyaml jsonschema
@@ -1003,10 +1155,26 @@ jobs:
       - name: Run Python tests
         if: matrix.test-type == 'python-tests'
         run: |
+          set -e -o pipefail
+
+          # Normalize only grep's no-match status, never a find traversal error.
+          grep_allow_no_match() {
+            local grep_status
+            if grep "$@"; then
+              return 0
+            else
+              grep_status=$?
+            fi
+            if [ "$grep_status" -eq 1 ]; then
+              return 0
+            fi
+            return "$grep_status"
+          }
+
           echo "Running Python tests..."
 
           # Find all Python test files
-          TEST_FILES=$(find . -name "test_*.py" -o -name "*_test.py" | grep -v "__pycache__" | grep -v "backups/" || true)
+          TEST_FILES=$(find . -name "test_*.py" -o -name "*_test.py" | grep_allow_no_match -v "__pycache__" | grep_allow_no_match -v "backups/")
 
           if [ -n "$TEST_FILES" ]; then
             echo "Found Python test files:"
@@ -1283,7 +1451,8 @@ jobs:
   # CLI Smoke Tests (EPIC D - D3)
   cli-smoke-tests:
     runs-on: ubuntu-latest
-    needs: marketplace-validation
+    needs: [classify-changes, marketplace-validation]
+    if: needs.classify-changes.outputs.lane != 'lightweight'
     steps:
       - uses: actions/checkout@v7
 
@@ -1411,6 +1580,8 @@ jobs:
 
   shellcheck-skills:
     runs-on: ubuntu-latest
+    needs: classify-changes
+    if: needs.classify-changes.outputs.lane != 'lightweight'
     steps:
       - uses: actions/checkout@v7
 
@@ -1446,6 +1617,8 @@ jobs:
 
   skill-codeblock-syntax:
     runs-on: ubuntu-latest
+    needs: classify-changes
+    if: needs.classify-changes.outputs.lane != 'lightweight'
     steps:
       - uses: actions/checkout@v7
 
@@ -1478,6 +1651,8 @@ jobs:
 
   typescript-coverage-audit:
     runs-on: ubuntu-latest
+    needs: classify-changes
+    if: needs.classify-changes.outputs.lane != 'lightweight'
     steps:
       - uses: actions/checkout@v7
 
@@ -1497,6 +1672,8 @@ jobs:
 
   eslint-check:
     runs-on: ubuntu-latest
+    needs: classify-changes
+    if: needs.classify-changes.outputs.lane != 'lightweight'
     steps:
       - uses: actions/checkout@v7
 
@@ -1540,6 +1717,8 @@ jobs:
 
   ruff-check:
     runs-on: ubuntu-latest
+    needs: classify-changes
+    if: needs.classify-changes.outputs.lane != 'lightweight'
     steps:
       - uses: actions/checkout@v7
 
@@ -1562,6 +1741,8 @@ jobs:
 
   ruff-format-check:
     runs-on: ubuntu-latest
+    needs: classify-changes
+    if: needs.classify-changes.outputs.lane != 'lightweight'
     steps:
       - uses: actions/checkout@v7
 
@@ -1689,7 +1870,7 @@ jobs:
           # `before`; fall back to the parent commit so the scan still judges
           # the newest change rather than silently passing.
           if [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            BASE="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+            BASE="$(git rev-parse --verify 'HEAD~1^{commit}' 2>/dev/null)"
           fi
           node scripts/scan-synced-content.mjs --changed-only --base "$BASE"
 
@@ -2126,23 +2307,23 @@ jobs:
           extra_args: --results=verified,unknown
 
   # ───────────────────────────────────────────────────────────────────────────
-  # Aggregate required gate. This is the SINGLE pull_request status context in
-  # branch protection (alongside `gitleaks`). Because this workflow runs on
+  # Aggregate required gate. Branch protection also requires the independent
+  # `gitleaks` and `skill-conform` contexts. Because this workflow runs on
   # EVERY pull_request (no path filter — see `on:` above), this job always
   # reports, which is what fixes the "N Expected forever" stuck-PR class where a
   # path-filtered required check never runs and the PR can never merge (#778).
   #
-  # It fails if ANY needed job ended in `failure` or `cancelled`. A `skipped`
-  # result counts as PASS — but that is ONLY legitimate for a job that skipped
-  # via a DESIGNED job-level `if:` (a conditional gate that correctly did not
-  # apply). Do not add a job to `needs:` that can skip for an undesigned reason,
-  # or a real gate could be silently bypassed by a green aggregate.
+  # Failures, cancellations, missing results and unexpected skips fail closed.
+  # Only the seven explicitly routed jobs may skip after successful trusted
+  # classification selected the lightweight lane. Security and governance
+  # jobs must succeed in both lanes.
   # ───────────────────────────────────────────────────────────────────────────
   ci-required:
     name: ci-required
     runs-on: ubuntu-latest
     if: always()
     needs:
+      - classify-changes
       - validate
       - marketplace-compliance-ratchet
       - verify
@@ -2167,16 +2348,9 @@ jobs:
       - doc-governance
       - secret-diff-scan
     steps:
-      - name: Assert every gated job passed (skipped == a designed conditional gate)
+      - uses: actions/checkout@v7
+
+      - name: Assert every gated job passed or was explicitly routed out
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
-        run: |
-          set -euo pipefail
-          printf '%s\n' "$NEEDS_JSON"
-          bad=$(printf '%s' "$NEEDS_JSON" \
-            | jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key] | join(", ")')
-          if [ -n "$bad" ]; then
-            echo "::error::ci-required: these gated jobs did not pass: $bad"
-            exit 1
-          fi
-          echo "✅ ci-required — every gated job passed (or was designed-skipped)."
+        run: python3 scripts/ci/fastlane.py gate
