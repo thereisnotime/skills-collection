@@ -1253,6 +1253,18 @@ describe("ce-code-review contract", () => {
     expect(content).not.toContain("git diff -U10 HEAD")
     expect(content).not.toContain("git diff --cached")
 
+    // #1836: deleted-file bodies stay out of the shared diff on every scope path,
+    // and every reviewer gets the deletion manifest instead.
+    expect(content).not.toMatch(/git diff -U10 (?!--irreversible-delete)/)
+    expect(content).not.toMatch(/gh pr diff [^`]*\| awk/)
+    expect(content).toMatch(/awk '[^`]*deleted file mode/)
+    expect(content).toContain('<deleted-files base="<ref>">')
+    expect(content).toMatch(/`deleted_band: large` rules out lite/)
+    const peerScript = await readRepoFile(
+      "skills/ce-code-review/scripts/cross-model-adversarial-review.sh",
+    )
+    expect(peerScript).toMatch(/diff --no-ext-diff --no-color --irreversible-delete "\$BASE"/)
+
     // PR mode uses remote diff API, not checkout
     expect(content).toContain("gh pr diff")
     expect(content).toMatch(/Do not fall back to checkout/i)
@@ -1554,6 +1566,23 @@ describe("ce-code-review contract", () => {
     expect(jsonContract).toContain('"triage_groups": []')
     expect(jsonContract).toMatch(/Each object in `triage_groups` carries/)
     expect(template).toMatch(/`triage_groups`.*batch related fixes by theme/)
+  })
+})
+
+describe("review reviewer assets are delivered by path", () => {
+  test("ce-code-review passes asset paths and the resolved root", async () => {
+    const dispatch = await readRepoFile("skills/ce-code-review/references/dispatch-reviewers.md")
+    expect(dispatch).toMatch(/pass their absolute paths, resolved from this skill's directory/)
+    expect(dispatch).toMatch(/Tell it to read all four before reviewing/)
+    expect(dispatch).toMatch(/inline them only when the host's subagents cannot read files/)
+    expect(dispatch).toMatch(/`<root>` in those files means the resolved root/)
+  })
+
+  test("ce-doc-review passes asset paths", async () => {
+    const dispatch = await readRepoFile("skills/ce-doc-review/references/dispatch.md")
+    expect(dispatch).toMatch(/pass their absolute paths, resolved from this skill's directory/)
+    expect(dispatch).toMatch(/Tell it to read all three before reviewing/)
+    expect(dispatch).toMatch(/inline them only when the host's subagents cannot read files/)
   })
 })
 

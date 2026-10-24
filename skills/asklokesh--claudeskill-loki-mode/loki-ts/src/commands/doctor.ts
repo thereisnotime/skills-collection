@@ -284,6 +284,9 @@ export type DoctorJson = {
   provider_availability: ProviderAvailability | null;
   disk: DiskCheck;
   ai_provider: AiProviderCheck;
+  // R100-001: true when an installed provider CLI is also logged in (or has an API key), so the first `loki start`
+  // needs no `loki setup`. Computed by the same login probes the preflight uses; never a second detector.
+  provider_autodetected: boolean;
   // CLAUDE_CODE_USE_* cloud rows; the same rows the text path prints and tallies.
   cloud_auth: CloudAuthRow[];
   // CW-14: advisory auth path per provider (names only); excluded from the summary tally.
@@ -660,7 +663,7 @@ export function checkSkills(selected?: string | null): SkillStatus[] {
   const home = homedir();
   return SKILL_ENTRIES.map(({ name, dir, id }) => {
     const sdir = resolve(home, dir);
-    // Match bash autonomy/loki:6410 behavior under `set -euo pipefail`:
+    // Match the former bash cmd_doctor behavior (removed from autonomy/loki; doctor is Bun-only) under `set -euo pipefail`:
     // ${sdir/$HOME/~} does NOT substitute when set -e is active (bash quirk),
     // so the full path is shown. Mirror that.
     const shortPath = sdir;
@@ -736,8 +739,8 @@ export function skillsForJson(): SkillJson[] {
 
 // ---------- Tool list (single source of truth shared by text + JSON) ----------
 
-// Display name (text mode, with min-version suffix per bash autonomy/loki:6354)
-// vs JSON name (cmd_doctor_json bare name per bash :6580). They differ by design.
+// Display name (text mode, with min-version suffix per the former bash cmd_doctor, removed from autonomy/loki)
+// vs JSON name (cmd_doctor_json bare name in the former bash route). They differ by design.
 type ToolSpec = {
   displayName: string;
   jsonName: string;
@@ -1126,6 +1129,7 @@ export async function buildDoctorJson(): Promise<DoctorJson> {
     provider_availability: readProviderAvailability(),
     disk,
     ai_provider: aiProvider,
+    provider_autodetected: providerAutodetected(checks),
     cloud_auth: cloudAuth,
     provider_auth: providerAuthRows(),
     skills,
@@ -1204,6 +1208,20 @@ export function claudeAuthStatusLoggedIn(cli = "claude", env: NodeJS.ProcessEnv 
   } catch {
     return "";
   }
+}
+
+// R100-001: one answer to "can the first `loki start` run with no setup?". A provider counts when its CLI is installed
+// and its login is confirmed by the probe the preflight already uses: claude via `claude auth status` (or an API key),
+// codex via `codex login status`, opencode/cline via their auth files, and any of them via a provider API key.
+// providerLoginIssue returns null only when a login or key was found, so a warn-only result is not a login.
+export function providerAutodetected(checks: { command: string; found: boolean; path: string | null }[], env: NodeJS.ProcessEnv = process.env): boolean {
+  return ["claude", "codex", "cline", "aider", "opencode"].some((p) => {
+    const c = checks.find((x) => x.command === p);
+    if (!c?.found) return false;
+    const cli = c.path ?? p;
+    if (p === "claude") return !providerAuthPath(p, env).startsWith("cli_login") || claudeAuthStatusLoggedIn(cli, env) === "yes"; // the preflight condition: only claude's own key or token counts, else a confirmed login
+    return providerLoginIssue(p, cli, env) === null;
+  });
 }
 
 // TEN-SPEED-05: back-to-back `loki start` runs reuse a SUCCESSFUL login probe
@@ -1435,7 +1453,7 @@ async function runText(deps: DoctorDeps = {}): Promise<number> {
     process.stdout.write(formatToolLine(c) + "\n");
     bump(tally, c.status);
     // Blocker wording mirrors the bash route's _doctor_block calls exactly
-    // (autonomy/loki:10864 and :10930) so the two trailers stay byte-identical
+    // (the former bash route, removed from autonomy/loki) so the two trailers stay byte-identical
     // under the bun-parity gate.
     if (c.status === "fail") {
       if (!c.found) {
@@ -1451,7 +1469,7 @@ async function runText(deps: DoctorDeps = {}): Promise<number> {
   process.stdout.write(`${CYAN}AI Providers:${NC}\n`);
   const providerCmds = ["claude", "codex", "cline", "aider", "opencode"];
   // Per-provider install hint, byte-matching the bash route's
-  // doctor_provider_install_cmd (autonomy/loki:8128). The bash route writes this
+  // doctor_provider_install_cmd (removed from autonomy/loki with the bash doctor). The bash route writes this
   // hint to STDERR (run.sh doctor_check_provider, `>&2`), so it must go to STDERR
   // here too: the canonical bun-parity gate (.github/workflows/bun-parity.yml)
   // captures STDOUT only (`>out 2>/dev/null`), so a stdout hint would appear on
@@ -2059,7 +2077,7 @@ async function runText(deps: DoctorDeps = {}): Promise<number> {
   );
 
   if (tally.fail > 0) {
-    // Byte-identical to the bash route (autonomy/loki:11374-11379). This route
+    // Byte-identical to the bash route (removed from autonomy/loki with the bash doctor). This route
     // used to print "Some required prerequisites are missing / Install missing
     // dependencies", which names nothing and offers no way forward -- a
     // first-run user with no provider CLI hit a dead end. The bash route has
@@ -2070,8 +2088,8 @@ async function runText(deps: DoctorDeps = {}): Promise<number> {
       `${RED}Blocking (${tally.fail}). Everything else above is optional.${NC}\n`,
     );
     // Leading blank line: bash accumulates blockers into a string that already
-    // begins with "\n" and prints it with printf '%b\n' (autonomy/loki:10851,
-    // :11375), so its output carries one. bun-parity compares byte for byte,
+    // begins with "\n" and prints it with printf '%b\n' (former bash route, removed from
+    // autonomy/loki), so its output carries one. bun-parity compares byte for byte,
     // so this cosmetic newline is load-bearing.
     process.stdout.write(`\n`);
     for (const b of tally.blockers) {

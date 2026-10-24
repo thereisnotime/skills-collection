@@ -577,6 +577,15 @@ describe("ce-pov output gate and receipts", () => {
     expect(result.stderr).not.toContain("pre-egress")
   })
 
+  test("a model the provider rejects in reply text is named in skip evidence with the advertised models", () => {
+    const sb = sandbox(["codex"], path.join(STREAMS, "model-rejected-end-turn"))
+    const dir = runDir()
+    const result = run(["claude", "codex", payload(), dir], dir, sb.env)
+    expect(result.files).not.toContain("pov-codex.json")
+    expect(result.stderr).toContain("The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account.")
+    expect(result.stderr).toContain("peer skip evidence (advertised models): gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol")
+  })
+
   test.each([
     ["an ACP error message on stdout", { error: "quota exhausted", exit: 1 }, "peer skip evidence: quota exhausted"],
     ["adapter text on stderr", { stopReason: null, exit: 1, stderr: "quota exhausted" }, "peer skip evidence (stderr): quota exhausted"],
@@ -737,11 +746,12 @@ describe("ce-pov acpx transport preflight and launch", () => {
     expect(log).toContain("CODEX_PATH=<unset>")
   })
 
-  test("the codex route points the adapter at the installed codex CLI", () => {
+  test("the codex route points the adapter at the installed codex CLI with the user's plugins disabled (issue #1788)", () => {
     const sb = sandbox(["codex"])
     const dir = runDir()
-    run(["claude", "codex", payload(), dir], dir, sb.env)
+    run(["claude", "codex", payload(), dir], dir, { ...sb.env, CODEX_CONFIG: '{"features":{"plugins":true}}' })
     expect(envLog(sb)).toContain(`CODEX_PATH=${path.join(sb.bin, "codex")}\n`)
+    expect(envLog(sb)).toContain('CODEX_CONFIG={"features":{"plugins":false}}\n')
     expect(envLog(sb)).toContain("npm_config_prefer_offline=true\nnpm_config_fetch_retries=0\n")
   })
 

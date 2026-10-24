@@ -619,6 +619,13 @@ describe("cross-model-adversarial-review provider selection", () => {
     expect(envLog(sb)).toContain(`CODEX_PATH=${path.join(sb.bin, "codex")}\n`)
   })
 
+  test("the codex route disables the user's Codex plugins so the peer cannot pick up ce-code-review (issue #1788)", () => {
+    const sb = sandbox(["codex"])
+    const runDir = makeRunDir()
+    run(["claude", "codex", "HEAD", runDir], runDir, { ...sb.env, CODEX_CONFIG: '{"features":{"plugins":true}}' })
+    expect(envLog(sb)).toContain('CODEX_CONFIG={"features":{"plugins":false}}\n')
+  })
+
   test("a front-loaded preference overrides the default order", () => {
     expect(resolvePeers("claude", "grok,codex,claude,composer", ["codex", "claude", "grok", "cursor-agent"])).toBe("grok")
   })
@@ -783,6 +790,16 @@ describe("cross-model-adversarial-review outcome classification", () => {
     expect(r.files).not.toContain("adversarial-codex.json")
     expect(r.stderr).toContain(`peer skip evidence: ${evidence}`)
     expect(r.stderr).not.toContain("pre-egress")
+  })
+
+  // codex-acp streams a provider 400 as reply text and still ends the turn with end_turn.
+  test("a model the provider rejects in reply text is named in skip evidence with the advertised models", () => {
+    const sb = sandbox(["codex"], path.join(STREAMS, "model-rejected-end-turn"))
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "HEAD", runDir], runDir, sb.env)
+    expect(r.files).not.toContain("adversarial-codex.json")
+    expect(r.stderr).toContain("The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account.")
+    expect(r.stderr).toContain("peer skip evidence (advertised models): gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol")
   })
 
   test("a cancelled turn that exits 0 is not published even with findings in its reply", () => {
@@ -1041,6 +1058,14 @@ describe("cross-model-adversarial-review normalization", () => {
     expect(r.stderr.includes("model mismatch")).toBe(mismatch)
   })
 
+  test("an OpenCode effort override sets its ACP effort option", () => {
+    expect(emitAdapter("opencode", SCRIPT, { CROSS_MODEL_EFFORT_OVERRIDE: "xhigh" })).toContain("--config-option mode=plan --config-option effort=xhigh --file")
+  })
+
+  test("without an effort override OpenCode keeps its own default", () => {
+    expect(emitAdapter("opencode")).not.toContain("effort=")
+  })
+
   test("a valid effort override reaches the adapter; an unsupported level is rejected before launch", () => {
     let sb = sandbox(["claude"])
     let runDir = makeRunDir()
@@ -1050,7 +1075,7 @@ describe("cross-model-adversarial-review normalization", () => {
     expect(argv(sb)).toContain("effort=max")
     expect(r.stderr).toContain("(effort max)")
 
-    for (const [route, effort] of [["claude", "minimal"], ["grok-cli", "max"], ["opencode", "high"], ["composer", "high"]]) {
+    for (const [route, effort] of [["claude", "minimal"], ["grok-cli", "max"], ["opencode", "minimal"], ["composer", "high"]]) {
       sb = sandbox([ROUTE_BIN[route]])
       runDir = makeRunDir()
       const target = route.startsWith("grok") ? "grok" : route

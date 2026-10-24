@@ -247,6 +247,9 @@ the user's expected viewport when finished.
 
 For a loading-speed claim, read §2's performance-comparison boundary before measuring.
 
+For hidden-page polling, read that reference's **Verify polling stops in a genuinely
+hidden page** recipe before testing; media focus emulation cannot establish that policy.
+
 For a scripted sweep, first prove the target state is reproducible with one of:
 
 - the project's fixture/storage-state/setup path;
@@ -297,6 +300,11 @@ layout** check before fixing line breaks. The sweep's `attentionInventory` makes
 the visible text population and exact repetitions inspectable; review the full
 population against the task, not only its repetition candidates. Complete
 inventory coverage is not proof that the content is necessary.
+
+For a publication whose local checks pass but discovery or reading still feels
+cluttered, use the [publication journey cases](references/publication-journey-cases.md)
+to calibrate whole-path findings against a failing case and a healthy control.
+These synthetic cases supplement the existing necessity check, not a style score.
 
 Some defects produce no diagnostic anywhere: a global reset outranking a
 component's own styles, a library renaming its internal DOM classes so whole
@@ -591,7 +599,7 @@ check the available agent tools can perform.
 - references/browser-driving-and-observation-traps.md — the auditor's own failure
   modes: misread clicks, stale caches, `file://` limits, viewport-vs-page
   screenshots, width-resize vs device emulation, states a default screenshot
-  cannot show, hidden-tab media deferral, virtual-time false negatives,
+  cannot show, hidden-tab media deferral and polling acceptance, virtual-time false negatives,
   `--dump-dom` timing (and the title-encoded interaction probe done right), and
   Range-server media stalls. Read it before driving a real browser, and whenever
   an observation surprises you.

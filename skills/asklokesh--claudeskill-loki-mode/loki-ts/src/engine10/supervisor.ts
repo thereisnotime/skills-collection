@@ -1,6 +1,4 @@
-// Loki 10 supervisor (P0, docs/v10/ENGINE.md sections 5, 6, 10): eval marker first, origin pinned once, worker
-// spawned with withheld tokens; single writer of events.jsonl (seq, hash, tamper refusal)
-// id; post-PR: detached deep verify, then Slack notify.
+// Loki 10 supervisor (P0, docs/v10/ENGINE.md sections 5, 6, 10): eval marker first, origin pinned once, worker spawned with withheld tokens; single writer of events.jsonl (seq, hash, tamper refusal) id; post-PR: detached deep verify, then Slack notify.
 import { routeStartLine } from "../runner/router/route_block.ts";
 import { execFileSync, spawn, spawnSync } from "node:child_process"; import { currentBranch, restoreBranch } from "../e10ext/stop_restore.ts";
 import { createHash, createPublicKey, sign, type Hash } from "node:crypto";
@@ -23,7 +21,7 @@ import { fetchTrackerIssueToFile, parseTrackerRef } from "../features/tracker_in
 import { formatHeartbeatLine, formatStageLine, formatSummary, formatPreModelLine, preModelTiming, type PreModelTiming, EXIT, outcomeOf, reasonOf, type Outcome, type SummaryInput } from "./output.ts";
 import { renderProofCard } from "../util/receipt_surface.ts";
 import { LiveLine } from "../e10ext/liveline.ts";
-import { killGroup, spawnWorker } from "../runner/worker_proc.ts";
+import { killGroup, spawnWorker, ulimitArgv } from "../runner/worker_proc.ts";
 import { askIntent } from "../util/intent_card.ts";
 import { assertPreflight, PreflightError } from "./preflight.ts";
 import { resolveModel } from "./session.ts";
@@ -31,8 +29,7 @@ import { cleanTreeId, failedCheckNames, recordFingerprints } from "../util/failu
 import { modelDowngrades } from "../runner/model_downgrades.ts";
 import { runIdentity } from "../util/run_identity.ts";
 import type { PrContext } from "./stages/pr.ts";
-import type { EventEnvelope, PushEnv, StageName, Verdict } from "./types.ts";
-import { backstopS, BACKSTOP_GRACE_S, DEEP_CAP_S, DEFAULT_CAP_S, envCapS, pushArgv, STAGE_BUDGETS } from "./types.ts";
+import { type EventEnvelope, type PushEnv, type StageName, type Verdict, backstopS, BACKSTOP_GRACE_S, DEEP_CAP_S, DEFAULT_CAP_S, envCapS, pushArgv, STAGE_BUDGETS } from "./types.ts";
 import { baseLine, dropEmptyRunBranch } from "../util/base_guard.ts";
 import { alreadyDoneTextComment, policyGate, prGate, runIntent, unmergedLokiWorkNote, type PolicyGate } from "../util/run_outputs.ts";
 
@@ -182,9 +179,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   let prUrl: string | null = null;
   const intact = log.verify(); // unconditional re-check before the PR
   if (!intact) notProven.push(TAMPER_NOT_PROVEN);
-  // E-66: already-satisfied opens no PR. E-67: FAILED (including a backstop kill) does not block the
-  // PR outright; backstopCommit lands what the kill left uncommitted so the diff below (against
-  // intake's base_sha) sees it. No diff falls to the comment/print branch below.
+  // E-66: already-satisfied opens no PR. E-67: FAILED (including a backstop kill) does not block the PR outright; backstopCommit lands what the kill left uncommitted so the diff below (against intake's base_sha) sees it. No diff falls to the comment/print branch below.
   let hasDiff = false; // P1: every verdict needs a net diff to publish; a SPEC_CONFLICT or PARTIAL that changed nothing must not push an empty branch
   if (!cancelled) {
     const stages = fold(readEvents(log.path)).stages; // A-104c: a failed commit stage already chose what to exclude (Wall files, lockfiles, pre-run dirt); a blanket `add -A` would undo it
@@ -205,7 +200,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
       log.append("pr.opened", "pr", { url: out.url, draft: out.draft, existing: out.existing });
       await opts.status?.({ prUrl: out.url }); await slackEvent(env, "pr_opened", { repo: githubRepoFromUrl(origin) ?? undefined, issue: String(opts.started?.["issue_ref"] ?? ""), prUrl: out.url, outcome: verdict }); // D51-A4
       // E-48: deep verify (stages/deep.ts) runs detached, never keeping the supervisor alive; deep.started records the pid so it is never orphaned untracked.
-      if (opts.deepArgv) { const [cmd, ...dArgs] = [...opts.deepArgv, origin], child = cmd ? spawn(cmd, dArgs, { cwd: opts.repoDir, env: workerEnv, stdio: "ignore", detached: true }) : null; child?.on("error", () => {}); if (child?.pid) { child.unref(); log.append("deep.started", "deep", { pid: child.pid }); } else notProven.push("deep verify not spawned"); }
+      if (opts.deepArgv) { let argv: string[] | null = null; try { argv = ulimitArgv([...opts.deepArgv, origin], workerEnv); } catch (e) { notProven.push(`deep verify not spawned: ${(e as Error).message}`); } const [cmd, ...dArgs] = argv ?? [], child = argv && cmd ? spawn(cmd, dArgs, { cwd: opts.repoDir, env: workerEnv, stdio: "ignore", detached: true }) : null; child?.on("error", () => {}); if (child?.pid) { child.unref(); log.append("deep.started", "deep", { pid: child.pid }); } else if (argv) notProven.push("deep verify not spawned"); }
     }
   }
   const allEvents = readEvents(log.path), folded = fold(allEvents), costUsd = log.tampered ? null : folded.cost.usd, wallS = (Date.now() - t0) / 1000; // one read, reused for cost and the Slack summary; unknown cost stays null

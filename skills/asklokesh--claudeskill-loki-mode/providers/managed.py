@@ -62,6 +62,7 @@ Honest caveat:
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import importlib.util
 import json
@@ -88,6 +89,9 @@ _DEFAULT_CALL_TIMEOUT = 10.0
 
 # Cache file for materialized Managed Agent IDs.
 _CACHE_FILE_REL = ".loki/managed/agent_ids.json"
+_ENVIRONMENT_CACHE_KEY = "__environment__"
+_COORDINATOR_CACHE_PREFIX = "__coordinator__"
+_SESSION_POLL_S = 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +255,35 @@ def _reset_client() -> None:
         _cached_client = None
 
 
+def _event_text(ev: Any) -> str:
+    return "".join(getattr(b, "text", "") or "" for b in getattr(ev, "content", []) or [])
+
+
+def agent_model() -> str:
+    """Model id for managed agents from providers/model_catalog.json.
+
+    LOKI_CLAUDE_MODEL_DEVELOPMENT or LOKI_MODEL_DEVELOPMENT is honoured only
+    when it resolves to a Claude model in the catalog (id or alias); anything
+    else, such as a non-Claude model name, falls back to latest_development.
+    """
+    name = (
+        os.environ.get("LOKI_CLAUDE_MODEL_DEVELOPMENT", "").strip()
+        or os.environ.get("LOKI_MODEL_DEVELOPMENT", "").strip()
+    )
+    try:
+        with open(Path(__file__).resolve().parent / "model_catalog.json", encoding="utf-8") as f:
+            claude = json.load(f)["providers"]["claude"]
+        known = {m["id"] for m in claude.get("models", [])}
+        aliases = claude.get("cli_aliases", {})
+        default = claude["latest_development"]
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        raise ManagedUnavailable(f"managed agent model unresolved: {e}")
+    resolved = aliases.get(name, name)
+    if name and (resolved in known or resolved in aliases.values()):
+        return resolved
+    return default
+
+
 # ---------------------------------------------------------------------------
 # Fake / dependency-injection hook for tests
 # ---------------------------------------------------------------------------
@@ -295,7 +328,7 @@ def _session_factory(
 
 class _RealMultiagentSession:
     """
-    Thin adapter over `client.beta.sessions.create(...)` (preview).
+    Thin adapter over `client.beta.sessions.create(...)` (SDK 2.x Managed Agents).
 
     We deliberately keep this adapter tiny and tolerant of SDK shape
     churn; any AttributeError/TypeError is converted to ManagedUnavailable.
@@ -314,17 +347,86 @@ class _RealMultiagentSession:
         self._context = context
         self._timeout_s = timeout_s
 
+    def _cache_get_or_create(self, key: str, create: Any) -> str:
+        """Id cache shared with agents.managed_registry (agent_ids.json)."""
+        try:
+            from agents import managed_registry
+        except ImportError as e:
+            raise ManagedUnavailable(f"agents.managed_registry unavailable: {e}")
+        with managed_registry._cache_lock:
+            cache = managed_registry._load_cache()
+            if cache.get(key):
+                return cache[key]
+            made = str(create())
+            cache[key] = made
+            managed_registry._save_cache(cache)
+            return made
+
+    def _environment_id(self, beta: Any) -> str:
+        envs = getattr(beta, "environments", None)
+        if envs is None or not hasattr(envs, "create"):
+            raise ManagedUnavailable("anthropic.beta.environments.create not available in SDK")
+
+        def _create() -> str:
+            return getattr(envs.create(name="loki-council"), "id")
+
+        return self._cache_get_or_create(_ENVIRONMENT_CACHE_KEY, _create)
+
+    def _coordinator_id(self, beta: Any) -> str:
+        """Single agent that fronts the pool via the 2.x multiagent coordinator."""
+        if len(self._agent_ids) == 1:
+            return self._agent_ids[0]
+        agents = getattr(beta, "agents", None)
+        if agents is None or not hasattr(agents, "create"):
+            raise ManagedUnavailable("anthropic.beta.agents.create not available in SDK")
+        roster = list(self._agent_ids)
+        model = agent_model()
+        key = _COORDINATOR_CACHE_PREFIX + hashlib.sha256(
+            "|".join([model] + roster).encode("utf-8")
+        ).hexdigest()[:16]
+
+        def _create() -> str:
+            return getattr(
+                agents.create(
+                    name="Loki council coordinator",
+                    model=model,
+                    system="Ask every rostered agent for its verdict and report each one.",
+                    multiagent={"type": "coordinator", "agents": roster},
+                ),
+                "id",
+            )
+
+        return self._cache_get_or_create(key, _create)
+
+    def _thread_replies(self, sessions: Any, sid: str, events: List[Any]) -> List[Dict[str, Any]]:
+        """Replies the coordinator received from its subagent threads.
+
+        Each agent.thread_message_received event names the sending thread in
+        from_session_thread_id; sessions.threads.list maps that thread to the
+        agent that ran in it (only threads whose agent.type is "agent").
+        """
+        received = [e for e in events if getattr(e, "type", None) == "agent.thread_message_received"]
+        if not received:
+            return []
+        thread_agent = {}
+        for th in sessions.threads.list(sid):
+            ref = getattr(th, "agent", None)
+            if getattr(ref, "type", None) == "agent":
+                thread_agent[getattr(th, "id", None)] = getattr(ref, "id", None)
+        return [
+            {
+                "agent_id": thread_agent.get(getattr(e, "from_session_thread_id", None)) or "",
+                "text": _event_text(e),
+            }
+            for e in received
+        ]
+
     def run(self) -> Dict[str, Any]:
-        """Execute the session. Returns a dict of session payload."""
+        """Execute the session (SDK 2.x Managed Agents). Returns a session payload."""
         beta = getattr(self._client, "beta", None)
         if beta is None:
             raise ManagedUnavailable("anthropic SDK missing `beta` namespace")
-
-        # SDK API under preview: exact attribute may be `sessions` or
-        # `agent_sessions`. Try both, fail-fast if neither.
-        sessions = getattr(beta, "sessions", None) or getattr(
-            beta, "agent_sessions", None
-        )
+        sessions = getattr(beta, "sessions", None)
         if sessions is None or not hasattr(sessions, "create"):
             raise ManagedUnavailable(
                 "anthropic.beta.sessions.create not available in SDK"
@@ -332,21 +434,64 @@ class _RealMultiagentSession:
 
         try:
             session = sessions.create(
-                callable_agents=[{"agent_id": aid} for aid in self._agent_ids],
-                context=self._context,
+                agent={"type": "agent", "id": self._coordinator_id(beta)},
+                environment_id=self._environment_id(beta),
+                initial_events=[
+                    {
+                        "type": "user.message",
+                        "content": [
+                            {"type": "text", "text": json.dumps(self._context, default=str)}
+                        ],
+                    }
+                ],
                 timeout=self._timeout_s,
             )
+            sid = getattr(session, "id", None)
+            deadline = time.monotonic() + float(self._timeout_s)
+            status = getattr(session, "status", "running")
+            multi = len(self._agent_ids) > 1
+            while True:
+                # An idle status read right after create can predate the work,
+                # so idle only counts once the expected replies exist: one
+                # agent.message (single agent) or one reply from every roster
+                # agent (coordinator).
+                if status == "idle":
+                    events = list(sessions.events.list(sid))
+                    if multi:
+                        messages = self._thread_replies(sessions, sid, events)
+                        ready = {m["agent_id"] for m in messages} >= set(self._agent_ids)
+                    else:
+                        messages = [
+                            {"agent_id": self._agent_ids[0], "text": _event_text(ev)}
+                            for ev in events
+                            if getattr(ev, "type", None) == "agent.message"
+                        ]
+                        ready = bool(messages)
+                    if ready:
+                        break
+                elif status == "terminated":
+                    raise ManagedUnavailable(f"session {sid} terminated before replying")
+                if time.monotonic() >= deadline:
+                    raise ManagedUnavailable(
+                        f"session {sid} not finished within {self._timeout_s}s "
+                        f"(status={status})"
+                    )
+                time.sleep(_SESSION_POLL_S)
+                status = getattr(sessions.retrieve(sid), "status", "running")
         except (AttributeError, TypeError) as e:
             raise ManagedUnavailable(f"SDK session shape mismatch: {e}")
 
-        # Session objects can be streamed or returned whole depending on
-        # SDK version. We treat .messages / .output / .result as the
-        # first-wins path and stop there.
-        for attr in ("messages", "output", "result"):
-            got = getattr(session, attr, None)
-            if got is not None:
-                return {"raw": got, "session_id": getattr(session, "id", None)}
-        return {"raw": None, "session_id": getattr(session, "id", None)}
+        if len(self._agent_ids) > 1:
+            # Never pass fewer, merged or duplicated votes off as a complete council.
+            got = sorted(m["agent_id"] for m in messages if m["agent_id"] in self._agent_ids)
+            if got != sorted(self._agent_ids):
+                raise ManagedUnavailable(
+                    f"council reply incomplete: expected one reply from each of "
+                    f"{len(self._agent_ids)} agents, attributed {len(got)}"
+                )
+        else:
+            messages = messages[:1]
+        return {"raw": messages or None, "session_id": sid}
 
 
 # ---------------------------------------------------------------------------
@@ -647,6 +792,9 @@ def run_council(
     for m in messages:
         aid = m["agent_id"] or ""
         if aid and aid in id_to_pool:
+            if aid in seen_ids:
+                # Two votes from one agent must not stand in for a second voter.
+                raise ManagedUnavailable(f"duplicate council reply from agent {aid}")
             seen_ids.add(aid)
             verdicts.append(
                 AgentVerdict(
@@ -733,6 +881,9 @@ def run_completion_council(
     for m in messages:
         aid = m["agent_id"] or ""
         if aid and aid in id_to_pool:
+            if aid in seen_ids:
+                # Two votes from one agent must not stand in for a second voter.
+                raise ManagedUnavailable(f"duplicate council reply from agent {aid}")
             seen_ids.add(aid)
             votes.append(
                 AgentVerdict(

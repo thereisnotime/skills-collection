@@ -1,8 +1,5 @@
 # Architecture reference: gates, healing, memory, harness knobs
 
-Moved out of CLAUDE.md (S-78) to keep the root file short. Content unchanged
-except where noted.
-
 ## Quality Gates (8 gates; see `skills/quality-gates.md` for the canonical table)
 1. Static analysis (CodeQL, ESLint)
 2. Test suite pass/fail (red blocks; coverage % not measured in this release)
@@ -15,10 +12,9 @@ except where noted.
 
 Conditional auditor (not numbered): Backward-compatibility / legacy-healing-auditor (healing mode only - behavioral preservation, v6.67.0).
 
-Note (v10): `docs/v10/DECISIONS.md` D12 refines the review rule above -- unanimous
-APPROVE is still required, and a reproduced blocking finding always vetoes
-regardless of vote count. D13 requires every council/review agent to pin its
-model explicitly rather than inherit the session model.
+Note: unanimous APPROVE is required, and a reproduced blocking finding always
+vetoes regardless of vote count. Every council/review agent pins its model
+explicitly rather than inheriting the session model.
 
 ## Legacy System Healing (introduced v6.67.0)
 - **Status**: Still active, no breaking changes since v6.67.0. Note: in v7.4.20 the `legacy-healing-auditor` reviewer was gated on healing-mode signals to avoid firing on non-healing changes.
@@ -84,6 +80,32 @@ Observability: SDK failures emit a structured `capability_degraded` record to
 `.loki/events.jsonl`; `.loki/app-runner/first-preview.json` records
 time-to-first-preview write-once (bash route only).
 
+## Anthropic SDK upgrade capability matrix (RQ-104, 2026-10-23)
+
+Pins (exact, all sites): `@anthropic-ai/sdk` 0.124.0 -> 1.2.0 (loki-ts/package.json, loki-ts/bun.lock, docker/Dockerfile peer pin); `@anthropic-ai/claude-agent-sdk` 0.3.293 -> 0.3.309 (loki-ts/package.json, package.json, package-lock.json, bun.lock, docker/Dockerfile). `tests/test-sdk-version-sync.sh` asserts both. Sources: sdk CHANGELOG 0.125.0..1.2.0, agent-sdk CHANGELOG 0.3.294..0.3.309.
+
+| Change | Status |
+|---|---|
+| sdk 1.0.0 BREAKING "new API version 2026-10-21" | WIRED at compile level only: loki-ts/src/runner/sdk_invoker.ts:19,311 (messages.create, output_config) compiles unchanged under tsc rc=0 and sdk_invoker tests pass. Live behavior at API version 2026-10-21 is NOT PROVEN (no API key, no paid run) |
+| sdk 0.129.0 `claude-sonnet-5-5`, 0.128.0 `claude-opus-5-5`, 0.132.0 `claude-haiku-5-5` model ids | WIRED: model ids are passed through as strings by sdk_invoker.ts; no allowlist to change |
+| sdk 0.135.0 `speed` param and `usage.speed` | NOT ADOPTED: the cost ledger (util/child_ledger.ts:54) has no fast-mode price table; adopting speed without pricing would misreport cost |
+| sdk 0.134.0 native OpenTelemetry tracing (auto-on with a global tracer provider) | NOT ADOPTED: Loki registers no global tracer provider, so the SDK stays inert; no opt-in needed |
+| sdk 0.126.0 compaction param, 0.127.0 `compactBeforeNextTurn()`, 0.129.0 tool-call-while-streaming, tool runner fixes (0.128.0, 1.2.0) | NOT ADOPTED: sdk_invoker is a one-shot messages.create judge, not a tool runner or multi-turn loop |
+| sdk 0.129.0 cache diagnostics on Message | NOT ADOPTED: Loki already accounts cache tokens from usage (util/child_ledger.ts cache_creation_tokens, cache_read_tokens; cost_breakdown); diagnostics would add a second source of truth |
+| sdk 0.129.0 `between_tools` thinking | NOT ADOPTED: judge path clamps thinking by effort (sdk_invoker.ts clampThinkingForEffort); between_tools is not offered to judges |
+| sdk 0.135.0/0.136.0 streaming fixes (unread stream close, unknown SSE events) | NOT ADOPTED: sdk_invoker does not stream |
+| sdk 0.130.0-1.2.0 Admin API (analytics, spend limits, RBAC, plugins, webhooks, message threads, usage/cost reports), Managed Agents additions | NOT ADOPTED: no Loki feature calls these APIs |
+| agent-sdk 0.3.302 refused structured output now an error with no payload | NOT AFFECTED: quality_gates.ts:1616 reads `e["structured_output"]` and fails closed to null when it is absent or not an object (falls back to parsing `result`); a refusal with no payload therefore yields null, the same outcome as before. Refusals are also handled by sdk_stream_parser.ts refusal frames |
+| agent-sdk 0.3.300 `thinking: disabled` runs adaptive on models that cannot disable | NOT ADOPTED: providers.ts:846 query() options pass no thinking setting |
+| agent-sdk 0.3.302 fork subagents on by default in SDK sessions | NOT ADOPTED: accepted default, effect on Loki runs unmeasured; `CLAUDE_CODE_FORK_SUBAGENT=0` is the opt-out |
+| agent-sdk 0.3.302 omitted `permissionMode` defaults to `default` on third-party providers | N/A: Loki always passes an explicit permissionMode (providers/claude_flags.ts:1052) |
+| agent-sdk 0.3.301 full-disk login refresh error is `invalid_request`, not `authentication_failed` | NOT ADOPTED: sdk_stream_parser.ts:278 keys only on `authentication_failed`; a full-disk refresh failure surfaces as a generic error, accepted until observed |
+| agent-sdk 0.3.300 PreToolUse/PermissionRequest `updatedInput` validated, unknown keys dropped | N/A: runSdkHostGuard (providers.ts:784) returns no updatedInput |
+| agent-sdk 0.3.296 `claude_code_version` in the initialize control response | NOT ADOPTED: SDK_BUNDLED_CLAUDE_CODE (providers.ts:364) is read before any session starts and is guarded by a test against the installed SDK claudeCodeVersion; the initialize value only exists after spawn |
+| agent-sdk 0.3.295 SDK passes option values as `--flag=value` | N/A: Loki consumes the SDK options API, not CLI argv, on the SDK route |
+| agent-sdk 0.3.301 `BUILTIN_TOOL_NAMES`, sdk MCP `permission_policy`; 0.3.304 `suspendSseStream` (browser); 0.3.296 `autoCompactWindow`; 0.3.307 `wakeup_source`; 0.3.305 `startup()` timeout fix | NOT ADOPTED: no existing Loki feature maps to these options |
+| agent-sdk 0.3.309 `extractFromBunfs()` per-user temp dir | NOT ADOPTED: Loki does not run the SDK from a Bun-compiled binary |
+
 ## Phase 1 / RARV-C Closure Env Vars
 
 Default-on in the Bun runner (see `CHANGELOG.md` v7.x entries; documented in `skills/quality-gates.md:88-110`). Set to `0` to disable; set to `1` to force-enable on the bash route.
@@ -114,3 +136,22 @@ extract_learnings_from_session (autonomy/run.sh) mirrors learnings and decisions
 - Lessons: every sealed run appends a receipt fact (`LOKI_AUTO_LEARN_PR`, default on) outside the receipt body; `implement.ts` injects lessons and relevant learnings inside the untrusted-data fence; `loki memory brief --task T` prints the same block.
 
 - Wall publish (FC-VERIFIED-PR-WITHOUT-ITS-TEST): on a VERIFIED seal only, `publishWall` (`util/check_result.ts`, called from `stages/seal.ts`) makes ONE child commit (trailer `Loki-Wall-Publish: <runId>`) of the SEALED Wall bytes (`runDir/wall`, hash-checked against `wall.files[].sha256`) that verify ran and passed (`publishableWall`). Before writing, the realpath of each Wall file's parent directory must be inside the repo, and an existing file or symlink is removed first. The child commit runs with hooks and signing OFF (the default `git()` call, no `userHooks`), so a pre-commit hook cannot add files or rewrite the Wall bytes. Afterwards the commit must touch exactly the published paths and each committed blob must equal the blob hash of the sealed bytes (computed in process, never read from the worktree); on any mismatch the child is rolled back (`update-ref` HEAD to the product head plus `read-tree`), nothing is published and a NOT PROVEN note is added. The receipt binds the PRODUCT head (head_sha, tree, diff_sha256 are computed before the child commit). A re-seal binds `HEAD^` only when HEAD's message has the exact trailer line for this run, HEAD touches only paths of this run's `wall.files`, and every blob sha256 matches (`wallChild`); a forged trailer is not enough. `util/seal_drift.ts` accepts a moved HEAD after head_sha as benign only when every commit after it is such a Wall publish commit (linear, trailer line for the receipt's run_id, only `wall.files` paths, blob sha256 equal to the sealed one); any commit after head_sha that carries this run's trailer but fails that check is head drift (UNCHECKED). Later commits without the trailer stay under the TEN-GATES-16 sealed-path overlap rule. The PR body gains an "Acceptance tests" section. Commit stage and `backstopCommit` still drop Wall files. `LOKI_COMMIT_WALL=0` restores the old behavior (nothing published).
+
+### Python anthropic SDK (RQ-105: pinned `anthropic==2.2.0`)
+
+`mcp/requirements.txt` pins the Python SDK exactly (was `>=0.40,<1.0.0`; the resolver landed on 0.125.0). Requires Python >=3.10 (Ubuntu 24.04 image ships 3.12). The SDK runs on `httpx2`; no repo code passes `httpx` objects to it. v2.0.0 changes (API version 2026-10-21): `temperature`/`top_p`/`top_k` removed from Messages (no call site uses them), Admin API field renames (unused). Python-side call sites: `memory/managed_memory/client.py` (the only importer) and `providers/managed.py` (lazy import, `tests/managed/test_registry_lazy.py` contract unchanged).
+
+| Capability (SDK release notes 0.40 to 2.2.0) | Status | Evidence / reason |
+| --- | --- | --- |
+| Client construction `anthropic.Anthropic(api_key, timeout, default_headers)` | WIRED | `memory/managed_memory/client.py:76`, `providers/managed.py:223`; unchanged in 2.x |
+| Managed Agents memory stores (`beta.memory_stores`) | WIRED | `memory/managed_memory/client.py:127`; `create()` has no `scope` in 2.x, scope now sent as `metadata` |
+| Memories nested at `beta.memory_stores.memories` (`memory_store_id`) | WIRED | `memory/managed_memory/client.py:96`; legacy `beta.memories` kept for fakes/preview |
+| Memory paths | WIRED | 2.x paths are absolute and unique per store: `client.py:157` `_abs` plus leading "/" logical paths (`shadow_write.py` verdict/pattern/episode, `retrieve.py` list prefixes); wire test `RealSdkWireTests` asserts the request path |
+| Memories list view and paging | WIRED | `client.py:242` `memories_list` sends `view="full"` (default basic view returns null content), follows `next_page` (20 per page) and drops `memory_prefix` rows; wire test pages 45 rows over 3 requests |
+| Memory create precondition | NOT ADOPTED | 2.x `memories.create` has no precondition; an existing path answers 409 (`client.py:161`, status kept visible) |
+| Memory update with `content_sha256` precondition | WIRED | `client.py:198` `memory_update`; the shadow-write 409 path (`shadow_write.py:197`) re-reads, merges, then updates with the hash of the content currently stored, never the hash of the new content |
+| Memory versions (`memory_stores.memory_versions`) | NOT ADOPTED | `redact` path still reads the legacy shape; separate slice, behind ManagedDisabled fallback |
+| Managed Agents sessions, environments, multiagent coordinator | WIRED | `providers/managed.py` `_RealMultiagentSession.run`: coordinator agent (`multiagent={"type":"coordinator"}`) + cached environment, then `sessions.create(agent=, environment_id=, initial_events=)`; ids cached in `.loki/managed/agent_ids.json`; contract test binds kwargs to the real SDK signatures. Fails safe (ManagedUnavailable) on timeout, terminated status, or any reply set that is not exactly one reply per roster agent; replies are the coordinator's `agent.thread_message_received` events, attributed via `from_session_thread_id` and `sessions.threads.list` to thread.agent.id (agent threads only); the session is ready only when every roster agent has replied; coordinator cache key includes the model, resolved from the model catalog (non-Claude env overrides ignored). WIRED, live reply shape NOT PROVEN (no key) |
+| Vaults, deployments, dreams, webhooks | NOT ADOPTED | no Loki consumer; research preview |
+| Tool runner (`beta.messages.tool_runner`), compaction, structured outputs, adaptive thinking, advisor tool, citations, files API, web search / code execution, prompt cache TTL | NOT ADOPTED | Loki drives models through provider CLIs and the TS Agent SDK; the Python SDK is only the managed-agents bridge |
+| Bedrock / Vertex clients | NOT ADOPTED | no use |

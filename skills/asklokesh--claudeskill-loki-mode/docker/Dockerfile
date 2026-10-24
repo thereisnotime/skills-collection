@@ -21,12 +21,12 @@ RUN bun run build:all
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="11.67.9"
+LABEL version="11.75.1"
 # v7.4.5 fix (BUG-3): override the OCI-standard image.version label that
 # BuildKit auto-injects from the FROM ubuntu:24.04 base. Registries and
 # scanners read this; without the override they reported the Ubuntu version
 # (24.04) instead of the Loki Mode version.
-LABEL org.opencontainers.image.version="11.67.9"
+LABEL org.opencontainers.image.version="11.75.1"
 LABEL description="Loki Mode by Autonomi - Autonomous spec-to-product system (RARV-C closure loop). Provider-agnostic: Claude Code, Codex CLI, Cline, Aider"
 LABEL url="https://www.autonomi.dev/"
 
@@ -180,7 +180,11 @@ COPY --from=cp-build --chown=loki:loki /src/packages/control-plane/ui/dist ./pac
 # Default-off, so a base image without LOKI_SDK_LOOP never loads it; installing it
 # just makes the opt-in path work in the shipped image (the raw judge SDK is
 # already bundled and needs nothing here).
-RUN cd loki-ts && npm install --no-save --no-package-lock @anthropic-ai/claude-agent-sdk@0.3.293 \
+# @anthropic-ai/sdk is pinned to the loki-ts/package.json version because npm
+# auto-installs the agent SDK's open-ended peer (>=0.93.0) at the newest release;
+# an upstream publish whose tarball had not propagated yet 404'd this step.
+RUN cd loki-ts && npm install --no-save --no-package-lock @anthropic-ai/claude-agent-sdk@0.3.309 \
+    @anthropic-ai/sdk@1.2.0 \
     && chown -R loki:loki node_modules
 
 # Install dashboard, web-app, and MCP server Python dependencies.

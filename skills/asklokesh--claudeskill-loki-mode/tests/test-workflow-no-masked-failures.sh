@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2016  # workflow expressions are literal text, never expanded
-# FC-57: a CI job or step must not hide a real failure from the workflow
+# a CI job or step must not hide a real failure from the workflow
 # conclusion. Nightly run 37780519439 concluded SUCCESS while the pinned
 # "Bun tests on macos-latest bun=1.3.13" leg failed, because the job carried a
 # job-level `continue-on-error: true`. D90 and the backstop read the
@@ -38,7 +38,7 @@ import glob, itertools, os, re, sys, yaml
 wfdir = sys.argv[1]
 
 # (file, job, step name or None for the job itself) -> justification.
-# Empty since release.yml became the only workflow; add a row only with a
+# Empty since release.yml became the main workflow (converge-dist-tags.yml only schedules the dist-tag script); add a row only with a
 # written justification.
 COE_ALLOW = {}
 ALWAYS_ALLOW = {}

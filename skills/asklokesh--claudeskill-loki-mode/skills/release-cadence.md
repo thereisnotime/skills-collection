@@ -52,7 +52,7 @@ each citation also names a string or label to grep.
 
 **The FAST tier is the release gate. The FULL tier is not a blocker.**
 
-That is the founder decision of 2026-07-31, recorded in CLAUDE.md under a
+That is the project policy of 2026-07-31, recorded in CLAUDE.md under a
 header that says so explicitly: "Local CI Before Every Push (2026-07-31 mandate
 -- SUPERSEDES 2026-04-26)".
 
@@ -380,7 +380,7 @@ green job is not yet proof the version is fetchable.
 
 ## 6. The cadence, end to end
 
-1. **Scope locked** by the PM. No guessing (`skills/sdlc-fleet.md:40`).
+1. **Scope locked** by the PM. No guessing.
 2. **Build** inside owned file sets, at most 3 streams
    (`skills/factory-operations.md` section 3).
 3. **Council**: unanimous 3-of-3 APPROVE. Any CONCERN or REJECT means fix and

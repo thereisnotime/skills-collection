@@ -1220,7 +1220,7 @@ PY
 }
 
 # loki_verify_root: the ONE place that decides which tree the receipt verifier
-# hashes (FC-29). The verifier walks and digests the directory it is given, so
+# hashes. The verifier walks and digests the directory it is given, so
 # an ambient cwd (a huge checkout, $HOME, a non-project directory) must never be
 # the default. Order: explicit TARGET_DIR; the parent of an absolute LOKI_DIR;
 # the cwd if it holds .loki; the repo top-level if it holds .loki. Anything else
@@ -1871,7 +1871,7 @@ show_help_all() {
     echo "  acp              Run Loki as an ACP agent over stdio (VS Code, JetBrains, Zed)"
     echo ""
     echo "Report:"
-    echo "  report [cmd]     Reporting: session|metrics|cost|export|share|dogfood"
+    echo "  report [cmd]     Reporting: session|metrics|cost|export|share|dogfood|release-notes"
     echo ""
     echo "Knowledge:"
     echo "  analyze [cmd]    Codebase intelligence: explain|onboard|code|context"
@@ -2002,7 +2002,7 @@ show_help_all() {
     echo "  issue keys kpis logs magic mcp memory metrics migrate modernize monitor"
     echo "  next notify onboard open optimize otel outcomes own (handoff) pause plan preview"
     echo "  projects proof (receipt) provider quick quickstart rc remote report reset"
-    echo "  merge restore resume review rollback run sandbox secrets secure self-update sentrux"
+    echo "  merge restore resume review rollback run runs sandbox secrets secure self-update sentrux"
     echo "  serve setup setup-skill share ship spec start state stats status steer stop"
     echo "  syslog telemetry template test tour trigger trust trust-metrics"
     echo "  ultracode undo update verify version voice watch watchdog web welcome why"
@@ -2017,7 +2017,6 @@ show_help_all() {
     echo "Cost controls (budget, iteration and wall-clock caps): docs/cost-controls.md"
     echo "Already have a codebase? Start read-only: docs/brownfield.md"
     echo "No egress allowed? What runs disconnected: docs/air-gapped.md"
-    echo "Where this is going: docs/STRATEGY-2026-2028.md"
     echo ""
     echo "Scripting Loki? Exit codes for every command are documented in"
     echo "docs/exit-codes.md. Severity rises with the code, and 'loki start'"
@@ -2079,7 +2078,7 @@ show_help_aliases() {
     echo "See internal/CLI-CONSOLIDATION-DESIGN.md for the full migration plan."
 }
 
-# D51: bare `loki`. Reuse a running dashboard, else start one on a free
+# bare `loki`. Reuse a running dashboard, else start one on a free
 # loopback port, then open /start (or just print the URL when headless).
 loki_ui_free_port() {
     python3 - "$1" <<'PY'
@@ -2162,7 +2161,7 @@ _loki_control_ui() {
             echo "loki: the Control Plane needs bun (https://bun.sh); using the classic dashboard." >&2
             return 1
         fi
-        # FC-07: LOKI_CONTROL=0 is the test off switch (supervisor, run-all-tests, local-ci);
+        # LOKI_CONTROL=0 is the test off switch (supervisor, run-all-tests, local-ci);
         # it must never start a detached `control serve` that writes ~/.loki/control.
         [ "${LOKI_CONTROL:-}" = "0" ] && return 1
         local cli="$SKILL_DIR/loki-ts/dist/loki.js" cdir="${HOME}/.loki/control" spid
@@ -2388,7 +2387,7 @@ detect_arg_type() {
     echo "unknown"
 }
 
-# --- loki start detach-default handoff (S1) --------------------------------
+# --- loki start detach-default handoff --------------------------------
 # On an interactive TTY, `loki start` now detaches the build to the background
 # by default after a rich, reversible handoff card. A non-interactive shell,
 # --bg, --yes/-y, or CI takes the exact pre-existing foreground path (no card,
@@ -2409,7 +2408,7 @@ _loki_start_should_handoff() {
     return 0
 }
 
-# Stare-worthy brand banner (S6). Renders the real Autonomi logo (purple squircle
+# Stare-worthy brand banner. Renders the real Autonomi logo (purple squircle
 # + white "A" + teal dot) as a crafted truecolor block, next to a "LOKI" wordmark,
 # straight to stderr. ZERO new tooling: pure ANSI escapes. Degrades by color depth
 # ($COLORTERM truecolor -> 24-bit; else a clean 256/mono badge). Never required,
@@ -2461,7 +2460,7 @@ _loki_brand_banner() {
     fi
 }
 
-# E4: a 3-line "what Loki will do" preview from REAL signals only. Line 1 ties
+# a 3-line "what Loki will do" preview from REAL signals only. Line 1 ties
 # the detected tier to its phase count (simple=3, standard=6, complex=8 -- the
 # same mapping run.sh uses; auto/unknown stays honest as "auto-detecting"). Line
 # 2 names the spec, or admits "exploring the codebase" when there is none. Line 3
@@ -2525,7 +2524,7 @@ _loki_start_handoff() {
         esac
     fi
 
-    # Stare-worthy brand banner (S6) then the rich handoff card. Both to stderr so
+    # Stare-worthy brand banner then the rich handoff card. Both to stderr so
     # stdout carries only the decision word.
     _loki_brand_banner "$proj"
     {
@@ -2614,10 +2613,11 @@ _loki_start_optval_consumes() { [[ -n "${1:-}" && "${1:-}" != --* ]]; }
 # Same message and exit code as the cmd_start parser's catch-all arm.
 _loki_start_unknown_flag() { echo -e "${RED}Unknown option: $1${NC}"; exit 64; }
 
-# One exit-code mapping for an engine10 resume, shared by cmd_resume and
-# `loki start --resume`. 0 and 4 (phase reported) -> 0, 5 (publish failed) -> 1.
+# Exit-code mapping for the engine10 resume REPORTER, used only by cmd_resume.
+# 0 and 4 (phase reported) -> 0, 5 (publish failed) -> 1. `loki start --resume`
+# runs the stage resume (engine10 --resume) and returns its code unchanged.
 # Sets _LOKI_E10_RC and returns 0 when handled; any other code returns 1 with
-# _LOKI_E10_RC set to the raw code (cmd_resume falls through, start returns it).
+# _LOKI_E10_RC set to the raw code (cmd_resume falls through).
 _loki_e10_resume_map() {
     case "$1" in
         0 | 4) _LOKI_E10_RC=0 ;;
@@ -2995,6 +2995,7 @@ cmd_start() {
                 echo "  --ship                Worktree + PR + auto-merge"
                 echo "  --detach, -d          Run in background (implies --worktree)"
                 echo "  --resume [RUN_ID]     Resume an interrupted run at the stage it stopped in"
+                echo "                        Exit 4 means the run cannot be resumed OR the resumed run ended BLOCKED; read the printed line to tell them apart."
                 echo ""
                 echo "Preview without spending (any input mode):"
                 echo "  loki plan <PRD>       Analyze a spec WITHOUT executing: complexity,"
@@ -4418,7 +4419,7 @@ cmd_start() {
         loki_project_graph_discover "$_pg_target" || true
     fi
 
-    # S1: detach-to-background by default on an interactive TTY. Fires a rich,
+    # detach-to-background by default on an interactive TTY. Fires a rich,
     # reversible handoff card, then arms the existing --bg path so run.sh
     # backgrounds the runner (it writes the log + PID file and prints its own
     # "Running in Background" banner). The HARD gate below keeps every
@@ -6932,7 +6933,7 @@ cmd_status() {
         fi
     fi
 
-    # P12-19 (D04): freshness of the newest Loki 10 run, same wording as the Bun route
+    # P12-19: freshness of the newest Loki 10 run, same wording as the Bun route
     # ("last event Ns ago (seq N)"). Display-only; silent when there is no run or no parseable event.
     local _e10_last _e10_ev _e10_seq _e10_ts _e10_epoch
     _e10_last=$(ls -d "$LOKI_DIR"/runs/e10-*/ 2>/dev/null | sort | tail -1) || _e10_last=""
@@ -8125,7 +8126,7 @@ _loki_dashboard_args_need_classic() {
 cmd_dashboard() {
     local subcommand="${1:-}"
 
-    # CP-LEGACY (D57): the Control Plane is the default UI for `dashboard`,
+    # CP-LEGACY: the Control Plane is the default UI for `dashboard`,
     # `dashboard start` and `dashboard open`, with or without flags. The legacy
     # Python dashboard stays reachable only by explicit opt-in:
     # LOKI_LEGACY_DASHBOARD=1 or LOKI_CONTROL_DEFAULT=0. Enterprise bind/TLS
@@ -14507,7 +14508,7 @@ cmd_config_schema() {
     loki_config_generate_schema
 }
 
-# D65: multi-repo workspaces (D51 Phase B). On by default; LOKI_WORKSPACES=0 disables.
+# multi-repo workspaces (D51 Phase B). On by default; LOKI_WORKSPACES=0 disables.
 cmd_workspace() {
     if [ "${LOKI_WORKSPACES:-}" = "0" ]; then
         echo -e "${RED}loki workspace is disabled.${NC} Unset LOKI_WORKSPACES (it is set to 0)." >&2
@@ -14517,7 +14518,7 @@ cmd_workspace() {
     python3 "$_LOKI_SCRIPT_DIR/lib/workspace.py" "$@"
 }
 
-# D51: headless backlog runner. One v10 issue-mode run per open issue, each in
+# headless backlog runner. One v10 issue-mode run per open issue, each in
 # its own worktree and branch, at most N in parallel (loki.yaml concurrency).
 cmd_backlog() {
     case "${1:-}" in
@@ -14547,7 +14548,7 @@ cmd_backlog() {
 # failures. Non-zero exit on any failure.
 cmd_config_validate() {
     local file="${1:-}" _loki_yaml
-    # D51: loki.yaml (UI + headless config) has its own schema; no argument
+    # loki.yaml (UI + headless config) has its own schema; no argument
     # validates the discovered loki.yaml (repo root, then ~/.loki/loki.yaml).
     case "$(basename -- "$file")" in "" | loki.yaml | loki.yml | loki.yaml.example) _loki_yaml=1 ;; *) _loki_yaml=0 ;; esac
     if [ "$_loki_yaml" = 1 ]; then
@@ -15191,6 +15192,104 @@ EOF
     return 0
 }
 
+# FC-EGRESS-AUDIT-HAND-LISTED: the registry of every env var that names an outbound
+# host. _loki_airgap_audit walks it, so a configured webhook, tracker, remote or model
+# gateway is named in the audit. tests/test-airgap-commands.sh greps autonomy/ and
+# loki-ts/src for LOKI_*_(URL|HOST|ENDPOINT|WEBHOOK) readers and fails on any name that
+# is in neither list. Entry: NAME|what it reaches.
+_LOKI_AIRGAP_EGRESS_ENV=(
+    "LOKI_WEBHOOK_URL|custom webhook notifications"
+    "LOKI_SLACK_WEBHOOK|Slack notifications"
+    "LOKI_SLACK_WEBHOOK_URL|Slack run events (loki-ts)"
+    "LOKI_DISCORD_WEBHOOK|Discord notifications"
+    "LOKI_OTEL_ENDPOINT|OpenTelemetry trace export"
+    "LOKI_QUEUE_URL|queue consumer broker (Redis)"
+    "LOKI_METADATA_URL|metadata store"
+    "LOKI_REMOTE_URL|remote build submission (loki start --remote)"
+    "LOKI_MIROFISH_URL|MiroFish market-simulation service"
+    "LOKI_HOSTED_ENDPOINT|loki proof share --hosted"
+    "LOKI_CONTROL_URL|control plane shipping"
+    "LOKI_CONTROL_PLANE_URL|control plane live line"
+    "LOKI_JIRA_URL|Jira write-back"
+    "JIRA_BASE_URL|Jira write-back (alias of LOKI_JIRA_URL)"
+    "LOKI_LINEAR_URL|Linear write-back"
+    "LOKI_MODEL_BASE_URL|model route base URL"
+)
+# Names the guard skips because they never name an outbound host. NAME|reason.
+_LOKI_AIRGAP_EGRESS_NOT=(
+    "LOKI_POSTHOG_HOST|audited as the telemetry row"
+    "LOKI_TELEMETRY_ENDPOINT|audited as the telemetry row"
+    "LOKI_SLACK_WEBHOOK_ENV|the name of another env var, not a host"
+    "LOKI_SENTRY_WEBHOOK_SECRET|a secret, not a host"
+    "LOKI_SANDBOX_ALLOW_HOSTS|the sandbox's own allowlist, not a destination"
+    "LOKI_PROOF_PUBLIC_URL|a link written into a proof page, never contacted"
+    "LOKI_DEPLOYED_URL|a link written into a proof page, never contacted"
+    "LOKI_PROOF_AUTHZ_DETAIL_URL_TEMPLATE|a path template for the app under test"
+    "LOKI_TELEM_ENDPOINT|internal copy of LOKI_OTEL_ENDPOINT"
+    "LOKI_BASE_URL|internal variable inside issue-providers.sh"
+    "LOKI_CS_PR_URL|internal variable carrying a PR link this run created"
+    "LOKI_DELEGATE_PR_URL|internal variable carrying a PR link this run created"
+    "LOKI_PR_URL|internal variable carrying a PR link this run created"
+    "LOKI_SENTRY_URL|internal variable carrying a Sentry permalink"
+    "LOKI_HOST_GUARD_HOOK|internal path of the host-guard hook"
+    "LOKI_HOST_GUARD_SETTINGS_JSON|internal settings blob of the host-guard hook"
+    "LOKI_DASHBOARD_HOST|the dashboard's own bind address"
+    "LOKI_HOST_GUARD|a boolean switch, not a host"
+    "LOKI_DEPLOY_HEALTH_URL|set per run by loki deploy --health-url, never configuration"
+    "LOKI_GIST_URL|internal variable carrying a gist link this run already created"
+    "LOKI_LAST_GIST_URL|internal variable carrying a gist link this run already created"
+    "LOKI_HOSTED_BODY|internal temp-file path"
+    "LOKI_HOSTED_EP|internal copy of LOKI_HOSTED_ENDPOINT"
+)
+
+# _loki_airgap_configured_egress -- one TSV line per configured outbound host that is
+# not part of the fixed rows: name, host (never the URL: webhook paths are secrets),
+# loopback yes|no, how to disable it. Reads configuration only, no network.
+# MCP servers with a url come from the three files an MCP launch can load
+# (autonomy/lib/mcp-config.sh norm() keeps only command servers, so it cannot list these).
+# Records are tab-separated lines, so no field may carry a control character: a crafted
+# MCP server name or env value would otherwise split or forge rows. Every field is cleaned
+# at the point it is emitted, and the JSON reader skips any line that is still malformed.
+_loki_airgap_clean() { printf '%s' "$1" | LC_ALL=C tr '\001-\037\177' '?'; }
+_loki_airgap_configured_egress() {
+    local entry name what val host local_flag
+    for entry in "${_LOKI_AIRGAP_EGRESS_ENV[@]}"; do
+        name="${entry%%|*}"; what="${entry#*|}"
+        val="${!name:-}"
+        [ -n "$val" ] || continue
+        host="$(loki_remote_host "$val")"
+        [ -n "$host" ] || host="(unparseable value of $name)"
+        local_flag="no"; loki_remote_is_local_host "$val" && local_flag="yes"
+        printf '%s\t%s\t%s\tunset %s\n' "$what ($name)" "$(_loki_airgap_clean "$host")" "$local_flag" "$name"
+    done
+    local f
+    for f in "${TARGET_DIR:-.}/.mcp.json" "$LOKI_DIR/mcp-config.json" "${HOME:-/nonexistent}/.claude/mcp.json"; do
+        [ -f "$f" ] || continue
+        python3 -I -c '
+import json, os, re, sys
+from urllib.parse import urlsplit
+def clean(s):
+    return re.sub(r"[\x00-\x1f\x7f\x85\u2028\u2029]", "?", str(s))
+p = sys.argv[1]
+try:
+    if os.path.getsize(p) > 1048576:
+        sys.exit(0)
+    v = json.load(open(p, encoding="utf-8"))
+except (OSError, ValueError):
+    sys.exit(0)
+for name, e in (v.get("mcpServers") or {}).items() if isinstance(v, dict) and isinstance(v.get("mcpServers"), dict) else []:
+    u = e.get("url") if isinstance(e, dict) else None
+    if not isinstance(u, str) or not u:
+        continue
+    try:
+        h = urlsplit(u).hostname or ""
+    except ValueError:
+        h = ""
+    print("MCP server %s (%s)\t%s\t%s\tremove the server from %s" % (clean(name), clean(p), clean(h or "(unparseable url)"), "yes" if h in ("localhost", "127.0.0.1", "::1") else "no", clean(p)))
+' "$f" 2>/dev/null
+    done
+}
+
 # Check system prerequisites
 # _loki_airgap_audit <json?> -- enumerate every network egress this engine can
 # perform, classify each as REQUIRED or optional, and say how to disable it.
@@ -15314,14 +15413,18 @@ _loki_airgap_audit() {
     if declare -f _loki_telemetry_enabled >/dev/null 2>&1 && _loki_telemetry_enabled; then
         tel_state="on"
     fi
-    local tel_host="${LOKI_POSTHOG_HOST:-https://us.i.posthog.com}"
+    local tel_host
+    tel_host="$(loki_remote_host "${LOKI_POSTHOG_HOST:-https://us.i.posthog.com}")"
     local upd_state="on"
     [ "${LOKI_NO_UPDATE_CHECK:-0}" = "1" ] && upd_state="off"
+
+    local cfg_egress
+    cfg_egress="$(_loki_airgap_configured_egress)"
 
     if [ "$as_json" = "true" ]; then
         _AG_PROV="$provider" _AG_PSRC="$provider_src" _AG_HOST="$model_host" _AG_REQ="$model_required" \
         _AG_NOTE="$model_note" _AG_TEL="$tel_state" _AG_TELHOST="$tel_host" _AG_UPD="$upd_state" \
-        _AG_SC="$sidecall_required" _AG_SCHOST="$sidecall_host" \
+        _AG_SC="$sidecall_required" _AG_SCHOST="$sidecall_host" _AG_CFG="$cfg_egress" \
         python3 -c '
 import json, os
 req = os.environ["_AG_REQ"] == "yes"
@@ -15344,6 +15447,12 @@ egress = [{
     "enabled": os.environ["_AG_UPD"] == "on",
     "disable": "export LOKI_NO_UPDATE_CHECK=1",
 }]
+for line in os.environ["_AG_CFG"].split("\n"):  # never splitlines(): it also breaks on U+0085, U+2028 and U+2029
+    parts = line.split("\t")
+    if len(parts) != 4:
+        continue
+    n, h, loc, dis = parts
+    egress.append({"name": n, "host": h, "required": False, "enabled": True, "loopback": loc == "yes", "disable": dis})
 if os.environ["_AG_SC"] == "yes":
     egress.append({
         "name": "claude_sidecalls",
@@ -15392,6 +15501,18 @@ print(json.dumps({
     echo -e "  optional  telemetry           [$tel_state]  -> $tel_host"
     echo "            disable: loki telemetry off, DO_NOT_TRACK=1, or LOKI_AIRGAP=true (on by default for interactive installs)"
     echo -e "  optional  update check        [$upd_state]  disable: export LOKI_NO_UPDATE_CHECK=1"
+    if [ -n "$cfg_egress" ]; then
+        local c_name c_host c_loc c_dis
+        while IFS=$'\t' read -r c_name c_host c_loc c_dis; do
+            [ -n "$c_name" ] || continue
+            if [ "$c_loc" = "yes" ]; then
+                echo "  optional  $c_name -> $c_host (loopback)"
+            else
+                echo "  optional  $c_name -> $c_host"
+            fi
+            echo "            disable: $c_dis"
+        done <<< "$cfg_egress"
+    fi
     echo ""
     echo -e "${BOLD}Not audited here${NC} (depends on the project; see docs/air-gapped.md)"
     echo "  package installs  app runner (npm, pip, docker), dashboard venv (PyPI), quality-gate"
@@ -19645,7 +19766,7 @@ with open(manifest_path, 'w') as f:
 # usable.
 # ---------------------------------------------------------------------------
 cmd_verify() {
-    # D48: --pubkey FILE or --pubkey=FILE (any position) verifies a receipt against a given public key (v10 engine, no ~/.loki needed).
+    # --pubkey FILE or --pubkey=FILE (any position) verifies a receipt against a given public key (v10 engine, no ~/.loki needed).
     local _pk_arg
     for _pk_arg in "$@"; do
         case "$_pk_arg" in
@@ -22694,7 +22815,7 @@ main() {
     fi
 
     if [ $# -eq 0 ] || { [ $# -eq 1 ] && [ "$1" = "--no-open" ]; }; then
-        # D51: bare `loki` starts the local UI. LOKI_LANDING=1 keeps the v7.28
+        # bare `loki` starts the local UI. LOKI_LANDING=1 keeps the v7.28
         # newcomer landing (tests and scripts that parse it set it).
         if [ "${LOKI_LANDING:-0}" = "1" ]; then
             show_landing
@@ -23107,7 +23228,7 @@ main() {
             cmd_verify "$@"
             ;;
         keys)
-            # D48: public-key export lives in the Bun v10 engine; re-enter the shim on that route.
+            # public-key export lives in the Bun v10 engine; re-enter the shim on that route.
             exec "$_LOKI_SCRIPT_DIR/../bin/loki" keys "$@"
             ;;
         spec)
@@ -30631,7 +30752,7 @@ tokens_known = bool(iterations)
 ctx_file = os.path.join(loki_dir, "context", "tracking.json")
 ctx = load_json(ctx_file)
 # context-tracker.py seeds tracking.json with all-zero totals, so the file
-# existing is not a measurement: only real (nonzero) totals count (S-147).
+# existing is not a measurement: only real (nonzero) totals count.
 if isinstance(ctx, dict) and not tokens_known:
     totals = ctx.get("totals")
     if isinstance(totals, dict) and (totals.get("total_input") or totals.get("total_output")
@@ -33927,7 +34048,7 @@ _docs_generate() {
     fi
     target_path="$(cd "$target_path" && pwd)"
 
-    # S6: a small-tier run (caller exports LOKI_DOCS_TIER) does not pay for the
+    # a small-tier run (caller exports LOKI_DOCS_TIER) does not pay for the
     # eight-doc suite unless docs were asked for explicitly.
     case "${LOKI_DOCS_TIER:-}" in
         small|simple)
@@ -35401,7 +35522,7 @@ cmd_canary() {
         return 2
     fi
     if [ "$subcommand" = "verify" ]; then
-        # D7: this is a verify path. -E stops PYTHONPATH (an empty component
+        # this is a verify path. -E stops PYTHONPATH (an empty component
         # would add the cwd as an absolute path) and a committed
         # sitecustomize.py from acting before the tool runs. python3 is
         # resolved to an absolute path first so an empty PATH component (or a
@@ -37356,6 +37477,63 @@ cmd_report() {
         export)   shift; cmd_export "$@";  return $? ;;
         share)    shift; cmd_share "$@";   return $? ;;
         dogfood)  shift; cmd_dogfood "$@"; return $? ;;
+        release-notes)
+            shift
+            # User release notes (#391): every commit in <from>..<to> is listed under
+            # "changes" when its Loki-Run trailer names a run whose receipt.json
+            # (schema loki.v10.receipt/1) exists under .loki/runs, else under "not sealed".
+            local _rn_range="" _rn_fmt="text" _rn_a
+            while [ $# -gt 0 ]; do
+                _rn_a="$1"; shift
+                case "$_rn_a" in
+                    --format) _rn_fmt="${1:-}"; [ $# -gt 0 ] && shift ;;
+                    --format=*) _rn_fmt="${_rn_a#--format=}" ;;
+                    -*) _rn_range="!"; break ;;
+                    *) [ -z "$_rn_range" ] && _rn_range="$_rn_a" || _rn_range="!" ;;
+                esac
+            done
+            case "$_rn_fmt" in text|json) ;; *) _rn_range="!" ;; esac
+            case "$_rn_range" in
+                ?*..?*) ;;
+                *) echo "Usage: loki report release-notes <from>..<to> [--format text|json]" >&2; return 2 ;;
+            esac
+            local _rn_log
+            _rn_log="$(git log --format='%H%x1f%s%x1f%(trailers:key=Loki-Run,valueonly,separator=%x2c)%x1e' "$_rn_range" 2>/dev/null)" || {
+                echo "Usage: loki report release-notes <from>..<to> [--format text|json]" >&2
+                echo "release-notes: cannot resolve range: $_rn_range" >&2
+                return 2
+            }
+            _RN_LOG="$_rn_log" python3 - "$_rn_fmt" "${LOKI_DIR:-.loki}" <<'PYRN'
+import json, os, sys
+fmt, loki_dir = sys.argv[1], sys.argv[2]
+changes, unsealed = [], []
+for rec in os.environ.get("_RN_LOG", "").split("\x1e"):
+    rec = rec.strip("\n")
+    if not rec:
+        continue
+    sha, subject, run = (rec.split("\x1f") + ["", ""])[:3]
+    run = run.strip().split(",")[0].strip()
+    receipt = ""
+    if run and "/" not in run and ".." not in run:
+        try:
+            with open(os.path.join(loki_dir, "runs", run, "receipt.json")) as fh:
+                if json.load(fh).get("schema") == "loki.v10.receipt/1":
+                    receipt = run
+        except (OSError, ValueError, AttributeError):
+            pass
+    row = {"commit": sha[:12], "subject": subject}
+    (changes if receipt else unsealed).append(dict(row, receipt=receipt) if receipt else row)
+if fmt == "json":
+    print(json.dumps({"changes": changes, "not_sealed": unsealed}, indent=2))
+else:
+    print("changes (%d)" % len(changes))
+    for r in changes:
+        print("  %s  %s  [receipt %s]" % (r["commit"], r["subject"], r["receipt"]))
+    print("not sealed (%d)" % len(unsealed))
+    for r in unsealed:
+        print("  %s  %s" % (r["commit"], r["subject"]))
+PYRN
+            return $? ;;
     esac
     cmd_report_legacy "$@"
 }
@@ -37385,6 +37563,7 @@ cmd_report_legacy() {
                 echo "  export      Export session data (was: loki export) [json|markdown|csv|timeline]"
                 echo "  share       Share session assets (was: loki share)"
                 echo "  dogfood     Self-development stats (was: loki dogfood)"
+                echo "  release-notes <from>..<to> [--format text|json]  Changes in a range; \"sealed\" reads only local .loki/runs receipts"
                 echo "  (Run 'loki report <subcommand> --help' for each. The old"
                 echo "   top-level names still work; see 'loki help aliases'.)"
                 echo ""
@@ -38723,7 +38902,7 @@ PYEOF
             if command -v jq &>/dev/null; then
                 jq . "$pj"
             else
-                # D7: this is a verify-adjacent read of proof.json. -E stops
+                # this is a verify-adjacent read of proof.json. -E stops
                 # PYTHONPATH/sitecustomize.py from acting before this line, and
                 # python3 is resolved to an absolute path first so an empty
                 # PATH component cannot let a committed python3 shim in the
@@ -39195,7 +39374,7 @@ print(json.dumps(doc, indent=2))
             local skip_confirm=0
             local visibility="--public"
             local hosted=0
-            # D7: every python3 invocation below reads proof.json from inside
+            # every python3 invocation below reads proof.json from inside
             # the checkout being shared. Resolve an absolute path once so an
             # empty PATH component cannot let a committed python3 shim in that
             # checkout answer instead of the real interpreter; each call site
@@ -39593,7 +39772,7 @@ cmd_docker() {
         # the port-in-use check, so the picked port is ignored on reuse). Run in
         # a subshell so its internal `exit` paths (already-running -> exit 0,
         # errors -> exit 1) never abort the blocking docker run.
-        # CP-LEGACY (D57): open the Control Plane, never the classic server,
+        # CP-LEGACY: open the Control Plane, never the classic server,
         # unless LOKI_LEGACY_DASHBOARD=1 opts back in. Same open gate as before.
         if [ "${LOKI_LEGACY_DASHBOARD:-0}" != "1" ]; then
             local _cp_args=()

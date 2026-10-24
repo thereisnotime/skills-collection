@@ -1,7 +1,6 @@
 // loki-ts/src/engine10/verify_cmd.ts -- E-22 `loki verify [run-id]` (ENGINE.md section 11/9).
-// Reads receipt.json straight off disk, no RunContext. Three checks, cheapest first: TAMPER
-// (recompute receipt_sha256 with `verification`+itself removed), SIGNATURE (native Ed25519
-// against the active + retired keys), UNSIGNED (jwt null). Node crypto only, no python (A-121).
+// Reads receipt.json straight off disk, no RunContext. Three checks, cheapest first: TAMPER (recompute receipt_sha256 with `verification`+itself removed), SIGNATURE (native Ed25519 against the active
+// + retired keys), UNSIGNED (jwt null). Node crypto only, no python (A-121).
 import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { createHash, createPublicKey, verify, type KeyObject } from "node:crypto";
@@ -48,9 +47,8 @@ function checkAttestation(jwt: string, expectedHash: string, given?: KeyObject):
   return payload?.receipt_sha256 === expectedHash ? { status: "verified", reason: null } : bad("attestation binds a different receipt hash");
 }
 const isPlain = (v: unknown): boolean => v !== null && typeof v === "object" && !Array.isArray(v);
-/** A-117: the worker seals before the supervisor can detect a log tamper, so the receipt alone cannot say so. Bind it to events.jsonl: the log must exist, hold a
- *  prefix hashing to receipt.events_sha256, contiguous seq from 0 and no tamper.detected. Removing the evidence breaks these too.
- *  Deleting the post-seal tail is closed by checkLogSeal (signed receipts); an unsigned receipt carries no key, so it stays exposed to that. */
+/** A-117: the worker seals before the supervisor can detect a log tamper, so the receipt alone cannot say so. Bind it to events.jsonl: the log must exist, hold a  prefix hashing to receipt.events_sha256, contiguous seq from 0
+ *  and no tamper.detected. Removing the evidence breaks these too.  Deleting the post-seal tail is closed by checkLogSeal (signed receipts); an unsigned receipt carries no key, so it stays exposed to that. */
 function checkEventLog(receiptPath: string, receipt: Record<string, unknown>): string | null {
   const bound = receipt["events_sha256"];
   if (receipt["schema"] === "loki.v10.receipt/1") { // P12-01c: seal.ts always writes these, so absence means an edit (other receipt kinds are not gated)
@@ -181,8 +179,10 @@ async function verifyMain(args: readonly string[], deps: VerifyDeps, rec: Explai
   const runsRoot = deps.runsRoot ?? join(lokiDir(), "runs");
   const runId = args[0] ?? latestRunId(runsRoot) ?? undefined;
   if (!runId) return (process.stderr.write("loki verify: no runs found\n"), 66);
-  const receiptPath = existsSync(runId) && statSync(runId).isFile() ? runId : join(runsRoot, runId, "receipt.json"); // a receipt file path works directly
-  const byRunId = !(existsSync(runId) && statSync(runId).isFile()); rec.runId = runId; rec.receiptPath = receiptPath; // TEN-GATES-14
+  const isFile = existsSync(runId) && statSync(runId).isFile();
+  const isPath = isFile || /[\\/]/.test(runId) || runId.endsWith(".json"); // a path is reported as given, even when nothing is there
+  const receiptPath = isPath ? runId : join(runsRoot, runId, "receipt.json"); // a receipt file path works directly
+  const byRunId = !isPath; rec.runId = runId; rec.receiptPath = receiptPath; // TEN-GATES-14
   if (exportDsse) return exportDsseReceipt({ receiptPath, runId: byRunId ? runId : null, deps, verify: verifyReceipt, key: loadSigningKey(false), kidOf }); // INTEL-1 / INTEL-1b
   const bad =byRunId ? runIdGuard(receiptPath, runId) : null; // INTEL-1b: an envelope found under a run id must be for that run
   if (bad) return (rec.verdict = "TAMPERED", rec.reasons = [bad], process.stdout.write(`run: ${runId}\nverdict: TAMPERED\n  ${bad}\n`), 1);

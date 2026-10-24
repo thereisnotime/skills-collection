@@ -279,6 +279,314 @@ class ProvidersManagedTests(unittest.TestCase):
             else:
                 os.environ["LOKI_EXPERIMENTAL_MANAGED_AGENTS"] = old
 
+    # ---------- SDK 2.x session contract -----------------------------------
+
+    def test_real_session_uses_2x_agent_environment_kwargs(self):
+        from types import SimpleNamespace as NS
+
+        calls = {}
+
+        class _Ns:
+            def __init__(self, name, ret):
+                self._n, self._r = name, ret
+
+            def create(self, **kw):
+                calls[self._n] = kw
+                return self._r
+
+        recv = lambda text, tid: NS(  # noqa: E731
+            type="agent.thread_message_received",
+            content=[NS(text=text)],
+            from_session_thread_id=tid,
+        )
+
+        class _Sessions(_Ns):
+            # the coordinator's own summary is an agent.message and is not a vote
+            events = NS(
+                list=lambda sid: [
+                    NS(type="agent.message", content=[NS(text="summary")]),
+                    recv("APPROVE", "t1"),
+                    recv("REJECT", "t2"),
+                ]
+            )
+            threads = NS(
+                list=lambda sid: [
+                    NS(id="t0", agent=NS(type="agent", id="agent_coord")),
+                    NS(id="t1", agent=NS(type="agent", id="agent_aaaa")),
+                    NS(id="t2", agent=NS(type="agent", id="agent_bbbb")),
+                ]
+            )
+            retrieve = staticmethod(lambda sid: NS(status="idle"))
+
+        client = NS(
+            beta=NS(
+                agents=_Ns("agents", NS(id="agent_coord")),
+                environments=_Ns("env", NS(id="env_1")),
+                sessions=_Sessions("sessions", NS(id="sess_1", status="idle")),
+            )
+        )
+        self.managed._set_session_factory_for_tests(None)
+        out = self.managed._RealMultiagentSession(
+            client=client, agent_ids=["agent_aaaa", "agent_bbbb"], context={"q": 1}, timeout_s=5
+        ).run()
+
+        kw = calls["sessions"]
+        self.assertNotIn("callable_agents", kw)
+        self.assertEqual(kw["agent"], {"type": "agent", "id": "agent_coord"})
+        self.assertEqual(kw["environment_id"], "env_1")
+        self.assertEqual(kw["initial_events"][0]["type"], "user.message")
+        self.assertEqual(
+            calls["agents"]["multiagent"],
+            {"type": "coordinator", "agents": ["agent_aaaa", "agent_bbbb"]},
+        )
+        self.assertEqual(
+            {m["agent_id"]: m["text"] for m in out["raw"]},
+            {"agent_aaaa": "APPROVE", "agent_bbbb": "REJECT"},
+        )
+        self.assertEqual(calls["agents"]["model"], self.managed.agent_model())
+        # ids cached: a second run creates no new agent or environment
+        calls.clear()
+        self.managed._RealMultiagentSession(
+            client=client, agent_ids=["agent_aaaa", "agent_bbbb"], context={}, timeout_s=5
+        ).run()
+        self.assertEqual(set(calls), {"sessions"})
+
+        # the same kwargs must bind against the installed SDK's real signatures
+        try:
+            import anthropic
+            import inspect
+        except ImportError:
+            return
+        real = anthropic.Anthropic(api_key="test-key").beta
+        inspect.signature(real.sessions.create).bind(**kw)
+        inspect.signature(real.environments.create).bind(name="loki-council")
+        inspect.signature(real.agents.create).bind(**calls.get("agents", {}) or {
+            "name": "n", "model": "m", "system": "s",
+            "multiagent": {"type": "coordinator", "agents": []},
+        })
+
+    def _client_with_events(self, events, threads):
+        from types import SimpleNamespace as NS
+
+        class _C:
+            def __init__(self, ret):
+                self._r = ret
+
+            def create(self, **kw):
+                return self._r
+
+        sessions = _C(NS(id="s", status="idle"))
+        sessions.retrieve = lambda sid: NS(status="idle")
+        sessions.events = NS(list=lambda sid: events)
+        sessions.threads = NS(list=lambda sid: threads)
+        return NS(
+            beta=NS(
+                agents=_C(NS(id="agent_coord")),
+                environments=_C(NS(id="env_1")),
+                sessions=sessions,
+            )
+        )
+
+    def test_incomplete_council_reply_is_unavailable_not_fewer_votes(self):
+        from types import SimpleNamespace as NS
+
+        self._fast_poll()
+        recv = lambda text, tid: NS(  # noqa: E731
+            type="agent.thread_message_received",
+            content=[NS(text=text)],
+            from_session_thread_id=tid,
+        )
+        threads = [
+            NS(id="t1", agent=NS(type="agent", id="agent_aaaa")),
+            NS(id="t2", agent=NS(type="agent", id="agent_bbbb")),
+            NS(id="t3", agent=NS(type="agent", id="agent_cccc")),
+        ]
+        summary = NS(type="agent.message", content=[NS(text="a, b, c: APPROVE")])
+        cases = {
+            "fewer": [recv("APPROVE", "t1"), recv("APPROVE", "t2")],
+            "merged_into_coordinator_message": [summary],
+            "unknown_thread": [recv("APPROVE", "t1"), recv("APPROVE", "t2"), recv("APPROVE", "t9")],
+            "duplicated": [
+                recv("APPROVE", "t1"), recv("APPROVE", "t1"),
+                recv("APPROVE", "t2"), recv("APPROVE", "t2"),
+            ],
+        }
+        for label, events in cases.items():
+            sess = self.managed._RealMultiagentSession(
+                client=self._client_with_events(events, threads),
+                agent_ids=["agent_aaaa", "agent_bbbb", "agent_cccc"],
+                context={},
+                timeout_s=0,
+            )
+            with self.assertRaises(self.managed.ManagedUnavailable, msg=label):
+                sess.run()
+
+        # a thread that is not an agent thread never counts as a vote
+        inline = [NS(id="t1", agent=NS(type="inline", id="agent_aaaa"))] + threads[1:]
+        with self.assertRaises(self.managed.ManagedUnavailable):
+            self.managed._RealMultiagentSession(
+                client=self._client_with_events(
+                    [recv("APPROVE", t) for t in ("t1", "t2", "t3")], inline
+                ),
+                agent_ids=["agent_aaaa", "agent_bbbb", "agent_cccc"],
+                context={},
+                timeout_s=0,
+            ).run()
+
+        # control: exactly one reply per rostered agent is accepted
+        out = self.managed._RealMultiagentSession(
+            client=self._client_with_events(
+                [summary] + [recv(f"V{t}", t) for t in ("t1", "t2", "t3")], threads
+            ),
+            agent_ids=["agent_aaaa", "agent_bbbb", "agent_cccc"],
+            context={},
+            timeout_s=5,
+        ).run()
+        self.assertEqual(
+            {m["agent_id"]: m["text"] for m in out["raw"]},
+            {"agent_aaaa": "Vt1", "agent_bbbb": "Vt2", "agent_cccc": "Vt3"},
+        )
+
+    def test_council_attribution_with_real_sdk_event_types(self):
+        try:
+            import anthropic.types.beta as bt
+            import anthropic.types.beta.sessions as bs
+            from anthropic.types.beta.sessions import (
+                beta_managed_agents_agent_thread_message_received_event as mod,
+            )
+        except ImportError:
+            self.skipTest("anthropic SDK not installed")
+        from types import SimpleNamespace as NS
+
+        Ev = mod.BetaManagedAgentsAgentThreadMessageReceivedEvent
+        Thread = bs.BetaManagedAgentsSessionThread
+        recv = lambda text, tid: Ev.model_validate(  # noqa: E731
+            {
+                "id": f"ev_{tid}",
+                "type": "agent.thread_message_received",
+                "content": [{"type": "text", "text": text}],
+                "from_session_thread_id": tid,
+                "processed_at": "2026-10-23T00:00:00Z",
+            }
+        )
+        agent = lambda aid: bt.BetaManagedAgentsSessionThreadAgent.model_construct(  # noqa: E731
+            type="agent", id=aid
+        )
+        threads = [
+            Thread.model_construct(id="sthr_1", agent=agent("agent_aaaa")),
+            Thread.model_construct(id="sthr_2", agent=agent("agent_bbbb")),
+        ]
+        out = self.managed._RealMultiagentSession(
+            client=self._client_with_events(
+                [recv("APPROVE", "sthr_1"), recv("REJECT", "sthr_2")], threads
+            ),
+            agent_ids=["agent_aaaa", "agent_bbbb"],
+            context={},
+            timeout_s=5,
+        ).run()
+        self.assertEqual(
+            {m["agent_id"]: m["text"] for m in out["raw"]},
+            {"agent_aaaa": "APPROVE", "agent_bbbb": "REJECT"},
+        )
+
+    def test_agent_model_rejects_non_claude_override(self):
+        cat = json.load(open(Path(self.managed.__file__).parent / "model_catalog.json"))["providers"]["claude"]
+        keys = ("LOKI_CLAUDE_MODEL_DEVELOPMENT", "LOKI_MODEL_DEVELOPMENT")
+        prev = {k: os.environ.pop(k, None) for k in keys}
+        try:
+            os.environ["LOKI_MODEL_DEVELOPMENT"] = "gpt-5.3-codex"
+            self.assertEqual(self.managed.agent_model(), cat["latest_development"])
+            os.environ["LOKI_CLAUDE_MODEL_DEVELOPMENT"] = "opus"
+            self.assertEqual(self.managed.agent_model(), cat["cli_aliases"]["opus"])
+        finally:
+            for k in keys:
+                os.environ.pop(k, None)
+                if prev[k] is not None:
+                    os.environ[k] = prev[k]
+
+    def _fast_poll(self):
+        prev = self.managed._SESSION_POLL_S
+        self.addCleanup(setattr, self.managed, "_SESSION_POLL_S", prev)
+        self.managed._SESSION_POLL_S = 0.0
+
+    def _real_session(self, client, agent_ids=("agent_aaaa",), timeout_s=5):
+        return self.managed._RealMultiagentSession(
+            client=client, agent_ids=list(agent_ids), context={}, timeout_s=timeout_s
+        )
+
+    def test_session_not_finished_or_terminated_is_unavailable(self):
+        from types import SimpleNamespace as NS
+
+        self._fast_poll()
+        msg = NS(type="agent.message", content=[NS(text="APPROVE")])
+        for status, timeout_s in (("running", 0), ("rescheduling", 0), ("terminated", 30)):
+            client = self._client_with_events([msg], [])
+            client.beta.sessions.create = lambda **kw: NS(id="s", status=status)
+            client.beta.sessions.retrieve = lambda sid: NS(status=status)
+            start = time.monotonic()
+            with self.assertRaises(self.managed.ManagedUnavailable, msg=status):
+                self._real_session(client, timeout_s=timeout_s).run()
+            # terminated must fail at once, not wait out the deadline
+            self.assertLess(time.monotonic() - start, 3.0, status)
+
+    def test_idle_at_create_waits_for_the_agent_message(self):
+        from types import SimpleNamespace as NS
+
+        self._fast_poll()
+        msg = NS(type="agent.message", content=[NS(text="APPROVE")])
+        batches = [[], [NS(type="user.message")], [msg]]
+        client = self._client_with_events([], [])
+        client.beta.sessions.events = NS(
+            list=lambda sid: batches.pop(0) if len(batches) > 1 else batches[0]
+        )
+        out = self._real_session(client).run()
+        self.assertEqual([m["text"] for m in out["raw"]], ["APPROVE"])
+
+    def test_coordinator_cache_key_includes_model(self):
+        from types import SimpleNamespace as NS
+
+        created = []
+
+        class _A:
+            def create(self, **kw):
+                created.append(kw["model"])
+                return NS(id=f"coord_{len(created)}")
+
+        client = self._client_with_events([], [])
+        client.beta.agents = _A()
+        ids = ("agent_aaaa", "agent_bbbb")
+        prev = os.environ.get("LOKI_CLAUDE_MODEL_DEVELOPMENT")
+        try:
+            for model in ("sonnet", "opus", "sonnet"):
+                os.environ["LOKI_CLAUDE_MODEL_DEVELOPMENT"] = model
+                self._real_session(client, ids)._coordinator_id(client.beta)
+        finally:
+            if prev is None:
+                os.environ.pop("LOKI_CLAUDE_MODEL_DEVELOPMENT", None)
+            else:
+                os.environ["LOKI_CLAUDE_MODEL_DEVELOPMENT"] = prev
+        self.assertEqual(created, ["claude-sonnet-5-5", "claude-opus-5-5"])
+
+    def test_duplicate_agent_reply_is_unavailable_in_both_councils(self):
+        dup = [
+            {"agent_id": "agent_aaaa", "text": "APPROVE"},
+            {"agent_id": "agent_aaaa", "text": "APPROVE"},
+            {"agent_id": "agent_bbbb", "text": "APPROVE"},
+        ]
+        self.managed._set_session_factory_for_tests(
+            lambda client, *, agent_ids, context, timeout_s: FakeMultiagentSession(
+                agent_ids, context, timeout_s, dup
+            )
+        )
+        with self.assertRaises(self.managed.ManagedUnavailable):
+            self.managed.run_council(
+                agent_pool=["reviewer-a", "reviewer-b", "reviewer-c"], context={}, timeout_s=5
+            )
+        with self.assertRaises(self.managed.ManagedUnavailable):
+            self.managed.run_completion_council(
+                voters=["reviewer-a", "reviewer-b", "reviewer-c"], context={}, timeout_s=5
+            )
+
     # ---------- helpers -----------------------------------------------------
 
     def _read_events(self):

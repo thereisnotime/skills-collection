@@ -361,7 +361,7 @@ const hasNoPriceCliff = (m: string): boolean => /sonnet|opus/i.test(m) && !/haik
 
 // Claude Code version bundled in the pinned Agent SDK. A test (providers.test.ts, "providers advisor" block) asserts this equals the
 // installed SDK's claudeCodeVersion, so an SDK bump that forgets it fails CI instead of silently mis-probing.
-export const SDK_BUNDLED_CLAUDE_CODE = "2.1.293";
+export const SDK_BUNDLED_CLAUDE_CODE = "2.1.309";
 function bundledClaudeCodeVersion(): string {
   return SDK_BUNDLED_CLAUDE_CODE;
 }
@@ -555,7 +555,7 @@ export function claudeProvider(): ProviderInvoker {
       // bound on a provider call: a hung provider ran forever, and because
       // .loki/STOP is only read at the top of an iteration, a STOP file was
       // never observed either. The bash route has always honored
-      // LOKI_PROVIDER_CALL_TIMEOUT (autonomy/run.sh:880, default 7200s).
+      // LOKI_PROVIDER_CALL_TIMEOUT (autonomy/run.sh _loki_with_deadline(), default 7200s).
       // shellRun already implements SIGTERM then SIGKILL after a 2s grace;
       // it just was not being asked to. See docs/stop-latency.md.
       //
@@ -1068,7 +1068,7 @@ function applyCodexMaxTier(effort: string): string {
 // `codex exec` is the non-interactive subcommand: it runs at approval "never"
 // with no --ask-for-approval flag, so --sandbox workspace-write alone keeps the
 // loop autonomous (verified against codex 0.132.0: no approval prompt). This
-// mirrors the bash route (run.sh:14720 + codex.sh provider_invoke_with_tier)
+// mirrors the bash route (run.sh run_autonomous() codex arm + codex.sh provider_invoke_with_tier)
 // exactly. workspace-write is also the safer default (scoped disk writes) over
 // the prior danger-full-access.
 //

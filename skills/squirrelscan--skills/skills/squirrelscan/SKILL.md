@@ -5,7 +5,7 @@ license: See LICENSE file in repository root
 compatibility: Requires squirrel CLI installed and accessible in PATH (or guides the user to install it)
 metadata:
   author: squirrelscan
-  version: "1.14"
+  version: "1.16"
 allowed-tools: Bash(squirrel:*) Read
 ---
 
@@ -26,11 +26,15 @@ It ships as a single CLI binary, `squirrel`, for macOS, Windows, and Linux. This
 
 Download and install instructions: [squirrelscan.com/download](https://squirrelscan.com/download)
 
+Prefer a package manager where one fits:
+
 ```bash
-curl -fsSL https://install.squirrelscan.com | bash                    # macOS / Linux
-iwr -useb https://install.squirrelscan.com/install.ps1 | iex          # Windows (PowerShell)
 brew install --cask squirrelscan/tap/squirrel                         # Homebrew, macOS only
 ```
+
+Otherwise use the installer from the download page above (macOS, Linux, Windows). Do not pipe it into a shell: download the script, read it, then run it. The download page has the current install command, and [docs.squirrelscan.com/quickstart](https://docs.squirrelscan.com/quickstart) covers the same steps.
+
+Verifying: the download page lists a SHA-256 checksum for each release binary, and the installer checks each binary against the checksum in the release manifest before it installs (also when it falls back to the `install.squirrelscan.com` mirror). To check a binary by hand, compare `shasum -a 256 <file>` with the value on the download page. The installer script itself has no separate checksum; inspect it before you run it.
 
 The binary installs to `~/.local/bin/squirrel`. With Homebrew, the cask installs only a small launcher: the first run downloads the CLI with the regular installer. Verify with:
 
@@ -232,7 +236,7 @@ Docs: https://docs.squirrelscan.com/guides/entity-map
 
 ## Cloud features and credits
 
-Cloud features are pay-as-you-go with credits (nothing charged up front). Every signed-in audit is billed at every level, quick included: 50 credits for the audit plus 2 per audited page, however the page was fetched. A cloud audit (dashboard, API, hosted MCP) also pays 1 credit per distinct external link it checks. Only an audit that runs signed out or with `--offline` costs nothing. Free accounts get 500 credits a month. Check balance and pricing:
+Cloud features are pay-as-you-go with credits (nothing charged up front). Every signed-in audit is billed at every level, quick included: 50 credits for the audit plus 2 per audited page, however the page was fetched. A cloud audit (dashboard, API, hosted MCP) also pays 1 credit per distinct external link it checks. Only an audit that runs signed out or with `--offline` costs nothing. Free accounts get 500 credits a month, one free allowance per email inbox: a newer account on the same inbox (`+tags` on the big webmail providers and Gmail dots fold together) or on a throwaway-inbox domain starts with 0. If a new free account shows 0 credits, that is not a bug: tell the user to sign in with their first account, upgrade, or contact https://squirrelscan.com/support. Check balance and pricing:
 
 ```bash
 squirrel credits
@@ -365,7 +369,7 @@ squirrel self disk         # per-project and total ~/.squirrel disk use
 
 ### Keeping these skills current
 
-The CLI manages these skills (`squirrelscan` and `audit-website`) itself. This skill is version 1.14: the `metadata.version` at the top of this file.
+The CLI manages these skills (`squirrelscan` and `audit-website`) itself. This skill is version 1.15: the `metadata.version` at the top of this file.
 
 ```bash
 squirrel skills status          # installed version, where, and the latest published

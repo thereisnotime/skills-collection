@@ -85,7 +85,7 @@ fi
 
 echo
 echo "T6 -- self-test survives an unauthenticated, gh-less environment (E-92 guard 17)"
-# E-92: main went red because --self-test made a real `gh api` call in CI
+# main went red because --self-test made a real `gh api` call in CI
 # that passed locally only because a working, authenticated `gh` happened
 # to be on PATH there. Re-run under a stripped env (empty HOME so gh's own
 # ~/.config/gh auth store is gone, no GH_TOKEN/GITHUB_TOKEN, and gh itself
@@ -103,6 +103,19 @@ else
 fi
 rm -rf "$t6_home"
 rm -f "$t6_out"
+
+echo
+echo "T7 -- freshness mutation: widening the 7-day window to 70 must fail the self-test (RQ-106)"
+t7_dir="$(mktemp -d)"
+sed 's/^FRESHNESS_WINDOW_DAYS = 7$/FRESHNESS_WINDOW_DAYS = 70/' "$SCRIPT" >"$t7_dir/dep-inventory.py"
+if cmp -s "$SCRIPT" "$t7_dir/dep-inventory.py"; then
+    bad "mutation did not apply: FRESHNESS_WINDOW_DAYS = 7 line not found"
+elif python3 "$t7_dir/dep-inventory.py" --self-test >/dev/null 2>&1; then
+    bad "self-test stayed green with the window mutated to 70"
+else
+    ok "self-test goes red when the window is mutated to 70"
+fi
+rm -rf "$t7_dir"
 
 echo
 echo "Results: $pass passed, $fail failed"

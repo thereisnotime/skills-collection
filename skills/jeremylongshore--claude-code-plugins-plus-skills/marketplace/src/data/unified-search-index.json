@@ -1761,7 +1761,7 @@
       "slug": "content-consistency-validator",
       "name": "000-jeremy-content-consistency-validator",
       "displayName": "content consistency validator",
-      "description": "Read-only consistency validator: 9 deterministic drift checks across docs, code, tests, and CI, adjudicated by a per-fact-class authority registry (sot-map.yaml) — no global source-of-truth ranking, LLM-judged findings advisory-only, golden-fixture gated. Invoked by /release Phase 1.6.",
+      "description": "Consistency audit across docs, code, tests and CI with per-fact authority and advisory-only LLM findings. Audit probes are instructed to leave project inputs unchanged; each local run attempts disclosure-approved report and index writes in a separate Intent OS checkout, reporting held filing explicitly. Invoked by /release Phase 1.6.",
       "category": "productivity",
       "keywords": [
         "documentation",
@@ -1780,7 +1780,7 @@
         "email": "jeremy@intentsolutions.io"
       },
       "authorType": "official",
-      "version": "3.29.0",
+      "version": "3.30.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -1788,7 +1788,7 @@
       "verificationScore": 90,
       "verificationGrade": "A",
       "verificationBadge": "gold",
-      "searchText": "content consistency validator read-only consistency validator: 9 deterministic drift checks across docs, code, tests, and ci, adjudicated by a per-fact-class authority registry (sot-map.yaml) — no global source-of-truth ranking, llm-judged findings advisory-only, golden-fixture gated. invoked by /release phase 1.6. productivity documentation consistency validation drift-detection source-of-truth authority-registry content-audit quality-assurance release-gate standards"
+      "searchText": "content consistency validator consistency audit across docs, code, tests and ci with per-fact authority and advisory-only llm findings. audit probes are instructed to leave project inputs unchanged; each local run attempts disclosure-approved report and index writes in a separate intent os checkout, reporting held filing explicitly. invoked by /release phase 1.6. productivity documentation consistency validation drift-detection source-of-truth authority-registry content-audit quality-assurance release-gate standards"
     },
     {
       "type": "plugin",
@@ -9856,12 +9856,12 @@
         "email": "jeremy@intentsolutions.io"
       },
       "authorType": "official",
-      "version": "5.24.0",
+      "version": "5.25.0",
       "isFeatured": true,
       "isNew": false,
       "badges": [],
       "skillCount": 2,
-      "verificationScore": 96,
+      "verificationScore": 94,
       "verificationGrade": "A",
       "verificationBadge": "gold",
       "searchText": "skill creator create and validate production-grade agent skills with 100-point marketplace grading. supports creation workflows, eval-driven development, and auto-fix for spec compliance. skill-enhancers skill-creation validation meta-tooling grading anthropic-spec"
@@ -13754,7 +13754,7 @@
         "email": "jeremy@intentsolutions.io"
       },
       "authorType": "official",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -13973,12 +13973,12 @@
         "email": "jeremy@intentsolutions.io"
       },
       "authorType": "official",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
       "skillCount": 1,
-      "verificationScore": 97,
+      "verificationScore": 96,
       "verificationGrade": "A",
       "verificationBadge": "gold",
       "searchText": "plane plane is a team behavior observatory — synthesizes plane api data into observations about how teams actually behave under pressure (cycle velocity vs. plan, ownership churn, reviewer gate strength, priority drift, cross-project load). reads from the live mcp__plane mcp server. productivity plane project-management team-behavior observability productivity agent-skills forge-generated"
@@ -16443,16 +16443,17 @@
         "Glob",
         "Grep",
         "Bash(python:*)",
+        "Bash(python3:*)",
         "AskUserQuestion",
         "Agent"
       ],
       "compatibleWith": [],
-      "version": "5.24.0",
+      "version": "5.25.0",
       "parentPlugin": {
         "name": "skill-creator",
         "category": "skill-enhancers"
       },
-      "searchText": "agent-creator create production-grade agent .md files aligned with the current anthropic subagent contract. also validates existing agents against the marketplace compliance rules. use when building custom subagents, reviewing agent quality, or creating parallel agent architectures for orchestrator skills. trigger with \"/agent-creator\", \"create an agent\", \"build a subagent\", or \"validate my agent\". make sure to use this skill whenever creating agents/*.md files for plugins or standalone use. skill-enhancers read write edit glob grep bash(python:*) askuserquestion agent "
+      "searchText": "agent-creator create production-grade agent .md files aligned with the current anthropic subagent contract. also validates existing agents against the marketplace compliance rules. use when building custom subagents, reviewing agent quality, or creating parallel agent architectures for orchestrator skills. trigger with \"/agent-creator\", \"create an agent\", \"build a subagent\", or \"validate my agent\". make sure to use this skill whenever creating agents/*.md files for plugins or standalone use. skill-enhancers read write edit glob grep bash(python:*) bash(python3:*) askuserquestion agent "
     },
     {
       "type": "skill",
@@ -62841,7 +62842,7 @@
         "AskUserQuestion"
       ],
       "compatibleWith": [],
-      "version": "0.3.0",
+      "version": "0.4.0",
       "parentPlugin": {
         "name": "plane",
         "category": "productivity"
@@ -71694,7 +71695,7 @@
       "id": "skill-creator",
       "slug": "skill-creator",
       "name": "skill-creator",
-      "description": "Create production-grade agent skills aligned with the 2026 AgentSkills.io spec and Anthropic best practices (2026). Also validates existing skills against the Intent Solutions 100-point rubric. Use when building, testing, validating, or optimizing Claude Code skills. Trigger with \"/skill-creator\", \"create a skill\", \"validate my skill\", or \"check skill quality\". Make sure to use this skill whenever creating a new skill, slash command, or agent capability.",
+      "description": "Create, validate, optimize or refresh Claude Code skills. Use when scaffolding a skill, grading an existing skill, or using forge/reforge for an API plugin. Trigger with \"/skill-creator\", \"create a skill\", or \"validate my skill\".",
       "category": "skill-enhancers",
       "allowedTools": [
         "Read",
@@ -71707,15 +71708,20 @@
         "Bash(python:*)",
         "Bash(claude:*)",
         "Agent",
-        "AskUserQuestion"
+        "AskUserQuestion",
+        "Bash(python3:*)",
+        "Bash(pnpm:*)",
+        "Bash(node:*)",
+        "Bash(git:*)",
+        "Bash(scripts/run-jrig-eval.sh:*)"
       ],
       "compatibleWith": [],
-      "version": "5.24.0",
+      "version": "5.25.0",
       "parentPlugin": {
         "name": "skill-creator",
         "category": "skill-enhancers"
       },
-      "searchText": "skill-creator create production-grade agent skills aligned with the 2026 agentskills.io spec and anthropic best practices (2026). also validates existing skills against the intent solutions 100-point rubric. use when building, testing, validating, or optimizing claude code skills. trigger with \"/skill-creator\", \"create a skill\", \"validate my skill\", or \"check skill quality\". make sure to use this skill whenever creating a new skill, slash command, or agent capability. skill-enhancers read write edit glob grep bash(mkdir:*) bash(chmod:*) bash(python:*) bash(claude:*) agent askuserquestion "
+      "searchText": "skill-creator create, validate, optimize or refresh claude code skills. use when scaffolding a skill, grading an existing skill, or using forge/reforge for an api plugin. trigger with \"/skill-creator\", \"create a skill\", or \"validate my skill\". skill-enhancers read write edit glob grep bash(mkdir:*) bash(chmod:*) bash(python:*) bash(claude:*) agent askuserquestion bash(python3:*) bash(pnpm:*) bash(node:*) bash(git:*) bash(scripts/run-jrig-eval.sh:*) "
     },
     {
       "type": "skill",
@@ -76036,7 +76042,7 @@
       "id": "validate-consistency",
       "slug": "validate-consistency",
       "name": "validate-consistency",
-      "description": "Universal document consistency auditor. Runs deterministic drift checks across docs, code, tests, and CI, resolves conflicts through a per-fact-class authority registry (sot-map.yaml), and produces reports that structurally separate deterministic findings from advisory LLM-judged findings. Use when checking documentation accuracy before a release, after major refactors, or when onboarding to a new codebase. Also invoked automatically by /release Phase 1.6. Trigger with \"/validate-consistency\", \"check consistency\", \"validate docs\", \"audit documentation\", \"doc drift check\".",
+      "description": "Universal document consistency auditor. Runs deterministic drift checks across docs, code, tests, and CI, resolves conflicts through a per-fact-class authority registry (sot-map.yaml), and produces reports that structurally separate deterministic findings from advisory LLM-judged findings. Each local run attempts disclosure-approved report and index writes in the caller’s separate Intent OS checkout; unavailable or rejected filing is reported as HELD. Use when checking documentation accuracy before a release, after major refactors, or when onboarding to a new codebase. Also invoked automatically by /release Phase 1.6. Trigger with \"/validate-consistency\", \"check consistency\", \"validate docs\", \"audit documentation\", \"doc drift check\".",
       "category": "productivity",
       "allowedTools": [
         "Read",
@@ -76044,15 +76050,16 @@
         "Grep",
         "Bash(echo:*)",
         "Bash(git:*)",
-        "Bash(diff:*)"
+        "Bash(diff:*)",
+        "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "3.29.0",
+      "version": "3.30.0",
       "parentPlugin": {
         "name": "000-jeremy-content-consistency-validator",
         "category": "productivity"
       },
-      "searchText": "validate-consistency universal document consistency auditor. runs deterministic drift checks across docs, code, tests, and ci, resolves conflicts through a per-fact-class authority registry (sot-map.yaml), and produces reports that structurally separate deterministic findings from advisory llm-judged findings. use when checking documentation accuracy before a release, after major refactors, or when onboarding to a new codebase. also invoked automatically by /release phase 1.6. trigger with \"/validate-consistency\", \"check consistency\", \"validate docs\", \"audit documentation\", \"doc drift check\". productivity read glob grep bash(echo:*) bash(git:*) bash(diff:*) "
+      "searchText": "validate-consistency universal document consistency auditor. runs deterministic drift checks across docs, code, tests, and ci, resolves conflicts through a per-fact-class authority registry (sot-map.yaml), and produces reports that structurally separate deterministic findings from advisory llm-judged findings. each local run attempts disclosure-approved report and index writes in the caller’s separate intent os checkout; unavailable or rejected filing is reported as held. use when checking documentation accuracy before a release, after major refactors, or when onboarding to a new codebase. also invoked automatically by /release phase 1.6. trigger with \"/validate-consistency\", \"check consistency\", \"validate docs\", \"audit documentation\", \"doc drift check\". productivity read glob grep bash(echo:*) bash(git:*) bash(diff:*) bash(python3:*) "
     },
     {
       "type": "skill",

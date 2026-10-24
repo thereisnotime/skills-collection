@@ -236,6 +236,8 @@ For persistent Python service installation, environment reuse or startup, follow
 
 For rendered UI freshness, delayed editor/batch responses or deployment acceptance, enter
 [frontend-visual-qa](frontend-visual-qa/SKILL.md).
+For publication-wide clutter despite passing local checks, use its
+[publication journey calibration](frontend-visual-qa/references/publication-journey-cases.md).
 Before measuring loading speed, read its
 [cache and timing comparison](frontend-visual-qa/references/browser-driving-and-observation-traps.md#separate-freshness-checks-from-performance-comparisons).
 For build reuse across source refs or a target redeployed during acceptance, load its
@@ -249,7 +251,7 @@ focus or filtered-selection changes, use its
 [reader journey](frontend-visual-qa/references/journey-and-page-contracts.md#embedded-readers-and-semantic-zoom).
 For long-document outlines, active-section cues or source sidebars, follow its
 [reading-position recipe](frontend-visual-qa/references/journey-and-page-contracts.md#long-document-reading-positions).
-For browser visibility, selected read modes, request/capture timing or long JSONL input problems, load its
+For browser visibility, hidden-page polling, selected read modes, request/capture timing or long JSONL input problems, load its
 [browser-driving and observation traps](frontend-visual-qa/references/browser-driving-and-observation-traps.md);
 keep adapter requirements and invocation examples in that reference.
 For timed-out screenshots or blank hidden-window captures, follow its
@@ -363,11 +365,16 @@ For memory pressure or suspected child-process leaks, enter that Skill's
 [memory evidence](daymade-macos/macos-load-doctor/SKILL.md#memory-evidence) before attributing the cause.
 The observation contract above owns delayed-sampling acceptance; keep its tests
 and the diagnostic stop conditions in those Skills.
-For changed operating defaults or thresholds in an already-required review, use
+For changed operating defaults or thresholds in an already-required review,
+or behavior-replay dispatch and coverage claims, use
 [skill-creator's independent-review protocol](daymade-skill/skill-creator/references/independent-review-protocol.md).
 Keep decision criteria and verification details in those owners.
 
 ### Transcript Correction
+
+For local audio listening, speaker decisions, word edits and recovery of saved
+judgments, use [Listening Desk](daymade-audio/asr-transcribe-to-text/references/review_workbench.md).
+Its saving and playback contracts govern both the browser and local service.
 
 For explicit single-task speaker-inference requests, load
 [scoped speaker inference](daymade-audio/transcript-fixer/references/scoped_speaker_inference.md).
@@ -385,6 +392,10 @@ queue anchor behavior in
 [review_queue.py](daymade-audio/transcript-fixer/scripts/core/review_queue.py).
 For same-line repeats or a legacy row needing an explicit slot, follow
 [occurrence anchoring](daymade-audio/transcript-fixer/references/review_queue_dashboard.md#same-line-occurrence-anchoring).
+For company slots or a short match inside a longer name, follow
+[minimum occurrence checks](daymade-audio/transcript-fixer/references/dictionary_identity_and_context.md#minimum-occurrence-checks-for-name-candidates).
+For wording supported by a parallel transcript, follow
+[written wording evidence](daymade-audio/transcript-fixer/references/review_queue_dashboard.md#written-evidence-for-ordinary-wording).
 Use the [CLI reference](daymade-audio/transcript-fixer/references/script_parameters.md#fix_transcriptionpy)
 to select the command; the argument parser owns accepted combinations.
 For domain-context location, configuration-directory selection or homophone-veto
@@ -423,14 +434,13 @@ For Feishu document reads and archives, enter
 [feishu-doc-scraper](feishu-doc-scraper/SKILL.md). Its
 [comments and feedback SOP](feishu-doc-scraper/references/comments-and-feedback.md)
 owns discussion capture and interpretation; the bundled helper owns the CLI
-interface. For filing, use its
+interface. Before permanent filing or choosing an authorized archive destination,
+follow the [destination handoff](feishu-doc-scraper/references/archive-destination-handoff.md).
+For storage decisions, use its
 [archive storage contract](feishu-doc-scraper/references/archive-storage-contract.md)
 alongside the destination repository's storage SOP.
-For local originals or an Obsidian delivery, follow the Skill's
+For local originals, Obsidian delivery or a personal source-catalog handoff, follow the Skill's
 [original-media and reader SOP](feishu-doc-scraper/references/original-media-and-reader.md).
-That SOP owns archive-root containment, conversion versus delivery evidence,
-and the source-catalog handoff to favorites-search. Respect the selected destination
-and any user-excluded checks; do not substitute a different archive or acceptance claim.
 
 ### Prior Work Retrieval Boundary
 
@@ -441,6 +451,8 @@ already created by the current prompt. Artifact selection and runtime-read
 comparison are owned by that Skill; a receipt about a locator is not proof of
 the delivered artifact. For retrieval freshness, changed-source recovery and
 receipt lifetime, follow the [Prior Work operating contract](daymade-claude-code/prior-work-retrieval/SKILL.md).
+Requests to repeat a previously successful method enter its
+[candidate verification](daymade-claude-code/prior-work-retrieval/SKILL.md#4-verify-candidates-at-authority).
 
 For CLI/hook manifest selection or continuation in an already-running host, read
 [the manifest-selection contract](daymade-claude-code/prior-work-retrieval/SKILL.md#2-validate-the-explicit-source-manifest).
@@ -523,7 +535,10 @@ Skill links.
 ### Ghostty Terminal Sessions
 
 For snapshotting, restoring or reconciling Claude Code / Codex sessions in Ghostty
-across reboots, enter [`ghostty-use`](ghostty-use/SKILL.md). Its bundled script owns
+across reboots, enter [`ghostty-use`](ghostty-use/SKILL.md). Manual Codex account
+switches and blocked/delegated reopening enter its
+[account-switch SOP](ghostty-use/references/codex-account-switch.md), including
+the original-set handoff and actual-continuation acceptance. Its bundled script owns
 liveness classification and the paste-restore + auto-reconciliation loop; keep the
 storage-layout facts and macOS Ghostty limits in its references rather than here.
 For change-only automatic backups, use its
@@ -655,6 +670,10 @@ in that owner rather than maintaining another push example here.
 
 For recovery or repository convergence under concurrent work, enter
 [git-safety-net](git-safety-net/SKILL.md).
+For local snapshot failures involving an index lock or commit-hook refusal, use its
+[snapshot recovery procedure](git-safety-net/references/recovery_playbook.md#blocked-local-snapshots).
+For Tibo's application retry and acceptance, follow
+[the forecast journal owner](tibo-reset-codex/references/forecast-feedback.md#快照诊断与显式恢复).
 For inherited upload restrictions or source paths hidden by ignore rules, read its
 [convergence authority and source-inventory procedure](git-safety-net/references/merge_verification.md#1-freeze-the-outcome-and-the-first-ref-snapshot).
 

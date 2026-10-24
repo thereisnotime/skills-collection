@@ -86,6 +86,8 @@ CI tests the oldest versions on Python 3.11 and the newest on Python 3.13, using
 
 `[openai]` accepts openai 2.20 through 3.x. LiteLLM and CrewAI require `openai<3`, so `[openai,litellm]` or `[openai,crewai]` installs openai 2.x. The adapter supports 2.x, but you can't get openai 3.x in the same environment as those two frameworks. `[asgi]` has no dependencies; it works with any ASGI 3 server or framework.
 
+The `[litellm]` extra requires `filelock>=4.2.1` to exclude vulnerable lock-file and timeout implementations. LiteLLM releases that require `filelock<4` cannot satisfy this extra; pip selects an earlier compatible LiteLLM release until upstream permits patched filelock versions. This floor is published in the wheel metadata, not only applied to CI.
+
 ## Failures, scopes, and logging
 
 - **Fail-open:** outside strict mode, any adapter or runtime failure sends your original request and reports a reason (`adapter_error` for a bug in adapter code). In strict mode those reasons raise `MiddlewareError`, except version problems (see above).

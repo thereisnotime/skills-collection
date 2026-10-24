@@ -1807,6 +1807,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[yang0/handraw-style](https://github.com/yang0/handraw-style)** - Hand-drawn illustration styles, layouts, and prompts for image generation
 - **[OptimNow/cloud-finops-skills](https://github.com/OptimNow/cloud-finops-skills/tree/main/skills/cloud-finops)** - FinOps knowledge: cloud billing mechanics, commitments, allocation, AI spend
 - **[elithril/blender-kiln](https://github.com/elithril/blender-kiln/tree/main/plugin)** - Text or photo to game-ready GLB through Blender MCP
+- **[MetaMask/metamask-agent-wallet](https://github.com/MetaMask/agent-skills/tree/main/skills/metamask-agent-wallet)** - Official MetaMask self-custodial wallet: swaps, bridges, perps, x402 payments
 - **[assafkip/claudemy](https://github.com/assafkip/claudemy)** - Any topic into 2-minute audio lessons with cited sources
 
 </details>

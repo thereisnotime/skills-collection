@@ -1,7 +1,8 @@
 name: Release
 
-# MINIMAL RELEASE PIPELINE (founder directive 2026-10-19). This is the ONLY
-# workflow in the repo. A push to main that changes VERSION publishes every
+# MINIMAL RELEASE PIPELINE (founder directive 2026-10-19). This is the only
+# publishing workflow in the repo (converge-dist-tags.yml only re-runs the
+# dist-tag script every 15 min). A push to main that changes VERSION publishes every
 # channel the product ships to, in parallel, with nothing in front of npm:
 #   pack-npm -> publish-npm      npm loki-mode under latest AND next
 #   release                      git tag vX.Y.Z + GitHub Release (CHANGELOG notes, skill zips, brew tarball)
@@ -93,7 +94,7 @@ jobs:
           # `npm pack` skips prepublishOnly and `npm publish <tgz>` runs no
           # scripts, so build the web-app and control-plane dist here, fail closed.
           npm run prepublishOnly
-          # FC-51: `npm publish <tgz>` records no gitHead; stamp the release
+          # `npm publish <tgz>` records no gitHead; stamp the release
           # commit into the packed manifest, then restore the tracked file.
           GITHEAD_STAMP="$(git rev-parse HEAD)" || { echo "FATAL: git rev-parse HEAD failed"; exit 1; }
           printf '%s' "$GITHEAD_STAMP" | grep -Eq '^[0-9a-f]{40}$' || { echo "FATAL: HEAD is not a 40-hex SHA: $GITHEAD_STAMP"; exit 1; }
@@ -196,8 +197,14 @@ jobs:
           fi
           # Highest-version guard, post-write re-read and overtaken-tag restore live in
           # scripts/npm-dist-tags.sh (FC-DIST-TAG-MOVED-BACKWARDS).
-          bash scripts/npm-dist-tags.sh "$VERSION"
-          echo "PUBLISHED loki-mode@${VERSION} latest+next" >> "$GITHUB_STEP_SUMMARY"
+          # Best-effort only (FC-DIST-TAG-MOVED-BACKWARDS, RQ-102): the registry lags 4 to 11
+          # min, so a short settle here fails every release. verify-npm-registry converges.
+          if LOKI_DISTTAG_TRIES=2 bash scripts/npm-dist-tags.sh "$VERSION"; then
+            echo "PUBLISHED loki-mode@${VERSION} latest+next" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::dist-tags not settled yet for loki-mode@${VERSION}; verify-npm-registry converges them"
+            echo "PUBLISHED loki-mode@${VERSION} (tags converge in verify-npm-registry)" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   # FC-RELEASE-GREEN-WITHOUT-REGISTRY-PROOF: "+ loki-mode@X" in the publish log is
   # not proof; the registry served 11.50.0 about 11 minutes later. Own job with no
@@ -206,8 +213,11 @@ jobs:
   # served the version.
   verify-npm-registry:
     needs: publish-npm
+    # Converge dist-tags even when the publish job's tag step failed (RQ-102). !cancelled() so a
+    # cancelled run stops this job too; skipped publish means nothing was uploaded.
+    if: ${{ !cancelled() && needs.publish-npm.result != 'skipped' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -252,6 +262,9 @@ jobs:
       - name: Converge dist-tags after the version resolves
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # 50 tries x 15 s sleep is at least 12.5 min, covering the measured 4 to 11 min lag.
+          LOKI_DISTTAG_TRIES: '50'
+          LOKI_DISTTAG_SLEEP: '15'
         run: |
           set -uo pipefail
           VERSION="$(tr -d '\n' < VERSION)"
@@ -288,7 +301,7 @@ jobs:
             echo "release_exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # E-88: notes are extracted BEFORE the tag, so a missing or half-written
+      # notes are extracted BEFORE the tag, so a missing or half-written
       # CHANGELOG section aborts before anything irreversible happens.
       - name: Extract changelog for this version
         if: steps.check_release.outputs.release_exists == 'false'
@@ -329,7 +342,7 @@ jobs:
           git archive --format=tar.gz --prefix="loki-mode-${V}/" -o "release/loki-mode-${V}.tar.gz" HEAD
           file "release/loki-mode-${V}.tar.gz" | grep -q 'gzip compressed' || { echo "ERROR: brew asset is not gzip"; exit 1; }
 
-      # S-105: a tag already on the remote is reused only if it points at the
+      # a tag already on the remote is reused only if it points at the
       # release SHA. Never --force, never delete a tag.
       - name: Create Git Tag
         if: steps.check_release.outputs.release_exists == 'false'
@@ -359,7 +372,7 @@ jobs:
             exit 1
           fi
           echo "ERROR: pushing tag ${TAG} was rejected and the tag is not on the remote."
-          echo "A release that changes .github/workflows/ needs the tag pushed with the Release Manager's own credentials:"
+          echo "A release that changes .github/workflows/ needs the tag pushed with the maintainer's own credentials:"
           echo "  git tag -a ${TAG} -m 'Release ${TAG}' ${RELEASE_SHA} && git push origin refs/tags/${TAG}"
           exit 1
 
@@ -548,7 +561,10 @@ jobs:
           fi
           # Same highest-version guard, fail-closed reads and overtaken-tag restore as
           # loki-mode (FC-DIST-TAG-MOVED-BACKWARDS).
-          LOKI_DISTTAG_PKG=loki-mode-sdk bash ../../scripts/npm-dist-tags.sh "$VERSION"
+          # Best-effort only (RQ-102); verify-sdk-registry converges.
+          if ! LOKI_DISTTAG_TRIES=2 LOKI_DISTTAG_PKG=loki-mode-sdk bash ../../scripts/npm-dist-tags.sh "$VERSION"; then
+            echo "::warning::sdk dist-tags not settled yet for loki-mode-sdk@${VERSION}; verify-sdk-registry converges them"
+          fi
 
   # Same late-materialization converge as verify-npm-registry, for loki-mode-sdk
   # (FC-DIST-TAG-MOVED-BACKWARDS). Nothing waits on it and it holds no lock: the
@@ -557,8 +573,11 @@ jobs:
   # window of milliseconds remains.
   verify-sdk-registry:
     needs: publish-ts-sdk
+    # Converge dist-tags even when the publish job's tag step failed (RQ-102). !cancelled() so a
+    # cancelled run stops this job too; skipped publish means nothing was uploaded.
+    if: ${{ !cancelled() && needs.publish-ts-sdk.result != 'skipped' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -595,6 +614,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           LOKI_DISTTAG_PKG: loki-mode-sdk
+          LOKI_DISTTAG_TRIES: '50'
+          LOKI_DISTTAG_SLEEP: '15'
         run: |
           set -uo pipefail
           VERSION="$(tr -d '\n' < VERSION)"

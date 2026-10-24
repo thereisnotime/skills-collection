@@ -29,8 +29,8 @@
     {
       "name": "000-jeremy-content-consistency-validator",
       "source": "./plugins/productivity/000-jeremy-content-consistency-validator",
-      "description": "Read-only consistency validator: 9 deterministic drift checks across docs, code, tests, and CI, adjudicated by a per-fact-class authority registry (sot-map.yaml) — no global source-of-truth ranking, LLM-judged findings advisory-only, golden-fixture gated. Invoked by /release Phase 1.6.",
-      "version": "3.29.0",
+      "description": "Consistency audit across docs, code, tests and CI with per-fact authority and advisory-only LLM findings. Audit probes are instructed to leave project inputs unchanged; each local run attempts disclosure-approved report and index writes in a separate Intent OS checkout, reporting held filing explicitly. Invoked by /release Phase 1.6.",
+      "version": "3.30.0",
       "category": "productivity",
       "maintainer": "@jeremylongshore",
       "keywords": [
@@ -57,7 +57,7 @@
         "score": 90,
         "grade": "A",
         "badge": "gold",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "lastValidated": "2026-10-24T00:00:00.000Z"
       }
     },
     {
@@ -6660,7 +6660,7 @@
       "name": "skill-creator",
       "source": "./plugins/skill-enhancers/skill-creator",
       "description": "Create and validate production-grade agent skills with 100-point marketplace grading. Supports creation workflows, eval-driven development, and auto-fix for spec compliance.",
-      "version": "5.24.0",
+      "version": "5.25.0",
       "category": "skill-enhancers",
       "keywords": [
         "skill-creation",
@@ -6682,10 +6682,10 @@
         "total": 1
       },
       "verification": {
-        "score": 96,
+        "score": 94,
         "grade": "A",
         "badge": "gold",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "lastValidated": "2026-10-24T00:00:00.000Z"
       }
     },
     {
@@ -10240,7 +10240,7 @@
       "name": "a2a-client",
       "source": "./plugins/mcp/a2a-client",
       "description": "Security-hardened MCP client for Agent2Agent card discovery, messaging, streaming, and confirmation-gated task control",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "category": "mcp",
       "keywords": [
         "a2a",
@@ -10469,7 +10469,7 @@
       "source": "./plugins/productivity/plane",
       "description": "Plane is a team behavior observatory — synthesizes Plane API data into observations about how teams actually behave under pressure (cycle velocity vs. plan, ownership churn, reviewer gate strength, priority drift, cross-project load). Reads from the live mcp__plane MCP server.",
       "tagline": "Team behavior observatory for Plane workspaces",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "category": "productivity",
       "keywords": [
         "plane",
@@ -10491,10 +10491,10 @@
       "generated": true,
       "author_type": "forge",
       "verification": {
-        "score": 97,
+        "score": 96,
         "grade": "A",
         "badge": "gold",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "lastValidated": "2026-10-23T00:00:00.000Z"
       }
     },
     {
