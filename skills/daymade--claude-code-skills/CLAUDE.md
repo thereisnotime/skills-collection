@@ -79,7 +79,7 @@ For user-selected collection destinations, load the
 For running an original application demo, follow that Skill's
 [original-app demo recipe](competitors-analysis/references/original-app-demo.md).
 For file-backed persistence and CLI acceptance, transaction recovery tests,
-financial migration/fixture acceptance, runtime compatibility or project-bound release acceptance, enter
+financial migration/fixture acceptance, admission/recovery bindings, runtime compatibility or project-bound release acceptance, enter
 [qa-expert](qa-expert/SKILL.md); its test-case routes select the detailed recipes.
 For path normalization or drive-relative adapter cases, follow its
 [runtime compatibility recipe](qa-expert/references/runtime-compatibility-acceptance.md#select-optional-path-operation-cases).
@@ -109,6 +109,8 @@ For evidence-based improvement of an existing application, enter
 [app-evolver](app-evolver/SKILL.md). For released-artifact or runtime evidence,
 load its [Skill composition route](app-evolver/references/skill-composition.md);
 keep specialist selection and handoff boundaries in that owner.
+For domain-role extraction or scattered policy, use its
+[consumer-adoption recipe](app-evolver/references/implementation-and-acceptance.md#extract-a-domain-role-through-its-consumers).
 When the user corrects premises, research focus or scope, return first to its
 [task binding](app-evolver/SKILL.md#1-bind-the-application-and-unfinished-result).
 For next-increment selection after that reconciliation or a completed repair batch, use its
@@ -238,6 +240,8 @@ For rendered UI freshness, delayed editor/batch responses or deployment acceptan
 [frontend-visual-qa](frontend-visual-qa/SKILL.md).
 For publication-wide clutter despite passing local checks, use its
 [publication journey calibration](frontend-visual-qa/references/publication-journey-cases.md).
+For the pre-release ancillary-copy gate, follow
+[information necessity](frontend-visual-qa/references/history-derived-checklist.md#information-necessity-before-layout).
 Before measuring loading speed, read its
 [cache and timing comparison](frontend-visual-qa/references/browser-driving-and-observation-traps.md#separate-freshness-checks-from-performance-comparisons).
 For build reuse across source refs or a target redeployed during acceptance, load its
@@ -251,7 +255,7 @@ focus or filtered-selection changes, use its
 [reader journey](frontend-visual-qa/references/journey-and-page-contracts.md#embedded-readers-and-semantic-zoom).
 For long-document outlines, active-section cues or source sidebars, follow its
 [reading-position recipe](frontend-visual-qa/references/journey-and-page-contracts.md#long-document-reading-positions).
-For browser visibility, hidden-page polling, selected read modes, request/capture timing or long JSONL input problems, load its
+For browser visibility, hidden-page polling (query eligibility, scheduling opportunities or product cancellation), selected read modes, request/capture timing or long JSONL input problems, load its
 [browser-driving and observation traps](frontend-visual-qa/references/browser-driving-and-observation-traps.md);
 keep adapter requirements and invocation examples in that reference.
 For timed-out screenshots or blank hidden-window captures, follow its
@@ -374,7 +378,8 @@ Keep decision criteria and verification details in those owners.
 
 For local audio listening, speaker decisions, word edits and recovery of saved
 judgments, use [Listening Desk](daymade-audio/asr-transcribe-to-text/references/review_workbench.md).
-Its saving and playback contracts govern both the browser and local service.
+Its saving, recovery and verification sections govern the browser and local
+service; keep the operating procedure there rather than in review artifacts.
 
 For explicit single-task speaker-inference requests, load
 [scoped speaker inference](daymade-audio/transcript-fixer/references/scoped_speaker_inference.md).
@@ -640,6 +645,12 @@ follow the consumed-file checks in that governance reference before claiming act
 After committing, run `scripts/ci/validate_changed_skills.sh origin/main`; it checks
 the committed diff. A repository-level plugin validation does not replace per-Skill
 validation.
+
+### Repository Environment Repair
+
+For repository startup failures or dependency/environment repairs, enter
+[auto-repo-setup](auto-repo-setup/SKILL.md) and select its Environment repair workflow.
+Keep runtime identification, update steps and consumer verification in that owner.
 
 ### Git Operations
 
@@ -996,5 +1007,7 @@ For maintainer source/install/catalog drift, use **Testing Skills Locally** abov
 Identify the failing layer before updating a marketplace or reinstalling a plugin.
 
 ## Cloudflare mail operations
+
+For Pages custom-hostname failures or signed delegation moves, enter [Cloudflare Troubleshooting](cloudflare-troubleshooting/SKILL.md) and its [custom-domain procedure](cloudflare-troubleshooting/references/pages-custom-domain.md). For a failure confined to one recently moved hostname, [Tunnel Doctor](tunnel-doctor/SKILL.md) selects its local-path comparison; keep mutation authority and recovery with the selected owner.
 
 For domain forwarding diagnosis, use [Email Routing](cloudflare-troubleshooting/references/email-routing.md) through the owning Cloudflare Skill. Keep its endpoint sequence and delivery evidence contract in that reference.

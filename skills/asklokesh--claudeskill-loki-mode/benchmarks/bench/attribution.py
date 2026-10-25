@@ -208,7 +208,7 @@ def _git_sha(path: str) -> Optional[str]:
 
 
 def _scoped_env(extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
-    keep = ("PATH", "HOME", "USER", "LANG", "LC_ALL", "TMPDIR", "SHELL",
+    keep = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TMPDIR", "SHELL",
             "ANTHROPIC_API_KEY", "CLAUDE_CONFIG_DIR", "LOKI_NO_BROWSER")
     env = {k: os.environ[k] for k in keep if k in os.environ}
     env["GIT_TERMINAL_PROMPT"] = "0"
@@ -226,7 +226,8 @@ def pin_environment(probe: bool, runner: Optional[Callable] = None,
                 "loki_bin": _loki_adapter.loki_bin(),
                 "loki_repo_sha": None, "python_version": sys.version.split()[0],
                 "loki_session_model_effective": model,
-                "loki_session_model_parent_env": os.environ.get("LOKI_SESSION_MODEL")}
+                "loki_session_model_parent_env": os.environ.get("LOKI_SESSION_MODEL"),
+                "identity_env": _schema.identity_env_record()}
     return {
         "probed": True,
         "claude_version": _claude_adapter._detect_claude_version(runner=runner),
@@ -236,6 +237,7 @@ def pin_environment(probe: bool, runner: Optional[Callable] = None,
         "python_version": sys.version.split()[0],
         "loki_session_model_effective": model,
         "loki_session_model_parent_env": os.environ.get("LOKI_SESSION_MODEL"),
+        "identity_env": _schema.identity_env_record(),
     }
 
 
@@ -290,6 +292,29 @@ def _wilson_ci95(k: int, n: int) -> Optional[List[float]]:
 def _median(vals: List[float]) -> Optional[float]:
     m = _report._median(vals)
     return None if m is None else round(m, 3)
+
+
+_GRADER_TAIL = "; false green = claimed done and the held-out grader did not accept"
+# Mirrors each runner's reported_success: raw arms (run_raw_claude) require
+# rc == 0 and not is_error; loki and droid arms (run_loki, run_droid) rc == 0.
+_RAW_CLAIM = "claimed done = rc == 0 and not is_error" + _GRADER_TAIL
+_RC_CLAIM = "claimed done = rc == 0" + _GRADER_TAIL
+
+
+def _claim_rule_for_arm(arm: Any) -> str:
+    """Membership dispatch, same sets as the runners. An arm in none of them has
+    no known claim rule: say so, never emit a definite rule."""
+    if isinstance(arm, str):
+        if arm in RAW_ARMS:
+            return _RAW_CLAIM
+        if arm in LOKI_ARMS or arm == "droid":
+            return _RC_CLAIM
+    return "claim rule unknown for arm %s" % (arm if arm else "<missing>")
+
+
+def _claim_rule(rows: List[Dict[str, Any]]) -> str:
+    rules = sorted({_claim_rule_for_arm(r.get("arm")) for r in rows})
+    return " | ".join(rules) if rules else "claim rule unknown for arm <missing>"
 
 
 def compute_metrics(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -357,6 +382,12 @@ def compute_metrics(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "false_completions": len(false_done),
         "false_completion_rate": (round(len(false_done) / len(reported), 4)
                                   if reported and not any_unmeasured else None),
+        # Scoreboard record: same counts as above, shared Wilson/not_captured
+        # math from equivalence_report.false_green_block. Unmeasured runs
+        # make the claim count unreliable, so the arm is not_captured.
+        "false_green": (_equivalence.false_green_block(
+            len(reported), len(false_done), _claim_rule(rows))
+            if not any_unmeasured else "not_captured"),
         "completion_rate": (round(completed / assigned, 4)
                             if assigned and not any_unmeasured else None),
         "timeouts": timeouts,
@@ -1196,6 +1227,11 @@ def main(argv: Optional[List[str]] = None, runner: Optional[Callable] = None) ->
         if not args.dry_run:
             print("  pass --execute to run these cells for real (spends API budget)")
         return 0
+    identity = _schema.identity_env_problems(env)
+    if identity:
+        print("INVALID environment, refusing to spend: %s" % "; ".join(identity),
+              file=sys.stderr)
+        return 2
     if set(arms) & set(LOKI_ARMS):
         mismatch = _loki_adapter.version_mismatch_error(env.get("loki_version"))
         if mismatch:

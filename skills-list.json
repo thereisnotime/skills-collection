@@ -11795,8 +11795,8 @@
       "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Runs a 5-seat, role-separated review panel (Journal-Fit Reviewer + 3 peer-review roles + Devil's Advocate) with field-specific ",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
-      "lines": 539,
-      "words": 5841,
+      "lines": 551,
+      "words": 6380,
       "code_blocks": 4,
       "languages": []
     },
@@ -12100,7 +12100,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "lines": 1503,
-      "words": 23948,
+      "words": 23951,
       "code_blocks": 19,
       "languages": [
         "text"
@@ -12149,8 +12149,8 @@
       "description": "\"Peer Reviewer 2; assesses domain expertise, substantive accuracy, and field-specific adequacy\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/domain_reviewer_agent.md",
-      "lines": 413,
-      "words": 4675,
+      "lines": 423,
+      "words": 4846,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12197,8 +12197,8 @@
       "description": "\"Peer Reviewer 3; evaluates cross-disciplinary relevance, broader impact, and alternative interpretations\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/perspective_reviewer_agent.md",
-      "lines": 428,
-      "words": 4690,
+      "lines": 438,
+      "words": 4860,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -21802,7 +21802,7 @@
         "bash",
         "hcl"
       ],
-      "version": "1.17.1"
+      "version": "1.17.2"
     },
     {
       "name": "terraform-skill",
@@ -63599,457 +63599,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-incident-runbook",
-      "description": "'Execute Clay incident response procedures for enrichment failures, credit",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-incident-runbook/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-incident-runbook/SKILL.md",
-      "lines": 231,
-      "words": 1191,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-reference-architecture",
-      "description": "'Design production Clay enrichment pipelines with table schemas, waterfall",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-reference-architecture/SKILL.md",
-      "lines": 244,
-      "words": 992,
-      "code_blocks": 5,
-      "languages": [
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-webhooks-events",
-      "description": "'Implement Clay webhook receivers and HTTP API column callbacks for real-time",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-webhooks-events/SKILL.md",
-      "lines": 283,
-      "words": 1046,
-      "code_blocks": 5,
-      "languages": [
-        "json",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-prod-checklist",
-      "description": "'Execute production readiness checklist for Clay integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-prod-checklist/SKILL.md",
-      "lines": 179,
-      "words": 1054,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-load-scale",
-      "description": "'Scale Clay enrichment pipelines for high-volume processing (10K-100K+",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-load-scale/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-load-scale/SKILL.md",
-      "lines": 311,
-      "words": 1208,
-      "code_blocks": 4,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-core-workflow-b",
-      "description": "'Use Claygent AI research and AI-powered personalization to generate",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-core-workflow-b/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-core-workflow-b/SKILL.md",
-      "lines": 214,
-      "words": 999,
-      "code_blocks": 6,
-      "languages": [
-        "json",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-hello-world",
-      "description": "'Send your first record to Clay and get enriched data back.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-hello-world/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-hello-world/SKILL.md",
-      "lines": 171,
-      "words": 715,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-reliability-patterns",
-      "description": "'Build fault-tolerant Clay integrations with circuit breakers, dead letter",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-reliability-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-reliability-patterns/SKILL.md",
-      "lines": 366,
-      "words": 1259,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-rate-limits",
-      "description": "'Handle Clay rate limits, webhook throttling, and credit pacing strategies.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-rate-limits/SKILL.md",
-      "lines": 257,
-      "words": 1113,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-ci-integration",
-      "description": "'Configure CI/CD pipelines for Clay integrations with automated testing",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-ci-integration/SKILL.md",
-      "lines": 251,
-      "words": 901,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-cost-tuning",
-      "description": "'Optimize Clay credit spending with provider key management, waterfall",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-cost-tuning/SKILL.md",
-      "lines": 250,
-      "words": 1105,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-upgrade-migration",
-      "description": "'Navigate Clay plan changes, pricing migrations, and feature upgrades.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-upgrade-migration/SKILL.md",
-      "lines": 194,
-      "words": 1012,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-core-workflow-a",
-      "description": "'Build a complete lead enrichment pipeline using Clay tables, webhooks,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-core-workflow-a/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-core-workflow-a/SKILL.md",
-      "lines": 195,
-      "words": 957,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "json",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-data-handling",
-      "description": "'Implement GDPR/CCPA-compliant data handling for Clay enrichment pipelines.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-data-handling/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-data-handling/SKILL.md",
-      "lines": 282,
-      "words": 1010,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-sdk-patterns",
-      "description": "'Apply production-ready patterns for integrating with Clay via webhooks",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-sdk-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-sdk-patterns/SKILL.md",
-      "lines": 303,
-      "words": 1045,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-local-dev-loop",
-      "description": "'Set up a local development loop for building and testing Clay integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-local-dev-loop/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-local-dev-loop/SKILL.md",
-      "lines": 221,
-      "words": 916,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "json",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-deploy-integration",
-      "description": "'Deploy Clay-powered applications to Vercel, Cloud Run, or Docker with",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-deploy-integration/SKILL.md",
-      "lines": 229,
-      "words": 834,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-migration-deep-dive",
-      "description": "'Migrate to Clay from other enrichment tools or consolidate multiple",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-migration-deep-dive/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-migration-deep-dive/SKILL.md",
-      "lines": 272,
-      "words": 1091,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-multi-env-setup",
-      "description": "'Configure Clay integrations across development, staging, and production",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-multi-env-setup/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-multi-env-setup/SKILL.md",
-      "lines": 204,
-      "words": 813,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-common-errors",
-      "description": "'Diagnose and fix the most common Clay errors and integration issues.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-common-errors/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-common-errors/SKILL.md",
-      "lines": 249,
-      "words": 1107,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-advanced-troubleshooting",
-      "description": "'Deep-debug complex Clay enrichment failures, provider degradation, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-advanced-troubleshooting/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-advanced-troubleshooting/SKILL.md",
-      "lines": 281,
-      "words": 1220,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-observability",
-      "description": "'Monitor Clay enrichment pipeline health, credit consumption, and data",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-observability/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-observability/SKILL.md",
-      "lines": 286,
-      "words": 969,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-debug-bundle",
-      "description": "'Collect Clay debug evidence for support tickets and troubleshooting.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-debug-bundle/SKILL.md",
-      "lines": 224,
-      "words": 921,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-enterprise-rbac",
-      "description": "'Configure Clay workspace roles, team access control, and credit budget",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-enterprise-rbac/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-enterprise-rbac/SKILL.md",
-      "lines": 218,
-      "words": 925,
-      "code_blocks": 4,
-      "languages": [
-        "markdown",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-policy-guardrails",
-      "description": "'Implement credit spending limits, data privacy enforcement, and input",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-policy-guardrails/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-policy-guardrails/SKILL.md",
-      "lines": 361,
-      "words": 1117,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-performance-tuning",
-      "description": "'Optimize Clay table enrichment throughput, reduce processing time, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-performance-tuning/SKILL.md",
-      "lines": 251,
-      "words": 1079,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-architecture-variants",
-      "description": "'Choose and implement Clay integration architecture for different scales",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-architecture-variants/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-architecture-variants/SKILL.md",
-      "lines": 246,
-      "words": 1073,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-known-pitfalls",
-      "description": "'Identify and avoid the top Clay anti-patterns, gotchas, and integration",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-known-pitfalls/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-known-pitfalls/SKILL.md",
-      "lines": 242,
-      "words": 1339,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-security-basics",
-      "description": "'Apply Clay security best practices for API keys, webhook secrets, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-security-basics/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-security-basics/SKILL.md",
-      "lines": 210,
-      "words": 915,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-install-auth",
-      "description": "'Set up Clay account access, API keys, webhook URLs, and provider connections.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clay-pack/skills/clay-install-auth/SKILL.md",
-      "remote_path": "plugins/saas-packs/clay-pack/skills/clay-install-auth/SKILL.md",
-      "lines": 163,
-      "words": 858,
-      "code_blocks": 4,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "palantir-cost-tuning",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/palantir-pack/skills/palantir-cost-tuning/SKILL.md",
@@ -69514,74 +69063,46 @@
       "license": "MIT"
     },
     {
-      "name": "ga4-auth-setup",
+      "name": "ga4-measurement-verifier",
       "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-auth-setup/SKILL.md",
-      "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-auth-setup/SKILL.md",
-      "lines": 147,
-      "words": 882,
-      "code_blocks": 5,
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-measurement-verifier/SKILL.md",
+      "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-measurement-verifier/SKILL.md",
+      "lines": 167,
+      "words": 1131,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "version": "2.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "ga4-export-guardian",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-export-guardian/SKILL.md",
+      "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-export-guardian/SKILL.md",
+      "lines": 158,
+      "words": 1124,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.3.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
-      "name": "ga4-realtime-api",
+      "name": "ga4-report-forensics",
       "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-realtime-api/SKILL.md",
-      "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-realtime-api/SKILL.md",
-      "lines": 178,
-      "words": 966,
-      "code_blocks": 5,
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-report-forensics/SKILL.md",
+      "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-report-forensics/SKILL.md",
+      "lines": 171,
+      "words": 1161,
+      "code_blocks": 1,
       "languages": [
-        "python"
+        "bash"
       ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "ga4-data-api-query",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-data-api-query/SKILL.md",
-      "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-data-api-query/SKILL.md",
-      "lines": 236,
-      "words": 1200,
-      "code_blocks": 6,
-      "languages": [
-        "python"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "ga4-bigquery-export",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-bigquery-export/SKILL.md",
-      "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-bigquery-export/SKILL.md",
-      "lines": 244,
-      "words": 1564,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "ga4-common-reports",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-common-reports/SKILL.md",
-      "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-common-reports/SKILL.md",
-      "lines": 234,
-      "words": 1060,
-      "code_blocks": 8,
-      "languages": [
-        "python"
-      ],
-      "version": "1.3.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -70637,366 +70158,73 @@
       "license": "MIT"
     },
     {
-      "name": "langfuse-local-dev-loop",
-      "description": "'Set up Langfuse local development workflow with hot reload and debugging.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-local-dev-loop/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-local-dev-loop/SKILL.md",
-      "lines": 269,
-      "words": 905,
-      "code_blocks": 8,
+      "name": "langfuse-trace-ingestion-medic",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-trace-ingestion-medic/SKILL.md",
+      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-trace-ingestion-medic/SKILL.md",
+      "lines": 129,
+      "words": 819,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "json",
-        "typescript",
-        "yaml"
+        "sh"
       ],
-      "version": "1.17.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
-      "name": "langfuse-reference-architecture",
-      "description": "'Production-grade Langfuse architecture patterns and best practices.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-reference-architecture/SKILL.md",
-      "lines": 341,
-      "words": 1223,
-      "code_blocks": 6,
+      "name": "langfuse-cost-forensics",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-cost-forensics/SKILL.md",
+      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-cost-forensics/SKILL.md",
+      "lines": 121,
+      "words": 768,
+      "code_blocks": 1,
       "languages": [
-        "typescript"
+        "sh"
       ],
-      "version": "1.17.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
-      "name": "langfuse-observability",
-      "description": "'Set up comprehensive observability for Langfuse with metrics, dashboards,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-observability/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-observability/SKILL.md",
-      "lines": 292,
-      "words": 973,
-      "code_blocks": 7,
+      "name": "langfuse-data-boundary-auditor",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-data-boundary-auditor/SKILL.md",
+      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-data-boundary-auditor/SKILL.md",
+      "lines": 133,
+      "words": 844,
+      "code_blocks": 1,
       "languages": [
-        "json",
-        "typescript",
-        "yaml"
+        "sh"
       ],
-      "version": "1.17.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
-      "name": "langfuse-core-workflow-a",
-      "description": "'Execute Langfuse primary workflow: Tracing LLM calls and spans.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-core-workflow-a/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-core-workflow-a/SKILL.md",
-      "lines": 294,
-      "words": 1004,
-      "code_blocks": 6,
+      "name": "langfuse-prompt-release-guardian",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-prompt-release-guardian/SKILL.md",
+      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-prompt-release-guardian/SKILL.md",
+      "lines": 128,
+      "words": 815,
+      "code_blocks": 1,
       "languages": [
-        "python",
-        "typescript"
+        "sh"
       ],
-      "version": "1.17.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
-      "name": "langfuse-core-workflow-b",
-      "description": "'Execute Langfuse secondary workflow: Evaluation, scoring, and datasets.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-core-workflow-b/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-core-workflow-b/SKILL.md",
-      "lines": 292,
-      "words": 996,
-      "code_blocks": 6,
+      "name": "langfuse-experiment-guardian",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-experiment-guardian/SKILL.md",
+      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-experiment-guardian/SKILL.md",
+      "lines": 127,
+      "words": 788,
+      "code_blocks": 1,
       "languages": [
-        "typescript"
+        "sh"
       ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-upgrade-migration",
-      "description": "'Upgrade Langfuse SDK versions and migrate between API changes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-upgrade-migration/SKILL.md",
-      "lines": 274,
-      "words": 1056,
-      "code_blocks": 11,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-cost-tuning",
-      "description": "'Monitor and optimize LLM costs using Langfuse analytics and dashboards.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-cost-tuning/SKILL.md",
-      "lines": 289,
-      "words": 1139,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-data-handling",
-      "description": "'Manage Langfuse data export, retention, and compliance requirements.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-data-handling/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-data-handling/SKILL.md",
-      "lines": 285,
-      "words": 927,
-      "code_blocks": 6,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-debug-bundle",
-      "description": "'Collect Langfuse debug evidence for support tickets and troubleshooting.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-debug-bundle/SKILL.md",
-      "lines": 232,
-      "words": 874,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-incident-runbook",
-      "description": "'Troubleshoot and respond to Langfuse-related incidents and outages.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-incident-runbook/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-incident-runbook/SKILL.md",
-      "lines": 244,
-      "words": 1083,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-performance-tuning",
-      "description": "'Optimize Langfuse tracing performance for high-throughput applications.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-performance-tuning/SKILL.md",
-      "lines": 294,
-      "words": 1119,
-      "code_blocks": 7,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-enterprise-rbac",
-      "description": "'Configure Langfuse enterprise organization management and access control.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-enterprise-rbac/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-enterprise-rbac/SKILL.md",
-      "lines": 246,
-      "words": 979,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-ci-integration",
-      "description": "'Configure Langfuse CI/CD integration with GitHub Actions and automated",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-ci-integration/SKILL.md",
-      "lines": 310,
-      "words": 1073,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-prod-checklist",
-      "description": "'Langfuse production readiness checklist and verification.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-prod-checklist/SKILL.md",
-      "lines": 253,
-      "words": 1018,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-migration-deep-dive",
-      "description": "'Execute complex Langfuse migrations including data migration and platform",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-migration-deep-dive/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-migration-deep-dive/SKILL.md",
-      "lines": 322,
-      "words": 1141,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-security-basics",
-      "description": "'Implement Langfuse security best practices for API keys and data privacy.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-security-basics/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-security-basics/SKILL.md",
-      "lines": 246,
-      "words": 952,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-multi-env-setup",
-      "description": "'Configure Langfuse across development, staging, and production environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-multi-env-setup/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-multi-env-setup/SKILL.md",
-      "lines": 262,
-      "words": 900,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "gitignore",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-common-errors",
-      "description": "'Diagnose and fix common Langfuse errors and exceptions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-common-errors/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-common-errors/SKILL.md",
-      "lines": 370,
-      "words": 1192,
-      "code_blocks": 18,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-deploy-integration",
-      "description": "'Deploy Langfuse with your application across different platforms.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-deploy-integration/SKILL.md",
-      "lines": 258,
-      "words": 858,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-rate-limits",
-      "description": "'Implement Langfuse rate limiting, batching, and backoff patterns.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-rate-limits/SKILL.md",
-      "lines": 259,
-      "words": 923,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-hello-world",
-      "description": "'Create a minimal working Langfuse trace example.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-hello-world/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-hello-world/SKILL.md",
-      "lines": 250,
-      "words": 894,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-webhooks-events",
-      "description": "'Configure Langfuse webhooks for prompt change notifications and event-driven",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-webhooks-events/SKILL.md",
-      "lines": 304,
-      "words": 990,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-sdk-patterns",
-      "description": "'Langfuse SDK best practices, patterns, and idiomatic usage.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-sdk-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-sdk-patterns/SKILL.md",
-      "lines": 300,
-      "words": 1162,
-      "code_blocks": 7,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-install-auth",
-      "description": "'Install and configure Langfuse SDK authentication for LLM observability.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-install-auth/SKILL.md",
-      "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-install-auth/SKILL.md",
-      "lines": 221,
-      "words": 812,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.17.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -76403,353 +75631,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-prod-checklist",
-      "description": "'Pre-launch: All datasources indexed and searchable.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-prod-checklist/SKILL.md",
-      "lines": 128,
-      "words": 800,
-      "code_blocks": 1,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-core-workflow-a",
-      "description": "'Execute Glean primary workflow: search, chat, and AI-powered answers",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-core-workflow-a/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-core-workflow-a/SKILL.md",
-      "lines": 106,
-      "words": 419,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-ci-integration",
-      "description": "'CI/CD for Glean connectors with automated indexing tests and search",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-ci-integration/SKILL.md",
-      "lines": 164,
-      "words": 692,
-      "code_blocks": 3,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-upgrade-migration",
-      "description": "'Check Glean developer changelog for API changes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-upgrade-migration/SKILL.md",
-      "lines": 175,
-      "words": 877,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-reference-architecture",
-      "description": "'Enterprise architecture: Source Systems to Connectors (Cloud Run/Lambda,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-reference-architecture/SKILL.md",
-      "lines": 156,
-      "words": 898,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-migration-deep-dive",
-      "description": "'Migrate from Elasticsearch/Algolia: 1) Export all documents from source,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-migration-deep-dive/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-migration-deep-dive/SKILL.md",
-      "lines": 201,
-      "words": 998,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-multi-env-setup",
-      "description": "'Use separate datasource names per environment (wiki_staging vs wiki_prod).",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-multi-env-setup/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-multi-env-setup/SKILL.md",
-      "lines": 135,
-      "words": 699,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "text",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-observability",
-      "description": "'Track: documents indexed per run (total + new + updated + deleted),",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-observability/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-observability/SKILL.md",
-      "lines": 136,
-      "words": 718,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-core-workflow-b",
-      "description": "'Execute Glean secondary workflow: bulk document indexing, custom datasource",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-core-workflow-b/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-core-workflow-b/SKILL.md",
-      "lines": 145,
-      "words": 504,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-local-dev-loop",
-      "description": "'Configure Glean local development with mock search responses, test datasources,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-local-dev-loop/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-local-dev-loop/SKILL.md",
-      "lines": 139,
-      "words": 720,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-debug-bundle",
-      "description": "'Collect Glean diagnostic information for support including datasource",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-debug-bundle/SKILL.md",
-      "lines": 186,
-      "words": 949,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-deploy-integration",
-      "description": "'Deploy Glean custom connectors as scheduled jobs on Cloud Run, Lambda,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-deploy-integration/SKILL.md",
-      "lines": 160,
-      "words": 673,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-incident-runbook",
-      "description": "'Triage: Is search returning results? Check Glean status page.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-incident-runbook/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-incident-runbook/SKILL.md",
-      "lines": 140,
-      "words": 951,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-rate-limits",
-      "description": "'Glean Indexing API: ~100 requests/min per token.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-rate-limits/SKILL.md",
-      "lines": 159,
-      "words": 818,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-performance-tuning",
-      "description": "'Optimize Glean search relevance and indexing throughput with batch sizing,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-performance-tuning/SKILL.md",
-      "lines": 146,
-      "words": 820,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-common-errors",
-      "description": "'Diagnose and fix common Glean API errors including indexing failures,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-common-errors/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-common-errors/SKILL.md",
-      "lines": 127,
-      "words": 886,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-cost-tuning",
-      "description": "'Optimize Glean costs by managing indexed content volume, datasource",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-cost-tuning/SKILL.md",
-      "lines": 136,
-      "words": 835,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-install-auth",
-      "description": "'Install and configure Glean API authentication with indexing and client",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-install-auth/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-install-auth/SKILL.md",
-      "lines": 120,
-      "words": 469,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-hello-world",
-      "description": "'Index documents into Glean and search them back using the Indexing and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-hello-world/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-hello-world/SKILL.md",
-      "lines": 132,
-      "words": 447,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-webhooks-events",
-      "description": "'Implement event-driven Glean indexing triggered by source system webhooks",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-webhooks-events/SKILL.md",
-      "lines": 146,
-      "words": 668,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-security-basics",
-      "description": "'Token security: Indexing tokens have write access -- never expose in",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-security-basics/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-security-basics/SKILL.md",
-      "lines": 146,
-      "words": 718,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-enterprise-rbac",
-      "description": "'Map AD/Okta groups to Glean document permissions using allowedGroups.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-enterprise-rbac/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-enterprise-rbac/SKILL.md",
-      "lines": 130,
-      "words": 751,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-sdk-patterns",
-      "description": "'Apply production-ready Glean API patterns with typed clients, batch",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-sdk-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-sdk-patterns/SKILL.md",
-      "lines": 158,
-      "words": 849,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-data-handling",
-      "description": "'PII filtering: strip emails, phone numbers, SSNs from document body",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/glean-pack/skills/glean-data-handling/SKILL.md",
-      "remote_path": "plugins/saas-packs/glean-pack/skills/glean-data-handling/SKILL.md",
-      "lines": 149,
-      "words": 922,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -85434,366 +84315,6 @@
       "license": "MIT"
     },
     {
-      "name": "gamma-multi-env-setup",
-      "description": "'Configure Gamma across development, staging, and production environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-multi-env-setup/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-multi-env-setup/SKILL.md",
-      "lines": 281,
-      "words": 904,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-reference-architecture",
-      "description": "'Reference architecture for enterprise Gamma integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-reference-architecture/SKILL.md",
-      "lines": 251,
-      "words": 855,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-debug-bundle",
-      "description": "'Comprehensive debugging toolkit for Gamma integration issues.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-debug-bundle/SKILL.md",
-      "lines": 310,
-      "words": 1143,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-common-errors",
-      "description": "'Debug and resolve common Gamma API errors.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-common-errors/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-common-errors/SKILL.md",
-      "lines": 216,
-      "words": 656,
-      "code_blocks": 10,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-enterprise-rbac",
-      "description": "'Implement enterprise role-based access control for Gamma integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-enterprise-rbac/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-enterprise-rbac/SKILL.md",
-      "lines": 270,
-      "words": 953,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-core-workflow-a",
-      "description": "'Generate presentations, documents, and webpages via Gamma API.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-core-workflow-a/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-core-workflow-a/SKILL.md",
-      "lines": 251,
-      "words": 1012,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-deploy-integration",
-      "description": "'Deploy Gamma-integrated applications to production environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-deploy-integration/SKILL.md",
-      "lines": 233,
-      "words": 612,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "json",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-upgrade-migration",
-      "description": "'Upgrade Gamma SDK versions and migrate between API versions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-upgrade-migration/SKILL.md",
-      "lines": 228,
-      "words": 666,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-local-dev-loop",
-      "description": "'Set up local development workflow for Gamma API integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-local-dev-loop/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-local-dev-loop/SKILL.md",
-      "lines": 261,
-      "words": 910,
-      "code_blocks": 6,
-      "languages": [
-        "json",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-prod-checklist",
-      "description": "'Production readiness checklist for Gamma integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-prod-checklist/SKILL.md",
-      "lines": 214,
-      "words": 803,
-      "code_blocks": 5,
-      "languages": [
-        "text",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-security-basics",
-      "description": "'Implement security best practices for Gamma integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-security-basics/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-security-basics/SKILL.md",
-      "lines": 194,
-      "words": 583,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-incident-runbook",
-      "description": "'Manage incident response for Gamma integration issues.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-incident-runbook/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-incident-runbook/SKILL.md",
-      "lines": 284,
-      "words": 959,
-      "code_blocks": 11,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-ci-integration",
-      "description": "'Configure Gamma CI/CD integration with GitHub Actions and testing.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-ci-integration/SKILL.md",
-      "lines": 212,
-      "words": 608,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "json",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-install-auth",
-      "description": "'Set up Gamma API v1.0 authentication and first request.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-install-auth/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-install-auth/SKILL.md",
-      "lines": 166,
-      "words": 670,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-migration-deep-dive",
-      "description": "'Deep dive into migrating to Gamma from other presentation platforms.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-migration-deep-dive/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-migration-deep-dive/SKILL.md",
-      "lines": 287,
-      "words": 1162,
-      "code_blocks": 6,
-      "languages": [
-        "text",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-cost-tuning",
-      "description": "'Optimize Gamma usage costs and manage API spending.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-cost-tuning/SKILL.md",
-      "lines": 272,
-      "words": 1052,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-data-handling",
-      "description": "'Handle data privacy, retention, and compliance for Gamma integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-data-handling/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-data-handling/SKILL.md",
-      "lines": 272,
-      "words": 1034,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-observability",
-      "description": "'Implement comprehensive observability for Gamma integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-observability/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-observability/SKILL.md",
-      "lines": 288,
-      "words": 965,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-sdk-patterns",
-      "description": "'Reusable patterns for the Gamma REST API (no SDK exists).",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-sdk-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-sdk-patterns/SKILL.md",
-      "lines": 301,
-      "words": 1032,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-hello-world",
-      "description": "'Generate your first Gamma presentation via the API.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-hello-world/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-hello-world/SKILL.md",
-      "lines": 208,
-      "words": 690,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "json",
-        "python",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-rate-limits",
-      "description": "'Understand and manage Gamma API rate limits effectively.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-rate-limits/SKILL.md",
-      "lines": 191,
-      "words": 656,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-performance-tuning",
-      "description": "'Optimize Gamma API performance and reduce latency.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-performance-tuning/SKILL.md",
-      "lines": 275,
-      "words": 1033,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-core-workflow-b",
-      "description": "'Generate from templates, retrieve exports, and manage sharing via Gamma",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-core-workflow-b/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-core-workflow-b/SKILL.md",
-      "lines": 266,
-      "words": 1017,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-webhooks-events",
-      "description": "'Handle Gamma webhooks and events for real-time updates.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/gamma-pack/skills/gamma-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/gamma-pack/skills/gamma-webhooks-events/SKILL.md",
-      "lines": 267,
-      "words": 949,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
       "name": "techsmith-core-workflow-a",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/techsmith-pack/skills/techsmith-core-workflow-a/SKILL.md",
@@ -86302,265 +84823,6 @@
         "bash"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-cost-tuning",
-      "description": "'Optimize AppFolio API costs through efficient usage patterns.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-cost-tuning/SKILL.md",
-      "lines": 155,
-      "words": 909,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-rate-limits",
-      "description": "'Handle AppFolio API rate limits with throttling and backoff.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-rate-limits/SKILL.md",
-      "lines": 174,
-      "words": 873,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-reference-architecture",
-      "description": "'Reference architecture for AppFolio property management integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-reference-architecture/SKILL.md",
-      "lines": 174,
-      "words": 923,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-webhooks-events",
-      "description": "'Handle AppFolio webhook events for property management notifications.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-webhooks-events/SKILL.md",
-      "lines": 150,
-      "words": 731,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-core-workflow-b",
-      "description": "'Automate tenant management and lease operations with AppFolio.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-core-workflow-b/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-core-workflow-b/SKILL.md",
-      "lines": 130,
-      "words": 600,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-debug-bundle",
-      "description": "'Collect AppFolio API debug evidence for support tickets.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-debug-bundle/SKILL.md",
-      "lines": 195,
-      "words": 1017,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-deploy-integration",
-      "description": "'Deploy AppFolio integration service to cloud infrastructure.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-deploy-integration/SKILL.md",
-      "lines": 174,
-      "words": 807,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-local-dev-loop",
-      "description": "'Set up local development for AppFolio property management API integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-local-dev-loop/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-local-dev-loop/SKILL.md",
-      "lines": 140,
-      "words": 803,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-hello-world",
-      "description": "'Query AppFolio properties, units, and tenants via REST API.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-hello-world/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-hello-world/SKILL.md",
-      "lines": 97,
-      "words": 454,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-upgrade-migration",
-      "description": "'Migrate between AppFolio API versions and handle endpoint changes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-upgrade-migration/SKILL.md",
-      "lines": 138,
-      "words": 667,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-security-basics",
-      "description": "'Secure AppFolio API credentials and tenant data.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-security-basics/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-security-basics/SKILL.md",
-      "lines": 166,
-      "words": 779,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-install-auth",
-      "description": "'Configure AppFolio Stack API authentication with OAuth 2.0.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-install-auth/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-install-auth/SKILL.md",
-      "lines": 155,
-      "words": 623,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-prod-checklist",
-      "description": "'Production readiness checklist for AppFolio integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-prod-checklist/SKILL.md",
-      "lines": 140,
-      "words": 882,
-      "code_blocks": 1,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-core-workflow-a",
-      "description": "'Build property management dashboard with AppFolio API data.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-core-workflow-a/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-core-workflow-a/SKILL.md",
-      "lines": 150,
-      "words": 693,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-ci-integration",
-      "description": "'Configure CI/CD pipeline for AppFolio property management integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-ci-integration/SKILL.md",
-      "lines": 189,
-      "words": 861,
-      "code_blocks": 4,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-sdk-patterns",
-      "description": "'Apply production-ready patterns for AppFolio REST API integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-sdk-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-sdk-patterns/SKILL.md",
-      "lines": 167,
-      "words": 850,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-performance-tuning",
-      "description": "'Optimize AppFolio API performance with caching and batch operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-performance-tuning/SKILL.md",
-      "lines": 156,
-      "words": 833,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-common-errors",
-      "description": "'Diagnose and fix common AppFolio API integration errors.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/appfolio-pack/skills/appfolio-common-errors/SKILL.md",
-      "remote_path": "plugins/saas-packs/appfolio-pack/skills/appfolio-common-errors/SKILL.md",
-      "lines": 147,
-      "words": 1027,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
       "license": "MIT"
     },
     {
@@ -108176,22 +106438,6 @@
       "license": "MIT"
     },
     {
-      "name": "gamma-multi-env-setup",
-      "description": "'Configure Gamma across development, staging, and production environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-multi-env-setup/SKILL.md",
-      "remote_path": "skills/.curated/gamma-multi-env-setup/SKILL.md",
-      "lines": 281,
-      "words": 904,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
       "name": "windsurf-theme-customization",
       "description": "'Configure Windsurf themes and visual settings for accessibility. Activate",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-theme-customization/SKILL.md",
@@ -109304,20 +107550,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-cost-tuning",
-      "description": "'Optimize AppFolio API costs through efficient usage patterns.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-cost-tuning/SKILL.md",
-      "lines": 155,
-      "words": 909,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "notion-cost-tuning",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/notion-cost-tuning/SKILL.md",
@@ -109632,20 +107864,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-rate-limits",
-      "description": "'Handle AppFolio API rate limits with throttling and backoff.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-rate-limits/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-rate-limits/SKILL.md",
-      "lines": 174,
-      "words": 873,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "vercel-cost-tuning",
       "description": "'Optimize Vercel costs through plan selection, function efficiency, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vercel-cost-tuning/SKILL.md",
@@ -109744,20 +107962,6 @@
         "bash"
       ],
       "version": "2.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-prod-checklist",
-      "description": "'Pre-launch: All datasources indexed and searchable.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-prod-checklist/SKILL.md",
-      "remote_path": "skills/.curated/glean-prod-checklist/SKILL.md",
-      "lines": 128,
-      "words": 800,
-      "code_blocks": 1,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -110103,21 +108307,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-incident-runbook",
-      "description": "'Execute Clay incident response procedures for enrichment failures, credit",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-incident-runbook/SKILL.md",
-      "remote_path": "skills/.curated/clay-incident-runbook/SKILL.md",
-      "lines": 231,
-      "words": 1191,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "runway-common-errors",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-common-errors/SKILL.md",
@@ -110241,23 +108430,6 @@
       "license": "MIT"
     },
     {
-      "name": "langfuse-local-dev-loop",
-      "description": "'Set up Langfuse local development workflow with hot reload and debugging.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-local-dev-loop/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-local-dev-loop/SKILL.md",
-      "lines": 269,
-      "words": 905,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "json",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
       "name": "coreweave-performance-tuning",
       "description": "'Optimize CoreWeave GPU inference latency and throughput.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-performance-tuning/SKILL.md",
@@ -110339,20 +108511,6 @@
         "text"
       ],
       "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-reference-architecture",
-      "description": "'Design production Clay enrichment pipelines with table schemas, waterfall",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-reference-architecture/SKILL.md",
-      "remote_path": "skills/.curated/clay-reference-architecture/SKILL.md",
-      "lines": 244,
-      "words": 992,
-      "code_blocks": 5,
-      "languages": [
-        "yaml"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -110535,21 +108693,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-webhooks-events",
-      "description": "'Implement Clay webhook receivers and HTTP API column callbacks for real-time",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-webhooks-events/SKILL.md",
-      "remote_path": "skills/.curated/clay-webhooks-events/SKILL.md",
-      "lines": 283,
-      "words": 1046,
-      "code_blocks": 5,
-      "languages": [
-        "json",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -110936,20 +109079,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-core-workflow-a",
-      "description": "'Execute Glean primary workflow: search, chat, and AI-powered answers",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-core-workflow-a/SKILL.md",
-      "remote_path": "skills/.curated/glean-core-workflow-a/SKILL.md",
-      "lines": 106,
-      "words": 419,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "anima-sdk-patterns",
       "description": "'Apply production-ready patterns for the Anima SDK design-to-code pipeline.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anima-sdk-patterns/SKILL.md",
@@ -111004,20 +109133,6 @@
         "text"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-reference-architecture",
-      "description": "'Production-grade Langfuse architecture patterns and best practices.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-reference-architecture/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-reference-architecture/SKILL.md",
-      "lines": 341,
-      "words": 1223,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -111106,21 +109221,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-prod-checklist",
-      "description": "'Execute production readiness checklist for Clay integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-prod-checklist/SKILL.md",
-      "remote_path": "skills/.curated/clay-prod-checklist/SKILL.md",
-      "lines": 179,
-      "words": 1054,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "windsurf-refactoring-large",
       "description": "'Manage large-scale refactoring with Cascade coordination. Activate when",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-refactoring-large/SKILL.md",
@@ -111144,21 +109244,6 @@
         "typescript"
       ],
       "version": "1.9.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-ci-integration",
-      "description": "'CI/CD for Glean connectors with automated indexing tests and search",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-ci-integration/SKILL.md",
-      "remote_path": "skills/.curated/glean-ci-integration/SKILL.md",
-      "lines": 164,
-      "words": 692,
-      "code_blocks": 3,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -111287,20 +109372,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-upgrade-migration",
-      "description": "'Check Glean developer changelog for API changes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-upgrade-migration/SKILL.md",
-      "remote_path": "skills/.curated/glean-upgrade-migration/SKILL.md",
-      "lines": 175,
-      "words": 877,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "posthog-install-auth",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-install-auth/SKILL.md",
@@ -111338,20 +109409,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-reference-architecture",
-      "description": "'Reference architecture for enterprise Gamma integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-reference-architecture/SKILL.md",
-      "remote_path": "skills/.curated/gamma-reference-architecture/SKILL.md",
-      "lines": 251,
-      "words": 855,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -111432,22 +109489,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-observability",
-      "description": "'Set up comprehensive observability for Langfuse with metrics, dashboards,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-observability/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-observability/SKILL.md",
-      "lines": 292,
-      "words": 973,
-      "code_blocks": 7,
-      "languages": [
-        "json",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -111623,20 +109664,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-reference-architecture",
-      "description": "'Enterprise architecture: Source Systems to Connectors (Cloud Run/Lambda,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-reference-architecture/SKILL.md",
-      "remote_path": "skills/.curated/glean-reference-architecture/SKILL.md",
-      "lines": 156,
-      "words": 898,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -111835,21 +109862,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-migration-deep-dive",
-      "description": "'Migrate from Elasticsearch/Algolia: 1) Export all documents from source,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-migration-deep-dive/SKILL.md",
-      "remote_path": "skills/.curated/glean-migration-deep-dive/SKILL.md",
-      "lines": 201,
-      "words": 998,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -112194,22 +110206,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-multi-env-setup",
-      "description": "'Use separate datasource names per environment (wiki_staging vs wiki_prod).",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-multi-env-setup/SKILL.md",
-      "remote_path": "skills/.curated/glean-multi-env-setup/SKILL.md",
-      "lines": 135,
-      "words": 699,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "text",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "windsurf-cascade-onboarding",
       "description": "'Configure Cascade AI agent for new team projects. Activate when users",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-cascade-onboarding/SKILL.md",
@@ -112272,20 +110268,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-reference-architecture",
-      "description": "'Reference architecture for AppFolio property management integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-reference-architecture/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-reference-architecture/SKILL.md",
-      "lines": 174,
-      "words": 923,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "apollo-sdk-patterns",
       "description": "'Apply production-ready Apollo.io SDK patterns.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/apollo-sdk-patterns/SKILL.md",
@@ -112336,21 +110318,6 @@
         "typescript"
       ],
       "version": "1.15.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-load-scale",
-      "description": "'Scale Clay enrichment pipelines for high-volume processing (10K-100K+",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-load-scale/SKILL.md",
-      "remote_path": "skills/.curated/clay-load-scale/SKILL.md",
-      "lines": 311,
-      "words": 1208,
-      "code_blocks": 4,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -112535,21 +110502,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.11.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-core-workflow-a",
-      "description": "'Execute Langfuse primary workflow: Tracing LLM calls and spans.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-core-workflow-a/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-core-workflow-a/SKILL.md",
-      "lines": 294,
-      "words": 1004,
-      "code_blocks": 6,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -112925,20 +110877,6 @@
         "bash"
       ],
       "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-observability",
-      "description": "'Track: documents indexed per run (total + new + updated + deleted),",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-observability/SKILL.md",
-      "remote_path": "skills/.curated/glean-observability/SKILL.md",
-      "lines": 136,
-      "words": 718,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -113738,22 +111676,6 @@
       "license": "MIT"
     },
     {
-      "name": "gamma-debug-bundle",
-      "description": "'Comprehensive debugging toolkit for Gamma integration issues.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/gamma-debug-bundle/SKILL.md",
-      "lines": 310,
-      "words": 1143,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
       "name": "coreweave-fabric-diagnostics",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-fabric-diagnostics/SKILL.md",
@@ -113869,21 +111791,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-core-workflow-b",
-      "description": "'Use Claygent AI research and AI-powered personalization to generate",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-core-workflow-b/SKILL.md",
-      "remote_path": "skills/.curated/clay-core-workflow-b/SKILL.md",
-      "lines": 214,
-      "words": 999,
-      "code_blocks": 6,
-      "languages": [
-        "json",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "building-gitops-workflows",
       "description": "'Execute use when constructing GitOps workflows using ArgoCD or Flux.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/building-gitops-workflows/SKILL.md",
@@ -113919,22 +111826,6 @@
         "text"
       ],
       "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-hello-world",
-      "description": "'Send your first record to Clay and get enriched data back.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-hello-world/SKILL.md",
-      "remote_path": "skills/.curated/clay-hello-world/SKILL.md",
-      "lines": 171,
-      "words": 715,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -114372,20 +112263,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-core-workflow-b",
-      "description": "'Execute Glean secondary workflow: bulk document indexing, custom datasource",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-core-workflow-b/SKILL.md",
-      "remote_path": "skills/.curated/glean-core-workflow-b/SKILL.md",
-      "lines": 145,
-      "words": 504,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "firecrawl-core-workflow-a",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/firecrawl-core-workflow-a/SKILL.md",
@@ -114487,21 +112364,6 @@
         "text"
       ],
       "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-local-dev-loop",
-      "description": "'Configure Glean local development with mock search responses, test datasources,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-local-dev-loop/SKILL.md",
-      "remote_path": "skills/.curated/glean-local-dev-loop/SKILL.md",
-      "lines": 139,
-      "words": 720,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -114818,20 +112680,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-webhooks-events",
-      "description": "'Handle AppFolio webhook events for property management notifications.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-webhooks-events/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-webhooks-events/SKILL.md",
-      "lines": 150,
-      "words": 731,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "coreweave-enterprise-rbac",
       "description": "'Configure RBAC and namespace isolation for CoreWeave multi-team GPU",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-enterprise-rbac/SKILL.md",
@@ -114844,20 +112692,6 @@
         "typescript"
       ],
       "version": "1.11.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-reliability-patterns",
-      "description": "'Build fault-tolerant Clay integrations with circuit breakers, dead letter",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-reliability-patterns/SKILL.md",
-      "remote_path": "skills/.curated/clay-reliability-patterns/SKILL.md",
-      "lines": 366,
-      "words": 1259,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -115079,34 +112913,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.20.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-rate-limits",
-      "description": "'Handle Clay rate limits, webhook throttling, and credit pacing strategies.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-rate-limits/SKILL.md",
-      "remote_path": "skills/.curated/clay-rate-limits/SKILL.md",
-      "lines": 257,
-      "words": 1113,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-common-errors",
-      "description": "'Debug and resolve common Gamma API errors.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-common-errors/SKILL.md",
-      "remote_path": "skills/.curated/gamma-common-errors/SKILL.md",
-      "lines": 216,
-      "words": 656,
-      "code_blocks": 10,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -115464,22 +113270,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-ci-integration",
-      "description": "'Configure CI/CD pipelines for Clay integrations with automated testing",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-ci-integration/SKILL.md",
-      "remote_path": "skills/.curated/clay-ci-integration/SKILL.md",
-      "lines": 251,
-      "words": 901,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "langchain-webhooks-events",
       "description": "\"Dispatch LangChain 1.0 chain/agent events to external systems \\u2014\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langchain-webhooks-events/SKILL.md",
@@ -115591,21 +113381,6 @@
         "typescript"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-debug-bundle",
-      "description": "'Collect Glean diagnostic information for support including datasource",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/glean-debug-bundle/SKILL.md",
-      "lines": 186,
-      "words": 949,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -116954,21 +114729,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-cost-tuning",
-      "description": "'Optimize Clay credit spending with provider key management, waterfall",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/clay-cost-tuning/SKILL.md",
-      "lines": 250,
-      "words": 1105,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "running-chaos-tests",
       "description": "'Execute chaos engineering experiments to test system resilience.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/running-chaos-tests/SKILL.md",
@@ -117270,22 +115030,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-deploy-integration",
-      "description": "'Deploy Glean custom connectors as scheduled jobs on Cloud Run, Lambda,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-deploy-integration/SKILL.md",
-      "remote_path": "skills/.curated/glean-deploy-integration/SKILL.md",
-      "lines": 160,
-      "words": 673,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "together-ci-integration",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/together-ci-integration/SKILL.md",
@@ -117324,6 +115068,21 @@
       "code_blocks": 1,
       "languages": [],
       "version": "1.1.0",
+      "license": "MIT"
+    },
+    {
+      "name": "ga4-measurement-verifier",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/ga4-measurement-verifier/SKILL.md",
+      "remote_path": "skills/.curated/ga4-measurement-verifier/SKILL.md",
+      "lines": 167,
+      "words": 1131,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -117528,20 +115287,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-enterprise-rbac",
-      "description": "'Implement enterprise role-based access control for Gamma integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-enterprise-rbac/SKILL.md",
-      "remote_path": "skills/.curated/gamma-enterprise-rbac/SKILL.md",
-      "lines": 270,
-      "words": 953,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -118282,40 +116027,6 @@
       "license": "MIT"
     },
     {
-      "name": "gamma-deploy-integration",
-      "description": "'Deploy Gamma-integrated applications to production environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-deploy-integration/SKILL.md",
-      "remote_path": "skills/.curated/gamma-deploy-integration/SKILL.md",
-      "lines": 233,
-      "words": 612,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "json",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-upgrade-migration",
-      "description": "'Upgrade Langfuse SDK versions and migrate between API changes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-upgrade-migration/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-upgrade-migration/SKILL.md",
-      "lines": 274,
-      "words": 1056,
-      "code_blocks": 11,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
       "name": "clickhouse-core-workflow-a",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clickhouse-core-workflow-a/SKILL.md",
@@ -118341,20 +116052,6 @@
         "text"
       ],
       "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-cost-tuning",
-      "description": "'Monitor and optimize LLM costs using Langfuse analytics and dashboards.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-cost-tuning/SKILL.md",
-      "lines": 289,
-      "words": 1139,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -118770,21 +116467,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-upgrade-migration",
-      "description": "'Navigate Clay plan changes, pricing migrations, and feature upgrades.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-upgrade-migration/SKILL.md",
-      "remote_path": "skills/.curated/clay-upgrade-migration/SKILL.md",
-      "lines": 194,
-      "words": 1012,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "aggregating-performance-metrics",
       "description": "Aggregate and centralize performance metrics from applications, systems,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/aggregating-performance-metrics/SKILL.md",
@@ -118962,6 +116644,20 @@
       "license": "MIT"
     },
     {
+      "name": "langfuse-trace-ingestion-medic",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-trace-ingestion-medic/SKILL.md",
+      "remote_path": "skills/.curated/langfuse-trace-ingestion-medic/SKILL.md",
+      "lines": 129,
+      "words": 819,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ],
+      "version": "2.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "cohere-sdk-patterns",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/cohere-sdk-patterns/SKILL.md",
@@ -119086,21 +116782,6 @@
         "ini",
         "python",
         "text"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-incident-runbook",
-      "description": "'Triage: Is search returning results? Check Glean status page.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-incident-runbook/SKILL.md",
-      "remote_path": "skills/.curated/glean-incident-runbook/SKILL.md",
-      "lines": 140,
-      "words": 951,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "markdown"
       ],
       "version": "1.8.0",
       "license": "MIT"
@@ -120448,20 +118129,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-rate-limits",
-      "description": "'Glean Indexing API: ~100 requests/min per token.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-rate-limits/SKILL.md",
-      "remote_path": "skills/.curated/glean-rate-limits/SKILL.md",
-      "lines": 159,
-      "words": 818,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "flexport-core-workflow-a",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flexport-core-workflow-a/SKILL.md",
@@ -120622,21 +118289,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-upgrade-migration",
-      "description": "'Upgrade Gamma SDK versions and migrate between API versions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-upgrade-migration/SKILL.md",
-      "remote_path": "skills/.curated/gamma-upgrade-migration/SKILL.md",
-      "lines": 228,
-      "words": 666,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -121196,22 +118848,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-core-workflow-a",
-      "description": "'Build a complete lead enrichment pipeline using Clay tables, webhooks,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-core-workflow-a/SKILL.md",
-      "remote_path": "skills/.curated/clay-core-workflow-a/SKILL.md",
-      "lines": 195,
-      "words": 957,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "json",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "brightdata-common-errors",
       "description": "'Analyze Bright Data proxy and dataset failures using current provider codes without bypassing policy controls. Use when diagnosing 407, 403, 429, 502, snapshot, or delivery failures. Trigger with: \"d",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/brightdata-common-errors/SKILL.md",
@@ -121251,20 +118887,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-data-handling",
-      "description": "'Implement GDPR/CCPA-compliant data handling for Clay enrichment pipelines.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-data-handling/SKILL.md",
-      "remote_path": "skills/.curated/clay-data-handling/SKILL.md",
-      "lines": 282,
-      "words": 1010,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "langchain-langgraph-basics",
       "description": "\"Build a correct LangGraph 1.0 StateGraph \\u2014 typed TypedDict state\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langchain-langgraph-basics/SKILL.md",
@@ -121276,21 +118898,6 @@
         "python"
       ],
       "version": "2.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-local-dev-loop",
-      "description": "'Set up local development workflow for Gamma API integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-local-dev-loop/SKILL.md",
-      "remote_path": "skills/.curated/gamma-local-dev-loop/SKILL.md",
-      "lines": 261,
-      "words": 910,
-      "code_blocks": 6,
-      "languages": [
-        "json",
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -122090,20 +119697,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-performance-tuning",
-      "description": "'Optimize Glean search relevance and indexing throughput with batch sizing,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-performance-tuning/SKILL.md",
-      "remote_path": "skills/.curated/glean-performance-tuning/SKILL.md",
-      "lines": 146,
-      "words": 820,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "ideogram-ci-integration",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/ideogram-ci-integration/SKILL.md",
@@ -122166,21 +119759,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-prod-checklist",
-      "description": "'Production readiness checklist for Gamma integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-prod-checklist/SKILL.md",
-      "remote_path": "skills/.curated/gamma-prod-checklist/SKILL.md",
-      "lines": 214,
-      "words": 803,
-      "code_blocks": 5,
-      "languages": [
-        "text",
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -122614,21 +120192,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-sdk-patterns",
-      "description": "'Apply production-ready patterns for integrating with Clay via webhooks",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-sdk-patterns/SKILL.md",
-      "remote_path": "skills/.curated/clay-sdk-patterns/SKILL.md",
-      "lines": 303,
-      "words": 1045,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "exa-core-workflow-a",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/exa-core-workflow-a/SKILL.md",
@@ -122679,20 +120242,6 @@
         "text"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "ga4-auth-setup",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/ga4-auth-setup/SKILL.md",
-      "remote_path": "skills/.curated/ga4-auth-setup/SKILL.md",
-      "lines": 147,
-      "words": 882,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.3.0",
       "license": "MIT"
     },
     {
@@ -123166,20 +120715,6 @@
       "license": "MIT"
     },
     {
-      "name": "ga4-realtime-api",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/ga4-realtime-api/SKILL.md",
-      "remote_path": "skills/.curated/ga4-realtime-api/SKILL.md",
-      "lines": 178,
-      "words": 966,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
       "name": "coderabbit-data-handling",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coderabbit-data-handling/SKILL.md",
@@ -123525,20 +121060,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-core-workflow-b",
-      "description": "'Automate tenant management and lease operations with AppFolio.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-core-workflow-b/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-core-workflow-b/SKILL.md",
-      "lines": 130,
-      "words": 600,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "generating-helm-charts",
       "description": "'Execute use when generating Helm charts for Kubernetes applications.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/generating-helm-charts/SKILL.md",
@@ -123744,21 +121265,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-common-errors",
-      "description": "'Diagnose and fix common Glean API errors including indexing failures,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-common-errors/SKILL.md",
-      "remote_path": "skills/.curated/glean-common-errors/SKILL.md",
-      "lines": 127,
-      "words": 886,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "scanning-database-security",
       "description": "'Process use when you need to work with security and compliance.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/scanning-database-security/SKILL.md",
@@ -123955,21 +121461,6 @@
         "markdown"
       ],
       "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-data-handling",
-      "description": "'Manage Langfuse data export, retention, and compliance requirements.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-data-handling/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-data-handling/SKILL.md",
-      "lines": 285,
-      "words": 927,
-      "code_blocks": 6,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -124314,21 +121805,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-debug-bundle",
-      "description": "'Collect AppFolio API debug evidence for support tickets.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-debug-bundle/SKILL.md",
-      "lines": 195,
-      "words": 1017,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "vercel-enterprise-rbac",
       "description": "'Configure Vercel enterprise RBAC, access groups, SSO integration, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vercel-enterprise-rbac/SKILL.md",
@@ -124358,22 +121834,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-local-dev-loop",
-      "description": "'Set up a local development loop for building and testing Clay integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-local-dev-loop/SKILL.md",
-      "remote_path": "skills/.curated/clay-local-dev-loop/SKILL.md",
-      "lines": 221,
-      "words": 916,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "json",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "adobe-load-scale",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/adobe-load-scale/SKILL.md",
@@ -124397,22 +121857,6 @@
         "bash"
       ],
       "version": "1.25.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-deploy-integration",
-      "description": "'Deploy AppFolio integration service to cloud infrastructure.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-deploy-integration/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-deploy-integration/SKILL.md",
-      "lines": 174,
-      "words": 807,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "typescript"
-      ],
-      "version": "1.5.0",
       "license": "MIT"
     },
     {
@@ -125033,23 +122477,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-deploy-integration",
-      "description": "'Deploy Clay-powered applications to Vercel, Cloud Run, or Docker with",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-deploy-integration/SKILL.md",
-      "remote_path": "skills/.curated/clay-deploy-integration/SKILL.md",
-      "lines": 229,
-      "words": 834,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "elevenlabs-install-auth",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/elevenlabs-install-auth/SKILL.md",
@@ -125118,51 +122545,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-migration-deep-dive",
-      "description": "'Migrate to Clay from other enrichment tools or consolidate multiple",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-migration-deep-dive/SKILL.md",
-      "remote_path": "skills/.curated/clay-migration-deep-dive/SKILL.md",
-      "lines": 272,
-      "words": 1091,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-security-basics",
-      "description": "'Implement security best practices for Gamma integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-security-basics/SKILL.md",
-      "remote_path": "skills/.curated/gamma-security-basics/SKILL.md",
-      "lines": 194,
-      "words": 583,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-debug-bundle",
-      "description": "'Collect Langfuse debug evidence for support tickets and troubleshooting.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-debug-bundle/SKILL.md",
-      "lines": 232,
-      "words": 874,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -125237,21 +122619,6 @@
         "python"
       ],
       "version": "1.10.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-incident-runbook",
-      "description": "'Troubleshoot and respond to Langfuse-related incidents and outages.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-incident-runbook/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-incident-runbook/SKILL.md",
-      "lines": 244,
-      "words": 1083,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -125694,20 +123061,6 @@
       "license": "MIT"
     },
     {
-      "name": "langfuse-performance-tuning",
-      "description": "'Optimize Langfuse tracing performance for high-throughput applications.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-performance-tuning/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-performance-tuning/SKILL.md",
-      "lines": 294,
-      "words": 1119,
-      "code_blocks": 7,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
       "name": "vastai-webhooks-events",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-webhooks-events/SKILL.md",
@@ -125717,21 +123070,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-multi-env-setup",
-      "description": "'Configure Clay integrations across development, staging, and production",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-multi-env-setup/SKILL.md",
-      "remote_path": "skills/.curated/clay-multi-env-setup/SKILL.md",
-      "lines": 204,
-      "words": 813,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -125928,21 +123266,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-local-dev-loop",
-      "description": "'Set up local development for AppFolio property management API integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-local-dev-loop/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-local-dev-loop/SKILL.md",
-      "lines": 140,
-      "words": 803,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "flyio-hello-world",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-hello-world/SKILL.md",
@@ -126067,21 +123390,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-common-errors",
-      "description": "'Diagnose and fix the most common Clay errors and integration issues.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-common-errors/SKILL.md",
-      "remote_path": "skills/.curated/clay-common-errors/SKILL.md",
-      "lines": 249,
-      "words": 1107,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "auditing-wallet-security",
       "description": "'Audit wallet security by analyzing token approvals, permissions, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/auditing-wallet-security/SKILL.md",
@@ -126126,20 +123434,6 @@
       "license": "MIT"
     },
     {
-      "name": "gamma-incident-runbook",
-      "description": "'Manage incident response for Gamma integration issues.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-incident-runbook/SKILL.md",
-      "remote_path": "skills/.curated/gamma-incident-runbook/SKILL.md",
-      "lines": 284,
-      "words": 959,
-      "code_blocks": 11,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
       "name": "vercel-ci-integration",
       "description": "'Configure Vercel CI/CD with GitHub Actions, preview deployments, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vercel-ci-integration/SKILL.md",
@@ -126168,23 +123462,6 @@
         "json"
       ],
       "version": "3.30.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-advanced-troubleshooting",
-      "description": "'Deep-debug complex Clay enrichment failures, provider degradation, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-advanced-troubleshooting/SKILL.md",
-      "remote_path": "skills/.curated/clay-advanced-troubleshooting/SKILL.md",
-      "lines": 281,
-      "words": 1220,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -126509,23 +123786,6 @@
         "python"
       ],
       "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-ci-integration",
-      "description": "'Configure Gamma CI/CD integration with GitHub Actions and testing.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-ci-integration/SKILL.md",
-      "remote_path": "skills/.curated/gamma-ci-integration/SKILL.md",
-      "lines": 212,
-      "words": 608,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "json",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -127115,22 +124375,6 @@
       "license": "MIT"
     },
     {
-      "name": "gamma-install-auth",
-      "description": "'Set up Gamma API v1.0 authentication and first request.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-install-auth/SKILL.md",
-      "remote_path": "skills/.curated/gamma-install-auth/SKILL.md",
-      "lines": 166,
-      "words": 670,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
       "name": "klaviyo-sdk-patterns",
       "description": "'Apply production-ready Klaviyo SDK patterns for the klaviyo-api package.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/klaviyo-sdk-patterns/SKILL.md",
@@ -127463,20 +124707,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-hello-world",
-      "description": "'Query AppFolio properties, units, and tenants via REST API.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-hello-world/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-hello-world/SKILL.md",
-      "lines": 97,
-      "words": 454,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "framer-rate-limits",
       "description": "'Implement Framer rate limiting, backoff, and idempotency patterns.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/framer-rate-limits/SKILL.md",
@@ -127574,20 +124804,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "ga4-data-api-query",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/ga4-data-api-query/SKILL.md",
-      "remote_path": "skills/.curated/ga4-data-api-query/SKILL.md",
-      "lines": 236,
-      "words": 1200,
-      "code_blocks": 6,
-      "languages": [
-        "python"
-      ],
-      "version": "1.3.0",
       "license": "MIT"
     },
     {
@@ -128013,21 +125229,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.25.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-enterprise-rbac",
-      "description": "'Configure Langfuse enterprise organization management and access control.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-enterprise-rbac/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-enterprise-rbac/SKILL.md",
-      "lines": 246,
-      "words": 979,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -128799,20 +126000,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-upgrade-migration",
-      "description": "'Migrate between AppFolio API versions and handle endpoint changes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-upgrade-migration/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-upgrade-migration/SKILL.md",
-      "lines": 138,
-      "words": 667,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "hubspot-bulk-migration",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/hubspot-bulk-migration/SKILL.md",
@@ -129001,22 +126188,6 @@
       "license": "MIT"
     },
     {
-      "name": "langfuse-ci-integration",
-      "description": "'Configure Langfuse CI/CD integration with GitHub Actions and automated",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-ci-integration/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-ci-integration/SKILL.md",
-      "lines": 310,
-      "words": 1073,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
       "name": "groq-rate-limits",
       "description": "'Implement Groq rate limit handling with backoff, queuing, and header",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/groq-rate-limits/SKILL.md",
@@ -129028,6 +126199,20 @@
         "typescript"
       ],
       "version": "1.11.0",
+      "license": "MIT"
+    },
+    {
+      "name": "ga4-export-guardian",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/ga4-export-guardian/SKILL.md",
+      "remote_path": "skills/.curated/ga4-export-guardian/SKILL.md",
+      "lines": 158,
+      "words": 1124,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -129143,21 +126328,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-observability",
-      "description": "'Monitor Clay enrichment pipeline health, credit consumption, and data",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-observability/SKILL.md",
-      "remote_path": "skills/.curated/clay-observability/SKILL.md",
-      "lines": 286,
-      "words": 969,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "clade-ci-integration",
       "description": "\"Test and validate Claude integrations in CI/CD pipelines \\u2014\\nUse\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clade-ci-integration/SKILL.md",
@@ -129199,20 +126369,6 @@
         "text"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-cost-tuning",
-      "description": "'Optimize Glean costs by managing indexed content volume, datasource",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/glean-cost-tuning/SKILL.md",
-      "lines": 136,
-      "words": 835,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -129294,20 +126450,6 @@
         "yaml"
       ],
       "version": "1.11.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-prod-checklist",
-      "description": "'Langfuse production readiness checklist and verification.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-prod-checklist/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-prod-checklist/SKILL.md",
-      "lines": 253,
-      "words": 1018,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -129589,21 +126731,6 @@
         "typescript"
       ],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-migration-deep-dive",
-      "description": "'Deep dive into migrating to Gamma from other presentation platforms.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-migration-deep-dive/SKILL.md",
-      "remote_path": "skills/.curated/gamma-migration-deep-dive/SKILL.md",
-      "lines": 287,
-      "words": 1162,
-      "code_blocks": 6,
-      "languages": [
-        "text",
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -129982,6 +127109,20 @@
       "license": "MIT"
     },
     {
+      "name": "langfuse-cost-forensics",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-cost-forensics/SKILL.md",
+      "remote_path": "skills/.curated/langfuse-cost-forensics/SKILL.md",
+      "lines": 121,
+      "words": 768,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ],
+      "version": "2.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "snowflake-data-quality-sentinel",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-data-quality-sentinel/SKILL.md",
@@ -130035,20 +127176,6 @@
         "typescript"
       ],
       "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-security-basics",
-      "description": "'Secure AppFolio API credentials and tenant data.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-security-basics/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-security-basics/SKILL.md",
-      "lines": 166,
-      "words": 779,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
       "license": "MIT"
     },
     {
@@ -130115,6 +127242,20 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.28.0",
+      "license": "MIT"
+    },
+    {
+      "name": "langfuse-data-boundary-auditor",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-data-boundary-auditor/SKILL.md",
+      "remote_path": "skills/.curated/langfuse-data-boundary-auditor/SKILL.md",
+      "lines": 133,
+      "words": 844,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -130290,21 +127431,6 @@
       "license": "MIT"
     },
     {
-      "name": "langfuse-migration-deep-dive",
-      "description": "'Execute complex Langfuse migrations including data migration and platform",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-migration-deep-dive/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-migration-deep-dive/SKILL.md",
-      "lines": 322,
-      "words": 1141,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
       "name": "twinmind-reference-architecture",
       "description": "'Production architecture for meeting AI systems using TwinMind: transcription",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/twinmind-reference-architecture/SKILL.md",
@@ -130392,21 +127518,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-install-auth",
-      "description": "'Install and configure Glean API authentication with indexing and client",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-install-auth/SKILL.md",
-      "remote_path": "skills/.curated/glean-install-auth/SKILL.md",
-      "lines": 120,
-      "words": 469,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "clade-reference-architecture",
       "description": "\"Build Claude Code plugins \\u2014 skills, agents, MCP servers, hooks,\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clade-reference-architecture/SKILL.md",
@@ -130420,20 +127531,6 @@
         "yaml"
       ],
       "version": "1.1.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-hello-world",
-      "description": "'Index documents into Glean and search them back using the Indexing and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-hello-world/SKILL.md",
-      "remote_path": "skills/.curated/glean-hello-world/SKILL.md",
-      "lines": 132,
-      "words": 447,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -131359,21 +128456,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-install-auth",
-      "description": "'Configure AppFolio Stack API authentication with OAuth 2.0.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-install-auth/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-install-auth/SKILL.md",
-      "lines": 155,
-      "words": 623,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "runway-hello-world",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-hello-world/SKILL.md",
@@ -131562,20 +128644,6 @@
         "typescript"
       ],
       "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-cost-tuning",
-      "description": "'Optimize Gamma usage costs and manage API spending.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/gamma-cost-tuning/SKILL.md",
-      "lines": 272,
-      "words": 1052,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -132166,23 +129234,6 @@
       "license": "MIT"
     },
     {
-      "name": "langfuse-multi-env-setup",
-      "description": "'Configure Langfuse across development, staging, and production environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-multi-env-setup/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-multi-env-setup/SKILL.md",
-      "lines": 262,
-      "words": 900,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "gitignore",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
       "name": "openrouter-model-routing",
       "description": "'Implement intelligent model routing to optimize cost, quality, and latency",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/openrouter-model-routing/SKILL.md",
@@ -132272,20 +129323,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.21.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-webhooks-events",
-      "description": "'Implement event-driven Glean indexing triggered by source system webhooks",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-webhooks-events/SKILL.md",
-      "remote_path": "skills/.curated/glean-webhooks-events/SKILL.md",
-      "lines": 146,
-      "words": 668,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -132497,21 +129534,6 @@
       "license": "MIT"
     },
     {
-      "name": "langfuse-common-errors",
-      "description": "'Diagnose and fix common Langfuse errors and exceptions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-common-errors/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-common-errors/SKILL.md",
-      "lines": 370,
-      "words": 1192,
-      "code_blocks": 18,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
       "name": "canva-ci-integration",
       "description": "'Build credential-free Canva contract tests with a separately protected live read. Use when testing adapters, OAuth boundaries, OpenAPI drift, fork behavior, or deployment readiness. Trigger with: \"te",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/canva-ci-integration/SKILL.md",
@@ -132717,21 +129739,6 @@
         "typescript"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-debug-bundle",
-      "description": "'Collect Clay debug evidence for support tickets and troubleshooting.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/clay-debug-bundle/SKILL.md",
-      "lines": 224,
-      "words": 921,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -133488,20 +130495,6 @@
       "license": "MIT"
     },
     {
-      "name": "gamma-data-handling",
-      "description": "'Handle data privacy, retention, and compliance for Gamma integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-data-handling/SKILL.md",
-      "remote_path": "skills/.curated/gamma-data-handling/SKILL.md",
-      "lines": 272,
-      "words": 1034,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
       "name": "documenso-hello-world",
       "description": "'Create a minimal working Documenso example.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/documenso-hello-world/SKILL.md",
@@ -133611,20 +130604,6 @@
         "typescript"
       ],
       "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-security-basics",
-      "description": "'Token security: Indexing tokens have write access -- never expose in",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-security-basics/SKILL.md",
-      "remote_path": "skills/.curated/glean-security-basics/SKILL.md",
-      "lines": 146,
-      "words": 718,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -134055,22 +131034,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-enterprise-rbac",
-      "description": "'Configure Clay workspace roles, team access control, and credit budget",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-enterprise-rbac/SKILL.md",
-      "remote_path": "skills/.curated/clay-enterprise-rbac/SKILL.md",
-      "lines": 218,
-      "words": 925,
-      "code_blocks": 4,
-      "languages": [
-        "markdown",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "onenote-local-dev-loop",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/onenote-local-dev-loop/SKILL.md",
@@ -134369,21 +131332,6 @@
         "python"
       ],
       "version": "2.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-observability",
-      "description": "'Implement comprehensive observability for Gamma integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-observability/SKILL.md",
-      "remote_path": "skills/.curated/gamma-observability/SKILL.md",
-      "lines": 288,
-      "words": 965,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -135343,6 +132291,20 @@
       "license": "MIT"
     },
     {
+      "name": "langfuse-prompt-release-guardian",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-prompt-release-guardian/SKILL.md",
+      "remote_path": "skills/.curated/langfuse-prompt-release-guardian/SKILL.md",
+      "lines": 128,
+      "words": 815,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ],
+      "version": "2.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "customerio-debug-bundle",
       "description": "'Collect Customer.io debug evidence for support tickets.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/customerio-debug-bundle/SKILL.md",
@@ -135640,20 +132602,6 @@
       "code_blocks": 1,
       "languages": [],
       "version": "2.21.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-sdk-patterns",
-      "description": "'Reusable patterns for the Gamma REST API (no SDK exists).",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-sdk-patterns/SKILL.md",
-      "remote_path": "skills/.curated/gamma-sdk-patterns/SKILL.md",
-      "lines": 301,
-      "words": 1032,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -136930,6 +133878,20 @@
       "license": "MIT"
     },
     {
+      "name": "langfuse-experiment-guardian",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-experiment-guardian/SKILL.md",
+      "remote_path": "skills/.curated/langfuse-experiment-guardian/SKILL.md",
+      "lines": 127,
+      "words": 788,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ],
+      "version": "2.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "brand-strategy",
       "description": "'A 7-part brand strategy framework for building comprehensive brand foundations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/brand-strategy/SKILL.md",
@@ -137319,20 +134281,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-prod-checklist",
-      "description": "'Production readiness checklist for AppFolio integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-prod-checklist/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-prod-checklist/SKILL.md",
-      "lines": 140,
-      "words": 882,
-      "code_blocks": 1,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "miro-upgrade-migration",
       "description": "\"Plan and implement a Miro integration upgrade through contract inventory, pinned dependencies, shadow-read design, reversible rollout, and an approval-gated live handoff. Use when changing API or SDK",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/miro-upgrade-migration/SKILL.md",
@@ -137705,20 +134653,6 @@
       "code_blocks": 2,
       "languages": [
         "text"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "glean-enterprise-rbac",
-      "description": "'Map AD/Okta groups to Glean document permissions using allowedGroups.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-enterprise-rbac/SKILL.md",
-      "remote_path": "skills/.curated/glean-enterprise-rbac/SKILL.md",
-      "lines": 130,
-      "words": 751,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
       ],
       "version": "1.8.0",
       "license": "MIT"
@@ -138397,21 +135331,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-performance-tuning",
-      "description": "'Optimize Clay table enrichment throughput, reduce processing time, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-performance-tuning/SKILL.md",
-      "remote_path": "skills/.curated/clay-performance-tuning/SKILL.md",
-      "lines": 251,
-      "words": 1079,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "canva-core-workflow-b",
       "description": "'Operate Canva assets, brand-template autofill, and folders with explicit rights and asynchronous reconciliation. Use when performing uploads, dataset validation, autofill jobs, or folder changes. Tri",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/canva-core-workflow-b/SKILL.md",
@@ -138635,20 +135554,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.41.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-core-workflow-a",
-      "description": "'Build property management dashboard with AppFolio API data.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-core-workflow-a/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-core-workflow-a/SKILL.md",
-      "lines": 150,
-      "words": 693,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
       "license": "MIT"
     },
     {
@@ -139025,20 +135930,6 @@
         "markdown"
       ],
       "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-rate-limits",
-      "description": "'Implement Langfuse rate limiting, batching, and backoff patterns.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-rate-limits/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-rate-limits/SKILL.md",
-      "lines": 259,
-      "words": 923,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -139889,21 +136780,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-ci-integration",
-      "description": "'Configure CI/CD pipeline for AppFolio property management integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-ci-integration/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-ci-integration/SKILL.md",
-      "lines": 189,
-      "words": 861,
-      "code_blocks": 4,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "vercel-policy-guardrails",
       "description": "'Implement lint rules, CI policy checks, and automated guardrails for",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vercel-policy-guardrails/SKILL.md",
@@ -140202,21 +137078,6 @@
       "license": "MIT"
     },
     {
-      "name": "langfuse-hello-world",
-      "description": "'Create a minimal working Langfuse trace example.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-hello-world/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-hello-world/SKILL.md",
-      "lines": 250,
-      "words": 894,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
       "name": "shopify-security-basics",
       "description": "'Apply Shopify security best practices for API credentials, webhook HMAC",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/shopify-security-basics/SKILL.md",
@@ -140258,23 +137119,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-hello-world",
-      "description": "'Generate your first Gamma presentation via the API.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-hello-world/SKILL.md",
-      "remote_path": "skills/.curated/gamma-hello-world/SKILL.md",
-      "lines": 208,
-      "words": 690,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "json",
-        "python",
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -140526,21 +137370,6 @@
       "license": "MIT"
     },
     {
-      "name": "langfuse-webhooks-events",
-      "description": "'Configure Langfuse webhooks for prompt change notifications and event-driven",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-webhooks-events/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-webhooks-events/SKILL.md",
-      "lines": 304,
-      "words": 990,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
       "name": "running-mutation-tests",
       "description": "'Execute mutation testing to evaluate test suite effectiveness.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/running-mutation-tests/SKILL.md",
@@ -140599,20 +137428,6 @@
       "license": "MIT"
     },
     {
-      "name": "langfuse-sdk-patterns",
-      "description": "'Langfuse SDK best practices, patterns, and idiomatic usage.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-sdk-patterns/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-sdk-patterns/SKILL.md",
-      "lines": 300,
-      "words": 1162,
-      "code_blocks": 7,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
       "name": "website-generator",
       "description": "'Use when the user asks to create a website, build a site, generate a",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/website-generator/SKILL.md",
@@ -140648,20 +137463,6 @@
         "json"
       ],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-sdk-patterns",
-      "description": "'Apply production-ready patterns for AppFolio REST API integration.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-sdk-patterns/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-sdk-patterns/SKILL.md",
-      "lines": 167,
-      "words": 850,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
       "license": "MIT"
     },
     {
@@ -140715,20 +137516,6 @@
         "python"
       ],
       "version": "2.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "appfolio-performance-tuning",
-      "description": "'Optimize AppFolio API performance with caching and batch operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-performance-tuning/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-performance-tuning/SKILL.md",
-      "lines": 156,
-      "words": 833,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
       "license": "MIT"
     },
     {
@@ -140942,20 +137729,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-sdk-patterns",
-      "description": "'Apply production-ready Glean API patterns with typed clients, batch",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-sdk-patterns/SKILL.md",
-      "remote_path": "skills/.curated/glean-sdk-patterns/SKILL.md",
-      "lines": 158,
-      "words": 849,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "linktree-sdk-patterns",
       "description": "'Design a testable adapter around an approved Linktree partner contract without claiming a public SDK or endpoint schema. Use when implementing authorized partner automation. Trigger with \"design Link",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/linktree-sdk-patterns/SKILL.md",
@@ -141064,20 +137837,6 @@
         "typescript"
       ],
       "version": "1.54.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-rate-limits",
-      "description": "'Understand and manage Gamma API rate limits effectively.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-rate-limits/SKILL.md",
-      "remote_path": "skills/.curated/gamma-rate-limits/SKILL.md",
-      "lines": 191,
-      "words": 656,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -141228,20 +137987,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-performance-tuning",
-      "description": "'Optimize Gamma API performance and reduce latency.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-performance-tuning/SKILL.md",
-      "remote_path": "skills/.curated/gamma-performance-tuning/SKILL.md",
-      "lines": 275,
-      "words": 1033,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -141781,21 +138526,6 @@
       "license": "MIT"
     },
     {
-      "name": "appfolio-common-errors",
-      "description": "'Diagnose and fix common AppFolio API integration errors.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/appfolio-common-errors/SKILL.md",
-      "remote_path": "skills/.curated/appfolio-common-errors/SKILL.md",
-      "lines": 147,
-      "words": 1027,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "apify-ci-integration",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/apify-ci-integration/SKILL.md",
@@ -142130,20 +138860,6 @@
       "license": "MIT"
     },
     {
-      "name": "glean-data-handling",
-      "description": "'PII filtering: strip emails, phone numbers, SSNs from document body",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/glean-data-handling/SKILL.md",
-      "remote_path": "skills/.curated/glean-data-handling/SKILL.md",
-      "lines": 149,
-      "words": 922,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "processing-computer-vision-tasks",
       "description": "'Process images using object detection, classification, and segmentation.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/processing-computer-vision-tasks/SKILL.md",
@@ -142293,20 +139009,6 @@
         "typescript"
       ],
       "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "gamma-webhooks-events",
-      "description": "'Handle Gamma webhooks and events for real-time updates.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-webhooks-events/SKILL.md",
-      "remote_path": "skills/.curated/gamma-webhooks-events/SKILL.md",
-      "lines": 267,
-      "words": 949,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -142826,20 +139528,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-known-pitfalls",
-      "description": "'Identify and avoid the top Clay anti-patterns, gotchas, and integration",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-known-pitfalls/SKILL.md",
-      "remote_path": "skills/.curated/clay-known-pitfalls/SKILL.md",
-      "lines": 242,
-      "words": 1339,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "finta-webhooks-events",
       "description": "'Automate Finta pipeline events with Zapier and email triggers.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/finta-webhooks-events/SKILL.md",
@@ -142983,22 +139671,6 @@
         "typescript"
       ],
       "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "langfuse-install-auth",
-      "description": "'Install and configure Langfuse SDK authentication for LLM observability.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-install-auth/SKILL.md",
-      "remote_path": "skills/.curated/langfuse-install-auth/SKILL.md",
-      "lines": 221,
-      "words": 812,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -143245,21 +139917,6 @@
       "license": "MIT"
     },
     {
-      "name": "clay-security-basics",
-      "description": "'Apply Clay security best practices for API keys, webhook secrets, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-security-basics/SKILL.md",
-      "remote_path": "skills/.curated/clay-security-basics/SKILL.md",
-      "lines": 210,
-      "words": 915,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "customerio-sdk-patterns",
       "description": "'Apply production-ready Customer.io SDK patterns.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/customerio-sdk-patterns/SKILL.md",
@@ -143449,20 +140106,6 @@
         "sql"
       ],
       "version": "1.54.0",
-      "license": "MIT"
-    },
-    {
-      "name": "clay-install-auth",
-      "description": "'Set up Clay account access, API keys, webhook URLs, and provider connections.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clay-install-auth/SKILL.md",
-      "remote_path": "skills/.curated/clay-install-auth/SKILL.md",
-      "lines": 163,
-      "words": 858,
-      "code_blocks": 4,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -143901,6 +140544,20 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.23.0",
+      "license": "MIT"
+    },
+    {
+      "name": "ga4-report-forensics",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/ga4-report-forensics/SKILL.md",
+      "remote_path": "skills/.curated/ga4-report-forensics/SKILL.md",
+      "lines": 171,
+      "words": 1161,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -152478,8 +149135,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/auto-repo-setup/SKILL.md",
       "remote_path": "auto-repo-setup/SKILL.md",
-      "lines": 247,
-      "words": 1581,
+      "lines": 264,
+      "words": 1754,
       "code_blocks": 0,
       "languages": []
     },
@@ -152563,8 +149220,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/qa-expert/SKILL.md",
       "remote_path": "qa-expert/SKILL.md",
-      "lines": 318,
-      "words": 1628,
+      "lines": 311,
+      "words": 1593,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -152575,8 +149232,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1376,
-      "words": 13961,
+      "lines": 1377,
+      "words": 13974,
       "code_blocks": 71,
       "languages": [
         "bash",
@@ -152640,8 +149297,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/SKILL.md",
       "remote_path": "app-evolver/SKILL.md",
-      "lines": 181,
-      "words": 1411,
+      "lines": 184,
+      "words": 1432,
       "code_blocks": 0,
       "languages": []
     },
@@ -152772,8 +149429,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 608,
-      "words": 4686,
+      "lines": 615,
+      "words": 4746,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -152820,8 +149477,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 887,
-      "words": 3245,
+      "lines": 901,
+      "words": 3269,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -152846,8 +149503,8 @@
       "description": "Investigate and resolve Cloudflare configuration issues using API-driven evidence gathering. Use when troubleshooting ERR_TOO_MANY_REDIRECTS, SSL errors, DNS issues, or any Cloudflare-related problems",
       "path": "daymade--claude-code-skills/cloudflare-troubleshooting/SKILL.md",
       "remote_path": "cloudflare-troubleshooting/SKILL.md",
-      "lines": 330,
-      "words": 1378,
+      "lines": 331,
+      "words": 1533,
       "code_blocks": 19,
       "languages": [
         "bash"
@@ -153074,8 +149731,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/references/codex-account-switch.md",
       "remote_path": "ghostty-use/references/codex-account-switch.md",
-      "lines": 316,
-      "words": 2389,
+      "lines": 321,
+      "words": 2428,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -153147,8 +149804,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-load-doctor/SKILL.md",
       "remote_path": "daymade-macos/macos-load-doctor/SKILL.md",
-      "lines": 192,
-      "words": 1538,
+      "lines": 197,
+      "words": 1576,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -153333,7 +149990,7 @@
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
       "lines": 1374,
-      "words": 15140,
+      "words": 15145,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -153833,8 +150490,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/references/implementation-and-acceptance.md",
       "remote_path": "app-evolver/references/implementation-and-acceptance.md",
-      "lines": 187,
-      "words": 1552,
+      "lines": 218,
+      "words": 1827,
       "code_blocks": 0,
       "languages": []
     },
@@ -173388,6 +170045,18 @@
       ]
     },
     {
+      "name": "agent-roundtable",
+      "description": "Run a multi-agent audit of a feature, PR/diff, or task spec in which Codex, Command Code (cmd), Gemini, OpenCode and Claude debate over ACP for a configurable number of rounds and converge on a final ",
+      "path": "glebis--claude-skills/agent-roundtable/SKILL.md",
+      "remote_path": "agent-roundtable/SKILL.md",
+      "lines": 106,
+      "words": 1140,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "wispr-analytics",
       "description": "This skill should be used when analyzing Wispr Flow voice dictation history for self-reflection, work patterns, mental health insights, or productivity analytics AND when managing the Wispr Flow dicti",
       "path": "glebis--claude-skills/wispr-analytics/SKILL.md",
@@ -173914,6 +170583,16 @@
       "lines": 34,
       "words": 211,
       "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "cognitive-toolkit",
+      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 98,
+      "words": 617,
+      "code_blocks": 1,
       "languages": []
     },
     {

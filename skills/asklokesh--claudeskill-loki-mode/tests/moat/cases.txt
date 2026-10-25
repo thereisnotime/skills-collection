@@ -26,11 +26,14 @@ P1.wrong-key-fails
 P1.stripped-signature-fails
 P1.empty-jwks-value-fails
 P1.verification-metadata-signed
+P1.jwks-dup-kid-or-alg-none-fails
+P1.damaged-receipt-fails
 P2.advisory-only-never-verified
 P2.unknown-gate-fails-closed
 P2.model-looks-good-cannot-pass
 P2.missing-pass-key-not-pass
 P2.proof-verify-exit-contract
+P2.malformed-proof-not-zero
 P2.proof-chain-exit-contract
 P2.verify-exit-contract
 P2.fast-verify-inconclusive-not-zero
@@ -55,6 +58,7 @@ P7.webapp-client-routes-exist
 P7.dashboard-client-routes-exist
 P7.no-sample-data-panels
 P7.unmeasured-cost-never-zero
+P7.unmeasured-tokens-never-zero
 P8.ablation-runtime-change-load-bearing
 P8.ablation-dead-code-not-sealed
 P8.ablation-na-docs-only
@@ -62,6 +66,7 @@ P9.issue-workflows-separate-untrusted-from-push
 P9.comment-trigger-author-gate
 P9.injection-cannot-reach-token
 P9.checkout-no-persisted-credentials
+P9.no-pr-target-head-checkout
 P9.allowtoken-only-fetch-callers
 P6.no-gate-artifacts-committed
 P2.bun-inconclusive-not-pass
@@ -75,6 +80,7 @@ P2.zero-test-never-affirmative
 P6.resume-keeps-ignored-user-file
 P6.resume-after-interrupt-commits-agent-files
 P6.agent-self-commit-does-not-lose-user-file
+P6.user-file-mode-and-symlink-intact
 P2.exit-zero-with-failures-not-pass
 P2.console-verdict-needs-computed-result
 P5.airgap-audit-effective-provider
@@ -82,5 +88,7 @@ P5.airgap-audit-telemetry-state
 P5.airgap-audit-ollama-cloud-not-local
 P5.local-provider-no-claude-sidecalls
 P5.claude-sidecall-opt-in-audited
+P5.airgap-no-update-check-egress
 P2.cp-verdict-honest-never-upgraded
 P7.cp-unmeasured-never-fabricated
+P7.cli-unmetered-cost-not-dollar-zero

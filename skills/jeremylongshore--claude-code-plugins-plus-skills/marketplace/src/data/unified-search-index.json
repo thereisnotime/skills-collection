@@ -5,10 +5,10 @@
     "generator": "marketplace/scripts/generate-unified-search.mjs"
   },
   "stats": {
-    "totalPlugins": 435,
-    "totalSkills": 2902,
+    "totalPlugins": 431,
+    "totalSkills": 2785,
     "totalDocs": 24,
-    "totalItems": 3361,
+    "totalItems": 3240,
     "categories": [
       "ai-agency",
       "ai-ml",
@@ -81,7 +81,6 @@
       "Bash(bd dolt remote list:*)",
       "Bash(bd dolt show:*)",
       "Bash(box:*)",
-      "Bash(bq:*)",
       "Bash(brew:*)",
       "Bash(bun:*)",
       "Bash(cad-analyze:*)",
@@ -452,7 +451,6 @@
       "ai-finance",
       "ai-flows",
       "ai-gateway",
-      "ai-generation",
       "ai-integration",
       "ai-notes",
       "ai-partner",
@@ -491,7 +489,6 @@
       "apm",
       "apollo",
       "app-builder",
-      "appfolio",
       "appium",
       "apple notes",
       "apple-notes",
@@ -611,7 +608,6 @@
       "classification",
       "claude",
       "claude-code",
-      "clay",
       "cleaning",
       "cleanup",
       "clerk",
@@ -725,7 +721,6 @@
       "data-catalog",
       "data-connectors",
       "data-engineering",
-      "data-enrichment",
       "data-extraction",
       "data-governance",
       "data-migration",
@@ -781,7 +776,6 @@
       "document-management",
       "document-signing",
       "documentation",
-      "documents",
       "dogfood",
       "dolt",
       "dolt-mcp",
@@ -921,7 +915,6 @@
       "ga4",
       "gainers",
       "games",
-      "gamma",
       "gas",
       "gcr",
       "gdpr",
@@ -940,7 +933,6 @@
       "gitops",
       "giveaway",
       "gke",
-      "glean",
       "godot",
       "golang",
       "google",
@@ -959,7 +951,6 @@
       "groq",
       "groq-cloud",
       "grpc",
-      "gtm",
       "guidewire",
       "h2o",
       "handoff",
@@ -1305,7 +1296,6 @@
       "preflight",
       "premium",
       "preprocessing",
-      "presentations",
       "pretrained",
       "prettier",
       "preview",
@@ -1433,7 +1423,6 @@
       "saas-directories",
       "sales",
       "sales-engagement",
-      "sales-ops",
       "salesforce",
       "salesloft",
       "sanity-check",
@@ -1503,7 +1492,6 @@
       "sla",
       "slack",
       "sli",
-      "slides",
       "slo",
       "smart money",
       "smoke-tests",
@@ -1685,7 +1673,6 @@
       "video-production",
       "viem",
       "vision",
-      "visual-content",
       "visual-organization",
       "visual-regression",
       "visualization",
@@ -1704,7 +1691,6 @@
       "wallet-apis",
       "wandb",
       "wasabi",
-      "waterfall",
       "wcag",
       "weather",
       "web-crawling",
@@ -1750,7 +1736,7 @@
     "totalHooks": 26,
     "pluginsWithAgents": 91,
     "pluginsWithHooks": 18,
-    "officialPlugins": 389,
+    "officialPlugins": 385,
     "communityPlugins": 46,
     "communityContributors": 36
   },
@@ -10238,39 +10224,6 @@
     },
     {
       "type": "plugin",
-      "id": "clay-pack",
-      "slug": "clay-pack",
-      "name": "clay-pack",
-      "displayName": "clay pack",
-      "description": "Complete Clay integration skill pack with 30 skills covering data enrichment, waterfall workflows, AI agents, and GTM automation. Flagship+ tier vendor pack.",
-      "category": "saas-packs",
-      "keywords": [
-        "clay",
-        "data-enrichment",
-        "waterfall",
-        "gtm",
-        "sales-ops",
-        "lead-enrichment",
-        "ai-agents"
-      ],
-      "author": {
-        "name": "Jeremy Longshore",
-        "email": "jeremy@intentsolutions.io",
-        "url": "https://github.com/jeremylongshore"
-      },
-      "authorType": "official",
-      "version": "1.14.0",
-      "isFeatured": false,
-      "isNew": false,
-      "badges": [],
-      "skillCount": 30,
-      "verificationScore": 87,
-      "verificationGrade": "B",
-      "verificationBadge": "silver",
-      "searchText": "clay pack complete clay integration skill pack with 30 skills covering data enrichment, waterfall workflows, ai agents, and gtm automation. flagship+ tier vendor pack. saas-packs clay data-enrichment waterfall gtm sales-ops lead-enrichment ai-agents"
-    },
-    {
-      "type": "plugin",
       "id": "cursor-pack",
       "slug": "cursor-pack",
       "name": "cursor-pack",
@@ -11003,7 +10956,7 @@
       "slug": "ga4-pack",
       "name": "ga4-pack",
       "displayName": "ga4 pack",
-      "description": "Claude Code skill pack for Google Analytics 4 — 5 starter skills covering auth (OAuth + service account), Data API v1 queries (runReport, filters, sampling), Realtime API, canonical reports (DAU/MAU/retention/top pages/funnel), and BigQuery export with event-level SQL recipes.",
+      "description": "Investigate GA4 report discrepancies, realtime event observations and BigQuery export gaps using evidence receipts, executable analyzers and bounded optional collection.",
       "category": "saas-packs",
       "keywords": [
         "google-analytics",
@@ -11021,48 +10974,15 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.3.0",
+      "version": "2.0.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
-      "skillCount": 5,
-      "verificationScore": 80,
-      "verificationGrade": "B",
-      "verificationBadge": "silver",
-      "searchText": "ga4 pack claude code skill pack for google analytics 4 — 5 starter skills covering auth (oauth + service account), data api v1 queries (runreport, filters, sampling), realtime api, canonical reports (dau/mau/retention/top pages/funnel), and bigquery export with event-level sql recipes. saas-packs google-analytics ga4 analytics data-api bigquery reporting dau-mau cohort-retention"
-    },
-    {
-      "type": "plugin",
-      "id": "gamma-pack",
-      "slug": "gamma-pack",
-      "name": "gamma-pack",
-      "displayName": "gamma pack",
-      "description": "Complete Gamma integration skill pack with 24 skills covering AI presentations, document generation, templates, and visual content creation. Flagship tier vendor pack.",
-      "category": "saas-packs",
-      "keywords": [
-        "gamma",
-        "presentations",
-        "documents",
-        "ai-generation",
-        "templates",
-        "slides",
-        "visual-content"
-      ],
-      "author": {
-        "name": "Jeremy Longshore",
-        "email": "jeremy@intentsolutions.io",
-        "url": "https://github.com/jeremylongshore"
-      },
-      "authorType": "official",
-      "version": "1.13.0",
-      "isFeatured": false,
-      "isNew": false,
-      "badges": [],
-      "skillCount": 24,
-      "verificationScore": 87,
-      "verificationGrade": "B",
-      "verificationBadge": "silver",
-      "searchText": "gamma pack complete gamma integration skill pack with 24 skills covering ai presentations, document generation, templates, and visual content creation. flagship tier vendor pack. saas-packs gamma presentations documents ai-generation templates slides visual-content"
+      "skillCount": 3,
+      "verificationScore": 95,
+      "verificationGrade": "A",
+      "verificationBadge": "gold",
+      "searchText": "ga4 pack investigate ga4 report discrepancies, realtime event observations and bigquery export gaps using evidence receipts, executable analyzers and bounded optional collection. saas-packs google-analytics ga4 analytics data-api bigquery reporting dau-mau cohort-retention"
     },
     {
       "type": "plugin",
@@ -11203,7 +11123,7 @@
       "slug": "langfuse-pack",
       "name": "langfuse-pack",
       "displayName": "langfuse pack",
-      "description": "Complete Langfuse integration skill pack with 24 skills covering LLM observability, tracing, prompt management, and evaluation. Flagship tier vendor pack.",
+      "description": "Five executable Langfuse operator workflows for trace ingestion, experiment regressions, prompt release review, recorded cost and data-boundary evidence. Offline receipt analysis without provider calls.",
       "category": "saas-packs",
       "keywords": [
         "langfuse",
@@ -11220,15 +11140,15 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.17.0",
+      "version": "2.0.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
-      "skillCount": 24,
-      "verificationScore": 87,
-      "verificationGrade": "B",
-      "verificationBadge": "silver",
-      "searchText": "langfuse pack complete langfuse integration skill pack with 24 skills covering llm observability, tracing, prompt management, and evaluation. flagship tier vendor pack. saas-packs langfuse observability tracing prompts evaluation llm-ops monitoring"
+      "skillCount": 5,
+      "verificationScore": 93,
+      "verificationGrade": "A",
+      "verificationBadge": "gold",
+      "searchText": "langfuse pack five executable langfuse operator workflows for trace ingestion, experiment regressions, prompt release review, recorded cost and data-boundary evidence. offline receipt analysis without provider calls. saas-packs langfuse observability tracing prompts evaluation llm-ops monitoring"
     },
     {
       "type": "plugin",
@@ -11941,36 +11861,6 @@
     },
     {
       "type": "plugin",
-      "id": "appfolio-pack",
-      "slug": "appfolio-pack",
-      "name": "appfolio-pack",
-      "displayName": "appfolio pack",
-      "description": "Claude Code skill pack for AppFolio (18 skills)",
-      "category": "saas-packs",
-      "keywords": [
-        "appfolio",
-        "saas",
-        "sdk",
-        "integration"
-      ],
-      "author": {
-        "name": "Jeremy Longshore",
-        "email": "jeremy@intentsolutions.io",
-        "url": "https://github.com/jeremylongshore"
-      },
-      "authorType": "official",
-      "version": "1.5.0",
-      "isFeatured": false,
-      "isNew": false,
-      "badges": [],
-      "skillCount": 18,
-      "verificationScore": 87,
-      "verificationGrade": "B",
-      "verificationBadge": "silver",
-      "searchText": "appfolio pack claude code skill pack for appfolio (18 skills) saas-packs appfolio saas sdk integration"
-    },
-    {
-      "type": "plugin",
       "id": "apple-notes-pack",
       "slug": "apple-notes-pack",
       "name": "apple-notes-pack",
@@ -12581,36 +12471,6 @@
       "verificationGrade": "B",
       "verificationBadge": "silver",
       "searchText": "framer pack claude code skill pack for framer (18 skills) saas-packs framer saas sdk integration"
-    },
-    {
-      "type": "plugin",
-      "id": "glean-pack",
-      "slug": "glean-pack",
-      "name": "glean-pack",
-      "displayName": "glean pack",
-      "description": "Claude Code skill pack for Glean (24 skills)",
-      "category": "saas-packs",
-      "keywords": [
-        "glean",
-        "saas",
-        "sdk",
-        "integration"
-      ],
-      "author": {
-        "name": "Jeremy Longshore",
-        "email": "jeremy@intentsolutions.io",
-        "url": "https://github.com/jeremylongshore"
-      },
-      "authorType": "official",
-      "version": "1.8.0",
-      "isFeatured": false,
-      "isNew": false,
-      "badges": [],
-      "skillCount": 24,
-      "verificationScore": 87,
-      "verificationGrade": "B",
-      "verificationBadge": "silver",
-      "searchText": "glean pack claude code skill pack for glean (24 skills) saas-packs glean saas sdk integration"
     },
     {
       "type": "plugin",
@@ -20096,420 +19956,6 @@
     },
     {
       "type": "skill",
-      "id": "appfolio-ci-integration",
-      "slug": "appfolio-ci-integration",
-      "name": "appfolio-ci-integration",
-      "description": "Configure CI/CD pipeline for AppFolio property management integrations. Trigger: \"appfolio CI\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-ci-integration configure ci/cd pipeline for appfolio property management integrations. trigger: \"appfolio ci\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-common-errors",
-      "slug": "appfolio-common-errors",
-      "name": "appfolio-common-errors",
-      "description": "Diagnose and fix common AppFolio API integration errors. Trigger: \"appfolio error\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-common-errors diagnose and fix common appfolio api integration errors. trigger: \"appfolio error\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-core-workflow-a",
-      "slug": "appfolio-core-workflow-a",
-      "name": "appfolio-core-workflow-a",
-      "description": "Build property management dashboard with AppFolio API data. Trigger: \"appfolio property dashboard\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-core-workflow-a build property management dashboard with appfolio api data. trigger: \"appfolio property dashboard\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-core-workflow-b",
-      "slug": "appfolio-core-workflow-b",
-      "name": "appfolio-core-workflow-b",
-      "description": "Automate tenant management and lease operations with AppFolio. Trigger: \"appfolio tenant management\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-core-workflow-b automate tenant management and lease operations with appfolio. trigger: \"appfolio tenant management\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-cost-tuning",
-      "slug": "appfolio-cost-tuning",
-      "name": "appfolio-cost-tuning",
-      "description": "Optimize AppFolio API costs through efficient usage patterns. Trigger: \"appfolio cost\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-cost-tuning optimize appfolio api costs through efficient usage patterns. trigger: \"appfolio cost\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-debug-bundle",
-      "slug": "appfolio-debug-bundle",
-      "name": "appfolio-debug-bundle",
-      "description": "Collect AppFolio API debug evidence for support tickets. Trigger: \"appfolio debug\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-debug-bundle collect appfolio api debug evidence for support tickets. trigger: \"appfolio debug\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-deploy-integration",
-      "slug": "appfolio-deploy-integration",
-      "name": "appfolio-deploy-integration",
-      "description": "Deploy AppFolio integration service to cloud infrastructure. Trigger: \"deploy appfolio\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-deploy-integration deploy appfolio integration service to cloud infrastructure. trigger: \"deploy appfolio\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-hello-world",
-      "slug": "appfolio-hello-world",
-      "name": "appfolio-hello-world",
-      "description": "Query AppFolio properties, units, and tenants via REST API. Trigger: \"appfolio hello world\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-hello-world query appfolio properties, units, and tenants via rest api. trigger: \"appfolio hello world\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-install-auth",
-      "slug": "appfolio-install-auth",
-      "name": "appfolio-install-auth",
-      "description": "Configure AppFolio Stack API authentication with OAuth 2.0. Use when setting up property management API access, registering as an AppFolio Stack partner, or configuring client credentials for API calls. Trigger: \"install appfolio\", \"setup appfolio\", \"appfolio auth\", \"appfolio API key\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-install-auth configure appfolio stack api authentication with oauth 2.0. use when setting up property management api access, registering as an appfolio stack partner, or configuring client credentials for api calls. trigger: \"install appfolio\", \"setup appfolio\", \"appfolio auth\", \"appfolio api key\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-local-dev-loop",
-      "slug": "appfolio-local-dev-loop",
-      "name": "appfolio-local-dev-loop",
-      "description": "Set up local development for AppFolio property management API integration. Trigger: \"appfolio local dev\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-local-dev-loop set up local development for appfolio property management api integration. trigger: \"appfolio local dev\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-performance-tuning",
-      "slug": "appfolio-performance-tuning",
-      "name": "appfolio-performance-tuning",
-      "description": "Optimize AppFolio API performance with caching and batch operations. Trigger: \"appfolio performance\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-performance-tuning optimize appfolio api performance with caching and batch operations. trigger: \"appfolio performance\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-prod-checklist",
-      "slug": "appfolio-prod-checklist",
-      "name": "appfolio-prod-checklist",
-      "description": "Production readiness checklist for AppFolio integrations. Trigger: \"appfolio production checklist\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-prod-checklist production readiness checklist for appfolio integrations. trigger: \"appfolio production checklist\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-rate-limits",
-      "slug": "appfolio-rate-limits",
-      "name": "appfolio-rate-limits",
-      "description": "Handle AppFolio API rate limits with throttling and backoff. Trigger: \"appfolio rate limit\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-rate-limits handle appfolio api rate limits with throttling and backoff. trigger: \"appfolio rate limit\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-reference-architecture",
-      "slug": "appfolio-reference-architecture",
-      "name": "appfolio-reference-architecture",
-      "description": "Reference architecture for AppFolio property management integration. Trigger: \"appfolio architecture\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-reference-architecture reference architecture for appfolio property management integration. trigger: \"appfolio architecture\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-sdk-patterns",
-      "slug": "appfolio-sdk-patterns",
-      "name": "appfolio-sdk-patterns",
-      "description": "Apply production-ready patterns for AppFolio REST API integration. Trigger: \"appfolio patterns\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-sdk-patterns apply production-ready patterns for appfolio rest api integration. trigger: \"appfolio patterns\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-security-basics",
-      "slug": "appfolio-security-basics",
-      "name": "appfolio-security-basics",
-      "description": "Secure AppFolio API credentials and tenant data. Trigger: \"appfolio security\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-security-basics secure appfolio api credentials and tenant data. trigger: \"appfolio security\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-upgrade-migration",
-      "slug": "appfolio-upgrade-migration",
-      "name": "appfolio-upgrade-migration",
-      "description": "Migrate between AppFolio API versions and handle endpoint changes. Trigger: \"appfolio upgrade\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-upgrade-migration migrate between appfolio api versions and handle endpoint changes. trigger: \"appfolio upgrade\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "appfolio-webhooks-events",
-      "slug": "appfolio-webhooks-events",
-      "name": "appfolio-webhooks-events",
-      "description": "Handle AppFolio webhook events for property management notifications. Trigger: \"appfolio webhook\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.5.0",
-      "parentPlugin": {
-        "name": "appfolio-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "appfolio-webhooks-events handle appfolio webhook events for property management notifications. trigger: \"appfolio webhook\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
       "id": "apple-notes-ci-integration",
       "slug": "apple-notes-ci-integration",
       "name": "apple-notes-ci-integration",
@@ -26232,652 +25678,6 @@
         "category": "saas-packs"
       },
       "searchText": "clari-webhooks-events detect clari changes through supported paginated audit reads and asynchronous activity exports instead of assuming webhooks. use when building an administrative or sales-activity feed. trigger with: \"monitor clari changes\", \"stream clari audit events\", \"replace clari webhooks\". saas-packs read grep write edit "
-    },
-    {
-      "type": "skill",
-      "id": "clay-advanced-troubleshooting",
-      "slug": "clay-advanced-troubleshooting",
-      "name": "clay-advanced-troubleshooting",
-      "description": "Deep-debug complex Clay enrichment failures, provider degradation, and data flow issues. Use when standard troubleshooting fails, investigating intermittent enrichment failures, or preparing detailed evidence for Clay support escalation. Trigger with phrases like \"clay hard bug\", \"clay mystery error\", \"clay impossible to debug\", \"difficult clay issue\", \"clay deep debug\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep",
-        "Bash(curl:*)",
-        "Bash(node:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-advanced-troubleshooting deep-debug complex clay enrichment failures, provider degradation, and data flow issues. use when standard troubleshooting fails, investigating intermittent enrichment failures, or preparing detailed evidence for clay support escalation. trigger with phrases like \"clay hard bug\", \"clay mystery error\", \"clay impossible to debug\", \"difficult clay issue\", \"clay deep debug\". saas-packs read grep bash(curl:*) bash(node:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-architecture-variants",
-      "slug": "clay-architecture-variants",
-      "name": "clay-architecture-variants",
-      "description": "Choose and implement Clay integration architecture for different scales and use cases. Use when designing new Clay integrations, comparing direct vs queue-based vs event-driven, or planning architecture for Clay-powered data operations. Trigger with phrases like \"clay architecture\", \"clay blueprint\", \"how to structure clay\", \"clay integration design\", \"clay event-driven\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-architecture-variants choose and implement clay integration architecture for different scales and use cases. use when designing new clay integrations, comparing direct vs queue-based vs event-driven, or planning architecture for clay-powered data operations. trigger with phrases like \"clay architecture\", \"clay blueprint\", \"how to structure clay\", \"clay integration design\", \"clay event-driven\". saas-packs read write edit grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-ci-integration",
-      "slug": "clay-ci-integration",
-      "name": "clay-ci-integration",
-      "description": "Configure CI/CD pipelines for Clay integrations with automated testing and validation. Use when setting up automated tests for Clay webhook handlers, validating enrichment data quality in CI, or integrating Clay checks into your build process. Trigger with phrases like \"clay CI\", \"clay GitHub Actions\", \"clay automated tests\", \"CI clay\", \"test clay integration\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(gh:*)",
-        "Bash(npm:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-ci-integration configure ci/cd pipelines for clay integrations with automated testing and validation. use when setting up automated tests for clay webhook handlers, validating enrichment data quality in ci, or integrating clay checks into your build process. trigger with phrases like \"clay ci\", \"clay github actions\", \"clay automated tests\", \"ci clay\", \"test clay integration\". saas-packs read write edit bash(gh:*) bash(npm:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-common-errors",
-      "slug": "clay-common-errors",
-      "name": "clay-common-errors",
-      "description": "Diagnose and fix the most common Clay errors and integration issues. Use when encountering Clay errors, debugging failed enrichments, or troubleshooting webhook delivery problems. Trigger with phrases like \"clay error\", \"fix clay\", \"clay not working\", \"debug clay\", \"clay enrichment failed\", \"clay webhook error\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-common-errors diagnose and fix the most common clay errors and integration issues. use when encountering clay errors, debugging failed enrichments, or troubleshooting webhook delivery problems. trigger with phrases like \"clay error\", \"fix clay\", \"clay not working\", \"debug clay\", \"clay enrichment failed\", \"clay webhook error\". saas-packs read grep bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-core-workflow-a",
-      "slug": "clay-core-workflow-a",
-      "name": "clay-core-workflow-a",
-      "description": "Build a complete lead enrichment pipeline using Clay tables, webhooks, and waterfall enrichment. Use when building lead generation features, enriching prospect lists, or creating automated data enrichment workflows. Trigger with phrases like \"clay lead enrichment\", \"clay main workflow\", \"enrich contacts in clay\", \"clay prospect list\", \"clay enrichment pipeline\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(npm:*)",
-        "Bash(node:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-core-workflow-a build a complete lead enrichment pipeline using clay tables, webhooks, and waterfall enrichment. use when building lead generation features, enriching prospect lists, or creating automated data enrichment workflows. trigger with phrases like \"clay lead enrichment\", \"clay main workflow\", \"enrich contacts in clay\", \"clay prospect list\", \"clay enrichment pipeline\". saas-packs read write edit bash(curl:*) bash(npm:*) bash(node:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-core-workflow-b",
-      "slug": "clay-core-workflow-b",
-      "name": "clay-core-workflow-b",
-      "description": "Use Claygent AI research and AI-powered personalization to generate outreach copy from enriched data. Use when writing personalized email openers, running Claygent research prompts, or configuring AI columns for campaign personalization at scale. Trigger with phrases like \"clay AI personalization\", \"claygent research\", \"clay outreach copy\", \"clay secondary workflow\", \"clay AI column\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(npm:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-core-workflow-b use claygent ai research and ai-powered personalization to generate outreach copy from enriched data. use when writing personalized email openers, running claygent research prompts, or configuring ai columns for campaign personalization at scale. trigger with phrases like \"clay ai personalization\", \"claygent research\", \"clay outreach copy\", \"clay secondary workflow\", \"clay ai column\". saas-packs read write edit bash(curl:*) bash(npm:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-cost-tuning",
-      "slug": "clay-cost-tuning",
-      "name": "clay-cost-tuning",
-      "description": "Optimize Clay credit spending with provider key management, waterfall tuning, and budget controls. Use when analyzing Clay costs, reducing credit consumption, or implementing spending alerts and caps. Trigger with phrases like \"clay cost\", \"clay billing\", \"reduce clay costs\", \"clay pricing\", \"clay expensive\", \"clay budget\", \"clay credits\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-cost-tuning optimize clay credit spending with provider key management, waterfall tuning, and budget controls. use when analyzing clay costs, reducing credit consumption, or implementing spending alerts and caps. trigger with phrases like \"clay cost\", \"clay billing\", \"reduce clay costs\", \"clay pricing\", \"clay expensive\", \"clay budget\", \"clay credits\". saas-packs read write edit grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-data-handling",
-      "slug": "clay-data-handling",
-      "name": "clay-data-handling",
-      "description": "Implement GDPR/CCPA-compliant data handling for Clay enrichment pipelines. Use when handling PII from enrichments, implementing data retention policies, or ensuring regulatory compliance for Clay-enriched lead data. Trigger with phrases like \"clay data\", \"clay PII\", \"clay GDPR\", \"clay data retention\", \"clay privacy\", \"clay CCPA\", \"clay compliance\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-data-handling implement gdpr/ccpa-compliant data handling for clay enrichment pipelines. use when handling pii from enrichments, implementing data retention policies, or ensuring regulatory compliance for clay-enriched lead data. trigger with phrases like \"clay data\", \"clay pii\", \"clay gdpr\", \"clay data retention\", \"clay privacy\", \"clay ccpa\", \"clay compliance\". saas-packs read write edit grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-debug-bundle",
-      "slug": "clay-debug-bundle",
-      "name": "clay-debug-bundle",
-      "description": "Collect Clay debug evidence for support tickets and troubleshooting. Use when encountering persistent issues, preparing support tickets, or collecting diagnostic information for Clay integration problems. Trigger with phrases like \"clay debug\", \"clay support bundle\", \"collect clay logs\", \"clay diagnostic\", \"clay support ticket\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Bash(curl:*)",
-        "Bash(tar:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-debug-bundle collect clay debug evidence for support tickets and troubleshooting. use when encountering persistent issues, preparing support tickets, or collecting diagnostic information for clay integration problems. trigger with phrases like \"clay debug\", \"clay support bundle\", \"collect clay logs\", \"clay diagnostic\", \"clay support ticket\". saas-packs read bash(curl:*) bash(tar:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-deploy-integration",
-      "slug": "clay-deploy-integration",
-      "name": "clay-deploy-integration",
-      "description": "Deploy Clay-powered applications to Vercel, Cloud Run, or Docker with proper secrets management. Use when deploying Clay webhook receivers, enrichment pipelines, or CRM sync services to production infrastructure. Trigger with phrases like \"deploy clay\", \"clay Vercel\", \"clay production deploy\", \"clay Cloud Run\", \"clay Docker\", \"host clay integration\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(vercel:*)",
-        "Bash(gcloud:*)",
-        "Bash(docker:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-deploy-integration deploy clay-powered applications to vercel, cloud run, or docker with proper secrets management. use when deploying clay webhook receivers, enrichment pipelines, or crm sync services to production infrastructure. trigger with phrases like \"deploy clay\", \"clay vercel\", \"clay production deploy\", \"clay cloud run\", \"clay docker\", \"host clay integration\". saas-packs read write edit bash(vercel:*) bash(gcloud:*) bash(docker:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-enterprise-rbac",
-      "slug": "clay-enterprise-rbac",
-      "name": "clay-enterprise-rbac",
-      "description": "Configure Clay workspace roles, team access control, and credit budget allocation. Use when managing team access to Clay tables, setting per-user credit budgets, or configuring workspace-level permissions for Clay. Trigger with phrases like \"clay SSO\", \"clay RBAC\", \"clay enterprise\", \"clay roles\", \"clay permissions\", \"clay team access\", \"clay workspace\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-enterprise-rbac configure clay workspace roles, team access control, and credit budget allocation. use when managing team access to clay tables, setting per-user credit budgets, or configuring workspace-level permissions for clay. trigger with phrases like \"clay sso\", \"clay rbac\", \"clay enterprise\", \"clay roles\", \"clay permissions\", \"clay team access\", \"clay workspace\". saas-packs read write edit grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-hello-world",
-      "slug": "clay-hello-world",
-      "name": "clay-hello-world",
-      "description": "Send your first record to Clay and get enriched data back. Use when starting a new Clay integration, testing webhook setup, or verifying that enrichment columns are working. Trigger with phrases like \"clay hello world\", \"clay example\", \"clay quick start\", \"first clay enrichment\", \"test clay webhook\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(node:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-hello-world send your first record to clay and get enriched data back. use when starting a new clay integration, testing webhook setup, or verifying that enrichment columns are working. trigger with phrases like \"clay hello world\", \"clay example\", \"clay quick start\", \"first clay enrichment\", \"test clay webhook\". saas-packs read write edit bash(curl:*) bash(node:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-incident-runbook",
-      "slug": "clay-incident-runbook",
-      "name": "clay-incident-runbook",
-      "description": "Execute Clay incident response procedures for enrichment failures, credit exhaustion, and data flow outages. Use when Clay enrichments stop working, webhook delivery fails, or CRM sync breaks in production. Trigger with phrases like \"clay incident\", \"clay outage\", \"clay down\", \"clay emergency\", \"clay broken\", \"clay enrichment stopped\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-incident-runbook execute clay incident response procedures for enrichment failures, credit exhaustion, and data flow outages. use when clay enrichments stop working, webhook delivery fails, or crm sync breaks in production. trigger with phrases like \"clay incident\", \"clay outage\", \"clay down\", \"clay emergency\", \"clay broken\", \"clay enrichment stopped\". saas-packs read grep bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-install-auth",
-      "slug": "clay-install-auth",
-      "name": "clay-install-auth",
-      "description": "Set up Clay account access, API keys, webhook URLs, and provider connections. Use when onboarding to Clay, connecting data providers, configuring API keys, or setting up webhook endpoints for programmatic data flow. Trigger with phrases like \"install clay\", \"setup clay\", \"clay auth\", \"configure clay API key\", \"connect clay providers\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(npm:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-install-auth set up clay account access, api keys, webhook urls, and provider connections. use when onboarding to clay, connecting data providers, configuring api keys, or setting up webhook endpoints for programmatic data flow. trigger with phrases like \"install clay\", \"setup clay\", \"clay auth\", \"configure clay api key\", \"connect clay providers\". saas-packs read write edit bash(curl:*) bash(npm:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-known-pitfalls",
-      "slug": "clay-known-pitfalls",
-      "name": "clay-known-pitfalls",
-      "description": "Identify and avoid the top Clay anti-patterns, gotchas, and integration mistakes. Use when reviewing Clay integrations for issues, onboarding new team members, or auditing existing Clay table configurations. Trigger with phrases like \"clay mistakes\", \"clay anti-patterns\", \"clay pitfalls\", \"clay what not to do\", \"clay gotchas\", \"clay code review\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-known-pitfalls identify and avoid the top clay anti-patterns, gotchas, and integration mistakes. use when reviewing clay integrations for issues, onboarding new team members, or auditing existing clay table configurations. trigger with phrases like \"clay mistakes\", \"clay anti-patterns\", \"clay pitfalls\", \"clay what not to do\", \"clay gotchas\", \"clay code review\". saas-packs read grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-load-scale",
-      "slug": "clay-load-scale",
-      "name": "clay-load-scale",
-      "description": "Scale Clay enrichment pipelines for high-volume processing (10K-100K+ leads/month). Use when planning capacity for large enrichment runs, optimizing batch processing, or designing high-volume Clay architectures. Trigger with phrases like \"clay scale\", \"clay high volume\", \"clay large batch\", \"clay capacity planning\", \"clay 100k leads\", \"clay bulk enrichment\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(node:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-load-scale scale clay enrichment pipelines for high-volume processing (10k-100k+ leads/month). use when planning capacity for large enrichment runs, optimizing batch processing, or designing high-volume clay architectures. trigger with phrases like \"clay scale\", \"clay high volume\", \"clay large batch\", \"clay capacity planning\", \"clay 100k leads\", \"clay bulk enrichment\". saas-packs read write edit bash(curl:*) bash(node:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-local-dev-loop",
-      "slug": "clay-local-dev-loop",
-      "name": "clay-local-dev-loop",
-      "description": "Set up a local development loop for building and testing Clay integrations. Use when iterating on Clay webhook handlers, testing enrichment pipelines, or building scripts that push data into Clay tables. Trigger with phrases like \"clay local dev\", \"clay development setup\", \"clay testing locally\", \"clay dev workflow\", \"iterate clay integration\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(npm:*)",
-        "Bash(npx:*)",
-        "Bash(node:*)",
-        "Bash(python3:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-local-dev-loop set up a local development loop for building and testing clay integrations. use when iterating on clay webhook handlers, testing enrichment pipelines, or building scripts that push data into clay tables. trigger with phrases like \"clay local dev\", \"clay development setup\", \"clay testing locally\", \"clay dev workflow\", \"iterate clay integration\". saas-packs read write edit bash(curl:*) bash(npm:*) bash(npx:*) bash(node:*) bash(python3:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-migration-deep-dive",
-      "slug": "clay-migration-deep-dive",
-      "name": "clay-migration-deep-dive",
-      "description": "Migrate to Clay from other enrichment tools or consolidate multiple data sources into Clay. Use when migrating from ZoomInfo, Apollo, Clearbit, or custom enrichment scripts to Clay, or consolidating fragmented enrichment workflows. Trigger with phrases like \"migrate to clay\", \"clay migration\", \"switch to clay\", \"replace zoominfo with clay\", \"consolidate enrichment tools\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(npm:*)",
-        "Bash(node:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-migration-deep-dive migrate to clay from other enrichment tools or consolidate multiple data sources into clay. use when migrating from zoominfo, apollo, clearbit, or custom enrichment scripts to clay, or consolidating fragmented enrichment workflows. trigger with phrases like \"migrate to clay\", \"clay migration\", \"switch to clay\", \"replace zoominfo with clay\", \"consolidate enrichment tools\". saas-packs read write edit bash(curl:*) bash(npm:*) bash(node:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-multi-env-setup",
-      "slug": "clay-multi-env-setup",
-      "name": "clay-multi-env-setup",
-      "description": "Configure Clay integrations across development, staging, and production environments. Use when setting up per-environment Clay tables, managing webhook URLs per environment, or implementing environment-specific enrichment configurations. Trigger with phrases like \"clay environments\", \"clay staging\", \"clay dev prod\", \"clay environment setup\", \"clay config by env\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-multi-env-setup configure clay integrations across development, staging, and production environments. use when setting up per-environment clay tables, managing webhook urls per environment, or implementing environment-specific enrichment configurations. trigger with phrases like \"clay environments\", \"clay staging\", \"clay dev prod\", \"clay environment setup\", \"clay config by env\". saas-packs read write edit bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-observability",
-      "slug": "clay-observability",
-      "name": "clay-observability",
-      "description": "Monitor Clay enrichment pipeline health, credit consumption, and data quality metrics. Use when setting up dashboards for Clay operations, configuring alerts for credit burn, or tracking enrichment success rates. Trigger with phrases like \"clay monitoring\", \"clay metrics\", \"clay observability\", \"monitor clay\", \"clay alerts\", \"clay dashboard\", \"clay credit tracking\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-observability monitor clay enrichment pipeline health, credit consumption, and data quality metrics. use when setting up dashboards for clay operations, configuring alerts for credit burn, or tracking enrichment success rates. trigger with phrases like \"clay monitoring\", \"clay metrics\", \"clay observability\", \"monitor clay\", \"clay alerts\", \"clay dashboard\", \"clay credit tracking\". saas-packs read write edit bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-performance-tuning",
-      "slug": "clay-performance-tuning",
-      "name": "clay-performance-tuning",
-      "description": "Optimize Clay table enrichment throughput, reduce processing time, and improve hit rates. Use when experiencing slow enrichment, poor email find rates, or needing to process large tables efficiently. Trigger with phrases like \"clay performance\", \"optimize clay\", \"clay slow\", \"clay throughput\", \"clay fast enrichment\", \"clay batch optimization\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-performance-tuning optimize clay table enrichment throughput, reduce processing time, and improve hit rates. use when experiencing slow enrichment, poor email find rates, or needing to process large tables efficiently. trigger with phrases like \"clay performance\", \"optimize clay\", \"clay slow\", \"clay throughput\", \"clay fast enrichment\", \"clay batch optimization\". saas-packs read write edit bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-policy-guardrails",
-      "slug": "clay-policy-guardrails",
-      "name": "clay-policy-guardrails",
-      "description": "Implement credit spending limits, data privacy enforcement, and input validation guardrails for Clay pipelines. Use when enforcing spending caps, blocking PII enrichment, or adding pre-enrichment validation rules. Trigger with phrases like \"clay policy\", \"clay guardrails\", \"clay spending limit\", \"clay data privacy rules\", \"clay validation\", \"clay controls\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(node:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-policy-guardrails implement credit spending limits, data privacy enforcement, and input validation guardrails for clay pipelines. use when enforcing spending caps, blocking pii enrichment, or adding pre-enrichment validation rules. trigger with phrases like \"clay policy\", \"clay guardrails\", \"clay spending limit\", \"clay data privacy rules\", \"clay validation\", \"clay controls\". saas-packs read write edit bash(node:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-prod-checklist",
-      "slug": "clay-prod-checklist",
-      "name": "clay-prod-checklist",
-      "description": "Execute production readiness checklist for Clay integrations. Use when launching Clay-powered enrichment pipelines, preparing for go-live, or auditing production Clay configurations. Trigger with phrases like \"clay production\", \"clay go-live\", \"clay launch checklist\", \"clay production readiness\", \"deploy clay pipeline\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-prod-checklist execute production readiness checklist for clay integrations. use when launching clay-powered enrichment pipelines, preparing for go-live, or auditing production clay configurations. trigger with phrases like \"clay production\", \"clay go-live\", \"clay launch checklist\", \"clay production readiness\", \"deploy clay pipeline\". saas-packs read bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-rate-limits",
-      "slug": "clay-rate-limits",
-      "name": "clay-rate-limits",
-      "description": "Handle Clay rate limits, webhook throttling, and credit pacing strategies. Use when hitting 429 errors, managing webhook submission rates, or optimizing throughput within Clay's plan limits. Trigger with phrases like \"clay rate limit\", \"clay throttling\", \"clay 429\", \"clay slow\", \"clay records per hour\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-rate-limits handle clay rate limits, webhook throttling, and credit pacing strategies. use when hitting 429 errors, managing webhook submission rates, or optimizing throughput within clay's plan limits. trigger with phrases like \"clay rate limit\", \"clay throttling\", \"clay 429\", \"clay slow\", \"clay records per hour\". saas-packs read write edit bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-reference-architecture",
-      "slug": "clay-reference-architecture",
-      "name": "clay-reference-architecture",
-      "description": "Design production Clay enrichment pipelines with table schemas, waterfall patterns, and CRM sync. Use when architecting new Clay integrations, reviewing data flow design, or establishing enrichment pipeline standards. Trigger with phrases like \"clay architecture\", \"clay best practices\", \"clay pipeline design\", \"clay reference\", \"clay data flow\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-reference-architecture design production clay enrichment pipelines with table schemas, waterfall patterns, and crm sync. use when architecting new clay integrations, reviewing data flow design, or establishing enrichment pipeline standards. trigger with phrases like \"clay architecture\", \"clay best practices\", \"clay pipeline design\", \"clay reference\", \"clay data flow\". saas-packs read write edit grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-reliability-patterns",
-      "slug": "clay-reliability-patterns",
-      "name": "clay-reliability-patterns",
-      "description": "Build fault-tolerant Clay integrations with circuit breakers, dead letter queues, and graceful degradation. Use when building production Clay pipelines that need resilience, implementing retry strategies, or adding fault tolerance to enrichment workflows. Trigger with phrases like \"clay reliability\", \"clay circuit breaker\", \"clay resilience\", \"clay fallback\", \"clay fault tolerance\", \"clay dead letter queue\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-reliability-patterns build fault-tolerant clay integrations with circuit breakers, dead letter queues, and graceful degradation. use when building production clay pipelines that need resilience, implementing retry strategies, or adding fault tolerance to enrichment workflows. trigger with phrases like \"clay reliability\", \"clay circuit breaker\", \"clay resilience\", \"clay fallback\", \"clay fault tolerance\", \"clay dead letter queue\". saas-packs read write edit bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-sdk-patterns",
-      "slug": "clay-sdk-patterns",
-      "name": "clay-sdk-patterns",
-      "description": "Apply production-ready patterns for integrating with Clay via webhooks and HTTP API. Use when building Clay integrations, implementing webhook handlers, or establishing team coding standards for Clay data pipelines. Trigger with phrases like \"clay SDK patterns\", \"clay best practices\", \"clay code patterns\", \"clay integration patterns\", \"clay webhook patterns\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(node:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-sdk-patterns apply production-ready patterns for integrating with clay via webhooks and http api. use when building clay integrations, implementing webhook handlers, or establishing team coding standards for clay data pipelines. trigger with phrases like \"clay sdk patterns\", \"clay best practices\", \"clay code patterns\", \"clay integration patterns\", \"clay webhook patterns\". saas-packs read write edit bash(npm:*) bash(node:*) "
-    },
-    {
-      "type": "skill",
-      "id": "clay-security-basics",
-      "slug": "clay-security-basics",
-      "name": "clay-security-basics",
-      "description": "Apply Clay security best practices for API keys, webhook secrets, and data access control. Use when securing Clay integrations, rotating API keys, auditing access, or implementing webhook authentication. Trigger with phrases like \"clay security\", \"clay secrets\", \"secure clay\", \"clay API key security\", \"clay webhook security\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-security-basics apply clay security best practices for api keys, webhook secrets, and data access control. use when securing clay integrations, rotating api keys, auditing access, or implementing webhook authentication. trigger with phrases like \"clay security\", \"clay secrets\", \"secure clay\", \"clay api key security\", \"clay webhook security\". saas-packs read write edit grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-upgrade-migration",
-      "slug": "clay-upgrade-migration",
-      "name": "clay-upgrade-migration",
-      "description": "Navigate Clay plan changes, pricing migrations, and feature upgrades. Use when upgrading Clay plans, migrating to the 2026 pricing model, or adapting integrations to new Clay features. Trigger with phrases like \"upgrade clay\", \"clay migration\", \"clay pricing change\", \"clay plan upgrade\", \"clay new pricing\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-upgrade-migration navigate clay plan changes, pricing migrations, and feature upgrades. use when upgrading clay plans, migrating to the 2026 pricing model, or adapting integrations to new clay features. trigger with phrases like \"upgrade clay\", \"clay migration\", \"clay pricing change\", \"clay plan upgrade\", \"clay new pricing\". saas-packs read write edit bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "clay-webhooks-events",
-      "slug": "clay-webhooks-events",
-      "name": "clay-webhooks-events",
-      "description": "Implement Clay webhook receivers and HTTP API column callbacks for real-time data flow. Use when setting up webhook endpoints, handling enrichment callbacks from Clay, or building event-driven integrations with Clay tables. Trigger with phrases like \"clay webhook\", \"clay events\", \"clay callback\", \"handle clay data\", \"clay notifications\", \"clay HTTP API column\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.14.0",
-      "parentPlugin": {
-        "name": "clay-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "clay-webhooks-events implement clay webhook receivers and http api column callbacks for real-time data flow. use when setting up webhook endpoints, handling enrichment callbacks from clay, or building event-driven integrations with clay tables. trigger with phrases like \"clay webhook\", \"clay events\", \"clay callback\", \"handle clay data\", \"clay notifications\", \"clay http api column\". saas-packs read write edit bash(curl:*) "
     },
     {
       "type": "skill",
@@ -41875,610 +40675,60 @@
     },
     {
       "type": "skill",
-      "id": "ga4-auth-setup",
-      "slug": "ga4-auth-setup",
-      "name": "ga4-auth-setup",
-      "description": "Configure auth for the GA4 Data API — OAuth user credentials for interactive use, or a service account for automation / CI. Pick the right path, set the right scopes, grant the right property-level access. Trigger with \"set up GA4 auth\", \"GA4 service account\", \"GA4 OAuth\", \"connect to Google Analytics\".",
+      "id": "ga4-export-guardian",
+      "slug": "ga4-export-guardian",
+      "name": "ga4-export-guardian",
+      "description": "Investigate GA4 BigQuery export gaps, daily/intraday overlap and query scan risk from table-inventory and dry-run receipts. Use when exported days appear missing or a GA4 query may scan too much. Trigger with \"missing GA4 BigQuery tables\", \"GA4 export delayed\" or \"check this GA4 query's scan budget\".",
       "category": "saas-packs",
       "allowedTools": [
-        "Bash(gcloud:*)",
-        "Bash(curl:*)",
-        "Bash(jq:*)",
-        "Bash(python3:*)",
-        "Bash(ls:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.3.0",
-      "parentPlugin": {
-        "name": "ga4-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "ga4-auth-setup configure auth for the ga4 data api — oauth user credentials for interactive use, or a service account for automation / ci. pick the right path, set the right scopes, grant the right property-level access. trigger with \"set up ga4 auth\", \"ga4 service account\", \"ga4 oauth\", \"connect to google analytics\". saas-packs bash(gcloud:*) bash(curl:*) bash(jq:*) bash(python3:*) bash(ls:*) "
-    },
-    {
-      "type": "skill",
-      "id": "ga4-bigquery-export",
-      "slug": "ga4-bigquery-export",
-      "name": "ga4-bigquery-export",
-      "description": "Wire GA4 → BigQuery for unsampled, queryable event-level data. Covers the one-time export setup, the events_YYYYMMDD table schema, partitioning + clustering, and the SQL patterns for the reports the Data API can't do well (true cohort retention, custom-event attribution, large date ranges). Trigger with \"GA4 BigQuery\", \"GA4 to BQ\", \"event-level GA4 data\", \"unsampled GA4\", \"GA4 export setup\", \"GA4 SQL\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Bash(bq:*)",
-        "Bash(gcloud:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.3.0",
-      "parentPlugin": {
-        "name": "ga4-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "ga4-bigquery-export wire ga4 → bigquery for unsampled, queryable event-level data. covers the one-time export setup, the events_yyyymmdd table schema, partitioning + clustering, and the sql patterns for the reports the data api can't do well (true cohort retention, custom-event attribution, large date ranges). trigger with \"ga4 bigquery\", \"ga4 to bq\", \"event-level ga4 data\", \"unsampled ga4\", \"ga4 export setup\", \"ga4 sql\". saas-packs bash(bq:*) bash(gcloud:*) "
-    },
-    {
-      "type": "skill",
-      "id": "ga4-common-reports",
-      "slug": "ga4-common-reports",
-      "name": "ga4-common-reports",
-      "description": "Copy-paste recipes for the 6-7 reports every site owner actually wants: DAU/MAU/WAU, retention cohort, top pages by source, channel attribution, conversion funnel, geo breakdown, device split. Each recipe is a fully-formed Data API request. Trigger with \"GA4 DAU\", \"GA4 retention\", \"GA4 top pages\", \"GA4 funnel\", \"GA4 channel report\", \"common GA4 reports\".",
-      "category": "saas-packs",
-      "allowedTools": [
+        "Read",
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.3.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "ga4-pack",
         "category": "saas-packs"
       },
-      "searchText": "ga4-common-reports copy-paste recipes for the 6-7 reports every site owner actually wants: dau/mau/wau, retention cohort, top pages by source, channel attribution, conversion funnel, geo breakdown, device split. each recipe is a fully-formed data api request. trigger with \"ga4 dau\", \"ga4 retention\", \"ga4 top pages\", \"ga4 funnel\", \"ga4 channel report\", \"common ga4 reports\". saas-packs bash(python3:*) "
+      "searchText": "ga4-export-guardian investigate ga4 bigquery export gaps, daily/intraday overlap and query scan risk from table-inventory and dry-run receipts. use when exported days appear missing or a ga4 query may scan too much. trigger with \"missing ga4 bigquery tables\", \"ga4 export delayed\" or \"check this ga4 query's scan budget\". saas-packs read bash(python3:*) "
     },
     {
       "type": "skill",
-      "id": "ga4-data-api-query",
-      "slug": "ga4-data-api-query",
-      "name": "ga4-data-api-query",
-      "description": "Build a runReport request against the GA4 Data API v1 — pick valid metric/dimension combinations, set date ranges that respect data-freshness limits, apply filters, paginate large result sets, handle sampling thresholds. Trigger with \"query GA4\", \"GA4 Data API\", \"runReport\", \"fetch GA4 metrics\", \"GA4 pageviews\", \"GA4 sessions\".",
+      "id": "ga4-measurement-verifier",
+      "slug": "ga4-measurement-verifier",
+      "name": "ga4-measurement-verifier",
+      "description": "Check expected GA4 event names and counts against a realtime report receipt, preserving row coverage, minute-window and deployment-timing limits. Use when verifying tracking after a deployment or investigating missing events. Trigger with \"did GA4 receive sign_up?\", \"check GA4 tracking after deploy\" or \"missing GA4 events\".",
       "category": "saas-packs",
       "allowedTools": [
-        "Bash(python3:*)",
-        "Bash(curl:*)"
+        "Read",
+        "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.3.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "ga4-pack",
         "category": "saas-packs"
       },
-      "searchText": "ga4-data-api-query build a runreport request against the ga4 data api v1 — pick valid metric/dimension combinations, set date ranges that respect data-freshness limits, apply filters, paginate large result sets, handle sampling thresholds. trigger with \"query ga4\", \"ga4 data api\", \"runreport\", \"fetch ga4 metrics\", \"ga4 pageviews\", \"ga4 sessions\". saas-packs bash(python3:*) bash(curl:*) "
+      "searchText": "ga4-measurement-verifier check expected ga4 event names and counts against a realtime report receipt, preserving row coverage, minute-window and deployment-timing limits. use when verifying tracking after a deployment or investigating missing events. trigger with \"did ga4 receive sign_up?\", \"check ga4 tracking after deploy\" or \"missing ga4 events\". saas-packs read bash(python3:*) "
     },
     {
       "type": "skill",
-      "id": "ga4-realtime-api",
-      "slug": "ga4-realtime-api",
-      "name": "ga4-realtime-api",
-      "description": "Pull current-session / active-user data from the GA4 Realtime endpoint — a separate API surface from runReport with different metrics, dimensions, and freshness guarantees (~30 min rolling window instead of T-48h). Trigger with \"GA4 realtime\", \"active users right now\", \"GA4 current sessions\", \"who's on my site now\".",
+      "id": "ga4-report-forensics",
+      "slug": "ga4-report-forensics",
+      "name": "ga4-report-forensics",
+      "description": "Investigate conflicting GA4 report numbers using request and response receipts. Compare windows, identities, filters and row coverage; distinguish sampling, thresholding and high-cardinality loss. Use when GA4 API and UI reports disagree or exported rows are missing. Trigger with \"GA4 user counts differ\", \"missing GA4 rows\" or \"is this report sampled?\".",
       "category": "saas-packs",
       "allowedTools": [
-        "Bash(python3:*)",
-        "Bash(curl:*)"
+        "Read",
+        "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.3.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "ga4-pack",
         "category": "saas-packs"
       },
-      "searchText": "ga4-realtime-api pull current-session / active-user data from the ga4 realtime endpoint — a separate api surface from runreport with different metrics, dimensions, and freshness guarantees (~30 min rolling window instead of t-48h). trigger with \"ga4 realtime\", \"active users right now\", \"ga4 current sessions\", \"who's on my site now\". saas-packs bash(python3:*) bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-ci-integration",
-      "slug": "gamma-ci-integration",
-      "name": "gamma-ci-integration",
-      "description": "Configure Gamma CI/CD integration with GitHub Actions and testing. Use when setting up automated testing, configuring CI pipelines, or integrating Gamma tests into your build process. Trigger with phrases like \"gamma CI\", \"gamma GitHub Actions\", \"gamma automated tests\", \"CI gamma\", \"gamma pipeline\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(gh:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-ci-integration configure gamma ci/cd integration with github actions and testing. use when setting up automated testing, configuring ci pipelines, or integrating gamma tests into your build process. trigger with phrases like \"gamma ci\", \"gamma github actions\", \"gamma automated tests\", \"ci gamma\", \"gamma pipeline\". saas-packs read write edit bash(gh:*) "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-common-errors",
-      "slug": "gamma-common-errors",
-      "name": "gamma-common-errors",
-      "description": "Debug and resolve common Gamma API errors. Use when encountering authentication failures, rate limits, generation errors, or unexpected API responses. Trigger with phrases like \"gamma error\", \"gamma not working\", \"gamma API error\", \"gamma debug\", \"gamma troubleshoot\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-common-errors debug and resolve common gamma api errors. use when encountering authentication failures, rate limits, generation errors, or unexpected api responses. trigger with phrases like \"gamma error\", \"gamma not working\", \"gamma api error\", \"gamma debug\", \"gamma troubleshoot\". saas-packs read write edit grep "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-core-workflow-a",
-      "slug": "gamma-core-workflow-a",
-      "name": "gamma-core-workflow-a",
-      "description": "Generate presentations, documents, and webpages via Gamma API. Use when creating content from text prompts, configuring themes, image styles, text modes, and output formats. Trigger: \"gamma generate\", \"gamma presentation from text\", \"gamma AI slides\", \"gamma create deck\", \"gamma content generation\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(node:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-core-workflow-a generate presentations, documents, and webpages via gamma api. use when creating content from text prompts, configuring themes, image styles, text modes, and output formats. trigger: \"gamma generate\", \"gamma presentation from text\", \"gamma ai slides\", \"gamma create deck\", \"gamma content generation\". saas-packs read write edit bash(curl:*) bash(node:*) "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-core-workflow-b",
-      "slug": "gamma-core-workflow-b",
-      "name": "gamma-core-workflow-b",
-      "description": "Generate from templates, retrieve exports, and manage sharing via Gamma API. Use when creating content from template gammas, downloading PDF/PPTX/PNG exports, or configuring sharing and folder organization. Trigger: \"gamma template\", \"gamma export\", \"gamma download PDF\", \"gamma PPTX\", \"gamma sharing\", \"gamma from template\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(node:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-core-workflow-b generate from templates, retrieve exports, and manage sharing via gamma api. use when creating content from template gammas, downloading pdf/pptx/png exports, or configuring sharing and folder organization. trigger: \"gamma template\", \"gamma export\", \"gamma download pdf\", \"gamma pptx\", \"gamma sharing\", \"gamma from template\". saas-packs read write edit bash(curl:*) bash(node:*) "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-cost-tuning",
-      "slug": "gamma-cost-tuning",
-      "name": "gamma-cost-tuning",
-      "description": "Optimize Gamma usage costs and manage API spending. Use when reducing API costs, implementing usage quotas, or planning for scale with budget constraints. Trigger with phrases like \"gamma cost\", \"gamma billing\", \"gamma budget\", \"gamma expensive\", \"gamma pricing\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-cost-tuning optimize gamma usage costs and manage api spending. use when reducing api costs, implementing usage quotas, or planning for scale with budget constraints. trigger with phrases like \"gamma cost\", \"gamma billing\", \"gamma budget\", \"gamma expensive\", \"gamma pricing\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-data-handling",
-      "slug": "gamma-data-handling",
-      "name": "gamma-data-handling",
-      "description": "Handle data privacy, retention, and compliance for Gamma integrations. Use when implementing GDPR compliance, data retention policies, or managing user data within Gamma workflows. Trigger with phrases like \"gamma data\", \"gamma privacy\", \"gamma GDPR\", \"gamma data retention\", \"gamma compliance\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-data-handling handle data privacy, retention, and compliance for gamma integrations. use when implementing gdpr compliance, data retention policies, or managing user data within gamma workflows. trigger with phrases like \"gamma data\", \"gamma privacy\", \"gamma gdpr\", \"gamma data retention\", \"gamma compliance\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-debug-bundle",
-      "slug": "gamma-debug-bundle",
-      "name": "gamma-debug-bundle",
-      "description": "Comprehensive debugging toolkit for Gamma integration issues. Use when you need detailed diagnostics, request tracing, or systematic debugging of Gamma API problems. Trigger with phrases like \"gamma debug bundle\", \"gamma diagnostics\", \"gamma trace\", \"gamma inspect\", \"gamma detailed logs\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(node:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-debug-bundle comprehensive debugging toolkit for gamma integration issues. use when you need detailed diagnostics, request tracing, or systematic debugging of gamma api problems. trigger with phrases like \"gamma debug bundle\", \"gamma diagnostics\", \"gamma trace\", \"gamma inspect\", \"gamma detailed logs\". saas-packs read write edit bash(node:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-deploy-integration",
-      "slug": "gamma-deploy-integration",
-      "name": "gamma-deploy-integration",
-      "description": "Deploy Gamma-integrated applications to production environments. Use when deploying to Vercel, AWS, GCP, or other cloud platforms with proper secret management and configuration. Trigger with phrases like \"gamma deploy\", \"gamma production\", \"gamma vercel\", \"gamma AWS\", \"gamma cloud deployment\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(vercel:*)",
-        "Bash(aws:*)",
-        "Bash(gcloud:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-deploy-integration deploy gamma-integrated applications to production environments. use when deploying to vercel, aws, gcp, or other cloud platforms with proper secret management and configuration. trigger with phrases like \"gamma deploy\", \"gamma production\", \"gamma vercel\", \"gamma aws\", \"gamma cloud deployment\". saas-packs read write edit bash(vercel:*) bash(aws:*) bash(gcloud:*) "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-enterprise-rbac",
-      "slug": "gamma-enterprise-rbac",
-      "name": "gamma-enterprise-rbac",
-      "description": "Implement enterprise role-based access control for Gamma integrations. Use when configuring team permissions, multi-tenant access, or enterprise authorization patterns. Trigger with phrases like \"gamma RBAC\", \"gamma permissions\", \"gamma access control\", \"gamma enterprise\", \"gamma roles\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-enterprise-rbac implement enterprise role-based access control for gamma integrations. use when configuring team permissions, multi-tenant access, or enterprise authorization patterns. trigger with phrases like \"gamma rbac\", \"gamma permissions\", \"gamma access control\", \"gamma enterprise\", \"gamma roles\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-hello-world",
-      "slug": "gamma-hello-world",
-      "name": "gamma-hello-world",
-      "description": "Generate your first Gamma presentation via the API. Use when learning the generate-poll-retrieve workflow, testing API connectivity, or creating a minimal example. Trigger: \"gamma hello world\", \"gamma quick start\", \"first gamma presentation\", \"gamma example\", \"gamma test\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(node:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-hello-world generate your first gamma presentation via the api. use when learning the generate-poll-retrieve workflow, testing api connectivity, or creating a minimal example. trigger: \"gamma hello world\", \"gamma quick start\", \"first gamma presentation\", \"gamma example\", \"gamma test\". saas-packs read write edit bash(curl:*) bash(node:*) "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-incident-runbook",
-      "slug": "gamma-incident-runbook",
-      "name": "gamma-incident-runbook",
-      "description": "Manage incident response for Gamma integration issues. Use when experiencing production incidents, outages, or need systematic troubleshooting procedures. Trigger with phrases like \"gamma incident\", \"gamma outage\", \"gamma down\", \"gamma emergency\", \"gamma runbook\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-incident-runbook manage incident response for gamma integration issues. use when experiencing production incidents, outages, or need systematic troubleshooting procedures. trigger with phrases like \"gamma incident\", \"gamma outage\", \"gamma down\", \"gamma emergency\", \"gamma runbook\". saas-packs read write edit bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-install-auth",
-      "slug": "gamma-install-auth",
-      "name": "gamma-install-auth",
-      "description": "Set up Gamma API v1.0 authentication and first request. Use when configuring API keys, setting up X-API-KEY header, or initializing Gamma REST API access in a project. Trigger: \"install gamma\", \"setup gamma API\", \"gamma auth\", \"gamma API key\", \"configure gamma\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(npm:*)",
-        "Bash(pip:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-install-auth set up gamma api v1.0 authentication and first request. use when configuring api keys, setting up x-api-key header, or initializing gamma rest api access in a project. trigger: \"install gamma\", \"setup gamma api\", \"gamma auth\", \"gamma api key\", \"configure gamma\". saas-packs read write edit bash(curl:*) bash(npm:*) bash(pip:*) "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-local-dev-loop",
-      "slug": "gamma-local-dev-loop",
-      "name": "gamma-local-dev-loop",
-      "description": "Set up local development workflow for Gamma API integration. Use when building automation scripts, testing API calls locally, or configuring a dev environment with mock responses. Trigger: \"gamma local dev\", \"gamma development setup\", \"gamma test locally\", \"gamma mock API\", \"gamma dev workflow\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(node:*)",
-        "Bash(npm:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-local-dev-loop set up local development workflow for gamma api integration. use when building automation scripts, testing api calls locally, or configuring a dev environment with mock responses. trigger: \"gamma local dev\", \"gamma development setup\", \"gamma test locally\", \"gamma mock api\", \"gamma dev workflow\". saas-packs read write edit bash(curl:*) bash(node:*) bash(npm:*) "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-migration-deep-dive",
-      "slug": "gamma-migration-deep-dive",
-      "name": "gamma-migration-deep-dive",
-      "description": "Deep dive into migrating to Gamma from other presentation platforms. Use when migrating from PowerPoint, Google Slides, Canva, or other presentation tools to Gamma. Trigger with phrases like \"gamma migration\", \"migrate to gamma\", \"gamma import\", \"gamma from powerpoint\", \"gamma from google slides\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(node:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-migration-deep-dive deep dive into migrating to gamma from other presentation platforms. use when migrating from powerpoint, google slides, canva, or other presentation tools to gamma. trigger with phrases like \"gamma migration\", \"migrate to gamma\", \"gamma import\", \"gamma from powerpoint\", \"gamma from google slides\". saas-packs read write edit bash(node:*) "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-multi-env-setup",
-      "slug": "gamma-multi-env-setup",
-      "name": "gamma-multi-env-setup",
-      "description": "Configure Gamma across development, staging, and production environments. Use when setting up multi-environment deployments, configuring per-environment secrets, or implementing environment-specific Gamma configurations. Trigger with phrases like \"gamma environments\", \"gamma staging\", \"gamma dev prod\", \"gamma environment setup\", \"gamma config by env\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(aws:*)",
-        "Bash(gcloud:*)",
-        "Bash(vault:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-multi-env-setup configure gamma across development, staging, and production environments. use when setting up multi-environment deployments, configuring per-environment secrets, or implementing environment-specific gamma configurations. trigger with phrases like \"gamma environments\", \"gamma staging\", \"gamma dev prod\", \"gamma environment setup\", \"gamma config by env\". saas-packs read write edit bash(aws:*) bash(gcloud:*) bash(vault:*) "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-observability",
-      "slug": "gamma-observability",
-      "name": "gamma-observability",
-      "description": "Implement comprehensive observability for Gamma integrations. Use when setting up monitoring, logging, tracing, or building dashboards for Gamma API usage. Trigger with phrases like \"gamma monitoring\", \"gamma logging\", \"gamma metrics\", \"gamma observability\", \"gamma dashboard\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-observability implement comprehensive observability for gamma integrations. use when setting up monitoring, logging, tracing, or building dashboards for gamma api usage. trigger with phrases like \"gamma monitoring\", \"gamma logging\", \"gamma metrics\", \"gamma observability\", \"gamma dashboard\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-performance-tuning",
-      "slug": "gamma-performance-tuning",
-      "name": "gamma-performance-tuning",
-      "description": "Optimize Gamma API performance and reduce latency. Use when experiencing slow response times, optimizing throughput, or improving user experience with Gamma integrations. Trigger with phrases like \"gamma performance\", \"gamma slow\", \"gamma latency\", \"gamma optimization\", \"gamma speed\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-performance-tuning optimize gamma api performance and reduce latency. use when experiencing slow response times, optimizing throughput, or improving user experience with gamma integrations. trigger with phrases like \"gamma performance\", \"gamma slow\", \"gamma latency\", \"gamma optimization\", \"gamma speed\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-prod-checklist",
-      "slug": "gamma-prod-checklist",
-      "name": "gamma-prod-checklist",
-      "description": "Production readiness checklist for Gamma integration. Use when preparing to deploy Gamma integration to production, or auditing existing production setup. Trigger with phrases like \"gamma production\", \"gamma prod ready\", \"gamma go live\", \"gamma deployment checklist\", \"gamma launch\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-prod-checklist production readiness checklist for gamma integration. use when preparing to deploy gamma integration to production, or auditing existing production setup. trigger with phrases like \"gamma production\", \"gamma prod ready\", \"gamma go live\", \"gamma deployment checklist\", \"gamma launch\". saas-packs read write edit grep "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-rate-limits",
-      "slug": "gamma-rate-limits",
-      "name": "gamma-rate-limits",
-      "description": "Understand and manage Gamma API rate limits effectively. Use when hitting rate limits, optimizing API usage, or implementing request queuing systems. Trigger with phrases like \"gamma rate limit\", \"gamma quota\", \"gamma 429\", \"gamma throttle\", \"gamma request limits\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-rate-limits understand and manage gamma api rate limits effectively. use when hitting rate limits, optimizing api usage, or implementing request queuing systems. trigger with phrases like \"gamma rate limit\", \"gamma quota\", \"gamma 429\", \"gamma throttle\", \"gamma request limits\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-reference-architecture",
-      "slug": "gamma-reference-architecture",
-      "name": "gamma-reference-architecture",
-      "description": "Reference architecture for enterprise Gamma integrations. Use when designing systems, planning integrations, or implementing best-practice Gamma architectures. Trigger with phrases like \"gamma architecture\", \"gamma design\", \"gamma system design\", \"gamma integration pattern\", \"gamma enterprise\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-reference-architecture reference architecture for enterprise gamma integrations. use when designing systems, planning integrations, or implementing best-practice gamma architectures. trigger with phrases like \"gamma architecture\", \"gamma design\", \"gamma system design\", \"gamma integration pattern\", \"gamma enterprise\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-sdk-patterns",
-      "slug": "gamma-sdk-patterns",
-      "name": "gamma-sdk-patterns",
-      "description": "Reusable patterns for the Gamma REST API (no SDK exists). Use when building typed wrappers, generation helpers, template factories, or error handling for Gamma. Trigger: \"gamma patterns\", \"gamma client wrapper\", \"gamma best practices\", \"gamma API helper\", \"gamma code structure\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-sdk-patterns reusable patterns for the gamma rest api (no sdk exists). use when building typed wrappers, generation helpers, template factories, or error handling for gamma. trigger: \"gamma patterns\", \"gamma client wrapper\", \"gamma best practices\", \"gamma api helper\", \"gamma code structure\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-security-basics",
-      "slug": "gamma-security-basics",
-      "name": "gamma-security-basics",
-      "description": "Implement security best practices for Gamma integration. Use when securing API keys, implementing access controls, or auditing Gamma security configuration. Trigger with phrases like \"gamma security\", \"gamma API key security\", \"gamma secure\", \"gamma credentials\", \"gamma access control\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-security-basics implement security best practices for gamma integration. use when securing api keys, implementing access controls, or auditing gamma security configuration. trigger with phrases like \"gamma security\", \"gamma api key security\", \"gamma secure\", \"gamma credentials\", \"gamma access control\". saas-packs read write edit grep "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-upgrade-migration",
-      "slug": "gamma-upgrade-migration",
-      "name": "gamma-upgrade-migration",
-      "description": "Upgrade Gamma SDK versions and migrate between API versions. Use when upgrading SDK packages, handling deprecations, or migrating to new API versions. Trigger with phrases like \"gamma upgrade\", \"gamma migration\", \"gamma new version\", \"gamma deprecated\", \"gamma SDK update\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(pip:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-upgrade-migration upgrade gamma sdk versions and migrate between api versions. use when upgrading sdk packages, handling deprecations, or migrating to new api versions. trigger with phrases like \"gamma upgrade\", \"gamma migration\", \"gamma new version\", \"gamma deprecated\", \"gamma sdk update\". saas-packs read write edit bash(npm:*) bash(pip:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "gamma-webhooks-events",
-      "slug": "gamma-webhooks-events",
-      "name": "gamma-webhooks-events",
-      "description": "Handle Gamma webhooks and events for real-time updates. Use when implementing webhook receivers, processing events, or building real-time Gamma integrations. Trigger with phrases like \"gamma webhooks\", \"gamma events\", \"gamma notifications\", \"gamma real-time\", \"gamma callbacks\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.13.0",
-      "parentPlugin": {
-        "name": "gamma-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "gamma-webhooks-events handle gamma webhooks and events for real-time updates. use when implementing webhook receivers, processing events, or building real-time gamma integrations. trigger with phrases like \"gamma webhooks\", \"gamma events\", \"gamma notifications\", \"gamma real-time\", \"gamma callbacks\". saas-packs read write edit "
+      "searchText": "ga4-report-forensics investigate conflicting ga4 report numbers using request and response receipts. compare windows, identities, filters and row coverage; distinguish sampling, thresholding and high-cardinality loss. use when ga4 api and ui reports disagree or exported rows are missing. trigger with \"ga4 user counts differ\", \"missing ga4 rows\" or \"is this report sampled?\". saas-packs read bash(python3:*) "
     },
     {
       "type": "skill",
@@ -43175,538 +41425,6 @@
         "category": "devops"
       },
       "searchText": "gh-dash provides a github pull request dashboard directly in the terminal. use when the user wants to view pr status, check ci/cd progress, review bot comments, or merge pull requests without leaving claude code. trigger with phrases like \"show pr dashboard\", \"pr status\", \"check ci progress\", \"merge this pr\", or \"review pull request\". devops read write edit bash(gh:*) bash(git:*) glob grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-ci-integration",
-      "slug": "glean-ci-integration",
-      "name": "glean-ci-integration",
-      "description": "CI/CD for Glean connectors with automated indexing tests and search quality validation. Trigger: \"glean CI\", \"glean GitHub Actions\", \"glean connector CI/CD\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-ci-integration ci/cd for glean connectors with automated indexing tests and search quality validation. trigger: \"glean ci\", \"glean github actions\", \"glean connector ci/cd\". saas-packs read write edit bash(npm:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-common-errors",
-      "slug": "glean-common-errors",
-      "name": "glean-common-errors",
-      "description": "Diagnose and fix common Glean API errors including indexing failures, search issues, and permission problems. Trigger: \"glean error\", \"glean not indexing\", \"glean search empty\", \"debug glean\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-common-errors diagnose and fix common glean api errors including indexing failures, search issues, and permission problems. trigger: \"glean error\", \"glean not indexing\", \"glean search empty\", \"debug glean\". saas-packs read grep bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "glean-core-workflow-a",
-      "slug": "glean-core-workflow-a",
-      "name": "glean-core-workflow-a",
-      "description": "Execute Glean primary workflow: search, chat, and AI-powered answers across enterprise data. Use when building search integrations, implementing Glean chat, or creating AI assistants. Trigger: \"glean search API\", \"glean chat\", \"glean AI answers\", \"enterprise search\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-core-workflow-a execute glean primary workflow: search, chat, and ai-powered answers across enterprise data. use when building search integrations, implementing glean chat, or creating ai assistants. trigger: \"glean search api\", \"glean chat\", \"glean ai answers\", \"enterprise search\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-core-workflow-b",
-      "slug": "glean-core-workflow-b",
-      "name": "glean-core-workflow-b",
-      "description": "Execute Glean secondary workflow: bulk document indexing, custom datasource connectors, and content lifecycle management via the Indexing API. Trigger: \"glean bulk index\", \"glean custom connector\", \"glean datasource\", \"glean indexing\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-core-workflow-b execute glean secondary workflow: bulk document indexing, custom datasource connectors, and content lifecycle management via the indexing api. trigger: \"glean bulk index\", \"glean custom connector\", \"glean datasource\", \"glean indexing\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-cost-tuning",
-      "slug": "glean-cost-tuning",
-      "name": "glean-cost-tuning",
-      "description": "Optimize Glean costs by managing indexed content volume, datasource efficiency, and connector resource usage. Trigger: \"glean costs\", \"glean optimization\", \"reduce glean indexing\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-cost-tuning optimize glean costs by managing indexed content volume, datasource efficiency, and connector resource usage. trigger: \"glean costs\", \"glean optimization\", \"reduce glean indexing\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "glean-data-handling",
-      "slug": "glean-data-handling",
-      "name": "glean-data-handling",
-      "description": "PII filtering: strip emails, phone numbers, SSNs from document body before indexing. Trigger: \"glean data handling\", \"data-handling\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-data-handling pii filtering: strip emails, phone numbers, ssns from document body before indexing. trigger: \"glean data handling\", \"data-handling\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-debug-bundle",
-      "slug": "glean-debug-bundle",
-      "name": "glean-debug-bundle",
-      "description": "Collect Glean diagnostic information for support including datasource config, indexing status, and search quality metrics. Trigger: \"glean debug\", \"glean support\", \"glean diagnostic\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-debug-bundle collect glean diagnostic information for support including datasource config, indexing status, and search quality metrics. trigger: \"glean debug\", \"glean support\", \"glean diagnostic\". saas-packs read bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-deploy-integration",
-      "slug": "glean-deploy-integration",
-      "name": "glean-deploy-integration",
-      "description": "Deploy Glean custom connectors as scheduled jobs on Cloud Run, Lambda, or Fly.io. Trigger: \"deploy glean connector\", \"glean connector hosting\", \"schedule glean indexing\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(gcloud:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-deploy-integration deploy glean custom connectors as scheduled jobs on cloud run, lambda, or fly.io. trigger: \"deploy glean connector\", \"glean connector hosting\", \"schedule glean indexing\". saas-packs read write edit bash(npm:*) bash(gcloud:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-enterprise-rbac",
-      "slug": "glean-enterprise-rbac",
-      "name": "glean-enterprise-rbac",
-      "description": "Map AD/Okta groups to Glean document permissions using allowedGroups. Trigger: \"glean enterprise rbac\", \"enterprise-rbac\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-enterprise-rbac map ad/okta groups to glean document permissions using allowedgroups. trigger: \"glean enterprise rbac\", \"enterprise-rbac\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-hello-world",
-      "slug": "glean-hello-world",
-      "name": "glean-hello-world",
-      "description": "Index documents into Glean and search them back using the Indexing and Client APIs. Use when starting a new Glean custom connector, testing search quality, or learning the index/search pattern. Trigger: \"glean hello world\", \"glean example\", \"glean index document\", \"glean search\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-hello-world index documents into glean and search them back using the indexing and client apis. use when starting a new glean custom connector, testing search quality, or learning the index/search pattern. trigger: \"glean hello world\", \"glean example\", \"glean index document\", \"glean search\". saas-packs read write edit bash(npm:*) bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "glean-incident-runbook",
-      "slug": "glean-incident-runbook",
-      "name": "glean-incident-runbook",
-      "description": "Triage: Is search returning results? Check Glean status page. Trigger: \"glean incident runbook\", \"incident-runbook\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-incident-runbook triage: is search returning results? check glean status page. trigger: \"glean incident runbook\", \"incident-runbook\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-install-auth",
-      "slug": "glean-install-auth",
-      "name": "glean-install-auth",
-      "description": "Install and configure Glean API authentication with indexing and client tokens. Use when setting up custom datasource indexing, configuring search API access, or initializing the Glean developer SDK for enterprise search. Trigger: \"install glean\", \"setup glean\", \"glean auth\", \"glean API token\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-install-auth install and configure glean api authentication with indexing and client tokens. use when setting up custom datasource indexing, configuring search api access, or initializing the glean developer sdk for enterprise search. trigger: \"install glean\", \"setup glean\", \"glean auth\", \"glean api token\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-local-dev-loop",
-      "slug": "glean-local-dev-loop",
-      "name": "glean-local-dev-loop",
-      "description": "Configure Glean local development with mock search responses, test datasources, and connector development workflow. Trigger: \"glean dev setup\", \"glean local development\", \"glean connector development\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-local-dev-loop configure glean local development with mock search responses, test datasources, and connector development workflow. trigger: \"glean dev setup\", \"glean local development\", \"glean connector development\". saas-packs read write edit bash(npm:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-migration-deep-dive",
-      "slug": "glean-migration-deep-dive",
-      "name": "glean-migration-deep-dive",
-      "description": "Migrate from Elasticsearch/Algolia: 1) Export all documents from source, 2) Transform to Glean document schema (id, title, url, body, permissions), 3) Create datasource with adddatasource, 4) Bulk index with bulkindexdocuments, 5) Validate search quality with test queries, 6) Switch search UI to use Glean Client API. Trigger: \"glean migration deep dive\", \"migration-deep-dive\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-migration-deep-dive migrate from elasticsearch/algolia: 1) export all documents from source, 2) transform to glean document schema (id, title, url, body, permissions), 3) create datasource with adddatasource, 4) bulk index with bulkindexdocuments, 5) validate search quality with test queries, 6) switch search ui to use glean client api. trigger: \"glean migration deep dive\", \"migration-deep-dive\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-multi-env-setup",
-      "slug": "glean-multi-env-setup",
-      "name": "glean-multi-env-setup",
-      "description": "Use separate datasource names per environment (wiki_staging vs wiki_prod). Trigger: \"glean multi env setup\", \"multi-env-setup\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-multi-env-setup use separate datasource names per environment (wiki_staging vs wiki_prod). trigger: \"glean multi env setup\", \"multi-env-setup\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-observability",
-      "slug": "glean-observability",
-      "name": "glean-observability",
-      "description": "Track: documents indexed per run (total + new + updated + deleted), indexing errors and retries, search API latency, zero-result query rate, stale content age distribution. Trigger: \"glean observability\", \"observability\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-observability track: documents indexed per run (total + new + updated + deleted), indexing errors and retries, search api latency, zero-result query rate, stale content age distribution. trigger: \"glean observability\", \"observability\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-performance-tuning",
-      "slug": "glean-performance-tuning",
-      "name": "glean-performance-tuning",
-      "description": "Optimize Glean search relevance and indexing throughput with batch sizing, datasource configuration, and content quality improvements. Trigger: \"glean performance\", \"glean search quality\", \"glean indexing speed\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-performance-tuning optimize glean search relevance and indexing throughput with batch sizing, datasource configuration, and content quality improvements. trigger: \"glean performance\", \"glean search quality\", \"glean indexing speed\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "glean-prod-checklist",
-      "slug": "glean-prod-checklist",
-      "name": "glean-prod-checklist",
-      "description": "Pre-launch: All datasources indexed and searchable. Trigger: \"glean prod checklist\", \"prod-checklist\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-prod-checklist pre-launch: all datasources indexed and searchable. trigger: \"glean prod checklist\", \"prod-checklist\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-rate-limits",
-      "slug": "glean-rate-limits",
-      "name": "glean-rate-limits",
-      "description": "Glean Indexing API: ~100 requests/min per token. Trigger: \"glean rate limits\", \"rate-limits\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-rate-limits glean indexing api: ~100 requests/min per token. trigger: \"glean rate limits\", \"rate-limits\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-reference-architecture",
-      "slug": "glean-reference-architecture",
-      "name": "glean-reference-architecture",
-      "description": "Enterprise architecture: Source Systems to Connectors (Cloud Run/Lambda, event-driven or scheduled) to Glean Indexing API to Glean Search Index to Client API (Search + Chat) to Your Apps (Slack bot, portal, internal tools). Trigger: \"glean reference architecture\", \"reference-architecture\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-reference-architecture enterprise architecture: source systems to connectors (cloud run/lambda, event-driven or scheduled) to glean indexing api to glean search index to client api (search + chat) to your apps (slack bot, portal, internal tools). trigger: \"glean reference architecture\", \"reference-architecture\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-sdk-patterns",
-      "slug": "glean-sdk-patterns",
-      "name": "glean-sdk-patterns",
-      "description": "Apply production-ready Glean API patterns with typed clients, batch indexing, pagination, and error handling. Trigger: \"glean SDK patterns\", \"glean best practices\", \"glean API client\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-sdk-patterns apply production-ready glean api patterns with typed clients, batch indexing, pagination, and error handling. trigger: \"glean sdk patterns\", \"glean best practices\", \"glean api client\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "glean-security-basics",
-      "slug": "glean-security-basics",
-      "name": "glean-security-basics",
-      "description": "Token security: Indexing tokens have write access -- never expose in frontend. Trigger: \"glean security basics\", \"security-basics\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-security-basics token security: indexing tokens have write access -- never expose in frontend. trigger: \"glean security basics\", \"security-basics\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-upgrade-migration",
-      "slug": "glean-upgrade-migration",
-      "name": "glean-upgrade-migration",
-      "description": "Check Glean developer changelog for API changes. Trigger: \"glean upgrade migration\", \"upgrade-migration\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-upgrade-migration check glean developer changelog for api changes. trigger: \"glean upgrade migration\", \"upgrade-migration\". saas-packs read write edit bash(npm:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "glean-webhooks-events",
-      "slug": "glean-webhooks-events",
-      "name": "glean-webhooks-events",
-      "description": "Implement event-driven Glean indexing triggered by source system webhooks from GitHub, Confluence, Notion, and other content platforms. Trigger: \"glean webhooks\", \"glean event indexing\", \"incremental glean index\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.8.0",
-      "parentPlugin": {
-        "name": "glean-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "glean-webhooks-events implement event-driven glean indexing triggered by source system webhooks from github, confluence, notion, and other content platforms. trigger: \"glean webhooks\", \"glean event indexing\", \"incremental glean index\". saas-packs read write edit bash(npm:*) "
     },
     {
       "type": "skill",
@@ -50886,509 +48604,98 @@
     },
     {
       "type": "skill",
-      "id": "langfuse-ci-integration",
-      "slug": "langfuse-ci-integration",
-      "name": "langfuse-ci-integration",
-      "description": "Configure Langfuse CI/CD integration with GitHub Actions and automated testing. Use when setting up automated testing, configuring CI pipelines, or integrating Langfuse tests into your build process. Trigger with phrases like \"langfuse CI\", \"langfuse GitHub Actions\", \"langfuse automated tests\", \"CI langfuse\", \"langfuse pipeline\".",
+      "id": "langfuse-cost-forensics",
+      "slug": "langfuse-cost-forensics",
+      "name": "langfuse-cost-forensics",
+      "description": "Audit Langfuse recorded-cost observations for missing usage, unavailable cost, cursor gaps and scope mismatches. Separate explicit zero from unknown and partial subtotals from complete retrieved sets. Use when reviewing this evidence. Trigger with \"Langfuse spend looks wrong\", \"missing generation cost\" or \"does this first page prove our total?\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Write",
-        "Edit",
-        "Bash(gh:*)"
+        "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.17.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "langfuse-pack",
         "category": "saas-packs"
       },
-      "searchText": "langfuse-ci-integration configure langfuse ci/cd integration with github actions and automated testing. use when setting up automated testing, configuring ci pipelines, or integrating langfuse tests into your build process. trigger with phrases like \"langfuse ci\", \"langfuse github actions\", \"langfuse automated tests\", \"ci langfuse\", \"langfuse pipeline\". saas-packs read write edit bash(gh:*) "
+      "searchText": "langfuse-cost-forensics audit langfuse recorded-cost observations for missing usage, unavailable cost, cursor gaps and scope mismatches. separate explicit zero from unknown and partial subtotals from complete retrieved sets. use when reviewing this evidence. trigger with \"langfuse spend looks wrong\", \"missing generation cost\" or \"does this first page prove our total?\". saas-packs read bash(python3:*) "
     },
     {
       "type": "skill",
-      "id": "langfuse-common-errors",
-      "slug": "langfuse-common-errors",
-      "name": "langfuse-common-errors",
-      "description": "Diagnose and fix common Langfuse errors and exceptions. Use when encountering Langfuse errors, debugging missing traces, or troubleshooting integration issues. Trigger with phrases like \"langfuse error\", \"fix langfuse\", \"langfuse not working\", \"debug langfuse\", \"traces not appearing\".",
+      "id": "langfuse-data-boundary-auditor",
+      "slug": "langfuse-data-boundary-auditor",
+      "name": "langfuse-data-boundary-auditor",
+      "description": "Audit supplied Langfuse observation payloads for unapproved fields, incomplete cursor coverage and retention evidence gaps. Separate project retention from Cloud access windows and dataset/audit/external-copy scope. Use when reviewing this evidence. Trigger with \"review a Langfuse debug export\", \"did anonymization leave metadata?\" or \"does retention cover all these Langfuse records?\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Grep",
-        "Bash(curl:*)"
+        "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.17.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "langfuse-pack",
         "category": "saas-packs"
       },
-      "searchText": "langfuse-common-errors diagnose and fix common langfuse errors and exceptions. use when encountering langfuse errors, debugging missing traces, or troubleshooting integration issues. trigger with phrases like \"langfuse error\", \"fix langfuse\", \"langfuse not working\", \"debug langfuse\", \"traces not appearing\". saas-packs read grep bash(curl:*) "
+      "searchText": "langfuse-data-boundary-auditor audit supplied langfuse observation payloads for unapproved fields, incomplete cursor coverage and retention evidence gaps. separate project retention from cloud access windows and dataset/audit/external-copy scope. use when reviewing this evidence. trigger with \"review a langfuse debug export\", \"did anonymization leave metadata?\" or \"does retention cover all these langfuse records?\". saas-packs read bash(python3:*) "
     },
     {
       "type": "skill",
-      "id": "langfuse-core-workflow-a",
-      "slug": "langfuse-core-workflow-a",
-      "name": "langfuse-core-workflow-a",
-      "description": "Execute Langfuse primary workflow: Tracing LLM calls and spans. Use when implementing LLM tracing, building traced AI features, or adding observability to existing LLM applications. Trigger with phrases like \"langfuse tracing\", \"trace LLM calls\", \"add langfuse to openai\", \"langfuse spans\", \"track llm requests\".",
+      "id": "langfuse-experiment-guardian",
+      "slug": "langfuse-experiment-guardian",
+      "name": "langfuse-experiment-guardian",
+      "description": "Compare Langfuse experiment baseline and candidate results at case level using reviewed dataset, content and evaluator identities. Detect missing cases, evaluator errors and critical regressions before proposing a release. Use when reviewing these cases. Trigger with \"Langfuse experiment passed on average\", \"candidate lost evaluation cases\" or \"can this experiment replace our reviewed baseline?\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Grep"
+        "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.17.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "langfuse-pack",
         "category": "saas-packs"
       },
-      "searchText": "langfuse-core-workflow-a execute langfuse primary workflow: tracing llm calls and spans. use when implementing llm tracing, building traced ai features, or adding observability to existing llm applications. trigger with phrases like \"langfuse tracing\", \"trace llm calls\", \"add langfuse to openai\", \"langfuse spans\", \"track llm requests\". saas-packs read write edit bash(npm:*) grep "
+      "searchText": "langfuse-experiment-guardian compare langfuse experiment baseline and candidate results at case level using reviewed dataset, content and evaluator identities. detect missing cases, evaluator errors and critical regressions before proposing a release. use when reviewing these cases. trigger with \"langfuse experiment passed on average\", \"candidate lost evaluation cases\" or \"can this experiment replace our reviewed baseline?\". saas-packs read bash(python3:*) "
     },
     {
       "type": "skill",
-      "id": "langfuse-core-workflow-b",
-      "slug": "langfuse-core-workflow-b",
-      "name": "langfuse-core-workflow-b",
-      "description": "Execute Langfuse secondary workflow: Evaluation, scoring, and datasets. Use when implementing LLM evaluation, adding user feedback, or setting up automated quality scoring and experiment datasets. Trigger with phrases like \"langfuse evaluation\", \"langfuse scoring\", \"rate llm outputs\", \"langfuse feedback\", \"langfuse datasets\", \"langfuse experiments\".",
+      "id": "langfuse-prompt-release-guardian",
+      "slug": "langfuse-prompt-release-guardian",
+      "name": "langfuse-prompt-release-guardian",
+      "description": "Review Langfuse prompt promotions or rollbacks using explicit versions, fresh label snapshots, reviewed content hashes and runtime variable contracts. Verify supplied prompt webhooks without treating signatures as release approval. Use when reviewing this evidence. Trigger with \"promote this Langfuse prompt\", \"check a prompt rollback\" or \"is this signed prompt update enough to deploy?\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Grep"
+        "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.17.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "langfuse-pack",
         "category": "saas-packs"
       },
-      "searchText": "langfuse-core-workflow-b execute langfuse secondary workflow: evaluation, scoring, and datasets. use when implementing llm evaluation, adding user feedback, or setting up automated quality scoring and experiment datasets. trigger with phrases like \"langfuse evaluation\", \"langfuse scoring\", \"rate llm outputs\", \"langfuse feedback\", \"langfuse datasets\", \"langfuse experiments\". saas-packs read write edit bash(npm:*) grep "
+      "searchText": "langfuse-prompt-release-guardian review langfuse prompt promotions or rollbacks using explicit versions, fresh label snapshots, reviewed content hashes and runtime variable contracts. verify supplied prompt webhooks without treating signatures as release approval. use when reviewing this evidence. trigger with \"promote this langfuse prompt\", \"check a prompt rollback\" or \"is this signed prompt update enough to deploy?\". saas-packs read bash(python3:*) "
     },
     {
       "type": "skill",
-      "id": "langfuse-cost-tuning",
-      "slug": "langfuse-cost-tuning",
-      "name": "langfuse-cost-tuning",
-      "description": "Monitor and optimize LLM costs using Langfuse analytics and dashboards. Use when tracking LLM spending, identifying cost anomalies, or implementing cost controls for AI applications. Trigger with phrases like \"langfuse costs\", \"LLM spending\", \"track AI costs\", \"langfuse token usage\", \"optimize LLM budget\".",
+      "id": "langfuse-trace-ingestion-medic",
+      "slug": "langfuse-trace-ingestion-medic",
+      "name": "langfuse-trace-ingestion-medic",
+      "description": "Investigate missing, partial or incorrectly nested Langfuse observations by reconciling a captured OTLP batch with Observations API v2 readbacks. Use when traces disappear after a serverless exit, exported spans are absent, or parent context differs. Trigger with \"Langfuse spans missing\", \"flush succeeded but no observations\" or \"why is this Langfuse child at the root?\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Write",
-        "Edit"
+        "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.17.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "langfuse-pack",
         "category": "saas-packs"
       },
-      "searchText": "langfuse-cost-tuning monitor and optimize llm costs using langfuse analytics and dashboards. use when tracking llm spending, identifying cost anomalies, or implementing cost controls for ai applications. trigger with phrases like \"langfuse costs\", \"llm spending\", \"track ai costs\", \"langfuse token usage\", \"optimize llm budget\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-data-handling",
-      "slug": "langfuse-data-handling",
-      "name": "langfuse-data-handling",
-      "description": "Manage Langfuse data export, retention, and compliance requirements. Use when exporting trace data, configuring retention policies, or implementing data compliance for LLM observability. Trigger with phrases like \"langfuse data export\", \"langfuse retention\", \"langfuse GDPR\", \"langfuse compliance\", \"export langfuse traces\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-data-handling manage langfuse data export, retention, and compliance requirements. use when exporting trace data, configuring retention policies, or implementing data compliance for llm observability. trigger with phrases like \"langfuse data export\", \"langfuse retention\", \"langfuse gdpr\", \"langfuse compliance\", \"export langfuse traces\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-debug-bundle",
-      "slug": "langfuse-debug-bundle",
-      "name": "langfuse-debug-bundle",
-      "description": "Collect Langfuse debug evidence for support tickets and troubleshooting. Use when encountering persistent issues, preparing support tickets, or collecting diagnostic information for Langfuse problems. Trigger with phrases like \"langfuse debug\", \"langfuse support bundle\", \"collect langfuse logs\", \"langfuse diagnostic\", \"langfuse troubleshoot\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Bash(grep:*)",
-        "Bash(curl:*)",
-        "Bash(tar:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-debug-bundle collect langfuse debug evidence for support tickets and troubleshooting. use when encountering persistent issues, preparing support tickets, or collecting diagnostic information for langfuse problems. trigger with phrases like \"langfuse debug\", \"langfuse support bundle\", \"collect langfuse logs\", \"langfuse diagnostic\", \"langfuse troubleshoot\". saas-packs read bash(grep:*) bash(curl:*) bash(tar:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-deploy-integration",
-      "slug": "langfuse-deploy-integration",
-      "name": "langfuse-deploy-integration",
-      "description": "Deploy Langfuse with your application across different platforms. Use when deploying Langfuse to Vercel, AWS, GCP, or Docker, or integrating Langfuse into your deployment pipeline. Trigger with phrases like \"deploy langfuse\", \"langfuse Vercel\", \"langfuse AWS\", \"langfuse Docker\", \"langfuse production deploy\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(docker:*)",
-        "Bash(vercel:*)",
-        "Bash(gcloud:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-deploy-integration deploy langfuse with your application across different platforms. use when deploying langfuse to vercel, aws, gcp, or docker, or integrating langfuse into your deployment pipeline. trigger with phrases like \"deploy langfuse\", \"langfuse vercel\", \"langfuse aws\", \"langfuse docker\", \"langfuse production deploy\". saas-packs read write edit bash(docker:*) bash(vercel:*) bash(gcloud:*) "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-enterprise-rbac",
-      "slug": "langfuse-enterprise-rbac",
-      "name": "langfuse-enterprise-rbac",
-      "description": "Configure Langfuse enterprise organization management and access control. Use when implementing team access controls, configuring organization settings, or setting up role-based permissions for Langfuse projects. Trigger with phrases like \"langfuse RBAC\", \"langfuse teams\", \"langfuse organization\", \"langfuse access control\", \"langfuse permissions\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-enterprise-rbac configure langfuse enterprise organization management and access control. use when implementing team access controls, configuring organization settings, or setting up role-based permissions for langfuse projects. trigger with phrases like \"langfuse rbac\", \"langfuse teams\", \"langfuse organization\", \"langfuse access control\", \"langfuse permissions\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-hello-world",
-      "slug": "langfuse-hello-world",
-      "name": "langfuse-hello-world",
-      "description": "Create a minimal working Langfuse trace example. Use when starting a new Langfuse integration, testing your setup, or learning basic Langfuse tracing patterns. Trigger with phrases like \"langfuse hello world\", \"langfuse example\", \"langfuse quick start\", \"first langfuse trace\", \"simple langfuse code\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-hello-world create a minimal working langfuse trace example. use when starting a new langfuse integration, testing your setup, or learning basic langfuse tracing patterns. trigger with phrases like \"langfuse hello world\", \"langfuse example\", \"langfuse quick start\", \"first langfuse trace\", \"simple langfuse code\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-incident-runbook",
-      "slug": "langfuse-incident-runbook",
-      "name": "langfuse-incident-runbook",
-      "description": "Troubleshoot and respond to Langfuse-related incidents and outages. Use when experiencing Langfuse outages, debugging production issues, or responding to LLM observability incidents. Trigger with phrases like \"langfuse incident\", \"langfuse outage\", \"langfuse down\", \"langfuse production issue\", \"langfuse troubleshoot\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-incident-runbook troubleshoot and respond to langfuse-related incidents and outages. use when experiencing langfuse outages, debugging production issues, or responding to llm observability incidents. trigger with phrases like \"langfuse incident\", \"langfuse outage\", \"langfuse down\", \"langfuse production issue\", \"langfuse troubleshoot\". saas-packs read write edit bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-install-auth",
-      "slug": "langfuse-install-auth",
-      "name": "langfuse-install-auth",
-      "description": "Install and configure Langfuse SDK authentication for LLM observability. Use when setting up a new Langfuse integration, configuring API keys, or initializing Langfuse tracing in your project. Trigger with phrases like \"install langfuse\", \"setup langfuse\", \"langfuse auth\", \"configure langfuse API key\", \"langfuse tracing setup\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(pip:*)",
-        "Bash(pnpm:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-install-auth install and configure langfuse sdk authentication for llm observability. use when setting up a new langfuse integration, configuring api keys, or initializing langfuse tracing in your project. trigger with phrases like \"install langfuse\", \"setup langfuse\", \"langfuse auth\", \"configure langfuse api key\", \"langfuse tracing setup\". saas-packs read write edit bash(npm:*) bash(pip:*) bash(pnpm:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-local-dev-loop",
-      "slug": "langfuse-local-dev-loop",
-      "name": "langfuse-local-dev-loop",
-      "description": "Set up Langfuse local development workflow with hot reload and debugging. Use when developing LLM applications locally, debugging traces, or setting up a fast iteration loop with Langfuse. Trigger with phrases like \"langfuse local dev\", \"langfuse development\", \"debug langfuse traces\", \"langfuse hot reload\", \"langfuse dev workflow\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(docker:*)",
-        "Bash(pnpm:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-local-dev-loop set up langfuse local development workflow with hot reload and debugging. use when developing llm applications locally, debugging traces, or setting up a fast iteration loop with langfuse. trigger with phrases like \"langfuse local dev\", \"langfuse development\", \"debug langfuse traces\", \"langfuse hot reload\", \"langfuse dev workflow\". saas-packs read write edit bash(npm:*) bash(docker:*) bash(pnpm:*) "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-migration-deep-dive",
-      "slug": "langfuse-migration-deep-dive",
-      "name": "langfuse-migration-deep-dive",
-      "description": "Execute complex Langfuse migrations including data migration and platform changes. Use when migrating from other observability platforms, moving between Langfuse instances, or performing major infrastructure migrations. Trigger with phrases like \"langfuse migration\", \"migrate to langfuse\", \"langfuse data migration\", \"langfuse platform migration\", \"switch to langfuse\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-migration-deep-dive execute complex langfuse migrations including data migration and platform changes. use when migrating from other observability platforms, moving between langfuse instances, or performing major infrastructure migrations. trigger with phrases like \"langfuse migration\", \"migrate to langfuse\", \"langfuse data migration\", \"langfuse platform migration\", \"switch to langfuse\". saas-packs read write edit bash(npm:*) "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-multi-env-setup",
-      "slug": "langfuse-multi-env-setup",
-      "name": "langfuse-multi-env-setup",
-      "description": "Configure Langfuse across development, staging, and production environments. Use when setting up multi-environment deployments, configuring per-environment keys, or implementing environment-specific Langfuse configurations. Trigger with phrases like \"langfuse environments\", \"langfuse staging\", \"langfuse dev prod\", \"langfuse environment setup\", \"langfuse config by env\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(aws:*)",
-        "Bash(gcloud:*)",
-        "Bash(vault:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-multi-env-setup configure langfuse across development, staging, and production environments. use when setting up multi-environment deployments, configuring per-environment keys, or implementing environment-specific langfuse configurations. trigger with phrases like \"langfuse environments\", \"langfuse staging\", \"langfuse dev prod\", \"langfuse environment setup\", \"langfuse config by env\". saas-packs read write edit bash(aws:*) bash(gcloud:*) bash(vault:*) "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-observability",
-      "slug": "langfuse-observability",
-      "name": "langfuse-observability",
-      "description": "Set up comprehensive observability for Langfuse with metrics, dashboards, and alerts. Use when implementing monitoring for LLM operations, setting up dashboards, or configuring alerting for Langfuse integration health. Trigger with phrases like \"langfuse monitoring\", \"langfuse metrics\", \"langfuse observability\", \"monitor langfuse\", \"langfuse alerts\", \"langfuse dashboard\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-observability set up comprehensive observability for langfuse with metrics, dashboards, and alerts. use when implementing monitoring for llm operations, setting up dashboards, or configuring alerting for langfuse integration health. trigger with phrases like \"langfuse monitoring\", \"langfuse metrics\", \"langfuse observability\", \"monitor langfuse\", \"langfuse alerts\", \"langfuse dashboard\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-performance-tuning",
-      "slug": "langfuse-performance-tuning",
-      "name": "langfuse-performance-tuning",
-      "description": "Optimize Langfuse tracing performance for high-throughput applications. Use when experiencing latency issues, optimizing trace overhead, or scaling Langfuse for production workloads. Trigger with phrases like \"langfuse performance\", \"optimize langfuse\", \"langfuse latency\", \"langfuse overhead\", \"langfuse slow\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-performance-tuning optimize langfuse tracing performance for high-throughput applications. use when experiencing latency issues, optimizing trace overhead, or scaling langfuse for production workloads. trigger with phrases like \"langfuse performance\", \"optimize langfuse\", \"langfuse latency\", \"langfuse overhead\", \"langfuse slow\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-prod-checklist",
-      "slug": "langfuse-prod-checklist",
-      "name": "langfuse-prod-checklist",
-      "description": "Langfuse production readiness checklist and verification. Use when preparing to deploy Langfuse to production, validating production configuration, or auditing existing setup. Trigger with phrases like \"langfuse production\", \"langfuse prod ready\", \"deploy langfuse\", \"langfuse checklist\", \"langfuse go live\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-prod-checklist langfuse production readiness checklist and verification. use when preparing to deploy langfuse to production, validating production configuration, or auditing existing setup. trigger with phrases like \"langfuse production\", \"langfuse prod ready\", \"deploy langfuse\", \"langfuse checklist\", \"langfuse go live\". saas-packs read write edit bash(npm:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-rate-limits",
-      "slug": "langfuse-rate-limits",
-      "name": "langfuse-rate-limits",
-      "description": "Implement Langfuse rate limiting, batching, and backoff patterns. Use when handling rate limit errors, optimizing trace ingestion, or managing high-volume LLM observability workloads. Trigger with phrases like \"langfuse rate limit\", \"langfuse throttling\", \"langfuse 429\", \"langfuse batching\", \"langfuse high volume\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-rate-limits implement langfuse rate limiting, batching, and backoff patterns. use when handling rate limit errors, optimizing trace ingestion, or managing high-volume llm observability workloads. trigger with phrases like \"langfuse rate limit\", \"langfuse throttling\", \"langfuse 429\", \"langfuse batching\", \"langfuse high volume\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-reference-architecture",
-      "slug": "langfuse-reference-architecture",
-      "name": "langfuse-reference-architecture",
-      "description": "Production-grade Langfuse architecture patterns and best practices. Use when designing LLM observability infrastructure, planning Langfuse deployment, or implementing enterprise-grade tracing architecture. Trigger with phrases like \"langfuse architecture\", \"langfuse design\", \"langfuse infrastructure\", \"langfuse enterprise\", \"langfuse at scale\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-reference-architecture production-grade langfuse architecture patterns and best practices. use when designing llm observability infrastructure, planning langfuse deployment, or implementing enterprise-grade tracing architecture. trigger with phrases like \"langfuse architecture\", \"langfuse design\", \"langfuse infrastructure\", \"langfuse enterprise\", \"langfuse at scale\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-sdk-patterns",
-      "slug": "langfuse-sdk-patterns",
-      "name": "langfuse-sdk-patterns",
-      "description": "Langfuse SDK best practices, patterns, and idiomatic usage. Use when learning Langfuse SDK patterns, implementing proper tracing, or following best practices for LLM observability. Trigger with phrases like \"langfuse patterns\", \"langfuse best practices\", \"langfuse SDK guide\", \"how to use langfuse\", \"langfuse idioms\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-sdk-patterns langfuse sdk best practices, patterns, and idiomatic usage. use when learning langfuse sdk patterns, implementing proper tracing, or following best practices for llm observability. trigger with phrases like \"langfuse patterns\", \"langfuse best practices\", \"langfuse sdk guide\", \"how to use langfuse\", \"langfuse idioms\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-security-basics",
-      "slug": "langfuse-security-basics",
-      "name": "langfuse-security-basics",
-      "description": "Implement Langfuse security best practices for API keys and data privacy. Use when securing Langfuse integration, protecting API keys, or implementing data privacy controls for LLM observability. Trigger with phrases like \"langfuse security\", \"langfuse API key security\", \"langfuse data privacy\", \"secure langfuse\", \"langfuse PII\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-security-basics implement langfuse security best practices for api keys and data privacy. use when securing langfuse integration, protecting api keys, or implementing data privacy controls for llm observability. trigger with phrases like \"langfuse security\", \"langfuse api key security\", \"langfuse data privacy\", \"secure langfuse\", \"langfuse pii\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-upgrade-migration",
-      "slug": "langfuse-upgrade-migration",
-      "name": "langfuse-upgrade-migration",
-      "description": "Upgrade Langfuse SDK versions and migrate between API changes. Use when upgrading Langfuse SDK, handling breaking changes, or migrating between Langfuse versions. Trigger with phrases like \"upgrade langfuse\", \"langfuse migration\", \"update langfuse SDK\", \"langfuse breaking changes\", \"langfuse version\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(pip:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-upgrade-migration upgrade langfuse sdk versions and migrate between api changes. use when upgrading langfuse sdk, handling breaking changes, or migrating between langfuse versions. trigger with phrases like \"upgrade langfuse\", \"langfuse migration\", \"update langfuse sdk\", \"langfuse breaking changes\", \"langfuse version\". saas-packs read write edit bash(npm:*) bash(pip:*) "
-    },
-    {
-      "type": "skill",
-      "id": "langfuse-webhooks-events",
-      "slug": "langfuse-webhooks-events",
-      "name": "langfuse-webhooks-events",
-      "description": "Configure Langfuse webhooks for prompt change notifications and event-driven workflows. Use when setting up prompt change notifications, triggering CI/CD on prompt updates, or integrating Langfuse events with Slack and external systems. Trigger with phrases like \"langfuse webhooks\", \"langfuse events\", \"langfuse notifications\", \"langfuse prompt webhook\", \"langfuse alerts\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.17.0",
-      "parentPlugin": {
-        "name": "langfuse-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "langfuse-webhooks-events configure langfuse webhooks for prompt change notifications and event-driven workflows. use when setting up prompt change notifications, triggering ci/cd on prompt updates, or integrating langfuse events with slack and external systems. trigger with phrases like \"langfuse webhooks\", \"langfuse events\", \"langfuse notifications\", \"langfuse prompt webhook\", \"langfuse alerts\". saas-packs read write edit "
+      "searchText": "langfuse-trace-ingestion-medic investigate missing, partial or incorrectly nested langfuse observations by reconciling a captured otlp batch with observations api v2 readbacks. use when traces disappear after a serverless exit, exported spans are absent, or parent context differs. trigger with \"langfuse spans missing\", \"flush succeeded but no observations\" or \"why is this langfuse child at the root?\". saas-packs read bash(python3:*) "
     },
     {
       "type": "skill",

@@ -321,8 +321,8 @@ export function explainGates(receiptPath: string): ExplainGate[] {
 }
 const printable = (s: string): string => s.replace(/[\x00-\x1f\x7f]/g, "?"); // receipt text never drives the terminal
 /** What the receipt verifier saw: set once it resolves a run receipt and prints its verdict. */
-export interface ExplainRec { runId?: string; receiptPath?: string; verdict?: string; reasons?: string[]; receiptSha256?: string | null; independent?: { k: number; of: number } | null }
-/** --explain lists each gate after the verdict; --json prints {run_id, run, verdict, exit_code, receipt_sha256, reasons, agent_independent:{k,of}, gates} on stdout (TEN-GATES-26) with the human lines on stderr. Read-only: the exit code is the verifier's, unchanged; a TAMPERED receipt's gates are never listed. */
+export interface ExplainRec { runId?: string; receiptPath?: string; verdict?: string; reasons?: string[]; receiptSha256?: string | null; independent?: { k: number; of: number } | null; signingKid?: string | null; keyKid?: string | null; headSha?: string | null; receiptVerdict?: string | null; signedRunId?: string | null; signedSha?: string | null }
+/** --explain lists each gate after the verdict; --json prints {run_id, run, verdict, exit_code, receipt_sha256, reasons, agent_independent:{k,of}, gates, signing_kid, key_kid, head_sha, receipt_verdict} on stdout (TEN-GATES-26; the last four are always the final keys, read from the parse the signature covers: the JWT header kid of a VERIFIED receipt, the --pubkey thumbprint, the receipt head_sha and verdict) with the human lines on stderr. Read-only: the exit code is the verifier's, unchanged; a TAMPERED receipt's gates are never listed. */
 export async function withExplain(args: readonly string[], run: (args: readonly string[], rec: ExplainRec) => Promise<number>): Promise<number> {
   const explain = args.includes("--explain"), json = args.includes("--json");
   if (!explain && !json) return run(args, {});
@@ -334,7 +334,7 @@ export async function withExplain(args: readonly string[], run: (args: readonly 
   try { code = await run(args.filter((a) => a !== "--explain" && a !== "--json"), rec); } finally { if (json) process.stdout.write = w; }
   if (!rec.receiptPath || !rec.verdict) return (process.stderr.write("loki verify: --explain and --json apply to a run receipt only; nothing explained\n"), code);
   const gates = rec.verdict === "TAMPERED" ? null : explainGates(rec.receiptPath);
-  if (json) return (process.stdout.write(`${JSON.stringify({ run_id: rec.runId ?? null, run: rec.runId ?? null, verdict: rec.verdict, exit_code: code, receipt_sha256: rec.receiptSha256 ?? null, reasons: rec.reasons ?? [], agent_independent: rec.verdict === "TAMPERED" ? null : rec.independent ?? null, gates })}\n`), code);
+  if (json) return (process.stdout.write(`${JSON.stringify({ run_id: rec.runId ?? null, run: rec.runId ?? null, verdict: rec.verdict, exit_code: code, receipt_sha256: rec.receiptSha256 ?? null, reasons: rec.reasons ?? [], agent_independent: rec.verdict === "TAMPERED" ? null : rec.independent ?? null, gates, signing_kid: rec.verdict === "TAMPERED" ? null : rec.signingKid ?? null, key_kid: rec.verdict === "TAMPERED" ? null : rec.keyKid ?? null, head_sha: rec.verdict === "TAMPERED" ? null : rec.headSha ?? null, receipt_verdict: rec.verdict === "TAMPERED" ? null : rec.receiptVerdict ?? null, signed_run_id: rec.verdict === "TAMPERED" ? null : rec.signedRunId ?? null, signed_sha256: rec.verdict === "TAMPERED" ? null : rec.signedSha ?? null })}\n`), code);
   if (!gates) return (process.stdout.write("explain: receipt TAMPERED; its gates are untrusted and not listed\n"), code);
   process.stdout.write(`explain: ${gates.length} gate${gates.length === 1 ? "" : "s"} (exogenous: evidence the agent could not shape; agent-influenced: agent-authored test or LLM judge; unrecorded: no provenance)\n`);
   for (const g of gates) process.stdout.write(`  gate ${printable(g.name)}: ${g.class} (provenance ${g.provenance === null ? "not recorded" : printable(g.provenance)}), result ${printable(g.result)}, n ${g.n ?? "-"}, evidence: ${printable(g.evidence) || "-"}\n`);
@@ -542,13 +542,13 @@ export function classifyRisk(files: DiffFile[], env: NodeJS.ProcessEnv = process
 /** FC-WALL-LOCATION-BLIND: a loki_wall_* file in the tree that this run's Wall did not install (an earlier run left it untracked, or this run discarded it) is not a change of this run: verifying it would credit an exogenous pass for a test the receipt lists as discarded. `own` holds the paths this run installed (absolute or repo-relative). */
 export const withoutStaleWall = <T extends string | { path: string }>(items: T[], own: string[], repoDir: string): T[] => { const mine = new Set(own.map((p) => (isAbsolute(p) ? relative(repoDir, p) : p))); return items.filter((it) => { const f = typeof it === "string" ? it : it.path; return !/(^|\/)loki_wall_[^/]*$/.test(f) || mine.has(f); }); };
 /** FC-VERIFIED-PR-WITHOUT-ITS-TEST: the Wall files verify ran and passed (target_checks + executed proof), as their SEALED bytes: the runDir/wall copy must hash to wall.files[].sha256, else a NOT PROVEN note and no file. LOKI_COMMIT_WALL=0: none. */
-export function publishableWall(repoDir: string, runDir: string, o: Partial<Record<string, Record<string, unknown>>>, env: NodeJS.ProcessEnv = process.env): { files: { rel: string; bytes: Buffer; cmd: string }[]; notes: string[] } {
-  const out = { files: [] as { rel: string; bytes: Buffer; cmd: string }[], notes: [] as string[] }, arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []), tgt = new Set(Array.isArray(o.verify?.["target_checks"]) ? (o.verify["target_checks"] as unknown[]).map(String) : []);
+export function publishableWall(repoDir: string, runDir: string, o: Partial<Record<string, Record<string, unknown>>>, env: NodeJS.ProcessEnv = process.env): { files: { rel: string; bytes: Buffer; cmd: string; runner: string }[]; notes: string[] } {
+  const out = { files: [] as { rel: string; bytes: Buffer; cmd: string; runner: string }[], notes: [] as string[] }, arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []), tgt = new Set(Array.isArray(o.verify?.["target_checks"]) ? (o.verify["target_checks"] as unknown[]).map(String) : []);
   if (env["LOKI_COMMIT_WALL"] === "0") return out;
   for (const w of arr(o.wall?.["files"])) {
     const rel = relative(repoDir, String(w["path"])), hit = arr(o.verify?.["checks"]).find((c) => tgt.has(String(c["name"])) && String(c["name"]).slice(String(c["name"]).indexOf(":") + 1) === rel && hasExecutedProof([c]));
     if (!hit || rel.startsWith("..") || isAbsolute(rel) || rel.startsWith(".loki/") || !basename(rel).startsWith("loki_wall_")) continue; // stale, failed, not-run or outside the repo: stays dropped
-    try { const bytes = readFileSync(join(runDir, "wall", basename(rel))); if (createHash("sha256").update(bytes).digest("hex") !== w["sha256"]) throw new Error("hash"); out.files.push({ rel, bytes, cmd: String(hit["cmd"]) }); } catch { out.notes.push(`Wall test not published: ${rel} (sealed copy missing or not the sealed bytes)`); }
+    try { const bytes = readFileSync(join(runDir, "wall", basename(rel))); if (createHash("sha256").update(bytes).digest("hex") !== w["sha256"]) throw new Error("hash"); out.files.push({ rel, bytes, cmd: String(hit["cmd"]), runner: String(hit["name"]).slice(0, String(hit["name"]).indexOf(":")) }); } catch { out.notes.push(`Wall test not published: ${rel} (sealed copy missing or not the sealed bytes)`); }
   }
   return out;
 }
@@ -828,3 +828,16 @@ export async function publishWall(git: G, runId: string, repoDir: string, files:
   return false;
 }
 
+
+/** The council file:line anchor grammar (src/a.ts:42, a.ts:L42, a.ts#L42, a.ts (line 42)); one owner, shared by the council finding schema and the failing-check anchor. */
+export const URL_RE = /\b[a-z][a-z0-9+.-]{0,63}:\/\/\S+/gi; // bounded scheme: linear (TEN-SECURITY-26)
+export const ANCHOR_RE = /(?<![\w./@-])([\w./@-]{1,512})[`'"]?(?::L?|#L|\s*\(line\s+)([1-9]\d*)(?!\d)/g;
+export const EXTENSIONLESS = /^(?:.*\/)?(?:Makefile|GNUmakefile|Dockerfile|Jenkinsfile|Rakefile|Gemfile|Procfile|Vagrantfile)$/;
+/** The first file:line anchor in a text, normalized to file:line; null when none. */
+export function firstFileLineAnchor(desc: string): string | null {
+  for (const m of desc.replace(URL_RE, " ").matchAll(ANCHOR_RE)) {
+    const tok = m[1] as string;
+    if (/\.[A-Za-z][A-Za-z0-9]*$/.test(tok) || tok.includes("/") || EXTENSIONLESS.test(tok)) return `${tok}:${m[2]}`;
+  }
+  return null;
+}

@@ -5,19 +5,6 @@ responsive, typography, and composition checks. Load the journey/page-contract
 reference separately when the audit includes routes, overlays, browser outputs,
 native shells, GIS, or review tools.
 
-## Contents
-
-- Standards-Backed Baseline
-- Evidence Order
-- Viewport And Responsive Checks
-- Typography And Line Breaks
-- Layout And Composition
-- Information necessity before layout
-- Images And Media
-- Reference Parity And Taste
-- Mechanical Finding Triage
-- Invalid Fixes
-
 ## Standards-Backed Baseline
 
 Use these standards as tests, not as decoration:
@@ -175,16 +162,23 @@ modal surfaces.
 
 ## Information necessity before layout
 
-Run this check for whole-surface composition/density review, or when the user
-rejects clutter, repeated context, explanations or wasted space. The auditor
-owns it before local typography work. Stop when the declared surface and the
+Run this check for whole-surface composition/density review, when the user
+rejects clutter, repeated context, explanations or wasted space, and before a
+release-ready claim for rendered UI. The auditor owns it before local typography
+work. A local audit retains its declared scope; release review covers its declared
+shipped surface. Stop when that surface and the
 same failure class have been examined; do not expand into unrelated workflows.
 
 1. State the actor's immediate reading/decision task and the information that
    would cause a wrong decision if absent. Start from the user contract, not a
    list of existing components. A title/helper/status slot in a template is not
    a requirement to fill it.
-2. Inventory the whole visible composition. Use the sweep's `attentionInventory`
+2. Inventory the whole visible composition. For a release review, include shared
+   header/footer and template copy plus affected disclosure, search, empty,
+   error and other conditional states that actually exist in the declared
+   surface. Open the relevant states; a source string or default screenshot does
+   not prove what readers see. Identify unvisited states as missing coverage.
+   Use the sweep's `attentionInventory`
    plus its screenshot, or an equivalent DOM/visible-window inventory from the
    canonical harness. Each text item has a structural selector and coordinates;
    JSON hashes labels rather than exporting private page text. Use those
@@ -195,7 +189,10 @@ same failure class have been examined; do not expand into unrelated workflows.
    boundaries. Inspect brand versus product identity, repeated axes and units,
    section titles that restate visible objects, status words echoing navigation,
    explanatory subtitles, provenance/process descriptions and permanent footer
-   bands. Inspect all groups, including ones the script did not flag.
+   bands. Include producer notes, audit claims, implementation identifiers and
+   self-defense about what the page is or is not doing. Inspect all groups,
+   including ones the script did not flag. These are review candidates, not a
+   forbidden-word list: assess their function in the actor's task.
 4. For each ancillary group, ask the falsifiable counterfactual: **what specific
    mistake would this actor make if it were absent here?** Check whether another
    visible encoding already supplies that information. “It explains the section”,
@@ -213,13 +210,31 @@ same failure class have been examined; do not expand into unrelated workflows.
    and verify that core values, relationships, warnings and actions remain
    usable. Do not count reduced lines, less text or a larger chart as acceptance
    by themselves. A failed explicit requirement remains failed until the actual
-   layout changes or the user changes the requirement.
+   layout changes or the user changes the requirement. Before a release-ready
+   claim, give every ancillary group a disposition and its concrete reading or
+   action consequence in the existing audit report. An unexamined group or an
+   unresolved task-relevant uncertainty leaves the claim partial. Fix/remove
+   confirmed needless copy only within source authority, then inspect the
+   resulting target under its separate lifecycle authority.
 
 Keep necessary labels, units, dangerous-state warnings and unfamiliar controls
 at the point of use. Repeated labels can be necessary in independently scrolling
 or independently consumed views; shared, visibly aligned regions may need only
 one axis. Neither “always explain” nor “remove every caption” is a general rule.
 Do not trade needless prose for unlabeled icons, hidden risk or lost provenance.
+
+Keep explanations that change the reader's action or understanding. A statement
+that the producer preserved evidence or completed checks does not earn a slot
+merely by being true; use the actual citation, version or source action where
+those facts support the task. Keep machine-consumed digests and build metadata
+in their delivery contract unless the reader needs them to distinguish artifacts.
+
+For explanatory figures, preserve the truth boundary with a concise explicit
+label such as “Mechanism illustration” when that prevents reading a schematic
+as measured evidence. Retain an additional scope limitation only when the short
+label leaves a specific misreading possible; do not delete scientific scope,
+units, comparison labels or provenance to shorten copy. Recheck nearby controls'
+visible labels and accessible names after removing helper text.
 
 After a structural rejection, validate the **class**, not only named instances:
 retain the rejected page as a negative control, check an unmentioned occurrence
@@ -238,6 +253,19 @@ requires enough information for the task without competing irrelevant detail;
 [GOV.UK's details guidance](https://design-system.service.gov.uk/components/details/)
 supports disclosure for information only some users need, not hiding information
 most users need. Apply those task-dependent boundaries, not a minimalism style.
+
+### Established methods
+
+Select the method that answers the observed failure; do not install or run every
+tool. These adapted checks work without upstream CLIs. For a full named command,
+load its current entry and keep this audit's authorization and evidence boundary.
+
+| Observed failure | Apply the established method |
+| --- | --- |
+| Generic composition despite clean lint | [Impeccable critique](https://github.com/pbakaus/impeccable/blob/936867543ac2576920d663cc9803597f6044f3ac/skill/reference/critique.md): judge product specificity and cognitive load before seeing detector output; reconcile both against rendered evidence. A detector's clean result does not decide necessity or user acceptance. |
+| Explanations and controls compete with the work | [Impeccable distill](https://github.com/pbakaus/impeccable/blob/936867543ac2576920d663cc9803597f6044f3ac/skill/reference/distill.md) and [clarify](https://github.com/pbakaus/impeccable/blob/936867543ac2576920d663cc9803597f6044f3ac/skill/reference/clarify.md): remove obstacles rather than functionality; say each idea once, keep the fact and available action at the relevant state, and disclose uncommon detail. Apply the counterfactual above before shortening. |
+| A dashboard reads like a template or instruction sheet | [Taste Skill's app-screen method](https://github.com/Leonxlnx/taste-skill/blob/12af471f627f866411b4bd785b19646d3672784c/skills/taste-skill/references/app-screens.md): use the work screen's task, objects and data; localize a failure with a useful retry and last-good time when known. Keep missing values distinct from zero without narrating every absent field. Do not import marketing-page hero or word-budget rules into an operating screen. |
+| Technical truth produces an overloaded status surface | [Product Writing](https://github.com/scarletkc/agents/blob/3be29ae86c2eb29a220cc2f11c8ba21228387fbb/skills/product-writing/SKILL.md): give a summary and diagnostics distinct jobs; retain decision-relevant failure, scope and recovery while moving investigative detail to its inspection view. Judge product-authored guidance separately from attributed original content; do not rewrite source quotes to pass a copy check. |
 
 ## Images And Media
 

@@ -21,6 +21,357 @@
     },
     "/deployment-thesis": {
       "reason": "Never a tonsofskills.com page; a dual-published blog post linked it relative to the wrong host."
+    },
+    "/plugins/appfolio-pack": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-ci-integration": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-common-errors": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-core-workflow-a": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-core-workflow-b": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-cost-tuning": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-debug-bundle": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-deploy-integration": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-hello-world": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-install-auth": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-local-dev-loop": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-performance-tuning": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-prod-checklist": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-rate-limits": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-reference-architecture": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-sdk-patterns": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-security-basics": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-upgrade-migration": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/skills/appfolio-webhooks-events": {
+      "reason": "The AppFolio tutorial pack was retired without a verified replacement. Keep 404; restore historical source from Git a0ddd8e19bd74c2839fd1e29367b003f9d276354 if needed (claude-juoz.3.11.52)."
+    },
+    "/plugins/clay-pack": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/learn/clay": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-advanced-troubleshooting": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-architecture-variants": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-ci-integration": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-common-errors": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-core-workflow-a": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-core-workflow-b": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-cost-tuning": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-data-handling": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-debug-bundle": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-deploy-integration": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-enterprise-rbac": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-hello-world": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-incident-runbook": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-install-auth": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-known-pitfalls": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-load-scale": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-local-dev-loop": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-migration-deep-dive": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-multi-env-setup": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-observability": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-performance-tuning": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-policy-guardrails": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-prod-checklist": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-rate-limits": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-reference-architecture": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-reliability-patterns": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-sdk-patterns": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-security-basics": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-upgrade-migration": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/skills/clay-webhooks-events": {
+      "reason": "The Clay tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 7409ebbfdb302045c4f7d523d834e74209ed0fef if needed (claude-juoz.3.11.53)."
+    },
+    "/plugins/glean-pack": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/learn/glean": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-advanced-troubleshooting": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-ci-integration": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-common-errors": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-core-feature": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-core-workflow-a": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-core-workflow-b": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-cost-tuning": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-data-handling": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-debug-bundle": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-deploy-integration": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-deploy-pipeline": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-enterprise-rbac": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-hello-world": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-incident-runbook": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-install-auth": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-known-pitfalls": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-load-scale": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-local-dev-loop": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-migration-deep-dive": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-multi-env-setup": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-observability": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-performance-tuning": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-primary-workflow": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-prod-checklist": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-rate-limits": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-reference-architecture": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-reliability-patterns": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-sdk-patterns": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-security-basics": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-upgrade-migration": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/skills/glean-webhooks-events": {
+      "reason": "The Glean tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git a5c96e2771d9f64fe8867cac86fe863cac018a6d if needed (claude-juoz.3.11.54)."
+    },
+    "/learn/gamma": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/plugins/gamma-pack": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-advanced-troubleshooting": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-ci-integration": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-common-errors": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-core-feature": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-core-workflow-a": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-core-workflow-b": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-cost-tuning": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-data-handling": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-debug-bundle": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-deploy-integration": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-deploy-pipeline": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-enterprise-rbac": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-hello-world": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-incident-runbook": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-install-auth": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-known-pitfalls": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-load-scale": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-local-dev-loop": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-migration-deep-dive": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-multi-env-setup": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-observability": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-performance-tuning": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-primary-workflow": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-prod-checklist": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-rate-limits": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-reference-architecture": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-reliability-patterns": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-sdk-patterns": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-security-basics": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-upgrade-migration": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
+    },
+    "/skills/gamma-webhooks-events": {
+      "reason": "The Gamma tutorial pack was retired after source and value review without a maintained replacement. Keep 404; restore historical source from Git 1a55bc6251c5de1f10a3078d77072a432adfff7a if needed (claude-juoz.3.11.55)."
     }
   }
 }

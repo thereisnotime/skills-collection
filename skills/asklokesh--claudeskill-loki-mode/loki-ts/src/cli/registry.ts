@@ -157,7 +157,7 @@ export const REGISTRY: readonly CmdSpec[] = [
   cmd("runs", "KEEP-MODERN", "bun", "List runs across registered projects", "R100-008: one list over the loki projects registry", { flags: [json] }),
   cmd("intent", "KEEP-MODERN", "bun", "Show a past run's intent card", "Read-only intent view", { subcommands: [sub("show", "Print the intent card and answer", { positionals: [runId] })] }),
   cmd("kpis", "KEEP-MODERN", "bun", "KPI snapshot (alias of report kpis)", "Bun-native KPI report", { flags: [json, str("--since", "<Nd|YYYY-MM-DD>", "Limit iteration totals to a window")] }),
-  cmd("report", "UPDATE", "both", "Reporting: kpis, session, metrics, cost, export, share, dogfood", "Mixed route; only kpis is Bun", {
+  cmd("report", "UPDATE", "both", "Reporting: kpis, session, metrics, cost, export, share, dogfood, release-notes", "Mixed route; only kpis is Bun", {
     subcommands: [
       sub("kpis", "Canonical KPI snapshot", { flags: [json, str("--since", "<Nd|YYYY-MM-DD>", "Limit iteration totals to a window")] }),
       sub("session", "Session report", { flags: [bool("--efficiency", "Token and cost stats")] }),
@@ -166,6 +166,7 @@ export const REGISTRY: readonly CmdSpec[] = [
       sub("export", "Export session", { positionals: [{ name: "format", type: "enum", values: ["json", "markdown", "csv", "timeline", "vibe-kanban"] }] }),
       sub("share", "Share a report"),
       sub("dogfood", "Dogfood report"),
+      sub("release-notes", "Changes in a <from>..<to> range", { flags: [str("--format", "<text|json>", "Output format")] }),
     ],
   }),
   cmd("trust", "KEEP-MODERN", "both", "Trust trajectory from proof history", "Trust moat surface", { flags: [bool("--json", "Print the trust trajectory as JSON")], subcommands: [sub("detail", "Trust metrics detail")] }),
@@ -228,7 +229,7 @@ export const REGISTRY: readonly CmdSpec[] = [
   cmd("share", "KEEP-MODERN", "bash", "Share a run", "Engine-neutral"),
   cmd("assets", "KEEP-MODERN", "bash", "Export team assets", "Engine-neutral", { subcommands: [sub("export", "Export shareable assets", { positionals: [{ name: "file", type: "path" }] })] }),
   cmd("export", "UPDATE", "bash", "Export session data", "Duplicates report export", { flags: [bool("--sarif", "Write findings.sarif for a run (SARIF 2.1.0)")] }),
-  cmd("notify", "KEEP-MODERN", "bash", "Notifications", "Engine-neutral"),
+  cmd("notify", "KEEP-MODERN", "bash", "Notifications", "Engine-neutral", { subcommands: [sub("desktop", "Send a desktop notification (macOS or Linux notify-send)", { positionals: [{ name: "message", type: "string" }] })] }),
   cmd("tour", "KEEP-MODERN", "bash", "See a sample result", "Onboarding"),
   cmd("wow", "KEEP-MODERN", "bash", "Tiny real task, or the offline sample", "Onboarding: loki tour --live"),
   cmd("factory", "KEEP-MODERN", "bash", "loki start with the autonomy policy printed", "propose, execute, operate unchanged"),

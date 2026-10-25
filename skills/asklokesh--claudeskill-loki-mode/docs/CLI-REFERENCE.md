@@ -1,6 +1,6 @@
 # CLI reference
 
-Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.75.1. Do not edit by hand.
+Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.77.0. Do not edit by hand.
 Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for the full inventory.
 
 | Command | Description |
@@ -55,7 +55,7 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki intent` | Show a past run's intent card |
 | `loki intent show` | Print the intent card and answer |
 | `loki kpis` | KPI snapshot (alias of report kpis) |
-| `loki report` | Reporting: kpis, session, metrics, cost, export, share, dogfood |
+| `loki report` | Reporting: kpis, session, metrics, cost, export, share, dogfood, release-notes |
 | `loki report kpis` | Canonical KPI snapshot |
 | `loki report session` | Session report |
 | `loki report metrics` | Metrics report |
@@ -63,6 +63,7 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki report export` | Export session |
 | `loki report share` | Share a report |
 | `loki report dogfood` | Dogfood report |
+| `loki report release-notes` | Changes in a <from>..<to> range |
 | `loki trust` | Trust trajectory from proof history |
 | `loki trust detail` | Trust metrics detail |
 | `loki crash` | Inspect or submit scrubbed crash reports |
@@ -143,6 +144,7 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki assets export` | Export shareable assets |
 | `loki export` | Export session data |
 | `loki notify` | Notifications |
+| `loki notify desktop` | Send a desktop notification (macOS or Linux notify-send) |
 | `loki tour` | See a sample result |
 | `loki wow` | Tiny real task, or the offline sample |
 | `loki factory` | loki start with the autonomy policy printed |

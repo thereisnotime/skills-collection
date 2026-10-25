@@ -483,6 +483,33 @@ describe("cross-model-adversarial-review diff delivery", () => {
     expect(text).not.toContain("Run: git diff")
   })
 
+  // codex-acp's only refusal option is `cancel`, which ends the turn, so one
+  // escalation request leaves the review with no artifact (#1896).
+  test.each([...ROUTES] as string[])("only the codex prompt rules out escalation requests (%s)", (route) => {
+    const sb = sandbox([ROUTE_BIN[route]])
+    const runDir = makeRunDir()
+    const target = route.startsWith("grok") ? "grok" : route
+    const r = run(["claude" === target ? "codex" : "claude", target, "HEAD", runDir], runDir, {
+      ...sb.env,
+      CROSS_MODEL_FIXED_ROUTE: route,
+      ...(route === "grok-cursor" ? { CROSS_MODEL_PEERS: "grok,cursor" } : {}),
+    })
+    expect(peerOutputs(r.files)).toHaveLength(1)
+    const rule = "never request escalated or out-of-sandbox permissions"
+    if (route === "codex") expect(prompt(sb)).toContain(rule)
+    else expect(prompt(sb)).not.toContain(rule)
+  })
+
+  test("the codex large-diff prompt also rules out escalation requests", () => {
+    const sb = sandbox(["codex"])
+    const runDir = makeRunDir("- Review the changed fixture.\n")
+    const r = run(["claude", "codex", "HEAD~1", runDir], runDir, { ...sb.env, CROSS_MODEL_INLINE_MAX_TOKENS: "1" })
+    expect(r.files).toContain("adversarial-codex.json")
+    const text = prompt(sb)
+    expect(text).toContain("too large to inline safely")
+    expect(text).toContain("never request escalated or out-of-sandbox permissions")
+  })
+
   test("a large diff sends the orchestrator map and the staged diff's path to a route that can read it", () => {
     const sb = sandbox(["claude"])
     const runDir = makeRunDir(
@@ -810,6 +837,15 @@ describe("cross-model-adversarial-review outcome classification", () => {
     expect(r.stderr).toContain("peer skip evidence: stopReason=cancelled")
   })
 
+  test("a cancelled turn after a refused permission names that refusal", () => {
+    const sb = sandbox(["codex"], acpStream({ text: review(), stopReason: "cancelled", exit: 5 }))
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "HEAD", runDir], runDir, sb.env)
+    expect(r.files).not.toContain("adversarial-codex.json")
+    expect(r.stderr).toContain("peer skip evidence: permission request cancelled the turn")
+    expect(r.stderr).not.toContain("peer skip evidence: stopReason=cancelled")
+  })
+
   test("a turn that ran out of turns is not published", () => {
     const sb = sandbox(["claude"], acpStream({ text: review(), stopReason: "max_turn_requests" }))
     const runDir = makeRunDir()
@@ -913,6 +949,19 @@ describe("cross-model-adversarial-review acpx transport preflight", () => {
     expect(calls(sb)).toBe(1)
     expect(peerOutputs(r.files)).toEqual([])
     expect(r.stderr).not.toContain("peer skip evidence")
+  })
+
+  test("the first line of a Node startup error is the pre-egress reason", () => {
+    const base = path.join(temp("xmodel-cr-node-"), "s")
+    const line = "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '@openclaw/fs-safe/dist/advanced.js'"
+    writeFileSync(`${base}.stderr`, `node:internal/modules/esm/resolve:275\n${line}\n    at Function._resolveFilename (node:internal/modules/cjs/loader:1207:15)\n`)
+    writeFileSync(`${base}.exit`, "1\n")
+    const sb = sandbox(["codex"], base)
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "HEAD", runDir], runDir, sb.env)
+    expect(r.stderr).toContain(`transport unavailable (pre-egress, route): ${line}`)
+    expect(r.stderr).not.toContain("acpx exited 1 before sending the prompt")
+    expect(peerOutputs(r.files)).toEqual([])
   })
 
   test("an npm resolve on stale cached metadata retries the same route once with fresh metadata", () => {

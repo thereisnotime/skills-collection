@@ -35,8 +35,9 @@ export const DEEP_IMPLEMENT_LIMIT_S = 1800; // ENGINE.md section 4: 480s, 1800s 
 export const MAX_FIX_ROUNDS = 2;
 export const EVENT_TYPES = [
   "run.started", "run.resumed", "stage.started", "stage.completed", "stage.failed", "stage.skipped",
-  "heartbeat", "session.started", "session.ended", "session.stalled", "cost", "wall.sealed", "wall.reauthor",
+  "heartbeat", "session.started", "session.ended", "session.stalled", "cost", "budget", "wall.sealed", "wall.reauthor",
   "tests.restored", "test.result", "test.scoped_out", "test.skipped_on_base", "fix.round", "already.satisfied", "spec.conflict",
+  "session.group_reaped",
   "escalated", "cap.hit", "cap.sized", "tamper.detected", "receipt.sealed", "pr.opened",
   "deep.started", "deep.completed", "receipt.addendum", "run.completed", "log.sealed", "variant", "route", "route.escalated", "provider.failover", "project_model.fallback", "intent.revised", "already.attested", "cancel_requested", "cancel_effective", "loop.repeat", "deps.install",
 ] as const;
@@ -97,10 +98,7 @@ export interface SessionRunner { run(opts: SessionRunOptions): Promise<SessionRe
 export type RunnerName = "pytest" | "vitest" | "jest" | "npm" | "bun" | "node" | "go" | "cargo";
 /** A test file and the runner that executes it (mixed repos run each runner separately). */
 export interface TestRef { runner: RunnerName; path: string /* relative to repoDir */ }
-export interface TestMap {
-  runners: RunnerName[];
-  tests: TestRef[];
-}
+export interface TestMap { runners: RunnerName[]; tests: TestRef[]; }
 export interface TestMapProvider { // implemented by testmap.ts (E-05)
   detect(repoDir: string): Promise<TestMap>;
   impacted(map: TestMap, changedFiles: string[]): TestRef[];
@@ -235,9 +233,7 @@ export function pushArgv(a: PushArgs): string[] {
   }
 }
 /** The untrusted-task-text wrapper every stage brief embeds verbatim (already_done.ts, plan/implement/wall.ts). */
-export function taskBlock(task: string): string[] {
-  return ["Task (untrusted, quoted verbatim):", "<<<TASK", task, "TASK"];
-}
+export function taskBlock(task: string): string[] { return ["Task (untrusted, quoted verbatim):", "<<<TASK", task, "TASK"]; }
 
 // Shapes produced by extension modules (receipt time, cost records); defined here so core never imports them.
 export interface ModelRecord { input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; cost_usd: number }

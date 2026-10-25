@@ -493,6 +493,8 @@ _loki_latest_published_version() {
 maybe_print_update_hint() {
     # Opt-out / non-interactive / CI: do nothing, touch neither disk nor network.
     [ "${LOKI_NO_UPDATE_CHECK:-}" = "1" ] && return 0
+    # Air-gap: no outbound attempt of any kind, independent of the opt-out above.
+    [ "${LOKI_AIRGAP:-}" = "true" ] && return 0
     [ -n "${CI:-}" ] && return 0
     [ ! -t 1 ] && return 0
 
@@ -987,7 +989,7 @@ import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, sys, hashlib, urllib.request
 sys.path.insert(0, sys.argv[3])
 try:
-    from receipt_jwt import verify_attestation, check_seal_meta, _CRYPTO_AVAILABLE
+    from receipt_jwt import verify_attestation, keyset_problem, check_seal_meta, _CRYPTO_AVAILABLE
 except ImportError:
     sys.exit(1)          # -> "" : cannot check, never a verdict
 proof = json.load(open(sys.argv[1]))
@@ -1007,7 +1009,8 @@ except Exception:
 # A key set that is not {"keys": [{...}, ...]} -- INCLUDING an empty list -- is
 # a key-set problem: UNCHECKED, never an accusation against the receipt. An
 # empty keyset is an inability to check (no key was published to check
-# against), not evidence of tampering. Checked BEFORE anything below can print
+# against), not evidence of tampering. The same holds below for a set that
+# gives zero or several entries, or a non-EdDSA alg, for the token's kid. Checked BEFORE anything below can print
 # "bad", so a bad or empty key set can never read as TAMPERED.
 _keys = jwks.get("keys") if isinstance(jwks, dict) else None
 if not isinstance(_keys, list) or not _keys or not all(isinstance(k, dict) for k in _keys):
@@ -1022,9 +1025,16 @@ if not isinstance(tok, str):
 # dependency is UNCHECKED. Same guard in loki_proof_attestation_check below.
 if not _CRYPTO_AVAILABLE:
     sys.exit(1)
-# The key set is known-good here, so any crash inside verification comes from
-# the token: refuse it. Letting it propagate read as UNCHECKED, which let a
-# forger turn TAMPERED into "install python3 cryptography".
+# A key set that cannot give exactly one usable key for the token's kid is a
+# key-set problem, not an accusation: UNCHECKED.
+try:
+    if keyset_problem(tok, jwks):
+        sys.exit(1)
+except Exception:
+    print("bad"); sys.exit(0)
+# Any other crash inside verification comes from the token: refuse it.
+# Letting it propagate read as UNCHECKED, which let a forger turn TAMPERED
+# into "install python3 cryptography".
 try:
     ok, claims = verify_attestation(tok, jwks)
 except Exception:
@@ -1125,7 +1135,7 @@ import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, sys, os, hashlib, urllib.request
 sys.path.insert(0, sys.argv[3])
 try:
-    from receipt_jwt import verify_attestation, check_seal_meta, _CRYPTO_AVAILABLE
+    from receipt_jwt import verify_attestation, keyset_problem, check_seal_meta, _CRYPTO_AVAILABLE
 except ImportError:
     sys.exit(1)                      # "" : cannot check
 try:
@@ -1162,7 +1172,8 @@ except Exception:
 # a key-set problem: NOT CHECKED, never an accusation. An empty keyset is an
 # inability to check (no key was published to check against), not evidence of
 # tampering. Checked BEFORE anything below can print "bad", so a bad or empty
-# key set can never read as FAILED. Same order in loki_remote_attestation_status
+# key set (or one that is ambiguous or wrongly tagged for the token's kid, see
+# keyset_problem) can never read as FAILED. Same order in loki_remote_attestation_status
 # above -- change both.
 _keys = jwks.get("keys") if isinstance(jwks, dict) else None
 if not isinstance(_keys, list) or not _keys or not all(isinstance(k, dict) for k in _keys):
@@ -1178,9 +1189,17 @@ if not isinstance(tok, str):
 # loki_remote_attestation_status above -- change both.
 if not _CRYPTO_AVAILABLE:
     sys.exit(1)                      # "" : cannot check
-# The key set is known-good here, so any crash inside verification comes from
-# the token: refuse it. Letting it propagate read as NOT CHECKED (exit 2), which
-# let a forger turn FAILED into "could not check".
+# A key set that cannot give exactly one usable key for the token's kid is a
+# key-set problem, never an accusation: NOT CHECKED, with the reason on stdout.
+try:
+    _ksp = keyset_problem(tok, jwks)
+except Exception:
+    _ksp = None
+if _ksp:
+    print("keyset: " + _ksp); sys.exit(0)
+# Any other crash inside verification comes from the token: refuse it.
+# Letting it propagate read as NOT CHECKED (exit 2), which let a forger turn
+# FAILED into "could not check".
 try:
     ok, claims = verify_attestation(tok, jwks)
 except Exception:
@@ -1299,7 +1318,7 @@ loki_remote_verify_receipt() {
     _attest="$(loki_remote_attestation_status "$pj" "$_attest_url")"
     local _vroot
     _vroot="$(loki_verify_root)" || { echo "  NOT VERIFIED: no project tree to check against" >&2; return 0; }
-    out="$(python3 -E "$verifier" "$pj" "$_vroot" 2>/dev/null)"
+    out="$(python3 -I -S "$verifier" "$pj" "$_vroot" 2>/dev/null)"
     hash_ok="$(printf '%s' "$out" | jq -r '.hash_ok // false' 2>/dev/null)"
     gpg_ok="$(printf '%s' "$out" | jq -r '.gpg_ok | tostring' 2>/dev/null)"
 
@@ -5813,6 +5832,93 @@ _loki_next_action() {
     esac
 }
 
+# loki next --suggest: with no active run, propose up to 3 small tasks drawn
+# from open GitHub issues (only when gh is authenticated), TODO/FIXME lines and
+# the last recorded failing test run. est_usd comes from the one estimator
+# ('loki estimate --json', cost_preview.ts) and is null / NOT AVAILABLE when it
+# has no usable history (Engine Law L0: never a number from task text).
+# Sources are interleaved so one noisy source cannot fill all 3.
+_loki_next_suggest() {
+    local as_json=false
+    case "${1:-}" in
+        --json) as_json=true ;;
+        "") : ;;
+        *) echo "Usage: loki next --suggest [--json]" >&2; return 1 ;;
+    esac
+    local status
+    status="$(_loki_resolve_run_status)"
+    if [ "$status" = "running" ]; then
+        echo "loki next --suggest: a run is active here; use 'loki next' instead." >&2
+        return 1
+    fi
+    local tmp note=""
+    tmp="$(mktemp -d "${TMPDIR:-/tmp}/loki-run.XXXXXXXX")" || return 1
+    : > "$tmp/issues"; : > "$tmp/todos"; : > "$tmp/tests"
+    # gh runs under a python timeout so a hung network call cannot hang the command.
+    python3 - > "$tmp/issues" 2>/dev/null <<'PYEOF' || note="issues skipped: gh not installed, not authenticated, or timed out"
+import json, subprocess, sys
+try:
+    if subprocess.run(["gh", "auth", "status"], capture_output=True, timeout=10).returncode != 0:
+        sys.exit(1)
+    r = subprocess.run(["gh", "issue", "list", "--state", "open", "--limit", "10", "--json", "number,title"],
+                       capture_output=True, text=True, timeout=15)
+    if r.returncode != 0:
+        sys.exit(1)
+    for i in json.loads(r.stdout):
+        print("#%s %s" % (i["number"], str(i["title"]).replace("\t", " ")))
+except Exception:
+    sys.exit(1)
+PYEOF
+    local est_json
+    est_json="$(cmd_estimate --json 2>/dev/null)" || est_json=""
+    { git grep -nIE 'TODO|FIXME' -- . ':!.loki' 2>/dev/null \
+        || grep -rnIE 'TODO|FIXME' --exclude-dir=.git --exclude-dir=.loki --exclude-dir=node_modules . 2>/dev/null; } \
+        | head -20 > "$tmp/todos" || true
+    python3 - "${LOKI_DIR:-.loki}/quality/test-results.json" > "$tmp/tests" 2>/dev/null <<'PYEOF' || true
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    if d.get("pass") in (False, "false", "False"):
+        print("failing tests (%s): %s" % (d.get("runner", "unknown"), str(d.get("summary", ""))[:120].replace("\n", " ")))
+except Exception:
+    pass
+PYEOF
+    SUGGEST_JSON=$as_json SUGGEST_NOTE="$note" SUGGEST_EST="$est_json" python3 - "$tmp" <<'PYEOF'
+import json, os, sys
+d = sys.argv[1]
+def rd(n):
+    return [l.rstrip("\n") for l in open(os.path.join(d, n)) if l.strip()]
+est, na = None, "estimator returned nothing"
+try:
+    r = json.loads(os.environ.get("SUGGEST_EST", ""))
+    if r.get("ok") is True and isinstance(r.get("est", {}).get("usd"), list):
+        est = r["est"]["usd"]
+    else:
+        na = str(r.get("reason", "no usable run history"))
+except Exception:
+    pass
+src = [("failing_test", "small", rd("tests")), ("issue", "medium", rd("issues")), ("todo", "small", rd("todos"))]
+out = []
+while len(out) < 3 and any(x[2] for x in src):
+    for name, size, items in src:
+        if items and len(out) < 3:
+            out.append({"source": name, "task": items.pop(0), "size": size, "est_usd": est})
+note = os.environ.get("SUGGEST_NOTE", "")
+if os.environ.get("SUGGEST_JSON") == "true":
+    print(json.dumps({"suggestions": out, "notes": [note] if note else [], "est_usd_reason": None if est else na}))
+else:
+    if note:
+        print("note: " + note)
+    if not out:
+        print("No suggestions found (no open issues, TODO/FIXME lines or failing tests).")
+    for i, o in enumerate(out, 1):
+        e = ("est_usd %.2f-%.2f" % tuple(o["est_usd"])) if o["est_usd"] else "est_usd NOT AVAILABLE (%s)" % na
+        print("%d. [%s] %s (%s)" % (i, o["source"], o["task"], e))
+PYEOF
+    rm -rf "$tmp"
+    return 0
+}
+
 # loki next -- one command that runs the right next step for you.
 # Reads the SAME already-captured state as cmd_why (no new state, no spend),
 # resolves the terminal status, and proposes the single mapped next step, then
@@ -5827,7 +5933,7 @@ cmd_next() {
         --help|-h|help)
             echo -e "${BOLD}Loki Mode -- run the right next step for you${NC}"
             echo ""
-            echo "Usage: loki next [--yes] [--dry-run]"
+            echo "Usage: loki next [--yes] [--dry-run] [--suggest [--json]]"
             echo ""
             echo "Reads the last build's recorded outcome (the same state 'loki why'"
             echo "reads -- no new run, no cost) and carries you forward by running the"
@@ -5841,13 +5947,15 @@ cmd_next() {
             echo "Options:"
             echo "  --yes        Run the proposed step without asking"
             echo "  --dry-run    Print the proposed step only; do not run it"
+            echo "  --suggest    No active run: propose up to 3 small tasks (issues, TODO/FIXME, failing tests)"
             echo "  --help, -h   Show this help and exit"
             return 0
             ;;
+        --suggest) shift; _loki_next_suggest "$@"; return $? ;;
         --yes|-y) assume_yes=true ;;
         --dry-run) dry_run=true ;;
         "") : ;;
-        *) echo -e "${RED}Unknown flag: $1${NC}" >&2; echo "Usage: loki next [--yes] [--dry-run]" >&2; return 1 ;;
+        *) echo -e "${RED}Unknown flag: $1${NC}" >&2; echo "Usage: loki next [--yes] [--dry-run] [--suggest [--json]]" >&2; return 1 ;;
     esac
     # Allow a second flag (e.g. --dry-run --yes order-agnostic).
     case "${2:-}" in
@@ -9982,7 +10090,7 @@ _deploy_receipt_verdict() {
 
     local out hash_ok _vroot
     _vroot="$(loki_verify_root 2>/dev/null)" || { printf '%s' "UNCHECKED"; return 0; }
-    out="$(python3 -E "$verifier" "$pj" "$_vroot" 2>/dev/null || true)"
+    out="$(python3 -I -S "$verifier" "$pj" "$_vroot" 2>/dev/null || true)"
 
     # "The verifier did not RUN" and "the verifier says the hash is bad" are
     # different facts and must not collapse. If they do, a broken python3
@@ -11562,6 +11670,80 @@ cmd_import() {
 }
 
 # GitHub integration management (v5.41.0)
+# _gh_protect_py: JSON/URL helper for `loki github protect`.
+#   enc BRANCH | put GETJSON ADD | has GETJSON | same GETJSON WRITTEN
+#   mkstate SLUG BRANCH MODE PRIOR WRITTEN | sget STATEJSON KEY
+# `put` turns a GET branch-protection body into the PUT body, carrying every
+# setting (reviews, admins, restrictions, linear history, check app_ids)
+# unchanged; ADD=1 appends the loki/receipt check.
+_gh_protect_py() {
+    python3 -c '
+import json, sys, urllib.parse
+op = sys.argv[1]
+def names(lst, key):
+    return [x if isinstance(x, str) else x.get(key) for x in (lst or [])]
+def actors(d):
+    if d is None:
+        return None
+    return {"users": names(d.get("users"), "login"), "teams": names(d.get("teams"), "slug"), "apps": names(d.get("apps"), "slug")}
+def put(p, add):
+    rsc = p.get("required_status_checks")
+    rs = None
+    if rsc is not None or add:
+        rsc = rsc or {}
+        checks = rsc.get("checks")
+        if checks is None:
+            checks = [{"context": c} for c in rsc.get("contexts", [])]
+        checks = [{k: v for k, v in c.items() if not (k == "app_id" and v is None)} for c in checks]
+        if add and not any(c.get("context") == "loki/receipt" for c in checks):
+            checks.append({"context": "loki/receipt"})
+        rs = {"strict": bool(rsc.get("strict")), "checks": checks}
+    rv = p.get("required_pull_request_reviews")
+    if rv is not None:
+        r = {"dismiss_stale_reviews": bool(rv.get("dismiss_stale_reviews")),
+             "require_code_owner_reviews": bool(rv.get("require_code_owner_reviews")),
+             "required_approving_review_count": rv.get("required_approving_review_count", 0),
+             "require_last_push_approval": bool(rv.get("require_last_push_approval"))}
+        for k in ("dismissal_restrictions", "bypass_pull_request_allowances"):
+            if rv.get(k) is not None:
+                r[k] = actors(rv[k])
+        rv = r
+    def en(k):
+        return bool((p.get(k) or {}).get("enabled"))
+    body = {"required_status_checks": rs, "enforce_admins": en("enforce_admins"),
+            "required_pull_request_reviews": rv, "restrictions": actors(p.get("restrictions"))}
+    for k in ("required_linear_history", "allow_force_pushes", "allow_deletions", "block_creations",
+              "required_conversation_resolution", "lock_branch", "allow_fork_syncing"):
+        body[k] = en(k)
+    return body
+def norm(b):
+    b = json.loads(json.dumps(b))
+    if b.get("required_status_checks"):
+        for c in b["required_status_checks"]["checks"]:
+            c.pop("app_id", None)
+    return b
+def dump(o):
+    return json.dumps(o, sort_keys=True, separators=(",", ":"))
+if op == "enc":
+    print(urllib.parse.quote(sys.argv[2], safe="/"))
+elif op == "put":
+    print(dump(put(json.loads(sys.argv[2]), sys.argv[3] == "1")))
+elif op == "has":
+    p = json.loads(sys.argv[2]); r = p.get("required_status_checks") or {}
+    have = [c.get("context") for c in r.get("checks", [])] + list(r.get("contexts", []))
+    print("1" if "loki/receipt" in have else "0")
+elif op == "same":
+    print("1" if norm(put(json.loads(sys.argv[2]), False)) == norm(json.loads(sys.argv[3])) else "0")
+elif op == "mkstate":
+    print(dump({"slug": sys.argv[2], "branch": sys.argv[3], "mode": sys.argv[4],
+                "prior": json.loads(sys.argv[5]) if sys.argv[5] else None,
+                "written": json.loads(sys.argv[6])}))
+elif op == "sget":
+    v = json.loads(sys.argv[2])[sys.argv[3]]
+    print(v if isinstance(v, str) else dump(v))
+' "$@"
+}
+
 cmd_github() {
     local subcmd="${1:-help}"
     shift 2>/dev/null || true
@@ -11800,6 +11982,128 @@ except: print(0)
             fi
             ;;
 
+        protect)
+            # Make loki/receipt a required status check on the default branch.
+            # The FULL prior protection is saved (with slug and branch) and the
+            # PUT carries every other setting back unchanged, so --off restores
+            # the exact prior protection. --dry-run performs one read only.
+            local _pr_dry=0 _pr_off=0 _pr_usage=0
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --dry-run) _pr_dry=1; shift ;;
+                    --off) _pr_off=1; shift ;;
+                    *) _pr_usage=1; break ;;
+                esac
+            done
+            if [ "$_pr_usage" -ne 0 ]; then
+                echo "Usage: loki github protect [--dry-run] [--off]" >&2
+                exit 2
+            fi
+            if ! command -v gh &>/dev/null; then
+                echo -e "${RED}Error: gh CLI not found. Install with: brew install gh${NC}" >&2
+                exit 1
+            fi
+            if ! gh auth status &>/dev/null; then
+                echo -e "${RED}Error: gh CLI not authenticated. Run: gh auth login${NC}" >&2
+                exit 1
+            fi
+            local _pr_url _pr_slug _pr_branch _pr_enc
+            _pr_url="$(git remote get-url origin 2>/dev/null || true)"
+            _pr_slug="$(printf '%s' "$_pr_url" | sed -E 's|^.*github\.com[:/]||; s|\.git$||')"
+            if [ -z "$_pr_slug" ] || [ "$_pr_slug" = "$_pr_url" ]; then
+                echo -e "${RED}Error: no GitHub origin remote to protect.${NC}" >&2
+                exit 1
+            fi
+            _pr_branch="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)"
+            [ -n "$_pr_branch" ] || _pr_branch="$(git branch --show-current 2>/dev/null)"
+            if [ -z "$_pr_branch" ]; then
+                echo -e "${RED}Error: could not determine the default branch.${NC}" >&2
+                exit 1
+            fi
+            _pr_enc="$(_gh_protect_py enc "$_pr_branch")" || exit 1
+            local _pr_api="repos/${_pr_slug}/branches/${_pr_enc}/protection"
+            local _pr_state="${LOKI_DIR}/state/github-protect.json"
+
+            # Read the full current protection: mode is "none" (unprotected)
+            # or "protected" (cur holds the JSON).
+            local _pr_out _pr_rc=0 _pr_mode="protected" _pr_cur=""
+            _pr_out="$(gh api "$_pr_api" 2>&1)" || _pr_rc=$?
+            if [ "$_pr_rc" -eq 0 ]; then
+                _pr_cur="$_pr_out"
+            elif printf '%s' "$_pr_out" | grep -qi "Branch not protected"; then
+                _pr_mode="none"
+            else
+                echo "$_pr_out" >&2
+                echo -e "${RED}Error: could not read branch protection for ${_pr_slug}@${_pr_branch}.${NC}" >&2
+                exit 1
+            fi
+
+            if [ "$_pr_off" -eq 1 ]; then
+                if [ ! -f "$_pr_state" ]; then
+                    echo -e "${RED}Error: nothing to restore (no saved state at ${_pr_state}).${NC}" >&2
+                    exit 1
+                fi
+                local _pr_st _pr_ssl _pr_sbr _pr_smode _pr_prior _pr_written _pr_body
+                _pr_st="$(cat "$_pr_state")"
+                _pr_ssl="$(_gh_protect_py sget "$_pr_st" slug)" || { echo -e "${RED}Error: unreadable saved state ${_pr_state}.${NC}" >&2; exit 1; }
+                _pr_sbr="$(_gh_protect_py sget "$_pr_st" branch)" || exit 1
+                _pr_smode="$(_gh_protect_py sget "$_pr_st" mode)" || exit 1
+                if [ "$_pr_ssl" != "$_pr_slug" ] || [ "$_pr_sbr" != "$_pr_branch" ]; then
+                    echo -e "${RED}Refused: saved state is for ${_pr_ssl}@${_pr_sbr}, but this checkout is ${_pr_slug}@${_pr_branch}. Nothing changed.${NC}" >&2
+                    exit 1
+                fi
+                if [ "$_pr_mode" = "none" ]; then
+                    echo -e "${RED}Refused: ${_pr_slug}@${_pr_branch} has no protection now, so loki/receipt is gone. Nothing changed.${NC}" >&2
+                    exit 1
+                fi
+                _pr_written="$(_gh_protect_py sget "$_pr_st" written)" || exit 1
+                if [ "$(_gh_protect_py has "$_pr_cur")" != "1" ]; then
+                    echo -e "${RED}Refused: loki/receipt is no longer a required check on ${_pr_slug}@${_pr_branch}; protection was changed since protect. Nothing changed.${NC}" >&2
+                    exit 1
+                fi
+                if [ "$(_gh_protect_py same "$_pr_cur" "$_pr_written")" != "1" ]; then
+                    echo -e "${RED}Refused: protection on ${_pr_slug}@${_pr_branch} differs from what protect wrote; restoring would overwrite later changes. Nothing changed.${NC}" >&2
+                    exit 1
+                fi
+                if [ "$_pr_smode" = "none" ]; then
+                    gh api -X DELETE "$_pr_api" >/dev/null || { echo -e "${RED}Error: could not remove branch protection.${NC}" >&2; exit 1; }
+                else
+                    _pr_prior="$(_gh_protect_py sget "$_pr_st" prior)" || exit 1
+                    _pr_body="$(_gh_protect_py put "$_pr_prior" 0)" || exit 1
+                    printf '%s' "$_pr_body" | gh api -X PUT "$_pr_api" --input - >/dev/null \
+                        || { echo -e "${RED}Error: could not restore branch protection.${NC}" >&2; exit 1; }
+                fi
+                rm -f "$_pr_state"
+                echo "Restored branch protection on ${_pr_slug}@${_pr_branch} (was: ${_pr_smode})"
+                exit 0
+            fi
+
+            local _pr_has=0
+            if [ "$_pr_mode" = "protected" ] && [ "$(_gh_protect_py has "$_pr_cur")" = "1" ]; then
+                _pr_has=1
+            fi
+            if [ "$_pr_dry" -eq 1 ]; then
+                echo "Dry run for ${_pr_slug}@${_pr_branch}: protection is '${_pr_mode}'; would $([ "$_pr_has" -eq 1 ] && echo 'change nothing (loki/receipt already required)' || echo 'require loki/receipt'). Nothing changed."
+                exit 0
+            fi
+            if [ "$_pr_has" -eq 1 ]; then
+                echo "loki/receipt is already a required check on ${_pr_slug}@${_pr_branch}; nothing to do."
+                exit 0
+            fi
+            local _pr_new _pr_prior_in="" _pr_src="{}" _pr_stjson
+            if [ "$_pr_mode" = "protected" ]; then _pr_prior_in="$_pr_cur"; _pr_src="$_pr_cur"; fi
+            _pr_new="$(_gh_protect_py put "$_pr_src" 1)" || exit 1
+            _pr_stjson="$(_gh_protect_py mkstate "$_pr_slug" "$_pr_branch" "$_pr_mode" "$_pr_prior_in" "$_pr_new")" || exit 1
+            mkdir -p "${LOKI_DIR}/state"
+            printf '%s\n' "$_pr_stjson" > "$_pr_state"
+            if ! printf '%s' "$_pr_new" | gh api -X PUT "$_pr_api" --input - >/dev/null; then
+                rm -f "$_pr_state"
+                echo -e "${RED}Error: could not update branch protection; nothing changed.${NC}" >&2
+                exit 1
+            fi
+            echo "loki/receipt is now a required check on ${_pr_slug}@${_pr_branch} (was: ${_pr_mode}). Undo with: loki github protect --off"
+            ;;
+
         help|*)
             echo -e "${BOLD}loki github${NC} - GitHub integration management"
             echo ""
@@ -11809,6 +12113,7 @@ except: print(0)
             echo "  export       Export local tasks as new GitHub issues"
             echo "  pr [name]    Create pull request from completed work"
             echo "  publish [name] [--public]  Push to GitHub and set a loki/receipt commit status"
+            echo "  protect [--dry-run] [--off]  Require loki/receipt on the default branch (--off restores)"
             echo ""
             echo "Environment Variables:"
             echo "  LOKI_GITHUB_IMPORT=true    Import open issues as tasks on start"
@@ -15194,8 +15499,9 @@ EOF
 
 # FC-EGRESS-AUDIT-HAND-LISTED: the registry of every env var that names an outbound
 # host. _loki_airgap_audit walks it, so a configured webhook, tracker, remote or model
-# gateway is named in the audit. tests/test-airgap-commands.sh greps autonomy/ and
-# loki-ts/src for LOKI_*_(URL|HOST|ENDPOINT|WEBHOOK) readers and fails on any name that
+# gateway is named in the audit. tests/test-airgap-commands.sh greps autonomy/,
+# loki-ts/src, providers, dashboard and web-app for LOKI_*_(URL|HOST|ENDPOINT|WEBHOOK|ISSUER)
+# and DATABASE_URL readers and fails on any name that
 # is in neither list. Entry: NAME|what it reaches.
 _LOKI_AIRGAP_EGRESS_ENV=(
     "LOKI_WEBHOOK_URL|custom webhook notifications"
@@ -15214,6 +15520,9 @@ _LOKI_AIRGAP_EGRESS_ENV=(
     "JIRA_BASE_URL|Jira write-back (alias of LOKI_JIRA_URL)"
     "LOKI_LINEAR_URL|Linear write-back"
     "LOKI_MODEL_BASE_URL|model route base URL"
+    "LOKI_AUDIT_SYSLOG_HOST|dashboard audit log forwarding to a remote syslog server"
+    "LOKI_OIDC_ISSUER|dashboard OIDC sign-in (fetches the issuer discovery document and JWKS keys)"
+    "DATABASE_URL|web-app Postgres database server (unset to use local file storage)"
 )
 # Names the guard skips because they never name an outbound host. NAME|reason.
 _LOKI_AIRGAP_EGRESS_NOT=(
@@ -15240,6 +15549,14 @@ _LOKI_AIRGAP_EGRESS_NOT=(
     "LOKI_LAST_GIST_URL|internal variable carrying a gist link this run already created"
     "LOKI_HOSTED_BODY|internal temp-file path"
     "LOKI_HOSTED_EP|internal copy of LOKI_HOSTED_ENDPOINT"
+    "LOKI_DASHBOARD_ALLOWED_HOSTS|the dashboard's own inbound Host-header allowlist, not a destination"
+    "LOKI_HOST_CHILD_PATH|a filesystem path for the host-guard sandbox, not a host"
+    "LOKI_HOST_PROTECTED_ROOT|a filesystem path for the host-guard sandbox, not a host"
+    "LOKI_HOST_RESERVED_PORTS|local ports the host-guard sandbox reserves, not a destination"
+    "LOKI_HOST_RUNTIME_READ_PATHS|filesystem paths for the host-guard sandbox, not a host"
+    "LOKI_HOST_RUNTIME_WRITE_PATHS|filesystem paths for the host-guard sandbox, not a host"
+    "LOKI_HOST_SEATBELT|a boolean switch for the host-guard sandbox, not a host"
+    "LOKI_HOST_SEATBELT_PROBE_SHA|a hash of the host-guard sandbox probe, not a host"
 )
 
 # _loki_airgap_configured_egress -- one TSV line per configured outbound host that is
@@ -16248,6 +16565,9 @@ cmd_notify() {
         webhook)
             cmd_notify_send "webhook" "$@"
             ;;
+        desktop)
+            cmd_notify_send "desktop" "$@"
+            ;;
         status)
             cmd_notify_status
             ;;
@@ -16277,6 +16597,8 @@ cmd_notify_help() {
     echo "  slack <message>    Send notification to Slack only"
     echo "  discord <message>  Send notification to Discord only"
     echo "  webhook <message>  Send notification to webhook only"
+    echo "  desktop <message>  Send a desktop notification (macOS or Linux notify-send)"
+    echo "  test --channel desktop [message]  Test only the desktop channel"
     echo "  status             Show which notification channels are configured"
     echo "  help               Show this help"
     echo ""
@@ -16284,7 +16606,7 @@ cmd_notify_help() {
     echo "  LOKI_SLACK_WEBHOOK    Slack incoming webhook URL"
     echo "  LOKI_DISCORD_WEBHOOK  Discord webhook URL"
     echo "  LOKI_WEBHOOK_URL      Custom webhook URL (POST JSON)"
-    echo "  LOKI_NOTIFY_CHANNELS  Channels to use (comma-separated: slack,discord,webhook)"
+    echo "  LOKI_NOTIFY_CHANNELS  Channels to use (comma-separated: slack,discord,webhook,desktop)"
     echo "                        Default: all configured channels"
     echo ""
     echo "Examples:"
@@ -16350,9 +16672,35 @@ cmd_notify_status() {
     fi
 }
 
+# Desktop channel: reuse run.sh send_notification (the same function the run
+# loop fires on blocked, done and failed) by extracting it, so the macOS and
+# Linux logic lives in one place. Returns 1 when no desktop notifier exists.
+send_desktop_notification() {
+    local message="$1" title="${2:-Notification}"
+    command -v osascript >/dev/null 2>&1 || command -v notify-send >/dev/null 2>&1 || return 1
+    [ -f "$RUN_SH" ] || return 1
+    local fn
+    fn="$(sed -n '/^send_notification() {/,/^}/p' "$RUN_SH")"
+    [ -n "$fn" ] || return 1
+    (
+        # shellcheck disable=SC2034
+        NOTIFICATIONS_ENABLED=true
+        # shellcheck disable=SC2034
+        NOTIFICATION_SOUND=false
+        eval "$fn"
+        send_notification "$title" "$message" "normal"
+    )
+}
+
 cmd_notify_test() {
+    local channel_arg=""
+    if [ "${1:-}" = "--channel" ]; then
+        channel_arg="${2:-}"
+        shift 2 2>/dev/null || shift $#
+    fi
     local message="${1:-Loki Mode test notification}"
     local channels_notified=0
+    [ -n "$channel_arg" ] && LOKI_NOTIFY_CHANNELS="$channel_arg"
 
     echo -e "${BOLD}Testing Notification Channels${NC}"
     echo ""
@@ -16396,6 +16744,17 @@ cmd_notify_test() {
             else
                 echo -e "${RED}FAILED${NC}"
             fi
+        fi
+    fi
+
+    # Desktop is opt-in (explicit channel) so default runs never pop a banner
+    if [[ "${channels}" == *"desktop"* ]]; then
+        echo -n "  Desktop...  "
+        if send_desktop_notification "$message" "Test"; then
+            echo -e "${GREEN}OK${NC}"
+            channels_notified=$((channels_notified + 1))
+        else
+            echo -e "${RED}FAILED (no osascript or notify-send)${NC}"
         fi
     fi
 
@@ -16455,6 +16814,14 @@ cmd_notify_send() {
                 echo -e "${GREEN}Sent to webhook${NC}"
             else
                 echo -e "${RED}Failed to send to webhook${NC}"
+                exit 1
+            fi
+            ;;
+        desktop)
+            if send_desktop_notification "$message" "Manual"; then
+                echo -e "${GREEN}Sent desktop notification${NC}"
+            else
+                echo -e "${RED}No desktop notifier (osascript or notify-send) available${NC}"
                 exit 1
             fi
             ;;
@@ -21911,6 +22278,18 @@ def _resolve_session_pin(alias):
         _m = 'opus'
     else:  # development (and the '*' fallthrough)
         _m = _provider_model_development()
+    # Explicit top / floor setup, mirrors claude.sh resolve_model_for_tier: a
+    # planning pin dispatches opus, a fast pin haiku (skipped when
+    # LOKI_ALLOW_HAIKU is explicitly set to anything but 'true'), unless legacy
+    # tier switching or an explicit per-tier pin applies.
+    if os.environ.get('LOKI_LEGACY_TIER_SWITCHING') != 'true':
+        if (_pin_tier == 'planning' and alias == 'planning'
+                and not (os.environ.get('LOKI_CLAUDE_MODEL_PLANNING') or os.environ.get('LOKI_MODEL_PLANNING'))):
+            _m = 'opus'
+        elif (_pin_tier == 'fast' and alias == 'fast'
+                and not (os.environ.get('LOKI_CLAUDE_MODEL_FAST') or os.environ.get('LOKI_MODEL_FAST'))
+                and os.environ.get('LOKI_ALLOW_HAIKU', 'true') == 'true'):
+            _m = 'haiku'
     # Apply the shared LOKI_MAX_TIER clamp with the REAL tier and resolved model
     # (loki_apply_max_tier_clamp(model, tier)), NOT the alias==alias override
     # convention. This is the one place where the two paths legitimately diverge
@@ -23513,12 +23892,13 @@ main() {
 #   - Non-TTY/CI without --yes (and no LOKI_ULTRAREVIEW=1): REFUSE with exit 2
 #     and ZERO ultrareview calls (the no-silent-bill guard). Never hang on read.
 #   - --yes or LOKI_ULTRAREVIEW=1 proceeds without prompting (this command only).
-# Args: <format> <assume_yes> <timeout_minutes> <target>
+# Args: <format> <assume_yes> <timeout_minutes> <target> <trust_workspace>
 _review_ultra() {
     local fmt="${1:-text}"
     local assume_yes="${2:-false}"
     local timeout_min="${3:-}"
     local target="${4:-}"
+    local trust_ws="${5:-false}"
 
     # Make the ultrareview gate predicates available even though autonomy/loki
     # does not source claude-flags.sh globally (same on-demand pattern as
@@ -23603,14 +23983,31 @@ _review_ultra() {
     if [ -n "$timeout_min" ]; then
         ur_argv+=("--timeout" "$timeout_min")
     fi
+    # Claude Code 2.1.309+ needs --trust-workspace for scripted runs. Forward it
+    # only when the user passed it AND the CLI lists it; never trust by default.
+    local ur_trust_ok=false
+    if { claude ultrareview --help 2>&1; claude --help 2>&1; } | grep -q -- '--trust-workspace'; then
+        ur_trust_ok=true
+    fi
+    if [ "$trust_ws" = true ]; then
+        if [ "$ur_trust_ok" = true ]; then
+            ur_argv+=("--trust-workspace")
+        else
+            echo "Note: this claude CLI does not list --trust-workspace; not forwarding it." >&2
+        fi
+    fi
     if [ -n "$target" ]; then
         ur_argv+=("$target")
     fi
 
     echo -e "${DIM}Running: claude ${ur_argv[*]}${NC}" >&2
     echo "" >&2
-    claude "${ur_argv[@]}"
-    return $?
+    local ur_rc=0
+    claude "${ur_argv[@]}" || ur_rc=$?
+    if [ "$ur_rc" -ne 0 ] && [ "$trust_ws" != true ] && [ "$ur_trust_ok" = true ]; then
+        echo "If claude reported an untrusted folder, re-run: loki review --ultra --yes --trust-workspace" >&2
+    fi
+    return "$ur_rc"
 }
 
 # v7.38.0: optional native Claude Code Dynamic Workflow passthrough
@@ -23798,6 +24195,7 @@ cmd_review() {
     local review_format="text"
     local review_severity="all"
     local review_ultra=false
+    local review_trust_ws=false
     local review_assume_yes=false
     local review_timeout=""
     local review_risk=false
@@ -23834,6 +24232,8 @@ cmd_review() {
                 echo "                       'loki review <pr-number> --risk' also works. Use --json"
                 echo "  --yes, -y            Skip the --ultra confirmation prompt"
                 echo "  --timeout <minutes>  --ultra: max minutes to wait (default 30)"
+                echo "  --trust-workspace    --ultra: forward claude's --trust-workspace (needed for"
+                echo "                       scripted runs in an untrusted folder; never default)"
                 echo "  --help, -h           Show this help"
                 echo ""
                 echo "Exit codes:"
@@ -23855,6 +24255,7 @@ cmd_review() {
                 return 0
                 ;;
             --ultra) review_ultra=true; shift ;;
+            --trust-workspace) review_trust_ws=true; shift ;;
             --risk) review_risk=true; shift ;;
             --json) review_format="json"; shift ;;
             --yes|-y) review_assume_yes=true; shift ;;
@@ -23908,7 +24309,7 @@ cmd_review() {
     # below: --ultra is a different operation (paid cloud), not a flag that
     # augments the local static analysis.
     if [ "$review_ultra" = true ]; then
-        _review_ultra "$review_format" "$review_assume_yes" "$review_timeout" "$review_target"
+        _review_ultra "$review_format" "$review_assume_yes" "$review_timeout" "$review_target" "$review_trust_ws"
         return $?
     fi
 
@@ -30088,6 +30489,7 @@ cmd_cost() {
     local show_json=false
     local last_n=0
     local detail=false
+    local month="" csv=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -30103,6 +30505,9 @@ cmd_cost() {
                 echo "Options:"
                 echo "  --json               Machine-readable JSON output"
                 echo "  --last N             Show only the last N runs in history (default: all)"
+                echo "  --month YYYY-MM      Only runs generated in that month"
+                echo "  --csv                One CSV row per run: repo,user,usd,verdict,run_id,date"
+                echo "                       (unmeasured cost prints \"unmeasured\", never 0)"
                 echo "  --detail             Per-iteration breakdown: cache hit ratio, cost trend,"
                 echo "                       and the measured/found ratio (autonomy/lib/cost-summary.py)"
                 echo "  --help, -h           Show this help"
@@ -30123,11 +30528,23 @@ cmd_cost() {
                 ;;
             --json) show_json=true; shift ;;
             --detail) detail=true; shift ;;
+            --csv) csv=true; shift ;;
+            --month) month="${2:-}"; shift 2 || shift ;;
+            --month=*) month="${1#*=}"; shift ;;
             --last) last_n="${2:-0}"; shift 2 ;;
             --last=*) last_n="${1#*=}"; shift ;;
             *) echo -e "${RED}Unknown option: $1${NC}" >&2; echo "Run 'loki cost --help' for usage." >&2; exit 1 ;;
         esac
     done
+
+    if [ -n "$month" ] && ! [[ "$month" =~ ^[0-9]{4}-(0[1-9]|1[0-2])$ ]]; then
+        echo -e "${RED}--month must be YYYY-MM (got: ${month})${NC}" >&2
+        return 1
+    fi
+    if { [ -n "$month" ] || [ "$csv" = "true" ]; } && [ "$detail" = "true" ]; then
+        echo -e "${RED}--month and --csv are not supported with --detail${NC}" >&2
+        return 1
+    fi
 
     # --detail routes to the per-run summarizer, which reports what the budget
     # view cannot: cache hit ratio, cost trend, and the measured/found ratio.
@@ -30175,6 +30592,8 @@ cmd_cost() {
     LOKI_SKILL_DIR="$SKILL_DIR" \
     COST_JSON="$show_json" \
     COST_LAST_N="$last_n" \
+    COST_MONTH="$month" \
+    COST_CSV="$csv" \
     COST_BUDGET_LIMIT="${LOKI_BUDGET_LIMIT:-}" \
     python3 << 'COST_SCRIPT'
 import json
@@ -30189,6 +30608,8 @@ try:
 except ValueError:
     last_n = 0
 budget_limit_env = os.environ.get("COST_BUDGET_LIMIT", "").strip()
+cost_month = os.environ.get("COST_MONTH", "")
+cost_csv = os.environ.get("COST_CSV", "false") == "true"
 
 # ANSI (suppressed under --json / non-tty)
 use_color = (not show_json) and sys.stdout.isatty()
@@ -30296,6 +30717,9 @@ if os.path.isdir(proofs_dir):
             "files_changed": (d.get("files_changed") or {}).get("count"),
             "final_verdict": (d.get("council") or {}).get("final_verdict"),
         })
+if cost_month:
+    runs = [r for r in runs if (r.get("generated_at") or "").startswith(cost_month)]
+    project_total = sum(r["cost_usd"] for r in runs if r.get("cost_usd") is not None)
 runs.sort(key=lambda x: (x.get("generated_at") or ""), reverse=True)
 if last_n > 0:
     runs = runs[:last_n]
@@ -30369,6 +30793,19 @@ for r in runs:
         continue
     m = r.get("model") or "unknown"
     by_model[m] = by_model.get(m, 0.0) + c
+
+if cost_csv:
+    import csv
+    ws = os.path.basename(os.path.dirname(os.path.abspath(loki_dir))) or "unknown"
+    who = os.environ.get("USER") or os.environ.get("LOGNAME") or "unknown"
+    w = csv.writer(sys.stdout, lineterminator="\n")
+    w.writerow(["repo", "user", "usd", "verdict", "run_id", "date"])
+    for r in sorted(runs, key=lambda x: (x.get("generated_at") or "", str(x.get("run_id")))):
+        c = r.get("cost_usd")
+        w.writerow([ws, who, "unmeasured" if c is None else "%.6f" % c,
+                    r.get("final_verdict") or "unknown", r.get("run_id"),
+                    (r.get("generated_at") or "")[:10]])
+    sys.exit(0)
 
 if show_json:
     out = {
@@ -39171,9 +39608,9 @@ print(json.dumps(json.load(open(os.environ['LOKI_PROOF_JSON'])), indent=2))
             # route (proof.ts verifyProof) -- ok already agrees with the exit
             # code there, so there is nothing to patch.
             if [ "$_pv_human" -eq 1 ]; then
-                _pv_out="$(python3 -E "$verifier" --human "$pj" "$_pv_root")" || _pv_rc=$?
+                _pv_out="$(python3 -I -S "$verifier" --human "$pj" "$_pv_root")" || _pv_rc=$?
             else
-                _pv_out="$(python3 -E "$verifier" "$pj" "$_pv_root")" || _pv_rc=$?
+                _pv_out="$(python3 -I -S "$verifier" "$pj" "$_pv_root")" || _pv_rc=$?
             fi
             _pv_base_rc="$_pv_rc"
 
@@ -39215,6 +39652,13 @@ print(json.dumps(json.load(open(os.environ['LOKI_PROOF_JSON'])), indent=2))
                         echo "  Not verified: a key set was supplied, but the receipt is unsigned (exit 1)." >&2
                         _pv_rc=1
                         _pv_attestation_field="ABSENT"
+                        ;;
+                    keyset:*)
+                        echo -e "${YELLOW}attestation: NOT CHECKED -- ${_pv_att#keyset: }.${NC}" >&2
+                        echo "  The key set at ${_pv_jwks} cannot give one usable key for this receipt." >&2
+                        echo "  This is not a failure of the receipt. Nothing was proven either way (exit 2)." >&2
+                        if [ "$_pv_rc" -eq 0 ]; then _pv_rc=2; fi
+                        _pv_attestation_field="NOT CHECKED"
                         ;;
                     *)
                         # Unreachable key set, unreadable file, missing python
