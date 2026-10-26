@@ -23,12 +23,11 @@ Add the marketplace and install plugins directly in Claude Code:
 
 ```bash
 /plugin marketplace add agent-sh/agentsys
-/plugin install next-task@agentsys
-/plugin install ship@agentsys
+/plugin install prepare-delivery@agentsys
+/plugin install foreman@agentsys
 /plugin install deslop@agentsys
 /plugin install audit-project@agentsys
 /plugin install drift-detect@agentsys
-/plugin install repo-intel@agentsys
 /plugin install enhance@agentsys
 /plugin install perf@agentsys
 /plugin install sync-docs@agentsys
@@ -40,10 +39,10 @@ Add the marketplace and install plugins directly in Claude Code:
 **Scopes** (optional):
 ```bash
 # User scope (default) - available in all projects
-/plugin install next-task@agentsys
+/plugin install deslop@agentsys
 
 # Project scope - shared with team
-/plugin install next-task@agentsys --scope project
+/plugin install deslop@agentsys --scope project
 ```
 
 ---
@@ -138,8 +137,8 @@ agentsys --tool claude
 Plugins now live in standalone repos. To load a plugin locally, clone its repo:
 
 ```bash
-git clone https://github.com/agent-sh/next-task.git
-claude --plugin-dir ./next-task
+git clone https://github.com/agent-sh/deslop.git
+claude --plugin-dir ./deslop
 ```
 
 ### Quick Dev Install (Contributors)
@@ -172,7 +171,7 @@ Select your platform when prompted. The installer configures:
 | Codex CLI | `~/.codex/` | `.codex/` |
 | Kiro | `~/.kiro/` | `.kiro/` |
 
-> **Note:** Codex uses `$` prefix for skills (e.g., `$next-task` instead of `/next-task`).
+> **Note:** Codex uses `$` prefix for skills (e.g., `$deslop` instead of `/deslop`).
 
 ---
 
@@ -185,12 +184,9 @@ Select your platform when prompted. The installer configures:
 ```
 
 You should see commands:
-- `/next-task` - Master workflow orchestrator
-- `/ship` - Complete PR workflow
 - `/deslop` - AI slop cleanup
 - `/audit-project` - Multi-agent code review
 - `/drift-detect` - Plan drift detection
-- `/repo-intel` - Unified static analysis
 - `/enhance` - Enhancement analyzer suite
 - `/perf` - Performance investigation workflow
 - `/sync-docs` - Documentation sync
@@ -203,16 +199,14 @@ You should see commands:
 - `/system-prompt-curator` - System prompt curation
 - `/onboard` - Codebase onboarding
 - `/can-i-help` - Contributor guidance
-- `/tower-crane-inbox`, `/tower-crane-spawn-ready`, `/tower-crane-merge-accepted`, `/tower-crane-rework-from-review`, `/tower-crane-release-dead`, `/tower-crane-watch` - Tower Crane delegated delivery (needs the `tower-crane` CLI)
-- `/release` - Versioned release with ecosystem detection
 - `/agnix` - Linter for AI agent configs
-- `/prepare-delivery` - Pre-ship validation checks
-- `/gate-and-ship` - Gated shipping workflow
+- `/prepare-delivery` - Pre-ship validation checks (never pushes or opens a PR)
+- `/foreman` - GitHub issue queue for native agents (needs Node 22+, `gh` and `waitfor`)
 
 ### OpenCode / Codex
 
 Type the command name and it should be recognized:
-- `/next-task` (OpenCode) or `$next-task` (Codex)
+- `/deslop` (OpenCode) or `$deslop` (Codex)
 
 ### Local Repo Diagnostics (optional)
 
@@ -238,7 +232,7 @@ npm run verify   # Tool availability + versions
 
 ### Recommended (Repo Intel)
 
-- **agent-analyzer** - Used by `/repo-intel` for static analysis. Installed automatically via npm.
+- **agent-analyzer** - Builds the repo-intel map (git history, AST symbols) that onboard, can-i-help, drift-detect and sync-docs read. Downloaded automatically on first use.
 
 ### Required for GitHub Workflows
 
@@ -254,6 +248,10 @@ npm run verify   # Tool availability + versions
   # Verify
   gh auth status
   ```
+
+### Required for /foreman
+
+- **Node.js 22+**, an authenticated `gh`, and `waitfor` on `PATH`. `run-long` needs systemd user units (Linux). A repo can add a `.foreman.json` in its root; every key has a default.
 
 ### Optional (Auto-Detected)
 
@@ -274,20 +272,20 @@ These tools are detected automatically if present:
 ### Update Plugins
 
 ```bash
-/plugin update next-task@agentsys
+/plugin update deslop@agentsys
 ```
 
 ### Disable/Enable
 
 ```bash
-/plugin disable next-task@agentsys
-/plugin enable next-task@agentsys
+/plugin disable deslop@agentsys
+/plugin enable deslop@agentsys
 ```
 
 ### Uninstall
 
 ```bash
-/plugin uninstall next-task@agentsys
+/plugin uninstall deslop@agentsys
 
 # Or remove marketplace entirely
 /plugin marketplace remove agentsys
@@ -336,7 +334,7 @@ Try adding the full GitHub URL:
 
 ### "GitHub CLI not found"
 
-Required for `/ship` and GitHub-based workflows:
+Required for `/foreman` and GitHub-based workflows:
 ```bash
 brew install gh  # macOS
 winget install GitHub.cli  # Windows
@@ -370,7 +368,7 @@ gh auth login
 - Each skill directory is copied whole to `~/.kiro/skills/<name>/`, references and scripts included; paths that pointed at the plugin root point at `~/.agentsys/plugins/<plugin>/`
 - Agents converted to JSON in `~/.kiro/agents/`
 - Reads AGENTS.md and `.kiro/steering/*.md` for instructions
-- **Note**: Kiro's subagent spawning is experimental (max 4). Workflows with parallel Task() calls (e.g., next-task Phase 9 with 4-10 reviewers) automatically fall back to 2 sequential combined reviewers (`reviewer-quality-security`, `reviewer-perf-test`)
+- **Note**: Kiro's subagent spawning is experimental (max 4). Workflows with parallel Task() calls (e.g., the audit-project review with 4-10 reviewers) automatically fall back to 2 sequential combined reviewers (`reviewer-quality-security`, `reviewer-perf-test`)
 
 ### Skill directories on OpenCode, Codex, Cursor and Kiro
 - Each skill directory agentsys installs has a `.agentsys-skill` marker file. A reinstall replaces a marked directory, so a file you add inside one is removed.

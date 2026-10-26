@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <b>25 plugins · 55 agents · 47 skills (across all repos) · 30k lines of lib code · tests on Linux and Windows · 5 platforms</b><br>
+  <b>21 plugins · 38 agents · 42 skills (across all repos) · 30k lines of lib code · tests on Linux and Windows · 5 platforms</b><br>
   <em>Plugins distributed as standalone repos under <a href="https://github.com/agent-sh">agent-sh</a> org - agentsys is the marketplace &amp; installer</em>
 </p>
 
@@ -40,7 +40,7 @@
 
 ---
 
-AI models can write code. That's not the hard part anymore. The hard part is everything around it - task selection, branch management, code review, artifact cleanup, CI, PR comments, deployment. **AgentSys is the runtime that orchestrates agents to handle all of it** - structured pipelines, gated phases, specialized agents, and persistent state that survives session boundaries.
+AI models can write code. That's not the hard part anymore. The hard part is everything around it - branch management, code review, artifact cleanup, CI, PR comments. **AgentSys is the runtime that orchestrates agents to handle all of it** - structured pipelines, gated phases, specialized agents, and persistent state that survives session boundaries.
 
 ---
 > Building custom skills, agents, hooks, or MCP tools? [agnix](https://github.com/agent-sh/agnix) is the CLI + LSP linter that catches config errors before they fail silently - real-time IDE validation, auto suggestions, auto-fix, and 457 rules for Claude Code, Codex, OpenCode, Cursor, Kiro, Copilot, Gemini CLI, Cline, Windsurf, Roo Code, Amp, and more.
@@ -54,7 +54,7 @@ AI models can write code. That's not the hard part anymore. The hard part is eve
 
 ## What This Is
 
-An agent orchestration system - 25 plugins, 55 agents (45 file-based + 10 role-based specialists in audit-project), and 47 skills that compose into structured pipelines for software development. Each plugin lives in its own standalone repo under the [agent-sh](https://github.com/agent-sh) org. agentsys is the marketplace and installer that ties them together.
+An agent orchestration system - 21 plugins, 38 agents (28 file-based + 10 role-based specialists in audit-project), and 42 skills that compose into structured pipelines for software development. Each plugin lives in its own standalone repo under the [agent-sh](https://github.com/agent-sh) org. agentsys is the marketplace and installer that ties them together.
 
 Each agent has a single responsibility, a specific model assignment, and defined inputs/outputs. Pipelines enforce phase gates so agents can't skip steps. State persists across sessions so work survives interruptions.
 
@@ -124,29 +124,24 @@ The investment shifts from model spend to pipeline design. Better prompts, riche
 
 | Command | What it does |
 |---------|--------------|
-| [`/next-task`](#next-task) | Task workflow: discovery, implementation, PR, merge |
 | [`/prepare-delivery`](#prepare-delivery) | Pre-ship quality gates: deslop, review, validation, docs sync |
-| [`/gate-and-ship`](#gate-and-ship) | Quality gates then ship (/prepare-delivery + /ship) |
+| [`/foreman`](#foreman) | Work the GitHub issue queue with native subagents, from pick to land |
 | [`/banthis`](#banthis) | Durable negative memory: persist banned agent behaviors |
 | [`/agnix`](#agnix) | Lint agent configurations (457 rules) |
-| [`/ship`](#ship) | PR creation, CI monitoring, merge |
 | [`/deslop`](#deslop) | Clean AI slop patterns |
 | [`/perf`](#perf) | Performance investigation with baselines and profiling |
 | [`/drift-detect`](#drift-detect) | Compare plan vs implementation |
 | [`/audit-project`](#audit-project) | Multi-agent iterative code review |
 | [`/enhance`](#enhance) | Plugin, agent, and prompt analyzers |
-| [`/repo-intel`](#repo-intel) | Unified static analysis - git history, AST symbols, project metadata |
 | [`/sync-docs`](#sync-docs) | Sync documentation with code changes |
 | [`/learn`](#learn) | Research topics, create learning guides |
 | [`/consult`](#consult) | Cross-tool AI consultation |
 | [`/debate`](#debate) | Structured debate between AI tools |
-| [`/release`](#release) | Versioned release with ecosystem detection |
 | [`/skillers`](#skillers) | Workflow pattern learning and automation |
 | [`/skill-curator`](#skill-curator) | Create and improve reliable SKILL.md files |
 | [`/system-prompt-curator`](#system-prompt-curator) | Create and improve autonomous agent system prompts |
 | [`/onboard`](#onboard) | Codebase orientation for newcomers |
 | [`/can-i-help`](#can-i-help) | Match contributor skills to project needs |
-| [`/tower-crane-*`](#tower-crane) | Tower Crane: hand over an issue, a goal or a project; agents plan, build, review and merge it |
 
 Each command works standalone. Together, they compose into end-to-end pipelines.
 
@@ -154,11 +149,11 @@ Each command works standalone. Together, they compose into end-to-end pipelines.
 
 ## Skills
 
-47 skills included across the plugins:
+42 skills included across the plugins:
 
 | Category | Skills |
 |----------|--------|
-| **Workflow** | `discover-tasks`, `prepare-delivery`, `check-test-coverage`, `orchestrate-review`, `validate-delivery`, `tower-crane`, `tower-crane-work`, `tower-crane-review` |
+| **Workflow** | `prepare-delivery`, `check-test-coverage`, `orchestrate-review`, `validate-delivery`, `foreman` |
 | **Message Queues** | `glide-mq-migrate-bee`, `glide-mq-migrate-bullmq`, `glide-mq` |
 | **Enhancement** | `enhance-agent-prompts`, `enhance-claude-memory`, `enhance-cross-file`, `enhance-docs`, `enhance-hooks`, `enhance-orchestrator`, `enhance-plugins`, `enhance-prompts`, `enhance-skills`, `skill-curator`, `system-prompt-curator` |
 | **Performance** | `baseline`, `benchmark`, `code-paths`, `investigation-logger`, `perf-analyzer`, `profile`, `theory-gatherer`, `theory-tester` |
@@ -166,8 +161,7 @@ Each command works standalone. Together, they compose into end-to-end pipelines.
 | **Code Review** | `audit-project` |
 | **AI Collaboration** | `consult`, `debate`, `learn`, `recommend`, `skillers-compact` |
 | **Onboarding** | `can-i-help`, `onboard` |
-| **Release** | `release` |
-| **Analysis** | `drift-analysis`, `repo-intel` |
+| **Analysis** | `drift-analysis` |
 | **Memory** | `banthis` |
 | **Linting** | `agnix` |
 
@@ -190,7 +184,7 @@ Skills are the reusable implementation units. Agents invoke skills; commands orc
 | [The Approach](#the-approach) | Why it's built this way |
 | [Benchmarks](#benchmarks) | Sonnet + agentsys vs raw Opus |
 | [Commands](#commands) | Overview of every command |
-| [Skills](#skills) | 47 skills across plugins |
+| [Skills](#skills) | 42 skills across plugins |
 | [Skill-Only Plugins](#skill-only-plugins) | glide-mq and other non-command plugins |
 | [Command Details](#command-details) | Deep dive into each command |
 | [How Commands Work Together](#how-commands-work-together) | Standalone vs integrated |
@@ -223,64 +217,9 @@ Key features: per-key ordering, group concurrency, runtime group rate limiting (
 
 ## Command Details
 
-### /next-task
-
-**Purpose:** Complete task-to-production automation.
-
-**What happens when you run it:**
-
-1. **Policy Selection** - Choose task source (GitHub Issues, GitHub Projects, GitLab, local file), priority filter, stopping point
-2. **Task Discovery** - Shows top 5 prioritized tasks, you pick one
-3. **Worktree Setup** - Creates isolated branch and working directory
-4. **Exploration** - Deep codebase analysis to understand context
-5. **Planning** - Designs implementation approach
-6. **User Approval** - You review and approve the plan (last human interaction)
-7. **Implementation** - Executes the plan
-8. **Pre-Review** - Runs [deslop](#deslop)-agent and prepare-delivery:test-coverage-checker
-9. **Review Loop** - Multi-agent review iterates until clean
-10. **Delivery Validation** - Verifies tests pass, build passes, requirements met
-11. **Docs Update** - Updates CHANGELOG and related documentation
-12. **[Ship](#ship)** - Creates PR, monitors CI, addresses comments, merges
-
-Phase 9 uses the `orchestrate-review` skill to spawn parallel reviewers (code quality, security, performance, test coverage) plus conditional specialists.
-
-**Agents involved:**
-
-| Agent | Model | Role |
-|-------|-------|------|
-| task-discoverer | sonnet | Finds and ranks tasks from your source |
-| worktree-manager | haiku | Creates git worktrees and branches |
-| exploration-agent | sonnet | Deep codebase analysis before planning |
-| planning-agent | opus | Designs step-by-step implementation plan |
-| implementation-agent | opus | Writes the actual code |
-| prepare-delivery:test-coverage-checker | sonnet | Validates tests exist and are meaningful |
-| prepare-delivery:delivery-validator | sonnet | Final checks before shipping |
-| ci-monitor | haiku | Watches CI status |
-| ci-fixer | sonnet | Fixes CI failures and review comments |
-| simple-fixer | haiku | Executes mechanical edits |
-
-**Cross-plugin agent:**
-| Agent | Plugin | Role |
-|-------|--------|------|
-| deslop-agent | deslop | Removes AI artifacts before review |
-| sync-docs-agent | sync-docs | Updates documentation |
-
-**Usage:**
-
-```bash
-/next-task              # Start new workflow
-/next-task --resume     # Resume interrupted workflow
-/next-task --status     # Check current state
-/next-task --abort      # Cancel and cleanup
-```
-
-[Full workflow documentation →](./docs/workflows/NEXT-TASK.md)
-
----
-
 ### /prepare-delivery
 
-**Purpose:** Run all pre-ship quality gates without shipping. Use after completing implementation manually or outside `/next-task`.
+**Purpose:** Run all pre-ship quality gates on the current branch. Use after completing implementation.
 
 **What it runs (in order):**
 
@@ -297,27 +236,37 @@ Phase 9 uses the `orchestrate-review` skill to spawn parallel reviewers (code qu
 /prepare-delivery --base=develop     # Against a specific base branch
 ```
 
-Does NOT create PRs or push - use `/ship` or `/gate-and-ship` after.
+It never pushes or opens a PR. Push and open the PR with your own flow when it passes.
 
 ---
 
-### /gate-and-ship
+### /foreman
 
-**Purpose:** Quality gates then ship in one command. Chains `/prepare-delivery` then `/ship`.
+**Purpose:** Work a repo's GitHub issues as a task queue. One main session picks the next ready issue, claims it, and hands it to a worktree subagent. Revuto reviews the PR, and foreman lands it at the exact head it checked. It replaces next-task and tower-crane.
+
+There is no daemon and no state store. Labels, assignees and comments on GitHub are the state, and every command reads GitHub live, so several sessions can share one queue.
+
+**The loop:**
+
+1. **Capacity, pick, claim** - checks load, CPU pressure and memory, takes the next ready issue (urgent first, then oldest, open dependencies skipped) and claims it
+2. **Brief and spawn** - one worktree subagent per issue from its brief, in parallel up to `agents_max`
+3. **Review** - reads Revuto's findings; every real finding gets fixed, a wrong one gets a reply. When Revuto is capped or down, the session reviews the diff itself and records it
+4. **Land** - every check green at the head, no unaddressed finding, the repo's own land command, then a squash merge pinned to that head and the issue closed
 
 ```bash
-/gate-and-ship                       # Full: quality gates + ship
-/gate-and-ship --skip-review         # Skip review, still ship
-/gate-and-ship --base=develop        # Against a specific base branch
+/foreman                    # Run the queue until nothing is ready
+/foreman status             # Counts by label, claims and capacity
+/foreman stats              # Revuto caps, self-reviews, manual review requests
+/foreman 123                # Work issue #123 only, from claim to land
 ```
 
-**Composability:**
+**Config:** optional `.foreman.json` in the repo root: label names, `agents_max`, load and memory holds, the check and land commands, required checks, Revuto round cap, forbidden words for posted comments.
 
-```
-/gate-and-ship = /prepare-delivery + /ship
-```
+**Requires:** Node 22+, `gh` (logged in), `git` and `waitfor`. `run-long` needs systemd user units (Linux).
 
-Each piece runs independently - use `/prepare-delivery` alone to review before deciding to ship, or `/ship` alone if already validated.
+**Skill:** foreman (no agents: workers are native worktree subagents)
+
+[Full workflow documentation →](./docs/workflows/FOREMAN.md) · [Repo →](https://github.com/agent-sh/foreman)
 
 ---
 
@@ -432,52 +381,6 @@ brew install agnix           # Install via Homebrew (macOS)
 - Maintain consistency as your agent configs grow
 - Integrate validation into CI/CD pipelines
 - Support multiple AI tools from one linter
-
----
-
-### /ship
-
-**Purpose:** Takes your current branch from "ready to commit" to "merged PR."
-
-**What happens when you run it:**
-
-1. **Pre-flight** - Detects CI platform, deployment platform, branch strategy, and whether you can merge
-2. **Commit** - Runs the tests, then stages and commits with a generated message (if uncommitted changes)
-3. **Push & PR** - Pushes the branch, opens a pull request or reuses the open one
-4. **CI and reviews** - Waits on CI with `gh pr checks --watch` instead of polling and fixes failures. Waits only for review bots that recent PRs show, and only for their review of the current commit (at most 15 minutes per wait). Fixes or answers every comment, up to 5 rounds
-5. **Review** - One review pass over the diff (standalone runs only)
-6. **Merge** - Merges when checks are green and no thread is unresolved. Without write access it stops at ready for review
-7. **Deploy** - Deploys, validates, and rolls back with `git revert` on failure (multi-branch workflow only)
-8. **Cleanup** - Removes the worktree and branch the run created, closes the issue for a /next-task GitHub task
-
-**Platform Detection:**
-
-| Type | Detected |
-|------|----------|
-| CI | GitHub Actions, GitLab CI, CircleCI, Jenkins, Travis |
-| Deploy | Railway, Vercel, Netlify, Fly.io, Render |
-| Project | Node.js, Python, Rust, Go, Java |
-
-**Review Comment Handling:**
-
-Every comment gets fixed or answered:
-- Correct comments get fixed, nits included when the fix is cheap
-- Wrong or already-handled comments get one reply with the reason, and no code change
-- Out-of-scope comments get a reply saying so
-- Questions get answered
-
-On your own repo it resolves each thread it handled. On a repo you cannot merge to, it leaves threads to the maintainers and replies only where they asked.
-
-**Usage:**
-
-```bash
-/ship                       # Full workflow
-/ship --dry-run             # Preview without executing
-/ship --strategy rebase     # Use rebase instead of squash
-/ship --base develop        # Target a non-default branch
-```
-
-[Full workflow documentation →](./docs/workflows/SHIP.md)
 
 ---
 
@@ -688,36 +591,6 @@ Findings are collected and categorized by severity (critical/high/medium/low). A
 
 ---
 
-### /repo-intel
-
-**Purpose:** Unified static analysis - git history, AST symbols, and project metadata in one plugin.
-
-**What it provides:**
-
-- Git history intelligence: hotspots, coupling, ownership, bus factor, bugspots, AI detection
-- AST symbol mapping: exports, functions, classes, imports
-- Project metadata and health metrics
-
-Output is cached at `{state-dir}/repo-intel.json` (external repo-intel plugin) and `{state-dir}/repo-map.json` (agentsys internal repo-map library). `{state-dir}` is `.claude/`, `.opencode/`, or `.codex/` depending on your platform.
-
-**Why it matters:**
-
-Tools like `/drift-detect`, `/onboard`, `/can-i-help`, and planners consume this data instead of re-scanning the repo every time. 9 plugins use repo-intel data automatically.
-
-**Usage:**
-
-```bash
-/repo-intel init                   # First-time scan
-/repo-intel update                 # Incremental update
-/repo-intel query hotspots         # Most active files
-/repo-intel query ownership src/   # Who owns a path
-/repo-intel query bus-factor       # Knowledge risk
-```
-
-Backed by [agent-analyzer](https://github.com/agent-sh/agent-analyzer) Rust binary.
-
----
-
 ### /sync-docs
 
 **Purpose:** Sync documentation with actual code changes - find outdated refs, update CHANGELOG, flag stale examples.
@@ -875,28 +748,6 @@ agent-knowledge/
 
 **Agent:** debate-orchestrator (opus model for orchestration)
 
-### /release
-
-> Versioned release with automatic ecosystem and tooling detection
-
-```bash
-/release                # Patch release (auto-discovers how this repo releases)
-/release minor          # Minor version bump
-/release major --dry-run # Preview what would happen
-```
-
-The release agent discovers how your repo releases before executing:
-
-1. **Checks for release tools** - semantic-release, release-it, goreleaser, changesets, cargo-release
-2. **Checks for scripts** - Makefile `release:` target, npm `release` script, `scripts/release.*`
-3. **Falls back to generic** - Version bump, changelog, tag, push, GitHub release, publish
-
-Supports 12+ ecosystems: npm, cargo, python, go, maven, gradle, ruby, nuget, dart, hex, packagist, swift.
-
-**Agent:** release-agent (sonnet model)
-
-**Skill:** release (generic fallback workflow)
-
 ### /skillers
 
 > Learn from your workflow patterns and suggest automations
@@ -1018,35 +869,6 @@ The system prompt curator rewrites prompts around task-matched identity, phased 
 
 ---
 
-### Tower Crane
-
-**Purpose:** Hand over an issue, a goal or a whole project and let agents carry it to merged PRs.
-
-Tower Crane is a CLI and a Claude Code plugin. An orchestrator agent plans the work into tasks and spawns a worker per task in its own worktree and sandbox. An agent that did not write the change reviews it. Software gates (tests, cleanup, CI at the exact commit) decide acceptance, and the merge pins the accepted head. The plan and its progress live in JSON files under `.tower-crane/` that only the CLI writes. Owner questions are queued as decisions and block only the tasks they name.
-
-**Requires:** the CLI on `PATH` (`npm install -g @agent-sh/tower-crane`), Node 24 or newer, git, an authenticated `gh`, the harness CLIs its ladder names (`claude` and `codex` by default) and, for code tasks, a cleanup tool for the clean gate ([deslop](https://github.com/agent-sh/deslop) on `PATH`, or `TOWER_CRANE_CLEAN_CMD`).
-
-**Usage:** hand the `tower-crane` skill an issue URL, a goal or a plan file. It plans, dispatches, gates and merges.
-
-| Command | What it does |
-|---------|--------------|
-| `/tower-crane-inbox` | Read actionable findings and their resolving commands |
-| `/tower-crane-spawn-ready` | Dispatch ready tasks within the worker limit |
-| `/tower-crane-merge-accepted` | Merge accepted PRs through the queue and stack gates |
-| `/tower-crane-rework-from-review` | Send a task back with its failed review's findings |
-| `/tower-crane-release-dead` | Recover claims whose spawned processes exited |
-| `/tower-crane-watch` | Arm the event follower that wakes the orchestrator (Claude Code only) |
-
-**Agents:** tower-crane-orchestrator, tower-crane-worker, tower-crane-researcher, tower-crane-reviewer, tower-crane-small (all inherit the caller's model)
-
-**Skills:** tower-crane, tower-crane-work, tower-crane-review
-
-On Claude Code the plugin also adds the `tower-crane` MCP server and the mod that registers `/tower-crane-watch`. OpenCode, Codex, Cursor and Kiro installs get the commands, agents and skills.
-
-[Full documentation →](https://github.com/agent-sh/tower-crane)
-
----
-
 ## How Commands Work Together
 
 **Standalone use:**
@@ -1054,31 +876,19 @@ On Claude Code the plugin also adds the `tower-crane` MCP server and the mod tha
 ```bash
 /deslop apply          # Just clean up your code
 /sync-docs             # Just check if docs need updates
-/prepare-delivery      # Run all quality gates (no ship)
-/ship                  # Just ship this branch
-/gate-and-ship         # Quality gates + ship in one command
+/prepare-delivery      # Run all quality gates (never pushes)
+/foreman               # Work the issue queue, one worktree agent per issue
 /audit-project         # Just review the codebase
-```
-
-**Composable delivery chain:**
-
-```
-/prepare-delivery  = quality gates only (deslop, review, validation, docs)
-/ship              = PR + CI + merge only
-/gate-and-ship     = /prepare-delivery + /ship
-/next-task         = full workflow (discovery → implementation → /prepare-delivery → /ship)
 ```
 
 **Full integrated workflow:**
 
-When you run [`/next-task`](#next-task), it orchestrates everything:
+When you run [`/prepare-delivery`](#prepare-delivery) on a finished branch, it chains the gates:
 
 ```
-/next-task picks task → explores codebase → plans implementation
-    ↓
-implementation-agent writes code
-    ↓
 deslop-agent + prepare-delivery:test-coverage-checker + /simplify (parallel)
+    ↓
+agnix + /enhance when agent, skill or plugin files changed
     ↓
 review loop iterates until approved
     ↓
@@ -1086,10 +896,10 @@ prepare-delivery:delivery-validator checks requirements
     ↓
 sync-docs-agent syncs documentation
     ↓
-/ship creates PR → monitors CI → merges
+branch ready to push (nothing pushed)
 ```
 
-The workflow tracks state so you can resume from any point.
+Each gate must pass before the next one runs.
 
 ---
 
@@ -1114,7 +924,7 @@ Frontier models write good code. That's solved. What's not solved:
 
 **1. One agent, one job, done extremely well**
 
-Same principle as good code: single responsibility. The exploration-agent explores. The implementation-agent implements. Phase 9 spawns multiple focused reviewers. No agent tries to do everything. Specialized agents, each with narrow scope and clear success criteria.
+Same principle as good code: single responsibility. The deslop-agent cleans. The delivery-validator checks requirements. The review loop spawns multiple focused reviewers. No agent tries to do everything. Specialized agents, each with narrow scope and clear success criteria.
 
 **2. Pipeline with gates, not a monolith**
 
@@ -1143,7 +953,7 @@ Documented techniques that measurably improve results:
 
 **7. Validate plan and results, not every step**
 
-Approve the plan. See the results. The middle is automated. One plan approval unlocks autonomous execution through implementation, review, cleanup, and shipping.
+Approve the plan. See the results. The middle is automated. Gates run cleanup, review, validation, and docs sync without a prompt at each step.
 
 **8. Right model for the task**
 
@@ -1156,15 +966,14 @@ Quality compounds. Poor exploration → poor plan → poor implementation → re
 
 **9. Persistent state survives sessions**
 
-Two JSON files track everything: what task, what phase. Sessions can die and resume. Multiple sessions run in parallel on different tasks using separate worktrees.
+State files track the workflow phase. Sessions can die and resume. Multiple sessions run in parallel in separate worktrees.
 
 **10. Delegate everything automatable**
 
 Agents don't just write code. They:
 - Clean their own output (deslop-agent)
 - Update documentation (sync-docs-agent)
-- Fix CI failures (ci-fixer)
-- Respond to review comments
+- Work the issue queue from pick to land ([/foreman](#foreman))
 - Check for plan drift ([/drift-detect](#drift-detect))
 - Analyze their own prompts ([/enhance](#enhance))
 
@@ -1176,7 +985,7 @@ The main workflow orchestrator doesn't read files, search code, or write impleme
 
 **12. Composable, not monolithic**
 
-Every command works standalone. [`/deslop`](#deslop) cleans code without needing [`/next-task`](#next-task). [`/ship`](#ship) merges PRs without needing the full workflow. Pieces compose together, but each piece is useful on its own.
+Every command works standalone. [`/deslop`](#deslop) cleans code without needing [`/prepare-delivery`](#prepare-delivery). [`/sync-docs`](#sync-docs) checks docs without needing the full workflow. Pieces compose together, but each piece is useful on its own.
 
 ### What This Gets You
 
@@ -1197,8 +1006,7 @@ Every command works standalone. [`/deslop`](#deslop) cleans code without needing
 
 ```bash
 /plugin marketplace add agent-sh/agentsys
-/plugin install next-task@agentsys
-/plugin install ship@agentsys
+/plugin install prepare-delivery@agentsys
 ```
 
 ### All Platforms (npm)
@@ -1234,8 +1042,11 @@ agentsys --development              # Dev mode (bypasses marketplace)
 **For GitLab workflows:**
 - GitLab CLI (`glab`) authenticated
 
-**For /repo-intel:**
-- agent-analyzer (installed automatically via npm)
+**For repo-intel data (read by onboard, can-i-help, drift-detect, sync-docs and others):**
+- [agent-analyzer](https://github.com/agent-sh/agent-analyzer), downloaded automatically on first use
+
+**For /foreman:**
+- Node.js 22+, `gh` authenticated, and `waitfor` on `PATH`
 
 **For /agnix:**
 - [agnix CLI](https://github.com/agent-sh/agnix) installed (`npm install -g agnix`, `cargo install agnix-cli`, or `brew install agnix`)
@@ -1286,8 +1097,7 @@ The system is built on research, not guesswork.
 
 | Workflow | Link |
 |----------|------|
-| /next-task Flow | [docs/workflows/NEXT-TASK.md](./docs/workflows/NEXT-TASK.md) |
-| /ship Flow | [docs/workflows/SHIP.md](./docs/workflows/SHIP.md) |
+| /foreman Flow | [docs/workflows/FOREMAN.md](./docs/workflows/FOREMAN.md) |
 
 ### Reference
 

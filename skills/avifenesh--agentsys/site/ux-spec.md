@@ -40,7 +40,7 @@ Scroll order with rationale for each section. All sections are full-width, alter
 | 2 | Hero | `#hero` | Above the fold: title, subtitle, 2 CTAs, terminal animation. Must communicate the value prop in under 3 seconds |
 | 3 | Problem Statement | `#problem` | Emotional hook: "AI writes code. That's solved. Everything else isn't." Creates the gap that the product fills |
 | 4 | Stats Bar | `#stats` | Social proof through numbers. Bridges problem to solution with concrete scale |
-| 5 | Commands Showcase | `#commands` | The core product. Tabbed interface showing all 11 commands. This is where browsers become believers |
+| 5 | Commands Showcase | `#commands` | The core product. Tabbed interface showing all 18 commands. This is where browsers become believers |
 | 6 | How It Works | `#how-it-works` | 3-step visualization simplifies the mental model. Reduces perceived complexity |
 | 7 | Design Philosophy | `#philosophy` | For the skeptical engineer. Shows this is thought-through, not thrown together |
 | 8 | Installation | `#install` | Conversion point. By now they want to try it. Make installation frictionless |
@@ -94,7 +94,7 @@ Scroll order with rationale for each section. All sections are full-width, alter
 - **Single column on mobile:** Text above, terminal below. Stack with 48px gap.
 
 ### Left Column Content
-1. **Badge** (top, above title): Small pill showing version or "25 plugins . 55 agents . 47 skills"
+1. **Badge** (top, above title): Small pill showing version or "21 plugins . 38 agents . 42 skills"
    - Background: `rgba(99, 102, 241, 0.12)`, border: `1px solid rgba(99, 102, 241, 0.25)`, border-radius: 9999px
    - Font: 13px, font-weight 500, primary accent color
    - Padding: 4px 14px
@@ -104,7 +104,7 @@ Scroll order with rationale for each section. All sections are full-width, alter
    - Color: white
    - "entire dev workflow" portion highlighted with a subtle gradient text (primary-to-secondary accent via `background-clip: text`)
 
-3. **Subtitle:** "25 plugins, 55 agents, 47 skills. From task selection to merged PR. Works with Claude Code, OpenCode, Codex CLI, Cursor, and Kiro."
+3. **Subtitle:** "Structured pipelines, gated phases, specialized agents. Works with Claude Code, OpenCode, Codex CLI, Cursor, and Kiro."
    - Font: 18px on desktop, 16px on mobile, font-weight 400, line-height 1.6
    - Color: `rgba(255, 255, 255, 0.6)`
    - Max-width: 520px
@@ -142,48 +142,48 @@ See Section 5 for the terminal demo specification.
 
 ### Demo Sequence (~15 seconds total)
 
-The demo shows the core `/next-task` workflow in compressed form. Each "step" appears with a typing animation for commands and instant-render for output.
+The demo shows the `/prepare-delivery` quality gates in compressed form. Each "step" appears with a typing animation for commands and instant-render for output. The demo ends with the branch ready to push: `/prepare-delivery` never pushes or opens the PR.
 
 **Step 1** (0.0s - 2.5s): User types command
 ```
-$ /next-task
+$ /prepare-delivery
 ```
 Typing speed: 80ms per character, blinking cursor `|` at 530ms interval.
 
-**Step 2** (2.5s - 4.5s): Task discovery output (appears line-by-line, 100ms between lines)
+**Step 2** (2.5s - 4.5s): Branch summary (appears line-by-line, 100ms between lines)
 ```
-[discovery] Found 3 tasks from GitHub Issues
-  #142  Add WebSocket support       priority: high
-  #138  Fix memory leak in parser   priority: high
-  #145  Update API documentation    priority: medium
+[branch] feature/websocket-support vs main
+  6 files changed, 847 additions, 23 deletions
+  gates: deslop, simplify, agnix, enhance, review, validation, docs
 ```
-Colors: `[discovery]` in cyan (#22d3ee). Issue numbers in yellow (#fbbf24). Priority values: high in red (#f87171), medium in yellow (#fbbf24).
+Colors: `[branch]` in cyan (#22d3ee). Labels in muted gray.
 
-**Step 3** (4.5s - 5.5s): Selection
+**Step 3** (4.5s - 5.5s): Gates start
 ```
-> Selected #142: Add WebSocket support
+> Running the quality gates
 ```
 Color: `>` in green (#4ade80), rest in white.
 
-**Step 4** (5.5s - 8.5s): Phase progression (each line appears with 400ms delay)
+**Step 4** (5.5s - 8.5s): Gate progression (each line appears with 400ms delay)
 ```
-[explore]    Analyzing 847 files, 12 entry points...
-[plan]       3-phase implementation designed
-[implement]  Writing code across 6 files...
+[deslop]     3 debug logs removed, 1 TODO flagged
+[simplify]   2 helpers inlined
+[agnix]      Agent configs clean
 [review]     4 agents reviewing... 2 issues found, fixing...
+[validate]   Tests and build pass, requirements met
+[docs]       CHANGELOG and README synced
 ```
-Phase labels: each in the primary accent color. Ellipses animate (cycling 1-3 dots).
+Gate labels: each in the primary accent color. Ellipses animate (cycling 1-3 dots).
 
-**Step 5** (8.5s - 11.0s): Ship phase
+**Step 5** (8.5s - 11.0s): Ready
 ```
-[ship]       PR #143 created -> CI passing -> merged
+[ready]      Branch ready to push. Nothing pushed.
 ```
-Color: entire line in green (#4ade80). The arrow `->` animates between states with 600ms per state.
+Color: `[ready]` in green (#4ade80), rest in white.
 
 **Step 6** (11.0s - 13.0s): Summary
 ```
-Done. Task to merged PR in 12 minutes.
-  6 files changed, 847 additions, 23 deletions
+Done. Every gate passed in 6 minutes.
   All 4 reviewers approved. Zero manual intervention.
 ```
 "Done." in bold white. Stats in `rgba(255, 255, 255, 0.5)`. "Zero manual intervention." in the primary accent color, bold.
@@ -205,7 +205,7 @@ Done. Task to merged PR in 12 minutes.
 ### Content
 - **Heading:** "AI models write code. That's not the hard part anymore."
   - Font: 36px desktop, 28px mobile, font-weight 700, white
-- **Body:** "The hard part is everything else. Picking what to work on. Managing branches. Reviewing output. Cleaning up AI artifacts. Handling CI. Addressing reviewer comments. Deploying. AgentSys automates all of it."
+- **Body:** "The hard part is everything else. Picking what to work on. Managing branches. Reviewing output. Cleaning up AI artifacts. Handling CI. Addressing reviewer comments. AgentSys automates all of it."
   - Font: 18px, line-height 1.7, `rgba(255, 255, 255, 0.55)`
   - "AgentSys automates all of it." in white, font-weight 600
 
@@ -226,9 +226,9 @@ Done. Task to merged PR in 12 minutes.
 ### Stats (left to right)
 | Stat | Value | Label |
 |------|-------|-------|
-| 1 | 25 | Plugins |
-| 2 | 55 | Agents |
-| 3 | 47 | Skills |
+| 1 | 24 | Plugins |
+| 2 | 42 | Agents |
+| 3 | 44 | Skills |
 | 4 | 5 | Platforms |
 
 ### Styling
@@ -251,7 +251,7 @@ Done. Task to merged PR in 12 minutes.
 ## 8. Commands Showcase (`#commands`)
 
 ### Layout
-- **Section heading:** "11 Commands. One Toolkit."
+- **Section heading:** "18 Commands. One Toolkit."
   - Font: 36px desktop, 28px mobile, font-weight 700, white, text-align center
 - **Subheading:** "Each works standalone. Together, they automate everything."
   - Font: 16px, `rgba(255, 255, 255, 0.5)`, text-align center, margin-bottom 48px
@@ -265,9 +265,9 @@ Done. Task to merged PR in 12 minutes.
   - On mobile: naturally scrollable, slight gradient fade on right edge to indicate scrollability (20px gradient from transparent to section background)
 
 ### Tab Order
-`/next-task`, `/ship`, `/deslop`, `/perf`, `/drift-detect`, `/audit-project`, `/enhance`, `/repo-intel`, `/sync-docs`, `/learn`, `/agnix`
+`/agnix`, `/deslop`, `/perf`, `/drift-detect`, `/audit-project`, `/enhance`, `/sync-docs`, `/learn`, `/consult`, `/debate`, `/prepare-delivery`, `/skillers`, `/onboard`, `/can-i-help`, `/banthis`, `/skill-curator`, `/system-prompt-curator`, `/foreman`
 
-(Most impactful first: the full workflow command, then the shipper, then individual tools)
+(Most impactful first: the config linter, then individual tools)
 
 ### Tab Content Panel
 For each command, show:
@@ -276,18 +276,18 @@ For each command, show:
 3. **Key features** as 3-4 bullet points, 14px, `rgba(255, 255, 255, 0.5)`, with accent-colored bullet markers
 4. **Usage example** in a mini code block (dark background `#0d1117`, 13px monospace, border-radius 8px, padding 16px)
 
-### Content for `/next-task` tab (as example, all others follow same structure):
-- **Name:** `/next-task`
-- **Description:** "Task to merged PR. Full automation."
+### Content for `/deslop` tab (as example, all others follow same structure):
+- **Name:** `/deslop`
+- **Description:** "Kill AI slop before it ships"
 - **Features:**
-  - 12-phase pipeline: discovery through deployment
-  - Multi-agent review loop (code, security, perf, tests)
-  - Persistent state: resume from any phase
-  - Works with GitHub Issues, GitLab, or local task files
+  - 3-phase detection: regex, multi-pass analyzers, CLI tools
+  - Certainty-graded findings (HIGH / MEDIUM / LOW)
+  - JS/TS, Python, Rust, Go, Java
+  - Auto-fix HIGH certainty issues
 - **Usage:**
   ```
-  /next-task                # Start new workflow
-  /next-task --resume       # Resume interrupted workflow
+  /deslop                   # Report only (safe)
+  /deslop apply             # Fix HIGH certainty issues
   ```
 
 ### Tab Switching
@@ -306,7 +306,7 @@ For each command, show:
 ### Layout
 - **Section heading:** "How It Works"
   - Same styling as other section headings (36px, bold, white, centered)
-- **Subheading:** "One approval. Fully autonomous execution."
+- **Subheading:** "Issues in. Landed PRs out."
   - 16px, `rgba(255, 255, 255, 0.5)`, centered, margin-bottom 64px
 
 ### 3-Step Visualization
@@ -314,9 +314,9 @@ Three cards in a horizontal row on desktop, vertical stack on mobile.
 
 | Step | Icon | Title | Description |
 |------|------|-------|-------------|
-| 1 | Magnifying glass (inline SVG) | "Pick a task" | "Select from GitHub Issues, GitLab, or a local task file. The agent explores your codebase and designs a plan." |
-| 2 | Check circle (inline SVG) | "Approve the plan" | "Review the implementation plan. This is the last human interaction. Everything after is automated." |
-| 3 | Rocket (inline SVG) | "Watch it ship" | "Code, review, cleanup, documentation, PR, CI, merge. All handled. You review the result." |
+| 1 | Magnifying glass (inline SVG) | "Pick and claim" | "Checks host capacity, picks the next ready issue (urgent first, then oldest) and claims it on GitHub." |
+| 2 | Check circle (inline SVG) | "Brief a worker" | "Spawns one worktree subagent per issue from its brief. Revuto reviews each PR; every real finding gets fixed." |
+| 3 | Rocket (inline SVG) | "Land" | "Runs the repo land command and squash-merges at the exact head it checked. GitHub labels and comments are the only state." |
 
 ### Card Design
 - **Width:** Equal distribution, `flex: 1`, min-width 240px
@@ -400,8 +400,7 @@ Tab styling matches Commands section tab bar but smaller scale:
 **Claude Code tab:**
 ```bash
 /plugin marketplace add agent-sh/agentsys
-/plugin install next-task@agentsys
-/plugin install ship@agentsys
+/plugin install prepare-delivery@agentsys
 ```
 
 **npm tab:**
@@ -614,7 +613,7 @@ This disables:
 - `<button>` for interactive elements (not `<div onclick>`)
 
 ### Screen Reader Considerations
-- Terminal animation has `aria-label="Animated demo showing the /next-task workflow"` and `role="img"` (since it's decorative, not interactive)
+- Terminal animation has `aria-label="Animated demo showing the /prepare-delivery quality gates"` and `role="img"` (since it's decorative, not interactive)
 - Stats counters have `aria-live="polite"` so the final values are announced
 - Tab panels have `aria-labelledby` referencing their tab
 - Copy buttons have `aria-label="Copy code to clipboard"`
@@ -650,13 +649,13 @@ This disables:
 ### Head Content
 ```html
 <title>AgentSys - Agent Runtime &amp; Orchestration System</title>
-<meta name="description" content="A modular runtime and orchestration system for AI agents. 25 plugins, 55 agents, 47 skills - structured pipelines for Claude Code, OpenCode, Codex CLI, Cursor, and Kiro.">
+<meta name="description" content="A modular runtime and orchestration system for AI agents. 21 plugins, 38 agents, 42 skills - structured pipelines for Claude Code, OpenCode, Codex CLI, Cursor, and Kiro.">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0a0a0f">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AgentSys">
-<meta property="og:description" content="AI workflow automation. 25 plugins, 55 agents, 47 skills. Task to merged PR.">
+<meta property="og:description" content="AI workflow automation. 21 plugins, 38 agents, 42 skills.">
 <meta property="og:image" content="https://agent-sh.github.io/agentsys/assets/og-image.png">
 <meta property="og:url" content="https://agent-sh.github.io/agentsys/">
 <meta property="og:type" content="website">
@@ -664,7 +663,7 @@ This disables:
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="AgentSys">
-<meta name="twitter:description" content="AI workflow automation. 25 plugins, 55 agents, 47 skills.">
+<meta name="twitter:description" content="AI workflow automation. 21 plugins, 38 agents, 42 skills.">
 <meta name="twitter:image" content="https://agent-sh.github.io/agentsys/assets/og-image.png">
 ```
 

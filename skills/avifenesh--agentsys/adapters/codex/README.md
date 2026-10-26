@@ -18,15 +18,15 @@ agentsys --tool codex
 
 ## Available Commands
 
-### `/deslop` - AI Slop Cleanup
+### `$deslop` - AI Slop Cleanup
 
 Remove debugging code, old TODOs, and other AI slop.
 
 ```bash
 codex
-> /deslop
-> /deslop apply
-> /deslop apply src/ 10
+> $deslop
+> $deslop apply
+> $deslop apply src/ 10
 ```
 
 **What it does:**
@@ -37,68 +37,22 @@ codex
 
 ---
 
-### `/next-task` - Intelligent Task Prioritization
+### `$foreman` - GitHub Issue Queue
 
-Discover what to work on next with AI analysis.
-
-```bash
-codex
-> /next-task
-> /next-task bug
-> /next-task --include-blocked
-```
-
-**What it does:**
-- Analyzes GitHub Issues (required)
-- Validates tasks aren't already implemented
-- Scores by impact, urgency, effort
-- Provides top 5 recommendations with evidence
-
-**Requires:** GitHub CLI (`gh`)
-
----
-
-### `/audit-project` - Multi-Agent Code Review
-
-Comprehensive review with specialized AI agents.
+Work a repo's open issues as a task queue.
 
 ```bash
 codex
-> /audit-project
-> /audit-project --recent
-> /audit-project --domain security
-> /audit-project --resume
+> $foreman status
+> $foreman stats
 ```
 
 **What it does:**
-- Deploys 10 specialized agents
-- Adapts to your tech stack
-- Finds bugs, security issues, performance problems
-- Iterates until no open issues remain
+- `status` and `stats` read the queue, claims, capacity and Revuto rounds live from GitHub
+- The CLI (`node ~/.agentsys/plugins/foreman/scripts/foreman.js`) runs `pick`, `claim`, `brief`, `findings` and `land` on Codex too
+- The full loop spawns Claude Code worktree subagents, so it runs end to end only in Claude Code
 
----
-
-### `/ship` - Complete PR Workflow
-
-Ship from commit to production with validation.
-
-```bash
-codex
-> /ship
-> /ship --strategy rebase
-```
-
-**What it does:**
-1. Commits changes with AI message
-2. Creates PR with description
-3. Waits for CI to pass
-4. Runs quality reviews
-5. Merges to main
-6. Deploys to dev/prod
-7. Validates deployments
-8. Auto-rollback on failure
-
-**Requires:** Git, GitHub CLI (`gh`)
+**Requires:** Node.js 22+, Git, GitHub CLI (`gh`), `waitfor`
 
 ---
 
@@ -113,8 +67,7 @@ The installer:
 
 ```
 ~/.codex/skills/
-├── next-task/SKILL.md          # from commands/next-task.md
-├── ship/SKILL.md
+├── perf/SKILL.md               # from commands/perf.md
 ├── ...
 ├── drift-analysis/             # a plugin skill directory
 │   ├── SKILL.md
@@ -131,7 +84,7 @@ The installer:
 ### Clean up debugging code
 ```bash
 codex
-> /deslop apply
+> $deslop apply
 
 # Changeset 1/5: Remove console.log statements
 # - src/app.js: Removed 3 console.log calls
@@ -140,32 +93,13 @@ codex
 # Summary: 5 files changed, 23 lines deleted
 ```
 
-### Get next priority task
+### Check a branch before you push
 ```bash
 codex
-> /next-task
+> $prepare-delivery
 
-# Top 5 Priority Tasks:
-#
-# 1. [High Impact] Fix login timeout on mobile
-#    Score: 9.2/10 (Impact: 10, Urgency: 9, Effort: 3)
-#    Status: not-started (no code found)
-```
-
-### Ship a feature
-```bash
-# Make your changes
-git add .
-
-codex
-> /ship
-
-# [OK] Commits with AI message
-# [OK] Creates PR with context
-# [OK] Waits for CI
-# [OK] Reviews code
-# [OK] Merges to main
-# [OK] Deploys and validates
+# Runs deslop, review, delivery validation and docs sync locally.
+# It never pushes or opens a PR; push and open the PR with your own flow.
 ```
 
 ---

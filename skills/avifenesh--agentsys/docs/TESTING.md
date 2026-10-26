@@ -9,7 +9,7 @@ Use this checklist to validate AgentSys commands in a real repo.
 - Claude Code CLI installed
 - Git installed and configured
 - Node.js 18+
-- GitHub CLI (`gh`) installed and authenticated (required for /ship and GitHub-backed workflows)
+- GitHub CLI (`gh`) installed and authenticated (required for /foreman and GitHub-backed workflows)
 - A test project (or create one)
 
 ---
@@ -135,30 +135,6 @@ git commit -m "Add test file"
 - Removes old TODOs
 - Fixes up to 3 issues
 
-### Test `/next-task`
-
-Create a couple of issues:
-
-```bash
-gh issue create --title "Add user login" --body "Implement login functionality"
-gh issue create --title "Fix timeout bug" --body "Users reporting timeouts"
-```
-
-```text
-/next-task
-```
-
-**Expected**:
-- Fetches GitHub issues
-- Prioritizes tasks
-- Shows top candidates with evidence
-
-```text
-/next-task bug
-```
-
-**Expected**: Only bug-labeled issues
-
 ### Test `/audit-project`
 
 ```text
@@ -169,34 +145,6 @@ gh issue create --title "Fix timeout bug" --body "Users reporting timeouts"
 - Detects project type and framework
 - Runs review agents
 - Reports issues with file:line references and severity
-
-### Test `/ship`
-
-```bash
-git status  # should be clean
-
-git checkout -b feature/test-ship
-echo "console.log('test');" >> app.js
-git add app.js
-```
-
-```text
-/ship --dry-run
-```
-
-**Expected**:
-- Shows phases and detected CI/deployment platforms
-- Does not make changes
-
-```text
-/ship
-```
-
-**Expected**:
-- Commits changes
-- Creates PR
-- Waits for CI and reviews
-- Merges PR and cleans up
 
 ### Test `/sync-docs`
 
@@ -227,17 +175,6 @@ git add app.js
 **Expected**:
 - Runs issue/doc/code scans
 - Produces a summary of drift and gaps
-
-### Test `/repo-intel`
-
-```text
-/repo-intel init
-```
-
-**Expected**:
-- Generates repo-intel.json in platform state dir
-- Reports file and symbol counts
-- Validates output with map-validator
 
 ---
 
@@ -273,13 +210,10 @@ npm run detect
 - [ ] Platform detection works on your project
 - [ ] Tool verification shows correct tools
 - [ ] `/deslop` finds and fixes slop
-- [ ] `/next-task` lists prioritized tasks
 - [ ] `/audit-project` finds real issues
-- [ ] `/ship` creates PR and merges successfully
 - [ ] `/sync-docs` reports documentation issues
 - [ ] `/prepare-delivery` runs validation checks
 - [ ] `/drift-detect` produces a drift report
-- [ ] `/repo-intel` generates a repo map
 
 ---
 
@@ -287,15 +221,12 @@ npm run detect
 
 Command runtime varies based on:
 - Repository size and complexity
-- CI/deployment platform latency
 - Network conditions
 - Number of files to analyze
 
 **Expected behavior:**
 - `/deslop`: Fast codebase scan
 - `/audit-project`: Thorough multi-agent analysis
-- `/next-task`: Full autonomous workflow with multiple phases
-- `/ship`: Includes CI wait time and deployment validation
 
 ---
 

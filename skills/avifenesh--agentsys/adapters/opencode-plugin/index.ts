@@ -17,25 +17,15 @@ import { join } from "path"
 
 // Agent complexity tiers for thinking budget selection
 const AGENT_THINKING_CONFIG: Record<string, { budget: number; description: string }> = {
-  // Execution tier - no thinking needed (haiku-level tasks)
-  "worktree-manager": { budget: 0, description: "Simple git operations" },
-  "simple-fixer": { budget: 0, description: "Mechanical code fixes" },
-  "ci-monitor": { budget: 0, description: "Status checking" },
-
   // Discovery tier - light thinking (8k)
-  "task-discoverer": { budget: 8000, description: "Task analysis" },
   "docs-updater": { budget: 8000, description: "Documentation sync" },
 
   // Analysis tier - moderate thinking (12k)
-  "exploration-agent": { budget: 12000, description: "Codebase exploration" },
   "deslop-agent": { budget: 12000, description: "Slop detection" },
   "test-coverage-checker": { budget: 12000, description: "Coverage analysis" },
-  "ci-fixer": { budget: 12000, description: "CI problem solving" },
 
   // Reasoning tier - extended thinking (16k)
-  "planning-agent": { budget: 16000, description: "Implementation planning" },
   "delivery-validator": { budget: 16000, description: "Delivery validation" },
-  "implementation-agent": { budget: 16000, description: "Code implementation" },
 
   // Synthesis tier - maximum thinking (20k+)
   "plan-synthesizer": { budget: 20000, description: "Deep semantic analysis" },
@@ -76,7 +66,6 @@ const WORKFLOW_BLOCKED_ACTIONS: Record<string, string[]> = {
   "implementation": ["git push", "gh pr create"],
   "review": ["git push", "gh pr create", "gh pr merge"],
   "delivery-validation": ["git push", "gh pr create", "gh pr merge"],
-  "shipping": [], // /ship handles these
 }
 
 // Get state directory based on platform
@@ -186,8 +175,7 @@ export const AgentSysPlugin: Plugin = async (ctx) => {
      * Workflow enforcement via permission hooks
      *
      * Blocks certain actions during workflow phases to enforce:
-     * - No git push until /ship
-     * - No PR creation until /ship
+     * - No git push or PR creation before delivery validation passes
      * - No merging until validation complete
      */
     "permission.ask": async (input, output) => {
@@ -207,7 +195,7 @@ export const AgentSysPlugin: Plugin = async (ctx) => {
 
           // Log why it was blocked (for debugging)
           console.error(`[agentsys] Blocked "${blocked}" during ${state.phase} phase`)
-          console.error(`[agentsys] Use /ship to properly push and create PR`)
+          console.error(`[agentsys] Push and open the PR after the workflow finishes`)
           return
         }
       }

@@ -1,6 +1,6 @@
 # AgentSys
 
-Marketplace, installer and shared library for the agent-sh plugins. Works on Claude Code, OpenCode, Codex CLI, Cursor and Kiro. Plugins live in their own repos in the agent-sh GitHub org and are pinned by commit in `.claude-plugin/marketplace.json`; this repo holds the installer (`bin/cli.js`), the dev CLI (`bin/dev-cli.js`), `lib/` (synced from agent-core), adapters, docs, checklists and the site.
+Marketplace, installer and shared library for the agent-sh plugins. Works on Claude Code, OpenCode, Codex CLI, Cursor and Kiro. Plugins live in their own repos in the agent-sh GitHub org and are pinned by commit in `.claude-plugin/marketplace.json`; this repo holds the installer (`bin/cli.js`), the dev CLI (`bin/dev-cli.js`), `lib/` (maintained here; plugin repos vendor their own copies), adapters, docs, checklists and the site.
 
 ## Critical Rules
 
@@ -14,7 +14,7 @@ Marketplace, installer and shared library for the agent-sh plugins. Works on Cla
    - Release: `checklists/release.md`
    - New command, agent, skill or lib module: `checklists/new-command.md`, `checklists/new-agent.md`, `checklists/new-skill.md`, `checklists/new-lib-module.md`
    - OpenCode plugin update: `checklists/update-opencode-plugin.md`
-   - Repo intel changes: `checklists/repo-intel.md`
+   - `lib/repo-intel`, `lib/repo-map` or `lib/collectors` changes: `checklists/repo-intel.md`
 7. Work is done when every item of that checklist is done. That includes running `/enhance` on new or changed commands, agents, skills, hooks or prompts, checking OpenCode and Codex compatibility, and updating the `bin/cli.js` mappings for a new command or agent. The pre-push hook asks for the `/enhance` confirmation (`ENHANCE_CONFIRMED=1` in non-interactive runs).
 8. Status output uses the plain-text markers `[OK]`, `[ERROR]`, `[WARN]`, `[CRITICAL]` and markdown, with no emojis or ASCII-art boxes: they cost tokens and parse worse.
 9. gh and git on Windows: escape `$` as `\$` in GraphQL queries, avoid `!=` in jq (use `== "A" or == "B"`), and prefer double quotes with escaped inner quotes over single quotes. `gh pr checks` reports `state` (`SUCCESS`, `FAILURE`, `PENDING`), not `conclusion`. The Windows shell treats `$` and `!` differently and these fail silently.
@@ -29,7 +29,7 @@ In prose, write ` - ` (a single dash with spaces), not an em dash or a doubled d
 <!-- GEN:START:claude-architecture -->
 ```
 lib/          → Shared library (vendored to plugins)
-plugins/      → 25 plugins, 55 agents (45 file-based + 10 role-based), 47 skills
+plugins/      → 21 plugins, 38 agents (28 file-based + 10 role-based), 42 skills
 adapters/     → Platform adapters (opencode-plugin/, opencode/, codex/)
 checklists/   → Action checklists (9 files)
 bin/cli.js    → npm CLI installer
@@ -37,16 +37,12 @@ bin/cli.js    → npm CLI installer
 
 | Plugin | Agents | Skills | Purpose |
 |--------|--------|--------|---------|
-| next-task | 8 | 1 | Master workflow orchestration |
 | prepare-delivery | 3 | 4 | Pre-ship quality gates |
-| gate-and-ship | 0 | 0 | Quality gates then ship |
-| ship | 1 | 1 | PR creation and deployment |
 | deslop | 1 | 1 | AI slop cleanup |
 | audit-project | 10 | 1 | Multi-agent code review |
 | drift-detect | 1 | 1 | Plan drift detection |
 | enhance | 8 | 9 | Code quality analyzers |
 | sync-docs | 1 | 1 | Documentation sync |
-| repo-intel | 3 | 1 | Unified static analysis |
 | banthis | 0 | 1 | Durable negative behavior memory |
 | perf | 6 | 8 | Performance investigation |
 | learn | 1 | 1 | Topic research and learning guides |
@@ -58,7 +54,7 @@ bin/cli.js    → npm CLI installer
 | skillers | 2 | 2 | Workflow pattern learning |
 | onboard | 1 | 1 | Codebase onboarding |
 | can-i-help | 1 | 1 | Contributor guidance |
-| tower-crane | 5 | 3 | Delegated delivery: plan, workers, review, gates, merge |
+| foreman | 0 | 1 | GitHub issue queue for native agents |
 | zig-lsp | 0 | 0 |  |
 | mojo | 0 | 1 |  |
 | ada-spark | 0 | 1 |  |
@@ -81,7 +77,7 @@ npx agentsys-dev new plugin|agent|skill|command <name> [--plugin=<plugin>]
 npx agentsys-dev --help                 # everything else
 ```
 
-Most have npm aliases (`npm test`, `npm run validate`, `npm run preflight`, `npm run gen-docs:check`, `npm run bump`). CI also runs `scripts/expand-templates.js --check` and `scripts/gen-adapters.js --check`. `agentsys` runs the installer.
+Most have npm aliases (`npm test`, `npm run validate`, `npm run preflight`, `npm run gen-docs:check`, `npm run bump`). CI also runs `scripts/expand-templates.js --check`, `scripts/gen-adapters.js --check` and `scripts/generate-plugin-list.js --check` (plugins.txt from the marketplace). `agentsys` runs the installer.
 
 ## Agents, skills and models
 
@@ -89,15 +85,11 @@ Most have npm aliases (`npm test`, `npm run validate`, `npm run preflight`, `npm
 
 Model families: opus (Claude Opus 5.5) for judgment where errors compound, sonnet (Claude Sonnet 5.5) for validation and most agents, haiku (Claude Haiku 4.5) for mechanical work. An agent with no `model` key inherits the caller's.
 
-`/next-task` runs its phases in order: exploration-agent, planning-agent, user approval of the plan, implementation-agent, pre-review gates, review loop, delivery-validator, sync-docs-agent, then `/ship`. A phase whose plugin is not installed uses the inline fallback in next-task's `commands/next-task.md`.
-
 ## State files
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `tasks.json` | `{stateDir}/` | Active task registry |
 | `flow.json` | `{stateDir}/` (worktree) | Workflow progress |
-| `preference.json` | `{stateDir}/sources/` | Cached task source |
 | `suppressions.json` | `~/.<claude\|opencode\|codex>/enhance/` | Auto-learned suppressions |
 
 `stateDir` is `.claude/`, `.opencode/`, `.codex/`, `.cursor/` or `.kiro/` by platform.

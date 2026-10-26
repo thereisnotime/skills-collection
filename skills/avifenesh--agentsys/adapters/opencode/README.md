@@ -37,27 +37,6 @@ opencode
 
 ---
 
-### `/next-task` - Intelligent Task Prioritization
-
-Discover what to work on next with AI analysis.
-
-```bash
-opencode
-> /next-task
-> /next-task bug
-> /next-task --include-blocked
-```
-
-**What it does:**
-- Analyzes GitHub Issues (required)
-- Validates tasks aren't already implemented
-- Scores by impact, urgency, effort
-- Provides top 5 recommendations with evidence
-
-**Requires:** GitHub CLI (`gh`)
-
----
-
 ### `/audit-project` - Multi-Agent Code Review
 
 Comprehensive review with specialized AI agents.
@@ -78,27 +57,22 @@ opencode
 
 ---
 
-### `/ship` - Complete PR Workflow
+### `/foreman` - GitHub Issue Queue
 
-Ship from commit to production with validation.
+Work a repo's open issues as a task queue.
 
 ```bash
 opencode
-> /ship
-> /ship --strategy rebase
+> /foreman status
+> /foreman stats
 ```
 
 **What it does:**
-1. Commits changes with AI message
-2. Creates PR with description
-3. Waits for CI to pass
-4. Runs quality reviews
-5. Merges to main
-6. Deploys to dev/prod
-7. Validates deployments
-8. Auto-rollback on failure
+- `status` and `stats` read the queue, claims, capacity and Revuto rounds live from GitHub
+- The CLI (`node ~/.agentsys/plugins/foreman/scripts/foreman.js`) runs `pick`, `claim`, `brief`, `findings` and `land` on OpenCode too
+- The full loop spawns Claude Code worktree subagents, so it runs end to end only in Claude Code
 
-**Requires:** Git, GitHub CLI (`gh`)
+**Requires:** Node.js 22+, Git, GitHub CLI (`gh`), `waitfor`
 
 ---
 
@@ -133,10 +107,10 @@ This runs `git diff --name-only` and includes the output in the prompt.
 
 ```bash
 opencode
-> /next-task @PLAN.md !gh issue list
+> /drift-detect @PLAN.md !git log --oneline -20
 ```
 
-Analyzes tasks with PLAN.md content and current GitHub issues.
+Compares PLAN.md with the recent commits.
 
 ---
 
@@ -153,9 +127,7 @@ The installer:
 ```
 ~/.config/opencode/commands/
 ├── deslop.md
-├── next-task.md
 ├── audit-project.md
-├── ship.md
 ├── lib/
 │   ├── platform/
 │   │   ├── detect-platform.js
@@ -193,22 +165,13 @@ opencode
 # [OK] Fixed race condition in api.py:123
 ```
 
-### Next task with context
-```bash
-opencode
-> /next-task @PLAN.md !gh issue list
-
-# Top 5 Priority Tasks:
-# (includes analysis from PLAN.md and GitHub issues)
-```
-
-### Ship with diff review
+### Gate a branch after a diff review
 ```bash
 opencode
 > !git diff
-> /ship --strategy rebase
+> /prepare-delivery
 
-# (reviews the diff you just displayed, then ships)
+# (reviews the diff you just displayed, then runs the pre-ship gates; never pushes)
 ```
 
 ---

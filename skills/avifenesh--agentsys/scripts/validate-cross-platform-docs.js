@@ -64,13 +64,10 @@ const STATE_DIRS = {
 
 // Features that must work on all platforms
 const REQUIRED_FEATURES = [
-  '/next-task',
-  '/ship',
   '/deslop',
   '/enhance',
   '/audit-project',
   '/drift-detect',
-  '/repo-intel',
   '/perf',
   '/sync-docs'
 ];
@@ -108,17 +105,20 @@ function validateCommandPrefixes() {
 
       // Check for wrong prefix usage
       const wrongPrefix = platform === 'codex' ? '/' : '$';
-      const commandPattern = new RegExp(`${wrongPrefix}(next-task|ship|deslop|enhance|audit-project|drift-detect|repo-intel|perf|sync-docs)`, 'g');
+      // A command name after a path segment (`commands/deslop.md`) is a path,
+      // not an invocation, so the prefix must not follow a word, `.`, `/` or `-`.
+      const escapedPrefix = wrongPrefix.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+      const commandPattern = new RegExp(`(?<![\\w./-])${escapedPrefix}(deslop|enhance|audit-project|drift-detect|perf|sync-docs)(?![\\w-])`, 'g');
 
-      const matches = content.match(commandPattern);
-      if (matches && matches.length > 0) {
+      const matches = [...content.matchAll(commandPattern)];
+      if (matches.length > 0) {
         // Filter out code blocks and examples showing other platforms
         const lines = content.split('\n');
         const actualIssues = [];
 
-        matches.forEach(match => {
-          const lineIdx = content.indexOf(match);
-          const lineNum = content.substring(0, lineIdx).split('\n').length;
+        matches.forEach(found => {
+          const match = found[0];
+          const lineNum = content.substring(0, found.index).split('\n').length;
           const line = lines[lineNum - 1];
 
           // Skip if it's in a comparison table or example
@@ -142,7 +142,10 @@ function validateCommandPrefixes() {
 
         if (actualIssues.length > 0) {
           issues.push({
+            type: 'command-prefix',
+            severity: 'medium',
             file: doc,
+            message: `${platform} docs use ${wrongPrefix} instead of ${expectedPrefix} for commands (${actualIssues.length} occurrence(s))`,
             platform,
             expectedPrefix,
             wrongPrefix,

@@ -1530,6 +1530,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[Upload-Post/upload-post-skill](https://github.com/Upload-Post/upload-post-skill)** - Publish and schedule social media posts through one API
 - **[yuwen-cool/yuwen-publish-precheck](https://github.com/yuwen-cool/yuwen-publish-precheck)** - Review Chinese social content before publishing, with source-backed corrections
 - **[publora/skills](https://github.com/publora/skills)** - Draft, schedule and publish posts to ten social networks
+- **[harshmaur/apify-reddit-scraper](https://github.com/apify/awesome-skills/tree/main/skills/apify-reddit-scraper)** - Scrape Reddit posts, comments and subreddits without an API key
 
 </details>
 
@@ -1586,6 +1587,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[GiaSip/giasip-research](https://github.com/GiaSip/giasip-skills/tree/main/skills/giasip-research)** - Source-linked research reports with explicit unresolved checks
 - **[tronghieu/agent-skills](https://github.com/tronghieu/agent-skills)** - 18 method-driven skills for knowledge work: strategy, research, writing
 - **[dmoshehun-prog/learn-from-materials](https://github.com/dmoshehun-prog/learn-from-materials)** - Turn documents into source-grounded interactive learning pages for AI agents
+- **[chrisryugj/kordoc](https://github.com/chrisryugj/kordoc/tree/main/plugins/kordoc/skills/kordoc)** - Convert Korean HWP/HWPX documents to Markdown, fill forms, generate HWPX
 - **[bablobanov/hermes-telegram-checklist](https://github.com/bablobanov/hermes-telegram-checklist)** - Create and manage native Telegram checklists with verified writes
 - **[siril9/presentation-skill](https://github.com/siril9/presentation-skill)** - Generate editable PowerPoint decks from source with visual QA.
 - **[voygr-tech/placecall](https://github.com/voygr-tech/placecall/tree/main/skills/placecall)** - Calls US businesses by phone and returns outcome and transcript
@@ -1710,6 +1712,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[oil-oil/oil-ui](https://github.com/oil-oil/oil-ui)** - Unlock AI design potential through UI exploration and visual review
 - **[skymanbp/cc-tree](https://github.com/skymanbp/cc-tree)** - Auditable radial-tree exploration for brainstorming, critique, design and code audit
 - **[moxno/privacyscrubber-guard](https://github.com/moxno/privacyscrubber-mcp/tree/main/skills/privacyscrubber-guard)** - Sanitize PII and secrets in RAM before agent calls
+- **[aurite-ai/agent-verifier](https://github.com/Aurite-ai/agent-verifier)** - Reviews AI agent code for secrets, unbounded loops, hallucinated tools
 - **[finom/vovk](https://github.com/finom/vovk/tree/main/skills)** - Next.js API routes as MCP tools and typed clients
 
 </details>
@@ -1794,7 +1797,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[GarethManning/progressive-hint-ladder](https://github.com/GarethManning/education-agent-skills/tree/main/skills/student-learning/progressive-hint-ladder)** - Provides graduated hints while preserving learner thinking and agency
 - **[GarethManning/competency-unpacker](https://github.com/GarethManning/education-agent-skills/tree/main/skills/curriculum-assessment/competency-unpacker)** - Unpacks broad competencies into assessable sub-skills and success criteria
 - **[ZeroPointRepo/youtube-skills](https://github.com/ZeroPointRepo/youtube-skills)** - Agent skills for YouTube: pull video transcripts and discover videos (search, channel and playlist listings) via TranscriptAPI.
-- **[morluto/rea](https://github.com/morluto/rea/tree/main/skills/reverse-engineer-anything)** - Reverse-engineer binaries, applications, and runtimes with REA
+- **[morluto/rea](https://github.com/morluto/rea/tree/main/.agents/skills/reverse-engineer-anything)** - Reverse-engineer binaries, applications, and runtimes with REA
 - **[apitube/news-api-skills](https://github.com/apitube/news-api-skills)** - Search worldwide news by keyword, entity, sentiment, source, date
 - **[zincio/universal-checkout](https://github.com/zincio/skills/tree/master/skills/universal-checkout)** - Official Zinc API (zinc.com) checkout across 50+ US retailers
 - **[swaylq/humanize-chinese](https://github.com/swaylq/humanize-chinese)** - Detect and rewrite AI-generated Chinese text, fully offline, no LLM
@@ -1809,6 +1812,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[elithril/blender-kiln](https://github.com/elithril/blender-kiln/tree/main/plugin)** - Text or photo to game-ready GLB through Blender MCP
 - **[MetaMask/metamask-agent-wallet](https://github.com/MetaMask/agent-skills/tree/main/skills/metamask-agent-wallet)** - Official MetaMask self-custodial wallet: swaps, bridges, perps, x402 payments
 - **[assafkip/claudemy](https://github.com/assafkip/claudemy)** - Any topic into 2-minute audio lessons with cited sources
+- **[nexscope-ai/eCommerce-Skills](https://github.com/nexscope-ai/eCommerce-Skills)** - 150+ ecommerce skills for Amazon, Shopify, Etsy, TikTok sellers
 
 </details>
 

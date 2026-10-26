@@ -8,9 +8,9 @@ This directory contains adapters for using agentsys commands with different AI c
 The primary target. Install via marketplace:
 ```bash
 claude plugin marketplace add agent-sh/agentsys
-# Install specific plugins (e.g., next-task, ship, enhance)
-claude plugin install next-task@agentsys
-claude plugin install ship@agentsys
+# Install specific plugins (e.g., prepare-delivery, deslop, enhance)
+claude plugin install prepare-delivery@agentsys
+claude plugin install deslop@agentsys
 ```
 
 See main [README.md](../README.md) for details.
@@ -30,8 +30,7 @@ agentsys --tool codex
 ```bash
 codex
 > /deslop
-> /next-task
-> /ship
+> /enhance
 ```
 
 **Documentation**: [adapters/codex/README.md](./codex/README.md)
@@ -51,8 +50,7 @@ agentsys --tool opencode
 ```bash
 opencode
 > /deslop
-> /next-task bug
-> /ship --strategy rebase
+> /prepare-delivery
 ```
 
 **Documentation**: [adapters/opencode/README.md](./opencode/README.md)
@@ -118,9 +116,8 @@ Installers automatically handle these substitutions.
 | Command | Claude Code | Codex CLI | OpenCode | Notes |
 |---------|-------------|-----------|----------|-------|
 | `/deslop` | Yes | Yes | Yes | Pure bash, 100% compatible |
-| `/next-task` | Yes | Yes | Yes | Requires `gh` CLI |
 | `/audit-project` | Yes | Partial | Partial | Multi-agent may differ |
-| `/ship` | Yes | Partial | Partial | CI/CD works, agents may vary |
+| `/foreman` | Yes | Partial | Partial | The CLI runs everywhere; the loop spawns Claude Code worktree subagents |
 
 ---
 
@@ -130,7 +127,7 @@ Installers automatically handle these substitutions.
 ```bash
 # Via marketplace (easiest)
 claude plugin marketplace add agent-sh/agentsys
-claude plugin install next-task@agentsys
+claude plugin install deslop@agentsys
 ```
 
 **Pros:**
@@ -174,11 +171,7 @@ agentsys --tool opencode
 All tools require:
 - **Git** - Version control
 - **Node.js 18+** - For platform detection scripts
-- **GitHub CLI (`gh`)** - For PR-related commands (`/ship`)
-
-Optional (enables additional features):
-- Railway CLI, Vercel CLI, Netlify CLI - For deployment detection
-- Linear integration - For `/next-task`
+- **GitHub CLI (`gh`)** - For GitHub-backed commands (`/foreman`)
 
 ---
 

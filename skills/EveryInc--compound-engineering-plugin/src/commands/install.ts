@@ -233,7 +233,7 @@ type ResolvedPluginPath = {
 
 async function resolvePluginPath(input: string, branch?: string): Promise<ResolvedPluginPath> {
   // Only treat as a local path if it explicitly looks like one
-  if (input.startsWith(".") || input.startsWith("/") || input.startsWith("~")) {
+  if (input.startsWith(".") || path.isAbsolute(input) || input.startsWith("~")) {
     const expanded = expandHome(input)
     const directPath = path.resolve(expanded)
     if (await pathExists(directPath)) return { path: directPath }

@@ -23,12 +23,9 @@ You shouldn't have to repeat the same requests every session. These commands han
 
 | Command | Purpose | Scope |
 |---------|---------|-------|
-| `/next-task` | Find and implement prioritized tasks | Full autonomous workflow |
-| `/ship` | Complete PR workflow to production | CI, deployment, validation |
 | `/deslop` | Clean up debugging code, TODOs | Fast codebase scan |
 | `/audit-project` | Multi-agent code review | Thorough analysis |
 | `/drift-detect` | Compare docs to actual code | Plan drift detection |
-| `/repo-intel` | Unified static analysis | Git history, AST symbols, project metadata |
 | `/enhance` | Analyze prompts, plugins, agents, docs, hooks, skills | Quality improvement |
 | `/sync-docs` | Sync docs with code changes | Documentation sync |
 | `/perf` | Performance investigation workflow | Baselines, profiling, evidence |
@@ -41,21 +38,13 @@ You shouldn't have to repeat the same requests every session. These commands han
 | `/system-prompt-curator` | Create and improve autonomous agent system prompts | Agent prompt curation |
 | `/onboard` | Codebase onboarding - project orientation | Newcomer guidance |
 | `/can-i-help` | Contributor guidance - match skills to project needs | Contributor matching |
-| `/tower-crane-*` | Tower Crane: plan into tasks, dispatch workers, independent review, gates, merge | Delegated project delivery |
-| `/release` | Versioned release with automatic ecosystem detection | Tag, changelog, publish |
 | `/agnix` | Linter for AI agent configs | Rule validation (457 rules) |
-| `/prepare-delivery` | Pre-ship validation checks | Tests, build, lint verification |
-| `/gate-and-ship` | Gated shipping workflow | Validation gate then ship |
+| `/prepare-delivery` | Pre-ship validation checks; never pushes or opens a PR | Tests, build, lint verification |
+| `/foreman` | GitHub issues as a task queue for native agents | Pick, claim, worktree worker, Revuto findings, land |
 
 ---
 
 ## When to Use Each Command
-
-**Starting Your Day:**
-```bash
-/next-task
-# Shows prioritized tasks from GitHub issues
-```
 
 **Before Committing:**
 ```bash
@@ -69,10 +58,10 @@ You shouldn't have to repeat the same requests every session. These commands han
 # Catches issues early
 ```
 
-**Ready to Deploy:**
+**Before Pushing:**
 ```bash
-/ship
-# Handles everything: PR, CI, merge, deploy, validate
+/prepare-delivery
+# Runs the pre-ship gates locally; push and open the PR with your own flow
 ```
 
 ---
@@ -113,39 +102,6 @@ Remove debugging code, old TODOs, and AI slop from your codebase with a 3-phase 
 - Phantom references
 - Buzzword inflation
 - Code smells and over-engineering patterns
-
----
-
-### `/next-task`
-
-Complete task-to-production automation with state management.
-
-```bash
-/next-task                        # Start new workflow with policy selection
-/next-task --status               # Check current workflow state
-/next-task --resume               # Resume from last checkpoint
-/next-task --abort                # Cancel workflow and cleanup
-/next-task bug                    # Filter by task type
-/next-task --implement            # Start implementing selected task
-```
-
-**12-Phase Workflow:**
-1. Policy Selection → Choose task source, priority, stopping point
-2. Task Discovery → Find and prioritize tasks, you pick one
-3. Worktree Setup → Create isolated branch and directory
-4. Exploration → Deep codebase analysis
-5. Planning → Design implementation plan
-6. **User Approval → Approve the plan (LAST human interaction)**
-7. Implementation → Execute the plan
-8. Pre-Review → Clean AI slop, check test coverage
-9. Review Loop → Multi-agent review until clean
-10. Delivery Validation → Verify tests, build, requirements
-11. Docs Update → Sync documentation
-12. Ship → Create PR, monitor CI, address comments, merge
-
-Phase 9 uses the `orchestrate-review` skill to define review passes and signal thresholds.
-
-[Full workflow documentation →](./workflows/NEXT-TASK.md)
 
 ---
 
@@ -229,33 +185,6 @@ Structured performance investigation with baselines, profiling, and evidence‑b
 
 ---
 
-### `/ship`
-
-Complete PR workflow from commit to production.
-
-```bash
-/ship                             # Full workflow
-/ship --dry-run                   # Preview without executing
-/ship --strategy rebase           # Use rebase instead of squash
-/ship --state-file PATH           # Integrate with next-task workflow
-```
-
-**Stages:**
-1. Pre-flight checks and platform detection
-2. Commit with AI-generated message
-3. Create PR with context
-4. Wait for CI and address PR feedback
-5. Multi-agent review (standalone mode only)
-6. Merge PR
-7. Deploy to development (if configured)
-8. Validate development deployment
-9. Deploy to production (if configured)
-10. Validate production deployment
-11. Cleanup
-12. Completion report
-
----
-
 ## Real-World Examples
 
 ### Example 1: Clean Up Debugging Code
@@ -292,49 +221,7 @@ Ready to commit!
 
 ---
 
-### Example 2: Find What to Work On Next
-
-**Scenario**: 20 GitHub issues, need to prioritize.
-
-```text
-You: /next-task
-
-Claude:
-Analyzing tasks from GitHub Issues...
-Found 20 open issues
-
-Top 5 Priority Tasks:
-
-1. [P1] Fix authentication timeout bug (#142)
-   Status: Not implemented
-   Priority Score: 85
-   Estimated effort: Small
-   Files: src/auth/session.ts
-
-2. [P2] Add dark mode to settings (#89)
-   Status: Partially done
-   Priority Score: 60
-   Estimated effort: Medium
-   Files: src/components/Settings.tsx
-
-Which task would you like to work on?
-
-You: /next-task --implement
-
-Claude:
-Creating branch: fix/auth-timeout-bug-142
-Investigating implementation...
-Found issue: Session timeout hardcoded to 5 minutes
-
-Implementing fix...
-[OK]Fix implemented
-[OK]Tests written and passing
-[OK]Ready to ship
-```
-
----
-
-### Example 3: Get Code Review Before PR
+### Example 2: Get Code Review Before PR
 
 **Scenario**: Finished login feature, want thorough review.
 
@@ -377,53 +264,7 @@ Code is ready to ship!
 
 ---
 
-### Example 4: Ship Feature to Production
-
-**Scenario**: Feature finished, want to deploy.
-
-```text
-You: /ship
-
-Claude:
-Starting complete PR workflow...
-
-Phase 1: Pre-flight checks
-[OK]Detected: GitHub Actions CI
-[OK]Detected: Railway deployment
-[OK]On branch: feature/add-dark-mode
-
-Phase 2: Committing
-Generated commit: "feat(ui): add dark mode toggle"
-[OK]Committed as: abc123f
-
-Phase 3: Creating PR
-[OK]Created PR #156
-URL: https://github.com/youruser/repo/pull/156
-
-Phase 4: Waiting for CI...
-[OK]All checks passed
-
-Phase 5: Review passes...
-[OK]code quality: approved
-[OK]test coverage: approved (95% coverage)
-
-Phase 6: Merging
-[OK]Merged PR #156 to main
-
-Phase 7-8: Deploying to development...
-[OK]Deployed to: https://app-dev.railway.app
-[OK]Validation passed
-
-Phase 9-10: Deploying to production...
-[OK]Deployed to: https://app.railway.app
-[OK]Production healthy
-
-[OK]DEPLOYMENT COMPLETE!
-```
-
----
-
-### Example 5: Quick Security Audit
+### Example 3: Quick Security Audit
 
 **Scenario**: Quick security check before release.
 
@@ -464,11 +305,10 @@ Security issues resolved!
 ### Starting New Feature
 
 ```text
-1. /next-task --implement    # Pick task and start
-2. *develop feature*
-3. /deslop apply      # Clean up
-4. /audit-project           # Get feedback
-5. /ship                     # Deploy
+1. *develop feature*
+2. /deslop apply      # Clean up
+3. /audit-project           # Get feedback
+4. /prepare-delivery         # Pre-ship gates, then push and open the PR
 ```
 
 ### Code Review Flow
@@ -478,7 +318,7 @@ Security issues resolved!
 2. Fix issues
 3. /audit-project           # Full review
 4. Iterate until clean
-5. /ship                     # Deploy
+5. /prepare-delivery         # Pre-ship gates, then push and open the PR
 ```
 
 ### Maintenance Day
@@ -486,15 +326,7 @@ Security issues resolved!
 ```text
 1. /deslop report     # See all slop
 2. /deslop apply      # Clean it up
-3. /next-task                # See priorities
-4. /audit-project           # Full audit
-```
-
-### Ship Your Work
-
-```text
-1. /ship --dry-run           # Preview
-2. /ship                     # Full workflow
+3. /audit-project           # Full audit
 ```
 
 ---
@@ -503,54 +335,30 @@ Security issues resolved!
 
 ### Tip 1: Start Small
 
-Don't start with `/ship` on production immediately!
+Don't start with `/deslop apply` on the whole codebase!
 
 **Try this order:**
 1. `/deslop report` - Just look, no changes
-2. `/next-task` - See task prioritization
-3. `/deslop apply` - Make safe changes
-4. `/audit-project --quick` - Quick feedback
-5. `/ship --dry-run` - Preview the workflow
-6. `/ship` - Full deployment
+2. `/deslop apply` - Make safe changes
+3. `/audit-project --quick` - Quick feedback
+4. `/prepare-delivery` - Run the pre-ship gates
 
-### Tip 2: Let Claude Explain
+### Tip 2: Combine Commands
 
 ```text
-You: Can you explain what /ship will do in my project?
-
-Claude: *analyzes your project*
-I see you have:
-- GitHub Actions CI
-- Railway deployment
-- Single-branch workflow
-
-Here's what /ship will do:
-1. Commit your changes
-2. Create PR to main
-3. Wait for GitHub Actions
-4. Run code review
-5. Merge to main
-6. Railway auto-deploys
-7. Validate deployment
-```
-
-### Tip 3: Combine Commands
-
-```text
-You: Run /deslop, then /audit-project, then /ship
+You: Run /deslop, then /audit-project, then /prepare-delivery
 
 Claude:
 1. Cleaning up slop... [OK]Removed 5 issues
 2. Running review... [OK]Fixed 2 issues
-3. Shipping to production... [OK]Complete!
+3. Running the pre-ship gates... [OK]Ready to push
 
-Your code is cleaned, reviewed, and deployed!
+Your code is cleaned, reviewed, and ready to push!
 ```
 
-### Tip 4: Use Filters
+### Tip 3: Use Filters
 
 ```bash
-/next-task bug              # Focus on bugs only
 /audit-project --domain security   # Security review only
 /deslop apply src/ 10        # Limit scope
 ```

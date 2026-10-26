@@ -48,14 +48,11 @@ const AUDIT_ROLE_AGENTS = [
 const CATEGORY_MAP = {
   'perf': 'Performance',
   'enhance': 'Enhancement',
-  'next-task': 'Workflow',
   'prepare-delivery': 'Workflow',
-  'gate-and-ship': 'Workflow',
-  'tower-crane': 'Workflow',
+  'foreman': 'Workflow',
   'deslop': 'Cleanup',
   'sync-docs': 'Cleanup',
   'drift-detect': 'Analysis',
-  'repo-intel': 'Analysis',
   'banthis': 'Memory',
   'learn': 'AI Collaboration',
   'agnix': 'Linting',
@@ -64,7 +61,6 @@ const CATEGORY_MAP = {
   'skillers': 'AI Collaboration',
   'skill-curator': 'Enhancement',
   'system-prompt-curator': 'Enhancement',
-  'ship': 'Release',
   'onboard': 'Onboarding',
   'can-i-help': 'Onboarding',
   'audit-project': 'Code Review',
@@ -75,11 +71,11 @@ const CATEGORY_MAP = {
 
 // Static skill definitions for cross-repo plugins (not discoverable locally)
 const STATIC_SKILLS = [
-  { plugin: 'next-task', name: 'discover-tasks' },
   { plugin: 'prepare-delivery', name: 'prepare-delivery' },
   { plugin: 'prepare-delivery', name: 'check-test-coverage' },
   { plugin: 'prepare-delivery', name: 'orchestrate-review' },
   { plugin: 'prepare-delivery', name: 'validate-delivery' },
+  { plugin: 'foreman', name: 'foreman' },
   { plugin: 'enhance', name: 'enhance-orchestrator' },
   { plugin: 'enhance', name: 'enhance-plugins' },
   { plugin: 'enhance', name: 'enhance-agent-prompts' },
@@ -100,12 +96,10 @@ const STATIC_SKILLS = [
   { plugin: 'deslop', name: 'deslop' },
   { plugin: 'sync-docs', name: 'sync-docs' },
   { plugin: 'drift-detect', name: 'drift-analysis' },
-  { plugin: 'repo-intel', name: 'repo-intel' },
   { plugin: 'banthis', name: 'banthis' },
   { plugin: 'consult', name: 'consult' },
   { plugin: 'debate', name: 'debate' },
   { plugin: 'learn', name: 'learn' },
-  { plugin: 'ship', name: 'release' },
   { plugin: 'skill-curator', name: 'skill-curator' },
   { plugin: 'system-prompt-curator', name: 'system-prompt-curator' },
   { plugin: 'skillers', name: 'skillers-compact' },
@@ -115,9 +109,6 @@ const STATIC_SKILLS = [
   { plugin: 'audit-project', name: 'audit-project' },
   { plugin: 'mojo', name: 'mojo' },
   { plugin: 'ada-spark', name: 'ada-spark' },
-  { plugin: 'tower-crane', name: 'tower-crane' },
-  { plugin: 'tower-crane', name: 'tower-crane-work' },
-  { plugin: 'tower-crane', name: 'tower-crane-review' },
   { plugin: 'glidemq', name: 'glide-mq' },
   { plugin: 'glidemq', name: 'glide-mq-migrate-bullmq' },
   { plugin: 'glidemq', name: 'glide-mq-migrate-bee' },
@@ -126,16 +117,12 @@ const STATIC_SKILLS = [
 
 // Purpose mapping for architecture table
 const PURPOSE_MAP = {
-  'next-task': 'Master workflow orchestration',
   'prepare-delivery': 'Pre-ship quality gates',
-  'gate-and-ship': 'Quality gates then ship',
   'enhance': 'Code quality analyzers',
-  'ship': 'PR creation and deployment',
   'perf': 'Performance investigation',
   'audit-project': 'Multi-agent code review',
   'deslop': 'AI slop cleanup',
   'drift-detect': 'Plan drift detection',
-  'repo-intel': 'Unified static analysis',
   'sync-docs': 'Documentation sync',
   'banthis': 'Durable negative behavior memory',
   'learn': 'Topic research and learning guides',
@@ -147,7 +134,7 @@ const PURPOSE_MAP = {
   'system-prompt-curator': 'System prompt curation',
   'onboard': 'Codebase onboarding',
   'can-i-help': 'Contributor guidance',
-  'tower-crane': 'Delegated delivery: plan, workers, review, gates, merge'
+  'foreman': 'GitHub issue queue for native agents'
 };
 
 // ---------------------------------------------------------------------------
@@ -194,39 +181,35 @@ function generateCommandsTable(commands) {
 
   // Curated display order (featured commands first, then alphabetical)
   const COMMAND_ORDER = [
-    'next-task', 'prepare-delivery', 'gate-and-ship',
-    'banthis', 'agnix', 'ship', 'deslop', 'perf',
+    'prepare-delivery',
+    'banthis', 'agnix', 'deslop', 'perf',
     'drift-detect', 'audit-project', 'enhance',
-    'repo-intel', 'sync-docs', 'learn', 'consult',
-    'debate', 'release', 'skillers',
+    'sync-docs', 'learn', 'consult',
+    'debate', 'skillers',
     'skill-curator', 'system-prompt-curator',
-    'onboard', 'can-i-help'
+    'onboard', 'can-i-help', 'foreman'
   ];
 
   // Command descriptions for the table (short, human-written summaries)
   const COMMAND_SUMMARIES = {
-    'next-task': 'Task workflow: discovery, implementation, PR, merge',
     'prepare-delivery': 'Pre-ship quality gates: deslop, review, validation, docs sync',
-    'gate-and-ship': 'Quality gates then ship (/prepare-delivery + /ship)',
     'banthis': 'Durable negative memory: persist banned agent behaviors',
     'agnix': 'Lint agent configurations (457 rules)',
-    'ship': 'PR creation, CI monitoring, merge',
     'deslop': 'Clean AI slop patterns',
     'perf': 'Performance investigation with baselines and profiling',
     'drift-detect': 'Compare plan vs implementation',
     'audit-project': 'Multi-agent iterative code review',
     'enhance': 'Plugin, agent, and prompt analyzers',
-    'repo-intel': 'Unified static analysis - git history, AST symbols, project metadata',
     'sync-docs': 'Sync documentation with code changes',
     'learn': 'Research topics, create learning guides',
     'consult': 'Cross-tool AI consultation',
     'debate': 'Structured debate between AI tools',
-    'release': 'Versioned release with ecosystem detection',
     'skillers': 'Workflow pattern learning and automation',
     'skill-curator': 'Create and improve reliable SKILL.md files',
     'system-prompt-curator': 'Create and improve autonomous agent system prompts',
     'onboard': 'Codebase orientation for newcomers',
-    'can-i-help': 'Match contributor skills to project needs'
+    'can-i-help': 'Match contributor skills to project needs',
+    'foreman': 'Work the GitHub issue queue with native subagents, from pick to land'
   };
 
   // Build lookup of discovered commands
@@ -284,7 +267,7 @@ function generateSkillsTable(skills) {
   const categoryOrder = [
     'Workflow', 'Message Queues', 'Enhancement', 'Performance', 'Cleanup',
     'Code Review', 'AI Collaboration', 'Onboarding',
-    'Web', 'Release', 'Analysis', 'Memory', 'Linting', 'Languages', 'Other'
+    'Analysis', 'Memory', 'Linting', 'Languages', 'Other'
   ];
 
   const lines = [
@@ -436,16 +419,12 @@ function generateAgentCounts(agents, plugins) {
 // Per-plugin file-based agent counts. Update this map when agents are added/removed
 // in a plugin repo - it's the canonical source for the STATIC_AGENT_COUNT fallback.
 const STATIC_PLUGIN_AGENT_COUNTS = {
-  'next-task': 8,
   'prepare-delivery': 3,
-  'gate-and-ship': 0,
-  'ship': 1,
   'deslop': 1,
   'audit-project': 0,
   'drift-detect': 1,
   'enhance': 8,
   'sync-docs': 1,
-  'repo-intel': 3,
   'banthis': 0,
   'perf': 6,
   'learn': 1,
@@ -457,7 +436,7 @@ const STATIC_PLUGIN_AGENT_COUNTS = {
   'skillers': 2,
   'onboard': 1,
   'can-i-help': 1,
-  'tower-crane': 5,
+  'foreman': 0,
   'zig-lsp': 0,
   'mojo': 0,
   'ada-spark': 0

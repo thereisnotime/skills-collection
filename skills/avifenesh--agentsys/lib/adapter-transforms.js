@@ -131,51 +131,14 @@ function transformBodyForOpenCode(content, repoRoot) {
   // agents, even when the home directory has "agent" in it: drop those paths
   // before the check.
   if (/agent(?!sys)/.test(content.replace(/[^\s`'"()]*\.agentsys[\\/][^\s`'"()]*/g, ''))) {
+    // Name no agents here: which ones exist depends on the plugins installed,
+    // and a fixed list goes stale when a plugin leaves the marketplace.
     const note = `
-> **OpenCode Note**: Invoke agents using \`@agent-name\` syntax.
-> Available agents: task-discoverer, exploration-agent, planning-agent,
-> implementation-agent, deslop-agent, delivery-validator, sync-docs-agent, consult-agent
-> Example: \`@exploration-agent analyze the codebase\`
+> **OpenCode Note**: Invoke agents using \`@agent-name\` syntax, with the agent names installed in \`~/.config/opencode/agents/\`.
+> Example: \`@deslop-agent clean up this branch\`
 
 `;
     content = content.replace(/^(---\n[\s\S]*?---\n)/, `$1${note}`);
-  }
-
-  if (content.includes('Master Workflow Orchestrator') && content.includes('No Shortcuts Policy')) {
-    const policySection = `
-## Phase 1: Policy Selection (Built-in Options)
-
-Ask the user these questions using AskUserQuestion:
-
-**Question 1 - Source**: "Where should I look for tasks?"
-- GitHub Issues - Use \`gh issue list\` to find issues
-- GitHub Projects - Issues from a GitHub Project board
-- GitLab Issues - Use \`glab issue list\` to find issues
-- Local tasks.md - Read from PLAN.md, tasks.md, or TODO.md in the repo
-- Custom - User specifies their own source
-- Other - User describes source, you figure it out
-
-If user selects GitHub Projects, ask two follow-up questions: project number (positive integer from the project URL, e.g. 1, 5, 42) and project owner (@me for your own projects, or the org/username). Pass as responses.project = { number, owner } to parseAndCachePolicy.
-
-**Question 2 - Priority**: "What type of tasks to prioritize?"
-- All - Consider all tasks, pick by score
-- Bugs - Focus on bug fixes
-- Security - Security issues first
-- Features - New feature development
-
-**Question 3 - Stop Point**: "How far should I take this task?"
-- Merged - Until PR is merged to main
-- PR Created - Stop after creating PR
-- Implemented - Stop after local implementation
-- Deployed - Deploy to staging
-- Production - Full production deployment
-
-After user answers, proceed to Phase 2 with the selected policy.
-
-`;
-    if (content.includes('OpenCode Note')) {
-      content = content.replace(/(Example:.*analyze the codebase\`\n\n)/, `$1${policySection}`);
-    }
   }
 
   return content;
@@ -378,8 +341,8 @@ function transformRuleForCursor(content, options) {
   content = content.replace(/(?:const|let|var)\s+\{?[^}=\n]+\}?\s*=\s*require\s*\([^)]+\);?/g, '');
   content = content.replace(/require\s*\(['"][^'"]+['"]\)/g, '');
 
-  // Strip plugin namespacing (e.g. next-task:agent-name -> agent-name)
-  content = content.replace(/(?:next-task|deslop|ship|sync-docs|audit-project|enhance|perf|repo-map|drift-detect|consult|debate|learn|web-ctl):([a-z][a-z0-9-]*)/g, '$1');
+  // Strip plugin namespacing (e.g. deslop:deslop-agent -> deslop-agent)
+  content = content.replace(/(?:deslop|sync-docs|audit-project|enhance|perf|drift-detect|consult|debate|learn):([a-z][a-z0-9-]*)/g, '$1');
 
   return content;
 }
@@ -402,8 +365,8 @@ function transformSkillForCursor(content, options) {
 
   content = pointSkillAtInstallPath(content, pluginInstallPath);
 
-  // Strip plugin namespacing (e.g. next-task:agent-name -> agent-name)
-  content = content.replace(/(?:next-task|deslop|ship|sync-docs|audit-project|enhance|perf|repo-map|drift-detect|consult|debate|learn|web-ctl):([a-z][a-z0-9-]*)/g, '$1');
+  // Strip plugin namespacing (e.g. deslop:deslop-agent -> deslop-agent)
+  content = content.replace(/(?:deslop|sync-docs|audit-project|enhance|perf|drift-detect|consult|debate|learn):([a-z][a-z0-9-]*)/g, '$1');
 
   return content;
 }
@@ -448,8 +411,8 @@ function transformCommandForCursor(content, options) {
     return '';
   });
 
-  // Strip plugin namespacing (e.g. next-task:agent-name -> agent-name)
-  content = content.replace(/(?:next-task|deslop|ship|sync-docs|audit-project|enhance|perf|repo-map|drift-detect|consult|debate|learn|web-ctl):([a-z][a-z0-9-]*)/g, '$1');
+  // Strip plugin namespacing (e.g. deslop:deslop-agent -> deslop-agent)
+  content = content.replace(/(?:deslop|sync-docs|audit-project|enhance|perf|drift-detect|consult|debate|learn):([a-z][a-z0-9-]*)/g, '$1');
 
   return content;
 }
@@ -570,7 +533,7 @@ function transformSkillForKiro(content, options) {
 
   content = pointSkillAtInstallPath(content, pluginInstallPath);
 
-  content = content.replace(/(?:next-task|deslop|ship|sync-docs|audit-project|enhance|perf|repo-map|drift-detect|consult|debate|learn|web-ctl):([a-z][a-z0-9-]*)/g, '$1');
+  content = content.replace(/(?:deslop|sync-docs|audit-project|enhance|perf|drift-detect|consult|debate|learn):([a-z][a-z0-9-]*)/g, '$1');
 
   return content;
 }
@@ -664,7 +627,7 @@ function transformCommandForKiro(content, options) {
     return `**${question}**\n\nReply in chat with your choice.`;
   });
 
-  content = content.replace(/(?:next-task|deslop|ship|sync-docs|audit-project|enhance|perf|repo-map|drift-detect|consult|debate|learn|web-ctl):([a-z][a-z0-9-]*)/g, '$1');
+  content = content.replace(/(?:deslop|sync-docs|audit-project|enhance|perf|drift-detect|consult|debate|learn):([a-z][a-z0-9-]*)/g, '$1');
 
   // Batch parallel reviewer delegations for Kiro's agent limit.
   // Detects 4+ consecutive "Delegate to" lines with review-related names
@@ -720,7 +683,7 @@ function transformAgentForKiro(content, options) {
     body = body.replace(/\$PLUGIN_ROOT/g, () => pluginInstallPath);
   }
 
-  body = body.replace(/(?:next-task|deslop|ship|sync-docs|audit-project|enhance|perf|repo-map|drift-detect|consult|debate|learn|web-ctl):([a-z][a-z0-9-]*)/g, '$1');
+  body = body.replace(/(?:deslop|sync-docs|audit-project|enhance|perf|drift-detect|consult|debate|learn):([a-z][a-z0-9-]*)/g, '$1');
 
   const agent = {
     name: frontmatter.name || '',
