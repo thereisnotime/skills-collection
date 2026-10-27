@@ -717,6 +717,12 @@ describe("ce-code-review contract", () => {
     expect(handoff).toMatch(/step 5 decides which stay as unresolved gates/)
     expect(handoff).toMatch(/still count toward the Stage 6 verdict/)
     expect(handoff).not.toMatch(/drop and validation-degraded rules/)
+    // #1777: a host refuses a subagent Write whose basename matches the report pattern, so the
+    // report leaf cannot persist report.md; the dispatch context, which already holds and emits
+    // the return, owns that write.
+    expect(handoff).toMatch(/write the report leaf's return to `<run-dir>\/report\.md` first/)
+    expect(handoff).not.toMatch(/Write `report\.md` or `review\.json`/)
+    expect(finish).toMatch(/the dispatch context persists it to `report\.md`/)
   })
 
   test("Stage 5 synthesis uses anchor gate and one-anchor promotion", async () => {
@@ -2019,6 +2025,17 @@ describe("ce-code-review dispatch templates", () => {
     for (const name of ["file_list", "diff"]) {
       expect(counts.get(name)).toBe(1)
     }
+  })
+
+  // Told only to "Read that file", reviewers and validators pulled a large staged
+  // diff in whole-file reads and re-read it; reviewers also read the parent transcript.
+  test("staged-diff readers locate file sections instead of loading the whole diff", async () => {
+    for (const file of ["subagent-template.md", "validator-batch-template.md"]) {
+      const content = await readRepoFile(`skills/ce-code-review/references/${file}`)
+      expect(content).toContain("`diff --git`")
+    }
+    const reviewer = await readRepoFile("skills/ce-code-review/references/subagent-template.md")
+    expect(reviewer).toContain("transcript")
   })
 
   test("compact-return contract uses exact schema keys in both output tiers", async () => {

@@ -11262,7 +11262,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit/SKILL.md",
       "remote_path": "skills/ce-commit/SKILL.md",
       "lines": 61,
-      "words": 784,
+      "words": 859,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11356,11 +11356,11 @@
     },
     {
       "name": "ce-babysit-pr",
-      "description": "\"Babysits an open GitHub PR until merge-ready. Use when asked to watch a PR over time \u2014 not for one-shot comment resolution or one CI failure. GitHub (incl. Enterprise) only.\"",
+      "description": "\"Babysits an open GitHub PR until merge-ready, first judging whether an old PR still belongs. Use when asked to watch a PR over time or update an old one \u2014 not for one-shot comment resolution or one C",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
-      "lines": 60,
-      "words": 1123,
+      "lines": 61,
+      "words": 1099,
       "code_blocks": 0,
       "languages": []
     },
@@ -21826,41 +21826,11 @@
       "path": "avifenesh--agentsys/meta/skills/maintain-cross-platform/SKILL.md",
       "remote_path": "meta/skills/maintain-cross-platform/SKILL.md",
       "lines": 71,
-      "words": 629,
+      "words": 630,
       "code_blocks": 1,
       "languages": [
         "markdown"
       ]
-    },
-    {
-      "name": "complete-agent",
-      "description": "A fully complete and valid agent",
-      "path": "avifenesh--agentsys/__tests__/fixtures/enhance/false-positives/agent-complete-valid.md",
-      "remote_path": "__tests__/fixtures/enhance/false-positives/agent-complete-valid.md",
-      "lines": 25,
-      "words": 86,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "test-agent",
-      "description": "A test agent with unrestricted bash",
-      "path": "avifenesh--agentsys/__tests__/fixtures/enhance/true-positives/agent-unrestricted-bash.md",
-      "remote_path": "__tests__/fixtures/enhance/true-positives/agent-unrestricted-bash.md",
-      "lines": 17,
-      "words": 36,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "test-agent",
-      "description": "A test agent without role section",
-      "path": "avifenesh--agentsys/__tests__/fixtures/enhance/true-positives/agent-missing-role.md",
-      "remote_path": "__tests__/fixtures/enhance/true-positives/agent-missing-role.md",
-      "lines": 13,
-      "words": 27,
-      "code_blocks": 0,
-      "languages": []
     }
   ],
   "better-auth--skills": [
@@ -22832,7 +22802,7 @@
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
       "lines": 477,
-      "words": 3851,
+      "words": 3855,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -22845,7 +22815,7 @@
       "path": "coreyhaines31--marketingskills/skills/prospecting/SKILL.md",
       "remote_path": "skills/prospecting/SKILL.md",
       "lines": 278,
-      "words": 2704,
+      "words": 2711,
       "code_blocks": 4,
       "languages": [
         "csv"
@@ -22857,7 +22827,7 @@
       "path": "coreyhaines31--marketingskills/skills/conversion-tracking/SKILL.md",
       "remote_path": "skills/conversion-tracking/SKILL.md",
       "lines": 169,
-      "words": 4968,
+      "words": 5005,
       "code_blocks": 1,
       "languages": []
     },
@@ -22937,7 +22907,7 @@
       "path": "coreyhaines31--marketingskills/skills/ads/SKILL.md",
       "remote_path": "skills/ads/SKILL.md",
       "lines": 478,
-      "words": 4251,
+      "words": 4260,
       "code_blocks": 2,
       "languages": []
     },
@@ -23029,7 +22999,7 @@
       "path": "coreyhaines31--marketingskills/skills/ai-seo/SKILL.md",
       "remote_path": "skills/ai-seo/SKILL.md",
       "lines": 501,
-      "words": 5239,
+      "words": 5293,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -23040,8 +23010,8 @@
       "description": "When the user wants to create or optimize in-app paywalls, upgrade screens, upsell modals, or feature gates. Also use when the user mentions \"paywall,\" \"upgrade screen,\" \"upgrade modal,\" \"upsell,\" \"fe",
       "path": "coreyhaines31--marketingskills/skills/paywalls/SKILL.md",
       "remote_path": "skills/paywalls/SKILL.md",
-      "lines": 228,
-      "words": 904,
+      "lines": 230,
+      "words": 937,
       "code_blocks": 3,
       "languages": []
     },
@@ -23188,8 +23158,8 @@
       "description": "\"When the user wants to create, generate, or produce video content using AI tools or programmatic frameworks. Also use when the user mentions 'video production,' 'AI video,' 'Remotion,' 'Hyperframes,'",
       "path": "coreyhaines31--marketingskills/skills/video/SKILL.md",
       "remote_path": "skills/video/SKILL.md",
-      "lines": 335,
-      "words": 2174,
+      "lines": 350,
+      "words": 2449,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23458,13 +23428,13 @@
       "description": "Use for anything related to EAS Observe - adding `expo-observe` to an Expo project (AppMetricsRoot/ObserveRoot HOC, markInteractive and ObserveInteractiveMarker, the useObserve hook, the Expo Router /",
       "path": "expo--skills/plugins/expo/skills/eas-observe/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-observe/SKILL.md",
-      "lines": 47,
-      "words": 566,
+      "lines": 51,
+      "words": 666,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.2.1",
+      "version": "1.4.0",
       "license": "MIT"
     },
     {
@@ -24933,9 +24903,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 508,
-      "words": 5156,
-      "code_blocks": 24,
+      "lines": 519,
+      "words": 5371,
+      "code_blocks": 25,
       "languages": [
         "bash",
         "typescript"
@@ -24960,7 +24930,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "lines": 229,
-      "words": 2025,
+      "words": 2170,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25001,7 +24971,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "lines": 668,
-      "words": 6756,
+      "words": 6778,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25099,9 +25069,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 508,
-      "words": 5156,
-      "code_blocks": 24,
+      "lines": 519,
+      "words": 5371,
+      "code_blocks": 25,
       "languages": [
         "bash",
         "typescript"
@@ -25126,7 +25096,7 @@
       "path": "neondatabase--agent-skills/skills/neon-object-storage/SKILL.md",
       "remote_path": "skills/neon-object-storage/SKILL.md",
       "lines": 229,
-      "words": 2025,
+      "words": 2170,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25167,7 +25137,7 @@
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
       "lines": 668,
-      "words": 6756,
+      "words": 6778,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -28814,7 +28784,7 @@
       "path": "squirrelscan--skills/skills/audit-website/SKILL.md",
       "remote_path": "skills/audit-website/SKILL.md",
       "lines": 94,
-      "words": 885,
+      "words": 888,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -28826,8 +28796,8 @@
       "description": "\"squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured data issues (300+ rules) and scores site health, via the squirrel CLI. Use when the user wants to c",
       "path": "squirrelscan--skills/skills/squirrelscan/SKILL.md",
       "remote_path": "skills/squirrelscan/SKILL.md",
-      "lines": 415,
-      "words": 4890,
+      "lines": 428,
+      "words": 5165,
       "code_blocks": 18,
       "languages": [
         "bash"
@@ -31840,7 +31810,7 @@
       "path": "vercel-labs--agent-skills/skills/react-view-transitions/SKILL.md",
       "remote_path": "skills/react-view-transitions/SKILL.md",
       "lines": 333,
-      "words": 1799,
+      "words": 1815,
       "code_blocks": 14,
       "languages": [
         "jsx"
@@ -48493,11 +48463,11 @@
     },
     {
       "name": "\"remember\"",
-      "description": "\"Explicitly save important knowledge to auto-memory with timestamp and context. Use when a discovery is too important to rely on auto-capture.\"",
+      "description": "\"Explicitly save important knowledge to auto-memory with timestamp and context. Use when the user says 'remember this', asks you to capture a lesson so you stop repeating a mistake across sessions, or",
       "path": "alirezarezvani--claude-skills/engineering-team/self-improving-agent/skills/remember/SKILL.md",
       "remote_path": "engineering-team/self-improving-agent/skills/remember/SKILL.md",
       "lines": 99,
-      "words": 489,
+      "words": 510,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -48506,11 +48476,11 @@
     },
     {
       "name": "\"self-improving-agent\"",
-      "description": "\"Curate Claude Code's auto-memory into durable project knowledge. Analyze MEMORY.md for patterns, promote proven learnings to CLAUDE.md and .claude/rules/, extract recurring solutions into reusable sk",
+      "description": "\"Curate the agent's own memory into durable project knowledge. Reviews Claude Code auto-memory (MEMORY.md and its topic files) for learnings worth keeping, promotes proven ones into CLAUDE.md or .clau",
       "path": "alirezarezvani--claude-skills/engineering-team/self-improving-agent/skills/self-improving-agent/SKILL.md",
       "remote_path": "engineering-team/self-improving-agent/skills/self-improving-agent/SKILL.md",
       "lines": 163,
-      "words": 849,
+      "words": 883,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -49063,11 +49033,11 @@
     },
     {
       "name": "\"code-reviewer\"",
-      "description": "Code review automation for TypeScript, JavaScript, Python, Go, Swift, Kotlin, C#, .NET, Java, C, C++, Rust, Ruby, PHP, and Dart/Flutter. Analyzes PRs for complexity and risk, checks code quality for S",
+      "description": "\"Use for any code review: a pull request, a diff, a commit, or a pasted function, handler or file in TypeScript, JavaScript, Python, Go, Swift, Kotlin, C#/.NET, Java, C, C++, Rust, Ruby, PHP or Dart/F",
       "path": "alirezarezvani--claude-skills/engineering-team/skills/code-reviewer/SKILL.md",
       "remote_path": "engineering-team/skills/code-reviewer/SKILL.md",
       "lines": 184,
-      "words": 852,
+      "words": 913,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -49136,7 +49106,7 @@
       "path": "alirezarezvani--claude-skills/engineering-team/skills/senior-secops/SKILL.md",
       "remote_path": "engineering-team/skills/senior-secops/SKILL.md",
       "lines": 506,
-      "words": 2135,
+      "words": 2167,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -49152,7 +49122,7 @@
       "path": "alirezarezvani--claude-skills/engineering-team/skills/security-pen-testing/SKILL.md",
       "remote_path": "engineering-team/skills/security-pen-testing/SKILL.md",
       "lines": 307,
-      "words": 1725,
+      "words": 1747,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -50514,11 +50484,11 @@
     },
     {
       "name": "session-handoff",
-      "description": "\"Compact the current conversation into a handoff document for another agent to pick up. Save to a user-configured location (OS temp, home folder, or per-project .handoff/), redact secrets before write",
+      "description": "\"Write a handoff document so a fresh session or another agent can pick up exactly where this one left off: goal, current state, decisions, next steps and the skills to load, referencing existing files",
       "path": "alirezarezvani--claude-skills/productivity/handoff/skills/session-handoff/SKILL.md",
       "remote_path": "productivity/handoff/skills/session-handoff/SKILL.md",
       "lines": 198,
-      "words": 1458,
+      "words": 1445,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -52348,11 +52318,11 @@
     },
     {
       "name": "handoff",
-      "description": "Compact the current conversation into a handoff document for another agent to pick up. References existing artifacts (PRDs, plans, ADRs, issues, commits, diffs) by path or URL instead of duplicating t",
+      "description": "\"Compact the current conversation into a handoff document for another agent to pick up, referencing existing artifacts (PRDs, plans, ADRs, issues, commits, diffs) by path or URL instead of duplicating",
       "path": "alirezarezvani--claude-skills/engineering/handoff/skills/handoff/SKILL.md",
       "remote_path": "engineering/handoff/skills/handoff/SKILL.md",
       "lines": 42,
-      "words": 279,
+      "words": 301,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -70513,452 +70483,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-data-handling",
-      "description": "'Implement data privacy, PII handling, and compliance patterns for Claude",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-data-handling/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-data-handling/SKILL.md",
-      "lines": 172,
-      "words": 823,
-      "code_blocks": 2,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-advanced-troubleshooting",
-      "description": "'Debug complex Claude API issues including context window overflow,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-advanced-troubleshooting/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-advanced-troubleshooting/SKILL.md",
-      "lines": 202,
-      "words": 1064,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-core-workflow-b",
-      "description": "'Build Claude streaming and Message Batches API workflows.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-core-workflow-b/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-core-workflow-b/SKILL.md",
-      "lines": 212,
-      "words": 794,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-debug-bundle",
-      "description": "'Collect Anthropic Claude API debug evidence for support and troubleshooting.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-debug-bundle/SKILL.md",
-      "lines": 170,
-      "words": 703,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-migration-deep-dive",
-      "description": "'Migrate to Claude API from OpenAI, Gemini, or other LLM providers.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-migration-deep-dive/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-migration-deep-dive/SKILL.md",
-      "lines": 185,
-      "words": 961,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-rate-limits",
-      "description": "'Implement Anthropic Claude API rate limiting, backoff, and quota management.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-rate-limits/SKILL.md",
-      "lines": 197,
-      "words": 883,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-ci-integration",
-      "description": "'Configure CI/CD pipelines for Anthropic Claude API integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-ci-integration/SKILL.md",
-      "lines": 185,
-      "words": 753,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "yaml"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-known-pitfalls",
-      "description": "'Identify and avoid common Claude API anti-patterns and integration mistakes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-known-pitfalls/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-known-pitfalls/SKILL.md",
-      "lines": 231,
-      "words": 1084,
-      "code_blocks": 11,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-security-basics",
-      "description": "'Apply Anthropic Claude API security best practices for key management,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-security-basics/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-security-basics/SKILL.md",
-      "lines": 201,
-      "words": 956,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-architecture-variants",
-      "description": "'Choose and implement Claude API architecture patterns for different",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-architecture-variants/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-architecture-variants/SKILL.md",
-      "lines": 191,
-      "words": 845,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-load-scale",
-      "description": "'Implement load testing, auto-scaling, and capacity planning for Claude",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-load-scale/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-load-scale/SKILL.md",
-      "lines": 194,
-      "words": 857,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-install-auth",
-      "description": "'Install and configure Anthropic Claude SDK authentication for Python",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-install-auth/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-install-auth/SKILL.md",
-      "lines": 163,
-      "words": 601,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-observability",
-      "description": "'Set up observability for Claude API integrations with metrics, logging,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-observability/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-observability/SKILL.md",
-      "lines": 173,
-      "words": 740,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-reference-architecture",
-      "description": "'Implement Claude API reference architectures for common use cases.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-reference-architecture/SKILL.md",
-      "lines": 197,
-      "words": 787,
-      "code_blocks": 7,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-common-errors",
-      "description": "'Diagnose and fix Anthropic Claude API errors by HTTP status code.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-common-errors/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-common-errors/SKILL.md",
-      "lines": 167,
-      "words": 945,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "json",
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-enterprise-rbac",
-      "description": "'Configure Anthropic enterprise organization management, Workspaces,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-enterprise-rbac/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-enterprise-rbac/SKILL.md",
-      "lines": 148,
-      "words": 753,
-      "code_blocks": 2,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-performance-tuning",
-      "description": "'Optimize Claude API performance with prompt caching, model selection,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-performance-tuning/SKILL.md",
-      "lines": 197,
-      "words": 952,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-hello-world",
-      "description": "'Create a minimal working Anthropic Claude Messages API example.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-hello-world/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-hello-world/SKILL.md",
-      "lines": 162,
-      "words": 615,
-      "code_blocks": 3,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-multi-env-setup",
-      "description": "'Configure Claude API across dev, staging, and production environments",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-multi-env-setup/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-multi-env-setup/SKILL.md",
-      "lines": 169,
-      "words": 633,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-incident-runbook",
-      "description": "'Execute incident response procedures for Claude API outages and degradation.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-incident-runbook/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-incident-runbook/SKILL.md",
-      "lines": 168,
-      "words": 889,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "markdown",
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-sdk-patterns",
-      "description": "'Apply production-ready Anthropic SDK patterns for TypeScript and Python.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-sdk-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-sdk-patterns/SKILL.md",
-      "lines": 231,
-      "words": 885,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-policy-guardrails",
-      "description": "'Implement content policy guardrails, input/output validation,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-policy-guardrails/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-policy-guardrails/SKILL.md",
-      "lines": 198,
-      "words": 918,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-webhooks-events",
-      "description": "'Implement event-driven patterns with Claude API: streaming SSE events,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-webhooks-events/SKILL.md",
-      "lines": 177,
-      "words": 784,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-reliability-patterns",
-      "description": "'Implement reliability patterns for Claude API: circuit breakers,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-reliability-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-reliability-patterns/SKILL.md",
-      "lines": 205,
-      "words": 895,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-prod-checklist",
-      "description": "'Execute production deployment checklist for Claude API integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-prod-checklist/SKILL.md",
-      "lines": 175,
-      "words": 924,
-      "code_blocks": 2,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-upgrade-migration",
-      "description": "'Upgrade Anthropic SDK versions and migrate between Claude API versions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-upgrade-migration/SKILL.md",
-      "lines": 207,
-      "words": 866,
-      "code_blocks": 9,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-deploy-integration",
-      "description": "'Deploy Claude API integrations to production cloud environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-deploy-integration/SKILL.md",
-      "lines": 145,
-      "words": 619,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "python",
-        "yaml"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-core-workflow-a",
-      "description": "'Build Claude tool use (function calling) workflows with the Messages",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-core-workflow-a/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-core-workflow-a/SKILL.md",
-      "lines": 222,
-      "words": 799,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-cost-tuning",
-      "description": "'Optimize Anthropic Claude API costs with model routing, prompt caching,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-cost-tuning/SKILL.md",
-      "lines": 204,
-      "words": 1014,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-local-dev-loop",
-      "description": "'Configure a local development workflow for Anthropic Claude API projects.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/anthropic-pack/skills/anth-local-dev-loop/SKILL.md",
-      "remote_path": "plugins/saas-packs/anthropic-pack/skills/anth-local-dev-loop/SKILL.md",
-      "lines": 177,
-      "words": 675,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "python",
-        "text",
-        "typescript"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -106224,20 +105748,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-data-handling",
-      "description": "'Implement data privacy, PII handling, and compliance patterns for Claude",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-data-handling/SKILL.md",
-      "remote_path": "skills/.curated/anth-data-handling/SKILL.md",
-      "lines": 172,
-      "words": 823,
-      "code_blocks": 2,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "lokalise-ci-integration",
       "description": "'Configure Lokalise CI/CD integration with GitHub Actions and automated",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lokalise-ci-integration/SKILL.md",
@@ -109825,21 +109335,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-advanced-troubleshooting",
-      "description": "'Debug complex Claude API issues including context window overflow,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-advanced-troubleshooting/SKILL.md",
-      "remote_path": "skills/.curated/anth-advanced-troubleshooting/SKILL.md",
-      "lines": 202,
-      "words": 1064,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "posthog-rate-limits",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-rate-limits/SKILL.md",
@@ -110466,21 +109961,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-core-workflow-b",
-      "description": "'Build Claude streaming and Message Batches API workflows.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-core-workflow-b/SKILL.md",
-      "remote_path": "skills/.curated/anth-core-workflow-b/SKILL.md",
-      "lines": 212,
-      "words": 794,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "flexport-debug-bundle",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flexport-debug-bundle/SKILL.md",
@@ -110826,22 +110306,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-debug-bundle",
-      "description": "'Collect Anthropic Claude API debug evidence for support and troubleshooting.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/anth-debug-bundle/SKILL.md",
-      "lines": 170,
-      "words": 703,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "quicknode-common-errors",
       "description": "'Triage QuickNode transport, authentication, security-filter, capacity, chain, and application failures while preserving the original error layer. Use when RPC, SDK, or endpoint requests fail and owne",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/quicknode-common-errors/SKILL.md",
@@ -111175,20 +110639,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-migration-deep-dive",
-      "description": "'Migrate to Claude API from OpenAI, Gemini, or other LLM providers.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-migration-deep-dive/SKILL.md",
-      "remote_path": "skills/.curated/anth-migration-deep-dive/SKILL.md",
-      "lines": 185,
-      "words": 961,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "elevenlabs-debug-bundle",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/elevenlabs-debug-bundle/SKILL.md",
@@ -111511,21 +110961,6 @@
         "typescript"
       ],
       "version": "1.9.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-rate-limits",
-      "description": "'Implement Anthropic Claude API rate limiting, backoff, and quota management.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-rate-limits/SKILL.md",
-      "remote_path": "skills/.curated/anth-rate-limits/SKILL.md",
-      "lines": 197,
-      "words": 883,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -112293,21 +111728,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-ci-integration",
-      "description": "'Configure CI/CD pipelines for Anthropic Claude API integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-ci-integration/SKILL.md",
-      "remote_path": "skills/.curated/anth-ci-integration/SKILL.md",
-      "lines": 185,
-      "words": 753,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "yaml"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "sentry-sdk-patterns",
       "description": "'Best practices for using Sentry SDK in TypeScript and Python.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/sentry-sdk-patterns/SKILL.md",
@@ -112473,21 +111893,6 @@
         "typescript"
       ],
       "version": "1.9.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-known-pitfalls",
-      "description": "'Identify and avoid common Claude API anti-patterns and integration mistakes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-known-pitfalls/SKILL.md",
-      "remote_path": "skills/.curated/anth-known-pitfalls/SKILL.md",
-      "lines": 231,
-      "words": 1084,
-      "code_blocks": 11,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -113976,21 +113381,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-security-basics",
-      "description": "'Apply Anthropic Claude API security best practices for key management,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-security-basics/SKILL.md",
-      "remote_path": "skills/.curated/anth-security-basics/SKILL.md",
-      "lines": 201,
-      "words": 956,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "running-chaos-tests",
       "description": "'Execute chaos engineering experiments to test system resilience.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/running-chaos-tests/SKILL.md",
@@ -114100,20 +113490,6 @@
         "bash"
       ],
       "version": "1.28.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-architecture-variants",
-      "description": "'Choose and implement Claude API architecture patterns for different",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-architecture-variants/SKILL.md",
-      "remote_path": "skills/.curated/anth-architecture-variants/SKILL.md",
-      "lines": 191,
-      "words": 845,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -114425,20 +113801,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-load-scale",
-      "description": "'Implement load testing, auto-scaling, and capacity planning for Claude",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-load-scale/SKILL.md",
-      "remote_path": "skills/.curated/anth-load-scale/SKILL.md",
-      "lines": 194,
-      "words": 857,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "documenso-core-workflow-a",
       "description": "'Implement Documenso document creation and recipient management workflows.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/documenso-core-workflow-a/SKILL.md",
@@ -114480,22 +113842,6 @@
         "typescript"
       ],
       "version": "2.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-install-auth",
-      "description": "'Install and configure Anthropic Claude SDK authentication for Python",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-install-auth/SKILL.md",
-      "remote_path": "skills/.curated/anth-install-auth/SKILL.md",
-      "lines": 163,
-      "words": 601,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -114669,20 +114015,6 @@
         "text"
       ],
       "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-observability",
-      "description": "'Set up observability for Claude API integrations with metrics, logging,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-observability/SKILL.md",
-      "remote_path": "skills/.curated/anth-observability/SKILL.md",
-      "lines": 173,
-      "words": 740,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -120660,20 +119992,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-reference-architecture",
-      "description": "'Implement Claude API reference architectures for common use cases.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-reference-architecture/SKILL.md",
-      "remote_path": "skills/.curated/anth-reference-architecture/SKILL.md",
-      "lines": 197,
-      "words": 787,
-      "code_blocks": 7,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "clickhouse-debug-bundle",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clickhouse-debug-bundle/SKILL.md",
@@ -122800,22 +122118,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-common-errors",
-      "description": "'Diagnose and fix Anthropic Claude API errors by HTTP status code.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-common-errors/SKILL.md",
-      "remote_path": "skills/.curated/anth-common-errors/SKILL.md",
-      "lines": 167,
-      "words": 945,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "json",
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "supabase-security-basics",
       "description": "'Apply Supabase security best practices: anon vs service_role key separation,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/supabase-security-basics/SKILL.md",
@@ -123747,20 +123049,6 @@
         "text"
       ],
       "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-enterprise-rbac",
-      "description": "'Configure Anthropic enterprise organization management, Workspaces,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-enterprise-rbac/SKILL.md",
-      "remote_path": "skills/.curated/anth-enterprise-rbac/SKILL.md",
-      "lines": 148,
-      "words": 753,
-      "code_blocks": 2,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -125185,21 +124473,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-performance-tuning",
-      "description": "'Optimize Claude API performance with prompt caching, model selection,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-performance-tuning/SKILL.md",
-      "remote_path": "skills/.curated/anth-performance-tuning/SKILL.md",
-      "lines": 197,
-      "words": 952,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "finta-reference-architecture",
       "description": "'Reference architecture for fundraising operations with Finta CRM.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/finta-reference-architecture/SKILL.md",
@@ -125264,21 +124537,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-hello-world",
-      "description": "'Create a minimal working Anthropic Claude Messages API example.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-hello-world/SKILL.md",
-      "remote_path": "skills/.curated/anth-hello-world/SKILL.md",
-      "lines": 162,
-      "words": 615,
-      "code_blocks": 3,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -125788,21 +125046,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-multi-env-setup",
-      "description": "'Configure Claude API across dev, staging, and production environments",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-multi-env-setup/SKILL.md",
-      "remote_path": "skills/.curated/anth-multi-env-setup/SKILL.md",
-      "lines": 169,
-      "words": 633,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -126975,22 +126218,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-incident-runbook",
-      "description": "'Execute incident response procedures for Claude API outages and degradation.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-incident-runbook/SKILL.md",
-      "remote_path": "skills/.curated/anth-incident-runbook/SKILL.md",
-      "lines": 168,
-      "words": 889,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "markdown",
-        "python"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -128538,20 +127765,6 @@
         "typescript"
       ],
       "version": "2.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-policy-guardrails",
-      "description": "'Implement content policy guardrails, input/output validation,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-policy-guardrails/SKILL.md",
-      "remote_path": "skills/.curated/anth-policy-guardrails/SKILL.md",
-      "lines": 198,
-      "words": 918,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -130213,20 +129426,6 @@
         "typescript"
       ],
       "version": "1.51.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-webhooks-events",
-      "description": "'Implement event-driven patterns with Claude API: streaming SSE events,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-webhooks-events/SKILL.md",
-      "remote_path": "skills/.curated/anth-webhooks-events/SKILL.md",
-      "lines": 177,
-      "words": 784,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -132261,20 +131460,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-reliability-patterns",
-      "description": "'Implement reliability patterns for Claude API: circuit breakers,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-reliability-patterns/SKILL.md",
-      "remote_path": "skills/.curated/anth-reliability-patterns/SKILL.md",
-      "lines": 205,
-      "words": 895,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "twinmind-incident-runbook",
       "description": "'Incident response for TwinMind failures: transcription not starting,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/twinmind-incident-runbook/SKILL.md",
@@ -133339,20 +132524,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-prod-checklist",
-      "description": "'Execute production deployment checklist for Claude API integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-prod-checklist/SKILL.md",
-      "remote_path": "skills/.curated/anth-prod-checklist/SKILL.md",
-      "lines": 175,
-      "words": 924,
-      "code_blocks": 2,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "navan-data-handling",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/navan-data-handling/SKILL.md",
@@ -133605,22 +132776,6 @@
       "code_blocks": 2,
       "languages": [
         "sql"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-upgrade-migration",
-      "description": "'Upgrade Anthropic SDK versions and migrate between Claude API versions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-upgrade-migration/SKILL.md",
-      "remote_path": "skills/.curated/anth-upgrade-migration/SKILL.md",
-      "lines": 207,
-      "words": 866,
-      "code_blocks": 9,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
       ],
       "version": "1.7.0",
       "license": "MIT"
@@ -136540,23 +135695,6 @@
       "license": "MIT"
     },
     {
-      "name": "anth-deploy-integration",
-      "description": "'Deploy Claude API integrations to production cloud environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-deploy-integration/SKILL.md",
-      "remote_path": "skills/.curated/anth-deploy-integration/SKILL.md",
-      "lines": 145,
-      "words": 619,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "python",
-        "yaml"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
       "name": "figma-install-auth",
       "description": "'Set up Figma REST API authentication with personal access tokens or",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/figma-install-auth/SKILL.md",
@@ -136581,20 +135719,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.27.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-core-workflow-a",
-      "description": "'Build Claude tool use (function calling) workflows with the Messages",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-core-workflow-a/SKILL.md",
-      "remote_path": "skills/.curated/anth-core-workflow-a/SKILL.md",
-      "lines": 222,
-      "words": 799,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -136649,20 +135773,6 @@
       "code_blocks": 2,
       "languages": [
         "typescript"
-      ],
-      "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-cost-tuning",
-      "description": "'Optimize Anthropic Claude API costs with model routing, prompt caching,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/anth-cost-tuning/SKILL.md",
-      "lines": 204,
-      "words": 1014,
-      "code_blocks": 5,
-      "languages": [
-        "python"
       ],
       "version": "1.7.0",
       "license": "MIT"
@@ -138961,23 +138071,6 @@
         "yaml"
       ],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "anth-local-dev-loop",
-      "description": "'Configure a local development workflow for Anthropic Claude API projects.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-local-dev-loop/SKILL.md",
-      "remote_path": "skills/.curated/anth-local-dev-loop/SKILL.md",
-      "lines": 177,
-      "words": 675,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "python",
-        "text",
-        "typescript"
-      ],
-      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -147864,8 +146957,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 242,
-      "words": 2029,
+      "lines": 278,
+      "words": 2396,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -148174,7 +147267,7 @@
       "path": "daymade--claude-code-skills/data-visualization-discipline/SKILL.md",
       "remote_path": "data-visualization-discipline/SKILL.md",
       "lines": 749,
-      "words": 2839,
+      "words": 2841,
       "code_blocks": 1,
       "languages": []
     },
@@ -148195,8 +147288,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 620,
-      "words": 4793,
+      "lines": 628,
+      "words": 4834,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -148243,8 +147336,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 957,
-      "words": 3441,
+      "lines": 961,
+      "words": 3445,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -148521,8 +147614,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/references/automatic-snapshots.md",
       "remote_path": "ghostty-use/references/automatic-snapshots.md",
-      "lines": 145,
-      "words": 1141,
+      "lines": 152,
+      "words": 1211,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -148560,8 +147653,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 207,
-      "words": 2938,
+      "lines": 241,
+      "words": 3208,
       "code_blocks": 0,
       "languages": []
     },
@@ -148606,8 +147699,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/references/native-job-readback.md",
       "remote_path": "daymade-macos/macos-watchdog/references/native-job-readback.md",
-      "lines": 130,
-      "words": 1085,
+      "lines": 131,
+      "words": 1072,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -148628,8 +147721,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/references/event-driven-observers.md",
       "remote_path": "daymade-macos/macos-watchdog/references/event-driven-observers.md",
-      "lines": 234,
-      "words": 1877,
+      "lines": 237,
+      "words": 1896,
       "code_blocks": 0,
       "languages": []
     },
@@ -148831,9 +147924,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 344,
-      "words": 2982,
-      "code_blocks": 9,
+      "lines": 397,
+      "words": 3470,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "sql",
@@ -148921,8 +148014,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 534,
-      "words": 5649,
+      "lines": 551,
+      "words": 5771,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -149268,8 +148361,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/references/implementation-and-acceptance.md",
       "remote_path": "app-evolver/references/implementation-and-acceptance.md",
-      "lines": 218,
-      "words": 1827,
+      "lines": 237,
+      "words": 2022,
       "code_blocks": 0,
       "languages": []
     },
@@ -149390,8 +148483,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/data-visualization-discipline/references/operational-state-matrix.md",
       "remote_path": "data-visualization-discipline/references/operational-state-matrix.md",
-      "lines": 53,
-      "words": 169,
+      "lines": 59,
+      "words": 210,
       "code_blocks": 0,
       "languages": []
     },
@@ -149920,9 +149013,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/references/local-coordination.md",
       "remote_path": "peer-message/references/local-coordination.md",
-      "lines": 228,
-      "words": 598,
-      "code_blocks": 11,
+      "lines": 242,
+      "words": 656,
+      "code_blocks": 12,
       "languages": [
         "bash"
       ]
@@ -169364,16 +168457,6 @@
       "languages": []
     },
     {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
-      "languages": []
-    },
-    {
       "name": "browser-mate",
       "description": "Use when automating a real, logged-in Chrome WITHOUT disturbing the user's open tabs \u2014 e.g. authenticated sessions like ChatGPT, LinkedIn, or any site needing a persistent login. Launches or reuses a ",
       "path": "glebis--claude-skills/browser-mate/SKILL.md",
@@ -170820,8 +169903,8 @@
       "description": "Structured spec-driven development workflow. Load this skill whenever starting a new feature, building a system from scratch, requirements are unclear, or a user asks to \"plan\", \"spec out\", \"design\", ",
       "path": "shaunburdick--skills/skills/spec-driven-development/SKILL.md",
       "remote_path": "skills/spec-driven-development/SKILL.md",
-      "lines": 306,
-      "words": 2385,
+      "lines": 311,
+      "words": 2433,
       "code_blocks": 3,
       "languages": [
         "bash",

@@ -4,7 +4,7 @@ description: Structured spec-driven development workflow. Load this skill whenev
 license: MIT
 metadata:
   author: shaunburdick
-  version: "2.9.0"
+  version: "2.9.1"
 ---
 
 # Spec-Driven Development
@@ -57,7 +57,7 @@ project/
 
 | Lane | Condition | Artifacts |
 |---|---|---|
-| **Small** | All three checks below pass | Two-paragraph note in the PR body (or the commit body when there is no PR). No spec, no plan, no tasks, no gates. |
+| **Small** | All three checks below pass | Two-paragraph note in the PR body (or the commit body when there is no PR). No spec, no plan, no tasks, no full gates; one conformance check against the acceptance criteria. |
 | **Full** | Any one check fails | Phases 1–6. |
 
 The gate asks one question: **are there decisions here that must be agreed before
@@ -89,13 +89,18 @@ of the task. If implementation surfaces a decision you were not authorised to
 make — an undefined case, an ambiguous requirement, a third-party behaviour you
 had assumed — stop and escalate to Full rather than quietly picking a default.
 
-The Small lane skips artifacts, not judgement. Two rules apply in **both**
-lanes because each costs one command and each prevents a rewrite:
+The Small lane skips artifacts, not judgement. These rules apply in **both**
+lanes:
 
 - **Premise check** — verify claims about third-party behaviour before building
   on them (see [Premise check](#premise-check-mandatory-for-any-external-api)).
 - **Triage** — if the change belongs to an existing spec, amend it; do not
   create a parallel one (see [Phase 2](#triage-existing-specs-first)).
+- **Executable criteria** — write each acceptance criterion as a command and
+  its expected output wherever the change allows (a test, a grep, a diff). A
+  prose criterion ("output is byte-identical", "at least five rows") is what
+  turns a cheap conformance check into a long adjudication; rewrite it before
+  dispatch.
 
 ---
 

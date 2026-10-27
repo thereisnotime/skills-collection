@@ -5,8 +5,8 @@ Current versions of all skills. Agents can compare against local versions to che
 | Skill | Version | Last Updated |
 |-------|---------|--------------|
 | ab-testing | 2.0.2 | 2026-10-12 |
-| ad-creative | 2.12.1 | 2026-10-15 |
-| ai-seo | 2.10.1 | 2026-10-19 |
+| ad-creative | 2.12.2 | 2026-10-26 |
+| ai-seo | 2.11.0 | 2026-10-26 |
 | analytics | 2.2.1 | 2026-10-19 |
 | aso | 2.0.2 | 2026-10-08 |
 | attribution | 1.1.6 | 2026-10-19 |
@@ -17,12 +17,12 @@ Current versions of all skills. Agents can compare against local versions to che
 | competitor-profiling | 2.1.4 | 2026-10-15 |
 | competitors | 2.3.0 | 2026-10-01 |
 | content-strategy | 2.1.4 | 2026-10-15 |
-| conversion-tracking | 1.0.0 | 2026-10-19 |
+| conversion-tracking | 1.0.1 | 2026-10-19 |
 | copy-editing | 2.2.0 | 2026-10-15 |
 | copywriting | 2.3.1 | 2026-10-15 |
 | cro | 2.0.3 | 2026-10-08 |
 | customer-research | 2.0.4 | 2026-10-02 |
-| directory-submissions | 2.1.2 | 2026-10-15 |
+| directory-submissions | 2.1.3 | 2026-10-26 |
 | emails | 2.1.4 | 2026-10-15 |
 | events | 1.0.0 | 2026-08-23 |
 | free-tools | 2.0.3 | 2026-10-15 |
@@ -38,13 +38,13 @@ Current versions of all skills. Agents can compare against local versions to che
 | marketing-psychology | 2.0.0 | 2026-05-05 |
 | offers | 1.0.2 | 2026-10-12 |
 | onboarding | 2.0.2 | 2026-10-12 |
-| ads | 2.6.2 | 2026-10-19 |
-| paywalls | 2.0.0 | 2026-05-05 |
+| ads | 2.7.0 | 2026-10-26 |
+| paywalls | 2.1.0 | 2026-10-26 |
 | popups | 2.0.0 | 2026-05-05 |
 | pricing | 2.1.4 | 2026-10-12 |
 | product-marketing | 2.2.0 | 2026-10-15 |
 | programmatic-seo | 2.1.0 | 2026-10-06 |
-| prospecting | 1.3.0 | 2026-10-08 |
+| prospecting | 1.4.0 | 2026-10-26 |
 | public-relations | 1.2.1 | 2026-10-15 |
 | referrals | 2.2.1 | 2026-10-12 |
 | revops | 2.2.1 | 2026-10-12 |
@@ -55,9 +55,38 @@ Current versions of all skills. Agents can compare against local versions to che
 | site-architecture | 2.1.0 | 2026-10-06 |
 | sms | 1.1.0 | 2026-10-02 |
 | social | 2.4.0 | 2026-10-14 |
-| video | 2.2.1 | 2026-10-02 |
+| video | 2.3.0 | 2026-10-26 |
 
 ## Recent Changes
+
+### 2.13.5 (2026-10-26)
+
+- **paywalls** (2.0.0 → 2.1.0): new `references/mobile-subscription-paywalls.md` for consumer iOS/Android subscription apps: the paywall after onboarding's first personalized result, hard paywall vs. freemium (RevenueCat 2026 data), yearly-first plan presentation, trials with reminders and trial length as a test, one abandon offer, dated store fees (Apple Small Business Program; Google Play's June 2026 10% + 5% split, with the 10% applying to web links; the US link-out commission still in court), the web-to-app funnel, revenue per download, and an App Store review checklist. New description triggers for mobile and subscription-app paywalls. Adapted from Blake Anderson's ai-app-playbook (MIT); his "best and cheapest" stack verdicts were left out.
+
+### 2.13.4 (2026-10-26)
+
+Learnings from a batch of October 2026 posts, verified before inclusion:
+
+- **ads** (2.6.2 → 2.7.0): the Meta playbook adds **ad sequencing**: why order matters to Meta's ranking model, the narrow auction setup (Awareness or Engagement objective, target frequency, lifetime budget of 7+ days, 2+ ads), sizing a sequence to the flight, and the cost trade-off. The creative-research reference adds a **persistent competitor ad tracker** (weekly pulls from the Meta, Google and LinkedIn ad libraries, vision tagging, diffs, gap questions), with a caveat that ad longevity is a proxy, not proof. The Google Search playbook covers **AI Max** under the same gate as broad match. Sources: Cody Schneider, Jon Loomer, Meta Engineering.
+- **ai-seo** (2.10.2 → 2.11.0): the prompt-portfolio reference adds scoring by **buying topic** and a fix-before-create sequence (Jam's AI search audit). Platform notes add Bing Webmaster Tools' **AI Performance report and grounding queries**, and Brave's submit-url page with its limits. Agent readiness adds Fern's Agent Score for developer docs.
+- **prospecting** (1.3.0 → 1.4.0): signal plays adds **warm paths**: mining your own network (LinkedIn export, calendar, inbox), matching it to target accounts, paid connectors per vertical, and double opt-in intros (Cody Schneider's podcast with Super Connector).
+- **video** (2.2.2 → 2.3.0): adds a **personalized video per account** workflow (component library, motion primitives, demo-flow menu, render engine, automated QA, tracker), adapted from Harvey's write-up. Drops the "recommended" label on HeyGen.
+- **directory-submissions** (2.1.2 → 2.1.3): the Notion entry now reflects the Notion Marketplace's requirements (public connection with the "Any workspace" scope, which can't be changed later, plus a review that includes security).
+
+Not incorporated: duplicating Shopping products to test images and landing pages (third-party sources call it a Shopping policy violation), agency spend anecdotes, and an unverified 50-site launch list.
+
+### 2.13.3 (2026-10-26)
+
+- **video** (2.2.1 → 2.2.2) and the **Hyperframes integration guide**: the Hyperframes vs Remotion comparison now sticks to facts that don't drift (HTML vs React authoring, and how each times animation) and points to each project's docs for rendering, licensing, and features. Removed the unsupported "more powerful than Hyperframes" line (flagged by a HyperFrames maintainer), the "recommended for agents" label, and the stale cloud-rendering, license-tier, and ecosystem rows.
+- **ad-creative** (2.12.1 → 2.12.2): code-based video ads no longer call Remotion "the best option". The section, decision tree, cost table, and workflows now name code-based video (Remotion or Hyperframes), point to the `video` skill for choosing between them, and drop the stale license-tier pricing line. The video, image, and voice decision trees now list tools as "options include" by need instead of single picks or "best quality" rankings, and the cost table is marked as rough estimates to verify.
+
+### 2.13.2 (2026-10-26)
+
+- **ai-seo** (2.10.1 → 2.10.2): agent-readiness reference adds the AgentReady open standard (agentready.org, led by Ora): find → read → act ordering, MUST/SHOULD/MAY practice IDs to cite in audits, and Ora's study figures (3.7× more fact-free answers when agents can't read the site, 1.9× recommendation rate, 60% vs 37% pricing accuracy) labeled as vendor research. Adds WAF-as-separate-gate, 429 + Retry-After over challenge pages, linking discovery files, the AI Catalog, visible-text facts over JSON-LD-only, and the act tier (MCP server or CLI, finishable auth, OpenAPI). Markdown mirrors downgraded to MAY since format didn't change task success. robots.txt guidance (reference and SKILL.md) now defaults to a wildcard allow with named groups only for deliberate exceptions.
+
+### 2.13.1 (2026-10-19)
+
+- **conversion-tracking** (1.0.0 → 1.0.1): an ad-platform setup now reaches the delivery decision when the user mentions ad blockers, iOS or ATT signal loss, or conversions the platform is missing or under-reporting, and walks through the options in `references/server-side.md`, free and native paths first. A narrower version of the "every ad-platform setup reaches the delivery decision" change dropped from 2.13.0. Names no vendor.
 
 ### 2.13.0 (2026-10-19)
 

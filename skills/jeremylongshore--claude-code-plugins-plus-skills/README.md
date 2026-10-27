@@ -12,8 +12,8 @@ Intent Solutions is a Claude Partner Network Select Services Partner.
 
 [![Release](https://img.shields.io/badge/release-v4.33.0-green)](https://github.com/jeremylongshore/tons-of-skills-marketplace/releases/latest)
 [![CLI](https://img.shields.io/badge/CLI-ccpi-blueviolet?logo=npm)](https://www.npmjs.com/package/@intentsolutionsio/ccpi)
-[![Plugins](https://img.shields.io/badge/plugins-429-blue)](https://tonsofskills.com/explore)
-[![Skills](https://img.shields.io/badge/skills-2743-green)](https://tonsofskills.com/skills)
+[![Plugins](https://img.shields.io/badge/plugins-428-blue)](https://tonsofskills.com/explore)
+[![Skills](https://img.shields.io/badge/skills-2713-green)](https://tonsofskills.com/skills)
 [![GitHub Stars](https://img.shields.io/github/stars/jeremylongshore/tons-of-skills-marketplace?style=social)](https://github.com/jeremylongshore/tons-of-skills-marketplace)
 [![skills.sh](https://skills.sh/b/jeremylongshore/tons-of-skills-marketplace)](https://skills.sh/jeremylongshore/tons-of-skills-marketplace)
 [![Sponsor: Kobiton](https://img.shields.io/badge/Sponsor-kobiton.com-0487D9)](https://kobiton.com)
@@ -62,8 +62,8 @@ Every number below names the cohort it counts and the command that reproduces it
 
 | Count | Cohort                                 | Reproduce with                                                                                                          |
 | ----: | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-|   429 | catalog plugins (catalog-entry cohort) | `node scripts/generate-readme-toc.mjs` over `marketplace.extended.json`                                                 |
-| 2,743 | marketplace-visible skills (distinct)  | `node -e "import('./scripts/corpus-resolver.mjs').then(m=>console.log(m.resolveCorpus('marketplace-visible').length))"` |
+|   428 | catalog plugins (catalog-entry cohort) | `node scripts/generate-readme-toc.mjs` over `marketplace.extended.json`                                                 |
+| 2,713 | marketplace-visible skills (distinct)  | `node -e "import('./scripts/corpus-resolver.mjs').then(m=>console.log(m.resolveCorpus('marketplace-visible').length))"` |
 |   352 | agent definitions in plugins           | `git ls-files 'plugins/**' \| grep '/agents/.*\.md'`                                                                    |
 |    19 | plugin categories                      | `ls -d plugins/*/`                                                                                                      |
 
@@ -98,7 +98,7 @@ Across **382 published packages** in the [claude-code-plugins](https://www.npmjs
 | 9   | [`@intentsolutionsio/clickhouse-pack`](https://www.npmjs.com/package/@intentsolutionsio/clickhouse-pack)                 |      180 |
 | 10  | [`@intentsolutionsio/jeremy-adk-orchestrator`](https://www.npmjs.com/package/@intentsolutionsio/jeremy-adk-orchestrator) |      164 |
 
-<sub>Last refreshed 2026-10-24T22:48:11.785Z.</sub>
+<sub>Last refreshed 2026-10-26T05:20:04.592Z.</sub>
 
 <!-- NPM-STATS:END -->
 
@@ -134,7 +134,7 @@ The 19 categories below link into the live marketplace. Plugin counts are the ca
 | 📦  | [Packages](https://tonsofskills.com/plugins#packages)               |       5 |
 | ⚡  | [Performance](https://tonsofskills.com/plugins#performance)         |      25 |
 | ✅  | [Productivity](https://tonsofskills.com/plugins#productivity)       |      28 |
-| 🎁  | [SaaS Skill Packs](https://tonsofskills.com/plugins#saas-packs)     |      97 |
+| 🎁  | [SaaS Skill Packs](https://tonsofskills.com/plugins#saas-packs)     |      96 |
 | 🔐  | [Security](https://tonsofskills.com/plugins#security)               |      28 |
 | ✨  | [Skill Enhancers](https://tonsofskills.com/plugins#skill-enhancers) |      10 |
 | 🧪  | [Testing](https://tonsofskills.com/plugins#testing)                 |      28 |

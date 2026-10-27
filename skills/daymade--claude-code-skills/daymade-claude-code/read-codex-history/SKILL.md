@@ -14,6 +14,23 @@ Read Codex evidence only. Do not continue the old task or change its project. If
 the user wants execution after the read is complete, pass the verified evidence
 to `daymade-claude-code:continue-codex-work`.
 
+## Find a complete thread ID first
+
+For a pasted UUID prefix or an identity-only request, run this bounded lookup:
+
+```text
+python3 <skill-dir>/scripts/find_codex_session.py <UUID-prefix>
+```
+
+Accept only exit 0 with `status: unique` and `identity_verified: true`. The command
+queries matching state-index rows, includes archived/subagent entries, and verifies
+the unique candidate with the exact rollout locator. It does not export unrelated
+inventory, read conversation bodies, or probe writer locks. On ambiguity, show the
+returned candidates and ask for a longer prefix; on unavailable evidence, retain
+unknown. Return the verified ID and title, then stop. Load the rest of this Skill
+only for an additional requested result. Read [lookup and JSON contracts](references/session-lookup.md)
+only for exit handling, programmatic consumption or inventory JSON parsing.
+
 ## Codex history surfaces
 
 | Surface | Authority | Use |
@@ -71,8 +88,8 @@ Pitfalls measured 2026-10-03:
   Write boundaries as UTC literals (local wall time minus your offset) instead.
 
 Read [references/storage_and_portability.md](references/storage_and_portability.md)
-for source discovery, timestamps, writer-lock semantics, legacy Kimi compatibility,
-and storage failures. Read
+when inventory reports unsupported, missing or ambiguous storage, or when interpreting
+timestamps, writer locks or legacy Kimi storage. Read
 [references/codex_rollout_format.md](references/codex_rollout_format.md) before
 interpreting fork snapshots, compaction, event streams, or end reasons.
 
@@ -80,6 +97,7 @@ interpreting fork snapshots, compaction, event streams, or end reasons.
 
 | User wants | Use |
 |---|---|
+| Complete thread ID from a UUID prefix, without conversation reconstruction | `scripts/find_codex_session.py <UUID-prefix>`; stop after verified identity |
 | Recent Codex sessions, titles, IDs, or positive writer-lock evidence | `scripts/list_local_history.py --source codex --index-only`; an unavailable index leaves inventory unknown |
 | Find the Session containing a pasted quote, with a known project, date, or title clue | **Locate a quoted exchange** below: inventory candidates, then verify the original messages |
 | Exact recent user inputs from newest to oldest, grouped by Session | `scripts/list_codex_user_inputs.py` |
@@ -247,6 +265,41 @@ Expected output reports `identity`, `records_examined`, `matched_records`, sourc
 coordinates, and `truncated: false`. Missing requested ordinals fail visibly.
 Zero matches apply only to the reported scope. `--full` still governs prose
 briefing clipping; it does not turn a briefing into complete tool evidence.
+
+### Suspected termination evidence
+
+To investigate whether a recorded batch or controller was terminated, route into
+the recorded run's own evidence chain instead of a bare process search:
+
+1. Select the exact Session by identity, then read the original paired tool
+   records with `--tools`, pairing each result with `paired_call`. A literal
+   `--contains kill` returning zero matches cannot prove that no termination was
+   attempted: `--contains` filters literal substrings within the reported scope
+   only, and the recorded command may name signals without the word "kill".
+   A match in a path, quoted source or code edit is also not proof that a signal
+   was sent; inspect the actual operation and its paired result.
+2. The declared logical history expands root-to-selected ancestor records only.
+   Separate subagent/child threads and attachment bytes are not expanded, so a
+   child's termination evidence lives in the child's own records or its own run
+   receipt — not in the parent's logical history.
+3. Distinguish three facts that do not prove each other: a signal attempt
+   recorded in the controller's session, the child's actual exit (its own return
+   code or process evidence), and later UI or business cleanup. Establishing one
+   never establishes another.
+4. Follow the recorded runner: read its dispatch record's runner/script
+   fingerprint together with the run's retained summary (timeout, cancel, and
+   exit fields) and the versioned cleanup implementation of that recorded ref.
+   Preserve the original script version when current source differs; a bare
+   process-name or `kill` search cannot reconstruct this chain.
+5. Record the searched time bounds next to every conclusion. An observed symptom
+   time (or an approximate period such as "that afternoon") bounds the symptom,
+   not its cause: the causing controller action may fall in an earlier interval
+   the reader never searched. A filter that starts at a chosen cutoff silently
+   omits everything before it, so zero matches inside a filtered window is a
+   scoped miss — never global absence, and never a reason to sweep the raw
+   corpus. When evidence points earlier, widen only the already-selected task's
+   or candidates' window, state the corrected bounds, and re-read the same
+   records within them.
 
 ### Indexed content search
 

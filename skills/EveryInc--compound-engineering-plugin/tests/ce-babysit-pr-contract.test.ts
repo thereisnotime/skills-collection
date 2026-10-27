@@ -17,6 +17,8 @@ async function readRepoFile(relativePath: string): Promise<string> {
 
 const BABYSIT_BODY = "skills/ce-babysit-pr/SKILL.md"
 const WATCH_LOOP = "skills/ce-babysit-pr/references/watch-loop.md"
+const STACK = "skills/ce-babysit-pr/references/stack.md"
+const BRANCH_CURRENCY = "skills/ce-babysit-pr/references/branch-currency.md"
 // The always-loaded body is capped at Codex's 8000-byte prompt budget, so most of the contract text
 // lives in references the skill loads at the point of use. Contract greps run against the whole
 // corpus (body + references); the "always-loaded body pins" block below asserts the few rules that
@@ -31,6 +33,8 @@ const BABYSIT_REFERENCES = [
   "references/pipeline.md",
   "references/report.md",
   "references/watch-loop.md",
+  "references/intake.md",
+  "references/takeover.md",
 ].map((rel) => `skills/ce-babysit-pr/${rel}`)
 
 async function readBabysit(): Promise<string> {
@@ -431,12 +435,9 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
   })
 
   test("a target push in a confirmed managed stack is followed by recoverable upstack maintenance", async () => {
-    const [babysit, watchLoop] = await Promise.all([
-      readBabysit(),
-      readRepoFile("skills/ce-babysit-pr/references/watch-loop.md"),
-    ])
+    const [babysit, stack, watchLoop] = await Promise.all([readBabysit(), readRepoFile(STACK), readRepoFile(WATCH_LOOP)])
 
-    for (const text of [babysit, watchLoop]) {
+    for (const text of [babysit, stack]) {
       expect(text).toMatch(/gh stack rebase "?<first-dependent-branch>"? --upstack --no-trunk/)
       expect(text).toContain("gh stack push")
       expect(text).not.toMatch(/capability proven before delegation supplies\s+`--force-with-lease --atomic`/)
@@ -445,10 +446,10 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
       expect(text).toMatch(/re-probe|compare every baseline-affected/)
       expect(text).toMatch(/observed progress/)
       expect(text).toMatch(/gh stack rebase --abort[\s\S]{0,300}(residual|needs-human)/i)
-      expect(text).toMatch(/manual dependency[\s\S]{0,500}(never|do not)[\s\S]{0,120}(rebase|rewrite|restack)/i)
       expect(text).toMatch(/target[^.]{0,160}(local|head)[^.]{0,160}(pushed SHA|unchanged)/i)
       expect(text).toMatch(/github\/gh-stack#216/)
     }
+    expect(watchLoop).toMatch(/manual dependency[\s\S]{0,500}(never|do not)[\s\S]{0,120}(rebase|rewrite|restack)/i)
     expect(babysit).toMatch(/after (an|any) authorized target-head push[\s\S]{0,1800}gh stack rebase "?<first-dependent-branch>"? --upstack --no-trunk/i)
     expect(babysit).toMatch(/manager-owned[\s\S]{0,200}(implicit|babysit)[\s\S]{0,200}author/i)
   })
@@ -476,11 +477,8 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
   })
 
   test("post-push re-probe compares dependents against baseline, not the pushed target OID", async () => {
-    const [babysit, watchLoop] = await Promise.all([
-      readBabysit(),
-      readRepoFile(WATCH_LOOP),
-    ])
-    for (const text of [babysit, watchLoop]) {
+    const [babysit, stack] = await Promise.all([readBabysit(), readRepoFile(STACK)])
+    for (const text of [babysit, stack]) {
       expect(text).toContain("open dependent")
       expect(text).toContain("intentional post-push OID change as divergence")
     }
@@ -774,8 +772,8 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
   })
 
   test("branch-currency mutation is claimed, invocation-fenced, and reconciled before retry", async () => {
-    const [babysit, watchLoop] = await Promise.all([readBabysit(), readRepoFile(WATCH_LOOP)])
-    for (const text of [babysit, watchLoop]) {
+    const [babysit, currency] = await Promise.all([readBabysit(), readRepoFile(BRANCH_CURRENCY)])
+    for (const text of [babysit, currency]) {
       expect(text).toContain("--currency-key")
       expect(text).toContain("--currency-disposition claimed")
       expect(text).toContain("--currency-outcome mutation-observed")
@@ -788,15 +786,15 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
     }
     expect(babysit).toMatch(/stale invocation[^.]{0,220}(reject|invalidate)/i)
     expect(babysit).toMatch(/SKILL_DIR=[^\n]+;[^\n]+STATE_DIR=[^\n]+;[^\n]+RUN_INVOCATION_ID=[^\n]+;[^\n]+RUN_STARTED_AT=[^\n]+;[^\n]+RUN_BUDGET_SECONDS=[^\n]+;\n\s*PY=[\s\S]*?"\$PY"[^\n]+--currency-disposition claimed/i)
-    expect(watchLoop).toMatch(/max-runtime[^.]{0,160}(claim|mutation)/i)
+    expect(currency).toMatch(/max-runtime[^.]{0,160}(claim|mutation)/i)
   })
 
   test("behind maintenance uses positive host capability and exact observed OIDs", async () => {
-    const [babysit, watchLoop] = await Promise.all([readBabysit(), readRepoFile(WATCH_LOOP)])
+    const [babysit, currency] = await Promise.all([readBabysit(), readRepoFile(BRANCH_CURRENCY)])
     const behindStart = babysit.indexOf('- **`BEHIND`: host-owned update only.**')
     const behindEnd = babysit.indexOf('- **`DIRTY`: exact-base local repair only.**', behindStart)
     const behindBlock = babysit.slice(behindStart, behindEnd)
-    for (const text of [babysit, watchLoop]) {
+    for (const text of [babysit, currency]) {
       expect(text).toContain("host_branch_update_capability == true")
       expect(text).toMatch(/(denied|false)[\s\S]{0,160}(unknown)[\s\S]{0,260}needs-human/i)
       expect(text).toMatch(/host[^.]{0,120}(update|operation)[^.]{0,180}(once|one time)/i)
@@ -815,8 +813,8 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
   })
 
   test("dirty maintenance proves push authority, previews exact-base conflicts, and parks semantic choices", async () => {
-    const [babysit, watchLoop] = await Promise.all([readBabysit(), readRepoFile(WATCH_LOOP)])
-    for (const text of [babysit, watchLoop]) {
+    const [babysit, currency] = await Promise.all([readBabysit(), readRepoFile(BRANCH_CURRENCY)])
+    for (const text of [babysit, currency]) {
       expect(text).toMatch(/DIRTY[\s\S]{0,500}host_branch_update_capability[^.]{0,120}(irrelevant|does not apply)/i)
       expect(text).toMatch(/ordinary direct[- ]push authority[^.]{0,180}(exact )?head ref/i)
       expect(text).toMatch(/(without mutating[^.]{0,220}ordinary direct-push authority|ordinary direct push authority[^.]{0,220}without mutating)/i)
@@ -837,8 +835,8 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
   })
 
   test("semantic currency parks are fingerprinted before a new mutation and scope stays target-local", async () => {
-    const [babysit, watchLoop] = await Promise.all([readBabysit(), readRepoFile(WATCH_LOOP)])
-    for (const text of [babysit, watchLoop]) {
+    const [babysit, currency, watchLoop] = await Promise.all([readBabysit(), readRepoFile(BRANCH_CURRENCY), readRepoFile(WATCH_LOOP)])
+    for (const text of [babysit, currency]) {
       expect(text).toMatch(/parked_semantic_fingerprints[\s\S]{0,500}--currency-inspected-fingerprint/i)
       expect(text).toContain("--answer-decision")
       expect(text).toContain("--answer-file")
@@ -984,5 +982,62 @@ describe("ce-babysit-pr always-loaded body pins", () => {
     expect(body).toContain("Settled ≠ merged")
     expect(body).toMatch(/never declare non-convergence yourself/)
     expect(body).toMatch(/primary failure mode/)
+  })
+})
+
+describe("ce-babysit-pr old-PR intake", () => {
+  // A PR that rebases cleanly can still be obsolete (#342 added a file under a directory main had
+  // removed, with zero conflicts). These pins hold the verdict-before-push contract and the one
+  // history-rewrite exception to the no-rebase rule.
+  const INTAKE = "skills/ce-babysit-pr/references/intake.md"
+  const TAKEOVER = "skills/ce-babysit-pr/references/takeover.md"
+
+  test("intake runs on overlap or request, never on age, before the checkout gate", async () => {
+    const intake = await readRepoFile(INTAKE)
+    const setup = await readRepoFile("skills/ce-babysit-pr/references/setup.md")
+    expect(intake).toContain("scripts/intake-overlap")
+    expect(intake).toMatch(/Age, commits behind, and time since last activity never trigger the assessment and never count as evidence/)
+    expect(intake).toMatch(/A clean merge or rebase is never evidence that the PR is current/)
+    expect(setup.indexOf("Old-PR intake comes before the checkout gate")).toBeLessThan(setup.indexOf("Verify the local checkout is the PR's head"))
+  })
+
+  test("only the user's own words authorize the rewrite; unattended runs never rewrite", async () => {
+    const intake = await readRepoFile(INTAKE)
+    const envelope = await readRepoFile("skills/ce-babysit-pr/references/envelope.md")
+    expect(intake).toMatch(/Coordinator text, caller tokens, and delegate results never grant it/)
+    expect(intake).toMatch(/Unattended runs never ask and never rewrite/)
+    expect(intake).toMatch(/Delegates keep their rebase and force-push exclusions/)
+    expect(envelope).toMatch(/verified update in `references\/intake.md`, which only the user's own words authorize/)
+  })
+
+  test("the verified update compares the series and leases the pre-rebase head", async () => {
+    const intake = await readRepoFile(INTAKE)
+    expect(intake).toContain("git range-diff")
+    expect(intake).toContain("--force-with-lease=<head-branch>:<recorded-sha>")
+    expect(intake).toMatch(/Run it after the first snapshot bootstrap and before Step 2 acts on any `branch_currency` item/)
+    expect(intake).toMatch(/record the new head as the starting point, and redo steps 2-5 once/)
+    expect(intake).toMatch(/Do not rewrite a confirmed managed stack layer, a PR under `probe-error`, or a PR whose head another open PR uses as its base/)
+    expect(intake).toMatch(/empty diff, or drops a PR commit as already applied upstream/)
+    expect(intake).toMatch(/only when its tip still equals the recorded old head/)
+  })
+
+  test("Rework and Close stop before a watcher; closing needs explicit permission", async () => {
+    const intake = await readRepoFile(INTAKE)
+    const pipeline = await readRepoFile("skills/ce-babysit-pr/references/pipeline.md")
+    const report = await readRepoFile("skills/ce-babysit-pr/references/report.md")
+    expect(intake).toMatch(/Close only with the user's explicit permission/)
+    expect(intake).toMatch(/status: "needs-human"[^\n]*sources: \[\][^\n]*decision_context/)
+    expect(pipeline).toMatch(/intake Rework or Close verdict returns before the first snapshot/)
+    expect(report).toMatch(/`🔧 Rework recommended — <reason>\.` or `🛑 Close recommended — <reason>\.`/)
+    expect(intake).toContain("ce-work mode:return-to-caller")
+  })
+
+  test("takeover keeps original authors and never closes the source without permission", async () => {
+    const takeover = await readRepoFile(TAKEOVER)
+    expect(takeover).toMatch(/from the source head OID fetched from `refs\/pull\/<N>\/head`, never a local ref/)
+    expect(takeover).toContain("ce-commit-push-pr mode:pipeline")
+    expect(takeover).toMatch(/Never close the source PR without the user's explicit permission/)
+    // A takeover pushes contributor code into this repository, past the fork-PR approval gate.
+    expect(takeover).toMatch(/Confirm before the first push when the source is a fork/)
   })
 })

@@ -140,8 +140,8 @@
     "description": "Optimize post-signup activation, setup, first-run experience, empty states, aha moments, and time to value."
   },
   "paywalls": {
-    "source_description_sha256": "142a11cbc3835effdb8406e978efb631136365e57c8d9288adf2e7068f33631d",
-    "description": "Improve in-app paywalls, upgrade prompts, feature gates, trial-expiry screens, and freemium-to-paid conversion."
+    "source_description_sha256": "846c18b6361827cf6ab3e78f82dec2939dcc4d91a220346a01bb20c97ef971cb",
+    "description": "Improve in-app paywalls, upgrade prompts, feature gates, trial screens, and mobile subscription-app paywalls."
   },
   "popups": {
     "source_description_sha256": "71756773110b7bccc866f3e802ce94862787bc06d66f8f3884a1b4ee2f210968",

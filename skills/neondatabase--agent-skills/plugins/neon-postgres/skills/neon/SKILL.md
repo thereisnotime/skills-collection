@@ -55,7 +55,7 @@ For long agent or image streams, mint a JWT on the app server and have the clien
 
 **Second best: client-only app with a Functions backend.** Host the SPA on Vercel (or Netlify, Cloudflare, or other app platforms) and call Functions from the browser. For an app using PostgREST or a `supabase-js` database client, prefer migrating database calls to REST endpoints in a Hono Function that queries Lakebase Postgres. Enforce authorization in the Function instead of relying on browser-facing RLS.
 
-Neon provides backend primitives that compose with the app host. Neon does not host the frontend.
+**Small static pages: a `public_read` bucket.** Neon provides backend primitives that compose with a frontend hosting provider like Vercel (or Netlify, Cloudflare, etc.), which ships static hosting and a CDN. Use one for any app frontend. For prototypes and small pages that ship with a Neon backend, a `public_read` Object Storage bucket is enough: Swagger UI, Mastra Studio, OAuth verification screens, sign-in pages for Neon Auth, and personal software. The bucket serves each object at its URL with the `Content-Type` set on upload. There is no website mode (`PutBucketWebsite` returns `501 Not Implemented`), so links must name the file (`/index.html`), and there are no SPA fallbacks or custom domains. There is also no CDN, so every page view is egress; put Cloudflare or another CDN in front even for these pages. See the `neon-object-storage` skill for bucket setup.
 
 Offer the Data API only as a Supabase / PostgREST migration path when an existing PostgREST or `supabase-js` database client must keep working. Putting PostgREST in the browser and relying on RLS is easy to get wrong: misconfigured policies expose the database to the client. Do not recommend this for new apps. An installed Supabase package used only for Auth or Storage does not establish a database-client dependency. Route generic REST endpoint requests to a Function or existing app handler.
 
@@ -166,9 +166,20 @@ If the Neon CLI is not available, you can visit https://neon.com/.well-known/age
 
 ### Updating Skills
 
-Keep the skills up to date: for every new session, update them so you are working with the latest best practices.
+Keep the skills up to date: for every new session, check them and update the stale ones so you are working with the latest best practices.
 
-Run `neon skills update` to update all installed Neon skills, or `neon skills update -y` to skip prompts. If the skills were installed via a plugin, they are updated automatically.
+Run `neon skills status` (neon 8.12.0 or newer) to check the Neon skills in this directory's `skills-lock.json`, or `neon skills status --global` for user-level skills. It lists each skill as `up to date`, `outdated`, or `not found upstream`, and prints the update command when any are outdated. It exits 0 either way, so read the Status column:
+
+```
+$ neon skills status
+Skills
+Scope           Skill          Status
+this directory  neon           outdated
+this directory  neon-postgres  up to date
+Update them: neon skills update -y
+```
+
+Run `neon skills update` to update all installed Neon skills, or `neon skills update -y` to skip prompts. Add `--global` for user-level skills. If the skills were installed via a plugin, they are updated automatically.
 
 ## Getting Started with Neon
 
