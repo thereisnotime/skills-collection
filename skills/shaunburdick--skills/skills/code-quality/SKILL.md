@@ -4,7 +4,7 @@ description: "Enforces non-negotiable code quality standards for AI coding agent
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.6.0"
+  version: "1.6.1"
 ---
 
 # Code Quality Standards
@@ -79,7 +79,7 @@ Weak types are deferred bugs. Use the type system fully in whatever language you
 **Python:**
 - ❌ No untyped function signatures — annotate all parameters and return types
 - ✅ Use `TypedDict`, `dataclass`, or `pydantic` models for structured data
-- ✅ Use `Any` from `typing` only as a last resort with a comment explaining why
+- ✅ Use `Any` from `typing` only as a last resort, with a comment saying why the type cannot be narrower
 
 ## Tooling Discipline
 
@@ -122,10 +122,10 @@ behaviour): [references/test-review.md](references/test-review.md).
 A task isn't done until it's ready to commit. Run through this once before every commit:
 
 **Code correctness:**
-- [ ] Comments explain **why**, never **what**. A comment that restates the
-      next line of code is deletion-worthy; delete it. Document the non-obvious
-      invariant, the rejected alternative, the reasoning a reader would
-      otherwise have to re-derive — not the signature.
+- [ ] Default to no comment. Add one only where the next person would break
+      the line without it, stating the invariant the code cannot show. Why you
+      chose this, what you rejected, and which requirement it meets go in the
+      commit message, not the code.
 - [ ] Any new test fails without the source change (see *Tests — the one rule*)
 - [ ] Code passes all linting rules — **zero suppressions in any language**
 - [ ] Type safety fully enforced — **no `any` / untyped signatures**

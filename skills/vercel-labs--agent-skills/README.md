@@ -157,39 +157,16 @@ React composition patterns that scale. Helps avoid boolean prop proliferation th
 - Composing internals for flexibility
 - Avoiding prop drilling
 
-### vercel-deploy-claimable
+### deploy-to-vercel
 
-Deploy applications and websites to Vercel instantly. Designed for use with claude.ai and Claude Desktop to enable deployments directly from conversations. Deployments are "claimable" - users can transfer ownership to their own Vercel account.
+Deploy applications and websites to Vercel. Prefers git-push deploys on a linked project, falls back to the Vercel CLI, and uses `vercel deploy --temporary` when no login is available. Temporary deployments return a claim URL so users can keep them.
 
 **Use when:**
 
 - "Deploy my app"
-- "Deploy this to production"
 - "Push this live"
 - "Deploy and give me the link"
-
-**Features:**
-
-- Auto-detects 40+ frameworks from `package.json`
-- Returns preview URL (live site) and claim URL (transfer ownership)
-- Handles static HTML projects automatically
-- Excludes `node_modules` and `.git` from uploads
-
-**How it works:**
-
-1. Packages your project into a tarball
-2. Detects framework (Next.js, Vite, Astro, etc.)
-3. Uploads to deployment service
-4. Returns preview URL and claim URL
-
-**Output:**
-
-```
-Deployment successful!
-
-Preview URL: https://skill-deploy-abc123.vercel.app
-Claim URL:   https://vercel.com/claim-deployment?code=...
-```
+- "Create a preview deployment"
 
 ## Installation
 

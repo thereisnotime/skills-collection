@@ -38,9 +38,10 @@ These are the minimum bars — not targets to aim for, but floors to never go be
 - **A test is a liability with a yield.** It earns its place only by failing when behaviour regresses and passing when only shape changes. A suite materially larger than the code it protects, or one that enumerates UI inventory (control counts, closed string sets, "byte-for-byte unchanged" lists), is a signal to delete — not an achievement.
 - **Linting**: Zero errors, zero warnings — no suppression comments ever
 - **Type safety**: Strict mode enabled, no `any` types without documented justification
-- **Documentation**: Public APIs document the non-obvious — the invariant they
-  uphold, the alternatives rejected. Comments explain why, not what; a comment
-  that restates the code is deleted
+- **Documentation**: Public APIs document the invariant they uphold. A comment
+  covers only a constraint someone would break by "fixing" the line; the
+  reasoning goes in the commit message. A comment that restates the code is
+  deleted
 - **Nothing is required per change.** No clause here demands an example, a
   test, a doc, or a schema for every change. Each is added when a reader or a
   check needs it, and the change says which

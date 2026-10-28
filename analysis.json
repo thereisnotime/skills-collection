@@ -107,10 +107,10 @@
       "go": 12,
       "mdc": 2,
       "png": 2,
+      "jsonc": 1,
       "cff": 1,
       "sh": 1,
-      "jsonc": 1,
-      "yaml": 1
+      "mod": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -186,10 +186,10 @@
       "ttf": 54,
       "txt": 42,
       "xml": 6,
-      "sh": 2,
       "json": 2,
+      "sh": 2,
       "pdf": 1,
-      "js": 1
+      "gz": 1
     },
     "has_license": false,
     "has_readme": true,
@@ -234,8 +234,8 @@
       "txt": 47,
       "xml": 6,
       "html": 3,
-      "mjs": 2,
       "sh": 2,
+      "mjs": 2,
       "json": 1
     },
     "has_license": false,
@@ -297,8 +297,8 @@
       "md": 23,
       "tex": 5,
       "pdf": 2,
-      "png": 2,
       "cls": 2,
+      "png": 2,
       "txt": 1,
       "py": 1
     },
@@ -356,7 +356,7 @@
       "ts": 9,
       "html": 8,
       "lock": 6,
-      "sh": 4
+      "ps1": 4
     },
     "has_license": true,
     "has_readme": true,
@@ -400,8 +400,8 @@
       "sh": 3,
       "ps1": 2,
       "txt": 1,
-      "json": 1,
-      "jpeg": 1
+      "jpeg": 1,
+      "json": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -444,8 +444,8 @@
       "yml": 3,
       "yaml": 2,
       "py": 2,
-      "lock": 1,
-      "mjs": 1
+      "mjs": 1,
+      "lock": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -480,8 +480,8 @@
     "total_size_mb": 0.22,
     "file_types": {
       "md": 37,
-      "tmpl": 1,
       "json": 1,
+      "tmpl": 1,
       "yml": 1
     },
     "has_license": true,
@@ -570,9 +570,9 @@
       "sh": 4,
       "asp": 4,
       "xml": 3,
-      "aspx": 2,
       "zip": 2,
-      "html": 1
+      "aspx": 2,
+      "swf": 1
     },
     "has_license": false,
     "has_readme": true,
@@ -617,10 +617,10 @@
       "log": 6,
       "txt": 5,
       "yml": 3,
-      "npy": 2,
       "lammps": 2,
+      "npy": 2,
       "toml": 1,
-      "cff": 1
+      "in": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -629,13 +629,13 @@
   "Imbad0202--academic-research-skills": {
     "description": "Academic Research Skills for Claude Code: research \u2192 write \u2192 review \u2192 revise \u2192 finalize",
     "skill_count": 68,
-    "skill_lines_total": 21834,
+    "skill_lines_total": 21837,
     "skill_lines_avg": 321,
     "skill_lines_min": 15,
     "skill_lines_max": 1503,
     "skill_lines_median": 299,
-    "skill_words_total": 222751,
-    "skill_words_avg": 3276,
+    "skill_words_total": 223045,
+    "skill_words_avg": 3280,
     "code_blocks_total": 291,
     "code_blocks_avg": 4.3,
     "code_languages": [
@@ -673,13 +673,13 @@
     ],
     "reference_files": 110,
     "eval_files": 5,
-    "test_files": 418,
-    "total_files": 2857,
-    "total_size_mb": 38.41,
+    "test_files": 419,
+    "total_files": 2859,
+    "total_size_mb": 38.42,
     "file_types": {
       "md": 1148,
       "json": 590,
-      "py": 478,
+      "py": 480,
       "log": 302,
       "yaml": 201,
       "txt": 36,
@@ -851,9 +851,9 @@
       "png": 2,
       "yaml": 1,
       "py": 1,
-      "lockb": 1,
+      "gif": 1,
       "yml": 1,
-      "gif": 1
+      "lockb": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -908,7 +908,7 @@
       "bib": 9,
       "json": 7,
       "js": 6,
-      "py": 5
+      "bst": 5
     },
     "has_license": true,
     "has_readme": true,
@@ -1215,7 +1215,7 @@
       "html": 2,
       "toml": 1,
       "txt": 1,
-      "png": 1
+      "svg": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1320,8 +1320,8 @@
       "job": 8,
       "json": 5,
       "yml": 2,
-      "yaml": 2,
       "pl": 2,
+      "yaml": 2,
       "txt": 1
     },
     "has_license": true,
@@ -1409,13 +1409,13 @@
   "cloudflare--skills": {
     "description": "Skills for teaching agents how to build on Cloudflare.",
     "skill_count": 19,
-    "skill_lines_total": 2221,
-    "skill_lines_avg": 117,
-    "skill_lines_min": 24,
-    "skill_lines_max": 337,
-    "skill_lines_median": 93,
-    "skill_words_total": 22259,
-    "skill_words_avg": 1172,
+    "skill_lines_total": 2301,
+    "skill_lines_avg": 121,
+    "skill_lines_min": 28,
+    "skill_lines_max": 341,
+    "skill_lines_median": 97,
+    "skill_words_total": 22809,
+    "skill_words_avg": 1200,
     "code_blocks_total": 40,
     "code_blocks_avg": 2.1,
     "code_languages": [
@@ -1435,19 +1435,19 @@
       "description",
       "name"
     ],
-    "reference_files": 38,
+    "reference_files": 57,
     "eval_files": 0,
     "test_files": 3,
-    "total_files": 237,
-    "total_size_mb": 0.71,
+    "total_files": 256,
+    "total_size_mb": 0.76,
     "file_types": {
-      "md": 214,
+      "md": 233,
       "json": 9,
       "sh": 4,
       "py": 2,
       "yml": 2,
-      "svg": 1,
       "png": 1,
+      "svg": 1,
       "mdc": 1
     },
     "has_license": true,
@@ -1480,9 +1480,9 @@
     "file_types": {
       "md": 3,
       "csv": 2,
+      "py": 1,
       "zip": 1,
-      "txt": 1,
-      "py": 1
+      "txt": 1
     },
     "has_license": false,
     "has_readme": true,
@@ -1577,13 +1577,13 @@
   "coreyhaines31--marketingskills": {
     "description": "Marketing skills for Claude Code and AI agents. CRO, copywriting, SEO, analytics, and growth engineering.",
     "skill_count": 52,
-    "skill_lines_total": 16295,
+    "skill_lines_total": 16298,
     "skill_lines_avg": 313,
     "skill_lines_min": 116,
     "skill_lines_max": 501,
     "skill_lines_median": 315,
-    "skill_words_total": 120542,
-    "skill_words_avg": 2318,
+    "skill_words_total": 120685,
+    "skill_words_avg": 2321,
     "code_blocks_total": 76,
     "code_blocks_avg": 1.5,
     "code_languages": [
@@ -1605,7 +1605,7 @@
     "eval_files": 54,
     "test_files": 157,
     "total_files": 771,
-    "total_size_mb": 5.72,
+    "total_size_mb": 5.74,
     "file_types": {
       "md": 418,
       "cjs": 136,
@@ -1613,8 +1613,8 @@
       "json": 92,
       "yml": 9,
       "py": 4,
-      "txt": 4,
       "fixture": 4,
+      "txt": 4,
       "sh": 3,
       "mjs": 2
     },
@@ -1655,9 +1655,9 @@
       "toml": 2,
       "yaml": 1,
       "jsonc": 1,
-      "sh": 1,
       "tape": 1,
-      "lock": 1
+      "sh": 1,
+      "gif": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1744,7 +1744,7 @@
       "png": 3,
       "yml": 3,
       "py": 2,
-      "js": 2
+      "mjs": 2
     },
     "has_license": true,
     "has_readme": true,
@@ -1780,8 +1780,8 @@
       "md": 21,
       "yml": 6,
       "sh": 4,
-      "yaml": 3,
       "json": 3,
+      "yaml": 3,
       "mjs": 1,
       "ps1": 1
     },
@@ -1833,8 +1833,8 @@
       "sh": 2,
       "go": 2,
       "py": 1,
-      "yaml": 1,
-      "yml": 1
+      "yml": 1,
+      "yaml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1875,8 +1875,8 @@
       "txt": 3,
       "yml": 3,
       "lock": 1,
-      "example": 1,
       "ps1": 1,
+      "example": 1,
       "gif": 1
     },
     "has_license": true,
@@ -1917,8 +1917,8 @@
       "png": 4,
       "pdf": 3,
       "js": 2,
-      "gif": 1,
-      "example": 1
+      "lock": 1,
+      "gif": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -2109,9 +2109,9 @@
       "html": 12,
       "json": 6,
       "sh": 3,
+      "gif": 1,
       "toml": 1,
-      "example": 1,
-      "gif": 1
+      "example": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -2180,7 +2180,7 @@
     "reference_files": 50,
     "eval_files": 1,
     "test_files": 4,
-    "total_files": 277,
+    "total_files": 276,
     "total_size_mb": 1.65,
     "file_types": {
       "diff": 139,
@@ -2294,8 +2294,8 @@
       "py": 6,
       "mjs": 4,
       "yaml": 2,
-      "yml": 2,
-      "png": 2
+      "png": 2,
+      "yml": 2
     },
     "has_license": true,
     "has_readme": true,
@@ -2543,8 +2543,8 @@
       "yml": 2,
       "toml": 1,
       "lock": 1,
-      "txt": 1,
-      "csv": 1
+      "csv": 1,
+      "txt": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -2582,8 +2582,8 @@
       "md": 5,
       "js": 4,
       "json": 3,
-      "pdf": 2,
       "css": 2,
+      "pdf": 2,
       "png": 2,
       "pptx": 1
     },
@@ -2716,13 +2716,13 @@
   "squirrelscan--skills": {
     "description": "Agent skills for squirrelscan website audit tool",
     "skill_count": 2,
-    "skill_lines_total": 522,
-    "skill_lines_avg": 261,
+    "skill_lines_total": 532,
+    "skill_lines_avg": 266,
     "skill_lines_min": 94,
-    "skill_lines_max": 428,
-    "skill_lines_median": 428,
-    "skill_words_total": 6053,
-    "skill_words_avg": 3026,
+    "skill_lines_max": 438,
+    "skill_lines_median": 438,
+    "skill_words_total": 6461,
+    "skill_words_avg": 3230,
     "code_blocks_total": 20,
     "code_blocks_avg": 10.0,
     "code_languages": [
@@ -2740,13 +2740,13 @@
     "eval_files": 0,
     "test_files": 0,
     "total_files": 29,
-    "total_size_mb": 0.1,
+    "total_size_mb": 0.11,
     "file_types": {
       "json": 10,
       "md": 7,
       "ts": 2,
-      "svg": 2,
       "png": 2,
+      "svg": 2,
       "yaml": 2,
       "yml": 1
     },
@@ -2880,14 +2880,14 @@
   "trailofbits--skills": {
     "description": "Trail of Bits Claude Code skills for security research, vulnerability detection, and audit workflows",
     "skill_count": 200,
-    "skill_lines_total": 33262,
+    "skill_lines_total": 33216,
     "skill_lines_avg": 166,
     "skill_lines_min": 14,
     "skill_lines_max": 794,
     "skill_lines_median": 103,
-    "skill_words_total": 207501,
-    "skill_words_avg": 1038,
-    "code_blocks_total": 914,
+    "skill_words_total": 207022,
+    "skill_words_avg": 1035,
+    "code_blocks_total": 913,
     "code_blocks_avg": 4.6,
     "code_languages": [
       "bash",
@@ -2962,8 +2962,8 @@
     "skill_lines_min": 323,
     "skill_lines_max": 323,
     "skill_lines_median": 323,
-    "skill_words_total": 2496,
-    "skill_words_avg": 2496,
+    "skill_words_total": 2515,
+    "skill_words_avg": 2515,
     "code_blocks_total": 10,
     "code_blocks_avg": 10.0,
     "code_languages": [
@@ -3028,15 +3028,15 @@
   "vercel-labs--agent-skills": {
     "description": "Vercel's official collection of agent skills",
     "skill_count": 9,
-    "skill_lines_total": 1749,
-    "skill_lines_avg": 194,
+    "skill_lines_total": 1683,
+    "skill_lines_avg": 187,
     "skill_lines_min": 40,
     "skill_lines_max": 354,
     "skill_lines_median": 150,
-    "skill_words_total": 9504,
-    "skill_words_avg": 1056,
-    "code_blocks_total": 89,
-    "code_blocks_avg": 9.9,
+    "skill_words_total": 9254,
+    "skill_words_avg": 1028,
+    "code_blocks_total": 83,
+    "code_blocks_avg": 9.2,
     "code_languages": [
       "bash",
       "jsx",
@@ -3051,17 +3051,16 @@
     "reference_files": 14,
     "eval_files": 0,
     "test_files": 71,
-    "total_files": 447,
-    "total_size_mb": 7.36,
+    "total_files": 444,
+    "total_size_mb": 7.31,
     "file_types": {
       "md": 210,
       "mjs": 156,
       "json": 58,
       "ts": 8,
-      "zip": 6,
-      "yml": 2,
+      "zip": 5,
       "txt": 2,
-      "sh": 2,
+      "yml": 2,
       "yaml": 1
     },
     "has_license": false,
@@ -3261,8 +3260,8 @@
       "py": 6,
       "sh": 3,
       "json": 2,
-      "runtime-template": 1,
-      "yml": 1
+      "yml": 1,
+      "runtime-template": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -3562,8 +3561,8 @@
       "csv": 2,
       "png": 1,
       "pdf": 1,
-      "toml": 1,
-      "txt": 1
+      "yml": 1,
+      "toml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -3708,7 +3707,7 @@
       "yml": 7,
       "mjs": 6,
       "drawio": 2,
-      "example": 1
+      "yaml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -3781,20 +3780,20 @@
     ],
     "reference_files": 845,
     "eval_files": 7,
-    "test_files": 143,
-    "total_files": 4204,
-    "total_size_mb": 36.6,
+    "test_files": 142,
+    "total_files": 4193,
+    "total_size_mb": 36.57,
     "file_types": {
       "md": 2869,
       "py": 788,
-      "json": 369,
+      "json": 364,
       "txt": 48,
       "yml": 16,
       "sh": 15,
       "html": 9,
       "csv": 9,
       "js": 8,
-      "ts": 6
+      "mjs": 6
     },
     "has_license": true,
     "has_readme": true,
@@ -3847,8 +3846,8 @@
     "total_size_mb": 0.25,
     "file_types": {
       "svg": 1,
-      "jpeg": 1,
-      "md": 1
+      "md": 1,
+      "jpeg": 1
     },
     "has_license": false,
     "has_readme": true,
@@ -4013,12 +4012,12 @@
     ],
     "reference_files": 8471,
     "eval_files": 7,
-    "test_files": 1018,
-    "total_files": 25517,
-    "total_size_mb": 167.59,
+    "test_files": 1012,
+    "total_files": 25375,
+    "total_size_mb": 164.75,
     "file_types": {
-      "md": 19761,
-      "json": 2230,
+      "md": 19641,
+      "json": 2224,
       "py": 1205,
       "sh": 354,
       "mjs": 264,
@@ -4026,7 +4025,7 @@
       "ts": 213,
       "csv": 154,
       "sql": 125,
-      "txt": 113
+      "txt": 111
     },
     "has_license": true,
     "has_readme": true,
@@ -4092,8 +4091,8 @@
       "md": 473,
       "json": 139,
       "js": 19,
-      "yml": 1,
       "sh": 1,
+      "yml": 1,
       "py": 1
     },
     "has_license": true,
@@ -4103,14 +4102,14 @@
   "daymade--claude-code-skills": {
     "description": "Professional Claude Code skills marketplace featuring production-ready skills for enhanced development workflows.",
     "skill_count": 182,
-    "skill_lines_total": 43788,
+    "skill_lines_total": 43888,
     "skill_lines_avg": 241,
     "skill_lines_min": 13,
     "skill_lines_max": 1378,
-    "skill_lines_median": 177,
-    "skill_words_total": 350852,
-    "skill_words_avg": 1928,
-    "code_blocks_total": 1027,
+    "skill_lines_median": 179,
+    "skill_words_total": 351850,
+    "skill_words_avg": 1933,
+    "code_blocks_total": 1028,
     "code_blocks_avg": 5.6,
     "code_languages": [
       "bash",
@@ -4152,14 +4151,14 @@
       "name",
       "title"
     ],
-    "reference_files": 456,
+    "reference_files": 457,
     "eval_files": 23,
-    "test_files": 297,
-    "total_files": 1609,
-    "total_size_mb": 29.66,
+    "test_files": 301,
+    "total_files": 1615,
+    "total_size_mb": 29.77,
     "file_types": {
-      "md": 735,
-      "py": 583,
+      "md": 736,
+      "py": 587,
       "sh": 59,
       "json": 49,
       "html": 38,
@@ -4210,13 +4209,13 @@
       "md": 73,
       "sh": 25,
       "txt": 15,
-      "js": 3,
       "json": 3,
+      "js": 3,
       "yml": 2,
       "cmd": 1,
-      "py": 1,
       "dot": 1,
-      "ts": 1
+      "ts": 1,
+      "py": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -4334,15 +4333,15 @@
   },
   "glebis--claude-skills": {
     "description": "Collection of Claude Code skills for enhanced AI workflows",
-    "skill_count": 116,
-    "skill_lines_total": 17005,
-    "skill_lines_avg": 147,
+    "skill_count": 118,
+    "skill_lines_total": 17180,
+    "skill_lines_avg": 146,
     "skill_lines_min": 19,
     "skill_lines_max": 745,
-    "skill_lines_median": 115,
-    "skill_words_total": 104441,
-    "skill_words_avg": 900,
-    "code_blocks_total": 561,
+    "skill_lines_median": 112,
+    "skill_words_total": 105898,
+    "skill_words_avg": 897,
+    "code_blocks_total": 564,
     "code_blocks_avg": 4.8,
     "code_languages": [
       "bash",
@@ -4356,6 +4355,7 @@
       "md",
       "mdx",
       "python",
+      "sh",
       "sql",
       "text",
       "toml",
@@ -4372,16 +4372,16 @@
       "triggers",
       "user_invocable"
     ],
-    "reference_files": 91,
+    "reference_files": 99,
     "eval_files": 14,
-    "test_files": 109,
-    "total_files": 944,
-    "total_size_mb": 10.73,
+    "test_files": 111,
+    "total_files": 973,
+    "total_size_mb": 10.83,
     "file_types": {
-      "md": 321,
-      "py": 294,
-      "json": 97,
-      "yaml": 45,
+      "md": 332,
+      "py": 298,
+      "json": 102,
+      "yaml": 46,
       "sh": 30,
       "html": 19,
       "txt": 16,
@@ -4430,13 +4430,13 @@
     "eval_files": 0,
     "test_files": 0,
     "total_files": 454,
-    "total_size_mb": 75.14,
+    "total_size_mb": 75.16,
     "file_types": {
       "png": 131,
       "md": 122,
       "svg": 58,
-      "mp3": 45,
       "wav": 45,
+      "mp3": 45,
       "webp": 14,
       "jpg": 13,
       "html": 6,
@@ -4539,8 +4539,8 @@
       "yml": 6,
       "csv": 3,
       "svg": 3,
-      "yaml": 2,
       "txt": 2,
+      "yaml": 2,
       "png": 1
     },
     "has_license": true,
@@ -4577,13 +4577,13 @@
   "shaunburdick--skills": {
     "description": "Shaun Burdick skills collection",
     "skill_count": 11,
-    "skill_lines_total": 3044,
+    "skill_lines_total": 3045,
     "skill_lines_avg": 277,
     "skill_lines_min": 67,
     "skill_lines_max": 488,
     "skill_lines_median": 274,
-    "skill_words_total": 20337,
-    "skill_words_avg": 1849,
+    "skill_words_total": 20366,
+    "skill_words_avg": 1851,
     "code_blocks_total": 73,
     "code_blocks_avg": 6.6,
     "code_languages": [
@@ -4655,12 +4655,12 @@
       "json": 11,
       "py": 11,
       "yml": 4,
-      "ts": 3,
       "mjs": 3,
+      "ts": 3,
       "jsonl": 2,
       "png": 1,
-      "ps1": 1,
-      "sh": 1
+      "sh": 1,
+      "ps1": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -4725,8 +4725,8 @@
       "md": 84,
       "yml": 4,
       "py": 2,
-      "json": 1,
       "sh": 1,
+      "json": 1,
       "png": 1
     },
     "has_license": true,

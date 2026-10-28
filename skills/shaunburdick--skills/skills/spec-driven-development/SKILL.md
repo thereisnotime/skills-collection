@@ -4,7 +4,7 @@ description: Structured spec-driven development workflow. Load this skill whenev
 license: MIT
 metadata:
   author: shaunburdick
-  version: "2.9.1"
+  version: "2.9.2"
 ---
 
 # Spec-Driven Development
@@ -237,8 +237,9 @@ git checkout -b 001-feature-name   # see git-safety skill for branch rules
 Produce `plan.md` in `specs/###-feature-name/`: technical context the
 implementer cannot infer from the repository, constitution check, concrete
 project structure (no "Option A / Option B"), and key decisions with the
-alternative each was chosen over. A planned comment, doc, or test appears only
-with the reader question or regression it answers.
+alternative each was chosen over. A plan or task never schedules a code
+comment — the engineer decides on comments while writing the code. A planned
+doc or test appears only with the reader question or regression it answers.
 
 Supporting artifacts only when earned, never by default:
 
