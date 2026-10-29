@@ -160,9 +160,9 @@ else
 fi
 
 echo
-echo "T5-T11 -- RELEASE_ON_RED release gate + --bump-only (S-108)"
-echo "  founder rule: never bump a tree without a green Tests"
-echo "  run at HEAD's exact SHA. Real gh is never called: a stub gh (and a"
+echo "T5-T11 -- release gate = global guard rows, always run + --bump-only"
+echo "  no workflow run is required and gh is never consulted for the gate."
+echo "  Real gh is never called: a stub gh (and a"
 echo "  stub bun, plus a placeholder loki-ts/node_modules, so the rebuild"
 echo "  step needs no real install or network)"
 echo "  are put first on PATH for a throwaway git repo, never this repo."
@@ -210,7 +210,6 @@ fi
 case "$GH_MODE" in
     green) green ;;
     green_head) printf '[{"status":"completed","conclusion":"success","headSha":"%s"}]\n' "$(git rev-parse HEAD)" ;;
-    tests_red)      [ "$wf" = "Tests" ] && red || green ;;
     empty) echo '[]' ;;
     diffsha) printf '[{"status":"completed","conclusion":"success","headSha":"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"}]\n' ;;
     ghfail) exit 7 ;;
@@ -305,9 +304,9 @@ run_gate_case() {
     return $rc
 }
 
-echo "T5 -- green Tests: --bump-only succeeds"
+echo "T5 -- green guard rows, no ALLOW_RED: --bump-only succeeds"
 : > "$WORK2/gh-calls.log"
-if run_gate_case green; then
+if run_gate_case green "GUARD_STUB_RC=0"; then
     ok "exit 0 on green"
 else
     bad "expected exit 0, got $? ($(tail -3 "$WORK2/case.log"))"
@@ -324,11 +323,10 @@ grep -q "1.2.4" "$REPO2/loki-ts/dist/loki.js" 2>/dev/null \
 grep -q "1.2.4" "$REPO2/web-app/src/components/Footer.tsx" 2>/dev/null \
     && ok "green: web-app/src/components/Footer.tsx version badge bumped" \
     || bad "green: web-app/src/components/Footer.tsx not bumped"
-if grep -q -- "--commit $STUB_SHA" "$WORK2/gh-calls.log" \
-    && grep -q -- "--workflow Tests" "$WORK2/gh-calls.log"; then
-    ok "green: gate actually queried Tests at HEAD's SHA"
+if [ ! -s "$WORK2/gh-calls.log" ]; then
+    ok "green: the gate never consulted gh (no workflow run is required)"
 else
-    bad "green: gh was not queried for the required workflow at HEAD: $(cat "$WORK2/gh-calls.log")"
+    bad "green: gh was consulted by the gate: $(cat "$WORK2/gh-calls.log")"
 fi
 PORCELAIN_AFTER_GREEN="$(git -C "$REPO2" status --porcelain)"
 [ -n "$PORCELAIN_AFTER_GREEN" ] && ok "green: a successful bump-only does dirty the tree (sanity check)" \
@@ -338,85 +336,61 @@ if [ -z "$(git -C "$REPO2" status --porcelain -- loki-ts/dist/loki.js)" ]; then
 fi
 
 echo
-echo "T6 -- Tests red: refuses, exit 3, nothing changed"
-if run_gate_case tests_red; then
-    bad "expected exit 3, got 0"
-else
-    [ $? -eq 3 ] && ok "exit 3 on Tests-red" || bad "expected exit 3, got $?"
-fi
-[ "$(snapshot2)" = "$CONTENT_BEFORE" ] && ok "Tests-red: no file content changed" || bad "Tests-red: files were modified despite the refusal"
-[ -z "$(git -C "$REPO2" status --porcelain)" ] && ok "Tests-red: git status is clean" || bad "Tests-red: git status --porcelain not empty: $(git -C "$REPO2" status --porcelain)"
-[ "$(log2)" = "$LOG_BEFORE" ] && ok "Tests-red: git log unchanged (no commit made)" || bad "Tests-red: a commit was created"
-
-echo
-echo "T8 -- no run found for the required workflow: refuses, exit 3"
-if run_gate_case empty; then
-    bad "expected exit 3, got 0"
-else
-    [ $? -eq 3 ] && ok "exit 3 on empty run list" || bad "expected exit 3, got $?"
-fi
-[ "$(snapshot2)" = "$CONTENT_BEFORE" ] && ok "empty: no file content changed" || bad "empty: files were modified"
-
-echo
-echo "T9 -- green run exists but at a different SHA: refuses, exit 3"
-if run_gate_case diffsha; then
-    bad "expected exit 3, got 0"
-else
-    [ $? -eq 3 ] && ok "exit 3 when the only green run is on a different SHA" || bad "expected exit 3, got $?"
-fi
-[ "$(snapshot2)" = "$CONTENT_BEFORE" ] && ok "diffsha: no file content changed" || bad "diffsha: files were modified"
-
-echo
-echo "T10 -- gh itself fails (network/auth error): refuses, exit 3, no crash"
-if run_gate_case ghfail; then
-    bad "expected exit 3, got 0"
-else
-    [ $? -eq 3 ] && ok "exit 3 when gh exits non-zero (not 1 from an uncaught set -e death)" || bad "expected exit 3, got $?"
-fi
-[ "$(snapshot2)" = "$CONTENT_BEFORE" ] && ok "ghfail: no file content changed" || bad "ghfail: files were modified"
-
-echo
-echo "T11 -- LOKI_RELEASE_ALLOW_RED=1 bypasses the gate (test-only escape hatch)"
-if run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1"; then
-    ok "exit 0 with the escape hatch set, even though Tests is red"
-else
-    bad "expected exit 0 with LOKI_RELEASE_ALLOW_RED=1, got $?"
-fi
-grep -qi "SKIPPING the green-CI release gate" "$WORK2/case.log" \
-    && ok "escape hatch prints a loud warning" \
-    || bad "escape hatch did not print the expected warning: $(cat "$WORK2/case.log")"
-
-echo
-echo "T12 -- ALLOW_RED still runs the global guard rows (REL-GUARD)"
-run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1 GUARD_STUB_RC=1"
-rc12=$?
-[ "$rc12" -eq 3 ] && ok "red guard row aborts the release (exit 3)" || bad "expected exit 3, got $rc12 ($(tail -8 "$WORK2/case.log"))"
+echo "T6 -- red guard row: refuses, exit 3, nothing changed"
+run_gate_case green "GUARD_STUB_RC=1"
+rc6=$?
+[ "$rc6" -eq 3 ] && ok "exit 3 on a red guard row" || bad "expected exit 3, got $rc6 ($(tail -8 "$WORK2/case.log"))"
 grep -q "tests/stub-guard.sh" "$WORK2/case.log" \
     && ok "red guard row is named in the output" || bad "row not named: $(tail -5 "$WORK2/case.log")"
-[ "$(snapshot2)" = "$CONTENT_BEFORE" ] && ok "red guard: VERSION and files untouched" || bad "red guard: files were modified"
-
-if run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1 GUARD_STUB_RC=0"; then
-    ok "green guard row proceeds to the bump"
-else
-    bad "expected exit 0 with a green guard row, got $? ($(tail -3 "$WORK2/case.log"))"
-fi
-grep -q "1.2.4" "$REPO2/VERSION" && ok "green guard: VERSION bumped" || bad "green guard: VERSION not bumped"
-
-if run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1 LOKI_RELEASE_SKIP_GUARDS=1 GUARD_STUB_RC=1"; then
-    ok "SKIP_GUARDS=1 proceeds despite a red row"
-else
-    bad "expected exit 0 with SKIP_GUARDS=1, got $?"
-fi
-grep -q "SKIPPING the global guard rows" "$WORK2/case.log" \
-    && ok "SKIP_GUARDS prints a loud warning" || bad "no skip warning"
+[ "$(snapshot2)" = "$CONTENT_BEFORE" ] && ok "red row: no file content changed" || bad "red row: files were modified despite the refusal"
+[ -z "$(git -C "$REPO2" status --porcelain)" ] && ok "red row: git status is clean" || bad "red row: git status --porcelain not empty: $(git -C "$REPO2" status --porcelain)"
+[ "$(log2)" = "$LOG_BEFORE" ] && ok "red row: git log unchanged (no commit made)" || bad "red row: a commit was created"
 
 echo
+echo "T8 -- a failing gh does not matter: the gate does not use gh"
+if run_gate_case ghfail "GUARD_STUB_RC=0"; then
+    ok "exit 0 with gh exiting 7 and green guard rows"
+else
+    bad "expected exit 0, got $? ($(tail -3 "$WORK2/case.log"))"
+fi
+grep -q "1.2.4" "$REPO2/VERSION" && ok "ghfail: VERSION bumped" || bad "ghfail: VERSION not bumped"
+
+echo
+echo "T9 -- no run history at all (empty run list) does not block the bump"
+if run_gate_case empty "GUARD_STUB_RC=0"; then
+    ok "exit 0 with an empty run list"
+else
+    bad "expected exit 0, got $?"
+fi
+
+echo
+echo "T11 -- LOKI_RELEASE_ALLOW_RED=1 is not a bypass of the guard rows"
+run_gate_case green "LOKI_RELEASE_ALLOW_RED=1 GUARD_STUB_RC=1"
+rc11=$?
+[ "$rc11" -eq 3 ] && ok "red guard row still aborts with ALLOW_RED=1 (exit 3)" || bad "expected exit 3, got $rc11 ($(tail -8 "$WORK2/case.log"))"
+[ "$(snapshot2)" = "$CONTENT_BEFORE" ] && ok "ALLOW_RED red row: VERSION and files untouched" || bad "ALLOW_RED red row: files were modified"
+grep -q "SKIPPING the green-CI" "$WORK2/case.log" && bad "stale green-CI banner still printed" || ok "no stale green-CI banner"
+
+echo
+echo "T12 -- no environment variable skips a red guard row"
+for skipvar in LOKI_RELEASE_SKIP_GUARDS LOKI_SKIP_GUARDS SKIP_GUARDS; do
+    run_gate_case green "${skipvar}=1 GUARD_STUB_RC=1"
+    rc12=$?
+    [ "$rc12" -eq 3 ] && ok "$skipvar=1 does not skip a red row (exit 3)" || bad "$skipvar=1: expected exit 3, got $rc12"
+done
+grep -q "SKIPPING" "$WORK2/case.log" && bad "a skip banner was printed" || ok "no skip banner exists"
+if run_gate_case green "GUARD_STUB_RC=0"; then
+    ok "green row proceeds"
+else
+    bad "expected exit 0 with a green row, got $?"
+fi
+
 echo "T13 -- guard rows run against a clean worktree of HEAD, not the dirty tree (REL-GUARD-b)"
 # (a) dirty tracked file would make the row red; HEAD is green, so the guard stays green.
 reset_repo2
 printf '#!/usr/bin/env bash\nexit 1\n' > "$REPO2/tests/stub-guard.sh"
-( cd "$REPO2" && env PATH="$STUBBIN:$PATH" GH_MODE=tests_red STUB_SHA="$STUB_SHA" GH_CALL_LOG="$WORK2/gh-calls.log" \
-    LOKI_RELEASE_ALLOW_RED=1 bash ./scripts/release.sh patch --bump-only >"$WORK2/case.log" 2>&1 </dev/null )
+( cd "$REPO2" && env PATH="$STUBBIN:$PATH" GH_MODE=green STUB_SHA="$STUB_SHA" GH_CALL_LOG="$WORK2/gh-calls.log" \
+    bash ./scripts/release.sh patch --bump-only >"$WORK2/case.log" 2>&1 </dev/null )
 rc13=$?
 [ "$rc13" -eq 0 ] && ok "dirty-but-red working edit does not turn the guard red (reads HEAD)" || bad "expected exit 0, got $rc13 ($(tail -4 "$WORK2/case.log"))"
 grep -q "RELEASE_GUARD_DIRTY" "$WORK2/case.log" && bad "dirty refusal still present" || ok "no dirty-tree refusal"
@@ -428,8 +402,8 @@ git -C "$REPO2" -c user.name=test -c user.email=test@example.com -c commit.gpgsi
     commit -q -am "red guard" >/dev/null
 B_SHA="$(git -C "$REPO2" rev-parse HEAD)"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$REPO2/tests/stub-guard.sh"
-( cd "$REPO2" && env PATH="$STUBBIN:$PATH" GH_MODE=tests_red STUB_SHA="$B_SHA" GH_CALL_LOG="$WORK2/gh-calls.log" \
-    LOKI_RELEASE_ALLOW_RED=1 bash ./scripts/release.sh patch --bump-only >"$WORK2/case.log" 2>&1 </dev/null )
+( cd "$REPO2" && env PATH="$STUBBIN:$PATH" GH_MODE=green STUB_SHA="$B_SHA" GH_CALL_LOG="$WORK2/gh-calls.log" \
+    bash ./scripts/release.sh patch --bump-only >"$WORK2/case.log" 2>&1 </dev/null )
 rc13b=$?
 [ "$rc13b" -eq 3 ] && ok "committed red row stays red despite a green working edit (exit 3)" || bad "expected exit 3, got $rc13b ($(tail -4 "$WORK2/case.log"))"
 grep -q "RELEASE_GUARD_RED" "$WORK2/case.log" && ok "RELEASE_GUARD_RED printed" || bad "no RED message"
@@ -440,7 +414,7 @@ reset_repo2
 
 echo
 echo "T14 -- caller-exported LOKI_RUN_TMP does not turn the guard red (REL-GUARD-b)"
-if run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1 GUARD_STUB_RC=0 LOKI_RUN_TMP=/nonexistent-run-tmp"; then
+if run_gate_case green "GUARD_STUB_RC=0 LOKI_RUN_TMP=/nonexistent-run-tmp"; then
     ok "guard green with LOKI_RUN_TMP preset"
 else
     bad "preset LOKI_RUN_TMP broke the guard ($(tail -5 "$WORK2/case.log"))"
@@ -464,7 +438,7 @@ git -C "$REPO2" worktree add --detach "$T16_STALE/guard-wt" HEAD >/dev/null 2>&1
 T16_OTHER="$WORK2/unrelated-wt"
 git -C "$REPO2" worktree add --detach "$T16_OTHER" HEAD >/dev/null 2>&1
 git -C "$REPO2" worktree list | grep -q "$T16_STALE/guard-wt" && ok "fixture: stale registration present" || bad "fixture: stale registration missing"
-if run_gate_case tests_red "LOKI_RELEASE_ALLOW_RED=1 GUARD_STUB_RC=0"; then
+if run_gate_case green "GUARD_STUB_RC=0"; then
     ok "guard run stays green with a stale registration present"
 else
     bad "guard run failed with stale registration ($(tail -5 "$WORK2/case.log"))"
@@ -737,16 +711,59 @@ run_ship_case "BUN_RACE_SCRIPT=$SHIPW/stage-sub.sh"
 assert_refused "CHANGELOG (substring of a release path) staged mid-run" $? SHIP_UNEXPECTED_STAGED "$SHIP_BASE"
 
 echo
-echo "T22 -- CHANGELOG line 8 mismatch: refuses before any write"
+echo "T22 -- CHANGELOG newest-header mismatch: refuses before any write"
 new_ship_fixture
 sed 's/^## v1.2.3 /## v1.2.30 /' "$SHIP_REPO/CHANGELOG.md" > "$SHIPW/cl" && cp "$SHIPW/cl" "$SHIP_REPO/CHANGELOG.md"
 run_ship_case ""
-assert_refused "c[7] '## v1.2.30' for 1.2.3 (prefix boundary)" $? SHIP_CHANGELOG_MISMATCH "$SHIP_BASE"
-grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "c[7] mismatch: VERSION untouched" || bad "c[7] mismatch: VERSION written"
+assert_refused "newest header '## v1.2.30' for 1.2.3 (prefix boundary)" $? SHIP_CHANGELOG_MISMATCH "$SHIP_BASE"
+grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "newest header mismatch: VERSION untouched" || bad "c[7] mismatch: VERSION written"
+
+# The newest section is found from its first '## v' header, not a fixed line.
+# set_ship_preamble N: commit and push a CHANGELOG with an N-line preamble
+# (sections kept from the template) so the ship starts from a clean tree.
+set_ship_preamble() {
+    local n="$1" i=1
+    {
+        while [ "$i" -le "$n" ]; do printf 'preamble line %s\n' "$i"; i=$((i + 1)); done
+        sed -n '/^## v/,$p' "$SHIP_TPL/CHANGELOG.md"
+    } > "$SHIPW/cl"
+    cp "$SHIPW/cl" "$SHIP_REPO/CHANGELOG.md"
+    commit_ship_changelog "changelog preamble $n"
+}
+commit_ship_changelog() {
+    gitq -C "$SHIP_REPO" add CHANGELOG.md
+    gitq -C "$SHIP_REPO" commit -q -m "$1"
+    gitq -C "$SHIP_REPO" push -q origin HEAD:main
+}
+for plen in 2 0 5; do
+    new_ship_fixture
+    set_ship_preamble "$plen"
+    pre_before="$(sed -n "1,${plen}p" "$SHIP_REPO/CHANGELOG.md")"
+    run_ship_case ""
+    rc=$?
+    [ "$rc" -eq 0 ] && ok "$plen-line preamble: ship exit 0" || bad "$plen-line preamble: expected exit 0, got $rc ($(tail -4 "$SHIPW/case.log"))"
+    committed="$(git -C "$SHIP_REPO" show HEAD:CHANGELOG.md)"
+    [ "$(printf '%s\n' "$committed" | grep -n '^## v' | head -1)" = "$((plen + 1)):## v1.2.4 (2026-10-17)" ] \
+        && ok "$plen-line preamble: new section is the first '## v' header" || bad "$plen-line preamble: first headers $(printf '%s\n' "$committed" | grep -n '^## v' | head -2 | tr '\n' '|')"
+    if [ "$plen" -gt 0 ]; then
+        [ "$(printf '%s\n' "$committed" | sed -n "1,${plen}p")" = "$pre_before" ] \
+            && ok "$plen-line preamble: preamble unchanged" || bad "$plen-line preamble changed"
+    fi
+    [ "$(printf '%s\n' "$committed" | grep -c '^## v1.2.3 ')" -eq 1 ] \
+        && ok "$plen-line preamble: old section kept once" || bad "$plen-line preamble: old section count"
+done
 new_ship_fixture
-{ printf 'extra header line\n'; cat "$SHIP_TPL/CHANGELOG.md"; } > "$SHIP_REPO/CHANGELOG.md"
+set_ship_preamble 3
+sed 's/^## v1.2.3 /## v1.2.9 /' "$SHIP_REPO/CHANGELOG.md" > "$SHIPW/cl" && cp "$SHIPW/cl" "$SHIP_REPO/CHANGELOG.md"
+commit_ship_changelog "wrong newest"
 run_ship_case ""
-assert_refused "c[7] shifted by one line" $? SHIP_CHANGELOG_MISMATCH "$SHIP_BASE"
+assert_refused "wrong newest version after a 3-line preamble" $? SHIP_CHANGELOG_MISMATCH "$(git -C "$SHIP_REPO" rev-parse HEAD)"
+grep -q "CHANGELOG.md line 4 is '## v1.2.9" "$SHIPW/case.log" && ok "mismatch message names the found line and header" || bad "mismatch message: $(tail -3 "$SHIPW/case.log")"
+new_ship_fixture
+printf '# Changelog\n\nno releases yet\n' > "$SHIP_REPO/CHANGELOG.md"
+commit_ship_changelog "no sections"
+run_ship_case ""
+assert_refused "no '## v' header" $? SHIP_CHANGELOG_NO_HEADER "$(git -C "$SHIP_REPO" rev-parse HEAD)"
 
 echo
 echo "T23 -- notes header must name the new version"
@@ -770,19 +787,19 @@ grep -q 'LOKI_RELEASE_SHIP_WAIT:-300' "$REPO_ROOT/scripts/release.sh" && grep -q
     && ok "wait default and cap are 300s" || bad "wait bound not 300s"
 
 echo
-echo "T25 -- --ship still runs the green-CI release gate"
+echo "T25 -- --ship still runs the guard-row release gate"
 new_ship_fixture
-run_ship_case "GH_MODE=tests_red STUB_SHA=$SHIP_BASE"
+run_ship_case "GUARD_STUB_RC=1"
 rc=$?
-[ "$rc" -eq 3 ] && ok "Tests red at HEAD: exit 3" || bad "expected exit 3, got $rc"
+[ "$rc" -eq 3 ] && ok "red guard row at HEAD: exit 3" || bad "expected exit 3, got $rc"
 [ "$(origin_main)" = "$SHIP_BASE" ] && grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "gate refusal: nothing written or pushed" || bad "gate refusal wrote or pushed"
 
 echo
-echo "T17d -- notes with no '### ' subsection are refused before any write, even with LOKI_RELEASE_SKIP_GUARDS=1 (FC-RELEASE-NOTES-FORMAT-UNCHECKED-LOCALLY)"
+echo "T17d -- notes with no '### ' subsection are refused before any write, with all guard rows green (FC-RELEASE-NOTES-FORMAT-UNCHECKED-LOCALLY)"
 new_ship_fixture
 printf '## v1.2.4 (2026-10-17)\n\n- bullets but no subsection\n' > "$SHIPW/notes-flat.md"
 ORIG="$(origin_main)"
-run_ship_case "LOKI_RELEASE_SKIP_GUARDS=1" "$SHIPW/notes-flat.md"
+run_ship_case "GUARD_STUB_RC=0" "$SHIPW/notes-flat.md"
 assert_refused "flat notes" $? SHIP_NOTES_FORMAT "$ORIG"
 grep -qx 1.2.3 "$SHIP_REPO/VERSION" && ok "flat notes: nothing written (VERSION unchanged)" || bad "flat notes: VERSION was bumped"
 

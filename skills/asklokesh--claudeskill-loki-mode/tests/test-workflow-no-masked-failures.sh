@@ -19,6 +19,16 @@
 #      (in the script, or via `shell: bash`), else the pipe hides the rc.
 #   R5 a job gated by `if: always()` (`!cancelled()` run-gates are fine) is a result aggregator
 #      and must be on the reviewed allowlist.
+#   R6 every name in scripts/release.sh RELEASE_REQUIRED_WORKFLOWS must match a
+#      `name:` in the workflow dir (override: RELEASE_SH). A name nothing defines
+#      makes the release gate unsatisfiable (the retired "Tests" workflow did).
+#   R7 release.yml never waits on tests: no job `needs` a test job (id or name
+#      matching test/fast/ci, or a job whose steps run a test command) and the
+#      workflow has no `workflow_run` trigger. Publishing is not gated on tests.
+#   R8 no environment variable skips run_release_guard_rows: the function has no
+#      `return` and no `exit` but a literal non-zero one (whole-body scan, multi-line
+#      aware), reads no LOKI_ variable but the per-row timeout, its call site is
+#      gated only by --dry-run, and release.sh names no SKIP-style guard variable.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -32,10 +42,11 @@ if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import yaml' 2>/dev/nul
     exit 1
 fi
 
-python3 -I - "$WFDIR" <<'PY'
+python3 -I - "$WFDIR" "${RELEASE_SH:-scripts/release.sh}" <<'PY'
 import glob, itertools, os, re, sys, yaml
 
 wfdir = sys.argv[1]
+release_sh = sys.argv[2]
 
 # (file, job, step name or None for the job itself) -> justification.
 # Empty since release.yml became the main workflow (converge-dist-tags.yml only schedules the dist-tag script); add a row only with a
@@ -341,6 +352,9 @@ ALWAYS_COND = re.compile(r"\b(always|failure)\(\)")
 
 allow_seen = {}
 parsed_files = set()
+wf_names = set()
+TEST_JOB = re.compile(r"(^|[-_ ])(tests?|fast|ci)([-_ ]|$)", re.I)
+release_doc = None
 for path in sorted(glob.glob(os.path.join(wfdir, "*.yml"))):
     fn = os.path.basename(path)
     parsed_files.add(fn)
@@ -349,6 +363,10 @@ for path in sorted(glob.glob(os.path.join(wfdir, "*.yml"))):
     except yaml.YAMLError as e:
         fail(f"{fn}: invalid YAML, cannot be checked (R0): {str(e).splitlines()[0]}")
         continue
+    if isinstance(doc, dict) and isinstance(doc.get("name"), str):
+        wf_names.add(doc["name"])
+    if fn == "release.yml":
+        release_doc = doc
     jobs = (doc or {}).get("jobs") or {}
     for jname, job in jobs.items():
         matrix = (job.get("strategy") or {}).get("matrix")
@@ -387,6 +405,68 @@ if "release.yml" in parsed_files:
             fail(f"{where}: allowlisted best-effort step lacks continue-on-error: true (D123)")
         if str(st.get("timeout-minutes")) != "3":
             fail(f"{where}: allowlisted best-effort step lacks timeout-minutes: 3 (D123)")
+
+# R6: every release-gate workflow name must exist.
+try:
+    sh_text = open(release_sh).read()
+except OSError as e:
+    sh_text = None
+    fail(f"{release_sh}: unreadable, RELEASE_REQUIRED_WORKFLOWS not measured (R6): {e}")
+if sh_text is not None:
+    decl = re.search(r"^RELEASE_REQUIRED_WORKFLOWS=\(([^)]*)\)", sh_text, re.M)
+    if not decl:
+        fail(f"{release_sh}: RELEASE_REQUIRED_WORKFLOWS declaration not found (R6)")
+    else:
+        for nm in re.findall(r'"([^"]*)"|\'([^\']*)\'|(\S+)', decl.group(1)):
+            nm = next(x for x in nm if x)
+            if nm not in wf_names:
+                fail(f"{release_sh}: RELEASE_REQUIRED_WORKFLOWS names {nm!r} but no workflow has that name: (R6)")
+
+# R7: release.yml never waits on tests.
+if isinstance(release_doc, dict):
+    triggers = release_doc.get("on", release_doc.get(True))
+    if isinstance(triggers, dict) and "workflow_run" in triggers or triggers == "workflow_run" \
+            or (isinstance(triggers, list) and "workflow_run" in triggers):
+        fail("release.yml: workflow_run trigger makes publishing wait on another workflow (R7)")
+    rjobs = release_doc.get("jobs") or {}
+    def is_test_job(jid, job):
+        if TEST_JOB.search(jid) or TEST_JOB.search(str(job.get("name") or "")):
+            return True
+        return any(isinstance(st.get("run"), str) and TEST_CMD.search(st["run"]) for st in job.get("steps") or [])
+    test_jobs = {jid for jid, job in rjobs.items() if is_test_job(jid, job)}
+    for jid, job in rjobs.items():
+        need = job.get("needs") or []
+        need = [need] if isinstance(need, str) else need
+        for n in need:
+            if n in test_jobs:
+                fail(f"release.yml:{jid}: needs test job {n!r}; publishing must not wait on tests (R7)")
+
+# R8: no env var skips run_release_guard_rows.
+if sh_text is not None:
+    fm = re.search(r"^run_release_guard_rows\(\) \{\n(.*?)^\}", sh_text, re.M | re.S)
+    if not fm:
+        fail(f"{release_sh}: run_release_guard_rows definition not found (R8)")
+    else:
+        body = fm.group(1)
+        if re.search(r"\breturn\b", body):
+            fail(f"{release_sh}: run_release_guard_rows contains a return; the rows must always run (R8)")
+        # Scan the whole body, not single lines: drop comment lines and join
+        # backslash continuations so an `if ...; then` / `exit 0` pair or a
+        # continued command is seen as written. Only `exit` with a literal
+        # non-zero status may leave the function; bare `exit` or `exit 0` skips the rows.
+        flat = re.sub(r"\\\n\s*", " ", "\n".join(ln for ln in body.split("\n") if not ln.lstrip().startswith("#")))
+        for em in re.finditer(r"(?<![\w.-])exit\b(?!\s+[1-9][0-9]*\b)", flat):
+            fail(f"{release_sh}: run_release_guard_rows has an exit that is not a literal non-zero status near {flat[max(0, em.start() - 30):em.end() + 12].strip()!r}; the rows must always run (R8)")
+        for v in set(re.findall(r"\$\{?(LOKI_[A-Za-z0-9_]+)", body)):
+            if v not in ("LOKI_RELEASE_GUARD_TIMEOUT",):
+                fail(f"{release_sh}: run_release_guard_rows reads ${v}; no env var may skip the rows (R8)")
+        if re.search(r"\$\{?[A-Za-z_]*(SKIP|BYPASS|DISABLE)[A-Za-z_]*", body, re.I):
+            fail(f"{release_sh}: run_release_guard_rows reads a SKIP-style variable (R8)")
+    call = re.search(r"^(\s*)if (.*?); then\n\s*run_release_guard_rows\n", sh_text, re.M)
+    if not call or call.group(2).strip() != '[ "$DRY_RUN" != "true" ]':
+        fail(f"{release_sh}: run_release_guard_rows call must be gated only by --dry-run (R8)")
+    if re.search(r"SKIP_?GUARD", sh_text, re.I):
+        fail(f"{release_sh}: a SKIP-style guard variable is named (R8)")
 
 # Positive control: the files this guard exists for were actually parsed.
 want = ["release.yml"]
@@ -561,4 +641,68 @@ mut M12-always release.yml '    needs: docker-build
 ' '    needs: docker-build
     if: always()
 '
+# R6: a release-gate workflow name nothing defines turns the guard red; a real one stays green.
+relmut() { # name wanted-exit declaration
+    local d="$SELF/$1"
+    seed "$d"
+    python3 -I - "$d/release.sh" "$3" <<'MP'
+import re, sys
+p, decl = sys.argv[1:3]
+s = open("scripts/release.sh").read()
+s, n = re.subn(r"^RELEASE_REQUIRED_WORKFLOWS=\([^)]*\)", decl, s, count=1, flags=re.M)
+assert n == 1, "RELEASE_REQUIRED_WORKFLOWS anchor missing"
+open(p, "w").write(s)
+MP
+    RELEASE_SH="$d/release.sh" bash "$0" "$d" >/dev/null 2>&1
+    if [ $? -eq "$2" ]; then echo "  PASS: $1"; else echo "  FAIL: $1 (wanted exit $2)"; SELF_FAIL=1; fi
+}
+relmut R6a-nonexistent-name-red 1 'RELEASE_REQUIRED_WORKFLOWS=("Tests")'
+relmut R6b-existing-name-green 0 'RELEASE_REQUIRED_WORKFLOWS=("Release")'
+relmut R6c-declaration-missing-red 1 'RELEASE_WORKFLOWS_RENAMED=()'
+# R7: publishing never waits on tests.
+mut R7a-publish-needs-test-job release.yml '    needs: pack-npm
+' '    needs: [pack-npm, sanity]
+'
+mut R7b-workflow-run-trigger release.yml 'workflow_dispatch:' 'workflow_run:
+    workflows: ["PR fast tier"]
+    types: [completed]
+  workflow_dispatch:'
+# R8: re-adding any skip path for the guard rows turns the guard red.
+relmut8() { # name wanted-exit mode
+    local d="$SELF/$1"
+    seed "$d"
+    python3 -I - "$d/release.sh" "$3" <<'MP'
+import sys
+p, mode = sys.argv[1:3]
+s = open("scripts/release.sh").read()
+a = "run_release_guard_rows() {\n"
+assert a in s
+if mode == "skip":
+    s = s.replace(a, a + '    if [ "${LOKI_RELEASE_SKIP_GUARDS:-}" = "1" ]; then return 0; fi\n', 1)
+elif mode == "other":
+    s = s.replace(a, a + '    [ -n "${LOKI_FAST_RELEASE:-}" ] && return 0\n', 1)
+elif mode == "multiexit":
+    s = s.replace(a, a + '    if [ -n "${FAST:-}" ]; then\n        exit 0\n    fi\n', 1)
+elif mode == "contexit":
+    s = s.replace(a, a + '    [ -n "${FAST:-}" ] && \\\n        exit 0\n', 1)
+elif mode == "bareexit":
+    s = s.replace(a, a + '    if [ -n "${FAST:-}" ]; then\n        exit\n    fi\n', 1)
+elif mode == "multireturn":
+    s = s.replace(a, a + '    if [ -n "${FAST:-}" ]; then\n        return\n    fi\n', 1)
+elif mode == "call":
+    assert "        run_release_guard_rows\n" in s
+    s = s.replace("        run_release_guard_rows\n", '        [ -n "${FAST:-}" ] || run_release_guard_rows\n', 1)
+open(p, "w").write(s)
+MP
+    RELEASE_SH="$d/release.sh" bash "$0" "$d" >/dev/null 2>&1
+    if [ $? -eq "$2" ]; then echo "  PASS: $1"; else echo "  FAIL: $1 (wanted exit $2)"; SELF_FAIL=1; fi
+}
+relmut8 R8a-skip-env-check-red 1 skip
+relmut8 R8b-other-env-return-red 1 other
+relmut8 R8c-ungated-call-red 1 call
+relmut8 R8e-multiline-exit-zero-red 1 multiexit
+relmut8 R8f-continued-exit-zero-red 1 contexit
+relmut8 R8g-bare-exit-red 1 bareexit
+relmut8 R8h-multiline-return-red 1 multireturn
+relmut8 R8d-unchanged-green 0 none
 exit "$SELF_FAIL"

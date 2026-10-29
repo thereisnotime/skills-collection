@@ -67,4 +67,78 @@ bash "$SB" --current "$T/legacy.tsv" --baseline "$T/legacy.tsv" --version v --js
 RC=$?
 [ "$RC" -eq 2 ] && grep -q 'solved' "$T/legacy.out"; check legacy-6-column-exits-2 $? "rc=$RC $(cat "$T/legacy.out")"
 
+# wrong-pass column: one hermetic stub-verifier run of benchmarks/seeded-defects/measure.py (no model call, no key)
+# feeds the scoreboard as five per-category rows. Stub seals every logic-bug and security defect only.
+cat > "$T/stub-verifier.sh" <<'STUB'
+#!/usr/bin/env bash
+case "$SD_CATEGORY" in logic-bug|security) echo SEALED ;; *) echo NOT_SEALED ;; esac
+STUB
+python3 -I "$SCRIPT_DIR/../benchmarks/seeded-defects/measure.py" --setup top --model stub --verifier "bash $T/stub-verifier.sh" \
+    --out "$T/wp.json" > "$T/wp.run" 2>&1
+check wrong-pass-stub-run $? "$(cat "$T/wp.run")"
+bash "$SB" --dry --version v --wrong-pass "$T/wp.json" --json-out "$T/w.json" > "$T/w.out" 2>&1
+check wrong-pass-rc $? "$(cat "$T/w.out")"
+NCAT="$(python3 -I -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["wrong_pass"]["top"]["categories"]))' "$T/w.json" 2>&1)"
+[ "$NCAT" = "5" ]; check wrong-pass-five-categories $? "got $NCAT"
+for c in logic-bug mock-abuse security spec-miss test-fitting; do
+    grep -q "^wrong_pass top .*$c" "$T/w.out"; check "wrong-pass-row-$c" $? "$(cat "$T/w.out")"
+done
+[ "$(jget "$T/w.json" wrong_pass.top.categories.mock-abuse.wrong_pass)" = "0" ]; check wrong-pass-unsealed-zero $? "$(cat "$T/w.json")"
+LB="$(jget "$T/w.json" wrong_pass.top.categories.logic-bug.wrong_pass)"
+LN="$(jget "$T/w.json" wrong_pass.top.categories.logic-bug.n)"
+[ -n "$LN" ] && [ "$LB" = "$LN" ] && [ "$LN" -gt 0 ]; check wrong-pass-sealed-counted $? "wrong_pass=$LB n=$LN"
+bash "$SB" --dry --version v --wrong-pass "$T/wp.json" --json-out "$T/w2.json" --metrics-out "$T/wm.metrics" > /dev/null 2>&1
+grep -q 'wrong_pass:top:.*logic-bug=' "$T/wm.metrics"; check wrong-pass-metrics-cell $? "$(cat "$T/wm.metrics" 2>&1)"
+# without --wrong-pass the report has no wrong_pass key (existing consumers unchanged)
+[ "$(python3 -I -c 'import json,sys;print("wrong_pass" in json.load(open(sys.argv[1])))' "$T/d.json")" = "False" ]; check wrong-pass-absent-by-default $? ""
+# malformed wrong-pass inputs fail loudly (rc 2, named on stderr), never a silent empty column
+wpbad() { printf '%s' "$1" > "$T/bad.json"; bash "$SB" --dry --version v --wrong-pass "$T/bad.json" --json-out "$T/bad-out.json" > "$T/bad.out" 2>&1; RC=$?; }
+wpbad '{"runs":[{"setup":"s","outcomes":{"zzz":"SEALED"}}]}'
+[ "$RC" -eq 2 ] && grep -q 'zzz' "$T/bad.out"; check wrong-pass-unknown-id-rc2 $? "rc=$RC $(cat "$T/bad.out")"
+wpbad '{}'
+[ "$RC" -eq 2 ]; check wrong-pass-empty-object-rc2 $? "rc=$RC $(cat "$T/bad.out")"
+wpbad '{"runs":[]}'
+[ "$RC" -eq 2 ]; check wrong-pass-empty-runs-rc2 $? "rc=$RC $(cat "$T/bad.out")"
+wpbad '[1,2]'
+[ "$RC" -eq 2 ] && ! grep -q Traceback "$T/bad.out"; check wrong-pass-toplevel-list-rc2 $? "rc=$RC $(cat "$T/bad.out")"
+# lost or unmeasured wrong pass must not read as a clean 0
+# variants of the full-coverage stub run, so each guard is the only thing that can fire
+wpmut() {
+    python3 -I -c 'import json,sys
+d=json.load(open(sys.argv[1])); r=d["runs"][0]; ids=sorted(r["outcomes"]); m=sys.argv[2]
+if m=="dup": d["runs"].append(json.loads(json.dumps(r)))
+elif m=="bogus": r["outcomes"][ids[0]]="BOGUS"
+elif m=="null": r["outcomes"][ids[0]]=None
+elif m=="nosetup": del r["setup"]
+json.dump(d,open(sys.argv[3],"w"))' "$T/wp.json" "$1" "$T/bad.json"
+    bash "$SB" --dry --version v --wrong-pass "$T/bad.json" --json-out "$T/bad-out.json" > "$T/bad.out" 2>&1; RC=$?
+}
+wpmut dup
+[ "$RC" -eq 2 ] && grep -q 'duplicate setup' "$T/bad.out"; check wrong-pass-duplicate-setup-rc2 $? "rc=$RC $(cat "$T/bad.out")"
+wpmut bogus
+[ "$RC" -eq 2 ] && grep -q 'BOGUS' "$T/bad.out"; check wrong-pass-bogus-verdict-rc2 $? "rc=$RC $(cat "$T/bad.out")"
+wpmut null
+[ "$RC" -eq 2 ] && grep -q 'None' "$T/bad.out"; check wrong-pass-null-verdict-rc2 $? "rc=$RC $(cat "$T/bad.out")"
+wpmut nosetup
+[ "$RC" -eq 2 ] && grep -q 'setup' "$T/bad.out"; check wrong-pass-missing-setup-rc2 $? "rc=$RC $(cat "$T/bad.out")"
+wpbad '{"runs":[{"setup":"top","outcomes":{}}]}'
+[ "$RC" -eq 2 ] && grep -q 'empty outcomes' "$T/bad.out"; check wrong-pass-empty-outcomes-rc2 $? "rc=$RC $(cat "$T/bad.out")"
+wpbad '{"runs":[{"setup":"top","outcomes":{"SD-0001":"SEALED"}}]}'
+[ "$RC" -eq 2 ] && grep -q 'unmeasured' "$T/bad.out" && grep -q 'mock-abuse' "$T/bad.out"; check wrong-pass-partial-coverage-rc2 $? "rc=$RC $(cat "$T/bad.out")"
+# a malformed manifest fails loudly too (python entry point: the shell wrapper does not forward --wrong-pass-manifest)
+wpman() {
+    printf '%s' "$1" > "$T/man.json"
+    python3 -I "$SCRIPT_DIR/../scripts/scoreboard-40x.py" \
+        --current "$SCRIPT_DIR/../scripts/b9-fixtures/recorded-40x/current.tsv" \
+        --baseline "$SCRIPT_DIR/../scripts/b9-fixtures/recorded-40x/baseline-11.3.1.tsv" \
+        --version v --wrong-pass "$T/wp.json" --wrong-pass-manifest "$T/man.json" --json-out "$T/man-out.json" > "$T/man.out" 2>&1
+    RC=$?
+}
+wpman '{"defects":[{"id":"SD-0001"}]}'
+[ "$RC" -eq 2 ] && grep -q 'without id and category' "$T/man.out" && ! grep -q Traceback "$T/man.out"; check wrong-pass-manifest-defect-no-category-rc2 $? "rc=$RC $(cat "$T/man.out")"
+wpman '{"defects":[]}'
+[ "$RC" -eq 2 ] && grep -q 'declares no categories' "$T/man.out"; check wrong-pass-manifest-no-categories-rc2 $? "rc=$RC $(cat "$T/man.out")"
+# a missing results file exits 2, never a silent empty column
+bash "$SB" --dry --version v --wrong-pass "$T/nope.json" --json-out "$T/x.json" > /dev/null 2>&1; [ $? -eq 2 ]; check wrong-pass-missing-file-rc2 $? ""
+
 [ "$FAILS" -eq 0 ]

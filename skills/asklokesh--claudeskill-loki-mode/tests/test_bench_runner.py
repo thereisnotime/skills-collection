@@ -627,6 +627,177 @@ class EffortAxisTest(unittest.TestCase):
         self.assertNotIn("--effort", main_cmds[1])
 
 
+class WrongPassCaptureTest(unittest.TestCase):
+    """P4(b): a VERIFIED verdict with a failing held-out grader is a wrong pass."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="bench-wp-")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _row(self, accept, verdict, task_id="wp-task"):
+        spec = _make_task(self.tmp, acceptance_cmd=accept, task_id=task_id)
+        return runner.run_task(spec, "mock", trials=1, adapter=mock_adapter_with_cost,
+                               model="floor-model", verify_fn=lambda wd, model: verdict)
+
+    def test_verified_with_failing_grader_is_wrong_pass(self):
+        seal = self._row("false", "VERIFIED")["trials"][0]["seal"]
+        self.assertEqual(seal["verdict"], "VERIFIED")
+        self.assertIs(seal["grader_pass"], False)
+        self.assertIs(seal["wrong_pass"], True)
+        self.assertEqual(seal["model"], "floor-model")
+
+    def test_verified_with_passing_grader_is_not_wrong_pass(self):
+        self.assertIs(self._row("true", "VERIFIED")["trials"][0]["seal"]["wrong_pass"], False)
+
+    def test_blocked_with_failing_grader_is_not_wrong_pass(self):
+        self.assertIs(self._row("false", "BLOCKED")["trials"][0]["seal"]["wrong_pass"], False)
+
+    def test_missing_verdict_is_unmeasured_never_a_pass(self):
+        seal = self._row("false", None)["trials"][0]["seal"]
+        self.assertIsNone(seal["verdict"])
+        self.assertIsNone(seal["wrong_pass"])
+
+    def test_no_verify_fn_adds_no_seal_key(self):
+        spec = _make_task(self.tmp, acceptance_cmd="true", task_id="plain")
+        row = runner.run_task(spec, "mock", trials=1, adapter=mock_adapter_with_cost)
+        self.assertNotIn("seal", row["trials"][0])
+
+    def test_summary_is_measure_schema_and_skips_unmeasured(self):
+        rows = [self._row("false", "VERIFIED", "t1"), self._row("true", "VERIFIED", "t2"),
+                self._row("false", None, "t3")]
+        doc = runner.wrong_pass_results(rows, "floor", "floor-model")
+        self.assertEqual(doc["schema"], "loki.seeded-defects.results/v2")
+        run = doc["runs"][0]
+        self.assertEqual((run["setup"], run["model"], run["n"], run["wrong_pass"]),
+                         ("floor", "floor-model", 2, 1))
+        self.assertEqual(run["outcomes"], {"t1": "SEALED", "t2": "NOT_SEALED"})
+        self.assertEqual(run["unmeasured"], ["t3"])
+        self.assertEqual(len(run["records"]), 3)
+
+    def test_default_verify_is_unmeasured_without_spend_approval(self):
+        old = os.environ.pop("LOKI_BENCH_SPEND_APPROVED", None)
+        try:
+            self.assertIsNone(runner.default_verify(self.tmp, "m"))
+        finally:
+            if old is not None:
+                os.environ["LOKI_BENCH_SPEND_APPROVED"] = old
+
+    def test_two_trials_one_unmeasured_is_unmeasured_not_not_sealed(self):
+        spec = _make_task(self.tmp, acceptance_cmd="true", task_id="mixed")
+        seq = iter(["CONCERNS", None])
+        row = runner.run_task(spec, "mock", trials=2, adapter=mock_adapter_with_cost,
+                              verify_fn=lambda wd, m: next(seq))
+        run = runner.wrong_pass_results([row], "floor", "m")["runs"][0]
+        self.assertEqual(run["outcomes"], {})
+        self.assertEqual(run["unmeasured"], ["mixed"])
+        self.assertEqual(run["n"], 0)
+
+    def test_two_trials_one_wrong_pass_one_unmeasured_stays_sealed(self):
+        spec = _make_task(self.tmp, acceptance_cmd="false", task_id="mixed2")
+        seq = iter([None, "VERIFIED"])
+        row = runner.run_task(spec, "mock", trials=2, adapter=mock_adapter_with_cost,
+                              verify_fn=lambda wd, m: next(seq))
+        run = runner.wrong_pass_results([row], "floor", "m")["runs"][0]
+        self.assertEqual(run["outcomes"], {"mixed2": "SEALED"})
+        self.assertEqual(run["unmeasured"], [])
+
+    def test_cli_refuses_effort_with_wrong_pass_out(self):
+        spec = _make_task(self.tmp, acceptance_cmd="true", task_id="eff")
+        rc = runner._main(["run", spec, "--adapter", "mock", "--model", "m", "--effort", "high",
+                           "--seal-verify", "--setup", "top",
+                           "--wrong-pass-out", os.path.join(self.tmp, "o.json")])
+        self.assertEqual(rc, 2)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "o.json")))
+
+    def test_write_refuses_corpus_results_path_and_leaves_no_tmp(self):
+        corpus = os.path.join(_REPO, "benchmarks", "seeded-defects", "results", "wrong-pass.json")
+        with self.assertRaises(ValueError):
+            runner.write_wrong_pass([], "top", "m", corpus)
+        out = os.path.join(self.tmp, "ok.json")
+        runner.write_wrong_pass([], "top", "m", out)
+        self.assertEqual(os.listdir(self.tmp), ["ok.json"])
+
+    def test_cli_writes_wrong_pass_file_with_stub_verify(self):
+        spec = _make_task(self.tmp, acceptance_cmd="false", task_id="cli-task")
+        out = os.path.join(self.tmp, "wp.json")
+        row = runner.run_task(spec, "mock", trials=1, adapter=mock_adapter_with_cost,
+                              verify_fn=lambda wd, m: "VERIFIED")
+        runner.write_wrong_pass([row], "top", "m", out)
+        with open(out) as fh:
+            self.assertEqual(json.load(fh)["runs"][0]["wrong_pass"], 1)
+
+
+def _stage_adapter(review_outcome):
+    def adapter(workdir, spec, *, model="mock-model", timeout=900, runner=None):
+        out = mock_adapter_with_cost(workdir, spec, model=model)
+        out["stages"] = {"review": {"model": "rev-model", "outcome": review_outcome}}
+        return out
+    return adapter
+
+
+class StageOutcomesTest(unittest.TestCase):
+    """Wall-author and review-stage outcomes by model: schema only, informational."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="bench-stage-")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, adapter, trials=2):
+        spec = _make_task(self.tmp, acceptance_cmd="true", task_id="st")
+        row = runner.run_task(spec, "mock", trials=trials, adapter=adapter, model="floor-model",
+                              verify_fn=lambda wd, m: "VERIFIED")
+        return runner.wrong_pass_results([row], "floor", "floor-model")["runs"][0]
+
+    def test_review_data_gives_per_model_counts(self):
+        seq = iter(["approved", "rejected"])
+        def adapter(workdir, spec, **kw):
+            return _stage_adapter(next(seq))(workdir, spec, **kw)
+        so = self._run(adapter)["stage_outcomes"]
+        self.assertEqual(so["review"]["by_model"],
+                         {"rev-model": {"n": 2, "outcomes": {"approved": 1, "rejected": 1}}})
+        self.assertIsNone(so["review"]["reason"])
+        self.assertIsNone(so["wall_author"]["by_model"])
+
+    def test_absent_data_is_unmeasured_not_zero(self):
+        so = self._run(mock_adapter_with_cost)["stage_outcomes"]
+        for stage in ("wall_author", "review"):
+            self.assertIsNone(so[stage]["by_model"])
+            self.assertIn("unmeasured", so[stage]["reason"])
+
+    def test_empty_or_non_string_record_is_dropped_and_counted(self):
+        bad = [{"model": "", "outcome": "approved"},
+               {"model": "rev-model", "outcome": ""},
+               {"model": 7, "outcome": "approved"},
+               {"model": "rev-model", "outcome": None}]
+        for rec in bad:
+            self.assertEqual(runner.stage_records({"stages": {"review": rec}}), {})
+        seq = iter(bad[:2])
+        def adapter(workdir, spec, **kw):
+            out = mock_adapter_with_cost(workdir, spec, **kw)
+            out["stages"] = {"review": next(seq)}
+            return out
+        so = self._run(adapter)["stage_outcomes"]
+        self.assertIsNone(so["review"]["by_model"])
+        self.assertEqual(so["review"]["trials_without_record"], 2)
+        self.assertIn("unmeasured", so["review"]["reason"])
+
+    def test_partial_stage_reports_missing_count_with_no_reason(self):
+        seq = iter([True, False])
+        def adapter(workdir, spec, **kw):
+            if next(seq):
+                return _stage_adapter("approved")(workdir, spec, **kw)
+            return mock_adapter_with_cost(workdir, spec, **kw)
+        so = self._run(adapter)["stage_outcomes"]
+        self.assertEqual(so["review"]["by_model"],
+                         {"rev-model": {"n": 1, "outcomes": {"approved": 1}}})
+        self.assertEqual(so["review"]["trials_without_record"], 1)
+        self.assertIsNone(so["review"]["reason"])
+
+
 class CollectEfficiencyFallbackTest(unittest.TestCase):
     def test_collect_efficiency_returns_proof_shape(self):
         # With no efficiency files, usd must be None (not 0) and the shape must

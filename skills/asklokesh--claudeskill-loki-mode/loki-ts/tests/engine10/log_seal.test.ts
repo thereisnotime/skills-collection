@@ -1,7 +1,7 @@
 // A-117 round 2: the signed log.sealed line after run.completed makes deleting the post-seal tail (or the line) a TAMPERED verdict.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { generateKeyPairSync, sign, type KeyObject } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SupervisorLog } from "../../src/engine10/supervisor.ts";
@@ -115,6 +115,20 @@ describe("A-117 log.sealed", () => {
     writeFileSync(r.path, readFileSync(r.path, "utf8").replace('"log_seal": true,', ""));
     expect((await verifyReceipt(r.path)).verdict).toBe("TAMPERED");
   });
+  test("whitespace or blank lines appended to a signed log are TAMPERED, the untouched log stays VERIFIED", async () => {
+    const r = run(false), orig = readFileSync(join(r.dir, "events.jsonl"), "utf8");
+    expect((await verifyReceipt(r.path)).verdict).toBe("VERIFIED");
+    for (const add of [" ", "\t", " \n", "\n\n"]) {
+      writeFileSync(join(r.dir, "events.jsonl"), orig + add);
+      expect([JSON.stringify(add), (await verifyReceipt(r.path)).verdict]).toEqual([JSON.stringify(add), "TAMPERED"]);
+    }
+    const body = orig.slice(0, -1), last = body.lastIndexOf("\n") + 1;
+    const shapes: Record<string, string> = { trailingSpace: body + " \n", trailingTab: body + "\t\n", trailingCr: body + "\r\n", leadingSpace: body.slice(0, last) + " " + body.slice(last) + "\n", midLogTab: orig.replace("\n", "\t\n"), fullCrlf: orig.replace(/\n/g, "\r\n") };
+    for (const [name, text] of Object.entries(shapes)) {
+      writeFileSync(join(r.dir, "events.jsonl"), text);
+      expect([name, (await verifyReceipt(r.path)).verdict]).toEqual([name, "TAMPERED"]);
+    }
+  });
   test("an interrupted run (sealed, no run.completed) is UNCHECKED rc 2", async () => {
     const r = run(false);
     r.put(r.lines().slice(0, -2));
@@ -122,6 +136,82 @@ describe("A-117 log.sealed", () => {
     const w = process.stdout.write.bind(process.stdout);
     process.stdout.write = (() => true) as never;
     try { expect(await main([r.dir.split("/").pop()!], { runsRoot: join(root, "runs") })).toBe(2); } finally { process.stdout.write = w; }
+  });
+});
+
+describe("torn last line of events.jsonl", () => {
+  const evPath = (r: { dir: string }): string => join(r.dir, "events.jsonl");
+  const cli = async (r: { dir: string }): Promise<number> => {
+    const w = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (() => true) as never;
+    try { return await main([r.dir.split("/").pop()!], { runsRoot: join(root, "runs") }); } finally { process.stdout.write = w; }
+  };
+  test("an unterminated, unparseable final line is UNCHECKED rc 2, never TAMPERED", async () => {
+    const r = run(false);
+    appendFileSync(evPath(r), '{"v":1,"seq":99,"type":"log.app');
+    expect(await cli(r)).toBe(2);
+  });
+  test("a truncated JSON line in the middle (newline kept) is TAMPERED", async () => {
+    const r = run(false), l = r.lines();
+    l[1] = l[1]!.slice(0, 20);
+    r.put(l);
+    expect((await verifyReceipt(r.path)).verdict).toBe("TAMPERED");
+    expect(await cli(r)).toBe(1);
+  });
+  test("a middle line cut mid-write is TAMPERED even when the final line is also torn", async () => {
+    const r = run(false), l = r.lines();
+    l[1] = l[1]!.slice(0, 20);
+    writeFileSync(evPath(r), l.join("\n") + "\n" + '{"v":1,"seq":99');
+    expect(await cli(r)).toBe(1);
+  });
+  test("an unparseable final line that ends in a newline is TAMPERED", async () => {
+    const r = run(false);
+    appendFileSync(evPath(r), '{"v":1,"seq":99,"type":"log.app\n');
+    expect(await cli(r)).toBe(1);
+  });
+  test("an honest log ending in a newline is VERIFIED rc 0, and a parseable last line missing its newline is not downgraded", async () => {
+    const r = run(false);
+    expect(await cli(r)).toBe(0);
+    writeFileSync(evPath(r), readFileSync(evPath(r), "utf8").replace(/\n$/, ""));
+    expect(await cli(r)).toBe(0);
+  });
+});
+
+describe("resume repairs a torn tail before the seal", () => {
+  /** run.started, a crash that leaves a torn final line, then a resume (new SupervisorLog), then the seal. */
+  function resumed(): { dir: string; path: string; ev: string } {
+    const id = `e10-ls-${n++}`, dir = join(root, "runs", id), ev = join(dir, "events.jsonl");
+    mkdirSync(dir, { recursive: true });
+    new SupervisorLog(ev, id).append("run.started", null, { provider: "claude" });
+    appendFileSync(ev, '{"v":1,"seq":1,"type":"stage.sta'); // crash mid-append
+    const log = new SupervisorLog(ev, id); // resume: EventLog truncates the torn tail
+    log.append("run.resumed", null, {});
+    const body = { schema: "loki.v10.receipt/1", run_id: id, verdict: "VERIFIED", events_sha256: sha(readFileSync(ev)), time: { wall_s: 0, stages: {} }, log_seal: true };
+    const hash = receiptSha256(body as never);
+    writeFileSync(join(dir, "receipt.json"), JSON.stringify({ ...body, receipt_sha256: hash, verification: signReceipt(id, hash) }, null, 2));
+    log.append("receipt.sealed", "seal", { receipt_sha256: hash });
+    log.verify();
+    log.append("run.completed", null, {});
+    log.sealLog();
+    return { dir, path: join(dir, "receipt.json"), ev };
+  }
+  test("the harness-owned truncation of a torn tail does not read TAMPERED: the resumed run verifies and the log holds no torn line", async () => {
+    const r = resumed();
+    const raw = readFileSync(r.ev, "utf8");
+    expect(raw).not.toContain("stage.sta");
+    expect(raw.endsWith("\n")).toBe(true);
+    expect((await verifyReceipt(r.path)).verdict).toBe("VERIFIED");
+  });
+  test("a real mid-log edit after the resume still reads TAMPERED", async () => {
+    const r = resumed();
+    writeFileSync(r.ev, readFileSync(r.ev, "utf8").replace('"claude"', '"claudX"'));
+    expect((await verifyReceipt(r.path)).verdict).toBe("TAMPERED");
+  });
+  test("deleting sealed history after the resume still reads TAMPERED", async () => {
+    const r = resumed();
+    const l = readFileSync(r.ev, "utf8").trim().split("\n");
+    writeFileSync(r.ev, [l[0], ...l.slice(2)].join("\n") + "\n");
+    expect((await verifyReceipt(r.path)).verdict).toBe("TAMPERED");
   });
 });
 

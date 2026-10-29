@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { claudeProvider } from "../../src/runner/providers.ts";
 import { _resetClaudeHelpCacheForTest } from "../../src/providers/claude_flags.ts";
 import { PROVIDER_DEFAULT_MODEL, createSessionRunner, resolveModel, sessionPinModel } from "../../src/engine10/session.ts";
+import { routedFix } from "../../src/runner/router/unit_model.ts";
 import { fixStage } from "../../src/engine10/stages/fix.ts";
 import { modelDowngrades } from "../../src/runner/model_downgrades.ts";
 import type { RunContext, SessionRunOptions } from "../../src/engine10/types.ts";
@@ -143,6 +144,21 @@ describe("EL-W0-06 fix rounds never leak the label and never go below the defaul
     expect(env).toMatch(/^LOKI_CLAUDE_MODEL_DEVELOPMENT=.*opus/m);
     expect(env).not.toContain("LOKI_E10_MODEL_DEFAULT=1");
   }, 20_000);
+  test("repeated failure under LOKI_SESSION_MODEL=sonnet stays on sonnet: an explicit pin is never escalated to opus", async () => {
+    process.env["LOKI_SESSION_MODEL"] = "sonnet";
+    const env = await fixEnv({ fix: { round: 1, signatures: "bun:a.test.ts", diagnosis: "d" } });
+    expect(env).toMatch(/^LOKI_CLAUDE_MODEL_DEVELOPMENT=sonnet$/m);
+    expect(env).toMatch(/^LOKI_CLAUDE_MODEL_PLANNING=sonnet$/m);
+    expect(env).not.toMatch(/opus/);
+  }, 20_000);
+  test("routedFix under LOKI_SESSION_MODEL=haiku does not climb past the pin on a repeated code failure", () => {
+    const o = { repeated: true, stall: false, groups: groups, reason: "r" };
+    expect(routedFix("haiku", {}, o).climbed?.to).toMatch(/sonnet/); // unpinned, the climb happens
+    process.env["LOKI_SESSION_MODEL"] = "haiku";
+    const r = routedFix("haiku", {}, o);
+    expect(r.climbed).toBeNull();
+    expect(r.pin ?? "haiku").toMatch(/haiku/);
+  });
 });
 
 describe("EL-W0-06 auxiliary pins are listed", () => {
@@ -176,7 +192,7 @@ describe("EL-W0-06 auxiliary pins are listed", () => {
 
 // FC-ENGINE10-IGNORES-SESSION-MODEL-PIN: a LOKI_SESSION_MODEL pin is run or refused, never replaced by the provider default.
 describe("FC-ENGINE10-IGNORES-SESSION-MODEL-PIN", () => {
-  const PINS: Array<[string, string]> = [["sonnet", "sonnet"], ["opus", "opus"], ["haiku", "haiku"], ["fable", "opus"], ["small", "sonnet"], ["medium", "sonnet"], ["high", "sonnet"], ["planning", "sonnet"], ["development", "sonnet"], ["fast", "sonnet"], ["  OPUS ", "opus"]];
+  const PINS: Array<[string, string]> = [["sonnet", "sonnet"], ["opus", "opus"], ["haiku", "haiku"], ["fable", "opus"], ["small", "haiku"], ["medium", "sonnet"], ["high", "opus"], ["planning", "opus"], ["development", "sonnet"], ["fast", "haiku"], ["  OPUS ", "opus"]];
   for (const [pin, want] of PINS) {
     test(`LOKI_SESSION_MODEL=${JSON.stringify(pin)} -> ${want}: recorded, exported to every tier, --model not omitted`, async () => {
       process.env["LOKI_SESSION_MODEL"] = pin;

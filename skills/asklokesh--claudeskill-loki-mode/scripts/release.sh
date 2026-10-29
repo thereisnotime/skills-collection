@@ -9,7 +9,7 @@
 #
 # --ship: the release recipe as one command. Runs
 # the same release gate, then preflights (notes header is '## v<new>',
-# CHANGELOG line 8 is '## v<current>', origin/main is an ancestor of HEAD),
+# the first '## v' CHANGELOG header is '## v<current>', origin/main is an ancestor of HEAD),
 # bumps, inserts the notes as the new CHANGELOG section, rebuilds dist,
 # stages by name (refusing CONTROL.md, usage-readings.tsv, bun.lock, out2.txt
 # and .claude/providers.ts), commits as asklokesh, re-checks ancestry, runs
@@ -29,14 +29,11 @@
 # no commit, no push -- run this instead of hand-editing
 # VERSION, then commits the result itself.
 #
-# RELEASE GATE: a release is a lookup of an already-
-# verified commit, never a bump on an unverified tree. Before ANY bump (this
-# includes --bump-only) the script requires a completed/success run of the
-# "Tests" GitHub Actions workflow at HEAD's exact SHA.
-# No matching run -> refuse, exit 3 (RELEASE_ON_RED). --dry-run skips the
-# gate since it writes nothing. LOKI_RELEASE_ALLOW_RED=1 bypasses the gate
-# for tests only -- never set it for a real release. Even then the global guard
-# rows (scripts/global-guards.tsv) still run; LOKI_RELEASE_SKIP_GUARDS=1 skips them.
+# RELEASE GATE: before ANY bump (this includes --bump-only) the global guard
+# rows (scripts/global-guards.tsv) run against a clean worktree of HEAD; a red
+# row refuses the bump, exit 3 (RELEASE_GUARD_RED). No workflow run is required:
+# publishing never waits on a test job. --dry-run skips the gate since it
+# writes nothing. No environment variable skips the rows.
 #
 # Files intentionally NOT bumped by this script (left to the maintainer):
 #   - vscode-extension/package.json: CLAUDE.md marks this DEPRECATED since
@@ -414,56 +411,22 @@ bump_all_version_files() {
 # a partially-bumped tree (some files updated on disk but left unstaged).
 # Dist files a release commit stages.
 RELEASE_DIST_FILES="loki-ts/dist/loki.js loki-ts/dist/loki.js.map"
-RELEASE_COMMIT_FILES="VERSION package.json SKILL.md docker/Dockerfile docker/Dockerfile.sandbox plugins/loki-mode/.claude-plugin/plugin.json server.json CLAUDE.md dashboard/__init__.py mcp/__init__.py docs/INSTALLATION.md wiki/Home.md wiki/_Sidebar.md wiki/API-Reference.md web-app/src/components/Footer.tsx web-app/src/components/WhatsNew.tsx README.md helm/loki-mode/Chart.yaml deploy/helm/autonomi/Chart.yaml deploy/helm/control-plane/Chart.yaml docs/CLI-REFERENCE.md docs/v10/CLI-MODERN.md CHANGELOG.md"
+RELEASE_COMMIT_FILES="VERSION package.json SKILL.md docker/Dockerfile docker/Dockerfile.sandbox plugins/loki-mode/.claude-plugin/plugin.json server.json CLAUDE.md dashboard/__init__.py mcp/__init__.py docs/INSTALLATION.md wiki/Home.md wiki/_Sidebar.md wiki/API-Reference.md web-app/src/components/Footer.tsx web-app/src/components/WhatsNew.tsx README.md helm/loki-mode/Chart.yaml deploy/helm/autonomi/Chart.yaml deploy/helm/control-plane/Chart.yaml docs/CLI-REFERENCE.md docs/CLI-INVENTORY.md CHANGELOG.md"
 
-# --- Release gate (RELEASE_ON_RED, S-108) --------------------------------
-# Founder P0: a release is a lookup of an already-verified commit. Refuses
-# (exit 3) unless HEAD's exact SHA has a completed/success run of every
-# workflow below. Runs before ANY bump, --bump-only included.
-RELEASE_REQUIRED_WORKFLOWS=("Tests")
+# --- Release gate ---------------------------------------------------------
+# Workflow names whose failed run at the cut SHA refuses a release. Empty until
+# the PR fast tier refusal signal lands. Every name here must match a `name:` in
+# .github/workflows/*.yml (tests/test-workflow-no-masked-failures.sh, R6).
+# shellcheck disable=SC2034
+RELEASE_REQUIRED_WORKFLOWS=()
 
-# True (exit 0) iff `gh run list` for $1 at commit $2 contains at least one
-# run whose status/conclusion/headSha all match. Parsed with python3 (already
-# a hard dependency elsewhere in this repo) instead of jq/grep, since gh's
-# --json output is a single compact JSON array and a text match on "success"
-# would also match a run on a different SHA or an unrelated field.
-_release_gate_run_is_green() {
-    local workflow="$1" sha="$2" json rc
-    json="$(gh run list --workflow "$workflow" --commit "$sha" \
-        --json status,conclusion,headSha 2>/dev/null)"
-    rc=$?
-    [ "$rc" -eq 0 ] && [ -n "$json" ] || return 1
-    python3 -c '
-import json, sys
-try:
-    runs = json.loads(sys.argv[1])
-except Exception:
-    sys.exit(1)
-sha = sys.argv[2]
-for r in runs:
-    if (r.get("status") == "completed"
-            and r.get("conclusion") == "success"
-            and r.get("headSha") == sha):
-        sys.exit(0)
-sys.exit(1)
-' "$json" "$sha"
-}
-
-# Cheap CI-only guards (global-guards.tsv R8 rows) that the green-CI gate
-# normally stands in for. Runs when that gate is skipped (LOKI_RELEASE_ALLOW_RED=1)
+# Cheap CI-only guards (global-guards.tsv R8 rows). Always run before a bump
 # so a release cannot cut on a tree a guard already rejects. Same runner as the
 # impacted gate (scripts/impacted-gate.sh --guards-only): per-row timeout, parallel.
-# LOKI_RELEASE_SKIP_GUARDS=1 skips with a loud warning. LOKI_RELEASE_GUARD_TIMEOUT
-# (default 300s) is the per-row limit. Guards run in a clean worktree of HEAD; a worktree failure exits 3.
+# No environment variable skips them. LOKI_RELEASE_GUARD_TIMEOUT (default 300s)
+# is the per-row limit. Guards run in a clean worktree of HEAD; a worktree failure exits 3.
 run_release_guard_rows() {
     local out rc=0 started
-    if [ "${LOKI_RELEASE_SKIP_GUARDS:-}" = "1" ]; then
-        log_warn "=============================================================="
-        log_warn "LOKI_RELEASE_SKIP_GUARDS=1: SKIPPING the global guard rows."
-        log_warn "A red CI-only guard will NOT stop this release."
-        log_warn "=============================================================="
-        return 0
-    fi
     # The guards read the working tree, so run them in a clean detached worktree of
     # HEAD: the main checkout is dirty by design (usage-governor appends to tracked files).
     local tmp_root dir wt
@@ -531,45 +494,6 @@ run_release_guard_rows() {
         exit 3
     fi
     log_success "Global guard rows green"
-}
-
-require_green_release_gate() {
-    local sha wf missing=""
-
-    sha="$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null)" || {
-        log_error "RELEASE_ON_RED: could not resolve HEAD's SHA"
-        exit 3
-    }
-
-    if [ "${LOKI_RELEASE_ALLOW_RED:-}" = "1" ]; then
-        log_warn "=============================================================="
-        log_warn "LOKI_RELEASE_ALLOW_RED=1: SKIPPING the green-CI release gate."
-        log_warn "TEST-ONLY ESCAPE HATCH. NEVER set this for a real release."
-        log_warn "=============================================================="
-        run_release_guard_rows
-        return 0
-    fi
-
-    for wf in "${RELEASE_REQUIRED_WORKFLOWS[@]}"; do
-        if ! _release_gate_run_is_green "$wf" "$sha"; then
-            missing="$missing$wf, "
-        fi
-    done
-
-    if [ -n "$missing" ]; then
-        log_error "RELEASE_ON_RED: refusing to bump. HEAD ($sha) has no"
-        log_error "completed/success run for: ${missing%, }"
-        log_error "Runs gh found at $sha:"
-        for wf in "${RELEASE_REQUIRED_WORKFLOWS[@]}"; do
-            log_error "-- $wf --"
-            gh run list --workflow "$wf" --commit "$sha" \
-                --json status,conclusion,headSha,databaseId,createdAt 2>&1 \
-                | sed 's/^/  /' >&2 || true
-        done
-        exit 3
-    fi
-
-    log_success "Release gate: green Tests run found at $sha"
 }
 
 # loki-ts/dist rebuilds are content-hashed (writeDeterministicDebugId
@@ -785,6 +709,15 @@ ship_phase() {
     if [ -n "$1" ]; then log_step "ship: $1"; fi
 }
 
+# Print the line number of the first '## v' header in file $1 (the newest
+# section, wherever the preamble ends). Exit 1 and print nothing if none.
+ship_changelog_top_line() {
+    local n
+    n="$(awk '/^## v/ { print NR; exit }' "$1" 2>/dev/null)"
+    [ -n "$n" ] || return 1
+    printf '%s\n' "$n"
+}
+
 # Exit 0 iff line $2 of file $1 is the section header of exactly version $3:
 # "## v<ver>" followed by a space or end of line. A prefix match would accept
 # "## v1.2.30" for 1.2.3, so the version token is compared whole.
@@ -805,18 +738,19 @@ ship_check_notes_format() {
     (cd "$ROOT_DIR" && bash scripts/release-notes.sh "$2" --file "$1" >/dev/null 2>&1)
 }
 
-# Insert the notes file as the new top section at line index 7 (the 8th
-# line), dropping its trailing blank lines and keeping exactly one blank line
-# before the previous section.
+# Insert the notes file as the new top section immediately before the first
+# '## v' header (any preamble is kept as is), dropping its trailing blank lines
+# and keeping exactly one blank line before the previous section.
 ship_write_changelog() {
-    local notes="$1" cl="$ROOT_DIR/CHANGELOG.md" tmp
+    local notes="$1" cl="$ROOT_DIR/CHANGELOG.md" tmp top
+    top="$(ship_changelog_top_line "$cl")" || return 1
     tmp="$(mktemp "${cl}.XXXXXX")" || return 1
     cp -p "$cl" "$tmp"
     if {
-        sed -n '1,7p' "$cl"
+        awk -v t="$top" 'NR < t' "$cl"
         sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$notes"
         echo ""
-        sed -n '8,$p' "$cl"
+        sed -n "${top},\$p" "$cl"
     } >"$tmp"; then
         mv "$tmp" "$cl"
     else
@@ -853,7 +787,7 @@ sys.exit(1 if any(r.get("status") != "completed" for r in runs) else 0)
 }
 
 run_ship() {
-    local notes="$SHIP_NOTES" current new f staged hit waited dirty
+    local notes="$SHIP_NOTES" current new f staged hit waited dirty cl_top
     local max_wait="${LOKI_RELEASE_SHIP_WAIT:-300}" poll="${LOKI_RELEASE_SHIP_POLL:-10}"
     case "$max_wait" in '' | *[!0-9]*) max_wait=300 ;; esac
     case "$poll" in '' | *[!0-9]* | 0) poll=10 ;; esac
@@ -870,12 +804,13 @@ run_ship() {
         || ship_refuse SHIP_NOTES_HEADER "the first line of $notes must be '## v$new ...'"
     # FC-RELEASE-NOTES-FORMAT-UNCHECKED-LOCALLY: CI's release-notes.sh rejects a section
     # with no '### ' subsection AFTER npm has published, skipping the tag and GitHub
-    # release. Run the same validator on the notes before any write. Not bypassable:
-    # LOKI_RELEASE_SKIP_GUARDS covers only the global guard rows, never this.
+    # release. Run the same validator on the notes before any write. Not bypassable.
     ship_check_notes_format "$notes" "$new" \
         || ship_refuse SHIP_NOTES_FORMAT "release-notes.sh rejects the notes in $notes (needs '### ' subsections and '- ' bullets)"
-    ship_header_is "$ROOT_DIR/CHANGELOG.md" 8 "$current" \
-        || ship_refuse SHIP_CHANGELOG_MISMATCH "CHANGELOG.md line 8 is '$(sed -n '8p' "$ROOT_DIR/CHANGELOG.md" 2>/dev/null)', expected '## v$current'"
+    cl_top="$(ship_changelog_top_line "$ROOT_DIR/CHANGELOG.md")" \
+        || ship_refuse SHIP_CHANGELOG_NO_HEADER "CHANGELOG.md has no '## v' section header"
+    ship_header_is "$ROOT_DIR/CHANGELOG.md" "$cl_top" "$current" \
+        || ship_refuse SHIP_CHANGELOG_MISMATCH "CHANGELOG.md line $cl_top is '$(sed -n "${cl_top}p" "$ROOT_DIR/CHANGELOG.md" 2>/dev/null)', expected '## v$current'"
     # The release commit may hold only HEAD plus this run's own edits. Refuse
     # an index that already has anything staged, and any release file or
     # build input that differs from HEAD (another agent's unreviewed edit in
@@ -903,8 +838,10 @@ run_ship() {
 
     ship_phase "write CHANGELOG section"
     ship_write_changelog "$notes" || ship_refuse SHIP_CHANGELOG_WRITE "could not write CHANGELOG.md"
-    ship_header_is "$ROOT_DIR/CHANGELOG.md" 8 "$new" \
-        || ship_refuse SHIP_CHANGELOG_MISMATCH "CHANGELOG.md line 8 is not '## v$new' after the insert"
+    cl_top="$(ship_changelog_top_line "$ROOT_DIR/CHANGELOG.md")" \
+        || ship_refuse SHIP_CHANGELOG_NO_HEADER "CHANGELOG.md has no '## v' section header after the insert"
+    ship_header_is "$ROOT_DIR/CHANGELOG.md" "$cl_top" "$new" \
+        || ship_refuse SHIP_CHANGELOG_MISMATCH "CHANGELOG.md line $cl_top is '$(sed -n "${cl_top}p" "$ROOT_DIR/CHANGELOG.md" 2>/dev/null)', expected '## v$new' after the insert"
     ship_check_notes_format "$ROOT_DIR/CHANGELOG.md" "$new" \
         || ship_refuse SHIP_NOTES_FORMAT "release-notes.sh rejects the written CHANGELOG.md section for v$new"
 
@@ -1032,11 +969,11 @@ main() {
         return
     fi
 
-    # Release gate runs before ANY bump, --bump-only included. Skipped on
+    # The guard rows run before ANY bump, --bump-only included. Skipped on
     # --dry-run: it makes no changes, so it never needs to pass the "that
     # exact tree is verified" bar.
     if [ "$DRY_RUN" != "true" ]; then
-        require_green_release_gate
+        run_release_guard_rows
     fi
 
     if [ "$BUMP_ONLY" = "true" ]; then

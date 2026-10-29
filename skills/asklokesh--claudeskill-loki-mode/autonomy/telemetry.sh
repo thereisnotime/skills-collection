@@ -207,7 +207,7 @@ _loki_known_blocker() {
         # single most common post-install failure unactionable in the data --
         # and it is the worst-placed one, since without this the user only learns
         # of it after confirming the spend.
-        no_provider|not_logged_in|not_a_repo|git_identity|node|python3|jq|git|curl|disk|skill_symlink)
+        no_provider|not_logged_in|not_a_repo|git_identity|dirty_tracked_tree|prd_missing|unsupported_flag|node|python3|jq|git|curl|disk|skill_symlink)
             printf '%s' "$1" ;;
         *)
             printf 'other' ;;
@@ -405,6 +405,19 @@ loki_emit_build_verified() {
         [ -n "$_line" ] && _args+=("$_line")
     done <<< "$_props"
     loki_telemetry "build_verified" "${_args[@]}"
+    return 0
+}
+
+# loki_emit_seal_hook_decision <allow|block> <reason>: one event per loki-seal
+# Stop hook decision (the Claude Code wedge). Enum args only: any decision or
+# reason outside the fixed lists sends nothing, and the schema re-filters. Never
+# a path, file name, test name or error text. Same strict analytics gate as
+# build_verified, so every existing opt-out wins.
+loki_emit_seal_hook_decision() {
+    _loki_analytics_enabled || return 0
+    case "${1:-}" in allow|block) ;; *) return 0 ;; esac
+    case "${2:-}" in none|tests_failed|tests_weakened|no_tests|contract_unverified|released|error) ;; *) return 0 ;; esac
+    loki_telemetry "seal_hook_decision" "decision=$1" "reason=$2"
     return 0
 }
 

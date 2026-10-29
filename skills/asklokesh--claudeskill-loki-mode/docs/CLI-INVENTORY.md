@@ -6,12 +6,12 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 
 ## Counts
 
-- KEEP-MODERN: 77
+- KEEP-MODERN: 78
 - UPDATE: 22
 - DROP-LEGACY: 31
 - DELETE: 14
-- Total rows: 144
-- Registry paths (commands and nested subcommands): 212
+- Total rows: 145
+- Registry paths (commands and nested subcommands): 215
 
 ## Commands
 
@@ -85,6 +85,7 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 | notify | autonomy/loki | KEEP-MODERN | Engine-neutral |
 | tour | autonomy/loki | KEEP-MODERN | Onboarding |
 | wow | autonomy/loki | KEEP-MODERN | Onboarding: loki tour --live |
+| try | autonomy/loki | KEEP-MODERN | Onboarding: never touches your checkout |
 | factory | autonomy/loki | KEEP-MODERN | propose, execute, operate unchanged |
 | welcome | autonomy/loki | KEEP-MODERN | Onboarding |
 | onboard | autonomy/loki | UPDATE | Overlaps wiki |
@@ -169,19 +170,19 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 - compliance: 1
 - config: 4
 - context: 5
-- cost: 6
+- cost: 7
 - deploy: 1
 - docs: 4
 - enterprise: 2
 - explain: 5
-- export: 6
-- github: 6
+- export: 7
+- github: 7
 - import: 1
 - init: 21
 - issue: 2
 - magic: 12
 - memory: 7
-- metrics: 6
+- metrics: 7
 - modernize: 3
 - next: 1
 - notify: 6
@@ -198,7 +199,7 @@ Classes: KEEP-MODERN (v10-native or engine-neutral), UPDATE (live but needs mode
 - secrets: 3
 - secure: 3
 - setup-skill: 1
-- share: 6
+- share: 7
 - ship: 1
 - syslog: 3
 - telemetry: 1

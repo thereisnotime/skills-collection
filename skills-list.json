@@ -9577,8 +9577,8 @@
       "description": "Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate externa",
       "path": "anthropics--skills/skills/mcp-builder/SKILL.md",
       "remote_path": "skills/mcp-builder/SKILL.md",
-      "lines": 237,
-      "words": 1143,
+      "lines": 253,
+      "words": 1384,
       "code_blocks": 1,
       "languages": [
         "xml"
@@ -10804,8 +10804,8 @@
       "description": "\"Diagnosis loop for bugs and failing behavior. Use when asked to debug or fix failing or slow behavior.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
-      "lines": 123,
-      "words": 2702,
+      "lines": 127,
+      "words": 2915,
       "code_blocks": 1,
       "languages": []
     },
@@ -10854,8 +10854,8 @@
       "description": "\"Create structured plans for multi-step work, including software and non-software tasks. Use when asked to plan, break down implementation, plan from requirements, or deepen an existing plan; prefer c",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
-      "lines": 61,
-      "words": 1154,
+      "lines": 59,
+      "words": 1149,
       "code_blocks": 0,
       "languages": []
     },
@@ -10918,7 +10918,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-bakeoff/SKILL.md",
       "remote_path": "skills/ce-bakeoff/SKILL.md",
       "lines": 49,
-      "words": 1037,
+      "words": 1039,
       "code_blocks": 0,
       "languages": []
     },
@@ -10937,8 +10937,8 @@
       "description": "\"Create or update STRATEGY.md. Use when starting a product, adding a strategy doc, or changing direction or roadmap.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-strategy/SKILL.md",
       "remote_path": "skills/ce-strategy/SKILL.md",
-      "lines": 62,
-      "words": 1236,
+      "lines": 60,
+      "words": 1224,
       "code_blocks": 0,
       "languages": []
     },
@@ -10982,7 +10982,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
       "lines": 70,
-      "words": 1154,
+      "words": 1145,
       "code_blocks": 0,
       "languages": []
     },
@@ -10992,7 +10992,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
       "lines": 60,
-      "words": 1205,
+      "words": 1207,
       "code_blocks": 0,
       "languages": []
     },
@@ -11001,8 +11001,8 @@
       "description": "\"Generate and evaluate grounded ideas. Use when the user wants ideas, improvements, or surprising directions before choosing one to develop. Not for refining an idea they already have (ce-brainstorm) ",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-ideate/SKILL.md",
       "remote_path": "skills/ce-ideate/SKILL.md",
-      "lines": 76,
-      "words": 1151,
+      "lines": 74,
+      "words": 1137,
       "code_blocks": 0,
       "languages": []
     },
@@ -11024,7 +11024,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
       "lines": 65,
-      "words": 1193,
+      "words": 1186,
       "code_blocks": 0,
       "languages": []
     },
@@ -11127,12 +11127,10 @@
       "description": "\"Hands-off, diff-scoped browser QA of the active branch: maps user flows, drives a real browser, autonomously fixes small breakages with regression tests and commits, judges experience against product",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-dogfood/SKILL.md",
       "remote_path": "skills/ce-dogfood/SKILL.md",
-      "lines": 67,
-      "words": 1177,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 61,
+      "words": 1136,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-resolve-pr-feedback",
@@ -23244,14 +23242,13 @@
       "description": "Evaluate Expo skills in this repo end-to-end - trigger accuracy, generated code quality, and runtime screenshots on iOS simulator and Android emulator via Expo Go (web optional). Use when the user wan",
       "path": "expo--skills/.claude/skills/expo-skill-eval/SKILL.md",
       "remote_path": ".claude/skills/expo-skill-eval/SKILL.md",
-      "lines": 315,
-      "words": 6994,
+      "lines": 314,
+      "words": 6992,
       "code_blocks": 7,
       "languages": [
         "bash",
         "json"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23259,13 +23256,12 @@
       "description": "Migrate an existing Apple/Swift Expo native module from the Expo Modules API 1.0 definition DSL to the 2.0 macro API (sometimes called v2) while preserving its JavaScript and TypeScript contract. Use ",
       "path": "expo--skills/plugins/expo-experiments/skills/expo-migrate-module/SKILL.md",
       "remote_path": "plugins/expo-experiments/skills/expo-migrate-module/SKILL.md",
-      "lines": 125,
-      "words": 1567,
+      "lines": 124,
+      "words": 1565,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23273,8 +23269,8 @@
       "description": "Guide for creating and writing Expo native modules and views using the Expo Modules API (Swift, Kotlin, TypeScript). Covers module definition DSL, native views, shared objects, config plugins, lifecyc",
       "path": "expo--skills/plugins/expo/skills/expo-module/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-module/SKILL.md",
-      "lines": 152,
-      "words": 860,
+      "lines": 151,
+      "words": 858,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23283,7 +23279,6 @@
         "swift",
         "typescript"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23291,13 +23286,12 @@
       "description": "Use for anything related to EAS Observe - adding `expo-observe` to an Expo project (AppMetricsRoot/ObserveRoot HOC, markInteractive and ObserveInteractiveMarker, the useObserve hook, the Expo Router /",
       "path": "expo--skills/plugins/expo/skills/eas-observe/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-observe/SKILL.md",
-      "lines": 51,
-      "words": 666,
+      "lines": 50,
+      "words": 664,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.4.0",
       "license": "MIT"
     },
     {
@@ -23305,8 +23299,8 @@
       "description": "Build animations in React Native and Expo, making the decisions in the order that determines whether they feel right \u2014 should it animate, which thread it runs on, which properties, spring or timing, h",
       "path": "expo--skills/plugins/expo/skills/expo-animation/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-animation/SKILL.md",
-      "lines": 275,
-      "words": 2974,
+      "lines": 274,
+      "words": 2972,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -23314,7 +23308,6 @@
         "json",
         "jsx"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23322,14 +23315,13 @@
       "description": "\"Build native UI with the @expo/ui package: real SwiftUI on iOS and Jetpack Compose on Android. Default to @expo/ui for sheets (BottomSheet), pickers, sliders, toggles, menus, and grouped-form section",
       "path": "expo--skills/plugins/expo/skills/expo-ui/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-ui/SKILL.md",
-      "lines": 102,
-      "words": 937,
+      "lines": 101,
+      "words": 935,
       "code_blocks": 4,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23337,14 +23329,13 @@
       "description": "\"Configure and use EAS Update for over-the-air JavaScript and asset updates with expo-updates and EAS CLI. Use when setting up OTA updates, running eas update:configure or eas update, publishing to pr",
       "path": "expo--skills/plugins/expo/skills/eas-update/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-update/SKILL.md",
-      "lines": 147,
-      "words": 1388,
+      "lines": 146,
+      "words": 1386,
       "code_blocks": 6,
       "languages": [
         "bash",
         "text"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23352,14 +23343,13 @@
       "description": "Navigation and routing for Expo Router. Covers file-based routes, groups and dynamic routes, folder organization, Link with previews and context menus, native Stack, page titles, modals and form sheet",
       "path": "expo--skills/plugins/expo/skills/expo-router/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-router/SKILL.md",
-      "lines": 241,
-      "words": 835,
+      "lines": 240,
+      "words": 833,
       "code_blocks": 11,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "1.0.1",
       "license": "MIT"
     },
     {
@@ -23367,14 +23357,13 @@
       "description": "Build and submit iOS and Android apps with EAS to TestFlight, the App Store, or Google Play. Supports Expo and other React Native projects, plus existing native apps. Use for eas.json setup, release p",
       "path": "expo--skills/plugins/expo/skills/eas-app-stores/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-app-stores/SKILL.md",
-      "lines": 177,
-      "words": 1038,
+      "lines": 176,
+      "words": 1036,
       "code_blocks": 8,
       "languages": [
         "bash",
         "json"
       ],
-      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -23394,13 +23383,12 @@
       "description": "\"Entry point and router for every Expo or EAS task. Load this skill first \u2014 before writing code and before choosing another expo-* / eas-* skill \u2014 when the request, PRD, or spec mentions Expo, EAS, Ex",
       "path": "expo--skills/plugins/expo/skills/expo-overview/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-overview/SKILL.md",
-      "lines": 121,
-      "words": 1467,
+      "lines": 120,
+      "words": 1465,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.2.0",
       "license": "MIT"
     },
     {
@@ -23408,14 +23396,13 @@
       "description": "Helps understand and write EAS workflow YAML files for Expo projects. Use this skill when the user asks about CI/CD or workflows in an Expo or EAS context, mentions .eas/workflows/, or wants help with",
       "path": "expo--skills/plugins/expo/skills/eas-workflows/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-workflows/SKILL.md",
-      "lines": 100,
-      "words": 683,
+      "lines": 99,
+      "words": 681,
       "code_blocks": 3,
       "languages": [
         "bash",
         "sh"
       ],
-      "version": "1.0.0",
       "license": "MIT License"
     },
     {
@@ -23423,15 +23410,14 @@
       "description": "Deploy Expo websites and Expo Router API routes to EAS Hosting - export the web bundle, run eas deploy for production and PR preview URLs, manage environment secrets and custom domains, and work withi",
       "path": "expo--skills/plugins/expo/skills/eas-hosting/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-hosting/SKILL.md",
-      "lines": 432,
-      "words": 1583,
+      "lines": 431,
+      "words": 1581,
       "code_blocks": 23,
       "languages": [
         "bash",
         "ts",
         "yaml"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23457,14 +23443,13 @@
       "description": "Use Expo DOM components to run web code in a webview on native and as-is on web. Migrate web code to native incrementally. For the end-to-end migration of a whole web app, use the expo-web-to-native s",
       "path": "expo--skills/plugins/expo/skills/expo-dom/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-dom/SKILL.md",
-      "lines": 426,
-      "words": 1387,
+      "lines": 425,
+      "words": 1385,
       "code_blocks": 16,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23472,14 +23457,13 @@
       "description": "Guidelines for upgrading Expo SDK versions and fixing dependency issues",
       "path": "expo--skills/plugins/expo/skills/expo-upgrade/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-upgrade/SKILL.md",
-      "lines": 151,
-      "words": 1069,
+      "lines": 150,
+      "words": 1067,
       "code_blocks": 6,
       "languages": [
         "bash",
         "json"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23487,14 +23471,13 @@
       "description": "Folder structure for a new Expo app. Use when scaffolding or laying out a new Expo project with Expo Router, or deciding where a file should live in one. For new projects only \u2014 never restructure an e",
       "path": "expo--skills/plugins/expo/skills/expo-project-structure/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-project-structure/SKILL.md",
-      "lines": 115,
-      "words": 902,
+      "lines": 114,
+      "words": 900,
       "code_blocks": 3,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23502,14 +23485,13 @@
       "description": "Use when implementing or debugging ANY network request, API call, or data fetching. Covers fetch API, React Query, SWR, error handling, caching, offline support, loading/empty/error screen states, and",
       "path": "expo--skills/plugins/expo/skills/expo-data-fetching/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-data-fetching/SKILL.md",
-      "lines": 479,
-      "words": 1788,
+      "lines": 478,
+      "words": 1786,
       "code_blocks": 20,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23517,13 +23499,12 @@
       "description": "Expo's official example projects - the expo/examples repo of ~70 `with-*` integrations (Stripe, Clerk, Supabase, OpenAI, maps, Reanimated, SQLite, Skia, NativeWind, and more). Use when integrating a t",
       "path": "expo--skills/plugins/expo/skills/expo-examples/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-examples/SKILL.md",
-      "lines": 107,
-      "words": 947,
+      "lines": 106,
+      "words": 945,
       "code_blocks": 6,
       "languages": [
         "bash"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23531,14 +23512,13 @@
       "description": "\"Check the health of published EAS Update: crash rates, install/launch counts, unique users, payload size, and the split between embedded and OTA users per channel. Use when the user asks how an updat",
       "path": "expo--skills/plugins/expo/skills/eas-update-insights/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-update-insights/SKILL.md",
-      "lines": 239,
-      "words": 1727,
+      "lines": 238,
+      "words": 1725,
       "code_blocks": 10,
       "languages": [
         "bash",
         "json"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23546,14 +23526,13 @@
       "description": "Migrate an existing web React app to a native iOS/Android app with Expo. Use when the user wants to turn a website into a mobile app, port a Next.js/Vite/CRA React codebase to React Native, reuse web ",
       "path": "expo--skills/plugins/expo/skills/expo-web-to-native/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-web-to-native/SKILL.md",
-      "lines": 92,
-      "words": 1529,
+      "lines": 91,
+      "words": 1527,
       "code_blocks": 2,
       "languages": [
         "bash",
         "mermaid"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23561,14 +23540,13 @@
       "description": "Build beautiful, native-feeling Expo screens. Covers Apple HIG styling, semantic colors, native controls, SF Symbols, media, visual effects, gradients, storage, and responsive layout. For routing and ",
       "path": "expo--skills/plugins/expo/skills/expo-native-ui/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-native-ui/SKILL.md",
-      "lines": 202,
-      "words": 1712,
+      "lines": 201,
+      "words": 1710,
       "code_blocks": 5,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "1.1.1",
       "license": "MIT"
     },
     {
@@ -23576,13 +23554,12 @@
       "description": "\"Run and control a user's app on a remote iOS/Android simulator hosted on EAS cloud. Read before running any `eas simulator:*` commands - it has the current syntax for this experimental API. Use whene",
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 238,
-      "words": 4082,
+      "lines": 237,
+      "words": 4080,
       "code_blocks": 6,
       "languages": [
         "bash"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23590,14 +23567,13 @@
       "description": "Build and maintain a design system inside an Expo app - a reusable theme of design tokens (color, spacing, typography, radius, shadow, motion), reusable component structure with variant/size/state pro",
       "path": "expo--skills/plugins/expo/skills/expo-design-system/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-design-system/SKILL.md",
-      "lines": 377,
-      "words": 2776,
+      "lines": 376,
+      "words": 2774,
       "code_blocks": 13,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -23605,14 +23581,13 @@
       "description": "Build and distribute Expo development clients locally or via TestFlight for internal testing. For production TestFlight releases and store submission, use the eas-app-stores skill.",
       "path": "expo--skills/plugins/expo/skills/expo-dev-client/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-dev-client/SKILL.md",
-      "lines": 185,
-      "words": 780,
+      "lines": 184,
+      "words": 778,
       "code_blocks": 13,
       "languages": [
         "bash",
         "json"
       ],
-      "version": "1.1.0",
       "license": "MIT"
     }
   ],
@@ -23970,8 +23945,8 @@
       "description": "\"Write, test, or convert Terraform Policy files (.policy.hcl, .policytest.hcl, Sentinel\u2192tfpolicy). Triggers: policy.hcl, policytest, convert sentinel, tfpolicy, write a policy.\"",
       "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-policy/SKILL.md",
       "remote_path": "plugins/terraform/skills/terraform-policy/SKILL.md",
-      "lines": 53,
-      "words": 475,
+      "lines": 54,
+      "words": 777,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -24067,9 +24042,9 @@
       "description": "Expert agent for authoring Terraform Policies \u2014 from natural-language requirements or Sentinel source. Covers the full workflow write new policies, convert existing Sentinel policies, parameterize wit",
       "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-policy/references/tfpolicy-author.md",
       "remote_path": "plugins/terraform/skills/terraform-policy/references/tfpolicy-author.md",
-      "lines": 1787,
-      "words": 12687,
-      "code_blocks": 57,
+      "lines": 1820,
+      "words": 13336,
+      "code_blocks": 58,
       "languages": [
         "hcl"
       ],
@@ -24080,9 +24055,9 @@
       "description": "Expert agent for testing Terraform policies. Helps write and debug `.policytest.hcl` files, design resource mocks (`attrs` / `prior_attrs`), reason about runner behavior, and verify policy correctness",
       "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-policy/references/tfpolicy-test.md",
       "remote_path": "plugins/terraform/skills/terraform-policy/references/tfpolicy-test.md",
-      "lines": 1153,
-      "words": 6312,
-      "code_blocks": 45,
+      "lines": 1180,
+      "words": 6511,
+      "code_blocks": 47,
       "languages": [
         "bash",
         "hcl"
@@ -29167,6 +29142,122 @@
     {
       "name": "stripe-docs",
       "description": ">-",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-docs/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/stripe-docs/SKILL.md",
+      "lines": 48,
+      "words": 191,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "stripe-best-practices",
+      "description": ">-",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-best-practices/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/stripe-best-practices/SKILL.md",
+      "lines": 80,
+      "words": 826,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "metronome",
+      "description": ">-",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/metronome/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/metronome/SKILL.md",
+      "lines": 79,
+      "words": 1487,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "stripe-projects",
+      "description": ">",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-projects/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/stripe-projects/SKILL.md",
+      "lines": 152,
+      "words": 1039,
+      "code_blocks": 10,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "connect-recommend",
+      "description": ">-",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/connect-recommend/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/connect-recommend/SKILL.md",
+      "lines": 362,
+      "words": 3161,
+      "code_blocks": 12,
+      "languages": []
+    },
+    {
+      "name": "stripe-pay",
+      "description": ">-",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-pay/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/stripe-pay/SKILL.md",
+      "lines": 62,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "upgrade-stripe",
+      "description": ">-",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/upgrade-stripe/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/upgrade-stripe/SKILL.md",
+      "lines": 200,
+      "words": 1229,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "html",
+        "javascript",
+        "python",
+        "ruby"
+      ]
+    },
+    {
+      "name": "stripe-apps",
+      "description": ">-",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-apps/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/stripe-apps/SKILL.md",
+      "lines": 79,
+      "words": 990,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "connect-required-verification-information",
+      "description": ">-",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/connect-required-verification-information/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/connect-required-verification-information/SKILL.md",
+      "lines": 413,
+      "words": 3490,
+      "code_blocks": 10,
+      "languages": [
+        "bash",
+        "json",
+        "mermaid"
+      ]
+    },
+    {
+      "name": "stripe-directory",
+      "description": ">-",
+      "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-directory/SKILL.md",
+      "remote_path": "providers/antigravity/plugin/skills/stripe-directory/SKILL.md",
+      "lines": 113,
+      "words": 1125,
+      "code_blocks": 2,
+      "languages": [
+        "sh"
+      ]
+    },
+    {
+      "name": "stripe-docs",
+      "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-docs/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-docs/SKILL.md",
       "lines": 48,
@@ -33029,7 +33120,7 @@
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
       "lines": 479,
-      "words": 4010,
+      "words": 4011,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -48923,6 +49014,19 @@
       ]
     },
     {
+      "name": "access-lifecycle",
+      "description": "Use when preparing or running a user access review, checking that leavers lost their access, finding orphaned or ownerless service accounts, answering an auditor's access-control request for SOC 2, IS",
+      "path": "alirezarezvani--claude-skills/ra-qm-team/skills/access-lifecycle/SKILL.md",
+      "remote_path": "ra-qm-team/skills/access-lifecycle/SKILL.md",
+      "lines": 83,
+      "words": 808,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "\"quality-manager-qms-iso13485\"",
       "description": "ISO 13485 Quality Management System implementation and maintenance for medical device organizations. Provides QMS design, documentation control, internal auditing, CAPA management, and certification s",
       "path": "alirezarezvani--claude-skills/ra-qm-team/skills/quality-manager-qms-iso13485/SKILL.md",
@@ -49029,6 +49133,29 @@
       "languages": [
         "bash"
       ]
+    },
+    {
+      "name": "cs-access-reviewer",
+      "description": "Use when someone is preparing or checking a user access review, needs to prove leavers lost their access, is chasing orphaned or ownerless service accounts, or must answer an auditor's access-control ",
+      "path": "alirezarezvani--claude-skills/ra-qm-team/access-lifecycle/agents/cs-access-reviewer.md",
+      "remote_path": "ra-qm-team/access-lifecycle/agents/cs-access-reviewer.md",
+      "lines": 54,
+      "words": 416,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "access-lifecycle",
+      "description": "Use when preparing or running a user access review, checking that leavers lost their access, finding orphaned or ownerless service accounts, answering an auditor's access-control request for SOC 2, IS",
+      "path": "alirezarezvani--claude-skills/ra-qm-team/access-lifecycle/skills/access-lifecycle/SKILL.md",
+      "remote_path": "ra-qm-team/access-lifecycle/skills/access-lifecycle/SKILL.md",
+      "lines": 83,
+      "words": 808,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "\"eu-ai-act-specialist\"",
@@ -49169,11 +49296,11 @@
     },
     {
       "name": "md-slides",
-      "description": "\"Converts a markdown deck (slides separated by `---` HR boundaries or by `# ` H1 headings, with optional HTML-comment `notes:` presenter-notes blocks) into a single-file HTML presentation with arrow-k",
+      "description": "\"Converts a markdown deck (slides separated by horizontal-rule boundaries or by `# ` H1 headings, with optional HTML-comment `notes:` presenter-notes blocks) into a single-file HTML presentation with ",
       "path": "alirezarezvani--claude-skills/markdown-html/skills/md-slides/SKILL.md",
       "remote_path": "markdown-html/skills/md-slides/SKILL.md",
       "lines": 104,
-      "words": 936,
+      "words": 935,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -51510,7 +51637,7 @@
       "path": "alirezarezvani--claude-skills/engineering-team/skills/epic-design/SKILL.md",
       "remote_path": "engineering-team/skills/epic-design/SKILL.md",
       "lines": 353,
-      "words": 2400,
+      "words": 2407,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -51769,7 +51896,7 @@
       ]
     },
     {
-      "name": "\"playwright-pro\"",
+      "name": "\"pw\"",
       "description": "\"Production-grade Playwright testing toolkit. Use when the user mentions Playwright tests, end-to-end testing, browser automation, fixing flaky tests, test migration, CI/CD testing, or test suites. Ge",
       "path": "alirezarezvani--claude-skills/engineering-team/playwright-pro/skills/pw/SKILL.md",
       "remote_path": "engineering-team/playwright-pro/skills/pw/SKILL.md",
@@ -52290,6 +52417,19 @@
         "json"
       ],
       "license": "\"MIT\""
+    },
+    {
+      "name": "\"mcp-oauth-triage\"",
+      "description": "\"Diagnose why an MCP connector that used to authenticate now fails: classify the fault as envelope, expiry, rotation clobber, binding, or poisoned cache before changing any code. Use when a token exch",
+      "path": "alirezarezvani--claude-skills/engineering/skills/mcp-oauth-triage/SKILL.md",
+      "remote_path": "engineering/skills/mcp-oauth-triage/SKILL.md",
+      "lines": 303,
+      "words": 2284,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "json"
+      ]
     },
     {
       "name": "\"rag-architect\"",
@@ -146892,8 +147032,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/SKILL.md",
       "remote_path": "feishu-doc-scraper/SKILL.md",
-      "lines": 241,
-      "words": 4129,
+      "lines": 242,
+      "words": 4268,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -147267,8 +147407,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 961,
-      "words": 3445,
+      "lines": 978,
+      "words": 3458,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -147483,9 +147623,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-review-pr/SKILL.md",
       "remote_path": "github-review-pr/SKILL.md",
-      "lines": 562,
-      "words": 4172,
-      "code_blocks": 15,
+      "lines": 605,
+      "words": 4542,
+      "code_blocks": 16,
       "languages": [
         "bash",
         "text"
@@ -147570,8 +147710,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/auto-repo-setup/SKILL.md",
       "remote_path": "auto-repo-setup/SKILL.md",
-      "lines": 264,
-      "words": 1754,
+      "lines": 276,
+      "words": 1895,
       "code_blocks": 0,
       "languages": []
     },
@@ -147700,8 +147840,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/references/original-media-and-reader.md",
       "remote_path": "feishu-doc-scraper/references/original-media-and-reader.md",
-      "lines": 199,
-      "words": 1570,
+      "lines": 203,
+      "words": 1704,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -148160,8 +148300,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 442,
-      "words": 3744,
+      "lines": 448,
+      "words": 3842,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -148243,9 +148383,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 397,
-      "words": 3470,
-      "code_blocks": 10,
+      "lines": 453,
+      "words": 3956,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "sql",
@@ -148282,8 +148422,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/local-conversation-history/SKILL.md",
       "remote_path": "daymade-claude-code/local-conversation-history/SKILL.md",
-      "lines": 177,
-      "words": 1832,
+      "lines": 178,
+      "words": 1883,
       "code_blocks": 0,
       "languages": []
     },
@@ -148458,9 +148598,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/references/local-coordination.md",
       "remote_path": "peer-message/references/local-coordination.md",
-      "lines": 242,
-      "words": 656,
-      "code_blocks": 12,
+      "lines": 301,
+      "words": 892,
+      "code_blocks": 13,
       "languages": [
         "bash"
       ]
@@ -148558,9 +148698,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-codex/local-codex/SKILL.md",
       "remote_path": "daymade-codex/local-codex/SKILL.md",
-      "lines": 156,
-      "words": 1044,
-      "code_blocks": 7,
+      "lines": 181,
+      "words": 1220,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ]
@@ -148824,7 +148964,7 @@
       "path": "daymade--claude-code-skills/daymade-docs/docs-router/SKILL.md",
       "remote_path": "daymade-docs/docs-router/SKILL.md",
       "lines": 75,
-      "words": 751,
+      "words": 755,
       "code_blocks": 0,
       "languages": []
     },
@@ -148845,8 +148985,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/read-docx-review/SKILL.md",
       "remote_path": "daymade-docs/read-docx-review/SKILL.md",
-      "lines": 145,
-      "words": 491,
+      "lines": 147,
+      "words": 476,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -148857,8 +148997,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/docx-creator/SKILL.md",
       "remote_path": "daymade-docs/docx-creator/SKILL.md",
-      "lines": 199,
-      "words": 1750,
+      "lines": 195,
+      "words": 1641,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -168210,16 +168350,6 @@
         "bash",
         "python"
       ]
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
-      "languages": []
     },
     {
       "name": "pdf-generation",

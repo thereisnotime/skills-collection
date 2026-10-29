@@ -47,6 +47,8 @@ export const REVIEW_SCOPE_BASE_REF = "9f5b16fc617fb5bf4817c8f42537b626c17abd05"
 export const RESOLVER_PUBLICATION_BASE_REF = "bb5899b36c133a8441fa79af7cf60420c8191c6b"
 /** main before ce-debug preferred removing a recurring bug pattern over layering runtime checks. */
 export const STRUCTURAL_FIX_BASE_REF = "2b4cacd32d3e8c19a91e1c50c318172ec1d2f160"
+/** main before the ce-debug session-audit changes (other affected places, behavior-based review skip, findings-shaped options). */
+export const DEBUG_AUDIT_BASE_REF = "00d0a5bbf1300b2138b65ce724b325dd4dff77ba"
 /** main before the reliability reviewer judged a missing guard by how the code runs. */
 export const RELIABILITY_CONTEXT_BASE_REF = "8d9a236dc91b17e114562bd65e9e137d171f39ab"
 /** main before ce-work dropped its goal/workflow engines, ran chained units inline, and ce-plan stopped offering /goal. */
@@ -142,6 +144,8 @@ export type Scenario = {
   key_behavior: KeyBehavior
   read_only: boolean
   git_init?: boolean
+  /** Skills the run invokes, extracted from the same ref, so the host never falls back to an installed plugin copy. */
+  with_skill?: string[]
   /** Paths left untracked after the seed commit (secrets / the change under test). */
   git_untracked?: string[]
   /**
@@ -176,6 +180,88 @@ const UNDERSTANDING_BASE_REF = "8df67793b9733d2220fa9a7fc37139931471af62"
 const BEHAVIOR_TRACE_BASE_REF = "c152896f1cda13548fc1a05b2aff88caf8ae8dba"
 
 const FIX = "tests/skill-eval-cell/fixtures"
+
+/** main before ce-ideate's run-scaling, §5.3, and issue-tracker detection blocks were restated as conditions. */
+const IDEATE_SCALING_BASE_REF = "00d0a5bbf1300b2138b65ce724b325dd4dff77ba"
+const IDEATE_HEADLESS_BASE =
+  "This run was started by an autonomous workflow, so nobody is available to answer questions; proceed on your own judgment. Skip external web research. Write the ideation as markdown (output:md)."
+const IDEATE_HEADLESS = `${IDEATE_HEADLESS_BASE} Stop at the next-steps menu.`
+
+/**
+ * Live ce-ideate runs over the scaling variants. The deterministic grade only
+ * checks that the run dispatched and wrote a deliverable; frames, fleet, tier,
+ * the verifier's waiver, and the merge are graded from the artifacts and the
+ * host session logs per tests/skill-eval-cell/packs/ce-ideate-run-scaling.md.
+ */
+const IDEATE_RUN_SCALING_ROWS: Array<Pick<Scenario, "id" | "why" | "pre_contract" | "task"> & { env?: Record<string, string>; merge?: boolean }> = [
+  {
+    id: "default-fleet",
+    why: "The default fleet is 3 generation-tier and 2 ceiling-tier agents over all six frames, and the verifier judges the meeting-test.",
+    pre_contract: "Default: 5 agents covering six frames, 6-8 ideas per frame, 5 verification reads; the verifier judges basis and the meeting-test.",
+    task: `Use ce-ideate to come up with ideas for improving jot's search and export commands. ${IDEATE_HEADLESS}`,
+  },
+  {
+    id: "tactical",
+    why: "Tactical lowers volume and reads but keeps the default fleet and all six frames, and the verifier is told the meeting-test is waived.",
+    pre_contract: "Tactical: same 5 agents over 6 frames, 3-4 ideas per frame, 2-3 reads, at most 3 axes and 3 scouts, meeting-test waived for generators and the verifier.",
+    task: `Use ce-ideate: quick wins in jot's CSV export. ${IDEATE_HEADLESS}`,
+  },
+  {
+    id: "go-deep",
+    why: "go deep moves every ideation agent to the ceiling tier, doubles reads, and adds a second critic.",
+    pre_contract: "go deep: 6 agents, one frame each, all ceiling tier; 10 verification reads; a second ceiling-tier critic in Phase 3.",
+    task: `Use ce-ideate and go deep: ideas for jot's storage layer. ${IDEATE_HEADLESS}`,
+  },
+  {
+    id: "tactical-go-deep",
+    why: "go deep cancels tactical, so the run is a full go-deep run with the meeting-test floor intact.",
+    pre_contract: "tactical + go deep: six frames, 6 ceiling-tier agents, default volume; tactical is suppressed, so no waiver reaches the verifier.",
+    task: `Use ce-ideate and go deep: quick wins in jot's search command. ${IDEATE_HEADLESS}`,
+  },
+  {
+    id: "surprise-me",
+    why: "Surprise-me decides the fleet: six frames, one per agent, all ceiling tier, with no axes.",
+    pre_contract: "surprise-me: 6 agents, one frame each, all ceiling tier; decomposition skipped; each frame picks its own subject.",
+    task: `Use ce-ideate. Surprise me: pick what in this repo is worth ideating about yourself. ${IDEATE_HEADLESS}`,
+  },
+  {
+    id: "issue-tracker-unreachable",
+    why: "Issue-tracker intent with no reachable tracker falls back to the six default frames, recomputes the agent count, and keeps the resolved tactical scaling.",
+    pre_contract: "Fallback recomputes only what the frame set determined: six frames on the default 5-agent mapping, with tactical's dials and the verifier waiver carried forward.",
+    task: `Use ce-ideate: quick wins from what users are reporting in our GitHub issues. ${IDEATE_HEADLESS}`,
+    env: { GH_TOKEN: "ce-eval-unreachable-tracker", GH_HOST: "github.invalid" },
+  },
+  {
+    id: "non-software",
+    why: "A non-software subject runs the universal path, which keeps all six frames and still dispatches a fresh-context verifier.",
+    pre_contract: "elsewhere-non-software: universal-ideation.md in place of the frame dispatch; six frames at any depth; a basis verifier; the deliverable is still written.",
+    task: `Use ce-ideate: names for my friend's new neighborhood bakery in Portland, Oregon. It sells sourdough and Basque cheesecake. ${IDEATE_HEADLESS}`,
+  },
+  {
+    id: "merge",
+    why: "A merge replaces its source entries with one combined entry, renumbers, and re-evaluates axis and confidence.",
+    pre_contract: "§5.3 Combine/merge: replace the merged source entries with the single combined entry, renumber, re-evaluate axis and confidence, rewrite the file.",
+    task: `Use ce-ideate to come up with ideas for jot's tagging. ${IDEATE_HEADLESS_BASE} At the next-steps menu, choose to refine the ideas: merge the two top-ranked ideas into one combined idea and keep the file current. Then stop.`,
+    merge: true,
+  },
+]
+const IDEATE_RUN_SCALING: Scenario[] = IDEATE_RUN_SCALING_ROWS.map(({ merge, ...s }) => ({
+  ...s,
+  id: `ce-ideate/run-scaling-${s.id}`,
+  skill: "ce-ideate",
+  cohort: "resized" as const,
+  key_behavior: "delegation" as const,
+  baseline_ref: IDEATE_SCALING_BASE_REF,
+  read_only: false,
+  git_init: true,
+  fixture: `${FIX}/ideate-jot`,
+  timeout_secs: 3600,
+  grade: {
+    must_include_any: merge ? [["docs/ideation/"], ["merge", "merged", "combined"]] : [["docs/ideation/"]],
+    delegates: "some" as const,
+    actions: "any" as const,
+  },
+}))
 /** main before ce-noslop named claim certainty and ruled out semicolons as em dash substitutes. */
 const NOSLOP_FIX_LIMITS_BASE_REF = "67035e931c5cb26e80f198a7019a4502a9788273"
 
@@ -351,7 +437,254 @@ export const WAVE1 = [
 ] as const
 
 export const SCENARIOS: Scenario[] = [
+  ...["md", "html"].map((format): Scenario => ({
+    id: `ce-prototype/local-source-${format}`,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    skill: "ce-prototype",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    fixture: `${FIX}/prototype-source-handoff`,
+    timeout_secs: 180,
+    why: "Issue #1915: write-back lost the prototype or made its path relative to the worker checkout.",
+    pre_contract: "Apply approved decisions to the related Product Contract, using the capsule for continuity and invalidating obsolete implementation planning.",
+    task: `Use ce-prototype to apply the approved decision recorded in the archived capsule completed-run/decisions.md to its directly related plan docs/plans/widget-plan.${format}. The user selected this ${format} file as canonical; its same-basename sibling is an old noncanonical copy. The user approved the centered empty message with a Create your first widget button below it. Update that plan now and stop. Do not build, implement product code, dispatch, invoke another skill, or commit.`,
+    grade: {
+      delegates: "none",
+      workspace_contains: [
+        { path: `docs/plans/widget-plan.${format}`, needle: "/local/planner-checkout/.context/compound-engineering/ce-prototype/widget-empty/" },
+        { path: `docs/plans/widget-plan.${format}`, needle: "decisions.md" },
+        { path: `docs/plans/widget-plan.${format}`, needle: "selected.html" },
+        { path: `docs/plans/widget-plan.${format}`, needle: "Create your first widget" },
+      ],
+    },
+  })),
+  {
+    id: "ce-plan/prototype-seed-source",
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    skill: "ce-plan",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    fixture: `${FIX}/prototype-source-handoff`,
+    timeout_secs: 180,
+    why: "A plan seeded from a kept prototype must retain a locator usable from a different worktree.",
+    pre_contract: "Session-settled decisions are preserved; Sources contains useful implementer breadcrumbs, but all paths were required to be repo-relative.",
+    task: "Use ce-plan at the plan-composition checkpoint for docs/plans/widget-plan.md. Product decisions are recorded in the archived capsule completed-run/decisions.md. The user selected the Markdown plan as canonical; its HTML sibling is an old noncanonical copy. Research and the implementation sections are settled. Finish only the draft's Sources section, then stop before review, the handoff menu, dispatch, or any implementation. Keep repository implementation paths portable.",
+    grade: { delegates: "none", workspace_contains: [
+      { path: "docs/plans/widget-plan.md", needle: "/local/planner-checkout/.context/compound-engineering/ce-prototype/widget-empty/" },
+      { path: "docs/plans/widget-plan.md", needle: "decisions.md" },
+      { path: "docs/plans/widget-plan.md", needle: "Files: src/widget.tsx." },
+    ] },
+  },
+  {
+    id: "ce-brainstorm/prototype-seed-source",
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    skill: "ce-brainstorm",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    fixture: `${FIX}/prototype-source-handoff`,
+    timeout_secs: 180,
+    why: "Prototype evidence must survive the requirements artifact before a later planning session can preserve it.",
+    pre_contract: "Brainstorming carries applicable settled decisions into its Product Contract and includes research that orients the planner.",
+    task: "Use ce-brainstorm at the requirements-composition checkpoint for docs/plans/widget-requirements.md. Product choices are settled in the archived capsule completed-run/decisions.md. Finish only Sources for these requirements, then stop before review, handoff, dispatch, or implementation. Do not create another artifact.",
+    grade: { delegates: "none", workspace_contains: [
+      { path: "docs/plans/widget-requirements.md", needle: "/local/planner-checkout/.context/compound-engineering/ce-prototype/widget-empty/" },
+      { path: "docs/plans/widget-requirements.md", needle: "decisions.md" },
+      { path: "docs/plans/widget-requirements.md", needle: "selected.html" },
+    ] },
+  },
+  {
+    id: "ce-plan/prototype-source-unavailable",
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    skill: "ce-plan",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    fixture: `${FIX}/prototype-source-handoff`,
+    timeout_secs: 180,
+    why: "Enrichment must preserve optional prototype evidence without blocking on its missing checkout or reversing later requirements.",
+    pre_contract: "Enrichment preserves applicable Product Contract content and sources; the Product Contract is the primary input.",
+    task: "Use ce-plan to deepen docs/plans/worker-plan.md at the source-review checkpoint only. The original planner checkout has been deleted. Add a Sources note stating 'Prototype unavailable at this review' and make any citation corrections the skill requires. Preserve settled product choices and the plan's identity; stop before broader research, dispatch, review, handoff, or implementation.",
+    grade: { delegates: "none", workspace_contains: [
+      { path: "docs/plans/worker-plan.md", needle: "/local/planner-checkout/.context/compound-engineering/ce-prototype/widget-empty/" },
+      { path: "docs/plans/worker-plan.md", needle: "Prototype unavailable at this review" },
+      { path: "docs/plans/worker-plan.md", needle: "left aligned" },
+    ] },
+  },
+  ...["native", "external"].map((engine): Scenario => ({
+    id: `ce-work/prototype-source-${engine}-packet`,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    skill: "ce-work",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    fixture: `${FIX}/prototype-source-handoff`,
+    timeout_secs: 180,
+    why: "A bounded worker packet can lose Sources even when the plan carries the prototype locator.",
+    pre_contract: "Native and external worker packets carry the active unit and relevant requirements and decisions rather than the whole plan.",
+    task: `Use ce-work at the ${engine === "native" ? "native subagent dispatch" : "external controller's prepare-unit"} checkpoint for U1 in docs/plans/worker-plan.md. The engine is already resolved and preflight is complete. The plan here is a staging copy, and the current directory is private OS temp outside the canonical checkout. Write only the bounded worker packet to ./packet.md here, including the instructions the worker needs, then stop. Do not dispatch, initialize or run a controller, implement, test, invoke another skill, or commit.`,
+    grade: { delegates: "none", workspace_contains: [
+      { path: "packet.md", needle: "/local/planner-checkout/.context/compound-engineering/ce-prototype/widget-empty/" },
+      { path: "packet.md", needle: "decisions.md" },
+      { path: "packet.md", needle: "selected.html" },
+      { path: "packet.md", needle: "left aligned" },
+    ] },
+  })),
   ...CALIBRATION_SCENARIOS,
+  {
+    id: "ce-debug/bakeoff-selected-unsupported-guarantee",
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    why: "A live Claude run adopted a selected sketch despite its acknowledged failure to establish exclusive dispatch.",
+    pre_contract: "The proposed fix must close the causal chain and preserve intended behavior; a comparison does not verify it.",
+    task: "Use ce-debug at the Phase 2 return from an authorized Bake-off in mode:return-to-caller. The confirmed cause is two workers dispatching the same ready job without ownership. The required contract is strictly nonoverlapping sends plus eventual recovery from a crashed worker; downstream deduplication protects effects only. Bake-off returned selected: a claim row with lease and epoch. Its own report says a worker can pause after checking its epoch, lose its lease to a second worker, then resume sending concurrently with the new owner. It proposes accepting that overlap or adding endpoint fencing, neither of which is authorized or established. No other safe repair is supported. Stop before edits, dispatch, or questions. State ROUTE: next=<adopt-selected|defer>, choosing one, and give the existing return status and reason.",
+    grade: { must_include_field: "ROUTE", must_include: ["next=defer"], actions: "none", delegates: "none" },
+  },
+  {
+    id: "ce-debug/bakeoff-consequential-repair",
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    why: "Repair-selection routing preserves causal evidence, scope, and caller authority.",
+    pre_contract: "ce-debug confirms the cause and proposes a minimal convergent fix without a dedicated competing-repair route.",
+    task: "Use ce-debug at Phase 2. Stop after selecting the next action, before dispatch, edits, or questions. State ROUTE: next=<ce-bakeoff|ordinary-debug|defer>, choosing one, and explain the decision. The causal chain is confirmed: two workers read an unclaimed job before either records ownership, then both deliver it. A repeatable interleaving reproduces duplicate delivery. Intended behavior is one delivery per job; the existing design allows either a durable claim row or a per-job event ledger. Both repair mechanisms remain viable, need further development to compare recovery and migration tradeoffs, and introduce persisted state that is costly to reverse. Tests establish the required one-delivery behavior but do not choose between those tradeoffs. The user requested a fix. No comparison was requested.",
+    grade: {
+      must_include_field: "ROUTE",
+      must_include: ["next=ce-bakeoff"],
+      actions: "none",
+      delegates: "none"
+    },
+    post_only: true
+  },
+  {
+    id: "ce-debug/bakeoff-ordinary-repair",
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    why: "Repair-selection routing preserves causal evidence, scope, and caller authority.",
+    pre_contract: "ce-debug confirms the cause and proposes a minimal convergent fix without a dedicated competing-repair route.",
+    task: "Use ce-debug at Phase 2. Stop after selecting the next action, before dispatch, edits, or questions. State ROUTE: next=<ce-bakeoff|ordinary-debug|defer>, choosing one, and explain the decision. The cause is confirmed: the loop uses <= instead of < for an array bound. The existing neighboring loop and failing boundary test establish the correction. The user requested a fix.",
+    grade: {
+      must_include_field: "ROUTE",
+      must_include: ["next=ordinary-debug"],
+      actions: "none",
+      delegates: "none"
+    }
+  },
+  {
+    id: "ce-debug/bakeoff-unconfirmed-cause",
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    why: "Repair-selection routing preserves causal evidence, scope, and caller authority.",
+    pre_contract: "ce-debug confirms the cause and proposes a minimal convergent fix without a dedicated competing-repair route.",
+    task: "Use ce-debug at Phase 2. Stop after selecting the next action, before dispatch, edits, or questions. State ROUTE: next=<ce-bakeoff|ordinary-debug|defer>, choosing one, and explain the decision. Duplicate deliveries reproduce intermittently. A stale cache and overlapping workers are competing explanations; no observed trace distinguishes them yet. The user requested a fix.",
+    grade: {
+      must_include_field: "ROUTE",
+      must_include: ["next=ordinary-debug"],
+      actions: "none",
+      delegates: "none"
+    }
+  },
+  {
+    id: "ce-debug/bakeoff-direct-evidence",
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    why: "Repair-selection routing preserves causal evidence, scope, and caller authority.",
+    pre_contract: "ce-debug confirms the cause and proposes a minimal convergent fix without a dedicated competing-repair route.",
+    task: "Use ce-debug at Phase 2. Stop after selecting the next action, before dispatch, edits, or questions. State ROUTE: next=<ce-bakeoff|ordinary-debug|defer>, choosing one, and explain the decision. The cause is confirmed: a retry loop ignores a deadline. Two repairs were suggested. A deterministic fake-clock probe shows one preserves the documented shared deadline and the other resets it, violating the contract. The user requested a fix.",
+    grade: {
+      must_include_field: "ROUTE",
+      must_include: ["next=ordinary-debug"],
+      actions: "none",
+      delegates: "none"
+    }
+  },
+  {
+    id: "ce-debug/bakeoff-pipeline-default",
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    why: "Repair-selection routing preserves causal evidence, scope, and caller authority.",
+    pre_contract: "ce-debug confirms the cause and proposes a minimal convergent fix without a dedicated competing-repair route.",
+    task: "Use ce-debug at Phase 2. Stop after selecting the next action, before dispatch, edits, or questions. State ROUTE: next=<ce-bakeoff|ordinary-debug|defer>, choosing one, and explain the decision. The causal chain is confirmed: two workers read an unclaimed job before either records ownership, then both deliver it. A repeatable interleaving reproduces duplicate delivery. Intended behavior is one delivery per job; the existing design allows either a durable claim row or a per-job event ledger. Both repair mechanisms remain viable, need further development to compare recovery and migration tradeoffs, and introduce persisted state that is costly to reverse. Tests establish the required one-delivery behavior but do not choose between those tradeoffs. mode:pipeline. The caller says fix this CI failure and gives a 20-minute overall budget. It has not authorized a comparison.",
+    grade: {
+      must_include_field: "ROUTE",
+      must_include: ["next=ordinary-debug"],
+      actions: "none",
+      delegates: "none"
+    }
+  },
+  {
+    id: "ce-debug/bakeoff-caller-opt-in",
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    why: "Repair-selection routing preserves causal evidence, scope, and caller authority.",
+    pre_contract: "ce-debug confirms the cause and proposes a minimal convergent fix without a dedicated competing-repair route.",
+    task: "Use ce-debug at Phase 2. Stop after selecting the next action, before dispatch, edits, or questions. State ROUTE: next=<ce-bakeoff|ordinary-debug|defer>, choosing one, and explain the decision. The causal chain is confirmed: two workers read an unclaimed job before either records ownership, then both deliver it. A repeatable interleaving reproduces duplicate delivery. Intended behavior is one delivery per job; the existing design allows either a durable claim row or a per-job event ledger. Both repair mechanisms remain viable, need further development to compare recovery and migration tradeoffs, and introduce persisted state that is costly to reverse. Tests establish the required one-delivery behavior but do not choose between those tradeoffs. mode:return-to-caller. The caller explicitly authorizes a repair-approach Bake-off within a ten-minute comparison budget using only its already-authorized model access.",
+    grade: {
+      must_include_field: "ROUTE",
+      must_include: ["next=ce-bakeoff"],
+      actions: "none",
+      delegates: "none"
+    },
+    post_only: true
+  },
+  {
+    id: "ce-debug/bakeoff-divergent-defer",
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    why: "Repair-selection routing preserves causal evidence, scope, and caller authority.",
+    pre_contract: "ce-debug confirms the cause and proposes a minimal convergent fix without a dedicated competing-repair route.",
+    task: "Use ce-debug at Phase 2. Stop after selecting the next action, before dispatch, edits, or questions. State ROUTE: next=<ce-bakeoff|ordinary-debug|defer>, choosing one, and explain the decision. mode:pipeline. The confirmed cause is that the deliberately documented at-least-once delivery contract permits retries after uncertain acknowledgements. The proposed fix requires changing that contract to at-most-once and accepting lost deliveries. The caller explicitly authorizes a Bake-off, but has not authorized changing the delivery contract.",
+    grade: {
+      must_include_field: "ROUTE",
+      must_include: ["next=defer"],
+      actions: "none",
+      delegates: "none"
+    }
+  },
+  {
+    id: "ce-debug/bakeoff-unresolved-no-default",
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
+    why: "Repair-selection routing preserves causal evidence, scope, and caller authority.",
+    pre_contract: "ce-debug confirms the cause and proposes a minimal convergent fix without a dedicated competing-repair route.",
+    task: "Use ce-debug at Phase 2. Stop after selecting the next action, before dispatch, edits, or questions. State ROUTE: next=<ce-bakeoff|ordinary-debug|defer>, choosing one, and explain the decision. The causal chain is confirmed: two workers read an unclaimed job before either records ownership, then both deliver it. A repeatable interleaving reproduces duplicate delivery. Intended behavior is one delivery per job; the existing design allows either a durable claim row or a per-job event ledger. Both repair mechanisms remain viable, need further development to compare recovery and migration tradeoffs, and introduce persisted state that is costly to reverse. Tests establish the required one-delivery behavior but do not choose between those tradeoffs. mode:return-to-caller. The caller authorized comparison. Bake-off has returned unresolved: neither proposed repair has established safe recovery from a crash after delivery, and the evidence does not support another safe repair. Select what happens now; do not restart the comparison.",
+    grade: {
+      must_include_field: "ROUTE",
+      must_include: ["next=defer"],
+      actions: "none",
+      delegates: "none"
+    },
+    post_only: true
+  },
 
   {
     id: "lfg/content-plan-gate",
@@ -1916,6 +2249,59 @@ Include exactly one line \`FIX: asked\` or \`FIX: applied\` or \`FIX: skipped\` 
       committed_must_not: ["seat-cap.js"],
     },
   },
+  ...(
+    [
+      [
+        "caller-own-edits-ship",
+        "Earlier in this session, while fixing the dispatcher labels the user asked for, I (the calling session) created src/seat-cap.js. That file is uncommitted; it is my own work for the user's request and ships with this fix.",
+        "fixed",
+        "Oct 21 last30days-com: the uncommitted edits were the orchestrating session's own earlier fixes, made after the user said to fix them all. Blocking them blocks the caller's own authorized work.",
+      ],
+      [
+        "claimed-user-offer-blocks",
+        "src/seat-cap.js is the user's own uncommitted work. The user told me it is fine to ship with this fix.",
+        "blocked",
+        "A caller cannot answer for the user: its word that the user offered their own edits does not authorize committing them.",
+      ],
+    ] as const
+  ).map(([name, brief, status, why]): Scenario => ({
+    id: `ce-debug/return-to-caller-${name}`,
+    baseline_ref: DEBUG_AUDIT_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    git_init: true,
+    git_staged: ["src/seat-cap.js"],
+    fixture: `${FIX}/debug-caller-edits`,
+    timeout_secs: 900,
+    why,
+    pre_contract: "A file the fix must touch that already carries the user's uncommitted edits stops the run before the first edit to it: return `blocked`.",
+    task: `mode:return-to-caller The seat cap test is failing. Run node tests/seat-cap.check.js. SPEC.md is the product contract. ${brief}`,
+    grade: status === "fixed"
+      ? { structured_status: "fixed", committed_must: ["seat-cap.js"] }
+      : { structured_status: "blocked", workspace_contains: [{ path: "src/seat-cap.js", needle: "SEAT_CAP: 5" }] },
+  })),
+  {
+    id: "ce-debug/fix-accounts-for-other-consumers",
+    baseline_ref: DEBUG_AUDIT_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/debug-sibling-consumer`,
+    timeout_secs: 900,
+    why: "Real sessions shipped fixes that changed a contract and missed one or two other users of it; review or PR bots caught them later. The old 3+ files trigger never fired on a single other site.",
+    pre_contract: "The minimal fix covers the root cause only; self-review reads the changed lines; defense-in-depth triggers on the pattern in 3+ other files.",
+    task: "Use ce-debug on this bug. Phases 1 and 2 are done: read DIAGNOSIS.md; the user chose to fix it now. Run Phase 3 on the current branch. Then, instead of Phase 4, commit every file the fix changed with git (one commit, no push) and stop. Do not invoke another skill or dispatch.",
+    grade: {
+      workspace_read: ["DIAGNOSIS.md"],
+      // src/admin.js treats a throw from lookupUser as "unknown user"; once lookupUser
+      // returns null instead, grantAdmin admits unknown ids unless admin.js changes too.
+      committed_must: ["users.js", "profile.js", "admin.js"],
+    },
+  },
   {
     id: "ce-explain/planning-understanding",
     skill: "ce-explain",
@@ -2133,6 +2519,7 @@ Include exactly one line \`FIX: asked\` or \`FIX: applied\` or \`FIX: skipped\` 
       actions: "none",
     },
   },
+  ...IDEATE_RUN_SCALING,
   {
     id: "ce-commit-push-pr/project-publishing-gate",
     post_only: true,
@@ -4036,6 +4423,39 @@ Use "Correct widget limit" as the description in the subject and any required bo
       // it invokes or was stopped at. "Planning is the first step" is narration, not that.
       must_include: ["ce-plan"],
       actions: "none",
+    },
+  },
+  {
+    id: "lfg/defect-route-ships-session-edits",
+    post_only: true,
+    skill: "lfg",
+    with_skill: ["ce-debug", "ce-simplify-code", "ce-code-review", "ce-commit-push-pr", "ce-commit", "ce-compound"],
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    git_init: true,
+    git_remote: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    fixture: `${FIX}/seat-cap`,
+    timeout_secs: 2400,
+    why: "#1924: an uncommitted edit the session made for the user's request, sitting in the file the fix must touch, ships with the fix instead of blocking the ce-debug return.",
+    pre_contract: "A file the fix must touch that already carries uncommitted edits returns blocked.",
+    task: `Two things, in order.
+
+1. In src/seat-cap.js, also export \`SEAT_LABEL: "dispatcher seats"\` next to SEAT_CAP. The dispatcher UI needs that label. Do not commit this edit on its own.
+
+2. Then use the lfg skill on this: the seat cap test is failing. Run node tests/seat-cap.check.js; SPEC.md is the product contract. Fix it and ship both changes together.`,
+    grade: {
+      committed_must: ["seat-cap.js"],
+      // Both edits must be in the tree and nothing left uncommitted, so the session's own
+      // edit went into the fix commit rather than stopping the run as blocked. The push is
+      // not graded: the fake origin cannot resolve, and Codex stops on that before pushing.
+      git: "clean",
+      workspace_contains: [
+        { path: "src/seat-cap.js", needle: "SEAT_CAP: 3" },
+        { path: "src/seat-cap.js", needle: "SEAT_LABEL" },
+      ],
     },
   },
   {

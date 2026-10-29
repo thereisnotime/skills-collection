@@ -2,7 +2,127 @@
 
 All notable changes to Loki Mode will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## v11.83.0 (2026-10-29)
+
+### Added
+
+- Java projects now get an independent acceptance test (the Wall) and a verify run instead of being skipped as "no runnable test command": a Maven project (pom.xml) runs mvn test, a Gradle project (build.gradle, build.gradle.kts or gradlew) runs gradle test, and a Java project with no build tool runs plain javac and java. The test file goes in src/test/java, a run only counts when the build tool reports how many tests ran, and failing tests are named. A Java test that prints a FAIL line is red even if the process exits 0. Gradle at its default logging prints no per-test PASSED lines, so a Gradle run reads as not run (safe, never a pass) rather than as proof. A Java compile error counts as red in verify but as not run in the Wall. If mvn, gradle or javac is not installed, the Wall says so and the run is never VERIFIED.
+- `loki verify` now adds the reason "sealed Wall copies not present: not compared" (text and `--json`) when a receipt lists Wall files but the run has no wall folder. The verdict is unchanged, so exported bundles still verify.
+
+### Changed
+
+- When the first-run check refuses to start, it names the reason (dirty tracked tree, no provider, not logged in, missing task, unsupported flag, disk) instead of probing the folder.
+- The in-place brownfield safety check (same path, original history intact, tag and stash untouched) now runs on the default engine route.
+
+### Fixed
+
+- `loki verify` refuses a sealed run that was copied under another run id, and prints a mismatched receipt's signed run id with terminal-unsafe characters removed.
+
+## v11.82.0 (2026-10-29)
+
+### Fixed
+
+- `loki verify` now also runs the tests of modules that import a changed file by a relative path (JS, TS, Python) or a repo-root package path (Python), so a change that breaks a downstream module is no longer reported as verified. A downstream test that was already failing before your change is not counted against it when the test runner reports per-test results.
+- A multi-file `bun test` run now gives every file the load-aware default timeout, so a busy machine no longer fails a correct test.
+
+## v11.81.1 (2026-10-29)
+
+### Fixed
+
+- A run that dropped a faulty Wall test file in one fix round and re-authored a different one in a later round no longer reports VERIFIED; the verdict stays PARTIAL and names the dropped file.
+- The v11.80.0 note now says the run drops that Wall test file (not the assertion) when a spec conflict points at a Wall-authored file.
+
+## v11.81.0 (2026-10-29)
+
+### Added
+
+- `loki start` now finds an interrupted or cancelled run and asks whether to resume it, start fresh or discard it. `--fresh` or `LOKI_NO_RESUME=1` skips the question.
+- Ctrl-C or closed input at that question exits 130 and never resumes or starts anything. Resume is offered only when the run branch, the origin remote and the PR policy allow the pull request step to finish.
+- `loki status` shows the next step for an interrupted run. A cancelled run's message says the next `loki start` offers to start fresh, with any work kept on `loki/<runid>`.
+
+### Changed
+
+- The Seeded-defect benchmark can verify with an LLM judge and records top-model and floor-model wrong-pass runs.
+- The first-run gate covers Python and Go fixture repositories, records the prompts shown and the first preview time per repetition, and exits early for `--real` when no credential is present.
+
+### Fixed
+
+- The Wall now runs tests with the project's own language runner (for example `python3 -m unittest`, `go test`, or the manifest's runner) instead of bun on non-JavaScript repos. When no runner is available, the check is skipped with a NOT PROVEN note rather than failing correct code. `loki verify` reruns each sealed test with the same runner the Wall used.
+- An explicit session model pin now applies the same top and floor setup on the TypeScript route as on the bash route.
+- Review test cases for non-blocking advice and shard fail-fast no longer fail on a loaded machine.
+
+## v11.80.0 (2026-10-29)
+
+### Changed
+
+- A run no longer routes work below the model you chose, and never above your `LOKI_MAX_TIER` cap. The plan fallback and modernize units now floor at the run model.
+- When a spec conflict points at a file the Wall itself wrote, the run treats it as a harness defect instead of blaming the task: it re-authors the Wall once, then drops that Wall test file and caps the verdict at PARTIAL, and the original Wall file is restored read-only. A correct solution is no longer blocked by a faulty check of Loki's own.
+
+### Fixed
+
+- The hermetic-home and project-graph test suites no longer fail on a loaded machine or on a developer's own home directory.
+
+## v11.79.0 (2026-10-29)
+
+### Added
+
+- `loki try <public repo URL>` runs Loki on a public repository in a temporary clone and keeps only the receipt. The clone is removed on exit, Ctrl-C, TERM and HUP, and planted receipts or symlinks inside the clone are refused.
+- Acceptance clauses: a task's numbered, anchored acceptance criteria are extracted into the locked spec and the failing-first brief; the error names the real criteria limit when it is exceeded.
+- Three advisory reviewers (architecture, mergeability, test coverage) run on each change and record findings next to the verdict without being able to veto it. Their routing to the small model applies on the Bun route only.
+- The receipt now includes each cross-review reviewer's cost in the run total. A reviewer that reports no cost stays unknown and is listed as missing instead of counting as zero.
+- `loki next` flags (`--yes`, `--dry-run`, `--suggest`, `--json`) tab-complete in bash and zsh.
+- The benchmark runner runs `loki verify` after each arm and records the verdict against the held-out grader, with per-category wrong-pass columns in the scoreboard and model-by-stage outcomes in the result schema.
+
+### Changed
+
+- When a repository has no detected test runner, the failing-first check runs the repository's own toolchain runner instead of skipping. In a repository with several toolchains it picks the one matching the changed files, and a skipped runner records a machine-readable skip code. Only real Python manifests (including `requirements-dev.txt` and `requirements-test.txt`) make pytest eligible.
+- Every Bun process Loki starts, including respawned children and shell delegates, ignores the repository's `bunfig.toml` and `.env`.
+- The skill-declared checks gate now runs on the bash route too, and `LOKI_GATE_SECURITY_SCAN` is honored there.
+- Test timeouts scale with host load. The factor is 1 unless the machine is loaded, so an idle machine behaves as before.
+- A failing check can no longer produce a VERIFIED verdict on the default route.
+- Test-failure escalation no longer moves a run past an explicit `LOKI_SESSION_MODEL` pin.
+
+### Security
+
+- A .env or bunfig.toml (with a preload script) in the repo Loki runs in no longer loads into Loki's own Bun processes, top-level or respawned children. Variables you relied on from a repo .env must now be exported in your shell.
+
+### Fixed
+
+- `loki verify` reads a torn, unterminated last line in `events.jsonl` as UNCHECKED instead of TAMPERED, and a resumed run's truncation of that tail reads VERIFIED. Blank lines, stray whitespace or CR inside event lines are still reported as TAMPERED.
+- The analytics sender used by the Stop hook is resolved only from trusted locations, requires owner-only write access, and is not started unless analytics is opted in. The hook sends enum-only events and never blocks its decision.
+- The release script finds the newest CHANGELOG section by its `## v` header and always runs the global guard rows; the environment variable that skipped them is gone.
+- The release script's guard-row check is now covered by tests that catch any way of skipping a guard row.
+- Test suites that failed only on a busy machine (the timeout scale, `loki try` signal handling, the analytics opt-in key check) now pass under load.
+
+### Known issues
+
+- The cross-review bad-diff catch rate is not proven yet; no claim is made for it in this release.
+
+## v11.78.0 (2026-10-29)
+
+### Added
+
+- `loki cost` flags (`--month`, `--csv`, `--last`, `--detail`, `--json`) now tab-complete in bash and zsh.
+
+### Changed
+
+- The Claude Agent SDK is updated to 0.3.312, the TypeScript SDK to 1.3.0 and the Python SDK to 2.3.0.
+- The CLI command inventory moved out of the internal docs folder and is regenerated, and the project structure map lists it.
+
+### Fixed
+
+- `loki verify` reports a deleted sealed acceptance-check copy as tampered instead of passing it.
+- Multi-part tasks go to the group runner only when the origin is a github.com owner/repo; otherwise they run as one local run and say why.
+- `loki memory search` withholds whole PEM private keys and refuses hardlinked files.
+- `loki next --suggest` no longer hangs when the cost estimate is slow or hung.
+- `loki status --follow` stops and names the dead owner's pid when the run's process died before completing.
+
+### Known issues
+
+- A few pre-existing failures remain in the wider test suite (review assurance tail, receipt signing discoverability and build analytics opt-in tests); they reproduce on the previous release and do not affect the shipped CLI.
 
 ## v11.77.0 (2026-10-24)
 
@@ -1985,7 +2105,7 @@ v11.17.7 never published: its Tests run was red on e66c51a09 because the Tier A 
 - The cost benchmark (`benchmarks/bench/attribution.py --execute`) now runs the repo `bin/loki` (or `LOKI_BENCH_LOKI_BIN`) instead of whatever `loki` is first on PATH, and refuses to run with exit 2 when the binary's version does not match the repo `VERSION`. Set `LOKI_BENCH_ALLOW_VERSION_MISMATCH=1` to override. The run metadata records the binary used. A stale global v11.3.9 binary had silently measured an old engine.
 
 ### Changed
-- `scripts/release.sh` under `LOKI_RELEASE_ALLOW_RED=1` now runs the global guard rows (`scripts/impacted-gate.sh --guards-only`) before any write and exits 3 when one is red. `LOKI_RELEASE_SKIP_GUARDS=1` skips them; `LOKI_RELEASE_GUARD_TIMEOUT` sets the per-row limit (default 170s). New guard rows: help-changelog-drift, no-tmp-sweep, hard-deadline-confinement and cli-commands. Six ALLOW_RED cuts had shipped trees that failed these CI-only guards.
+- `scripts/release.sh` under `LOKI_RELEASE_ALLOW_RED=1` now runs the global guard rows (`scripts/impacted-gate.sh --guards-only`) before any write and exits 3 when one is red. `LOKI_RELEASE_GUARD_TIMEOUT` sets the per-row limit (default 170s). New guard rows: help-changelog-drift, no-tmp-sweep, hard-deadline-confinement and cli-commands. Six ALLOW_RED cuts had shipped trees that failed these CI-only guards.
 - Decision: runner config YAML files cap trust on any byte change instead of comparing parsed keys, after a reproduced parser differential with pnpm 11.1.3.
 
 ## v11.17.5 (2026-10-16)

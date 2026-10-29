@@ -14,8 +14,8 @@ import {
 } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { ACPX_PIN } from "../helpers/acpx-pin"
-import { alive } from "../helpers/process"
+import { ACPX_PIN, ACPX_RANGE } from "../helpers/acpx-pin"
+import { survivors } from "../helpers/process"
 
 setDefaultTimeout(30_000)
 
@@ -277,7 +277,7 @@ describe("ce-pov cross-model route safety", () => {
     ["opencode", "--non-interactive-permissions deny --agent", ["opencode acp exec --config-option mode=plan"]],
   ])("--emit-adapter %s launches pinned acpx with the route's agent, model, and read-only options", (route, agent, options) => {
     const command = emit(route)
-    expect(command).toContain(`npx -y acpx@${ACPX_PIN} --cwd <read-root> --format json --mcp-config <mcp-config> --timeout 600`)
+    expect(command).toContain(`npx -y --package ${ACPX_RANGE} -- acpx --cwd <read-root> --format json --mcp-config <mcp-config> --timeout 600`)
     expect(command).toContain("env npm_config_prefer_offline=true npm_config_fetch_retries=0")
     expect(command).toContain("--approve-reads --non-interactive-permissions deny")
     expect(command).toContain(agent)
@@ -642,7 +642,7 @@ describe("ce-pov output gate and receipts", () => {
     expect(readdirSync(scratchParent)).toEqual([])
   })
 
-  test("a peer still running at the hard cap is reaped with its whole process group", () => {
+  test("a peer still running at the hard cap is reaped with its whole process group", async () => {
     const sb = sandbox(["codex"], acpStream({ text: "working", stopReason: null, sleep: 30 }))
     const dir = runDir()
     const started = Date.now()
@@ -652,10 +652,10 @@ describe("ce-pov output gate and receipts", () => {
     expect(result.files).not.toContain("pov-codex.json")
     const pids = readFileSync(sb.logs.pids, "utf8").trim().split("\n").map(Number)
     expect(pids).toHaveLength(2)
-    for (const pid of pids) expect(alive(pid)).toBe(false)
+    expect(await survivors(pids)).toEqual([])
   })
 
-  test("without ps -o (Git Bash), the idle guard still reaps a silent peer", () => {
+  test("without ps -o (Git Bash), the idle guard still reaps a silent peer", async () => {
     const sb = sandbox(["codex"], acpStream({ text: "working", stopReason: null, sleep: 30 }))
     const realPs = realTools().find(([tool]) => tool === "ps")?.[1]
     expect(realPs).toBeTruthy()
@@ -666,7 +666,7 @@ describe("ce-pov output gate and receipts", () => {
     expect(Date.now() - started).toBeLessThan(15_000)
     expect(result.stderr).toContain("peer output idle 2s")
     const pids = readFileSync(sb.logs.pids, "utf8").trim().split("\n").map(Number)
-    for (const pid of pids) expect(alive(pid)).toBe(false)
+    expect(await survivors(pids)).toEqual([])
   })
 
   test("opencode on native Windows is a route pre-egress failure and acpx is never called", () => {
@@ -804,6 +804,18 @@ describe("ce-pov acpx transport preflight and launch", () => {
     }
   })
 
+  test.each([["npm-release-age", "shared"], ["npm-release-age-adapter", "route"]])("%s reports the date cutoff after one policy-respecting refresh (%s)", (stream, scope) => {
+    const sb = sandbox(["codex"], path.join(STREAMS, stream))
+    const dir = runDir()
+    const r = run(["claude", "codex", payload(), dir], dir, sb.env)
+    expect(calls(sb)).toBe(2)
+    expect(r.stderr).toContain(`transport unavailable (pre-egress, ${scope}): npm could not resolve ${ACPX_RANGE}`)
+    expect(r.stderr).toContain("check min-release-age/before policy or wait for the cooldown")
+    expect(r.stderr).not.toContain("stale cached")
+    expect(r.stderr).toContain("npm policy unchanged")
+    expect(r.files).toEqual([])
+  })
+
   test("an npm resolve on stale cached metadata retries the same route once with fresh metadata", () => {
     const base = path.join(temp("pov-stale-"), "s")
     for (const ext of ["stderr", "exit"]) writeFileSync(`${base}.1.${ext}`, readFileSync(path.join(STREAMS, `stale-npm-metadata.${ext}`)))
@@ -862,6 +874,7 @@ function logModelsPerCall(sb: Sandbox) {
 describe("ce-pov antigravity route", () => {
   test("--emit-adapter antigravity requests Argon read-only at thinking_level=high with a private GEMINI_HOME", () => {
     const command = emit("antigravity")
+    expect(command).toContain(`npx -y --package ${ACPX_RANGE} -- acpx --cwd`)
     expect(command).toStartWith("env -u GEMINI_API_KEY -u GOOGLE_API_KEY")
     expect(command).toContain("GEMINI_HOME=<gemini-home>")
     expect(command).toContain("--approve-reads --non-interactive-permissions deny --model gemini-4-argon antigravity exec --config-option mode=default --config-option thinking_level=high")
@@ -1085,7 +1098,7 @@ describe("ce-pov fixed route and egress allowlist", () => {
     child.kill(signal)
     await new Promise<void>((resolve) => child.once("exit", () => resolve()))
     expect(readdirSync(scratchParent)).toEqual([])
-    for (const pid of [...childPids, ...stubPids]) expect(alive(pid)).toBe(false)
+    expect(await survivors([...childPids, ...stubPids])).toEqual([])
   })
 
   test("peer brief restricts external queries to public subject terms", () => {

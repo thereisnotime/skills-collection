@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "name": "gemini-cli-skills",
-  "total_skills": 449,
+  "total_skills": 451,
   "skills": [
     {
       "name": "content-strategist",
@@ -1369,6 +1369,11 @@
       "description": "Start an autonomous experiment loop with user-selected interval (10min, 1h, daily, weekly, monthly). Uses CronCreate for scheduling. Use when the user runs /ar:loop or asks to run an autoresearch experiment continuously on a schedule."
     },
     {
+      "name": "mcp-oauth-triage",
+      "category": "engineering-advanced",
+      "description": "Diagnose why an MCP connector that used to authenticate now fails: classify the fault as envelope, expiry, rotation clobber, binding, or poisoned cache before changing any code. Use when a token exchange succeeds but tool calls 401, when a connector silently degrades after a refresh, when multi-account setups return another account's data, or when re-authenticating fixes the problem only until the next refresh."
+    },
+    {
       "name": "mcp-server-builder",
       "category": "engineering-advanced",
       "description": "Design and ship production-ready MCP (Model Context Protocol) servers from OpenAPI contracts instead of hand-written tool wrappers. Python and TypeScript support, schema validation, safe evolution. Use when exposing an existing API as an MCP server, building tool integrations for Claude or Codex or Cursor, or scaffolding an MCP project from scratch."
@@ -1606,7 +1611,7 @@
     {
       "name": "md-slides",
       "category": "markdown-html",
-      "description": "\"Converts a markdown deck (slides separated by `"
+      "description": "Converts a markdown deck (slides separated by horizontal-rule boundaries or by `# ` H1 headings, with optional HTML-comment `notes:` presenter-notes blocks) into a single-file HTML presentation with arrow-key / space / PgDn / PgUp / Home / End / P / Esc keyboard navigation, presenter mode (split view with current slide + speaker notes + clock + next-slide preview), URL-hash deep linking, and `@media print` page-per-slide for PDF export. Triggers when the markdown-html-orchestrator classifies an input as SLIDES, or when invoked directly via /cs-md-slides. Reuses md-document's markdown parser for slide-body rendering and reads design-system tokens via config_loader.py. Refuses if input has no clear slide boundaries, produces a 1-slide deck, or `--strict-notes` is on with under 50% notes coverage. Use after orchestrator routing."
     },
     {
       "name": "ab-test-setup",
@@ -2084,6 +2089,11 @@
       "description": "Write internal company communications \u2014 3P updates (Progress/Plans/Problems), company-wide newsletters, FAQ roundups, incident reports, leadership updates, status reports, project updates, and general internal comms. Use this skill any time the user asks to draft, edit, or format something meant for internal audiences. Trigger on keywords like \"3P\", \"weekly update\", \"newsletter\", \"FAQ\", \"internal comms\", \"status report\", \"company update\", \"team update\", \"incident report\", or any request to summarize work for leadership, teammates, or the broader company. Even casual requests like \"write my update\" or \"summarize what my team did this week\" should trigger this skill."
     },
     {
+      "name": "access-lifecycle",
+      "category": "ra-qm",
+      "description": "Use when preparing or running a user access review, checking that leavers lost their access, finding orphaned or ownerless service accounts, answering an auditor's access-control request for SOC 2, ISO 27001, PCI DSS, HIPAA or NIST 800-53, or checking whether a finished review campaign will hold up. Diffs the HR roster against account exports, tests the campaign for coverage, self-review, unremoved revokes and rubber-stamping, and maps every exception to the controls it breaks."
+    },
+    {
       "name": "agent-decision-receipts",
       "category": "ra-qm",
       "description": "Mint a tamper-evident, post-quantum-signed receipt for a consequential agent action (deploy, delete, pay, grant-access, model decision) so it can be verified later from the certificate alone. Use when an autonomous agent takes a side-effecting action that may need to be proven later, or when satisfying EU AI Act Article 12 record-keeping. Three decisions: whether an action needs a receipt, minting it, verifying it. Signing is delegated to the open-source OpenAgentOntology package. Not after-the-fact log analysis; not a hosted notary; not a legal opinion."
@@ -2291,7 +2301,7 @@
       "description": "Engineering resources"
     },
     "engineering-advanced": {
-      "count": 90,
+      "count": 91,
       "description": "Engineering-advanced resources"
     },
     "finance": {
@@ -2327,7 +2337,7 @@
       "description": "Project-management resources"
     },
     "ra-qm": {
-      "count": 17,
+      "count": 18,
       "description": "Ra-qm resources"
     },
     "research": {

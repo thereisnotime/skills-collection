@@ -2,7 +2,7 @@
 // Invariant (L1, tested semantically in tests/engine10/route_matrix.test.ts): a session is never started below the run's model
 // unless a VALID Opus route record (plan.units: every unit executor "haiku" with a reason, nothing NOT PROVEN) names haiku.
 import { resolveModelAlias } from "../../engine10/sizing.ts";
-import { PROVIDER_DEFAULT_MODEL } from "../../engine10/session.ts";
+import { PROVIDER_DEFAULT_MODEL, resolveModel, sessionPinModel } from "../../engine10/session.ts";
 import { envOverride, unitRedo } from "./decision.ts";
 import { routerEnabled } from "./flag.ts";
 import { historyRaisedRoute, type RunExecutor } from "./history.ts";
@@ -14,6 +14,18 @@ export interface RouteRecord { model: string; source: string; reason: string; va
 const isHaiku = (m: string): boolean => resolveModelAlias(m).toLowerCase().includes("haiku");
 /** The model a LOKI_ROUTER=1 run floors at: the run's model, or sonnet when the run model is only the provider-default label. */
 export const runFloor = (runModel: string): string => (runModel === PROVIDER_DEFAULT_MODEL ? resolveModelAlias("sonnet") : runModel);
+
+/** D128: the floor a run model sets never ranks above the user's LOKI_MAX_TIER cap (a tier below opus; opus, empty or unknown means no cap). */
+export function clampToMaxTier(model: string, env: Record<string, string | undefined> = process.env): string {
+  const cap = (env["LOKI_MAX_TIER"] ?? "").trim().toLowerCase();
+  return modelRank(cap) < modelRank("opus") && modelRank(model) > modelRank(cap) ? cap : model;
+}
+
+/** NBR-G3: a modernize unit attempt never runs below the run model: the cascade model stands only when it ranks at least the run floor (unknown ids rank top, so they win). */
+export function unitModel(cascade: string, runModel?: string): string {
+  const floor = clampToMaxTier(runFloor(runModel ?? resolveModel("claude")));
+  return modelRank(cascade) >= modelRank(floor) ? cascade : floor;
+}
 
 /** A valid Opus route record: plan.units non-empty, nothing NOT PROVEN, every unit routed to haiku with a reason (R1-10 parseUnits output). */
 export function validHaikuRoute(plan: Record<string, unknown> | undefined): { reason: string } | null {
@@ -48,7 +60,9 @@ export function routedFix(runModel: string, out: StageOutputs, o: { repeated: bo
   const cur = !rec.valid && modelRank(carried) < modelRank(floor) ? floor : carried; // a below-run model carries only with a valid route record
   const tests = o.groups.filter((g) => !g.signature.startsWith("lint:") && g.signature !== "select-tests").length;
   const redo = unitRedo(isHaiku(cur) ? "haiku" : "sonnet", tests > 0 ? "code" : "harness") === "redo-sonnet"; // B4: a haiku unit with a code-owned failure is redone on sonnet
-  const climbed = tests > 0 && (o.repeated || o.stall || redo) ? climb("run", cur, o.stall ? "stall" : "code_fail", o.reason) : null;
+  const raised = tests > 0 && (o.repeated || o.stall || redo) ? climb("run", cur, o.stall ? "stall" : "code_fail", o.reason) : null;
+  const sessionPin = sessionPinModel(); // an explicit LOKI_SESSION_MODEL pin bounds the climb, as in escalationModel
+  const climbed = raised && sessionPin && modelRank(raised.to) > modelRank(sessionPin) ? null : raised;
   return { pin: climbed?.to ?? (cur !== runModel ? cur : undefined), climbed };
 }
 

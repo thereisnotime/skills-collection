@@ -1,12 +1,12 @@
 // CLI-MODERN-2: `loki status` on the Loki 10 engine. Reads only .loki/runs/<id>/events.jsonl (the
 // engine's own record), never STATUS.txt or any legacy state.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { discoverControlUrl } from "../../../packages/control-plane/src/shipper/discover.ts";
 import { fold, readEvents } from "../engine10/events.ts";
 import { formatDuration } from "../engine10/output.ts";
 import type { EventEnvelope } from "../engine10/types.ts";
-import { STALE_S, STAGE_ORDER, controlRunLink, workItemBlockers, workItemId, workItemState, type WorkItemState } from "../util/run_outputs.ts";
+import { STALE_S, STAGE_ORDER, controlRunLink, statusNextStep, workItemBlockers, workItemId, workItemState, type WorkItemState } from "../util/run_outputs.ts";
 import { readRunControl, writeRunControl, type RunControlAction } from "../util/run_control.ts";
 import { readRunPid, runOwnerAlive } from "../util/run_pid.ts";
 import { isRunId } from "./undo.ts";
@@ -168,19 +168,29 @@ export function followLine(e: EventEnvelope, usdSoFar: number): FollowLine | nul
 }
 
 /** `loki status --follow`: print one line per new event until run.completed or the signal aborts. Read-only: it never signals or writes the run, so detaching leaves the run untouched. */
-export async function followRun(path: string, json: boolean, signal: AbortSignal, write: (s: string) => void = (s) => { process.stdout.write(s); }, pollMs = 500): Promise<void> {
+export async function followRun(path: string, json: boolean, signal: AbortSignal, write: (s: string) => void = (s) => { process.stdout.write(s); }, pollMs = 500): Promise<number> {
   let last = 0, usd = 0;
+  const runDir = dirname(path);
   while (!signal.aborted) {
+    // Sample liveness before reading events so an owner that finishes between the two is not misreported as dead.
+    const rec = readRunPid(runDir);
+    const ownerDead = rec !== null && !runOwnerAlive(runDir);
     for (const e of readEvents(path)) {
       if (e.seq <= last) continue;
       last = e.seq;
       if (e.type === "cost" && typeof e.data.usd === "number") usd += e.data.usd;
       const l = followLine(e, usd);
       if (l) write(json ? `${JSON.stringify(l.json)}\n` : `${l.text}\n`);
-      if (e.type === "run.completed") return;
+      if (e.type === "run.completed") return 0;
+    }
+    if (ownerDead && rec) {
+      const msg = `run owner process ${rec.pid} is no longer running and the run never completed; stopped following`;
+      write(json ? `${JSON.stringify({ type: "owner_dead", pid: rec.pid })}\n` : `${msg}\n`);
+      return 1;
     }
     await new Promise<void>((r) => { const t = setTimeout(r, pollMs); signal.addEventListener("abort", () => { clearTimeout(t); r(); }, { once: true }); });
   }
+  return 0;
 }
 
 export async function runModernStatus(argv: readonly string[], env: NodeJS.ProcessEnv = process.env): Promise<number> {
@@ -212,8 +222,7 @@ export async function runModernStatus(argv: readonly string[], env: NodeJS.Proce
     const ac = new AbortController();
     const onInt = (): void => ac.abort();
     process.once("SIGINT", onInt);
-    try { await followRun(eventsPath(root, hit.id), json, ac.signal); } finally { process.off("SIGINT", onInt); }
-    return 0;
+    try { return await followRun(eventsPath(root, hit.id), json, ac.signal); } finally { process.off("SIGINT", onInt); }
   }
   let cp: string | null = null;
   try { cp = await discoverControlUrl(env); } catch { cp = null; }
@@ -225,7 +234,8 @@ export async function runModernStatus(argv: readonly string[], env: NodeJS.Proce
     return 0;
   }
   const s: ModernStatus = { ...summarize(hit.id, hit.events, root, now), control_plane_url: cp, control_plane_run_url: controlRunLink(cp, repoDir, hit.id) };
-  process.stdout.write(json ? `${JSON.stringify(s)}\n` : `${render(s)}\n`);
+  const next = json ? null : statusNextStep(repoDir, root, hit.id, hit.events); // SB-12: says what the next `loki start` will do with an interrupted or cancelled run
+  process.stdout.write(json ? `${JSON.stringify(s)}\n` : `${render(s)}${next ? `\n  ${next}` : ""}\n`);
   return 0;
 }
 

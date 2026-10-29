@@ -11,8 +11,9 @@ import { siteFor } from "../project_model/resolve.ts";
 import type { ProjectApi } from "../project_model/api.ts";
 import { CARGO_TEST_FILE_RE, isTestFile } from "../engine10/testmap.ts";
 import type { RunnerName, TestRef } from "../engine10/types.ts";
+import { UNITTEST_DISCOVER_ARGS } from "./python_build_check.ts";
 import { safeGit, tokenFreeEnv } from "./safe_git.ts";
-import { redactSecrets } from "./redact.ts";
+import { redactSecrets, UNSAFE_TERMINAL_CHARS_RE } from "./redact.ts";
 
 /** FC-69: the ONE child env for every harness-run test or verify command. A user's FORCE_COLOR=3 makes node:test, pytest, jest and
  *  friends emit ANSI that defeats line-anchored result parsers; FORCE_COLOR=0 + NO_COLOR=1 keeps the output plain. CI is left as is.
@@ -26,6 +27,10 @@ export function plainTestEnv(base: NodeJS.ProcessEnv = process.env): Record<stri
 }
 export const NO_TESTS_REASON = "no tests executed";
 export const NO_RUNNER_REASON = "no runner of this repo runs this file"; // FC-WALL-FILE-WITHOUT-RUNNER-SILENTLY-DROPPED: the one wording wall.ts (not_run_files) and verify.ts (not_proven) share, so seal dedups them
+/** Machine-readable reason the Wall found no harness runner when bun was off (LOKI_WALL_HARNESS_RUNNER=0) or missing from PATH (the pre-spawn Bun.which check), else the repo simply has no toolchain; recorded as skip_code on the Wall skip. */
+/** The skip_code values a check or stage can carry: the harnessSkipCode set plus tool_not_on_path (a runner command missing from PATH). */
+export type SkipCode = "harness_runner_disabled" | "bun_not_on_path" | "no_toolchain" | "tool_not_on_path";
+export const harnessSkipCode = (env: NodeJS.ProcessEnv = process.env): Exclude<SkipCode, "tool_not_on_path"> => (env.LOKI_WALL_HARNESS_RUNNER === "0" ? "harness_runner_disabled" : Bun.which("bun", { PATH: env.PATH ?? "" }) ? "no_toolchain" : "bun_not_on_path");
 export const GO_EXIT0_REASON = "test count could not be confirmed: go test output is produced by the code under test and cannot confirm execution (a Go exit 0 is never a pass)";
 export const UNCONFIRMED_REASON = "test count could not be confirmed";
 /** Real failure evidence in a failed run: a failed test line, a go build or setup failure, a go compiler error line, or "N failed|errors". */
@@ -153,6 +158,53 @@ export function skipped(raw: string): number {
     .reduce((t, l) => t + [...l.matchAll(/(\d+) (?:skipped|deselected|xfailed)|skipped (\d+)/g)].reduce((u, m) => u + +(m[1] ?? m[2]!), 0), 0);
 }
 
+/** HV1-03b: the executed/failed counts and failing ids of a Java run, from the build tool's own final report only. maven: the "Tests run:" aggregate that follows each "Results:" header, vouched by a closing BUILD line.
+ *  gradle (-i): the "Class > method() PASSED|FAILED|SKIPPED" lines, vouched by BUILD SUCCESSFUL|FAILED. javac wrapper: the "LOKI_JAVA_TESTS: N run, M failed" line the wrapper prints last. A verdict that contradicts the
+ *  counts, no vouching line, or no tests seen is null (unmeasured, never a pass). Skipped tests did not execute. */
+export interface JavaSummary { executed: number; failed: number; ids: string[]; }
+export function javaSummary(raw: string): JavaSummary | null {
+  const ls = stripAnsi(raw).split("\n").map((l) => l.trimEnd()), tail = ls.filter((l) => l.trim()).slice(-40), ok = (re: RegExp): boolean | null => { const m = tail.map((l) => re.exec(l)).filter(Boolean).pop(); return m ? m[1] === "SUCCESS" || m[1] === "SUCCESSFUL" : null; };
+  const wrap = ls.filter((l) => l.trim()).slice(-1)[0]?.match(/^LOKI_JAVA_TESTS: (\d+) run, (\d+) failed$/);
+  if (wrap) { const ids = ls.flatMap((l) => l.match(/^FAIL (.+)$/)?.[1] ?? []), failed = +wrap[2]!; return +wrap[1]! > 0 && ids.length === failed && ls.filter((l) => /^(?:PASS|FAIL) /.test(l)).length === +wrap[1]! ? { executed: +wrap[1]!, failed, ids } : null; }
+  const mv = ok(/^\[(?:INFO|ERROR)\] BUILD (SUCCESS|FAILURE)$/), gr = ok(/^BUILD (SUCCESSFUL|FAILED)\b/);
+  if (mv !== null) {
+    let executed = 0, failed = 0, seen = false;
+    ls.forEach((l, i) => { if (/^\[(?:INFO|ERROR)\] Results:$/.test(l)) { const m = ls.slice(i + 1, i + 40).map((x) => /^\[(?:INFO|WARNING|ERROR)\] Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+)$/.exec(x)).find(Boolean); if (m) { seen = true; executed += +m[1]! - +m[4]!; failed += +m[2]! + +m[3]!; } } });
+    const ids = [...new Set(ls.flatMap((l) => { const m = /^\[ERROR\] (?:(\S+)\(([\w.$]+)\)|([\w.$]+\.[\w$]+)(?:\[[^\]]*\])?) .*<<< (?:FAILURE|ERROR)!$/.exec(l); return m ? [m[3] ?? `${m[2]}.${m[1]}`] : []; }))];
+    return seen && executed > 0 && (mv ? failed === 0 : failed > 0) ? { executed, failed, ids } : null;
+  }
+  if (gr !== null) {
+    const ev = ls.flatMap((l) => { const m = /^\s*(\S.*?) > (\S.*?) (PASSED|FAILED|SKIPPED)$/.exec(l); return m ? [{ id: `${m[1]}.${m[2]}`, s: m[3]! }] : []; }), bad = ev.filter((e) => e.s === "FAILED");
+    const executed = ev.filter((e) => e.s !== "SKIPPED").length;
+    return executed > 0 && (gr ? bad.length === 0 : bad.length > 0) ? { executed, failed: bad.length, ids: [...new Set(bad.map((e) => e.id))] } : null;
+  }
+  return null;
+}
+/** HV1-03b: the plain-javac runner for a Java repo with no build tool. It compiles src/main/java plus the one test file, runs the test class, and counts the "PASS <name>" / "FAIL <name>" lines the test printed, ending with the summary line javaSummary reads. The test's own exit status is kept, and the wrapper exits 1 when it counted any FAIL line (a test that printed FAIL but exited 0 is still red). */
+const JAVAC_WRAPPER = `set -u
+root="$1"; cls="$2"; shift 2; cd "$root" || exit 70
+if [ "$cls" = "-" ]; then
+  set -- $(find src/test/java -name '*Test.java' 2>/dev/null | sort); cls=""
+  for f in "$@"; do c="\${f#src/test/java/}"; c="\${c%.java}"; cls="$cls \${c//\\//.}"; done
+fi
+out="$(mktemp -d "\${TMPDIR:-/tmp}/loki-javac.XXXXXX")" || exit 70
+trap 'rm -rf -- "\${out:?}"' EXIT
+find src/main/java -name '*.java' 2>/dev/null > "$out/srcs"
+javac -nowarn -d "$out" @"$out/srcs" "$@" || exit 1
+st=0; : > "$out/run.log"
+for c in $cls; do java -cp "$out" "$c" >> "$out/run.log" 2>&1 || st=$?; done
+cat "$out/run.log"
+p=$(grep -c '^PASS ' "$out/run.log"); f=$(grep -c '^FAIL ' "$out/run.log")
+echo "LOKI_JAVA_TESTS: $((p + f)) run, $f failed"
+[ "$f" -gt 0 ] && st=1
+exit $st`;
+/** HV1-03b: "src/test/java/a/b/XTest.java" -> module root "." and class "a.b.XTest" (a test outside src/test/java is a default-package class named after its file). */
+export function javaTestClass(path: string): { root: string; cls: string; rel: string } {
+  const m = /^(.*?)\/?src\/test\/java\/(.+)\.java$/.exec(path), cls = (m ? m[2]! : basename(path, ".java")).split("/").join(".");
+  return { root: m?.[1] || ".", cls, rel: m ? `src/test/java/${m[2]}.java` : path };
+}
+const wrapperOr = (repoDir: string, w: string, bare: string): string => (existsSync(join(repoDir, w)) ? `./${w}` : bare);
+
 /** Count for the runners we support: vitest, jest, bun test ("N pass"), pytest, go test (-v; non-verbose is unmeasured), unittest, playwright, cargo test, node --test, mocha.
  *  null = unknown (never a pass). A vitest run with no files and no "Tests" summary is a real 0. */
 export function testCount(raw: string, path?: string, ok?: boolean): number | null {
@@ -160,6 +212,8 @@ export function testCount(raw: string, path?: string, ok?: boolean): number | nu
   const bu = bunCount(out), ut = unittestCount(out, ok);
   if (bu !== null) return bu;
   if (ut !== null) return ut;
+  const jv = javaSummary(out);
+  if (jv) return jv.executed;
   if (/^\s*(?:Test Files\s+0\b|No test files found)/m.test(out) && !/^\s*Tests?\s+\d/m.test(out)) return 0;
   const r = ran(out, path, ok);
   if (r !== null) return r;
@@ -224,6 +278,7 @@ export function classifyCheck(i: ClassifyInput): Classified {
   if (n === 0) return { result: "not_run", n: 0, reason: `${NO_TESTS_REASON} (ran 0 tests, empty or all skipped)` };
   if (!i.ok) return { result: "fail", ...(n !== null ? { n } : {}) };
   if (n === null) return { result: "not_run", reason: UNMEASURED_REASON };
+  const jv = javaSummary(text); if (jv && jv.failed > 0) return { result: "fail", n }; // HV1-03b: exit 0 with a Java report that counts failures contradicts itself; never a pass
   return { result: "pass", n };
 }
 /** TEN-QUALITY-17: a test check that fails and then passes on ONE immediate rerun is flaky, not fail, so fix rounds are not spent on it.
@@ -319,7 +374,7 @@ export function explainGates(receiptPath: string): ExplainGate[] {
     return { name: String(c.name ?? ""), class: p === "exogenous" || p === "independent" ? "exogenous" : p === "agent_authored" || p === "llm_judge" ? "agent-influenced" : "unrecorded", provenance: p, result: String(c.result ?? "not_run"), n: typeof c.n === "number" ? c.n : null, evidence: String(c.cmd ?? "") };
   });
 }
-const printable = (s: string): string => s.replace(/[\x00-\x1f\x7f]/g, "?"); // receipt text never drives the terminal
+export const printable = (s: string): string => s.replace(UNSAFE_TERMINAL_CHARS_RE, "?"); // receipt text never drives the terminal
 /** What the receipt verifier saw: set once it resolves a run receipt and prints its verdict. */
 export interface ExplainRec { runId?: string; receiptPath?: string; verdict?: string; reasons?: string[]; receiptSha256?: string | null; independent?: { k: number; of: number } | null; signingKid?: string | null; keyKid?: string | null; headSha?: string | null; receiptVerdict?: string | null; signedRunId?: string | null; signedSha?: string | null }
 /** --explain lists each gate after the verdict; --json prints {run_id, run, verdict, exit_code, receipt_sha256, reasons, agent_independent:{k,of}, gates, signing_kid, key_kid, head_sha, receipt_verdict} on stdout (TEN-GATES-26; the last four are always the final keys, read from the parse the signature covers: the JWT header kid of a VERIFIED receipt, the --pubkey thumbprint, the receipt head_sha and verdict) with the human lines on stderr. Read-only: the exit code is the verifier's, unchanged; a TAMPERED receipt's gates are never listed. */
@@ -707,8 +762,10 @@ export function classify(f: TestRef, status: number | null, output: string, repo
   if (interpreter === "system") return "not_run";
   output = stripAnsi(output); // FC-69: every parser below reads plain text, whoever captured it
   if (status === null || status === 126 || status === 127) return "not_run"; if (status === 0) return classifyCheck({ kind: "test", ok: true, out: output, path: f.path, ...(f.runner === "go" ? { runner: "go" as const } : {}) }).result === "pass" ? "pass" : "not_run"; // FC-16: exit 0 with zero or unknown executed tests is not a pass
+  if (f.runner === "unittest") return status === 1 && unittestCount(output, false) !== null ? (/unittest\.loader\._FailedTest|Failed to import test module/.test(output) ? (pytestCollectionIsRed(output, repoDir) ? "fail" : "not_run") : "fail") : "not_run"; // red only on a trusted FAILED trailer; a module that failed to import is red only when the missing name is the repo's own (pytestCollectionIsRed), else not_run, as for pytest
   if (f.runner === "pytest") return status === 1 ? (pytestExit1IsRed(output) ? "fail" : "not_run") : status === 2 ? (pytestCollectionIsRed(output, repoDir) ? "fail" : "not_run") : "not_run";
   if (f.runner === "jest" || f.runner === "vitest" || f.runner === "bun") return parsedFailCount(f.runner, output) > 0 ? "fail" : "not_run";
+  if (f.runner === "maven" || f.runner === "gradle" || f.runner === "javac") { const j = javaSummary(output); return j && j.failed > 0 ? "fail" : "not_run"; } // HV1-03b: red only on a vouched summary that counts failures; a missing tool, no report or an unvouched report is not_run (verify's own exit-code path treats a compile error as fail, the safe direction)
   return f.runner === "node" && nodeIsRed(f, output) ? "fail" : "not_run"; // npm/go/cargo: coarse (B2), never a per-file red
 }
 
@@ -754,17 +811,24 @@ export function runnerCmd(t: TestRef, repoDir: string): [string, string[], Inter
       const [cmd, interpreter, pre] = resolveTool(repoDir, "python", "python3", "python");
       return [cmd, [...pre, "-m", "pytest", "-q", t.path], interpreter];
     }
+    case "unittest": { // stdlib: a file path is converted to a module name by unittest itself
+      const [cmd, interpreter, pre] = resolveTool(repoDir, "python", "python3", "python");
+      return interpreter === "project" ? [cmd, [...pre, "-m", "unittest", t.path], interpreter] : [cmd, [...pre, "-m", "unittest", t.path]]; // the stdlib runner needs no project interpreter, so a system python3 is not "not_run"
+    }
     case "vitest": return ["npx", ["--no-install", "vitest", "run", t.path]];
     case "jest": return ["npx", ["--no-install", "jest", t.path]];
     case "bun": return ["bun", ["test", t.path]];
     case "node": return ["node", ["--test", `./${t.path}`]];
     case "npm": return ["npm", ["test", "--silent"]];
     case "go": { const names = goTestNames(join(repoDir, t.path)); return ["go", ["test", "-json", ...(names.length ? ["-run", `^(${names.join("|")})$`] : []), `./${dirname(t.path)}`]]; } // one file: only its own Test functions
+    case "maven": { const j = javaTestClass(t.path); return [wrapperOr(repoDir, "mvnw", "mvn"), ["-B", "test", `-Dtest=${j.cls.split(".").pop()}`, "-Dsurefire.failIfNoSpecifiedTests=false", "-DfailIfNoTests=false"]]; }
+    case "gradle": { const j = javaTestClass(t.path); return [wrapperOr(repoDir, "gradlew", "gradle"), ["cleanTest", "test", "--tests", j.cls, "-i", "--console=plain"]]; } // cleanTest: an up-to-date test task would run nothing
+    case "javac": { const j = javaTestClass(t.path); return ["bash", ["-c", JAVAC_WRAPPER, "loki-javac", j.root, j.cls, j.rel]]; }
     case "cargo": return CARGO_TEST_FILE_RE.test(t.path) ? ["cargo", ["test", "--test", basename(t.path, ".rs")]] : ["cargo", ["test"]]; // a Wall-sealed tests/<name>.rs runs by itself
   }
 }
 /** The legacy per-runner full suite (no multi-root model), one check per detected runner: run by deep.ts, baselined via package_suite.ts fullSuiteSpecs. */
-const FULL_SUITE_STATIC: Record<Exclude<RunnerName, "pytest">, { cmd: string; args: string[] }> = {
+const FULL_SUITE_STATIC: Record<Exclude<RunnerName, "pytest" | "unittest">, { cmd: string; args: string[] }> = {
   vitest: { cmd: "npx", args: ["vitest", "run"] },
   jest: { cmd: "npx", args: ["jest"] },
   bun: { cmd: "bun", args: ["test"] },
@@ -772,12 +836,16 @@ const FULL_SUITE_STATIC: Record<Exclude<RunnerName, "pytest">, { cmd: string; ar
   npm: { cmd: "npm", args: ["test", "--silent"] },
   go: { cmd: "go", args: ["test", "-json", "./..."] },
   cargo: { cmd: "cargo", args: ["test"] },
+  maven: { cmd: "mvn", args: ["-B", "test"] },
+  gradle: { cmd: "gradle", args: ["cleanTest", "test", "-i", "--console=plain"] },
+  javac: { cmd: "bash", args: ["-c", JAVAC_WRAPPER, "loki-javac", ".", "-"] },
 };
 /** FC-FULL-SUITE-IGNORES-PROJECT-INTERPRETER: the one full-suite command per runner. pytest resolves its interpreter exactly as a per-test run does (resolveTool: project .venv, else python3), never a bare `python` that python3-only hosts lack. */
 export function fullSuiteCmd(runner: RunnerName, repoDir: string): { cmd: string; args: string[]; interpreter?: Interpreter } {
-  if (runner !== "pytest") return FULL_SUITE_STATIC[runner];
+  if (runner === "maven" || runner === "gradle") { const s = FULL_SUITE_STATIC[runner]; return { ...s, cmd: wrapperOr(repoDir, runner === "maven" ? "mvnw" : "gradlew", s.cmd) }; }
+  if (runner !== "pytest" && runner !== "unittest") return FULL_SUITE_STATIC[runner];
   const [cmd, interpreter, pre] = resolveTool(repoDir, "python", "python3", "python");
-  return { cmd, args: [...pre, "-m", "pytest", "-q"], interpreter };
+  return { cmd, args: [...pre, ...(runner === "unittest" ? UNITTEST_DISCOVER_ARGS : ["-m", "pytest", "-q"])], ...(runner === "unittest" && interpreter === "system" ? {} : { interpreter }) };
 }
 /** FC-01: the one resolver for a test invocation: a package-owned file runs in its package dir with a package-relative path, else exactly runnerCmd at the root. */
 export function commandFor(t: TestRef, repoDir: string, api?: ProjectApi | null): { cwd: string; cmd: string; args: string[]; argv: string[]; interpreter?: Interpreter; pkgRoot: string } {

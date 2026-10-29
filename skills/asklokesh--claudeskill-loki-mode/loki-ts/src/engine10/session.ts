@@ -1,20 +1,22 @@
 // E-07: SessionRunner. Runs one provider session in its own OS process group so the whole tree can be killed together at limitS (ENGINE.md 10). E-32: the child re-enters via cli.ts's `engine10 session` route.
 import { createWatchdog, stallKillS, stallThresholdS } from "../runner/watchdog.ts";
+import { SAFE_BUN_FLAGS } from "../runner/worker_proc.ts";
 import { neutralizeEngineMarkers, sdkAuthCause } from "../runner/retry_class.ts";
 import { spawn, type ChildProcess } from "node:child_process";
+import { diffShortstat, diffSignature, untrackedList } from "../util/anti_loop.ts"; export { diffShortstat, diffSignature, untrackedList }; // watchdog diff signature lives with the other tree-change detectors
 import { cancelSessions, sessionsCancelled, trackSession } from "../util/run_pid.ts"; export { cancelSessions }; // one registry covers every provider child (docs/cost-controls.md)
-import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { archivePriorCosts, writeProviderCost, stageMedianGapMs } from "../providers/provider_cost.ts";
 import { modelRouteModel } from "../providers/model_routes.ts";
-import { canonicalSessionPin, PROVIDER_DEFAULT_MODEL } from "../util/claude_model.ts";
+import { canonicalSessionPin, explicitSetupModel, PROVIDER_DEFAULT_MODEL } from "../util/claude_model.ts";
 import { recordSessionCost, resultCostPath, tokensUnmeasured, UNMETERED } from "./cost.ts";
 import { hooks } from "./hooks.ts";
 import { readSessionId } from "../runner/session_resume.ts";
 import { routerEnabled } from "../runner/router/flag.ts";
 import { routedCostFields, routerMarkers, routerSessionPin } from "../runner/router/session_route.ts";
 import type { ImplementExit, SessionMarkers, SessionResult, SessionRunner, SessionRunOptions } from "./types.ts";
-import { clampBashTimeoutEnv, envWithPwd, killGroupWithGrace, reapLiveGroup } from "../runner/worker_proc.ts"; import { safeGit } from "../util/safe_git.ts"; import { claudeTierToModel, engine10StaticPrefix } from "../runner/providers.ts"; import { idleGapMs, prefixParts, prefixSha } from "../util/cost_breakdown.ts";
+import { clampBashTimeoutEnv, envWithPwd, killGroupWithGrace, reapLiveGroup } from "../runner/worker_proc.ts"; import { claudeTierToModel, engine10StaticPrefix } from "../runner/providers.ts"; import { idleGapMs, prefixParts, prefixSha } from "../util/cost_breakdown.ts";
 import { beginGuard, finishGuard, isGuarded, watchBudget } from "../providers/provider_guard.ts"; // PARITY-ENFORCE: non-Claude guardrails
 import { calculateCostFromRecords, partialUsagePath, readEfficiencyDir, recordPartialStreamCost } from "../runner/budget.ts"; import { childBudgetLimit, parseCapUsd } from "../e10ext/budget_cap.ts";
 const STDERR_TAIL_BYTES = 64 * 1024; // E-61: kept for stage.failed diagnostics, tail only
@@ -41,7 +43,7 @@ export function sessionPinModel(e: NodeJS.ProcessEnv = process.env): string | un
   const pin = canonicalSessionPin(e["LOKI_SESSION_MODEL"]);
   if (!pin) return undefined;
   if (pin === "fable") return "opus";
-  if (pin === "planning" || pin === "development" || pin === "fast") return claudeTierToModel(pin);
+  if (pin === "planning" || pin === "development" || pin === "fast") return explicitSetupModel(pin, e) ?? claudeTierToModel(pin);
   return pin;
 }
 /** The model a session really runs: the override, else the session pin, else a configured pin, else the provider's own default (no --model flag, L1 never below raw). */
@@ -90,19 +92,8 @@ export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): Nod
     env["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] = "1"; // an engine stage never needs background work; a Bash at its timeout stops instead of auto-backgrounding and pinning a finished session
     clampBashTimeoutEnv(env, opts.limitS);
     if (env["LOKI_E10_PREFIX"] === undefined) env["LOKI_E10_PREFIX"] = "lean"; // TEN-COST-13: lean cache-stable prefix by default; an explicit user value (including off) wins
-    const override = process.env["LOKI_MODEL_OVERRIDE"];
-    if (override) {
-      env["LOKI_CLAUDE_MODEL_PLANNING"] = override;
-      env["LOKI_CLAUDE_MODEL_DEVELOPMENT"] = override;
-      env["LOKI_CLAUDE_MODEL_FAST"] = override;
-    } else {
-      const sessionPin = sessionPinModel(process.env); // after the override, ahead of the per-tier vars; throws on an unrecognized pin
-      if (sessionPin) {
-        env["LOKI_CLAUDE_MODEL_PLANNING"] = sessionPin;
-        env["LOKI_CLAUDE_MODEL_DEVELOPMENT"] = sessionPin;
-        env["LOKI_CLAUDE_MODEL_FAST"] = sessionPin;
-      }
-    }
+    const forced = process.env["LOKI_MODEL_OVERRIDE"] || sessionPinModel(process.env); // the override, else the session pin (after the override, ahead of the per-tier vars; throws on an unrecognized pin)
+    if (forced) for (const t of ["PLANNING", "DEVELOPMENT", "FAST"]) env[`LOKI_CLAUDE_MODEL_${t}`] = forced;
   }
   if (cfg.provider === "claude" && (!opts.model || opts.model === PROVIDER_DEFAULT_MODEL) && resolveModel("claude") === PROVIDER_DEFAULT_MODEL) env["LOKI_E10_MODEL_DEFAULT"] = "1"; // providers.ts then omits --model
   const { effort, escalated } = sessionEffortFor(opts); // ER-01: a user LOKI_E10_EFFORT (already in env) wins over opts and the policy; ER-05: a resumed session keeps its effort
@@ -116,33 +107,6 @@ export function childEnv(opts: SessionRunOptions, cfg: SessionRunnerConfig): Nod
     env[`LOKI_MODEL_${t}`] = pin;
   }
   return env;
-}
-export function untrackedList(cwd: string | undefined): string { // NUL-separated; read once per heartbeat tick and shared by diffShortstat and diffSignature (TEN-SPEED-21)
-  try { return safeGit(cwd ?? process.cwd(), ["ls-files", "-z", "--others", "--exclude-standard", "--", ".", ":(exclude).loki"], { timeout: 10_000 }); } catch { return ""; }
-}
-export function diffShortstat(cwd: string | undefined, untrackedRaw: string = untrackedList(cwd)): { files: number; insertions: number; deletions: number } {
-  const dir = cwd ?? process.cwd(), o = { timeout: 10_000 }; // P12-12: bounded, since the heartbeat runs this synchronously every 30s
-  let out = "";
-  try { out = safeGit(dir, ["diff", "--shortstat", "--relative"], o).trim(); } catch { /* unreadable: counts stay zero */ } // --relative: same cwd scope as the name lists and ls-files, so the signature tracks only this run's subtree
-  const untracked = untrackedRaw.split("\0").filter(Boolean).length; // --shortstat misses untracked files: count them (without reading content) so an add-only stage is not zero change
-  const files = /(\d+) files? changed/.exec(out), ins = /(\d+) insertions?\(\+\)/.exec(out), del = /(\d+) deletions?\(-\)/.exec(out);
-  return { files: (files ? Number(files[1]) : 0) + untracked, insertions: ins ? Number(ins[1]) : 0, deletions: del ? Number(del[1]) : 0 };
-}
-/** Watchdog signature: shortstat counts plus a cheap content signal (size and mtime of every changed file), so in-place growth of one already-modified file moves it. */
-export function diffSignature(cwd: string | undefined, stat?: { files: number; insertions: number; deletions: number }, untrackedRaw: string = untrackedList(cwd)): string {
-  stat ??= diffShortstat(cwd, untrackedRaw);
-  const dir = cwd ?? process.cwd(), o = { timeout: 10_000 };
-  let bytes = 0, newest = 0;
-  const add = (list: string): void => { // each list gets its own 1000-file budget, so a huge tracked list never starves the untracked one
-    let n = 0;
-    for (const f of list.split("\0").filter(Boolean)) {
-      if (n++ >= 1000) return; // bound the stat work on huge trees
-      try { const st = statSync(join(dir, f)); bytes += st.size; if (st.mtimeMs > newest) newest = st.mtimeMs; } catch { /* deleted: counted by shortstat */ }
-    }
-  };
-  try { add(safeGit(dir, ["diff", "--name-only", "--relative", "-z"], o)); } catch { /* unreadable: counts only */ } // --relative: cwd-relative like ls-files --others, so join(dir, f) holds from a repo subdirectory
-  add(untrackedRaw);
-  return `${JSON.stringify(stat)}|${bytes}|${newest}`;
 }
 function parseMarkers(stdout: string): SessionMarkers {
   // Line-anchored, so prose that merely names a marker (or an echoed brief) never counts.
@@ -159,18 +123,10 @@ function exitKind(exit: number | null, killed: boolean, markers: SessionMarkers)
 }
 // E-68 (augmentiq #52 P0): every exit code a provider call can produce, named. 125 and 143 are explicitly in scope (a container runtime or the shell itself can emit either). A code outside this table
 // still names the number: classifyExitCause never falls back to an un-named string.
-const EXIT_CAUSES: Readonly<Record<number, string>> = {
-  0: "exit 0 (success)",
-  1: "exit 1 (general error)",
-  2: "exit 2 (misuse of shell command)",
-  124: "exit 124 (timeout)",
-  125: "exit 125 (timeout or container failure)",
-  126: "exit 126 (command not executable)",
-  127: "exit 127 (command not found)",
-  130: "exit 130 (SIGINT)",
-  137: "exit 137 (SIGKILL)",
-  143: "exit 143 (SIGTERM)",
-};
+const EXIT_CAUSES: Readonly<Record<number, string>> = Object.fromEntries(([
+  [0, "success"], [1, "general error"], [2, "misuse of shell command"], [124, "timeout"], [125, "timeout or container failure"],
+  [126, "command not executable"], [127, "command not found"], [130, "SIGINT"], [137, "SIGKILL"], [143, "SIGTERM"],
+] as const).map(([code, what]) => [code, `exit ${code} (${what})`]));
 // E-68: a session child traps SIGTERM and exits 143, so classify from what the ENGINE knows (it sent the kill), never the child's code: killed always wins. killCause names which kill fired; it defaults to "limit".
 export function classifyExitCause(exit: number | null, killed: boolean, killCause?: "limit" | "aborted" | "stalled"): string {
   if (killed) return killCause ?? "limit";
@@ -219,7 +175,7 @@ export function createSessionRunner(cfg: SessionRunnerConfig): SessionRunner {
       const [cmd, args] = cfg.childCommand ?? [
         process.execPath,
         // Through the cli `engine10 session` route: import.meta.path is dist/loki.js in a bundle, session.ts from source.
-        [import.meta.path.endsWith("session.ts") ? `${import.meta.dir}/../cli.ts` : import.meta.path, "engine10", "session"],
+        [...SAFE_BUN_FLAGS, import.meta.path.endsWith("session.ts") ? `${import.meta.dir}/../cli.ts` : import.meta.path, "engine10", "session"],
       ];
       const sessionId = opts.iterationId;
       // stderr is piped and kept (tail only, E-61) for stage.failed diagnostics; always drained via the "data" listener below so a full pipe can never stall the child.

@@ -73,3 +73,8 @@ export function loadAwareTimeoutMs(
   return Math.max(Math.round(baseMs * factor), Number.isFinite(floor) && floor > 0 ? floor : 0);
 }
 export const setLoadAwareTimeout = (baseMs: number): void => setDefaultTimeout(loadAwareTimeoutMs(baseMs));
+
+// The global default for files with no opt-in is NOT set here. Measured on bun 1.3.13: a preload-time setDefaultTimeout (also
+// inside beforeAll or beforeEach) reaches only one file of a multi-file `bun test`; every other file keeps the bunfig/CLI value.
+// So the global default is the `--timeout` the test script in package.json passes (5000ms times LOKI_TEST_TIMEOUT_SCALE, which
+// falls back to 3 unless it is a positive integer, and is capped at 10); bunfig.toml sets no timeout, and a bare `bun test` gets bun's own 5000ms. Files that need more call setLoadAwareTimeout in the file itself.

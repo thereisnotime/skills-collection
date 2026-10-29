@@ -45,6 +45,8 @@ P4.catalog-has-top-model
 P4.three-setups-resolve
 P4.seeded-defect-corpus-present
 P4.floor-does-not-raise-wrong-pass
+P4.seal-is-model-free
+P4.engine10-pin-matches-bash
 P5.egress-blocked-start-seal-verify
 P5.airgap-audit-honest
 P5.airgap-audit-default-route
@@ -68,6 +70,7 @@ P9.injection-cannot-reach-token
 P9.checkout-no-persisted-credentials
 P9.no-pr-target-head-checkout
 P9.allowtoken-only-fetch-callers
+P9.bun-ignores-repo-config
 P6.no-gate-artifacts-committed
 P2.bun-inconclusive-not-pass
 P2.council-readers-not-shadowed
@@ -92,3 +95,9 @@ P5.airgap-no-update-check-egress
 P2.cp-verdict-honest-never-upgraded
 P7.cp-unmeasured-never-fabricated
 P7.cli-unmetered-cost-not-dollar-zero
+P2.e10-failing-check-never-verified
+P6.e10-user-files-intact
+P6.e10-untracked-not-swept
+P6.e10-ignored-files-not-swept
+P6.e10-mode-and-symlink-intact
+P6.e10-same-path-and-history

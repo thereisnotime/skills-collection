@@ -23,9 +23,29 @@ case dir with env SD_ID, SD_MODEL, SD_CATEGORY. Its last stdout line must be
 SEALED or NOT_SEALED. Anything else, a crash or a timeout aborts the run and
 nothing is written: an unmeasured defect is never recorded as NOT_SEALED.
 
+Model-free check (--compare-models A,B[,C]): run the default route once per
+model id over the same defects, each in a fresh scratch copy, with no API key in
+the environment, and diff the evidence. The id "unset" runs with LOKI_MODEL
+removed. Compared per defect: verdict, exit code, the deterministic_gates array
+byte for byte, the finding set minus free-text (severity, category, source,
+blocking), and llm_review.affects_verdict, which must be false. Free-text
+messages and timestamps carry tool timings and are not compared. Writes a diff
+report (default results/model-compare.json) and exits 0 only when every defect
+is identical across every model. This is an invariant check, not a measurement
+of any model.
+
+LLM judge route (--verifier llm-judge): for each defect, send the fixture files
+plus check.py to `claude -p --model $SD_MODEL` (tools disabled) and ask for a
+verdict. ACCEPT maps to SEALED (the model passed a seeded defect: a wrong pass),
+REJECT to NOT_SEALED. The reply's last non-empty line must be exactly ACCEPT or
+REJECT; anything else, a nonzero exit or a timeout aborts the run. The binary
+can be replaced with env LOKI_SD_CLAUDE (used by the hermetic stub test only).
+The recorded verifier is the string "llm-judge", identical for both setups.
+
 Usage:
-  measure.py --setup top|floor --model NAME [--verifier CMD] [--only ID,ID]
+  measure.py --setup top|floor --model NAME [--verifier CMD|llm-judge] [--only ID,ID]
              [--timeout SECS] [--out PATH]
+  measure.py --compare-models A,B[,C] [--only ID,ID] [--timeout SECS] [--out PATH]
 """
 import argparse
 import hashlib
@@ -66,8 +86,19 @@ def run_capture(cmd, cwd, env, timeout, shell=False):
     return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
 
 
-def verify_default(case_dir, defect, model, timeout):
-    env = dict(os.environ, LOKI_MODEL=model, LOKI_TELEMETRY_DISABLED="true", CI="true")
+KEY_VARS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN")
+
+
+def verify_evidence(case_dir, defect, model, timeout, keyless=False):
+    """Run the default route once; return (evidence dict, process exit code)."""
+    env = dict(os.environ, LOKI_TELEMETRY_DISABLED="true", CI="true")
+    if model is None:
+        env.pop("LOKI_MODEL", None)
+    else:
+        env["LOKI_MODEL"] = model
+    if keyless:
+        for k in KEY_VARS:
+            env.pop(k, None)
     git = ["git", "-c", "user.name=m", "-c", "user.email=m@example.invalid"]
     try:
         subprocess.run(git + ["init", "-q"], cwd=case_dir, check=True, env=env)
@@ -82,14 +113,20 @@ def verify_default(case_dir, defect, model, timeout):
         raise MeasureError(f"{defect['id']}: loki verify timed out after {timeout}s")
     try:
         ev = json.loads(p.stdout)
-        verdict = ev.get("verdict")
+        if not isinstance(ev, dict):
+            raise ValueError("evidence is not an object")
     except Exception:
         raise MeasureError(f"{defect['id']}: loki verify gave no JSON evidence (exit {p.returncode})")
     ec = ev.get("exit_code")
     if type(ec) is not int or ec != p.returncode:
         raise MeasureError(f"{defect['id']}: evidence exit_code {ec!r} is not the integer process exit "
                            f"{p.returncode}; defect unmeasured")
-    return classify_verdict(defect["id"], verdict, p.returncode)
+    return ev, p.returncode
+
+
+def verify_default(case_dir, defect, model, timeout):
+    ev, rc = verify_evidence(case_dir, defect, model, timeout)
+    return classify_verdict(defect["id"], ev.get("verdict"), rc)
 
 
 def classify_verdict(defect_id, verdict, rc):
@@ -113,7 +150,45 @@ def loki_version(timeout):
     return lines[0]
 
 
+JUDGE_PROMPT = (
+    "You are a strict code reviewer. Below are the files of one small task: its spec, the "
+    "implementation, the visible tests, and check.py, the acceptance check. Decide whether the "
+    "implementation is correct, meaning it satisfies the spec and would pass check.py. Reason "
+    "briefly, then end your reply with one final line that is exactly ACCEPT or REJECT.\n\n")
+
+
+def judge_prompt(case_dir):
+    parts = [JUDGE_PROMPT]
+    for name in sorted(os.listdir(case_dir)):
+        path = os.path.join(case_dir, name)
+        if os.path.isfile(path) and not os.path.islink(path):
+            with open(path, errors="replace") as f:
+                parts.append(f"=== {name} ===\n{f.read()}\n")
+    return "\n".join(parts)
+
+
+def verify_llm_judge(case_dir, defect, model, timeout):
+    exe = os.environ.get("LOKI_SD_CLAUDE") or "claude"
+    cmd = [exe, "-p", "--model", model, "--tools", "", "--no-session-persistence", "--disable-slash-commands"]
+    prompt = judge_prompt(case_dir)
+    try:
+        proc = subprocess.run(cmd, cwd=case_dir, input=prompt, capture_output=True, text=True,
+                              timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise MeasureError(f"{defect['id']}: llm judge timed out after {timeout}s")
+    except OSError as e:
+        raise MeasureError(f"{defect['id']}: llm judge could not start: {e}")
+    lines = [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
+    last = lines[-1] if lines else None
+    if proc.returncode != 0 or last not in ("ACCEPT", "REJECT"):
+        raise MeasureError(f"{defect['id']}: llm judge exit {proc.returncode}, last line {last!r}, "
+                           f"want ACCEPT or REJECT; defect unmeasured")
+    return "SEALED" if last == "ACCEPT" else "NOT_SEALED"
+
+
 def verify_custom(cmd, case_dir, defect, model, timeout):
+    if cmd == "llm-judge":
+        return verify_llm_judge(case_dir, defect, model, timeout)
     env = dict(os.environ, SD_ID=defect["id"], SD_MODEL=model, SD_CATEGORY=defect["category"])
     try:
         p = run_capture(cmd, case_dir, env, timeout, shell=True)
@@ -189,6 +264,67 @@ def measure(setup, model, verifier=None, only=None, timeout=600, out=DEFAULT_OUT
     return doc
 
 
+def evidence_projection(ev, rc):
+    """The model-independent parts of one evidence document, as comparable text."""
+    llm = ev.get("llm_review")
+    findings = sorted(json.dumps([f.get(k) for k in ("severity", "category", "source", "blocking")])
+                      for f in (ev.get("findings") or []) if isinstance(f, dict))
+    return {"verdict": ev.get("verdict"), "exit_code": rc,
+            "deterministic_gates": json.dumps(ev.get("deterministic_gates"), sort_keys=False),
+            "findings": findings,
+            "affects_verdict": llm.get("affects_verdict") if isinstance(llm, dict) else None}
+
+
+def compare_models(models, only=None, timeout=600, out=None, manifest=MANIFEST):
+    if len(models) < 2 or len(set(models)) != len(models):
+        raise MeasureError("--compare-models needs at least two distinct model ids")
+    with open(manifest, "rb") as f:
+        manifest_bytes = f.read()
+    defects = json.loads(manifest_bytes).get("defects") or []
+    if only:
+        known = {d["id"] for d in defects}
+        bad = sorted(set(only) - known)
+        if bad:
+            raise MeasureError(f"unknown defect id {bad[0]}")
+        defects = [d for d in defects if d["id"] in only]
+    if not defects:
+        raise MeasureError("empty corpus: no defects to compare")
+    root = os.path.dirname(os.path.abspath(manifest))
+    rows, differing = [], []
+    for d in defects:
+        per = {}
+        for m in models:
+            scratch = tempfile.mkdtemp(prefix="sd-compare-")
+            try:
+                case = os.path.join(scratch, "case")
+                shutil.copytree(os.path.join(root, d["dir"]), case)
+                ev, rc = verify_evidence(case, d, None if m == "unset" else m, timeout, keyless=True)
+                per[m] = evidence_projection(ev, rc)
+            finally:
+                shutil.rmtree(scratch, ignore_errors=True)
+        base = per[models[0]]
+        fields = sorted({k for m in models[1:] for k in base if per[m][k] != base[k]})
+        bad_flag = [m for m in models if per[m]["affects_verdict"] is not False]
+        if bad_flag:
+            fields = sorted(set(fields) | {"affects_verdict"})
+        if fields:
+            differing.append(d["id"])
+        rows.append({"id": d["id"], "identical": not fields, "differing_fields": fields,
+                     "verdict": {m: per[m]["verdict"] for m in models},
+                     "exit_code": {m: per[m]["exit_code"] for m in models},
+                     "gate_count": {m: len(json.loads(per[m]["deterministic_gates"]) or []) for m in models}})
+    doc = {"schema": "loki.seeded-defects.model-compare/v1",
+           "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+           "models": models, "n": len(rows), "identical": len(rows) - len(differing),
+           "differing": differing, "defects": rows}
+    if out:
+        os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+        with open(out, "w") as f:
+            json.dump(doc, f, indent=2, sort_keys=True)
+            f.write("\n")
+    return doc
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -196,9 +332,12 @@ def main(argv=None):
                                  "), wrong_pass = count of SEALED outcomes over n defects. "
                                  "The default route runs `loki verify --no-llm`, which ignores "
                                  "the model (no LLM spend); only a --verifier route is per-model.")
-    ap.add_argument("--setup", required=True, choices=("top", "floor"),
+    ap.add_argument("--compare-models", metavar="A,B[,C]",
+                    help="model-free invariant check: run the default route per model id (\"unset\" removes "
+                         "LOKI_MODEL) with no API key and diff the evidence; exit 0 only if identical")
+    ap.add_argument("--setup", choices=("top", "floor"),
                     help="which setup this run records; re-measuring a setup replaces only that run")
-    ap.add_argument("--model", required=True,
+    ap.add_argument("--model",
                     help="NAME of the model under test. Exported as LOKI_MODEL on the default route "
                          "and as SD_MODEL to --verifier; recorded in the run. Required, non-empty. "
                          "A per-model claim needs a --verifier run, because the default route is "
@@ -208,9 +347,30 @@ def main(argv=None):
                          "line must be SEALED or NOT_SEALED (env SD_ID, SD_MODEL, SD_CATEGORY)")
     ap.add_argument("--only", help="comma list of defect ids (partial run; fails the full-coverage contract)")
     ap.add_argument("--timeout", type=int, default=600, help="per-defect timeout in seconds (default 600)")
-    ap.add_argument("--out", default=DEFAULT_OUT,
-                    help="results file written (default results/wrong-pass.json beside this script)")
+    ap.add_argument("--out", default=None,
+                    help="file written (default results/wrong-pass.json, or results/model-compare.json "
+                         "with --compare-models, beside this script)")
     a = ap.parse_args(argv)
+    if a.compare_models:
+        if a.setup or a.model or a.verifier:
+            print("measure: --compare-models cannot be combined with --setup, --model or --verifier",
+                  file=sys.stderr)
+            return 2
+        out = a.out or os.path.join(HERE, "results", "model-compare.json")
+        try:
+            doc = compare_models([m.strip() for m in a.compare_models.split(",")],
+                                 a.only.split(",") if a.only else None, a.timeout, out)
+        except MeasureError as e:
+            print(f"measure: {e}", file=sys.stderr)
+            return 1
+        print(f"compare {','.join(doc['models'])}: identical {doc['identical']}/{doc['n']} -> {out}")
+        for i in doc["differing"]:
+            print(f"DIFFERS {i}", file=sys.stderr)
+        return 0 if not doc["differing"] else 1
+    if not a.setup or not a.model:
+        print("measure: --setup and --model are required (or use --compare-models)", file=sys.stderr)
+        return 2
+    a.out = a.out or DEFAULT_OUT
     if not a.model.strip():
         print("measure: --model must be non-empty", file=sys.stderr)
         return 2

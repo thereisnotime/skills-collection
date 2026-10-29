@@ -14,8 +14,8 @@ import {
 } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { ACPX_PIN } from "../helpers/acpx-pin"
-import { alive } from "../helpers/process"
+import { ACPX_PIN, ACPX_RANGE } from "../helpers/acpx-pin"
+import { survivors } from "../helpers/process"
 
 // These tests spawn bash/python/jq subprocesses; on a loaded CI runner they cross the 5s default
 // (2026-08-21, PR #1508: three different tests timed out across two reruns with no related change).
@@ -271,7 +271,7 @@ describe("cross-model-doc-review route safety (R17)", () => {
     ["opencode", "--deny-all --agent", ["opencode acp exec --config-option mode=plan"]],
   ])("--emit-adapter %s denies every permission from the empty peer workspace", (route, agent, options) => {
     const command = emitAdapter(route)
-    expect(command).toContain(`npx -y acpx@${ACPX_PIN} --cwd <peer-workdir> --format json --mcp-config <mcp-config> --timeout 1200 --deny-all`)
+    expect(command).toContain(`npx -y --package ${ACPX_RANGE} -- acpx --cwd <peer-workdir> --format json --mcp-config <mcp-config> --timeout 1200 --deny-all`)
     expect(command).toContain("env npm_config_prefer_offline=true npm_config_fetch_retries=0")
     expect(command).toContain(agent)
     for (const option of options) expect(command).toContain(option)
@@ -372,7 +372,7 @@ describe("cross-model-doc-review route safety (R17)", () => {
     expect(r.files).toContain("adversarial-cursor.json")
   })
 
-  test("schema-valid output from a peer still running at the hard cap is never published", () => {
+  test("schema-valid output from a peer still running at the hard cap is never published", async () => {
     const sb = sandbox(["cursor-agent"], acpStream({ text: review(), stopReason: null, sleep: 30 }))
     const runDir = makeRunDir()
     const started = Date.now()
@@ -386,7 +386,7 @@ describe("cross-model-doc-review route safety (R17)", () => {
     expect(r.stderr).toContain("peer run ended with incomplete")
     const pids = readFileSync(sb.logs.pids, "utf8").trim().split("\n").map(Number)
     expect(pids).toHaveLength(2)
-    for (const pid of pids) expect(alive(pid)).toBe(false)
+    expect(await survivors(pids)).toEqual([])
   })
 
   test("workspace creation failure skips the provider without calling acpx", () => {
@@ -791,6 +791,18 @@ describe("cross-model-doc-review acpx transport preflight", () => {
     }
   })
 
+  test.each([["npm-release-age", "shared"], ["npm-release-age-adapter", "route"]])("%s reports the date cutoff after one policy-respecting refresh (%s)", (stream, scope) => {
+    const sb = sandbox(["codex"], path.join(STREAMS, stream))
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "adversarial", makeDoc(), "plan", "none", runDir], runDir, sb.env)
+    expect(calls(sb)).toBe(2)
+    expect(r.stderr).toContain(`transport unavailable (pre-egress, ${scope}): npm could not resolve ${ACPX_RANGE}`)
+    expect(r.stderr).toContain("check min-release-age/before policy or wait for the cooldown")
+    expect(r.stderr).not.toContain("stale cached")
+    expect(r.stderr).toContain("npm policy unchanged")
+    expect(r.files).toEqual([])
+  })
+
   test("an npm resolve on stale cached metadata retries the same route once with fresh metadata", () => {
     const base = path.join(temp("xmodel-doc-stale-"), "s")
     for (const ext of ["stderr", "exit"]) writeFileSync(`${base}.1.${ext}`, readFileSync(path.join(STREAMS, `stale-npm-metadata.${ext}`)))
@@ -856,6 +868,7 @@ function unadvertisedStream(model: string, available: string, base: string) {
 describe("cross-model-doc-review antigravity route", () => {
   test("--emit-adapter antigravity denies every permission and isolates GEMINI_HOME", () => {
     const command = emitAdapter("antigravity")
+    expect(command).toContain(`npx -y --package ${ACPX_RANGE} -- acpx --cwd`)
     expect(command).toContain("GEMINI_HOME=<gemini-home>")
     expect(command).toContain("--deny-all --model gemini-4-argon antigravity exec --config-option mode=default --config-option thinking_level=high")
   })

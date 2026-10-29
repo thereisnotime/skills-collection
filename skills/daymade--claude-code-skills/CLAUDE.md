@@ -146,6 +146,14 @@ For a Chinese illustrated recipient guide from a manufacturer PDF, enter
 For relative-image resource paths or Markdown → PDF rendering, read
 [PDF Creator's ordinary entry](daymade-docs/pdf-creator/SKILL.md).
 
+For Word creation, existing Word/WPS → PDF, DOCX review or version comparison, enter
+[docs-router](daymade-docs/docs-router/SKILL.md) and load its selected child before acting.
+DOCX delivery follows docx-creator's
+[native acceptance procedure](daymade-docs/docx-creator/references/verification_protocol.md#step-3a--check-the-actual-file-in-microsoft-word-when-the-native-route-is-usable),
+including refused/unavailable checks and reviewable handoff. DOCX comparison follows
+[the input-identity and coverage procedure](daymade-docs/read-docx-review/references/full-comparison.md);
+keep sending evidence, revision-view selection and comparison limits with that owner.
+
 For saved HTML batches, follow [the conversion owner](daymade-docs/doc-to-markdown/references/html-conversion.md#gate-a-batch-through-the-existing-recipe)
 and its actual-reader pilot before expansion. Keep conversion evidence and reader
 observations separate; this file does not define another batch recipe.
@@ -219,7 +227,7 @@ For hook creation, consolidation, Skill-entry enforcement, registration or recov
 and follow its Build order and installer-owned recovery contract. Follow that
 Skill's loop and reminder contract; keep current thresholds in the
 owning implementation.
-For ordinary-interface notification visibility, use
+For hook model-context delivery claims or ordinary-interface notification visibility, use
 [hook_pitfalls.md #66](daymade-claude-code/claude-code-hooks/references/hook_pitfalls.md);
 for current-version/partial-structure SQLite upgrades, use that file's #59.
 Before accepting persisted evidence that releases a hook block, read
@@ -357,7 +365,7 @@ A `tests/` directory under a Skill does **not** automatically run in CI.
 [The registry](scripts/ci/test-suites.txt) owns suite admission and membership;
 [the dispatcher](scripts/ci/run_registered_tests.sh) owns their execution commands.
 [The workflow](.github/workflows/ci.yml) owns job environments, dependency installation,
-timeouts and additional test steps. For required-check readback, installation stalls,
+timeouts and additional test steps. For required-check readback, bootstrap mismatches, installation stalls,
 test failures and temporary-Git cleanup, follow [CI operations](references/ci-operations.md).
 
 For CI demand, notification overload, exhausted allowance or repeated validation,
@@ -456,6 +464,9 @@ To find an existing Feishu recording by date, enter
 
 For Feishu document reads and archives, enter
 [feishu-doc-scraper](feishu-doc-scraper/SKILL.md). Its
+[API extraction SOP](feishu-doc-scraper/references/lark-cli-api-extraction.md)
+owns resolved Wiki target dispatch and the authorized reference-traversal scope.
+Its
 [comments and feedback SOP](feishu-doc-scraper/references/comments-and-feedback.md)
 owns discussion capture and interpretation; the bundled helper owns the CLI
 interface. Before permanent filing or choosing an authorized archive destination,
@@ -493,6 +504,9 @@ For input appended after an operation's current-thread request, use [read-codex-
 For conversation-backup health checks or recent unfinished-request inventories, follow
 [`local-conversation-history`](daymade-claude-code/local-conversation-history/SKILL.md).
 
+For the latest conversation about a topic across continuations, enter
+[latest-topic discovery](daymade-claude-code/read-codex-history/SKILL.md#latest-topic-across-continuations).
+
 For remembered facts or a repeated search request, use that router's evidence
 selection contract. The provider readers own original-record retrieval;
 [`read-codex-history`](daymade-claude-code/read-codex-history/SKILL.md#original-tool-and-record-evidence)
@@ -511,6 +525,8 @@ Keep selectors, pairing, source scope and incomplete-output handling in that own
 
 For a Claude session briefing or expansion of folded runtime Skill bodies, enter
 [Exact Session evidence](daymade-claude-code/read-claude-code-history/SKILL.md#exact-session-evidence).
+Large or unmeasured briefing output follows that reader's
+[file-backed reading procedure](daymade-claude-code/read-claude-code-history/references/large-session-briefing.md).
 
 For Claude history discovery without a known Session, use
 [read-claude-code-history's indexed search entry](daymade-claude-code/read-claude-code-history/SKILL.md#indexed-content-search).
@@ -547,6 +563,8 @@ Before asking about mutable ownership or a publication window, use the
 [fresh-state preflight](peer-message/references/coordination-and-learning-loop.md#51-发现别人的在制品先核实再问等一个有界窗口).
 For an inbound coordination envelope, a native reply or a receive-integrity error, follow
 [receive, reply and closure](peer-message/references/local-coordination.md#收件回信和关闭).
+For a known inbound `peer-message` envelope ID in Codex, use the
+[original-envelope receive recipe](peer-message/references/local-coordination.md#从-codex-入站原件接收).
 For oversized discovery responses or complete-title export, use its
 [discovery-output contract](peer-message/references/protocol-and-discovery.md#发现输出的范围).
 Current product availability, provenance, and inbound-control mechanics belong in
@@ -741,8 +759,10 @@ follow the contributor entry's route to [github-review-pr](github-review-pr/SKIL
 For behavioral changes and review-led repairs, the review Skill's
 [impact procedure](github-review-pr/references/behavioral-impact-review.md) owns
 consumer tracing, preservation evidence and finding closure.
-Before expensive checks on a concurrently edited base, follow its
+Before expensive checks on a concurrently edited base, follow GitHub Operations'
 [publication coordination](github-ops/references/pr_operations.md#coordinate-publication-before-expensive-checks).
+Before diagnosing conflicts or differing local and hosted merge results, use its
+[fresh-base verification](github-ops/references/pr_operations.md#fresh-base-verification).
 Before a merge or selecting `--auto`, enter its
 [merge preflight](github-ops/references/pr_operations.md#merging-prs).
 For hosted-state writes through `gh`, follow its

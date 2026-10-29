@@ -7,15 +7,18 @@
 //   verify.changed_files / checks   <- verify stage.completed (the diff and the evidence)
 //   wall.files / wall.base_run      <- wall stage.completed
 import { execFile, spawnSync } from "node:child_process";
+import { SAFE_BUN_FLAGS } from "../runner/worker_proc.ts";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { conflictReasonOf, fold, partialCost, readEvents } from "../engine10/events.ts";
+import { conflictReasonOf, fold, partialCost, readEvents, type Folded } from "../engine10/events.ts";
+import { cacheSavings } from "../runner/budget.ts";
+import { renderProofCard } from "./receipt_surface.ts";
 import { eventsRelPath, readOriginUrl } from "./engine_origin.ts";
 import { runOwnerAlive } from "./run_pid.ts";
 import { safeGit } from "./safe_git.ts";
 import { currentBranch } from "../e10ext/stop_restore.ts";
-import type { Outcome } from "../engine10/output.ts";
+import { formatPreModelLine, formatSummary, type Outcome, type PreModelTiming, type SummaryInput } from "../engine10/output.ts";
 import { noteOf } from "./base_guard.ts";
 import { sourceId } from "../../../packages/control-plane/src/shipper/ship.ts";
 import { redactSecrets } from "./redact.ts";
@@ -164,7 +167,11 @@ export function phaseOf(events: readonly EventEnvelope[]): Phase {
   return s === "received" || s === "prepared" || s === "planned" || s === "executing" ? "implement" : "done";
 }
 
-export interface Interrupted { runId: string; phase: Phase; events: EventEnvelope[]; task: string | null }
+export interface Interrupted { runId: string; phase: Phase; events: EventEnvelope[]; task: string | null; cancelled?: boolean }
+
+/** SB-12: the harness-owned marker `Discard old run` writes; a marked run is never offered or resumed again. Nothing is deleted. */
+const DISCARD_MARK = "discarded";
+export const isDiscarded = (runsDir: string, runId: string): boolean => existsSync(join(runsDir, runId, DISCARD_MARK));
 
 function taskOf(events: readonly EventEnvelope[]): string | null {
   const t = events.find((e) => e.type === "stage.completed" && e.stage === "intake")?.data["task"];
@@ -172,7 +179,7 @@ function taskOf(events: readonly EventEnvelope[]): string | null {
 }
 
 /** Latest run (by events.jsonl mtime) that stopped before completing and has no live owner; null when none. */
-export function findInterrupted(repoDir: string, runId?: string): Interrupted | null {
+export function findInterrupted(repoDir: string, runId?: string, includeCancelled = false): Interrupted | null {
   const root = join(repoDir, ".loki", "runs");
   let ids: string[] = [];
   try { ids = runId ? [runId] : readdirSync(root); } catch { return null; }
@@ -181,9 +188,11 @@ export function findInterrupted(repoDir: string, runId?: string): Interrupted | 
   const top = rows[0];
   if (!top) return null;
   const events = readEvents(join(repoDir, eventsRelPath(top.id)));
-  const phase = phaseOf(events);
-  if (phase === "done" || runOwnerAlive(join(root, top.id)) || events.length === 0) return null;
-  return { runId: top.id, phase, events, task: taskOf(events) };
+  const cancelled = events.findLast((e) => e.type === "run.completed")?.data["cancelled"] === true; // SB-12: a cancelled run is offered (never resumed); its phase is read as if it had not completed
+  if (cancelled && !includeCancelled) return null;
+  const phase = phaseOf(cancelled ? events.filter((e) => e.type !== "run.completed") : events);
+  if (phase === "done" || isDiscarded(root, top.id) || runOwnerAlive(join(root, top.id)) || events.length === 0) return null;
+  return { runId: top.id, phase, events, task: taskOf(events), ...(cancelled ? { cancelled: true } : {}) };
 }
 
 // P12-07: per-stage checkpoints and the resume point. The append-only event log is the durable checkpoint store; a checkpoint is the
@@ -316,13 +325,13 @@ export async function resumeFlag(runId: string | undefined, noPr = false, deps: 
   };
   const supervise = deps.supervise ?? (async (o) => (await import("../engine10/supervisor.ts")).runSupervisor(o));
   const { EXIT } = await import("../engine10/output.ts");
-  const res = await supervise({ runId: it.runId, repoDir, env, resume: true, capS: capS === undefined ? undefined : Math.floor(capS), capCeilingS: ceilS === undefined ? undefined : Math.floor(ceilS), restoreBranch: origBranch, workerArgv: [process.execPath, resolve(process.argv[1] ?? ""), "engine10", "worker", it.runId, provider, model, deep ? "deep" : "fast"], started: { ...st, resumed_from: rp.stage }, pr });
+  const res = await supervise({ runId: it.runId, repoDir, env, resume: true, capS: capS === undefined ? undefined : Math.floor(capS), capCeilingS: ceilS === undefined ? undefined : Math.floor(ceilS), restoreBranch: origBranch, workerArgv: [process.execPath, ...SAFE_BUN_FLAGS, resolve(process.argv[1] ?? ""), "engine10", "worker", it.runId, provider, model, deep ? "deep" : "fast"], started: { ...st, resumed_from: rp.stage }, pr });
   out(`engine10: resumed run ${it.runId}: ${res.outcome}\n`);
   return EXIT[res.outcome];
 }
 
 export type RunPrFn = (ctx: Record<string, unknown>, signal: AbortSignal) => Promise<{ status: string; reason?: string; data: Record<string, unknown> }>;
-export interface ResumeDeps { runPr?: RunPrFn; out?: (s: string) => void; supervise?: (o: import("../engine10/supervisor.ts").SupervisorOptions) => Promise<{ outcome: Outcome }> }
+export interface ResumeDeps { fresh?: boolean; tty?: boolean; ask?: (q: string) => Promise<string | null>; runPr?: RunPrFn; out?: (s: string) => void; supervise?: (o: import("../engine10/supervisor.ts").SupervisorOptions) => Promise<{ outcome: Outcome }> }
 
 /** Resumes the publish phase. Reuses the sealed receipt; appends run.resumed, pr.opened and run.completed. */
 export async function resumePublish(repoDir: string, it: Interrupted, deps: ResumeDeps = {}): Promise<number> {
@@ -358,16 +367,84 @@ export async function resumePublish(repoDir: string, it: Interrupted, deps: Resu
   return 0;
 }
 
-/** Called by `loki start` before it opens a new run. Returns an exit code when it resumed, null to start fresh.
- *  Only a publish-phase run whose recorded task equals this task is resumed; any other interrupted run is just announced. */
+export type RecoveryChoice = "resume" | "fresh" | "discard" | "details";
+
+/** SB-12: maps one typed answer to a choice; "" is the default, null is unparseable (the caller re-asks). Resume is refused when the run is not resumable. */
+export function parseRecoveryChoice(raw: string, resumable: boolean): RecoveryChoice | null {
+  const a = raw.trim().toLowerCase(), order: RecoveryChoice[] = resumable ? ["resume", "fresh", "discard", "details"] : ["fresh", "discard", "details"];
+  if (a === "") return order[0]!;
+  if (/^[1-9]$/.test(a)) return order[Number(a) - 1] ?? null;
+  if (["f", "s", "fresh", "start", "start fresh"].includes(a)) return "fresh";
+  if (["d", "x", "discard", "discard old run"].includes(a)) return "discard";
+  if (["i", "?", "details", "show", "show details"].includes(a)) return "details";
+  return resumable && ["r", "resume"].includes(a) ? "resume" : null;
+}
+
+/** SB-12: what the next `loki start` will do with this run; shared by `loki status` and the end-of-run cancel line. */
+export function nextStepText(runId: string, phase: Phase, cancelled: boolean, hasBranch: boolean): string {
+  const kept = hasBranch ? `old work stays on loki/${runId}` : "no run branch was created";
+  return phase === "publish" && !cancelled ? `next loki start with the same task offers to finish its pull request step (run ${runId}) or start fresh` : `next loki start offers to start fresh; ${kept}`;
+}
+
+const branchExists = (repoDir: string, runId: string): boolean => { try { return safeGit(repoDir, ["rev-parse", "--verify", "-q", `refs/heads/loki/${runId}`]).trim() !== ""; } catch { return false; } };
+
+/** The `loki status` next-step line for one run; null when the run is complete, live, discarded or has nothing left to offer. */
+export function statusNextStep(repoDir: string, runsDir: string, runId: string, events: readonly EventEnvelope[]): string | null {
+  const cancelled = events.findLast((e) => e.type === "run.completed")?.data["cancelled"] === true;
+  if (events.some((e) => e.type === "run.completed") && !cancelled) return null;
+  const phase = phaseOf(cancelled ? events.filter((e) => e.type !== "run.completed") : events);
+  if (phase === "done" || events.length === 0 || isDiscarded(runsDir, runId) || runOwnerAlive(join(runsDir, runId))) return null;
+  return nextStepText(runId, phase, cancelled, branchExists(repoDir, runId));
+}
+
+/** `Discard old run`: writes the harness-owned marker inside the run's own directory, after checking that it is a real directory (not a link) under this repo's runs dir. */
+export function discardRun(repoDir: string, runId: string): boolean {
+  if (!/^e10-[A-Za-z0-9-]+$/.test(runId)) return false;
+  const dir = join(repoDir, ".loki", "runs", runId);
+  try { if (!lstatSync(dir).isDirectory()) return false; writeFileSync(join(dir, DISCARD_MARK), `${new Date().toISOString()}\n`, { flag: "wx" }); return true; } catch { return false; } // wx: a pre-planted file or dangling link at the marker path is refused, never followed
+}
+
+/** What a reader resolves on Ctrl-C. EOF (null) means the same: no choice was made, so nothing starts and nothing resumes. */
+export const RECOVERY_ABORT = "\u0000abort";
+const askLine = async (q: string): Promise<string | null> => {
+  const rl = (await import("node:readline")).createInterface({ input: process.stdin, output: process.stderr });
+  try { return await new Promise<string | null>((res) => { rl.once("close", () => res(null)); rl.once("SIGINT", () => res(RECOVERY_ABORT)); rl.question(q, (a) => res(a)); }); } finally { rl.close(); }
+};
+
+/** Called by `loki start` before it opens a new run (and by a bare `loki start`, task ""). Returns an exit code when it resumed, null to go on.
+ *  Only a publish-phase run whose recorded task equals this task (any task when none was given) is resumable; the engine keeps stage state in memory, so
+ *  Resume is never offered for another phase or for a cancelled run. TTY: the user picks. No TTY or LOKI_NONINTERACTIVE=1: a resumable run resumes, else a one-line note.
+ *  --fresh (deps.fresh) and LOKI_NO_RESUME=1 skip all of it. */
 export async function startRecovery(repoDir: string, task: string, noPr: boolean, deps: ResumeDeps = {}): Promise<number | null> {
-  if (process.env["LOKI_NO_RESUME"] === "1") return null;
-  const it = findInterrupted(repoDir);
+  if (process.env["LOKI_NO_RESUME"] === "1" || deps.fresh === true) return null;
+  const it = findInterrupted(repoDir, undefined, true);
   if (!it) return null;
-  if (it.phase === "publish" && !noPr && it.task !== null && it.task === task.trim()) return resumePublish(repoDir, it, deps);
   const note = deps.out ?? ((s: string) => { process.stderr.write(s); });
-  note(`note: run ${it.runId} was interrupted in phase ${it.phase}; "loki resume" ${it.phase === "publish" ? "finishes it" : "reports what is preserved"}. Starting a new run.\n`);
-  return null;
+  const hasBranch = branchExists(repoDir, it.runId), t = task.trim();
+  const resumable = it.phase === "publish" && !it.cancelled && !noPr && it.task !== null && (t === "" || it.task === t) && hasBranch && readOriginUrl(repoDir) !== null && !("deny" in prGate(repoDir)); // offered only when resumePublish can finish: branch, origin and policy all allow it
+  const kept = hasBranch ? `old work is kept on loki/${it.runId}` : "no run branch was created", was = it.cancelled ? "cancelled" : "interrupted";
+  const interactive = (deps.tty ?? (process.stdin.isTTY === true && process.stderr.isTTY === true)) && process.env["LOKI_NONINTERACTIVE"] !== "1";
+  if (resumable && !interactive) return resumePublish(repoDir, it, deps);
+  if (!interactive || (t === "" && !resumable)) {
+    note(`note: run ${it.runId} was ${was} in phase ${it.phase}; ${t === "" ? `give a task to start a new run (loki start <task>); ${kept}` : `starting a new run, ${kept}`}.\n`);
+    return null;
+  }
+  const ask = deps.ask ?? askLine, discardItem = "Discard old run (not offered again; nothing is deleted)";
+  const menu = resumable ? ["Resume (finish the pull request step)", `Start fresh (${kept})`, discardItem, "Show details"] : [`Start fresh (${kept})`, discardItem, "Show details"];
+  note(`loki: run ${it.runId} was ${was} in phase ${it.phase}${it.task ? ` (task: ${it.task.replace(/\s+/g, " ").slice(0, 80)})` : ""}.\n`);
+  for (let tries = 0; tries < 5; tries++) {
+    note(`${menu.map((m, i) => `  ${i + 1}) ${m}${i === 0 ? " [default]" : ""}`).join("\n")}\n`);
+    const ans = await ask("choice: ");
+    if (ans === null || ans === RECOVERY_ABORT) { note("no choice made; nothing was started or resumed\n"); return 130; } // Ctrl-C or closed input is never a choice
+    const c = parseRecoveryChoice(ans, resumable);
+    if (c === null) { note(`not a choice: ${ans.trim().slice(0, 40)}\n`); continue; }
+    if (c === "details") { note(`  run ${it.runId}: ${it.events.length} events, last seq ${fold(it.events).lastSeq}, phase ${it.phase}, ${was}; ${kept}; ${resumable ? "resumable (same task, publish phase)" : it.phase === "publish" && !it.cancelled ? "not resumable here (different task or --no-pr)" : it.cancelled ? "not resumable (cancelled)" : "not resumable (stage state is in memory)"}\n`); continue; }
+    if (c === "resume") return resumePublish(repoDir, it, deps);
+    note(c === "discard" ? (discardRun(repoDir, it.runId) ? `Discarded run ${it.runId}: it will not be offered again; ${kept}.\n` : `Could not mark run ${it.runId} as discarded; starting fresh.\n`) : `Starting fresh; ${kept}.\n`);
+    return null;
+  }
+  note("no valid choice; nothing was started or resumed\n");
+  return 130;
 }
 
 /** `loki resume [run-id]` for engine10 runs. Exit 0 resumed, 3 nothing to resume, 4 phase not auto-resumable, else failure. */
@@ -484,4 +561,33 @@ export function stackSection(env: NodeJS.ProcessEnv, base: string | undefined, h
   const r = env.LOKI_PR_REFS ?? "";
   const refs = !hasIssueLink && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#\d+$/.test(r) ? `\nRefs ${r}\n` : "";
   return refs + (base ? `\nStacked on \`${base}\`: review and merge that pull request first.\n` : "");
+}
+
+/** The block main() writes to stdout once a run finishes; pure because main() re-spawns process.argv[1] as the worker, so tests cannot drive it. */
+export function renderMainOutput(events: EventEnvelope[], summary: SummaryInput, verbose = true): string {
+  const c = alreadyDoneTextComment(events), un = unmergedLokiWorkNote(events);
+  const pm = (events.findLast((e) => e.type === "run.completed")?.data.pre_model ?? null) as PreModelTiming | null;
+  const verify = events.findLast((e) => e.type === "stage.completed" && e.stage === "verify");
+  const checks = Array.isArray(verify?.data.checks) ? verify.data.checks.length : 0;
+  const seal = events.findLast((e) => e.type === "stage.completed" && e.stage === "seal");
+  const mutation = typeof seal?.data.mutation_line === "string" ? seal.data.mutation_line : null;
+  const card = renderProofCard({
+    verdict: summary.outcome ?? summary.verdict,
+    usd: summary.cost.usd,
+    wallS: summary.wallS,
+    checks,
+    mutationProof: mutation,
+    sha: summary.receipt?.sha ?? null,
+    tampered: summary.receipt?.tampered === true,
+  });
+  return `${c ? `\n${c}\n` : ""}${un ? `\n${un}\n` : ""}${verbose ? formatPreModelLine(pm) : ""}${formatSummary(summary)}\n${verbose ? `\n${card}\n` : ""}`; // D48: the default stays within 8 lines; the card is --verbose only
+}
+// E-59: every token field the provider reported, cache included (E-50 found "1k shown for 372k used" when this summed only input+output). The sole place tokens are computed for the Cost line.
+export function summaryTokens(f: Folded, sawCost: boolean): number | null {
+  return sawCost ? f.cost.inputTokens + f.cost.outputTokens + f.cost.cacheReadTokens + f.cost.cacheCreationTokens : null;
+}
+/** Summary cache fields from the cost events: tokens times the input minus cache-read price delta; null (printed "cache not measured") unless every cost event carried the key, and for a tampered log. */
+export function summaryCache(events: ReturnType<typeof readEvents>, tampered: boolean): { cacheReadTokens: number | null; cacheSavedUsd: number | null } {
+  const cs = tampered ? null : cacheSavings(events.filter((e) => e.type === "cost").map((e) => ({ model: typeof e.data.model === "string" ? e.data.model : undefined, cache_read_tokens: typeof e.data.cache_read_tokens === "number" ? e.data.cache_read_tokens : undefined })));
+  return { cacheReadTokens: cs ? cs.readTokens : null, cacheSavedUsd: cs ? cs.savedUsd : null };
 }

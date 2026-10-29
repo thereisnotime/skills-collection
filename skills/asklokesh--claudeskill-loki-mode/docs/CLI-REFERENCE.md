@@ -1,12 +1,12 @@
 # CLI reference
 
-Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.77.0. Do not edit by hand.
-Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for the full inventory.
+Generated from `loki-ts/src/cli/registry.ts` by `scripts/generate-stale-zero.sh` for v11.83.0. Do not edit by hand.
+Hidden and legacy-only commands are omitted; see `docs/CLI-INVENTORY.md` for the full inventory.
 
 | Command | Description |
 | --- | --- |
 | `loki version` | Show version |
-| `loki status` | Show current run status |
+| `loki status` | Show current run status, and what the next loki start will do with an interrupted run |
 | `loki doctor` | System prerequisites health check; --json, --fix, --requirements, --repo (repo profile with a 0-100 readiness score and fixes) |
 | `loki provider` | Show, list or set the AI provider |
 | `loki provider show` | Show current provider |
@@ -72,7 +72,7 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki crash submit` | Submit a scrubbed crash report |
 | `loki crash help` | Show crash usage |
 | `loki contract` | Print the spec delivery contract |
-| `loki start` | Run the autonomous build (a `jira:KEY` or `linear:KEY` ref also writes the outcome back to that ticket, see docs/trackers.md) |
+| `loki start` | Run the autonomous build (a `jira:KEY` or `linear:KEY` ref also writes the outcome back to that ticket, see docs/trackers.md); an interrupted or cancelled run is offered for resume or a fresh start, and --fresh skips the offer |
 | `loki slack` | Slack inbound handler |
 | `loki slack serve` | Serve the Slack handler |
 | `loki queue` | Overnight issue queue with a morning digest |
@@ -147,6 +147,7 @@ Hidden and legacy-only commands are omitted; see `docs/v10/CLI-MODERN.md` for th
 | `loki notify desktop` | Send a desktop notification (macOS or Linux notify-send) |
 | `loki tour` | See a sample result |
 | `loki wow` | Tiny real task, or the offline sample |
+| `loki try` | Try Loki on a public repo in a temp clone, keep only the receipt |
 | `loki factory` | loki start with the autonomy policy printed |
 | `loki welcome` | First-run opener |
 | `loki onboard` | Onboard to a codebase |

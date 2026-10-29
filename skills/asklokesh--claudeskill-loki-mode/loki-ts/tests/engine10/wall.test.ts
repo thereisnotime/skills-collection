@@ -132,6 +132,16 @@ describe("engine10 wall brief", () => {
     expect(b).toContain("Acceptance: login works");
     expect(b).toContain("Acceptance: export works");
   });
+  test("extracted clauses reach the brief with ids and anchors; none means byte-identical", async () => {
+    const { extractClauses, untaggedClauses } = await import("../../src/util/spec_file.ts");
+    const set = extractClauses("## Acceptance criteria\n- a one\n- b two\n- c three\n- d four\n- e five\n");
+    const b = buildWallBrief("t", "", [], false, "", [], null, set);
+    for (const [i, l] of [[1, 2], [2, 3], [3, 4], [4, 5], [5, 6]] as const) expect(b).toMatch(new RegExp(`Acceptance: C${i}: .* \\[l${l}\\]`));
+    expect(b).toContain("clause: C3");
+    expect(buildWallBrief("t", "", [], false, "", [], null, extractClauses("no clauses here"))).toBe(buildWallBrief("t"));
+    const files = new Map([["loki_wall_a.test.ts", "// clause: C1\n// clause: C2\n"], ["loki_wall_b.test.ts", "test('x')"]]);
+    expect(untaggedClauses(set, files)).toEqual({ untagged: ["C3", "C4", "C5"], untagged_files: ["loki_wall_b.test.ts"] });
+  });
   test("brief requires one negative-case assertion per acceptance line, under 400 chars", () => {
     const m = buildWallBrief("t").match(/Negative case: [^\n]*?before the fix\./);
     expect(m).not.toBeNull();
@@ -475,6 +485,29 @@ describe("engine10 wall base run, D42 (3)", () => {
     writeFileSync(join(repoDir, "loki_wall_thirdparty.py"), "import loki_s41_16_never_installed_xyz\n\ndef test_x():\n    pass\n", "utf8");
 
     const result = new RealBaseTestRunner().run(repoDir, [{ runner: "pytest", path: "loki_wall_thirdparty.py" }]);
+
+    expect(result).toEqual({ pass: 0, fail: 0, not_run: 1 });
+    rmSync(repoDir, { recursive: true, force: true });
+  });
+
+  test.skipIf(!Bun.which("python3"))("(3a-unittest) ImportError on a missing repo symbol under unittest: red, like pytest", () => {
+    const repoDir = repo();
+    mkdirSync(join(repoDir, "mypkg"), { recursive: true });
+    writeFileSync(join(repoDir, "mypkg", "__init__.py"), "", "utf8");
+    writeFileSync(join(repoDir, "mypkg", "mymod.py"), "# the feature is not built yet\n", "utf8");
+    writeFileSync(join(repoDir, "loki_wall_import_ut.py"), "import unittest\nfrom mypkg.mymod import missing_function\n\nclass T(unittest.TestCase):\n    def test_x(self):\n        missing_function()\n", "utf8");
+
+    const result = new RealBaseTestRunner().run(repoDir, [{ runner: "unittest", path: "loki_wall_import_ut.py" }]);
+
+    expect(result).toEqual({ pass: 0, fail: 1, not_run: 0 });
+    rmSync(repoDir, { recursive: true, force: true });
+  });
+
+  test.skipIf(!Bun.which("python3"))("(3b-unittest) ImportError on a missing third-party package under unittest: not_run", () => {
+    const repoDir = repo();
+    writeFileSync(join(repoDir, "loki_wall_tp_ut.py"), "import unittest\nimport loki_s41_16_never_installed_xyz\n\nclass T(unittest.TestCase):\n    def test_x(self):\n        pass\n", "utf8");
+
+    const result = new RealBaseTestRunner().run(repoDir, [{ runner: "unittest", path: "loki_wall_tp_ut.py" }]);
 
     expect(result).toEqual({ pass: 0, fail: 0, not_run: 1 });
     rmSync(repoDir, { recursive: true, force: true });
@@ -973,5 +1006,89 @@ describe("COST-11 r2: escalation on doubt", () => {
   });
   test("B2: the stage ceiling covers two max-length sessions plus base runs", () => {
     expect(wallStage.limitS).toBeGreaterThanOrEqual(2 * (300 + WALL_BASE_FILES * 60));
+  });
+});
+
+describe("RX-1: a repo with no test runner still gets a failing-first Wall check", () => {
+  const nobun = { PATH: "/nonexistent" } as NodeJS.ProcessEnv; // Loki's bun harness unavailable: the repo's own toolchain must carry the Wall
+  const fixtures: [string, string[], string | null][] = [
+    ["node", ["package.json", "src/index.js"], "node"],
+    ["python", ["pyproject.toml", "app/main.py"], "pytest"],
+    ["go", ["go.mod", "main.go"], "go"],
+    ["rust", ["Cargo.toml", "src/lib.rs"], "cargo"],
+    ["no toolchain", ["README.md", "src/a.ts"], null],
+  ];
+  for (const [name, files, want] of fixtures) {
+    test(`${name} fixture without a runner: harnessRunners picks the toolchain runner`, async () => {
+      const { harnessRunners } = await import("../../src/engine10/testmap.ts");
+      expect(harnessRunners([], files, nobun)).toEqual(want ? [want as never] : []);
+    });
+  }
+  test("a polyglot node plus python repo with only .py changes picks pytest, not the first-listed node", async () => {
+    const { harnessRunners } = await import("../../src/engine10/testmap.ts");
+    const files = ["package.json", "pyproject.toml", "web/index.js", "app/main.py"];
+    expect(harnessRunners([], files, nobun, undefined, ["app/main.py"])).toEqual(["pytest"]);
+    expect(harnessRunners([], files, nobun, undefined, ["web/index.js"])).toEqual(["node"]);
+    expect(harnessRunners([], ["package.json", "go.mod", "main.go", "web/a.js"], nobun, undefined, ["main.go"])).toEqual(["go"]);
+    expect(harnessRunners([], files, nobun)).toEqual(["node"]); // no focus: manifest order, as before
+  });
+  test("the bun check skipping a runner records a machine-readable skip code", async () => {
+    const { harnessSkipCode } = await import("../../src/util/check_result.ts");
+    expect(harnessSkipCode(nobun)).toBe("bun_not_on_path");
+    expect(harnessSkipCode({ ...nobun, LOKI_WALL_HARNESS_RUNNER: "0" })).toBe("harness_runner_disabled");
+  });
+  test("a no-runner repo wall skip carries skip_code in its result data", async () => {
+    const repoDir = mkdtempSync(join(tmpdir(), "loki-rx1b-")), savedPath = process.env.PATH;
+    try {
+      const runDir = join(repoDir, ".loki", "runs", "r1"); mkdirSync(runDir, { recursive: true });
+      const ref = join(runDir, "repomap.json"); writeFileSync(ref, JSON.stringify({ files: ["README.md", "docs/a.md"], entries: [], truncated: false }));
+      const { buildTestMap } = await import("../../src/engine10/testmap.ts");
+      const tm = buildTestMap(repoDir);
+      const sessions = new FakeSessionRunner(() => {});
+      const ctx = { runId: "r1", runDir, repoDir, sessions, emit() {}, tests: { async detect() { return tm; }, impacted: () => [] }, outputs: () => ({ intake: { task: "reword the docs intro paragraph across the guide pages", testmap: tm, repomap_ref: ref } }) } as unknown as RunContext;
+      process.env.PATH = "/nonexistent"; process.env.LOKI_E10_PLAN = "always";
+      const r = await runWall(ctx, new AbortController().signal);
+      expect(r.status).toBe("skipped");
+      expect(r.data).toMatchObject({ no_runner: true, skip_code: "bun_not_on_path" });
+    } finally { process.env.PATH = savedPath; delete process.env.LOKI_E10_PLAN; rmSync(repoDir, { recursive: true, force: true }); }
+  });
+  test("a stray .py file with package.json picks node, not pytest", async () => {
+    const { harnessRunners } = await import("../../src/engine10/testmap.ts");
+    expect(harnessRunners([], ["package.json", "src/index.js", "scripts/gen.py"], nobun)).toEqual(["node"]);
+    expect(harnessRunners([], ["scripts/gen.py"], nobun)).toEqual([]);
+  });
+  test("pyproject.toml plus a .py file still picks pytest", async () => {
+    const { harnessRunners } = await import("../../src/engine10/testmap.ts");
+    expect(harnessRunners([], ["pyproject.toml", "scripts/gen.py"], nobun)).toEqual(["pytest"]);
+  });
+  for (const manifest of ["requirements-dev.txt", "requirements-test.txt", "setup.cfg", "tox.ini"]) {
+    test(`${manifest} as the only manifest plus a .py file picks pytest without bun`, async () => {
+      const { harnessRunners } = await import("../../src/engine10/testmap.ts");
+      expect(harnessRunners([], [manifest, "app/main.py"], nobun)).toEqual(["pytest"]);
+    });
+  }
+  test("a repo with a detected runner is unchanged", async () => {
+    const { harnessRunners } = await import("../../src/engine10/testmap.ts");
+    expect(harnessRunners(["vitest"], ["package.json"], nobun)).toEqual(["vitest"]);
+  });
+  test("node repo with no tests and no bun: runWall authors a Wall and the failing base run is kept", async () => {
+    const repoDir = mkdtempSync(join(tmpdir(), "loki-rx1-")), savedPath = process.env.PATH;
+    try {
+      const runDir = join(repoDir, ".loki", "runs", "r1"); mkdirSync(runDir, { recursive: true });
+      writeFileSync(join(repoDir, "package.json"), JSON.stringify({ name: "x", version: "1.0.0" }));
+      mkdirSync(join(repoDir, "src")); writeFileSync(join(repoDir, "src", "index.js"), "exports.add = (a, b) => a - b;\n");
+      const ref = join(runDir, "repomap.json"); writeFileSync(ref, JSON.stringify({ files: ["package.json", "src/index.js"], entries: [], truncated: false }));
+      const { buildTestMap } = await import("../../src/engine10/testmap.ts");
+      const tm = buildTestMap(repoDir); expect(tm.runners).toEqual([]);
+      let called = 0;
+      const sessions = new FakeSessionRunner((o) => { called++; writeFileSync(join(o.cwd!, "loki_wall_add.test.js"), "const t = require('node:test'), a = require('node:assert');\nt('add', () => a.strictEqual(require('../src/index.js').add(1, 2), 3));\n"); });
+      const ctx = { runId: "r1", runDir, repoDir, sessions, emit() {}, tests: { async detect() { return tm; }, impacted: () => [] }, outputs: () => ({ intake: { task: "fix add so it returns the sum across modules", testmap: tm, repomap_ref: ref } }) } as unknown as RunContext;
+      process.env.PATH = "/nonexistent"; process.env.LOKI_E10_PLAN = "always"; process.env.LOKI_E10_WALL_FIRST = "0"; process.env.LOKI_WALL_HOLDOUT = "0";
+      const r = await runWall(ctx, new AbortController().signal, { baseRunner: { run: () => ({ pass: 0, fail: 1 }) } });
+      expect(called).toBe(1);
+      expect(r.status).toBe("completed");
+      expect((r.data.base_run as { fail: number }).fail).toBe(1);
+      expect(((r.data.files as unknown[]) ?? []).length).toBe(1);
+    } finally { process.env.PATH = savedPath; delete process.env.LOKI_E10_PLAN; delete process.env.LOKI_E10_WALL_FIRST; delete process.env.LOKI_WALL_HOLDOUT; rmSync(repoDir, { recursive: true, force: true }); }
   });
 });

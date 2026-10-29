@@ -17,8 +17,8 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
-import { ACPX_PIN } from "../helpers/acpx-pin"
-import { alive } from "../helpers/process"
+import { ACPX_RANGE } from "../helpers/acpx-pin"
+import { alive, survivors } from "../helpers/process"
 import {
   acpNpxBin, acpStream as acpStreamAt, COMPLETED_RESULT as COMPLETED, signInWaitStream, type StreamSpec, unadvertisedStream,
 } from "./helpers/ce-work-acp-stub"
@@ -277,10 +277,10 @@ describe("ce-work fixed write routes", () => {
     },
   }
 
-  test.each([...ROUTES])("%s runs through the pinned acpx with every permission approved in the workspace", (route) => {
+  test.each([...ROUTES])("%s uses its supported acpx range with every permission approved in the workspace", (route) => {
     const out = emit(route, cleanEnv())
     expect(out.status).toBe(0)
-    expect(out.stdout).toContain(`npx -y acpx@${ACPX_PIN} --cwd <workspace> --format json --mcp-config <mcp-config>`)
+    expect(out.stdout).toContain(`npx -y --package ${ACPX_RANGE} -- acpx --cwd <workspace> --format json --mcp-config <mcp-config>`)
     expect(out.stdout).toContain("--approve-all")
     expect(out.stdout).toContain("--file <prompt-file>")
     const expected = ROUTE_ARGV[route]
@@ -388,6 +388,8 @@ describe("ce-work fixed write routes", () => {
       npm_config_cache: path.join(f.root, "npm-cache"),
       npm_config_registry: "http://registry.invalid/",
       NPM_CONFIG_USERCONFIG: path.join(f.root, "npmrc"),
+      npm_config_min_release_age: "60",
+      NPM_CONFIG_BEFORE: "2026-08-01",
       ...secrets,
     }))
 
@@ -396,6 +398,8 @@ describe("ce-work fixed write routes", () => {
     expect(childEnv).toContain(`npm_config_cache=${path.join(f.root, "npm-cache")}`)
     expect(childEnv).toContain("npm_config_registry=http://registry.invalid/")
     expect(childEnv).toContain(`NPM_CONFIG_USERCONFIG=${path.join(f.root, "npmrc")}`)
+    expect(childEnv).toContain("npm_config_min_release_age=60")
+    expect(childEnv).toContain("NPM_CONFIG_BEFORE=2026-08-01")
     expect(childEnv).toContain("npm_config_prefer_offline=true")
     expect(childEnv).toContain(`CURSOR_CONFIG_DIR=${cursorConfig}`)
     for (const [name, value] of Object.entries(secrets)) {
@@ -674,7 +678,7 @@ describe("ce-work fixed write routes", () => {
   // npm launches acpx through `sh -c`; Ubuntu's dash does not exec the command, so
   // a TERM sent to the npx leader alone stops at the shell and leaves acpx and the
   // agent running. The route must be stopped as a whole process group.
-  test("stopping a route at the raw-output cap stops its descendants too", () => {
+  test("stopping a route at the raw-output cap stops its descendants too", async () => {
     const f = fixture()
     const pidFile = path.join(f.root, "grandchild.pid")
     const bin = stubBin(f, acpStream(), `sleep 30 & echo $! > '${pidFile}'; printf '%02048d' 0; wait; exit 0`)
@@ -682,7 +686,7 @@ describe("ce-work fixed write routes", () => {
     expect(result.result.failure_reason).toContain("exceeded 256 bytes")
     const grandchild = Number(readFileSync(pidFile, "utf8").trim())
     expect(grandchild).toBeGreaterThan(0)
-    expect(alive(grandchild)).toBe(false)
+    expect(await survivors([grandchild])).toEqual([])
   })
 
   test("an app-bundled codex CLI off PATH satisfies the codex route (issue #1272)", () => {
@@ -788,6 +792,18 @@ describe("ce-work acpx outcomes", () => {
     expect(result.result.failure_reason).toContain(`transport unavailable (${reason}`)
   })
 
+  test.each([["npm-release-age", "shared"], ["npm-release-age-adapter", "route"]])("%s reports the date cutoff after one policy-respecting refresh (%s)", (stream, scope) => {
+    const f = fixture()
+    const result = run("codex", f, withBin(acpNpxBin(temp("ce-work-bin-"), f.capture, path.join(STREAMS, stream), "", true)))
+    expect(captured(f, "calls").trim()).toBe("2")
+    expect(result.code).toBe(2)
+    expect(result.result.terminal_status).toBe("unavailable")
+    expect(result.result.failure_reason).toContain(`transport unavailable (pre-egress, ${scope}): npm could not resolve ${ACPX_RANGE}`)
+    expect(result.result.failure_reason).toContain("check min-release-age/before policy or wait for the cooldown")
+    expect(result.stderr).not.toContain("stale cached")
+    expect(result.stderr).toContain("npm policy unchanged")
+  })
+
   test("an npm resolve on stale cached metadata retries the same route once with fresh metadata", () => {
     const f = fixture()
     const result = run("codex", f, withBin(acpNpxBin(temp("ce-work-bin-"), f.capture, staleThenStream(acpStream), "", true)))
@@ -854,6 +870,18 @@ describe("ce-work antigravity route", () => {
     return spawnSync("bash", [SCRIPT, "--check-model", "antigravity", model], { encoding: "utf8", env })
   }
 
+  test.each([["npm-release-age", "shared"], ["npm-release-age-adapter", "route"]])("--check-model reports %s after one policy-respecting refresh (%s)", (stream, scope) => {
+    const f = fixture()
+    const bin = acpNpxBin(temp("ce-work-bin-"), f.capture, path.join(STREAMS, stream), "", true)
+    const check = checkModel(FLASH, { ...cleanEnv(), PATH: isolatedPath(bin), HOME: temp("ce-work-real-home-") })
+    expect(captured(f, "calls").trim()).toBe("2")
+    expect(check.status).toBe(2)
+    expect(check.stderr).toContain(`transport unavailable (pre-egress, ${scope}): npm could not resolve ${ACPX_RANGE}`)
+    expect(check.stderr).toContain("check min-release-age/before policy or wait for the cooldown")
+    expect(check.stderr).not.toContain("stale cached")
+    expect(check.stderr).toContain("npm policy unchanged")
+  })
+
   test("--check-model retries once with fresh npm metadata when the cached metadata is stale", () => {
     const f = fixture()
     const bin = acpNpxBin(temp("ce-work-bin-"), f.capture, staleThenStream(() => {
@@ -870,6 +898,7 @@ describe("ce-work antigravity route", () => {
 
   test("--emit-adapter strips Google credentials and runs Argon in auto_edit mode with a private GEMINI_HOME", () => {
     const out = emit("antigravity", cleanEnv()).stdout
+    expect(out).toContain(`npx -y --package ${ACPX_RANGE} -- acpx --cwd`)
     expect(out).toStartWith("env -u GEMINI_API_KEY -u GOOGLE_API_KEY -u GOOGLE_APPLICATION_CREDENTIALS -u GOOGLE_CLOUD_PROJECT -u GOOGLE_CLOUD_LOCATION -u GOOGLE_GENAI_USE_VERTEXAI -u AGY_LLM_GATEWAY_URL ")
     expect(out).toContain(`--approve-all --model ${ARGON} antigravity exec --config-option mode=auto_edit --config-option thinking_level=high`)
   })
@@ -958,9 +987,7 @@ describe("ce-work antigravity route", () => {
     const proc = checkModel(FLASH, { ...cleanEnv(), PATH: `${bin}:${process.env.PATH}`, HOME: temp("ce-work-check-home-") })
     expect(proc.status).toBe(0)
     const leftBehind = Number(readFileSync(pidFile, "utf8").trim())
-    const stopped = Date.now() + 10_000
-    while (alive(leftBehind) && Date.now() < stopped) await Bun.sleep(100)
-    expect(alive(leftBehind)).toBe(false)
+    expect(await survivors([leftBehind], 10_000)).toEqual([])
   }, 60_000)
 
   test("interrupting the model check stops its detached acpx group", async () => {
@@ -976,9 +1003,7 @@ describe("ce-work antigravity route", () => {
     expect(alive(grandchild)).toBe(true)
     proc.kill("SIGTERM")
     await proc.exited
-    const stopped = Date.now() + 10_000
-    while (alive(grandchild) && Date.now() < stopped) await Bun.sleep(100)
-    expect(alive(grandchild)).toBe(false)
+    expect(await survivors([grandchild], 10_000)).toEqual([])
   }, 60_000)
 
   test("a non-Gemini model is refused alike by the controller, the worker, and the model check", () => {

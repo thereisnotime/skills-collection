@@ -76,13 +76,20 @@ stdin/heredoc 及 Python/Node 子进程调用却可能报 `Failed to start ego l
   追查兑现状态和原因；这不是上轮漏报归因，不能只重放旧 findings。
 - 裸调用（没带具体问题，只想知道现在什么情况）→ 组合执行：台账回看 → 公告线（Radar 索引 +
   独立的 Tibo 主帖时间线 + 有界 reply 发现，按 §1 各路径）+ 故障线（§1）→
-  本机落地状态（§2 脚本）→ [监测轮的线索决策](#监测轮从信息到可行动信号)与台账回填。
+  当前已核身份的实时用量与 banked（`scripts/query_usage.py`，见账号 SOP）→
+  [监测轮的线索决策](#监测轮从信息到可行动信号)与台账回填。
+  先完成能回答当前问题的读取。仅在用户要求历史复盘、需要解释窗口异常，或未兑现承诺的
+  发生区间确实需要匿名快照补证时执行 §2；按相关事件选择回溯天数，不默认重建七天曲线。
+  匿名快照仍不能替账号补身份或独自证明到账。到期未决项继续按 `followup` 逐项核验，
+  不因当前事件已有完成帖而清除旧问题；追加来源不能改变当前有界结论时停止扩查。
   按输出合同先给当前重置状态结论，再按预测路径给出下一步时间判断；没有可支持的日期窗口时，
   给出等待是否值得的判断，不为填满格式调用 `record` 造窗。公告线、故障线与
   本机扫描的每次实际抓取先落 findings 记录，回填时用
-  evidence_refs 挂链（见[预测反馈的 findings 节](references/forecast-feedback.md)）。**§2 之后必须再跑一次实时 banked 查询**（`scripts/query_usage.py`，读法与字段表见
-  [账号 SOP](references/account-usage.md)）——§2 的 rollout 快照结构上没有备用重置字段，不跑就
-  答不全「现在什么情况」这个最常被问的维度；只取 banked 一个数即可，并把输出里的 `account_ref` 一起记进 findings（记录规则见 forecast-feedback.md 的隐私契约，banked 计数的可比范围见账号 SOP）；本条其余部分仍只管重置状态。
+  evidence_refs 挂链（见[预测反馈的 findings 节](references/forecast-feedback.md)）。
+  **实时 banked 查询不能被 §2 替代**：rollout 快照结构上没有备用重置字段。本轮已有身份
+  核实、时间仍适用的实时读数时直接复用；缺失、查询期间发生切号或新事件使旧读数失效时，
+  再运行 `scripts/query_usage.py` 补查。把 `account_ref` 连同读数记进 findings；计数的可比范围
+  与字段读法见[账号 SOP](references/account-usage.md)。本条不授权切号或兑换备用。
   ⚠️ **scan 与 banked 不要 `&&` 串联**：scan_rollouts 无快照时 exit 1，`&&` 会把 banked 查询直接
   短路掉——表面上全套像跑过了，实际少一维（2026-09-19 实测）。两条分开跑，或串联时给 scan
   加 `|| true`。**循环场景下 skill 里的裸命令被 `same-cmd-resend-guard` 拦**（端点抖动失败一次
@@ -134,8 +141,10 @@ stdin/heredoc 及 Python/Node 子进程调用却可能报 `Failed to start ego l
   先按 [Cookie Copy 接入](references/browser-session-migration.md) 准备依赖；
   `scripts/launch-usage-profile.sh <a|b>` 建/开隔离 Chrome profile，关闭目标后用
   `scripts/import-google-cookies.py --profile <a|b>` 搬运 `.google.com` 系 Cookie。
-- 想**自动**驱动隔离 Chrome 查第二账号用量 → `node scripts/read-usage-profile.cjs`（依赖
-  `~/.chrome-profiles/tibo-cdp/` 的 playwright；默认 profile a）。读模式直接解析当前登录账号
+- 想**自动**驱动隔离 Chrome 查第二账号用量 → `node scripts/read-usage-profile.cjs`（默认 profile a）。
+  脚本先解析普通 playwright 安装；未安装时回退到 `~/.chrome-profiles/tibo-cdp/node_modules/playwright`，
+  可用 `TIBO_PLAYWRIGHT_PATH` 指定其他 playwright 包路径，不需要手工设置 `NODE_PATH`。
+  读模式直接解析当前登录账号
   usage；加 `--drive-login` 在未登录时自动点 `Continue with Google` 驱动到 Google 账号选择器
   并列出全部账号。**实测边界（2026-09-16）**：隔离 profile 无 Google 会话 token，账号选择器
   每个账号都标 `Signed out`；这只说明当次 Google 路线未取得活会话，不否定上面的
@@ -149,6 +158,12 @@ stdin/heredoc 及 Python/Node 子进程调用却可能报 `Failed to start ego l
 
 - 第一段第一句必须给出当前证据支持的**唯一最强结论**，禁止用「可能是 A/B/C、请你再看」
   把分类责任交还用户。
+- **已核信息先交付。** 执行者在任一检查环节核实了会改变当前用量或时限决策的信息，先按
+  宿主现有交付合同报告结论、原始来源、带时区的时限及仍未知的范围或到账状态，再继续不影响
+  该提示成立的补证与收尾；不等全套检查、轮末台账或最终长答。应用托管的只读研究任务只向
+  宿主提交约定产物；宿主不支持中途提交时，及时交付当前足以支持决策的结果，把剩余补证条件
+  留给下一轮。沿用已有通知与重试策略，不因本条新增外送、电话或重复提醒；提交或发送回执
+  不证明送达本人或取得 ACK。没有新增可行动事实时，仍按原合同报告覆盖与边界。
 - 不确定性用于**收窄结论的属性**，不是取消结论：
   - 只证实一个账户的当前读数 → 「当前账户剩余 X%；Next reset 为 …；是否发生重置未核实」。
   - 同一 `account_ref` 的前后读数出现用量下降与锚点变化，但没有直接事件证据 → 「两个观测点之间窗口发生变化；原因未核实」。端点身份相同不能排除中间 A→B→A，不能写成「该账户已经重置」。
@@ -229,7 +244,7 @@ stdin/heredoc 及 Python/Node 子进程调用却可能报 `Failed to start ego l
    不是承诺与产品相矛盾；也不能据此断言后端尚未执行或已在其他账户到账。
    从帖子引用、回复对象、官方事故、独立账户观测和用户已授权的社区记录中选最有辨别力的
    下一跳。用户已指出「VIP 1群|一支烟花社区」是本案有效的补充发现源；正常轮若尚无该群
-   的新鲜覆盖，就按[社区增量读取](references/forecast-feedback.md#社区增量读取)调用现有
+   的新鲜覆盖且该缺口会改变当前未决判断，就按[社区增量读取](references/forecast-feedback.md#社区增量读取)调用现有
    `read-wechat-messages`，包含所选片段的纯图片与语音，随后回原帖
    核验。读取成功后，在本地 handoff 写明平台、成功部署标签、完整群名、talker、时间/seq
    游标与媒体覆盖；下一轮先复用这次成功定位，失败再检查部署或换源。私有 talker 只写本地
@@ -252,9 +267,11 @@ stdin/heredoc 及 Python/Node 子进程调用却可能报 `Failed to start ego l
    「本轮已覆盖范围内无新增可行动信息」，连同 uncovered / unknown 与下一复查条件报告，
    不说全域无信号。若本轮有新判断，用原帖、上下文和产品观测说明它比上轮多了什么，
    以及是否要通知、等待或改变用量策略；不能把发送回执当用户 ACK。
-   **反向同样成立：官方已明文预告 global 在途时，先等落地再动备用**——global 落地即全员回满，
-   此刻兑现备用等于白扔库存（2026-10-11 实测：4 账号全空 + EOD 官宣在途，官宣后 5h45m 落地、
-   距 EOD 上限仍提前 ~3h，2 次备用保住未花）。
+   官方已明文预告 global 在途时，通常先保留 banked，并核对已确认的账号适用范围、当前余额、
+   到账状态，以及原本有价值工作的硬截止或延迟成本。预告上限不是保证可安全等待的窗口，
+   重置可能提前；官宣也不证明本人账号已到账。工作可以等待时建议保留备用；延迟成本明确
+   超过保存一张备用的价值时，给出使用备用完成原任务的条件建议及库存代价。账号状态或成本
+   未核实就保留未知，不断言兑现等于浪费，也不自动兑换备用。
 5. **把下一轮要接的状态落下。** 在本轮最后追加一条 `invocation=monitor` 的交接 finding；
    `query` 写当前监测问题，`endpoints=[]`、`readings={}`，按[交接结转](references/forecast-feedback.md#交接结转)
    保留本轮判断、带观测时刻的来源状态、未决问题、下次触发条件及用户纠偏。重要判断另按预测路径保存或

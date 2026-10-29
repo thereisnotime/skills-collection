@@ -77,6 +77,14 @@ The most contributed Agent Skills repository, built and maintained together with
 | [Red Hat](#skills-by-redhat) | [Community](#community-skills) | [Redis](#skills-by-redis) | [NVIDIA](#skills-by-nvidia) |
 | [Google Cloud](#skills-by-google-cloud) | [Quality Standards](#skill-quality-standards) |  |  |
 
+<br/>
+
+<a href="https://getdesign.md/website-starter-kit">
+<img src="https://cdn.voltagent.dev/awesome-repo/website-starter-kit-banner-dark-0315e5f9c1.png" alt="launchkit"  /><br/>
+</a>
+
+<br/>
+
 
 
 
@@ -419,6 +427,15 @@ Official skills by Venice.ai for the Venice API.
 - **[vercel-labs/next-best-practices](https://officialskills.sh/vercel-labs/skills/next-best-practices)** - Next.js best practices and recommended patterns
 - **[vercel-labs/next-cache-components](https://officialskills.sh/vercel-labs/skills/next-cache-components)** - Caching strategies and cache-aware components in Next.js
 - **[vercel-labs/next-upgrade](https://officialskills.sh/vercel-labs/skills/next-upgrade)** - Upgrade Next.js projects to newer versions
+- **[vercel-labs/composition-patterns](https://github.com/vercel-labs/agent-skills/tree/main/skills/composition-patterns)** - Scalable React composition patterns for reusable component APIs
+- **[vercel-labs/deploy-to-vercel](https://github.com/vercel-labs/agent-skills/tree/main/skills/deploy-to-vercel)** - Deploy applications and websites to Vercel
+- **[vercel-labs/react-best-practices](https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-practices)** - React and Next.js performance optimization guidelines
+- **[vercel-labs/react-native-skills](https://github.com/vercel-labs/agent-skills/tree/main/skills/react-native-skills)** - React Native and Expo best practices for performant apps
+- **[vercel-labs/react-view-transitions](https://github.com/vercel-labs/agent-skills/tree/main/skills/react-view-transitions)** - Native-feeling animations with React View Transitions
+- **[vercel-labs/vercel-cli-with-tokens](https://github.com/vercel-labs/agent-skills/tree/main/skills/vercel-cli-with-tokens)** - Deploy and manage Vercel projects with token authentication
+- **[vercel-labs/vercel-optimize](https://github.com/vercel-labs/agent-skills/tree/main/skills/vercel-optimize)** - Metric-backed Vercel cost and performance optimization audits
+- **[vercel-labs/web-design-guidelines](https://github.com/vercel-labs/agent-skills/tree/main/skills/web-design-guidelines)** - Review UI code against Web Interface Guidelines
+- **[vercel-labs/writing-guidelines](https://github.com/vercel-labs/agent-skills/tree/main/skills/writing-guidelines)** - Review documentation against Writing Guidelines
 
 </details>
 
@@ -1512,7 +1529,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[aaron-he-zhu/aaron-marketing-skills](https://github.com/aaron-he-zhu/aaron-marketing-skills)** - 69 marketing skills across SEO/GEO, influencer, paid ads, and email on one shared contract, with 5 benchmark-driven auditor gates (CORE-EEAT, CITE, C³, ROAS, SEND) and keyless data connectors
 - **[gooseworks-ai/goose-skills](https://github.com/gooseworks-ai/goose-skills)** - 125 growth and GTM skills: ads, content, lead gen, SEO
 - **[sergebulaev/linkedin-skills](https://github.com/sergebulaev/linkedin-skills)** - LinkedIn marketing skills: viral hooks, comment drafting, algorithm audit, humanizer
-- **[Vladimir-Human/humanizer-ru](https://github.com/Vladimir-Human/humanizer-ru)** - Removes AI-writing markers from Russian text
+- **[Vladimir-Human/humanizer-ru](https://github.com/Vladimir-Human/humanizer-ru)** - Rewrites AI-written Russian text while preserving numbers, dates, and names
 - **[Bomx/distribb-skill](https://github.com/Bomx/distribb-skill)** - SEO articles, keyword research, CMS publishing, high-DR backlink exchange
 - **[Citlyze/citlyze-skills](https://github.com/citlyze/citlyze-skills)** - AI search visibility skills from the Citlyze team: window-over-window visibility reports, citation gap analysis, prompt audits, and action plans via the Citlyze MCP server, plus a standalone AEO page audit that grades any URL without an account
 - **[AIDevGTM/gtm-cofounder](https://github.com/AIDevGTM/gtm-cofounder)** - 18 go-to-market skills for solo technical founders: positioning, first users, launch, pricing, and founder-led sales; grounded in Adam Frankl and Jakub Czakon
@@ -1528,9 +1545,36 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[explorium-ai/vibe-prospecting](https://github.com/explorium-ai/vibeprospecting-plugin/tree/main/skills/vibe-prospecting)** - B2B prospecting enrichment and GTM data workflows
 - **[nagameTW/formosa-humanizer](https://github.com/nagameTW/formosa-humanizer)** - Removes AI-writing markers from Taiwan Traditional Chinese text
 - **[Upload-Post/upload-post-skill](https://github.com/Upload-Post/upload-post-skill)** - Publish and schedule social media posts through one API
+- **[AbubakrChan/product-launch-motion](https://github.com/AbubakrChan/product-launch-motion)** - Website URL to 60 fps launch video with music.
 - **[yuwen-cool/yuwen-publish-precheck](https://github.com/yuwen-cool/yuwen-publish-precheck)** - Review Chinese social content before publishing, with source-backed corrections
 - **[publora/skills](https://github.com/publora/skills)** - Draft, schedule and publish posts to ten social networks
+- **[posteyai/skills](https://github.com/posteyai/skills)** - Draft, schedule and publish social posts to nine networks
+- **[Hyacehila/humanizer-zh-next](https://github.com/Hyacehila/humanizer-zh-next)** - Chinese writing editor with academic and grant proposal modes
+- **[open-salesblink/cold-email-salesblink](https://github.com/open-salesblink/skill/tree/main/skills/cold-email-salesblink)** - Run cold email sequences and outreach campaigns via SalesBlink
+- **[dreammis/social-auto-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/social-auto-upload)** - Cross-platform publishing CLI and skills for 17 social platforms
+- **[dreammis/alipay-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/alipay-upload)** - Publish video posts to Alipay Life Services
+- **[dreammis/baijiahao-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/baijiahao-upload)** - Publish videos to Baijiahao
+- **[dreammis/bilibili-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/bilibili-upload)** - Upload videos to Bilibili with category selection
+- **[dreammis/dayu-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/dayu-upload)** - Publish videos and articles to Dayuhao
+- **[dreammis/douyin-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/douyin-upload)** - Publish videos and image-text posts to Douyin
+- **[dreammis/facebook-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/facebook-upload)** - Publish video and image posts to Facebook profiles
+- **[dreammis/hupu-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/hupu-upload)** - Publish video posts to Hupu
+- **[dreammis/instagram-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/instagram-upload)** - Publish Reels, images, and carousels to Instagram
+- **[dreammis/kuaishou-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/kuaishou-upload)** - Publish videos and image-text posts to Kuaishou
+- **[dreammis/meta-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/meta-upload)** - Schedule videos and image posts to Facebook Pages
+- **[dreammis/tencent-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/tencent-upload)** - Publish and schedule videos on WeChat Channels
+- **[dreammis/tiktok-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/tiktok-upload)** - Upload TikTok videos with the repository's Chrome uploader
+- **[dreammis/weibo-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/weibo-upload)** - Publish videos to Weibo
+- **[dreammis/xiaohongshu-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/xiaohongshu-upload)** - Publish videos and image-text posts to Xiaohongshu
+- **[dreammis/xueqiu-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/xueqiu-upload)** - Publish long-form articles to Xueqiu
+- **[dreammis/youtube-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/youtube-upload)** - Upload and schedule YouTube videos
+- **[dreammis/zhihu-upload](https://github.com/dreammis/social-auto-upload/tree/main/skills/zhihu-upload)** - Publish articles and videos to Zhihu
+- **[checkout-page/ecommerce-skills](https://github.com/checkout-page/ecommerce-skills)** - 19 research-based skills for ecommerce pricing, discounts, and checkout
+- **[shalintripathi/saas-marketing-agents](https://github.com/shalintripathi/saas-marketing-agents)** - B2B SaaS marketing team: 90 agents, one orchestrator
+- **[emotixco/claude-skills-founder](https://github.com/emotixco/claude-skills-founder)** - Validate ideas, research competitors, price, pitch, and plan launches.
+- **[karero/croftweaver](https://github.com/karero/croftweaver)** - Builds small-business websites, then keeps improving their SEO and GEO
 - **[harshmaur/apify-reddit-scraper](https://github.com/apify/awesome-skills/tree/main/skills/apify-reddit-scraper)** - Scrape Reddit posts, comments and subreddits without an API key
+- **[coupler-io/skills](https://github.com/coupler-io/skills)** - Marketing, sales and finance analytics with live business data
 
 </details>
 
@@ -1577,7 +1621,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[zapier/zapier-mcp](https://github.com/zapier/zapier-mcp)** - Official plugin distribution for the hosted Zapier MCP server. Connects Claude to thousands of apps — send messages, pull data, trigger workflows.
 - **[Neeeophytee/finding-unknowns-skills](https://github.com/Neeeophytee/finding-unknowns-skills)** - 8 meta-skills that make a coding agent surface your unknowns before they get expensive: blindspot pass, interview, reference hunt, implementation plan/notes, pitch packager, and a pre-merge change quiz. Works in Claude Code, Codex, and Cursor via the agentskills.io SKILL.md format
 - **[kgraph57/strategy-consulting-visualization](https://github.com/kgraph57/mckinsey-style-visualization-skill)** - McKinsey-style charts and consulting slide decks
-- **[vaibhavarora14/job-application-agent](https://github.com/vaibhavarora14/job-application-agent)** - Privacy-first job discovery and tracking
+- **[vaibhavarora14/job-application-agent](https://github.com/vaibhavarora14/job-application-agent)** - JobAppAgent: free MIT open-source job application agent, one verified résumé
 - **[wgwtest/novel-writing](https://github.com/wgwtest/novel-writing)** - Plans and revises fiction with viewpoint, dialogue, and style checks.
 - **[cyperx84/claude-skills-mental-models](https://github.com/cyperx84/claude-skills-mental-models)** - Drop your own mental models in as files; 21 included
 - **[manavmishra/zero-slop](https://github.com/manavmishra/ZeroSlop/blob/main/SKILL.md)** - Edits AI-sounding prose while preserving facts, voice, and formatting
@@ -1590,9 +1634,18 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[chrisryugj/kordoc](https://github.com/chrisryugj/kordoc/tree/main/plugins/kordoc/skills/kordoc)** - Convert Korean HWP/HWPX documents to Markdown, fill forms, generate HWPX
 - **[bablobanov/hermes-telegram-checklist](https://github.com/bablobanov/hermes-telegram-checklist)** - Create and manage native Telegram checklists with verified writes
 - **[siril9/presentation-skill](https://github.com/siril9/presentation-skill)** - Generate editable PowerPoint decks from source with visual QA.
+- **[teableio/teable-assistant-ops](https://github.com/teableio/agent-skills/tree/main/skills/teable-assistant-ops)** - Manage [Teable](https://teable.ai) data, SQL queries, automations, and apps.
+- **[cbrock84/headcount](https://github.com/cbrock84/headcount)** - Company departments as installable skills, each citing its sources
+- **[luchasarie/bro](https://github.com/luchasarie/bro-skill)** - Re-explains the last reply in plain language
+- **[radres/call-me](https://github.com/radres/call-me/tree/main/skill)** - Agent phones your iPhone and returns your spoken answer
+- **[ysskrishna/ai-agent-skills](https://github.com/ysskrishna/ai-agent-skills)** - Structured thinking skills: five whys, pre-mortem, trade-offs
 - **[AugustusW/audio-tldr](https://github.com/AugustusW/audio-tldr-skill/tree/main/skills/audio-tldr)** - Summarize videos and podcasts with local, cached transcription
 - **[voygr-tech/placecall](https://github.com/voygr-tech/placecall/tree/main/skills/placecall)** - Calls US businesses by phone and returns outcome and transcript
 - **[arifszn/slide-wright](https://github.com/arifszn/slide-wright)** - Generate themed HTML slide decks, export to PowerPoint or PDF
+- **[MSG91/m91-skill](https://github.com/MSG91/m91-skill)** - Ask a human for approval on their phone
+- **[kklimuk/docx-cli](https://github.com/kklimuk/docx-cli)** - Work on .docx files at ~1/2 cost of other skills.
+- **[777genius/agent-notifications](https://github.com/777genius/agent-notifications/tree/main/skills/agent-notifications)** - Send desktop attention and progress alerts during agent tasks
+- **[kochetkov-ma/brewpage-publish](https://github.com/kochetkov-ma/claude-brewcode/tree/main/skills/brewpage-publish)** - Publish pages, files or folder sites to shareable brewpage.app links
 
 </details>
 
@@ -1711,12 +1764,21 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[gal-a/qikly](https://github.com/gal-a/qikly/tree/main/.claude/skills/qikly)** - Writes pytest suites from criteria the coding agent never sees
 - **[supercorp-ai/supercov](https://github.com/supercorp-ai/supercov/tree/main/plugins/supercov/skills/supercov)** - Measure test coverage and write tests for untested code
 - **[prisma/skills](https://github.com/prisma/skills)** - Official Prisma skills: ORM, Postgres, Compute and migrations
+- **[edonadei/evaluate-skill](https://github.com/edonadei/caliper/tree/main/skills/evaluate-skill)** - Measures skill reliability with repeated runs, with and without it
 - **[tushaarmehtaa/tushar-skills](https://github.com/tushaarmehtaa/tushar-skills)** - 34 workflow skills for deploys, outreach, fundraising, specs, launches
 - **[oil-oil/oil-ui](https://github.com/oil-oil/oil-ui)** - Unlock AI design potential through UI exploration and visual review
 - **[skymanbp/cc-tree](https://github.com/skymanbp/cc-tree)** - Auditable radial-tree exploration for brainstorming, critique, design and code audit
 - **[moxno/privacyscrubber-guard](https://github.com/moxno/privacyscrubber-mcp/tree/main/skills/privacyscrubber-guard)** - Sanitize PII and secrets in RAM before agent calls
+- **[sno-ai/sno-station-skills](https://github.com/sno-ai/sno-station-skills)** - Claude Code and Codex skills: cross-vendor review, quota handoff
+- **[rlaope/oh-my-hermes](https://github.com/rlaope/oh-my-hermes)** - Workflow skills, project memory, and model routing for Hermes Agent
+- **[fullselfbrowsing/fsb](https://github.com/fullselfbrowsing/FSB/tree/main/skills/fsb)** - Drive your signed-in Chromium browser through FSB's MCP tools
+- **[first-fluke/oh-my-agent](https://github.com/first-fluke/oh-my-agent)** - Harness skills linked into Claude Code, Codex, Cursor and more
 - **[aurite-ai/agent-verifier](https://github.com/Aurite-ai/agent-verifier)** - Reviews AI agent code for secrets, unbounded loops, hallucinated tools
 - **[finom/vovk](https://github.com/finom/vovk/tree/main/skills)** - Next.js API routes as MCP tools and typed clients
+- **[Cap-go/capgo-skills](https://github.com/Cap-go/capgo-skills)** - Capacitor app upgrades, live updates, native builds and migrations
+- **[beastlabai/multi-llm](https://github.com/beastlabai/multi-llm-plugin/tree/master/skills/multi-llm)** - Reviews plans, code, and commits with multiple coding CLIs.
+- **[EricJujianZou/rederive](https://github.com/EricJujianZou/rederive)** - Understand any codebase by re-designing its decisions from first principles
+- **[laolaoshiren/zh-code-reviewer](https://github.com/laolaoshiren/claude-code-skills-zh/tree/main/skills/zh-code-reviewer)** - Chinese-output code review skill with structured findings and fix suggestions
 
 </details>
 
@@ -1749,10 +1811,12 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[thedotmack/claude-mem](https://github.com/thedotmack/claude-mem)** - Compresses and persists agent memory across sessions
 - **[vshulcz/deja-history](https://github.com/vshulcz/deja-vu/tree/main/claude-plugin/skills/deja-history)** - Searches your own past sessions across 20 coding agents
 - **[ruslanlap/cavemenko](https://github.com/ruslanlap/cavemenko/tree/main/skills/cavemenko)** - Ukrainian pro-drop reply style, measured -49% tokens
+- **[RAKKUNN/vicem](https://github.com/RAKKUNN/vicem)** - Cross-agent context baton and 80-90% lossless code skeletonizer
 - **[amirkiarafiei/subagent-cli-skills](https://github.com/amirkiarafiei/subagent-cli-skills/tree/main/skills)** - Delegate heavy work to 15 other agent CLIs as subagents
 - **[rebelytics/task-observer](https://github.com/rebelytics/one-skill-to-rule-them-all)** - Meta-skill for continuous skill improvement & automatic skill creation.
 - **[archcore-ai/archcore](https://github.com/archcore-ai/archcore)** - Spec-driven development and context engineering for AI coding agents
 - **[Qiuner/birdview](https://github.com/Qiuner/birdview)** - Put architecture and constraints at the center of AI coding
+- **[JayPokale/chisle](https://github.com/JayPokale/Chisle/tree/main/skills/chisle)** - Cuts agent tokens: terse prose, lean code, trimmed tool output
 
 </details>
 
@@ -1813,9 +1877,14 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[yang0/handraw-style](https://github.com/yang0/handraw-style)** - Hand-drawn illustration styles, layouts, and prompts for image generation
 - **[OptimNow/cloud-finops-skills](https://github.com/OptimNow/cloud-finops-skills/tree/main/skills/cloud-finops)** - FinOps knowledge: cloud billing mechanics, commitments, allocation, AI spend
 - **[elithril/blender-kiln](https://github.com/elithril/blender-kiln/tree/main/plugin)** - Text or photo to game-ready GLB through Blender MCP
+- **[wiltodelta/remove-ai-watermarks](https://github.com/wiltodelta/remove-ai-watermarks/tree/main/skills/remove-ai-watermarks)** - Remove AI watermarks and provenance metadata from images you own
+- **[hyperb1iss/unifly](https://github.com/hyperb1iss/unifly/tree/main/skills/unifly)** - Inspect and manage Ubiquiti UniFi networks through the unifly CLI
 - **[MetaMask/metamask-agent-wallet](https://github.com/MetaMask/agent-skills/tree/main/skills/metamask-agent-wallet)** - Official MetaMask self-custodial wallet: swaps, bridges, perps, x402 payments
 - **[assafkip/claudemy](https://github.com/assafkip/claudemy)** - Any topic into 2-minute audio lessons with cited sources
+- **[verdikta/verdikta-bounties-onboarding](https://github.com/verdikta/verdikta-applications/tree/main/skills/verdikta-bounties-onboarding)** - Hunt and post AI-judged escrow bounties on Base
 - **[nexscope-ai/eCommerce-Skills](https://github.com/nexscope-ai/eCommerce-Skills)** - 150+ ecommerce skills for Amazon, Shopify, Etsy, TikTok sellers
+- **[jgsystemsconsulting/jgs-se-knowledge-packs](https://github.com/jgsystemsconsulting/jgs-se-knowledge-packs)** - 71 licence-vetted systems-engineering reference packs for coding agents
+- **[KalarisLabs/research-agent-skills](https://github.com/KalarisLabs/research-agent-skills)** - 280+ skills for literature review, analysis, and paper writing
 
 </details>
 
@@ -1829,6 +1898,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[czlonkowski/n8n-node-configuration](https://github.com/czlonkowski/n8n-skills/tree/main/skills/n8n-node-configuration)** - Node configuration with dependency rules and AI connections
 - **[czlonkowski/n8n-validation-expert](https://github.com/czlonkowski/n8n-skills/tree/main/skills/n8n-validation-expert)** - Fix n8n validation errors with error catalog
 - **[czlonkowski/n8n-workflow-patterns](https://github.com/czlonkowski/n8n-skills/tree/main/skills/n8n-workflow-patterns)** - Workflow patterns for webhook, HTTP, database, and AI tasks
+- **[danoszz/penthera](https://github.com/danoszz/penthera/tree/main/skills/penthera)** - Offline rule-based security checks for repos, dependencies and agent configs
 
 </details>
 

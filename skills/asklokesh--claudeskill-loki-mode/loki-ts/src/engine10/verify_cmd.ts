@@ -6,9 +6,9 @@ import { basename, dirname, join } from "node:path";
 import { createHash, createPublicKey, verify, type KeyObject } from "node:crypto";
 import { lokiDir } from "../util/paths.ts";
 import { applyMaxAge, deployAttestCmd, receiptShapeProblem, takeMaxAge } from "../util/receipt_signer.ts";
-import { latestRunId } from "../commands/run_status.ts"; import { sealDrift } from "../util/seal_drift.ts";
+import { latestRunId } from "../commands/run_status.ts"; import { sealDrift, tornTail, wallNotComparedNote } from "../util/seal_drift.ts";
 import { readEvents } from "./events.ts";
-import { isExecutedProof, withExplain, type ExplainRec } from "../util/check_result.ts";
+import { isExecutedProof, printable, withExplain, type ExplainRec } from "../util/check_result.ts";
 import { kidOf, loadSigningKey, receiptSha256, signReceipt } from "./stages/seal.ts";
 import { exportDsseReceipt, isEnvelope, outcomeOf, runIdGuard, verifyDsseReceipt } from "../features/receipt_dsse.ts";
 import { verifyGroup } from "../features/speed/seal_group.ts"; import { composeComposite, compositeHash, compositeLines, isComposite, verifyComposite } from "../util/composite_seal.ts"; import { takePubkey } from "./keys_cmd.ts"; import { receiptScreensProblem } from "../features/visual_evidence.ts";
@@ -49,13 +49,14 @@ function checkAttestation(jwt: string, expectedHash: string, given?: KeyObject):
 const isPlain = (v: unknown): boolean => v !== null && typeof v === "object" && !Array.isArray(v);
 /** A-117: the worker seals before the supervisor can detect a log tamper, so the receipt alone cannot say so. Bind it to events.jsonl: the log must exist, hold a  prefix hashing to receipt.events_sha256, contiguous seq from 0
  *  and no tamper.detected. Removing the evidence breaks these too.  Deleting the post-seal tail is closed by checkLogSeal (signed receipts); an unsigned receipt carries no key, so it stays exposed to that. */
-/** A sealed Wall copy under <run dir>/wall that no longer hashes to the sha256 the receipt recorded was edited after the seal. A moved receipt (no wall dir beside it) or a copy absent on disk has nothing to compare. */
+/** A sealed Wall copy under <run dir>/wall that no longer hashes to the sha256 the receipt recorded was edited after the seal. A moved receipt (no wall dir beside it) has nothing to compare; once the wall dir exists, a recorded file whose sealed copy is gone was deleted after the seal. */
 function wallTamperProblem(receiptPath: string, receipt: Record<string, unknown>): string | null {
   const wall = receipt["wall"] as { files?: unknown } | null | undefined, files = Array.isArray(wall?.files) ? (wall!.files as { path?: unknown; sha256?: unknown }[]) : [];
+  const wallDir = join(dirname(receiptPath), "wall"), haveWallDir = existsSync(wallDir);
   for (const f of files) {
     if (typeof f?.path !== "string" || typeof f.sha256 !== "string") continue;
-    const copy = join(dirname(receiptPath), "wall", basename(f.path));
-    let cur: string; try { cur = createHash("sha256").update(readFileSync(copy)).digest("hex"); } catch { continue; }
+    const copy = join(wallDir, basename(f.path));
+    let cur: string; try { cur = createHash("sha256").update(readFileSync(copy)).digest("hex"); } catch { if (haveWallDir) return `sealed Wall file ${basename(f.path)} is missing from the run's wall directory: it was deleted after the seal`; continue; }
     if (cur !== f.sha256) return `sealed Wall file ${basename(f.path)} changed after the seal: receipt recorded sha256 ${f.sha256}, on disk ${cur}`;
   }
   return null;
@@ -76,8 +77,10 @@ function checkEventLog(receiptPath: string, receipt: Record<string, unknown>): s
   }
   const path = join(dirname(receiptPath), "events.jsonl");
   if (!existsSync(path)) return "events.jsonl is missing";
-  const raw = readFileSync(path, "utf8"), events = readEvents(path), lines = raw.split("\n").filter((l) => l.trim() !== "");
+  const raw = readFileSync(path, "utf8"), events = readEvents(path), all = raw.split("\n").filter((l) => l.trim() !== ""), lines = tornTail(raw) ? all.slice(0, -1) : all; // a torn final line is skipped here and reported UNCHECKED by sealDrift
   if (events.length !== lines.length || events.some((e, i) => e.seq !== i)) return "events.jsonl has a forged, edited or missing line";
+  const segs = raw.split("\n"), tail = segs.pop(); // the writer only emits whole newline-terminated lines: a blank line or bytes after the last newline were appended by hand
+  if (tail !== "" || segs.some((l) => l === "" || l !== l.trim())) return "events.jsonl has bytes the engine never writes (a blank line or stray whitespace); it was appended to after the seal";
   if (events.some((e) => e.type === "tamper.detected")) return "the supervisor detected events.jsonl being modified during the run";
   const h = createHash("sha256"); // the worker hashed the log as it stood at seal; the supervisor may lag, so any line-boundary prefix may match
   for (const l of lines) { if (h.copy().digest("hex") === bound) return null; h.update(l + "\n"); }
@@ -172,7 +175,11 @@ function independentLine(receiptPath: string): { line: string; k: number; of: nu
 }
 const independentCounts = (receiptPath: string): { k: number; of: number } => { const { k, of } = independentLine(receiptPath); return { k, of }; }; // TEN-GATES-26: --json agent_independent
 // D47: a stripped receipt must never rank above UNCHECKED; --allow-unsigned opts in
-const EXIT_BY_VERDICT: Record<Verdict, number> = { VERIFIED: 0, UNSIGNED: 3, TAMPERED: 1, UNCHECKED: 2 }; export const main = (args: readonly string[], deps: VerifyDeps = {}): Promise<number> => withExplain(args, (a, rec) => verifyMain(a, deps, rec)); // TEN-GATES-14: --explain / --json, read-only (util/check_result.ts)
+/** A receipt found by run id must be signed for that run: a sealed directory copied under another id carries the original signed run_id and must not read VERIFIED. */
+function signedRunIdProblem(receiptPath: string, runId: string): string | null {
+  try { const r = JSON.parse(readFileSync(receiptPath, "utf8")) as Record<string, unknown>, s = r["run_id"]; return isEnvelope(r) || typeof s !== "string" || s === runId ? null : `receipt run_id ${JSON.stringify(printable(s).slice(0, 128))} does not match the run id ${JSON.stringify(runId)} it was found under (a sealed run copied under another id)`; } catch { return null; }
+}
+const EXIT_BY_VERDICT:Record<Verdict, number> = { VERIFIED: 0, UNSIGNED: 3, TAMPERED: 1, UNCHECKED: 2 }; export const main = (args: readonly string[], deps: VerifyDeps = {}): Promise<number> => withExplain(args, (a, rec) => verifyMain(a, deps, rec)); // TEN-GATES-14: --explain / --json, read-only (util/check_result.ts)
 async function verifyMain(args: readonly string[], deps: VerifyDeps, rec: ExplainRec): Promise<number> {
   const allowUnsigned = args.includes("--allow-unsigned") || process.env["LOKI_VERIFY_ALLOW_UNSIGNED"] === "1";
   const exportDsse = args.includes("--export-dsse"), requireExo = args.includes("--require-exogenous") || process.env["LOKI_VERIFY_REQUIRE_EXOGENOUS"] === "1"; // TEN-GATES-03
@@ -199,7 +206,7 @@ async function verifyMain(args: readonly string[], deps: VerifyDeps, rec: Explai
   const receiptPath = isPath ? runId : join(runsRoot, runId, "receipt.json"); // a receipt file path works directly
   const byRunId = !isPath; rec.runId = runId; rec.receiptPath = receiptPath; // TEN-GATES-14
   if (exportDsse) return exportDsseReceipt({ receiptPath, runId: byRunId ? runId : null, deps, verify: verifyReceipt, key: loadSigningKey(false), kidOf }); // INTEL-1 / INTEL-1b
-  const bad =byRunId ? runIdGuard(receiptPath, runId) : null; // INTEL-1b: an envelope found under a run id must be for that run
+  const bad = byRunId ? (runIdGuard(receiptPath, runId) ?? signedRunIdProblem(receiptPath, runId)) : null; // INTEL-1b: an envelope found under a run id must be for that run; a receipt must carry the run id it is found under
   if (bad) return (rec.verdict = "TAMPERED", rec.reasons = [bad], process.stdout.write(`run: ${runId}\nverdict: TAMPERED\n  ${bad}\n`), 1);
   let result = await verifyReceipt(receiptPath, deps); if (result.verdict === "VERIFIED" || result.verdict === "UNSIGNED") { const d = (() => { try { return sealDrift(receiptPath, JSON.parse(readFileSync(receiptPath, "utf8"))); } catch { return null; } })(); if (d) result = { verdict: d.verdict, reasons: [d.reason] }; } // P12-01
   if (ma.raw !== null) result = applyMaxAge(result, receiptPath, ma.raw, ma.seconds, (deps.now ?? Date.now)());
@@ -212,6 +219,7 @@ async function verifyMain(args: readonly string[], deps: VerifyDeps, rec: Explai
     const outcome = (() => { try { return outcomeOf(JSON.parse(readFileSync(receiptPath, "utf8"))); } catch { return "UNREADABLE"; } })();
     if (outcome !== "VERIFIED" && outcome !== "ALREADY_SATISFIED") { rec.verdict = `NOT VERIFIED (run outcome ${outcome})`; rec.independent = independentCounts(receiptPath); process.stdout.write(`run: ${runId}\nverdict: NOT VERIFIED (run outcome ${outcome}; receipt integrity ${result.verdict === "UNSIGNED" ? "unattested" : "intact"})\n`); return 4; }
   }
+  if (result.verdict === "VERIFIED" || result.verdict === "UNSIGNED") { const note = wallNotComparedNote(receiptPath); if (note) result = { ...result, reasons: [...result.reasons, note] }; }
   rec.verdict = result.verdict; rec.reasons = result.reasons; rec.receiptSha256 = result.receiptSha256 ?? null; rec.independent = independentCounts(receiptPath); process.stdout.write(`run: ${runId}\nverdict: ${result.verdict}\n`);
   if (result.receiptSha256) process.stdout.write(`receipt_sha256: ${result.receiptSha256}\n`);
   for (const reason of result.reasons) process.stdout.write(`  ${reason}\n`);

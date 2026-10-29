@@ -5,20 +5,21 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpath
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { type RunContext, type RunnerName, type Stage, type StageResult, type TestMap, type TestRef, taskBlock } from "../types.ts";
+import { clauseBriefBlock, clauseDroppedNote, extractClauses, untaggedClauses, type ClauseSet } from "../../util/spec_file.ts";
 import { unitSpec } from "../../features/speed/unit_mode.ts";
 import type { ReadOnlyFile } from "./implement.ts";
 import { withStagePrefix } from "../../features/lean_prefix.ts";
 import { RUNNER_HINT, wallManifestFor } from "../../e10ext/wall_hints.ts";
-import { hasRelevantTests, loadRepoMap, planMode, repoMapText, sizeTask, smallTaskPath, wallEnabled, wallFirstModel, wallLimitS, wallModel } from "../sizing.ts";
+import { hasRelevantTests, loadRepoMap, namedFiles, planMode, repoMapText, sizeTask, smallTaskPath, wallEnabled, wallFirstModel, wallLimitS, wallModel } from "../sizing.ts";
 import { sha256, wallGreenOnBaseOf } from "./seal.ts"; import { removeHoldout, stashHoldout, wallHoldoutRatio } from "../../util/holdout.ts";
-import { commandFor } from "./verify.ts"; import { guessRunner, harnessRunners, projectInterpreter } from "../testmap.ts";
+import { commandFor } from "./verify.ts"; import { guessRunner, harnessRunners, missingJavaTool, projectInterpreter } from "../testmap.ts";
 import type { ProjectApi } from "../../project_model/api.ts"; import { loadProjectApi } from "../../project_model/resolve.ts";
-import { baseJobs, classify, classifyCheck, mapPool, NO_RUNNER_REASON, notRunReason, plainTestEnv, spawnCollect, stripAnsi } from "../../util/check_result.ts";
+import { baseJobs, classify, harnessSkipCode, classifyCheck, mapPool, NO_RUNNER_REASON, notRunReason, plainTestEnv, spawnCollect, stripAnsi } from "../../util/check_result.ts";
 import { conventionViolation, conventionsBrief, outOfRepoReask, outOfRepoTarget, phantomReason, phantomRepoPaths, readPackageConventions, vacuousCheck } from "../../project_model/conventions.ts"; // FC-23
 
 const WALL_PREFIX = "loki_wall_";
 
-export interface WallSealedFile { path: string; sha256: string; } // path: absolute, in the repo working tree
+export interface WallSealedFile { path: string; sha256: string; runner?: RunnerName; } // path: absolute, in the repo working tree
 
 // Runs the sealed Wall tests on the base tree; local since types.ts has no "execute tests" contract yet. not_run (D42 (3)): no real result; counts toward neither pass nor fail. Optional for pre-D42(3) fakes.
 export interface BaseTestRunner { run(repoDir: string, files: TestRef[]): { pass: number; fail: number; not_run?: number }; /** FC-69: why each not_run file of the LAST run was not executed */ lastNotRunFiles?: { file: string; reason: string }[]; /** TEN-SPEED-19: one result per file, input order, at most `jobs` processes at once */ runEach?(repoDir: string, files: TestRef[], jobs: number): Promise<BaseEachResult[]>; }
@@ -56,7 +57,7 @@ export const WALL_OUTPUT_BUDGET = "Output budget: write one test file, one asser
 /** FC-WALL-OUT-OF-REPO-TARGET: static, cache-stable, sits beside the output budget before any run-specific text. */
 export const WALL_REPO_PATHS = "Reach repo code by repo-relative paths, never via home dir, $HOME or ~/.";
 
-export function buildWallBrief(task: string, repomapText = "", runners: RunnerName[] = [], hasManifest = false, conventions = "", acceptance: string[] = [], location: string | null = null): string { // location: repo-relative destination directory; "" is the repo root; null is unknown (no line)
+export function buildWallBrief(task: string, repomapText = "", runners: RunnerName[] = [], hasManifest = false, conventions = "", acceptance: string[] = [], location: string | null = null, clauses: ClauseSet | null = null): string { // location: repo-relative destination directory; "" is the repo root; null is unknown (no line)
   return withStagePrefix([
     "You are the Loki 10 Wall author.",
     WALL_OUTPUT_BUDGET,
@@ -65,6 +66,7 @@ export function buildWallBrief(task: string, repomapText = "", runners: RunnerNa
     ...(repomapText ? [`Repository paths (repomap.txt):\n${repomapText}`] : []),
     ...taskBlock(task),
     ...(acceptance.length ? [`Acceptance criteria frozen for this unit (each must be covered by a test):\n${acceptance.map((a) => `Acceptance: ${a}`).join("\n")}`] : []),
+    ...clauseBriefBlock(clauses),
     "Write behavioral acceptance tests that prove the task is done. A test that errors on import, uses another framework's globals, or fails for a reason unrelated to the task is discarded. Negative case: for each acceptance line include one assertion that rejects bad input or would fail before the fix.",
     `Test runner: ${runners.map((r) => RUNNER_HINT[r]).find(Boolean) ?? "the framework named in repomap.txt"}`,
     ...(conventions ? [conventions] : []),
@@ -88,14 +90,15 @@ export function loadTaskText(ctx: RunContext, fromPrior: string | undefined): st
 }
 
 // Alongside an existing detected test file, or a top-level tests/ directory when the repo has none.
-function wallTargetDir(repoDir: string, existingTests: TestRef[]): string {
+function wallTargetDir(repoDir: string, existingTests: TestRef[], runners: RunnerName[] = []): string {
   const first = existingTests[0];
+  if (!first && runners.some((r) => r === "maven" || r === "gradle" || r === "javac")) return join(repoDir, "src", "test", "java"); // HV1-03b: the build tool only sees Java tests here
   return first ? join(repoDir, dirname(first.path)) : join(repoDir, "tests");
 }
 /** Runner for a generated file: extension decides for Python/Go, a JS/TS file takes the repo's detected JS runner; anything else never guesses (unselectable). */
 
 /** WC-01a: what wallAuthor hands installWall. Sealed copies live under <runDir>/wall; nothing here touches repoDir. */
-export interface WallAuthored { kind: "authored"; model?: string; iterationId?: string; task: string; sizeName: string; runners: RunnerName[]; targetDir: string; generated: string[]; contents: Map<string, string>; discarded: { file: string; reason: string }[]; manifestSha256?: string; holdoutDir?: string; }
+export interface WallAuthored { kind: "authored"; model?: string; iterationId?: string; task: string; sizeName: string; runners: RunnerName[]; targetDir: string; generated: string[]; contents: Map<string, string>; discarded: { file: string; reason: string }[]; manifestSha256?: string; holdoutDir?: string; clauses?: ClauseSet; }
 export type WallAuthorOutcome = { kind: "done"; result: StageResult } | WallAuthored;
 
 /** Session plus compile check. Writes only <runDir>/wall (sealed copies); repoDir is read, never written. */
@@ -113,30 +116,31 @@ export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: {
   // E-64: skip Wall too on the lean path (plan.ts, which always runs, logs this same decision on "variant"). LOKI_E10_PLAN=always forces a plan even for a small task, so the lean path never applies: a forced plan still gets the
   // Wall's independent acceptance tests. An external diff (CW-12) never takes the lean skip: the Wall is its only independent proof.
   const repoMap = loadRepoMap(repomapRef);
-  const runners: RunnerName[] = testMap ? harnessRunners(testMap.runners, repoMap?.files ?? []) : [];
+  const focus = namedFiles(task, repoMap), runners: RunnerName[] = testMap ? harnessRunners(testMap.runners, repoMap?.files ?? [], process.env, ctx.repoDir, focus) : [];
   const sz = sizeTask(task, repoMap, testMap);
   if (!ctx.externalPatch && planMode() !== "always" && smallTaskPath(sz.size, hasRelevantTests(task, repoMap, testMap, ctx.tests.impacted)) === "lean") {
     return done({ status: "skipped", data: { size: sz.size }, reason: "small task with a relevant test: cascade skips Wall" });
   }
 
-  if (testMap && runners.length === 0 && !(repoMap?.files ?? []).some((p) => /\.(py|go)$/.test(p))) return done({ status: "skipped", data: { size: sz.size, files: [], no_runner: true }, reason: "no runnable test command detected: the Wall cannot write a runnable check" }); // FC-17: decided before any model session
+  if (testMap && runners.length === 0) { const miss = missingJavaTool(repoMap?.files ?? [], process.env, ctx.repoDir); return done({ status: "skipped", data: { size: sz.size, files: [], no_runner: true, skip_code: harnessSkipCode(), not_proven: [miss ? `Wall not run: ${miss} is not installed on this machine, so this Java repo could not be tested (harness-owned)` : "Wall skipped: no runnable test command for this stack"] }, reason: miss ? `${miss} is not installed: the Wall cannot run Java tests (harness-owned, not proven)` : "no runnable test command detected: the Wall cannot write a runnable check" }); } // FC-17: decided before any model session
 
   // TEN-COST-09: a pytest-only Wall under the system interpreter is classified not_run (classify, notRunReason), so the author session would be paid for and discarded. Skip it before any session ONLY when the holdout is off: with it on, held files never go through the base-run classify and verify runs them on the system interpreter, which drives fix rounds and the seal, so the Wall must still run. The held count is unknown before authoring, so ratio 0 is the only provable zero. Seal reads not_proven and the verdict can never be VERIFIED by this Wall.
-  if (testMap && (runners.length === 0 ? (repoMap?.files ?? []).some((p) => p.endsWith(".py")) && !(repoMap?.files ?? []).some((p) => p.endsWith(".go")) : runners.every((r) => r === "pytest")) && projectInterpreter(ctx.repoDir) === "system" && wallHoldoutRatio() === 0) return done({ status: "skipped", data: { size: sz.size, files: [], no_interpreter: true, not_proven: ["Wall skipped: no project test interpreter"] }, reason: "Wall skipped: no project test interpreter" });
+  if (testMap && runners.every((r) => r === "pytest") && projectInterpreter(ctx.repoDir) === "system" && wallHoldoutRatio() === 0) return done({ status: "skipped", data: { size: sz.size, files: [], no_interpreter: true, not_proven: ["Wall skipped: no project test interpreter"] }, reason: "Wall skipped: no project test interpreter" });
 
   const tree = prior.intake?.tree as string | undefined;
   const repomapText = repoMapText(ctx.repoDir, tree, repomapRef, WALL_MAP_MAX_LINES);
 
-  const targetDir = wallTargetDir(ctx.repoDir, existingTests), pkg = loadProjectApi(ctx.repoDir)?.packageOf(`${relative(ctx.repoDir, targetDir)}/x`); // FC-23: the target package's own module system, read by a parser
+  const targetDir = wallTargetDir(ctx.repoDir, existingTests, runners), pkg = loadProjectApi(ctx.repoDir)?.packageOf(`${relative(ctx.repoDir, targetDir)}/x`); // FC-23: the target package's own module system, read by a parser
   const conv = readPackageConventions(join(ctx.repoDir, pkg?.root ?? "."), pkg?.runner ?? null);
   const cwd = mkdtempSync(join(tmpdir(), "loki-e15-wall-"));
   const wm = wallManifestFor(ctx.repoDir, tree, task); // D77: flag-gated, null (as if off) on any failure
   for (const [n, c] of [["task.md", task], ["repomap.txt", repomapText], ...(wm ? [["wall_manifest.txt", wm.text]] : [])] as [string, string][]) writeFileSync(join(cwd, n), c, "utf8");
 
+  const clauseSet = extractClauses(task);
   const model = retry?.model ?? wallFirstModel(sz.size), iterationId = `${ctx.runId}-wall${retry?.suffix ?? ""}`; // COST-11
   const session = await ctx.sessions.run({
     stage: "wall",
-    brief: buildWallBrief(task, repomapText, runners, !!wm, conventionsBrief(conv), unitSpec()?.acceptance ?? [], relative(ctx.repoDir, targetDir)),
+    brief: buildWallBrief(task, repomapText, runners, !!wm, conventionsBrief(conv), unitSpec()?.acceptance ?? [], relative(ctx.repoDir, targetDir), clauseSet),
     // E-45: pinned cheaper model; development tier because the planning tier yields to the LOKI_SESSION_MODEL=opus pin.
     tier: "development",
     model,
@@ -162,7 +166,7 @@ export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: {
     if (oorWhy) discarded.push({ file: name, reason: `${oorWhy}; wall test discarded after one rewrite request` }); else if (bad) discarded.push({ file: name, reason: `${bad}; wall test did not compile under the package config` }); else contents.set(name, content);
   }
   rmSync(cwd, { recursive: true, force: true });
-  return { kind: "authored", model, iterationId, task, sizeName: sz.size, runners, targetDir, generated, contents, discarded, ...(wm ? { manifestSha256: wm.sha256 } : {}), ...(held ? { holdoutDir: held.dir } : {}) };
+  return { kind: "authored", model, iterationId, task, sizeName: sz.size, runners, targetDir, generated, contents, discarded, ...(clauseSet.clauses.length ? { clauses: clauseSet } : {}), ...(wm ? { manifestSha256: wm.sha256 } : {}), ...(held ? { holdoutDir: held.dir } : {}) };
 }
 
 /** Copy the sealed files into repoDir, emit wall.sealed, run the base run in baseDir, drop not_run files. */
@@ -176,7 +180,7 @@ function* installCore(ctx: RunContext, a: WallAuthored, baseDir: string, opts: W
     const content = contents.get(name); if (content === undefined) continue; // discarded: sealed copy only
     const dest = join(targetDir, name), runner = guessRunner(name, runners, relative(ctx.repoDir, dest));
     writeFileSync(dest, content, "utf8");
-    sealedFiles.push({ path: dest, sha256: sha256(content) }); readOnlyFiles.push({ path: dest, content });
+    sealedFiles.push({ path: dest, sha256: sha256(content), ...(runner ? { runner } : {}) }); readOnlyFiles.push({ path: dest, content });
     if (runner) wallTests.push({ runner, path: relative(ctx.repoDir, dest) });
   }
   ctx.wallSealed = true;
@@ -202,10 +206,12 @@ function* installCore(ctx: RunContext, a: WallAuthored, baseDir: string, opts: W
       iteration_ids: [a.iterationId ?? `${ctx.runId}-wall`],
       already_satisfied: false, ...(alreadySatisfied ? { green_on_base: true } : {}), ...(a.holdoutDir ? { holdout_dir: a.holdoutDir } : {}), // opaque path only: names stay in the private store
       ...(discarded.length ? { discarded } : {}),
+      ...(a.clauses ? { clauses: a.clauses.clauses.length, ...untaggedData(a.clauses, contents), ...(a.clauses.dropped ? { not_proven: [clauseDroppedNote(a.clauses.dropped)] } : {}) } : {}),
     },
   };
 }
 
+const untaggedData = (set: ClauseSet, files: Map<string, string>): Record<string, string[]> => { const u = untaggedClauses(set, files); return { ...(u.untagged.length ? { untagged: u.untagged } : {}), ...(u.untagged_files.length ? { untagged_files: u.untagged_files } : {}) }; }; // listed, never silently counted as covered
 const WALL_SESSION_MAX_S = 300; // sizing.ts wallLimitS caps a session at 300
 export const WALL_BASE_FILES = 4; // files one rung's base run is sized for; RealBaseTestRunner spawns once per file at BASE_RUN_TIMEOUT_MS each
 export const WALL_RUNG_S = WALL_SESSION_MAX_S + WALL_BASE_FILES * (BASE_RUN_TIMEOUT_MS / 1000), WALL_STAGE_LIMIT_S = 2 * WALL_RUNG_S; // one rung at its worst: a max session plus a per-file base run; the stage holds two rungs
