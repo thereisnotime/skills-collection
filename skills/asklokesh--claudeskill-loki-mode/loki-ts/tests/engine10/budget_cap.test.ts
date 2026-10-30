@@ -5,6 +5,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { budgetNext, lastBudgetStop, priorSpend, unenforceableNote, writeBudgetStop, capMeter, capNote, perAttemptCap, runnerBudget, childBudgetLimit, costMeter, groupEnv, ledgerSum, DEFAULT_MAX_COST_USD, hasApiKey, SUBSCRIPTION_NOTE, parseCapUsd, resolveCap, yamlPerRun } from "../../src/e10ext/budget_cap.ts";
+import { workerEmits } from "../../src/engine10/worker.ts";
 import { childEnv } from "../../src/engine10/session.ts";
 import { watchBudget } from "../../src/providers/provider_guard.ts";
 import { runMachine } from "../../src/engine10/machine.ts";
@@ -13,6 +14,7 @@ import { USAGE } from "../../src/engine10/cli.ts";
 import { engineArgv, START_USAGE, type ParsedStartOpts } from "../../src/commands/start.ts";
 import { buildProviderCost, writeProviderCost } from "../../src/providers/provider_cost.ts";
 import type { RunContext, Stage, StageName } from "../../src/engine10/types.ts";
+import { appendChildLedger, childSpendDelta } from "../../src/util/child_ledger.ts";
 
 describe("cap resolution", () => {
   test("parse accepts positive numbers only", () => {
@@ -456,5 +458,61 @@ describe("budget threshold events (50, 80, 100 percent of the cap)", () => {
   });
   test("a rerun seeded past a threshold does not re-emit it", () => {
     expect(drive([0.25], { LOKI_E10_MAX_COST_USD: "1.00", LOKI_E10_SPENT_USD: "0.6" }).budget.map((b) => b.threshold_pct)).toEqual([80]);
+  });
+});
+
+describe("child sessions count against the dollar cap", () => {
+  const rec = { phase: "reviewer", model: "m", input_tokens: 5, output_tokens: 7, cache_creation_tokens: 0, cache_read_tokens: 0, usd: 0.7, source: "x" };
+  const child = (d: string, runId: string, r = rec): void => { const p = process.env["LOKI_E10_RUN_ID"]; process.env["LOKI_E10_RUN_ID"] = runId; try { appendChildLedger(d, r); } finally { if (p === undefined) delete process.env["LOKI_E10_RUN_ID"]; else process.env["LOKI_E10_RUN_ID"] = p; } };
+  const noop = (() => {}) as (t: never, s: never, d: Record<string, unknown>) => void;
+  test("child spend alone trips the cap, stage cost then adds to it", () => {
+    const d = mkdtempSync(join(tmpdir(), "c5child-"));
+    try {
+      const m = capMeter(noop, { LOKI_E10_MAX_COST_USD: "1" } as NodeJS.ProcessEnv, undefined, childSpendDelta(d, "R1"));
+      expect(m.over()).toBe(false);
+      child(d, "R1"); expect(m.over()).toBe(false); expect(m.remaining()).toBeCloseTo(0.3, 10);
+      m.emit("cost" as never, null as never, { usd: 0.4 }); // stage 0.4 + child 0.7
+      expect(m.over()).toBe(true); expect(m.remaining()).toBe(0);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("another run's child lines never count, and spend already in the resume seed is not counted twice", () => {
+    const d = mkdtempSync(join(tmpdir(), "c5child-"));
+    try {
+      child(d, "R1"); // pre-resume child spend, already inside LOKI_E10_SPENT_USD
+      const m = capMeter(noop, { LOKI_E10_MAX_COST_USD: "1", LOKI_E10_SPENT_USD: "0.7" } as NodeJS.ProcessEnv, undefined, childSpendDelta(d, "R1"));
+      child(d, "R2"); expect(m.over()).toBe(false); expect(m.remaining()).toBeCloseTo(0.3, 10);
+      child(d, "R1", { ...rec, usd: 0.1 }); expect(m.remaining()).toBeCloseTo(0.2, 10); // post-resume child spend IS metered
+      child(d, "R1", { ...rec, usd: 0.25 }); expect(m.over()).toBe(true);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("child spend is written to the shared ledger, so a sibling unit stops at the one cap", () => {
+    const d = mkdtempSync(join(tmpdir(), "c5child-"));
+    try {
+      const env = { LOKI_E10_MAX_COST_USD: "1", LOKI_BUDGET_LEDGER: join(d, "l.ledger") } as NodeJS.ProcessEnv;
+      const a = capMeter(noop, env, undefined, childSpendDelta(d, "R1")), b = capMeter(noop, env);
+      child(d, "R1"); expect(a.over()).toBe(false);
+      expect(ledgerSum(join(d, "l.ledger"))).toBeCloseTo(0.7, 10);
+      b.emit("cost" as never, null as never, { usd: 0.4 });
+      expect(b.over()).toBe(true); expect(a.over()).toBe(true);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("workerEmits: one cost event feeds the receipt reader, the cap meter and the log, and the run's child spend seeds the meter", () => {
+    const d = mkdtempSync(join(tmpdir(), "c5child-"));
+    try {
+      const sent: unknown[] = [], lokiRoot = join(d, ".loki");
+      const w = workerEmits((t, _s, data) => { sent.push([t, data]); }, "R1", d, lokiRoot, { LOKI_E10_MAX_COST_USD: "2", LOKI_E10_SPENT_USD: "0.5" } as NodeJS.ProcessEnv);
+      expect(w.remaining()).toBeCloseTo(1.5, 10);
+      w.emit("cost", "implement", { session_id: "s1", usd: 0.25 });
+      expect(sent).toEqual([["cost", { session_id: "s1", usd: 0.25 }]]);
+      expect(w.cost.read(d, []).usd).toBe(0.25); // the reader main puts on ctx.cost saw the same event
+      expect(w.remaining()).toBeCloseTo(1.25, 10); // the meter saw it too, from the seed
+      child(lokiRoot, "R1"); expect(w.remaining()).toBeCloseTo(0.55, 10); // the child meter is wired in
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("main takes emit, over, remaining and cost only from workerEmits", () => {
+    const src = readFileSync(join(import.meta.dir, "..", "..", "src", "engine10", "worker.ts"), "utf8"), body = src.slice(src.indexOf("export async function main"));
+    expect(body).toMatch(/const \{ emit, over, remaining, cost \} = workerEmits\(rawEmit, runId, repoDir, lokiRoot, process\.env,/);
+    expect(body).not.toMatch(/capMeter\(|costCapture\(|workerCostReader\(/);
+    expect(body).toMatch(/\n\s+cost,\n/);
   });
 });

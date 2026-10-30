@@ -4,9 +4,9 @@ Current versions of all skills. Agents can compare against local versions to che
 
 | Skill | Version | Last Updated |
 |-------|---------|--------------|
-| ab-testing | 2.0.3 | 2026-10-27 |
+| ab-testing | 2.0.4 | 2026-10-29 |
 | ad-creative | 2.12.2 | 2026-10-26 |
-| ai-seo | 2.11.0 | 2026-10-26 |
+| ai-seo | 2.12.0 | 2026-10-29 |
 | analytics | 2.2.2 | 2026-10-27 |
 | aso | 2.0.3 | 2026-10-27 |
 | attribution | 1.1.6 | 2026-10-19 |
@@ -55,9 +55,16 @@ Current versions of all skills. Agents can compare against local versions to che
 | site-architecture | 2.1.0 | 2026-10-06 |
 | sms | 1.1.0 | 2026-10-02 |
 | social | 2.4.0 | 2026-10-14 |
-| video | 2.3.0 | 2026-10-26 |
+| video | 2.4.0 | 2026-10-29 |
 
 ## Recent Changes
+
+### 2.13.10 (2026-10-29)
+
+- **ai-seo** (2.11.0 → 2.12.0): agent readiness adds **a skill file for your product**: a public `SKILL.md` that uses the context the buyer's agent already has to propose setup choices, quotes published pricing, and returns a prefilled checkout or signup URL (price recomputed on the server, parameters validated, agent orders tagged). Agent-only offers are fine when stated as information; forced upsells and instructions tuned to always push an offer are called out as prompt injection. Prompted by Ilias Ism's post on LinkDR's SKILL.md.
+- **video** (2.3.0 → 2.4.0): new reference **code-rendered product films**: every frame a pure function of time over real DOM snapshots of a seeded app, a private video repo with one worktree per video, claims checked against source with docs-vs-UI discrepancies logged, a running `AGENTS.md` of taste rules, multi-take TTS with a judge, beat-grid music cuts and loudness targets, contact-sheet review (judge models as hints only), and hero video measurement by `video_id`. Adapted from Elie Steinbock's Inbox Zero write-up.
+- **ab-testing** (2.0.3 → 2.0.4): opt-in elements such as a hero video underpower tests on overall conversion; use a triggered analysis or compare versions on viewer metrics.
+- **Tools**: SavvyCal is now listed as MCP-enabled (official remote server with OAuth), and its v1 API guide and CLI are corrected against the OpenAPI spec (#918, contributed by Derrick Reimer and Jesse Leite of SavvyCal).
 
 ### 2.13.9 (2026-10-27)
 

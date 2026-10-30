@@ -2,10 +2,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readEvents } from "./events.ts";
+import { hooks, type StageCapability } from "./hooks.ts";
 import { eventsRelPath } from "../util/engine_origin.ts";
 import { GITHUB_TOKEN_VARS, SENTINEL_PREFIX } from "../util/credential_env.ts";
-import { costTotalsOf, liveArchivedCosts, sumResultCosts, UNMETERED } from "./cost.ts";
-import { capMeter } from "../e10ext/budget_cap.ts";
+import { costTotalsOf, liveArchivedCosts, sumRunCosts, UNMETERED } from "./cost.ts"; import { childSpendDelta, sealedRunCost } from "../util/child_ledger.ts";
+import { capMeter, type BudgetCrossing } from "../e10ext/budget_cap.ts";
 import { resizeCap } from "../util/run_cap.ts"; import { loadProjectApi } from "../project_model/resolve.ts"; import { parseCapUsd } from "../e10ext/budget_cap.ts";
 import { FLOW, runMachine } from "./machine.ts";
 import { withFailover, type FailoverRecord } from "../runner/provider_failover.ts";
@@ -26,6 +27,11 @@ export function assertWorkerEnv(env: NodeJS.ProcessEnv = process.env): void {
     }
   }
 }
+/** GAME10-05a: capability record for one stage; the evidence lives in contrib (hooks.stageCapability). An empty slot records "unknown" everywhere, never a guess. */
+export const stageCapability = (stage: string, env: NodeJS.ProcessEnv, argv: readonly string[] = []): StageCapability => hooks.stageCapability?.(stage, env, argv) ?? { stage, secrets: "unknown", can_push: "unknown", network: "unknown" };
+/** The worker's first line: what this process really holds, cross-checking the supervisor's spawn-site record. workerStages: every stage the worker runs (FLOW flattened, minus pr, which runs in the supervisor). */
+export function emitObservedCapability(emit: WorkerEmit, env: NodeJS.ProcessEnv = process.env, argv: readonly string[] = process.argv): void { emit("capability.observed" as never, null, { stages: workerStages().map((st) => stageCapability(st, env, argv)) }); }
+export const workerStages = (): StageName[] => FLOW.flat().filter((x): x is StageName => x !== "pr");
 export async function runWorker(
   drive: WorkerDrive,
   opts: { env?: NodeJS.ProcessEnv; write?: (line: string) => void } = {},
@@ -37,18 +43,30 @@ export async function runWorker(
 /** P12-07l: deep honors the same cap env as fast (remaining cap on resume; the supervisor sets the full cap otherwise). */
 export function workerCapS(deep: boolean, env: NodeJS.ProcessEnv): number { return envCapS(env.LOKI_E10_CAP_S) ?? (deep ? DEEP_CAP_S : DEFAULT_CAP_S); }
 
+/** The receipt's cost reader: files for tokens and records, the run's cost events (runCost, the number shown everywhere) for dollars. */
+export const workerCostReader = (runId: string, events: () => { type: string; data: Record<string, unknown> }[] = () => []): RunContext["cost"] => ({ read: (dir, ids) => { const l = join(dir, ".loki"); return costTotalsOf(sealedRunCost(sumRunCosts(l, liveArchivedCosts(l, ids, UNMETERED), [], runId), events().map((e) => ({ ...e, run: runId })), l)); } });
+
+/** Keeps each cost event the worker emits for the receipt's cost reader; a resume starts from the log's earlier cost events (read before any new emit, so nothing is counted twice). */
+export function costCapture(rawEmit: WorkerEmit, runId: string, repoDir: string, env: NodeJS.ProcessEnv = process.env): { emit: WorkerEmit; cost: RunContext["cost"] } {
+  const kept: { type: string; data: Record<string, unknown> }[] = env.LOKI_E10_RESUME === "1" ? readEvents(join(repoDir, eventsRelPath(runId))).filter((e) => e.type === "cost") : [];
+  return { emit: (t, s, d) => { if (t === "cost") kept.push({ type: t, data: d }); rawEmit(t, s, d); }, cost: workerCostReader(runId, () => kept) };
+}
+
+/** The worker's one emit composition (main uses only this): the cap meter wraps the cost capture, so each cost event feeds the meter and the receipt's reader. */
+export function workerEmits(rawEmit: WorkerEmit, runId: string, repoDir: string, lokiRoot: string, env: NodeJS.ProcessEnv = process.env, onBudget?: (b: BudgetCrossing) => void): { emit: WorkerEmit; over: () => boolean; remaining: () => number | null; cost: RunContext["cost"] } { const c = costCapture(rawEmit, runId, repoDir, env); return { ...capMeter(c.emit, env, onBudget, childSpendDelta(lokiRoot, runId)), cost: c.cost }; }
 /** `engine10 worker <run-id> <provider> <model> <fast|deep>`, spawned by the supervisor through cli.ts. */
 export async function main(args: string[]): Promise<number> {
   const [runId, provider = "claude", model = resolveModel(provider), mode = "fast"] = args;
   if (!runId) { process.stderr.write("engine10 worker: missing run id\n"); return 2; }
   const repoDir = process.cwd();
-  const lokiRoot = join(repoDir, ".loki");
+  const lokiRoot = join(repoDir, ".loki"); process.env["LOKI_E10_RUN_ID"] = runId; // child-ledger lines carry the run id
   const deep = mode === "deep";
   // Supervisor cancel (SIGINT/SIGTERM): stop every live session so each records its partial usage, then exit.
   (globalThis as Record<symbol, unknown>)[Symbol.for("loki.ownsStopSignals")] = true; // cli.ts's blanket exit(130/143) stands down: the handler below owns the stop
   for (const sig of ["SIGTERM", "SIGINT"] as const) process.once(sig, () => { void cancelSessions().finally(() => process.exit(sig === "SIGINT" ? 130 : 143)); });
   await runWorker(async (rawEmit) => {
-    const { emit, over, remaining } = capMeter(rawEmit, process.env, (b) => { void import("../util/slack_events.ts").then((m) => m.notifyEvent(process.env, "budget", { cost: `$${b.usd_so_far.toFixed(2)} of $${b.cap_usd.toFixed(2)} (${b.threshold_pct}% of cap)`, question: `$${b.cap_usd.toFixed(2)}`, summary: `Budget: ${b.threshold_pct}% of the $${b.cap_usd.toFixed(2)} cap reached ($${b.usd_so_far.toFixed(2)} spent)` })).catch(() => {}); });
+    emitObservedCapability(rawEmit); // GAME10-05a
+    const { emit, over, remaining, cost } = workerEmits(rawEmit, runId, repoDir, lokiRoot, process.env, (b) => { void import("../util/slack_events.ts").then((m) => m.notifyEvent(process.env, "budget", { cost: `$${b.usd_so_far.toFixed(2)} of $${b.cap_usd.toFixed(2)} (${b.threshold_pct}% of cap)`, question: `$${b.cap_usd.toFixed(2)}`, summary: `Budget: ${b.threshold_pct}% of the $${b.cap_usd.toFixed(2)} cap reached ($${b.usd_so_far.toFixed(2)} spent)` })).catch(() => {}); });
     const base = createSessionRunner({ provider, model, emit: emit as EmitFn, lokiRoot, remaining });
     const failovers: FailoverRecord[] = [];
     const sessions = withFailover({
@@ -65,12 +83,7 @@ export async function main(args: string[]): Promise<number> {
       emit, overCap: over,
       sessions, failovers: () => failovers,
       tests: new RealTestMapProvider(),
-      cost: {
-        read(dir, ids) {
-          const c = sumResultCosts(join(dir, ".loki"), liveArchivedCosts(join(dir, ".loki"), ids, UNMETERED));
-          return costTotalsOf(c);
-        },
-      },
+      cost,
       clock: { now: () => Date.now() },
       outputs: () => ({}), // replaced by the machine
     };

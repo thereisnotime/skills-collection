@@ -479,11 +479,13 @@ describe("engine10 wall base run, D42 (3)", () => {
     rmSync(repoDir, { recursive: true, force: true });
   });
 
-  test("(3b) ImportError on a missing third-party package: not_run", () => {
+  test("(3b) ImportError on a missing package the repo already imports: not_run; one it does not import yet is red (the task creates it)", () => {
     const repoDir = repo();
     venvShim(repoDir);
     writeFileSync(join(repoDir, "loki_wall_thirdparty.py"), "import loki_s41_16_never_installed_xyz\n\ndef test_x():\n    pass\n", "utf8");
 
+    expect(new RealBaseTestRunner().run(repoDir, [{ runner: "pytest", path: "loki_wall_thirdparty.py" }])).toEqual({ pass: 0, fail: 1, not_run: 0 });
+    writeFileSync(join(repoDir, "app.py"), "import loki_s41_16_never_installed_xyz\n", "utf8");
     const result = new RealBaseTestRunner().run(repoDir, [{ runner: "pytest", path: "loki_wall_thirdparty.py" }]);
 
     expect(result).toEqual({ pass: 0, fail: 0, not_run: 1 });
@@ -503,10 +505,12 @@ describe("engine10 wall base run, D42 (3)", () => {
     rmSync(repoDir, { recursive: true, force: true });
   });
 
-  test.skipIf(!Bun.which("python3"))("(3b-unittest) ImportError on a missing third-party package under unittest: not_run", () => {
+  test.skipIf(!Bun.which("python3"))("(3b-unittest) ImportError on a missing package under unittest: red unless the repo already imports it", () => {
     const repoDir = repo();
     writeFileSync(join(repoDir, "loki_wall_tp_ut.py"), "import unittest\nimport loki_s41_16_never_installed_xyz\n\nclass T(unittest.TestCase):\n    def test_x(self):\n        pass\n", "utf8");
 
+    expect(new RealBaseTestRunner().run(repoDir, [{ runner: "unittest", path: "loki_wall_tp_ut.py" }])).toEqual({ pass: 0, fail: 1, not_run: 0 });
+    writeFileSync(join(repoDir, "app.py"), "import loki_s41_16_never_installed_xyz\n", "utf8");
     const result = new RealBaseTestRunner().run(repoDir, [{ runner: "unittest", path: "loki_wall_tp_ut.py" }]);
 
     expect(result).toEqual({ pass: 0, fail: 0, not_run: 1 });
@@ -878,7 +882,7 @@ describe("COST-11 r2: escalation on doubt", () => {
     const baseRunner: BaseTestRunner = base ?? { run: (...a) => baseOf(green(Math.min(n, 2))).run(...a) };
     void calls;
     try { return { result: await runWall(ctx, ac.signal, { baseRunner }), models, events, s }; }
-    finally { rmSync(s.repoDir, { recursive: true, force: true }); }
+    finally { for (const k of ENV) delete process.env[k]; rmSync(s.repoDir, { recursive: true, force: true }); }
   };
 
   test("B1: a haiku Wall green on base is re-authored on sonnet; sonnet's red classification wins", async () => {
@@ -1091,4 +1095,24 @@ describe("RX-1: a repo with no test runner still gets a failing-first Wall check
       expect(((r.data.files as unknown[]) ?? []).length).toBe(1);
     } finally { process.env.PATH = savedPath; delete process.env.LOKI_E10_PLAN; delete process.env.LOKI_E10_WALL_FIRST; delete process.env.LOKI_WALL_HOLDOUT; rmSync(repoDir, { recursive: true, force: true }); }
   });
+});
+
+describe("LOKI_E10_WALL_MAX_TOKENS", () => {
+  const seen = async (env: string | undefined, inherited?: string): Promise<(number | undefined)[]> => {
+    const prev = process.env.LOKI_E10_WALL_MAX_TOKENS, prevInh = process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS;
+    if (env === undefined) delete process.env.LOKI_E10_WALL_MAX_TOKENS; else process.env.LOKI_E10_WALL_MAX_TOKENS = env;
+    if (inherited === undefined) delete process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS; else process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = inherited;
+    const s = setup({ runners: ["vitest"], tests: [] }), caps: (number | undefined)[] = [];
+    const sessions = new FakeSessionRunner((opts) => { caps.push(opts.maxOutputTokens); writeFileSync(join(opts.cwd!, "loki_wall_sample.test.ts"), SAMPLE, "utf8"); });
+    const ctx = fakeCtx(s.repoDir, s.runDir, sessions, { intake: { task: "add x", testmap: s.testmap, repomap_ref: join(s.runDir, "repomap.json") } }, []);
+    try { await runWall(ctx, new AbortController().signal, { baseRunner: new FakeBaseTestRunner({ pass: 0, fail: 1 }) }); return caps; }
+    finally { if (prev === undefined) delete process.env.LOKI_E10_WALL_MAX_TOKENS; else process.env.LOKI_E10_WALL_MAX_TOKENS = prev; if (prevInh === undefined) delete process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS; else process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = prevInh; rmSync(s.repoDir, { recursive: true, force: true }); }
+  };
+  test("the Wall author session carries the default bound", async () => { expect(await seen(undefined)).toEqual([16000]); });
+  test("the knob sets the bound on the author session", async () => { expect(await seen("6000")).toEqual([6000]); });
+  test("a garbage or non-positive value falls back to the default", async () => {
+    for (const bad of ["abc", "0", "-5", "1.5", "1e3", "0x10", "9007199254740992"]) expect(await seen(bad)).toEqual([16000]);
+  });
+  test("knob unset: the user's inherited CLAUDE_CODE_MAX_OUTPUT_TOKENS is left alone (no bound passed)", async () => { expect(await seen(undefined, "5000")).toEqual([undefined]); });
+  test("knob set: the knob wins over an inherited CLAUDE_CODE_MAX_OUTPUT_TOKENS", async () => { expect(await seen("6000", "5000")).toEqual([6000]); });
 });

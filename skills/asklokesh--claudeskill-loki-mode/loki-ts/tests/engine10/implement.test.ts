@@ -7,6 +7,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { MAX_TURNS_EXIT } from "../../src/runner/worker_proc.ts";
+import { verdictOf } from "../../src/engine10/stages/seal.ts";
 import { runMachine } from "../../src/engine10/machine.ts";
 import { createSessionRunner } from "../../src/engine10/session.ts";
 import {
@@ -98,8 +100,8 @@ describe("engine10 implement brief", () => {
 
 describe("engine10 implement brief: LOKI_E10_REPRO (TEN-QUALITY-08)", () => {
   const SENT = "If the task reports a bug, first add a new test function that reproduces it, run it and see it fail, then fix the code and run that test again.";
-  // Golden with the flag unset: length 2791, sha256 below (re-captured for FC-MERGED-SLICE-BROKE-REPO-WIDE-ENGINE10-GUARD: the stack-neutral FIXED_RULES test-command rule from 85979c3af).
-  const GOLDEN = { len: 2791, sha: "55cb50f6396f4069a64582608e9074e9048775fb4c5c28930d1ec500c9731370" };
+  // Golden with the flag unset: length 2839, sha256 below (re-captured for FC-MERGED-SLICE-BROKE-REPO-WIDE-ENGINE10-GUARD: the stack-neutral FIXED_RULES test-command rule from 85979c3af).
+  const GOLDEN = { len: 2839, sha: "122a77d4d0a4ef496ff6c08d17c4d427376fb554334660c27b01c27074d8d7af" };
   const withRepro = <T>(v: string | undefined, fn: () => T): T => { const old = process.env.LOKI_E10_REPRO; if (v === undefined) delete process.env.LOKI_E10_REPRO; else process.env.LOKI_E10_REPRO = v; try { return fn(); } finally { if (old === undefined) delete process.env.LOKI_E10_REPRO; else process.env.LOKI_E10_REPRO = old; } };
   const lean = () => buildImplementBrief("fix the bug", null, ["tests/x.test.ts"]);
   test("flag on: lean brief contains the sentence once", () => {
@@ -205,6 +207,43 @@ describe("engine10 implement stage", () => {
     const result = await implementStage.run(ctx, new AbortController().signal);
 
     expect(result.data.exit).toBe("killed");
+  });
+
+  test("a turn-cap exit completes as killed with harness owner and seals PARTIAL, never BLOCKED", async () => {
+    const sessions = new FakeSessionRunner({
+      exit: MAX_TURNS_EXIT,
+      markers: { done: false, alreadyDone: null, specConflict: null },
+      durationS: 30,
+      killed: false,
+    });
+    const result = await implementStage.run(fakeCtx(sessions, {}), new AbortController().signal);
+
+    expect(result.status).toBe("completed");
+    expect(result.data.exit).toBe("killed");
+    expect(result.data.owner).toBe("harness");
+    expect(result.data.stop_cause).toBe("max_turns");
+    expect(result.data.limit_s).toBe(implementStage.limitS);
+    expect(result.data.elapsed_s).toBe(30);
+    const pass = [{ name: "t", cmd: "t", result: "pass", duration_s: 1 }] as never;
+    expect(verdictOf({ implement: result.data }, pass, false, false, false, true)).toBe("PARTIAL");
+  });
+
+  test("a resumed session that hits the turn cap does not start a second fresh session", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "loki-capres-"));
+    mkdirSync(join(repo, ".loki"), { recursive: true });
+    writeFileSync(join(repo, ".loki", "e10-session-e10-test-1-impl.json"), JSON.stringify({ session_id: "sess-own" }));
+    const seen: SessionRunOptions[] = [];
+    const sessions = new FakeSessionRunner(
+      { exit: MAX_TURNS_EXIT, markers: { done: false, alreadyDone: null, specConflict: null }, durationS: 30, killed: false },
+      (o) => { seen.push(o); },
+    );
+    const ctx = { ...fakeCtx(sessions, {}), repoDir: repo };
+    const result = await implementStage.run(ctx, new AbortController().signal);
+    rmSync(repo, { recursive: true, force: true });
+
+    expect(seen.length).toBe(1);
+    expect(seen[0]!.resumeSessionId).toBe("sess-own");
+    expect(result.data.stop_cause).toBe("max_turns");
   });
 
   test("E-61: a non-killed error exit fails the stage and writes the stderr tail under runDir", async () => {

@@ -21,7 +21,6 @@ REFERENCES = pathlib.Path("skills/cloudflare/references")
 # Remove an entry once its directory is converted to a docs link table.
 ALLOWLIST = {
     "c3",
-    "smart-placement",
 }
 
 FENCE = re.compile(r"^\s*(```|~~~)")

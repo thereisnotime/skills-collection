@@ -4,8 +4,8 @@ import { failIds } from "../../src/engine10/failures.ts";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { changedSymbols, checkProvenance, classifyCheck, failureExcerpt, goTestNames, GO_EXIT0_REASON, hasExecutedProof, hasExogenousProof, javaSummary, javaTestClass, fullSuiteCmd, runnerCmd, symbolGap, testCount } from "../../src/util/check_result.ts";
+import { dirname, join } from "node:path";
+import { CARGO_UNLISTED_REASON, changedSymbols, checkProvenance, classifyCheck, corroboratePass, failureExcerpt, goTestNames, GO_EXIT0_REASON, hasExecutedProof, hasExogenousProof, javaSummary, javaTestClass, fullSuiteCmd, readableFailIds, runnerCmd, symbolGap, testCount } from "../../src/util/check_result.ts";
 import { firstError, runCheck, testCheckName, type VerifyCheck } from "../../src/engine10/stages/verify.ts";
 import { classify } from "../../src/engine10/stages/wall.ts";
 import { verdictOf } from "../../src/engine10/stages/seal.ts";
@@ -570,3 +570,383 @@ describe.skipIf(!Bun.which("javac") || !Bun.which("java") || !Bun.which("bash"))
 
 const dirs: string[] = [];
 afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }); });
+
+// HV1-03a: Go and Cargo results the Wall and verify can read. A -json pass counts its executed tests once go itself still lists them;
+// cargo's stderr (Finished, Running, error: test failed) after the stdout trailer no longer hides the counts.
+describe("go -json pass count and cargo trailer with stderr noise", () => {
+  const ev = (o: Record<string, unknown>): string => JSON.stringify({ Time: "2026-10-29T00:00:00Z", ...o });
+  const PASS = [ev({ Action: "start", Package: "ex/a" }), ev({ Action: "run", Package: "ex/a", Test: "TestA" }), ev({ Action: "pass", Package: "ex/a", Test: "TestA", Elapsed: 0 }), ev({ Action: "pass", Package: "ex/a", Elapsed: 0.01 })].join("\n") + "\n";
+  test("go -json: a complete pass counts, a skipped test does not", () => {
+    expect(classifyCheck({ kind: "test", ok: true, out: PASS, runner: "go" })).toEqual({ result: "pass", n: 1 });
+    const skipped = PASS.replace('"Action":"pass","Package":"ex/a","Test":"TestA"', '"Action":"skip","Package":"ex/a","Test":"TestA"');
+    expect(classifyCheck({ kind: "test", ok: true, out: skipped, runner: "go" }).result).toBe("not_run");
+  });
+  test("go -json: a failed run names its failing test ids", () => {
+    const failed = PASS.replace('"Action":"pass","Package":"ex/a","Test":"TestA"', '"Action":"fail","Package":"ex/a","Test":"TestA"').replace('"Action":"pass","Package":"ex/a","Elapsed"', '"Action":"fail","Package":"ex/a","Elapsed"');
+    expect(readableFailIds("go", failed)).toEqual(["ex/a::TestA"]);
+    expect(readableFailIds("go", "FAIL\tex/a [build failed]\n")).toEqual([]);
+  });
+  test("cargo: failing ids and counts survive stderr lines after the stdout trailer", () => {
+    const out = "\nrunning 2 tests\ntest ok_one ... ok\ntest bad_one ... FAILED\n\nfailures:\n    bad_one\n\ntest result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\n   Compiling fx v0.1.0 (/r)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.30s\n     Running tests/itg.rs (target/debug/deps/itg-abc123)\nerror: test failed, to rerun pass `--test itg`\n";
+    expect(readableFailIds("cargo", out)).toEqual(["bad_one"]);
+    const ok = out.replace("test bad_one ... FAILED", "test bad_one ... ok").replace("FAILED. 1 passed; 1 failed", "ok. 2 passed; 0 failed").replace(/error: test failed.*\n/, "");
+    expect(classifyCheck({ kind: "test", ok: true, out: ok })).toEqual({ result: "pass", n: 2 });
+  });
+  test("a forged early-exit stream (no package terminal event) is never a pass", () => {
+    const forged = [ev({ Action: "start", Package: "ex/a" }), ev({ Action: "run", Package: "ex/a", Test: "TestReal" }), ev({ Action: "pass", Package: "ex/a", Test: "TestReal", Elapsed: 0 })].join("\n") + "\n";
+    expect(classifyCheck({ kind: "test", ok: true, out: forged, runner: "go" }).result).toBe("not_run");
+  });
+  // Real go: the three places a package can print \x16-marked test2json lines and then exit 0 with syscall.Exit (which Go's os.Exit(0) check does not catch).
+  const HAS_GO = spawnSync("go", ["version"], { env: process.env }).status === 0;
+  const FORGE = 'fmt.Print("\\x16=== RUN   TestReal\\n\\x16--- PASS: TestReal (0.00s)\\n\\x16PASS\\n\\x16ok  \\texample.com/fx\\t0.001s\\n"); syscall.Exit(0)';
+  const IMPL = (extra: string): string => `package fx\n\nimport "fmt"\nimport "syscall"\n\nvar _ = fmt.Sprint\nvar _ = syscall.Getpid\n\nfunc Add(a, b int) int { return a + b }\n${extra}\n`;
+  const TEST = (extra: string, body: string): string => `package fx\n\nimport "testing"\nimport "fmt"\nimport "syscall"\n\nvar _ = fmt.Sprint\nvar _ = syscall.Getpid\n\n${extra}\nfunc TestReal(t *testing.T) { ${body} }\n`;
+  const SITES: Array<[string, string, string]> = [
+    ["init in a test file", IMPL(""), TEST(`func init() { ${FORGE} }`, 't.Fatal("never runs")')],
+    ["the test body", IMPL(""), TEST("", FORGE)],
+    ["implementation code", IMPL(`func init() { ${FORGE} }`), TEST("", 't.Fatal("never runs")')],
+  ];
+  const goFixture = (impl: string, test: string): string => {
+    const d = mkdtempSync(join(tmpdir(), "hv103a-"));
+    writeFileSync(join(d, "go.mod"), "module example.com/fx\n\ngo 1.20\n"); writeFileSync(join(d, "a.go"), impl); writeFileSync(join(d, "a_test.go"), test);
+    return d;
+  };
+  const vctx = (d: string): RunContext => ({ repoDir: d, emit: () => {} }) as unknown as RunContext;
+  test.skipIf(!HAS_GO).each(SITES)("real go: a syscall.Exit(0) forge in %s reads as a pass in the stream but earns no pass through verify", async (_n, impl, test) => {
+    const d = goFixture(impl, test); try {
+      const raw = spawnSync("go", ["test", "-json", "./..."], { cwd: d, encoding: "utf8", env: process.env });
+      expect(raw.status).toBe(0);
+      if (_n !== "the test body") expect(classifyCheck({ kind: "test", ok: true, out: raw.stdout, runner: "go" }).result).toBe("pass"); // the stream alone is forgeable (a body forge repeats the run event, which the stream check already catches)
+      const c = await runCheck(vctx(d), "t", "go", ["test", "-json", "./..."], new AbortController().signal, []);
+      expect(c.result).toBe("not_run");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 120_000);
+  test.skipIf(!HAS_GO)("real go: a genuine pass is counted through verify and the deep/suite helper; a name the run never passed is refused", async () => {
+    const d = goFixture(IMPL(""), TEST("", "if Add(1, 2) != 3 { t.Fatal(1) }")); try {
+      const c = await runCheck(vctx(d), "t", "go", ["test", "-json", "./..."], new AbortController().signal, []);
+      expect(c.result).toBe("pass"); expect(c.n).toBe(1);
+      const raw = spawnSync("go", ["test", "-json", "./..."], { cwd: d, encoding: "utf8", env: process.env }).stdout;
+      const cls = classifyCheck({ kind: "test", ok: true, out: raw, runner: "go" });
+      const env = { ...process.env };
+      expect((await corroboratePass(cls, raw, "go test -json ./...", undefined, { cwd: d, env })).result).toBe("pass");
+      const ghost = raw.replace(/TestReal/g, "TestGhost");
+      expect((await corroboratePass(classifyCheck({ kind: "test", ok: true, out: ghost, runner: "go" }), ghost, "go", ["test", "-json", "./..."], { cwd: d, env })).result).toBe("not_run");
+      expect((await corroboratePass(cls, raw, "go test -json ./... ; true", undefined, { cwd: d, env })).result).toBe("not_run");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 120_000);
+  test.skipIf(!HAS_GO)("real go: a package with no statements has no completion proof and stays not_run", async () => {
+    const d = goFixture("package fx\n", 'package fx\n\nimport "testing"\n\nfunc TestReal(t *testing.T) {}\n'); try {
+      const c = await runCheck(vctx(d), "t", "go", ["test", "-json", "./..."], new AbortController().signal, []);
+      expect(c.result).toBe("not_run");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 120_000);
+});
+
+// HV1-03d: a pass needs completion proof the code under test cannot cheaply produce. Real cargo and go fixtures.
+describe("forged cargo and go passes earn no pass", () => {
+  const HAS_GO = spawnSync("go", ["version"], { env: process.env }).status === 0;
+  const HAS_CARGO = spawnSync("cargo", ["--version"], { env: process.env }).status === 0;
+  const vctx = (d: string): RunContext => ({ repoDir: d, emit: () => {} }) as unknown as RunContext;
+  const cargoFixture = (impl: string): string => {
+    const d = mkdtempSync(join(tmpdir(), "hv103d-"));
+    mkdirSync(join(d, "src")); writeFileSync(join(d, "Cargo.toml"), '[package]\nname = "fx"\nversion = "0.1.0"\nedition = "2021"\n');
+    writeFileSync(join(d, "src", "lib.rs"), `${impl}\n#[cfg(test)]\nmod t {\n    #[test]\n    fn real() { assert_eq!(super::add(1, 2), 3); }\n    #[test]\n    fn second() { assert_eq!(super::add(2, 2), 4); }\n}\n`);
+    return d;
+  };
+  const CARGO_FORGE = 'pub fn add(_a: i32, _b: i32) -> i32 {\n    use std::io::Write;\n    std::io::stdout().write_all(b"\\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\\n\\n").unwrap();\n    std::process::exit(0);\n}';
+  test.skipIf(!HAS_CARGO)("real cargo: a printed summary plus process::exit(0) is not a pass; a genuine run counts both tests", async () => {
+    const f = cargoFixture(CARGO_FORGE), g = cargoFixture("pub fn add(a: i32, b: i32) -> i32 { a + b }"); try {
+      const raw = spawnSync("cargo", ["test"], { cwd: f, encoding: "utf8", env: process.env });
+      expect(raw.status).toBe(0); expect(raw.stdout).toContain("2 passed"); // the forge really exits 0 and prints a passing summary
+      expect((await runCheck(vctx(f), "t", "cargo", ["test"], new AbortController().signal, [])).result).toBe("not_run");
+      const c = await runCheck(vctx(g), "t", "cargo", ["test"], new AbortController().signal, []);
+      expect(c.result).toBe("pass"); expect(c.n).toBe(2);
+    } finally { rmSync(f, { recursive: true, force: true }); rmSync(g, { recursive: true, force: true }); }
+  }, 240_000);
+  test("cargo: a summary needs its own ok lines, and a headerless trailer is not libtest output", () => {
+    const sum = "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n";
+    expect(classifyCheck({ kind: "test", ok: true, out: `\nrunning 2 tests\n${sum}` }).result).toBe("not_run");
+    expect(classifyCheck({ kind: "test", ok: true, out: `\nrunning 2 tests\ntest a ... ok\n${sum}` }).result).toBe("not_run");
+    expect(classifyCheck({ kind: "test", ok: true, out: `\nrunning 2 tests\ntest a ... ok\ntest b ... ok\n\n${sum}` })).toEqual({ result: "pass", n: 2 });
+    expect(classifyCheck({ kind: "test", ok: true, out: `\nrunning 2 tests\n..\n\n${sum}` })).toEqual({ result: "pass", n: 2 });
+    expect(classifyCheck({ kind: "test", ok: true, out: `\n${sum}` }).result).toBe("not_run");
+  });
+  // The forge reads -test.coverprofile= from os.Args, writes a plausible profile there, prints framed pass events and leaves with syscall.Exit(0).
+  const GO_FORGE = `package fx
+
+import (
+	"fmt"
+	"os"
+	"strings"
+	"syscall"
+)
+
+func init() {
+	for _, x := range os.Args {
+		if strings.HasPrefix(x, "-test.coverprofile=") {
+			os.WriteFile(strings.TrimPrefix(x, "-test.coverprofile="), []byte("mode: set\\nexample.com/fx/a.go:11.24,12.74 2 1\\n"), 0o644)
+		}
+	}
+	fmt.Print("\\x16=== RUN   TestReal\\n\\x16--- PASS: TestReal (0.00s)\\n\\x16PASS\\n\\x16ok  \\texample.com/fx\\t0.001s\\n")
+	syscall.Exit(0)
+}
+
+func Add(a, b int) int { return a + b }
+`;
+  const goFixture = (impl: string): string => {
+    const d = mkdtempSync(join(tmpdir(), "hv103d-"));
+    writeFileSync(join(d, "go.mod"), "module example.com/fx\n\ngo 1.20\n"); writeFileSync(join(d, "a.go"), impl);
+    writeFileSync(join(d, "a_test.go"), 'package fx\n\nimport "testing"\n\nfunc TestReal(t *testing.T) { if Add(1, 2) != 3 { t.Fatal(1) } }\n');
+    return d;
+  };
+  test.skipIf(!HAS_GO)("real go: a forged coverage profile and framed events with syscall.Exit(0) is not a pass; a genuine run counts", async () => {
+    const f = goFixture(GO_FORGE), g = goFixture("package fx\n\nfunc Add(a, b int) int { return a + b }\n"); try {
+      const raw = spawnSync("go", ["test", "-json", "./..."], { cwd: f, encoding: "utf8", env: process.env });
+      expect(raw.status).toBe(0);
+      expect(classifyCheck({ kind: "test", ok: true, out: raw.stdout, runner: "go" }).result).toBe("pass"); // the stream alone is forgeable
+      expect((await runCheck(vctx(f), "t", "go", ["test", "-json", "./..."], new AbortController().signal, [])).result).toBe("not_run");
+      const c = await runCheck(vctx(g), "t", "go", ["test", "-json", "./..."], new AbortController().signal, []);
+      expect(c.result).toBe("pass"); expect(c.n).toBe(1);
+    } finally { rmSync(f, { recursive: true, force: true }); rmSync(g, { recursive: true, force: true }); }
+  }, 240_000);
+});
+
+// HV1-03d round 2: whole-run refusal for a forged cargo summary, split --nocapture lines, and Go packages the cover table cannot prove.
+describe("cargo and go completion proof edge cases", () => {
+  const HAS_GO = spawnSync("go", ["version"], { env: process.env }).status === 0;
+  const HAS_CARGO = spawnSync("cargo", ["--version"], { env: process.env }).status === 0;
+  const vctx = (d: string): RunContext => ({ repoDir: d, emit: () => {} }) as unknown as RunContext;
+  const cargoDir = (lib: string, extra: Record<string, string> = {}): string => {
+    const d = mkdtempSync(join(tmpdir(), "hv103d2-"));
+    mkdirSync(join(d, "src")); mkdirSync(join(d, "tests")); writeFileSync(join(d, "Cargo.toml"), '[package]\nname = "fx"\nversion = "0.1.0"\nedition = "2021"\n');
+    writeFileSync(join(d, "src", "lib.rs"), lib);
+    for (const [k, v] of Object.entries(extra)) writeFileSync(join(d, k), v);
+    return d;
+  };
+  const SUM = "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s";
+  test.skipIf(!HAS_CARGO)("real cargo: a forged lib summary stays not_run even when an honest integration binary follows it", async () => {
+    const forge = `pub fn add(_a: i32, _b: i32) -> i32 {\n    use std::io::Write;\n    std::io::stdout().write_all(b"\\n${SUM}\\n\\n").unwrap();\n    std::process::exit(0);\n}\n#[cfg(test)]\nmod t {\n    #[test]\n    fn real() { assert_eq!(super::add(1, 2), 3); }\n    #[test]\n    fn second() { assert_eq!(super::add(2, 2), 4); }\n}\n`;
+    const d = cargoDir(forge, { "tests/it.rs": "#[test]\nfn honest() { assert_eq!(1 + 1, 2); }\n" }); try {
+      const raw = spawnSync("cargo", ["test"], { cwd: d, encoding: "utf8", env: process.env });
+      expect(raw.status).toBe(0);
+      expect(classifyCheck({ kind: "test", ok: true, out: raw.stdout }).result).toBe("not_run");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 240_000);
+  test.skipIf(!HAS_CARGO)("real cargo: --nocapture --test-threads=1 splits ok lines and still counts every test", () => {
+    const body = [1, 2, 3, 4].map((k) => `    #[test]\n    fn t${k}() { println!("hello"); assert_eq!(1, 1); }\n`).join("");
+    const d = cargoDir(`pub fn add(a: i32, b: i32) -> i32 { a + b }\n#[cfg(test)]\nmod t {\n${body}}\n`); try {
+      const raw = spawnSync("cargo", ["test", "--", "--nocapture", "--test-threads=1"], { cwd: d, encoding: "utf8", env: process.env });
+      expect(raw.stdout).toMatch(/test t::t1 \.\.\. hello/);
+      expect(classifyCheck({ kind: "test", ok: true, out: raw.stdout })).toEqual({ result: "pass", n: 4 });
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 240_000);
+  test("cargo: the unfixable limit is real, an invented ok line per claimed pass still counts", () => {
+    expect(classifyCheck({ kind: "test", ok: true, out: `\nrunning 2 tests\ntest x ... ok\ntest y ... ok\n\n${SUM}\n` })).toEqual({ result: "pass", n: 2 });
+  });
+  // Shapes captured from a real `cargo test -- --nocapture --test-threads=1` (stdout and stderr joined); the trailing space after "..." is real.
+  const PANIC_SPLIT = "\nrunning 2 tests\ntest boom - should panic ... \nthread 'boom' panicked at src/lib.rs:2:37:\nboom\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nok\ntest plain ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n";
+  const PRINT_NO_NL = "\nrunning 3 tests\ntest a ... ok\ntest b ... ok\ntest printer ... hellook\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n";
+  test("cargo: a should_panic message splitting the test line from its ok still counts", () => {
+    expect(classifyCheck({ kind: "test", ok: true, out: PANIC_SPLIT })).toEqual({ result: "pass", n: 2 });
+  });
+  test("cargo: a print! without a newline fused to the ok still counts", () => {
+    expect(classifyCheck({ kind: "test", ok: true, out: PRINT_NO_NL })).toEqual({ result: "pass", n: 3 });
+  });
+  test("cargo: a pending test name followed by a line that does not end in ok does not count", () => {
+    const out = "\nrunning 2 tests\ntest boom - should panic ... \nthread 'boom' panicked at src/lib.rs:2:37:\nboom\ntest plain ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n";
+    expect(classifyCheck({ kind: "test", ok: true, out }).result).toBe("not_run");
+  });
+  test.skipIf(!HAS_CARGO)("real cargo: a should_panic test and a print! without newline under --nocapture still count", () => {
+    const lib = '#[test]\nfn plain() { assert_eq!(1, 1); }\n#[test]\n#[should_panic]\nfn boom() { panic!("boom"); }\n#[test]\nfn printer() { print!("hello"); }\n';
+    const d = cargoDir(lib); try {
+      const raw = spawnSync("cargo", ["test", "--", "--nocapture", "--test-threads=1"], { cwd: d, encoding: "utf8", env: process.env });
+      expect(raw.status).toBe(0);
+      expect(classifyCheck({ kind: "test", ok: true, out: raw.stdout })).toEqual({ result: "pass", n: 3 });
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 240_000);
+  const goDir = (impl: string, test: string, extra: Record<string, string> = {}): string => {
+    const d = mkdtempSync(join(tmpdir(), "hv103d2-"));
+    writeFileSync(join(d, "go.mod"), "module example.com/fx\n\ngo 1.20\n"); writeFileSync(join(d, "a.go"), impl); writeFileSync(join(d, "a_test.go"), test);
+    for (const [k, v] of Object.entries(extra)) writeFileSync(join(d, k), v);
+    return d;
+  };
+  const verdict = async (d: string) => (await runCheck(vctx(d), "t", "go", ["test", "-json", "./..."], new AbortController().signal, [])).result;
+  const T_OK = 'package fx\n\nimport "testing"\n\nfunc TestReal(t *testing.T) {}\n';
+  test.skipIf(!HAS_GO)("real go: a forged pass in a package with no statements is not a pass", async () => {
+    const forge = 'package fx\n\nimport (\n\t"fmt"\n\t"os"\n\t"strings"\n\t"syscall"\n\t"testing"\n)\n\nfunc init() {\n\tfor _, x := range os.Args {\n\t\tif strings.HasPrefix(x, "-test.coverprofile=") {\n\t\t\tos.WriteFile(strings.TrimPrefix(x, "-test.coverprofile="), []byte("mode: set\\n"), 0o644)\n\t\t}\n\t}\n\tfmt.Print("\\x16=== RUN   TestReal\\n\\x16--- PASS: TestReal (0.00s)\\n\\x16PASS\\n\\x16ok  \\texample.com/fx\\t0.001s\\n")\n\tsyscall.Exit(0)\n}\n\nfunc TestReal(t *testing.T) {}\n';
+    const d = goDir("package fx\n\ntype T struct{}\n\nconst K = 1\n", forge); try {
+      const raw = spawnSync("go", ["test", "-json", "./..."], { cwd: d, encoding: "utf8", env: process.env });
+      expect(classifyCheck({ kind: "test", ok: true, out: raw.stdout, runner: "go" }).result).toBe("pass"); // the stream alone is forgeable
+      expect(await verdict(d)).toBe("not_run");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 240_000);
+  test.skipIf(!HAS_GO)("real go: a package with a //line directive is honestly not_run, never a silent pass", async () => {
+    const d = goDir('package fx\n\n//line gen.go:10\nfunc Add(a, b int) int { return a + b }\n', T_OK); try {
+      expect(await verdict(d)).toBe("not_run");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 240_000);
+  test.skipIf(!HAS_GO || spawnSync("go", ["env", "CGO_ENABLED"], { encoding: "utf8" }).stdout.trim() !== "1")("real go: a package with a cgo file is honestly not_run", async () => {
+    const d = goDir("package fx\n\nfunc Add(a, b int) int { return a + b }\n", T_OK, { "c.go": "package fx\n\n// int one = 1;\nimport \"C\"\n" }); try {
+      expect(spawnSync("go", ["test", "./..."], { cwd: d, encoding: "utf8" }).status).toBe(0); // the repo is genuine
+      expect(await verdict(d)).toBe("not_run");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 240_000);
+});
+
+// HV1-03e: a cargo pass must match the tests cargo itself lists for the same command (`-- --list`), which runs no test function.
+describe("cargo pass matches the runner's own listing", () => {
+  const HAS_CARGO = spawnSync("cargo", ["--version"], { env: process.env }).status === 0;
+  const vctx = (d: string): RunContext => ({ repoDir: d, emit: () => {} }) as unknown as RunContext;
+  const crate = (lib: string, extra: Record<string, string> = {}): string => {
+    const d = mkdtempSync(join(tmpdir(), "hv103e-"));
+    mkdirSync(join(d, "src")); mkdirSync(join(d, "tests")); writeFileSync(join(d, "Cargo.toml"), '[package]\nname = "fx"\nversion = "0.1.0"\nedition = "2021"\n');
+    writeFileSync(join(d, "src", "lib.rs"), lib);
+    for (const [k, v] of Object.entries(extra)) writeFileSync(join(d, k), v);
+    return d;
+  };
+  const TESTS = "#[cfg(test)]\nmod t {\n    #[test]\n    fn real() { assert_eq!(super::add(1, 2), 3); }\n    #[test]\n    fn second() { assert_eq!(super::add(2, 2), 4); }\n}\n";
+  const forge = (lines: string, n: number): string => `pub fn add(_a: i32, _b: i32) -> i32 {\n    use std::io::Write;\n    std::io::stdout().write_all(b"${lines}\\ntest result: ok. ${n} passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\\n\\n").unwrap();\n    std::process::exit(0);\n}\n${TESTS}`;
+  const verdict = (d: string, args = ["test"]) => runCheck(vctx(d), "t", "cargo", args, new AbortController().signal, []);
+  test.skipIf(!HAS_CARGO)("real cargo: forged ok lines for invented names, or more passes than listed, are not a pass", async () => {
+    const a = crate(forge("test a ... ok\\ntest b ... ok", 2)), b = crate(forge("test t::real ... ok\\ntest t::second ... ok\\ntest t::third ... ok", 3)); try {
+      for (const d of [a, b]) {
+        const raw = spawnSync("cargo", ["test"], { cwd: d, encoding: "utf8", env: process.env });
+        expect(raw.status).toBe(0);
+        expect(classifyCheck({ kind: "test", ok: true, out: raw.stdout }).result).toBe("pass"); // the output alone reads pass
+        const c = await verdict(d);
+        expect(c.result).toBe("not_run"); expect(c.reason).toBe(CARGO_UNLISTED_REASON);
+      }
+    } finally { rmSync(a, { recursive: true, force: true }); rmSync(b, { recursive: true, force: true }); }
+  }, 240_000);
+  test.skipIf(!HAS_CARGO)("real cargo: a genuine crate with ignored, should_panic, doctest and integration tests still reads pass", async () => {
+    const lib = '/// ```\n/// assert_eq!(fx::add(1, 2), 3);\n/// ```\n/// ```compile_fail\n/// let x: i32 = "a";\n/// ```\n/// ```ignore\n/// nope\n/// ```\npub fn add(a: i32, b: i32) -> i32 { a + b }\n#[cfg(test)]\nmod t {\n    #[test]\n    fn real() { assert_eq!(super::add(1, 2), 3); }\n    #[test]\n    #[ignore]\n    fn slow() {}\n    #[test]\n    #[should_panic]\n    fn boom() { panic!("b"); }\n}\n';
+    const d = crate(lib, { "tests/it.rs": '#[test]\nfn honest() { assert_eq!(fx::add(2, 2), 4); }\n#[test]\n#[ignore = "why"]\nfn later() {}\n' }); try {
+      expect(await verdict(d)).toMatchObject({ result: "pass", n: 5 });
+      expect(await verdict(d, ["test", "--", "--nocapture", "--test-threads=1"])).toMatchObject({ result: "pass", n: 5 });
+      expect(await verdict(d, ["test", "--test", "it"])).toMatchObject({ result: "pass", n: 1 });
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 240_000);
+  test.skipIf(!HAS_CARGO)("real cargo: test output ending in a word ending in ok (look) plus a forged summary under --nocapture is not a pass", async () => {
+    const d = crate(forge("look\\n", 1)), args = ["test", "--", "--nocapture", "--test-threads=1"]; try {
+      const raw = spawnSync("cargo", args, { cwd: d, encoding: "utf8", env: process.env });
+      expect(raw.status).toBe(0); expect(raw.stdout).toContain("look");
+      expect(classifyCheck({ kind: "test", ok: true, out: raw.stdout }).result).toBe("pass"); // the output alone reads pass: "look" ends in ok
+      const c = await verdict(d, args);
+      expect(c.result).toBe("not_run"); expect(c.reason).toBe(CARGO_UNLISTED_REASON);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 240_000);
+  test.skipIf(!HAS_CARGO)("real cargo: the residual forge is real, the exact listed names with a matching summary still read pass", async () => {
+    const d = crate(forge("test t::real ... ok\\ntest t::second ... ok", 2)); try {
+      expect((await verdict(d)).result).toBe("pass");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 240_000);
+  test("a cargo pass under libtest flags the listing cannot mirror is not_run without running anything", async () => {
+    const pass = { result: "pass" as const, n: 1 }, o = { cwd: tmpdir(), env: process.env };
+    for (const a of [["test", "--", "--include-ignored"], ["test", "--", "--ignored"], ["test", "--", "-Zunstable-options", "--format", "json"], ["test", "$(x)"]]) expect(await corroboratePass(pass, "", "cargo", a, o)).toEqual({ result: "not_run", reason: CARGO_UNLISTED_REASON });
+    expect(await corroboratePass({ result: "fail", n: 1 }, "", "cargo", ["test"], o)).toEqual({ result: "fail", n: 1 });
+  });
+});
+
+// A Wall file whose top level imports a module the task creates: red on base (import error), green only after implement.
+describe("Wall file importing a module the task will create", () => {
+  const WALL = "import unittest\nimport pricing\n\nclass T(unittest.TestCase):\n    def test_total(self):\n        self.assertEqual(pricing.total(2, 3), 6)\n";
+  const run = (d: string, mod: string): { status: number | null; output: string } => {
+    const r = spawnSync("python3", ["-m", mod === "unittest" ? "unittest" : "pytest", ...(mod === "unittest" ? [] : ["-q", "-p", "no:cacheprovider"]), "tests/loki_wall_pricing.py"], { cwd: d, encoding: "utf8", env: { ...process.env, PYTHONPATH: d } });
+    return { status: r.status, output: `${r.stdout}\n${r.stderr}` };
+  };
+  const repo = (): string => { const d = mkdtempSync(join(tmpdir(), "c1f-")); mkdirSync(join(d, "tests")); writeFileSync(join(d, "tests", "loki_wall_pricing.py"), WALL); return d; };
+  const HAS_PYTEST = spawnSync("python3", ["-I", "-c", "import pytest"]).status === 0;
+  for (const runner of ["unittest", "pytest"] as const) test.skipIf(runner === "pytest" && !HAS_PYTEST)(`${runner}: red on base, still red while the module is missing, pass once implemented`, () => {
+    const d = repo(), f = { runner, path: "tests/loki_wall_pricing.py" }; try {
+      const base = run(d, runner);
+      expect(classify(f, base.status, base.output, d, "project")).toBe("fail");
+      expect(classifyCheck({ kind: "test", ok: false, out: base.output, path: f.path }).result).not.toBe("pass"); // the slice reading never loosens: a still-missing module is no pass
+      writeFileSync(join(d, "pricing.py"), "def total(a, b):\n    return a * b\n");
+      const head = run(d, runner);
+      expect(head.status).toBe(0);
+      expect(classify(f, head.status, head.output, d, "project")).toBe("pass");
+      writeFileSync(join(d, "pricing.py"), "def total(a, b):\n    return a + b + 100\n");
+      const wrong = run(d, runner);
+      expect(classify(f, wrong.status, wrong.output, d, "project")).toBe("fail");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a missing module the repo code already imports, or a module that exists, stays not_run", () => {
+    const d = repo(); try {
+      const out = "ERROR: x (unittest.loader._FailedTest.x)\nImportError: Failed to import test module: x\nTraceback (most recent call last):\nModuleNotFoundError: No module named 'pricing'\n\nRan 1 test in 0.000s\n\nFAILED (errors=1)\n";
+      const f = { runner: "unittest" as const, path: "tests/loki_wall_pricing.py" };
+      expect(classify(f, 1, out, d, "project")).toBe("fail");
+      writeFileSync(join(d, "app.py"), "import pricing\n");
+      expect(classify(f, 1, out, d, "project")).toBe("not_run");
+      rmSync(join(d, "app.py")); writeFileSync(join(d, "pricing.py"), "");
+      expect(classify(f, 1, out, d, "project")).toBe("not_run");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  // pytest's collection report: the E line, then any Captured section, then the short summary.
+  const PYT = (e: string, captured = ""): string => `==== ERRORS ====\n____ ERROR collecting tests/loki_wall_pricing.py ____\ntests/loki_wall_pricing.py:2: in <module>\n    import pricing\nE   ${e}\n${captured}==== short test summary info ====\nERROR tests/loki_wall_pricing.py - ${e}\n!!!! Interrupted: 1 error during collection !!!!\n==== 1 error in 0.03s ====\n`;
+  const pf = { runner: "pytest" as const, path: "tests/loki_wall_pricing.py" };
+  test("pytest: the E line naming the missing module is red; a name printed in captured output is not", () => {
+    const d = repo(); try {
+      expect(classify(pf, 2, PYT("ModuleNotFoundError: No module named 'pricing'"), d, "project")).toBe("fail");
+      expect(classify(pf, 2, PYT("AttributeError: boom", "----- Captured stderr -----\nModuleNotFoundError: No module named 'zzz'\n"), d, "project")).toBe("not_run"); // column 0, after the real E line
+      expect(classify(pf, 2, PYT("AttributeError: boom", "----- Captured stdout -----\n  ModuleNotFoundError: No module named 'zzz' (quoted)\n"), d, "project")).toBe("not_run"); // indented
+      expect(classify(pf, 2, PYT("AttributeError: boom", "----- Captured stdout -----\nE   ModuleNotFoundError: No module named 'zzz'\n"), d, "project")).toBe("not_run"); // forged E line after the separator
+      expect(classify(pf, 2, PYT("AttributeError: x\nE   ModuleNotFoundError: No module named 'zzz'"), d, "project")).toBe("not_run"); // a multi-line message: pytest prefixes every line with E, only the first is the exception type
+      expect(classify({ runner: "unittest", path: pf.path }, 1, "Traceback (most recent call last):\nModuleNotFoundError: No module named 'zzz'\nTraceback (most recent call last):\nAttributeError: boom\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nFAILED (errors=1)\nImportError: Failed to import test module: x\n", d, "project")).toBe("not_run"); // unittest: only the last line before the Ran footer names the error
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  const MISSING = "yaml_not_installed_q", UT = `ERROR: x (unittest.loader._FailedTest.x)\nImportError: Failed to import test module: x\nTraceback (most recent call last):\nModuleNotFoundError: No module named '${MISSING}'\n\nRan 1 test in 0.000s\n\nFAILED (errors=1)\n`;
+  const uf = { runner: "unittest" as const, path: "tests/loki_wall_pricing.py" };
+  const MANIFESTS: [string, string, string][] = [
+    ["requirements-dev.txt", "requirements-dev.txt", "pytest>=7  # tests\nYaml-Not-Installed.Q==1.0\n"],
+    ["requirements.txt with options", "requirements/base.txt", "-r other.txt\n--index-url https://x\nyaml_not_installed_q[extra]>=1\n"],
+    ["pyproject project.dependencies", "pyproject.toml", "[project]\nname = \"x\"\ndependencies = [\n  \"requests\",\n  \"yaml-not-installed-q>=1\",\n]\n"],
+    ["pyproject optional-dependencies", "pyproject.toml", "[project.optional-dependencies]\ndev = [\"pytest\", \"yaml_not_installed_q\"]\n"],
+    ["pyproject dependency-groups", "pyproject.toml", "[dependency-groups]\ntest = [\"yaml-not-installed-q\"]\n"],
+    ["pyproject poetry dependencies", "pyproject.toml", "[tool.poetry.dependencies]\npython = \"^3.9\"\nYaml-Not-Installed-Q = { version = \"^1\" }\n"],
+    ["pyproject poetry group", "pyproject.toml", "[tool.poetry.group.dev.dependencies]\nyaml-not-installed-q = \"^1\"\n"],
+    ["setup.cfg install_requires", "setup.cfg", "[options]\ninstall_requires =\n    requests\n    yaml-not-installed-q>=1\n"],
+    ["setup.cfg extras_require", "setup.cfg", "[options.extras_require]\ntest =\n    pytest\n    yaml-not-installed-q\n"],
+    ["setup.py install_requires", "setup.py", "from setuptools import setup\nsetup(name='x', install_requires=['requests', 'yaml-not-installed-q>=1'])\n"],
+    ["Pipfile", "Pipfile", "[packages]\nrequests = \"*\"\n\n[dev-packages]\nyaml-not-installed-q = \"*\"\n"],
+  ];
+  for (const [label, file, body] of MANIFESTS) test(`a name declared in ${label} is an environment gap (not_run), undeclared is red`, () => {
+    const d = repo(); try {
+      expect(classify(uf, 1, UT, d, "project")).toBe("fail");
+      mkdirSync(join(d, dirname(file)), { recursive: true }); writeFileSync(join(d, file), body);
+      expect(classify(uf, 1, UT, d, "project")).toBe("not_run");
+      expect(classify(uf, 1, UT.replaceAll(MISSING, "other_pkg"), d, "project")).toBe("fail"); // only the declared name is a gap
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a name that an existing non-Wall test file imports is an environment gap", () => {
+    const d = repo(); try {
+      writeFileSync(join(d, "tests", "test_old.py"), `import ${MISSING}\n`);
+      expect(classify(uf, 1, UT, d, "project")).toBe("not_run");
+      rmSync(join(d, "tests", "test_old.py")); writeFileSync(join(d, "tests", "loki_wall_other.py"), `import ${MISSING}\n`);
+      expect(classify(uf, 1, UT, d, "project")).toBe("fail"); // another Wall file does not count
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a new submodule of a package the repo imports is red; importing that exact submodule is not", () => {
+    const d = repo(), ut = UT.replaceAll(MISSING, "pkg.sub"); try {
+      mkdirSync(join(d, "pkg")); writeFileSync(join(d, "pkg", "__init__.py"), ""); writeFileSync(join(d, "app.py"), "import pkg\nfrom pkg import other\nfrom pkg.other import sub2\n");
+      expect(classify(uf, 1, ut, d, "project")).toBe("fail");
+      for (const src of ["import pkg.sub\n", "import os, pkg.sub as s\n", "from pkg.sub import x\n", "from pkg import sub\n", "from pkg import (\n    a,\n    sub,\n)\n", "import pkg.sub.deep\n"]) {
+        writeFileSync(join(d, "app.py"), src); expect([src, classify(uf, 1, ut, d, "project")]).toEqual([src, "not_run"]);
+      }
+      writeFileSync(join(d, "app.py"), "from pkg import subx\nimport pkg.subx\n"); expect(classify(uf, 1, ut, d, "project")).toBe("fail");
+      writeFileSync(join(d, "app.py"), "import pkg.sub\n"); expect(classify(uf, 1, UT.replaceAll(MISSING, "pkg"), d, "project")).toBe("not_run"); // importing a deeper module names its parent
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("src/ layout and namespace packages keep their results; vendored and dot directories are not searched", () => {
+    const d = repo(); try {
+      mkdirSync(join(d, "src")); writeFileSync(join(d, "src", "pricing.py"), "");
+      expect(classify(uf, 1, UT.replaceAll(MISSING, "pricing"), d, "project")).toBe("not_run");
+      rmSync(join(d, "src", "pricing.py")); mkdirSync(join(d, "ns")); writeFileSync(join(d, "ns", "mod.py"), "");
+      expect(classify(uf, 1, UT.replaceAll(MISSING, "ns.mod"), d, "project")).toBe("not_run");
+      expect(classify(uf, 1, UT.replaceAll(MISSING, "ns"), d, "project")).toBe("fail");
+      for (const skipped of ["node_modules/x", ".git/x", ".venv/lib", "venv/lib", "__pycache__", "dist", "build", ".hidden"]) {
+        mkdirSync(join(d, skipped), { recursive: true }); writeFileSync(join(d, skipped, "pricing.py"), ""); writeFileSync(join(d, skipped, "app.py"), "import pricing\n");
+      }
+      expect(classify(uf, 1, UT.replaceAll(MISSING, "pricing"), d, "project")).toBe("fail");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});

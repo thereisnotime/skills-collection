@@ -10861,11 +10861,11 @@
     },
     {
       "name": "ce-setup",
-      "description": "\"Check Compound Engineering health and repo-local config, or scaffold a Compound Pack with `pack:<id>`.\"",
+      "description": "\"Check Compound Engineering health and repo-local config, scaffold a Compound Pack with `pack:<id>`, or draft coding standards and review docs with `standards`.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
-      "lines": 104,
-      "words": 1146,
+      "lines": 102,
+      "words": 1138,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -22338,7 +22338,7 @@
       "path": "cloudflare--skills/skills/durable-objects/SKILL.md",
       "remote_path": "skills/durable-objects/SKILL.md",
       "lines": 185,
-      "words": 748,
+      "words": 751,
       "code_blocks": 5,
       "languages": [
         "jsonc",
@@ -22428,7 +22428,7 @@
       "path": "cloudflare--skills/skills/cloudflare/SKILL.md",
       "remote_path": "skills/cloudflare/SKILL.md",
       "lines": 156,
-      "words": 3405,
+      "words": 3406,
       "code_blocks": 0,
       "languages": []
     },
@@ -22633,8 +22633,8 @@
       "description": "When the user wants to plan, design, or implement an A/B test or experiment, or build a growth experimentation program. Also use when the user mentions \"A/B test,\" \"split test,\" \"experiment,\" \"test th",
       "path": "coreyhaines31--marketingskills/skills/ab-testing/SKILL.md",
       "remote_path": "skills/ab-testing/SKILL.md",
-      "lines": 359,
-      "words": 1881,
+      "lines": 362,
+      "words": 1997,
       "code_blocks": 3,
       "languages": []
     },
@@ -22998,7 +22998,7 @@
       "path": "coreyhaines31--marketingskills/skills/ai-seo/SKILL.md",
       "remote_path": "skills/ai-seo/SKILL.md",
       "lines": 501,
-      "words": 5293,
+      "words": 5325,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -23009,8 +23009,8 @@
       "description": "\"When the user wants to create, generate, or produce video content using AI tools or programmatic frameworks. Also use when the user mentions 'video production,' 'AI video,' 'Remotion,' 'Hyperframes,'",
       "path": "coreyhaines31--marketingskills/skills/video/SKILL.md",
       "remote_path": "skills/video/SKILL.md",
-      "lines": 350,
-      "words": 2449,
+      "lines": 352,
+      "words": 2510,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -147032,8 +147032,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/SKILL.md",
       "remote_path": "feishu-doc-scraper/SKILL.md",
-      "lines": 242,
-      "words": 4268,
+      "lines": 246,
+      "words": 4298,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -147116,8 +147116,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 860,
-      "words": 10176,
+      "lines": 865,
+      "words": 10234,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -147128,8 +147128,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/llm-eval-harness/SKILL.md",
       "remote_path": "llm-eval-harness/SKILL.md",
-      "lines": 330,
-      "words": 2747,
+      "lines": 331,
+      "words": 2731,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -147211,9 +147211,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 282,
-      "words": 2425,
-      "code_blocks": 4,
+      "lines": 277,
+      "words": 2306,
+      "code_blocks": 3,
       "languages": [
         "bash",
         "json"
@@ -147363,8 +147363,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/SKILL.md",
       "remote_path": "app-evolver/SKILL.md",
-      "lines": 184,
-      "words": 1432,
+      "lines": 188,
+      "words": 1460,
       "code_blocks": 0,
       "languages": []
     },
@@ -147407,8 +147407,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 978,
-      "words": 3458,
+      "lines": 974,
+      "words": 3428,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -147531,8 +147531,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/report-with-html/SKILL.md",
       "remote_path": "report-with-html/SKILL.md",
-      "lines": 686,
-      "words": 7243,
+      "lines": 673,
+      "words": 7046,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -147545,9 +147545,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ima-copilot/SKILL.md",
       "remote_path": "ima-copilot/SKILL.md",
-      "lines": 195,
-      "words": 1988,
-      "code_blocks": 5,
+      "lines": 159,
+      "words": 1518,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ]
@@ -147710,8 +147710,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/auto-repo-setup/SKILL.md",
       "remote_path": "auto-repo-setup/SKILL.md",
-      "lines": 276,
-      "words": 1895,
+      "lines": 277,
+      "words": 1898,
       "code_blocks": 0,
       "languages": []
     },
@@ -147720,8 +147720,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/data-visualization-discipline/SKILL.md",
       "remote_path": "data-visualization-discipline/SKILL.md",
-      "lines": 749,
-      "words": 2841,
+      "lines": 747,
+      "words": 2807,
       "code_blocks": 1,
       "languages": []
     },
@@ -147877,8 +147877,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 268,
-      "words": 2209,
+      "lines": 276,
+      "words": 2259,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -147904,8 +147904,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/paired-evaluation.md",
       "remote_path": "daymade-skill/skill-creator/references/paired-evaluation.md",
-      "lines": 318,
-      "words": 3783,
+      "lines": 327,
+      "words": 3835,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -148175,7 +148175,7 @@
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
       "lines": 318,
-      "words": 6134,
+      "words": 6222,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -148349,8 +148349,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 440,
-      "words": 3565,
+      "lines": 459,
+      "words": 3736,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -148383,8 +148383,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 453,
-      "words": 3956,
+      "lines": 454,
+      "words": 3983,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -148423,7 +148423,7 @@
       "path": "daymade--claude-code-skills/daymade-claude-code/local-conversation-history/SKILL.md",
       "remote_path": "daymade-claude-code/local-conversation-history/SKILL.md",
       "lines": 178,
-      "words": 1883,
+      "words": 1874,
       "code_blocks": 0,
       "languages": []
     },
@@ -148457,8 +148457,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/SKILL.md",
       "remote_path": "daymade-claude-code/tech-selection/SKILL.md",
-      "lines": 203,
-      "words": 1915,
+      "lines": 214,
+      "words": 2022,
       "code_blocks": 0,
       "languages": []
     },
@@ -148559,8 +148559,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/references/codex-account-switch.md",
       "remote_path": "ghostty-use/references/codex-account-switch.md",
-      "lines": 339,
-      "words": 2608,
+      "lines": 347,
+      "words": 2662,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -148571,9 +148571,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/references/automatic-snapshots.md",
       "remote_path": "ghostty-use/references/automatic-snapshots.md",
-      "lines": 152,
-      "words": 1211,
-      "code_blocks": 1,
+      "lines": 178,
+      "words": 1408,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -148685,9 +148685,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-codex/codex-1m-context-window-setup/SKILL.md",
       "remote_path": "daymade-codex/codex-1m-context-window-setup/SKILL.md",
-      "lines": 119,
-      "words": 648,
-      "code_blocks": 2,
+      "lines": 189,
+      "words": 1141,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "powershell"
@@ -148699,7 +148699,7 @@
       "path": "daymade--claude-code-skills/daymade-codex/local-codex/SKILL.md",
       "remote_path": "daymade-codex/local-codex/SKILL.md",
       "lines": 181,
-      "words": 1220,
+      "words": 1235,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -148951,9 +148951,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/SKILL.md",
       "remote_path": "daymade-docs/doc-to-markdown/SKILL.md",
-      "lines": 228,
-      "words": 1359,
-      "code_blocks": 8,
+      "lines": 209,
+      "words": 1272,
+      "code_blocks": 6,
       "languages": [
         "bash"
       ]
@@ -149071,11 +149071,23 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/references/obsidian-link-examples.md",
       "remote_path": "daymade-docs/doc-to-markdown/references/obsidian-link-examples.md",
-      "lines": 89,
-      "words": 712,
+      "lines": 118,
+      "words": 975,
       "code_blocks": 1,
       "languages": [
         "markdown"
+      ]
+    },
+    {
+      "name": "pdf-acceptance",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/references/pdf-acceptance.md",
+      "remote_path": "daymade-docs/doc-to-markdown/references/pdf-acceptance.md",
+      "lines": 110,
+      "words": 974,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -149740,7 +149752,7 @@
       "path": "affaan-m--everything-claude-code/agents/typescript-reviewer.md",
       "remote_path": "agents/typescript-reviewer.md",
       "lines": 125,
-      "words": 1253,
+      "words": 1247,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -150644,8 +150656,8 @@
       "description": "Suggests manual context compaction at logical intervals to preserve context through task phases rather than arbitrary auto-compaction. Use when a session is approaching a context limit and a task phas",
       "path": "affaan-m--everything-claude-code/skills/strategic-compact/SKILL.md",
       "remote_path": "skills/strategic-compact/SKILL.md",
-      "lines": 157,
-      "words": 1267,
+      "lines": 159,
+      "words": 1435,
       "code_blocks": 1,
       "languages": [
         "json"
@@ -150796,8 +150808,8 @@
       "description": "\"Patterns and architectures for autonomous Claude Code loops \u2014 from simple sequential pipelines to RFC-driven multi-agent DAG systems. Retained for compatibility only: when new autonomous loop guidanc",
       "path": "affaan-m--everything-claude-code/skills/autonomous-loops/SKILL.md",
       "remote_path": "skills/autonomous-loops/SKILL.md",
-      "lines": 612,
-      "words": 3336,
+      "lines": 618,
+      "words": 3387,
       "code_blocks": 23,
       "languages": [
         "bash",
@@ -150868,8 +150880,8 @@
       "description": "\"Design task-local harnesses, eval gates, and reusable skill extraction for Claude dynamic workflow mode and other adaptive agent harnesses. Use when building a task-local harness, adding eval gates, ",
       "path": "affaan-m--everything-claude-code/skills/dynamic-workflow-mode/SKILL.md",
       "remote_path": "skills/dynamic-workflow-mode/SKILL.md",
-      "lines": 125,
-      "words": 836,
+      "lines": 167,
+      "words": 1235,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -151114,8 +151126,8 @@
       "description": "Idiomatic Go patterns, best practices, and conventions for building robust, efficient, and maintainable Go applications. Use when writing or reviewing Go code and idiomatic structure or conventions ar",
       "path": "affaan-m--everything-claude-code/skills/golang-patterns/SKILL.md",
       "remote_path": "skills/golang-patterns/SKILL.md",
-      "lines": 677,
-      "words": 1942,
+      "lines": 682,
+      "words": 1998,
       "code_blocks": 26,
       "languages": [
         "bash",
@@ -151180,9 +151192,9 @@
       "description": "Add x402 payment execution to AI agents with per-task budgets, spending controls, and non-custodial wallets. Supports Base through agentwallet-sdk, X Layer through OKX Payments / OKX Agent Payments Pr",
       "path": "affaan-m--everything-claude-code/skills/agent-payment-x402/SKILL.md",
       "remote_path": "skills/agent-payment-x402/SKILL.md",
-      "lines": 441,
-      "words": 3508,
-      "code_blocks": 5,
+      "lines": 593,
+      "words": 4618,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "json",
@@ -151467,8 +151479,8 @@
       "description": "Ingest, index, search, edit, and monitor video and audio with the VideoDB Python SDK \u2014 upload from files, URLs, or RTSP feeds, build spoken and scene indexes with timestamped search and playable clips",
       "path": "affaan-m--everything-claude-code/skills/videodb/SKILL.md",
       "remote_path": "skills/videodb/SKILL.md",
-      "lines": 376,
-      "words": 1718,
+      "lines": 379,
+      "words": 1775,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -151658,6 +151670,19 @@
       ]
     },
     {
+      "name": "issue-review",
+      "description": "Review a GitHub issue the way /code-review reviews a PR. Fetches the issue with the gh CLI, checks the report against the current codebase, searches for duplicates and prior fixes, scores completeness",
+      "path": "affaan-m--everything-claude-code/skills/issue-review/SKILL.md",
+      "remote_path": "skills/issue-review/SKILL.md",
+      "lines": 314,
+      "words": 3308,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
       "name": "uncloud",
       "description": "Use when managing an Uncloud cluster \u2014 deploying services, configuring Caddy ingress, adding static proxy routes for non-cluster devices, publishing ports, scaling, inspecting logs, or managing machin",
       "path": "affaan-m--everything-claude-code/skills/uncloud/SKILL.md",
@@ -151799,6 +151824,18 @@
       "languages": [
         "markdown",
         "text"
+      ]
+    },
+    {
+      "name": "module-governance",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/skills/module-governance/SKILL.md",
+      "remote_path": "skills/module-governance/SKILL.md",
+      "lines": 131,
+      "words": 906,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -152168,8 +152205,8 @@
       "description": "Run a six-phase verification of a Claude Code session's work \u2014 build, type check, lint, tests with coverage, security grep, and diff review \u2014 then produce a PASS/FAIL verification report. Use when ver",
       "path": "affaan-m--everything-claude-code/skills/verification-loop/SKILL.md",
       "remote_path": "skills/verification-loop/SKILL.md",
-      "lines": 136,
-      "words": 487,
+      "lines": 151,
+      "words": 606,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -152216,9 +152253,9 @@
       "description": "Speed up a task by turning it into a dependency graph of parallel lanes with a lane matrix, batched reads and checks, write surfaces isolated by file, worktree, branch, or service, and a final verific",
       "path": "affaan-m--everything-claude-code/skills/parallel-execution-optimizer/SKILL.md",
       "remote_path": "skills/parallel-execution-optimizer/SKILL.md",
-      "lines": 75,
-      "words": 453,
-      "code_blocks": 2,
+      "lines": 174,
+      "words": 1286,
+      "code_blocks": 3,
       "languages": [
         "text"
       ],
@@ -152597,18 +152634,20 @@
       "description": "Operate as an agentic engineer using eval-first execution, decomposition, and cost-aware model routing. Use when planning or executing engineering work that agents will carry out end to end.",
       "path": "affaan-m--everything-claude-code/skills/agentic-engineering/SKILL.md",
       "remote_path": "skills/agentic-engineering/SKILL.md",
-      "lines": 65,
-      "words": 266,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 142,
+      "words": 784,
+      "code_blocks": 1,
+      "languages": [
+        "javascript"
+      ]
     },
     {
       "name": "tdd-workflow",
       "description": "\"Test-driven development workflow: write a failing test first, watch it fail, implement the smallest change to green, then refactor with 80%+ coverage across unit, integration, and E2E tests. Use when",
       "path": "affaan-m--everything-claude-code/skills/tdd-workflow/SKILL.md",
       "remote_path": "skills/tdd-workflow/SKILL.md",
-      "lines": 584,
-      "words": 3064,
+      "lines": 591,
+      "words": 3179,
       "code_blocks": 29,
       "languages": [
         "bash",
@@ -152701,8 +152740,8 @@
       "description": "\"Keep a long-lived project's documentation from rotting by assigning existing project docs clear constitution, map, status, and history roles, then wiring the active agent harness to those canonical s",
       "path": "affaan-m--everything-claude-code/skills/living-docs-governance/SKILL.md",
       "remote_path": "skills/living-docs-governance/SKILL.md",
-      "lines": 138,
-      "words": 1261,
+      "lines": 148,
+      "words": 1337,
       "code_blocks": 1,
       "languages": [
         "text"
@@ -152799,8 +152838,8 @@
       "description": "Expert guidance for developing with the tinystruct Java framework. Use when working on the tinystruct codebase or any project built on tinystruct \u2014 including generating the bin/dispatcher and bin/disp",
       "path": "affaan-m--everything-claude-code/skills/tinystruct-patterns/SKILL.md",
       "remote_path": "skills/tinystruct-patterns/SKILL.md",
-      "lines": 401,
-      "words": 2867,
+      "lines": 451,
+      "words": 3890,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -153047,8 +153086,8 @@
       "description": ">-",
       "path": "affaan-m--everything-claude-code/skills/context-and-decisions/SKILL.md",
       "remote_path": "skills/context-and-decisions/SKILL.md",
-      "lines": 73,
-      "words": 665,
+      "lines": 93,
+      "words": 1170,
       "code_blocks": 0,
       "languages": []
     },
@@ -153225,6 +153264,20 @@
       ]
     },
     {
+      "name": "typescript-patterns",
+      "description": "TypeScript patterns for strict, type-safe, maintainable code in modern TypeScript and JavaScript applications. Covers strict compiler configuration, type design, narrowing, discriminated unions, gener",
+      "path": "affaan-m--everything-claude-code/skills/typescript-patterns/SKILL.md",
+      "remote_path": "skills/typescript-patterns/SKILL.md",
+      "lines": 593,
+      "words": 3333,
+      "code_blocks": 24,
+      "languages": [
+        "bash",
+        "jsonc",
+        "typescript"
+      ]
+    },
+    {
       "name": "exa-search",
       "description": "Neural search via Exa MCP for web, code, and company research. Use when the user needs web search, code examples, company intel, people lookup, or AI-powered deep research with Exa's neural search eng",
       "path": "affaan-m--everything-claude-code/skills/exa-search/SKILL.md",
@@ -153253,8 +153306,8 @@
       "description": "Multi-agent orchestration using dmux (tmux pane manager for AI agents). Patterns for parallel agent workflows across Claude Code, Codex, OpenCode, and other harnesses. Use when running multiple agent ",
       "path": "affaan-m--everything-claude-code/skills/dmux-workflows/SKILL.md",
       "remote_path": "skills/dmux-workflows/SKILL.md",
-      "lines": 193,
-      "words": 923,
+      "lines": 198,
+      "words": 974,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -153266,9 +153319,9 @@
       "description": "Route broad documentation-governance requests to existing ECC skills and run an opt-in, read-only audit of mapped documentation roles, links, ADR indexes, and evidence references. Use when a user asks",
       "path": "affaan-m--everything-claude-code/skills/docs-governance/SKILL.md",
       "remote_path": "skills/docs-governance/SKILL.md",
-      "lines": 98,
-      "words": 649,
-      "code_blocks": 1,
+      "lines": 121,
+      "words": 840,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -154248,8 +154301,8 @@
       "description": "\"Create reproducible, cross-platform (macOS/Linux) development environments with Flox, a declarative Nix-based environment manager. Use when setting up project toolchains, installing system-level depe",
       "path": "affaan-m--everything-claude-code/skills/flox-environments/SKILL.md",
       "remote_path": "skills/flox-environments/SKILL.md",
-      "lines": 498,
-      "words": 1881,
+      "lines": 496,
+      "words": 1890,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -154873,7 +154926,7 @@
       "path": "affaan-m--everything-claude-code/docs/es/agents/typescript-reviewer.md",
       "remote_path": "docs/es/agents/typescript-reviewer.md",
       "lines": 125,
-      "words": 1431,
+      "words": 1426,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -155292,7 +155345,7 @@
       "path": "affaan-m--everything-claude-code/docs/es/skills/golang-patterns/SKILL.md",
       "remote_path": "docs/es/skills/golang-patterns/SKILL.md",
       "lines": 675,
-      "words": 2016,
+      "words": 2026,
       "code_blocks": 26,
       "languages": [
         "bash",
@@ -156747,7 +156800,7 @@
       "path": "affaan-m--everything-claude-code/docs/zh-CN/skills/golang-patterns/SKILL.md",
       "remote_path": "docs/zh-CN/skills/golang-patterns/SKILL.md",
       "lines": 676,
-      "words": 1709,
+      "words": 1719,
       "code_blocks": 26,
       "languages": [
         "bash",
@@ -156798,9 +156851,9 @@
       "description": "\u5c06 x402 \u652f\u4ed8\u6267\u884c\u6dfb\u52a0\u5230 AI \u4ee3\u7406\u4e2d\uff0c\u5177\u5907\u6bcf\u4efb\u52a1\u9884\u7b97\u3001\u652f\u51fa\u63a7\u5236\u548c\u975e\u6258\u7ba1\u94b1\u5305\u3002\u901a\u8fc7 agentwallet-sdk \u652f\u6301 Base\uff0c\u901a\u8fc7 OKX Payments / OKX \u4ee3\u7406\u652f\u4ed8\u534f\u8bae\u652f\u6301 X Layer\uff0c\u5e76\u901a\u8fc7\u4e0a\u6e38 x402 \u5305\u4e0e\u57fa\u4e8e\u7ed3\u7b97\u5668\u7684\u7ed3\u7b97\u652f\u6301 Solana \u53ca\u591a\u7f51\u7edc EVM\u3002",
       "path": "affaan-m--everything-claude-code/docs/zh-CN/skills/agent-payment-x402/SKILL.md",
       "remote_path": "docs/zh-CN/skills/agent-payment-x402/SKILL.md",
-      "lines": 440,
-      "words": 2037,
-      "code_blocks": 5,
+      "lines": 592,
+      "words": 2857,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "json",
@@ -158758,7 +158811,7 @@
       "path": "affaan-m--everything-claude-code/docs/tr/agents/typescript-reviewer.md",
       "remote_path": "docs/tr/agents/typescript-reviewer.md",
       "lines": 113,
-      "words": 1024,
+      "words": 1020,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -159181,7 +159234,7 @@
       "path": "affaan-m--everything-claude-code/docs/tr/skills/golang-patterns/SKILL.md",
       "remote_path": "docs/tr/skills/golang-patterns/SKILL.md",
       "lines": 676,
-      "words": 1922,
+      "words": 1932,
       "code_blocks": 26,
       "languages": [
         "bash",
@@ -159782,7 +159835,7 @@
       "path": "affaan-m--everything-claude-code/docs/zh-TW/skills/golang-patterns/SKILL.md",
       "remote_path": "docs/zh-TW/skills/golang-patterns/SKILL.md",
       "lines": 675,
-      "words": 1548,
+      "words": 1558,
       "code_blocks": 26,
       "languages": [
         "bash",
@@ -161385,7 +161438,7 @@
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/golang-patterns/SKILL.md",
       "remote_path": "docs/ja-JP/skills/golang-patterns/SKILL.md",
       "lines": 675,
-      "words": 1675,
+      "words": 1685,
       "code_blocks": 26,
       "languages": [
         "bash",
@@ -161450,9 +161503,9 @@
       "description": "\u30bf\u30b9\u30af\u3054\u3068\u306e\u30d0\u30b8\u30a7\u30c3\u30c8\u3001\u652f\u51fa\u30b3\u30f3\u30c8\u30ed\u30fc\u30eb\u3001\u30ce\u30f3\u30ab\u30b9\u30c8\u30c7\u30a3\u30a2\u30eb\u30a6\u30a9\u30ec\u30c3\u30c8\u3092\u5099\u3048\u305f x402 \u6c7a\u6e08\u5b9f\u884c\u3092 AI \u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u306b\u8ffd\u52a0\u3057\u307e\u3059\u3002agentwallet-sdk \u3092\u901a\u3058\u3066 Base \u3092\u3001OKX Payments / OKX \u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u6c7a\u6e08\u30d7\u30ed\u30c8\u30b3\u30eb\u3092\u901a\u3058\u3066 X Layer \u3092\u3001\u30a2\u30c3\u30d7\u30b9\u30c8\u30ea\u30fc\u30e0\u306e x402 \u30d1\u30c3\u30b1\u30fc\u30b8\u3068\u30d5\u30a1\u30b7\u30ea\u30c6\u30fc\u30bf\u30fc\u30d9\u30fc\u30b9\u306e\u6c7a\u6e08\u3092\u901a\u3058\u3066 Solana \u3068\u30de\u30eb\u30c1\u30cd\u30c3\u30c8\u30ef\u30fc\u30af ",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/agent-payment-x402/SKILL.md",
       "remote_path": "docs/ja-JP/skills/agent-payment-x402/SKILL.md",
-      "lines": 440,
-      "words": 1989,
-      "code_blocks": 5,
+      "lines": 592,
+      "words": 2832,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "json",
@@ -162598,8 +162651,8 @@
       "description": "tinystruct Java \u30d5\u30ec\u30fc\u30e0\u30ef\u30fc\u30af\u3067\u958b\u767a\u3059\u308b\u969b\u306e\u5c02\u9580\u30ac\u30a4\u30c0\u30f3\u30b9\u3002tinystruct \u30b3\u30fc\u30c9\u30d9\u30fc\u30b9\u3001\u307e\u305f\u306f tinystruct \u4e0a\u306b\u69cb\u7bc9\u3055\u308c\u305f\u3042\u3089\u3086\u308b\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3067\u4f5c\u696d\u3059\u308b\u969b\u306b\u4f7f\u7528\u3057\u307e\u3059 \u2014 \u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u306b\u5b58\u5728\u3057\u306a\u3044\u5834\u5408\u306e bin/dispatcher\u30fbbin/dispatcher.cmd \u8d77\u52d5\u30b9\u30af\u30ea\u30d7\u30c8\u306e\u751f\u6210\u3001Application \u30af\u30e9\u30b9\u306e\u4f5c\u6210\u3001@Action \u306b\u3088\u308b\u30eb\u30fc\u30c8\u5b9a\u7fa9\u3001",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/tinystruct-patterns/SKILL.md",
       "remote_path": "docs/ja-JP/skills/tinystruct-patterns/SKILL.md",
-      "lines": 400,
-      "words": 1318,
+      "lines": 450,
+      "words": 1589,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -163612,8 +163665,8 @@
       "description": "\"Flox\u3067\u518d\u73fe\u53ef\u80fd\u306a\u30af\u30ed\u30b9\u30d7\u30e9\u30c3\u30c8\u30d5\u30a9\u30fc\u30e0\u958b\u767a\u74b0\u5883\u3092\u4f5c\u6210\u3057\u307e\u3059 \u2014 Nix\u306b\u57fa\u3065\u304f\u5ba3\u8a00\u7684\u306a\u74b0\u5883\u30de\u30cd\u30fc\u30b8\u30e3\u30fc\u3002\u6b21\u306e\u5834\u5408\u306f\u5fc5\u305a\u3053\u306e\u30b9\u30ad\u30eb\u3092\u4f7f\u7528\u3057\u3066\u304f\u3060\u3055\u3044: \u30b7\u30b9\u30c6\u30e0\u30ec\u30d9\u30eb\u306e\u4f9d\u5b58\u95a2\u4fc2\uff08\u30b3\u30f3\u30d1\u30a4\u30e9\u30fc\u3001\u30c7\u30fc\u30bf\u30d9\u30fc\u30b9\u3001openssl\u30fblibvips\u30fbBLAS\u30fbLAPACK\u306a\u3069\u306e\u30cd\u30a4\u30c6\u30a3\u30d6\u30e9\u30a4\u30d6\u30e9\u30ea\u30fc\uff09\u3092\u6301\u3064\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3092\u8a2d\u5b9a\u3059\u308b\u5834\u5408; Python\u3001Node.js\u3001Rust\u3001Go\u3001C/C++\u3001Java\u3001R",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/flox-environments/SKILL.md",
       "remote_path": "docs/ja-JP/skills/flox-environments/SKILL.md",
-      "lines": 497,
-      "words": 1059,
+      "lines": 495,
+      "words": 1051,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -164309,6 +164362,18 @@
       "license": "MIT"
     },
     {
+      "name": "module-governance",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/.agents/skills/module-governance/SKILL.md",
+      "remote_path": ".agents/skills/module-governance/SKILL.md",
+      "lines": 131,
+      "words": 906,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "investor-materials",
       "description": "Create and update pitch decks, one-pagers, investor memos, accelerator applications, financial models, and fundraising materials. Use when the user needs investor-facing documents, projections, use-of",
       "path": "affaan-m--everything-claude-code/.agents/skills/investor-materials/SKILL.md",
@@ -164389,8 +164454,8 @@
       "description": "\"A comprehensive verification system for Claude Code sessions. Use when verifying a Claude Code session's work before claiming it is complete.\"",
       "path": "affaan-m--everything-claude-code/.agents/skills/verification-loop/SKILL.md",
       "remote_path": ".agents/skills/verification-loop/SKILL.md",
-      "lines": 127,
-      "words": 406,
+      "lines": 142,
+      "words": 525,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -164487,8 +164552,8 @@
       "description": ">-",
       "path": "affaan-m--everything-claude-code/.agents/skills/context-and-decisions/SKILL.md",
       "remote_path": ".agents/skills/context-and-decisions/SKILL.md",
-      "lines": 73,
-      "words": 665,
+      "lines": 93,
+      "words": 1170,
       "code_blocks": 0,
       "languages": []
     },
@@ -164548,9 +164613,9 @@
       "description": "Route broad documentation-governance requests to existing ECC skills and run an opt-in, read-only audit of mapped documentation roles, links, ADR indexes, and evidence references. Use when a user asks",
       "path": "affaan-m--everything-claude-code/.agents/skills/docs-governance/SKILL.md",
       "remote_path": ".agents/skills/docs-governance/SKILL.md",
-      "lines": 98,
-      "words": 649,
-      "code_blocks": 1,
+      "lines": 121,
+      "words": 840,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -165558,8 +165623,8 @@
       "description": ">",
       "path": "affaan-m--everything-claude-code/.kiro/skills/verification-loop/SKILL.md",
       "remote_path": ".kiro/skills/verification-loop/SKILL.md",
-      "lines": 129,
-      "words": 393,
+      "lines": 144,
+      "words": 512,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -166162,8 +166227,8 @@
       "description": "Idiomatic Go patterns, best practices, and conventions for building robust, efficient, and maintainable Go applications. Use when writing or reviewing Go code and idiomatic structure or conventions ar",
       "path": "affaan-m--everything-claude-code/pi/core/skills/golang-patterns/SKILL.md",
       "remote_path": "pi/core/skills/golang-patterns/SKILL.md",
-      "lines": 677,
-      "words": 1942,
+      "lines": 682,
+      "words": 1998,
       "code_blocks": 26,
       "languages": [
         "bash",
@@ -166403,6 +166468,18 @@
       ]
     },
     {
+      "name": "module-governance",
+      "description": ">-",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/module-governance/SKILL.md",
+      "remote_path": "pi/core/skills/module-governance/SKILL.md",
+      "lines": 131,
+      "words": 906,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "react-performance",
       "description": "React and Next.js performance optimization patterns adapted from Vercel Engineering's React Best Practices (https://github.com/vercel-labs/agent-skills). Organizes 70+ rules across 8 priority categori",
       "path": "affaan-m--everything-claude-code/pi/core/skills/react-performance/SKILL.md",
@@ -166531,8 +166608,8 @@
       "description": "Run a six-phase verification of a Claude Code session's work \u2014 build, type check, lint, tests with coverage, security grep, and diff review \u2014 then produce a PASS/FAIL verification report. Use when ver",
       "path": "affaan-m--everything-claude-code/pi/core/skills/verification-loop/SKILL.md",
       "remote_path": "pi/core/skills/verification-loop/SKILL.md",
-      "lines": 136,
-      "words": 487,
+      "lines": 151,
+      "words": 606,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -166557,9 +166634,9 @@
       "description": "Speed up a task by turning it into a dependency graph of parallel lanes with a lane matrix, batched reads and checks, write surfaces isolated by file, worktree, branch, or service, and a final verific",
       "path": "affaan-m--everything-claude-code/pi/core/skills/parallel-execution-optimizer/SKILL.md",
       "remote_path": "pi/core/skills/parallel-execution-optimizer/SKILL.md",
-      "lines": 75,
-      "words": 453,
-      "code_blocks": 2,
+      "lines": 174,
+      "words": 1286,
+      "code_blocks": 3,
       "languages": [
         "text"
       ],
@@ -166814,18 +166891,20 @@
       "description": "Operate as an agentic engineer using eval-first execution, decomposition, and cost-aware model routing. Use when planning or executing engineering work that agents will carry out end to end.",
       "path": "affaan-m--everything-claude-code/pi/core/skills/agentic-engineering/SKILL.md",
       "remote_path": "pi/core/skills/agentic-engineering/SKILL.md",
-      "lines": 65,
-      "words": 266,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 142,
+      "words": 784,
+      "code_blocks": 1,
+      "languages": [
+        "javascript"
+      ]
     },
     {
       "name": "tdd-workflow",
       "description": "\"Test-driven development workflow: write a failing test first, watch it fail, implement the smallest change to green, then refactor with 80%+ coverage across unit, integration, and E2E tests. Use when",
       "path": "affaan-m--everything-claude-code/pi/core/skills/tdd-workflow/SKILL.md",
       "remote_path": "pi/core/skills/tdd-workflow/SKILL.md",
-      "lines": 584,
-      "words": 3064,
+      "lines": 591,
+      "words": 3179,
       "code_blocks": 29,
       "languages": [
         "bash",
@@ -166868,8 +166947,8 @@
       "description": "\"Keep a long-lived project's documentation from rotting by assigning existing project docs clear constitution, map, status, and history roles, then wiring the active agent harness to those canonical s",
       "path": "affaan-m--everything-claude-code/pi/core/skills/living-docs-governance/SKILL.md",
       "remote_path": "pi/core/skills/living-docs-governance/SKILL.md",
-      "lines": 138,
-      "words": 1261,
+      "lines": 148,
+      "words": 1337,
       "code_blocks": 1,
       "languages": [
         "text"
@@ -166958,8 +167037,8 @@
       "description": ">-",
       "path": "affaan-m--everything-claude-code/pi/core/skills/context-and-decisions/SKILL.md",
       "remote_path": "pi/core/skills/context-and-decisions/SKILL.md",
-      "lines": 73,
-      "words": 665,
+      "lines": 93,
+      "words": 1170,
       "code_blocks": 0,
       "languages": []
     },
@@ -167065,13 +167144,27 @@
       ]
     },
     {
+      "name": "typescript-patterns",
+      "description": "TypeScript patterns for strict, type-safe, maintainable code in modern TypeScript and JavaScript applications. Covers strict compiler configuration, type design, narrowing, discriminated unions, gener",
+      "path": "affaan-m--everything-claude-code/pi/core/skills/typescript-patterns/SKILL.md",
+      "remote_path": "pi/core/skills/typescript-patterns/SKILL.md",
+      "lines": 593,
+      "words": 3333,
+      "code_blocks": 24,
+      "languages": [
+        "bash",
+        "jsonc",
+        "typescript"
+      ]
+    },
+    {
       "name": "docs-governance",
       "description": "Route broad documentation-governance requests to existing ECC skills and run an opt-in, read-only audit of mapped documentation roles, links, ADR indexes, and evidence references. Use when a user asks",
       "path": "affaan-m--everything-claude-code/pi/core/skills/docs-governance/SKILL.md",
       "remote_path": "pi/core/skills/docs-governance/SKILL.md",
-      "lines": 98,
-      "words": 649,
-      "code_blocks": 1,
+      "lines": 121,
+      "words": 840,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]

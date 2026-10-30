@@ -253,9 +253,83 @@ RETRIEVAL_GLOBAL_VALUE_OPTIONS = {
     "prior_work.py": {"--manifest"},
     "history_index.py": {"--db", "--simple-root"},
 }
+
+
+def _formal_read_only_reader(script: str, arguments: list[str]) -> bool:
+    """Recognize owned read-only entries without trusting an arbitrary basename."""
+    scripts = Path(__file__).resolve().parent
+    history = scripts.parent.parent / "read-codex-history" / "scripts"
+    entries = {
+        history / "list_local_history.py": (
+            {"--index-only", "--recursive", "--all-projects", "--include-archived",
+             "--include-subagents", "--include-automated"},
+            {"--source", "--cwd", "--codex-home", "--from-date", "--to-date",
+             "--limit", "--max-title-chars", "--format", "--language"},
+        ),
+        history / "find_codex_session.py": (set(), {"--codex-home", "--format"}),
+        history / "read_codex_session.py": (
+            {"--full", "--tools"},
+            {"--session", "-s", "--project", "-p", "--record", "--contains", "--format"},
+        ),
+        scripts / "surface_version.py": (set(), set()),
+    }
+    try:
+        path = Path(script).expanduser().resolve(strict=True)
+    except (OSError, RuntimeError, ValueError):
+        return False
+    if path not in entries:
+        return False
+    switches, values = entries[path]
+    parsed: dict[str, list[str]] = {}
+    positional: list[str] = []
+    index = 0
+    while index < len(arguments):
+        token = arguments[index]
+        option, separator, value = token.partition("=")
+        if option in switches and not separator:
+            value = "true"
+        elif option in values:
+            if not separator:
+                index += 1
+                if index >= len(arguments):
+                    return False
+                value = arguments[index]
+            if not value.strip() or value.startswith("-"):
+                return False
+        elif token.startswith("-"):
+            return False
+        else:
+            positional.append(token)
+            index += 1
+            continue
+        option = {"-s": "--session", "-p": "--project"}.get(option, option)
+        if option in parsed and option != "--record":
+            return False
+        parsed.setdefault(option, []).append(value)
+        index += 1
+    if "--format" in parsed and parsed["--format"][0] not in {"json", "markdown"}:
+        return False
+    if path.name == "surface_version.py":
+        return not arguments
+    if path.name == "list_local_history.py":
+        return (not positional and "--index-only" in parsed
+                and parsed.get("--source") == ["codex"])
+    identity = positional if path.name == "find_codex_session.py" else parsed.get("--session", [])
+    if len(identity) != 1 or (path.name == "read_codex_session.py" and positional):
+        return False
+    value = identity[0].lower()
+    shape = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    minimum = 8 if path.name == "find_codex_session.py" else len(shape)
+    return minimum <= len(value) <= len(shape) and all(
+        character == "-" if expected == "-" else character in "0123456789abcdef"
+        for character, expected in zip(value, shape)
+    )
+
+
 DIRECT_EXEC_WRITE_SIGNAL = re.compile(r"\b(?:tools\.)?apply_patch\s*\(")
 EXEC_COMMAND_LITERAL = re.compile(
-    r"\b(?:cmd|command)\s*:\s*([\"'`])(?P<body>.*?)(?<!\\)\1",
+    r"(?<![\w$])(?:cmd|command|\"cmd\"|\"command\"|'cmd'|'command')"
+    r"\s*:\s*([\"'`])(?P<body>.*?)(?<!\\)\1",
     re.DOTALL,
 )
 FILE_REDIRECTION = re.compile(
@@ -397,9 +471,63 @@ def _tool_payload_text(event: dict[str, Any]) -> str:
 
 def _shell_fragments(event: dict[str, Any]) -> list[str]:
     payload = _tool_payload_text(event)
-    if _tool_name(event).endswith("functions.exec"):
-        return [match.group("body") for match in EXEC_COMMAND_LITERAL.finditer(payload)]
+    if _base_tool_name(event) == "exec":
+        fragments = []
+        for match in EXEC_COMMAND_LITERAL.finditer(payload):
+            body = _decode_exec_literal(match.group(1), match.group("body"))
+            if body is None:
+                # Do not grant a retrieval exemption to an unknown literal.
+                return [payload]
+            fragments.append(body)
+        return fragments
     return [payload]
+
+
+def _decode_exec_literal(quote: str, body: str) -> str | None:
+    """Decode static JavaScript string escapes without executing the cell."""
+    if quote == "`" and "${" in body:
+        return None
+    simple = {"n": "\n", "r": "\r", "t": "\t", "b": "\b", "f": "\f", "v": "\v"}
+    output: list[str] = []
+    index = 0
+    while index < len(body):
+        char = body[index]
+        index += 1
+        if char != "\\":
+            output.append(char)
+            continue
+        if index == len(body):
+            return None
+        escaped = body[index]
+        index += 1
+        if escaped in "\r\n":
+            if escaped == "\r" and body[index:index+1] == "\n":
+                index += 1
+            continue
+        if escaped in ("x", "u"):
+            if escaped == "u" and body[index:index+1] == "{":
+                end = body.find("}", index+1)
+                if end < 0:
+                    return None
+                digits = body[index+1:end]
+                index = end+1
+            else:
+                width = 2 if escaped == "x" else 4
+                digits = body[index:index+width]
+                if len(digits) != width:
+                    return None
+                index += width
+            if not re.fullmatch(r"[0-9a-fA-F]+", digits):
+                return None
+            try:
+                output.append(chr(int(digits, 16)))
+            except ValueError:
+                return None
+        elif escaped.isdigit():
+            return None  # Legacy octal/NUL spellings are outside this exemption.
+        else:
+            output.append(simple.get(escaped, escaped))
+    return "".join(output)
 
 
 def _shell_segments(fragment: str) -> list[str]:
@@ -539,6 +667,8 @@ def _segment_is_retrieval_route(segment: str) -> bool:
 
     if index >= len(words):
         return False
+    if _formal_read_only_reader(words[index], words[index + 1:]):
+        return True
     script = Path(words[index]).name
     subcommands = RETRIEVAL_ROUTES.get(script)
     if script not in RETRIEVAL_ROUTES:
@@ -670,6 +800,12 @@ def substantial_tool_use(event: dict[str, Any]) -> tuple[bool, str]:
         payload = _tool_payload_text(event)
         if DIRECT_EXEC_WRITE_SIGNAL.search(payload):
             return True, f"{base}:write_signal"
+        if base == "exec":
+            # Literal retrieval arguments are data. Keep the rest of the cell
+            # visible: one literal read must not hide a computed write beside it.
+            residual = EXEC_COMMAND_LITERAL.sub(" ", payload)
+            if SHELL_WRITE_SIGNAL.search(residual):
+                return True, f"{base}:write_signal"
         fragments = _shell_fragments(event)
         # functions.exec can carry either JavaScript orchestration or a plain
         # command string. With no cmd/command literal, treat the payload itself

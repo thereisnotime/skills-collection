@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { childEnv, classifyExitCause, createSessionRunner, diffShortstat, diffSignature, HEARTBEAT_MS_DEFAULT, untrackedList } from "../../src/engine10/session.ts";
-import { clampBashTimeoutEnv, killGroupWithGrace } from "../../src/runner/worker_proc.ts";
+import { clampBashTimeoutEnv, killGroupWithGrace, pinBashShellEnv } from "../../src/runner/worker_proc.ts";
 import { resultCostPath, sumResultCosts, UNMETERED } from "../../src/engine10/cost.ts";
 import { liveArchivedCosts, withArchivedCosts } from "../../src/providers/provider_cost.ts";
 const archivedCostIds = (root: string, ids: string[]): string[] => liveArchivedCosts(root, ids, UNMETERED);
@@ -665,6 +665,22 @@ describe("TEN-COST-13 lean prefix default", () => {
   });
 });
 
+describe("turn cap env in a nested run", () => {
+  const cfg = { provider: "claude" } as Parameters<typeof childEnv>[1];
+  const o = { iterationId: "i", stage: "implement", brief: "b", tier: "development", limitS: 480 } as Parameters<typeof childEnv>[0];
+  test("a stage session's derived cap is not inherited as an explicit value; a user value outside a stage still wins", () => {
+    const saved = { stage: process.env["LOKI_E10_STAGE"], turns: process.env["LOKI_E10_MAX_TURNS"] };
+    try {
+      delete process.env["LOKI_E10_STAGE"]; process.env["LOKI_E10_MAX_TURNS"] = "7";
+      expect(childEnv(o, cfg)["LOKI_E10_MAX_TURNS"]).toBe("7");
+      process.env["LOKI_E10_STAGE"] = "implement"; // we are inside a stage session: the 7 was derived by the parent
+      expect(childEnv(o, cfg)["LOKI_E10_MAX_TURNS"]).toBe("160");
+    } finally {
+      for (const [k, v] of [["LOKI_E10_STAGE", saved.stage], ["LOKI_E10_MAX_TURNS", saved.turns]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    }
+  });
+});
+
 describe("TEN-SPEED-21 heartbeat single ls-files", () => {
   test("heartbeat single ls-files: one heartbeat tick runs ls-files once", async () => {
     const d = mkdtempSync(join(tmpdir(), "ten-speed-21-")), bin = join(d, "bin"), log = join(d, "calls.log"), repo = join(d, "repo");
@@ -701,6 +717,30 @@ describe("TEN-SPEED-21 heartbeat single ls-files", () => {
       if (saved.d !== undefined) process.env["BASH_DEFAULT_TIMEOUT_MS"] = saved.d;
       if (saved.m !== undefined) process.env["BASH_MAX_TIMEOUT_MS"] = saved.m;
     }
+  });
+
+  test("claude session env pins SHELL to /bin/bash; opt-out and a missing bash leave it unchanged", () => {
+    const saved = { s: process.env["SHELL"], k: process.env["LOKI_E10_KEEP_USER_SHELL"] };
+    try {
+      process.env["SHELL"] = "/bin/zsh"; delete process.env["LOKI_E10_KEEP_USER_SHELL"];
+      const claude = childEnv(baseOpts({ limitS: 600 }), { provider: "claude" });
+      expect(claude["SHELL"]).toBe(existsSync("/bin/bash") ? "/bin/bash" : "/bin/zsh");
+      expect(claude["PATH"]).toBe(process.env["PATH"]);
+      expect(childEnv(baseOpts({ limitS: 600 }), { provider: "codex" })["SHELL"]).toBe("/bin/zsh"); // claude provider only
+      process.env["LOKI_E10_KEEP_USER_SHELL"] = "1";
+      expect(childEnv(baseOpts({ limitS: 600 }), { provider: "claude" })["SHELL"]).toBe("/bin/zsh");
+    } finally {
+      if (saved.s !== undefined) process.env["SHELL"] = saved.s; else delete process.env["SHELL"];
+      if (saved.k !== undefined) process.env["LOKI_E10_KEEP_USER_SHELL"] = saved.k; else delete process.env["LOKI_E10_KEEP_USER_SHELL"];
+    }
+    const a: NodeJS.ProcessEnv = { SHELL: "/bin/zsh" }; pinBashShellEnv(a, () => true);
+    expect(a["SHELL"]).toBe("/bin/bash");
+    const b: NodeJS.ProcessEnv = { SHELL: "/bin/zsh" }; pinBashShellEnv(b, () => false);
+    expect(b["SHELL"]).toBe("/bin/zsh");
+    const c: NodeJS.ProcessEnv = { SHELL: "/bin/zsh", LOKI_E10_KEEP_USER_SHELL: "1" }; pinBashShellEnv(c, () => true);
+    expect(c["SHELL"]).toBe("/bin/zsh");
+    const d: NodeJS.ProcessEnv = {}; pinBashShellEnv(d, () => true);
+    expect(d["SHELL"]).toBe("/bin/bash");
   });
 
   test("fixture A: a Bash-like call past the clamped timeout ends inside the stage cap and never reports a background move", async () => {

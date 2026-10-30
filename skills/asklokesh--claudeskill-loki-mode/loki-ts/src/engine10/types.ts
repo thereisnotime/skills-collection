@@ -83,7 +83,7 @@ export interface SessionRunOptions {
   /** Pins this session's model for its tier (E-45 Wall on sonnet); unset inherits the run model. */
   model?: string;
   resumeSessionId?: string; // MW-2: provider session to resume (LOKI_E10_FIX_RESUME); unset starts fresh
-  effort?: string; // EL-W0-06, L1: provider reasoning effort; omitted when unset so the provider default applies
+  maxOutputTokens?: number; /* claude: per-response output limit, CLAUDE_CODE_MAX_OUTPUT_TOKENS; unset keeps the provider default */ effort?: string; // EL-W0-06, L1: provider reasoning effort; omitted when unset so the provider default applies
 }
 export interface SessionResult {
   exit: number | null; // null when killed before exiting
@@ -118,6 +118,7 @@ export interface CostTotals {
   totalCount?: number;
   partialUsd?: number;
   unmetered?: boolean; // D48: usd is a recorded 0 for a CLI-invoker session with no provider figure
+  children?: import("../util/child_ledger.ts").ChildBucket; // child sessions; usd above includes them, the token fields do not
 }
 export interface CostReader { // implemented by cost.ts (E-06)
   read(repoDir: string, iterationIds: string[]): CostTotals;
@@ -182,7 +183,7 @@ export interface Receipt {
   /** T2: the counted outcome for METRICS: "yes" | "no" | "inconclusive". */
   mutation_outcome?: "yes" | "no" | "inconclusive";
   /** FC-21b: set only when implement was stopped at its time limit; omitted otherwise so other receipts stay byte-stable. */
-  implement_limit?: { limit_s: number; elapsed_s: number };
+  implement_limit?: { limit_s: number; elapsed_s: number; stop_cause?: "max_turns"; owner?: "harness" };
   /** T9: provider failovers (stage, from, to, reason, evidence). Omitted when none happened so other receipts stay byte-stable. */
   failover?: import("../runner/provider_failover.ts").FailoverRecord[];
   /** E-120: implement's reason for a SPEC_CONFLICT exit, sanitized (newlines/control chars  collapsed to spaces, capped at 500 chars). Key is omitted entirely, never null, when  implement did not  record one, so receipt_sha256 for every other run stays byte-stable. */
@@ -197,7 +198,7 @@ export interface Receipt {
     // RECEIPT-TRUTH: additive; absent (older receipts, fake readers) means NOT RECORDED, never 0.
     cache_read_tokens?: number;
     cache_creation_tokens?: number;
-    tokens_scope?: "all-models" | "main-loop"; per_model?: Record<string, ModelRecord>; turns?: number; cache_creation_main_loop?: { ephemeral_5m_tokens: number; ephemeral_1h_tokens: number }; resume?: "ambiguous" | "separate"; // COST-RECORDS / FIX-RESUME, additive
+    tokens_scope?: "all-models" | "main-loop"; per_model?: Record<string, ModelRecord>; turns?: number; cache_creation_main_loop?: { ephemeral_5m_tokens: number; ephemeral_1h_tokens: number }; resume?: "ambiguous" | "separate" | "delta"; // COST-RECORDS / FIX-RESUME, additive
     sdk_duration_ms?: number; // SDK result line duration_ms, summed; absent = NOT RECORDED
     tokens_measured?: { k: number; n: number }; // present only when k < n: input_tokens/output_tokens sum k of n sessions (a missing or ambiguous-resume session is left out), so they are partial
     // E-69: sessions with a provider-sourced dollar figure, out of the sessions this run recorded; partial_usd is their dollar sum even when usd above is null (some sessions unpriced).
@@ -205,6 +206,7 @@ export interface Receipt {
     total_sessions: number;
     partial_usd: number;
     source?: string; // D48: "cli-invoker-unmetered" when usd is a recorded 0, absent otherwise
+    children?: import("../util/child_ledger.ts").ChildBucket; // present only when the run had child sessions: usd, partial_usd and the session counts include them; input_tokens, output_tokens and per_model are stage sessions only
   };
   /** RECEIPT-TRUTH (receipt_time.ts): stages is a disjoint partition of total_s (first event to seal; a parallel group is one "a+b" bucket); wall_s = the stage buckets without setup, orchestration and seal. Additive; consumers read it through reconciledTotalS. */
   time: ReceiptTime;
@@ -237,5 +239,5 @@ export function taskBlock(task: string): string[] { return ["Task (untrusted, qu
 
 // Shapes produced by extension modules (receipt time, cost records); defined here so core never imports them.
 export interface ModelRecord { input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_creation_tokens: number; cost_usd: number }
-export interface CostRecords { tokens_scope?: "all-models" | "main-loop"; per_model?: Record<string, ModelRecord>; turns?: number; cache_creation_main_loop?: { ephemeral_5m_tokens: number; ephemeral_1h_tokens: number }; resume?: "ambiguous" | "separate" }
+export interface CostRecords { tokens_scope?: "all-models" | "main-loop"; per_model?: Record<string, ModelRecord>; turns?: number; cache_creation_main_loop?: { ephemeral_5m_tokens: number; ephemeral_1h_tokens: number }; resume?: "ambiguous" | "separate" | "delta" }
 export interface ReceiptTime { wall_s: number; total_s?: number; stages: Record<string, number>; stage_s?: Record<string, number> }

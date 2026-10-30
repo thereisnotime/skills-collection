@@ -23,7 +23,7 @@
 import { mkdirSync, existsSync, readFileSync, realpathSync, appendFileSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, join, isAbsolute, relative, resolve, sep } from "node:path";
 import { run as shellRun, shellQuote } from "../util/shell.ts";
-import { envWithPwd } from "./worker_proc.ts";
+import { envWithPwd, MAX_TURNS_EXIT } from "./worker_proc.ts";
 import { REPO_ROOT } from "../util/paths.ts";
 import { neutralizeEngineMarkers } from "./retry_class.ts"; // FC-AGENT-TEXT-FORGES-ENGINE-MARKER: a provider CLI stdout is agent text
 import {
@@ -42,6 +42,8 @@ import {
   tierRouteModel,
   permissionArgv,
   sdkPermissionOptions,
+  leanReviewerFlags,
+  REVIEW_GUARD_DENYLIST,
 } from "../providers/claude_flags.ts";
 import { mcpConfigPath } from "../providers/mcp_config.ts";
 import { LEAN_PREFIX } from "../features/lean_prefix.ts";
@@ -220,6 +222,11 @@ export function claudeTierToModel(tier: SessionTier): string {
 // persisted median call gap (LOKI_E10_CACHE_GAP_MS, set by childEnv from the efficiency records) between the 5m and 60m TTLs
 // (cacheTtlFor) chooses 1h for that stage; at 60m or more neither cache hits, so 5m stays. No data keeps 5m.
 /** Ends the message stream after the SDK result frame and close()s the query so the SDK subprocess goes; a live background child must never hold a finished session. Closes on the result frame only: no marker text, timer or tool state is trusted, so a running tool or a slow Stop hook is never cut off. enabled false = passthrough. A missing result stays fail-closed, so verdict logic is untouched. */
+/** The turn cap this engine10 stage session runs under (set by session.ts from the stage budget); undefined outside an engine stage or when invalid. */
+export function stageMaxTurns(env: NodeJS.ProcessEnv = process.env): number | undefined {
+  const n = Number(env["LOKI_E10_MAX_TURNS"]);
+  return env["LOKI_E10_STAGE"] && Number.isInteger(n) && n > 0 ? n : undefined;
+}
 export async function* closeQueryOnResult(q: AsyncIterable<StreamMsg> & { close?: () => void }, enabled: boolean): AsyncGenerator<StreamMsg> {
   if (!enabled) { yield* q; return; }
   try {
@@ -467,6 +474,21 @@ async function writeCaptured(
 // Claude provider (claude.sh:1-200)
 // ---------------------------------------------------------------------------
 
+// Flags for a text-only call (ProviderInvocation.textOnly): no tools, no
+// setting sources, no MCP, no slash commands, plus the review tool denylist as
+// defence in depth. LOKI_LEAN_CHILDREN=0 must not re-enable tools here, so the
+// lean flags are built with it forced on. Mirrors the bash check_author role
+// (loki_lean_child_flags emits --tools= and grill adds --disallowedTools) but
+// is not byte-identical: bash and bun both probe the CLI, but this path sets no
+// setting sources and forces the lean flags on.
+export function textOnlyArgv(): string[] {
+  return [
+    ...leanReviewerFlags({ env: { ...process.env, LOKI_LEAN_CHILDREN: "1" }, settingSources: "" }),
+    "--disallowedTools",
+    REVIEW_GUARD_DENYLIST,
+  ];
+}
+
 // Build the Claude provider invoker. Maps to provider_invoke_with_tier()
 // at claude.sh:192-199 (v7.5.19 Phase B adds --effort / --max-budget-usd /
 // --fallback-model derived from existing Loki state):
@@ -533,6 +555,7 @@ export function claudeProvider(): ProviderInvoker {
         // claude.sh:31 PROVIDER_AUTONOMOUS_FLAG (the compiled policy swaps it unless LOKI_PERMISSION_POLICY=legacy, C-C2)
         ...permissionArgv(call.cwd),
         ...(process.env["LOKI_E10_DISALLOWED_TOOLS"] ? ["--disallowedTools", process.env["LOKI_E10_DISALLOWED_TOOLS"]] : []), // Q18-04: per-session deny (read-only reviewer)
+        ...(call.textOnly === true ? textOnlyArgv() : []),
         ...modelArgv,
         ...autoFlags,
         ...sessionArgv,
@@ -943,6 +966,7 @@ export function sdkQueryProvider(): ProviderInvoker {
             ...(extra.taskBudget ? { taskBudget: extra.taskBudget } : {}),
             ...(extra.fallbackModel ? { fallbackModel: extra.fallbackModel } : {}),
             ...(extra.settings ? { settings: extra.settings } : {}),
+            ...(stageMaxTurns() ? { maxTurns: stageMaxTurns() } : {}), // engine10 liveness: a stage cannot loop forever
           },
           // biome-ignore lint/suspicious/noExplicitAny: SDK Options type is broader than our subset
         } as any);
@@ -960,7 +984,8 @@ export function sdkQueryProvider(): ProviderInvoker {
         if (process.env["LOKI_E10_STAGE"]) writeSessionId(call.cwd, process.env["LOKI_ITERATION"] ?? "0", res);
         // Fail-closed: a stream that never produced a terminal result is a
         // failed iteration, never counted as success.
-        exitCode = res.sawResult ? res.exitCode : 1;
+        exitCode = res.sawResult ? (res.maxTurns ? MAX_TURNS_EXIT : res.exitCode) : 1; // error_max_turns: harness-owned stop, distinct from a code failure
+        if (res.maxTurns) captured += "\n[sdk-loop error: turn cap reached (error_max_turns)]\n";
         rateLimit = res.rateLimit;
       } catch (e) {
         captured += `\n[sdk-loop error: ${(e as Error).message}]\n`;

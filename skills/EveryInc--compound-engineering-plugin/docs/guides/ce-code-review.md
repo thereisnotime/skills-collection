@@ -18,7 +18,7 @@ Collected review agents and validators are released before the next batch or han
 
 ---
 
-If the repo declares [Compound Packs](./packs.md) in its `packs` config, the institutional-learnings pass also searches the resolved pack roots, and a diff that violates a matching pack rule is flagged with a `(pack: <id>, <path within the pack>)` citation. That pass runs on the full spine; a diff the depth gate sends down the lite or focused path gets its repo-owned criteria checked in context, and its receipt says packs were not applied.
+If the repo declares [Compound Packs](./packs.md) in its `packs` config, the institutional-learnings pass also searches the resolved pack roots, and a diff that violates a matching pack rule is flagged with a `(pack: <id>, <path within the pack>)` citation. That pass runs on the full spine. A diff the depth gate sends down the lite or focused path is checked in context against the pack rules whose `applies_when` fits it, and its receipt names the rule files matched.
 
 ## TL;DR
 
@@ -27,7 +27,7 @@ If the repo declares [Compound Packs](./packs.md) in its `packs` config, the ins
 | What does it do? | Selects reviewer personas from the diff, dispatches them, merges findings into one report with confidence gating |
 | When to use it | Before opening a PR, after a large or sensitive change, or when the harness has no built-in `/review` |
 | What it produces | A structured findings report. With explicit local-apply authority it can also apply verified fixes and add an Applied section. It never pushes |
-| How to customize it | Write rules in `CODING_STANDARDS.md`. The review discovers the file and enforces what it says |
+| How to customize it | Write rules in `CODING_STANDARDS.md`, and review behavior (severity, skips, caps) in `REVIEW.md`. The review discovers both |
 | Modes | Markdown report (default) and `mode:agent` JSON handoff. Both are report-only unless local apply is separately authorized |
 
 ---
@@ -98,7 +98,7 @@ When you pass a PR number or URL, trivial automated PRs (lockfile bumps, chore v
 
 Every run also leaves a stage log and a `cost` block in its run directory's `metadata.json`: elapsed time per stage, reviewer and candidate counts, artifact bytes, the helper's line facts and chosen depth, and token counts where the harness exposed them, with a `status` that says whether the run completed. That is the data the size floors are tuned from; a partial run is labeled as one.
 
-`depth:auto` (the default) lets the skill self-size by consequence, not by line count. A change whose wrong version would fail loudly where it is made takes a cheap lite path in the review context. A change that could fail silently somewhere else takes a focused path: the same in-context review plus one independent adversarial read, normally the cross-model peer from a different model family, or a single local adversarial reviewer when the peer cannot run or the reviewed tree is not the local checkout, merged without the multi-agent finish. The full spine runs for migrations, files the scope helper cannot count, executable non-test changes of 200 lines or more (whole-file deletions are not counted toward that; a large deletion instead rules out lite), `apply:local`, and silent failures on an auth, money, or public-contract boundary. A CI workflow change can never take lite: it gets at least the focused path's adversarial read, and only the full spine's standards, testing, and security personas when its consequence is one of those boundaries, such as a workflow that handles credentials or permissions. Lite and focused still check the change against the repo-owned criteria files below, in context; lite dispatches no reviewer agent at all. Declared Compound Packs are applied only on the full spine. `depth:full` disables both cheaper paths. Neither token invents irrelevant domains. Callers do not need to classify.
+`depth:auto` (the default) lets the skill self-size by consequence, not by line count. A change whose wrong version would fail loudly where it is made takes a cheap lite path in the review context. A change that could fail silently somewhere else takes a focused path: the same in-context review plus one independent adversarial read, normally the cross-model peer from a different model family, or a single local adversarial reviewer when the peer cannot run or the reviewed tree is not the local checkout, merged without the multi-agent finish. The full spine runs for migrations, files the scope helper cannot count, executable non-test changes of 200 lines or more (whole-file deletions are not counted toward that; a large deletion instead rules out lite), `apply:local`, and silent failures on an auth, money, or public-contract boundary. A CI workflow change can never take lite: it gets at least the focused path's adversarial read, and only the full spine's standards, testing, and security personas when its consequence is one of those boundaries, such as a workflow that handles credentials or permissions. Lite and focused still check the change against the repo-owned criteria files below, in context; lite dispatches no reviewer agent at all. Declared Compound Packs are checked on every path: by the learnings pass on the full spine, and in context on lite and focused. `depth:full` disables both cheaper paths. Neither token invents irrelevant domains. Callers do not need to classify.
 
 ## Repo-owned review criteria
 
@@ -121,6 +121,26 @@ Four things worth knowing:
 - **It can grow.** An instruction file is loaded into every agent's context on every turn, so it stays short and rules get cut for space. A criteria file is read once, by one reviewer, at review time. That is the reason to keep enforceable rules here rather than in `AGENTS.md`. This file has room, and adding to it costs nothing until review runs.
 
 That last point is what makes review strictness compound. Notice a mistake worth preventing, write the rule down, and every review after that catches it.
+
+## Repo-owned review policy
+
+`CODING_STANDARDS.md` says what correct code looks like. A `REVIEW.md` says how review behaves in your repository: what each severity means, which paths or kinds of finding to skip, a cap on minor findings, the evidence a kind of finding needs, and checks to run on every change. It is the same file [Claude Code Review](https://code.claude.com/docs/en/code-review-customize) reads, so one file tunes both.
+
+```markdown
+# Review instructions
+
+- Style and naming findings are Nit at most.
+- Do not report anything under `src/gen/`; it is generated.
+- Behavior claims need a `file:line` citation, not an inference from a name.
+```
+
+How it applies:
+
+- **Every reviewer gets it.** The policy goes to each reviewer persona, the cross-model peer, and the merge step, because a rule like "skip generated files" bears on every lens. It adds to the criteria files and never replaces them.
+- **It is read from the base, not from the change.** A pull request that adds "don't flag X" to `REVIEW.md` is still reviewed under the old policy, and Coverage says the new version was not applied. Merge policy changes first.
+- **Removals are counted.** Coverage gives how many findings the policy removed or regraded, by rule, so a quiet review never looks cleaner than it was.
+- **Placement and includes.** A subdirectory `REVIEW.md` adds to the root file for its own paths. In the root file, a line holding only `@<file>` includes that file. An `@CODING_STANDARDS.md` line lets Claude Code Review see your standards, and this review does not read the file twice.
+- **Severity names translate.** A policy written for Claude Code Review uses Important and Nit. This review reads Important as P0 or P1, and Nit as P3.
 
 ## Cross-model adversarial pass
 
@@ -246,6 +266,7 @@ Bare and `mode:agent` reviews are report-only and safe alongside browser tests o
 | `<branch name>` | Reviews that branch without checking it out |
 | `base:<sha-or-ref>` | Skips scope detection. Reviews the current checkout against that ref |
 | `plan:<path>` | Loads the plan for requirements verification |
+| `plan_group:<label>` | With `plan:`, checks completeness against one PR group of a multi-PR plan (for example `plan_group:PR2`) instead of the whole plan |
 | `mode:agent` | JSON machine handoff. Report-only. `mode:headless` is a deprecated alias. `mode:non-interactive` is not valid here. `mode:report-only` is ignored |
 | `apply:local` | Authorize verified local fixes. Conflicts with `mode:agent` |
 | `depth:full` / `depth:auto` | `full` forces the full spine. `auto` (default) self-sizes to lite, focused, or full; callers do not classify |

@@ -17,8 +17,21 @@ Rows may also carry elapsed_s; the verdict adds an informational paired time
 ratio (floor / loki, above 1 means loki is faster) with the same bootstrap CI.
 Rows without a usable elapsed_s are excluded from it and counted. The time
 ratio never changes the verdict.
-Unmeasured rows are excluded; their count is reported and, when the verdict is
-NOT PROVEN, listed among the reasons.
+Unmeasured rows are excluded from acceptance and every gate except cost (their
+spend still counts); their count is reported and, when the verdict is NOT
+PROVEN, listed among the reasons.
+
+Scoreboard cost fields, per arm (both arms of a cost claim run on Claude, so
+both are claude arms): metered_share is the share of the arm's rows, unmeasured
+ones included, carrying a provider-reported usd cost (finite cost_usd, a
+cost_source, not cost_partial); cost_per_accepted_usd is total spend over every
+attempt, failed and unmeasured ones included, divided by accepted measured
+tasks. The cost ratio and its CI use the same numerator. Below a metered share
+of 1.0 the verdict is INVALID, the ratio, CI and ci reason are withheld and the
+arm reports only
+cost_per_accepted_lower_bound_usd, never a point estimate. reconciliation_error
+compares the run's summed cost_usd with an Anthropic console usage CSV export
+for the run window (--usage-csv); without one it is "not measured", never 0.
 
 No emojis. No em dashes.
 """
@@ -27,6 +40,7 @@ import argparse
 import json
 import math
 import random
+import re
 import os
 import sys
 
@@ -48,12 +62,93 @@ def _good_cost(r):
 def _cpa(rows):
     """Cost per accepted task over rows; None when nothing was accepted.
 
-    Rows with an unusable cost_usd add nothing here; the verdict blocks on them.
+    Every row's spend counts, unmeasured ones included; only measured rows can
+    be accepted. Rows with an unusable cost_usd add nothing here; the verdict is
+    INVALID on them.
     """
-    accepted = sum(1 for r in rows if r.get("accepted"))
+    accepted = sum(1 for r in rows if r.get("accepted") and not r.get("unmeasured"))
     if accepted == 0:
         return None
     return sum(r["cost_usd"] for r in rows if _good_cost(r)) / accepted
+
+
+def _metered(r):
+    """True when the row carries a full provider-reported usd cost."""
+    return _good_cost(r) and bool(r.get("cost_source")) and not r.get("cost_partial")
+
+
+def _arm_cost(rows):
+    """Scoreboard cost fields for one arm; a point cost only when fully metered."""
+    share = (sum(1 for r in rows if _metered(r)) / len(rows)) if rows else None
+    cpa = _cpa(rows)
+    full = share == 1.0
+    return {
+        "metered_share": share,
+        "cost_per_accepted_usd": cpa if full else None,
+        "cost_per_accepted_lower_bound_usd": cpa if not full else None,
+    }
+
+
+CONSOLE_COST_COLUMNS = ("cost_usd", "cost (usd)", "total_cost_usd",
+                        "amount_usd")
+_TOTAL_ROW = re.compile(r"\s*(sub)?total\b", re.IGNORECASE)
+_USD_CELL = re.compile(r"-?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?")
+
+
+def console_usd_from_csv(path):
+    """Sum the usd cost column of an Anthropic console usage CSV export.
+
+    The column is the first header (case-insensitive) in CONSOLE_COST_COLUMNS.
+    Only usd-named columns count. No such column, a total or subtotal row, or a
+    blank, non-numeric or badly comma-grouped cost cell raises ValueError: an
+    unreadable export is never read as 0 and never summed twice.
+    """
+    import csv
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        heads = {(h or "").strip().lower(): h for h in (reader.fieldnames or [])}
+        col = next((heads[c] for c in CONSOLE_COST_COLUMNS if c in heads), None)
+        if col is None:
+            raise ValueError("usage csv %s has no cost column (headers: %s)"
+                             % (path, ",".join(heads)))
+        total = 0.0
+        first = reader.fieldnames[0]
+        for i, rec in enumerate(reader, start=2):
+            if _TOTAL_ROW.match(rec.get(first) or ""):
+                raise ValueError("usage csv %s line %d: total or subtotal row; "
+                                 "export the itemised rows only" % (path, i))
+            cell = (rec.get(col) or "").strip().replace("$", "", 1)
+            if not _USD_CELL.fullmatch(cell):
+                raise ValueError("usage csv %s line %d: cost %r is not a number"
+                                 % (path, i, rec.get(col)))
+            v = float(cell.replace(",", ""))
+            if not math.isfinite(v):
+                raise ValueError("usage csv %s line %d: cost is not finite"
+                                 % (path, i))
+            total += v
+    return total
+
+
+def reconcile(run_rows, console_usd):
+    """The run's summed cost_usd against the console usage total.
+
+    Returns (error, detail). error is (run - console) / console as a float, or
+    the string "not measured" when there is no export, the console total is not
+    above 0, or any row lacks a usable cost (the run sum would be a lower bound).
+    """
+    rows = list(run_rows)
+    if console_usd is None:
+        return "not measured", {"reason": "no console usage csv given"}
+    missing = sum(1 for r in rows if not _good_cost(r) or r.get("cost_partial"))
+    if missing:
+        return "not measured", {"reason": "%d run row(s) without a usable "
+                                "cost_usd" % missing, "console_usd": console_usd}
+    if console_usd <= 0:
+        return "not measured", {"reason": "console usage total is not above 0",
+                                "console_usd": console_usd}
+    run = sum(r["cost_usd"] for r in rows)
+    return ((run - console_usd) / console_usd,
+            {"run_usd": run, "console_usd": console_usd})
 
 
 def _group(rows):
@@ -163,10 +258,14 @@ def _control_problems(control_rows):
 
 def cost_claim_verdict(loki_rows, floor_rows, target, seed=DEFAULT_SEED,
                        iters=BOOTSTRAP_ITERS, environment=None,
-                       control_rows=None):
+                       control_rows=None, run_rows=None, console_usd=None):
     """Return {verdict, target, ratio, ci_low, ci_high, unmeasured, cost_profile,
     reasons, ...}. cost_profile is the loki arm's profile (lean, default, off),
-    "mixed" when the arm mixes or partly lacks it, null when no row names one."""
+    "mixed" when the arm mixes or partly lacks it, null when no row names one.
+    run_rows (default: both arms) is every row billed in the run window; it is
+    reconciled against console_usd, the console usage export total."""
+    if run_rows is None:
+        run_rows = list(loki_rows) + list(floor_rows)
     reasons = []
     invalid = []
     if environment is not None:
@@ -179,6 +278,13 @@ def cost_claim_verdict(loki_rows, floor_rows, target, seed=DEFAULT_SEED,
     loki = [r for r in loki_rows if not r.get("unmeasured")]
     floor = [r for r in floor_rows if not r.get("unmeasured")]
     rows = loki + floor
+    arm_cost = {"loki": _arm_cost(loki_rows), "floor": _arm_cost(floor_rows)}
+    unmetered = [n for n in ("loki", "floor")
+                 if arm_cost[n]["metered_share"] is not None
+                 and arm_cost[n]["metered_share"] < 1.0]
+    for name in unmetered:
+        invalid.append("metered: %s metered share %.3f below 1.0"
+                       % (name, arm_cost[name]["metered_share"]))
 
     if not loki or not floor:
         reasons.append("no_data: an arm has no measured rows")
@@ -242,9 +348,13 @@ def cost_claim_verdict(loki_rows, floor_rows, target, seed=DEFAULT_SEED,
         reasons.append("cost_profile: loki arm mixes profiles or lacks "
                        "cost_profile on some rows")
 
-    ci = bootstrap_ratio_ci(loki, floor, seed, iters) if loki and floor else None
+    # Unmeasured spend is real spend: the ratio reads every row's cost.
+    ci = (bootstrap_ratio_ci(loki_rows, floor_rows, seed, iters)
+          if loki and floor and not unmetered else None)
     ratio = lo = hi = None
-    if ci:
+    if unmetered:
+        pass  # INVALID; a ratio of lower bounds is no estimate, so no ci line
+    elif ci:
         ratio, lo, hi = ci
         if hi > target:
             reasons.append("ci: upper bound %.4f exceeds target %s"
@@ -258,6 +368,7 @@ def cost_claim_verdict(loki_rows, floor_rows, target, seed=DEFAULT_SEED,
     if reasons and unmeasured:
         reasons.append("unmeasured: %d row(s) excluded" % unmeasured)
 
+    recon_err, recon_detail = reconcile(run_rows, console_usd)
     reasons = invalid + reasons
     if invalid:
         verdict = "INVALID"
@@ -277,6 +388,9 @@ def cost_claim_verdict(loki_rows, floor_rows, target, seed=DEFAULT_SEED,
         "time_ratio": tci[0] if tci else None,
         "time_ci": [tci[1], tci[2]] if tci else None,
         "time_rows_excluded": time_excluded,
+        "arm_cost": arm_cost,
+        "reconciliation_error": recon_err,
+        "reconciliation": recon_detail,
     }
 
 
@@ -326,6 +440,7 @@ def main(argv=None):
     ap.add_argument("--exclude-task", action="append", default=[])
     ap.add_argument("--env-record", help="attribution JSON (or its environment object); required for PROVEN_AT")
     ap.add_argument("--control-task", help="known-solvable task id; every row must be accepted; required for PROVEN_AT")
+    ap.add_argument("--usage-csv", help="Anthropic console usage CSV export for the run window; without it reconciliation is not measured")
     try:
         a = ap.parse_args(argv)
         rows, skipped = _load_rows(a.rows)
@@ -334,6 +449,7 @@ def main(argv=None):
             with open(a.env_record) as f:
                 rec = json.load(f)
             environment = rec.get("environment", rec) if isinstance(rec, dict) else {}
+        console_usd = console_usd_from_csv(a.usage_csv) if a.usage_csv else None
     except SystemExit as e:
         return 2 if e.code else 0
     except (OSError, ValueError) as e:
@@ -352,6 +468,7 @@ def main(argv=None):
     for t in unmatched:
         print("warning: --exclude-task %r matches no row" % t,
               file=sys.stderr)
+    run_rows = [_map_row(r) for r in rows]  # everything billed in the window
     rows = [_map_row(r) for r in rows if r.get("task") not in excl]
     arm_rows = [r for r in rows if r.get("arm") in (a.loki_arm, a.floor_arm)]
     control = None
@@ -361,7 +478,8 @@ def main(argv=None):
     loki = [r for r in arm_rows if r.get("arm") == a.loki_arm]
     floor = [r for r in arm_rows if r.get("arm") == a.floor_arm]
     v = cost_claim_verdict(loki, floor, a.target, environment=environment,
-                           control_rows=control)
+                           control_rows=control, run_rows=run_rows,
+                           console_usd=console_usd)
     if v["verdict"].startswith("PROVEN_AT"):
         missing = []
         if environment is None:

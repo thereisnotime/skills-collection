@@ -249,11 +249,17 @@ _loki_apikey_helper_configured() {
 #   - Text-only roles additionally get the single argument "--tools=" (no tools). --tools is
 #     variadic: "--tools" plus an empty argument swallows a trailing prompt.
 # Every flag is probed with loki_claude_flag_supported; an unsupported flag and
-# its value are dropped. LOKI_LEAN_CHILDREN=0 prints nothing. Main-session
-# flags are not touched by this helper.
+# its value are dropped. LOKI_LEAN_CHILDREN=0 drops the lean flags but the walled
+# check_author still gets "--tools=" (its isolation does not depend on the toggle).
+# Main-session flags are not touched by this helper.
 loki_lean_child_flags() {
     local role="${1:-}"
-    [ "${LOKI_LEAN_CHILDREN:-1}" = "0" ] && return 0
+    if [ "${LOKI_LEAN_CHILDREN:-1}" = "0" ]; then
+        if [ "$role" = "check_author" ] && loki_claude_flag_supported "--tools"; then
+            printf '%s\n' "--tools="
+        fi
+        return 0
+    fi
     if loki_subcall_bare_enabled; then
         printf '%s\n' "--bare"
     else
@@ -271,7 +277,7 @@ loki_lean_child_flags() {
         fi
     fi
     case "$role" in
-        grill|council|vote|review|reviewer|enrich|wiki|docs|docgen|summary)
+        grill|check_author|council|vote|review|reviewer|enrich|wiki|docs|docgen|summary)
             if loki_claude_flag_supported "--tools"; then
                 printf '%s\n' "--tools="
             fi
@@ -1167,4 +1173,17 @@ _loki_claude_permission_argv() {
     [ -n "$_out" ] || return 0
     _LOKI_PERM_ARGV=()
     while IFS= read -r _a; do _LOKI_PERM_ARGV+=("$_a"); done <<< "$_out"
+}
+
+# SHELL value for a claude child. Claude Code's Bash tool replays the aliases of
+# the shell named in SHELL, so a user's `alias ls=eza` hangs agent Bash commands.
+# Pin /bin/bash when executable (same rule as the engine10 route,
+# loki-ts/src/runner/worker_proc.ts pinBashShellEnv); LOKI_E10_KEEP_USER_SHELL=1
+# keeps the user's shell. Only SHELL changes; claude spawn sites only.
+_loki_claude_shell_value() {
+    if [ "${LOKI_E10_KEEP_USER_SHELL:-}" != "1" ] && [ -x /bin/bash ]; then
+        printf '%s' "/bin/bash"
+    else
+        printf '%s' "${SHELL-}"
+    fi
 }

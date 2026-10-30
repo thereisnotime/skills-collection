@@ -9,7 +9,7 @@ import { fastTierModel } from "../../runner/model_downgrades.ts";
 import { cascadeDowngrade, haikuFirstDowngrade, loadRepoMap, namedFiles, sizeTask } from "../sizing.ts";
 import { attemptsGate, runAttemptsOnCtx } from "../../features/attempts.ts"; // S41-13, default off
 import { selectRelevantFiles } from "./plan.ts"; import { changedFiles, commandFor, runCheck, type VerifyCheck } from "./verify.ts"; import { loadProjectApi } from "../../project_model/resolve.ts";
-import { classifyExitCause } from "../session.ts"; // E-68 reuse: never re-classify exit codes here
+import { classifyExitCause } from "../session.ts"; import { MAX_TURNS_EXIT } from "../../runner/worker_proc.ts"; // E-68 reuse: never re-classify exit codes here
 import { adjudicateWallConflict, resumeAfterConflict, resumeAfterEmptyDone } from "../../util/conflict_resume.ts"; import type { WallDefect } from "../../util/wall_owned.ts";
 import { INTERRUPTED_BRIEF, interruptedSession, planChain, readSessionId } from "../../runner/session_resume.ts";
 import { routeEscalate, routeStart } from "../../runner/router/implement_route.ts";
@@ -126,7 +126,7 @@ export const implementStage: Stage = {
     const two = attemptsGate({ size, predictedS: impacted.length }) ? await runAttemptsOnCtx(ctx, first, signal, impacted, { wallPaths: readOnly.map((f) => relative(ctx.repoDir, f.path)), wallContent: Object.fromEntries(readOnly.map((f) => [relative(ctx.repoDir, f.path), f.content])), check: (c, t, sg, out) => { const tc = commandFor(t, c.repoDir, loadProjectApi(c.repoDir)); return runCheck(c, `${t.runner}:${t.path}`, tc.cmd, tc.args, sg, out as VerifyCheck[], { ...(tc.interpreter ? { interpreter: tc.interpreter } : {}), ...(tc.pkgRoot !== "." ? { cwd: tc.cwd } : {}) }); } }) : null;
     let session = two ? two.session : await ctx.sessions.run(first);
     const ids = two ? two.ids : [first.iterationId];
-    if (resumeId && !session.killed && session.exit !== 0) { // a failed resume reruns fresh with the same full brief
+    if (resumeId && !session.killed && session.exit !== 0 && session.exit !== MAX_TURNS_EXIT) { // a failed resume reruns fresh with the same full brief
       planChainMode = "fallback (resume failed)";
       if (ownId) { sessionResume = "fallback (resume failed)"; process.stderr.write(`implement: recorded session ${ownId} was not resumable, starting a fresh session\n`); }
       const retry = `${first.iterationId}f`; ids.push(retry);
@@ -142,7 +142,7 @@ export const implementStage: Stage = {
     const iterationId = ids[ids.length - 1]!;
     // E-68 classifies exit codes; a non-killed, marker-less non-zero exit is an error, never "done".
     let exit: ImplementExit | "error";
-    if (session.killed) {
+    if (session.killed || session.exit === MAX_TURNS_EXIT) { // a turn-cap stop is harness-owned and ends like a limit stop: PARTIAL, never BLOCKED
       exit = "killed";
     } else if (session.markers.specConflict) {
       exit = "spec_conflict";
@@ -163,7 +163,7 @@ export const implementStage: Stage = {
       cascade,
       ...(downgrade ? { model_downgrade: downgrade.note } : {}),
       iteration_ids: ids, model: rt ? rt.current : downgrade?.to ?? ctx.model, ...(rt ? { route_model: rt.current, route_escalations: rt.escalations } : {}), session_id: readSessionId(ctx.repoDir, iterationId), // MW-2
-      duration_s: session.durationS,
+      duration_s: session.durationS, ...(session.exit === MAX_TURNS_EXIT && !session.killed ? { stop_cause: "max_turns", owner: "harness", limit_s: implementStage.limitS, elapsed_s: session.durationS } : {}),
       ...(planChainMode ? { plan_chain: planChainMode } : {}),
       ...(sessionResume ? { session_resume: sessionResume } : {}),
       ...(two ? { attempts: two.summary } : {}),

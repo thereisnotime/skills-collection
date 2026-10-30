@@ -6874,12 +6874,12 @@ spawn_worktree_session() {
                 _LOKI_PERM_ARGV=(--dangerously-skip-permissions)
                 ! type _loki_claude_permission_argv >/dev/null 2>&1 || _loki_claude_permission_argv
                 if [ -n "$_loki_wt_cm" ]; then
-                    CAVEMAN_DEFAULT_MODE="$_loki_wt_cm" claude "${_LOKI_PERM_ARGV[@]}" \
+                    SHELL="$(_loki_claude_shell_value)" CAVEMAN_DEFAULT_MODE="$_loki_wt_cm" claude "${_LOKI_PERM_ARGV[@]}" \
                         "${_LOKI_WT_AUTO_FLAGS[@]+"${_LOKI_WT_AUTO_FLAGS[@]}"}" \
                         -p "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
                         >> "$log_file" 2>&1 || _wt_exit=$?
                 else
-                    claude "${_LOKI_PERM_ARGV[@]}" \
+                    SHELL="$(_loki_claude_shell_value)" claude "${_LOKI_PERM_ARGV[@]}" \
                         "${_LOKI_WT_AUTO_FLAGS[@]+"${_LOKI_WT_AUTO_FLAGS[@]}"}" \
                         -p "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
                         >> "$log_file" 2>&1 || _wt_exit=$?
@@ -7124,7 +7124,7 @@ Output ONLY the resolved file content with no conflict markers. No explanations.
                 # the EXACT resolved file content (the shell writes it verbatim).
                 # Compressing prose into the merged source would corrupt the file,
                 # so disable caveman unconditionally here. No-op when absent.
-                resolution=$(CAVEMAN_DEFAULT_MODE=off claude "${_cr_argv[@]}" -p "$conflict_prompt" --output-format text < /dev/null 2>/dev/null)
+                resolution=$(SHELL="$(_loki_claude_shell_value)" CAVEMAN_DEFAULT_MODE=off claude "${_cr_argv[@]}" -p "$conflict_prompt" --output-format text < /dev/null 2>/dev/null)
                 ;;
             codex)
                 resolution=$(codex exec --sandbox workspace-write --skip-git-repo-check "$conflict_prompt" 2>/dev/null)
@@ -16821,7 +16821,7 @@ _dispatch_reviewer() {
                         }
                 fi
                 _loki_with_deadline_stdin_text "$_cr_req_cap" "$prompt_text" \
-                    "${_cr_provider_env[@]}" CAVEMAN_DEFAULT_MODE=off \
+                    "${_cr_provider_env[@]}" "SHELL=$(_loki_claude_shell_value)" CAVEMAN_DEFAULT_MODE=off \
                         claude "${_rv_argv[@]}" -p \
                         --output-format text > "$_cr_req_raw" \
                     || _cr_req_rc=$?
@@ -16872,7 +16872,7 @@ _dispatch_reviewer() {
                         _cr_cap=$(_loki_review_deadline_remaining "$_review_deadline_ms") || return 124
                     fi
                     _cr_json="$(_loki_with_deadline_stdin_text "$_cr_cap" "$prompt_text" \
-                        "${_cr_provider_env[@]}" CAVEMAN_DEFAULT_MODE=off \
+                        "${_cr_provider_env[@]}" "SHELL=$(_loki_claude_shell_value)" CAVEMAN_DEFAULT_MODE=off \
                             claude "${_rv_argv[@]}" -p \
                             --json-schema "$_cr_schema_content" \
                             --output-format json)" || _cr_rc=$?
@@ -16902,7 +16902,7 @@ _dispatch_reviewer() {
                 _cr_text_cap=$(_loki_review_deadline_remaining "$_review_deadline_ms") || return 124
             fi
             _loki_with_deadline_stdin_text "$_cr_text_cap" "$prompt_text" \
-                "${_cr_provider_env[@]}" CAVEMAN_DEFAULT_MODE=off claude "${_rv_argv[@]}" -p \
+                "${_cr_provider_env[@]}" "SHELL=$(_loki_claude_shell_value)" CAVEMAN_DEFAULT_MODE=off claude "${_rv_argv[@]}" -p \
                 --output-format text > "$review_output"
             ;;
         codex)
@@ -21774,9 +21774,20 @@ ${_commits}"
     # would fail that check or produce caveman-style USAGE text, so disable
     # caveman unconditionally. Inlined on `claude` only (does not cross the pipe
     # to head). No-op when caveman is absent.
+    # A non-claude provider with LOKI_ALLOW_CLAUDE_SIDECALLS=1 never loads
+    # claude.sh, so compute the pinned shell in a subshell: the helper's
+    # top-level exports (caveman vars) must not leak into this process.
+    local _ic_shell
+    _ic_shell="$(
+        # shellcheck source=/dev/null
+        type _loki_claude_shell_value >/dev/null 2>&1 \
+            || . "$PROJECT_DIR/autonomy/lib/claude-flags.sh" >/dev/null 2>&1 || exit 1
+        _loki_claude_shell_value
+    )" || _ic_shell=""
+    [ -n "$_ic_shell" ] || _ic_shell="${SHELL-}"
     local _ic_out
     _ic_out=$(printf '%s' "$_ic_prompt" \
-        | timeout 60 env CAVEMAN_DEFAULT_MODE=off claude "${_ic_argv[@]}" -p - 2>/dev/null \
+        | timeout 60 env "SHELL=$_ic_shell" CAVEMAN_DEFAULT_MODE=off claude "${_ic_argv[@]}" -p - 2>/dev/null \
         | head -200)
     # Sanity check: response must look like Markdown (starts with # or ##).
     if [ -z "$_ic_out" ] || ! printf '%s' "$_ic_out" | head -1 | grep -qE '^#'; then
@@ -23461,10 +23472,7 @@ if lines:
 
     # PRD Checklist status injection (v5.44.0)
     local checklist_status=""
-    if [ -n "$prd" ] && [ ! -f ".loki/checklist/checklist.json" ]; then
-        # First iteration with PRD but no checklist yet: instruct AI to create it
-        checklist_status="PRD_CHECKLIST_INIT: Create .loki/checklist/checklist.json from the PRD. Extract requirements into categories with items. Each item needs: id, title, description, priority (critical|major|minor), and verification checks (file_exists, file_contains, tests_pass, grep_codebase, command). This checklist will be auto-verified every ${CHECKLIST_INTERVAL:-5} iterations."
-    elif type checklist_summary &>/dev/null && [ -f ".loki/checklist/verification-results.json" ]; then
+    if type checklist_summary &>/dev/null && [ -f ".loki/checklist/verification-results.json" ]; then
         checklist_status=$(checklist_summary 2>/dev/null || true)
         if [ -n "$checklist_status" ]; then
             checklist_status="PRD_CHECKLIST_STATUS: ${checklist_status}. Review failing items and prioritize fixing them in this iteration."
@@ -25347,6 +25355,9 @@ except Exception:
         fi
         if type checklist_init &>/dev/null; then
             checklist_init "$prd_path"
+            if type checklist_author &>/dev/null; then
+                checklist_author "$prd_path" || true
+            fi
         fi
     fi
 
@@ -26174,11 +26185,13 @@ except Exception as exc:
                 CAVEMAN_DEFAULT_MODE="$_loki_cm_level" \
                 LOKI_DEADLINE_IDLE_TIMEOUT="${LOKI_PROVIDER_IDLE_TIMEOUT:-0}" \
                 _loki_with_deadline "${LOKI_PROVIDER_CALL_TIMEOUT:-0}" \
+                env "SHELL=$(_loki_claude_shell_value)" \
                 claude "${_loki_claude_argv[@]}" -p "$prompt" \
             --output-format stream-json --verbose < /dev/null 2>&1
                 else
                 LOKI_DEADLINE_IDLE_TIMEOUT="${LOKI_PROVIDER_IDLE_TIMEOUT:-0}" \
                 _loki_with_deadline "${LOKI_PROVIDER_CALL_TIMEOUT:-0}" \
+                env "SHELL=$(_loki_claude_shell_value)" \
                 claude "${_loki_claude_argv[@]}" -p "$prompt" \
             --output-format stream-json --verbose < /dev/null 2>&1
                 fi | \

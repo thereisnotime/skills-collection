@@ -4,20 +4,31 @@
 // shape writeResultCost (src/runner/sdk_stream_parser.ts) writes.
 // Unknown cost must be null, never 0.
 import { describe, expect, test } from "bun:test";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   costTotalsOf,
   nextEfficiencyIteration,
   recordSessionCost,
+  sumChildLedger,
   sumResultCosts,
+  sumRunCosts,
   writeEfficiencyRecord,
 } from "../../src/engine10/cost.ts";
 import { costBreakdown, stageShareText, topTierRate } from "../../src/util/cost_breakdown.ts";
 import { partialUsagePath, recordPartialStreamCost } from "../../src/runner/budget.ts";
 import { consumeSdkStream } from "../../src/runner/sdk_stream_parser.ts";
 import { createSessionRunner } from "../../src/engine10/session.ts";
+import { makeEvent, partialCost, runCostUsd, summaryCost } from "../../src/engine10/events.ts";
+import { appendChildLedger, childSpendMeter, runCost } from "../../src/util/child_ledger.ts";
+import { resumeVerdicts } from "../../src/contrib/cost_records.ts";
+import { archivePriorCost, liveArchivedCosts } from "../../src/providers/provider_cost.ts";
+import { UNMETERED } from "../../src/engine10/cost.ts";
+import { execFileSync } from "node:child_process";
+import { sealStage } from "../../src/engine10/stages/seal.ts";
+import { costCapture, workerCostReader } from "../../src/engine10/worker.ts";
+import type { Obj, RunContext, StageName } from "../../src/engine10/types.ts";
 
 const FIX = join(import.meta.dir, "fixtures", "cost");
 const REPO_ROOT = join(import.meta.dir, "..", "..", "..");
@@ -665,5 +676,382 @@ describe("savings_usd (#409)", () => {
     const ev = events.map((e, i) => (i === 2 ? { ...e, data: { usd: 0.05, source: "x" } } : e));
     expect(stageShareText(ev)).toContain("savings not measured");
     expect(costBreakdown(recs, ["it-9"]).savings_usd).toBeNull();
+  });
+});
+
+describe("one cost ledger: per-session deltas, child sessions, fail closed", () => {
+  const write = (dir: string, iter: string, rec: Record<string, unknown>): void => {
+    mkdirSync(join(dir, "metrics"), { recursive: true });
+    writeFileSync(join(dir, "metrics", `result-cost-${iter}.json`), JSON.stringify(rec));
+  };
+  const mu = (cost: number, out: number) => ({ "m-main": { input_tokens: 10, output_tokens: out, cache_read_tokens: 0, cache_creation_tokens: 0, cost_usd: cost } });
+  // run5 shape: the resumed file's total_cost_usd and model_usage are cumulative (plan + implement), its top-level output_tokens are the implement call only.
+  const plan = { total_cost_usd: 0.0233, input_tokens: 10, output_tokens: 1261, session_id: "P1", model_usage: mu(0.0233, 1261) };
+  const impl = { total_cost_usd: 0.0366, input_tokens: 10, output_tokens: 300, session_id: "P1", resumed_from: "P1", model_usage: mu(0.0366, 1561) };
+  test("a resumed implement after plan counts only its own delta, never the parent again", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "plan", plan); write(d, "impl", impl);
+      const c = sumResultCosts(d, ["plan", "impl"]);
+      expect(c.usd).toBeCloseTo(0.0366, 10); // plan 0.0233 + implement delta 0.0133, not 0.0599 and not null
+      expect(c.missing).toEqual([]);
+      expect(c.records?.resume).toBe("delta");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a resumed total that is not provably cumulative stays unknown, never guessed", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "plan", plan); write(d, "impl", { ...impl, model_usage: undefined });
+      const c = sumResultCosts(d, ["plan", "impl"]);
+      expect(c.usd).toBeNull();
+      expect(c.missing).toEqual(["impl"]);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a cross-review child session is included in the run total", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "plan", plan); write(d, "impl", impl);
+      writeFileSync(join(d, "metrics", "child-sessions.jsonl"), `${JSON.stringify({ phase: "xreview", model: "m", usd: 0.0349, run_id: "R1", source: "x" })}\n${JSON.stringify({ phase: "xreview", model: "m", usd: 9, run_id: "OTHER", source: "x" })}\n`);
+      const c = sumRunCosts(d, ["plan", "impl"], [], "R1");
+      expect(c.usd).toBeCloseTo(0.0715, 10);
+      expect(c.measuredCount).toBe(3);
+      expect(c.totalCount).toBe(3);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a child line with no dollar figure makes the run total unknown, with the measured part kept", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "plan", plan);
+      writeFileSync(join(d, "metrics", "child-sessions.jsonl"), `${JSON.stringify({ phase: "wall", model: "m", cost_status: "unmeasured", run_id: "R1", source: "x" })}\n`);
+      expect(sumChildLedger(d, "R1")).toEqual({ usd: null, partialUsd: 0, measured: 0, total: 1, inputTokens: 0, outputTokens: 0 });
+      const c = sumRunCosts(d, ["plan"], [], "R1");
+      expect(c.usd).toBeNull();
+      expect(c.partialUsd).toBeCloseTo(0.0233, 10);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  // F1 run5 replay: stage cost events (plan 0.0233, implement delta 0.0133) plus one reviewer child line of 0.0286235.
+  const child = (extra: Record<string, unknown> = {}) => `${JSON.stringify({ phase: "reviewer", model: "m", input_tokens: 5, output_tokens: 7, usd: 0.0286235, run_id: "R1", source: "x", ...extra })}\n`;
+  const costEvents = [makeEvent("R1", 0, "cost", "plan", { session_id: "plan", usd: 0.0233 }), makeEvent("R1", 1, "cost", "implement", { session_id: "impl", usd: 0.0133 })];
+  test("F1: run.completed total equals the receipt total and includes the child ledger", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "plan", plan); write(d, "impl", impl);
+      writeFileSync(join(d, "metrics", "child-sessions.jsonl"), child());
+      const receipt = sumRunCosts(d, ["plan", "impl"], [], "R1").usd;
+      expect(receipt).toBeCloseTo(0.0366 + 0.0286235, 10);
+      expect(runCostUsd(costEvents, false, d)).toBe(receipt);
+      expect(summaryCost(costEvents, false, d).usd).toBe(receipt);
+      expect(partialCost(costEvents, false, d).total).toBe(3);
+      expect(runCostUsd(costEvents, true, d)).toBeNull();
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("F1: a child line that cannot be priced, read or attributed makes the run total null, never an undercount", () => {
+    for (const ledger of [child({ usd: undefined, cost_status: "unmeasured" }), child({ usd: 0, input_tokens: 0, output_tokens: 0 }), `${child()}{"run_id":"R1","usd":\n`]) {
+      const d = tmpCheckout();
+      try {
+        mkdirSync(join(d, "metrics"), { recursive: true });
+        writeFileSync(join(d, "metrics", "child-sessions.jsonl"), ledger);
+        expect(runCostUsd(costEvents, false, d)).toBeNull();
+      } finally { rmSync(d, { recursive: true, force: true }); }
+    }
+    const d = tmpCheckout();
+    try {
+      mkdirSync(join(d, "metrics", "child-sessions.jsonl"), { recursive: true });
+      expect(runCostUsd(costEvents, false, d)).toBeNull();
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("F1: sumRunCosts breakdown.usd agrees with usd", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "plan", plan); write(d, "impl", impl);
+      writeFileSync(join(d, "metrics", "child-sessions.jsonl"), child());
+      const c = sumRunCosts(d, ["plan", "impl"], [], "R1");
+      expect(c.breakdown?.usd).toBe(c.usd);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  // F2: plan, middle and impl all carry session P1 (the SDK keeps the id across resumes); totals are cumulative.
+  const link = (usd: number, ownOut: number, cumOut: number, from?: string) => ({ total_cost_usd: usd, input_tokens: 10, output_tokens: ownOut, session_id: "P1", ...(from ? { resumed_from: from } : {}), model_usage: mu(usd, cumOut) });
+  test("F2: a 3-link chain subtracts the immediate predecessor, so the parent is counted once", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "plan", link(0.02, 100, 100)); write(d, "mid", link(0.03, 50, 150, "P1")); write(d, "impl", link(0.05, 50, 200, "P1"));
+      const c = sumResultCosts(d, ["plan", "mid", "impl"]);
+      expect(c.usd).toBeCloseTo(0.05, 10); // not 0.06
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("F2: a link with zero output but nonzero cost is ambiguous, total null", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "plan", link(0.02, 100, 100)); write(d, "mid", link(0.03, 0, 100, "P1")); write(d, "impl", link(0.05, 50, 150, "P1"));
+      const c = sumResultCosts(d, ["plan", "mid", "impl"]);
+      expect(c.usd).toBeNull();
+      expect(c.missing).toContain("mid");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+describe("one cost ledger: quota reruns, torn lines, children bucket", () => {
+  const write = (dir: string, iter: string, rec: Record<string, unknown>): void => {
+    mkdirSync(join(dir, "metrics"), { recursive: true });
+    writeFileSync(join(dir, "metrics", `result-cost-${iter}.json`), JSON.stringify(rec));
+  };
+  const quota = { total_cost_usd: 0, input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0, source: "sdk" };
+  const real = { total_cost_usd: 1, input_tokens: 10, output_tokens: 5, cache_read_tokens: 0, cache_creation_tokens: 0, source: "sdk" };
+  const withRunId = <T>(id: string | undefined, fn: () => T): T => {
+    const prev = process.env["LOKI_E10_RUN_ID"];
+    if (id === undefined) delete process.env["LOKI_E10_RUN_ID"]; else process.env["LOKI_E10_RUN_ID"] = id;
+    try { return fn(); } finally { if (prev === undefined) delete process.env["LOKI_E10_RUN_ID"]; else process.env["LOKI_E10_RUN_ID"] = prev; }
+  };
+
+  test("a quota rerun: the event-log total and the receipt total are the same number", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "implement", quota); archivePriorCost(d, "implement"); write(d, "implement", real); // attempt 1 hit quota (archived -q1), attempt 2 ran
+      const events = [makeEvent("R1", 0, "cost", "implement", { session_id: "implement", usd: null }), makeEvent("R1", 1, "cost", "implement", { session_id: "implement", usd: 1 })];
+      const receipt = sumRunCosts(d, liveArchivedCosts(d, ["implement"], UNMETERED), [], "R1");
+      expect(receipt.usd).toBe(1);
+      expect(runCostUsd(events, false, d)).toBe(receipt.usd);
+      expect(summaryCost(events, false, d).usd).toBe(receipt.usd);
+      expect(runCost(events, d)).toMatchObject({ usd: receipt.usd, partialUsd: receipt.partialUsd, measuredCount: receipt.measuredCount, totalCount: receipt.totalCount });
+      expect(partialCost(events, false, d)).toEqual({ measured: 1, total: 1, usd: 1 });
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a rerun whose first attempt was a real unpriced session stays unknown", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "implement", { ...quota, input_tokens: 9 }); archivePriorCost(d, "implement"); write(d, "implement", real); // $0 with real usage is not the never-ran shape
+      const events = [makeEvent("R1", 0, "cost", "implement", { session_id: "implement", usd: null }), makeEvent("R1", 1, "cost", "implement", { session_id: "implement", usd: 1 })];
+      expect(runCostUsd(events, false, d)).toBeNull();
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+
+  const rec = { phase: "reviewer", model: "m", input_tokens: 5, output_tokens: 7, cache_creation_tokens: 0, cache_read_tokens: 0, usd: 0.25, source: "x" };
+  test("a ledger line torn at ANY byte of the real writer's output never undercounts this run", () => {
+    const d = tmpCheckout();
+    try {
+      withRunId("R1", () => appendChildLedger(d, rec));
+      const full = readFileSync(join(d, "metrics", "child-sessions.jsonl"), "utf8").trimEnd();
+      expect(sumChildLedger(d, "R1")).toMatchObject({ usd: 0.25, total: 1 });
+      for (let i = 1; i < full.length; i++) {
+        writeFileSync(join(d, "metrics", "child-sessions.jsonl"), full.slice(0, i));
+        const k = sumChildLedger(d, "R1");
+        expect(k.usd).toBeNull(); // cut at byte i: unknown, never the 0 of a skipped line
+        expect(k.total).toBe(1);
+      }
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a torn line that provably names another run does not blank this run", () => {
+    const d = tmpCheckout();
+    try {
+      withRunId("R2", () => appendChildLedger(d, rec));
+      const other = readFileSync(join(d, "metrics", "child-sessions.jsonl"), "utf8").trimEnd();
+      writeFileSync(join(d, "metrics", "child-sessions.jsonl"), `${other.slice(0, other.length - 9)}\n`);
+      withRunId("R1", () => appendChildLedger(d, rec));
+      expect(sumChildLedger(d, "R1")).toMatchObject({ usd: 0.25, total: 1 });
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  const ledger = (d: string): string => join(d, "metrics", "child-sessions.jsonl");
+  test("a real torn write (no newline) followed by another run's append never loses this run's cost", () => {
+    const d = tmpCheckout();
+    try {
+      withRunId("E", () => appendChildLedger(d, { ...rec, usd: 0.2 }));
+      withRunId("other", () => appendChildLedger(d, { ...rec, usd: 9 }));
+      appendFileSync(ledger(d), '{"run_id":"other","phase":"xr'); // torn: NO newline after the fragment
+      withRunId("E", () => appendChildLedger(d, { ...rec, usd: 5 })); // the writer starts a fresh line, so nothing glues
+      expect(sumChildLedger(d, "E")).toMatchObject({ usd: 5.2, total: 2, measured: 2 });
+      const text = readFileSync(ledger(d), "utf8");
+      expect(text).toContain('xr\n{"run_id":"E"'); // the fragment stayed on its own line
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a torn write cut to 30 bytes then a new run's append: the new run is exact, the old run is unknown", () => {
+    const d = tmpCheckout();
+    try {
+      withRunId("R0", () => appendChildLedger(d, rec));
+      truncateSync(ledger(d), 30);
+      withRunId("R1", () => appendChildLedger(d, { ...rec, usd: 5 }));
+      expect(sumChildLedger(d, "R1")).toMatchObject({ usd: 5, total: 1 });
+      expect(sumChildLedger(d, "R0").usd).toBeNull();
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a fragment glued onto this run's record (an old writer) makes the total unknown, never an undercount", () => {
+    const d = tmpCheckout();
+    try {
+      mkdirSync(join(d, "metrics"), { recursive: true });
+      const own = JSON.stringify({ run_id: "E", ...rec, usd: 5 });
+      writeFileSync(ledger(d), `${JSON.stringify({ run_id: "E", ...rec, usd: 0.2 })}\n{"run_id":"other","phase":"xr${own}\n`); // the old writer glued E's record onto a torn fragment
+      expect(sumChildLedger(d, "E").usd).toBeNull();
+      expect(sumChildLedger(d, "E").partialUsd).toBeCloseTo(0.2, 10);
+      expect(sumChildLedger(d, "Z")).toMatchObject({ usd: 0, total: 0 }); // a run named in no part of the glued line is unaffected
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("an old torn fragment before this run's first record does not blank the run, one after its first record does", () => {
+    const d = tmpCheckout();
+    try {
+      mkdirSync(join(d, "metrics"), { recursive: true });
+      writeFileSync(ledger(d), '{"run_id":"old","pha\n{"ph\n'); // old fragments, one unattributable
+      withRunId("E", () => appendChildLedger(d, { ...rec, usd: 0.5 }));
+      expect(sumChildLedger(d, "E")).toMatchObject({ usd: 0.5, total: 1 });
+      appendFileSync(ledger(d), '{"ph\n'); // unattributable fragment AFTER this run started
+      expect(sumChildLedger(d, "E").usd).toBeNull();
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+  test("a torn fragment with no id that is a prefix of this run's record start makes the total unknown, wherever it sits", () => {
+    for (const frag of ['{"ru', "{", '{"run_id"']) {
+      const d = tmpCheckout();
+      try {
+        withRunId("other", () => appendChildLedger(d, { ...rec, usd: 9 }));
+        appendFileSync(ledger(d), `${frag}\n`); // torn, before E's first record and not the last line
+        withRunId("E", () => appendChildLedger(d, { ...rec, usd: 5 }));
+        expect(sumChildLedger(d, "E").usd).toBeNull();
+        expect(sumChildLedger(d, "E").partialUsd).toBe(5);
+      } finally { rmSync(d, { recursive: true, force: true }); }
+    }
+  });
+  test("an unattributable fragment after this run's own record that is not the last line makes the total unknown", () => {
+    for (const frag of ['{"ru', '{"ph']) {
+      const d = tmpCheckout();
+      try {
+        withRunId("E", () => appendChildLedger(d, { ...rec, usd: 0.2 }));
+        appendFileSync(ledger(d), `${frag}\n`);
+        withRunId("E", () => appendChildLedger(d, { ...rec, usd: 5 }));
+        expect(sumChildLedger(d, "E").usd).toBeNull();
+      } finally { rmSync(d, { recursive: true, force: true }); }
+    }
+  });
+  test("the writer puts run_id first, whether from the env or the record", () => {
+    const d = tmpCheckout();
+    try {
+      withRunId("R1", () => { appendChildLedger(d, rec); appendChildLedger(d, { ...rec, run_id: "R9" }); });
+      const lines = readFileSync(join(d, "metrics", "child-sessions.jsonl"), "utf8").trim().split("\n");
+      expect(lines[0]!.startsWith('{"run_id":"R1",')).toBe(true);
+      expect(lines[1]!.startsWith('{"run_id":"R9",')).toBe(true);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+
+  test("scope is truthful: tokens and per_stage are stage-only, the children bucket carries the rest, per_stage + children_usd = usd", () => {
+    const d = tmpCheckout();
+    try {
+      write(d, "plan", { ...real, total_cost_usd: 1, session_id: "S1" });
+      withRunId("R1", () => appendChildLedger(d, rec));
+      const c = sumRunCosts(d, ["plan"], [], "R1");
+      expect(c.usd).toBeCloseTo(1.25, 10);
+      expect(c.input_tokens).toBe(10); expect(c.output_tokens).toBe(5); // stage sessions only
+      expect(c.children).toEqual({ usd: 0.25, partial_usd: 0.25, sessions: 1, measured: 1, input_tokens: 5, output_tokens: 7 });
+      const stageUsd = Object.values(c.breakdown!.per_stage).reduce((t, s) => t + (s.usd ?? 0), 0);
+      expect(stageUsd + (c.breakdown!.children_usd as number)).toBeCloseTo(c.usd as number, 10);
+      expect(c.breakdown!.usd).toBe(c.usd);
+      expect(costTotalsOf(c).children).toEqual(c.children);
+      expect(sumRunCosts(d, ["plan"], [], "R-none").children).toBeUndefined(); // a run without children carries no bucket
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+
+  test("childSpendMeter reports only the spend added after it was created", () => {
+    const d = tmpCheckout();
+    try {
+      withRunId("R1", () => appendChildLedger(d, rec));
+      const spent = childSpendMeter(d, "R1");
+      expect(spent()).toBe(0);
+      withRunId("R1", () => appendChildLedger(d, rec));
+      withRunId("R2", () => appendChildLedger(d, rec));
+      expect(spent()).toBeCloseTo(0.25, 10);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+describe("resume predecessor ties", () => {
+  test("two candidates tied at the best total are ambiguous: no usd, never the first one", () => {
+    // Only the FIRST tied candidate happens to prove a cumulative delta, so a first-wins pick would bill "3" a delta against an arbitrary parent.
+    const recs = [
+      { iter: "1", rec: { session_id: "S", total_cost_usd: 1, model_usage: { m: { output_tokens: 10, cost_usd: 1 } } } },
+      { iter: "2", rec: { session_id: "S", total_cost_usd: 1, model_usage: { m: { output_tokens: 99, cost_usd: 1 } } } },
+      { iter: "3", rec: { session_id: "T", resumed_from: "S", total_cost_usd: 2, output_tokens: 5, model_usage: { m: { output_tokens: 15, cost_usd: 2 } } } },
+    ];
+    const v = resumeVerdicts(recs);
+    expect(v.ambiguous).toContain("3"); // M3: picking top[0] on a tie lets "3" become a delta against an arbitrary parent
+    expect(v.delta["3"]).toBeUndefined();
+    expect(v.separate).not.toContain("3");
+  });
+  test("a single best candidate is still the parent", () => {
+    const recs = [
+      { iter: "1", rec: { session_id: "S", total_cost_usd: 1 } },
+      { iter: "2", rec: { session_id: "S", total_cost_usd: 1.5 } },
+      { iter: "3", rec: { session_id: "T", resumed_from: "S", total_cost_usd: 0.5 } },
+    ];
+    expect(resumeVerdicts(recs).separate).toContain("3"); // every candidate is above 0.5: the lowest (1) is the unique parent and 0.5 < 1 proves a separate session
+  });
+});
+
+describe("the sealed receipt carries this run's child sessions (worker cost reader through the seal stage)", () => {
+  const sh = (cwd: string, ...argv: string[]): string => execFileSync(argv[0]!, argv.slice(1), { cwd, encoding: "utf8" });
+  const sealWith = async (cost: RunContext["cost"], repo: string, ids: string[] = ["plan"]): Promise<{ cost: { usd: number | null; children?: { usd: number | null; sessions: number } } }> => {
+    mkdirSync(join(repo, ".loki/runs/R1"), { recursive: true });
+    sh(repo, "git", "init", "-q", "-b", "main"); sh(repo, "git", "config", "user.name", "t"); sh(repo, "git", "config", "user.email", "t@t.invalid");
+    writeFileSync(join(repo, "a.txt"), "one\n"); sh(repo, "git", "add", "a.txt"); sh(repo, "git", "commit", "-q", "-m", "base");
+    const base = sh(repo, "git", "rev-parse", "HEAD").trim();
+    writeFileSync(join(repo, "a.txt"), "two\n"); sh(repo, "git", "commit", "-q", "-am", "work");
+    const outputs = {
+      intake: { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", resumed: false }, wall: { files: [] }, implement: { exit: "done", iteration_ids: ids },
+      verify: { checks: [{ name: "bun:w.test.ts", cmd: "bun test", result: "pass", n: 2, duration_s: 1 }], flaky: [], wall_passed: true, target_checks: [] },
+    } as Partial<Record<StageName, Obj>>;
+    const ctx: RunContext = {
+      runId: "R1", repoDir: repo, runDir: join(repo, ".loki/runs/R1"), baseSha: base, branch: "b", provider: "claude", model: "m", deep: false, capS: 900,
+      emit: () => {}, sessions: { run: async () => ({ exit: 0 }) as never },
+      tests: { detect: async () => ({ runners: [], tests: [] }), impacted: () => [] },
+      cost, clock: { now: () => Date.now() }, outputs: () => outputs,
+    };
+    const r = await sealStage.run(ctx, new AbortController().signal);
+    return JSON.parse(readFileSync(r.data.receipt_path as string, "utf8"));
+  };
+  test("stage cost plus this run's child ledger lines appear on the sealed receipt, and another run's lines do not", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "e10-seal-cost-"));
+    try {
+      mkdirSync(join(repo, ".loki", "metrics"), { recursive: true });
+      writeFileSync(join(repo, ".loki", "metrics", "result-cost-plan.json"), JSON.stringify({ total_cost_usd: 1, input_tokens: 10, output_tokens: 5, cache_read_tokens: 0, cache_creation_tokens: 0, source: "sdk", session_id: "S1" }));
+      const lokiDir = join(repo, ".loki"), r = { phase: "reviewer", model: "m", input_tokens: 5, output_tokens: 7, cache_creation_tokens: 0, cache_read_tokens: 0, source: "x" };
+      appendChildLedger(lokiDir, { ...r, run_id: "R1", usd: 0.25 }); appendChildLedger(lokiDir, { ...r, run_id: "R2", usd: 9 });
+      const receipt = await sealWith(workerCostReader("R1"), repo);
+      expect(receipt.cost.usd).toBeCloseTo(1.25, 10); // X6: a reader that drops the run id sums no children and seals 1
+      expect(receipt.cost.children).toMatchObject({ usd: 0.25, sessions: 1 });
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+  test("a killed session priced from streamed usage is in the receipt, and the receipt equals runCost", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "e10-seal-killed-"));
+    try {
+      const lokiDir = join(repo, ".loki"); mkdirSync(join(lokiDir, "metrics"), { recursive: true });
+      writeFileSync(join(lokiDir, "metrics", "result-cost-plan.json"), JSON.stringify({ total_cost_usd: 1, input_tokens: 10, output_tokens: 5, cache_read_tokens: 0, cache_creation_tokens: 0, source: "sdk", session_id: "S1" }));
+      writeFileSync(partialUsagePath(lokiDir, "impl"), JSON.stringify({ input_tokens: 1000, output_tokens: 400, model: "claude-sonnet-5-5" })); // no result-cost-impl.json: the session was killed
+      const k = recordPartialStreamCost(lokiDir, "impl", { status: "killed", durationMs: 5, model: "claude-sonnet-5-5" });
+      expect(k.usd).not.toBeNull();
+      const events = [makeEvent("R1", 0, "cost", "plan", { session_id: "plan", usd: 1 }), makeEvent("R1", 1, "cost", "implement", { session_id: "impl", usd: k.usd })];
+      const shown = runCost(events, lokiDir).usd;
+      expect(shown).toBeCloseTo(1 + (k.usd as number), 10);
+      expect(sumRunCosts(lokiDir, ["plan", "impl"], [], "R1").usd).toBeNull(); // the files alone cannot price the killed session: today's receipt
+      expect((await sealWith(workerCostReader("R1", () => events), repo, ["plan", "impl"])).cost.usd).toBe(shown);
+      expect((await sealWith(workerCostReader("R1"), repo, ["plan", "impl"])).cost.usd).toBeNull(); // no cost events seen: the file totals stand
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  });
+});
+
+describe("the worker keeps the cost events it emits for the receipt (costCapture)", () => {
+  const run = (resume: boolean, logged: number[], emitted: number[]): { usd: number | null; forwarded: number } => {
+    const repo = mkdtempSync(join(tmpdir(), "e10-capture-"));
+    try {
+      mkdirSync(join(repo, ".loki/runs/R1"), { recursive: true });
+      writeFileSync(join(repo, ".loki/runs/R1/events.jsonl"), logged.map((usd, i) => JSON.stringify(makeEvent("R1", i, "cost", "plan", { session_id: `old${i}`, usd }))).join("\n") + "\n");
+      let forwarded = 0;
+      const { emit, cost } = costCapture(() => { forwarded++; }, "R1", repo, resume ? { LOKI_E10_RESUME: "1" } : {});
+      emitted.forEach((usd, i) => emit("cost", "implement", { session_id: `new${i}`, usd }));
+      return { usd: cost.read(repo, []).usd, forwarded };
+    } finally { rmSync(repo, { recursive: true, force: true }); }
+  };
+  test("live capture: emitted cost events price the receipt and still reach the log", () => {
+    expect(run(false, [], [0.5, 0.25])).toEqual({ usd: 0.75, forwarded: 2 });
+  });
+  test("resume seeds the earlier cost events once, and new ones add to them", () => {
+    expect(run(true, [1, 2], [0.5])).toEqual({ usd: 3.5, forwarded: 1 });
+    expect(run(true, [1, 2], []).usd).toBe(3);
+  });
+  test("a fresh run ignores a stale log", () => {
+    expect(run(false, [1, 2], [0.5]).usd).toBe(0.5);
   });
 });

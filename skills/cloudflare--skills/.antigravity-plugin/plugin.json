@@ -1,0 +1,21 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "cloudflare",
+  "displayName": "Cloudflare",
+  "version": "1.0.3",
+  "description": "Build, deploy and manage apps on Cloudflare Workers, storage and AI, with platform skills and the Cloudflare API through one MCP server.",
+  "logo": "logo.svg",
+  "suggestedPrompts": [
+    "Deploy this project to Cloudflare Workers",
+    "Which Cloudflare storage fits this app: D1, KV, R2 or Durable Objects?",
+    "List my Cloudflare zones and Workers and flag anything that needs attention"
+  ],
+  "author": {
+    "name": "Cloudflare",
+    "url": "https://www.cloudflare.com"
+  },
+  "homepage": "https://developers.cloudflare.com/",
+  "repository": "https://github.com/cloudflare/skills",
+  "license": "Apache-2.0",
+  "keywords": ["cloudflare", "workers", "durable-objects", "d1", "r2", "kv", "agents", "mcp", "wrangler", "serverless"]
+}
