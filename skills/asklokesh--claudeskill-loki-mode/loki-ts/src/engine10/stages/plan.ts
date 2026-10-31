@@ -4,10 +4,11 @@ import { join } from "node:path";
 import type { RepoMap } from "../repomap.ts";
 import { selectRelevantFiles } from "../relevant_files.ts";
 import { MAX_TURNS_EXIT } from "../../runner/worker_proc.ts"; import { classifyExitCause } from "../session.ts"; // E-68 reuse: never re-classify exit codes here
-import { cascadeEnabled, hasRelevantTests, loadRepoMap, namedFiles, planMode, sizeTask, smallTaskPath, wallEnabled, wallModel } from "../sizing.ts";
+import { cascadeEnabled, hasRelevantTests, loadRepoMap, namedFiles, planMode, sizeTask, smallTaskPath, wallEnabled, wallFirstModel, wallModel } from "../sizing.ts";
 import { type RunContext, type Stage, type StageResult, type TestMap, taskBlock } from "../types.ts";
 import { withStagePrefix } from "../../features/lean_prefix.ts";
 import { PLAN_SCOPE_FILE, outOfRepoInstruction, planOutOfRepo, seedPlanScope } from "../../util/run_cap.ts";
+import { assumptionsBlock } from "../../features/spec_ambiguity.ts";
 import { loadTaskText } from "./wall.ts";
 import { fastTierModel } from "../../runner/model_downgrades.ts";
 import { planFallbackModel, planRoute, ROUTER_UNITS_INSTRUCTION } from "../../runner/router/plan_route.ts";
@@ -28,10 +29,11 @@ export function truncatePlan(raw: string, max: number = MAX_PLAN_LINES): string 
   return lines.slice(0, max).join("\n");
 }
 
-export function buildPlanBrief(task: string, relevantFiles: string[], outputPath: string, scopePath: string = outputPath.replace(PLAN_OUTPUT_FILENAME, PLAN_SCOPE_FILE), router: boolean = false, intentCard: boolean = false, behaviorChange: boolean = false, riskDecl: boolean = false): string {
+export function buildPlanBrief(task: string, relevantFiles: string[], outputPath: string, scopePath: string = outputPath.replace(PLAN_OUTPUT_FILENAME, PLAN_SCOPE_FILE), router: boolean = false, intentCard: boolean = false, behaviorChange: boolean = false, riskDecl: boolean = false, assumptions: unknown = undefined): string {
   return withStagePrefix([
     "You are the Loki 10 plan stage.",
     ...taskBlock(task),
+    ...assumptionsBlock(assumptions), // headless ambiguous spec: the same assumptions the receipt records
     relevantFiles.length
       ? `Relevant files (by keyword overlap with the task):\n${relevantFiles.join("\n")}`
       : "No relevant files were found by keyword overlap; use your own judgement.",
@@ -65,7 +67,7 @@ export const planStage: Stage = {
     const skip = mode === "never" || (mode === "auto" && sz.size === "small" && !pr.routed);
     // E-64: wall.ts makes this same check to skip itself; a forced plan (LOKI_E10_PLAN=always) also forces "wall", since it still gets its own Wall.
     const path = mode === "always" ? "wall" : smallTaskPath(sz.size, hasRelevantTests(task, loaded, testMap, ctx.tests.impacted));
-    ctx.emit("variant", null, { size: sz.size, reasons: sz.reasons, plan_mode: mode, plan_skipped: skip, wall_model: wallEnabled() ? wallModel() : null, small_task_path: path, cascade: cascadeEnabled() });
+    ctx.emit("variant", null, { size: sz.size, reasons: sz.reasons, plan_mode: mode, plan_skipped: skip, wall_model: wallEnabled() ? wallFirstModel(sz.size) : null, wall_model_reauthor: wallEnabled() ? wallModel() : null, small_task_path: path, cascade: cascadeEnabled() });
     if (skip) pr.record({ planModel: "none", skipReason: "plan stage skipped (LOKI_E10_PLAN=0)" });
     if (skip && mode === "auto") seedPlanScope(ctx.runDir, namedFiles(task, loaded)); // the scope guard reads plan-scope.json
     if (skip) return { status: "skipped", data: { size: sz.size }, reason: mode === "never" ? "LOKI_E10_PLAN=0" : "small task: implementer plans" };
@@ -77,7 +79,7 @@ export const planStage: Stage = {
     const cardOn = intentCardEnabled(process.env);
     const runPlan = (onSonnet: boolean) => ctx.sessions.run({
       stage: "plan",
-      brief: buildPlanBrief(task, relevantFiles, outputPath, join(ctx.runDir, PLAN_SCOPE_FILE), pr.routed, cardOn, mutationStrict(), reviewerBriefEnabled()),
+      brief: buildPlanBrief(task, relevantFiles, outputPath, join(ctx.runDir, PLAN_SCOPE_FILE), pr.routed, cardOn, mutationStrict(), reviewerBriefEnabled(), prior.intake?.assumptions),
       tier: "fast",
       iterationId,
       limitS: planStage.limitS,

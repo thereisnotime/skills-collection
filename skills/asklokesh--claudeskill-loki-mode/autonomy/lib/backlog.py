@@ -201,6 +201,12 @@ def load_dag(path, group):
     return group, units
 
 
+def deps_note(task, skipped):
+    """Task text plus a line naming dependency dirs the worktree prep did not copy."""
+    return "%s\n\nThese dependency directories were not copied into this worktree: %s. Install them before building or testing." % (
+        task, ", ".join(skipped))
+
+
 def main(argv):
     ap = argparse.ArgumentParser(prog="loki backlog", add_help=True)
     ap.add_argument("repo")
@@ -378,6 +384,15 @@ def main(argv):
                 tmp = dst + ".tmp%d" % os.getpid()
                 shutil.copyfile(src, tmp)
                 os.replace(tmp, dst)
+            # The sealed Wall copies travel with the receipt: integrate reruns them on the merged tree after the worktree is gone.
+            wsrc, wdst = os.path.join(src_dir, "wall"), os.path.join(dst_dir, "wall")
+            if os.path.isdir(wsrc) and not os.path.islink(wsrc) and not os.path.islink(wdst):
+                shutil.rmtree(wdst, ignore_errors=True)
+                os.makedirs(wdst, mode=0o700, exist_ok=True)
+                for name in os.listdir(wsrc):
+                    f = os.path.join(wsrc, name)
+                    if os.path.isfile(f) and not os.path.islink(f):
+                        shutil.copyfile(f, os.path.join(wdst, name))
         except OSError:
             pass
 
@@ -413,7 +428,12 @@ def main(argv):
             # Shared worktree prep (D51-B05): per-base lock, clean start point, deps copied.
             git("branch", "-D", s["branch"], cwd=top)
             try:
-                worktree_prep.prepare_worktree(top, wt, s["branch"], base=s.get("base") or None)
+                prep = worktree_prep.prepare_worktree(top, wt, s["branch"], base=s.get("base") or None)
+                if prep.get("deps_skipped"):
+                    say("backlog: %s deps not copied (%s), the session installs them"
+                        % (s["label"], ", ".join(prep["deps_skipped"])))
+                    if s["unit"]:  # per-unit task text, outside the cached prompt prefix
+                        s["cmd"] = [s["cmd"][0], deps_note(s["cmd"][1], prep["deps_skipped"])] + s["cmd"][2:]
                 r = None
             except (RuntimeError, subprocess.CalledProcessError) as e:
                 msg = getattr(e, "stderr", None) or str(e)

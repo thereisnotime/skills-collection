@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **claude-code-hooks** (`daymade-claude-code` v4.33.18 → v4.33.19): Add an owner-bound regression template for shared rule refresh/disable, deadline failure direction and recoverable lifecycle transitions. Preserve host protocols, independent waits and scoped rollback. Change type: bounded regression guidance.
+- **frontend-visual-qa** (v1.21.29 → v1.21.30): Verify nonblocking diagnostics across explicit disclosure, live data refresh and navigation remounts; preserve visible uncertainty, primary work and selected-task recovery. Change type: bounded lifecycle acceptance guidance.
+
+- **tibo-reset-codex** (v2.7.2 → v2.8.0): Add tier-upgrade as a direct reset event and attribution candidate (Pro tier upgrade refills the weekly window and re-anchors it to the upgrade moment; verified 2026-10-31), with transcript statement parsing, negation-regex calibration, and a two-way replay against the session's real before/after reading pair. Document the Day N challenge cadence (feature day ≠ reset day; multi-day batch announcements anchor to Pacific calendar days; banked-typed resets refill inventory, not weekly quota) and two banked-redemption timing rules (never redeem at full; redeem on urgent need even while a new banked window is announced — near-zero opportunity cost). Update the Radar indexing-lag data points (13 min to 1 h+). Change type: additive attribution candidate plus factual operating guidance.
+- **lark-cli-router** (`daymade-claude-code` v4.33.17 → v4.33.18): Distinguish nonzero device-flow exits from domain recovery, preserve missing-scope limitations, and require explicit user-domain readback before declaring success. Change type: bounded authentication-recovery guidance.
+- **macos-permissions** (`daymade-macos` v1.26.11 → v1.26.12): Resolve existing authorized credential owners and supported native entries before returning Keychain password entry to the person. Preserve exact-context matching, host refusals, grant boundaries and original-operation verification. Change type: bounded recovery-routing correction.
+- **qa-expert** (v1.2.9 → v1.2.10): Compare actual migration consumers with fixed inputs, complete semantic results and explicit attribution limits; separate original-budget acceptance from lower-layer diagnostic reads. Preserve ordinary fixture and read-only authorization boundaries. Change type: bounded migration-acceptance guidance.
+- **debugging-network-issues** (v1.11.6 → v1.11.7): Distinguish database, upstream-header, complete-body and user-facing timing boundaries. Retain safe error identity and separate original deadlines from extended diagnostic reads. Change type: bounded timeout-diagnosis guidance.
+- **macos-cleaner** (`daymade-macos` v1.26.10 → v1.26.11): Discover OrbStack image aliases from existing storage hints, retain unknown runtime adoption, and measure each distinct image on its own volume. Remove fixed-layout assumptions and obsolete cleanup measurements. Change type: bounded factual and operating-guidance correction.
+- **auto-repo-setup** (v2.1.9 → v2.2.0): Add a version-bound native Codex hook-trust recipe with exact-definition authorization, configuration compare-and-swap and fresh-process readback. Preserve registration, hook enablement and OS permission boundaries. Change type: bounded operating workflow addition.
+- **tunnel-doctor** (v1.17.12 → v1.17.13): Add pre-handshake Codex startup isolation and process-scoped egress comparison; distinguish a completed temporary-route operation from recovery of the default consumer. Change type: bounded diagnostic guidance.
+- **llm-eval-harness** (v1.7.2 → v1.8.0): Separate HTTP response receipt, usable answers, explicit refusals and cause-unknown empty replies. Preserve native terminal fields and existing exit-code values; clarify that refusal or exit 1 does not establish a provider outage. Add offline response, raw-evidence and CLI compatibility checks. Change types: additive result classification and factual diagnostic correction.
+
+- **ghostty-use** (v1.9.6 → v1.9.7): Route repository instructions to time-window selection and history-readiness acceptance. Remove copied helper defaults, profile-environment guidance and reference summaries; scope earlier platform probes separately from native AX observations. Change type: documentation alignment and deduplication.
+
+- **ghostty-use** (v1.9.5 → v1.9.6): Clarify bounded time-window recovery selection, separate backup coverage from activity, and distinguish process presence from readable-history readiness. Correct adapter-specific AX limits while preserving restore selection, foreground ownership and account-switch behavior. Change types: bounded operating guidance and factual correction.
+
+- **macos-cleaner** (`daymade-macos` v1.26.9 → v1.26.10): Treat matching size and mtime as duplication clues in the example and evidence table; retain complete two-end SHA verification and live-use requirements. Change type: factual correction.
+- **transcript-fixer** (`daymade-audio` v1.54.1 → v1.54.2): Document explicit-target read-only database inspection and actual-schema preflight before maintenance. Clarify SQL-NULL versus named-domain rules, Stage 1 and native-agent examples, and dispatch ownership; consolidate schema and state guidance. Change type: documentation correction and deduplication; runtime algorithms unchanged.
+
+- **transcript-fixer** (`daymade-audio` v1.54.0 → v1.54.1): Distinguish a literal business domain named `global` from SQL-NULL global rules in context-rule state commands. Preserve the existing `global` spelling for SQL NULL and add an explicit literal-domain form with the same exact-target, transaction and audit checks. Change type: bounded rule-lifecycle compatibility repair.
+
+- **transcript-fixer** (`daymade-audio` v1.53.3 → v1.54.0): Add exact-ID context-rule activation management with expected-target checks and transactional audit records. Keep dictionary corrections, transcript content and review queues separate. Change type: bounded rule-lifecycle capability addition.
+
+- **frontend-visual-qa** (v1.21.28 → v1.21.29): Judge reference-faithful content and authorized expressive interactions against separate visible contracts. Compare native display semantics with source text and display ranges without rewriting raw data. Change type: bounded reference-parity guidance.
 - **tech-selection** (`daymade-claude-code` v4.33.16 → v4.33.17): Assign database and object-storage responsibilities from query, authorization, transaction and recovery needs. Add complete-body and cross-store failure probes while retaining size and format exceptions. Change type: bounded storage-selection guidance.
 - **ghostty-use** (v1.9.4 → v1.9.5): Route account-switch entry points through the canonical owner selection before choosing a recovery workflow. Remove copied switch commands and acceptance rules from the Skill entry, and align repository recovery navigation. Change type: operating-document alignment and lossless deduplication.
 
@@ -1935,9 +1960,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docker_analysis.md` adds the missing second half of its own independent-
   verification rule — that rule covered object eligibility but not the reclaim
   number, so a summed `UNIQUE SIZE` total now needs recomputing from a second
-  direction before it enters a plan. An independent sweep of a "6 dangling
-  images, all deletable" set returned 6.38 GiB net with 2 images still
-  container-referenced.
+  direction before it enters a plan.
 
 - **macos-cleaner** (`daymade-macos` v1.3.0 → v1.3.1): `proving-redundancy-before-deletion.md`
   gains rung 0 — target identity. Before any evidence is collected, `df

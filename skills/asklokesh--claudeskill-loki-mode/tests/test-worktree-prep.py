@@ -71,6 +71,33 @@ class WorktreePrepTest(unittest.TestCase):
         self.assertEqual(res["deps"], "setup")
         self.assertTrue((Path(res["path"]) / "setup-ran").exists())
 
+    def test_unsafe_deps_skipped_not_refused(self):
+        (self.repo / ".gitignore").write_text("node_modules/\n.venv/\n")
+        git(self.repo, "add", ".gitignore")
+        git(self.repo, "commit", "-q", "-m", "ign")
+        bindir = self.repo / ".venv" / "bin"
+        bindir.mkdir(parents=True)
+        os.symlink("/usr/bin/env", str(bindir / "python"))
+        res = worktree_prep.prepare_worktree(str(self.repo), self.dest("wt5"), "b5")
+        self.assertEqual(res["deps"], "skipped")
+        self.assertEqual(res["deps_skipped"], [".venv"])
+        self.assertFalse((Path(res["path"]) / ".venv").exists())
+
+    def test_partial_copy_failure_leaves_no_dep_dir(self):
+        nm = self.repo / "node_modules" / "pkg"
+        nm.mkdir(parents=True)
+        (nm / "ok.js").write_text("1\n")
+        locked = nm / "locked.js"
+        locked.write_text("2\n")
+        os.chmod(locked, 0)
+        try:
+            res = worktree_prep.prepare_worktree(str(self.repo), self.dest("wt7"), "b7")
+        finally:
+            os.chmod(locked, 0o644)
+        self.assertEqual(res["deps"], "skipped")
+        self.assertEqual(res["deps_skipped"], ["node_modules"])
+        self.assertFalse((Path(res["path"]) / "node_modules").exists())
+
     def test_lock_contention_times_out(self):
         import fcntl
         held = open(worktree_prep._lock_path(str(self.repo)), "w")
@@ -90,14 +117,15 @@ class WorktreePrepTest(unittest.TestCase):
             else:
                 os.environ["LOKI_PREP_LOCK_TIMEOUT"] = old
 
-    def test_relative_symlink_escape_refused(self):
+    def test_relative_symlink_escape_skipped(self):
         nm = self.repo / "node_modules"
         nm.mkdir()
         (nm / "ok.js").write_text("1\n")
         os.symlink("../../outside", nm / "escape")
         self.assertTrue(worktree_prep._escapes_source(str(nm)))
-        with self.assertRaises(RuntimeError):
-            worktree_prep.prepare_worktree(str(self.repo), self.dest("wt5"), "b5")
+        res = worktree_prep.prepare_worktree(str(self.repo), self.dest("wt6"), "b6")
+        self.assertEqual(res["deps_skipped"], ["node_modules"])
+        self.assertFalse((Path(res["path"]) / "node_modules").exists())
 
     def test_relative_symlink_inside_allowed_and_shebang_refused(self):
         nm = self.repo / "node_modules"
@@ -108,6 +136,42 @@ class WorktreePrepTest(unittest.TestCase):
         (nm / "bin").mkdir()
         (nm / "bin" / "tool").write_text("#!%s/node_modules/.bin/node\n" % self.repo)
         self.assertTrue(worktree_prep._escapes_source(str(nm)))
+
+    def test_absolute_symlink_to_external_python_allowed(self):
+        (self.repo / ".gitignore").write_text("node_modules/\n.venv/\n")
+        git(self.repo, "add", ".gitignore")
+        git(self.repo, "commit", "-q", "-m", "ignore venv")
+        ext = Path(self.tmp.name) / "ext-python"
+        ext.write_text("#!/bin/sh\n")
+        venv = self.repo / ".venv"
+        (venv / "bin").mkdir(parents=True)
+        os.symlink(str(ext), venv / "bin" / "python")
+        self.assertFalse(worktree_prep._escapes_source(str(venv)))
+        res = worktree_prep.prepare_worktree(str(self.repo), self.dest("wt6"), "b6")
+        self.assertIn(res["deps"], ("cow", "copy"))
+        self.assertTrue(os.path.islink(Path(res["path"]) / ".venv" / "bin" / "python"))
+
+    def test_absolute_symlink_into_source_tree_refused(self):
+        venv = self.repo / ".venv"
+        (venv / "bin").mkdir(parents=True)
+        os.symlink(str(self.repo / "a.txt"), venv / "bin" / "python")
+        self.assertTrue(worktree_prep._escapes_source(str(venv)))
+        os.remove(venv / "bin" / "python")
+        os.symlink(str(self.repo / "src-mod"), venv / "bin" / "python")
+        self.assertTrue(worktree_prep._escapes_source(str(venv)))
+
+    def test_absolute_symlink_into_prefix_sharing_sibling_allowed(self):
+        sibling = Path(self.tmp.name) / (self.repo.name + "-other")
+        sibling.mkdir()
+        (sibling / "python").write_text("#!/bin/sh\n")
+        venv = self.repo / ".venv"
+        (venv / "bin").mkdir(parents=True)
+        os.symlink(str(sibling / "python"), venv / "bin" / "python")
+        self.assertFalse(worktree_prep._escapes_source(str(venv)))
+        os.remove(venv / "bin" / "python")
+        (self.repo / "inner").mkdir()
+        os.symlink(str(self.repo / "inner"), venv / "bin" / "python")
+        self.assertTrue(worktree_prep._escapes_source(str(venv)))
 
 
 if __name__ == "__main__":

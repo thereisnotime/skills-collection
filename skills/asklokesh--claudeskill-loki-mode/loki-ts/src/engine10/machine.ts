@@ -52,7 +52,8 @@ function defaultLoader(dir: string) {
     return mod ? (mod.stage ?? mod.default ?? null) : null;
   };
 }
-export const hasFailures = (d: Obj | undefined): boolean => (Array.isArray(d?.failures_grouped) && d.failures_grouped.length > 0) || (typeof d?.holdout_failed === "number" && d.holdout_failed > 0); // C-C4b: a held-out failure is only an opaque count
+const harnessOnlyFail = (d: Obj | undefined): boolean => { const f = (Array.isArray(d?.checks) ? (d.checks as Obj[]) : []).filter((c) => c?.result === "fail"); return f.length > 0 && f.every((c) => c.owner === "harness"); }; // a harness-owned failure never feeds a fix round or a STALLED stop
+export const hasFailures = (d: Obj | undefined): boolean => (Array.isArray(d?.failures_grouped) && d.failures_grouped.length > 0 && !harnessOnlyFail(d)) || (typeof d?.holdout_failed === "number" && d.holdout_failed > 0); // C-C4b: a held-out failure is only an opaque count
 // Only already_satisfied short-circuits to the tail. spec_conflict still runs verify (E-98b) but no fix round (FC-FIX-OVER-CONFLICT); seal reads implement.exit off outputs for the verdict.
 const earlyExit = (d: Obj): boolean => d.already_satisfied === true;
 /** After a cap or limit kill, how long the machine waits for the aborted stage to settle before moving on. */
@@ -215,7 +216,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
             // Fail closed: a base run that passes while implement changed files is not trusted as "already satisfied" (the base copy could still resolve into live code); verify decides.
             const unsure = changed === null || touched.length > 0, d = r.data, b0 = d.base_run as { pass?: number; fail?: number; not_run?: number };
             const green = typeof b0.pass === "number" && b0.pass > 0 && b0.fail === 0 && (b0.not_run ?? 0) === 0;
-            const d1 = unsure && green ? distrustGreenBase(d) : d; // shared fail-closed mechanism (wall.ts distrustGreenBase)
+            const d1 = unsure && green && d.reproduction_green_on_base !== true ? distrustGreenBase(d) : d; // shared fail-closed mechanism (wall.ts distrustGreenBase)
             r = { ...r, data: { ...d1, base_run: { ...(d1.base_run as Obj), ...(changed === null || changed.some((f) => hooks.wall!.manifests.test(f)) ? { deps: "head" } : {}) } } };
           }
         } finally { rmSync(base, { recursive: true, force: true }); }

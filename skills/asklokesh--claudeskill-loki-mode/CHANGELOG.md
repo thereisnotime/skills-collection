@@ -5,6 +5,161 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.95.0 (2026-10-31)
+
+`loki answer` now resumes a blocked run in place, a Wall test that contradicts the task is settled by two referees and caps the Seal at PARTIAL, implement sessions refuse file writes outside their worktree, and a test-command timeout now kills the whole runner process group.
+
+### Added
+
+- `loki answer <run-id> "<text>"` resumes a BLOCKED run in place under the same run id instead of starting a follow-up run: the answer joins the run's locked task, stages that already settled are restored and not re-run, and the log records `run.resumed` rather than a second `run.started`. The text can also be given with `--text` or through the Control Plane answer file.
+- `loki verify` accepts the extra seal an answered BLOCKED run produces: each earlier seal must be followed by a SPEC_CONFLICT completion and an answered resume whose recorded answer hash matches the answer, and the verified receipt must hold the last seal. The hash is computed over the answer as the log stores it, so a secret-shaped answer still verifies.
+- A Wall test that contradicts the task is now arbitrated by two referees and checked mechanically. A correction can only change the body of the one test it names, and an implementer conflict can no longer drop or weaken a check.
+
+### Changed
+
+- A run whose Wall test was corrected by arbitration, or rewritten with the referees switched off, seals PARTIAL instead of VERIFIED. The correction stays disclosed in NOT PROVEN, the seal note names the arbitration, and a resumed run keeps the arbitrated Wall hash and its disclosure. A run that would have sealed ALREADY_SATISFIED after arbitration is capped the same way.
+- Implement sessions refuse the Write, Edit and NotebookEdit tools outside the unit worktree, on both the SDK and CLI routes. This does not cover Bash, MCP tools or hooks, and is not a sandbox. Plan, fix, review and other stages are unchanged.
+- The Wall stage keeps a spent-budget green that was already flagged as a reproduction green on base, instead of distrusting it again.
+- Runs on the legacy engine report the same first-run milestones as the default engine: first start, first run finished, first verified build, and a second run inside seven days, each sent once per machine. Nothing is sent when analytics is off.
+
+### Fixed
+
+- A test-command timeout now kills the whole process group, so a runner started through `npx` or `npm` can no longer outlive the timeout or keep holding the output pipes. A child that ignores SIGTERM is killed with SIGKILL at the timeout. Sync and async runs also die with their owner and load no repo config, so a repo `bunfig` or `.env` cannot be picked up.
+- Test commands receive exactly the token-free test environment, never the parent environment, and a missing environment falls back to the plain test env.
+- The arbitration's Python checks no longer reuse stale bytecode.
+- The Seal drift reader and the Wall rewrite both use the single sealed Wall directory resolver, so the drift check reads the directory the rewrite wrote.
+
+## v11.94.0 (2026-10-31)
+
+Loki waits out Claude's 5-hour usage limit instead of failing, `loki start` exits 6 for a PARTIAL run, custom webhooks are now signed (breaking), `loki plan --fast` gives a one-screen plan, and receipts copied under another run id are refused. Seal and git hardening are tightened.
+
+### Added
+
+- Loki now recognizes Claude Code's "5-hour limit" message as a rate limit and waits instead of failing. A provider that exits with no output is reported as "provider returned no output" instead of unclassified.
+- The intake step shows where its time goes and reuses the project model across identical checkouts of the same committed tree. A reused model is re-validated against the checkout before it is trusted.
+- Intake scores how ambiguous a spec is. Interactive runs ask one batched set of questions; headless runs record their assumptions in the receipt and pass them to plan and implement.
+- PDF and DOCX specs are extracted with page and line anchors, with OCR for scanned pages when an OCR tool is installed.
+- `loki plan --fast` prints a one-screen plan from the small model tier, then a refine diff.
+- A group run that ends FAILED now seals a verifiable refusal receipt.
+- `loki verify`, `show` and `md` accept the run id that `loki start` prints.
+- `loki doctor` warns when the installed Agent SDK differs from the pinned version and prints a fix command for your install layout.
+- `loki telemetry show` and `LOKI_TELEMETRY_DEBUG` print the event keys instead of sending them.
+- `LOKI_MUTATION_PROOF_JOBS` opts in to running the Seal mutation proof's Wall tests several at a time.
+- `scripts/prune-worktrees.sh` removes merged or abandoned agent worktrees safely (dry run by default).
+- The docs show the VS Code `mcp.json` that `loki mcp install` writes.
+
+### Changed
+
+- BREAKING: custom webhooks are now signed. `loki notify webhook` and the run lifecycle events post JSON with `schema_version` 1 and an `X-Loki-Signature: sha256=<hex>` header (HMAC-SHA256 of the raw body keyed by LOKI_WEBHOOK_SECRET). A LOKI_WEBHOOK_URL with no LOKI_WEBHOOK_SECRET now sends nothing, and `loki notify status` says so. The payload carries event names, outcomes and ids only, and the call has a 5 second connect and 10 second total timeout.
+- `loki start` now exits 6 for a PARTIAL run (done, not fully proven) instead of 1, so a CI gate can tell it from FAILED (exit 1). Any nonzero test still fails the gate; a script that matched exactly 1 for PARTIAL must also accept 6. The code is listed in docs/exit-codes.md, `loki start --help` and the README outcome table.
+- Seal's mutation proof runs the Wall tests one at a time by default, so a test with side effects outside the repo can no longer fake a yes. The opt-in concurrent mode reports a failing Wall test only if it also fails when re-run alone, re-runs it from a clean base tree, and stops starting tests once its time budget is spent.
+- Ref and config git calls skip the repo filter and textconv driver scan, which cut the time to the first printed line of `loki start` from about 0.34s to 0.25s (median of 12 runs, measured from source with a stubbed model). The skip fails closed: it applies only when every leading option is a known global option.
+- A gate that failed for a harness reason now seals PARTIAL with the harness as owner instead of FAILED, and starts no fix round.
+- The Wall for a tiny greenfield task (one file) is bounded to six assertions unless more acceptance lines exist, so it authors less while still running.
+- A haiku run keeps project-model discovery, the Wall re-author and the already-done check on haiku.
+- Advisory reviewers for mergeability and coverage never run on haiku when `LOKI_REVIEW_ADVISORY=0`, on both the TypeScript and bash routes.
+- Sizing matches named files as exact tokens, so `myindex.ts` or `index.tsx` no longer count as naming `index.ts`.
+- The variant event reports the model that authored the Wall (`wall_model`) and the re-author ceiling (`wall_model_reauthor`). Opencode runs record the model they were asked for, or an unreported default naming the provider.
+- Shipping a release from a linked worktree is refused up front with the main checkout path, and the release guard timeout default is 900 seconds.
+- The usage governor finishes inside the pulse deadline and no longer leaks cache temp files. `next --suggest` gh timeouts are overridable. Provider effort lookups start python3 once instead of twice.
+- Telemetry sends the PostHog geoip-disable flag on every analytics request and flags throwaway container homes. Activation milestones (install, first start, first run finished, first verified, second run within 7 days) are sent once per machine with a coarse install-age bucket, behind the strict analytics gate, and a first run reports each step once even when events fire together.
+
+### Fixed
+
+- Verify-PR now treats an added or removed `jest.config.json` as runner config, so a `moduleNameMapper` stub can no longer reach VERIFIED.
+- `loki verify`, the proof badge, bundle and share, and `loki undo` refuse a receipt that was copied under another run id.
+- A unit whose dependency folder cannot be copied safely now starts without it and installs its own, instead of failing before the model is called. A copy that fails partway is removed and reported as "copy failed", distinct from "not safe to copy". A backlog unit whose dependency dirs were skipped has them named in its task text with an instruction to install them.
+- Worktree prep accepts a venv whose interpreter symlink points outside the repo, keeps a link into a prefix-sharing sibling directory, and refuses a link into the repo.
+- Hardened git calls now neutralise every gpg program and `log.showSignature`, and pin off `tag.gpgSign`, `push.gpgSign` and `gpg.ssh.defaultKeyCommand`, so a repo-set command no longer runs when git signs a tag or shows signatures.
+- Verify, the mutation proof and Wall publishing find the sealed acceptance-check copy through one shared resolver, so a moved or renamed copy is judged the same way everywhere.
+- The Bun TypeScript syntax check in verify parses only and no longer runs the tree's code.
+- `loki keys` and `loki verify` print why they are refused when Bun is missing instead of exiting silently, and `loki verify --pubkey` and `loki keys` no longer hang under `LOKI_LEGACY_BASH=1`.
+- The engine honors `LOKI_DURABLE_STATE=1`, so deterministic failures exit 20 like the legacy runner.
+- Done-recognition no longer treats the iteration-0 checklist as proof of completed work.
+- The unsigned generic webhook sender is removed from `notify.sh`; only the signed path posts to `LOKI_WEBHOOK_URL`.
+- Runs on the legacy engine report the same first-run milestones as the default engine.
+
+## v11.93.0 (2026-10-30)
+
+The Wall catches failing tests earlier in the same session, fewer runs end PARTIAL for test-harness reasons, and the Claude Agent SDK moves to 0.3.314.
+
+### Added
+
+- The implement session now re-runs the repo's Wall and impacted tests when it tries to stop and, if they fail, fixes them in the same session (up to 2 rounds) instead of waiting for a separate fix session. The checks use the same runner, interpreter and harness-failure rules as verify, and never block on a test that was already failing before the task.
+- The usage governor accepts `--weekly-ceiling` (above 90, up to 100) to apply a verified weekly ceiling override. The default stays 90.
+
+### Changed
+
+- The Claude Agent SDK is updated from 0.3.312 to 0.3.314. The update adds a new startup failure reason (`sandbox_required_unavailable`) and a `blockWritesOutsideWorkingDirectories` setting to the SDK types, and clarifies sandbox and permission wording; no existing Loki behavior changes. The Docker image and the architecture reference pin the same version.
+- The Wall brief states that a task-named file keeps its path from the repo root, so a test no longer pulls the deliverable into `tests/`, and the brief stays under its size cap.
+- The commit step leaves untracked toolchain build output (a cargo `target` dir, `.gradle`, `node_modules`, `__pycache__`) out of the commit unless that directory already holds a tracked file, decides whether such a directory is yours against the run's base commit, and names each dropped directory in the receipt.
+- A symlink a passing Wall requires is disclosed in the receipt instead of capping the verdict. A new package manifest the plan declared still caps the verdict, and a test-runner hook, a link into an untouched file or out of the repo, and an undeclared change still cap.
+
+### Fixed
+
+- Fewer runs end PARTIAL for reasons the task did not cause: a Wall test that cannot build on the base now counts as failing there, a passing Go Wall file is accepted on the base, and an empty full suite is a note only when it was empty on the base too.
+- An empty package suite is only excused by the root baseline when the package is the repo root, and a repo profile from another revision is refused.
+
+## v11.92.0 (2026-10-30)
+
+### Added
+
+- `loki try` lists each supported provider's login or key command once and exits 2 when none is ready, and prints the `npx` verify command for the kept receipt with the receipt path quoted. A packaged test runs `loki try` from the tarball with nothing else installed and proves Bun comes from the npx install with none on PATH.
+- Verbose stage lines now show the run's spend so far, for example `($0.04 so far)`, read from the same cost total as the final Cost line. A partly priced run reads `(partial: $X so far)` and a run with nothing priced reads `(spend not measured)`.
+
+### Changed
+
+- A successful run ends on a cleaner summary: the repo Readiness line prints only on a repo's first run or when its score changes (a marker under `.loki/state` records the last score shown), and a sealed run with nothing unproven and no flaky tests no longer prints an empty NOT PROVEN line.
+- Intake skips the Project Model discovery session when the test map already resolves one runner for every detected test and no package manifest sits below the repo root, which saves the 11 to 17 seconds that session took on multi-directory repos. Repos with nested manifests still run discovery as before.
+- `loki share`, `loki metrics --share` and `loki proof share` now write their temp files into a private directory with a fixed name, so a file pre-created in the temp directory can no longer make the command fail.
+
+### Fixed
+
+- A genuine passing Go check whose generated `-run ^(TestA|TestB)$` argument carries regex characters is now counted as a pass instead of leaving the run PARTIAL. Forged exits, injected shell text and the shell-line form are still refused.
+- `loki verify-pr` now exits 4 (NOT PROVEN, naming the file) when a PR removes the pytest section from setup.cfg or pyproject.toml, or the jest key from package.json, while keeping the file, or adds an empty pytest.ini that masks other config, or adds or removes pytest config in pyproject.toml written as a top-level dotted key (`tool.pytest.ini_options...`), a dotted key under `[tool]`, a quoted key (`tool."pytest"...`) or an inline table (`pytest = { ini_options = ... }`); it previously exited 0 VERIFIED. A pytest version pin bump (`==` or Poetry caret) is still a plain dependency bump.
+- A `bun test` run that is stopped by SIGTERM, Ctrl-C or a timeout no longer leaves loki-test-home-* and loki-test-key-* directories in your temp folder. Runs that are killed outright or stopped by `--bail` still leave their directories, which the next run removes once they are over 10 minutes old, only when they carry that run's owner marker and its process is gone.
+- Claude helper calls that Loki makes outside the main build loop (PRD enrichment, the done-recognition and council reviews, the voter agents, grill, quickstart classification, and `loki` migrate, docs, heal, review and remote-control) now run with `SHELL=/bin/bash`, so a shell alias such as `ls=eza` no longer hangs the agent's Bash tool. Set `LOKI_E10_KEEP_USER_SHELL=1` to keep your own shell.
+
+### Known issue
+
+- `loki verify-pr` judges a pyproject.toml, setup.cfg or tox.ini that contains a test section as a whole file, so an unrelated edit to such a file is refused as a runner config change. This refuses too often; it never reports a false VERIFIED.
+
+## v11.91.0 (2026-10-30)
+
+### Added
+
+- Every PR body and `loki verify` output now prints the receipt's signed Seal accuracy line, or "Seal accuracy: not measured" when the receipt has none for that change.
+- When the task carries runtime evidence (a stack trace, request and response pair or tracker URL), the Wall brief now requires a test that reproduces it and fails on the current code; if every Wall test already passes there, the run records the evidence as not reproduced and never reports the task as already satisfied (the sealed verdict stays PARTIAL). The evidence block in the brief is capped at 700 bytes and keeps only plain path characters. Runs without evidence are unchanged.
+- Docs and fixtures only: a GitHub Action example for `loki verify-pr` (`docs/examples/loki-ci-example.yml.example`) and a PR-shaped seeded-defect corpus under `benchmarks/seeded-defects/pr-cases`, where each case carries a runnable pytest check in its issue and in both trees so a control reaches `loki verify-pr` exit 0. No runtime behavior changes.
+
+### Changed
+
+- `loki share`, `loki proof share` and `loki metrics --share` now create a secret GitHub gist by default (they were public). Pass `--public` to publish a public gist, which prints a one-line warning that anyone with the URL can see it. `--private` still works as a no-op alias.
+- The cost estimate on a first run in a repo now shows a band measured from 72 recent runs ($0.01-$0.17 for a task with no plan yet), labelled (first run in this repo); it previously printed $0.11-$0.98 while actual runs cost about $0.02. The band is an estimate, not a guarantee.
+
+### Fixed
+
+- `loki verify-pr` now refuses a PR that adds or changes runner config for jest, vitest and vite (config files, and a `package.json` with a `jest` key), as well as `bunfig.toml`, `conftest.py` and ini, cfg or toml files whose head version has a test section. A deleted or renamed config file is judged by its base version, both sides of a rename are listed, and a `package.json` that cannot be parsed counts as config. A submodule bump is not treated as runner config. Before, a PR could change jest or vitest config, or delete or rename such a file, and still read as verified.
+- The earned auto-merge check now refuses a pure rename (100% similarity, no mode line in the diff) of a symlink or submodule between earned paths, reading the file modes from git on both sides of the PR, and names the renamed file in the refusal.
+
+### Known issue
+
+- `loki verify-pr` can still report VERIFIED when a PR weakens pytest or jest config without touching a recognised config section, for example by removing the test section from setup.cfg or the jest key from package.json while keeping the file, adding an empty pytest.ini, or writing pytest options as TOML dotted keys in pyproject.toml. A fix is in progress.
+
+## v11.90.0 (2026-10-30)
+
+### Added
+
+- Every signed receipt now carries one Seal accuracy line read from the measured seeded-defect results: wrong passes out of seeded defects for the change's language and test runner, the 95% upper bound, and the Loki version it was measured on. The line says "not measured" when the version differs, the language and runner were not measured, or the result is older than 7 days; editing it breaks `loki verify`.
+- A parallel `loki start` group now reruns each unit's sealed Wall tests on the merged tree after the repo suite, so a unit that passed alone but is broken by another unit's change fails the group and is named, with a per-unit pass, fail or no_wall line in the output. A unit sealed with no Wall file is reported no_wall, never counted as a Wall pass; its proof on the merged tree is the repo suite, which must exit 0. A unit whose sealed receipt is missing or unreadable ends the group NOT PROVEN (exit 4). A tampered or unrunnable sealed copy, a failing test, or a Wall file that ran zero tests fails the group. A Go Wall that passes alone also passes in the group. Proven by the `integrate` tests "A and B each pass alone, B changes the default A's Wall depends on: merged Wall fails A and never ok", "a Go Wall that passes alone also passes in the group", "a Wall with one passing file and one zero-test file fails the unit (not_run counts)", "a unit whose sealed receipt is missing is no_wall, not a failure" and "a Wall whose directory is a symlink committed by another unit is refused and writes nothing outside the repo", the `runGroup` test "runGroup reruns u1's sealed Wall on the merged tree: u2 adds cfg.txt, the group fails naming u1", the group-runner test "a unit whose sealed Wall copy is tampered is FAILED (exit 1)", and the `runGroup` tests "runGroup: every unit sealed with no Wall file ends VERIFIED with a no_wall line per unit" and "runGroup: a harvested unit receipt removed ends NOT PROVEN (exit 4) and that unit reads no_wall". A group resumed from units harvested before this change has no stored Wall copies and fails closed at integration; rerun it fresh with `LOKI_GROUP_RESUME=0`.
+- Opt-in earned merge: with `LOKI_EARNED_MERGE=1`, `loki merge pr` (and `--ship`) merges only when every changed path has at least `LOKI_EARNED_MERGE_MIN_VERIFIED` (default 20, minimum 1) VERIFIED receipts in `loki trust` and no recorded revert, judging both sides of a rename; a truncated file list refuses. Protected paths (`.github/`, `.loki/`, `.env*`, `.envrc`, `CODEOWNERS`, plus `LOKI_EARNED_MERGE_PROTECTED` globs, matched case-insensitively), reverted paths and paths whose revert status is unknown stay PR-only, and the refusal names `gate: trust`. Off by default; behavior without the opt-in is unchanged.
+
+### Fixed
+
+- `loki verify-pr` no longer reports VERIFIED on a bare exit code 0 or on printed test totals: the issue's Check must run bun test, pytest, jest or vitest, and the pass is read from the report file that runner writes (the Check is run with a report flag added). A Check using another command, or a PR that adds or changes runner config (`bunfig.toml`, `conftest.py`, or an ini, cfg or toml file with a test-runner section), is NOT PROVEN with the reason and file named.
+- `loki trust` reports reverts as unknown (never 0) when the repository is a shallow clone or git cannot say whether it is, because truncated history can hide an earlier revert.
+- The moat check that an all-unmetered CLI run prints Cost: not measured, never $0.00 now runs the real run supervisor end to end with a stub worker and reads the Cost line it prints, so it no longer depends on a function name and turns red when the run prints more than one Cost line or when an unmetered run's Cost line carries any dollar figure.
+
 ## v11.89.0 (2026-10-30)
 
 ### Added
@@ -14,6 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `loki trust` now prints a per-path Seal record (and `path_seals` in `--json`): for each path in a receipt's `files_changed` list (the list the proof generator already records), how many receipts were sealed VERIFIED, how many were not, and how many revert commits in the repo history touched it (`null` when history is unreadable, never a made-up 0). Proven by the "per-path Seal record" tests in `loki-ts/tests/commands/trust.test.ts`: "reports 20 VERIFIED / 0 reverts for one path and flips a reverted path to 1", "reverts are null (unknown) outside a git repo, never a fabricated 0" and "human output lists the per-path record", plus "a proof written by the real generator for a repo change shows its path in loki trust", which runs `autonomy/lib/proof-generator.py` and then `loki trust`. Revert paths are read NUL-separated (`git show -z`), so a non-ASCII path no longer shows a false 0 reverts (test "a reverted merge counts reverts for a non-ASCII path and a path with a space (no quoted-path false zero)"), and a revert commit that cannot be read now makes reverts `null` for every path instead of undercounting (test "reverts are null (unknown), never 0, when a revert commit cannot be read").
 - Every engine10 run now records what each stage can do, read from the environment and argv it is spawned with and never declared, and the record fails closed: `can_push` and `network` are true, false or `"unknown"`, where false means proven and `"unknown"` means not proven. `secrets` lists the child env names outside one safe-name list (names only, never values, no pattern matching). `can_push` is true when a push token is held (the GitHub family, `GITLAB_TOKEN`, `LOKI_PR_BOT_TOKEN`) and false only when the env object was returned by the allowlist builder `buildStageEnv` (a module-private identity mark, so no env var or property can forge it), carries nothing beyond the safe names, `HOME` is a run-owned directory, `GIT_CONFIG_NOSYSTEM` is set, `GIT_CONFIG_GLOBAL` is `/dev/null` and `network` is proven cut; otherwise `"unknown"`, so today's worker, deep and pr spawns record `"unknown"`. `network` is false only when the argv starts with `bwrap`, `unshare` or `firejail` and that wrapper's own leading flags cut the network (the last of `--unshare-net`, `--unshare-all` and `--share-net` wins in bwrap); `sandbox-exec` always records `"unknown"`, because its SBPL profile language is a Scheme that can build an `allow` at runtime, so a profile is never read; the inner command's flags, an unrecognized wrapper or flag, and `LOKI_OFFLINE` all leave it `"unknown"`. The supervisor writes it as `capability.recorded`, the pr stage from the exact env its push script gets, and the worker emits `capability.observed`. The evidence code is `loki-ts/src/contrib/stage_capability.ts` behind `hooks.stageCapability`; with no contrib registered every field is `"unknown"`. Proven by `loki-ts/tests/engine10/supervisor_backstop.test.ts` (the per-stage capability map tests: a 13-row negative-control table, one row per input that would understate a stage, plus positive controls that return false, the four-condition test, the forged-lookalike case, the worker, deep and pr spawn-env test, the wrapper-parse abandon cases, the secrets list and the empty-hook case) and `loki-ts/tests/engine10/pr.test.ts` (the capability of the env the push script is spawned with).
 - Intake recognizes runtime evidence in the task text (Python, JS and Java stack frames, request and response pairs, Jira and Linear URLs) through one generic frame parser and records it with a content hash and size caps; pasted text is only pattern-matched, never run. The parser lives in contrib and core reaches it through the runtimeEvidence hook. A JS frame counts as evidence only when it names a JS or TS source file and is not a web URL, so prose such as a clock time or a date is ignored (proven by the "prose shaped like a bare frame" test in tracker_intake.test.ts). Proven by the extractRuntimeEvidence tests and the runtimeEvidence hook wiring test in tracker_intake.test.ts, and the traceback test in intake.test.ts.
+- A VERIFIED run's console summary and PR body now show which model tier sealed it and this repo shape's sealed parity record (the format is haiku sealed N of M, opus sealed N of M, counted from this repo's receipts, including runs that reused a cached or committed project model). Top-tier cost avoided is not recorded anywhere yet, so it always reads "not measured". The display never changes the verdict.
 
 ### Fixed
 
@@ -21,16 +177,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A run can no longer seal VERIFIED after hiding a planted file behind an ignore rule. Intake records the content hash of `.git/info/exclude` and of the effective `core.excludesFile` (resolved through `git config`, a missing file recorded as its own state), and verify lists NOT PROVEN, naming the file, when either one changed or `core.excludesFile` now points somewhere else, then also lists the ignored files created during the run, which `git status`, the receipt and the pull request never show; proved by the tests `info/exclude pattern added by the run, then a hidden forged conftest turns the target green` and `core.excludesFile pointed at a new file by the run`. Notes carry repo-relative paths or labels, with the home directory shown as `~`, never an absolute path; the same two tests assert it. An `info/exclude` the user had before the run and the run left alone gives no note; proved by `info/exclude the user had before the run, untouched, honest fix`. A `.gitignore` the run adds or edits is listed NOT PROVEN by name; proved by `the run edits the tracked root .gitignore to add conftest.py, then plants a forged conftest` and `the run adds an untracked self-ignoring pkg/.gitignore and plants pkg/conftest.py`. Intake records a content hash for every ignored, untracked `.gitignore` and `pyvenv.cfg`, and for the `python`, `ruff` and `pytest` files in the `bin` or `Scripts` directory of a virtual environment (`.venv`, `venv` or any directory with a `pyvenv.cfg`); verify lists NOT PROVEN, naming each, when one was added or changed during the run. Edits to modules under the `site-packages` of a pre-existing ignored environment are not yet detected; no test claims they are. An ignored `__pycache__` `.pyc` file that shadows a tracked module is also not detected; that gap is not yet closed, and no test claims it is. The snapshot is taken after intake's baseline test run and dependency install, so a `.venv` that Loki's own install step creates is part of the start state and gives no note and no harness-caused NOT PROVEN; proved by a test in `tests/engine10/intake.test.ts`. A run that replaces the existing `.venv/bin/python` with a shim that prints `2 passed` is caught by `the run replaces the existing .venv/bin/python with a shim that prints 2 passed: NOT PROVEN names .venv/bin/python`, and a `.venv` that did not exist at intake and holds such a shim by `a .venv that did not exist at intake is created by the run with a shim python: NOT PROVEN names .venv/bin/python`. A `conftest.py` planted in `.pytest_cache`, in a nested `pkg/venv` or in `tests/.tox` beside a self-ignoring `.gitignore` is listed by `the run plants .pytest_cache/conftest.py beside a self-ignoring .gitignore: NOT PROVEN names the conftest and the .gitignore`, `a nested pkg/venv with a self-ignoring .gitignore and a conftest.py: NOT PROVEN names both` and `tests/.tox with a bare * .gitignore and a conftest.py: NOT PROVEN names both`. The only exemption is the self-ignoring `.gitignore` a test tool writes into its own cache directory: it is silent only when the text equals, byte for byte, the text a real run of that tool wrote (pytest 9.2.0 `.pytest_cache`, mypy 2.4.1 `.mypy_cache`, ruff 0.17.3 `.ruff_cache`, hypothesis 6.170.13 `.hypothesis`) and the directory holds no python file, `.pth` file, executable, symlink or `bin` directory; `a pure .pytest_cache (pytest's own .gitignore, README, CACHEDIR.TAG, v/cache/nodeids) is silent; the same directory is noted when its .gitignore text differs, or it holds a python file, an executable, a symlink or a bin directory` proves both sides for `.pytest_cache`, and one test per tool proves silent-on-real-text and noted-on-a-changed-byte: a test showing the tool's real .gitignore text is silent and one changed byte is noted, repeated for `.mypy_cache`, `.ruff_cache` and `.hypothesis`. tox (whose real text is a bare `*`) and nox (no captured text) are not exempt; proved by a test showing a bare `*` .gitignore is never an exemption, whatever the directory is named (.hypothesis, .tox, .nox). A missing or unreadable record, or a listing that fails, refuses the same way; proved by `a missing or unreadable ignore snapshot at verify refuses (fail closed); an unchanged snapshot is silent` and `a failed listing refuses (git missing from PATH, then a corrupt .git/HEAD) and the intake snapshot records a failed listing as unrecorded`.
 - A conflict marker that names a Loki Wall test file without a line number (for example "`tests/loki_wall_pricing.py` expects ...") is now treated as Loki's own test defect and re-authored, instead of sealing a spec conflict. The Wall file is matched by repo-relative path or basename, the `:line` is optional, and a non-Wall file mention is never an anchor. The implement and resume prompts also ask the agent to cite the conflicting test as path:line. Proven by the tests in `loki-ts/tests/engine10/conflict_resume.test.ts`.
 - The legacy Claude route now gives Claude Code `SHELL=/bin/bash` when it is executable, so a zsh `alias ls=eza` can no longer hang an agent Bash command, matching the default engine route. This covers every Claude spawn in `providers/claude.sh` and `autonomy/run.sh`, including the per-iteration run, the `provider_invoke_argv` argv, the review and conflict-resolution calls and the usage-doc regeneration. Set `LOKI_E10_KEEP_USER_SHELL=1` to keep your own shell; only `SHELL` changes and other providers are untouched. Proven by the Test 14 cases in `tests/test-provider-invocation.sh`: the pin and opt-out on both invoke functions, the executed `provider_invoke_argv` argv, codex untouched, the usage-doc regeneration under a codex provider with `LOKI_ALLOW_CLAUDE_SIDECALLS=1` (pinned, and the user shell kept under the opt-out, never empty), and a structural check that fails on any Claude spawn statement in either file that lacks the pin. Residual: aliases defined in `~/.bashrc` still load under bash, so an alias there can still affect agent Bash commands.
-
-## Unreleased
-
-### Added
-
-- Opt-in earned merge: with `LOKI_EARNED_MERGE=1`, `loki merge pr` (and `--ship`) merges only when every changed path has at least `LOKI_EARNED_MERGE_MIN_VERIFIED` (default 20, minimum 1) VERIFIED receipts in `loki trust` and no recorded revert, judging both sides of a rename; a truncated file list refuses. Protected paths (`.github/`, `.loki/`, `.env*`, `.envrc`, `CODEOWNERS`, plus `LOKI_EARNED_MERGE_PROTECTED` globs, matched case-insensitively), reverted paths and paths whose revert status is unknown stay PR-only, and the refusal names `gate: trust`. Off by default; behavior without the opt-in is unchanged.
-
-### Fixed
-
-- `loki verify-pr` no longer reports VERIFIED on a bare exit code 0 or on printed test totals: the issue's Check must run bun test, pytest, jest or vitest, and the pass is read from the report file that runner writes (the Check is run with a report flag added). A Check using another command, or a PR that adds or changes runner config (`bunfig.toml`, `conftest.py`, or an ini, cfg or toml file with a test-runner section), is NOT PROVEN with the reason and file named.
 
 ## v11.88.0 (2026-10-29)
 

@@ -14,17 +14,22 @@ import { basename, join, resolve } from "node:path";
 import { conflictReasonOf, fold, partialCost, readEvents, type Folded } from "../engine10/events.ts";
 import { cacheSavings } from "../runner/budget.ts";
 import { renderProofCard } from "./receipt_surface.ts";
+import { answerMark, answeredTask, blockedCompletion, effectiveEvents } from "./conflict_resume.ts";
 import { eventsRelPath, readOriginUrl } from "./engine_origin.ts";
 import { runOwnerAlive } from "./run_pid.ts";
 import { safeGit } from "./safe_git.ts";
 import { currentBranch } from "../e10ext/stop_restore.ts";
-import { formatPreModelLine, formatSummary, plainLine, type Outcome, type PreModelTiming, type SummaryInput } from "../engine10/output.ts";
+import { shapeKeyForRun, sealedOutcomesByTier, tierOfModel, type ShapedReceipt } from "../runner/router/history.ts";
+import { formatPreModelLine, formatSummary, plainLine, type Outcome, type TierSeal, type PreModelTiming, type SummaryInput } from "../engine10/output.ts";
+import { applyArbitrations } from "./conflict_resume.ts";
 import { noteOf } from "./base_guard.ts";
 import { sourceId } from "../../../packages/control-plane/src/shipper/ship.ts";
 import { redactSecrets } from "./redact.ts";
 import { checkpointProblem, onlyWallPublish, runStateProblem, verifyLogSeals } from "./seal_drift.ts";
 import { readIntentRevisions, type IntentRevision } from "./steer.ts";
 import { REPO_ROOT } from "./paths.ts";
+import { getVersion } from "../version.ts";
+import { resolveClaudeModel } from "./claude_model.ts";
 import type { EventEnvelope, Verdict } from "../engine10/types.ts";
 
 /** Receipt field (A04): the operator intent revisions this run consumed. Omitted when none so other receipts stay byte-stable. */
@@ -59,6 +64,38 @@ export function seededCorpusBlock(env: NodeJS.ProcessEnv = process.env): { seede
     } catch { /* no usable results: catch_rate stays null */ }
     return { seeded_corpus: { corpus_version: version, corpus_defects: ids.length, catch_rate: rate } };
   } catch { return {}; }
+}
+export const SEAL_ACCURACY_NOT_MEASURED = "Seal accuracy: not measured";
+const SEAL_ACCURACY_MAX_AGE_MS = 7 * 86_400_000, SPEC_PREFIXES = ["spec", "test", "check"];
+const LANG_BY_EXT: Record<string, string> = { ".py": "python", ".js": "javascript", ".ts": "typescript", ".go": "go", ".rs": "rust", ".java": "java", ".rb": "ruby", ".sh": "shell" };
+/** GAME10-03: the one Seal accuracy line, read from benchmarks/seeded-defects/results/wrong-pass.json (never typed). The stratum is the changed
+ *  code's language (first changed file that is not a spec, test or check file, as measure.py picks it), the first passing check's runner, and the
+ *  tier of the run measured with this receipt's model. The line says "not measured" for a loki version mismatch, a corpus other than the current
+ *  manifest, a missing stratum or a run measured over 7 days ago (its measured_at; missing or unparseable means not measured). The line sits in the signed body, so editing it breaks receipt_sha256. */
+export function sealAccuracyLine(changed: readonly string[], checks: readonly { cmd: string; result: string }[], model: string, env: NodeJS.ProcessEnv = process.env, nowMs: number = Date.now()): string {
+  try {
+    const dir = env["LOKI_SEEDED_DEFECTS_DIR"] || join(REPO_ROOT, "benchmarks", "seeded-defects"), file = join(dir, "results", "wrong-pass.json");
+    const corpus = createHash("sha256").update(readFileSync(join(dir, "manifest.json"))).digest("hex");
+    const res = JSON.parse(readFileSync(file, "utf8")) as { manifest_sha256?: unknown; runs?: Record<string, unknown>[] };
+    if (res.manifest_sha256 !== corpus || !Array.isArray(res.runs)) return SEAL_ACCURACY_NOT_MEASURED;
+    const first = changed.map((f) => basename(f)).find((b) => !SPEC_PREFIXES.some((p) => b.startsWith(p)));
+    const lang = first === undefined ? "unknown" : LANG_BY_EXT[first.slice(first.lastIndexOf(".")).toLowerCase()] ?? "unknown";
+    const runner = checks.find((c) => c.result === "pass")?.cmd.trim().split(/\s+/)[0];
+    const run = res.runs.find((r) => typeof r["model"] === "string" && resolveClaudeModel(r["model"]) === resolveClaudeModel(model));
+    if (!runner || !run || run["loki_version"] !== getVersion() || run["corpus_sha256"] !== corpus || !Array.isArray(run["strata"])) return SEAL_ACCURACY_NOT_MEASURED;
+    const at = typeof run["measured_at"] === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/.test(run["measured_at"]) ? Date.parse(run["measured_at"]) : NaN, age = nowMs - at; // the writer's own timestamp; file mtime resets on checkout
+    if (!(age >= 0 && age <= SEAL_ACCURACY_MAX_AGE_MS)) return SEAL_ACCURACY_NOT_MEASURED;
+    const row = (run["strata"] as Record<string, unknown>[]).find((r) => r["language"] === lang && r["runner"] === runner);
+    const n = row?.["n"], wp = row?.["wrong_pass"], up = row?.["wilson_upper_95"];
+    if (typeof n !== "number" || typeof wp !== "number" || typeof up !== "number" || !Number.isInteger(n) || !Number.isInteger(wp) || n < 1 || wp < 0 || wp > n || !(up >= 0 && up <= 1)) return SEAL_ACCURACY_NOT_MEASURED;
+    return `Seal accuracy for ${lang}/${runner} at this tier: ${wp} wrong pass${wp === 1 ? "" : "es"} in ${n} seeded defects, 95% upper bound ${(up * 100).toFixed(1)}%, measured on ${getVersion()}`;
+  } catch { return SEAL_ACCURACY_NOT_MEASURED; }
+}
+/** GAME10-03c: the signed accuracy line as a receipt carries it, for the PR body and `loki verify`. A missing or malformed field reads "not measured"; nothing is recomputed. */
+export const receiptSealAccuracy = (r: unknown): string => { const v = (r as { seal_accuracy?: unknown } | null)?.seal_accuracy; return typeof v === "string" && /^Seal accuracy[^\x00-\x1f\x7f]{0,300}$/.test(v) ? v : SEAL_ACCURACY_NOT_MEASURED; };
+export const sealAccuracyOfFile = (path: string | null): string => { try { return receiptSealAccuracy(JSON.parse(readFileSync(path ?? "", "utf8"))); } catch { return SEAL_ACCURACY_NOT_MEASURED; } };
+export function sealAccuracyBlock(changed: readonly string[], checks: readonly { cmd: string; result: string }[], model: string, env: NodeJS.ProcessEnv = process.env, nowMs: number = Date.now()): { seal_accuracy: string } {
+  return { seal_accuracy: sealAccuracyLine(changed, checks, model, env, nowMs) };
 }
 
 const REVERTED = "unrelated edit reverted:";
@@ -238,7 +275,8 @@ export type ResumePoint = { ok: true; stage: string; skip: string[]; checkpoints
 
 /** The stage a resumed run re-enters at. Fail closed: a torn or unreadable log, a seq gap, a finished run, a mixed run id or a stage
  *  recorded as done while an earlier one never settled all refuse. rawLog (the file text) lets a corrupt line be detected. */
-export function resumePoint(events: readonly EventEnvelope[], rawLog?: string): ResumePoint {
+export function resumePoint(allEvents: readonly EventEnvelope[], rawLog?: string, answering = false): ResumePoint {
+  const events = allEvents; // integrity checks read the whole log; the stage checks below read `ev`, which hides a blocked attempt when its answer is pending
   if (rawLog !== undefined) {
     const lines = rawLog.split("\n").filter((l) => l.trim() !== "");
     if (lines.length !== events.length) return { ok: false, reason: `event log is torn or corrupt (${lines.length - events.length} unreadable line(s))` };
@@ -247,25 +285,27 @@ export function resumePoint(events: readonly EventEnvelope[], rawLog?: string): 
   if (events.length === 0) return { ok: false, reason: "event log is empty or unreadable" };
   if (events.some((e, i) => e.seq !== i)) return { ok: false, reason: "event log has a sequence gap" };
   if (new Set(events.map((e) => e.run)).size !== 1) return { ok: false, reason: "event log mixes run ids" };
+  if (answering && !blockedCompletion(events, answerMark(events, true))) return { ok: false, reason: "run is not BLOCKED on a spec conflict; nothing to answer" };
+  const ev = effectiveEvents(events, answering);
   if (!events.some((e) => e.type === "run.started")) return { ok: false, reason: "no run.started event" };
   if (events.some((e) => e.type === "tamper.detected")) return { ok: false, reason: "event log was flagged as tampered" };
   if (rawLog !== undefined) { const bad = verifyLogSeals(rawLog, events, { sealLast: true }); if (bad) return { ok: false, reason: `event log failed its seal check (${bad})` }; } // FC-RESUME-TRUSTS-UNSEALED-LOG: a resumed supervisor re-hashes the file, so an edit made while stopped would otherwise be signed
-  if (events.some((e) => e.type === "run.completed" && !isCancelDone(e))) return { ok: false, reason: "run already completed; nothing to resume" };
-  const intake = events.findLast((e) => e.type === "stage.completed" && e.stage === "intake");
+  if (ev.some((e) => e.type === "run.completed" && !isCancelDone(e))) return { ok: false, reason: "run already completed; nothing to resume" };
+  const intake = ev.findLast((e) => e.type === "stage.completed" && e.stage === "intake");
   if (intake && typeof intake.data["base_sha"] !== "string") return { ok: false, reason: "intake checkpoint has no base_sha" };
-  const next = firstIncompleteStage(events);
+  const next = firstIncompleteStage(ev);
   if (next === null) return { ok: false, reason: "every stage settled; nothing to resume" };
   const idx = STAGE_ORDER.indexOf(next as (typeof STAGE_ORDER)[number]);
   const par = next === "plan" || next === "wall"; // plan and wall run in parallel (machine.ts FLOW): either may finish first
-  const later = STAGE_ORDER.slice(idx + 1).find((s) => !(par && (s === "plan" || s === "wall")) && events.some((e) => e.stage === s && e.type === "stage.completed"));
+  const later = STAGE_ORDER.slice(idx + 1).find((s) => !(par && (s === "plan" || s === "wall")) && ev.some((e) => e.stage === s && e.type === "stage.completed"));
   if (later) return { ok: false, reason: `stage ${later} completed but ${next} never did` };
   // P12-07d/h: durable late-steer state, seeded into ctx on re-entry (seedResumeCtx). Both inputs are worker-forgeable via ingest, so each rule fails closed.
   const byRev = new Map<number, IntentRevision>(); // union of every intent.revised; on a duplicate rev keep the LATEST at (unapplied wins), so a pre-claimed at:0 cannot displace the honest entry
   for (const e of events) if (e.type === "intent.revised" && Array.isArray(e.data["revisions"])) for (const r of e.data["revisions"] as IntentRevision[]) if (typeof r === "object" && r !== null && Number.isInteger(r.rev) && Number.isFinite(r.at)) { const o = byRev.get(r.rev); if (!o || (r.unapplied === true && o.unapplied !== true) || (o.unapplied !== true && r.at > o.at)) byRev.set(r.rev, r); }
   const intentRevisions = [...byRev.values()].sort((x, y) => x.rev - y.rev);
-  const starts = events.filter((e) => e.type === "stage.started" && e.stage === "wall").map((e) => { const m = e.data["start_ms"], seen = Date.parse(e.ts); return typeof m === "number" && Number.isFinite(m) && m >= 0 ? Math.min(m, Number.isFinite(seen) ? seen : 0) : 0; }); // a claimed start is capped at the supervisor's own append time; unknown = 0: every revision stale
+  const starts = ev.filter((e) => e.type === "stage.started" && e.stage === "wall").map((e) => { const m = e.data["start_ms"], seen = Date.parse(e.ts); return typeof m === "number" && Number.isFinite(m) && m >= 0 ? Math.min(m, Number.isFinite(seen) ? seen : 0) : 0; }); // a claimed start is capped at the supervisor's own append time; unknown = 0: every revision stale
   const first = starts.length ? Math.min(...starts) : null, timeline = first === null ? [] : [{ stage: "wall" as const, startMs: first, endMs: first }]; // EARLIEST start only: a later forged start cannot move the freeze point forward
-  return { ok: true, stage: next, skip: STAGE_ORDER.slice(0, idx), checkpoints: stageCheckpoints(events), intentRevisions, timeline };
+  return { ok: true, stage: next, skip: STAGE_ORDER.slice(0, idx), checkpoints: stageCheckpoints(ev), intentRevisions, timeline };
 }
 
 /** P12-07h: seeds a re-entered run's ctx with the durable steer state; the machine does `ctx.timeline ??= []`, so a seeded array is used as is. */
@@ -279,14 +319,26 @@ export function resumeMachineOpts<F extends string>(ctx: Parameters<typeof seedR
   const rp = resumePoint(events, raw);
   if (!rp.ok) return rp;
   seedResumeCtx(ctx, rp);
+  const all = events; events = effectiveEvents(all); // a pending answer hides the blocked attempt, so its conflicting stage and everything after it re-run
   const done = new Set<string>(STAGE_ORDER.filter((s) => (s === "intake" || s === "plan" || s === "wall" || s === "implement") && settled(events, s))), restored: StageOutputs = {};
   for (const s of done) { const e = events.findLast((x) => x.type === "stage.completed" && x.stage === s); if (e) restored[s] = e.data; }
+  if (restored["wall"]) { const wi = events.findLastIndex((x) => x.type === "stage.completed" && x.stage === "wall"); const w = restored["wall"] as Record<string, unknown>; restored["wall"] = { ...w, ...(Array.isArray(w["files"]) ? { files: (w["files"] as object[]).map((x) => ({ ...x })) } : {}), ...(Array.isArray(w["readOnlyFiles"]) ? { readOnlyFiles: (w["readOnlyFiles"] as object[]).map((x) => ({ ...x })) } : {}) }; applyArbitrations(restored["wall"], events.slice(wi + 1)); } // a Wall check arbitrated after its stage settled keeps its replacement hash and disclosure
   // D61-04: a deferred already-done hit lands on intake AFTER its stage.completed was written, so the flag is durable only in the supervisor-written already.attested event (SUPERVISOR_ONLY: a worker line of that type is dropped). It counts only if it precedes implement's stage.completed and no intent.revised follows it (stale evidence). Absent or malformed -> not satisfied (old logs restore as before).
   const hitIdx = events.findLastIndex((x) => x.type === "already.attested" && x.stage === "intake"), hit = hitIdx < 0 ? undefined : events[hitIdx], ev = hit?.data["evidence"];
   const implDone = events.findLastIndex((x) => x.type === "stage.completed" && x.stage === "implement");
   if (restored["intake"] && hit && hit.data["already_satisfied"] === true && Array.isArray(ev) && ev.length > 0 && ev.every((x) => typeof x === "string" && x !== "") && (implDone < 0 || hitIdx < implDone) && !events.slice(hitIdx + 1).some((x) => x.type === "intent.revised")) restored["intake"] = { ...restored["intake"], already_satisfied: true, evidence: ev };
+  if (restored["intake"] && typeof restored["intake"]["task"] === "string") restored["intake"] = { ...restored["intake"], task: answeredTask(restored["intake"]["task"], all) }; // the answer joins the locked task text every later stage reads
   const kept = flow.map((st) => typeof st === "string" ? (done.has(st) ? [] : st) : st.filter((n) => !done.has(n))).filter((st) => st.length > 0);
   return { ok: true, flow: kept as (F | readonly F[])[], restored };
+}
+
+/** `loki answer`: the newest-first lookup for a run the engine ended BLOCKED (run.completed SPEC_CONFLICT) that no process still owns. */
+function findBlocked(repoDir: string, runId?: string): Interrupted | null {
+  if (!runId) return null;
+  const p = join(repoDir, eventsRelPath(runId));
+  if (!existsSync(p) || runOwnerAlive(join(repoDir, ".loki", "runs", runId))) return null;
+  const events = readEvents(p);
+  return events.length ? { runId, phase: "implement", events, task: taskOf(events) } : null;
 }
 
 /** `loki start --resume [run-id]`. The publish phase resumes through resumePublish; an earlier phase re-enters the machine at the resume
@@ -294,18 +346,18 @@ export function resumeMachineOpts<F extends string>(ctx: Parameters<typeof seedR
 /** Exit 4: a measured property of the run says it cannot be resumed. Never a timer. The work stays on its branch; the user starts a new run. */
 const cannotResume = (out: (s: string) => void, id: string, reason: string): number => { out(`resume: run ${plainLine(id, 80)} cannot be resumed (${plainLine(reason, 400)}); its work is on branch loki/${plainLine(id, 80)}. Start a new run: loki start <task>\n`); return 4; };
 
-export async function resumeFlag(runId: string | undefined, noPr = false, deps: ResumeDeps = {}): Promise<number> {
+export async function resumeFlag(runId: string | undefined, noPr = false, deps: ResumeDeps = {}, answer?: string): Promise<number> {
   const out = deps.out ?? ((s: string) => { process.stderr.write(s); });
   let repoDir: string;
   try { repoDir = safeGit(process.cwd(), ["rev-parse", "--show-toplevel"]).trim(); } catch { out("engine10: --resume: not inside a git repository\n"); return 2; }
   const id = runId && /^e10-[A-Za-z0-9-]+$/.test(runId) ? runId : undefined;
-  const why: { reason?: string } = {}, it = findInterrupted(repoDir, id, true, why);
-  if (!it) { out(`engine10: --resume: no interrupted engine10 run${why.reason ? ` (${plainLine(why.reason, 400)})` : ""}\n`); return 3; }
+  const why: { reason?: string } = {}, it = answer === undefined ? findInterrupted(repoDir, id, true, why) : findBlocked(repoDir, id); // `loki answer`: a BLOCKED run is complete, so it is not "interrupted"
+  if (!it) { out(answer === undefined ? `engine10: --resume: no interrupted engine10 run${why.reason ? ` (${plainLine(why.reason, 400)})` : ""}\n` : "engine10: answer: no such engine10 run\n"); return 3; }
   let raw = "";
   try { raw = readFileSync(join(repoDir, eventsRelPath(it.runId)), "utf8"); } catch { return cannotResume(out, it.runId, "its event log is unreadable"); }
   const tailBad = it.phase === "publish" ? null : cancelTailProblem(it.events);
   if (tailBad) { out(`engine10: --resume refused: run ${it.runId} holds ${tailBad}\n`); return 2; }
-  const rp = resumePoint(it.events, raw);
+  const rp = resumePoint(it.events, raw, answer !== undefined);
   if (!rp.ok && /^event log (is torn|ends in a torn)/.test(rp.reason)) return cannotResume(out, it.runId, `its ${rp.reason}`);
   if (!rp.ok) { out(`engine10: --resume refused: ${plainLine(rp.reason, 400)}\n`); return 2; }
   if (it.phase === "publish" && noPr) { out("engine10: --resume refused: --no-pr was given and this run is in its publish phase\n"); return 2; }
@@ -325,7 +377,10 @@ export async function resumeFlag(runId: string | undefined, noPr = false, deps: 
   if (rp.skip.includes("intake") && origBranch !== br) {
     const dirty = safeGit(repoDir, ["status", "--porcelain", "--", ".", ":(exclude).loki"]).split("\n").filter(Boolean);
     if (dirty.length) { out(`engine10: --resume refused: ${dirty.length} uncommitted or untracked file(s) in your working tree would ride onto ${br}; commit or stash them first\n`); return 2; }
-    try { safeGit(repoDir, ["rev-parse", "--verify", "-q", `refs/heads/${br}`]); } catch { return cannotResume(out, it.runId, `run branch ${br} is gone`); }
+    try { safeGit(repoDir, ["rev-parse", "--verify", "-q", `refs/heads/${br}`]); } catch { // a BLOCKED run that changed nothing drops its empty run branch; the answer recreates it at the base the run recorded
+      if (answer === undefined || typeof baseSha !== "string") return cannotResume(out, it.runId, `run branch ${br} is gone`);
+      try { safeGit(repoDir, ["branch", br, baseSha]); } catch { return cannotResume(out, it.runId, `run branch ${br} is gone and cannot be recreated`); }
+    }
     try { safeGit(repoDir, ["checkout", "-q", br]); } catch { out(`engine10: --resume refused: cannot switch to run branch ${br}\n`); return 2; }
   }
   const st = (it.events.find((e) => e.type === "run.started")?.data ?? {}) as Record<string, unknown>, provider = String(st["provider"] ?? "claude"), model = String(st["model"] ?? ""), deep = st["deep"] === true;
@@ -340,10 +395,10 @@ export async function resumeFlag(runId: string | undefined, noPr = false, deps: 
     return r.status !== "completed" ? { url: null, draft: false, existing: null, notProven: [`PR not opened: ${r.reason}`] } : { url: d.pr_url ?? null, draft: d.draft === true, existing: d.existing ?? null, notProven: d.not_proven };
   };
   const supervise = deps.supervise ?? (async (o) => (await import("../engine10/supervisor.ts")).runSupervisor(o));
-  const { EXIT } = await import("../engine10/output.ts");
-  const res = await supervise({ runId: it.runId, repoDir, env, resume: true, capS: capS === undefined ? undefined : Math.floor(capS), capCeilingS: ceilS === undefined ? undefined : Math.floor(ceilS), restoreBranch: origBranch, workerArgv: [process.execPath, ...SAFE_BUN_FLAGS, resolve(process.argv[1] ?? ""), "engine10", "worker", it.runId, provider, model, deep ? "deep" : "fast"], started: { ...st, resumed_from: rp.stage }, pr });
+  const { exitCodeOf } = await import("../engine10/output.ts");
+  const res = await supervise({ runId: it.runId, repoDir, env, resume: true, capS: capS === undefined ? undefined : Math.floor(capS), capCeilingS: ceilS === undefined ? undefined : Math.floor(ceilS), restoreBranch: origBranch, workerArgv: [process.execPath, ...SAFE_BUN_FLAGS, resolve(process.argv[1] ?? ""), "engine10", "worker", it.runId, provider, model, deep ? "deep" : "fast"], started: { ...st, resumed_from: rp.stage, ...(answer !== undefined ? { answered: true, answer: redactSecrets(answer), answer_sha256: createHash("sha256").update(redactSecrets(answer)).digest("hex"), question: String(conflictReasonOf(it.events) ?? "the run is blocked on a spec conflict").replace(/[\x00-\x1f\x7f]+/g, " ").trim().slice(0, 500) } : {}) }, pr });
   out(`engine10: resumed run ${it.runId}: ${res.outcome}\n`);
-  return EXIT[res.outcome];
+  return exitCodeOf(res.outcome);
 }
 
 export type RunPrFn = (ctx: Record<string, unknown>, signal: AbortSignal) => Promise<{ status: string; reason?: string; data: Record<string, unknown> }>;
@@ -651,6 +706,16 @@ export function stackSection(env: NodeJS.ProcessEnv, base: string | undefined, h
   return refs + (base ? `\nStacked on \`${base}\`: review and merge that pull request first.\n` : "");
 }
 
+/** Tier that sealed this run plus this repo shape's sealed record, read from the receipts under .loki/runs. Top-tier cost avoided has no recorded source yet, so it stays null and prints "not measured". Display only. */
+export function tierSealFor(repoDir: string, runId: string): TierSeal {
+  const root = join(repoDir, ".loki", "runs"), shape = shapeKeyForRun(repoDir, join(root, basename(runId))), receipts: ShapedReceipt[] = [], read = (d: string): Record<string, unknown> | null => { try { const r: unknown = JSON.parse(readFileSync(join(root, d, "receipt.json"), "utf8")); return typeof r === "object" && r !== null ? r as Record<string, unknown> : null; } catch { return null; } };
+  let dirs: string[] = []; try { dirs = readdirSync(root).sort().slice(-200); } catch { /* no runs dir */ }
+  for (const d of dirs) { const own = shapeKeyForRun(repoDir, join(root, d), true), receipt = own === null ? null : read(d); if (receipt && own !== null) receipts.push({ shape: own, receipt }); } // each receipt joins its own run's shape; an unrecoverable shape is skipped
+  const tier = tierOfModel(read(basename(runId))?.["model"]);
+  return { tier: tier === "unknown" ? null : tier, topTierCostAvoidedUsd: null, record: shape === null ? null : sealedOutcomesByTier(receipts)[shape] ?? null };
+}
+/** The summary input main() passes: a TAMPERED run shows no tier. */
+export const summaryTier = (repoDir: string, runId: string, tampered: boolean): TierSeal | undefined => tampered ? undefined : tierSealFor(repoDir, runId);
 /** The block main() writes to stdout once a run finishes; pure because main() re-spawns process.argv[1] as the worker, so tests cannot drive it. */
 export function renderMainOutput(events: EventEnvelope[], summary: SummaryInput, verbose = true): string {
   const c = alreadyDoneTextComment(events), un = unmergedLokiWorkNote(events);
@@ -678,4 +743,39 @@ export function summaryTokens(f: Folded, sawCost: boolean): number | null {
 export function summaryCache(events: ReturnType<typeof readEvents>, tampered: boolean): { cacheReadTokens: number | null; cacheSavedUsd: number | null } {
   const cs = tampered ? null : cacheSavings(events.filter((e) => e.type === "cost").map((e) => ({ model: typeof e.data.model === "string" ? e.data.model : undefined, cache_read_tokens: typeof e.data.cache_read_tokens === "number" ? e.data.cache_read_tokens : undefined })));
   return { cacheReadTokens: cs ? cs.readTokens : null, cacheSavedUsd: cs ? cs.savedUsd : null };
+}
+
+/** A run that ends FAILED before (or without) a model call still leaves one verifiable record: the same receipt hash, signature, receipt.sealed and signed log.sealed lines the seal stage uses, over a run.started / run.completed log, with the refusal reason in not_proven. */
+export interface RefusalSeal { repoDir: string; task: string; reason: string; detail?: readonly string[]; provider?: string }
+export async function sealRefusal(o: RefusalSeal): Promise<{ runId: string; receiptPath: string } | null> {
+  try {
+    const clean = (s: string): string => s.replace(/[\x00-\x1f\x7f]+/g, " ").trim().slice(0, 500);
+    const [{ SupervisorLog }, seal, signer, { atomicWriteText }, { githubRepoFromUrl }] = await Promise.all([import("../engine10/supervisor.ts"), import("../engine10/stages/seal.ts"), import("./receipt_signer.ts"), import("./atomic.ts"), import("./engine_origin.ts")]);
+    const runId = `e10-${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}-${Math.random().toString(16).slice(2, 6)}`;
+    const runDir = join(o.repoDir, ".loki", "runs", runId), provider = o.provider ?? "claude", repo = githubRepoFromUrl(readOriginUrl(o.repoDir));
+    mkdirSync(runDir, { recursive: true });
+    const log = new SupervisorLog(join(o.repoDir, eventsRelPath(runId)), runId);
+    log.append("run.started", null, { task_source: "text", provider, refused: true, origin_repo: repo });
+    const git = (a: string[]): string => { try { return safeGit(o.repoDir, a).trim(); } catch { return ""; } };
+    const head = git(["rev-parse", "--verify", "--quiet", "HEAD"]), tree = head ? git(["rev-parse", `${head}^{tree}`]) : "";
+    const notProven = [clean(o.reason), ...(o.detail ?? []).map(clean).filter(Boolean), "cost not measured (refusal receipt)"];
+    const body: Omit<import("../engine10/types.ts").Receipt, "receipt_sha256" | "verification"> = {
+      schema: "loki.v10.receipt/1", run_id: runId, task: { source: "text", sha256: seal.sha256(o.task) }, repo: repo ?? "", base_sha: head, head_sha: head, tree, diff_sha256: seal.sha256(""),
+      wall: { files: [], passed: null }, checks: [], not_proven: notProven, verdict: "FAILED", evidence: [],
+      cost: { usd: null, input_tokens: 0, output_tokens: 0, measured_sessions: 0, total_sessions: 0, partial_usd: 0 },
+      time: { wall_s: 0, stages: {} }, provider, model: "", resumed: false,
+      events_sha256: seal.sha256(readFileSync(log.path)), log_seal: true, toolchain: signer.collectToolchain(),
+    };
+    let hash = seal.receiptSha256(body);
+    const sig = signer.signReceipt(runId, hash);
+    if (!sig.jwt) { body.not_proven = [...notProven, seal.SIGNING_UNAVAILABLE]; hash = seal.receiptSha256(body); }
+    const receipt = { ...body, receipt_sha256: hash, verification: { jwt: sig.jwt, kid: sig.kid } };
+    const receiptPath = join(runDir, "receipt.json");
+    atomicWriteText(receiptPath, JSON.stringify(receipt, null, 2) + "\n");
+    atomicWriteText(join(runDir, "receipt.md"), seal.renderReceiptMd(receipt));
+    log.append("receipt.sealed", "seal", { path: receiptPath, receipt_sha256: hash, signed: sig.jwt !== null, kid: sig.kid, verdict: "FAILED", not_proven: receipt.not_proven });
+    log.append("run.completed", null, { verdict: "FAILED", pr_url: null, not_proven: receipt.not_proven, cost_usd: null, wall_s: 0 });
+    log.sealLog();
+    return { runId, receiptPath };
+  } catch { return null; }
 }

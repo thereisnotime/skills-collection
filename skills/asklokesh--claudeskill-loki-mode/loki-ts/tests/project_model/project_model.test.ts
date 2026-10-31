@@ -1,9 +1,9 @@
 // select: walk-all-src
 // loki-ts/tests/project_model/project_model.test.ts -- EL-W1-01 wall checks (L0, L4). The model call is
 // a mocked SessionRunner replaying recorded answers; no real model is called.
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { projectApi } from "../../src/project_model/api.ts";
@@ -11,6 +11,8 @@ import { buildBrief, discoverProjectModel, loadCached, PROJECT_FILE } from "../.
 import { GATHER_CAPS, gather } from "../../src/project_model/gather.ts";
 import { validateAnswer } from "../../src/project_model/schema.ts";
 import { fastTierModel } from "../../src/runner/model_downgrades.ts";
+import { receiptSha256 } from "../../src/engine10/stages/seal.ts";
+import { tierSealFor } from "../../src/util/run_outputs.ts";
 import { runIntake } from "../../src/engine10/stages/intake.ts";
 import type { RunContext, SessionResult, SessionRunOptions } from "../../src/engine10/types.ts";
 
@@ -18,13 +20,19 @@ const FIX = join(import.meta.dir, "..", "fixtures", "project-model", "firelater-
 const RECORDED = JSON.parse(readFileSync(join(FIX, "response.json"), "utf8")) as Record<string, any>;
 const dirs: string[] = [];
 
+// Built once at import, outside any test's 5s budget: a per-test git init + add is two process spawns
+// that blow the budget when the machine is loaded. Each repo() is then a pure filesystem copy.
+const TEMPLATE = mkdtempSync(join(tmpdir(), "pm-template-"));
+cpSync(FIX, TEMPLATE, { recursive: true });
+rmSync(join(TEMPLATE, "response.json"));
+execFileSync("git", ["init", "-q"], { cwd: TEMPLATE, stdio: "pipe", env: process.env });
+execFileSync("git", ["add", "-A", "-f"], { cwd: TEMPLATE, stdio: "pipe", env: process.env });
+afterAll(() => { rmSync(TEMPLATE, { recursive: true, force: true }); });
+
 function repo(): string {
   const d = mkdtempSync(join(tmpdir(), "pm-test-"));
   dirs.push(d);
-  cpSync(FIX, d, { recursive: true });
-  rmSync(join(d, "response.json"));
-  execFileSync("git", ["init", "-q"], { cwd: d, stdio: "pipe", env: process.env });
-  execFileSync("git", ["add", "-A", "-f"], { cwd: d, stdio: "pipe", env: process.env });
+  cpSync(TEMPLATE, d, { recursive: true });
   return d;
 }
 afterEach(() => { while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true }); });
@@ -159,6 +167,21 @@ describe("discovery", () => {
     expect(api.hasUI()).toBe(false);
   });
 
+  test("a run that reuses the cached model still records its shape, so its sealed receipt joins the parity record", async () => {
+    const d = repo();
+    const m = mock([RECORDED]);
+    await discoverProjectModel(ctxFor(d, m.runner), sig); // first run: session writes the cache
+    const body = { schema: "loki.v10.receipt/1", model: "claude-haiku-4-5", verdict: "VERIFIED" };
+    const runDir = join(d, ".loki", "runs", "r2");
+    mkdirSync(runDir, { recursive: true });
+    writeFileSync(join(runDir, "receipt.json"), JSON.stringify({ ...body, receipt_sha256: receiptSha256(body as never), verification: { jwt: null, kid: null } }));
+    const second = await discoverProjectModel({ ...ctxFor(d, m.runner), runId: "r2", runDir } as RunContext, sig);
+    expect(second.cached).toBe(true);
+    expect(m.briefs.length).toBe(1);
+    expect(existsSync(join(runDir, "project-model.answer.json"))).toBe(true);
+    expect(tierSealFor(d, "r2").record?.["haiku"]).toMatchObject({ total: 1, verified: 1 });
+  });
+
   test("cache hit when hashes are unchanged, miss after a lockfile edit", async () => {
     const d = repo();
     const m = mock([RECORDED]);
@@ -189,29 +212,54 @@ describe("discovery", () => {
 });
 
 describe("intake wiring", () => {
-  test("intake records the model key and cache state in stage data; the knob turns it off", async () => {
-    const d = repo();
-    for (const a of [["config", "user.email", "t@example.com"], ["config", "user.name", "t"], ["commit", "-q", "-m", "init"]]) execFileSync("git", a, { cwd: d, stdio: "pipe", env: process.env });
-    const m = mock([RECORDED]);
-    const ctx = { ...ctxFor(d, m.runner), branch: "loki/pm-test", tests: { detect: async () => ({ runners: [], tests: [] }), impacted: () => [] } } as unknown as RunContext;
-    const prev = process.env["LOKI_E10_PROJECT_MODEL"], prevInstall = process.env["LOKI_E10_INSTALL"];
+  // One runIntake per test: each is dozens of git spawns, so three in one body overran the 5s budget under load.
+  async function withIntakeEnv(projectModel: string | undefined, fn: () => Promise<void>): Promise<void> {
+    const keys = ["LOKI_E10_PROJECT_MODEL", "LOKI_E10_INSTALL", "LOKI_REPO_BASELINE"] as const;
+    const saved = keys.map((k) => process.env[k]);
     try {
-      delete process.env["LOKI_E10_PROJECT_MODEL"]; // FC-01: default ON
+      if (projectModel === undefined) delete process.env["LOKI_E10_PROJECT_MODEL"]; else process.env["LOKI_E10_PROJECT_MODEL"] = projectModel; // FC-01: default ON
       process.env["LOKI_E10_INSTALL"] = "0"; // FC-DEPS-NOT-INSTALLED: the recorded model's real install command must not reach the network here
-      const r = await runIntake(ctx, sig, { taskText: "do a thing" });
-      const pm = (r.data as any).project_model;
+      process.env["LOKI_REPO_BASELINE"] = "0"; // the baseline test run is not what these tests check
+      await fn();
+    } finally {
+      keys.forEach((k, i) => { if (saved[i] === undefined) delete process.env[k]; else process.env[k] = saved[i]; });
+    }
+  }
+  function intakeCtx(d: string, runner: { run(o: SessionRunOptions): Promise<SessionResult> }): RunContext {
+    for (const a of [["config", "user.email", "t@example.com"], ["config", "user.name", "t"], ["commit", "-q", "-m", "init"]]) execFileSync("git", a, { cwd: d, stdio: "pipe", env: process.env });
+    return { ...ctxFor(d, runner), branch: "loki/pm-test", tests: { detect: async () => ({ runners: [], tests: [] }), impacted: () => [] } } as unknown as RunContext;
+  }
+
+  test("intake records the model key and cache state in stage data", async () => {
+    const d = repo();
+    const m = mock([RECORDED]);
+    const ctx = intakeCtx(d, m.runner);
+    await withIntakeEnv(undefined, async () => {
+      const pm = ((await runIntake(ctx, sig, { taskText: "do a thing" })).data as any).project_model;
       expect(pm.status).toBe("ok");
       expect(pm.cached).toBe(false);
       expect(pm.key).toBe(loadCached(d)!.key);
+    });
+  });
+
+  test("a second intake on the same tree reports the model as cached", async () => {
+    const d = repo();
+    const m = mock([RECORDED]);
+    const ctx = intakeCtx(d, m.runner);
+    await discoverProjectModel(ctx, sig); // the first discovery, without a full intake
+    await withIntakeEnv(undefined, async () => {
       expect(((await runIntake(ctx, sig, { taskText: "do a thing" })).data as any).project_model.cached).toBe(true);
-      process.env["LOKI_E10_PROJECT_MODEL"] = "0"; // the opt-out
-      const before = m.briefs.length;
+    });
+  });
+
+  test("the knob turns project model discovery off", async () => {
+    const d = repo();
+    const m = mock([RECORDED]);
+    const ctx = intakeCtx(d, m.runner);
+    await withIntakeEnv("0", async () => {
       expect((await runIntake(ctx, sig, { taskText: "do a thing" })).data).not.toHaveProperty("project_model");
-      expect(m.briefs.length).toBe(before);
-    } finally {
-      if (prev === undefined) delete process.env["LOKI_E10_PROJECT_MODEL"]; else process.env["LOKI_E10_PROJECT_MODEL"] = prev;
-      if (prevInstall === undefined) delete process.env["LOKI_E10_INSTALL"]; else process.env["LOKI_E10_INSTALL"] = prevInstall;
-    }
+      expect(m.briefs.length).toBe(0);
+    });
   });
 });
 

@@ -1,9 +1,9 @@
 // D86 FC-09r: runner-config changes cap the verdict; shared manifests are compared base vs head by section.
 import { afterAll, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { commitStage, sealStage } from "../../src/engine10/stages/seal.ts";
 import { RUNNER_CONFIGS, runnerConfigNotes, testConfigChanged } from "../../src/features/runner_config.ts";
 import type { EventType, Receipt, RunContext, StageName } from "../../src/engine10/types.ts";
@@ -368,22 +368,24 @@ describe("FC-09t r5 target keys and dependency sources", () => {
 
 // FC-09 seal side: a run that edits a runner config, or a file one loads, cannot seal VERIFIED. Real commit + seal stages on a temp repo.
 const SBASE = { "calc.ts": "export const add = (a: number, b: number) => a + b;\n", "calc.test.ts": "import { add } from './calc';\n" };
-function sealRepo(baseFiles: Record<string, string>, edits: Record<string, string>): { repo: string; base: string } {
+function sealRepo(baseFiles: Record<string, string>, edits: Record<string, string>, baseLinks: Record<string, string> = {}): { repo: string; base: string } {
   const repo = mkdtempSync(join(tmpdir(), "rcs-")); dirs.push(repo);
   const put = (files: Record<string, string>): void => { for (const [f, t] of Object.entries(files)) { mkdirSync(dirname(join(repo, f)), { recursive: true }); writeFileSync(join(repo, f), t); } };
   sh(repo, ["init", "-q", "-b", "main"]); put({ ...SBASE, ...baseFiles });
+  for (const [l, t] of Object.entries(baseLinks)) symlinkSync(t, join(repo, l));
   sh(repo, ["add", "."]); sh(repo, ["commit", "-qm", "base"]);
   const base = sh(repo, ["rev-parse", "HEAD"]);
   put({ "calc.ts": "export const add = (a: number, b: number) => a - b;\n", ...edits });
   put({ ".loki/runs/r1/events.jsonl": JSON.stringify({ v: 1, seq: 0, ts: "2026-01-01T00:00:00.000Z", run: "r1", type: "run.started", stage: null, data: {} }) + "\n" });
   return { repo, base };
 }
-function sealCtx(repo: string, base: string): RunContext {
+function sealCtx(repo: string, base: string, over: Partial<Record<StageName, Record<string, unknown>>> = {}): RunContext {
   const outputs: Partial<Record<StageName, Record<string, unknown>>> = {
     intake: { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", title: "fix", resumed: false },
     wall: { files: [] },
     implement: { exit: "done", tests_reverted: [], duration_s: 3, iteration_id: "e10-r1-impl" },
     verify: { checks: [{ name: "bun test:calc.test.ts", cmd: "bun test", result: "pass", duration_s: 1, n: 1 }], flaky: [], wall_passed: true, duration_s: 2 },
+    ...over,
   };
   return {
     runId: "r1", repoDir: repo, runDir: join(repo, ".loki/runs/r1"), baseSha: base, branch: "loki/r1", provider: "claude", model: "m", deep: false, capS: 900,
@@ -392,9 +394,17 @@ function sealCtx(repo: string, base: string): RunContext {
     cost: { read: () => ({ usd: null, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0 }) }, clock: { now: () => 0 }, outputs: () => outputs,
   };
 }
-async function sealRun(baseFiles: Record<string, string>, edits: Record<string, string>): Promise<Receipt> {
+type SealOpt = { links?: Record<string, string>; wallFile?: { path: string; text: string }; wallN?: number; notProven?: string[]; planFiles?: string[]; baseLinks?: Record<string, string> };
+async function sealRun(baseFiles: Record<string, string>, edits: Record<string, string>, opt: SealOpt = {}): Promise<Receipt> {
   process.env["LOKI_RECEIPT_SIGNING_KEY"] = ""; process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = join(tmpdir(), "rcs-nokey", "k.pem");
-  const { repo, base } = sealRepo(baseFiles, edits), ctx = sealCtx(repo, base);
+  const { repo, base } = sealRepo(baseFiles, edits, opt.baseLinks);
+  for (const [l, t] of Object.entries(opt.links ?? {})) { mkdirSync(dirname(join(repo, l)), { recursive: true }); rmSync(join(repo, l), { force: true }); symlinkSync(t, join(repo, l)); }
+  const w = opt.wallFile, runDir = join(repo, ".loki/runs/r1");
+  if (w) { mkdirSync(join(runDir, "wall"), { recursive: true }); writeFileSync(join(runDir, "wall", basename(w.path)), w.text); }
+  if (opt.planFiles) writeFileSync(join(runDir, "plan-scope.json"), JSON.stringify({ files: opt.planFiles }));
+  const over: Partial<Record<StageName, Record<string, unknown>>> = {};
+  if (w) { over.wall = { files: [{ path: w.path, sha256: "ab".repeat(32) }] }; over.verify = { checks: [{ name: "bun test:calc.test.ts", cmd: "bun test", result: "pass", duration_s: 1, n: 1 }, { name: `bun test:${w.path}`, cmd: `bun test ${w.path}`, result: "pass", duration_s: 1, n: opt.wallN ?? 4 }], flaky: [], wall_passed: true, duration_s: 2, not_proven: opt.notProven ?? [] }; }
+  const ctx = sealCtx(repo, base, over);
   await commitStage.run(ctx, new AbortController().signal);
   const s = await sealStage.run(ctx, new AbortController().signal);
   const rr = JSON.parse(readFileSync(s.data.receipt_path as string, "utf8")) as Receipt; return rr;
@@ -648,4 +658,113 @@ describe("FC-09w case-insensitive registry, .npmrc, patchedDependencies targets"
       expect(n[0]).toContain("vendor/b.js");
     });
   });
+});
+
+// Class C: an advisory for a change the plan declared, or a link a passing Wall requires, is disclosed and never caps; every undeclared change still caps.
+describe("seal advisories: a declared symlink is disclosed, a declared config change always caps", () => {
+  const PK = JSON.stringify({ name: "validate", scripts: { test: "bun test" } }) + "\n", NOTE = "test configuration changed: packages/validate/package.json";
+  const pkgEdits = { "packages/validate/package.json": PK, "packages/validate/validate.mjs": "export const ok = 1;\n", "tests/loki_wall_validate.test.mjs": "import '../packages/validate/validate.mjs';\n" };
+  const WALL = { path: "tests/loki_wall_validate.test.mjs", text: "import '../packages/validate/validate.mjs';\n" };
+  test("P0: a plain new package.json the plan declared (test script jest, Wall passed) still caps", async () => {
+    const r = await sealRun({}, { ...pkgEdits, "packages/validate/package.json": JSON.stringify({ name: "validate", scripts: { test: "jest" } }) + "\n" }, { wallFile: WALL, notProven: [NOTE], planFiles: ["packages/validate/package.json"] });
+    expect(r.verdict).toBe("PARTIAL");
+    expect(r.not_proven).toContain(NOTE);
+  }, 30000);
+  test("mutation: the same new package.json with no plan declaration still caps", async () => {
+    const r = await sealRun({}, pkgEdits, { wallFile: WALL, notProven: [NOTE], planFiles: ["calc.ts"] });
+    expect(r.verdict).toBe("PARTIAL");
+    expect(r.not_proven).toContain(NOTE);
+  }, 30000);
+  test("mutation: a declared package.json that already existed at base (an edit) still caps", async () => {
+    const r = await sealRun({ "packages/validate/package.json": '{"name":"validate"}\n' }, pkgEdits, { wallFile: WALL, notProven: [NOTE], planFiles: ["packages/validate/package.json"] });
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  test("mutation: a declared new package.json caps when the Wall did not pass with n>0", async () => {
+    const r = await sealRun({}, pkgEdits, { wallFile: WALL, wallN: 0, notProven: [NOTE], planFiles: ["packages/validate/package.json"] });
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  const LINKW = { path: "tests/loki_wall_bump.test.ts", text: 'join(import.meta.dir, "bump.sh")\n' };
+  test("a symlink a passing Wall requires, to a real in-repo file, is disclosed, verdict VERIFIED", async () => {
+    const r = await sealRun({}, { "bump.sh": "#!/bin/sh\n", "tests/loki_wall_bump.test.ts": LINKW.text }, { wallFile: LINKW, links: { "tests/bump.sh": "../bump.sh" } });
+    expect(r.verdict).toBe("VERIFIED");
+    expect(r.not_proven.some((n) => n.startsWith("symlink added by the change") && n.includes("disclosed, does not cap"))).toBe(true);
+  }, 30000);
+  test("mutation: a symlink no Wall file names and the plan never declared still caps", async () => {
+    const r = await sealRun({}, { "bump.sh": "#!/bin/sh\n", "tests/loki_wall_bump.test.ts": LINKW.text }, { wallFile: LINKW, links: { "tests/other_alias": "../bump.sh" } });
+    expect(r.verdict).toBe("PARTIAL");
+    expect(r.not_proven.some((n) => n.startsWith("symlink added by the change") && n.endsWith("tests/other_alias"))).toBe(true);
+  }, 30000);
+  test("mutation: a dangling symlink the Wall names still caps", async () => {
+    const r = await sealRun({}, { "tests/loki_wall_bump.test.ts": LINKW.text }, { wallFile: LINKW, links: { "tests/bump.sh": "../missing.sh" } });
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  test("R1: a plan that declares a sibling file does not declare a new conftest.py beside it (test-runner hook), verdict PARTIAL", async () => {
+    const note = "test configuration changed: tests/conftest.py", W = { path: "tests/loki_wall_h.test.ts", text: "import './helper.py';\n" };
+    const r = await sealRun({}, { "tests/helper.py": "x = 1\n", "tests/conftest.py": "def pytest_runtest_makereport(item, call): pass\n", [W.path]: W.text }, { wallFile: W, notProven: [note], planFiles: ["tests/helper.py"] });
+    expect(r.verdict).toBe("PARTIAL"); expect(r.not_proven).toContain(note);
+  }, 30000);
+  test("R1b: even a plan that names the conftest.py exactly does not disclose it (not a package manifest)", async () => {
+    const note = "test configuration changed: tests/conftest.py", W = { path: "tests/loki_wall_h.test.ts", text: "import './helper.py';\n" };
+    const r = await sealRun({}, { "tests/conftest.py": "x = 1\n", [W.path]: W.text }, { wallFile: W, notProven: [note], planFiles: ["tests/conftest.py"] });
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  test("R1c: a declared new package.json in a folder that already held files at base still caps", async () => {
+    const r = await sealRun({ "packages/validate/old.mjs": "export {};\n" }, pkgEdits, { wallFile: WALL, notProven: [NOTE], planFiles: ["packages/validate/package.json"] });
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  test("R2: a Wall-named link to a file that already existed at base (this diff did not add it) caps", async () => {
+    const r = await sealRun({ "README.md": "doc\n" }, { "tests/loki_wall_bump.test.ts": LINKW.text }, { wallFile: LINKW, links: { "tests/bump.sh": "../README.md" } });
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  test("R2b: a Wall-named link whose target is a test file caps", async () => {
+    const r = await sealRun({}, { "tests/real.test.ts": "x\n", "tests/loki_wall_bump.test.ts": LINKW.text }, { wallFile: LINKW, links: { "tests/bump.sh": "real.test.ts" } });
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  test("R3: a link named a is not named by the letter a in the Wall prose, so it caps", async () => {
+    const W = { path: "tests/loki_wall_x.test.ts", text: "// a basic check\nexpect(1).toBe(1);\n" };
+    const r = await sealRun({}, { "real.sh": "#!/bin/sh\n", [W.path]: W.text }, { wallFile: W, links: { a: "real.sh" } });
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  const newPkg = (name: string, files: Record<string, string>, planned: string): Promise<Receipt> => {
+    const W = { path: "tests/loki_wall_v.test.mjs", text: "import '../packages/v/v.mjs';\n" };
+    return sealRun({}, { ...files, "packages/v/v.mjs": "export const ok = 1;\n", [W.path]: W.text }, { wallFile: W, notProven: [`test configuration changed: ${planned}`], planFiles: [planned] });
+  };
+  test("R1d: a declared new package.json that wires a jest testRunner or reporter at a file the run added caps", async () => {
+    const pk = JSON.stringify({ name: "v", jest: { testRunner: "./r.js", reporters: ["./rep.js"] } }) + "\n";
+    const r = await newPkg("v", { "packages/v/package.json": pk, "packages/v/r.js": "module.exports = {};\n", "packages/v/rep.js": "module.exports = {};\n" }, "packages/v/package.json");
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  test("R1d2: a declared new package.json whose test script runs a local path caps", async () => {
+    const pk = JSON.stringify({ name: "v", scripts: { test: "node ./evil.js" } }) + "\n";
+    expect((await newPkg("v", { "packages/v/package.json": pk, "packages/v/evil.js": "\n" }, "packages/v/package.json")).verdict).toBe("PARTIAL");
+  }, 30000);
+  test("R1e: a declared new pyproject.toml that loads a pytest plugin through addopts caps", async () => {
+    const py = '[project]\nname = "v"\n[tool.pytest.ini_options]\naddopts = "-p v.evil"\n';
+    const r = await newPkg("v", { "packages/v/pyproject.toml": py, "packages/v/v/evil.py": "x = 1\n" }, "packages/v/pyproject.toml");
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  test("R1f: even a declared new pyproject.toml with no test section caps", async () => {
+    const r = await newPkg("v", { "packages/v/pyproject.toml": '[project]\nname = "v"\n' }, "packages/v/pyproject.toml");
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  test("X1: a declared new package.json whose test script runs a plain-word local file caps", async () => {
+    const pk = JSON.stringify({ name: "v", scripts: { test: "node t" } }) + "\n";
+    expect((await newPkg("v", { "packages/v/package.json": pk, "packages/v/t.js": "process.exit(0)\n" }, "packages/v/package.json")).verdict).toBe("PARTIAL");
+  }, 30000);
+  test("X2: a declared new package.json that maps a test dependency to a local file: package caps", async () => {
+    const pk = JSON.stringify({ name: "v", devDependencies: { chai: "file:./fakechai" } }) + "\n";
+    expect((await newPkg("v", { "packages/v/package.json": pk, "packages/v/fakechai/index.js": "module.exports = {};\n" }, "packages/v/package.json")).verdict).toBe("PARTIAL");
+  }, 30000);
+  test("X4: a declared new go.mod with a replace directive to a local path caps", async () => {
+    const gm = "module v\n\ngo 1.21\n\nreplace example.com/dep => ./dep\n";
+    expect((await newPkg("v", { "packages/v/go.mod": gm, "packages/v/dep/dep.go": "package dep\n" }, "packages/v/go.mod")).verdict).toBe("PARTIAL");
+  }, 30000);
+  test("R4c: a link through a base link that the run retargeted out of the repo caps (a single readlink would pass)", async () => {
+    const r = await sealRun({ "README.md": "doc\n" }, { "tests/loki_wall_bump.test.ts": LINKW.text }, { wallFile: LINKW, baseLinks: { hop: "README.md" }, links: { hop: "/etc/hosts", "tests/bump.sh": "../hop" } });
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
+  test("R4: a link whose target is a base-tracked link out of the repo caps (every hop is resolved)", async () => {
+    const r = await sealRun({}, { "tests/loki_wall_bump.test.ts": LINKW.text }, { wallFile: LINKW, baseLinks: { hop: "/etc/hosts" }, links: { "tests/bump.sh": "../hop" } });
+    expect(r.verdict).toBe("PARTIAL");
+  }, 30000);
 });

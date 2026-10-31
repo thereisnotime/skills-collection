@@ -10,7 +10,7 @@ import { snapshotContract } from "../../src/features/contract.ts";
 import { snapshotUntracked, splitDirty, untrackedAtIntake } from "../../src/e10ext/preexisting_dirty.ts";
 import { createHash, generateKeyPairSync } from "node:crypto";
 import { STEER_MAX_BYTES, withSteer } from "../../src/util/steer.ts";
-import { intentRevisionsBlock } from "../../src/util/run_outputs.ts";
+import { intentRevisionsBlock, sealAccuracyLine, SEAL_ACCURACY_NOT_MEASURED } from "../../src/util/run_outputs.ts";
 import { appendReceiptFact } from "../../src/util/pr_lessons.ts";
 import { sealedLog } from "./log_fixture.ts";
 import { copyFileSync, linkSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
@@ -20,7 +20,7 @@ import { dirname, join, resolve } from "node:path";
 import { backstopCommit } from "../../src/e10ext/commit_filter.ts"; import { sealDrift } from "../../src/util/seal_drift.ts";
 import { reviewExtraLimitS } from "../../src/engine10/stages/xreview.ts";
 import { main as verifyMain, verifyReceipt } from "../../src/engine10/verify_cmd.ts";
-import { runMachine } from "../../src/engine10/machine.ts";
+import { hasFailures, runMachine } from "../../src/engine10/machine.ts";
 import { costTotalsOf, sumResultCosts } from "../../src/engine10/cost.ts";
 import { buildTime, reconciledTotalS } from "../../src/contrib/receipt_time.ts";
 import { hooks } from "../../src/engine10/hooks.ts";
@@ -29,10 +29,10 @@ import { repoKey } from "../../src/engine10/cache.ts";
 import { readOriginUrl } from "../../src/util/engine_origin.ts";
 import { computeKey, shallowDirs } from "../../src/project_model/gather.ts";
 import { EXIT, formatSummary, outcomeOf, reasonOf } from "../../src/engine10/output.ts";
-import { safeRestore } from "../../src/e10ext/discard.ts"; import { addedSymlinkNotes } from "../../src/util/base_guard.ts"; import { commitStage, renderReceiptMd, SIGNING_UNAVAILABLE, sealStage, EXTERNAL_NO_WALL } from "../../src/engine10/stages/seal.ts";
+import { safeRestore } from "../../src/e10ext/discard.ts"; import { addedSymlinkNotes } from "../../src/util/base_guard.ts"; import { verifyStage } from "../../src/engine10/stages/verify.ts"; import { commitStage, renderReceiptMd, SIGNING_UNAVAILABLE, sealStage, EXTERNAL_NO_WALL } from "../../src/engine10/stages/seal.ts";
 import type { EventType, Receipt, RunContext, StageName } from "../../src/engine10/types.ts";
 import { _setIsolatedPythonFixedForTests } from "../../src/util/python.ts";
-import { REPO_ROOT } from "../../src/util/paths.ts";
+import { REPO_ROOT } from "../../src/util/paths.ts"; import { getVersion } from "../../src/version.ts";
 import { RECEIPT_SIGNER_BASENAME } from "../../src/util/receipt_signer.ts";
 const PRE_KEY_FILE = process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"];
 
@@ -137,6 +137,14 @@ describe("engine10 seal", () => {
       expect((r as unknown as { route: { requests_total: number } }).route.requests_total).toBe(8);
     } finally { if (prev === undefined) delete process.env["LOKI_ROUTER"]; else process.env["LOKI_ROUTER"] = prev; }
   });
+  test("a headless ambiguous run seals the intake assumptions in the receipt; a clear run omits the field", async () => {
+    noKey();
+    const { repo, base } = makeRepo("assumptions");
+    const withA = ctxFor(repo, base, "claude", { intake: { source: "text", task_sha256: "ab".repeat(32), assumptions: ["a1", "a2"] } });
+    expect(receiptOf(await sealStage.run(withA.ctx, new AbortController().signal)).assumptions).toEqual(["a1", "a2"]);
+    const clear = ctxFor(repo, base);
+    expect("assumptions" in receiptOf(await sealStage.run(clear.ctx, new AbortController().signal))).toBe(false);
+  }, 30000);
   test("atomic receipt: receipt.json and receipt.md are replaced by rename, never truncated in place", async () => {
     const { repo, base } = makeRepo("atomic-receipt");
     const { ctx } = ctxFor(repo, base);
@@ -658,6 +666,61 @@ print(load_signing_key(auto_generate=False)[1])`, AUTONOMY, keyFile], root).trim
     expect(readFileSync(join(ctx.runDir, "receipt.md"), "utf8")).toContain("## Loki receipt: SPEC_CONFLICT");
     expect(events.find((e) => e.type === "receipt.sealed")?.data.verdict).toBe("SPEC_CONFLICT");
   }, 30000);
+
+  // never-worse-than-raw floor: repo checks pass, a Loki gate failed for a harness reason -> PARTIAL, owner harness, tree delivered.
+  const floorRun = async (name: string, wallOwner: "harness" | undefined) => {
+    const { repo, base } = makeRepo(name);
+    const { ctx } = ctxFor(repo, base, "claude", {
+      verify: { checks: [
+        { name: "pytest", cmd: "pytest -q", result: "pass", n: 3, duration_s: 1 },
+        { name: "wall:loki_wall_a.py", cmd: "python3 -m pytest loki_wall_a.py", result: "fail", ...(wallOwner ? { owner: wallOwner } : {}), duration_s: 1 },
+      ], flaky: [], wall_passed: false, duration_s: 1 },
+    });
+    const c = await commitStage.run(ctx, new AbortController().signal);
+    const s = await sealStage.run(ctx, new AbortController().signal);
+    return { c, s, r: receiptOf(s) };
+  };
+  test("floor: a harness-owned gate failure with passing repo checks seals PARTIAL with owner harness and a delivered commit", async () => {
+    const { c, r } = await floorRun("floor-harness", "harness");
+    expect(c.status).toBe("completed");
+    expect(r.verdict).toBe("PARTIAL");
+    const w = r.checks.find((k) => k.name.startsWith("wall:"))!;
+    expect(w.result).toBe("not_run");
+    expect(w.owner).toBe("harness");
+  }, 30000);
+  test("floor: a code-owned gate failure is still FAILED and carries no owner", async () => {
+    const { r } = await floorRun("floor-code", undefined);
+    expect(r.verdict).toBe("FAILED");
+    expect(r.checks.find((k) => k.name.startsWith("wall:"))!.owner).toBeUndefined();
+  }, 30000);
+  test("floor: a genuinely failing check run through verify then seal is FAILED and carries no owner", async () => {
+    const { repo, base } = makeRepo("floor-real-verify");
+    writeFileSync(join(repo, "broken.sh"), "if [ -z \"$x\" ]\n  echo unterminated\n");
+    const { ctx } = ctxFor(repo, base, "claude", { verify: {} });
+    const v = await verifyStage.run(ctx, new AbortController().signal);
+    const bash = (v.data.checks as { name: string; result: string; owner?: string }[]).find((k) => k.name === "lint:bash-n")!;
+    expect(bash.result).toBe("fail");
+    expect(bash.owner).toBeUndefined();
+    const { ctx: sctx } = ctxFor(repo, base, "claude", { verify: v.data });
+    await commitStage.run(sctx, new AbortController().signal);
+    const r = receiptOf(await sealStage.run(sctx, new AbortController().signal));
+    expect(r.verdict).toBe("FAILED");
+    const k = r.checks.find((c) => c.name === "lint:bash-n")!;
+    expect(k.result).toBe("fail");
+    expect(k.owner).toBeUndefined();
+  }, 30000);
+  test("floor: reasonOf never names a harness-owned failed check, and still names a code-owned one", () => {
+    const ev = (checks: unknown[]) => [{ v: 1, seq: 0, ts: "t", run: "r", type: "stage.completed", stage: "verify", data: { checks } }] as never;
+    const harness = { name: "wall:w.py", result: "fail", first_error: "collect error", owner: "harness" }, code = { name: "pytest", result: "fail", first_error: "assert 1 == 2" };
+    expect(reasonOf(ev([harness, code]), false, null, "FAILED")).toBe("pytest failed: assert 1 == 2");
+    expect(reasonOf(ev([harness]), false, null, "PARTIAL") ?? "").not.toContain("wall:w.py failed");
+    expect(reasonOf(ev([code]), false, null, "FAILED")).toBe("pytest failed: assert 1 == 2");
+  });
+  test("floor: a harness-owned failure feeds no fix round and no stall", () => {
+    const v = (owner?: string) => ({ checks: [{ name: "w", result: "fail", ...(owner ? { owner } : {}) }], failures_grouped: [{ signature: "w", count: 1, sample: "" }] });
+    expect(hasFailures(v("harness"))).toBe(false);
+    expect(hasFailures(v())).toBe(true);
+  });
 
   // FC-16 r5: a Go-only run (count never confirmed) is reported as unconfirmed on NOT PROVEN, never as "no tests executed".
   test("go-only run: NOT PROVEN says the count could not be confirmed, not that no tests executed", async () => {
@@ -2101,15 +2164,16 @@ describe("#238 wall proven at committed path", () => {
   const sha = (s: string): string => createHash("sha256").update(s).digest("hex");
   // resolves its fixture from its own dir: passes only where loc_fixture.txt sits beside it
   const SEALED = 'import { test, expect } from "bun:test"; import { readFileSync } from "node:fs"; test("loc", () => expect(readFileSync(`${import.meta.dir}/loc_fixture.txt`, "utf8")).toBe("ok\\n"));\n';
-  async function run(name: string, fixtureAtCommitted: boolean) {
+  async function run(name: string, fixtureAtCommitted: boolean, arbitrated: boolean | Record<string, unknown> = false, already = false) {
     noKey();
     const { repo, base } = makeRepo(name);
     mkdirSync(join(repo, "tests"), { recursive: true }); writeFileSync(join(repo, REL), "// agent\n");
     writeFileSync(join(repo, "loc_fixture.txt"), "ok\n"); // proven where the fixture is: the repo root
     if (fixtureAtCommitted) writeFileSync(join(repo, "tests/loc_fixture.txt"), "ok\n");
     const { ctx } = ctxFor(repo, base, "claude", {
-      wall: { files: [{ path: join(repo, REL), sha256: sha(SEALED) }], base_run: { pass: 0, fail: 1, not_run: 0 } },
+      wall: { files: [{ path: join(repo, REL), sha256: sha(SEALED) }], base_run: already ? { pass: 1, fail: 0, not_run: 0 } : { pass: 0, fail: 1, not_run: 0 }, ...(arbitrated ? { arbitrated: [{ check: NAME, test: "loc", old_assertion: "old", new_assertion: "new", spec_quote: "the quote", ...(arbitrated === true ? {} : arbitrated) }] } : {}) },
       verify: { checks: [{ name: NAME, cmd: `bun test ${REL}`, result: "pass", n: 1, duration_s: 1 }], target_checks: [NAME], flaky: [], wall_passed: true, duration_s: 1 },
+      ...(already ? { intake: { source: "text", task_sha256: "ab".repeat(32), repo: "o/r", title: "t", resumed: false, already_satisfied: true, evidence: ["already true on base"] } } : {}),
     });
     mkdirSync(join(ctx.runDir, "wall"), { recursive: true }); writeFileSync(join(ctx.runDir, "wall/loki_wall_loc.test.ts"), SEALED);
     await commitStage.run(ctx, new AbortController().signal);
@@ -2126,4 +2190,92 @@ describe("#238 wall proven at committed path", () => {
     const x = await run("loc-ok", true);
     expect(x.s.data.verdict).toBe("VERIFIED"); expect(x.s.data.wall_published).toBeDefined();
   }, 60000);
+  test("an applied Wall arbitration caps an otherwise VERIFIED run at PARTIAL, discloses it, and publishes nothing; a run without one keeps VERIFIED", async () => {
+    const x = await run("loc-arb", true, true);
+    expect(x.s.data.verdict).toBe("PARTIAL"); expect(x.r.verdict).toBe("PARTIAL");
+    expect(x.r.not_proven.some((n) => n.startsWith(`Wall assertion arbitrated (spec clause, two referees): ${NAME} test loc:`) && n.includes('"the quote"'))).toBe(true);
+    expect(x.s.data.wall_published).toBeUndefined();
+    const y = await run("loc-noarb", true, false);
+    expect(y.s.data.verdict).toBe("VERIFIED"); expect(y.r.not_proven.some((n) => n.startsWith("Wall assertion arbitrated"))).toBe(false);
+  }, 120000);
+  test("a legacy (unvalidated) Wall rewrite is capped at PARTIAL and disclosed as such", async () => {
+    const x = await run("loc-legacy", true, { kind: "legacy", test: "(whole file)", old_assertion: "(not validated)", new_assertion: "(not validated)" });
+    expect(x.s.data.verdict).toBe("PARTIAL");
+    expect(x.r.not_proven.some((n) => n.startsWith(`Wall assertion arbitrated (legacy re-author, no referees, no validation): ${NAME}`) && n.endsWith("verdict capped at PARTIAL"))).toBe(true);
+  }, 120000);
+  test("an arbitrated run that would seal ALREADY_SATISFIED is capped at PARTIAL too; without the record it stays ALREADY_SATISFIED", async () => {
+    const ctl = await run("loc-as-ctl", true, false, true);
+    expect(ctl.s.data.verdict).toBe("ALREADY_SATISFIED");
+    const x = await run("loc-as-arb", true, true, true);
+    expect(x.s.data.verdict).toBe("PARTIAL");
+  }, 120000);
+});
+
+describe("Seal accuracy line (GAME10-03)", () => {
+  const MODEL = "claude-opus-5-5", DAY = 86_400_000;
+  const mk = (name: string, over: { row?: Record<string, unknown> | null; ver?: string | null; run?: Record<string, unknown>; ageDays?: number | null; corpusSha?: string } = {}) => {
+    const dir = join(root, name);
+    mkdirSync(join(dir, "results"), { recursive: true });
+    writeFileSync(join(dir, "manifest.json"), '{"defects":[]}');
+    const sha = createHash("sha256").update('{"defects":[]}').digest("hex");
+    const row = over.row === null ? [] : [{ language: "python", runner: "pytest", tier: "top", n: 60, wrong_pass: 0, wilson_upper_95: 0.0602, ...over.row }];
+    const file = join(dir, "results", "wrong-pass.json");
+    writeFileSync(file, JSON.stringify({ schema: "loki.seeded-defects.results/v3", manifest_sha256: sha, runs: [{ setup: "top", model: MODEL, loki_version: over.ver === undefined ? getVersion() : over.ver, corpus_sha256: over.corpusSha ?? sha, strata: row, ...(over.ageDays === null ? {} : { measured_at: new Date(Date.now() - (over.ageDays ?? 0) * DAY).toISOString() }), ...over.run }] }));
+    return { LOKI_SEEDED_DEFECTS_DIR: dir } as NodeJS.ProcessEnv;
+  };
+  const line = (env: NodeJS.ProcessEnv, files = ["src/app.py", "tests/test_app.py"], model = MODEL) => sealAccuracyLine(files, [{ cmd: "pytest -q", result: "pass" }], model, env);
+  test("a measured stratum states its counts, upper bound and version from the file", () => {
+    expect(line(mk("sa-ok"))).toBe(`Seal accuracy for python/pytest at this tier: 0 wrong passes in 60 seeded defects, 95% upper bound 6.0%, measured on ${getVersion()}`);
+    expect(line(mk("sa-one", { row: { wrong_pass: 1, n: 40, wilson_upper_95: 0.1286 } }))).toContain("1 wrong pass in 40 seeded defects, 95% upper bound 12.9%");
+  });
+  test("not measured on a version mismatch", () => {
+    expect(line(mk("sa-ver", { ver: "0.0.1" }))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+    expect(line(mk("sa-nover", { ver: null }))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+  });
+  test("not measured when the stratum is missing", () => {
+    expect(line(mk("sa-nostratum", { row: null }))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+    expect(line(mk("sa-otherlang"), ["src/app.go"])).toBe(SEAL_ACCURACY_NOT_MEASURED);
+    expect(line(mk("sa-othermodel"), undefined, "claude-haiku-5-5")).toBe(SEAL_ACCURACY_NOT_MEASURED);
+    expect(sealAccuracyLine(["src/app.py"], [{ cmd: "pytest", result: "fail" }], MODEL, mk("sa-nopass"))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+  });
+  test("measured_at rules: missing or unparseable is not measured, 8 days is not measured, 1 day is measured, a checkout-fresh mtime does not help", () => {
+    expect(line(mk("sa-noat", { ageDays: null }))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+    expect(line(mk("sa-badat", { run: { measured_at: "yesterday" } }))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+    expect(line(mk("sa-8d", { ageDays: 8 }))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+    expect(line(mk("sa-1d", { ageDays: 1 }))).toStartWith("Seal accuracy for python/pytest");
+    expect(line(mk("sa-future", { ageDays: -2 }))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+  });
+  test("not measured when the result is older than 7 days, measured at 6 days", () => {
+    expect(line(mk("sa-old", { ageDays: 8 }))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+    expect(line(mk("sa-6d", { ageDays: 6 }))).toStartWith("Seal accuracy for python/pytest");
+  });
+  test("not measured for a corpus other than the current manifest and for a malformed row", () => {
+    expect(line(mk("sa-corpus", { corpusSha: "f".repeat(64) }))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+    expect(line(mk("sa-badrow", { row: { wrong_pass: 61 } }))).toBe(SEAL_ACCURACY_NOT_MEASURED);
+    expect(line({ LOKI_SEEDED_DEFECTS_DIR: join(root, "sa-absent") })).toBe(SEAL_ACCURACY_NOT_MEASURED);
+  });
+  test("the sealed receipt carries the line and editing it fails verification", async () => {
+    const { repo, base } = makeRepo("sa-seal");
+    const { ctx } = ctxFor(repo, base);
+    ctx.model = MODEL;
+    const prev = process.env["LOKI_SEEDED_DEFECTS_DIR"];
+    process.env["LOKI_SEEDED_DEFECTS_DIR"] = mk("sa-seal-corpus", { row: { language: "unknown" } })["LOKI_SEEDED_DEFECTS_DIR"]!;
+    try {
+      const s = await sealStage.run(ctx, new AbortController().signal), path = s.data.receipt_path as string;
+      expect(receiptOf(s).seal_accuracy).toContain("Seal accuracy for unknown/pytest at this tier: 0 wrong passes in 60");
+      expect(s.data.signed).toBe(true);
+      expect((await verifyReceipt(path)).reasons.some((r) => r.startsWith("receipt_sha256 mismatch"))).toBe(false); // the fixture event log is not the sealed one; integrity is under test
+      const t = JSON.parse(readFileSync(path, "utf8"));
+      t.seal_accuracy = t.seal_accuracy.replace("95% upper bound 6.0%", "95% upper bound 0.1%");
+      writeFileSync(path, JSON.stringify(t, null, 2) + "\n");
+      const bad = await verifyReceipt(path);
+      expect(bad.verdict).toBe("TAMPERED");
+      expect(bad.reasons[0]).toStartWith("receipt_sha256 mismatch");
+    } finally { if (prev === undefined) delete process.env["LOKI_SEEDED_DEFECTS_DIR"]; else process.env["LOKI_SEEDED_DEFECTS_DIR"] = prev; }
+  });
+  test("a receipt with no usable stratum signs not measured", async () => {
+    const { repo, base } = makeRepo("sa-seal-none");
+    const { ctx } = ctxFor(repo, base);
+    expect(receiptOf(await sealStage.run(ctx, new AbortController().signal)).seal_accuracy).toBe(SEAL_ACCURACY_NOT_MEASURED);
+  });
 });

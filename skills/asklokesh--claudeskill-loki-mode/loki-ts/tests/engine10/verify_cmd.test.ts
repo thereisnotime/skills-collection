@@ -1,3 +1,4 @@
+// select: walk-all-src
 // loki-ts/tests/engine10/verify_cmd.test.ts
 //
 // E-22 wall check (ENGINE.md section 16). Every receipt is built in a
@@ -10,13 +11,15 @@ import { sealedLog } from "./log_fixture.ts";
 import { createHash, generateKeyPairSync, sign as nodeSign, type KeyObject } from "node:crypto";
 import { kidOf, signReceipt } from "../../src/engine10/stages/seal.ts";
 import { SupervisorLog } from "../../src/engine10/supervisor.ts";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { DSSE_PAYLOAD_TYPE, PREDICATE_TYPE, STATEMENT_TYPE, pae } from "../../src/features/receipt_dsse.ts";
 import { sealGroup } from "../../src/features/speed/seal_group.ts";
 import { compositeHash } from "../../src/util/composite_seal.ts";
+import { sealedWallCopy } from "../../src/engine10/stages/wall.ts";
+import * as checkResult from "../../src/util/check_result.ts";
 import { computeReceiptHash, main, verifyReceipt } from "../../src/engine10/verify_cmd.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..");
@@ -1811,6 +1814,31 @@ describe("verifyReceipt: a deleted sealed Wall copy is tampered", () => {
       expect(await main(["e10-wd-del", "--allow-unsigned"], { runsRoot: join(dir, "runs") })).toBe(1);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
+  test("sealedWallCopy is the one resolver: <runDir>/wall/<basename>, shared by Wall, verify, mutation proof and publishing", () => {
+    expect(sealedWallCopy("/r/run1", "tests/wall/a.test.ts")).toBe(join("/r/run1", "wall", "a.test.ts"));
+    expect(sealedWallCopy("/r/run1", "/abs/elsewhere/b.test.ts")).toBe(join("/r/run1", "wall", "b.test.ts"));
+    expect(sealedWallCopy).toBe(checkResult.sealedWallCopy);
+    expect(checkResult.sealedWallDir("/r/run1")).toBe(join("/r/run1", "wall"));
+  });
+  const SRC_ROOT = join(REPO_ROOT, "loki-ts", "src");
+  const INLINE_WALL = [/\b(?:join|resolve)\((?:[^()\n]|\((?:[^()\n]|\([^()\n]*\))*\))*["'`]wall["'`]/, /\$\{[^}]*\}\/wall\b/, /runs\/[^"'`\s]*\/wall\b/];
+  function inlineWallPaths(): string[] {
+    const hits: string[] = [];
+    for (const f of readdirSync(SRC_ROOT, { recursive: true }) as string[]) {
+      if (!f.endsWith(".ts") || f === join("util", "check_result.ts")) continue;
+      readFileSync(join(SRC_ROOT, f), "utf8").split("\n").forEach((line, i) => { if (INLINE_WALL.some((re) => re.test(line))) hits.push(`${f}:${i + 1}: ${line.trim().slice(0, 120)}`); });
+    }
+    return hits;
+  }
+  test("no file but check_result.ts builds a sealed Wall path inline", () => {
+    expect(inlineWallPaths()).toEqual([]);
+  });
+  test("the python harness and the stub arm spell the sealed Wall dir exactly as the resolver does", () => {
+    const seg = relative("/r/run1", checkResult.sealedWallDir("/r/run1"));
+    expect(seg).toBe("wall");
+    expect(readFileSync(join(REPO_ROOT, "eval", "loki10", "harness.py"), "utf8")).toContain(`os.path.join(work, ".loki", "runs", rid, "${seg}")`);
+    expect(readFileSync(join(REPO_ROOT, "eval", "loki10", "fixtures", "stub-arm.sh"), "utf8")).toContain(`.loki/runs/stub-run/${seg}/`);
+  });
   test("wall directory absent (moved receipt): behaviour unchanged", async () => {
     const dir = tmpDir();
     try {
@@ -2022,4 +2050,72 @@ describe("PX-10 adversarial receipt corpus", () => {
     expect(bad).toEqual([]);
     expect(tampered).toBe(0);
   }, 120_000);
+});
+
+describe("main() Seal accuracy line (GAME10-03c)", () => {
+  const LINE = "Seal accuracy for python/pytest at this tier: 0 wrong passes in 60 seeded defects, 95% upper bound 6.0%, measured on 11.85.0";
+  const run = async (id: string, extra: Record<string, unknown>): Promise<string> => {
+    const dir = tmpDir();
+    try {
+      const fields = { ...baseReceiptFields(), run_id: id, ...extra }, runDir = join(dir, "runs", id);
+      mkdirSync(runDir, { recursive: true });
+      writeFileSync(join(runDir, "receipt.json"), JSON.stringify({ ...fields, receipt_sha256: computeReceiptHash(fields), verification: { jwt: null, kid: null } }));
+      return (await runMain([id, "--allow-unsigned"], join(dir, "runs"))).out;
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  };
+  test("prints the receipt's signed line, and the same not measured line when it says so or the receipt predates it", async () => {
+    expect(await run("sa1", { seal_accuracy: LINE })).toContain(`\n${LINE}\n`);
+    expect(await run("sa2", { seal_accuracy: "Seal accuracy: not measured" })).toContain("\nSeal accuracy: not measured\n");
+    expect(await run("sa3", {})).toContain("\nSeal accuracy: not measured\n");
+  });
+  test("an edited line is TAMPERED and prints no accuracy line", async () => {
+    const dir = tmpDir();
+    try {
+      const f = { ...baseReceiptFields(), run_id: "sa4", seal_accuracy: LINE }, runDir = join(dir, "runs", "sa4");
+      mkdirSync(runDir, { recursive: true });
+      writeFileSync(join(runDir, "receipt.json"), JSON.stringify({ ...f, seal_accuracy: LINE.replace("6.0%", "0.1%"), receipt_sha256: computeReceiptHash(f), verification: { jwt: null, kid: null } }));
+      const r = await runMain(["sa4", "--allow-unsigned"], join(dir, "runs"));
+      expect(r.code).toBe(1);
+      expect(r.out).not.toContain("0.1%");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe("verify binds a plain receipt to the requested run id", () => {
+  const withKey = async (fn: (dir: string) => Promise<void>): Promise<void> => {
+    const dir = tmpDir(), saved = [process.env["LOKI_RECEIPT_SIGNING_KEY"], process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"]];
+    process.env["LOKI_RECEIPT_SIGNING_KEY"] = ""; process.env["LOKI_RECEIPT_SIGNING_KEY_FILE"] = join(dir, "k.pem");
+    try { await fn(dir); } finally {
+      for (const [k, v] of [["LOKI_RECEIPT_SIGNING_KEY", saved[0]], ["LOKI_RECEIPT_SIGNING_KEY_FILE", saved[1]]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  /** A genuinely signed receipt with a signed log.sealed line, written under runs/<id>. */
+  const signedRun = (dir: string, id: string, mutate?: (f: Record<string, unknown>) => void): string => {
+    const f = baseReceiptFields(); f["run_id"] = id; f["log_seal"] = true; mutate?.(f);
+    const hash = computeReceiptHash(f), runDir = join(dir, "runs", id); mkdirSync(runDir, { recursive: true });
+    writeFileSync(join(runDir, "receipt.json"), JSON.stringify({ ...f, receipt_sha256: hash, verification: signReceipt(id, hash) }, null, 2));
+    sealedLog(runDir, hash, id);
+    return runDir;
+  };
+  test("the original id is VERIFIED; the same receipt and log copied under another id is not exit 0 and names both ids", async () => {
+    await withKey(async (dir) => {
+      const a = signedRun(dir, "run-a");
+      expect((await runMain(["run-a"], join(dir, "runs"))).code).toBe(0);
+      const b = join(dir, "runs", "other-run"); mkdirSync(b, { recursive: true });
+      for (const n of ["receipt.json", "events.jsonl"]) writeFileSync(join(b, n), readFileSync(join(a, n)));
+      const r = await runMain(["other-run"], join(dir, "runs"));
+      expect(r.code).not.toBe(0);
+      expect(r.out).not.toContain("verdict: VERIFIED");
+      expect(r.out).toContain("run-a"); expect(r.out).toContain("other-run");
+    });
+  });
+  test("a receipt with no run_id under a run id is refused, never VERIFIED", async () => {
+    await withKey(async (dir) => {
+      signedRun(dir, "norun", (f) => { delete f["run_id"]; });
+      const r = await runMain(["norun"], join(dir, "runs"));
+      expect(r.code).not.toBe(0);
+      expect(r.out).not.toContain("verdict: VERIFIED");
+    });
+  });
 });

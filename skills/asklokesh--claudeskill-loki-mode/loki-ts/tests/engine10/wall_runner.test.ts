@@ -1,10 +1,12 @@
 // A-103: real `node --test` runs on a bugrepo (off-by-one sum) through RealBaseTestRunner.
 // A Wall test that is not red for the right reason is discarded, never left in the tree.
+// select: not-src-walker (reads one src file, check_result.ts, by path; readdirSync lists only test temp dirs)
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { classify, runWall } from "../../src/engine10/stages/wall.ts";
+import { RealBaseTestRunner, classify, runWall } from "../../src/engine10/stages/wall.ts";
 import type { RunContext, SessionRunOptions, SessionRunner } from "../../src/engine10/types.ts";
 
 const SUM = "function sum(arr) { let t = 0; for (let i = 1; i < arr.length; i++) t += arr[i]; return t; }\nmodule.exports = { sum };\n";
@@ -132,7 +134,7 @@ describe("A-103 wall discards tests that are not red for the right reason", () =
     const fg = "=== RUN   TestA\n--- PASS: TestA (0.00s)\nPASS\nok  \texample.com/fg\t0.189s\n";
     expect(classify({ runner: "go" as const, path: "a_test.go" }, 0, fg, "/x")).toBe("not_run");
   });
-  test("classify go: a go test -json run that names a failing test is red; a compile failure or torn stream stays not_run", () => {
+  test("classify go: a go test -json run that names a failing test is red; a go build failure is red on base; a torn stream stays not_run", () => {
     const ev = (o: Record<string, unknown>): string => JSON.stringify({ Time: "2026-10-29T00:00:00Z", ...o });
     const f = { runner: "go" as const, path: "pkg/a_test.go" };
     const red = [
@@ -142,7 +144,7 @@ describe("A-103 wall discards tests that are not red for the right reason", () =
     ].join("\n") + "\n";
     expect(classify(f, 1, red, "/x")).toBe("fail");
     const build = [ev({ Action: "start", Package: "ex/pkg" }), ev({ Action: "output", Package: "ex/pkg", Output: "FAIL\tex/pkg [build failed]\n" }), ev({ Action: "fail", Package: "ex/pkg", Elapsed: 0 })].join("\n") + "\n";
-    expect(classify(f, 1, build, "/x")).toBe("not_run");
+    expect(classify(f, 1, build, "/x")).toBe("fail");
     expect(classify(f, 1, "exit status 1\nFAIL\tex/pkg\t0.01s\n", "/x")).toBe("not_run");
   });
   test("classify cargo: a failed test is red when cargo's stderr lines follow the stdout trailer (the order the Wall captures)", () => {
@@ -159,6 +161,17 @@ describe("A-103 wall discards tests that are not red for the right reason", () =
     expect(classify(f, 1, "\u2139 tests 1\n\u2139 pass 0\n\u2139 fail 1\n", "/x")).toBe("fail"); // node 20+ spec reporter off a TTY
     expect(classify(f, 1, "/r/t.test.js:1\ndescribe('x', () => {});\n^\n\nReferenceError: describe is not defined\n# fail 1\n", "/x")).toBe("not_run");
     expect(classify(f, 1, "Error: Cannot find module 'lodash'\n    at require (node:internal/x:1:1)\n  code: 'MODULE_NOT_FOUND'\n}\n\nNode.js v26.5.0\n# fail 1\n", "/x")).toBe("not_run");
+  });
+});
+
+describe("RealBaseTestRunner extraEnv reaches the child", () => {
+  // the fixture passes only when the child sees PYTHONDONTWRITEBYTECODE=1, which the plain test env does not carry
+  const PROBE = "const test = require('node:test');\nconst assert = require('node:assert');\ntest('env', () => { assert.strictEqual(process.env.PYTHONDONTWRITEBYTECODE, '1'); });\n";
+  const mk = (): string => { const d = mkdtempSync(join(tmpdir(), "loki-extraenv-")); repos.push(d); writeFileSync(join(d, "t.test.js"), PROBE, "utf8"); return d; };
+  test("extraEnv is merged into the child env; without it the same file is red", () => {
+    const f = { runner: "node" as const, path: "t.test.js" };
+    expect(new RealBaseTestRunner(null, undefined, { PYTHONDONTWRITEBYTECODE: "1" }).run(mk(), [f])).toEqual({ pass: 1, fail: 0, not_run: 0 });
+    expect(new RealBaseTestRunner(null).run(mk(), [f])).toEqual({ pass: 0, fail: 1, not_run: 0 });
   });
 });
 
@@ -204,5 +217,111 @@ describe("TEN-SPEED-19 base jobs", () => {
     expect(Date.now() - t0).toBeLessThan(5000);
     expect(a.status).toBe(sync.status);
     expect(a.output).toBe(`${sync.stdout}\n${sync.stderr}`);
+  }, 30_000);
+  // A child that ignores SIGTERM (as bun test does) must still stop at the timeout.
+  const STUBBORN = ["-e", "process.on('SIGTERM', () => {}); setTimeout(() => {}, 30000)"];
+  test("spawnCollect stops a SIGTERM-ignoring child shortly after its timeout and reports no status", async () => {
+    const { spawnCollect } = await import("../../src/util/check_result.ts");
+    const t0 = Date.now(), r = await spawnCollect("node", STUBBORN, { timeoutMs: 1000 });
+    expect(Date.now() - t0).toBeLessThan(4000);
+    expect(r.status).toBeNull();
+  }, 20_000);
+
+  test("RealBaseTestRunner.run stops a SIGTERM-ignoring child at the timeout and counts it not_run", () => {
+    const repo = mkdtempSync(join(tmpdir(), "loki-run.f0-")); repos.push(repo);
+    mkdirSync(join(repo, ".venv", "bin"), { recursive: true });
+    writeFileSync(join(repo, ".venv", "bin", "python"), `#!/bin/sh\nexec node -e "process.on('SIGTERM', () => {}); setTimeout(() => {}, 30000)"\n`, { mode: 0o755 });
+    writeFileSync(join(repo, "test_a.py"), "def test_a():\n    pass\n");
+    const t0 = Date.now(), r = new RealBaseTestRunner(null, 1000).run(repo, [{ runner: "pytest", path: "test_a.py" }]);
+    expect(Date.now() - t0).toBeLessThan(4000);
+    expect(r).toEqual({ pass: 0, fail: 0, not_run: 1 });
+  }, 20_000);
+  // npx-style wrapper: the direct child is a shell, the SIGTERM-ignoring runner is its grandchild and holds the stdio pipes.
+  const GRAND = `node -e "process.on('SIGTERM', () => {}); setTimeout(() => {}, 30000)" & echo $! > "$PIDFILE"; wait`;
+  const dead = async (pid: number) => { for (let i = 0; i < 20; i++) { try { process.kill(pid, 0); } catch { return true; } await new Promise((r) => setTimeout(r, 100)); } return false; };
+  test("spawnCollect returns at the timeout and kills the whole group when a grandchild holds the pipes", async () => {
+    const { spawnCollect } = await import("../../src/util/check_result.ts");
+    const dir = mkdtempSync(join(tmpdir(), "loki-run.f0b-")); repos.push(dir);
+    const t0 = Date.now(), r = await spawnCollect("sh", ["-c", GRAND], { timeoutMs: 1000, env: { ...process.env, PIDFILE: join(dir, "pid") } });
+    expect(Date.now() - t0).toBeLessThan(4000);
+    expect(r.status).toBeNull();
+    expect(await dead(Number(readFileSync(join(dir, "pid"), "utf8")))).toBe(true);
+  }, 20_000);
+
+  test("RealBaseTestRunner.run reaps a grandchild runner that outlives the killed direct child", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "loki-run.f0b-")); repos.push(repo);
+    mkdirSync(join(repo, ".venv", "bin"), { recursive: true });
+    writeFileSync(join(repo, ".venv", "bin", "python"), `#!/bin/sh\nPIDFILE='${join(repo, "pid")}'\n${GRAND}\n`, { mode: 0o755 });
+    writeFileSync(join(repo, "test_a.py"), "def test_a():\n    pass\n");
+    const t0 = Date.now(), r = new RealBaseTestRunner(null, 1000).run(repo, [{ runner: "pytest", path: "test_a.py" }]);
+    expect(Date.now() - t0).toBeLessThan(4000);
+    expect(r).toEqual({ pass: 0, fail: 0, not_run: 1 });
+    expect(await dead(Number(readFileSync(join(repo, "pid"), "utf8")))).toBe(true);
+  }, 20_000);
+  test("a wrapper that exits while its grandchild holds the pipes resolves after a short grace, not at the timeout", async () => {
+    const { spawnCollect } = await import("../../src/util/check_result.ts");
+    const dir = mkdtempSync(join(tmpdir(), "loki-run.f0b-")); repos.push(dir);
+    const t0 = Date.now(), r = await spawnCollect("sh", ["-c", GRAND.replace("; wait", "")], { timeoutMs: 20_000, env: { ...process.env, PIDFILE: join(dir, "pid") } });
+    expect(Date.now() - t0).toBeLessThan(4000);
+    expect(r.status).toBe(0);
+    expect(await dead(Number(readFileSync(join(dir, "pid"), "utf8")))).toBe(true);
+  }, 30_000);
+
+  test("the sync runner also resolves after a short grace when the wrapper exits and a grandchild holds the pipes", () => {
+    const repo = mkdtempSync(join(tmpdir(), "loki-run.f0b-")); repos.push(repo);
+    mkdirSync(join(repo, ".venv", "bin"), { recursive: true });
+    writeFileSync(join(repo, ".venv", "bin", "python"), `#!/bin/sh\nPIDFILE='${join(repo, "pid")}'\n${GRAND.replace("; wait", "")}\n`, { mode: 0o755 });
+    writeFileSync(join(repo, "test_a.py"), "def test_a():\n    pass\n");
+    const t0 = Date.now(); new RealBaseTestRunner(null, 20_000).run(repo, [{ runner: "pytest", path: "test_a.py" }]);
+    expect(Date.now() - t0).toBeLessThan(4000);
+  }, 30_000);
+  // Review attack rows: a trapped SIGTERM, argv parity, the launcher's own runtime flags, and a killed owner.
+  const TRAP0 = ["-c", "trap 'exit 0' TERM; echo '1 passed'; sleep 30 & wait"];
+  const CC = join(import.meta.dir, "../../src/util/check_result.ts");
+  const tmp = (n: string) => { const d = mkdtempSync(join(tmpdir(), `loki-run.${n}-`)); repos.push(d); return d; };
+  test("a runner that turns the timeout SIGTERM into exit 0 still reads as no status, sync and async", async () => {
+    const { spawnCollect, spawnGroupSync, plainTestEnv } = await import("../../src/util/check_result.ts");
+    const t0 = Date.now(), s = spawnGroupSync("sh", TRAP0, { env: plainTestEnv(), timeoutMs: 1000 });
+    expect(s.status).toBeNull(); expect(Date.now() - t0).toBeLessThan(4000);
+    const t1 = Date.now(), a = await spawnCollect("sh", TRAP0, { env: plainTestEnv(), timeoutMs: 1000 });
+    expect(a.status).toBeNull(); expect(Date.now() - t1).toBeLessThan(4000);
+  }, 20_000);
+  test("RealBaseTestRunner.run counts a runner that exits 0 on the timeout SIGTERM as not_run, never pass", () => {
+    const repo = tmp("x7"); mkdirSync(join(repo, ".venv", "bin"), { recursive: true });
+    writeFileSync(join(repo, ".venv", "bin", "python"), "#!/bin/sh\ntrap 'echo \"1 passed\"; exit 0' TERM\nsleep 30 & wait\n", { mode: 0o755 }); writeFileSync(join(repo, "test_a.py"), "def test_a():\n    pass\n");
+    const t0 = Date.now(); expect(new RealBaseTestRunner(null, 1000).run(repo, [{ runner: "pytest", path: "test_a.py" }])).toEqual({ pass: 0, fail: 0, not_run: 1 });
+    expect(Date.now() - t0).toBeLessThan(4000);
+  }, 20_000);
+  test("850 KB of output with exit 0 keeps status 0 through the launcher, as spawnSync does", async () => {
+    const { spawnGroupSync, plainTestEnv } = await import("../../src/util/check_result.ts");
+    const a = ["-c", "head -c 850000 /dev/zero | tr '\\0' a; echo; echo '1 passed'"]; const o = spawnSync("sh", a, { encoding: "utf8", env: plainTestEnv() });
+    const r = spawnGroupSync("sh", a, { env: plainTestEnv(), timeoutMs: 20000 });
+    expect(o.status).toBe(0); expect(r.status).toBe(0); expect(r.output.length).toBeGreaterThan(850000);
+    expect(r.output).toBe(`${o.stdout}\n${o.stderr}`); expect(r.output).toContain("\n1 passed\n"); // the full payload and its tail marker survive the pipe, so a single non-looping write cannot pass
+  }, 30_000);
+  test("a result of about 2 MB (both streams just under the cap) reaches the caller whole, tail marker included", async () => {
+    const { spawnGroupSync, plainTestEnv } = await import("../../src/util/check_result.ts");
+    const a = ["-c", "head -c 1000000 /dev/zero | tr '\\0' a; echo; echo TAIL_OUT; head -c 1000000 /dev/zero | tr '\\0' b >&2; echo >&2; echo TAIL_ERR >&2"];
+    const t0 = Date.now(), r = spawnGroupSync("sh", a, { env: plainTestEnv(), timeoutMs: 3000 });
+    expect(r.status).toBe(0); expect(r.output.length).toBe(1000000 + 1 + 9 + 1 + 1000000 + 1 + 9); expect(r.output.endsWith("\nbbbb\nTAIL_ERR\n") || r.output.endsWith("b\nTAIL_ERR\n")).toBe(true);
+    expect(r.output).toContain("a\nTAIL_OUT\n\n"); expect(Date.now() - t0).toBeLessThan(4000);
+  }, 30_000);
+  test("the launcher does not load a .env or bunfig preload from the process cwd into the test env", () => {
+    const d = tmp("x3"); writeFileSync(join(d, ".env"), "LEAK_X3=yes\n"); writeFileSync(join(d, "bunfig.toml"), 'preload = ["./pre.js"]\n'); writeFileSync(join(d, "pre.js"), 'process.env.PRELOAD_X3 = "ran";\n');
+    const probe = join(tmp("x3p"), "probe.ts");
+    writeFileSync(probe, `import { spawnGroupSync, plainTestEnv } from "${CC}"; process.stdout.write(spawnGroupSync("sh", ["-c", 'echo "$\{LEAK_X3:-unset} $\{PRELOAD_X3:-unset}"'], { cwd: "/", env: plainTestEnv(), timeoutMs: 5000 }).output);`);
+    const r = spawnSync(process.execPath, ["--no-env-file", "--config=/dev/null", probe], { cwd: d, encoding: "utf8" });
+    expect(r.stdout.split("\n")[0]).toBe("unset unset");
+  }, 20_000);
+  for (const mode of ["sync", "async"] as const) test(`killing the owner's process group (cancel, cap) does not orphan the test runner (${mode})`, async () => {
+    const dir = tmp(`x1${mode}`), pf = join(dir, "pid");
+    const cmd = `node -e "process.on('SIGTERM', () => {}); setTimeout(() => {}, 60000)" & echo $! > '${pf}'; wait`;
+    writeFileSync(join(dir, "o.ts"), mode === "sync" ? `import { spawnGroupSync } from "${CC}"; spawnGroupSync("sh", ["-c", ${JSON.stringify(cmd)}], { timeoutMs: 60000 });` : `import { spawnCollect } from "${CC}"; await spawnCollect("sh", ["-c", ${JSON.stringify(cmd)}], { timeoutMs: 60000 });`);
+    const w = spawn(process.execPath, [join(dir, "o.ts")], { detached: true, stdio: "ignore" });
+    for (let i = 0; i < 50 && !existsSync(pf); i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 300)); const pid = Number(readFileSync(pf, "utf8"));
+    process.kill(-w.pid!, "SIGKILL");
+    const gone = await dead(pid); if (!gone) process.kill(pid, "SIGKILL");
+    expect(gone).toBe(true);
   }, 30_000);
 });

@@ -50,6 +50,7 @@ import { LEAN_PREFIX } from "../features/lean_prefix.ts";
 import { consumeSdkStream, type StreamMsg } from "./sdk_stream_parser.ts";
 import { writeSessionId } from "./session_resume.ts";
 import { createTrimHook } from "./trim.ts";
+import { createStopChecksHook, parseStopChecks, STOP_HOOK_MARGIN_S } from "./stop_checks.ts";
 import { advisorPair, probeAdvisor, ROUTER_ADVISOR_MODEL } from "./router/advisor_probe.ts";
 import { advisorOnlyEnabled, routerEnabled, sessionPlanEnabled } from "./router/flag.ts";
 import type {
@@ -59,7 +60,7 @@ import type {
   ProviderResult,
   SessionTier,
 } from "./types.ts";
-import { PROVIDER_DEFAULT_MODEL, explicitSetupModel, resolveClaudeModel } from "../util/claude_model.ts";
+import { PROVIDER_DEFAULT_MODEL, canonicalSessionPin, explicitSetupModel, resolveClaudeModel } from "../util/claude_model.ts";
 import { applyAliasPin, effortArgv, modelRouteEnv, modelRouteModel, otelPassthroughEnv } from "../providers/model_routes.ts";
 import { opencodeProvider } from "./provider_opencode.ts";
 import { cacheTtlFor } from "../util/cost_breakdown.ts";
@@ -381,7 +382,7 @@ const hasNoPriceCliff = (m: string): boolean => /sonnet|opus/i.test(m) && !/haik
 
 // Claude Code version bundled in the pinned Agent SDK. A test (providers.test.ts, "providers advisor" block) asserts this equals the
 // installed SDK's claudeCodeVersion, so an SDK bump that forgets it fails CI instead of silently mis-probing.
-export const SDK_BUNDLED_CLAUDE_CODE = "2.1.312";
+export const SDK_BUNDLED_CLAUDE_CODE = "2.1.314";
 function bundledClaudeCodeVersion(): string {
   return SDK_BUNDLED_CLAUDE_CODE;
 }
@@ -448,10 +449,18 @@ export function planRouterSession(args: {
 
 // One --settings JSON for the CLI route: the host guard hooks (when required) merged with the router's
 // advisor settings (when the router is on and the advisor is available).
-function cliSettingsJson(hostGuard: boolean, router: RouterSessionPlan["settings"]): string {
-  if (!router) return hostGuardSettingsJson();
+function cliSettingsJson(hostGuard: boolean, router: RouterSessionPlan["settings"], fence?: WriteFence): string {
+  if (!router && !fence) return hostGuardSettingsJson();
   const guard = hostGuard ? (JSON.parse(hostGuardSettingsJson()) as Record<string, unknown>) : {};
-  return JSON.stringify({ ...guard, ...router });
+  return JSON.stringify({ ...guard, ...router, ...fence });
+}
+
+// SAFE-3a: an engine10 implement session may Write/Edit only inside its working directory (call.cwd, the unit worktree).
+// Settings.permissions.blockWritesOutsideWorkingDirectories (SDK 0.3.314 sdk.d.ts:7183) is enforced by the CLI on Write,
+// Edit and NotebookEdit in every permission mode; it does not cover Bash, MCP tools or hooks. Other stages are unchanged.
+type WriteFence = { permissions: { blockWritesOutsideWorkingDirectories: true } };
+function implementWriteFence(): WriteFence | undefined {
+  return process.env["LOKI_E10_STAGE"] === "implement" ? { permissions: { blockWritesOutsideWorkingDirectories: true } } : undefined;
 }
 
 // Write captured output to disk. Used by every provider to honor the
@@ -520,6 +529,7 @@ export function claudeProvider(): ProviderInvoker {
         await writeCaptured(call.iterationOutputPath, "", message);
         return { exitCode: 1, capturedOutputPath: call.iterationOutputPath };
       }
+      const fence = claudeFlagSupported("--settings") ? implementWriteFence() : undefined; // an older CLI without --settings runs unfenced
       const autoFlags = buildAutoFlags({
         tier: call.tier,
         complexity: process.env["LOKI_COMPLEXITY"] ?? "standard",
@@ -559,8 +569,8 @@ export function claudeProvider(): ProviderInvoker {
         ...modelArgv,
         ...autoFlags,
         ...sessionArgv,
-        ...(hostGuard || routed?.settings
-          ? ["--settings", cliSettingsJson(hostGuard, routed?.settings)]
+        ...(hostGuard || routed?.settings || fence
+          ? ["--settings", cliSettingsJson(hostGuard, routed?.settings, fence)]
           : []),
         // claude.sh:32 PROVIDER_PROMPT_FLAG
         "-p",
@@ -685,7 +695,7 @@ export interface SdkLoopExtraOptions {
   fallbackModel?: string;
   tools?: string[];
   model?: string;
-  settings?: { advisorModel: string; autoCompactWindow?: number };
+  settings?: { advisorModel?: string; autoCompactWindow?: number; permissions?: WriteFence["permissions"] };
   noAppend?: boolean;
   systemPrompt?: string;
   excludeDynamic?: boolean;
@@ -725,6 +735,8 @@ export function buildSdkLoopOptions(args: {
     out.model = router.model;
     if (router.settings) out.settings = router.settings;
   }
+  const fence = implementWriteFence();
+  if (fence) out.settings = { ...out.settings, ...fence };
   const engine10 = Boolean(process.env["LOKI_E10_STAGE"]);
   if (engine10) {
     const sp = engine10StaticPrefix(process.env);
@@ -912,6 +924,7 @@ export function sdkQueryProvider(): ProviderInvoker {
         // (FC-19) and empty-done (FC-43) resumes on claude, and the CH-03 chain under opt-in LOKI_E10_FIX_RESUME. It is read from process.env here, before the LOKI_E10_* strip above applies to the child's env.
         const resumeId = process.env["LOKI_E10_RESUME_SESSION"] || undefined;
         const permissionOpts = sdkPermissionOptions(call.cwd);
+        const stopSpec = process.env["LOKI_E10_STAGE"] ? parseStopChecks(process.env["LOKI_E10_STOP_CHECKS"]) : null; // read here, before the LOKI_E10_* strip applies to the child's env
         const q = query({
           prompt: call.prompt,
           options: {
@@ -929,9 +942,10 @@ export function sdkQueryProvider(): ProviderInvoker {
             // which deliberately drops LOKI_E10_* for the CHILD session) --
             // this hook runs in the parent process, so the flag applies to
             // THIS session regardless of what the child inherits.
-            ...(hostGuardRequired(call.cwd) || process.env["LOKI_E10_TRIM"] === "1"
+            ...(hostGuardRequired(call.cwd) || process.env["LOKI_E10_TRIM"] === "1" || stopSpec
               ? {
                   hooks: {
+                    ...(stopSpec ? { Stop: [{ timeout: stopSpec.budgetS + STOP_HOOK_MARGIN_S, hooks: [createStopChecksHook(stopSpec)] }] } : {}),
                     ...(hostGuardRequired(call.cwd)
                       ? {
                           PreToolUse: [{
@@ -1297,4 +1311,13 @@ export function aiderProvider(): ProviderInvoker {
       };
     },
   };
+}
+/** The model a LOKI_SESSION_MODEL pin names for a claude run (undefined when unset). Throws on an unrecognized value (never the provider default). opus|sonnet|haiku are themselves, fable collapses to opus as the bash resolver does, and a tier
+ *  name takes that tier's configured model. An explicit haiku pin is honored without LOKI_ALLOW_HAIKU: the user asked for it; bash would dispatch sonnet there. */
+export function sessionPinModel(e: NodeJS.ProcessEnv = process.env): string | undefined {
+  const pin = canonicalSessionPin(e["LOKI_SESSION_MODEL"]);
+  if (!pin) return undefined;
+  if (pin === "fable") return "opus";
+  if (pin === "planning" || pin === "development" || pin === "fast") return explicitSetupModel(pin, e) ?? claudeTierToModel(pin);
+  return pin;
 }

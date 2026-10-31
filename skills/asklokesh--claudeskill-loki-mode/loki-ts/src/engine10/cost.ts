@@ -1,6 +1,4 @@
-// E-06: harvest result-cost side files (`<lokiRoot>/metrics/result-cost-<iter>.json`, the exact shape writeResultCost in src/runner/sdk_stream_parser.ts writes: {total_cost_usd, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, model}) into
-// cost-event data. Absent/unreadable/no-total_cost_usd, or a dollar figure with all-zero usage (E-69, the EV-8 failure mode), all mean UNKNOWN: usd null, never 0. E-06b: also writes `<lokiRoot>/metrics/efficiency/iteration-<N>.json`, the shape ENGINE.md section 10 and
-// autonomy/lib/cost-summary.py read (not ours to change). Unlike the legacy bash writer (autonomy/run.sh), which always writes cost_usd (defaulting to 0 when unknown), this omits cost_usd when there is no dollar figure.
+// E-06: harvest result-cost side files (`<lokiRoot>/metrics/result-cost-<iter>.json`, the exact shape writeResultCost in src/runner/sdk_stream_parser.ts writes: {total_cost_usd, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, model}) into cost-event data. Absent/unreadable/no-total_cost_usd, or a dollar figure with all-zero usage (E-69, the EV-8 failure mode), all mean UNKNOWN: usd null, never 0. E-06b: also writes `<lokiRoot>/metrics/efficiency/iteration-<N>.json`, the shape ENGINE.md section 10 and autonomy/lib/cost-summary.py read (not ours to change). Unlike the legacy bash writer (autonomy/run.sh), which always writes cost_usd (defaulting to 0 when unknown), this omits cost_usd when there is no dollar figure.
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"; import type { CostRecords, CostTotals } from "./types.ts"; import { hooks } from "./hooks.ts"; import { type CostBreakdown, costBreakdown } from "../util/cost_breakdown.ts";
 import { join } from "node:path"; import { type ChildBucket, sumChildLedger, withChildren } from "../util/child_ledger.ts"; export { sumChildLedger }; import { sessionPlanEnabled } from "../runner/router/flag.ts";
 
@@ -17,7 +15,6 @@ export interface RouterUsage {
   advisor_errors?: number; // #269: present only when an advisor error or truncation was seen
   advisor_truncated?: number;
 }
-
 export interface CostResult {
   estimated?: boolean; // PARITY-COST: some session in this sum was priced from the price table (estimated=true), not provider dollars
   unmetered?: boolean; // some session in this sum carried the UNMETERED marker
@@ -45,12 +42,10 @@ export interface CostResult {
   source: string; // comma-joined result-cost file paths that were read
   missing: string[]; // iterations with no dollar figure: no file, a file with no total_cost_usd, or all-zero usage (see noUsage below)
 }
-
 /** R1-08: router telemetry is recorded only when the router flag is on (1/true/on, same as the router flag readers), so LOKI_ROUTER unset or 0  leaves the result-cost file and CostResult byte-identical to pre-router. Shared by the stream parser. */
 export function routerTelemetryOn(env: Record<string, string | undefined> = process.env): boolean {
   return sessionPlanEnabled(env); // the router, or the advisor alone (#246: a parity run must show the advisor attached)
 }
-
 export function num(v: unknown): number { return typeof v === "number" && Number.isFinite(v) ? v : 0; }
 
 export function resultCostPath(lokiRoot: string, iteration: string): string { return join(lokiRoot, "metrics", `result-cost-${iteration}.json`); }
@@ -152,7 +147,6 @@ export function sumResultCosts(lokiRoot: string, iterations: string[], context: 
   if (recs.length > 0) out.breakdown = costBreakdown(recs, out.missing);
   return out;
 }
-
 // E-06b efficiency record writers live in providers/provider_cost.ts (engine10 core line budget); re-exported for existing callers.
 export { type EfficiencySessionInfo, liveArchivedCosts, nextEfficiencyIteration, tokensUnmeasured, writeEfficiencyRecord } from "../providers/provider_cost.ts";
 import { type EfficiencySessionInfo, writeEfficiencyRecord } from "../providers/provider_cost.ts";
@@ -166,7 +160,6 @@ export function recordSessionCost(lokiRoot: string, iterationId: string, info: E
   writeEfficiencyRecord(lokiRoot, info, cost, cost.unmetered ? UNMETERED : cost.estimated ? "estimated" : "provider");
   return cost;
 }
-
 // The run's one cost: stage deltas plus this run's child sessions (withChildren, the rule runCost uses for the event log); unknown if any part is unknown.
 export const sumRunCosts = (lokiRoot: string, iterations: string[], context: string[] = [], runId?: string): CostResult => withChildren(sumResultCosts(lokiRoot, iterations, context), lokiRoot, runId);
 

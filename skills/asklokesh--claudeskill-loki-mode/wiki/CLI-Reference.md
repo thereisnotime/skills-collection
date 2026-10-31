@@ -1045,6 +1045,7 @@ loki notify webhook "Session finished"
 LOKI_SLACK_WEBHOOK=https://hooks.slack.com/services/...
 LOKI_DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
 LOKI_WEBHOOK_URL=https://your-server.com/webhook
+LOKI_WEBHOOK_SECRET=a-long-random-string   # required: webhooks are signed, no secret means nothing is sent
 ```
 
 ---
@@ -1755,7 +1756,8 @@ loki proof <subcommand> [args]
 | Option | Description |
 |--------|-------------|
 | `--yes` | Skip the redaction-preview confirmation prompt |
-| `--private` | Create a secret gist (default: public) |
+| `--public` | Create a PUBLIC gist, visible to anyone with the URL |
+| `--private` | Create a secret gist (default: secret; accepted for compatibility) |
 | `--hosted` | Publish to `LOKI_HOSTED_ENDPOINT` (no official backend yet; operators supply their own) |
 
 **Examples:**
@@ -1770,11 +1772,11 @@ loki proof show <run_id>
 # Open the proof page locally in your browser
 loki proof open <run_id>
 
-# Publish to a GitHub Gist (shows a redaction preview first)
+# Publish to a secret GitHub Gist (shows a redaction preview first)
 loki proof share <run_id>
 
-# Publish as a secret gist without the confirmation prompt
-loki proof share --private --yes <run_id>
+# Publish as a public gist without the confirmation prompt
+loki proof share --public --yes <run_id>
 
 # Print a copy-paste "Verified by Loki" markdown badge
 loki proof badge <run_id>
@@ -1997,6 +1999,7 @@ loki start ./prd.md --provider cline
 | `LOKI_SLACK_WEBHOOK` | (none) | Slack webhook URL |
 | `LOKI_DISCORD_WEBHOOK` | (none) | Discord webhook URL |
 | `LOKI_WEBHOOK_URL` | (none) | Custom webhook URL |
+| `LOKI_WEBHOOK_SECRET` | (none) | HMAC-SHA256 key for the `X-Loki-Signature` header; without it nothing is sent |
 | `LOKI_COMPLETION_PROMISE` | (none) | Explicit stop condition text |
 | `LOKI_MAX_WS_CONNECTIONS` | 100 | Max WebSocket connections |
 | `LOKI_TELEMETRY` | (unset) | Anonymous diagnostics. `on` opts in; `off` opts out (opt-out wins). Unset: ON for an individual interactive install, auto-off in CI / non-interactive / `LOKI_ENTERPRISE=true` / `LOKI_AIRGAP=true`. |

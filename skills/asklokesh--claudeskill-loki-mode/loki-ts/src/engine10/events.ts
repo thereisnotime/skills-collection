@@ -23,14 +23,12 @@ export function validateEnvelope(x: unknown): string | null {
   if ("deps" in x.data && (!Array.isArray(x.data.deps) || x.data.deps.some((d) => typeof d !== "string"))) return "deps must be a string array";
   return null;
 }
-
 export function makeEvent(
   run: string, seq: number, type: EventType | (string & {}), stage: EventEnvelope["stage"], data: Obj,
   ts: string = new Date().toISOString(),
 ): EventEnvelope {
   return { v: 1, seq, ts, run, type, stage, data };
 }
-
 function parseLine(line: string): EventEnvelope | null {
   if (line.trim() === "") return null;
   try {
@@ -40,7 +38,6 @@ function parseLine(line: string): EventEnvelope | null {
     return null; // torn or corrupt line
   }
 }
-
 /** Reads every valid event. A torn last line (or any unparseable line) is skipped. */
 export function readEvents(path: string): EventEnvelope[] {
   if (!existsSync(path)) return [];
@@ -51,7 +48,6 @@ export function readEvents(path: string): EventEnvelope[] {
   }
   return out;
 }
-
 /** The single writer. Opens with O_APPEND and writes each line in one write(2).  The constructor truncates a torn (unterminated) last line back to the last newline, so a tamper hash (E-03) must be seeded from the file AFTER construction, not before. */
 export class EventLog {
   private nextSeq: number;
@@ -133,9 +129,7 @@ export function fold(events: EventEnvelope[]): Folded {
   return f;
 }
 
-// E-69: per-session measured/total counts and dollar sum from the raw cost events (not fold()'s cost.usd, which is null once any session is
-// unpriced). Lives next to fold() so a pure reader (the dashboard) need not import the supervisor. A TAMPERED log reports no measured cost.
-// With lokiRoot, never-ran quota attempts drop out and this run's child-session ledger lines join (util/child_ledger.ts runCost, the same rule the receipt uses).
+// E-69: per-session measured/total counts and dollar sum from the raw cost events (not fold()'s cost.usd, which is null once any session is unpriced). Lives next to fold() so a pure reader (the dashboard) need not import the supervisor. A TAMPERED log reports no measured cost. With lokiRoot, never-ran quota attempts drop out and this run's child-session ledger lines join (util/child_ledger.ts runCost, the same rule the receipt uses).
 export function partialCost(events: EventEnvelope[], tampered = false, lokiRoot?: string): { measured: number; total: number; usd: number } {
   const r = tampered ? null : runCost(events, lokiRoot);
   return { measured: r?.measuredCount ?? 0, total: r?.totalCount ?? 0, usd: r?.partialUsd ?? 0 };

@@ -128,6 +128,8 @@ export type Grade = {
   /** Text that must not appear in the PATH shim log. */
   shim_log_must_not?: string[]
   workspace_contains?: Array<{ path: string; needle: string }>
+  /** With a needle, the file must exist and not contain it, so a deleted file cannot pass. Without one, the file must not exist. */
+  workspace_lacks?: Array<{ path: string; needle?: string }>
   /**
    * A field of a parsed JSON object must equal one of `any_of`. The object is the
    * workspace file at `path` (the whole file must be JSON), or the JSON object the
@@ -426,6 +428,10 @@ const BABYSIT_TICK_DECISIONS: Scenario[] = BABYSIT_TICK_DECISION_ROWS.map((s) =>
 const SETUP_INSTRUCTIONS_TASK =
   "Use the ce-setup skill to check this repository's Compound Engineering setup. For every change it would offer, show the exact text and where in the file it would go."
 
+/** main before review-docs updates were restated as bringing the docs current and AI reviewer files joined the set. */
+const SETUP_STANDARDS_BASE_REF = "121a3bd60d296be72b2d3c0b08131b7b08fadc5a"
+const SETUP_STANDARDS_HISTORY =
+  "The code host is not reachable from this machine; this repository's merged pull request history is exported under .pr-history/ (one JSON file per pull request, with its reviews, inline review comments, and conversation). I approve every draft and change you preview: write them all without asking me again, and do not commit."
 
 /** Cheap read-only cells that pin a real decision. Live mutation/delegation is not in this set. */
 export const WAVE1 = [
@@ -446,7 +452,122 @@ export const WAVE1 = [
   "lfg/plan-first",
 ] as const
 
+const VISUAL_EVIDENCE_BASE_REF = "f1b249924c0e41b14974a4eeb89e91000a22e2c3"
+const VISUAL_ENV =
+  "A dev server for this branch is running at http://localhost:5173 with seeded demo data. This host has a built-in browser that can save screenshots to files, and the installed gh supports `--attach` on `gh pr create`. No CE config files exist."
+const VISUAL_PROBE_END = `This is a decision probe: work out the Step 4 evidence decision for this branch and stop there. Do not run git, gh, a browser, a dev server, or any capture, and do not edit files. End with exactly these two lines:
+SCREENSHOTS: <yes or no>
+BEFORE: <baseline, deployed, none, or n/a>
+SCREENSHOTS says whether this run would capture screenshots for the PR body. BEFORE says where the before image would come from: baseline is a screenshot passed in by the caller or the user, deployed is an already-deployed copy of the UI without this change, none means after images only, and n/a means no screenshots.`
+type VisualEvidenceCase = {
+  id: string
+  fixture: string
+  opening: string
+  diff: string
+  screenshots: "yes" | "no"
+  before: "baseline" | "deployed" | "none" | "n/a"
+  why: string
+}
+const visualEvidenceRow = ({ id, fixture, opening, diff, screenshots, before, why }: VisualEvidenceCase): Scenario => ({
+  id: `ce-commit-push-pr/${id}`,
+  skill: "ce-commit-push-pr",
+  cohort: "resized",
+  key_behavior: "judgment",
+  baseline_ref: VISUAL_EVIDENCE_BASE_REF,
+  read_only: true,
+  fixture: `${FIX}/${fixture}`,
+  why,
+  pre_contract:
+    "CE has no capture workflow of its own. Use the harness's capture tools or artifacts the user supplied; UI changes otherwise get a validation note.",
+  task: `${opening} The branch's full change against main is in ${diff}; treat that file as the diff (the changes/ directory itself is not part of the change). ${VISUAL_ENV}
+
+${VISUAL_PROBE_END}`,
+  grade: {
+    ...(screenshots === "yes" ? { files_read_post: ["references/visual-evidence.md"] } : {}),
+    declared: { SCREENSHOTS: screenshots, BEFORE: before },
+    actions: "none",
+  },
+})
+const VISUAL_SHIP = "Use ce-commit-push-pr to commit, push, and open a PR for this branch."
+const VISUAL_EVIDENCE_ROWS: Scenario[] = (
+  [
+    {
+      id: "visual-before-from-baseline",
+      fixture: "cpp-visual-app",
+      opening: `${VISUAL_SHIP} Here are screenshots I took of the settings page on main before starting this work, to use as the before images: /tmp/settings-before/settings-desktop.png and /tmp/settings-before/settings-mobile.png (route /settings, viewports 1280x800 and 390x844).`,
+      diff: "changes/settings-layout.diff",
+      screenshots: "yes",
+      before: "baseline",
+      why: "A visual change with a user-supplied before screenshot: the cheapest before source must win.",
+    },
+    {
+      id: "visual-before-from-deployment",
+      fixture: "cpp-visual-app-deployed",
+      opening: VISUAL_SHIP,
+      diff: "changes/settings-layout.diff",
+      screenshots: "yes",
+      before: "deployed",
+      why: "A visual change with no baseline but a documented production deployment: use the deployed copy, not a rebuilt base.",
+    },
+    {
+      id: "visual-after-only",
+      fixture: "cpp-visual-app",
+      opening: VISUAL_SHIP,
+      diff: "changes/settings-layout.diff",
+      screenshots: "yes",
+      before: "none",
+      why: "The user's concern: with no baseline and no deployment, post after-only screenshots rather than spin up a base worktree.",
+    },
+    {
+      id: "visual-net-new-page",
+      fixture: "cpp-visual-app-deployed",
+      opening: VISUAL_SHIP,
+      diff: "changes/reports-page.diff",
+      screenshots: "yes",
+      before: "none",
+      why: "Net-new UI has no before image even when a production deployment exists.",
+    },
+    {
+      id: "backend-change-no-screenshots",
+      fixture: "cpp-visual-app",
+      opening: VISUAL_SHIP,
+      diff: "changes/invoice-rounding.diff",
+      screenshots: "no",
+      before: "n/a",
+      why: "Restraint: an API change inside a web app makes no visual claim.",
+    },
+    {
+      id: "cli-change-no-screenshots",
+      fixture: "cpp-visual-app",
+      opening: VISUAL_SHIP,
+      diff: "changes/export-columns.diff",
+      screenshots: "no",
+      before: "n/a",
+      why: "Restraint: CLI output belongs in a code block, not a screenshot.",
+    },
+    {
+      id: "description-only-no-capture",
+      fixture: "cpp-visual-app",
+      opening: "Use ce-commit-push-pr to write a PR description for this branch. Do not apply it.",
+      diff: "changes/settings-layout.diff",
+      screenshots: "no",
+      before: "n/a",
+      why: "Description-only mode has no PR to attach images to.",
+    },
+    {
+      id: "project-ask-first-pipeline",
+      fixture: "cpp-visual-app-askfirst",
+      opening: `mode:pipeline ${VISUAL_SHIP}`,
+      diff: "changes/settings-layout.diff",
+      screenshots: "no",
+      before: "n/a",
+      why: "A project instruction to ask before screenshots wins, and pipeline mode cannot ask.",
+    },
+  ] satisfies VisualEvidenceCase[]
+).map(visualEvidenceRow)
+
 export const SCENARIOS: Scenario[] = [
+  ...VISUAL_EVIDENCE_ROWS,
   ...["md", "html"].map((format): Scenario => ({
     id: `ce-prototype/local-source-${format}`,
     baseline_ref: "d400846211b6c708f73311f9e7b35cb57d863543",
@@ -4907,6 +5028,54 @@ Use "Correct widget limit" as the description in the subject and any required bo
     },
   },
   {
+    id: "ce-setup/standards-refresh-revisits-written-rules",
+    skill: "ce-setup",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/setup-standards-refresh`,
+    timeout_secs: 1500,
+    baseline_ref: SETUP_STANDARDS_BASE_REF,
+    why: "A refresh must catch newer pull requests that change already written guidance, not only add rules. After the standards were written, the team moved errors to middleware and keeps declining rule 2 findings, lint now enforces rule 3, and a new fixed finding recurs. The repo uses no AI reviewer with its own file, so no .cursor/BUGBOT.md may appear.",
+    pre_contract:
+      "Setup updates an existing standards file in place, adding rules the history supports and marking rules it contradicts, and shows the change as a diff.",
+    task: `Use the ce-setup skill: refresh our coding standards. CODING_STANDARDS.md and REVIEW.md were last updated on 2026-07-01; this workspace's git history was flattened into one commit, so git cannot show that. ${SETUP_STANDARDS_HISTORY}`,
+    grade: {
+      workspace_contains: [
+        { path: "CODING_STANDARDS.md", needle: "integer cents" },
+        { path: "CODING_STANDARDS.md", needle: "timingSafeEqual" },
+      ],
+      workspace_lacks: [
+        { path: "CODING_STANDARDS.md", needle: "wraps its body in try/catch and responds 500 itself" },
+        { path: "CODING_STANDARDS.md", needle: "No unused imports" },
+        { path: ".cursor/BUGBOT.md" },
+      ],
+    },
+  },
+  {
+    id: "ce-setup/standards-points-bugbot-at-review-docs",
+    skill: "ce-setup",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/setup-standards-bugbot`,
+    timeout_secs: 1500,
+    baseline_ref: SETUP_STANDARDS_BASE_REF,
+    why: "Cursor Bugbot reviews this repository (cursor[bot] findings in the history) and reads only .cursor/BUGBOT.md, which has no include syntax. Without a pointer file Bugbot never sees the drafted standards.",
+    pre_contract:
+      "Setup drafts CODING_STANDARDS.md and REVIEW.md and points the agent-instructions file at them.",
+    task: `Use the ce-setup skill to set up coding standards for this repository. ${SETUP_STANDARDS_HISTORY}`,
+    grade: {
+      workspace_contains: [
+        { path: ".cursor/BUGBOT.md", needle: "CODING_STANDARDS.md" },
+        { path: ".cursor/BUGBOT.md", needle: "REVIEW.md" },
+        { path: "REVIEW.md", needle: "@CODING_STANDARDS.md" },
+      ],
+    },
+  },
+  {
     id: "ce-compound-refresh/worth-lens-intent-confirms-before-loading",
     post_only: true,
     skill: "ce-compound-refresh",
@@ -5101,7 +5270,7 @@ export function scenarioHasDecisionGrade(s: Scenario): boolean {
   if (g.declared && Object.keys(g.declared).length) return true
   if (g.delegates_must_not_include?.length) return true
   if (g.classification || g.structured_status || g.delegates === "some") return true
-  if (g.workspace_contains?.length || g.json_field?.length || g.committed_must_not?.length) return true
+  if (g.workspace_contains?.length || g.workspace_lacks?.length || g.json_field?.length || g.committed_must_not?.length) return true
   if (g.workspace_read?.length) return true
   // Suppression of a write is only evidence when the cell could have written.
   if (!s.read_only && g.git === "clean") return true

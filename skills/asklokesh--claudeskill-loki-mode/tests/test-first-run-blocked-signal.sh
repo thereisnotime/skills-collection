@@ -189,5 +189,161 @@ else
     bad "nothing calls loki_emit_first_run_blocked -- the signal would never fire"
 fi
 
+# 6. Activation funnel: install, first_start, first_run_finished, first_verified,
+#    second_run_within_7d. Appending recorder so emitted events are observable.
+mkdir -p "$WORK/bin2"
+cat > "$WORK/bin2/curl" <<'RECORDER'
+#!/bin/sh
+for a in "$@"; do
+    case "$a" in '{"api_key"'*) printf '%s\n' "$a" >> "$LOKI_TEST_LOG" ;; esac
+done
+exit 0
+RECORDER
+chmod +x "$WORK/bin2/curl"
+
+act_run() {
+    # $1 = home, $2 = shell snippet; analytics on
+    env PATH="$WORK/bin2:$PATH" HOME="$1" LOKI_TEST_LOG="$1/events.log" \
+        LOKI_ANALYTICS=on LOKI_TELEMETRY=on bash -c "
+            cd '$REPO_ROOT'; source autonomy/telemetry.sh 2>/dev/null
+            $2; sleep 0.6" >/dev/null 2>&1
+}
+act_events() {
+    python3 -c '
+import json,sys
+for l in open(sys.argv[1]):
+    d=json.loads(l); print(d["event"]+":"+str(d["properties"].get("since_install")))
+' "$1" 2>/dev/null
+}
+
+ah="$WORK/act"; mkdir -p "$ah"
+act_run "$ah" 'loki_emit_run_started; loki_emit_run_finished VERIFIED duration_s=5 exit_code=0'
+# Backgrounded curls do not guarantee arrival order, so check the set.
+got="$(act_events "$ah/events.log" | grep '^activation_' | sort | tr '\n' ' ')"
+want="activation_first_run_finished:lt_1h activation_first_start:lt_1h activation_first_verified:lt_1h activation_install:lt_1h "
+if [ "$got" = "$want" ]; then
+    ok "activation: install, first_start, first_run_finished, first_verified fire with a since_install bucket"
+else
+    bad "activation events wrong: [$got]"
+fi
+
+# Order: each marker holds its emit epoch; install is written first.
+if [ -f "$ah/.loki/funnel-install-ts" ] && [ -f "$ah/.loki/funnel-activation-install" ] \
+   && [ "$(cat "$ah/.loki/funnel-activation-install")" -le "$(cat "$ah/.loki/funnel-activation-first_start")" ]; then
+    ok "install precedes first_start; markers written after the gate passed"
+else
+    bad "activation markers missing or out of order"
+fi
+
+# second run: a later run start inside 7 days of the first fires exactly once
+act_run "$ah" 'sleep 1; loki_emit_run_started; loki_emit_run_started'
+n2="$(act_events "$ah/events.log" | grep -c '^activation_second_run_within_7d:')"
+if [ "$n2" = "1" ]; then ok "second_run_within_7d fires once inside the 7 day window"; else bad "second_run_within_7d fired $n2 times"; fi
+
+# replay: nothing activation-shaped fires again (5 events total)
+act_run "$ah" 'loki_emit_run_started; loki_emit_run_finished VERIFIED exit_code=0; loki_emit_build_verified_enum VERIFIED engine10'
+total="$(grep -c '"event": *"activation_' "$ah/events.log")"
+if [ "$total" = "5" ]; then ok "replay fires no activation event twice (5 total)"; else bad "activation events after replay: $total"; fi
+
+# outside the window: second run does not fire
+wh="$WORK/act-late"; mkdir -p "$wh/.loki"
+echo 1000 > "$wh/.loki/funnel-activation-first_start"
+act_run "$wh" 'loki_emit_run_started'
+if [ -f "$wh/.loki/funnel-activation-second_run_within_7d" ]; then bad "second run fired beyond 7 days"; else ok "no second_run_within_7d beyond 7 days"; fi
+
+# analytics off (telemetry on): no event, no marker, no install clock
+oh="$WORK/act-off"; mkdir -p "$oh"
+env PATH="$WORK/bin2:$PATH" HOME="$oh" LOKI_TEST_LOG="$oh/events.log" LOKI_TELEMETRY=on bash -c "
+    cd '$REPO_ROOT'; source autonomy/telemetry.sh 2>/dev/null
+    loki_emit_run_started; loki_emit_run_finished VERIFIED exit_code=0; loki_emit_build_verified_enum VERIFIED engine10; sleep 0.5" >/dev/null 2>&1
+if { [ -d "$oh/.loki" ] && [ -n "$(ls -A "$oh/.loki" 2>/dev/null)" ]; } || [ -s "$oh/events.log" ]; then
+    bad "analytics disabled but a marker or event was written"
+else
+    ok "analytics disabled: no activation marker, no install clock, no event"
+fi
+
+# concurrent emitters (run_started, run_finished, build_verified start as
+# detached processes at once): each activation step is sent exactly once
+ch="$WORK/act-conc"
+cn=0; cbad=0
+while [ "$cn" -lt 10 ]; do
+    cn=$((cn + 1))
+    rm -rf "$ch"; mkdir -p "$ch"
+    act_run "$ch" 'loki_emit_run_started & loki_emit_run_finished VERIFIED exit_code=0 & loki_emit_build_verified_enum VERIFIED engine10 & wait'
+    for ev in install first_start first_run_finished first_verified; do
+        c="$(grep -c "\"event\": *\"activation_${ev}\"" "$ch/events.log" 2>/dev/null)"
+        [ "$c" = "1" ] || { cbad=$((cbad + 1)); printf '  trial %d: activation_%s sent %s times\n' "$cn" "$ev" "$c"; }
+    done
+done
+if [ "$cbad" = "0" ]; then ok "concurrent emits send each activation step exactly once (10 trials)"; else bad "concurrent activation emits duplicated or dropped $cbad times"; fi
+
+# direct call with analytics off: no marker, no claim, no send
+dh="$WORK/act-direct-off"; mkdir -p "$dh"
+env PATH="$WORK/bin2:$PATH" HOME="$dh" LOKI_TEST_LOG="$dh/events.log" LOKI_TELEMETRY=on bash -c "
+    cd '$REPO_ROOT'; source autonomy/telemetry.sh 2>/dev/null
+    loki_emit_activation install; sleep 0.5" >/dev/null 2>&1
+if { [ -d "$dh/.loki" ] && [ -n "$(ls -A "$dh/.loki" 2>/dev/null)" ]; } || [ -s "$dh/events.log" ]; then
+    bad "loki_emit_activation install with analytics off wrote a marker or sent"
+else
+    ok "loki_emit_activation install with analytics off: no marker, no send"
+fi
+
+# ---------------------------------------------------------------------------
+# Legacy route (autonomy/run.sh): the same funnel, driven the way run.sh calls it
+# ---------------------------------------------------------------------------
+mkdir -p "$WORK/lp/proofs/r1" "$WORK/lp/proofs/r2"
+printf '%s' '{"iterations":3,"honesty":{"headline":"VERIFIED"}}' > "$WORK/lp/proofs/r1/proof.json"
+printf '%s' '{"iterations":3,"honesty":{"headline":"NOT VERIFIED"}}' > "$WORK/lp/proofs/r2/proof.json"
+legacy_run() {
+    # $1 = home, $2 = proof path; the run.sh sequence: start, build_verified, end
+    env PATH="$WORK/bin2:$PATH" HOME="$1" LOKI_TEST_LOG="$1/events.log" SCRIPT_DIR="$REPO_ROOT/autonomy" \
+        LOKI_ANALYTICS=on LOKI_TELEMETRY=on bash -c "
+            cd '$REPO_ROOT'; source autonomy/telemetry.sh 2>/dev/null
+            ( _loki_activation_run_started & ) ; loki_emit_build_verified '$2'
+            ( loki_emit_activation first_run_finished & ) ; sleep 0.8" >/dev/null 2>&1
+}
+lh="$WORK/act-legacy"; mkdir -p "$lh"
+legacy_run "$lh" "$WORK/lp/proofs/r1/proof.json"
+got="$(act_events "$lh/events.log" | grep '^activation_' | sort | tr '\n' ' ')"
+if [ "$got" = "$want" ]; then
+    ok "legacy route: all four first-run activation steps sent once"
+else
+    bad "legacy route activation events wrong: [$got]"
+fi
+legacy_run "$lh" "$WORK/lp/proofs/r1/proof.json"
+nl="$(grep -c '"event": *"activation_' "$lh/events.log")"
+# a replay may add only second_run_within_7d, never a first-run step again
+case "$nl" in 4|5) ok "legacy route: replay re-sends no first-run step ($nl total)" ;; *) bad "legacy replay sent $nl activation events" ;; esac
+
+lu="$WORK/act-legacy-unverified"; mkdir -p "$lu"
+legacy_run "$lu" "$WORK/lp/proofs/r2/proof.json"
+if act_events "$lu/events.log" | grep -q '^activation_first_verified'; then
+    bad "legacy route: a NOT VERIFIED proof sent first_verified"
+else
+    ok "legacy route: first_verified only on a VERIFIED proof"
+fi
+
+lo="$WORK/act-legacy-off"; mkdir -p "$lo"
+env PATH="$WORK/bin2:$PATH" HOME="$lo" LOKI_TEST_LOG="$lo/events.log" SCRIPT_DIR="$REPO_ROOT/autonomy" LOKI_TELEMETRY=on bash -c "
+    cd '$REPO_ROOT'; source autonomy/telemetry.sh 2>/dev/null
+    _loki_activation_run_started; loki_emit_build_verified '$WORK/lp/proofs/r1/proof.json'; loki_emit_activation first_run_finished; sleep 0.5" >/dev/null 2>&1
+if { [ -d "$lo/.loki" ] && [ -n "$(ls -A "$lo/.loki" 2>/dev/null)" ]; } || [ -s "$lo/events.log" ]; then
+    bad "legacy route with analytics off wrote a marker or sent"
+else
+    ok "legacy route with analytics off: nothing written, nothing sent"
+fi
+
+# run.sh must call both milestones, detached (the legacy path is otherwise silent)
+if grep -q '_loki_activation_run_started >/dev/null 2>&1 </dev/null &' "$REPO_ROOT/autonomy/run.sh"; then
+    ok "run.sh starts the activation funnel at run start, detached"
+else
+    bad "run.sh does not call _loki_activation_run_started detached"
+fi
+if grep -q 'loki_emit_activation first_run_finished >/dev/null 2>&1 </dev/null &' "$REPO_ROOT/autonomy/run.sh"; then
+    ok "run.sh sends first_run_finished at run end, detached"
+else
+    bad "run.sh does not call loki_emit_activation first_run_finished detached"
+fi
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

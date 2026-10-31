@@ -292,3 +292,83 @@ test("hung git config: driverKeys and netCommandOverrides time out and fail clos
     rmSync(d, { recursive: true, force: true });
   }
 });
+
+test("a repo-set gpg program never runs for signature display or verification", () => {
+  const mark = join(root, "gpg-hit.txt"), prog = join(root, "gpg.sh");
+  writeFileSync(prog, `#!/bin/sh\necho "gpg $*" >> "${mark}"\nexit 1\n`); chmodSync(prog, 0o755);
+  const tree = g("rev-parse", "HEAD^{tree}").trim(), parent = g("rev-parse", "HEAD").trim();
+  const obj = `tree ${tree}\nparent ${parent}\nauthor t <t@t> 1700000000 +0000\ncommitter t <t@t> 1700000000 +0000\ngpgsig -----BEGIN PGP SIGNATURE-----\n \n abc\n -----END PGP SIGNATURE-----\n\nsigned\n`;
+  const sha = execFileSync("git", ["hash-object", "-t", "commit", "-w", "--stdin"], { cwd: repo, input: obj, encoding: "utf8" }).trim();
+  g("update-ref", "refs/heads/gpgsigned", sha);
+  for (const k of ["gpg.program", "gpg.openpgp.program", "gpg.x509.program", "gpg.ssh.program"]) g("config", k, prog);
+  g("config", "log.showSignature", "true");
+  const cases: string[][] = [["rev-list", "--format=%G?", "-1", "gpgsigned"], ["rev-list", "--format=%GS", "-1", "gpgsigned"], ["for-each-ref", "--format=%(signature)", "refs/heads/gpgsigned"], ["log", "-1", "gpgsigned"], ["show", "-s", "gpgsigned"]];
+  try {
+    rmSync(mark, { force: true }); for (const c of cases) execFileSync("git", c, { cwd: repo, stdio: "ignore", env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null" } });
+    expect(existsSync(mark)).toBe(true); // positive control: unhardened git does run the program
+    rmSync(mark, { force: true });
+    for (const c of cases) { safeGitSpawn(repo, c, { encoding: "utf8" }); try { safeGit(repo, c); } catch { /* a refusal is fine; only the marker matters */ } }
+    expect(existsSync(mark)).toBe(false);
+  } finally {
+    for (const k of ["gpg.program", "gpg.openpgp.program", "gpg.x509.program", "gpg.ssh.program", "log.showSignature"]) g("config", "--unset", k);
+    g("update-ref", "-d", "refs/heads/gpgsigned");
+  }
+});
+
+test("--shallow-file swallowing 'config' cannot smuggle a diff past the driver blanking", () => {
+  const mark = join(root, "driver-hit.txt"), drv = join(root, "drv.sh");
+  writeFileSync(drv, `#!/bin/sh\necho "driver $0" >> "${mark}"\ncat "$2" 2>/dev/null\nexit 0\n`); chmodSync(drv, 0o755);
+  g("checkout", "-q", "-b", "drvside"); writeFileSync(join(repo, "a.txt"), "changed\n"); g("commit", "-qam", "side");
+  writeFileSync(join(repo, ".gitattributes"), "* diff=evil filter=evil\n");
+  g("config", "diff.evil.command", drv); g("config", "diff.evil.textconv", drv); g("config", "filter.evil.process", drv); g("config", "filter.evil.clean", drv);
+  rmSync(mark, { force: true });
+  try {
+    safeGitSpawn(repo, ["--shallow-file", "config", "diff", "other", "drvside"], { encoding: "utf8" });
+    expect(existsSync(mark)).toBe(false);
+    safeGitSpawn(repo, ["rev-parse", "HEAD"], { encoding: "utf8" });
+    expect(existsSync(mark)).toBe(false);
+  } finally {
+    rmSync(join(repo, ".gitattributes"), { force: true });
+    for (const k of ["diff.evil.command", "diff.evil.textconv", "filter.evil.process", "filter.evil.clean"]) g("config", "--unset", k);
+    g("checkout", "-q", "-"); g("branch", "-qD", "drvside");
+  }
+});
+
+test("driver blanking is skipped only for builtins that cannot run a filter or textconv", () => {
+  g("config", "filter.canary.clean", "false"); g("config", "diff.canary.textconv", "false");
+  try {
+    for (const cmd of ["rev-parse", "symbolic-ref", "rev-list", "for-each-ref", "merge-base", "show-ref", "config"]) expect(safeGitArgs([cmd, "HEAD"], false, repo)).not.toContain("filter.canary.clean=");
+    for (const cmd of ["status", "diff", "log", "ls-files", "add", "checkout", "show", "cat-file"]) expect(safeGitArgs([cmd], false, repo)).toContain("filter.canary.clean=");
+    expect(safeGitArgs(["-C", repo, "rev-parse", "HEAD"], false, repo)).not.toContain("filter.canary.clean=");
+    expect(safeGit(repo, ["rev-parse", "--is-inside-work-tree"]).trim()).toBe("true");
+    // fail closed: an unknown or value-taking leading option means the subcommand is not trusted, so the scan stays on
+    expect(safeGitArgs(["--no-pager", "-C", repo, "rev-parse", "HEAD"], false, repo)).not.toContain("filter.canary.clean=");
+    expect(safeGitArgs(["--shallow-file", "x", "rev-parse", "HEAD"], false, repo)).not.toContain("filter.canary.clean=");
+    expect(safeGitArgs(["--some-unknown-opt", "rev-parse", "HEAD"], false, repo)).toContain("filter.canary.clean=");
+    expect(safeGitArgs(["--shallow-file"], false, repo)).toContain("filter.canary.clean=");
+  } finally { g("config", "--unset", "filter.canary.clean"); g("config", "--unset", "diff.canary.textconv"); }
+});
+
+test("a repo-set gpg.ssh.defaultKeyCommand never runs when tag.gpgSign makes git sign", () => {
+  const mark = join(root, "keycmd-hit.txt"), prog = join(root, "keycmd.sh");
+  writeFileSync(prog, `#!/bin/sh\necho "keycmd $*" >> "${mark}"\nexit 1\n`); chmodSync(prog, 0o755);
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null" };
+  g("config", "gpg.format", "ssh"); g("config", "gpg.ssh.defaultKeyCommand", prog); g("config", "tag.gpgSign", "true");
+  try {
+    rmSync(mark, { force: true });
+    try { execFileSync("git", ["tag", "-m", "x", "vplain"], { cwd: repo, stdio: "ignore", env }); } catch { /* signing fails after the key lookup */ }
+    expect(existsSync(mark)).toBe(true); // positive control: unhardened git runs the key command
+    rmSync(mark, { force: true });
+    try { safeGit(repo, ["tag", "-m", "x", "vsafe"]); } catch { /* only the marker matters */ }
+    expect(existsSync(mark)).toBe(false);
+    // push.gpgSign needs a push-cert capable remote to reach the key lookup, so pin it by argv
+    const argv = safeGitArgs(["push"], false, repo).join(" ");
+    for (const pair of ["gpg.ssh.defaultKeyCommand=", "tag.gpgSign=false", "push.gpgSign=false"]) expect(argv).toContain(`-c ${pair}`);
+    // userHooks callers keep the user's own signing setup
+    const kept = safeGitArgs(["tag"], false, repo, { userHooks: true }).join(" ");
+    for (const pair of ["gpg.ssh.defaultKeyCommand=", "tag.gpgSign=false", "push.gpgSign=false", "commit.gpgSign=false"]) expect(kept).not.toContain(`-c ${pair}`);
+  } finally {
+    for (const k of ["gpg.format", "gpg.ssh.defaultKeyCommand", "tag.gpgSign"]) g("config", "--unset", k);
+    for (const t of ["vplain", "vsafe"]) try { g("tag", "-d", t); } catch { /* not created */ }
+  }
+});

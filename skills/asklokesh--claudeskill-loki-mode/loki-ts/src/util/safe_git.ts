@@ -15,8 +15,13 @@ import { execFileSync, spawnSync, type ExecFileSyncOptions, type SpawnSyncOption
 export const SAFE_GIT_CONFIG: readonly string[] = ["-c", "core.fsmonitor=", "-c", "core.hooksPath=/dev/null", "-c", "core.sshCommand=", "-c", "protocol.ext.allow=never", "-c", "credential.helper=", "-c", "core.trustctime=true", "-c", "core.checkStat=default"];
 // allowToken keeps the user's credential helper and ssh command; fsmonitor, hooks and ext:: stay off.
 const CREDENTIAL_CONFIG: readonly string[] = ["-c", "core.fsmonitor=", "-c", "core.hooksPath=/dev/null", "-c", "protocol.ext.allow=never"];
+// gpg programs run on signature display (%G?, %(signature), log.showSignature) and verification; a repo-set one is an arbitrary command.
+// userHooks callers keep the user's own signing setup, so these pairs are in the `off` set there (see safeGitArgs).
+const GPG_OFF: readonly string[] = ["gpg.program=false", "gpg.openpgp.program=false", "gpg.x509.program=false", "gpg.ssh.program=false"];
+// Signing triggers beyond commit.gpgSign: tag.gpgSign and push.gpgSign make git sign, and a repo-set gpg.ssh.defaultKeyCommand runs to find the key.
+const SIGN_EXTRA: readonly string[] = ["gpg.ssh.defaultKeyCommand=", "tag.gpgSign=false", "push.gpgSign=false"];
 // External diff, commit signing and a global attributes file: repo-chosen commands on diff/commit paths.
-const DRIVER_CONFIG: readonly string[] = ["-c", "diff.external=", "-c", "commit.gpgSign=false", "-c", "core.attributesFile=/dev/null"];
+const DRIVER_CONFIG: readonly string[] = ["-c", "diff.external=", "-c", "commit.gpgSign=false", "-c", "core.attributesFile=/dev/null", ...GPG_OFF.flatMap((v) => ["-c", v]), ...SIGN_EXTRA.flatMap((v) => ["-c", v]), "-c", "log.showSignature=false"];
 // Worker-side content writes and commits restore these pairs (see SafeGitKeep); a token-holding call never does.
 const ATTRS_OFF = "core.attributesFile=/dev/null", HOOKS_OFF = "core.hooksPath=/dev/null", SIGN_OFF = "commit.gpgSign=false";
 const REPO_SCOPES: ReadonlySet<string> = new Set(["local", "worktree", "command"]);
@@ -24,7 +29,23 @@ const DRIVER_KEY_RE = "^(filter\\..*\\.(clean|smudge|process)|diff\\..*\\.(textc
 // Patch-producing subcommands. diff.external= (blank) makes these die with "external diff died", so --no-ext-diff
 // --no-textconv are injected right after the subcommand; a caller's --ext-diff/--textconv is dropped, never honoured.
 const PATCH_CMDS: ReadonlySet<string> = new Set(["diff", "show", "log", "whatchanged"]);
-const OPT_WITH_VALUE: ReadonlySet<string> = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env", "--attr-source"]);
+/** Builtins that never run a clean/smudge/process filter or a textconv, so blanking repo drivers (one `git config` spawn per call) buys nothing.
+ *  Only ref and config plumbing: anything that diffs, stats the worktree, checks out or writes (ls-files -m, status, add, log -p) stays blanked. */
+const DRIVER_FREE_CMDS: ReadonlySet<string> = new Set(["rev-parse", "symbolic-ref", "rev-list", "for-each-ref", "merge-base", "show-ref", "config"]);
+const OPT_WITH_VALUE: ReadonlySet<string> = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env", "--attr-source", "--shallow-file", "--super-prefix"]);
+const OPT_NO_VALUE: ReadonlySet<string> = new Set(["-P", "--no-pager", "-p", "--paginate", "--bare", "--no-replace-objects", "--literal-pathspecs", "--no-literal-pathspecs", "--glob-pathspecs", "--noglob-pathspecs", "--icase-pathspecs", "--no-optional-locks", "--no-lazy-fetch"]);
+/** Fail closed: true only when every token before the subcommand is a recognised global option (with its value if it takes one) and the
+ *  subcommand is driver-free. An unknown leading option could swallow the next token as its value, so it means "blank". */
+function skipsDriverScan(args: readonly string[]): boolean {
+  let i = 0;
+  while (i < args.length && args[i]!.startsWith("-")) {
+    const a = args[i]!;
+    if (OPT_WITH_VALUE.has(a)) { if (i + 1 >= args.length) return false; i += 2; continue; }
+    if (OPT_NO_VALUE.has(a) || /^--(git-dir|work-tree|namespace|exec-path|config-env|attr-source|shallow-file|super-prefix)=/.test(a)) { i++; continue; }
+    return false;
+  }
+  return DRIVER_FREE_CMDS.has(args[i] ?? "");
+}
 const SECRET_VARS = ["GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN", "SSH_AUTH_SOCK"] as const;
 
 /** A copy of env without SSH_AUTH_SOCK and with every ambient GitHub credential withheld (FC-90, credential_env.ts): the token
@@ -191,11 +212,11 @@ function injectPackOpts(args: string[], opts: { flag: string; cmds: ReadonlySet<
  *  textconv driver is blanked too. A blanked driver with filter.<x>.required=true makes git error: callers see a throw, never a clean result. */
 export function safeGitArgs(args: readonly string[], allowToken = false, repoDir?: string, keep: SafeGitKeep = {}, env: NodeJS.ProcessEnv = process.env): string[] {
   if (keep.userHooks && allowToken) throw new Error("safeGit: userHooks with allowToken is refused (a hook would run holding the credential)");
-  const off = new Set([...(keep.repoDrivers ? [ATTRS_OFF] : []), ...(keep.userHooks ? [HOOKS_OFF, SIGN_OFF] : [])]);
+  const off = new Set([...(keep.repoDrivers ? [ATTRS_OFF] : []), ...(keep.userHooks ? [HOOKS_OFF, SIGN_OFF, ...GPG_OFF, ...SIGN_EXTRA, "log.showSignature=false"] : [])]);
   const cfg = [...(allowToken ? CREDENTIAL_CONFIG : SAFE_GIT_CONFIG), ...DRIVER_CONFIG];
   const flags = cfg.flatMap((v, i) => (i % 2 === 1 && !off.has(v) ? [cfg[i - 1]!, v] : []));
   const net = allowToken && repoDir ? netCommandOverrides(repoDir, env) : { cfg: [], opts: [] };
-  return [...flags, ...net.cfg, ...(repoDir && !keep.repoDrivers ? driverKeys(repoDir).flatMap((k) => ["-c", `${k}=`]) : []), ...(allowToken ? noSubmoduleRecursion(injectPackOpts(noExtDiff(args), net.opts)) : injectPackOpts(noExtDiff(args), net.opts))];
+  return [...flags, ...net.cfg, ...(repoDir && !keep.repoDrivers && !skipsDriverScan(args) ? driverKeys(repoDir).flatMap((k) => ["-c", `${k}=`]) : []), ...(allowToken ? noSubmoduleRecursion(injectPackOpts(noExtDiff(args), net.opts)) : injectPackOpts(noExtDiff(args), net.opts))];
 }
 
 /** allowToken fetch and pull: a submodule has its own repo-local config (core.sshCommand, proxy, TLS keys) that the superproject-only

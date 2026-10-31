@@ -7,9 +7,11 @@ import { resolveClaudeModel } from "../util/claude_model.ts"; import { wallConcu
 import type { RepoMap } from "./repomap.ts";
 import type { TestMap, TestRef } from "./types.ts";
 
-/** Repo-map files whose basename appears in the task text; no keyword scoring, tune from eval data. */
+const escRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Repo-map files whose basename appears in the task as an exact token (not inside a longer name like myindex.ts or index.tsx; a trailing sentence period is fine); no keyword scoring, tune from eval data. */
 export function namedFiles(task: string, map: RepoMap | null): string[] {
-  return (map?.files ?? []).filter((f) => task.toLowerCase().includes(basename(f).toLowerCase()));
+  const text = task.toLowerCase();
+  return (map?.files ?? []).filter((f) => new RegExp(`(?<![\\w.-])${escRe(basename(f).toLowerCase())}(?![\\w-]|\\.\\w)`).test(text));
 }
 
 /** P12-46: "large" = names more than LARGE_NAMED_FILES repo files; never lean, routed to decompose (a large unit never runs in parallel). */
@@ -49,6 +51,10 @@ export function hasRelevantTests(task: string, map: RepoMap | null, tests: TestM
   return likely.length > 0 && impacted(tests, likely).length > 0;
 }
 
+/** Tiny greenfield: size small, short brief, no runner and no existing test. The Wall still runs and authors tests; only the test count is bounded. */
+export const WALL_TINY_MAX_CHARS = 300, WALL_TINY_BOUND = "Tiny task: write exactly one test file with at most 6 assertions unless more acceptance lines exist, then exactly one per acceptance line.";
+export const isTinyGreenfield = (size: TaskSize, task: string, tests: TestMap | null): boolean => size === "small" && task.length <= WALL_TINY_MAX_CHARS && !tests?.runners.length && !tests?.tests.length;
+
 /** "lean" skips Plan+Wall (one implement session); "wall" keeps Wall (medium/large, or small with no relevant tests). */
 export type SmallTaskPath = "lean" | "wall"; export const smallTaskPath = (size: TaskSize, relevantTests: boolean): SmallTaskPath => (size === "small" && relevantTests ? "lean" : "wall");
 const knob = (v: string | undefined, words: string[]): boolean => words.includes((v ?? "").toLowerCase());
@@ -77,4 +83,4 @@ export const wallFirstModel = (size: TaskSize, env = process.env): string => {
 /** E-64: the cascade's first implement call pins to the same sonnet alias Wall already uses (E-45). */
 export const cascadeImplementModel = wallModel;
 
-export { modelRank, escalationModel, cascadeDowngrade, haikuFirstDowngrade } from "../runner/model_rank.ts"; export { wallConcurrent, wallMaxTokens, wallOutputCap } from "../util/wall_knobs.ts"; // L1 model ordering and the Wall knobs live outside the engine10 line budget
+export { capToRunTier, modelRank, escalationModel, cascadeDowngrade, haikuFirstDowngrade } from "../runner/model_rank.ts"; export { wallConcurrent, wallMaxTokens, wallOutputCap } from "../util/wall_knobs.ts"; // L1 model ordering and the Wall knobs live outside the engine10 line budget

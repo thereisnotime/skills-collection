@@ -111,7 +111,7 @@ _loki_completion() {
             ;;
 
         telemetry)
-            local telemetry_cmds="status enable disable stop start help"
+            local telemetry_cmds="status enable disable stop start show help"
             COMPREPLY=( $(compgen -W "${telemetry_cmds}" -- "$cur") )
             ;;
 
@@ -292,7 +292,7 @@ _loki_completion() {
 
         plan)
             if [[ "$cur" == -* ]]; then
-                COMPREPLY=( $(compgen -W "--json --verbose --spec --requirements --help" -- "$cur") )
+                COMPREPLY=( $(compgen -W "--json --verbose --spec --fast --requirements --help" -- "$cur") )
                 return 0
             fi
             ;;
@@ -355,7 +355,7 @@ _loki_completion() {
 
         metrics)
             if [[ "$cur" == -* ]]; then
-                COMPREPLY=( $(compgen -W "--json --last --save --share --help" -- "$cur") )
+                COMPREPLY=( $(compgen -W "--json --last --save --share --public --help" -- "$cur") )
                 return 0
             fi
             local metrics_cmds="prometheus"
@@ -373,7 +373,7 @@ _loki_completion() {
 
         share)
             if [[ "$cur" == -* ]]; then
-                COMPREPLY=( $(compgen -W "--private --format --help" -- "$cur") )
+                COMPREPLY=( $(compgen -W "--public --private --format --help" -- "$cur") )
                 return 0
             fi
             if [[ "$prev" == "--format" ]]; then
@@ -384,7 +384,7 @@ _loki_completion() {
 
         proof)
             if [[ "$cur" == -* ]]; then
-                COMPREPLY=( $(compgen -W "--yes --private --hosted --dry-run --out --help" -- "$cur") )
+                COMPREPLY=( $(compgen -W "--yes --public --private --hosted --dry-run --out --help" -- "$cur") )
                 return 0
             fi
             if [[ $cword -eq 2 ]]; then

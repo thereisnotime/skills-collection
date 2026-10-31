@@ -7,6 +7,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.5] - 2026-10-31 — design-qa, commit-craft, skills that fit the listing budget
+
+Two new skills, an audit that cuts the marketplace's share of Claude Code's skill listing from 227k to 97k
+characters, two renames that stop our skills hiding Claude Code built-ins, and command references that
+actually run. Every plugin whose files changed is bumped; most land on 2.14.5, and those changed again after
+their first bump on dev sit above it (gate G11 requires each to exceed its dev version), up to
+`engineering-advanced-skills` at 2.14.10.
+
+### Migration
+
+- **skill-doctor → skill-retro (reinstall required).** The plugin name changed, so an existing install shows
+  as not found in the marketplace: `/plugin uninstall skill-doctor@claude-code-skills`, then
+  `/plugin install skill-retro@claude-code-skills`. Typing `/skill-doctor` now reaches Claude Code's built-in.
+- **autoresearch-agent `loop` → `ar-loop` (update only).** Run `/plugin update autoresearch-agent@claude-code-skills`
+  and type `/ar-loop` instead of `/loop`; the bare `/loop` is Claude Code's scheduler again.
+- **Command names in docs.** `/ar:*`, `/hub:*`, `/em:*` and `/docker:*`-style names never resolved; use the
+  names listed under Changed below.
+
+### Added
+
+- **design-qa** (`product-team/design-qa/`, also bundled in `product-skills`, both at 2.14.5). Built for the
+  request in issue #962: a gate that checks the rendered build before a screen is called done, independent of
+  any third-party product. Three stdlib scripts with blocking exit codes: `finish_lint.py` blocks on click
+  handlers that do nothing, dead links, placeholder copy and focus outlines removed without a replacement,
+  and warns on template defaults (the trait list from Anthropic's `frontend-design` skill) without ever
+  blocking on taste; `state_matrix_checker.py` derives the required loading, empty, error, busy, failure,
+  focus-visible and 320 px states from each surface's kind and treats an unlisted state as missing;
+  `rendered_audit.py` reads a browser snapshot and blocks on WCAG 2.2 AA failures in text contrast, focus
+  visibility, focus obscured, reflow, accessible names and target size (with the 2.5.8 spacing exception).
+  Snapshots come from a read-only collector (`assets/collect_snapshot.js`, DevTools console) or an optional
+  Playwright pass with real Tab keys (`assets/capture_snapshot.mjs`). Ships `cs-design-qa`,
+  `/cs-design-qa`, `/cs-ui-finish-lint`, three cited references and a finish sign-off. Source accessibility
+  stays with `a11y-audit`.
+- **commit-craft** (`engineering/commit-craft/`, also bundled in `engineering-advanced-skills`, both at 2.14.5).
+  Built for the gap named in issue #1004, independently and from public sources: turn a tangled working tree
+  into a reviewable commit series. `commit_planner.py` groups changes in build-safe order (manifest with
+  lockfile, pure moves, formatting, each module's change with its tests, docs, CI), holds back `.env`, keys and
+  tfstate, and flags files that mix formatting with real hunks and moves whose callers' import edits sit in
+  another commit. `secret_gate.py` scans the lines a commit adds (staged, or a range before push) and blocks on
+  provider tokens, high-entropy secrets, sensitive files and conflict markers, with redacted output and
+  waivers that need a reason. `message_linter.py` blocks vague subjects, missing why on large changes and
+  leftover fixup commits, and enforces Conventional Commits only where the repo already uses them. Ships
+  pre-commit, commit-msg and pre-push hooks, `cs-commit-craft`, `/cs-commit-craft`, `/cs-commit-check` and
+  three cited references.
+- **Gate G12** (`scripts/check_listing_budget.py`, blocking ratchet): no plugin may grow the characters it
+  adds to Claude Code's skill listing past its line in `scripts/listing_budget_baseline.txt`; a new plugin is
+  capped at 6,000.
+- **skill-retro** (formerly `skill-doctor`): `--sessions-dir` grades headless `claude -p` stream-json transcripts, such as eval runs.
+
+### Changed
+
+- **`skill-doctor` is now `skill-retro`.** Claude Code 2.1.314 ships a built-in `/skill-doctor` (which loaded
+  skills go unused and what they cost in context), and our plugin skill of the same name hid it. The plugin,
+  skill, agent and command are renamed (`skill-retro`, `cs-skill-retro`, `/cs-skill-retro`), across the
+  marketplace and the Codex, Gemini, Vibe and Hermes mirrors; behaviour is unchanged.
+  **Migration:** an existing install shows as not found in the marketplace. Reinstall it:
+  `/plugin uninstall skill-doctor@claude-code-skills`, then `/plugin install skill-retro@claude-code-skills`.
+- **autoresearch-agent's `loop` skill is now `ar-loop`**, matching `ar-run`, `ar-resume` and `ar-status`. The
+  bare name shadowed Claude Code's built-in `/loop` scheduler. Type `/ar-loop` (or
+  `/autoresearch-agent:ar-loop`) instead of `/loop` or `/autoresearch-agent:loop`; behaviour is unchanged.
+  **Migration:** run `/plugin update autoresearch-agent@claude-code-skills`; no reinstall is needed because
+  the plugin name is unchanged.
+- **Docs name commands that run.** Claude Code namespaces a plugin's commands by its `plugin.json` name, so
+  shorthand prefixes in our docs never resolved. autoresearch-agent's `/ar:` is now the bare `/ar-run`,
+  `/ar-loop`, `/ar-status`, `/ar-resume` and `/autoresearch-agent:setup`. agenthub's `/hub:` is now the bare
+  `/hub-init`, `/hub-run`, `/hub-status` and `/agenthub:spawn|eval|merge|board`. executive-mentor's `/em:` is
+  now `/executive-mentor:<name>`. docker-development, terraform-patterns and helm-chart-builder named
+  sub-commands such as `/docker:optimize` that never existed; they are skill arguments, so the docs now say
+  `/docker-development optimize`. The persona agents' fake `/pm:`, `/devops:`, `/finance:` and `/content:`
+  commands are now named workflows, and the Codex, Cursor and OpenClaw guides no longer list invented
+  commands. `check_command_refs.py` now fails on any `/<prefix>:<name>` whose prefix is not a plugin name.
+- **Skill descriptions rewritten so skills load when they should** (from the 2026-10-30 skill-doctor audit).
+  Claude Code lists every installed skill in about 30,000 characters and shortens descriptions past that;
+  the whole marketplace added 227,301 characters. 356 descriptions now open with the moment to load the
+  skill ("Use for/when/before ...") and name the scripts it runs, and 117 commands that only wrap a skill
+  are hidden from the model with `disable-model-invocation: true` (still typeable). The marketplace now adds
+  96,968 characters. On a 9-skill marketing sample, exact triggers went from 3/36 to 11/36 with no false
+  fires. Vendored descriptions (skillopt-sleep, loop-library) and Matt Pocock's verbatim ones are unchanged.
+- write-a-skill's checklist runner requires the trigger to lead the description and no longer treats
+  skill/tool or user/developer as synonyms. Repo audit: 64 PASS / 270 WARN / 70 FAIL.
+- 47 skills now list reference files and scripts their SKILL.md never named; terraform-patterns moves its
+  pattern catalog to `references/patterns-catalog.md` (SKILL.md 748 to 287 lines).
+- INSTALLATION.md explains the listing budget, `skillListingBudgetFraction` and installing only the bundles
+  you use.
+
+### Fixed
+
+- Seven links pointed outside their plugin and broke once installed: c-level-agents reaches executive-mentor
+  through a `vendor/` symlink, the others name the sibling plugin.
+
+## [2.14.4] - 2026-10-30 — CMMC Level 2 readiness, nightly skill evals
+
+One new skill and a nightly eval harness. The two plugins whose files changed move to 2.14.4:
+`cmmc-readiness` (new) and `ra-qm-skills`. The eval harness lives in `scripts/` and `.github/`, so no
+other plugin changes.
+
+### Added
+
+- **Nightly skill evals** (`scripts/evals/`, `.github/workflows/skill-evals.yml`). Runs the real Claude Code
+  CLI to check that each skill fires on realistic prompts and stays quiet on a near miss (trigger cases for
+  all 384 unique skills), and that answers with a skill pass more of a checklist than without it (6 behaviour
+  cases with a blind, schema-graded judge). A rotation of 15 skills a night, capped at $10, covers the library
+  every 26 nights; results accumulate on the `eval-results` branch. Authenticates with the subscription token
+  (`CLAUDE_CODE_OAUTH_TOKEN`) or an API key, and is off until the `SKILL_EVALS_ENABLED` variable is set.
+
+- **cmmc-readiness** (`ra-qm-team/cmmc-readiness/`, also bundled in `ra-qm-skills`, both at 2.14.4). Built for
+  the CMMC 2.0 Level 2 request in discussion #358, ahead of Phase 2 (Level 2 C3PAO as a condition of award,
+  from 10 November 2026). Three stdlib scripts with blocking exit codes: `sprs_score.py` scores all 110
+  NIST SP 800-171 Rev 2 requirements with the 32 CFR 170.24 weights (partial credit for MFA and non-FIPS
+  encryption, SSP unscored but mandatory), refuses a file that skips any requirement, and blocks on gaps that
+  can never go on a POA&M under 170.21; `poam_closeout.py` checks the POA&M against the score, owners and
+  the 180-day Conditional deadline and prints the expiry and annual affirmation dates; `scope_classifier.py`
+  sorts the asset inventory into the 170.19 categories and blocks on in-scope assets missing from the SSP or
+  inventory and on cloud providers holding CUI without FedRAMP Moderate or an equivalent body of evidence.
+  Ships `cs-cmmc-assessor`, `/cs-cmmc-readiness`, `/cs-sprs-score`, three references with confidence markers
+  and a readiness sign-off. Docs pages for `mcp-oauth-triage` (missed in 2.14.3) regenerated alongside.
+
 ## [2.14.3] - 2026-10-29 — Access-review evidence, MCP OAuth triage, community fixes
 
 Two new skills and five fixes, three of them from community contributors. The six plugins whose

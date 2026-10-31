@@ -21,7 +21,6 @@ export function buildStatement(receipt: Record<string, unknown>): Record<string,
   if (typeof tree === "string" && /^[0-9a-f]{40,64}$/.test(tree)) digest["gitTree"] = tree;
   return { _type: STATEMENT_TYPE, subject: [{ name: `git+commit:${head}`, digest }], predicateType: PREDICATE_TYPE, predicate: receipt };
 }
-
 export function signEnvelope(receipt: Record<string, unknown>, priv: KeyObject, kid: string): DsseEnvelope {
   const body = Buffer.from(JSON.stringify(buildStatement(receipt)), "utf8");
   return {
@@ -30,7 +29,6 @@ export function signEnvelope(receipt: Record<string, unknown>, priv: KeyObject, 
     signatures: [{ keyid: kid, sig: sign(null, pae(DSSE_PAYLOAD_TYPE, body), priv).toString("base64") }],
   };
 }
-
 export const isEnvelope = (x: unknown): x is DsseEnvelope => !!x && typeof x === "object" && typeof (x as DsseEnvelope).payloadType === "string" && typeof (x as DsseEnvelope).payload === "string" && Array.isArray((x as DsseEnvelope).signatures);
 
 export type EnvelopeCheck = { ok: true; receipt: Record<string, unknown>; kid: string } | { ok: false; unchecked?: boolean; reason: string };
@@ -62,9 +60,13 @@ export function verifyEnvelope(env: DsseEnvelope, pubFor: (kid: string) => KeyOb
 export function outcomeOf(j: Record<string, unknown>): string {
   try { return String(isEnvelope(j) ? (JSON.parse(Buffer.from(j.payload, "base64").toString()) as { predicate: { verdict: unknown } }).predicate.verdict : j["verdict"]); } catch { return "UNREADABLE"; }
 }
-/** An envelope found by run id must describe that run: its predicate.run_id equals the id. */
+/** A receipt found by run id must describe that run: an envelope's predicate.run_id, or a plain receipt's own run_id (seal always writes one), equals the id. */
 export function envelopeRunIdProblem(j: Record<string, unknown>, runId: string): string | null {
-  if (!isEnvelope(j)) return null;
+  if (!isEnvelope(j)) {
+    if (j["schema"] !== "loki.v10.receipt/1" && j["schema"] !== "loki.v10.group/1") return null; // other kinds fail the verifier's own schema gate
+    const own = j["run_id"];
+    return own === runId ? null : typeof own === "string" ? `receipt run_id ${JSON.stringify(own)} does not match run id ${JSON.stringify(runId)}: a receipt copied from another run is not proof for this one` : `receipt has no run_id, which seal always writes, so it cannot be bound to run id ${JSON.stringify(runId)}`;
+  }
   let id: unknown;
   try { id = (JSON.parse(Buffer.from(j.payload, "base64").toString()) as { predicate?: { run_id?: unknown } }).predicate?.run_id; } catch { return "envelope payload is not readable"; }
   return id === runId ? null : `envelope predicate.run_id ${JSON.stringify(id)} does not match run id ${JSON.stringify(runId)}`;

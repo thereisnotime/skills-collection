@@ -100,7 +100,7 @@ function _loki {
                 estimate)
                     _arguments \
                         '--json[Output machine-readable JSON]' \
-                        '--model[Model whose rough prior to use]:model:' \
+                        '--model[Model whose first-run prior to use]:model:' \
                         '--provider[Provider whose default model is used]:provider:' \
                         '--help[Show help]'
                     ;;
@@ -185,7 +185,8 @@ function _loki {
                         '--json[Machine-readable JSON output]' \
                         '--last[Analyze last N sessions]:number:' \
                         '--save[Write report to METRICS.md]' \
-                        '--share[Upload report as GitHub Gist]' \
+                        '--share[Upload report as a secret GitHub Gist]' \
+                        '--public[With --share, create a PUBLIC gist]' \
                         '--help[Show help]' \
                         '1:subcommand:(prometheus)'
                     ;;
@@ -199,14 +200,16 @@ function _loki {
                     ;;
                 share)
                     _arguments \
-                        '--private[Create a secret gist]' \
+                        '--public[Create a PUBLIC gist, visible to anyone with the URL]' \
+                        '--private[Create a secret gist (default)]' \
                         '--format[Report format]:format:(text markdown html)' \
                         '--help[Show help]'
                     ;;
                 proof)
                     _arguments \
                         '--yes[Skip redaction-preview confirmation]' \
-                        '--private[Create a secret gist when sharing]' \
+                        '--public[Create a PUBLIC gist when sharing]' \
+                        '--private[Create a secret gist when sharing (default)]' \
                         '--hosted[Hosted publishing (coming in R9)]' \
                         '--dry-run[Scan and list what share would publish; publishes nothing]' \
                         '--help[Show help]' \
@@ -377,7 +380,7 @@ function _loki_commands {
         'crash:Crash report management'
         'otel:OpenTelemetry management'
         'wiki:Wiki commands'
-        'answer:Start a follow-up run from a BLOCKED run with your answer'
+        'answer:Answer a BLOCKED run; it continues under the same run id'
         'verify-pr:Verify a PR against its linked issue in a sandbox'
         'queue:Overnight issue queue with a morning digest'
         'issues:Run every open issue in a repo and open PRs'
@@ -528,6 +531,7 @@ function _loki_plan {
         '--json[Machine-readable JSON output]' \
         '--verbose[Detailed per-iteration breakdown]' \
         '--spec[Write editable acceptance criteria to .loki/specs/<slug>.md]' \
+        '--fast[One-screen plan from the small tier, then a refine diff]' \
         '--requirements[Print the last run requirement-to-check map (read-only)]' \
         '*:prd file:_files'
 }
@@ -647,6 +651,7 @@ function _loki_telemetry {
         'disable:Disable OTEL for current project'
         'stop:Permanently opt out across all sessions'
         'start:Remove persistent opt-out'
+        'show:Show telemetry schema and last debug events'
         'help:Telemetry help'
     )
     _describe -t cmds 'telemetry subcommand' cmds

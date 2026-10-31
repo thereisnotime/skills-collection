@@ -12,11 +12,13 @@ import { join, resolve } from "node:path";
 import type { Dag, Unit } from "../decompose.ts";
 import { assignCriteria, freezeGroupContract, groupContractPath, parseContract } from "../contract.ts";
 import { integrate } from "../../engine10/integrate.ts";
+import { unitWalls } from "../../util/check_result.ts";
 import { unitSpecSha256 } from "./unit_mode.ts";
 import { readSliceJournal, repoCacheDir, repoKey, sliceKey, writeSliceJournal } from "../../engine10/cache.ts";
 import { integrateWithFixes, type FixUnit } from "./fix_units.ts";
 import type { receiptSha256 as ReceiptSha256Fn } from "../../engine10/stages/seal.ts";
 import type { verifyReceipt as VerifyReceiptFn } from "../../engine10/verify_cmd.ts";
+import type { sealRefusal as SealRefusalFn } from "../../util/run_outputs.ts";
 import { composeGroupReceipt } from "./seal_group.ts";
 import { safeGitSpawn } from "../../util/safe_git.ts";
 import { atomicWriteJson } from "../../util/atomic.ts";
@@ -28,7 +30,7 @@ import { createGroupFeed, createGroupRenderer } from "./group_output.ts";
 import { providerSlots, type GroupCtx } from "./route.ts";
 
 /** Seal and verify functions, injected by the caller outside features/ (D66 fence: features/ never value-imports seal or verify_cmd). */
-export interface SealDeps { receiptSha256: typeof ReceiptSha256Fn; verifyReceipt: typeof VerifyReceiptFn }
+export interface SealDeps { receiptSha256: typeof ReceiptSha256Fn; verifyReceipt: typeof VerifyReceiptFn; refuse?: typeof SealRefusalFn }
 
 /** Group integrated but not sealed: distinct non-zero so no caller reads it as VERIFIED. */
 export const NOT_PROVEN = 4;
@@ -44,7 +46,6 @@ export function scopedEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   out["LOKI_NO_BROWSER"] = "1";
   return out;
 }
-
 /** Cost of one backlog.py launch, summed from its per-unit summary rows (`<label> $0.17 <status>`). usd is null when no unit reported a dollar figure: unknown is never $0. */
 export interface GroupCost { usd: number | null; measured: number; unmeasured: number }
 export function parseGroupCost(stdout: string): GroupCost {
@@ -80,7 +81,6 @@ export function writeGroupCostRecord(repoDir: string, name: string, costs: Group
     recs.forEach((r, k) => atomicWriteJson(join(dir, `iteration-group-${name}-${String(k).padStart(3, "0")}.json`), r));
   } catch { /* cost reporting never fails the run */ }
 }
-
 const defaultLauncher: BacklogLauncher = (argv, env, cwd, onOut) => new Promise((resolve) => {
   const child = spawn("python3", argv, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
   let out = "";
@@ -89,7 +89,6 @@ const defaultLauncher: BacklogLauncher = (argv, env, cwd, onOut) => new Promise(
   child.on("error", (e) => resolve({ code: 127, stdout: out + String(e) }));
   child.on("close", (c) => resolve({ code: c ?? 1, stdout: out }));
 });
-
 const git = (dir: string, args: string[]): string => {
   const r = safeGitSpawn(dir, args, { encoding: "utf8" });
   return r.status === 0 ? String(r.stdout).trim() : "";
@@ -107,7 +106,6 @@ export function testCommand(repoDir: string, env: NodeJS.ProcessEnv): string[] {
   if (found) return found.cmd.split(/\s+/);
   return [];
 }
-
 const sha256 = (s: string): string => createHash("sha256").update(s).digest("hex");
 const UNIT_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const GID_RE = /^g[a-z0-9]{1,30}$/;
@@ -133,7 +131,6 @@ function findResumable(repoDir: string, specSha: string, unitIds?: string[]): { 
   }
   return best ? { gid: best.gid, stored: best.stored } : null;
 }
-
 /** A harvested unit counts as done only if its receipt verifies (signed), reads VERIFIED, and its head is the unit branch tip. */
 async function unitDone(verifyReceipt: SealDeps["verifyReceipt"], repoDir: string, gid: string, n: number, id: string): Promise<boolean> {
   if (!UNIT_ID_RE.test(id)) return false;
@@ -144,7 +141,6 @@ async function unitDone(verifyReceipt: SealDeps["verifyReceipt"], repoDir: strin
   const tip = git(repoDir, ["rev-parse", "--verify", "--quiet", `refs/heads/loki/unit-${gid}-${n}`]);
   return tip !== "" && rec["head_sha"] === tip;
 }
-
 /** #283: a unit of an earlier group with the same card and base sha, whose receipt still verifies at its branch tip, is adopted into this group (receipt copied, branch ref pointed at the same tip) instead of dispatched. */
 async function adoptJournaled(verifyReceipt: SealDeps["verifyReceipt"], repoDir: string, dir: string, key: string, gid: string, n: number, id: string, task: string, specSha: string, say: (s: string) => void): Promise<boolean> {
   const e = readSliceJournal(dir, key);
@@ -165,18 +161,26 @@ async function adoptJournaled(verifyReceipt: SealDeps["verifyReceipt"], repoDir:
   say(`loki: unit ${id} reused from the slice journal (group ${e.gid}, same card and base)\n`);
   return true;
 }
-
 /** The card's exit-0 rule for unit receipts: every unit VERIFIED (ALREADY_SATISFIED does not pass). Shared by the fresh path and the resume short-circuit. */
 function allUnitsVerified(unitVerdicts: string[]): boolean {
   return unitVerdicts.every((x) => x === "VERIFIED");
 }
-
 function unitVerdictsOf(rec: Record<string, unknown>): string[] {
   const us = (rec["group"] as { units?: { verdict?: unknown }[] } | undefined)?.units;
   return Array.isArray(us) && us.length > 0 ? us.map((u) => String(u.verdict)) : ["MISSING"];
 }
-
+/** A group that ends FAILED (exit 1) seals a minimal receipt through the supplied refusal sealer, so the run is offline-verifiable and `loki verify <id>` names the reason. NOT_PROVEN already has a group receipt (or no seal at all) and is left alone. */
 export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, ctx: GroupCtx): Promise<number> {
+  const out = ctx.say ?? ((s: string): void => { process.stderr.write(s); });
+  const lines: string[] = [];
+  const code = await runGroupCore(launcher, dag, { ...ctx, say: (s) => { for (const l of s.split("\n")) if (l.trim()) lines.push(l.trim()); out(s); } });
+  if (code === 0 || code === NOT_PROVEN || !ctx.seal?.refuse) return code;
+  const reason = lines.findLast((l) => /^loki: (FAILED|NOT PROVEN)\b/.test(l)) ?? `loki: group ended with exit ${code}`;
+  const sealed = await ctx.seal.refuse({ repoDir: ctx.repoDir, task: ctx.task, reason, detail: lines.filter((l) => l !== reason).slice(-3), provider: ctx.provider });
+  if (sealed) out(`loki: refusal receipt ${sealed.receiptPath}; run: loki verify ${sealed.runId}\n`);
+  return code;
+}
+async function runGroupCore(launcher: BacklogLauncher | undefined, dag: Dag, ctx: GroupCtx): Promise<number> {
   const say = ctx.say ?? ((s: string): void => { process.stderr.write(s); });
   const { repoDir, env } = ctx;
   if (!ctx.seal) { say("loki: NOT PROVEN: no seal or verify implementation was supplied; no unit was started\n"); return NOT_PROVEN; }
@@ -239,9 +243,9 @@ export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, 
   } else {
     const frozen = freezeGroupContract(repoDir, groupId, dag.units, parseContract(ctx.spec, ctx.specPath ?? ""));
     if (!frozen.ok) { say(`loki: ${frozen.reason}\n`); return 1; }
-    if (!slugOf()) { say("loki: NOT PROVEN: group run needs an origin remote of the form owner/repo; no unit was started\n"); return 1; }
+    if (!slugOf()) { say("loki: FAILED: group run needs an origin remote of the form owner/repo; no unit was started\n"); return 1; }
     baseRef = git(repoDir, ["rev-parse", "HEAD"]);
-    if (!baseRef) { say("loki: NOT PROVEN: cannot resolve HEAD; no unit was started\n"); return 1; }
+    if (!baseRef) { say("loki: FAILED: cannot resolve HEAD; no unit was started\n"); return 1; }
     startBranch = git(repoDir, ["symbolic-ref", "--short", "-q", "HEAD"]);
     full = dag;
     units = dag.units.map((u) => ({ ...u }));
@@ -290,7 +294,7 @@ export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, 
   const costName = `${groupId}-${Date.now().toString(36)}`; // one record per invocation: a resumed group adds to earlier launches
   if (pending > 0) {
     const slug = slugOf();
-    if (!slug) { say("loki: NOT PROVEN: group run needs an origin remote of the form owner/repo; no unit was started\n"); return 1; }
+    if (!slug) { say("loki: FAILED: group run needs an origin remote of the form owner/repo; no unit was started\n"); return 1; }
     const n = Math.min(slots, pending);
     say(`loki: group ${groupId}: ${units.length} units, ${n} parallel slot(s) (provider ${provider})\n`);
     const backlog = join(REPO_ROOT, "autonomy", "lib", "backlog.py");
@@ -330,10 +334,11 @@ export async function runGroup(launcher: BacklogLauncher | undefined, dag: Dag, 
     return `loki/${key}`;
   };
   const r = await integrateWithFixes({ repoDir, env, dag: { ...full, units: units.filter((u) => !(u as Partial<FixUnit>).fixKind) }, fixes, branches, failed: failedUnits, testCmd,
-    io: { integrate: (dag, br, failed) => integrate({ repoDir, groupId, baseRef, dag, branches: br, failedUnits: failed, testCmd }), launch: launchFix, leave: dropGroupBranch, say } });
+    io: { integrate: (dag, br, failed) => integrate({ repoDir, groupId, baseRef, dag, branches: br, failedUnits: failed, testCmd, walls: unitWalls(repoDir, groupId, br) }), launch: launchFix, leave: dropGroupBranch, say } });
   if (fixes.length > 0) putDag(units);
   if (costs.length > 1) { say(groupCostLine(costs, provider)); writeGroupCostRecord(repoDir, costName, costs, provider); } // fix units ran after the first line: restate the running total
   for (const [id, o] of Object.entries(r.perUnit)) say(`loki: unit ${id} ${o}\n`);
+  for (const [id, w] of Object.entries(r.wallResults ?? {})) say(`loki: unit ${id} sealed Wall on the merged tree: ${w.status}${w.reason ? ` (${w.reason})` : ""}\n`);
   if (!r.ok || launchCode !== 0) {
     say(`loki: FAILED: group not verified (${r.reason ?? "launcher reported a failed unit"})\n`);
     return 1;

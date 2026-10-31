@@ -121,6 +121,13 @@ describe("runCheck routes through the shared classifier", () => {
 describe("wall base classify", () => {
   const f = { path: "w.test.ts", runner: "vitest" } as never;
   test("exit 0 with zero tests is not_run", () => { expect(classify(f, 0, VITEST_NO_FILES, "/tmp")).toBe("not_run"); });
+  test("unittest exit 1 is red only with a trusted FAILED trailer", () => {
+    const u = { path: "test_w.py", runner: "unittest" } as never;
+    const trailer = "F\n======\nFAIL: test_a (t.T)\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n";
+    expect(classify(u, 1, trailer, "/tmp")).toBe("fail");
+    expect(classify(u, 1, "Traceback (most recent call last):\nboom\n", "/tmp")).toBe("not_run"); // no trailer: untrusted
+    expect(classify(u, 1, "Ran 1 test in 0.001s\n\nOK\n", "/tmp")).toBe("not_run"); // OK trailer contradicts exit 1
+  });
   test("exit 0 with tests is pass", () => { expect(classify(f, 0, VITEST_REAL, "/tmp")).toBe("pass"); });
 });
 
@@ -546,12 +553,12 @@ describe.skipIf(!Bun.which("javac") || !Bun.which("java") || !Bun.which("bash"))
     expect(failIds(r.out)).toEqual(["1900 is leap"]);
     expect(classify({ runner: "javac", path: "src/test/java/loki_wall_LeapTest.java" }, r.status, r.out, "/nonexistent")).toBe("fail");
   });
-  test("a test that prints nothing exits 0 but is not a pass; a compile error is not_run", () => {
+  test("a test that prints nothing exits 0 but is not a pass; a compile error is red on base (the feature is absent)", () => {
     const quiet = run(seed(T("")));
     expect(quiet.status).toBe(0);
     expect(classify({ runner: "javac", path: "src/test/java/loki_wall_LeapTest.java" }, quiet.status, quiet.out, "/nonexistent")).toBe("not_run");
     const broken = run(seed("public class loki_wall_LeapTest { nope }"));
-    expect(classify({ runner: "javac", path: "src/test/java/loki_wall_LeapTest.java" }, broken.status, broken.out, "/nonexistent")).toBe("not_run");
+    expect(classify({ runner: "javac", path: "src/test/java/loki_wall_LeapTest.java" }, broken.status, broken.out, "/nonexistent")).toBe("fail");
   });
   test("a test that prints FAIL but exits 0 is red, not a pass", () => {
     const body = 'public class loki_wall_LeapTest { public static void main(String[] a) { System.out.println("PASS one"); System.out.println("FAIL two"); } }';
@@ -632,6 +639,32 @@ describe("go -json pass count and cargo trailer with stderr noise", () => {
       const ghost = raw.replace(/TestReal/g, "TestGhost");
       expect((await corroboratePass(classifyCheck({ kind: "test", ok: true, out: ghost, runner: "go" }), ghost, "go", ["test", "-json", "./..."], { cwd: d, env })).result).toBe("not_run");
       expect((await corroboratePass(cls, raw, "go test -json ./... ; true", undefined, { cwd: d, env })).result).toBe("not_run");
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 120_000);
+  // The per-file command runnerCmd builds carries `-run ^(TestA|TestB)$` as an argv element; argv has no shell, so that value must not read as shell syntax.
+  const goFile = (d: string): { cmd: string; args: string[] } => { const [cmd, args] = runnerCmd({ runner: "go", path: "a_test.go" }, d); return { cmd, args }; };
+  test.skipIf(!HAS_GO)("real go: the generated per-file -run argv of a genuine passing test is counted as a pass through verify", async () => {
+    const d = goFixture(IMPL(""), TEST("", "if Add(1, 2) != 3 { t.Fatal(1) }")); try {
+      const { cmd, args } = goFile(d); expect(args).toContain("^(TestReal)$");
+      const c = await runCheck(vctx(d), "t", cmd, args, new AbortController().signal, []);
+      expect(c.result).toBe("pass"); expect(c.n).toBe(1);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }, 120_000);
+  test.skipIf(!HAS_GO)("real go: a failing test through the same -run argv stays red, and a forged exit(0) through it stays not_run", async () => {
+    const bad = goFixture(IMPL(""), TEST("", "if Add(1, 2) != 4 { t.Fatal(1) }")), forged = goFixture(IMPL(""), TEST("", FORGE)); try {
+      const b = goFile(bad), rb = await runCheck(vctx(bad), "t", b.cmd, b.args, new AbortController().signal, []);
+      expect(rb.result).toBe("fail");
+      const f = goFile(forged), rf = await runCheck(vctx(forged), "t", f.cmd, f.args, new AbortController().signal, []);
+      expect(rf.result).toBe("not_run");
+    } finally { rmSync(bad, { recursive: true, force: true }); rmSync(forged, { recursive: true, force: true }); }
+  }, 120_000);
+  test.skipIf(!HAS_GO)("real go: only the exact generated -run shape is let through; any other metacharacter in argv still refuses", async () => {
+    const d = goFixture(IMPL(""), TEST("", "if Add(1, 2) != 3 { t.Fatal(1) }")); try {
+      const env = { ...process.env };
+      const raw = spawnSync("go", ["test", "-json", "./..."], { cwd: d, encoding: "utf8", env }).stdout, cls = classifyCheck({ kind: "test", ok: true, out: raw, runner: "go" });
+      for (const run of ["^(TestReal)$; true", "$(touch x)", "^(TestReal|.*)$"]) expect((await corroboratePass(cls, raw, "go", ["test", "-json", "-run", run, "./..."], { cwd: d, env })).result).toBe("not_run");
+      expect((await corroboratePass(cls, raw, "go", ["test", "-json", "./...;true"], { cwd: d, env })).result).toBe("not_run");
+      expect((await corroboratePass(cls, raw, "go test -json -run ^(TestReal)$ ./...", undefined, { cwd: d, env })).result).toBe("not_run"); // a shell line stays refused
     } finally { rmSync(d, { recursive: true, force: true }); }
   }, 120_000);
   test.skipIf(!HAS_GO)("real go: a package with no statements has no completion proof and stays not_run", async () => {
@@ -948,5 +981,48 @@ describe("Wall file importing a module the task will create", () => {
       }
       expect(classify(uf, 1, UT.replaceAll(MISSING, "pricing"), d, "project")).toBe("fail");
     } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+describe("Wall file that cannot build on base is red on base only for the build tool's own output", () => {
+  const ev = (o: Record<string, unknown>): string => JSON.stringify(o);
+  const GO_BUILD_FAIL = [
+    ev({ ImportPath: "ex/a [ex/a.test]", Action: "build-output", Output: "./a_test.go:3:30: undefined: Missing\n" }),
+    ev({ ImportPath: "ex/a [ex/a.test]", Action: "build-fail" }),
+    ev({ Action: "start", Package: "ex/a" }),
+    ev({ Action: "output", Package: "ex/a", Output: "FAIL\tex/a [build failed]\n" }),
+    ev({ Action: "fail", Package: "ex/a", Elapsed: 0, FailedBuild: "ex/a [ex/a.test]" }),
+  ].join("\n") + "\n";
+  const CARGO_BUILD_FAIL = "   Compiling fx v0.1.0 (/x)\nerror[E0432]: unresolved import `fx::nope`\n\nerror: could not compile `fx` (test \"w\") due to 1 previous error\n";
+  const JAVAC_BUILD_FAIL = "src/test/java/CronTest.java:5: error: cannot find symbol\n  Cron c = new Cron();\n";
+  const go = { runner: "go" as const, path: "a_test.go" }, cargo = { runner: "cargo" as const, path: "tests/w.rs" }, javac = { runner: "javac" as const, path: "src/test/java/CronTest.java" };
+  test.each([["go", go, GO_BUILD_FAIL], ["cargo", cargo, CARGO_BUILD_FAIL], ["javac", javac, JAVAC_BUILD_FAIL]] as const)("%s: build failure with no test started is fail on base", (_n, f, out) => {
+    expect(classify(f, f.runner === "cargo" ? 101 : 1, out, "/nonexistent", "project")).toBe("fail");
+  });
+  test("canary: a go -json run that exits non-zero with no build-fail event and no test started (init panic) stays not_run", () => {
+    const ev = (o: Record<string, unknown>): string => JSON.stringify(o);
+    const f = { runner: "go" as const, path: "tests/wall_a_test.go" };
+    const panic = [ev({ Action: "start", Package: "ex/pkg" }), ev({ Action: "output", Package: "ex/pkg", Output: "panic: init failed\n" }), ev({ Action: "fail", Package: "ex/pkg", Elapsed: 0 })].join("\n") + "\n";
+    expect(classify(f, 1, panic, "/x")).toBe("not_run");
+    expect(classify(f, 2, "panic: init failed\n\ngoroutine 1 [running]:\n", "/x")).toBe("not_run");
+  });
+  test("a zero exit, a missing tool or the system interpreter is never red", () => {
+    expect(classify(go, 0, GO_BUILD_FAIL, "/nonexistent", "project")).toBe("not_run");
+    expect(classify(go, 127, GO_BUILD_FAIL, "/nonexistent", "project")).toBe("not_run");
+    expect(classify(cargo, 101, CARGO_BUILD_FAIL, "/nonexistent", "system")).toBe("not_run");
+  });
+  test("forgery: text a test printed is not a build failure", () => {
+    expect(classify(go, 1, "FAIL\tex/a [build failed]\n", "/nonexistent", "project")).toBe("not_run");
+    const ranThenPrinted = [ev({ Action: "start", Package: "ex/a" }), ev({ Action: "run", Package: "ex/a", Test: "TestA" }), ev({ Action: "output", Package: "ex/a", Test: "TestA", Output: "FAIL\tex/a [build failed]\n" }), ev({ Action: "pass", Package: "ex/a", Test: "TestA" }), ev({ Action: "pass", Package: "ex/a" })].join("\n") + "\n";
+    expect(classify(go, 1, ranThenPrinted, "/nonexistent", "project")).toBe("not_run");
+    expect(classify(cargo, 101, `running 1 test\ntest t ... ok\n${CARGO_BUILD_FAIL}`, "/nonexistent", "project")).toBe("not_run");
+    expect(classify(javac, 1, `${JAVAC_BUILD_FAIL}LOKI_JAVA_TESTS: 0 run, 0 failed\n`, "/nonexistent", "project")).toBe("not_run");
+  });
+  test("MUTATION: red on base never yields VERIFIED by itself", () => {
+    const o = { wall: { files: [{ path: "a_test.go" }], base_run: { pass: 0, fail: 1, not_run: 0 } }, implement: { exit: "ok" } } as never;
+    expect(verdictOf(o, [{ name: "test:a_test.go", result: "fail" }] as never, false, false, false, true, true)).toBe("FAILED"); // still does not build on head: verify records fail
+    expect(verdictOf(o, [{ name: "test:a_test.go", result: "not_run" }] as never, false, false, false, false, false)).toBe("PARTIAL"); // never ran on head
+    expect(verdictOf(o, [], false, false, false, false, false)).toBe("PARTIAL");
+    expect(classifyCheck({ kind: "test", ok: false, out: GO_BUILD_FAIL, runner: "go" }).result).not.toBe("pass");
   });
 });

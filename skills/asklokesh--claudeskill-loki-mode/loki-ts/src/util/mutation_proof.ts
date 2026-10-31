@@ -6,11 +6,13 @@ import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { safeGit } from "./safe_git.ts";
 import { readScopeText } from "./run_cap.ts";
+import { sealedWallCopy, sealedWallDir } from "./check_result.ts";
 
 export type MutationOutcome = "yes" | "no" | "inconclusive";
 export interface MutationProof { outcome: MutationOutcome; line: string; }
 export interface MutationTest { runner: string; path: string; }
-export interface MutationRunner { run(dir: string, files: MutationTest[]): { pass: number; fail: number; not_run?: number }; }
+export interface MutationRunner { run(dir: string, files: MutationTest[]): { pass: number; fail: number; not_run?: number }; runEach?(dir: string, files: MutationTest[], jobs: number, corroborate: boolean, remaining?: () => number): Promise<({ pass: number; fail: number; not_run?: number } | undefined)[]>; } // runEach: same per-file result, a few files at once
+const envJobs = (raw: string | undefined): number => { const n = Number.parseInt(raw ?? "", 10); return Number.isFinite(n) && n >= 1 ? Math.min(n, 8) : 1; }; // LOKI_MUTATION_PROOF_JOBS: default 1 = serial (as LOKI_E10_BASE_JOBS / LOKI_E10_VERIFY_JOBS). Opt-in >1 is faster but can give a false "yes" on a Wall test with side effects outside the worktree.
 export interface MutationInput {
   repoDir: string; baseSha: string; runDir: string;
   wallFiles: { path: string }[]; // sealed Wall files as recorded by wall.ts (absolute or repo-relative)
@@ -29,7 +31,7 @@ export const DEP_DIRS = ["node_modules", ".venv", "venv"];
 const git = (cwd: string, args: string[], timeout = 30_000): { status: number } => { try { safeGit(cwd, args, { timeout }); return { status: 0 }; } catch { return { status: 1 }; } };
 
 /** Runs the proof. Never throws; the temp worktree is removed on every path with `git worktree remove --force <exact path>`. */
-export function mutationProof(i: MutationInput): MutationProof {
+export async function mutationProof(i: MutationInput): Promise<MutationProof> {
   const rels = i.wallFiles.map((f) => (isAbsolute(f.path) ? relative(i.repoDir, f.path) : f.path));
   if (rels.length === 0) return np("no Wall tests");
   const tests = rels.flatMap((rel) => { const c = i.checks.find((k) => k.name.endsWith(`:${rel}`)); const idx = c ? c.name.indexOf(":") : -1; return c && idx > 0 ? [{ runner: c.name.slice(0, idx), path: rel }] : []; });
@@ -43,20 +45,28 @@ export function mutationProof(i: MutationInput): MutationProof {
     const add = git(i.repoDir, ["worktree", "add", "--detach", wt, i.baseSha], Math.max(1000, Math.min(30_000, remaining())));
     added = existsSync(wt) || add.status === 0;
     if (add.status !== 0) return np("could not create the base worktree");
+    const srcs: [string, string][] = [], reset = (): boolean => { // clean base tree for a confirming re-run: the concurrent run may have left files in the shared worktree; linked dependency dirs stay
+      if (git(wt as string, ["reset", "-q", "--hard", i.baseSha]).status !== 0 || git(wt as string, ["clean", "-fdxq", ...DEP_DIRS.flatMap((d) => ["-e", d])]).status !== 0) return false;
+      for (const [rel, src] of srcs) { mkdirSync(dirname(join(wt as string, rel)), { recursive: true }); writeFileSync(join(wt as string, rel), readFileSync(src)); } return true; };
     for (const rel of rels) { // sealed copy first (byte-exact what the run sealed), else the file in the working tree
-      const sealed = join(i.runDir, "wall", basename(rel));
-      if (!existsSync(sealed) && existsSync(join(i.runDir, "wall"))) return np(`sealed Wall copy missing: ${rel}`); // never substitute the working-tree file for a deleted sealed copy
+      const sealed = sealedWallCopy(i.runDir, rel);
+      if (!existsSync(sealed) && existsSync(sealedWallDir(i.runDir))) return np(`sealed Wall copy missing: ${rel}`); // never substitute the working-tree file for a deleted sealed copy
       const src = existsSync(sealed) ? sealed : join(i.repoDir, rel);
       if (!existsSync(src)) return np(`Wall file missing: ${rel}`);
-      mkdirSync(dirname(join(wt, rel)), { recursive: true }); writeFileSync(join(wt, rel), readFileSync(src));
+      mkdirSync(dirname(join(wt, rel)), { recursive: true }); writeFileSync(join(wt, rel), readFileSync(src)); srcs.push([rel, src]);
     }
     // B1: the bare worktree has no installed dependencies; link each one that exists in the repo (root and every Wall file ancestor) so a missing package is never read as a failing test.
     for (const rel of rels) { const parts = rel.split("/").slice(0, -1); for (let n = 0; n <= parts.length; n++) { const anc = parts.slice(0, n).join("/"); for (const d of DEP_DIRS) { const src = join(i.repoDir, anc, d), dst = join(wt, anc, d); if (existsSync(src) && !existsSync(dst)) { try { symlinkSync(src, dst); } catch { /* the run decides */ } } } } }
     let pass = 0, fail = 0, notRun = 0;
-    for (const t of tests) {
-      if (remaining() <= 0) return np("timeout");
-      const r = (typeof i.runner === "function" ? i.runner(remaining()) : i.runner).run(wt, [t]); pass += r.pass; fail += r.fail; notRun += r.not_run ?? 0;
-    }
+    if (remaining() <= 0) return np("timeout");
+    const mk = (): MutationRunner => (typeof i.runner === "function" ? i.runner(remaining()) : i.runner), jobs = envJobs((i.env ?? process.env)["LOKI_MUTATION_PROOF_JOBS"]), first = mk();
+    const par = jobs > 1 && tests.length > 1 && first.runEach !== undefined;
+    const rs = par ? await first.runEach!(wt, tests, jobs, false, remaining) : tests.map((t) => (remaining() <= 0 ? null : mk().run(wt as string, [t])));
+    if (rs.some((r) => !r)) return np("timeout");
+    if (par && remaining() <= 0) return np("timeout"); // concurrent path: a passed deadline is a timeout before any verdict
+    // A concurrent fail is not authoritative (children share the temp worktree): it counts only if it reproduces serially.
+    if (par) for (let k = 0; k < rs.length; k++) if (rs[k]!.fail > 0) { if (remaining() <= 0) return np("timeout"); if (!reset()) return np("could not reset the base worktree"); rs[k] = mk().run(wt, [tests[k]!]); if (rs[k]!.fail > 0) break; }
+    for (const r of rs) { pass += r!.pass; fail += r!.fail; notRun += r!.not_run ?? 0; }
     if (remaining() <= 0 && fail === 0) return np("timeout");
     if (fail > 0) return { outcome: "yes", line: `${LABEL}yes` };
     if (pass > 0 && notRun === 0) return { outcome: "no", line: `${LABEL}no (warning: the Wall tests also pass on the old code)` };

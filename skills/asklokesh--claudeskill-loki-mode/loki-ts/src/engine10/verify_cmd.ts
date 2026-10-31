@@ -4,11 +4,11 @@
 import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { createHash, createPublicKey, verify, type KeyObject } from "node:crypto";
-import { lokiDir } from "../util/paths.ts";
+import { lokiDir } from "../util/paths.ts"; import { receiptSealAccuracy } from "../util/run_outputs.ts";
 import { applyMaxAge, deployAttestCmd, pubFor, receiptShapeProblem, takeMaxAge } from "../util/receipt_signer.ts";
-import { latestRunId } from "../commands/run_status.ts"; import { sealDrift, tornTail, verifyLogSeals, wallNotComparedNote } from "../util/seal_drift.ts";
+import { latestRunId } from "../commands/run_status.ts"; import { answeredBlockedBetween, sealDrift, tornTail, verifyLogSeals, wallNotComparedNote } from "../util/seal_drift.ts";
 import { readEvents } from "./events.ts";
-import { isExecutedProof, printable, withExplain, type ExplainRec } from "../util/check_result.ts";
+import { isExecutedProof, printable, sealedWallCopy, sealedWallDir, withExplain, type ExplainRec } from "../util/check_result.ts";
 import { kidOf, loadSigningKey, receiptSha256, signReceipt } from "./stages/seal.ts";
 import { exportDsseReceipt, isEnvelope, outcomeOf, runIdGuard, verifyDsseReceipt } from "../features/receipt_dsse.ts";
 import { verifyGroup } from "../features/speed/seal_group.ts"; import { composeComposite, compositeHash, compositeLines, isComposite, verifyComposite } from "../util/composite_seal.ts"; import { takePubkey } from "./keys_cmd.ts"; import { receiptScreensProblem } from "../features/visual_evidence.ts";
@@ -43,10 +43,10 @@ const isPlain = (v: unknown): boolean => v !== null && typeof v === "object" && 
 /** A sealed Wall copy under <run dir>/wall that no longer hashes to the sha256 the receipt recorded was edited after the seal. A moved receipt (no wall dir beside it) has nothing to compare; once the wall dir exists, a recorded file whose sealed copy is gone was deleted after the seal. */
 function wallTamperProblem(receiptPath: string, receipt: Record<string, unknown>): string | null {
   const wall = receipt["wall"] as { files?: unknown } | null | undefined, files = Array.isArray(wall?.files) ? (wall!.files as { path?: unknown; sha256?: unknown }[]) : [];
-  const wallDir = join(dirname(receiptPath), "wall"), haveWallDir = existsSync(wallDir);
+  const wallDir = sealedWallDir(dirname(receiptPath)), haveWallDir = existsSync(wallDir);
   for (const f of files) {
     if (typeof f?.path !== "string" || typeof f.sha256 !== "string") continue;
-    const copy = join(wallDir, basename(f.path));
+    const copy = sealedWallCopy(dirname(receiptPath), f.path);
     let cur: string; try { cur = createHash("sha256").update(readFileSync(copy)).digest("hex"); } catch { if (haveWallDir) return `sealed Wall file ${basename(f.path)} is missing from the run's wall directory: it was deleted after the seal`; continue; }
     if (cur !== f.sha256) return `sealed Wall file ${basename(f.path)} changed after the seal: receipt recorded sha256 ${f.sha256}, on disk ${cur}`;
   }
@@ -87,7 +87,8 @@ function checkLogSeal(receiptPath: string, hash: string, kid: unknown, given?: K
   const path = join(dirname(receiptPath), "events.jsonl"), events = readEvents(path), done = events.findLastIndex((e) => e.type === "run.completed"); // a cancelled-then-resumed run holds several pairs: the LAST one, after this receipt's seal, is the run's end
   const rs = events.findIndex((e) => e.type === "receipt.sealed" && e.data["receipt_sha256"] === hash);
   if (rs < 0) return { verdict: "TAMPERED", reason: "events.jsonl has no receipt.sealed event for this receipt" };
-  if (events.filter((e) => e.type === "receipt.sealed").length !== 1) return { verdict: "TAMPERED", reason: "events.jsonl holds more than one receipt.sealed event; a run seals exactly one receipt" };
+  const seals = events.flatMap((e, i) => (e.type === "receipt.sealed" ? [i] : [])); // a run seals one receipt; only an answered BLOCKED run seals once per attempt: each earlier seal is followed by a SPEC_CONFLICT run.completed, then an answered run.resumed, all before the next seal, and this receipt's seal is the last (the signed log.sealed chain covers every attempt)
+  if (!seals.every((s, k) => { const n = seals[k + 1]; return n === undefined ? s === rs : answeredBlockedBetween(events, s, n); })) return { verdict: "TAMPERED", reason: "events.jsonl holds more than one receipt.sealed event without an answered BLOCKED run between them; a run seals exactly one receipt" };
   const raw = readFileSync(path, "utf8"), whole = tornTail(raw) ? raw.slice(0, raw.lastIndexOf("\n") + 1) : raw; // a torn final line is dropped as checkEventLog drops it, so sealDrift reports it UNCHECKED
   const chain = verifyLogSeals(whole, events, { kid, given, expectSeal: true }); // every cancel seal, not only the last, must hash the lines before it
   if (chain) return { verdict: "TAMPERED", reason: chain };
@@ -229,7 +230,7 @@ async function verifyMain(args: readonly string[], deps: VerifyDeps, rec: Explai
   rec.verdict = result.verdict; rec.reasons = result.reasons; rec.receiptSha256 = result.receiptSha256 ?? null; rec.independent = independentCounts(receiptPath); process.stdout.write(`run: ${runId}\nverdict: ${result.verdict}\n`);
   if (result.receiptSha256) process.stdout.write(`receipt_sha256: ${result.receiptSha256}\n`);
   for (const reason of result.reasons) process.stdout.write(`  ${reason}\n`);
-  if (result.verdict !== "TAMPERED") try { const r = JSON.parse(readFileSync(receiptPath, "utf8")) as Record<string, unknown>; if (isComposite(r)) for (const l of compositeLines(r)) process.stdout.write(`${l}\n`); } catch { /* unreadable: the verdict above already says so */ }
+  if (result.verdict !== "TAMPERED") try { const r = JSON.parse(readFileSync(receiptPath, "utf8")) as Record<string, unknown>; if (isComposite(r)) for (const l of compositeLines(r)) process.stdout.write(`${l}\n`); else if (r["schema"] === "loki.v10.receipt/1") process.stdout.write(`${receiptSealAccuracy(r)}\n`); } catch { /* unreadable: the verdict above already says so */ }
   if (result.verdict === "UNSIGNED") {
     if (deps.pubkey) { process.stdout.write("attestation: UNSIGNED, but --pubkey asked for a signature check; refusing\n"); return EXIT_BY_VERDICT.UNSIGNED; }
     if (requireExo) { const ind = independentLine(receiptPath); process.stdout.write(`${ind.line}\n`); if (allowUnsigned && ind.k === 0) return (process.stdout.write("require-exogenous: refused, no agent-independent passing check\n"), 4); } // TEN-GATES-03-F1

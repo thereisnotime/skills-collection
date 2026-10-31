@@ -1,6 +1,7 @@
 // E-13: live output (docs/v10/ENGINE.md section 11).
 // Golden lines are copied verbatim from the ENGINE.md examples.
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   estimateEtaS,
@@ -9,10 +10,12 @@ import {
   formatHeartbeatLine,
   formatStageLine,
   formatSummary,
+  formatTierSeal,
   formatTokens,
   EXIT,
   outcomeOf,
   reasonOf,
+  spendSoFar,
 } from "../../src/engine10/output.ts";
 import { summaryCost } from "../../src/engine10/events.ts";
 import type { EventEnvelope } from "../../src/engine10/types.ts";
@@ -317,11 +320,20 @@ describe("outcomeOf and the exit ladder (A-110)", () => {
     const row = (v: Parameters<typeof outcomeOf>[0], cap: boolean, stop: string | null) => { const o = outcomeOf(v, cap, stop); return [o, EXIT[o]]; };
     expect(row("VERIFIED", false, null)).toEqual(["VERIFIED", 0]);
     expect(row("ALREADY_SATISFIED", false, null)).toEqual(["ALREADY_SATISFIED", 0]);
-    expect(row("PARTIAL", false, null)).toEqual(["PARTIAL", 1]); // FC-21 (d): the Outcome line is the receipt verdict
+    expect(row("PARTIAL", false, null)).toEqual(["PARTIAL", 6]); // the Outcome line is the receipt verdict; its exit differs from FAILED
     expect(row("FAILED", false, "fatal:auth")).toEqual(["FAILED", 1]);
     expect(row("PARTIAL", true, null)).toEqual(["BUDGET_STOP", 3]);
     expect(row("SPEC_CONFLICT", false, null)).toEqual(["BLOCKED", 4]);
     expect(row("PARTIAL", false, "stalled")).toEqual(["STALLED", 5]);
+  });
+  test("every outcome exit is documented in docs/exit-codes.md and only the two success outcomes share a code", () => {
+    expect(EXIT.PARTIAL).not.toBe(EXIT.FAILED);
+    const byCode = new Map<number, string[]>();
+    for (const [name, code] of Object.entries(EXIT)) byCode.set(code, [...(byCode.get(code) ?? []), name]);
+    for (const names of byCode.values()) if (names.length > 1) expect(names.sort()).toEqual(["ALREADY_SATISFIED", "VERIFIED"]); // no undocumented duplicate
+    const doc = readFileSync(join(import.meta.dir, "../../../docs/exit-codes.md"), "utf8");
+    const table = doc.slice(doc.indexOf("### Run outcomes"), doc.indexOf("### With `LOKI_DURABLE_STATE=1`"));
+    for (const [name, code] of Object.entries(EXIT)) expect(table).toMatch(new RegExp(`\\| ${code} \\|[^\\n]*${name}`));
   });
   test("the Outcome line carries the outcome name, falling back to the verdict", () => {
     const base = { pr: null, verdict: "PARTIAL", notProven: [], flaky: [], cost: { usd: 1, provider: "claude", tokens: 1 }, wallS: 1, stages: [] } as never;
@@ -380,6 +392,12 @@ describe("reasonOf (A-130 round 4)", () => {
   test("an unsealed run never prints an empty NOT PROVEN", () => {
     const base = { pr: null, verdict: "FAILED", notProven: [], flaky: [], cost: { usd: null, provider: "claude", tokens: null }, wallS: 1, stages: [] };
     expect(formatSummary({ ...base, receipt: { sha: null, signed: null } } as never)).toContain("NOT PROVEN: everything (no receipt sealed)");
+  });
+  test("a sealed run with nothing unproven and no flaky tests prints no NOT PROVEN line", () => {
+    const base = { pr: null, verdict: "VERIFIED", notProven: [], flaky: [], cost: { usd: null, provider: "claude", tokens: null }, wallS: 1, stages: [], receipt: { sha: "ab", signed: true } };
+    const out = formatSummary(base as never);
+    expect(out).not.toContain("NOT PROVEN");
+    expect(formatSummary({ ...base, flaky: ["t::a"] } as never)).toContain("NOT PROVEN: flaky t::a");
   });
   test("a multi-line NOT PROVEN item (raw push stderr) stays on one line", () => {
     const base = { pr: null, verdict: "SPEC_CONFLICT", flaky: [], cost: { usd: null, provider: "claude", tokens: null }, wallS: 1, stages: [], receipt: { sha: "ab", signed: true } };
@@ -454,5 +472,50 @@ describe("summaryCache", () => {
     expect(summaryCache([ev({ model: "sonnet", cache_read_tokens: 1_000_000 })], false)).toEqual({ cacheReadTokens: 1_000_000, cacheSavedUsd: 1.9 });
     expect(summaryCache([ev({ model: "sonnet", cache_read_tokens: 5 }), ev({ model: "sonnet" })], false)).toEqual({ cacheReadTokens: null, cacheSavedUsd: null });
     expect(summaryCache([ev({ model: "sonnet", cache_read_tokens: 5 })], true).cacheSavedUsd).toBeNull();
+  });
+});
+
+describe("formatTierSeal and the Tier summary line (GAME10-09b)", () => {
+  const c = (verified: number, total: number) => ({ verified, partial: 0, failed: total - verified, other: 0, unsealed: 0, total });
+  const base = { pr: null, verdict: "VERIFIED", notProven: [], flaky: [], wallS: 60, stages: [], cost: { usd: 0.84, provider: "claude", tokens: 1000 } };
+  test("renders the sealed tier, the avoided cost and both parity counts from the record", () => {
+    const t = { tier: "haiku", topTierCostAvoidedUsd: 1.5, record: { haiku: c(23, 24), opus: c(24, 24) } };
+    expect(formatTierSeal(t)).toBe("haiku tier sealed; top-tier cost avoided $1.50; parity here: haiku sealed 23 of 24, opus sealed 24 of 24");
+    expect(formatSummary({ ...base, tier: t } as never)).toContain("Tier:       haiku tier sealed;");
+  });
+  test("a missing record, cost or tier reads not measured, never 0", () => {
+    expect(formatTierSeal({ tier: "haiku", record: null })).toBe("haiku tier sealed; top-tier cost avoided not measured; parity here: haiku not measured, opus not measured");
+    expect(formatTierSeal({ tier: "haiku", topTierCostAvoidedUsd: -1, record: { haiku: c(0, 0) } })).toContain("avoided not measured");
+    expect(formatTierSeal({})).toBe("sealed tier not measured; top-tier cost avoided not measured; parity here: not measured, opus not measured");
+  });
+  test("a prototype-named tier is a plain missing key, and no tier input leaves the summary unchanged", () => {
+    expect(formatTierSeal({ tier: "constructor", record: {} })).toContain("constructor not measured");
+    expect(formatSummary(base as never)).not.toContain("Tier:");
+    expect(formatSummary({ ...base, verdict: "FAILED", tier: { tier: "haiku" } } as never)).not.toContain("Tier:");
+  });
+});
+
+describe("stage lines carry the run spend so far", () => {
+  const cost = (stage: string, usd: number, source = "provider") => ({ v: 1, seq: 0, ts: "t", run: "r", type: "cost", stage, data: { usd, source, input_tokens: 10, output_tokens: 5, session_id: `s-${stage}` } }) as unknown as EventEnvelope;
+  const line = (name: string, evs: EventEnvelope[]) => formatStageLine({ clockS: 1, name, status: "done", durationS: 2, detail: "ok", spend: spendSoFar(evs) });
+  test("figures are cumulative across stages and the last one equals the summary Cost", () => {
+    const evs: EventEnvelope[] = [];
+    const lines: string[] = [];
+    for (const [stage, usd] of [["plan", 0.01], ["implement", 0.02], ["verify", 0.01]] as const) { evs.push(cost(stage, usd)); lines.push(line(stage, evs)); }
+    expect(lines[0]).toContain("($0.01 so far)");
+    expect(lines[1]).toContain("($0.03 so far)");
+    expect(lines[2]).toContain("($0.04 so far)");
+    const sc = summaryCost(evs, false);
+    expect(formatSummary({ pr: null, verdict: "VERIFIED", notProven: [], flaky: [], wallS: 1, stages: [], cost: { usd: sc.usd, provider: "claude", tokens: 15 } } as never)).toContain("Cost:       $0.04 ");
+  });
+  test("an unmetered run prints no dollar figure on any stage line", () => {
+    const evs = [cost("plan", 0, "cli-invoker-unmetered")];
+    expect(line("plan", evs)).toContain("(spend not measured)");
+    expect(line("plan", evs)).not.toContain("$");
+    expect(line("intake", [])).not.toContain("$");
+  });
+  test("a partially priced run labels the figure partial", () => {
+    const evs = [cost("plan", 0.02), cost("fix", null as unknown as number)];
+    expect(line("fix", evs)).toContain("(partial: $0.02 so far)");
   });
 });

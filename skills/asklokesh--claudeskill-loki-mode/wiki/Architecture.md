@@ -1,6 +1,6 @@
 # Architecture
 
-> Legacy engine note: this page documents the legacy engine (`loki start`, `LOKI_ENGINE=legacy`), which still ships in 11.89.0 and is being removed. For the current Loki 10 commands (`loki "<task>"`, `loki owner/repo#N`, `loki backlog`, `loki verify`) see [[Home]] and [docs/v10/GUIDE.md](https://github.com/asklokesh/loki-mode/blob/main/docs/v10/GUIDE.md).
+> Legacy engine note: this page documents the legacy engine (`loki start`, `LOKI_ENGINE=legacy`), which still ships in 11.95.0 and is being removed. For the current Loki 10 commands (`loki "<task>"`, `loki owner/repo#N`, `loki backlog`, `loki verify`) see [[Home]] and [docs/v10/GUIDE.md](https://github.com/asklokesh/loki-mode/blob/main/docs/v10/GUIDE.md).
 
 State machines and component diagrams for Loki Mode.
 
@@ -347,7 +347,7 @@ Environment variables:
          |                           |                           |
          v                           v                           v
 +--------+--------+        +---------+-------+        +----------+-------+
-|  _notify_slack  |        | _notify_discord |        | _notify_webhook  |
+|  _notify_slack  |        | _notify_discord |        | notify webhook  |
 +--------+--------+        +---------+-------+        +----------+-------+
          |                           |                           |
          | curl (background)         | curl (background)         | curl (background)

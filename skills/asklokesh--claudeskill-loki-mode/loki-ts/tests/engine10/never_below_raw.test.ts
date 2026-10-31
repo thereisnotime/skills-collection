@@ -138,7 +138,8 @@ export function guardViolations(files: Record<string, string>): string[] {
     "stages/wall.ts": /^wallModel\(\),/,
     // seal.ts: the receipt `model` field records the run model (or the external label); it configures no session (CW-12 B3, 9efb8eca0).
     "stages/seal.ts": /^externalRun\(o\) \? EXTERNAL_MODEL_LABEL : ctx\.model,/,
-    "already_done.ts": /^wallModel\(\),/,
+    // HV1-02: the check-only pin is capped to the run's own tier (a haiku run stays on haiku), never lowered below it.
+    "already_done.ts": /^(wallModel\(\)|capToRunTier\(wallModel\(\), ctx\.model, \["LOKI_E10_WALL_TIER", "LOKI_MODEL_OVERRIDE"\]\)),/,
     // xreview: the model flag is the user-configured reviewer agent model (council/role_agents.ts), claude judge only; never a cascade or cost downgrade.
     "stages/xreview.ts": /^: \[cli, "-p", prompt, \.\.\.\(model \? \["--model", model\] : \[\]\), "--allowedTools", "Read,Grep,Glob", "--disallowedTools", "Write,Edit,NotebookEdit,Bash", \.\.\.leanReviewerFlags\(\{ env, flagSupported \}\), "--output-format", "json"\];$/,
   };
@@ -156,6 +157,18 @@ export function guardViolations(files: Record<string, string>): string[] {
       while (n && !ts.isSpreadAssignment(n) && (ts.isConditionalExpression(n) || ts.isParenthesizedExpression(n))) n = n.parent;
       return n && ts.isSpreadAssignment(n) ? n : undefined;
     };
+    // A conditional spread hoisted to a const (`const extra = cond ? { model: x } : {}; run({ ...extra })`) is judged exactly like the inline spread.
+    const spreadNames = new Set<string>();
+    const collectSpreads = (n: ts.Node): void => {
+      if (ts.isSpreadAssignment(n)) { const e = skipParens(n.expression); if (ts.isIdentifier(e)) spreadNames.add(e.text); }
+      ts.forEachChild(n, collectSpreads);
+    };
+    collectSpreads(sf);
+    const hoistedOf = (obj: ts.ObjectLiteralExpression): ts.VariableDeclaration | undefined => {
+      let n: ts.Node = obj.parent;
+      while (n && (ts.isConditionalExpression(n) || ts.isParenthesizedExpression(n))) n = n.parent;
+      return n &&ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && spreadNames.has(n.name.text) && n.initializer && ts.isConditionalExpression(skipParens(n.initializer)) ? n : undefined;
+    };
     // A `model` key inside an event data object (`data: { ... }` or `const data = { ... }`) describes the run; it is not a session pin.
     // Only the nearest enclosing object counts, so a pin elsewhere in the same statement or after the data object closed is still judged.
     const isData = (obj: ts.ObjectLiteralExpression): boolean => {
@@ -170,7 +183,7 @@ export function guardViolations(files: Record<string, string>): string[] {
     // a shorthand `model` only when a conditional spread sets effort or model, because event payloads spread unrelated keys.
     const inScope = (obj: ts.ObjectLiteralExpression, prop: ts.ObjectLiteralElementLike, init: string): boolean => {
       if (/\.(emit|append)$/.test(calleeOf(obj))) return false; // event payloads describe the run; they never configure a session
-      if (spreadOf(obj) !== undefined || /sessions\.run$/.test(calleeOf(obj))) return true;
+      if (spreadOf(obj) !== undefined || hoistedOf(obj) !== undefined || /sessions\.run$/.test(calleeOf(obj))) return true;
       const cs = condSpreads(obj);
       if (ts.isPropertyAssignment(prop)) return cs.length > 0 || /^(wallModel|downgrade|pinned)/.test(init);
       return cs.some((c) => [c.whenTrue, c.whenFalse].some((b) => ts.isObjectLiteralExpression(b) && b.properties.some((x) => ["effort", "model"].includes(nameOf(x) ?? ""))));
@@ -188,8 +201,11 @@ export function guardViolations(files: Record<string, string>): string[] {
           if (!inScope(node, prop, init) || isData(node)) continue;
           const sp = spreadOf(node);
           const wallShorthand = path === "stages/wall.ts" && init === "model" && inWallAuthor(prop);
+          const hoisted = sp ? undefined : hoistedOf(node);
           const good = sp
             ? vetted(skipParens(sp.expression).getText(sf))
+            : hoisted
+            ? vetted(skipParens(hoisted.initializer!).getText(sf))
             : init === "ctx.model" || (ok !== undefined && ok.test(`${init},`)) || wallShorthand;
           if (!good) v.push(`${path}:${sf.getLineAndCharacterOfPosition(prop.getStart(sf)).line + 1}: unvetted session model pin: ${node.getText(sf).split("\n")[0]!.trim()}`);
         }
@@ -292,6 +308,9 @@ describe("L1 static guard", () => {
     expect(red(`${fix}\nconst o = { ...(signal ? { signal } : {}), model: lowModel };\n`)).toBe(true); // any conditional spread puts an explicit model key in scope
     expect(red(`${fix}\nconst o = { ...(signal ? { signal } : {}), model: lowModel }; ctx.sessions.run(o);\n`)).toBe(true);
     expect(red(`${fix}\nctx.emit("x", "fix", { ...(signal ? { signal } : {}), model: actualModel });\n`)).toBe(false); // an emit payload is not a session
+    expect(red(`${fix}\nconst extra = cond ? { model: weakModel } : {}; ctx.sessions.run({ stage: "fix", ...extra });\n`)).toBe(true); // a hoisted conditional spread pin is judged like an inline one
+    expect(red(`${fix}\nconst extra = (cond ? { model: weakModel } : {}); const o = { ...extra, stage: "fix" };\n`)).toBe(true);
+    expect(red(`${fix}\nconst extra = cond ? { model: weakModel } : {}; ctx.sessions.run({ stage: "fix" });\n`)).toBe(false); // never spread into anything: not a session option
     const wall = f["stages/wall.ts"]!;
     const sibling = `\nexport async function wallLow(ctx: RunContext) {\n  const model = "claude-haiku-4-5";\n  return ctx.sessions.run({ stage: "wall", model });\n}\n`;
     expect(guardViolations({ ...f, "stages/wall.ts": wall + sibling }).some((x) => x.includes("unvetted session model pin"))).toBe(true); // the wallAuthor shorthand vetting is per function, not per file

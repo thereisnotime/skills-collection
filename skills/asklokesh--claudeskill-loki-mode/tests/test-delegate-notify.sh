@@ -346,6 +346,124 @@ else
     bad "loki notify desktop with no notifier" "rc=$n_rc calls=${n_calls:-0} out=$n_out"
 fi
 
+# --- signed outbound webhook: stub receiver on a run-owned port, stopped by PID ---
+HOOK_DIR="$WORK/hook"
+mkdir -p "$HOOK_DIR"
+cat > "$HOOK_DIR/recv.py" <<'PYEOF'
+import http.server, json, sys, base64
+out = sys.argv[1]
+class H(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+        body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+        with open(out, "a") as f:
+            f.write(json.dumps({"sig": self.headers.get("X-Loki-Signature", ""), "body": base64.b64encode(body).decode()}) + "\n")
+        self.send_response(200); self.end_headers()
+    def log_message(self, *a): pass
+srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+with open(out + ".port", "w") as f:
+    f.write(str(srv.server_port))
+srv.serve_forever()
+PYEOF
+HOOK_LOG="$HOOK_DIR/hits.jsonl"
+: > "$HOOK_LOG"
+python3 "$HOOK_DIR/recv.py" "$HOOK_LOG" >/dev/null 2>&1 &
+HOOK_PID=$!
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    [ -s "$HOOK_LOG.port" ] && break
+    sleep 0.25
+done
+HOOK_PORT="$(cat "$HOOK_LOG.port" 2>/dev/null)"
+
+if [ -z "$HOOK_PORT" ]; then
+    bad "stub webhook receiver started" "no port"
+else
+    SECRET="pg-test-secret-$$"
+    : > "$HOOK_LOG"
+    w_out="$(cd "$WORK" && env LOKI_WEBHOOK_URL="http://127.0.0.1:$HOOK_PORT/h" LOKI_WEBHOOK_SECRET="$SECRET" "$BASH" "$LOKI_BIN" notify webhook "do the secret prompt at $WORK" 2>&1)"; w_rc=$?
+    verify_hit() { # $1 secret
+        python3 - "$HOOK_LOG" "$1" <<'PYEOF'
+import sys, json, hmac, hashlib, base64
+line = open(sys.argv[1]).readline()
+d = json.loads(line)
+body = base64.b64decode(d["body"])
+want = "sha256=" + hmac.new(sys.argv[2].encode(), body, hashlib.sha256).hexdigest()
+sys.exit(0 if hmac.compare_digest(want, d["sig"]) else 1)
+PYEOF
+    }
+    if [ "$w_rc" -eq 0 ] && verify_hit "$SECRET"; then
+        ok "webhook: signature header verifies against the exact body"
+    else
+        bad "webhook: signature verifies" "rc=$w_rc out=$w_out hits=$(cat "$HOOK_LOG")"
+    fi
+    if verify_hit "wrong-secret"; then
+        bad "webhook: wrong secret must fail verification"
+    else
+        ok "webhook: wrong secret fails verification"
+    fi
+    body_json="$(python3 -c 'import sys,json,base64;print(base64.b64decode(json.loads(open(sys.argv[1]).readline())["body"]).decode())' "$HOOK_LOG")"
+    if python3 -c 'import sys,json;d=json.loads(sys.argv[1]);assert d["schema_version"]==1 and d["event"]=="Manual" and d["source"]=="loki-mode"' "$body_json" 2>/dev/null; then
+        ok "webhook: body is JSON with schema_version 1 and the event"
+    else
+        bad "webhook: body schema" "$body_json"
+    fi
+    case "$body_json" in
+        *"secret prompt"*|*"$WORK"*|*"/tmp"*|*"/var/"*) bad "webhook: payload leaks message text or an absolute path" "$body_json" ;;
+        *) ok "webhook: payload has no message text or absolute path" ;;
+    esac
+    case "$w_out" in
+        *"$SECRET"*) bad "webhook: secret printed to output" ;;
+        *) ok "webhook: secret never printed" ;;
+    esac
+    # tampered body: same signature over a changed body must not verify
+    python3 - "$HOOK_LOG" <<'PYEOF'
+import sys, json, base64
+p = sys.argv[1]
+d = json.loads(open(p).readline())
+d["body"] = base64.b64encode(base64.b64decode(d["body"]).replace(b"Manual", b"Hacked")).decode()
+open(p, "w").write(json.dumps(d) + "\n")
+PYEOF
+    if verify_hit "$SECRET"; then
+        bad "webhook: tampered body must fail verification"
+    else
+        ok "webhook: tampered body fails verification"
+    fi
+    # no secret: nothing is sent
+    : > "$HOOK_LOG"
+    ns_out="$(cd "$WORK" && env -u LOKI_WEBHOOK_SECRET LOKI_WEBHOOK_URL="http://127.0.0.1:$HOOK_PORT/h" "$BASH" "$LOKI_BIN" notify webhook "x" 2>&1)"; ns_rc=$?
+    if [ "$ns_rc" -ne 0 ] && [ ! -s "$HOOK_LOG" ]; then
+        ok "webhook: no secret means no send"
+    else
+        bad "webhook: no secret means no send" "rc=$ns_rc hits=$(cat "$HOOK_LOG") out=$ns_out"
+    fi
+    # status: URL without a secret must not read as configured
+    st_out="$(cd "$WORK" && env -u LOKI_WEBHOOK_SECRET LOKI_WEBHOOK_URL="http://127.0.0.1:$HOOK_PORT/h" "$BASH" "$LOKI_BIN" notify status 2>&1)"
+    case "$st_out" in
+        *"LOKI_WEBHOOK_SECRET is missing"*"nothing is sent"*) ok "notify status: URL without secret says nothing is sent" ;;
+        *) bad "notify status: URL without secret" "$st_out" ;;
+    esac
+    case "$st_out" in
+        *"Webhook   - Configured"*) bad "notify status: URL without secret still reads Configured" "$st_out" ;;
+        *) ok "notify status: URL without secret is not Configured" ;;
+    esac
+    st2_out="$(cd "$WORK" && env LOKI_WEBHOOK_SECRET="$SECRET" LOKI_WEBHOOK_URL="http://127.0.0.1:$HOOK_PORT/h" "$BASH" "$LOKI_BIN" notify status 2>&1)"
+    case "$st2_out" in
+        *"Webhook   - Configured"*) ok "notify status: URL with secret reads Configured" ;;
+        *) bad "notify status: URL with secret" "$st2_out" ;;
+    esac
+    # the curl call is bounded: a stub curl records its argv
+    CURL_BIN="$WORK/curlbin"
+    mkdir -p "$CURL_BIN"
+    printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/curl-args"\ncat >/dev/null\n' "$CURL_BIN" > "$CURL_BIN/curl"
+    chmod +x "$CURL_BIN/curl"
+    (cd "$WORK" && env PATH="$CURL_BIN:$PATH" LOKI_WEBHOOK_URL="http://127.0.0.1:$HOOK_PORT/h" LOKI_WEBHOOK_SECRET="$SECRET" "$BASH" "$LOKI_BIN" notify webhook "x" >/dev/null 2>&1)
+    case "$(cat "$CURL_BIN/curl-args" 2>/dev/null)" in
+        *"--connect-timeout 5"*"--max-time 10"*) ok "webhook: curl call has connect and total timeouts" ;;
+        *) bad "webhook: curl call has timeouts" "$(cat "$CURL_BIN/curl-args" 2>/dev/null)" ;;
+    esac
+fi
+kill "$HOOK_PID" 2>/dev/null || true
+wait "$HOOK_PID" 2>/dev/null || true
+
 # --- isolation: sourcing run.sh must never touch the shared checkout -------
 # Positive control: WORK must show its own provider file did get written.
 # Without this, disabling the mkdir entirely (or the probe silently no-op-ing)
@@ -360,6 +478,34 @@ if [ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]; then
     bad "sourcing run.sh left .loki/state/provider newer in the repo checkout"
 else
     ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
+fi
+
+# --- guard: no unsigned generic-webhook sender may exist -------------------
+# The only sender that POSTs to LOKI_WEBHOOK_URL is send_webhook_notification in
+# autonomy/loki, and it must sign. A second sender (the removed generic sender in
+# autonomy/notify.sh) sent the same event unsigned.
+_dead_fn="_notify_""webhook"
+if grep -rn --include='*.sh' --include='*.ts' --include='loki' "$_dead_fn" "$REPO_ROOT/autonomy" "$REPO_ROOT/bin" "$REPO_ROOT/loki-ts/src" 2>/dev/null | grep -q .; then
+    bad "guard: no unsigned webhook sender function remains"
+else
+    ok "guard: no unsigned webhook sender function remains"
+fi
+_unsigned=""
+for f in "$REPO_ROOT"/autonomy/*.sh; do
+    [ -f "$f" ] || continue
+    if grep -q 'curl' "$f" && grep -qE '"?\$\{?LOKI_WEBHOOK_URL' "$f"; then
+        _unsigned="$_unsigned $f"
+    fi
+done
+if [ -n "$_unsigned" ]; then
+    bad "guard: no autonomy/*.sh posts to LOKI_WEBHOOK_URL" "$_unsigned"
+else
+    ok "guard: no autonomy/*.sh posts to LOKI_WEBHOOK_URL"
+fi
+if awk '/^send_webhook_notification\(\)/{f=1} f&&/X-Loki-Signature/{found=1} f&&/^}/{exit} END{exit !found}' "$LOKI_BIN"; then
+    ok "guard: send_webhook_notification signs its POST"
+else
+    bad "guard: send_webhook_notification signs its POST"
 fi
 
 echo ""

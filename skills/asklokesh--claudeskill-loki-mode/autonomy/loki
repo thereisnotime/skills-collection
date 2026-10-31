@@ -143,6 +143,17 @@ _loki_caveman_narration_level() {
 # claude-flags.sh (like the caveman wrapper above) and fills _LOKI_PERM_ARGV; unset
 # LOKI_PERMISSION_POLICY=legacy keeps --dangerously-skip-permissions byte-identically.
 _loki_perm_argv_for() {
+    # Also sets _LOKI_CLAUDE_SHELL, the SHELL value every claude spawn in this CLI
+    # pins (/bin/bash; LOKI_E10_KEEP_USER_SHELL=1 keeps the user's). Computed in a
+    # subshell so the helper's top-level exports never leak. Falls back to the
+    # user's SHELL when the lib is unavailable. Spawn sites that need only the
+    # shell call this with output discarded.
+    _LOKI_CLAUDE_SHELL="$(
+        # shellcheck source=autonomy/lib/claude-flags.sh
+        . "${_LOKI_SCRIPT_DIR}/lib/claude-flags.sh" >/dev/null 2>&1 || exit 1
+        _loki_claude_shell_value
+    )" || _LOKI_CLAUDE_SHELL=""
+    [ -n "$_LOKI_CLAUDE_SHELL" ] || _LOKI_CLAUDE_SHELL="${SHELL-}"
     _LOKI_PERM_ARGV=(--dangerously-skip-permissions)
     # Legacy policy: return before sourcing anything (claude-flags.sh exports caveman vars).
     [ "${LOKI_PERMISSION_POLICY:-}" = "legacy" ] && return 0
@@ -1755,20 +1766,21 @@ PYEOF
 # `loki help answer`: `loki answer` is a v10 (loki-ts) command with no bash
 # implementation, so its help lives here rather than behind delegation.
 _help_answer() {
-    echo -e "${BOLD}loki answer${NC} - Start a follow-up run from a BLOCKED run with your answer"
+    echo -e "${BOLD}loki answer${NC} - Answer a BLOCKED run; it continues under the same run id"
     echo ""
-    echo "Usage: loki answer [<run-id>] [--text \"...\"]"
+    echo "Usage: loki answer [<run-id>] [\"<text>\" | --text \"...\"]"
     echo ""
-    echo "A run BLOCKED on a spec conflict has no in-place resume. This command"
-    echo "starts a fresh run whose task carries the original task plus the"
-    echo "question and your answer as context, then prints the new run id."
+    echo "A run BLOCKED on a spec conflict continues in place under the same"
+    echo "run id: the answer joins the locked task, stages that already settled"
+    echo "are restored and not re-run, and the log records run.resumed."
     echo ""
     echo "Arguments:"
     echo "  <run-id>        BLOCKED run to answer. Default: the newest BLOCKED run"
     echo "                  in the current repo (else the latest run)."
     echo ""
     echo "Options:"
-    echo "  --text \"...\"    The answer text (also --text=...). Without it, the answer is"
+    echo "  \"<text>\"       The answer text, as a positional argument (or --text \"...\","
+    echo "  --text \"...\"    --text=...). Without either, the answer is"
     echo "                  read from the Control Plane answer file"
     echo "                  \$LOKI_CONTROL_ANSWER_DIR/<source>/<run-id>.answer.txt"
     echo "                  (default dir: ~/.loki/control/answers)."
@@ -3056,8 +3068,9 @@ cmd_start() {
                 # read this help, saw nothing, and built the coarse gate -- the
                 # tiered contract might as well not have shipped.
                 echo "Exit codes:"
-                echo "  0                      The run completed, or a human stopped it"
-                echo "  nonzero                Something went wrong (no finer signal by default)"
+                echo "  0                      The run completed (verified), or a human stopped it"
+                echo "  Default engine run outcomes: 1 failed, 3 budget stop, 4 blocked,"
+                echo "                         5 stalled, 6 partial (done, not fully proven), 130 cancelled"
                 echo ""
                 echo "  With LOKI_DURABLE_STATE=1 the platform contract applies, which"
                 echo "  distinguishes 'retrying cannot help' from 'the process died':"
@@ -5382,8 +5395,11 @@ cmd_cancel() {
             ;;
     esac
     if _loki_e10_active_run; then
-        ( LOKI_DIR="$LOKI_DIR" _loki_bun_delegate cancel )
-        return $?
+        ( LOKI_DIR="$LOKI_DIR" _loki_bun_delegate cancel ) || {
+            echo "loki cancel needs the Bun engine, which is unavailable: ${_LOKI_DELEGATE_WHY:-bun route unavailable}" >&2
+            return 1
+        }
+        return 0
     fi
     echo -e "${YELLOW}No active Loki 10 run to cancel.${NC}"
     return 1
@@ -5857,12 +5873,17 @@ _loki_next_suggest() {
     : > "$tmp/issues"; : > "$tmp/todos"; : > "$tmp/tests"
     # gh runs under a python timeout so a hung network call cannot hang the command.
     python3 - > "$tmp/issues" 2>/dev/null <<'PYEOF' || note="issues skipped: gh not installed, not authenticated, or timed out"
-import json, subprocess, sys
+import json, os, subprocess, sys
+def _t(name, default):
+    try:
+        return float(os.environ.get(name) or default)
+    except ValueError:
+        return default
 try:
-    if subprocess.run(["gh", "auth", "status"], capture_output=True, timeout=10).returncode != 0:
+    if subprocess.run(["gh", "auth", "status"], capture_output=True, timeout=_t("LOKI_NEXT_GH_AUTH_TIMEOUT", 10)).returncode != 0:
         sys.exit(1)
     r = subprocess.run(["gh", "issue", "list", "--state", "open", "--limit", "10", "--json", "number,title"],
-                       capture_output=True, text=True, timeout=15)
+                       capture_output=True, text=True, timeout=_t("LOKI_NEXT_GH_LIST_TIMEOUT", 15))
     if r.returncode != 0:
         sys.exit(1)
     for i in json.loads(r.stdout):
@@ -16019,7 +16040,7 @@ cmd_doctor_json() {
         reqs="$(loki_requirements_json 2>/dev/null | jq -c . 2>/dev/null)" || reqs=null
         [ -n "$reqs" ] || reqs=null
     fi
-    printf '{"loki_mode_version":"%s","checks":[],"provider_availability":null,"disk":null,"ai_provider":null,"skills":[],"sentrux":null,"memory":null,"model_catalog":null,"requirements":%s,"summary":{"passed":0,"failed":1,"warnings":0,"ok":false},"route":"unavailable","reason":"%s","fix":"%s"}\n' "$ver" "$reqs" "$why" "$fix"
+    printf '{"loki_mode_version":"%s","checks":[],"provider_availability":null,"disk":null,"ai_provider":null,"skills":[],"sentrux":null,"memory":null,"model_catalog":null,"agent_sdk":{"status":"unknown","pinned":null,"installed":null,"detail":"not checked: the Bun doctor is unavailable"},"requirements":%s,"summary":{"passed":0,"failed":1,"warnings":0,"ok":false},"route":"unavailable","reason":"%s","fix":"%s"}\n' "$ver" "$reqs" "$why" "$fix"
 }
 
 # Architectural-drift gate (v7.5.14, opt-in).
@@ -16625,7 +16646,8 @@ cmd_notify_help() {
     echo "Environment Variables:"
     echo "  LOKI_SLACK_WEBHOOK    Slack incoming webhook URL"
     echo "  LOKI_DISCORD_WEBHOOK  Discord webhook URL"
-    echo "  LOKI_WEBHOOK_URL      Custom webhook URL (POST JSON)"
+    echo "  LOKI_WEBHOOK_URL      Custom webhook URL (POST JSON, signed)"
+    echo "  LOKI_WEBHOOK_SECRET   HMAC-SHA256 key for X-Loki-Signature (required to send)"
     echo "  LOKI_NOTIFY_CHANNELS  Channels to use (comma-separated: slack,discord,webhook,desktop)"
     echo "                        Default: all configured channels"
     echo ""
@@ -16666,8 +16688,10 @@ cmd_notify_status() {
     fi
 
     # Check custom webhook
-    if [ -n "${LOKI_WEBHOOK_URL:-}" ]; then
-        echo -e "  ${GREEN}[OK]${NC} Webhook   - Configured"
+    if [ -n "${LOKI_WEBHOOK_URL:-}" ] && [ -z "${LOKI_WEBHOOK_SECRET:-}" ]; then
+        echo -e "  ${YELLOW}[!!]${NC} Webhook   - URL set but LOKI_WEBHOOK_SECRET is missing, so nothing is sent"
+    elif [ -n "${LOKI_WEBHOOK_URL:-}" ]; then
+        echo -e "  ${GREEN}[OK]${NC} Webhook   - Configured (signed)"
         any_configured=true
     else
         echo -e "  ${DIM}[--]${NC} Webhook   - Not configured (set LOKI_WEBHOOK_URL)"
@@ -16830,6 +16854,10 @@ cmd_notify_send() {
                 echo -e "${RED}Error: LOKI_WEBHOOK_URL not set${NC}"
                 exit 1
             fi
+            if [ -z "${LOKI_WEBHOOK_SECRET:-}" ]; then
+                echo -e "${RED}Error: LOKI_WEBHOOK_SECRET not set (webhooks are signed; nothing sent)${NC}"
+                exit 1
+            fi
             if send_webhook_notification "$message" "Manual"; then
                 echo -e "${GREEN}Sent to webhook${NC}"
             else
@@ -16949,7 +16977,16 @@ EOF
         "$webhook_url" > /dev/null 2>&1
 }
 
-# Send notification to custom webhook
+# HMAC-SHA256 of stdin keyed by LOKI_WEBHOOK_SECRET, lowercase hex. The secret is
+# read from the environment inside python3 so it never appears in argv or logs.
+_webhook_hmac_hex() {
+    python3 -c 'import hashlib,hmac,os,sys;print(hmac.new(os.environ["LOKI_WEBHOOK_SECRET"].encode(),sys.stdin.buffer.read(),hashlib.sha256).hexdigest())'
+}
+
+# Send a signed lifecycle event to the custom webhook (POST JSON, schema_version 1).
+# Header X-Loki-Signature: sha256=<hex HMAC of the exact body>. No LOKI_WEBHOOK_SECRET
+# means nothing is sent. The payload carries the event name and project name only:
+# no message text, no prompt text, no absolute paths.
 send_webhook_notification() {
     local message="$1"
     local event_type="${2:-Notification}"
@@ -16958,34 +16995,22 @@ send_webhook_notification() {
     if [ -z "$webhook_url" ]; then
         return 1
     fi
+    if [ -z "${LOKI_WEBHOOK_SECRET:-}" ] || ! command -v python3 >/dev/null 2>&1; then
+        echo "loki: webhook not sent: set LOKI_WEBHOOK_SECRET to sign outbound webhooks" >&2
+        return 1
+    fi
 
-    local project_name
-    project_name=$(basename "$(pwd)")
-    local timestamp
+    local timestamp event_escaped project_escaped payload sig
     timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    local message_escaped event_escaped project_escaped cwd_escaped
-    message_escaped=$(printf '%s' "$message" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g')
-    event_escaped=$(printf '%s' "$event_type" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g')
-    project_escaped=$(printf '%s' "$project_name" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g')
-    cwd_escaped=$(printf '%s' "$(pwd)" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g')
+    event_escaped=$(printf '%s' "$event_type" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    project_escaped=$(printf '%s' "$(basename "$(pwd)")" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    payload=$(printf '{"schema_version":1,"source":"loki-mode","event":"%s","project":"%s","timestamp":"%s"}' \
+        "$event_escaped" "$project_escaped" "$timestamp")
+    sig=$(printf '%s' "$payload" | _webhook_hmac_hex) || return 1
 
-    # Build generic JSON payload
-    local payload
-    payload=$(cat <<EOF
-{
-    "source": "loki-mode",
-    "event": "$event_escaped",
-    "message": "$message_escaped",
-    "project": "$project_escaped",
-    "timestamp": "$timestamp",
-    "cwd": "$cwd_escaped"
-}
-EOF
-)
-
-    # Send to webhook
-    curl -s -X POST -H 'Content-type: application/json' \
-        --data "$payload" \
+    printf '%s' "$payload" | curl -s --connect-timeout 5 --max-time 10 -X POST -H 'Content-type: application/json' \
+        -H "X-Loki-Signature: sha256=${sig}" \
+        --data-binary @- \
         "$webhook_url" > /dev/null 2>&1
 }
 
@@ -19851,7 +19876,7 @@ Tasks:
             _loki_perm_argv_for "$codebase_path"
             case "$provider_name" in
                 claude)
-                    { (cd "$codebase_path" && if [ -n "$_loki_mig_cm" ]; then CAVEMAN_DEFAULT_MODE="$_loki_mig_cm" claude "${_LOKI_PERM_ARGV[@]}" -p "$phase_prompt" --output-format stream-json --verbose 2>&1; else claude "${_LOKI_PERM_ARGV[@]}" -p "$phase_prompt" --output-format stream-json --verbose 2>&1; fi) | \
+                    { (cd "$codebase_path" && if [ -n "$_loki_mig_cm" ]; then SHELL="$_LOKI_CLAUDE_SHELL" CAVEMAN_DEFAULT_MODE="$_loki_mig_cm" claude "${_LOKI_PERM_ARGV[@]}" -p "$phase_prompt" --output-format stream-json --verbose 2>&1; else SHELL="$_LOKI_CLAUDE_SHELL" claude "${_LOKI_PERM_ARGV[@]}" -p "$phase_prompt" --output-format stream-json --verbose 2>&1; fi) | \
                         while IFS= read -r line; do
                             # Extract text from stream-json
                             if echo "$line" | python3 -c "
@@ -20029,7 +20054,7 @@ IMPORTANT RULES:
         _loki_perm_argv_for "$codebase_path"
         case "$provider_name" in
             claude)
-                { (cd "$codebase_path" && if [ -n "$_loki_doc_cm" ]; then CAVEMAN_DEFAULT_MODE="$_loki_doc_cm" claude "${_LOKI_PERM_ARGV[@]}" -p "$doc_prompt" --output-format stream-json --verbose 2>&1; else claude "${_LOKI_PERM_ARGV[@]}" -p "$doc_prompt" --output-format stream-json --verbose 2>&1; fi) | \
+                { (cd "$codebase_path" && if [ -n "$_loki_doc_cm" ]; then SHELL="$_LOKI_CLAUDE_SHELL" CAVEMAN_DEFAULT_MODE="$_loki_doc_cm" claude "${_LOKI_PERM_ARGV[@]}" -p "$doc_prompt" --output-format stream-json --verbose 2>&1; else SHELL="$_LOKI_CLAUDE_SHELL" claude "${_LOKI_PERM_ARGV[@]}" -p "$doc_prompt" --output-format stream-json --verbose 2>&1; fi) | \
                     while IFS= read -r line; do
                         if echo "$line" | python3 -c "
 import sys, json
@@ -20160,25 +20185,26 @@ with open(manifest_path, 'w') as f:
 # usable.
 # ---------------------------------------------------------------------------
 cmd_verify() {
-    # --pubkey FILE or --pubkey=FILE (any position) verifies a receipt against a given public key (v10 engine, no ~/.loki needed).
-    local _pk_arg
+    # One route decision for every engine10-only verify form. --pubkey FILE / --pubkey=FILE
+    # (any position) verifies a receipt against a given public key (no ~/.loki needed). Never
+    # exec bin/loki from here: under LOKI_LEGACY_BASH=1 bin/loki execs this script straight
+    # back, an unbounded exec loop. A workspace composite (composite.json, or --seal-composite
+    # RUN_DIR) is verified by the engine10 verifier directly; bin/loki sends a bare verify here.
+    local _pk_arg _pk_rc
     for _pk_arg in "$@"; do
         case "$_pk_arg" in
-            --pubkey|--pubkey=*|--require-exogenous) exec "$_LOKI_SCRIPT_DIR/../bin/loki" verify "$@" ;;
-        esac
-    done
-    # PATH slice: a workspace composite (composite.json, or --seal-composite RUN_DIR) is
-    # verified by the engine10 verifier directly; bin/loki sends a bare verify back here.
-    for _pk_arg in "$@"; do
-        case "$_pk_arg" in
-            --sign-deploy|--sign-provenance|--url|--receipt|composite.json|*/composite.json|--seal-composite|--seal-composite=*|--max-age|--max-age=*|.loki/groups/*/receipt.json|*/.loki/groups/*/receipt.json|.loki/runs/e10-*/receipt.json|*/.loki/runs/e10-*/receipt.json)
-                _loki_bun_delegate engine10 verify "$@"
-                return $? ;;
+            --pubkey|--pubkey=*|--require-exogenous|--sign-deploy|--sign-provenance|--url|--receipt|composite.json|*/composite.json|--seal-composite|--seal-composite=*|--max-age|--max-age=*|.loki/groups/*/receipt.json|*/.loki/groups/*/receipt.json|.loki/runs/e10-*/receipt.json|*/.loki/runs/e10-*/receipt.json)
+                # The delegate execs on success, so reaching the next line means it refused.
+                _pk_rc=0
+                _loki_bun_delegate engine10 verify "$@" || _pk_rc=$?
+                echo "loki verify: $_pk_arg needs the Bun engine, which is unavailable: ${_LOKI_DELEGATE_WHY:-bun route unavailable}" >&2
+                [ -z "${_LOKI_DELEGATE_FIX:-}" ] || echo "Fix: ${_LOKI_DELEGATE_FIX}" >&2
+                return "$_pk_rc" ;;
             # A signed deploy record (.loki/deploys/*.json, schema loki.deploy/1) or a run receipt anywhere (schema loki.v10.receipt) is re-checked by the same verifier.
             *.json)
                 if [ -f "$_pk_arg" ] && grep -Eq 'loki\.deploy/1|"schema" *: *"loki\.v10\.receipt' "$_pk_arg" 2>/dev/null; then
-                    _loki_bun_delegate engine10 verify "$@"
-                    return $?
+                    _loki_bun_delegate engine10 verify "$@" || return $?
+                    return 0
                 fi ;;
         esac
     done
@@ -21095,7 +21121,7 @@ Begin healing now. Follow the RARV cycle for each action."
         claude)
             _loki_perm_argv_for "$codebase_path"
             local run_args=("${_LOKI_PERM_ARGV[@]}" -p "$heal_prompt" --output-format stream-json --verbose)
-            (cd "$codebase_path" && if [ -n "$_loki_heal_cm" ]; then CAVEMAN_DEFAULT_MODE="$_loki_heal_cm" claude "${run_args[@]}" 2>&1; else claude "${run_args[@]}" 2>&1; fi) | \
+            (cd "$codebase_path" && if [ -n "$_loki_heal_cm" ]; then SHELL="$_LOKI_CLAUDE_SHELL" CAVEMAN_DEFAULT_MODE="$_loki_heal_cm" claude "${run_args[@]}" 2>&1; else SHELL="$_LOKI_CLAUDE_SHELL" claude "${run_args[@]}" 2>&1; fi) | \
                 while IFS= read -r line; do
                     if echo "$line" | python3 -c "
 import sys, json
@@ -23135,6 +23161,28 @@ print(target)
 PY
 }
 
+# One line per supported provider (names from SUPPORTED_PROVIDERS in providers/loader.sh), printed once.
+try_print_provider_setup() {
+    local want="$1" known p hint
+    known="$(sed -n 's/^SUPPORTED_PROVIDERS=(\(.*\))$/\1/p' "$_LOKI_SCRIPT_DIR/../providers/loader.sh" 2>/dev/null | tr -d '"' | head -1)"
+    if [ -z "$known" ]; then
+        echo "loki try: cannot read SUPPORTED_PROVIDERS from providers/loader.sh" >&2
+        return 1
+    fi
+    echo "loki try: no provider is ready for '$want'. Set up one of these, then run loki try again (or preview with --dry-run):"
+    for p in $known; do
+        case "$p" in
+            claude) hint="claude login   (or set ANTHROPIC_API_KEY)" ;;
+            codex) hint="codex login   (or set OPENAI_API_KEY)" ;;
+            opencode) hint="opencode auth login" ;;
+            aider) hint="install aider and set OPENAI_API_KEY or ANTHROPIC_API_KEY" ;;
+            cline) hint="install the cline CLI and configure its API key" ;;
+            *) hint="install the $p CLI (no login command is mapped for it)" ;;
+        esac
+        echo "  $p: $hint"
+    done
+}
+
 _cmd_try_body() {
     local tmp="$1" url="$2" dry_run="$3" provider="$4" max_cost="$5"
     local dest="$tmp/repo" task
@@ -23167,7 +23215,7 @@ _cmd_try_body() {
     if receipt="$(try_keep_receipt "$dest" "$stamp")"; then
         echo ""
         echo "Receipt: $receipt"
-        echo "Check it: loki verify $receipt"
+        echo "Check it: npx loki-mode verify \"$receipt\""
     else
         echo ""
         echo "No receipt was written (run exited $rc)."
@@ -23252,8 +23300,8 @@ cmd_try() {
         *) echo "loki try: unknown provider '$use_provider' (use claude, opencode, codex, cline or aider)" >&2; return 2 ;;
     esac
     if [ "$dry_run" != true ] && ! wow_provider_ready "$use_provider"; then
-        echo "loki try: no provider ready for '$use_provider'. Run 'loki doctor', or preview with --dry-run." >&2
-        return 1
+        try_print_provider_setup "$use_provider" >&2
+        return 2
     fi
 
     local tmp rc=0
@@ -23269,11 +23317,62 @@ cmd_try() {
     return "$rc"
 }
 
+# loki plan <task> --fast: a one-screen plan from the small model tier (at most
+# 40 lines, acceptance clauses included), printed before the refine call starts,
+# then the medium-tier refinement shown as a diff of at most 20 lines or "unchanged".
+_plan_fast() {
+    local task="$1"
+    [ -f "$task" ] && task="$(cat "$task")"
+    if [ -z "$task" ]; then
+        echo -e "${RED}Usage: loki plan \"<task>\" --fast${NC}" >&2
+        return 2
+    fi
+    local pdir="$_LOKI_SCRIPT_DIR/../providers"
+    type load_provider >/dev/null 2>&1 || . "$pdir/loader.sh" 2>/dev/null
+    if ! load_provider "${LOKI_PROVIDER:-claude}" >/dev/null 2>&1 || ! type provider_invoke_argv >/dev/null 2>&1; then
+        echo "loki plan --fast: the provider '${LOKI_PROVIDER:-claude}' cannot be called from here" >&2
+        return 1
+    fi
+    local tmp to="${LOKI_PLAN_FAST_TIMEOUT:-120}" tcmd=()
+    command -v timeout >/dev/null 2>&1 && tcmd=(timeout "$to")
+    tmp="$(mktemp -d "${TMPDIR:-/tmp}/loki-plan-fast.XXXXXXXX")" || return 1
+    local common="Reply with plain text only. Do not use tools or edit files. No markdown fences."
+    local p1="PLAN-FAST. $common Write a plan for this task in at most 30 short lines: numbered steps, then a line 'Acceptance:' followed by one clause per line, each a checkable statement.
+Task: $task"
+    provider_invoke_argv fast "$p1"
+    "${tcmd[@]+"${tcmd[@]}"}" env CAVEMAN_DEFAULT_MODE=off "${_LOKI_INVOKE_ARGV[@]}" 2>/dev/null </dev/null \
+        | sed '/^[[:space:]]*$/d' | sed -n '1,40p' > "$tmp/plan1.txt"
+    if [ ! -s "$tmp/plan1.txt" ]; then
+        echo "loki plan --fast: the small-tier model returned no plan" >&2
+        rm -rf -- "$tmp"; return 1
+    fi
+    cat "$tmp/plan1.txt"
+    local p2="PLAN-REFINE. $common Improve this plan: fix wrong or missing steps and make every acceptance clause checkable. Output the full improved plan in the same format, at most 40 lines.
+Task: $task
+Plan:
+$(cat "$tmp/plan1.txt")"
+    provider_invoke_argv development "$p2"
+    "${tcmd[@]+"${tcmd[@]}"}" env CAVEMAN_DEFAULT_MODE=off "${_LOKI_INVOKE_ARGV[@]}" 2>/dev/null </dev/null \
+        | sed '/^[[:space:]]*$/d' | sed -n '1,40p' > "$tmp/plan2.txt"
+    echo ""
+    echo "Refined:"
+    if [ ! -s "$tmp/plan2.txt" ]; then
+        echo "refine unavailable (kept the plan above)"
+    elif diff "$tmp/plan1.txt" "$tmp/plan2.txt" >/dev/null 2>&1; then
+        echo "unchanged"
+    else
+        diff "$tmp/plan1.txt" "$tmp/plan2.txt" | grep '^[<>]' | sed -n '1,20p' || true
+    fi
+    rm -rf -- "$tmp"
+    return 0
+}
+
 cmd_plan() {
     local prd_file=""
     local show_requirements=false
     local show_json=false
     local show_verbose=false
+    local fast=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -23289,6 +23388,7 @@ cmd_plan() {
                 echo "  --json        Machine-readable JSON output"
                 echo "  --spec        With a task: write the acceptance criteria to .loki/specs/<slug>.md for you to edit"
                 echo "  --requirements  Print the last run's requirement-to-check map (.loki/state/requirements-map.json), read-only"
+                echo "  --fast        With a task: print a one-screen plan (max 40 lines, with acceptance clauses) from the small model tier, then the refined plan as a diff (max 20 lines) or 'unchanged'"
                 echo "  --verbose     Show detailed per-iteration breakdown"
                 echo "  --help, -h    Show this help"
                 echo ""
@@ -23306,6 +23406,7 @@ cmd_plan() {
                 ;;
             --json) show_json=true; shift ;;
             --verbose) show_verbose=true; shift ;;
+            --fast) fast=true; shift ;;
             --requirements) show_requirements=true; shift ;;
             *)
                 if [ -z "$prd_file" ]; then
@@ -23318,6 +23419,11 @@ cmd_plan() {
 
     if [ "$show_requirements" = true ]; then
         _plan_show_requirements "$show_json"
+        return $?
+    fi
+
+    if [ "$fast" = true ]; then
+        _plan_fast "$prd_file"
         return $?
     fi
 
@@ -23871,8 +23977,12 @@ main() {
             cmd_verify "$@"
             ;;
         keys)
-            # public-key export lives in the Bun v10 engine; re-enter the shim on that route.
-            exec "$_LOKI_SCRIPT_DIR/../bin/loki" keys "$@"
+            # Public-key export lives in the Bun v10 engine. Delegate to it directly: exec'ing
+            # bin/loki here loops forever under LOKI_LEGACY_BASH=1 (bin/loki execs this script back).
+            _loki_bun_delegate engine10 keys "$@" || true
+            echo "loki keys: needs the Bun engine, which is unavailable: ${_LOKI_DELEGATE_WHY:-bun route unavailable}" >&2
+            [ -z "${_LOKI_DELEGATE_FIX:-}" ] || echo "Fix: ${_LOKI_DELEGATE_FIX}" >&2
+            exit 1
             ;;
         spec)
             cmd_spec "$@"
@@ -24270,7 +24380,8 @@ _review_ultra() {
     echo -e "${DIM}Running: claude ${ur_argv[*]}${NC}" >&2
     echo "" >&2
     local ur_rc=0
-    claude "${ur_argv[@]}" || ur_rc=$?
+    _loki_perm_argv_for "$PWD" >/dev/null 2>&1 || true
+    SHELL="$_LOKI_CLAUDE_SHELL" claude "${ur_argv[@]}" || ur_rc=$?
     if [ "$ur_rc" -ne 0 ] && [ "$trust_ws" != true ] && [ "$ur_trust_ok" = true ]; then
         echo "If claude reported an untrusted folder, re-run: loki review --ultra --yes --trust-workspace" >&2
     fi
@@ -24397,7 +24508,8 @@ _run_ultracode() {
 
     echo -e "${DIM}Running: claude -p \"ultracode: ...\" --model opus${NC}" >&2
     echo "" >&2
-    claude "${uc_argv[@]}"
+    _loki_perm_argv_for "$PWD" >/dev/null 2>&1 || true
+    SHELL="$_LOKI_CLAUDE_SHELL" claude "${uc_argv[@]}"
     return $?
 }
 
@@ -28178,13 +28290,14 @@ _pr_record_merge() {
 # exactly 0 reverts in git history. A revert count of null (history
 # unreadable), a missing record, an unreadable trust output or an unreadable or
 # truncated file list or an unreadable diff all refuse, as does any PR whose
-# diff touches a symlink (120000) or submodule (160000) mode. Protected paths (.github/, .loki/, .env*,
+# diff touches a symlink (120000) or submodule (160000) mode, including a pure
+# rename of one (modes read from git on the base and head). Protected paths (.github/, .loki/, .env*,
 # .envrc, CODEOWNERS, plus the space-separated globs in
 # LOKI_EARNED_MERGE_PROTECTED), matched case-insensitively, always stay
 # PR-only. The reason for a refusal goes to stdout; the return code is 1.
 _pr_earned_merge_check() {
     local pr="$1" min="${LOKI_EARNED_MERGE_MIN_VERIFIED:-20}" meta="" num="" want="" lines="" seals=""
-    local kind p lp g row v r got=0 globs=() diff="" bad_mode=""
+    local kind p lp g row v r got=0 globs=() diff="" bad_mode="" renames="" refs="" base="" head="" from to m_old m_new
     case "$min" in ''|*[!0-9]*) min=20 ;; esac
     [ "$min" -ge 1 ] || min=1
     command -v jq >/dev/null 2>&1 || { echo "jq is required to read the Seal record"; return 1; }
@@ -28229,6 +28342,28 @@ EOF_FILES
     [ -n "$diff" ] || { echo "the PR's file modes are unreadable"; return 1; }
     bad_mode="$(printf '%s\n' "$diff" | awk '/^diff --git /{h=$0} /^(new file mode|deleted file mode|old mode|new mode) (120000|160000)$/{print h; exit} /^index [0-9a-f.]+ (120000|160000)$/{print h; exit}')"
     [ -z "$bad_mode" ] || { echo "${bad_mode#diff --git } involves a symlink or submodule"; return 1; }
+    # A pure rename (100% similarity) carries no mode or index line, so the scan
+    # above cannot see a symlink moving. Read both sides' modes from git.
+    renames="$(printf '%s\n' "$diff" | awk '/^rename from /{f=substr($0,13)} /^rename to /{print f "\t" substr($0,11); f=""}')"
+    if [ -n "$renames" ]; then
+        refs="$(gh pr view "$pr" --json baseRefOid,headRefOid -q '.baseRefOid + " " + .headRefOid' 2>/dev/null)" || refs=""
+        base="${refs%% *}"; head="${refs#* }"
+        case "$base$head" in ''|*[!0-9a-f]*) echo "the PR's rename modes are unreadable"; return 1 ;; esac
+        if ! git cat-file -e "${base}^{commit}" 2>/dev/null || ! git cat-file -e "${head}^{commit}" 2>/dev/null; then
+            GIT_TERMINAL_PROMPT=0 git fetch -q origin "pull/${num}/head" >/dev/null 2>&1 || true
+        fi
+        while IFS="$(printf '\t')" read -r from to; do
+            [ -n "$to" ] || continue
+            m_old="$(git ls-tree --full-tree "$base" -- "$from" 2>/dev/null | awk '{print $1; exit}')"
+            m_new="$(git ls-tree --full-tree "$head" -- "$to" 2>/dev/null | awk '{print $1; exit}')"
+            case "$m_old:$m_new" in
+                120000:*|160000:*|*:120000|*:160000) echo "rename from $from to $to involves a symlink or submodule"; return 1 ;;
+                '':*|*:'') echo "rename from $from to $to has unreadable file modes"; return 1 ;;
+            esac
+        done <<EOF_RENAMES
+$renames
+EOF_RENAMES
+    fi
     return 0
 }
 
@@ -30350,6 +30485,40 @@ TELEM_DISABLE_PY
             esac
             ;;
 
+        show)
+            # The allowlisted telemetry schema (keys and types only), then the
+            # last events recorded under LOKI_TELEMETRY_DEBUG=1 (event name and
+            # property keys only). Lines starting with "|" are the table that
+            # docs/PRIVACY.md reproduces. Reads files only; makes no network call.
+            local _ts_schema="${_LOKI_SCRIPT_DIR}/lib/telemetry-schema.json"
+            [ -f "$_ts_schema" ] || _ts_schema="${SKILL_DIR:-}/autonomy/lib/telemetry-schema.json"
+            if [ ! -f "$_ts_schema" ]; then
+                echo -e "${RED}telemetry schema not found${NC}"
+                return 1
+            fi
+            _TS_SCHEMA="$_ts_schema" python3 -c '
+import json, os
+s = json.load(open(os.environ["_TS_SCHEMA"]))
+def row(name, props):
+    keys = ", ".join("`%s` (%s)" % (k, v["type"]) for k, v in props.items()) or "none"
+    return "| `%s` | %s |" % (name, keys)
+print("| Event | Properties |")
+print("|---|---|")
+print(row("(every event)", s["common"]))
+for ev, props in s["events"].items():
+    print(row(ev, props))
+' || return 1
+            echo ""
+            echo "Last events recorded with LOKI_TELEMETRY_DEBUG=1 (names and keys only):"
+            local _ts_last="${HOME}/.loki/telemetry-last.log"
+            if [ -s "$_ts_last" ]; then
+                sed 's/^/  /' "$_ts_last"
+            else
+                echo "  none (run a command with LOKI_TELEMETRY_DEBUG=1 to record events instead of sending them)"
+            fi
+            echo ""
+            ;;
+
         --help|-h|help)
             echo -e "${BOLD}loki telemetry${NC} - OpenTelemetry management"
             echo ""
@@ -30365,6 +30534,8 @@ TELEM_DISABLE_PY
             echo "  stop                Alias for 'off' (persistent opt-out across all sessions)"
             echo "  analytics on|off|status"
             echo "                      Opt in/out of build-outcome analytics (off by default)"
+            echo "  show                Print the telemetry schema and the last debug-recorded events"
+            echo "                      (LOKI_TELEMETRY_DEBUG=1 prints event keys instead of sending)"
             echo ""
             echo "Anonymous diagnostics are ON by default for individual interactive installs,"
             echo "and OFF in CI, enterprise, air-gapped and non-interactive contexts. An opt-out"
@@ -30531,7 +30702,8 @@ cmd_remote() {
     # If workspace isn't trusted, it exits immediately with an error.
     # Use || true to prevent set -e from killing the script before auto-recovery.
     local rc_exit=0
-    claude remote-control ${rc_flags[@]+"${rc_flags[@]}"} || rc_exit=$?
+    _loki_perm_argv_for "$PWD" >/dev/null 2>&1 || true
+    SHELL="$_LOKI_CLAUDE_SHELL" claude remote-control ${rc_flags[@]+"${rc_flags[@]}"} || rc_exit=$?
 
     # Exit 0 = normal session end
     if [ $rc_exit -eq 0 ]; then
@@ -30571,7 +30743,8 @@ print('ok')
     echo ""
     echo -e "${GREEN}Launching remote control...${NC}"
     echo ""
-    exec claude remote-control ${rc_flags[@]+"${rc_flags[@]}"}
+    _loki_perm_argv_for "$PWD" >/dev/null 2>&1 || true
+    SHELL="$_LOKI_CLAUDE_SHELL" exec claude remote-control ${rc_flags[@]+"${rc_flags[@]}"}
 }
 
 # Syslog/SIEM integration management
@@ -31250,6 +31423,7 @@ cmd_metrics() {
     local last_n=0
     local save_file=false
     local share_flag=false
+    local share_visibility=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -31266,7 +31440,8 @@ cmd_metrics() {
                 echo "  --json               Machine-readable JSON output"
                 echo "  --last N             Analyze only the last N sessions (default: all)"
                 echo "  --save               Write report to METRICS.md in project root"
-                echo "  --share              Upload report as GitHub Gist (via loki share)"
+                echo "  --share              Upload report as a secret GitHub Gist (via loki share)"
+                echo "  --public             With --share, create a PUBLIC gist instead"
                 echo "  --help, -h           Show this help"
                 echo ""
                 echo "Subcommands:"
@@ -31277,7 +31452,7 @@ cmd_metrics() {
                 echo "  loki metrics --json            # Machine-readable output"
                 echo "  loki metrics --last 5          # Last 5 sessions only"
                 echo "  loki metrics --save            # Write METRICS.md"
-                echo "  loki metrics --share           # Share as GitHub Gist"
+                echo "  loki metrics --share           # Share as a secret GitHub Gist"
                 echo "  loki metrics prometheus        # Prometheus metrics from dashboard"
                 exit 0
                 ;;
@@ -31286,6 +31461,7 @@ cmd_metrics() {
             --last=*) last_n="${1#*=}"; shift ;;
             --save) save_file=true; shift ;;
             --share) share_flag=true; shift ;;
+            --public) share_visibility="--public"; shift ;;
             prometheus)
                 # Legacy Prometheus metrics subcommand
                 shift
@@ -31685,21 +31861,22 @@ METRICS_SCRIPT
 
     # Handle --share flag
     if [ "$share_flag" = true ]; then
-        local tmpfile
-        tmpfile=$(mktemp "/tmp/loki-metrics-XXXXXX.md")
+        local tmpdir tmpfile
+        tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/loki-metrics.XXXXXXXX") || exit 1
+        tmpfile="$tmpdir/metrics.md"
         echo "$metrics_output" > "$tmpfile"
 
         if ! command -v gh &>/dev/null; then
             echo -e "${RED}gh CLI not found -- cannot share${NC}"
             echo "Install: brew install gh"
-            rm -f "$tmpfile"
+            rm -f "$tmpfile"; rmdir "$tmpdir" 2>/dev/null || true
             exit 1
         fi
 
         if ! gh auth status &>/dev/null 2>&1; then
             echo -e "${RED}GitHub CLI not authenticated${NC}"
             echo "Run 'gh auth login' to authenticate."
-            rm -f "$tmpfile"
+            rm -f "$tmpfile"; rmdir "$tmpdir" 2>/dev/null || true
             exit 1
         fi
 
@@ -31708,9 +31885,12 @@ METRICS_SCRIPT
         project_name=$(basename "$(pwd)")
         local gist_desc="Loki Mode productivity report - ${project_name:-project} ($(date +%Y-%m-%d))"
         local gist_url
-        gist_url=$(gh gist create "$tmpfile" --desc "$gist_desc" --public 2>&1)
+        if [ "$share_visibility" = "--public" ]; then
+            echo -e "${YELLOW}Warning: this gist is PUBLIC and visible to anyone with the URL.${NC}" >&2
+        fi
+        gist_url=$(gh gist create "$tmpfile" --desc "$gist_desc" $share_visibility 2>&1)
         local gist_exit=$?
-        rm -f "$tmpfile"
+        rm -f "$tmpfile"; rmdir "$tmpdir" 2>/dev/null || true
 
         if [ $gist_exit -ne 0 ]; then
             echo -e "${RED}Failed to create gist${NC}"
@@ -32805,7 +32985,8 @@ USER TASK: ${prompt}"
             local agent_exit=0
             case "$provider" in
                 claude)
-                    claude -p "$full_prompt" 2>&1 || agent_exit=$?
+                    _loki_perm_argv_for "$PWD" >/dev/null 2>&1 || true
+                    SHELL="$_LOKI_CLAUDE_SHELL" claude -p "$full_prompt" 2>&1 || agent_exit=$?
                     ;;
                 codex)
                     codex exec --sandbox workspace-write "$full_prompt" 2>&1 || agent_exit=$?
@@ -32946,7 +33127,7 @@ $diff"
             [ -f ".loki/state/provider" ] && provider=$(cat ".loki/state/provider" 2>/dev/null)
 
             case "$provider" in
-                claude)  claude -p "$review_prompt" 2>&1 ;;
+                claude)  _loki_perm_argv_for "$PWD" >/dev/null 2>&1 || true; SHELL="$_LOKI_CLAUDE_SHELL" claude -p "$review_prompt" 2>&1 ;;
                 codex)   codex exec --sandbox workspace-write "$review_prompt" 2>&1 ;;
                 cline)   cline -y "$review_prompt" 2>&1 ;;
                 aider)   aider --message "$review_prompt" --yes-always --no-auto-commits < /dev/null 2>&1 ;;
@@ -34714,7 +34895,8 @@ _docs_invoke_provider() {
             declare -F loki_child_ledger_append >/dev/null 2>&1 && _ledger=true
             local _fmt=()
             [ "$_ledger" = true ] && _fmt=(--output-format json)
-            result=$($t_prefix env CAVEMAN_DEFAULT_MODE=off claude -p ${_lean[@]+"${_lean[@]}"} ${_fmt[@]+"${_fmt[@]}"} --model "${LOKI_DOCS_MODEL:-sonnet}" "$prompt" 2>/dev/null) || exit_code=$?
+            _loki_perm_argv_for "$PWD" >/dev/null 2>&1 || true
+            result=$($t_prefix env "SHELL=$_LOKI_CLAUDE_SHELL" CAVEMAN_DEFAULT_MODE=off claude -p ${_lean[@]+"${_lean[@]}"} ${_fmt[@]+"${_fmt[@]}"} --model "${LOKI_DOCS_MODEL:-sonnet}" "$prompt" 2>/dev/null) || exit_code=$?
             if [ "$_ledger" = true ] && [ -n "$result" ]; then
                 loki_child_ledger_append docs "$result" >/dev/null 2>&1 || true
                 result=$(printf '%s' "$result" | python3 -c 'import json,sys
@@ -38915,7 +39097,8 @@ REPORT_SCRIPT
 
 cmd_share() {
     local format="markdown"
-    local visibility="--public"
+    # Secret by default: --public is passed to gh only on an explicit --public.
+    local visibility=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -38928,20 +39111,22 @@ cmd_share() {
                 echo "returning a shareable URL."
                 echo ""
                 echo "Options:"
-                echo "  --private            Create a secret gist (default: public)"
+                echo "  --public             Create a PUBLIC gist, visible to anyone with the URL"
+                echo "  --private            Create a secret gist (default: secret; accepted for compatibility)"
                 echo "  --format <fmt>       Report format: text, markdown, html (default: markdown)"
                 echo "  --help, -h           Show this help"
                 echo ""
                 echo "Examples:"
-                echo "  loki share                         # Public markdown gist"
-                echo "  loki share --private               # Secret gist"
-                echo "  loki share --format html           # Public HTML gist"
-                echo "  loki share --private --format text  # Secret text gist"
+                echo "  loki share                         # Secret markdown gist (default)"
+                echo "  loki share --public                # Public gist"
+                echo "  loki share --format html           # Secret HTML gist"
+                echo "  loki share --public --format text  # Public text gist"
                 echo ""
                 echo "Requires: gh CLI (https://cli.github.com)"
                 exit 0
                 ;;
             --private) visibility=""; shift ;;
+            --public) visibility="--public"; shift ;;
             --format) format="${2:-markdown}"; shift 2 ;;
             --format=*) format="${1#*=}"; shift ;;
             *) echo -e "${RED}Unknown option: $1${NC}" >&2; echo "Run 'loki share --help' for usage." >&2; exit 1 ;;
@@ -38991,20 +39176,21 @@ cmd_share() {
     esac
 
     # Generate report to temp file
-    local tmpfile
-    tmpfile=$(mktemp "/tmp/loki-share-XXXXXX.$ext")
+    local tmpdir tmpfile
+    tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/loki-share.XXXXXXXX") || exit 1
+    tmpfile="$tmpdir/session-report.$ext"
 
     echo "Generating session report..."
     if ! "$0" report --format "$format" > "$tmpfile" 2>/dev/null; then
         echo -e "${RED}Failed to generate session report${NC}"
-        rm -f "$tmpfile"
+        rm -f "$tmpfile"; rmdir "$tmpdir" 2>/dev/null || true
         exit 1
     fi
 
     # Verify report is not empty
     if [ ! -s "$tmpfile" ]; then
         echo -e "${RED}Generated report is empty${NC}"
-        rm -f "$tmpfile"
+        rm -f "$tmpfile"; rmdir "$tmpdir" 2>/dev/null || true
         exit 1
     fi
 
@@ -39015,8 +39201,8 @@ cmd_share() {
 }
 
 # Internal helper: upload a single file as a GitHub Gist.
-# Args: $1=file path, $2=description, $3=visibility ("--public", "--private",
-# or "" for gh's default). NOTE: $3 is intentionally left unquoted at the
+# Args: $1=file path, $2=description, $3=visibility ("--public" for a public
+# gist, or "" for gh's default, which is a secret gist). NOTE: $3 is intentionally left unquoted at the
 # gh call site so an empty value collapses (the --private case sets it to "").
 # Removes the input file after the attempt. Prints "Shared: <url>" on success;
 # on failure prints the gh error and exits 1.
@@ -39031,6 +39217,9 @@ _loki_gist_upload() {
     # "Shared:" line and the ready-to-post hook with multi-line gh chatter.
     local gist_out gist_err gist_exit
     local errfile
+    if [ "$visibility" = "--public" ]; then
+        echo -e "${YELLOW}Warning: this gist is PUBLIC and visible to anyone with the URL.${NC}" >&2
+    fi
     # Fall back to /dev/null if mktemp fails (disk full / unwritable /tmp) so the
     # redirect target is always a real path -- never an empty string (2>"" is a
     # bash error). We lose the captured stderr text in that rare case, not the
@@ -39041,8 +39230,12 @@ _loki_gist_upload() {
     gist_err=$(cat "$errfile" 2>/dev/null)
     [ "$errfile" != "/dev/null" ] && rm -f "$errfile"
 
-    # Cleanup temp file
+    # Cleanup temp file and its private loki-* directory (rmdir only removes
+    # an empty directory).
     rm -f "$file"
+    case "$(basename "$(dirname "$file")")" in
+        loki-*) rmdir "$(dirname "$file")" 2>/dev/null || true ;;
+    esac
 
     if [ $gist_exit -ne 0 ]; then
         echo -e "${RED}Failed to create gist${NC}"
@@ -39165,8 +39358,9 @@ PYEOF
 
     # POST the redacted HTML. Auth header is sent only if a license key exists;
     # OSS users with their own endpoint need no key.
-    local tmp_body tmp_code
-    tmp_body=$(mktemp "/tmp/loki-hosted-XXXXXX.out")
+    local tmp_body tmp_code tmp_body_dir
+    tmp_body_dir=$(mktemp -d "${TMPDIR:-/tmp}/loki-hosted.XXXXXXXX") || return 1
+    tmp_body="$tmp_body_dir/response.out"
     local -a curl_args=(-sS -o "$tmp_body" -w '%{http_code}' -X POST
         -H "Content-Type: text/html"
         -H "X-Loki-Proof-Id: ${id}"
@@ -39180,7 +39374,7 @@ PYEOF
     if [ "$curl_exit" -ne 0 ]; then
         echo -e "${RED}Failed to reach hosted endpoint (curl exit ${curl_exit}).${NC}" >&2
         echo "Check LOKI_HOSTED_ENDPOINT or publish to a gist: loki proof share ${id}" >&2
-        rm -f "$tmp_body"
+        rm -f "$tmp_body"; rmdir "$tmp_body_dir" 2>/dev/null || true
         return 1
     fi
 
@@ -39207,7 +39401,7 @@ except Exception:
 print(url)
 PYEOF
 )
-            rm -f "$tmp_body"
+            rm -f "$tmp_body"; rmdir "$tmp_body_dir" 2>/dev/null || true
             if [ -n "$published_url" ]; then
                 echo -e "${GREEN}Published: ${published_url}${NC}"
             else
@@ -39224,7 +39418,7 @@ PYEOF
                 echo "" >&2
             fi
             echo "Nothing was published. Or publish to a gist: loki proof share ${id}" >&2
-            rm -f "$tmp_body"
+            rm -f "$tmp_body"; rmdir "$tmp_body_dir" 2>/dev/null || true
             return 1
             ;;
     esac
@@ -39445,6 +39639,14 @@ PYU
 # Subcommands: list | show <id> | open <id> | share <id>.
 # The proof.json schema is frozen (R1 spec). Reads are tolerant of missing
 # keys (early/degraded proofs) and default to "-".
+# True when <id> is a safe 'loki start' run id with a sealed receipt under <loki_dir>/runs.
+_proof_is_run_id() {
+    case "$1" in
+        ''|*..*|[!A-Za-z0-9]*|*[!A-Za-z0-9._-]*) return 1 ;;
+    esac
+    [ -f "$2/runs/$1/receipt.json" ]
+}
+
 cmd_proof() {
     local loki_dir="${LOKI_DIR:-.loki}"
     local proofs_dir="${loki_dir}/proofs"
@@ -39495,7 +39697,8 @@ cmd_proof() {
             echo ""
             echo "Options for 'share':"
             echo "  --yes                Skip the redaction-preview confirmation prompt"
-            echo "  --private            Create a secret gist (default: public)"
+            echo "  --public             Create a PUBLIC gist, visible to anyone with the URL"
+            echo "  --private            Create a secret gist (default: secret; accepted for compatibility)"
             echo "  --hosted             Publish to LOKI_HOSTED_ENDPOINT (open-core seam; no official backend yet)"
             echo ""
             echo "Proofs are generated automatically at run completion (LOKI_PROOF=0 to opt out)."
@@ -39653,6 +39856,15 @@ PYEOF
                 exit 2
             fi
             local pj="${proofs_dir}/${id}/proof.json"
+            if [ ! -f "$pj" ] && _proof_is_run_id "$id" "${proofs_dir%/*}"; then
+                # A 'loki start' run id: the Bun route answers through the engine10 verifier.
+                if [ "$_ps_json" -eq 1 ]; then
+                    _loki_bun_delegate proof show "$id" --json
+                else
+                    _loki_bun_delegate proof show "$id"
+                fi
+                exit $?
+            fi
             if [ ! -f "$pj" ]; then
                 echo -e "${RED}Proof not found: ${id}${NC}"
                 echo "Use 'loki proof list' to see available proofs."
@@ -39797,6 +40009,10 @@ print(json.dumps(json.load(open(os.environ['LOKI_PROOF_JSON'])), indent=2))
                 exit 2
             fi
             local pj="${proofs_dir}/${id}/proof.json"
+            if [ ! -f "$pj" ] && _proof_is_run_id "$id" "${proofs_dir%/*}"; then
+                _loki_bun_delegate proof md "$id"
+                exit $?
+            fi
             if [ ! -f "$pj" ]; then
                 echo -e "${RED}Proof not found: ${id}${NC}" >&2
                 echo "Use 'loki proof list' to see available proofs." >&2
@@ -39908,6 +40124,11 @@ print(json.dumps(json.load(open(os.environ['LOKI_PROOF_JSON'])), indent=2))
                 exit 64  # usage (docs/exit-codes.md); 2 means "could not check"
             fi
             local pj="${proofs_dir}/${id}/proof.json"
+            if [ ! -f "$pj" ] && _proof_is_run_id "$id" "${proofs_dir%/*}"; then
+                # Same verdict and exit codes as `loki verify <run-id>`.
+                _loki_bun_delegate engine10 verify "$id"
+                exit $?
+            fi
             if [ ! -f "$pj" ]; then
                 echo -e "${RED}Proof not found: ${id}${NC}"
                 echo "Use 'loki proof list' to see available proofs."
@@ -40153,7 +40374,7 @@ print(json.dumps(doc, indent=2))
         share)
             local id=""
             local skip_confirm=0
-            local visibility="--public"
+            local visibility=""
             local hosted=0
             # every python3 invocation below reads proof.json from inside
             # the checkout being shared. Resolve an absolute path once so an
@@ -40258,8 +40479,9 @@ PYEOF
             fi
 
             # Copy to a temp file so _loki_gist_upload can remove it after.
-            local tmpfile
-            tmpfile=$(mktemp "/tmp/loki-proof-XXXXXX.html")
+            local tmpfile tmpdir
+            tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/loki-proof.XXXXXXXX") || exit 1
+            tmpfile="$tmpdir/proof.html"
             cp "$html" "$tmpfile"
             echo "Uploading proof page..."
             local gist_desc="Loki Mode proof-of-run ${id}"

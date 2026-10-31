@@ -1,6 +1,6 @@
 # Notifications
 
-> Legacy engine note: this page documents the legacy engine (`loki start`, `LOKI_ENGINE=legacy`), which still ships in 11.89.0 and is being removed. For the current Loki 10 commands (`loki "<task>"`, `loki owner/repo#N`, `loki backlog`, `loki verify`) see [[Home]] and [docs/v10/GUIDE.md](https://github.com/asklokesh/loki-mode/blob/main/docs/v10/GUIDE.md).
+> Legacy engine note: this page documents the legacy engine (`loki start`, `LOKI_ENGINE=legacy`), which still ships in 11.95.0 and is being removed. For the current Loki 10 commands (`loki "<task>"`, `loki owner/repo#N`, `loki backlog`, `loki verify`) see [[Home]] and [docs/v10/GUIDE.md](https://github.com/asklokesh/loki-mode/blob/main/docs/v10/GUIDE.md).
 
 Multi-channel notification system for Slack, Discord, custom webhooks, and dashboard triggers.
 
@@ -93,8 +93,11 @@ loki notify test
 
 ```bash
 export LOKI_WEBHOOK_URL="https://your-server.com/api/events"
+export LOKI_WEBHOOK_SECRET="a-long-random-string"
 loki notify test
 ```
+
+Each request carries `X-Loki-Signature: sha256=<hex>`, the HMAC-SHA256 of the raw request body keyed with `LOKI_WEBHOOK_SECRET`. A receiver recomputes it over the raw bytes and compares in constant time before trusting the body. With a URL but no secret, nothing is sent.
 
 ---
 

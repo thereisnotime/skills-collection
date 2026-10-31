@@ -14,6 +14,8 @@ import { commitStage } from "../../src/engine10/stages/seal.ts";
 import { runIntake } from "../../src/engine10/stages/intake.ts";
 import { ignoreRuleChanges } from "../../src/util/check_result.ts";
 import { resetInstallMemo } from "../../src/project_model/install.ts";
+import { loadShared } from "../../src/project_model/discover.ts";
+import { shallowDirs } from "../../src/project_model/gather.ts";
 import { baseLine } from "../../src/util/base_guard.ts";
 import { renderMainOutput } from "../../src/engine10/supervisor.ts";
 import { renderReviewerBody } from "../../src/e10ext/reviewer_body.ts";
@@ -152,6 +154,13 @@ describe("engine10 intake", () => {
     noteRefusalFromEvents([{ type: "stage.failed", stage: "intake", data: { blocker: "dirty_tracked_tree", reason: "x" } }]); expect(takeRefusal()).toBe("dirty_tracked_tree");
     noteRefusalFromEvents([{ type: "stage.failed", stage: "intake", data: { blocker: "/Users/x/secret" } }]); expect(takeRefusal()).toBeNull();
     noteRefusalFromEvents([{ type: "stage.failed", stage: "verify", data: { blocker: "dirty_tracked_tree" } }]); expect(takeRefusal()).toBeNull();
+  });
+
+  test("Readiness is reported on the first intake in a repo and not on the second", async () => {
+    const run = () => runIntake(makeCtx(repoDir, runDir, fakeTests()), new AbortController().signal, { taskText: "do a thing" });
+    const first = await run(), second = await run();
+    expect(first.data.readiness).toMatch(/^Readiness: \d+\/100 \([A-F]\)/);
+    expect(second.data.readiness).toBeUndefined();
   });
 
   test("AN-08: an untracked-only tree is not a refusal and names no blocker", async () => {
@@ -788,5 +797,134 @@ describe("engine10 intake: base is not Loki's unmerged work (FC-15)", () => {
       if (saved.m === undefined) delete process.env["LOKI_E10_PROJECT_MODEL"]; else process.env["LOKI_E10_PROJECT_MODEL"] = saved.m;
       if (saved.i === undefined) delete process.env["LOKI_E10_INSTALL"]; else process.env["LOKI_E10_INSTALL"] = saved.i;
     }
+  });
+});
+
+describe("intake subphase timing and the shared project model", () => {
+  const answer = { workspaceKind: "single", workspaceCite: ["README.md"], fingerprintFiles: ["README.md"], packages: [{ name: "app", root: ".", runner: "pytest", cite: ["README.md"],
+    commands: { test: { cmd: "pytest", cwd: ".", cite: ["README.md"] }, lint: null, build: null, start: null }, ui: { present: false, boot: null, cite: [] }, dependsOn: [], install: null }] };
+  const answering = (calls: { n: number }): SessionRunner => ({ async run(o) { calls.n++; const m = /\(absolute path\): (\S+)/.exec(o.brief); if (m) writeFileSync(m[1]!, JSON.stringify(answer)); return { exit: 0, durationS: 0.01, killed: false, markers: [] } as never; } });
+  const timingOf = (r: { data: Record<string, unknown> }) => r.data["intake_timing"] as Record<string, { ms?: number; cached?: boolean; skipped?: string }>;
+  // The shared store is the run-owned directory tests/preload.ts sets in LOKI_E10_PM_STORE; each test starts with it empty.
+  const stamp = (dir: string, extra = ""): void => { writeFileSync(join(dir, "README.md"), `pm fixture\n${extra}`); git(dir, ["add", "-A"]); git(dir, ["commit", "-q", "-m", "stamp"]); };
+  beforeEach(() => { process.env["LOKI_E10_PROJECT_MODEL"] = "1"; rmSync(process.env["LOKI_E10_PM_STORE"]!, { recursive: true, force: true }); stamp(repoDir); }); // the test preload turns discovery off
+  afterEach(() => { process.env["LOKI_E10_PROJECT_MODEL"] = "0"; });
+
+  test("intake data records repo walk, project model, deps install, suite baseline and zero probe; a phase that did not run is skipped, never 0 ms", async () => {
+    const calls = { n: 0 }, ctx = { ...makeCtx(repoDir, runDir, fakeTests()), sessions: answering(calls) };
+    const r = await runIntake(ctx, new AbortController().signal, { taskText: "do a thing" });
+    expect(r.status).toBe("completed");
+    const t = timingOf(r as never);
+    for (const k of ["repo_walk", "project_model", "suite_baseline"]) expect(typeof t[k]!.ms).toBe("number");
+    expect(t["deps_install"]).toEqual({ skipped: "no dependencies to install" });
+    expect(t["zero_probe"]).toEqual({ skipped: "no detected test files" });
+    expect(t["deps_install"]).not.toHaveProperty("ms");
+  });
+
+  test("LOKI_E10_PROJECT_MODEL=0 records the project model as skipped, and LOKI_REPO_BASELINE=0 records the suite baseline as skipped", async () => {
+    process.env["LOKI_E10_PROJECT_MODEL"] = "0"; process.env["LOKI_REPO_BASELINE"] = "0";
+    try {
+      const r = await runIntake(makeCtx(repoDir, runDir, fakeTests()), new AbortController().signal, { taskText: "do a thing" });
+      const t = timingOf(r as never);
+      expect(t["project_model"]).toHaveProperty("skipped"); expect(t["project_model"]).not.toHaveProperty("ms");
+      expect(t["suite_baseline"]).toEqual({ skipped: "LOKI_REPO_BASELINE=0" });
+    } finally { delete process.env["LOKI_E10_PROJECT_MODEL"]; delete process.env["LOKI_REPO_BASELINE"]; }
+  });
+
+  test("a fresh checkout of identical content reuses the shared project model: no discovery session, recorded cached", async () => {
+    const calls = { n: 0 };
+    const cold = await runIntake({ ...makeCtx(repoDir, runDir, fakeTests()), sessions: answering(calls) }, new AbortController().signal, { taskText: "do a thing" });
+    expect(timingOf(cold as never)["project_model"]!.cached).toBe(false); expect(calls.n).toBe(1);
+    const repo2 = freshRepo(), run2 = mkdtempSync(join(tmpdir(), "e10-intake-rundir-"));
+    try {
+      stamp(repo2);
+      expect(gitOut(repo2, ["rev-parse", "HEAD^{tree}"])).toBe(gitOut(repoDir, ["rev-parse", "HEAD^{tree}"]));
+      const warm = await runIntake({ ...makeCtx(repo2, run2, fakeTests()), sessions: answering(calls) }, new AbortController().signal, { taskText: "do a thing" });
+      expect(calls.n).toBe(1); expect(timingOf(warm as never)["project_model"]!.cached).toBe(true); expect(existsSync(join(repo2, ".loki", "project.json"))).toBe(true);
+    } finally { rmSync(repo2, { recursive: true, force: true }); rmSync(run2, { recursive: true, force: true }); }
+  });
+
+  test("loadShared re-checks the key: same committed tree, but a fingerprint file edited in the working tree is not served", async () => {
+    const calls = { n: 0 };
+    await runIntake({ ...makeCtx(repoDir, runDir, fakeTests()), sessions: answering(calls) }, new AbortController().signal, { taskText: "do a thing" });
+    expect(loadShared(repoDir, shallowDirs(repoDir))).not.toBeNull();
+    writeFileSync(join(repoDir, "README.md"), "edited after the model was built\n");
+    expect(loadShared(repoDir, shallowDirs(repoDir))).toBeNull();
+  });
+
+  test("the shared model is not trusted when this checkout's manifests differ: discovery runs again", async () => {
+    const calls = { n: 0 };
+    await runIntake({ ...makeCtx(repoDir, runDir, fakeTests()), sessions: answering(calls) }, new AbortController().signal, { taskText: "do a thing" });
+    const repo2 = freshRepo(), run2 = mkdtempSync(join(tmpdir(), "e10-intake-rundir-"));
+    try {
+      stamp(repo2, "different content\n");
+      await runIntake({ ...makeCtx(repo2, run2, fakeTests()), sessions: answering(calls) }, new AbortController().signal, { taskText: "do a thing" });
+      expect(calls.n).toBe(2);
+    } finally { rmSync(repo2, { recursive: true, force: true }); rmSync(run2, { recursive: true, force: true }); }
+  });
+});
+
+import { scoreAmbiguity } from "../../src/features/spec_ambiguity.ts";
+describe("engine10 intake ambiguity gate", () => {
+  const AMBIGUOUS = "Add a fast, scalable export feature, maybe CSV or something.\nFormat is TBD.\nShould it include archived records?\nAuth: to be decided.\nMake it robust, etc.";
+  const CLEAR = "Add a --json flag to the status command that prints the same fields as a JSON object. Exit 0 on success and 2 on an unknown flag.";
+  const saved = { ask: process.env.LOKI_E10_INTAKE_ASK, assume: process.env.LOKI_E10_ASSUME };
+  afterEach(() => {
+    for (const [k, v] of [["LOKI_E10_INTAKE_ASK", saved.ask], ["LOKI_E10_ASSUME", saved.assume]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  });
+  const run = (task: string) => runIntake(makeCtx(repoDir, runDir, fakeTests()), new AbortController().signal, { taskText: task });
+
+  test("interactive: an ambiguous spec stops at one batched question set with a resume offer", async () => {
+    process.env.LOKI_E10_INTAKE_ASK = "1";
+    const r = await run(AMBIGUOUS);
+    expect(r.status).toBe("failed");
+    expect(r.reason).toContain("LOKI_E10_ASSUME=1");
+    expect((r.data.questions as string[]).length).toBeGreaterThan(1);
+    expect(readFileSync(String(r.data.checkpoint), "utf8")).toContain("Should it include archived records?");
+  });
+
+  test("headless: an ambiguous spec proceeds and records assumptions", async () => {
+    process.env.LOKI_E10_INTAKE_ASK = "0";
+    const r = await run(AMBIGUOUS);
+    expect(r.status).toBe("completed");
+    expect((r.data.assumptions as string[]).length).toBeGreaterThan(1);
+    expect(r.data.ambiguity_score as number).toBeGreaterThanOrEqual(5);
+  });
+
+  test("LOKI_E10_ASSUME=1 resumes an interactive run on recorded assumptions", async () => {
+    process.env.LOKI_E10_INTAKE_ASK = "1"; process.env.LOKI_E10_ASSUME = "1";
+    const r = await run(AMBIGUOUS);
+    expect(r.status).toBe("completed");
+    expect(r.data.assumptions).toBeDefined();
+  });
+
+  test("a clear spec is unchanged in both modes: no questions, no assumptions", async () => {
+    for (const ask of ["1", "0"]) {
+      process.env.LOKI_E10_INTAKE_ASK = ask;
+      const r = await run(CLEAR);
+      expect(r.status).toBe("completed");
+      expect(r.data.assumptions).toBeUndefined();
+      expect(r.data.ambiguity_score).toBeUndefined();
+    }
+  });
+
+  test("a lowercase status word is not a placeholder: the BMAD taskflow PRD is not ambiguous", async () => {
+    const prd = readFileSync(join(import.meta.dir, "../../../tests/fixtures/bmad/_bmad-output/planning-artifacts/prd-taskflow.md"), "utf8");
+    expect(/\btodo\b/.test(prd)).toBe(true);
+    expect(scoreAmbiguity(prd).hits.filter((h) => h.kind === "marker")).toEqual([]);
+    process.env.LOKI_E10_INTAKE_ASK = "0";
+    expect((await run(prd)).data.assumptions).toBeUndefined();
+    expect(scoreAmbiguity("Pick a colour. The font is TBD.").hits.map((h) => h.kind)).toContain("marker");
+  });
+
+  test("a sentence with a number is not vague, one without is", () => {
+    expect(scoreAmbiguity("The page must be fast, under 200 ms p95.").score).toBe(0);
+    expect(scoreAmbiguity("The page must be fast.").score).toBe(1);
+  });
+
+  test("an excerpt cut at 100 characters never splits a surrogate pair", () => {
+    const h = scoreAmbiguity(`${"a".repeat(96)}\u{1F600}\u{1F600} maybe.`).hits[0]!;
+    expect(h.excerpt.endsWith("...")).toBe(true);
+    expect(h.excerpt).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/);
   });
 });

@@ -35,7 +35,7 @@ export const DEEP_IMPLEMENT_LIMIT_S = 1800; // ENGINE.md section 4: 480s, 1800s 
 export const MAX_FIX_ROUNDS = 2;
 export const EVENT_TYPES = [
   "run.started", "run.resumed", "stage.started", "stage.completed", "stage.failed", "stage.skipped",
-  "heartbeat", "session.started", "session.ended", "session.stalled", "cost", "budget", "wall.sealed", "wall.reauthor",
+  "heartbeat", "session.started", "session.ended", "session.stalled", "cost", "budget", "wall.sealed", "wall.reauthor", "wall.arbitrated",
   "tests.restored", "test.result", "test.scoped_out", "test.skipped_on_base", "fix.round", "already.satisfied", "spec.conflict",
   "session.group_reaped",
   "escalated", "cap.hit", "cap.sized", "tamper.detected", "receipt.sealed", "pr.opened",
@@ -79,7 +79,7 @@ export interface SessionRunOptions {
   iterationId: string; // unique LOKI_ITERATION, e.g. e10-<run-id>-impl
   limitS: number;
   signal: AbortSignal;
-  cwd?: string; disallowedTools?: string; // Q18-04: comma list passed as --disallowedTools (read-only reviewer)
+  cwd?: string; stopChecks?: { checks: { cwd: string; cmd: string; args: string[]; protect?: boolean }[]; rounds: number; budgetS: number; repoDir: string; baseSha: string; installCreated?: unknown }; /* claude SDK route: repo checks run at each Stop; a failure blocks the stop and returns to the same session, `rounds` times at most, `budgetS` seconds in all; other routes ignore it */ disallowedTools?: string; // Q18-04: comma list passed as --disallowedTools (read-only reviewer)
   /** Pins this session's model for its tier (E-45 Wall on sonnet); unset inherits the run model. */
   model?: string;
   resumeSessionId?: string; // MW-2: provider session to resume (LOKI_E10_FIX_RESUME); unset starts fresh
@@ -153,6 +153,7 @@ export interface ReceiptCheck {
   name: string;
   cmd: string;
   result: "pass" | "fail" | "not_run";
+  owner?: "harness"; // additive: a non-pass check the harness (not the code) owns
   duration_s: number; provenance?: import("../util/check_result.ts").CheckProvenance; n?: number; count?: string /* FC-FULL-SUITE-EXIT-CODED-SCRIPT */; pre_red?: true; repo_skipped?: true; /* FC-REPO-SKIPPED-TEST-DOWNGRADES: not_run, zero tests on base and head, file untouched; additive */ // FC-PR-BODY-PUBLIC-HYGIENE pre_red: a fail that also fails on base, additive; TEN-GATES-02 provenance, TEN-GATES-03-F1 n (executed test count): additive; absent on older receipts, which still verify byte-stable
 }
 /** .loki/runs/<id>/receipt.json. receipt_sha256 = sha256 of canonical JSON without `verification`. */
@@ -172,6 +173,7 @@ export interface Receipt {
   unit_spec?: { sha256: string }; // #317b: present only for a unit run; the sha256 of its canonical spec (id, items, acceptance, writeSet, base)
   spec?: { path: string; sha256: string }; intent_revisions?: { rev: number; source: string | null; actor: string | null; sha: string }[]; // P12-02 (omitted when none); SPEC-FIRST-INTENT: present only when a user spec file drove the run
   seeded_corpus?: import("../util/run_outputs.ts").SeededCorpus; /* TEN-GATES-15 */ supply?: import("../supply/supply_guard.ts").SupplyBlock; // T10: present only when the guard found newly added dependencies
+  seal_accuracy?: string; // GAME10-03: signed line read from the measured wrong-pass results, or "Seal accuracy: not measured"
   route?: import("../runner/router/route_block.ts").RouteBlock; // R1-15: present only while the router is on.
   cost_preview?: Record<string, unknown>; // 11.3.0 T1: absent under LOKI_COST_PREVIEW=0
   verdict: Verdict;
@@ -190,7 +192,7 @@ export interface Receipt {
   spec_conflict_reason?: string;
   /** E-66: the deterministic search hits plus the model's own citation, carried into the receipt so  an evidence-confirmed ALREADY_SATISFIED verdict is not a bare claim. Empty on every other   verdict, and also empty on the OTHER ways a run seals
    *  ALREADY_SATISFIED (an issue already  closed, Wall already green on the base tree, or implement's own LOKI_ALREADY_DONE marker):  none of  those goes through this search, so none of them has search hits to carry. */
-  evidence: string[]; pre_existing_dirty?: string[]; // E-164: lockfiles modified at intake by setup, never attributed to the run; omitted when none
+  evidence: string[]; pre_existing_dirty?: string[]; assumptions?: string[]; // assumptions: headless run on an ambiguous spec, recorded by intake instead of asking; omitted when none. // E-164: lockfiles modified at intake by setup, never attributed to the run; omitted when none
   cost: {
     usd: number | null;
     input_tokens: number;

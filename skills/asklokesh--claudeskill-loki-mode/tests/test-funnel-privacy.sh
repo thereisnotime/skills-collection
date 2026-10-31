@@ -223,7 +223,7 @@ lines = [l for l in open(sys.argv[1]) if l.strip()]
 if not lines:
     sys.exit(1)
 props = json.loads(lines[0])["properties"]
-expected = {"os_family", "arch", "version", "channel", "traffic", "introspective"}
+expected = {"os_family", "arch", "version", "channel", "traffic", "introspective", "$geoip_disable", "id_age", "ephemeral_home"}
 if set(props) != expected:
     print("key set mismatch: %s" % sorted(props), file=sys.stderr)
     sys.exit(1)
@@ -524,7 +524,7 @@ import json, sys
 s = json.load(open(sys.argv[1])); bad = []
 for line in open(sys.argv[2]):
     d = json.loads(line)
-    allowed = set(s["common"]) | set(s["events"][d["event"]])
+    allowed = set(s["common"]) | {"$geoip_disable"} | set(s["events"][d["event"]])
     extra = set(d["properties"]) - allowed
     if extra:
         bad.append((d["event"], sorted(extra)))
@@ -609,6 +609,53 @@ else
     bad "os_family: windows mapping" "$(cat "$LISTENER_OUT")"
 fi
 
+# id_age and ephemeral_home: an empty HOME in a container mints the id (true),
+# the next run with that persisted HOME reuses it (false). Id file stays 0600.
+HE="$SANDBOX/home.ephemeral"; mkdir -p "$HE"
+eph_run() {
+    : > "$LISTENER_OUT"
+    ( export HOME="$HE" PATH="$REAL_PATH" LOKI_TELEMETRY=on LOKI_TELEMETRY_ENDPOINT="$ENDPOINT" \
+             LOKI_TTY_INTERACTIVE=1 SCRIPT_DIR="$REPO_ROOT/autonomy"
+      # shellcheck disable=SC1091
+      source "$REPO_ROOT/autonomy/telemetry.sh"
+      _loki_detect_channel() { printf 'docker'; }
+      loki_telemetry "cli_command" "command=status" ) >/dev/null 2>&1
+    wait_bodies 1
+}
+eph_run
+E1="$($GREP -c '"ephemeral_home": true' "$LISTENER_OUT")"; A1="$($GREP -c '"id_age": 0' "$LISTENER_OUT")"
+eph_run
+E2="$($GREP -c '"ephemeral_home": false' "$LISTENER_OUT")"
+MODE="$(python3 -c 'import os,sys;print(oct(os.stat(sys.argv[1]).st_mode&0o777))' "$HE/.loki-telemetry-id")"
+if [ "$E1" = 1 ] && [ "$A1" = 1 ] && [ "$E2" = 1 ] && [ "$MODE" = 0o600 ]; then
+    ok "ephemeral_home: true on an empty HOME, false once persisted; id_age sent; id file 0600 (bash)"
+else
+    bad "ephemeral_home bash" "e1=$E1 a1=$A1 e2=$E2 mode=$MODE"
+fi
+PYE="$(HOME="$SANDBOX/home.pyeph" python3 - "$REPO_ROOT" <<'PYT'
+import os, sys
+os.makedirs(os.environ["HOME"], exist_ok=True)
+sys.path.insert(0, sys.argv[1])
+from dashboard import telemetry as t
+t._detect_channel = lambda: "docker"
+a = t.build_payload("dashboard_start")["properties"]
+b = t.build_payload("dashboard_start")["properties"]
+mode = oct(os.stat(os.path.join(os.environ["HOME"], ".loki-telemetry-id")).st_mode & 0o777)
+print(a.get("ephemeral_home"), b.get("ephemeral_home"), "id_age" in a, mode)
+PYT
+)"
+if [ "$PYE" = "True False True 0o600" ]; then
+    ok "ephemeral_home: python sender true then false, id_age sent, id file 0600"
+else
+    bad "ephemeral_home python" "$PYE"
+fi
+# The fallback id is random hex, never clock plus pid.
+if ! $GREP -q 'anon-\$(date' "$REPO_ROOT/autonomy/telemetry.sh"; then
+    ok "fallback id no longer derives from the clock and pid"
+else
+    bad "fallback id still anon-epoch-pid"
+fi
+
 # traffic enum and the introspective flag.
 traffic_for() {
     # $1 = command, rest = env assignments
@@ -679,7 +726,7 @@ import json, sys
 s = json.load(open(sys.argv[1])); bad = []
 for line in open(sys.argv[2]):
     d = json.loads(line)
-    extra = set(d["properties"]) - (set(s["common"]) | set(s["events"][d["event"]]))
+    extra = set(d["properties"]) - (set(s["common"]) | {"$geoip_disable"} | set(s["events"][d["event"]]))
     if extra:
         bad.append((d["event"], sorted(extra)))
 print(bad[0] if bad else "")
@@ -727,7 +774,7 @@ for f in files:
             continue
         if ev not in s["events"]:
             problems.append("event %s (%s) not in schema" % (ev, f)); continue
-        allowed = set(s["events"][ev]) | set(s["common"])
+        allowed = set(s["events"][ev]) | set(s["common"]) | {"$geoip_disable"}
         for k in re.findall(r'"([a-z_]+)=', m.group(4)):
             if k not in allowed:
                 problems.append("key %s of %s (%s) not in schema" % (k, ev, f))
@@ -851,6 +898,26 @@ if $GREP -q 'COPY autonomy/lib/proof-analytics-props.py autonomy/lib/telemetry-s
     ok "dashboard image carries the schema files so dashboard_start is not dropped"
 else
     bad "dashboard/Dockerfile lacks the telemetry schema files"
+fi
+
+# Every sender body carries the PostHog geoip-disable flag, so "never IPs" holds
+# at the sender. The bash and dashboard senders are checked on their real built
+# payload; the welcome form is a static page, so its source is checked.
+GEO_BASH="$(python3 "$REPO_ROOT/autonomy/lib/proof-analytics-props.py" --payload cli_command did key command=status 2>/dev/null)"
+if printf '%s' "$GEO_BASH" | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin)["properties"].get("$geoip_disable") is True else 1)' 2>/dev/null; then
+    ok 'geoip: bash sender body carries $geoip_disable true'
+else
+    bad 'geoip: bash sender body lacks $geoip_disable' "$GEO_BASH"
+fi
+if python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import telemetry as t; b = t.build_payload("cli_command", {"command": "status"}); sys.exit(0 if b and b["properties"].get("$geoip_disable") is True else 1)' "$REPO_ROOT/dashboard" 2>/dev/null; then
+    ok 'geoip: dashboard sender body carries $geoip_disable true'
+else
+    bad 'geoip: dashboard sender body lacks $geoip_disable'
+fi
+if $GREP -qE '"[$]geoip_disable": *true' "$REPO_ROOT/assets/welcome/welcome.html"; then
+    ok 'geoip: welcome form body carries $geoip_disable true'
+else
+    bad 'geoip: welcome form body lacks $geoip_disable'
 fi
 
 kill "$LISTENER_PID" 2>/dev/null

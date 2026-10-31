@@ -138,6 +138,114 @@ test_cmd "loki share --bogus rejects unknown option" \
     1 "unknown option" share --bogus
 
 # -------------------------------------------
+# Tests 9-14: gist visibility. A stub gh records its argv; no network, no
+# real gist. Default and --private must NOT pass --public; --public must.
+# -------------------------------------------
+STUB_DIR="$TMPDIR_BASE/stub-bin"
+mkdir -p "$STUB_DIR"
+cat > "$STUB_DIR/gh" <<'STUB'
+#!/usr/bin/env bash
+if [ "${1:-}" = "auth" ]; then exit 0; fi
+if [ "${1:-}" = "gist" ]; then
+    printf '%s\n' "$*" >> "$GH_STUB_LOG"
+    echo "https://gist.github.com/stub/0123456789abcdef"
+    exit 0
+fi
+exit 0
+STUB
+chmod +x "$STUB_DIR/gh"
+export GH_STUB_LOG="$TMPDIR_BASE/gh-argv.log"
+
+# run_share_stub <expect-public: yes|no> <desc> <args...>
+run_share_stub() {
+    local expect="$1" desc="$2"; shift 2
+    local proj="$TMPDIR_BASE/proj-$TOTAL"
+    mkdir -p "$proj/.loki"
+    : > "$GH_STUB_LOG"
+    ((TOTAL++))
+    local out rc=0
+    out=$(cd "$proj" && PATH="$STUB_DIR:$PATH" "$LOKI" "$@" 2>&1) || rc=$?
+    local argv; argv=$(cat "$GH_STUB_LOG")
+    if [ -z "$argv" ]; then
+        log_fail "$desc" "stub gh was never asked to create a gist (rc=$rc): $(echo "$out" | head -3)"
+        return 0
+    fi
+    local has_public=no
+    case " $argv " in *" --public "*) has_public=yes ;; esac
+    if [ "$has_public" != "$expect" ]; then
+        log_fail "$desc" "expected --public=$expect, gh argv was: $argv"
+        return 0
+    fi
+    if [ "$expect" = "yes" ] && ! echo "$out" | grep -qi "PUBLIC and visible to anyone"; then
+        log_fail "$desc" "no public-visibility warning printed"
+        return 0
+    fi
+    if [ "$expect" = "no" ] && echo "$out" | grep -qi "PUBLIC and visible to anyone"; then
+        log_fail "$desc" "public warning printed for a secret gist"
+        return 0
+    fi
+    log_pass "$desc"
+}
+
+run_share_stub no  "loki share (default) creates a secret gist" share
+run_share_stub no  "loki share --private creates a secret gist" share --private
+run_share_stub yes "loki share --public creates a public gist with a warning" share --public
+run_share_stub no  "loki metrics --share (default) creates a secret gist" metrics --share
+run_share_stub yes "loki metrics --share --public creates a public gist" metrics --share --public
+test_cmd "loki share --help documents the secret default and --public" \
+    0 "default: secret" share --help
+
+# -------------------------------------------
+# Predictable temp names: a mktemp template with characters after XXXXXX
+# returns the literal name on macOS, so a local user could pre-create it. The
+# share, metrics, proof and hosted-publish paths must use a private mktemp -d
+# directory (under TMPDIR) with a fixed file name inside, and remove it.
+# -------------------------------------------
+PRIV_TMP="$TMPDIR_BASE/private-tmp"
+mkdir -p "$PRIV_TMP"
+for lit in loki-share-XXXXXX.md loki-share-XXXXXX.txt loki-share-XXXXXX.html \
+    loki-metrics-XXXXXX.md loki-proof-XXXXXX.html loki-hosted-XXXXXX.out; do
+    : > "$PRIV_TMP/$lit"
+done
+
+run_share_private_tmp() {
+    local desc="$1"; shift
+    local proj="$TMPDIR_BASE/proj-priv-$TOTAL"
+    mkdir -p "$proj/.loki"
+    : > "$GH_STUB_LOG"
+    ((TOTAL++))
+    local out rc=0
+    out=$(cd "$proj" && TMPDIR="$PRIV_TMP" PATH="$STUB_DIR:$PATH" "$LOKI" "$@" 2>&1) || rc=$?
+    local argv; argv=$(cat "$GH_STUB_LOG")
+    if [ -z "$argv" ]; then
+        log_fail "$desc" "gist was not created with pre-created literal names present (rc=$rc): $(echo "$out" | head -3)"
+        return 0
+    fi
+    case "$argv" in
+        *"$PRIV_TMP"/loki-*/*) ;;
+        *) log_fail "$desc" "gist file not inside a private directory under TMPDIR: $argv"; return 0 ;;
+    esac
+    local leftover
+    leftover=$(find "$PRIV_TMP" -mindepth 1 -maxdepth 1 -name 'loki-*' ! -name '*XXXXXX*' | head -3)
+    if [ -n "$leftover" ]; then
+        log_fail "$desc" "temp directory not removed: $leftover"
+        return 0
+    fi
+    log_pass "$desc"
+}
+
+run_share_private_tmp "loki share uses a private temp directory and removes it" share
+run_share_private_tmp "loki metrics --share uses a private temp directory and removes it" metrics --share
+
+((TOTAL++))
+suffix_hits=$(grep -nE 'mktemp[^|;]*XXXXXX[^X"'"'"' )]' "$LOKI" | head -5)
+if [ -n "$suffix_hits" ]; then
+    log_fail "no mktemp template with a suffix after XXXXXX in autonomy/loki" "$suffix_hits"
+else
+    log_pass "no mktemp template with a suffix after XXXXXX in autonomy/loki"
+fi
+
+# -------------------------------------------
 # Summary
 # -------------------------------------------
 echo ""

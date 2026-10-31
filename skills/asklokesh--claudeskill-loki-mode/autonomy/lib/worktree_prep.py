@@ -68,10 +68,14 @@ def _cow_copy(src, dst):
 def _escapes_source(path):
     """True if a dep dir links or points outside itself.
 
-    Flags absolute symlinks, relative symlinks resolving outside the dep dir,
-    editable finders, and bin/* scripts whose shebang names the source path.
+    Flags absolute symlinks that resolve into the source tree, relative
+    symlinks resolving outside the dep dir, editable finders, and bin/*
+    scripts whose shebang names the source path. An absolute symlink that
+    resolves outside the source tree (a venv's bin/python pointing at a system
+    interpreter) is safe: the copy keeps pointing at the same external file.
     """
     base = os.path.realpath(path)
+    source_root = os.path.dirname(base)
     sources = {os.path.dirname(base).encode(), os.path.dirname(os.path.abspath(path)).encode()}
     for root, dirs, files in os.walk(path):
         for name in dirs + files:
@@ -79,7 +83,10 @@ def _escapes_source(path):
             if os.path.islink(p):
                 target = os.readlink(p)
                 if os.path.isabs(target):
-                    return True
+                    real = os.path.realpath(target)
+                    if real == source_root or real.startswith(source_root + os.sep):
+                        return True
+                    continue
                 real = os.path.realpath(os.path.join(root, target))
                 if real != base and not real.startswith(base + os.sep):
                     return True
@@ -119,7 +126,8 @@ def _acquire_lock(lock):
             time.sleep(0.1)
 
 
-def _copy_deps(source, dest, start):
+def _copy_deps(source, dest, start, skipped):
+    """Copy ignored dep dirs; a dir left out is recorded in skipped as name -> reason."""
     copied = 0
     for name in DEP_DIRS:
         s = os.path.join(source, name)
@@ -130,9 +138,12 @@ def _copy_deps(source, dest, start):
         if _git(source, "ls-tree", "-d", start, name, check=False).stdout.strip():
             continue
         if _escapes_source(s):
-            raise RuntimeError("deps: copy unsafe, declare setup")
+            skipped[name] = "not safe to copy"
+            continue
         if not _cow_copy(s, os.path.join(dest, name)):
-            raise RuntimeError("deps: copy failed, declare setup")
+            subprocess.run(["rm", "-rf", os.path.join(dest, name)], check=False)
+            skipped[name] = "copy failed"
+            continue
         copied += 1
     return copied
 
@@ -152,14 +163,22 @@ def prepare_worktree(source_repo, dest, branch, setup=None, base=None):
         lock.close()
 
     deps = "none"
+    skipped = {}
     if setup:
         r = subprocess.run(setup, shell=True, cwd=dest)
         if r.returncode != 0:
             raise RuntimeError("deps: setup command failed (exit %d)" % r.returncode)
         deps = "setup"
-    elif _copy_deps(source_repo, dest, base_sha):
-        deps = "cow" if sys.platform in ("darwin", "linux") else "copy"
-    return {"path": dest, "base_sha": base_sha, "deps": deps, "left_out_changes": left_out}
+    else:
+        if _copy_deps(source_repo, dest, base_sha, skipped):
+            deps = "cow" if sys.platform in ("darwin", "linux") else "copy"
+        elif skipped:
+            deps = "skipped"
+        if skipped:
+            print("worktree: deps not copied (%s), the session installs them"
+                  % ", ".join("%s: %s" % kv for kv in skipped.items()), file=sys.stderr)
+    return {"path": dest, "base_sha": base_sha, "deps": deps, "left_out_changes": left_out,
+            "deps_skipped": list(skipped)}
 
 
 def main(argv=None):

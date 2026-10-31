@@ -3,11 +3,12 @@
 // reported as unknown. A success verdict (VERIFIED or ALREADY_SATISFIED) needs at least one Loki-executed check with n>0 and a
 // pass (hasExecutedProof). Every site that sets result "pass" for a test run routes through classifyCheck.
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { killGroup, SAFE_BUN_FLAGS } from "../runner/worker_proc.ts";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { siteFor } from "../project_model/resolve.ts";
 import type { ProjectApi } from "../project_model/api.ts";
 import { CARGO_TEST_FILE_RE, isTestFile } from "../engine10/testmap.ts";
@@ -28,6 +29,9 @@ export function plainTestEnv(base: NodeJS.ProcessEnv = process.env): Record<stri
   return e;
 }
 export const NO_TESTS_REASON = "no tests executed";
+/** The one owner of where a sealed Wall copy lives: <runDir>/wall/<basename>. Lives here (not wall.ts) because wall.ts imports this module; wall.ts re-exports it. */
+export const sealedWallDir = (runDir: string): string => join(runDir, "wall");
+export const sealedWallCopy = (runDir: string, path: string): string => join(sealedWallDir(runDir), basename(path));
 export const NO_RUNNER_REASON = "no runner of this repo runs this file"; // FC-WALL-FILE-WITHOUT-RUNNER-SILENTLY-DROPPED: the one wording wall.ts (not_run_files) and verify.ts (not_proven) share, so seal dedups them
 /** Machine-readable reason the Wall found no harness runner when bun was off (LOKI_WALL_HARNESS_RUNNER=0) or missing from PATH (the pre-spawn Bun.which check), else the repo simply has no toolchain; recorded as skip_code on the Wall skip. */
 /** The skip_code values a check or stage can carry: the harnessSkipCode set plus tool_not_on_path (a runner command missing from PATH). */
@@ -248,10 +252,28 @@ export async function corroboratePass(c: Classified, out: string, cmdOrLine: str
   const toks = args ? [cmdOrLine, ...args] : cmdOrLine.trim().split(/\s+/);
   if (c.result === "pass" && basename(toks[0] ?? "") === "cargo" && toks[1] === "test") return corroborateCargoPass(c, out, toks, o);
   if (c.result !== "pass" || goRunner(cmdOrLine, args).runner !== "go") return c;
+  const g = corroborateGoSteps(c, out, cmdOrLine, args, toks, o); let step = g.next();
+  while (!step.done) { const [cmd, a, to] = step.value; step = g.next(await spawnCollect(cmd, a, to)); }
+  return step.value;
+}
+type SpawnRes = { status: number | null; output: string };
+/** The same Go corroboration as corroboratePass, for the one synchronous caller (RealBaseTestRunner.run): identical steps, spawnSync driver. Go only; any other runner is returned unchanged. */
+export function corroborateGoPassSync(c: Classified, out: string, cmdOrLine: string, args: readonly string[] | undefined, o: { cwd: string; env: NodeJS.ProcessEnv }): Classified {
+  if (c.result !== "pass" || goRunner(cmdOrLine, args).runner !== "go") return c;
+  const g = corroborateGoSteps(c, out, cmdOrLine, args, args ? [cmdOrLine, ...args] : cmdOrLine.trim().split(/\s+/), o); let step = g.next();
+  while (!step.done) {
+    const [cmd, a, to] = step.value, r = spawnSync(cmd, a, { cwd: to.cwd, env: to.env, timeout: to.timeoutMs, encoding: "utf8", maxBuffer: 1024 * 1024 }), res: SpawnRes = { status: r.error || r.signal ? null : r.status, output: `${r.stdout ?? ""}\n${r.stderr ?? ""}` };
+    step = g.next(res);
+  }
+  return step.value;
+}
+function* corroborateGoSteps(c: Classified, out: string, cmdOrLine: string, args: readonly string[] | undefined, toks: string[], o: { cwd: string; env: NodeJS.ProcessEnv }): Generator<[string, string[], { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number }], Classified, SpawnRes> {
   const refuse: Classified = { result: "not_run", reason: GO_EXIT0_REASON };
   const first = goJson(stripAnsi(out));
   const names = first?.passedNames ?? [];
-  if (!names.length || toks.some((t) => /[&|;$`"'<>()\\]/.test(t)) || basename(toks[0] ?? "") !== "go" || toks[1] !== "test") return refuse;
+  // argv has no shell, so metacharacters in it are inert; only the exact `-run ^(A|B)$` value runnerCmd builds from a file's Test names is let through, so a generated -run never refuses a real pass.
+  const shellish = (t: string, i: number): boolean => /[&|;$`"'<>()\\]/.test(t) && !(args !== undefined && toks[i - 1] === "-run" && /^\^\([A-Za-z0-9_|]+\)\$$/.test(t));
+  if (!names.length || toks.some(shellish) || basename(toks[0] ?? "") !== "go" || toks[1] !== "test") return refuse;
   const pkgs: string[] = [], run: string[] = [];
   for (let k = 2; k < toks.length; k++) {
     const t = toks[k]!;
@@ -269,7 +291,7 @@ export async function corroboratePass(c: Classified, out: string, cmdOrLine: str
   };
   try {
     const want = new Set(names.map((n) => n.slice(0, n.indexOf("::")))), expected = new Set<string>();
-    const ls = await spawnCollect("go", ["list", "-json=ImportPath,Dir,GoFiles,CgoFiles", ...where], spawnOpts);
+    const ls: SpawnRes = yield ["go", ["list", "-json=ImportPath,Dir,GoFiles,CgoFiles", ...where], spawnOpts];
     if (ls.status !== 0) return refuse;
     const perPkg = new Map<string, number>(); // statement blocks found per passing package; a package that stays at 0 (never listed, or no statements) has nothing to prove
     for (const chunk of ls.output.split(/\n(?=\{\n)/)) {
@@ -280,7 +302,7 @@ export async function corroboratePass(c: Classified, out: string, cmdOrLine: str
       perPkg.set(pk.ImportPath, 0);
       for (const f of pk.GoFiles) {
         if (/^\s*(?:\/\/line |\/\*line )/m.test(readFileSync(join(pk.Dir, f), "utf8"))) return refuse; // a //line directive (goyacc, ragel, templ) makes the profile name another file than the source: not provable, so not_run
-        const t = await spawnCollect("go", ["tool", "cover", "-mode=set", "-var=GoCoverStatic", join(pk.Dir, f)], spawnOpts);
+        const t: SpawnRes = yield ["go", ["tool", "cover", "-mode=set", "-var=GoCoverStatic", join(pk.Dir, f)], spawnOpts];
         if (t.status !== 0) return refuse;
         const pos = /Pos: \[3 \* \d+\]uint32\{([^}]*)\}/.exec(t.output)?.[1] ?? "", stm = /NumStmt: \[\d+\]uint16\{([^}]*)\}/.exec(t.output)?.[1] ?? "";
         const trip = [...pos.matchAll(/(\d+), (\d+), (0x[0-9a-f]+),/g)], nums = [...stm.matchAll(/(\d+),/g)];
@@ -290,7 +312,7 @@ export async function corroboratePass(c: Classified, out: string, cmdOrLine: str
       }
     }
     if (![...want].every((pk) => (perPkg.get(pk) ?? 0) > 0)) return refuse;
-    const r = await spawnCollect("go", ["test", "-json", "-count=1", `-coverprofile=${prof}`, ...run, ...where], spawnOpts);
+    const r: SpawnRes = yield ["go", ["test", "-json", "-count=1", `-coverprofile=${prof}`, ...run, ...where], spawnOpts];
     const second = goJson(stripAnsi(r.output));
     if (r.status !== 0 || !second || second.failed || !second.complete) return refuse;
     const again = new Set(second.passedNames);
@@ -416,6 +438,11 @@ export function exitCodedId(cmd: string, out: string, repoDir = ""): string | nu
 }
 export interface ClassifyInput { kind: "test" | "static"; ok: boolean; cut?: boolean; missing?: boolean; out: string; path?: string; runner?: "go"; exitCoded?: boolean /* FC-FULL-SUITE-EXIT-CODED-SCRIPT: the command is a plain script (isExitCodedScript), decided by exit code like a static check */ }
 export interface Classified { result: "pass" | "fail" | "not_run"; n?: number; reason?: string; count?: string }
+/** A suite that discovered nothing: a parsed 0-test count with no skip, pending or todo wording left once explicit zero counts are removed. Skipped tests are not empty discovery (a change that skips the whole suite must never read as "nothing to run"). */
+export function emptyDiscovery(cls: Classified, out: string): boolean {
+  if (cls.result !== "not_run" || cls.n !== 0 || !/\bran 0 tests\b/.test(cls.reason ?? "")) return false;
+  return !/skip|pending|todo/i.test(stripAnsi(out).replace(/\b0 (?:skipped|pending|todo)\b|\b(?:skipped|pending|todo)\W{1,3}0\b/gi, ""));
+}
 /** classifyCheck result plus the rerun-only "flaky" verdict (TEN-QUALITY-17); kept separate so existing classifyCheck callers keep the narrow type. */
 export interface ClassifiedRerun extends Omit<Classified, "result"> { result: Classified["result"] | "flaky"; rerun?: { first: "fail"; second: "pass"; n?: number } }
 /** One attempt of one check. static = lint/typecheck/scan (exit code decides, no count). test = a test runner: pass needs n>0. */
@@ -767,7 +794,48 @@ export function publishableWall(repoDir: string, runDir: string, o: Partial<Reco
   for (const w of arr(o.wall?.["files"])) {
     const rel = relative(repoDir, String(w["path"])), hit = arr(o.verify?.["checks"]).find((c) => tgt.has(String(c["name"])) && String(c["name"]).slice(String(c["name"]).indexOf(":") + 1) === rel && hasExecutedProof([c]));
     if (!hit || rel.startsWith("..") || isAbsolute(rel) || rel.startsWith(".loki/") || !basename(rel).startsWith("loki_wall_")) continue; // stale, failed, not-run or outside the repo: stays dropped
-    try { const bytes = readFileSync(join(runDir, "wall", basename(rel))); if (createHash("sha256").update(bytes).digest("hex") !== w["sha256"]) throw new Error("hash"); out.files.push({ rel, bytes, cmd: String(hit["cmd"]), runner: String(hit["name"]).slice(0, String(hit["name"]).indexOf(":")) }); } catch { out.notes.push(`Wall test not published: ${rel} (sealed copy missing or not the sealed bytes)`); }
+    try { const bytes = readFileSync(sealedWallCopy(runDir, rel)); if (createHash("sha256").update(bytes).digest("hex") !== w["sha256"]) throw new Error("hash"); out.files.push({ rel, bytes, cmd: String(hit["cmd"]), runner: String(hit["name"]).slice(0, String(hit["name"]).indexOf(":")) }); } catch { out.notes.push(`Wall test not published: ${rel} (sealed copy missing or not the sealed bytes)`); }
+  }
+  return out;
+}
+/** Why a sealed Wall path cannot be written into repoDir: it leaves the repo, or it is, or sits under, a symlink or non-directory (a link committed by another unit must not redirect a write). null = safe. */
+export function wallPathProblem(repoDir: string, relPath: string): string | null {
+  const rel = normalize(relPath);
+  if (isAbsolute(rel) || rel.split(sep).includes("..")) return `Wall path outside the repo: ${relPath}`;
+  let cur = repoDir;
+  for (const part of dirname(rel) === "." ? [] : dirname(rel).split(sep)) { cur = join(cur, part); try { const st = lstatSync(cur); if (st.isSymbolicLink() || !st.isDirectory()) return `Wall path crosses a symlink or non-directory: ${relPath}`; } catch { return null; } }
+  try { return lstatSync(join(repoDir, rel)).isSymbolicLink() ? `Wall path is a symlink: ${relPath}` : null; } catch { return null; }
+}
+export interface SealedWallFile { rel: string; bytes: Buffer; runner?: RunnerName }
+/** Reads a unit's sealed Wall as the receipt recorded it: each runDir/wall/<name> copy must hash to receipt.wall.files[].sha256, else a problem (the caller treats it as a failing Wall). Same sources as publishableWall and verify's wallTamperProblem. */
+export function loadSealedWall(runDir: string, unitRepoDir: string): { files: SealedWallFile[]; problems: string[]; receiptMissing?: true } {
+  const files: SealedWallFile[] = [], problems: string[] = [];
+  let listed: unknown;
+  try { listed = (JSON.parse(readFileSync(join(runDir, "receipt.json"), "utf8")) as { wall?: { files?: unknown } }).wall?.files; } catch { return { files, problems, receiptMissing: true }; } // missing or unreadable receipt: nothing was sealed to rerun, so the group is NOT_PROVEN, not FAILED
+  for (const w of Array.isArray(listed) ? (listed as { path?: unknown; sha256?: unknown; runner?: unknown }[]) : []) {
+    const rel = typeof w?.path === "string" ? relative(unitRepoDir, w.path) : "";
+    if (!rel || rel.startsWith("..") || isAbsolute(rel)) { problems.push(`sealed Wall path outside the repo: ${String(w?.path)}`); continue; }
+    try {
+      const bytes = readFileSync(join(runDir, "wall", basename(rel)));
+      if (createHash("sha256").update(bytes).digest("hex") !== w.sha256) throw new Error("hash");
+      files.push({ rel, bytes, ...(typeof w.runner === "string" ? { runner: w.runner as RunnerName } : {}) });
+    } catch { problems.push(`sealed Wall copy ${basename(rel)} missing or not the sealed bytes`); }
+  }
+  return { files, problems };
+}
+
+/** GAME10-06a: each integrated unit's sealed Wall, read from the harvested unit run dir. The unit worktree (where the receipt's Wall paths point) is named by the receipt itself, falling back to the backlog worktree for the branch. */
+export function unitWalls(repoDir: string, gid: string, branches: Record<string, string>): Record<string, ReturnType<typeof loadSealedWall>> {
+  const out: Record<string, ReturnType<typeof loadSealedWall>> = {};
+  for (const [id, br] of Object.entries(branches)) {
+    const runDir = join(repoDir, ".loki", "groups", gid, "group", "units", id);
+    let root = `${repoDir}-backlog/${br.replace(/^loki\//, "")}`;
+    try {
+      const f = ((JSON.parse(readFileSync(join(runDir, "receipt.json"), "utf8")) as { wall?: { files?: { path?: unknown }[] } }).wall?.files ?? [])[0]?.path;
+      const m = typeof f === "string" ? /^(.*-backlog\/unit-[^/]+-\d+)\//.exec(f) : null;
+      if (m) root = m[1]!;
+    } catch { /* unreadable receipt: loadSealedWall reports it */ }
+    out[id] = loadSealedWall(runDir, root);
   }
   return out;
 }
@@ -1130,6 +1198,31 @@ export function notRunReason(status: number | null, interpreter?: "project" | "s
   if (status === 126 || status === 127) return `the test runner command was not found or not executable (exit ${status})`;
   return status === 0 ? "exit 0 but no executed test count could be confirmed" : `exit ${status} but the runner output showed no readable failing test`;
 }
+/** A Wall file for a feature that does not exist on base cannot build there. That is red on base only for output the BUILD TOOL itself printed with no test started: go -json build-fail/[build failed] events with no test event, cargo "could not compile" with no libtest header, javac/maven/gradle compile errors with no test summary. This is base-side evidence only: the head run must still build and pass (verify, Seal wall.passed) or the file never counts; a Wall that also fails to build on head is FAILED there. */
+function buildFailedBeforeAnyTest(runner: RunnerName, raw: string): boolean {
+  const out = stripAnsi(raw);
+  switch (runner) {
+    case "go": {
+      let build = false;
+      for (const x of out.split("\n")) {
+        if (!x.trim() || /^go: /.test(x)) continue;
+        let e: { Action?: unknown; Package?: unknown; Test?: unknown; ImportPath?: unknown; Output?: unknown };
+        try { e = JSON.parse(x) as typeof e; } catch { return false; }
+        if (!e || typeof e !== "object" || typeof e.Action !== "string") return false;
+        if (typeof e.Test === "string" && e.Test) return false; // a test started: this is a test result, not a build failure
+        if (e.Action === "build-fail" && typeof e.ImportPath === "string" && e.Package === undefined) build = true;
+        if (e.Action === "output" && typeof e.Package === "string" && /^FAIL\t\S+ \[(?:build|setup) failed\]\n?$/.test(String(e.Output ?? ""))) build = true;
+        if (e.Action === "pass" || e.Action === "run") return false;
+      }
+      return build;
+    }
+    case "cargo": return /^error: could not compile `[^`]+`/m.test(out) && !/^running \d+ tests?\b/m.test(out) && !/^test result: /m.test(out);
+    case "javac": return /^\S+\.java:\d+: error: /m.test(out) && !/^LOKI_JAVA_TESTS: /m.test(out);
+    case "maven": return /COMPILATION ERROR|Compilation failure/.test(out) && !/Tests run:/.test(out);
+    case "gradle": return /Execution failed for task ':[\w:-]*compile\w*Java'/.test(out) && !/\d+ tests? completed/.test(out);
+    default: return false;
+  }
+}
 export function classify(f: TestRef, status: number | null, output: string, repoDir: string, interpreter?: "project" | "system"): "pass" | "fail" | "not_run" {
   if (interpreter === "system") return "not_run";
   output = stripAnsi(output); // FC-69: every parser below reads plain text, whoever captured it
@@ -1137,8 +1230,8 @@ export function classify(f: TestRef, status: number | null, output: string, repo
   if (f.runner === "unittest") return status === 1 && unittestCount(output, false) !== null ? (/unittest\.loader\._FailedTest|Failed to import test module/.test(output) ? (pytestCollectionIsRed(output, repoDir) ? "fail" : "not_run") : "fail") : "not_run"; // red only on a trusted FAILED trailer; a module that failed to import is red only when the missing name is the repo's own (pytestCollectionIsRed), else not_run, as for pytest
   if (f.runner === "pytest") return status === 1 ? (pytestExit1IsRed(output) ? "fail" : "not_run") : status === 2 ? (pytestCollectionIsRed(output, repoDir) ? "fail" : "not_run") : "not_run";
   if (f.runner === "jest" || f.runner === "vitest" || f.runner === "bun") return parsedFailCount(f.runner, output) > 0 ? "fail" : "not_run";
-  if (f.runner === "maven" || f.runner === "gradle" || f.runner === "javac") { const j = javaSummary(output); return j && j.failed > 0 ? "fail" : "not_run"; } // HV1-03b: red only on a vouched summary that counts failures; a missing tool, no report or an unvouched report is not_run (verify's own exit-code path treats a compile error as fail, the safe direction)
-  if (f.runner === "go" || f.runner === "cargo") return readableFailIds(f.runner, output).length > 0 ? "fail" : "not_run"; // red only on a readable failing test id; a compile error, panic outside a test or unparsed output stays not_run
+  if (f.runner === "maven" || f.runner === "gradle" || f.runner === "javac") { const j = javaSummary(output); return (j && j.failed > 0) || buildFailedBeforeAnyTest(f.runner, output) ? "fail" : "not_run"; } // HV1-03b: red only on a vouched summary that counts failures; a missing tool, no report or an unvouched report is not_run (verify's own exit-code path treats a compile error as fail, the safe direction)
+  if (f.runner === "go" || f.runner === "cargo") return readableFailIds(f.runner, output).length > 0 || buildFailedBeforeAnyTest(f.runner, output) ? "fail" : "not_run"; // red on a readable failing test id, or on a toolchain build failure before any test started (the feature the Wall names is absent on base); a panic outside a test or unparsed output stays not_run
   return f.runner === "node" && nodeIsRed(f, output) ? "fail" : "not_run"; // npm: coarse (B2), never a per-file red
 }
 
@@ -1152,15 +1245,44 @@ export async function mapPool<T, R>(items: T[], jobs: number, fn: (item: T) => P
   await Promise.all(Array.from({ length: Math.min(Math.max(1, jobs), items.length) }, async () => { while (next < items.length && !stop()) { const i = next++; out[i] = await fn(items[i]!); } }));
   return out;
 }
-/** TEN-SPEED-19: async twin of the sync spawn used by RealBaseTestRunner: status is null on spawn error, signal or timeout; output is stdout and stderr merged by arrival. */
+// A SIGKILL of the owner (a worker group kill on cancel or cap) cannot run its cleanup, so a detached runner group would outlive it. This watcher
+// runs in its own group, polls the owner and SIGKILLs the runner group once the owner is gone; the owner kills the watcher at a normal finish.
+const WATCHDOG = `const O = __O__, G = __G__; setInterval(() => { try { process.kill(O, 0); } catch { try { process.kill(-G, "SIGKILL"); } catch {} process.exit(0); } }, 200);`;
+const watchdogArgv = (): string[] => [process.execPath, ...SAFE_BUN_FLAGS, "-e", WATCHDOG];
+function startWatchdog(pgid: number | undefined): ChildProcess | undefined {
+  if (!pgid) return undefined;
+  const [bin, ...a] = watchdogArgv(); a[a.length - 1] = WATCHDOG.replace("__O__", String(process.pid)).replace("__G__", String(pgid));
+  try { const w = spawn(bin!, a, { detached: true, stdio: "ignore", env: { PATH: process.env["PATH"] ?? "" } }); w.on("error", () => {}); w.unref(); return w; } catch { return undefined; }
+}
+// Bun's spawnSync ignores `detached`, so the sync path cannot lead its own process group. It runs the command through this launcher (a child of the same runtime) which does lead one, kills the whole group at the timeout and prints {status, output}. The test env travels on stdin and the launcher itself gets only PATH, so the command never inherits the parent env.
+const GROUP_LAUNCHER = `const { spawn } = require("node:child_process"); const fs = require("node:fs"); const [cmd, args, cwd, ms, wd, env] = JSON.parse(fs.readFileSync(0, "utf8")); const MAX = 1048576; let out = "", err = "", to = false, fin = false;
+const c = spawn(cmd, args, { cwd: cwd || undefined, env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+let w; try { const a = wd.slice(1); a[a.length - 1] = a[a.length - 1].replace("__O__", String(process.pid)).replace("__G__", String(c.pid)); w = spawn(wd[0], a, { detached: true, stdio: "ignore", env: { PATH: process.env.PATH || "" } }); w.on("error", () => {}); } catch {}
+const kill = (s) => { try { process.kill(-c.pid, s); } catch { try { c.kill(s); } catch {} } };
+const done = (code, sig) => { if (fin) return; fin = true; kill("SIGKILL"); try { w.kill("SIGKILL"); } catch {} const b = Buffer.from(JSON.stringify({ status: to || sig ? null : code, output: out + "\\n" + err })); for (let i = 0; i < b.length;) { try { i += fs.writeSync(1, b, i); } catch (e) { if (e.code !== "EAGAIN") break; } } process.exit(0); };
+setTimeout(() => { to = true; kill("SIGTERM"); setTimeout(() => done(null, 1), 1000); }, ms);
+const over = () => { if (out.length > MAX || err.length > MAX) { to = true; kill("SIGKILL"); } };
+c.stdout.on("data", (d) => { out += d; over(); }); c.stderr.on("data", (d) => { err += d; over(); });
+c.on("error", () => done(null, 1)); c.on("close", done); c.on("exit", (a, b) => setTimeout(() => done(a, b), 500)); `;
+/** Sync twin of spawnCollect with the same group-kill and timeout contract (status null on spawn error, signal or timeout). */
+export function spawnGroupSync(cmd: string, args: string[], o: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number }): { status: number | null; output: string } {
+  const r = spawnSync(process.execPath, [...SAFE_BUN_FLAGS, "-e", GROUP_LAUNCHER], { input: JSON.stringify([cmd, args, o.cwd ?? "", o.timeoutMs, watchdogArgv(), o.env ?? plainTestEnv()]), env: { PATH: process.env["PATH"] ?? "" }, encoding: "utf8", timeout: o.timeoutMs + 5000, killSignal: "SIGKILL", maxBuffer: 16 * 1024 * 1024 });
+  try { return JSON.parse(r.stdout) as { status: number | null; output: string }; } catch { return { status: null, output: `${r.stdout ?? ""}\n${r.stderr ?? ""}` }; }
+}
+/** TEN-SPEED-19: async twin of the sync spawn used by RealBaseTestRunner: status is null on spawn error, signal or timeout; output is stdout and stderr merged by arrival. The child leads its own process group: SIGTERM at the timeout, then SIGKILL to the group 1s later, and the result resolves on exit plus a short drain grace, never waiting on a grandchild that holds the pipes. */
 export function spawnCollect(cmd: string, args: string[], o: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number }): Promise<{ status: number | null; output: string }> {
   return new Promise((resolve) => {
     let out = "", err = "", error = false, done = false; const MAX = 1024 * 1024; // spawnSync parity: stdin EOF, default maxBuffer, "stdout\nstderr" join
-    const fin = (status: number | null) => { if (!done) { done = true; resolve({ status: error ? null : status, output: `${out}\n${err}` }); } };
-    const c = spawn(cmd, args, { cwd: o.cwd, env: o.env, timeout: o.timeoutMs, stdio: ["ignore", "pipe", "pipe"] });
-    const over = () => { if (out.length > MAX || err.length > MAX) { error = true; c.kill("SIGTERM"); } };
+    const timers: NodeJS.Timeout[] = [];
+    const fin = (status: number | null) => { if (!done) { done = true; timers.forEach(clearTimeout); killGroup(c.pid, "SIGKILL"); wd?.kill("SIGKILL"); resolve({ status: error ? null : status, output: `${out}\n${err}` }); } };
+    const c = spawn(cmd, args, { cwd: o.cwd, env: o.env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+    const wd = startWatchdog(c.pid);
+    const term = () => { try { process.kill(-c.pid!, "SIGTERM"); } catch { c.kill("SIGTERM"); } };
+    timers.push(setTimeout(() => { error = true; term(); timers.push(setTimeout(() => { killGroup(c.pid, "SIGKILL"); fin(null); }, 1000)); }, o.timeoutMs)); // spawn's own timeout would signal the direct child only
+    const over = () => { if (out.length > MAX || err.length > MAX) { error = true; killGroup(c.pid, "SIGKILL"); } };
     c.stdout?.on("data", (d) => { out += d; over(); }); c.stderr?.on("data", (d) => { err += d; over(); });
     c.on("error", () => { error = true; fin(null); }); c.on("close", (code, sig) => fin(sig ? null : code));
+    c.on("exit", (code, sig) => { timers.push(setTimeout(() => fin(sig ? null : code), 500)); }); // drain grace; close normally wins
   });
 }
 // E-98a B2: .venv, then venv, then an in-repo (realpath under repoDir) VIRTUAL_ENV are "project";

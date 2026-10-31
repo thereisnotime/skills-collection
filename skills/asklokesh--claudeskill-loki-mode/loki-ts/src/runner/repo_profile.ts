@@ -28,7 +28,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join, resolve, isAbsolute } from "node:path";
 import { failIds } from "../engine10/failures.ts";
-import { exitCodedId, isExitCodedScript, plainTestEnv, stripAnsi } from "../util/check_result.ts";
+import { classifyCheck, emptyDiscovery, exitCodedId, goRunner, isExitCodedScript, plainTestEnv, stripAnsi, type Classified } from "../util/check_result.ts";
 import { safeGit } from "../util/safe_git.ts";
 import { lokiDir } from "../util/paths.ts";
 import { atomicWriteFileSync } from "./state.ts";
@@ -280,7 +280,7 @@ export interface CommandProfile {
   manifest_hash: string;
   created_at: string;
   commands: ProfileCommand[];
-  baseline: { ran: boolean; command: string | null; exit_code: number | null; duration_s: number | null; timed_out: boolean; failing_ids: string[]; attributable: boolean; reason?: string };
+  baseline: { ran: boolean; command: string | null; exit_code: number | null; duration_s: number | null; timed_out: boolean; failing_ids: string[]; attributable: boolean; reason?: string; zero_tests?: boolean };
   suites?: (CommandProfile["baseline"] & { name: string })[]; // FC-BASELINE-PER-PACKAGE: one per full-suite command verify runs; `command` is the check's cmd
 }
 export interface BaselineRun { code: number | null; timedOut: boolean; out: string; missing?: boolean }
@@ -288,7 +288,7 @@ export type BaselineRunner = (cmd: string, cwd: string, timeoutMs: number) => Ba
 
 export const commandProfilePath = (repoDir: string): string => join(repoDir, ".loki", "state", "repo-profile.json");
 const DEFAULT_TIMEOUT_S = 60;
-const MANIFESTS = ["requirements.txt", "package.json", "Makefile", "makefile", "GNUmakefile", "pyproject.toml", "tox.ini", "pytest.ini", "setup.cfg", "go.mod", "Cargo.toml", "tsconfig.json"];
+export const MANIFESTS = ["requirements.txt", "package.json", "Makefile", "makefile", "GNUmakefile", "pyproject.toml", "tox.ini", "pytest.ini", "setup.cfg", "go.mod", "Cargo.toml", "tsconfig.json"];
 const NO_TEST = /no test specified/i;
 
 const read = (p: string): string => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
@@ -405,7 +405,7 @@ function runOnce(repoDir: string, cmd: string, cwd: string, tmo: number, opts: B
   const ids = r.code !== 0 && !r.timedOut ? (failIds(r.out).length ? failIds(r.out) : isExitCodedScript(cmd) && r.code !== null ? [exitCodedId(cmd, r.out, repoDir) ?? []].flat() as string[] : []) : [], missing = r.missing === true;
   const attributable = !r.timedOut && !missing && r.code !== null && (r.code === 0 || ids.length > 0);
   const reason = attributable ? undefined : r.timedOut ? "timed out" : missing ? "command not found" : "failing test ids not parseable, failures cannot be attributed";
-  return { b: { ran: true, command: cmd, exit_code: r.code, duration_s: dur, timed_out: r.timedOut, failing_ids: ids, attributable, ...(reason ? { reason } : {}) }, missing };
+  return { b: { ran: true, command: cmd, exit_code: r.code, duration_s: dur, timed_out: r.timedOut, failing_ids: ids, attributable, ...(reason ? { reason } : {}), zero_tests: r.code === 0 && emptyDiscovery(classifyCheck({ kind: "test", ok: true, out: r.out, ...goRunner(cmd) }), r.out) }, missing };
 }
 /** Runs the first test command once and records it on the command. */
 export function runBaseline(repoDir: string, commands: ProfileCommand[], opts: BuildOpts = {}): CommandProfile["baseline"] {
@@ -441,6 +441,14 @@ export function baselineSuites(repoDir: string, specs: { name: string; cmd: stri
     save(repoDir, p);
     return p;
   } catch { return null; }
+}
+
+/** True only when the same full-suite command ran on exactly this base commit, exited 0 and discovered no tests (empty discovery, no skips), and `cls` is the head's empty discovery too: the suite was empty before the change as well, so it says nothing about the change. Anything else (no profile, a package directory with no suites entry, other revision, unmatched command, base executed or skipped tests) is false, so the head's 0-test result stays not_run. */
+export function suiteEmptyOnBase(repoDir: string, baseSha: string | undefined, line: string, name: string, cls: Classified, out: string, cwd = "."): boolean {
+  const p = baseSha ? loadProfile(repoDir) : null;
+  if (!p || p.revision !== baseSha || !emptyDiscovery(cls, out)) return false;
+  const e = p.suites?.find((x) => x.command === name) ?? (cwd === "." && normCmd(p.baseline.command ?? "") === normCmd(line) ? p.baseline : undefined); // the root baseline speaks only for the repo root, never for a package directory
+  return e?.ran === true && e.exit_code === 0 && e.zero_tests === true;
 }
 
 export function loadProfile(repoDir: string): CommandProfile | null {
@@ -624,6 +632,16 @@ export function repoReadiness(p: CommandProfile, host?: ReadinessHost): Readines
   if (host && !host.firstTaskReady) { score = Math.min(score, 40); findings.push({ id: "host-not-ready", severity: "high", message: "This machine cannot run a first task yet.", fix: host.fix ?? "Run `loki doctor --requirements` and follow its fixes." }); }
   score = Math.max(0, Math.min(100, score));
   return { score, grade: score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 50 ? "D" : "F", findings };
+}
+
+/** The one-line Readiness notice for a run, or null when this repo already showed the same score (marker under .loki/state); a first run or a changed score returns it. */
+export function readinessNotice(repoDir: string, r: Readiness): string | null {
+  const marker = join(repoDir, ".loki", "state", "readiness-shown");
+  let shown: string | null = null;
+  try { shown = readFileSync(marker, "utf8").trim(); } catch { /* no marker: first run */ }
+  if (shown === String(r.score)) return null;
+  try { mkdirSync(join(marker, ".."), { recursive: true }); atomicWriteFileSync(marker, `${r.score}\n`); } catch { /* an unwritable marker only repeats the line */ }
+  return `Readiness: ${r.score}/100 (${r.grade})${r.findings.length ? ` - run \`loki doctor --repo\` for ${r.findings.length} fix(es)` : ""}`;
 }
 
 export const readinessLines = (r: Readiness): string[] => [`  Readiness: ${r.score}/100 (${r.grade})`, ...(r.findings.length ? ["  Fix:", ...r.findings.map((f) => `    - ${f.fix}`)] : [])];

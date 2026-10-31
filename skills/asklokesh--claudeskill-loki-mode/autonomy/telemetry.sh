@@ -127,18 +127,44 @@ _loki_telemetry_enabled() {
     return 0
 }
 
-_loki_telemetry_id() {
-    local id_file="${HOME}/.loki-telemetry-id"
+# _loki_telemetry_id_load: sets _LOKI_TID (the id), _LOKI_TID_MINTED (1 when this
+# process created it) and _LOKI_TID_AGE (whole days since the id file was
+# written). Called directly, never in a command substitution, so the globals
+# survive. The id file is always mode 0600. The last-resort fallback id is random
+# hex, never derived from the clock or pid.
+_loki_telemetry_id_load() {
+    local id_file="${HOME}/.loki-telemetry-id" mtime now
+    _LOKI_TID_MINTED=0
+    _LOKI_TID_AGE=0
     if [ -f "$id_file" ] 2>/dev/null; then
-        cat "$id_file" 2>/dev/null
-        return
+        _LOKI_TID=$(cat "$id_file" 2>/dev/null)
+        if [ -n "$_LOKI_TID" ]; then
+            mtime=$(stat -c %Y "$id_file" 2>/dev/null)
+            case "$mtime" in ''|*[!0-9]*) mtime=$(stat -f %m "$id_file" 2>/dev/null) ;; esac
+            case "$mtime" in
+                ''|*[!0-9]*) ;;
+                *)
+                    now=$(date +%s 2>/dev/null)
+                    case "$now" in ''|*[!0-9]*) ;; *)
+                        [ "$now" -ge "$mtime" ] && _LOKI_TID_AGE=$(( (now - mtime) / 86400 ))
+                    ;; esac
+                    ;;
+            esac
+            return 0
+        fi
     fi
-    local new_id
-    new_id=$(python3 -c "import uuid; print(uuid.uuid4())" 2>/dev/null) || \
-    new_id=$(uuidgen 2>/dev/null | tr '[:upper:]' '[:lower:]') || \
-    new_id="anon-$(date +%s)-$$"
-    printf '%s\n' "$new_id" > "$id_file" 2>/dev/null
-    printf '%s' "$new_id"
+    _LOKI_TID=$(python3 -c "import uuid; print(uuid.uuid4())" 2>/dev/null) || \
+    _LOKI_TID=$(uuidgen 2>/dev/null | tr '[:upper:]' '[:lower:]') || \
+    _LOKI_TID="anon-$(od -An -N16 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')"
+    _LOKI_TID_MINTED=1
+    ( umask 077; printf '%s\n' "$_LOKI_TID" > "$id_file" ) 2>/dev/null
+    chmod 600 "$id_file" 2>/dev/null
+    return 0
+}
+
+_loki_telemetry_id() {
+    _loki_telemetry_id_load
+    printf '%s' "$_LOKI_TID"
 }
 
 _loki_detect_channel() {
@@ -271,7 +297,9 @@ loki_telemetry() {
     [ -f "$_lib/telemetry-schema.json" ] || _lib="${SCRIPT_DIR:-${SKILL_DIR:-}}/lib"
     [ -f "$_lib/telemetry-schema.json" ] && [ -f "$_lib/proof-analytics-props.py" ] || return 0
     local distinct_id
-    distinct_id=$(_loki_telemetry_id 2>/dev/null) || return 0
+    _loki_telemetry_id_load 2>/dev/null
+    distinct_id="${_LOKI_TID:-}"
+    [ -n "$distinct_id" ] || return 0
     local version
     version=$(cat "${SCRIPT_DIR:-${SKILL_DIR:-}}/VERSION" 2>/dev/null || cat "${SCRIPT_DIR:-${SKILL_DIR:-}}/../VERSION" 2>/dev/null || cat "${_LOKI_TELEMETRY_SELF_DIR:-}/../VERSION" 2>/dev/null || echo "unknown")
     version=$(echo "$version" | tr -d '[:space:]')
@@ -281,14 +309,40 @@ loki_telemetry() {
     os_family=$(_loki_os_family "$(uname -s 2>/dev/null)")
     arch=$(_loki_arch_family "$(uname -m 2>/dev/null)")
 
+    # ephemeral_home: the id was minted by this very process inside a container,
+    # so the home is not persisted and every run looks like a new user.
+    local ephemeral_home=false
+    [ "${_LOKI_TID_MINTED:-0}" = "1" ] && [ "$channel" = "docker" ] && ephemeral_home=true
+
     # The extra key=value pairs are forwarded as "$@" -- one argv slot per pair,
     # QUOTED, so a value with spaces or glob characters is neither split nor
     # expanded. The python side splits on the first "=" only.
     local payload
     payload=$(python3 "$_lib/proof-analytics-props.py" --payload "$event" "$distinct_id" "$LOKI_POSTHOG_KEY" \
         "$@" "os_family=$os_family" "arch=$arch" "version=$version" "channel=$channel" \
-        "traffic=$(_loki_traffic)" 2>/dev/null) || return 0
+        "traffic=$(_loki_traffic)" \
+        "id_age=${_LOKI_TID_AGE:-0}" "ephemeral_home=$ephemeral_home" 2>/dev/null) || return 0
     [ -n "$payload" ] || return 0
+
+    # LOKI_TELEMETRY_DEBUG=1: record and print the event name and the property
+    # KEYS (never values, ids or paths) and send nothing. Runs after the opt-out
+    # gate and the schema filter, so it shows exactly what would have been sent.
+    # `loki telemetry show` reads the same record.
+    if [ "${LOKI_TELEMETRY_DEBUG:-}" = "1" ]; then
+        local _dbg_line
+        _dbg_line=$(printf '%s' "$payload" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+print(str(d.get("event", "")) + ": " + ", ".join(sorted((d.get("properties") or {}).keys())))
+' 2>/dev/null) || return 0
+        [ -n "$_dbg_line" ] || return 0
+        local _dbg_file="${HOME}/.loki/telemetry-last.log"
+        mkdir -p "${HOME}/.loki" 2>/dev/null || true
+        { tail -n 19 "$_dbg_file" 2>/dev/null; printf '%s\n' "$_dbg_line"; } > "${_dbg_file}.tmp" 2>/dev/null \
+            && mv "${_dbg_file}.tmp" "$_dbg_file" 2>/dev/null
+        printf 'telemetry debug (not sent) %s\n' "$_dbg_line" >&2
+        return 0
+    fi
 
     (curl -sS --max-time 3 -X POST "${LOKI_POSTHOG_HOST}/capture/" \
         -H "Content-Type: application/json" \
@@ -405,6 +459,11 @@ loki_emit_build_verified() {
         [ -n "$_line" ] && _args+=("$_line")
     done <<< "$_props"
     loki_telemetry "build_verified" "${_args[@]}"
+    # Only a VERIFIED headline is the first_verified milestone.
+    case "$_props" in
+        "headline=VERIFIED"|"headline=VERIFIED"$'\n'*|*$'\n'"headline=VERIFIED"|*$'\n'"headline=VERIFIED"$'\n'*)
+            loki_emit_activation first_verified ;;
+    esac
     return 0
 }
 
@@ -430,6 +489,81 @@ loki_emit_build_verified_enum() {
     [ "${1:-}" = "VERIFIED" ] || return 0
     [ "${2:-}" = "engine10" ] || return 0
     loki_telemetry "build_verified" "headline=VERIFIED" "route=engine10"
+    loki_emit_activation first_verified
+    return 0
+}
+
+# AN-10 activation funnel: five once-per-machine milestones, each carrying a
+# coarse since_install bucket. Same strict analytics gate as every other funnel
+# event. The install clock is a private epoch file written the first time any
+# milestone passes the gate; only the bucket (never the epoch) is sent.
+_loki_since_install_bucket() {
+    local _f="${HOME}/.loki/funnel-install-ts" _now _t _d
+    _now=$(date +%s 2>/dev/null) || return 1
+    _t=$(cat "$_f" 2>/dev/null)
+    case "$_t" in ''|*[!0-9]*)
+        mkdir -p "${HOME}/.loki" 2>/dev/null || return 1
+        printf '%s\n' "$_now" > "$_f" 2>/dev/null || true
+        _t="$_now" ;;
+    esac
+    _d=$((_now - _t))
+    if [ "$_d" -lt 3600 ]; then printf 'lt_1h'
+    elif [ "$_d" -lt 86400 ]; then printf 'lt_1d'
+    elif [ "$_d" -lt 604800 ]; then printf 'lt_7d'
+    elif [ "$_d" -lt 2592000 ]; then printf 'lt_30d'
+    else printf 'ge_30d'; fi
+}
+
+# loki_emit_activation <install|first_start|first_run_finished|first_verified|
+# second_run_within_7d>: emits activation_<step> at most once per machine. The
+# step is claimed atomically (mkdir) after the analytics gate and before the
+# send, so concurrent emitters send it once. The marker (holding the emit epoch)
+# is written after the gate and the send attempt, not after confirmed delivery,
+# so an opted-out machine never burns it. Any step first ensures the install
+# step has fired, so the order install -> ... holds.
+loki_emit_activation() {
+    local _step="${1:-}"
+    case "$_step" in install|first_start|first_run_finished|first_verified|second_run_within_7d) ;; *) return 0 ;; esac
+    _loki_analytics_enabled || return 0
+    local _dir="${HOME}/.loki"
+    [ -f "${_dir}/funnel-activation-${_step}" ] 2>/dev/null && return 0
+    mkdir -p "$_dir" 2>/dev/null || return 0
+    mkdir "${_dir}/funnel-activation-${_step}.d" 2>/dev/null || return 0
+    if [ "$_step" != "install" ]; then
+        loki_emit_activation install
+    fi
+    local _bucket
+    _bucket=$(_loki_since_install_bucket) || return 0
+    if declare -f _loki_disclose_telemetry_once >/dev/null 2>&1; then
+        _loki_disclose_telemetry_once
+    fi
+    case "$_step" in
+        install) loki_telemetry "activation_install" "since_install=${_bucket}" 2>/dev/null || true ;;
+        first_start) loki_telemetry "activation_first_start" "since_install=${_bucket}" 2>/dev/null || true ;;
+        first_run_finished) loki_telemetry "activation_first_run_finished" "since_install=${_bucket}" 2>/dev/null || true ;;
+        first_verified) loki_telemetry "activation_first_verified" "since_install=${_bucket}" 2>/dev/null || true ;;
+        second_run_within_7d) loki_telemetry "activation_second_run_within_7d" "since_install=${_bucket}" 2>/dev/null || true ;;
+    esac
+    mkdir -p "$_dir" 2>/dev/null || return 0
+    date +%s > "${_dir}/funnel-activation-${_step}" 2>/dev/null || true
+    return 0
+}
+
+# _loki_activation_run_started: the first run start is first_start; a later
+# run start inside 7 days of it is second_run_within_7d.
+_loki_activation_run_started() {
+    _loki_analytics_enabled || return 0
+    local _m="${HOME}/.loki/funnel-activation-first_start" _t _now
+    if [ ! -f "$_m" ]; then
+        loki_emit_activation first_start
+        return 0
+    fi
+    _t=$(cat "$_m" 2>/dev/null)
+    case "$_t" in ''|*[!0-9]*) return 0 ;; esac
+    _now=$(date +%s 2>/dev/null) || return 0
+    if [ "$_now" -gt "$_t" ] && [ $((_now - _t)) -le 604800 ]; then
+        loki_emit_activation second_run_within_7d
+    fi
     return 0
 }
 
@@ -439,6 +573,7 @@ loki_emit_build_verified_enum() {
 loki_emit_run_started() {
     _loki_analytics_enabled || return 0
     loki_telemetry "run_started" "engine=engine10"
+    _loki_activation_run_started
     return 0
 }
 
@@ -463,5 +598,7 @@ loki_emit_run_finished() {
         _args+=("${_k}=${_v}")
     done
     loki_telemetry "run_finished" "${_args[@]}"
+    loki_emit_activation first_run_finished
+    [ "$_verdict" = "VERIFIED" ] && loki_emit_activation first_verified
     return 0
 }

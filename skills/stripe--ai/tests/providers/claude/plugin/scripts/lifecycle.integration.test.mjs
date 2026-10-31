@@ -81,19 +81,19 @@ test('feedback prompts provide direct, valid CLI guidance', () => {
   ];
 
   for (const message of messages) {
-    const feedbackRequestIndex = message.search(/send Stripe feedback/i);
+    const feedbackRequestIndex = message.indexOf(
+      'We enthusiastically encourage agents to give us feedback',
+    );
     const exampleIndex = message.indexOf('For example:');
     const optionsIndex = message.indexOf(
       'Use positive, neutral, or negative honestly.',
     );
     const continueIndex = message.indexOf('Then continue');
     const approvalIndex = message.indexOf('Before submitting');
-    const firstBetaIndex = message.indexOf('private beta');
     const lastBetaIndex = message.lastIndexOf('private beta');
 
     assert.ok(feedbackRequestIndex >= 0);
-    assert.ok(feedbackRequestIndex < firstBetaIndex);
-    assert.ok(firstBetaIndex < exampleIndex);
+    assert.ok(feedbackRequestIndex < exampleIndex);
     assert.ok(exampleIndex < optionsIndex);
     assert.ok(optionsIndex < continueIndex);
     assert.ok(continueIndex < approvalIndex);
@@ -105,13 +105,13 @@ test('feedback prompts provide direct, valid CLI guidance', () => {
       message,
       /Before submitting, show the prospective feedback to the user and ask for approval, mentioning that they may be invited to a private beta if Stripe is developing a solution to their problem\./,
     );
-    assert.equal(message.match(/private beta/g)?.length, 2);
+    assert.equal(message.match(/private beta/g)?.length, 1);
     assert.doesNotMatch(message, /\bconsider\b/i);
     assert.doesNotMatch(message, /distract the user/i);
   }
   assert.match(
     TOOL_FAILURE_FEEDBACK_MESSAGE,
-    /^The Stripe tool failed\. Send Stripe feedback/,
+    /^The Stripe tool failed\.\n\nStripe aims/,
   );
 });
 
@@ -461,6 +461,94 @@ test('PostToolUse ignores unrelated and background Agent work', () => {
     assert.ifError(result.error);
     assert.equal(result.status, 0);
     assert.equal(result.stdout, '');
+  }
+});
+
+test('DISABLE_TELEMETRY and DO_NOT_TRACK suppress skill reporting and feedback suggestions', (t) => {
+  const directory = createBinDirectory(t);
+  const usageLog = join(directory, 'usage.log');
+  writeExecutable(
+    directory,
+    'stripe',
+    `#!/bin/sh
+printf '%s\\n' "$*" >> "$STRIPE_USAGE_LOG"
+exit 0
+`,
+  );
+
+  const sharedEnv = {
+    NODE_OPTIONS: `--import=data:text/javascript,${encodeURIComponent(
+      'Math.random = () => 0',
+    )}`,
+    PATH: `${directory}${delimiter}${process.env.PATH}`,
+    STRIPE_USAGE_LOG: usageLog,
+  };
+
+  for (const telemetryEnv of [
+    { DISABLE_TELEMETRY: '1' },
+    { DISABLE_TELEMETRY: 'true' },
+    { DO_NOT_TRACK: '1' },
+    { DO_NOT_TRACK: 'true' },
+  ]) {
+    const env = { ...sharedEnv, ...telemetryEnv };
+
+    assertSilentHook(
+      runLifecycle(
+        'lifecycle/postToolUse.mjs',
+        {
+          hook_event_name: 'PostToolUse',
+          tool_input: { skill: 'stripe:stripe-docs' },
+          tool_name: 'Skill',
+        },
+        env,
+      ),
+    );
+    assert.ok(!existsSync(usageLog), 'Skill usage was reported');
+
+    assertSilentHook(
+      runLifecycle(
+        'lifecycle/postToolBatch.mjs',
+        {
+          hook_event_name: 'PostToolBatch',
+          tool_calls: [
+            {
+              tool_input: { query: 'Checkout' },
+              tool_name: 'mcp__stripe__search_stripe_documentation',
+              tool_response: 'Search results',
+              tool_use_id: 'toolu_stripe',
+            },
+          ],
+        },
+        env,
+      ),
+    );
+
+    assertSilentHook(
+      runLifecycle(
+        'lifecycle/postToolUseFailure.mjs',
+        {
+          error: 'Skill failed to load',
+          hook_event_name: 'PostToolUseFailure',
+          tool_input: { skill: 'stripe:stripe-docs' },
+          tool_name: 'Skill',
+          tool_use_id: 'toolu_skill',
+        },
+        env,
+      ),
+    );
+
+    const transcriptPath = writeTranscript(t, 'Help me integrate Stripe');
+    assertSilentHook(
+      runLifecycle(
+        'lifecycle/userPromptSubmit.mjs',
+        {
+          hook_event_name: 'UserPromptSubmit',
+          prompt: 'What should I do next?',
+          transcript_path: transcriptPath,
+        },
+        env,
+      ),
+    );
   }
 });
 

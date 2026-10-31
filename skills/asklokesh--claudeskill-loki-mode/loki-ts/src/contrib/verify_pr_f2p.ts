@@ -64,14 +64,19 @@ export function reportShowsPass(report: string | undefined): boolean {
   return cases - skipped > 0 && bad === 0 && counted === 0;
 }
 
-const RUNNER_CONFIG_NAMES = new Set(["bunfig.toml", "conftest.py"]);
-/** Files the PR added or changed that configure or preload the test runner: bunfig.toml, conftest.py, and any ini, cfg or toml file with a section header naming a test runner (`[...test...]`). The PR's own code could end the run early or redirect which tests run, so the check cannot be trusted. */
-export function runnerConfigChanged(changed: readonly string[], headDir: string): string[] {
+/** Reads `path` and applies `test` to its text; an unreadable file counts as a hit (fail closed). */
+function textMatchesOrUnreadable(path: string, test: (txt: string) => boolean): boolean {
+  try { return test(readFileSync(path, "utf8")); } catch { return true; }
+}
+
+/** Files the PR added, changed, renamed or deleted that configure or preload the test runner: each REPORT_RUNNERS entry's config file, and any ini, cfg or toml file with a section header naming a test runner (`[...test...]`). Both the base and the head version are judged, so a runner section or key removed from a file that stays (a shared ini, cfg or json config) counts like a deleted file. A config file named for its runner is always config; the `key` check applies only to a shared manifest such as the project manifest. A read failure or a path missing at both sides counts as config (fail closed). The PR's own code could end the run early or redirect which tests run, so the check cannot be trusted. */
+export function runnerConfigChanged(changed: readonly string[], headDir: string, baseDir: string = headDir): string[] {
   return changed.filter((f) => {
-    if (!existsSync(join(headDir, f))) return false;
-    if (RUNNER_CONFIG_NAMES.has(basename(f))) return true;
-    if (!/\.(?:ini|cfg|toml)$/.test(f)) return false;
-    try { return /^\s*\[[^\]\n]*test/im.test(readFileSync(join(headDir, f), "utf8")); } catch { return false; }
+    const b = basename(f), r = REPORT_RUNNERS.find((x) => x.config.test(b));
+    const at = [headDir, baseDir].filter((d, i, a) => a.indexOf(d) === i && existsSync(join(d, f)));
+    if (at.length === 0 || (r && !r.key)) return !!r || at.length > 0;
+    if (!r && !/\.(?:ini|cfg|toml)$/.test(f)) return false;
+    return at.some((d) => textMatchesOrUnreadable(join(d, f), (txt) => r ? !r.key || b.startsWith(r.runner) || r.key in (JSON.parse(txt) as object) : /^\s*\[[^\]\n]*test|^[ \t]*[\w."' \t-]*\bpytest\b["']?[ \t]*(?:\.|=[ \t]*\{)/im.test(txt)));
   });
 }
 
