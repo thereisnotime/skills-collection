@@ -3,11 +3,13 @@
 // reported as unknown. A success verdict (VERIFIED or ALREADY_SATISFIED) needs at least one Loki-executed check with n>0 and a
 // pass (hasExecutedProof). Every site that sets result "pass" for a test run routes through classifyCheck.
 
+import { gradleInitScript, repoTestCommand } from "./stack_tools.ts";
+import { dotnetBuildFailedBeforeAnyTest, dotnetFullCmd, dotnetSummary, dotnetTestCmd } from "./dotnet_test.ts";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { killGroup, SAFE_BUN_FLAGS } from "../runner/worker_proc.ts";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readlinkSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { siteFor } from "../project_model/resolve.ts";
 import type { ProjectApi } from "../project_model/api.ts";
@@ -17,6 +19,7 @@ import { declaresPythonDep } from "./lock_ecosystems.ts";
 import { UNITTEST_DISCOVER_ARGS } from "./python_build_check.ts";
 import { safeGit, safeGitSpawn, tokenFreeEnv } from "./safe_git.ts";
 import { redactSecrets, UNSAFE_TERMINAL_CHARS_RE } from "./redact.ts";
+import { clauseGapOf, extractClauses, weakAssertionNote } from "./spec_file.ts";
 
 /** FC-69: the ONE child env for every harness-run test or verify command. A user's FORCE_COLOR=3 makes node:test, pytest, jest and
  *  friends emit ANSI that defeats line-anchored result parsers; FORCE_COLOR=0 + NO_COLOR=1 keeps the output plain. CI is left as is.
@@ -160,24 +163,157 @@ function goCount(out: string, ok?: boolean): number | null | undefined {
   if (lines.some((x) => /^(?:=== RUN|PASS$|FAIL$|testing: warning: no tests to run)/.test(x))) return 0;
   return lines.filter((x) => GO_PKG_RE.test(x)).every((x) => /\[no tests? (?:files|to run)\]/.test(x)) ? 0 : null;
 }
-/** One shared Go-runner detection for every caller (verify, deep, per-package suites): a shell command line or an argv, with
- *  leading env / command / exec / time wrappers, VAR=val assignments and a path to go (/usr/local/go/bin/go) all resolving to go.
- *  Any `&&`, `;`, `||` or `|` segment that runs go counts. Chosen from the command, never from output. Detecting go too often
- *  only fails closed (exit 0 is not_run), so a doubtful wrapper is classified as go. */
-export function goRunner(cmd: string, args?: readonly string[]): { runner: "go" } | Record<string, never> {
-  const segs = args ? [[cmd, ...args]] : cmd.split(/&&|\|\||[;|\n]/).map((x) => x.trim().split(/\s+/).filter(Boolean));
-  for (const t0 of segs) {
-    const t = t0.map((x) => x.replace(/^["']|["']$/g, ""));
-    let k = 0;
-    for (; k < t.length; k++) {
-      const x = t[k]!;
-      if (/^[A-Za-z_]\w*=/.test(x) || /^(?:env|command|exec|time|nohup)$/.test(basename(x))) continue;
-      if (/^-/.test(x) && k > 0 && basename(t[k - 1]!) === "env") { if (x === "-u" || x === "-C" || x === "-S") k++; continue; }
+/** Go is package-directory scoped: a test in tests/ cannot see root package code and only compiles through an implementer shim that is never committed. The Wall goes beside the first planned or named
+ *  .go file in the texts (plan, then task), or at the repo root without one; pkg is a sibling's package clause, else "main" when its sentence says package main, else the directory name (the file stem only at the repo root). */
+const GO_SRC = /(?<![\w./-])((?:[\w.-]+\/)*[\w-]+)\.go(?!\w)/g;
+const GO_DIR = /(?<![\w./:$-])((?:[\w.-]+\/)*[\w-]*[A-Za-z0-9][\w-])\/(?![\w{]|\.\w)|\b(?:director(?:y|ies)|folder|dir)\s+`((?:[\w.-]+\/)*[\w-]+)`/g;
+// A package name is taken only when tied to the directory: "package X" right after it ("as package X", "directory as package X") or "package main in <dir>";
+// "package" as an English noun elsewhere ("the npm package manager in api/") only shows the sentence talks about a package, the name stays the directory's.
+const GO_PKG_AFTER = /^[\s,(:;-]*(?:(?:directory|dir|folder)\s+)?(?:(?:as|named|called)\s+)?(?:the\s+)?package\s+`?(?!(?:for|is|that|which|with|and|to|the|in|of|a|an|name|path)\b)([A-Za-z_]\w*)`?/;
+const GO_MAIN_BEFORE = /\bpackage\s+main\s+(?:in|under|at|inside|within|into|to)\s+(?:the\s+)?(?:directory\s+)?$/;
+const GO_IDENT = /^[A-Za-z_]\w*$/, GO_MAJOR = /^v\d+$/;
+const GO_KEYWORDS = new Set("break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var".split(" "));
+const goRel = (r: string): string => r.replace(/^(?:\.\/)+/, "");
+const GO_NON_PKG_WORD = /^(?:tests?|docs?|scripts?|vendor|node_modules)$/;
+/** Go's own ignore rule: testdata and any segment starting with _ or . never hold a package the toolchain builds. */
+const goIgnoredPath = (rel: string): boolean => rel.split("/").some((g) => g === "testdata" || g.startsWith("_") || g.startsWith("."));
+const goSiblingPkg = (dir: string): string | undefined => existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".go") && !f.endsWith("_test.go")).map((f) => /^package\s+(\w+)/m.exec(readFileSync(join(dir, f), "utf8"))?.[1]).find(Boolean) : undefined;
+export function plannedGoDir(repoDir: string, texts: string[]): { dir: string; pkg: string | null } {
+  for (const t of texts) for (const sentence of t.split(/(?<=[.!?])\s+|\n+/)) for (const m of sentence.matchAll(GO_SRC)) {
+    const stem = goRel(m[1]!), rel = dirname(`${stem}.go`), base = stem.split("/").pop()!;
+    if (stem.endsWith("_test") || base.startsWith("_") || base.startsWith(".") || (rel !== "." && goIgnoredPath(rel))) continue;
+    const dir = join(repoDir, rel === "." ? "" : rel);
+    // package main counts only when tied to this file (a main.go stem, "<file> as package main", "package main in <file>"), never from another path in the sentence
+    const all = [...sentence.matchAll(GO_SRC)], k = all.findIndex((x) => x.index === m.index), after = sentence.slice(m.index! + m[0].length, all[k + 1]?.index ?? sentence.length), before = sentence.slice(k > 0 ? all[k - 1]!.index! + all[k - 1]![0].length : 0, m.index!);
+    const tiedMain = base === "main" || GO_PKG_AFTER.exec(after)?.[1] === "main" || GO_MAIN_BEFORE.test(before);
+    // Package order: a sibling's clause; only a backticked "package `X`" or "(package X)" in the task (every bare "package" is prose); package main tied to this file; the directory's name; a root file's go.mod module
+    // (last element, no /vN); and only when all of those give nothing, the file's stem. A name that is no identifier or is a major-version path (v2) is skipped, and none valid gives no brief line.
+    const em = /\bpackage\s+`([A-Za-z_]\w*)`|\(package\s+([A-Za-z_]\w*)\)/.exec(texts[texts.length - 1] ?? ""), explicit = em ? (em[1] ?? em[2]) : undefined;
+    const mod = rel === "." && existsSync(join(repoDir, "go.mod")) ? /^module\s+(\S+)/m.exec(readFileSync(join(repoDir, "go.mod"), "utf8"))?.[1]?.replace(/\/v\d+$/, "").split("/").pop() : undefined;
+    const okName = (n: string | undefined): n is string => n !== undefined && GO_IDENT.test(n) && !GO_MAJOR.test(n);
+    const named = (explicit !== undefined && !GO_KEYWORDS.has(explicit) ? explicit : undefined) ?? [tiedMain ? "main" : undefined, rel === "." ? undefined : rel.split("/").pop()!, mod, base].find(okName) ?? null; // an explicit name is already an identifier and legal even as vN
+    return { dir, pkg: goSiblingPkg(dir) ?? named };
+  }
+  // No .go file named: a named package directory (a leading ./ is fine, backslash paths stay at the root). Per sentence, a directory counts when the word "package" sits
+  // between its neighbouring directory mentions or it already holds a Go package; the package is a sibling's clause, else the one tied to the directory, else its name.
+  for (const t of texts) for (const sentence of t.split(/(?<=[.!?])\s+|\n+/)) {
+    const ms = [...sentence.matchAll(GO_DIR)].filter((m) => { const r = goRel((m[1] ?? m[2])!); return !goIgnoredPath(r) && !r.split("/").some((g) => GO_NON_PKG_WORD.test(g)); });
+    for (let i = 0; i < ms.length; i++) {
+      const m = ms[i]!, rel = goRel((m[1] ?? m[2])!), dir = join(repoDir, rel), sibling = goSiblingPkg(dir);
+      const start = i === 0 ? 0 : ms[i - 1]!.index! + ms[i - 1]![0].length, end = i + 1 < ms.length ? ms[i + 1]!.index! : sentence.length;
+      const tied = GO_PKG_AFTER.exec(sentence.slice(m.index! + m[0].length, end))?.[1] ?? (GO_MAIN_BEFORE.test(sentence.slice(start, m.index!)) ? "main" : undefined);
+      if (!tied && !sibling && !/\bpackage\b/.test(sentence.slice(start, end))) continue;
+      const name = rel.split("/").pop()!; // no stem here: a directory name that is no Go identifier or is vN gives no brief
+      return { dir, pkg: sibling ?? tied ?? (GO_IDENT.test(name) && !GO_MAJOR.test(name) ? name : null) };
+    }
+  }
+  return { dir: repoDir, pkg: null };
+}
+export const goPackageBrief = (repoDir: string, targetDir: string, runners: readonly string[], texts: string[]): string => { const p = runners.includes("go") ? plannedGoDir(repoDir, texts) : null; return p?.pkg && p.dir === targetDir ? `\n\nGo: your test files sit in the package directory, so each one starts with "package ${p.pkg}" and uses the package's identifiers directly.` : ""; };
+/** One shared Go-runner detection for every caller (verify, deep, per-package suites): a shell command line or an argv. Chosen from the command, never from output. The answer is tri-state (see runsTool): a command word in command position is the tool, or the command is fully resolved and does not run it, or some word could not be resolved and the old any-word rule decides. Detecting go too often only fails closed (exit 0 is not_run, and corroboratePass accepts only a plain `go test` line). */
+/** The ONE command-shape test for every runner we corroborate (go, cargo), tri-state. The narrow command-position answer is final only when every command word resolved to the tool itself, a known wrapper walked through, or a KNOWN non-tool runner (KNOWN_RUNNERS). An unknown command word, a variable command word ($GO) or a shell whose flags did not parse to -c leaves the command unresolved, and mentionsTool then falls back to the old any-word basename rule over the whole command, which fails closed. */
+const KNOWN_RUNNERS = new Set(["pytest", "python", "python3", "node", "npm", "yarn", "pnpm", "bun", "deno", "jest", "vitest", "mocha", "make", "cd", "echo", "true", "ruby", "rspec", "bundle", "mvn", "gradle", "dotnet", "php", "phpunit", "mix", "swift", "ctest", "tox"]);
+const SHELL_WORDS = new Set(["sh", "bash", "zsh", "dash", "ksh"]), RESERVED_WORDS = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "{", "}"]);
+// wrapper -> its flags that take a separate value (a value-less flag is skipped alone)
+const WRAPPERS: Record<string, readonly string[]> = { env: ["-u", "-C", "--unset", "--chdir"], nice: ["-n"], timeout: ["-s", "-k", "--signal", "--kill-after"], xargs: ["-n", "-L", "-P", "-I", "-s", "-d", "-E", "-a"], sudo: ["-u", "-g", "-h", "-p", "-C", "-D", "-R", "-T", "-U"], doas: ["-u", "-C"], stdbuf: ["-i", "-o", "-e"], ionice: ["-c", "-n", "-p"], npx: ["-p", "--package"], bunx: [], pnpx: [], arch: [], taskset: ["-c"], chrt: [], time: ["-f", "-o"], command: [], exec: [], builtin: [], nohup: [], setsid: [], unbuffer: [], caffeinate: [], echo: [], printf: [] }; // echo and printf are doubtful wrappers on purpose: `echo go` stays a hit
+/** Split a shell line into simple commands (arrays of unquoted words): quotes and backslashes are honoured, and `;`, `&`, `|`, a newline, a parenthesis and a backtick end one command. */
+function simpleCommands(line: string): string[][] {
+  const out: string[][] = []; let cur: string[] = [], w = "", has = false, q = "";
+  const endWord = (): void => { if (has) cur.push(w); w = ""; has = false; };
+  const endCmd = (): void => { endWord(); if (cur.length) out.push(cur); cur = []; };
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]!;
+    if (q) { if (ch === q) q = ""; else if (q === '"' && ch === "\\" && i + 1 < line.length) w += line[++i]; else w += ch; continue; }
+    if (ch === "'" || ch === '"') { q = ch; has = true; } else if (ch === "\\" && i + 1 < line.length) { w += line[++i]; has = true; }
+    else if (/\s/.test(ch)) { if (ch === "\n") endCmd(); else endWord(); }
+    else if (";&|()`".includes(ch)) { if (ch === "(" && w === "$") { w = ""; has = false; } endCmd(); }
+    else { w += ch; has = true; }
+  }
+  endCmd(); return out;
+}
+/** Whether one simple command runs `tool`, tri-state: NO (resolved, not the tool), YES (the command word after reserved words, VAR=val assignments, redirections and known wrappers with their flags has basename `tool`), UNKNOWN (an unknown or variable command word, or a shell whose flags did not parse to -c). A path or argument named like the tool (pytest tests/go, make DIR=go, a package-manager test script passed --grep cargo) is a resolved NO. */
+const NO = 0, YES = 1, UNKNOWN = 2;
+type Tri = 0 | 1 | 2;
+const triOr = (a: Tri, b: Tri): Tri => (a === YES || b === YES ? YES : a === UNKNOWN || b === UNKNOWN ? UNKNOWN : NO);
+const TOOL_ALIASES: Record<string, readonly string[]> = { cargo: ["cargo-nextest", "cross"] }; // cargo front ends: cross and cargo-nextest run cargo, so they count as cargo
+const INLINE_CODE_FLAGS = new Set(["-c", "-e", "-r", "-p", "--eval"]), INTERPRETERS = new Set(["python", "python3", "node", "ruby", "php"]);
+const GO_VERSIONED = /^(?:go\d+(?:\.\d+){0,2}(?:rc\d+|beta\d+)?|gotip)$/; // the golang.org/dl wrappers (go1.22, go1.22.3, go1.23rc1, gotip) run go
+const wordIsTool = (tool: string, w: string): boolean => { const name = basename(w); return name === tool || (TOOL_ALIASES[tool]?.includes(name) ?? false) || (tool === "go" && GO_VERSIONED.test(name)); };
+/** A variable that stands for the tool: GO, CARGO, GOCMD, GOTOOL, GO_BIN, CARGO_BIN (the tool name leads it or is one of its underscore parts). make DIR=go is not one, and neither are the tool's path and config variables. */
+const TOOL_PATH_VARS = new Set(["path", "root", "home", "dir", "cache", "modcache", "version", "toolchain", "flags", "os", "arch", "proxy"]);
+const varNamesTool = (tool: string, v: string): boolean => {
+  const l = v.toLowerCase(), last = l.split("_").pop()!;
+  if (l === "gobin" || TOOL_PATH_VARS.has(last) || (l.startsWith(tool) && TOOL_PATH_VARS.has(l.slice(tool.length)))) return false; // the tool's own path and config variables (GOPATH, GOROOT, CARGO_HOME, GO_VERSION) never name the binary
+  return l.startsWith(tool) || l.split("_").includes(tool);
+};
+const assignsTool = (tool: string, a: string): boolean => { const m = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(a); return m !== null && varNamesTool(tool, m[1]!) && (wordIsTool(tool, m[2]!) || varIsTool(tool, m[2]!)); };
+const SPAWN_API = /\b(?:system|popen|Popen|subprocess|check_output|check_call|exec|execFile|execFileSync|execSync|spawn|spawnSync|child_process|run|call)\b|`/;
+const DYNAMIC_CMD = /["']\s*\+\s*["']|["']\s+["']|\.join\(|\bchr\(|\bformat\(|\bf["']|%[sd]|\\x[0-9a-f]{2}|base64|fromCharCode|\$\{|\beval\b|\bgetattr\b|\bimport_module\b/;
+/** Inline interpreter code that runs the tool: `tool <arg>` text, the tool as a whole quoted argv element (a list-form spawn in Python or Node whose first element is the tool name), or code that spawns a process from a command built at run time (string concat, join, format), which cannot be read and so fails closed. */
+function inlineRunsTool(tool: string, code: string): boolean {
+  if (new RegExp(`\\b${tool}\\s+\\S`).test(code) || new RegExp(`["'](?:[^"']*/)?${tool}["']`).test(code)) return true;
+  return SPAWN_API.test(code) && DYNAMIC_CMD.test(code);
+}
+/** A `$`-word that stands for the tool: a variable named like it ($GO, "$CARGO", ${GO}) or one whose default is the tool (${GO:-go}). */
+const varIsTool = (tool: string, w: string): boolean => [...w.matchAll(/\$\{?([A-Za-z_][A-Za-z0-9_]*)(?::?-([^}]*))?/g)].some((m) => m[1]!.toLowerCase() === tool || (m[2] !== undefined && wordIsTool(tool, m[2])));
+/** Arguments of a known runner that still run the tool: TOOL=tool assignment args (make test GO=go) and inline interpreter code that invokes it (python3 -c 'os.system("go test")'). A path or other-named variable (make DIR=go) stays a resolved NO. */
+function argsRunTool(tool: string, args: readonly string[]): boolean {
+  return args.some((a, j) => { const m = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(a); return m ? assignsTool(tool, a) : INLINE_CODE_FLAGS.has(args[j - 1] ?? "") && inlineRunsTool(tool, a); });
+}
+function runsTool(tool: string, words: readonly string[], depth: number): Tri {
+  let i = 0, assigned = false; // assigned: a prefix TOOL=tool assignment (GO=go make test) hands the tool to whatever runner follows
+  for (;;) {
+    while (i < words.length && (RESERVED_WORDS.has(words[i]!) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i]!) || /^\d*[<>]/.test(words[i]!))) { if (assignsTool(tool, words[i]!)) assigned = true; i += /^\d*[<>]+$/.test(words[i]!) ? 2 : 1; }
+    const w = words[i]; if (w === undefined) return NO;
+    if (w.includes("$")) return varIsTool(tool, w) ? YES : UNKNOWN;
+    const name = basename(w); if (wordIsTool(tool, w)) return YES;
+    if (SHELL_WORDS.has(name)) {
+      for (let j = i + 1; j < words.length && /^-/.test(words[j]!); j++) if (/^-[A-Za-z]*c[A-Za-z]*$/.test(words[j]!)) return depth < 4 && words[j + 1] !== undefined && !/^-/.test(words[j + 1]!) ? anyCommandRuns(tool, words[j + 1]!, depth + 1) : UNKNOWN;
+      return UNKNOWN;
+    }
+    if (name === "eval") return depth < 4 ? anyCommandRuns(tool, words.slice(i + 1).join(" "), depth + 1) : UNKNOWN;
+    if (name === "rustup" && words[i + 1] === "run") { i += 3; continue; }
+    if (["pnpm", "yarn", "bun", "npm"].includes(name) && ["exec", "x", "dlx"].includes(words[i + 1] ?? "")) { i += 2; continue; }
+    const vf = WRAPPERS[name];
+    if (!vf) return KNOWN_RUNNERS.has(name) ? assigned || ((name === "make" || INTERPRETERS.has(name)) && argsRunTool(tool, words.slice(i + 1))) ? YES : NO : UNKNOWN;
+    i++;
+    for (; i < words.length; i++) {
+      const a = words[i]!;
+      if (name === "env" && a === "-S") return depth < 4 && words[i + 1] !== undefined ? anyCommandRuns(tool, words[i + 1]!, depth + 1) : UNKNOWN;
+      if (a === "--") continue;
+      if (a.startsWith("-")) { if (vf.includes(a)) i++; continue; }
+      if (assignsTool(tool, a)) assigned = true;
+      if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(a) || (name === "timeout" && /^\d+(?:\.\d+)?[smhd]?$/.test(a))) continue;
       break;
     }
-    if (t[k] !== undefined && basename(t[k]!) === "go") return { runner: "go" };
   }
-  return {};
+}
+const anyCommandRuns = (tool: string, line: string, depth = 0): Tri => simpleCommands(line).reduce<Tri>((acc, c) => triOr(acc, runsTool(tool, c, depth)), NO);
+/** The command as a word list: an argv as is, a line split on whitespace. */
+const commandWords = (cmd: string, args?: readonly string[]): string[] => (args ? [cmd, ...args] : cmd.trim().split(/\s+/));
+/** Whether the command (a shell line, or an argv) runs `tool`. A resolved command answers from command position, so a mere path or argument named like the tool does not turn an honest pass into not_run; an unresolved one falls back to the old rule (ANY word whose basename is the tool), which only fails closed. */
+function mentionsTool(tool: string, cmd: string, args?: readonly string[]): boolean {
+  let r: Tri = args ? runsTool(tool, [cmd, ...args], 0) : anyCommandRuns(tool, cmd);
+  if (args && r !== YES && [cmd, ...args].some((a) => /[;&|()`]/.test(a))) r = triOr(r, anyCommandRuns(tool, [cmd, ...args].join(" "))); // an argv element carrying shell syntax is also read as a line
+  if (r !== UNKNOWN) return r === YES;
+  return commandWords(cmd, args).some((t) => t.split(/[\s"'`();&|<>${}\[\],=]+/).some((x) => x !== "" && wordIsTool(tool, x)));
+}
+/** One shared Go-runner detection for every caller (verify, deep, per-package suites): a shell command line or an argv, decided by the tri-state mentionsTool (command position when every command word resolved, otherwise the old any-word rule). Chosen from the command, never from output. Detecting go too often only fails closed (exit 0 is not_run, and corroboratePass accepts only a plain `go test` line). */
+export function goRunner(cmd: string, args?: readonly string[]): { runner: "go" } | Record<string, never> {
+  return mentionsTool("go", cmd, args) ? { runner: "go" } : {};
+}
+const CARGO_GLOBAL_FLAGS = new Set(["-v", "-vv", "--verbose", "-q", "--quiet", "--frozen", "--locked", "--offline"]), CARGO_OTHER_SUBS = new Set(["build", "check", "clippy", "fmt", "doc", "clean", "fetch", "tree", "run", "bench", "metadata", "update", "install", "publish", "package", "login", "search", "vendor"]);
+/** A cargo invocation parsed strictly: `cargo [known global flags, their values consumed] <sub> [args]`, nothing before cargo (no wrapper, no shell, no +toolchain shim). null = not a plain invocation. */
+function parseCargo(toks: readonly string[]): { global: string[]; sub: string; rest: string[] } | null {
+  if (basename(toks[0] ?? "") !== "cargo" || toks.some((t) => /[&|;$`"'<>()\\]/.test(t))) return null;
+  let k = 1;
+  for (; k < toks.length; k++) {
+    const t = toks[k]!;
+    if (CARGO_GLOBAL_FLAGS.has(t) || /^--(?:color|config)=./.test(t)) continue;
+    if ((t === "--color" || t === "--config") && toks[k + 1] !== undefined) { k++; continue; }
+    break;
+  }
+  return toks[k] === undefined || toks[k]!.startsWith("-") || toks[k]!.startsWith("+") ? null : { global: toks.slice(1, k), sub: toks[k]!, rest: toks.slice(k + 1) };
 }
 /** go test -json: every non-empty line is a test2json event (or a "go: " tool note), else null (parse doubt). The go command frames the test
  *  binary's stdout as events, but test or implementation code that prints \x16-marked lines can make the framing emit run/pass events for tests that never ran;
@@ -208,6 +344,7 @@ function goJson(out: string): { failed: boolean; failedTests: string[]; passed: 
   const passedNames = [...status].filter(([, v]) => v === "pass").map(([k]) => k);
   return { failed, failedTests: [...failedTests], passed: passedNames.length, passedNames, complete: !dirty && pkgs.size > 0 && [...pkgs].every((p) => starts.get(p) === 1 && done.get(p) === 1) }; // a torn stream or one with repeated starts, terminals or runs is doubt; a clean forged stream passes this and is caught by corroboratePass
 }
+export const CARGO_RUNNER_REASON = "test count could not be confirmed: a cargo target or alias setting can redirect both the test run and its listing";
 export const CARGO_UNLISTED_REASON = "test count could not be confirmed: the cargo summary does not match the tests cargo lists for the same command";
 /** A cargo pass is counted only when every libtest segment matches the runner's own listing, taken by running the same command with `-- --list` and `-- --list --ignored`.
  *  Threat model: libtest prints its results inside the process that runs the code under test, so code can print "test <name> ... ok" lines and a summary and exit 0
@@ -215,11 +352,155 @@ export const CARGO_UNLISTED_REASON = "test count could not be confirmed: the car
  *  passed + failed + ignored + measured, and the listed count agree; the ignored count matches the ignored listing; every ok name is listed and not ignored; every ignored
  *  name is in the ignored listing. A segment count that differs from the listing, a listing that fails, or a line with shell syntax or the --ignored, --include-ignored,
  *  --list, --format or --logfile libtest flags stays not_run. Residual risk, stated plainly: code that prints the exact listed names of its own binary with a matching
- *  summary still forges, and so do code that runs before main (a link-section constructor) and a `harness = false` target, which control the listing too. */
-async function corroborateCargoPass(c: Classified, out: string, toks: readonly string[], o: { cwd: string; env: NodeJS.ProcessEnv }): Promise<Classified> {
-  const refuse: Classified = { result: "not_run", reason: CARGO_UNLISTED_REASON }, dd = toks.indexOf("--");
-  const lib = dd < 0 ? [] : toks.slice(dd + 1), argv = ["test", ...toks.slice(2, dd < 0 ? undefined : dd), "--", ...lib.filter((t) => t !== "-q" && t !== "--quiet"), "--list"];
-  if (toks.some((t) => /[&|;$`"'<>()\\]/.test(t)) || lib.some((t) => /^--(?:ignored|include-ignored|list|format|logfile)\b|^-Z/.test(t))) return refuse;
+ *  summary still forges, and so do code that runs before main (a link-section constructor) and a `harness = false` target, which control the listing too. build.rs (a build script runs arbitrary code before the tests) is a known gap, and so is the RUSTC_WRAPPER variable or a CARGO_HOME wrapper, left accepted on purpose because sccache users set them and refusing would make honest runs PARTIAL. A repo-committed build.rustc, rustc-wrapper, rustc-workspace-wrapper or linker is refused instead. */
+/** A cargo [target] table (a runner, a linker, rustflags per target) or an [alias] can redirect both the test run and its listing, and TOML lets the key be written as a unicode escape inside a quoted key, so no text scan for one word is sound. Refused whenever any config cargo would load (every .cargo/config(.toml) from the cwd up, $CARGO_HOME or ~/.cargo, every --config value, inline or a file path that is read) has a target table or key, an alias table or key, or any \u or \U escape, or an `include`; also refused for any CARGO_TARGET_* or CARGO_ALIAS_* variable. A config that cannot be read is doubt. */
+const CARGO_KEY = (name: string): RegExp => new RegExp(`(?:^|[\\s\\[,{.])["']?${name}["']?\\s*[.\\]=]`, "m");
+const CARGO_TARGET_KEY = CARGO_KEY("target"), CARGO_ALIAS_KEY = CARGO_KEY("alias"), CARGO_REDIRECT_TEXT = (t: string): boolean => CARGO_TARGET_KEY.test(t) || CARGO_ALIAS_KEY.test(t) || /\\[uU]/.test(t) || /^\s*include\s*=/m.test(t);
+function cargoRunnerConfigured(cwd: string, env: NodeJS.ProcessEnv, toks: readonly string[]): boolean {
+  if (Object.keys(env).some((k) => /^CARGO_(?:TARGET|ALIAS)_/i.test(k))) return true;
+  const doubtful = (f: string): boolean => { try { return CARGO_REDIRECT_TEXT(readFileSync(f, "utf8")); } catch { return true; } };
+  const vals = toks.flatMap((t, i) => (t === "--config" ? [toks[i + 1] ?? ""] : t.startsWith("--config=") ? [t.slice(9)] : []));
+  for (const v of vals) { if (CARGO_REDIRECT_TEXT(v)) return true; const f = resolve(cwd, v); if (existsSync(f) && lstatSync(f).isFile() && doubtful(f)) return true; }
+  const dirs = [env["CARGO_HOME"] ?? join(env["HOME"] ?? homedir(), ".cargo"), join(homedir(), ".cargo")]; // the env cargo is given decides CARGO_HOME; the account's own ~/.cargo is read too, as doubt
+  for (let d = resolve(cwd), prev = ""; d !== prev; prev = d, d = dirname(d)) dirs.push(join(d, ".cargo"));
+  return dirs.some((dir) => ["config", "config.toml"].some((f) => existsSync(join(dir, f)) && doubtful(join(dir, f))));
+}
+export const CARGO_TOOLCHAIN_REASON = "test count could not be confirmed: a rust-toolchain path or RUSTUP_TOOLCHAIN path hands every cargo call to a toolchain the repo controls";
+/** A rustup toolchain given as a path (rust-toolchain.toml `[toolchain] path`, a legacy rust-toolchain file naming a path, or a path-shaped RUSTUP_TOOLCHAIN) hands every cargo call, the run and the listing alike, to a script the repo controls. Refused for a path in a rust-toolchain(.toml) in the cwd or any parent (the same walk as the .cargo parent walk). Named toolchains (stable, 1.89.0, with components or targets) stay accepted. Unreadable files and escapes are doubt. */
+const lstatOk = (f: string): boolean => { try { lstatSync(f); return true; } catch { return false; } }; // a symlink counts, and a dangling one is read as doubt
+const PATH_SHAPED = (v: string): boolean => /[\\/]/.test(v) || /^[.~]/.test(v.trim());
+function cargoToolchainRedirected(cwd: string, env: NodeJS.ProcessEnv): boolean {
+  if (PATH_SHAPED(env["RUSTUP_TOOLCHAIN"] ?? "")) return true;
+  const doubtful = (f: string): boolean => {
+    try {
+      const t = readFileSync(f, "utf8");
+      if (/\\[uU]/.test(t) || CARGO_KEY("path").test(t) || /^\s*channel\s*=\s*["']([^"']*)["']/m.test(t) && PATH_SHAPED(/^\s*channel\s*=\s*["']([^"']*)["']/m.exec(t)![1]!)) return true;
+      const first = t.split("\n").map((l) => l.trim()).find((l) => l !== "" && !l.startsWith("#")) ?? "";
+      return !/^\[/.test(first) && !/=/.test(first) && PATH_SHAPED(first); // legacy file: a plain line is a toolchain name
+    } catch { return true; }
+  };
+  for (let d = resolve(cwd), prev = ""; d !== prev; prev = d, d = dirname(d)) if (["rust-toolchain", "rust-toolchain.toml"].some((f) => lstatOk(join(d, f)) && doubtful(join(d, f)))) return true;
+  return false;
+}
+/** The reason names the setting and the file, so an honest repo can see what to move out of the repo. */
+export const cargoCompilerReason = (what: string, where: string): string => `test count could not be confirmed: ${what} in ${where} (move it to CARGO_HOME, or for a wrapper use the RUSTC_WRAPPER env)`;
+/** Cut TOML `#` comments (outside quotes) so a commented-out key is not read as a setting. */
+function stripTomlComments(t: string): string {
+  return t.split("\n").map((line) => {
+    let q = "";
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i]!;
+      if (q) { if (c === "\\" && q === '"') i++; else if (c === q) q = ""; } else if (c === '"' || c === "'") q = c; else if (c === "#") return line.slice(0, i);
+    }
+    return line;
+  }).join("\n");
+}
+/** The [env] names that let the repo steer what runs: PATH finds the repo's own cc or ld, LD_PRELOAD, DYLD_INSERT_LIBRARIES, LD_AUDIT and the library and framework search paths load repo code into every process cargo starts. */
+const CARGO_ENV_HIJACK = ["PATH", "LD_PRELOAD", "DYLD_INSERT_LIBRARIES", "LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH", "LD_AUDIT", "DYLD_VERSIONED_LIBRARY_PATH", "DYLD_FALLBACK_FRAMEWORK_PATH", "DYLD_VERSIONED_FRAMEWORK_PATH"] as const;
+/** An [env] table (or inline env table, or env.<name> key) that sets the given variable. */
+function cargoEnvSets(t: string, name: string): boolean {
+  const E = String.raw`["']?env["']?`, N = String.raw`["']?${name}["']?`; // cargo honors a quoted env table name and key
+  if (new RegExp(String.raw`^\s*\[\s*${E}\s*\.\s*${N}\s*\]`, "m").test(t) || new RegExp(String.raw`(?:^|[\s,{])${E}\s*\.\s*${N}\s*[.=]`, "m").test(t)) return true;
+  if (new RegExp(String.raw`(?:^|[\s,{])${E}\s*=\s*\{`, "m").test(t) && CARGO_KEY(name).test(t)) return true;
+  let hdr = "";
+  for (const line of t.split("\n")) {
+    const h = /^\s*\[+\s*([^\[\]]*?)\s*\]+\s*$/.exec(line);
+    if (h) { hdr = h[1]!.replace(/["'\s]/g, ""); if (hdr === `env.${name}`) return true; }
+    else if (hdr === "env" && new RegExp(String.raw`^\s*${N}\s*[.=]`).test(line)) return true;
+  }
+  return false;
+}
+const RUSTFLAGS_STRING = String.raw`(?:"(?:[^"\\]|\\.)*"|'[^']*')`;
+/** A rustflags entry with `link` (link-arg, link-args, linker, linker-flavor, link-self-contained), `-B`, `-Wl`, a codegen backend or `llvm-plugins` lets the repo pick the linker or load code into rustc. A bare `-C link-arg=-fuse-ld=<name>` (no path separator: mold, lld) is the one accepted form. */
+function rustflagsReachLinker(t: string): boolean {
+  const key = CARGO_KEY("rustflags"), n = (t.match(new RegExp(key.source, "gm")) ?? []).length;
+  if (n === 0) return false;
+  const vals = [...t.matchAll(new RegExp(String.raw`rustflags["']?\s*=\s*(\[(?:${RUSTFLAGS_STRING}|[^\]"'])*\]|${RUSTFLAGS_STRING})`, "g"))].map((m) => m[1]!);
+  if (vals.length !== n) return true;
+  return vals.some((v) => /link|-B|-Wl|codegen-backend|llvm-plugins/.test(v.replace(/link-arg=-fuse-ld=[A-Za-z0-9_.+-]+(?=["'\s,\]]|$)/g, "")));
+}
+/** The first setting in a cargo config text that lets the repo rewrite the test binary, as a label, or null. */
+function compilerSettingIn(raw: string): string | null {
+  const t = stripTomlComments(raw);
+  for (const [k, label] of [["rustc", "build.rustc"], ["rustc-wrapper", "build.rustc-wrapper"], ["rustc-workspace-wrapper", "build.rustc-workspace-wrapper"], ["linker", "linker"]] as const) if (CARGO_KEY(k).test(t)) return label;
+  for (const name of CARGO_ENV_HIJACK) if (cargoEnvSets(t, name)) return `[env] ${name}`;
+  if (rustflagsReachLinker(t)) return "rustflags with a link, -B, -Wl, codegen-backend or llvm-plugins flag";
+  if (/\\[uU]/.test(t) || /^\s*include\s*=/m.test(t) || /"""|'''/.test(t)) return CARGO_ESCAPED_LABEL;
+  return null;
+}
+/** The repo root: the nearest ancestor holding .git, else the highest ancestor holding a Cargo.toml, else the cwd. */
+function cargoRepoRoot(cwd: string): string {
+  let top: string | null = null;
+  for (let d = resolve(cwd), prev = ""; d !== prev; prev = d, d = dirname(d)) {
+    if (existsSync(join(d, ".git"))) return d;
+    if (existsSync(join(d, "Cargo.toml"))) top = d;
+  }
+  return top ?? resolve(cwd);
+}
+const CARGO_ESCAPED_LABEL = "an escaped key, include or multi-line string";
+/** Doubt about the top-level region of a manifest (everything before the first table header, found by bracket depth outside strings, so a line starting with [ inside an array does not end it): any backslash or multi-line string quote there could hide cargo-features. */
+function topLevelDoubt(t: string): boolean {
+  let q = "", depth = 0, lineStart = true;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i]!;
+    if (c === "\\") return true;
+    if (c === '"' || c === "'") { if (t.startsWith(c.repeat(3), i)) return true; if (!q) q = c; else if (q === c) q = ""; lineStart = false; continue; }
+    if (c === "\n") { q = ""; lineStart = true; continue; }
+    if (q) continue;
+    if (c === "[" || c === "{") { if (depth === 0 && lineStart) return false; depth++; } else if (c === "]" || c === "}") depth = Math.max(0, depth - 1);
+    if (!/\s/.test(c)) lineStart = false;
+  }
+  return false;
+}
+/** A manifest in the repo (cwd up to the root, any --manifest-path, and a bounded scan below the root) that turns on nightly profile-rustflags: the key bare or quoted, or (doubt) any unicode escape above the first table, where only top-level keys such as cargo-features can sit. Returns the manifest and the setting label. */
+function cargoProfileRustflagsManifest(root: string, cwd: string, toks: readonly string[]): [string, string] | null {
+  const hit = (f: string): string | null => {
+    try {
+      const t = stripTomlComments(readFileSync(f, "utf8"));
+      if (/["']?cargo-features["']?\s*=\s*\[[^\]]*profile-rustflags/.test(t)) return "cargo-features profile-rustflags";
+      return topLevelDoubt(t) ? CARGO_ESCAPED_LABEL : null;
+    } catch { return null; }
+  };
+  const seen = new Set<string>(), files: string[] = [];
+  for (let d = resolve(cwd), prev = ""; d !== prev; prev = d, d = dirname(d)) { files.push(join(d, "Cargo.toml")); if (d === root) break; }
+  toks.forEach((t, i) => { if (t === "--manifest-path") files.push(resolve(cwd, toks[i + 1] ?? "")); else if (t.startsWith("--manifest-path=")) files.push(resolve(cwd, t.slice(16))); });
+  for (let stack: [string, number][] = [[root, 0]], seenDirs = 0; stack.length && seenDirs < 500; ) {
+    const [d, depth] = stack.pop()!; seenDirs++;
+    files.push(join(d, "Cargo.toml"));
+    if (depth >= 5) continue;
+    try { for (const e of readdirSync(d, { withFileTypes: true })) if (e.isDirectory() && !["target", ".git", "node_modules"].includes(e.name)) stack.push([join(d, e.name), depth + 1]); } catch { /* unreadable dir: skip */ }
+  }
+  for (const f of files) if (!seen.has(f)) { seen.add(f); const w = existsSync(f) ? hit(f) : null; if (w) return [f, w]; }
+  return null;
+}
+/** A repo-committed cargo config that replaces the compiler (build.rustc), wraps it (build.rustc-wrapper, build.rustc-workspace-wrapper), sets a linker, reaches the linker through rustflags, or sets [env] PATH lets the repo rewrite the test binary after it is built, so both the run and its listing are the repo's own word. Read from a .cargo/config(.toml) in the cwd or any parent (the same walk as the runner check), a --config value or file, and a Cargo.toml that enables profile-rustflags. The CARGO_HOME / ~/.cargo config and the RUSTC_WRAPPER variable are NOT scanned, because sccache users set them and refusing would make honest runs PARTIAL; but only a .cargo directory strictly above the repo root is exempt, so a HOME inside the repo exempts nothing. A key written with a unicode escape, an `include`, a multi-line string, or an unreadable file is doubt. Returns the reason, which names the setting and the file. */
+function cargoRepoCompilerRedirected(cwd: string, env: NodeJS.ProcessEnv, toks: readonly string[]): string | null {
+  const root = cargoRepoRoot(cwd), rel = (f: string): string => { const r = relative(root, f); return r && !r.startsWith("..") && !isAbsolute(r) ? r : f; };
+  const inFile = (f: string): string | null => { try { return compilerSettingIn(readFileSync(f, "utf8")); } catch { return "an unreadable config"; } };
+  const vals = toks.flatMap((t, i) => (t === "--config" ? [toks[i + 1] ?? ""] : t.startsWith("--config=") ? [t.slice(9)] : []));
+  for (const v of vals) {
+    const inline = compilerSettingIn(v); if (inline) return cargoCompilerReason(inline, "--config");
+    const f = resolve(cwd, v);
+    if (existsSync(f) && lstatSync(f).isFile()) { const w = inFile(f); if (w) return cargoCompilerReason(w, v); }
+  }
+  const home = new Set([resolve(env["CARGO_HOME"] || join(env["HOME"] || homedir(), ".cargo")), resolve(homedir(), ".cargo")]);
+  const aboveRoot = (dir: string): boolean => { const r = relative(dirname(dir), root); return r !== "" && !r.startsWith("..") && !isAbsolute(r); };
+  for (let d = resolve(cwd), prev = ""; d !== prev; prev = d, d = dirname(d)) {
+    const dir = join(d, ".cargo");
+    if (home.has(dir) && aboveRoot(dir)) continue;
+    for (const f of ["config", "config.toml"]) if (existsSync(join(dir, f))) { const w = inFile(join(dir, f)); if (w) return cargoCompilerReason(w, rel(join(dir, f))); }
+  }
+  const m = cargoProfileRustflagsManifest(root, cwd, toks);
+  return m ? cargoCompilerReason(m[1], rel(m[0])) : null;
+}
+async function corroborateCargoPass(c: Classified, out: string, p: { global: string[]; rest: string[] }, o: { cwd: string; env: NodeJS.ProcessEnv; signal?: AbortSignal }): Promise<Classified> {
+  const refuse: Classified = { result: "not_run", reason: CARGO_UNLISTED_REASON }, dd = p.rest.indexOf("--"), notQuiet = (t: string): boolean => t !== "-q" && t !== "--quiet"; // --quiet at cargo level would also reach the listing and drop its "N tests" footer
+  const lib = dd < 0 ? [] : p.rest.slice(dd + 1), argv = [...p.global.filter(notQuiet), "test", ...p.rest.slice(0, dd < 0 ? undefined : dd).filter(notQuiet), "--", ...lib.filter(notQuiet), "--list"];
+  if (cargoToolchainRedirected(o.cwd, o.env)) return { result: "not_run", reason: CARGO_TOOLCHAIN_REASON };
+  if (cargoRunnerConfigured(o.cwd, o.env, [...p.global, ...p.rest])) return { result: "not_run", reason: CARGO_RUNNER_REASON };
+  const compilerWhy = cargoRepoCompilerRedirected(o.cwd, o.env, [...p.global, ...p.rest]);
+  if (compilerWhy) return { result: "not_run", reason: compilerWhy };
+  if (lib.some((t) => /^--(?:ignored|include-ignored|list|format|logfile)\b|^-Z/.test(t))) return refuse;
   const listing = async (extra: string[]): Promise<Set<string>[] | null> => {
     const r = await spawnCollect("cargo", [...argv, ...extra], { ...o, timeoutMs: 600_000 });
     if (r.status !== 0) return null;
@@ -248,12 +529,16 @@ async function corroborateCargoPass(c: Classified, out: string, toks: readonly s
  *  before the runtime writes it) and a package with no statements (checked per package), cgo files or a //line directive all stay not_run, the fail-safe default. The re-run must also exit 0 with a complete
  *  stream that passes the same tests. Argv or a plain `go test [-json] [-run X] <pkgs>` line only; any other shape (extra flags, shell syntax) cannot be re-run and stays
  *  not_run. A non-pass result is returned unchanged. Residual risk, stated plainly: code that reproduces the cover tool's block table for its own source can still forge. */
-export async function corroboratePass(c: Classified, out: string, cmdOrLine: string, args: readonly string[] | undefined, o: { cwd: string; env: NodeJS.ProcessEnv }): Promise<Classified> {
-  const toks = args ? [cmdOrLine, ...args] : cmdOrLine.trim().split(/\s+/);
-  if (c.result === "pass" && basename(toks[0] ?? "") === "cargo" && toks[1] === "test") return corroborateCargoPass(c, out, toks, o);
+export async function corroboratePass(c: Classified, out: string, cmdOrLine: string, args: readonly string[] | undefined, o: { cwd: string; env: NodeJS.ProcessEnv; signal?: AbortSignal }): Promise<Classified> {
+  const toks = commandWords(cmdOrLine, args);
+  if (c.result === "pass" && mentionsTool("cargo", cmdOrLine, args)) { // only a plain `cargo [globals] test|t` is corroborated; any other shape holding cargo (wrapper, shell, subshell, +toolchain, an alias) is refused, except a plain non-test subcommand
+    const p = parseCargo(toks);
+    if (p && p.sub === "test") return corroborateCargoPass(c, out, p, o); // the literal subcommand only: an alias (cargo t, or [alias] t = "run") can point it at main(), which prints a forged libtest summary
+    if (!(p && CARGO_OTHER_SUBS.has(p.sub)) || /^test result:|^test \S.* \.\.\. ok\b/m.test(out)) return { result: "not_run", reason: CARGO_UNLISTED_REASON }; // run and bench execute the user's main(), whose libtest-shaped output is not a pass
+  }
   if (c.result !== "pass" || goRunner(cmdOrLine, args).runner !== "go") return c;
   const g = corroborateGoSteps(c, out, cmdOrLine, args, toks, o); let step = g.next();
-  while (!step.done) { const [cmd, a, to] = step.value; step = g.next(await spawnCollect(cmd, a, to)); }
+  while (!step.done) { const [cmd, a, to] = step.value; step = g.next(await spawnCollect(cmd, a, { ...to, ...(o.signal ? { signal: o.signal } : {}) })); }
   return step.value;
 }
 type SpawnRes = { status: number | null; output: string };
@@ -395,7 +680,7 @@ export function testCount(raw: string, path?: string, ok?: boolean): number | nu
   const bu = bunCount(out), ut = unittestCount(out, ok);
   if (bu !== null) return bu;
   if (ut !== null) return ut;
-  const jv = javaSummary(out);
+  const jv = javaSummary(out) ?? dotnetSummary(out); // HV1-03b, R02: the JVM and .NET build tools' own summaries
   if (jv) return jv.executed;
   if (/^\s*(?:Test Files\s+0\b|No test files found)/m.test(out) && !/^\s*Tests?\s+\d/m.test(out)) return 0;
   const r = ran(out, path, ok);
@@ -469,7 +754,7 @@ export function classifyCheck(i: ClassifyInput): Classified {
   if (n === 0) return { result: "not_run", n: 0, reason: `${NO_TESTS_REASON} (ran 0 tests, empty or all skipped)` };
   if (!i.ok) return { result: "fail", ...(n !== null ? { n } : {}) };
   if (n === null) return { result: "not_run", reason: UNMEASURED_REASON };
-  const jv = javaSummary(text); if (jv && jv.failed > 0) return { result: "fail", n }; // HV1-03b: exit 0 with a Java report that counts failures contradicts itself; never a pass
+  const jv = javaSummary(text) ?? dotnetSummary(text); if (jv && jv.failed > 0) return { result: "fail", n }; // HV1-03b: exit 0 with a Java report that counts failures contradicts itself; never a pass
   return { result: "pass", n };
 }
 /** TEN-QUALITY-17: a test check that fails and then passes on ONE immediate rerun is flaky, not fail, so fix rounds are not spent on it.
@@ -633,13 +918,15 @@ function summaryOf(a: Pick<RiskAssessment, "tier" | "computed" | "reasons" | "ov
 
 export const DEEP_ITEMS = ["full suite", "app boot", "council", "security scan"] as const;
 export const NOT_SELECTED = "not selected by risk tier: ";
+export const SECURITY_SCAN = "security scan";
 /** FC-SEAL-NA-AS-UNPROVEN: the deep checks a receipt lists as NOT PROVEN (the tier wanted them and they did not run) versus "not selected by risk tier" (the tier never asked). No usable risk record keeps every item NOT PROVEN (fail-safe); a full suite that verify executed is dropped. */
 export function deepGaps(risk: unknown, verifyChecks: { name?: unknown; result?: unknown }[], deepChecks: { name?: unknown; result?: unknown }[] = [], reviewRan = false): { notProven: string[]; notSelected: string[] } {
   const r = risk as { tier?: unknown; checks_selected?: unknown; checks_deferred?: unknown } | null | undefined, arr = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
   const ok = !!r && (r.tier === "low" || r.tier === "medium" || r.tier === "high") && Array.isArray(r.checks_selected) && Array.isArray(r.checks_deferred);
   const executed = (cs: { name?: unknown; result?: unknown }[], i: string): boolean => cs.some((c) => String(c.name).startsWith(i) && (c.result === "pass" || c.result === "fail"));
   const sel = ok ? arr(r?.checks_selected) : [], fullRan = executed(verifyChecks, "full suite") || (sel.includes("full test command") && !arr(r?.checks_deferred).includes("full test command"));
-  const items = DEEP_ITEMS.filter((i) => !(i === "full suite" ? fullRan : false) && !executed(deepChecks, i));
+  const verifyRan = (i: string): boolean => i === SECURITY_SCAN && verifyChecks.some((c) => c.name === i && (c.result === "pass" || c.result === "fail")); // PR-FIRST-4: verify runs the high tier's security scan before seal; only an exact-name executed check credits it, a not_run never does
+  const items = DEEP_ITEMS.filter((i) => !(i === "full suite" ? fullRan : false) && !executed(deepChecks, i) && !verifyRan(i));
   if (!ok) return { notProven: [...items], notSelected: [] };
   const low = r?.tier === "low", gap = (i: string): boolean => !low && (i === "full suite" ? sel.includes("full test command") || sel.includes("full suite") : sel.includes(i));
   const notProven = items.filter(gap), notSelected = items.filter((i) => !gap(i)).map((i) => NOT_SELECTED + i);
@@ -787,15 +1074,18 @@ export function classifyRisk(files: DiffFile[], env: NodeJS.ProcessEnv = process
 
 /** FC-WALL-LOCATION-BLIND: a loki_wall_* file in the tree that this run's Wall did not install (an earlier run left it untracked, or this run discarded it) is not a change of this run: verifying it would credit an exogenous pass for a test the receipt lists as discarded. `own` holds the paths this run installed (absolute or repo-relative). */
 export const withoutStaleWall = <T extends string | { path: string }>(items: T[], own: string[], repoDir: string): T[] => { const mine = new Set(own.map((p) => (isAbsolute(p) ? relative(repoDir, p) : p))); return items.filter((it) => { const f = typeof it === "string" ? it : it.path; return !/(^|\/)loki_wall_[^/]*$/.test(f) || mine.has(f); }); };
-/** FC-VERIFIED-PR-WITHOUT-ITS-TEST: the Wall files verify ran and passed (target_checks + executed proof), as their SEALED bytes: the runDir/wall copy must hash to wall.files[].sha256, else a NOT PROVEN note and no file. LOKI_COMMIT_WALL=0: none. */
-export function publishableWall(repoDir: string, runDir: string, o: Partial<Record<string, Record<string, unknown>>>, env: NodeJS.ProcessEnv = process.env): { files: { rel: string; bytes: Buffer; cmd: string; runner: string }[]; notes: string[] } {
-  const out = { files: [] as { rel: string; bytes: Buffer; cmd: string; runner: string }[], notes: [] as string[] }, arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []), tgt = new Set(Array.isArray(o.verify?.["target_checks"]) ? (o.verify["target_checks"] as unknown[]).map(String) : []);
-  if (env["LOKI_COMMIT_WALL"] === "0") return out;
-  for (const w of arr(o.wall?.["files"])) {
+/** FC-VERIFIED-PR-WITHOUT-ITS-TEST: the Wall files verify ran and passed (target_checks + executed proof), as their SEALED bytes: the runDir/wall copy must hash to wall.files[].sha256, else a NOT PROVEN note and no file. LOKI_COMMIT_WALL=0: none published. clauseGap (FALSEVER-CLAUSE) is read from the same passing sealed copies whatever that switch says: the spec clauses none of them proves, empty when no task text is given or no Wall file ran. */
+export function publishableWall(repoDir: string, runDir: string, o: Partial<Record<string, Record<string, unknown>>>, env: NodeJS.ProcessEnv = process.env, task?: string): { files: { rel: string; bytes: Buffer; cmd: string; runner: string }[]; notes: string[]; clauseGap: string[]; weak: string[] } {
+  const out = { files: [] as { rel: string; bytes: Buffer; cmd: string; runner: string }[], notes: [] as string[], clauseGap: [] as string[], weak: [] as string[] }, arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []), tgt = new Set(Array.isArray(o.verify?.["target_checks"]) ? (o.verify["target_checks"] as unknown[]).map(String) : []);
+  const listed = arr(o.wall?.["files"]);
+  for (const w of listed) {
     const rel = relative(repoDir, String(w["path"])), hit = arr(o.verify?.["checks"]).find((c) => tgt.has(String(c["name"])) && String(c["name"]).slice(String(c["name"]).indexOf(":") + 1) === rel && hasExecutedProof([c]));
     if (!hit || rel.startsWith("..") || isAbsolute(rel) || rel.startsWith(".loki/") || !basename(rel).startsWith("loki_wall_")) continue; // stale, failed, not-run or outside the repo: stays dropped
     try { const bytes = readFileSync(sealedWallCopy(runDir, rel)); if (createHash("sha256").update(bytes).digest("hex") !== w["sha256"]) throw new Error("hash"); out.files.push({ rel, bytes, cmd: String(hit["cmd"]), runner: String(hit["name"]).slice(0, String(hit["name"]).indexOf(":")) }); } catch { out.notes.push(`Wall test not published: ${rel} (sealed copy missing or not the sealed bytes)`); }
   }
+  if (task !== undefined && listed.length > 0) out.clauseGap = clauseGapOf(extractClauses(task), out.files.map((f) => f.bytes.toString("utf8")));
+  const weak = weakAssertionNote(out.files.map((f) => ({ rel: f.rel, body: f.bytes.toString("utf8") }))); if (weak) out.weak = [weak];
+  if (env["LOKI_COMMIT_WALL"] === "0") { out.files = []; out.notes = []; }
   return out;
 }
 /** Why a sealed Wall path cannot be written into repoDir: it leaves the repo, or it is, or sits under, a symlink or non-directory (a link committed by another unit must not redirect a write). null = safe. */
@@ -921,9 +1211,11 @@ export type IgnoreSnapshot = { at: number; info_exclude: IgnoreSource; global_ex
  *  null when the listing failed. */
 const EXEC_NAMES = new Set([".gitignore", "pyvenv.cfg"]);
 const VENV_TOOL = /^(python[0-9.]*(\.exe)?|ruff(\.exe)?|pytest(\.exe)?|py\.test)$/;
+/** PR-FIRST-4: every ignored, untracked path. A repo with installed node_modules lists far past execFileSync's 1 MB default (FireLater: 6 MB, 85k paths), which threw ENOBUFS and nulled the snapshot on every run; a listing past this bound still throws (fail closed). */
+const listIgnoredFiles = (repoDir: string): string[] => safeGit(repoDir, ["-c", "core.quotePath=false", "ls-files", "--others", "--ignored", "--exclude-standard", "-z"], { maxBuffer: 256 * 1024 * 1024, timeout: 60_000 }).split("\0").filter((f) => f && !f.startsWith(".loki/"));
 function execFiles(repoDir: string): Record<string, string> | null {
   let all: string[];
-  try { all = safeGit(repoDir, ["-c", "core.quotePath=false", "ls-files", "--others", "--ignored", "--exclude-standard", "-z"]).split("\0").filter((f) => f && !f.startsWith(".loki/")); } catch { return null; }
+  try { all = listIgnoredFiles(repoDir); } catch { return null; }
   const roots = new Set([".venv", "venv", ...all.filter((f) => basename(f) === "pyvenv.cfg").map((f) => dirname(f))]);
   const inVenvBin = (f: string): boolean => { for (let d = dirname(f); d !== "." && d !== "/"; d = dirname(d)) if ((basename(d) === "bin" || basename(d) === "Scripts") && roots.has(dirname(d))) return true; return false; };
   const out: Record<string, string> = {};
@@ -1005,9 +1297,8 @@ export function ignoreRuleChanges(repoDir: string, snap: unknown, baseSha?: stri
     }
     if (gi.size) notes.push(`ignore rules changed while the run was in progress: ${[...gi].slice(0, 20).join(", ")} was added or edited, so git may hide files the run created`);
     if (hidden.length) notes.push(`an ignored file that can change what verify runs or imports was added or changed during the run: ${hidden.slice(0, 20).join(", ")}${hidden.length > 20 ? ` (+${hidden.length - 20} more)` : ""}`);
-    const listIgnored = (): string[] => safeGit(repoDir, ["-c", "core.quotePath=false", "ls-files", "--others", "--ignored", "--exclude-standard", "-z"]).split("\0").filter((f) => f && !f.startsWith(".loki/"));
     if (notes.length === 0) return [];
-    const made = listIgnored().filter((f) => { try { const st = statSync(join(repoDir, f)); return Math.max(st.birthtimeMs, st.mtimeMs) >= s.at!; } catch { return false; } });
+    const made = listIgnoredFiles(repoDir).filter((f) => { try { const st = statSync(join(repoDir, f)); return Math.max(st.birthtimeMs, st.mtimeMs) >= s.at!; } catch { return false; } });
     if (made.length) notes.push(`ignored file created during the run, hidden from the diff and the receipt: ${made.slice(0, 20).join(", ")}${made.length > 20 ? ` (+${made.length - 20} more)` : ""}`);
     return notes;
   } catch { return ["ignore rules could not be compared with the intake snapshot: git failed"]; }
@@ -1219,9 +1510,27 @@ function buildFailedBeforeAnyTest(runner: RunnerName, raw: string): boolean {
     case "cargo": return /^error: could not compile `[^`]+`/m.test(out) && !/^running \d+ tests?\b/m.test(out) && !/^test result: /m.test(out);
     case "javac": return /^\S+\.java:\d+: error: /m.test(out) && !/^LOKI_JAVA_TESTS: /m.test(out);
     case "maven": return /COMPILATION ERROR|Compilation failure/.test(out) && !/Tests run:/.test(out);
+    case "dotnet": return dotnetBuildFailedBeforeAnyTest(out);
     case "gradle": return /Execution failed for task ':[\w:-]*compile\w*Java'/.test(out) && !/\d+ tests? completed/.test(out);
     default: return false;
   }
+}
+/** A jest/vitest/bun suite that never loaded because the Wall test's OWN relative import names a repo file that does not exist (the feature is absent on base) is red on base, the JS twin of nodeIsRed
+ *  and pytestCollectionIsRed. Red only when the output holds at least one load-error line and EVERY such line is of that shape (importer is the test file on a path boundary, specifier starts with ./ or ../, no file,
+ *  directory, extension probe, .js-to-.ts stem or index resolves for it); a bare package, another importer, or any other error stays not_run (fail-safe). */
+function missingRelativeImportIsRed(f: TestRef, raw: string, repoDir: string): boolean {
+  const out = stripAnsi(raw), hits: { spec: string; importer: string }[] = [];
+  for (const m of out.matchAll(/Failed to load url (\S+) \(resolved id: [^)]*\) in (\S+?)\.(?: Does the file exist\?|\s|$)/g)) hits.push({ spec: m[1]!, importer: m[2]! }); // vitest
+  for (const m of out.matchAll(/Cannot find module ['"]([^'"]+)['"] from ['"]([^'"]+)['"]/g)) hits.push({ spec: m[1]!, importer: m[2]! }); // jest and bun
+  if (hits.length === 0) return false;
+  const abs = resolve(repoDir, f.path);
+  return hits.every(({ spec, importer }) => {
+    if (!/^\.\.?(?:\/|$)/.test(spec) || !(abs === importer || abs.endsWith("/" + importer.replace(/^\.\//, "")) || importer.endsWith("/" + f.path) || importer === f.path)) return false;
+    const target = resolve(dirname(abs), spec.replace(/[?#].*$/, ""));
+    const stem = target.replace(/\.(?:jsx?|mjs|cjs)$/, ""); // a NodeNext "../src/x.js" names x.ts: a config failure, never an absent feature
+    if (existsSync(target) && statSync(target).isDirectory()) return false;
+    return ![target, stem].some((t) => ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".json"].some((x) => existsSync(t + x) && statSync(t + x).isFile())) && !["ts", "tsx", "js", "jsx", "mjs", "cjs"].some((x) => existsSync(join(target, `index.${x}`)));
+  });
 }
 export function classify(f: TestRef, status: number | null, output: string, repoDir: string, interpreter?: "project" | "system"): "pass" | "fail" | "not_run" {
   if (interpreter === "system") return "not_run";
@@ -1229,8 +1538,8 @@ export function classify(f: TestRef, status: number | null, output: string, repo
   if (status === null || status === 126 || status === 127) return "not_run"; if (status === 0) return f.runner !== "go" && classifyCheck({ kind: "test", ok: true, out: output, path: f.path }).result === "pass" ? "pass" : "not_run"; // go: a base pass is never uncorroborated here (corroboratePass runs where verify counts it) // FC-16: exit 0 with zero or unknown executed tests is not a pass
   if (f.runner === "unittest") return status === 1 && unittestCount(output, false) !== null ? (/unittest\.loader\._FailedTest|Failed to import test module/.test(output) ? (pytestCollectionIsRed(output, repoDir) ? "fail" : "not_run") : "fail") : "not_run"; // red only on a trusted FAILED trailer; a module that failed to import is red only when the missing name is the repo's own (pytestCollectionIsRed), else not_run, as for pytest
   if (f.runner === "pytest") return status === 1 ? (pytestExit1IsRed(output) ? "fail" : "not_run") : status === 2 ? (pytestCollectionIsRed(output, repoDir) ? "fail" : "not_run") : "not_run";
-  if (f.runner === "jest" || f.runner === "vitest" || f.runner === "bun") return parsedFailCount(f.runner, output) > 0 ? "fail" : "not_run";
-  if (f.runner === "maven" || f.runner === "gradle" || f.runner === "javac") { const j = javaSummary(output); return (j && j.failed > 0) || buildFailedBeforeAnyTest(f.runner, output) ? "fail" : "not_run"; } // HV1-03b: red only on a vouched summary that counts failures; a missing tool, no report or an unvouched report is not_run (verify's own exit-code path treats a compile error as fail, the safe direction)
+  if (f.runner === "jest" || f.runner === "vitest" || f.runner === "bun") return parsedFailCount(f.runner, output) > 0 || missingRelativeImportIsRed(f, output, repoDir) ? "fail" : "not_run";
+  if (f.runner === "maven" || f.runner === "gradle" || f.runner === "javac" || f.runner === "dotnet") { const j = javaSummary(output) ?? dotnetSummary(output); return (j && j.failed > 0) || buildFailedBeforeAnyTest(f.runner, output) ? "fail" : "not_run"; } // HV1-03b: red only on a vouched summary that counts failures; a missing tool, no report or an unvouched report is not_run (verify's own exit-code path treats a compile error as fail, the safe direction)
   if (f.runner === "go" || f.runner === "cargo") return readableFailIds(f.runner, output).length > 0 || buildFailedBeforeAnyTest(f.runner, output) ? "fail" : "not_run"; // red on a readable failing test id, or on a toolchain build failure before any test started (the feature the Wall names is absent on base); a panic outside a test or unparsed output stays not_run
   return f.runner === "node" && nodeIsRed(f, output) ? "fail" : "not_run"; // npm: coarse (B2), never a per-file red
 }
@@ -1270,15 +1579,17 @@ export function spawnGroupSync(cmd: string, args: string[], o: { cwd?: string; e
   try { return JSON.parse(r.stdout) as { status: number | null; output: string }; } catch { return { status: null, output: `${r.stdout ?? ""}\n${r.stderr ?? ""}` }; }
 }
 /** TEN-SPEED-19: async twin of the sync spawn used by RealBaseTestRunner: status is null on spawn error, signal or timeout; output is stdout and stderr merged by arrival. The child leads its own process group: SIGTERM at the timeout, then SIGKILL to the group 1s later, and the result resolves on exit plus a short drain grace, never waiting on a grandchild that holds the pipes. */
-export function spawnCollect(cmd: string, args: string[], o: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number }): Promise<{ status: number | null; output: string }> {
+export function spawnCollect(cmd: string, args: string[], o: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number; signal?: AbortSignal }): Promise<{ status: number | null; output: string }> {
   return new Promise((resolve) => {
     let out = "", err = "", error = false, done = false; const MAX = 1024 * 1024; // spawnSync parity: stdin EOF, default maxBuffer, "stdout\nstderr" join
     const timers: NodeJS.Timeout[] = [];
-    const fin = (status: number | null) => { if (!done) { done = true; timers.forEach(clearTimeout); killGroup(c.pid, "SIGKILL"); wd?.kill("SIGKILL"); resolve({ status: error ? null : status, output: `${out}\n${err}` }); } };
+    const fin = (status: number | null) => { if (!done) { done = true; timers.forEach(clearTimeout); o.signal?.removeEventListener("abort", abort); killGroup(c.pid, "SIGKILL"); wd?.kill("SIGKILL"); resolve({ status: error ? null : status, output: `${out}\n${err}` }); } };
     const c = spawn(cmd, args, { cwd: o.cwd, env: o.env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
     const wd = startWatchdog(c.pid);
     const term = () => { try { process.kill(-c.pid!, "SIGTERM"); } catch { c.kill("SIGTERM"); } };
     timers.push(setTimeout(() => { error = true; term(); timers.push(setTimeout(() => { killGroup(c.pid, "SIGKILL"); fin(null); }, 1000)); }, o.timeoutMs)); // spawn's own timeout would signal the direct child only
+    const abort = () => { error = true; term(); timers.push(setTimeout(() => { killGroup(c.pid, "SIGKILL"); fin(null); }, 1000)); }; // an aborted stage ends the whole group like the timeout does, never only the direct child
+    if (o.signal?.aborted) abort(); else o.signal?.addEventListener("abort", abort, { once: true });
     const over = () => { if (out.length > MAX || err.length > MAX) { error = true; killGroup(c.pid, "SIGKILL"); } };
     c.stdout?.on("data", (d) => { out += d; over(); }); c.stderr?.on("data", (d) => { err += d; over(); });
     c.on("error", () => { error = true; fin(null); }); c.on("close", (code, sig) => fin(sig ? null : code));
@@ -1301,6 +1612,7 @@ export function goTestNames(file: string): string[] {
 // Command shapes exactly as ENGINE.md section 8's table names them per runner (npm/cargo are
 // "coarse": no per-file selection; go runs per package dir, also coarse below that grain).
 export function runnerCmd(t: TestRef, repoDir: string): [string, string[], Interpreter?] {
+  const own = BUILD_TOOL_RUNNERS.has(t.runner) ? repoTestCommand(repoDir) : null; if (own) return ["bash", ["-c", own]]; // R02: the repo's committed verify.test_command
   switch (t.runner) {
     case "pytest": {
       const [cmd, interpreter, pre] = resolveTool(repoDir, "python", "python3", "python");
@@ -1317,8 +1629,9 @@ export function runnerCmd(t: TestRef, repoDir: string): [string, string[], Inter
     case "npm": return ["npm", ["test", "--silent"]];
     case "go": { const names = goTestNames(join(repoDir, t.path)); return ["go", ["test", "-json", ...(names.length ? ["-run", `^(${names.join("|")})$`] : []), `./${dirname(t.path)}`]]; } // one file: only its own Test functions
     case "maven": { const j = javaTestClass(t.path); return [wrapperOr(repoDir, "mvnw", "mvn"), ["-B", "test", `-Dtest=${j.cls.split(".").pop()}`, "-Dsurefire.failIfNoSpecifiedTests=false", "-DfailIfNoTests=false"]]; }
-    case "gradle": { const j = javaTestClass(t.path); return [wrapperOr(repoDir, "gradlew", "gradle"), ["cleanTest", "test", "--tests", j.cls, "-i", "--console=plain"]]; } // cleanTest: an up-to-date test task would run nothing
+    case "gradle": { const j = javaTestClass(t.path); return [wrapperOr(repoDir, "gradlew", "gradle"), ["cleanTest", "test", "--tests", j.cls, "-i", "--console=plain", "-I", gradleInitScript()]]; } // R02: -I turns on per-test PASSED lines; cleanTest: an up-to-date test task would run nothing
     case "javac": { const j = javaTestClass(t.path); return ["bash", ["-c", JAVAC_WRAPPER, "loki-javac", j.root, j.cls, j.rel]]; }
+    case "dotnet": return dotnetTestCmd(repoDir, t.path);
     case "cargo": return CARGO_TEST_FILE_RE.test(t.path) ? ["cargo", ["test", "--test", basename(t.path, ".rs")]] : ["cargo", ["test"]]; // a Wall-sealed tests/<name>.rs runs by itself
   }
 }
@@ -1334,10 +1647,14 @@ const FULL_SUITE_STATIC: Record<Exclude<RunnerName, "pytest" | "unittest">, { cm
   maven: { cmd: "mvn", args: ["-B", "test"] },
   gradle: { cmd: "gradle", args: ["cleanTest", "test", "-i", "--console=plain"] },
   javac: { cmd: "bash", args: ["-c", JAVAC_WRAPPER, "loki-javac", ".", "-"] },
+  dotnet: { cmd: "dotnet", args: ["test"] }, // the real target comes from fullSuiteCmd (dotnetFullCmd)
 };
+const BUILD_TOOL_RUNNERS: ReadonlySet<RunnerName> = new Set(["maven", "gradle", "javac", "dotnet"]);
 /** FC-FULL-SUITE-IGNORES-PROJECT-INTERPRETER: the one full-suite command per runner. pytest resolves its interpreter exactly as a per-test run does (resolveTool: project .venv, else python3), never a bare `python` that python3-only hosts lack. */
 export function fullSuiteCmd(runner: RunnerName, repoDir: string): { cmd: string; args: string[]; interpreter?: Interpreter } {
-  if (runner === "maven" || runner === "gradle") { const s = FULL_SUITE_STATIC[runner]; return { ...s, cmd: wrapperOr(repoDir, runner === "maven" ? "mvnw" : "gradlew", s.cmd) }; }
+  const own = BUILD_TOOL_RUNNERS.has(runner) ? repoTestCommand(repoDir) : null; if (own) return { cmd: "bash", args: ["-c", own] };
+  if (runner === "maven" || runner === "gradle") { const s = FULL_SUITE_STATIC[runner]; return { ...s, cmd: wrapperOr(repoDir, runner === "maven" ? "mvnw" : "gradlew", s.cmd), ...(runner === "gradle" ? { args: [...s.args, "-I", gradleInitScript()] } : {}) }; }
+  if (runner === "dotnet") return dotnetFullCmd(repoDir);
   if (runner !== "pytest" && runner !== "unittest") return FULL_SUITE_STATIC[runner];
   const [cmd, interpreter, pre] = resolveTool(repoDir, "python", "python3", "python");
   return { cmd, args: [...pre, ...(runner === "unittest" ? UNITTEST_DISCOVER_ARGS : ["-m", "pytest", "-q"])], ...(runner === "unittest" && interpreter === "system" ? {} : { interpreter }) };
@@ -1345,8 +1662,15 @@ export function fullSuiteCmd(runner: RunnerName, repoDir: string): { cmd: string
 /** FC-01: the one resolver for a test invocation: a package-owned file runs in its package dir with a package-relative path, else exactly runnerCmd at the root. */
 export function commandFor(t: TestRef, repoDir: string, api?: ProjectApi | null): { cwd: string; cmd: string; args: string[]; argv: string[]; interpreter?: Interpreter; pkgRoot: string } {
   const site = siteFor(api, repoDir, t.path);
-  const [cmd, args, interpreter] = runnerCmd(site ? { runner: t.runner, path: site.file } : t, repoDir);
-  return { cwd: site?.cwd ?? repoDir, cmd, args, argv: [cmd, ...args], ...(interpreter ? { interpreter } : {}), pkgRoot: site?.root ?? "." };
+  const base = site?.cwd ?? repoDir, rel = site?.file ?? t.path, mod = t.runner === "go" ? goModDir(base, rel) : base; // go resolves the module from the cwd: a go.mod below the base needs the run to start there
+  const [cmd, args, interpreter] = runnerCmd(mod === base ? (site ? { runner: t.runner, path: site.file } : t) : { runner: t.runner, path: relative(mod, join(base, rel)) }, mod === base ? repoDir : mod);
+  return { cwd: mod === base ? base : mod, cmd, args, argv: [cmd, ...args], ...(interpreter ? { interpreter } : {}), pkgRoot: mod === base ? site?.root ?? "." : relative(repoDir, mod) || "." };
+}
+/** The directory of the nearest go.mod at or above the test file, never above `base`; `base` itself when none is found below it (a root go.mod keeps the legacy run from the root). */
+function goModDir(base: string, rel: string): string {
+  let d = dirname(join(base, rel));
+  while (d !== base && relative(base, d) !== "" && !relative(base, d).startsWith("..")) { if (existsSync(join(d, "go.mod"))) return d; d = dirname(d); }
+  return base;
 }
 export function firstError(out: string): string { // the line naming the failing test, minus what varies between identical failures (A-113 stall signature)
   const goOut = (l: string): string => { try { const e = JSON.parse(l) as { Action?: string; Output?: string }; return typeof e.Action === "string" ? (e.Action === "output" || e.Action === "build-output" ? (e.Output ?? "") : "") : l; } catch { return l; } }; // Go json event stream: the failing line is inside the event's Output

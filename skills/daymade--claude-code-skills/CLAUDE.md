@@ -70,7 +70,8 @@ Its verification reference owns dual-entry reconciliation and native-host readba
 keep the detailed procedure there.
 For a valid check that emits warnings, follow its
 [warning interpretation](daymade-skill/skill-creator/references/knowledge-skill-grounding.md#interpret-validation-warnings).
-For local/remote ASR selection, speed comparison and speech-content acceptance, enter
+For course/original-video uploads, ASR input preparation, local/remote ASR selection,
+speed comparison and speech-content acceptance, enter
 [asr-transcribe-to-text](daymade-audio/asr-transcribe-to-text/SKILL.md) and its
 [execution SOP](daymade-audio/asr-transcribe-to-text/references/execution_location_and_comparison.md).
 For Scrapling browser-cache diagnosis, follow
@@ -128,13 +129,20 @@ For next-increment selection after that reconciliation or a completed repair bat
 [increment-selection contract](app-evolver/references/evidence-and-fit.md#make-the-disposition-operational).
 When feedback questions navigation, information hierarchy or interface coherence, use its
 [structure comparison](app-evolver/references/evidence-and-fit.md#reconsider-interface-structure).
+For a distinctive redesign around reference-bound source content, use its
+[whole-task design example](app-evolver/references/evidence-and-fit.md#example-carry-a-review-slip-through-the-whole-task).
 For discovery-task changes, follow its [task-pivot and return-context cases](app-evolver/references/implementation-and-acceptance.md#task-pivots-and-return-context).
+For work becoming eligible after prerequisites arrive, use its
+[lifecycle acceptance](app-evolver/references/implementation-and-acceptance.md#protect-the-lifecycle).
 
 For permission-sensitive fixtures, use Skill Creator's
 [execution-context verification recipe](daymade-skill/skill-creator/references/stateful-script-verification.md#execution-identity-and-permission-fixtures).
+For resumable writes to human-edited state, use its
+[interrupted-write controls](daymade-skill/skill-creator/references/stateful-script-verification.md#interrupted-writes-and-later-human-changes).
 
 For its audit, release, source-contract or materialization commands from another
 working directory, use the [fixed command entry](daymade-skill/skill-creator/references/fixed-command-entry.md).
+For security scans, use its [absolute owner-script recipe](daymade-skill/skill-creator/references/publishing-and-packaging.md#step-6-security-review).
 
 Before a command that may exceed the response budget, enter Skill Creator's
 [large-output capture recipe](daymade-skill/skill-creator/references/stateful-script-verification.md#large-command-output).
@@ -286,8 +294,10 @@ Before measuring loading speed, read its
 [cache and timing comparison](frontend-visual-qa/references/browser-driving-and-observation-traps.md#separate-freshness-checks-from-performance-comparisons).
 For build reuse across source refs or a target redeployed during acceptance, load its
 [delivery verification procedure](frontend-visual-qa/references/delivery-verification.md).
-For nested zoomable workspaces, use its
+For changed asynchronous loading or saving, or nested zoomable workspaces, use its
 [journey and state matrix](frontend-visual-qa/references/journey-and-page-contracts.md#journey-and-state-matrix).
+For save or confirmation controls replaced by a result, follow its
+[action-target transition check](frontend-visual-qa/references/journey-and-page-contracts.md#action-targets-after-confirmation).
 For repeated journey positions or measured wheel sensitivity, use its
 [route contract](frontend-visual-qa/references/journey-and-page-contracts.md#route-and-addressability)
 and [received-input recipe](frontend-visual-qa/references/browser-driving-and-observation-traps.md#wheel-requests-are-not-browser-received-wheel-events).
@@ -325,10 +335,14 @@ and verification details there.
 
 ### Visible permission and Keychain dialogs
 
-For a visible permission or Keychain dialog, enter
+For a visible permission dialog or Keychain access failure, enter
 [macos-permissions' observation and classification route](daymade-macos/macos-permissions/SKILL.md#observe-and-classify-the-reported-problem-first).
 For an authorized desktop view, use
 [capture-screen's full-screen observation route](daymade-macos/capture-screen/SKILL.md#observe-an-unidentified-dialog-or-the-full-desktop).
+For already-authorized Keychain recovery, follow
+[authorized credential-owner recovery](daymade-macos/macos-permissions/references/keychain-dialog-recovery.md#recover-through-an-authorized-credential-owner).
+For application-specific recurring prompts, follow
+[the credential-backend boundary](daymade-macos/macos-permissions/references/keychain-dialog-recovery.md#distinguish-application-credential-storage-from-permission-repair).
 Keep detailed diagnosis and cancellation procedures with those Skills.
 
 ### Background protected-data access
@@ -489,6 +503,11 @@ Context-veto CLI regressions live in
 To find an existing Feishu recording by date, enter
 [lark-cli-router's recording lookup](daymade-claude-code/lark-cli-router/SKILL.md#find-an-existing-recording-by-date).
 
+### Feishu Document Layout
+
+For updates that preserve manual formatting or change table/page width, enter
+[lark-cli-router's layout workflow](daymade-claude-code/lark-cli-router/SKILL.md#preserve-document-layout).
+
 ### Feishu Document Capture
 
 For Feishu document reads and archives, enter
@@ -582,7 +601,7 @@ for candidate selection and commands; keep the detailed rules in those owners.
 For local transport selection or accepted/consumed delivery interpretation, enter
 [peer-message](peer-message/SKILL.md). For independent sessions, enter the
 [local coordination workflow](peer-message/references/local-coordination.md#原生跨会话通信)
-before sending. Use its routing guidance for uncovered local targets
+before sending, including complete prepared-envelope size checks and parent-request expiry at send time. Use its routing guidance for uncovered local targets
 or coordination evidence that needs verification, never to bypass denied or Held messages.
 Treat `peer-message/scripts/peer.py` as the fallback CLI executable
 contract, [codex_live.py](peer-message/scripts/codex_live.py) as its Codex live adapter,
@@ -782,8 +801,11 @@ scope through `git-safety-net`. For branch publication and PR creation, follow
 before the first push. Keep its policy preflight, pinned source and remote readback
 in that owner rather than maintaining another push example here.
 
-For recovery or repository convergence under concurrent work, enter
-[git-safety-net](git-safety-net/SKILL.md).
+For task closeout, enter
+[git-safety-net's Outcome contract](git-safety-net/SKILL.md#outcome-contract--keep-the-safety-net-subordinate-to-the-users-job).
+Use this entry for recovery or repository convergence under concurrent work.
+For a failed fast-forward or a partly synchronized checkout, use its
+[guarded checkout recovery procedure](git-safety-net/references/prevention_practices.md#guarded-checkout-recovery).
 For local snapshot failures involving an index lock or commit-hook refusal, use its
 [snapshot recovery procedure](git-safety-net/references/recovery_playbook.md#blocked-local-snapshots).
 For Tibo's application retry and acceptance, follow
@@ -810,8 +832,12 @@ Before diagnosing conflicts or differing local and hosted merge results, use its
 [fresh-base verification](github-ops/references/pr_operations.md#fresh-base-verification).
 When the same verified objects still yield different local and hosted results, use
 [the merge-semantics diagnostic](github-review-pr/SKILL.md#when-local-and-hosted-merge-results-disagree).
-Before a merge or selecting `--auto`, enter its
-[merge preflight](github-ops/references/pr_operations.md#merging-prs).
+When individual approvals disagree with effective merge requirements, use
+[the landing diagnosis](github-review-pr/references/remediation_and_landing.md#merge-with-the-reviewed-head-guard).
+For archive/ingestion repair publication, enter
+[the repair and publication preflight](github-review-pr/references/remediation_and_landing.md#prepare-an-isolated-repair-environment).
+For direct, queued or separately authorized bypass merges and landed-rule readback,
+follow the [checked-merge workflow](github-ops/references/pr_operations.md#merging-prs).
 For hosted-state writes through `gh`, follow its
 [identity, host and target binding](github-ops/SKILL.md#2-bind-identity-host-and-target)
 before using an operation recipe. For historical account or connector attribution,

@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **prior-work-retrieval** (`daymade-claude-code` v4.33.21 → v4.33.22): Keep explicitly timestamped current execution deadlines out of historical retrieval; preserve mixed artifact requests and existing obligations. Change type: bounded prompt-classification repair.
+
+- **git-safety-net** (v1.24.5 → v1.24.6): Correct interrupted fast-forward and published-copy recovery to use the project's verified guarded synchronization procedure, preserve WIP, and verify HEAD, index and working-tree state. Remove obsolete hand-reversion advice and derived prose counts. Change type: factual SOP correction.
+- **qa-expert** (v1.2.10 → v1.2.11): Exercise retained-session permission grants, revocations, unknown refreshes and late responses across upgrade/identity boundaries; verify runtime authorization with allowed and denied controls. Change type: bounded acceptance guidance.
+- **frontend-visual-qa** (v1.21.34 → v1.21.35): Calibrate transient feedback observation inside native/hybrid delivery builds, separate native evidence from DOM/console coverage and retain healthy and failing controls. Change type: bounded observation guidance.
+
+- **local-codex** (`daymade-codex` v2.3.1 → v2.4.0): Preserve authorized shared-daemon maintenance, durable replacement receipts and original-session continuation checks; distinguish official updates, pinned packages and Goal recovery. Change type: bounded lifecycle capability.
+- **github-ops** (v1.15.1 → v1.15.2): Recognize gh's empty required-check response while preserving independent ruleset and legacy protection checks. Change type: deterministic implementation repair.
+
+- **skill-creator** (`daymade-skill` v1.74.9 → v1.74.10): Bind security-scan recipes and help to the loaded creator's absolute script and locked project so unrelated working directories cannot redirect module discovery. Preserve scan behavior and marker validation. Change type: authoritative invocation correction.
+
+- **git-safety-net** (v1.24.4 → v1.24.5): Route task closeout to the canonical authority contract and replace repeated authority text with direct section links. Remove derived counts and an unsupported duration estimate. Change type: lossless compression and factual documentation alignment.
+- **peer-message** (v1.24.6 → v1.24.7): Align native-send SOP with complete prepared-envelope limits and linked request expiry; preserve exact-body, known-unsent reconciliation and unknown-result readback. Change type: authoritative factual correction.
+
+- **git-safety-net** (v1.24.3 → v1.24.4): Honor existing task-specific and standing cleanup authorization without requiring a separate task or renewed approval. Preserve object-specific scope, fresh safety evidence and retained-work protections. Change type: authorization-boundary correction.
+
+- **tibo-reset-codex** (v2.8.0 → v2.8.1): Add live-session rules for overdue-event convergence before same-type re-digging, numbered delivery posts as confirmation-plus-remaining-count signals, third-party event-list gaps never serving as negative evidence, and event-level settlement rebinding to any pre-window baseline account. Change type: bounded monitoring judgment additions.
+
+- **frontend-visual-qa** (v1.21.33 → v1.21.34): Exercise requests that never settle, separating missing headers from incomplete response bodies. Verify visible recovery, uncertain-write readback and late-response isolation without prescribing a universal timeout. Change type: bounded journey-acceptance guidance.
+- **app-evolver** (v1.1.12 → v1.1.13): Add a synthetic late-prerequisite recovery example through the ordinary entry, preserving original identity, saved work and admission boundaries. Change type: bounded lifecycle-acceptance example.
+- **frontend-visual-qa** (v1.21.32 → v1.21.33): Align transient observation with safe action/recovery boundaries, remove the coordinate example's persisted arithmetic result, and route repository instructions to confirmation checks and the existing whole-task design example. Change type: bounded SOP alignment.
+
+- **app-evolver** (v1.1.11 → v1.1.12): Add a synthetic review-slip journey showing reference fidelity boundaries and continuity from judgment through saved work and contribution receipts. Keep visual choices application-specific. Change type: bounded design example.
+- **frontend-visual-qa** (v1.21.31 → v1.21.32): Check confirmation transitions with a stationary pointer and distinguish changed hit targets from decoration. Separate viewport movement, document scrolling and entrance transforms without prescribing a universal displacement threshold. Change type: bounded interaction-acceptance guidance.
+- **macos-permissions** (`daymade-macos` v1.26.12 → v1.26.13): Separate supported application credential-backend recovery from Keychain/TCC repair and require each affected service's fresh-consumer operation. Remove a derived state count. Change type: bounded recovery guidance.
+
+
+- **github-ops** (v1.15.0 → v1.15.1): Route API-reference merges to the checked workflow, expand the reviewed-head variable and scope PR mutation examples explicitly. Distinguish commit statuses from Check Runs and align project instruction routes with approval diagnosis, archive preflight and landed-rule verification. Change type: documentation alignment with the existing merge contract.
+- **kimi-use** (v1.8.2 → v1.8.3): Keep generic desktop execution separate from Kimi.app plugin checks. Bind recipes to the current tool contract, separate client refusal from user or OS attribution, and require observed retry prerequisites and target-result readback. Scope historical successes and keep local route failures distinct from task-wide unavailability. Change type: bounded desktop evidence and recovery guidance.
+
+- **github-ops** (v1.14.16 → v1.15.0): Keep PR merge mutations on the policy-aware CLI, bind the exact reviewed head, and require a separate target-bound acknowledgement plus verified required CI for authorized bypass. Preserve API reads and unrelated operations. Change type: merge-safety boundary repair.
+- **github-review-pr** (v1.4.6 → v1.4.7): Separate individual reviews from effective approval requirements, inspect exact-landing rule evaluations, and enter the repository's complete archive-publication preflight before publishing exception batches. Change type: bounded diagnostic and release guidance.
+
+- **frontend-visual-qa** (v1.21.30 → v1.21.31): Inspect expressive feedback from pre-trigger observation through the stable outcome; check save truth, replay prevention and reduced-motion acknowledgment. Keep correctness claims and subjective approval tied to their actual evidence. Change type: bounded lifecycle acceptance guidance.
+
+- **report-with-html** (v1.4.7 → v1.4.8): Add an edition-comparison reading recipe with paired source evidence and full-text inspection; cover reading-position recovery after long expanded text is filtered. Preserve source-verification ownership and existing review scope. Change type: bounded evidence-presentation guidance.
+
+- **asr-transcribe-to-text** (`daymade-audio` v1.54.2 → v1.54.3): Preserve original course videos, picture, audio and playback speed during Feishu uploads; bypass audio extraction and quota-saving preprocessing, retain media selection after transfer errors, and verify the resulting video. Change type: bounded media-selection correction.
+
+- **lark-cli-router** (`daymade-claude-code` v4.33.20 → v4.33.21): Add conditional document-layout guidance separating body content, shared table widths and personal page width; preserve existing geometry, verify the actual reading surface and retain permission boundaries. Change type: bounded preservation guidance.
+- **skill-creator** (`daymade-skill` v1.74.8 → v1.74.9): Add interrupted-write verification controls for lost replies, later human edits and returns to baseline values, with exact-state recovery and no-duplicate-effect observations. Change type: bounded recovery-test guidance.
+
+- **prior-work-retrieval** (`daymade-claude-code` v4.33.19 → v4.33.20): Keep current lease-return instructions out of history retrieval while preserving adjacent recall requests; recognize explicit Chinese requests for conversation-history context. Change type: bounded prompt-classification repair.
+- **github-ops** (v1.14.15 → v1.14.16): Advertise existing self-hosted Runner inventory/capacity in Skill metadata; preserve operations, permissions and monitoring boundaries. Change type: factual discovery correction.
 - **claude-code-hooks** (`daymade-claude-code` v4.33.18 → v4.33.19): Add an owner-bound regression template for shared rule refresh/disable, deadline failure direction and recoverable lifecycle transitions. Preserve host protocols, independent waits and scoped rollback. Change type: bounded regression guidance.
 - **frontend-visual-qa** (v1.21.29 → v1.21.30): Verify nonblocking diagnostics across explicit disclosure, live data refresh and navigation remounts; preserve visible uncertainty, primary work and selected-task recovery. Change type: bounded lifecycle acceptance guidance.
 

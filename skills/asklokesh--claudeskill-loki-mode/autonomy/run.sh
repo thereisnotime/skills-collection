@@ -2004,10 +2004,11 @@ _loki_surface_why_hint() {
 }
 
 # _loki_restore_base_branch (FC-EMPTY-RUN-BRANCH-LEFT-CHECKED-OUT, legacy sibling
-# of engine10 dropEmptyRunBranch): when a session ended non-zero and its branch
+# of engine10 finishRunBranch): when a session ended non-zero and its branch
 # tip is still the recorded start commit, nothing was committed. Put the checkout
-# back on the starting branch and delete that empty session branch. Same rule as
-# the engine10 side: a branch with any commit is never touched, a dirty tracked
+# back on the starting branch and delete that empty session branch. Narrower than
+# the engine10 side, which also bundles a branch with commits into .loki/runs/
+# before removing it: here a branch with any commit is never touched, a dirty tracked
 # tree keeps the branch and prints the way back, and a stop signal (130, 143) is
 # left alone because the cleanup trap owns it. Best-effort, never changes the
 # exit code.
@@ -26668,13 +26669,15 @@ if __name__ == "__main__":
             codex)
                 # Codex: Degraded mode - no stream-json, no agent tracking
                 # Uses positional prompt after exec subcommand
-                # Note: Effort is set via env var, not CLI flag
+                # Effort is passed as `-c model_reasoning_effort=<level>`; codex does not read the env vars below
                 # Uses dynamic tier from RARV phase (tier_param already set above)
                 local _loki_codex_effort="$tier_param"
                 if loki_is_supervised_simple_web; then
                     _loki_codex_effort="${LOKI_DRAFT_EFFORT:-medium}"
                 fi
                 local -a _loki_codex_pipe_status=()
+                local -a _loki_codex_effort_flag=()
+                [ -n "$_loki_codex_effort" ] && _loki_codex_effort_flag=(-c "model_reasoning_effort=${_loki_codex_effort}")
                 LOKI_CODEX_REASONING_EFFORT="$_loki_codex_effort" \
                 CODEX_MODEL_REASONING_EFFORT="$_loki_codex_effort" \
                 # Stamp BEFORE the call: the usage reader bounds its rollout
@@ -26685,6 +26688,7 @@ if __name__ == "__main__":
                 LOKI_DEADLINE_IDLE_TIMEOUT="${LOKI_PROVIDER_IDLE_TIMEOUT:-0}" \
                 _loki_with_deadline "${LOKI_PROVIDER_CALL_TIMEOUT:-0}" \
                 codex exec --sandbox workspace-write --skip-git-repo-check \
+                    "${_loki_codex_effort_flag[@]+"${_loki_codex_effort_flag[@]}"}" \
                     "$prompt" 2>&1 | tee -a "$log_file" "$agent_log" "$iter_output"
                 _loki_codex_pipe_status=("${PIPESTATUS[@]}")
                 exit_code="$(_loki_provider_pipeline_exit_code \
@@ -29071,7 +29075,11 @@ _loki_remove_pgid_file() {
 _loki_session_exit_cleanup() {
     local exit_code=$?
     _loki_terminal_record 2>/dev/null || true
+    # Only the process that armed the trap releases the session lock: an EXIT
+    # trap also fires in SUBSHELLS ($$ is stable there, BASHPID is not), and a
+    # subshell exiting must not release the live parent's lock.
     if [ -n "${_LOKI_SESSION_LOCK_FILE:-}" ] \
+       && [ "${BASHPID:-$$}" = "${_LOKI_SESSION_LOCK_OWNER:-$$}" ] \
        && type safe_release_lock >/dev/null 2>&1; then
         safe_release_lock "$_LOKI_SESSION_LOCK_FILE" 2>/dev/null || true
     fi
@@ -29096,6 +29104,7 @@ _loki_session_exit_cleanup() {
 
 _loki_arm_session_exit_cleanup() {
     _LOKI_SESSION_LOCK_FILE="${1:-}"
+    _LOKI_SESSION_LOCK_OWNER="${BASHPID:-$$}"
     trap '_loki_session_exit_cleanup' EXIT
 }
 
@@ -29128,6 +29137,14 @@ with os.fdopen(fd, 'w') as handle:
     json.dump(record, handle, sort_keys=True)
 os.replace(tmp, path)
 " 2>/dev/null || true
+}
+
+# Activation funnel (legacy route): a run ended by a signal or STOP file still
+# finished. Detached and best-effort, like the normal run end in main().
+_loki_activation_run_finished() {
+    if declare -f loki_emit_activation >/dev/null 2>&1; then
+        ( loki_emit_activation first_run_finished >/dev/null 2>&1 </dev/null & ) 2>/dev/null || true
+    fi
 }
 
 cleanup() {
@@ -29245,6 +29262,7 @@ except (json.JSONDecodeError, OSError): pass
         else
             log_info "Session stopped."
         fi
+        _loki_activation_run_finished
         exit "$final_exit_code"
     fi
 
@@ -29298,6 +29316,7 @@ except (json.JSONDecodeError, OSError): pass
         save_state ${RETRY_COUNT:-0} "interrupted" 130
         emit_event_json "session_end" "result=130" "reason=interrupted"
         log_info "State saved. Run again to resume."
+        _loki_activation_run_finished
         exit 130
     fi
 
@@ -30072,9 +30091,7 @@ main() {
 
     # Activation funnel (legacy route): the run ended, whatever the outcome.
     # first_verified is sent by loki_emit_build_verified on a VERIFIED proof.
-    if declare -f loki_emit_activation >/dev/null 2>&1; then
-        ( loki_emit_activation first_run_finished >/dev/null 2>&1 </dev/null & ) 2>/dev/null || true
-    fi
+    _loki_activation_run_finished
 
     # Final GitHub sync: sync all completed tasks and create PR (v5.41.0)
     sync_github_completed_tasks

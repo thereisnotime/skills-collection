@@ -2,6 +2,7 @@
 // sealed under <runDir>/wall/ (sha256 each); wall.sealed before Implement; clean base-tree pass short-circuits to already_satisfied. E-64: skipped outright on the small-task lean path (plan.ts logs the same decision).
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { goPackagePath } from "../../runner/repo_profile.ts";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { type RunContext, type RunnerName, type Stage, type StageResult, type TestMap, type TestRef, taskBlock } from "../types.ts";
 import { clauseDroppedNote, extractClauses, untaggedClauses, type ClauseSet } from "../../util/spec_file.ts";
@@ -11,42 +12,45 @@ import { withStagePrefix } from "../../features/lean_prefix.ts";
 import { RUNNER_HINT, wallManifestFor } from "../../e10ext/wall_hints.ts";
 import { hasRelevantTests, isTinyGreenfield, WALL_TINY_BOUND, loadRepoMap, namedFiles, planMode, repoMapText, sizeTask, smallTaskPath, wallEnabled, wallFirstModel, wallLimitS, wallOutputCap, wallModel, capToRunTier } from "../sizing.ts";
 import { sha256, wallGreenOnBaseOf } from "./seal.ts"; import { publishSealed, removeHoldout, sealStageDir, stashHoldout, wallHoldoutRatio } from "../../util/holdout.ts";
-import { clauseEvidenceBlock, evidenceOf, ingestWallCases, wallCasesBrief, wallCasesRunner, withUnreproducedEvidence, type WallEvidence } from "../../util/wall_cases.ts"; import { commandFor } from "./verify.ts"; import { guessRunner, harnessRunners, missingJavaTool, projectInterpreter } from "../testmap.ts";
+import { clauseEvidenceBlock, evidenceOf, ingestWallCases, wallCasesBrief, wallCasesRunner, withUnreproducedEvidence, type WallEvidence } from "../../util/wall_cases.ts"; import { commandFor } from "./verify.ts"; import { guessRunner, harnessRunners, missingStackTool, projectInterpreter, type EngineTestMap } from "../testmap.ts";
 import type { ProjectApi } from "../../project_model/api.ts"; import { loadProjectApi } from "../../project_model/resolve.ts";
-import { sealedWallDir, baseJobs, classify, corroboratePass, corroborateGoPassSync, goRunner, harnessSkipCode, classifyCheck, mapPool, NO_RUNNER_REASON, notRunReason, plainTestEnv, spawnCollect, spawnGroupSync, stripAnsi } from "../../util/check_result.ts";
-import { conventionViolation, conventionsBrief, outOfRepoReask, outOfRepoTarget, phantomReason, phantomRepoPaths, readPackageConventions, vacuousCheck } from "../../project_model/conventions.ts"; // FC-23
+import { sealedWallDir, baseJobs, classify, plannedGoDir, goPackageBrief, corroboratePass, corroborateGoPassSync, goRunner, harnessSkipCode, classifyCheck, mapPool, NO_RUNNER_REASON, notRunReason, plainTestEnv, spawnCollect, spawnGroupSync, stripAnsi } from "../../util/check_result.ts";
+import { conventionViolation, conventionsBrief, dotenvFileRead, outOfRepoReask, outOfRepoTarget, phantomReason, phantomRepoPaths, readPackageConventions, vacuousCheck } from "../../project_model/conventions.ts"; // FC-23
 
+import { dotnetTestProject } from "../../util/stack_tools.ts";
 const WALL_PREFIX = "loki_wall_";
 
 export interface WallSealedFile { path: string; sha256: string; runner?: RunnerName; } // path: absolute, in the repo working tree
 
 // Runs the sealed Wall tests on the base tree; local since types.ts has no "execute tests" contract yet. not_run (D42 (3)): no real result; counts toward neither pass nor fail. Optional for pre-D42(3) fakes.
-export interface BaseTestRunner { run(repoDir: string, files: TestRef[]): { pass: number; fail: number; not_run?: number }; /** FC-69: why each not_run file of the LAST run was not executed */ lastNotRunFiles?: { file: string; reason: string }[]; /** TEN-SPEED-19: one result per file, input order, at most `jobs` processes at once */ runEach?(repoDir: string, files: TestRef[], jobs: number, corroborate?: boolean): Promise<BaseEachResult[]>; }
+/** interpreter: "system" is set by the base runner itself when the file ran under the system interpreter, so no caller keys a decision on the reason wording */
+export interface NotRunRow { file: string; reason: string; interpreter?: "system"; }
+export interface BaseTestRunner { run(repoDir: string, files: TestRef[]): { pass: number; fail: number; not_run?: number }; /** FC-69: why each not_run file of the LAST run was not executed */ lastNotRunFiles?: NotRunRow[]; /** TEN-SPEED-19: one result per file, input order, at most `jobs` processes at once */ runEach?(repoDir: string, files: TestRef[], jobs: number, corroborate?: boolean): Promise<BaseEachResult[]>; }
 export const BASE_RUN_TIMEOUT_MS = 60_000; // same per-check budget as verify.ts's CHECK_TIMEOUT_MS
 export { sealedWallCopy, sealedWallDir } from "../../util/check_result.ts";
 export { classify, notRunReason, pytestCollectionIsRed } from "../../util/check_result.ts"; // moved to util/check_result.ts (core line budget)
 // One process per file, through verify's own interpreter resolution (E-98a) so a missing `python` is never misread as a failing test. env is explicit, matching verify.ts's runOnce (its default PATH lookup can otherwise resolve a
 // snapshot from process start, not the live env).
 export class RealBaseTestRunner implements BaseTestRunner {
-  lastNotRunFiles: { file: string; reason: string }[] = [];
+  lastNotRunFiles: NotRunRow[] = [];
   constructor(private readonly api?: ProjectApi | null, private readonly timeoutMs: number = BASE_RUN_TIMEOUT_MS, private readonly extraEnv: Record<string, string> = {}) {} // FC-01: undefined = load the repo's cached Project Model per run
   run(repoDir: string, files: TestRef[]): { pass: number; fail: number; not_run: number } {
     this.lastNotRunFiles = [];
-    let pass = 0, fail = 0, not_run = 0; const not_run_files: { file: string; reason: string }[] = []; const api = this.api === undefined ? loadProjectApi(repoDir) : this.api; for (const f of files) {
+    let pass = 0, fail = 0, not_run = 0; const not_run_files: NotRunRow[] = []; const api = this.api === undefined ? loadProjectApi(repoDir) : this.api; for (const f of files) {
       const { cmd, args, interpreter, cwd } = commandFor(f, repoDir, api);
       const r = spawnGroupSync(cmd, f.runner === "pytest" ? [...args, "-rfE"] : args, { cwd, timeoutMs: Math.max(1000, this.timeoutMs), env: { ...plainTestEnv(), ...this.extraEnv } }); // FC-69: plain env in, ANSI stripped out; group-kill launcher reaps a grandchild runner
       const status = r.status, out = stripAnsi(r.output), base = classify(f, status, out, repoDir, interpreter);
       const result = base === "not_run" && status === 0 && f.runner === "go" && interpreter !== "system" && corroborateGoPassSync(classifyCheck({ kind: "test", ok: true, out, ...goRunner(cmd, args) }), out, cmd, args.filter((a, k) => a !== "-run" && args[k - 1] !== "-run"), { cwd, env: plainTestEnv() }).result === "pass" ? "pass" : base; // same Go exit 0 corroboration as runEach, synchronous
-      if (result === "pass") pass++; else if (result === "fail") fail++; else { not_run++; not_run_files.push({ file: f.path, reason: notRunReason(status, interpreter) }); }
+      if (result === "pass") pass++; else if (result === "fail") fail++; else { not_run++; not_run_files.push({ file: f.path, reason: notRunReason(status, interpreter), ...(interpreter === "system" ? { interpreter } : {}) }); }
     }
     this.lastNotRunFiles = not_run_files; return { pass, fail, not_run };
   }
   async runEach(repoDir: string, files: TestRef[], jobs: number, corroborate = false, remaining?: () => number): Promise<BaseEachResult[]> { // TEN-SPEED-19: same classification as run(), at most `jobs` processes at once
-    const api = this.api === undefined ? loadProjectApi(repoDir) : this.api; return mapPool(files, jobs, async (f) => { const { cmd, args, interpreter, cwd } = commandFor(f, repoDir, api), r = await spawnCollect(cmd, f.runner === "pytest" ? [...args, "-rfE"] : args, { cwd, env: plainTestEnv(), timeoutMs: Math.max(1000, Math.min(this.timeoutMs, remaining?.() ?? this.timeoutMs)) }), out = stripAnsi(r.output), base = classify(f, r.status, out, repoDir, interpreter), result = corroborate && base === "not_run" && r.status === 0 && f.runner === "go" && interpreter !== "system" && (await corroboratePass(classifyCheck({ kind: "test", ok: true, out, ...goRunner(cmd, args) }), out, cmd, args.filter((a, k) => a !== "-run" && args[k - 1] !== "-run") /* corroboration refuses the -run regex, so it reruns the package */, { cwd, env: plainTestEnv() })).result === "pass" ? "pass" : base; return { pass: +(result === "pass"), fail: +(result === "fail"), not_run: +(result === "not_run"), notRunFiles: result === "not_run" ? [{ file: f.path, reason: notRunReason(r.status, interpreter) }] : [] }; }, () => remaining !== undefined && remaining() <= 0); // remaining: the caller's budget; no new file starts once it is spent
+    const api = this.api === undefined ? loadProjectApi(repoDir) : this.api; return mapPool(files, jobs, async (f) => { const { cmd, args, interpreter, cwd } = commandFor(f, repoDir, api), r = await spawnCollect(cmd, f.runner === "pytest" ? [...args, "-rfE"] : args, { cwd, env: plainTestEnv(), timeoutMs: Math.max(1000, Math.min(this.timeoutMs, remaining?.() ?? this.timeoutMs)) }), out = stripAnsi(r.output), base = classify(f, r.status, out, repoDir, interpreter), result = corroborate && base === "not_run" && r.status === 0 && f.runner === "go" && interpreter !== "system" && (await corroboratePass(classifyCheck({ kind: "test", ok: true, out, ...goRunner(cmd, args) }), out, cmd, args.filter((a, k) => a !== "-run" && args[k - 1] !== "-run") /* corroboration refuses the -run regex, so it reruns the package */, { cwd, env: plainTestEnv() })).result === "pass" ? "pass" : base; return { pass: +(result === "pass"), fail: +(result === "fail"), not_run: +(result === "not_run"), notRunFiles: result === "not_run" ? [{ file: f.path, reason: notRunReason(r.status, interpreter), ...(interpreter === "system" ? { interpreter } : {}) }] : [] }; }, () => remaining !== undefined && remaining() <= 0); // remaining: the caller's budget; no new file starts once it is spent
   }
 }
 
-export interface BaseEachResult { pass: number; fail: number; not_run: number; notRunFiles: { file: string; reason: string }[]; } export interface WallOptions { baseRunner?: BaseTestRunner; }
+export interface BaseEachResult { pass: number; fail: number; not_run: number; notRunFiles: NotRunRow[]; } export interface WallOptions { baseRunner?: BaseTestRunner; }
 /** E-45: the Wall repo map is paths only, capped, so the (sonnet) brief stays short. */
 export const WALL_MAP_MAX_LINES = 200;
 
@@ -89,10 +93,13 @@ export function loadTaskText(ctx: RunContext, fromPrior: string | undefined): st
   return process.env.LOKI_E10_TASK_TEXT ?? "";
 }
 
-// Alongside an existing detected test file, or a top-level tests/ directory when the repo has none.
-function wallTargetDir(repoDir: string, existingTests: TestRef[], runners: RunnerName[] = []): string {
+// Alongside an existing detected test file, else by the runner's test-visibility rule. Java: the build tool only sees src/test/java (HV1-03b). Go is package-directory scoped: a test in tests/ cannot see root package code and
+// only compiles through an implementer shim that is never committed, so the Wall goes beside the first planned or named .go file (the repo root without one). Every other runner sees code from a top-level tests/.
+function wallTargetDir(repoDir: string, existingTests: TestRef[], runners: RunnerName[] = [], texts: string[] = []): string {
   const first = existingTests[0];
+  if (!first && runners.includes("dotnet")) return join(repoDir, dirname(dotnetTestProject(repoDir) ?? "tests/x")); // R02: the Wall file must live inside a test project
   if (!first && runners.some((r) => r === "maven" || r === "gradle" || r === "javac")) return join(repoDir, "src", "test", "java"); // HV1-03b: the build tool only sees Java tests here
+  if (!first && runners.includes("go")) return plannedGoDir(repoDir, texts).dir;
   return first ? join(repoDir, dirname(first.path)) : join(repoDir, "tests");
 }
 /** Runner for a generated file: extension decides for Python/Go, a JS/TS file takes the repo's detected JS runner; anything else never guesses (unselectable). */
@@ -102,7 +109,7 @@ export interface WallAuthored { kind: "authored"; staged?: boolean; model?: stri
 export type WallAuthorOutcome = { kind: "done"; result: StageResult } | WallAuthored;
 
 /** Session plus compile check. Writes only <runDir>/wall (sealed copies); repoDir is read, never written. */
-export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: { model: string; suffix: string }): Promise<WallAuthorOutcome> {
+export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: { model: string; suffix: string; note?: string | undefined }): Promise<WallAuthorOutcome> {
   const done = (result: StageResult): WallAuthorOutcome => ({ kind: "done", result });
   if (signal.aborted) return done({ status: "failed", data: {}, reason: "aborted before wall started" });
   if (!wallEnabled()) return done({ status: "skipped", data: {}, reason: "LOKI_E10_WALL=0" });
@@ -116,13 +123,19 @@ export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: {
   // E-64: skip Wall too on the lean path (plan.ts, which always runs, logs this same decision on "variant"). LOKI_E10_PLAN=always forces a plan even for a small task, so the lean path never applies: a forced plan still gets the
   // Wall's independent acceptance tests. An external diff (CW-12) never takes the lean skip: the Wall is its only independent proof.
   const repoMap = loadRepoMap(repomapRef);
-  const focus = namedFiles(task, repoMap), runners: RunnerName[] = testMap ? harnessRunners(testMap.runners, repoMap?.files ?? [], process.env, ctx.repoDir, focus) : [];
   const sz = sizeTask(task, repoMap, testMap);
+  const scopeDir = wallTargetDir(ctx.repoDir, existingTests), api = loadProjectApi(ctx.repoDir), scopePkg = api?.packageOf(`${relative(ctx.repoDir, scopeDir)}/x`);
+  const engineMap = testMap as EngineTestMap | null;
+  const firstTest = existingTests[0]?.path;
+  const targetRoot = scopePkg?.root ?? (firstTest ? engineMap?.testPackages?.[firstTest] : undefined) ?? ".";
+  const packageTests = existingTests.filter((t) => (api?.packageRootOf(t.path) ?? engineMap?.testPackages?.[t.path] ?? ".") === targetRoot);
+  const focus = namedFiles(task, repoMap);
+  const runners: RunnerName[] = testMap ? harnessRunners(engineMap?.packageRunners?.[targetRoot] ?? (packageTests.length ? [...new Set(packageTests.map((t) => t.runner))] : testMap.runners), repoMap?.files ?? [], process.env, ctx.repoDir, focus) : [];
   if (!ctx.externalPatch && planMode() !== "always" && smallTaskPath(sz.size, hasRelevantTests(task, repoMap, testMap, ctx.tests.impacted)) === "lean") {
     return done({ status: "skipped", data: { size: sz.size }, reason: "small task with a relevant test: cascade skips Wall" });
   }
 
-  if (testMap && runners.length === 0) { const miss = missingJavaTool(repoMap?.files ?? [], process.env, ctx.repoDir); return done({ status: "skipped", data: { size: sz.size, files: [], no_runner: true, skip_code: harnessSkipCode(), not_proven: [miss ? `Wall not run: ${miss} is not installed on this machine, so this Java repo could not be tested (harness-owned)` : "Wall skipped: no runnable test command for this stack"] }, reason: miss ? `${miss} is not installed: the Wall cannot run Java tests (harness-owned, not proven)` : "no runnable test command detected: the Wall cannot write a runnable check" }); } // FC-17: decided before any model session
+  if (testMap && runners.length === 0) { const miss = missingStackTool(repoMap?.files ?? [], process.env, ctx.repoDir); return done({ status: "skipped", data: { size: sz.size, files: [], no_runner: true, skip_code: harnessSkipCode(), not_proven: [miss ? `Wall not run: ${miss.tool} is not installed on this machine, so this repo could not be tested (harness-owned); ${miss.install}` : "Wall skipped: no runnable test command for this stack"] }, reason: miss ? `${miss.tool} is not installed: the Wall cannot run this repo's tests (harness-owned, not proven); ${miss.install}` : "no runnable test command detected: the Wall cannot write a runnable check" }); } // FC-17: decided before any model session
 
   // TEN-COST-09: a pytest-only Wall under the system interpreter is classified not_run (classify, notRunReason), so the author session would be paid for and discarded. Skip it before any session ONLY when the holdout is off: with it on, held files never go through the base-run classify and verify runs them on the system interpreter, which drives fix rounds and the seal, so the Wall must still run. The held count is unknown before authoring, so ratio 0 is the only provable zero. Seal reads not_proven and the verdict can never be VERIFIED by this Wall.
   if (testMap && runners.every((r) => r === "pytest") && projectInterpreter(ctx.repoDir) === "system" && wallHoldoutRatio() === 0) return done({ status: "skipped", data: { size: sz.size, files: [], no_interpreter: true, not_proven: ["Wall skipped: no project test interpreter"] }, reason: "Wall skipped: no project test interpreter" });
@@ -130,8 +143,8 @@ export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: {
   const tree = prior.intake?.tree as string | undefined;
   const repomapText = repoMapText(ctx.repoDir, tree, repomapRef, WALL_MAP_MAX_LINES);
 
-  const targetDir = wallTargetDir(ctx.repoDir, existingTests, runners), pkg = loadProjectApi(ctx.repoDir)?.packageOf(`${relative(ctx.repoDir, targetDir)}/x`); // FC-23: the target package's own module system, read by a parser
-  const conv = readPackageConventions(join(ctx.repoDir, pkg?.root ?? "."), pkg?.runner ?? null);
+  const srcTexts = [typeof prior.plan?.plan === "string" ? prior.plan.plan : "", task], targetDir = wallTargetDir(ctx.repoDir, existingTests, runners, srcTexts), pkg = api?.packageOf(`${relative(ctx.repoDir, targetDir)}/x`); // FC-23: the target package's own module system, read by a parser
+  const conv = readPackageConventions(join(ctx.repoDir, pkg?.root ?? targetRoot), pkg?.runner ?? null);
   const cwd = mkdtempSync(join(tmpdir(), "loki-e15-wall-"));
   const wm = wallManifestFor(ctx.repoDir, tree, task); // D77: flag-gated, null (as if off) on any failure
   for (const [n, c] of [["task.md", task], ["repomap.txt", repomapText], ...(wm ? [["wall_manifest.txt", wm.text]] : [])] as [string, string][]) writeFileSync(join(cwd, n), c, "utf8");
@@ -140,7 +153,7 @@ export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: {
   const model = retry?.model ?? wallFirstModel(sz.size), iterationId = `${ctx.runId}-wall${retry?.suffix ?? ""}`; // COST-11
   const session = await ctx.sessions.run({
     stage: "wall",
-    brief: buildWallBrief(task, repomapText, runners, !!wm, conventionsBrief(conv), unitSpec()?.acceptance ?? [], relative(ctx.repoDir, targetDir), clauseSet, evidence, isTinyGreenfield(sz.size, task, testMap)) + wallCasesBrief(runners), // CCR-06: "" unless LOKI_E10_WALL_CASES=1 on a Python repo
+    brief: buildWallBrief(task, repomapText, runners, !!wm, conventionsBrief(conv), unitSpec()?.acceptance ?? [], relative(ctx.repoDir, targetDir), clauseSet, evidence, isTinyGreenfield(sz.size, task, testMap)) + wallCasesBrief(runners) + goPackageBrief(ctx.repoDir, targetDir, runners, srcTexts) + (retry?.note ? `\n\n${retry.note}` : ""), // CCR-06: "" unless LOKI_E10_WALL_CASES=1 on a Python repo
     // E-45: pinned cheaper model; development tier because the planning tier yields to the LOKI_SESSION_MODEL=opus pin.
     tier: "development",
     model,
@@ -152,7 +165,8 @@ export async function wallAuthor(ctx: RunContext, signal: AbortSignal, retry?: {
   if (session.killed || session.exit === null) { rmSync(cwd, { recursive: true, force: true }); return done({ status: "failed", data: { iteration_ids: [iterationId], model }, reason: "wall session aborted, killed, or timed out", killed: true }); } // E-54: also covers killed-from-outside (exit:null, "killed before exiting" per types.ts)
   const casesBad = ingestWallCases(cwd, runners, ctx.repoDir); if (casesBad) { rmSync(cwd, { recursive: true, force: true }); return done({ status: "failed", data: { iteration_ids: [iterationId], model }, reason: casesBad }); } // CCR-06: invalid structured output fails closed with a named reason, never free-form code
   const planText = typeof prior.plan?.plan === "string" ? prior.plan.plan : null, repoFiles = repoMap?.files ?? [];
-  const oor = (): { name: string; why: string }[] => readdirSync(cwd).filter((f) => f.startsWith(WALL_PREFIX)).flatMap((name) => { const text = readFileSync(join(cwd, name), "utf8"), why = outOfRepoTarget(text) ?? vacuousCheck(name, text) ?? phantomReason(phantomRepoPaths(text, name, targetDir, ctx.repoDir, planText), repoFiles, relative(ctx.repoDir, targetDir), pkg?.root ?? ""); return why ? [{ name, why }] : []; });
+  const goPkgPath = goPackagePath((f) => { try { return readFileSync(f, "utf8"); } catch { return undefined; } }, ctx.repoDir, targetDir); // the Go package under test, by import path
+  const oor = (): { name: string; why: string }[] => readdirSync(cwd).filter((f) => f.startsWith(WALL_PREFIX)).flatMap((name) => { const text = readFileSync(join(cwd, name), "utf8"), why = outOfRepoTarget(text) ?? dotenvFileRead(text) ?? vacuousCheck(name, text, goPkgPath) ?? phantomReason(phantomRepoPaths(text, name, targetDir, ctx.repoDir, planText, task), repoFiles, relative(ctx.repoDir, targetDir), pkg?.root ?? "", task); return why ? [{ name, why }] : []; });
   const bad1 = oor(); if (bad1.length > 0 && !wallCasesRunner(runners) && !signal.aborted && !ctx.overCap?.()) await ctx.sessions.run({ stage: "wall", brief: withStagePrefix(outOfRepoReask("Rewrite these Wall files in place, keeping the same names and acceptance coverage.", bad1)), tier: "development", model, iterationId: `${iterationId}-oor`, limitS: wallLimitS(sz.size), maxOutputTokens: wallOutputCap(), signal, cwd }); // FC-WALL-OUT-OF-REPO-TARGET: re-ask once in the same directory with the precise reason
   const oorBad = new Map(oor().map((b) => [b.name, b.why])), all = readdirSync(cwd).filter((f) => f.startsWith(WALL_PREFIX)), held = stashHoldout({ runId: ctx.runId, repoDir: ctx.repoDir, srcDir: cwd, targetDir, names: all.filter((n) => !oorBad.has(n) && !conventionViolation(conv, n, readFileSync(join(cwd, n), "utf8"))), runnerOf: (n) => guessRunner(n, runners) }), generated = all.filter((n) => !held?.names.has(n)); // P12-05: the held-out subset never reaches the repo, runDir or the implementer
   const sealedDir = sealStageDir(ctx.runId, ctx.repoDir); rmSync(sealedDir, { recursive: true, force: true }); // staged outside the repo tree; publishSealed moves it to <runDir>/wall at install
@@ -217,22 +231,32 @@ export const WALL_BASE_FILES = 4; // files one rung's base run is sized for; Rea
 export const WALL_RUNG_S = WALL_SESSION_MAX_S + WALL_BASE_FILES * (BASE_RUN_TIMEOUT_MS / 1000), WALL_STAGE_LIMIT_S = 2 * WALL_RUNG_S; // one rung at its worst: a max session plus a per-file base run; the stage holds two rungs
 export const distrustGreenBase = (d: Record<string, unknown>): Record<string, unknown> => ({ ...d, already_satisfied: false, already_satisfied_distrusted: true, base_run: { ...((d.base_run ?? {}) as Record<string, unknown>), not_run: 1, unproven: true } }); // Fail closed for EVERY consumer (wall, discard.alreadySatisfied, seal wallGreenOnBase): an untrusted green base run is recorded as unproven (not_run), which all of them already refuse. Shared by machine.ts (concurrent Wall) and runWall (budget-blocked cheap rung).
 
+/** Brief note for the one re-author after an attempt left no Wall test that ran: the base-run counts and the per-file reasons, so the rewrite can run. Built only from harness-recorded fields. */
+export function reauthorNote(d: Record<string, unknown>): string {
+  const b = (d.base_run ?? {}) as Record<string, unknown>, rows = [...((d.discarded as { file: string; reason: string }[] | undefined) ?? []), ...((d.not_run_files as { file: string; reason: string }[] | undefined) ?? [])];
+  return ["Your previous Wall attempt left no test that ran on the base tree, so it proved nothing and was dropped.", `Base run: pass ${Number(b.pass ?? 0)}, fail ${Number(b.fail ?? 0)}, not run ${Number(b.not_run ?? 0)}.`, ...rows.slice(0, 5).map((r) => `- ${String(r.file)}: ${String(r.reason).slice(0, 300)}`), "Write the Wall again so every test runs. An assertion about behaviour the repository already has must pass on the base tree; only assertions about the new behaviour may fail there."].join("\n");
+}
+export const WALL_REAUTHOR_EXHAUSTED = "Wall re-authored once and still no Wall test ran on the base tree";
+
 export async function runWall(ctx: RunContext, signal: AbortSignal, opts: WallOptions = {}): Promise<StageResult> {
   const t0 = Date.now(), a = await wallAuthor(ctx, signal);
   const first = a.kind === "done" ? a.result : await installWallAsync(ctx, a, ctx.repoDir, opts);
   // COST-11: a cheaper first rung is re-authored exactly once on wallModel() when its result cannot be trusted: nothing usable (nothing written, all discarded or not_run), a killed or timed-out session (N3), or a Wall already green on the base tree (B1: a haiku test that passes before the change may be vacuous, so the sonnet result decides already_satisfied). Never loops. Any doubt escalates.
   const cheap = a.kind === "authored" ? a.model : (first.data.model as string | undefined) ?? "", killed = a.kind === "done" && first.killed === true, usable = a.kind === "authored" && first.status === "completed";
   const unusable = usable && ((first.data.files as unknown[] | undefined) ?? []).length === 0, green = usable && !unusable && (first.data.already_satisfied === true || first.data.reproduction_green_on_base === true || wallGreenOnBaseOf({ wall: first.data })); // same green test seal applies
+  const nrf = (first.data.not_run_files as NotRunRow[] | undefined) ?? [], noInterp = nrf.length > 0 && nrf.every((x) => x.interpreter === "system"); // every not_run is "ran under the system interpreter": no rewrite can run without a project interpreter, so re-authoring only adds cost
+  const dropped = unusable && ((Number(((first.data.base_run ?? {}) as Record<string, unknown>).not_run ?? 0) > 0 && !noInterp) || ((first.data.discarded as unknown[] | undefined) ?? []).length > 0); // a Wall test was written and then dropped (no real base result or did not compile), as opposed to nothing written
   const budgetLeft = WALL_STAGE_LIMIT_S * 1000 - (Date.now() - t0) >= WALL_RUNG_S * 1000; // the retry must fit its own session plus base run inside the stage limit, from the same constants
-  if (!(unusable || green || killed) || !cheap || signal.aborted || cheap === wallModel()) return first;
+  if (!(unusable || green || killed) || !cheap || signal.aborted || (cheap === wallModel() && !dropped) || (noInterp && !dropped && !killed && !green)) return first; /* no project interpreter and nothing dropped: no second Wall can run either, so none is bought */ // a same-model rung re-authors only when a written Wall test was dropped and none ran (the rewrite gets the base-run results); a green or killed same-model result stands
   if (!budgetLeft) return green && first.data.reproduction_green_on_base !== true ? { ...first, data: distrustGreenBase(first.data) } : first; // fail closed: an unchecked cheap-rung green must not stand as already_satisfied
   if (a.kind === "authored") { for (const f of (first.data.files as { path: string }[] | undefined) ?? []) rmSync(f.path, { force: true }); rmSync(sealedWallDir(ctx.runDir), { recursive: true, force: true }); ctx.wallSealed = false; } // drop the abandoned attempt's installed copies, sealed copies and held-out tests so none leak into the retry
   removeHoldout(ctx.runId, ctx.repoDir);
   const r2Model = capToRunTier(wallModel(), ctx.model, ["LOKI_E10_WALL_TIER", "LOKI_MODEL_OVERRIDE"]);
   ctx.emit("wall.reauthor", "wall", { from_model: cheap, to_model: r2Model, reason: killed ? "first author session killed or timed out" : green ? "first author green on the base tree" : "no usable test from the first author" });
-  const b = await wallAuthor(ctx, signal, { model: r2Model, suffix: "-r2" }), second = b.kind === "done" ? b.result : await installWallAsync(ctx, b, ctx.repoDir, opts);
+  const b = await wallAuthor(ctx, signal, { model: r2Model, suffix: "-r2", note: dropped ? reauthorNote(first.data) : undefined }), second = b.kind === "done" ? b.result : await installWallAsync(ctx, b, ctx.repoDir, opts);
   const ids = [...((first.data.iteration_ids as string[] | undefined) ?? []), ...((second.data.iteration_ids as string[] | undefined) ?? [])];
-  return { ...second, data: { ...second.data, iteration_ids: ids, reauthored: true } }; // both tiers' spend reaches the ledger via iteration_ids
+  const still = second.status === "completed" && ((second.data.files as unknown[] | undefined) ?? []).length === 0; // the one re-author is spent: a second empty Wall is disclosed, never retried
+  return { ...second, data: { ...second.data, iteration_ids: ids, reauthored: true, ...(still ? { not_proven: [...((second.data.not_proven as string[] | undefined) ?? []), WALL_REAUTHOR_EXHAUSTED] } : {}) } }; // both tiers' spend reaches the ledger via iteration_ids
 }
 
 export const wallStage: Stage = {

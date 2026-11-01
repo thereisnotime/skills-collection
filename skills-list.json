@@ -33121,8 +33121,8 @@
       "description": "Runs an autonomous software factory that knows what it is supposed to deliver and proves it did, with a signed receipt. Use when the user says Loki Mode or asks to build, fix or verify software autono",
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 479,
-      "words": 4011,
+      "lines": 477,
+      "words": 3989,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -33137,33 +33137,6 @@
       "words": 419,
       "code_blocks": 0,
       "languages": []
-    },
-    {
-      "name": "prompt-optimization",
-      "description": "Applies prompt repetition to improve accuracy for non-reasoning LLMs. Use when a Haiku or other non-reasoning agent misses details in a long prompt.",
-      "path": "asklokesh--claudeskill-loki-mode/examples/agent-skills/prompt-optimization/SKILL.md",
-      "remote_path": "examples/agent-skills/prompt-optimization/SKILL.md",
-      "lines": 114,
-      "words": 336,
-      "code_blocks": 4,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
-      "name": "checkpoint-mode",
-      "description": "Pauses for human review every N tasks (selective autonomy). Use when work needs short autonomous bursts with feedback instead of one long run.",
-      "path": "asklokesh--claudeskill-loki-mode/examples/agent-skills/checkpoint-mode/SKILL.md",
-      "remote_path": "examples/agent-skills/checkpoint-mode/SKILL.md",
-      "lines": 180,
-      "words": 510,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "json",
-        "markdown",
-        "python"
-      ]
     },
     {
       "name": "loki-mode-openclaw",
@@ -147217,8 +147190,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 865,
-      "words": 10234,
+      "lines": 881,
+      "words": 10430,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -147371,8 +147344,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-ops/SKILL.md",
       "remote_path": "github-ops/SKILL.md",
-      "lines": 264,
-      "words": 2144,
+      "lines": 270,
+      "words": 2211,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -147508,8 +147481,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 974,
-      "words": 3431,
+      "lines": 980,
+      "words": 3452,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -147534,8 +147507,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/qa-expert/SKILL.md",
       "remote_path": "qa-expert/SKILL.md",
-      "lines": 312,
-      "words": 1598,
+      "lines": 313,
+      "words": 1605,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -147620,8 +147593,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 633,
-      "words": 4873,
+      "lines": 635,
+      "words": 4878,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -147632,8 +147605,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/report-with-html/SKILL.md",
       "remote_path": "report-with-html/SKILL.md",
-      "lines": 673,
-      "words": 7046,
+      "lines": 676,
+      "words": 7071,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -147763,8 +147736,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/kimi-use/SKILL.md",
       "remote_path": "kimi-use/SKILL.md",
-      "lines": 91,
-      "words": 563,
+      "lines": 97,
+      "words": 581,
       "code_blocks": 0,
       "languages": []
     },
@@ -147978,8 +147951,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 276,
-      "words": 2259,
+      "lines": 278,
+      "words": 2269,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -148158,8 +148131,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/publishing-and-packaging.md",
       "remote_path": "daymade-skill/skill-creator/references/publishing-and-packaging.md",
-      "lines": 299,
-      "words": 3354,
+      "lines": 303,
+      "words": 3403,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -148450,8 +148423,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 459,
-      "words": 3736,
+      "lines": 460,
+      "words": 3742,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -148472,8 +148445,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/lark-cli-router/SKILL.md",
       "remote_path": "daymade-claude-code/lark-cli-router/SKILL.md",
-      "lines": 169,
-      "words": 1290,
+      "lines": 175,
+      "words": 1324,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -148699,8 +148672,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/references/local-coordination.md",
       "remote_path": "peer-message/references/local-coordination.md",
-      "lines": 301,
-      "words": 892,
+      "lines": 313,
+      "words": 945,
       "code_blocks": 13,
       "languages": [
         "bash"
@@ -148799,8 +148772,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-codex/local-codex/SKILL.md",
       "remote_path": "daymade-codex/local-codex/SKILL.md",
-      "lines": 181,
-      "words": 1235,
+      "lines": 186,
+      "words": 1272,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -148823,8 +148796,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/references/implementation-and-acceptance.md",
       "remote_path": "app-evolver/references/implementation-and-acceptance.md",
-      "lines": 237,
-      "words": 2022,
+      "lines": 248,
+      "words": 2126,
       "code_blocks": 0,
       "languages": []
     },
@@ -148843,8 +148816,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/references/evidence-and-fit.md",
       "remote_path": "app-evolver/references/evidence-and-fit.md",
-      "lines": 130,
-      "words": 1092,
+      "lines": 157,
+      "words": 1412,
       "code_blocks": 0,
       "languages": []
     },
@@ -148912,8 +148885,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/asr-transcribe-to-text/SKILL.md",
       "remote_path": "daymade-audio/asr-transcribe-to-text/SKILL.md",
-      "lines": 1018,
-      "words": 7587,
+      "lines": 1039,
+      "words": 7781,
       "code_blocks": 40,
       "languages": [
         "bash",

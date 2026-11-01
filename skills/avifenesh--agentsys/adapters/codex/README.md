@@ -26,7 +26,7 @@ Remove debugging code, old TODOs, and other AI slop.
 codex
 > $deslop
 > $deslop apply
-> $deslop apply src/ 10
+> $deslop apply src/
 ```
 
 **What it does:**
@@ -106,9 +106,9 @@ codex
 
 ## Codex-Specific Notes
 
-### Custom Prompt Integration
+### Skill Integration
 
-These commands integrate with Codex's custom prompt system. You can also create shortcuts by adding to your Codex config.
+The commands install as Codex skills in `~/.codex/skills/`, so `$name` invokes them.
 
 ### Multi-Agent Differences
 

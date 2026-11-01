@@ -29,7 +29,7 @@ import { modelDowngrades } from "../runner/model_downgrades.ts";
 import { runIdentity } from "../util/run_identity.ts";
 import type { PrContext } from "./stages/pr.ts";
 import { type EventEnvelope, type PushEnv, type StageName, type Verdict, backstopS, BACKSTOP_GRACE_S, DEEP_CAP_S, DEFAULT_CAP_S, envCapS, pushArgv, STAGE_BUDGETS } from "./types.ts";
-import { baseLine, dropEmptyRunBranch } from "../util/base_guard.ts";
+import { baseLine, finishRunBranch } from "../util/base_guard.ts";
 import { alreadyDoneTextComment, policyGate, prGate, renderMainOutput, runIntent, summaryCache, summaryTier, summaryTokens, unmergedLokiWorkNote, type PolicyGate } from "../util/run_outputs.ts";
 
 export { backstopS, BACKSTOP_GRACE_S }; // re-exported: callers import the backstop math from here, its home before r4
@@ -156,6 +156,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   if ((env.LOKI_CONTROL ?? process.env.LOKI_CONTROL) !== "0") void import("../e10ext/ship_hook.ts").then((m) => m.startShip(opts.repoDir, log.path, env)).catch(() => {}); // CP-02: D56 shipper, off with LOKI_CONTROL=0
   const aliveDir = join(opts.repoDir, ".loki", "runs", opts.runId), lastAlive = opts.resume ? readAliveBeat(aliveDir) : null; // P12-07n: read before the first fresh beat overwrites it
   log.append(opts.resume ? "run.resumed" : "run.started", null, { ...opts.started, ...(opts.resume ? { phase: "stage", ...(lastAlive ? { last_alive_ts: new Date(lastAlive).toISOString() } : {}) } : {}), origin_repo: githubRepoFromUrl(origin) }); if (!opts.resume) void import("../integrations/writeback.ts").then((m) => m.writeBack({ phase: "started", verdict: "", prUrl: null, receiptSha256: null, task: "" }, env)); // P12-18: opt-in tracker "started" comment + transition, never throws
+  if (opts.resume) { log.verify(); log.sealLog(); } // resume checkpoint: signs the log up to and including run.resumed, so a hard kill of the resumed part stays resumable from here
   const stuck = createStuckWatch(stuckMinutes(env), Date.now(), (f) => { // PG-24: one alert per silence, stderr always, Slack when configured
     process.stderr.write(`engine10: no event for ${stuckMinutes(env)} min; last stage ${f.stage} at ${f.lastEventAt}; ${f.action}\n`); void slackEvent(env, "stuck", f); });
   writeAliveBeat(aliveDir); const beat = setInterval(() => { writeAliveBeat(aliveDir); stuck.tick(Date.now()); }, ALIVE_BEAT_MS); beat.unref(); // cheap heartbeat for quiet stages (a long verify emits no events)
@@ -195,9 +196,8 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
       safeGit(opts.repoDir, ["diff", "--quiet", String(base), "HEAD", "--", ".", ":(exclude).loki"], { env: workerEnv, stdio: "ignore" });
     } catch { hasDiff = base !== null; }
   }
-  if (!cancelled && verdict !== "VERIFIED") { const ib = fold(readEvents(log.path)).stages["intake"], ibd = ib?.type === "stage.completed" ? ib.data : null, note = dropEmptyRunBranch(opts.repoDir, origBranch, ibd?.branch, validBase(ibd?.base_sha ?? null)); if (note) process.stderr.write(note); } // FC-EMPTY-RUN-BRANCH-LEFT-CHECKED-OUT: a terminal run that committed nothing restores the user's branch and drops its empty run branch
-  if (opts.pr && !cancelled && intact && origin && verdict !== "ALREADY_SATISFIED" && verdict !== "VERIFIED" && hasDiff) process.stderr.write(localBranchNote(opts.runId, verdict, opts.repoDir)); // FC-NO-PUSH-UNVERIFIED
-  if (opts.pr && !cancelled && intact && origin && verdict === "VERIFIED" && hasDiff) { // FC-NO-PUSH-UNVERIFIED: only a verified success leaves the machine; ALREADY_SATISFIED opens no PR (E-66)
+  if (opts.pr && !cancelled && intact && origin && verdict !== "ALREADY_SATISFIED" && verdict !== "VERIFIED" && verdict !== "PARTIAL" && hasDiff) process.stderr.write(localBranchNote(opts.runId, verdict, opts.repoDir)); // FC-NO-PUSH-UNVERIFIED
+  if (opts.pr && !cancelled && intact && origin && (verdict === "VERIFIED" || verdict === "PARTIAL") && hasDiff) { // FC-NO-PUSH-UNVERIFIED: VERIFIED opens a ready PR, PARTIAL a labelled DRAFT PR ("[PARTIAL]" title, Not proven first; a PR beats no PR, 2026-10-31); FAILED, SPEC_CONFLICT and cancelled stay local; ALREADY_SATISFIED opens no PR (E-66)
     const pushEnv: PushEnv = { _LOKI_ORIGIN_PINNED: "1", _LOKI_PINNED_ORIGIN: origin };
     const out = await opts.pr({ env, pushEnv, runId: opts.runId, repoDir: opts.repoDir, verdict, notProven, recordSpawnEnv: (spawnEnv) => { log.append("capability.recorded", "pr", { stages: [stageCapability("pr", spawnEnv)] }); } });
     notProven.push(...(out?.notProven ?? []));
@@ -228,7 +228,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   const stages = allEvents.filter((e) => e.type === "stage.completed" && typeof e.data.duration_s === "number").map((e) => ({ label: String(e.stage), seconds: e.data.duration_s as number })), // E-48 notify: Slack when configured, no-op otherwise
     pc = partialCost(allEvents, log.tampered, lokiRoot),
     summary = { pr: prUrl ? { url: prUrl, draft: verdict !== "VERIFIED" } : null, verdict, outcome, notProven, flaky: recordFingerprints(join(opts.repoDir, ".loki", "state"), opts.runId, "flaky", folded.stages["verify"]?.data.flaky, cleanTreeId(opts.repoDir)), wallS, stages, cost: { usd: costUsd, provider: String(opts.started?.provider ?? ""), tokens: summaryTokens(folded, allEvents.some((e) => e.type === "cost")), ...summaryCache(allEvents, log.tampered), partialUsd: pc.usd, measuredSessions: pc.measured, totalSessions: pc.total, stageShares: log.tampered ? null : stageShareText(allEvents), capUsd: Number(opts.started?.["max_cost_usd"]) > 0 ? Number(opts.started?.["max_cost_usd"]) : undefined } };
-  await slackEvent(env, "finished", { summary: formatSummary(summary), outcome: String(outcome), cost: summary.cost.usd != null ? `$${summary.cost.usd.toFixed(2)}` : "not measured", time: `${Math.round(wallS)}s`, receipt: log.tampered ? "TAMPERED" : receiptVerdict ? verdict : undefined }); rmRunPid(); process.off("exit", rmRunPid); // D51-A4, replaces E-48 adapters/slack.ts call
+  await slackEvent(env, "finished", { summary: formatSummary(summary), outcome: String(outcome), cost: summary.cost.usd != null ? `$${summary.cost.usd.toFixed(2)}` : "not measured", time: `${Math.round(wallS)}s`, receipt: log.tampered ? "TAMPERED" : receiptVerdict ? verdict : undefined }); rmRunPid(); process.off("exit", rmRunPid); const ib = folded.stages["intake"]; process.stderr.write(finishRunBranch(opts.repoDir, opts.runId, { orig: origBranch, pushed: prUrl !== null, deferred: allEvents.some((e) => e.type === "deep.started"), keepWork: !cancelled && prUrl === null && (verdict === "VERIFIED" || verdict === "PARTIAL"), baseSha: validBase(ib?.type === "stage.completed" ? ib.data.base_sha : null) }, env)); // D51-A4, replaces E-48 adapters/slack.ts call; run-end cleanup: back to the starting branch, run branch saved then removed (util/base_guard.ts)
   return { verdict, outcome, stop: stop ?? (receiptVerdict && allEvents.some((e) => e.type === "cap.hit") ? "cap" : null), receiptSha: typeof sealedData?.receipt_sha256 === "string" ? sealedData.receipt_sha256 : null, tampered: log.tampered, notProven, prUrl, workerExit };
 }
 export { alreadyDoneTextComment, policyGate, prGate, renderMainOutput, summaryCache, summaryTokens, unmergedLokiWorkNote, type PolicyGate }; // moved to util/run_outputs.ts (line budget); re-exported for existing callers

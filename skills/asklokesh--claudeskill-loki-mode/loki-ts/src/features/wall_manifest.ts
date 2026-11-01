@@ -4,6 +4,7 @@
 // examples that import no module the task names, and public signatures of the named modules. Function
 // and method bodies never enter the output. TS/JS: only text before a body's opening brace, and a file whose
 // lexing is undecidable emits nothing. Python: heads come from the stdlib ast in an isolated interpreter. Parameter and field defaults are always masked as `= ...`.
+import { join } from "node:path";
 import { pySignatures } from "../util/python.ts";
 import { tsAmbiguous, tsSignatures } from "../util/ts_signatures.ts";
 export interface ManifestFile { path: string; content: string }

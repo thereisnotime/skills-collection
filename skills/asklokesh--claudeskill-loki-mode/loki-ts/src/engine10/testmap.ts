@@ -2,14 +2,13 @@
 import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, join, relative, sep } from "node:path";
 import { listProjectFiles } from "../util/safe_git.ts";
-import { loadProjectApi } from "../project_model/resolve.ts"; import { languageBytes } from "../project_model/linguist.ts";
+import { loadProjectApi } from "../project_model/resolve.ts"; import { languageBytes } from "../project_model/linguist.ts"; 
 import { attachScope, scopeRefs } from "../project_model/scope.ts";
+import { CS_TEST_RE, DOTNET_MANIFEST_RE, JAVA_TEST_RE, missingStackTool, pascalWords, toolOk } from "../util/stack_tools.ts"; export { missingStackTool };
 import { projectInterpreter, pytestPython } from "../util/python.ts"; export { projectInterpreter };
 import type { RunnerName, TestMap, TestMapProvider, TestRef } from "./types.ts";
-import { FOREIGN_SOURCE_RE, GO_TEST_RE, JS_SPEC_RE, JS_TEST_RE, PY_TEST_RE, STDLIB_RUNNERS, coveredStem, detectFromPackageJson, isTestFile, referencedBasenames } from "../util/test_file_text.ts";
-export { isTestFile };
-/** One command shape per runner (ENGINE.md section 8 table). `<files>` is a placeholder the  caller (E-09 verify) fills with the selected paths. `coarse: true` means the command always  runs the  whole suite: npm and cargo have no reliable per-file selection. */
-export interface CommandSpec { cmd: string; coarse: boolean; }
+import { FOREIGN_SOURCE_RE, GO_TEST_RE, JS_SPEC_RE, JS_TEST_RE, PY_TEST_RE, STDLIB_RUNNERS, coveredStem, detectFromPackageJson, importedRunners, isTestFile, PYTEST_IMPORT_RE, referencedBasenames, scopeRunnersByPackage, COMMANDS, RUNNER_ORDER, guessRunner, type CommandSpec } from "../util/test_file_text.ts";
+export { isTestFile, COMMANDS, REPORT_RUNNERS, CARGO_TEST_FILE_RE, guessRunner, type CommandSpec } from "../util/test_file_text.ts"; // tables and guessRunner live in util/test_file_text.ts (core line budget)
 /** Extra fields beyond E-01's TestMap. `sourceRefs` is read back by `impacted()` and is not meant for callers outside this file. */
 export interface EngineTestMap extends TestMap {
   /** Repo-relative file that proved each detected runner. */
@@ -17,57 +16,20 @@ export interface EngineTestMap extends TestMap {
   commands: Partial<Record<RunnerName, CommandSpec>>;
   /** source basename -> repo-relative test paths that import/reference it. */
   readonly sourceRefs: Record<string, string[]>;
-}
-const RUNNER_ORDER: readonly RunnerName[] = ["pytest", "vitest", "jest", "bun", "node", "npm", "go", "cargo", "maven", "gradle", "javac"];
-export const COMMANDS: Record<RunnerName, CommandSpec> = {
-  pytest: { cmd: "python -m pytest -q <files>", coarse: false },
-  unittest: { cmd: "python3 -m unittest <files>", coarse: false },
-  vitest: { cmd: "npx vitest run <files>", coarse: false },
-  jest: { cmd: "npx jest <files>", coarse: false },
-  bun: { cmd: "bun test <files>", coarse: false },
-  node: { cmd: "node --test <files>", coarse: false },
-  npm: { cmd: "npm test --silent", coarse: true },
-  go: { cmd: "go test ./<pkg dirs>", coarse: false },
-  cargo: { cmd: "cargo test", coarse: true },
-  maven: { cmd: "mvn test -Dtest=<class>", coarse: false },
-  gradle: { cmd: "gradle cleanTest test --tests <class>", coarse: false },
-  javac: { cmd: "javac + java <test class>", coarse: false },
-};
-/** Runners that can write a machine pass/fail report file: the invocation to find in a check command and the flags that name the report (`<report>` is replaced by the caller's path), and `config`, the basenames that configure or preload that runner (a .json match counts only when it holds the entry's `key`). Go and cargo have no stable file reporter and are absent. verify-pr reads its verdict from that file, never from an exit code or printed totals. */
-export const REPORT_RUNNERS: readonly { runner: RunnerName; find: RegExp; flags: string; config: RegExp; key?: string }[] = [
-  { runner: "bun", find: /bun test\b/, flags: "--reporter=junit --reporter-outfile=<report>", config: /^bunfig\.toml$/ },
-  { runner: "pytest", find: /(?:(?:python3?|py) -m )?py\.?test\b/, flags: "--junitxml=<report>", config: /^(?:conftest\.py|\.?pytest\.ini)$/ },
-  { runner: "jest", find: /jest\b/, flags: "--json --outputFile=<report>", config: /^(?:jest\.config\..+|package\.json)$/, key: "jest" },
-  { runner: "vitest", find: /vitest\b/, flags: "--reporter=junit --outputFile=<report>", config: /^(?:vitest|vite)\.config\..+$|^vitest\.workspace\..+$/ },
-];
-/** HV1-03b: the tool each Java runner needs (the repo wrapper counts for maven and gradle). */
-const JAVA_TOOLS: Partial<Record<RunnerName, { tool: string; wrapper?: string }>> = { maven: { tool: "mvn", wrapper: "mvnw" }, gradle: { tool: "gradle", wrapper: "gradlew" }, javac: { tool: "javac" } };
-const javaToolOk = (r: RunnerName, env: NodeJS.ProcessEnv, root?: string): boolean => { const t = JAVA_TOOLS[r]; return !t || !!Bun.which(t.tool, { PATH: env.PATH ?? "" }) || (!!t.wrapper && !!root && existsSync(join(root, t.wrapper))); };
-/** HV1-03b: the Java tool that would run this repo's Wall but is not installed ("mvn", "gradle", "javac"), else null. Names the cause in the skip note so a Java repo is never skipped with a bare "no runnable test command". */
-export function missingJavaTool(files: readonly string[], env: NodeJS.ProcessEnv = process.env, root?: string): string | null {
-  const want: RunnerName | null = files.some((f) => /(?:^|\/)pom\.xml$/.test(f)) ? "maven" : files.some((f) => /(?:^|\/)(?:build|settings)\.gradle(?:\.kts)?$|(?:^|\/)gradlew$/.test(f)) ? "gradle" : files.some((f) => /\.java$/.test(f)) ? "javac" : null;
-  return want && !javaToolOk(want, env, root) ? JAVA_TOOLS[want]!.tool : null;
+  /** Package ownership and locally declared runners for each discovered test package. */
+  readonly testPackages: Record<string, string>;
+  readonly packageRunners: Record<string, RunnerName[]>;
 }
 /** Detected runner first; the language holding most runnable sources picks its stdlib runner, else Loki's own bun runs the Wall's bun:test file (docs, plugins, config, JS/TS). Off with LOKI_WALL_HARNESS_RUNNER=0 or no bun on PATH, then the repo's own toolchain (RX-1); `focus` (changed or sealed files) picks the toolchain in a polyglot repo. */
-export const harnessRunners = (runners: RunnerName[], files: readonly string[] = [], env: NodeJS.ProcessEnv = process.env, root?: string, focus: readonly string[] = []): RunnerName[] => pickHarnessRunners(runners, files, env, root, focus).filter((r) => javaToolOk(r, env, root)); // HV1-03b: a Java build tool that is not installed is never a runner (the Wall then skips with the tool named, see missingJavaTool) instead of a base run that cannot start
+export const harnessRunners = (runners: RunnerName[], files: readonly string[] = [], env: NodeJS.ProcessEnv = process.env, root?: string, focus: readonly string[] = []): RunnerName[] => pickHarnessRunners(runners, files, env, root, focus).filter((r) => toolOk(r, env, root)); // HV1-03b: a Java or .NET build tool that is not installed is never a runner (the Wall then skips with the tool named, see missingStackTool) instead of a base run that cannot start
 const pickHarnessRunners = (runners: RunnerName[], files: readonly string[], env: NodeJS.ProcessEnv, root: string | undefined, focus: readonly string[]): RunnerName[] => {
   const onPath = (tool: string): boolean => !!Bun.which(tool, { PATH: env.PATH ?? "" }), w = languageBytes(root, files, (f) => STDLIB_RUNNERS.find((r) => r.ext.test(f))?.runner ?? (/\.[cm]?[jt]sx?$/i.test(f) ? "js" : FOREIGN_SOURCE_RE.test(f) ? "other" : null)), at = (k: string): number => w.get(k) ?? 0, js = at("js"), top = STDLIB_RUNNERS.reduce((a, r) => (at(r.runner) > at(a.runner) ? r : a)), bun: RunnerName[] = env.LOKI_WALL_HARNESS_RUNNER !== "0" && onPath("bun") ? ["bun"] : toolchainRunner(files, focus); // RX-1: no bun either: the repo's own toolchain runs the Wall instead of skipping it
   const t = at(top.runner), o = at("other");
   return runners.length > 0 ? runners : js >= t && js >= o ? (js === 0 && w.size > 0 ? [] : bun) : t > o ? (onPath(top.tool) ? [top.runner] : toolchainRunner(files, focus)) : []; // the language holding the most source BYTES wins after linguist's vendored/generated/documentation rules and .gitattributes; a tie with JS goes to bun, a stdlib language whose tool is not on PATH falls to the repo's own manifest toolchain (RX-1; [] without a manifest, so NOT PROVEN), a tie between a stdlib language and an unsupported one yields [] (NOT PROVEN), and bun never runs a repo whose largest language is not JS/TS; one runner, so the Wall brief and verify agree
 };
 /** RX-1: manifest -> the runner its own language toolchain ships (COMMANDS holds the command), plus that language's source extension. A manifest only makes a toolchain eligible; in a polyglot repo the focus files (changed or sealed) choose among the eligible ones by language, else the first eligible wins. */
-const TOOLCHAINS: readonly (readonly [RegExp, RunnerName, RegExp])[] = [[/(?:^|\/)package\.json$/, "node", /\.[cm]?[jt]sx?$/], [/(?:^|\/)go\.mod$/, "go", /\.go$/], [/(?:^|\/)Cargo\.toml$/, "cargo", /\.rs$/], [/(?:^|\/)pom\.xml$/, "maven", /\.java$/], [/(?:^|\/)(?:build|settings)\.gradle(?:\.kts)?$|(?:^|\/)gradlew$/, "gradle", /\.java$/], [/(?:^|\/)(?:pyproject\.toml|setup\.py|setup\.cfg|requirements(?:[-_.][\w.-]+)?\.txt|tox\.ini|pytest\.ini)$/, "pytest", /\.py$/]];
+const TOOLCHAINS: readonly (readonly [RegExp, RunnerName, RegExp])[] = [[/(?:^|\/)package\.json$/, "node", /\.[cm]?[jt]sx?$/], [/(?:^|\/)go\.mod$/, "go", /\.go$/], [/(?:^|\/)Cargo\.toml$/, "cargo", /\.rs$/], [/(?:^|\/)pom\.xml$/, "maven", /\.java$/], [DOTNET_MANIFEST_RE, "dotnet", /\.cs$/], [/(?:^|\/)(?:build|settings)\.gradle(?:\.kts)?$|(?:^|\/)gradlew$/, "gradle", /\.java$/], [/(?:^|\/)(?:pyproject\.toml|setup\.py|setup\.cfg|requirements(?:[-_.][\w.-]+)?\.txt|tox\.ini|pytest\.ini)$/, "pytest", /\.py$/]];
 const toolchainRunner = (files: readonly string[], focus: readonly string[] = []): RunnerName[] => { const el = TOOLCHAINS.filter(([m]) => files.some((f) => m.test(f))), votes = (t: (typeof TOOLCHAINS)[number]): number => focus.filter((f) => t[2].test(f)).length; return el.length ? [el.reduce((b, t) => (votes(t) > votes(b) ? t : b))[1]] : []; };
-/** Cargo selects one file only as `cargo test --test <stem>`, and only for an integration test directly under a tests/ directory. */
-export const CARGO_TEST_FILE_RE = /(?:^|\/)tests\/[^/]+\.rs$/;
-/** The runner that executes a Wall-authored file, by its extension; null when no runner of this repo can run it (wall.ts seals it unrun, verify skips it). relPath (repo-relative) decides a .rs file: cargo only under tests/, else null (FC-WALL-RUST-FILE-HAS-NO-RUNNER). */
-export function guessRunner(fileName: string, runners: RunnerName[], relPath?: string): RunnerName | null {
-  if (fileName.endsWith(".py")) return runners.includes("unittest") && !runners.includes("pytest") ? "unittest" : "pytest";
-  if (fileName.endsWith(".go")) return "go";
-  if (fileName.endsWith(".rs")) return runners.includes("cargo") && relPath !== undefined && CARGO_TEST_FILE_RE.test(relPath) ? "cargo" : null;
-  if (fileName.endsWith(".java")) return (["maven", "gradle", "javac"] as const).find((r) => runners.includes(r)) ?? null; // HV1-03b: a Java test runs under the repo's own build tool, else plain javac
-  return /\.[cm]?[jt]sx?$/.test(fileName) ? (["vitest", "jest", "bun", "node"] as const).find((r) => runners.includes(r)) ?? null : null; // a JS runner only ever runs a JS/TS file
-}
 const readText = (p: string): string => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
 const normalizeRel = (raw: string): string => raw.split(sep).join("/").replace(/^\.\//, "");
 /** Synchronous core: scans `root`, returns the full detected map. `detect()` on TestMapProviderImpl just wraps this in a Promise per the interface. */
@@ -76,11 +38,14 @@ export function buildTestMap(root: string): EngineTestMap {
   const evidence: Partial<Record<RunnerName, string>> = {};
   const mark = (r: RunnerName, file: string): void => { if (!(r in evidence)) evidence[r] = file; };
   const jsText = new Map<string, string>();
+  const api = loadProjectApi(root);
   for (const rel of files) {
     const name = basename(rel);
     const full = join(root, rel);
-    if (JS_TEST_RE.test(name) && !evidence["node"] && /(?:from|require\()\s*['"]node:test['"]/.test(jsText.set(rel, readText(full)).get(rel)!)) mark("node", rel);
-    else if (name === "package.json") detectFromPackageJson(readText(full), rel, mark);
+    if (JS_TEST_RE.test(name)) {
+      const text = readText(full); jsText.set(rel, text);
+      for (const r of importedRunners(text)) mark(r, rel);
+    } else if (name === "package.json") detectFromPackageJson(readText(full), rel, mark);
     else if (name === "bunfig.toml") mark("bun", rel);
     else if (name === "pytest.ini" || name === "conftest.py") mark("pytest", rel);
     else if (name === "pyproject.toml" && /\[tool\.pytest/.test(readText(full))) mark("pytest", rel);
@@ -92,16 +57,20 @@ export function buildTestMap(root: string): EngineTestMap {
     else if (name === "go.mod" || GO_TEST_RE.test(name)) mark("go", rel);
     else if (name === "Cargo.toml") mark("cargo", rel);
     else if (name === "pom.xml") mark("maven", rel);
+    else if (DOTNET_MANIFEST_RE.test(name)) mark("dotnet", rel);
     else if (/^(?:build|settings)\.gradle(?:\.kts)?$/.test(name) || name === "gradlew") mark("gradle", rel);
   }
-  // Per-file test entries exist only for narrowly-selectable runners: npm and cargo run the whole suite (coarse), so no individual file earns a TestRef for them.
-  const jsRunner: RunnerName | null = evidence["vitest"] ? "vitest" : evidence["jest"] ? "jest" : evidence["bun"] ? "bun" : evidence["node"] ? "node" : null;
+  const { ownerRoot, packageRunners } = scopeRunnersByPackage(files, evidence, jsText, api, RUNNER_ORDER, (rel) => readText(join(root, rel))); // #233: runners per owning package
   const tests: TestRef[] = [];
+  const testPackages: Record<string, string> = Object.create(null);
   for (const rel of files) {
-    const name = basename(rel);
-    if (JS_TEST_RE.test(name) && jsRunner) tests.push({ runner: jsRunner, path: rel });
-    else if (PY_TEST_RE.test(name) && evidence["pytest"]) tests.push({ runner: "pytest", path: rel });
-    else if (GO_TEST_RE.test(name) && evidence["go"]) tests.push({ runner: "go", path: rel });
+    const name = basename(rel), pkgRoot = ownerRoot(rel);
+    const scope = packageRunners.get(pkgRoot) ?? packageRunners.get(".") ?? [];
+    let jr: RunnerName | undefined; const jsRunner = JS_TEST_RE.test(name) ? (importedRunners(jsText.get(rel) ?? "")[0] ?? (["vitest", "jest", "bun", "node"] as const).find((r) => scope.includes(r))) : undefined;
+    if (jsRunner) { tests.push({ runner: jsRunner, path: rel }); testPackages[rel] = pkgRoot; }
+    else if (PY_TEST_RE.test(name) && (scope.includes("pytest") || PYTEST_IMPORT_RE.test(readText(join(root, rel))))) { tests.push({ runner: "pytest", path: rel }); testPackages[rel] = pkgRoot; }
+    else if (GO_TEST_RE.test(name) && scope.includes("go")) { tests.push({ runner: "go", path: rel }); testPackages[rel] = pkgRoot; }
+    else if ((JAVA_TEST_RE.test(rel) || CS_TEST_RE.test(rel)) && (jr = (rel.endsWith(".cs") ? (["dotnet"] as const) : (["maven", "gradle", "javac"] as const)).find((r) => scope.includes(r)))) { tests.push({ runner: jr, path: rel }); testPackages[rel] = pkgRoot; } // R02: JUnit under the repo's build tool, C# under `dotnet test`
   }
   // Object.create(null): keys come from grep'd file content, so a source named e.g. "constructor" must not collide with Object.prototype.
   const sourceRefs: Record<string, string[]> = Object.create(null);
@@ -111,13 +80,14 @@ export function buildTestMap(root: string): EngineTestMap {
     specs[t.path] = [...text.matchAll(JS_SPEC_RE)].map((m) => m[1] ?? "");
     const names = referencedBasenames(text);
     names.add(coveredStem(t.path));
+    if (/\.(?:java|cs)$/.test(t.path)) for (const w of pascalWords(text)) names.add(w); // R02: a Java or C# test names the classes it exercises
     for (const n of names) { (sourceRefs[n] ??= []).push(t.path); }
   }
   const runners = RUNNER_ORDER.filter((r) => r in evidence);
   const commands: Partial<Record<RunnerName, CommandSpec>> = {};
   for (const r of runners) commands[r] = r === "pytest" ? { ...COMMANDS.pytest, cmd: `${pytestPython(root)} -m pytest -q <files>` } : COMMANDS[r];
-  const map: EngineTestMap = { runners, tests, evidence, commands, sourceRefs };
-  attachScope(map, loadProjectApi(root), specs);
+  const map: EngineTestMap = { runners, tests, evidence, commands, sourceRefs, testPackages, packageRunners: Object.fromEntries(packageRunners) };
+  attachScope(map, api, specs);
   return map;
 }
 /** Test refs impacted by `changedFiles`: a changed test maps to itself; a changed source maps  to every test that imports/references its basename (built by `buildTestMap`'s grep, read back from `map.sourceRefs`). */

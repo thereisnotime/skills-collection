@@ -15,7 +15,7 @@ import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { MAX_PARALLEL, makeDefaultRunner, queueAdd, queueRun, type ItemResult, type QueueDeps, type RunOpts, type RunResult } from "./queue.ts";
 import { estimateFor, startText, type EstimateResult } from "../runner/router/cost_preview.ts";
-import { makeSessionDecompose, parseDecomposition, planComment, renderEpicTree, runEpicSlices, sliceTask, type Decomposition, type Slice, type SliceResult } from "./issues_epic.ts";
+import { makeSessionDecompose, overCapNote, parseDecomposition, planComment, progressLine, renderEpicTree, runEpicSlices, sliceTask, type Decomposition, type Slice, type SliceResult } from "./issues_epic.ts";
 import { calculateRateLimitBackoff, isRateLimited, parseRetryAfter } from "../runner/budget.ts";
 import { safeGit } from "../util/safe_git.ts";
 import { resolveModel } from "../engine10/session.ts";
@@ -44,7 +44,7 @@ export interface IssuesRunDeps {
   lokiDir: string;
   gh: (args: readonly string[]) => GhResult;
   triage: (slug: string, issue: GhIssue) => Promise<Triage>;
-  decompose: (slug: string, issue: GhIssue, triageReason: string) => Promise<string>; // the model's JSON split, validated here
+  decompose: (slug: string, issue: GhIssue, triageReason: string, note?: string) => Promise<string>; // the model's JSON split, validated here
   runner: QueueDeps["runner"];
   estimate: () => EstimateResult;
   confirm: (question: string) => Promise<boolean>;
@@ -67,16 +67,19 @@ export interface IssuesRunArgs {
   yes: boolean;
   comment: boolean;
   split: boolean;
+  triage: boolean;
   json: boolean;
 }
 
-const USAGE = "usage: loki issues run [owner/repo] [--label L] [--milestone M] [--limit N] [--parallel K] [--draft] [--dry-run] [--json] [--yes] [--comment] [--no-split]\n";
+const USAGE = "usage: loki issues run [owner/repo] [--label L] [--milestone M] [--limit N] [--parallel K] [--draft] [--dry-run] [--json] [--yes] [--comment] [--triage] [--no-split]\n";
 const SLUG_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const DEFAULT_LIMIT = 100;
+// Runs at once when --parallel is not given: this many, never more than the issue count, and never above MAX_PARALLEL.
+const DEFAULT_PARALLEL = Math.min(4, MAX_PARALLEL);
 const RATE_LIMIT_RETRIES = 2;
 
 export function parseIssuesArgs(args: readonly string[]): IssuesRunArgs | string {
-  const a: IssuesRunArgs = { slug: null, label: null, milestone: null, limit: DEFAULT_LIMIT, parallel: 1, draft: false, dryRun: false, yes: false, comment: false, split: true, json: false };
+  const a: IssuesRunArgs = { slug: null, label: null, milestone: null, limit: DEFAULT_LIMIT, parallel: DEFAULT_PARALLEL, draft: false, dryRun: false, yes: false, comment: false, split: true, triage: false, json: false };
   for (let i = 0; i < args.length; i++) {
     const t = args[i]!;
     const val = (): string | null => (i + 1 < args.length ? args[++i]! : null);
@@ -86,6 +89,7 @@ export function parseIssuesArgs(args: readonly string[]): IssuesRunArgs | string
     else if (t === "--yes" || t === "-y") a.yes = true;
     else if (t === "--comment") a.comment = true;
     else if (t === "--no-split") a.split = false;
+    else if (t === "--triage") a.triage = true;
     else if (t === "--label" || t === "--milestone") {
       const v = val();
       if (!v) return `${t} needs a value`;
@@ -224,13 +228,14 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
   const covered = coveredIssues(slug, prList);
   const dupes = issues.filter((i) => covered.has(i.number));
   const todo = issues.filter((i) => !covered.has(i.number));
+  const par = Math.max(1, Math.min(a.parallel, todo.length));
 
-  d.out(`${slug}: ${issues.length} open issue${issues.length === 1 ? "" : "s"}${a.label ? ` labeled ${a.label}` : ""}${a.milestone ? ` in milestone ${a.milestone}` : ""}, ${dupes.length} already ha${dupes.length === 1 ? "s" : "ve"} an open Loki PR, ${todo.length} to triage\n`);
+  d.out(`${slug}: ${issues.length} open issue${issues.length === 1 ? "" : "s"}${a.label ? ` labeled ${a.label}` : ""}${a.milestone ? ` in milestone ${a.milestone}` : ""}, ${dupes.length} already ha${dupes.length === 1 ? "s" : "ve"} an open Loki PR, ${todo.length} to ${a.triage ? "triage" : "run"}\n`);
   for (const i of dupes) d.out(`  skip #${i.number} (open Loki PR exists): ${clip(i.title, 70)}\n`);
   for (const i of todo) d.out(`  plan #${i.number}: ${clip(i.title, 70)}\n`);
   const est = d.estimate();
   const per = perRun(est);
-  const extra = a.split ? ", plus one triage call each and one Opus split call per too-large issue" : ", plus one triage call each";
+  const extra = a.triage ? (a.split ? ", plus one triage call each and one Opus split call per too-large issue" : ", plus one triage call each") : (a.split ? ", plus one Opus split call per issue whose whole run fails" : "");
   const estLine = per
     ? `estimated total: ${per.tilde}$${(per.usd[0] * todo.length).toFixed(2)}-$${(per.usd[1] * todo.length).toFixed(2)} for ${todo.length} issue${todo.length === 1 ? "" : "s"} (${startText(est)} per issue)${extra}`
     : `estimated total: NOT AVAILABLE (${est.ok ? "" : est.reason})`;
@@ -249,7 +254,7 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
   }
   if (a.dryRun) {
     if (a.json) planJson();
-    d.out(`dry run: no triage calls, nothing spawned; parallel ${a.parallel}${a.draft ? ", draft PRs" : ""}${a.split ? "" : ", no split"}\n`);
+    d.out(`dry run: no triage calls, nothing spawned; parallel ${par}${a.draft ? ", draft PRs" : ""}${a.split ? "" : ", no split"}\n`);
     return 0;
   }
 
@@ -259,7 +264,7 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
       d.err("loki issues run: refusing to start billed runs without a terminal to confirm; pass --yes to run unattended\n");
       return 2;
     }
-    if (!(await d.confirm(`Triage and run ${todo.length} issue${todo.length === 1 ? "" : "s"} on ${slug}? [y/N] `))) {
+    if (!(await d.confirm(`${a.triage ? "Triage and run" : "Run"} ${todo.length} issue${todo.length === 1 ? "" : "s"} on ${slug}? [y/N] `))) {
       d.out("aborted, nothing run\n");
       return 1;
     }
@@ -269,7 +274,9 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
   const rows = new Map<number, Row>();
   const actionable: GhIssue[] = [];
   const epics: { issue: GhIssue; reason: string; plan: Extract<Decomposition, { ok: true }> }[] = [];
-  for (const i of todo) {
+  // LEAN-7: triage is opt-in; by default every issue is one whole-issue attempt and a failed or cap-hit run is split once afterwards
+  if (!a.triage) actionable.push(...todo);
+  for (const i of a.triage ? todo : []) {
     let t: Triage;
     try {
       t = await d.triage(slug, i);
@@ -283,12 +290,7 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
     }
     let skipReason = t.reason;
     if (t.decision === "too-large" && a.split) {
-      let p: Decomposition;
-      try {
-        p = parseDecomposition(await d.decompose(slug, i, t.reason));
-      } catch (e) {
-        p = { ok: false, reason: `split call failed: ${e instanceof Error ? e.message : String(e)}` };
-      }
+      const p = await splitWithReask(d, slug, i, t.reason);
       if (p.ok) {
         epics.push({ issue: i, reason: t.reason, plan: p });
         d.out(`#${i.number} split into ${p.slices.length} slices: ${p.slices.map((s) => s.id + (p.parent[s.id] ? `<-${p.parent[s.id]}` : "")).join(", ")}\n`);
@@ -348,24 +350,43 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
     queueAdd([...byRef.keys()], { lokiDir: runDir, runner: d.runner, governor: noGovernor, now: d.now, out: sink, err: d.err });
     const runOne = async (ref: string, opts: RunOpts): Promise<RunResult> => {
       const n = byRef.get(ref)!.number;
-      const wt = a.parallel > 1 ? d.worktree.create(`issue-${n}`, "HEAD") : null;
+      const wt = par > 1 ? d.worktree.create(`issue-${n}`, "HEAD") : null;
       try {
         return await runWithRetry(`#${n}`, ref, opts, wt);
       } finally {
         if (wt) d.worktree.remove(`issue-${n}`, wt);
       }
     };
+    const wholeFailed: GhIssue[] = [];
     const onResult = (r: ItemResult): void => {
       const i = byRef.get(r.ref)!;
+      if (a.split && wholeRunTooLarge(r.row.pr, r.res)) wholeFailed.push(i);
       const outcome = r.row.pr ? r.row.verdict : `${r.row.verdict}, no PR: ${clip(lastLine(r.res.output) || "no output", 140)}`;
-      rows.set(i.number, { issue: i.number, title: i.title, triage: "actionable", outcome, pr: r.row.pr ?? "none", cost: r.row.cost, time: secs(r.seconds) });
+      rows.set(i.number, { issue: i.number, title: i.title, triage: a.triage ? "actionable" : "not triaged", outcome, pr: r.row.pr ?? "none", cost: r.row.cost, time: secs(r.seconds) });
       d.out(`#${i.number} ${r.row.verdict}  pr ${r.row.pr ?? "none"}  cost ${r.row.cost}  ${secs(r.seconds)}\n`);
     };
     for (const i of actionable) d.out(`#${i.number} running\n`);
-    await queueRun([], { lokiDir: runDir, runner: runOne, governor: noGovernor, now: d.now, out: sink, err: d.err, parallel: a.parallel, draft: a.draft, onResult });
+    await queueRun([], { lokiDir: runDir, runner: runOne, governor: noGovernor, now: d.now, out: sink, err: d.err, parallel: par, draft: a.draft, onResult });
+    // One split per issue, only after its whole-issue run failed or hit a cap
+    const late: typeof epics = [];
+    for (const i of wholeFailed) {
+      const why = rows.get(i.number)?.outcome ?? "the whole-issue run failed";
+      const p = await splitWithReask(d, slug, i, `the whole-issue run did not finish: ${why}`);
+      if (!p.ok) {
+        d.out(`#${i.number} split refused: ${clip(p.reason, 160)}\n`);
+        continue;
+      }
+      d.out(`#${i.number} split into ${p.slices.length} slices after the whole-issue run did not finish\n`);
+      late.push({ issue: i, reason: why, plan: p });
+    }
+    if (late.length > 0) {
+      const n = late.reduce((sum, e) => sum + e.plan.slices.length, 0);
+      if (a.yes || (await d.confirm(`Run ${n} slices in ${late.length} epic${late.length === 1 ? "" : "s"} on ${slug}? [y/N] `))) epics.push(...late);
+      else d.out("split declined, the failed whole-issue results stay as they are\n");
+    }
   }
 
-  // MASS-2: each epic's slices, one at a time in dependency order, through the same runner and the run's own PR stage
+  // MASS-2: each epic's slices, concurrently where dependencies allow (up to --parallel), through the same runner and the run's own PR stage
   const trees: string[] = [];
   for (const e of epics) {
     const n = e.issue.number;
@@ -395,7 +416,7 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
       d.out(`#${n} ${s.id} ${verdict}  pr ${pr ?? "none"}  cost ${r.cost}\n`);
       return r;
     };
-    const results = await runEpicSlices(e.plan, runSlice, (r) => d.out(`#${n} ${r.id} ${r.title}: ${r.outcome}\n`));
+    const results = await runEpicSlices(e.plan, runSlice, (r) => d.out(`#${n} ${r.id} ${r.title}: ${r.outcome}\n`), a.parallel, (p) => d.out(`${progressLine(n, p)}\n`));
     const prs = results.filter((r) => r.pr).length;
     const failed = results.filter((r) => /^(FAILED|BLOCKED)/.test(r.outcome)).length;
     const skipped = results.filter((r) => r.outcome.startsWith("SKIPPED")).length;
@@ -416,6 +437,32 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
   }
   d.out(`\n${text}\ndigest: ${join(runDir, "digest.md")}\n`);
   return 0;
+}
+
+// One decompose call, re-asked once with the cap and count when the split came back over the cap; a thrown call is a refused split.
+async function splitWithReask(d: IssuesRunDeps, slug: string, i: GhIssue, reason: string): Promise<Decomposition> {
+  try {
+    let p = parseDecomposition(await d.decompose(slug, i, reason));
+    if (!p.ok && p.over !== undefined) {
+      d.out(`#${i.number} split had ${p.over} slices, over the cap; asking once more\n`);
+      p = parseDecomposition(await d.decompose(slug, i, reason, overCapNote(p.over)));
+    }
+    return p;
+  } catch (e) {
+    return { ok: false, reason: `split call failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+/**
+ * A whole-issue run that opened no PR after doing real work and not finishing: it hit the cost/time cap (exit 3, the BUDGET_STOP rung),
+ * or its sealed receipt says FAILED with a committed change. A worker crash, a setup failure (no sealed receipt or no change), a
+ * spec conflict and a stall never qualify: splitting those only buys a planning call plus slices that fail the same way.
+ */
+export function wholeRunTooLarge(pr: string | null | undefined, res: Pick<RunResult, "rc" | "verdict" | "didWork">): boolean {
+  if (pr) return false;
+  if (res.verdict === "BLOCKED" || res.verdict === "SPEC_CONFLICT") return false;
+  if (res.rc === 3 || res.verdict === "BUDGET_STOP") return true;
+  return res.verdict === "FAILED" && res.didWork === true;
 }
 
 const PR_URL_RE = /https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+/;
@@ -446,7 +493,8 @@ export function triageBrief(slug: string, i: GhIssue): string {
   return [
     "You are triaging one GitHub issue for an autonomous coding agent that would attempt it as a single pull request in this repository.",
     "Do not edit, create or delete any file. You may read the repository to judge scope.",
-    "Decide exactly one: actionable (clear and small enough for one PR), needs-info (a maintainer must supply missing information first), too-large (needs several PRs or a design decision).",
+    "Decide exactly one: actionable (one PR can deliver it), needs-info (a maintainer must supply missing information first), too-large (one PR clearly cannot hold it).",
+    "Prefer actionable. A large-looking issue is still actionable when one coherent change can deliver it, even if that change touches many files. Answer too-large only when one PR clearly cannot hold the work, for example when it spans independent subsystems or needs a design decision first. When in doubt, answer actionable.",
     "End your reply with exactly one line in this form, and nothing after it:",
     "TRIAGE: <actionable|needs-info|too-large> | <one-line reason>",
     "",
@@ -545,7 +593,8 @@ export async function runIssues(args: readonly string[], inject?: Partial<Issues
     }),
     triage: inject?.triage ?? makeSessionTriage(repoDir, lokiDir, provider),
     decompose: inject?.decompose ?? makeSessionDecompose(repoDir, lokiDir, provider),
-    runner: inject?.runner ?? ((ref, opts) => base(ref, { ...opts, env: userEnv })),
+    // A worktree slice keeps its run branch: a dependent slice stacks on it. The sweep after the batch saves and removes them.
+    runner: inject?.runner ?? ((ref, opts) => base(ref, { ...opts, env: opts.cwd ? { ...userEnv, LOKI_KEEP_RUN_BRANCH: "1" } : userEnv })),
     estimate: inject?.estimate ?? (() => estimateFor(repoDir, undefined, { model: resolveModel(provider), env: process.env })), // F2: rough prior when no history
     confirm: inject?.confirm ?? askYesNo,
     isTTY: inject?.isTTY ?? (!!process.stdin.isTTY && !!process.stdout.isTTY),
@@ -555,5 +604,7 @@ export async function runIssues(args: readonly string[], inject?: Partial<Issues
     out: inject?.out ?? ((s) => void process.stdout.write(s)),
     err: inject?.err ?? ((s) => void process.stderr.write(s)),
   };
-  return issuesRun(args.slice(1), d);
+  const rc = await issuesRun(args.slice(1), d);
+  if (!inject?.runner) d.err((await import("../util/base_guard.ts")).sweepRunBranches(repoDir, userEnv));
+  return rc;
 }

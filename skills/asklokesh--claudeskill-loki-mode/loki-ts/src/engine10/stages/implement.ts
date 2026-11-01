@@ -35,10 +35,13 @@ export function impactedTests(ctx: RunContext): string[] {
 }
 
 export const briefCtx = (ctx: RunContext): string => briefContext(ctx, { select: selectRelevantFiles, cmd: (t, repoDir) => { const c = commandFor(t, repoDir, loadProjectApi(repoDir)); return [c.cmd, c.args, c.interpreter, c.pkgRoot]; } });
+// Plan skipped: one fixed line, no per-task text, placed right after FIXED_RULES so every skipped-plan brief shares the same cache-stable prefix.
+export const FOLD_PLAN_INSTRUCTION = "Before editing, write the files you will change and the test you will run, in at most 10 lines, then proceed.";
 const REPRO_LINE = "If the task reports a bug, first add a new test function that reproduces it, run it and see it fail, then fix the code and run that test again.";
 export function buildImplementBrief(task: string, plan: string | null, impactedTests: string[], repoMap = "", spec: string | null = null, assumptions: unknown = undefined): string {
   return withStagePrefix([ // FIXED_RULES leads and FINISH_LINE closes, both byte-identical per task
     FIXED_RULES,
+    ...(plan ? [] : [FOLD_PLAN_INSTRUCTION]),
     ...taskBlock(task),
     ...assumptionsBlock(assumptions),
     ...(spec ? [spec] : []), // SPEC-FIRST-INTENT: the user-edited spec is the authoritative intent; absent adds nothing
@@ -122,9 +125,9 @@ export const implementStage: Stage = {
     };
     const unchained = (): SessionRunOptions => { const { resumeSessionId: _chained, ...rest } = first; return ownId ? { ...rest, brief: buildImplementBrief(task, plan, impacted, repoMap, specBriefBlock(spec), prior.intake?.assumptions) } : rest; }; // read at call time: the router may rewrite first.model; retries and conflict reruns never inherit the chain link
     // ROUTER-1: per-unit ladder from the plan's route record (runner/router/unit_model.ts). Flag off: none of this runs.
-    const rt = routed ? routeStart(ctx, first, prior.plan) : null;
-    // S41-13: LOKI_E10_ATTEMPTS=2 on a normal-size task with a non-empty predicted S runs two attempts; the worker env is already token-scrubbed (asserted inside).
     const size = sizeTask(task, loadRepoMap(prior.intake?.repomap_ref as string | undefined), (prior.intake?.testmap as TestMap | undefined) ?? null).size;
+    const rt = routed ? routeStart(ctx, first, prior.plan, size) : null;
+    // S41-13: LOKI_E10_ATTEMPTS=2 on a normal-size task with a non-empty predicted S runs two attempts; the worker env is already token-scrubbed (asserted inside).
     const two = attemptsGate({ size, predictedS: impacted.length }) ? await runAttemptsOnCtx(ctx, first, signal, impacted, { wallPaths: readOnly.map((f) => relative(ctx.repoDir, f.path)), wallContent: Object.fromEntries(readOnly.map((f) => [relative(ctx.repoDir, f.path), f.content])), check: (c, t, sg, out) => { const tc = commandFor(t, c.repoDir, loadProjectApi(c.repoDir)); return runCheck(c, `${t.runner}:${t.path}`, tc.cmd, tc.args, sg, out as VerifyCheck[], { ...(tc.interpreter ? { interpreter: tc.interpreter } : {}), ...(tc.pkgRoot !== "." ? { cwd: tc.cwd } : {}) }); } }) : null;
     let session = two ? two.session : await ctx.sessions.run(first);
     const ids = two ? two.ids : [first.iterationId];
@@ -176,7 +179,7 @@ export const implementStage: Stage = {
     const stderrTail = session.stderrTail ?? ""; mkdirSync(ctx.runDir, { recursive: true }); const stderrPath = join(ctx.runDir, `${iterationId}.stderr.log`); writeFileSync(stderrPath, stderrTail, "utf8");
     data.stderr_path = stderrPath;
 
-    return { status: "failed", reason: classifyExitCause(session.exit, false), data };
+    return { status: "failed", reason: classifyExitCause(session.exit, false, undefined, stderrTail, ctx.provider), data };
   },
 };
 export const stage = implementStage;
