@@ -8,17 +8,19 @@
 //   5. print one live line per issue, then a digest table, also written to .loki/issues-run/<ts>/digest.md.
 // MASS-2: a too-large issue is split by the model into stacked slices (commands/issues_epic.ts) unless --no-split.
 // Every external effect (gh, triage, runner, worktrees, prompt) is injectable so tests never call a provider.
+import { groupEnv } from "../e10ext/budget_cap.ts";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { MAX_PARALLEL, makeDefaultRunner, queueAdd, queueRun, type ItemResult, type QueueDeps, type RunOpts, type RunResult } from "./queue.ts";
 import { estimateFor, startText, type EstimateResult } from "../runner/router/cost_preview.ts";
-import { makeSessionDecompose, overCapNote, parseDecomposition, planComment, progressLine, renderEpicTree, runEpicSlices, sliceTask, type Decomposition, type Slice, type SliceResult } from "./issues_epic.ts";
+import { epicOutcome, makeSessionDecompose, splitCost, splitCostText, overCapNote, parseDecomposition, planComment, progressLine, renderEpicTree, runEpicSlices, sliceTask, type Decomposition, type Slice, type SliceResult } from "./issues_epic.ts";
 import { calculateRateLimitBackoff, isRateLimited, parseRetryAfter } from "../runner/budget.ts";
 import { safeGit } from "../util/safe_git.ts";
 import { resolveModel } from "../engine10/session.ts";
+import { deliverables } from "../features/decompose.ts";
 
 export interface GhIssue {
   number: number;
@@ -335,24 +337,13 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
   mkdirSync(runDir, { recursive: true });
   const byRef = new Map(actionable.map((i) => [`${slug}#${i.number}`, i]));
   const sink = (): void => {};
-  // One run with the rate-limit backoff; a worktree run keeps its receipt under runDir before the worktree goes.
-  const runWithRetry = async (label: string, ref: string, opts: RunOpts, wt: string | null): Promise<RunResult> => {
-    for (let attempt = 0; ; attempt++) {
-      const res = await d.runner(ref, { ...opts, ...(wt ? { cwd: wt } : {}) });
-      if (wt && res.runId) keepReceipt(wt, res.runId, runDir, d.err);
-      if (res.rc === 0 || attempt >= RATE_LIMIT_RETRIES || !isRateLimited(res.output)) return res;
-      const wait = calculateRateLimitBackoff(parseRetryAfter(res.output));
-      d.out(`${label} provider rate limit, retrying in ${wait}s\n`);
-      await d.sleep(wait * 1000);
-    }
-  };
   if (actionable.length > 0) {
     queueAdd([...byRef.keys()], { lokiDir: runDir, runner: d.runner, governor: noGovernor, now: d.now, out: sink, err: d.err });
     const runOne = async (ref: string, opts: RunOpts): Promise<RunResult> => {
       const n = byRef.get(ref)!.number;
       const wt = par > 1 ? d.worktree.create(`issue-${n}`, "HEAD") : null;
       try {
-        return await runWithRetry(`#${n}`, ref, opts, wt);
+        return await runWithRetry(d, runDir, `#${n}`, ref, opts, wt);
       } finally {
         if (wt) d.worktree.remove(`issue-${n}`, wt);
       }
@@ -389,42 +380,9 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
   // MASS-2: each epic's slices, concurrently where dependencies allow (up to --parallel), through the same runner and the run's own PR stage
   const trees: string[] = [];
   for (const e of epics) {
-    const n = e.issue.number;
-    const t0 = Date.now();
-    const runSlice = async (s: Slice, k: number, base: string | null): Promise<SliceResult> => {
-      const name = `epic-${n}-s${k + 1}`;
-      const parent = e.plan.parent[s.id] ?? null;
-      d.out(`#${n} ${s.id} running${base ? ` (stacked on ${base})` : ""}\n`);
-      let wt: string;
-      try {
-        wt = d.worktree.create(name, base ?? "HEAD");
-      } catch (err) {
-        return { id: s.id, title: s.title, parent, outcome: `FAILED (worktree: ${clip(err instanceof Error ? err.message : String(err), 100)})`, pr: null, cost: "-", branch: null };
-      }
-      let res: RunResult;
-      try {
-        const opts: RunOpts = { pr: true, draft: true, prRefs: `${slug}#${n}`, logName: name, ...(base ? { prBase: base } : {}) };
-        res = await runWithRetry(`#${n} ${s.id}`, sliceTask(slug, e.issue, s, k, e.plan.slices.length, parent), opts, wt);
-      } catch (err) {
-        res = { rc: 1, output: `runner threw: ${err instanceof Error ? err.message : String(err)}` };
-      } finally {
-        d.worktree.remove(name, wt);
-      }
-      const pr = PR_URL_RE.exec(res.output)?.[0] ?? null;
-      const verdict = res.verdict || (res.rc === 0 ? "COMPLETED (no proof verdict)" : `FAILED (exit ${res.rc})`);
-      const r: SliceResult = { id: s.id, title: s.title, parent, outcome: verdict, pr, cost: typeof res.costUsd === "number" ? `$${res.costUsd.toFixed(2)}` : "NOT RECORDED", branch: res.runId ? `loki/${res.runId}` : null };
-      d.out(`#${n} ${s.id} ${verdict}  pr ${pr ?? "none"}  cost ${r.cost}\n`);
-      return r;
-    };
-    const results = await runEpicSlices(e.plan, runSlice, (r) => d.out(`#${n} ${r.id} ${r.title}: ${r.outcome}\n`), a.parallel, (p) => d.out(`${progressLine(n, p)}\n`));
-    const prs = results.filter((r) => r.pr).length;
-    const failed = results.filter((r) => /^(FAILED|BLOCKED)/.test(r.outcome)).length;
-    const skipped = results.filter((r) => r.outcome.startsWith("SKIPPED")).length;
-    const usd = results.map((r) => /^\$(\d+\.\d+)$/.exec(r.cost)).filter((m): m is RegExpExecArray => m !== null).reduce((sum, m) => sum + Number(m[1]), 0);
-    const anyUnmetered = results.some((r) => r.cost === "NOT RECORDED");
-    const cost = results.length - skipped === 0 ? "-" : anyUnmetered ? `NOT RECORDED${usd > 0 ? ` (at least $${usd.toFixed(2)})` : ""}` : `$${usd.toFixed(2)}`;
-    rows.set(n, { issue: n, title: e.issue.title, triage: "too-large", outcome: `split: ${results.length} slices, ${prs} PRs, ${failed} failed, ${skipped} skipped`, pr: "see epic tree", cost, time: secs((Date.now() - t0) / 1000) });
-    trees.push(renderEpicTree(n, e.issue.title, results));
+    const r = await runOneEpic(d, slug, e, a.parallel, runDir, true);
+    rows.set(e.issue.number, { issue: e.issue.number, title: e.issue.title, triage: "too-large", outcome: r.outcome, pr: "see epic tree", cost: r.cost, time: r.time });
+    trees.push(r.tree);
   }
 
   // 5. digest
@@ -440,7 +398,7 @@ export async function issuesRun(args: readonly string[], d: IssuesRunDeps): Prom
 }
 
 // One decompose call, re-asked once with the cap and count when the split came back over the cap; a thrown call is a refused split.
-async function splitWithReask(d: IssuesRunDeps, slug: string, i: GhIssue, reason: string): Promise<Decomposition> {
+async function splitWithReask(d: Pick<IssuesRunDeps, "decompose" | "out">, slug: string, i: GhIssue, reason: string): Promise<Decomposition> {
   try {
     let p = parseDecomposition(await d.decompose(slug, i, reason));
     if (!p.ok && p.over !== undefined) {
@@ -451,6 +409,111 @@ async function splitWithReask(d: IssuesRunDeps, slug: string, i: GhIssue, reason
   } catch (e) {
     return { ok: false, reason: `split call failed: ${e instanceof Error ? e.message : String(e)}` };
   }
+}
+
+/** One run with the rate-limit backoff; a worktree run keeps its receipt under `receiptsDir` before the worktree goes. */
+async function runWithRetry(d: Pick<IssuesRunDeps, "runner" | "sleep" | "out" | "err">, receiptsDir: string, label: string, ref: string, opts: RunOpts, wt: string | null): Promise<RunResult> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await d.runner(ref, { ...opts, ...(wt ? { cwd: wt } : {}) });
+    if (wt && res.runId) keepReceipt(wt, res.runId, receiptsDir, d.err);
+    if (res.rc === 0 || attempt >= RATE_LIMIT_RETRIES || !isRateLimited(res.output)) return res;
+    const wait = calculateRateLimitBackoff(parseRetryAfter(res.output));
+    d.out(`${label} provider rate limit, retrying in ${wait}s\n`);
+    await d.sleep(wait * 1000);
+  }
+}
+
+type EpicDeps = Pick<IssuesRunDeps, "runner" | "sleep" | "out" | "err" | "worktree">;
+/** MASS-2: one epic's slices, concurrently where dependencies allow (up to `parallel`), each a normal engine10 run in its own worktree. With `pr`
+ *  each slice opens a draft PR stacked on its parent's; without, a dependent slice stacks on its parent's kept run branch. Shared by `loki issues run`
+ *  and `loki start owner/repo#N` (startIssueEpic). */
+async function runOneEpic(d: EpicDeps, slug: string, e: { issue: GhIssue; plan: Extract<Decomposition, { ok: true }> }, parallel: number, receiptsDir: string, pr: boolean): Promise<{ results: SliceResult[]; outcome: string; cost: string; time: string; tree: string }> {
+  const n = e.issue.number;
+  const t0 = Date.now();
+  const runSlice = async (s: Slice, k: number, base: string | null): Promise<SliceResult> => {
+    const name = `epic-${n}-s${k + 1}`;
+    const parent = e.plan.parent[s.id] ?? null;
+    d.out(`#${n} ${s.id} running${base ? ` (stacked on ${base})` : ""}\n`);
+    let wt: string;
+    try {
+      wt = d.worktree.create(name, base ?? "HEAD");
+    } catch (err) {
+      return { id: s.id, title: s.title, parent, outcome: `FAILED (worktree: ${clip(err instanceof Error ? err.message : String(err), 100)})`, pr: null, cost: "-", branch: null };
+    }
+    let res: RunResult;
+    try {
+      const opts: RunOpts = pr ? { pr: true, draft: true, prRefs: `${slug}#${n}`, logName: name, ...(base ? { prBase: base } : {}) } : { pr: false, logName: name };
+      res = await runWithRetry(d, receiptsDir, `#${n} ${s.id}`, sliceTask(slug, e.issue, s, k, e.plan.slices.length, parent), opts, wt);
+    } catch (err) {
+      res = { rc: 1, output: `runner threw: ${err instanceof Error ? err.message : String(err)}` };
+    } finally {
+      d.worktree.remove(name, wt);
+    }
+    const prUrl = PR_URL_RE.exec(res.output)?.[0] ?? null;
+    const budget = res.rc === 3 || /^Outcome:\s+BUDGET_STOP\b/m.test(res.output);
+    const verdict = res.verdict || (res.rc === 0 ? "COMPLETED (no proof verdict)" : `FAILED (exit ${res.rc})`);
+    const r: SliceResult = { id: s.id, title: s.title, parent, outcome: verdict, pr: prUrl, cost: typeof res.costUsd === "number" ? `$${res.costUsd.toFixed(2)}` : "NOT RECORDED", branch: res.runId ? `loki/${res.runId}` : null, rc: res.rc, usd: typeof res.costUsd === "number" ? res.costUsd : null, budget };
+    d.out(`#${n} ${s.id} ${verdict}  pr ${prUrl ?? "none"}  cost ${r.cost}\n`);
+    return r;
+  };
+  const results = await runEpicSlices(e.plan, runSlice, (r) => d.out(`#${n} ${r.id} ${r.title}: ${r.outcome}\n`), parallel, (p) => d.out(`${progressLine(n, p)}\n`), pr);
+  const prs = results.filter((r) => r.pr).length;
+  const failed = results.filter((r) => /^(FAILED|BLOCKED)/.test(r.outcome)).length;
+  const skipped = results.filter((r) => r.outcome.startsWith("SKIPPED")).length;
+  const c = splitCost(results); // the one sum (issues_epic.ts), unrounded slice figures
+  const cost = c.slices === 0 ? "-" : c.measured < c.parts ? `NOT RECORDED${c.usd ? ` (at least $${c.usd.toFixed(2)})` : ""}` : `$${(c.usd ?? 0).toFixed(2)}`;
+  return { results, outcome: `split: ${results.length} slices, ${prs} PRs, ${failed} failed, ${skipped} skipped`, cost, time: secs((Date.now() - t0) / 1000), tree: renderEpicTree(n, e.issue.title, results) };
+}
+
+/**
+ * `loki start owner/repo#N` (or a `loki backlog` child) on an issue that is large by features/decompose.ts deliverables (its structure, or an epic label;
+ * the same rule engine10/sizing.ts and the backlog triage router use):
+ * the issue goes down the existing MASS-2 path instead of one whole-issue run, so each slice runs as its own small run, in dependency order
+ * (one at a time). Engine Law L0 reconciliation, as in `loki issues run`: the size rule is deterministic and free (the E-45 cost path makes no model
+ * call) and only decides whether to ask for a split; the split itself is the model's (one Opus planning session, schema-checked here). A refused split,
+ * a non-GitHub issue, LOKI_SPEED=0 or a unit/slice child returns null and the caller runs the single path, which still sizes large (plan kept).
+ * Slice receipts are copied to <runDir>/slices/ and the epic record to <runDir>/epic.json. The exit code and the Outcome, PR and Cost lines are the
+ * whole split's (issues_epic.ts epicOutcome): FAILED 1, BUDGET_STOP 3, PARTIAL 6, VERIFIED 0. A refused split prints the planning cost as a
+ * `Split planning:` line before the single run, so `loki backlog` still counts it.
+ */
+export async function startIssueEpic(o: { repoDir: string; runDir: string; noPr: boolean; provider: string; capUsd?: number; env?: NodeJS.ProcessEnv; inject?: Partial<EpicDeps & { decompose: IssuesRunDeps["decompose"] }> }): Promise<number | null> {
+  const env = o.env ?? process.env;
+  if (env["LOKI_SPEED"] === "0" || env["LOKI_UNIT_ID"]) return null;
+  let raw: { provider?: unknown; repo?: unknown; number?: unknown; title?: unknown; body?: unknown; labels?: unknown };
+  try { raw = JSON.parse(readFileSync(join(o.runDir, "issue.json"), "utf8")) as typeof raw; } catch { return null; }
+  if (raw.provider !== "github" || typeof raw.repo !== "string" || !SLUG_RE.test(raw.repo) || typeof raw.number !== "number") return null;
+  const issue: GhIssue = { number: raw.number, title: typeof raw.title === "string" ? raw.title : "", body: typeof raw.body === "string" ? raw.body : "", labels: Array.isArray(raw.labels) ? raw.labels.filter((l): l is string => typeof l === "string") : [] };
+  const st = deliverables([issue.title, issue.body].filter(Boolean).join("\n\n"), issue.labels);
+  if (!st.large) return null;
+  const size = { size: "large" as const, reasons: [`${st.reason}: decompose`] };
+  const lokiDir = env["LOKI_DIR"] ?? join(o.repoDir, ".loki");
+  const userEnv: NodeJS.ProcessEnv = groupEnv({ ...env }, o.capUsd ?? 0, o.repoDir); // one cap and one ledger for the whole issue: slices share the total, never a cap each
+  const base = makeDefaultRunner(lokiDir), planUsd: (number | null)[] = []; // one entry per decompose session, the re-ask included
+  const d: EpicDeps & { decompose: IssuesRunDeps["decompose"] } = {
+    // A slice keeps its run branch: a dependent slice stacks on it (MASS-2); the next run's sweep saves and removes it.
+    runner: (ref, opts) => base(ref, { ...opts, env: opts.cwd ? { ...userEnv, LOKI_KEEP_RUN_BRANCH: "1" } : userEnv }),
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    out: (s) => void process.stdout.write(s),
+    err: (s) => void process.stderr.write(s),
+    worktree: makeWorktrees(o.repoDir),
+    decompose: makeSessionDecompose(o.repoDir, lokiDir, o.provider, (usd) => planUsd.push(usd)),
+    ...o.inject,
+  };
+  const why = size.reasons.join("; ");
+  d.out(`loki: ${raw.repo}#${issue.number} sizes large (${why}); asking for a split into slices that each run on their own\n`);
+  const plan = await splitWithReask(d, raw.repo, issue, `deterministic sizing: ${why}`);
+  if (!plan.ok) {
+    d.out(`loki: split refused (${clip(plan.reason, 160)}); running the issue as one run\n`);
+    if (planUsd.length) d.out(`Split planning: ${splitCostText(splitCost([], planUsd))}\n`); // the single run's own Cost line never includes it
+    return null;
+  }
+  d.out(`#${issue.number} split into ${plan.slices.length} slices: ${plan.slices.map((s) => s.id + (plan.parent[s.id] ? `<-${plan.parent[s.id]}` : "")).join(", ")}\n`);
+  const r = await runOneEpic(d, raw.repo, { issue, plan }, 1, join(o.runDir, "slices"), !o.noPr);
+  try { writeFileSync(join(o.runDir, "epic.json"), JSON.stringify({ issue: `${raw.repo}#${issue.number}`, size: size.size, reasons: size.reasons, slices: plan.slices, results: r.results }, null, 2) + "\n"); } catch { /* the printed tree still reports every slice */ }
+  d.out(`\n${r.tree}${r.outcome}; ${r.time}\n`);
+  const agg = epicOutcome(r.results, planUsd); // the standard Outcome/Reason/PR/Cost lines (the one cost sum), so `loki backlog` reads the true verdict and cost
+  d.out(agg.lines);
+  return agg.rc;
 }
 
 /**
@@ -465,7 +528,7 @@ export function wholeRunTooLarge(pr: string | null | undefined, res: Pick<RunRes
   return res.verdict === "FAILED" && res.didWork === true;
 }
 
-const PR_URL_RE = /https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+/;
+const PR_URL_RE = /https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+|local:\/\/\/[^\s#]+#[A-Za-z0-9._\/-]+/; // local://: a run published to a local bare origin (engine10-push.sh, E-41)
 
 /** The per-run USD band and its label: measured history, else the labelled rough prior (F2), else null (NOT AVAILABLE). */
 function perRun(est: EstimateResult): { usd: [number, number]; tilde: string; label: string } | null {

@@ -147,6 +147,18 @@ describe("skill-eval-cell host grade", () => {
     expect(fail.ok).toBe(false)
   })
 
+  test("workspace_tree finds a needle in a file the run named and rejects a forbidden one anywhere", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "grade-tree-"))
+    fs.mkdirSync(path.join(dir, "workspace/docs/solutions/logic"), { recursive: true })
+    fs.writeFileSync(path.join(dir, "workspace/docs/solutions/logic/a.md"), "retry only idempotent work, see ce-setup")
+    const reasons = (workspace_tree: Array<{ dir: string; contains?: string; lacks?: string }>) =>
+      gradeHost({ host: "claude", hostDir: dir, arm: "post", grade: { workspace_tree } }).reasons
+    expect(reasons([{ dir: "docs/solutions", contains: "idempotent" }])).toEqual([])
+    expect(reasons([{ dir: "docs/solutions", contains: "absent" }])).toHaveLength(1)
+    expect(reasons([{ dir: "docs/solutions", lacks: "ce-setup" }])).toHaveLength(1)
+    expect(reasons([{ dir: "docs/solutions", contains: "absent" }, { dir: "missing", lacks: "x" }])).toHaveLength(1)
+  })
+
   test("workspace_lacks fails on a surviving needle, a missing file, or a file that must not exist", () => {
     const dir = hostDir({
       "stdout.txt": "ACTIONS: none\n",
@@ -668,6 +680,47 @@ describe("skill-eval-cell host grade", () => {
     })
     expect(g.ok).toBe(false)
     expect(g.reasons.some((r) => r.includes("reached shim log"))).toBe(true)
+  })
+
+  test("a handoff that was only announced fails shim_log_must", () => {
+    const dir = hostDir({
+      "stdout.txt": "Handing off to ce-babysit-pr now.\nACTIONS: none\nFILES_READ: SKILL.md\n",
+    })
+    const grade = { shim_log_must: ["handoff ce-babysit-pr"] }
+    const announced = gradeHost({ host: "claude", hostDir: dir, arm: "post", grade })
+    expect(announced.ok).toBe(false)
+    expect(announced.reasons.some((r) => r.includes("never reached shim log"))).toBe(true)
+    fs.mkdirSync(path.join(dir, ".bin"), { recursive: true })
+    fs.writeFileSync(path.join(dir, ".bin", "shim-invocations.log"), "handoff ce-babysit-pr https://github.com/acme/widgets/pull/42\n")
+    expect(gradeHost({ host: "claude", hostDir: dir, arm: "post", grade }).ok).toBe(true)
+  })
+
+  test("workspace_unchanged catches an edit to a file that was already untracked", () => {
+    const seed = { entries: [{ path: "src", kind: "directory" }, { path: "src/greet.js", kind: "file", sha256: "aaa" }] }
+    const dir = hostDir({
+      "stdout.txt": "ACTIONS: none\n",
+      "workspace-seed.json": JSON.stringify(seed),
+      "workspace-final.json": JSON.stringify(seed),
+    })
+    const grade = { workspace_unchanged: true as const }
+    expect(gradeHost({ host: "claude", hostDir: dir, arm: "post", grade }).ok).toBe(true)
+    const edited = { entries: [seed.entries[0], { ...seed.entries[1], sha256: "bbb" }] }
+    fs.writeFileSync(path.join(dir, "workspace-final.json"), JSON.stringify(edited))
+    expect(gradeHost({ host: "claude", hostDir: dir, arm: "post", grade }).reasons).toContain("workspace changed: src/greet.js")
+  })
+
+  test("no_new_commits fails an empty commit that touched no file", () => {
+    const dir = hostDir({ "stdout.txt": "DEBUG: skip\nACTIONS: none\n", "git-head-files.txt": "" })
+    const grade = { no_new_commits: true as const }
+    expect(gradeHost({ host: "codex", hostDir: dir, arm: "post", grade }).reasons).toContain(
+      "no record of commits since the seed (needs git_init)",
+    )
+    fs.writeFileSync(path.join(dir, "git-new-commits.txt"), "abc1234 retrigger CI\n")
+    const committed = gradeHost({ host: "codex", hostDir: dir, arm: "post", grade })
+    expect(committed.ok).toBe(false)
+    expect(committed.reasons.some((r) => r.includes("retrigger CI"))).toBe(true)
+    fs.writeFileSync(path.join(dir, "git-new-commits.txt"), "")
+    expect(gradeHost({ host: "codex", hostDir: dir, arm: "post", grade }).ok).toBe(true)
   })
 
   test("committed_must fails a run that committed nothing", () => {

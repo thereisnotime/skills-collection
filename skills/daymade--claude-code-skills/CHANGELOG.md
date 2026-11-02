@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **local-codex** (`daymade-codex` v2.4.0 → v2.4.1): Verify account access through the ordinary entry's adopted permission settings; keep separately requested sandbox variants scoped and require a nonempty completed response rather than an empty successful process. Change type: bounded verification correction.
+
+- **macos-cleaner** (`daymade-macos` v1.26.14 → v1.26.15): Keep verified generated browser clones rebuildable from the current installation instead of creating backups from nominal size. Distinguish LFS attribute matches from exact immutable-tree/index tracking while preserving real pointer, cache and protected-path guards. Change type: bounded classification correction.
+
+- **macos-cleaner** (`daymade-macos` v1.26.13 → v1.26.14): Diagnose candidate-only provenance before APFS swap with matched small execution-context probes, strict preservation checks and a fresh exact-pair pilot. Retain finite own-job supervision and unknown-state safeguards. Change type: bounded diagnostic guidance.
+
+- **debugging-network-issues** (v1.11.7 → v1.11.8): Compare production, probe and control proxy contexts before interpreting container experiments; retain native retries and distinguish anycast path changes from ISP or hardware attribution. Change type: bounded evidence-selection guidance.
+
 - **prior-work-retrieval** (`daymade-claude-code` v4.33.21 → v4.33.22): Keep explicitly timestamped current execution deadlines out of historical retrieval; preserve mixed artifact requests and existing obligations. Change type: bounded prompt-classification repair.
 
 - **git-safety-net** (v1.24.5 → v1.24.6): Correct interrupted fast-forward and published-copy recovery to use the project's verified guarded synchronization procedure, preserve WIP, and verify HEAD, index and working-tree state. Remove obsolete hand-reversion advice and derived prose counts. Change type: factual SOP correction.

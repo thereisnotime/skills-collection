@@ -16,7 +16,7 @@ LOCAL_CI_ONLY=hygiene,pack-contents bash scripts/local-ci.sh   # a subset
 | Test | Guards |
 | --- | --- |
 | `syntax` | `bash -n` on every shipped shell script, a Python parse of every shipped module, `node --check` on the JS entrypoints |
-| `hygiene` | no emoji and no en or em dashes in any tracked or new text file; every repo path named in README, SKILL, skills, references, docs and wiki markdown exists |
+| `hygiene` | no emoji and no en or em dashes in any tracked or new text file; every repo path named in README, SKILL, skills, references, docs and wiki markdown exists; shipped login hints use `claude auth login` (the Claude CLI has no bare login subcommand) |
 | `version-consistency` | VERSION agrees with package.json, server.json, the plugin manifest, SKILL.md, both Dockerfiles, the Helm charts, dashboard and MCP package versions, and the committed Bun bundle |
 | `release-notes` | `scripts/release-notes.sh` extracts a complete CHANGELOG section for VERSION and refuses a missing, empty, unfinished or placeholder one |
 | `docker-and-zip-sources` | every Docker COPY source and every path the release zip step copies exists in git |
@@ -29,6 +29,7 @@ LOCAL_CI_ONLY=hygiene,pack-contents bash scripts/local-ci.sh   # a subset
 | `detect-gates` | the five `tests/detect-*.sh` quality gates that `autonomy/run.sh` executes pass a clean fixture and fail a defective one |
 | `dist-freshness` | the committed `loki-ts/dist` bundles equal a fresh build of `loki-ts/src`; `web-app/dist/index.html` references only assets that exist |
 | `engine10-e2e-stub` | the real engine, end to end on a stub provider: VERIFIED run, tampered run reads TAMPERED, the agent session never receives the GitHub token |
+| `scope-and-fix` | implement and fix stages on the stub provider: an edit to a pre-existing test is restored (kept when the task names the file), an out-of-scope edit is listed on the receipt, a fix-round spec conflict starts no retry, a fix round with no progress stops fixing |
 
 ## Adding a test
 

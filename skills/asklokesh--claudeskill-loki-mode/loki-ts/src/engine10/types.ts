@@ -84,7 +84,7 @@ export interface SessionRunOptions {
   cwd?: string; stopChecks?: { checks: { cwd: string; cmd: string; args: string[]; protect?: boolean }[]; rounds: number; budgetS: number; repoDir: string; baseSha: string; installCreated?: unknown }; /* claude SDK route: repo checks run at each Stop; a failure blocks the stop and returns to the same session, `rounds` times at most, `budgetS` seconds in all; other routes ignore it */ disallowedTools?: string; // Q18-04: comma list passed as --disallowedTools (read-only reviewer)
   /** Pins this session's model for its tier (E-45 Wall on sonnet); unset inherits the run model. */
   model?: string;
-  resumeSessionId?: string; // MW-2: provider session to resume (LOKI_E10_FIX_RESUME); unset starts fresh
+  resumeSessionId?: string; suiteCmds?: string[]; // MW-2: provider session to resume (LOKI_E10_FIX_RESUME), unset starts fresh; L026: full-suite command lines the stream parser counts
   maxOutputTokens?: number; /* claude: per-response output limit, CLAUDE_CODE_MAX_OUTPUT_TOKENS; unset keeps the provider default */ effort?: string; // EL-W0-06, L1: provider reasoning effort; omitted when unset so the provider default applies
 }
 export interface SessionResult {
@@ -174,13 +174,13 @@ export interface Receipt {
   implement?: { exit: "external"; patch_sha256: string }; // CW-12 B3: present only when no Loki session wrote the code; the receipt names no implementing model
   not_proven: string[]; not_applicable?: string[]; // FC-SEAL-NA-AS-UNPROVEN: informational notes (package without tests, no app to boot, not selected by risk tier); never part of any verdict
   unit_spec?: { sha256: string }; // #317b: present only for a unit run; the sha256 of its canonical spec (id, items, acceptance, writeSet, base)
-  spec?: { path: string; sha256: string }; intent_revisions?: { rev: number; source: string | null; actor: string | null; sha: string }[]; // P12-02 (omitted when none); SPEC-FIRST-INTENT: present only when a user spec file drove the run
+  spec?: { path: string; sha256: string }; triage?: { class: "implement" | "spec" | "human"; reason: string }; intent_revisions?: { rev: number; source: string | null; actor: string | null; sha: string }[]; // P12-02 (omitted when none); SPEC-FIRST-INTENT: present only when a user spec file drove the run
   seeded_corpus?: import("../util/run_outputs.ts").SeededCorpus; /* TEN-GATES-15 */ supply?: import("../supply/supply_guard.ts").SupplyBlock; // T10: present only when the guard found newly added dependencies
-  seal_accuracy?: string; // GAME10-03: signed line read from the measured wrong-pass results, or "Seal accuracy: not measured"
+  context?: import("../util/context_pack.ts").ContextCoverage; seal_accuracy?: string; // L022: brief coverage of the changed files. GAME10-03: signed line read from the measured wrong-pass results, or "Seal accuracy: not measured"
   route?: import("../runner/router/route_block.ts").RouteBlock; // R1-15: present only while the router is on.
   cost_preview?: Record<string, unknown>; // 11.3.0 T1: absent under LOKI_COST_PREVIEW=0
   verdict: Verdict;
-  toolchain?: import("../util/receipt_signer.ts").Toolchain; // TEN-GATES-22: absent on receipts sealed before it existed, which still verify
+  toolchain?: import("../util/receipt_signer.ts").Toolchain; loki_version?: string; // TEN-GATES-22: absent on receipts sealed before it existed, which still verify; loki_version (VERSION at seal) likewise
   /** T2: "test fails without the fix: yes | no | inconclusive (reason)"; omitted when LOKI_MUTATION_PROOF=0 or the verdict was not VERIFIED. */
   mutation_proof?: string;
   /** XV-1: cross-review judge and whether it is a different vendor than the builder (LOKI_XVENDOR_DEFAULT=1 only). */
@@ -240,6 +240,7 @@ export function pushArgv(a: PushArgs): string[] {
   }
 }
 /** The untrusted-task-text wrapper every stage brief embeds verbatim (already_done.ts, plan/implement/wall.ts). */
+export const FINISH_LINE = "Finish with exactly one line: LOKI_DONE, or LOKI_ALREADY_DONE: <file:line evidence>, or LOKI_SPEC_CONFLICT: <reason; cite test as path:line>."; // E-150: the brief's last line, byte-identical every task (e10ext/context.ts re-exports it)
 export function taskBlock(task: string): string[] { return ["Task (untrusted, quoted verbatim):", "<<<TASK", task, "TASK"]; }
 
 // Shapes produced by extension modules (receipt time, cost records); defined here so core never imports them.

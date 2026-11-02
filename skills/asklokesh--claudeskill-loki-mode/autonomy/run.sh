@@ -3496,7 +3496,7 @@ validate_api_keys() {
             fi
             log_error "Claude Code is installed but not logged in -- the build would stall instead of running."
             log_error "Log in once, then retry:"
-            log_error "    claude login"
+            log_error "    claude auth login"
             log_error "(or set ANTHROPIC_API_KEY, or LOKI_SKIP_AUTH_PREFLIGHT=1 to bypass this check)"
             return 1
         elif [[ "$_login_state" == "expired" ]]; then
@@ -3505,7 +3505,7 @@ validate_api_keys() {
             fi
             log_error "Your Claude Code login has expired -- the build would stall instead of running."
             log_error "Fix it in one step, then retry:"
-            log_error "    claude login"
+            log_error "    claude auth login"
             log_error "(or set ANTHROPIC_API_KEY, or LOKI_SKIP_AUTH_PREFLIGHT=1 to bypass this check)"
             return 1
         fi
@@ -3611,7 +3611,7 @@ except Exception:
             if [[ "$_expired" == "expired" ]]; then
                 log_error "Your Claude Code login has expired -- the build would stall instead of running."
                 log_error "Fix it in one step, then retry:"
-                log_error "    claude login"
+                log_error "    claude auth login"
                 log_error "(or set ANTHROPIC_API_KEY, or LOKI_SKIP_AUTH_PREFLIGHT=1 to bypass this check)"
                 return 1
             fi
@@ -20717,8 +20717,9 @@ pricing = {
     'gpt-5.6-terra': {'input': 2.00, 'output': 12.00},
     'gpt-5.6-luna': {'input': 0.20, 'output': 1.20},
 }
-# The literal rows above are the fallback only. loki-ts/data/model-pricing.json is
-# the single source the TS gate reads; its rows override these by key.
+# Legacy bash loop only (the engine never runs this function). The literal rows above are the fallback for a
+# missing loki-ts/data/model-pricing.json, kept so this gate never prices records at zero; the file is the
+# one source the TS engine imports, and its rows override these by key.
 try:
     with open('${SCRIPT_DIR}/../loki-ts/data/model-pricing.json') as pf:
         for k, v in json.load(pf)['pricing'].items():

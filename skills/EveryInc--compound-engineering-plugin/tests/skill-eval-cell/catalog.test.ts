@@ -44,6 +44,33 @@ describe("skill-eval-cell catalog", () => {
     expect(SCENARIOS.filter((s) => !scenarioHasDecisionGrade(s)).map((s) => s.id)).toEqual([])
   })
 
+  test("handoff-probe rows can run the recorder and grade its log", () => {
+    const probes = SCENARIOS.filter((s) => s.handoff_probe?.length)
+    expect(probes.filter((s) => s.read_only).map((s) => s.id)).toEqual([])
+    expect(
+      probes.filter((s) => !s.grade.shim_log_must?.length && !s.grade.shim_log_must_not?.length).map((s) => s.id),
+    ).toEqual([])
+    expect(
+      probes.filter((s) => s.handoff_probe!.some((name) => s.with_skill?.includes(name))).map((s) => s.id),
+    ).toEqual([])
+  })
+
+  test("handoff-probe rows grade that the handoff was the run's only effect", () => {
+    const unguarded = SCENARIOS.filter((s) => s.handoff_probe?.length).filter((s) => {
+      const forbidden = s.grade.shim_log_must_not ?? []
+      return (
+        !s.grade.no_new_commits ||
+        !s.grade.workspace_unchanged ||
+        !["git push", "pr create", "pr merge"].every((n) => forbidden.includes(n))
+      )
+    })
+    expect(unguarded.map((s) => s.id)).toEqual([])
+  })
+
+  test("no_new_commits rows seed a repo to count commits against", () => {
+    expect(SCENARIOS.filter((s) => s.grade.no_new_commits && !s.git_init).map((s) => s.id)).toEqual([])
+  })
+
   test("catalog skills are a subset of shipped skills", () => {
     const shipped = new Set(shippedSkills())
     expect(SCENARIOS.map((s) => s.skill).filter((name) => !shipped.has(name))).toEqual([])
@@ -178,10 +205,14 @@ describe("skill-eval-cell catalog", () => {
         "ce-code-review/depth-gate-yaml-lite:references/modes-and-output.md",
         "ce-commit-push-pr/description-only-no-commit:references/pr-description-writing.md",
         "ce-commit-push-pr/visual-after-only:references/visual-evidence.md",
+        "ce-commit-push-pr/visual-after-only-heading:references/visual-evidence.md",
         "ce-commit-push-pr/visual-before-from-baseline:references/visual-evidence.md",
         "ce-commit-push-pr/visual-before-from-deployment:references/visual-evidence.md",
         "ce-commit-push-pr/visual-net-new-page:references/visual-evidence.md",
-        "ce-compound-refresh/confirmed-worth-lens-deletes-only-with-quoted-artifact:references/worth-audit.md",
+        "ce-commit-push-pr/visual-project-hosts-screenshots:references/visual-evidence.md",
+        "ce-commit-push-pr/visual-stale-after-push:references/visual-evidence.md",
+        "ce-compound-refresh/worth-deletes-only-with-quoted-artifact:references/worth-audit.md",
+        "ce-compound/testable-defect-writes-test:references/form.md",
         "ce-commit-push-pr/babysit-off-preserves-human-decision:references/apply-and-handoff.md",
         "ce-debug/pipeline-convergent-fix:references/pipeline-mode.md",
         "ce-doc-review/routine-fix-no-product-lens:references/persona-selection.md",
@@ -338,10 +369,23 @@ describe("skill-eval-cell catalog", () => {
       "ce-code-review/validator-veto-routes-protected-rejections",
       "ce-commit-push-pr/babysit-off-preserves-human-decision",
       "ce-commit-push-pr/project-publishing-gate",
-      "ce-compound-refresh/confirmed-worth-lens-deletes-only-with-quoted-artifact",
+      "ce-compound-refresh/applies-form-findings-unattended",
+      "ce-compound-refresh/drift-only-keeps-redundant-accurate-doc",
       "ce-compound-refresh/guidance-survives-implementation-conflict",
-      "ce-compound-refresh/plain-refresh-keeps-redundant-accurate-doc",
-      "ce-compound-refresh/worth-lens-intent-confirms-before-loading",
+      "ce-compound-refresh/no-standards-file-attended-note",
+      "ce-compound-refresh/no-standards-file-stays-quiet",
+      "ce-compound-refresh/worth-deletes-only-with-quoted-artifact",
+      "ce-compound/interactive-writes-without-asking",
+      "ce-compound/lesson-already-carried-writes-nothing",
+      "ce-compound/log-field-signal-stays-a-proposal",
+      "ce-compound/non-rule-without-standards-file-stays-quiet",
+      "ce-compound/reasoning-only-writes-learning",
+      "ce-compound/repeated-rule-lessons-do-not-build-up",
+      "ce-compound/rule-with-standards-file-adds-standard",
+      "ce-compound/rule-without-standards-file-attended-note",
+      "ce-compound/rule-without-standards-file-stays-in-learning",
+      "ce-compound/testable-defect-lightweight",
+      "ce-compound/testable-defect-writes-test",
       "ce-debug/bakeoff-caller-opt-in",
       "ce-debug/bakeoff-consequential-repair",
       "ce-debug/bakeoff-selected-unsupported-guarantee",
@@ -352,12 +396,17 @@ describe("skill-eval-cell catalog", () => {
       "ce-doc-review/peer-outcome-folded",
       "ce-doc-review/peer-outcome-started-failed",
       "ce-doc-review/peer-outcome-started-no-artifact",
+      "ce-noslop/clipped-notes-become-sentences",
       "ce-noslop/dense-paragraph-keeps-every-claim",
       "ce-noslop/detect-names-patterns-without-rewrite",
+      "ce-noslop/detect-uses-plain-labels",
+      "ce-noslop/expected-fragments-stay",
       "ce-noslop/facts-survive-the-edit",
+      "ce-noslop/figurative-verbs-become-literal",
       "ce-noslop/fixes-leave-full-sentences",
       "ce-noslop/non-english-runs-tests-only",
       "ce-noslop/protected-spans-stay-byte-identical",
+      "ce-noslop/single-figure-becomes-literal",
       "ce-noslop/two-devices-stay-unchanged",
       "ce-noslop/workflow-jargon-keeps-technical-detail",
       "ce-optimize/approval-material-in-message-not-question",

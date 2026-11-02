@@ -8,12 +8,6 @@ went.
 "I paid for the AI's own mistakes" is one of the sharpest complaints in this
 category, and it is worth being precise about how our model differs.
 
-Most competitors sell credits. Lovable has already addressed the objection
-directly -- their "Try to fix" button does not consume credits, and their
-troubleshooting docs push you toward reverting or replanning instead of
-retrying the same prompt. That is a good policy and we are not claiming to have
-invented a better one.
-
 **Our model is different in kind: you bring your own provider credentials.** We
 never bill you, because we are never in the payment path. What we owe you
 instead is a hard ceiling and an honest account of what was spent -- which is
@@ -69,7 +63,6 @@ Where the default applies:
 | --- | --- | --- |
 | engine10 (`loki "<task>"`, the Loki 10 engine) | Only when an API key is set (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`). A subscription run (no key) has no dollar cap. | Ends the run `BUDGET_STOP`, exit 3. |
 | Bash loop (`loki start`, `autonomy/run.sh`) | Always, key or not. | Pauses the run (writes `.loki/PAUSE` and `.loki/signals/BUDGET_EXCEEDED`); remove both to resume. |
-| Bun SDK loop (`LOKI_SDK_LOOP`) | No default. Opt in with `BUDGET_LIMIT`. | Stops the loop when the limit is reached. |
 
 The README and the engine guide have shown different figures in the past (100 and
 20). The figure above is the code's, and the two guides follow it.

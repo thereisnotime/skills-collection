@@ -40,7 +40,6 @@ receipt without a single packet leaving the machine.
 
 `loki proof verify` deserves emphasis: an auditor can re-check a receipt against
 the repository offline and get a genuine verdict, including detecting drift.
-That is the property competitors' dashboard-bound verification cannot have.
 
 ## The one required egress, stated plainly
 
@@ -73,7 +72,7 @@ With a non-claude provider selected, `loki start` on the default (bash) route
 and `loki quickstart` never prompt the `claude` CLI, even when one is
 installed: PRD enrichment, done recognition, the council voters, the USAGE.md
 refresh and the quickstart intent check fall back to their deterministic
-paths. The opt-in Bun loop (`LOKI_SDK_LOOP=1`) is not yet held to this.
+paths.
 `LOKI_ALLOW_CLAUDE_SIDECALLS=1` restores those claude calls, and the audit then lists them as REQUIRED egress, so it cannot read air-gap ready.
 
 **We cannot run a build with no model at all.** Nobody can. What we can do is

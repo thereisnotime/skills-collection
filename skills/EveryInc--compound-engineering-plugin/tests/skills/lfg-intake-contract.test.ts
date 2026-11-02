@@ -87,6 +87,8 @@ describe("lfg work source and routes", () => {
     expect(compound).toBeLessThan(ship)
     expect(lfg).toContain("mode:non-interactive")
     expect(reviewFollowup).toContain("## Step 7 — compound before shipping")
+    expect(reviewFollowup).toContain("`Recommended form`")
+    expect(readRepoFile("skills/ce-compound/references/report.md")).toContain("Recommended form:")
   })
 })
 
@@ -140,6 +142,13 @@ describe("ce-debug return-to-caller seam (ce-debug <-> lfg)", () => {
     // ends must name the field so lfg's offered-scope check can see them.
     expect(debugReturn).toContain('"caller_edits":')
     expect(debugReturnGate).toContain("`pre_fix_scope.caller_edits`")
+  })
+
+  test("the always-on signal proposal reaches the user without becoming required or implemented", () => {
+    expect(debugReturn).toContain('"prevention_signal":')
+    expect(debugReturnGate).toContain("does not require `prevention_signal`")
+    expect(debugReturnGate).toMatch(/no step in this run implements it/)
+    expect(debugReturnGate).toMatch(/Step 11, close-out:[^\n]*`prevention_signal`/)
   })
 
   test("the debug gate requires the same evidence facts the ce-work gate requires", () => {

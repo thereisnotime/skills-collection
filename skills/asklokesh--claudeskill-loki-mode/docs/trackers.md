@@ -7,12 +7,28 @@ loki jira:PROJ-123
 loki linear:ENG-42
 ```
 
+## Backlog
+
+`loki backlog` works a whole Jira project or Linear team the way it works GitHub issues: it lists the open items, triages each one (implement, spec or human), runs the implement items as `loki jira:PROJ-N` or `loki linear:TEAM-N` in their own worktrees of the current checkout, drafts a spec for the vague ones and lists the human ones.
+
+```bash
+loki backlog jira:PROJ --all --dry-run
+loki backlog linear:ENG --label loki
+loki backlog jira:PROJ --issues 12,14     # PROJ-12 and PROJ-14
+```
+
+The project key is case-insensitive (`jira:proj` is `jira:PROJ`). An item whose key is not `PROJ-<number>` stops the listing before anything runs. Each run gets only its own tracker's token: a Jira run never sees `LINEAR_API_KEY` or `LOKI_LINEAR_TOKEN`, a Linear run never sees `JIRA_API_TOKEN`, `JIRA_TOKEN` or `LOKI_JIRA_TOKEN`, and a GitHub run or a `--dag` unit sees none of them. Open means a Jira status category other than Done, or a Linear state other than completed or canceled. At most 200 items are listed. A large Jira or Linear item runs as one run: only GitHub issues are split into slices today, and the triage reason says so.
+
 ## Credentials (environment only)
 
 - Jira: `JIRA_EMAIL`, `JIRA_API_TOKEN` and `JIRA_BASE_URL` (for example `https://acme.atlassian.net`). `JIRA_BASE_URL` may be omitted when you pass an `atlassian.net` browse URL.
 - Linear: `LINEAR_API_KEY`.
 
 A missing variable stops the run with an error that names it. A Linear HTTP 401, or a GraphQL response with errors and no data, also names `LINEAR_API_KEY`.
+
+## Labels and comments
+
+Intake adds the issue's labels (Jira and Linear) to the task text, in an "Issue tracker context" section after the description. Comments are added only from people on the lists the trigger server already trusts to steer a run: `LOKI_JIRA_STEER_ACTORS` (Jira accountIds) and `LOKI_LINEAR_STEER_ACTORS` (Linear user ids), comma-separated, exact match. A display name never counts, and Loki's own comments are left out. With the list unset or empty, no comment is added. Kept comments also go into `issue.json` as a `comments` array, capped at 16 KB with the newest kept; the rest are only counted.
 
 ## Writeback
 

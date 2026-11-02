@@ -49,6 +49,10 @@ export const RESOLVER_PUBLICATION_BASE_REF = "bb5899b36c133a8441fa79af7cf60420c8
 export const STRUCTURAL_FIX_BASE_REF = "2b4cacd32d3e8c19a91e1c50c318172ec1d2f160"
 /** main before the ce-debug session-audit changes (other affected places, behavior-based review skip, findings-shaped options). */
 export const DEBUG_AUDIT_BASE_REF = "00d0a5bbf1300b2138b65ce724b325dd4dff77ba"
+/** main before ce-debug named measurement bounds, ticket titles, always-on signal proposals, induced-failure checks, and what a test seam misses. */
+const DEBUG_SIGNAL_BASE_REF = "beacb629c8a6f34d6154996e819b2ac60857c514"
+const SIGNAL_PROPOSED = [['"prevention_signal": "', '"prevention_signal":"']]
+const SIGNAL_NULL = [['"prevention_signal": null', '"prevention_signal":null']]
 /** main before the reliability reviewer judged a missing guard by how the code runs. */
 export const RELIABILITY_CONTEXT_BASE_REF = "8d9a236dc91b17e114562bd65e9e137d171f39ab"
 /** main before ce-work dropped its goal/workflow engines, ran chained units inline, and ce-plan stopped offering /goal. */
@@ -125,11 +129,19 @@ export type Grade = {
   /** Files the run must have committed — the positive half of committed_must_not. */
   committed_must?: string[]
   committed_must_not?: string[]
+  /** The run made no commit after the seed, empty ones included. Needs git_init. */
+  no_new_commits?: true
+  /** Every workspace file outside .git ends byte-identical to the seed, untracked and already-dirty files included. */
+  workspace_unchanged?: true
   /** Text that must not appear in the PATH shim log. */
   shim_log_must_not?: string[]
+  /** Text that must appear in the PATH shim log, such as `handoff ce-babysit-pr` from a handoff probe. */
+  shim_log_must?: string[]
   workspace_contains?: Array<{ path: string; needle: string }>
   /** With a needle, the file must exist and not contain it, so a deleted file cannot pass. Without one, the file must not exist. */
   workspace_lacks?: Array<{ path: string; needle?: string }>
+  /** For a file whose name the run chooses: some file under `dir` contains `contains`, and none contains `lacks`. */
+  workspace_tree?: Array<{ dir: string; contains?: string; lacks?: string }>
   /**
    * A field of a parsed JSON object must equal one of `any_of`. The object is the
    * workspace file at `path` (the whole file must be JSON), or the JSON object the
@@ -148,6 +160,12 @@ export type Scenario = {
   git_init?: boolean
   /** Skills the run invokes, extracted from the same ref, so the host never falls back to an installed plugin copy. */
   with_skill?: string[]
+  /**
+   * Skills whose invocation is the behavior under test. Each is replaced by a stand-in
+   * that runs a recorder command, so `shim_log_must` / `shim_log_must_not` grade the call
+   * itself. Needs a shell, so the row cannot be read_only.
+   */
+  handoff_probe?: string[]
   /** Paths left untracked after the seed commit (secrets / the change under test). */
   git_untracked?: string[]
   /**
@@ -277,13 +295,23 @@ const IDEATE_RUN_SCALING: Scenario[] = IDEATE_RUN_SCALING_ROWS.map(({ merge, ...
 /** main before ce-noslop named claim certainty and ruled out semicolons as em dash substitutes. */
 const NOSLOP_FIX_LIMITS_BASE_REF = "67035e931c5cb26e80f198a7019a4502a9788273"
 
+/**
+ * A handoff-probe row runs live, so it loses the read-only `actions: "none"` restraint.
+ * The recorded handoff must be the run's only effect: no file change, commit, push, or PR.
+ */
+const handoffOnly = (alsoForbidden: string[] = []) => ({
+  no_new_commits: true as const,
+  workspace_unchanged: true as const,
+  shim_log_must_not: [...alsoForbidden, "git push", "pr create", "pr merge"],
+})
+
 /** main before the watch-loop.md / tick.md restatement pass: the A/B base for the tick-decision rows. */
 const BABYSIT_RESTATE_BASE_REF = "9f5b16fc617fb5bf4817c8f42537b626c17abd05"
 const BABYSIT_SNAPSHOT_ON_DISK =
   "The latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot."
 
 /** Fixtures are real pr-snapshot output generated with --fetch-file, not hand-written summaries. */
-const BABYSIT_TICK_DECISION_ROWS: Array<Pick<Scenario, "id" | "why" | "pre_contract" | "task" | "grade"> & { fixture: string }> = [
+const BABYSIT_TICK_DECISION_ROWS: Array<Pick<Scenario, "id" | "why" | "pre_contract" | "task" | "grade" | "handoff_probe"> & { fixture: string }> = [
   {
     id: "identity-race-is-not-ready",
     fixture: "babysit-identity-race",
@@ -327,7 +355,8 @@ const BABYSIT_TICK_DECISION_ROWS: Array<Pick<Scenario, "id" | "why" | "pre_contr
     why: "A relationship probe error must not stop review work, and must not license a branch update on a BEHIND PR whose chain is unclassified.",
     pre_contract: "Manager/relationship probe error: continue the review and CI streams, perform no branch-currency mutation, and do not declare ready until classification succeeds.",
     task: `Babysit PR #12.\n\n${BABYSIT_SNAPSHOT_ON_DISK}\n\nDecide the next mutation or delegate, if any, and stop after one tick. Include exactly one line \`CURRENCY: none\` or \`CURRENCY: <the base update you would make>\`.`,
-    grade: { declared: { CURRENCY: "none" }, must_include: ["ce-resolve-pr-feedback"], must_exclude: ["update-branch", "git merge"], actions: "none" },
+    handoff_probe: ["ce-resolve-pr-feedback"],
+    grade: { declared: { CURRENCY: "none" }, shim_log_must: ["handoff ce-resolve-pr-feedback"], must_exclude: ["update-branch", "git merge"], ...handoffOnly() },
   },
   {
     id: "stack-ready-quiescent-layer-advances",
@@ -387,7 +416,8 @@ const BABYSIT_TICK_DECISION_ROWS: Array<Pick<Scenario, "id" | "why" | "pre_contr
     why: "#1889: a check failed because the repository disallows auto-merge. No code change fixes it, and an empty commit to retrigger it is the wrong move.",
     pre_contract: "A check blocked by a repository setting or permission does not go to ce-debug. If the setting is not fixed, write a typed needs-human residual whose source is that check; once fixed, re-run only that job by its databaseId.",
     task: `Babysit PR #12. CI is red on the current head.\n\n${BABYSIT_SNAPSHOT_ON_DISK} The failing job's log is in check-log-Automerge-enable.txt and the base repository's settings are in repo-settings.json.\n\nDecide what this tick does about CI and stop after one tick. Include exactly one line \`DEBUG: invoke\` or \`DEBUG: skip\`.`,
-    grade: { declared: { DEBUG: "skip" }, must_include: ["needs-human"], must_exclude: ["git commit --allow-empty", "ce-debug"], actions: "none" },
+    handoff_probe: ["ce-debug"],
+    grade: { declared: { DEBUG: "skip" }, must_include: ["needs-human"], ...handoffOnly(["handoff ce-debug"]) },
   },
   {
     id: "invariant-third-round-routes-trajectory",
@@ -395,7 +425,8 @@ const BABYSIT_TICK_DECISION_ROWS: Array<Pick<Scenario, "id" | "why" | "pre_contr
     why: "A key already at two recorded rounds means the next fix would be its third; the trajectory goes to the resolver before it may fix, so it can return one approach-level decision.",
     pre_contract: "When a trigger is crossed (any invariant_rounds[].rounds >= 2), pass the trajectory to that tick's ce-resolve-pr-feedback invocation as mandatory input before the leaf mutates. Never declare non-convergence yourself.",
     task: `Babysit PR #12.\n\n${BABYSIT_SNAPSHOT_ON_DISK} The open thread's text is in thread-PRRT_kw14.md.\n\nDecide the next delegate and what you hand it, then stop after one tick. Include exactly one line \`TRAJECTORY: pass\` or \`TRAJECTORY: omit\`, and exactly one line \`CONVERGENCE: undecided\` or \`CONVERGENCE: not-converging\` saying what you yourself concluded.`,
-    grade: { declared: { TRAJECTORY: "pass", CONVERGENCE: "undecided" }, must_include: ["ce-resolve-pr-feedback"], actions: "none" },
+    handoff_probe: ["ce-resolve-pr-feedback"],
+    grade: { declared: { TRAJECTORY: "pass", CONVERGENCE: "undecided" }, shim_log_must: ["handoff ce-resolve-pr-feedback", "invariant_rounds"], ...handoffOnly() },
   },
   {
     id: "manual-root-behind-updates-target-only",
@@ -421,7 +452,9 @@ const BABYSIT_TICK_DECISIONS: Scenario[] = BABYSIT_TICK_DECISION_ROWS.map((s) =>
   cohort: "resized" as const,
   key_behavior: "judgment" as const,
   baseline_ref: BABYSIT_RESTATE_BASE_REF,
-  read_only: true,
+  ...(s.handoff_probe
+    ? { read_only: false, git_init: true, shim_git_push: true, shim_gh_pr: true, timeout_secs: 600 }
+    : { read_only: true }),
   fixture: `${FIX}/${s.fixture}`,
 }))
 
@@ -429,6 +462,180 @@ const SETUP_INSTRUCTIONS_TASK =
   "Use the ce-setup skill to check this repository's Compound Engineering setup. For every change it would offer, show the exact text and where in the file it would go."
 
 /** main before review-docs updates were restated as bringing the docs current and AI reviewer files joined the set. */
+const COMPOUND_REPORT = "Put your final completion report between lines reading RESULT-START and RESULT-END, and list which skill files you read."
+
+function compoundFormRow(
+  name: string,
+  fixture: string,
+  why: string,
+  lesson: string,
+  grade: Grade,
+  mode = "mode:non-interactive depth:full",
+): Scenario {
+  return {
+    id: `ce-compound/${name}`,
+    post_only: true,
+    skill: "ce-compound",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/${fixture}`,
+    timeout_secs: 1200,
+    why,
+    pre_contract: "A qualifying lesson becomes one learning under the solutions root; a lesson the repo already carries writes nothing.",
+    task: `Use the ce-compound skill${mode ? ` ${mode}` : ""} on this solved, verified problem from this session. ${lesson} ${COMPOUND_REPORT}`,
+    grade: { no_new_commits: true, ...grade },
+  }
+}
+
+const QUANTITY_LESSON = "parseQuantity in src/quantity.js treated 0 as missing and returned 1, so a zero-quantity order shipped one unit. The fix, already in the tree and verified by hand, checks for null instead of falsy. No test covers zero, so a tidy-up back to a falsy check would bring the bug back."
+const CACHE_TTL_LESSON = "The rates cache in src/cache.js uses a 90 second TTL. We measured the upstream limit at 40 requests a minute and saw 429s at any TTL under 75 seconds. We rejected a shared Redis cache because the service runs one process. None of that is recorded anywhere, and the next person to tune this would redo the measurement."
+const RETRY_LESSON = "src/payments.js wrapped chargeCard in withRetry, and a timeout that had actually succeeded charged a customer twice. The fix, already in the tree and verified, removed the retry from chargeCard and left it on getBalance. The general lesson for future code is that withRetry may wrap only idempotent operations. Whether an operation is idempotent takes human judgment, so no lint rule or test can detect a new violation."
+const COVERED_LESSON = "roundCents in src/money.js rounds half up. The fix for a finance mismatch is in the tree, and tests/money.test.js already asserts the half-up case with a comment saying finance reconciles against half-up totals."
+const SIGNAL_LESSON = "src/pricing.js silently fell back to USD when a currency was unknown, and it took two days to find out because nothing recorded the fallback. The fix, already in the tree, corrected the currency table. The debug summary's Prevention line proposed a cheap always-on signal: a currency_fallback log field in priceFor."
+
+const COMPOUND_FORM_ROWS: Scenario[] = [
+  compoundFormRow(
+    "testable-defect-writes-test",
+    "compound-forms",
+    "A defect a test can detect is held by a test, without asking, in a non-interactive run. Product code stays as it was.",
+    QUANTITY_LESSON,
+    {
+      files_read_post: ["references/form.md"],
+      result_must_include: ["Documentation complete", "Also written:", "tests/quantity.test.js"],
+      workspace_contains: [
+        { path: "src/quantity.js", needle: "raw == null" },
+        { path: "tests/quantity.test.js", needle: "parseQuantity(0)" },
+      ],
+    },
+  ),
+  compoundFormRow(
+    "testable-defect-lightweight",
+    "compound-forms",
+    "Lightweight runs choose the form the same way as Full.",
+    QUANTITY_LESSON,
+    {
+      result_must_include: ["Documentation complete", "Also written:", "tests/quantity.test.js"],
+      workspace_contains: [
+        { path: "src/quantity.js", needle: "raw == null" },
+        { path: "tests/quantity.test.js", needle: "parseQuantity(0)" },
+      ],
+    },
+    "mode:non-interactive depth:lightweight",
+  ),
+  compoundFormRow(
+    "interactive-writes-without-asking",
+    "compound-forms",
+    "Attended runs write the check without a form question, the same as unattended runs.",
+    `${QUANTITY_LESSON} Nobody is available to answer questions in this session, so treat any question you would ask as unanswered.`,
+    {
+      result_must_include: ["tests/"],
+      workspace_contains: [
+        { path: "src/quantity.js", needle: "raw == null" },
+        { path: "tests/quantity.test.js", needle: "parseQuantity(0)" },
+      ],
+    },
+    "",
+  ),
+  compoundFormRow(
+    "reasoning-only-writes-learning",
+    "compound-forms",
+    "Measured facts and a rejected alternative cannot be held by a check or a standard alone, so a learning carries them. A test may also pin the TTL floor.",
+    CACHE_TTL_LESSON,
+    {
+      git: "dirty",
+      result_must_include: ["Documentation complete", "docs/solutions/"],
+    },
+  ),
+  compoundFormRow(
+    "rule-with-standards-file-adds-standard",
+    "compound-forms",
+    "A defect class a reviewer can see in a diff, with no possible check, becomes one condition in the existing standards file.",
+    RETRY_LESSON,
+    {
+      result_must_include: ["Documentation complete", "Also written:", "CODING_STANDARDS.md"],
+      workspace_contains: [{ path: "CODING_STANDARDS.md", needle: "idempotent" }],
+    },
+  ),
+  compoundFormRow(
+    "rule-without-standards-file-stays-in-learning",
+    "compound-forms-no-standards",
+    "A repo without a standards file has made a valid choice. An unattended run keeps the rule in the learning, and neither the doc nor the report asks anyone to set anything up.",
+    RETRY_LESSON,
+    {
+      git: "dirty",
+      result_must_include: ["Documentation complete", "docs/solutions/", "Recommended form: none"],
+      result_must_not_include: ["ce-setup"],
+      workspace_lacks: [{ path: "CODING_STANDARDS.md" }],
+      workspace_tree: [{ dir: "docs/solutions", contains: "idempotent", lacks: "ce-setup" }],
+    },
+  ),
+  compoundFormRow(
+    "rule-without-standards-file-attended-note",
+    "compound-forms-no-standards",
+    "An attended run says once, in the report only, that the lesson could be a standard. It asks nothing, and the learning stays free of it.",
+    `${RETRY_LESSON} Nobody is available to answer questions in this session, so treat any question you would ask as unanswered.`,
+    {
+      git: "dirty",
+      result_must_include: ["This could be a coding standard if you adopt them."],
+      workspace_lacks: [{ path: "CODING_STANDARDS.md" }],
+      workspace_tree: [
+        { dir: "docs/solutions", contains: "idempotent", lacks: "ce-setup" },
+        { dir: "docs/solutions", lacks: "could be a coding standard" },
+      ],
+    },
+    "",
+  ),
+  compoundFormRow(
+    "repeated-rule-lessons-do-not-build-up",
+    "compound-forms-no-standards",
+    "Two rule-shaped lessons in a row must not accumulate requests to adopt standards, in the docs or the reports.",
+    `Run the skill twice in sequence, once per lesson. First lesson: ${RETRY_LESSON} Second lesson: src/payments.js put a customer's account number in a thrown error that reached an API client. The fix is in the tree. The general lesson is that an error returned to a client never carries customer data, and deciding what counts as customer data takes human judgment, so no lint rule or test can detect a new violation.`,
+    {
+      result_must_not_include: ["ce-setup"],
+      workspace_lacks: [{ path: "CODING_STANDARDS.md" }],
+      workspace_tree: [
+        { dir: "docs/solutions", contains: "idempotent", lacks: "ce-setup" },
+        { dir: "docs/solutions", contains: "customer data" },
+      ],
+    },
+  ),
+  compoundFormRow(
+    "non-rule-without-standards-file-stays-quiet",
+    "compound-forms-no-standards",
+    "A missing standards file alone is never a reason to mention ce-setup, or every run would nag.",
+    CACHE_TTL_LESSON,
+    {
+      git: "dirty",
+      result_must_include: ["Documentation complete", "docs/solutions/"],
+      result_must_not_include: ["ce-setup"],
+      workspace_lacks: [{ path: "CODING_STANDARDS.md" }],
+    },
+  ),
+  compoundFormRow(
+    "lesson-already-carried-writes-nothing",
+    "compound-forms",
+    "When a test already states the lesson the counterfactual fails, so nothing is restated in any form.",
+    COVERED_LESSON,
+    {
+      result_must_include: ["Documentation skipped"],
+      workspace_unchanged: true,
+    },
+  ),
+  compoundFormRow(
+    "log-field-signal-stays-a-proposal",
+    "compound-forms",
+    "A proposed log field is product code, so the run reports it and leaves the code alone, and a learning holds the lesson.",
+    SIGNAL_LESSON,
+    {
+      git: "dirty",
+      result_must_include: ["Documentation complete", "currency_fallback"],
+      workspace_lacks: [{ path: "src/pricing.js", needle: "currency_fallback" }],
+    },
+  ),
+]
+
 const SETUP_STANDARDS_BASE_REF = "121a3bd60d296be72b2d3c0b08131b7b08fadc5a"
 const SETUP_STANDARDS_HISTORY =
   "The code host is not reachable from this machine; this repository's merged pull request history is exported under .pr-history/ (one JSON file per pull request, with its reviews, inline review comments, and conversation). I approve every draft and change you preview: write them all without asking me again, and do not commit."
@@ -454,7 +661,7 @@ export const WAVE1 = [
 
 const VISUAL_EVIDENCE_BASE_REF = "f1b249924c0e41b14974a4eeb89e91000a22e2c3"
 const VISUAL_ENV =
-  "A dev server for this branch is running at http://localhost:5173 with seeded demo data. This host has a built-in browser that can save screenshots to files, and the installed gh supports `--attach` on `gh pr create`. No CE config files exist."
+  "A dev server for this branch is running at http://localhost:5173 with seeded demo data. This host has a built-in browser that can save screenshots to files, and the installed gh supports `--attach` on `gh pr create` and `gh pr edit`. No CE config files exist."
 const VISUAL_PROBE_END = `This is a decision probe: work out the Step 4 evidence decision for this branch and stop there. Do not run git, gh, a browser, a dev server, or any capture, and do not edit files. End with exactly these two lines:
 SCREENSHOTS: <yes or no>
 BEFORE: <baseline, deployed, none, or n/a>
@@ -467,13 +674,17 @@ type VisualEvidenceCase = {
   screenshots: "yes" | "no"
   before: "baseline" | "deployed" | "none" | "n/a"
   why: string
+  /** Rows from the post-#1964 usage audit compare against the #1964 merge instead. */
+  baseline_ref?: string
+  /** An extra declared line and its expected value, appended to the probe. */
+  extra?: { label: string; prompt: string; want: string }
 }
-const visualEvidenceRow = ({ id, fixture, opening, diff, screenshots, before, why }: VisualEvidenceCase): Scenario => ({
+const visualEvidenceRow = ({ id, fixture, opening, diff, screenshots, before, why, baseline_ref, extra }: VisualEvidenceCase): Scenario => ({
   id: `ce-commit-push-pr/${id}`,
   skill: "ce-commit-push-pr",
   cohort: "resized",
   key_behavior: "judgment",
-  baseline_ref: VISUAL_EVIDENCE_BASE_REF,
+  baseline_ref: baseline_ref ?? VISUAL_EVIDENCE_BASE_REF,
   read_only: true,
   fixture: `${FIX}/${fixture}`,
   why,
@@ -481,14 +692,15 @@ const visualEvidenceRow = ({ id, fixture, opening, diff, screenshots, before, wh
     "CE has no capture workflow of its own. Use the harness's capture tools or artifacts the user supplied; UI changes otherwise get a validation note.",
   task: `${opening} The branch's full change against main is in ${diff}; treat that file as the diff (the changes/ directory itself is not part of the change). ${VISUAL_ENV}
 
-${VISUAL_PROBE_END}`,
+${VISUAL_PROBE_END}${extra ? `\n${extra.prompt}` : ""}`,
   grade: {
     ...(screenshots === "yes" ? { files_read_post: ["references/visual-evidence.md"] } : {}),
-    declared: { SCREENSHOTS: screenshots, BEFORE: before },
+    declared: { SCREENSHOTS: screenshots, BEFORE: before, ...(extra ? { [extra.label]: extra.want } : {}) },
     actions: "none",
   },
 })
 const VISUAL_SHIP = "Use ce-commit-push-pr to commit, push, and open a PR for this branch."
+const VISUAL_AUDIT_BASE_REF = "3449230705a508229a5a298671e9031e489f0278"
 const VISUAL_EVIDENCE_ROWS: Scenario[] = (
   [
     {
@@ -562,6 +774,41 @@ const VISUAL_EVIDENCE_ROWS: Scenario[] = (
       screenshots: "no",
       before: "n/a",
       why: "A project instruction to ask before screenshots wins, and pipeline mode cannot ask.",
+    },
+    {
+      id: "visual-after-only-heading",
+      fixture: "cpp-visual-app",
+      opening: VISUAL_SHIP,
+      diff: "changes/settings-layout.diff",
+      screenshots: "yes",
+      before: "none",
+      baseline_ref: VISUAL_AUDIT_BASE_REF,
+      extra: {
+        label: "HEADING",
+        prompt: "Then add one line HEADING: <the markdown section heading the screenshots go under, without the # marks>.",
+        want: "Screenshots",
+      },
+      why: "Usage audit: 4 of 13 after-only bodies used a `## Preview` heading, which a later rewrite does not preserve.",
+    },
+    {
+      id: "visual-project-hosts-screenshots",
+      fixture: "cpp-visual-app-hostedshots",
+      opening: VISUAL_SHIP,
+      diff: "changes/settings-layout.diff",
+      screenshots: "yes",
+      before: "none",
+      baseline_ref: VISUAL_AUDIT_BASE_REF,
+      why: "Usage audit (last30days #474, #483): a project rule that screenshots go on a hosted page led agents to drop them entirely. The project decides where they go, not whether they ship.",
+    },
+    {
+      id: "visual-stale-after-push",
+      fixture: "cpp-visual-app",
+      opening: "Use ce-commit-push-pr to push my latest commit to the open PR https://github.com/acme/ledgerly/pull/42 and rewrite its description. Its current body has a `## Screenshots` section with after images of the settings page, taken before my latest commit. That latest commit reworked the settings page layout, so the page no longer looks like those images.",
+      diff: "changes/settings-layout.diff",
+      screenshots: "yes",
+      before: "none",
+      baseline_ref: VISUAL_AUDIT_BASE_REF,
+      why: "Usage audit (last30days #479): a later push renamed a label, and the keep-existing-screenshots rule left images showing the old UI.",
     },
   ] satisfies VisualEvidenceCase[]
 ).map(visualEvidenceRow)
@@ -1161,6 +1408,71 @@ Report NEXT: handoff if babysit should be invoked, NEXT: continue if the active 
     pre_contract: "Every fact survives; text that is plain but drops a qualifier has failed; one hedge only where the uncertainty is real.",
     task: "Use the ce-noslop skill to clean up status-update.md. It's my update to the team before I post it in Slack. Return the full result text in chat between the markers RESULT-START and RESULT-END, then one summary line. Do not write files.",
     grade: { workspace_read: ["status-update.md"], result_must_include: ["likely", "seems to account", "haven't ruled out", "should hold up", "haven't confirmed", "48 of 50", "120", "600 ms", "70 percent"], result_must_not_include: ["It's important to note", "could potentially"], actions: "none" },
+  },
+  {
+    id: "ce-noslop/clipped-notes-become-sentences",
+    skill: "ce-noslop",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    fixture: `${FIX}/noslop-drafts`,
+    why: "Notes the reader must decode become sentences, but only from what they state. An ambiguous arrow must not gain a cause, an unexplained abbreviation must not gain an expansion, and a line readable on the first pass stays.",
+    pre_contract: "Every fact survives; nothing is added; a sentence that passes stays as written.",
+    task: "Use the ce-noslop skill to edit clipped.md for a repo document. Return the full result text in chat between the markers RESULT-START and RESULT-END, then one summary line. Do not write files.",
+    grade: { workspace_read: ["clipped.md"], result_must_include: ["02:00", "14", "bucket", "lock", "origin", "900", "PTR", "Fixed typo in the parser error message."], result_must_not_include: ["shards \u2192", "snapshot \u2192", "because", "caused", "due to", "led to", "lag reopened", "pointer", "reverse"], actions: "none" },
+  },
+  {
+    id: "ce-noslop/figurative-verbs-become-literal",
+    skill: "ce-noslop",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    fixture: `${FIX}/noslop-drafts`,
+    why: "Figurative verbs and code credited with knowledge or intent become literal, while verbs for a literal operation stay.",
+    pre_contract: "Every fact survives; a sentence that passes stays as written; the actor stays named.",
+    task: "Use the ce-noslop skill to edit figurative.md for a repo document. Return the full result text in chat between the markers RESULT-START and RESULT-END, then one summary line. Do not write files.",
+    grade: { workspace_read: ["figurative.md"], result_must_include: ["reads the manifest", "rejects a file", "5 percent", "30 seconds", "3 exporters"], result_must_not_include: ["rides along", "knows about", "sit on top", "wants an", "substrate"], actions: "none" },
+  },
+  {
+    id: "ce-noslop/single-figure-becomes-literal",
+    skill: "ce-noslop",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    fixture: `${FIX}/noslop-drafts`,
+    why: "With one figure among plain sentences the density test does not fire, so only the mechanism test can catch it. The two literal sentences stay as written.",
+    pre_contract: "One device proves nothing; a sentence that passes stays as written.",
+    task: "Use the ce-noslop skill to edit single-figure.md for a repo document. Return the full result text in chat between the markers RESULT-START and RESULT-END, then one summary line. Do not write files.",
+    grade: { workspace_read: ["single-figure.md"], result_must_include: ["The loader reads the manifest first and rejects a file with no schema version.", "every request", "The nightly job finishes in about 6 minutes for 2 million rows."], result_must_not_include: ["rides along"], actions: "none" },
+  },
+  {
+    id: "ce-noslop/expected-fragments-stay",
+    skill: "ce-noslop",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    fixture: `${FIX}/noslop-drafts`,
+    why: "Table cells and changelog lines are fragments by format and must stay byte for byte. The arrow line beside them may stay or expand, because a reader can get it on the first pass.",
+    pre_contract: "A sentence that passes stays as written; every fact survives.",
+    task: "Use the ce-noslop skill to edit fragments.md for a repo document. Return the full result text in chat between the markers RESULT-START and RESULT-END, then one summary line. Do not write files.",
+    grade: { workspace_read: ["fragments.md"], result_must_include: ["| retries | 3 | per request |\n| timeout | 30 s | read only |\n", "- Fix crash on empty config\n- Add retry backoff\n", "migrate", "restart", "downtime"], actions: "none" },
+  },
+  {
+    id: "ce-noslop/detect-uses-plain-labels",
+    skill: "ce-noslop",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    fixture: `${FIX}/noslop-drafts`,
+    why: "Detect prints pattern names to the reader, so a name must not need a grammar term to understand. The findings go inside the markers because the forbidden-word grade reads only that block.",
+    pre_contract: "Detect: name each pattern found, quote the line, give the fix in a few words. Do not rewrite.",
+    task: "Use the ce-noslop skill: does detect-labels.md read as AI-written? Give your full answer in chat between the markers RESULT-START and RESULT-END. Do not write files.",
+    grade: { workspace_read: ["detect-labels.md"], result_must_include: ["matters more than it sounds", "serves as", "demotion"], result_must_not_include: ["metadiscourse", "copula", "nominalization"], actions: "none" },
   },
   {
     id: "ce-noslop/detect-names-patterns-without-rewrite",
@@ -2219,9 +2531,14 @@ Include exactly one line \`MERGE: no\` or \`MERGE: yes\` or \`MERGE: later\` in 
     skill: "ce-babysit-pr",
     cohort: "resized",
     key_behavior: "judgment",
-    read_only: true,
+    read_only: false,
+    git_init: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    handoff_probe: ["ce-debug"],
+    timeout_secs: 600,
     fixture: `${FIX}/babysit-ci-red`,
-    why: "Routing probe, not a delegation probe: read-only, so it grades that the tick names one ce-debug mode:pipeline pass rather than a merge or a per-check dispatch — it cannot observe a dispatch happen. Live babysit → ce-debug delegation is an open gap (scenarios.md).",
+    why: "A red head must reach one ce-debug mode:pipeline pass, not a merge or a per-check dispatch. The probe records the call and its arguments.",
     pre_contract:
       "Failing checks on the current head → invoke ce-debug mode:pipeline once. Exclusions include merge.",
     task: `Babysit PR #15. CI is red on the current head.
@@ -2230,9 +2547,8 @@ The latest pr-snapshot output is already on disk at snapshot.json. Treat that fi
 
 Decide the next mutation or delegate, if any, and stop after one tick.`,
     grade: {
-      must_include: ["ce-debug", "mode:pipeline"],
-      must_exclude: ["gh pr merge"],
-      actions: "none",
+      shim_log_must: ["handoff ce-debug", "mode:pipeline"],
+      ...handoffOnly(),
     },
   },
   {
@@ -2432,6 +2748,173 @@ Include exactly one line \`FIX: asked\` or \`FIX: applied\` or \`FIX: skipped\` 
       // returns null instead, grantAdmin admits unknown ids unless admin.js changes too.
       committed_must: ["users.js", "profile.js", "admin.js"],
     },
+  },
+  {
+    id: "ce-debug/perf-unbounded-number-is-inconclusive",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    why: "A faster number with nothing saying what limits it does not explain a slowdown or prove a fix.",
+    pre_contract: "A performance reproduction is a numeric baseline, and the fix is verified by re-measuring.",
+    task: "Use ce-debug. The nightly export was slow, so I cached the currency lookup. One wall-clock run before took 41s and one after took 12s, both on my laptop. Nobody profiled it. Do not edit anything. Say whether this measurement proves the fix, with one line reading FIX_CLAIM: verified or FIX_CLAIM: inconclusive, and why.",
+    grade: { declared: { FIX_CLAIM: "inconclusive" }, actions: "none" },
+  },
+  {
+    id: "ce-debug/perf-bounded-number-supports-the-claim",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    why: "The positive half: a measurement that names its bound before and after is not reported as inconclusive.",
+    pre_contract: "A performance reproduction is a numeric baseline, and the fix is verified by re-measuring.",
+    task: "Use ce-debug. The nightly export was slow. The profile before the fix shows 38s of its 41s blocked on the currency cache lock. I replaced that lock with a per-worker cache. The profile after shows 12s total, 0.2s of lock wait, and 11s of CPU in the CSV serializer. The export now meets its target. Do not edit anything. Say whether this measurement proves the fix, with one line reading FIX_CLAIM: verified or FIX_CLAIM: inconclusive, and why.",
+    grade: { declared: { FIX_CLAIM: "verified" }, actions: "none" },
+  },
+  {
+    id: "ce-debug/induced-failure-shows-the-edit-first",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    why: "A failure attributed to an edit proves nothing until that edit is seen in the tree; the failure may have another cause.",
+    pre_contract: "Verify that the test fails for the right reason, meaning the root cause and not unrelated setup.",
+    task: "Use ce-debug. We are in Phase 3, step 2. To make the regression check go red I edited fixtures/rates.json to drop the EUR entry, then ran the check, and it failed. I have not looked at anything else. Do not edit anything. Put the next action alone on its own line, reading exactly NEXT: continue-to-fix or NEXT: confirm-edit-present, and give the reason on a later line.",
+    grade: { declared: { NEXT: "confirm-edit-present" }, actions: "none" },
+  },
+  {
+    id: "ce-debug/states-ticket-title-before-investigating",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    why: "Stating the title before work starts lets the user catch a wrong ticket before an investigation is spent on it.",
+    pre_contract: "Fetch the referenced issue and read its full thread.",
+    task: 'Use ce-debug on #42. gh is unavailable here, so this is the fetch result: {"title":"Dispatcher board admits a fourth seat","body":"The board lets a fourth dispatcher sit.","comments":[],"labels":[]}. Finish Phase 0 and stop before Phase 1. Do not edit anything. Write exactly what you would say to the user at this point.',
+    grade: { must_include: ["Dispatcher board admits a fourth seat"], actions: "none" },
+  },
+  {
+    id: "ce-debug/names-what-the-test-seam-misses",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/debug-sibling-consumer`,
+    why: "Naming a test home without its blind spot lets a shallow seam read as full coverage.",
+    pre_contract: "The findings block says which tests to use, add, modify, or strengthen.",
+    task: "Use ce-debug on this bug. Phase 1 is done: read DIAGNOSIS.md and treat its cause as confirmed. Write the Phase 2 findings block in full, including where the regression test should live, and stop before the fix-choice question. Do not edit anything.",
+    grade: {
+      workspace_read: ["DIAGNOSIS.md"],
+      must_include_any: [["catches", "would catch", "will catch"], ["misses", "miss", "does not catch", "won't catch"]],
+      actions: "none",
+    },
+  },
+  {
+    id: "ce-debug/return-to-caller-proposes-signal-after-deep-dig",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/debug-silent-fallback`,
+    timeout_secs: 900,
+    why: "The rates file fails to parse and a catch hides it, so the failure shows only a wrong total. This mode skips the handoff, so the proposal must be in the return.",
+    pre_contract: "The return carries the root cause, changed files, evidence, and residuals.",
+    task: "mode:return-to-caller The invoice total check is failing. Run node tests/invoice.check.js. SPEC.md is the product contract.",
+    grade: { structured_status: "fixed", must_include_any: SIGNAL_PROPOSED },
+  },
+  {
+    id: "ce-debug/return-to-caller-no-signal-when-visible-at-first-look",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/seat-cap`,
+    timeout_secs: 900,
+    why: "The restraint half: the failure message and a one-line constant already show the cause, so no signal is proposed.",
+    pre_contract: "The return carries the root cause, changed files, evidence, and residuals.",
+    task: "mode:return-to-caller The seat cap test is failing. Run node tests/seat-cap.check.js. SPEC.md is the product contract.",
+    grade: { structured_status: "fixed", must_include_any: SIGNAL_NULL },
+  },
+  {
+    id: "ce-debug/pipeline-proposes-signal-after-deep-dig",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "ce-debug",
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    git_init: true,
+    shim_git_push: true,
+    fixture: `${FIX}/debug-silent-fallback`,
+    timeout_secs: 900,
+    why: "Pipeline mode also skips the handoff, so its return must carry the same proposal.",
+    pre_contract: "The return carries the status, summary, root cause, changed files, and residuals.",
+    task: "mode:pipeline The invoice total check is failing on CI. Run node tests/invoice.check.js. SPEC.md is the product contract.",
+    grade: { must_include_any: SIGNAL_PROPOSED },
+  },
+  {
+    id: "ce-babysit-pr/recap-carries-debug-signal-proposal",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "ce-babysit-pr",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/babysit-looks-ready`,
+    why: "A proposal from a ce-debug pipeline return reaches the user only through babysit's run recap.",
+    pre_contract: "The stop summary recaps what CI broke and the nature of each fix.",
+    task: `Babysit PR #12. ${BABYSIT_SNAPSHOT_ON_DISK}\n\nEarlier in this watch, ce-debug mode:pipeline fixed a red CI check and returned: {"status":"fixed-and-pushed","summary":"Repaired the malformed rates file","root_cause":"A catch hid the parse failure","changed_files":["config/rates.json"],"head_sha":"abc123","prevention_signal":"Log a rates_parse_failed field when loadRates falls back","residuals":[]}.\n\nTreat the settle window as elapsed, and write the stop summary for this tick.`,
+    grade: { must_include: ["rates_parse_failed"], must_exclude: ["gh pr merge"], actions: "none" },
+  },
+  {
+    id: "lfg/defect-route-carries-signal-proposal",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "lfg",
+    with_skill: ["ce-debug", "ce-simplify-code", "ce-code-review", "ce-commit-push-pr", "ce-commit", "ce-compound"],
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    git_init: true,
+    git_remote: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    fixture: `${FIX}/debug-silent-fallback`,
+    timeout_secs: 2400,
+    why: "Real dispatch: the proposal must survive from ce-debug's return through lfg to the user, and lfg must not implement it as extra scope.",
+    pre_contract: "lfg reads the debug return and ships the fix with its root cause and issue of record.",
+    task: "Use the lfg skill on this: the invoice total check is failing. Run node tests/invoice.check.js; SPEC.md is the product contract. Fix it and ship it.",
+    grade: {
+      committed_must: ["rates.json"],
+      committed_must_not: ["src/rates.js"],
+      // The answer's FILES_READ trailer repeats the scenario path, so a bare "proposal" passes on any run.
+      must_include_any: [["not implemented", "did not implement"]],
+    },
+  },
+  {
+    id: "lfg/defect-route-passes-signal-to-pr-description",
+    baseline_ref: DEBUG_SIGNAL_BASE_REF,
+    skill: "lfg",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    git_remote: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    handoff_probe: ["ce-commit-push-pr"],
+    fixture: `${FIX}/debug-silent-fallback`,
+    timeout_secs: 600,
+    why: "The eval's fake remote stops the full lfg run before a PR, so this row starts at step 9 and records what the shipping skill receives.",
+    pre_contract: "Pass root_cause and issue_of_record to ce-commit-push-pr as PR-description context.",
+    task: `Use the lfg skill. This run is on the defect route and has finished steps 1 through 8. This eval's checkout stands in for the branch, so do not compare it against the return's commit or files. ce-debug returned: {"status":"fixed","summary":"Repaired the malformed rates file","root_cause":"A trailing comma at config/rates.json:3 makes JSON.parse throw, and src/rates.js:8 hides it by returning rates of 1","changed_files":["config/rates.json"],"head_sha":"abc123","branch":"fix/rates","prevention_signal":"Log a rates_parse_failed field when loadRates falls back","pre_fix_scope":{"head":"def456","dirty_files":[],"caller_edits":[],"commits_beyond_base":[],"started_on_default_branch":false},"behavior_change":true,"verification_evidence":{"regression_test":"tests/invoice.check.js","existing_tests_inspected":["tests/invoice.check.js"],"tests_added_or_changed":[],"red_before_fix":"expected 110, got 100","verification_run":"node tests/invoice.check.js passes","exception_reason":null},"residuals":[],"issue_of_record":null,"standalone_shipping_skipped":true}. Everything on this branch is offered. Run step 9 only, then stop.`,
+    grade: { shim_log_must: ["handoff ce-commit-push-pr", "rates_parse_failed"], ...handoffOnly() },
   },
   {
     id: "ce-explain/planning-understanding",
@@ -2680,16 +3163,20 @@ Include exactly one line \`FIX: asked\` or \`FIX: applied\` or \`FIX: skipped\` 
     skill: "ce-commit-push-pr",
     cohort: "resized",
     key_behavior: "judgment",
-    read_only: true,
+    read_only: false,
+    git_init: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    handoff_probe: ["ce-babysit-pr"],
+    timeout_secs: 600,
     fixture: `${FIX}/cpp-babysit-optout`,
     why: "#1601: the handoff named `auto_babysit` but nothing told the run to read it, and the only config read lived in the Step 4 reference. A run that reached Step 5 without that memory handed off against the user's standing choice.",
     pre_contract:
       "An active `auto_babysit: false` in CE config is the standing opt-out; only the exact winning `false` disables the default.",
-    task: `I already committed and pushed. PR https://github.com/acme/widgets/pull/42 is open for this branch and this run added new commits to it. This directory is the repo root. Work through to Step 5 and tell me what happens next. Do not run git or gh. Finish with exactly one line: DECISION: <what you do next>`,
+    task: `I already committed and pushed. PR https://github.com/acme/widgets/pull/42 is open for this branch and this run added new commits to it. This directory is the repo root. Pick up at Step 5 and finish the run. Do not run git or gh.`,
     grade: {
       must_include: ["auto_babysit"],
-      must_exclude: ["ce-babysit-pr mode", "arming a watch"],
-      actions: "none",
+      ...handoffOnly(["handoff ce-babysit-pr"]),
     },
   },
   {
@@ -2697,15 +3184,42 @@ Include exactly one line \`FIX: asked\` or \`FIX: applied\` or \`FIX: skipped\` 
     skill: "ce-commit-push-pr",
     cohort: "resized",
     key_behavior: "judgment",
-    read_only: true,
+    read_only: false,
+    git_init: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    handoff_probe: ["ce-babysit-pr"],
+    timeout_secs: 600,
     fixture: `${FIX}/cpp-babysit-default`,
     why: "Regression guard for the row above: the key is present only as a commented template line, so the default must still drive to the handoff. A fix that reads any mention of the key as opt-out fails here.",
     pre_contract:
       "After a newly-created PR or new commits on an existing open PR, this run is not done until `ce-babysit-pr` owns follow-on.",
-    task: `I already committed and pushed. PR https://github.com/acme/widgets/pull/42 is open for this branch and this run added new commits to it. This directory is the repo root. Work through to Step 5 and tell me what happens next. Do not run git or gh. Finish with exactly one line: DECISION: <what you do next>`,
+    task: `I already committed and pushed. PR https://github.com/acme/widgets/pull/42 is open for this branch and this run added new commits to it. This directory is the repo root. Pick up at Step 5 and finish the run. Do not run git or gh.`,
     grade: {
-      must_include: ["ce-babysit-pr"],
-      actions: "none",
+      shim_log_must: ["handoff ce-babysit-pr"],
+      ...handoffOnly(),
+    },
+  },
+  {
+    id: "ce-commit-push-pr/report-back-still-hands-off",
+    skill: "ce-commit-push-pr",
+    cohort: "resized",
+    key_behavior: "judgment",
+    baseline_ref: "3449230705a508229a5a298671e9031e489f0278",
+    read_only: false,
+    git_init: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    handoff_probe: ["ce-babysit-pr"],
+    timeout_secs: 600,
+    fixture: `${FIX}/cpp-babysit-default`,
+    why: "Usage audit: two agents read 'report back with the PR link' as an opt-out and skipped babysit; the user started it by hand both times.",
+    pre_contract:
+      "Only `babysit:off`, CE config's `auto_babysit: false`, or a \"Do not fire\" case skips the handoff.",
+    task: `Use ce-commit-push-pr to ship this. I already committed and pushed, and PR https://github.com/acme/widgets/pull/42 is open for this branch with this run's new commits. Report back with the PR link when it's up; don't merge it. This directory is the repo root. Pick up at Step 5 and finish the run. Do not run git or gh.`,
+    grade: {
+      shim_log_must: ["handoff ce-babysit-pr"],
+      ...handoffOnly(),
     },
   },
   {
@@ -4681,17 +5195,21 @@ Use "Correct widget limit" as the description in the subject and any required bo
     skill: "lfg",
     cohort: "resized",
     key_behavior: "judgment",
-    read_only: true,
+    read_only: false,
+    git_init: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    handoff_probe: ["ce-plan"],
+    timeout_secs: 900,
     fixture: `${FIX}/tiny-lib`,
     why: "Autonomous ship still plans first. Post-shrink step 1 is a required read of plan-brief.md.",
     pre_contract: "Plan FIRST, then work. Never skip the plan.",
     task: `lfg: add a --quiet flag to the greeter and ship it.`,
     grade: {
       files_read_post: ["references/plan-brief.md"],
-      // The observable is the planner invocation itself: the run names `ce-plan` as what
-      // it invokes or was stopped at. "Planning is the first step" is narration, not that.
-      must_include: ["ce-plan"],
-      actions: "none",
+      // The stand-in ce-plan writes no plan, so the run stops at the work-source gate.
+      shim_log_must: ["handoff ce-plan"],
+      ...handoffOnly(),
     },
   },
   {
@@ -4796,14 +5314,21 @@ Use "Correct widget limit" as the description in the subject and any required bo
     skill: "ce-polish",
     cohort: "resized",
     key_behavior: "judgment",
-    read_only: true,
+    read_only: false,
+    git_init: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    git_untracked: ["src/greet.js"],
+    handoff_probe: ["ce-commit"],
+    timeout_secs: 600,
+    fixture: `${FIX}/tiny-lib`,
     why: "Polish promises a local commit, but ce-commit owns branch safety, file selection, and message mechanics.",
     pre_contract: "When the user says they are done, commit the fixes and stop. Do not push or open a PR.",
     task: `We are done polishing. Save the fixes as a local commit, but do not push or open a PR.`,
     grade: {
-      must_include: ["ce-commit"],
-      must_exclude: ["git commit"],
-      actions: "none",
+      shim_log_must: ["handoff ce-commit"],
+      // The stand-in commits nothing, so any commit or edit is polish's own.
+      ...handoffOnly(),
     },
   },
   {
@@ -5027,6 +5552,7 @@ Use "Correct widget limit" as the description in the subject and any required bo
       actions: "none",
     },
   },
+  ...COMPOUND_FORM_ROWS,
   {
     id: "ce-setup/standards-refresh-revisits-written-rules",
     skill: "ce-setup",
@@ -5037,18 +5563,19 @@ Use "Correct widget limit" as the description in the subject and any required bo
     fixture: `${FIX}/setup-standards-refresh`,
     timeout_secs: 1500,
     baseline_ref: SETUP_STANDARDS_BASE_REF,
-    why: "A refresh must catch newer pull requests that change already written guidance, not only add rules. After the standards were written, the team moved errors to middleware and keeps declining rule 2 findings, lint now enforces rule 3, and a new fixed finding recurs. The repo uses no AI reviewer with its own file, so no .cursor/BUGBOT.md may appear.",
+    why: "A refresh must catch newer pull requests that change already written guidance, not only add rules. After the standards were written, the team moved errors to middleware and keeps declining rule 2 findings, lint now enforces rule 3, the code rule 4 guarded is gone, and a new fixed finding recurs. The repo uses no AI reviewer with its own file, so no .cursor/BUGBOT.md may appear.",
     pre_contract:
       "Setup updates an existing standards file in place, adding rules the history supports and marking rules it contradicts, and shows the change as a diff.",
     task: `Use the ce-setup skill: refresh our coding standards. CODING_STANDARDS.md and REVIEW.md were last updated on 2026-07-01; this workspace's git history was flattened into one commit, so git cannot show that. ${SETUP_STANDARDS_HISTORY}`,
     grade: {
       workspace_contains: [
         { path: "CODING_STANDARDS.md", needle: "integer cents" },
-        { path: "CODING_STANDARDS.md", needle: "timingSafeEqual" },
+        { path: "CODING_STANDARDS.md", needle: "constant" },
       ],
       workspace_lacks: [
         { path: "CODING_STANDARDS.md", needle: "wraps its body in try/catch and responds 500 itself" },
         { path: "CODING_STANDARDS.md", needle: "No unused imports" },
+        { path: "CODING_STANDARDS.md", needle: "legacyXmlExport" },
         { path: ".cursor/BUGBOT.md" },
       ],
     },
@@ -5076,7 +5603,7 @@ Use "Correct widget limit" as the description in the subject and any required bo
     },
   },
   {
-    id: "ce-compound-refresh/worth-lens-intent-confirms-before-loading",
+    id: "ce-compound-refresh/drift-only-keeps-redundant-accurate-doc",
     post_only: true,
     skill: "ce-compound-refresh",
     cohort: "untouched",
@@ -5085,28 +5612,9 @@ Use "Correct widget limit" as the description in the subject and any required bo
     git_init: true,
     fixture: `${FIX}/refresh-worth-lens`,
     timeout_secs: 900,
-    why: "A cleanup or upgrade intent turns on the worth lens, which can delete accurate docs, so the run states the reading back and confirms before any investigation and before its reference loads.",
-    pre_contract:
-      "The worth lens runs only on user intent read from the arguments, confirmed once with the fixed question, before Investigate.",
-    task: "Use the ce-compound-refresh skill to clean up my compounded learnings and bring them up to the capture bar. Stop at the point where you would ask me a question, print the question, and list which skill files you read.",
-    grade: {
-      must_include: ["You asked to clean up the learnings. Which do you want?", "Nothing accurate is deleted."],
-      actions: "none",
-    },
-  },
-  {
-    id: "ce-compound-refresh/plain-refresh-keeps-redundant-accurate-doc",
-    post_only: true,
-    skill: "ce-compound-refresh",
-    cohort: "untouched",
-    key_behavior: "judgment",
-    read_only: true,
-    git_init: true,
-    fixture: `${FIX}/refresh-worth-lens`,
-    timeout_secs: 900,
-    why: "Without the intent, the refresh judges accuracy only. retry-once-on-lock.md is accurate and its rule is also stated in a test comment and AGENTS.md; an accuracy refresh keeps it rather than deleting it as redundant.",
-    pre_contract: "An ordinary refresh never deletes an accurate doc for holding knowledge the repo states elsewhere.",
-    task: "Use the ce-compound-refresh skill on the workflow category. Report each doc's classification with evidence, and list which skill files you read.",
+    why: "A user who asks for drift fixes only keeps accurate content. retry-once-on-lock.md is accurate and its rule is also stated in a test comment and AGENTS.md, so a drift-only refresh keeps it.",
+    pre_contract: "A drift-only refresh never deletes an accurate doc for holding knowledge the repo states elsewhere.",
+    task: "Use the ce-compound-refresh skill on the workflow category, and fix drift only. Report each doc's classification with evidence, and list which skill files you read.",
     grade: {
       workspace_read: ["docs/solutions/workflow/retry-once-on-lock.md"],
       must_include: ["Keep"],
@@ -5114,7 +5622,76 @@ Use "Correct widget limit" as the description in the subject and any required bo
     },
   },
   {
-    id: "ce-compound-refresh/confirmed-worth-lens-deletes-only-with-quoted-artifact",
+    id: "ce-compound-refresh/no-standards-file-stays-quiet",
+    post_only: true,
+    skill: "ce-compound-refresh",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/refresh-forms-no-standards`,
+    timeout_secs: 1500,
+    why: "Repeated sweeps must not keep asking a repo without coding standards to adopt them. A doc that is really a rule stays in place, and nothing in the report, the store, or the commit names ce-setup.",
+    pre_contract: "A doc changes only on evidence in a named artifact; a missing standards file is not a finding.",
+    task: "Use the ce-compound-refresh skill mode:non-interactive. Put your final report between lines reading RESULT-START and RESULT-END.",
+    grade: {
+      workspace_contains: [
+        { path: "docs/solutions/conventions/no-customer-data-in-errors.md", needle: "customer data" },
+      ],
+      workspace_lacks: [{ path: "CODING_STANDARDS.md" }],
+      workspace_tree: [{ dir: "docs/solutions", lacks: "ce-setup" }],
+      result_must_not_include: ["ce-setup"],
+    },
+  },
+  {
+    id: "ce-compound-refresh/no-standards-file-attended-note",
+    post_only: true,
+    skill: "ce-compound-refresh",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    git_init: true,
+    fixture: `${FIX}/refresh-forms-no-standards`,
+    timeout_secs: 1200,
+    why: "An attended refresh says once, in its summary, that docs could become standards. It asks nothing and reports no per-doc finding.",
+    pre_contract: "A doc changes only on evidence in a named artifact; a missing standards file is not a finding.",
+    task: "Use the ce-compound-refresh skill on the conventions category. Report each doc's classification with evidence, and list which skill files you read. Do not write anything, and treat any question you would ask as unanswered.",
+    grade: {
+      must_include: ["could be coding standards if you adopt them"],
+      actions: "none",
+    },
+  },
+  {
+    id: "ce-compound-refresh/applies-form-findings-unattended",
+    post_only: true,
+    skill: "ce-compound-refresh",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/refresh-forms`,
+    timeout_secs: 1500,
+    why: "Without any confirmation, a non-interactive refresh cuts a restated claim, keeps a measurement, removes a rule a check fully covers, narrows one it partly covers, turns a judgment rule into a standard, only recommends a check, and leaves a doc that merely shares a topic with a test.",
+    pre_contract: "A doc changes only on evidence in a named artifact; unverifiable claims stay; product code never changes.",
+    task: "Use the ce-compound-refresh skill mode:non-interactive. Put your final report between lines reading RESULT-START and RESULT-END.",
+    grade: {
+      workspace_contains: [
+        { path: "docs/solutions/workflow/lock-retry-and-wait.md", needle: "1,204" },
+        { path: "docs/solutions/workflow/job-timeout-budget.md", needle: "upstream gateway" },
+        { path: "CODING_STANDARDS.md", needle: "UTC" },
+        { path: "CODING_STANDARDS.md", needle: "customer data" },
+        { path: "src/slug.js", needle: "toLowerCase" },
+      ],
+      workspace_lacks: [
+        { path: "docs/solutions/workflow/lock-retry-and-wait.md", needle: "so a second retry can never succeed" },
+        { path: "CODING_STANDARDS.md", needle: "Lock acquisition retries at most once" },
+        { path: "CODING_STANDARDS.md", needle: "validates its input" },
+      ],
+      result_must_include: ["slug"],
+    },
+  },
+  {
+    id: "ce-compound-refresh/worth-deletes-only-with-quoted-artifact",
     post_only: true,
     skill: "ce-compound-refresh",
     cohort: "untouched",
@@ -5123,10 +5700,10 @@ Use "Correct widget limit" as the description in the subject and any required bo
     git_init: true,
     fixture: `${FIX}/refresh-worth-lens`,
     timeout_secs: 900,
-    why: "Once confirmed, the lens deletes an accurate doc only when a named artifact states its reasoning, quoted as evidence, and keeps a doc whose measurement and rejected alternative exist nowhere else.",
+    why: "A refresh deletes an accurate doc only when a named artifact states its reasoning, quoted as evidence, and keeps a doc whose measurement and rejected alternative exist nowhere else.",
     pre_contract:
       "Recoverability needs positive evidence: a named in-repo artifact whose own text states the reasoning. Nothing recoverable is Keep.",
-    task: "Use the ce-compound-refresh skill to clean up my compounded learnings and bring them to the capture bar. I confirm the worth lens now, so do not ask again. Report each doc's verdict with its evidence, and list which skill files you read. Do not write anything.",
+    task: "Use the ce-compound-refresh skill on the workflow category. Report each doc's verdict with its evidence, and list which skill files you read. Do not write anything.",
     grade: {
       files_read_post: ["references/worth-audit.md"],
       workspace_read: ["tests/jobs.test.js"],
@@ -5272,7 +5849,8 @@ export function scenarioHasDecisionGrade(s: Scenario): boolean {
   if (g.classification || g.structured_status || g.delegates === "some") return true
   if (g.workspace_contains?.length || g.workspace_lacks?.length || g.json_field?.length || g.committed_must_not?.length) return true
   if (g.workspace_read?.length) return true
+  if (g.shim_log_must?.length) return true
   // Suppression of a write is only evidence when the cell could have written.
-  if (!s.read_only && g.git === "clean") return true
+  if (!s.read_only && (g.git === "clean" || g.no_new_commits)) return true
   return false
 }

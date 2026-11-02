@@ -13,7 +13,7 @@ import { arg, flag } from "./cli"
 import { REPO_ROOT, WORKTREE_REF, extractSkill, mintCellDir } from "./extract"
 import { CONVERSE_HOSTS, codexAgentText, formatTranscript, hostTurnArgv, runUserSim, type ConversationEnd, type Turn } from "./converse"
 import { HOSTS, planHost, resolveRunHosts, wrapPrompt, type Host, type HostPlan } from "./hosts"
-import { installPathShims, type PathShim } from "./path-shim"
+import { installHandoffRecorder, installPathShims, writeHandoffProbeSkill, type PathShim } from "./path-shim"
 import { fingerprint, prepareOutput, sealEvidence, sha256, writeJSON } from "./provenance"
 
 function parseHosts(): Host[] | undefined {
@@ -66,6 +66,11 @@ function snapshotWorkspace(hostDir: string, workspace: string, seedSha: string) 
     path.join(hostDir, "git-head-files.txt"),
     headFiles.status === 0 ? headFiles.stdout : "",
   )
+  // Commits, not files: an empty commit changes no paths and is invisible above.
+  if (seedSha) {
+    const newCommits = git(["log", "--oneline", `${seedSha}..HEAD`])
+    if (newCommits.status === 0) fs.writeFileSync(path.join(hostDir, "git-new-commits.txt"), newCommits.stdout)
+  }
 }
 
 /** Detached children outlive the parent's own SIGINT/SIGHUP, so the cell kills them itself. */
@@ -212,7 +217,7 @@ async function main() {
   const taskFile = arg("--task-file")
   if (!skill) {
     console.error(
-      "usage: bun run test:skill-eval-cell -- --skill <name> --task \"...\" [--task-file p] [--ref WORKTREE|<git-ref>] [--hosts claude,codex,grok] [--fixture dir] [--out dir] [--timeout-secs 600] [--with-skill name,name] [--persona file --max-turns 20 (claude, codex)] [--reasoning-effort level (grok)] [--read-only] [--git-init] [--git-untracked p,p] [--git-staged p,p] [--git-deleted p,p] [--shim-git-push] [--shim-gh-pr]\n       default --hosts is the other two harnesses from this session; missing CLIs warn and continue",
+      "usage: bun run test:skill-eval-cell -- --skill <name> --task \"...\" [--task-file p] [--ref WORKTREE|<git-ref>] [--hosts claude,codex,grok] [--fixture dir] [--out dir] [--timeout-secs 600] [--with-skill name,name] [--handoff-probe name,name] [--persona file --max-turns 20 (claude, codex)] [--reasoning-effort level (grok)] [--read-only] [--git-init] [--git-untracked p,p] [--git-staged p,p] [--git-deleted p,p] [--shim-git-push] [--shim-gh-pr]\n       default --hosts is the other two harnesses from this session; missing CLIs warn and continue",
     )
     process.exit(2)
   }
@@ -258,11 +263,22 @@ async function main() {
   if (ref !== WORKTREE_REF && sourceRev.status !== 0) throw new Error(`cannot resolve ref: ${ref}`)
   const resolvedRef = ref === WORKTREE_REF ? ref : sourceRev.stdout.trim()
   const { skillDir } = extractSkill({ skill, ref: resolvedRef, dest: path.join(out, "extract") })
-  const companionNames = (arg("--with-skill") ?? "").split(",").map((s) => s.trim()).filter(Boolean)
-  const companions = companionNames.map((name) => ({
-    name,
-    dir: extractSkill({ skill: name, ref: resolvedRef, dest: path.join(out, "extract") }).skillDir,
-  }))
+  const listArg = (name: string) => (arg(name) ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+  const companionNames = listArg("--with-skill")
+  const probeNames = listArg("--handoff-probe")
+  const both = probeNames.filter((name) => companionNames.includes(name))
+  if (both.length) throw new Error(`--handoff-probe and --with-skill both name ${both.join(", ")}`)
+  if (probeNames.length && readOnly) throw new Error("--handoff-probe needs a shell, which --read-only denies")
+  const companions = [
+    ...companionNames.map((name) => ({
+      name,
+      dir: extractSkill({ skill: name, ref: resolvedRef, dest: path.join(out, "extract") }).skillDir,
+    })),
+    ...probeNames.map((name) => ({
+      name,
+      dir: writeHandoffProbeSkill(path.join(out, "extract", "handoff-probe", name), name),
+    })),
+  ]
   const workspace = path.join(out, "workspace")
   const fixture = arg("--fixture")
   if (fixture) copyFixture(fixture, workspace)
@@ -323,6 +339,7 @@ async function main() {
     runtime: { bun: Bun.version, node: process.version, platform: process.platform, arch: process.arch },
     timeout_ms: timeoutMs,
     read_only: readOnly,
+    ...(probeNames.length ? { handoff_probe: probeNames } : {}),
     git_init: flag("--git-init"), git_remote: flag("--git-remote"),
     git_untracked: arg("--git-untracked") ?? null, git_staged: arg("--git-staged") ?? null,
     ...(arg("--git-deleted") ? { git_deleted: arg("--git-deleted") } : {}),
@@ -355,6 +372,7 @@ async function main() {
     const hostSkillDir = path.join(hostDir, "skill")
     fs.mkdirSync(hostDir, { recursive: true })
     copyFixture(workspace, hostWorkspace)
+    writeJSON(path.join(hostDir, "workspace-seed.json"), fingerprint(hostWorkspace))
     // Script imports can create caches. Keep the input snapshot unchanged and
     // give every host its own execution copy, included in the sealed evidence.
     fs.cpSync(skillDir, hostSkillDir, { recursive: true })
@@ -407,6 +425,7 @@ async function main() {
       })
     }
     if (shims.length > 0) Object.assign(plan.env, installPathShims(hostDir, shims))
+    if (probeNames.length) Object.assign(plan.env, installHandoffRecorder(hostDir))
     fs.writeFileSync(path.join(hostDir, "argv.json"), `${JSON.stringify(plan.argv, null, 2)}\n`)
     fs.writeFileSync(path.join(hostDir, "notes.txt"), `${plan.notes.join("\n")}\n`)
     const cli = Bun.which(plan.argv[0])
@@ -433,6 +452,7 @@ async function main() {
       `${JSON.stringify({ exitCode: result.exitCode, timedOut: result.timedOut }, null, 2)}\n`,
     )
     snapshotWorkspace(hostDir, hostWorkspace, seedSha)
+    writeJSON(path.join(hostDir, "workspace-final.json"), fingerprint(hostWorkspace))
     ;(summary.cells as Record<string, unknown>)[host] = {
       exitCode: result.exitCode,
       timedOut: result.timedOut,

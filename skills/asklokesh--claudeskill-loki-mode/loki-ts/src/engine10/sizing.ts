@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { readRepoMapCache, repoCacheDir, repoKey } from "./cache.ts";
-import { speedLikelyFiles } from "../features/speed/lean_select.ts";
+import { speedLikelyFiles } from "../features/speed/lean_select.ts"; import { deliverables } from "../features/decompose.ts";
 import { resolveClaudeModel } from "../util/claude_model.ts"; import { wallConcurrent } from "../util/wall_knobs.ts";
 import type { RepoMap } from "./repomap.ts";
 import type { TestMap, TestRef } from "./types.ts";
@@ -14,7 +14,7 @@ export function namedFiles(task: string, map: RepoMap | null): string[] {
   return (map?.files ?? []).filter((f) => new RegExp(`(?<![\\w.-])${escRe(basename(f).toLowerCase())}(?![\\w-]|\\.\\w)`).test(text));
 }
 
-/** P12-46: "large" = names more than LARGE_NAMED_FILES repo files; never lean, routed to decompose (a large unit never runs in parallel). */
+/** P12-46: "large" = names more than LARGE_NAMED_FILES repo files, or several independent deliverables by structure (features/decompose.ts deliverables); never lean, and an issue ref goes to the MASS-2 split (commands/issues_run.ts startIssueEpic). A large unit never runs in parallel. */
 export type TaskSize = "small" | "normal" | "large"; export const LARGE_NAMED_FILES = 8;
 /** C-F1 run4 knobs: LOKI_E10_SMALL_MAX_CHARS (positive number, default 600); a missing runner no longer forces normal (default); LOKI_E10_SMALL_NO_RUNNER=0 restores that disqualifier. */
 const noted = new Set<string>(); // one stderr note per name=value; a setting that was not honored must be visible, the returned number never changes
@@ -22,7 +22,7 @@ const noteOnce = (name: string, raw: string | undefined, why: string): void => {
 export const smallMaxChars = (env = process.env): number => { const n = Number(env.LOKI_E10_SMALL_MAX_CHARS); if (n > 0) return n; noteOnce("LOKI_E10_SMALL_MAX_CHARS", env.LOKI_E10_SMALL_MAX_CHARS, "is not a positive number; using 600"); return 600; };
 export function sizeTask(task: string, map: RepoMap | null, tests: TestMap | null): { size: TaskSize; reasons: string[] } {
   const named = namedFiles(task, map).length;
-  if (named > LARGE_NAMED_FILES) return { size: "large", reasons: [`task names ${named} files > ${LARGE_NAMED_FILES}: decompose`] };
+  if (named > LARGE_NAMED_FILES) return { size: "large", reasons: [`task names ${named} files > ${LARGE_NAMED_FILES}: decompose`] }; const st = deliverables(task); if (st.large) return { size: "large", reasons: [`${st.reason}: decompose`] };
   const why = [
     !task.trim() && "no task text", task.length > smallMaxChars() && `task ${task.length} chars > ${smallMaxChars()}`,
     !map && "no repo map", (map?.files.length ?? 0) > 3000 && `repo ${map?.files.length} files > 3000`,
@@ -55,8 +55,8 @@ export function hasRelevantTests(task: string, map: RepoMap | null, tests: TestM
 export const WALL_TINY_MAX_CHARS = 300, WALL_TINY_BOUND = "Tiny task: write exactly one test file with at most 6 assertions unless more acceptance lines exist, then exactly one per acceptance line.";
 export const isTinyGreenfield = (size: TaskSize, task: string, tests: TestMap | null): boolean => size === "small" && task.length <= WALL_TINY_MAX_CHARS && !tests?.runners.length && !tests?.tests.length;
 
-/** "lean" skips Plan+Wall (one implement session); "wall" keeps Wall (medium/large, or small with no relevant tests). */
-export type SmallTaskPath = "lean" | "wall"; export const smallTaskPath = (size: TaskSize, relevantTests: boolean): SmallTaskPath => (size === "small" && relevantTests ? "lean" : "wall");
+/** "lean" skips Plan+Wall (one implement session): any small or normal task whose named files have a relevant visible test, which verify runs once at the end; "wall" keeps Wall (large, or no relevant test). */
+export type SmallTaskPath = "lean" | "wall"; export const smallTaskPath = (size: TaskSize, relevantTests: boolean): SmallTaskPath => (size !== "large" && relevantTests ? "lean" : "wall");
 const knob = (v: string | undefined, words: string[]): boolean => words.includes((v ?? "").toLowerCase());
 /** LOKI_E10_PLAN: 0/off/never skips, 1/on/always forces, anything else sizes. */
 export const planMode = (env = process.env): "auto" | "always" | "never" =>

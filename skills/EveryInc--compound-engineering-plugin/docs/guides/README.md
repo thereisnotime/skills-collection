@@ -42,7 +42,7 @@ The steps of every engineering iteration. `/ce-ideate` runs only when you need t
 | [`/ce-brainstorm`](./ce-brainstorm.md) | Define what something should become: one question at a time, ask only decisions, named gap lenses, requirements-only unified plan |
 | [`/ce-plan`](./ce-plan.md) | Bound execution with guardrails (U-IDs, test scenarios, automatic confidence check). WHAT decisions, not HOW code |
 | [`/ce-work`](./ce-work.md) | Execute an implementation-ready plan: figure out the HOW with code in front of you, then ship through quality gates |
-| [`/ce-compound`](./ce-compound.md) | Close the loop by writing what you learned into `docs/solutions/` so the next iteration can read it |
+| [`/ce-compound`](./ce-compound.md) | Close the loop by holding what you learned in its cheapest form: a test or lint rule, a coding standard, or a learning in `docs/solutions/` |
 
 ---
 
@@ -55,7 +55,7 @@ Skills that anchor, feed, or maintain the loop without being steps inside it.
 | [`/ce-strategy`](./ce-strategy.md) | Create or maintain `STRATEGY.md`, the upstream anchor `ce-ideate`, `ce-brainstorm`, and `ce-plan` read as grounding |
 | [`/ce-product-pulse`](./ce-product-pulse.md) | Outer observation loop: a time-windowed report on usage, performance, errors, and follow-ups, saved to `docs/pulse-reports/` |
 | [`/ce-sweep`](./ce-sweep.md) | Recurring feedback sweep: ingest Slack/GitHub items (email experimental), acknowledge at source, and keep an `/lfg`-ready rolling plan |
-| [`/ce-compound-refresh`](./ce-compound-refresh.md) | Maintain `docs/solutions/` over time (Keep / Update / Consolidate / Replace / Delete), Interactive or Autofix |
+| [`/ce-compound-refresh`](./ce-compound-refresh.md) | Keep lessons accurate and in the right form: maintain `docs/solutions/` (Keep / Update / Consolidate / Replace / Delete) and retire standards a check now covers, Interactive or Autofix |
 
 ---
 
@@ -125,6 +125,7 @@ Invoked when a specific need arises, not part of any chain.
 
 | Skill | Description |
 |-------|-------------|
+| [`/ce-help`](./ce-help.md) | Find where your work sits on the loop, which skill fits, or how setup, config, and cost work. Recommends the next command; starts nothing. Manual invoke only. |
 | [`/ce-noslop`](./ce-noslop.md) | Rewrite, check, or draft prose with no AI tells that reads on the first read; every fact preserved. Sibling skills invoke it where they write. |
 | [`/wtf`](./wtf.md) | Explain the last message, or a supplied file, link, or passage, in plain language. Explains rather than rewrites; keeps caveats and adds no claims. Manual invoke only. |
 | [`/ce-promote`](./ce-promote.md) | Draft announcement copy for a shipped feature (X, changelog, LinkedIn, email, blog, demo). Drafts only; never posts. |

@@ -14,7 +14,7 @@ import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep 
 import { siteFor } from "../project_model/resolve.ts";
 import type { ProjectApi } from "../project_model/api.ts";
 import { CARGO_TEST_FILE_RE, isTestFile } from "../engine10/testmap.ts";
-import type { RunnerName, TestRef } from "../engine10/types.ts";
+import type { RunnerName, TestRef } from "../engine10/types.ts"; import type { FailureGroup } from "../engine10/failures.ts";
 import { declaresPythonDep } from "./lock_ecosystems.ts";
 import { UNITTEST_DISCOVER_ARGS } from "./python_build_check.ts";
 import { safeGit, safeGitSpawn, tokenFreeEnv } from "./safe_git.ts";
@@ -209,7 +209,22 @@ export function plannedGoDir(repoDir: string, texts: string[]): { dir: string; p
   }
   return { dir: repoDir, pkg: null };
 }
-export const goPackageBrief = (repoDir: string, targetDir: string, runners: readonly string[], texts: string[]): string => { const p = runners.includes("go") ? plannedGoDir(repoDir, texts) : null; return p?.pkg && p.dir === targetDir ? `\n\nGo: your test files sit in the package directory, so each one starts with "package ${p.pkg}" and uses the package's identifiers directly.` : ""; };
+/** The package a Go directory already declares: a non-test file's clause, else a test file's clause without its _test suffix (a black-box tests/ directory holds only _test.go files); undefined with no .go file. */
+export const goDirPackage = (dir: string): string | undefined => goSiblingPkg(dir) ?? (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith("_test.go")).map((f) => /^package\s+(\w+)/m.exec(readFileSync(join(dir, f), "utf8"))?.[1]?.replace(/_test$/, "")).find(Boolean) : undefined);
+/** A Go Wall file whose package clause the directory it lands in cannot build with (Go allows one package per directory, plus its external <pkg>_test). Null when it fits or the directory holds no Go file yet. */
+export function goPackageClash(dir: string, name: string, content: string): string | null {
+  if (!name.endsWith(".go")) return null;
+  const want = goDirPackage(dir), got = /^\s*package\s+(\w+)/m.exec(content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, ""))?.[1];
+  return !want || !got || got === want || got === `${want}_test` ? null : `Go package clause "package ${got}" does not match "package ${want}" of the directory it lands in, so that directory would not build`;
+}
+/** The Wall author's Go package line. In the package directory: that package, identifiers used directly. In another directory that already holds Go files (a black-box tests/ package): that directory's package, with the package under test imported by its import path (importPathOf, from go.mod). */
+export const goPackageBrief = (repoDir: string, targetDir: string, runners: readonly string[], texts: string[], importPathOf?: (dir: string) => string | undefined): string => {
+  if (!runners.includes("go")) return "";
+  const p = plannedGoDir(repoDir, texts);
+  if (p.pkg && p.dir === targetDir) return `\n\nGo: your test files sit in the package directory, so each one starts with "package ${p.pkg}" and uses the package's identifiers directly.`;
+  const here = goDirPackage(targetDir), imp = p.pkg && p.dir !== targetDir ? importPathOf?.(p.dir) : undefined;
+  return here ? `\n\nGo: your test files are copied into ${relative(repoDir, targetDir) || "the repository root"}/, whose existing Go files declare "package ${here}". Start each file with "package ${here}"; any other package clause breaks that directory's build and the file is discarded.${imp ? ` Import the package under test as "${imp}" and call its identifiers qualified (${p.pkg}.Name).` : ""}` : "";
+};
 /** One shared Go-runner detection for every caller (verify, deep, per-package suites): a shell command line or an argv. Chosen from the command, never from output. The answer is tri-state (see runsTool): a command word in command position is the tool, or the command is fully resolved and does not run it, or some word could not be resolved and the old any-word rule decides. Detecting go too often only fails closed (exit 0 is not_run, and corroboratePass accepts only a plain `go test` line). */
 /** The ONE command-shape test for every runner we corroborate (go, cargo), tri-state. The narrow command-position answer is final only when every command word resolved to the tool itself, a known wrapper walked through, or a KNOWN non-tool runner (KNOWN_RUNNERS). An unknown command word, a variable command word ($GO) or a shell whose flags did not parse to -c leaves the command unresolved, and mentionsTool then falls back to the old any-word basename rule over the whole command, which fails closed. */
 const KNOWN_RUNNERS = new Set(["pytest", "python", "python3", "node", "npm", "yarn", "pnpm", "bun", "deno", "jest", "vitest", "mocha", "make", "cd", "echo", "true", "ruby", "rspec", "bundle", "mvn", "gradle", "dotnet", "php", "phpunit", "mix", "swift", "ctest", "tox"]);
@@ -815,20 +830,22 @@ const declNames = (line: string): string[] => {
   if (m) out.push(m[1]!);
   return out.filter((n) => !NOT_A_NAME.has(n));
 };
-/** Names a `git diff -U0` declares or modifies: declarations on added lines, plus the hunk's enclosing declaration (the @@ context) when the hunk removes lines or declares nothing itself. */
+/** Names a `git diff -U0` declares or modifies: declarations on added lines, plus the hunk's enclosing declaration (the @@ context) when the hunk removes code or declares nothing itself.
+ *  HONEST-VERIFIED: a removed line that is blank, comment-only, or re-added verbatim (a trailing-newline fix) removes no code, so it never credits the enclosing declaration; otherwise a test of the neighbouring function would hide an unexercised new one. */
 export function changedSymbols(diffU0: string): string[] {
   const out = new Set<string>();
-  let ctx = "", added: string[] = [], removed = 0;
+  let ctx = "", added: string[] = [], removed: string[] = [];
   const flush = (): void => {
     const own = stripComments(added.join("\n")).split("\n").flatMap(declNames); // strip over the whole hunk: a block comment can span added lines
     for (const n of own) out.add(n);
-    if (removed > 0 || own.length === 0) for (const n of declNames(ctx)) out.add(n);
-    added = []; removed = 0;
+    const kept = new Set(added.map((l) => l.trim())), removedCode = stripComments(removed.filter((l) => !kept.has(l.trim())).join("\n")).trim() !== "";
+    if (removedCode || own.length === 0) for (const n of declNames(ctx)) out.add(n);
+    added = []; removed = [];
   };
   for (const line of diffU0.split("\n")) {
     if (line.startsWith("@@")) { flush(); ctx = line.replace(/^@@[^@]*@@\s?/, ""); }
     else if (line.startsWith("+") && !line.startsWith("+++")) added.push(line.slice(1));
-    else if (line.startsWith("-") && !line.startsWith("---")) removed++;
+    else if (line.startsWith("-") && !line.startsWith("---")) removed.push(line.slice(1));
   }
   flush();
   return [...out];
@@ -905,9 +922,9 @@ export const REVIEWER_ITEM = "one reviewer";
 const PLAN: Record<RiskTier, { selected: string[] }> = {
   low: { selected: [...RAN_ALWAYS] },
   medium: { selected: [...RAN_ALWAYS, "full test command", REVIEWER_ITEM] },
-  high: { selected: [...RAN_ALWAYS, "full test command", "full suite", "council", "security scan"] },
+  high: { selected: [...RAN_ALWAYS, "full test command", "full suite", REVIEWER_ITEM, "security scan"] }, // L003: the one pre-seal review (seal xreview); the post-PR council is gone
 };
-const LOW_SKIPPED = ["full test command", "reviewer", "council", "security scan"]; // low skips these by design; they are listed so the record never implies they ran
+const LOW_SKIPPED = ["full test command", "reviewer", "security scan"]; // low skips these by design; they are listed so the record never implies they ran
 const deferredOf = (tier: RiskTier, selected: string[], executed: string[]): string[] => (tier === "low" ? LOW_SKIPPED : selected).filter((c) => !RAN_ALWAYS.includes(c) && !executed.includes(c));
 
 function summaryOf(a: Pick<RiskAssessment, "tier" | "computed" | "reasons" | "override" | "checks_deferred">): string {
@@ -916,7 +933,7 @@ function summaryOf(a: Pick<RiskAssessment, "tier" | "computed" | "reasons" | "ov
   return `risk: ${a.tier} (${why}), ${def.length ? def.join(", ") : "no deeper checks"} not run`;
 }
 
-export const DEEP_ITEMS = ["full suite", "app boot", "council", "security scan"] as const;
+export const DEEP_ITEMS = ["full suite", "app boot", "security scan"] as const;
 export const NOT_SELECTED = "not selected by risk tier: ";
 export const SECURITY_SCAN = "security scan";
 /** FC-SEAL-NA-AS-UNPROVEN: the deep checks a receipt lists as NOT PROVEN (the tier wanted them and they did not run) versus "not selected by risk tier" (the tier never asked). No usable risk record keeps every item NOT PROVEN (fail-safe); a full suite that verify executed is dropped. */
@@ -930,7 +947,7 @@ export function deepGaps(risk: unknown, verifyChecks: { name?: unknown; result?:
   if (!ok) return { notProven: [...items], notSelected: [] };
   const low = r?.tier === "low", gap = (i: string): boolean => !low && (i === "full suite" ? sel.includes("full test command") || sel.includes("full suite") : sel.includes(i));
   const notProven = items.filter(gap), notSelected = items.filter((i) => !gap(i)).map((i) => NOT_SELECTED + i);
-  const reviewed = reviewRan || executed(deepChecks, "council"); // FC-MEDIUM-REVIEWER-UNCREDITED: "one reviewer" is credited only by a review that really ran (seal's cross-review verdict, or the deep reviewer session); never by tier alone
+  const reviewed = reviewRan; // FC-MEDIUM-REVIEWER-UNCREDITED: "one reviewer" is credited only by seal's cross-review verdict that really ran; never by tier alone
   for (const d of arr(r?.checks_deferred).filter((x) => !(DEEP_ITEMS as readonly string[]).includes(x) && !(x === REVIEWER_ITEM && reviewed))) (low ? notSelected : notProven).push(low ? NOT_SELECTED + d : d);
   return { notProven, notSelected };
 }
@@ -1142,6 +1159,20 @@ export function changedFiles(repoDir: string, baseSha: string, skip?: (f: string
   return [...new Set([...tracked, ...untracked])].filter((f) => !f.startsWith(".loki/") && !skip?.(f)); // skip: install-owned paths (FC-DEPS-NOT-INSTALLED)
 }
 
+/** One file digest: a symlink by its target, a file over 4 MB by its size, else the sha256 of its bytes; throws when unreadable. */
+export function sha256File(abs: string): string {
+  const st = lstatSync(abs);
+  return st.isSymbolicLink() ? `link:${readlinkSync(abs)}` : st.size > 4_000_000 ? `big:${st.size}` : createHash("sha256").update(readFileSync(abs)).digest("hex");
+}
+/** L025: a digest per changed path ("-" when the path is gone), recorded by each verify so the next one knows which files a fix round touched. */
+export function fileHashes(repoDir: string, files: string[]): Record<string, string> {
+  return Object.fromEntries(files.map((f) => { try { return [f, sha256File(join(repoDir, f))]; } catch { return [f, "-"]; } }));
+}
+/** L025: the paths whose content differs between two fileHashes records, including paths that left or joined the diff. */
+export function changedSince(prev: Record<string, string>, now: Record<string, string>): string[] {
+  return [...new Set([...Object.keys(prev), ...Object.keys(now)])].filter((f) => prev[f] !== now[f]).sort();
+}
+
 /** The skip-worktree paths that the effective sparse-checkout patterns genuinely exclude. core.sparseCheckout alone proves nothing (the
  *  implementer sets repo config), so the pattern file is evaluated by git itself: its lines are gitignore-syntax with last-match-wins, so a
  *  scratch repo takes them as info/exclude and `check-ignore --no-index` names the INCLUDED paths. Config off, file unreadable or any error
@@ -1222,7 +1253,7 @@ function execFiles(repoDir: string): Record<string, string> | null {
   for (const f of all) {
     if (!(EXEC_NAMES.has(basename(f)) || (VENV_TOOL.test(basename(f)) && inVenvBin(f)))) continue;
     const abs = join(repoDir, f);
-    try { const st = lstatSync(abs); out[f] = st.isSymbolicLink() ? `link:${readlinkSync(abs)}` : st.size > 4_000_000 ? `big:${st.size}` : createHash("sha256").update(readFileSync(abs)).digest("hex"); } catch { out[f] = "unreadable"; }
+    try { out[f] = sha256File(abs); } catch { out[f] = "unreadable"; }
   }
   return out;
 }
@@ -1377,7 +1408,8 @@ export function failureExcerpt(out: string, repoDir = "", cap = EXCERPT_GROUP_CA
   const take = (i: number, n = 1): void => { for (let k = 0; k < n && i + k < lines.length; k++) if (lines[i + k]!.trim()) pick.add(i + k); };
   lines.forEach((l, i) => {
     if (/^E\s/.test(l)) take(i);
-    else if (/^\s*(Expected|Received)\b/.test(l) || /^\s*expect\(.*\)\.\w+/.test(l)) take(i);
+    else if (/^\s*(Expected|Received|Actual)\b/.test(l) || /^\s*expect\(.*\)\.\w+/.test(l)) take(i);
+    else if (/^\s+[\w./-]+_test\.go:\d+: /.test(l) || /^\s*[-+] (?:Expected|Received)$/.test(l) || /\bAssert\.\w+\(\) Failure\b/.test(l)) take(i, /^\s*[-+] /.test(l) ? 1 : 2); // L005: go t.Errorf lines, vitest diff headers, xunit assertion messages
     else if (/^[\w./@-]+\.py:\d+: /.test(l)) take(i);
     else if (/AssertionError|^\s*(expected|actual)\b.*[:=]|^\s*(not ok|FAILED)\b/.test(l)) take(i, 3);
     else if (/^\s*--- FAIL/.test(l)) take(i, 4);
@@ -1674,10 +1706,36 @@ function goModDir(base: string, rel: string): string {
 }
 export function firstError(out: string): string { // the line naming the failing test, minus what varies between identical failures (A-113 stall signature)
   const goOut = (l: string): string => { try { const e = JSON.parse(l) as { Action?: string; Output?: string }; return typeof e.Action === "string" ? (e.Action === "output" || e.Action === "build-output" ? (e.Output ?? "") : "") : l; } catch { return l; } }; // Go json event stream: the failing line is inside the event's Output
-  const lines = out.slice(-65536).split("\n").map((l) => (l.startsWith("{") ? goOut(l) : l).trim()).filter(Boolean), l =lines.find((x) => /^(FAILED\s|\u25cf\s.*\u203a|not ok\s|_{3,}\s.+\s_{3,}$)/.test(x)) ?? lines.find((x) => /^[\w./-]+\.go:\d+:\d+: \S/.test(x)) /* go compiler line, before "FAIL pkg [build failed]" */ ?? lines.find((x) => /fail|error/i.test(x) && !/^(=|\u2713|ok\b|PASS)/.test(x)) ?? "";
-  return l.replace(/\d{4}-\d\d-\d\dT[\d:.]+Z?/g, "").replace(/(^|\s)\/(?:[\w.@-]+\/)*[\w.@-]+/g, "$1<path>").replace(/:\d+(?::\d+)?/g, "").replace(/\[?\d+(?:\.\d+)?m?s\]?/g, "").replace(/\s+/g, " ").slice(0, 160);
+  const lines = stripAnsi(out.slice(-65536)).split("\n").map((l) => (l.startsWith("{") ? goOut(l) : l).trim()).filter(Boolean), l =lines.find((x) => /^(FAILED\s|\u25cf\s.*\u203a|not ok\s|_{3,}\s.+\s_{3,}$|FAIL\s+\S.*\s>\s|\[ERROR\] (?!Tests run)\S+ .*<<< (?:FAILURE|ERROR)!)/.test(x)) /* L005: vitest "FAIL file > test" and surefire per-test lines are test-level */ ?? lines.find((x) => /^[\w./-]+\.go:\d+:\d+: \S/.test(x)) /* go compiler line, before "FAIL pkg [build failed]" */ ?? lines.find((x) => /fail|error/i.test(x) && !/^(=|\u2713|ok\b|PASS)/.test(x)) ?? "";
+  return l.replace(/\d{4}-\d\d-\d\dT[\d:.]+Z?/g, "").replace(/(^|\s)\/(?:[\w.@-]+\/)*[\w.@-]+/g, "$1<path>").replace(/:\d+(?::\d+)?/g, "").replace(/\[?\b\d+(?:\.\d+)? ?(?:ms|s)\b\]?/g, "").replace(/\[?\d+(?:\.\d+)?m?s\]?/g, "").replace(/\s+/g, " ").slice(0, 160);
 }
 
+/** L005: the stall and brief signature of one failing check: its name, its first failing line, and for a suite check (one name, many tests) the failing ids,
+ *  so two different failing sets inside one suite never read as the same stall. Ids are sorted; a long list keeps 3 plus a digest of the whole set. */
+export function failureSignature(c: { name: string; first_error?: string; ids?: string[] }, suite = false): string {
+  const ids = suite ? [...new Set(c.ids ?? [])].sort() : [];
+  const set = ids.length > 3 ? `${ids.slice(0, 3).join(", ")} (+${ids.length - 3} more, set ${createHash("sha256").update(ids.join("\n")).digest("hex").slice(0, 8)})` : ids.join(", ");
+  return [c.name, c.first_error, set ? `[${set}]` : ""].filter(Boolean).join(" ");
+}
+/** L005: one fix-brief group: the signature, and a sample that starts with the command that reruns the check, then its redacted excerpt. */
+export function failureGroup(c: { name: string; cmd: string; first_error?: string; ids?: string[] }, excerpt: string, suite = false): FailureGroup {
+  return { signature: failureSignature(c, suite), count: 1, sample: excerpt ? `${c.cmd}\n${excerpt}` : c.cmd };
+}
+/** L005/L025: verify's fix-brief groups and blocking check names. An excerpt already shown (a suite repeating a per-file failure) is referenced, not
+ *  repeated; excerpts share `cap` bytes. `quick` (set when this verify stopped quick: the previous output and every check name this one ran) carries the previous
+ *  blocking checks this one did not rerun (the full suite), so the brief still shows them; marked carried, they never enter the stall comparison. */
+export function briefGroups<C extends { name: string; cmd: string; first_error?: string; ids?: string[] }>(blocking: C[], excerptOf: (c: C) => string, isSuite: (c: C) => boolean, cap: number, quick?: { prev?: Record<string, unknown>; ran: ReadonlySet<string> }): { groups: FailureGroup[]; names: string[] } {
+  const seen = new Map<string, number>(), names = blocking.map((c) => c.name);
+  const groups = blocking.map((c, i) => {
+    const e = excerptOf(c), dup = e ? seen.get(e) : undefined; if (e && dup === undefined) seen.set(e, i + 1);
+    const x = dup !== undefined ? `(same output as failure ${dup})` : truncateBytes(e, Math.max(0, cap));
+    cap -= dup !== undefined ? 0 : Buffer.byteLength(x);
+    return failureGroup(c, x, isSuite(c));
+  });
+  const prevNames = (quick?.prev?.blocking_checks as string[] | undefined) ?? [], prevGroups = (quick?.prev?.failures_grouped as FailureGroup[] | undefined) ?? [];
+  prevNames.forEach((n, i) => { const g = prevGroups[i]; if (g && quick && !quick.ran.has(n)) { names.push(n); groups.push({ ...g, carried: true, sample: `${g.sample.split("\n")[0]}\n(not rerun since the fix; it runs again once the checks above pass)` }); } });
+  return { groups, names };
+}
 /** FC-PR-BODY-PUBLIC-HYGIENE: the one wording for a check that also fails on the base tree (verify's pre_red_checks). */
 export const ALREADY_FAILING_ON_BASE = "already failing on base, not caused by this change";
 /** "fail" stays "fail" unless the check is base-red, then it carries the one shared label; every other result is unchanged. */

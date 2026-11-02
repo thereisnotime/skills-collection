@@ -34,18 +34,21 @@ the same path. `-v` means `--verbose`, `--budget` and `--budget-limit` mean
 `--no-dashboard` are accepted and ignored. A PRD file path that does not exist
 exits 2 with "PRD file not found".
 
-The previous loop (autonomy/run.sh) runs only when:
+Inside a git repository, `loki start` and `loki quick` with no task resume an
+interrupted run when there is one; otherwise they print the `loki "<goal>"`
+usage and exit 64. A bare `loki start` takes `LOKI_PRD_FILE` as its PRD, and
+outside a repository it shows the offline sample receipt. `loki demo` and
+`loki quickstart` build with `loki start <prd>`, so they run Loki 10 too; in an
+empty folder they create the repository first.
 
-1. you pass `--engine legacy` or set `LOKI_ENGINE=legacy` (`--engine engine10`
-   forces Loki 10 and refuses a flag it cannot honor; the flag wins over the
-   variable), or
-2. the call carries a flag Loki 10 does not support (for example `--simple`,
-   `--complex`, `--parallel`, `--github`, `--sandbox`, `--max-iterations`).
-   Only that call goes to the previous loop, and one stderr line names the flag
-   and the engine chosen, or
-3. LOKI_PROVIDER (or `--provider`) names a provider Loki 10 has no invoker
-   for (anything but claude, codex, cline, aider, opencode), or bun is missing, or the
-   PRD is larger than 100000 bytes. One stderr line says why.
+A flag Loki 10 does not support (for example `--simple`, `--parallel`,
+`--github`, `--sandbox`, `--max-iterations`) is refused with exit 2 and a line
+naming its replacement. A provider other than claude, codex, cline, aider or
+opencode, or a machine with no working bun, also exits 2 with the fix.
+
+The previous loop (autonomy/run.sh) runs only when you pass `--engine legacy`
+or set `LOKI_ENGINE=legacy` (the flag wins over the variable), or when the PRD
+is larger than 100000 bytes (one stderr line says why).
 
 `loki <word>` with a single bare word stays the command namespace (`loki doctor`),
 so use `loki start <word>` for a one-word brief. A first argument starting with
@@ -114,6 +117,15 @@ bin/loki routes GitHub, GitLab (`.../-/issues/N`) and Jira
 Only the extra already-done check (an issue's `state` and whether it was
 closed by a merged PR) is GitHub-only; a GitLab or Jira issue still runs,
 just without that extra signal.
+
+The task the agent works from is the issue's title and description plus an
+"Issue tracker context" section: the labels, and the comments of people the
+repo trusts. On GitHub that is comments by an OWNER, MEMBER or COLLABORATOR
+(the same rule `/loki` and comment steering use), never a bot, Loki's own
+comments or a hidden comment. Other comments are counted in `issue.json`
+(`comments_excluded`) and never quoted. Comments are capped at 16 KB, newest
+kept. The whole task stays quoted as untrusted data in every brief. Jira and
+Linear trust is set in `docs/trackers.md`.
 
 Flags, from the engine's own `--help`:
 
@@ -269,7 +281,7 @@ same:
 ```
 PR:         https://github.com/owner/repo/pull/1
 Verdict:    VERIFIED
-NOT PROVEN: full suite, app boot, council, security scan
+NOT PROVEN: full suite, app boot, security scan
 Cost:       $0.42 (claude, 212k tokens)
 Time:       4m12s (intake 11s, plan 20s, implement 3m10s, verify 31s)
 ```
@@ -344,7 +356,15 @@ on:
       - run: loki backlog "${GITHUB_REPOSITORY}" --label loki --concurrency 2
 ```
 
-`loki backlog` also takes `--all`, `--issues 1,2,3` and `--dry-run`. The nightly job runs the agent and a write token together, so label only issues you trust.
+`loki backlog` also takes `--all`, `--issues 1,2,3` and `--dry-run`, and `jira:PROJ` or `linear:TEAM` in place of `owner/repo` to work a Jira project or Linear team the same way (see [Jira and Linear intake](../trackers.md)). The nightly job runs the agent and a write token together, so label only issues you trust.
+
+Before anything runs, `loki backlog` triages every issue into one of three classes, each printed with a one-line reason (`--dry-run` prints only this and launches nothing):
+
+- `implement`: a concrete target (a file, function, value or expected result), or a large issue. Only these run. Large has one definition, the same one `loki start owner/repo#N` uses: an epic label (`epic`, `umbrella`, `tracking` or `meta`), or at least two of 4 or more solution parts, 4 or more acceptance criteria, and both a backend and a frontend named. A large issue is split into slices that each run on their own (the reason says `runs split into slices`).
+- `spec`: vague or ambiguous (no concrete target named, or an ambiguity score at the threshold). Loki drafts `.loki/specs/<slug>.md` with `loki plan --spec`, runs nothing, and prints `loki start --spec .loki/specs/<slug>.md` to run after you edit or approve it.
+- `human`: the issue touches secrets, production or a destructive operation. Never run headless; listed with the reason. Repos without tests, UI work and infra work still run: Loki writes its own tests and verifies once at the end.
+
+The rules are deterministic (issue text, labels, the repo test map and the ambiguity score); no model call decides a class. A run records its class and reason in the run events, the receipt (`triage`) and a `Triage:` line in the PR body. Overrides: the label `loki:implement`, `loki:spec` or `loki:human` forces that class for one issue; `LOKI_TRIAGE=0` turns the router off and runs every issue. Routing happens only in `loki backlog`. A direct `loki "<goal>"` or `loki start owner/repo#N` never stops or refuses because of triage: when the ambiguity gate fires it records the class and reason in the run events and the receipt, then runs exactly as before.
 
 ## NOT PROVEN
 
@@ -352,9 +372,10 @@ NOT PROVEN lists what a run did not verify, so a passing run is never read
 as more thorough than it was. One entry is unconditional, written by Seal
 every time:
 
-- **The deep checks**: `full suite, app boot, council, security scan`.
+- **The deep checks**: `full suite, app boot, security scan`.
   They are deferred to a separate deep-verify pass, so Seal always lists
-  all four at seal time.
+  all three at seal time. The deep pass starts no model session: the one
+  review of a run is the cross-review before Seal.
 
 Seal also adds an entry whenever it applies, for example: `cost not
 measured (no iteration ids recorded)`, `kill blocking not enforced` for

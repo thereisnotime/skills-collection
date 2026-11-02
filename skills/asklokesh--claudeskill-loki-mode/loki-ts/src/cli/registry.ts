@@ -127,7 +127,7 @@ export const REGISTRY: readonly CmdSpec[] = [
   }),
   cmd("backup", "KEEP-MODERN", "bash", "Back up dashboard state (audit log, checkpoint) with a sha256 manifest", "Enterprise retention and backup (D99 item 7)", { flags: [str("--dir", "<path>", "State directory (default ~/.loki/dashboard)"), str("--out", "<archive>", "Archive path (default ./loki-backup-<timestamp>.tar.gz)")] }),
   cmd("restore", "KEEP-MODERN", "bash", "Restore dashboard state from a verified backup archive", "Enterprise retention and backup (D99 item 7)", { flags: [str("--dir", "<path>", "State directory (default ~/.loki/dashboard)"), bool("--force", "Replace a non-empty state directory (old one is kept aside)"), str("--sha256", "<hex>", "Expected archive digest when no .sha256 sidecar exists")], positionals: [{ name: "archive", type: "path" }] }),
-  cmd("proof", "KEEP-MODERN", "both", "Inspect and share proof-of-run receipts", "The Evidence Receipt moat", {
+  cmd("proof", "KEEP-MODERN", "both", "Inspect and share proof-of-run receipts", "The Evidence Receipt", {
     aliases: ["receipt"],
     subcommands: [
       sub("list", "List receipts"),
@@ -170,12 +170,12 @@ export const REGISTRY: readonly CmdSpec[] = [
       sub("release-notes", "Changes in a <from>..<to> range", { flags: [str("--format", "<text|json>", "Output format")] }),
     ],
   }),
-  cmd("trust", "KEEP-MODERN", "both", "Trust trajectory from proof history", "Trust moat surface", { flags: [bool("--json", "Print the trust trajectory as JSON")], subcommands: [sub("detail", "Trust metrics detail")] }),
+  cmd("trust", "KEEP-MODERN", "both", "Trust trajectory from proof history", "Trust trajectory surface", { flags: [bool("--json", "Print the trust trajectory as JSON")], subcommands: [sub("detail", "Trust metrics detail")] }),
   cmd("crash", "KEEP-MODERN", "both", "Inspect or submit scrubbed crash reports", "Local-only crash plumbing", {
     subcommands: [sub("list", "List stored crash reports"), sub("show", "Show one scrubbed crash report"), sub("submit", "Submit a scrubbed crash report"),sub("help", "Show crash usage")],
   }),
   cmd("contract", "KEEP-MODERN", "bun", "Print the spec delivery contract", "v10 delivery contract", { positionals: [{ name: "spec", type: "path" }] }),
-  cmd("start", "UPDATE", "both", "Run the autonomous build (a `jira:KEY` or `linear:KEY` ref also writes the outcome back to that ticket, see docs/trackers.md); an interrupted or cancelled run is offered for resume or a fresh start, and --fresh skips the offer", "Forks between v10 and the SDK loop; flags still legacy-shaped", { flags: startFlags, positionals: [{ name: "spec", type: "path" }], example: "loki start ./prd.md --provider claude" }),
+  cmd("start", "UPDATE", "both", "Run the autonomous build (a `jira:KEY` or `linear:KEY` ref also writes the outcome back to that ticket, see docs/trackers.md); an interrupted or cancelled run is offered for resume or a fresh start, and --fresh skips the offer", "One engine (engine10); flags still legacy-shaped", { flags: startFlags, positionals: [{ name: "spec", type: "path" }], example: "loki start ./prd.md --provider claude" }),
   cmd("slack", "KEEP-MODERN", "bun", "Slack inbound handler", "Bun-native integration", { subcommands: [sub("serve", "Serve the Slack handler", { flags: [port, str("--host", "<host>", "Bind host")] })] }),
   cmd("queue", "KEEP-MODERN", "bun", "Overnight issue queue with a morning digest", "Governor-aware batch of issue-mode runs", { subcommands: [sub("add", "Queue issue refs", { positionals: [{ name: "issue", type: "string" }] }), sub("list", "Show the queue", { flags: [bool("--json", "Print the queued refs as a JSON array")] }), sub("remove", "Take issue refs out of the queue", { positionals: [{ name: "issue", type: "string" }] }), sub("clear", "Empty the queue"), sub("run", "Process the queue", { flags: [bool("--no-pr", "Do not open pull requests"), str("--max-total-cost", "<usd>", "Stop before the next item once cumulative spend reaches this cap")] })] }),
   cmd("issues", "KEEP-MODERN", "bun", "Run every open issue in a repo and open PRs", "Mass issue pickup on the T7 queue", {
@@ -207,7 +207,7 @@ export const REGISTRY: readonly CmdSpec[] = [
   cmd("init", "UPDATE", "bash", "Scaffold from a template", "Templates predate v10", { flags: [str("-t", "<template>", "Template name")] }),
   cmd("template", "KEEP-MODERN", "bash", "Manage PRD templates", "Engine-neutral"),
   cmd("verify", "UPDATE", "bash", "Deterministic PR verification", "Legacy proof vs v10 verify split", { flags: [bool("--fast", "PR-scoped fast verify"), bool("--pr", "PR mode"), json, dyn("--base", "branches", "Base branch")], positionals: [{ name: "base", type: "dynamic", dynamic: "branches" }] }),
-  cmd("keys", "KEEP-MODERN", "bash", "Receipt-signing keys", "Trust moat", { subcommands: [sub("export", "Print the public signing key (JWK)")] }),
+  cmd("keys", "KEEP-MODERN", "bash", "Receipt-signing keys", "Receipt signing", { subcommands: [sub("export", "Print the public signing key (JWK)")] }),
   cmd("review", "UPDATE", "bash", "Standalone code review with quality gates", "Gates are legacy-shaped"),
   cmd("dashboard", "UPDATE", "bash", "Operations UI server", "Overlaps Control Plane", { subcommands: [sub("start", "Start"), sub("stop", "Stop"), sub("status", "Status"), sub("url", "Print URL"), sub("open", "Open in browser")] }),
   cmd("config", "UPDATE", "bash", "Manage configuration", "Mixed legacy keys", { subcommands: [sub("show", "Show config"), sub("list", "List config (alias of show)"), sub("init", "Create config"), sub("edit", "Edit config"), sub("path", "Print config path"), sub("set", "Set a value"), sub("get", "Get a value")] }),
@@ -368,4 +368,29 @@ export function suggestWord(typo: string, names: readonly string[]): string | un
 /** Closest visible command name within distance 2, else undefined. */
 export function suggestCommand(typo: string): string | undefined {
   return suggestWord(typo, visibleCommands().flatMap((c) => [...allNames(c)]));
+}
+
+/** Words bin/loki routes before the registry is consulted (autonomy/route.sh). */
+const PRE_DISPATCH = ["route"];
+
+/**
+ * A goal is free text. A one-argument goal like "status --help", "config path" or
+ * "route start fix-the-bug" is a command typed inside quotes: its first word is a
+ * known command or alias and its second word is a flag, or (in at most three
+ * words) one of that command's subcommands or another command. Returns that
+ * command name, else null.
+ */
+export function commandShapedGoal(text: string): string | null {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return null;
+  const first = words[0]!.toLowerCase(), second = words[1]!.toLowerCase();
+  const hit = findCommand(first);
+  if (!hit && !PRE_DISPATCH.includes(first)) return null;
+  const subs = new Set<string>();
+  const walk = (c: CmdSpec): void => { for (const s of c.subcommands ?? []) { allNames(s).forEach((n) => subs.add(n)); walk(s); } };
+  if (hit) walk(hit);
+  const commandWord = (w: string): boolean => findCommand(w) !== undefined || PRE_DISPATCH.includes(w);
+  if (second.startsWith("-")) return first;
+  // "update docs for the new API" is a goal; "config path" and "route start fix-the-bug" are commands: a word-for-word command line stays short.
+  return words.length <= 3 && (subs.has(second) || commandWord(second)) ? first : null;
 }

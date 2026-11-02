@@ -57,9 +57,9 @@
     "file_types": {
       "md": 7,
       "html": 2,
+      "js": 1,
       "sh": 1,
-      "css": 1,
-      "js": 1
+      "css": 1
     },
     "has_license": false,
     "has_readme": true,
@@ -107,10 +107,10 @@
       "go": 12,
       "mdc": 2,
       "png": 2,
-      "jsonc": 1,
       "cff": 1,
       "sh": 1,
-      "mod": 1
+      "jsonc": 1,
+      "yaml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -296,9 +296,9 @@
     "file_types": {
       "md": 23,
       "tex": 5,
-      "pdf": 2,
       "cls": 2,
       "png": 2,
+      "pdf": 2,
       "txt": 1,
       "py": 1
     },
@@ -356,7 +356,7 @@
       "ts": 9,
       "html": 8,
       "lock": 6,
-      "ps1": 4
+      "sh": 4
     },
     "has_license": true,
     "has_readme": true,
@@ -400,8 +400,8 @@
       "sh": 3,
       "ps1": 2,
       "txt": 1,
-      "jpeg": 1,
-      "json": 1
+      "json": 1,
+      "jpeg": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -442,10 +442,10 @@
       "md": 122,
       "json": 16,
       "yml": 3,
-      "yaml": 2,
       "py": 2,
-      "mjs": 1,
-      "lock": 1
+      "yaml": 2,
+      "lock": 1,
+      "mjs": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -480,8 +480,8 @@
     "total_size_mb": 0.22,
     "file_types": {
       "md": 37,
-      "json": 1,
       "tmpl": 1,
+      "json": 1,
       "yml": 1
     },
     "has_license": true,
@@ -490,15 +490,15 @@
   },
   "EveryInc--compound-engineering-plugin": {
     "description": "Office Compound Engineering plugin for Claude Code, Codex, and more",
-    "skill_count": 59,
-    "skill_lines_total": 2801,
-    "skill_lines_avg": 47,
+    "skill_count": 60,
+    "skill_lines_total": 2858,
+    "skill_lines_avg": 48,
     "skill_lines_min": 6,
     "skill_lines_max": 194,
     "skill_lines_median": 55,
-    "skill_words_total": 42137,
-    "skill_words_avg": 714,
-    "code_blocks_total": 20,
+    "skill_words_total": 43305,
+    "skill_words_avg": 722,
+    "code_blocks_total": 19,
     "code_blocks_avg": 0.3,
     "code_languages": [
       "bash",
@@ -516,21 +516,21 @@
       "name",
       "user-invocable"
     ],
-    "reference_files": 265,
+    "reference_files": 270,
     "eval_files": 0,
-    "test_files": 246,
-    "total_files": 1739,
-    "total_size_mb": 17.83,
+    "test_files": 256,
+    "total_files": 1809,
+    "total_size_mb": 17.96,
     "file_types": {
-      "md": 915,
-      "ts": 307,
-      "json": 165,
-      "js": 109,
+      "md": 945,
+      "ts": 308,
+      "json": 172,
+      "js": 134,
       "py": 43,
-      "yaml": 36,
+      "yaml": 37,
       "tsx": 22,
       "sh": 20,
-      "diff": 15,
+      "diff": 19,
       "html": 12
     },
     "has_license": true,
@@ -620,7 +620,7 @@
       "lammps": 2,
       "npy": 2,
       "toml": 1,
-      "in": 1
+      "cff": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -634,7 +634,7 @@
     "skill_lines_min": 15,
     "skill_lines_max": 1503,
     "skill_lines_median": 299,
-    "skill_words_total": 223045,
+    "skill_words_total": 223051,
     "skill_words_avg": 3280,
     "code_blocks_total": 291,
     "code_blocks_avg": 4.3,
@@ -675,7 +675,7 @@
     "eval_files": 5,
     "test_files": 419,
     "total_files": 2860,
-    "total_size_mb": 38.48,
+    "total_size_mb": 38.51,
     "file_types": {
       "md": 1149,
       "json": 590,
@@ -740,8 +740,8 @@
       "csv": 42,
       "gz": 20,
       "tex": 16,
-      "yml": 10,
       "tsv": 10,
+      "yml": 10,
       "txt": 9
     },
     "has_license": true,
@@ -851,9 +851,9 @@
       "png": 2,
       "yaml": 1,
       "py": 1,
+      "lockb": 1,
       "gif": 1,
-      "yml": 1,
-      "lockb": 1
+      "yml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1320,8 +1320,8 @@
       "job": 8,
       "json": 5,
       "yml": 2,
-      "pl": 2,
       "yaml": 2,
+      "pl": 2,
       "txt": 1
     },
     "has_license": true,
@@ -1444,8 +1444,8 @@
       "md": 228,
       "json": 11,
       "sh": 4,
-      "py": 2,
       "yml": 2,
+      "py": 2,
       "png": 1,
       "svg": 1,
       "mdc": 1
@@ -1480,8 +1480,8 @@
     "file_types": {
       "md": 3,
       "csv": 2,
-      "py": 1,
       "zip": 1,
+      "py": 1,
       "txt": 1
     },
     "has_license": false,
@@ -1496,8 +1496,8 @@
     "skill_lines_min": 82,
     "skill_lines_max": 1180,
     "skill_lines_median": 121,
-    "skill_words_total": 66591,
-    "skill_words_avg": 6054,
+    "skill_words_total": 66613,
+    "skill_words_avg": 6056,
     "code_blocks_total": 9,
     "code_blocks_avg": 0.8,
     "code_languages": [
@@ -1515,13 +1515,13 @@
     "reference_files": 6,
     "eval_files": 2,
     "test_files": 34,
-    "total_files": 584,
-    "total_size_mb": 6.79,
+    "total_files": 587,
+    "total_size_mb": 6.85,
     "file_types": {
       "json": 244,
       "md": 139,
       "txt": 86,
-      "js": 63,
+      "js": 66,
       "yml": 13,
       "yaml": 10,
       "py": 8,
@@ -1696,13 +1696,13 @@
   "expo--skills": {
     "description": "A collection of AI agent skills for working with Expo projects and Expo Application Services",
     "skill_count": 25,
-    "skill_lines_total": 5187,
-    "skill_lines_avg": 207,
+    "skill_lines_total": 5192,
+    "skill_lines_avg": 208,
     "skill_lines_min": 50,
     "skill_lines_max": 478,
     "skill_lines_median": 176,
-    "skill_words_total": 41696,
-    "skill_words_avg": 1668,
+    "skill_words_total": 42094,
+    "skill_words_avg": 1684,
     "code_blocks_total": 195,
     "code_blocks_avg": 7.8,
     "code_languages": [
@@ -1732,7 +1732,7 @@
     "eval_files": 0,
     "test_files": 4,
     "total_files": 185,
-    "total_size_mb": 4.27,
+    "total_size_mb": 4.28,
     "file_types": {
       "md": 104,
       "yaml": 25,
@@ -1743,7 +1743,7 @@
       "png": 3,
       "yml": 3,
       "py": 2,
-      "mjs": 2
+      "js": 2
     },
     "has_license": true,
     "has_readme": true,
@@ -1779,8 +1779,8 @@
       "md": 21,
       "yml": 6,
       "sh": 4,
-      "json": 3,
       "yaml": 3,
+      "json": 3,
       "mjs": 1,
       "ps1": 1
     },
@@ -1832,8 +1832,8 @@
       "sh": 2,
       "go": 2,
       "py": 1,
-      "yml": 1,
-      "yaml": 1
+      "yaml": 1,
+      "yml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1873,9 +1873,9 @@
       "toml": 5,
       "txt": 3,
       "yml": 3,
-      "lock": 1,
-      "ps1": 1,
       "example": 1,
+      "ps1": 1,
+      "lock": 1,
       "gif": 1
     },
     "has_license": true,
@@ -1916,8 +1916,8 @@
       "png": 4,
       "pdf": 3,
       "js": 2,
-      "lock": 1,
-      "gif": 1
+      "example": 1,
+      "lock": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -2109,8 +2109,8 @@
       "json": 6,
       "sh": 3,
       "gif": 1,
-      "toml": 1,
-      "example": 1
+      "example": 1,
+      "toml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -2377,8 +2377,8 @@
     "file_types": {
       "md": 19,
       "json": 3,
-      "py": 1,
       "zip": 1,
+      "py": 1,
       "yml": 1
     },
     "has_license": true,
@@ -2425,16 +2425,16 @@
   },
   "remotion-dev--skills": {
     "description": "Agent Skills",
-    "skill_count": 103,
-    "skill_lines_total": 13316,
-    "skill_lines_avg": 129,
+    "skill_count": 105,
+    "skill_lines_total": 13364,
+    "skill_lines_avg": 127,
     "skill_lines_min": 12,
     "skill_lines_max": 485,
     "skill_lines_median": 74,
-    "skill_words_total": 48401,
-    "skill_words_avg": 470,
+    "skill_words_total": 48608,
+    "skill_words_avg": 463,
     "code_blocks_total": 480,
-    "code_blocks_avg": 4.7,
+    "code_blocks_avg": 4.6,
     "code_languages": [
       "bash",
       "sh",
@@ -2450,12 +2450,12 @@
     "reference_files": 36,
     "eval_files": 0,
     "test_files": 0,
-    "total_files": 293,
-    "total_size_mb": 2.27,
+    "total_files": 299,
+    "total_size_mb": 2.28,
     "file_types": {
-      "md": 176,
-      "svg": 25,
-      "yaml": 25,
+      "md": 178,
+      "yaml": 27,
+      "svg": 27,
       "tsx": 20,
       "json": 18,
       "ts": 17,
@@ -2542,8 +2542,8 @@
       "yml": 2,
       "toml": 1,
       "lock": 1,
-      "csv": 1,
-      "txt": 1
+      "txt": 1,
+      "csv": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -2744,9 +2744,9 @@
       "json": 10,
       "md": 7,
       "ts": 2,
-      "png": 2,
-      "svg": 2,
       "yaml": 2,
+      "svg": 2,
+      "png": 2,
       "yml": 1
     },
     "has_license": true,
@@ -3259,8 +3259,8 @@
       "py": 6,
       "sh": 3,
       "json": 2,
-      "yml": 1,
-      "runtime-template": 1
+      "runtime-template": 1,
+      "yml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -3337,8 +3337,8 @@
     "skill_lines_min": 11,
     "skill_lines_max": 477,
     "skill_lines_median": 24,
-    "skill_words_total": 5632,
-    "skill_words_avg": 626,
+    "skill_words_total": 5628,
+    "skill_words_avg": 625,
     "code_blocks_total": 14,
     "code_blocks_avg": 1.6,
     "code_languages": [
@@ -3357,22 +3357,22 @@
       "title",
       "tools"
     ],
-    "reference_files": 23,
+    "reference_files": 22,
     "eval_files": 0,
-    "test_files": 286,
-    "total_files": 2078,
-    "total_size_mb": 41.04,
+    "test_files": 418,
+    "total_files": 2555,
+    "total_size_mb": 44.12,
     "file_types": {
-      "py": 593,
-      "ts": 447,
+      "py": 695,
+      "ts": 530,
       "md": 314,
       "tsx": 154,
       "js": 148,
-      "sh": 127,
-      "json": 75,
-      "yaml": 61,
-      "tf": 19,
-      "yml": 17
+      "sh": 139,
+      "json": 130,
+      "txt": 72,
+      "go": 72,
+      "yaml": 61
     },
     "has_license": true,
     "has_readme": true,
@@ -3552,10 +3552,10 @@
       "json": 2,
       "sh": 2,
       "csv": 2,
-      "png": 1,
-      "pdf": 1,
-      "yml": 1,
-      "toml": 1
+      "example": 1,
+      "toml": 1,
+      "txt": 1,
+      "yml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -3700,7 +3700,7 @@
       "yml": 7,
       "mjs": 6,
       "drawio": 2,
-      "yaml": 1
+      "example": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -3708,16 +3708,16 @@
   },
   "alirezarezvani--claude-skills": {
     "description": "+192 Claude Code skills & agent plugins for Claude Code, Codex, Gemini CLI, Cursor, and 8 more coding agents \u2014 engineering, marketing, product, compliance, C-level advisory.",
-    "skill_count": 686,
-    "skill_lines_total": 114962,
-    "skill_lines_avg": 168,
+    "skill_count": 689,
+    "skill_lines_total": 115184,
+    "skill_lines_avg": 167,
     "skill_lines_min": 16,
     "skill_lines_max": 684,
-    "skill_lines_median": 135,
-    "skill_words_total": 692185,
-    "skill_words_avg": 1009,
-    "code_blocks_total": 2371,
-    "code_blocks_avg": 3.5,
+    "skill_lines_median": 134,
+    "skill_words_total": 694330,
+    "skill_words_avg": 1008,
+    "code_blocks_total": 2373,
+    "code_blocks_avg": 3.4,
     "code_languages": [
       "bash",
       "bicep",
@@ -3772,16 +3772,16 @@
       "tools",
       "vibe"
     ],
-    "reference_files": 872,
+    "reference_files": 878,
     "eval_files": 15,
-    "test_files": 142,
-    "total_files": 4364,
-    "total_size_mb": 37.13,
+    "test_files": 143,
+    "total_files": 4408,
+    "total_size_mb": 37.37,
     "file_types": {
-      "md": 2950,
-      "py": 820,
-      "json": 384,
-      "txt": 49,
+      "md": 2968,
+      "py": 830,
+      "json": 392,
+      "txt": 51,
       "csv": 28,
       "yml": 17,
       "sh": 15,
@@ -3837,11 +3837,11 @@
     "eval_files": 0,
     "test_files": 0,
     "total_files": 3,
-    "total_size_mb": 0.25,
+    "total_size_mb": 0.26,
     "file_types": {
-      "svg": 1,
       "md": 1,
-      "jpeg": 1
+      "jpeg": 1,
+      "svg": 1
     },
     "has_license": false,
     "has_readme": true,
@@ -3871,8 +3871,8 @@
     "total_size_mb": 1.06,
     "file_types": {
       "md": 519,
-      "yaml": 56,
       "sh": 56,
+      "yaml": 56,
       "json": 23,
       "ps1": 5,
       "ts": 3,
@@ -4007,10 +4007,10 @@
     "reference_files": 8501,
     "eval_files": 7,
     "test_files": 1039,
-    "total_files": 25605,
-    "total_size_mb": 168.77,
+    "total_files": 25614,
+    "total_size_mb": 168.87,
     "file_types": {
-      "md": 19792,
+      "md": 19801,
       "json": 2241,
       "py": 1233,
       "sh": 357,
@@ -4149,7 +4149,7 @@
     "eval_files": 25,
     "test_files": 318,
     "total_files": 1659,
-    "total_size_mb": 30.4,
+    "total_size_mb": 30.41,
     "file_types": {
       "md": 757,
       "py": 604,
@@ -4207,9 +4207,9 @@
       "js": 3,
       "yml": 2,
       "cmd": 1,
-      "dot": 1,
+      "py": 1,
       "ts": 1,
-      "py": 1
+      "dot": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -4425,13 +4425,13 @@
     "eval_files": 0,
     "test_files": 0,
     "total_files": 454,
-    "total_size_mb": 75.25,
+    "total_size_mb": 75.27,
     "file_types": {
       "png": 131,
       "md": 122,
       "svg": 58,
-      "wav": 45,
       "mp3": 45,
+      "wav": 45,
       "webp": 14,
       "jpg": 13,
       "html": 6,

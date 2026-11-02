@@ -7,7 +7,7 @@ import { rerunOnQuota, sessionKind } from "../runner/retry_class.ts";
 import { REGISTRY } from "./registry.ts";
 import { runControlBoundary } from "../util/run_control.ts"; import { timeBudgetNote } from "../util/run_cap.ts"; import { FINISH_LINE } from "../e10ext/context.ts"; import { withSteer } from "../util/steer.ts"; import { restoreReadOnly, type ReadOnlyFile } from "./stages/implement.ts"; import { stallClimb } from "../runner/router/unit_model.ts"; import { removeHoldout } from "../util/holdout.ts"; import { distrustGreenBase } from "./stages/wall.ts";
 import { backstopS, DEEP_IMPLEMENT_LIMIT_S, MAX_FIX_ROUNDS, STAGE_BUDGETS, VERIFY_STOPPED_NOTE, type EventType, type Obj, type RunContext, type Stage, type StageName, type StageResult } from "./types.ts";
-import { repeatedNoopFix } from "../util/anti_loop.ts";
+import { repeatedNoopFix } from "../util/anti_loop.ts"; import { restoreBaseTests } from "../util/test_guard.ts"; import { deliverOverWallConflict } from "../util/conflict_resume.ts";
 
 /** WC-01b: optional split halves a wall stage may carry (see wall.ts `stage.split`). */
 interface WallSplit { author(ctx: RunContext, signal: AbortSignal): Promise<{ kind: string } & Record<string, unknown>>; install(ctx: RunContext, a: never, baseDir: string): StageResult; }
@@ -35,7 +35,7 @@ export interface MachineOptions {
 export interface MachineResult {
   outputs: Partial<Record<StageName, Obj>>;
   capHit: boolean;
-  /** Why the run ended early: "intake failed", "stalled" (same failures 3 verifies running), "fatal:<auth|quota_exhausted>". */
+  /** Why the run ended early: "intake failed", "stalled" (a fix round left the same failures), "fatal:<auth|quota_exhausted>". */
   stopped: string | null;
 }
 /** Dynamically imports an optional module. Absent file: null. A present file that fails to load throws. */
@@ -157,7 +157,8 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
       r = { status: "failed", data: {}, reason: why, killed: true };
       const kept = name === "verify" ? (settled?.status === "completed" ? settled.data : partials.verify) : undefined;
       if (kept) { const prev = outputs.verify; outputs.verify = { ...kept, failures_grouped: prev?.failures_grouped ?? [], holdout_failed: prev?.holdout_failed ?? 0, not_proven: [...(Array.isArray(kept.not_proven) ? kept.not_proven : []), VERIFY_STOPPED_NOTE[why]], stopped_at: why, duration_s: dur() }; } // the checks that ran stay in the receipt; the note keeps the verdict below VERIFIED; the fix loop still reads what it read before the stop
-      if (name === "implement" && why === "limit") { const ro = (outputs.wall?.readOnlyFiles as ReadOnlyFile[] | undefined) ?? [], reverted = restoreReadOnly(ro).map((f) => relative(ctx.repoDir, f)); outputs.implement = { exit: "killed", limit_s: limitS, elapsed_s: dur(), ...(reverted.length ? { tests_reverted: reverted } : {}) }; } // FC-21 (a): the work that exists is verified, and seal reads exit=killed so the verdict can never be VERIFIED
+      if (name === "implement" && why === "limit") { const ro = (outputs.wall?.readOnlyFiles as ReadOnlyFile[] | undefined) ?? [], reverted = [...restoreReadOnly(ro).map((f) => relative(ctx.repoDir, f)), ...restoreBaseTests(ctx.repoDir, ctx.baseSha, outputs.intake)]; outputs.implement = { exit: "killed", limit_s: limitS, elapsed_s: dur(), ...(reverted.length ? { tests_reverted: reverted } : {}) }; } // FC-21 (a): the work that exists is verified, and seal reads exit=killed so the verdict can never be VERIFIED
+      if (name === "fix") outputs.fix = settled?.status === "completed" ? { ...settled.data, killed: true } : { ...outputs.fix, round: Number(outputs.fix?.round ?? 0) + 1, killed: true }; // a killed round still counts, so the next round gets its own iteration id instead of resuming the killed session
     }
     const res = r as StageResult;
     if (res.status === "completed") {
@@ -231,13 +232,13 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
       }
     } catch (err) { r = { status: "failed", data: {}, reason: err instanceof Error ? err.message : String(err) }; }
     if (r.status === "completed") { outputs.wall = r.data; ctx.emit("stage.completed", "wall", { ...r.data, duration_s: dur() }); }
-    else if (r.status === "skipped") ctx.emit("stage.skipped", "wall", { ...r.data, reason: r.reason ?? "skipped by stage" });
+    else if (r.status === "skipped") { if (Array.isArray(r.data.not_proven)) outputs.wall = r.data; ctx.emit("stage.skipped", "wall", { ...r.data, reason: r.reason ?? "skipped by stage" }); } // TEN-COST-09: a skip that disclosed what it left unproven reaches seal, as runStage does
     else ctx.emit("stage.failed", "wall", { ...r.data, duration_s: dur(), reason: r.reason ?? "failed" });
   };
   try {
     let jumped = false, resized = false, stopped: string | null = null;
     const sigs: string[] = [];
-    const sigOf = (d: Obj | undefined, r?: StageResult | null): string => r && r.status !== "completed" ? `verify-crashed-${sigs.length}` : JSON.stringify([...((d?.failures_grouped ?? []) as { signature?: string }[]).map((g) => g.signature).sort(), `holdout_failed=${d?.holdout_failed ?? 0}`]); // a crashed or timed-out verify leaves outputs.verify stale: record a marker that never matches (A-113b)
+    const sigOf = (d: Obj | undefined, r?: StageResult | null): string => r && r.status !== "completed" ? `verify-crashed-${sigs.length}` : JSON.stringify([...((d?.failures_grouped ?? []) as { signature?: string; carried?: boolean }[]).filter((g) => !g.carried).map((g) => g.signature).sort(), `holdout_failed=${d?.holdout_failed ?? 0}`]); // a crashed or timed-out verify leaves outputs.verify stale: record a marker that never matches (A-113b)
     for (const step of opts.flow ?? FLOW) {
       const group = (typeof step === "string" ? [step] : [...step]) as StageName[];
       let todo = group;
@@ -282,7 +283,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
           const v = await runStage("verify", true);
           sigs.push(sigOf(outputs.verify, v));
           if (mustJump("verify", v)) break;
-          if (hasFailures(outputs.verify) && sigs.length >= 3 && sigs.slice(-3).every((x) => x === sigs[sigs.length - 1])) {
+          if (hasFailures(outputs.verify) && sigs.length >= 2 && sigs.slice(-2).every((x) => x === sigs[sigs.length - 1])) { // no progress: the round left the same failing set, so another round would only spend
             // A stall may climb once, only on a code-owned failure (a lint-only or harness-owned stall is unchanged); the same routedFix decides here and in the fix stage.
             const up = stallClimb(ctx.model, outputs, sigs[sigs.length - 1] ?? "");
             if (up) {
@@ -293,6 +294,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
             stopped = "stalled"; break;
           }
         }
+        if (!fatal && !capHit && stopped === null && await deliverOverWallConflict(outputs, ctx.repoDir, () => runStage("verify", true), (path, why) => ctx.emit("wall.arbitrated", "wall", { path, discarded: why }))) ctx.emit("spec.conflict", "implement", { delivered: true, reason: outputs.implement?.spec_conflict_reason ?? null }); // a Wall defect never discards correct code (util/conflict_resume.ts)
         if (fatal) { stopped = fatal; jumped = true; }
         if (capHit) jumped = true;
       }
