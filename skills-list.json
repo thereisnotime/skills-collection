@@ -9830,8 +9830,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/agents/blog-reviewer.md",
       "remote_path": "agents/blog-reviewer.md",
-      "lines": 278,
-      "words": 2314,
+      "lines": 279,
+      "words": 2354,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -9842,8 +9842,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/agents/blog-writer.md",
       "remote_path": "agents/blog-writer.md",
-      "lines": 255,
-      "words": 1832,
+      "lines": 245,
+      "words": 1735,
       "code_blocks": 1,
       "languages": []
     },
@@ -9852,11 +9852,10 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/agents/blog-translator.md",
       "remote_path": "agents/blog-translator.md",
-      "lines": 187,
-      "words": 1053,
-      "code_blocks": 2,
+      "lines": 196,
+      "words": 1127,
+      "code_blocks": 1,
       "languages": [
-        "markdown",
         "yaml"
       ]
     },
@@ -9865,8 +9864,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/agents/blog-seo.md",
       "remote_path": "agents/blog-seo.md",
-      "lines": 147,
-      "words": 952,
+      "lines": 148,
+      "words": 962,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -9878,7 +9877,7 @@
       "path": "AgriciDaniel--claude-blog/agents/blog-researcher.md",
       "remote_path": "agents/blog-researcher.md",
       "lines": 282,
-      "words": 1988,
+      "words": 1996,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -9890,12 +9889,12 @@
       "path": "AgriciDaniel--claude-blog/brain/SKILL.md",
       "remote_path": "brain/SKILL.md",
       "lines": 85,
-      "words": 567,
+      "words": 566,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "license": "Custom license"
+      "license": "MIT"
     },
     {
       "name": "blog-data-curator",
@@ -10072,8 +10071,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-google/SKILL.md",
       "remote_path": "skills/blog-google/SKILL.md",
-      "lines": 409,
-      "words": 2663,
+      "lines": 412,
+      "words": 2683,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -10086,14 +10085,13 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-audio/SKILL.md",
       "remote_path": "skills/blog-audio/SKILL.md",
-      "lines": 338,
-      "words": 2082,
-      "code_blocks": 8,
+      "lines": 319,
+      "words": 2011,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "html",
-        "jsx",
-        "markdown"
+        "jsx"
       ],
       "license": "MIT"
     },
@@ -10115,8 +10113,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-audit/SKILL.md",
       "remote_path": "skills/blog-audit/SKILL.md",
-      "lines": 282,
-      "words": 1645,
+      "lines": 281,
+      "words": 1658,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -10141,8 +10139,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-strategy/SKILL.md",
       "remote_path": "skills/blog-strategy/SKILL.md",
-      "lines": 386,
-      "words": 2521,
+      "lines": 390,
+      "words": 2610,
       "code_blocks": 8,
       "languages": [],
       "license": "MIT"
@@ -10152,8 +10150,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-cluster/SKILL.md",
       "remote_path": "skills/blog-cluster/SKILL.md",
-      "lines": 395,
-      "words": 3256,
+      "lines": 399,
+      "words": 3347,
       "code_blocks": 2,
       "languages": [
         "json"
@@ -10180,7 +10178,7 @@
       "path": "AgriciDaniel--claude-blog/skills/blog-brief/SKILL.md",
       "remote_path": "skills/blog-brief/SKILL.md",
       "lines": 291,
-      "words": 2025,
+      "words": 2051,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -10191,7 +10189,7 @@
       "path": "AgriciDaniel--claude-blog/skills/blog-seo-check/SKILL.md",
       "remote_path": "skills/blog-seo-check/SKILL.md",
       "lines": 268,
-      "words": 1949,
+      "words": 1967,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -10212,8 +10210,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-translate/SKILL.md",
       "remote_path": "skills/blog-translate/SKILL.md",
-      "lines": 268,
-      "words": 1596,
+      "lines": 281,
+      "words": 1713,
       "code_blocks": 2,
       "languages": [
         "yaml"
@@ -10225,8 +10223,8 @@
       "description": "Compare two Google Search Console page exports (current vs previous period) to flag pages whose clicks or impressions fell by a chosen threshold, with a triage hint (refresh, query shift, consolidate,",
       "path": "AgriciDaniel--claude-blog/skills/blog-decay/SKILL.md",
       "remote_path": "skills/blog-decay/SKILL.md",
-      "lines": 132,
-      "words": 975,
+      "lines": 133,
+      "words": 998,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -10251,8 +10249,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog/SKILL.md",
       "remote_path": "skills/blog/SKILL.md",
-      "lines": 382,
-      "words": 3649,
+      "lines": 408,
+      "words": 3786,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -10265,7 +10263,7 @@
       "path": "AgriciDaniel--claude-blog/skills/blog-brand/SKILL.md",
       "remote_path": "skills/blog-brand/SKILL.md",
       "lines": 264,
-      "words": 1682,
+      "words": 1689,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -10278,7 +10276,7 @@
       "path": "AgriciDaniel--claude-blog/skills/blog-cannibalization/SKILL.md",
       "remote_path": "skills/blog-cannibalization/SKILL.md",
       "lines": 253,
-      "words": 1575,
+      "words": 1589,
       "code_blocks": 4,
       "languages": [],
       "license": "MIT"
@@ -10288,8 +10286,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-calendar/SKILL.md",
       "remote_path": "skills/blog-calendar/SKILL.md",
-      "lines": 317,
-      "words": 1916,
+      "lines": 318,
+      "words": 1913,
       "code_blocks": 7,
       "languages": [],
       "license": "MIT"
@@ -10327,8 +10325,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-localize/SKILL.md",
       "remote_path": "skills/blog-localize/SKILL.md",
-      "lines": 274,
-      "words": 1859,
+      "lines": 284,
+      "words": 1902,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -10338,8 +10336,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-notebooklm/SKILL.md",
       "remote_path": "skills/blog-notebooklm/SKILL.md",
-      "lines": 334,
-      "words": 2043,
+      "lines": 338,
+      "words": 2079,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -10353,7 +10351,7 @@
       "path": "AgriciDaniel--claude-blog/skills/blog-outline/SKILL.md",
       "remote_path": "skills/blog-outline/SKILL.md",
       "lines": 157,
-      "words": 958,
+      "words": 981,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -10374,8 +10372,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-discourse/SKILL.md",
       "remote_path": "skills/blog-discourse/SKILL.md",
-      "lines": 247,
-      "words": 2127,
+      "lines": 249,
+      "words": 2144,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -10390,7 +10388,7 @@
       "path": "AgriciDaniel--claude-blog/skills/blog-factcheck/SKILL.md",
       "remote_path": "skills/blog-factcheck/SKILL.md",
       "lines": 224,
-      "words": 1693,
+      "words": 1720,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -10400,9 +10398,9 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-image/SKILL.md",
       "remote_path": "skills/blog-image/SKILL.md",
-      "lines": 392,
-      "words": 2633,
-      "code_blocks": 6,
+      "lines": 310,
+      "words": 2154,
+      "code_blocks": 4,
       "languages": [
         "bash",
         "markdown",
@@ -10415,8 +10413,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-multilingual/SKILL.md",
       "remote_path": "skills/blog-multilingual/SKILL.md",
-      "lines": 407,
-      "words": 2247,
+      "lines": 414,
+      "words": 2306,
       "code_blocks": 7,
       "languages": [
         "html",
@@ -10430,9 +10428,9 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-rewrite/SKILL.md",
       "remote_path": "skills/blog-rewrite/SKILL.md",
-      "lines": 396,
-      "words": 3089,
-      "code_blocks": 4,
+      "lines": 453,
+      "words": 3493,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "markdown"
@@ -10444,8 +10442,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-persona/SKILL.md",
       "remote_path": "skills/blog-persona/SKILL.md",
-      "lines": 255,
-      "words": 1637,
+      "lines": 260,
+      "words": 1689,
       "code_blocks": 1,
       "languages": [
         "json"
@@ -10457,9 +10455,9 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-write/SKILL.md",
       "remote_path": "skills/blog-write/SKILL.md",
-      "lines": 430,
-      "words": 3322,
-      "code_blocks": 7,
+      "lines": 477,
+      "words": 3645,
+      "code_blocks": 9,
       "languages": [
         "bash",
         "markdown",
@@ -10651,8 +10649,8 @@
       "description": "Sets up and manages ClickHouse using the clickhousectl CLI \u2014 installs and runs a local ClickHouse server for development, and creates managed ClickHouse Cloud services for production (authentication, ",
       "path": "ClickHouse--agent-skills/skills/infra-clickhouse/SKILL.md",
       "remote_path": "skills/infra-clickhouse/SKILL.md",
-      "lines": 52,
-      "words": 367,
+      "lines": 55,
+      "words": 413,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -10675,8 +10673,8 @@
       "description": "Sets up and manages Postgres using the clickhousectl CLI \u2014 runs a local Docker-backed Postgres for development, and creates and operates managed ClickHouse Cloud Postgres services (connections, TLS, r",
       "path": "ClickHouse--agent-skills/skills/infra-postgres/SKILL.md",
       "remote_path": "skills/infra-postgres/SKILL.md",
-      "lines": 53,
-      "words": 412,
+      "lines": 56,
+      "words": 458,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11114,11 +11112,11 @@
     },
     {
       "name": "ce-compound",
-      "description": "Capture a solved problem's lesson in its cheapest durable form, a test or lint rule, a coding standard, or a repo learning. Use when verified work produced non-obvious reasoning absent from its final ",
+      "description": "Capture a solved problem's lesson in its cheapest durable form, a test or lint rule, a coding standard, or a repo learning, or refresh existing learnings against the codebase. Use when verified work p",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
-      "lines": 80,
-      "words": 1102,
+      "lines": 86,
+      "words": 1117,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11172,7 +11170,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
       "lines": 61,
-      "words": 1099,
+      "words": 1124,
       "code_blocks": 0,
       "languages": []
     },
@@ -11202,7 +11200,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
       "lines": 60,
-      "words": 1135,
+      "words": 1161,
       "code_blocks": 0,
       "languages": []
     },
@@ -11230,11 +11228,11 @@
     },
     {
       "name": "ce-compound-refresh",
-      "description": "Refresh the repo's captured learnings against the current codebase. Use when auditing stale, overlapping, superseded, or drifted learnings; avoid general refactor, debugging, or code review unless the",
+      "description": "Old name for refreshing learnings, which now lives in `ce-compound`. Use only when a prompt or standing instruction names `ce-compound-refresh`; use `ce-compound` for every other learnings audit.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
-      "lines": 79,
-      "words": 996,
+      "lines": 25,
+      "words": 243,
       "code_blocks": 0,
       "languages": []
     },
@@ -11275,8 +11273,8 @@
       "description": "\"Take a request all the way to done, hands-off, through the right Compound Engineering skills. A code change ends as an open pull request, pushed without stopping. Use only when the user explicitly as",
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
-      "lines": 60,
-      "words": 1207,
+      "lines": 58,
+      "words": 1209,
       "code_blocks": 0,
       "languages": []
     },
@@ -24879,6 +24877,19 @@
       ]
     },
     {
+      "name": "neon-postgres",
+      "description": ">-",
+      "path": "neondatabase--agent-skills/evals/neon-postgres-egress-optimizer/skill-versions/SKILL-v004.md",
+      "remote_path": "evals/neon-postgres-egress-optimizer/skill-versions/SKILL-v004.md",
+      "lines": 293,
+      "words": 2355,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "sql"
+      ]
+    },
+    {
       "name": "neon-postgres-egress-optimizer",
       "description": ">-",
       "path": "neondatabase--agent-skills/evals/neon-postgres-egress-optimizer/skill-versions/SKILL-v001.md",
@@ -24913,39 +24924,12 @@
       "languages": []
     },
     {
-      "name": "neon-postgres-egress-optimizer",
-      "description": ">-",
-      "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres-egress-optimizer/SKILL.md",
-      "remote_path": "plugins/neon-postgres/skills/neon-postgres-egress-optimizer/SKILL.md",
-      "lines": 267,
-      "words": 1544,
-      "code_blocks": 17,
-      "languages": [
-        "bash",
-        "sql",
-        "typescript"
-      ]
-    },
-    {
       "name": "neon-object-storage",
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "lines": 229,
       "words": 2170,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "typescript"
-      ]
-    },
-    {
-      "name": "neon-postgres-branches",
-      "description": ">-",
-      "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres-branches/SKILL.md",
-      "remote_path": "plugins/neon-postgres/skills/neon-postgres-branches/SKILL.md",
-      "lines": 293,
-      "words": 1828,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -24984,8 +24968,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 525,
-      "words": 5443,
+      "lines": 523,
+      "words": 5400,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -25024,26 +25008,12 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres/SKILL.md",
-      "lines": 288,
-      "words": 2280,
-      "code_blocks": 4,
+      "lines": 295,
+      "words": 2377,
+      "code_blocks": 3,
       "languages": [
         "bash",
         "sql"
-      ]
-    },
-    {
-      "name": "neon-postgres-egress-optimizer",
-      "description": ">-",
-      "path": "neondatabase--agent-skills/skills/neon-postgres-egress-optimizer/SKILL.md",
-      "remote_path": "skills/neon-postgres-egress-optimizer/SKILL.md",
-      "lines": 267,
-      "words": 1544,
-      "code_blocks": 17,
-      "languages": [
-        "bash",
-        "sql",
-        "typescript"
       ]
     },
     {
@@ -25053,19 +25023,6 @@
       "remote_path": "skills/neon-object-storage/SKILL.md",
       "lines": 229,
       "words": 2170,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "typescript"
-      ]
-    },
-    {
-      "name": "neon-postgres-branches",
-      "description": ">-",
-      "path": "neondatabase--agent-skills/skills/neon-postgres-branches/SKILL.md",
-      "remote_path": "skills/neon-postgres-branches/SKILL.md",
-      "lines": 293,
-      "words": 1828,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25104,8 +25061,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 525,
-      "words": 5443,
+      "lines": 523,
+      "words": 5400,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -25144,9 +25101,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
-      "lines": 288,
-      "words": 2280,
-      "code_blocks": 4,
+      "lines": 295,
+      "words": 2377,
+      "code_blocks": 3,
       "languages": [
         "bash",
         "sql"
@@ -28575,6 +28532,19 @@
         "bash",
         "json"
       ]
+    },
+    {
+      "name": "gemini-api",
+      "description": "\"Call the Gemini API from the shell with Google's `gemini-api` CLI, when that binary is installed \u2014 text and reasoning, image generation and editing, text-to-speech, music, video, document/audio/video",
+      "path": "sanjay3290--ai-skills/skills/gemini-api/SKILL.md",
+      "remote_path": "skills/gemini-api/SKILL.md",
+      "lines": 142,
+      "words": 1181,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "azure-devops",
@@ -33151,8 +33121,8 @@
       "description": "Runs an autonomous software factory that knows what it is supposed to deliver and proves it did, with a signed receipt. Use when the user says Loki Mode or asks to build, fix or verify software autono",
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 477,
-      "words": 3985,
+      "lines": 465,
+      "words": 3864,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -33174,7 +33144,7 @@
       "path": "asklokesh--claudeskill-loki-mode/integrations/openclaw/SKILL.md",
       "remote_path": "integrations/openclaw/SKILL.md",
       "lines": 89,
-      "words": 548,
+      "words": 544,
       "code_blocks": 3,
       "languages": []
     },
@@ -50382,6 +50352,29 @@
       "license": "MIT"
     },
     {
+      "name": "cs-i18n-engineer",
+      "description": "Use when an app is adding or shipping a language, when translation files changed, or when UI text is being added to a localized app. Checks translation files for missing keys, broken placeholders and ",
+      "path": "alirezarezvani--claude-skills/engineering/i18n-localization/agents/cs-i18n-engineer.md",
+      "remote_path": "engineering/i18n-localization/agents/cs-i18n-engineer.md",
+      "lines": 54,
+      "words": 480,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "i18n-localization",
+      "description": "Use when adding UI text, adding or shipping a language, reviewing translation files, or building i18n into an app. Checks missing keys, placeholders and CLDR plural forms with locale_sync.py, finds ha",
+      "path": "alirezarezvani--claude-skills/engineering/i18n-localization/skills/i18n-localization/SKILL.md",
+      "remote_path": "engineering/i18n-localization/skills/i18n-localization/SKILL.md",
+      "lines": 80,
+      "words": 721,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "\"helm-chart-builder\"",
       "description": "\"Use for any Helm chart to create, review or harden (values.yaml, templates, subcharts, RBAC, pod security), before editing it. Analyzes the chart with chart_analyzer.py and validates values with valu",
       "path": "alirezarezvani--claude-skills/engineering/helm-chart-builder/skills/helm-chart-builder/SKILL.md",
@@ -51228,6 +51221,19 @@
       "remote_path": "engineering/skills/commit-craft/SKILL.md",
       "lines": 82,
       "words": 751,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "i18n-localization",
+      "description": "Use when adding UI text, adding or shipping a language, reviewing translation files, or building i18n into an app. Checks missing keys, placeholders and CLDR plural forms with locale_sync.py, finds ha",
+      "path": "alirezarezvani--claude-skills/engineering/skills/i18n-localization/SKILL.md",
+      "remote_path": "engineering/skills/i18n-localization/SKILL.md",
+      "lines": 80,
+      "words": 721,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -52636,36 +52642,6 @@
       "languages": []
     },
     {
-      "name": "\"cs-deep-research\"",
-      "description": "\"/cs-deep-research <question> \u2014 Disciplined multi-source investigation for a high-stakes question. Reframes into falsifiable hypotheses, plans, fans out parallel search sub-agents, triangulates every ",
-      "path": "alirezarezvani--claude-skills/research/deep-research/commands/cs-deep-research.md",
-      "remote_path": "research/deep-research/commands/cs-deep-research.md",
-      "lines": 64,
-      "words": 438,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "cs-deep-research",
-      "description": "Rigor-first meta-research persona for high-stakes questions. Reframes the question into 2-4 falsifiable hypotheses, writes a plan, discovers available channels/APIs, fans out parallel search sub-agent",
-      "path": "alirezarezvani--claude-skills/research/deep-research/agents/cs-deep-research.md",
-      "remote_path": "research/deep-research/agents/cs-deep-research.md",
-      "lines": 64,
-      "words": 600,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "\"deep-research\"",
-      "description": "\"Use when a wrong answer is expensive: strategy research, comparing several products or markets, validating a hypothesis with outside data. Fans out searches and sub-agents, triangulates each claim ac",
-      "path": "alirezarezvani--claude-skills/research/deep-research/skills/deep-research/SKILL.md",
-      "remote_path": "research/deep-research/skills/deep-research/SKILL.md",
-      "lines": 93,
-      "words": 1109,
-      "code_blocks": 1,
-      "languages": []
-    },
-    {
       "name": "\"cs-syllabus\"",
       "description": "\"/cs-syllabus <syllabus-file-or-paste> \u2014 Generate curated supplementary reading list from any course syllabus. 3-Q grill-me (input format + audience + year range) + grouping checkpoint \u2192 Consensus sea",
       "path": "alirezarezvani--claude-skills/research/syllabus/commands/cs-syllabus.md",
@@ -52873,6 +52849,36 @@
         "bash"
       ],
       "license": "MIT"
+    },
+    {
+      "name": "\"cs-meta-research\"",
+      "description": "\"/cs-meta-research <question> \u2014 Disciplined multi-source investigation for a high-stakes question. Reframes into falsifiable hypotheses, plans, fans out parallel search sub-agents, triangulates every ",
+      "path": "alirezarezvani--claude-skills/research/meta-research/commands/cs-meta-research.md",
+      "remote_path": "research/meta-research/commands/cs-meta-research.md",
+      "lines": 64,
+      "words": 438,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "cs-meta-research",
+      "description": "Rigor-first meta-research persona for high-stakes questions. Reframes the question into 2-4 falsifiable hypotheses, writes a plan, discovers available channels/APIs, fans out parallel search sub-agent",
+      "path": "alirezarezvani--claude-skills/research/meta-research/agents/cs-meta-research.md",
+      "remote_path": "research/meta-research/agents/cs-meta-research.md",
+      "lines": 64,
+      "words": 599,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "\"meta-research\"",
+      "description": "\"Use when a wrong answer is expensive: strategy research, comparing several products or markets, validating a hypothesis with outside data. Fans out searches and sub-agents, triangulates each claim ac",
+      "path": "alirezarezvani--claude-skills/research/meta-research/skills/meta-research/SKILL.md",
+      "remote_path": "research/meta-research/skills/meta-research/SKILL.md",
+      "lines": 93,
+      "words": 1109,
+      "code_blocks": 1,
+      "languages": []
     },
     {
       "name": "\"cs-dossier\"",
@@ -148407,8 +148413,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/materialization-budget.md",
       "remote_path": "daymade-skill/skill-creator/references/materialization-budget.md",
-      "lines": 209,
-      "words": 1565,
+      "lines": 271,
+      "words": 2130,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -148829,9 +148835,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/stepfun-asr/SKILL.md",
       "remote_path": "daymade-audio/stepfun-asr/SKILL.md",
-      "lines": 197,
-      "words": 1723,
-      "code_blocks": 9,
+      "lines": 225,
+      "words": 1899,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "json"
@@ -167880,6 +167886,16 @@
       ]
     },
     {
+      "name": "review-humane",
+      "description": "Dedicated design-review subskill for a review workflow or direct invocation. Delegates evidence-based UI and document review to the installed Humane review pipeline; adds an Apple Human Interface Guid",
+      "path": "glebis--claude-skills/review-humane/SKILL.md",
+      "remote_path": "review-humane/SKILL.md",
+      "lines": 27,
+      "words": 406,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "meta",
       "description": "Execute Claude Code commands in the telegram_agent project directory. Use when the user wants to work on the telegram agent itself, fix bugs, add features, or modify the bot code. This is a COMMAND HA",
       "path": "glebis--claude-skills/meta/SKILL.md",
@@ -168174,8 +168190,8 @@
       "description": "Use when a Cull release is stuck, inconsistent, failed in a workflow or artifact gate, missing Homebrew promotion, failed after publication, or needs a safe recovery or patch plan.",
       "path": "glebis--claude-skills/cull-release-recover/SKILL.md",
       "remote_path": "cull-release-recover/SKILL.md",
-      "lines": 34,
-      "words": 211,
+      "lines": 55,
+      "words": 399,
       "code_blocks": 0,
       "languages": []
     },
@@ -168323,8 +168339,8 @@
       "description": "Use when the user explicitly asks to prepare or bump a Cull patch, minor, or major release, curate its changelog and compatibility review, or create its focused release commit without publishing.",
       "path": "glebis--claude-skills/cull-release-prepare/SKILL.md",
       "remote_path": "cull-release-prepare/SKILL.md",
-      "lines": 37,
-      "words": 217,
+      "lines": 52,
+      "words": 343,
       "code_blocks": 0,
       "languages": []
     },
@@ -168469,6 +168485,16 @@
       ]
     },
     {
+      "name": "cognitive-toolkit",
+      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 98,
+      "words": 617,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
       "name": "fathom",
       "description": "Fetch meetings, transcripts, summaries, and action items from Fathom API. Use when user asks to get Fathom recordings, sync meeting transcripts, or fetch recent calls.",
       "path": "glebis--claude-skills/fathom/SKILL.md",
@@ -168493,6 +168519,16 @@
         "bash",
         "markdown"
       ]
+    },
+    {
+      "name": "decision-to-delivery",
+      "description": "Turn intertwined research, career or business decisions and tool-building into a bounded delivery flow. Use when useful artifacts keep expanding while the intended decision or deliverable remains unre",
+      "path": "glebis--claude-skills/decision-to-delivery/SKILL.md",
+      "remote_path": "decision-to-delivery/SKILL.md",
+      "lines": 59,
+      "words": 737,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "zoom",
@@ -168522,8 +168558,8 @@
       "description": "Use when verifying or auditing a Cull release, DMG, updater archive, notarization, Homebrew cask, installed version, launch health, or post-publication distribution state.",
       "path": "glebis--claude-skills/cull-release-verify/SKILL.md",
       "remote_path": "cull-release-verify/SKILL.md",
-      "lines": 33,
-      "words": 197,
+      "lines": 35,
+      "words": 220,
       "code_blocks": 0,
       "languages": []
     },
@@ -168745,8 +168781,8 @@
       "description": "This skill should be used when analyzing Wispr Flow voice dictation history for self-reflection, work patterns, mental health insights, or productivity analytics AND when managing the Wispr Flow dicti",
       "path": "glebis--claude-skills/wispr-analytics/SKILL.md",
       "remote_path": "wispr-analytics/SKILL.md",
-      "lines": 316,
-      "words": 1990,
+      "lines": 322,
+      "words": 2106,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -168758,8 +168794,8 @@
       "description": "Use when assessing whether Cull is ready to release, auditing or dry-running a Cull release, identifying version blockers, or before any Cull prepare or publish operation.",
       "path": "glebis--claude-skills/cull-release-check/SKILL.md",
       "remote_path": "cull-release-check/SKILL.md",
-      "lines": 37,
-      "words": 205,
+      "lines": 42,
+      "words": 256,
       "code_blocks": 0,
       "languages": []
     },
@@ -168827,9 +168863,9 @@
       "description": "Run a multi-agent audit of a feature, PR/diff, or task spec in which Codex, Command Code (cmd), Gemini, OpenCode and Claude debate over ACP for a configurable number of rounds and converge on a final ",
       "path": "glebis--claude-skills/agent-roundtable/SKILL.md",
       "remote_path": "agent-roundtable/SKILL.md",
-      "lines": 130,
-      "words": 1773,
-      "code_blocks": 2,
+      "lines": 148,
+      "words": 1975,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ]
@@ -168908,6 +168944,18 @@
       ]
     },
     {
+      "name": "herdr-orchestrator",
+      "description": "Coordinate multiple CLI agents in herdr with scoped briefs, verified startup, permission handling, independent review, and monitored handoffs. Use for parallel agent work or observer/evaluator supervi",
+      "path": "glebis--claude-skills/herdr-orchestrator/SKILL.md",
+      "remote_path": "herdr-orchestrator/SKILL.md",
+      "lines": 65,
+      "words": 1107,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "peer-agent-collaboration",
       "description": "Use when the user wants Claude Code, Codex, or other AI coding/business agents to work together as peers. This skill should be used whenever the user mentions coordinating Claude Code and Codex, agent",
       "path": "glebis--claude-skills/peer-agent-collaboration/SKILL.md",
@@ -168977,6 +169025,18 @@
       "languages": []
     },
     {
+      "name": "risograph-covers",
+      "description": "Create and visually edit LinkedIn covers or presentation graphics using Gleb's paper, textured geometric shapes, Manrope, EB Garamond, and Paper Mono visual style. Supports decorative node graphs and ",
+      "path": "glebis--claude-skills/risograph-covers/SKILL.md",
+      "remote_path": "risograph-covers/SKILL.md",
+      "lines": 43,
+      "words": 925,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
+    },
+    {
       "name": "context-builder",
       "description": "Generate interactive AI transformation context-builder prompts for consulting clients. Use when creating structured discovery session prompts that guide a company through context gathering about their",
       "path": "glebis--claude-skills/context-builder/SKILL.md",
@@ -168991,8 +169051,8 @@
       "description": "'End-to-end pipeline for publishing Claude Code lab meetings. Accepts optional args: date (YYYYMMDD, \"yesterday\", \"today\") and lab number (e.g. \"04\"). Examples: \"yesterday 04\", \"20260420 05\", \"04\" (to",
       "path": "glebis--claude-skills/agency-docs-updater/SKILL.md",
       "remote_path": "agency-docs-updater/SKILL.md",
-      "lines": 335,
-      "words": 2378,
+      "lines": 341,
+      "words": 2524,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -169004,11 +169064,23 @@
       "description": "Constructive, evidence-based dialogue mode that avoids sycophancy. This skill should be used when the user wants balanced multi-perspective analysis, critical feedback, or rigorous challenge of their ",
       "path": "glebis--claude-skills/balanced/SKILL.md",
       "remote_path": "balanced/SKILL.md",
-      "lines": 130,
-      "words": 810,
-      "code_blocks": 6,
+      "lines": 132,
+      "words": 1204,
+      "code_blocks": 5,
       "languages": [
         "json"
+      ]
+    },
+    {
+      "name": "systemic",
+      "description": ">-",
+      "path": "glebis--claude-skills/systemic/SKILL.md",
+      "remote_path": "systemic/SKILL.md",
+      "lines": 75,
+      "words": 1132,
+      "code_blocks": 2,
+      "languages": [
+        "sh"
       ]
     },
     {
@@ -169038,8 +169110,8 @@
       "description": "Use when the user explicitly asks to publish or complete a prepared Cull release, or when the authorized cull-release orchestrator reaches publication after every repository and artifact gate passes.",
       "path": "glebis--claude-skills/cull-release-publish/SKILL.md",
       "remote_path": "cull-release-publish/SKILL.md",
-      "lines": 35,
-      "words": 235,
+      "lines": 50,
+      "words": 379,
       "code_blocks": 0,
       "languages": []
     },
@@ -169100,7 +169172,7 @@
     },
     {
       "name": "disk-cleanup",
-      "description": "Scan and clean macOS caches, package-manager data, crash dumps, and app caches to reclaim disk space. Deterministic \u2014 a config registry (targets.json) plus two scripts (survey.py read-only, clean.py e",
+      "description": "'Scan and clean macOS caches, package-manager data, crash dumps, and app caches to reclaim disk space. Deterministic \u2014 a config registry (targets.json) plus two scripts (survey.py read-only, clean.py ",
       "path": "glebis--claude-skills/skills/disk-cleanup/SKILL.md",
       "remote_path": "skills/disk-cleanup/SKILL.md",
       "lines": 107,

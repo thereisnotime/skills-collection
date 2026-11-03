@@ -834,9 +834,15 @@ describe("ce-doc-review contract", () => {
     expect(synthesis).toContain("cannot trigger anchor promotion")
     expect(synthesis).toContain("Cursor default/Auto")
 
-    // R29 and R30 round-2 rules
-    expect(synthesis).toContain("R29 Rejected-Finding Suppression")
-    expect(synthesis).toContain("R30 Fix-Landed Matching Predicate")
+    // R29 and R30 round-2 rules load only on later rounds (#1770)
+    const laterRound = await readRepoFile(
+      "skills/ce-doc-review/references/later-round-synthesis.md"
+    )
+    expect(laterRound).toContain("R29 Rejected-Finding Suppression")
+    expect(laterRound).toContain("R30 Fix-Landed Matching Predicate")
+    expect(synthesis).not.toContain("R29 Rejected-Finding Suppression")
+    expect(synthesis).not.toContain("R30 Fix-Landed Matching Predicate")
+    expect(synthesis).toContain("also read `references/later-round-synthesis.md` before 3.1")
   })
 
   test("non-interactive envelope surfaces new tiers distinctly", async () => {
@@ -1133,18 +1139,6 @@ describe("ce-compound frontmatter schema expansion contract", () => {
     expect(schema).toContain("best_practice")
   })
 
-  test("ce-compound-refresh schema stays in sync with canonical ce-compound schema", async () => {
-    const canonical = await readRepoFile(
-      "skills/ce-compound/references/schema.yaml"
-    )
-    const refresh = await readRepoFile(
-      "skills/ce-compound-refresh/references/schema.yaml"
-    )
-
-    // Duplicate schemas must be identical (kept in sync intentionally per AGENTS.md)
-    expect(refresh).toEqual(canonical)
-  })
-
   test("yaml-schema.md documents category mappings for the four new values", async () => {
     const mapping = await readRepoFile(
       "skills/ce-compound/references/yaml-schema.md"
@@ -1213,8 +1207,8 @@ describe("ce-compound vocabulary is corpus-first, not Rails-specific (issue #126
     expect(lightweight).toMatch(/existing docs/)
   })
 
-  test("ce-compound-refresh replace flow keeps the old learning's component/root_cause", async () => {
-    const flows = await readRepoFile("skills/ce-compound-refresh/references/per-action-flows.md")
+  test("refresh replace flow keeps the old learning's component/root_cause", async () => {
+    const flows = await readRepoFile("skills/ce-compound/references/refresh/per-action-flows.md")
     const replaceFlow = sliceSection(flows, "## Replace Flow", "3. **Validate parser-safety")
     expect(replaceFlow).toMatch(/corpus-first rule in `references\/yaml-schema\.md`/)
     expect(replaceFlow).toMatch(/counting the old learning as one of the corpus's docs/)

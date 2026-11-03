@@ -160,12 +160,8 @@ If you prefer not to run the installer, copy files to these paths manually.
 ├── skills/
 │   ├── blog/
 │   │   ├── SKILL.md                          # Main orchestrator
-│   │   ├── references/
-│   │   │   ├── content-rules.md
-│   │   │   ├── geo-optimization.md
-│   │   │   ├── google-landscape-2026.md
-│   │   │   ├── quality-scoring.md
-│   │   │   └── visual-media.md
+│   │   ├── references/                   # 22 files; copy the whole directory
+│   │   │   └── *.md
 │   │   ├── templates/                        # 12 content type templates
 │   │   │   └── *.md
 │   │   └── scripts/
@@ -289,6 +285,23 @@ python3 skills/blog-image/scripts/validate_image_setup.py
 
 Without this setup, all `/blog` commands work normally using stock photos from
 Pixabay/Unsplash/Pexels. AI image generation is an optional enhancement.
+
+---
+
+## Optional: Blog Studio
+
+Blog Studio adds a live status band, a pipeline and five-gate panel, a history
+of past posts and a Run checks control. It is a separate plugin in the same
+marketplace, served from the `blog-studio` branch of this repository
+(https://github.com/AgriciDaniel/claude-blog/tree/blog-studio/plugins/blog-studio) and pinned to a commit:
+
+```
+/plugin marketplace add AgriciDaniel/claude-blog
+/plugin install blog-studio@agricidaniel-blog
+```
+
+Studio 0.3.0 needs claude-blog 2.3.2 or later, because its Run checks passes
+`blog_preflight.py --manual-check`.
 
 ---
 
@@ -420,7 +433,7 @@ chmod +x uninstall.sh
 The uninstaller removes verified package-owned files from:
 
 - `~/.claude/skills/blog/` and `~/.claude/skills/blog-*/` (32 skill directories: 1 orchestrator + 31 sub-skills; 30 user-facing commands; `blog-chart` is internal-only)
-- `~/.claude/scripts/` (the root `scripts/*.py` helpers, 22 at the time of writing, including the shared `installer_ownership.py` engine)
+- `~/.claude/scripts/` (the root `scripts/*.py` helpers, 23 at the time of writing, including the shared `installer_ownership.py` engine)
 - `~/.claude/agents/blog-*.md` (all 5 agents: blog-researcher, blog-writer, blog-seo, blog-reviewer, blog-translator)
 
 Shared Google credentials under `~/.config/claude-seo/` are owned by the user

@@ -16,12 +16,25 @@ import sys
 from pathlib import Path
 
 PUBLIC_REPOSITORY = "https://github.com/AgriciDaniel/claude-blog"
-PUBLIC_VERSION = "2.3.1"
+PUBLIC_VERSION = "2.3.2"
 PUBLIC_PLUGIN_IDENTIFIER = "claude-blog"
 PUBLIC_SLUG = f"{PUBLIC_PLUGIN_IDENTIFIER}@agricidaniel-blog"
 PUBLIC_OWNER = "AgriciDaniel"
 PUBLIC_OWNER_URL = "https://github.com/AgriciDaniel"
 PUBLIC_MARKETPLACE = "agricidaniel-blog"
+# Blog Studio is served from the blog-studio branch of this repository, pinned
+# to a commit, because Claude Desktop refuses a plugin folder that holds a
+# nested .claude-plugin/plugin.json. The check below reads the entry only; it
+# never contacts the network.
+STUDIO_PLUGIN = "blog-studio"
+STUDIO_SOURCE = {
+    "source": "git-subdir",
+    "url": "AgriciDaniel/claude-blog",
+    "path": "plugins/blog-studio",
+    "ref": "blog-studio",
+}
+STUDIO_HOMEPAGE = f"{PUBLIC_REPOSITORY}/tree/blog-studio/plugins/blog-studio"
+COMMIT_SHA_RE = re.compile(r"[0-9a-f]{40}")
 PUBLIC_RAW_INSTALL_SH = (
     "https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.sh"
 )
@@ -345,7 +358,9 @@ def validate(root: Path) -> dict:
     marketplace_text = contents.get(".claude-plugin/marketplace.json", "")
     try:
         marketplace = json.loads(marketplace_text)
-    except json.JSONDecodeError:
+        if not isinstance(marketplace, dict):
+            raise ValueError("marketplace must be an object")
+    except ValueError:  # JSONDecodeError is a ValueError
         errors.append(
             {"kind": "invalid_json", "file": ".claude-plugin/marketplace.json"}
         )
@@ -383,6 +398,54 @@ def validate(root: Path) -> dict:
                 {
                     "kind": "invalid_public_marketplace_plugin",
                     "file": ".claude-plugin/marketplace.json",
+                }
+            )
+        entries = [entry for entry in plugins if isinstance(entry, dict)] if isinstance(plugins, list) else []
+        # Only claude-blog may live inside the plugin root; any other local
+        # source would put a second plugin.json inside the claude-blog folder.
+        for entry in entries:
+            if entry.get("name") != PUBLIC_PLUGIN_IDENTIFIER and not isinstance(entry.get("source"), dict):
+                errors.append(
+                    {
+                        "kind": "local_companion_source",
+                        "file": ".claude-plugin/marketplace.json",
+                        "plugin": str(entry.get("name")),
+                    }
+                )
+        studio_entries = [entry for entry in entries if entry.get("name") == STUDIO_PLUGIN]
+        if studio_entries:
+            studio = studio_entries[0]
+            source = studio.get("source")
+            if (
+                len(studio_entries) != 1
+                or not isinstance(source, dict)
+                or set(source) != {*STUDIO_SOURCE, "sha"}
+                or any(source.get(key) != value for key, value in STUDIO_SOURCE.items())
+                or not isinstance(source.get("sha"), str)
+                or not COMMIT_SHA_RE.fullmatch(source["sha"])
+                or not isinstance(studio.get("version"), str)
+                or studio.get("homepage") != STUDIO_HOMEPAGE
+            ):
+                errors.append(
+                    {
+                        "kind": "invalid_studio_distribution",
+                        "file": ".claude-plugin/marketplace.json",
+                        "plugin": STUDIO_PLUGIN,
+                    }
+                )
+
+    root_manifest = root / ".claude-plugin" / "plugin.json"
+    for manifest in sorted(root.rglob("plugin.json")):
+        relative_parts = set(manifest.relative_to(root).parts)
+        if (
+            manifest.parent.name == ".claude-plugin"
+            and manifest != root_manifest
+            and not {".git", ".venv", "node_modules"} & relative_parts
+        ):
+            errors.append(
+                {
+                    "kind": "nested_plugin_manifest",
+                    "file": manifest.relative_to(root).as_posix(),
                 }
             )
 

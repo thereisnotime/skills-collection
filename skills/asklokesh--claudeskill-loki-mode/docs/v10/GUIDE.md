@@ -23,7 +23,7 @@ before the routing decision, so these all run on Loki 10:
 
 ```
 loki start prd.md              loki start --no-pr prd.md
-loki start owner/repo#123      loki start --provider codex owner/repo#123
+loki start owner/repo#123      loki start --provider opencode owner/repo#123
 loki start "fix the login bug" loki start --no-pr "fix the login bug"
 loki start fixit               loki quick -v "fix the login bug"
 ```
@@ -43,8 +43,14 @@ empty folder they create the repository first.
 
 A flag Loki 10 does not support (for example `--simple`, `--parallel`,
 `--github`, `--sandbox`, `--max-iterations`) is refused with exit 2 and a line
-naming its replacement. A provider other than claude, codex, cline, aider or
-opencode, or a machine with no working bun, also exits 2 with the fix.
+naming its replacement. A provider other than claude or opencode, or a
+machine with no working bun, also exits 2 with the fix. The removed providers
+(codex, cline, aider, gemini) exit 2 with one line, from `--provider` or
+`LOKI_PROVIDER`, for every command:
+
+```
+loki: provider 'codex' is no longer supported. Supported providers: claude (Claude Code CLI, or an Anthropic API key through the Agent SDK) and opencode (any model, including OpenRouter via OPENROUTER_API_KEY). Switch with --provider claude or --provider opencode, or unset LOKI_PROVIDER.
+```
 
 The previous loop (autonomy/run.sh) runs only when you pass `--engine legacy`
 or set `LOKI_ENGINE=legacy` (the flag wins over the variable), or when the PRD
@@ -93,6 +99,18 @@ skipped and implement runs on your run's own model, like a raw session.
 `LOKI_E10_CASCADE=1` opts in to the cheaper sonnet start (it prints and
 records the downgrade); a repeated test failure always escalates up, never
 down (Engine Law L1).
+`LOKI_ROUTER=auto` (also set by `--haiku` and `--cost lean`) is the router's
+auto preset (Engine Law L1, as amended 2026-11-01, allows Haiku as the
+executor when asked for): Haiku runs implement and fix, Opus writes the plan
+of a hard task (judged from the task, never the repo size: sized large, or
+a task naming more than 4 distinct non-test files), the Opus advisor tool is
+attached to a fix round on Haiku or Sonnet (never to an Opus session), a
+Haiku implement that claims the work is already done with no diff climbs one
+rung, and a code-owned
+failure, a stall or a spec conflict climbs the router's ladder (Sonnet, then
+Opus). The start line names the downgrade and the route; the receipt's route
+block records the executor and every climb. `LOKI_ROUTER_EXECUTOR` picks
+another executor; `LOKI_ALLOW_HAIKU=false` makes it Sonnet.
 `loki quick --help` prints the help; `loki quick -v "<task>"` runs on Loki 10 with
 `--verbose`.
 
@@ -101,8 +119,9 @@ loki quick "fix the login redirect loop"
 ```
 
 If bun is not installed, or LOKI_PROVIDER names a provider the v10 engine
-has no invoker for (anything but claude, codex, cline, aider, opencode), these entry
-points fall back to the legacy engine with a one-line notice instead of failing.
+has no invoker for (anything but claude or opencode), these entry points exit 2
+with the fix; a removed provider (codex, cline, aider, gemini) prints the
+migration line above.
 
 Issue refs work the same way:
 
@@ -196,8 +215,8 @@ Define child agents as markdown with YAML frontmatter in `.loki/agents/<name>.md
 over a user agent of the same name. The body is the system prompt.
 
 Frontmatter keys: `name` (must equal the file name without `.md`),
-`description` (required), `model`, `provider` (`claude` by default; `codex`,
-`cline`, `aider` or `opencode`), `tools` (allow list), `deny` (deny list) and
+`description` (required), `model`, `provider` (`claude` by default, or
+`opencode`), `tools` (allow list), `deny` (deny list) and
 `permission` (`plan` default, `edit` or `full`).
 
 ```
@@ -246,7 +265,7 @@ loki doctor --fix     # create state dirs and a default config; prints exact com
 loki config list      # also: get <key>, set <key> <value>, path
 ```
 
-`loki setup` flags: `--provider claude|codex|cline|aider|opencode`,
+`loki setup` flags: `--provider claude|opencode`,
 `--model`, `--budget USD` and `--global`. `loki doctor --fix` never installs
 system packages and never runs sudo. Prerequisites are in
 [INSTALLATION.md](../INSTALLATION.md).
@@ -404,38 +423,24 @@ receipt with no signing key configured (or a key that failed to load) reads
 | Provider | Cost measured | Spend cap enforced | Guardrail scan | Kill blocking enforced |
 |----------|---------------|--------------------|----------------|------------------------|
 | claude   | yes (provider-reported) | yes | native | yes |
-| codex    | yes (parsed or estimated) | yes | yes | no |
-| cline    | yes (parsed or estimated) | yes | yes | no |
-| aider    | yes (reported or estimated) | yes | yes | no |
 | opencode | no | no (cost not measured); wall clock limit still applies | yes | no |
 
-Claude Code is the default and the only Tier-1 provider; the others are
-optional. Select one with `--provider <name>` or `LOKI_PROVIDER`.
-
-### Cost and the spend cap on non-Claude providers
-
-For codex, cline and aider, engine10 reads token usage from the CLI output
-(aider's `Cost: $X session` line is used as-is). If the CLI prints no usage,
-cost is estimated from prompt and response sizes (about 4 characters per
-token) with the built-in price table (`loki-ts/src/providers/price_table.ts`).
-A model not in the table prices at a mid-range default of $2 per 1M input
-tokens and $10 per 1M output tokens. Estimated figures carry `estimated: true`
-and `cost_basis` (`provider-tokens` or `size-estimate`) on the `cost` event in
-`events.jsonl`, and the efficiency record has `cost_source: "estimated"`.
-Estimates are approximate. The cap in `--max-cost` applies unchanged. A run
-with no prompt and no output stays `not measured`, never `$0.00`.
+Claude Code is the default and the only Tier-1 provider. It runs through the
+`claude` CLI, or, for API-key users, through the Anthropic Agent SDK
+(`@anthropic-ai/claude-agent-sdk`) with `ANTHROPIC_API_KEY`; both are
+`--provider claude`. opencode is the optional model-agnostic provider. Select
+one with `--provider <name>` or `LOKI_PROVIDER`. codex, cline, aider and gemini
+were removed.
 
 ### Guardrails on non-Claude providers
 
-With codex, cline, aider or opencode, engine10 enforces the wall-clock limit
+With opencode, engine10 enforces the wall-clock limit
 and `BUDGET_LIMIT` (for example `BUDGET_LIMIT=5 loki start prd.md`) by killing
 the process group. After each iteration it scans the diff and reverts and
 fails the iteration on mass deletion of tracked files, `.git/config` changes,
 new git hooks, and symlinks or paths outside the project (a `guard.violation`
-event). Native flags are used where the CLI has them: codex runs with
-`--sandbox workspace-write`, aider with `--no-auto-commits`. Cline and
-opencode have no sandbox flag. The scan is post-hoc rather than inline, so
-receipts still list `kill blocking not enforced` for these providers.
+event). opencode has no sandbox flag. The scan is post-hoc rather than
+inline, so receipts still list `kill blocking not enforced` for opencode.
 
 For opencode, a run's Cost line reads `not measured` and the NOT PROVEN line
 adds the literal entry `kill blocking not enforced`
@@ -446,14 +451,32 @@ engine10 provider (`loki-ts/src/runner/provider_opencode.ts`): install it with
 `LOKI_OPENCODE_MODEL` (for example `openrouter/deepseek/deepseek-v3.2`; unset
 uses opencode's own default), passes extra flags from `LOKI_OPENCODE_FLAGS`,
 and honors `LOKI_OPENCODE_CLI` for the binary path. `LOKI_HOST_GUARD=1` is
-incompatible with non-Claude providers.
+incompatible with opencode.
+
+#### opencode with OpenRouter
+
+opencode reads `OPENROUTER_API_KEY` from the environment (or stores it once
+with `opencode auth login`, choosing OpenRouter). With the key set,
+`opencode models openrouter` lists the OpenRouter models as
+`openrouter/<vendor>/<model>`; without it opencode reports
+`Provider not found: openrouter`. Loki passes the key through unchanged and
+runs `opencode run --auto -m <model> <prompt>`:
+
+```
+export OPENROUTER_API_KEY=sk-or-...
+loki start --provider opencode --model openrouter/deepseek/deepseek-v3.2 ./prd.md
+LOKI_OPENCODE_MODEL=openrouter/<vendor>/<model> loki start --provider opencode ./prd.md
+```
+
+With `--provider opencode`, any `--model` value (including `openrouter/...`)
+becomes opencode's `-m` model.
 
 ### Model routes and local models
 
 To run OpenRouter or a local model through the Claude harness, so every
 Tier-1 control (cost, kill blocking, receipts) still applies, set
-`LOKI_MODEL_ROUTE=<kind>/<id>` before `loki start`. Selection is by
-environment variable; `loki start` has no `--model` flag.
+`LOKI_MODEL_ROUTE=<kind>/<id>` before `loki start`, or pass
+`--model <kind>/<id>` with `--provider claude` (the default).
 
 ```
 LOKI_MODEL_ROUTE=ollama/qwen3-coder loki start prd.md
@@ -483,9 +506,11 @@ ready-to-paste values. Both accept `--json`.
 Model routing picks which Claude model does each stage of a run. It is OFF
 by default in 11.2.0. Set `LOKI_ROUTER=1` to opt in. `LOKI_ROUTER=0` is the
 explicit opt-out and keeps the exact pre-router model behavior, pins
-included. Explicit
-`LOKI_MODEL_OVERRIDE` and `LOKI_CLAUDE_MODEL_DEVELOPMENT` still win and
-bypass the router. The other knobs are `LOKI_ROUTER_EXECUTOR` (post-flip
+included. Explicit `LOKI_MODEL_OVERRIDE`, `LOKI_CLAUDE_MODEL_DEVELOPMENT`,
+`LOKI_MODEL_DEVELOPMENT` and `LOKI_SESSION_MODEL` (set by `--model`) still
+win and bypass the router. `LOKI_SESSION_MODEL` and `LOKI_MODEL_DEVELOPMENT`
+joined this list in the auto-preset change, so a `LOKI_ROUTER=1` run with
+`--model` set now runs every session on that model instead of routing. The other knobs are `LOKI_ROUTER_EXECUTOR` (post-flip
 default sonnet; haiku only by earned evidence), `LOKI_ROUTER_ESCALATE` (default sonnet) and `LOKI_ROUTER_ADVISOR`
 (default opus; `off` disables the advisor). The router engine itself lands in
 11.2.0; the pieces below marked "shipped in 11.1.0" are already in the code.

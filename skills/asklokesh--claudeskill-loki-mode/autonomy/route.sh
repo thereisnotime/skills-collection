@@ -10,7 +10,7 @@
 # Bash 3.2 compatible (no associative arrays, no ${var,,}).
 
 # Flags that take a separate value token.
-_ROUTE_VALUE_FLAGS=" --provider --budget --budget-limit --max-cost --max-iterations --max-retries --session-model --completion-promise --base-wait --max-wait --prd --brief --attempts --spec --aider-model --aider-flags --cline-model --isolation --output --engine --mirofish-rounds --mirofish-timeout --max-duration --log-level --compliance --cost --remote --issue --bmad-project --openspec --mirofish-docker --destination --domain --env-file --health-url --health-match --workspace --config --vars --seal-existing "
+_ROUTE_VALUE_FLAGS=" --provider --budget --budget-limit --max-cost --max-iterations --max-retries --session-model --completion-promise --base-wait --max-wait --prd --brief --attempts --spec --isolation --output --engine --mirofish-rounds --mirofish-timeout --max-duration --log-level --compliance --cost --remote --issue --bmad-project --openspec --mirofish-docker --destination --domain --env-file --health-url --health-match --workspace --config --vars --seal-existing "
 # Flags whose value is optional (cmd_start reads one only when it is present): --mirofish takes a URL (a token that does not
 # start with --, as _loki_start_optval_consumes). Declared here so a refused one still consumes its value. --parallel is NOT
 # here: cmd_start treats it as a plain boolean (_loki_start_flag_kind), so "--parallel 3" leaves 3 as a positional.
@@ -312,6 +312,16 @@ loki_route_resolve() {
 
     # Provider and model (display only; engine10 resolves its own at run time).
     R_PROVIDER="$(_route_provider "$provider_flag")"
+    # A removed provider gets the one migration line on every engine. bin/loki already refused one from
+    # --provider or LOKI_PROVIDER, so a removed name here is the project's saved choice: add how to clear it.
+    if loki_is_removed_provider "$R_PROVIDER"; then
+        R_ERR="$(loki_removed_provider_message "$R_PROVIDER")"
+        if [ -z "$provider_flag" ] && [ -z "${LOKI_PROVIDER:-}" ]; then
+            R_ERR="$R_ERR
+$(loki_removed_saved_provider_hint "$R_PROVIDER")"
+        fi
+        return 0
+    fi
     if [ -n "$session_model" ]; then
         R_MODEL="$session_model"
     elif [ -n "${LOKI_SESSION_MODEL:-}" ]; then
@@ -377,12 +387,10 @@ loki_route_resolve() {
         fi
     fi
     if [ -n "$provider_flag" ] && [ "$engine_req" != "legacy" ]; then
-        case "$provider_flag" in
-            claude|codex|cline|aider|opencode) ;;
-            *)
-                R_ERR="loki: --provider $provider_flag has no Loki 10 engine invoker (use claude, codex, cline, aider or opencode, or pass --engine legacy)"
-                return 0 ;;
-        esac
+        if ! validate_provider "$provider_flag"; then
+            R_ERR="loki: --provider $provider_flag has no Loki 10 engine invoker (use $(loki_supported_providers_joined " or "), or pass --engine legacy)"
+            return 0
+        fi
     fi
     # --dry-run (engine10 has no preview of its own for these inputs): print the route, then exit 0 without a run.
     if [ "$dry" = "1" ] && [ "$engine_req" != "legacy" ]; then R_DRY=1; fi
@@ -395,10 +403,9 @@ loki_route_resolve() {
         R_ENGINE=engine10; R_E10=1; R_HARD=1; R_REASON="explicit: --engine engine10"
     else
         # L009: a provider with no engine10 invoker is refused, never sent to the legacy loop.
-        case "$R_PROVIDER" in
-            claude|codex|cline|aider|opencode) ;;
-            *) R_ERR="loki: provider $R_PROVIDER is not supported; use one of: claude, codex, cline, aider, opencode"; return 0 ;;
-        esac
+        if ! validate_provider "$R_PROVIDER"; then
+            R_ERR="loki: provider $R_PROVIDER is not supported; use one of: $(loki_supported_providers_joined)"; return 0
+        fi
         if [ "${sz:-0}" -gt "$_ROUTE_PRD_MAX" ] && _route_sdk_claude "$R_PROVIDER"; then
             R_ERR="loki: this PRD is ${sz} bytes, over the ${_ROUTE_PRD_MAX}-byte limit of the Loki 10 engine, and the legacy engine has no Agent SDK path; trim the PRD below 100 KB, or unset LOKI_SDK_MODE, LOKI_SDK and LOKI_SDK_LOOP to run the legacy engine on a provider CLI"
             return 0
@@ -431,7 +438,7 @@ _route_adapter_and_diffs() {
     fi
     case "$R_PROVIDER" in
         claude) ;;
-        codex|cline|aider|opencode)
+        opencode)
             R_CAPDIFF+=("provider $R_PROVIDER has no Claude Code Task-tool subagents (providers/$R_PROVIDER.sh)") ;;
         *)
             R_CAPDIFF+=("provider $R_PROVIDER has no engine10 invoker") ;;

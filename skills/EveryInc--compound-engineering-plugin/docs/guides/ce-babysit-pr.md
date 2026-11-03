@@ -78,13 +78,13 @@ Hand-babysitting, or a naive loop, usually fails in the same ways:
 
 ## The Solution
 
-Each tick is stateless and resumable from disk. The harness keeps the session active while waiting for the detector's output.
+Each tick is stateless and resumable from disk. One wake source brings the agent back for each tick.
 
 - Comments first. New review threads and non-thread comments get handled before CI. If that pass pushed a commit, the old CI failure sits on a dead SHA and gets skipped
 - Delegation. `/ce-resolve-pr-feedback` for comments, `/ce-debug` for real failures (once per new signature). The only inline CI work is a cheap flaky-vs-real split
 - Consumption-only branch currency. The base gets merged or updated into the PR only when the snapshot emits a `branch_currency` item (`BEHIND` via GitHub's update-branch endpoint, `DIRTY` via an exact-base local repair) and only after it is claimed. Ordinary base movement on a CLEAN PR, a sibling merging, or someone saying "update the branch" never triggers one. A disputable conflict becomes a sticky `needs-human`; an unrequested base merge on the head gets flagged as a defect
-- Settle window. "Looks ready" needs GitHub `CLEAN`, no open feedback, no parked `needs-human`, and enough quiet time. A started-but-unfinished review waits at least 15 quiet minutes and at most 30
-- In-session watch by default. `pr-snapshot watch` polls with no agent tokens and prints `BABYSIT_WAKE` only on an actionable change. Checkpoint mode runs one tick and prints the resume command. It applies only when requested or when the harness cannot keep the session active while waiting for detector output
+- Settle window. "Looks ready" needs GitHub `CLEAN`, no open feedback, no parked `needs-human`, and enough quiet time. A started-but-unfinished review waits at least 15 quiet minutes and at most 30. Under `stack-land`, a layer whose review already finished on the current head needs only 60 quiet seconds
+- In-session watch by default. `pr-snapshot watch` polls with no agent tokens and prints `BABYSIT_WAKE` only on an actionable change. When a host's instructions dictate how PR waits work, its own mechanism replaces the detector and the ticks stay the same. That wake may cover less than the detector does, so reports say what it may miss. Checkpoint mode runs one tick and prints the resume command. It applies only when requested or when nothing can wake the agent
 - Posture for confirmed managed stacks. `target` stops at the named PR. `stack-ready` continues upstack without merging. `stack-land` continues and lands the settled prefix
 
 A `needs-human` item blocks the ready call. It does not end the watch. New comments and CI still get handled.
@@ -117,7 +117,7 @@ A clean rebase does not prove a PR still belongs. A PR that only adds a file und
 
 | Verdict | Meaning | What happens |
 |---------|---------|--------------|
-| Update | The goal still matters and the implementation is the right shape | Watching continues. If you asked for an update, or said yes when asked, it rebases first |
+| Update | The goal still matters and the implementation is the right shape | Watching continues. If you asked for an update, it rebases first |
 | Rework | The goal still matters, but a mechanical update would keep the wrong implementation | It describes the smallest credible rework and stops. Ask and it hands the rework to `/ce-work` |
 | Close | Superseded, obsolete, directionally wrong, or not worth its cost | It recommends closing with the evidence and stops. It closes only with your permission |
 
@@ -258,7 +258,7 @@ It classifies (flaky -> one rerun; real -> `/ce-debug`) and delegates. Comments 
 It previews the exact observed base first. It completes a merge only when every conflict has one mechanical answer that preserves the PR's intent, and when push authority to that head is known. Otherwise it parks a `needs-human`. Its routine conflict handling never rebases or force-pushes. Managed stacks stay on the manager's restack path.
 
 **Will it rebase my PR?**
-Only when you ask it to update or rebase the PR, or say yes when the old-PR check asks. It first decides whether the PR still belongs, then rebases with a series comparison and a lease on the starting head. Unattended runs never rebase.
+Only when you ask it to update or rebase the PR. A moved base alone is not a reason. It first decides whether the PR still belongs, then rebases with a series comparison and a lease on the starting head. Unattended runs never rebase.
 
 **What happens when the base keeps moving?**
 Each distinct head/base/status observation has a bounded claim-and-confirm cycle. Routine movement can be applied many times. The same unchanged observation is not retried across restarts. A parked semantic conflict stays parked when later base commits do not change the conflict.

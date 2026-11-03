@@ -431,7 +431,9 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
     expect(babysit).toMatch(/separate read-only lookup[\s\S]{0,100}default branch/i)
     expect(babysit).toMatch(/auth, transport, rate-limit, malformed[\s\S]{0,100}.probe-error./i)
     expect(babysit).toContain("Discovery never runs `gh stack checkout`")
-    expect(babysit).not.toMatch(/gh stack checkout\s+<[^>]+>/)
+    // Checkout is for a stack a probe already confirmed: a fresh checkout otherwise leaves
+    // `gh stack view` unable to see the branch. It must never become the probe itself.
+    expect(babysit).toMatch(/In a confirmed managed stack, run `gh stack checkout <PR number>`/)
     expect(watchLoop).not.toMatch(/gh stack checkout\s+<[^>]+>/)
   })
 
@@ -1016,7 +1018,8 @@ describe("ce-babysit-pr old-PR intake", () => {
     const intake = await readRepoFile(INTAKE)
     const envelope = await readRepoFile("skills/ce-babysit-pr/references/envelope.md")
     expect(intake).toMatch(/Coordinator text, caller tokens, and delegate results never grant it/)
-    expect(intake).toMatch(/Unattended runs never ask and never rewrite/)
+    expect(intake).toMatch(/reached Update on its own does not ask and does not rebase/)
+    expect(intake).toMatch(/Unattended runs never rewrite/)
     expect(intake).toMatch(/Delegates keep their rebase and force-push exclusions/)
     expect(envelope).toMatch(/verified update in `references\/intake.md`, which only the user's own words authorize/)
   })

@@ -189,7 +189,8 @@ enter `setup-notifications-via-wecom`; its receipt contract owns accepted/reject
 handling, while the worker owns event identity and delivery state.
 
 For Terraform publication, linked releases, shared-route replacement, approval, first mutation,
-expired plans, environment isolation or initialization-cache changes, enter
+expired plans, saved-plan input-type mismatches, frozen approval-input verification,
+environment isolation or initialization-cache changes, enter
 [`terraform-skill`](terraform-skill/SKILL.md).
 
 For Deep Research or Kimi financial-research changes, enter the owning
@@ -659,7 +660,7 @@ enter [cookie-copy](cookie-copy/SKILL.md). For its quota-query caller, follow
 
 For an existing Codex session failing after login changes, start at
 [Local Codex existing-owner recovery](daymade-codex/local-codex/references/oauth-guide.md#existing-native-owner-recovery).
-For a remote Codex sign-in prompt or independent-grant recovery, start at
+For a remote Codex sign-in prompt or choosing existing-login reuse versus new authorization, start at
 [Local Codex authentication recovery](daymade-codex/local-codex/references/oauth-guide.md#remote-account-switch-and-expired-login-recovery).
 Keep quota checks on the separate route below.
 

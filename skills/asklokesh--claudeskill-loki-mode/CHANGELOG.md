@@ -5,6 +5,105 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.125.0 (2026-11-02)
+
+Loki pull requests are titled after the work, and split issues no longer leave a check pending forever.
+
+### Fixed
+
+- A Loki PR title now names the work, for example "[PARTIAL] Retry utility and recovery handlers (#21 s2)", instead of "[PARTIAL] Loki 10: PARTIAL (e10-<run id>)". The outcome appears once and the run id never does. The body lists the slice's acceptance criteria and gives the full reason line.
+- On a split issue (`loki start owner/repo#N` or `loki issues run`), a slice's working copy is no longer deleted while Loki's background deep verify is still running in it, which left the `loki/deep-verify` status pending forever. Your terminal returns as soon as the last slice finishes; a background step removes the working copy and its branch once deep verify ends, and keeps the late result in the saved receipt.
+- A stacked slice PR says when the repository's pull-request workflows skip its base branch, and that GitHub retargets it to the default branch once the PR it is stacked on merges.
+
+## v11.124.2 (2026-11-02)
+
+Benchmark arms for Opus at low effort, so cost claims against raw Opus can be checked fairly.
+
+### Added
+
+- `benchmarks/h2h` gains `raw-opus-low` (`claude --model opus --effort low`) and `loki-opus-low` (the Opus pin with `LOKI_E10_EFFORT=low`, which every Loki session honors). A run that sets a conflicting effort for these arms is refused before any spend. Neither arm is in the default config list, so default runs are unchanged. No results yet. Nothing changes for `loki start` or the npm package.
+
+## v11.124.1 (2026-11-02)
+
+A project that still has a removed provider saved gets one clear fix command, and one-file monorepo tasks are no longer split.
+
+### Fixed
+
+- A project with codex, cline, aider or gemini saved in `.loki/state/provider` now gets the removed-provider line plus `switch it with: loki provider set claude` and exits 2 from `loki start`, `loki quick`, `loki start --engine engine10`, `loki route start` and `loki provider show`. Before, `loki provider show` printed the removed provider and exited 0.
+- A task that names one file such as `index.ts` in a monorepo where many packages have a file of that name is no longer sized large and split into slices; a task that spells out many paths (including `./`-prefixed ones) still is.
+- `loki failover --chain` with an unknown provider now names the right provider in its error.
+- `loki doctor` reads the project's opencode config when reporting the detected provider.
+
+## v11.124.0 (2026-11-02)
+
+--haiku costs 25% less per passed task, and Opus plans only when the task itself is big.
+
+### Changed
+
+- `--haiku` and `--cost lean` now turn on the router's auto preset (`LOKI_ROUTER=auto`): Haiku runs implement and fix, and a failure the code owns climbs to Sonnet, then Opus; it never steps back down. An Opus plan runs only when the task is sized large or names more than 4 distinct non-test files, never because the repo is large. An implement that claims the work is already done but changes nothing climbs one tier. An Opus executor gets no Opus advisor.
+- On bench v2 (24 tasks x 2 reps): the new `--haiku` passed 48/48 at $0.0433 per passed task, against 47/48 at $0.0574 for the old `--haiku` (`benchmarks/h2h/results/2026-11-02-pr471-new-haiku-5eef084a0.json`, run on 5eef084a0; `benchmarks/h2h/results/2026-11-02-pr471-old-haiku-4c51599fb.json`, run on 4c51599fb, which is v11.120.1 plus the benchmark config). About half of the difference is run-to-run variation in a stage this change does not touch, and one of the 48 passes was a run Loki marked BLOCKED. It still costs 2.4x raw Haiku ($0.0182) per passed task; most of that is the acceptance-test stage, which is the next fix.
+- `LOKI_MODEL_DEVELOPMENT` and `--model` now override the preset like `LOKI_CLAUDE_MODEL_DEVELOPMENT`.
+
+### Deprecated
+
+- `LOKI_IMPLEMENT_HAIKU_FIRST` prints a one-time note and maps to `LOKI_ROUTER=auto` when `LOKI_ROUTER` is unset. With an explicit `LOKI_ROUTER`, `--haiku` and `--cost lean` print one line and keep your value.
+
+## v11.123.0 (2026-11-02)
+
+Large multi-part issues finish: the split is repaired, vitest runs once per package, and Loki's own test never costs correct work.
+
+### Fixed
+
+- A large multi-part issue (for example a monorepo epic) is split into slices even when the model's split has an over-long acceptance item; a split that is still refused is asked for once more with the exact reason.
+- Verify runs each package's selected vitest files in one process instead of one process per file (on a FireLater-shaped monorepo fixture: 7.2 s instead of 73.5 s). A file is never counted as passing when it fails alone: a throwing hook, an unhandled error, an import error or a file with no tests runs on its own, and a batch with an unhandled error counts for nothing. Checked against real vitest 2, 4 and 5.
+- Tests that were already failing on the base commit with the same error are not sent to fix rounds; a test that fails differently, including another case under a repeated `test.each` title, still is. The base run reuses the checkout's installed dependencies when no manifest changed.
+- When only Loki's own acceptance test still fails after a fix round that made no progress on it, and the repo's own tests pass on the delivered tree, the work is delivered as PARTIAL with that test named, instead of further fix rounds. If that delivery does not hold, everything is restored and the receipt, log and summary agree.
+- The checkout returns to your branch after a run: your own uncommitted `.loki` deletions are never committed onto the run branch, and Loki removes only its own leftover acceptance-test file, and only when its bytes match the receipt.
+- In a monorepo, Loki's acceptance test runs its base check inside the right package.
+
+## v11.122.0 (2026-11-02)
+
+Benchmark v3: hard and replay suites of real closed issues, rebuilt from pinned upstream commits.
+
+### Added
+
+- `benchmarks/h2h` gains a replay suite (8 recent closed issues) and a hard suite (8 multi-file issues that raw Haiku with a verify instruction failed in a pilot), plus Sonnet, Opus and verify-sentence configs. Results on the hard suite are in `benchmarks/h2h/results/2026-11-01-e13f3dd72-hard.json`, measured on the Loki engine at commits e13f3dd72 and 0d2071933 (before v11.120.0), not on this release: Loki on Haiku passed 0 of 24 runs (raw Haiku 1 of 24); Loki on Opus passed 5 of 24 at $1.23 per passed task against raw Opus 3 of 24 at $4.92. All passes came from 2 of the 8 tasks. See `benchmarks/h2h/RESULTS.md`, which also lists the provenance caveat (two task packages were present but gitignored at the run commits; they are now pinned by digest) and a post-run scoring-command change no verdict depended on.
+- Task repositories are no longer stored in this repository: each task keeps only its description and pinned commits, and the harness fetches and rebuilds it at run time into `~/.cache/loki-h2h`, refusing any rebuild or cached copy whose digest does not match.
+- A benchmark run is not citable when the benchmark tree has uncommitted or gitignored files.
+
+Nothing changes for `loki start` or the npm package.
+
+### Fixed
+
+- The redaction speed test no longer fails under machine load: a sub-millisecond baseline timing produced a false 12.3x growth ratio. A real quadratic slowdown still fails it (15.5x).
+
+## v11.121.0 (2026-11-02)
+
+Loki supports exactly Claude Code, an Anthropic API key, and opencode (OpenRouter included).
+
+### Removed
+
+- Codex, Cline, Aider and Gemini support is removed. Choosing one (`--provider`, `LOKI_PROVIDER`, `loki provider set|info|models|show`, the dashboard, the control plane or the GitHub Action) exits 2 with one line naming the supported providers and how to switch. Run `loki provider set claude` or `--provider opencode` to continue.
+
+### Fixed
+
+- `--provider opencode --model openrouter/<vendor>/<model>` now runs that model in opencode; before, the model was sent to the Claude route and opencode ran without one.
+- An OpenRouter model with no credential anywhere opencode reads one (`OPENROUTER_API_KEY`, opencode's `auth.json`, global or project `opencode.json`/`.jsonc`, `OPENCODE_CONFIG`, `OPENCODE_CONFIG_CONTENT`) is refused before any session starts, with the fix printed. A config that cannot be parsed warns and continues. Key values are never printed.
+- `loki doctor` reports whether an OpenRouter key is set.
+
+## v11.120.1 (2026-11-02)
+
+About 10,400 lines of runner code that no longer ran are removed; nothing changes at runtime.
+
+### Removed
+
+- 15 modules left unused when v11.119.0 removed the separate Bun run loop (the old council, prompt builder, goal scoring, quality gates, recovery and queue modules under `loki-ts/src/runner/`). The shipped bundle contains the same 603 source files as before.
+- `LOKI_CONFIDENCE_SPIKE` and four other settings that only those modules read (`LOKI_PROMPT_ADVISOR`, `LOKI_PROMPT_LENGTH`, `LOKI_PROMPT_SCREENSHOT`, `LOKI_REVIEW_UNAVAILABLE_BLOCK`) have had no effect since v11.119.0; their documentation is removed.
+
+### Fixed
+
+- Docs and code comments that pointed at the deleted files are corrected, and `LOKI_AUTO_LEARNINGS` is documented as working on the default route. A local check now fails when any file names a `loki-ts/src` path that does not exist.
+
 ## v11.120.0 (2026-11-01)
 
 Cheaper fix rounds, and loki backlog runs large issues and Jira or Linear projects.

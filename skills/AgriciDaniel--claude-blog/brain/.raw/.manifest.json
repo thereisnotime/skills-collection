@@ -1,0 +1,29 @@
+{
+  "brain_schema": "claude-blog-brain.v1",
+  "captured_at": "2026-07-09",
+  "hash_algorithm": "sha256",
+  "path_rules": {
+    "base": ".raw/sources/",
+    "must_be_vault_relative": true,
+    "disallow_absolute_paths": true,
+    "disallow_parent_traversal": true,
+    "disallow_symlink_escape": true
+  },
+  "sources": [
+    {
+      "source_id": "claude-blog-brain-data-google-updates-json",
+      "path": ".raw/sources/claude-blog-brain-data/google-updates.json",
+      "url": "local://claude-blog-brain/data/google-updates.json",
+      "sha256": "9ca5e729bdf30f27b4e6d49139c4c50a128a4dc48e7791621515d6b800d7e86b",
+      "hash_algorithm": "sha256",
+      "retrieved": "2026-07-09",
+      "source_type": "repo-data",
+      "owner": "Daniel Agrici",
+      "sensitivity": "public",
+      "license": "MIT",
+      "immutable": true,
+      "description": "Immutable snapshot of repo data source google-updates.json"
+    }
+  ],
+  "notes": "Immutable raw source snapshot of repo data. Captured files are read-only; refresh by adding a new dated snapshot rather than editing these files. These files are tracked in the public repository as evidence and are excluded from the public website projection."
+}
