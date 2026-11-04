@@ -41,7 +41,6 @@ import {
   handleInspectPaperCommand,
   handleReadPaperCommand,
   handleRelatedPapersCommand,
-  handleSearchGitHubCommand,
   handleSearchPapersCommand,
 } from './commands/research';
 import {
@@ -82,10 +81,23 @@ import { handleStatusCommand } from './commands/status';
 import { handleDoctorCommand } from './commands/doctor';
 import { isUrl, normalizeUrl } from './utils/url';
 import { resolveScrapeTarget } from './utils/scrape-target';
-import { parseMaxPages, parseScrapeOptions } from './utils/options';
+import {
+  onlyMainContentFlag,
+  parseCrawlDelay,
+  parseMaxPages,
+  parseScrapeOptions,
+} from './utils/options';
 import { isJobId } from './utils/job';
 import { ensureAuthenticated, printBanner } from './utils/auth';
 import { maybeShowUpdateNotice } from './utils/update-notice';
+import {
+  isAutoUpdateWorker,
+  runAutoUpdateWorker,
+  startAutoUpdate,
+  updateHint,
+} from './utils/auto-update';
+import { detectInstallChannel } from './utils/install-channel';
+import { handleUpdateCommand } from './commands/update';
 import { maybeShowSkillUpdateNotice } from './utils/skill-update-notice';
 import packageJson from '../package.json';
 import type { SearchSource, SearchCategory } from './types/search';
@@ -285,7 +297,7 @@ function parseAgentWebhookOption(
 function getFirstPositionalArg(args: string[]): string | undefined {
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (!arg || arg === '--') {
+    if (!arg || arg === '--' || arg === '--status') {
       continue;
     }
 
@@ -406,7 +418,14 @@ function createScrapeCommand(): Command {
       'Maximum PDF pages to parse (1-10000). PDFs cost 1 credit per parsed page; extra options may cost more.',
       parseMaxPages
     )
-    .option('--only-main-content', 'Include only main content', false)
+    .option(
+      '--only-main-content',
+      'Include only the main content (the API default)'
+    )
+    .option(
+      '--full-page',
+      'Keep the whole page, including navigation, headers and footers'
+    )
     .option(
       '--wait-for <ms>',
       'Wait time before scraping in milliseconds',
@@ -468,6 +487,7 @@ function createScrapeCommand(): Command {
     .option('--proxy <proxy>', 'Proxy mode for scraping (e.g., auto, basic)')
 
     .action(async (positionalArgs, options) => {
+      onlyMainContentFlag(options);
       const target = resolveScrapeTarget(positionalArgs ?? [], options);
       if (target.kind === 'alexandria') {
         await handleAlexandria(target.calls, options);
@@ -585,7 +605,14 @@ function createDownloadCommand(): Command {
       '-S, --summary',
       'Download as summary (shortcut for --format summary)'
     )
-    .option('--only-main-content', 'Include only main content', false)
+    .option(
+      '--only-main-content',
+      'Include only the main content (the API default)'
+    )
+    .option(
+      '--full-page',
+      'Keep the whole page, including navigation, headers and footers'
+    )
     .option(
       '--wait-for <ms>',
       'Wait time before scraping in milliseconds',
@@ -704,7 +731,11 @@ function createCrawlCommand(): Command {
     .option('--crawl-entire-domain', 'Crawl entire domain', false)
     .option('--allow-external-links', 'Allow external links', false)
     .option('--allow-subdomains', 'Allow subdomains', false)
-    .option('--delay <ms>', 'Delay between requests in milliseconds', parseInt)
+    .option(
+      '--delay <ms>',
+      'Delay between requests in milliseconds, 1 to 60000 (sent to the API in seconds)',
+      parseCrawlDelay
+    )
     .option(
       '--max-concurrency <number>',
       'Maximum concurrent requests',
@@ -816,7 +847,14 @@ function createBatchScrapeCommand(): Command {
       '-f, --format <formats>',
       'Output format(s), comma-separated (default: markdown). Available: markdown, html, rawHtml, links, images, screenshot, summary, changeTracking, json, attributes, branding'
     )
-    .option('--only-main-content', 'Include only main content', false)
+    .option(
+      '--only-main-content',
+      'Include only the main content (the API default)'
+    )
+    .option(
+      '--full-page',
+      'Keep the whole page, including navigation, headers and footers'
+    )
     .option(
       '--wait-for <ms>',
       'Wait time before scraping in milliseconds',
@@ -925,7 +963,7 @@ function createBatchScrapeCommand(): Command {
         apiKey: options.apiKey,
         apiUrl: options.apiUrl,
         format: options.format,
-        onlyMainContent: options.onlyMainContent,
+        onlyMainContent: onlyMainContentFlag(options),
         waitFor: options.waitFor,
         maxAge: options.maxAge,
         schema,
@@ -1026,7 +1064,14 @@ function createParseCommand(): Command {
       '-f, --format <formats>',
       'Output format(s). Multiple formats can be specified with commas (e.g., "markdown,links"). Available: markdown, html, rawHtml, links, images, summary, json, attributes. Single format outputs raw content; multiple formats output JSON.'
     )
-    .option('--only-main-content', 'Include only main content', false)
+    .option(
+      '--only-main-content',
+      'Include only the main content (the API default)'
+    )
+    .option(
+      '--full-page',
+      'Keep the whole page, including navigation, headers and footers'
+    )
     .option('-S, --summary', 'Output summary (shortcut for --format summary)')
     .option('--include-tags <tags>', 'Comma-separated list of tags to include')
     .option('--exclude-tags <tags>', 'Comma-separated list of tags to exclude')
@@ -1165,8 +1210,11 @@ function createSearchCommand(): Command {
     )
     .option(
       '--only-main-content',
-      'Include only main content when scraping',
-      true
+      'Include only the main content when scraping (the API default)'
+    )
+    .option(
+      '--full-page',
+      'Keep the whole page when scraping, including navigation, headers and footers'
     )
     .option(
       '-k, --api-key <key>',
@@ -1233,7 +1281,9 @@ function createSearchCommand(): Command {
         for (const category of categories) {
           if (!validCategories.includes(category)) {
             console.error(
-              `Error: Invalid category "${category}". Valid categories: ${validCategories.join(', ')}`
+              (category as string) === 'github'
+                ? 'Error: The github category was removed. Use --categories developer or `firecrawl developer`.'
+                : `Error: Invalid category "${category}". Valid categories: ${validCategories.join(', ')}`
             );
             process.exit(1);
           }
@@ -1263,7 +1313,7 @@ function createSearchCommand(): Command {
         highlights: options.highlights,
         scrape: options.scrape,
         scrapeFormats,
-        onlyMainContent: options.onlyMainContent,
+        onlyMainContent: onlyMainContentFlag(options),
         apiKey: options.apiKey,
         apiUrl: options.apiUrl,
         output: options.output,
@@ -1444,7 +1494,7 @@ Examples:
 function createResearchCommand(): Command {
   const researchCmd = new Command('research')
     .description(
-      "Search Firecrawl's research paper index: ~43M abstracts, around 90% biomedical (PubMed, bioRxiv, medRxiv) plus arXiv. Use this for biomedical, clinical, and scientific literature instead of scraping PubMed, bioRxiv, or Google Scholar by hand. Also searches GitHub issue/PR history."
+      "Search Firecrawl's research paper index: ~43M abstracts, around 90% biomedical (PubMed, bioRxiv, medRxiv) plus arXiv. Use this for biomedical, clinical, and scientific literature instead of scraping PubMed, bioRxiv, or Google Scholar by hand."
     )
     .addHelpText(
       'after',
@@ -1456,7 +1506,6 @@ Examples:
   $ firecrawl research related-papers pmcid:PMC12530322 --intent "in vivo delivery"
   $ firecrawl research read-paper doi:10.1016/j.neunet.2025.108095 --question "What was the sample size?"
   $ firecrawl research read-paper arxiv:1706.03762 --question "What is the attention mechanism?"
-  $ firecrawl research search-github "foundationdb queue worker shutdown" --limit 10
 `
     );
 
@@ -1488,6 +1537,12 @@ Examples:
       '--to <date>',
       'Inclusive upper bound on created/updated date (YYYY-MM-DD)'
     )
+    .addOption(
+      new Option(
+        '--sort <order>',
+        'relevance (default) or date_desc, which returns the newest of the most relevant matches'
+      ).choices(['relevance', 'date_desc'])
+    )
     .option(
       '-k, --api-key <key>',
       'Firecrawl API key (overrides global --api-key)'
@@ -1504,6 +1559,7 @@ Examples:
         categories: parseCommaList(options.categories),
         from: options.from,
         to: options.to,
+        sort: options.sort,
         apiKey: options.apiKey,
         apiUrl: options.apiUrl,
         output: options.output,
@@ -1641,37 +1697,19 @@ Examples:
       });
     });
 
-  researchCmd
-    .command('search-github')
-    .description(
-      'Search GitHub issue/PR history and repository readmes. Returns ranked matches with repo, url, a short snippet, and when available the full matched content in markdown.'
-    )
-    .argument('<query>', 'GitHub history/readme search query')
-    .option(
-      '--limit <number>',
-      'Number of results to return (max: 100)',
-      parseInt
-    )
-    .addOption(new Option('--k <number>').argParser(parseInt).hideHelp())
-    .option(
-      '-k, --api-key <key>',
-      'Firecrawl API key (overrides global --api-key)'
-    )
-    .option('--api-url <url>', 'API URL (overrides global --api-url)')
-    .option('-o, --output <path>', 'Output file path (default: stdout)')
-    .option('--json', 'Output as compact JSON', false)
-    .option('--pretty', 'Pretty print JSON output', false)
-    .action(async (query, options) => {
-      await handleSearchGitHubCommand({
-        query,
-        k: researchLimit(options),
-        apiKey: options.apiKey,
-        apiUrl: options.apiUrl,
-        output: options.output,
-        json: options.json,
-        pretty: options.pretty,
-      });
-    });
+  researchCmd.addCommand(
+    new Command('search-github')
+      .helpOption(false)
+      .allowUnknownOption()
+      .allowExcessArguments()
+      .action(() => {
+        console.error(
+          'Error: `firecrawl research search-github` was removed after 2026-11-03. Use `firecrawl developer "<query>"` instead.'
+        );
+        process.exit(1);
+      }),
+    { hidden: true }
+  );
 
   return researchCmd;
 }
@@ -2958,6 +2996,19 @@ Exits 1 if any check fails.
   });
 
 program
+  .command('update')
+  .description('Update the Firecrawl CLI to the latest release')
+  .option('--enable-auto', 'Turn automatic background updates on')
+  .option('--disable-auto', 'Turn automatic background updates off')
+  .option(
+    '--rollback',
+    'Restore the previous version and disable automatic updates'
+  )
+  .action(async (options) => {
+    await handleUpdateCommand(options);
+  });
+
+program
   .command('version')
   .description('Display version information')
   .option('--auth-status', 'Also show authentication status', false)
@@ -2969,10 +3020,15 @@ collectTopLevelCommands();
 
 // Handle the main entry point
 async function main() {
+  if (isAutoUpdateWorker()) {
+    await runAutoUpdateWorker();
+    return;
+  }
   // Parse user arguments explicitly instead of letting Commander infer whether
   // argv came from node, eval, electron, or another wrapper.
   const args = process.argv.slice(2);
-
+  const isUpdate = getFirstPositionalArg(args) === 'update';
+  const channel = detectInstallChannel();
   // Handle --version with --auth-status before Commander processes it
   // Commander's built-in --version handler doesn't support additional flags
   const hasVersion = args.includes('--version') || args.includes('-V');
@@ -2991,12 +3047,14 @@ async function main() {
     return;
   }
 
-  await maybeShowUpdateNotice();
+  if (!isUpdate && !(await startAutoUpdate({ channel }))) {
+    await maybeShowUpdateNotice({ hint: updateHint(channel) });
+  }
   const isSetup =
     args[0] === 'init' ||
     args[0] === 'setup' ||
     (args.length === 1 && ['-y', '--yes'].includes(args[0]));
-  if (!isSetup) {
+  if (!isSetup && !isUpdate) {
     await maybeShowSkillUpdateNotice();
   }
 

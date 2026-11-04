@@ -187,7 +187,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output", "-o",
-        help="Output directory"
+        help="Output file or directory (default: configured paths.intermediate_root per-input workspace, otherwise beside input)"
     )
     parser.add_argument(
         "--stage", "-s",
@@ -483,7 +483,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
         dest="enqueue_review",
         help="Enqueue review items from a JSON file ('-' = stdin). Each item: "
              "{original, suggested?, file?, line?, context?, kind?, domain?, "
-             "evidence?, actions?, priority?, source?}"
+             "evidence?, actions?, priority?, source?, domain_reason?}. "
+             "Classified files require an explicit domain; intentional new domains require domain_reason."
     )
     parser.add_argument(
         "--list-review",
@@ -644,7 +645,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--consolidate-review", action="store_true", dest="consolidate_review",
         help="With --review-file: persist links between uniquely located duplicate occurrences, retain old rows and all candidates, and report ambiguous legacy anchors. No verdict or transcript edit.")
     parser.add_argument("--sidecar-dir", metavar="DIR",
-        help="Write review reports to this directory (default: beside input). Reuse with --close-sidecars; run outputs still follow --output. Existing reports are preserved.")
+        help="Write review reports to this directory (default: --output location, which uses the configured workspace when omitted). Reuse with --close-sidecars. Existing reports are preserved.")
     parser.add_argument(
         "--ledger-entry", dest="review_ledger_entry",
         help="Append a confirmed entry beginning with the actual original→resolved pair to the anchored transcript's "

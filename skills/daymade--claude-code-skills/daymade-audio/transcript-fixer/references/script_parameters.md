@@ -25,8 +25,8 @@ uv run scripts/fix_transcription.py --input <file> --stage <1|2|3> [--output <di
   - `1` = Dictionary corrections only
   - `2` = Stage 1 dictionary pass followed by API AI correction
   - `3` = Stage 1 + API AI correction + diff report
-- `--output, -o` (optional): Where results are written — accepts either a **directory** (the sidecars `<stem>_stage1.md` / `_changes.md` / `_needs_review.md` are written into it) **or a file path** ending in `.md`/`.markdown`/`.txt` that is not an existing directory (the corrected Stage 1 output is written directly to that exact file). Defaults to the input file's directory. Every "Saved" / report line prints the full resolved path, so a misdirected output is visible immediately.
-- `--sidecar-dir DIR`: Override the directory for `_changes.md` and `_needs_review.md` only. Defaults to the existing `--output` location. Run outputs retain their existing location. Report generations append rather than overwrite prior evidence; identical generations are reused. Existing unreadable reports or a shared basename belonging to another transcript are refused. Runtime SQLite records the report paths so ordinary `--close-sidecars --input FILE` discovers them. Supply the directory explicitly to recover a report created before registration or moved by an operator; closure retains all pending/unreadable evidence. Keep each destination's tracked/untracked and closure policy.
+- `--output, -o` (optional): Where run results are written — accepts a **directory** or a file path ending in `.md`/`.markdown`/`.txt` that is not an existing directory. A file path receives the corrected Stage 1 output directly. Defaults to the configured per-input workspace, otherwise the input directory; see [background storage](intermediate_storage.md). Every saved path is resolved in the report.
+- `--sidecar-dir DIR`: Override `_changes.md` and `_needs_review.md` only. Without it, reports follow the run-output directory, including an explicit `--output` override. Report generations append rather than overwrite prior evidence; identical generations are reused. Existing unreadable reports or a shared basename belonging to another transcript are refused. Runtime SQLite records the report paths so ordinary `--close-sidecars --input FILE` discovers them, along with the configured workspace. Supply the directory explicitly for recovery of an unregistered report. Closure retains pending/unreadable evidence; keep the destination's tracked/untracked and closure policy.
 - `--domain, -d` (optional): Restrict to one correction domain (default: all domains). Accepts a comma-separated list (`--domain myproject,myproject-alt`): every listed domain's rules load as one union for Stage 1, and `--apply-domain` trusts the whole union. Write commands (`--add`, `--approve`, `--add-context-rule`) still require exactly one domain and fail fast on a list. Domain naming also scopes Stage 1: context rules (global rules always load; a domain-named rule loads only when its domain is active) and **trap demotion** — when the [selected domain context](domain_context_guide.md#location) exists, traps annotated `禁裸词`/`禁入词典` and confirmed-correct （勿修） records demote any same-FROM dictionary rule to safe-mode deferral (beating `--apply-domain` trust-flattening; `--apply-all` still overrides). Without `--domain` no veto fires (a whole-library run has no owner to veto with); in a multi-domain union the veto applies by FROM across the whole union, regardless of which named domain owns the rule or the context file. Demotions are printed on stderr (`🛡️ Trap demotion: N rule(s)…`), never silent.
 - `--apply-all` (optional): Opt out of the default safe mode and apply every risk level (low/medium/high). Higher false-positive risk — see false_positive_guide.md.
 - `--review` (deprecated): No-op kept for backward compatibility; safe mode is now the default.
@@ -98,7 +98,7 @@ uv run scripts/fix_transcription.py --input <file> --stage <1|2|3> [--output <di
 
 ### Review Queue Item Schema
 
-`--enqueue-review` accepts a JSON array of items (or `{"items": [...]}`). Only `original` is required. **Unknown keys are silently ignored** — a typo'd field name (e.g. `line_hint` instead of `line`) drops the value with no warning, and the item enqueues without that anchor. If the anchor matters, spot-check with `--show-review <id>` after enqueueing.
+`--enqueue-review` accepts a JSON array of items (or `{"items": [...]}`). For a new/unclassified file, only `original` is required; project-bound files also follow [domain admission](queue_domain_repair.md). **Unknown keys are silently ignored** — a typo'd field name (e.g. `line_hint` instead of `line`) drops the value with no warning, and the item enqueues without that anchor. If the anchor matters, spot-check with `--show-review <id>` after enqueueing.
 
 | Canonical field | Alias | Required | Notes |
 |---|---|---|---|
@@ -109,7 +109,8 @@ uv run scripts/fix_transcription.py --input <file> --stage <1|2|3> [--output <di
 | `context` | `context_snippet` | | Nearby text used to re-anchor if the file drifted since enqueue |
 | `context_offset` | | | Optional zero-based Unicode character index of `original` inside verbatim `context` (Python string indexing, not UTF-8 bytes or UTF-16 units). Supply `line` too. Omitted/null retains legacy anchoring; invalid types, negative values or a nonmatching slice are refused |
 | `kind` | | | `entity` / `unknown` lead; `homophone` / `wording` trail. Reuse follows the [dictionary and identity policy](dictionary_identity_and_context.md#dictionary-addition-after-fixing) |
-| `domain` | | | Default `general`; CLI `--domain` supplies it only for items that don't set their own (per-item `domain` wins — the CLI uses `setdefault`) |
+| `domain` | | | Default `general` for a new/unclassified file; CLI `--domain` supplies it only for items that don't set their own (per-item `domain` wins — the CLI uses `setdefault`). An already project-bound file requires an explicit nonempty domain |
+| `domain_reason` | | | Required for an intentional domain outside that file's existing non-general domains; recorded in enqueue audit. See [domain admission and repair](queue_domain_repair.md) |
 | `source` | | | Default `manual`; `stage1_deferred` is set by Stage 1 safe mode |
 | `evidence` | | | What the search ladder found (rendered on the review card) |
 | `actions` | | | Action pack (`file_edit` / `dict_add` / `append_note`) run on accept; empty + file anchor + non-empty `suggested` = a single `file_edit` on accept (an empty `suggested` with no action pack errors at resolve time, not enqueue time) |
@@ -314,7 +315,13 @@ Generates these files in the output directory:
 
 ## verify_queue_audio.py
 
-Run through `uv run` with `--transcript`, `--audio` and `--engine-script`.
+Run through `uv run` with `--transcript`, exactly one of `--audio` or
+`--source-spec`, and `--engine-script`. `--audio` keeps its existing local/ffmpeg
+URL behavior. For a verified local or authorized SSH source, prepare
+`--source-spec` through [source clips](source_clips.md); optional `--clip-cache`
+defaults to `<outdir>/source-cache`. The adapter checks source identity for either
+engine format and transfers only source-clock windows, with a per-window maximum
+defined by `source_clip.py`. It does not choose the recognizer or a verdict.
 `--engine-format stdout` preserves the pure-text stdout contract (default).
 `--engine-format mlx-file` accepts the existing `transcribe_local_mlx.py` owner:
 it receives both clips plus `--output-dir` through `uv run`, using the prepared

@@ -95,6 +95,92 @@ firecrawl setup build
 firecrawl setup workflows
 ```
 
+### CLI updates
+
+Global npm, pnpm, bun, and yarn installations, plus standalone binaries on macOS
+and Linux, check for updates in the background. Commands do not wait for an
+update, and the updater never writes to stdout. The next invocation uses the
+updated release, with a one-time notice on an interactive terminal.
+
+For global package installs, the installed package is a stable launcher. The
+updater uses npm to install a new release into a separate directory under
+`~/.firecrawl/versions/`, verifies it, then atomically switches the current
+version pointer. It never rewrites the global installation or removes files
+used by running commands. Managed versions are shared within a Node major
+version, so a patch upgrade reuses the saved release. The launcher checks the
+release's Node requirements before selecting it. npm must be available on PATH
+for automatic package updates; otherwise use your package manager's manual
+update command. Install scripts are disabled. Dependencies resolve to versions
+published no later than the release itself, so the waiting period covers them
+too.
+
+Each global installation has its own version selection. Maintenance retains
+the current and previous release for each installation, plus any older release
+still used by a running CLI process. It removes other inactive versions and
+staging directories older than 24 hours whose installer has exited. Files owned
+by another machine on shared storage are retained conservatively.
+
+Reinstalling with npm resets the launcher's selection to that package,
+including an explicit downgrade. Disable automatic updates before reinstalling
+if you want to stay on the selected version. Disabling updates alone keeps the
+currently selected release.
+
+Standalone binaries download their release archive, verify its SHA-256 checksum
+and reported version, then atomically replace the executable. The previous
+binary is retained beside it with a `.previous` suffix.
+
+A newly observed release waits at least 24 hours before unattended installation.
+The worker rechecks that it is still the latest release after this delay; a
+changed candidate starts a new waiting period. Version checks normally refresh
+about once a day. Automatic updates never cross a major version or install a
+prerelease. Prerelease installations remain pinned.
+
+To update immediately, bypassing the waiting period, including to a new major
+version:
+
+```bash
+firecrawl update
+```
+
+To restore the previous version without the network:
+
+```bash
+firecrawl update --rollback
+```
+
+For global package installs, the launcher handles rollback without loading the
+active release, so it works even when that release cannot start. Rollback
+disables automatic updates so the same release is not immediately
+installed again. The first managed-package rollback returns to the original
+package-manager installation; later updates can roll back to the previous
+managed version. Moving the registry's latest tag back does not automatically
+downgrade an existing installation.
+
+Control automatic updates with:
+
+```bash
+firecrawl update --disable-auto
+firecrawl update --enable-auto
+export FIRECRAWL_NO_AUTO_UPDATE=1
+```
+
+Automatic updates are also off when `CI` is set, unless it is `0` or `false`.
+`FIRECRAWL_NO_UPDATE_CHECK=1` disables both automatic updates and notices.
+Explicit updates still work with these settings. Failures leave the active
+installation unchanged and back off before retrying. Details are recorded in
+`~/.firecrawl/auto-update.log`.
+
+Homebrew and other system packages, project-local installs, package runners
+such as npx, and standalone Windows binaries retain their selected release and
+show the appropriate manual update instruction. Enabling automatic updates on
+these installations reports that they are externally managed. Disabling updates
+saves the shared user preference from any installation.
+Non-writable or differently owned standalone binaries are not replaced.
+
+Package updates use npm's registry configuration. Binary version checks honor
+`npm_config_registry`; binary downloads use GitHub releases, or the mirror set
+with `FIRECRAWL_RELEASES_URL`.
+
 ### Skill updates
 
 Interactive CLI sessions (except `init`, `setup`, and the `-y`/`--yes` init
@@ -263,29 +349,30 @@ firecrawl scrape https://firecrawl.dev https://firecrawl.dev/blog https://docs.f
 
 #### Scrape Options
 
-| Option                     | Description                                             |
-| -------------------------- | ------------------------------------------------------- |
-| `-f, --format <formats>`   | Output format(s), comma-separated                       |
-| `-H, --html`               | Shortcut for `--format html`                            |
-| `-S, --summary`            | Shortcut for `--format summary`                         |
-| `--only-main-content`      | Extract only main content (removes navs, footers, etc.) |
-| `--wait-for <ms>`          | Wait time before scraping (for JS-rendered content)     |
-| `--screenshot`             | Take a screenshot                                       |
-| `--full-page-screenshot`   | Take a full page screenshot                             |
-| `--include-tags <tags>`    | Only include specific HTML tags                         |
-| `--exclude-tags <tags>`    | Exclude specific HTML tags                              |
-| `--max-age <milliseconds>` | Maximum age of cached content in milliseconds           |
-| `--lockdown`               | Enable lockdown mode for the scrape                     |
-| `--redact-pii`             | Redact personally identifiable information from output  |
-| `--schema <json>`          | JSON schema for structured extraction                   |
-| `--schema-file <path>`     | Path to JSON schema file for structured extraction      |
-| `--actions <json>`         | JSON actions array to run during scrape                 |
-| `--actions-file <path>`    | Path to JSON actions file                               |
-| `--proxy <proxy>`          | Proxy mode for scraping (for example, `auto`, `basic`)  |
-| `-o, --output <path>`      | Save output to file                                     |
-| `--json`                   | Output as JSON format                                   |
-| `--pretty`                 | Pretty print JSON output                                |
-| `--timing`                 | Show request timing info                                |
+| Option                     | Description                                            |
+| -------------------------- | ------------------------------------------------------ |
+| `-f, --format <formats>`   | Output format(s), comma-separated                      |
+| `-H, --html`               | Shortcut for `--format html`                           |
+| `-S, --summary`            | Shortcut for `--format summary`                        |
+| `--only-main-content`      | Extract only main content (the default)                |
+| `--full-page`              | Keep the whole page, including navs and footers        |
+| `--wait-for <ms>`          | Wait time before scraping (for JS-rendered content)    |
+| `--screenshot`             | Take a screenshot                                      |
+| `--full-page-screenshot`   | Take a full page screenshot                            |
+| `--include-tags <tags>`    | Only include specific HTML tags                        |
+| `--exclude-tags <tags>`    | Exclude specific HTML tags                             |
+| `--max-age <milliseconds>` | Maximum age of cached content in milliseconds          |
+| `--lockdown`               | Enable lockdown mode for the scrape                    |
+| `--redact-pii`             | Redact personally identifiable information from output |
+| `--schema <json>`          | JSON schema for structured extraction                  |
+| `--schema-file <path>`     | Path to JSON schema file for structured extraction     |
+| `--actions <json>`         | JSON actions array to run during scrape                |
+| `--actions-file <path>`    | Path to JSON actions file                              |
+| `--proxy <proxy>`          | Proxy mode for scraping (for example, `auto`, `basic`) |
+| `-o, --output <path>`      | Save output to file                                    |
+| `--json`                   | Output as JSON format                                  |
+| `--pretty`                 | Pretty print JSON output                               |
+| `--timing`                 | Show request timing info                               |
 
 #### Available Formats
 
@@ -392,7 +479,8 @@ firecrawl search "AI data tools"
 | `--ignore-invalid-urls`      | Exclude URLs invalid for other Firecrawl endpoints                                                                                                                                                                |
 | `--scrape`                   | Enable scraping of search results                                                                                                                                                                                 |
 | `--scrape-formats <formats>` | Scrape formats when `--scrape` enabled (default: markdown)                                                                                                                                                        |
-| `--only-main-content`        | Include only main content when scraping (default: true)                                                                                                                                                           |
+| `--only-main-content`        | Include only the main content when scraping (the API default)                                                                                                                                                     |
+| `--full-page`                | Keep the whole page when scraping, including navs and footers                                                                                                                                                     |
 | `-o, --output <path>`        | Save to file                                                                                                                                                                                                      |
 | `--json`                     | Output as compact JSON                                                                                                                                                                                            |
 
@@ -522,9 +610,6 @@ firecrawl research related-papers pmcid:PMC12530322 --intent "in vivo delivery"
 
 # Read full-text passages to verify a specific claim
 firecrawl research read-paper doi:10.1016/j.neunet.2025.108095 --question "What was the sample size?"
-
-# Search GitHub issue/PR history and repository READMEs
-firecrawl research search-github "foundationdb queue worker shutdown" --limit 10
 ```
 
 Paper ids accept `pmid:`, `pmcid:`, `doi:`, and `arxiv:` forms, plus canonical `paperId` values returned by search.
@@ -537,7 +622,6 @@ Paper ids accept `pmid:`, `pmcid:`, `doi:`, and `arxiv:` forms, plus canonical `
 | `inspect-paper <paperId>`     | Canonical metadata: title, abstract, authors, categories, source ids, dates |
 | `related-papers <seedIds...>` | Citation-graph expansion from seed papers, ranked against `--intent`        |
 | `read-paper <paperId>`        | Best-matching in-body full-text passages for a `--question`                 |
-| `search-github <query>`       | GitHub issue/PR history and repository READMEs                              |
 
 #### `search-papers` Options
 
@@ -548,6 +632,7 @@ Paper ids accept `pmid:`, `pmcid:`, `doi:`, and `arxiv:` forms, plus canonical `
 | `--categories <categories>` | arXiv-style taxonomy labels (e.g. `cs.LG,cs.IR`). Biomedical records do not use these. |
 | `--from <date>`             | Inclusive lower bound on created/updated date (YYYY-MM-DD)                             |
 | `--to <date>`               | Inclusive upper bound on created/updated date (YYYY-MM-DD)                             |
+| `--sort <order>`            | `relevance` (default) or `date_desc` (newest of the most relevant matches)             |
 | `-o, --output <path>`       | Save to file                                                                           |
 | `--json`                    | Output as compact JSON                                                                 |
 | `--pretty`                  | Pretty print JSON output                                                               |
@@ -673,27 +758,27 @@ firecrawl crawl https://example.com --limit 100 --max-depth 3
 
 #### Crawl Options
 
-| Option                         | Description                              |
-| ------------------------------ | ---------------------------------------- |
-| `--wait`                       | Wait for crawl to complete               |
-| `--progress`                   | Show progress while waiting              |
-| `--limit <n>`                  | Maximum pages to crawl                   |
-| `--max-depth <n>`              | Maximum crawl depth                      |
-| `--include-paths <paths>`      | Only crawl matching paths                |
-| `--exclude-paths <paths>`      | Skip matching paths                      |
-| `--sitemap <mode>`             | `include`, `skip`, or `only`             |
-| `--allow-subdomains`           | Include subdomains                       |
-| `--allow-external-links`       | Follow external links                    |
-| `--crawl-entire-domain`        | Crawl entire domain                      |
-| `--ignore-query-parameters`    | Treat URLs with different params as same |
-| `--delay <ms>`                 | Delay between requests                   |
-| `--max-concurrency <n>`        | Max concurrent requests                  |
-| `--scrape-options <json>`      | JSON scrape options passed to each page  |
-| `--scrape-options-file <path>` | Path to scrape options JSON file         |
-| `--webhook <url-or-json>`      | Webhook URL or configuration             |
-| `--cancel`                     | Cancel an active crawl job by job ID     |
-| `--timeout <seconds>`          | Timeout when waiting                     |
-| `--poll-interval <seconds>`    | Status check interval                    |
+| Option                         | Description                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------- |
+| `--wait`                       | Wait for crawl to complete                                                      |
+| `--progress`                   | Show progress while waiting                                                     |
+| `--limit <n>`                  | Maximum pages to crawl                                                          |
+| `--max-depth <n>`              | Maximum crawl depth                                                             |
+| `--include-paths <paths>`      | Only crawl matching paths                                                       |
+| `--exclude-paths <paths>`      | Skip matching paths                                                             |
+| `--sitemap <mode>`             | `include`, `skip`, or `only`                                                    |
+| `--allow-subdomains`           | Include subdomains                                                              |
+| `--allow-external-links`       | Follow external links                                                           |
+| `--crawl-entire-domain`        | Crawl entire domain                                                             |
+| `--ignore-query-parameters`    | Treat URLs with different params as same                                        |
+| `--delay <ms>`                 | Delay between requests in milliseconds, 1 to 60000 (sent to the API in seconds) |
+| `--max-concurrency <n>`        | Max concurrent requests                                                         |
+| `--scrape-options <json>`      | JSON scrape options passed to each page                                         |
+| `--scrape-options-file <path>` | Path to scrape options JSON file                                                |
+| `--webhook <url-or-json>`      | Webhook URL or configuration                                                    |
+| `--cancel`                     | Cancel an active crawl job by job ID                                            |
+| `--timeout <seconds>`          | Timeout when waiting                                                            |
+| `--poll-interval <seconds>`    | Status check interval                                                           |
 
 #### Examples
 
@@ -743,7 +828,8 @@ firecrawl batch-scrape <job-id> --cancel
 | ------------------------------ | ----------------------------------------------- |
 | `--urls-file <path>`           | File with one URL per line                      |
 | `-f, --format <formats>`       | Output format(s), comma-separated               |
-| `--only-main-content`          | Extract only main content                       |
+| `--only-main-content`          | Extract only main content (the default)         |
+| `--full-page`                  | Keep the whole page, including navs and footers |
 | `--wait-for <ms>`              | Wait time before scraping each page             |
 | `--max-age <milliseconds>`     | Maximum age of cached content in milliseconds   |
 | `--schema <json>`              | JSON schema for extraction (adds `json` format) |

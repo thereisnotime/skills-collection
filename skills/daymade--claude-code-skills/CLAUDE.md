@@ -103,6 +103,8 @@ within the current user/host contract.
 
 For research asset discovery, follow [deep-research's catalog contract](deep-research/references/research-asset-contract.md#start-before-external-retrieval);
 keep discovery observations separate from final result checks.
+For source captures, dates and claim records, use its [capture procedure](deep-research/references/research-asset-contract.md#capture-sources-and-claims-during-the-run);
+lane question IDs follow the [provider-run contract](deep-research/references/provider-run-contract.md#task-file-studyjson).
 
 For research-driven evolution of a specified existing Skill, start at
 [skill-evolver](skill-evolver/SKILL.md) and follow its public stage routes; use
@@ -476,12 +478,16 @@ to select the command; `fix_transcription.py` dispatch and command-combination
 checks own accepted combinations.
 For domain-context location, configuration-directory selection or homophone-veto
 authoring, enter the [Domain Context Guide](daymade-audio/transcript-fixer/references/domain_context_guide.md).
+For project-bound queue appends or domain-only metadata repair, enter
+[queue domain admission and repair](daymade-audio/transcript-fixer/references/queue_domain_repair.md).
 For remaining pending rows or a received occurrence-specific human verdict on an
 already reviewed file, enter [pending continuation](daymade-audio/transcript-fixer/references/pending-continuation.md)
 for queue resolution and its finalization, learning and propagation owners.
 For source-audio export, identity and timeline pairing, follow
 [the audio setup SOP](daymade-audio/transcript-fixer/references/review_queue_dashboard.md#source-audio-and-timeline-pairing)
 and its [audio helper](daymade-audio/transcript-fixer/scripts/fetch_minute_audio.py).
+For verified local or already authorized SSH clip sources, enter
+[source clips](daymade-audio/transcript-fixer/references/source_clips.md).
 For batch audio checks, follow
 [queue-level clip cross-check](daymade-audio/transcript-fixer/references/advanced_correction_evidence.md#batch-pending-adjudication--queue-level-clip-cross-check).
 [verify_queue_audio.py](daymade-audio/transcript-fixer/scripts/verify_queue_audio.py)
@@ -651,6 +657,12 @@ For change-only automatic backups, use its
 
 For one-shot helper exits or attribution of an exited terminal, enter
 [helper terminals and original sessions](ghostty-use/SKILL.md#one-shot-helper-terminals-and-original-sessions).
+
+### Codex Startup and Entry Identity
+
+Before a Codex startup diagnosis or a build/resume/recovery claim, follow
+[entry identity](daymade-codex/local-codex/references/entry-identity.md).
+That SOP owns the shell/executable binding and the limits of identity evidence.
 
 ### Codex Quota and Account Checks
 
