@@ -4,7 +4,7 @@ import { basename, dirname, extname, join, relative, sep } from "node:path";
 import { listProjectFiles } from "../util/safe_git.ts";
 import { loadProjectApi } from "../project_model/resolve.ts"; import { languageBytes } from "../project_model/linguist.ts"; 
 import { attachScope, scopeRefs } from "../project_model/scope.ts";
-import { CS_TEST_RE, DOTNET_MANIFEST_RE, JAVA_TEST_RE, missingStackTool, pascalWords, toolOk } from "../util/stack_tools.ts"; export { missingStackTool };
+import { CS_TEST_RE, DOTNET_MANIFEST_RE, JAVA_TEST_RE, missingStackTool, pascalWords, repoTestCommand, toolOk } from "../util/stack_tools.ts"; export { missingStackTool };
 import { projectInterpreter, pytestPython } from "../util/python.ts"; export { projectInterpreter };
 import type { RunnerName, TestMap, TestMapProvider, TestRef } from "./types.ts";
 import { FOREIGN_SOURCE_RE, GO_TEST_RE, JS_SPEC_RE, JS_TEST_RE, PY_TEST_RE, STDLIB_RUNNERS, coveredStem, detectFromPackageJson, importedRunners, isTestFile, PYTEST_IMPORT_RE, referencedBasenames, scopeRunnersByPackage, COMMANDS, RUNNER_ORDER, guessRunner, type CommandSpec } from "../util/test_file_text.ts";
@@ -22,6 +22,12 @@ export interface EngineTestMap extends TestMap {
 }
 /** Detected runner first; the language holding most runnable sources picks its stdlib runner, else Loki's own bun runs the Wall's bun:test file (docs, plugins, config, JS/TS). Off with LOKI_WALL_HARNESS_RUNNER=0 or no bun on PATH, then the repo's own toolchain (RX-1); `focus` (changed or sealed files) picks the toolchain in a polyglot repo. */
 export const harnessRunners = (runners: RunnerName[], files: readonly string[] = [], env: NodeJS.ProcessEnv = process.env, root?: string, focus: readonly string[] = []): RunnerName[] => pickHarnessRunners(runners, files, env, root, focus).filter((r) => toolOk(r, env, root)); // HV1-03b: a Java or .NET build tool that is not installed is never a runner (the Wall then skips with the tool named, see missingStackTool) instead of a base run that cannot start
+/** FR05: one plain reason no test can run in this repo on this machine, or null when one can. Same decision as the Wall (harnessRunners): no runnable detected runner, no Wall harness runner, and no committed verify.test_command. Intake prints it before any session. */
+export function untestableReason(runners: RunnerName[], files: readonly string[], env: NodeJS.ProcessEnv = process.env, root?: string): string | null {
+  if ((root && repoTestCommand(root)) || harnessRunners(runners, files, env, root).length > 0) return null;
+  const miss = missingStackTool(files, env, root);
+  return miss ? `${miss.tool} is not installed (${miss.install})` : `no test runner Loki can use was found (Loki runs ${[...RUNNER_ORDER, "unittest"].join(", ")} tests)`;
+}
 const pickHarnessRunners = (runners: RunnerName[], files: readonly string[], env: NodeJS.ProcessEnv, root: string | undefined, focus: readonly string[]): RunnerName[] => {
   const onPath = (tool: string): boolean => !!Bun.which(tool, { PATH: env.PATH ?? "" }), w = languageBytes(root, files, (f) => STDLIB_RUNNERS.find((r) => r.ext.test(f))?.runner ?? (/\.[cm]?[jt]sx?$/i.test(f) ? "js" : FOREIGN_SOURCE_RE.test(f) ? "other" : null)), at = (k: string): number => w.get(k) ?? 0, js = at("js"), top = STDLIB_RUNNERS.reduce((a, r) => (at(r.runner) > at(a.runner) ? r : a)), bun: RunnerName[] = env.LOKI_WALL_HARNESS_RUNNER !== "0" && onPath("bun") ? ["bun"] : toolchainRunner(files, focus); // RX-1: no bun either: the repo's own toolchain runs the Wall instead of skipping it
   const t = at(top.runner), o = at("other");
@@ -74,6 +80,8 @@ export function buildTestMap(root: string): EngineTestMap {
   }
   // Object.create(null): keys come from grep'd file content, so a source named e.g. "constructor" must not collide with Object.prototype.
   const sourceRefs: Record<string, string[]> = Object.create(null);
+  const goMods = files.filter((f) => basename(f) === "go.mod").map((f) => ({ dir: dirname(f), path: /^module\s+(\S+)/m.exec(readText(join(root, f)))?.[1] })).filter((m): m is { dir: string; path: string } => !!m.path).sort((a, b) => b.path.length - a.path.length);
+  const goImportDir = (imp: string): string | null => { const m = goMods.find((x) => imp === x.path || imp.startsWith(`${x.path}/`)); if (!m) return null; const rel = join(m.dir, imp.slice(m.path.length + 1)); return rel === "" ? "." : rel; };
   const specs: Record<string, string[]> = Object.create(null);
   for (const t of tests) {
     const text = jsText.get(t.path) ?? readText(join(root, t.path));
@@ -81,6 +89,7 @@ export function buildTestMap(root: string): EngineTestMap {
     const names = referencedBasenames(text);
     names.add(coveredStem(t.path));
     if (/\.(?:java|cs)$/.test(t.path)) for (const w of pascalWords(text)) names.add(w); // R02: a Java or C# test names the classes it exercises
+    if (t.runner === "go") for (const m of text.matchAll(/"([\w.\-~]+(?:\/[\w.\-~]+)*)"/g)) { const d = goImportDir(m[1]!); if (d !== null) names.add(`godir:${d}`); } // a Go test exercises the module packages it imports: keyed by the imported package's repo directory, resolved through the repo's go.mod module paths (never by the last path segment, so internal/json is not encoding/json)
     for (const n of names) { (sourceRefs[n] ??= []).push(t.path); }
   }
   const runners = RUNNER_ORDER.filter((r) => r in evidence);
@@ -115,6 +124,10 @@ export function impactedRefs(map: TestMap, changedFiles: readonly string[]): Tes
     const entry = stem === "index" || stem === "__init__" || (stem === "mod" && extname(rel) === ".rs");
     if (entry && dirname(rel) !== ".") stems.push(basename(dirname(rel)));
     for (const s of stems) for (const p of sourceRefs[s] ?? []) add(map.tests.find((t) => t.path === p));
+    if (extname(rel) === ".go") { // Go is package-scoped: the package's own tests (same directory) and every test importing its directory
+      for (const t of map.tests) if (t.runner === "go" && dirname(t.path) === dirname(rel)) add(t);
+      for (const p of sourceRefs[`godir:${dirname(rel)}`] ?? []) add(map.tests.find((t) => t.path === p));
+    }
   }
   return scopeRefs(map, changedFiles.map(normalizeRel), out);
 }

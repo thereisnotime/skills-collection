@@ -1,13 +1,13 @@
 // Loki 10 state machine (ENGINE.md section 4): stage table, Plan || Wall, optional() loader, stage limits, global cap, stop reasons (stalled, fatal). Siblings arrive only through RunContext; stages come from ./stages/<name>.ts.
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative } from "node:path";
-import { hooks } from "./hooks.ts"; import { wallConcurrent } from "../util/wall_knobs.ts";
+import { hooks } from "./hooks.ts"; import { wallConcurrent } from "../util/wall_knobs.ts"; import { wallEnabled } from "./sizing.ts";
 import { treeDiffStat, treeSnapshot } from "../util/safe_git.ts";
 import { rerunOnQuota, sessionKind } from "../runner/retry_class.ts";
 import { REGISTRY } from "./registry.ts";
 import { runControlBoundary } from "../util/run_control.ts"; import { timeBudgetNote } from "../util/run_cap.ts"; import { FINISH_LINE } from "../e10ext/context.ts"; import { withSteer } from "../util/steer.ts"; import { restoreReadOnly, type ReadOnlyFile } from "./stages/implement.ts"; import { stallClimb } from "../runner/router/unit_model.ts"; import { removeHoldout } from "../util/holdout.ts"; import { distrustGreenBase } from "./stages/wall.ts";
 import { backstopS, DEEP_IMPLEMENT_LIMIT_S, DEFAULT_CAP_S, MAX_FIX_ROUNDS, STAGE_BUDGETS, VERIFY_STOPPED_NOTE, type EventType, type Obj, type RunContext, type Stage, type StageName, type StageResult } from "./types.ts";
-import { repeatedNoopFix } from "../util/anti_loop.ts"; import { restoreBaseTests } from "../util/test_guard.ts"; import { deliverOverWallConflict, wallOnlyAfterFix, wallSignature } from "../util/conflict_resume.ts";
+import { stallSame, stallSignature } from "../util/check_result.ts"; import { repeatedNoopFix } from "../util/anti_loop.ts"; import { deliverOverWallConflict, wallOnlyAfterFix, wallSignature } from "../util/conflict_resume.ts";
 
 /** WC-01b: optional split halves a wall stage may carry (see wall.ts `stage.split`). */
 interface WallSplit { author(ctx: RunContext, signal: AbortSignal): Promise<{ kind: string } & Record<string, unknown>>; install(ctx: RunContext, a: never, baseDir: string): StageResult; }
@@ -53,6 +53,9 @@ function defaultLoader(dir: string) {
   };
 }
 const harnessOnlyFail = (d: Obj | undefined): boolean => { const f = (Array.isArray(d?.checks) ? (d.checks as Obj[]) : []).filter((c) => c?.result === "fail"); return f.length > 0 && f.every((c) => c.owner === "harness"); }; // a harness-owned failure never feeds a fix round or a STALLED stop
+/** FireLater#21: verify's blocking checks are all collateral checks failing the same way on base (collateral_same_error), plus any full suite (which repeats them); a
+ *  re-verify after the fix round decides, so a full-suite failure the change caused still blocks there. */
+export const onlyCollateralRed = (d: Obj | undefined): boolean => { const col = Array.isArray(d?.collateral_same_error) ? (d.collateral_same_error as unknown[]).map(String) : [], b = Array.isArray(d?.blocking_checks) ? (d.blocking_checks as unknown[]).map(String) : []; return col.length > 0 && b.length > 0 && b.every((n) => col.includes(n) || n.startsWith("full suite")); };
 export const hasFailures = (d: Obj | undefined): boolean => (Array.isArray(d?.failures_grouped) && d.failures_grouped.length > 0 && !harnessOnlyFail(d)) || (typeof d?.holdout_failed === "number" && d.holdout_failed > 0); // C-C4b: a held-out failure is only an opaque count
 /** The fix loop's input after a verify stopped at its limit: the earlier failure groups minus those whose check the stopped verify saw pass
  *  (FireLater#24: fix round 2 was fed a Wall failure the stopped verify had already seen pass, 27 of 27). A group belongs to the check whose
@@ -167,7 +170,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
       r = { status: "failed", data: {}, reason: why, killed: true };
       const kept = name === "verify" ? (settled?.status === "completed" ? settled.data : partials.verify) : undefined;
       if (kept) { const prev = outputs.verify; outputs.verify = { ...kept, failures_grouped: stillFailing(prev?.failures_grouped, kept.checks), holdout_failed: prev?.holdout_failed ?? 0, not_proven: [...(Array.isArray(kept.not_proven) ? kept.not_proven : []), VERIFY_STOPPED_NOTE[why]], stopped_at: why, duration_s: dur() }; } // the checks that ran stay in the receipt; the note keeps the verdict below VERIFIED; the fix loop reads the earlier groups minus those the stopped verify saw pass
-      if (name === "implement" && why === "limit") { const ro = (outputs.wall?.readOnlyFiles as ReadOnlyFile[] | undefined) ?? [], reverted = [...restoreReadOnly(ro).map((f) => relative(ctx.repoDir, f)), ...restoreBaseTests(ctx.repoDir, ctx.baseSha, outputs.intake)]; outputs.implement = { exit: "killed", limit_s: limitS, elapsed_s: dur(), ...(reverted.length ? { tests_reverted: reverted } : {}) }; } // FC-21 (a): the work that exists is verified, and seal reads exit=killed so the verdict can never be VERIFIED
+      if (name === "implement" && why === "limit") { const ro = (outputs.wall?.readOnlyFiles as ReadOnlyFile[] | undefined) ?? [], reverted = restoreReadOnly(ro).map((f) => relative(ctx.repoDir, f)); outputs.implement = { exit: "killed", limit_s: limitS, elapsed_s: dur(), ...(reverted.length ? { tests_reverted: reverted } : {}) }; } // FC-21 (a): the work that exists is verified, and seal reads exit=killed so the verdict can never be VERIFIED
       if (name === "fix") outputs.fix = settled?.status === "completed" ? { ...settled.data, killed: true } : { ...outputs.fix, round: Number(outputs.fix?.round ?? 0) + 1, killed: true }; // a killed round still counts, so the next round gets its own iteration id instead of resuming the killed session
     }
     const res = r as StageResult;
@@ -248,7 +251,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
   try {
     let jumped = false, resized = false, stopped: string | null = null;
     const sigs: string[] = [];
-    const sigOf = (d: Obj | undefined, r?: StageResult | null): string => r && r.status !== "completed" ? `verify-crashed-${sigs.length}` : JSON.stringify([...((d?.failures_grouped ?? []) as { signature?: string; carried?: boolean }[]).filter((g) => !g.carried).map((g) => g.signature).sort(), `holdout_failed=${d?.holdout_failed ?? 0}`]); // a crashed or timed-out verify leaves outputs.verify stale: record a marker that never matches (A-113b)
+    const sigOf = (d: Obj | undefined, r?: StageResult | null): string => r && r.status !== "completed" ? `verify-crashed-${sigs.length}` : JSON.stringify([...((d?.failures_grouped ?? []) as { signature?: string; carried?: boolean }[]).filter((g) => !g.carried).map((g) => stallSignature(String(g.signature))).sort(), `holdout_failed=${d?.holdout_failed ?? 0}`]); // a crashed or timed-out verify leaves outputs.verify stale: record a marker that never matches (A-113b)
     for (const step of opts.flow ?? FLOW) {
       const group = (typeof step === "string" ? [step] : [...step]) as StageName[];
       let todo = group;
@@ -258,7 +261,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
       if (!isTail && !jumped && await runControlBoundary(ctx.runDir, (t, d) => ctx.emit(t as EventType, null, d ?? {}))) { jumped = true; stopped = "cancelled by request"; continue; } // P12-10: pause/cancel read at stage boundaries only
       if (!isTail && capReached()) markCap(todo[0] as StageName);
       if (capHit && !isTail) { jumped = true; continue; }
-      if (wallConcurrent() && todo.includes("plan") && todo.includes("wall") && !wallJob && await startWallAuthor()) todo = todo.filter((n) => n !== "wall"); // the Wall is now a background job, joined before verify
+      if (wallConcurrent() && wallEnabled() && todo.includes("plan") && todo.includes("wall") && !wallJob && await startWallAuthor()) todo = todo.filter((n) => n !== "wall"); // the Wall is now a background job, joined before verify
       if (wallJob && todo.includes("implement") && !(await (wallJob as WallJob).snap)) { const j = wallJob as WallJob, t0 = j.t0; abortWall(); ctx.emit("stage.failed", "wall", { duration_s: (ctx.clock.now() - t0) / 1000, reason: "wall base snapshot unavailable: nothing installed" }); } // the base copy must be complete before implement edits the tree; no copy means no Wall
       if (wallJob && todo[0] === "verify") await installWallJob(); // FC-VACUOUS-WALL-GREEN: a Wall green on base no longer ends the run here
       const results = await Promise.all(todo.map((n) => runStage(n, !isTail)));
@@ -282,6 +285,9 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
           const wallBefore = wallSignature(outputs, ctx.repoDir);
           const fx = await runStage("fix", true);
           if (!fx || mustJump("fix", fx) || fatal) break;
+          // FireLater#21: a fix-round conflict over failures verify showed failing the same way on base, in tests that only import a named file, is checked by one
+          // re-verify (no model session): after this round those failures are pre-existing, so a run with nothing else failing is delivered capped, never SPEC_CONFLICT.
+          if (fx.status === "completed" && outputs.fix?.exit === "spec_conflict" && onlyCollateralRed(outputs.verify)) { const v = await runStage("verify", true); if (mustJump("verify", v)) break; if (!hasFailures(outputs.verify)) break; }
           if (fx.status === "completed" && outputs.fix?.exit === "spec_conflict") { outputs.implement = { ...outputs.implement, exit: "spec_conflict", spec_conflict_reason: outputs.fix.spec_conflict_reason ?? null }; break; } // FC-FIX-CONFLICT-STALLED: a confirmed fix-round conflict is the implement conflict for seal, output and the supervisor
           const noop = fx.status === "completed" && repeatedNoopFix(outputs.fix), fedBy = sigs[sigs.length - 1] ?? null;
           // Two no-op rounds in a row against the same fully-run failure: the model is looping. A crashed verify between them never matches (sigOf), so a flaky or harness-owned verify still gets its re-run (A-113b).
@@ -295,7 +301,7 @@ export async function runMachine(ctx: RunContext, opts: MachineOptions = {}): Pr
           sigs.push(sigOf(outputs.verify, v));
           if (mustJump("verify", v)) break;
           if (wallOnlyAfterFix(outputs, ctx.repoDir) && wallSignature(outputs, ctx.repoDir) === wallBefore) break; // only Loki's own Wall still fails, the same tests the same way, while the repo's own tests pass: the round made no progress on it, so delivery below decides; a round that moved the Wall gets the rounds left
-          if (hasFailures(outputs.verify) && sigs.length >= 2 && sigs.slice(-2).every((x) => x === sigs[sigs.length - 1])) { // no progress: the round left the same failing set, so another round would only spend
+          if (hasFailures(outputs.verify) && sigs.length >= 2 && stallSame(sigs[sigs.length - 2]!, sigs[sigs.length - 1]!)) { // no progress: the round left the same failing set, so another round would only spend
             // A stall may climb once, only on a code-owned failure (a lint-only or harness-owned stall is unchanged); the same routedFix decides here and in the fix stage.
             const up = stallClimb(ctx.model, outputs, sigs[sigs.length - 1] ?? "");
             if (up) {

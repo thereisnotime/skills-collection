@@ -47,13 +47,21 @@ For missing Codex terminals without confirmed Ghostty ownership, load the instal
 |---|---|
 | Quitting for an update / reboot ("重启前保存会话") | `snapshot` |
 | Periodic backup, save only changes ("定期增量快照") | Read automatic-snapshots.md, then `ghostty_watch.py install --apply` |
-| Rebooted, want tabs back ("恢复之前的窗口") | Use a suitable snapshot; if absent or outdated, `reconstruct`, then `restore --all` on the selected manifest |
-| "Was anything lost?" / suspicion after restore | `check` |
+| Rebooted, want tabs back ("恢复之前的窗口") | Inspect snapshot coverage first. If absent, outdated or partial (unresolved TUIs or retained-unverified rows), follow [candidate selection](references/session_liveness.md#select-recovery-candidates-by-a-time-window) before reconstructing the selected manifest and restoring it |
+| "Was anything lost?" / suspicion after restore | `check`; when coverage is partial, follow [candidate selection](references/session_liveness.md#select-recovery-candidates-by-a-time-window) before claiming the set is complete |
 | Snapshot looks too large, or "which sessions were active after <time>?" | Follow [time-window selection](references/session_liveness.md#select-recovery-candidates-by-a-time-window) before choosing a restore set |
 | One specific session to bring back | `restore --only <id-prefix>` |
 | Minions `native_runtime` session or managed account-adoption error | Follow [account-owner selection](references/codex-account-switch.md#choose-the-account-owner-first) |
+| An existing Account Manager selects a legacy Ghostty terminal through its configured bridge | Follow [the legacy terminal port](references/account-manager-terminal-port.md); retain that caller's original operation |
 | Unmanaged/legacy Codex quota running out; manually switching account, keeping all Codex work | Start with [account-owner selection](references/codex-account-switch.md#choose-the-account-owner-first) |
 | After a switch, want the same sessions back ("换号后恢复原会话"); opening blocked or delegated | Follow [the original-set recovery route](references/codex-account-switch.md#reopen-the-original-recorded-set-not-a-blank-session) |
+
+For recovery, enter that selection route proactively when coverage is incomplete;
+do not wait for a count challenge. Keep older snapshot/retained IDs eligible even
+when their last activity ended earlier. Candidate discovery does not prove a tab
+was open at shutdown. Apply the latest [wanted-set reconciliation](references/restore_mechanics.md#reconcile-the-current-wanted-set),
+including explicit user closures, and verify [readable history](references/restore_mechanics.md#verify-history-readiness-after-process-reconciliation)
+after restoring; a running process alone does not establish recovery.
 
 ## Codex account switch
 
@@ -65,6 +73,14 @@ For blocked or delegated reopening, follow
 [the original-set route](references/codex-account-switch.md#reopen-the-original-recorded-set-not-a-blank-session).
 Keep command examples, handoff, authorization and acceptance in that SOP.
 Implementation: [ghostty_switch.py](scripts/ghostty_switch.py).
+
+For an explicitly configured legacy-terminal integration, use the
+[versioned JSON port](scripts/ghostty_session_port.py), its
+[native host](scripts/ghostty_native_host.py), and
+[bound-window AX reader](scripts/ghostty_ax_read.swift) through the
+[terminal-port contract](references/account-manager-terminal-port.md).
+Keep account policy and credentials with the calling product; preserve its
+native-runtime and shared-owner routes as separate operations.
 
 ## Quick start
 

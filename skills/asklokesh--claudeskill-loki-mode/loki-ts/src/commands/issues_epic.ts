@@ -3,7 +3,7 @@
 //      checks the schema, refuses cycles and refuses a slice whose dependencies are not on one stack);
 //   2. a split has at most MAX_SLICES slices; slices run in dependency order, those with satisfied dependencies concurrently up to --parallel, each as a normal engine10 run in its own worktree started on its stack parent's
 //      run branch (roots on HEAD), with the PR base set to that parent branch. The PR itself is the run's own PR stage;
-//   3. a slice that is not VERIFIED or PARTIAL with a PR stops its dependents, which are recorded SKIPPED with the reason;
+//   3. a slice that is not VERIFIED or PARTIAL with a PR stops its dependents and only its dependents (independent slices still run), which are recorded SKIPPED with the reason;
 //   4. renderEpicTree prints the epic as a tree of slice, outcome, PR and cost.
 import type { GhIssue } from "./issues_run.ts";
 import { exitCodeOf, labelCol } from "../engine10/output.ts";
@@ -149,6 +149,7 @@ export function decomposeBrief(slug: string, i: GhIssue, triageReason: string, o
     "a slice that depends on another is built on top of that slice's branch.",
     `Use at most ${MAX_SLICES} slices, and fewer when the issue allows. Prefer independent slices (empty depends_on) that can be built at the same time over a chain: add a dependency only when a slice cannot be built without the other's code. A long serial chain is a failure of the plan, because one failed slice skips everything after it.`,
     "Give a slice several dependencies only when they are already on one chain.",
+    "When a criterion changes behavior an existing test asserts (for example replacing ILIKE search with full-text search), search the repository's tests for it, put that test file in the slice's files, and say in the criterion that the test is updated to the new behavior. Never write \"existing tests still pass\" for behavior the slice replaces: the implementer treats an unnamed existing test as read-only and stops on the contradiction.",
     "Do not edit, create or delete any repository file. You may read the repository to judge scope.",
     `Write exactly one JSON object to the file ${outPath} and nothing else to that file, in this form:`,
     '{"slices":[{"id":"s1","title":"<short title>","acceptance":["<checkable criterion>"],"depends_on":[],"files":["<path if known>"]}]}',
@@ -183,8 +184,8 @@ export function planComment(triageReason: string, slices: readonly Slice[]): str
   ].join("\n");
 }
 
-/** A slice may carry dependents only when it produced a pushed branch with a PR (a kept run branch when the epic runs without PRs) and did not fail or block. */
-export const stacksOn = (r: SliceResult | undefined, needPr = true): boolean => !!r && (!needPr || !!r.pr) && !!r.branch && !/^(FAILED|BLOCKED|SKIPPED)/.test(r.outcome);
+/** A slice may carry dependents only when it produced a pushed branch with a PR (a kept run branch when the epic runs without PRs) and its outcome is VERIFIED, PARTIAL, ALREADY_SATISFIED or COMPLETED. A SPEC_CONFLICT, FAILED, BLOCKED, BUDGET_STOP or SKIPPED slice never carries dependents, even with a kept branch (--no-pr). */
+export const stacksOn = (r: SliceResult | undefined, needPr = true): boolean => !!r && (!needPr || !!r.pr) && !!r.branch && /^(VERIFIED|PARTIAL|ALREADY_SATISFIED|COMPLETED)\b/.test(r.outcome);
 
 /** Run one epic's slices: every slice whose dependencies are satisfied starts at once, up to `parallel` at a time, so independent roots never wait on each other. runSlice gets the parent's run branch (null for a root). */
 export async function runEpicSlices(
@@ -294,7 +295,9 @@ export function epicOutcome(rows: readonly SliceResult[], planUsd: readonly (num
   const failed = rows.find((r) => !isBudget(r) && !/^(VERIFIED|PARTIAL|SKIPPED)/.test(r.outcome)), budget = rows.find(isBudget);
   const outcome = failed ? "FAILED" : budget ? "BUDGET_STOP" : rows.some((r) => /^PARTIAL/.test(r.outcome)) ? "PARTIAL" : "VERIFIED";
   const why = failed ?? budget ?? rows.find((r) => /^PARTIAL/.test(r.outcome));
-  const lines = [`${labelCol("Outcome")}${outcome}`, ...(why && outcome !== "VERIFIED" ? [`${labelCol("Reason")}slice ${why.id}: ${oneLine(why.outcome)}`] : []),
+  // FireLater#21: a FAILED or budget-stopped split still says what it delivered, and where the stopped slice's change is, so 3 open PRs never read as nothing done.
+  const prs = rows.filter((r) => r.pr).length, kept = why && !why.pr && why.branch ? `; ${why.id}'s change is on branch ${why.branch}` : "", got = (outcome === "FAILED" || outcome === "BUDGET_STOP") && prs > 0 ? ` (${prs} of ${rows.length} slices opened a PR${kept})` : "";
+  const lines = [`${labelCol("Outcome")}${outcome}`, ...(why && outcome !== "VERIFIED" ? [`${labelCol("Reason")}slice ${why.id}: ${oneLine(why.outcome)}${got}`] : []),
     ...rows.filter((r) => r.pr).map((r) => `${labelCol("PR")}${r.pr}`), `${labelCol("Cost")}${splitCostText(splitCost(rows, planUsd))}`];
   return { outcome, rc: exitCodeOf(outcome, env), lines: `${lines.join("\n")}\n` };
 }

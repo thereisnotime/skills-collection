@@ -1840,98 +1840,84 @@ show_help_all() {
     if [ ! -t 1 ]; then
         BOLD=''; NC=''
     fi
+    # shellcheck source=/dev/null
+    source "$_LOKI_SCRIPT_DIR/lib/help-core.sh"
     echo -e "${BOLD}Loki Mode v$version${NC}"
     echo ""
-    echo "Usage: loki <command> [options]"
+    # The 11 core commands, then the hidden ones, then the renamed ones. The two
+    # lists below are the HIDE and FOLD classes of loki-ts/src/cli/registry.ts;
+    # tests/min/cli-entrypoints.sh fails when they drift from it.
+    help_core_commands
     echo ""
-    echo "New here? Try these in order:"
-    echo "  loki setup                One-step wizard: tools, provider login, model route, spend cap (--yes for defaults)"
-    echo "  loki welcome              Friendly first-run opener (what Loki is, next steps)"
-    echo "  loki doctor               Check your setup is ready (a few seconds)"
-    echo "  loki quickstart           Guided first build from your idea (no PRD needed)"
-    echo "  loki start ./prd.md       Build from a spec (PRD file, GitHub/GitLab/Jira/Azure issue, or no arg)"
-    echo "  quickstart = guided first build; quick = one small task (Loki 10 engine, no PR)."
-    echo "  loki \"<task>\", loki owner/repo#N and loki quick run on the Loki 10 engine by default."
-    echo "  Docs: https://github.com/asklokesh/loki-mode  |  Report a problem: loki crash"
+    echo "Integration and maintenance (hidden from the front page; they keep working):"
+    echo "  stats memory backup restore kpis report crash contract slack engine10 review mcp acp github"
+    echo "  ci modernize self-update secrets sandbox docker web syslog test bench compliance enterprise"
+    echo "  audit metrics magic workspace agents trigger merge heal"
     echo ""
-    # CLI consolidation (Phase A): the front page presents ~17 canonical
-    # workflow-oriented entries grouped by section. Deprecated alias names
-    # (stats, metrics, cost, trust-metrics, serve, open, otel, cp, wt, rc, ...)
-    # do NOT appear here; they live in the collapsed footer below and in
-    # `loki help aliases`. The full long-tail surface is still dispatchable and
-    # documented per-command via `loki <command> --help`.
-    #
-    # v7.39.0: trimmed three lower-traffic canonical entries off the front page
-    # to hold the lean target after `ultracode` (v7.38.0) joined Verify/trust:
-    # grill (pre-build spec interrogation, advanced), spec (living-spec drift,
-    # advanced), and cleanup (orphaned-process recovery, rare). They remain
-    # fully canonical (NOT aliases), dispatchable, and listed in the "More
-    # commands" footer below + documented via `loki <command> --help`.
-    echo "Commands:"
-    echo ""
-    echo "Build:"
-    echo "  start [SPEC]     Start a build (PRD file, GitHub/GitLab/Jira/Azure issue, or no arg)"
-    echo "  plan <PRD-file>  Dry-run analysis: complexity, cost, execution plan"
-    echo "  backlog <owner/repo> --all|--label X|--issues N,N   Run every matching open issue, N in parallel"
-    echo "  workspace list | infer <name> | run <name> <ref>   Multi-repo runs from loki.yaml workspaces (LOKI_WORKSPACES=0 disables)"
-    echo "  start --workspace <name> \"<brief>\"   Run a workspace; start --deploy [--health-url U] deploys after a VERIFIED run"
-    echo "  quickstart [idea]  Guided first build: setup, idea, template, plan, go"
-    echo "  try <repo-url>     Try Loki on a public repo in a temp clone (--dry-run previews); only the receipt is kept"
-    echo ""
-    echo "Session:"
-    echo "  status [--json|--badge|--probe]  Show current status (--json machine-readable, --badge deploy badge, --probe re-check deploy health)"
-    echo "  next             Run the right next step for you (resume / ship / why)"
-    echo "  stop             Stop execution immediately"
-    echo "  pause            Pause after current session"
-    echo "  resume           Resume a paused or interrupted run (after Ctrl-C or a crash)"
-    echo "  cancel           Cancel the active Loki 10 run at its next stage boundary"
-    echo "  steer \"<note>\"    Nudge a running build (Loki 10 engine; legacy loop needs LOKI_PROMPT_INJECTION=true)"
-    echo ""
-    echo "Verify / trust:"
-    echo "  verify [base] [--fast]  Deterministic PR verification (CI-gate exit codes; --fast: no model, no network)"
-    echo "  verify-pr <pr>   Verify a PR against its linked issue; 'verify-pr respond <pr>' fixes review comments"
-    echo "  keys export     Print the public receipt-signing key (JWK) for third-party verify --pubkey"
-    echo "  review [opts]    Standalone code review with quality gates"
-    echo "  ultracode \"task\" Run a task as a native Claude Code Dynamic Workflow (opt-in, Claude-only)"
-    echo "  trust [cmd]      Visible trust trajectory; 'trust detail' for metrics"
-    echo "  undo <run> [--plan|--dry-run]  Plan or apply (LOKI_UNDO=1) an undo of a run; verifies the receipt"
-    echo "  undo --list                    List recent runs with verdict, files changed and age"
-    echo ""
-    echo "Observe:"
-    echo "  dashboard [cmd]  Operations UI server (start|stop|status|url|open)"
-    echo "  mcp              Launch the MCP server (Model Context Protocol, stdio)"
-    echo "  acp              Run Loki as an ACP agent over stdio (VS Code, JetBrains, Zed)"
-    echo ""
-    echo "Report:"
-    echo "  report [cmd]     Reporting: session|metrics|cost|export|share|dogfood|release-notes"
-    echo ""
-    echo "Knowledge:"
-    echo "  analyze [cmd]    Codebase intelligence: explain|onboard|code|context"
-    echo "  memory [cmd]     Cross-project learnings (list|show|search|stats|compound)"
-    echo ""
-    echo "Modernize:"
-    echo "  modernize [cmd]  Legacy modernization: heal|migrate"
-    echo ""
-    echo "Config:"
-    echo "  config [cmd]     Manage configuration (show|init|edit|path|set|get)"
-    echo "  doctor [--json] [--quiet]  Check system prerequisites and skill symlinks"
-    echo ""
-    echo "  version [--json] Show version (--json for machine-readable)"
-    echo "  help             Show this help ('loki help aliases' for old names)"
-    echo ""
-    echo "More commands (the most useful; many more are dispatchable):"
-    echo "  Advanced:    ship, deploy, init, web"
-    echo "  Cloud + CI:  github, import, ci"
-    echo "  Debugging:   logs, crash, cleanup"
-    echo "...run 'loki help <name>' for any command."
-    echo ""
-    echo "Aliases (deprecated): older command names still work; they print a"
-    echo "one-line pointer to stderr and never alter --json output. See the full"
-    echo "list with 'loki help aliases'."
+    echo "Renamed (the old name keeps working unchanged; some targets arrive in later releases,"
+    echo "and until each one lands the old name is the way to do it):"
+    echo "  provider     -> loki config set provider NAME"
+    echo "  rollback     -> loki undo <run>"
+    echo "  wiki         -> loki chat"
+    echo "  runs         -> loki status"
+    echo "  intent       -> loki status <run>"
+    echo "  trust        -> loki status --json"
+    echo "  queue        -> loki start owner/repo#1 owner/repo#2"
+    echo "  issues       -> loki start owner/repo --label L --limit N --parallel K"
+    echo "  verify-pr    -> loki verify <PR url>"
+    echo "  answer       -> loki start --answer \"<text>\""
+    echo "  edit         -> loki \"<change>\" --no-pr"
+    echo "  diff         -> loki status <run>"
+    echo "  models       -> loki config list"
+    echo "  setup        -> loki doctor --fix"
+    echo "  quick        -> loki \"<task>\" --no-pr"
+    echo "  quickstart   -> loki \"<idea>\" in an empty folder"
+    echo "  keys         -> loki receipt key"
+    echo "  dashboard    -> loki control serve"
+    echo "  pause        -> loki stop --graceful"
+    echo "  resume       -> loki start"
+    echo "  cancel       -> loki stop --graceful"
+    echo "  why          -> loki status"
+    echo "  next         -> loki status"
+    echo "  logs         -> loki status"
+    echo "  share        -> loki receipt share"
+    echo "  export       -> loki verify <run> --sarif"
+    echo "  notify       -> loki status"
+    echo "  tour         -> loki start outside a repo"
+    echo "  wow          -> loki start outside a repo"
+    echo "  factory      -> loki start -v"
+    echo "  welcome      -> loki doctor"
+    echo "  onboard      -> loki chat"
+    echo "  setup-skill  -> loki doctor --fix"
+    echo "  cockpit      -> loki control serve"
+    echo "  api          -> loki control serve"
+    echo "  preview      -> loki deploy"
+    echo "  telemetry    -> loki config set telemetry off"
+    echo "  explain      -> loki chat"
+    echo "  docs         -> loki help"
+    echo "  own          -> loki chat"
+    echo "  projects     -> loki control serve"
+    echo "  cost         -> loki start --dry-run"
+    echo "  sentrux      -> loki start"
+    echo "  estimate     -> loki start <PRD> --dry-run"
+    echo "  plan         -> loki start <PRD> --dry-run"
+    echo "  grill        -> loki start <PRD> --dry-run"
+    echo "  spec         -> loki start <PRD> --dry-run"
+    echo "  backlog      -> loki start owner/repo --label L --parallel K"
+    echo "  state        -> loki start \"<goal>\""
+    echo "  agent        -> loki start \"<goal>\""
+    echo "  failover     -> loki start \"<goal>\""
+    echo "  migrate      -> loki \"modernize <what> to <target>\""
+    echo "  steer        -> loki chat --attach"
+    echo "  checkpoint   -> loki undo"
+    echo "  analyze      -> loki start \"<goal>\""
+    echo "  demo         -> loki start outside a repo"
+    echo "  run          -> loki start"
+    echo "  serve        -> loki control serve"
     echo ""
     echo "Options for 'start':"
     echo "  --provider NAME  AI provider: claude (default) or opencode"
-    echo "  (model route: set LOKI_MODEL_ROUTE, e.g. ollama/qwen3-coder; there is no --model flag)"
+    echo "  --model ID       Model tier or id (small, opus, ollama/qwen3-coder, openrouter/<id>); a route can also be set with LOKI_MODEL_ROUTE"
     echo "  --simple         Force simple complexity tier (3 phases)"
     echo "  --complex        Force complex complexity tier (8 phases)"
     echo "  --no-dashboard   Disable web dashboard"
@@ -1955,29 +1941,12 @@ show_help_all() {
     echo ""
     echo "Examples:"
     echo ""
-    echo "  # Starting a session"
-    echo "  loki start ./prd.md           # Start with PRD file"
-    echo "  loki start owner/repo#123     # GitHub issue (auto-fetches)"
-    echo "  loki start PROJ-456           # Jira issue"
-    echo "  loki quick \"add dark mode\"  # Single-task mode (Loki 10 engine)"
-    echo "  loki tour                     # See a real sample result (no provider, no key, no spend)"
-    echo "  loki tour --live              # Same as loki wow: a tiny real task when a provider is ready"
-    echo "  loki wow                      # Live mini-task, or the offline sample when no key is available"
-    echo "  loki factory \"<task>\"         # loki start, and print the autonomy policy"
-    echo "  loki demo                     # Build a sample todo app end to end"
-    echo "  loki init -t saas-starter     # Scaffold from template"
-    echo "  loki template install <src>   # Install a community PRD template"
-    echo ""
-    echo "  # Session ops + observability"
-    echo "  loki status [--json]          # Current status"
-    echo "  loki report session --efficiency   # Token + cost stats"
-    echo "  loki report kpis [--json]     # Accuracy + efficiency KPI snapshot"
-    echo "  loki report kpis --since 7d   # Window KPI totals (Nd or YYYY-MM-DD)"
-    echo "  loki doctor [--json]          # System prereq + skill symlinks"
-    echo "  loki logs                     # Tail recent log output"
-    echo "  loki report export json|markdown|csv|timeline   # Export session"
-    echo "  loki assets export team.tgz   # Export shareable team assets (redacted)"
-    echo "  loki cleanup                  # Kill orphaned processes"
+    echo "  loki start ./prd.md           # Build from a PRD file"
+    echo "  loki start owner/repo#123     # Build from a GitHub issue"
+    echo "  loki start ./prd.md --dry-run # Quote complexity and cost, change nothing"
+    echo "  loki status --json            # What is running, as JSON"
+    echo "  loki verify --json            # Machine-readable verification for CI"
+    echo "  loki doctor --fix             # Check setup and repair what it can"
     echo ""
     echo "  # Providers + model routing"
     echo "  loki provider list            # Show available providers, including opencode"
@@ -1995,50 +1964,6 @@ show_help_all() {
     echo "  #       Anthropic /v1/messages API. OpenRouter does NOT -- it serves"
     echo "  #       only the OpenAI-shaped /v1/chat/completions. Use the opencode"
     echo "  #       route above for OpenRouter."
-    echo ""
-    echo "  # Cross-project context (Phase F)"
-    echo "  # Drop .loki/app.json with {schema_version:1,app_id:myapp,members:[ui,api]}"
-    echo "  # at the parent of related repos for shared CLAUDE.md + memory."
-    echo ""
-    echo "  # Memory + learnings"
-    echo "  loki memory list              # All learnings"
-    echo "  loki memory search <query>    # Search across learnings"
-    echo "  loki memory consolidate       # Run episodic-to-semantic pipeline"
-    echo "  loki memory learn --recent N  # Learn from the newest N merged PRs"
-    echo ""
-    echo "  # Config + dashboard"
-    echo "  loki config set maxTier sonnet   # Cap model cost"
-    echo "  loki dashboard start          # Open the Control Plane UI"
-    echo "  loki watch                    # Auto-rerun on PRD changes"
-    echo "  loki cockpit                  # Live multi-repo cockpit (terminal image)"
-    echo "  loki remote                   # Remote session (phone/browser)"
-    echo ""
-    # COMPLETE COMMAND INDEX. The curated sections above stay curated -- they
-    # are the onboarding path and stuffing 112 commands into them would make
-    # the first screen useless. But a command that appears NOWHERE in help does
-    # not exist to a user: measured, 43 of 112 were unreachable from here,
-    # including `loki proof` -- the Evidence Receipt, which is the whole trust
-    # argument. Discoverability is an adoption lever, not tidiness.
-    #
-    # tests/test-help-discoverability.sh fails the build when a real command is
-    # missing from this list, so a new command cannot ship invisible.
-    echo ""
-    echo "All commands:"
-    echo "  agents chat diff edit models route"
-    echo "  acp agent analyze api assets audit backlog backup bench cancel checkpoint (cp) ci cleanup"
-    echo "  cluster cockpit code compliance completions compound config context (ctx)"
-    echo "  cost council crash dashboard demo deploy docker docs doctor dogfood"
-    echo "  enterprise estimate explain export factory failover github grill heal help"
-    echo "  import init intent"
-    echo "  issue keys kpis logs magic mcp memory metrics migrate modernize monitor"
-    echo "  next notify onboard open optimize otel outcomes own (handoff) pause plan preview"
-    echo "  projects proof (receipt) provider quick quickstart rc remote report reset"
-    echo "  merge restore resume review rollback run runs sandbox secrets secure self-update sentrux"
-    echo "  serve setup setup-skill share ship spec start state stats status steer stop"
-    echo "  syslog telemetry template test tour trigger trust trust-metrics try"
-    echo "  ultracode undo update verify version voice watch watchdog web welcome why"
-    echo "  wiki workspace worktree (wt) wow"
-    echo "  control"
     echo ""
     echo "Any command: loki <command> --help"
     echo ""
@@ -4207,7 +4132,7 @@ cmd_start() {
     fi
 
     # Load saved provider if not specified on command line
-    if [ -z "$provider" ]; then
+    if [ -z "$provider" ] && [ -z "${LOKI_PROVIDER:-}" ]; then
         if [ -f "$LOKI_DIR/state/provider" ]; then
             provider=$(cat "$LOKI_DIR/state/provider" 2>/dev/null)
             if [ -n "$provider" ]; then
@@ -6896,7 +6821,7 @@ cmd_status() {
     if [ -f "$LOKI_DIR/state/provider" ]; then
         saved_provider=$(cat "$LOKI_DIR/state/provider" 2>/dev/null)
     fi
-    local current_provider="${saved_provider:-${LOKI_PROVIDER:-claude}}"
+    local current_provider="${LOKI_PROVIDER:-${saved_provider:-claude}}"
     # Show provider with capability
     local capability="full features"
     case "$current_provider" in
@@ -7781,11 +7706,11 @@ _cmd_provider_help() {
             echo ""
             echo "Precedence (highest wins):"
             echo "  1. loki start --provider NAME         CLI flag (per-invocation)"
-            echo "  2. .loki/state/provider               saved value (per-project)"
-            echo "  3. LOKI_PROVIDER env var              shell session default"
+            echo "  2. LOKI_PROVIDER env var              shell session default"
+            echo "  3. .loki/state/provider               saved value (per-project)"
             echo "  4. claude                             built-in default"
             echo ""
-            echo "  Note: 'loki status' reflects the SAVED provider, not the env var."
+            echo "  Note: LOKI_PROVIDER, when set, beats the saved value; 'loki status' and 'loki provider show' follow the same order."
             echo "  Run 'loki provider set <name>' to make a project-level choice persist."
             echo ""
             echo "Examples:"
@@ -7805,9 +7730,9 @@ cmd_provider_show() {
         saved_provider=$(cat "$LOKI_DIR/state/provider" 2>/dev/null)
     fi
 
-    local current="${positional_arg:-${saved_provider:-${LOKI_PROVIDER:-claude}}}"
-    # A removed provider saved in .loki/state/provider: the migration line and how to clear it, as `loki start` says.
-    if [ -z "$positional_arg" ] && [ "$current" = "$saved_provider" ] && loki_is_removed_provider "$saved_provider"; then
+    local current="${positional_arg:-${LOKI_PROVIDER:-${saved_provider:-claude}}}"
+    # A removed provider saved in .loki/state/provider (and not overridden by LOKI_PROVIDER): the migration line and how to clear it, as `loki start` says.
+    if [ -z "$positional_arg" ] && [ -z "${LOKI_PROVIDER:-}" ] && [ "$current" = "$saved_provider" ] && loki_is_removed_provider "$saved_provider"; then
         loki_removed_provider_message "$saved_provider" >&2
         loki_removed_saved_provider_hint "$saved_provider" >&2
         exit 2
@@ -7827,7 +7752,9 @@ cmd_provider_show() {
             ;;
     esac
 
-    if [ -n "$saved_provider" ]; then
+    if [ -z "$positional_arg" ] && [ -n "${LOKI_PROVIDER:-}" ]; then
+        echo -e "${DIM}(from LOKI_PROVIDER, which beats the saved choice)${NC}"
+    elif [ -n "$saved_provider" ]; then
         echo -e "${DIM}(saved in .loki/state/provider)${NC}"
     else
         echo -e "${DIM}(default - not explicitly set)${NC}"
@@ -7893,7 +7820,7 @@ cmd_provider_list() {
     if [ -f "$LOKI_DIR/state/provider" ]; then
         saved_provider=$(cat "$LOKI_DIR/state/provider" 2>/dev/null)
     fi
-    local current="${saved_provider:-${LOKI_PROVIDER:-claude}}"
+    local current="${LOKI_PROVIDER:-${saved_provider:-claude}}"
 
     # Check which CLIs are installed
     local claude_status="${RED}not installed${NC}"
@@ -21404,6 +21331,14 @@ print(json.loads(p.read_text()).get('port', 7373) if p.exists() else 7373)
             else
                 echo "Schedules configured: 0"
             fi
+            python3 "$trigger_server_script" --health
+            ;;
+        resume)
+            if [[ -z "${1:-}" ]]; then
+                echo "Usage: loki trigger resume <source>" >&2
+                return 1
+            fi
+            python3 "$trigger_server_script" --resume "$1"
             ;;
         list)
             python3 "$trigger_schedule_script" list
@@ -21548,6 +21483,7 @@ for line in sys.stdin:
             echo "                        Start the webhook receiver server (default port: 7373)"
             echo "  stop                  Stop the webhook receiver server"
             echo "  status                Show server and schedule status"
+            echo "  resume <source>       Resume a source that auto-paused (also clears its failure count)"
             echo "  list                  List configured schedules"
             echo "  add schedule <name> <cron_expr> <action> [args...]"
             echo "                        Add a cron-based schedule trigger"
@@ -21559,9 +21495,14 @@ for line in sys.stdin:
             echo "  help                  Show this help"
             echo ""
             echo "Webhook events handled:"
-            echo "  issues (opened)        -> loki run <issue_number> --pr --detach"
-            echo "  pull_request (sync)    -> loki run <pr_number> --detach"
-            echo "  workflow_run (failure) -> loki run --detach"
+            echo "  issues opened                          -> loki start o/r#N --pr"
+            echo "  pull_request synchronize               -> loki start o/r#N"
+            echo "  workflow_run failure on default branch -> loki start --brief <CI brief> --pr"
+            echo "  pull_request_review changes_requested  -> loki verify-pr respond o/r#N"
+            echo "  /sentry, /slack, /linear, /jira, /teams -> PR-only or job runs"
+            echo ""
+            echo "Auto-pause: LOKI_TRIGGER_PAUSE_AFTER=N consecutive failed runs pause a source"
+            echo "(default 3, 0 disables). 'loki trigger status' shows each source's health."
             echo ""
             echo "Schedule cron format: minute hour day-of-month month day-of-week"
             echo "  Examples:"
@@ -24259,6 +24200,10 @@ cmd_ultracode() {
 
 # Standalone code review - diff-based quality gates (v6.20.0)
 cmd_review() {
+    if [ "${1:-}" = "queue" ]; then
+        echo "loki review queue needs the Bun runtime; unset LOKI_LEGACY_BASH" >&2
+        return 2
+    fi
     local review_staged=false
     local review_pr=""
     local review_since=""
@@ -26952,6 +26897,8 @@ except Exception as e:
             echo "  loki memory crossproject --for 'build api'"
             echo "  loki memory graph --export graph.json"
             echo "  loki memory graph rebuild"
+            echo "  loki memory graph ingest [<path>...]"
+            echo "  loki memory graph ask \"who owns billing\" [--repo <dir>]"
             echo "  loki memory enable-hook"
             echo "  loki memory disable-hook"
             echo ""
@@ -27111,6 +27058,14 @@ except Exception as e:
             # semantic/*.json across discovered projects and persists them
             # to the org knowledge graph -- the population path that makes
             # crossproject + load_memory_context augmentation non-inert.
+            # FR06: `ingest [<path>...]` reads services, CODEOWNERS and decision docs from repos into the
+            # org graph (~/.loki/knowledge/graph.json); `ask "<question>"` prints the cited facts.
+            if [ "${1:-}" = "ingest" ] || [ "${1:-}" = "ask" ]; then
+                local _kg_args=("$@")
+                if [ "${_kg_args[0]}" = "ingest" ] && [ "${#_kg_args[@]}" -eq 1 ]; then _kg_args+=("."); fi
+                PYTHONPATH="${SKILL_DIR:-$(pwd)}" python3 "${SKILL_DIR:-$(pwd)}/memory/knowledge_graph.py" "${_kg_args[@]}"
+                return $?
+            fi
             if [ "${1:-}" = "rebuild" ]; then
                 shift
                 PYTHONPATH="${SKILL_DIR:-$(pwd)}" python3 -c "
@@ -27151,7 +27106,7 @@ except Exception as e:
             while [ $# -gt 0 ]; do
                 case "$1" in
                     --export) _graph_export="${2:-}"; if [ $# -ge 2 ]; then shift 2; else shift; fi ;;
-                    -h|--help) echo "Usage: loki memory graph [--export <path>] | loki memory graph rebuild"; return 0 ;;
+                    -h|--help) echo "Usage: loki memory graph [--export <path>] | loki memory graph rebuild | loki memory graph ingest [<path>...] | loki memory graph ask \"<question>\" [--repo <dir>]"; return 0 ;;
                     *) shift ;;
                 esac
             done
@@ -28060,8 +28015,9 @@ EOF_RENAMES
 # Shared merge gate. One PR (number or branch) merges only when it is not a
 # draft, `gh pr checks` exits 0 after polling pending (rc=8), and, with
 # --require-verified, every clean proof recorded for the PR's head commit
-# (facts.git.head_sha == headRefOid, dirty-tree proofs ignored) says VERIFIED; a stale or missing proof
-# refuses ("gate: head"). The merge passes --match-head-commit so a push after
+# (facts.git.head_sha == headRefOid, dirty-tree proofs ignored) says VERIFIED, or, for a Loki 10 run
+# with no legacy proof, a .loki/runs receipt whose head_sha is the PR head passes `loki verify <run>`;
+# a stale or missing proof refuses ("gate: head"). The merge passes --match-head-commit so a push after
 # the gate cannot land unjudged. On refusal it prints the exact blocking gate
 # ("gate: draft|head|verdict|trust|checks") and leaves the PR open.
 # Usage: _merge_pr_gated <pr> [--require-verified] [--delete-branch]
@@ -28119,6 +28075,22 @@ _merge_pr_gated() {
                 [ -n "$hl" ] || hl="UNREADABLE"
                 if [ -z "$headline" ]; then headline="$hl"; elif [ "$headline" != "$hl" ]; then disagree=true; fi
             done
+            # Loki 10 (`loki start`) records no .loki/proofs: with no legacy proof for this head,
+            # judge the sealed run receipts in .loki/runs. A receipt counts only when its head_sha
+            # is the PR head and `loki verify <run>` agrees (rc 0 VERIFIED; rc 4 is a run outcome
+            # that is not VERIFIED; anything else is not verified). Legacy proof acceptance above is unchanged.
+            if [ -z "$headline" ] && ! $disagree; then
+                local rf="" rid="" vrc=0 rhl=""
+                for rf in .loki/runs/*/receipt.json; do
+                    [ -f "$rf" ] || continue
+                    [ "$(jq -r '.head_sha // empty' "$rf" 2>/dev/null)" = "$head" ] || continue
+                    [ "$(jq -r '.schema // empty' "$rf" 2>/dev/null)" = "loki.v10.receipt/1" ] || continue
+                    rid="$(basename "$(dirname "$rf")")"
+                    vrc=0; "$_LOKI_SCRIPT_DIR/../bin/loki" verify "$rid" >/dev/null 2>&1 || vrc=$?
+                    if [ "$vrc" = "0" ]; then rhl="VERIFIED"; else rhl="NOT VERIFIED (loki verify rc $vrc)"; fi
+                    if [ -z "$headline" ]; then headline="$rhl"; elif [ "$headline" != "$rhl" ]; then disagree=true; fi
+                done
+            fi
             if $disagree; then
                 echo "$pr: not merged, gate: verdict (proofs for PR head ${head:0:12} disagree); PR left open" >&2
                 _pr_record_merge "$pr" "blocked:verdict" "verdict"
@@ -28252,7 +28224,7 @@ cmd_merge() {
             echo "  watch <pr>         Wait for checks; on red run up to LOKI_PR_REPAIR_MAX (2) bounded"
             echo "                     repair sessions on the PR branch, push, re-check, merge when green."
             echo "  pr <pr|branch>     Merge one PR through the same gate (not draft, checks green;"
-            echo "                     --require-verified also needs a VERIFIED run verdict)."
+            echo "                     --require-verified also needs a VERIFIED run: a legacy proof, or a Loki 10 receipt in .loki/runs, for the PR head)."
             echo "  add <pr>...        Queue pull requests"
             echo "  list               Show the queue"
             echo "  run [--dry-run]    Merge one at a time, only when checks are green;"

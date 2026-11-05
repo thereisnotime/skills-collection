@@ -5,6 +5,116 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.131.0 (2026-11-05)
+
+Loki proves honest fixes again by testing them against the original code, and spends fewer fix rounds on failures it did not cause.
+
+### Fixed
+- The check that a new test fails on the original code and passes on the change now runs on a correctly installed copy of the original code (same interpreter, nearest package's own vitest config), so honest fixes can reach VERIFIED again; import, collection and missing-function errors still never count as proof.
+- No Wall snapshot is taken when the Wall is off, which removed a "Wall failed" result on large trees.
+
+### Changed
+- Fix rounds stop when a round would get the same failing tests as the previous one, and a TypeScript check that fails only on unused declarations in untouched files is excused only when the same errors already appear on the original code.
+
+## v11.130.0 (2026-11-05)
+
+Loki spends far less on understanding your repository, trusts your own tests instead of writing its own, and removed commands now say what to use instead.
+
+### Changed
+- `loki-ts/dist` is built at publish time for npm, Docker and Homebrew and is no longer tracked in git, which removes the most common merge conflict for contributors. Installing from npm is unchanged. A git clone builds it on first run after `bun install`.
+- Intake answers the Project Model from manifests with zero model sessions when every package and a test command are declared; the fallback session runs at low effort with a smaller brief (brief tokens down 92.5 percent on the 20-task corpus). Set LOKI_E10_PM_MANIFESTS=0 to restore the session.
+- The Wall (Loki writing acceptance tests before implementing) is off by default; `LOKI_E10_WALL=1` turns it back on. In the benchmark with it off, more tasks were ready to merge (11 of 20 vs 9 of 20), cost per accepted task was lower and Loki claimed VERIFIED wrongly 0 times vs 1.
+- VERIFIED now needs the repository's own suite green, no weakened test, no regression, and a test that the harness itself runs failing on the base commit with an assertion and passing on the change, which names code that existed before the change. Otherwise the run is PARTIAL with the reason. Runners other than pytest and vitest default to PARTIAL for this proof.
+- scripts/local-ci.sh runs the hermetic tests LOCAL_CI_JOBS at a time (default 4) and still prints results in order, with exit 1 and the failing log on any failure.
+- run-safety splits into concurrent units with the same assertions.
+- CI uses 2 jobs on its 4 vCPU runner; a load-sensitive oracle task is retried once alone before failing.
+
+### Removed
+- 27 commands with no remaining caller (init, template, ship, import, issue, council and others, plus aliases rc, ctx, wt) exit 2 before any engine or provider check, naming the replacement. Commands that still have a live caller stay as hidden aliases.
+
+## v11.129.0 (2026-11-05)
+
+Loki starts from one line, works across repositories and stacks, quotes cost before it spends, ships cleaner pull requests, and `loki --help` shows 11 commands instead of about 100.
+
+### Added
+- One-line goals: `loki "fix #123"`, `loki "#12"`, an issue URL copied from the browser (trailing slash, query or comment fragment), a Sentry issue link, and a bare PR URL now each reach the existing issue, text or verify-pr path with no flags and no questions. On by default because it only adds new input forms; every input that worked before behaves identically. Set LOKI_GOAL_REF=0 to keep the old text behavior.
+- Review queue: `loki review queue` lists open Loki PRs ranked by risk, marks low-risk receipt-clean PRs ready with a short summary, and every VERIFIED PR comment now carries a proof passport that can be checked offline. The passport is on by default; set `LOKI_PR_PASSPORT=0` to turn it off.
+- Zero-config on any stack: Loki shows the test command it will run on Maven, Gradle, .NET, Go, Python and JS repos with no env vars, and says plainly up front when it cannot test. On by default.
+- Parallel units: a large issue on `loki start` splits into independent slices that run at the same time and merge in order into one PR, and a failing slice does not stop independent ones. On by default; set `LOKI_EPIC_PARALLEL=1` to return to the serial order.
+- Quote and cap: `loki start` prints about $X, about N minutes and the cap before spending, stops at the cap with a usable partial, and `loki stats` shows how accurate past quotes were. On by default.
+- Close the laptop: `loki start "<task>" --detach` hands the run to the background so it keeps going after the terminal closes and reports the outcome to the PR and Slack. Off unless you pass `--detach`.
+- Event-driven automations: after `loki trigger start`, red CI on the default branch, Sentry alerts, trusted "changes requested" PR reviews, Slack /loki reports and Linear, Jira and Teams delegations start Loki through one trigger registry. Each source counts runs and auto-pauses after repeated failures (LOKI_TRIGGER_PAUSE_AFTER, default 3, 0 disables); `loki trigger status` shows per-source health and `loki trigger resume <source>` clears a pause. It only runs under a trigger server the user starts; `loki start` behavior is unchanged.
+- Auto-composed multi-repo runs: `loki workspace affected <name> "<goal>"` prints, with no model call and no writes, which repos a goal touches and in what order. With `affected: true` in the workspace or `LOKI_WORKSPACE_AFFECTED=1`, `loki workspace run` and `loki start --workspace` run only those repos ordered by declared and inferred `after` edges, and every repo PR gets a comment linking its sibling PRs. Repo selection and inferred ordering are off by default; the switch is `affected: true` or `LOKI_WORKSPACE_AFFECTED=1`. The linked-PR comment and run summary line are on.
+- The head-to-head harness (benchmarks/h2h) gains a learning curve protocol: raw and Loki sequence arms run in laps over the same repo, with a paired bootstrap comparing laps. It is opt-in and only runs when you invoke the h2h harness with --laps (paid, off by default); `loki start` behavior is unchanged.
+- With `LOKI_ORG_GRAPH=1` (off by default until measured), `loki start` adds a short cited "Org knowledge" block to the implement brief: the services this repository defines, CODEOWNERS for the paths the task touches, services in other ingested repositories that depend on it, and ADRs that match the task. Facts live in `~/.loki/knowledge/graph.json`. `loki memory graph ingest <path>` adds repositories; trackers and chat are not read yet.
+
+### Changed
+- `loki --help` and tab completion list only start, chat, status, verify, receipt, stop, undo, deploy, doctor, config and control. Every other command still works exactly as before; `loki help all` lists the rest. Nothing a script runs today changes.
+- Test files that existed before a run are no longer read-only: an implementer can add a test case to them. Edits to them are no longer reverted. A weakened existing test (an assertion or case removed, a skip added, or an added setup, teardown, mock or fixture) is still named in the receipt and caps the verdict at PARTIAL; only an added test case passes uncapped. Loki's own acceptance tests stay read-only. On the 14 benchmark tasks Loki previously failed, this raised merge-ready results from 0 to 3 (independent evaluator, one seed).
+
+### Fixed
+- A lockfile that changed only because Loki installed packages (no manifest change in its directory) is left out of the commit, so the pull request holds only the change the task asked for. A lockfile still ships when its manifest changed, when the task asks to update, upgrade or bump a dependency or package, names the lockfile, or names a CVE.
+- The changed-files formatter pass also runs a repository's own biome binary.
+- The learning-curve harness test used a fixture that weakens a test, which now correctly caps the run at PARTIAL and teaches no worked example; it uses an added test case instead. No change to loki start.
+
+## v11.128.2 (2026-11-04)
+
+The provider you save with `loki provider set` now really runs, and Loki's engine sessions cost fewer tokens and show readable titles.
+
+### Fixed
+- `loki provider set opencode` now makes `loki start`, a bare `loki "task"`, `loki quick`, issue mode, `loki plan`, `loki issues run` and `loki estimate` run on opencode. Before, the Loki 10 engine ignored the saved choice and ran claude. Precedence is the same everywhere: `--provider`, then `LOKI_PROVIDER`, then the saved choice, then claude; `loki provider show`, `list`, `status` and `--help` now say so. A saved codex, gemini or unknown name stops at once with the fix command instead of silently running claude.
+
+### Changed
+- The repository discovery brief puts everything that is the same across tasks on one repository first and the per-run answer path last, so back-to-back tasks on the same repository can reuse the cached prompt (audit estimate: about 16K cache-write tokens per task turned into cache reads).
+- Engine sessions on the Agent SDK route now carry a title (`loki <stage>: <task>`), which shows in Claude Code's `/resume` list and skips Claude Code's own title-generation call to Haiku (about 45K uncached tokens per task in the 3-day benchmark ledger).
+
+## v11.128.1 (2026-11-04)
+
+Large issues split into slices no longer stop on a slice that promises existing tests still pass while replacing the behavior those tests check.
+
+### Fixed
+- When `loki start owner/repo#N` splits a large issue, the planner now searches the repository's tests for behavior a slice replaces (for example ILIKE search replaced by full-text search), puts that test file in the slice, and says the test is updated. Before, a slice could say "existing tests still pass", the implementer then treated the unnamed test as read-only and stopped with SPEC_CONFLICT after a few cents, and every dependent slice was skipped (seen on a real 4-slice issue on v11.127.0).
+
+## v11.128.0 (2026-11-04)
+
+Fewer sessions on cheap runs, Go tests that count, and a tougher already-done check under --haiku.
+
+### Changed
+
+- Under `--haiku`, when Haiku claims a task is already done with no change and the router redoes it on Sonnet, the redo now carries the reproduce-the-defect challenge, so a second false "already done" is checked rather than accepted. It adds no session.
+- Go tests now count as evidence for the packages they import (resolved through go.mod), so correct Go runs can seal VERIFIED. Exported Go methods are excluded from coverage requirements only on types that actually implement sort, heap or error interfaces.
+- A cap that marks a run PARTIAL when an added public function is not exercised by any passing check is included but OFF by default (`LOKI_E10_PUBLIC_GAP=1` turns it on, experimental): review found it can misread line positions after multi-line docstrings or comments. With it off, verdicts match the previous release.
+- Benchmark record for the change as measured with the cap on: `benchmarks/h2h/results/2026-11-04-0972a4f97.json` (run on 0972a4f97, 1 rep): loki-haiku 24/24 at $0.0116 per passed task, raw Haiku 24/24 at $0.0226, 0 false VERIFIED; one rep, and one expensive raw task skews the raw number.
+
+## v11.127.0 (2026-11-04)
+
+Large multi-package issues no longer stop on tests that were already failing, and a test the change broke is never excused as pre-existing.
+
+### Fixed
+
+- A test that was already failing before the change, with the same error, no longer blocks delivery: it gets one fix round, and if it still fails the same way the run is delivered as PARTIAL with that test named (FireLater#21's frontend slice ended SPEC_CONFLICT with no PR). Each package's own baseline is used, not only the repository root's.
+- A failure is treated as pre-existing only when its errors match the base run exactly: a changed value inside an assertion (for example a different URL path), a new unhandled-error report, a failing test reached only through a dynamic import, or an extra failing case under a repeated `test.each` title now counts as a new failure. Before, a test the change broke could be excused, and in some cases the run was sealed VERIFIED.
+- Deleting or renaming an installed package now counts as a dependency change, so a resulting "Cannot find package" failure is never passed off as pre-existing. Test-runner cache folders (`.vitest-cache`, `.vite-temp`) do not count.
+- Checked against real vitest 2.1.9 and 5.1.0.
+
+## v11.126.1 (2026-11-04)
+
+Every Haiku session now compacts before it can cross Haiku's 100K-token price threshold.
+
+### Fixed
+
+- `loki start --haiku`, the auto preset and every Haiku-pinned session now carry Claude Code's compact window (100,000 tokens, the smallest Claude Code accepts). Before, only routed advisor sessions had it, so a long Haiku implement or acceptance-test session could drift past 100K tokens and pay the higher long-context rate on every request. Claude Code compacts well before the window is full. Sonnet and Opus sessions are unchanged.
+- A user's or project's own `autoCompactWindow` setting is overridden on Haiku sessions; `CLAUDE_CODE_AUTO_COMPACT_WINDOW` in the environment still wins.
+
+## v11.126.0 (2026-11-04)
+
+--haiku writes Loki's acceptance tests on Haiku, so it costs less per passed task than raw Claude Code on Haiku.
+
+### Changed
+
+- Under `--haiku` and `--cost lean` (`LOKI_ROUTER=auto`), the acceptance-test (Wall) author now runs on Haiku instead of always on Sonnet. The intake already-done confirmation and the Wall referee stay on Sonnet. `LOKI_E10_WALL_TIER`, `LOKI_MODEL_OVERRIDE`, `LOKI_SESSION_MODEL` and the development model pins still win; without `LOKI_ROUTER` nothing changes.
+- On bench v2 (24 tasks x 2 reps, `benchmarks/h2h/results/2026-11-03-haiku-wall-ae30e6efb.json`, run on ae30e6efb): `--haiku` passed 48/48 at $0.0176 per passed task against raw Haiku 48/48 at $0.0187, with 0 false VERIFIED (31 VERIFIED, 15 PARTIAL, 2 BLOCKED). Before this change `--haiku` cost $0.0433 per passed task.
+
 ## v11.125.0 (2026-11-02)
 
 Loki pull requests are titled after the work, and split issues no longer leave a check pending forever.

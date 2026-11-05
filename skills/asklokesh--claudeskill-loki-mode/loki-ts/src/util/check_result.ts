@@ -20,6 +20,7 @@ import { UNITTEST_DISCOVER_ARGS } from "./python_build_check.ts";
 import { safeGit, safeGitSpawn, tokenFreeEnv } from "./safe_git.ts";
 import { redactSecrets, UNSAFE_TERMINAL_CHARS_RE } from "./redact.ts";
 import { clauseGapOf, extractClauses, weakAssertionNote } from "./spec_file.ts";
+import { langOf, symbolSpans } from "./context_pack.ts";
 
 /** FC-69: the ONE child env for every harness-run test or verify command. A user's FORCE_COLOR=3 makes node:test, pytest, jest and
  *  friends emit ANSI that defeats line-anchored result parsers; FORCE_COLOR=0 + NO_COLOR=1 keeps the output plain. CI is left as is.
@@ -591,14 +592,24 @@ function* corroborateGoSteps(c: Classified, out: string, cmdOrLine: string, args
   };
   try {
     const want = new Set(names.map((n) => n.slice(0, n.indexOf("::")))), expected = new Set<string>();
-    const ls: SpawnRes = yield ["go", ["list", "-json=ImportPath,Dir,GoFiles,CgoFiles", ...where], spawnOpts];
-    if (ls.status !== 0) return refuse;
-    const perPkg = new Map<string, number>(); // statement blocks found per passing package; a package that stays at 0 (never listed, or no statements) has nothing to prove
-    for (const chunk of ls.output.split(/\n(?=\{\n)/)) {
-      let pk: { ImportPath?: string; Dir?: string; GoFiles?: string[]; CgoFiles?: string[] };
-      try { pk = JSON.parse(chunk) as typeof pk; } catch { return refuse; }
-      if (!pk.ImportPath || !want.has(pk.ImportPath)) continue;
-      if (!pk.Dir || !pk.GoFiles?.length || pk.CgoFiles?.length) return refuse; // cgo files are rewritten by the go command, so their block table is not computable here: not_run (a genuine cgo package is a false not_run)
+    type GoPkg = { ImportPath?: string; Dir?: string; GoFiles?: string[]; CgoFiles?: string[]; TestImports?: string[]; XTestImports?: string[]; Standard?: boolean; Module?: { Main?: boolean } };
+    const listed = (out: string): GoPkg[] | null => { const r: GoPkg[] = []; for (const chunk of out.split(/\n(?=\{\n)/)) { try { r.push(JSON.parse(chunk) as GoPkg); } catch { return null; } } return r; };
+    const ls: SpawnRes = yield ["go", ["list", "-json=ImportPath,Dir,GoFiles,CgoFiles,TestImports,XTestImports", ...where], spawnOpts];
+    const top = ls.status === 0 ? listed(ls.output) : null; if (!top) return refuse;
+    // A black-box test package (a tests/ directory holding only _test.go files) has no statements of its own: the proof is the coverage of the main-module packages its tests import (-coverpkg), every one of their blocks in the profile.
+    const cover = new Map<string, GoPkg>(), testOnly: string[] = [], ownImports: string[][] = [];
+    for (const pk of top) if (pk.ImportPath && want.has(pk.ImportPath)) { if (pk.GoFiles?.length) cover.set(pk.ImportPath, pk); else { const imps = [...(pk.TestImports ?? []), ...(pk.XTestImports ?? [])]; testOnly.push(...imps); ownImports.push(imps); } }
+    const viaImports = [...new Set(testOnly)].filter((i) => !cover.has(i) && !want.has(i));
+    if (top.some((pk) => pk.ImportPath && want.has(pk.ImportPath) && !pk.GoFiles?.length) && viaImports.length) {
+      const li: SpawnRes = yield ["go", ["list", "-e", "-json=ImportPath,Dir,GoFiles,CgoFiles,Standard,Module", ...viaImports], spawnOpts];
+      const deps = li.status === 0 ? listed(li.output) : null; if (!deps) return refuse;
+      for (const pk of deps) if (pk.ImportPath && !pk.Standard && pk.Module?.Main === true && pk.GoFiles?.length) cover.set(pk.ImportPath, pk);
+    }
+    if (cover.size === 0 || [...want].some((pk) => !cover.has(pk) && !top.some((t) => t.ImportPath === pk && !t.GoFiles?.length))) return refuse; // every passing package is proven by its own blocks or, test-only, by those of the module packages it imports
+    if (ownImports.some((imps) => !imps.some((i) => cover.has(i)))) return refuse; // each test-only package needs a module package of its own to prove; one that imports none never passes beside another that does
+    const perPkg = new Map<string, number>(); // statement blocks found per covered package; a package that stays at 0 (no statements) has nothing to prove
+    for (const pk of cover.values()) {
+      if (!pk.ImportPath || !pk.Dir || !pk.GoFiles?.length || pk.CgoFiles?.length) return refuse; // cgo files are rewritten by the go command, so their block table is not computable here: not_run (a genuine cgo package is a false not_run)
       perPkg.set(pk.ImportPath, 0);
       for (const f of pk.GoFiles) {
         if (/^\s*(?:\/\/line |\/\*line )/m.test(readFileSync(join(pk.Dir, f), "utf8"))) return refuse; // a //line directive (goyacc, ragel, templ) makes the profile name another file than the source: not provable, so not_run
@@ -611,13 +622,14 @@ function* corroborateGoSteps(c: Classified, out: string, cmdOrLine: string, args
         trip.forEach((m, k) => { const cols = +m[3]!; expected.add(`${pk.ImportPath}/${f}:${m[1]}.${cols & 0xffff},${m[2]}.${(cols >>> 16) & 0xffff} ${nums[k]![1]}`); });
       }
     }
-    if (![...want].every((pk) => (perPkg.get(pk) ?? 0) > 0)) return refuse;
-    const r: SpawnRes = yield ["go", ["test", "-json", "-count=1", `-coverprofile=${prof}`, ...run, ...where], spawnOpts];
+    if (![...cover.keys()].every((pk) => (perPkg.get(pk) ?? 0) > 0)) return refuse;
+    const viaPkg = [...cover.keys()].some((pk) => !want.has(pk));
+    const r: SpawnRes = yield ["go", ["test", "-json", "-count=1", `-coverprofile=${prof}`, ...(viaPkg ? [`-coverpkg=${[...cover.keys()].join(",")}`] : []), ...run, ...where], spawnOpts];
     const second = goJson(stripAnsi(r.output));
     if (r.status !== 0 || !second || second.failed || !second.complete) return refuse;
     const again = new Set(second.passedNames);
     if (!names.every((n) => again.has(n))) return refuse;
-    const got = [...profBlocks()].filter((k) => [...want].some((pk) => k.startsWith(`${pk}/`) && !k.slice(pk.length + 1).includes("/")));
+    const got = [...profBlocks()].filter((k) => [...cover.keys()].some((pk) => k.startsWith(`${pk}/`) && !k.slice(pk.length + 1).includes("/")));
     return got.length === expected.size && got.every((k) => expected.has(k)) ? c : refuse;
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
@@ -850,12 +862,91 @@ export function changedSymbols(diffU0: string): string[] {
   flush();
   return [...out];
 }
+/** Go methods that satisfy a standard interface and are called by the library, rarely by name in a test: Error/String/GoString/Format always; Unwrap/Is/As only
+ *  on a type that also has Error (an error type); Len/Less/Swap only on a type that has all three (sort.Interface); Push/Pop only on a sort.Interface type
+ *  (heap.Interface). An exported Push or Is on any other type is ordinary API and is owed a test. `methods` is the receiver type's method names in the file. */
+const GO_SORT = ["Len", "Less", "Swap"];
+function goInterfaceMethod(name: string, methods: ReadonlySet<string>): boolean {
+  if (["Error", "String", "GoString", "Format"].includes(name)) return true;
+  if (["Unwrap", "Is", "As"].includes(name)) return methods.has("Error");
+  const sorts = GO_SORT.every((m) => methods.has(m));
+  return (GO_SORT.includes(name) || name === "Push" || name === "Pop") && sorts && (GO_SORT.includes(name) || (methods.has("Push") && methods.has("Pop")));
+}
+/** HONEST-VERIFIED-2: languages whose added public functions are tracked (the cap and its claim cover exactly these). */
+export const API_FILE_EXT = /\.(?:[cm]?[jt]sx?|py|go|rs)$/;
+// Not API: generated code, type declarations, and test support code that lives outside *_test/test_* files.
+const GENERATED_PATH = /(?:\.pb\.go|_pb2(?:_grpc)?\.pyi?|\.pb\.[cm]?[jt]s|[._-]gen(?:erated)?\.\w+|\.d\.[cm]?ts)$/;
+const TEST_SUPPORT_PATH = /(^|\/)(?:tests?|__tests__|spec|testutils?|testhelpers?|test_?helpers?|testing|testdata|fixtures?|mocks?)\/|(^|\/)conftest\.py$/;
+const GENERATED_HEADER = /^\s*(?:\/\/|#)\s*Code generated .* DO NOT EDIT\.?\s*$|@generated\b/m;
+/** True when `path` holds no public API a test is owed: a test file, test support code, a generated file or a type declaration file. */
+export const notApiFile = (path: string, src = ""): boolean => !API_FILE_EXT.test(path) || isTestFile(path) || TEST_SUPPORT_PATH.test(path) || GENERATED_PATH.test(path) || GENERATED_HEADER.test(src.slice(0, 2000));
+const tsExportList = (src: string): Set<string> => new Set([...src.matchAll(/^\s*export\s*\{([^}]*)\}/gm)].flatMap((m) => m[1]!.split(",").map((x) => x.trim().split(/\s+as\s+/)[0]!.trim()).filter(Boolean)).concat([...src.matchAll(/^\s*export\s+default\s+([A-Za-z_$][\w$]*)\s*;?\s*$/gm)].map((m) => m[1]!)));
+/** HONEST-VERIFIED-2: the public functions `head` defines that `base` (the file at the run base, "" for a new file) does not, by qualified name, so a signature-only edit or a moved body is not "added". Spans come from util/context_pack.ts symbolSpans (Python nesting read from the whole file, not from a diff hunk). Public: Python names with no leading underscore on the function or its class (a function nested in a function is private); Go exported funcs, `var X = func`, and exported methods on exported types (standard interface methods excluded); Rust `pub fn`; TS/JS functions and arrow consts that are exported (`export function`, `export const`, `export { f }`), and non-private methods of exported classes. */
+export function addedPublicFunctions(path: string, head: string, base: string): string[] {
+  if (notApiFile(path, head)) return [];
+  const lang = langOf(path); if (lang !== "py" && lang !== "go" && lang !== "rs" && lang !== "ts") return [];
+  const spans = symbolSpans(path, head), had = new Set(symbolSpans(path, base).map((x) => x.name)), byName = new Map(spans.map((x) => [x.name, x]));
+  const lines = head.split("\n"), exported = lang === "ts" ? tsExportList(head) : new Set<string>(), out = new Set<string>();
+  const declOf = (start: number): string => lines.slice(start - 1, start + 4).find((l) => !/^\s*@/.test(l)) ?? "";
+  for (const sp of spans) {
+    if (sp.container || had.has(sp.name)) continue;
+    const parts = sp.name.split("."), name = parts[parts.length - 1]!, parent = parts.length > 1 ? byName.get(parts.slice(0, -1).join(".")) : undefined, decl = declOf(sp.start);
+    if (lang === "py") { if (/^\s*(?:async\s+)?def\s/.test(decl) && parts.every((x) => !x.startsWith("_"))) out.add(name); continue; }
+    if (lang === "go") { const recv = parent?.name ?? (parts.length > 1 ? parts[parts.length - 2] : undefined); /* the span names a method Type.Method, so an unnamed receiver `func (Version) Major()` reads Version too */ if (/^func\b/.test(decl) && /^[A-Z]/.test(name) && (recv === undefined ? true : /^[A-Z]/.test(recv) && !goInterfaceMethod(name, new Set(spans.filter((x) => x.name.startsWith(`${recv}.`)).map((x) => x.name.slice(recv.length + 1)))))) out.add(name); continue; }
+    if (lang === "rs") { if (/\bpub(?:\([^)]*\))?\s+(?:const\s+)?(?:async\s+)?(?:unsafe\s+)?(?:extern\s+"[^"]*"\s+)?fn\s/.test(decl)) out.add(name); continue; }
+    const arrowHead = /^\s*(?:export\s+)?(?:const|let|var)\s[^=]*=\s*(?:async\s*)?(?:<[^>]*>\s*)?\(\s*$/.test(decl) ? lines.slice(sp.start - 1, Math.min(sp.end, sp.start + 30)).join("\n") : ""; // a Prettier multi-line arrow `export const f = (\n  items,\n): number => {`
+    const fnLike = /\bfunction\b|=>|^\s*(?:(?:public|static|async|override|readonly|get|set)\s+)*[A-Za-z_$][\w$]*\s*(?:<[^>]*>)?\s*\(/.test(decl) || /^[^]*?\)\s*(?::[^=]*?)?=>/.test(arrowHead);
+    if (!fnLike || name === "constructor" || /^\s*(?:export\s+)?(?:declare\s|type\s)/.test(decl)) continue; // a type alias of a function type and an ambient `declare` have no body to test // a constructor is called as `new Class`, so the class name is the reference (seal checks classes through their methods)
+    if (parent) { const cls = declOf(parent.start); if ((/^\s*export\s/.test(cls) || exported.has(parent.name)) && !/^\s*(?:private|protected)\b|#/.test(decl)) out.add(name); }
+    else if (/^\s*export\s/.test(decl) || exported.has(name)) out.add(name);
+  }
+  if (lang === "go") { const vars = (src: string): Set<string> => new Set([...src.matchAll(/^var\s+([A-Z]\w*)\s*=\s*func\b/gm)].map((m) => m[1]!)); const was = vars(base); for (const v of vars(head)) if (!was.has(v)) out.add(v); }
+  return [...out];
+}
+/** Source text with comments AND string literals blanked, so a name inside a string ("intersects" in a message) is never a reference. */
+const codeOnly = (src: string): string => stripComments(src.replace(/"""[\s\S]*?"""|'''[\s\S]*?'''|`(?:\\[\s\S]|[^`\\])*`|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/g, '""'));
+const refRe = (sym: string): RegExp => new RegExp(`(?<![\\w$])${sym.replace(/[$]/g, "\\$")}(?![\\w$])`);
+const IDENT = /[\w$]+/g, PLAIN_IDENT = /^[\w$]+$/;
+/** Every whole-word identifier in one source (comments and strings stripped; `keepStrings` keeps the strings, so an import path like "./ops" names its module): a symbol is referenced exactly when it is in this set. Built once per source, never per symbol. */
+export const identifierSet = (src: string, keepStrings = false): Set<string> => new Set((keepStrings ? stripComments(src) : codeOnly(src)).match(IDENT) ?? []);
+/** Every symbol that no source references as a whole word in code (comments and strings stripped). One pass over each source, then set lookups. */
+export function unreferenced(symbols: readonly string[], sources: readonly string[]): string[] {
+  const sets = sources.map((x) => identifierSet(x)), plain = symbols.filter((x) => !PLAIN_IDENT.test(x)), code = plain.length ? sources.map(codeOnly) : [];
+  return symbols.filter((sym) => (PLAIN_IDENT.test(sym) ? !sets.some((st) => st.has(sym)) : !code.some((src) => refRe(sym).test(src))));
+}
 /** Symbols that no test source references as a whole word; every symbol when none is referenced, or when the diff declared none (then "(no declared symbol)"). Empty means some passing test source mentions a changed symbol. */
 export function symbolGap(symbols: readonly string[], testSources: readonly string[]): string[] {
   if (symbols.length === 0) return ["(no declared symbol)"];
-  const ref = (sym: string, src: string): boolean => new RegExp(`(?<![\\w$])${sym.replace(/[$]/g, "\\$")}(?![\\w$])`).test(src);
-  const code = testSources.map(stripComments);
-  return code.some((src) => symbols.some((sym) => ref(sym, src))) ? [] : [...symbols];
+  return unreferenced(symbols, testSources).length === symbols.length ? [...symbols] : [];
+}
+/** The files among `candidates` (untouched sources, at HEAD) that call a function `changed` defines: the callers that link a test to a changed file through code the run did not edit
+ *  (a test calls Invoice.tax_cents in invoice.py, which calls the changed tax.py's invoice_tax_cents, which calls the added line_tax_cents). */
+export function callerFiles(changed: readonly { path: string; src: string }[], candidates: readonly { path: string; src: string }[]): { path: string; src: string }[] {
+  const names = new Set(changed.flatMap((f) => symbolSpans(f.path, f.src).filter((x) => !x.container).map((x) => x.name.split(".").pop()!)));
+  if (names.size === 0) return [];
+  return candidates.filter((f) => { for (const n of calledNames(codeOnly(f.src))) if (names.has(n)) return true; return false; });
+}
+/** Names invoked in already-stripped code: `f(` or `.f(` (whole word before the parenthesis). */
+const CALL = /(?<![\w$])([\w$]+)\s*\(/g;
+const calledNames = (code: string): Set<string> => new Set([...code.matchAll(CALL)].map((m) => m[1]!));
+/** The module a source file is imported as: its basename, or its directory for an index/__init__/mod/lib file (Go: its directory, the package). */
+export const moduleToken = (path: string): string => { const parts = path.split("/"), base = (parts.pop() ?? "").replace(/\.[^.]+$/, ""); return path.endsWith(".go") || /^(?:index|__init__|mod|lib|main)$/.test(base) ? (parts.pop() ?? base) : base; };
+/** Indirect coverage: starting from the functions a test references, every function a covered function calls (in `files`: the changed files and their untouched callers from callerFiles, at HEAD) is covered too, so a helper split out of an API a test calls is not reported. Returns the names of `unexercised` that stay uncovered.
+ *  `seed(name, path)` says whether a test references that function of that file; one pass over each file, then a worklist over name-to-callee sets (linear in the code, no per-pair regex). */
+export function exercisedViaCallers(unexercised: readonly string[], seed: (name: string, path: string) => boolean, files: readonly { path: string; src: string }[]): string[] {
+  const byName = new Map<string, Set<string>[]>(), seeds: string[] = [];
+  for (const f of files) {
+    const code = codeOnly(f.src), lines = code.split("\n");
+    for (const x of symbolSpans(f.path, f.src)) {
+      if (x.container) continue;
+      const name = x.name.split(".").pop()!, called = calledNames(lines.slice(x.start, x.end).join("\n"));
+      (byName.get(name) ?? byName.set(name, []).get(name)!).push(called);
+      if (seed(name, f.path)) seeds.push(name);
+    }
+  }
+  const covered = new Set<string>(seeds), work = [...covered];
+  for (let n = work.pop(); n !== undefined; n = work.pop()) for (const called of byName.get(n) ?? []) for (const c of called) if (byName.has(c) && !covered.has(c)) { covered.add(c); work.push(c); }
+  return unexercised.filter((f) => !covered.has(f));
 }
 /** TEN-GATES-14: per-gate legibility for `loki verify --explain`. exogenous/independent evidence is exogenous; agent_authored and llm_judge are agent-influenced; absent or unknown provenance is unrecorded, never exogenous. */
 export interface ExplainGate { name: string; class: "exogenous" | "agent-influenced" | "unrecorded"; provenance: string | null; result: string; n: number | null; evidence: string }
@@ -1335,6 +1426,30 @@ export function ignoreRuleChanges(repoDir: string, snap: unknown, baseSha?: stri
   } catch { return ["ignore rules could not be compared with the intake snapshot: git failed"]; }
 }
 
+/** Pure: DiffFiles from a unified patch (`gh pr diff`, `git diff`), for grading a diff that is not in a local checkout. Same critical rules as diffFiles; no dependency tagging (needs the old and new text). */
+export function diffFilesFromPatch(patch: string, rules: { glob: string; source: string }[]): DiffFile[] {
+  const out: DiffFile[] = [];
+  for (const chunk of patch.split(/^diff --git /m).slice(1)) {
+    const lines = chunk.split("\n"), head = /^a\/(.+?) b\/(.+)$/.exec(lines[0] ?? "");
+    if (!head) continue;
+    let status: DiffFile["status"] = "modified", added = 0, deleted = 0, text = "", inHunk = false;
+    for (const l of lines.slice(1)) {
+      if (!inHunk) {
+        if (l.startsWith("new file mode")) status = "added";
+        else if (l.startsWith("deleted file mode")) status = "deleted";
+        else if (l.startsWith("@@")) inHunk = true;
+        continue;
+      }
+      if (l.startsWith("@@")) continue;
+      if (l.startsWith("+")) { added++; text += `${l.slice(1)}\n`; } else if (l.startsWith("-")) deleted++; // inside a hunk every +/- line is content; the +++/--- headers sit before the first @@
+    }
+    const path = status === "deleted" ? head[1]! : head[2]!, f: DiffFile = { path, added, deleted, status }, rule = criticalRuleFor(path, text, rules);
+    if (rule) f.critical = rule;
+    out.push(f);
+  }
+  return out;
+}
+
 /** changedFiles enriched with numstat counts and name-status; untracked files get a line count as additions. Throws on git failure. */
 export function diffFiles(repoDir: string, baseSha: string, skip?: (f: string) => boolean): DiffFile[] {
   const paths = changedFiles(repoDir, baseSha, skip), stat = new Map<string, DiffFile>();
@@ -1578,6 +1693,19 @@ export function classify(f: TestRef, status: number | null, output: string, repo
 
 /** TEN-SPEED-19: LOKI_E10_BASE_JOBS, default 1 (sequential); an invalid value or one below 1 falls back to 1, capped at 16. */
 export function baseJobs(): number { const n = Number(process.env.LOKI_E10_BASE_JOBS); return Number.isInteger(n) && n >= 1 ? Math.min(n, 16) : 1; }
+/** True only when a red test file failed on assertions: every reported failure is an assertion, and none is an import, collection, attribute, type or reference error (a test that calls code the base lacks fails that way for ANY change, so it proves nothing about the fix). Only pytest and vitest output is read; every other runner is false (fail-closed: the run reads PARTIAL). */
+export function assertionFailure(runner: string, output: string): boolean {
+  const out = stripAnsi(output);
+  if (runner === "pytest") { // red by assertion: at least one failure is an assertion and none is a missing-API error (import, attribute, name, type, syntax). A behavioral error beside it (OverflowError, ValueError) is the bug itself, not an absent API.
+    if (/^ERROR\s|errors? during collection/m.test(out)) return false;
+    const f = [...out.matchAll(/^FAILED\s+\S+(?:\s+-\s+(.*))?$/gm)].map((m) => (m[1] ?? "").trim());
+    if (f.length === 0) return false;
+    const kinds = f.every((r) => r !== "") ? f : [...out.matchAll(/^E\s+((?:assert\b|[A-Za-z_.]*(?:Error|Exception))\S*)/gm)].map((m) => m[1]!); // a narrow terminal cuts the " - reason" from the summary line: read the traceback's E lines instead
+    return kinds.some((k) => /^(?:assert\b|AssertionError\b)/.test(k)) && !kinds.some((k) => /^(?:Import|ModuleNotFound|Attribute|Name|UnboundLocal|Type|Syntax|Indentation)Error\b/.test(k));
+  }
+  if (runner === "vitest") { const e = [...out.matchAll(/^\s*((?:[A-Za-z]*Error))(?:\s*\[[^\]]*\])?:/gm)].map((m) => m[1]!); return e.length > 0 && e.every((k) => k === "AssertionError"); }
+  return false;
+}
 /** TEN-SPEED-18: LOKI_E10_VERIFY_JOBS, an integer 1..8; unset, invalid or below 1 means 1. */
 export const verifyJobs = (): number => { const n = Number.parseInt(process.env["LOKI_E10_VERIFY_JOBS"] ?? "", 10); return Number.isFinite(n) && n >= 1 ? Math.min(n, 8) : 1; };
 /** TEN-SPEED-19: map items through an async fn with at most `jobs` in flight; results keep input order. */
@@ -1692,8 +1820,22 @@ export function fullSuiteCmd(runner: RunnerName, repoDir: string): { cmd: string
   return { cmd, args: [...pre, ...(runner === "unittest" ? UNITTEST_DISCOVER_ARGS : ["-m", "pytest", "-q"])], ...(runner === "unittest" && interpreter === "system" ? {} : { interpreter }) };
 }
 /** FC-01: the one resolver for a test invocation: a package-owned file runs in its package dir with a package-relative path, else exactly runnerCmd at the root. */
+/** A vitest file with no Project Model owner runs from the nearest directory below the repo root that has its own package.json and a vitest config or a vite config with a test block, as that package's own script does; from the root its jsdom/happy-dom environment is lost ("document is not defined"). null: keep the root. */
+function ownVitestSite(repoDir: string, path: string): PackageSiteLike | null {
+  const cfg = /^vite(st)?\.config\.(?:[cm]?[jt]s|mts)$/;
+  for (let d = dirname(path); d !== "." && d !== "" && d !== "/" && !d.startsWith(".."); d = dirname(d)) {
+    try {
+      const abs = join(repoDir, d);
+      if (!existsSync(join(abs, "package.json"))) continue;
+      const conf = readdirSync(abs).find((n) => cfg.test(n)); if (!conf) continue;
+      if (/^vitest/.test(conf) || /\btest\s*:/.test(readFileSync(join(abs, conf), "utf8").slice(0, 200_000))) return { cwd: abs, root: d, file: relative(d, path) };
+    } catch { /* keep the root */ }
+  }
+  return null;
+}
+type PackageSiteLike = { cwd: string; root: string; file: string };
 export function commandFor(t: TestRef, repoDir: string, api?: ProjectApi | null): { cwd: string; cmd: string; args: string[]; argv: string[]; interpreter?: Interpreter; pkgRoot: string } {
-  const site = siteFor(api, repoDir, t.path);
+  const site = siteFor(api, repoDir, t.path) ?? (t.runner === "vitest" ? ownVitestSite(repoDir, t.path) : null);
   const base = site?.cwd ?? repoDir, rel = site?.file ?? t.path, mod = t.runner === "go" ? goModDir(base, rel) : base; // go resolves the module from the cwd: a go.mod below the base needs the run to start there
   const [cmd, args, interpreter] = runnerCmd(mod === base ? (site ? { runner: t.runner, path: site.file } : t) : { runner: t.runner, path: relative(mod, join(base, rel)) }, mod === base ? repoDir : mod);
   return { cwd: mod === base ? base : mod, cmd, args, argv: [cmd, ...args], ...(interpreter ? { interpreter } : {}), pkgRoot: mod === base ? site?.root ?? "." : relative(repoDir, mod) || "." };
@@ -1716,6 +1858,28 @@ export function failureSignature(c: { name: string; first_error?: string; ids?: 
   const ids = suite ? [...new Set(c.ids ?? [])].sort() : [];
   const set = ids.length > 3 ? `${ids.slice(0, 3).join(", ")} (+${ids.length - 3} more, set ${createHash("sha256").update(ids.join("\n")).digest("hex").slice(0, 8)})` : ids.join(", ");
   return [c.name, c.first_error, set ? `[${set}]` : ""].filter(Boolean).join(" ");
+}
+/** A group signature minus what varies between identical failures: the "(+N more, set <digest>)" tail of a long id list and, for a "full suite: <pkg>" group, the first line (a broken suite's
+ *  first line is build or lint chatter that changes run to run). A full-suite group keeps its failing ids: all listed -> the exact id set; truncated -> the listed head ids plus " #<total count>",
+ *  which `stallSame` compares within 2 percent. Used only to compare two verify runs for a stall; the brief keeps the full signature. */
+export function stallSignature(sig: string): string {
+  const more = /\(\+(\d+) more, set [0-9a-f]+\)/.exec(sig), s = sig.replace(/\s*\(\+\d+ more, set [0-9a-f]+\)/, "");
+  if (!/^full suite: /.test(s)) return s;
+  const name = /^full suite: \S+/.exec(s)?.[0] ?? s, listed = (/\[([^\]]*)\]/.exec(s)?.[1] ?? "").split(", ").filter(Boolean);
+  return more ? `${name} [${listed.join(", ")}] #${listed.length + Number(more[1])}` : `${name} [${[...listed].sort().join(", ")}]`;
+}
+/** True when two consecutive verify signatures (JSON arrays of stallSignature strings) describe the same failing set: exact, except a truncated full-suite entry (" #<count>") whose head ids match
+ *  and whose count differs by at most 2 percent. A round that fixed a real share of the ids is progress, never a stall. */
+export function stallSame(a: string, b: string): boolean {
+  if (a === b) return true;
+  let x: unknown, y: unknown;
+  try { x = JSON.parse(a); y = JSON.parse(b); } catch { return false; }
+  if (!Array.isArray(x) || !Array.isArray(y) || x.length !== y.length) return false;
+  return x.every((e, i) => {
+    const f = y[i]; if (e === f) return true;
+    const m = /^(.*) #(\d+)$/s.exec(String(e)), n = /^(.*) #(\d+)$/s.exec(String(f));
+    return !!m && !!n && m[1] === n[1] && Math.abs(Number(m[2]) - Number(n[2])) <= Math.ceil(0.02 * Math.max(Number(m[2]), Number(n[2])));
+  });
 }
 /** L005: one fix-brief group: the signature, and a sample that starts with the command that reruns the check, then its redacted excerpt. */
 export function failureGroup(c: { name: string; cmd: string; first_error?: string; ids?: string[] }, excerpt: string, suite = false): FailureGroup {

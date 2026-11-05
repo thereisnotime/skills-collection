@@ -92,6 +92,17 @@ loki start "fix the login redirect loop" --no-pr
 `loki chat` is an interactive alternative that can start and join these runs
 (see Chat below).
 
+The Wall session (a separate model session that writes acceptance tests from the
+task alone) is off by default: in the 2026-11-05 measurement it raised the cost
+per merge-ready change and lowered the merge-ready count. `LOKI_E10_WALL=1`
+turns it back on. With it off, a run reads VERIFIED only on evidence the harness
+produced itself: your repo's own tests all pass, a test exercises the changed
+code, no existing test was weakened, and nothing regressed. A test the run wrote
+or edited counts as that exercise only when the harness shows it fails on the
+base commit and passes on the change (the receipt's proof line names the file);
+otherwise the run reads PARTIAL and NOT PROVEN says "no test shown to fail on the
+base commit and pass on the change".
+
 `loki quick "<task>"` is the small-task entry. It runs the same engine
 without opening a pull request (the legacy quick never opened one), and the
 engine's own sizing picks the lean path for a small task: Plan and Wall are
@@ -106,11 +117,14 @@ of a hard task (judged from the task, never the repo size: sized large, or
 a task naming more than 4 distinct non-test files), the Opus advisor tool is
 attached to a fix round on Haiku or Sonnet (never to an Opus session), a
 Haiku implement that claims the work is already done with no diff climbs one
-rung, and a code-owned
+rung, the Wall test author (with its re-author, the already-done check and the
+Wall referee) runs on the executor unless `LOKI_E10_WALL_TIER` or a model pin is
+set, and a code-owned
 failure, a stall or a spec conflict climbs the router's ladder (Sonnet, then
 Opus). The start line names the downgrade and the route; the receipt's route
 block records the executor and every climb. `LOKI_ROUTER_EXECUTOR` picks
 another executor; `LOKI_ALLOW_HAIKU=false` makes it Sonnet.
+Every Haiku session (router on or off) carries a 100K `autoCompactWindow`, which keeps requests under Haiku's 100K price cliff. This overrides a user's or project's own `autoCompactWindow` on Haiku sessions; a `CLAUDE_CODE_AUTO_COMPACT_WINDOW` set in the environment wins over it. Sonnet and Opus sessions are not touched.
 `loki quick --help` prints the help; `loki quick -v "<task>"` runs on Loki 10 with
 `--verbose`.
 
@@ -128,7 +142,21 @@ Issue refs work the same way:
 ```
 loki owner/repo#123
 loki https://github.com/owner/repo/issues/123
+loki "fix #123"
+loki "#123"
+loki "<issue URL as copied, with ?query or #comment>"
+loki https://github.com/o/r/pull/5       # verify-pr
 ```
+
+A pasted goal that names one issue is read as that issue: a copied URL loses a
+trailing slash, ?query or #fragment, and "#123", "fix #123" or "fix issue 123"
+becomes owner/repo#123 from the checkout's origin ("#N" needs a GitHub origin;
+quote it, since an unquoted # starts a shell comment). Loki prints a `goal:`
+line when it read a ref. Extra words ("fix #123 and add a test") keep the goal
+as text, and LOKI_GOAL_REF=0 turns the reading off. The run itself asks
+nothing: headless intake records its assumptions in the receipt. The only
+terminal prompt is the optional rating after VERIFIED (LOKI_SATISFACTION=0
+turns it off). Models and --deep are not auto-picked yet.
 
 bin/loki routes GitHub, GitLab (`.../-/issues/N`) and Jira
 (`.../browse/KEY`) issue URLs to the v10 engine, and the issue-fetch step
@@ -160,9 +188,13 @@ Flags, from the engine's own `--help`:
   `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set, and no dollar cap on a
   subscription login (usage then counts against your plan limits). Source:
   `loki-ts/src/e10ext/budget_cap.ts`. The start line shows the cap in force,
-  for example `cap $100.00 (default)` or `no dollar cap (subscription)`. Once
-  priced cost reaches the cap the running stage is stopped, no later stage
-  starts, and the run ends BUDGET_STOP with exit code 3. Sessions with no
+  for example `cap $100.00 (default)` or `no dollar cap (subscription)`, then
+  the cost and time quote, for example `estimate: about $0.19 (range
+  $0.12-$0.39), about 1 min (range 1-5 min), first run in this repo (benchmark
+  prior, loki-default)`. Once priced cost reaches the cap no later stage
+  starts and each session is limited to what is left; the closing stages seal
+  what exists (PARTIAL with the work on `loki/<runId>`, or BUDGET_STOP with exit
+  code 3 when no receipt was sealed; see docs/cost-controls.md). Sessions with no
   provider price never count toward the cap. On the previous loop the same cap
   is `LOKI_BUDGET_LIMIT` (default 100.00 USD; set it to an empty string for
   unlimited), and a breach pauses the run instead of killing it.
@@ -379,7 +411,7 @@ on:
 
 Before anything runs, `loki backlog` triages every issue into one of three classes, each printed with a one-line reason (`--dry-run` prints only this and launches nothing):
 
-- `implement`: a concrete target (a file, function, value or expected result), or a large issue. Only these run. Large has one definition, the same one `loki start owner/repo#N` uses: an epic label (`epic`, `umbrella`, `tracking` or `meta`), or at least two of 4 or more solution parts, 4 or more acceptance criteria, and both a backend and a frontend named. A large issue is split into slices that each run on their own (the reason says `runs split into slices`).
+- `implement`: a concrete target (a file, function, value or expected result), or a large issue. Only these run. Large has one definition, the same one `loki start owner/repo#N` uses: an epic label (`epic`, `umbrella`, `tracking` or `meta`), or at least two of 4 or more solution parts, 4 or more acceptance criteria, and both a backend and a frontend named. A large issue is split into slices that each run on their own (the reason says `runs split into slices`). Slices that do not depend on each other run at the same time (up to 4; `LOKI_EPIC_PARALLEL=1` runs them one at a time), and a slice that fails or reports a spec conflict skips only the slices built on it. Each slice opens its own draft pull request, stacked on the slice it depends on.
 - `spec`: vague or ambiguous (no concrete target named, or an ambiguity score at the threshold). Loki drafts `.loki/specs/<slug>.md` with `loki plan --spec`, runs nothing, and prints `loki start --spec .loki/specs/<slug>.md` to run after you edit or approve it.
 - `human`: the issue touches secrets, production or a destructive operation. Never run headless; listed with the reason. Repos without tests, UI work and infra work still run: Loki writes its own tests and verifies once at the end.
 

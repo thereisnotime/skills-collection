@@ -16,6 +16,7 @@ export { eventsRelPath, githubRepoFromUrl, readOriginUrl, writeEngineMarker }; /
 import { stageCapability, workerStages } from "./worker.ts"; import { withholdGithubTokens } from "../runner/github_token.ts"; import { readAliveBeat, writeAliveBeat, writeRunPid } from "../util/run_pid.ts";
 import { EventLog, conflictReasonOf, fold, partialCost, runCostUsd, summaryCost, readEvents, tail } from "./events.ts"; import { stageShareText } from "../util/cost_breakdown.ts";
 import { disclosureLine } from "../providers/provider_guard.ts";
+import { resolveRunProvider } from "../runner/state.ts";
 import { budgetNext, capNote, groupEnv, parseCapUsd, priorSpend, resolveCap, SUBSCRIPTION_NOTE, unenforceableNote, writeBudgetStop } from "../e10ext/budget_cap.ts";
 import { fetchIssueToFile } from "./fetch_issue.ts";
 import { fetchTrackerIssueToFile, parseTrackerRef } from "../features/tracker_intake.ts";
@@ -192,7 +193,7 @@ export async function runSupervisor(opts: SupervisorOptions): Promise<Supervisor
   if (!cancelled) {
     const stages = fold(readEvents(log.path)).stages; // A-104c: a failed commit stage already chose what to exclude (Wall files, lockfiles, pre-run dirt); a blanket `add -A` would undo it
     const baseE = stages["intake"], base = validBase(baseE?.type === "stage.completed" ? baseE.data.base_sha : null); // D50-F4b: a worker-written base is never an option or ref
-    if (verdict === "FAILED" && stages["commit"]?.type !== "stage.failed") { const why = guardedBackstop(intact, opts.repoDir, workerEnv, opts.runId, base, baseE?.type === "stage.completed" ? baseE.data.preexisting_dirty : undefined, baseE?.type === "stage.completed" ? baseE.data.install_created : undefined, baseE?.type === "stage.completed" ? baseE.data.preexisting_untracked_blobs : undefined); if (why) notProven.push(why); } // no completed intake = no run branch: repoDir is still the user's own branch, never `add -A` there
+    if (verdict === "FAILED" && stages["commit"]?.type !== "stage.failed") { const why = guardedBackstop(intact, opts.repoDir, workerEnv, opts.runId, base, baseE?.type === "stage.completed" ? baseE.data.preexisting_dirty : undefined, baseE?.type === "stage.completed" ? baseE.data.install_created : undefined, baseE?.type === "stage.completed" ? baseE.data.preexisting_untracked_blobs : undefined, baseE?.type === "stage.completed" && typeof baseE.data.task === "string" ? baseE.data.task : undefined); if (why) notProven.push(why); } // no completed intake = no run branch: repoDir is still the user's own branch, never `add -A` there
     if (base === null && verdict !== "FAILED") hasDiff = true; else try { // no recorded base: nothing to compare, keep the pre-P1 behaviour; otherwise // net diff against base (a revert commit can leave HEAD past base with nothing to publish); any failure counts as a diff
       safeGit(opts.repoDir, ["diff", "--quiet", String(base), "HEAD", "--", ".", ":(exclude).loki"], { env: workerEnv, stdio: "ignore" });
     } catch { hasDiff = base !== null; }
@@ -280,7 +281,13 @@ export async function main(args: string[]): Promise<number> { // `loki "<task>"`
     try { repoDir = safeGit(process.cwd(), ["rev-parse", "--show-toplevel"]).trim(); } catch { process.stderr.write("engine10: not inside a git repository\n"); noteRefusal("not_a_repo"); return 2; }
   }
   delete process.env.LOKI_FIRST_RUN_FILES; // read only by the first-run init above; never handed to a model session
+  if (!providerNamed) { // the project's saved choice (`loki provider set`), after --provider and LOKI_PROVIDER: a removed or unknown one is refused with how to clear it
+    const rp = resolveRunProvider(undefined, process.env, repoDir);
+    if (rp.refusal) { process.stderr.write(rp.refusal); noteRefusal("no_provider"); return 2; }
+    if (rp.source === "saved") { provider = rp.provider; providerNamed = true; process.env.LOKI_PROVIDER = rp.provider; }
+  }
   const olg = await import("../util/one_line_goal.ts"); // R01: infer provider and publish mode instead of refusing; the one-line note says what was assumed
+  if (spec === null) { const g = olg.goalRef(task, readOriginUrl(repoDir), (s) => ISSUE_RE.test(s) || parseTrackerRef(s) !== null); if (g) { task = g.ref; process.stderr.write(`${g.note}\n`); } } // FR01: a pasted issue URL, "#N" or "fix #N" reaches the issue path
   const inferred = olg.inferProvider(process.env, providerNamed); if (inferred) { provider = inferred.provider; process.env.LOKI_PROVIDER = provider; process.stderr.write(`${inferred.note}\n`); }
   let localReason: import("../util/one_line_goal.ts").LocalReason | null = null, origBranch: string | null = null; try { origBranch = safeGit(repoDir, ["symbolic-ref", "-q", "--short", "HEAD"]).trim() || null; } catch { /* detached HEAD: landNext falls back to main */ }
   if (!noPr && sealPatch === null) { const pp = await olg.publishPlan(readOriginUrl(repoDir), () => import("./preflight.ts").then((m) => m.ghReady(process.env as Record<string, string>))); localReason = pp.reason; noPr = pp.noPr; const note = olg.publishNote(pp.reason); if (note) process.stderr.write(`${note}\n`); }

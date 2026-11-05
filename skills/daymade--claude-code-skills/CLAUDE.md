@@ -146,12 +146,12 @@ For its audit, release, source-contract or materialization commands from another
 working directory, use the [fixed command entry](daymade-skill/skill-creator/references/fixed-command-entry.md).
 For security scans, use its [absolute owner-script recipe](daymade-skill/skill-creator/references/publishing-and-packaging.md#step-6-security-review).
 
-Before a command that may exceed the response budget, enter Skill Creator's
-[large-output capture recipe](daymade-skill/skill-creator/references/stateful-script-verification.md#large-command-output).
+Before a command that may exceed the response budget, enter the standalone
+[large-output capture recipe](references/bounded-io.md#large-command-output).
 For a large file or saved tool response, use its
-[complete-file reading workflow](daymade-skill/skill-creator/references/stateful-script-verification.md#complete-file-reads).
+[complete-file reading workflow](references/bounded-io.md#complete-file-reads).
 For Codex Code Mode source reads or provisional loading receipts, enter its
-[Code Mode receipt procedure](daymade-skill/skill-creator/references/stateful-script-verification.md#codex-code-mode-receipt).
+[Code Mode receipt procedure](references/bounded-io.md#codex-code-mode-receipt).
 Keep invocation, selection and incomplete-read semantics in those owners.
 
 For plugin/Skill naming, source registration or release labels, use
@@ -166,6 +166,8 @@ For relative-image resource paths or Markdown → PDF rendering, read
 
 For Word creation, existing Word/WPS → PDF, DOCX review or version comparison, enter
 [docs-router](daymade-docs/docs-router/SKILL.md) and load its selected child before acting.
+For printable ID/passport photos, use the same router's
+[identity-copy procedure](daymade-docs/photo-to-scanned-pdf/references/identity-document-copies.md).
 DOCX delivery follows docx-creator's
 [native acceptance procedure](daymade-docs/docx-creator/references/verification_protocol.md#step-3a--check-the-actual-file-in-microsoft-word-when-the-native-route-is-usable),
 including refused/unavailable checks and reviewable handoff. DOCX comparison follows
@@ -395,6 +397,8 @@ For uv cache diagnosis or retirement, enter
 [uv target semantics](daymade-macos/macos-cleaner/references/cleanup_targets.md#uv-cache-retirement).
 For Cargo or manual CI cleanup, read its
 [artifact selection rules](daymade-macos/macos-cleaner/references/cleanup_targets.md#cargo-and-manual-ci-outputs).
+When free space falls during cleanup, or copy semantics are used to estimate
+reclaim, follow [growth attribution and target allocation](daymade-macos/macos-cleaner/references/growth_attribution.md#target-allocation-and-mixed-free-space-windows).
 
 ### Automated Test Suites (CI)
 
@@ -434,6 +438,8 @@ Before replacing an existing launchd job, enter its
 [authorized unload and replacement procedure](daymade-macos/macos-watchdog/references/event-driven-observers.md#wait-for-an-authorized-unload-before-replacement).
 Before choosing or changing any periodic observer's cadence, follow
 [macos-watchdog's observation contract](daymade-macos/macos-watchdog/references/probe-cost.md).
+Before choosing an observer's failure-notification threshold, follow
+[observation-failure timing](daymade-macos/macos-watchdog/references/alert-discipline.md#observation-failure-timing).
 For named macOS load/runaway alerts, follow
 [macos-load-doctor's intervention and diagnosis-completion contract](daymade-macos/macos-load-doctor/SKILL.md#5-act-within-the-boundary).
 For memory pressure or suspected child-process leaks, enter that Skill's
@@ -508,15 +514,23 @@ Context-veto CLI regressions live in
 ### Feishu Recording Lookup
 
 To find an existing Feishu recording by date, enter
-[lark-cli-router's recording lookup](daymade-claude-code/lark-cli-router/SKILL.md#find-an-existing-recording-by-date).
+[lark-cli-router's recording lookup](lark-cli-router/SKILL.md#find-an-existing-recording-by-date).
 
 ### Feishu Document Layout
 
 For updates that preserve manual formatting or change table/page width, enter
-[lark-cli-router's layout workflow](daymade-claude-code/lark-cli-router/SKILL.md#preserve-document-layout).
+[lark-cli-router's layout workflow](lark-cli-router/SKILL.md#preserve-document-layout).
+
+### Feishu External Collaboration
+
+For external customer groups paired with Wiki pages, enter
+[lark-cli-router's external collaboration workflow](lark-cli-router/SKILL.md#external-customer-collaboration).
+It owns group reuse/creation, descendant-scoped grants and their verification.
 
 ### Feishu Document Capture
 
+Before the first linked-resource read, follow
+[source account binding](lark-cli-router/references/source-account-binding.md).
 For Feishu document reads and archives, enter
 [feishu-doc-scraper](feishu-doc-scraper/SKILL.md). Its
 [API extraction SOP](feishu-doc-scraper/references/lark-cli-api-extraction.md)
@@ -533,6 +547,8 @@ alongside the destination repository's storage SOP.
 Keep generated manifest metadata aligned with that contract's on-demand statistics rule.
 For local originals, Obsidian delivery or a personal source-catalog handoff, follow the Skill's
 [original-media and reader SOP](feishu-doc-scraper/references/original-media-and-reader.md).
+For Minutes transcript export and permission handling, follow its
+[Minutes procedure](feishu-doc-scraper/references/feishu-minutes-transcript.md).
 
 ### Prior Work Retrieval Boundary
 
@@ -593,8 +609,8 @@ For Claude history discovery without a known Session, use
 [read-claude-code-history's indexed search entry](daymade-claude-code/read-claude-code-history/SKILL.md#indexed-content-search).
 Keep executable examples and coverage requirements in that owner.
 
-For Codex session inventory, use
-[the inventory route](daymade-claude-code/read-codex-history/SKILL.md#route-by-the-requested-result).
+For Codex session inventory, launch-source interpretation or task clustering, use
+[Recent inventory](daymade-claude-code/read-codex-history/SKILL.md#recent-inventory).
 Edit shared reader code in `daymade-claude-code/_conversation_core/`, then run
 `python3 daymade-claude-code/sync_core.py sync` and `check` before shipping;
 bundled `scripts/_core/` copies are generated projections.

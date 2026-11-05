@@ -27,11 +27,12 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, isAbsolute } from "node:path";
-import { failIds } from "../engine10/failures.ts";
+import { comparableIds, errorsById, failIds, sameErrors, unhandledBlock } from "../engine10/failures.ts";
 import { classifyCheck, emptyDiscovery, exitCodedId, goRunner, isExitCodedScript, plainTestEnv, stripAnsi, type Classified } from "../util/check_result.ts";
 import { safeGit } from "../util/safe_git.ts";
 import { lokiDir } from "../util/paths.ts";
 import { atomicWriteFileSync } from "./state.ts";
+import { inWorkspace, pkgWorkspaces, pnpmWorkspaces } from "../util/lock_ecosystems.ts";
 
 // Bumped when the record shape changes. An unrecognized version is treated as
 // ABSENT, never as an error -- an older binary reading a newer artifact must
@@ -273,6 +274,7 @@ export interface ProfileCommand {
   duration_s: number | null;
   failing_ids: string[]; // test kind only, [] when the runner output has no parseable ids
   note?: string;
+  fix?: string; // FR05: how to make a not-runnable row runnable
 }
 export interface CommandProfile {
   version: 1;
@@ -280,7 +282,7 @@ export interface CommandProfile {
   manifest_hash: string;
   created_at: string;
   commands: ProfileCommand[];
-  baseline: { ran: boolean; command: string | null; exit_code: number | null; duration_s: number | null; timed_out: boolean; failing_ids: string[]; attributable: boolean; reason?: string; zero_tests?: boolean };
+  baseline: { ran: boolean; command: string | null; exit_code: number | null; duration_s: number | null; timed_out: boolean; failing_ids: string[]; attributable: boolean; reason?: string; zero_tests?: boolean; failing_unhandled?: string[]; failing_errors?: Record<string, string[]> /* FireLater#21: errorsById of the run, so a full suite is excused only for the same errors */ };
   suites?: (CommandProfile["baseline"] & { name: string })[]; // FC-BASELINE-PER-PACKAGE: one per full-suite command verify runs; `command` is the check's cmd
 }
 export interface BaselineRun { code: number | null; timedOut: boolean; out: string; missing?: boolean }
@@ -313,13 +315,13 @@ function pkgManager(repoDir: string): string {
 const entry = (kind: CmdKind, cmd: string, source: string): ProfileCommand => ({ kind, cmd, source, validated: null, exit_code: null, duration_s: null, failing_ids: [] });
 
 /** Commands named by the repo's own manifests, in a fixed order (node, make, python, go, cargo, CI). The first test command is the baseline one. */
-export function discoverCommands(repoDir: string): ProfileCommand[] {
+export function discoverCommands(repoDir: string, pmDir: string = repoDir): ProfileCommand[] { // pmDir: where the lockfile naming the package manager lives (a workspace member's is the workspace root)
   const out: ProfileCommand[] = [];
   const pj = read(join(repoDir, "package.json"));
   if (pj) {
     let scripts: Record<string, unknown> = {}, hasTs = false;
     try { const j = JSON.parse(pj) as { scripts?: Record<string, unknown>; dependencies?: Record<string, unknown>; devDependencies?: Record<string, unknown> }; scripts = j.scripts ?? {}; hasTs = !!(j.dependencies?.typescript ?? j.devDependencies?.typescript); } catch { /* malformed manifest: nothing to discover */ }
-    const pm = pkgManager(repoDir), run = (n: string): string => (n === "test" ? `${pm} test` : `${pm} run ${n}`);
+    const pm = pkgManager(pmDir), run = (n: string): string => (n === "test" ? `${pm} test` : `${pm} run ${n}`);
     const has = (n: string): boolean => typeof scripts[n] === "string" && !(n === "test" && NO_TEST.test(String(scripts[n])));
     const pick = (kind: CmdKind, names: string[]): void => { const n = names.find(has); if (n) out.push(entry(kind, run(n), "package.json")); };
     pick("test", ["test"]); pick("lint", ["lint"]); pick("typecheck", ["typecheck", "type-check", "tsc"]);
@@ -334,7 +336,9 @@ export function discoverCommands(repoDir: string): ProfileCommand[] {
     pick("test", ["test", "check"]); pick("lint", ["lint"]); pick("typecheck", ["typecheck", "mypy"]); pick("build", ["build", "all"]);
   }
   const pyTxt = ["pyproject.toml", "pytest.ini", "tox.ini", "setup.cfg"].map((f) => [f, read(join(repoDir, f))] as const).filter(([, t]) => t);
-  const pyPytest = pyTxt.find(([f, t]) => f === "pytest.ini" || /\[tool\.pytest|\[tool:pytest\]|\[pytest\]/.test(t)) ?? (existsSync(join(repoDir, "conftest.py")) ? (["conftest.py", ""] as const) : undefined);
+  // A pytest config section or conftest.py; else a manifest that lists pytest as a dependency beside a tests/ or test/ directory (the common package with no pytest config).
+  const pyDeclares = ["tests", "test"].some((d) => existsSync(join(repoDir, d))) ? [...pyTxt, ["requirements.txt", read(join(repoDir, "requirements.txt"))] as const].find(([, t]) => /^\s*pytest\b|["']pytest\b/m.test(t)) : undefined;
+  const pyPytest = pyTxt.find(([f, t]) => f === "pytest.ini" || /\[tool\.pytest|\[tool:pytest\]|\[pytest\]/.test(t)) ?? (existsSync(join(repoDir, "conftest.py")) ? (["conftest.py", ""] as const) : undefined) ?? pyDeclares;
   if (pyTxt.length || pyPytest) {
     const py = [".venv", "venv"].map((d) => join(d, "bin", "python")).find((p) => existsSync(join(repoDir, p))) ?? "python3";
     if (pyPytest) out.push(entry("test", `${py} -m pytest -q`, pyPytest[0]));
@@ -355,6 +359,79 @@ export function discoverCommands(repoDir: string): ProfileCommand[] {
   return out;
 }
 
+/** Intake diet: the Project Model answer read straight from the manifests, so a repo whose packages, test and install commands are all
+ *  declared costs no discovery session. Packages: the root (when it holds a manifest), every declared JS workspace member, and every other
+ *  tracked package manifest outside vendored, fixture, example, docs and test directories. Commands come from discoverCommands (one reader
+ *  of manifests); install only from a lockfile (or go.mod), so no install ever mutates a lock; dependsOn only from JS manifests naming another
+ *  member (other packages leave it absent: edges unknown). Returns the raw answer for validateAnswer, or null when no package has a test
+ *  command, the tree cannot be listed or it holds too many manifests to trust a reading (the model session then decides). Never throws. */
+const SKIP_PKG_DIR = /^(node_modules|vendor|third_party|test-?data|.*fixtures?|__\w+__|examples?|samples?|templates?|docs?|tests?|e2e|benchmarks?|\..*)$/;
+const PKG_MANIFESTS = ["package.json", "go.mod", "Cargo.toml", "pyproject.toml", "setup.py"];
+const LOCK_INSTALLS: [string, string][] = [["pnpm-lock.yaml", "pnpm install"], ["yarn.lock", "yarn install"], ["bun.lock", "bun install"], ["bun.lockb", "bun install"], ["package-lock.json", "npm install"], ["uv.lock", "uv sync"], ["poetry.lock", "poetry install"], ["Cargo.lock", "cargo fetch"], ["go.mod", "go mod download"]];
+const UI_DEPS = ["react-dom", "vue", "svelte", "@angular/core", "next", "nuxt", "solid-js", "preact", "astro"];
+const MAX_MODEL_PACKAGES = 200;
+const ORCHESTRATOR = /\b(nx|turbo|lerna|run-many|wsrun|ultra)\b|\bpnpm\b[^&|;]*\s(-r|--recursive|--filter|-F)\b|\byarn workspaces\b|\bnpm\b[^&|;]*\s(--workspaces|-ws)\b/;
+type RawCmd = { cmd: string; cwd: string; cite: string[] } | null;
+/** The test script, followed through up to 3 `<pm> run <script>` hops, fans out over the workspace. */
+function fansOut(scripts: Record<string, unknown>): boolean {
+  let body = scripts["test"];
+  for (let hop = 0; hop < 4 && typeof body === "string"; hop++) {
+    if (ORCHESTRATOR.test(body)) return true;
+    const next = /^\s*(?:pnpm|npm|yarn|bun)(?:\s+run)?\s+([\w:.-]+)\s*$/.exec(body)?.[1];
+    body = next && next !== "test" ? scripts[next] : undefined;
+  }
+  return false;
+}
+export function manifestModel(repoDir: string): Record<string, unknown> | null {
+  let tracked: string[];
+  try { tracked = safeGit(repoDir, ["ls-files", "-z"], { maxBuffer: 256 * 1024 * 1024 }).split("\0").filter(Boolean); } catch { return null; }
+  const trackedSet = new Set(tracked), at = (dir: string, f: string): string => (dir === "." ? f : `${dir}/${f}`);
+  const json = (dir: string): Record<string, unknown> | null => { try { const j = JSON.parse(read(join(repoDir, dir, "package.json"))) as unknown; return j && typeof j === "object" && !Array.isArray(j) ? (j as Record<string, unknown>) : null; } catch { return null; } };
+  const isFile = (rel: string): boolean => trackedSet.has(rel) || (() => { try { return lstatSync(join(repoDir, rel)).isFile(); } catch { return false; } })();
+  const wsPats = [...pkgWorkspaces(repoDir), ...pnpmWorkspaces(repoDir)];
+  const manifestDirs = [...new Set(tracked.filter((p) => PKG_MANIFESTS.includes(basename(p))).map((p) => dirname(p)))];
+  // A member's package.json may be untracked (a generated or ignored manifest that pnpm still reads): any directory holding tracked files qualifies.
+  const trackedDirs = new Set<string>(); for (const p of tracked) for (let d = dirname(p); d !== "." && !trackedDirs.has(d); d = dirname(d)) trackedDirs.add(d);
+  const members = wsPats.length === 0 ? [] : [...trackedDirs].filter((d) => inWorkspace(wsPats, d) && isFile(at(d, "package.json"))).sort();
+  const others = manifestDirs.filter((d) => d !== "." && !members.includes(d) && !d.split("/").some((seg) => SKIP_PKG_DIR.test(seg)));
+  const rootHas = MANIFESTS.some((f) => trackedSet.has(f)) || trackedSet.has("setup.py");
+  const dirs = [...(rootHas ? ["."] : []), ...members, ...others.sort()];
+  if (dirs.length === 0 || dirs.length > MAX_MODEL_PACKAGES) return null;
+  const rootLock = LOCK_INSTALLS.find(([f]) => f !== "go.mod" && trackedSet.has(f));
+  const nameToRoot = new Map<string, string>();
+  for (const d of [".", ...members]) { const n = json(d)?.["name"]; if (typeof n === "string" && n) nameToRoot.set(n, d); }
+  const fingerprint = new Set<string>(["pnpm-workspace.yaml"].filter((f) => trackedSet.has(f)));
+  const packages = dirs.map((d) => {
+    const isMember = members.includes(d), cmds = discoverCommands(join(repoDir, d), isMember ? repoDir : join(repoDir, d));
+    const own = [...new Set([...PKG_MANIFESTS, ...MANIFESTS])].map((f) => at(d, f)).filter((f) => trackedSet.has(f) || (isMember && f.endsWith("/package.json") && isFile(f)));
+    own.forEach((f) => fingerprint.add(f));
+    const cmdOf = (kind: CmdKind): RawCmd => { const c = cmds.find((e) => e.kind === kind); return c ? { cmd: c.cmd, cwd: d, cite: [at(d, c.source)] } : null; };
+    const lock = LOCK_INSTALLS.find(([f]) => trackedSet.has(at(d, f)));
+    if (lock) fingerprint.add(at(d, lock[0]));
+    const install: RawCmd = lock ? { cmd: lock[1], cwd: d, cite: [at(d, lock[0])] } : isMember && rootLock ? { cmd: rootLock[1], cwd: ".", cite: [rootLock[0]] } : pyInstall(repoDir, d, trackedSet, at);
+    const pj = json(d), deps = pj ? DEP_KEYS.flatMap((k) => Object.keys((pj[k] as Record<string, unknown> | undefined) ?? {})) : [];
+    const uiDep = deps.some((x) => UI_DEPS.includes(x)), scripts = (pj?.["scripts"] ?? {}) as Record<string, unknown>, pm = pkgManager(isMember ? repoDir : join(repoDir, d));
+    const boot: RawCmd = uiDep && typeof scripts["dev"] === "string" ? { cmd: `${pm} run dev`, cwd: d, cite: [at(d, "package.json")] } : uiDep && typeof scripts["start"] === "string" ? { cmd: `${pm} start`, cwd: d, cite: [at(d, "package.json")] } : null;
+    const js = d === "." || isMember ? (pj ? { dependsOn: [...new Set(deps.map((x) => nameToRoot.get(x)).filter((r): r is string => r !== undefined && r !== d))] } : {}) : {};
+    return { name: typeof pj?.["name"] === "string" && pj["name"] ? pj["name"] : d === "." ? basename(resolve(repoDir)) : d, root: d, runner: null, cite: own.length ? own : [cmds[0] ? at(d, cmds[0].source) : at(d, "package.json")],
+      commands: { test: cmdOf("test"), lint: cmdOf("lint"), build: cmdOf("build"), start: null }, ui: { present: boot !== null, boot, cite: boot ? boot.cite : [] }, install, ...js };
+  });
+  // A test script that fans out over the workspace (nx, turbo, lerna, recursive pnpm or yarn) names no one package's suite: the session decides.
+  if (!packages.some((p) => p.commands.test) || dirs.some((d) => fansOut((json(d)?.["scripts"] ?? {}) as Record<string, unknown>))) return null;
+  const wsCite = trackedSet.has("pnpm-workspace.yaml") ? "pnpm-workspace.yaml" : packages[0]!.cite[0]!;
+  return { workspaceKind: members.length ? "workspaces" : packages.length > 1 ? "multi-root" : "single", workspaceCite: [wsCite], fingerprintFiles: [...fingerprint].sort(), packages };
+}
+const DEP_KEYS = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
+/** A Python package with no lockfile: its requirements.txt, else an editable install of the project (with its test extra when it declares one), through the interpreter discoverCommands runs pytest with. */
+function pyInstall(repoDir: string, d: string, tracked: Set<string>, at: (dir: string, f: string) => string): RawCmd {
+  const abs = join(repoDir, d), py = [".venv", "venv"].map((v) => join(v, "bin", "python")).find((p) => existsSync(join(abs, p))) ?? "python3";
+  if (tracked.has(at(d, "requirements.txt"))) return { cmd: `${py} -m pip install -r requirements.txt`, cwd: d, cite: [at(d, "requirements.txt")] };
+  const pp = tracked.has(at(d, "pyproject.toml")) ? read(join(abs, "pyproject.toml")) : "";
+  if (!/^\[project\]/m.test(pp) && !tracked.has(at(d, "setup.py"))) return null;
+  const at0 = pp.search(/^\[project\.optional-dependencies\]/m), nl = at0 < 0 ? -1 : pp.indexOf("\n", at0), extras = nl < 0 ? "" : pp.slice(nl + 1).split(/^\[/m)[0]!, extra = ["test", "tests", "testing", "dev"].find((k) => new RegExp(`^\\s*${k}\\s*=`, "m").test(extras));
+  return { cmd: `${py} -m pip install -e ${extra ? `'.[${extra}]'` : "."}`, cwd: d, cite: [at(d, /^\[project\]/m.test(pp) ? "pyproject.toml" : "setup.py")] };
+}
+
 /** TEN-QUALITY-16: a formatter the repo ITSELF configures. `argv` is the command before the file list; `exts` selects the files it owns. Config detection only, never an install. */
 export interface RepoFormatter { tool: string; argv: string[]; exts: RegExp }
 export function detectFormatters(repoDir: string): RepoFormatter[] {
@@ -366,6 +443,8 @@ export function detectFormatters(repoDir: string): RepoFormatter[] {
   try { prettierKey = pj !== "" && "prettier" in (JSON.parse(pj) as object); } catch { /* malformed manifest: no formatter */ }
   const local = join(repoDir, "node_modules", ".bin", "prettier"); // a repo-local binary only: nothing is fetched
   if ((prettierKey || readdirSync(repoDir).some((f) => /^(\.prettierrc(\.[a-z0-9]+)?|prettier\.config\.[cm]?[jt]s)$/.test(f))) && existsSync(local)) out.push({ tool: "prettier", argv: [local, "--write"], exts: /\.(?:[cm]?[jt]sx?|json|css|scss|md|ya?ml|html)$/ });
+  const biome = join(repoDir, "node_modules", ".bin", "biome"); // same rule: repo-local binary only
+  if (has("biome.json", "biome.jsonc") && existsSync(biome)) out.push({ tool: "biome", argv: [biome, "format", "--write"], exts: /\.(?:[cm]?[jt]sx?|json|jsonc|css)$/ });
   if (has("go.mod")) out.push({ tool: "gofmt", argv: ["gofmt", "-w"], exts: /\.go$/ });
   if (has("rustfmt.toml", ".rustfmt.toml")) {
     const ed = /^\s*edition\s*=\s*"(\d+)"/m.exec(read(join(repoDir, "Cargo.toml")))?.[1];
@@ -405,7 +484,7 @@ function runOnce(repoDir: string, cmd: string, cwd: string, tmo: number, opts: B
   const ids = r.code !== 0 && !r.timedOut ? (failIds(r.out).length ? failIds(r.out) : isExitCodedScript(cmd) && r.code !== null ? [exitCodedId(cmd, r.out, repoDir) ?? []].flat() as string[] : []) : [], missing = r.missing === true;
   const attributable = !r.timedOut && !missing && r.code !== null && (r.code === 0 || ids.length > 0);
   const reason = attributable ? undefined : r.timedOut ? "timed out" : missing ? "command not found" : "failing test ids not parseable, failures cannot be attributed";
-  return { b: { ran: true, command: cmd, exit_code: r.code, duration_s: dur, timed_out: r.timedOut, failing_ids: ids, attributable, ...(reason ? { reason } : {}), zero_tests: r.code === 0 && emptyDiscovery(classifyCheck({ kind: "test", ok: true, out: r.out, ...goRunner(cmd) }), r.out) }, missing };
+  return { b: { ran: true, command: cmd, exit_code: r.code, duration_s: dur, timed_out: r.timedOut, failing_ids: ids, attributable, ...(reason ? { reason } : {}), ...(ids.length ? { failing_errors: Object.fromEntries(errorsById(r.out)) } : {}), ...(unhandledBlock(r.out).length ? { failing_unhandled: unhandledBlock(r.out) } : {}), zero_tests: r.code === 0 && emptyDiscovery(classifyCheck({ kind: "test", ok: true, out: r.out, ...goRunner(cmd) }), r.out) }, missing };
 }
 /** Runs the first test command once and records it on the command. */
 export function runBaseline(repoDir: string, commands: ProfileCommand[], opts: BuildOpts = {}): CommandProfile["baseline"] {
@@ -431,7 +510,7 @@ export function baselineSuites(repoDir: string, specs: { name: string; cmd: stri
     const old = p.suites ?? [];
     p.suites = specs.filter((s) => s.cwd !== "." || normCmd(s.run) !== normCmd(p.baseline.command ?? "")).map((s) => {
       const prev = old.find((o) => o.command === s.cmd);
-      if (prev?.ran && !opts.rerun) return prev;
+      if (prev?.ran && !opts.rerun && (prev.failing_ids.length === 0 || prev.failing_errors)) return prev; // an entry recorded before failing_errors existed is measured again
       const tmo = Math.min(opts.timeoutS ?? DEFAULT_TIMEOUT_S, Math.floor(left)), t0 = Date.now();
       if (tmo < 1) return { name: s.name, ran: false, command: s.cmd, exit_code: null, duration_s: null, timed_out: false, failing_ids: [], attributable: false, reason: "baseline budget used up" };
       const { b } = runOnce(repoDir, s.run, join(repoDir, s.cwd), tmo, opts);
@@ -465,7 +544,7 @@ const headOf = (repoDir: string): string => { try { return safeGit(repoDir, ["re
 export function ensureProfile(repoDir: string, opts: BuildOpts = {}): { profile: CommandProfile; reused: boolean } | null {
   try {
     const hash = manifestHash(repoDir), rev = headOf(repoDir), old = loadProfile(repoDir);
-    if (old && old.manifest_hash === hash && old.revision === rev) return { profile: old, reused: true };
+    if (old && old.manifest_hash === hash && old.revision === rev && (old.baseline.failing_ids.length === 0 || old.baseline.failing_errors)) return { profile: old, reused: true };
     const commands = old && old.manifest_hash === hash ? old.commands.map((c) => ({ ...c, ...(c.kind === "test" ? { validated: null, exit_code: null, duration_s: null, failing_ids: [] } : {}) })) : discoverCommands(repoDir);
     const profile: CommandProfile = { version: 1, revision: rev, manifest_hash: hash, created_at: (opts.now?.() ?? new Date()).toISOString(), commands, baseline: runBaseline(repoDir, commands, opts) };
     save(repoDir, profile);
@@ -475,18 +554,22 @@ export function ensureProfile(repoDir: string, opts: BuildOpts = {}): { profile:
 
 /** Failing checks split by the baseline. A check is pre-existing only when the profile ran on exactly this base commit, the baseline was attributable,
  *  `eligible` (the caller: untouched, non-target test) and EVERY failing id of the check is in the baseline (one new id makes it introduced).
- *  A check without parsed ids is introduced: unknown never excuses a failure. */
+ *  A check without parsed ids is introduced: unknown never excuses a failure. FireLater#21: `suite` names the full-suite check of the package that
+ *  owns the test (the caller's FC-BASELINE-PER-PACKAGE `suites` entry); its ids are that package's baseline, so a frontend page test in a repo whose
+ *  root command runs nothing is compared with the frontend suite's base failures. No suite, or one that did not run attributably: the root baseline. */
 export interface Attribution { preExistingChecks: string[]; preExistingIds: string[]; introducedChecks: string[]; line: string | null }
-export function attribute(repoDir: string, baseSha: string, failing: { name: string; ids?: string[]; eligible: boolean }[]): Attribution {
+export function attribute(repoDir: string, baseSha: string, failing: { name: string; ids?: string[]; eligible: boolean; suite?: string }[]): Attribution {
   const p = loadProfile(repoDir), none: Attribution = { preExistingChecks: [], preExistingIds: [], introducedChecks: failing.map((f) => f.name), line: null };
-  if (!p || p.revision !== baseSha || !p.baseline.attributable || p.baseline.failing_ids.length === 0 || failing.length === 0) return none;
-  const base = new Set(p.baseline.failing_ids);
-  return split(failing.map((f) => ({ ...f, base })), base.size);
+  if (!p || p.revision !== baseSha || failing.length === 0) return none;
+  const root = p.baseline.attributable ? p.baseline.failing_ids : [], own = (name?: string): string[] => { const s = name ? p.suites?.find((x) => x.name === name && x.ran && x.attributable) : undefined; return s ? s.failing_ids : root; };
+  const rows = failing.map((f) => ({ ...f, base: new Set(own(f.suite)) })), known = new Set(rows.flatMap((r) => [...r.base]));
+  if (known.size === 0) return none;
+  return split(rows, known.size);
 }
 /** Each failing check against its own baseline id set; `known` is the number of baseline failures the line reports. */
 function split(failing: { name: string; ids?: string[]; eligible: boolean; base: Set<string> }[], known: number): Attribution {
   const unparsed = failing.filter((f) => !f.ids?.length && f.base.size > 0).length; // FC-FULLSUITE-ANSI-IDS: a failing check with no parsed ids against an attributable baseline
-  const pre = failing.filter((f) => f.eligible && f.ids?.length && f.ids.every((i) => f.base.has(i)));
+  const pre = failing.filter((f) => f.eligible && f.ids?.length && comparableIds(f.ids).every((i) => f.base.has(i)));
   const introduced = failing.filter((f) => !pre.includes(f)).map((f) => f.name);
   if (pre.length === 0) return { preExistingChecks: [], preExistingIds: [], introducedChecks: introduced, line: `baseline: ${known} known failure(s) before this run; ${unparsed ? `head failure ids unparseable for ${unparsed} failing check(s), cannot compare` : "none of the failing checks match them"}, ${introduced.length} introduced (blocking)` };
   return { preExistingChecks: pre.map((f) => f.name), preExistingIds: pre.flatMap((f) => f.ids ?? []), introducedChecks: introduced,
@@ -542,16 +625,18 @@ function cargoTouched(changed: string[]): boolean {
  *  or a `suites` entry); a check no baseline ran makes the ids not comparable and nothing is excused (the reason is returned in `line`), an
  *  unattributable baseline excuses nothing, ids must be present and complete (failIds gives [] on partial extraction), and an id the targeted checks
  *  already failed (`blocked`) or one naming a changed file is never excused. */
-export function attributeFullSuite(repoDir: string, baseSha: string, full: { name: string; cmd: string; result: string; ids?: string[] }[], blocked: string[], changed: string[]): Attribution {
+/** FireLater#21 (review): ids alone never excuse a full suite. Each failing id must fail on base with the same error lines (sameErrors against the baseline's
+ *  failing_errors); a suite whose output or baseline has no error lines for an id (a baseline recorded before failing_errors, go, cargo) is not excused. */
+export function attributeFullSuite(repoDir: string, baseSha: string, full: { name: string; cmd: string; result: string; ids?: string[]; errors?: Record<string, string[]>; unhandled?: string[] }[], blocked: string[], changed: string[]): Attribution {
   const bad = full.filter((c) => c.result === "fail"), none: Attribution = { preExistingChecks: [], preExistingIds: [], introducedChecks: bad.map((c) => c.name), line: null }, p = loadProfile(repoDir);
   if (!bad.length || !p || p.revision !== baseSha) return none;
   const runs = [p.baseline, ...(p.suites ?? [])].filter((b) => b.ran), of = (cmd: string) => runs.find((b) => normCmd(b.command ?? "") === normCmd(cmd));
   const ids = (cmd: string): string[] => { const b = of(cmd); return b?.attributable ? b.failing_ids : []; }, miss = bad.find((c) => !of(c.cmd));
   if (miss) return { ...none, line: `baseline: ran ${runs.map((b) => `"${b.command}"`).join(", ") || "nothing"}, not the full suite command "${miss.cmd}", ids not comparable, full suite failures not excused` };
-  const known = new Set(bad.flatMap((c) => ids(c.cmd))), block = new Set(blocked);
+  const known = new Set(bad.flatMap((c) => ids(c.cmd))), block = new Set(blocked), sameAsBase = (c: (typeof bad)[number]): boolean => { const b = of(c.cmd), be = b?.failing_errors, hu = c.unhandled ?? [], bu = b?.failing_unhandled ?? []; return !!be && !!c.errors && hu.length === bu.length && hu.every((x, n) => x === bu[n]) /* an unhandled-errors block names no id: it must repeat on base */ && sameErrors(new Map(Object.entries(c.errors)), be, comparableIds(c.ids ?? [])); };
   if (known.size === 0) return none;
   const unproven = [...new Set(bad.flatMap((c) => c.ids ?? []).filter((i) => !i.includes("::") && goIdTouched(repoDir, i, changed)))];
-  const res = split(bad.map((c) => ({ name: c.name, ...(c.ids ? { ids: c.ids } : {}), eligible: !cargoTouched(changed) && (c.ids ?? []).every((i) => !block.has(i) && !changed.some((f) => i.includes(f)) && !goIdTouched(repoDir, i, changed)), base: new Set(ids(c.cmd)) })), known.size);
+  const res = split(bad.map((c) => ({ name: c.name, ...(c.ids ? { ids: c.ids } : {}), eligible: !cargoTouched(changed) && sameAsBase(c) && (c.ids ?? []).every((i) => !block.has(i) && !changed.some((f) => i.includes(f)) && !goIdTouched(repoDir, i, changed)), base: new Set(ids(c.cmd)) })), known.size);
   const rust = (cargoTouched(changed) ? bad : []).map((c) => `NOT PROVEN: ${c.name} may run cargo tests and the diff edits Rust source or a manifest; cargo test ids carry no crate path, so a failure cannot be shown pre-existing`);
   if (!unproven.length && !rust.length) return res;
   const np = [...unproven.map((u) => `NOT PROVEN: package ${u} did not build on base or head; its tests ran on neither`), ...rust].join("; ");
@@ -631,13 +716,14 @@ export interface Readiness { score: number; grade: "A" | "B" | "C" | "D" | "F"; 
 export interface ReadinessHost { firstTaskReady: boolean; fix?: string | null }
 
 /** Pure score of how ready a repo is for a verified run, from what the profile already recorded. 100 minus a cost per gap; a host that cannot run a first task caps it at 40. */
-export function repoReadiness(p: CommandProfile, host?: ReadinessHost): Readiness {
+export function repoReadiness(p: CommandProfile, host?: ReadinessHost, verify: readonly ProfileCommand[] = []): Readiness {
   const findings: ReadinessFinding[] = [];
   let score = 100;
   const add = (cost: number, f: ReadinessFinding): void => { score -= cost; findings.push(f); };
   const has = (k: CmdKind): boolean => p.commands.some((c) => c.kind === k);
   const b = p.baseline;
-  if (!has("test")) add(30, { id: "no-test-command", severity: "high", message: "No test command found in the repo manifests.", fix: "Add a test script (for example `npm run test`, `pytest`, `go test ./...`) so changes can be verified." });
+  if (!has("test") && verify.length === 0) add(30, { id: "no-test-command", severity: "high", message: "No test command found in the repo manifests.", fix: "Add a test script (for example `npm run test`, `pytest`, `go test ./...`) so changes can be verified." });
+  else if (!has("test")) { const miss = verify.find((c) => c.validated === false); if (miss) add(30, { id: "test-tool-missing", severity: "high", message: `Loki tests this repo with \`${miss.cmd}\` (from ${miss.source}), but ${miss.note}.`, fix: miss.fix ?? `Install the tool \`${miss.cmd.split(" ")[0]}\` needs.` }); } // FR05: verify's own full-suite command (computed at read time, never persisted)
   else if (!b.ran || b.timed_out || !b.attributable) add(15, { id: "baseline-unattributable", severity: "medium", message: `Baseline test run is not usable${b.reason ? ` (${b.reason})` : b.ran ? "" : " (not run)"}.`, fix: "Make the test command runnable from the repo root and finish within the baseline timeout so failures can be attributed." });
   else if (b.failing_ids.length > 0) add(20, { id: "baseline-red", severity: "medium", message: `Baseline is red: ${b.failing_ids.length} test(s) already fail before any change.`, fix: "Fix or quarantine them; until then `loki start` will not blame these on your change." });
   if (!has("lint")) add(10, { id: "no-lint", severity: "low", message: "No lint command found.", fix: "Add a lint script to the manifest." });
@@ -661,10 +747,11 @@ export function readinessNotice(repoDir: string, r: Readiness): string | null {
 
 export const readinessLines = (r: Readiness): string[] => [`  Readiness: ${r.score}/100 (${r.grade})`, ...(r.findings.length ? ["  Fix:", ...r.findings.map((f) => `    - ${f.fix}`)] : [])];
 
-export function renderProfile(p: CommandProfile | null, host?: ReadinessHost): string {
+export function renderProfile(p: CommandProfile | null, host?: ReadinessHost, verify: readonly ProfileCommand[] = []): string {
   if (!p) return "repo profile: none yet (run `loki doctor --repo` to build it; LOKI_REPO_BASELINE=0 disables building)\n";
   const rows = p.commands.map((c) => `  ${c.kind.padEnd(9)} ${c.cmd}  [${c.source}]  ${c.validated === true ? `validated exit=${c.exit_code} ${c.duration_s}s` : c.validated === false ? `not runnable${c.note ? `: ${c.note}` : ""}` : "not executed"}`);
   const b = p.baseline;
   const bl = b.ran ? `${b.command} exit=${b.exit_code}${b.timed_out ? " (timed out)" : ""}, ${b.failing_ids.length} failing id(s)${b.attributable ? "" : `, not attributable${b.reason ? ` (${b.reason})` : ""}`}` : `not run (${b.reason ?? "unknown"})`;
-  return [".loki/state/repo-profile.json", `  revision ${p.revision.slice(0, 12)}  manifest ${p.manifest_hash.slice(0, 12)}  built ${p.created_at}`, ...rows, `  baseline: ${bl}`, ...readinessLines(repoReadiness(p, host))].join("\n") + "\n";
+  const vrows = verify.length ? ["  verify runs (no test command in the manifests):", ...verify.map((c) => `  test      ${c.cmd}  [${c.source}]  ${c.validated === false ? `not runnable: ${c.note}` : "not executed here"}`)] : [];
+  return [".loki/state/repo-profile.json", `  revision ${p.revision.slice(0, 12)}  manifest ${p.manifest_hash.slice(0, 12)}  built ${p.created_at}`, ...rows, ...vrows, `  baseline: ${bl}`, ...readinessLines(repoReadiness(p, host, verify))].join("\n") + "\n";
 }

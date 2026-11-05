@@ -454,6 +454,14 @@ describe("cross-model execution receipt seam parity (ce-work <-> lfg)", () => {
     }
   })
 
+  test("ce-work returns simplified_through only when a phase-boundary simplify pass ran", async () => {
+    const returned = await readRepoFile("skills/ce-work/references/return-to-caller.md")
+    const loop = await readRepoFile("skills/ce-work/references/implementation-loop.md")
+    expect(returned).toMatch(/`simplified_through`: present only when a phase-boundary `ce-simplify-code` pass ran/)
+    expect(returned).toContain("Omit the field otherwise")
+    expect(loop).toContain("record that commit's SHA (HEAD when the pass changed nothing) as `simplified_through`")
+  })
+
   test("lfg fails closed for unknown or malformed work returns", async () => {
     const lfg = await readRepoFile("skills/lfg/SKILL.md")
     const gate = sliceSection(
@@ -995,6 +1003,38 @@ describe("ce-doc-review contract", () => {
     expect(block).toMatch(/\*Strategic weight\*/)
   })
 
+  test("adversarial fires on what a plan does, not on who made its choices", async () => {
+    const content = await readRepoFile("skills/ce-doc-review/references/persona-selection.md")
+    const block = sliceSection(content, "**adversarial**", "## Announce the review team")
+    const depth = await readRepoFile("skills/ce-doc-review/references/depth.md")
+    expect(block).not.toMatch(/product choice/)
+    expect(depth).not.toMatch(/product choice/)
+    expect(block).toMatch(/high-stakes domain/)
+    expect(block).toMatch(/change to a public contract\*\* that an outside consumer already relies on/)
+    expect(block).not.toMatch(/no validated upstream Product Contract signal/)
+    expect(block).not.toMatch(/ce-plan-bootstrap/)
+  })
+
+  test("plan review depth is lite only when no challenge lens activates, and never lowers", async () => {
+    const skill = await readRepoFile("skills/ce-doc-review/SKILL.md")
+    const depth = await readRepoFile("skills/ce-doc-review/references/depth.md")
+    const handoff = await readRepoFile("skills/ce-plan/references/plan-handoff.md")
+    expect(skill).toContain("references/depth.md")
+    expect(depth).toMatch(/Only a plan document .* can run lite/)
+    expect(depth).toMatch(/conditional persona other than `scope-guardian-reviewer` activates/)
+    expect(depth).toMatch(/what the files and code paths it names actually do/)
+    expect(depth).toContain("`depth:full`")
+    expect(depth).toMatch(/keeps or raises the recorded depth, never lowers it/)
+    expect(depth).toMatch(/Lite never runs the cross-model pass/)
+    expect(depth).toMatch(/Severity alone never escalates/)
+    expect(depth).toContain("`ESCALATE:`")
+    expect(depth).toMatch(/switch to `full` in the same invocation/)
+    expect(depth).toMatch(/unless the caller passed `depth:full`/)
+    expect(depth).toMatch(/lite review was not independent/)
+    expect(depth).toMatch(/does not begin with the word "depth"/)
+    expect(handoff).toContain("`depth:full`")
+  })
+
   test("keeps security document review on the parent capability tier", async () => {
     const content = await readRepoFile("skills/ce-doc-review/references/dispatch.md")
     const modelTierSection = content.slice(content.indexOf("Model tiering lives here"))
@@ -1381,6 +1421,42 @@ describe("ce-simplify-code pipeline callers", () => {
     expect(skill).toContain("mode:pipeline")
     expect(skill).toContain("proof-test:<path>")
     expect(skill).toContain("The proof-test path is context for Step 3, never scope")
+  })
+
+  // The caller owns the threshold and the callee owns the measurement. Without the
+  // token, a standalone or ce-work run keeps the full team at any size.
+  test("lfg passes the size cutoff and scopes step 3 after ce-work's own pass", async () => {
+    const lfg = await readRepoFile("skills/lfg/SKILL.md")
+    const followup = await readRepoFile("skills/lfg/references/review-followup.md")
+    const debugReturn = await readRepoFile("skills/lfg/references/debug-return.md")
+    const skill = await readRepoFile("skills/ce-simplify-code/SKILL.md")
+    const singlePass = await readRepoFile("skills/ce-simplify-code/references/single-pass.md")
+
+    expect(lfg).toContain("with `mode:pipeline` and `size-cutoff:30`")
+    expect(lfg).toContain("roughly sub-10-line change")
+    expect(followup).toContain("`simplified_through: <sha>`")
+    expect(followup).toContain("pass only the changes after it as the scope")
+    expect(followup).toContain("the `size-cutoff:` token step 3 names")
+    expect(debugReturn).toContain("the `size-cutoff:` token step 3 names")
+
+    expect(skill).toContain("a `size-cutoff:<N>` token")
+    expect(skill).toContain("When the input carried `size-cutoff:<N>`, read `references/single-pass.md` before dispatching")
+    expect(skill).toContain("any size or cost threshold is the caller's to set")
+    expect(singlePass).toContain("A count of N or more runs Step 2 as written")
+    expect(singlePass).toContain("A count below N runs one combined reviewer")
+    expect(singlePass).toContain("Anything the preflight says is not code never counts")
+    expect(singlePass).toContain("Step 5's summary names the mode that ran")
+  })
+
+  // Skill and prompt markdown is product code in some repos, but it is never code to simplify.
+  test("the callee and lfg both say prose, including agent-read markdown, is not code", async () => {
+    const skill = await readRepoFile("skills/ce-simplify-code/SKILL.md")
+    const followup = await readRepoFile("skills/lfg/references/review-followup.md")
+    for (const text of [skill, followup]) {
+      expect(text).toContain("Prose is not code")
+      expect(text).toContain("markdown that agents read")
+    }
+    expect(followup).toContain("A change with none of that code is docs-only for step 3's skip, however large it is")
   })
 })
 

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **skill-creator** (`daymade-skill` v1.76.0 → v1.77.0): Move bounded file reading and command capture to standalone tools, retain portable generated compatibility entries in Skill Creator, and check distribution drift in CI. Change type: lossless ownership relocation with preserved interfaces.
+- **github-ops** (v1.15.3 → v1.15.4): Choose local copy destinations by development, durable preservation or temporary rescue purpose; reassess disputed historical layouts while preserving complete history and relocation authorization.
+- **debugging-network-issues** (v1.11.8 → v1.11.9): Distinguish request latency from bulk throughput and prioritize same-request critical-path evidence and end-to-end benefit before local tuning. Preserve existing throughput, timeout and intermittent-failure workflows. Change type: bounded diagnostic routing correction.
+- **read-claude-code-history** (`daymade-claude-code` v5.1.0): Verify an exact session artifact against its current source before reuse; distinguish fresh, stale and unknown snapshots without scanning unrelated history.
+- **local-codex** (`daymade-codex` v2.4.4 → v2.4.5): Check saved-login sources and the bound owner's adoption capability before authorization; report the observed account, original operation receipt and useful continuation separately while preserving formal browser ownership.
+- **ghostty-use** (v1.11.0 → v1.11.1): Proactively route incomplete recovery snapshots to bounded candidate selection, preserve older retained IDs and the latest user closures, and align identity-verification guidance with the shared resolver. Change types: bounded recovery-entry repair and factual correction.
+- **github-ops** (v1.15.2 → v1.15.3): Report controlled refusal codes and safe next steps for checked GitHub writes while preserving actor, target, exact-head and merge-policy checks. Change type: compatible diagnostic repair.
+- **transcript-fixer** (`daymade-audio` v1.57.1 → v1.57.2): Scope dictionary-add review conflicts to the literal source and longer pending source/candidate matches. Preserve unrelated pending suggestions that share only the destination, along with person-name and corpus-evidence gates.
+
+- **macos-cleaner** (`daymade-macos` v1.29.1 → v1.30.0): Add selected external-disk cold relocation with metadata pilots, reusable content evidence, original-entry rollback and explicitly scoped reconnection checks.
+- **prior-work-retrieval** (`daymade-claude-code` v5.0.0 → v5.0.1): Keep guarded reuse of supplied exact-candidate review results out of history retrieval; retain mixed historical requests and existing retrieval obligations.
+- **ghostty-use** (v1.10.0 → v1.11.0): Resolve UUID-less terminal sessions in automatic snapshots and record timestamped coverage, unchanged rounds, failures and timeouts. Preserve change-only archives, partial-backup retention and the configured schedule. Reuse one history-index lookup per manual snapshot. Change type: compatible snapshot reliability repair.
+
+- **feishu-doc-scraper** (v1.12.2 → v1.12.3): Point account-binding and transcript-recovery guidance at the independently published Lark router.
+
+- **Marketplace** (v3.26.0 → v3.27.0): Extract **lark-cli-router** unchanged into its own v1.0.0 plugin. **daymade-claude-code** v5.0.0 no longer includes Feishu/Lark operations. To retain them, install `lark-cli-router@daymade-skills` separately and use `lark-cli-router:lark-cli-router` instead of `daymade-claude-code:lark-cli-router`.
+
+- **feishu-doc-scraper** (v1.12.1 → v1.12.2): Align document and Minutes permission recovery with source account binding; preserve native-transcript gaps and remove manually maintained heading summaries. Change type: operating-guide consistency repair.
+- **local-codex** (`daymade-codex` v2.4.3 → v2.4.4): Pre-clear Cloudflare on a neutral OpenAI page before formal shared-owner OAuth and preserve the formal TaskSpace owner through callback completion; keep late account changes and original-operation outcomes separate. Change type: bounded recovery-guide correction.
+- **ghostty-use** (v1.9.8 → v1.10.0): Add the configured Account Manager legacy-terminal JSON bridge, targeted native host and bound-window reader; preserve manual restore, unresolved inventory and uncertain-input reconciliation. Read Darwin argv by its kernel argument count without treating initial prompts or environment data as options. Change type: recovered compatible terminal integration.
+- **lark-cli-router** (`daymade-claude-code` v4.36.0 → v4.37.0): Add external customer group and Wiki collaboration guidance, including reuse of manually created groups, explicit external-group creation, descendant-scoped group grants, and separate configuration/access acceptance. Change type: additive collaboration workflow.
+
+- **macos-cleaner** (`daymade-macos` v1.29.0 → v1.29.1): Retire historical incident arithmetic from growth diagnosis, preserve allocation and mixed-window evidence boundaries, and route emergency cleanup through the existing authorization gate.
+
 - **docs-router** (`daymade-docs` v1.29.0 → v1.29.1): Keep all document jobs, including documentation cleanup, inside the first 130 description characters and bytes; retain the full existing routing table and manual-command boundary. Change type: recovered discovery-prefix correction.
 
 - **ghostty-use** (v1.9.7 → v1.9.8): Require the saved cwd when recognizing a restored process; persist send attempts before terminal input and reconcile uncertain or legacy attempts without sending them twice. Change type: duplicate-restoration bug fix.
@@ -31,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **transcript-fixer** (`daymade-audio` v1.57.0 → v1.57.1): Route prepared source clips and queue domain repair from the repository entry; align existing enqueue examples with project-domain admission and remove redundant runtime-value prose. Change type: operational documentation alignment.
 
 - **transcript-fixer** (`daymade-audio` v1.56.0 → v1.57.0): Bind local or authorized SSH clip extraction to a verified source and reuse it in the existing two-window check; retain local/URL audio inputs. Require explicit domains for project-bound queue appends and provide previewed, audited domain-only repair. Change type: compatible source adapter and queue integrity controls.
+- **macos-cleaner** (`daymade-macos` v1.28.1 → v1.29.0): Add bounded, metadata-only APFS private-allocation measurement with explicit partial/unsupported results. Separate target allocation, confirmed retirement, concurrent activity and mixed volume changes; correct unconditional clone/hard-link reclaim claims and retain original observations without false causal credit. Change type: additive read-only capability and factual SOP correction.
 
 - **read-codex-history** (`daymade-claude-code` v4.34.1 → v4.34.2): Track consumed raw-byte positions during JSONL streaming instead of repeatedly querying the file position; retain the final physical-position check, exact prefix certificates and existing rejection boundaries. Change type: bounded implementation optimization.
 

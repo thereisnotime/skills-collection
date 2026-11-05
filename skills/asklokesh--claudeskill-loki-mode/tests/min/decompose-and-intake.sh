@@ -16,12 +16,16 @@
 #            outranks BUDGET_STOP (exit 3), then PARTIAL (exit 6), then VERIFIED; exit codes via exitCodeOf
 #            (LOKI_DURABLE_STATE=1 gives 20). The Cost line sums unrounded slice figures plus every planning session (a
 #            re-ask included); a refused split reports its planning on a Split planning line that backlog adds.
+#   parallel: independent slices of a split run at once (issues_run.ts epicParallel, LOKI_EPIC_PARALLEL), a FAILED or SPEC_CONFLICT
+#            slice skips only its dependents (issues_epic.ts runEpicSlices, stacksOn allowlist); source level, no dist needed.
 #   labels:  engine10's own sizing sees the issue's labels: when the split is refused (the stub writes no split) and
 #            `loki start acme/search#25` runs the issue as one run, its plan stage still sizes the epic-label issue large.
 #   lean:    `loki start "fix the off-by-one in paginate()"` sizes small and takes the lean path (no plan, no Wall).
 #   intake:  that run, on a repo with 1246 files, 240 test files that each pay an 80 ms process startup (the cost
 #            shape of FireLater's vitest suite) and 20 stale loki/e10-* branches holding unpushed commits, reaches
 #            the end of intake and its first model session in under 15 s; the 20 branches are swept after the run.
+#   diet:    Project Model discovery is read from the manifests (runner/repo_profile.ts manifestModel) with no session when they declare
+#            a test command; otherwise the session runs at low effort, a 4096-token output cap and at most 24 KiB of inlined files.
 #   guard:   the lazy zero baseline (util/base_guard.ts envChangedSince) trusts an untouched environment and
 #            withholds after a dependency file changes or a recorded ignored file disappears.
 #   pr face: unit-level, a slice PR is titled by its slice title plus "(#21 s2)", an issue run by the issue title plus "(#24)",
@@ -58,7 +62,21 @@
 #  15. issues_run.ts REAPER_SH: skip the run-dir re-copy; the pr face check fails (addendum lost).
 #  16. pr.ts prTitle: clip by UTF-16 units (what.split("")); the pr face check fails (split pair).
 #  17. run_outputs.ts prWorkflowsSkipping: read a scalar branches: as no list; the pr face check fails (main reads skipped).
+#  18. project_model/discover.ts buildBrief: put the `Write ONLY a JSON object ... ${answerPath}` line back above the tracked-file tree;
+#      the brief prefix check fails (the shared prefix stops before the tree).
 #  18. prWorkflowsSkipping: ignore pull_request_target; the pr face check fails (a running workflow claimed skipped).
+#  19. issues_epic.ts runEpicSlices: `running.size >= 1` instead of `>= Math.max(1, parallel)`; the parallel case A fails (peak 1).
+#  20. runEpicSlices: skip every waiting slice once any finished slice does not stack; the parallel case B fails (s4 SKIPPED).
+#  21. stacksOn: put back the denylist `!/^(FAILED|BLOCKED|SKIPPED)/`; the parallel case C fails (s4 runs on the conflicted branch).
+#  22. issues_run.ts epicParallel: drop the LOKI_EPIC_PARALLEL read; the parallel table fails.
+#  23. startIssueEpic: pass the literal 1 to runOneEpic again; the parallel wiring check fails (peak 1).
+#  24. runner/repo_profile.ts manifestModel: return null; the diet check fails (every repo runs a session).
+#  25. manifestModel: drop the workspace members (members = []); the diet check fails (no packages/* roots, no dependsOn).
+#  26. manifestModel: drop the SKIP_PKG_DIR filter on other manifests; the diet check fails (test/fixtures/app and docs listed).
+#  27. project_model/discover.ts: drop effort "low" from the discovery session; the diet check fails (effort=undefined).
+#  28. project_model/gather.ts: maxTotalBytes back to 96 KiB; the diet check fails (inlined over 24 KiB).
+#  29. manifestModel: drop the fansOut check; the diet check fails (fan false: an nx root test answered without a session).
+#  30. manifestModel: members only from tracked package.json files; the diet check fails (packages/gen missing).
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 need bun
@@ -246,6 +264,17 @@ console.log(out.join(" "));
 [ "$SPLITR" = "true 20 520 true s1 src/a.ts 1 50+3 true true true 2 true" ] && ok "split repair: a 520-char criterion is kept whole, empties dropped, 25 criteria merged to 20 with no text lost, a 600-char path dropped, duplicate deps dropped, dropped paths counted and named in the slice task; an empty acceptance list is re-asked once with the exact error" \
     || bad "split repair gave: $SPLITR (want: true 20 520 true s1 src/a.ts 1 50+3 true true true 2 true)"
 
+# --- split brief: a criterion that replaces behavior an existing test asserts must name that test (FireLater#24 s1, v11.127.0) ---------
+# s1 said "use ranked full-text search instead of ILIKE" and "existing issues tests still pass" without naming issues.test.ts:191, which asserts ILIKE;
+# the implementer treats an unnamed existing test as read-only and stopped SPEC_CONFLICT after $0.13, skipping s2-s4. The brief now tells the splitter.
+BRIEF="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const m = await import(process.env.ROOT + "/loki-ts/src/commands/issues_epic.ts");
+const b = m.decomposeBrief("asklokesh/FireLater", { number: 24, title: "Advanced search", body: "Full-text search with ranking replacing ILIKE filtering", labels: [] }, "13 parts", "/tmp/x.json");
+console.log([b.includes("search the repository" + String.fromCharCode(39) + "s tests for it"), b.includes("put that test file in the slice" + String.fromCharCode(39) + "s files"), b.includes("Never write \"existing tests still pass\" for behavior the slice replaces")].join(" "));
+' 2>&1)"
+[ "$BRIEF" = "true true true" ] && ok "split brief: tells the splitter to name and update an existing test that asserts replaced behavior, never to promise it still passes" \
+    || bad "split brief gave: $BRIEF (want: true true true)"
+
 # --- backlog: a large issue in `loki backlog` runs and splits through the same MASS-2 path, never a drafted spec -------
 B="$T/backlog"
 make_repo "$B" 0
@@ -314,6 +343,57 @@ BL="$(python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import backlog
 print(backlog.parse_result(1, "loki: split refused (x); running the issue as one run\nSplit planning: $0.40 (0 slice runs + 1 planning session)\nOutcome:    FAILED\nCost:       $1.10 (claude)\n")[2])' "$ROOT/autonomy/lib" 2>&1)"
 [ "$BL" = "1.5" ] && ok "outcome: backlog adds a refused split's planning cost to the run's cost (0.40 + 1.10)" || bad "outcome: backlog counted $BL for a refused split, want 1.5"
 
+# --- parallel: independent slices run at once, a failing or spec-conflicting slice skips only its dependents (source level) ---
+PAR="$(ROOT="$ROOT" PT="$T/par" EPIC_TITLE="$EPIC_TITLE" EPIC_BODY="$EPIC_BODY" bun --no-env-file --config=/dev/null -e '
+const ep = await import(process.env.ROOT + "/loki-ts/src/commands/issues_epic.ts");
+const ir = await import(process.env.ROOT + "/loki-ts/src/commands/issues_run.ts");
+const { mkdirSync, writeFileSync } = await import("node:fs");
+const sl = (id, dep) => ({ id, title: id, acceptance: ["ok " + id], depends_on: dep, files: [] });
+const split = JSON.stringify({ slices: [sl("s1", []), sl("s2", []), sl("s3", []), sl("s4", ["s1"])] });
+const plan = ep.parseDecomposition(split);
+const sim = async (verdicts, parallel, needPr) => {
+  let live = 0, peak = 0; const order = [];
+  const runSlice = async (s, k, base) => {
+    live++; peak = Math.max(peak, live); order.push(s.id + (base ? "@" + base : ""));
+    await new Promise((r) => setTimeout(r, s.id === "s1" ? 90 : 40)); // s1 ends last, so a sibling verdict is already recorded when s4 becomes ready
+    live--;
+    const v = verdicts[s.id] ?? "VERIFIED";
+    return { id: s.id, title: s.title, parent: plan.parent[s.id] ?? null, outcome: v, pr: needPr && /^(VERIFIED|PARTIAL)/.test(v) ? "https://github.com/a/b/pull/" + k : null, cost: "$0.10", branch: "loki/e10-" + s.id };
+  };
+  const rs = await ep.runEpicSlices(plan, runSlice, () => {}, parallel, () => {}, needPr);
+  return peak + " " + rs.map((r) => r.id + "=" + r.outcome.split(" ")[0]).join(",") + " " + order.join(",");
+};
+console.log("A " + await sim({}, ir.epicParallel({}, "claude"), true));
+console.log("B " + await sim({ s2: "FAILED (exit 1)", s3: "SPEC_CONFLICT" }, 4, true));
+console.log("C " + await sim({ s1: "SPEC_CONFLICT" }, 4, false));
+console.log("T " + [ir.epicParallel({}, "claude"), ir.epicParallel({ LOKI_EPIC_PARALLEL: "1" }, "claude"), ir.epicParallel({}, "opencode"), ir.epicParallel({ LOKI_EPIC_PARALLEL: "9" }, "claude"), ir.epicParallel({ LOKI_EPIC_PARALLEL: "x" }, "claude")].join(" "));
+const wire = async (envx) => {
+  const runDir = process.env.PT + "/run" + (envx.LOKI_EPIC_PARALLEL ?? "d");
+  mkdirSync(runDir, { recursive: true });
+  writeFileSync(runDir + "/issue.json", JSON.stringify({ provider: "github", repo: "acme/search", number: 24, title: process.env.EPIC_TITLE, body: process.env.EPIC_BODY, labels: [] }));
+  const three = JSON.stringify({ slices: [sl("s1", []), sl("s2", []), sl("s3", [])] });
+  let live = 0, peak = 0, c = 0, out = "";
+  const rc = await ir.startIssueEpic({ repoDir: runDir, runDir, noPr: true, provider: "claude", env: { LOKI_DIR: runDir + "/.loki", ...envx }, inject: {
+    decompose: async () => three,
+    worktree: { create: (n) => { const p = runDir + "/wt-" + n; mkdirSync(p, { recursive: true }); return p; }, remove: () => {} },
+    runner: async () => { live++; peak = Math.max(peak, live); const id = "e10-" + ++c; await new Promise((r) => setTimeout(r, 40)); live--; return { rc: 0, output: "", verdict: "VERIFIED", costUsd: 0.1, runId: id }; },
+    out: (s) => { out += s; }, err: () => {},
+  } });
+  return "rc" + rc + " peak" + peak + (out.includes("up to " + (envx.LOKI_EPIC_PARALLEL ?? "4") + " at once") ? " said" : " silent");
+};
+console.log("W " + await wire({}));
+console.log("W1 " + await wire({ LOKI_EPIC_PARALLEL: "1" }));' 2>&1)"
+printf '%s\n' "$PAR" | sed 's/^/    parallel: /'
+printf '%s\n' "$PAR" | grep -q '^A 3 s1=VERIFIED,s2=VERIFIED,s3=VERIFIED,s4=VERIFIED s1,s2,s3,s4@loki/e10-s1$' \
+    && ok "parallel: 3 independent slices run at once; the dependent starts after its parent, stacked on the parent's run branch" || bad "parallel: case A wrong"
+printf '%s\n' "$PAR" | grep -q '^B 3 s1=VERIFIED,s2=FAILED,s3=SPEC_CONFLICT,s4=VERIFIED ' \
+    && ok "parallel: a FAILED and a SPEC_CONFLICT slice do not stop the independent slices or the dependent of a passing slice" || bad "parallel: case B wrong"
+printf '%s\n' "$PAR" | grep -q '^C [0-9] s1=SPEC_CONFLICT,s2=VERIFIED,s3=VERIFIED,s4=SKIPPED [^@]*$' \
+    && ok "parallel: a SPEC_CONFLICT slice with a kept branch (--no-pr) skips only its dependent, which never starts" || bad "parallel: case C wrong"
+printf '%s\n' "$PAR" | grep -q '^T 4 1 1 4 4$' && ok "parallel: epicParallel is claude 4, LOKI_EPIC_PARALLEL=1 gives 1, opencode 1, capped at 4, an invalid value ignored" || bad "parallel: epicParallel table wrong"
+printf '%s\n' "$PAR" | grep -q '^W rc0 peak3 said$' && printf '%s\n' "$PAR" | grep -q '^W1 rc0 peak1 said$' \
+    && ok "parallel: startIssueEpic runs 3 independent slices at once by default and one at a time under LOKI_EPIC_PARALLEL=1" || bad "parallel: startIssueEpic wiring wrong"
+
 # --- labels: engine10's own sizing sees the issue's epic label (split refused, so the issue runs as one run) ----------
 L="$T/labels"
 make_repo "$L" 0
@@ -379,6 +459,71 @@ console.log(r.join(" "));
 [ "$GUARD" = "false true false true true" ] && ok "lazy zero guard: untouched trusted; dependency edit, deleted ignored file, unknown list withheld" || bad "lazy zero guard gave: $GUARD (want: false true false true true)"
 
 
+# --- brief: the Project Model discovery brief keeps per-run text last so same-repo sessions share a cacheable prefix ------------------
+# EXP-0002 audit F7: the per-run answer path sat before the tree and inlined files, so every later discovery on the same repo missed the cache.
+BRIEF="$(ROOT="$ROOT" bun --no-env-file --config=/dev/null -e '
+const { buildBrief } = await import(process.env.ROOT + "/loki-ts/src/project_model/discover.ts");
+const g = { tree: ["src/a.ts", "package.json"], files: [{ path: "package.json", text: "{\"name\":\"x\"}" }] };
+const a = buildBrief(g, "/tmp/run-A/answer.json", null), b = buildBrief(g, "/tmp/run-B/answer.json", ["bad cite"]);
+let n = 0; while (n < a.length && n < b.length && a[n] === b[n]) n++;
+const pre = a.slice(0, n);
+console.log([pre.includes("Tracked files (depth-limited):\nsrc/a.ts"), pre.includes("<file path=\"package.json\">"), a.indexOf("/tmp/run-A") > a.indexOf("<file path="), b.indexOf("REJECTED") > b.indexOf("<file path="), a.endsWith("LOKI_DONE"), b.endsWith("LOKI_DONE")].join(" "));
+' 2>&1)"
+[ "$BRIEF" = "true true true true true true" ] && ok "discovery brief: two briefs for one repo share a prefix holding the tree and files; answer path and retry errors come after, just before LOKI_DONE" || bad "discovery brief gave: $BRIEF (want: true true true true true true)"
+
+# --- diet: the manifests answer the Project Model, so a declared repo costs no discovery session -------------------------------------------
+# 3-day ledger: discovery was 46-48% of Loki's spend. A pnpm workspace, a Python package and a Go module whose manifests declare a test command
+# get a validated model with zero sessions (cached on the next call); a gitignored member package.json still counts; a fixture package.json is
+# never a package; a repo whose manifests name no test command, a test script that fans out over the workspace (nx via `pnpm run test:ci`), and
+# LOKI_E10_PM_MANIFESTS=0 still reach the session, at low effort with a 4096-token output cap and at most 24 KiB of inlined files.
+D="$T/diet"; mkdir -p "$D"
+mkrepo() { git -C "$1" init -q -b main && git -C "$1" config user.name d && git -C "$1" config user.email d@example.invalid && git -C "$1" add -A && git -C "$1" commit -q -m base; }
+W="$D/ws"; mkdir -p "$W/packages/core" "$W/packages/utils" "$W/packages/web" "$W/test/fixtures/app"
+printf '{"name":"root","private":true,"scripts":{"test":"vitest run"}}\n' > "$W/package.json"; printf "packages:\n  - 'packages/*'\n" > "$W/pnpm-workspace.yaml"; echo 'lockfileVersion: 9' > "$W/pnpm-lock.yaml"
+printf '{"name":"@w/core","scripts":{"test":"vitest run"},"dependencies":{"@w/utils":"workspace:*"}}\n' > "$W/packages/core/package.json"
+printf '{"name":"@w/utils","scripts":{"test":"vitest run"}}\n' > "$W/packages/utils/package.json"
+printf '{"name":"@w/web","scripts":{"dev":"vite"},"dependencies":{"react-dom":"18.3.1","@w/core":"workspace:*"}}\n' > "$W/packages/web/package.json"
+printf '{"name":"fixture-app","scripts":{"test":"jest"}}\n' > "$W/test/fixtures/app/package.json"
+mkdir -p "$W/packages/gen"; echo 'package.json' > "$W/packages/gen/.gitignore"; echo 'export {}' > "$W/packages/gen/index.ts" # zod ships a member whose package.json is gitignored
+for i in $(seq 1 80); do head -c 3000 /dev/zero | tr '\0' 'x' > "$W/packages/core/big$i.txt"; done; mkrepo "$W"; printf '{"name":"@w/gen","scripts":{"test":"vitest run"}}\n' > "$W/packages/gen/package.json"
+F="$D/fan"; mkdir -p "$F/packages/a"; printf '{"name":"f","scripts":{"test":"pnpm run test:ci","test:ci":"nx run-many -t test"}}\n' > "$F/package.json"; printf "packages:\n  - 'packages/*'\n" > "$F/pnpm-workspace.yaml"
+printf '{"name":"a","scripts":{"test":"vitest run"}}\n' > "$F/packages/a/package.json"; echo 'lockfileVersion: 9' > "$F/pnpm-lock.yaml"; mkrepo "$F"
+P="$D/py"; mkdir -p "$P/src/pkg" "$P/tests" "$P/docs"; printf '[project]\nname = "pkg"\n\n[project.optional-dependencies]\ntest = ["pytest>=7"]\n' > "$P/pyproject.toml"
+echo 'sphinx' > "$P/docs/requirements.txt"; echo 'def test_x(): assert True' > "$P/tests/test_x.py"; touch "$P/src/pkg/__init__.py"; mkrepo "$P"
+G="$D/go"; mkdir -p "$G/cmd" "$G/docs"; printf 'module example.com/g\n\ngo 1.22\n' > "$G/go.mod"; printf 'module example.com/g/docs\n' > "$G/docs/go.mod"; printf 'package main\nfunc main() {}\n' > "$G/cmd/main.go"; mkrepo "$G"
+N="$D/none"; mkdir -p "$N/a" "$N/b"; echo '{"name":"n"}' > "$N/package.json"; echo '{"name":"a"}' > "$N/a/package.json"; echo '{"name":"b"}' > "$N/b/package.json"; mkrepo "$N"
+DIET="$(ROOT="$ROOT" D="$D" LOKI_E10_PM_STORE="$D/store" bun --no-env-file --config=/dev/null -e '
+const { discoverProjectModel } = await import(process.env.ROOT + "/loki-ts/src/project_model/discover.ts");
+const d = process.env.D, out = [];
+const go = async (name, env = {}) => {
+  const calls = []; Object.assign(process.env, env);
+  const ctx = { repoDir: d + "/" + name, runDir: d + "/run-" + name, runId: "x", model: "claude-haiku-5-5", emit: () => {}, sessions: { run: async (o) => { calls.push(o); return { exit: 0, markers: {}, durationS: 1, killed: false, summary: "" }; } } };
+  const r = await discoverProjectModel(ctx, new AbortController().signal, { budgetS: 120 }); for (const k of Object.keys(env)) delete process.env[k]; return { r, calls };
+};
+const pk = (r) => r.model.packages.map((p) => `${p.root}=${p.commands.test?.cmd ?? "-"}/${p.install ? p.install.cmd + "@" + p.install.cwd : "-"}`).join(",");
+let { r, calls } = await go("ws");
+const core = r.model.packages.find((p) => p.root === "packages/core"), web = r.model.packages.find((p) => p.root === "packages/web");
+out.push(`ws ${calls.length} ${r.model.status} ${r.source} ${pk(r)} deps=${core?.dependsOn} ui=${web?.ui.boot?.cmd}`);
+({ r, calls } = await go("ws")); out.push(`again ${calls.length} cached=${r.cached}`);
+({ r, calls } = await go("py")); out.push(`py ${calls.length} ${r.source} ${pk(r)}`);
+({ r, calls } = await go("go")); out.push(`go ${calls.length} ${r.source} ${pk(r)}`);
+({ r, calls } = await go("none")); out.push(`none ${calls.length > 0} effort=${calls[0]?.effort} max=${calls[0]?.maxOutputTokens}`);
+({ r, calls } = await go("fan")); out.push(`fan ${calls.length > 0}`);
+(await import("node:fs")).rmSync(d + "/ws/.loki", { recursive: true, force: true }); ({ r, calls } = await go("ws", { LOKI_E10_PM_MANIFESTS: "0" }));
+const inl = (calls[0]?.brief ?? "").split("<file path=").slice(1).join("").length;
+out.push(`off ${calls.length > 0} inlined<=24KiB=${inl > 0 && inl <= 24 * 1024 + 4096}`);
+console.log(out.join("\n"));
+' 2>&1)"
+WDIET="ws 0 ok manifests .=pnpm test/pnpm install@.,packages/core=pnpm test/pnpm install@.,packages/gen=pnpm test/pnpm install@.,packages/utils=pnpm test/pnpm install@.,packages/web=-/pnpm install@. deps=packages/utils ui=pnpm run dev
+again 0 cached=true
+py 0 manifests .=python3 -m pytest -q/python3 -m pip install -e '.[test]'@.
+go 0 manifests .=go test ./.../go mod download@.
+none true effort=low max=4096
+fan true
+off true inlined<=24KiB=true"
+[ "$DIET" = "$WDIET" ] && ok "intake diet: pnpm workspace, Python package and Go module answered from their manifests with no session (cached after); fixture package skipped; no test command or LOKI_E10_PM_MANIFESTS=0 reaches a low-effort, capped session with at most 24 KiB inlined" \
+    || { bad "intake diet gave:"; printf '%s\n' "$DIET" | sed 's/^/    | /'; }
+
 # --- pr face: what a split's PRs look like (FireLater#21: six PRs titled "[PARTIAL] Loki 10: PARTIAL (e10-<run id>)", stacked ones with no CI) --
 # Title: the slice title plus "(#21 s2)", the issue title plus "(#24)", else the task's first line; "[PARTIAL]" once, never the run id, clipped at a
 # word. Body: a slice's inline "(1) ...; (2) ..." criteria are listed, Why is the slice title. A stacked PR into a branch the repo's pull_request
@@ -412,7 +557,7 @@ const child = spawn("sleep", ["2"], { stdio: "ignore" }); writeFileSync(rd + "/e
 const t0 = Date.now(); wt.remove("epic-9-s1", p, keep); out.push(Date.now() - t0 < 1000 && existsSync(p) ? "returned at once, kept" : "waited or removed under deep");
 writeFileSync(rd + "/receipt-addendum-1.json", "{}\n"); // the deep worker writes its addendum last
 const root = p.slice(0, p.lastIndexOf("/")), branch = () => { try { execFileSync("git", ["-C", g, "rev-parse", "--verify", "-q", "refs/heads/loki/epic-9-s1"], { stdio: "ignore" }); return true; } catch { return false; } };
-for (let i = 0; i < 40 && existsSync(p); i++) await new Promise((r) => setTimeout(r, 250));
+for (let i = 0; i < 80 && (existsSync(p) || existsSync(root) || branch()); i++) await new Promise((r) => setTimeout(r, 250)); // the reaper removes the directory, then the root and the branch; wait for all three (bounded 20s)
 out.push(existsSync(p) ? "still there" : "removed after deep", branch() ? "branch left" : "branch gone", existsSync(root) ? "root left" : "root gone", existsSync(keep + "/receipts/e10-z/receipt-addendum-1.json") ? "addendum kept" : "addendum lost");
 console.log(out.join(" | "));
 ' 2>&1)"

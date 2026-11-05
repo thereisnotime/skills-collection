@@ -11000,8 +11000,8 @@
       "description": "\"Simplify code for clarity, reuse, quality, and efficiency while preserving behavior, and prune tests and comments that carry no value. Use after implementation and before review, or to audit tests or",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-simplify-code/SKILL.md",
       "remote_path": "skills/ce-simplify-code/SKILL.md",
-      "lines": 77,
-      "words": 1210,
+      "lines": 75,
+      "words": 1172,
       "code_blocks": 0,
       "languages": []
     },
@@ -11092,8 +11092,8 @@
       "description": "\"Check Compound Engineering health and repo-local config, scaffold a Compound Pack with `pack:<id>`, or draft or refresh coding standards and review docs with `standards`.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
-      "lines": 103,
-      "words": 1163,
+      "lines": 99,
+      "words": 1149,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -11200,7 +11200,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
       "lines": 60,
-      "words": 1161,
+      "words": 1201,
       "code_blocks": 0,
       "languages": []
     },
@@ -11210,7 +11210,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
       "lines": 76,
-      "words": 1080,
+      "words": 1095,
       "code_blocks": 0,
       "languages": []
     },
@@ -11274,7 +11274,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
       "lines": 58,
-      "words": 1209,
+      "words": 1213,
       "code_blocks": 0,
       "languages": []
     },
@@ -22624,13 +22624,13 @@
       "description": "Build, test, and drive iOS apps in the Simulator with 30 token-efficient scripts. Use when asked to build or test an Xcode project, launch an app on a simulator, tap/type/swipe through its UI by acces",
       "path": "conorluddy--ios-simulator-skill/ios-simulator-skill/skills/ios-simulator-skill/SKILL.md",
       "remote_path": "ios-simulator-skill/skills/ios-simulator-skill/SKILL.md",
-      "lines": 470,
-      "words": 3767,
+      "lines": 472,
+      "words": 3805,
       "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "1.7.0"
+      "version": "1.8.0"
     }
   ],
   "coreyhaines31--marketingskills": [
@@ -23628,7 +23628,7 @@
       "path": "firecrawl--cli/skills/firecrawl-research-index/SKILL.md",
       "remote_path": "skills/firecrawl-research-index/SKILL.md",
       "lines": 75,
-      "words": 1481,
+      "words": 1493,
       "code_blocks": 0,
       "languages": []
     },
@@ -23744,7 +23744,7 @@
       "path": "firecrawl--cli/skills/firecrawl-scrape/SKILL.md",
       "remote_path": "skills/firecrawl-scrape/SKILL.md",
       "lines": 146,
-      "words": 1252,
+      "words": 1259,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -24956,7 +24956,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "lines": 668,
-      "words": 6775,
+      "words": 6782,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25008,9 +25008,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres/SKILL.md",
-      "lines": 295,
-      "words": 2377,
-      "code_blocks": 3,
+      "lines": 312,
+      "words": 2584,
+      "code_blocks": 4,
       "languages": [
         "bash",
         "sql"
@@ -25049,7 +25049,7 @@
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
       "lines": 668,
-      "words": 6775,
+      "words": 6782,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25101,9 +25101,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
-      "lines": 295,
-      "words": 2377,
-      "code_blocks": 3,
+      "lines": 312,
+      "words": 2584,
+      "code_blocks": 4,
       "languages": [
         "bash",
         "sql"
@@ -26525,7 +26525,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "rendering",
@@ -26546,7 +26546,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "framework",
@@ -26579,7 +26579,7 @@
       "words": 47,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "remotion-maps",
@@ -26590,7 +26590,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "remotion-best-practices",
@@ -26603,7 +26603,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "remotion-docs",
@@ -26614,7 +26614,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "remotion-upgrade",
@@ -26627,7 +26627,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "remotion-interactivity",
@@ -26641,7 +26641,7 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "get-audio-duration",
@@ -26688,7 +26688,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "transparent-videos",
@@ -26713,7 +26713,7 @@
       "words": 130,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "transitions",
@@ -26957,7 +26957,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "arabic-text",
@@ -27031,7 +27031,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "tailwind",
@@ -27054,7 +27054,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "maps-maplibre",
@@ -27133,7 +27133,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "rendering",
@@ -27154,7 +27154,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "framework",
@@ -27187,7 +27187,7 @@
       "words": 47,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "remotion-maps",
@@ -27198,7 +27198,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "remotion-docs",
@@ -27209,7 +27209,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "remotion-upgrade",
@@ -27222,7 +27222,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "remotion-interactivity",
@@ -27236,7 +27236,7 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "get-audio-duration",
@@ -27283,7 +27283,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "transparent-videos",
@@ -27308,7 +27308,7 @@
       "words": 130,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "transitions",
@@ -27552,7 +27552,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "arabic-text",
@@ -27626,7 +27626,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "tailwind",
@@ -27649,7 +27649,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "maps-maplibre",
@@ -27700,7 +27700,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "maps-maplibre",
@@ -27751,7 +27751,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.540"
+      "version": "4.0.541"
     },
     {
       "name": "maps-maplibre",
@@ -33123,7 +33123,7 @@
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
       "lines": 465,
-      "words": 3864,
+      "words": 3778,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -46845,6 +46845,18 @@
       ]
     },
     {
+      "name": "operator-audit",
+      "description": "Run the full Kubernetes Operator audit (CRD + reconcile + capability) on the current repo",
+      "path": "alirezarezvani--claude-skills/commands/operator-audit.md",
+      "remote_path": "commands/operator-audit.md",
+      "lines": 60,
+      "words": 206,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "wiki-log",
       "description": "Show recent entries from the LLM Wiki log (wiki/log.md). Uses the standardized ## [YYYY-MM-DD] header format so grep + tail works. Usage /wiki-log [--last N] [--op ingest|query|lint|...]",
       "path": "alirezarezvani--claude-skills/commands/wiki-log.md",
@@ -46941,6 +46953,18 @@
       "languages": []
     },
     {
+      "name": "cs-backend-review",
+      "description": "Backend engineering review \u2014 walks the 7 Matt Pocock forcing questions (read/write ratio + QPS, tenancy, sync vs async, data sensitivity, pattern, RPO/RTO, SLO), picks the language + pattern profile, ",
+      "path": "alirezarezvani--claude-skills/commands/cs-backend-review.md",
+      "remote_path": "commands/cs-backend-review.md",
+      "lines": 78,
+      "words": 476,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "wiki-query",
       "description": "Query the LLM Wiki \u2014 reads index.md first, drills into 3-10 relevant pages, synthesizes an answer with inline [[wikilink]] citations, and offers to file the answer back as a new comparison or synthesi",
       "path": "alirezarezvani--claude-skills/commands/wiki-query.md",
@@ -46959,6 +46983,18 @@
       "words": 507,
       "code_blocks": 2,
       "languages": []
+    },
+    {
+      "name": "chaos-experiment",
+      "description": "Interactive wizard to design and validate a chaos engineering experiment",
+      "path": "alirezarezvani--claude-skills/commands/chaos-experiment.md",
+      "remote_path": "commands/chaos-experiment.md",
+      "lines": 69,
+      "words": 247,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "plugin-audit",
@@ -47018,6 +47054,18 @@
       "languages": []
     },
     {
+      "name": "slo-design",
+      "description": "Interactive wizard to design an SLO with SLI, target, error budget, and burn-rate alerts",
+      "path": "alirezarezvani--claude-skills/commands/slo-design.md",
+      "remote_path": "commands/slo-design.md",
+      "lines": 73,
+      "words": 267,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "rice",
       "description": "\"RICE feature prioritization with scoring and capacity planning. Usage: /rice prioritize <features.csv> [options]\"",
       "path": "alirezarezvani--claude-skills/commands/rice.md",
@@ -47027,6 +47075,18 @@
       "code_blocks": 3,
       "languages": [
         "csv"
+      ]
+    },
+    {
+      "name": "cs-fullstack-review",
+      "description": "Fullstack engineering review \u2014 walks the 7 Matt Pocock forcing questions, picks the profile, forks into POWERFUL specialists (api-design-reviewer, database-designer, slo-architect). Invokes the cs-ful",
+      "path": "alirezarezvani--claude-skills/commands/cs-fullstack-review.md",
+      "remote_path": "commands/cs-fullstack-review.md",
+      "lines": 74,
+      "words": 391,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -47076,6 +47136,18 @@
       ]
     },
     {
+      "name": "cs-frontend-review",
+      "description": "Frontend engineering review \u2014 walks the 7 Matt Pocock forcing questions (device, LCP target, rendering, bundle budget, SEO vs auth, design system, WCAG), picks the framework + rendering profile, forks",
+      "path": "alirezarezvani--claude-skills/commands/cs-frontend-review.md",
+      "remote_path": "commands/cs-frontend-review.md",
+      "lines": 71,
+      "words": 412,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "google-workspace",
       "description": "\"Google Workspace CLI operations: setup diagnostics, security audit, recipe discovery, and output analysis. Usage: /google-workspace <setup|audit|recipe|analyze> [options]\"",
       "path": "alirezarezvani--claude-skills/commands/google-workspace.md",
@@ -47098,6 +47170,28 @@
       "languages": [
         "bash"
       ]
+    },
+    {
+      "name": "flag-cleanup",
+      "description": "Run the quarterly feature-flag cleanup workflow on the current repo",
+      "path": "alirezarezvani--claude-skills/commands/flag-cleanup.md",
+      "remote_path": "commands/flag-cleanup.md",
+      "lines": 61,
+      "words": 245,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "cs-engineer-grill",
+      "description": "\"Cross-role engineering grill \u2014 Matt Pocock 7 questions per role \u00d7 3 roles (fullstack / frontend / backend) = up to 21 forcing questions, one per turn, with canon citations and kill criteria. Default:",
+      "path": "alirezarezvani--claude-skills/commands/cs-engineer-grill.md",
+      "remote_path": "commands/cs-engineer-grill.md",
+      "lines": 88,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "okr",
@@ -47283,11 +47377,11 @@
     },
     {
       "name": "\"ai-act-readiness\"",
-      "description": "\"EU AI Act readiness for an AI system. Use when launching AI in the EU, at AI intake, or /compliance-os:ai-act-readiness.\"",
+      "description": "\"EU AI Act readiness: risk tier, duties, deadlines. Load whenever AI ships in the EU or the user asks if the Act applies.\"",
       "path": "alirezarezvani--claude-skills/compliance-os/skills/ai-act-readiness/SKILL.md",
       "remote_path": "compliance-os/skills/ai-act-readiness/SKILL.md",
       "lines": 150,
-      "words": 943,
+      "words": 946,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -48127,11 +48221,11 @@
     },
     {
       "name": "\"senior-data-engineer\"",
-      "description": "\"Build, fix and tune data pipelines: ETL/ELT, Airflow DAGs, Spark, dbt, Kafka, data modeling and data quality checks. Use whenever a pipeline, DAG or batch job fails, is slow or needs designing, or da",
+      "description": "\"Data pipelines: Airflow DAGs, Spark, dbt, Kafka, ETL/ELT, data quality checks. Load whenever a DAG or batch job times out or fails, data arrives wrong, or the user designs an ingestion pipeline.\"",
       "path": "alirezarezvani--claude-skills/engineering-team/skills/senior-data-engineer/SKILL.md",
       "remote_path": "engineering-team/skills/senior-data-engineer/SKILL.md",
       "lines": 192,
-      "words": 778,
+      "words": 774,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -48177,11 +48271,11 @@
     },
     {
       "name": "\"senior-architect\"",
-      "description": "\"Make system architecture decisions and draw architecture diagrams: monolith vs microservices, database choice, scalability, ADRs, design reviews, Mermaid or PlantUML. Use whenever the user asks how t",
+      "description": "\"System architecture decisions with a written rationale: monolith vs microservices, database choice, scaling limits, ADRs, Mermaid diagrams. Load whenever the user asks should we split, which database",
       "path": "alirezarezvani--claude-skills/engineering-team/skills/senior-architect/SKILL.md",
       "remote_path": "engineering-team/skills/senior-architect/SKILL.md",
       "lines": 344,
-      "words": 1328,
+      "words": 1318,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -48471,8 +48565,8 @@
       "description": "\"Curate what the agent has learned into durable project knowledge. Reviews Claude Code auto-memory (MEMORY.md and its topic files) for learnings worth keeping, promotes proven ones into CLAUDE.md or .",
       "path": "alirezarezvani--claude-skills/engineering-team/self-improving-agent/skills/self-improving-agent/SKILL.md",
       "remote_path": "engineering-team/self-improving-agent/skills/self-improving-agent/SKILL.md",
-      "lines": 163,
-      "words": 882,
+      "lines": 164,
+      "words": 884,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -48747,8 +48841,8 @@
       "description": "\"Find which C-level advisor fits a question: 14 C-suite roles, board meetings, culture, M&A. Use whenever the user asks which advisor to use.\"",
       "path": "alirezarezvani--claude-skills/c-level-advisor/skills/c-level-skills/SKILL.md",
       "remote_path": "c-level-advisor/skills/c-level-skills/SKILL.md",
-      "lines": 48,
-      "words": 356,
+      "lines": 49,
+      "words": 358,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -48961,11 +49055,11 @@
     },
     {
       "name": "\"cfo-advisor\"",
-      "description": "\"Startup finance: runway and burn, unit economics (LTV, CAC, payback), fundraising and dilution, board financials. Use whenever the user shares burn, cash, ARR or CAC numbers or asks if they can raise",
+      "description": "\"Startup finance: runway and burn, unit economics (LTV, CAC, payback), fundraising and dilution. Load whenever the user asks how long the cash lasts, if burn is too high, or shares cash, ARR or CAC nu",
       "path": "alirezarezvani--claude-skills/c-level-advisor/skills/cfo-advisor/SKILL.md",
       "remote_path": "c-level-advisor/skills/cfo-advisor/SKILL.md",
       "lines": 141,
-      "words": 1051,
+      "words": 1054,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -49011,11 +49105,11 @@
     },
     {
       "name": "\"ceo-advisor\"",
-      "description": "\"CEO and founder advice: company strategy, board and investor management, fundraising, org design, culture. Use whenever a CEO asks how to run the company, handle investors or board, or make a big bet",
+      "description": "\"Advice for a CEO or founder on running the company: board and investor trouble, raise or cut, strategy bets, org and culture. Load whenever the user speaks as CEO or founder about a company-level dec",
       "path": "alirezarezvani--claude-skills/c-level-advisor/skills/ceo-advisor/SKILL.md",
       "remote_path": "c-level-advisor/skills/ceo-advisor/SKILL.md",
       "lines": 170,
-      "words": 1180,
+      "words": 1182,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -50410,7 +50504,7 @@
     },
     {
       "name": "\"universal-scraping-architect\"",
-      "description": "\"Scrape websites, crawl pages, extract documents or parse APIs, and validate what was extracted, via Firecrawl or local Python. Use whenever the user wants data pulled from a site, PDF or API, or a sc",
+      "description": "\"Build a scraper or extractor for sites, PDFs or paginated APIs and validate the fields (Firecrawl or local Python). Load whenever the user wants data pulled from pages, files or an API, or a scraper ",
       "path": "alirezarezvani--claude-skills/engineering/universal-scraping-architect/skills/universal-scraping-architect/SKILL.md",
       "remote_path": "engineering/universal-scraping-architect/skills/universal-scraping-architect/SKILL.md",
       "lines": 73,
@@ -50420,11 +50514,11 @@
     },
     {
       "name": "statistical-analyst",
-      "description": "\"Tell whether a difference is real: A/B results, hypothesis tests, confidence intervals, how many users a test needs. Use whenever the user asks if a result is significant, which variant won, or how l",
+      "description": "\"Is a difference real? Significance tests, confidence intervals, sample size and test duration for A/B results. Load whenever the user asks if a lift is real or noise, which variant won, or how many u",
       "path": "alirezarezvani--claude-skills/engineering/statistical-analyst/skills/statistical-analyst/SKILL.md",
       "remote_path": "engineering/statistical-analyst/skills/statistical-analyst/SKILL.md",
       "lines": 247,
-      "words": 1487,
+      "words": 1483,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -50887,11 +50981,11 @@
     },
     {
       "name": "caveman",
-      "description": "\"Ultra-short replies that cut tokens about 75% by dropping filler, articles and pleasantries while staying technically accurate. Use whenever the user says caveman mode, talk like caveman, use caveman",
+      "description": "\"Terse mode: drop filler, articles and pleasantries, keep technical accuracy, about 75% fewer tokens, and stay in it. Load whenever the user asks for fewer words, shorter answers, less tokens, caveman",
       "path": "alirezarezvani--claude-skills/engineering/caveman/skills/caveman/SKILL.md",
       "remote_path": "engineering/caveman/skills/caveman/SKILL.md",
       "lines": 77,
-      "words": 408,
+      "words": 404,
       "code_blocks": 1,
       "languages": [
         "sql"
@@ -50946,11 +51040,11 @@
     },
     {
       "name": "karpathy-coder",
-      "description": "\"Check code against Karpathy's four principles: surface assumptions, keep it simple, change surgically, verify goals. Use whenever the user is about to commit, reviews a diff, or worries code is overb",
+      "description": "\"Check a diff for overbuilt code: hidden assumptions, needless abstraction, non-surgical changes, unverified goals (Karpathy's four principles). Load whenever the user thinks they overcomplicated some",
       "path": "alirezarezvani--claude-skills/engineering/karpathy-coder/skills/karpathy-coder/SKILL.md",
       "remote_path": "engineering/karpathy-coder/skills/karpathy-coder/SKILL.md",
       "lines": 133,
-      "words": 819,
+      "words": 813,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -50984,11 +51078,11 @@
     },
     {
       "name": "\"sql-database-assistant\"",
-      "description": "\"Write and tune SQL, explore schemas, make migrations: Prisma, Drizzle, TypeORM, SQLAlchemy. Use whenever a query is slow or returns wrong rows, the user needs one written or asks what tables exist.\"",
+      "description": "\"Write, fix and speed up SQL: slow queries, EXPLAIN plans, indexes, ORM migrations (Prisma, Drizzle, SQLAlchemy). Load whenever a query is slow or wrong, the user needs SQL written, or an ORM migratio",
       "path": "alirezarezvani--claude-skills/engineering/skills/sql-database-assistant/SKILL.md",
       "remote_path": "engineering/skills/sql-database-assistant/SKILL.md",
       "lines": 458,
-      "words": 2248,
+      "words": 2249,
       "code_blocks": 24,
       "languages": [
         "bash",
@@ -51003,8 +51097,8 @@
       "description": "\"Pick the right advanced engineering skill: agents, RAG, MCP, CI/CD, databases, observability, release. Use whenever the user asks which skill fits a task.\"",
       "path": "alirezarezvani--claude-skills/engineering/skills/engineering-advanced-skills/SKILL.md",
       "remote_path": "engineering/skills/engineering-advanced-skills/SKILL.md",
-      "lines": 86,
-      "words": 556,
+      "lines": 87,
+      "words": 558,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -51063,11 +51157,11 @@
     },
     {
       "name": "\"pr-review-expert\"",
-      "description": "\"Review a pull request or diff for bugs, security and quality, file by file. Use whenever the user asks to review a PR or look over their changes.\"",
+      "description": "\"File-by-file pull request review for bugs, security and quality, with a merge verdict. Load whenever the user asks to review, look over or check a PR or diff before merging.\"",
       "path": "alirezarezvani--claude-skills/engineering/skills/pr-review-expert/SKILL.md",
       "remote_path": "engineering/skills/pr-review-expert/SKILL.md",
       "lines": 398,
-      "words": 1912,
+      "words": 1914,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -51263,11 +51357,11 @@
     },
     {
       "name": "\"migration-architect\"",
-      "description": "\"Plan a safe database, schema, service or data migration: phased plan, compatibility check and rollback scripts. Use whenever the user must move data, change a live schema, switch databases or migrate",
+      "description": "\"Plan a migration with zero or minimal downtime: phased plan, compatibility check, rollback scripts, for schemas, databases and services. Load whenever the user must change a live table, move a databa",
       "path": "alirezarezvani--claude-skills/engineering/skills/migration-architect/SKILL.md",
       "remote_path": "engineering/skills/migration-architect/SKILL.md",
       "lines": 438,
-      "words": 2076,
+      "words": 2079,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -51505,11 +51599,11 @@
     },
     {
       "name": "\"ci-cd-pipeline-builder\"",
-      "description": "\"Set up or refactor CI/CD for a repo: detect the stack, generate pipeline YAML. Use whenever the user wants builds or tests to run on each push or needs a CI workflow file.\"",
+      "description": "\"Generate a CI/CD workflow for a repo from its detected stack: lint, test, build, deploy. Load whenever the user says the repo has no CI, wants tests run on push, or needs a pipeline YAML.\"",
       "path": "alirezarezvani--claude-skills/engineering/skills/ci-cd-pipeline-builder/SKILL.md",
       "remote_path": "engineering/skills/ci-cd-pipeline-builder/SKILL.md",
       "lines": 90,
-      "words": 382,
+      "words": 384,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -52055,6 +52149,16 @@
       "languages": []
     },
     {
+      "name": "cs-engineer-grill",
+      "description": "\"Cross-role engineering grill \u2014 Matt Pocock 7 questions per role \u00d7 3 roles (fullstack / frontend / backend) = up to 21 forcing questions, one per turn, with canon citations and kill criteria. Default:",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/cs-engineer-grill/SKILL.md",
+      "remote_path": ".gemini/skills/cs-engineer-grill/SKILL.md",
+      "lines": 88,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "cs-webinar-marketer",
       "description": "Webinar & virtual-event marketing specialist agent. Use when planning, promoting, running, or rescuing a webinar, virtual event, live demo, workshop, masterclass, fireside chat, or virtual summit. Orc",
       "path": "alirezarezvani--claude-skills/.gemini/skills/cs-webinar-marketer/SKILL.md",
@@ -52098,6 +52202,18 @@
       "words": 1654,
       "code_blocks": 5,
       "languages": []
+    },
+    {
+      "name": "chaos-experiment",
+      "description": "Interactive wizard to design and validate a chaos engineering experiment",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/chaos-experiment/SKILL.md",
+      "remote_path": ".gemini/skills/chaos-experiment/SKILL.md",
+      "lines": 69,
+      "words": 247,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "cs-wiki-ingestor",
@@ -52326,6 +52442,18 @@
       "languages": []
     },
     {
+      "name": "slo-design",
+      "description": "Interactive wizard to design an SLO with SLI, target, error budget, and burn-rate alerts",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/slo-design/SKILL.md",
+      "remote_path": ".gemini/skills/slo-design/SKILL.md",
+      "lines": 73,
+      "words": 267,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "sprint-plan",
       "description": "\"Capacity-gated sprint planning \u2014 runs capacity math, carry-over check, and a definition-of-ready gate before committing scope. Usage: /sprint-plan <goal> [capacity]\"",
       "path": "alirezarezvani--claude-skills/.gemini/skills/sprint-plan/SKILL.md",
@@ -52428,6 +52556,18 @@
       "languages": []
     },
     {
+      "name": "operator-audit",
+      "description": "Run the full Kubernetes Operator audit (CRD + reconcile + capability) on the current repo",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/operator-audit/SKILL.md",
+      "remote_path": ".gemini/skills/operator-audit/SKILL.md",
+      "lines": 60,
+      "words": 206,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "pipeline",
       "description": "\"Detect stack and generate CI/CD pipeline configs. Usage: /pipeline <detect|generate> [options]\"",
       "path": "alirezarezvani--claude-skills/.gemini/skills/pipeline/SKILL.md",
@@ -52492,6 +52632,18 @@
       ]
     },
     {
+      "name": "cs-frontend-review",
+      "description": "Frontend engineering review \u2014 walks the 7 Matt Pocock forcing questions (device, LCP target, rendering, bundle budget, SEO vs auth, design system, WCAG), picks the framework + rendering profile, forks",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/cs-frontend-review/SKILL.md",
+      "remote_path": ".gemini/skills/cs-frontend-review/SKILL.md",
+      "lines": 71,
+      "words": 412,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "cs-product-manager",
       "description": "Product management agent for feature prioritization, customer discovery, PRD development, and roadmap planning using RICE framework. Use when a product decision needs structure and evidence \u2014 e.g., RI",
       "path": "alirezarezvani--claude-skills/.gemini/skills/cs-product-manager/SKILL.md",
@@ -52502,6 +52654,18 @@
       "languages": [
         "bash",
         "csv"
+      ]
+    },
+    {
+      "name": "cs-fullstack-review",
+      "description": "Fullstack engineering review \u2014 walks the 7 Matt Pocock forcing questions, picks the profile, forks into POWERFUL specialists (api-design-reviewer, database-designer, slo-architect). Invokes the cs-ful",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/cs-fullstack-review/SKILL.md",
+      "remote_path": ".gemini/skills/cs-fullstack-review/SKILL.md",
+      "lines": 74,
+      "words": 391,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -52524,6 +52688,18 @@
       "lines": 79,
       "words": 265,
       "code_blocks": 6,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "cs-backend-review",
+      "description": "Backend engineering review \u2014 walks the 7 Matt Pocock forcing questions (read/write ratio + QPS, tenancy, sync vs async, data sensitivity, pattern, RPO/RTO, SLO), picks the language + pattern profile, ",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/cs-backend-review/SKILL.md",
+      "remote_path": ".gemini/skills/cs-backend-review/SKILL.md",
+      "lines": 78,
+      "words": 476,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ]
@@ -52591,6 +52767,18 @@
       "lines": 110,
       "words": 550,
       "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "flag-cleanup",
+      "description": "Run the quarterly feature-flag cleanup workflow on the current repo",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/flag-cleanup/SKILL.md",
+      "remote_path": ".gemini/skills/flag-cleanup/SKILL.md",
+      "lines": 61,
+      "words": 245,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -53121,11 +53309,11 @@
     },
     {
       "name": "\"social-media-analyzer\"",
-      "description": "\"Measure how social posts and campaigns perform: engagement rate, campaign ROI, benchmarks, which platform works best. Use whenever the user asks if their posts are working, why engagement is low, or ",
+      "description": "\"Score social performance: engagement rate, reach, ROI per platform, benchmarks. Load whenever the user asks which platform performs best, if posts are working, or shares social metrics to compare.\"",
       "path": "alirezarezvani--claude-skills/marketing-skill/skills/social-media-analyzer/SKILL.md",
       "remote_path": "marketing-skill/skills/social-media-analyzer/SKILL.md",
       "lines": 311,
-      "words": 1262,
+      "words": 1257,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -53519,7 +53707,7 @@
       "path": "alirezarezvani--claude-skills/marketing-skill/skills/ai-decision-authority/SKILL.md",
       "remote_path": "marketing-skill/skills/ai-decision-authority/SKILL.md",
       "lines": 114,
-      "words": 896,
+      "words": 899,
       "code_blocks": 1,
       "languages": []
     },
@@ -54835,8 +55023,8 @@
       "description": "\"Router for regulatory and quality skills: ISO 13485, MDR, FDA, ISO 14971, CAPA, ISO 27001, ISO 42001, EU AI Act, GDPR, SOC 2. Use whenever a compliance request fits no single one.\"",
       "path": "alirezarezvani--claude-skills/ra-qm-team/skills/ra-qm-skills/SKILL.md",
       "remote_path": "ra-qm-team/skills/ra-qm-skills/SKILL.md",
-      "lines": 61,
-      "words": 378,
+      "lines": 62,
+      "words": 380,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -147297,8 +147485,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/SKILL.md",
       "remote_path": "feishu-doc-scraper/SKILL.md",
-      "lines": 266,
-      "words": 4472,
+      "lines": 269,
+      "words": 4447,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -147393,8 +147581,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 281,
-      "words": 2345,
+      "lines": 297,
+      "words": 2497,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -147624,8 +147812,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 508,
-      "words": 8668,
+      "lines": 509,
+      "words": 8637,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -147837,6 +148025,18 @@
       "languages": []
     },
     {
+      "name": "lark-cli-router",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/lark-cli-router/SKILL.md",
+      "remote_path": "lark-cli-router/SKILL.md",
+      "lines": 189,
+      "words": 1429,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "promptfoo-evaluation",
       "description": "Configures and runs LLM evaluation using Promptfoo framework. Use when setting up prompt testing, creating evaluation configs (promptfooconfig.yaml), writing Python custom assertions, implementing llm",
       "path": "daymade--claude-code-skills/promptfoo-evaluation/SKILL.md",
@@ -147916,8 +148116,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-ops/references/multi_account_repository_sync.md",
       "remote_path": "github-ops/references/multi_account_repository_sync.md",
-      "lines": 190,
-      "words": 1337,
+      "lines": 191,
+      "words": 1346,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -148264,8 +148464,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/references/automatic-snapshots.md",
       "remote_path": "ghostty-use/references/automatic-snapshots.md",
-      "lines": 182,
-      "words": 1447,
+      "lines": 191,
+      "words": 1523,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -148889,8 +149089,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 460,
-      "words": 3742,
+      "lines": 466,
+      "words": 3800,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -149096,18 +149296,6 @@
       ]
     },
     {
-      "name": "lark-cli-router",
-      "description": ">-",
-      "path": "daymade--claude-code-skills/daymade-claude-code/lark-cli-router/SKILL.md",
-      "remote_path": "daymade-claude-code/lark-cli-router/SKILL.md",
-      "lines": 181,
-      "words": 1370,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
       "name": "tech-selection",
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/SKILL.md",
@@ -149269,8 +149457,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
-      "lines": 318,
-      "words": 6222,
+      "lines": 320,
+      "words": 6262,
       "code_blocks": 7,
       "languages": [
         "bash"
