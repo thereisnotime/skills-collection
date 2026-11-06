@@ -29,6 +29,7 @@ export function plainTestEnv(base: NodeJS.ProcessEnv = process.env): Record<stri
   const e: Record<string, string> = {};
   for (const [k, v] of Object.entries(tokenFreeEnv(base))) if (typeof v === "string") e[k] = v;
   e["FORCE_COLOR"] = "0"; e["NO_COLOR"] = "1";
+  e["NX_DAEMON"] = "false"; // an Nx daemon outlives the check and keeps rewriting files (pnpm-lock.yaml) after the commit stage
   delete e["CLICOLOR_FORCE"];
   return e;
 }
@@ -318,6 +319,9 @@ function mentionsTool(tool: string, cmd: string, args?: readonly string[]): bool
 export function goRunner(cmd: string, args?: readonly string[]): { runner: "go" } | Record<string, never> {
   return mentionsTool("go", cmd, args) ? { runner: "go" } : {};
 }
+/** A `go test -json` stream is judged whole (goJson: a head-truncated or buffer-cut stream reads as torn, so the check reads not_run), so every runner that captures one keeps up to this much instead of the 64 KB tail or the 1 MiB spawn buffer. */
+export const GO_JSON_KEEP = 16 * 1024 * 1024;
+export const goJsonStream = (cmd: string, args?: readonly string[]): boolean => goRunner(cmd, args).runner === "go" && commandWords(cmd, args).includes("-json");
 const CARGO_GLOBAL_FLAGS = new Set(["-v", "-vv", "--verbose", "-q", "--quiet", "--frozen", "--locked", "--offline"]), CARGO_OTHER_SUBS = new Set(["build", "check", "clippy", "fmt", "doc", "clean", "fetch", "tree", "run", "bench", "metadata", "update", "install", "publish", "package", "login", "search", "vendor"]);
 /** A cargo invocation parsed strictly: `cargo [known global flags, their values consumed] <sub> [args]`, nothing before cargo (no wrapper, no shell, no +toolchain shim). null = not a plain invocation. */
 function parseCargo(toks: readonly string[]): { global: string[]; sub: string; rest: string[] } | null {
@@ -337,7 +341,7 @@ function parseCargo(toks: readonly string[]): { global: string[]; sub: string; r
  *  reported fail; failedTests = the Test names that failed; passed = top-level tests with a "run" event and a final pass (a skip never counts);
  *  complete = every started package has exactly one start and exactly one package-level terminal event, with no repeated run event. Exit 0 plus a complete event stream is counted from this alone, never from plain output (see GO_EXIT0_REASON). */
 function goJson(out: string): { failed: boolean; failedTests: string[]; passed: number; passedNames: string[]; complete: boolean } | null {
-  let any = false, failed = false, dirty = false;
+  let any = false, failed = false, dirty = false, noTests = false;
   const status = new Map<string, string>(), ranSet = new Set<string>(), pkgs = new Set<string>(), failedTests = new Set<string>(), starts = new Map<string, number>(), done = new Map<string, number>();
   for (const x of out.split("\n")) {
     if (!x.trim() || /^go: /.test(x)) continue;
@@ -349,7 +353,7 @@ function goJson(out: string): { failed: boolean; failedTests: string[]; passed: 
     if (e.Action === "start" && !test) { pkgs.add(pkg); starts.set(pkg, (starts.get(pkg) ?? 0) + 1); }
     if (e.Action === "fail") { failed = true; if (test) failedTests.add(`${pkg}::${test}`); }
     if (!/^build-/.test(e.Action) && !starts.has(pkg)) dirty = true; // an event for a package that never started: not the go command's framing
-    if (!test && e.Action === "output" && /\[no tests to run\]/.test(String((e as { Output?: unknown }).Output ?? ""))) dirty = true;
+    if (!test && e.Action === "output" && /\[no tests to run\]/.test(String((e as { Output?: unknown }).Output ?? ""))) noTests = true; // the go command ran no test of the -run set (a file a build constraint leaves out, `//go:build integration`): a zero run, never a pass
     if (!test) { if (/^(?:pass|fail|skip)$/.test(e.Action)) done.set(pkg, (done.get(pkg) ?? 0) + 1); continue; }
     if (test.includes("/")) continue; // subtests roll up into their top-level test
     const k = `${pkg}::${test}`;
@@ -358,6 +362,7 @@ function goJson(out: string): { failed: boolean; failedTests: string[]; passed: 
   }
   if (!any) return null;
   const passedNames = [...status].filter(([, v]) => v === "pass").map(([k]) => k);
+  if (noTests && (passedNames.length > 0 || ranSet.size > 0)) dirty = true; // "no tests to run" beside a test that ran contradicts itself: doubt
   return { failed, failedTests: [...failedTests], passed: passedNames.length, passedNames, complete: !dirty && pkgs.size > 0 && [...pkgs].every((p) => starts.get(p) === 1 && done.get(p) === 1) }; // a torn stream or one with repeated starts, terminals or runs is doubt; a clean forged stream passes this and is caught by corroboratePass
 }
 export const CARGO_RUNNER_REASON = "test count could not be confirmed: a cargo target or alias setting can redirect both the test run and its listing";
@@ -563,12 +568,12 @@ export function corroborateGoPassSync(c: Classified, out: string, cmdOrLine: str
   if (c.result !== "pass" || goRunner(cmdOrLine, args).runner !== "go") return c;
   const g = corroborateGoSteps(c, out, cmdOrLine, args, args ? [cmdOrLine, ...args] : cmdOrLine.trim().split(/\s+/), o); let step = g.next();
   while (!step.done) {
-    const [cmd, a, to] = step.value, r = spawnSync(cmd, a, { cwd: to.cwd, env: to.env, timeout: to.timeoutMs, encoding: "utf8", maxBuffer: 1024 * 1024 }), res: SpawnRes = { status: r.error || r.signal ? null : r.status, output: `${r.stdout ?? ""}\n${r.stderr ?? ""}` };
+    const [cmd, a, to] = step.value, r = spawnSync(cmd, a, { cwd: to.cwd, env: to.env, timeout: to.timeoutMs, encoding: "utf8", maxBuffer: to.maxBytes ?? 1024 * 1024 }), res: SpawnRes = { status: r.error || r.signal ? null : r.status, output: `${r.stdout ?? ""}\n${r.stderr ?? ""}` };
     step = g.next(res);
   }
   return step.value;
 }
-function* corroborateGoSteps(c: Classified, out: string, cmdOrLine: string, args: readonly string[] | undefined, toks: string[], o: { cwd: string; env: NodeJS.ProcessEnv }): Generator<[string, string[], { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number }], Classified, SpawnRes> {
+function* corroborateGoSteps(c: Classified, out: string, cmdOrLine: string, args: readonly string[] | undefined, toks: string[], o: { cwd: string; env: NodeJS.ProcessEnv }): Generator<[string, string[], { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number; maxBytes?: number }], Classified, SpawnRes> {
   const refuse: Classified = { result: "not_run", reason: GO_EXIT0_REASON };
   const first = goJson(stripAnsi(out));
   const names = first?.passedNames ?? [];
@@ -584,7 +589,7 @@ function* corroborateGoSteps(c: Classified, out: string, cmdOrLine: string, args
     pkgs.push(t);
   }
   const dir = mkdtempSync(join(tmpdir(), "loki-gocov-")), prof = join(dir, "cover.out"), where = pkgs.length ? pkgs : ["."];
-  const spawnOpts = { cwd: o.cwd, env: o.env, timeoutMs: 600_000 };
+  const spawnOpts = { cwd: o.cwd, env: o.env, timeoutMs: 600_000, maxBytes: GO_JSON_KEEP }; // the -json re-run is parsed whole, so it must not be cut at the 1 MiB default
   const profBlocks = (): Set<string> => { // the profile's blocks with counts dropped
     const set = new Set<string>();
     for (const l of (existsSync(prof) ? readFileSync(prof, "utf8") : "").split("\n")) { const m = /^(.+:\d+\.\d+,\d+\.\d+ \d+) \d+$/.exec(l); if (m) set.add(m[1]!); }
@@ -879,7 +884,9 @@ const GENERATED_PATH = /(?:\.pb\.go|_pb2(?:_grpc)?\.pyi?|\.pb\.[cm]?[jt]s|[._-]g
 const TEST_SUPPORT_PATH = /(^|\/)(?:tests?|__tests__|spec|testutils?|testhelpers?|test_?helpers?|testing|testdata|fixtures?|mocks?)\/|(^|\/)conftest\.py$/;
 const GENERATED_HEADER = /^\s*(?:\/\/|#)\s*Code generated .* DO NOT EDIT\.?\s*$|@generated\b/m;
 /** True when `path` holds no public API a test is owed: a test file, test support code, a generated file or a type declaration file. */
-export const notApiFile = (path: string, src = ""): boolean => !API_FILE_EXT.test(path) || isTestFile(path) || TEST_SUPPORT_PATH.test(path) || GENERATED_PATH.test(path) || GENERATED_HEADER.test(src.slice(0, 2000));
+export const notApiFile = (path: string, src = ""): boolean => !API_FILE_EXT.test(path) || isTestFile(path) || TEST_SUPPORT_PATH.test(path) || isGeneratedSource(path, src);
+/** True when the path names generated code (protobuf, *.gen.*, .d.ts) or the first 2000 bytes carry a generated-file marker. */
+export const isGeneratedSource = (path: string, src = ""): boolean => GENERATED_PATH.test(path) || GENERATED_HEADER.test(src.slice(0, 2000));
 const tsExportList = (src: string): Set<string> => new Set([...src.matchAll(/^\s*export\s*\{([^}]*)\}/gm)].flatMap((m) => m[1]!.split(",").map((x) => x.trim().split(/\s+as\s+/)[0]!.trim()).filter(Boolean)).concat([...src.matchAll(/^\s*export\s+default\s+([A-Za-z_$][\w$]*)\s*;?\s*$/gm)].map((m) => m[1]!)));
 /** HONEST-VERIFIED-2: the public functions `head` defines that `base` (the file at the run base, "" for a new file) does not, by qualified name, so a signature-only edit or a moved body is not "added". Spans come from util/context_pack.ts symbolSpans (Python nesting read from the whole file, not from a diff hunk). Public: Python names with no leading underscore on the function or its class (a function nested in a function is private); Go exported funcs, `var X = func`, and exported methods on exported types (standard interface methods excluded); Rust `pub fn`; TS/JS functions and arrow consts that are exported (`export function`, `export const`, `export { f }`), and non-private methods of exported classes. */
 export function addedPublicFunctions(path: string, head: string, base: string): string[] {
@@ -1693,19 +1700,81 @@ export function classify(f: TestRef, status: number | null, output: string, repo
 
 /** TEN-SPEED-19: LOKI_E10_BASE_JOBS, default 1 (sequential); an invalid value or one below 1 falls back to 1, capped at 16. */
 export function baseJobs(): number { const n = Number(process.env.LOKI_E10_BASE_JOBS); return Number.isInteger(n) && n >= 1 ? Math.min(n, 16) : 1; }
-/** True only when a red test file failed on assertions: every reported failure is an assertion, and none is an import, collection, attribute, type or reference error (a test that calls code the base lacks fails that way for ANY change, so it proves nothing about the fix). Only pytest and vitest output is read; every other runner is false (fail-closed: the run reads PARTIAL). */
-export function assertionFailure(runner: string, output: string): boolean {
+/** Go: red by assertion = the go test -json stream is whole, a test reported fail with a `file_test.go:LINE:` message (t.Error, t.Fatal, testify), and nothing else went wrong: no build failure (a test calling a function the base lacks fails that way for ANY change), no panic, no timeout, no package fail that no test explains. Anything unreadable is false (fail-closed). */
+function goAssertionFailure(out: string): boolean {
+  if (!goJson(out)) return false; // plain or torn output: no reading
+  const failedTests = new Set<string>(), asserted = new Set<string>(); let pkgFail = false;
+  for (const x of out.split("\n")) {
+    if (!x.trim() || /^go: /.test(x)) continue;
+    let e: { Action?: string; Package?: string; Test?: string; Output?: string }; try { e = JSON.parse(x); } catch { return false; }
+    const k = `${e.Package ?? ""}::${e.Test ?? ""}`, o = e.Output ?? "";
+    if (/^build-/.test(e.Action ?? "") || /\[build failed\]|\[setup failed\]|^panic[: ]|\bpanic: |test timed out|fatal error:|^# \S|\.go:\d+:\d+: /m.test(o)) return false;
+    if (e.Action === "fail") { if (e.Test) failedTests.add(k); else pkgFail = true; }
+    if (e.Test && e.Action === "output" && /^\s*\S+_test\.go:\d+: /.test(o)) asserted.add(k);
+  }
+  if (!pkgFail && failedTests.size === 0) return false;
+  return failedTests.size > 0 && [...failedTests].some((k) => asserted.has(k) || [...asserted].some((a) => a.startsWith(`${k}/`)));
+}
+/** The errors an issue reports. observed: "Type: message" errors the issue shows as what happens now (`RuntimeError: input already opened`, also `RuntimeError('input already opened')`); an error any of whose
+ *  mentions sits after should, must, expected, want, instead or the like on its line or the non-empty line above is what the issue asks for, not what it saw, and is left out. wanted: the exception types the issue asks to be raised. */
+export interface ReportedErrors { observed: string[]; wanted: string[] }
+const WANTED_CUE = /\b(?:should|must|shall|expect(?:s|ed)?|want(?:s|ed)?|ought|needs? to|instead|would like|supposed to|to raise|will raise|rather)\b/i;
+export function reportedErrors(task: string): ReportedErrors {
+  const seen = new Map<string, boolean>(), wanted = new Set<string>();
+  for (const m of task.matchAll(/(?<![\w.])([A-Z][A-Za-z0-9_]*(?:Error|Exception))(?::[ \t]*([^\n`]{3,200})|\(\s*(['"])([^'"\n]{3,200})\3\s*\))?/g)) {
+    const ls = task.slice(0, m.index!).split("\n"), prev = ls.slice(0, -1).reverse().find((l) => l.trim() !== "") ?? "", before = `${prev}\n${ls[ls.length - 1]!}`, want = WANTED_CUE.test(before), msg = (m[2] ?? m[4] ?? "").trim().replace(/[\s.]+$/, ""); // before: the mention's own line and the non-empty line above ("it should raise", then the error on its own line)
+    if (want) wanted.add(m[1]!);
+    if (msg.length < 3) continue;
+    const k = `${m[1]}: ${msg}`; seen.set(k, (seen.get(k) ?? true) && !want);
+  }
+  return { observed: [...seen].filter(([, ok]) => ok).map(([k]) => k), wanted: [...wanted] };
+}
+/** pytest: the body of each test function the base run names as failed (FAILED/SUBFAILED node ids) asserts a result against a non-trivial expected value (assertEqual and kin, or `assert a == b`
+ *  with two different sides and no bare None/True/False), or expects an issue-requested exception type other than the observed one (pytest.raises / assertRaises). A bare call, a re-raise,
+ *  `is not None` or truthiness is not. Any failed test whose function cannot be found in `src` makes this false. */
+export function assertsResult(src: string, output: string, rep: ReportedErrors): boolean {
+  const names = [...new Set([...stripAnsi(output).matchAll(/^(?:SUB)?FAILED(?:\([^)\n]*\))?\s+\S*::(\w+)(?:\[[^\]\s]*\])?(?:\s|$)/gm)].map((m) => m[1]!))];
+  if (names.length === 0) return false;
+  const lines = src.split("\n"), observedTypes = new Set(rep.observed.map((e) => e.slice(0, e.indexOf(":"))));
+  const trivial = (x: string): boolean => /^(?:None|True|False)$/.test(x.trim()) || x.trim() === "";
+  const strong = (body: string): boolean => {
+    const code = body.replace(/#[^\n]*/g, "");
+    if (/\bself\.assert(?:Equal|ListEqual|TupleEqual|DictEqual|SetEqual|SequenceEqual|CountEqual|AlmostEqual|MultiLineEqual)\s*\(/.test(code)) return true;
+    for (const m of code.matchAll(/^\s*assert\s+(.+?)\s*==\s*(.+?)\s*(?:,.*)?$/gm)) if (!trivial(m[1]!) && !trivial(m[2]!) && m[1]!.trim() !== m[2]!.trim()) return true;
+    for (const m of code.matchAll(/\b(?:pytest\.raises|self\.assertRaises(?:Regex)?)\s*\(\s*(?:\w+\.)*(\w+)/g)) if (rep.wanted.includes(m[1]!) && !observedTypes.has(m[1]!)) return true;
+    return false;
+  };
+  return names.every((n) => {
+    const at = lines.findIndex((l) => new RegExp(`^(\\s*)(?:async\\s+)?def\\s+${n}\\s*\\(`).test(l)); if (at < 0) return false;
+    const ind = /^(\s*)/.exec(lines[at]!)![1]!.length, body: string[] = [];
+    for (const l of lines.slice(at + 1)) { if (l.trim() !== "" && /^(\s*)/.exec(l)![1]!.length <= ind) break; body.push(l); }
+    return strong(body.join("\n"));
+  });
+}
+const MISSING_API = /^(?:Import|ModuleNotFound|Attribute|Name|UnboundLocal|Syntax|Indentation)Error\b|^TypeError: .*(?:unexpected keyword argument|positional argument|required (?:positional|keyword-only) argument|is not callable|takes no arguments)/; // a call the base cannot make, even when the issue quotes it
+/** True only when a red test file failed on assertions: every reported failure is an assertion, and none is an import, collection, attribute, type or reference error (a test that calls code the base lacks fails that way for ANY change, so it proves nothing about the fix). Only pytest and vitest output is read; every other runner is false (fail-closed: the run reads PARTIAL).
+ *  `reported` (pytest; reportedErrors of the issue) and `src` (the test file): a failure that is not an assertion still counts when its exception type and message are exactly an error the issue shows as observed, the failed test asserts a result (assertsResult) (more-itertools#1277: the issue quotes "RuntimeError: input already opened" and the base raises exactly that), every other failure is an assertion or a reported error, and none is a missing-API error. An exception the issue does not report stays not-proof. */
+export function assertionFailure(runner: string, output: string, reported: ReportedErrors = { observed: [], wanted: [] }, src = ""): boolean {
   const out = stripAnsi(output);
   if (runner === "pytest") { // red by assertion: at least one failure is an assertion and none is a missing-API error (import, attribute, name, type, syntax). A behavioral error beside it (OverflowError, ValueError) is the bug itself, not an absent API.
     if (/^ERROR\s|errors? during collection/m.test(out)) return false;
-    const f = [...out.matchAll(/^FAILED\s+\S+(?:\s+-\s+(.*))?$/gm)].map((m) => (m[1] ?? "").trim());
+    const f = [...out.matchAll(/^(?:SUB)?FAILED(?:\([^)\n]*\))?\s+\S+(?:\s+-\s+(.*))?$/gm)].map((m) => (m[1] ?? "").trim()); // SUBFAILED(...): a failed unittest subTest
     if (f.length === 0) return false;
-    const kinds = f.every((r) => r !== "") ? f : [...out.matchAll(/^E\s+((?:assert\b|[A-Za-z_.]*(?:Error|Exception))\S*)/gm)].map((m) => m[1]!); // a narrow terminal cuts the " - reason" from the summary line: read the traceback's E lines instead
-    return kinds.some((k) => /^(?:assert\b|AssertionError\b)/.test(k)) && !kinds.some((k) => /^(?:Import|ModuleNotFound|Attribute|Name|UnboundLocal|Type|Syntax|Indentation)Error\b/.test(k));
+    const kinds = f.every((r) => r !== "" && !r.endsWith("...")) ? f : [...out.matchAll(/^E\s+((?:assert\b|[A-Za-z_.]*(?:Error|Exception))\S*)/gm)].map((m) => m[1]!); // a narrow terminal cuts the " - reason" from the summary line, or ends it in "..." ("AssertionEr..."): read the traceback's E lines instead
+    const asserted = pytestKindsAreAssertion(kinds);
+    if (asserted || reported.observed.length === 0 || !assertsResult(src, out, reported)) return asserted; // the reported-error path needs a test that asserts a result (review of #545: a bare call, a re-raise or `is not None` passed with a wrong fix)
+    const norm = (x: string): string => x.replace(/\s+/g, " ").trim().replace(/[\s.]+$/, ""), want = new Set(reported.observed.map(norm));
+    const raised = [...out.matchAll(/^E\s+((?:[A-Za-z_][\w]*\.)*[A-Za-z_]\w*(?:Error|Exception))(?::[ \t]*(.*))?$/gm)].map((m) => norm(`${m[1]!.split(".").pop()!}: ${m[2] ?? ""}`)); // E lines carry the exception and its message; a dotted module prefix is dropped
+    return raised.length > 0 && raised.some((r) => want.has(r)) && raised.every((r) => want.has(r) || /^AssertionError\b/.test(r)) && !raised.some((r) => MISSING_API.test(r)) && !kinds.some((k) => MISSING_API.test(k));
   }
-  if (runner === "vitest") { const e = [...out.matchAll(/^\s*((?:[A-Za-z]*Error))(?:\s*\[[^\]]*\])?:/gm)].map((m) => m[1]!); return e.length > 0 && e.every((k) => k === "AssertionError"); }
+  if (runner === "vitest") return vitestErrorsAreAssertion(out);
+  if (runner === "go") return goAssertionFailure(out);
   return false;
 }
+/** The one pytest red-by-assertion rule (assertionFailure per file, features/exec_spec.ts per case): at least one failure kind is an assertion and none is a missing-API error. */
+export const pytestKindsAreAssertion = (kinds: string[]): boolean => kinds.some((k) => /^(?:assert\b|AssertionError\b)/.test(k)) && !kinds.some((k) => /^(?:Import|ModuleNotFound|Attribute|Name|UnboundLocal|Type|Syntax|Indentation)Error\b/.test(k));
+/** The one vitest red-by-assertion rule (assertionFailure per file, features/exec_spec.ts per case): every reported error is an AssertionError. */
+export const vitestErrorsAreAssertion = (text: string): boolean => { const e = [...stripAnsi(text).matchAll(/^\s*((?:[A-Za-z]*Error))(?:\s*\[[^\]]*\])?:/gm)].map((m) => m[1]!); return e.length > 0 && e.every((k) => k === "AssertionError"); };
 /** TEN-SPEED-18: LOKI_E10_VERIFY_JOBS, an integer 1..8; unset, invalid or below 1 means 1. */
 export const verifyJobs = (): number => { const n = Number.parseInt(process.env["LOKI_E10_VERIFY_JOBS"] ?? "", 10); return Number.isFinite(n) && n >= 1 ? Math.min(n, 8) : 1; };
 /** TEN-SPEED-19: map items through an async fn with at most `jobs` in flight; results keep input order. */
@@ -1739,9 +1808,9 @@ export function spawnGroupSync(cmd: string, args: string[], o: { cwd?: string; e
   try { return JSON.parse(r.stdout) as { status: number | null; output: string }; } catch { return { status: null, output: `${r.stdout ?? ""}\n${r.stderr ?? ""}` }; }
 }
 /** TEN-SPEED-19: async twin of the sync spawn used by RealBaseTestRunner: status is null on spawn error, signal or timeout; output is stdout and stderr merged by arrival. The child leads its own process group: SIGTERM at the timeout, then SIGKILL to the group 1s later, and the result resolves on exit plus a short drain grace, never waiting on a grandchild that holds the pipes. */
-export function spawnCollect(cmd: string, args: string[], o: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number; signal?: AbortSignal }): Promise<{ status: number | null; output: string }> {
+export function spawnCollect(cmd: string, args: string[], o: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs: number; signal?: AbortSignal; maxBytes?: number }): Promise<{ status: number | null; output: string }> {
   return new Promise((resolve) => {
-    let out = "", err = "", error = false, done = false; const MAX = 1024 * 1024; // spawnSync parity: stdin EOF, default maxBuffer, "stdout\nstderr" join
+    let out = "", err = "", error = false, done = false; const MAX = o.maxBytes ?? 1024 * 1024; // spawnSync parity: stdin EOF, default maxBuffer, "stdout\nstderr" join
     const timers: NodeJS.Timeout[] = [];
     const fin = (status: number | null) => { if (!done) { done = true; timers.forEach(clearTimeout); o.signal?.removeEventListener("abort", abort); killGroup(c.pid, "SIGKILL"); wd?.kill("SIGKILL"); resolve({ status: error ? null : status, output: `${out}\n${err}` }); } };
     const c = spawn(cmd, args, { cwd: o.cwd, env: o.env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -1834,8 +1903,20 @@ function ownVitestSite(repoDir: string, path: string): PackageSiteLike | null {
   return null;
 }
 type PackageSiteLike = { cwd: string; root: string; file: string };
+const VITEST_CFG = /^vite(st)?\.config\.(?:[cm]?[jt]s|mts)$/;
+/** A package vitest config that merges the repo root's config while the root config sets `projects`: the root's globs resolve against the package directory and match nothing
+ *  ("No projects were found"), so a run started there never starts (zod: `cd packages/zod && npx vitest run ...`, which drove the implementer to edit vitest.config.ts). The root, whose projects
+ *  include this package, runs the same file correctly. */
+function rootProjectsBreakSite(repoDir: string, site: PackageSiteLike): boolean {
+  try {
+    if (site.cwd === repoDir) return false;
+    const read = (dir: string): string | null => { const n = readdirSync(dir).find((x) => VITEST_CFG.test(x)); return n ? readFileSync(join(dir, n), "utf8").slice(0, 200_000) : null; };
+    const root = read(repoDir), own = read(site.cwd);
+    return root !== null && own !== null && /\bprojects\s*:/.test(root) && /from\s+["'](?:\.\.\/)+vite(?:st)?\.config/.test(own);
+  } catch { return false; }
+}
 export function commandFor(t: TestRef, repoDir: string, api?: ProjectApi | null): { cwd: string; cmd: string; args: string[]; argv: string[]; interpreter?: Interpreter; pkgRoot: string } {
-  const site = siteFor(api, repoDir, t.path) ?? (t.runner === "vitest" ? ownVitestSite(repoDir, t.path) : null);
+  const found = siteFor(api, repoDir, t.path) ?? (t.runner === "vitest" ? ownVitestSite(repoDir, t.path) : null), site = found && t.runner === "vitest" && rootProjectsBreakSite(repoDir, found) ? null : found;
   const base = site?.cwd ?? repoDir, rel = site?.file ?? t.path, mod = t.runner === "go" ? goModDir(base, rel) : base; // go resolves the module from the cwd: a go.mod below the base needs the run to start there
   const [cmd, args, interpreter] = runnerCmd(mod === base ? (site ? { runner: t.runner, path: site.file } : t) : { runner: t.runner, path: relative(mod, join(base, rel)) }, mod === base ? repoDir : mod);
   return { cwd: mod === base ? base : mod, cmd, args, argv: [cmd, ...args], ...(interpreter ? { interpreter } : {}), pkgRoot: mod === base ? site?.root ?? "." : relative(repoDir, mod) || "." };

@@ -148,12 +148,6 @@ def _utcnow() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
-# A frontmatter `key:` line. Deliberately unindented, matching
-# `dictionary_processor._mask_ledger_spans`: an indented key is part of a
-# multi-line YAML value, which neither the masker nor this parser reads.
-_FRONTMATTER_KEY_RE = re.compile(r"^([A-Za-z_][\w-]*):")
-
-
 def is_temp_path(path: str | Path) -> bool:
     """True when the path lives under the OS temp dir — a caller pipeline's
     staging copy. Queue items must not anchor to files that vanish."""
@@ -686,6 +680,9 @@ class ReviewQueue:
            caller's judgment), and is itself refused if `original_text` is not
            in it.
         Fail-closed throughout: no match or an ambiguous match changes nothing.
+
+        An explicit identical-byte copy preserves existing anchors and only
+        moves their file binding, reported as anchor_refreshed=False.
         """
         item = self.get(item_id)
         if item is None:
@@ -705,7 +702,8 @@ class ReviewQueue:
         path = Path(item.file_path)
         repointed = False
         if reanchor_to:
-            explicit = Path(reanchor_to).expanduser().resolve()
+            explicit_input = Path(reanchor_to).expanduser()
+            explicit = explicit_input.resolve()
             if not explicit.is_file():
                 raise ReviewQueueError(f"--reanchor-to target not a file: {explicit}")
             probe = self._read_file(explicit)
@@ -713,6 +711,24 @@ class ReviewQueue:
                 raise ReviewQueueError(
                     f"original {item.original_text[:60]!r} not in explicit target "
                     f"{explicit.name} — refusing an unverified re-point")
+            # Moving an identical current file must not turn old anchor drift
+            # into a new adjudication. Preserve that anchor and its uncertainty;
+            # resolve still applies the normal occurrence checks afterwards.
+            if (context_offset is None and isinstance(item.original_text, str)
+                    and bool(item.original_text.strip())
+                    and path.is_absolute() and explicit_input.is_absolute()
+                    and path.is_file()
+                    and not path.is_symlink() and not explicit_input.is_symlink()
+                    and path.resolve() != explicit):
+                try:
+                    original_bytes = path.read_bytes()
+                    target_bytes = explicit.read_bytes()
+                except OSError:
+                    pass  # The existing anchor-repair path remains authoritative.
+                else:
+                    if original_bytes and original_bytes == target_bytes:
+                        return self._repoint_identical_file(
+                            item, path, explicit, original_bytes)
             path, content, repointed = explicit, probe, True
         elif path.is_file():
             content = self._read_file(path)
@@ -876,6 +892,49 @@ class ReviewQueue:
         return {"id": item_id, "file_path": str(path), "line_number": line_no,
                 "context_snippet": new_context, "context_offset": new_offset,
                 "file_repointed": repointed}
+
+    def _repoint_identical_file(self, item: ReviewItem, source: Path,
+                                target: Path, expected: bytes) -> dict[str, Any]:
+        """Move only an existing pending file binding; keep all anchor evidence."""
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT * FROM review_items WHERE id=?", (item.id,)).fetchone()
+            if (row is None or row["status"] != PENDING
+                    or row["file_path"] != str(source)):
+                raise ReviewQueueError(
+                    f"item {item.id} changed file or status while re-pointing")
+            try:
+                stable = (bool(expected) and source.resolve() != target.resolve()
+                          and not source.is_symlink() and not target.is_symlink()
+                          and source.read_bytes() == expected and target.read_bytes() == expected)
+            except OSError as exc:
+                raise ReviewQueueError("identical-file re-point source or target unavailable") from exc
+            if not stable:
+                raise ReviewQueueError("identical-file re-point source or target changed")
+            actions = json.loads(row["actions_json"]) if row["actions_json"] else []
+            updated = []
+            for action in actions:
+                value = dict(action)
+                if (value.get("type") in {"file_edit", "append_note"}
+                        and value.get("path") == str(source)):
+                    value["path"] = str(target)
+                updated.append(value)
+            cur = conn.execute(
+                "UPDATE review_items SET file_path=? WHERE id=? AND status=? AND file_path=?",
+                (str(target), item.id, PENDING, str(source)))
+            if cur.rowcount != 1:
+                raise ReviewQueueError(f"item {item.id} changed while re-pointing")
+            if updated != actions:
+                conn.execute("UPDATE review_items SET actions_json=? WHERE id=?",
+                             (json.dumps(updated, ensure_ascii=False), item.id))
+            self._audit(conn, "review_reanchor", item.id, None, {
+                "file": str(target), "from_file": str(source), "repointed": True,
+                "file_sha256": hashlib.sha256(expected).hexdigest(),
+                "anchor_refreshed": False})
+            conn.commit()
+        return {"id": item.id, "file_path": str(target), "line_number": row["line_number"],
+                "context_snippet": row["context_snippet"], "context_offset": row["context_offset"],
+                "file_repointed": True, "anchor_refreshed": False}
 
     def attach_evidence(self, item_id: int, text: str,
                         by: Optional[str] = None) -> str:
@@ -2008,33 +2067,16 @@ class ReviewQueue:
 
 
 def _ledger_line_flags(content: str) -> list[bool]:
-    """One flag per line: True when the line is part of the correction ledger
-    (an `asr_note:` key inside the leading YAML frontmatter block, or an
-    `asr_note:` line anywhere). Those lines quote old forms deliberately
-    ("修正含：<旧形>→<正确形>"), so they are never legitimate targets for a
-    revert or a re-anchor — editing one rewrites the audit trail (2026-09-20
-    #2241: a reopen revert turned 「旧词→新词」 into 「旧词→旧词」 because the new
-    form survived only in the ledger line).
+    """Use the accept/matcher audit boundary for reversal too.
 
-    Only the `asr_note:` KEY is a ledger. An earlier version flagged the whole
-    frontmatter block, which made every other frontmatter key un-revertible
-    while the accept path could still edit it (`title: 旧词 → 新词` accepted
-    fine, then reopen refused with "survives only in the asr_note ledger" — a
-    verdict that pointed the operator at the wrong place entirely). The accept
-    path's own notion of the ledger is `dictionary_processor._mask_ledger_spans`,
-    and it masks exactly `asr_note:` values; the two sides now agree. Writing
-    into a frontmatter key that is not a ledger and not being able to take it
-    back is the defect, and widening the revert refusal would only have widened
-    the asymmetry."""
+    Only masked value lines are protected, so ordinary metadata remains
+    reversible. Preserve the legacy standalone asr_note-line exclusion.
+    """
     lines = content.split("\n")
-    flags = [ln.startswith("asr_note:") for ln in lines]
-    if lines and lines[0].lstrip("﻿").strip() == "---":
-        for i in range(1, len(lines)):
-            if lines[i].strip() == "---":
-                break
-            m = _FRONTMATTER_KEY_RE.match(lines[i])
-            flags[i] = bool(m) and m.group(1) == "asr_note"
-    return flags
+    masked, _ = _mask_ledger_spans(content)
+    projected = masked.split("\n")
+    return [line.startswith("asr_note:") or line != projection
+            for line, projection in zip(lines, projected)]
 
 
 def _revert_one_body_occurrence(
@@ -2044,8 +2086,7 @@ def _revert_one_body_occurrence(
     new_content is None when nothing was written.
 
     The ledger is excluded on both sides of the count: a new form that
-    survives ONLY in an asr_note line is a ledger citation, not an un-reverted
-    edit — reverting it would corrupt the audit trail (#2241, 2026-09-20).
+    survives only in protected audit data is not an un-reverted body edit.
 
     The count has to be exact in BOTH dimensions. Counting lines alone let a
     line carrying the replacement text twice through as "reverted": the accept
@@ -2074,7 +2115,7 @@ def _revert_one_body_occurrence(
         if any(new_text in ln for ln, is_ledger in zip(lines, ledger) if is_ledger):
             return None, (
                 "not reverted: the replacement text survives only in the "
-                "asr_note ledger, which quotes old forms on purpose — leave "
+                "audit metadata (asr_note ledger / asr_pending), which quotes old forms on purpose — leave "
                 "the ledger alone and revert the body by hand if needed"
             )
         if new_text in content:

@@ -28,6 +28,15 @@ export const STANDARDS_SOURCE_BASE_REF = "799702cf0f5405c9361548cd86490c5603e263
 export const DOC_REVIEW_BASE_REF = "6f6c5779d31c0f847773e0cbc1e7e7fc7b11f272"
 /** main before ce-doc-review chose its own depth: every plan ran the full team, and adversarial fired on any plan without a brainstorm. */
 export const DOC_REVIEW_DEPTH_BASE_REF = "799ac9aeb97bf1c51238c38122915470413c26c5"
+/** main before reviewers and synthesis kept traced money, security, and stored-data harm the work newly reaches. */
+export const DOC_REVIEW_ADMISSION_BASE_REF = "9d04578ce9fad2347ae0cfd17e7678dcec99ee67"
+const docReviewFindingsTask = (args: string) =>
+  `Use ce-doc-review with the arguments: mode:non-interactive ${args}. End your final message with these lines and nothing after them: "FINDINGS:" followed by one line per finding the review raised or fixed, each starting with "- ", or the line "- none", then "TEAM: <comma-separated reviewer names you dispatched>".`
+const docReviewPersonaTask = (persona: string, plan: string) =>
+  `Use ce-doc-review's ${persona} reviewer on ${plan}. Read the skill's references/subagent-template.md, references/findings-schema.json, and references/personas/${persona}.md, then review the document as that reviewer would, reading the repository code as the template allows. Do not dispatch, edit anything, or invoke another skill. Return the reviewer's findings JSON, then end your final message with these lines and nothing after them: "FINDINGS:" followed by one line per finding in that JSON, each starting with "- " and giving its title, then " — ", then the input and the harm it names in a few words, or the line "- none".`
+export const CODE_REVIEW_PRE_EXISTING_BASE_REF = "4fb543be706b19b4df14fbf69a58e458bed037e6"
+/** main after #2013: a stub on a traced money path still read to Codex as something that might block the harm. */
+export const DOC_REVIEW_UNSTATED_BLOCKER_BASE_REF = "4fb543be706b19b4df14fbf69a58e458bed037e6"
 /** main after #2003: adversarial and the lite reviewer still sent a plan full for a product choice no requester made. */
 export const DOC_REVIEW_PROVENANCE_BASE_REF = "b8841ebab4d2105b9eaeeb26645424173cd452f4"
 /** Depth scenarios grade the depth and team decision from trailers; they do not prove a reviewer actually ran. */
@@ -66,6 +75,8 @@ const SIGNAL_NULL = [['"prevention_signal": null', '"prevention_signal":null']]
 export const RELIABILITY_CONTEXT_BASE_REF = "8d9a236dc91b17e114562bd65e9e137d171f39ab"
 /** main before ce-work dropped its goal/workflow engines, ran chained units inline, and ce-plan stopped offering /goal. */
 const WORK_ENGINES_BASE_REF = "030188b4ba27f2dc33fbc4d5a112d3c8cc893e8c"
+/** main before ce-work re-read return-to-caller.md only after compaction and fixed the native route fields to nulls. */
+const WORK_RETURN_BASE_REF = "7dc50943bbf959dbe6a93a175e41e5fff8395e00"
 /** main before the Antigravity cross-model peer route and the codex, claude, grok, antigravity automatic order. */
 const ANTIGRAVITY_PEER_BASE_REF = "bdc53d034ccfa5baf01b6139cd46082145ff95cc"
 /** main before the mode:agent JSON carried the cross-model peer outcome: the A/B base for the peer-outcome rows. */
@@ -111,6 +122,8 @@ export type Grade = {
    * so declaring nothing cannot pass.
    */
   must_include_field?: string
+  /** Text that must be absent from the must_include_field block. The run fails when it emitted no such field, so staying silent cannot pass. */
+  field_must_not_include?: string[]
   /**
    * Exactly one `LABEL: value` line anywhere in the answer, per label (heading and bold
    * decoration ignored, label and value case-insensitive), with the exact value. Zero
@@ -883,6 +896,91 @@ const COMPOUND_FORM_ROWS: Scenario[] = [
 const SETUP_STANDARDS_BASE_REF = "121a3bd60d296be72b2d3c0b08131b7b08fadc5a"
 const SETUP_STANDARDS_HISTORY =
   "The code host is not reachable from this machine; this repository's merged pull request history is exported under .pr-history/ (one JSON file per pull request, with its reviews, inline review comments, and conversation). I approve every draft and change you preview: write them all without asking me again, and do not commit."
+
+const SETUP_UNATTENDED_HISTORY =
+  "CODING_STANDARDS.md and REVIEW.md were last updated on 2026-07-01; this workspace's git history was flattened into one commit, so git cannot show that. The code host is not reachable from this machine; this repository's merged pull request history is exported under .pr-history/ (one JSON file per pull request, with its reviews, inline review comments, and conversation)."
+const SETUP_UNATTENDED_PRE = "Setup previews every standards change and writes only on the user's approval."
+
+/** A publishing row runs the real ce-commit-push-pr against the push and PR shims; an attended row probes for any handoff instead. */
+function setupUnattendedRow(name: string, why: string, task: string, grade: Grade, fixture = "setup-standards-refresh", publishes = true): Scenario {
+  return {
+    id: `ce-setup/${name}`,
+    post_only: true,
+    skill: "ce-setup",
+    cohort: "untouched",
+    key_behavior: "delegation",
+    read_only: false,
+    git_init: true,
+    git_remote: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    ...(publishes ? { with_skill: ["ce-commit-push-pr"] } : { handoff_probe: ["ce-commit-push-pr", "ce-commit"] }),
+    fixture: `${FIX}/${fixture}`,
+    timeout_secs: 1500,
+    why,
+    pre_contract: SETUP_UNATTENDED_PRE,
+    task,
+    grade,
+  }
+}
+
+const SETUP_UNATTENDED_ROWS: Scenario[] = [
+  setupUnattendedRow(
+    "unattended-token-refresh-publishes",
+    "The token alone makes the refresh unattended: it writes the supported changes and hands publishing to ce-commit-push-pr in pipeline mode instead of asking.",
+    `Use the ce-setup skill with these arguments: standards mode:non-interactive. ${SETUP_UNATTENDED_HISTORY}`,
+    {
+      committed_must: ["CODING_STANDARDS.md"],
+      must_include: ["ce-setup/refresh-"],
+      must_include_any: [["Setup complete:", "Setup skipped:"]],
+      workspace_contains: [{ path: "CODING_STANDARDS.md", needle: "timingSafeEqual" }],
+      workspace_lacks: [
+        { path: "CODING_STANDARDS.md", needle: "wraps its body in try/catch" },
+        { path: ".compound-engineering/config.yaml" },
+      ],
+    },
+  ),
+  setupUnattendedRow(
+    "unattended-intent-refresh-publishes",
+    "A scheduled job that says nobody is watching is unattended without the token, so it must not stop at an offer.",
+    `This is our weekly scheduled job and nobody reads this session; the only output anyone looks at is what it publishes. Use the ce-setup skill to refresh our coding standards. ${SETUP_UNATTENDED_HISTORY}`,
+    {
+      committed_must: ["CODING_STANDARDS.md"],
+      must_include: ["ce-setup/refresh-"],
+      must_include_any: [["Setup complete:", "Setup skipped:"]],
+      workspace_contains: [{ path: "CODING_STANDARDS.md", needle: "timingSafeEqual" }],
+      workspace_lacks: [
+        { path: "CODING_STANDARDS.md", needle: "wraps its body in try/catch" },
+        { path: ".compound-engineering/config.yaml" },
+      ],
+    },
+  ),
+  setupUnattendedRow(
+    "automatically-is-still-attended",
+    "'Automatically' says when setup runs, not that nobody can answer, so the refresh still previews and writes nothing unapproved.",
+    `Use the ce-setup skill to automatically refresh our coding standards. ${SETUP_UNATTENDED_HISTORY} Nobody answers questions in this session, so treat any question you would ask as unanswered.`,
+    {
+      shim_log_must_not: ["handoff ce-commit-push-pr", "handoff ce-commit", "git push", "pr create", "pr merge"],
+      workspace_unchanged: true,
+      no_new_commits: true,
+    },
+    "setup-standards-refresh",
+    false,
+  ),
+  setupUnattendedRow(
+    "unattended-bare-run-reports-person-choices",
+    "A bare unattended run applies only what a reviewer can judge from the PR. Creating config.yaml and adding instruction-file directives are a person's choice, and review docs were not asked for.",
+    "Use the ce-setup skill with these arguments: mode:non-interactive.",
+    {
+      workspace_lacks: [
+        { path: ".compound-engineering/config.yaml" },
+        { path: "AGENTS.md", needle: "automatically invoke the `ce-compound` skill" },
+        { path: "CODING_STANDARDS.md" },
+      ],
+    },
+    "setup-instructions-gap",
+  ),
+]
 
 /** Cheap read-only cells that pin a real decision. Live mutation/delegation is not in this set. */
 export const WAVE1 = [
@@ -5433,6 +5531,198 @@ Do not write the plan file yet. I only want the Goal Capsule right now. Print it
     },
   },
   {
+    id: "ce-doc-review/findings-keep-traced-money-harm",
+    baseline_ref: DOC_REVIEW_ADMISSION_BASE_REF,
+    skill: "ce-doc-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/doc-review-depth-token-withdrawal`,
+    timeout_secs: 1800,
+    why: "The withdraw command newly exposes an existing transfer to users: a negative amount passes the balance check and raises the balance, and read-broadcast-write lets concurrent withdrawals spend twice. Both trace from a CLI input to lost money even though the code already exists and the chain adapter is a stub.",
+    pre_contract: "Codex reviewers suppressed both as pre-existing or without a realistic exploit path, and Codex synthesis rejected peer money findings as derivable.",
+    task: docReviewFindingsTask("docs/plans/2026-11-01-015-feat-withdraw-command-plan.md"),
+    grade: {
+      must_include_field: "FINDINGS",
+      must_include_any: [
+        ["negative", "non-positive", "nonpositive", "positive amount", "amount > 0", "amount <= 0", "greater than zero", "zero or less"],
+        ["concurren", "double-spend", "double spend", "race", "atomic", "spend twice", "twice"],
+      ],
+    },
+  },
+  {
+    id: "ce-doc-review/findings-quiet-on-unreached-code",
+    baseline_ref: DOC_REVIEW_ADMISSION_BASE_REF,
+    skill: "ce-doc-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/doc-review-findings-quiet-flag`,
+    timeout_secs: 1800,
+    why: "Guard for the money/security admission rule: a sound --json flag plan, reviewed by the full team, next to store code it never calls (saveTasks, archiveDone, which corrupts its archive). Harm in code the work does not reach, and extra error handling, stay out.",
+    pre_contract: "Pre-existing issues the document did not introduce are suppressed.",
+    task: docReviewFindingsTask("depth:full docs/plans/2026-11-01-001-feat-list-json-flag-plan.md"),
+    grade: {
+      must_include_field: "FINDINGS",
+      field_must_not_include: ["savetasks", "archivedone", "archive", "enoent"],
+    },
+  },
+  {
+    id: "ce-doc-review/reviewer-security-keeps-traced-money-harm",
+    baseline_ref: DOC_REVIEW_UNSTATED_BLOCKER_BASE_REF,
+    skill: "ce-doc-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/doc-review-depth-token-withdrawal`,
+    timeout_secs: 900,
+    why: "The orchestrator-level money scenario passed mostly on main because other reviewers or synthesis caught what one reviewer dropped. This grades the security reviewer's own return on the withdraw plan: the negative amount and the double-spend both trace from a CLI input to lost money.",
+    pre_contract: "The Codex security reviewer saw the negative amount in 3 of 3 runs and dropped it each time because the chain client is a stub that might reject it, even though nothing in the plan or code says it does.",
+    task: docReviewPersonaTask("security-lens-reviewer", "docs/plans/2026-11-01-015-feat-withdraw-command-plan.md"),
+    grade: {
+      must_include_field: "FINDINGS",
+      must_include_any: [
+        ["negative", "positive", "amount > 0", "amount <= 0", "greater than zero", "zero or less"],
+        ["concurren", "double-spend", "double spend", "race", "atomic", "spend twice", "twice"],
+      ],
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-doc-review/reviewer-adversarial-quiet-on-unreached-code",
+    baseline_ref: DOC_REVIEW_ADMISSION_BASE_REF,
+    skill: "ce-doc-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/doc-review-findings-quiet-flag`,
+    timeout_secs: 900,
+    why: "Guard for the reviewer-level money and stored-data rule: the adversarial reviewer, the one most likely to chase bait, must not report the archive corruption in store code the --json flag plan never calls.",
+    pre_contract: "Pre-existing issues the document did not introduce are suppressed.",
+    task: docReviewPersonaTask("adversarial-document-reviewer", "docs/plans/2026-11-01-001-feat-list-json-flag-plan.md"),
+    grade: {
+      must_include_field: "FINDINGS",
+      field_must_not_include: ["savetasks", "archivedone", "archive", "enoent"],
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-doc-review/survival-breaking-json-rename",
+    baseline_ref: DOC_REVIEW_UNSTATED_BLOCKER_BASE_REF,
+    skill: "ce-doc-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/doc-review-depth-contract-rename`,
+    timeout_secs: 1800,
+    why: "Survival of a non-money defect: renaming a documented --json field breaks every existing script that reads `done`, and the plan has no compatibility path.",
+    pre_contract: "On main after #2016 (94d707bb), 3 trials: Claude 3/3, Codex 3/3.",
+    task: docReviewFindingsTask("docs/plans/2026-11-01-013-refactor-rename-done-field-plan.md"),
+    grade: {
+      must_include_field: "FINDINGS",
+      must_include_any: [["break", "consumer", "script", "backward", "compat", "deprecat", "downstream", "existing user"]],
+    },
+  },
+  {
+    id: "ce-doc-review/survival-unrequested-streak",
+    baseline_ref: DOC_REVIEW_UNSTATED_BLOCKER_BASE_REF,
+    skill: "ce-doc-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/doc-review-depth-unmade-choice`,
+    timeout_secs: 1800,
+    why: "Survival of a non-money defect: the streak is a product behavior the requester never asked for.",
+    pre_contract: "On main after #2016 (94d707bb), 3 trials: Claude 3/3, Codex 3/3.",
+    task: docReviewFindingsTask("docs/plans/2026-11-01-012-feat-tasks-stats-command-plan.md"),
+    grade: {
+      must_include_field: "FINDINGS",
+      must_include_any: [["streak"], ["request", "asked", "scope", "#57", "habit"]],
+    },
+  },
+  {
+    id: "ce-doc-review/survival-test-only-contradiction",
+    baseline_ref: DOC_REVIEW_UNSTATED_BLOCKER_BASE_REF,
+    skill: "ce-doc-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/doc-review-depth-seeded-defect`,
+    timeout_secs: 1800,
+    why: "Survival of a non-money defect: a test-only plan whose unit edits production code.",
+    pre_contract: "On main after #2016 (94d707bb), 3 trials: Claude 3/3, Codex 3/3.",
+    task: docReviewFindingsTask("docs/plans/2026-11-01-011-fix-slug-test-coverage-plan.md"),
+    grade: {
+      must_include_field: "FINDINGS",
+      must_include_any: [
+        ["slug.ts", "slugify", "trim", "u1", "test-only contradiction"],
+        ["ktd1", "r2", "production code", "production edit", "test-only", "no edits under"],
+      ],
+    },
+  },
+  {
+    id: "ce-doc-review/survival-90-day-token",
+    baseline_ref: DOC_REVIEW_UNSTATED_BLOCKER_BASE_REF,
+    skill: "ce-doc-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/doc-review-depth-unstated-session`,
+    timeout_secs: 1800,
+    why: "Security control: a stateless 90-day token cannot be revoked, so a stolen one works for three months.",
+    pre_contract: "Known Codex gap. On main after #2016 (94d707bb), 3 trials: Claude 3/3, Codex 0/3, with every Codex reviewer returning empty. Any fix needs a quiet guard where a plan states the relaxation's tradeoff and gets no finding.",
+    task: docReviewFindingsTask("docs/plans/2026-11-01-008-feat-longer-remember-me-plan.md"),
+    grade: {
+      must_include_field: "FINDINGS",
+      must_include_any: [["revoc", "revok", "stolen", "theft", "invalidat", "log out", "logout", "sign out", "hijack", "compromise"]],
+    },
+  },
+  {
+    id: "ce-doc-review/survival-other-users-bookings",
+    baseline_ref: DOC_REVIEW_UNSTATED_BLOCKER_BASE_REF,
+    skill: "ce-doc-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/doc-review-depth-escalation`,
+    timeout_secs: 1800,
+    why: "Security control: recentBookings has no user filter, so the dashboard shows other customers' bookings.",
+    pre_contract: "On main after #2016 (94d707bb), 3 trials: Claude 3/3, Codex 3/3.",
+    task: docReviewFindingsTask("docs/plans/2026-11-01-009-feat-recent-bookings-card-plan.md"),
+    grade: {
+      must_include_field: "FINDINGS",
+      must_include_any: [["user_id", "cross-user", "ownership", "other customer", "other user", "every user", "all users", "any user", "leak", "privacy", "unscoped", "not scoped", "tenant"]],
+    },
+  },
+  {
+    id: "ce-code-review/newly-exposed-existing-bug-is-primary",
+    baseline_ref: CODE_REVIEW_PRE_EXISTING_BASE_REF,
+    skill: "ce-code-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/review-newly-exposed-credit`,
+    timeout_secs: 300,
+    why: "A new refund command passes a staff-typed amount into an existing creditAccount that never checks its sign, so a negative or non-numeric refund silently debits or corrupts the balance. The bug sits in unchanged code but this PR newly exposes it, so it is this PR's finding. The unrelated month-label bug in unchanged report code is bait for the opposite direction.",
+    pre_contract: "Anchor 0 covered 'a pre-existing issue this PR did not introduce' and said to suppress it silently.",
+    task: "Use ce-code-review's correctness reviewer on the change described in PR.md. The changed file is src/cli/refund.ts, entirely new in this PR; every other file is unchanged. Read the skill's references/subagent-template.md, references/diff-scope.md, and references/personas/correctness-reviewer.md and review the change as that persona would. Do not dispatch, edit anything, or invoke another skill. Return the persona's findings JSON, then exactly one line `AMOUNT: <primary | pre-existing | not-flagged>`: primary when a finding at confidence 75 or higher with pre_existing false says a negative or invalid refund amount reaches the balance, pre-existing when such a finding has pre_existing true, otherwise not-flagged.",
+    grade: {
+      workspace_read: ["src/billing/credit.ts"],
+      declared: { AMOUNT: "primary" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
     id: "ce-doc-review/depth-full-unstated-session",
     baseline_ref: DOC_REVIEW_DEPTH_BASE_REF,
     skill: "ce-doc-review",
@@ -5933,12 +6223,35 @@ Units:
       actions: "none",
     },
   },
+  {
+    id: "ce-work/return-to-caller-implements-and-returns",
+    baseline_ref: WORK_RETURN_BASE_REF,
+    skill: "ce-work",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: false,
+    git_init: true,
+    shim_gh_pr: true,
+    fixture: `${FIX}/implementation-ready-plan`,
+    timeout_secs: 900,
+    why: "The read-only return row blocks at workspace setup, so it never reaches the return step. This row implements a one-unit plan and returns, which is where the re-read and the native route fields cost tokens.",
+    pre_contract:
+      "mode:return-to-caller implements, verifies, commits each unit, and ends with the structured return, without opening a PR.",
+    task: `mode:return-to-caller docs/plans/widget-plan.md`,
+    grade: {
+      files_read_post: ["references/return-to-caller.md"],
+      must_include: ["standalone_shipping_skipped"],
+      must_exclude: ["gh pr create"],
+      committed_must: ["src/quiet.js"],
+    },
+  },
   ...[
     {
       id: "chained-units-run-inline",
       plan: "chained-plan.md",
       declared: { U1: "inline", U2: "inline", U3: "inline" },
-      why: "Units the dependency graph chains gain no wall-clock time from a worker; a fresh worker per unit only spends tokens.",
+      read: "references/execution-engines.md",
+      why: "Units the dependency graph chains gain no wall-clock time from a worker; a fresh worker per unit only spends tokens. A chain decides inline from SKILL.md without loading the strategy reference.",
     },
     {
       id: "independent-units-run-as-wave",
@@ -5952,7 +6265,7 @@ Units:
       declared: { U1: "parallel-wave", U2: "parallel-wave", U3: "inline" },
       why: "Independent units still run as a wave; only the unit that depends on both runs inline.",
     },
-  ].map(({ id, plan, why, declared }): Scenario => ({
+  ].map(({ id, plan, why, declared, read = "references/execution-strategy.md" }): Scenario => ({
     id: `ce-work/${id}`,
     baseline_ref: WORK_ENGINES_BASE_REF,
     skill: "ce-work",
@@ -5966,7 +6279,7 @@ Units:
       "Native execution prefers subagents for any structured multi-unit plan; independent dependency layers dispatch in parallel, and units the graph chains run as serial subagents.",
     task: `Use ce-work on docs/plans/${plan}. The execution engine is native and this harness has a subagent mechanism with no worktree isolation. Resolve only how each implementation unit will run, then stop before any branch change, edit, dispatch, or commit. Output exactly one line per unit in the form U1: <schedule>, where <schedule> is one of inline, serial-subagent, or parallel-wave, then one line of reasoning.`,
     grade: {
-      files_read_post: ["references/execution-strategy.md"],
+      files_read_post: [read],
       declared,
       actions: "none",
       delegates: "none",
@@ -6480,6 +6793,53 @@ Use "Correct widget limit" as the description in the subject and any required bo
       ],
     },
   },
+  ...SETUP_UNATTENDED_ROWS,
+  {
+    id: "ce-compound/standards-request-routes-to-setup",
+    post_only: true,
+    skill: "ce-compound",
+    cohort: "untouched",
+    key_behavior: "delegation",
+    read_only: false,
+    git_init: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    handoff_probe: ["ce-setup"],
+    fixture: `${FIX}/setup-standards-refresh`,
+    timeout_secs: 900,
+    why: "Maintaining the standards as a whole is ce-setup's job; an attended ce-compound asked for it hands off with `standards` instead of writing a learning.",
+    pre_contract: "A qualifying lesson becomes one learning; anything else writes nothing.",
+    task: `Use the ce-compound skill to bring our coding standards up to date with what reviewers keep flagging. ${SETUP_UNATTENDED_HISTORY}`,
+    grade: {
+      shim_log_must: ["handoff ce-setup", "standards"],
+      shim_log_must_not: ["git push", "pr create", "pr merge"],
+      no_new_commits: true,
+      workspace_unchanged: true,
+    },
+  },
+  {
+    id: "ce-compound/unattended-standards-words-stay-capture",
+    post_only: true,
+    skill: "ce-compound",
+    cohort: "untouched",
+    key_behavior: "delegation",
+    read_only: false,
+    git_init: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    handoff_probe: ["ce-setup"],
+    fixture: `${FIX}/setup-standards-refresh`,
+    timeout_secs: 900,
+    why: "A non-interactive run without mode:refresh is always capture, so standards words in its context never hand off to ce-setup.",
+    pre_contract: "A non-interactive run without mode:refresh is always capture.",
+    task: `Use the ce-compound skill with these arguments: mode:non-interactive update the coding standards. ${COMPOUND_REPORT}`,
+    grade: {
+      shim_log_must_not: ["handoff ce-setup", "git push", "pr create", "pr merge"],
+      result_must_include: ["Documentation"],
+      no_new_commits: true,
+      workspace_unchanged: true,
+    },
+  },
   {
     id: "ce-compound/refresh-drift-only-keeps-redundant-accurate-doc",
     post_only: true,
@@ -6820,6 +7180,7 @@ export function scenarioHasDecisionGrade(s: Scenario): boolean {
   if (g.must_include?.length || g.must_include_any?.length || g.must_exclude?.length) return true
   if (g.declared && Object.keys(g.declared).length) return true
   if (g.delegates_must_not_include?.length) return true
+  if (g.must_include_field && g.field_must_not_include?.length) return true
   if (g.classification || g.structured_status || g.delegates === "some") return true
   if (g.workspace_contains?.length || g.workspace_lacks?.length || g.json_field?.length || g.committed_must_not?.length) return true
   if (g.workspace_read?.length) return true

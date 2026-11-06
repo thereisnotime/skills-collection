@@ -81,7 +81,7 @@ For competitor source-carrier/edition binding, claims, citations and existing-pr
 [citation readback checklist](competitors-analysis/references/analysis_checklist.md#citation-readback-and-counterevidence).
 For changes since a prior analysis, load its
 [Update classification](competitors-analysis/references/analysis_checklist.md#a-newly-discovered-path-is-not-necessarily-a-new-feature).
-For user-selected collection destinations, load the
+For user-selected competitor-analysis collection destinations, load the
 [collection destination route](competitors-analysis/references/collection_destination.md).
 For running an original application demo, follow that Skill's
 [original-app demo recipe](competitors-analysis/references/original-app-demo.md).
@@ -465,6 +465,8 @@ For explicit single-task speaker-inference requests, load
 Use [transcript-fixer](daymade-audio/transcript-fixer/SKILL.md) for transcript
 correction. Its Native workflow owns evidence selection, selective human escalation,
 and correction/finalization order;
+for frontmatter edits, reruns or reversals, enter
+[metadata provenance](daymade-audio/transcript-fixer/references/native_metadata_provenance.md).
 [Native review packets](daymade-audio/transcript-fixer/references/native_review_packets.md)
 owns split, batch, and resumed review instructions; first-pass and cold reviewers
 use its [occurrence-specific evidence](daymade-audio/transcript-fixer/references/native_review_packets.md#occurrence-specific-evidence).
@@ -600,10 +602,10 @@ Workflow subagent, use
 [read-claude-code-history's narrow evidence entry](daymade-claude-code/read-claude-code-history/SKILL.md#original-tool-callresult-evidence).
 Keep selectors, pairing, source scope and incomplete-output handling in that owner.
 
-For a Claude session briefing or expansion of folded runtime Skill bodies, enter
+For a Claude/Kimi session briefing, saved-export reuse or expansion of folded runtime Skill bodies, enter
 [Exact Session evidence](daymade-claude-code/read-claude-code-history/SKILL.md#exact-session-evidence).
-Large or unmeasured briefing output follows that reader's
-[file-backed reading procedure](daymade-claude-code/read-claude-code-history/references/large-session-briefing.md).
+Capture, bounded reading and snapshot freshness follow that reader's
+[file-backed reading and reuse procedure](daymade-claude-code/read-claude-code-history/references/large-session-briefing.md).
 
 For Claude history discovery without a known Session, use
 [read-claude-code-history's indexed search entry](daymade-claude-code/read-claude-code-history/SKILL.md#indexed-content-search).
@@ -637,7 +639,7 @@ details belong in [the transport and receiver-evidence SOP](peer-message/referen
 Enter that SOP when diagnosing delayed Codex coordination or comparing live and queued receipts.
 Before asking about mutable ownership or a publication window, use the
 [fresh-state preflight](peer-message/references/coordination-and-learning-loop.md#51-发现别人的在制品先核实再问等一个有界窗口).
-For an inbound coordination envelope, a native reply or a receive-integrity error, follow
+For an inbound coordination envelope, a native reply, original-input capture or a receive-integrity error, follow
 [receive, reply and closure](peer-message/references/local-coordination.md#收件回信和关闭).
 For a known inbound `peer-message` envelope ID in Codex, use the
 [original-envelope receive recipe](peer-message/references/local-coordination.md#从-codex-入站原件接收).
@@ -662,8 +664,10 @@ switches start at its
 [account-owner selection](ghostty-use/references/codex-account-switch.md#choose-the-account-owner-first).
 For blocked/delegated reopening, follow its
 [original-set route](ghostty-use/references/codex-account-switch.md#reopen-the-original-recorded-set-not-a-blank-session).
-When a snapshot looks too large or recovery is limited to an activity window, use
-[time-window selection](ghostty-use/references/session_liveness.md#select-recovery-candidates-by-a-time-window).
+Before selecting a recovery set or assessing completeness, follow the
+[recovery entry decision tree](ghostty-use/SKILL.md#entry-decision-tree).
+For observer freshness, follow
+[observation-health verification](ghostty-use/references/automatic-snapshots.md#verify-observation-health).
 Before a restore or retry, follow its
 [current-set reconciliation](ghostty-use/references/restore_mechanics.md#reconcile-the-current-wanted-set).
 After process reconciliation, follow
@@ -686,7 +690,7 @@ For selected-site Cookie copying between local profiles of the same macOS Chrome
 enter [cookie-copy](cookie-copy/SKILL.md). For its quota-query caller, follow
 [Tibo's Cookie Copy handoff](tibo-reset-codex/references/browser-session-migration.md).
 
-For an existing Codex session failing after login changes, start at
+Before switching an existing Codex session, or recovering one after login changes, start at
 [Local Codex existing-owner recovery](daymade-codex/local-codex/references/oauth-guide.md#existing-native-owner-recovery).
 For a remote Codex sign-in prompt or choosing existing-login reuse versus new authorization, start at
 [Local Codex authentication recovery](daymade-codex/local-codex/references/oauth-guide.md#remote-account-switch-and-expired-login-recovery).
@@ -833,6 +837,11 @@ in that owner rather than maintaining another push example here.
 For task closeout, enter
 [git-safety-net's Outcome contract](git-safety-net/SKILL.md#outcome-contract--keep-the-safety-net-subordinate-to-the-users-job).
 Use this entry for recovery or repository convergence under concurrent work.
+For stash export or independent recovery, follow the
+[stash recovery procedure](git-safety-net/references/recovery_playbook.md#export-and-recover-selected-stashes).
+For final resource readback against the original inventory, follow the
+[terminal-state procedure](git-safety-net/references/merge_verification.md#5-prove-the-user-visible-terminal-state).
+Keep runtime requirements, artifact layouts and verification commands in those owners.
 For a failed fast-forward or a partly synchronized checkout, use its
 [guarded checkout recovery procedure](git-safety-net/references/prevention_practices.md#guarded-checkout-recovery).
 For local snapshot failures involving an index lock or commit-hook refusal, use its
@@ -845,6 +854,10 @@ classification batches, read its
 
 For GitHub-hosted state — PRs, issues, Actions, repository or organization settings, permissions,
 and API/UI mutations — enter [github-ops](github-ops/SKILL.md).
+Before cloning repositories or making source-preservation or rescue copies, follow its
+[copy-purpose destination route](github-ops/references/repository_operations.md#match-copy-purpose-to-the-local-destination).
+For repository copies across GitHub accounts, use its
+[multi-account copy and sync procedure](github-ops/references/multi_account_repository_sync.md).
 For reauthentication during an authorized operation, use its
 [named-write authentication procedure](github-ops/SKILL.md#8-authenticate-only-for-the-named-write).
 For upstream contributions and desktop E2E acceptance, enter
@@ -865,7 +878,7 @@ When individual approvals disagree with effective merge requirements, use
 [the landing diagnosis](github-review-pr/references/remediation_and_landing.md#merge-with-the-reviewed-head-guard).
 For archive/ingestion repair publication, enter
 [the repair and publication preflight](github-review-pr/references/remediation_and_landing.md#prepare-an-isolated-repair-environment).
-For direct, queued or separately authorized bypass merges and landed-rule readback,
+For direct, queued or separately authorized bypass merges, refusal diagnosis and landed-rule readback,
 follow the [checked-merge workflow](github-ops/references/pr_operations.md#merging-prs).
 For hosted-state writes through `gh`, follow its
 [identity, host and target binding](github-ops/SKILL.md#2-bind-identity-host-and-target)
@@ -1087,6 +1100,8 @@ For changes to scripts, importable API contracts, configuration, or operating pr
 [docs-cleaner](daymade-docs/docs-cleaner/SKILL.md) for scoped documentation delivery:
 resolve implementation intent and authorization before updating the owning SOP,
 and validate the delivered command examples. Keep detailed governance in that Skill.
+For tracked path moves or deletions, follow the
+[final-tree reference check](references/ci-operations.md#deleted-target-markdown-links).
 For outbound link-check diagnostics, follow its
 [reader-host interpretation](daymade-docs/docs-cleaner/SKILL.md#updating-references-to-a-file-you-moved-or-deleted).
 After moving a procedure or renaming an anchor, use its

@@ -503,6 +503,45 @@ describe("skill-eval-cell host grade", () => {
     expect(g.reasons).toEqual(["missing OPENING field"])
   })
 
+  test("field_must_not_include fails on a needle in the field and ignores the trailers", () => {
+    const stdout = (findings: string) =>
+      [findings, "FILES_READ: src/store.ts", "ACTIONS: none", ""].join("\n")
+    const grade = { must_include_field: "FINDINGS", field_must_not_include: ["saveTasks"] }
+    const noisy = gradeHost({
+      host: "claude",
+      hostDir: hostDir({ "stdout.txt": stdout("FINDINGS: saveTasks writes non-atomically") }),
+      arm: "post",
+      grade,
+    })
+    expect(noisy.reasons).toEqual(["forbidden text in FINDINGS field: saveTasks"])
+    const quiet = gradeHost({
+      host: "claude",
+      hostDir: hostDir({ "stdout.txt": stdout("FINDINGS: none") }),
+      arm: "post",
+      grade,
+    })
+    expect(quiet.ok).toBe(true)
+  })
+
+  test("a field that quotes angle-bracket syntax in a code span is an answer, not a placeholder", () => {
+    const grade = { must_include_field: "FINDINGS", must_include: ["negative"] }
+    const stdout = (line: string) => ["FINDINGS:", line, "", "FILES_READ: a", "ACTIONS: none", ""].join("\n")
+    const quoted = gradeHost({
+      host: "claude",
+      hostDir: hostDir({ "stdout.txt": stdout("- Negative withdraw amount — negative `<amount>` passes the balance check") }),
+      arm: "post",
+      grade,
+    })
+    expect(quoted.ok).toBe(true)
+    const echoed = gradeHost({
+      host: "claude",
+      hostDir: hostDir({ "stdout.txt": stdout("- <title>, then the negative input and harm") }),
+      arm: "post",
+      grade,
+    })
+    expect(echoed.reasons).toEqual(["missing FINDINGS field"])
+  })
+
   test("result_must_not_include fails when the result block echoes the fixture", () => {
     const dir = hostDir({
       "stdout.txt": [

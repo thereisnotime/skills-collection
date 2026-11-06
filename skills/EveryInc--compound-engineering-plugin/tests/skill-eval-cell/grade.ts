@@ -33,7 +33,8 @@ export type ArmGrade = {
  * — including the prompt — to stderr, so without this the echo outranks the answer.
  */
 function isPlaceholder(value: string): boolean {
-  return /<[^>]*>/.test(value)
+  const outsideCodeSpans = value.replace(/`[^`]*`/g, "")
+  return /<[^>]*>/.test(outsideCodeSpans)
 }
 
 function lastTrailer(text: string, name: string): string {
@@ -349,6 +350,12 @@ export function gradeHost(opts: {
     if (!options.some((needle) => textScope.includes(needle.toLowerCase()))) {
       reasons.push(`missing required text (any of): ${options.join(" | ")}`)
     }
+  }
+  if (opts.grade.field_must_not_include?.length && !scopeField) {
+    reasons.push("field_must_not_include needs must_include_field")
+  }
+  for (const needle of scopedText ? opts.grade.field_must_not_include ?? [] : []) {
+    if (scopedText.includes(needle.toLowerCase())) reasons.push(`forbidden text in ${scopeField} field: ${needle}`)
   }
   if (opts.grade.result_must_not_include?.length || opts.grade.result_must_include?.length) {
     const block = resultBlock(stdout)?.toLowerCase() ?? null

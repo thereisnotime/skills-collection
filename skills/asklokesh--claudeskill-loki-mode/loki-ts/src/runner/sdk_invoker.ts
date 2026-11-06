@@ -17,9 +17,21 @@
 
 import { inferenceGeoParam } from "../providers/model_routes.ts";
 import { assertStaticSchema } from "../council/finding_schema.ts";
-import Anthropic from "@anthropic-ai/sdk";
+import { tmpdir } from "node:os";
+import type Anthropic from "@anthropic-ai/sdk";
+// The SDK is loaded lazily inside try/catch: a bundle that reaches this module but never calls a model (the control
+// plane's server, built without loki-ts's node_modules) must still build, and bun leaves a try-wrapped dynamic import of
+// a package it cannot resolve as a runtime import. A missing SDK means no client, which every caller already handles.
+let _sdk: typeof Anthropic | null = null;
+async function loadSdk(): Promise<typeof Anthropic | null> {
+  if (_sdk) return _sdk;
+  try { _sdk = (await import("@anthropic-ai/sdk")).default; } catch { _sdk = null; }
+  return _sdk;
+}
+void loadSdk(); // eager, as the static import was: sync callers (sdkJudgeAvailable) see a client once the module settles
 import { estimateTokens } from "../providers/price_table.ts";
-import { appendChildLedger, type LedgerRecord,recordFromUsage, unmeasuredRecord } from "../util/child_ledger.ts";
+import { appendChildLedger, type LedgerRecord, recordFromClaudeResult, recordFromUsage, sumChildLedger, unmeasuredRecord } from "../util/child_ledger.ts";
+import { parseCapUsd } from "../e10ext/budget_cap.ts";
 import { clampThinkingForEffort } from "../providers/claude_flags.ts";
 import { oauthDevEnabled, readFreshOauthToken, OAUTH_BETA_HEADER } from "./oauth_dev.js";
 
@@ -179,7 +191,7 @@ function client(): Anthropic | null {
       // timeout-retries under the OS-level ceiling the bash caller wraps us in.
       // One retry tolerates a transient blip without letting worst-case latency
       // balloon (council review, security-arch lens).
-      _client = new Anthropic({ apiKey: key, maxRetries: 1 });
+      _client = _sdk ? new _sdk({ apiKey: key, maxRetries: 1 }) : null;
     } catch {
       _client = null;
     }
@@ -196,7 +208,8 @@ function client(): Anthropic | null {
     const token = readFreshOauthToken();
     if (!token) return null;
     try {
-      return new Anthropic({
+      if (!_sdk) return null;
+      return new _sdk({
         authToken: token,
         maxRetries: 1,
         // The Messages API requires this beta header to accept a claude.ai OAuth
@@ -252,6 +265,7 @@ export type JudgeOutcome<T> =
   | { kind: "refused"; category: string | null }
   | { kind: "context_exceeded" }
   | { kind: "malformed" }
+  | { kind: "budget" } // toolLessCall only: the run dollar cap was already reached, no request was sent
   | { kind: "transport" };
 
 /** Compact name for a non-ok outcome (stderr line, ledger field): "refused:cyber", "truncated". */
@@ -344,6 +358,7 @@ function classifyStop(msg: Anthropic.Message): JudgeOutcome<string> {
 //   refused   -> ONE retry with server-side fallback (eligible models only)
 // Anything else is returned as its named outcome. Never throws.
 async function runJudge(params: JudgeParams | TextParams, schema: Record<string, unknown> | null): Promise<JudgeOutcome<string>> {
+  await loadSdk();
   const c = client();
   if (!c) return { kind: "transport" };
   const { prompt, model, effort, timeoutMs = 120_000, system } = params;
@@ -454,4 +469,94 @@ export async function judgeTextOutcome(params: TextParams): Promise<JudgeOutcome
 export async function judgeText(params: TextParams): Promise<string | null> {
   const o = await judgeTextOutcome(params);
   return o.kind === "ok" ? o.value : null;
+}
+
+// ---- toolLessCall: the one tool-less completion primitive (PR0) ----------------------------------------------------------
+// A single completion with no tools and no agent loop, for the small deterministic-first calls (executable spec, token diet).
+// Thinking is the lever: on Haiku it was about 55% of a small call's dollars. Two routes, one outcome type and one ledger:
+//   api key (or the dev OAuth token): messages.create through runJudge, thinking "off" -> {type:"disabled"}, "low" -> adaptive at effort low.
+//   subscription: one Agent SDK query() with tools [], maxTurns 1, no setting sources, no session file, thinking and effort mirrored.
+// Measured 2026-11-05 on claude-haiku-5-5 through the Agent SDK/CLI: thinking:{type:"disabled"} (--thinking=disabled),
+// CLAUDE_CODE_DISABLE_THINKING=1 and MAX_THINKING_TOKENS=0 all left thinking on for a prompt that triggers it; the result's
+// thinking_tokens is recorded on the ledger line so a run shows what thinking really cost on either route.
+export interface ToolLessParams {
+  model: string; // full model id
+  system?: string;
+  prompt: string;
+  maxTokens: number;
+  thinking: "off" | "low";
+  timeoutMs?: number;
+  cwd?: string; // Agent SDK route: a directory with no project settings to read; default os tmpdir
+  ledger?: { lokiDir: string; phase: string }; // default: LOKI_DIR and phase "toolless"; no directory means no line
+}
+export interface ToolLessResult { outcome: JudgeOutcome<string>; route: "api" | "agent-sdk"; usd: number | null; thinkingTokens: number | null }
+
+type ToolLessQuery = (args: { prompt: string; options: Record<string, unknown> }) => AsyncIterable<Record<string, unknown>>;
+let queryOverride: ToolLessQuery | null = null;
+/** TEST SEAM: replace the Agent SDK query(). Production code must never call this. */
+export function __setToolLessQueryForTests(fn: ToolLessQuery | null): void { queryOverride = fn; }
+
+/** Dollars still available under the run cap (LOKI_E10_MAX_COST_USD), or null with no cap. Counts the seeded prior spend and this run's child ledger lines; the live stage meter in the worker stays the authority for stage sessions. */
+export function toolLessRemainingUsd(env: NodeJS.ProcessEnv, lokiDir: string | undefined): number | null {
+  const cap = parseCapUsd(env["LOKI_E10_MAX_COST_USD"]);
+  if (cap === null) return null;
+  const runId = env["LOKI_E10_RUN_ID"];
+  if (!lokiDir || !runId) return 0; // a cap that cannot be metered (no ledger dir or run id) refuses rather than never tripping
+  const seed = Number(env["LOKI_E10_SPENT_USD"]);
+  const spent = (Number.isFinite(seed) && seed > 0 ? seed : 0) + sumChildLedger(lokiDir, runId).partialUsd;
+  return Math.max(cap - spent, 0);
+}
+
+function toolLessThinking(mode: "off" | "low"): { thinking: Anthropic.ThinkingConfigParam; effort?: Effort } {
+  if (mode === "off") return { thinking: { type: "disabled" } };
+  return { thinking: { type: "adaptive" }, effort: "low" };
+}
+
+async function toolLessViaAgentSdk(p: ToolLessParams, ledger: ToolLessParams["ledger"], remaining: number | null): Promise<ToolLessResult> {
+  const fail = (): ToolLessResult => { if (ledger) appendChildLedger(ledger.lokiDir, { ...unmeasuredRecord(ledger.phase, p.model, "sdk-toolless"), outcome: "transport" }); return { outcome: { kind: "transport" }, route: "agent-sdk", usd: null, thinkingTokens: null }; };
+  try {
+    const q = queryOverride ?? ((await import("@anthropic-ai/claude-agent-sdk")).query as unknown as ToolLessQuery);
+    const { thinking, effort } = toolLessThinking(p.thinking);
+    const env: Record<string, string> = { ...(process.env as Record<string, string>) };
+    for (const k of Object.keys(env)) if (k.startsWith("LOKI_E10_")) delete env[k];
+    env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = String(p.maxTokens); // the Agent SDK has no max-tokens option; the CLI reads this env
+    const ac = new AbortController(), timer = setTimeout(() => ac.abort(), p.timeoutMs ?? 120_000);
+    let text = "", result: Record<string, unknown> | null = null;
+    try {
+      for await (const m of q({ prompt: p.prompt, options: {
+        model: p.model, cwd: p.cwd ?? tmpdir(), tools: [], maxTurns: 1, settingSources: [], persistSession: false,
+        systemPrompt: p.system ?? "", title: "loki-toolless", // a fixed title: the SDK otherwise spends a second Haiku call naming the session
+        thinking, ...(effort ? { effort } : {}), env, abortController: ac,
+        ...(remaining !== null ? { maxBudgetUsd: Math.max(remaining, 1e-6) } : {}),
+      } })) {
+        if (m["type"] === "assistant") for (const b of ((m["message"] as { content?: Array<{ type: string; text?: string }> } | undefined)?.content ?? [])) if (b.type === "text" && typeof b.text === "string") text += b.text;
+        if (m["type"] === "result") result = m;
+      }
+    } finally { clearTimeout(timer); }
+    if (!result) return fail();
+    const rec = recordFromClaudeResult(ledger?.phase ?? "toolless", result, "sdk-toolless");
+    const mu = result["modelUsage"] as Record<string, { thinkingTokens?: number }> | undefined;
+    const thinkingTokens = mu ? Object.values(mu).reduce((t, u) => t + (typeof u?.thinkingTokens === "number" ? u.thinkingTokens : 0), 0) : null;
+    const sub = String(result["subtype"] ?? "");
+    const outcome: JudgeOutcome<string> = sub === "success" && result["is_error"] !== true
+      ? (text.trim() || typeof result["result"] === "string" && (result["result"] as string).trim() ? { kind: "ok", value: text.trim() ? text : String(result["result"]) } : { kind: "malformed" })
+      : sub === "error_max_budget_usd" ? { kind: "budget" } : { kind: "transport" };
+    if (rec && ledger) appendChildLedger(ledger.lokiDir, { ...rec, outcome: describeJudgeOutcome(outcome), max_tokens: p.maxTokens, ...(thinkingTokens !== null ? { thinking_tokens: thinkingTokens } : {}) });
+    return { outcome, route: "agent-sdk", usd: rec && typeof rec.usd === "number" ? rec.usd : null, thinkingTokens };
+  } catch { return fail(); }
+}
+
+/** One tool-less completion: no tools, no agent loop, thinking off or low, priced into the child ledger (so the receipt and the run's dollar cap count it). Never throws. */
+export async function toolLessCall(p: ToolLessParams): Promise<ToolLessResult> {
+  const lokiDir = p.ledger?.lokiDir ?? process.env["LOKI_DIR"];
+  const ledger = lokiDir ? { lokiDir, phase: p.ledger?.phase ?? "toolless" } : undefined;
+  const remaining = toolLessRemainingUsd(process.env, lokiDir);
+  await loadSdk();
+  if (remaining !== null && remaining <= 0) return { outcome: { kind: "budget" }, route: client() ? "api" : "agent-sdk", usd: null, thinkingTokens: null };
+  if (client() === null) return toolLessViaAgentSdk(p, ledger, remaining);
+  const { thinking, effort } = toolLessThinking(p.thinking);
+  const before = ledger ? sumChildLedger(ledger.lokiDir, process.env["LOKI_E10_RUN_ID"] ?? "").partialUsd : 0;
+  const outcome = await runJudge({ prompt: p.prompt, model: p.model, maxTokens: p.maxTokens, thinking, ...(effort ? { effort } : {}), ...(p.system ? { system: p.system } : {}), ...(p.timeoutMs ? { timeoutMs: p.timeoutMs } : {}), ...(ledger ? { ledger } : {}) }, null);
+  const usd = ledger && process.env["LOKI_E10_RUN_ID"] ? sumChildLedger(ledger.lokiDir, process.env["LOKI_E10_RUN_ID"]).partialUsd - before : null;
+  return { outcome, route: "api", usd, thinkingTokens: null };
 }

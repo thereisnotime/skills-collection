@@ -38,10 +38,11 @@ import {
 } from "../providers/claude_flags.ts";
 import { mcpConfigPath } from "../providers/mcp_config.ts";
 import { LEAN_PREFIX } from "../features/lean_prefix.ts";
-import { consumeSdkStream, type StreamMsg } from "./sdk_stream_parser.ts";
+import { consumeSdkStream, type StopRules, type StreamMsg } from "./sdk_stream_parser.ts";
 import { writeSessionId } from "./session_resume.ts";
 import { createTrimHook } from "./trim.ts";
-import { createHostGuardHook, HOST_GUARD_SCRIPT, hookTimeoutSeconds } from "./host_guard.ts";
+import { createConfigFenceHook, createHostGuardHook, HOST_GUARD_SCRIPT, hookTimeoutSeconds } from "./host_guard.ts";
+import { fenceEnabled, fencedDenyRules } from "../util/config_fence.ts";
 import { createStopChecksHook, parseStopChecks, STOP_HOOK_MARGIN_S } from "./stop_checks.ts";
 import { advisorPair, probeAdvisor, ROUTER_ADVISOR_MODEL } from "./router/advisor_probe.ts";
 import { advisorOnlyEnabled, routerEnabled, routerPreset, sessionPlanEnabled } from "./router/flag.ts";
@@ -213,6 +214,11 @@ export function claudeTierToModel(tier: SessionTier): string {
 export function stageMaxTurns(env: NodeJS.ProcessEnv = process.env): number | undefined {
   const n = Number(env["LOKI_E10_MAX_TURNS"]);
   return env["LOKI_E10_STAGE"] && Number.isInteger(n) && n > 0 ? n : undefined;
+}
+/** The harness stop rules this engine10 stage session runs under (LOKI_E10_STOP_RULES, JSON set by session.ts); undefined outside a stage or when invalid. */
+export function stageStopRules(env: NodeJS.ProcessEnv = process.env): StopRules | undefined {
+  if (!env["LOKI_E10_STAGE"] || !env["LOKI_E10_STOP_RULES"]) return undefined;
+  try { const r = JSON.parse(env["LOKI_E10_STOP_RULES"]) as Record<string, unknown>, ok = (k: string): number | undefined => (Number.isInteger(r[k]) && (r[k] as number) > 0 ? (r[k] as number) : undefined); const out: StopRules = { ...(ok("turns") ? { turns: ok("turns")! } : {}), ...(ok("newTokens") ? { newTokens: ok("newTokens")! } : {}), ...(ok("noEditByTurn") ? { noEditByTurn: ok("noEditByTurn")! } : {}) }; return Object.keys(out).length ? out : undefined; } catch { return undefined; }
 }
 export async function* closeQueryOnResult(q: AsyncIterable<StreamMsg> & { close?: () => void }, enabled: boolean): AsyncGenerator<StreamMsg> {
   if (!enabled) { yield* q; return; }
@@ -456,9 +462,13 @@ function cliSettingsJson(hostGuard: boolean, router: Partial<NonNullable<RouterS
 // SAFE-3a: an engine10 implement session may Write/Edit only inside its working directory (call.cwd, the unit worktree).
 // Settings.permissions.blockWritesOutsideWorkingDirectories (SDK 0.3.314 sdk.d.ts:7183) is enforced by the CLI on Write,
 // Edit and NotebookEdit in every permission mode; it does not cover Bash, MCP tools or hooks. Other stages are unchanged.
-type WriteFence = { permissions: { blockWritesOutsideWorkingDirectories: true } };
-function implementWriteFence(): WriteFence | undefined {
-  return process.env["LOKI_E10_STAGE"] === "implement" ? { permissions: { blockWritesOutsideWorkingDirectories: true } } : undefined;
+// E1: implement and fix sessions on the CLI route also get a deny rule per existing config or lockfile the task does not name (Edit rules cover Edit, Write
+// and MultiEdit); a file the session creates is not covered here, the restore after the session (engine10/session.ts) removes it.
+type WriteFence = { permissions: { blockWritesOutsideWorkingDirectories?: true; deny?: string[] } };
+function implementWriteFence(cwd?: string): WriteFence | undefined { // cwd given: the CLI route, which has no in-process hook (the SDK route denies through createConfigFenceHook)
+  const stage = process.env["LOKI_E10_STAGE"], deny = [...(cwd && stage ? [`Edit(/${resolve(cwd, ".loki")}/**)`] : []), ...(cwd && fenceEnabled(stage) ? fencedDenyRules(cwd, process.env) : [])]; // .loki/ run state in every engine10 stage
+  if (stage !== "implement" && deny.length === 0) return undefined;
+  return { permissions: { ...(stage === "implement" ? { blockWritesOutsideWorkingDirectories: true as const } : {}), ...(deny.length > 0 ? { deny } : {}) } };
 }
 
 // Write captured output to disk. Used by every provider to honor the
@@ -529,7 +539,7 @@ export function claudeProvider(): ProviderInvoker {
         await writeCaptured(call.iterationOutputPath, "", message);
         return { exitCode: 1, capturedOutputPath: call.iterationOutputPath };
       }
-      const fence = claudeFlagSupported("--settings") ? implementWriteFence() : undefined; // an older CLI without --settings runs unfenced
+      const fence = claudeFlagSupported("--settings") ? implementWriteFence(call.cwd) : undefined; // an older CLI without --settings runs unfenced
       const autoFlags = buildAutoFlags({
         tier: call.tier,
         complexity: process.env["LOKI_COMPLEXITY"] ?? "standard",
@@ -895,16 +905,22 @@ export function sdkQueryProvider(): ProviderInvoker {
             // which deliberately drops LOKI_E10_* for the CHILD session) --
             // this hook runs in the parent process, so the flag applies to
             // THIS session regardless of what the child inherits.
-            ...(hostGuardRequired(call.cwd) || process.env["LOKI_E10_TRIM"] === "1" || stopSpec
+            ...(hostGuardRequired(call.cwd) || process.env["LOKI_E10_STAGE"] || process.env["LOKI_E10_TRIM"] === "1" || stopSpec
               ? {
                   hooks: {
                     ...(stopSpec ? { Stop: [{ timeout: stopSpec.budgetS + STOP_HOOK_MARGIN_S, hooks: [createStopChecksHook(stopSpec)] }] } : {}),
-                    ...(hostGuardRequired(call.cwd)
+                    ...(hostGuardRequired(call.cwd) || process.env["LOKI_E10_STAGE"]
                       ? {
-                          PreToolUse: [{
-                            matcher: "Bash",
-                            hooks: [createHostGuardHook(call.cwd)], // in-process; validate-bash.sh runs only for a command one of its rules could deny
-                          }],
+                          PreToolUse: [
+                            ...(hostGuardRequired(call.cwd) ? [{
+                              matcher: "Bash",
+                              hooks: [createHostGuardHook(call.cwd)], // in-process; validate-bash.sh runs only for a command one of its rules could deny
+                            }] : []),
+                            ...(process.env["LOKI_E10_STAGE"] ? [{
+                              matcher: "Edit|Write|MultiEdit", // .loki/ run state (every engine10 stage) and the E1 config and lockfile fence (when on); session.ts restores whatever else a session changes
+                              hooks: [createConfigFenceHook(call.cwd)],
+                            }] : []),
+                          ],
                         }
                       : {}),
                     ...(process.env["LOKI_E10_TRIM"] === "1"
@@ -944,6 +960,7 @@ export function sdkQueryProvider(): ProviderInvoker {
           hookEventsEnabled: process.env["LOKI_HOOK_EVENTS"] !== "off",
           requestedModel: defaultModel ? PROVIDER_DEFAULT_MODEL : (extra.model ?? model), // P12-23: the exact value resolved for this call, never an inherited env var
           write: (s) => process.stdout.write(s),
+          ...(stageStopRules() ? { stop: stageStopRules() } : {}),
           ...(process.env["LOKI_E10_STAGE"] ? { onSessionId: (id: string) => writeSessionId(call.cwd, process.env["LOKI_ITERATION"] ?? "0", { sessionId: id }) } : {}),
         });
         captured = res.capturedText;
@@ -951,7 +968,8 @@ export function sdkQueryProvider(): ProviderInvoker {
         if (process.env["LOKI_E10_STAGE"]) writeSessionId(call.cwd, process.env["LOKI_ITERATION"] ?? "0", res);
         // Fail-closed: a stream that never produced a terminal result is a
         // failed iteration, never counted as success.
-        exitCode = res.sawResult ? (res.maxTurns ? MAX_TURNS_EXIT : res.exitCode) : 1; // error_max_turns: harness-owned stop, distinct from a code failure
+        exitCode = res.stopped ? MAX_TURNS_EXIT : res.sawResult ? (res.maxTurns ? MAX_TURNS_EXIT : res.exitCode) : 1; // error_max_turns: harness-owned stop, distinct from a code failure
+        if (res.stopped) { const m = `\n[sdk-loop stop: ${res.stopped.rule} limit ${res.stopped.limit} at turn ${res.stopped.turn}, ${res.stopped.new_tokens} new tokens]\n`; captured += m; process.stdout.write(m); } // E5: harness-owned stop, recorded by the stage on the receipt
         if (res.maxTurns) captured += "\n[sdk-loop error: turn cap reached (error_max_turns)]\n";
         rateLimit = res.rateLimit;
       } catch (e) {

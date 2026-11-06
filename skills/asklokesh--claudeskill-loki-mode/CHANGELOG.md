@@ -5,6 +5,125 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.137.1 (2026-11-06)
+
+A run that settles an open choice itself, or leaves a behavior change unsettled, no longer reads VERIFIED.
+
+### Fixed
+- A run that picks an open either/or itself, or leaves a behavior change or its regression check unsettled, now reads PARTIAL instead of VERIFIED, with the reason on NOT PROVEN. On the v11.137 Haiku benchmark this removes 3 of the 4 false VERIFIED results and downgrades none of the 6 correct ones. LOKI_E10_OPEN_DECISION_CAP=0 opts out.
+
+## v11.137.0 (2026-11-05)
+
+Loki on Haiku now writes test cases from the issue before implement, checks wrapped-error relations, compares candidate fixes on Go, flags output changes nobody asked for, and turns its accuracy features on by default.
+
+### Added
+- Executable spec (on by default, LOKI_E10_EXEC_SPEC=0 off): before implement on a small Go, pytest or vitest task, one tool-less call writes test cases from the issue; a case defines done only when its input and expected value come whole from one issue example and it fails on the original code by assertion. A site the issue names as broken that no binding case covers and the change did not touch holds the run at PARTIAL.
+- Relation cases: when a Go issue asks for wrapped errors to be handled, the harness writes cases that require the wrapped value to behave like the bare one, using behavior recorded twice on the original code, with no message text recorded.
+- Go candidate tournament (on by default, LOKI_E10_TOURNAMENT=0 off): on a Go fix with a warning sign, up to three candidate patches are probed in scratch copies; the agent's source is replaced only when an input the issue quotes word for word separates them and the judge agrees in both orders. A probe never costs the run its spec.
+- No-regression differential (on by default, LOKI_E10_NRD=0 off): probes and replays of edited tests compare the original and changed code in scratch copies; an output change the issue never asked for gets one fix round, and an uncertain judgment is a receipt note only.
+- Systematic-edit completer (on by default, LOKI_E10_SYSEDIT=0 off): after a red check, a half-applied one-line rewrite pattern is finished with no model call and kept only when the failing check turns green and nothing new fails.
+- Fix rounds and the coverage turn list sibling and leftover sites of the change as advice (LOKI_E10_SITE_HINTS=0 off).
+- The receipt records the patch protocol's outcome, seconds and dollars.
+
+### Changed
+- On by default (=0 turns each off): the coverage turn, the leaner context pack, the defect-pin brief, and the release-note fragment writer, whose added file is named on the receipt and in the PR body.
+- On Haiku, fix rounds run at medium effort, dropping to low only for environment failures; a fix session stopped by a cap keeps its cost on the receipt, and a test-only repair counts as an edit.
+- The conflict correction for checks already red on the original code names tests, suites, typecheck and lint.
+
+### Fixed
+- Docker images build again: the server bundle no longer fails on "@anthropic-ai/sdk".
+- The config fence's records are held by the runner, Edit/Write/MultiEdit on .loki/ are denied in every stage, a config file the run created under a test directory stays editable, and code nouns no longer unlock config edits.
+- A multi-root Go full suite run through make is counted, with make run as written.
+- Install metadata (<name>.egg-info) no longer lands in the commit, and lockfile merge-conflict and reinstall tasks keep the lockfile.
+
+## v11.136.0 (2026-11-05)
+
+Large red test suites are judged test by test, and an open either/or in a task is settled by the convention the sibling code already follows.
+
+### Fixed
+- A full-suite check is judged per test id: a failing test is excused only when it failed on the original commit with the same error the same number of times, and never when its error names a file the change touched. Flaky ids are measured with a second base pass, a suite with 500 or more failing ids at base reads "not proven: suite red at base", the intake baseline is saved in the run directory, and every full-suite failure that is not excused gets a "not excused: <check>: <reason>" receipt line.
+
+### Added
+- When a task leaves an either/or contract open, one small tool-less vote checks which option the sibling implementations follow and the brief says "implement option k". The issue's own words and any maintainer comment outrank the vote; siblings that disagree, or a failed vote, give no line. A transplanted sibling test binds only after a vote and only when the issue says the target should behave like named siblings. On by default; LOKI_E10_PRECEDENT=0 turns it off.
+
+## v11.135.0 (2026-11-05)
+
+Loki on Haiku tries a cheaper one-call patch first, a run can no longer pass by loosening the project configuration, and correct work beside an already-red suite reads VERIFIED.
+
+### Added
+- On a small task, the implement step first tries one tool-less patch call and counts it only when a check that existed before the change ran and passed. Any error or a red check restores every touched file and the full agent session runs as before. It refuses edits to lockfiles, test-runner configs, the sealed test file, .loki, .git and anything that resolves outside the repository. On by default; LOKI_E10_PATCH=0 turns it off.
+- In implement and fix sessions, Loki denies edits to test, build, lint and type configuration files and lockfiles, and puts back any such file a session changed, deleted or created. A task that names the setting with an action (for example "enable strict null checks", "add a vitest setup file", "upgrade lodash") may edit it. Every denial and restore is listed on the receipt. On by default; LOKI_CONFIG_FENCE=0 turns it off.
+
+### Fixed
+- Failures the original commit already had are filtered out the same way for the fail-then-pass check and for the verdict, so a change with real proof beside an already-red suite is no longer held at PARTIAL by those old failures.
+- When the only red check after a fix round is a full suite that failed for an environment reason (no tests found, config failed to load, zero items collected), the run stops instead of spending another fix round. Failures the change itself causes, such as a missing module, a collection error or a syntax error, keep the next fix round.
+
+## v11.134.0 (2026-11-05)
+
+More correct work now reads VERIFIED: Go tests behind build tags and failures that raise the error the issue reports are counted as proof, and a suite already red before the change no longer stops a run for a human answer.
+
+### Fixed
+- A Go test file behind a build tag the run does not set ("[no tests to run]" with no test executed) is read as a zero run, the same as on the original commit, instead of capping the run below VERIFIED.
+- A failure on the original commit that raises the exact error type and message the issue reports as current behavior counts as fail-then-pass proof, when the same test asserts the call result against a non-trivial expected value on the change. A test with no assertion, a re-raise, a trivial check, or an error the issue states as wanted behavior is still not proof.
+- When the only failures are ones the original commit already had, the run no longer stops on SPEC_CONFLICT asking which behavior to keep; it continues, and those failures stay on the receipt as pre-existing.
+
+### Changed
+- Go verify runs the untouched test files of a package in one go test call instead of one call per file (26 files went from about 30 s to about 1 s in testing). A file's batch result is used only when the whole package passed and that file's own tests all passed; any other file reruns alone, and files the change touched or the task names keep their own per-file proof. LOKI_E10_GO_BATCH=0 turns it off.
+
+## v11.133.0 (2026-11-05)
+
+Slow and Python test suites are judged correctly against the original code, runs leave your branch clean of lockfile and install churn, and Loki can write the release-note fragment your repository expects.
+
+### Fixed
+- The test run on the original commit now gets 300 s per command (was 60 s, with 120 s shared across suites), the same budget as the full-suite run on the change, so failures already present before the change are excused instead of blamed on it. A run that is still cut off is listed on the receipt as "base run incomplete, not excusable" and excuses nothing.
+- On a system Python that refuses pip installs (PEP 668), Loki installs the project's test dependencies into a project .venv and runs pytest and ruff from it; the .venv never reaches the commit, and lint is never invented for a repo that declares none.
+- In a pnpm or yarn workspace whose vitest config merges the root projects, the edited test file is run from the root, so a failure is attributed to the right package file instead of looking untouched.
+- The work-in-progress commit drops lockfile changes the task did not ask for, and removes a lockfile the run created, so the branch is clean after checkout. A lockfile is kept when the task names it, a manifest beside it changed, or the task is a dependency bump, upgrade or CVE fix.
+- A rewritten test assertion that pins the wrong value an issue reports is always listed on the receipt as "value change (defect pin)" and never counts as fail-then-pass proof.
+- Two timing checks in the test suite (host-guard backtracking and redaction growth) no longer fail on a loaded CI runner, and still catch quadratic slowdowns.
+
+### Added
+- With LOKI_E10_SCAFFOLD=1, a run in a changesets or towncrier repository adds the release-note fragment in the convention of the newest real fragment. It never writes for internal changes, test-only or docs-only changes, private or ignored packages, or a fragment directory outside the repository, and a fragment the repository tooling rejects is removed.
+- With LOKI_E10_DEFECT_PIN=1, the implement brief names existing test assertions that pin the wrong value the issue reports.
+- An internal one-turn, tool-less completion that records its priced cost in the run ledger, applies the output-token limit on both routes, and refuses to run when the cost cap is reached or cannot be metered.
+- An internal edit-shape detector that lists sibling branches passing a different value than the edited one, unchanged lines still holding the pattern a fix removed, and a precedence note when a strict type check is widened.
+
+## v11.132.0 (2026-11-05)
+
+Haiku runs get more correct fixes and more honest proof: Loki reads the whole function before editing, counts Go, pytest and pnpm proof it used to drop, and settles open either/or choices from the maintainer.
+
+### Changed
+- On Haiku, the implementer reads the whole function it edits and makes the changed branch match its sibling branches (in a 48-session test on a real issue this raised the correct fix from 2 of 8 to 7 of 8 Haiku sessions), implements the fix the issue prefers with any fallback only on top, and never runs workspace-wide test commands itself.
+- When a repository uses changesets, towncrier, changie, changelog.d or newsfragments, the brief names the convention, its directory and the newest example, and the implementer may add that release-note fragment.
+- When a repository's test script runs over the whole workspace (nx, turbo, lerna, recursive pnpm or yarn), Loki no longer starts a discovery session to name one package's suite; that session never produced a usable answer on such repositories. LOKI_E10_PM_FANOUT_SESSION=1 restores it.
+- When a large issue is split, the planner writes each slice's own checks and "no new failures" instead of "the whole suite passes", because failures already present on the base commit are excused and a red base suite could otherwise stop every slice.
+- Open either/or choices in a task are settled without a model from the latest trusted maintainer comment, the option the issue prefers, or what existing tests pin (deferring to the issue when it calls the pinned value buggy), and the receipt records one line per choice.
+
+### Verdicts
+- A Go test red by assertion on the base and green on the head is accepted as fail-then-pass proof; build failures, panics and already-red tests are not.
+- A truncated pytest summary reason (AssertionEr...) is read from the traceback, so a real assertion proof counts and an ImportError still does not.
+- A pre-existing red full suite is excused in pnpm workspaces: the root package suite spelled (cd . && X) matches the baseline command X, and tsc declaration output and .nx/cache are not read as test configuration.
+- A go test -json stream over about 64 KB (or a whole-package run over 1 MiB) was cut and judged torn, so the check read not_run; both limits are now 16 MiB for go test -json only.
+
+### Fixed
+- A high-risk run on the default model launched its cross-review with the model label instead of a model and lost the review; the review now runs on the default model.
+- A split issue keeps a slice's known partial cost instead of printing NOT RECORDED, and the epic total includes it.
+- A split issue where at least one slice opened a PR and the others stopped on SPEC_CONFLICT (waiting for a human answer) now ends PARTIAL (exit 6) instead of FAILED. A real failed slice, a budget stop, or a split with no PR keeps its previous outcome.
+
+### Added (all off by default)
+- LOKI_E10_COVERAGE_RESUME=1 adds one resumed implement turn on the lean path that maps every site, symbol or case the task names to a change and a test and fixes any gap; about $0.0024 per eligible run on Haiku.
+- LOKI_E10_ATTEMPTS=on runs 2 more independent attempts when a check the change introduced is still red, and keeps the best one.
+- LOKI_E10_ATTEMPTS_EARLY=1 (with attempts on) runs those attempts right after a red first verify on Haiku and skips the fix rounds when one goes green.
+- LOKI_E10_PACK_DIET=1 keeps only the code the task names exactly plus its direct callers and callees in the implement context.
+- LOKI_E10_PRECEDENT=1 adds sibling-implementation precedent to open either/or choices.
+
+## v11.131.1 (2026-11-05)
+
+`loki outcomes` works again.
+
+### Fixed
+- `loki outcomes` (revert, survival and change-failure per receipt) and `loki outcomes canary` were removed by mistake in 11.130.0 and exited 2; they run again and stay out of the short help.
+
 ## v11.131.0 (2026-11-05)
 
 Loki proves honest fixes again by testing them against the original code, and spends fewer fix rounds on failures it did not cause.
