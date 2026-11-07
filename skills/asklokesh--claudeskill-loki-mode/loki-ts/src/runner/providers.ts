@@ -42,7 +42,7 @@ import { consumeSdkStream, type StopRules, type StreamMsg } from "./sdk_stream_p
 import { writeSessionId } from "./session_resume.ts";
 import { createTrimHook } from "./trim.ts";
 import { createConfigFenceHook, createHostGuardHook, HOST_GUARD_SCRIPT, hookTimeoutSeconds } from "./host_guard.ts";
-import { fenceEnabled, fencedDenyRules } from "../util/config_fence.ts";
+import { fenceEnabled, fencedDenyRules, harnessOutputs, stateDenyRules } from "../util/config_fence.ts";
 import { createStopChecksHook, parseStopChecks, STOP_HOOK_MARGIN_S } from "./stop_checks.ts";
 import { advisorPair, probeAdvisor, ROUTER_ADVISOR_MODEL } from "./router/advisor_probe.ts";
 import { advisorOnlyEnabled, routerEnabled, routerPreset, sessionPlanEnabled } from "./router/flag.ts";
@@ -384,7 +384,7 @@ export function compactWindowSettings(model: string, routed = false): { autoComp
 
 // Claude Code version bundled in the pinned Agent SDK. A test (providers.test.ts, "providers advisor" block) asserts this equals the
 // installed SDK's claudeCodeVersion, so an SDK bump that forgets it fails CI instead of silently mis-probing.
-export const SDK_BUNDLED_CLAUDE_CODE = "2.1.316";
+export const SDK_BUNDLED_CLAUDE_CODE = "2.1.318";
 function bundledClaudeCodeVersion(): string {
   return SDK_BUNDLED_CLAUDE_CODE;
 }
@@ -466,7 +466,7 @@ function cliSettingsJson(hostGuard: boolean, router: Partial<NonNullable<RouterS
 // and MultiEdit); a file the session creates is not covered here, the restore after the session (engine10/session.ts) removes it.
 type WriteFence = { permissions: { blockWritesOutsideWorkingDirectories?: true; deny?: string[] } };
 function implementWriteFence(cwd?: string): WriteFence | undefined { // cwd given: the CLI route, which has no in-process hook (the SDK route denies through createConfigFenceHook)
-  const stage = process.env["LOKI_E10_STAGE"], deny = [...(cwd && stage ? [`Edit(/${resolve(cwd, ".loki")}/**)`] : []), ...(cwd && fenceEnabled(stage) ? fencedDenyRules(cwd, process.env) : [])]; // .loki/ run state in every engine10 stage
+  const stage = process.env["LOKI_E10_STAGE"], deny = [...(cwd && stage ? stateDenyRules(cwd, harnessOutputs(cwd, process.env)) : []), ...(cwd && fenceEnabled(stage) ? fencedDenyRules(cwd, process.env) : [])]; // .loki/ run state in every engine10 stage, except the exact files the stage brief names (HARNESS-OUTPUTS)
   if (stage !== "implement" && deny.length === 0) return undefined;
   return { permissions: { ...(stage === "implement" ? { blockWritesOutsideWorkingDirectories: true as const } : {}), ...(deny.length > 0 ? { deny } : {}) } };
 }
@@ -915,10 +915,12 @@ export function sdkQueryProvider(): ProviderInvoker {
                             ...(hostGuardRequired(call.cwd) ? [{
                               matcher: "Bash",
                               hooks: [createHostGuardHook(call.cwd)], // in-process; validate-bash.sh runs only for a command one of its rules could deny
+                              onFailure: "block", // SDK 0.3.317: a guard that throws or returns invalid output blocks the call (SDK default lets it run)
                             }] : []),
                             ...(process.env["LOKI_E10_STAGE"] ? [{
                               matcher: "Edit|Write|MultiEdit", // .loki/ run state (every engine10 stage) and the E1 config and lockfile fence (when on); session.ts restores whatever else a session changes
                               hooks: [createConfigFenceHook(call.cwd)],
+                              onFailure: "block", // fail closed, as the host guard
                             }] : []),
                           ],
                         }

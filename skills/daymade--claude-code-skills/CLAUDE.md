@@ -89,7 +89,8 @@ For file-backed persistence and CLI acceptance (including wrapper argument forwa
 and compatibility aliases), transaction recovery tests,
 financial migration/fixture acceptance, admission/recovery bindings, runtime compatibility or project-bound release acceptance, enter
 [qa-expert](qa-expert/SKILL.md); its test-case routes select the detailed recipes.
-For required runtime capability probes, path normalization or drive-relative adapter cases,
+For required runtime capability probes, path normalization, drive-relative adapter cases,
+subprocess encoding or actual backend-execution acceptance,
 follow its [runtime compatibility recipe](qa-expert/references/runtime-compatibility-acceptance.md)
 and select the affected boundary before starting validation.
 
@@ -183,8 +184,12 @@ For saved HTML batches, follow [the conversion owner](daymade-docs/doc-to-markdo
 and its actual-reader pilot before expansion. Keep conversion evidence and reader
 observations separate; this file does not define another batch recipe.
 
-For proxy-selection or disruptive VPN recovery changes, enter `tunnel-doctor` and its
-proxy-conflict and network-recovery references. For unresolved tunnel packet-loss
+For tunnel/proxy-path failures or slow throughput, enter
+[tunnel-doctor](tunnel-doctor/SKILL.md) first. For unresolved protocol, streaming or
+throughput investigations, use [debugging-network-issues](debugging-network-issues/SKILL.md).
+Proxy-selection and disruptive VPN changes follow tunnel-doctor's
+[proxy-conflict procedure](tunnel-doctor/references/proxy_conflict_reference.md) and
+[network-change recovery](tunnel-doctor/references/network_change_recovery.md). For unresolved tunnel packet-loss
 localization, read the [capture procedure](debugging-network-issues/references/packet-capture-recipes.md#four-boundary-tunnel-captures).
 For same-provider node failures with a working subscription, enter
 [provider account checks](tunnel-doctor/references/provider_account_suspension.md).
@@ -258,6 +263,8 @@ For hook creation, consolidation, Skill-entry enforcement, registration or recov
 and follow its Build order and installer-owned recovery contract. Follow that
 Skill's loop and reminder contract; keep current thresholds in the
 owning implementation.
+For an existing hook's usefulness, duplicate execution or latency, follow the
+[effect and cost audit](daymade-claude-code/claude-code-hooks/references/effect-and-cost-audit.md).
 For shared selection, source refresh, deadlines, status or rollback changes, load
 the Skill's [lifecycle regression template](daymade-claude-code/claude-code-hooks/references/shared-engine-lifecycle.md).
 For hook model-context delivery claims or ordinary-interface notification visibility, use
@@ -288,7 +295,7 @@ For persistent Python service installation, environment reuse or startup, follow
 
 ### Rendered UI delivery acceptance
 
-For rendered UI freshness, delayed editor/batch responses or deployment acceptance, enter
+For rendered UI freshness, multiline request/log tables, delayed editor/batch responses or deployment acceptance, enter
 [frontend-visual-qa](frontend-visual-qa/SKILL.md).
 For publication-wide clutter or AI Slop despite passing local checks, including
 controls, deks and expanded summaries, use its
@@ -327,7 +334,7 @@ Before laying out spatial, role or port-constrained relationship diagrams,
 or designing monitoring, availability or certificate matrices, enter
 [data-visualization-discipline](data-visualization-discipline/SKILL.md).
 Observation and risk semantics follow its data-validation route.
-For incomplete observations, unknown counts or confirmed zero, use its
+For historical observation windows, incomplete observations, unknown counts or confirmed zero, use its
 [operational-state matrix](data-visualization-discipline/references/operational-state-matrix.md).
 When maintaining UI-journey or operational-state regression cases, use
 [frontend-visual-qa evals](frontend-visual-qa/evals/evals.json) and
@@ -389,6 +396,8 @@ accounting, retry eligibility and cleanup behavior. For disk diagnosis, cleanup
 recovery, or capacity checks before necessary backup/copy/extraction, use
 [macos-cleaner](daymade-macos/macos-cleaner/SKILL.md) and its
 [necessary-copy capacity preflight](daymade-macos/macos-cleaner/references/safety_rules.md#necessary-copy-capacity-preflight).
+For exact-file allocation or an already collected inventory, use the
+[read-only diagnosis CLI](daymade-macos/macos-cleaner/references/storage-diagnosis.md).
 When changing measurement, run the SOP's targeted regression suite before shipping.
 For OrbStack image discovery and physical-release diagnosis, use its
 [Docker reference](daymade-macos/macos-cleaner/references/docker_analysis.md#step-2b-orbstack-specific-analysis).
@@ -419,6 +428,8 @@ test failures and temporary-Git cleanup, follow [CI operations](references/ci-op
 
 For CI demand, notification overload, exhausted allowance or repeated validation,
 enter [github-ops' CI demand workflow](github-ops/references/ci-demand-and-notifications.md).
+For missing PR checks or fork runs awaiting approval, follow
+[the run-state diagnosis](github-ops/references/workflow_operations.md#resolve-missing-checks-and-fork-approval).
 For self-hosted routing, resource limits or cache persistence, follow its
 [runner acceptance](github-ops/references/workflow_operations.md#self-hosted-runner-capacity-and-acceptance).
 Keep demand selection, validation-reuse and capacity acceptance in those owners.
@@ -885,12 +896,9 @@ For hosted-state writes through `gh`, follow its
 before using an operation recipe. For historical account or connector attribution,
 use the [identity-source contract](tibo-reset-codex/references/account-usage.md#区分身份来源与观察时刻).
 
-**Closing a PR unmerged (declined, or superseded by another PR) → delete its head
-branch in the same action.** `gh pr merge --delete-branch` only covers merged PRs.
-Use `github-ops`'s [exact-tip branch retirement workflow](github-ops/references/pr_operations.md#converging-parallel-prs-and-retiring-remote-branches).
-Apply that same owning workflow after merge-adjacent cleanup failures or a strict
-up-to-date refusal; it owns exact-tip preservation, independent absence readback
-and history-policy recovery.
+For closing an unmerged PR, retiring its head, merge-adjacent cleanup failures
+or a strict up-to-date refusal, follow
+[the branch retirement workflow](github-ops/references/pr_operations.md#converging-parallel-prs-and-retiring-remote-branches).
 For sensitive publication residuals, first enter `github-sensitive-data-cleanup`'s
 [surface selection](github-sensitive-data-cleanup/SKILL.md#step-05-bind-each-exposed-surface);
 approved PR body revision removal follows `github-ops`'s

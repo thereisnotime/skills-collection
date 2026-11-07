@@ -5,6 +5,45 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v11.138.0 (2026-11-06)
+
+Loki no longer stalls or stops on an open question, its plan step can write its own plan again, and Haiku runs spend less on turns that never change the result.
+
+### Added
+- Never-stop plus one Opus consult (LOKI_E10_OPUS_CONSULT, default on, =0 opts out): a run that would stop on an ambiguous or conflicting spec implements its best reading, discloses the choice and caps at PARTIAL; one tool-less Opus call fires only at a would-be stop, a red verify after the first fix round, or an open choice the run would settle itself.
+
+### Changed
+- Cost (default on, each with an =0 opt-out): the claim re-ask that never edited is skipped, the coverage turn is capped at 10 turns (LOKI_E10_COVERAGE_MAX_TURNS), and a fix round is skipped when only the full suite is red for reasons the change cannot reach (LOKI_E10_SUITE_FIX_SKIP).
+
+### Fixed
+- The run-state guard no longer blocks the files a stage's own brief tells it to write (plan output and scope, project-model answer, spec criteria); run record files stay denied even if listed.
+
+## v11.137.4 (2026-11-06)
+
+Loki on Haiku finishes tasks about 14% faster with the same outcomes.
+
+### Changed
+- The executable-spec call now starts during intake and is reused when its request is unchanged (LOKI_E10_EXEC_SPEC_PREFETCH=0 opts out).
+- The Go no-regression differential runs alongside verify instead of after implement (LOKI_E10_NRD_OVERLAP=0 opts out).
+- npm, pnpm and yarn running the same root test script share one base run (LOKI_BASELINE_SCRIPT_ALIAS=0 opts out).
+- Paired on 6 benchmark tasks against v11.137.2: median 343.5 s to 295.5 s per task, identical outcomes on all 6.
+
+## v11.137.3 (2026-11-06)
+
+Loki now runs on the latest Claude Code and Anthropic SDKs, and its safety hooks fail closed.
+
+### Changed
+- Agent SDK 0.3.316 -> 0.3.318, Anthropic SDK 1.3.0 -> 1.6.0, bundled Claude Code 2.1.316 -> 2.1.318, Python anthropic 2.3.0 -> 2.6.0, pinned together everywhere including the Docker image (which had been left at 0.3.314).
+- On the SDK route, the host-guard and config-fence hooks now block a tool call when the hook itself fails, instead of letting it run.
+- The dependency freshness check also covers the bundled Claude Code and reports how many releases each pin is behind.
+
+## v11.137.2 (2026-11-06)
+
+Loki on Haiku no longer short-cuts implement with a one-call patch, which raised merge-ready from 9 to 14 of 20 on the benchmark.
+
+### Changed
+- The implement patch step (LOKI_E10_PATCH) is now off by default; LOKI_E10_PATCH=1 opts in. On the v11.137.1 Haiku benchmark it finished 9 of 20 runs without the agentic session and cost 5 merge-ready tasks (9 vs 14 of 20; judge pass 10 vs 18) at the same median time per task.
+
 ## v11.137.1 (2026-11-06)
 
 A run that settles an open choice itself, or leaves a behavior change unsettled, no longer reads VERIFIED.

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **macos-cleaner** (`daymade-macos` v1.30.0 → v1.30.1): Separate logical, allocated and private bytes in file diagnostics; preserve unknown measurements, avoid overlapping inventory totals, and label disk changes as observations.
+- **claude-code-hooks** (`daymade-claude-code` v5.1.2 → v5.1.3): Audit functional overlap, false blocking and observed execution cost through bounded read-only evidence; keep unmeasured cost explicit.
+- **macos-cleaner** (`daymade-macos` v1.30.1 → v1.30.2): Route instruction readers to the allocation CLI and leave input limits with their implementing parsers.
+- **claude-code-hooks** (`daymade-claude-code` v5.1.3 → v5.1.4): Add the instruction-file audit entry and remove the derived observation count and copied reader-key definition.
+
+- **openclaw** (v1.3.0 → v1.3.1): Align live configuration with native APIs; document verified backups, native upgrade recovery and state-aware rollback. Scope verification to the repaired behavior while preserving offline tools and plugin diagnostics.
+- **openclaw-model-switch** (v1.2.0 → v1.2.1): Prefer validated batch writes and the CLI reload hint; verify the default through a real Gateway turn with exact model and fallback evidence. Preserve older-version file tools and distinguish Gateway, delivery and ingress checks.
+
+- **frontend-visual-qa** (v1.21.36 → v1.21.37): Add media-state journey cases for playback geometry, seeking, tall-image notices, exact source/preview identity and native downloaded-file validation. Change type: sampled acceptance-recipe extension; existing audit profiles and browser owners remain intact.
+
+- **pdf-creator** (`daymade-docs` v1.29.4 → v1.29.5): Correct the documented lint/preview/checklist order and automation opt-out; keep maintainer testing linked to its canonical QA, runtime and Python contracts.
+- **github-ops** (v1.16.0 → v1.16.1): Keep squash-message requirements with the review owner; align project routes for encoding acceptance, fork CI admission and branch retirement without duplicating their rules.
+
+- **debugging-network-issues** v1.11.10: Correct paired-probe causal limits and curl sample criteria. Accept completed, verified exit-0 Range responses and payload-bearing exit-28 samples; reject error responses and zero-byte timeouts.
+- **tunnel-doctor** v1.17.15: Compare macOS system resolution with dig, reject error-bearing route output despite exit 0 while retaining valid network routes, and document exact identity checks before retiring task-owned host routes.
+
+- **frontend-visual-qa** (v1.21.35 → v1.21.36): Verify complete multiline request/log rows against horizontal and vertical clipping, preserve exact identifiers and count meaning, and follow the row's original-record action through matching content.
+- **data-visualization-discipline** (v1.1.9 → v1.1.10): Distinguish valid historical-window samples from expired native sampling, preserve per-source clock ownership, and retain current-snapshot and missing-clock controls.
+- **github-ops** (v1.15.5 → v1.16.0): Diagnose missing checks and approve only the reviewed fork workflow run within its execution authorization; route squash-message review and distinguish fork editing from authorized exact-tip branch retirement.
+- **qa-expert** (v1.2.11 → v1.2.12): Add selected non-UTF-8 subprocess, multilingual output and actual backend/branch witnesses to runtime compatibility acceptance.
+- **pdf-creator** (`daymade-docs` v1.29.3 → v1.29.4): Document the source-only test environment and affected native-backend acceptance without expanding installed converter dependencies.
+
+- **pdf-creator** (`daymade-docs` v1.29.2 → v1.29.3): Find Chrome and Microsoft Edge in Windows installation directories; preserve Unicode through pandoc and Poppler; skip optional typography lint when `pdfinfo` or `pdftotext` is missing. Fixes #1157.
 - **claude-switch-models-setup** (`daymade-claude-code` v5.1.1 → v5.1.2): Recommend MiniMax-M3.1-Flash for new global/China profiles with adaptive thinking and max effort; retain explicit M3 alternatives, legacy requests and export-bound credentials. Verify real launcher requests and distinguish source-only maintainer tests from installed bundles. Fixes #1107.
 - **tunnel-doctor** (v1.17.13 → v1.17.14): Replace the snap-to-apt remote installer with signed repository preparation and apt installation; require alternate access and successful package download before removing snap. Limit named refusal codes to their observed scope. Fixes #1379.
 - **agent-web-search-setup** (`daymade-claude-code` v5.1.0 → v5.1.1): Treat Firecrawl keyless refusals as potentially address-dependent, retain the original test's limits, and distinguish contributor-reported keyed results. Fixes #1328.

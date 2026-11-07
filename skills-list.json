@@ -9613,12 +9613,12 @@
       "path": "anthropics--skills/skills/docx/SKILL.md",
       "remote_path": "skills/docx/SKILL.md",
       "lines": 92,
-      "words": 975,
+      "words": 974,
       "code_blocks": 3,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "webapp-testing",
@@ -9746,13 +9746,13 @@
       "path": "anthropics--skills/skills/pdf/SKILL.md",
       "remote_path": "skills/pdf/SKILL.md",
       "lines": 315,
-      "words": 1007,
+      "words": 1006,
       "code_blocks": 18,
       "languages": [
         "bash",
         "python"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "claude-api",
@@ -9787,12 +9787,12 @@
       "path": "anthropics--skills/skills/xlsx/SKILL.md",
       "remote_path": "skills/xlsx/SKILL.md",
       "lines": 100,
-      "words": 1312,
+      "words": 1311,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "pptx",
@@ -9800,12 +9800,12 @@
       "path": "anthropics--skills/skills/pptx/SKILL.md",
       "remote_path": "skills/pptx/SKILL.md",
       "lines": 239,
-      "words": 3129,
+      "words": 3128,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     }
   ],
   "1NickPappas--move-code-quality-skill": [
@@ -11272,7 +11272,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-simplify-code/SKILL.md",
       "remote_path": "skills/ce-simplify-code/SKILL.md",
       "lines": 75,
-      "words": 1172,
+      "words": 1188,
       "code_blocks": 0,
       "languages": []
     },
@@ -22241,8 +22241,8 @@
       "description": "Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security. Use for architecture and product selection, including when the user describes a need without namin",
       "path": "cloudflare--skills/skills/cloudflare/SKILL.md",
       "remote_path": "skills/cloudflare/SKILL.md",
-      "lines": 156,
-      "words": 3406,
+      "lines": 171,
+      "words": 3944,
       "code_blocks": 0,
       "languages": []
     },
@@ -22320,6 +22320,16 @@
       "languages": []
     },
     {
+      "name": "cloudflare-app-bootstrap",
+      "description": "Get a Cloudflare Workers app to a working local request by connecting its bindings, secrets, and initial data, then verifying real application behavior. Use for app setup or onboarding after the proje",
+      "path": "cloudflare--skills/skills/cloudflare-app-bootstrap/SKILL.md",
+      "remote_path": "skills/cloudflare-app-bootstrap/SKILL.md",
+      "lines": 48,
+      "words": 761,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "wrangler",
       "description": "Run or troubleshoot Wrangler CLI commands in projects that have a wrangler.jsonc, wrangler.json, or wrangler.toml file, including local development, Previews, deployment, and resource management. For ",
       "path": "cloudflare--skills/skills/wrangler/SKILL.md",
@@ -22342,6 +22352,16 @@
         "sh",
         "ts"
       ]
+    },
+    {
+      "name": "workers-development",
+      "description": "Run, inspect, and debug Cloudflare Workers during local development with cf dev, wrangler dev, or the Cloudflare Vite plugin, using Local Explorer to read and seed binding data and query local traces ",
+      "path": "cloudflare--skills/skills/workers-development/SKILL.md",
+      "remote_path": "skills/workers-development/SKILL.md",
+      "lines": 26,
+      "words": 394,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "gateway-workers",
@@ -22421,13 +22441,15 @@
     },
     {
       "name": "cloudflare-one",
-      "description": "Design, configure, troubleshoot, or review Cloudflare One Zero Trust and SASE deployments. Use cloudflare-one-migrations for migration planning from other vendors.",
+      "description": "Design, configure, troubleshoot, or review Cloudflare One Zero Trust and SASE deployments. Use cloudflare-one-migrations for migration planning from other vendors. Also use when an agent, script, craw",
       "path": "cloudflare--skills/skills/cloudflare-one/SKILL.md",
       "remote_path": "skills/cloudflare-one/SKILL.md",
-      "lines": 185,
-      "words": 2794,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 204,
+      "words": 3139,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ]
     },
     {
       "name": "agents-sdk",
@@ -22455,6 +22477,16 @@
         "sh",
         "ts"
       ]
+    },
+    {
+      "name": "frameworks-on-cloudflare",
+      "description": "Build, migrate, and deploy web-framework applications on Cloudflare Workers. Use when a framework project such as Astro, SvelteKit, React Router, TanStack Start, Nuxt, Hono, or a React or Vue SPA targ",
+      "path": "cloudflare--skills/skills/frameworks-on-cloudflare/SKILL.md",
+      "remote_path": "skills/frameworks-on-cloudflare/SKILL.md",
+      "lines": 37,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": []
     }
   ],
   "coffeefuelbump--csv-data-summarizer-claude-skill": [
@@ -22637,8 +22669,8 @@
       "description": "\"When the user wants to reverse engineer how another company grew and copy what worked. Also use when the user mentions 'reverse engineer,' 'how did X grow,' 'how does X get customers,' 'growth teardo",
       "path": "coreyhaines31--marketingskills/skills/reverse-engineer-marketing/SKILL.md",
       "remote_path": "skills/reverse-engineer-marketing/SKILL.md",
-      "lines": 305,
-      "words": 3675,
+      "lines": 317,
+      "words": 4005,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -23166,7 +23198,7 @@
       "path": "coreyhaines31--marketingskills/skills/social/SKILL.md",
       "remote_path": "skills/social/SKILL.md",
       "lines": 458,
-      "words": 2788,
+      "words": 2809,
       "code_blocks": 4,
       "languages": []
     },
@@ -24867,8 +24899,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
-      "lines": 376,
-      "words": 3138,
+      "lines": 377,
+      "words": 3221,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -24882,7 +24914,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
       "lines": 523,
-      "words": 5386,
+      "words": 5410,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -24908,7 +24940,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-realtime/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-realtime/SKILL.md",
       "lines": 207,
-      "words": 1909,
+      "words": 1940,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -24934,9 +24966,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
-      "lines": 668,
-      "words": 6782,
-      "code_blocks": 21,
+      "lines": 711,
+      "words": 7269,
+      "code_blocks": 22,
       "languages": [
         "bash",
         "typescript"
@@ -25019,8 +25051,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
-      "lines": 376,
-      "words": 3138,
+      "lines": 377,
+      "words": 3221,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -25034,7 +25066,7 @@
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
       "lines": 523,
-      "words": 5386,
+      "words": 5410,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -25060,7 +25092,7 @@
       "path": "neondatabase--agent-skills/skills/neon-realtime/SKILL.md",
       "remote_path": "skills/neon-realtime/SKILL.md",
       "lines": 207,
-      "words": 1909,
+      "words": 1940,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -25086,9 +25118,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
-      "lines": 668,
-      "words": 6782,
-      "code_blocks": 21,
+      "lines": 711,
+      "words": 7269,
+      "code_blocks": 22,
       "languages": [
         "bash",
         "typescript"
@@ -28837,8 +28869,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-pay/SKILL.md",
       "remote_path": "skills/stripe-pay/SKILL.md",
-      "lines": 62,
-      "words": 622,
+      "lines": 66,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -28963,8 +28995,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-pay/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-pay/SKILL.md",
-      "lines": 62,
-      "words": 622,
+      "lines": 66,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -29079,8 +29111,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-pay/SKILL.md",
       "remote_path": "providers/antigravity/plugin/skills/stripe-pay/SKILL.md",
-      "lines": 62,
-      "words": 622,
+      "lines": 66,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -29195,8 +29227,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-pay/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-pay/SKILL.md",
-      "lines": 62,
-      "words": 622,
+      "lines": 66,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -29311,8 +29343,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-pay/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-pay/SKILL.md",
-      "lines": 62,
-      "words": 622,
+      "lines": 66,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -29427,8 +29459,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-pay/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-pay/SKILL.md",
-      "lines": 62,
-      "words": 622,
+      "lines": 66,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -30237,6 +30269,16 @@
         "json",
         "mermaid"
       ]
+    },
+    {
+      "name": "cvss-scoring",
+      "description": "\"Produces CVSS v4.0 vector strings from plain-text vulnerability descriptions by systematically evaluating base metrics. Use when scoring a vulnerability, generating a CVSS vector, or estimating sever",
+      "path": "trailofbits--skills/plugins/cvss-scoring/skills/cvss-scoring/SKILL.md",
+      "remote_path": "plugins/cvss-scoring/skills/cvss-scoring/SKILL.md",
+      "lines": 249,
+      "words": 2284,
+      "code_blocks": 3,
+      "languages": []
     },
     {
       "name": "fuzzing-obstacles",
@@ -86307,7 +86349,7 @@
         "bash",
         "json"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86321,7 +86363,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86335,7 +86377,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86349,7 +86391,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86363,7 +86405,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86378,7 +86420,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86392,7 +86434,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86406,7 +86448,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86420,7 +86462,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86434,7 +86476,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86448,7 +86490,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86462,7 +86504,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86476,7 +86518,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86490,7 +86532,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86504,7 +86546,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86518,7 +86560,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86532,7 +86574,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86546,7 +86588,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86560,7 +86602,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86574,7 +86616,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86588,7 +86630,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86602,7 +86644,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86616,7 +86658,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86630,7 +86672,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86644,7 +86686,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -86658,7 +86700,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -108526,7 +108568,7 @@
         "bash",
         "json"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -111179,7 +111221,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -112032,7 +112074,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -112755,7 +112797,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -112961,7 +113003,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -116991,7 +117033,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -117561,7 +117603,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -118709,7 +118751,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -121637,7 +121679,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -122873,7 +122915,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -123891,7 +123933,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -125697,7 +125739,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -125848,7 +125890,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -127878,7 +127920,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -127944,7 +127986,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -128147,7 +128189,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -130002,7 +130044,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -130260,7 +130302,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -130643,7 +130685,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -130872,7 +130914,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -132248,7 +132290,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -133475,7 +133517,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -136110,7 +136152,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -138558,7 +138600,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -141665,7 +141707,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -141767,7 +141809,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -147484,8 +147526,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/openclaw/SKILL.md",
       "remote_path": "openclaw/SKILL.md",
-      "lines": 225,
-      "words": 809,
+      "lines": 230,
+      "words": 854,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -147548,11 +147590,12 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/openclaw-model-switch/SKILL.md",
       "remote_path": "openclaw-model-switch/SKILL.md",
-      "lines": 104,
-      "words": 777,
-      "code_blocks": 3,
+      "lines": 161,
+      "words": 1301,
+      "code_blocks": 5,
       "languages": [
-        "bash"
+        "bash",
+        "json"
       ]
     },
     {
@@ -147613,8 +147656,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 635,
-      "words": 4878,
+      "lines": 641,
+      "words": 4921,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -147797,9 +147840,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1394,
-      "words": 14103,
-      "code_blocks": 71,
+      "lines": 1404,
+      "words": 14175,
+      "code_blocks": 72,
       "languages": [
         "bash",
         "json",
@@ -147823,7 +147866,7 @@
       "path": "daymade--claude-code-skills/github-ops/SKILL.md",
       "remote_path": "github-ops/SKILL.md",
       "lines": 270,
-      "words": 2211,
+      "words": 2219,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -148078,8 +148121,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 509,
-      "words": 8637,
+      "lines": 512,
+      "words": 8842,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -148612,8 +148655,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1383,
-      "words": 15218,
+      "lines": 1388,
+      "words": 15255,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -149167,8 +149210,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/pdf-creator/SKILL.md",
       "remote_path": "daymade-docs/pdf-creator/SKILL.md",
-      "lines": 257,
-      "words": 3758,
+      "lines": 264,
+      "words": 3814,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -149372,8 +149415,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/data-visualization-discipline/references/operational-state-matrix.md",
       "remote_path": "data-visualization-discipline/references/operational-state-matrix.md",
-      "lines": 59,
-      "words": 210,
+      "lines": 74,
+      "words": 253,
       "code_blocks": 0,
       "languages": []
     },
@@ -149514,8 +149557,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
-      "lines": 320,
-      "words": 6262,
+      "lines": 321,
+      "words": 6309,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -169193,6 +169236,18 @@
       ]
     },
     {
+      "name": "pii-pdf",
+      "description": "Detect and replace personal names, addresses, contacts, bank accounts and IBANs in PDF files or folders using the local pii-pdf JSON CLI. Use for PDF anonymization, coordinate-based PII review, and se",
+      "path": "glebis--claude-skills/pii-pdf/SKILL.md",
+      "remote_path": "pii-pdf/SKILL.md",
+      "lines": 83,
+      "words": 1009,
+      "code_blocks": 4,
+      "languages": [
+        "sh"
+      ]
+    },
+    {
       "name": "jtbd",
       "description": "MOVED \u2014 jtbd now ships in the humane plugin (glebis/humane-agentic-design), not here. This directory is a redirect; install humane to get the maintained skill.",
       "path": "glebis--claude-skills/jtbd/SKILL.md",
@@ -169355,6 +169410,16 @@
         "bash",
         "markdown"
       ]
+    },
+    {
+      "name": "research-to-integration",
+      "description": "Research technical approaches, execute a bounded comparison, and deliver reusable integration-quality code with a reproducible experiment. Use when the user wants to investigate open/local tools, comp",
+      "path": "glebis--claude-skills/research-to-integration/SKILL.md",
+      "remote_path": "research-to-integration/SKILL.md",
+      "lines": 62,
+      "words": 1052,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "browser-mate",

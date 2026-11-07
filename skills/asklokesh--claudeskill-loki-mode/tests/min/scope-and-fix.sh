@@ -402,7 +402,7 @@ run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_BASE_RED_CONFLICT=1
 [ "$(outcome)" = "VERIFIED" ] && ok "base-red conflict: the correction resume delivered (VERIFIED, not SPEC_CONFLICT)" || { bad "base-red conflict: outcome is '$(outcome)'"; dump; }
 grep -q 'export function multiply' "$REPO/calc.ts" && ok "base-red conflict: the resumed session made the change" || bad "base-red conflict: the change is missing"
 
-run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=conflict
+run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=conflict LOKI_E10_OPUS_CONSULT=0 # the opt-out keeps the legacy stop; the default never-stop legs follow this block
 n="$(fix_sessions)"
 [ "$n" = "1" ] && ok "conflict: one fix session, no retry" || { bad "conflict: $n fix sessions (want 1)"; dump; }
 grep -q -- '-r ' "$ITERS" && bad "conflict: a '-r' retry session started" || ok "conflict: no '-r' retry iteration"
@@ -412,7 +412,46 @@ git -C "$REPO" rev-parse -q --verify "refs/heads/loki/$rid" >/dev/null && ok "co
 grep -q 'export function multiply' "$REPO/calc.ts" && ok "conflict: the code the blocked run wrote is on that branch" || { bad "conflict: the blocked run's multiply() is not on a visible branch"; dump; }
 [ "$(git -C "$REPO" rev-parse --abbrev-ref HEAD)" = "loki/$rid" ] && [ "$(git -C "$REPO" log -1 --format=%s main)" = "base" ] && ok "conflict: main is untouched; the work sits only on the run branch" || bad "conflict: main moved or the run branch was not checked out"
 
-run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=noprogress
+# ---------------------------------------------------------------- LOKI_E10_OPUS_CONSULT (default on, =0 opts out): never-stop plus one tool-less Opus consult
+# consults <n>: stub consult calls this run; ctrig: the recorded triggers; rnp: the receipt NOT PROVEN list; rusd: receipt dollars and child sessions
+consults() { grep -c '^consult$' "$(dirname "$ITERS")/stub.log" 2>/dev/null || true; }
+ctrig() { python3 -I -c 'import json,sys; print(",".join(c["trigger"] for c in json.load(open(sys.argv[1]))))' "$RUNDIR/opus-consult.json" 2>/dev/null; }
+rnp() { [ -n "$RUNDIR" ] && python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1])).get("not_proven"))' "$RUNDIR/receipt.json" 2>/dev/null; }
+rusd() { python3 -I -c 'import json,sys; c=json.load(open(sys.argv[1]))["cost"]; print(c["usd"], c["children"]["sessions"])' "$RUNDIR/receipt.json" 2>/dev/null; }
+# never-stop on implement: the session conflicts through the FC-19 correction; one consult (trigger stop), then the never-stop resume implements and names its ASSUMPTION
+run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=1
+[ "$(outcome)" = "PARTIAL" ] && ok "never-stop: a headless implement conflict delivers PARTIAL, not BLOCKED" || { bad "never-stop: outcome is '$(outcome)', want PARTIAL"; dump; }
+[ "$RC" != 4 ] && ok "never-stop: exit code is not 4 ($RC)" || bad "never-stop: exit code 4"
+git -C "$REPO" show HEAD:calc.ts 2>/dev/null | grep -A1 'function multiply' | grep -q 'a \* b' && ok "never-stop: the inferred multiply() is committed" || { bad "never-stop: no committed multiply()"; dump; }
+grep -q -- '-n ' "$ITERS" && ok "never-stop: the '-n' never-stop resume ran" || bad "never-stop: no '-n' resume session"
+[ "$(consults)" = 1 ] && [ "$(ctrig)" = "stop" ] && ok "never-stop: exactly one consult, trigger stop" || bad "never-stop: $(consults) consult calls, triggers '$(ctrig)'"
+has "never-stop: the receipt discloses the settled conflict and the session's assumption" "$(rnp)" "spec conflict the run settled itself instead of stopping (implement): the task does not say whether multiply rounds its result -> implemented the most likely intent: multiply(a, b) is the product (after one Opus consult)"
+has "never-stop: the receipt discloses the consult with its model and dollars" "$(rnp)" 'Opus consult (stop, implement, claude-opus-5-5): ok, $0.0020'
+case "$(rusd)" in 0.002\ *) ok "never-stop: the consult's \$0.002 reaches the receipt total ($(rusd))" ;; *) bad "never-stop: receipt cost '$(rusd)', want the consult's 0.002" ;; esac
+grep -h 'opus-consult-stop' "$REPO"/.loki/metrics/child-sessions.jsonl >/dev/null 2>&1 && ok "never-stop: the consult is a child-ledger line (phase opus-consult-stop)" || bad "never-stop: no opus-consult-stop child-ledger line"
+# the cap: with LOKI_E10_CONSULT_MAX=0 no consult runs, never-stop still delivers (PARTIAL)
+run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=1 LOKI_E10_CONSULT_MAX=0
+[ "$(consults)" = 0 ] && [ "$(outcome)" = "PARTIAL" ] && ok "consult cap 0: no consult call, never-stop still delivers PARTIAL" || { bad "consult cap 0: $(consults) consults, outcome '$(outcome)'"; dump; }
+# opt-out and the explicit interactive opt-in keep the stop: BLOCKED, no consult, no '-n' resume
+run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=1 LOKI_E10_OPUS_CONSULT=0
+[ "$(outcome)" = "BLOCKED" ] && [ "$(consults)" = 0 ] && ! grep -q -- '-n ' "$ITERS" && ok "consult opt-out: LOKI_E10_OPUS_CONSULT=0 ends BLOCKED with no consult and no never-stop resume" || { bad "consult opt-out: outcome '$(outcome)', $(consults) consults"; dump; }
+run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=1 LOKI_E10_INTAKE_ASK=1
+[ "$(outcome)" = "BLOCKED" ] && ! grep -q -- '-n ' "$ITERS" && ok "never-stop: the explicit interactive opt-in (LOKI_E10_INTAKE_ASK=1) keeps the stop (BLOCKED)" || { bad "never-stop interactive: outcome '$(outcome)'"; dump; }
+# never-stop on a fix round: round 1 conflicts with the tree unchanged; round 2 gets the never-stop brief and the consult and fixes multiply()
+run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=nsconflict
+[ "$(fix_sessions)" = 2 ] && [ "$(outcome)" = "PARTIAL" ] && ok "never-stop fix: a fix-round conflict gets a second round, which delivers PARTIAL (not BLOCKED)" || { bad "never-stop fix: $(fix_sessions) fix sessions, outcome '$(outcome)'"; dump; }
+[ "$(ctrig)" = "stop" ] && ok "never-stop fix: the second round's consult is trigger stop" || bad "never-stop fix: triggers '$(ctrig)'"
+has "never-stop fix: the receipt names the fix conflict and the second round's assumption" "$(rnp)" "spec conflict the run settled itself instead of stopping (fix): calc.test.ts:7 expects multiply(3, 4) to be 12 -> implemented the most likely intent: multiply means a * b (after one Opus consult)"
+# red verify after the first fix round: the consult advice (trigger red-verify) is what fixes multiply(); a disclosure, never a cap
+run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=consultfix
+[ "$(fix_sessions)" = 2 ] && [ "$(ctrig)" = "red-verify" ] && [ "$(outcome)" = "VERIFIED" ] && ok "red-verify consult: round 2 carries the advice and fixes multiply(); VERIFIED (the consult does not cap)" || { bad "red-verify consult: $(fix_sessions) fix sessions, triggers '$(ctrig)', outcome '$(outcome)'"; dump; }
+run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=consultfix LOKI_E10_OPUS_CONSULT=0
+[ "$(consults)" = 0 ] && [ "$(outcome)" = "STALLED" ] && ok "red-verify consult off: no consult, the same run stalls after one round as before" || { bad "red-verify consult off: $(consults) consults, outcome '$(outcome)'"; dump; }
+# at most one consult per run: the implement conflict spends it, so the red verify after round 1 gets none and the run stays red
+run_engine "$TASK" E2E_STUB_MODE=done E2E_STUB_NS_CONFLICT=wrong E2E_STUB_FIX=consultfix
+[ "$(consults)" = 1 ] && [ "$(ctrig)" = "stop" ] && ok "consult cap 1: the stop consult spends the run's one consult; the later red verify gets none" || { bad "consult cap 1: $(consults) consults, triggers '$(ctrig)'"; dump; }
+
+run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=noprogress LOKI_E10_OPUS_CONSULT=0 # the stall rule alone; with the consult on, round 2 gets the red-verify consult first (legs above)
 n="$(fix_sessions)"
 [ "$n" = "1" ] && ok "no progress: one fix round, then fixing stops" || { bad "no progress: $n fix sessions (want 1)"; dump; }
 [ "$(ev 'sum(1 for e in E if e["type"]=="fix.round")')" = "1" ] && ok "no progress: one fix.round event" || bad "no progress: fix.round events: $(ev 'sum(1 for e in E if e["type"]=="fix.round")')"
@@ -431,7 +470,7 @@ models="$(ev 'sorted({str(e["data"].get("model")) for e in E if e["type"]=="cost
 case "$models" in *haiku*) ;; *) models="none recorded: $models" ;; esac
 printf '%s\n' "$models" | tr -d "[]'" | tr ',' '\n' | grep -v haiku | grep -q '[a-z]' && bad "wall defect: a session ran off haiku: $models" || ok "wall defect: every session ran on haiku ($models)"
 if [ -s "$T/argv.log" ]; then
-    pinned="$(grep -o -- '--model [^ ]*' "$T/argv.log" | sort -u)"
+    pinned="$(grep -v '^consult ' "$T/argv.log" | grep -o -- '--model [^ ]*' | sort -u)" # the one Opus consult (LOKI_E10_OPUS_CONSULT) is the deliberate exception: an advisor call, not a session
     [ -n "$pinned" ] && [ -z "$(printf '%s\n' "$pinned" | grep -v haiku)" ] && ok "wall defect: every --model argument was haiku ($pinned)" || bad "wall defect: --model arguments: '${pinned}'"
 else
     bad "wall defect: argv log is empty"
@@ -459,7 +498,7 @@ PTASK="add a multiply(a, b) function to calc.ts"
 pev() { ev 'next((json.dumps(e["data"].get("patch")) for e in E if e["type"]=="stage.completed" and e["stage"]=="implement"), "")'; }
 PLEAN=(LOKI_E10_PLAN=auto LOKI_E10_SMALL_MAX_CHARS=10 LOKI_SESSION_MODEL=haiku)
 run_engine "$PTASK" E2E_STUB_MODE=done E2E_STUB_PATCH=green LOKI_E10_PATCH= "${PLEAN[@]}"
-grep -q '^patch$' "$(dirname "$ITERS")/stub.log" && [ "$(grep -c '^implement ' "$ITERS")" = 0 ] && ok "patch default on: with LOKI_E10_PATCH unset the patch call runs and no agentic session is needed" || { bad "patch default on: no patch call with LOKI_E10_PATCH unset"; dump; }
+grep -q '^patch$' "$(dirname "$ITERS")/stub.log" && bad "patch default off: a patch call ran with LOKI_E10_PATCH unset" || ok "patch default off: with LOKI_E10_PATCH unset no patch call runs (the agentic session does the work)"
 run_engine "$PTASK" E2E_STUB_MODE=done E2E_STUB_PATCH=green LOKI_E10_PATCH=0 "${PLEAN[@]}"
 grep -q '^patch$' "$(dirname "$ITERS")/stub.log" && bad "patch opt-out: a patch call ran with LOKI_E10_PATCH=0" || ok "patch opt-out: LOKI_E10_PATCH=0 runs no patch call (today's agentic session only)"
 run_engine "$PTASK" E2E_STUB_MODE=done E2E_STUB_PATCH=green LOKI_E10_PATCH=1 "${PLEAN[@]}"
@@ -522,7 +561,7 @@ const run = async (d: string, replies: (string | null)[], seen: string[] = [], r
 };
 const clean = (d: string) => git(d, "status", "--porcelain") === "";
 
-res("patch: LOKI_E10_PATCH is on by default (unset or empty) and 0/off/false turn it off", pp.patchEnabled({}) === true && pp.patchEnabled({ LOKI_E10_PATCH: "" }) === true && pp.patchEnabled({ LOKI_E10_PATCH: "1" }) === true && pp.patchEnabled({ LOKI_E10_PATCH: "0" }) === false && pp.patchEnabled({ LOKI_E10_PATCH: "off" }) === false && pp.patchEnabled({ LOKI_E10_PATCH: "false" }) === false);
+res("patch: LOKI_E10_PATCH is off by default (unset or empty) and 1/on/true turn it on", pp.patchEnabled({}) === false && pp.patchEnabled({ LOKI_E10_PATCH: "" }) === false && pp.patchEnabled({ LOKI_E10_PATCH: "on" }) === true && pp.patchEnabled({ LOKI_E10_PATCH: "true" }) === true && pp.patchEnabled({ LOKI_E10_PATCH: "1" }) === true && pp.patchEnabled({ LOKI_E10_PATCH: "0" }) === false && pp.patchEnabled({ LOKI_E10_PATCH: "off" }) === false && pp.patchEnabled({ LOKI_E10_PATCH: "false" }) === false);
 { const d = repo(), o = await run(d, [`root cause: trims.\n${FIX}${ADDTEST}LOKI_DONE`]);
   res("patch green: one call, the fix and the new test applied, the real node --test check ran and passed", o.status === "green" && o.calls === 1 && o.applied.length === 2 && (o.check ?? []).join() === "patch:node:test/parse.test.js=pass" && readFileSync(join(d, "src/parse.js"), "utf8").includes("positional: arg"), JSON.stringify(o)); }
 { const d = repo(), seen: string[] = [], o = await run(d, [`${WRONG}${ADDTEST}LOKI_DONE`, `${'FILE: src/parse.js\n<<<<<<< SEARCH\n  if (t === "-") return { positional: t + "" };\n=======\n  if (t === "-") return { positional: arg };\n>>>>>>> REPLACE\n'}LOKI_DONE`], seen);
@@ -588,7 +627,17 @@ res("patch receipt: green, error and every other status map to green, error and 
   const absent = cr.claimedChangeAbsent(d, base, claims);
   res("coverage claim: SITE lines parse (changed claims only, backticks allowed)", claims.length === 3, JSON.stringify(claims));
   res("coverage claim: a changed line passes, a byte-identical line is claimed_change_absent, a file new on the base passes", absent.join() === "src/parse.js:2", absent.join());
-  res("coverage claim: on by default (LOKI_E10_CLAIM_CHECK=0 opts out to main's plain coverage brief, which has no SITE line); the claim brief asks for them and the re-ask names the absent sites", cr.claimCheckEnabled({}) === true && cr.claimCheckEnabled({ LOKI_E10_CLAIM_CHECK: "0" }) === false && !cr.COVERAGE_BRIEF.includes("SITE") && cr.COVERAGE_CLAIM_BRIEF.includes("SITE <path>:<line>: changed") && cr.claimAbsentBrief(absent).includes("src/parse.js:2")); }
+  const mt = [{}, { LOKI_E10_COVERAGE_MAX_TURNS: "4" }, { LOKI_E10_COVERAGE_MAX_TURNS: "0" }, { LOKI_E10_COVERAGE_MAX_TURNS: "off" }, { LOKI_E10_COVERAGE_MAX_TURNS: "x" }].map((e) => String(cr.coverageMaxTurns(e))).join(",");
+  res("coverage cap: the coverage turn caps at 10 turns by default; a positive integer sets it, =0/off lifts it, garbage keeps 10", mt === "10,4,undefined,undefined,10", mt);
+  const seen = [], ok1 = { exit: 0, markers: { done: true, specConflict: null, alreadyDone: null }, durationS: 1, killed: false, summary: "SITE src/parse.js:2: changed\nLOKI_DONE" };
+  const sctx = { provider: "stub", repoDir: d, baseSha: base, sessions: { run: async (o) => { seen.push(`${o.iterationId}:${o.maxTurns}`); return ok1; } } };
+  const prevMt = process.env.LOKI_E10_COVERAGE_MAX_TURNS, prevCc = process.env.LOKI_E10_CLAIM_CHECK; delete process.env.LOKI_E10_COVERAGE_MAX_TURNS; process.env.LOKI_E10_CLAIM_CHECK = "1";
+  await cr.resumeForCoverage(sctx, { stage: "implement", brief: "b", tier: "development", iterationId: "it", limitS: 600, signal: new AbortController().signal }, ok1);
+  if (prevMt === undefined) delete process.env.LOKI_E10_COVERAGE_MAX_TURNS; else process.env.LOKI_E10_COVERAGE_MAX_TURNS = prevMt; if (prevCc === undefined) delete process.env.LOKI_E10_CLAIM_CHECK; else process.env.LOKI_E10_CLAIM_CHECK = prevCc;
+  res("coverage cap: the coverage turn and its claim re-ask both run under the cap", seen.join() === "it-c:10,it-c2:10", seen.join());
+  const cc = (e) => cr.claimCheckEnabled(e) ? 1 : 0, ccs = [{}, { LOKI_E10_CLAIM_CHECK: "1" }, { LOKI_E10_CLAIM_CHECK: "0" }, { LOKI_E10_LEAN_CALLS: "0" }, { LOKI_E10_LEAN_CALLS: "0", LOKI_E10_CLAIM_CHECK: "0" }, { LOKI_E10_LEAN_CALLS: "", LOKI_E10_CLAIM_CHECK: " " }].map(cc).join("");
+  res("coverage claim: off by default under LOKI_E10_LEAN_CALLS (the re-ask edited nothing on the bench); =1 keeps it, =0 keeps it off, LOKI_E10_LEAN_CALLS=0 restores the old default on", ccs === "010100", ccs);
+  res("coverage claim: LOKI_E10_CLAIM_CHECK=0 gives main's plain coverage brief, which has no SITE line; the claim brief asks for them and the re-ask names the absent sites", cr.claimCheckEnabled({ LOKI_E10_CLAIM_CHECK: "0" }) === false && !cr.COVERAGE_BRIEF.includes("SITE") && cr.COVERAGE_CLAIM_BRIEF.includes("SITE <path>:<line>: changed") && cr.claimAbsentBrief(absent).includes("src/parse.js:2")); }
 TS
 out="$(cd "$ROOT/loki-ts" && timeout 300 bun "$PP/unit.ts" "$ROOT" "$PP" 2>&1)"
 while IFS= read -r line; do
@@ -677,6 +726,19 @@ res("E5 caps: Sonnet, other stages, the policy off and LOKI_E10_SESSION_CAPS=off
   const nr = (receipt: string[]) => ({ implement: { no_regression: { receipt } } });
   res("open decision: an intake assumption, an advisory change and a not-run differential each give a NOT PROVEN line", odn({ intake: { assumptions: ['Open choice: "a or b?" -> implement option 2: "b". Evidence (precedent): a one-call vote over 5 sibling definitions picked it.'] } }).length === 1 && odn({ intake: { assumptions: ['Open choice: "a or b?" -> no evidence picks one (no stated preference).'] } }).length === 1 && odn(nr(["no-regression: 11 probe case(s) compared, 5 changed, 0 unrequested", "advisory: wrapped Exit with code 0 changed and the issue does not decide it (printed a, now b)"]))[0] === "behavior change the issue does not decide: wrapped Exit with code 0 changed and the issue does not decide it (printed a, now b)" && odn(nr(["NOT PROVEN: regression check not run: the probe program did not build"])).length === 1);
   res("open decision: a settled differential (0 unrequested, no advisory), no differential, no assumption, a choice the task or a maintainer settles and a brief default give none; LOKI_E10_OPEN_DECISION_CAP=0 gives none", odn(nr(["no-regression: 12 probe case(s) compared on the base and the patched tree, 7 changed, 0 unrequested"])).length === 0 && odn({}).length === 0 && odn({ intake: { assumptions: [] } }).length === 0 && odn({ intake: { assumptions: ['Open choice: "a or b?" -> implement option 1: "a". Evidence (task_preferred): the task text names it as preferred.', 'Open choice: "a or b?" -> implement option 2: "b". Evidence (maintainer): a maintainer comment decides it.', "the brief names no port, so the server listens on 3000"] } }).length === 0 && odn({ intake: { assumptions: ["x"] } }, { LOKI_E10_OPEN_DECISION_CAP: "0" }).length === 0); }
+{ const oc = await import("$ROOT/loki-ts/src/features/opus_consult.ts"); const { runPickedChoice } = await import("$ROOT/loki-ts/src/engine10/stages/seal.ts"); // LOKI_E10_OPUS_CONSULT unit rules
+  const ocDir = "$T/oc-unit"; let calls = 0; oc.__setConsultCallForTests(async () => { calls++; return { text: "DIAGNOSIS: x\nINTENDED: y", usd: 0.03, outcome: "ok" }; });
+  const base = { runDir: ocDir, repoDir: ocDir, stage: "implement", trigger: "open-choice" as const, task: "t", evidence: "e", diff: null, code: "" };
+  const a1 = await oc.runConsult(base, {}), a2 = await oc.runConsult({ ...base, trigger: "stop" }, {});
+  res("consult: the first call returns the advice, a second in the same run is refused by the default cap of 1 (one call made)", a1 === "DIAGNOSIS: x\nINTENDED: y" && a2 === null && calls === 1 && oc.readConsults(ocDir).length === 1);
+  res("consult: LOKI_E10_CONSULT_MAX=2 allows a second; LOKI_E10_OPUS_CONSULT=0 allows none", (await oc.runConsult({ ...base, trigger: "stop" }, { LOKI_E10_CONSULT_MAX: "2" })) !== null && (await oc.runConsult({ ...base, runDir: ocDir + "-off" }, { LOKI_E10_OPUS_CONSULT: "0" })) === null && calls === 2);
+  oc.__setConsultCallForTests(null);
+  res("consult: default model is claude-opus-5-5; never-stop is on by default, off with the knob off or the explicit interactive opt-in", oc.consultModel({}) === "claude-opus-5-5" && oc.neverStopActive({}) && !oc.neverStopActive({ LOKI_E10_OPUS_CONSULT: "0" }) && !oc.neverStopActive({ LOKI_E10_INTAKE_ASK: "1" }));
+  res("consult: the disclosure names trigger, stage, model and dollars", oc.consultNotes(ocDir)[0]!.startsWith("Opus consult (open-choice, implement, claude-opus-5-5): ok, \$0.0300; advice: DIAGNOSIS: x INTENDED: y"));
+  res("never-stop: one seal NOT PROVEN line per settled conflict, none without a record", oc.neverStopNotes({ never_stop: [{ stage: "implement", conflict: "c", assumption: "a", consulted: true }] }).length === 1 && oc.neverStopNotes({}).length === 0 && oc.neverStopNotes(undefined).length === 0);
+  res("never-stop: the brief forbids the stop, asks for an ASSUMPTION line and carries the advice; assumptionOf reads it", oc.neverStopBrief("r", "ADV").includes("Do not stop on this conflict") && oc.neverStopBrief("r", "ADV").includes("ADV") && oc.assumptionOf("x\nASSUMPTION: it is the product\nLOKI_DONE") === "it is the product");
+  res("open-choice trigger: a choice the run settles itself (no evidence, or the precedent vote) is a trigger; one the task settles is not", runPickedChoice('Open choice: "a or b?" -> no evidence picks one (x).') && runPickedChoice('Open choice: "a or b?" -> implement option 2: "b". Evidence (precedent): v.') && !runPickedChoice('Open choice: "a or b?" -> implement option 1: "a". Evidence (task_preferred): t.'));
+  res("consult prompt: the stub marker, the trigger and each section within its cap", oc.consultPrompt("red-verify", { task: "T".repeat(9000), evidence: "E", diff: null, code: "" }).startsWith("Loki Opus consult (trigger: red-verify)") && oc.consultPrompt("stop", { task: "T".repeat(9000), evidence: "E", diff: null, code: "" }).length < 6500); }
 const { sessionCaps: sealCaps } = await import("$ROOT/loki-ts/src/engine10/stages/seal.ts");
 res("E5 receipt: seal lists the implement stop and every fix-round stop in order, and nothing when none fired", JSON.stringify(sealCaps({ implement: { session_cap: "turns limit 45 at turn 45, 90000 new tokens" }, fix: { session_caps: ["fix round 1: no_product_edit limit 8 at turn 8, 35000 new tokens"] } } as never)) === JSON.stringify(["implement: turns limit 45 at turn 45, 90000 new tokens", "fix round 1: no_product_edit limit 8 at turn 8, 35000 new tokens"]) && sealCaps({ implement: {}, fix: { session_caps: [] } } as never).length === 0);
 res("E5 capStopOf reads the stop line and nothing else", capStopOf("x\n[sdk-loop stop: no_product_edit limit 8 at turn 8, 9000 new tokens]\n") === "no_product_edit limit 8 at turn 8, 9000 new tokens" && capStopOf("[sdk-loop error: turn cap reached (error_max_turns)]") === null && capStopOf(undefined) === null);
@@ -944,7 +1006,7 @@ suites="$(ev 'sum(1 for e in E if e["type"]=="test.result" and str(e["data"].get
 sig="$(ev '[g["signature"] for e in E if e["type"]=="fix.round" for g in e["data"]["groups"] if g["signature"].startswith("full suite")][0]')"
 case "$sig" in "full suite: bun "?*) ok "full suite signature carries its first failing line: $sig" ;; *) bad "full suite signature is only the check name: '$sig'" ;; esac
 
-run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=noprogress LOKI_RISK_TIER=medium
+run_engine "$TASK" E2E_STUB_MODE=wrong E2E_STUB_FIX=noprogress LOKI_RISK_TIER=medium LOKI_E10_OPUS_CONSULT=0 # the stall rule alone, as the no-progress leg
 last="$(ev '[e["data"] for e in E if e["type"]=="stage.completed" and e["stage"]=="verify"][-1]')"
 has "quick-only end: the last verify is quick" "$last" "'verify_scope': 'quick'"
 has "quick-only end: verify lists the missing complete verify as NOT PROVEN" "$last" "quick re-verify only"
@@ -1275,6 +1337,10 @@ wo_legs() {
 # Cost step b: a second fix round is not spent when every remaining blocking group is a full-suite or no-tests/config failure; the change's own import, collection and syntax errors keep round 2; the fix session limit stays 180 s.
 FR="$(cd "$ROOT/loki-ts" && bun -e 'const { onlyFullSuiteRed } = await import("./src/engine10/machine.ts"); const { fixStage } = await import("./src/engine10/stages/fix.ts"); const g = (s: string) => ({ signature: s }); console.log([onlyFullSuiteRed({ failures_grouped: [g("full suite: vitest FAIL a")] }), onlyFullSuiteRed({ failures_grouped: [g("full suite: npm x"), g("vitest:a.test.ts FAIL b")] }), onlyFullSuiteRed({ failures_grouped: [] }), onlyFullSuiteRed(undefined), onlyFullSuiteRed({ failures_grouped: [{ signature: "vitest:a.test.ts", sample: "Error: No test files found, exiting with code 1" }] }), onlyFullSuiteRed({ failures_grouped: [{ signature: "pytest:t.py", sample: "ERROR collecting t.py: errors during collection" }, g("vitest:b.test.ts expected 1 to be 2")] }), fixStage.limitS, onlyFullSuiteRed({ failures_grouped: [{ signature: "vitest:src/a.test.ts", sample: "Error: Cannot find module './helperz' imported from /r/src/a.ts" }] }), onlyFullSuiteRed({ failures_grouped: [{ signature: "pytest:tests/t.py", sample: "ImportError: cannot import name 'parse_v2'\nInterrupted: 1 error during collection" }] }), onlyFullSuiteRed({ failures_grouped: [{ signature: "jest:src/a.test.ts", sample: "Test suite failed to run\nSyntaxError: Unexpected token" }] })].join(","))' 2>&1 | tail -1)"
 [ "$FR" = "true,false,false,false,true,false,180,false,false,false" ] && ok "fix rounds: only-full-suite or no-tests red caps at one round; mixed, empty and the change's own import, collection and syntax errors do not; fix limit 180 s ($FR)" || bad "fix rounds: got '$FR'"
+# LOKI_E10_SUITE_FIX_SKIP (default on, =0 opts out): no fix round when only full suites fail, none of their failing ids names a changed file, nothing held out failed and a targeted test of the change passed.
+SK="$(cd "$ROOT/loki-ts" && bun -e 'const m = await import("./src/engine10/machine.ts"); const full = { name: "full suite: vitest", result: "fail", ids: ["other.test.ts > x"] }, tgt = { name: "vitest:a.test.ts", result: "pass", n: 3 }, g = [{ signature: "full suite: vitest FAIL other" }], v = (o) => ({ failures_grouped: g, changed_files: ["src/a.ts"], checks: [full, tgt], ...o });
+console.log([m.suiteOnlyRed(v({})), m.suiteOnlyRed(v({ checks: [full, { ...tgt, n: 0 }] })), m.suiteOnlyRed(v({ checks: [{ ...full, ids: ["src/a.ts > y"] }, tgt] })), m.suiteOnlyRed(v({ holdout_failed: 1 })), m.suiteOnlyRed(v({ failures_grouped: [...g, { signature: "vitest:a.test.ts FAIL b" }] })), m.suiteOnlyRed(v({ checks: [full, { ...tgt, name: "lint:tsc" }] })), m.suiteFixSkipEnabled({}), m.suiteFixSkipEnabled({ LOKI_E10_SUITE_FIX_SKIP: "0" }), m.SUITE_FIX_SKIP_NOTE.includes("NOT PROVEN")].join(","));' 2>&1)"
+[ "$SK" = "true,false,false,false,false,false,true,false,true" ] && ok "suite fix skip: only a suite-only red with a passing targeted test and no failing id in a changed file skips the round; =0 runs it; the receipt line says NOT PROVEN ($SK)" || bad "suite fix skip: got '$SK'"
 WD="$(cd "$ROOT/loki-ts" && bun -e 'const { wallEnabled } = await import("./src/engine10/sizing.ts"); console.log([wallEnabled({}), wallEnabled({ LOKI_E10_WALL: "" }), wallEnabled({ LOKI_E10_WALL: "0" }), wallEnabled({ LOKI_E10_WALL: "1" }), wallEnabled({ LOKI_E10_WALL: "on" })].join(","))' 2>&1)"
 [ "$WD" = "false,false,false,true,true" ] && ok "wall default: the Wall session is off unless LOKI_E10_WALL=1/on ($WD)" || bad "wall default: wallEnabled gave '$WD'"
 # Go output cap (rule 22, real go test -json through the real runOnce and corroboratePass): a test file whose -json stream is larger than the 64 KB tail (and a whole-package run larger than 1 MiB) is judged whole and counts;
@@ -2147,6 +2213,23 @@ console.log(`${o.status} ${o.targetRel} binding=${o.binding} advisory=${o.adviso
 if command -v go >/dev/null 2>&1; then
     rm -rf "$T/es-go2"; make_es_go "$T/es-go2"
     es_leg "go test" go "$T/es-go2" a/a_test.go "$ES_GO_TASK" "$ES_GO_REPLY" "sealed a/loki_wall_spec_test.go binding=TestLokiSpec_C1_KeepsAfterDash advisory=TestLokiSpec_P1_PaddedDash guards=TestLokiSpec_S1_Plain dropped=TestLokiSpec_C2_Panics sealed=TestLokiSpec_C1_KeepsAfterDash:red"
+    # SPEED-EXEC-SPEC-PREFETCH: intake starts the generator call; the Wall stage's first ask takes it only when brief, model and cap are identical (one call, the same
+    # outcome as without it); any other brief makes a fresh call; the knob, the CLI invoker and a prelude that skips start nothing.
+    rm -rf "$T/es-go3"; make_es_go "$T/es-go3"; (cd "$T/es-go3" && git init -q -b main && git add -- . && git -c user.name=e2e -c user.email=e2e@example.invalid commit -q -m base)
+    ESPF="$(cd "$ROOT/loki-ts" && ESD="$T/es-go3" TASK="$ES_GO_TASK" REPLY="$ES_GO_REPLY" env -u LOKI_E10_INVOKER -u LOKI_E10_EXEC_SPEC_MODEL -u LOKI_E10_EXEC_SPEC_PREFETCH timeout 300 bun -e '
+const es = await import("./src/features/exec_spec.ts"), tn = await import("./src/features/tournament.ts"), e = process.env;
+let calls = 0; const briefs = []; es.setExecSpecGenerator(async (brief) => { calls++; briefs.push(brief); await new Promise((r) => setTimeout(r, 30)); return e.REPLY; });
+const inp = (o = {}) => ({ task: e.TASK, repoDir: e.ESD, runners: ["go"], existingTests: ["a/a_test.go"], sessions: null, iterationId: "t", signal: new AbortController().signal, ...o });
+const out = [];
+const started = es.prefetchExecSpec(inp(), {}), a = await es.execSpecAuthor(inp()); out.push(`hit:${started}:${calls}:${a.status}:${a.prefetch}`);
+calls = 0; const b = await es.execSpecAuthor(inp()); out.push(`none:${calls}:${b.status}:${b.prefetch ?? "-"}:${JSON.stringify([a.binding, a.advisory, a.guards, a.dropped, a.file]) === JSON.stringify([b.binding, b.advisory, b.guards, b.dropped, b.file])}`);
+calls = 0; briefs.length = 0; es.prefetchExecSpec(inp({ probe: tn.probeIntake }), {}); const c = await es.execSpecAuthor(inp()); out.push(`miss:${calls}:${c.prefetch}:${briefs[1] !== briefs[0]}`);
+calls = 0; out.push(`off:${es.prefetchExecSpec(inp(), { LOKI_E10_EXEC_SPEC_PREFETCH: "0" })}:${es.prefetchExecSpec(inp(), { LOKI_E10_INVOKER: "cli" })}:${es.prefetchExecSpec(inp(), { LOKI_E10_EXEC_SPEC: "0" })}:${es.prefetchExecSpec(inp({ runners: ["bun"] }), {})}:${calls}`);
+const d = await es.execSpecAuthor(inp()); out.push(`after-off:${d.prefetch ?? "-"}`);
+console.log(out.join(" | "));' 2>&1)"
+    WESPF="hit:true:1:sealed:hit | none:1:sealed:-:true | miss:2:miss:true | off:false:false:false:false:0 | after-off:-"
+    [ "$ESPF" = "$WESPF" ] && ok "exec spec prefetch: the call intake started is taken when the brief is identical (one call, same outcome as without it), a different brief makes a fresh call, the knob, the CLI invoker, exec spec off and a skipping prelude start nothing" \
+        || bad "exec spec prefetch gave: $ESPF (want: $WESPF)"
 elif [ "${LOKI_STACKS_REQUIRE:-0}" = 1 ]; then bad "exec spec go test: go is not installed (LOKI_STACKS_REQUIRE=1: this leg must run here)"; else echo "  SKIP: exec spec go test: go is not installed"; fi
 if python3 -I -c 'import pytest' >/dev/null 2>&1; then
     rm -rf "$T/es-py"; make_es_py "$T/es-py"
@@ -2662,6 +2745,22 @@ row("stated_override", [n.overrideVerdict("Rename\n\nExpected: the header reads 
 row("groups", [n.nrdGroupsFor({ no_regression: { groups: [{ signature: "no-regression: x", count: 2, sample: "s" }] } }, 0).length, n.nrdGroupsFor({ no_regression: { groups: [{ signature: "no-regression: x", count: 2, sample: "s" }] } }, 1).length, n.nrdGroupsFor({ no_regression: { groups: [{ bad: 1 }] } }, 0).length, n.nrdGroupsFor(undefined, 0).length].join(","));
 row("knob", [n.nrdEnabled({}), n.nrdEnabled({ LOKI_E10_NRD: "0" }), n.nrdEnabled({ LOKI_E10_NRD: "1" })].join(","));
 row("rules", [t.probeIntake.rules === t.GO_PROBE_RULES, n.nrdProbeIntake.rules === t.GO_PROBE_RULES].join(","));
+// SPEED-NRD-OVERLAP: implement starts the differential, verify (or seal) settles it into the implement output that is current then
+{
+  const evs: string[] = []; let impl: any = { exit: "done" };
+  const ctx: any = { runDir: join(tmpdir(), "nrd-ovl-1"), outputs: () => ({ implement: impl }), emit: (ty: string) => { evs.push(ty); } };
+  let release!: () => void; const held = new Promise<void>((res) => { release = res; });
+  const fake = async () => { await held; return { status: "fired", reason: "x", calls: 1, usd: 0, groups: [{ signature: "no-regression: x", count: 1, sample: "s" }], receipt: ["unrequested change: x"] }; };
+  n.startNrdGate(ctx, new AbortController().signal, {} as never, [], fake as never);
+  const before = impl.no_regression === undefined, s1 = n.settleNrd(ctx); let settled = false; void s1.then(() => { settled = true; });
+  await new Promise((res) => setTimeout(res, 30)); const waits = !settled;
+  impl = { ...impl, attempts: { skipped: "x" } }; // the machine may replace the implement output while the differential runs
+  release(); await s1; await n.settleNrd(ctx);
+  row("overlap", [before, waits, impl.no_regression?.status, n.nrdGroupsFor(impl, 0).length, evs.join("+"), n.nrdOverlapOn({}), n.nrdOverlapOn({ LOKI_E10_NRD_OVERLAP: "0" })].join(","));
+  let impl2: any = {}; const ctx2: any = { runDir: join(tmpdir(), "nrd-ovl-2"), outputs: () => ({ implement: impl2 }), emit: () => undefined };
+  n.startNrdGate(ctx2, new AbortController().signal, {} as never, [], (async () => { throw new Error("boom"); }) as never); await n.settleNrd(ctx2);
+  row("overlap_error", [impl2.no_regression?.status, String(impl2.no_regression?.receipt?.[0]).startsWith("NOT PROVEN: regression check incomplete: boom")].join(","));
+}
 
 // ---------- the gate on real repos ----------
 const sh = (cwd: string, ...a: string[]): string => execFileSync("git", ["-C", cwd, ...a], { encoding: "utf8" });
@@ -2716,6 +2815,7 @@ row("go_replay_seen", done["go_gitlog_edit_bad"]!.r.receipt.some((l: string) => 
 row("go_judge_incomplete", [String(done["go_judge_down"]!.r.receipt?.[0]).startsWith("NOT PROVEN: regression check incomplete: model transport"), (done["go_judge_empty"]!.r.receipt as string[]).some((l) => l.startsWith("NOT PROVEN: regression check incomplete: the judge reply was empty")), done["go_judge_empty"]!.r.status].join(","));
 row("go_notrun", [done["go_relreplace"]!.r.status, (done["go_relreplace"]!.r.receipt as string[]).some((l) => l.startsWith("NOT PROVEN: regression check not run: the probe program did not build")), done["go_budget0"]!.r.status, (done["go_budget0"]!.r.receipt as string[]).some((l) => l.startsWith("NOT PROVEN: regression check not run: the 0 s wall budget")), done["go_budget_slow_judge"]!.r.status].join(","));
 { const { repo, base } = mk("gitlog", "none"); writeFileSync(join(repo, "mine.local"), "x\n"); const sc = n.makeScratch(repo, base, new Set(), ["mine.local"]); row("go_untracked_both", [existsSync(join(sc.base, "mine.local")), existsSync(join(sc.patched, "mine.local"))].join(",")); sc.dispose(); const sc2 = n.makeScratch(repo, base, new Set()); row("go_untracked_agent_only", [existsSync(join(sc2.base, "mine.local")), existsSync(join(sc2.patched, "mine.local"))].join(",")); sc2.dispose(); }
+{ const { repo, base } = mk("gitlog", "docs"); const given = n.makeScratch(repo, base, new Set(), [], []), own = n.makeScratch(repo, base, new Set()); row("go_scratch_given_diff", [existsSync(join(given.patched, "NOTES.md")), existsSync(join(own.patched, "NOTES.md"))].join(",")); given.dispose(); own.dispose(); }
 row("go_judge_down_reason", String(done["go_judge_down"]!.r.reason).slice(0, 56));
 row("go_unknown_advisory", done["go_gitlog_shared"]!.r.receipt.some((l: string) => l.startsWith("advisory:")) && done["go_gitlog_shared"]!.r.status === "fired");
 
@@ -2738,6 +2838,8 @@ ncheck "no changed keep case and no replay finding makes no judge call" fake_noc
 ncheck "an extra unasked change (--reverse) in the asked function CommitsCmd is not a change case, so it is judged; the requested removal alone is a change case and is not" change_repro "false,true"
 ncheck "the fix-round group is read on the first verify only and only when well formed" groups "1,0,0,0"
 ncheck "default on, =0 opts out" knob "true,false,true"
+ncheck "overlap: implement starts the differential and returns; settle waits for it, writes it into the implement output current at that time (a replaced one too), records nrd.completed once, and its group reaches the first verify; default on, LOKI_E10_NRD_OVERLAP=0 opts out" overlap "true,true,fired,1,nrd.completed,true,false"
+ncheck "overlap: a differential that throws settles as a receipt-only NOT PROVEN error, never a hang" overlap_error "error,true"
 ncheck "the exec-spec probe rules stay byte-identical (cache-stable); the NRD kind rules extend them as one fixed suffix, the keep list is per run" rules "true,true"
 ncheck "go: the shared-helper fix (lh-1474 shape) fires on the authors command, one group, probe call plus judge" go_gitlog_shared "fired|nrd-probe+judge|1"
 ncheck "go: a param-threaded fix does not fire (one judge call confirms the changed variant of the named function is requested)" go_gitlog_param "clean|judge|0"
@@ -2758,6 +2860,7 @@ ncheck "go: a scratch build that fails (go.mod replace to a relative path outsid
 ncheck "go: the user's own untracked files are in both scratch copies, a file only the agent added is in patched alone" go_untracked_both "true,true"
 ncheck "go: an untracked file that is not listed as the user's is in neither copy until the diff adds it" go_untracked_agent_only "false,true"
 ncheck "go: a judge call that throws is a receipt-only error, never a group" go_judge_down "error|nrd-probe+judge|0"
+ncheck "go: the patched scratch copy is built from the diff the gate snapshotted before verify began, never from what the tree holds later" go_scratch_given_diff "false,true"
 ncheck "go: the error names the cause" go_judge_down_reason "no-regression skipped: model transport blew up"
 ncheck "go: an unknown verdict is advisory on the receipt, never blocking" go_unknown_advisory "true"
 ncheck "go: the user's tree (files, git status, worktrees, branches) is byte-identical after a run and no scratch dir is left, also with a rewritten test and a failing judge" go_tree_untouched "true,true,true,true"
@@ -2772,6 +2875,13 @@ fi
 else
     if [ "${LOKI_STACKS_REQUIRE:-0}" = 1 ]; then bad "no-regression: go is not installed (LOKI_STACKS_REQUIRE=1: this leg must run here)"; else echo "  SKIP: no-regression: go is not installed"; fi
 fi
+# SPEED-NRD-OVERLAP wiring: verify settles the differential before it reads the implement output for the fix-round group; seal settles it before it reads any output.
+v_settle="$(grep -n 'await settleNrd(ctx)' "$ROOT/loki-ts/src/engine10/stages/verify.ts" | head -1 | cut -d: -f1)"; v_group="$(grep -n 'nrdGroupsFor(ctx.outputs().implement' "$ROOT/loki-ts/src/engine10/stages/verify.ts" | head -1 | cut -d: -f1)"
+s_settle="$(grep -n 'await settleNrd(ctx)' "$ROOT/loki-ts/src/engine10/stages/seal.ts" | head -1 | cut -d: -f1)"; s_out="$(grep -n 'const o = ctx.outputs(), stale = staleAtSeal' "$ROOT/loki-ts/src/engine10/stages/seal.ts" | head -1 | cut -d: -f1)"
+i_start="$(grep -c 'if (overlap) startNrdGate(ctx, signal, session' "$ROOT/loki-ts/src/engine10/stages/implement.ts")"
+[ -n "$v_settle" ] && [ -n "$v_group" ] && [ "$v_settle" -lt "$v_group" ] && [ -n "$s_settle" ] && [ -n "$s_out" ] && [ "$s_settle" -lt "$s_out" ] && [ "$i_start" = 1 ] \
+    && ok "no-regression overlap: implement starts the differential under the knob, verify settles it before the fix-round group is read, seal before any output is read" \
+    || bad "no-regression overlap wiring: verify settle line '$v_settle' group line '$v_group', seal settle '$s_settle' outputs '$s_out', implement start count '$i_start'"
 # ---------------------------------------------------------------- site hints (LOKI_E10_SITE_HINTS, default on: edit-shape sites in the fix and coverage briefs)
 cat > "$T/site-hints.ts" <<'TS'
 import { execFileSync } from "node:child_process";
@@ -2814,7 +2924,7 @@ res("buildFixBrief carries the hints when given and is unchanged when not", fb.i
 const rb = buildFixResumeBrief([], null, null, 0, [], h), rb0 = buildFixResumeBrief([], null, null, 0, []);
 res("buildFixResumeBrief carries the hints when given and is unchanged when not", rb.includes(h) && !rb0.includes(h) && rb.replace(`${h}\n\n`, "") === rb0);
 const cr = readFileSync(root + "/loki-ts/src/util/conflict_resume.ts", "utf8"), fx = readFileSync(root + "/loki-ts/src/engine10/stages/fix.ts", "utf8");
-res("wiring: resumeForCoverage appends siteHints to the coverage brief (claim or plain) and fix.ts passes siteHints to both briefs", /const hints = siteHints\(ctx\), base = claims \? COVERAGE_CLAIM_BRIEF : COVERAGE_BRIEF, r = await resumeWith\(ctx, first, firstSession, hints \? `\$\{base\}/.test(cr) && /const hints = siteHints\(ctx\);/.test(fx) && /holdoutFailed, hints\)/.test(fx) && /\), hints\)\); \/\/ one session/.test(fx));
+res("wiring: resumeForCoverage appends siteHints to the coverage brief (claim or plain) and fix.ts passes siteHints to both briefs", /const hints = siteHints\(ctx\), base = claims \? COVERAGE_CLAIM_BRIEF : COVERAGE_BRIEF, r = await resumeWith\(ctx, capped, firstSession, hints \? `\$\{base\}/.test(cr) && /const hints = siteHints\(ctx\);/.test(fx) && /holdoutFailed, hintsPlus\)/.test(fx) && /\), hintsPlus\)\); \/\/ one session/.test(fx) && /const hintsPlus = \[hints, /.test(fx));
 TS
 out="$(cd "$ROOT/loki-ts" && bun "$T/site-hints.ts" "$ROOT" 2>&1; echo "EXIT $?")"
 printf '%s\n' "$out" | grep -q '^EXIT 0$' || bad "site-hints unit script crashed or exited non-zero"
