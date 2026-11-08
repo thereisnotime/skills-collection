@@ -84,7 +84,7 @@ const PEER_OUTCOME_BASE_REF = "fac349c0c31a543d497fd4825af9b44bdb7e7dfe"
 const PEER_OUTCOME_LIVE_TASK =
   "Use ce-code-review mode:agent to review the staged change. Run the actual review workflow, including any reviewers or peers it dispatches. Do not apply fixes, commit, publish, or create tickets."
 const peerOutcomeReportLeafTask = (runDir: string) =>
-  `You are the report leaf of the ce-code-review skill. The run directory is ./${runDir}. Read ${runDir}/finish-input.json, ${runDir}/synthesized-findings.json, and ${runDir}/validator-outcome.json, then read the skill's references/finish-input.md (its report leaf section) and references/finish-review.md, and do the report leaf's work. Do not write the stage log, metadata.json, or run summarize; the only file to write is ${runDir}/review.json. Return the final report exactly as the report leaf returns it.`
+  `You are the report leaf of the ce-code-review skill. The run directory is ./${runDir}. Read ${runDir}/finish-input.json, ${runDir}/synthesized-findings.json, and ${runDir}/validator-outcome.json, then read the skill's references/finish-input.md (its report leaf section) and references/finish-report.md (references/finish-review.md in skill versions that have no finish-report.md), and do the report leaf's work. Do not write the stage log, metadata.json, or run summarize; the only file to write is ${runDir}/review.json. Return the final report exactly as the report leaf returns it.`
 /** The working tree, not HEAD — the post arm exists to grade the edit you have not committed yet. */
 export const POST_SWEEP_REF = WORKTREE_REF
 
@@ -980,6 +980,118 @@ const SETUP_UNATTENDED_ROWS: Scenario[] = [
     },
     "setup-instructions-gap",
   ),
+]
+
+/** main before setup refreshed config files written from an older template. */
+const SETUP_CONFIG_REFRESH_BASE_REF = "5702b7b2e9449a2e38044fd429f5372bfa309ce3"
+const SETUP_CONFIG_REFRESH_TASK =
+  "Use the ce-setup skill to check and fix this repository's Compound Engineering setup. I approve every change you preview: write them all without asking me again, and do not commit. Decline the offers to draft review docs and to warm the npm cache."
+const SETUP_TEAM_NOTE = "# Team: Codex reviews everything we ship."
+const SETUP_CURRENT_PEER = "cross_model_peer: codex          # codex | claude | grok | antigravity | cursor | composer | opencode"
+const SETUP_OLD_PEER_OPTIONS = "# codex | claude | grok | cursor | composer\n"
+
+function setupConfigRefreshRow(name: string, fixture: string, why: string, pre_contract: string, grade: Grade, task = SETUP_CONFIG_REFRESH_TASK): Scenario {
+  return {
+    id: `ce-setup/${name}`,
+    skill: "ce-setup",
+    baseline_ref: SETUP_CONFIG_REFRESH_BASE_REF,
+    cohort: "untouched",
+    key_behavior: "mutation",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/${fixture}`,
+    timeout_secs: 1200,
+    why,
+    pre_contract,
+    task,
+    grade,
+  }
+}
+
+/** Per tests/skill-eval-cell/packs/ce-setup-config-refresh.md. */
+const SETUP_CONFIG_REFRESH_ROWS: Scenario[] = [
+  setupConfigRefreshRow(
+    "config-refresh-rebuilds-old-config-yaml",
+    "setup-config-refresh-august",
+    "A config.yaml copied from the 2026-08-12 template comes out on the current template with the active setting and the team's comment in its slot, and the current option list.",
+    "Setup never touches an existing config.yaml.",
+    {
+      workspace_contains: [
+        { path: ".compound-engineering/config.yaml", needle: "# ce-config-template-version: 1\n" },
+        { path: ".compound-engineering/config.yaml", needle: `${SETUP_TEAM_NOTE}\n${SETUP_CURRENT_PEER}\n` },
+      ],
+      workspace_lacks: [{ path: ".compound-engineering/config.yaml", needle: SETUP_OLD_PEER_OPTIONS }],
+    },
+  ),
+  setupConfigRefreshRow(
+    "config-refresh-cuts-down-legacy-local",
+    "setup-config-refresh-legacy-local",
+    "A pre-cascade full-template config.local.yaml is cut down to the setting and comment the team added. The retired fable and delegation keys are removed with reasons that name what replaced them, and plan_model is not switched on.",
+    "Setup never touches config.local.yaml; the health report warns about plan_use_fable only.",
+    {
+      must_include_any: [["plan_model"]],
+      workspace_contains: [
+        { path: ".compound-engineering/config.local.yaml", needle: `${SETUP_TEAM_NOTE}\ncross_model_peer: codex` },
+      ],
+      workspace_lacks: [
+        { path: ".compound-engineering/config.local.yaml", needle: "plan_use_fable" },
+        { path: ".compound-engineering/config.local.yaml", needle: "work_delegate" },
+        { path: ".compound-engineering/config.local.yaml", needle: "\nplan_model:" },
+        { path: ".compound-engineering/config.local.yaml", needle: "# --- Artifact root ---" },
+      ],
+    },
+  ),
+  setupConfigRefreshRow(
+    "config-refresh-refuses-duplicate-keys",
+    "setup-config-refresh-refused",
+    "A config.yaml with a duplicate top-level key is refused: no write, and the summary names the problem instead of guessing which value wins.",
+    "Setup never touches an existing config.yaml.",
+    {
+      must_include_any: [["duplicate"]],
+      workspace_contains: [
+        {
+          path: ".compound-engineering/config.yaml",
+          needle: "packs:\n  - source: packs/team-rules\ncross_model_peer: codex\npacks:\n  - source: packs/other-rules\n",
+        },
+      ],
+    },
+  ),
+  setupConfigRefreshRow(
+    "config-refresh-current-file-is-left-alone",
+    "setup-config-refresh-current",
+    "A config.yaml already on the current template, with a team setting, needs nothing: setup writes nothing to it and asks nothing about it.",
+    "Setup never touches an existing config.yaml.",
+    {
+      workspace_contains: [
+        { path: ".compound-engineering/config.yaml", needle: `# ce-config-template-version: 1\n` },
+        { path: ".compound-engineering/config.yaml", needle: `${SETUP_TEAM_NOTE}\n${SETUP_CURRENT_PEER}\n` },
+      ],
+      no_new_commits: true,
+    },
+  ),
+  {
+    ...setupConfigRefreshRow(
+      "config-refresh-unattended-publishes-tracked-only",
+      "setup-config-refresh-unattended",
+      "A non-interactive run applies the config.yaml refresh in its pull request and leaves the gitignored config.local.yaml for a person, only reporting its retired setting.",
+      "Setup never touches either config file.",
+      {
+        committed_must: [".compound-engineering/config.yaml"],
+        must_include_any: [["Setup complete:", "Setup skipped:"]],
+        workspace_contains: [
+          { path: ".compound-engineering/config.yaml", needle: `${SETUP_TEAM_NOTE}\n${SETUP_CURRENT_PEER}\n` },
+          { path: ".compound-engineering/config.local.yaml", needle: "plan_use_fable: true" },
+        ],
+      },
+      "Use the ce-setup skill with these arguments: mode:non-interactive.",
+    ),
+    key_behavior: "delegation",
+    git_remote: true,
+    shim_git_push: true,
+    shim_gh_pr: true,
+    with_skill: ["ce-commit-push-pr"],
+    timeout_secs: 1500,
+  },
 ]
 
 /** Cheap read-only cells that pin a real decision. Live mutation/delegation is not in this set. */
@@ -4285,7 +4397,7 @@ Include exactly one line \`ROUTE: verdict\` or \`ROUTE: brainstorm\` in your ans
 
 Prepare the merge input and run the skill's findings helper. Use a local run/ directory for scratch artifacts. Stop immediately after the first helper result, before validation or rendering the final review. Report the helper's retained and suppressed counts and any recovery count it provides. Do not edit the supplied artifacts or the helper.`,
     grade: {
-      files_read_post: ["references/finish-review.md"],
+      files_read_post: ["references/finish-merge.md"],
       workspace_contains: [{ path: "run/mechanical-findings.json", needle: '"first_evidence_backfilled": 1' }],
     },
   },
@@ -4301,7 +4413,7 @@ Prepare the merge input and run the skill's findings helper. Use a local run/ di
     timeout_secs: 300,
     why: "#1693: the validator could reject a protected-subject finding without evidence and the report leaf dropped it. Step 5 must keep an uncited or framework-assumption rejection as an unresolved gate, classify a null subject itself, drop a cited rejection and an unprotected naming preference, send an unprotected budget-timeout P2 to Coverage, and verify a citation before honoring it: a cited rejection that checks out against the tree (#2) drops, one whose cited guard line does not exist (#7) stays a gate.",
     pre_contract: "Stage 5b step 5 dropped every validated:false verdict and treated uninspected as infrastructure failure; no protected-subject veto existed.",
-    task: `You are the report leaf of the ce-code-review skill. The run directory is ./run. Read run/finish-input.json, run/synthesized-findings.json, run/validator-outcome.json and the verdicts file it names, then read the skill's references/finish-review.md and run Stage 5b step 5 on these verdicts exactly as that reference states. Inspect source files under src/ read-only if you need to.
+    task: `You are the report leaf of the ce-code-review skill. The run directory is ./run. Read run/finish-input.json, run/synthesized-findings.json, run/validator-outcome.json and the verdicts file it names, then read the skill's references/finish-report.md (references/finish-review.md in skill versions that have no finish-report.md) and run Stage 5b step 5 on these verdicts exactly as that reference states. Inspect source files under src/ read-only if you need to.
 
 Stop after step 5. Do not run Stage 5c or Stage 6 and do not write any files. Output only this block, one line per finding number 1 through 7, nothing else:
 
@@ -6874,6 +6986,7 @@ Use "Correct widget limit" as the description in the subject and any required bo
     },
   },
   ...SETUP_UNATTENDED_ROWS,
+  ...SETUP_CONFIG_REFRESH_ROWS,
   {
     id: "ce-compound/standards-request-routes-to-setup",
     post_only: true,

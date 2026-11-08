@@ -11125,7 +11125,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
       "lines": 42,
-      "words": 1219,
+      "words": 1198,
       "code_blocks": 0,
       "languages": []
     },
@@ -11145,7 +11145,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
       "lines": 96,
-      "words": 1129,
+      "words": 1139,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -15074,13 +15074,13 @@
       "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templates (.dotx files). Triggers include: any mention of 'Word doc', 'word document',",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/docx/SKILL.md",
       "remote_path": ".claude/skills/docx/SKILL.md",
-      "lines": 100,
-      "words": 1003,
+      "lines": 92,
+      "words": 974,
       "code_blocks": 3,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "scholar-evaluation",
@@ -15195,14 +15195,14 @@
       "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rota",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/pdf/SKILL.md",
       "remote_path": ".claude/skills/pdf/SKILL.md",
-      "lines": 323,
-      "words": 1047,
+      "lines": 315,
+      "words": 1007,
       "code_blocks": 18,
       "languages": [
         "bash",
         "python"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "research-lookup",
@@ -15300,16 +15300,16 @@
     },
     {
       "name": "xlsx",
-      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm, .xltx) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, a",
+      "description": "\"Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .xltx, .csv, or .tsv file (e",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/xlsx/SKILL.md",
       "remote_path": ".claude/skills/xlsx/SKILL.md",
-      "lines": 111,
-      "words": 1276,
+      "lines": 100,
+      "words": 1313,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "literature-review",
@@ -15329,13 +15329,40 @@
       "description": "\"Use this skill any time a .pptx or .potx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting t",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/pptx/SKILL.md",
       "remote_path": ".claude/skills/pptx/SKILL.md",
-      "lines": 247,
-      "words": 3157,
+      "lines": 239,
+      "words": 3128,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
+    },
+    {
+      "name": "pdf",
+      "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rota",
+      "path": "K-Dense-AI--claude-scientific-writer/skill-overrides/pdf/SKILL.md",
+      "remote_path": "skill-overrides/pdf/SKILL.md",
+      "lines": 315,
+      "words": 1007,
+      "code_blocks": 18,
+      "languages": [
+        "bash",
+        "python"
+      ],
+      "license": "Complete terms in LICENSE.txt"
+    },
+    {
+      "name": "xlsx",
+      "description": "\"Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .xltx, .csv, or .tsv file (e",
+      "path": "K-Dense-AI--claude-scientific-writer/skill-overrides/xlsx/SKILL.md",
+      "remote_path": "skill-overrides/xlsx/SKILL.md",
+      "lines": 100,
+      "words": 1313,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "scientific-critical-thinking",
@@ -15420,13 +15447,13 @@
       "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templates (.dotx files). Triggers include: any mention of 'Word doc', 'word document',",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/docx/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/docx/SKILL.md",
-      "lines": 100,
-      "words": 1003,
+      "lines": 92,
+      "words": 974,
       "code_blocks": 3,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "scholar-evaluation",
@@ -15541,14 +15568,14 @@
       "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rota",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/pdf/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/pdf/SKILL.md",
-      "lines": 323,
-      "words": 1047,
+      "lines": 315,
+      "words": 1007,
       "code_blocks": 18,
       "languages": [
         "bash",
         "python"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "research-lookup",
@@ -15646,16 +15673,16 @@
     },
     {
       "name": "xlsx",
-      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm, .xltx) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, a",
+      "description": "\"Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .xltx, .csv, or .tsv file (e",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/xlsx/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/xlsx/SKILL.md",
-      "lines": 111,
-      "words": 1276,
+      "lines": 100,
+      "words": 1313,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "literature-review",
@@ -15675,13 +15702,13 @@
       "description": "\"Use this skill any time a .pptx or .potx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting t",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/pptx/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/pptx/SKILL.md",
-      "lines": 247,
-      "words": 3157,
+      "lines": 239,
+      "words": 3128,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "scientific-critical-thinking",
@@ -15766,13 +15793,13 @@
       "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templates (.dotx files). Triggers include: any mention of 'Word doc', 'word document',",
       "path": "K-Dense-AI--claude-scientific-writer/skills/docx/SKILL.md",
       "remote_path": "skills/docx/SKILL.md",
-      "lines": 100,
-      "words": 1003,
+      "lines": 92,
+      "words": 974,
       "code_blocks": 3,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "scholar-evaluation",
@@ -15887,14 +15914,14 @@
       "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rota",
       "path": "K-Dense-AI--claude-scientific-writer/skills/pdf/SKILL.md",
       "remote_path": "skills/pdf/SKILL.md",
-      "lines": 323,
-      "words": 1047,
+      "lines": 315,
+      "words": 1007,
       "code_blocks": 18,
       "languages": [
         "bash",
         "python"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "research-lookup",
@@ -15992,16 +16019,16 @@
     },
     {
       "name": "xlsx",
-      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm, .xltx) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, a",
+      "description": "\"Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .xltx, .csv, or .tsv file (e",
       "path": "K-Dense-AI--claude-scientific-writer/skills/xlsx/SKILL.md",
       "remote_path": "skills/xlsx/SKILL.md",
-      "lines": 111,
-      "words": 1276,
+      "lines": 100,
+      "words": 1313,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "literature-review",
@@ -16021,13 +16048,13 @@
       "description": "\"Use this skill any time a .pptx or .potx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting t",
       "path": "K-Dense-AI--claude-scientific-writer/skills/pptx/SKILL.md",
       "remote_path": "skills/pptx/SKILL.md",
-      "lines": 247,
-      "words": 3157,
+      "lines": 239,
+      "words": 3128,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "license": "Proprietary. LICENSE.txt has complete terms"
+      "license": "Complete terms in LICENSE.txt"
     }
   ],
   "NeoLabHQ--context-engineering-kit": [
@@ -147566,8 +147593,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/SKILL.md",
       "remote_path": "feishu-doc-scraper/SKILL.md",
-      "lines": 269,
-      "words": 4447,
+      "lines": 271,
+      "words": 4468,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -147603,8 +147630,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 980,
-      "words": 3452,
+      "lines": 986,
+      "words": 3467,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -147744,8 +147771,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 297,
-      "words": 2497,
+      "lines": 299,
+      "words": 2653,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -148870,8 +148897,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/references/original-media-and-reader.md",
       "remote_path": "feishu-doc-scraper/references/original-media-and-reader.md",
-      "lines": 203,
-      "words": 1704,
+      "lines": 209,
+      "words": 1749,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -149100,8 +149127,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/asr-transcribe-to-text/SKILL.md",
       "remote_path": "daymade-audio/asr-transcribe-to-text/SKILL.md",
-      "lines": 1039,
-      "words": 7781,
+      "lines": 1053,
+      "words": 7922,
       "code_blocks": 40,
       "languages": [
         "bash",
@@ -149547,8 +149574,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 243,
-      "words": 3271,
+      "lines": 244,
+      "words": 3297,
       "code_blocks": 0,
       "languages": []
     },
@@ -168701,6 +168728,18 @@
       "languages": []
     },
     {
+      "name": "sessiondex",
+      "description": "This skill should be used when finding, listing, or reading past AI agent sessions across Codex, Claude Code, OpenCode, and Pi from one local full-text index. Triggers on \"recent sessions\", \"recent Co",
+      "path": "glebis--claude-skills/sessiondex/SKILL.md",
+      "remote_path": "sessiondex/SKILL.md",
+      "lines": 57,
+      "words": 434,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "github-gist",
       "description": "Publish files or Obsidian notes as GitHub Gists. Use when user wants to share code/notes publicly, create quick shareable snippets, or publish markdown to GitHub. Triggers include \"publish as gist\", \"",
       "path": "glebis--claude-skills/github-gist/SKILL.md",
@@ -169241,7 +169280,7 @@
       "path": "glebis--claude-skills/pii-pdf/SKILL.md",
       "remote_path": "pii-pdf/SKILL.md",
       "lines": 83,
-      "words": 1009,
+      "words": 1047,
       "code_blocks": 4,
       "languages": [
         "sh"
@@ -169416,8 +169455,8 @@
       "description": "Research technical approaches, execute a bounded comparison, and deliver reusable integration-quality code with a reproducible experiment. Use when the user wants to investigate open/local tools, comp",
       "path": "glebis--claude-skills/research-to-integration/SKILL.md",
       "remote_path": "research-to-integration/SKILL.md",
-      "lines": 62,
-      "words": 1052,
+      "lines": 70,
+      "words": 1281,
       "code_blocks": 0,
       "languages": []
     },

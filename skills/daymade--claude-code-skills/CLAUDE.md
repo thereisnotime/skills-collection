@@ -70,8 +70,10 @@ Its verification reference owns dual-entry reconciliation and native-host readba
 keep the detailed procedure there.
 For a valid check that emits warnings, follow its
 [warning interpretation](daymade-skill/skill-creator/references/knowledge-skill-grounding.md#interpret-validation-warnings).
-For course/original-video uploads, ASR input preparation, local/remote ASR selection,
-speed comparison and speech-content acceptance, enter
+For original audio/video or original-speed upload requests, start with
+[media routing](daymade-audio/asr-transcribe-to-text/SKILL.md#route-before-asr-the-transcript-is-the-result-not-the-run).
+For ASR input preparation, local/remote ASR selection, speed comparison and
+speech-content acceptance, enter
 [asr-transcribe-to-text](daymade-audio/asr-transcribe-to-text/SKILL.md) and its
 [execution SOP](daymade-audio/asr-transcribe-to-text/references/execution_location_and_comparison.md).
 For Scrapling browser-cache diagnosis, follow
@@ -317,6 +319,10 @@ Before drawing page relationships or a click-through journey, use
 [the topology/visit distinction](data-visualization-discipline/references/visual-form-selection.md#关系拓扑与有序旅程).
 For live status, attention filters, retention intent or excluded-record recovery, follow its
 [cross-view attention journey](frontend-visual-qa/references/journey-and-page-contracts.md#operational-attention-across-views).
+For audits of asset-ledger hierarchy, row selection or issue resolution, follow its
+[operational asset review](frontend-visual-qa/references/journey-and-page-contracts.md#operational-asset-review-select-understand-resolve).
+For shared controls or help mounted outside the workspace's style scope, use its
+[scoped-style and portal checks](frontend-visual-qa/references/journey-and-page-contracts.md#scoped-styles-and-portal-content).
 For embedded-reader sizing, surrounding navigation, overlays, zoom, reading/return,
 focus or filtered-selection changes, use its
 [reader journey](frontend-visual-qa/references/journey-and-page-contracts.md#embedded-readers-and-semantic-zoom).
@@ -451,6 +457,8 @@ Before choosing or changing any periodic observer's cadence, follow
 [macos-watchdog's observation contract](daymade-macos/macos-watchdog/references/probe-cost.md).
 Before choosing an observer's failure-notification threshold, follow
 [observation-failure timing](daymade-macos/macos-watchdog/references/alert-discipline.md#observation-failure-timing).
+When a local job emitted a notification but its banner or card is not visible, follow
+[local notification diagnosis](daymade-macos/macos-watchdog/references/alert-discipline.md#local-notifications-are-not-visible).
 For named macOS load/runaway alerts, follow
 [macos-load-doctor's intervention and diagnosis-completion contract](daymade-macos/macos-load-doctor/SKILL.md#5-act-within-the-boundary).
 For memory pressure or suspected child-process leaks, enter that Skill's
@@ -706,6 +714,9 @@ Before switching an existing Codex session, or recovering one after login change
 For a remote Codex sign-in prompt or choosing existing-login reuse versus new authorization, start at
 [Local Codex authentication recovery](daymade-codex/local-codex/references/oauth-guide.md#remote-account-switch-and-expired-login-recovery).
 Keep quota checks on the separate route below.
+
+For stopping a Tibo monitor or ending reset tracking, enter the
+[host lifecycle route](tibo-reset-codex/SKILL.md#停用监控先走宿主操作).
 
 For Codex reset announcements or account quota questions, enter
 [tibo-reset-codex](tibo-reset-codex/SKILL.md). Follow its
