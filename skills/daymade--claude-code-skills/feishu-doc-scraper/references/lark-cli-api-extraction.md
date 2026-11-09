@@ -2,20 +2,6 @@
 
 The primary, highest-fidelity way to turn a Feishu/Lark source into Markdown. Everything here was verified end-to-end on a real multi-document collection import (lark-cli 1.0.27 and 1.0.32, 2026-05; re-verified on 1.0.55, 2026-06 — which is where the docs-body and sheet field paths below changed, see Steps 3–4).
 
-## Contents
-
-- Why API over browser
-- Step 0: proxy and auth preflight
-- Step 1: classify the URL
-- Step 2: resolve wiki node → doc token
-- Step 3: fetch the body programmatically
-- Step 4: spreadsheets
-- Step 5: the reference-graph recursion (collections/hubs)
-- Step 6: cross-tenant and personal-space sources
-- Step 7: frontmatter and provenance
-- Command troubleshooting
-- What a clean run looks like
-
 ## Why API over browser
 
 On real collection work the lark-cli path did the entire job and the browser path was never needed, because the API path:
@@ -76,17 +62,49 @@ selected threads before summarizing. Preserve its JSON and Markdown companion,
 add a visible discussion link beside the body, and report its scope and gaps.
 The same step applies to documents reached recursively in Step 5.
 
-The body field moved between lark-cli versions, so probe both instead of hard-coding one — this keeps working whichever version is installed:
+Choose a distinct `<sanitized-title>` for each source before running this recipe.
+For a refresh, select a new versioned path; existing notes and HTML captures are
+rejected rather than overwritten. The body field moved between lark-cli versions,
+so select the nonblank field from the actual response:
 
 ```bash
-lark-cli docs +fetch --doc <obj_token> --format json > /tmp/fetch.json 2> /tmp/fetch.err || exit 1
+note_md="<sanitized-title>.md"
+note_html="<sanitized-title>.html"
+if [ -e "$note_md" ] || [ -L "$note_md" ]; then
+  printf 'Refusing to overwrite existing note: %s\n' "$note_md" >&2
+  exit 1
+fi
+lark-cli docs +fetch --doc <obj_token> --format json --scope full --detail full > /tmp/fetch.json 2> /tmp/fetch.err || exit 1
+stage_md="$(mktemp "${note_md}.tmp.XXXXXX")" || exit 1
+stage_html="$(mktemp "${note_html}.tmp.XXXXXX")" || { rm -f "$stage_md"; exit 1; }
+trap 'rm -f "$stage_md" "$stage_html"' EXIT
+used_html=0
 # Select a nonblank string from the actual response; null/missing fields are not bodies.
-if jq -e -r '.data.markdown | strings | select(test("\\S"))' /tmp/fetch.json > "<sanitized-title>.md"; then
+if jq -e -r '.data.markdown | strings | select(test("\\S"))' /tmp/fetch.json > "$stage_md"; then
   : # got clean Markdown directly
 else
-  jq -e -r '.data.document.content | strings | select(test("\\S"))' /tmp/fetch.json > "<sanitized-title>.html" || exit 1
-  pandoc -f html -t gfm "<sanitized-title>.html" > "<sanitized-title>.md"
+  used_html=1
+  jq -e -r '.data.document.content | strings | select(test("\\S"))' /tmp/fetch.json > "$stage_html" || exit 1
+  pandoc -f html -t gfm "$stage_html" > "$stage_md" || exit 1
 fi
+if ! grep -q '[^[:space:]]' "$stage_md"; then
+  printf 'Refusing to publish an empty converted body: %s\n' "$note_md" >&2
+  exit 1
+fi
+if [ -e "$note_md" ] || [ -L "$note_md" ]; then
+  printf 'Refusing to overwrite existing note: %s\n' "$note_md" >&2
+  exit 1
+fi
+if [ "$used_html" -eq 1 ]; then
+  if [ -e "$note_html" ] || [ -L "$note_html" ]; then
+    printf 'Refusing to overwrite existing HTML capture: %s\n' "$note_html" >&2
+    exit 1
+  fi
+  mv "$stage_html" "$note_html" || exit 1
+fi
+mv "$stage_md" "$note_md" || exit 1
+rm -f "$stage_html" || exit 1
+trap - EXIT
 ```
 
 - On 1.0.55+ the HTML in `.data.document.content` carries Feishu structure as `<h1>/<table>/<cite doc-id=…>` tags; `pandoc -f html -t gfm` renders headings and ordinary tables faithfully. ⚠️ **But `<cite>` (mention-doc) and `<whiteboard token=…>` do NOT survive — pandoc drops them with zero trace** (verified 2026-08-16/17 against real documents; for `<cite>` not even the bare title text survives, since the title lives in a `title="…"` attribute and the tag body is empty). Because of this, **Step 5's extractor and leaf-gate must run against the saved `<sanitized-title>.html`, never against the pandoc-converted `.md`**, whenever this branch was taken — see Step 5 below. `--format markdown` is **not** a valid value (lark-cli warns and falls back to json).
@@ -202,7 +220,7 @@ grep -rlE '<(source|file|lark-table|lark-tr|sheet token=|mention-doc|cite doc-id
   && echo "UNRESOLVED — keep recursing" || echo "clean"
 ```
 
-⚠️ **On each document's saved `.html`, "empty" is not a literal stop condition.** Each `<sanitized-title>.html` (Step 3's per-document naming — never a literal shared `source.html` across a hub's multiple fetches, or the second fetch silently destroys the first) is an immutable raw capture of that one document — nothing in this skill rewrites a document's own file in place — so a hub doc that genuinely references N children or M diagrams keeps showing N+M matches forever in its own file, even after every one is correctly handled; chasing this grep to a literal zero across the whole directory will never terminate for a real hub. Treat each match as a worklist item: a `mention-doc`/`cite doc-id=`/`sheet` hit is resolved once the referenced child has actually been fetched and saved (as its own distinct file); a `whiteboard` hit is resolved once its preview `.jpg` was exported and Read (dispatch-table row above) — it is not a missing document to fetch, don't treat it as one. This grep still recurses over every file already on disk, so it naturally covers every document's raw `.html` saved in Step 3 alongside its pandoc-converted `.md` — no extra step needed there. (On the `.data.markdown` branch, where the fetched body is the deliverable Markdown itself, a literal empty result remains the simpler signal.)
+⚠️ **On each document's saved `.html`, "empty" is not a literal stop condition.** Follow the [per-document capture policy](#step-3-fetch-the-body-programmatically). A saved raw capture retains its original references even after their resources have been handled; chasing this grep to a literal zero across the whole directory will not terminate for a hub with references. Treat each match as a worklist item: a `mention-doc`/`cite doc-id=`/`sheet` hit is resolved once the referenced child has actually been fetched and saved as its own distinct file; a `whiteboard` hit is resolved once its preview `.jpg` was exported and Read (dispatch-table row above) — it is not a missing document to fetch. The recursive check covers each document's raw `.html` saved in Step 3 alongside its pandoc-converted `.md`. On the `.data.markdown` branch, where the fetched body is the deliverable Markdown itself, a literal empty result remains the simpler signal.
 
 ## Step 6: cross-tenant and personal-space sources
 
@@ -246,7 +264,7 @@ Single doc:
 $ export LARK_CLI_NO_PROXY=1
 $ lark-cli wiki spaces get_node --params '{"token":"<node_token>"}'
 {"code":0,"data":{"node":{"obj_token":"<DOC>","obj_type":"docx","has_child":false,...}}}
-$ lark-cli docs +fetch --doc <DOC> --format json > /tmp/f.json 2> /tmp/f.err
+$ lark-cli docs +fetch --doc <DOC> --format json --scope full --detail full > /tmp/f.json 2> /tmp/f.err || exit 1
 $ jq -r '.data.markdown' /tmp/f.json | wc -c
    6166
 $ LC_ALL=C grep -rl $'\xef\xbf\xbd' . ; echo "ffd_count=$?"

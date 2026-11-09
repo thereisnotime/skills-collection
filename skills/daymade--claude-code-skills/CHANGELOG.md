@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **report-with-html** (v1.5.0 → v1.5.1): Remove Skill-authored initial-navigation and rehosting restrictions from local HTTP preview guidance. Preserve the loopback manifest server and rendered-delivery verification.
+
+- **kimi-use** (v1.8.4 → v1.8.5): Distinguish backend input limitations, host permission refusals and unknown effects; verify authorized native recovery and upgrade outcomes separately.
+
+- **local-codex** (`daymade-codex` v2.4.7 → v2.4.8): Honor accepted interruption for official shared-backend upgrades without a global idle prerequisite; distinguish official pinned packages from custom builds and verify account-controller adoption separately. Enhanced migrations retain their own drain contract.
+- **feishu-doc-scraper** (v1.13.1 → v1.13.2): Keep the body-capture recipe in its API SOP, route the Skill and repository guide to it, and align refresh guidance with the existing refusal to overwrite notes. Remove the handwritten contents summary; extraction behavior is unchanged.
+- **feishu-doc-scraper** (v1.13.0 → v1.13.1): Reject empty converted bodies and validate the documented extraction recipes before publishing notes; preserve existing notes, original HTML and valid text or media bodies.
+- **local-codex** (`daymade-codex` v2.4.6 → v2.4.7): Separate client/backend provenance and official-package compatibility from optional patches; verify new and existing sessions independently and preserve unknown login receipts through supported reconciliation. Change type: bounded diagnostic and acceptance clarification.
+- **peer-message** (v1.25.0 → v1.25.1): Align preflight recovery and JSON error-receipt guidance with the existing complete-envelope limit handler; distinguish rejected preparation from an already prepared unsent message. Runtime behavior is unchanged.
+
+- **peer-message** (v1.24.10 → v1.25.0): Add optional native-envelope UTF-8 byte preflight to `coord prepare`; reject oversized messages atomically before retaining send reservations or state revisions. Preserve omitted-limit behavior, native delivery guards and receipt boundaries.
+
+- **terraform-skill** (v1.5.12 → v1.5.13): Add a certificate-maintenance replay case covering initial creation, next replacement and no-op through the complete publisher/lifecycle gate chain, with unsafe-context and deletion controls.
+- **daymade-skill** (v1.77.2 → v1.77.3): Align repository and suite instructions with the canonical publication, native-discovery and consumed-bundle workflows; remove duplicated setup details from the repository guide. Runtime interfaces and SOP definitions are unchanged.
+- **lark-cli-router** (v1.0.0 → v1.0.1): Distinguish deleted items from whole Wiki spaces, inspect the corresponding recovery surface, and keep recovery, archive coverage and deletion authorization separate. Change type: bounded recovery-routing correction.
+
+- **skill-creator / skill-governance** (`daymade-skill` v1.77.1 → v1.77.2): Add shared-plugin publication and source-alias adoption cases. Check concurrent release inputs before review and distinguish published content from the bundle actually consumed, preserving existing review, activation and merge gates.
+- **peer-message** (v1.24.9 → v1.24.10): Discover the complete current native tool surface before selecting a coordination transport; retain actual-schema, identity, delivery and fallback boundaries.
+
+- **macos-watchdog** (`daymade-macos` v1.30.3 → v1.30.4): Align suspected watchdog symptoms with actual action logs and Network Extension retry evidence; keep auto-cooldown from suppressing current-round state restoration and require honest DIRECT/proxy recovery semantics. Change type: bounded diagnostic and recovery-contract correction.
+- **tunnel-doctor** (v1.17.15 → v1.17.16): Distinguish Network Extension startup retries, exact-address listeners, real proxy requests and Tailscale backend state; add exiting-process evidence boundaries and latest-correction recovery checks. Change type: bounded diagnostic and recovery-guide correction.
+- **ghostty-use** (v1.11.5 → v1.11.6): Add a complete no-foreground GUI acceptance loop with current-keybinding discovery, per-ID readiness/missing outcomes, independent selected-tab/body readback and dynamic tab-set reconciliation. Change type: sampled acceptance-recipe extension; paste-based restore and existing authorization boundaries remain unchanged.
+- **kimi-use** (v1.8.3 → v1.8.4): Add a low-overhead native-tab traversal recipe combining selected-tab and document observation, with explicit delivery/readback, dynamic-identity and repeat-guard boundaries. Change type: sampled desktop-verification recipe extension.
+
 - **ghostty-use** (v1.11.4 → v1.11.5): Drop the incidental session count from the side-channel verification example; the durable criterion is window-visibility versus process-liveness, not a historical tally.
 - **feishu-doc-scraper** (v1.12.3 → v1.13.0): Inventory opaque clickable and plain-text website links before batch scope/volume decisions; preserve selected acquisition/upload/retention policy on continuation. Import verified original-preview recoveries offline into the existing attachment state and manifest while retaining failed-attempt history. Change type: additive discovery and recovery interfaces.
 

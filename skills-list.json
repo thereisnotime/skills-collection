@@ -10976,6 +10976,16 @@
       "languages": []
     },
     {
+      "name": "release-notes",
+      "description": "Draft release notes from merged pull requests since the last tag. Use when preparing a release.",
+      "path": "EveryInc--compound-engineering-plugin/tests/skill-eval-cell/fixtures/review-roster-skill-prose/skills/release-notes/SKILL.md",
+      "remote_path": "tests/skill-eval-cell/fixtures/review-roster-skill-prose/skills/release-notes/SKILL.md",
+      "lines": 13,
+      "words": 105,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "demo",
       "description": "Use when you want a demo.",
       "path": "EveryInc--compound-engineering-plugin/tests/skill-eval-cell/fixtures/standards-mixed-scope/skills/demo.md",
@@ -11054,8 +11064,8 @@
       "description": "\"Diagnosis loop for bugs and failing behavior. Use when asked to debug or fix failing or slow behavior.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
-      "lines": 127,
-      "words": 3045,
+      "lines": 129,
+      "words": 3143,
       "code_blocks": 1,
       "languages": []
     },
@@ -22678,12 +22688,12 @@
   "conorluddy--ios-simulator-skill": [
     {
       "name": "ios-simulator-skill",
-      "description": "Build, test, and drive iOS apps in the Simulator with 30 token-efficient scripts. Use when asked to build or test an Xcode project, launch an app on a simulator, tap/type/swipe through its UI by acces",
+      "description": "Build, test, and drive iOS apps in the Simulator with 31 token-efficient scripts. Use when asked to build or test an Xcode project, launch an app on a simulator, tap/type/swipe through its UI by acces",
       "path": "conorluddy--ios-simulator-skill/ios-simulator-skill/skills/ios-simulator-skill/SKILL.md",
       "remote_path": "ios-simulator-skill/skills/ios-simulator-skill/SKILL.md",
-      "lines": 472,
-      "words": 3805,
-      "code_blocks": 4,
+      "lines": 503,
+      "words": 4057,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ],
@@ -26554,7 +26564,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "remotion-maps",
@@ -26565,7 +26575,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "get-video-dimensions",
@@ -26588,7 +26598,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "get-audio-duration",
@@ -26625,7 +26635,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "import-srt-captions",
@@ -26651,7 +26661,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "display-captions",
@@ -26675,7 +26685,7 @@
       "words": 47,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "remotion-interactivity",
@@ -26689,20 +26699,20 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "remotion-best-practices",
       "description": "Router for all Remotion skills",
       "path": "remotion-dev--skills/skills/remotion-best-practices/SKILL.md",
       "remote_path": "skills/remotion-best-practices/SKILL.md",
-      "lines": 114,
-      "words": 610,
+      "lines": 117,
+      "words": 624,
       "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "transparent-videos",
@@ -26727,7 +26737,7 @@
       "words": 130,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "sfx",
@@ -26838,13 +26848,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 329,
-      "words": 1521,
+      "lines": 335,
+      "words": 1553,
       "code_blocks": 4,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "audio",
@@ -27043,7 +27053,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "rendering",
@@ -27098,7 +27108,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "remotion-upgrade",
@@ -27111,7 +27121,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "maps-mapbox",
@@ -27162,7 +27172,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "remotion-maps",
@@ -27173,7 +27183,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "get-video-dimensions",
@@ -27208,7 +27218,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "get-video-duration",
@@ -27233,7 +27243,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "import-srt-captions",
@@ -27272,7 +27282,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "remotion-license",
@@ -27283,7 +27293,7 @@
       "words": 47,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "remotion-interactivity",
@@ -27297,7 +27307,7 @@
         "sh",
         "tsx"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "transparent-videos",
@@ -27322,7 +27332,7 @@
       "words": 130,
       "code_blocks": 3,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "sfx",
@@ -27574,13 +27584,13 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 329,
-      "words": 1521,
+      "lines": 335,
+      "words": 1553,
       "code_blocks": 4,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "lottie",
@@ -27670,7 +27680,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "tailwind",
@@ -27693,7 +27703,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "remotion-upgrade",
@@ -27706,7 +27716,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "maps-mapbox",
@@ -27757,7 +27767,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "maps-mapbox",
@@ -27808,7 +27818,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.541"
+      "version": "4.0.542"
     },
     {
       "name": "maps-mapbox",
@@ -147593,9 +147603,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/SKILL.md",
       "remote_path": "feishu-doc-scraper/SKILL.md",
-      "lines": 271,
-      "words": 4468,
-      "code_blocks": 7,
+      "lines": 264,
+      "words": 4240,
+      "code_blocks": 6,
       "languages": [
         "bash"
       ]
@@ -147867,8 +147877,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1404,
-      "words": 14175,
+      "lines": 1405,
+      "words": 14248,
       "code_blocks": 72,
       "languages": [
         "bash",
@@ -148100,7 +148110,7 @@
       "path": "daymade--claude-code-skills/report-with-html/SKILL.md",
       "remote_path": "report-with-html/SKILL.md",
       "lines": 682,
-      "words": 7121,
+      "words": 7103,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -148199,8 +148209,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/lark-cli-router/SKILL.md",
       "remote_path": "lark-cli-router/SKILL.md",
-      "lines": 189,
-      "words": 1429,
+      "lines": 196,
+      "words": 1477,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -148211,8 +148221,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/references/local-coordination.md",
       "remote_path": "peer-message/references/local-coordination.md",
-      "lines": 321,
-      "words": 975,
+      "lines": 353,
+      "words": 1056,
       "code_blocks": 13,
       "languages": [
         "bash"
@@ -148247,8 +148257,8 @@
       "description": "Transport-neutral addressing, Claude UDS and Codex live/queued delivery, message envelopes, and receiver-side verification.",
       "path": "daymade--claude-code-skills/peer-message/references/protocol-and-discovery.md",
       "remote_path": "peer-message/references/protocol-and-discovery.md",
-      "lines": 356,
-      "words": 1690,
+      "lines": 357,
+      "words": 1692,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -149417,8 +149427,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-codex/local-codex/SKILL.md",
       "remote_path": "daymade-codex/local-codex/SKILL.md",
-      "lines": 186,
-      "words": 1272,
+      "lines": 190,
+      "words": 1293,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -149574,8 +149584,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 244,
-      "words": 3297,
+      "lines": 246,
+      "words": 3398,
       "code_blocks": 0,
       "languages": []
     },
@@ -169117,16 +169127,6 @@
       "lines": 42,
       "words": 256,
       "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
       "languages": []
     },
     {
