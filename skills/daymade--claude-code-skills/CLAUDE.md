@@ -145,8 +145,9 @@ For permission-sensitive fixtures, use Skill Creator's
 For resumable writes to human-edited state, use its
 [interrupted-write controls](daymade-skill/skill-creator/references/stateful-script-verification.md#interrupted-writes-and-later-human-changes).
 
-For its audit, release, source-contract or materialization commands from another
-working directory, use the [fixed command entry](daymade-skill/skill-creator/references/fixed-command-entry.md).
+For its audit, release or source-contract commands from another working directory,
+or Agent-facing materialization from any directory, use the
+[fixed command entry](daymade-skill/skill-creator/references/fixed-command-entry.md).
 For security scans, use its [absolute owner-script recipe](daymade-skill/skill-creator/references/publishing-and-packaging.md#step-6-security-review).
 
 Before a command that may exceed the response budget, enter the standalone
@@ -232,6 +233,11 @@ For growth analysis from sales or support conversations, enter
 [product-growth](product-growth/SKILL.md) and follow its
 [customer-conversation evidence recipe](product-growth/references/customer-conversations.md).
 
+For reopening or hosting existing HTML, enter
+[existing HTML restoration](report-with-html/references/local-http-preview.md#existing-html-restoration).
+For missing page files or attachments, follow
+[page and attachment recovery](daymade-claude-code/read-claude-code-history/references/page-and-attachment-recovery.md).
+
 For HTML report creation or updates, enter
 [report-with-html's Define success workflow](report-with-html/SKILL.md#workflow)
 for reader/use, evidence precision, delivery location and investigation acceptance.
@@ -270,6 +276,8 @@ For hook creation, consolidation, Skill-entry enforcement, registration or recov
 and follow its Build order and installer-owned recovery contract. Follow that
 Skill's loop and reminder contract; keep current thresholds in the
 owning implementation.
+For an owner crash, historical replay timeout or recovery that remains pending,
+use the Skill's [recovery failure triage](daymade-claude-code/claude-code-hooks/references/recovery-failure-triage.md).
 For an existing hook's usefulness, duplicate execution or latency, follow the
 [effect and cost audit](daymade-claude-code/claude-code-hooks/references/effect-and-cost-audit.md).
 For shared selection, source refresh, deadlines, status or rollback changes, load
@@ -302,7 +310,8 @@ For persistent Python service installation, environment reuse or startup, follow
 
 ### Rendered UI delivery acceptance
 
-For rendered UI freshness, multiline request/log tables, delayed editor/batch responses or deployment acceptance, enter
+For rendered UI freshness, long-list entry controls and actual scroll movement,
+multiline request/log tables, delayed editor/batch responses or deployment acceptance, enter
 [frontend-visual-qa](frontend-visual-qa/SKILL.md).
 For publication-wide clutter or AI Slop despite passing local checks, including
 controls, deks and expanded summaries, use its
@@ -499,11 +508,16 @@ validation behavior in
 [native_review.py](daymade-audio/transcript-fixer/scripts/native_review.py), and
 queue anchor behavior in
 [review_queue.py](daymade-audio/transcript-fixer/scripts/core/review_queue.py).
+For a failed queue operation, enter
+[pending execution state](daymade-audio/transcript-fixer/references/review_queue_dashboard.md#pending-execution-state)
+before choosing the continuation route.
 For same-line repeats or a legacy row needing an explicit slot, follow
 [occurrence anchoring](daymade-audio/transcript-fixer/references/review_queue_dashboard.md#same-line-occurrence-anchoring).
-For company slots or a short match inside a longer name, follow
+For Stage 1 domain trust, overlapping variants or deferred short-name expansions, follow
+[variant matching](daymade-audio/transcript-fixer/references/dictionary_identity_and_context.md#stage-1-variant-matching).
+For company slots or human adjudication of a short match inside a longer name, follow
 [minimum occurrence checks](daymade-audio/transcript-fixer/references/dictionary_identity_and_context.md#minimum-occurrence-checks-for-name-candidates).
-For wording supported by a parallel transcript, follow
+For finite written wording evidence, follow
 [written wording evidence](daymade-audio/transcript-fixer/references/review_queue_dashboard.md#written-evidence-for-ordinary-wording).
 Use the [CLI reference](daymade-audio/transcript-fixer/references/script_parameters.md#fix_transcriptionpy)
 to select the command; `fix_transcription.py` dispatch and command-combination
@@ -651,8 +665,10 @@ Before asking about mutable ownership or a publication window, use the
 [fresh-state preflight](peer-message/references/coordination-and-learning-loop.md#51-发现别人的在制品先核实再问等一个有界窗口).
 For an inbound coordination envelope, a native reply, original-input capture or a receive-integrity error, follow
 [receive, reply and closure](peer-message/references/local-coordination.md#收件回信和关闭).
-For a known inbound `peer-message` envelope ID in Codex, use the
+For a known inbound script or native coordination envelope ID in Codex, use the
 [original-envelope receive recipe](peer-message/references/local-coordination.md#从-codex-入站原件接收).
+If that cache does not cover the known inbound, use its
+[original host-event recovery](peer-message/references/local-coordination.md#入站缓存缺失时读取原始宿主事件).
 For oversized discovery responses or complete-title export, use its
 [discovery-output contract](peer-message/references/protocol-and-discovery.md#发现输出的范围).
 Current product availability, provenance, and inbound-control mechanics belong in
@@ -1030,11 +1046,13 @@ If it fires, fix the issue — do NOT use `--no-verify` to bypass.
 - Move detailed documentation to `references/` files
 - Avoid duplication between SKILL.md and references
 - Keep `tunnel-doctor` environment-neutral: it may teach discovery and presence checks, but exact private node labels, billing identities, endpoints, credentials, and current chain state remain in the owning private configuration/Skill and must not be copied into this public repository.
-- Kimi desktop input and tunnel diagnostics follow the current host-specific procedures in `kimi-use/references/driving-kimi-app.md` and `tunnel-doctor/SKILL.md`; a proxy bypass recommendation requires compared path evidence.
+- For kimi-cu desktop input or recovery, enter [desktop automation](kimi-use/references/kimi-cu-desktop-automation.md); for Kimi.app mode and driver setup, enter [driving Kimi.app](kimi-use/references/driving-kimi-app.md). Network-path diagnosis remains with [tunnel-doctor](tunnel-doctor/SKILL.md).
 - Scripts must be executable with proper shebangs
 - All bundled resources must be referenced in SKILL.md
 
 ## Marketplace Configuration
+
+For marketplace metadata changes, use the [repository checker](scripts/ci/check_marketplace.py) and its [regression cases](scripts/ci/test_check_marketplace.py); the executable check sequence is in [CI](.github/workflows/ci.yml).
 
 The marketplace is configured in `.claude-plugin/marketplace.json`:
 - Contains plugin entries: single-skill plugins point `source` directly at the skill directory (no `skills` field); any plugin entry with a non-empty `skills` array is a suite and uses those relative paths for multi-skill routing

@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **claude-code-hooks** (`daymade-claude-code` v5.1.8 → v5.1.9): Route repository-level recovery incidents to the owning triage reference and remove its derived fact count.
+
+- **claude-code-hooks** (`daymade-claude-code` v5.1.7 → v5.1.8): Triage input syntax, replay deadlines and consumer receipt failures separately; verify native result shape and the original obligation's completion before reporting recovery.
+
+- **peer-message** (v1.25.4 → v1.25.5): Recover a cache-missing native inbound from its exact original host event through the installed history reader; preserve the complete carrier and existing receive integrity and expiry checks.
+
+- **transcript-fixer** (daymade-audio v1.57.9 -> v1.57.10): align domain-trust and guard documentation with the existing runtime; route startup and Native instructions to the owning contracts, and remove derived navigation and guard counts.
+
+- **transcript-fixer** (`daymade-audio` v1.57.8 → v1.57.9): Prefer complete overlapping entity variants and defer ambiguous short-name expansions rather than produce an unverified name with a residual suffix.
+- **skill-creator** (`daymade-skill` v1.78.0 → v1.78.1): Keep materialization output and compatibility in the owning SOP, remove the handwritten operation inventory, and align repository entry triggers with Agent materialization and long-list acceptance.
+
+- **frontend-visual-qa** (v1.21.39 → v1.21.40): Verify first-entry critical controls and actual nested-list scroll movement while preserving ordinary table scrolling and source reading checks.
+- **skill-creator** (`daymade-skill` v1.77.3 → v1.78.0): Add the summary-first `materialize_agent` entry while preserving full receipts, child logs and the existing materialization interfaces.
+
+- **prior-work-retrieval** (`daymade-claude-code` v5.1.6 → v5.1.7): Match complete English code/codebase tokens so Codex and code identifiers do not trigger prior-work retrieval.
+
+- **report-with-html** (v1.6.0 → v1.6.1): Keep preview limits with their executable owner and route existing-page hosting and missing-asset recovery from repository instructions. Runtime behavior is unchanged.
+
+- **transcript-fixer** (`daymade-audio` v1.57.7 → v1.57.8): Route reviewed-file continuation through execution-blocker inspection before choosing more audio evidence, and align the repository entry with the finite written-wording contract.
+
+- **peer-message** (v1.25.3 → v1.25.4): Decode native Codex XML carrier entities once before verifying the prepared coordination envelope. Preserve payload whitespace, direct envelopes and strict digest and identity checks.
+- **report-with-html** (v1.5.1 → v1.6.0): Restore and host existing HTML through a bounded transport-only route. Stream large, explicitly listed media snapshots with HTTP range support while preserving small-preview compatibility and frozen content.
+- **read-claude-code-history** (`daymade-claude-code` v5.1.5 → v5.1.6): Recover page dependencies alongside HTML and distinguish original bytes, regenerated assets, screenshot-only evidence and missing media. Align recovery instructions with the helper's file-writing behavior.
+- **transcript-fixer** (`daymade-audio` v1.57.6 → v1.57.7): Separate execution blockers from undecided review items, allow bounded wording evidence, and recover anchors only through recorded successful edits; preserve name authority and refusal atomicity.
+
+- **peer-message** (v1.25.1 → v1.25.2): Read native Codex coordination envelopes from their exact history carrier, preserve the original inner payload, and verify sender and recipient before receive. Keep scripted intake and digest/lifecycle checks.
 - **report-with-html** (v1.5.0 → v1.5.1): Remove Skill-authored initial-navigation and rehosting restrictions from local HTTP preview guidance. Preserve the loopback manifest server and rendered-delivery verification.
+- **kimi-use** (v1.8.5 → v1.8.6): Keep recovery permission and retry rules with their owning sections, route desktop recovery from project instructions, and remove the optional duplicate marketplace description.
+- **Marketplace validation:** Accept omitted or empty-string descriptions, reject present non-string values, and exercise those boundaries in CI against the vendor schema contract.
 
 - **kimi-use** (v1.8.4 → v1.8.5): Distinguish backend input limitations, host permission refusals and unknown effects; verify authorized native recovery and upgrade outcomes separately.
 
@@ -3278,6 +3306,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Broken flagship install commands** ([#67](https://github.com/daymade/claude-code-skills/issues/67)): `claude plugin install skill-creator@daymade-skills` (plus `skill-reviewer` / `skills-search` / `doc-to-markdown`) failed because those are suite members, not standalone plugins. Corrected every occurrence across README.md, README.zh-CN.md, QUICKSTART.md, QUICKSTART.zh-CN.md to the suite name (`daymade-skill@daymade-skills` / `daymade-docs@daymade-skills`), invoked as `daymade-skill:skill-creator` etc.
 
 - **tibo-reset-codex** (v2.6.0 → v2.6.1): Deliver verified decision-changing information through the existing host contract before nonessential follow-up. Make preserving banked resets conditional on account evidence and the cost of delaying valuable work; preserve read-only hosting, notification permissions and manual redemption. Change type: bounded decision and delivery guidance correction.
+
+- **terraform-skill** (v1.5.13 → v1.5.14): Route restoration through the existing release checks; verify separately owned DNS, consumer hostname TLS and selected SSH arguments before resuming application acceptance.
+- **peer-message** (v1.25.2 → v1.25.3): Add owner-release, successor-claim and readback steps; distinguish resource-window release from responsibility for the consumer's result.
+- **tech-selection** (`daymade-claude-code` v5.1.4 → v5.1.5): Assign hosted-database and object-storage responsibilities before capacity comparisons; retain justified binary fields and unknown provider/account constraints.
 
 ## [1.82.0] - 2026-07-07
 

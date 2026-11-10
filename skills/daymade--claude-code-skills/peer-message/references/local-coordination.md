@@ -77,6 +77,23 @@ python3 "$PEER_SKILL_ROOT/scripts/peer.py" coord release --scope '<project>' --t
 返回 `released`。未释放的陈旧项定向核对，不能通过删库、假身份、超时或重启绕过。
 原生 parent/subagent 已有任务树关联，不为每条内部消息调用此板。
 
+交接独立会话的声明时，由原负责人和接手者各在自己的真实身份下执行；不替对方 release：
+
+```bash
+# 原负责人：确认交接范围和接手者已同意后释放同一事项
+python3 "$PEER_SKILL_ROOT/scripts/peer.py" coord release --scope '<project>' --task '<issue-or-deliverable>'
+# 接手者：原负责人释放后，用同一 scope/task/resource 登记并读回
+python3 "$PEER_SKILL_ROOT/scripts/peer.py" coord claim --scope '<project>' --task '<issue-or-deliverable>' \
+  --resource '<shared-repository>:publish'
+python3 "$PEER_SKILL_ROOT/scripts/peer.py" coord status --scope '<project>' --owners-only
+```
+
+接手者核对读回的 owner、task 和 resource；`conflict` 时回到现有负责人协调，不抢占。
+这只交接协调声明，实际写权限、锁和发布窗口仍按资源自己的合同取得。
+原负责人交出产物后，继续承担交付责任，直到接手者沿约定入口实际使用并读回所需结果，
+或明确接受尚缺步骤的责任；消息已送达、声明已释放都不单独证明业务完成。
+可在短窗口结束时先释放发布资源，不为等待产物使用而持续占用它。
+
 ## 同一问题只保留一个有效请求
 
 窗口请求是时效性消息。有效期取实际请求的结束时间；相对窗口可用
@@ -281,10 +298,10 @@ prepare 后原 request 仍可能过期；reply 自身的 `expires` 为 `null` �
 
 ### 从 Codex 入站原件接收
 
-只有已知自身 message ID 的脚本 `peer-message` 信封使用此配方。先按
+已知自身 message ID 的脚本 `peer-message` 信封及受支持的原生协调入站使用此配方。先按
 [按自身 ID 只读查看入站信封](protocol-and-discovery.md#按自身-id-只读查看入站信封)
-核对支持范围和当前 help；原生工具覆盖的通信仍走原生机制，不能把任意原生
-`codex_delegation` 包装拼成脚本信封。
+核对支持范围和当前 help；原生工具覆盖的通信仍走原生机制。取件器验证受支持的
+`codex_delegation` 载体后返回精确的内层协调信封，不手抄、重建或转换包装。
 
 执行 Agent 将 `INBOX_TARGET` 设为当前宿主实际的 `codex:<完整 UUID>`，
 `INBOUND_MESSAGE_ID` 设为该入站信封自身的精确 ID，再执行整段。它只从 JSON 的
@@ -315,7 +332,7 @@ if not (isinstance(result, dict) and result.get("target") == target
         and type(result.get("message_count")) is int and result["message_count"] == 1
         and result.get("errors") == [] and isinstance(message, dict)
         and message.get("message_id") == message_id
-        and message.get("envelope_type") == "peer-message"):
+        and message.get("envelope_type") in {"peer-message", "native-coordination"}):
     raise SystemExit("Inbound inspection is not one exact supported match; retain evidence and stop")
 envelope = message.get("envelope")
 if not isinstance(envelope, str) or not envelope.strip():
@@ -329,8 +346,72 @@ PY
 ```
 
 查询失败、无匹配、没有适用 store、必需字段缺失、冲突或不支持的格式时，在 `receive` 前停止，保留
-查询输出与错误，不从截断显示或摘要重建信封，也不自动重查、重发或恢复 session。
+查询输出与错误。仅缓存缺失且已知精确宿主与入站 ID 时，可进入下面的原始事件取件；
+身份、摘要或格式冲突仍按原有完整性分流，不靠换来源放行。不从截断显示或摘要重建信封，
+也不自动重查、重发或恢复 session。
 `receive` 的结果继续按本节分流；找到原件或领取成功都不证明模型已读、业务完成或用户授权。
+
+### 入站缓存缺失时读取原始宿主事件
+
+适用：上述缓存取件未覆盖一条已知的原生入站。先用已安装的当前宿主历史读取 owner，
+以完整会话身份定位唯一原始记录，再按入站 ID 导出包含完整工具事件的 JSON。
+会话身份和覆盖边界以该读取 owner 的当前协议核实；不全库扫描、不新写历史解析器，
+也不把当前工具的空 turn 或缓存未命中当作原件不存在。没有可用读取 owner 时保留 unknown。
+
+对当前读取 owner 导出的 `results[].original.payload.output`，只接受完整的原生
+`function_call_output`。以下取件步骤沿用现有 wrapper 解析器选择精确 ID 与收件人，
+保存整个 `output` 原文；只在输出格式确为该 schema、身份核验通过且未截断时使用。
+`HISTORY_EXPORT` 是读取 owner 的完整导出，不是人工拼出的 JSON。
+
+```bash
+(
+set -eu
+umask 077
+: "${PEER_SKILL_ROOT:?Set to the loaded peer-message directory}"
+: "${HISTORY_EXPORT:?Set to the verified complete history export}"
+: "${INBOX_TARGET:?Set to the exact current Codex host address}"
+: "${INBOUND_MESSAGE_ID:?Set to the exact inbound envelope ID}"
+: "${RECEIVED_FILE:?Set to a new private output file}"
+python3 - "$PEER_SKILL_ROOT" "$HISTORY_EXPORT" "$INBOX_TARGET" \
+  "$INBOUND_MESSAGE_ID" "$RECEIVED_FILE" <<'PY'
+import json, sys
+from pathlib import Path
+root, export, target, message_id, output = sys.argv[1:]
+sys.path.insert(0, str(Path(root) / "scripts"))
+from coordination import codex_delegation_inner, native_coordination_metadata
+data = json.loads(Path(export).read_text(encoding="utf-8"))
+if data.get("truncated") is not False or not isinstance(data.get("results"), list):
+    raise SystemExit("Incomplete or unsupported history export; retain unknown")
+matches = set()
+for row in data["results"]:
+    if not isinstance(row, dict) or row.get("truncated") is not False:
+        raise SystemExit("Incomplete history event; retain unknown")
+    original = row.get("original", {})
+    payload = original.get("payload", {}) if isinstance(original, dict) else {}
+    if not (original.get("type") == "response_item"
+            and payload.get("type") == "function_call_output"
+            and payload.get("namespace") == "codex_tui"
+            and payload.get("name") == "send_message_to_thread"):
+        continue
+    raw = payload.get("output")
+    inner = codex_delegation_inner(raw)
+    meta = native_coordination_metadata(inner)
+    if meta and meta["id"] == message_id and meta["target"] == target:
+        matches.add(raw)
+if len(matches) != 1:
+    raise SystemExit("No unique exact original; retain unknown")
+with open(output, "xb") as saved:
+    saved.write(matches.pop().encode("utf-8"))
+PY
+python3 "$PEER_SKILL_ROOT/scripts/peer.py" coord receive "$RECEIVED_FILE" \
+  --actor "$INBOX_TARGET"
+)
+```
+
+保留导出文件及其源记录定位，由 `coord receive` 验证准备时的正文摘要、身份和生命周期。
+不要自行剥离 XML、补换行、重排 JSON 或用引用摘要修补原件；摘要不一致、原件缺失、
+多份冲突、读取覆盖不完整时保留 unknown。此分支只恢复同一入站的证据，不授权换通信通道、
+重启业务、回复过期请求或绕过宿主拒绝。
 
 ## 覆盖与验收
 
