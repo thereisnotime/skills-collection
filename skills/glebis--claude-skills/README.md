@@ -29,6 +29,8 @@ Per-skill setup (API keys, Python/Node deps) is documented in each skill's `SKIL
 
 | Added | Skill | What it does |
 | --- | --- | --- |
+| 2026-11 | [bridgework](./bridgework/) | Consent-gated, names-only audit of your stack, then a local canvas for practising what two tools could do together, with an agent prompt at every step |
+| 2026-11 | [luma-event](./luma-event/) | AGENCY event on Lu.ma: generated cover, Zoom meeting, event page, contact invites, announcement draft |
 | 2026-11 | [research-to-integration](./research-to-integration/) | Research → bounded experiment → reusable implementation; configurable questions, autonomy and execution budgets |
 | 2026-11 | [pii-pdf](./pii-pdf/) | Local PDF PII detection/redaction (names, addresses, contacts, accounts, IBANs) with table-safe rules, JSON CLI, setup and diagnostic smoke checks; [standalone toolkit](https://github.com/glebis/pii-pdf) |
 | 2026-11 | [app-map](./app-map/) | Interactive map of an app's screens, scenarios, tests and jobs, with a ranked list of what to test next |
@@ -56,6 +58,9 @@ Per-skill setup (API keys, Python/Node deps) is documented in each skill's `SKIL
 | --- | --- | --- |
 | <img src="./app-map/screenshot.png" alt="App map on its Test next tab: ranked screens with Copy prompt and Add to brief buttons" width="280"> | <img src="./synthetic-session-generator/screenshot.png" alt="Generated case page for a fictional client, marked synthetic" width="280"> | <img src="./gpt-image-2/screenshot.png" alt="Banner of sample images made with the skill" width="280"> |
 | Test next, from the made-up Tally example | Case page for a fictional persona | Sample image styles |
+| [luma-event](./luma-event/) | [bridgework](./bridgework/) | |
+| <img src="./luma-event/screenshot.png" alt="Event cover with a wireframe terrain and a wave crest, for a made-up 2030 meetup" width="280"> | <img src="./bridgework/screenshot.png" alt="Bridgework chain of three parts from a made-up stack, with an empty Your idea first box above example ideas" width="280"> | |
+| Cover for a made-up event | Chain on the synthetic demo stack | |
 
 ## Meetings & transcripts
 
@@ -167,6 +172,7 @@ Per-skill setup (API keys, Python/Node deps) is documented in each skill's `SKIL
 
 | Skill | What it does |
 | --- | --- |
+| [bridgework](./bridgework/) | Audit your stack (read-only, with permission), then practise combining its parts on a local canvas |
 | [the-goal](./the-goal/) | Theory-of-Constraints diagnostic before building any automation |
 | [automation-advisor](./automation-advisor/) | 8 questions → break-even math, with voice-enabled web UI |
 | [decision-toolkit](./decision-toolkit/) | 7 frameworks, 20+ bias counter-questions, interactive HTML wizards |
@@ -205,6 +211,7 @@ Per-skill setup (API keys, Python/Node deps) is documented in each skill's `SKIL
 
 | Skill | What it does |
 | --- | --- |
+| [luma-event](./luma-event/) | Cover → Zoom → Lu.ma event → invites to calendar contacts → announcement draft |
 | [agency-docs-updater](./agency-docs-updater/) | Lab meeting pipeline: transcript → video → YouTube → summary → MDX → deploy |
 | [agency-meetup-publish](./agency-meetup-publish/) | Zoom recording → intro/outro, thumbnail, timecodes, YouTube, playlist |
 | [lab-retro](./lab-retro/) | Four-part retrospective and self-assessment for Lab participants |

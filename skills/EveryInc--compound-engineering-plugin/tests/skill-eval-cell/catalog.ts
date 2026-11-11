@@ -24,6 +24,8 @@ export const PR_OPENING_BASE_REF = "f6c301cafc888f965ffd99195eb5f95ac2c6d9a8"
 export const RIGHT_SIZE_BASE_REF = "925b4ef71cbee0b4205693c4cafc9b2c557a603a"
 /** main before CODING_STANDARDS.md became the designated criteria source: the A/B base for the standards-discovery rows. */
 export const STANDARDS_SOURCE_BASE_REF = "799702cf0f5405c9361548cd86490c5603e2632c"
+/** main before conflicting CODING_STANDARDS.md files had a stated precedence (#2047). */
+export const STANDARDS_PRECEDENCE_BASE_REF = "dd9b7921c9c80498eba84994ff1b8e1e81dbc1db"
 /** main after #1514 merged: the product-lens activation leg still read "alternatives plausibly exist". */
 export const DOC_REVIEW_BASE_REF = "6f6c5779d31c0f847773e0cbc1e7e7fc7b11f272"
 /** main before ce-doc-review chose its own depth: every plan ran the full team, and adversarial fired on any plan without a brainstorm. */
@@ -233,7 +235,9 @@ export type Scenario = {
   env?: Record<string, string>
 }
 
-const UNDERSTANDING_BASE_REF = "8df67793b9733d2220fa9a7fc37139931471af62"
+/** main before ce-babysit-pr stated how to read an incomplete review lookup (#1618). */
+const REVIEW_LOOKUP_BASE_REF = "bd55f988365586bb3f408a5fbe0a81f83d6f2304"
+const UNDERSTANDING_BASE_REF ="8df67793b9733d2220fa9a7fc37139931471af62"
 /** main before Standard/Deep choices that depend on existing behavior were traced through ce-explain (the optional-sentence contract). */
 const BEHAVIOR_TRACE_BASE_REF = "c152896f1cda13548fc1a05b2aff88caf8ae8dba"
 
@@ -590,6 +594,9 @@ function shimHandoffRow(name: string, why: string, task: string, logged: string[
     },
   }
 }
+
+const COMPOUND_TRIGGER_PRE_CONTRACT =
+  "The standing instruction invokes ce-compound only when the work produced durable reasoning the final code, tests, and docs do not carry."
 
 const COMPOUND_JOB_ROWS: Scenario[] = [
   jobRow("bare-is-capture", "A plain run after solved work is a capture.", `Use the ce-compound skill. ${TOKEN_ROTATION_LESSON}`, "capture"),
@@ -998,7 +1005,7 @@ const SETUP_CONFIG_REFRESH_BASE_REF = "5702b7b2e9449a2e38044fd429f5372bfa309ce3"
 const SETUP_CONFIG_REFRESH_TASK =
   "Use the ce-setup skill to check and fix this repository's Compound Engineering setup. I approve every change you preview: write them all without asking me again, and do not commit. Decline the offers to draft review docs and to warm the npm cache."
 const SETUP_TEAM_NOTE = "# Team: Codex reviews everything we ship."
-const SETUP_CURRENT_PEER = "cross_model_peer: codex          # codex | claude | grok | antigravity | cursor | composer | opencode"
+const SETUP_CURRENT_PEER = "cross_model_peer: codex          # codex | claude | grok | antigravity | cursor | composer | opencode | pi"
 const SETUP_OLD_PEER_OPTIONS = "# codex | claude | grok | cursor | composer\n"
 
 function setupConfigRefreshRow(name: string, fixture: string, why: string, pre_contract: string, grade: Grade, task = SETUP_CONFIG_REFRESH_TASK): Scenario {
@@ -1028,7 +1035,7 @@ const SETUP_CONFIG_REFRESH_ROWS: Scenario[] = [
     "Setup never touches an existing config.yaml.",
     {
       workspace_contains: [
-        { path: ".compound-engineering/config.yaml", needle: "# ce-config-template-version: 1\n" },
+        { path: ".compound-engineering/config.yaml", needle: "# ce-config-template-version: 2\n" },
         { path: ".compound-engineering/config.yaml", needle: `${SETUP_TEAM_NOTE}\n${SETUP_CURRENT_PEER}\n` },
       ],
       workspace_lacks: [{ path: ".compound-engineering/config.yaml", needle: SETUP_OLD_PEER_OPTIONS }],
@@ -1074,7 +1081,7 @@ const SETUP_CONFIG_REFRESH_ROWS: Scenario[] = [
     "Setup never touches an existing config.yaml.",
     {
       workspace_contains: [
-        { path: ".compound-engineering/config.yaml", needle: `# ce-config-template-version: 1\n` },
+        { path: ".compound-engineering/config.yaml", needle: `# ce-config-template-version: 2\n` },
         { path: ".compound-engineering/config.yaml", needle: `${SETUP_TEAM_NOTE}\n${SETUP_CURRENT_PEER}\n` },
       ],
       no_new_commits: true,
@@ -3073,10 +3080,10 @@ Include exactly one line \`MERGE: no\` or \`MERGE: yes\` or \`MERGE: later\` in 
     fixture: `${FIX}/babysit-review-judgment`,
     why: "A reviewer that announced itself and finished is done, even though its announcement still stands \u2014 bots do not retract them (#1606).",
     pre_contract: "A present eyes reaction starts an incomplete lifecycle that holds readiness for a 15-minute floor.",
-    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: `cursor[bot]` reacted \ud83d\udc40 on the PR body when the PR opened and has not removed it. The only check run on this head from the `cursor` app is `Cursor Security Agent: Security Reviewer`, which completed SUCCESS four minutes after that reaction.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.",
+    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: `cursor[bot]` reacted \ud83d\udc40 on the PR body when the PR opened and has not removed it. The only check run on this head from the `cursor` app is `Cursor Security Agent: Security Reviewer`, which completed SUCCESS four minutes after that reaction.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.\nInclude exactly one line that is only `SETTLE: ready` or `SETTLE: re-arm`, with nothing else on it.",
     grade: {
-      must_include: ["your call to merge"],
-      must_exclude: ["gh pr merge", "900"],
+      declared: { SETTLE: "ready" },
+      must_exclude: ["gh pr merge"],
       actions: "none",
     },
   },
@@ -3090,8 +3097,9 @@ Include exactly one line \`MERGE: no\` or \`MERGE: yes\` or \`MERGE: later\` in 
     fixture: `${FIX}/babysit-review-judgment`,
     why: "A terminal-but-verdictless run means the reviewer stopped, so it must not hold readiness \u2014 but it must be reported as an incomplete review rather than a pass.",
     pre_contract: "An incomplete review lifecycle holds readiness until the bounded stale path stops it.",
-    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: `cursor[bot]` reacted \ud83d\udc40 and has not removed it. Its only check run on this head is `Cursor Security Agent: Security Reviewer`, concluded `neutral`, with the output summary `Security Review run timed out after 30 minutes`.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.",
+    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: `cursor[bot]` reacted \ud83d\udc40 and has not removed it. Its only check run on this head is `Cursor Security Agent: Security Reviewer`, concluded `neutral`, with the output summary `Security Review run timed out after 30 minutes`.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.\nInclude exactly one line that is only `SETTLE: ready` or `SETTLE: re-arm`, with nothing else on it.",
     grade: {
+      declared: { SETTLE: "ready" },
       must_include_any: [["timeout", "timed out", "timing out"]],
       must_exclude: ["gh pr merge", "approved the change"],
       actions: "none",
@@ -3107,9 +3115,9 @@ Include exactly one line \`MERGE: no\` or \`MERGE: yes\` or \`MERGE: later\` in 
     fixture: `${FIX}/babysit-review-judgment`,
     why: "The one genuinely undecidable case: a reviewer announced itself and produced nothing observable, so the wait is bounded rather than skipped.",
     pre_contract: "An incomplete review lifecycle re-arms with --settle-seconds 900.",
-    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: `greptile[bot]` reacted \ud83d\udc40 on the PR body eleven minutes ago. It has posted no comment or review, and there is no check run on this head from any app matching it.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.",
+    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: `greptile[bot]` reacted \ud83d\udc40 on the PR body eleven minutes ago. It has posted no comment or review, and there is no check run on this head from any app matching it.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.\nInclude exactly one line that is only `SETTLE: ready` or `SETTLE: re-arm`, with nothing else on it.",
     grade: {
-      must_include: ["re-arm"],
+      declared: { SETTLE: "re-arm" },
       must_exclude: ["gh pr merge"],
       actions: "none",
     },
@@ -3124,10 +3132,10 @@ Include exactly one line \`MERGE: no\` or \`MERGE: yes\` or \`MERGE: later\` in 
     fixture: `${FIX}/babysit-review-judgment`,
     why: "An app can finish an unrelated check while the review it announced has not appeared. Terminal work that does not account for the announced review must not read as the review finishing.",
     pre_contract: "Any terminal check from the announcing app means that reviewer stopped.",
-    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: `slowbot[bot]` reacted \ud83d\udc40 on the PR body twelve minutes ago and has not removed it. The `slowbot` app has exactly one check run on this head, `slowbot / lint`, which completed SUCCESS. It has posted no comment or review, and no check run of its own that reads as a code review has appeared.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.",
+    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: `slowbot[bot]` reacted \ud83d\udc40 on the PR body twelve minutes ago and has not removed it. The `slowbot` app has exactly one check run on this head, `slowbot / lint`, which completed SUCCESS. It has posted no comment or review, and no check run of its own that reads as a code review has appeared.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.\nInclude exactly one line that is only `SETTLE: ready` or `SETTLE: re-arm`, with nothing else on it.",
     grade: {
-      must_include: ["re-arm"],
-      must_exclude: ["gh pr merge", "your call to merge"],
+      declared: { SETTLE: "re-arm" },
+      must_exclude: ["gh pr merge"],
       actions: "none",
     },
   },
@@ -3141,10 +3149,10 @@ Include exactly one line \`MERGE: no\` or \`MERGE: yes\` or \`MERGE: later\` in 
     fixture: `${FIX}/babysit-review-judgment`,
     why: "Many reviewers never announce — in some repos none do. A reviewer that reviewed an earlier head and not this one is evidence a review is coming, and without it the gate is inert wherever nobody reacts.",
     pre_contract: "Only an announcement (an eyes reaction or a reviewing note) marks a review as in flight.",
-    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: no reactions on the PR body at all, and no check run from any review app. `reviewbot` submitted a review on the PR's previous head about forty minutes ago and has reviewed every earlier head too; it has not reviewed the current head, which was pushed four minutes ago.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.",
+    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: no reactions on the PR body at all, and no check run from any review app. `reviewbot` submitted a review on the PR's previous head about forty minutes ago and has reviewed every earlier head too; it has not reviewed the current head, which was pushed four minutes ago.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.\nInclude exactly one line that is only `SETTLE: ready` or `SETTLE: re-arm`, with nothing else on it.",
     grade: {
-      must_include: ["re-arm"],
-      must_exclude: ["gh pr merge", "your call to merge"],
+      declared: { SETTLE: "re-arm" },
+      must_exclude: ["gh pr merge"],
       actions: "none",
     },
   },
@@ -3158,10 +3166,61 @@ Include exactly one line \`MERGE: no\` or \`MERGE: yes\` or \`MERGE: later\` in 
     fixture: `${FIX}/babysit-review-judgment`,
     why: "A widened window is a judgment about evidence. When the review it was waiting on lands, the basis is gone and the ordinary window decides again — the agent makes that call, the engine only reports the movement.",
     pre_contract: "A widened re-arm runs to its own bound regardless of what happens during it.",
-    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nThe watch woke with reason `review-evidence-moved`. Earlier this run you rejected a merge-ready wake because `reviewbot` had announced a review it had nothing to show for, and you re-armed with --settle-seconds 900. Since then a look at the current head shows: `reviewbot` posted its review on this head a little over five minutes ago with no findings, and that is what moved; nothing has changed since.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.",
+    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nThe watch woke with reason `review-evidence-moved`. Earlier this run you rejected a merge-ready wake because `reviewbot` had announced a review it had nothing to show for, and you re-armed with --settle-seconds 900. Since then a look at the current head shows: `reviewbot` posted its review on this head a little over five minutes ago with no findings, and that is what moved; nothing has changed since.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.\nInclude exactly one line that is only `SETTLE: ready` or `SETTLE: re-arm`, with nothing else on it.",
     grade: {
-      must_include: ["your call to merge"],
-      must_exclude: ["gh pr merge", "1800"],
+      declared: { SETTLE: "ready" },
+      must_exclude: ["gh pr merge"],
+      actions: "none",
+    },
+  },
+  {
+    id: "ce-babysit-pr/failed-review-lookup-is-not-all-clear",
+    skill: "ce-babysit-pr",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/babysit-review-judgment`,
+    baseline_ref: REVIEW_LOOKUP_BASE_REF,
+    why: "A read that failed is not an absent signal: the missing part may hold the announcement, so it must not clear the review-still-coming check (#1618).",
+    pre_contract: "An absent signal tells you nothing and never blocks on its own; nothing says how to read a lookup that failed.",
+    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: no reviews on this head, no top-level comments from any bot, and the only check runs on this head are the repo's own CI jobs, all SUCCESS. The request for reactions on the PR body failed with `HTTP 502: Bad Gateway`. This repo's reviewer, `reviewbot[bot]`, usually announces itself with a 👀 reaction before reviewing.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.\nInclude exactly one line that is only `SETTLE: ready` or `SETTLE: re-arm`, with nothing else on it.",
+    grade: {
+      declared: { SETTLE: "re-arm" },
+      must_exclude: ["gh pr merge"],
+      actions: "none",
+    },
+  },
+  {
+    id: "ce-babysit-pr/truncated-review-lookup-is-not-all-clear",
+    skill: "ce-babysit-pr",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/babysit-review-judgment`,
+    baseline_ref: REVIEW_LOOKUP_BASE_REF,
+    why: "A first page that shows nothing is not a look at every place; the announcement can sit on a page that was never read (#1618).",
+    pre_contract: "The look covers every place an announcement can arrive; nothing says a page limit leaves it incomplete.",
+    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: no reactions on the PR body, no reviews on this head, and only the repo's own CI check runs, all SUCCESS. The top-level comments request returned its first page of 30 of the PR's 74 comments, oldest first; none of those 30 is from a bot. The remaining pages were not fetched.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.\nInclude exactly one line that is only `SETTLE: ready` or `SETTLE: re-arm`, with nothing else on it.",
+    grade: {
+      declared: { SETTLE: "re-arm" },
+      must_exclude: ["gh pr merge"],
+      actions: "none",
+    },
+  },
+  {
+    id: "ce-babysit-pr/bot-suffix-is-the-same-reviewer",
+    skill: "ce-babysit-pr",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/babysit-review-judgment`,
+    baseline_ref: REVIEW_LOOKUP_BASE_REF,
+    why: "REST and GraphQL name the same app differently; a reviewer that finished must not read as one that never answered its own announcement (#1618).",
+    pre_contract: "Look for what that same reviewer produced on this head; nothing says its login differs between APIs.",
+    task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: the PR-body reactions endpoint lists a 👀 reaction from `reviewbot[bot]`, added eight minutes ago, after the current head was pushed. `gh pr view --json reviews` lists one review on this head, by `reviewbot`, submitted three minutes ago, state COMMENTED, body \"No issues found.\" There are no other reactions, no top-level comments from any bot, and only the repo's own CI check runs, all SUCCESS.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.\nInclude exactly one line that is only `SETTLE: ready` or `SETTLE: re-arm`, with nothing else on it.",
+    grade: {
+      declared: { SETTLE: "ready" },
+      must_exclude: ["gh pr merge"],
       actions: "none",
     },
   },
@@ -4579,6 +4638,37 @@ Do not run the review itself.`,
     grade: {
       must_include: ["skills/demo.md=skills/CODING_STANDARDS.md", "src/cart.ts=AGENTS.md"],
       actions: "none",
+    },
+  },
+  {
+    id: "ce-code-review/standards-nested-conflict-precedence",
+    baseline_ref: STANDARDS_PRECEDENCE_BASE_REF,
+    skill: "ce-code-review",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    git_init: true,
+    git_staged: ["packages/api/handler.ts", "src/cart.ts"],
+    fixture: `${FIX}/standards-nested-conflict`,
+    timeout_secs: 300,
+    why: "#2047: a root and a nested CODING_STANDARDS.md contradict each other on return types. The nested rule decides only for changed files under its directory, the root's other rules still apply there, and the root rule still applies outside it. The task supplies the orchestrator's pairing, the path where the persona never sees Stage 1c.",
+    pre_contract: "Every governing CODING_STANDARDS.md still applies together; no rule says which file decides a conflict.",
+    task: `Use ce-code-review's project-standards reviewer on the staged change. The orchestrator passed this block:
+
+<standards-paths>
+CODING_STANDARDS.md: packages/api/handler.ts, src/cart.ts
+packages/api/CODING_STANDARDS.md: packages/api/handler.ts
+</standards-paths>
+
+Read the skill's references/subagent-template.md and references/personas/project-standards-reviewer.md and review the change as that persona would. Do not dispatch, edit anything, or invoke another skill. Return the persona's findings JSON, then exactly these three lines, each saying whether a finding reports that violation:
+
+API_RETURN_TYPE: <flagged | not-flagged>
+API_HEADER: <flagged | not-flagged>
+CART_RETURN_TYPE: <flagged | not-flagged>`,
+    grade: {
+      declared: { API_RETURN_TYPE: "not-flagged", API_HEADER: "flagged", CART_RETURN_TYPE: "flagged" },
+      actions: "none",
+      delegates: "none",
     },
   },
   {
@@ -6669,6 +6759,38 @@ Units:
     },
   })),
   ...[
+    {
+      id: "worker-model-mixed-plan",
+      plan: "tiered-plan.md",
+      declared: { U1: "mid-tier", U2: "session-model", U3: "mid-tier" },
+      why: "Units whose plan section settles what to build run on a mid-tier worker; the unit with an open approach on a shared contract keeps the session model.",
+    },
+    {
+      id: "worker-model-specified-plan",
+      plan: "independent-plan.md",
+      declared: { U1: "mid-tier", U2: "mid-tier", U3: "mid-tier" },
+      why: "A plan whose every unit is fully specified runs every worker on the mid-tier model, not the session default.",
+    },
+  ].map(({ id, plan, why, declared }): Scenario => ({
+    id: `ce-work/${id}`,
+    baseline_ref: "fb5548f246c67044a43940adb3f9b84d3f62606a",
+    skill: "ce-work",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    fixture: `${FIX}/schedule-plans`,
+    timeout_secs: 300,
+    why,
+    pre_contract: "Native workers carry no model guidance, so every worker inherits the session model.",
+    task: `Use ce-work on docs/plans/${plan}. The execution engine is native and this harness has a subagent mechanism with no worktree isolation whose dispatch accepts a model. Resolve which model each implementation unit's worker will run on, then stop before any branch change, edit, dispatch, or commit. Output exactly one line per unit in the form U1: <model>, where <model> is mid-tier or session-model, then one line of reasoning.`,
+    grade: {
+      files_read_post: ["references/worker-model.md"],
+      declared,
+      actions: "none",
+      delegates: "none",
+    },
+  })),
+  ...[
     { id: "project", fixture: "project", subject: "Correct widget limit", override: "" },
     { id: "recent-log", fixture: "recent-log", subject: "Widget: Correct widget limit", override: "" },
     { id: "fallback", fixture: "fallback", subject: "fix(widget): Correct widget limit", override: "" },
@@ -7124,6 +7246,88 @@ Use "Correct widget limit" as the description in the subject and any required bo
       must_exclude: ["AGENTS.md"],
       actions: "none",
     },
+  },
+  {
+    id: "ce-setup/instruction-file-gated-directive-offers-replacement",
+    post_only: true,
+    skill: "ce-setup",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    git_init: true,
+    fixture: `${FIX}/setup-instructions-gated`,
+    timeout_secs: 900,
+    why: "A directive that has the agent judge whether a lesson deserves a document before invoking ce-compound skips lessons the skill would hold in a test or standard. Setup offers the bundled variant in its place rather than counting it as covered.",
+    pre_contract:
+      "Any standing ce-compound instruction counts as covered, so setup offers nothing for it.",
+    task: SETUP_INSTRUCTIONS_TASK,
+    grade: {
+      workspace_read: ["AGENTS.md"],
+      must_include: ["corrected a wrong belief about how something behaves"],
+      actions: "none",
+    },
+  },
+  {
+    id: "compound-trigger/correction-invokes",
+    post_only: true,
+    skill: "ce-explain",
+    cohort: "untouched",
+    key_behavior: "delegation",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/compound-trigger-post`,
+    handoff_probe: ["ce-compound"],
+    timeout_secs: 600,
+    why: "The workspace's standing instruction must fire when a session ends after a disproved first diagnosis, even though the fix carries a test and a comment. ce-explain is only a neutral carrier; the instruction under test is in the fixture's AGENTS.md.",
+    pre_contract: COMPOUND_TRIGGER_PRE_CONTRACT,
+    task: "This session is being continued from an earlier conversation. Summary of that conversation:\n\n- The user reported that rates looked stale for EU customers in the mornings.\n- You first suspected the cache TTL in the rates fetcher. Logs ruled that out: the cache refreshed on schedule.\n- The actual cause: the upstream returns `asOf` timestamps in the provider's local time with no offset, so `new Date(asOf)` parsed them as server time and EU-morning rates were judged two hours old and discarded. The upstream docs say the timestamps are UTC; they are not.\n- PR #91 parses `asOf` with the provider's zone explicitly, adds a regression test with an EU-morning timestamp, and adds a code comment saying the provider's timestamps carry no offset. All tests pass and CI is green.\n\nThe user's latest message: \"merged #91, thanks\"\n\nContinue from here and finish the work.",
+    grade: { shim_log_must: ["handoff ce-compound"], ...handoffOnly() },
+  },
+  {
+    id: "compound-trigger/replaced-approach-invokes",
+    post_only: true,
+    skill: "ce-explain",
+    cohort: "untouched",
+    key_behavior: "delegation",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/compound-trigger-post`,
+    handoff_probe: ["ce-compound"],
+    timeout_secs: 600,
+    why: "A replay of a real session that skipped capture: the regex approach failed across review rounds and was replaced, and a drift note and eval README tempt the agent to call the lesson recorded.",
+    pre_contract: COMPOUND_TRIGGER_PRE_CONTRACT,
+    task: "This session is being continued from an earlier conversation. Summary of that conversation:\n\n- The user asked you to port upstream's how-to query detection. Upstream detects how-to queries with regex rules.\n- PR #87 ported the regex rules. Three review rounds each found a query the regex misread; you narrowed the regex each time, and each narrowing drew a new miss.\n- PR #88 replaced the regex with a classifier question in src/intent.js. The 0.62 threshold and the scores are in evals/README.md, and DRIFT.md notes the replacement. Review then found that two lookups in one run could disagree when the classifier timed out, so each run now keeps its first answer; a test covers it.\n- You have been watching #88's CI and review. All checks pass and the last review found nothing.\n\nThe user's latest message: \"merged #88\"\n\nContinue from here and finish the work.",
+    grade: { shim_log_must: ["handoff ce-compound"], ...handoffOnly() },
+  },
+  {
+    id: "compound-trigger/rename-only-skips",
+    post_only: true,
+    skill: "ce-explain",
+    cohort: "untouched",
+    key_behavior: "delegation",
+    read_only: false,
+    git_init: true,
+    fixture: `${FIX}/compound-trigger-post`,
+    handoff_probe: ["ce-compound"],
+    timeout_secs: 600,
+    why: "A review that only renamed a field is a preference, not a corrected belief, so the instruction must not fire. The first wording of the trigger fired here 4/4.",
+    pre_contract: COMPOUND_TRIGGER_PRE_CONTRACT,
+    task: "This session is being continued from an earlier conversation. Summary of that conversation:\n\n- The user asked you to add the quote currency to each rate in the /rates response.\n- You added a `currency` field in src/rates.js (formatRate) and a test for it. The change went as planned.\n- Review left one comment asking to name the field `currency` rather than `ccy`; you renamed it. All tests pass and CI is green on PR #90.\n\nThe user's latest message: \"merged #90, thanks\"\n\nContinue from here and finish the work.",
+    grade: handoffOnly(["handoff ce-compound"]),
+  },
+  {
+    id: "lfg/compound-step-skips-rename-only",
+    post_only: true,
+    skill: "lfg",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    git_init: true,
+    fixture: `${FIX}/compound-trigger-post`,
+    why: "Step 7 fires on a corrected belief; a review rename alone does not count.",
+    pre_contract: "Step 7 invokes ce-compound when the run produced durable reasoning the code, tests, and plan do not carry.",
+    task: "Use the lfg skill. This run is already in progress and has reached step 7.\n\nWhat happened in this run: the request was to add the quote currency to each rate in the /rates response. The plan added a `currency` field in src/rates.js formatRate with a test. Review in step 4 asked to rename `ccy` to `currency`; step 5 applied it. Everything else went as planned and tests pass.\n\nDecide step 7 only. Do not run any other step and do not invoke any skill. Put exactly one line in your answer reading `COMPOUND: invoke` or `COMPOUND: skip`, then one sentence saying why.",
+    grade: { declared: { COMPOUND: "skip" }, actions: "none" },
   },
   ...COMPOUND_FORM_ROWS,
   ...COMPOUND_JOB_ROWS,

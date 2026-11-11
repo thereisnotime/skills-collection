@@ -11065,7 +11065,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
       "lines": 129,
-      "words": 3143,
+      "words": 3142,
       "code_blocks": 1,
       "languages": []
     },
@@ -11248,11 +11248,11 @@
     },
     {
       "name": "ce-compound",
-      "description": "Capture a solved problem's lesson in its cheapest durable form, a test or lint rule, a coding standard, or a repo learning, or refresh existing learnings against the codebase. Use when verified work p",
+      "description": "Capture a solved problem's lesson in its cheapest durable form, a test or lint rule, a coding standard, or a repo learning, or refresh existing learnings against the codebase. Use when verified work c",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
       "lines": 78,
-      "words": 1135,
+      "words": 1154,
       "code_blocks": 0,
       "languages": []
     },
@@ -11272,7 +11272,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
       "lines": 58,
-      "words": 1213,
+      "words": 1209,
       "code_blocks": 0,
       "languages": []
     },
@@ -11797,8 +11797,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 663,
-      "words": 8562,
+      "lines": 676,
+      "words": 8720,
       "code_blocks": 4,
       "languages": []
     },
@@ -12094,7 +12094,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/abstract_bilingual_agent.md",
       "remote_path": "academic-paper/agents/abstract_bilingual_agent.md",
       "lines": 198,
-      "words": 1766,
+      "words": 1740,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -12142,7 +12142,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/draft_writer_agent.md",
       "remote_path": "academic-paper/agents/draft_writer_agent.md",
       "lines": 686,
-      "words": 8030,
+      "words": 8015,
       "code_blocks": 10,
       "languages": [
         "json",
@@ -12156,7 +12156,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/citation_compliance_agent.md",
       "remote_path": "academic-paper/agents/citation_compliance_agent.md",
       "lines": 455,
-      "words": 3741,
+      "words": 3762,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -23054,7 +23054,7 @@
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
       "lines": 477,
-      "words": 3772,
+      "words": 3791,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -25003,8 +25003,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
-      "lines": 711,
-      "words": 7269,
+      "lines": 728,
+      "words": 7385,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -25155,8 +25155,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
-      "lines": 711,
-      "words": 7269,
+      "lines": 728,
+      "words": 7385,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -25211,6 +25211,21 @@
       "code_blocks": 15,
       "languages": [
         "sh",
+        "ts"
+      ]
+    },
+    {
+      "name": "netlify-server",
+      "description": "Build and deploy a long-lived Node.js backend on Netlify Server (Early Access) from netlify/server/index.ts. Use this skill whenever someone wants to run an Express, Fastify, Hono or Koa app on Netlif",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-server/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-server/SKILL.md",
+      "lines": 365,
+      "words": 2724,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "js",
+        "toml",
         "ts"
       ]
     },
@@ -25424,6 +25439,21 @@
       ]
     },
     {
+      "name": "netlify-server",
+      "description": "Build and deploy a long-lived Node.js backend on Netlify Server (Early Access) from netlify/server/index.ts. Use this skill whenever someone wants to run an Express, Fastify, Hono or Koa app on Netlif",
+      "path": "netlify--context-and-tools/codex/skills/netlify-server/SKILL.md",
+      "remote_path": "codex/skills/netlify-server/SKILL.md",
+      "lines": 365,
+      "words": 2724,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "js",
+        "toml",
+        "ts"
+      ]
+    },
+    {
       "name": "netlify-database",
       "description": "Zero-config Postgres for Netlify apps via @netlify/database \u2014 querying data from Functions/Edge Functions, writing schema migrations, setting up Drizzle ORM, local dev with netlify dev, database branc",
       "path": "netlify--context-and-tools/codex/skills/netlify-database/SKILL.md",
@@ -25629,6 +25659,21 @@
       "code_blocks": 15,
       "languages": [
         "sh",
+        "ts"
+      ]
+    },
+    {
+      "name": "netlify-server",
+      "description": "Build and deploy a long-lived Node.js backend on Netlify Server (Early Access) from netlify/server/index.ts. Use this skill whenever someone wants to run an Express, Fastify, Hono or Koa app on Netlif",
+      "path": "netlify--context-and-tools/skills/netlify-server/SKILL.md",
+      "remote_path": "skills/netlify-server/SKILL.md",
+      "lines": 365,
+      "words": 2724,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "js",
+        "toml",
         "ts"
       ]
     },
@@ -26682,7 +26727,7 @@
       "path": "remotion-dev--skills/skills/remotion-license/SKILL.md",
       "remote_path": "skills/remotion-license/SKILL.md",
       "lines": 16,
-      "words": 47,
+      "words": 48,
       "code_blocks": 0,
       "languages": [],
       "version": "4.0.542"
@@ -27290,7 +27335,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-license/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-license/REFERENCE.md",
       "lines": 16,
-      "words": 47,
+      "words": 48,
       "code_blocks": 0,
       "languages": [],
       "version": "4.0.542"
@@ -48044,6 +48089,29 @@
       "license": "MIT"
     },
     {
+      "name": "cs-cra-officer",
+      "description": "Use when a manufacturer, importer or open-source steward selling software, firmware or connected devices in the EU needs to act on the Cyber Resilience Act (Regulation 2024/2847) - an actively exploit",
+      "path": "alirezarezvani--claude-skills/ra-qm-team/cra-readiness/agents/cs-cra-officer.md",
+      "remote_path": "ra-qm-team/cra-readiness/agents/cs-cra-officer.md",
+      "lines": 53,
+      "words": 477,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "cra-readiness",
+      "description": "Use when a company that sells software, connected devices or firmware in the EU asks whether the Cyber Resilience Act (CRA, Regulation 2024/2847) applies, has to report an actively exploited vulnerabi",
+      "path": "alirezarezvani--claude-skills/ra-qm-team/cra-readiness/skills/cra-readiness/SKILL.md",
+      "remote_path": "ra-qm-team/cra-readiness/skills/cra-readiness/SKILL.md",
+      "lines": 77,
+      "words": 877,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "access-lifecycle",
       "description": "Use when preparing or running a user access review, checking that leavers lost their access, finding orphaned or ownerless service accounts, answering an auditor's access-control request for SOC 2, IS",
       "path": "alirezarezvani--claude-skills/ra-qm-team/skills/access-lifecycle/SKILL.md",
@@ -48114,6 +48182,19 @@
         "bash",
         "json"
       ]
+    },
+    {
+      "name": "cra-readiness",
+      "description": "Use when a company that sells software, connected devices or firmware in the EU asks whether the Cyber Resilience Act (CRA, Regulation 2024/2847) applies, has to report an actively exploited vulnerabi",
+      "path": "alirezarezvani--claude-skills/ra-qm-team/skills/cra-readiness/SKILL.md",
+      "remote_path": "ra-qm-team/skills/cra-readiness/SKILL.md",
+      "lines": 77,
+      "words": 877,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "\"agent-decision-receipts\"",
@@ -48190,11 +48271,24 @@
       "path": "alirezarezvani--claude-skills/ra-qm-team/skills/fda-consultant-specialist/SKILL.md",
       "remote_path": "ra-qm-team/skills/fda-consultant-specialist/SKILL.md",
       "lines": 312,
-      "words": 1574,
+      "words": 1585,
       "code_blocks": 6,
       "languages": [
         "bash"
       ]
+    },
+    {
+      "name": "medical-device-software",
+      "description": "Use for any question about the software inside a medical device, SaMD or regulated health app - which IEC 62304 safety class (A/B/C) it is and how much process and documentation that class needs, what",
+      "path": "alirezarezvani--claude-skills/ra-qm-team/skills/medical-device-software/SKILL.md",
+      "remote_path": "ra-qm-team/skills/medical-device-software/SKILL.md",
+      "lines": 81,
+      "words": 937,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "\"iso42001-specialist\"",
@@ -48294,6 +48388,29 @@
       "lines": 205,
       "words": 2029,
       "code_blocks": 5,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "cs-device-software-lead",
+      "description": "Use when medical device or SaMD software needs its IEC 62304 safety class, a lifecycle gap check, a SOUP list or SBOM reviewed, a trace matrix checked before release, IEC 81001-5-1 security activities",
+      "path": "alirezarezvani--claude-skills/ra-qm-team/medical-device-software/agents/cs-device-software-lead.md",
+      "remote_path": "ra-qm-team/medical-device-software/agents/cs-device-software-lead.md",
+      "lines": 53,
+      "words": 412,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "medical-device-software",
+      "description": "Use for any question about the software inside a medical device, SaMD or regulated health app - which IEC 62304 safety class (A/B/C) it is and how much process and documentation that class needs, what",
+      "path": "alirezarezvani--claude-skills/ra-qm-team/medical-device-software/skills/medical-device-software/SKILL.md",
+      "remote_path": "ra-qm-team/medical-device-software/skills/medical-device-software/SKILL.md",
+      "lines": 81,
+      "words": 937,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ],
@@ -55317,8 +55434,8 @@
       "description": "\"Designs target system boundaries, contracts and tradeoffs from requirements; does not plan tasks or implement.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-23-system-design-proposal-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-23-system-design-proposal-builder/SKILL.md",
-      "lines": 113,
-      "words": 1698,
+      "lines": 114,
+      "words": 1748,
       "code_blocks": 0,
       "languages": []
     },
@@ -55587,8 +55704,8 @@
       "description": "\"Plans risk-based test portfolios and acceptance evidence; does not write or execute tests.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-planning-suite/skills/ln-32-test-strategy-planner/SKILL.md",
       "remote_path": "plugins/delivery-planning-suite/skills/ln-32-test-strategy-planner/SKILL.md",
-      "lines": 111,
-      "words": 2186,
+      "lines": 112,
+      "words": 2239,
       "code_blocks": 0,
       "languages": []
     },
@@ -55598,7 +55715,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-planning-suite/skills/ln-33-plan-reviewer/SKILL.md",
       "remote_path": "plugins/delivery-planning-suite/skills/ln-33-plan-reviewer/SKILL.md",
       "lines": 147,
-      "words": 3784,
+      "words": 3819,
       "code_blocks": 0,
       "languages": []
     },
@@ -55614,11 +55731,11 @@
     },
     {
       "name": "ln-56-architecture-auditor",
-      "description": "\"Audits implemented architecture boundaries, dependencies and ownership; not target design or plan review.\"",
+      "description": "\"Audits implemented architecture boundaries, dependencies, ownership and state lifecycles; not target design or plan review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-56-architecture-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-56-architecture-auditor/SKILL.md",
-      "lines": 124,
-      "words": 2320,
+      "lines": 125,
+      "words": 2360,
       "code_blocks": 0,
       "languages": []
     },
@@ -55678,7 +55795,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-57-persistence-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-57-persistence-auditor/SKILL.md",
       "lines": 121,
-      "words": 2147,
+      "words": 2179,
       "code_blocks": 0,
       "languages": []
     }
@@ -147653,8 +147770,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 901,
-      "words": 10713,
+      "lines": 907,
+      "words": 10796,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -147693,8 +147810,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 641,
-      "words": 4921,
+      "lines": 645,
+      "words": 4941,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -147991,8 +148108,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 595,
-      "words": 4820,
+      "lines": 602,
+      "words": 4896,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -148158,8 +148275,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 512,
-      "words": 8842,
+      "lines": 536,
+      "words": 9059,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -149150,9 +149267,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/stepfun-tts/SKILL.md",
       "remote_path": "daymade-audio/stepfun-tts/SKILL.md",
-      "lines": 110,
-      "words": 1332,
-      "code_blocks": 3,
+      "lines": 94,
+      "words": 611,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ]
@@ -168419,6 +168536,16 @@
       ]
     },
     {
+      "name": "bridgework",
+      "description": "This skill should be used when someone wants to see what their tech stack could do in combination. It first audits the stack (an optional, consent-gated, read-only scan of this Mac plus a short interv",
+      "path": "glebis--claude-skills/bridgework/SKILL.md",
+      "remote_path": "bridgework/SKILL.md",
+      "lines": 45,
+      "words": 722,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "pre-session-portrait",
       "description": "Build a compressed, visualizable \"portrait\" of a consulting/coaching client before a session, so the paid hour is spent solving, not scoping. Runs a 7-lens JTBD-inspired interview (where / how / what ",
       "path": "glebis--claude-skills/pre-session-portrait/SKILL.md",
@@ -168512,6 +168639,18 @@
       "words": 151,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "luma-event",
+      "description": "End-to-end AGENCY Community event on Lu.ma - cover image, Zoom meeting, the Lu.ma event page, invites to calendar contacts, and a social announcement draft. Use when creating a community meetup, talk,",
+      "path": "glebis--claude-skills/luma-event/SKILL.md",
+      "remote_path": "luma-event/SKILL.md",
+      "lines": 113,
+      "words": 856,
+      "code_blocks": 4,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "ecosystem",
@@ -169130,6 +169269,16 @@
       "languages": []
     },
     {
+      "name": "cognitive-toolkit",
+      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 98,
+      "words": 617,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
       "name": "rigorous-experiments",
       "description": "This skill should be used when designing, running, validating, or auditing statistical experiments on personal or observational time-series data (health metrics, speech/text corpora, behavioral logs, ",
       "path": "glebis--claude-skills/rigorous-experiments/SKILL.md",
@@ -169362,7 +169511,7 @@
       "path": "glebis--claude-skills/the-goal/SKILL.md",
       "remote_path": "the-goal/SKILL.md",
       "lines": 80,
-      "words": 1154,
+      "words": 1167,
       "code_blocks": 2,
       "languages": [
         "bash"
