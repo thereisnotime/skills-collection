@@ -11008,6 +11008,16 @@
       ]
     },
     {
+      "name": "ce-retro",
+      "description": "\"Look back over an agent session in this repo, the current one by default or any scope the user names across harnesses, and find what in the repo's environment keeps costing agents effort or leading t",
+      "path": "EveryInc--compound-engineering-plugin/skills/ce-retro/SKILL.md",
+      "remote_path": "skills/ce-retro/SKILL.md",
+      "lines": 49,
+      "words": 1299,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "ce-plan",
       "description": "\"Create structured plans for multi-step work, including software and non-software tasks. Use when asked to plan, break down implementation, plan from requirements, or deepen an existing plan; prefer c",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
@@ -11797,8 +11807,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 676,
-      "words": 8720,
+      "lines": 678,
+      "words": 8848,
       "code_blocks": 4,
       "languages": []
     },
@@ -12080,7 +12090,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/formatter_agent.md",
       "remote_path": "academic-paper/agents/formatter_agent.md",
       "lines": 1023,
-      "words": 8997,
+      "words": 9040,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -12141,8 +12151,8 @@
       "description": "\"Writes the full paper draft section by section from the structured outline and Paper Configuration Record\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/draft_writer_agent.md",
       "remote_path": "academic-paper/agents/draft_writer_agent.md",
-      "lines": 686,
-      "words": 8015,
+      "lines": 687,
+      "words": 8087,
       "code_blocks": 10,
       "languages": [
         "json",
@@ -12155,8 +12165,8 @@
       "description": "\"Verifies citations against the target journals format requirements and flags non-compliant entries\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/citation_compliance_agent.md",
       "remote_path": "academic-paper/agents/citation_compliance_agent.md",
-      "lines": 455,
-      "words": 3762,
+      "lines": 466,
+      "words": 4196,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -12196,7 +12206,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/peer_reviewer_agent.md",
       "remote_path": "academic-paper/agents/peer_reviewer_agent.md",
       "lines": 517,
-      "words": 4161,
+      "words": 4220,
       "code_blocks": 9,
       "languages": [
         "markdown"
@@ -22983,8 +22993,8 @@
       "description": "\"When the user wants to list a product in startup, SaaS, AI, MCP, and review directories, or asks which directories are worth it or whether listings are working: Product Hunt, G2, Capterra, Alternativ",
       "path": "coreyhaines31--marketingskills/skills/directory-submissions/SKILL.md",
       "remote_path": "skills/directory-submissions/SKILL.md",
-      "lines": 403,
-      "words": 4074,
+      "lines": 439,
+      "words": 4954,
       "code_blocks": 0,
       "languages": []
     },
@@ -23338,12 +23348,12 @@
     },
     {
       "name": "eas-simulator",
-      "description": "\"Run and control a user's app on a remote iOS/Android simulator hosted on EAS cloud. Read before running any `eas simulator:*` commands - it has the current syntax for this experimental API. Use whene",
+      "description": "\"Run and control a user's app on a remote iOS/Android simulator with Expo Simulators (also called EAS Simulator). Read before running any `eas simulator:*` commands - it has the current syntax and wor",
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 237,
-      "words": 4080,
-      "code_blocks": 6,
+      "lines": 273,
+      "words": 4914,
+      "code_blocks": 7,
       "languages": [
         "bash"
       ],
@@ -23455,7 +23465,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-overview/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-overview/SKILL.md",
       "lines": 120,
-      "words": 1465,
+      "words": 1469,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -23835,7 +23845,7 @@
       "path": "firecrawl--cli/skills/firecrawl/rules/install.md",
       "remote_path": "skills/firecrawl/rules/install.md",
       "lines": 93,
-      "words": 399,
+      "words": 439,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -24950,8 +24960,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 523,
-      "words": 5410,
+      "lines": 537,
+      "words": 5666,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -25102,8 +25112,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 523,
-      "words": 5410,
+      "lines": 537,
+      "words": 5666,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -26606,10 +26616,10 @@
       "path": "remotion-dev--skills/skills/remotion-docs/SKILL.md",
       "remote_path": "skills/remotion-docs/SKILL.md",
       "lines": 47,
-      "words": 143,
+      "words": 145,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "remotion-maps",
@@ -26620,7 +26630,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "get-video-dimensions",
@@ -26643,7 +26653,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "get-audio-duration",
@@ -26680,7 +26690,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "import-srt-captions",
@@ -26701,12 +26711,12 @@
       "path": "remotion-dev--skills/skills/remotion-captions/SKILL.md",
       "remote_path": "skills/remotion-captions/SKILL.md",
       "lines": 43,
-      "words": 140,
+      "words": 142,
       "code_blocks": 2,
       "languages": [
         "ts"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "display-captions",
@@ -26730,21 +26740,21 @@
       "words": 48,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "remotion-interactivity",
-      "description": "Structure Remotion markup for interactivity",
+      "description": "Structures Remotion markup so layers, timing and styles are editable in Remotion Studio. Use when writing a new composition or restructuring existing markup.",
       "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
       "remote_path": "skills/remotion-interactivity/SKILL.md",
-      "lines": 333,
-      "words": 1593,
+      "lines": 339,
+      "words": 1677,
       "code_blocks": 13,
       "languages": [
         "sh",
         "tsx"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "remotion-best-practices",
@@ -26752,12 +26762,12 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/SKILL.md",
       "remote_path": "skills/remotion-best-practices/SKILL.md",
       "lines": 117,
-      "words": 624,
+      "words": 613,
       "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "transparent-videos",
@@ -26778,11 +26788,11 @@
       "description": "Export a Remotion video",
       "path": "remotion-dev--skills/skills/remotion-render/SKILL.md",
       "remote_path": "skills/remotion-render/SKILL.md",
-      "lines": 42,
-      "words": 130,
-      "code_blocks": 3,
+      "lines": 74,
+      "words": 289,
+      "code_blocks": 5,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "sfx",
@@ -26867,7 +26877,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/voiceover.md",
       "remote_path": "skills/remotion-markup/voiceover.md",
       "lines": 104,
-      "words": 396,
+      "words": 401,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -26894,12 +26904,12 @@
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
       "lines": 335,
-      "words": 1553,
+      "words": 1568,
       "code_blocks": 4,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "audio",
@@ -26959,7 +26969,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/text-highlights.md",
       "remote_path": "skills/remotion-markup/text-highlights.md",
       "lines": 57,
-      "words": 196,
+      "words": 198,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -26972,7 +26982,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/transitions.md",
       "remote_path": "skills/remotion-markup/transitions.md",
       "lines": 287,
-      "words": 880,
+      "words": 885,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -26984,9 +26994,9 @@
       "description": "Make a video parametrizable by adding a Zod schema",
       "path": "remotion-dev--skills/skills/remotion-markup/parameters.md",
       "remote_path": "skills/remotion-markup/parameters.md",
-      "lines": 112,
-      "words": 336,
-      "code_blocks": 9,
+      "lines": 95,
+      "words": 314,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "tsx"
@@ -26998,7 +27008,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/compositions.md",
       "remote_path": "skills/remotion-markup/compositions.md",
       "lines": 179,
-      "words": 611,
+      "words": 616,
       "code_blocks": 6,
       "languages": [
         "tsx"
@@ -27073,7 +27083,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/calculate-metadata.md",
       "remote_path": "skills/remotion-markup/calculate-metadata.md",
       "lines": 137,
-      "words": 393,
+      "words": 408,
       "code_blocks": 6,
       "languages": [
         "tsx"
@@ -27085,7 +27095,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-markup/sequencing.md",
       "lines": 29,
-      "words": 171,
+      "words": 176,
       "code_blocks": 0,
       "languages": []
     },
@@ -27098,17 +27108,19 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "rendering",
       "description": "Advice on programmatic rendering with Remotion.",
       "path": "remotion-dev--skills/skills/remotion-saas/rendering.md",
       "remote_path": "skills/remotion-saas/rendering.md",
-      "lines": 70,
-      "words": 442,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 97,
+      "words": 558,
+      "code_blocks": 1,
+      "languages": [
+        "ts"
+      ]
     },
     {
       "name": "framework",
@@ -27147,13 +27159,13 @@
       "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-create/SKILL.md",
       "remote_path": "skills/remotion-create/SKILL.md",
-      "lines": 76,
-      "words": 409,
+      "lines": 75,
+      "words": 438,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "remotion-upgrade",
@@ -27166,7 +27178,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "maps-mapbox",
@@ -27188,7 +27200,7 @@
       "path": "remotion-dev--skills/skills/remotion-maps/techniques/static-map/TECHNIQUE.md",
       "remote_path": "skills/remotion-maps/techniques/static-map/TECHNIQUE.md",
       "lines": 38,
-      "words": 148,
+      "words": 152,
       "code_blocks": 1,
       "languages": [
         "tsx"
@@ -27217,7 +27229,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "remotion-maps",
@@ -27228,7 +27240,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "get-video-dimensions",
@@ -27263,7 +27275,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "get-video-duration",
@@ -27288,7 +27300,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "import-srt-captions",
@@ -27327,7 +27339,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "remotion-license",
@@ -27338,21 +27350,21 @@
       "words": 48,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "remotion-interactivity",
-      "description": "Structure Remotion markup for interactivity",
+      "description": "Structures Remotion markup so layers, timing and styles are editable in Remotion Studio. Use when writing a new composition or restructuring existing markup.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
-      "lines": 333,
-      "words": 1593,
+      "lines": 339,
+      "words": 1662,
       "code_blocks": 13,
       "languages": [
         "sh",
         "tsx"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "transparent-videos",
@@ -27373,11 +27385,11 @@
       "description": "Export a Remotion video",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-render/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-render/REFERENCE.md",
-      "lines": 42,
-      "words": 130,
-      "code_blocks": 3,
+      "lines": 74,
+      "words": 287,
+      "code_blocks": 5,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "sfx",
@@ -27566,9 +27578,9 @@
       "description": "Make a video parametrizable by adding a Zod schema",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/parameters.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/parameters.md",
-      "lines": 112,
-      "words": 336,
-      "code_blocks": 9,
+      "lines": 95,
+      "words": 314,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "tsx"
@@ -27635,7 +27647,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "lottie",
@@ -27689,10 +27701,12 @@
       "description": "Advice on programmatic rendering with Remotion.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/rendering.md",
       "remote_path": "skills/remotion-best-practices/remotion-saas/rendering.md",
-      "lines": 70,
-      "words": 442,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 97,
+      "words": 556,
+      "code_blocks": 1,
+      "languages": [
+        "ts"
+      ]
     },
     {
       "name": "framework",
@@ -27725,7 +27739,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "tailwind",
@@ -27742,13 +27756,13 @@
       "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-create/REFERENCE.md",
-      "lines": 76,
-      "words": 409,
+      "lines": 75,
+      "words": 413,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "remotion-upgrade",
@@ -27761,7 +27775,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "maps-mapbox",
@@ -27812,7 +27826,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "maps-mapbox",
@@ -27863,7 +27877,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.542"
+      "version": "4.0.543"
     },
     {
       "name": "maps-mapbox",
@@ -27885,7 +27899,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/remotion-maps/techniques/static-map/TECHNIQUE.md",
       "remote_path": "skills/remotion-markup/remotion-maps/techniques/static-map/TECHNIQUE.md",
       "lines": 38,
-      "words": 148,
+      "words": 150,
       "code_blocks": 1,
       "languages": [
         "tsx"
@@ -28882,22 +28896,21 @@
       "description": "\"squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured data issues (300+ rules) and scores site health, via the squirrel CLI. Use when the user wants to c",
       "path": "squirrelscan--skills/skills/squirrelscan/SKILL.md",
       "remote_path": "skills/squirrelscan/SKILL.md",
-      "lines": 529,
-      "words": 7504,
-      "code_blocks": 19,
+      "lines": 186,
+      "words": 2757,
+      "code_blocks": 3,
       "languages": [
-        "bash",
-        "toml"
+        "bash"
       ],
       "license": "See LICENSE file in repository root"
     },
     {
       "name": "audit-website",
-      "description": "Audit a website with the squirrelscan CLI and fix the findings in code. Runs SEO, performance, security, technical, content, accessibility, and 16 other rule categories (300+ rules), returns an LLM-op",
+      "description": "Audit a website with the squirrelscan CLI or the hosted squirrelscan MCP server and fix the findings in code. Runs SEO, performance, security, technical, content, accessibility, and 16 other rule cate",
       "path": "squirrelscan--skills/skills/audit-website/SKILL.md",
       "remote_path": "skills/audit-website/SKILL.md",
-      "lines": 99,
-      "words": 1069,
+      "lines": 131,
+      "words": 1723,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -28912,7 +28925,7 @@
       "path": "stripe--ai/skills/stripe-best-practices/SKILL.md",
       "remote_path": "skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 826,
+      "words": 835,
       "code_blocks": 0,
       "languages": []
     },
@@ -29015,8 +29028,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-directory/SKILL.md",
       "remote_path": "skills/stripe-directory/SKILL.md",
-      "lines": 122,
-      "words": 1172,
+      "lines": 128,
+      "words": 1270,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -29038,7 +29051,7 @@
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 826,
+      "words": 835,
       "code_blocks": 0,
       "languages": []
     },
@@ -29141,8 +29154,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 122,
-      "words": 1172,
+      "lines": 128,
+      "words": 1270,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -29154,7 +29167,7 @@
       "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/antigravity/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 826,
+      "words": 835,
       "code_blocks": 0,
       "languages": []
     },
@@ -29257,8 +29270,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/antigravity/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 122,
-      "words": 1172,
+      "lines": 128,
+      "words": 1270,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -29270,7 +29283,7 @@
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 826,
+      "words": 835,
       "code_blocks": 0,
       "languages": []
     },
@@ -29373,8 +29386,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 122,
-      "words": 1172,
+      "lines": 128,
+      "words": 1270,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -29386,7 +29399,7 @@
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 826,
+      "words": 835,
       "code_blocks": 0,
       "languages": []
     },
@@ -29489,8 +29502,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 122,
-      "words": 1172,
+      "lines": 128,
+      "words": 1270,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -29502,7 +29515,7 @@
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 826,
+      "words": 835,
       "code_blocks": 0,
       "languages": []
     },
@@ -29605,8 +29618,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 122,
-      "words": 1172,
+      "lines": 128,
+      "words": 1270,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -50768,6 +50781,20 @@
       "code_blocks": 1,
       "languages": [
         "html"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "\"cinematic-shot-prompting\"",
+      "description": "\"Use when creating camera movement, cinematic angles, or motion prompts for AI video generators like Runway Gen-3, Kling, and Luma. Compiles narrative prose into a strict 7-slot camera motion contract",
+      "path": "alirezarezvani--claude-skills/marketing-skill/skills/cinematic-shot-prompting/SKILL.md",
+      "remote_path": "marketing-skill/skills/cinematic-shot-prompting/SKILL.md",
+      "lines": 83,
+      "words": 560,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "markdown"
       ],
       "license": "MIT"
     },
@@ -147810,8 +147837,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 645,
-      "words": 4941,
+      "lines": 650,
+      "words": 4971,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -147898,8 +147925,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/SKILL.md",
       "remote_path": "ghostty-use/SKILL.md",
-      "lines": 299,
-      "words": 2653,
+      "lines": 304,
+      "words": 2705,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -148326,8 +148353,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/lark-cli-router/SKILL.md",
       "remote_path": "lark-cli-router/SKILL.md",
-      "lines": 196,
-      "words": 1477,
+      "lines": 202,
+      "words": 1526,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -149085,8 +149112,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/ghostty-use/references/automatic-snapshots.md",
       "remote_path": "ghostty-use/references/automatic-snapshots.md",
-      "lines": 196,
-      "words": 1550,
+      "lines": 205,
+      "words": 1618,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -149433,9 +149460,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/SKILL.md",
       "remote_path": "daymade-docs/doc-to-markdown/SKILL.md",
-      "lines": 209,
-      "words": 1272,
-      "code_blocks": 6,
+      "lines": 185,
+      "words": 1127,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ]
@@ -149469,8 +149496,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/references/pdf-acceptance.md",
       "remote_path": "daymade-docs/doc-to-markdown/references/pdf-acceptance.md",
-      "lines": 110,
-      "words": 974,
+      "lines": 111,
+      "words": 982,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -169269,16 +169296,6 @@
       "languages": []
     },
     {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
-      "languages": []
-    },
-    {
       "name": "rigorous-experiments",
       "description": "This skill should be used when designing, running, validating, or auditing statistical experiments on personal or observational time-series data (health metrics, speech/text corpora, behavioral logs, ",
       "path": "glebis--claude-skills/rigorous-experiments/SKILL.md",
@@ -170998,6 +171015,17 @@
       "version": "\"1.5.0\""
     },
     {
+      "name": "release-tagging",
+      "description": "",
+      "path": "shaunburdick--skills/specs/002-release-tagging/spec.md",
+      "remote_path": "specs/002-release-tagging/spec.md",
+      "lines": 160,
+      "words": 1057,
+      "code_blocks": 1,
+      "languages": [],
+      "version": "\"0.2.0\""
+    },
+    {
       "name": "skill-creator",
       "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill",
       "path": "shaunburdick--skills/.agents/skills/skill-creator/SKILL.md",
@@ -171073,11 +171101,12 @@
       "description": "\"JWT attack methodology for penetration testers. Covers algorithm confusion (alg:none, RS256\u2192HS256), weak HMAC secret brute force, kid parameter injection (SQLi, path traversal), jku/x5u/jwk header in",
       "path": "SnailSploit--claude-red/Skills/auth/offensive-jwt/SKILL.md",
       "remote_path": "Skills/auth/offensive-jwt/SKILL.md",
-      "lines": 275,
-      "words": 1399,
+      "lines": 281,
+      "words": 1458,
       "code_blocks": 13,
       "languages": [
         "bash",
+        "json",
         "python"
       ]
     },
@@ -171174,9 +171203,9 @@
       "description": "\"Dense description covering Server-Side Template Injection across Jinja2, Twig, Freemarker, Velocity, Pebble, Smarty, Mako, Handlebars, ERB, Thymeleaf, EJS, Pug. Engine fingerprinting, filter bypass, ",
       "path": "SnailSploit--claude-red/Skills/web/offensive-ssti/SKILL.md",
       "remote_path": "Skills/web/offensive-ssti/SKILL.md",
-      "lines": 620,
-      "words": 2110,
-      "code_blocks": 44,
+      "lines": 628,
+      "words": 2183,
+      "code_blocks": 43,
       "languages": [
         "bash",
         "html",
@@ -171195,7 +171224,7 @@
       "path": "SnailSploit--claude-red/Skills/web/offensive-graphql/SKILL.md",
       "remote_path": "Skills/web/offensive-graphql/SKILL.md",
       "lines": 568,
-      "words": 2875,
+      "words": 2898,
       "code_blocks": 40,
       "languages": [
         "bash",
@@ -171211,8 +171240,8 @@
       "description": "\"Insecure deserialization exploitation across Java, PHP, .NET, Python, Node.js, and Ruby. Covers gadget chain construction with ysoserial/phpggc/ysoserial.net, ObjectInputStream and BinaryFormatter si",
       "path": "SnailSploit--claude-red/Skills/web/offensive-deserialization/SKILL.md",
       "remote_path": "Skills/web/offensive-deserialization/SKILL.md",
-      "lines": 601,
-      "words": 2670,
+      "lines": 610,
+      "words": 2752,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -171252,7 +171281,7 @@
       "path": "SnailSploit--claude-red/Skills/iot/offensive-iot/SKILL.md",
       "remote_path": "Skills/iot/offensive-iot/SKILL.md",
       "lines": 436,
-      "words": 1982,
+      "words": 2018,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -171666,12 +171695,13 @@
       "description": "\"Zigbee, Thread, and Matter mesh-protocol attack methodology \u2014 IEEE 802.15.4 sniffing with TI CC2531 / CC2540 / Sonoff Zigbee Dongle E, KillerBee toolkit, Touchlink commissioning abuse with the well-k",
       "path": "SnailSploit--claude-red/Skills/wireless/offensive-zigbee-thread-matter/SKILL.md",
       "remote_path": "Skills/wireless/offensive-zigbee-thread-matter/SKILL.md",
-      "lines": 161,
-      "words": 797,
+      "lines": 169,
+      "words": 846,
       "code_blocks": 6,
       "languages": [
         "bash",
-        "python"
+        "python",
+        "text"
       ]
     },
     {

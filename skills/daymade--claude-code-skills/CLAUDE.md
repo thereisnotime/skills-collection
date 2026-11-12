@@ -183,6 +183,10 @@ including refused/unavailable checks and reviewable handoff. DOCX comparison fol
 [the input-identity and coverage procedure](daymade-docs/read-docx-review/references/full-comparison.md);
 keep sending evidence, revision-view selection and comparison limits with that owner.
 
+For Word questionnaires or generated list labels, follow
+[DOCX numbering](daymade-docs/doc-to-markdown/references/docx-numbering.md)
+for conversion and independent source comparison.
+
 For PDF → Markdown manuals or question banks, enter
 [docs-router](daymade-docs/docs-router/SKILL.md) and follow
 [PDF acceptance](daymade-docs/doc-to-markdown/references/pdf-acceptance.md).
@@ -558,6 +562,12 @@ keep maintainer-only repository resources distinct from installed Skill paths.
 Context-veto CLI regressions live in
 [test_trap_demotion.py](daymade-audio/transcript-fixer/scripts/tests/test_trap_demotion.py).
 
+### Feishu User Login Recovery
+
+When the version-matched identity guide requires restoring an authorized user
+login, enter [authorization recovery](lark-cli-router/references/auth-recovery.md).
+Keep device-flow commands, continuation and account/result verification there.
+
 ### Feishu Recording Lookup
 
 To find an existing Feishu recording by date, enter
@@ -689,8 +699,9 @@ them instead of restating volatile protocol facts.
 
 ### Ghostty Terminal Sessions
 
-For snapshotting, restoring or reconciling Claude Code / Codex sessions confirmed
-to run in Ghostty across reboots, enter [`ghostty-use`](ghostty-use/SKILL.md). Unmanaged/legacy manual Codex account
+For pre-reboot snapshots of local Claude Code / Codex CLI sessions across terminals,
+or restoring and reconciling their IDs in Ghostty, enter [`ghostty-use`](ghostty-use/SKILL.md).
+Unmanaged/legacy manual Codex account
 switches start at its
 [account-owner selection](ghostty-use/references/codex-account-switch.md#choose-the-account-owner-first).
 For blocked/delegated reopening, follow its

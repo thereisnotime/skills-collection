@@ -251,7 +251,9 @@ def parse_cwds(text, pids):
     return {pid: values[0] for pid, values in paths.items()}
 
 
-def observe(deadline=None, *, include_terminals=False):
+def observe(deadline=None, *, include_terminals=False, scope='ghostty'):
+    if scope not in ('ghostty', 'all-cli'):
+        raise ValueError('scope must be ghostty or all-cli')
     deadline = deadline or time.monotonic() + DEADLINE_SECONDS
     counters = {'ps_calls': 1, 'lsof_calls': 0, 'commands': 0, 'history_body_reads': 0}
     text = run_bounded(['/bin/ps', '-ww', '-axo', 'pid=,ppid=,tty=,command='], deadline, counters)
@@ -267,10 +269,11 @@ def observe(deadline=None, *, include_terminals=False):
         while current in procs and current not in roots and current not in chain:
             chain.add(current)
             current = procs[current]['ppid']
-        if current not in roots:
+        in_ghostty = current in roots
+        if not in_ghostty and scope == 'ghostty':
             continue
         terminal = row['tty'].startswith(('ttys', 'pts/'))
-        if include_terminals and terminal:
+        if include_terminals and terminal and in_ghostty:
             # The shallowest process represents a terminal surface. A surface
             # is a TTY, not a tab: splits and window membership remain unknown.
             depth = len(chain)
@@ -281,9 +284,8 @@ def observe(deadline=None, *, include_terminals=False):
         if identity is None:
             continue
         tool, sid, tokens, index = identity
-        if not terminal:
+        if not terminal and scope == 'ghostty':
             continue
-        cli_ttys.add(row['tty'])
         parent = procs.get(row['ppid'])
         wrapper = cli_identity(parent) if parent else None
         if (wrapper and wrapper[0] == tool and wrapper[3] == 1
@@ -293,6 +295,11 @@ def observe(deadline=None, *, include_terminals=False):
             continue
         if sid is not None:
             seen.add((tool, sid))
+        surface = row['tty'] if terminal else 'pid:' + str(pid)
+        cli_ttys.add(surface)
+        if include_terminals and not in_ghostty:
+            # Headless processes share "??"; keep their surfaces distinct by PID.
+            terminals[surface] = (0, row)
         candidates.append((row, tool, sid, tokens))
         if len(candidates) > MAX_SESSIONS:
             raise ValueError('Ghostty session count exceeds observation limit')
@@ -316,13 +323,20 @@ def observe(deadline=None, *, include_terminals=False):
             entry = {'tool': tool, 'cwd': cwds[row['pid']], 'cmdline': row['cmdline'],
                      'profile': 'unknown' if tokens is None else gs._detect_profile(row['cmdline']),
                      'tty': row['tty']}
+            if scope == 'all-cli':
+                ancestry, parent_pid = [], row['ppid']
+                while parent_pid in procs and parent_pid not in ancestry:
+                    ancestry.append(parent_pid)
+                    parent_pid = procs[parent_pid]['ppid']
+                entry.update(pid=row['pid'], ppid=row['ppid'], ancestor_pids=ancestry,
+                             terminal_owner='ghostty' if roots.intersection(ancestry) else 'non-ghostty')
             if sid is None:
                 entry.update(pid=row['pid'], reason=OPAQUE_REASON if tokens is None else 'CLI UUID absent from argv')
                 unresolved.append(entry)
             else:
                 entry['sid'] = sid
                 selected.append(entry)
-    result = {'sessions': selected, 'unresolved': unresolved,
+    result = {'sessions': selected, 'unresolved': unresolved, 'scope': scope,
               'ghostty_processes': len(roots), 'counters': counters}
     if include_terminals:
         inventory = [{'tty': tty, 'pid': row['pid'], 'cwd': cwds[row['pid']],
@@ -390,6 +404,14 @@ def observe_resolved(deadline=None):
     return result
 
 
+def _command_total(counters):
+    if not isinstance(counters, dict):
+        return None
+    values = [counters.get('ps_calls'), counters.get('lsof_calls'),
+              counters.get('process_start_calls', 0)]
+    return sum(values) if all(type(value) is int and value >= 0 for value in values) else None
+
+
 def cycle_status(state):
     path = Path(state) / 'watcher' / 'last-cycle.json'
     if not path.exists():
@@ -401,6 +423,20 @@ def cycle_status(state):
     result = json.loads(raw)
     if not isinstance(result, dict):
         raise ValueError('cycle telemetry must be an object')
+    for field in ('sessions', 'identified', 'unresolved', 'retained_unverified'):
+        result.pop(field, None)  # current inventory statistics belong to status.latest_snapshot
+    counters = result.get('counters')
+    total = _command_total(counters)
+    if total is not None:
+        counters['commands'] = total
+    action = result.get('snapshot_state')
+    if action in ('changed', 'unchanged', 'stand-down'):
+        result['snapshot_changed'] = action == 'changed'
+    states = {'partial': 'partial', 'failure': 'unknown', 'timeout': 'unknown',
+              'running': 'unknown', 'stand-down': 'Ghostty absent',
+              'changed': 'complete', 'unchanged': 'complete'}
+    if result.get('state') in states:
+        result['coverage'] = states[result['state']]
     return result
 
 
@@ -421,20 +457,21 @@ def finish_attempt(state, attempt, result=None, *, error=None, timeout=False):
     record = dict(attempt, completed_at=completed)
     if error is not None:
         record.update(state='timeout' if timeout else 'failure', error=str(error)[:2048],
-                      coverage='unknown', snapshot_changed=False, sessions=None, identified=None,
-                      unresolved=None, counters=None)
+                      counters=None)
     else:
-        record.update(result)
-        record.update(snapshot_changed=result['state'] == 'changed', snapshot_state=result['state'],
+        record.update({key: value for key, value in result.items() if key not in (
+            'sessions', 'identified', 'unresolved', 'retained_unverified', 'coverage', 'snapshot_changed')})
+        record.update(snapshot_state=result['state'],
                       error=None, last_observed_at=completed)
         if result.get('unresolved', 0):
-            record.update(state='partial', coverage='partial',
-                          error=f"{result['unresolved']} live TUI identities unresolved")
+            record.update(state='partial', error='live TUI identities unresolved')
         else:
-            record.update(last_successful_observation_at=completed,
-                          coverage=result.get('coverage', 'complete'))
+            record.update(last_successful_observation_at=completed)
         if result['state'] == 'changed':
             record['last_snapshot_change_at'] = completed
+    counters = record.get('counters')
+    if _command_total(counters) is not None:
+        record['counters'] = {key: value for key, value in counters.items() if key != 'commands'}
     line = (json.dumps(record, ensure_ascii=False, sort_keys=True) + '\n').encode()
     directory = Path(state) / 'watcher'
     log = directory / 'cycles.jsonl'
@@ -486,6 +523,8 @@ def _cycle(state, observer):
             old_rows = canonical(previous['sessions'], mapping)
             old_unknown = canonical_unresolved(previous.get('unresolved', []))
             if previous.get('kind') == AUTO_KIND and (
+                'canonical_inventory' in previous or 'canonical_unresolved' in previous
+            ) and (
                 previous.get('canonical_inventory') != old_rows
                 or previous.get('canonical_unresolved', []) != old_unknown
             ):
@@ -497,6 +536,10 @@ def _cycle(state, observer):
         if result['unresolved'] and previous:
             known = {(row['tool'], row['sid']) for row in observed}
             for row in previous['sessions']:
+                if previous.get('scope') == 'all-cli' and row.get('terminal_owner') != 'ghostty':
+                    # The original wider manual archive remains a recovery source;
+                    # unknown/non-Ghostty provenance is not automatic membership.
+                    continue
                 if (row['tool'], row['sid']) not in known:
                     observed.append(dict(row, membership='retained-unverified'))
                     retained += 1
@@ -520,19 +563,15 @@ def _cycle(state, observer):
         by_id = {(row['tool'], row['sid']): row for row in rows}
         for row in observed:
             entry = dict(row)
-            entry.update(status='unknown', error='not-observed', last_interaction=None, age_hours=None,
-                         restore_command=by_id[(row['tool'], row['sid'])]['restore_command'])
+            for key in ('status', 'error', 'last_interaction', 'age_hours'):
+                entry.pop(key, None)  # automatic liveness is unobserved at the document level
+            entry['restore_command'] = by_id[(row['tool'], row['sid'])]['restore_command']
             sessions.append(entry)
-        doc = {'kind': AUTO_KIND, 'captured_at': datetime.now(timezone.utc).isoformat(),
+        doc = {'kind': AUTO_KIND, 'scope': 'ghostty', 'captured_at': datetime.now(timezone.utc).isoformat(),
                'active_hours_threshold': gs.ACTIVE_HOURS, 'liveness': 'not-observed',
-               'coverage': 'partial' if unknown else 'identified Ghostty descendants',
-               'unresolved': result['unresolved'], 'retained_unverified': retained,
-               'canonical_inventory': rows, 'canonical_unresolved': unknown, 'sessions': sessions}
-        for field in ('terminal_inventory', 'other_terminals'):
-            if field in result:
-                doc[field] = result[field]
+               'unresolved': result['unresolved'], 'sessions': sessions}
         if 'terminal_inventory' in result:
-            doc['terminal_surface_count'] = len(result['terminal_inventory'])
+            doc['terminal_inventory'] = result['terminal_inventory']
             doc['window_tab_mapping'] = 'unknown'
         archive = latest.parent / ('snapshot-auto-' + datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S-%f') + '-' + uuid.uuid4().hex[:8] + '.json')
         atomic_manifest(archive, doc, replace=False)
@@ -725,11 +764,12 @@ def status(state):
     latest = Path(state) / 'snapshots' / 'latest.json'
     if latest.exists():
         doc = read_manifest(latest)
+        retained = sum(row.get('membership') == 'retained-unverified' for row in doc['sessions'])
         result['latest_snapshot'] = {'captured_at': doc.get('captured_at'), 'kind': doc.get('kind', 'manual'),
                                      'recorded_sessions': len(doc['sessions']),
-                                     'identified_at_capture': len(doc['sessions']) - doc.get('retained_unverified', 0),
-                                     'coverage': doc.get('coverage', 'manual'),
-                                     'unresolved': len(doc.get('unresolved', [])), 'retained_unverified': doc.get('retained_unverified', 0)}
+                                     'identified_at_capture': len(doc['sessions']) - retained,
+                                     'coverage': gs.snapshot_coverage(doc),
+                                     'unresolved': len(doc.get('unresolved', [])), 'retained_unverified': retained}
     result['last_cycle'] = cycle_status(state)
     result['meaning'] = ('last_cycle.attempted_at is the last attempt; last_successful_observation_at '
                          'is complete coverage; last_snapshot_change_at is the last saved change')

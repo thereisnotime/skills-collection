@@ -19,6 +19,13 @@ current app and adapter before claiming a capability is unavailable.
 
 ## The working protocol
 
+Before the first GUI action, inspect the current host's available Kimi tools or
+existing `kimi-cu` entry and confirm whether post-restore history observation is
+possible. Report a missing observation channel before opening the batch. It does
+not block an authorized process-level restore; retain history readiness as
+unverified and never substitute a prohibited computer-use channel. The batch
+script checks process presence, not Kimi availability or readable history.
+
 1. Verify Accessibility first:
    `osascript -e 'tell application "System Events" to get UI elements enabled'` —
    `false` means keystrokes will silently do nothing useful; grant it before
@@ -67,6 +74,10 @@ The executing agent checks the same selected IDs at two distinct levels:
   screen does not. Titles alone do not prove every selected tab is ready. Working,
   compaction, quota or stalled indicators and historical error turns can coexist with
   readable history; distinguish them from an error screen that prevents loading.
+
+Report process presence, readable-history coverage and business-task continuation
+separately. A complete process count does not prove either of the latter; an
+open-only restore does not authorize sending a new prompt to continue old work.
 
 Inspect remaining loading/uncertain tabs within a bounded wait. Bind observations
 to the current tab and the process/manifest identity; a generic title or cwd is
@@ -149,6 +160,19 @@ JSON schema excerpt or aggregate field catalogue in this SOP.
 
 Users may hand-edit a snapshot (drop rows, edit cwd) before restore — it is
 user data, not a locked contract.
+
+New manifests keep source rows, not duplicate canonical lists or aggregate
+counts. The writers and reader above own the format: terminal and retained
+counts, ordinary-terminal subsets, automatic coverage/unobserved-liveness views
+and change-comparison views are computed when needed. Legacy manifests remain
+readable; the automatic reader checks legacy
+canonical copies when present, and new writes omit them. Unique legacy
+ordinary-terminal evidence without an inventory is preserved on reconstruction.
+Frozen reopen commands remain capture evidence because their profile environment
+may differ from the current mutable profile map.
+Manual per-session liveness results remain historical measurements: collection
+is not a simultaneous clock snapshot. Do not treat those results as current
+process presence or readable-history acceptance.
 
 Prefer invocation-local `--only`/`--exclude` for a changed restore selection so
 the original evidence survives. `--expected-tabs <N>` adds `expected_tab_count`

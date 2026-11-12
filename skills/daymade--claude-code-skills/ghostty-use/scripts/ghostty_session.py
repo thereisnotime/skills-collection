@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Snapshot, restore and reconcile Claude Code / Codex sessions inside Ghostty tabs.
+"""Snapshot local Claude Code / Codex CLIs; restore missing sessions in Ghostty.
 
 Usage:
-  ghostty_session.py snapshot [--expected-tabs N]  # capture Ghostty process-backed terminals
+  ghostty_session.py snapshot [--scope all-cli|ghostty] [--expected-tabs N]
   ghostty_session.py check [--snapshot F] [--exclude ID ...]
   ghostty_session.py restore [--all|--stale-too] [--only ID]... [--exclude ID ...]
                                               # reopen tabs per snapshot, then auto-check
@@ -84,7 +84,7 @@ class SessionList(list):
         self.observation = observation or {}
 
 
-def list_sessions(resolve_uuidless=True, *, deadline=None):
+def list_sessions(resolve_uuidless=True, *, deadline=None, scope='ghostty'):
     """One entry per live claude/codex session.
 
     Anchor is a parsed resume UUID. A fork's argv UUID belongs to its parent.
@@ -100,11 +100,12 @@ def list_sessions(resolve_uuidless=True, *, deadline=None):
     """
     from ghostty_watch import observe, cli_identity, OPAQUE_REASON
     try:
-        observed = observe(include_terminals=True, **({'deadline': deadline} if deadline is not None else {}))
+        options = {'scope': scope} if scope != 'ghostty' else {}
+        observed = observe(include_terminals=True, **options, **({'deadline': deadline} if deadline is not None else {}))
     except subprocess.TimeoutExpired as error:
         raise RecoveryError('observation deadline expired during live inventory: ' + str(error)) from error
     except (ValueError, OSError) as error:
-        raise RecoveryError("live Ghostty inventory failed: " + str(error)) from error
+        raise RecoveryError("live CLI inventory failed: " + str(error)) from error
     seen = {}
     for row in observed['sessions']:
         seen[row['sid']] = dict(row, anchor='argv', transcript=None)
@@ -134,6 +135,11 @@ def list_sessions(resolve_uuidless=True, *, deadline=None):
                 "profile": _detect_profile(proc["cmd"]),
                 "anchor": "transcript", "transcript": proc["transcript"],
             }
+            if scope == 'all-cli':
+                seen[proc['sid']].update(pid=proc['pid'], ppid=proc.get('ppid'),
+                                        process_started_epoch=proc['started'],
+                                        ancestor_pids=proc.get('ancestor_pids', []),
+                                        terminal_owner=proc.get('terminal_owner', 'unknown'))
         else:
             unresolved.append({k: v for k, v in proc.items() if k != 'started'})
     return SessionList(sorted(seen.values(), key=lambda e: e["tty"]), unresolved=unresolved,
@@ -638,12 +644,10 @@ def write_snapshot(sessions, out_path=None, *, expected_tabs=None):
     doc = {"captured_at": datetime.now().isoformat(timespec="seconds"),
            "active_hours_threshold": ACTIVE_HOURS, "sessions": list(sessions),
            "unresolved": getattr(sessions, 'unresolved', []),
-           "other_terminals": getattr(sessions, 'other_terminals', []),
            "terminal_inventory": getattr(sessions, 'terminal_inventory', []),
-           "scope": "Ghostty process descendants" if isinstance(sessions, SessionList) else "unspecified",
+           "scope": ("all-cli" if isinstance(sessions, SessionList) and sessions.observation.get('scope') == 'all-cli'
+                     else "Ghostty process descendants" if isinstance(sessions, SessionList) else "unspecified"),
            "window_tab_mapping": "unknown"}
-    if isinstance(sessions, SessionList):
-        doc['terminal_surface_count'] = len(sessions.terminal_inventory)
     if expected_tabs is not None:
         doc['expected_tab_count'] = expected_tabs
     path = out_path or os.path.join(SNAP_DIR, f"snapshot-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}.json")
@@ -654,9 +658,14 @@ def write_snapshot(sessions, out_path=None, *, expected_tabs=None):
 
 
 def cmd_snapshot(args):
-    live = list_sessions()
+    scope = getattr(args, 'scope', 'all-cli')
+    live = list_sessions(scope=scope)
     if not live and not live.unresolved and not live.terminal_inventory:
-        raise RecoveryError("no Ghostty terminal surfaces observed; previous snapshot retained")
+        raise RecoveryError("no CLI sessions or terminal surfaces observed; previous snapshot retained")
+    if scope == 'all-cli':
+        for entry in live:
+            if 'pid' in entry and 'process_started_epoch' not in entry:
+                entry['process_started_epoch'] = _proc_start(entry['pid'])
     sessions = snapshot_sessions(live)
     path = write_snapshot(sessions, args.out, expected_tabs=getattr(args, 'expected_tabs', None))
     unresolved = live.unresolved if isinstance(live, SessionList) else []
@@ -664,7 +673,7 @@ def cmd_snapshot(args):
     act = [s for s in sessions if s["status"].startswith("active")]
     print(f"captured {len(sessions)} sessions -> {path}")
     if isinstance(live, SessionList):
-        print(f"  Ghostty terminal surfaces: {len(live.terminal_inventory)}; "
+        print(f"  scope: {scope}; terminal surfaces: {len(live.terminal_inventory)}; "
               f"other terminals: {len(live.other_terminals)}; window/tab mapping: unknown")
     if getattr(args, 'expected_tabs', None) is not None:
         print(f"  user-reported tabs: {args.expected_tabs}; not comparable to TTY/session counts")
@@ -683,6 +692,14 @@ def cmd_snapshot(args):
 
 
 # ---------- check ----------
+
+def snapshot_coverage(doc):
+    if doc.get('kind') == 'automatic-recovery-snapshot':
+        partial = bool(doc.get('unresolved')) or any(
+            row.get('membership') == 'retained-unverified' for row in doc['sessions'])
+        return 'partial' if partial else 'identified Ghostty descendants'
+    return doc.get('coverage', 'manual')
+
 
 def load_snapshot(path, optional=False):
     path = path or os.path.join(SNAP_DIR, "latest.json")
@@ -705,6 +722,16 @@ def load_snapshot(path, optional=False):
         if s["sid"] in seen:
             raise RecoveryError("snapshot contains duplicate session IDs")
         seen.add(s["sid"])
+    # Compatibility views are computed, never copied into new manifests.
+    if 'terminal_inventory' in doc:
+        doc['terminal_surface_count'] = len(doc['terminal_inventory'])
+        doc['other_terminals'] = [row for row in doc['terminal_inventory'] if row.get('kind') == 'other']
+    if doc.get('kind') == 'automatic-recovery-snapshot':
+        doc['coverage'] = snapshot_coverage(doc)
+        for row in doc['sessions']:
+            for key, value in (('status', 'unknown'), ('error', 'not-observed'),
+                               ('last_interaction', None), ('age_hours', None)):
+                row.setdefault(key, value)
     return doc
 
 
@@ -790,10 +817,12 @@ def cmd_reconstruct(args):
                              "indexed_rows": len(candidates), "rejected": rejected}, "sessions": sessions}
     # Preserve capture evidence; indexed reconstruction does not establish new
     # window membership or recover the unresolved/non-AI records by itself.
-    for field in ('unresolved', 'other_terminals', 'terminal_inventory', 'scope',
-                  'window_tab_mapping', 'terminal_surface_count', 'expected_tab_count'):
+    for field in ('unresolved', 'terminal_inventory', 'scope',
+                  'window_tab_mapping', 'expected_tab_count'):
         if doc and field in doc:
             rebuilt[field] = doc[field]
+    if doc and 'terminal_inventory' not in doc and 'other_terminals' in doc:
+        rebuilt['other_terminals'] = doc['other_terminals']  # unique legacy evidence
     if not sessions:
         raise RecoveryError("no verified recovery sessions selected; latest snapshot untouched")
     if args.dry_run:
@@ -817,7 +846,7 @@ def cmd_check(args):
         return 2
     sessions = requested_sessions(doc, args)
     report_scope(doc)
-    live = {s["sid"]: s for s in list_sessions()}
+    live = {s["sid"]: s for s in list_sessions(scope='all-cli')}
     now = set(live)
     present = [s for s in sessions if s["sid"] in now]
     missing = [s for s in sessions if s["sid"] not in now]
@@ -911,7 +940,7 @@ def _profile_env_prefix(s, mapping=None):
 def reconcile(sessions, timeout=10):
     deadline = time.monotonic() + timeout
     while True:
-        now = {s["sid"] for s in list_sessions()}
+        now = {s["sid"] for s in list_sessions(scope='all-cli')}
         missing = [s for s in sessions if s["sid"] not in now]
         if not missing or time.monotonic() >= deadline:
             return missing
@@ -932,7 +961,7 @@ def cmd_restore(args):
         raise RecoveryError("no sessions selected; use --all or --only for waiting/stale/unknown records")
     # Prepare every command before any GUI side effects, including malformed snapshots.
     commands = {s["sid"]: restore_cmd(s) for s in sel}
-    live = {s["sid"] for s in list_sessions()}
+    live = {s["sid"] for s in list_sessions(scope='all-cli')}
     pending = [s for s in sel if s["sid"] not in live]
     print(f"selected {len(sel)} sessions; {len(sel) - len(pending)} already present; opening {len(pending)} missing")
     if args.dry_run:
@@ -940,12 +969,15 @@ def cmd_restore(args):
             print(f"WOULD SEND {s['sid']} -> {commands[s['sid']]}")
         return 0
     if pending:
+        print("History readiness: unverified by this script. Use the authorized Kimi observation "
+              "channel after process reconciliation; unavailable observation remains unverified.")
         print("Keep keyboard and mouse untouched until paste and reconciliation finish.", flush=True)
     for i, s in enumerate(pending, 1):
         ok = _paste_tab(commands[s["sid"]])
         print(f"  [{i}/{len(pending)}] {'SENT (unverified)' if ok else 'SEND FAILED'}: {s['sid'][:13]}")
     still_missing = reconcile(sel, args.reconcile_seconds)
     print(f"\nauto-check: {len(sel) - len(still_missing)}/{len(sel)} present")
+    print("Process presence only; readable conversation history and task continuation are not verified.")
     for s in still_missing:
         print(f"  NOT OBSERVED {s['sid']} -> if still wanted: {commands[s['sid']]}")
     if still_missing:
@@ -1018,6 +1050,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Ghostty session snapshot/reconstruct/restore/check")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p1 = sub.add_parser("snapshot")
+    p1.add_argument('--scope', choices=('all-cli', 'ghostty'), default='all-cli',
+                    help='manual default: all local interactive Codex/Claude CLIs, including headless terminals; automatic backups remain Ghostty-only')
     p1.add_argument("--out", type=nonempty)
     p1.add_argument("--expected-tabs", type=positive,
                     help="user-reported tab count; recorded separately from terminal surfaces")
