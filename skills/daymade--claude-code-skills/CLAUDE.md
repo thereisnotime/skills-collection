@@ -65,6 +65,8 @@ For capability extraction or reuse across business callers, follow its
 
 Operational or code-bearing Skill edits complete directly affected document alignment
 before the first candidate freeze; follow skill-creator's Edit workflow.
+For meeting transcripts, participant-note reconciliation or minute-draft merges,
+enter [meeting-minutes-taker](daymade-audio/meeting-minutes-taker/SKILL.md#quick-start).
 When data-visualization delivery-gate text changes, use the
 [repository generator](scripts/sync_delivery_gates.py) and
 [CI validation step](.github/workflows/ci.yml) to refresh its shipped resource;
@@ -353,6 +355,8 @@ focus or filtered-selection changes, use its
 [reader journey](frontend-visual-qa/references/journey-and-page-contracts.md#embedded-readers-and-semantic-zoom).
 For long-document outlines, active-section cues or source sidebars, follow its
 [reading-position recipe](frontend-visual-qa/references/journey-and-page-contracts.md#long-document-reading-positions).
+For timed course text with an original-video player, use
+[course video reading](frontend-visual-qa/references/course-video-reading.md).
 For browser visibility, hidden-page polling (query eligibility, scheduling opportunities or product cancellation), selected read modes, request/capture timing or long JSONL input problems, load its
 [browser-driving and observation traps](frontend-visual-qa/references/browser-driving-and-observation-traps.md);
 keep adapter requirements and invocation examples in that reference.

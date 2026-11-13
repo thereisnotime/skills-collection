@@ -1,22 +1,16 @@
 # Meeting Minutes Review Checklist
 
-> **Scope note**: this checklist is a same-context self-review — the reviewer holds the draft it just built while re-reading the transcript, so a blind spot shared by generation and review (e.g., a narrative-voiced directive none of the passes classified as a decision) survives every phase below. That structural gap is covered separately by SKILL.md **Step 3.5 Retrieval Self-Test** (fresh-context extractor that never sees the draft); run both — this checklist is not a substitute for it, nor vice versa.
-
-## Contents
-- Completeness Review Process (4 phases: structural, content depth, quotes, action items)
-- Common Omission Patterns (technical, business logic, process items)
-- Merge Strategy (multi-version union rules)
-- Red Flags (signs of missing content)
+Before this same-context review, load the [source and status contract](../SKILL.md#step-1-read-and-analyze-transcript) and [source-backed UNION merge](../SKILL.md#core-principle-multiple-complete-passes--union-merge). Run the separate [Retrieval Self-Test](../SKILL.md#step-35-retrieval-self-test-consumption-side-verification) as well.
 
 ## Completeness Review Process
 
 ### Phase 1: Structural Check
 
 - [ ] All major discussion topics from transcript are covered
-- [ ] Each decision has supporting quote
+- [ ] Every decision has locatable evidence under the source contract
 - [ ] All speakers who made decisions are attributed
-- [ ] Action items have specific owners (not generic "team")
-- [ ] Priorities assigned to all action items
+- [ ] Task-owner attribution and priorities match the original supplied evidence
+- [ ] Compare every supplied source with the draft for coverage
 
 ### Phase 2: Content Depth Check
 
@@ -31,7 +25,7 @@ For each transcript section, verify:
 
 ### Phase 3: Quote Verification
 
-For significant decisions, ensure:
+Check evidence selected under the source contract; for transcript quotations:
 
 - [ ] Quote accurately reflects speaker's point
 - [ ] Speaker attribution is correct
@@ -39,12 +33,14 @@ For significant decisions, ensure:
 
 ### Phase 4: Action Items Audit
 
-Cross-reference with transcript for:
+Cross-reference with all supplied sources for:
 
 - [ ] Explicit task assignments ("Alice will handle...", "Bob, please...")
 - [ ] Implicit commitments ("I will design...", "Backend team will...")
 - [ ] Deferred items ("Defer to later...", "Not in MVP scope...")
 - [ ] Follow-up discussions needed ("Discuss offline...", "Follow up separately...")
+- [ ] Compare each status with the exact action its source supports
+- [ ] Check unknown fields and later corrections against the source/status and merge contracts
 
 ## Common Omission Patterns
 
@@ -73,28 +69,22 @@ Cross-reference with transcript for:
 
 ## Merge Strategy (Multi-Version Union)
 
-When merging versions:
-
-1. **Keep ALL content from existing version** - Never remove unless explicitly wrong
-2. **Add NEW content from incoming version** - Union, not replace
-3. **Resolve conflicts by combining** - Include both perspectives
-4. **Preserve more detailed version** - When same topic has different depth
-5. **Maintain structure** - Keep section numbering logical
+Audit the merge against the canonical contract loaded above.
 
 ### Merge Checklist
 
-- [ ] All sections from original preserved
-- [ ] All sections from new version added (or merged into existing)
+- [ ] Compare both versions' source-supported sections, details and final states with the merged draft
 - [ ] No duplicate content (consolidate if same info appears twice)
-- [ ] Quotes from both versions preserved
-- [ ] Action items from both versions merged
+- [ ] Verify retained quotations from both versions against their original sources
+- [ ] Check the final action rows against both versions and original sources
+- [ ] Inspect the separate Retrieval Self-Test's inputs and recorded results
 - [ ] Numbering remains sequential
 
 ## Red Flags (Signs of Missing Content)
 
 - Transcript mentions a topic not in minutes
-- Decision recorded without quote
-- Action item without clear owner
+- Decision evidence cannot be located in the supplied sources
+- Task-owner attribution unsupported by its source
 - Long transcript section summarized in one sentence
 - Technical discussion with no entity/field names
 - "TBD" items without clear description

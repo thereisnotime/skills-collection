@@ -80,7 +80,7 @@
       "description": "Fetches real, citable Bilibili (B站) video data — stats, metadata, tags, and full danmaku text — via login-free API calls, never hand-typed or estimated. Use when citing view/like/favorite counts, analyzing why a video performed, or archiving a Bilibili source into a knowledge base. Accepts BVID, av numbers, b23.tv links, or full URLs; subtitles and 收藏夹 (favorites) enumeration need the user's Bilibili login.",
       "source": "./bilibili-source",
       "strict": false,
-      "version": "1.4.1",
+      "version": "1.4.2",
       "category": "developer-tools",
       "keywords": [
         "bilibili",
@@ -244,7 +244,7 @@
       "description": "OpenAI Codex operations and design exploration suite bundling model-aware long-context workstation setup, local Codex delegation, generated-image review, static visual-direction selection, and runnable HTML interaction Design Boards under one shared namespace.",
       "source": "./daymade-codex",
       "strict": false,
-      "version": "2.4.8",
+      "version": "2.4.9",
       "category": "suite",
       "keywords": [
         "suite",
@@ -349,7 +349,7 @@
       "description": "Apple-platform development and operations suite for macOS window capture, TCC and Keychain dialog diagnosis, Full Disk Access repair, iOS/macOS app development, disk cleanup, and launchd watchdogs.",
       "source": "./daymade-macos",
       "strict": false,
-      "version": "1.30.4",
+      "version": "1.31.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -376,7 +376,7 @@
       "description": "Audio processing suite covering the full speech pipeline: ASR transcription (Qwen3, StepFun) with batch-mode guards against music-only repetition-loop hallucinations, speaker diarization and CAM++ voiceprint identification for multi-speaker recordings, transcript error correction, structured meeting minutes generation, and TTS voice synthesis (StepFun). Install once for the complete audio workflow.",
       "source": "./daymade-audio",
       "strict": false,
-      "version": "1.58.1",
+      "version": "1.58.3",
       "category": "suite",
       "keywords": [
         "suite",
@@ -403,7 +403,7 @@
       "description": "Daymade skills core suite. Bundles skill creation, quality review, real Claude/Codex Skill-surface governance, suite-migration reconciliation, and marketplace development tooling under one shared namespace. Skill governance separates canonical source, installed inventory, discovery policy, the fresh model-visible catalog, and router-resolved cold resources instead of optimizing cache counts; it preserves Claude's official versioned-cache lifecycle and verifies selected entries in the real host prompt. Skill verification separates risk classification from evaluation spend: bounded fixes use targeted checks, narrow behavior changes use sampled replays, and paired baselines, graders, benchmarks, or a viewer run only after explicit user authorization or a decision-bearing evidence plan plus opt-in; that authorization does not change the risk tier. Existing-skill edits retain an old-vs-new capability audit and content-bound packaging attestation so prompt compression cannot silently delete runtime contracts. When the official skill-creator plugin is also installed, skill-creator detects the coexistence and offers a consent-based, reversible SessionStart routing hook so the daymade edition wins deterministically; on machines without the official plugin nothing is ever installed.",
       "source": "./daymade-skill",
       "strict": false,
-      "version": "1.78.1",
+      "version": "1.79.1",
       "category": "suite",
       "keywords": [
         "suite",
@@ -766,7 +766,7 @@
       "description": "Extract files from repomix packaged formats (XML, Markdown, JSON) with automatic format detection and validation",
       "source": "./repomix-unmixer",
       "strict": false,
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "utilities",
       "keywords": [
         "repomix",
@@ -978,7 +978,7 @@
       "description": "Investigates network, streaming and protocol failures with falsification-first layered experiments, the general fallback for unknown root causes. Use for ECONNRESET / RST_STREAM / SSE stalls, CDN/CGNAT timeouts or certificate errors, throughput collapse where everything returns 200 but transfers crawl, or LAN identity/topology mysteries. Not for known Tailscale/TUN/DNS/proxy-path conflicts (use tunnel-doctor).",
       "source": "./debugging-network-issues",
       "strict": false,
-      "version": "1.11.11",
+      "version": "1.12.0",
       "category": "developer-tools",
       "keywords": [
         "debugging",
@@ -1122,7 +1122,7 @@
       "description": "Audits rendered UI and specific task/object-link handoffs; excludes ordinary source citations alone. Audits already-rendered UI and Markdown/Obsidian image layout — web app, deck/slide, dashboard, design-system, or Electron/native app — via real-browser/native-app journeys and a Playwright sweep. Use after UI implementation to find typography, overflow, responsive, routing, data-viz, browser-output, or native-shell defects, or to compare a render against a reference. Not for greenfield UI design (use ui-designer) or QA-program setup (use qa-expert).",
       "source": "./frontend-visual-qa",
       "strict": false,
-      "version": "1.21.45",
+      "version": "1.21.47",
       "category": "design",
       "keywords": [
         "frontend",

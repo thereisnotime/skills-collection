@@ -44,3 +44,19 @@ ourselves.
 **To disable the two telemetry items above**, set `DISABLE_TELEMETRY` or
 `DO_NOT_TRACK` to `1` or `true` in your environment. The CLI version check isn't
 telemetry (no usage data is sent) and isn't affected.
+
+## Plugin auth
+
+This plugin **does not** read credentials from the user's environment or files, and
+it does not forward any credential to a server. All authentication must happen safely through OAuth 2.0.
+
+- **MCP server** (`.mcp.json`): a single remote HTTP server,
+  `https://mcp.stripe.com`, operated by Stripe. It declares no `env`, no
+  `headers`, and no API key or token of any kind. Authentication is OAuth 2.0
+  only, handled by Claude Code's built-in MCP OAuth flow, so the plugin never
+  sees or transmits a secret.
+- **`skills/stripe-apps/references/authentication.md`**: this is reference
+  documentation for developers building Stripe Apps. Snippets which mention 
+  example code are describing integration code that a developer would write in
+  their app's server. They aren't actual plugin code, the plugin never actually
+  reads values from the user's environment.

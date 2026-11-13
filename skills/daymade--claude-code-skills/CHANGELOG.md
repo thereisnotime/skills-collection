@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **daymade-skill 1.79.1**: Route workflow moves and renames to the migration owner; replace obsolete casebook source-line headings with topic names and remove the duplicated contents list.
+
+- **daymade-skill 1.79.0**: Add required local Semgrep Python archive-path checks beside Gitleaks, calibrate against the original #1499 extractor, reject incomplete analysis and legacy secret-only packaging receipts, and run the same gate in required CI. State the bounded detection scope instead of claiming general code safety.
+- **bilibili-source 1.4.2** — `attest-audio`: Local size and SHA-256 must equal the remote object; a full strict decode must succeed.
+
+- **daymade-skill 1.78.2**: Add two bounded Skill Creator migration cases: preserve behavioral assertions when workflow instructions move, and retain externally consumed machine IDs during a public rename.
+- **repomix-unmixer** (v1.0.1): Reject archive path traversal, absolute and Windows-style paths, and output symlinks across XML, Markdown and JSON before writing archive files. Report invalid entries with a nonzero exit status; add registered filesystem and CLI regressions. Fixes #1499.
+
+- **meeting-minutes-taker / audio-router** (`daymade-audio` v1.58.3): Align project and audio routing with participant-note inputs. Keep source/status and merge definitions in the canonical workflow; remove copied rules and a derived checklist contents summary, correct unknown-owner checks, and keep source locators as YAML strings in the template.
+
+- **meeting-minutes-taker** (`daymade-audio` v1.58.2): Integrate participant notes into one sourced minutes document, bind completion to the exact action, reconcile superseded commitments before every merge, and include note-only updates in retrieval self-tests. Align the review checklist and action-item template.
+
+- **debugging-network-issues** (v1.12.0): Preserve pre-failure raw and partial evidence across collection errors; validate wireless ACK direction, packet length, channel windows and clock uncertainty. Correct unified-log predicate field guidance and separate capture coverage from root-cause attribution.
+- **macos-watchdog** (`daymade-macos` v1.31.0): Distinguish process restart, credential readiness and a new valid observation for authenticated collectors; retain service-context, expiry and recovery boundaries.
+
+- **design-style-picker** (`daymade-codex` v2.4.9): Compare candidates around the user's unresolved choice, preserve approved dimensions and review stages, and stop once the current decision is possible. Replace fixed sample quotas with comparable, readable alternatives.
+
+- **frontend-visual-qa** (v1.21.47): Add relationship-map semantic zoom cases for distant and nearby task handoffs, offscreen anchors, clipped module titles, search recovery and relationship-label activation.
+
+- **frontend-visual-qa** (v1.21.46): Route timed course reading from the repository instructions to its QA procedure; resolve the calibration fixture from the loaded Skill root and derive required video coverage from its offered timestamps.
+
 - **frontend-visual-qa** (v1.21.45): Add course text/video reading journeys and known-answer controls for scrolling players, covered targets and orientation resets.
 
 - **doc-to-markdown** (`daymade-docs` v1.29.7): Resolve Pandoc image references from the Markdown output directory, route generated numbering checks to their original-OOXML owner, replace bypass conversion examples with the maintained converter, and remove derived inventories and metadata templates.

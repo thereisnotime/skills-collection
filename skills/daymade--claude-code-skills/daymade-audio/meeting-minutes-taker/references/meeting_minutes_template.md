@@ -4,13 +4,15 @@
 
 ```markdown
 ---
-title: [Meeting Title]
-date: [YYYY-MM-DD]
+title: "[Meeting Title]"
+date: "[YYYY-MM-DD]"
 attendees:
   - Name (Role)
   - Name (Role)
-duration: [X hours/minutes]
-location: [Virtual/Room Name]
+duration: "[X hours/minutes]"
+location: "[Virtual/Room Name]"
+sources:
+  - "[Original source locator]"
 ---
 ```
 
@@ -30,7 +32,7 @@ If the meeting reviewed specific documents, mockups, or artifacts, list them her
 
 ### 3. Key Decisions
 
-For each major decision:
+Evidence selection: [source and status contract](../SKILL.md#step-1-read-and-analyze-transcript). The block below illustrates a transcript-backed decision.
 
 ```markdown
 ### 3.X [Category] Decision Title
@@ -65,11 +67,13 @@ sequenceDiagram
 
 ### 5. Action Items
 
-| # | Task | Owner | Priority | Due Date | Notes (conditions/expiry) |
-|---|------|-------|----------|----------|---------------------------|
-| 1 | Task description | Person Name | P1/P2/P3 | YYYY-MM-DD | e.g. "slips to Tue if env not ready" |
+| # | Task | Owner | Priority | Due Date | Status / Source | Notes (conditions/expiry) |
+|---|------|-------|----------|----------|-----------------|---------------------------|
+| 1 | Task description | Person Name / unknown | P1/P2/P3 / unknown | YYYY-MM-DD / unknown | TODO/DONE/unknown; source locator | e.g. "slips to Tue if env not ready" |
 
 The Notes column exists because conditional commitments ("report due Friday, slips to Tuesday if the environment isn't ready") lose their expiry condition in a four-column row — and the condition is exactly what a future reader queries when the deadline passes. Leave it empty when a task is unconditional; never bury a stated condition in Discussion prose only.
+
+For action status and source attribution, use the source contract linked above.
 
 ### 6. Parking Lot (Deferred Items)
 

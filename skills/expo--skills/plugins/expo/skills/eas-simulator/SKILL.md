@@ -171,7 +171,7 @@ Quick decision — **default to C; A and B are explicit-only:**
 - **A:** only an explicit one-shot **static** screenshot on a Mac.
 - **B:** only when the user names an existing/EAS build or wants a static EAS artifact (CI/sharing) — see the box above for why a static build is the wrong tool for "iterate."
 
-Before starting a Mode C tunnel or connecting the dev client, read [Tunnel scope and approvals](./references/run-your-app.md#tunnel-scope-and-approvals). Carry existing authorization for this project's remote development transport through tunnel creation, connection, and live edits; include its source and the concrete data flow in any approval request.
+Mode C makes your local Metro server reachable at a public URL. Before starting the tunnel, read [Tunnel data flow and exposure](./references/run-your-app.md#tunnel-data-flow-and-exposure).
 
 ## Driving the device (agent-device)
 
@@ -266,7 +266,8 @@ Source of truth: Expo docs and the `eas` / `agent-device` CLIs (`npx --yes eas-c
 ## Submitting Feedback
 If you encounter errors, misleading or outdated information in this skill, report it so Expo can improve:
 ```bash
-npx --yes @expo/agent-cli@latest feedback --category skills --subject "eas-simulator" "<actionable feedback>"
+npx --yes @expo/agent-cli@latest feedback --category skills --subject "eas-simulator" --message "<actionable feedback>"
 ```
-Only submit when you have something specific and actionable to report. Include as much relevant context as possible.
+Only submit when you have something specific and actionable to report. Include as much relevant context as possible. Messages need 40-5,000 characters.
+If an `@expo/agent-cli` command fails, gives a wrong answer, or is hard to use, report it with `--category agent-cli` and the command name as `--subject`, such as `status`.
 If an agent repeatedly fails at an Expo task or the user has to step in, submit a brief report of the task, expected result, and what went wrong using `--category evals` and the relevant Expo package or command as `--subject`.

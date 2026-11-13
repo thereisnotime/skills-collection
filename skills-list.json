@@ -23351,8 +23351,8 @@
       "description": "\"Run and control a user's app on a remote iOS/Android simulator with Expo Simulators (also called EAS Simulator). Read before running any `eas simulator:*` commands - it has the current syntax and wor",
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 273,
-      "words": 4914,
+      "lines": 274,
+      "words": 4925,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -23364,8 +23364,8 @@
       "description": "Guidelines for upgrading Expo SDK versions and fixing dependency issues",
       "path": "expo--skills/plugins/expo/skills/expo-upgrade/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-upgrade/SKILL.md",
-      "lines": 150,
-      "words": 1067,
+      "lines": 151,
+      "words": 1100,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23378,8 +23378,8 @@
       "description": "Use for anything related to EAS Observe - adding `expo-observe` to an Expo project (AppMetricsRoot/ObserveRoot HOC, markInteractive and ObserveInteractiveMarker, the useObserve hook, the Expo Router /",
       "path": "expo--skills/plugins/expo/skills/eas-observe/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-observe/SKILL.md",
-      "lines": 50,
-      "words": 664,
+      "lines": 51,
+      "words": 697,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -23391,8 +23391,8 @@
       "description": "Build beautiful, native-feeling Expo screens. Covers Apple HIG styling, semantic colors, native controls, SF Symbols, media, visual effects, gradients, storage, and responsive layout. For routing and ",
       "path": "expo--skills/plugins/expo/skills/expo-native-ui/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-native-ui/SKILL.md",
-      "lines": 201,
-      "words": 1710,
+      "lines": 202,
+      "words": 1743,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -23405,8 +23405,8 @@
       "description": "\"Build native UI with the @expo/ui package: real SwiftUI on iOS and Jetpack Compose on Android. Default to @expo/ui for sheets (BottomSheet), pickers, sliders, toggles, menus, and grouped-form section",
       "path": "expo--skills/plugins/expo/skills/expo-ui/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-ui/SKILL.md",
-      "lines": 101,
-      "words": 935,
+      "lines": 102,
+      "words": 968,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -23419,8 +23419,8 @@
       "description": "Deploy Expo websites and Expo Router API routes to EAS Hosting - export the web bundle, run eas deploy for production and PR preview URLs, manage environment secrets and custom domains, and work withi",
       "path": "expo--skills/plugins/expo/skills/eas-hosting/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-hosting/SKILL.md",
-      "lines": 431,
-      "words": 1581,
+      "lines": 432,
+      "words": 1614,
       "code_blocks": 23,
       "languages": [
         "bash",
@@ -23434,8 +23434,8 @@
       "description": "Build animations in React Native and Expo, making the decisions in the order that determines whether they feel right \u2014 should it animate, which thread it runs on, which properties, spring or timing, h",
       "path": "expo--skills/plugins/expo/skills/expo-animation/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-animation/SKILL.md",
-      "lines": 274,
-      "words": 2972,
+      "lines": 275,
+      "words": 3005,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -23450,8 +23450,8 @@
       "description": "\"Check the health of published EAS Update: crash rates, install/launch counts, unique users, payload size, and the split between embedded and OTA users per channel. Use when the user asks how an updat",
       "path": "expo--skills/plugins/expo/skills/eas-update-insights/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-update-insights/SKILL.md",
-      "lines": 238,
-      "words": 1725,
+      "lines": 239,
+      "words": 1758,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -23464,8 +23464,8 @@
       "description": "\"Entry point and router for every Expo or EAS task. Load this skill first \u2014 before writing code and before choosing another expo-* / eas-* skill \u2014 when the request, PRD, or spec mentions Expo, EAS, Ex",
       "path": "expo--skills/plugins/expo/skills/expo-overview/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-overview/SKILL.md",
-      "lines": 120,
-      "words": 1469,
+      "lines": 137,
+      "words": 1704,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -23477,8 +23477,8 @@
       "description": "Integrate Expo and React Native into an existing native iOS or Android app. Use for brownfield, embedding a React Native screen in SwiftUI/UIKit or Kotlin, or AAR/XCFramework packaging. Covers isolate",
       "path": "expo--skills/plugins/expo/skills/expo-brownfield/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-brownfield/SKILL.md",
-      "lines": 70,
-      "words": 815,
+      "lines": 71,
+      "words": 848,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -23489,8 +23489,8 @@
       "description": "Build and submit iOS and Android apps with EAS to TestFlight, the App Store, or Google Play. Supports Expo and other React Native projects, plus existing native apps. Use for eas.json setup, release p",
       "path": "expo--skills/plugins/expo/skills/eas-app-stores/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-app-stores/SKILL.md",
-      "lines": 176,
-      "words": 1036,
+      "lines": 177,
+      "words": 1069,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -23503,8 +23503,8 @@
       "description": "Build and maintain a design system inside an Expo app - a reusable theme of design tokens (color, spacing, typography, radius, shadow, motion), reusable component structure with variant/size/state pro",
       "path": "expo--skills/plugins/expo/skills/expo-design-system/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-design-system/SKILL.md",
-      "lines": 376,
-      "words": 2774,
+      "lines": 377,
+      "words": 2807,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -23517,8 +23517,8 @@
       "description": "Migrate an existing web React app to a native iOS/Android app with Expo. Use when the user wants to turn a website into a mobile app, port a Next.js/Vite/CRA React codebase to React Native, reuse web ",
       "path": "expo--skills/plugins/expo/skills/expo-web-to-native/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-web-to-native/SKILL.md",
-      "lines": 91,
-      "words": 1527,
+      "lines": 92,
+      "words": 1560,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -23531,8 +23531,8 @@
       "description": "Navigation and routing for Expo Router. Covers file-based routes, groups and dynamic routes, folder organization, Link with previews and context menus, native Stack, page titles, modals and form sheet",
       "path": "expo--skills/plugins/expo/skills/expo-router/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-router/SKILL.md",
-      "lines": 240,
-      "words": 833,
+      "lines": 241,
+      "words": 866,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -23545,8 +23545,8 @@
       "description": "Guide for creating and writing Expo native modules and views using the Expo Modules API (Swift, Kotlin, TypeScript). Covers module definition DSL, native views, shared objects, config plugins, lifecyc",
       "path": "expo--skills/plugins/expo/skills/expo-module/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-module/SKILL.md",
-      "lines": 151,
-      "words": 858,
+      "lines": 152,
+      "words": 891,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23562,8 +23562,8 @@
       "description": "\"Configure and use EAS Update for over-the-air JavaScript and asset updates with expo-updates and EAS CLI. Use when setting up OTA updates, running eas update:configure or eas update, publishing to pr",
       "path": "expo--skills/plugins/expo/skills/eas-update/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-update/SKILL.md",
-      "lines": 146,
-      "words": 1386,
+      "lines": 147,
+      "words": 1419,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23576,8 +23576,8 @@
       "description": "Helps understand and write EAS workflow YAML files for Expo projects. Use this skill when the user asks about CI/CD or workflows in an Expo or EAS context, mentions .eas/workflows/, or wants help with",
       "path": "expo--skills/plugins/expo/skills/eas-workflows/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-workflows/SKILL.md",
-      "lines": 99,
-      "words": 681,
+      "lines": 100,
+      "words": 714,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -23590,8 +23590,8 @@
       "description": "Build and distribute Expo development clients locally or via TestFlight for internal testing. For production TestFlight releases and store submission, use the eas-app-stores skill.",
       "path": "expo--skills/plugins/expo/skills/expo-dev-client/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-dev-client/SKILL.md",
-      "lines": 184,
-      "words": 778,
+      "lines": 185,
+      "words": 811,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -23604,8 +23604,8 @@
       "description": "Use when implementing or debugging ANY network request, API call, or data fetching. Covers fetch API, React Query, SWR, error handling, caching, offline support, loading/empty/error screen states, and",
       "path": "expo--skills/plugins/expo/skills/expo-data-fetching/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-data-fetching/SKILL.md",
-      "lines": 478,
-      "words": 1786,
+      "lines": 479,
+      "words": 1819,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -23618,8 +23618,8 @@
       "description": "Folder structure for a new Expo app. Use when scaffolding or laying out a new Expo project with Expo Router, or deciding where a file should live in one. For new projects only \u2014 never restructure an e",
       "path": "expo--skills/plugins/expo/skills/expo-project-structure/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-project-structure/SKILL.md",
-      "lines": 114,
-      "words": 900,
+      "lines": 115,
+      "words": 933,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -23632,8 +23632,8 @@
       "description": "Expo's official example projects - the expo/examples repo of ~70 `with-*` integrations (Stripe, Clerk, Supabase, OpenAI, maps, Reanimated, SQLite, Skia, NativeWind, and more). Use when integrating a t",
       "path": "expo--skills/plugins/expo/skills/expo-examples/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-examples/SKILL.md",
-      "lines": 106,
-      "words": 945,
+      "lines": 107,
+      "words": 978,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -23645,8 +23645,8 @@
       "description": "Add an iOS App Clip target to an Expo app. Use when the user mentions App Clip, AASA, apple-app-site-association, appclips, smart app banner, or wants to ship a lightweight iOS Clip invoked from a URL",
       "path": "expo--skills/plugins/expo/skills/expo-app-clip/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-app-clip/SKILL.md",
-      "lines": 291,
-      "words": 1236,
+      "lines": 292,
+      "words": 1269,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -23663,8 +23663,8 @@
       "description": "Use Expo DOM components to run web code in a webview on native and as-is on web. Migrate web code to native incrementally. For the end-to-end migration of a whole web app, use the expo-web-to-native s",
       "path": "expo--skills/plugins/expo/skills/expo-dom/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-dom/SKILL.md",
-      "lines": 425,
-      "words": 1385,
+      "lines": 426,
+      "words": 1418,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -23677,8 +23677,8 @@
       "description": "Migrate an existing Apple/Swift Expo native module from the Expo Modules API 1.0 definition DSL to the 2.0 macro API (sometimes called v2) while preserving its JavaScript and TypeScript contract. Use ",
       "path": "expo--skills/plugins/expo-experiments/skills/expo-migrate-module/SKILL.md",
       "remote_path": "plugins/expo-experiments/skills/expo-migrate-module/SKILL.md",
-      "lines": 129,
-      "words": 1963,
+      "lines": 130,
+      "words": 1996,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -24960,8 +24960,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 537,
-      "words": 5666,
+      "lines": 524,
+      "words": 5429,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -25026,8 +25026,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres/SKILL.md",
-      "lines": 312,
-      "words": 2584,
+      "lines": 325,
+      "words": 2829,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -25112,8 +25112,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 537,
-      "words": 5666,
+      "lines": 524,
+      "words": 5429,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -25178,8 +25178,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
-      "lines": 312,
-      "words": 2584,
+      "lines": 325,
+      "words": 2829,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -30253,6 +30253,18 @@
       "languages": [
         "bash",
         "json"
+      ]
+    },
+    {
+      "name": "taint-trace",
+      "description": "\"Improves taint-analysis coverage and precision by using Trailmark graphs to repair native source, sink, sanitizer, propagation, and type models, then runs an existing taint analyzer. Use when analysi",
+      "path": "trailofbits--skills/plugins/trailmark/skills/taint-trace/SKILL.md",
+      "remote_path": "plugins/trailmark/skills/taint-trace/SKILL.md",
+      "lines": 148,
+      "words": 1303,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -147720,8 +147732,8 @@
       "description": "Extracts files from repomix-packed repositories, restoring original directory structures from XML/Markdown/JSON formats. Activates when users need to unmix repomix files, extract packed repositories, ",
       "path": "daymade--claude-code-skills/repomix-unmixer/SKILL.md",
       "remote_path": "repomix-unmixer/SKILL.md",
-      "lines": 311,
-      "words": 1081,
+      "lines": 322,
+      "words": 1173,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -148302,8 +148314,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 536,
-      "words": 9059,
+      "lines": 541,
+      "words": 9087,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -148473,8 +148485,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 280,
-      "words": 2287,
+      "lines": 285,
+      "words": 2326,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -148534,8 +148546,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/publishing-and-packaging.md",
       "remote_path": "daymade-skill/skill-creator/references/publishing-and-packaging.md",
-      "lines": 303,
-      "words": 3403,
+      "lines": 313,
+      "words": 3496,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -148547,8 +148559,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/developer-casebook.md",
       "remote_path": "daymade-skill/skill-creator/references/developer-casebook.md",
-      "lines": 44,
-      "words": 742,
+      "lines": 76,
+      "words": 1020,
       "code_blocks": 0,
       "languages": []
     },
@@ -149258,7 +149270,7 @@
       "path": "daymade--claude-code-skills/daymade-audio/audio-router/SKILL.md",
       "remote_path": "daymade-audio/audio-router/SKILL.md",
       "lines": 45,
-      "words": 379,
+      "words": 383,
       "code_blocks": 0,
       "languages": []
     },
@@ -149267,8 +149279,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/meeting-minutes-taker/SKILL.md",
       "remote_path": "daymade-audio/meeting-minutes-taker/SKILL.md",
-      "lines": 712,
-      "words": 5526,
+      "lines": 715,
+      "words": 5845,
       "code_blocks": 23,
       "languages": [
         "bash",
@@ -149543,11 +149555,11 @@
     },
     {
       "name": "design-style-picker",
-      "description": "Batch-generate and compare visual design directions so a user can choose the style they actually want. Use when the user says they cannot describe an abstract visual style, asks for many style options",
+      "description": ">-",
       "path": "daymade--claude-code-skills/daymade-codex/design-style-picker/SKILL.md",
       "remote_path": "daymade-codex/design-style-picker/SKILL.md",
-      "lines": 88,
-      "words": 937,
+      "lines": 95,
+      "words": 1086,
       "code_blocks": 1,
       "languages": [
         "text"
@@ -149728,8 +149740,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 246,
-      "words": 3398,
+      "lines": 278,
+      "words": 3685,
       "code_blocks": 0,
       "languages": []
     },
