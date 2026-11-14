@@ -38,11 +38,14 @@ const TOOLCHAINS: readonly (readonly [RegExp, RunnerName, RegExp])[] = [[/(?:^|\
 const toolchainRunner = (files: readonly string[], focus: readonly string[] = []): RunnerName[] => { const el = TOOLCHAINS.filter(([m]) => files.some((f) => m.test(f))), votes = (t: (typeof TOOLCHAINS)[number]): number => focus.filter((f) => t[2].test(f)).length; return el.length ? [el.reduce((b, t) => (votes(t) > votes(b) ? t : b))[1]] : []; };
 const readText = (p: string): string => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
 const normalizeRel = (raw: string): string => raw.split(sep).join("/").replace(/^\.\//, "");
+/** EVIDENCE-PER-PACKAGE (LOKI_E10_EVIDENCE_PER_PACKAGE, default on, =0 opts out): package scoping reads every file that proves a runner, not only the first one listed. */
+export const evidencePerPackageOn = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_EVIDENCE_PER_PACKAGE"] ?? "").trim());
 /** Synchronous core: scans `root`, returns the full detected map. `detect()` on TestMapProviderImpl just wraps this in a Promise per the interface. */
 export function buildTestMap(root: string): EngineTestMap {
   const files = listProjectFiles(root);
   const evidence: Partial<Record<RunnerName, string>> = {};
-  const mark = (r: RunnerName, file: string): void => { if (!(r in evidence)) evidence[r] = file; };
+  const marks: [RunnerName, string][] = []; // every proving file, per runner: package scoping reads all of them (EVIDENCE-PER-PACKAGE)
+  const mark = (r: RunnerName, file: string): void => { marks.push([r, file]); if (!(r in evidence)) evidence[r] = file; };
   const jsText = new Map<string, string>();
   const api = loadProjectApi(root);
   for (const rel of files) {
@@ -66,7 +69,7 @@ export function buildTestMap(root: string): EngineTestMap {
     else if (DOTNET_MANIFEST_RE.test(name)) mark("dotnet", rel);
     else if (/^(?:build|settings)\.gradle(?:\.kts)?$/.test(name) || name === "gradlew") mark("gradle", rel);
   }
-  const { ownerRoot, packageRunners } = scopeRunnersByPackage(files, evidence, jsText, api, RUNNER_ORDER, (rel) => readText(join(root, rel))); // #233: runners per owning package
+  const { ownerRoot, packageRunners } = scopeRunnersByPackage(files, evidence, jsText, api, RUNNER_ORDER, (rel) => readText(join(root, rel)), evidencePerPackageOn() ? marks : undefined); // #233: runners per owning package
   const tests: TestRef[] = [];
   const testPackages: Record<string, string> = Object.create(null);
   for (const rel of files) {
@@ -130,6 +133,32 @@ export function impactedRefs(map: TestMap, changedFiles: readonly string[]): Tes
     }
   }
   return scopeRefs(map, changedFiles.map(normalizeRel), out);
+}
+/** R5 LOKI_E10_MOCHA_TARGETED (default on, =0 opts out): verify's fallback when its selection is empty. A changed JS/TS file whose nearest package.json declares mocha
+ *  (a dependency, a script, a "mocha" key, or a .mocharc file beside it) maps to its own test file: itself when it sits under the package's test/, tests/ or spec/ directory
+ *  (fixtures excluded), else the file at the same path under one of those directories (with or without the source's first directory). Mocha test files carry no .test or
+ *  .spec suffix, so the map above never lists them and such a repo verified with no test at all. At most 8 refs; each runs `npx --no-install mocha <file>`. */
+export const mochaTargetedEnabled = (env: NodeJS.ProcessEnv = process.env): boolean => !/^(0|off|false|no)$/i.test((env["LOKI_E10_MOCHA_TARGETED"] ?? "").trim());
+const MOCHA_TEST_DIRS = ["test", "tests", "spec"], MOCHA_MAX = 8, MOCHA_EXT = /\.[cm]?[jt]sx?$/;
+const mochaDeclared = (dir: string): boolean => {
+  if (readdirSafe(dir).some((f) => /^\.mocharc(?:\.(?:js|cjs|mjs|json|jsonc|ya?ml))?$/.test(f))) return true;
+  try { const p = JSON.parse(readText(join(dir, "package.json"))) as { scripts?: Record<string, unknown>; dependencies?: Record<string, unknown>; devDependencies?: Record<string, unknown>; mocha?: unknown }; return "mocha" in { ...(p.dependencies ?? {}), ...(p.devDependencies ?? {}) } || p.mocha !== undefined || Object.values(p.scripts ?? {}).some((s) => typeof s === "string" && /\bmocha\b/.test(s)); } catch { return false; }
+};
+const readdirSafe = (d: string): string[] => { try { return readdirSync(d); } catch { return []; } };
+const isFile = (p: string): boolean => { try { return lstatSync(p).isFile(); } catch { return false; } };
+export function mochaTargets(root: string, changed: readonly string[], env: NodeJS.ProcessEnv = process.env): TestRef[] {
+  if (!mochaTargetedEnabled(env)) return [];
+  const out: string[] = [];
+  for (const raw of changed) {
+    const rel = normalizeRel(raw);
+    if (!MOCHA_EXT.test(rel) || rel.split("/").some((s) => s === "node_modules" || s === "fixtures")) continue;
+    let dir = dirname(rel); while (dir !== "." && !existsSync(join(root, dir, "package.json"))) dir = dirname(dir); // the nearest package.json at or above the file
+    if (!existsSync(join(root, dir, "package.json")) || !mochaDeclared(join(root, dir))) continue;
+    const inPkg = dir === "." ? rel : rel.slice(dir.length + 1), segs = inPkg.split("/"), at = (p: string): string => (dir === "." ? p : `${dir}/${p}`);
+    const cands = MOCHA_TEST_DIRS.includes(segs[0]!) ? [inPkg] : MOCHA_TEST_DIRS.flatMap((d) => [`${d}/${inPkg}`, ...(segs.length > 1 ? [`${d}/${segs.slice(1).join("/")}`] : [])]);
+    for (const c of cands) if (isFile(join(root, at(c))) && !out.includes(at(c))) out.push(at(c));
+  }
+  return out.slice(0, MOCHA_MAX).map((path) => ({ runner: "mocha" as const, path }));
 }
 /** Implements the E-01 contract so RunContext can inject this as `tests`. */
 export class RealTestMapProvider implements TestMapProvider {

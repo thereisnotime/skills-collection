@@ -48,7 +48,7 @@ claude plugin install daymade-skill@daymade-skills
 
 ### Skill Validation and Packaging
 
-For StepFun speech controls, cloning or streaming changes, read
+For StepFun speech controls, literal-text/directive ambiguity, cloning or streaming changes, read
 [`stepfun-tts`'s native API reference](daymade-audio/stepfun-tts/references/api_reference.md).
 Verify both the standalone CLI and the actual flat `llmreg.wrapper_for` loader;
 ordinary package imports alone do not establish consumer compatibility.
@@ -94,14 +94,9 @@ For user-selected competitor-analysis collection destinations, load the
 [collection destination route](competitors-analysis/references/collection_destination.md).
 For running an original application demo, follow that Skill's
 [original-app demo recipe](competitors-analysis/references/original-app-demo.md).
-For file-backed persistence and CLI acceptance (including wrapper argument forwarding
-and compatibility aliases), transaction recovery tests,
-financial migration/fixture acceptance, admission/recovery bindings, runtime compatibility or project-bound release acceptance, enter
-[qa-expert](qa-expert/SKILL.md); its test-case routes select the detailed recipes.
-For required runtime capability probes, path normalization, drive-relative adapter cases,
-subprocess encoding or actual backend-execution acceptance,
-follow its [runtime compatibility recipe](qa-expert/references/runtime-compatibility-acceptance.md)
-and select the affected boundary before starting validation.
+For QA plans and acceptance of changed persistence, CLI or runtime boundaries, enter
+[qa-expert](qa-expert/SKILL.md) and select the affected contract from its current
+test-case routes; keep the recipe inventory in that owner.
 
 For choosing or reviewing a library, framework, storage, data format, model,
 build-vs-buy or architecture — including 用哪个 / 选什么框架 / 要不要自建 / A 还是 B /
@@ -156,6 +151,9 @@ For its audit, release or source-contract commands from another working director
 or Agent-facing materialization from any directory, use the
 [fixed command entry](daymade-skill/skill-creator/references/fixed-command-entry.md).
 For security scans, use its [absolute owner-script recipe](daymade-skill/skill-creator/references/publishing-and-packaging.md#step-6-security-review).
+Before installing or changing scanner dependencies, follow
+[runtime prerequisites](daymade-skill/skill-creator/references/prerequisites.md#locked-python-runtime-required)
+and [SDK maintenance](daymade-skill/skill-creator/references/prerequisites.md#scanner-sdk-maintenance).
 
 Before a command that may exceed the response budget, enter the standalone
 [large-output capture recipe](references/bounded-io.md#large-command-output).
@@ -321,9 +319,8 @@ For persistent Python service installation, environment reuse or startup, follow
 
 ### Rendered UI delivery acceptance
 
-For rendered UI freshness, long-list entry controls and actual scroll movement,
-multiline request/log tables, delayed editor/batch responses or deployment acceptance, enter
-[frontend-visual-qa](frontend-visual-qa/SKILL.md).
+For acceptance of rendered UI and visible behavior, enter
+[frontend-visual-qa](frontend-visual-qa/SKILL.md) and follow its current entry route.
 For publication-wide clutter or AI Slop despite passing local checks, including
 controls, deks and expanded summaries, use its
 [publication journey calibration](frontend-visual-qa/references/publication-journey-cases.md).
@@ -624,6 +621,9 @@ For reconciliation of an already-resumed native Goal, read
 directly, binding the current host thread without external-takeover preparation;
 use `continue-codex-work`'s full entry and verified history receipt for external task takeover.
 
+For in-flight CI during task takeover, follow
+[current-operation reconciliation](daymade-claude-code/continue-codex-work/SKILL.md#step-3-reconcile-with-current-reality).
+
 For input appended after an operation's current-thread request, use [read-codex-history's bounded input cursor](daymade-claude-code/read-codex-history/SKILL.md#bounded-current-thread-direct-input-cursor). That owner defines source binding and read failures; the consuming operation owns human authorization. Keep executable commands and source details in the Skill.
 
 For conversation-backup health checks or recent unfinished-request inventories, follow
@@ -804,6 +804,8 @@ For installed-Skill and fresh-host acceptance, enter
 For maintainer source-backed activation, source-watcher deployment, or authorized plugin-to-personal
 Skill conversion, follow
 [Local Source Sync Architecture](daymade-claude-code/claude-switch-models-setup/references/local-source-sync-architecture.md).
+For shared-helper or required-launch preparation changes, use its
+[fixture verification route](daymade-claude-code/claude-switch-models-setup/references/local-source-sync-architecture.md#verification-checklist).
 Intentional same-name source variants follow that owner's
 [explicit source preferences](daymade-claude-code/claude-switch-models-setup/references/local-source-sync-architecture.md#explicit-source-preferences).
 For Skill authoring in an approved independent Fleet clone, follow the
@@ -927,7 +929,8 @@ When individual approvals disagree with effective merge requirements, use
 [the landing diagnosis](github-review-pr/references/remediation_and_landing.md#merge-with-the-reviewed-head-guard).
 For archive/ingestion repair publication, enter
 [the repair and publication preflight](github-review-pr/references/remediation_and_landing.md#prepare-an-isolated-repair-environment).
-For direct, queued or separately authorized bypass merges, refusal diagnosis and landed-rule readback,
+For direct, queued or separately authorized bypass merges, disclosed CI setup failures,
+refusal diagnosis and landed-rule readback,
 follow the [checked-merge workflow](github-ops/references/pr_operations.md#merging-prs).
 For hosted-state writes through `gh`, follow its
 [identity, host and target binding](github-ops/SKILL.md#2-bind-identity-host-and-target)
@@ -1007,18 +1010,13 @@ route above before treating another writer's unrelated changes as a reason to
 leave the task waiting. This does not permit overwriting that writer's files or
 claiming the whole checkout is current.
 
-For divergent local `main` or branch/worktree retirement, follow
-[git-safety-net](git-safety-net/SKILL.md) and its
-[content-containment proof](git-safety-net/references/merge_verification.md).
-Before selecting recovery material for a named branch or worktree, apply
-[Preservation before retirement](git-safety-net/references/merge_verification.md#preservation-before-retirement).
-For a linked checkout, follow the owning
-[worktree-retirement procedure](git-safety-net/references/merge_verification.md#worktree-retirement--prove-the-checkout-is-disposable-before-removal).
-For interrupted preservation, initialized submodules or borrowed object stores, use its
+For divergent local `main`, recovery-material selection or branch/worktree retirement,
+follow [git-safety-net](git-safety-net/SKILL.md).
+For linked-worktree recovery preparation, including dependency-cache declarations, use its
 [preservation helper](git-safety-net/references/worktree-retirement-helper.md).
-When current content differs from an older published review, use that reference's
+When current content differs from an older published review, use the
 [historical publication example](git-safety-net/references/merge_verification.md#worked-example--old-review-content-landed-through-another-ref)
-before deciding supersession; historical equality alone does not establish current intent.
+before deciding supersession.
 Resolving conflicts toward upstream can erase the very delta being checked;
 an empty result after that resolution does not prove it shipped.
 

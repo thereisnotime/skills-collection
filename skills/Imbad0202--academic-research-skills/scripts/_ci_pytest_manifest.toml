@@ -429,6 +429,10 @@ id = "574-phase-conformance-checker"
 path = "scripts/test_check_phase_conformance.py"
 
 [[pytest]]
+id = "1077-unspaced-script-table"
+path = "scripts/test_unspaced_scripts.py"
+
+[[pytest]]
 id = "574-role-scoped-contract-lint"
 path = "scripts/test_check_role_scoped_contract.py"
 
@@ -759,3 +763,7 @@ path = "scripts/test_extract_panel_claims.py"
 [[pytest]]
 id = "1002-dispatch-panel-claim-audit"
 path = "scripts/test_dispatch_panel_claim_audit.py"
+
+[[pytest]]
+id = "1078-author-letter"
+path = "scripts/test_check_author_letter.py"

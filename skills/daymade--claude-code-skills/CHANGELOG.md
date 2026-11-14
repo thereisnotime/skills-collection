@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **qa-expert** (v1.2.16): Remove repeated resource/workflow summaries and the stale OWASP-section example; preserve the canonical execution routes, handoff steps and isolation requirements.
+- **claude-switch-models-setup** (`daymade-claude-code` v5.1.13): Keep shared-helper calibration expectations in the executable fixture matrices and remove historical watcher timing from operating guidance. Route affected QA and takeover work from the repository instructions.
+
+- **qa-expert** (v1.2.15): Exercise real incremental capture and drift repair, prove negative fixtures changed their selected field, and bound completed results behind ordered concurrent publication.
+- **stepfun-tts** (`daymade-audio` v1.58.4): Distinguish literal parentheses from delivery instructions, count the complete tagged input, and preserve native request forwarding without treating transport fidelity as audible control.
+- **local-codex / macos-watchdog** (`daymade-codex` v2.4.10, `daymade-macos` v1.31.1): Verify native updater ownership and channel eligibility per component; keep extra scheduled updaters opt-in and preserve explicitly requested watchdogs.
+- **prior-work-retrieval** (`daymade-claude-code` v5.1.12): Direct temporary Git verification failures to a same-run retry while retaining scope-change and required-carrier checks.
+- **local-codex** (`daymade-codex` v2.4.11): Trace model-request errors through the actual runtime and transport, preserve request provenance, and verify configuration adoption and recovery on the original session.
+- **debugging-network-issues** (v1.12.1): Add same-byte HTTP compression comparisons with lossless decoding, bounded return controls and explicit limits on original-incident attribution.
+- **peer-message** (v1.25.6): Distinguish diagnostic coordination text from execution isolation and verify actual actions before claiming restrictions were followed.
+
+- **github-ops** (v1.16.3): Route normal PR merges to the existing explicit setup-failure exception case; align repository operator entries with their owning contracts.
+
+- **git-safety-net** (v1.28.2): Route ordinary linked worktrees and explicitly rebuildable dependency caches through the existing retirement helper; preserve unique configuration and detect later changes.
+- **github-ops** (v1.16.2): Clarify explicitly authorized task-level merge exceptions after service initialization fails, preserving repository-required gates and distinct validation, deployment and repair authority.
+
+- **continue-codex-work / claude-switch-models-setup** (`daymade-claude-code` v5.1.11): Identify and finish in-flight CI before rerunning it; calibrate shared helper locking and required launch preparation in isolated fixtures.
+
+- **app-evolver 1.1.14** — Trace implicit state through actual consumers, operation identity, recovery boundaries and declared audit coverage.
+- **qa-expert 1.2.13** — Extend acceptance for reservation replay and expiry, historical schema upgrades through the operator command, and late committed saves that preserve newer drafts.
+
+- **daymade-skill 1.79.3**: Declare the uv interface required by scoped SDK overrides, route scanner installation and maintenance from the project entry, align prerequisite and calibration instructions, and replace copied requirement/status examples with their owning sources.
+- **frontend-visual-qa** (v1.21.48): Distinguish ancestor clipping, painted text obstruction and capture calibration; cover clipped, healthy and marker-covered SVG labels in Chromium.
+- **qa-expert** (v1.2.14): Verify persisted-state upgrades with original-writer artifacts, interrupted recovery, conflicting retries and unavailable legacy input; preserve legal follow-up operations.
+- **git-safety-net** (v1.28.1): Preserve empty LFS metadata scaffolds while rejecting payloads and symlinks; reject invalid rebuildable declarations before expensive retirement preparation.
+
+- **daymade-skill 1.79.2**: Replace Semgrep 1.185.0's vulnerable SDK constraints with version-scoped MCP 1.30.0 and aligned OpenTelemetry 1.45.2/0.66b2 dependencies. Preserve local scan and package gates; add dependency-floor, consumer-interface and oversized-tracestate regressions.
 - **daymade-skill 1.79.1**: Route workflow moves and renames to the migration owner; replace obsolete casebook source-line headings with topic names and remove the duplicated contents list.
 
 - **daymade-skill 1.79.0**: Add required local Semgrep Python archive-path checks beside Gitleaks, calibrate against the original #1499 extractor, reject incomplete analysis and legacy secret-only packaging receipts, and run the same gate in required CI. State the bounded detection scope instead of claiming general code safety.

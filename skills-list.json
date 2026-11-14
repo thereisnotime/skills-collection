@@ -11993,8 +11993,8 @@
       "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Runs a 5-seat, role-separated review panel (Journal-Fit Reviewer + 3 peer-review roles + Devil's Advocate) with field-specific ",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
-      "lines": 554,
-      "words": 6635,
+      "lines": 563,
+      "words": 7435,
       "code_blocks": 4,
       "languages": []
     },
@@ -12355,11 +12355,11 @@
     },
     {
       "name": "field_analyst_agent",
-      "description": "\"Identifies the papers field and dynamically configures the reviewer teams identities and expertise\"",
+      "description": "\"Identifies the paper's field and dynamically configures the reviewer team's identities and expertise\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/field_analyst_agent.md",
       "remote_path": "academic-paper-reviewer/agents/field_analyst_agent.md",
-      "lines": 238,
-      "words": 1606,
+      "lines": 258,
+      "words": 2380,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -23351,9 +23351,9 @@
       "description": "\"Run and control a user's app on a remote iOS/Android simulator with Expo Simulators (also called EAS Simulator). Read before running any `eas simulator:*` commands - it has the current syntax and wor",
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 274,
-      "words": 4925,
-      "code_blocks": 7,
+      "lines": 291,
+      "words": 5132,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ],
@@ -24973,8 +24973,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-auth/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-auth/SKILL.md",
-      "lines": 165,
-      "words": 1983,
+      "lines": 167,
+      "words": 2133,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -25125,8 +25125,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-auth/SKILL.md",
       "remote_path": "skills/neon-auth/SKILL.md",
-      "lines": 165,
-      "words": 1983,
+      "lines": 167,
+      "words": 2133,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -28925,7 +28925,7 @@
       "path": "stripe--ai/skills/stripe-best-practices/SKILL.md",
       "remote_path": "skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 835,
+      "words": 838,
       "code_blocks": 0,
       "languages": []
     },
@@ -28996,8 +28996,8 @@
       "description": ">",
       "path": "stripe--ai/skills/stripe-projects/SKILL.md",
       "remote_path": "skills/stripe-projects/SKILL.md",
-      "lines": 154,
-      "words": 1058,
+      "lines": 153,
+      "words": 1052,
       "code_blocks": 11,
       "languages": [
         "bash"
@@ -29028,8 +29028,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-directory/SKILL.md",
       "remote_path": "skills/stripe-directory/SKILL.md",
-      "lines": 128,
-      "words": 1270,
+      "lines": 127,
+      "words": 1264,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -29051,7 +29051,7 @@
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 835,
+      "words": 838,
       "code_blocks": 0,
       "languages": []
     },
@@ -29122,8 +29122,8 @@
       "description": ">",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 154,
-      "words": 1058,
+      "lines": 153,
+      "words": 1052,
       "code_blocks": 11,
       "languages": [
         "bash"
@@ -29154,8 +29154,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 128,
-      "words": 1270,
+      "lines": 127,
+      "words": 1264,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -29167,7 +29167,7 @@
       "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/antigravity/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 835,
+      "words": 838,
       "code_blocks": 0,
       "languages": []
     },
@@ -29238,8 +29238,8 @@
       "description": ">",
       "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/antigravity/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 154,
-      "words": 1058,
+      "lines": 153,
+      "words": 1052,
       "code_blocks": 11,
       "languages": [
         "bash"
@@ -29270,8 +29270,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/antigravity/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/antigravity/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 128,
-      "words": 1270,
+      "lines": 127,
+      "words": 1264,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -29283,7 +29283,7 @@
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 835,
+      "words": 838,
       "code_blocks": 0,
       "languages": []
     },
@@ -29354,8 +29354,8 @@
       "description": ">",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 154,
-      "words": 1058,
+      "lines": 153,
+      "words": 1052,
       "code_blocks": 11,
       "languages": [
         "bash"
@@ -29386,8 +29386,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 128,
-      "words": 1270,
+      "lines": 127,
+      "words": 1264,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -29399,7 +29399,7 @@
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 835,
+      "words": 838,
       "code_blocks": 0,
       "languages": []
     },
@@ -29470,8 +29470,8 @@
       "description": ">",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 154,
-      "words": 1058,
+      "lines": 153,
+      "words": 1052,
       "code_blocks": 11,
       "languages": [
         "bash"
@@ -29502,8 +29502,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 128,
-      "words": 1270,
+      "lines": 127,
+      "words": 1264,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -29515,7 +29515,7 @@
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 80,
-      "words": 835,
+      "words": 838,
       "code_blocks": 0,
       "languages": []
     },
@@ -29586,8 +29586,8 @@
       "description": ">",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 154,
-      "words": 1058,
+      "lines": 153,
+      "words": 1052,
       "code_blocks": 11,
       "languages": [
         "bash"
@@ -29618,8 +29618,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 128,
-      "words": 1270,
+      "lines": 127,
+      "words": 1264,
       "code_blocks": 3,
       "languages": [
         "sh"
@@ -86542,7 +86542,7 @@
         "bash",
         "json"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86556,7 +86556,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86570,7 +86570,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86584,7 +86584,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86598,7 +86598,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86613,7 +86613,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86627,7 +86627,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86641,7 +86641,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86655,7 +86655,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86669,7 +86669,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86683,7 +86683,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86697,7 +86697,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86711,7 +86711,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86725,7 +86725,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86739,7 +86739,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86753,7 +86753,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86762,12 +86762,12 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-gpu-node-forensics/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-gpu-node-forensics/SKILL.md",
       "lines": 82,
-      "words": 643,
+      "words": 683,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86781,7 +86781,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86795,7 +86795,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86809,7 +86809,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86823,7 +86823,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86837,7 +86837,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86851,7 +86851,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86865,7 +86865,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86879,7 +86879,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -86887,13 +86887,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-fabric-diagnostics/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-fabric-diagnostics/SKILL.md",
-      "lines": 85,
-      "words": 682,
+      "lines": 87,
+      "words": 765,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -108750,21 +108750,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-gpu-cost-leak-hunter",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-gpu-cost-leak-hunter/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-gpu-cost-leak-hunter/SKILL.md",
-      "lines": 102,
-      "words": 759,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "supabase-auth-storage-realtime-core",
       "description": "'Implement Supabase Auth (signUp, signIn, OAuth, session management),",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/supabase-auth-storage-realtime-core/SKILL.md",
@@ -111404,20 +111389,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-common-errors",
-      "description": "'Diagnose and fix CoreWeave GPU scheduling, pod, and networking errors.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-common-errors/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-common-errors/SKILL.md",
-      "lines": 95,
-      "words": 626,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "twinmind-install-auth",
       "description": "'Install and configure TwinMind Chrome extension, mobile app, and API",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/twinmind-install-auth/SKILL.md",
@@ -112257,20 +112228,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-enterprise-rbac",
-      "description": "'Configure RBAC and namespace isolation for CoreWeave multi-team GPU",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-enterprise-rbac/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-enterprise-rbac/SKILL.md",
-      "lines": 121,
-      "words": 853,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "research-to-deploy",
       "description": ">",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/research-to-deploy/SKILL.md",
@@ -112980,20 +112937,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-incident-runbook",
-      "description": "'Incident response runbook for CoreWeave GPU workload failures.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-incident-runbook/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-incident-runbook/SKILL.md",
-      "lines": 120,
-      "words": 846,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "finta-core-workflow-b",
       "description": "'Manage ongoing investor relations and updates with Finta.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/finta-core-workflow-b/SKILL.md",
@@ -113183,20 +113126,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.11.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-sdk-patterns",
-      "description": "'Bounded integration patterns for CoreWeave GPU workload management with",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-sdk-patterns/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-sdk-patterns/SKILL.md",
-      "lines": 94,
-      "words": 624,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -117215,21 +117144,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-ci-integration",
-      "description": "'Unofficial CI integration for CoreWeave deployments using GitHub Actions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-ci-integration/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-ci-integration/SKILL.md",
-      "lines": 194,
-      "words": 1073,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "alchemy-common-errors",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/alchemy-common-errors/SKILL.md",
@@ -117783,20 +117697,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-performance-tuning",
-      "description": "'Optimize CoreWeave GPU inference latency and throughput.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-performance-tuning/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-performance-tuning/SKILL.md",
-      "lines": 102,
-      "words": 677,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -118931,20 +118831,6 @@
         "typescript"
       ],
       "version": "1.51.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-upgrade-migration",
-      "description": "'Upgrade CoreWeave deployments and migrate between GPU types.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-upgrade-migration/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-upgrade-migration/SKILL.md",
-      "lines": 103,
-      "words": 699,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -121862,20 +121748,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-local-dev-loop",
-      "description": "'Set up local development workflow for CoreWeave GPU deployments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-local-dev-loop/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-local-dev-loop/SKILL.md",
-      "lines": 94,
-      "words": 626,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "fireflies-install-auth",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/fireflies-install-auth/SKILL.md",
@@ -123098,20 +122970,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-deploy-integration",
-      "description": "'Deploy inference services on CoreWeave with Helm charts and Kustomize.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-deploy-integration/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-deploy-integration/SKILL.md",
-      "lines": 102,
-      "words": 687,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "shopify-incident-runbook",
       "description": "'Execute Shopify incident response with triage using Shopify status page,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/shopify-incident-runbook/SKILL.md",
@@ -124113,20 +123971,6 @@
         "typescript"
       ],
       "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-workload-health",
-      "description": "Verify workload readiness, GPU allocation and observed activity from",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-workload-health/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-workload-health/SKILL.md",
-      "lines": 90,
-      "words": 585,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -125922,20 +125766,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-cks-provisioning",
-      "description": "Review original Terraform CKS cluster, VPC and node-pool plans for cost,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-cks-provisioning/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-cks-provisioning/SKILL.md",
-      "lines": 136,
-      "words": 987,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "shopify-rate-limits",
       "description": "'Handle Shopify API rate limits for both REST (leaky bucket) and GraphQL",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/shopify-rate-limits/SKILL.md",
@@ -126068,20 +125898,6 @@
       "code_blocks": 2,
       "languages": [
         "text"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-data-handling",
-      "description": "'Handle training data and model artifacts on CoreWeave persistent storage.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-data-handling/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-data-handling/SKILL.md",
-      "lines": 95,
-      "words": 634,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
       ],
       "version": "1.14.0",
       "license": "MIT"
@@ -128103,20 +127919,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-core-workflow-a",
-      "description": "'Review a CoreWeave self-managed inference release, readiness and GPU scheduling. Use when deploying a model on CKS, checking KServe prerequisites, or diagnosing an inference rollout. Trigger with cor",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-core-workflow-a/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-core-workflow-a/SKILL.md",
-      "lines": 119,
-      "words": 923,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "workhuman-ci-integration",
       "description": "'Build fork-safe CI gates for a Workhuman adapter using pinned customer contracts, synthetic fixtures, and an optional protected tenant smoke test. Use when automating integration verification. Trigge",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/workhuman-ci-integration/SKILL.md",
@@ -128166,20 +127968,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-cost-tuning",
-      "description": "'Optimize CoreWeave GPU cloud costs with right-sizing and scheduling.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-cost-tuning/SKILL.md",
-      "lines": 95,
-      "words": 645,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -128369,20 +128157,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.10.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-caios-stage-model",
-      "description": "Plan CAIOS model transfers and verify exact object sizes, checksums and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-caios-stage-model/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-caios-stage-model/SKILL.md",
-      "lines": 132,
-      "words": 898,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -130227,20 +130001,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-gpu-node-forensics",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-gpu-node-forensics/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-gpu-node-forensics/SKILL.md",
-      "lines": 82,
-      "words": 643,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "ideogram-cost-tuning",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/ideogram-cost-tuning/SKILL.md",
@@ -130482,20 +130242,6 @@
         "bash"
       ],
       "version": "3.16.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-multi-env-setup",
-      "description": "'Configure CoreWeave across development, staging, and production environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-multi-env-setup/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-multi-env-setup/SKILL.md",
-      "lines": 102,
-      "words": 685,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -130868,20 +130614,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-prod-checklist",
-      "description": "'Production readiness checklist for CoreWeave GPU workloads.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-prod-checklist/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-prod-checklist/SKILL.md",
-      "lines": 94,
-      "words": 612,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "monitoring-apis",
       "description": "'Build real-time API monitoring dashboards with metrics, alerts, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/monitoring-apis/SKILL.md",
@@ -131094,20 +130826,6 @@
         "typescript"
       ],
       "version": "1.11.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-security-basics",
-      "description": "'Secure CoreWeave deployments with RBAC, network policies, and secrets",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-security-basics/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-security-basics/SKILL.md",
-      "lines": 95,
-      "words": 629,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -132473,20 +132191,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-core-workflow-b",
-      "description": "'Run distributed GPU training jobs on CoreWeave with multi-node PyTorch.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-core-workflow-b/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-core-workflow-b/SKILL.md",
-      "lines": 128,
-      "words": 932,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "twinmind-incident-runbook",
       "description": "'Incident response for TwinMind failures: transcription not starting,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/twinmind-incident-runbook/SKILL.md",
@@ -133697,20 +133401,6 @@
         "javascript"
       ],
       "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-debug-bundle",
-      "description": "'Collect CoreWeave cluster diagnostics for support tickets.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-debug-bundle/SKILL.md",
-      "lines": 95,
-      "words": 645,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -136335,20 +136025,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-observability",
-      "description": "'Set up GPU monitoring and observability for CoreWeave workloads.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-observability/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-observability/SKILL.md",
-      "lines": 94,
-      "words": 630,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "ideogram-rate-limits",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/ideogram-rate-limits/SKILL.md",
@@ -138780,20 +138456,6 @@
         "typescript"
       ],
       "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-hello-world",
-      "description": "'Deploy a GPU workload on CoreWeave with kubectl.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-hello-world/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-hello-world/SKILL.md",
-      "lines": 102,
-      "words": 696,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -141890,20 +141552,6 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-install-auth",
-      "description": "'Configure CoreWeave Kubernetes Service (CKS) access with kubeconfig",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-install-auth/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-install-auth/SKILL.md",
-      "lines": 94,
-      "words": 636,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "optimizing-sql-queries",
       "description": "'Execute use when you need to work with query optimization.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/optimizing-sql-queries/SKILL.md",
@@ -141989,20 +141637,6 @@
         "typescript"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-fabric-diagnostics",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-fabric-diagnostics/SKILL.md",
-      "remote_path": "skills/.curated/coreweave-fabric-diagnostics/SKILL.md",
-      "lines": 85,
-      "words": 682,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -147667,8 +147301,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/SKILL.md",
       "remote_path": "peer-message/SKILL.md",
-      "lines": 129,
-      "words": 648,
+      "lines": 133,
+      "words": 651,
       "code_blocks": 0,
       "languages": []
     },
@@ -147809,8 +147443,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 907,
-      "words": 10796,
+      "lines": 909,
+      "words": 10812,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -148169,9 +147803,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/qa-expert/SKILL.md",
       "remote_path": "qa-expert/SKILL.md",
-      "lines": 313,
-      "words": 1605,
-      "code_blocks": 7,
+      "lines": 215,
+      "words": 1132,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -148292,8 +147926,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/SKILL.md",
       "remote_path": "app-evolver/SKILL.md",
-      "lines": 188,
-      "words": 1460,
+      "lines": 190,
+      "words": 1470,
       "code_blocks": 0,
       "languages": []
     },
@@ -148314,8 +147948,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 541,
-      "words": 9087,
+      "lines": 546,
+      "words": 9121,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -148401,8 +148035,8 @@
       "description": "Parent/worker reply addressing, payload design, delivery-language discipline, evidence that stays valid while its subject is still changing, verifying inbound peer assertions before acting or replying",
       "path": "daymade--claude-code-skills/peer-message/references/coordination-and-learning-loop.md",
       "remote_path": "peer-message/references/coordination-and-learning-loop.md",
-      "lines": 281,
-      "words": 1696,
+      "lines": 303,
+      "words": 1733,
       "code_blocks": 2,
       "languages": [
         "text"
@@ -148861,8 +148495,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/continue-codex-work/SKILL.md",
       "remote_path": "daymade-claude-code/continue-codex-work/SKILL.md",
-      "lines": 117,
-      "words": 1024,
+      "lines": 128,
+      "words": 1146,
       "code_blocks": 0,
       "languages": []
     },
@@ -148883,8 +148517,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 466,
-      "words": 3800,
+      "lines": 470,
+      "words": 3846,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -149342,8 +148976,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-ops/references/ci-demand-and-notifications.md",
       "remote_path": "github-ops/references/ci-demand-and-notifications.md",
-      "lines": 220,
-      "words": 1907,
+      "lines": 239,
+      "words": 2066,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -149583,8 +149217,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-codex/local-codex/SKILL.md",
       "remote_path": "daymade-codex/local-codex/SKILL.md",
-      "lines": 190,
-      "words": 1293,
+      "lines": 197,
+      "words": 1336,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -149661,8 +149295,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/app-evolver/references/implementation-and-acceptance.md",
       "remote_path": "app-evolver/references/implementation-and-acceptance.md",
-      "lines": 248,
-      "words": 2126,
+      "lines": 269,
+      "words": 2297,
       "code_blocks": 0,
       "languages": []
     },
@@ -149740,8 +149374,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 278,
-      "words": 3685,
+      "lines": 287,
+      "words": 3789,
       "code_blocks": 0,
       "languages": []
     },

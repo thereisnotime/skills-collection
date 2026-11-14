@@ -35,7 +35,7 @@ global prompt. The sync scripts exist for topology repair, not day-to-day editin
 | Change | Mechanism |
 |---|---|
 | Edit an existing `SKILL.md`, script, reference, or asset in an activated canonical source | Live through symlink; restart running agent session if needed |
-| Install/uninstall, or `claude plugin enable`/`disable --scope user`, a plugin in the default Claude profile | Default `settings.json` / `installed_plugins.json` changes; LaunchAgent watcher mirrors state to every profile within seconds (verified 2026-08-22: launchd run counter incremented within 5s of a `settings.json` touch) |
+| Install/uninstall, or `claude plugin enable`/`disable --scope user`, a plugin in the default Claude profile | Default `settings.json` / `installed_plugins.json` changes trigger the LaunchAgent watcher |
 | Add a new skill/plugin entry | Marketplace manifest changes; LaunchAgent watcher runs source sync |
 | Remove or rename a skill entry | Marketplace manifest changes; the watcher prunes stale managed links from `.agents/skills` but only reports legacy `.codex/skills` links for reviewed cleanup |
 | Bump `plugins[].version` | Marketplace manifest changes; LaunchAgent watcher creates/updates the version symlink and installed metadata |
@@ -405,6 +405,14 @@ Uninstall:
 ```
 
 ## Verification Checklist
+
+For shared-helper or required-launch preparation changes, use the source-owned
+fixture matrices in [`test_sync_state.py`](../tests/test_sync_state.py) and
+[`test_native_command.py`](../tests/test_native_command.py). Run these test entries
+with Python 3 from the selected source bundle; they create disposable profiles,
+registries and lock markers rather than using the maintainer's live state. Keep
+lock recovery, registry/settings refusal and native-launch expectations in those
+tests instead of maintaining a second case list here.
 
 Use implementation-owned inventory instead of a hand-maintained plugin or Skill
 list. First confirm which source identities are registered, then preview the exact

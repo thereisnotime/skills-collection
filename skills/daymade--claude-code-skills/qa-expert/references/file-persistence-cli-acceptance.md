@@ -13,6 +13,70 @@ temporary state root. Bind each fault to the actual read/write boundary; retain
 the original failure and a healthy counterexample. An injected impossible state
 is a robustness probe, not evidence that production reaches it.
 
+## Persisted-state upgrade and recovery
+
+Use this recipe when a reader, projection, checkpoint, journal or retry fingerprint
+changes. Select cases from the affected transition; a stateless edit does not need
+the whole matrix. Financial migration policy stays in
+[migration and fixture acceptance](migration-fixture-acceptance.md).
+
+1. **Locate the boundary.** Record states, events, guards, side effects, durable
+   write points and restart/recovery entries. Identify which changed before
+   selecting cases. Use the application's versioned writers/readers and existing
+   harness; a substitute persistence implementation cannot prove compatibility.
+2. **Generate old state independently.** Freeze the effective old writer and reader
+   at immutable refs. Have the actual old writer create synthetic records through
+   its accepted workflow, then close it. Capture exact file bytes/digests, format
+   version, operation/request/scope identities and old-reader decisions. Keep fixture
+   provenance. A candidate writer's legacy flag or hand-built JSON alone does not
+   prove that an old writer could produce the state; label impossible damage as a
+   robustness case.
+3. **Reopen with the candidate.** Use a separate restart/reader against the frozen
+   records. Assert identities, complete business decisions and authoritative bytes,
+   rather than parsing or a checksum alone. Include a normal candidate write/read.
+   Test new-writer/old-reader only when rollback or mixed versions are promised;
+   otherwise record the explicitly approved compatibility boundary. Preserve accepted
+   causal links/version ancestry: a new timestamp sort must not break an old chain.
+4. **Interrupt at durable boundaries.** Use controlled barriers or an actual write
+   failure, then restart recovery. Deliver a duplicate or delayed completion after
+   a conflicting edit or terminal event. Inspect persisted state and independently
+   count attempted effects. Pair each rejected case with a healthy continuation.
+
+| Selected boundary | Failure oracle and healthy control |
+|---|---|
+| Partial write, restart, duplicate or late completion | Recover according to the original operation's contract, or retain its explicit unknown/conflict state. Count attempts as well as effects; do not replace newer state, repeat a non-repeatable effect or advance another scope. A fresh valid operation must still complete. |
+| Missing/corrupt journal, result or selected dependency | Preserve absence/original bytes and return the specified unknown, integrity error or conflict. Do not invent defaults, replace evidence or rerun a side effect. Verify documented repair or legitimate first creation separately. Zero improper writes means no forbidden mutation; contract-authorized recovery bookkeeping may still occur. |
+| Conflicting profile, record, owner or scope | Compare complete before/after identity and lineage against independent source records. Reject before overwrite; an ID or equal value alone is not ownership proof. Exact completed retries and valid conditional retries must remain usable. |
+| Changed hash/fingerprint version after a deterministic failure | Persist the failure with the old writer, then schedule the same semantic input with the candidate. Algorithm/version or encoding changes alone must not admit another paid/provider/send attempt. Preserve a verifiable semantic scope or remain unknown; a meaningful authorized scope edit or documented resolution may advance under the existing retry policy. |
+
+Observe attempt counts at an isolated executor boundary; an empty notification list
+does not prove that no paid call was attempted. These cases exercise recovery and
+scheduling with synthetic data, not real providers or sends.
+
+### Small synthetic case pair
+
+- **Persisted chain:** an old writer accepts `created -> amended` with explicit
+  ancestry even though accepted timestamp offsets place the amendment earlier in
+  real time. Freeze its bytes and projected decision. The candidate must recover
+  the same amended state without rewriting history or claiming chronological
+  validity. On separate copies, remove a required predecessor, introduce a
+  conflicting successor, interrupt a write or deliver a stale completion. Assert
+  unknown/conflict and zero forbidden writes; a valid next successor and exact
+  duplicate still follow the contract. Use this case only if the actual old format
+  and writer permit those timestamps and transitions.
+- **Failed queued job:** the old writer records a deterministic failure for
+  `job-a`/`scope-a` with fingerprint version 1. Version 2 computes a different hash
+  for unchanged semantic input: the isolated attempt counter must stay zero. A
+  meaningful authorized scope change supplies the positive control and preserves
+  the old failure's identity. Missing fingerprint or scope linkage remains unknown;
+  a different digest alone does not establish a new job.
+
+Record selected cases, old/candidate refs, fixture provenance, decisions, records
+examined, attempt/effect counts, unchanged bytes and unresolved boundaries. Calibrate
+the acceptance check against a known faulty reader or deliberately wrong retry
+predicate as well as healthy output. Stop when the affected failure and continuation
+are decided; this does not establish live-provider behavior or power-loss durability.
+
 ## Persistence and CLI matrix
 
 Select rows touched by the change. Each row supplies Arrange, Act and Assert;
@@ -39,6 +103,59 @@ next invocation sees the change. Repeat after an exceptional exit to detect a
 leaked snapshot. Revalidate mutable admission state at its own effect boundary;
 a configuration snapshot does not freeze permissions. Select this case only for
 an affected snapshot contract, not as a global requirement to cache configuration.
+
+## Incremental capture and drift recovery
+
+Select this case for an archive, backup or incremental reader that skips unchanged
+sources. The QA engineer executes the actual producer and consumer in the existing
+harness, with synthetic source data and isolated source/archive/staging roots.
+Intercept transport only to copy the producer's real bytes; do not fabricate its
+manifest or row counts. Freeze both implementation refs and the selected version
+field before running the sequence.
+
+| Round | Arrange and act | Required observations |
+|---|---|---|
+| First capture | Create a nonempty source database through its supported writer, with no alternative text/log source. Run capture and consume its actual response. | The producer-selected snapshot is transferred. Reopen the final archive through the consumer and assert its record identities/count and accepted source version. |
+| Unchanged reuse | Leave the source and archive unchanged and run the same operation again. | Observe the real producer's unchanged response: it may omit a snapshot and report zero newly captured rows. The consumer still reports the nonempty final archive, with the same accepted version and no transfer for the omitted snapshot. Zero changed rows must not be mistaken for an empty final result. |
+| Local drift and recapture | Change only the test-owned archived bytes so their signature no longer matches the accepted version; leave the remote source unchanged. Run again. | The consumer invalidates the local reuse proof before requesting capture. The real producer emits another snapshot and that snapshot is transferred. Reopen the repaired archive and assert the original source records, count and source version, rather than the injected local drift. |
+
+Record capture decisions and transfers with their operation/source/snapshot
+identities. Derive expected transfers from the snapshot-bearing responses at run
+time and compare their multiset with the actual transfer events; unchanged reuse
+must add no transfer. Assert the exact version map sent to each producer call,
+each response and the final public result. Validate every unchanged entry used for
+reuse, including a mixed response where another source is nonempty; a missing,
+null, empty or mismatched version must not borrow that other source's success.
+Keep the genuinely empty-source refusal as a separate negative control.
+
+After each round, independently verify that its exact producer-created staging
+directory was retired and that the staging parent, a sibling operation and the
+archive remain. Do not replace this assertion with a mocked cleanup call. Retain
+the pre-repair failure and an untouched healthy archive control; stop when these
+transitions and their selected failure cases are decided.
+
+## Bounded concurrent probes and ordered publication
+
+Select for a collector or scheduler that probes in parallel and publishes in
+configuration order. The QA engineer freezes that order, concurrency/backlog
+limits, timestamp meaning and failure policy from the existing contract, then
+uses controlled producer barriers in the actual execution path.
+
+Hold the first configured slot open. Let later slots finish quickly and supply
+enough slots to exceed the declared backlog bound if admission only counts running
+workers. At each start, completion, consumption and publication, record slot ID,
+in-flight count, completed-but-unconsumed count and the producer's capture timestamp.
+While the first slot is held, assert both the running limit and the declared bound
+on running plus completed-but-unconsumed work. A fixed thread count alone does not
+bound queued results or prove backpressure.
+
+Release the first slot and drain through the public completion API. Require exactly
+one result per selected slot, published in configuration order despite out-of-order
+completion. Compare published capture timestamps with the original producer values;
+publication must not replace them with drain time. Pair the held-first case with
+ordinary ordered completion and the affected failure/timeout case, preserving each
+slot's outcome and the existing policy. Use barriers and recorded events for these
+assertions, not a sleep or elapsed-time threshold.
 
 ## Synthesis example: stored jobs with shared snapshots
 
